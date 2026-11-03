@@ -1025,7 +1025,10 @@ class JobManager:
                     job.end_call(call)
                     self._emit(loop, job, {"type": "status", **job.snapshot(images=False)})
                 elapsed_ms = int((time.perf_counter() - started) * 1000)
-                records = self._save(job, loop, cell, images, elapsed_ms, self.backend.last_peak())
+                records = self._save(
+                    job, loop, cell, images, elapsed_ms, self.backend.last_peak(),
+                    mask_region=self.backend.last_mask_crop(),
+                )
                 if len(images) == req.num_images:
                     job.completed_indices.append(index)
             except Cancelled:
@@ -1169,6 +1172,7 @@ class JobManager:
                     elapsed_ms = int((time.perf_counter() - started) * 1000)
                     self._save(
                         job, loop, cell, images, elapsed_ms, self.backend.last_peak(), run_id=job.pass_run_id,
+                        mask_region=self.backend.last_mask_crop(),
                     )
                     job.completed_passes.append(outcome.record.id)
                 except Cancelled:
@@ -1233,6 +1237,7 @@ class JobManager:
         elapsed_ms: int,
         peak: tuple[int, int] | None = None,
         run_id: str | None = None,
+        mask_region: Any = None,
     ) -> list:
         """Write a cell's images and publish each one as it lands; the
         records written. `run_id` is the run they join, the job's by default
@@ -1265,6 +1270,7 @@ class JobManager:
                         variables=cell.variables,
                         batch=cell.request.num_images,
                         peak=peak,
+                        mask_region=mask_region,
                     )
                     break
                 except gallery_lock.GalleryBusy:

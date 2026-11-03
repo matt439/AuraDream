@@ -124,6 +124,9 @@ function factsList(rec, { useSeed: seedButton = false, search = false, megapixel
       row('Mask', maskOutline(rec), rec.mask.slice(0, 16)).title = rec.outpaint
         ? `${rec.mask} - built by the server from the padding and the band` : rec.mask;
     }
+    // Only the masked area: the box the pass denoised, its padding, and the
+    // working size it ran at before it was pasted back.
+    if (rec.mask_crop) row('Masked area only', maskCropFact(rec)).title = maskCropFactTitle(rec);
   }
   const vars = Object.entries(rec.variables ?? {});
   if (vars.length) {
@@ -291,6 +294,26 @@ function syncUseReferences(use) {
 
 // The Mask row's picture fits a square of this many CSS pixels.
 const MASK_THUMB = 80;
+
+// The Masked area only row: the box's size with its padding, and the working
+// size it was denoised at, as the server recorded them (`mask_crop_box`,
+// `mask_crop_working`); a row from before the box was recorded says the
+// padding alone.
+function maskCropFact(rec) {
+  const pad = `padding ${rec.mask_crop.pad} px`;
+  const box = rec.mask_crop_box;
+  const working = rec.mask_crop_working;
+  if (!box || !working) return pad;
+  return `${box[2] - box[0]}×${box[3] - box[1]} with ${pad}, at ${working[0]}×${working[1]}, pasted back`;
+}
+
+function maskCropFactTitle(rec) {
+  const box = rec.mask_crop_box;
+  const spec = `${rec.mask_crop.rule}:${rec.mask_crop.pad}@${rec.mask_crop.tier}`;
+  // An outpaint's box is on its canvas, the source plus the padding.
+  const on = rec.outpaint ? 'the canvas' : 'the source';
+  return box ? `${spec} - box ${box[0]},${box[1]} to ${box[2]},${box[3]} on ${on}` : spec;
+}
 
 // A record's mask as a tint and an outline over the source's thumbnail - the
 // picture it was painted on, as the Inpaint dialog shows it - in a box of the

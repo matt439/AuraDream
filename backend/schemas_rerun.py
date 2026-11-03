@@ -260,7 +260,8 @@ class SwapTagsRequest(BaseModel):
 
 SwapStatus = Literal[
     "queued", "planned", "missing", "unchanged", "rendered", "invalid", "source_deleted",
-    "lora_missing", "mask_missing", "outpaint", "duplicate", "by_hand", "structured", "deleted", "foreign",
+    "lora_missing", "mask_missing", "outpaint", "mask_crop", "duplicate", "by_hand", "structured", "deleted",
+    "foreign",
 ]
 
 
@@ -454,8 +455,8 @@ class MoreSeedsRequest(BaseModel):
 
 
 MoreSeedsStatus = Literal[
-    "queued", "foreign", "invalid", "source_deleted", "lora_missing", "mask_missing", "outpaint", "then_refine",
-    "deleted",
+    "queued", "foreign", "invalid", "source_deleted", "lora_missing", "mask_missing", "outpaint", "mask_crop",
+    "then_refine", "deleted",
 ]
 
 

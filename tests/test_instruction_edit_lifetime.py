@@ -76,6 +76,6 @@ def test_edit_history_never_prices_direct_or_refine_calls(store):
     assert gallery_reports.step_cost_ms(512, 512, edit.KONTEXT_V1.model_id) is None
     assert gallery_reports.refine_cost_ms(512, 512, edit.KONTEXT_V1.model_id) == {}
     prices, disk = gallery_reports.execution_estimates([grid.Cell(request=request, seed=2)], edit.KONTEXT_V1.model_id)
-    assert prices[(512, 512)] == (None, {}, {}) and disk is None
+    assert prices[(512, 512)] == (None, {}, {}, {}) and disk is None
     assert search.filter_clause("edit", "yes") == ("edit IS NOT NULL", [])
     assert gallery_reports.keep_rates(search="edit:yes", by=["edit"])[0]["edit"] == "kontext-v1"

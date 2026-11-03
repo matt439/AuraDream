@@ -1,6 +1,7 @@
 """The submit checks and refusal wording that need no services: what a
-cell's inpaint mask or outpaint must hold to run, the selections a rerun
-refuses and how each is said, and cells grouped by their size.
+cell's inpaint mask, outpaint or masked-area crop must hold to run, the
+selections a rerun refuses and how each is said, and cells grouped by their
+size.
 
 `submission` re-exports every name, which the routes call it by; the CLI
 (`generate.py`) imports this module instead, so it reaches the server's
@@ -8,7 +9,9 @@ own checks without importing FastAPI or `AppServices`.
 """
 from __future__ import annotations
 
-from . import grid, outpaint, storage
+from collections.abc import Collection
+
+from . import grid, mask_crop, outpaint, refine, storage
 from .schemas import GenerateRequest, ImageRecord
 
 
@@ -59,6 +62,113 @@ def mismatched_outpaint_detail(ids: list[int]) -> str:
     )
     more = f"; and {len(ids) - 6} more" if len(ids) > 6 else ""
     return f"{said}{more} - run again, it would paint under another mask; outpaint its source again instead"
+
+
+def _pass_name(outpainting: bool) -> str:
+    return "outpaint" if outpainting else "inpaint"
+
+
+def mask_crop_no_gain(spec, width: int, height: int, outpainting: bool = False) -> str:
+    """Only the masked area's refusal where cropping gains nothing: the box
+    is the whole picture, no larger than the working size (`mask_crop.no_gain`)."""
+    return (
+        f"Only the masked area: the mask and its {spec.pad} px padding cover the whole "
+        f"{width}×{height} picture, which is no larger than the {spec.tier} MP working size; "
+        f"run it as an ordinary {_pass_name(outpainting)}."
+    )
+
+
+def mask_crop_mismatch(rule: str, outpainting: bool = False) -> str:
+    """Why a recorded masked area cannot run again: its mask, under its rule,
+    decides another region now - another build's rule, or another mask."""
+    return (
+        f"This {_pass_name(outpainting)}'s recorded masked area does not match its mask "
+        f"under rule {rule}; it cannot be run again."
+    )
+
+
+def mask_crop_unusable(request: GenerateRequest, painted=None) -> str | None:
+    """Why a request's masked-area crop cannot run, or None: its region
+    (`mask_crop.region`, over `painted` where the caller holds the mask's
+    picture, else `mask_crop.request_region` - the stored mask, or an
+    outpaint's built from its spec) must be decidable, and must gain
+    something (`mask_crop.no_gain`). The mask and the outpaint have been
+    checked first. Blocking: reads the mask."""
+    spec = request.mask_crop
+    assert spec is not None, "a masked-area check names its crop"
+    try:
+        crop = mask_crop.region(painted, spec) if painted is not None else mask_crop.request_region(request)
+    except (OSError, ValueError) as exc:
+        return f"Only the masked area: {exc}"
+    assert crop is not None
+    if mask_crop.no_gain(crop, request.width, request.height):
+        return mask_crop_no_gain(spec, request.width, request.height, request.outpaint is not None)
+    return None
+
+
+def mismatched_mask_crops(records) -> list[int]:
+    """The ids of the cropped inpaints and outpaints among `records` whose
+    recorded region is not the one their mask decides under their rule now:
+    run again, the crop would denoise another box under the same key. A row
+    with no recorded region, or whose mask this gallery cannot read (a
+    `missing_masks` row, said apart), is not one; an outpaint's mask is
+    built again from its spec where its file is gone, as its submit builds
+    it. One region per distinct mask, size and spec. Blocking: reads masks."""
+    found: dict[tuple, tuple | None] = {}
+    mismatched = []
+    for record in records:
+        spec = record.mask_crop
+        if record.refine is None or spec is None or record.mask_crop_box is None:
+            continue
+        key = (record.mask, record.outpaint, record.width, record.height, spec.key())
+        if key not in found:
+            found[key] = _recorded_region(record)
+        recorded = (tuple(record.mask_crop_box), tuple(record.mask_crop_working or ()))
+        if found[key] is not None and found[key] != recorded:
+            mismatched.append(record.id)
+    return mismatched
+
+
+def _recorded_region(record) -> tuple | None:
+    """The region `record`'s crop decides over its mask now, as (box,
+    working); () where it decides none, None where the mask cannot be read."""
+    painted = None
+    if record.mask is not None:
+        try:
+            painted = refine.mask_image(record.mask, record.width, record.height)
+        except (OSError, ValueError):
+            painted = None
+    if painted is None and record.outpaint is not None:
+        try:
+            painted = outpaint.mask(record.width, record.height, record.outpaint)
+        except ValueError:
+            return None
+    if painted is None:
+        return None
+    try:
+        crop = mask_crop.region(painted, record.mask_crop)
+    except ValueError:
+        return ()
+    return (tuple(crop.box), tuple(crop.working))
+
+
+def mismatched_mask_crop_detail(ids: list[int], outpaints: Collection[int] = ()) -> str:
+    """Why a selection with those cropped rows is refused, naming each one,
+    and what to do instead by the pass: an inpaint's mask is painted again,
+    an outpaint (`outpaints`, ids among `ids`) has none to paint - its mask
+    is the server's - so its source is outpainted again."""
+    said = "; ".join(
+        f"the recorded masked area of #{image_id} does not match its mask under rule {mask_crop.RULE}"
+        for image_id in ids[:6]
+    )
+    more = f"; and {len(ids) - 6} more" if len(ids) > 6 else ""
+    outpainted = sum(image_id in outpaints for image_id in ids)
+    remedy = (
+        "paint the mask on its source again instead" if not outpainted
+        else "outpaint its source again instead" if outpainted == len(ids)
+        else "paint an inpaint's mask on its source again, or outpaint an outpaint's source again, instead"
+    )
+    return f"{said}{more} - it cannot be run again; {remedy}"
 
 
 def unusable_detail(kind: str, why: str, image_id: int) -> str:

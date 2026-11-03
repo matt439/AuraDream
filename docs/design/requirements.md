@@ -295,6 +295,8 @@ ranked. Research, prototype review, CPU/browser checks and card measurements
 answer different questions; validation must retain that distinction.
 
 Deferred work stays deferred: external reference import (`GEN#8`), Widen/Load into panel,
-advanced mask cropping (`INP#9`), later outpaint fills (`INP#10`)
+later outpaint fills (`INP#10`)
 and automatic image scoring (`PA#9`) require
 their recorded conditions or a new explicit decision. No new TODO rows are created by this catalogue.
+Advanced mask cropping (`INP#9`) was reopened by Matt and built 2026-11-03
+(only the masked area; its card step is `CARD#13`).

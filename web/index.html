@@ -1337,6 +1337,8 @@
       <canvas id="inpaint-canvas" tabindex="0" aria-roledescription="mask editor"
               aria-describedby="inpaint-keys inpaint-status"></canvas>
       <div class="ip-brush" id="inpaint-brush" aria-hidden="true" hidden></div>
+      <!-- Only the masked area's box, where the server's preview put it. -->
+      <div class="ip-crop-box" id="inpaint-crop-box" aria-hidden="true" hidden></div>
     </div>
     <div class="ip-tools" id="inpaint-tools" role="toolbar" aria-label="Mask tools" aria-controls="inpaint-canvas">
       <div class="ip-row">
@@ -1351,6 +1353,19 @@
         <button type="button" class="ghost small" id="inpaint-clear" title="Clear the mask (Undo brings it back)">Clear</button>
         <button type="button" class="ghost small" id="inpaint-undo" aria-keyshortcuts="Control+Z">Undo</button>
         <button type="button" class="ghost small" id="inpaint-redo" aria-keyshortcuts="Control+Shift+Z Control+Y">Redo</button>
+        <!-- Only the masked area (mask_crop): a box around the mask, its
+             extent plus Padding, denoised at about 1 MP and pasted back. In
+             this fixed row, so it costs the dialog no height; unticked, the
+             padding is greyed, never hidden. The box the server works out is
+             drawn dashed over the picture once the preview answers. -->
+        <div class="ip-crop off" id="inpaint-crop-field" role="group" aria-label="Only the masked area">
+          <label class="check"><input type="checkbox" id="inpaint-crop" aria-describedby="inpaint-crop-tip"> Only the masked area</label>
+          <span class="help above" tabindex="0" role="note" aria-label="Only the masked area help" aria-describedby="inpaint-crop-tip">?<span
+            class="tip wide" id="inpaint-crop-tip">Denoise just a box around the mask - its extent plus Padding - at about 1 MP, then paste it back. A small region gets the checkpoint's full detail; a large picture stays within the card. Outside the mask nothing changes either way. Padding 32 has not been measured on the card.</span></span>
+          <label class="ip-crop-pad" title="Padding around the mask's extent, in the picture's pixels: 0 to 256 in steps of 8"><span>Pad</span>
+            <input type="number" id="inpaint-crop-pad" min="0" max="256" step="8" placeholder="32" inputmode="numeric"
+                   aria-label="Padding, px"> px</label>
+        </div>
         <label class="check ip-show" title="Show the mask over the picture"><input type="checkbox" id="inpaint-show" checked> Show mask</label>
       </div>
       <div class="ip-row">
@@ -1470,6 +1485,8 @@
         <div class="op-canvas" id="outpaint-canvas">
           <img id="outpaint-image" alt="" draggable="false">
           <div class="op-band" id="outpaint-band-edge"></div>
+          <!-- Only the masked area's box, where the server's preview put it. -->
+          <div class="ip-crop-box" id="outpaint-crop-box" aria-hidden="true" hidden></div>
         </div>
       </div>
       <label class="op-side op-right"><span>Right</span>
@@ -1496,6 +1513,19 @@
       <input type="number" id="outpaint-band" min="0" max="256" step="8" inputmode="numeric"
              aria-describedby="outpaint-band-note">
       <p class="hint" id="outpaint-band-note"></p>
+      <!-- Only the masked area (mask_crop), as the Inpaint dialog's: a box
+           around the new area and its band, denoised at about 1 MP and
+           pasted back. At the end of the band's row, whose note gives way,
+           so it costs the dialog no height; unticked, the padding is
+           greyed, never hidden. -->
+      <div class="ip-crop op-crop off" id="outpaint-crop-field" role="group" aria-label="Only the masked area">
+        <label class="check"><input type="checkbox" id="outpaint-crop" aria-describedby="outpaint-crop-tip"> Only the masked area</label>
+        <span class="help above" tabindex="0" role="note" aria-label="Outpaint: only the masked area help" aria-describedby="outpaint-crop-tip">?<span
+          class="tip wide" id="outpaint-crop-tip">Denoise just a box around the new area and the band - their extent plus Padding - at about 1 MP, then paste it back onto the canvas. A thin strip gets the checkpoint's full detail; a large canvas stays within the card. The kept original is unchanged either way. Padding 32 has not been measured on the card.</span></span>
+        <label class="ip-crop-pad" title="Padding around the new area's extent, in the canvas's pixels: 0 to 256 in steps of 8"><span>Pad</span>
+          <input type="number" id="outpaint-crop-pad" min="0" max="256" step="8" placeholder="32" inputmode="numeric"
+                 aria-label="Padding, px"> px</label>
+      </div>
     </div>
   </div>
   <div class="ip-controls">

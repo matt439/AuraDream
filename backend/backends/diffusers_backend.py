@@ -29,7 +29,7 @@ from dataclasses import dataclass, field, replace
 from types import TracebackType
 from typing import TYPE_CHECKING, Any
 
-from .. import compiler_cache, latent_preview, loras, refine
+from .. import compiler_cache, latent_preview, loras, mask_crop, refine
 from ..model_selection import current_model_id, current_settings
 from ..config import ATTENTION_ENVIRONMENT_WARNING, settings
 from ..execution import (
@@ -418,6 +418,10 @@ class DiffusersBackend(GenerationBackend):
         # The last generate()'s (allocated, reserved) peak bytes, for
         # `last_peak()`; cleared as each call begins.
         self._peak: tuple[int, int] | None = None
+        # The last generate()'s masked-area region (its box and working
+        # size), for `last_mask_crop()`; a result beside the peak, cleared
+        # the same way.
+        self._mask_crop: mask_crop.Crop | None = None
         # What an adapter is matched against, as (source, denoiser): the live
         # pipeline's once there is one, the checkpoint's configs on the meta
         # device before that, and None where neither could be read. The same
@@ -1269,7 +1273,9 @@ class DiffusersBackend(GenerationBackend):
         preview it broke would refuse the pass. An inpaint (or an outpaint, at
         its padded size) asks its own class's recipe in
         `schedule.START_RECIPES`: Z-Image's has one; SDXL's scheduler is not
-        flow matching, so no answer there.
+        flow matching, so no answer there. Only the masked area asks it at
+        its region's working size (`denoise_size`), read off the mask file
+        alone, as the call runs it.
         """
         pipe = self._pipe
         if pipe is None or request.refine is None or request.strength is None:
@@ -1287,6 +1293,10 @@ class DiffusersBackend(GenerationBackend):
         assert counterpart is not None and counterpart[1] is not None  # Supported by the resolved class.
         sibling = counterpart[1]
         try:
+            cropped = mask_crop.request_region(request)
+            if cropped is not None:
+                width, height = request.denoise_size(cropped.working)
+                request = request.model_copy(update={"width": width, "height": height})
             return schedule.start_sigma(pipe, sibling, request, start)
         except Exception:  # noqa: BLE001 - advice: no answer rather than a refused preview
             log.debug("no start sigma for this pass", exc_info=True)
@@ -1456,6 +1466,7 @@ class DiffusersBackend(GenerationBackend):
         # pre-pass count - and read after the last GPU work. Set only on a
         # return, so a cancelled or failed cell leaves no peak for the next.
         self._peak = None
+        self._mask_crop = None
         request = self._require_execution(request)
         device = self._peak_device() if self._pipe is not None else None
         if device is not None:
@@ -1477,6 +1488,9 @@ class DiffusersBackend(GenerationBackend):
 
     def last_peak(self) -> tuple[int, int] | None:
         return self._peak
+
+    def last_mask_crop(self) -> mask_crop.Crop | None:
+        return self._mask_crop
 
     def _peak_device(self) -> int | None:
         """The CUDA index the weights run on, or None: `AURADREAM_DEVICE`'s
@@ -1586,6 +1600,9 @@ class DiffusersBackend(GenerationBackend):
         # `_refine`), so progress counts through all of them rather than
         # starting over per image. A text-to-image batch is one call.
         batch = {"index": 0, "count": request.num_images if refining else 1}
+        # The size the latents are at: the request's, or a cropped inpaint's
+        # working size once its region is read below (`denoise_size`).
+        denoise = {"size": request.denoise_size() if request.mask_crop is None else None}
 
         def _step_end(_pipe, step: int, _timestep, cb_kwargs):
             # A refine pass runs the part of the schedule its strength leaves,
@@ -1599,7 +1616,7 @@ class DiffusersBackend(GenerationBackend):
                 now = time.monotonic()
                 if now - preview["last"] >= latent_preview.INTERVAL_SECONDS:
                     try:
-                        jpeg = self._preview(runner, cb_kwargs.get("latents"), request, step)
+                        jpeg = self._preview(runner, cb_kwargs.get("latents"), request, step, denoise["size"])
                     except Exception as exc:  # noqa: BLE001 - a preview is never worth a cell
                         log.warning("live preview switched off: %s", exc)
                         preview["on"] = False
@@ -1667,6 +1684,7 @@ class DiffusersBackend(GenerationBackend):
         # grey levels - which it is given instead.
         painted = None
         inpaint_source: Image | None = None
+        cropped: mask_crop.Crop | None = None
         # An outpaint's picture is its source on the padded canvas, the new
         # area holding the fill (`refine.outpaint_source`); its mask is the
         # one the submit built and stored, read like any other.
@@ -1679,12 +1697,24 @@ class DiffusersBackend(GenerationBackend):
                 )
             else:
                 inpaint_source = refine.inpaint_source(source_id, request.width, request.height)
-            kwargs["image"] = inpaint_source
             painted = refine.mask_image(mask, request.width, request.height)
             block = getattr(runner, "vae_scale_factor", None)
-            kwargs["mask_image"] = refine.pipeline_mask(
-                painted, block if isinstance(block, int) and block > 0 else refine.LATENT_BLOCK
-            )
+            block = block if isinstance(block, int) and block > 0 else refine.LATENT_BLOCK
+            if request.mask_crop is None:
+                kwargs["image"] = inpaint_source
+                kwargs["mask_image"] = refine.pipeline_mask(painted, block)
+            else:
+                # Only the masked area: the box around the mask at its
+                # working size, read once per cell, and the class handed
+                # that alone - its size on the 16 grid and equal to its
+                # image (Z-Image's preprocess takes none). The result is
+                # pasted back over the full source below, never through the
+                # class's own `padding_mask_crop`.
+                cropped = mask_crop.region(painted, request.mask_crop)
+                inputs = mask_crop.crop_inputs(inpaint_source, painted, cropped, block)
+                kwargs["image"] = inputs.image
+                kwargs["mask_image"] = inputs.pipeline_mask
+                kwargs["width"], kwargs["height"] = denoise["size"] = request.denoise_size(cropped.working)
             kwargs["strength"] = request.strength
         elif refining:
             source_id = request.refine
@@ -1754,10 +1784,16 @@ class DiffusersBackend(GenerationBackend):
         # wherever the mask does not reach (`refine.composite`).
         processor = getattr(runner, "image_processor", None)
         assert painted is not None and inpaint_source is not None  # Built together in the inpaint branch.
-        return [
+        if cropped is not None:
+            # The working-size result back into its box on the full source
+            # first; the composite then keeps every unmasked pixel exactly.
+            images = [mask_crop.paste_back(inpaint_source, image, cropped.box) for image in images]
+        composited = [
             refine.composite(painted, inpaint_source, image, processor)
             for image in images
         ]
+        self._mask_crop = cropped
+        return composited
 
     def _edit_images(
         self,
@@ -1887,7 +1923,10 @@ class DiffusersBackend(GenerationBackend):
                 free_hooks()
         return images
 
-    def _preview(self, pipe: Any, latents: Any, request: "GenerateRequest", step: int) -> bytes | None:
+    def _preview(
+        self, pipe: Any, latents: Any, request: "GenerateRequest", step: int,
+        size: tuple[int, int] | None = None,
+    ) -> bytes | None:
         """A JPEG of the first image so far, or None when this pipeline cannot show one.
 
         Keyed on the VAE, since the latent-to-RGB map is the VAE's; unpacked
@@ -1900,7 +1939,9 @@ class DiffusersBackend(GenerationBackend):
         factors = latent_preview.factors_for(getattr(pipe, "vae", None))
         if factors is None:
             raise RuntimeError(f"no latent-to-RGB map for {type(getattr(pipe, 'vae', None)).__name__}")
-        latent = latent_preview.unpack(pipe, latents, request.height, request.width)
+        # At the size the latents are: a cropped inpaint's working size.
+        width, height = size if size is not None else request.denoise_size()
+        latent = latent_preview.unpack(pipe, latents, height, width)
         if latent is None:
             raise RuntimeError(f"{type(pipe).__name__} has no _unpack_latents")
         # The latents are at the sigma of the step just taken; the terminal 0 is

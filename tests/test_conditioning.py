@@ -299,6 +299,137 @@ def test_more_seeds_keys_an_outpaint_row_as_resume_does(store):
     assert key == grid.cell_key(grid.Cell(request=cell.request, seed=1))
 
 
+# ------------------------------------------------- only the masked area (INP#9)
+
+CROP = {"pad": 32}
+
+
+def _masked_cells(mask="ab" * 32, **extra):
+    return grid.expand(
+        GenerateRequest(prompt="a fox", width=256, height=256, seed=1, refine=7, strength=0.35, mask=mask, **extra),
+        steps="4,8",
+    )
+
+
+def test_only_the_masked_area_widens_the_mask_element_and_nothing_else():
+    one = "ab" * 32
+    # Without a crop the element is exactly what it was, every caller's.
+    assert grid.mask_key(one, None, None) == one
+    assert grid.mask_key(None, "edge-box3-r16:32,0,16,0@16", None) == "outpaint:edge-box3-r16:32,0,16,0@16"
+    assert grid.mask_key(None, None, "bbox16:32@1") is None
+    assert grid.mask_key(one, None, "bbox16:32@1") == f"{one}+bbox16:32@1"
+    assert grid.mask_key(one, "edge-box3-r16:32,0,16,0@16", "bbox16:0@1") == (
+        "outpaint:edge-box3-r16:32,0,16,0@16+bbox16:0@1"
+    )
+    # The run ids pinned above are untouched, the inpaint's included.
+    assert grid.run_id(_masked_cells(), "m", "fp8") == "59b069324f8d"
+    assert grid.run_id(_outpaint_cells(), "m", "fp8") == "7a8f443e44e1"
+    cropped = _masked_cells(mask_crop=CROP)
+    # No new slot: the key keeps its length, the crop rides in the element.
+    assert len(grid.cell_key(cropped[0])) == len(grid.cell_key(_masked_cells()[0]))
+    assert grid.cell_key(cropped[0])[9] == f"{one}+bbox16:32@1"
+    assert grid.run_id(cropped, "m", "fp8") == "b515db0d1304"
+    assert grid.cell_key(_outpaint_cells(mask_crop={"pad": 64})[0])[9] == (
+        "outpaint:edge-box3-r16:32,0,16,0@16+bbox16:64@1"
+    )
+
+
+def test_two_paddings_over_one_mask_are_two_pictures():
+    from tests.fakes import FakeBackend
+
+    applied = FakeBackend().applied
+    runs = [_masked_cells(), _masked_cells(mask_crop=CROP), _masked_cells(mask_crop={"pad": 64})]
+    cells = [cell for run in runs for cell in run]
+    assert grid.duplicate_count(cells, applied) == 0
+    assert len({grid.run_id(run, "m", "fp8") for run in runs}) == 3
+    again = _masked_cells(mask_crop={"rule": "bbox16", "pad": 32, "tier": 1})
+    assert grid.duplicate_count(cells + again, applied) == 2
+
+
+def test_only_the_masked_area_needs_a_source_and_a_mask():
+    from pydantic import ValidationError
+
+    from backend.schemas_mask_crop import MASK_CROP_NEEDS_A_MASK, MASK_CROP_WITH_EDIT
+    from test_instruction_edit_identity import request as edit_request
+
+    for extra in ({}, {"refine": 7}):
+        with pytest.raises(ValidationError, match=MASK_CROP_NEEDS_A_MASK):
+            GenerateRequest(prompt="a fox", width=256, height=256, mask_crop=CROP, **extra)
+    # A mask, or an outpaint whose mask the server builds.
+    assert GenerateRequest(prompt="a fox", width=256, height=256, refine=7, mask="ab" * 32, mask_crop=CROP).mask_crop
+    assert _outpaint_cells(mask_crop=CROP)[0].request.mask_crop.key() == "bbox16:32@1"
+    with pytest.raises(ValidationError, match=MASK_CROP_WITH_EDIT):
+        edit_request(mask_crop=CROP)
+    # Its own fields keep their own refusals.
+    with pytest.raises(ValidationError, match="multiple"):
+        GenerateRequest(prompt="a fox", width=256, height=256, refine=7, mask="ab" * 32, mask_crop={"pad": 12})
+    with pytest.raises(ValidationError):
+        GenerateRequest(prompt="a fox", width=256, height=256, refine=7, mask="ab" * 32, mask_crop={"box": [0, 0]})
+
+
+def test_applied_drops_only_the_masked_area_with_its_mask():
+    request = GenerateRequest(prompt="a fox", width=256, height=256, refine=7, mask="ab" * 32, mask_crop=CROP)
+    kept = request.applied(
+        negative_prompt_supported=True, cfg_threshold=1.0, refine_supported=True, inpaint_supported=True,
+    )
+    assert kept.mask_crop == request.mask_crop
+    dropped = request.applied(negative_prompt_supported=True, cfg_threshold=1.0, refine_supported=True)
+    assert (dropped.refine, dropped.mask, dropped.mask_crop) == (None, None, None)
+    outpaint = _outpaint_cells(mask_crop=CROP)[0].request
+    assert outpaint.applied(negative_prompt_supported=True, cfg_threshold=1.0).mask_crop is None
+    assert outpaint.applied(
+        negative_prompt_supported=True, cfg_threshold=1.0, inpaint_supported=True,
+    ).mask_crop == outpaint.mask_crop
+
+
+def test_the_denoise_size_is_the_requests_own_unless_cropped():
+    plain = GenerateRequest(prompt="a fox", width=256, height=384, refine=7, mask="ab" * 32)
+    assert plain.denoise_size() == (256, 384)
+    with pytest.raises(ValueError, match="only the masked area's"):
+        plain.denoise_size((512, 768))
+    cropped = GenerateRequest(**{**plain.model_dump(), "mask_crop": CROP})
+    assert cropped.denoise_size((1024, 1024)) == (1024, 1024)
+    with pytest.raises(ValueError, match="working size comes from its mask's region"):
+        cropped.denoise_size()
+    # The output and every key stay at the request's own size.
+    assert grid.cell_key(grid.Cell(request=cropped, seed=1))[-2] == "256x384@center"
+
+
+def test_resume_more_seeds_and_reruns_key_a_cropped_row_alike(store):
+    from backend import more_seeds
+    from backend.schemas import ImageRecord
+
+    source = store.save_image(Image.new("RGB", (256, 256)), GenerateRequest(prompt="src", width=256, height=256),
+                              seed=9, duration_ms=1, model_id="m")
+    mask = "ab" * 32
+    plain = GenerateRequest(prompt="a fox", width=256, height=256, steps=8, refine=source.id, strength=0.5, mask=mask)
+    cropped = GenerateRequest(**{**plain.model_dump(), "mask_crop": CROP})
+    one = store.save_image(Image.new("RGB", (256, 256)), plain, seed=1, duration_ms=1, model_id="m")
+    two = store.save_image(Image.new("RGB", (256, 256)), cropped, seed=2, duration_ms=1, model_id="m")
+    with store._session() as conn:
+        assert conn.execute("SELECT mask_crop FROM images WHERE id = ?", (two.id,)).fetchone()[0] == "bbox16:32@1"
+    one, two = store.get_image(one.id), store.get_image(two.id)
+    assert two.mask_crop is not None and two.mask_crop.key() == "bbox16:32@1"
+    assert one.mask_crop is None
+    done = store.completed_cells(["a fox"], 256, 256, "m")
+    assert grid.cell_key(grid.Cell(request=plain, seed=1)) in done
+    assert grid.cell_key(grid.Cell(request=cropped, seed=2)) in done
+    assert grid.cell_key(grid.Cell(request=cropped, seed=1)) not in done
+    assert grid.cell_key(grid.Cell(request=plain, seed=2)) not in done
+    for record in (one, two):
+        (key,) = [k for k in done if k[-1] == record.seed]
+        assert more_seeds.settings_key(record) == key[:-1]
+        # Re-render, Swap tags and More seeds build their cells here.
+        rerun = grid.cell_from_record(record)
+        assert rerun.request.mask_crop == record.mask_crop
+        assert grid.cell_key(rerun) == key
+    # A plain pass of the same source leaves no crop behind it.
+    assert grid.cell_from_record(two, mask=None, mask_crop=None).request.mask_crop is None
+    # A record never carries the crop without its source and mask.
+    with pytest.raises(ValueError, match="beside its source and mask"):
+        ImageRecord(**{**two.model_dump(), "mask": None})
+
+
 def test_a_weight_axis_needs_an_adapter_to_be_an_axis():
     # Without one the weight does nothing, so the axis must collapse rather
     # than multiply the night by a number no pixel depends on.

@@ -247,7 +247,7 @@ def main() -> int:
             # composite (the tests' fake fill by seed): no stamp, so a smoke
             # can read every unmasked pixel against the source's.
             if request.refine is not None and request.mask is not None and self.inpaint_supported:
-                return FakeBackend._inpaint(request, seed)
+                return self._inpaint(request, seed)
             # A refine pass starts from its source, as the real one does: the
             # gallery image at the requested size - cropped where the shape
             # differs - under a stamp saying whose refinement it is and at

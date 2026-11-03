@@ -16,6 +16,7 @@ import uuid
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from collections.abc import Callable
+from typing import Any
 from contextlib import AbstractContextManager, nullcontext
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
@@ -23,6 +24,7 @@ from pathlib import Path, PurePosixPath
 from PIL import Image
 
 from . import backup_receipts, bundle_capacity, bundle_crypto, bundle_images, bundle_leases, gallery_lock, png_settings, storage
+from . import mask_crop as mask_crop_rule
 from .bundle_archive import _DATABASE, _FORMAT, _MANIFEST, _READ_AHEAD_MAX, _check_space, _verify_archive
 from .bundle_common import (
     _CHUNK,
@@ -298,6 +300,65 @@ def _recovered_outpaint(work: Path, values: dict, source: dict | None):
     return storage.recovered_outpaint(
         parameters, values["width"], values["height"], values["mask"], (source["width"], source["height"])
     )
+
+
+def _staged_parameters(work: Path, values: dict) -> Any:
+    """A new row's staged PNG's A1111 line, or None."""
+    staged = work / "images" / values["filename"]
+    try:
+        with Image.open(staged) as image:
+            return image.info.get("parameters")
+    except (OSError, ValueError, Image.DecompressionBombError):
+        return None
+
+
+def _mask_picture(work: Path, digest: str, embedded: dict[str, Path], outputs: Path) -> Image.Image | None:
+    """A new row's mask as a picture, from its unpacked member, the copy
+    recovered from its PNG, or this gallery's own file - each verified to be
+    the mask its name says - or None. Read only to prove (or draw again) a
+    masked area's region."""
+    from .reindex import _open_mask
+
+    for path in (work / storage.MASKS_DIR / f"{digest}.png", embedded.get(digest),
+                 outputs / storage.MASKS_DIR / f"{digest}.png"):
+        if path is not None and path.is_file():
+            mask = _open_mask(path, digest)
+            if mask is not None:
+                return mask
+    return None
+
+
+def _mask_crop(work: Path, values: dict, embedded: dict[str, Path], outputs: Path) -> tuple[bool, bool]:
+    """A new row's masked area, settled in `values`: never without its source
+    and mask; its region proved against the mask under the frozen rule where
+    the mask is here (drawn again where none was recorded); recovered from
+    the A1111 line an older build's import left, its region drawn from the
+    mask, where the column was stripped. Answers (recovered, mismatched): a
+    recorded region that is not its mask's is the caller's refusal."""
+    if values.get("mask") is None or values.get("refine") is None:
+        values["mask_crop"] = values["mask_crop_box"] = None
+        return False, False
+    key = storage.stored_mask_crop(values.get("mask_crop"))
+    box = storage.stored_mask_crop_box(values.get("mask_crop_box")) if key is not None else None
+    values["mask_crop"], values["mask_crop_box"] = key, box
+    parameters = _staged_parameters(work, values) if key is None else None
+    if key is None and storage.parameters_mask_crop(parameters) is None:
+        return False, False
+    painted = _mask_picture(work, values["mask"], embedded, outputs)
+    if key is None:
+        recovered = storage.recovered_mask_crop(parameters, painted)
+        if recovered is None:
+            return False, False
+        values["mask_crop"], values["mask_crop_box"] = recovered[0].key(), storage.mask_crop_box(recovered[1])
+        return True, False
+    if painted is None:
+        return False, False
+    recorded = storage.parse_mask_crop_box(box) if box is not None else None
+    proven = storage.proven_mask_crop(storage.MaskCropSpec.parse_key(key), painted, recorded)
+    if proven is None:
+        return False, True
+    values["mask_crop_box"] = storage.mask_crop_box(proven)
+    return False, False
 
 
 def _embedded_member(work: Path, values: dict) -> Path | None:
@@ -1010,6 +1071,7 @@ def _import_bundle(path: Path, password: str | None, progress: Progress,
                 masks_missing = 0
                 outpaints_recovered = 0
                 outpaint_masks_rebuilt = 0
+                mask_crops_recovered = 0
                 # Masks recovered from their results' PNGs, staged as members.
                 embedded: dict[str, Path] = {}
                 by_id = {r["id"]: r for r in current}
@@ -1088,6 +1150,15 @@ def _import_bundle(path: Path, password: str | None, progress: Progress,
                             # The hash stays - it still says what ran - but this
                             # gallery cannot run it again until the mask is back.
                             masks_missing += 1
+                    # Only the masked area, once its mask is wherever it
+                    # will be: its region proved against it, or recovered.
+                    recovered_crop, mismatched = _mask_crop(work, values, embedded, settings.outputs_dir)
+                    if mismatched:
+                        raise BundleError(
+                            f"image {original['id']}'s recorded masked area does not match its mask "
+                            f"under rule {mask_crop_rule.RULE}"
+                        )
+                    mask_crops_recovered += recovered_crop
                     by_id[values["id"]] = values
                 rewrites = []
                 for _original, values in pending:
@@ -1187,7 +1258,8 @@ def _import_bundle(path: Path, password: str | None, progress: Progress,
                         "masks": sum(target.parent.name == storage.MASKS_DIR for _, target in targets),
                         "masks_missing": masks_missing,
                         "outpaint_masks_rebuilt": outpaint_masks_rebuilt,
-                        "outpaints_recovered": outpaints_recovered}
+                        "outpaints_recovered": outpaints_recovered,
+                        "mask_crops_recovered": mask_crops_recovered}
             finally:
                 if conn is not None:
                     conn.close()

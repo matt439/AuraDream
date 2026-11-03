@@ -221,7 +221,7 @@ async def finish_plan(services: AppServices, run_id: str) -> FinishPlan:
             except ValueError as exc:
                 reason, refusal_code = error_detail(exc), 422
                 break
-            inputs = (request.refine, request.mask, request.outpaint, tuple(request.reference),
+            inputs = (request.refine, request.mask, request.outpaint, request.mask_crop, tuple(request.reference),
                       request.lora, request.width, request.height, request.upscaler,
                       grid.edit_key(request.edit))
             if inputs not in checked:

@@ -66,6 +66,8 @@ async def swap_plan(
     # Outpaints whose spec does not build their row's mask: run again, each
     # would paint under another mask under the same key.
     mismatched = set(await asyncio.to_thread(submission.mismatched_outpaints, records))
+    # And masked areas whose mask no longer decides their recorded region.
+    cropped = set(await asyncio.to_thread(submission.mismatched_mask_crops, records))
     for record in records:
         result = SwapResult(
             id=record.id, thumb_url=record.thumb_url, width=record.width, height=record.height,
@@ -107,6 +109,11 @@ async def swap_plan(
         result.text, result.spans, result.removed = outcome.text, outcome.spans, outcome.removed
         if record.id in mismatched:
             result.status, result.detail = "outpaint", submission.mismatched_outpaint_detail([record.id])
+            continue
+        if record.id in cropped:
+            result.status, result.detail = "mask_crop", submission.mismatched_mask_crop_detail(
+                [record.id], [record.id] if record.outpaint is not None else (),
+            )
             continue
         try:
             cell = grid.cell_from_record(

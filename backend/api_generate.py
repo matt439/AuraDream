@@ -3,10 +3,11 @@ is `api_rerender.py`'s; run details and Finish run are `api_runs.py`'s."""
 from __future__ import annotations
 
 import asyncio
+from types import SimpleNamespace
 
 from fastapi import APIRouter, HTTPException
 
-from . import gallery_reports, grid, submission, then_refine
+from . import gallery_reports, grid, mask_crop, submission, then_refine
 from .app_context import AppServices
 from .execution import require_configured_loader_available
 from .model_selection import current_settings
@@ -16,6 +17,7 @@ from .schemas import (
     GridPreview,
     GridRequest,
     JobAccepted,
+    MaskCropArea,
     ThenRefine,
     error_detail,
 )
@@ -230,6 +232,24 @@ def create_router(services: AppServices) -> APIRouter:
             start_sigma = services.backend().start_sigma(
                 services.backend().applied(then_refine.stand_in(cells[0].request, spec))
             )
+        # Only the masked area's region, where the cells share one: their
+        # mask (or outpaint), size and spec as the pass runs them.
+        area = None
+        cropped = {
+            (r.mask, r.outpaint, r.width, r.height, r.mask_crop)
+            for r in (services.backend().applied(cell.request) for cell in cells)
+            if r.mask_crop is not None
+        }
+        if len(cropped) == 1:
+            mask, spec_outpaint, width, height, crop_spec = next(iter(cropped))
+            probe = SimpleNamespace(
+                mask=mask, outpaint=spec_outpaint, width=width, height=height, mask_crop=crop_spec,
+            )
+            try:
+                crop = await asyncio.to_thread(mask_crop.request_region, probe)
+            except (OSError, ValueError):
+                crop = None
+            area = MaskCropArea.of(crop) if crop is not None else None
         return GridPreview(
             values=values,
             prompt_sample=(
@@ -258,6 +278,7 @@ def create_router(services: AppServices) -> APIRouter:
             pass_width=pass_sizes[0][0] if len(pass_sizes) == 1 else None,
             pass_height=pass_sizes[0][1] if len(pass_sizes) == 1 else None,
             pass_sizes=pass_sizes,
+            mask_crop=area,
         )
 
     return router

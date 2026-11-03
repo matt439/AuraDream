@@ -36,16 +36,20 @@ from .bundle_common import BundleError
 from .grid import lora_key, mask_key, reference_key, refine_key, shape_key
 from .instruction_edit import InstructionEditSource, descriptor_from_image, edit_key
 from .metadata import PNG_MASK_KEY, PNG_METADATA_KEY, canonical_edit, edit_chunk, edit_from_json, validate_edit_record
+from .mask_crop import Crop
 from .png_settings import crop_anchor as _crop_anchor
 # The pure codecs, imported back by name: storage uses most of them, and the
 # reindex, the bundle layer and the CLI reach all of them as `storage.<name>`.
 from .record_fields import (  # noqa: F401 - re-exported for storage.<name>
-    _MASK_HASH, _batch, _canonical_outpaint, _mask, _peak, _upscaler, chunk_outpaint, malformed_outpaint,
-    mask_hash, mask_provenance, outpaint_chunk, outpaint_mask_hash, outpaint_parameters, peak_chunk,
-    rebuilt_outpaint_mask, recovered_outpaint,
+    _MASK_HASH, _batch, _canonical_mask_crop, _canonical_outpaint, _mask, _peak, _upscaler, chunk_mask_crop,
+    chunk_outpaint, malformed_mask_crop, malformed_outpaint, mask_crop_box, mask_crop_chunk, mask_crop_parameters,
+    mask_hash, mask_provenance, outpaint_chunk, outpaint_mask_hash, outpaint_parameters, parameters_mask_crop,
+    parse_mask_crop_box, peak_chunk, proven_mask_crop, rebuilt_outpaint_mask, recovered_mask_crop,
+    recovered_outpaint, stored_mask_crop, stored_mask_crop_box, without_mask_crop_parameters,
 )
 from .search import like_escape, parse_search
 from .schemas import ImageRecord, OutpaintSpec, effective_true_cfg
+from .schemas_mask_crop import MaskCropSpec
 
 if TYPE_CHECKING:
     from .grid import CellKey
@@ -184,7 +188,9 @@ CREATE TABLE IF NOT EXISTS images (
     execution       TEXT,
     edit            TEXT,
     vram_peak_allocated INTEGER,
-    vram_peak_reserved  INTEGER
+    vram_peak_reserved  INTEGER,
+    mask_crop       TEXT,
+    mask_crop_box   TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_images_created ON images (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_images_job ON images (job_id);
@@ -308,6 +314,13 @@ _ADDED_COLUMNS = (
     # nothing was measured (a CPU, the fake, rows from before it).
     ("vram_peak_allocated", "INTEGER", None),
     ("vram_peak_reserved", "INTEGER", None),
+    # Only the masked area's spec, `MaskCropSpec.key()`: NULL on every row
+    # that did not crop, and only ever set beside `refine` and `mask`.
+    ("mask_crop", "TEXT", None),
+    # The region it decided, `x1,y1,x2,y2>WxH` (`record_fields.mask_crop_box`):
+    # a result like the peak pair, for display and pricing, never in a key.
+    # Only ever set beside `mask_crop`.
+    ("mask_crop_box", "TEXT", None),
 )
 
 
@@ -394,6 +407,40 @@ def init_db() -> None:
     _migrate_thumbnails()
 
 
+def _mask_crop_area(text: str | None) -> dict[str, Any]:
+    """The record's `mask_crop_box` and `mask_crop_working` from the column's
+    text, unguarded as every column is: only `mask_crop_box` ever writes it."""
+    if not text:
+        return {"mask_crop_box": None, "mask_crop_working": None}
+    crop = parse_mask_crop_box(text)
+    return {"mask_crop_box": crop.box, "mask_crop_working": crop.working}
+
+
+def _box_within(text: Any, width: int, height: int) -> str | None:
+    """A `mask_crop_box` in its one spelling where its box lies inside a
+    `width` x `height` picture; None otherwise - a result, dropped rather
+    than refusing the row."""
+    try:
+        crop = parse_mask_crop_box(text)
+    except ValueError:
+        return None
+    x1, y1, x2, y2 = crop.box
+    return mask_crop_box(crop) if x2 <= width and y2 <= height else None
+
+
+def mask_crop_region(mask: str | None, spec: MaskCropSpec | None, width: int, height: int) -> Crop | None:
+    """The region `spec` decides over this gallery's stored `mask` at the
+    picture's size (`mask_crop.region`), or None where there is no spec, no
+    mask, or no file of it to read - the region is a result, drawn from the
+    mask whenever the mask is here."""
+    if mask is None or spec is None:
+        return None
+    try:
+        return proven_mask_crop(spec, refine.mask_image(mask, width, height))
+    except (OSError, ValueError, Image.DecompressionBombError):
+        return None
+
+
 def _row_to_record(
     row: sqlite3.Row | Mapping[str, Any], refine_missing: bool = False, refine_binned: bool = False,
     edit_missing: bool = False, edit_binned: bool = False,
@@ -461,6 +508,8 @@ def _row_to_record(
         # Unguarded, as every column: the stored type has no bound a setting
         # could move, and only validated keys are ever written.
         outpaint=OutpaintSpec.parse_key(row["outpaint"]) if row["outpaint"] else None,
+        mask_crop=MaskCropSpec.parse_key(row["mask_crop"]) if row["mask_crop"] else None,
+        **_mask_crop_area(row["mask_crop_box"]),
         vram_peak_allocated=row["vram_peak_allocated"],
         vram_peak_reserved=row["vram_peak_reserved"],
     )
@@ -475,7 +524,7 @@ _COLUMNS = (
     "mu", "seed", "model_id", "duration_ms", "favorite", "created_at", "job_id", "run_id",
     "quantization", "variables", "true_cfg", "content_hash", "reference", "lora", "lora_scale",
     "refine", "strength", "crop_anchor", "batch", "binned_at", "mask", "outpaint", "upscaler",
-    "execution", "edit", "vram_peak_allocated", "vram_peak_reserved",
+    "execution", "edit", "vram_peak_allocated", "vram_peak_reserved", "mask_crop", "mask_crop_box",
 )
 
 # What every live-facing read adds: an image in the recycle bin is gone from
@@ -543,6 +592,7 @@ def save_image(
     variables: dict[str, str] | None = None,
     batch: int | None = None,
     peak: tuple[int, int] | None = None,
+    mask_region: Crop | None = None,
 ) -> ImageRecord:
     """Write the PNG and its row. `request` must be what actually ran -
     `backend.applied()` - not what was asked for: a negative prompt the
@@ -553,7 +603,9 @@ def save_image(
     of the reproduction set (one generator per image), but what More seeds
     runs the batch's next images at. `peak` is the (allocated, reserved)
     bytes the call held at most - its batch's whole, a result like the
-    duration - or None where nothing was measured.
+    duration - or None where nothing was measured. `mask_region` is the
+    region a masked-area-only pass ran (`backend.last_mask_crop()`), a
+    result beside the peak; drawn from the stored mask where not given.
     """
     created = datetime.now(timezone.utc)
     execution = canonical_execution(request.execution)
@@ -563,6 +615,12 @@ def save_image(
     mask = request.mask if request.refine is not None else None
     # An outpaint never without its source and its stamped mask.
     outpaint = request.outpaint if mask is not None else None
+    # Only the masked area never without its source and its mask either.
+    crop_spec = request.mask_crop if mask is not None else None
+    if crop_spec is None:
+        mask_region = None
+    elif mask_region is None:
+        mask_region = mask_crop_region(mask, crop_spec, image.width, image.height)
     upscaler = _upscaler(
         request.upscaler, source=request.refine, model_id=model_id, mask=mask, outpaint=request.outpaint,
     )
@@ -626,6 +684,9 @@ def save_image(
         # Absent for the default so legacy PNG metadata stays byte-for-byte
         # unchanged when no crop position was requested.
         **({"crop_anchor": crop_anchor} if crop_anchor is not None else {}),
+        # Only the masked area's spec and the region it ran, absent on every
+        # other row (as the crop anchor), so legacy chunks stay unchanged.
+        **({"mask_crop": mask_crop_chunk(crop_spec, mask_region)} if crop_spec is not None else {}),
         **({"upscaler": upscaler} if upscaler is not None else {}),
         **execution_chunk(execution),
         **edit_chunk(edit),
@@ -669,7 +730,8 @@ def save_image(
         + (f", Hires upscaler: {refine.ANIME6B_LABEL}" if upscaler is not None else "")
         + (f", Crop anchor: {crop_anchor}" if crop_anchor is not None else "")
         + (f", Instruction edit: {edit.recipe}" if edit is not None else "")
-        + (outpaint_parameters(outpaint) if outpaint is not None else ""),
+        + (outpaint_parameters(outpaint) if outpaint is not None else "")
+        + (mask_crop_parameters(crop_spec) if crop_spec is not None else ""),
     )
     info.add_text(PNG_METADATA_KEY, json.dumps(meta))
     # The mask itself, so this PNG alone reproduces the image (`PNG_MASK_KEY`).
@@ -730,6 +792,8 @@ def save_image(
                         "edit": edit_key(edit),
                         "vram_peak_allocated": allocated,
                         "vram_peak_reserved": reserved,
+                        "mask_crop": crop_spec.key() if crop_spec is not None else None,
+                        "mask_crop_box": mask_crop_box(mask_region),
                     },
                 )
                 # A pass whose source was deleted while it ran - read as the
@@ -1194,7 +1258,7 @@ def completed_cells(
             rows = conn.execute(
                 f"""SELECT prompt, negative_prompt, steps, guidance_scale, mu, true_cfg,
                            reference, lora, lora_scale, refine, strength, mask, outpaint, upscaler, edit, execution,
-                           crop_anchor, seed
+                           crop_anchor, mask_crop, seed
                     FROM images
                     WHERE width = ? AND height = ? AND model_id = ? {scope}
                       AND prompt IN ({marks})""",
@@ -1217,7 +1281,10 @@ def completed_cells(
                         reference_key(json.loads(row["reference"]) if row["reference"] else None),
                         lora_key(row["lora"], row["lora_scale"]),
                         refine_key(row["refine"], row["strength"]),
-                        mask_key(row["mask"], _canonical_outpaint(row["outpaint"])),
+                        mask_key(
+                            row["mask"], _canonical_outpaint(row["outpaint"]),
+                            _canonical_mask_crop(row["mask_crop"]),
+                        ),
                         row["upscaler"],
                         edit_key(edit_from_json(row["edit"])),
                         execution_key(execution_from_json(row["execution"])),
@@ -1305,6 +1372,14 @@ def import_file(values: dict[str, Any]) -> ImageRecord:
             mask=values.get("mask"), outpaint=values.get("outpaint"),
         ),
     }
+    # Only the masked area beside its source and mask, in its one spelling,
+    # and its region only beside it, inside the picture.
+    crop_held = values.get("mask") is not None and values.get("refine") is not None
+    values["mask_crop"] = stored_mask_crop(values.get("mask_crop")) if crop_held else None
+    values["mask_crop_box"] = (
+        _box_within(values.get("mask_crop_box"), values["width"], values["height"])
+        if values["mask_crop"] is not None else None
+    )
     with _write_lock, _session() as conn:
         row = _insert_row(conn, {column: values.get(column) for column in _COLUMNS})
         states = _edit_states(conn, [row])
@@ -1334,6 +1409,10 @@ def index_file(
     mask = _mask(meta.get("mask")) if meta.get("refine") is not None else None
     # Never without its source and its mask; a malformed one is left off.
     outpaint = chunk_outpaint(meta) if mask is not None else None
+    # Only the masked area likewise; its region as the chunk records it
+    # (the reindex has proved it against the mask where it could), and
+    # only where it lies inside the picture.
+    crop = chunk_mask_crop(meta) if mask is not None else None
     crop_anchor = _crop_anchor(
         meta.get("crop_anchor"), source=meta.get("refine"),
         mask=meta.get("mask"), outpaint=meta.get("outpaint"),
@@ -1384,6 +1463,8 @@ def index_file(
                 "edit": edit,
                 "vram_peak_allocated": _peak(meta.get("vram_peak_allocated")),
                 "vram_peak_reserved": _peak(meta.get("vram_peak_reserved")),
+                "mask_crop": crop[0].key() if crop is not None else None,
+                "mask_crop_box": _box_within(mask_crop_box(crop[1]), width, height) if crop is not None else None,
             },
         )
         states = _edit_states(conn, [row])

@@ -63,6 +63,20 @@ from backend.seeds import random_seed, wrap_seed  # noqa: E402
 
 
 def _check_carried_source(args: argparse.Namespace, p: SimpleNamespace, parser: argparse.ArgumentParser) -> bool:
+    """`_carried_source_dropped`, then the refusal of a masked area the PNG
+    records that this build cannot read - only where the mask or outpaint it
+    crops is still carried: one dropped with its source runs as a plain
+    generation, never refused for its crop. Answers whether it dropped."""
+    dropped = _carried_source_dropped(args, p, parser)
+    if not dropped and args.carried_mask_crop_malformed:
+        parser.error(
+            "--from-image: the PNG records a masked area this build cannot read; "
+            "name one with --mask-crop PAD"
+        )
+    return dropped
+
+
+def _carried_source_dropped(args: argparse.Namespace, p: SimpleNamespace, parser: argparse.ArgumentParser) -> bool:
     """Drop a refine source --from-image carried that is not, in this
     gallery, the picture the PNG was made from; answers whether it did.
 
@@ -96,7 +110,7 @@ def _check_carried_source(args: argparse.Namespace, p: SimpleNamespace, parser: 
     named_outpaint = args.outpaint_given or args.band_given
     if (
         (args.strength is not None and not args.carried_strength) or args.scale is not None
-        or args.mask is not None or named_outpaint
+        or args.mask is not None or named_outpaint or args.mask_crop_given
         or (args.upscaler is not None and not args.carried_upscaler)
         or (args.crop_anchor not in (None, "center") and not args.carried_crop_anchor)
     ):
@@ -112,6 +126,11 @@ def _check_carried_source(args: argparse.Namespace, p: SimpleNamespace, parser: 
     args.refine = None
     args.crop_anchor = None
     args.mask_hash = None
+    # Only the masked area goes with the mask or outpaint it cropped.
+    args.mask_crop = None
+    args.carried_mask_crop = None
+    args.carried_mask_crop_region = None
+    args.carried_mask_crop_malformed = False
     # An outpaint goes with its source, or the run would be a plain render
     # at the canvas's size.
     if args.carried_outpaint:
@@ -234,6 +253,7 @@ def _then_refine_passes(p, backend, records, spec, pass_run, job_id, on_progress
                 image, ran, seed=cell.seed, duration_ms=elapsed_ms // max(len(images), 1),
                 model_id=p.settings.model_id, job_id=job_id, run_id=pass_run,
                 quantization=p.settings.quantization, variables=cell.variables, batch=1, peak=peak,
+                mask_region=backend.last_mask_crop(),
             )
             made.append(saved)
             print(f"{p.settings.outputs_dir / saved.filename}  seed {saved.seed}  pass of #{record.id}", flush=True)
@@ -243,11 +263,13 @@ def _then_refine_passes(p, backend, records, spec, pass_run, job_id, on_progress
 def _project() -> SimpleNamespace:
     """Import the project, reporting the wrong interpreter clearly."""
     try:
-        from backend import gallery_lock, gallery_reports, grid, loras, outpaint, refine, storage, submission_rules
+        from backend import (
+            gallery_lock, gallery_reports, grid, loras, mask_crop, outpaint, refine, storage, submission_rules,
+        )
         from backend.backends import Cancelled, get_backend
         from backend.config import settings
         from backend.model_defaults import defaults_for
-        from backend.schemas import GenerateRequest, Outpaint, PromptVariant, error_detail
+        from backend.schemas import GenerateRequest, MaskCropSpec, Outpaint, PromptVariant, error_detail
     except ModuleNotFoundError as exc:  # pragma: no cover - startup guard
         # Almost always `py generate.py` or a bare `python generate.py`, which
         # picks the system interpreter rather than the project's .venv.
@@ -262,6 +284,7 @@ def _project() -> SimpleNamespace:
         gallery_reports=gallery_reports,
         grid=grid,
         loras=loras,
+        mask_crop=mask_crop,
         outpaint=outpaint,
         refine=refine,
         storage=storage,
@@ -271,6 +294,7 @@ def _project() -> SimpleNamespace:
         settings=settings,
         defaults_for=defaults_for,
         GenerateRequest=GenerateRequest,
+        MaskCropSpec=MaskCropSpec,
         Outpaint=Outpaint,
         PromptVariant=PromptVariant,
         error_detail=error_detail,
@@ -368,6 +392,14 @@ def main(argv: list[str] | None = None) -> int:
     args.outpaint_fill = None
     args.carried_outpaint = False
     args.carried_outpaint_mask = None
+    # Only the masked area the command line names, or one --from-image
+    # carried beside its mask or outpaint: its spec's fields, its recorded
+    # region (held to the one this build decides) and whether the PNG
+    # recorded one this build cannot read.
+    args.mask_crop_given = args.mask_crop is not None
+    args.carried_mask_crop = None
+    args.carried_mask_crop_region = None
+    args.carried_mask_crop_malformed = False
     # Whether the command line itself names a size, before a PNG fills one in:
     # --scale is an alternative to these, but not to the size of --from-image.
     size_flags = any(v is not None for v in (args.width, args.height, args.aspect, args.mp))
@@ -410,6 +442,18 @@ def main(argv: list[str] | None = None) -> int:
             )
         outpaint_sides = _outpaint_sides(args.outpaint, parser)
     inpainting = args.mask is not None or args.mask_hash is not None
+    if args.mask_crop is not None:
+        from backend.schemas_mask_crop import MASK_CROP_NEEDS_A_MASK
+
+        if not inpainting and outpaint_sides is None:
+            parser.error(f"--mask-crop needs --mask or --outpaint: {MASK_CROP_NEEDS_A_MASK}")
+        if not 0 <= args.mask_crop <= 256 or args.mask_crop % 8:
+            # A carried padding is the PNG's, not a flag's: said as its.
+            named = "--mask-crop" if args.mask_crop_given else "--from-image: the PNG's masked area"
+            parser.error(f"{named}: a masked-area padding is 0 to 256 in steps of 8, not {args.mask_crop}")
+    # A carried masked area this build cannot read is refused once the
+    # carried source is checked (`_check_carried_source`): one that drops
+    # with its source never stops a plain generation.
     if args.crop_anchor not in (None, "center") and (inpainting or outpaint_sides is not None):
         parser.error("--crop-anchor is for an ordinary --refine pass, without --mask or --outpaint")
     if inpainting and args.scale is not None:
@@ -568,6 +612,21 @@ def main(argv: list[str] | None = None) -> int:
         # the PNG's own copy is the same picture, by the hash.
         mask_image = _mask_from_record(args.from_image, mask)
 
+    mask_crop_spec = None
+    if args.mask_crop is not None:
+        # The spec's rule and tier are the record's where --from-image
+        # carried one, which this build may lack: refused by name.
+        carried_spec = args.carried_mask_crop or {}
+        try:
+            mask_crop_spec = p.MaskCropSpec(
+                rule=carried_spec.get("rule", p.mask_crop.RULE), pad=args.mask_crop,
+                tier=carried_spec.get("tier", p.mask_crop.TIER),
+            )
+        except ValueError as exc:
+            named = "--mask-crop" if args.mask_crop_given else "--from-image: the PNG's masked area"
+            print(f"{named}: {p.error_detail(exc)}", file=sys.stderr)
+            return 2
+
     profile = p.defaults_for(p.settings.model_id)
     mu = None if args.no_mu else (args.mu if args.mu is not None else profile["mu"])
     seed = args.seed if args.seed is not None else random_seed()
@@ -607,6 +666,7 @@ def main(argv: list[str] | None = None) -> int:
             strength=args.strength,
             mask=mask,
             outpaint=outpaint_spec,
+            mask_crop=mask_crop_spec,
             seed=seed,
             num_images=args.batch,
             runs=args.runs,
@@ -725,6 +785,34 @@ def main(argv: list[str] | None = None) -> int:
             print(
                 "--from-image: this build builds an outpaint's mask differently from the one that "
                 "made this image",
+                file=sys.stderr,
+            )
+            return 2
+    mask_crop_region = None
+    if request.mask_crop is not None:
+        # The server's submit check over the mask this run holds (an
+        # outpaint's built from its spec), and - for one --from-image
+        # carried unchanged - the region it decides held to the recorded one.
+        for group in p.submission_rules.cells_by_size(cells).values():
+            reason = p.submission_rules.mask_crop_unusable(group[0].request, painted=mask_image)
+            if reason is not None:
+                print(reason, file=sys.stderr)
+                return 2
+        try:
+            mask_crop_region = (
+                p.mask_crop.region(mask_image, request.mask_crop) if mask_image is not None
+                else p.mask_crop.request_region(request)
+            )
+        except (OSError, ValueError):
+            mask_crop_region = None
+        held = args.carried_mask_crop_region
+        if (
+            held is not None and not args.mask_crop_given
+            and (request.outpaint is None or args.carried_outpaint_mask is not None)
+            and (mask_crop_region is None or (tuple(mask_crop_region.box), tuple(mask_crop_region.working)) != held)
+        ):
+            print(
+                p.submission_rules.mask_crop_mismatch(request.mask_crop.rule, request.outpaint is not None),
                 file=sys.stderr,
             )
             return 2
@@ -901,6 +989,16 @@ def main(argv: list[str] | None = None) -> int:
                 )
             elif request.mask is not None:
                 print(f"inpaint  : under mask {request.mask[:16]}, composited over the source")
+            if request.mask_crop is not None:
+                where = (
+                    f"the box {','.join(map(str, mask_crop_region.box))} at "
+                    f"{mask_crop_region.working[0]}x{mask_crop_region.working[1]}"
+                    if mask_crop_region is not None else "a box around the mask"
+                )
+                print(
+                    f"masked   : only the masked area, padding {request.mask_crop.pad} px - {where}, "
+                    "pasted back"
+                )
             print(
                 f"refine   : image {request.refine} at strength {request.strength:g}  "
                 f"(about {ran} of {request.steps} steps"
@@ -1208,6 +1306,7 @@ def main(argv: list[str] | None = None) -> int:
                             variables=cell.variables,
                             batch=cell.request.num_images,
                             peak=peak,
+                            mask_region=backend.last_mask_crop(),
                         )
                         break
                     except p.gallery_lock.GalleryBusy:

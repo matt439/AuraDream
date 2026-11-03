@@ -143,6 +143,10 @@ before changing it.
   (`Outpaint`), the stored mask's answer (`MaskStored`) and the presets'
   (`OutpaintPreset(s)`); a leaf over `outpaint`'s constants, no settings.
   `schemas_generate` imports `Outpaint` for the request
+- `backend/schemas_mask_crop.py` — only the masked area's spec
+  (`MaskCropSpec`: the frozen rule, the padding, the working tier) and its
+  one spelling (`key()`, `bbox16:32@1`, and its inverse `parse_key()`); a
+  leaf over `mask_crop`'s constants, no settings
 - `backend/schemas_prompt.py` — Expand, Check (analysis, findings, orders),
   the chip count, the critic's critique, Danbooru tag suggestion/validation
 - `backend/schemas_gallery.py` — `ImageRecord`, run summaries, gallery pages,
@@ -258,6 +262,14 @@ before changing it.
   refine guard's limits passed in) and the off-grid words
   (`source_off_grid`); numpy, Pillow and `sizes` only. Each fill and the
   mask are frozen, their bytes pinned by `tests/test_outpaint.py`
+- `backend/mask_crop.py` — only the masked area's pure parts (INP#9): the
+  frozen rule `bbox16` (`region`: the mask's box plus the padding on the 16
+  grid at about 1 MP in the box's own aspect), the no-gain test
+  (`no_gain`), the class's inputs (`crop_inputs`: the box resized, the mask
+  thresholded and widened by `radius` to the paste back's reach) and
+  `paste_back`; numpy, Pillow, `sizes` and `refine`. The app crops, never
+  the class's `padding_mask_crop`; the rule's boxes are pinned by
+  `tests/test_mask_crop.py`
 - `backend/sizes.py` — the preset table; the CLI's `--aspect/--mp`, config's
   `max_side`/`max_pixels` and a refine pass's `refine_max_side`/
   `refine_max_pixels` (any 2 MP preset at 2x), `web/state.js`'s copy,
@@ -1952,6 +1964,56 @@ measured on the card and when.
   server's (`GET /api/images/{id}/outpaint-presets`, `outpaint.presets`).
   Search `outpaint:yes|no`; stats `--by outpaint`. The page is the Outpaint
   dialog (phase 2, below under the frontend rules).
+- Only the masked area (`docs/plan-inpainting.md` phase 6, built
+  2026-11-03) is the app's crop, **never the class's `padding_mask_crop`**,
+  on every inpaint family (FLUX.1, SDXL, Z-Image), inpaint and outpaint.
+  `GenerateRequest.mask_crop` (`MaskCropSpec`: `rule` `bbox16`, `pad` 0-256
+  in steps of 8, `tier` 1; `key()` `bbox16:32@1`) needs `refine` with a
+  `mask` or an `outpaint` and is refused beside an edit; `applied()` drops it
+  wherever it drops the mask. The request's `width`/`height` stay the
+  source's (or canvas's): every size check, `completed_cells` and `run_id`'s
+  size are unchanged, and `denoise_size(working)` is the one reader of the
+  size the class runs at (the backend's call, `start_sigma`, the preview).
+  **The rule `bbox16` (`mask_crop.region`) is frozen**, its sweep pinned by
+  SHA-256 in `tests/test_mask_crop.py`: a changed rule is a new name. The
+  working size comes from the box's own aspect, never `sizes.nearest_preset`.
+  `crop_inputs` binarises the painted mask (>0 to 255) before resizing,
+  thresholds >0 after, then widens by `mask_crop.radius`
+  (`max(block, ceil(3*max(1, W/rw, H/rh)))`), so the composite never
+  weights a pixel the class did not repaint (the coverage test proves it);
+  then `paste_back` and the unchanged `refine.composite`. The box and the
+  working size are **results**, like the peak pair: the `_migrate` column
+  `mask_crop_box` (`x1,y1,x2,y2>WxH`, beside `mask_crop`, the key), the
+  chunk's `mask_crop` {rule, pad, tier, box, working} (absent otherwise),
+  the backend's `last_mask_crop()`; never in `CellKey`, `run_id` or
+  `applied()`. `grid.mask_key(mask, outpaint, crop)` appends `+<key>` only
+  when a crop is set: no new slot, every existing `run_id` unchanged. The
+  A1111 line ends `, Mask crop: bbox16:32@1`. Refused (`submission`, kind
+  and status `mask_crop`): a region no mask decides, no gain
+  (`mask_crop.no_gain`: the box is the whole picture, no larger than the
+  working size), and on a rerun a recorded region its mask no longer gives
+  (`submission.mismatched_mask_crops`: Re-render's 422, Swap tags' and More
+  seeds' status, `--from-image`). Re-render, Swap tags, More seeds and
+  `--from-image` carry it with the mask; Mass refine, Then refine and Load
+  settings from PNG drop it. Bundles stay `version: 1`: `_validate_row`
+  refuses a broken spec or box, the merge refuses a region its mask does
+  not give, a missing
+  region recomputed, a stripped crop recovered from the A1111 line only
+  where the mask recomputes its region (`mask_crops_recovered`); reindex
+  likewise, counting `mask_crop_malformed`. Recovery reads only the
+  settings line (the last, from `Steps: `), never the prompt or negative,
+  and a crop reindex leaves off has its `Mask crop:` taken out of that line
+  (`storage.without_mask_crop_parameters`), so no later run brings it back.
+  `png_settings.record` never judges `mask_crop`: Load settings from PNG
+  drops it, and `--from-image` refuses by name a carried spec or region
+  this build cannot run only where the mask or outpaint stays carried (a
+  dropped source runs a plain generation; `--mask`, `--refine` or
+  `--mask-crop` replace it). `refine_cost_ms(inpaint=True)`
+  leaves cropped rows out, and `gallery_reports.mask_crop_cost_ms` prices a
+  cropped cell from cropped rows of its tier only, else no estimate.
+  `/api/grid/preview` answers `mask_crop` {box, working, scale} for cells
+  sharing one region. CLI `--mask-crop PAD`; search `maskcrop:yes|no`;
+  stats `--by maskcrop`. The outpaint canvas guard stays `refine_max_*`.
 - Inpainting is a decision as well as a capability. `refine.sibling(pipe,
   "Inpaint")` finds the class under the exact-export rule, its call taking
   `refine.INPAINT_REQUIRED` (`REQUIRED` and `mask_image`) and `CARRIED`;
@@ -4106,7 +4168,16 @@ measured on the card and when.
   level above 0 counting as repainted, and draws no line along the
   picture's border; a deleted source (or one whose thumbnail will not
   load) leaves the record's own picture under it, a binned one is asked
-  for with `?binned=true`.
+  for with `?binned=true`. "Only the masked area" (`#inpaint-crop-field`,
+  in the first tools row, where it costs no height) is a tick and a
+  Padding box (0-256, step 8, 32): unticked, the padding is greyed by a
+  class, never hidden; where the checkpoint has no inpaint the tick is
+  `aria-disabled` with the reason and a press says it. `inpaintRequest`
+  sends `mask_crop` or null; the preview's area words come after the
+  existing text; `#inpaint-crop-box` draws the server's box, hidden on a
+  new stroke, a refusal or an untick. The facts list's "Masked area only"
+  row follows Mask; Reuse restores the tick and padding, and its title
+  (kept in `dataset.reuseMaskCrop` through `syncReuseButtons`) names them.
 - An outpaint is the Outpaint dialog's (`web/outpaint.js`,
   `styles/outpaint.css`, wearing `.inpaint-dialog`'s box and panes), never
   the panel's and never a mode of the Inpaint dialog: `collect()` sends no
@@ -4161,7 +4232,12 @@ measured on the card and when.
   facts "Outpainted from" and an Outpaint row, an outpainted card a ⬚
   badge; Against source draws the source at (left, top) at the result's
   scale, and the Mask row's box (the canvas's shape) the source's
-  thumbnail at its place by the padding.
+  thumbnail at its place by the padding. Its "Only the masked area"
+  (`#outpaint-crop-field`) is Inpaint's, at the end of the band row (a row
+  of its own would scroll the dialog at 1400x900), its box
+  (`#outpaint-crop-box`) dotted since the band's edge is dashed; the two
+  dialogs share `maskCropAsked`. Cropped and never priced, the preview says
+  "no estimate: no masked-area pass has run here yet".
 - `startJob(path, body, { sheet, panel, slot, placeholder, onAccepted,
   onRefused })`: `slot` (default `els.error`) is where its refusals go.
   `onAccepted(jobId)` runs once the server has taken the job, before
@@ -7424,6 +7500,33 @@ the outpaint key and run-id cases in `tests/test_conditioning.py`, the
 dialog's statuses in `tests/test_inpaint_ui.py`, and the `--outpaint`,
 `--band` and `--from-image` cases in `tests/test_cli_passes.py` (a `--band` of its
 own beside a carried outpaint running, a rewritten mask hash refused).
+
+Only the masked area is covered by `tests/test_mask_crop.py` (the spec and
+its key round trip; golden boxes and working sizes, both aspect clamps,
+edges and pad 0; the rule's SHA-256 pin over a sweep with its invariants;
+`widened` against PIL's `MaxFilter` and the radius's values; the coverage
+proof that every painted pixel's paste-back reach lies inside the widened
+mask, from 0.34x to 65x; `paste_back` then `composite` keeping every
+unmasked pixel), `tests/test_conditioning.py` (no crop leaves the key
+element and the pinned run ids unchanged; a cropped run id pinned; two
+paddings two pictures; the refusals and `applied()`; `denoise_size`; a
+saved cropped row's `completed_cells`, `settings_key` and
+`cell_from_record` agreeing), `tests/test_inpaint.py` (the class at the
+working size with `crop_inputs`' image and mask and no
+`padding_mask_crop`; the output at the source's size, every unmasked pixel
+and everything outside the box the source's; a cropped outpaint; the start
+sigma and the preview at the working size; Z-Image's preprocess at the
+working size; `last_mask_crop()`; the fake cropping by the real rule),
+`tests/test_mask_crop_storage.py` (the column, row, chunk and A1111 line;
+both codecs; `index_file`; both reindex paths: recomputed, proved,
+mismatched, malformed, recovered; bundles: carried as v1, refusals, a
+mismatch refused, recomputed, recovered; the reruns' carries and drops;
+search, keep rates and tier pricing; the job recording the backend's
+region) and `tests/test_mask_crop_refusals.py` (the refusals' exact words
+and status; the preview's region; a mismatched recorded region refused by
+Re-render, Swap tags and More seeds; the CLI's `--mask-crop`, its
+`--from-image` carry and mismatch, and `--via-server`).
+
 `tests/test_reindex_provenance.py` covers foreign PNG conditioning ids, lost
 databases, missing or mismatched source identities and safe in-place metadata
 remapping. API tests hold a fake before its first callback to check initial
@@ -9323,12 +9426,22 @@ thumbnail asked for with `?binned=true`, and a deleted source leaving the record
 keeps the source's exactly; Reuse reopening on the source with the stored
 mask, no upload of the picture and one `/keep` of the stored mask (the page's POSTs counted); a strength list
 opening a sheet over one mask; a close that ran nothing giving the lightbox
-back and its strokes on the next open, and Start over. `smoke-inpaint-
+back and its strokes on the next open, and Start over. Only the masked
+area: the dialog opening unticked at 32 with the padding greyed and the
+tip's words, ticking moving nothing; a small stroke's preview adding the
+area words and the dashed box at the server's box; pad 0 asking again and
+pad 12 refused, holding Inpaint; an inverted mask refused in the server's
+no-gain words and Ctrl+Z bringing the small mask back; the run at 512 x 512
+recording the spec, box and working size, every unmasked pixel the
+source's; the facts' "Masked area only" row after Mask; Reuse's title,
+re-tick, padding and box; unticking hiding the box. `smoke-inpaint-
 unavailable.json`, on the default Krea 2 Turbo fake on 7906: the card's, the
 result's and the lightbox's entry points `aria-disabled` with "Krea 2 Turbo
 has no inpaint pipeline in the installed diffusers", a press saying it and
 opening nothing; a stubbed `inpaint_deferred` status saying "not enabled yet"
-in the titles; Reuse of an inpaint opening the dialog held, saying why:
+in the titles; Reuse of an inpaint opening the dialog held, saying why;
+Reuse of a cropped inpaint (padding 48) opening ticked at 48, the tick
+`aria-disabled` with the reason and a press leaving it ticked and saying why:
 
 ```powershell
 uv run python tools/fake_server.py --port 7905 --model cagliostrolab/animagine-xl-4.0 --data <new-scratch-directory>
@@ -9372,7 +9485,17 @@ in flight holding Outpaint with its reason and a press saying it, and the
 job line's "the outpaint of #N"; a late presets answer opening nothing after
 the lightbox closed or over the Inpaint dialog; a presets 404 for a source
 binned elsewhere saying recycle bin; the lightbox's Outpaint… kept, uncut,
-at 800 px. `browser.mjs`'s `{"key": "ArrowDown", "native": true}` sends the
+at 800 px. Only the masked area: unticked at 32 and greyed, the tip's
+words, the field within the band row's height, ticking moving nothing and
+scrolling nothing; a left 256 on 1024 x 1024 previewing "…432×1024, at
+672×1600 (1.6× up), pasted back" with the no-estimate words and the dotted
+box at the server's box; pad 12 refused and holding Outpaint; the run at
+1280 x 1024 recording `bbox16:32@1`, its box and working size, the kept
+pixels the source's and the border wholly masked; the facts row and
+Reuse outpaint…'s title before and after `syncReuseButtons`; Reuse
+reopening ticked with its box; the no-gain refusal on a small canvas in the
+server's words; a close keeping the tick and Start over clearing it.
+`browser.mjs`'s `{"key": "ArrowDown", "native": true}` sends the
 key code, so a focused select moves as on a real press:
 
 ```powershell

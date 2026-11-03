@@ -174,10 +174,12 @@ def refine_key(source: int | None, strength: float | None) -> str | None:
     return f"{source}@{round(float(strength), 6):g}"
 
 
-def mask_key(mask: str | None, outpaint: str | None = None) -> str | None:
+def mask_key(mask: str | None, outpaint: str | None = None, crop: str | None = None) -> str | None:
     """Which region is repainted, as one key element: an inpaint's mask by
     its whole 64-digit hash, an outpaint by `outpaint:` and its spec's key
-    (`OutpaintSpec.key()`, the fill included) whatever its mask, or None.
+    (`OutpaintSpec.key()`, the fill included) whatever its mask, or None;
+    with only the masked area, `+` and its spec's key
+    (`MaskCropSpec.key()`, e.g. `<hash>+bbox16:32@1`) after either.
 
     Content-addressed, so the hash is the same in every gallery and needs no
     rounding or remapping; spelled here once all the same, since the element
@@ -187,16 +189,26 @@ def mask_key(mask: str | None, outpaint: str | None = None) -> str | None:
     than inside it. An outpaint is named by its spec, never by its stamped
     hash, so an unstamped cell, a stamped one and a `--dry-run` key alike;
     an outpaint and a painted mask never meet in one request, so they
-    share the element rather than adding a sixth.
+    share the element rather than adding a sixth. The crop is a spec of
+    that same region - its box a pure function of the mask and the spec -
+    so it widens the element rather than adding a slot, and without one
+    the element (every existing id with it) is exactly what it was.
     """
-    if outpaint:
-        return f"outpaint:{outpaint}"
-    return mask or None
+    base = f"outpaint:{outpaint}" if outpaint else (mask or None)
+    if base is None or not crop:
+        return base
+    return f"{base}+{crop}"
 
 
 def _outpaint_text(outpaint: Any) -> str | None:
     """A request's or a record's outpaint as its key text, or None."""
     return outpaint.key() if outpaint is not None else None
+
+
+def _mask_crop_text(mask_crop: Any) -> str | None:
+    """A request's or a record's only-the-masked-area spec as its key text,
+    or None."""
+    return mask_crop.key() if mask_crop is not None else None
 
 
 @dataclass(frozen=True)
@@ -710,7 +722,7 @@ def cell_key(cell: "Cell") -> CellKey:
         reference_key(request.reference),
         lora_key(request.lora, request.lora_scale),
         refine_key(request.refine, request.strength),
-        mask_key(request.mask, _outpaint_text(request.outpaint)),
+        mask_key(request.mask, _outpaint_text(request.outpaint), _mask_crop_text(request.mask_crop)),
         request.upscaler,
         edit_key(bound_edit),
         execution_key(request.execution),
@@ -849,6 +861,14 @@ def cell_from_record(
         "outpaint": (
             record.outpaint.model_dump() if record.refine is not None and record.outpaint is not None else None
         ),
+        # Only the masked area runs again over the same region, as its mask
+        # (or outpaint) does; never without one.
+        "mask_crop": (
+            record.mask_crop.model_dump()
+            if record.mask_crop is not None and record.refine is not None
+            and (record.mask is not None or record.outpaint is not None)
+            else None
+        ),
         # Recorded arithmetic must not silently become Eager. The ordinary
         # request validator refuses recipes unavailable in this build.
         "execution": record.execution,
@@ -907,11 +927,19 @@ def progress_steps(request: GenerateRequest) -> int:
     return denoised_steps(request) * request.num_images
 
 
+# A size's prices (`gallery_reports.execution_estimates`): the direct step
+# cost, refine passes and whole-picture inpaints by denoised steps, and
+# masked-area-only inpaints by (tier, denoised steps). A three-tuple is read
+# as one with no cropped history.
+SizePrices = tuple[float | None, dict[int, float], dict[int, float], dict[tuple[int, int], float]]
+
+
 def estimate_seconds(
     cells: list[Cell], per_step_ms: float | None, *,
     refine_costs: dict[int, float] | None = None,
     inpaint_costs: dict[int, float] | None = None,
-    by_size: dict[tuple[int, int], tuple[float | None, dict[int, float], dict[int, float]]] | None = None,
+    crop_costs: dict[tuple[int, int], float] | None = None,
+    by_size: dict[tuple[int, int], SizePrices] | None = None,
 ) -> float | None:
     """Generation time from direct step costs or matching refine durations.
 
@@ -921,28 +949,33 @@ def estimate_seconds(
     most of them. Refine cells use full per-image durations at the same number
     of denoised steps: their fixed encode/decode work must not be multiplied
     away or priced from direct renders. An inpaint cell is priced from
-    inpaints' durations (`inpaint_costs`) the same way, never from passes'.
+    inpaints' durations (`inpaint_costs`) the same way, never from passes';
+    one that runs only the masked area from cropped inpaints of its working
+    tier (`crop_costs`), never by its source's size.
     No estimate if any cell has no matching history. The CLI pays a load per
     invocation on top.
     """
-    priced = _cell_ms(cells, per_step_ms, refine_costs, inpaint_costs, by_size)
+    priced = _cell_ms(cells, per_step_ms, refine_costs, inpaint_costs, by_size, crop_costs)
     return None if priced is None else round(sum(priced) / 1000, 1)
 
 
 def _cell_ms(
     cells: list[Cell], per_step_ms: float | None, refine_costs: dict[int, float] | None,
     inpaint_costs: dict[int, float] | None = None,
-    by_size: dict[tuple[int, int], tuple[float | None, dict[int, float], dict[int, float]]] | None = None,
+    by_size: dict[tuple[int, int], SizePrices] | None = None,
+    crop_costs: dict[tuple[int, int], float] | None = None,
 ) -> list[float] | None:
     """Each cell's price in milliseconds, as `estimate_seconds` sums them;
     None if any cell has no matching history."""
     priced = []
     for cell in cells:
         request = cell.request
-        direct, passes, inpaints = (
-            by_size.get((request.width, request.height), (None, {}, {}))
-            if by_size is not None else (per_step_ms, refine_costs, inpaint_costs)
+        prices = (
+            by_size.get((request.width, request.height), (None, {}, {}, {}))
+            if by_size is not None else (per_step_ms, refine_costs, inpaint_costs, crop_costs)
         )
+        direct, passes, inpaints = prices[:3]
+        crops = prices[3] if len(prices) > 3 else None
         # The GAN adds work before VAE encoding. Ordinary Refine history
         # cannot price it; keep the estimate unknown until measured apart.
         if request.upscaler is not None:
@@ -955,6 +988,10 @@ def _cell_ms(
             if direct is None:
                 return None
             image_ms = direct * denoised_steps(request)
+        elif request.mask_crop is not None:
+            image_ms = (crops or {}).get((request.mask_crop.tier, denoised_steps(request)))
+            if image_ms is None:
+                return None
         else:
             costs = inpaints if request.inpainting else passes
             image_ms = (costs or {}).get(denoised_steps(request))
@@ -968,7 +1005,8 @@ def seeds_within_budget(
     cells: list[Cell], seeds: int, per_step_ms: float | None, budget_seconds: float, *,
     refine_costs: dict[int, float] | None = None,
     inpaint_costs: dict[int, float] | None = None,
-    by_size: dict[tuple[int, int], tuple[float | None, dict[int, float], dict[int, float]]] | None = None,
+    crop_costs: dict[tuple[int, int], float] | None = None,
+    by_size: dict[tuple[int, int], SizePrices] | None = None,
 ) -> int | None:
     """How many of a grid's seeds a time budget completes, by the job's own
     rule: a cell starts while the deadline has not passed and runs to its end
@@ -978,7 +1016,7 @@ def seeds_within_budget(
     the outer loop, each running the same cells; priced as `estimate_seconds`
     prices, from the job's start - the load and any job ahead spend a budget
     too, which no estimate counts. None where it has no price."""
-    priced = _cell_ms(cells, per_step_ms, refine_costs, inpaint_costs, by_size)
+    priced = _cell_ms(cells, per_step_ms, refine_costs, inpaint_costs, by_size, crop_costs)
     if priced is None or seeds < 1 or len(cells) % seeds:
         return None
     per_seed = len(cells) // seeds

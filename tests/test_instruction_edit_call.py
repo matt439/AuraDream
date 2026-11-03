@@ -205,7 +205,7 @@ def test_the_preview_gets_the_latents_and_a_failing_one_costs_no_cell(editor, mo
     backend = _loaded(KontextStub())
     seen = []
 
-    def preview(runner, latents, request, step):
+    def preview(runner, latents, request, step, size=None):
         seen.append((runner, tuple(latents.shape), step))
         return b"jpeg"
 

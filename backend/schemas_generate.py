@@ -32,6 +32,7 @@ from .execution import (
 from .model_defaults import defaults_for, inpaint_family, inpaint_start
 from . import refine
 from .refine import DEFAULT_STRENGTH, Upscaler, leaves_a_step, upscaler_supported
+from .schemas_mask_crop import MASK_CROP_NEEDS_A_MASK, MASK_CROP_WITH_EDIT, MaskCropArea, MaskCropSpec
 from .schemas_outpaint import Outpaint
 from .seeds import MAX_BATCH, MAX_GRID_SEEDS, MAX_RUNS, MAX_SEED
 
@@ -171,6 +172,13 @@ class GenerateRequest(BaseModel):
     # (`storage.stamp_outpaints`). Never sent with a mask; dropped by
     # `applied()` with the source, as a mask is.
     outpaint: Outpaint | None = None
+    # Only the masked area (TODO.md INP#9): denoise just a box around the
+    # mask - its extent plus `pad` - at the tier's working size, then paste
+    # it back. Beside a mask or an outpaint only, and dropped by `applied()`
+    # with them. `width` x `height` stay the source's (the canvas's), which
+    # is the output's size; the box and working size are the rule's results
+    # (`mask_crop.region`), read through `denoise_size`, never keyed.
+    mask_crop: MaskCropSpec | None = None
     # Reserved shared reproduction extension. No non-default recipe can run
     # before its storage/key carry and backend implementation are complete.
     execution: ExecutionSpec | None = None
@@ -203,6 +211,8 @@ class GenerateRequest(BaseModel):
         spec = self._strict_edit(self.edit)
         if spec is None:
             return None
+        if self.mask_crop is not None:
+            raise ValueError(MASK_CROP_WITH_EDIT)
         if (
             self.refine is not None or self.mask is not None or self.outpaint is not None
             or self.reference or self.lora is not None or self.upscaler is not None
@@ -323,6 +333,30 @@ class GenerateRequest(BaseModel):
         if self.outpaint is not None and self.mask is not None:
             raise ValueError("an outpaint builds its own mask; send none with it")
         return self
+
+    @model_validator(mode="after")
+    def _a_mask_crop_needs_a_mask(self) -> "GenerateRequest":
+        # A box around a mask: with no source and no mask (painted, or an
+        # outpaint's to be built) there is no area to take.
+        if self.mask_crop is not None and (self.refine is None or (self.mask is None and self.outpaint is None)):
+            raise ValueError(MASK_CROP_NEEDS_A_MASK)
+        return self
+
+    def denoise_size(self, working: tuple[int, int] | None = None) -> tuple[int, int]:
+        """The size the pipeline denoises at: `width` x `height`, or with
+        only the masked area the working size its region decided
+        (`mask_crop.region(...).working`, passed in - the rule reads the
+        mask, which this request only names). The one reader of that size
+        for the backend's call and its start sigma; the output, the row and
+        every key stay at `width` x `height`. A working size without a crop,
+        or a crop without one, is refused rather than guessed."""
+        if self.mask_crop is None:
+            if working is not None:
+                raise ValueError("a working size is only the masked area's")
+            return (self.width, self.height)
+        if working is None:
+            raise ValueError("only the masked area's working size comes from its mask's region; pass it")
+        return (int(working[0]), int(working[1]))
 
     def check_refine_steps(self) -> None:
         # Check after capability validation, on actual cells: a grid's axes
@@ -530,6 +564,9 @@ class GenerateRequest(BaseModel):
         if outpaint is not None and refine is None:
             outpaint = None
             changes["outpaint"] = None
+        # Only the masked area goes wherever its mask (or outpaint) goes.
+        if self.mask_crop is not None and mask is None and outpaint is None:
+            changes["mask_crop"] = None
         if self.upscaler is not None and (
             refine is None or mask is not None or outpaint is not None
             or not upscaler_supported(current_model_id(settings))
@@ -853,6 +890,9 @@ class GridPreview(BaseModel):
     pass_width: int | None = None
     pass_height: int | None = None
     pass_sizes: list[tuple[int, int]] = Field(default_factory=list)
+    # Only the masked area: the region every cell's pass denoises
+    # (`mask_crop.region`), where they share one; null without a crop.
+    mask_crop: MaskCropArea | None = None
 
 
 class JobAccepted(BaseModel):

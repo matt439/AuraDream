@@ -559,10 +559,15 @@ els.inpaintDialog.addEventListener('keydown', inpaintKeydown);
 els.inpaintDice.onclick = () => { els.inpaintSeed.value = ''; inpaintChanged(); };
 els.inpaintStartOver.onclick = startInpaintOver;
 for (const el of [els.inpaintStrength, els.inpaintVersions, els.inpaintSeed, els.inpaintPrompt,
-                  els.inpaintNegative, els.inpaintSteps, els.inpaintCfg, els.inpaintMu, els.inpaintTrueCfg]) {
+                  els.inpaintNegative, els.inpaintSteps, els.inpaintCfg, els.inpaintMu, els.inpaintTrueCfg,
+                  els.inpaintCropPad]) {
   el.addEventListener('input', inpaintChanged);
 }
 els.inpaintVersions.addEventListener('change', inpaintChanged);
+// Only the masked area: held where there is no inpaint (aria-disabled, its
+// reason the title), so a press says why and the box keeps its state.
+els.inpaintCrop.addEventListener('click', inpaintCropClick);
+els.inpaintCrop.addEventListener('change', inpaintChanged);
 for (const el of [els.inpaintPrompt, els.inpaintNegative, els.inpaintCfg, els.inpaintTrueCfg]) {
   el.addEventListener('input', () => { syncInpaintCheck(); scheduleInpaintCheck(); });
 }
@@ -613,10 +618,14 @@ for (const button of [els.outpaintGrow, els.outpaintWide, els.outpaintTall]) {
 els.outpaintShape.addEventListener('change', syncOutpaintPresets);
 els.outpaintShapeApply.onclick = applyOutpaintShape;
 for (const el of [els.outpaintStrength, els.outpaintVersions, els.outpaintSeed, els.outpaintPrompt,
-                  els.outpaintNegative, els.outpaintSteps, els.outpaintCfg, els.outpaintMu, els.outpaintTrueCfg]) {
+                  els.outpaintNegative, els.outpaintSteps, els.outpaintCfg, els.outpaintMu, els.outpaintTrueCfg,
+                  els.outpaintCropPad]) {
   el.addEventListener('input', outpaintChanged);
 }
 els.outpaintVersions.addEventListener('change', outpaintChanged);
+// Only the masked area, held as the Inpaint dialog's where there is no inpaint.
+els.outpaintCrop.addEventListener('click', outpaintCropClick);
+els.outpaintCrop.addEventListener('change', outpaintChanged);
 for (const el of [els.outpaintPrompt, els.outpaintNegative, els.outpaintCfg, els.outpaintTrueCfg]) {
   el.addEventListener('input', () => { syncOutpaintCheck(); scheduleOutpaintCheck(); });
 }

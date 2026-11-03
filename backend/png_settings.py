@@ -60,6 +60,11 @@ def record(chunks: Mapping[str, Any], name: str) -> dict | None:
     A record that is there but is not a JSON object is refused rather than
     passed over: another reader of the same file would take the 'parameters'
     line and fill a panel that is not what made the image.
+
+    Its `mask_crop` is not read here: Load settings from PNG drops it with
+    the mask, and `--from-image` carries it only beside the mask or outpaint
+    it crops, refusing there, by name, a spec or region this build cannot
+    run - a later build's rule never refuses the whole file.
     """
     raw = embedded_metadata(chunks)
     if not raw:

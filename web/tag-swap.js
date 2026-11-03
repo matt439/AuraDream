@@ -24,14 +24,16 @@ const SWAP_MAX_TEXT = 1000;
 const SWAP_STATUS_WORDS = {
   queued: 'queued', missing: 'missing a tag', unchanged: 'unchanged', rendered: 'already rendered', planned: 'already queued',
   invalid: 'invalid', source_deleted: 'source deleted', lora_missing: 'LoRA missing',
-  mask_missing: 'mask missing', outpaint: 'outpaints that cannot run', duplicate: 'duplicates',
+  mask_missing: 'mask missing', outpaint: 'outpaints that cannot run',
+  mask_crop: 'masked areas that cannot run', duplicate: 'duplicates',
   by_hand: 'need editing by hand', structured: 'structured prompts',
   deleted: 'deleted', foreign: 'from another checkpoint',
 };
 const SWAP_CHIP = {
   queued: 'queued', missing: 'missing', unchanged: 'unchanged', rendered: 'already rendered', planned: 'already queued',
   invalid: 'invalid', source_deleted: 'source deleted', lora_missing: 'LoRA missing',
-  mask_missing: 'mask missing', outpaint: 'outpaint refused', duplicate: 'duplicate', by_hand: 'by hand',
+  mask_missing: 'mask missing', outpaint: 'outpaint refused', mask_crop: 'masked area refused',
+  duplicate: 'duplicate', by_hand: 'by hand',
   structured: 'structured', deleted: 'deleted',
   foreign: 'other checkpoint',
 };

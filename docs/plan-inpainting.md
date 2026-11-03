@@ -47,7 +47,9 @@ is handed the painted mask widened to whole latent cells
 a live job's masks are held in a `mask_holds` table every process's sweep
 reads, not only in the server's memory; the smokes run on ports 7905 and
 7906, not 7904 and 7905 (7904 is `smoke-png-settings`'). FLUX.1 was
-enabled 2026-10-19 (phase 3's last part); remaining: phases 4-6. The
+enabled 2026-10-19 (phase 3's last part). Phase 6, only the masked area,
+was built 2026-11-03 as the app's own crop rather than the class's
+`padding_mask_crop` (Phases, below); remaining: phases 4 and 5. The
 facts list's mask outline over the source's thumbnail is built (2026-10-17).
 `docs/design-notes.md` ("Inpainting") and `docs/rules.md`
 describe what was built.
@@ -153,7 +155,8 @@ needs the Qwen-Image-Edit weights and is likewise out.
   bounding box (grown to the request's aspect and by the padding), denoises
   that crop at the request's `width` x `height`, and pastes it back at the
   source's size (`get_crop_region`, `apply_overlay`). Z-Image's class has no
-  such parameter.
+  such parameter. The app never passes it: phase 6, as built, crops in the
+  app instead (Phases, below).
 - **Strength and steps round as the image-to-image classes do.** SDXL's
   inpaint `get_timesteps` (with no `denoising_start`) runs
   `int(steps * strength)` steps; FLUX.1's, Qwen-Image's, Z-Image's and
@@ -248,7 +251,9 @@ rule for this card):
    row (2560x3360) - allocated / reserved / whole-card, time per step.
 2. FLUX.1 Krea dev: 1 MP. Whether the second VAE encode pushes it from
    15,278 MiB into a spill; if it does, inpaint on FLUX.1 needs
-   `padding_mask_crop` at a smaller working size from the start.
+   `padding_mask_crop` at a smaller working size from the start. (It did
+   not: Krea dev fit at 1 MP, 2026-10-19. Phase 6 later built the working
+   size as the app's own crop.)
 3. Z-Image Turbo and Z-Anime: 1 MP and 2.4 MP.
 4. klein 4B: 1 MP with no reference and with one (the sequence doubles and
    triples). klein 9B at 1 MP.
@@ -403,7 +408,9 @@ different masks as duplicates. It becomes `(*key[:8], ..., *key[9:])`.
   scale buttons belong to the Refine dialog. Checked at submit
   (`submission.unusable_input`, kind `mask`), with the database: the source
   exists and is live, the mask exists, mask size equals source size equals
-  request size. Upscaling a region is a later phase (`padding_mask_crop`).
+  request size. Denoising only the masked area at its own working size is
+  phase 6 (built 2026-11-03, `mask_crop`); the request's size stays the
+  source's there too.
 - **Strength.** The same field and the same `_a_fraction` refusal. Its
   starting value has no author source, so the profile gets an
   `inpaint_strength` key only once measured (open measurement below); until
@@ -742,16 +749,102 @@ user for klein, which gets its first edit of part of an image.
 **Phase 5 - Qwen-Image under Nunchaku (S-M).** Only if the inpaint class
 over the Nunchaku transformer runs at all; WSL only, as the checkpoint is.
 
-**Phase 6 - only the masked area (M).** `padding_mask_crop` with a working
-size: a small region of a large image denoised at a preset size and pasted
-back, which is both the memory answer for large sources on FLUX.1 and the
-detail answer for small regions. A new recorded value (`mask_crop`, the
-padding) in the row, the chunk and the mask key element (`hash+pad`),
-`run_id` unchanged where it is None. Not available on Z-Image, whose class
-has no such parameter.
+**Phase 6 - only the masked area (M). Built 2026-11-03 (was TODO
+`INP#9`), as the app's own crop, on FLUX.1, SDXL and Z-Image, for inpaints
+and outpaints; nothing of it is measured on the card (`CARD#13`).** Matt
+reopened it that day and chose the app crop over the class parameter. A
+box around the mask is denoised at about 1 MP and pasted back: the detail
+answer for a small region of a large picture, and the memory answer for a
+large source.
+
+*Why not `padding_mask_crop`.* The first plan passed the class's own
+parameter. Three things made the app's crop the better fit:
+
+- Z-Image's inpaint class has no such parameter, and Z-Anime, which fills
+  the card at 2.4 MP, gains the most.
+- The class decides the region (`get_crop_region`, grown to the request's
+  aspect), so the recorded geometry would depend on the diffusers version,
+  and proving the composite's coverage would mean replaying its mask
+  resize, 0.5 binarisation and nearest sampling on the CPU.
+- The class pastes back with `apply_overlay` over the raw mask as alpha,
+  and the app's composite then blends by the same levels again, squaring a
+  feather; it would need a binary class mask.
+
+The app crop reuses `refine.pipeline_mask` and `refine.composite`
+unchanged, its region is a pure function of the content-addressed mask and
+the spec (so it keys by the spec and is recovered provably), and it runs
+the same on every inpaint family and under Nunchaku.
+
+*The request.* `GenerateRequest.mask_crop` (`schemas_mask_crop.MaskCropSpec`,
+unknown fields refused): `rule` `"bbox16"`, `pad` 0-256 in steps of 8
+(default 32, in source or canvas pixels), `tier` 1 (about 1 MP);
+`key()` `bbox16:32@1`, `parse_key()` its exact inverse. Allowed only beside
+`refine` with a `mask` or an `outpaint`, never with an edit; `applied()`
+drops it wherever it drops the mask. The request's `width` x `height` stay
+the source's (or the canvas's), so the row's size, `completed_cells`,
+`run_id`'s size and every size check are unchanged; `denoise_size(working)`
+is the one reader of the size the class runs at.
+
+*The frozen rule `bbox16`* (`backend/mask_crop.py`, `region`): the bounding
+box of the painted levels above 0, plus the padding, clamped to the
+picture; snapped outward to the 16 grid; the short side grown (centred,
+shifted back inside) to hold the aspect within 12:5; the working size at
+`sizes.largest_tier_pixels(tier)` in the box's own aspect, each side on the
+16 grid and at least 256, by integer arithmetic only, never a preset
+(`nearest_preset` answers None off the preset aspects and stretches by up
+to 2% on them). A SHA-256 pin over a sweep of masks freezes it; a changed
+rule is a new name. `crop_inputs` hands the class the box resized by
+Lanczos and a mask binarised (>0 to 255) before its BOX resize, thresholded
+at >0 again, widened by `r = max(block, ceil(3*max(1, W/rw, H/rh)))`
+working pixels (the Lanczos paste back's reach, proven by a coverage test,
+not by the formula) and then `pipeline_mask`. After each call
+`paste_back` resizes the result to the box over a copy of the source, and
+the unchanged `refine.composite` puts every unmasked pixel back exactly.
+
+*Results, not keys.* The box and working size are recorded like the peak
+memory pair: the `mask_crop_box` column (`x1,y1,x2,y2>WxH`), the chunk's
+`mask_crop` {rule, pad, tier, box, working} (absent otherwise) and the
+backend's `last_mask_crop()`. The key is the spec's: `grid.mask_key`
+appends `+bbox16:32@1` to the fifth element only when a crop is set, so
+`CellKey` has no new slot and every existing `run_id` is unchanged; two
+paddings are two cells. The A1111 line ends `, Mask crop: bbox16:32@1`.
+
+*Refusals.* No source or mask; an edit; no gain (the box is the whole
+picture and no larger than the working size: "run it as an ordinary
+inpaint"); and a recorded region that its mask no longer gives under its
+rule (Re-render, Swap tags and More seeds, status `mask_crop`; the CLI's
+`--from-image`).
+
+*Carries.* Re-render, Swap tags, More seeds and `--from-image` carry it
+with the mask; Mass refine, Then refine and Load settings from PNG drop it.
+Bundles stay `version: 1`, as the outpaint did: a merge checks the region
+against the mask, recomputes a missing one, and recovers a crop an older
+build stripped from the A1111 line only where the mask is there to
+recompute its region (`mask_crops_recovered`); reindex does the same,
+counting `mask_crop_malformed`. The start sigma and the live preview read
+the working size. Estimates price a cropped cell from cropped rows of its
+tier only, never by the source's size.
+
+*The page and the CLI.* Each dialog has an "Only the masked area" tick and
+a Padding box in a row it already had (Inpaint's tools row, Outpaint's band
+row), greyed while unticked and `aria-disabled` with the reason where the
+checkpoint has no inpaint; the preview line adds the area and its working
+size, and the server's box is drawn over the picture. The facts list has a
+"Masked area only" row, and Reuse restores the tick and the padding. The CLI
+takes `--mask-crop PAD` beside `--mask` or `--outpaint`. Search
+`maskcrop:yes|no`, stats `--by maskcrop`. The outpaint canvas guard stays
+at `refine_max_*`.
 
 Total: an L, about two weeks of work for phases 0-2 and a few days for each
 of 3-6, plus card time that only the user can run.
+
+Phase 6's tests: `tests/test_mask_crop.py` (the rule, its pin and the
+coverage proof), `tests/test_mask_crop_storage.py` (row, chunk, reindex,
+bundles, carries, search and pricing), `tests/test_mask_crop_refusals.py`
+(the refusals' words, the preview's region and the CLI), the backend's
+cropped branch in `tests/test_inpaint.py`, the keys in
+`tests/test_conditioning.py`, and sections in `smoke-inpaint`,
+`smoke-inpaint-unavailable` and `smoke-outpaint`.
 
 ## Open measurements (the card's to say)
 
@@ -759,7 +852,8 @@ This numbered list preserves the original measurement scope, not a fresh
 queue. Results since then are in [verified.md](verified.md#inpaint),
 including embedded-mask sizes, Krea dev outpaint and Nunchaku inpaint.
 Current remaining work is indexed in [TODO](../TODO.md): `CARD#1` and
-`CARD#3` for supported inpaints, `INP#5`/`INP#6` for deferred families.
+`CARD#3` for supported inpaints, `CARD#13` for phase 6's masked-area
+crop, `INP#5`/`INP#6` for deferred families.
 Do not reopen completed measurements from this original checklist.
 
 1. Peak memory and time per family at 1 MP, and the largest size each holds

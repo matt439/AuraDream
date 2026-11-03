@@ -100,6 +100,30 @@
 /* A refused press says it here in the preview's place, at its size. */
 #inpaint-error { font-size: var(--fs-body-sm); margin-top: 2px; white-space: pre-line; }
 
+/* Only the masked area, in the tools' first row beside the mask's tools:
+   the tick, its help and the padding. Unticked, the padding is greyed,
+   never hidden, so nothing in the row moves. */
+.ip-crop {
+  display: flex; align-items: center; gap: var(--sp-1); margin-left: var(--sp-2);
+  font-size: var(--fs-label);
+}
+.ip-crop .check { font-size: var(--fs-label); }
+.ip-crop-pad { display: flex; align-items: center; gap: var(--sp-1); margin-left: var(--sp-1); color: var(--muted); }
+.ip-crop-pad input {
+  width: 8ch; height: var(--h-sm); padding: 0 6px; font: inherit; color: var(--text);
+  font-variant-numeric: tabular-nums;
+  background: var(--panel-2); border: 1px solid var(--line-strong); border-radius: var(--r-md);
+}
+.ip-crop.off .ip-crop-pad { opacity: 0.45; }
+/* The box the server works out, dashed over the picture as the Outpaint
+   dialog draws its band's edge (outpaint.css's .op-band). */
+.ip-crop-box {
+  position: absolute; box-sizing: border-box; pointer-events: none;
+  border: 1px dashed var(--accent-2);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
+}
+.ip-crop-box[hidden] { display: none; }
+
 /* An inpaint's card badge: a pass with a mask, at its strength (the refined
    badge's place and look, sheet.css). */
 .card.refined.inpainted::before { content: "✎ " attr(data-strength); }

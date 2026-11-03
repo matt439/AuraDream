@@ -171,6 +171,21 @@ def _validate_row(row: dict, width: int, height: int, content_hash: str) -> None
             spec = None
         if spec is None or refine is None or mask is None or not spec.wellformed():
             raise BundleError(f"invalid outpaint on image {row['id']}")
+    # Only the masked area: its spec in a key this build reads, only beside
+    # its source and its mask, and its region (a result) in its one spelling,
+    # only beside it and inside the picture. Whether the region is its mask's
+    # is the merge's question, which has the mask (`bundles`).
+    crop = row.get("mask_crop")
+    if crop is not None:
+        try:
+            storage.MaskCropSpec.parse_key(crop)
+        except (TypeError, ValueError):
+            raise BundleError(f"invalid mask crop on image {row['id']}") from None
+        if refine is None or mask is None:
+            raise BundleError(f"invalid mask crop on image {row['id']}")
+    box = row.get("mask_crop_box")
+    if box is not None and (crop is None or storage._box_within(box, width, height) != box):
+        raise BundleError(f"invalid mask crop on image {row['id']}")
     upscaler = row.get("upscaler")
     if upscaler is not None and storage._upscaler(
         upscaler, source=refine, model_id=row.get("model_id"), mask=mask, outpaint=outpaint,
@@ -272,6 +287,10 @@ def _metadata(row: dict, by_id: dict[int, dict]) -> dict:
     crop_anchor = png_settings.crop_anchor(
         row.get("crop_anchor"), source=row.get("refine"), mask=row.get("mask"), outpaint=row.get("outpaint"),
     )
+    crop = (
+        storage.MaskCropSpec.parse_key(row["mask_crop"]) if row.get("mask_crop") and row.get("mask") else None
+    )
+    region = storage.parse_mask_crop_box(row["mask_crop_box"]) if crop and row.get("mask_crop_box") else None
     return {
         "prompt": row["prompt"], "negative_prompt": row["negative_prompt"],
         "steps": row["steps"], "guidance_scale": row["guidance_scale"], "true_cfg": row["true_cfg"],
@@ -294,6 +313,8 @@ def _metadata(row: dict, by_id: dict[int, dict]) -> dict:
         "outpaint_fill": outpaint.fill if outpaint is not None else None,
         "batch": row.get("batch"),
         **({"crop_anchor": crop_anchor} if crop_anchor is not None else {}),
+        # Only the masked area, absent on every other row as the crop anchor.
+        **({"mask_crop": storage.mask_crop_chunk(crop, region)} if crop is not None else {}),
         **({"upscaler": row["upscaler"]} if row.get("upscaler") is not None else {}),
         **execution_chunk(execution_from_json(row.get("execution"))),
         **edit_chunk(edit_from_json(row.get("edit"))),
