@@ -320,7 +320,8 @@ merely because work arrived or a status poll changed.
 Keep semantic landmarks, labels, visible focus and keyboard paths through
 the critical loop. Provide essential actions without hover or right-click.
 Sheet roving-grid work remains UI#4; browser keyboard, forced colours and
-reduced motion checks are UI#9, and hands-on screen-reader/touch qualification
+reduced motion checks are UI#9 (browser pass completed 2026-10-18,
+[validation.md](validation.md#accessibility-and-desktop-checks)), and hands-on screen-reader/touch qualification
 remains UI#7. Do not call accessibility-tree checks complete
 assistive-technology validation.
 
