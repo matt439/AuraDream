@@ -2119,7 +2119,12 @@ measured on the card and when.
   label from every status frame's `paused`/`pause_requested` but one that
   contradicts its own press while that POST is out (`pauseAsking`); the
   label is the state, so it has no `aria-pressed` (the toggle rule,
-  Frontend). A
+  Frontend). Cancel is likewise held from every status frame's
+  `cancel_requested` (`syncCancel`), which `JobManager.cancel` sends to
+  every stream at once for a running job: "Stopping…", `aria-disabled`,
+  titled "This job is stopping after the current step", in any tab
+  watching the job and after a reload, and not offered again by a frame
+  older than this page's own press while its POST is out. A
   running job of one cell has Pause `aria-disabled` with the reason. A queued
   job's pause is kept (`JobManager.pause`) and holds it before its first unit
   once its turn comes, keeping the gate; its cell line says "will hold before
