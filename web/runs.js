@@ -106,8 +106,13 @@ function syncLastRunFinish() {
   const run = els.lastRun.dataset.run;
   line.hidden = !run || els.lastRunResume.hidden;
   if (line.hidden) return;
-  const counts = finishRunCounts(finishRuns.get(run));
-  const text = counts === null ? 'Checking Finish run…' : `Finish run: ${counts || 'nothing missing'}`;
+  const state = finishRuns.get(run);
+  const counts = finishRunCounts(state);
+  // A read that settled with neither answer nor error (its context moved on)
+  // says what the button's hold says, never "nothing missing".
+  const text = counts === null ? 'Checking Finish run…'
+    : counts ? `Finish run: ${counts}`
+    : state.preview?.available ? 'Finish run: nothing missing' : 'Finish run is unavailable';
   if (line.textContent !== text) line.textContent = text;
   if (line.title !== text) line.title = text;
 }
