@@ -74,6 +74,10 @@ class FakeBackend(GenerationBackend):
         # that returned: None, as on a CPU, unless a test sets it.
         self.peak: tuple[int, int] | None = None
         self._last_peak: tuple[int, int] | None = None
+        # The masked-area region the last call ran (`last_mask_crop()`), and
+        # the working size each cropped call denoised at, in order.
+        self._last_mask_crop = None
+        self.working_sizes: list[tuple[int, int]] = []
         self.after_generate = None
         # The instruction-edit gate, closed by default (the real backend's
         # is open since its release). Only the literal True opens it
@@ -248,6 +252,7 @@ class FakeBackend(GenerationBackend):
             # and nowhere else, so a job that reaches here unloaded is a bug.
             raise RuntimeError("model is not loaded")
         self._last_peak = None
+        self._last_mask_crop = None
         self.requests.append(request)
         self.seeds.append(seed)
         if len(self.requests) in self.fail_on:
@@ -280,6 +285,9 @@ class FakeBackend(GenerationBackend):
     def last_peak(self):
         return self._last_peak
 
+    def last_mask_crop(self):
+        return self._last_mask_crop
+
     def _edit(self, request, seed, on_progress, should_cancel):
         """An instruction edit as the real backend's branch runs one: its
         source proved again and prepared at the working size, one image at
@@ -308,12 +316,13 @@ class FakeBackend(GenerationBackend):
         self._last_peak = self.peak
         return [prepared]
 
-    @staticmethod
-    def _inpaint(request, seed):
+    def _inpaint(self, request, seed):
         """The source with only its masked pixels changed: a flat fill by each
         image's seed, through the real composite, so a test can read the
-        result against the source."""
-        from backend import refine
+        result against the source. Only the masked area runs the real
+        `mask_crop.crop_inputs` and `paste_back` around the fill, at the
+        working size the real backend would hand the class."""
+        from backend import mask_crop, refine
 
         # An outpaint's picture is its padded source, so the kept rectangle
         # reads against the source and the new area against the seed's fill.
@@ -322,10 +331,25 @@ class FakeBackend(GenerationBackend):
         else:
             source = refine.inpaint_source(request.refine, request.width, request.height)
         mask = refine.mask_image(request.mask, request.width, request.height)
-        return [
-            refine.composite(mask, source, Image.new("RGB", source.size, fake_fill(seed + offset)))
+        if request.mask_crop is None:
+            return [
+                refine.composite(mask, source, Image.new("RGB", source.size, fake_fill(seed + offset)))
+                for offset in range(request.num_images)
+            ]
+        cropped = mask_crop.region(mask, request.mask_crop)
+        inputs = mask_crop.crop_inputs(source, mask, cropped)
+        working = request.denoise_size(cropped.working)
+        assert inputs.image.size == working
+        self.working_sizes.append(working)
+        images = [
+            refine.composite(
+                mask, source,
+                mask_crop.paste_back(source, Image.new("RGB", working, fake_fill(seed + offset)), cropped.box),
+            )
             for offset in range(request.num_images)
         ]
+        self._last_mask_crop = cropped
+        return images
 
     def describe(self) -> dict:
         self._sync_model_profile()

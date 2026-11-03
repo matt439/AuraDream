@@ -20,6 +20,7 @@ from ..instruction_edit import (
 if TYPE_CHECKING:
     from PIL.Image import Image
 
+    from ..mask_crop import Crop
     from ..schemas import GenerateRequest
     from .regional_compile import RegionalDiagnostics
 
@@ -233,6 +234,17 @@ class GenerationBackend(abc.ABC):
         peak is the call's, so a batch's images share it. None where this
         backend cannot say - no CUDA device, a call that raised, or the
         default.
+        """
+        return None
+
+    def last_mask_crop(self) -> "Crop | None":
+        """The masked-area region the last `generate()` that returned images
+        ran: its box on the source and its working size. Optional.
+
+        A result beside the peak, never part of what made the images or of
+        any key: the request's `mask_crop` spec is, and the region follows
+        from it and the mask (`mask_crop.region`). None for a run without
+        one, a call that raised, or the default.
         """
         return None
 

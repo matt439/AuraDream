@@ -500,6 +500,164 @@ def test_an_inpaint_runs_at_its_sources_size(inpaintable):
         backend.generate(request, seed=1)
 
 
+def _small_mask(tmp_path) -> Image.Image:
+    """A 40x24 painted patch with a level-1 feather, saved where the
+    `inpaintable` fixture's store resolves MASK."""
+    painted = Image.new("L", (256, 256), 0)
+    painted.paste(255, (60, 70, 100, 94))
+    painted.paste(1, (59, 70, 60, 94))
+    painted.save(tmp_path / f"{MASK}.png")
+    return painted
+
+
+def _cropped(record, **extra) -> GenerateRequest:
+    from backend.schemas import MaskCropSpec
+
+    return GenerateRequest(
+        prompt="a fox", width=256, height=256, steps=10, refine=record.id, strength=0.6, mask=MASK,
+        mask_crop=MaskCropSpec(), **extra,
+    )
+
+
+def test_only_the_masked_area_runs_the_class_at_its_working_size(inpaintable, tmp_path):
+    from backend import mask_crop
+
+    backend, record, asked = inpaintable
+    painted = _small_mask(tmp_path)
+    request = _cropped(record, num_images=2)
+    crop = mask_crop.region(painted, request.mask_crop)
+    # The box is the patch plus 32 px, on the grid; at 1 MP it runs larger.
+    assert crop.box == (16, 32, 144, 128) and crop.working == (1200, 896)
+    images = backend.generate(request, seed=7)
+
+    runner = backend._inpaint_pipe
+    with Image.open(backend_source_path(record)) as handle:
+        source = handle.convert("RGB")
+    inputs = mask_crop.crop_inputs(source, painted, crop)
+    # The class gets the box at the working size, its width and height that
+    # size too - on the 16 grid, never a preset - and the widened mask
+    # there; the padding_mask_crop route is never taken.
+    for call in runner.calls:
+        assert call["size"] == crop.working == call["image"].size
+        assert all(side % 16 == 0 for side in call["size"])
+        assert call["image"].tobytes() == inputs.image.tobytes()
+        assert call["mask_image"].tobytes() == inputs.pipeline_mask.tobytes()
+    assert "padding_mask_crop" not in inspect.signature(InpaintStub.__call__).parameters
+    assert asked == [MASK]
+    # The result is at the source's size: the source's own pixels outside
+    # the mask, the pasted-back fill under it.
+    x1, y1, x2, y2 = crop.box
+    keep = Image.new("L", (256, 256), 255)
+    keep.paste(0, (59, 70, 100, 94))
+    for image, seed in zip(images, (7, 8)):
+        assert image.size == (256, 256)
+        assert Image.composite(image, source, keep).tobytes() == source.tobytes()
+        assert image.getpixel((80, 80)) == fake_fill(seed)
+        outside = Image.new("L", (256, 256), 255)
+        outside.paste(0, crop.box)
+        assert Image.composite(image, source, outside).tobytes() == source.tobytes()
+    # The region is a result beside the peak, for the row.
+    assert backend.last_mask_crop() == crop
+    backend.generate(GenerateRequest(prompt="x", width=256, height=256, steps=10,
+                                     refine=record.id, strength=0.6, mask=MASK), seed=1)
+    assert backend.last_mask_crop() is None
+    assert runner.calls[-1]["size"] == (256, 256)
+
+
+def test_a_cropped_inpaint_still_runs_at_its_sources_size(inpaintable, tmp_path):
+    backend, record, _ = inpaintable
+    _small_mask(tmp_path)
+    request = _cropped(record).model_copy(update={"width": 384, "height": 384})
+    with pytest.raises(ValueError, match="an inpaint runs at its source's size"):
+        backend.generate(request, seed=1)
+    assert backend.last_mask_crop() is None
+
+
+def test_a_cropped_outpaint_runs_its_box_of_the_padded_canvas(inpaintable, store, monkeypatch, tmp_path):
+    from backend import mask_crop, outpaint
+    from backend.schemas import MaskCropSpec, Outpaint
+
+    backend, record, _ = inpaintable
+    spec = Outpaint(right=64, band=16)
+    width, height = record.width + 64, record.height
+    built = outpaint.mask(width, height, spec)
+    digest = store.mask_hash(built)
+    path = tmp_path / f"{digest}.png"
+    built.save(path)
+    monkeypatch.setattr(store, "mask_path", lambda h: path if h == digest else None)
+    request = GenerateRequest(
+        prompt="a wider view", width=width, height=height, steps=10, refine=record.id, strength=0.9,
+        outpaint=spec, mask_crop=MaskCropSpec(pad=0),
+    ).model_copy(update={"mask": digest})
+    crop = mask_crop.region(built, request.mask_crop)
+    assert crop.box[0] > 0 and crop.box[2:] == (width, height)
+    (image,) = backend.generate(request, seed=7)
+    (call,) = backend._inpaint_pipe.calls
+    assert call["size"] == crop.working == call["image"].size
+    assert image.size == (width, height)
+    with Image.open(backend_source_path(record)) as handle:
+        source = handle.convert("RGB")
+    # Left of the band the source is untouched; the new area is the fill.
+    assert image.crop((0, 0, record.width - 16, height)).tobytes() == source.crop(
+        (0, 0, record.width - 16, height)).tobytes()
+    assert image.getpixel((width - 8, 100)) == fake_fill(7)
+    # Its start sigma is asked at the same working size before the stamp,
+    # from the spec's own mask.
+    unstamped = request.model_copy(update={"mask": None})
+    assert mask_crop.request_region(unstamped) == crop == mask_crop.request_region(request)
+
+
+def test_the_start_sigma_of_a_cropped_inpaint_is_read_at_its_working_size(inpaintable, tmp_path, monkeypatch):
+    from backend import mask_crop
+
+    backend, record, _ = inpaintable
+    painted = _small_mask(tmp_path)
+    monkeypatch.setattr(module.refine, "start_index", lambda *args: 2)
+    seen: list[tuple[int, int]] = []
+    monkeypatch.setattr(
+        module.schedule, "start_sigma",
+        lambda pipe, sibling, request, start: seen.append((request.width, request.height)) or 0.5,
+    )
+    request = backend.applied(_cropped(record))
+    assert backend.start_sigma(request) == 0.5
+    assert backend.start_sigma(request.model_copy(update={"mask_crop": None})) == 0.5
+    assert seen == [mask_crop.region(painted, request.mask_crop).working, (256, 256)]
+    # The request itself keeps the source's size: the row's and the keys'.
+    assert (request.width, request.height) == (256, 256)
+
+
+def test_a_cropped_inpaints_preview_unpacks_at_the_working_size(inpaintable, tmp_path, monkeypatch):
+    from backend import latent_preview, mask_crop
+
+    backend, record, _ = inpaintable
+    painted = _small_mask(tmp_path)
+    monkeypatch.setattr(latent_preview, "INTERVAL_SECONDS", 0)
+    sizes = []
+    monkeypatch.setattr(backend, "_preview", lambda pipe, latents, request, step, size=None: sizes.append(size))
+    backend.generate(_cropped(record), seed=1, on_preview=lambda *args: None)
+    working = mask_crop.region(painted, _cropped(record).mask_crop).working
+    assert sizes and set(sizes) == {working}
+
+
+def test_z_images_class_takes_the_working_image_at_its_own_size(tmp_path):
+    # Z-Image's call preprocesses the image with no size and refuses one off
+    # its 16 grid: the working image is on it, so the size it reads is the
+    # working size handed beside it.
+    from diffusers.image_processor import VaeImageProcessor
+
+    from backend import mask_crop
+    from backend.schemas import MaskCropSpec
+
+    for size, patch in (((1344, 768), (100, 300, 1300, 340)), ((832, 1216), (40, 50, 120, 90))):
+        source = Image.effect_noise(size, 64).convert("RGB")
+        painted = Image.new("L", size, 0)
+        painted.paste(255, patch)
+        crop = mask_crop.region(painted, MaskCropSpec())
+        inputs = mask_crop.crop_inputs(source, painted, crop, 8)
+        processed = VaeImageProcessor(vae_scale_factor=16).preprocess(inputs.image)
+        assert tuple(processed.shape[-2:]) == (crop.working[1], crop.working[0])
+
+
 def test_a_cancelled_inpaint_still_hands_the_card_back(inpaintable):
     backend, record, _ = inpaintable
     request = GenerateRequest(prompt="x", width=256, height=256, steps=10,
@@ -734,6 +892,37 @@ def test_the_fake_repaints_only_under_the_mask(store, monkeypatch, tmp_path):
     # Off, the mask goes with the source.
     fake.inpaint_supported = False
     assert fake.applied(request).mask is None and fake.applied(request).refine is None
+
+
+def test_the_fake_crops_through_the_real_rule(store, monkeypatch, tmp_path):
+    from fakes import FakeBackend
+
+    from backend import mask_crop
+    from backend.schemas import MaskCropSpec
+
+    source = store.save_image(
+        Image.effect_noise((256, 256), 64).convert("RGB"),
+        GenerateRequest(prompt="a fox", width=256, height=256),
+        seed=1, duration_ms=10, model_id="test/model",
+    )
+    mask = Image.new("L", (256, 256), 0)
+    mask.paste(255, (40, 40, 80, 72))
+    path = tmp_path / "mask.png"
+    mask.save(path)
+    monkeypatch.setattr(store, "mask_path", lambda h: path)
+    fake = FakeBackend()
+    request = GenerateRequest(prompt="x", width=256, height=256, steps=4, refine=source.id,
+                              strength=0.6, mask=MASK, mask_crop=MaskCropSpec(pad=16))
+    (image,) = fake.generate(fake.applied(request), seed=3)
+    crop = mask_crop.region(mask, request.mask_crop)
+    assert fake.working_sizes == [crop.working] and fake.last_mask_crop() == crop
+    with Image.open(store.settings.outputs_dir / source.filename) as handle:
+        original = handle.convert("RGB")
+    keep = Image.new("L", (256, 256), 255)
+    keep.paste(0, (40, 40, 80, 72))
+    assert image.size == (256, 256)
+    assert Image.composite(image, original, keep).tobytes() == original.tobytes()
+    assert image.getpixel((60, 56)) == fake_fill(3)
 
 
 def test_a_hash_the_server_holds_no_mask_under_is_named(store):

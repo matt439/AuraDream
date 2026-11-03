@@ -19,12 +19,13 @@ changed rule is a new rule name, as a changed outpaint fill is a new fill.
 
 The box and working size are results, recorded for display and pricing and
 never part of a key: the spec's `key()` is. A leaf: Pillow, numpy, `sizes`
-and `refine` (itself a leaf), none of the package's settings.
+and `refine` (itself a leaf), none of the package's settings; only
+`request_region` reads a stored mask, through `refine.mask_image`.
 """
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING, NamedTuple, Protocol
+from typing import TYPE_CHECKING, Any, NamedTuple, Protocol
 
 import numpy as np
 
@@ -67,9 +68,13 @@ _POSITIVE = [0] + [255] * 255
 
 
 class Spec(Protocol):
-    rule: str
-    pad: int
-    tier: int
+    # Read-only, so a frozen spec's narrower literals satisfy it.
+    @property
+    def rule(self) -> str: ...
+    @property
+    def pad(self) -> int: ...
+    @property
+    def tier(self) -> int: ...
 
 
 class Crop(NamedTuple):
@@ -181,6 +186,29 @@ def region(painted: "Image", spec: Spec) -> Crop:
     elif rh * ASPECT_SHORT > rw * ASPECT_LONG:
         x1, x2 = _grow(x1, x2, _ceil_to(_ceil_to(rh * ASPECT_SHORT, ASPECT_LONG) // ASPECT_LONG, GRID), width)
     return Crop((x1, y1, x2, y2), working_size(x2 - x1, y2 - y1, spec.tier))
+
+
+def request_region(request: Any) -> Crop | None:
+    """The region a request's crop decides, or None without one: its stored
+    mask read at the request's size (`refine.mask_image`, the mask file
+    only), or an outpaint's before its stamp built from its spec
+    (`outpaint.mask`, the same picture the stamp stores). The backend's call
+    and its start sigma both read the working size from here, through
+    `GenerateRequest.denoise_size`."""
+    spec = getattr(request, "mask_crop", None)
+    if spec is None:
+        return None
+    if request.mask is not None:
+        painted = refine.mask_image(request.mask, request.width, request.height)
+    elif request.outpaint is not None:
+        from . import outpaint
+
+        painted = outpaint.mask(request.width, request.height, request.outpaint)
+    else:
+        from .schemas_mask_crop import MASK_CROP_NEEDS_A_MASK
+
+        raise ValueError(MASK_CROP_NEEDS_A_MASK)
+    return region(painted, spec)
 
 
 def no_gain(crop: Crop, width: int, height: int) -> bool:
