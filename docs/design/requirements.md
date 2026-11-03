@@ -136,12 +136,12 @@ answers and exceptions.
 ### UX#7 — Understand work while it runs or waits · P0 · Current
 
 - **Basis:** D1, D3–D5 and D7–D10 Often prioritizes progress, session results, queueing, job selection, cancel, retry/remainder and reconnect. Live preview is Sometimes; pause/resume is Never. Existing states still have distinct behavior.
-- **Story:** I can tell what the workstation is doing, choose the job I am watching, queue or cancel work, retry its remainder and return later without discarding saved results.
+- **Story:** I can tell what the workstation is doing, choose the job I am watching (Proposed: see the 2026-11-03 note), queue or cancel work, retry its remainder and return later without discarding saved results.
 - **Acceptance:** representative loading, queued, paused, canceling, failed and completed states identify the work and relevant available action; a held action explains its reason when pressed.
 - **Acceptance:** closing/reopening a tab reconnects to surviving server work; a server restart does not imply that queued jobs survived.
 - **Acceptance:** progress/elapsed/estimates, watched-job identity, running and queued cancel actions, and retry/remainder remain direct without opening advanced job controls. Live preview can be shown contextually; Pause is secondary and retains its existing semantics. New arrivals do not displace the watched job or move its cancel target.
 - **Trace:** [usage: jobs](../usage.md#generate-and-manage-jobs), [queue owner](../design-notes.md#the-browsers-queue); notifications (`UI#2`) and Expand cancellation (`GEN#2`) are built. Actual native notification delivery remains a hands-on check under `UI#7`. A job whose cancel was requested shows Cancel as Stopping…, held, in every tab watching it (2026-11-03).
-- **Note, 2026-11-03:** choosing the watched job is not built. The page watches the running job, else the oldest queued ([the browser's queue](../design-notes.md#the-browsers-queue)); Move to front steers what runs next. The workbench's watch selector is proposed; whether to build an entry point is open for Matt.
+- **Note, 2026-11-03:** choosing the watched job is not built, and that part of the story is **Proposed**, not Current (Matt's decision, 2026-11-03): the rest of UX#7 stays Current. The page watches the running job, else the oldest queued ([the browser's queue](../design-notes.md#the-browsers-queue)); Move to front steers what runs next. The workbench's watch selector remains a candidate; no entry point on queued rows is planned.
 - **Dependency:** single-worker lifecycle and cooperative cancel/pause contracts; no background auto-queueing.
 
 ## Experiments, comparison and continuation
