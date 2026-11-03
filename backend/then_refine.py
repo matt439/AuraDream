@@ -38,7 +38,8 @@ def stand_in(request: GenerateRequest, spec: ThenRefine) -> GenerateRequest:
     return request.model_copy(update={
         "width": width, "height": height, "num_images": 1, "runs": 1,
         "refine": 1, "strength": spec.strength, "steps": spec.steps or request.steps,
-        "reference": [], "mask": None, "outpaint": None, "upscaler": None, "crop_anchor": "center",
+        "reference": [], "mask": None, "outpaint": None, "mask_crop": None, "upscaler": None,
+        "crop_anchor": "center",
     })
 
 

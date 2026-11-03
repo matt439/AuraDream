@@ -97,8 +97,14 @@ def create_router(services: AppServices) -> APIRouter:
                 await asyncio.to_thread(gallery_reports.refine_cost_ms, width, height, model, inpaint=True)
                 if any(cell.request.inpainting for cell in cells) else None
             )
+            # A masked-area-only pass by its working tier, never this size.
+            crop_costs = (
+                await asyncio.to_thread(gallery_reports.mask_crop_cost_ms, model)
+                if any(cell.request.mask_crop is not None for cell in cells) else None
+            )
             priced = grid.estimate_seconds(
-                cells, per_step_ms, refine_costs=refine_costs, inpaint_costs=inpaint_costs
+                cells, per_step_ms, refine_costs=refine_costs, inpaint_costs=inpaint_costs,
+                crop_costs=crop_costs,
             )
             if priced is None:
                 unpriced += 1

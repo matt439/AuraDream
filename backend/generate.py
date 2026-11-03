@@ -234,6 +234,7 @@ def _then_refine_passes(p, backend, records, spec, pass_run, job_id, on_progress
                 image, ran, seed=cell.seed, duration_ms=elapsed_ms // max(len(images), 1),
                 model_id=p.settings.model_id, job_id=job_id, run_id=pass_run,
                 quantization=p.settings.quantization, variables=cell.variables, batch=1, peak=peak,
+                mask_region=backend.last_mask_crop(),
             )
             made.append(saved)
             print(f"{p.settings.outputs_dir / saved.filename}  seed {saved.seed}  pass of #{record.id}", flush=True)
@@ -1208,6 +1209,7 @@ def main(argv: list[str] | None = None) -> int:
                             variables=cell.variables,
                             batch=cell.request.num_images,
                             peak=peak,
+                            mask_region=backend.last_mask_crop(),
                         )
                         break
                     except p.gallery_lock.GalleryBusy:

@@ -88,6 +88,7 @@ def test_reindex_copies_another_gallery_in(store, monkeypatch, tmp_path):
         "unresolved_references": 0, "masks": 0, "bad_masks": 0, "unresolved_masks": 0,
         "unresolved_edits": 0,
         "outpaint_malformed": 0, "outpaints_recovered": 0, "outpaint_masks_rebuilt": 0,
+        "mask_crop_malformed": 0, "mask_crops_recovered": 0,
         "invalid_upscalers": 0,
         "invalid_crop_anchors": 0,
         "invalid_execution": 0,
@@ -136,6 +137,8 @@ def test_database_merge_preserves_db_fields_and_remaps_references(
         "outpaint_malformed": 0,
         "outpaints_recovered": 0,
         "outpaint_masks_rebuilt": 0,
+        "mask_crop_malformed": 0,
+        "mask_crops_recovered": 0,
     }
 
     items, total, _ = store.list_images(limit=10)

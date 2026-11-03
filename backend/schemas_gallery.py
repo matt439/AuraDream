@@ -83,6 +83,12 @@ class ImageRecord(BaseModel):
     # Only the masked area's spec (`MaskCropSpec.key()` in the column):
     # set only beside `refine` and `mask`, an outpaint's built mask too.
     mask_crop: MaskCropSpec | None = None
+    # The region it ran (`mask_crop.region`): the box on the source,
+    # `(x1, y1, x2, y2)`, and the working size. Results beside the peak,
+    # for display and pricing, never part of a key; only beside `mask_crop`,
+    # None where it is not known (a mask lost before it could be read).
+    mask_crop_box: tuple[int, int, int, int] | None = None
+    mask_crop_working: tuple[int, int] | None = None
     # Recorded arithmetic, not permission to execute it on this build.
     execution: ExecutionSpec | None = None
     # Frozen source proof survives missing or unproven imported source ids.
@@ -137,6 +143,14 @@ class ImageRecord(BaseModel):
         crop_anchor(self.crop_anchor, source=self.refine, mask=self.mask, outpaint=self.outpaint)
         if self.mask_crop is not None and (self.refine is None or self.mask is None):
             raise ValueError("only the masked area is recorded beside its source and mask")
+        if (self.mask_crop_box is None) != (self.mask_crop_working is None) or (
+            self.mask_crop_box is not None and self.mask_crop is None
+        ):
+            raise ValueError("a masked area's box and working size are recorded together, beside its spec")
+        if self.mask_crop_box is not None:
+            x1, y1, x2, y2 = self.mask_crop_box
+            if not (0 <= x1 < x2 <= self.width and 0 <= y1 < y2 <= self.height):
+                raise ValueError(f"a masked area's box {self.mask_crop_box} is not inside its picture")
         if self.edit is not None and (
             self.refine is not None or self.mask is not None or self.outpaint is not None
             or self.mask_crop is not None

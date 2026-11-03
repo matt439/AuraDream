@@ -51,6 +51,9 @@ FILTERS: dict[str, tuple[str, Any]] = {
     # Handled by outpaint_clause: `outpaint:yes` / `outpaint:no`. An outpaint
     # has a mask too, so `inpaint:yes outpaint:no` is the painted ones.
     "outpaint": ("outpaint", None),
+    # Handled by maskcrop_clause: `maskcrop:yes` / `maskcrop:no`, the
+    # inpaints and outpaints that ran only the masked area, and the rest.
+    "maskcrop": ("mask_crop", None),
     "edit": ("edit", None),
     "job": ("job_id", str),
     "run": ("run_id", str),
@@ -197,6 +200,13 @@ def outpaint_clause(raw: str) -> tuple[str, list]:
     return _yes_no_clause("outpaint", "outpaint", raw)
 
 
+def maskcrop_clause(raw: str) -> tuple[str, list]:
+    """`maskcrop:yes` and `maskcrop:no`: a pass that denoised only the
+    masked area (its spec on the row), or none. Only ever an inpaint or an
+    outpaint, so `maskcrop:no inpaint:yes` is the whole-picture inpaints."""
+    return _yes_no_clause("maskcrop", "mask_crop", raw)
+
+
 def inpaint_clause(raw: str) -> tuple[str, list]:
     """`inpaint:yes` (or `true`, `1`) and `inpaint:no` (`false`, `0`, `none`):
     a mask on the row or none. The mask is only ever set beside a source, so
@@ -227,6 +237,8 @@ def filter_clause(key: str, raw: str) -> tuple[str, list]:
         return inpaint_clause(raw)
     if key == "outpaint":
         return outpaint_clause(raw)
+    if key == "maskcrop":
+        return maskcrop_clause(raw)
     if key == "edit":
         return _yes_no_clause("edit", "edit", raw)
     column, cast = FILTERS[key]

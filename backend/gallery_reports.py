@@ -81,9 +81,11 @@ def refine_cost_ms(
     An inpaint is priced from inpaints alone (`inpaint`) and a refine pass
     from passes with no mask: the inpaint classes encode the source twice and
     composite, so neither history says what the other costs. GAN preparation
-    is excluded: it adds work that ordinary Refine history cannot price.
+    is excluded: it adds work that ordinary Refine history cannot price. So
+    is an inpaint that ran only the masked area: it denoised its working
+    size, not this one (`mask_crop_cost_ms` prices it).
     """
-    masked = "mask IS NOT NULL" if inpaint else "mask IS NULL"
+    masked = "mask IS NOT NULL AND mask_crop IS NULL" if inpaint else "mask IS NULL"
     with storage._session() as conn:
         rows = conn.execute(
             f"""SELECT duration_ms, steps, strength FROM images
@@ -99,6 +101,37 @@ def refine_cost_ms(
         if start is not None:
             durations.setdefault(row["steps"] - start, []).append(row["duration_ms"])
     return {steps: sorted(values)[len(values) // 2] for steps, values in durations.items()}
+
+
+def mask_crop_cost_ms(model_id: str, sample: int = 100) -> dict[tuple[int, int], float]:
+    """Median full duration per image of the inpaints and outpaints that ran
+    only the masked area, by working tier and denoised step count.
+
+    Never by the source's size: a cropped pass denoises its working size,
+    which is about its tier's pixels whatever the source, so its price is
+    the tier's - read from cropped rows of the same checkpoint alone, the
+    tier parsed from each row's key here, a malformed one skipped. No
+    history, no price.
+    """
+    with storage._session() as conn:
+        rows = conn.execute(
+            """SELECT duration_ms, steps, strength, mask_crop FROM images
+               WHERE model_id = ? AND steps > 0 AND duration_ms > 0 AND refine IS NOT NULL
+                 AND edit IS NULL AND strength IS NOT NULL AND mask IS NOT NULL
+                 AND mask_crop IS NOT NULL AND upscaler IS NULL
+               ORDER BY id DESC LIMIT ?""",
+            (model_id, sample),
+        ).fetchall()
+    durations: dict[tuple[int, int], list[float]] = {}
+    for row in rows:
+        try:
+            tier = storage.MaskCropSpec.parse_key(row["mask_crop"]).tier
+        except ValueError:
+            continue
+        start = start_index(row["steps"], row["strength"], model_id, inpaint=True)
+        if start is not None:
+            durations.setdefault((tier, row["steps"] - start), []).append(row["duration_ms"])
+    return {key: sorted(values)[len(values) // 2] for key, values in durations.items()}
 
 
 def image_bytes(width: int, height: int, model_id: str | None = None, sample: int = 20) -> int | None:
@@ -216,13 +249,16 @@ def execution_estimates(
     for size, group in groups.items():
         if any(cell.request.edit is not None for cell in group):
             # There is no qualified edit history/estimator in this release.
-            prices[size], need = (None, {}, {}), None
+            prices[size], need = (None, {}, {}, {}), None
             continue
+        inpainting = [cell for cell in group if cell.request.inpainting]
         prices[size] = (
             step_cost_ms(*size, model_id),
             refine_cost_ms(*size, model_id),
             refine_cost_ms(*size, model_id, inpaint=True)
-            if any(cell.request.inpainting for cell in group) else {},
+            if any(cell.request.mask_crop is None for cell in inpainting) else {},
+            mask_crop_cost_ms(model_id)
+            if any(cell.request.mask_crop is not None for cell in inpainting) else {},
         )
         if need is None:
             continue
@@ -270,6 +306,9 @@ _GROUPS: dict[str, str] = {
     # An outpaint by its spec (`fill:L,T,R,B@band`): which padding the kept
     # outpaints were made with. NULL on everything else.
     "outpaint": "outpaint",
+    # Only the masked area by its spec (`bbox16:32@1`): which padding the
+    # kept passes cropped with. NULL on every pass that ran the whole picture.
+    "maskcrop": "mask_crop",
     "edit": "CASE WHEN edit IS NOT NULL THEN json_extract(edit, '$.recipe') END",
     # A comparison's version by its label (`prompt_variants`): the starred
     # rate per version. `prompt` cannot say it - reorders share their opening

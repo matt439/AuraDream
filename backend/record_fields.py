@@ -2,7 +2,8 @@
 
 A PNG chunk's mask, upscaler, batch and peak sanitisers; a mask's hash and its
 `mask_source` provenance; an outpaint's chunk, its A1111 line, and recovering
-or rebuilding one from either. None reads settings, a session or a lock.
+or rebuilding one from either; only the masked area's chunk, column box and
+A1111 line, proved or recovered against its mask under the frozen rule. None reads settings, a session or a lock.
 `storage` imports every name back, so `storage.<name>` still answers for the
 reindex, the bundle layer and the CLI; the mask writers, holds and
 `mask_path` stay in storage, where tests patch them.
@@ -16,7 +17,8 @@ from typing import Any
 
 from PIL import Image
 
-from . import refine
+from . import mask_crop, refine
+from .mask_crop import Crop
 from .schemas import OutpaintSpec
 from .schemas_mask_crop import MaskCropSpec
 
@@ -148,6 +150,135 @@ def stored_mask_crop(text: Any) -> str | None:
         return MaskCropSpec.parse_key(text).key()
     except ValueError:
         return None
+
+
+_MASK_CROP_BOX = re.compile(r"(\d{1,6}),(\d{1,6}),(\d{1,6}),(\d{1,6})>(\d{1,6})x(\d{1,6})")
+
+
+def mask_crop_box(crop: Crop | None) -> str | None:
+    """The `mask_crop_box` column's text for a region: `x1,y1,x2,y2>WxH`,
+    the box on the source and the working size it ran at, or None."""
+    if crop is None:
+        return None
+    x1, y1, x2, y2 = crop.box
+    return f"{x1},{y1},{x2},{y2}>{crop.working[0]}x{crop.working[1]}"
+
+
+def _region(box: Any, working: Any) -> Crop | None:
+    """A box and working size as a `Crop`, where they are one: whole numbers,
+    the box's right and bottom past its left and top, a working size of at
+    least one pixel; None otherwise. Whether the box lies inside its picture
+    is the record's question, which knows the picture's size."""
+    if not isinstance(box, (list, tuple)) or not isinstance(working, (list, tuple)):
+        return None
+    if len(box) != 4 or len(working) != 2 or any(type(v) is not int or v < 0 for v in (*box, *working)):
+        return None
+    x1, y1, x2, y2 = box
+    if x2 <= x1 or y2 <= y1 or working[0] <= 0 or working[1] <= 0:
+        return None
+    return Crop((x1, y1, x2, y2), (working[0], working[1]))
+
+
+def parse_mask_crop_box(text: Any) -> Crop:
+    """`mask_crop_box`'s inverse; ValueError for text that is no region in
+    its one spelling."""
+    match = _MASK_CROP_BOX.fullmatch(text) if isinstance(text, str) else None
+    if match is None or any(str(int(group)) != group for group in match.groups()):
+        raise ValueError(f"{str(text)[:60]!r} is not a masked-area box")
+    numbers = [int(group) for group in match.groups()]
+    crop = _region(numbers[:4], numbers[4:])
+    if crop is None:
+        raise ValueError(f"{text!r} is not a masked-area box: its box is empty")
+    return crop
+
+
+def stored_mask_crop_box(text: Any) -> str | None:
+    """A copied row's `mask_crop_box` in its one spelling, or None where it
+    is none this build reads: a result, so a bad one is dropped (and drawn
+    again from the mask where it can be), never the row."""
+    try:
+        return mask_crop_box(parse_mask_crop_box(text))
+    except ValueError:
+        return None
+
+
+def mask_crop_chunk(spec: MaskCropSpec, crop: Crop | None) -> dict[str, Any]:
+    """Only the masked area's `mask_crop` key in a result's PNG chunk: the
+    spec, and the region it decided (`box`, `working`) where it is known."""
+    chunk: dict[str, Any] = {"rule": spec.rule, "pad": spec.pad, "tier": spec.tier}
+    if crop is not None:
+        chunk.update(box=list(crop.box), working=list(crop.working))
+    return chunk
+
+
+def chunk_mask_crop(meta: Mapping[str, Any]) -> tuple[MaskCropSpec, Crop | None] | None:
+    """A PNG chunk's `mask_crop` as its spec and its recorded region (None
+    where the chunk records none), or None where it carries none or a
+    malformed one - a spec this build refuses, or a region half there."""
+    value = meta.get("mask_crop")
+    if not isinstance(value, dict):
+        return None
+    rule, pad, tier = value.get("rule"), value.get("pad"), value.get("tier")
+    if not isinstance(rule, str) or type(pad) is not int or type(tier) is not int:
+        return None
+    try:
+        spec = MaskCropSpec(rule=rule, pad=pad, tier=tier)  # pyright: ignore[reportArgumentType]
+    except ValueError:
+        return None
+    if "box" not in value and "working" not in value:
+        return spec, None
+    crop = _region(value.get("box"), value.get("working"))
+    return (spec, crop) if crop is not None else None
+
+
+def malformed_mask_crop(meta: Mapping[str, Any]) -> bool:
+    """Whether a chunk names a masked area that `chunk_mask_crop` cannot read."""
+    return meta.get("mask_crop") is not None and chunk_mask_crop(meta) is None
+
+
+def mask_crop_parameters(spec: MaskCropSpec) -> str:
+    """The A1111 line's masked area, by its key: the one copy of the spec an
+    older build's import leaves in place."""
+    return f", Mask crop: {spec.key()}"
+
+
+_PARAMETERS_MASK_CROP = re.compile(r"Mask crop: ([a-z0-9][a-z0-9-]{0,31}:\d{1,6}@\d{1,6})(?:,|$|\s)")
+
+
+def parameters_mask_crop(parameters: Any) -> MaskCropSpec | None:
+    """The spec an A1111 line's `Mask crop:` names, or None."""
+    match = _PARAMETERS_MASK_CROP.search(parameters) if isinstance(parameters, str) else None
+    if match is None:
+        return None
+    try:
+        return MaskCropSpec.parse_key(match.group(1))
+    except ValueError:
+        return None
+
+
+def proven_mask_crop(spec: MaskCropSpec, painted: Image.Image | None, recorded: Crop | None = None) -> Crop | None:
+    """The region `spec` decides over `painted` (`mask_crop.region`), where
+    the mask reads and the region is the `recorded` one (when one is): the
+    proof a copied row's box is its mask's under the frozen rule. None where
+    it is not, or where there is no mask to prove it with."""
+    if painted is None:
+        return None
+    try:
+        crop = mask_crop.region(painted, spec)
+    except ValueError:
+        return None
+    return crop if recorded is None or tuple(recorded) == tuple(crop) else None
+
+
+def recovered_mask_crop(parameters: Any, painted: Image.Image | None) -> tuple[MaskCropSpec, Crop] | None:
+    """A masked area an older build's import stripped, from the A1111 line
+    it left in place, with its region drawn again from the row's own mask -
+    exact or nothing: never without the mask to draw it from."""
+    spec = parameters_mask_crop(parameters)
+    if spec is None:
+        return None
+    crop = proven_mask_crop(spec, painted)
+    return (spec, crop) if crop is not None else None
 
 
 def chunk_outpaint(meta: dict[str, Any]) -> OutpaintSpec | None:

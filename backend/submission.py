@@ -290,18 +290,19 @@ async def prune_held(services: AppServices, cells: list[grid.Cell]) -> tuple[set
 
 
 # What `input_spec` answers for a request that names no input to check.
-NO_INPUTS: tuple = (None, (), None, None, None, None, None)
+NO_INPUTS: tuple = (None, (), None, None, None, None, None, None)
 
 
 def input_spec(request: GenerateRequest) -> tuple:
     """The inputs `unusable_input` checks, as one hashable key: adapter,
-    references, refine source, mask, outpaint, upscaler and edit. Producers
+    references, refine source, mask, outpaint, upscaler, edit and the
+    masked-area crop. Producers
     check each distinct key once, and skip `NO_INPUTS`; one tuple, so a new
     input cannot be left out of one producer's key and shared there by two
     requests that differ in it."""
     return (
         request.lora, tuple(request.reference), request.refine, request.mask, request.outpaint,
-        request.upscaler, request.edit,
+        request.upscaler, request.edit, request.mask_crop,
     )
 
 

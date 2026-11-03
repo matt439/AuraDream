@@ -230,7 +230,8 @@ def create_router(services: AppServices) -> APIRouter:
                 if spec != submission.NO_INPUTS:
                     await submission.refuse_unusable_inputs(services, cells[0].request.model_copy(
                         update={"lora": spec[0], "reference": list(spec[1]), "refine": spec[2], "mask": spec[3],
-                                "outpaint": spec[4], "upscaler": spec[5], "edit": spec[6]}
+                                "outpaint": spec[4], "upscaler": spec[5], "edit": spec[6],
+                                "mask_crop": spec[7]}
                     ))
             try:
                 for cell in cells:
