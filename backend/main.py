@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import asyncio
-import ipaddress
 import logging
 import os
 import sqlite3
@@ -43,9 +42,9 @@ if __name__ == "__main__":
 else:
     compiler_cache._seal_startup()
 
-from . import api_backup, api_bundles, api_gallery, api_generate, api_jobs, api_masks, api_more_seeds, api_png, api_presets, api_prompt, api_refine_batch, api_rerender, api_runs, api_saved_searches, api_snippets, api_swap, app_context, bundle_common, bundles, gallery_lock, gallery_reports, hf_sign_in, hub_access, loras, model_selection, prompt_encoding, startup_preferences, storage  # noqa: E402
+from . import api_backup, api_bundles, api_gallery, api_generate, api_jobs, api_masks, api_more_seeds, api_png, api_presets, api_prompt, api_refine_batch, api_rerender, api_runs, api_saved_searches, api_snippets, api_swap, app_context, bundle_common, bundles, gallery_lock, gallery_reports, hf_sign_in, hub_access, keep_awake, loras, model_selection, prompt_encoding, startup_preferences, storage  # noqa: E402
 from .backup_service import BackupService  # noqa: E402
-from .server_probe import auradream_at as _auradream_at, page_url as _page_url, port_busy as _port_busy  # noqa: E402
+from .server_probe import auradream_at as _auradream_at, is_loopback as _is_loopback, page_url as _page_url, port_busy as _port_busy  # noqa: E402
 from .backends import get_backend  # noqa: E402
 from .detached import detached as _detached  # noqa: E402
 from .model_selection import current_model_id, current_settings  # noqa: E402
@@ -63,6 +62,7 @@ from .model_defaults import DEFAULT_MODEL_ID, OPEN_DEFAULT_MODEL_ID, defaults_fo
 from .schemas import (  # noqa: E402
     ExpanderDownload,
     ExpanderStatus,
+    KeepAwakeStatus,
     ModelStatus,
     ModelSwitchRequest,
     PromptGuide,
@@ -278,7 +278,11 @@ async def ensure_loaded() -> None:
 
         def load_and_refresh_cache() -> None:
             try:
-                backend.load()
+                # Held on this thread, not by the coroutine awaiting it: a
+                # cancelled wait (shutdown, a dropped request) leaves the
+                # download running, and the PC must stay awake for it.
+                with keep_awake.busy("loading the model"):
+                    backend.load()
             finally:
                 # Downloads can finish even if the supervising request goes
                 # away; refresh after the actual worker, including a failure.
@@ -317,6 +321,76 @@ bundle_manager = api_bundles.BundleManager(
 )
 backup_service: BackupService | None = None
 _startup_task: asyncio.Task | None = None
+# Holding the PC awake while busy (`keep_awake`): the lifespan's, None outside
+# it or with AURADREAM_KEEP_AWAKE=false.
+_keep_awake: keep_awake.KeepAwake | None = None
+
+
+# What keeps the PC awake, read on the event loop by `keep_awake` at each
+# check: each a short reason, or None. The model load's own thread and the
+# critic's download hold too (`keep_awake.busy`), so a cancelled request never
+# lets the PC sleep under work still running.
+def _busy_jobs() -> str | None:
+    # Queued, running or paused jobs, and More seeds receipts still settling.
+    return "an image job is queued or running" if jobs.busy() else None
+
+
+def _busy_card() -> str | None:
+    holder = jobs.card()[0]
+    return f"the {holder} is using the GPU" if holder is not None and holder != "job" else None
+
+
+def _busy_loading() -> str | None:
+    return "loading the model" if _load_lock.locked() or _load_state["state"] == "loading" else None
+
+
+def _busy_switching() -> str | None:
+    switching = _switching or _switch_draining or (_switch_task is not None and not _switch_task.done())
+    return "switching the checkpoint" if switching else None
+
+
+def _busy_bundle() -> str | None:
+    # Bundles and the automatic backup alike: `running` lasts until the
+    # worker thread has really ended.
+    if not bundle_manager.running:
+        return None
+    operation = str(bundle_manager.state.get("operation") or "operation").replace("_", " ")
+    return f"a gallery {operation} is running"
+
+
+KEEP_AWAKE_PROVIDERS = (_busy_jobs, _busy_card, _busy_loading, _busy_switching, _busy_bundle)
+
+
+def _start_keep_awake() -> keep_awake.KeepAwake | None:
+    if not settings.keep_awake:
+        return None
+    controller = keep_awake.KeepAwake(
+        keep_awake.platform_inhibitor(), idle_minutes=settings.keep_awake_idle_minutes,
+    )
+    for provider in KEEP_AWAKE_PROVIDERS:
+        controller.add_provider(provider)
+    keep_awake.install(controller)
+    controller.start()
+    return controller
+
+
+async def _stop_keep_awake() -> None:
+    global _keep_awake
+    controller, _keep_awake = _keep_awake, None
+    if controller is None:
+        return
+    if keep_awake.current() is controller:
+        keep_awake.install(None)
+    await controller.stop()
+
+
+def _keep_awake_status() -> KeepAwakeStatus | None:
+    """The controller's last check, cached: the status poll starts no process."""
+    if _keep_awake is not None:
+        return KeepAwakeStatus.model_validate(_keep_awake.status())
+    if not settings.keep_awake:
+        return KeepAwakeStatus.model_validate(keep_awake.off_status(settings.keep_awake_idle_minutes))
+    return None
 
 
 def _backup_service() -> BackupService:
@@ -344,7 +418,7 @@ def _stop_critic() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global backup_service, _startup_task
+    global backup_service, _startup_task, _keep_awake
     storage.init_db()
     # No job survives a restart, so neither does a hold on its mask; one a
     # crashed server left would spare that mask from every sweep for good.
@@ -364,32 +438,60 @@ async def lifespan(app: FastAPI):
     _startup_task = None
     if backup_service.coordinator is not None or settings.load_on_startup:
         _startup_task = asyncio.create_task(_finish_startup(backup_service, settings.load_on_startup))
+    # Last before serving, so the startup backup and preload are seen at the
+    # first check; let go last on the way out, once the worker and any bundle
+    # have finished.
+    _keep_awake = _start_keep_awake()
     yield
-    if _startup_task is not None and not _startup_task.done():
-        _startup_task.cancel()
-        await asyncio.gather(_startup_task, return_exceptions=True)
-    if _switch_task is not None and not _switch_task.done():
-        _switch_task.cancel()
-        await asyncio.gather(_switch_task, return_exceptions=True)
-    await bundle_manager.finish()
-    # Stop the worker before dropping the weights it is using. unload() takes no
-    # part in the job gate, so on its own it would leave a generation running
-    # against a pipeline nobody can see any more. try_unload, off the loop: a
-    # load in flight holds the backend's lock, and blocking behind it to find
-    # there was nothing to unload froze shutdown for the length of the download.
-    #
-    # The critic's server goes first: a critique in flight holds the worker
-    # thread in a request to that server, which jobs.shutdown() would then
-    # wait out. Stopped under it, the request fails at once.
-    await asyncio.to_thread(_stop_critic)
-    await jobs.shutdown()
-    await asyncio.to_thread(backend.try_unload)
-    await asyncio.to_thread(prompt_translator.unload)
-    await asyncio.to_thread(prompt_encoding.unload)
+    try:
+        if _startup_task is not None and not _startup_task.done():
+            _startup_task.cancel()
+            await asyncio.gather(_startup_task, return_exceptions=True)
+        if _switch_task is not None and not _switch_task.done():
+            _switch_task.cancel()
+            await asyncio.gather(_switch_task, return_exceptions=True)
+        await bundle_manager.finish()
+        # Stop the worker before dropping the weights it is using. unload() takes no
+        # part in the job gate, so on its own it would leave a generation running
+        # against a pipeline nobody can see any more. try_unload, off the loop: a
+        # load in flight holds the backend's lock, and blocking behind it to find
+        # there was nothing to unload froze shutdown for the length of the download.
+        #
+        # The critic's server goes first: a critique in flight holds the worker
+        # thread in a request to that server, which jobs.shutdown() would then
+        # wait out. Stopped under it, the request fails at once.
+        await asyncio.to_thread(_stop_critic)
+        await jobs.shutdown()
+        await asyncio.to_thread(backend.try_unload)
+        await asyncio.to_thread(prompt_translator.unload)
+        await asyncio.to_thread(prompt_encoding.unload)
+    finally:
+        await _stop_keep_awake()
 
 
 app = FastAPI(title="AuraDream", version="0.1.0", lifespan=lifespan)
 app.add_middleware(api_bundles.GalleryAdmission, get_manager=lambda: bundle_manager)
+
+
+@app.middleware("http")
+async def note_keep_awake_activity(request: Request, call_next):
+    """A request someone made keeps the PC awake for the idle minutes.
+
+    Added before the host and origin checks, so they run outside it and a
+    refused request is never use. The page's own timed polls are not use
+    either (`keep_awake.counts_as_activity`), or an idle open tab would hold
+    the PC awake for ever. After a write the controller checks again at
+    once: a job or a load it started is held now, not at the next tick.
+    """
+    controller = _keep_awake
+    if controller is None or not keep_awake.counts_as_activity(request.method, request.url.path):
+        return await call_next(request)
+    controller.note_activity()
+    try:
+        return await call_next(request)
+    finally:
+        if request.method != "GET":
+            controller.wake()
 
 
 @app.exception_handler(gallery_lock.GalleryBusy)
@@ -638,6 +740,7 @@ async def status() -> ModelStatus:
         prompt_critique_supported=prompt_critic.supported(),
         prompt_critique_ready=prompt_critic.ready(),
         prompt_critic=prompt_critic.describe(),
+        keep_awake=_keep_awake_status(),
     )
 
 
@@ -1186,16 +1289,6 @@ class Server(uvicorn.Server):
         jobs.stop_all("shutdown")
         threading.Thread(target=_stop_critic, daemon=True, name="critic-stop").start()
         super().handle_exit(sig, frame)
-
-
-def _is_loopback(host: str) -> bool:
-    """Whether binding `host` keeps the server to this machine."""
-    if host.lower() == "localhost":
-        return True
-    try:
-        return ipaddress.ip_address(host).is_loopback
-    except ValueError:
-        return False
 
 
 def _open_when_listening(server: uvicorn.Server, url: str) -> None:

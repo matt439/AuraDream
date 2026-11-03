@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Literal
 
 from fastapi import APIRouter, HTTPException, Path, Query
 
-from . import prompt_check, prompt_encoding, prompt_parts, prompt_text, tag_lookup
+from . import keep_awake, prompt_check, prompt_encoding, prompt_parts, prompt_text, tag_lookup
 from .app_context import AppServices
 from .backends.base import Cancelled
 from .critic import CriticError, CriticUnavailable, pinned_build_refusal
@@ -441,10 +441,17 @@ def create_router(services: AppServices) -> APIRouter:
         if not services.critic().supported():
             raise HTTPException(status_code=422, detail=critic_unsupported(services.settings()))
         refuse_critique_now(services)
+        critic = services.critic()
+
+        def prepare() -> None:
+            # Held on the thread: the download goes on after a dropped request.
+            with keep_awake.busy("preparing the prompt critic"):
+                critic.prepare()
+
         try:
             # On a daemon thread, like the model load and for the same reason: a
             # Ctrl-C during the first use's 5 GB must not wait the download out.
-            await detached(services.critic().prepare, "critic-prepare")
+            await detached(prepare, "critic-prepare")
         except Exception as exc:
             raise prompt_failure(exc, "preparing the prompt critic") from exc
         model_id = services.model_id()

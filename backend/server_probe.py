@@ -7,6 +7,7 @@ no `config` import, so both can use it before anything heavy is imported.
 from __future__ import annotations
 
 import errno
+import ipaddress
 import os
 import socket
 import urllib.request
@@ -19,6 +20,16 @@ PROBE_SECONDS = 2.0
 # and Winsock's WSAEADDRINUSE / WSAEACCES (Windows sockets report those).
 _BUSY_ERRNOS = frozenset({errno.EADDRINUSE, errno.EACCES, 10048, 10013})
 _BUSY_WINERRORS = frozenset({10048, 10013})
+
+
+def is_loopback(host: str) -> bool:
+    """Whether binding `host` keeps the server to this machine."""
+    if host.lower() == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
 
 
 def page_url(host: str, port: int) -> str:

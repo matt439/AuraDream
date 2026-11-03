@@ -421,6 +421,17 @@ before changing it.
   gallery's checkpoint scope
 - `backend/detached.py` — `detached`, a blocking call on a daemon thread
   that interpreter exit never joins (the model load, the prompt routes)
+- `backend/keep_awake.py` — holding the PC awake while busy, stdlib only:
+  `Inhibitor` (a `systemd-inhibit --what=sleep:idle --who=AuraDream
+  --mode=block cat` child on a stdin pipe only the server holds; a child
+  gone within `START_WAIT` or `SHORT_LIFE` was refused, tried again after
+  `RETRY_AFTER`), `NoInhibitor` off Linux or without systemd-inhibit,
+  `KeepAwake` (an asyncio task holding while `main`'s providers name a
+  reason, a counted `busy(reason)` is open, or for
+  `AURADREAM_KEEP_AWAKE_IDLE_MINUTES` after a request `counts_as_activity`
+  passes; `wake` checks again at once from any thread; a cached `status()`
+  for `/api/status`), module `busy` (nothing when none is installed) and
+  `hold_while` for the CLI (`tests/test_keep_awake.py`)
 - `backend/api_prompt.py` — the tag helper and prompt routes (suggest,
   validate, Expand, Check, measure, the critic) and their refusal wording;
   `backend/prompt_check.py` layer 1 of Check (encoder reports and rule
@@ -488,14 +499,20 @@ before changing it.
   `/proc/meminfo` against the measured figures (under 40 GiB warns); free
   disk per drive for `HF_HUB_CACHE`, `hf_home_dir("converted")` and the
   outputs (under 50 GB for the downloads warns, under 2 GB fails); the port
-  through `server_probe` (AuraDream already there passes); a Hugging Face
+  through `server_probe` (AuraDream already there passes); the card's
+  memory against the default checkpoint's measured 12.0 GiB peak (under it
+  warns; on Linux below compute capability 10.0 it names the int4 Nunchaku
+  repos); with a non-loopback `AURADREAM_HOST`, `AURADREAM_ALLOWED_HOSTS`
+  without 127.0.0.1 or with a wildcard (each warns); on Linux a trial
+  `systemd-inhibit ... true` block hold (refused warns, with a polkit rule);
+  a Hugging Face
   token as `HF_TOKEN` (or `HUGGING_FACE_HUB_TOKEN`) or the token file's existence (`hf_sign_in`), never read or sent.
   Imports `config` first and torch inside the GPU check; never diffusers,
   a model or the Hub (`tests/test_doctor.py`). `install.ps1` runs it
 - `backend/server_probe.py` — the port checks `main.run` and the doctor
   share, stdlib only and without `config`: `port_busy` (the trial bind),
-  `auradream_at` (the index title, `PROBE_SECONDS`, never through a proxy)
-  and `page_url`; `main` imports them under its old private names
+  `auradream_at` (the index title, `PROBE_SECONDS`, never through a proxy),
+  `page_url` and `is_loopback`; `main` imports them under its old private names
 - `install.cmd`, `install.ps1`, `update.cmd`, `update.ps1` (repository root)
   — the Windows installer and updater, plain text, Windows PowerShell 5.1
   and ASCII only (5.1 reads a BOM-less script in the ANSI code page), CRLF

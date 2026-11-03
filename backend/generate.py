@@ -25,6 +25,7 @@ button) works too - see the sys.path bootstrap below.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import dataclasses
 import math
 import os
@@ -57,6 +58,7 @@ from backend.generate_args import (  # noqa: E402
     _resolve_size,
     _then_refine_flags,
 )
+from backend import keep_awake  # noqa: E402
 from backend.generate_remote import _via_server  # noqa: E402
 from backend.launch import apply_env, warn_legacy_env  # noqa: E402
 from backend.seeds import random_seed, wrap_seed  # noqa: E402
@@ -360,6 +362,13 @@ def _resolved_cli_execution(args, selected_loader: object, source: dict | None):
 
 
 def main(argv: list[str] | None = None) -> int:
+    # The PC is held awake from the load to the last cell (`_main` enters
+    # it), and let go however the run ends.
+    with contextlib.ExitStack() as awake:
+        return _main(argv, awake)
+
+
+def _main(argv: list[str] | None, awake: contextlib.ExitStack) -> int:
     # Redirected to an overnight log, stdout on Windows encodes with the
     # locale's code page, where a CJK or emoji prompt was a UnicodeEncodeError
     # at the header, before anything ran. So does `> NUL`, which answers
@@ -1164,6 +1173,10 @@ def main(argv: list[str] | None = None) -> int:
 
     signal.signal(signal.SIGINT, _on_sigint)
 
+    # A PC that suspends when idle sees no input during a long run; under
+    # --via-server the server holds it instead.
+    if getattr(p.settings, "keep_awake", True):
+        awake.enter_context(keep_awake.hold_while("AuraDream is rendering from the command line"))
     if not args.quiet:
         print("loading weights (minutes on a cold cache)...", flush=True)
     load_started = time.perf_counter()

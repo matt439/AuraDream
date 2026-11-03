@@ -266,6 +266,8 @@ set in a start-up warning.
 | `AURADREAM_CRITIC` | `true` | Enable the optional local prompt critic |
 | `AURADREAM_CRITIC_SERVER` | unset | Use a local compatible `llama-server` binary |
 | `AURADREAM_CRITIC_MODEL` | unset | Use a local `.gguf` instead of downloading the pinned critic model |
+| `AURADREAM_KEEP_AWAKE` | `true` | On Linux, hold the PC awake with `systemd-inhibit` while AuraDream is busy |
+| `AURADREAM_KEEP_AWAKE_IDLE_MINUTES` | `20` | Minutes to keep holding after the last request from a page; `0` holds only while busy |
 
 **The server has no login.** Anyone who can reach it can read every prompt and
 image, delete or import galleries, and make the machine download checkpoints

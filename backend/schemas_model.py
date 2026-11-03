@@ -138,6 +138,22 @@ class ExpanderStatus(BaseModel):
     fetch_bytes: int = 0
 
 
+
+class KeepAwakeStatus(BaseModel):
+    """Whether the server holds the PC awake (`keep_awake`), from its last
+    check: the status poll starts no process. kind is "systemd-inhibit" on
+    Linux with it on the PATH, "none" where nothing can be held, "off" with
+    AURADREAM_KEEP_AWAKE=false. A refused hold is wanted but not holding,
+    with systemd-inhibit's words in detail."""
+
+    kind: Literal["systemd-inhibit", "none", "off"]
+    holding: bool = False
+    wanted: bool = False
+    reasons: list[str] = Field(default_factory=list)
+    detail: str | None = None
+    idle_minutes: int = 0
+
+
 class ModelSwitchRequest(BaseModel):
     model_id: str = Field(min_length=1, max_length=512)
     quantization: Literal["fp8", "int8", "none", "nunchaku"] | None = None
@@ -269,3 +285,5 @@ class ModelStatus(BaseModel):
     # What the line under the critic's button names, rather than a fixed
     # "Qwen3-4B" an override makes untrue.
     prompt_critic: CriticStatus | None = None
+    # Keeping the PC awake while busy; None outside the server's lifespan.
+    keep_awake: KeepAwakeStatus | None = None
