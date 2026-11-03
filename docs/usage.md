@@ -477,7 +477,17 @@ so). On Z-Image and FLUX.1 checkpoints the preview line also says how much noise
 the pass starts at, as Refine's does. Several comma-separated values run side
 by side and open as a sheet. Ctrl+Enter runs.
 
-An inpaint always runs at the source's size. Afterwards the result is laid
+**Only the masked area** denoises just a box around your mask - its extent
+plus **Padding** (0-256 px in steps of 8, starting at 32) - at about 1 MP,
+then pastes it back. A small region of a large picture gets the
+checkpoint's full detail, and a large picture stays within the card; the
+preview line says the box and the size it runs at, and the picture shows
+the box. Outside the mask nothing changes either way. It is refused where
+the box would be the whole picture and no larger than 1 MP, since it would
+gain nothing. Neither the padding nor the crop has been measured on the
+card yet (Z-Image included).
+
+An inpaint always keeps the source's size. Afterwards the result is laid
 over the source through the mask, so every unmasked pixel is the source's
 own and a feathered edge blends. The mask is stored by its hash and also
 embedded in the result's PNG, so the image alone can be reproduced (Reuse,
@@ -486,14 +496,17 @@ for the next time you open that image, until the page reloads. Re-render,
 More seeds and Swap tags rerun an inpaint with its mask. A Re-render at
 another size refuses it (unpick it, or search `inpaint:no`), and Mass
 refine drops the mask. Search `inpaint:yes`
-for inpaints, `mask:<hash prefix>` for one mask's.
+for inpaints, `mask:<hash prefix>` for one mask's, `maskcrop:yes` for
+those that ran only the masked area. Reruns keep the masked area with the
+mask; one whose recorded box no longer matches its mask is refused.
 
 On the card, an inpaint costs about what a refine pass of the same size
 costs: SDXL runs the guard's 8.4 MP top with room to spare, while Z-Anime
 fills the card at 2.4 MP, and FLUX.1 Krea dev runs at 1 MP near the card's
 top. Lower strengths keep the masked area's old colours, so the starting
-strength is the place to start; see [verified.md](verified.md#inpaint). A
-FLUX.1 outpaint has not been measured on the card.
+strength is the place to start; see [verified.md](verified.md#inpaint).
+FLUX.1 Krea dev's outpaint was measured too: its 16:9 seams joined cleanly
+([verified.md](verified.md#outpaint)); dev and schnell were not.
 
 ## Outpaint an image
 
@@ -518,6 +531,10 @@ more of the original. Inward of the band, the original is kept pixel for pixel.
 Strength, Versions, Seed and the prompt work as in Inpaint. The new area
 starts as the server's rough fill, so expect a high strength there. The
 pass runs at the source's size plus the padding, within the size guard.
+**Only the masked area**, at the end of the Band row, works as in Inpaint:
+it denoises just the new border and the band, plus Padding, at about 1 MP
+and pastes it back, so a one-sided outpaint of a large picture runs a strip
+rather than the whole canvas. The size guard stays the same.
 Search `outpaint:yes` for outpaints; `inpaint:yes outpaint:no` gives the
 painted inpaints alone. Lower strengths let the blurred fill show through;
 see [verified.md](verified.md#outpaint).
@@ -613,6 +630,7 @@ Search combines these terms with free text matching the prompt:
 | `model:=circlestone-labs/Anima` | One checkpoint's whole id exactly (a leading `=` on any text key) |
 | `refine:412`, `refine:none`, `strength:0.3-0.5` | Passes from a source, direct renders, strength |
 | `inpaint:yes`, `outpaint:no`, `mask:3f9a` | Inpaints, outpaints, one mask's by hash prefix (`mask:none` is no inpaint) |
+| `maskcrop:yes`, `maskcrop:no` | Inpaints and outpaints that ran only the masked area, or everything else (`maskcrop:no inpaint:yes` is the whole-picture inpaints) |
 | `lora:ink`, `lora:none` | LoRA name substring, or images made without one (`lora:=none` is an adapter named `none`) |
 | `hash:3f9a` | Identical pixels by hash prefix |
 | `size:1024x768` | Width and height exactly |
@@ -904,7 +922,8 @@ including when overriding a PNG's recorded choice. Both work via the server.
 `--refine 412 --mask mask.png` inpaints: white repaints, black keeps, grey
 blends, at the source's own size. `--refine 412 --outpaint 0,0,256,0` (left,
 top, right, bottom) or `--outpaint 16:9` / `--outpaint +25%` outpaints, with
-`--band` setting the band (default 32).
+`--band` setting the band (default 32). Beside either, `--mask-crop 32`
+denoises only the masked area with that padding.
 `--from-image` restores PNG settings; explicit flags override them. Add
 `--scale` explicitly to enlarge its recorded size. Quantization is not carried
 over, allowing a WSL PNG to be used on Windows, and differences are reported.

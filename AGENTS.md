@@ -328,7 +328,11 @@ Reproduction and storage:
   in `auradream-mask`. `grid.mask_key` is `CellKey`'s fifth extension
   (existing run ids unchanged); Mass refine drops the mask. An outpaint is
   the exception to the size: it runs at the source plus its padding
-  (`refine.outpaint_source`).
+  (`refine.outpaint_source`). Only the masked area (`mask_crop`) is the
+  app's crop by the frozen rule `mask_crop.region`, never the class's
+  `padding_mask_crop`: the request keeps the source's size, its box and
+  working size are results (never keyed), and its key rides `mask_key` as
+  `+bbox16:32@1`.
   `gallery_delete.sweep_masks` spares a mask any row (live or binned) or
   live job names, or younger than the settle window. Only profiles with
   `inpaint_supported` run one; `model_defaults.INPAINT_DEFERRED` families

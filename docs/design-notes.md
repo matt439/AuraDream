@@ -2306,8 +2306,8 @@ source and request to one size. Re-render of an inpaint at another size is
 therefore refused for the whole selection, naming each inpaint and its
 source and the way out (unpick them, or `inpaint:no` in the search) -
 `submission.resized_inpaint_detail`, ahead of the per-combination check that
-could only name a source the user never picked. Upscaling only the masked
-region is a later phase (`padding_mask_crop`, which Z-Image's class lacks).
+could only name a source the user never picked. Denoising only the masked
+area keeps the request's size the source's too (below).
 
 **The class is handed the mask widened to its latent cells.** Both enabled
 classes binarise their mask at 0.5 and then shrink it to the latent grid by
@@ -2588,12 +2588,48 @@ the canvas's shape and the source's thumbnail sits in it by the padding.
 With the source deleted, the record's own picture (same size as the mask)
 goes under it instead of an empty box.
 
-**What this pass leaves.** klein, Qwen-Image, FLUX.1 Fill [dev]
+**Only the masked area: the app crops, never the class.** Built
+2026-11-03 (plan phase 6, was `INP#9`), on FLUX.1, SDXL and Z-Image, for
+inpaints and outpaints, and unmeasured on the card (`CARD#13`). A tick
+asks for just a box around the mask - its extent plus a padding, 32 px by
+default - to be denoised at about 1 MP and pasted back, so a small region
+gets the checkpoint's full detail and a large picture stays within the
+card. The plan first named the classes' `padding_mask_crop`; it is never
+passed. Z-Image's class lacks it; the class's `get_crop_region` would make
+the recorded region the installed diffusers' to decide, and its coverage
+provable only by replaying the class's mask resize and sampling; and its
+`apply_overlay` with a feathered mask, followed by the app's composite,
+would blend the feather twice. `backend/mask_crop.py` decides the region
+instead, by a frozen rule (`bbox16`: the box on the 16 grid, its aspect
+held within 12:5, the working size in the box's own aspect - never a
+preset's, which `nearest_preset` would refuse off its aspects or stretch by
+up to 2%), so the region is a pure function of the content-addressed mask
+and the spec: the key needs only the spec, and a lost region is recovered
+by recomputing it. Three details make every pixel the composite weights a
+pixel the class repainted. The painted mask is binarised before it is
+resized, since a level-1 feather averaged down rounds to 0. The resized
+mask is thresholded at >0 again. It is then widened by
+`max(block, ceil(3*max(1, W/rw, H/rh)))` working pixels, the Lanczos paste
+back's reach in both directions - an earlier draft's `ceil(3*W/rw)` fell
+short when the box is larger than the working size, so a test proves the
+coverage rather than trusting the formula. The box and working size are
+results, as the peak memory pair is: on the row (`mask_crop_box`) and in the
+chunk, never in a key. The crop is refused where it gains nothing (the box
+is the whole picture and no larger than the working size) and where a
+recorded region no longer matches what its mask gives under its rule, since
+a rerun would paint another region under the same key. Bundles stay
+`version: 1`, the outpaint's precedent: an older build, which knows neither
+the column nor the chunk key, can carry such rows only as ordinary inpaints
+of the same mask, and a newer one recovers the crop from the A1111 line
+where the mask proves its region.
+A cropped cell is priced only from cropped rows of its tier.
+
+**What this pass leaves.** klein, Qwen-Image and FLUX.1 Fill [dev]
 (decided 2026-10-17 to wait on FLUX.1 inpainting on Krea dev being seen on
 the card; it was, 2026-10-19, and at 0.95 did what was asked, so Fill
 was deferred 2026-10-20 behind FLUX.1 outpaint on the card, which joined
-cleanly 2026-10-21, closing it) and the masked-area crop are later
-phases of the plan; FLUX.1 was enabled 2026-10-19 (above);
+cleanly 2026-10-21, closing it) are later or closed phases of the plan;
+the masked-area crop is built (above); FLUX.1 was enabled 2026-10-19 (above);
 outpainting is built (below). Memory, time, determinism and what a strength
 keeps were measured 2026-10-17 on WAI, Animagine and Z-Anime (`verified.md`,
 Inpaint): an inpaint costs a refine pass of its size, and the library
@@ -2692,8 +2728,18 @@ above), and what inpaint phase 3 built reaches every outpaint unchanged:
 the "starts at N% noise" line on Z-Image at the canvas's size, and the live
 preview through the blend. FLUX.1's outpaint (enabled with its inpaint,
 2026-10-19) starts at the profile's 0.95 like its inpaint, carries the same
-note, and says "starts at N% noise" too; no FLUX.1 outpaint, band or
-strength has been run on the card.
+note, and says "starts at N% noise" too. FLUX.1 Krea dev's outpaint was
+measured 2026-10-21 (`verified.md`, Outpaint): it joined cleanly at the
+default, and 32 stays the band; dev and schnell are unmeasured.
+
+**Only the masked area reaches the outpaint unchanged.** The crop
+(Inpainting, above) boxes the server-built mask on the canvas - the new
+border and the band - so a one-sided outpaint of a large picture denoises
+a strip at about 1 MP rather than the whole canvas. Its tick sits at the
+end of the band row, which already had room, since a row of its own would
+have made the dialog scroll at 1400x900; its box is dotted, as the band's
+edge is already dashed. The canvas guard stays at `refine_max_*`: raising
+it for a cropped outpaint waits on the card (`CARD#13`).
 
 ## CellKey and run_id
 
@@ -2701,7 +2747,9 @@ strength has been run on the card.
 (prompt, negative, steps, CFG, mu, true CFG, references, LoRA, refine,
 mask, upscaler, execution, canvas/crop, seed), with `grid.reference_key` (ids in order), `grid.lora_key`
 (`name@weight`), `grid.refine_key` (`id@strength`) and `grid.mask_key` (the
-hash, the inpaint's). The composite elements are spelled once and built
+hash, the inpaint's; `outpaint:<spec>` for an outpaint; either followed by
+`+bbox16:32@1` only when just the masked area runs, so the crop took no new
+slot and changed no existing id). The composite elements are spelled once and built
 from a request in `grid` and from columns in
 `storage.completed_cells`. `run_id` names a cell by the **shortest** key
 carrying all its non-None optional elements - it drops true CFG, references,
@@ -2716,7 +2764,8 @@ before any of them existed, and a refine run keeps the id it had before the
 mask existed (pinned in `tests/test_conditioning.py`). `duplicate_count`
 rewrites the refine element to its start index and keeps every element
 after it; it once assumed the seed followed refine directly, which would
-have counted two masks over one source as duplicates. A weight axis
+have counted two masks over one source as duplicates, and counts two
+paddings over one mask as two pictures. A weight axis
 with no adapter selected is not an axis: `applied()` puts `lora_scale` back
 to 1.0 where `lora` is None, or two cells that differ on a number no pixel
 depends on would split the resume key, and `_sampling_values` returns the

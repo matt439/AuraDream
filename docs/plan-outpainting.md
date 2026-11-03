@@ -9,7 +9,9 @@ specs and their one spelling; To shape… applying only on Apply; Outpaint…
 kept in the lightbox under 901 px; late presets answers and binned sources;
 the real backend's outpaint branch under test). **2026-10-17:** the card
 measured WAI v17, Animagine XL 4.0 and Z-Anime (`docs/verified.md`,
-Outpaint), and phase 3 is built (Phases, below). Below is the plan as it
+Outpaint), and phase 3 is built (Phases, below). **2026-11-03:** only the
+masked area (inpaint phase 6) reaches outpaints too ("Later, if wanted",
+under Phases). Below is the plan as it
 was written.** Written on
 `feat-outpainting`, branched from main at b3bc975 right after inpainting was
 merged, and revised the same day against an eighteen-point review of the
@@ -74,7 +76,10 @@ outpainting on the deferred families (it arrives with their inpaint phases,
 since the gate is the same), `padding_mask_crop` (Z-Image's class has no
 such parameter, as `plan-inpainting.md` recorded), an outpaint that crops
 (a negative padding), and any import of outside pictures (U61 B stays
-deferred).
+deferred). Denoising only the masked area of an outpaint came later
+(2026-11-03, inpaint phase 6) as the app's own crop, never the class
+parameter: the new border and the band, boxed and run at about 1 MP, then
+pasted back over the padded source.
 
 ## The installed classes, for an outpaint
 
@@ -1075,8 +1080,14 @@ live preview through the blend.
 
 **Later, if wanted:** the server's fill shown in the frame (a model-free
 `GET` answering the padded canvas as a JPEG, so the page still draws
-nothing of its own); `padding_mask_crop` for large canvases on
-SDXL; an outpaint over a painted mask together; a second fill.
+nothing of its own); an outpaint over a painted mask together; a second
+fill. Large canvases' memory came with inpaint phase 6 (built 2026-11-03,
+`docs/plan-inpainting.md`): "Only the masked area" in the Outpaint dialog's
+band row, or `--outpaint ... --mask-crop PAD`, boxes the built mask's
+extent plus the padding on the canvas, denoises it at about 1 MP in the
+app (never `padding_mask_crop`), pastes it back and composites as before.
+The canvas guard stays at `refine_max_*`; the crop is unmeasured on the
+card (`CARD#13`).
 
 A separate card glyph was declined 2026-10-17: the image context menu
 already reaches Outpaint (design notes, Outpainting).

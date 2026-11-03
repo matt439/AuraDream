@@ -1562,6 +1562,18 @@ Evidence: `card3-wsl/out/` in the cards directory (`zturbo/` and
 `kreadev/`: `results.jsonl`, `run.log`, PNGs, previews, the strips;
 `watch-*.csv`), and `~/ld-card3/` in WSL.
 
+### Only the masked area (built 2026-11-03, not measured)
+
+The app's crop (`docs/plan-inpainting.md`, phase 6) was built and checked
+on the CPU and the fake only: the rule's boxes, its coverage proof and
+every unmasked pixel kept are tests, not card results. Not measured: any
+cropped pass on the card; FLUX.1 cropped on a 2.4-8.4 MP source, whose peak
+should stay near the 1 MP inpaint's 12.16 / 12.83 GiB allocated / reserved
+(FLUX.1 Krea dev, before enabling, above); the seam at the box's
+edge at padding 0, 32 and 64 (32 is the default, unmeasured); Z-Anime
+cropped at 4.2 MP; how soft an SDXL 7.5 MP outpaint run cropped looks; any
+Z-Image crop at all. TODO `CARD#13`.
+
 ## Outpaint
 
 Measured 2026-10-17 in the same runs, the same way, from the same
