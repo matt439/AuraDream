@@ -376,7 +376,7 @@
           </div>
           <div class="custom-orientation">
             <button type="button" class="ghost small orientation" id="btn-orientation"
-                    title="Square has no portrait or landscape orientation" disabled>Orientation</button>
+                    title="Square has no portrait or landscape orientation" aria-disabled="true">Orientation</button>
           </div>
         </div>
       </details>
@@ -585,9 +585,10 @@
       <button type="button" class="tr-open" id="then-refine-open" aria-haspopup="dialog">Then refine: off</button>
     </div>
 
-    <!-- Folded away by default: a grid is an overnight tool, not the workflow. -->
+    <!-- Folded away by default: prompt variables and sweeps ranging the settings
+         above, opened when one render is not the question. -->
     <details class="section" id="grid-section">
-      <summary>Grid search <em>overnight sweeps</em></summary>
+      <summary>Grid search <em>prompt variables &amp; sweeps</em></summary>
       <p class="hint">
         Ranges on top of the settings above. A blank axis keeps the single value
         already in the panel, so only what you fill in varies. Repeat does not
@@ -937,7 +938,7 @@
           </span>
           <button type="button" class="ghost small foot-btn" id="btn-select" aria-pressed="false"
             aria-keyshortcuts="Escape"
-            title="Pick cards by touch: in Select every tap picks or unpicks a card, Shift adds a range. Without it a click opens the large image, Ctrl+click (Cmd+click) adds or removes one pick, Shift+click picks a range and Ctrl+Shift+click (Cmd+Shift+click) adds one. Ctrl+A (Cmd+A) adds every loaded card; Escape or a click between the cards clears">Select</button>
+            title="Pick cards by touch: in Select every tap picks or unpicks a card, Shift adds a range. Without it a click opens the large image, Ctrl+click (Cmd+click) adds or removes one pick, Shift+click picks a range and Ctrl+Shift+click (Cmd+Shift+click) adds one. Ctrl+A (Cmd+A) adds every loaded card, up to 1024 picks; Escape or a click between the cards clears">Select</button>
           <!-- Swap tags (tag-swap.js): the selection when there is one, else what
                the filter matches. Always here, held with its reason where
                there is nothing to act on, so it never comes and goes beside
@@ -1541,7 +1542,7 @@
         <div class="sub grow">
           <i><label for="outpaint-strength">Strength</label>
             <span class="help above" tabindex="0" role="note" aria-label="Outpaint strength help" aria-describedby="outpaint-strength-tip">?<span
-              class="tip wide" id="outpaint-strength-tip">How much of the new area and the band is redrawn. The new area starts as the server's fill, so a high strength is what is expected there. The original inside the band is kept pixel for pixel. Several values, comma-separated, run side by side and open as a sheet.</span></span></i>
+              class="tip wide" id="outpaint-strength-tip">How much of the new area and the band is redrawn. The new area starts as the server's fill, so a high strength is what is expected there. The original inward of the band is kept pixel for pixel. Several values, comma-separated, run side by side and open as a sheet.</span></span></i>
           <input type="text" id="outpaint-strength" autocomplete="off" inputmode="decimal"
                  aria-describedby="outpaint-strength-note">
         </div>
