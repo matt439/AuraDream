@@ -3269,7 +3269,7 @@ measured on the card and when.
   for every star; ❐'s "Reference image N - click to remove" or its reason,
   also its `aria-description`). A button held
   for a reason (Generate, Run grid, and Run comparison under the same
-  `submitHold`, Unload, Pause, Refine, the Refine dialog's Compare 3, Compare scales and From panel, Ask
+  `submitHold`, Unload, Pause, Cancel while stopping, Orientation on a square aspect, Refine, the Refine dialog's Compare 3, Compare scales and From panel, Ask
   the critic, Expand, a card's ⤢ and ❐, a pass's Compare with source in the
   result column, the sheet's Fill width on a wrapped row and its export
   buttons while one runs, a negative-prompt finding's Show) is

@@ -193,7 +193,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
 
     sweep = parser.add_argument_group(
-        "grid search (overnight sweeps; each axis takes 8, or 6,8,10, or 6-12x2)"
+        "grid search (prompt variables and sweeps; each axis takes 8, or 6,8,10, or 6-12x2)"
     )
     sweep.add_argument(
         "--grid-prompt",
