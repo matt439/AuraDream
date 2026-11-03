@@ -229,6 +229,35 @@ def _via_server(args, parser, source, carried, mask_image, width, height, sized,
                 body["mask"] = uploaded["hash"]
             else:
                 body["mask"] = args.mask_hash
+        if args.mask_crop is not None and "refine" in body:
+            # Only the masked area: its spec's rule and tier the record's
+            # where --from-image carried one; the server decides the region
+            # and refuses one that gains nothing. A carried one is held to
+            # the region this build decides over the same mask first.
+            carried_spec = args.carried_mask_crop or {}
+            body["mask_crop"] = {
+                "rule": carried_spec.get("rule", "bbox16"), "pad": args.mask_crop,
+                "tier": carried_spec.get("tier", 1),
+            }
+            held_region = args.carried_mask_crop_region
+            if held_region is not None and not args.mask_crop_given and (
+                "outpaint" not in body or args.carried_outpaint_mask is not None
+            ):
+                from backend import mask_crop, outpaint
+                from backend.schemas import MaskCropSpec, Outpaint
+                from backend.submission_rules import mask_crop_mismatch
+
+                try:
+                    spec = MaskCropSpec(**body["mask_crop"])
+                    painted = (
+                        outpaint.mask(body["width"], body["height"], Outpaint(**body["outpaint"]))
+                        if "outpaint" in body else mask_image
+                    )
+                    crop = mask_crop.region(painted, spec) if painted is not None else None
+                except ValueError:
+                    crop = None
+                if crop is not None and (tuple(crop.box), tuple(crop.working)) != held_region:
+                    raise _ServerError(mask_crop_mismatch(body["mask_crop"]["rule"], "outpaint" in body), 422)
         path = "/api/generate"
         if gridding or args.resume or args.budget is not None:
             path = "/api/grid"

@@ -199,6 +199,11 @@ def create_router(services: AppServices) -> APIRouter:
         mismatched = await asyncio.to_thread(submission.mismatched_outpaints, matched)
         if mismatched:
             raise HTTPException(status_code=422, detail=submission.mismatched_outpaint_detail(mismatched))
+        # And a masked area whose mask no longer decides its recorded region:
+        # run again it would denoise another box under the same key.
+        mismatched = await asyncio.to_thread(submission.mismatched_mask_crops, matched)
+        if mismatched:
+            raise HTTPException(status_code=422, detail=submission.mismatched_mask_crop_detail(mismatched))
         # So is an inpaint at another size than its own - its source's, which
         # its mask covers - where the per-combination check would name the
         # source the user never picked.

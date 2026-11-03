@@ -166,6 +166,15 @@ def _build_parser() -> argparse.ArgumentParser:
         "plus the padding; on a checkpoint whose inpaint is enabled here (the FLUX.1, SDXL and Z-Image ones)",
     )
     conditioning.add_argument(
+        "--mask-crop",
+        type=int,
+        metavar="PAD",
+        help="with --mask or --outpaint: only the masked area - denoise just a box around the mask "
+        "(its extent plus PAD pixels, a multiple of 8 from 0 to 256; 32 is the dialog's default, "
+        "unmeasured on the card) at about 1 MP, then paste it back; outside the mask nothing changes "
+        "either way. Refused where the box is the whole picture and no larger than 1 MP",
+    )
+    conditioning.add_argument(
         "--band",
         type=int,
         metavar="PX",
@@ -376,6 +385,20 @@ def _apply_image_settings(args: argparse.Namespace, meta: dict) -> None:
         # mask built again - never carried as a mask hash, which the request
         # would then refuse beside the outpaint. The record's mask is kept
         # aside only to hold the rebuilt one to.
+        # Only the masked area reproduces beside the mask or outpaint it
+        # cropped, never alone; its recorded region is kept aside to hold the
+        # region this build decides to (`generate.py`).
+        carried_outpaint = _carried_outpaint(meta)
+        carries_mask = args.mask is None and args.outpaint is None and (
+            carried_outpaint is not None or isinstance(meta.get("mask"), str)
+        )
+        if carries_mask and args.mask_crop is None and meta.get("mask_crop") is not None:
+            crop = _carried_mask_crop(meta)
+            if crop is None:
+                args.carried_mask_crop_malformed = True
+            else:
+                args.carried_mask_crop, args.carried_mask_crop_region = crop
+                args.mask_crop = crop[0]["pad"]
         carried_outpaint = _carried_outpaint(meta)
         if args.mask is None and args.outpaint is None and carried_outpaint is not None:
             left, top, right, bottom, band, fill = carried_outpaint
@@ -398,6 +421,28 @@ def _apply_image_settings(args: argparse.Namespace, meta: dict) -> None:
         width, _, height = size.partition("x")
         if width.isdigit() and height.isdigit():
             args.width, args.height = int(width), int(height)
+
+
+def _carried_mask_crop(meta: dict) -> tuple[dict, tuple | None] | None:
+    """A PNG record's masked area as its spec's fields (`rule`, `pad`,
+    `tier`) and its recorded region as (box, working), None where it records
+    none; None where it carries no well-formed one. The rule and tier are
+    kept whatever they are: one this build lacks is refused by name below."""
+    value = meta.get("mask_crop")
+    if not isinstance(value, dict):
+        return None
+    rule, pad, tier = value.get("rule"), value.get("pad"), value.get("tier")
+    if not isinstance(rule, str) or type(pad) is not int or type(tier) is not int:
+        return None
+    box, working = value.get("box"), value.get("working")
+    if box is None and working is None:
+        return {"rule": rule, "pad": pad, "tier": tier}, None
+    if (
+        not isinstance(box, list) or len(box) != 4 or not isinstance(working, list) or len(working) != 2
+        or any(type(v) is not int for v in [*box, *working])
+    ):
+        return None
+    return {"rule": rule, "pad": pad, "tier": tier}, (tuple(box), tuple(working))
 
 
 def _carried_outpaint(meta: dict) -> tuple[int, int, int, int, int, str] | None:

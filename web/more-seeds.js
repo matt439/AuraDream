@@ -41,13 +41,14 @@ const MORE_SEEDS_COUNT = 4;
 const MS_STATUS_WORDS = {
   foreign: 'from other checkpoints', source_deleted: 'with their refine source deleted',
   lora_missing: 'with their LoRA missing', mask_missing: 'with their mask missing',
-  outpaint: 'with an outpaint that cannot run', then_refine: 'whose refine pass cannot run',
+  outpaint: 'with an outpaint that cannot run', mask_crop: 'whose masked area cannot run',
+  then_refine: 'whose refine pass cannot run',
   invalid: 'invalid', deleted: 'deleted',
 };
 const MS_CHIP = {
   queued: 'Ready', foreign: 'other checkpoint', source_deleted: 'source deleted',
   lora_missing: 'LoRA missing', mask_missing: 'mask missing', outpaint: 'outpaint refused',
-  then_refine: 'pass refused', invalid: 'invalid', deleted: 'deleted',
+  mask_crop: 'masked area refused', then_refine: 'pass refused', invalid: 'invalid', deleted: 'deleted',
 };
 
 // What the dialog acts on, fixed when it opens: `{ids}`, `{run}` or the

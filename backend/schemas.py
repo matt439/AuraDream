@@ -9,7 +9,8 @@ either place:
   answer
 - `schemas_outpaint` - an outpaint's spec (`OutpaintSpec`, `Outpaint`), a
   stored mask's answer (`MaskStored`) and the outpaint presets'
-- `schemas_mask_crop` - only the masked area's spec (`MaskCropSpec`)
+- `schemas_mask_crop` - only the masked area's spec (`MaskCropSpec`) and the
+  preview's region (`MaskCropArea`)
 - `schemas_prompt` - Expand, Check, the critic's critique, tag lookup
 - `schemas_gallery` - records, runs, the recycle bin
 - `schemas_rerun` - Re-render, Swap tags, Mass refine, More seeds
@@ -44,7 +45,7 @@ from .schemas_generate import (
     PngSettingsRequest,
     PngSettings,
 )
-from .schemas_mask_crop import MaskCropSpec
+from .schemas_mask_crop import MaskCropArea, MaskCropSpec
 from .schemas_outpaint import (
     MaskStored,
     Outpaint,
@@ -147,6 +148,7 @@ __all__ = [
     "ThenRefine",
     "GridPreview",
     "JobAccepted",
+    "MaskCropArea",
     "MaskCropSpec",
     "MaskStored",
     "Outpaint",

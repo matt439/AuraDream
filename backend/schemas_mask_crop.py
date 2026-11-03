@@ -57,3 +57,20 @@ class MaskCropSpec(BaseModel):
             return cls(rule=rule, pad=int(pad), tier=int(tier))  # pyright: ignore[reportArgumentType]
         except ValueError as error:
             raise ValueError(f"{text!r} is not a masked-area key this build runs: {error}") from None
+
+
+class MaskCropArea(BaseModel):
+    """What the grid preview says of a cropped pass's region
+    (`mask_crop.region`): the box on the source or canvas, `(x1, y1, x2,
+    y2)` with the right and bottom edges exclusive, the working size the
+    class runs at, and how much larger the working size is than the box
+    (`Crop.scale`: above 1 more detail, below 1 less memory). A result, as
+    the row's: never sent back."""
+
+    box: tuple[int, int, int, int]
+    working: tuple[int, int]
+    scale: float
+
+    @classmethod
+    def of(cls, crop: rules.Crop) -> "MaskCropArea":
+        return cls(box=crop.box, working=crop.working, scale=round(crop.scale(), 3))

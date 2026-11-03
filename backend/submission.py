@@ -20,7 +20,12 @@ from .submission_rules import (
     cells_by_size as cells_by_size,
     edit_rerender_detail as edit_rerender_detail,
     gone_detail as gone_detail,
+    mask_crop_mismatch as mask_crop_mismatch,
+    mask_crop_no_gain as mask_crop_no_gain,
+    mask_crop_unusable as mask_crop_unusable,
     mask_unusable as mask_unusable,
+    mismatched_mask_crop_detail as mismatched_mask_crop_detail,
+    mismatched_mask_crops as mismatched_mask_crops,
     mismatched_outpaint_detail as mismatched_outpaint_detail,
     mismatched_outpaints as mismatched_outpaints,
     missing_mask_detail as missing_mask_detail,
@@ -33,8 +38,9 @@ from .submission_rules import (
 
 
 # The per-image status a reason from `unusable_input` becomes.
-UNUSABLE_STATUS: dict[str, Literal["source_deleted", "lora_missing", "mask_missing", "outpaint"]] = {
+UNUSABLE_STATUS: dict[str, Literal["source_deleted", "lora_missing", "mask_missing", "outpaint", "mask_crop"]] = {
     "source": "source_deleted", "lora": "lora_missing", "mask_missing": "mask_missing", "outpaint": "outpaint",
+    "mask_crop": "mask_crop",
 }
 
 
@@ -59,7 +65,7 @@ async def unusable_input(
 ) -> tuple[str, str] | None:
     """`refuse_unusable_inputs`' finding without the refusal: (kind, why) or
     None. The kind - `refine`, `inpaint`, `source`, `mask_missing`, `mask`,
-    `reference`, `references`, `lora` - is what Swap tags reports per image (a
+    `mask_crop`, `reference`, `references`, `lora` - is what Swap tags reports per image (a
     deleted source, a missing adapter or mask) where a whole submission is
     refused for one; a `mask_missing` is said per image with
     `missing_mask_detail`, which names it.
@@ -69,7 +75,8 @@ async def unusable_input(
     image-to-image class's, as `applied()` asks it. The mask file's checks
     run where there is a mask - an outpaint has none until its stamp - and
     an outpaint's own (`outpaint_unusable`, kind `outpaint`) where there is
-    one.
+    one; then a masked-area crop's region, decided and gaining something
+    (`mask_crop_unusable`, kind `mask_crop`).
 
     An edit (kind `edit`) is said by its `producer`. More seeds runs one:
     the recorded proof against the source's pixels now (`bind_request`),
@@ -146,6 +153,10 @@ async def unusable_input(
             reason = await asyncio.to_thread(mask_unusable, request)
             if reason is not None:
                 return "mask", reason
+        if request.mask_crop is not None:
+            reason = await asyncio.to_thread(mask_crop_unusable, request)
+            if reason is not None:
+                return "mask_crop", reason
     if request.reference:
         info = await asyncio.to_thread(services.backend().describe)
         if not services.merged_defaults(info)["reference_supported"]:

@@ -32,7 +32,7 @@ from .execution import (
 from .model_defaults import defaults_for, inpaint_family, inpaint_start
 from . import refine
 from .refine import DEFAULT_STRENGTH, Upscaler, leaves_a_step, upscaler_supported
-from .schemas_mask_crop import MASK_CROP_NEEDS_A_MASK, MASK_CROP_WITH_EDIT, MaskCropSpec
+from .schemas_mask_crop import MASK_CROP_NEEDS_A_MASK, MASK_CROP_WITH_EDIT, MaskCropArea, MaskCropSpec
 from .schemas_outpaint import Outpaint
 from .seeds import MAX_BATCH, MAX_GRID_SEEDS, MAX_RUNS, MAX_SEED
 
@@ -890,6 +890,9 @@ class GridPreview(BaseModel):
     pass_width: int | None = None
     pass_height: int | None = None
     pass_sizes: list[tuple[int, int]] = Field(default_factory=list)
+    # Only the masked area: the region every cell's pass denoises
+    # (`mask_crop.region`), where they share one; null without a crop.
+    mask_crop: MaskCropArea | None = None
 
 
 class JobAccepted(BaseModel):

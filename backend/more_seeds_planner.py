@@ -97,6 +97,10 @@ async def more_seeds_plan(
     mismatched = set(await asyncio.to_thread(
         submission.mismatched_outpaints, [batch.template for batch in mine]
     ))
+    # And one whose mask no longer decides its recorded masked area.
+    cropped = set(await asyncio.to_thread(
+        submission.mismatched_mask_crops, [batch.template for batch in mine]
+    ))
     for batch in mine:
         template = batch.template
         more_seeds.plan(
@@ -108,6 +112,10 @@ async def more_seeds_plan(
         if template.id in mismatched:
             batch.status = "outpaint"
             batch.detail = submission.mismatched_outpaint_detail([template.id])
+            continue
+        if template.id in cropped:
+            batch.status = "mask_crop"
+            batch.detail = submission.mismatched_mask_crop_detail([template.id])
             continue
         # New seeds are new pictures under any quantizer, but the batch's
         # images were all made under one; said, not refused.
