@@ -196,8 +196,9 @@ sudo loginctl enable-linger $USER # start at boot and keep running with nobody l
 `systemctl --user restart auradream`. It sets `AURADREAM_HOST=0.0.0.0` and
 `AURADREAM_ALLOWED_HOSTS` to the names and addresses the machine had then,
 for example `127.0.0.1,localhost,my-box,my-box.local,192.168.1.20`. Keep
-`127.0.0.1` and `localhost` in that list (a second start, the doctor and the
-CLI ask the server by them), write the other names exactly and in lowercase,
+`127.0.0.1` (and `localhost`) in that list (a second start, the doctor and
+the CLI ask the server at `127.0.0.1`, and without it they take AuraDream
+for another program), write the other names exactly and in lowercase,
 as browsers send them, and use no wildcards: `*.local` loads the page and
 then refuses every change it asks for. The script prints the addresses to
 open; a firewall needs the port allowed (`sudo ufw allow 7860/tcp`).

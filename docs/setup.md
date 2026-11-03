@@ -100,9 +100,10 @@ an 8 GB RTX 3070 on native Ubuntu has one SDXL checkpoint measured
 - **VRAM.** The 16 GB RTX 5080 is measured throughout. The defaults use fp8
   and model offload; **sequential** offload under **Models** uses less VRAM,
   more slowly. On an 8 GB RTX 3070, Animagine XL 4.0 at fp8 with model
-  offload peaked at 4.3-5.4 GiB of the whole card; no other checkpoint has
-  been measured on 8-12 GB, and the FLUX-size ones do not fit 8 GB
-  ([An 8 GB card](#an-8-gb-card)). The SDXL anime checkpoints are the
+  offload peaked at 4.2 GiB of the whole card (5.3 GiB read mid-job for a
+  batch of four); no other checkpoint has been measured on 8-12 GB, and the
+  FLUX-size ones are not expected to fit 8 GB at fp8 with model offload (not
+  measured; sequential offload untried; [An 8 GB card](#an-8-gb-card)). The SDXL anime checkpoints are the
   lightest.
 - **RAM.** A cold load of the default, FLUX.1 Krea [dev] (fp8, model
   offload), peaked at **27.9 GiB working set and 35.4 GiB private**
@@ -474,12 +475,14 @@ nothing there). It holds:
   this machine's name, its `.local` name and its IPv4 addresses when the
   script ran, for example
   `127.0.0.1,localhost,my-box,my-box.local,192.168.1.20`. Add a name or
-  address another PC uses (after a DHCP change, say). Keep `127.0.0.1` and
-  `localhost`: a second start, the doctor and the command line ask the
-  server by them, and without them take AuraDream for another program.
+  address another PC uses (after a DHCP change, say). Keep `127.0.0.1` (and
+  `localhost`): a second start, the doctor and the command line ask the
+  server at `127.0.0.1`, and without it they take AuraDream for another
+  program.
   Write every name exactly and in lowercase, as browsers send it; a
   wildcard (`*` or `*.local`) loads the page and then refuses every change
-  it asks for. The doctor warns about each of these.
+  it asks for. The doctor warns about a missing `127.0.0.1`, capitals and
+  wildcards.
 - The xet downloader's fixed connection count (as `wsl/env.sh` sets it),
   and commented examples for `HF_HOME`, `AURADREAM_PORT` and the two
   keep-awake settings.
@@ -500,8 +503,9 @@ systemctl --user stop auradream            # stop / start / restart
 
 A page opened by a LAN address over plain `http` is not a secure context
 for the browser, so the context menu's copy items and desktop notifications
-are held, each with its reason; everything else works. Automatic backups
-work unencrypted through the ordinary bundle path; encrypted automatic
+are held, each with its reason; everything else works. Unencrypted
+automatic backups use the ordinary bundle path on Linux (not run there
+yet); encrypted automatic
 backups (the Windows credential manager) and backup cleanup (an NTFS shared
 mode) are Windows only.
 
@@ -546,14 +550,16 @@ your Hugging Face sign-in with it.
 ### An 8 GB card
 
 On an RTX 3070 (8 GB), Animagine XL 4.0 at fp8 with model offload made two
-1024x1024 images in 30 s and peaked at 4.3 GiB of the whole card (5.4 GiB
-for a batch of four through the service). Start with the SDXL anime
+1024x1024 images in 30 s and peaked at 4.2 GiB (4,289 MiB) of the whole
+card; a batch of four through the service read about 5.3 GiB (5,421 MiB)
+mid-job. Start with the SDXL anime
 checkpoints, Anima or FLUX.2 [klein] 4B (only the SDXL one is measured
 there). fp8 works on cards before the RTX 40 series: torchao's fp8
 weight-only quantization keeps the weights in fp8 and computes in bf16, so
 it needs no fp8 tensor cores. The FLUX-size checkpoints (FLUX.1, Krea 2,
-klein 9B, Qwen-Image) do not fit 8 GB at fp8 with model offload, which puts
-a whole transformer on the card: the default peaked at 12.0 GiB on the 5080.
+klein 9B, Qwen-Image) are not expected to fit 8 GB at fp8 with model
+offload (not measured), since model offload puts a whole transformer on the
+card: the default peaked at 12.0 GiB on the 5080.
 Sequential offload has not been tried on 8 GB, and the page gives these no
 fit warning yet. Nunchaku 4-bit (`AURADREAM_QUANT=nunchaku`)
 needs the `int4` repos below an RTX 50 card (the doctor names them); the

@@ -132,7 +132,7 @@ else
             if awk -v g="$vram_gb" 'BEGIN { exit !(g >= 15.5) }'; then
                 ok "$vram_gb GB of video memory. The measured card is a 16 GB RTX 5080."
             else
-                note "$vram_gb GB of video memory. Only a 16 GB card has been measured; whether a checkpoint fits less is not known. The SDXL anime checkpoints are the lightest, and sequential offload (under Models) uses less video memory, more slowly."
+                note "$vram_gb GB of video memory. The 16 GB RTX 5080 is measured throughout; on an 8 GB RTX 3070 Animagine XL 4.0 at fp8 with model offload fits (docs/verified.md). The SDXL anime checkpoints are the lightest, and sequential offload (under Models) uses less video memory, more slowly."
             fi
         fi
         cards=$(grep -c ',' <<<"$query" || true)

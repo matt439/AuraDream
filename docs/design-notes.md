@@ -294,8 +294,8 @@ server holds it.
 compute capability 8.6), where the 5080 has 16 GB. torchao's fp8
 weight-only quantization (`Float8WeightOnlyConfig`) runs there: the weights
 are stored in fp8 and dequantized to bf16 for each matmul, so it needs no
-fp8 tensor cores (Animagine XL 4.0 at 1024x1024 peaked at 4.3 GiB of the
-whole card). What does not fit is size: model offload keeps a whole
+fp8 tensor cores (Animagine XL 4.0 at 1024x1024 peaked at 4.2 GiB, 4,289
+MiB, of the whole card). What does not fit is size: model offload keeps a whole
 transformer on the card, and the FLUX-size ones are larger than 8 GB at
 fp8 (the default peaked at 12.0 GiB on the 5080). The doctor's VRAM row
 warns under that figure and names the lighter checkpoints; the Models

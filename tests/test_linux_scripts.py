@@ -208,7 +208,7 @@ def test_setup_dry_run_on_an_8gb_ampere_card(sandbox):
     assert "Card: NVIDIA GeForce RTX 3070" in out
     assert "Compute capability 8.6 is supported" in out
     assert "int4" in out and "nvfp4" in out
-    assert "8.0 GB of video memory" in out and "Only a 16 GB card has been measured" in out
+    assert "8.0 GB of video memory" in out and "on an 8 GB RTX 3070 Animagine XL 4.0 at fp8 with model offload fits" in out
     assert "would run in" in out and "uv sync" in out and "never model weights" in out
     assert "backend.doctor" in out
     assert str(sandbox["home"] / ".cache" / "huggingface") in out and "HF_HOME" in out

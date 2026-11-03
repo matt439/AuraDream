@@ -1094,8 +1094,8 @@ AuraDream.
 A page opened by a LAN address over plain `http` is not a secure context, so
 the context menu's copy items and **Notify when done** are held there with
 their reasons. Encrypted automatic backups and backup cleanup are Windows
-only; unencrypted automatic backups work on Linux through the ordinary
-bundle path.
+only; unencrypted automatic backups use the ordinary bundle path on Linux
+(not run there yet).
 
 ## Review starred rates
 
