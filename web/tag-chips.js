@@ -588,7 +588,7 @@ function syncTagVocabulary() {
 // whole where the browser has it, and elsewhere the focus and the selection
 // are put back by hand.
 function placeTagValidation() {
-  const wide = window.matchMedia('(min-width: 901px)').matches;
+  const wide = window.matchMedia(TWO_COLUMNS_MEDIA).matches;
   const focused = document.activeElement;
   const range = typeof focused?.selectionStart === 'number'
     ? [focused.selectionStart, focused.selectionEnd, focused.selectionDirection]

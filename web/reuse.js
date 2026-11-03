@@ -322,6 +322,8 @@ function clearReuseNote() {
 // Not the jump to the top of the page there used to be, which beside the
 // gallery lost the user's place for nothing.
 function revealReused(note) {
+  // On a phone showing the gallery, the panel is the other view (touch.js).
+  showCreateView();
   const panel = document.querySelector('.panel');
   // The note has just made the panel taller: placed now rather than after
   // the frame, so what is measured below is where the panel stays.

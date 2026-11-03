@@ -2,7 +2,16 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- viewport-fit=cover: on an iPhone the page runs under the notch and the
+     home indicator, and styles/touch.css keeps its controls inside the safe
+     areas. The rest is a phone's or a tablet's home-screen app: full screen,
+     the status bar over the page's own dark topbar. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#131318">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="AuraDream">
 <title>AuraDream</title>
 <!-- Keep this order: these sections preserve the original stylesheet cascade. -->
 <link rel="stylesheet" href="/static/style.css">
@@ -27,6 +36,8 @@
 <link rel="stylesheet" href="/static/styles/snippets.css">
 <link rel="stylesheet" href="/static/styles/setups.css">
 <link rel="stylesheet" href="/static/styles/saved-searches.css">
+<!-- Last: the phone and tablet tier overrides the components above it. -->
+<link rel="stylesheet" href="/static/styles/touch.css">
 </head>
 <body>
 <header class="topbar">
@@ -797,9 +808,9 @@
          viewer in any order; the cards a failed load or a lost run put in
          it have headings of their own. -->
     <div class="viewer" id="viewer" role="region" aria-label="Results">
-      <p class="placeholder"><span class="idle-line">Nothing generated this session - Ctrl+Enter runs the
-        prompt; click a gallery image to open it.</span><span class="first-run">Nothing here yet: write a
-        prompt and Generate (Ctrl+Enter), or start from one of this checkpoint's own examples.
+      <p class="placeholder"><span class="idle-line">Nothing generated this session<span class="key-hint"> - Ctrl+Enter runs the
+        prompt; click a gallery image to open it</span>.</span><span class="first-run">Nothing here yet: write a
+        prompt and Generate<span class="key-hint"> (Ctrl+Enter)</span>, or start from one of this checkpoint's own examples.
         <button type="button" class="ghost small" id="viewer-examples">Examples</button></span></p>
     </div>
     <!-- Outside the strip on purpose: the strip is capped and cleared per job,
@@ -1021,6 +1032,14 @@
     </div>
   </section>
 </main>
+<!-- A phone's two views (touch.js, styles/touch.css): Create - the panel and
+     the results - or the gallery. Drawn only on a phone; elsewhere it is
+     display: none and out of the tab order. -->
+<nav class="phone-tabs" id="phone-tabs" aria-label="View" role="tablist">
+  <div class="phone-tabs-line" id="phone-tabs-line" aria-hidden="true" hidden><div class="fill" id="phone-tabs-fill"></div></div>
+  <button type="button" role="tab" id="tab-create" data-view="create" aria-selected="true"><svg class="tab-glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.2 6.3 6.3 2.2-6.3 2.2L12 19.5l-2.2-6.3L3.5 11l6.3-2.2z"/></svg>Create<span class="tab-busy" id="tab-busy" hidden></span></button>
+  <button type="button" role="tab" id="tab-gallery" data-view="gallery" aria-selected="false"><svg class="tab-glyph" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg>Gallery</button>
+</nav>
 
 <!-- A <dialog> opened with showModal(): focus is trapped inside it, the page
      behind it is inert, Escape closes it and focus returns to where it was.
@@ -2189,6 +2208,7 @@
 <script src="/static/snippet-import.js"></script>
 <script src="/static/generation-presets.js"></script>
 <script src="/static/setup-import.js"></script>
+<script src="/static/touch.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

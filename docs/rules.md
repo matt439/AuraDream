@@ -587,7 +587,7 @@ before changing it.
   `AURADREAM_INSTALL_TEST_ROOT`, `AURADREAM_INSTALL_TEST_PROC_VERSION`,
   `AURADREAM_INSTALL_TEST_WAIT` (control.sh's wait)
   (`tests/test_linux_scripts.py`)
-- `web/` - served as-is from `/static`; `index.html` loads 67 classic
+- `web/` - served as-is from `/static`; `index.html` loads 68 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `page-helpers.js`, right
   after it, the page-wide pure helpers (`plural`, `excerpt`, `units`,
@@ -650,7 +650,11 @@ before changing it.
   `saved-searches.js` owns named gallery filters and their native dialog;
   `gallery.js` the single explicit filter transition out of sheets and the
   bin (`applyGalleryFilter`), which Apply, Show all, the Models picker's
-  See all and a bundle's Show share.
+  See all and a bundle's Show share. `touch.js`, just before `app.js`, the
+  phone's two views (Create and Gallery, `setPhoneView`, `showCreateView`)
+  and the job's mark on its tab bar; the touch tier's media queries
+  (`PHONE_MEDIA`, `TABLET_COLUMNS_MEDIA`, `TWO_COLUMNS_MEDIA`) are
+  `state.js`'s, beside `styles/touch.css`'s copies of them.
   The stylesheet is
   `style.css` (tokens and base layout), followed by `styles/*.css` in the
   explicit link order: `model-picker.css` the Models picker (first, at its
@@ -667,7 +671,8 @@ before changing it.
   `shortcuts.css` the keyboard help dialog, `snippets.css` the snippet dialog
   (and the rules both merge dialogs share) and `setups.css` the named setup
   dialog, followed by `saved-searches.css`
-  for the saved gallery search dialog and its footer opener;
+  for the saved gallery search dialog and its footer opener, and last
+  `touch.css`, the phone and tablet tier (under "Phones and tablets");
   preserve that cascade (`tests/test_docs_maps.py` holds this list to
   `index.html`'s links, in order). `docs/source-audit.md` records the
   split audits and why each long file it kept stays whole.
@@ -6492,6 +6497,48 @@ measured on the card and when.
   made under the prompt check or the model picker holds once they close.
   Beside the viewer a wheel over it scrolls the column (`galleryTopWheel`),
   not the page.
+- Phones and tablets (`styles/touch.css`, linked last, and `touch.js`): one
+  page, keyed on a coarse primary pointer, never on width alone, so a PC's
+  mouse - a touch laptop's included, whose primary pointer is fine - and
+  every smoke written with one see none of it at any window size. Three
+  queries, the same text in `touch.css` and `state.js`: the touch tier
+  `(pointer: coarse)`; the tablet's two columns
+  `(pointer: coarse) and (700px <= width <= 900px) and (height > 500px)`
+  (an iPad Air 11 in portrait, 820x1180; landscape, 1180x820, is already
+  the PC's two columns); the phone
+  `(pointer: coarse) and ((max-width: 600px) or (max-height: 500px))` (an
+  iPhone 15 Pro, 393x852, either way up). The touch tier overrides the
+  height tokens on `:root` (fields and ordinary buttons 44 px, the primary
+  50, small 36, tiny 32), sets every text box, number box and select to
+  16 px or more (`!important`: under 16 iOS zooms the page on focus and
+  leaves it zoomed), takes the keyboard's hints away (`::after` key
+  letters, `.lb-keys`, `.key-hint` spans in the idle line, the png drop
+  hint, the search's "/ to focus"), widens a `?` badge's press, wraps the
+  gallery footer, gives the lightbox's stage `touch-action: none`, and
+  keeps the topbar, the page and the lightbox inside the safe areas
+  (`viewport-fit=cover` in `index.html`; `--safe-*` from `env()`; the
+  topbar's top inset is inside `--topbar-h`, so whatever reads it reads
+  the real height). The one-column rules elsewhere that would undo the
+  tablet's columns (the prompt note's and New image's in `fields.css` and
+  `generation.css`) exclude it with the same condition, and
+  `placeTagValidation` reads `TWO_COLUMNS_MEDIA` rather than 901 px. The
+  phone is one column with a tab bar at the foot (`#phone-tabs`):
+  `body[data-view]` is `create` (the panel and the results) or `gallery`
+  (`.library`), the other not drawn; each view keeps its own scroll, the
+  choice is kept for the tab in `sessionStorage`, and only a press - the
+  tab's, or Reuse (`revealReused` calls `showCreateView`) - switches it,
+  never a job starting or ending. While a job runs, Create carries a dot
+  and the bar's top edge the topbar's line (`syncPhoneTabsBusy`, from
+  `#topbar-line`'s attributes). On the phone the Models picker is a sheet
+  between the topbar and the bar, Back to top clears the bar, the
+  lightbox's arrows give way to swipes, and the keyboard help button is
+  gone. A finger in the lightbox (`lightbox.js`, `lbTouch*`): two pinch
+  about their midpoint and pan; one zoomed in pans; one at or below fit
+  swipes - 50 px sideways (and 1.3 times its rise) steps, 90 px down
+  closes - the picture following it; a tap is the mouse's click; two taps
+  within 300 ms and 30 px are the double-click, and the browser's own
+  dblclick for them is dropped (`lbTouchDouble`). A mouse's events take
+  the old paths unchanged.
 
 ## Tests
 
@@ -7279,6 +7326,29 @@ its own height, inside the column left of its scrollbar, and its press
 scrolls the column to 0, never the page; a wheel over it scrolls the
 column, not the page; unticking re-asks of the page. Focused and scrolled
 near the top it stays until its blur.
+
+`smoke-phone.json` uses a fresh FLUX.1 Krea [dev] fake on 7956 with touch
+emulated (`{"touch": true}`) at 393x852@3: the phone query alone matching,
+Generate and Models at least 48 and 44 px, 16 px boxes, no keyboard hints
+or keyboard help, no sideways scroll; Create drawing the panel and viewer
+but not the gallery and the bar at the window's foot; Gallery the reverse,
+two cards across, Back to top above the bar, each view's own scroll and
+the view kept through a reload; in the lightbox no arrows or key legend,
+a swipe left and right stepping, a swipe down closing, a pinch zooming
+past 1.5, a swipe while zoomed panning without stepping, and a double tap
+back to fit; Reuse from the Gallery view bringing Create with the prompt;
+a job's dot and line on the bar in both views and gone at its end; the
+Models sheet across the window between the topbar and the bar; 852x393
+still the phone; and a mouse at 1400x900 back to no bar, both views, a
+43 px Generate, 14 px text and the Ctrl+Enter hint.
+
+`smoke-tablet.json` uses a fresh FLUX.1 Krea [dev] fake on 7957 with touch
+at 820x1180@2: the panel beside the stage and sticky, two cards across,
+no tab bar, the keyboard help kept, finger sizes, the chips' host the wide
+one; a tapped Generate's result in the stage beside the panel with no New
+image pill fixed over the page; at 1180x820 the PC's two columns at finger
+sizes; and a mouse at 820x1180 one column as before, 43 px Generate, the
+chips under the prompt.
 
 `smoke-queue-controls.json` uses a fresh FLUX.1 Krea [dev] fake on 7914 with
 0.3 s steps. It checks authoritative Move order and focus through reload,
