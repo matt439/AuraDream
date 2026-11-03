@@ -800,6 +800,25 @@ def test_control_status_of_an_active_answering_service(sandbox, auradream_listen
 
 
 @on_linux
+@pytest.mark.parametrize(("awake", "said"), [
+    # Idle is not off: the first status on the live server called a released
+    # hold "off" because only `wanted` was read.
+    ({"kind": "systemd-inhibit", "holding": False, "wanted": False, "reasons": []},
+     "systemd-inhibit, not holding: idle, so the PC may sleep"),
+    ({"kind": "off", "holding": False, "wanted": False, "reasons": []},
+     "off (AURADREAM_KEEP_AWAKE=false)"),
+])
+def test_control_status_tells_idle_from_switched_off(sandbox, auradream_listening, awake, said):
+    (sandbox["root"] / ".git").mkdir()
+    _venv(sandbox)
+    _service_active(sandbox)
+    auradream_listening["track"]["service"] = True
+    auradream_listening["busy"]["status"]["keep_awake"] = {**awake, "detail": None, "idle_minutes": 20}
+    result = _run(sandbox, "control.sh", "status")
+    assert f"Keep awake:   {said}" in result.stdout, result.stdout + result.stderr
+
+
+@on_linux
 def test_control_status_of_a_stopped_service_still_reports(sandbox, auradream_listening):
     (sandbox["root"] / ".git").mkdir()
     _venv(sandbox)

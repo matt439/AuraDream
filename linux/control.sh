@@ -271,10 +271,15 @@ line("Jobs", f"{len(jobs)} queued or running" if jobs else "none")
 line("Card", f"in use ({status['card_holder']})" if status.get("card_holder") else "free")
 awake = status.get("keep_awake")
 if isinstance(awake, dict):
-    if not awake.get("wanted", True):
-        text = "off"
+    # "wanted" False is idle, not switched off: only kind "off" is
+    # AURADREAM_KEEP_AWAKE=false.
+    kind = awake.get("kind") or "none"
+    if kind == "off":
+        text = "off (AURADREAM_KEEP_AWAKE=false)"
+    elif not awake.get("wanted"):
+        text = f"{kind}, not holding: idle, so the PC may sleep"
     else:
-        text = f"{awake.get('kind') or 'none'}, " + ("holding" if awake.get("holding") else "not holding")
+        text = f"{kind}, " + ("holding" if awake.get("holding") else "not holding")
         if awake.get("reasons"):
             text += ": " + "; ".join(str(reason) for reason in awake["reasons"])
         if awake.get("detail"):
