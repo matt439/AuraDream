@@ -169,6 +169,55 @@ def test_cancel_wins_over_a_skip_of_the_same_call(store, monkeypatch, cancel_fir
     asyncio.run(scenario())
 
 
+def test_a_cancel_is_in_the_snapshot_and_said_to_every_stream_at_once(store, monkeypatch):
+    # Only the tab that pressed Cancel read "Stopping…": another tab, or a
+    # reloaded page, saw Cancel offered and the render carrying on.
+    entered, release = threading.Event(), threading.Event()
+    fake = FakeBackend()
+    generate = fake.generate
+
+    def held_generate(*args, **kwargs):
+        entered.set()
+        assert release.wait(3), "generation was never released"
+        return generate(*args, **kwargs)
+
+    monkeypatch.setattr(fake, "generate", held_generate)
+
+    async def scenario():
+        manager = JobManager(fake)
+        job = await manager.submit(GenerateRequest(prompt="x", width=256, height=256, steps=2))
+        events = asyncio.Queue()
+        job.subscribers.append(events)
+        try:
+            await _until_queue(entered.is_set)
+            assert job.snapshot()["cancel_requested"] is False
+            await asyncio.sleep(0)
+            while not events.empty():
+                events.get_nowait()
+            manager.cancel(job.id)
+            assert job.snapshot()["cancel_requested"] is True
+            await asyncio.sleep(0)  # deliver the cancel's status frame
+            frames = []
+            while not events.empty():
+                frames.append(events.get_nowait())
+            stopping = [f for f in frames if f["type"] == "status" and f["cancel_requested"]]
+            assert stopping and stopping[0]["status"] == "running"
+            assert "images" not in stopping[0]
+        finally:
+            release.set()
+            await _until_queue(lambda: not manager.active())
+            await manager.shutdown()
+        assert job.status == "cancelled"
+        assert job.snapshot()["cancel_requested"] is True
+
+    asyncio.run(scenario())
+
+
+def test_a_job_never_cancelled_says_so(store):
+    job = Job(id="j", cells=[], request=GenerateRequest(prompt="x", width=256, height=256))
+    assert job.snapshot()["cancel_requested"] is False
+
+
 def test_a_cancelled_queued_job_is_not_rewritten_when_its_load_fails(store):
     # cancel() finishes a still-queued job on the spot, but its _run is parked
     # in ensure_loaded(); when that then raises, the except branch used to

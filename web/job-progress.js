@@ -412,6 +412,21 @@ function syncNow(job) {
     : job.grid ? (job.prompt_template != null ? 'this grid' : job.swap != null ? 'this swap' : 'this re-render')
     : `"${snippet(job.prompt ?? '', 40)}"`;
   els.cancel.title = `Stop ${name}${foreign ? " - another tab's job -" : ''} after the current step`;
+  syncCancel(job);
+}
+
+// A cancel asked for - here, in another tab, or before a reload - from the
+// worker's account (`cancel_requested`): Cancel reads "Stopping…" and is held
+// with the reason in every tab watching the job, until the job ends
+// (setBusy). This page's own press still on its way counts too: a frame from
+// before it must not offer Cancel again (cancelJob).
+const CANCEL_STOPPING = 'This job is stopping after the current step';
+function syncCancel(job) {
+  const asking = watchedCancelling.get(job.job_id);
+  const stopping = !!job.cancel_requested || (!!asking && watchedActionCurrent(asking));
+  els.cancel.setAttribute('aria-disabled', String(stopping));
+  els.cancel.textContent = stopping ? 'Stopping…' : 'Cancel';
+  if (stopping) els.cancel.title = CANCEL_STOPPING;
 }
 
 // Desktop notifications are a separate browser preference, never a panel

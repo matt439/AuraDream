@@ -8822,7 +8822,10 @@ restart through a changed start time; the load's ticker with its
 aria-hidden clock and indeterminate bar, also shown in the empty viewer's
 one line, whose own words come back after a cancel; a second job queued
 during the load keeping the load's note under the bars through the queue's
-redraw; a cancel during the load; a gated
+redraw; a cancel during the load; a cancel asked elsewhere
+(`cancel_requested`) and seen again after a reload: Cancel "Stopping…" where
+it stood, held with "This job is stopping after the current step", which a
+press says, and Cancel again at the job's end; a gated
 load's detail said in the panel line after every Generate while the viewer
 holds images; a gated load's card said once and not re-announced by the
 banner, its Retry load handing focus to Generate; Load and Unload handing
