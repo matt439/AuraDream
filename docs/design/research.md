@@ -23,6 +23,13 @@ and [validation](validation.md) for the personal task checks still to perform.
 This file records discovery; it does not replace implementation rules, the
 current feature plans, or measurements in `docs/verified.md`.
 
+**Status reconciliation, 2026-11-03:** the journey and persona `Current`
+entries below, F02, F04, E08 and E14 now describe today's app: both
+continuation phases, model cache facts, Expand Stop, named setups, saved
+searches, Then refine, the masked-area crop and Edit by instruction are
+built. Goals, needs and non-goals are unchanged, and the register keeps
+its 2026-10-18 line references; no new task observation was made. Questions 3, 6 and 7 are partly answered.
+
 ## Scope and evidence limits
 
 - The product is for Matt's own workstation. No invented beginner, customer,
@@ -41,8 +48,15 @@ current feature plans, or measurements in `docs/verified.md`.
   journeys are design intentions to evaluate, not descriptions of shipped UI.
 - CPU and browser checks cannot establish image quality, card fit or timing.
   GPU work remains subject to Matt's approval and the measured card limits.
-- Phase 1 of Continue a run is built. Its old persona frustration paragraphs
-  describe an earlier state and must not be reported as current defects.
+- Both phases of Continue a run are built. Its old persona frustration
+  paragraphs describe an earlier state and must not be reported as current
+  defects.
+- The [2026-11-01 first-run review](../review-2026-11-01-first-run.md)
+  (installer, doctor, first-visit panel, plain-words failures, `GEN#41`) was
+  requested by Matt for a first-time user who is not confident with git, and
+  serves the public repository. It sits outside these modes and is owned by
+  that review. Whether to add a persona or mode for it (first run or
+  reinstall) is open for Matt.
 
 ## Evidence register
 
@@ -60,13 +74,13 @@ evidence, and `H` a hypothesis that still needs a personal task check.
 | E05 | B | [Generate and manage jobs](../usage.md#generate-and-manage-jobs), lines 128-154 | Batch/Repeat, queue, pause/cancel, reload and per-model settings |
 | E06 | B | [Write and check prompts](../usage.md#write-and-check-prompts), lines 184-249 | Examples, tags, Check, critic, comparisons and Expand |
 | E07 | B | [Grid search](../usage.md#sweep-settings-with-grid-search), lines 367-413 | Resolved previews, seeds, axes, budgets and current Resume limits |
-| E08 | B | [Current continuation](../usage.md#continue-a-run), lines 522-556; [finish actions](../../web/job-results.js#L121), lines 121-214 | Phase-1 More seeds and original-payload Retry/Resume are present |
+| E08 | B | [Current continuation](../usage.md#continue-a-run), lines 522-556; [finish actions](../../web/job-results.js#L121), lines 121-214 | As of 2026-11-03: More seeds, and Finish run from stored cells after a reload or restart (both phases, `GEN#11`); the panel's Resume tick only for older/imported runs |
 | E09 | B | [Browse and keep](../usage.md#browse-compare-and-keep-results), lines 417-518 | Model scope, run/job scope, sheets, picks and batch actions |
 | E10 | B | [Editing](../usage.md#refine-an-existing-image), lines 270-363 | Separate edit dialogs, source links, masks, padding and capability limits |
 | E11 | B | [Bundles](../usage.md#gallery-bundles), lines 651-732; [recycle bin](../usage.md#clear-or-recover-a-gallery), lines 736-759 | Export scope, verified clearing, import and reversible triage |
 | E12 | B | [Panel persistence](../design-notes.md#panel-persistence), lines 4533-4577; [Expand text ownership](../../web/prompt-expand.js#L146), lines 146-152 | Remembered work, Undo and preserving intervening edits |
 | E13 | B | [Rules](../rules.md#rules), lines 1632-1686, 2024-2037, 2124-2134, 3061-3066 | Cold sourced checking, browser verification, discoverable holds, stable layout |
-| E14 | B | [NOW and open work](../../TODO.md#now), lines 11-16, 56-63, 90-97 | Durable recovery next; known model/Expand/accessibility gaps |
+| E14 | B | [NOW and open work](../../TODO.md#now), lines 11-16, 56-63, 90-97 | As of 2026-11-03: durable recovery (`GEN#11`) and the model cache/Expand gaps (`GEN#1`, `GEN#2`) are closed; open work is `CARD` rows and what needs Matt (`DEV#1` trials, `UI#7` hands-on checks) |
 | E15 | M | [Measured evidence](../verified.md); [measurement policy](../../TODO.md#measurements-on-the-card), lines 16-20 | Card evidence is distinct from design or fake-server checks |
 | E16 | D | [First partial generation-control answers, 2026-10-18](preferences.md) | Historical first response: A1–A14 only; primary prompt/negative, aspect/resolution, fixed Seed, Batch/Repeat and Reset; secondary sampling |
 | E17 | D | [Earlier partial pasted response and Reset decision, 2026-10-18](preferences.md) | Historical intermediate response: 115 feature answers before B arrived; Grid area Sometimes; Reset still clears Seed |
@@ -86,7 +100,10 @@ skill rating or unobserved preference is assigned to Matt.
   work, retain results and continue without reconstructing the plan.
 - **Current means:** queue/watch/cancel/reconnect/retry, recent results,
   prompt variables, occasional Steps/CFG/seed grids, runs and sheets
-  (E05, E07, E08, E17).
+  (E05, E07, E08, E17). Since then: Finish run, Skip and Move to front,
+  Then refine and queue estimates. The page watches the running job;
+  choosing the watched job is not built (see UX#7's 2026-11-03 note in
+  [requirements](requirements.md#ux7--understand-work-while-it-runs-or-waits--p0--current)).
 - **Needs:** persistent progress and explicit waiting/outcome; quick watch,
   cancel and retry; saved results retained; a trustworthy recovery path.
 - **Decision point:** which job to inspect, cancel, finish or extend, and
@@ -104,7 +121,9 @@ skill rating or unobserved preference is assigned to Matt.
 - **Goal:** judge quickly, change an intentional input, and obtain more useful
   variations while retaining the settings that made the batch promising.
 - **Current means:** model defaults, remembered controls, Generate, Use seed,
-  Reuse, Check, prompt comparison and More seeds (E03-E08).
+  Reuse, Check, prompt comparison and More seeds (E03-E08). Since then:
+  named setups (Restore/Undo), personal snippets, random prompt choices
+  and the tag finder.
 - **Needs:** quick access to the prompt and latest result; visible active
   settings; reversible text changes; explicit scope and count before queuing.
 - **Decision point:** preserve a seed for comparison, vary the seed, change the
@@ -122,7 +141,9 @@ skill rating or unobserved preference is assigned to Matt.
 - **Goal:** identify worthwhile images, compare alternatives, improve selected
   results and retain a recoverable archive with useful provenance.
 - **Current means:** run/job filters, sheet/lightbox, stars, persistent picks,
-  Refine/Inpaint/Outpaint, recycle bin and bundles (E09-E11).
+  Refine/Inpaint/Outpaint, recycle bin and bundles (E09-E11). Since then:
+  saved searches, Compare picked, Pick this run, Only the masked area and
+  Edit by instruction.
 - **Needs:** a reliable comparison context; visible action scope; clear source
   relationships; reversible triage; a verified archive result before clearing.
 - **Decision point:** keep, request more variations, edit, bin, or archive.
@@ -145,7 +166,7 @@ skill rating or unobserved preference is assigned to Matt.
 | J05 | Comparing a change | Hold the relevant inputs constant and view alternatives together | Decide what the change actually improved | E06, E07, E09 |
 | J06 | Returning after a stop | Distinguish missing work from more variations | Recover or extend the intended set | E03, E07, E08, E14 |
 | J07 | Reviewing results | Compare, keep and choose an action at the image or set | Move from exploration to a useful result | E08-E10 |
-| J08 | Improving a keeper | Choose whole-image refinement, a painted region or extra canvas | Change the intended part with clear provenance | E10 |
+| J08 | Improving a keeper | Choose whole-image refinement, a painted region (whole picture or only the masked area), extra canvas or a written instruction (Edit by instruction, since 2026-10-30) | Change the intended part with clear provenance | E10 |
 | J09 | Ending a session | Verify what is archived and what will leave the gallery | Clear space while retaining work I mean to keep | E11 |
 
 ## Current and target journeys
@@ -155,14 +176,14 @@ into candidate structure; the validation plan checks them with Matt.
 
 | Stage | Current journey | Target journey to evaluate | Evidence |
 |---|---|---|---|
-| Start | Launch; restore panel/settings; idle cold first connection offers Models without taking the caret | Immediately recognise what is restored, whether the server answers, what is loaded and the useful next action | E04, E05, E12 |
+| Start | Launch from the shortcut or `auradream --open`; a second launch says the server is already running; restore panel/settings; idle cold first connection offers Models without taking the caret, its first-visit note saying closing the panel saves nothing; without a Hugging Face token it preselects an open checkpoint (`GEN#41`) | Immediately recognise what is restored, whether the server answers, what is loaded and the useful next action | E04, E05, E12 |
 | Model | Inspect catalogue facts and own examples; choose loader settings; Apply & save or Switch & load; recover a failed load | Choose with creative fit, access and preparation cost understood; see selection versus loaded state clearly | E04, E14 |
 | Prompt | Write; optionally use Examples/Tags/Check; optionally ask critic or Expand; review/apply with Undo | Keep authorship central; disclose checkpoint-specific limits and optional help at the moment it is useful | E06, E12, E13 |
-| Generate/experiment | Generate with Batch/Repeat, or configure grid/comparison; preview; queue; watch results | Make a small attempt quickly, then make a controlled comparison without reconstructing the question | E05-E07, E09 |
-| Recover | Browser reload reattaches; server restart ends jobs; saved images remain; phase-1 Resume after reload depends on panel grid | Recognise completed, missing and queued work; finish an interrupted run or request more seeds with explicit totals | E03, E07, E08, E14 |
-| Curate | Narrow model/run/job/filter; inspect sheet/lightbox; star or pick; selected images survive view changes | Preserve comparison context and understand exactly which image, picked set, filter or run an action will use | E08, E09 |
-| Edit | Open Refine, Inpaint or Outpaint on a source; set prompt/strength/versions; inspect output and source comparison | Choose the operation by intended change, retain the source and recognise capability or reproduction limits | E10 |
-| Archive | Choose whole/picked/starred backup or whole-gallery Bundle & clear; read verified result; import to recover | Know archive scope and omitted dependencies before acting; finish with a comprehensible verified outcome | E11 |
+| Generate/experiment | Generate with Batch/Repeat, or configure grid/comparison; restore a named setup (with Undo); optionally Then refine; preview; queue; Skip or Move to front; watch results | Make a small attempt quickly, then make a controlled comparison without reconstructing the question | E05-E07, E09 |
+| Recover | Browser reload reattaches; server restart ends jobs; saved images remain; Finish run checks stored missing cells after a reload or restart; the Resume tick only for older/imported runs | Recognise completed, missing and queued work; finish an interrupted run or request more seeds with explicit totals | E03, E07, E08, E14 |
+| Curate | Narrow model/run/job/filter or apply a saved search; inspect sheet/lightbox; star, pick or Pick this run; Compare picked; selected images survive view changes | Preserve comparison context and understand exactly which image, picked set, filter or run an action will use | E08, E09 |
+| Edit | Open Refine, Inpaint or Outpaint on a source, optionally Only the masked area; or Edit by instruction (FLUX.1 Kontext [dev], edit-only, inside its measured envelope; card acceptance `INP#11` pending); set prompt/strength/versions; inspect output and source comparison | Choose the operation by intended change, retain the source and recognise capability or reproduction limits | E10 |
+| Archive | Choose whole/picked/starred backup or whole-gallery Bundle & clear; read verified result; import to recover. A default-off Automatic startup backup section exists; Matt declined unattended backups 2026-10-29 ([plan](../plan-automatic-backups.md#matts-choices-for-unattended-backups)) | Know archive scope and omitted dependencies before acting; finish with a comprehensible verified outcome | E11 |
 
 The current More seeds entry points are assets to retain, not new proposals.
 The recovery target incorporates the already accepted phase-2 direction; it
@@ -173,9 +194,9 @@ does not rename the panel's Resume tick or live-job Pause/Resume (E03).
 | ID | Statement | Classification | What would resolve it |
 |---|---|---|---|
 | F01 | Check works cold; advice and rewrites are optional; text edits support Undo | Repository behaviour, E06/E12/E13 | Preserve through design and browser checks |
-| F02 | Runs do not yet retain resolved cells for durable Finish run | Current gap, E07/E14; confirmed in sheet source | Accepted phase-2 implementation and restart check |
+| F02 | Runs do not yet retain resolved cells for durable Finish run | Closed 2026-10-18: `GEN#11` (858f3a2, 3c8353a) | Accepted phase-2 implementation and restart check |
 | F03 | More seeds is available at finish lines, run surfaces and image actions | Current phase-1 behaviour, E08 | Preserve locality and explicit scope |
-| F04 | Model download/cache visibility and cancellation of Expand remain open | Recorded gaps, E14 | Requirements and implementation decisions |
+| F04 | Model download/cache visibility and cancellation of Expand remain open | Closed 2026-10-18: `GEN#1` cache/download facts (5f1d592), `GEN#2` Expand Stop (0ba0c2e) | Requirements and implementation decisions |
 | H01 | Choosing the right workflow is harder than operating its controls | Untested interpretation of overlapping operations | Ask Matt to choose a route from concrete intentions |
 | H02 | A coherent workbench will reduce repeated navigation between authoring and judgement | Design hypothesis | Compare current and candidate task paths |
 | H03 | Model facts need stronger decision support, beyond an accurate table | Design hypothesis | Observe a real model-choice decision and its missing information |
@@ -197,14 +218,23 @@ design decision or task trial needs them. Do not send the entire list again.
    which details do you inspect before deciding?
 3. **Iteration:** after an almost-right result, what do you usually try next:
    prompt, fixed seed, more seeds, settings, Refine, Inpaint or another model?
+   *Partly answered:* Matt doesn't run klein ([TODO](../../TODO.md) `INP#5`),
+   doesn't write weighted prompts (`GEN#20`), and reopened `INP#9` (only the
+   masked area, built 2026-11-03). The usual next step remains open.
 4. **Experiment:** what recent question did you want a sweep to answer, and
    what comparison arrangement would make its answer clear?
 5. **Return:** when you come back, what do you need to recognise first: last
    result, run progress, missing work, active model, or the draft prompt?
 6. **Workspace:** which window size, display scaling and input methods should
    the primary layout be judged on, alongside the existing smoke sizes?
+   *Partly answered:* Matt chose to fit 1536x864, 1080p at 125%
+   ([design notes, `UI#8`](../design-notes.md#the-panels-sampling-and-output-rows),
+   2026-10-20). Input methods remain open.
 7. **Archive:** what tells you a session is ready to bundle, and what do you
    need to recognise when bringing an old bundle back?
+   *Partly answered:* no unattended backups, 2026-10-29
+   ([plan](../plan-automatic-backups.md#matts-choices-for-unattended-backups)).
+   The bundle and return cues remain open.
 
 ## Personal task validation
 

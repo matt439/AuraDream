@@ -80,10 +80,11 @@ justified by the evidence currently available.
 |---|---|
 | Confirmed this session | Personal workstation only |
 | Confirmed use | Generation, queue control, searching/picking, full-size/sheet review, continuation, reruns/Refine and whole-gallery archiving are central; see the exact feature ratings |
-| Existing accepted direction | More seeds keeps its preview/confirmation, retained batch semantics and original run; phase 2 adds persisted cells and Finish run |
+| Existing accepted direction | More seeds keeps its preview/confirmation, retained batch semantics and original run; phase 2's persisted cells and Finish run are built (`GEN#11`, 2026-10-18) |
 | Existing safeguards | Undoable prompt writes; stable controls; no automatic page scrolling; explicit held-action reasons; authoritative server previews |
 | Proposed here | Results/Runs/Gallery views with shared context; consistent scope presentation; inspector hierarchy; consolidated recovery and review journeys |
 | Open research | Actual task sequences/timings; image space versus adjacent detail; whether view changes improve the normal loop |
+| Open for Matt | Whether to add a first-run or reinstall persona/mode for the [2026-11-01 first-run review](../review-2026-11-01-first-run.md)'s work, which that review owns ([research scope](research.md#scope-and-evidence-limits), 2026-11-03) |
 | Still deferred | External photo/sketch references, Widen, Load into panel, and other explicitly deferred features in TODO |
 
 The fuller answers make the next layout concrete: keep the primary composer,
