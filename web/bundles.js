@@ -805,7 +805,7 @@ async function openBundles() {
   }
   syncBundleControls();
   await pollBundleStatus();
-  await Promise.all([refreshBundlePreview(), refreshBundleList(), refreshAutomaticBackup()]);
+  await Promise.all([refreshBundlePreview(), refreshBundleList(), openAutomaticBackup()]);
 }
 
 function initBundles() {

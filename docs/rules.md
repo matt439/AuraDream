@@ -566,7 +566,11 @@ before changing it.
   `bundles.js` owns the gallery bundle dialog (Back up and its scope
   included) and background-operation polling, and `automatic-backup.js`
   its automatic startup backup settings (protection, consent, retention
-  cleanup and credential status, read only while the dialog is open);
+  cleanup and credential status, read only while the dialog is open;
+  the section is `hidden` until the cached status shows saved settings,
+  an offline credential profile or shared mode, or the page was opened
+  with `?automatic-backup`, and while hidden it reads that status once
+  per opening and never on polls);
   `gallery-select.js` the picked cards and the Picked menu, `gallery-batch.js` a
   card's batch outlined on hover, `tag-swap.js` Swap tags,
   `refine-batch.js` Mass refine, `then-refine.js` Then refine's opener
@@ -6760,7 +6764,9 @@ composer/scroll. Legacy empty recipes retain Reuse and Undo. It runs no
 non-default recipe and establishes no compiler or GPU behavior.
 
 `smoke-automatic-backup.json` uses a fresh FLUX.1 Krea [dev] fake on 7927.
-It checks explicit plaintext consent and settings validation, stale revisions,
+It checks the section hidden by default (one cached-status read per opening,
+none on polls), shown by `?automatic-backup` and, once settings are saved,
+without it; then explicit plaintext consent and settings validation, stale revisions,
 dirty edits and reload, fixed startup-outcome presentation, manual-field
 preservation, disabling and narrow layout. It configures scratch settings only:
 no server restart, automatic export, real gallery or credential store is used.
@@ -7357,7 +7363,8 @@ starred a 404), the preview's `starred`, every out-of-shape request
 refused before any work (a selection with a typed count included), and a
 chosen bundle refused as busy before its selection is read.
 
-`smoke-bundles.json` uses a fresh fake on 7897 and checks the browser dialog,
+`smoke-bundles.json` uses a fresh fake on 7897 and checks the browser dialog
+(the Automatic startup backup section hidden with no saved settings),
 all-model scope, typed confirmation, a bundle name stamped in local time,
 preserved favourites and metadata,
 saved-bundle and uploaded-file imports, repeated import, damaged ZIP refusal,

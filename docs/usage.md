@@ -1184,10 +1184,20 @@ auradream
 Existing terminals inherit their old environment; open a new terminal or set
 the variable there too. WSL can use its own Linux path via an explicit export.
 
-The collapsed **Automatic startup backup** section in the dialog is off by
-default and stays so: Matt declined unattended backups on 2026-10-29
+Automatic backups are off by default and stay so: Matt declined unattended
+backups on 2026-10-29
 ([plan](plan-automatic-backups.md#matts-choices-for-unattended-backups)).
-Manual and password-protected bundles are unchanged.
+Manual and password-protected bundles are unchanged. The dialog therefore
+does not show the **Automatic startup backup** section unless this gallery
+already has something saved for it: a settings file (enabled, off again
+after being saved, or needing repair), an offline credential profile from
+`tools/backup_credential.py setup`, an installed shared archive mode or a
+pending cleanup - so anything already configured stays in sight. To reach
+it deliberately before anything is saved, open the page with
+`?automatic-backup` after the address (for example
+`http://127.0.0.1:7860/?automatic-backup`); once settings are saved there
+it shows on every later opening. While hidden, opening Bundles reads only
+the server's cached status, which touches no file, to decide.
 
 ## Clear or recover a gallery
 

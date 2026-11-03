@@ -4,6 +4,14 @@
 // bundles.js's initBundles calls initAutomaticBackup.
 'use strict';
 
+// Matt declined unattended backups, so the section is hidden (not rendered)
+// until this gallery has something saved for it - a settings file, an
+// offline credential profile or shared mode, a pending cleanup - or the page
+// was opened deliberately with ?automatic-backup. A hidden section makes one
+// read of the cached status (no files) per dialog opening to decide, and no
+// polls; once shown it stays shown for the page.
+let automaticBackupShown = false;
+
 // Automatic backup settings are read only while Bundles is open. Keep the
 // edited draft and its revision apart from polls, including another tab's saves.
 let automaticBackupStatus = null;
@@ -40,6 +48,21 @@ function automaticBackupElements() {
     retentionWarning: document.getElementById('automatic-backup-retention-warning'),
     feedback: document.getElementById('automatic-backup-feedback'),
   };
+}
+
+function automaticBackupRequested() {
+  try { return new URLSearchParams(location.search).has('automatic-backup'); } catch { return false; }
+}
+
+function automaticBackupConfigured(status) {
+  return !!status && (status.revision !== 'missing' || !!status.enabled || status.state !== 'disabled'
+    || !!status.retention_enabled || !!status.retention_pending || !!status.retention_uncertain
+    || (status.credential_state || 'not_configured') !== 'not_configured' || !!status.shared_mode_id);
+}
+
+function showAutomaticBackup() {
+  automaticBackupShown = true;
+  document.getElementById('automatic-backup-settings').hidden = false;
 }
 
 function automaticBackupSay(message, failed = false) {
@@ -193,8 +216,15 @@ function receiveAutomaticBackup(status, replaceDraft = false) {
   syncAutomaticBackupControls();
 }
 
-async function refreshAutomaticBackup(replaceDraft = false) {
+// Bundles' opening; decides whether a hidden section is shown.
+async function openAutomaticBackup() {
+  if (!automaticBackupShown && automaticBackupRequested()) showAutomaticBackup();
+  await refreshAutomaticBackup(false, true);
+}
+
+async function refreshAutomaticBackup(replaceDraft = false, opening = false) {
   if (!els.bundlesDialog.open || automaticBackupReading || automaticBackupSaving) return;
+  if (!automaticBackupShown && !opening) return;
   const epoch = automaticBackupEpoch;
   const draftEpoch = automaticBackupEditEpoch;
   automaticBackupReading = true;
@@ -204,6 +234,7 @@ async function refreshAutomaticBackup(replaceDraft = false) {
       replaceDraft ? { method: 'POST' } : undefined);
     if (epoch === automaticBackupEpoch) {
       const newerDraft = draftEpoch !== automaticBackupEditEpoch;
+      if (!automaticBackupShown && automaticBackupConfigured(status)) showAutomaticBackup();
       receiveAutomaticBackup(status, replaceDraft && !newerDraft);
       if (replaceDraft) automaticBackupSay(newerDraft
         ? 'Saved settings were read. Your newer unsaved edits are kept.' : 'Saved settings reloaded.');

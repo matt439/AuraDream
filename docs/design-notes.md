@@ -4952,6 +4952,21 @@ provider UI was added. Native lifecycle checks use owned Windows scratch galleri
 no real gallery was activated. The [backup plan](plan-automatic-backups.md#explicit-v3-retention-and-durable-uncertainty)
 records the current contract, evidence and remaining qualifications.
 
+**The section hidden by default (2026-11-03, `R-01`).** Matt declined
+unattended backups (2026-10-29), so a settings section at the foot of every
+Bundles dialog only invited a feature nobody wanted. It is now `hidden` until
+the cached status (`GET /api/gallery/automatic-backup`, which reads no file)
+shows this gallery has something saved for it: a settings file (any
+revision but `missing`, including one turned off again or needing repair),
+an offline credential profile, an installed shared mode, retained cleanup
+state or a startup outcome. That keeps an already configured or running
+backup in sight. The deliberate way in before anything is saved is the page
+address `?automatic-backup`, a front-end choice that needs no new
+`AURADREAM_*` variable and changes nothing on the server. A hidden section
+reads that cached status once per opening and skips the poll's reads; once
+shown it stays shown for the page. It sits last in a top-anchored dialog,
+so appearing moves no control.
+
 **Password scope and the clear's safety step (2026-10-26, `UI#14`/`UI#15`).**
 The browser review reproduced a scope mismatch: a password under Import a
 file also controlled Protected saved imports below a separate section. File
