@@ -243,8 +243,11 @@ written every `--row-every` seconds and at every sample within 500 MiB of
 a card or shared limit or 1 GiB of a RAM or commit floor (the margins sit
 in the same block); the watched tree exiting ends the watch with exit 0.
 Left: stage 2 (the card, with Matt's OK). The commit floor's trips on a
-busy machine are worth Matt's look before that session: 4 GiB of commit
-headroom was not there with several sessions' test runs resident.
+busy machine went to Matt: 4 GiB of commit headroom was not there with
+several sessions' test runs resident. **Decided 2026-11-03: the floor stays
+4 GiB**; a card session runs on a quiet machine (other sessions' test runs
+closed) rather than with a lower floor, since a FLUX-class load's 40-50 GB
+RAM spike leaves a lower floor little to protect.
 
 **Hardened after review (2026-10-31): the card unread mid-watch.** The
 watcher refused to start without a whole-card reading, but after the

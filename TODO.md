@@ -10,7 +10,7 @@ The maintainer's working backlog for this personal project: it records what is p
 
 **Ready backlog (updated 2026-11-01):** no `OPEN` row. The [first-run review](docs/review-2026-11-01-first-run.md#stages)'s four stages were built 2026-11-01: docs (`DEV#27`), first-visit panel (`UI#39`), plain-words failures (`GEN#40`) and the installer (`DEV#28`: `install.cmd`, `update.cmd`, `backend/doctor.py`; tested as dry runs and with stub tools, never on a clean machine); its stage 5 (`DEV#29`) stays deferred. `DEV#25` closed with the Linux and Windows CI baselines from pull_request run 41159120243 ([results](docs/plan-tooling.md#results)). `INP#11` stage 4's code is on main (PR #17); its [card acceptance step](docs/plan-instruction-editing.md#card-acceptance-step) waits on Matt's OK. Built 2026-10-30 (PR #22): `GEN#36`-`GEN#38`, `GAL#23`, `DEV#26`, the trial kit refresh (`DEV#21`), and the CPU stages of the card guard (`DEV#20`) and step packs (`DEV#23`), whose card stages are now `CARD` rows.
 
-**Decisions for Matt:** `GEN#41`, whether a fresh visit with no Hugging Face token preselects an open checkpoint. Before `DEV#20`'s card stage, the commit-headroom floor (the 4 GiB default tripped on this machine while test runs were resident; [stage 1 notes](docs/plan-card-harness.md#card-guard)). On 2026-10-29 Matt took the recommended answers for `PERF#7` (cache beside the gallery, cleared on a torch/Triton/driver change, static shapes; shipping waits on `PERF#1`), `PERF#5`, `GAL#21` and `UI#34`; declined `GEN#39` and unattended backups (`GAL#22`, `GAL#6`); kept `GEN#6`, `INP#9` and `INP#10` deferred.
+**Decisions for Matt:** none open. On 2026-11-03 Matt said yes to `GEN#41` (built: a fresh visit without a Hugging Face token preselects Z-Image Turbo) and kept `DEV#20`'s commit-headroom floor at 4 GiB, so a card session runs on a quiet machine. On 2026-10-29 Matt took the recommended answers for `PERF#7` (cache beside the gallery, cleared on a torch/Triton/driver change, static shapes; shipping waits on `PERF#1`), `PERF#5`, `GAL#21` and `UI#34`; declined `GEN#39` and unattended backups (`GAL#22`, `GAL#6`); kept `GEN#6`, `INP#9` and `INP#10` deferred.
 
 **Needs Matt's hands or card:** workbench task trials (`DEV#1`, kit refreshed 2026-10-30), the typed Ctrl-C on the fake for `DEV#23`, hands-on accessibility/desktop checks (`UI#7`), and every `CARD` row, including the speed qualifications `PERF#1`, `PERF#3` and `PERF#4`, and `INP#11`'s acceptance step (one load). `PERF#2`'s card measurement waits on `PERF#1`'s.
 
@@ -22,7 +22,7 @@ The maintainer's working backlog for this personal project: it records what is p
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `DEV#20` | CARD | MED | S+card | `tools/card_guard.py` stage 1 built 2026-10-30. Left: stage 2, one light SDXL fp8 session with the guard beside its own watcher, with Matt's OK. Before it, Matt sets the commit-headroom floor: 4 GiB tripped on this machine with test runs resident. [Card guard](docs/plan-card-harness.md#card-guard). |
+| `DEV#20` | CARD | MED | S+card | `tools/card_guard.py` stage 1 built 2026-10-30. Left: stage 2, one light SDXL fp8 session with the guard beside its own watcher, with Matt's OK, on a quiet machine (floor kept at 4 GiB, 2026-11-03). [Card guard](docs/plan-card-harness.md#card-guard). |
 | `DEV#23` | CARD | LOW | S+card | The eight `tools/card/card10-*.json` packs and their test are built 2026-10-30; the six page packs pass on the fake. Left: Matt types Ctrl-C on the fake for the two Ctrl-C packs, then stage 2 on the card. [CARD#10 step packs](docs/plan-card-harness.md#card10-step-packs). |
 | `DEV#1` | USER | LOW | M | Run common-task trials with Matt, comparing the current app and candidate layouts before choosing redesign slices. [Protocol](docs/design/validation.md#one-user-formative-protocol). |
 
@@ -32,7 +32,6 @@ The maintainer's working backlog for this personal project: it records what is p
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `GEN#41` | DECISION | LOW | S | Whether a fresh visit with no stored Hugging Face token preselects an open checkpoint instead of the gated default (F7). [Decision](docs/review-2026-11-01-first-run.md#stages). |
 | `DEV#29` | DEFERRED | LOW | S | Stage 5: hand-cut version tags for `update.cmd` to follow, and a Pinokio script; after `DEV#28`. [Stage 5](docs/review-2026-11-01-first-run.md#stages). |
 
 ## Measurements on the card

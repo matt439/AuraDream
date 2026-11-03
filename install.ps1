@@ -675,14 +675,16 @@ Step 'Hugging Face sign-in (only for gated checkpoints)'
 $hfEffective = $env:HF_HOME
 if (-not $hfEffective) { $hfEffective = $defaultHf }
 $wantGated = $false
-# Where huggingface_hub looks, as the doctor does: HF_TOKEN, then the token
-# file (HF_TOKEN_PATH, or HF_HOME\token). Present only; never read.
-$hfTokenSet = [bool]$env:HF_TOKEN -or [bool](Get-UserVariable 'HF_TOKEN')
+# Where huggingface_hub looks, as the doctor does: HF_TOKEN (or the legacy
+# HUGGING_FACE_HUB_TOKEN), then the token file (HF_TOKEN_PATH, or
+# HF_HOME\token). Present only; never read.
+$hfTokenSet = [bool]$env:HF_TOKEN -or [bool](Get-UserVariable 'HF_TOKEN') -or
+    [bool]$env:HUGGING_FACE_HUB_TOKEN -or [bool](Get-UserVariable 'HUGGING_FACE_HUB_TOKEN')
 $hfTokenFile = $env:HF_TOKEN_PATH
 if (-not $hfTokenFile) { $hfTokenFile = Get-UserVariable 'HF_TOKEN_PATH' }
 if (-not $hfTokenFile) { $hfTokenFile = Join-Path $hfEffective 'token' }
 if ($hfTokenSet) {
-    Ok 'Already signed in to Hugging Face (a token is set in HF_TOKEN).'
+    Ok 'Already signed in to Hugging Face (a token is set in HF_TOKEN or HUGGING_FACE_HUB_TOKEN).'
     $wantGated = $true
 } elseif (Test-Path -LiteralPath $hfTokenFile -PathType Leaf) {
     Ok "Already signed in to Hugging Face (a token is saved in $(Split-Path -Parent $hfTokenFile))."
