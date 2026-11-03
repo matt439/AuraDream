@@ -563,6 +563,10 @@
          its end, so a three-day-old failure is not re-read forever. -->
     <div class="last-run" id="last-run" role="status" hidden>
       <span id="last-run-text"></span>
+      <!-- Finish run's counts (runs.js syncLastRunFinish), one line, before
+           the buttons and present from the first display, so the server's
+           answer landing never moves them. -->
+      <span id="last-run-finish" hidden></span>
       <button class="ghost small" id="last-run-show" title="Search for this run and lay it out as a sheet">Show run</button>
       <!-- A run that finished: more seeds of every cell of it (more-seeds.js). -->
       <button class="ghost small" id="last-run-more" aria-haspopup="dialog" hidden>More seeds…</button>

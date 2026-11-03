@@ -5965,6 +5965,14 @@ measured on the card and when.
   (`#last-run-more`, `moreSeedsLastRun`) beside Show run, on the run scope.
   The sheet's status line adds the preview's missing cells and passes
   ("· N missing cells", "; N deleted to redraw") after the run's own words.
+  The banner says the same counts (`finishRunCounts`, shared with that
+  line) as text on `#last-run-finish`, a role-free span between
+  `#last-run-text` and the buttons ("Finish run: N missing cells", or the
+  server's reason): shown with Finish run from the banner's first display,
+  "Checking Finish run…" while the answer is out, hidden with no run id;
+  one line (`nowrap`, ellipsis, the whole text its title), so the answer
+  landing never moves a button, and `syncLastRunFinish` writes it only when
+  the words change, so the polite banner is not read again on every poll.
 - `generate`, `clear`, `stats` and `reindex` reconfigure stdout to UTF-8 at
   the top of `main()`: on Windows always, elsewhere when it is not a
   terminal, and never on a stream without `reconfigure` (a StringIO,
@@ -8923,7 +8931,9 @@ scrollbar and the gallery head unmoved from its first frame (`reserveStrip`),
 the wheel over it scrolling the page; the banner's
 "2 since deleted" / "all since deleted"; the banner's Finish run on a
 cancelled grid that was itself a Resume, finishing the stored run with an
-unrelated composer left as it was; Finish run offered on a cancelled
+unrelated composer left as it was, its counts line reading "Checking Finish
+run…" while the preview is held and "Finish run: N missing cells" after,
+with Show run, Finish run and ✕ at the same rects either side; Finish run offered on a cancelled
 comparison; a batch of four at QHD followed from its first
 frame to its end - the preview in the first image's column, no tile moving
 within the strip, the tile size and the gallery head where the first frame

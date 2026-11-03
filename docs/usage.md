@@ -651,7 +651,10 @@ estimate. The run and contact sheet show its distinct sizes.
 **Finish run** on a finish line, last-run banner or run sheet uses the
 server's stored cells instead. It works after a tab reload or server restart,
 including stopped Repeat/comparison jobs and runs that made no image. Your
-current composer stays as it is. Its preview states missing images/cells,
+current composer stays as it is. The last-run banner and the run sheet's
+line also say its counts as text ("Finish run: 3 missing cells" on the
+banner, on a line of its own above its buttons, "Checking Finish run…" until
+the server answers). Its preview states missing images/cells,
 redraws of permanently deleted successful cells, and the original budget.
 Binned images count as present. Model/quantization changes, unreadable older
 cells, missing sources/masks/LoRAs and already queued work give a held reason.
