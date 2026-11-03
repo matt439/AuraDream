@@ -18,6 +18,7 @@ initSnippetImport();
 initSetups();
 initSetupImport();
 initSavedSearches();
+initTouchLayout();
 els.notifyDone.onchange = () => { void toggleJobNotifications(); };
 document.addEventListener('visibilitychange', () => syncJobNotifications());
 els.newImage.onclick = goToNewImage;

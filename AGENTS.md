@@ -226,6 +226,11 @@ raw composer capture, validated Restore and whole-draft Undo; it queues no work.
 instruction… (the menu item, the dialog, Reuse of an edit and its lineage);
 it never writes the composer's prompt, negative or references.
 
+`touch.js` (`styles/touch.css`, linked last) owns the phone's Create and
+Gallery views and its tab bar; the phone and tablet tier keys on a coarse
+primary pointer (iPhone 15 Pro, iPad Air 11), never width alone, so a PC's
+mouse and the smokes never match it.
+
 `snippet-import.js` owns explicit personal-snippet export and the native
 merge dialog; it preserves the editor and prompt boxes, with no automatic retry.
 `setup-import.js` owns Saved setups Export…/Import… and its separate merge
@@ -409,7 +414,9 @@ Frontend:
 - CSS uses the `:root` tokens; wide-tier rules go in an
   `@media (min-width: 1800px)` block in the component's section; nothing
   changes under 1800 px, where the smokes run, but the panel's own gap and
-  field height under 900 px tall (`docs/rules.md`).
+  field height under 900 px tall (`docs/rules.md`). Phone and tablet rules
+  go in `styles/touch.css` under `(pointer: coarse)`; a one-column rule
+  keyed on 900 px excludes the tablet's two columns with the same query.
 - A button held for a reason is `aria-disabled` with the reason as its title,
   never `disabled` (documented exceptions in `docs/rules.md`); a press says
   why.
@@ -586,6 +593,8 @@ uses the driver's graceful close/cleanup. See the full Tests rules.
 | 7953 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-setup-portability` |
 | 7954 | FLUX.1-Krea-dev, fresh scratch `--data`, `--step 0.3` | `smoke-queue-estimates` |
 | 7955 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-gallery-top` |
+| 7956 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-phone` |
+| 7957 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-tablet` |
 
 FLUX.1-Krea-dev is `black-forest-labs/FLUX.1-Krea-dev`; animagine is
 `cagliostrolab/animagine-xl-4.0`.

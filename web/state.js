@@ -14,6 +14,16 @@ const $ = (id) => document.getElementById(id);
 // Gallery beside (styles/gallery.css) - so that focus sent to it would land. True
 // where the browser cannot say.
 const isShown = (el) => el.checkVisibility?.({ visibilityProperty: true, checkVisibilityCSS: true }) ?? true;
+// The same conditions as styles/touch.css: a coarse primary pointer (a
+// finger, never a PC's mouse) and, for the phone, at most 600 px wide or 500
+// tall - an iPhone either way up; for the tablet's two columns, 700-900 px
+// wide and taller than that. A window that is neither keeps the PC's layout.
+const PHONE_MEDIA = '(pointer: coarse) and ((max-width: 600px) or (max-height: 500px))';
+const TABLET_COLUMNS_MEDIA = '(pointer: coarse) and (700px <= width <= 900px) and (height > 500px)';
+// Two columns - the panel beside the stage: a mouse's window over 900 px, or
+// a tablet in portrait (tag-chips.js reads it to place the chips' host).
+const TWO_COLUMNS_MEDIA = `(min-width: 901px), ${TABLET_COLUMNS_MEDIA}`;
+
 const PAGE = 48;
 // A sheet wants the whole run in one go - it is a matrix, and a matrix with a
 // page boundary through it is a puzzle. The rows are small and the thumbnails

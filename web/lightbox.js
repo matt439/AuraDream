@@ -865,7 +865,109 @@ let lbArrowPress = -Infinity;
 let lbAfterArrow = false;
 function lbArrowDown(e) { lbArrowPress = e.timeStamp; }
 
+// A finger (styles/touch.css gives the stage `touch-action: none` on a
+// coarse pointer, so the page neither scrolls nor zooms under it): two pinch
+// the picture about their midpoint and pan it as they move together; one,
+// zoomed in, pans as a mouse's drag does; one at or below fit is a swipe -
+// sideways to the next or previous image, down to close - with the picture
+// following it until it lets go. A tap is the mouse's click (beside the
+// picture at fit it closes), and a second tap within 300 ms on the picture
+// is its double-click, 1:1 there or back to fit.
+const lbTouches = new Map();
+let lbPinch = null;
+let lbSwipe = null;
+let lbLastTap = { time: -Infinity, x: 0, y: 0 };
+let lbTouchDouble = -Infinity;
+const SWIPE_STEP = 50, SWIPE_CLOSE = 90;
+
+function lbPinchState() {
+  const [a, b] = [...lbTouches.values()];
+  const mid = { clientX: (a.x + b.x) / 2, clientY: (a.y + b.y) / 2 };
+  return { dist: Math.hypot(a.x - b.x, a.y - b.y), mid, at: stagePoint(mid) };
+}
+
+function lbTouchDown(e) {
+  clearTimeout(lbCloseTimer);
+  lbTouches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  els.lbStage.setPointerCapture(e.pointerId);
+  if (lbTouches.size === 2) {
+    lbDrag = null;
+    lbSwipe = null;
+    els.lbImg.style.translate = '';
+    lbPinch = lbPinchState();
+    return;
+  }
+  if (lbTouches.size > 2) return;
+  lbAfterArrow = false;
+  lbDrag = { x: e.clientX, y: e.clientY, moved: false, onStage: e.target === els.lbStage, split: e.target === els.lbSplit };
+  lbSwipe = !lbDrag.split && lbView.scale <= 1 ? { x: e.clientX, y: e.clientY, dx: 0, dy: 0 } : null;
+}
+
+function lbTouchMove(e) {
+  const touch = lbTouches.get(e.pointerId);
+  if (!touch) return;
+  touch.x = e.clientX; touch.y = e.clientY;
+  if (lbPinch && lbTouches.size === 2) {
+    const now = lbPinchState();
+    lbView.x += now.at[0] - lbPinch.at[0];
+    lbView.y += now.at[1] - lbPinch.at[1];
+    zoomLightbox(lbPinch.dist ? now.dist / lbPinch.dist : 1, ...now.at, false);
+    lbPinch = lbPinchState();
+    return;
+  }
+  if (!lbSwipe) { lbDragMove(e); return; }
+  const dx = e.clientX - lbSwipe.x, dy = e.clientY - lbSwipe.y;
+  if (!lbDrag.moved && Math.hypot(dx, dy) < 8) return;
+  lbDrag.moved = true;
+  lbSwipe.dx = dx; lbSwipe.dy = dy;
+  // Sideways follows the finger; down only, and only as a close would.
+  const across = Math.abs(dx) >= Math.abs(dy);
+  els.lbImg.style.translate = across ? `${dx}px 0` : `0 ${Math.max(0, dy)}px`;
+}
+
+function lbTouchUp(e) {
+  lbTouches.delete(e.pointerId);
+  if (lbPinch) {
+    if (lbTouches.size < 2) lbPinch = null;
+    if (!lbTouches.size) { lbDrag = null; sayZoom(); }
+    return;
+  }
+  const swipe = lbSwipe;
+  lbSwipe = null;
+  els.lbImg.style.translate = '';
+  if (swipe && lbDrag?.moved) {
+    lbDrag = null;
+    const { dx, dy } = swipe;
+    if (Math.abs(dx) >= SWIPE_STEP && Math.abs(dx) > Math.abs(dy) * 1.3) void stepLightbox(dx < 0 ? 1 : -1);
+    else if (dy >= SWIPE_CLOSE && dy > Math.abs(dx) * 1.3) dismissLightbox();
+    return;
+  }
+  // A tap: a second on the picture soon after the first is a double-click.
+  const drag = lbDrag;
+  if (drag && !drag.moved && !drag.split) {
+    const quick = e.timeStamp - lbLastTap.time < 300 && Math.hypot(e.clientX - lbLastTap.x, e.clientY - lbLastTap.y) < 30;
+    if (quick && (onPicture(e) || lbView.scale !== 1)) {
+      lbDrag = null;
+      lbLastTap = { time: -Infinity, x: 0, y: 0 };
+      if (lbView.scale !== 1) zoomFit(); else zoomOneToOne(...stagePoint(e));
+      // The browser's own dblclick for the same two taps follows: not again.
+      lbTouchDouble = e.timeStamp;
+      return;
+    }
+    lbLastTap = { time: e.timeStamp, x: e.clientX, y: e.clientY };
+  }
+  lbPointerUp();
+}
+
+function lbTouchCancel(e) {
+  lbTouches.delete(e.pointerId);
+  lbPinch = null; lbSwipe = null;
+  els.lbImg.style.translate = '';
+  lbPointerCancel();
+}
+
 function lbPointerDown(e) {
+  if (e.pointerType === 'touch') { lbTouchDown(e); return; }
   if (e.button !== 0) return;
   clearTimeout(lbCloseTimer);
   lbAfterArrow = e.timeStamp - lbArrowPress < 500;
@@ -874,6 +976,11 @@ function lbPointerDown(e) {
 }
 
 function lbPointerMove(e) {
+  if (e.pointerType === 'touch' && lbTouches.has(e.pointerId)) { lbTouchMove(e); return; }
+  lbDragMove(e);
+}
+
+function lbDragMove(e) {
   if (!lbDrag) return;
   if (lbDrag.split) { lbDrag.moved = true; moveSplit(e.clientX); return; }
   const dx = e.clientX - lbDrag.x, dy = e.clientY - lbDrag.y;
@@ -885,7 +992,8 @@ function lbPointerMove(e) {
   layoutLightbox();
 }
 
-function lbPointerUp() {
+function lbPointerUp(e) {
+  if (e?.pointerType === 'touch' && lbTouches.has(e.pointerId)) { lbTouchUp(e); return; }
   const drag = lbDrag;
   lbDrag = null;
   els.lbStage.classList.remove('dragging');
@@ -894,7 +1002,9 @@ function lbPointerUp() {
   else lbCloseTimer = setTimeout(dismissLightbox, 400);
 }
 
-function lbPointerCancel() { lbDrag = null; els.lbStage.classList.remove('dragging'); }
+function lbPointerCancel(e) {
+  if (e?.pointerType === 'touch' && lbTouches.has(e.pointerId)) { lbTouchCancel(e); return; }
+  lbDrag = null; els.lbStage.classList.remove('dragging'); }
 
 // Double-click: 1:1 about the point on the picture, or back to fit from any
 // other scale, 1:1 below fit included. On the stage, not the image: the click
@@ -903,6 +1013,7 @@ function lbPointerCancel() { lbDrag = null; els.lbStage.classList.remove('draggi
 // at fit the first click already closed.
 function lbDoubleClick(e) {
   clearTimeout(lbCloseTimer);
+  if (e.timeStamp - lbTouchDouble < 500) return;
   if (lbAfterArrow) return;
   if (lbView.scale !== 1) { zoomFit(); return; }
   if (onPicture(e)) zoomOneToOne(...stagePoint(e));

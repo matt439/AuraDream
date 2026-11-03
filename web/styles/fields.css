@@ -331,8 +331,9 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
 }
 /* On one column the chips come straight under the box, and the note lay over
    their first row, taking their clicks; there it takes a line of its own -
-   the panel is not sticky, so nothing it moves was under the pointer. */
-@media (max-width: 900px) {
+   the panel is not sticky, so nothing it moves was under the pointer. A
+   tablet's two columns (styles/touch.css) keep the overlay. */
+@media (max-width: 900px) and (not ((pointer: coarse) and (700px <= width) and (height > 500px))) {
   .prompt-note:not([data-at="box"]) { position: static; width: fit-content; margin: var(--sp-1) 0 0 auto; box-shadow: none; }
 }
 /* Nor over the caption while the negative box is greyed: the caption then

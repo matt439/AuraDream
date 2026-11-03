@@ -1,0 +1,212 @@
+/* ----------------------------------------------------------------- touch */
+
+/* Phones and tablets: the page's touch tier, last in the cascade so each rule
+   here overrides the component's own at the same specificity. Everything is
+   keyed on a coarse primary pointer - a phone's or a tablet's finger - so a
+   PC, mouse and all, never matches, whatever its window's size: a Windows
+   laptop with a touch screen keeps a fine primary pointer, and the smokes,
+   written with a mouse at 1400x900, see none of it. Three layouts:
+
+   - Touch (pointer: coarse): finger-sized controls (Apple's 44 pt for the
+     ordinary buttons and fields, 32-36 for the small ones), 16 px text in
+     every box so iOS does not zoom the page on focus, the notch's and the
+     home indicator's safe areas, the keyboard's hints taken away.
+   - Tablet, two columns (coarse, 700-900 px wide and taller than 500): an
+     iPad in portrait keeps the panel beside the stage, the PC's layout with
+     a narrower panel, where under 900 px a mouse's window goes to one column.
+     The one-column rules elsewhere (style.css, fields.css, generation.css,
+     tag-chips.js) leave it out with the same condition; landscape, 1180 px,
+     is the PC's two columns already.
+   - Phone (coarse, at most 600 px wide or at most 500 tall - an iPhone either
+     way up): one column with a tab bar at the foot (touch.js) that shows
+     Create - the panel and the results - or the gallery. `body[data-view]`
+     says which; nothing is removed from the page, only not drawn.
+
+   The page's tokens stay the source: the tier overrides them on :root, as
+   the wide tier does, and a component's own rule here uses them. */
+
+@media (pointer: coarse) {
+  :root {
+    --h-xs: 32px;
+    --h-sm: 36px;
+    --h-tool: 36px;
+    --h-md: 44px;
+    --h-field: 44px;
+    --h-lg: 50px;
+    --fs-xs: 11px;
+    --fs-sm: 12px;
+    /* The notch, the Dynamic Island and the home indicator (viewport-fit=cover
+       in index.html; each 0 where a device has none). The topbar takes the
+       top one inside its own height, so whatever reads --topbar-h - the
+       sticky panel, the scroll margins, New image's pill - reads it too. */
+    --safe-t: env(safe-area-inset-top, 0px);
+    --safe-r: env(safe-area-inset-right, 0px);
+    --safe-b: env(safe-area-inset-bottom, 0px);
+    --safe-l: env(safe-area-inset-left, 0px);
+    --topbar-h: calc(58px + var(--safe-t));
+    --tabbar-h: 56px;
+    /* A press is a press: no 300 ms wait for a second tap's zoom. Pinch
+       still zooms the page. */
+    touch-action: manipulation;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+  body { -webkit-tap-highlight-color: color-mix(in srgb, var(--accent) 25%, transparent); }
+
+  .topbar {
+    padding-top: calc(10px + var(--safe-t));
+    padding-left: max(var(--gutter), var(--safe-l));
+    padding-right: max(var(--gutter), var(--safe-r));
+  }
+  main {
+    padding-left: max(var(--gutter), var(--safe-l));
+    padding-right: max(var(--gutter), var(--safe-r));
+    padding-bottom: max(var(--gutter), var(--safe-b));
+  }
+
+  /* Under 16 px iOS Safari zooms the page into a box as it takes the focus,
+     and leaves it zoomed. Every kind of box, whatever its own rule says. */
+  textarea, select,
+  input:where(:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"])) {
+    font-size: max(16px, 1em) !important;
+  }
+  input[type="checkbox"], input[type="radio"] { width: 20px; height: 20px; }
+  .check { min-height: var(--h-sm); }
+
+  /* The pills - sizes, tiers, the guides' presets - at the small buttons'
+     height; a ghost button's least height its token, whatever its padding
+     says (a footer button's is none). */
+  .presets button { min-height: var(--h-sm); padding-inline: 10px; }
+  .ghost { min-height: var(--h-md); }
+  .ghost.small, .gallery-footer :is(.foot-btn, #btn-bundles) { min-height: var(--h-sm); }
+  .ghost.tiny { min-height: var(--h-xs); }
+  /* Seed's dice stays its caption's size, its press reaching round it. */
+  #btn-dice { min-height: 0; }
+  #btn-dice::after { inset: -10px -8px; }
+  /* There is no file to drop from a phone's or a tablet's Files app onto a
+     page: Load settings from PNG… is the way in. */
+  #png-hint { display: none; }
+  /* The gallery's footer buttons - Select, Swap tags…, Refine…, More seeds…,
+     Bin, Bundles… - are wider than a tablet's stage beside the panel and a
+     phone's column: what does not fit takes another line (gallery.css does
+     this under 520 px). */
+  .gallery-footer { flex-wrap: wrap; row-gap: var(--sp-2); margin-top: 0; }
+  select { min-height: var(--h-field); }
+
+  /* The ? badges stay their size and take a finger's press around them: the
+     tip opens on the focus a tap gives them, and a tap elsewhere closes it. */
+  .help::before { content: ""; position: absolute; inset: -12px; }
+  .help .tip::before { content: none; }
+
+  /* No keyboard here (a tablet's own keyboard aside, whose user has the ?
+     list still): the hints after Generate's label and the lightbox's keys. */
+  #btn-generate::after, #btn-grid::after, #refine-run::after, #lb-compare-on::after,
+  #lb-compare-cfg[aria-keyshortcuts="S"]::after, #lb-refine::after, #lb-more-seeds::after { content: none; }
+  .lb-keys, .key-hint { display: none; }
+
+  /* Hover states stick after a tap on iOS; the card's tools and name show
+     without one (gallery.css already shows the tools on a coarse pointer). */
+  .ghost:where(:not(:disabled):not([aria-disabled="true"])):hover { color: var(--text-2); border-color: var(--line-strong); }
+
+  /* The lightbox and the dialogs keep clear of the notch and the home bar. */
+  .lightbox {
+    padding-top: max(var(--gutter), var(--safe-t));
+    padding-right: max(var(--gutter), var(--safe-r));
+    padding-bottom: max(var(--gutter), var(--safe-b));
+    padding-left: max(var(--gutter), var(--safe-l));
+  }
+  /* The picture takes the finger: a drag pans or swipes, two fingers zoom
+     (lightbox.js), never the page behind. */
+  .lb-stage { touch-action: none; }
+}
+
+/* ------------------------------------------------------- tablet, portrait */
+
+@media (pointer: coarse) and (700px <= width <= 900px) and (height > 500px) {
+  :root {
+    --gutter: 14px;
+    --panel-w: 330px;
+    --panel-pad: 14px;
+  }
+  main { grid-template-columns: var(--panel-w) minmax(0, 1fr); }
+  .panel { position: sticky; }
+}
+
+/* ------------------------------------------------------------------ phone */
+
+/* The tab bar is the phone's alone. */
+.phone-tabs { display: none; }
+
+@media (pointer: coarse) and ((max-width: 600px) or (max-height: 500px)) {
+  :root { --gutter: 12px; --panel-pad: 14px; }
+
+  /* The topbar: the keyboard list has no keyboard to list; the checkpoint's
+     name gives way to the buttons. */
+  #btn-shortcuts { display: none; }
+  .brand { font-size: var(--fs-lg); }
+
+  main { padding-bottom: calc(var(--tabbar-h) + var(--safe-b) + var(--gutter)); }
+
+  /* One view at a time: Create is the panel and the results, Gallery the
+     gallery's head, grid and paging. */
+  body[data-view="gallery"] .panel,
+  body[data-view="gallery"] .stage > :not(.library) { display: none !important; }
+  body:not([data-view="gallery"]) .stage > .library { display: none !important; }
+  .phone-tabs {
+    display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 25;
+    height: calc(var(--tabbar-h) + var(--safe-b));
+    padding: 0 var(--safe-r) var(--safe-b) var(--safe-l);
+    background: color-mix(in srgb, var(--panel) 94%, transparent);
+    border-top: 1px solid var(--line);
+    -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  }
+  .phone-tabs button {
+    position: relative; flex: 1 1 0; min-width: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    border: none; background: none; color: var(--muted);
+    font-size: var(--fs-label); font-weight: 600;
+  }
+  .phone-tabs button .tab-glyph { width: 22px; height: 22px; fill: currentColor; }
+  .phone-tabs button[aria-selected="true"] { color: var(--text); }
+  .phone-tabs button[aria-selected="true"] .tab-glyph { color: var(--accent); }
+  .phone-tabs button:focus-visible { outline-offset: -4px; }
+  /* A job running: a dot on Create, and the topbar's line along the bar's top. */
+  .phone-tabs .tab-busy {
+    position: absolute; top: 8px; left: calc(50% + 14px);
+    width: 8px; height: 8px; border-radius: 50%; background: var(--accent-2);
+  }
+  .phone-tabs-line { position: absolute; left: 0; right: 0; top: -1px; height: 2px; overflow: hidden; }
+
+  /* Back to top clears the tab bar. */
+  #btn-gallery-top {
+    right: max(var(--gutter), var(--safe-r));
+    bottom: calc(var(--tabbar-h) + var(--safe-b) + var(--gutter));
+  }
+
+  /* The gallery's head: the search across the column, the rest under it. */
+  #search { flex: 1 1 100%; max-width: none; }
+
+  /* The lightbox: the picture across the screen, its facts and actions under
+     it in one scrolling column, the actions a row that scrolls sideways
+     rather than wrapping into a third line. */
+  .lightbox { gap: var(--sp-2); }
+  .lb-actions { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; }
+  .lb-actions > * { flex: none; }
+  .lb-nav { display: none; }
+
+  /* The dialogs open as sheets across the screen. */
+  dialog:not(.lightbox):not(.context-menu) {
+    max-width: calc(100vw - var(--safe-l) - var(--safe-r) - 16px);
+    max-height: calc(100dvh - var(--safe-t) - var(--safe-b) - 16px);
+  }
+
+  /* The Models picker: a sheet across the screen between the topbar and the
+     tab bar, rather than a box hung from the topbar's corner whose foot - the
+     load's state under Apply & save - lay under the tab bar. */
+  .model-picker {
+    position: fixed; top: var(--topbar-h); left: 0; right: 0; width: auto;
+    max-height: calc(100dvh - var(--topbar-h) - var(--tabbar-h) - var(--safe-b));
+    border-radius: 0; border-inline: none;
+    padding-left: var(--safe-l); padding-right: var(--safe-r);
+  }
+}

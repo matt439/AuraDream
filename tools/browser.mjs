@@ -35,6 +35,13 @@
 //   {"viewport": [w, h, dpr]}    resize the page (dpr optional, default 1) and wait for layout
 //   {"media": {"prefers-reduced-motion": "reduce"}}   emulate media features ("" for
 //                                one drops its override and the host's setting is back)
+//   {"touch": true}              a touch screen from here on: the page's primary pointer
+//                                is coarse and has no hover (a phone, a tablet; false
+//                                puts the mouse back). Mouse steps still send a mouse.
+//   {"tap": [x, y]}, {"tap": "selector"}   one finger's tap there
+//   {"swipe": [x1, y1, x2, y2]}  one finger dragged from the first point to the second
+//   {"pinch": [x, y, d1, d2]}    two fingers about (x, y), level with each other, moved
+//                                from d1 px apart to d2 (wider zooms in)
 //   {"shot": "file.png"}         screenshot the viewport; {"fullshot": "file.png"} the
 //                                whole scrollable page; {"elshot": ["selector", "file.png"]}
 //                                one element's box, scrolled into view
@@ -157,6 +164,24 @@ const invalidFatal = steps.flatMap((step, index) => {
 });
 if (invalidFatal.length) {
   console.error(invalidFatal.join('\n'));
+  process.exit(2);
+}
+// The touch steps' shapes, refused before the browser starts as a resize is.
+const numbers = (v, n) => Array.isArray(v) && v.length === n && v.every(Number.isFinite);
+const invalidTouch = steps.flatMap((step, index) => {
+  const bad = [];
+  if (Object.hasOwn(step, 'touch') && typeof step.touch !== 'boolean') bad.push('touch needs true or false');
+  if (Object.hasOwn(step, 'tap') && !(typeof step.tap === 'string' && step.tap.trim()) && !numbers(step.tap, 2)) {
+    bad.push('tap needs [x, y] or a selector');
+  }
+  if (Object.hasOwn(step, 'swipe') && !numbers(step.swipe, 4)) bad.push('swipe needs [x1, y1, x2, y2]');
+  if (Object.hasOwn(step, 'pinch') && !(numbers(step.pinch, 4) && step.pinch[2] > 0 && step.pinch[3] > 0)) {
+    bad.push('pinch needs [x, y, d1, d2] with positive distances');
+  }
+  return bad.map((why) => `step ${index + 1}: ${why}`);
+});
+if (invalidTouch.length) {
+  console.error(invalidTouch.join('\n'));
   process.exit(2);
 }
 const KEY_MODIFIERS = { Alt: 1, Control: 2, Meta: 4, Shift: 8 };
@@ -584,6 +609,29 @@ for (const [n, step] of steps.entries()) {
     const [w, h, dpr = 1] = step.viewport;
     await viewport(w, h, dpr);
     await sleep(300);
+  } else if (Object.hasOwn(step, 'touch')) {
+    await send('Emulation.setTouchEmulationEnabled', { enabled: step.touch, maxTouchPoints: step.touch ? 5 : 1 });
+    await sleep(100);
+  } else if (step.tap) {
+    const [x, y] = await point(step.tap);
+    await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+    await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await sleep(150);
+  } else if (step.swipe) {
+    const [x1, y1, x2, y2] = step.swipe;
+    await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: x1, y: y1 }] });
+    for (let i = 1; i <= 8; i++) {
+      await send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x1 + (x2 - x1) * i / 8, y: y1 + (y2 - y1) * i / 8 }] });
+    }
+    await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await sleep(200);
+  } else if (step.pinch) {
+    const [x, y, d1, d2] = step.pinch;
+    const at = (d) => [{ x: x - d / 2, y, id: 0 }, { x: x + d / 2, y, id: 1 }];
+    await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: at(d1) });
+    for (let i = 1; i <= 8; i++) await send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: at(d1 + (d2 - d1) * i / 8) });
+    await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await sleep(200);
   } else if (step.media) {
     const features = Object.entries(step.media).map(([name, value]) => ({ name, value }));
     await send('Emulation.setEmulatedMedia', { features });
