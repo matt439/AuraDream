@@ -27,7 +27,7 @@ current feature plans, or measurements in `docs/verified.md`.
 entries below, F02, F04, E08 and E14 now describe today's app: both
 continuation phases, model cache facts, Expand Stop, named setups, saved
 searches, Then refine, the masked-area crop and Edit by instruction are
-built. Goals, needs and non-goals are unchanged, and the register keeps
+built, and Matt rated those four Sometimes ([later features](preferences.md#later-features-2026-11-03)). Goals, needs and non-goals are unchanged, and the register keeps
 its 2026-10-18 line references; no new task observation was made. Questions 3, 6 and 7 are partly answered.
 
 ## Scope and evidence limits

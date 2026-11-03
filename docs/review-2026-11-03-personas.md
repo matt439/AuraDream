@@ -69,16 +69,17 @@ steps for the changes.
 
 ## Open for Matt
 
-On 2026-11-03 Matt took the recommended answer to every question but the
-ratings, which stay open (`DEV#30`):
+On 2026-11-03 Matt took the recommended answer to every question, then
+gave the ratings:
 
 1. **First-run persona (S1-01): no fourth mode.** The first-run work stays
    outside the design programme, owned by its
    [review](review-2026-11-01-first-run.md).
 2. **Choosing the watched job (S-UX7-01): relabelled.** That part of UX#7 is
    Proposed, not Current; no watch entry point on queued rows is planned.
-3. **Ratings, still open.** Saved searches, Edit by instruction, Only the
-   masked area and Then refine have no rating yet: Never, Sometimes or Often.
+3. **Ratings: all Sometimes.** Saved searches, Edit by instruction, Only the
+   masked area and Then refine
+   ([later features](design/preferences.md#later-features-2026-11-03)).
 4. **Models' loader options (prep S1-01): collapsed.** Compilation and
    Attention sit in a folded Performance disclosure until a recipe is
    admitted. The fold opens itself as the picker opens, never on a refresh,

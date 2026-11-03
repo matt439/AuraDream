@@ -244,6 +244,21 @@ not replace the separate Reset decision recorded below.
 - Resolution-tier selection is frequent. No particular aspect, tier, numeric
   seed, Batch, Repeat or sampling value has been chosen by these answers.
 
+## Later features, 2026-11-03
+
+Matt rated four features built after the questionnaire, all **Sometimes**,
+in answer to the [persona review](../review-2026-11-03-personas.md#open-for-matt):
+
+| Feature | Reported use |
+|---|---|
+| Saved gallery searches (`GAL#7`) | Sometimes |
+| Edit by instruction (`INP#11`) | Sometimes |
+| Only the masked area (`INP#9`) | Sometimes |
+| [Then refine](../plan-then-refine.md) | Sometimes |
+
+They sit outside the 129 counted above. Sometimes keeps each available in
+its context, not on the frequent path.
+
 ## Reset decision
 
 Matt decided on 2026-10-18: **"Keep today's behavior; I'll enter a seed

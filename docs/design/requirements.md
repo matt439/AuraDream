@@ -15,8 +15,9 @@ picked comparison/navigation and import work. The workbench layout and its
 human task trials remain candidates; these source updates do not validate it.
 **2026-11-03:** UX#3, UX#5, UX#7, UX#12, UX#14, UX#15, UX#20 and UX#21 add
 named setups, compact setup, saved searches, Pick this run, Only the masked
-area and Edit by instruction. No status changes; ratings Matt has not given
-stay open for him.
+area and Edit by instruction. No status changes. Matt rated saved searches,
+Edit by instruction, Only the masked area and Then refine Sometimes the same
+day ([later features](preferences.md#later-features-2026-11-03)).
 
 `Current` means the behavior exists, not that usability is established.
 `Accepted-unbuilt` identifies an existing decision awaiting implementation.
@@ -185,7 +186,7 @@ answers and exceptions.
 
 ### UX#12 — Curate a set across searches without losing it · P1 · Proposed
 
-- **Basis:** E1–E5, E9–E10, E12 and G9 Often supports browsing, Stars, All models, Runs, prompt/from-setting search, card sizing/Fit/Crop, retained picks and bulk starring. Persistent picks/hidden counts and Ctrl+A are built (`UI#6`), and Pick this run on a card's menu since 2026-10-30 (`UI#37`, [F19 follow-up](../review-2026-10-12.md#f19-follow-up-pick-this-run-ui37)). Saved searches (`GAL#7`) are built; they have no preference rating, which is open for Matt. Their placement and clarity remain part of task trials.
+- **Basis:** E1–E5, E9–E10, E12 and G9 Often supports browsing, Stars, All models, Runs, prompt/from-setting search, card sizing/Fit/Crop, retained picks and bulk starring. Persistent picks/hidden counts and Ctrl+A are built (`UI#6`), and Pick this run on a card's menu since 2026-10-30 (`UI#37`, [F19 follow-up](../review-2026-10-12.md#f19-follow-up-pick-this-run-ui37)). Saved searches (`GAL#7`) are built and rated Sometimes (2026-11-03). Their placement and clarity remain part of task trials.
 - **Story:** I can gather keepers across my runs, inspect them and apply an action to exactly that set.
 - **Acceptance:** design trials retain picks and anchor across search/paging and a bin visit; hidden-pick counts remain understandable and Clear is deliberate.
 - **Acceptance:** existing pick-all/run controls state their loaded/run scope and cap before action; they do not quietly select an unlimited gallery.
@@ -211,7 +212,7 @@ answers and exceptions.
 - **Acceptance:** representative edit dialogs identify their source, output size, strength, versions, supported checkpoint and relevant measured/unmeasured guidance before running.
 - **Acceptance:** Inpaint previews its painted mask and Outpaint its padding/band; held capabilities explain why and preserve keyboard access to that explanation.
 - **Acceptance:** frequent Refine/enlarge and strength/version controls are direct in the image action flow; Mass refine, Re-render and Swap tags are directly available at the picked/filter scope point. Inpaint/outpaint remain easy to open as contextual tools; cross-model/existing-pass inclusion remains secondary without changing defaults or eligibility.
-- **Trace:** [Refine](../usage.md#refine-an-existing-image), [Inpaint](../usage.md#inpaint-part-of-an-image), [Outpaint](../usage.md#outpaint-an-image), [edit plans](../plan-inpainting.md), [outpaint plan](../plan-outpainting.md); `INP#5`–`INP#10` retain their own status (FLUX.1 inpaint, `INP#3`, was enabled 2026-10-19). Since then: Only the masked area (`INP#9`, built 2026-11-03; card step `CARD#13`) and [Edit by instruction](../usage.md#edit-by-instruction) (`INP#11`, on main 2026-10-30; FLUX.1 Kontext [dev] inside its measured envelope; its card acceptance step is not run). Neither has a preference rating; that is open for Matt.
+- **Trace:** [Refine](../usage.md#refine-an-existing-image), [Inpaint](../usage.md#inpaint-part-of-an-image), [Outpaint](../usage.md#outpaint-an-image), [edit plans](../plan-inpainting.md), [outpaint plan](../plan-outpainting.md); `INP#5`–`INP#10` retain their own status (FLUX.1 inpaint, `INP#3`, was enabled 2026-10-19). Since then: Only the masked area (`INP#9`, built 2026-11-03; card step `CARD#13`) and [Edit by instruction](../usage.md#edit-by-instruction) (`INP#11`, on main 2026-10-30; FLUX.1 Kontext [dev] inside its measured envelope; its card acceptance step is not run). Both are rated Sometimes (2026-11-03).
 - **Dependency:** current size guards and measured families; personal-file references `GEN#8` remain deferred until Matt raises them.
 
 ### UX#15 — Retain an edit's lineage and reproduce its intent · P0 · Current
