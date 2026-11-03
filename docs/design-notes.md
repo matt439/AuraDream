@@ -437,7 +437,18 @@ press anywhere on the facts chooses the row. Below 700 px the facts take a
 second line, and below 480 px two facts a line. Quantization and offload sit
 side by side above the table, since they decide which checkpoints it offers
 and which timings its Speed column shows; their explanations reserve their
-height. A press on a row's gaps chooses the row, and the picker body takes the
+height. Compilation and Attention sat beside them as a second pair
+(2026-10-26) though no choice but Eager and Native is admitted in this
+build; since 2026-11-03 (DEV#30, the persona review's S1-01) they wait under
+a collapsed **Performance** summary line between the pair and the table,
+naming the current choices on one line of fixed height. It opens by itself
+only where nothing in view moves: while the picker is hidden, as it opens, or
+on the opening's catalogue reply with the pointer off the body, and only when
+an option the server sends is admitted (a value with no unavailable or
+configuration reason) or a draft or saved choice is not the default or is
+invalid, so what holds loading stays beside Revert. A status refresh with the
+picker open never opens or closes it, and it never closes by itself. A press
+on a row's gaps chooses the row, and the picker body takes the
 focus for presses on its empty space, so the focusout check keeps it open.
 
 A review of the table (2026-10-09) found it hard to read past the first

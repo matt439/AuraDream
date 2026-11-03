@@ -994,6 +994,19 @@ measured on the card and when.
   heading, outside the label naming the radio group; ticking it regroups at
   once (with the stars as they are then), since the checkbox is above every
   row; another tab's change waits for the next opening.
+- Quantization and Offload sit above the table; Compilation and Attention
+  sit under them in `#model-performance`, a `<details>` collapsed by default
+  whose summary names the current choices and whether another is available
+  on one line of fixed height (`syncPerformanceDisclosure` in
+  `execution.js`). It opens by itself when an option the server sends is
+  admitted (a nonempty value with no `unavailable_reason` or
+  `configuration_reason`) or a draft or saved choice is non-default or
+  invalid (`INVALID_LOADER_REASON`), but only while the picker is hidden, as
+  `showModelPicker` opens it, or on that opening's own catalogue reply with
+  the pointer off `#model-picker-body`; never on a status refresh while
+  open, and it never closes by itself. Its inner fields keep their reserved
+  3-line help height, so a note's change moves nothing. A closed `<details>` still lays its
+  content out for `getBoundingClientRect`: smokes test `checkVisibility()`.
 - The checkpoint is a radio table (`#model-table`) showing every model's
   facts; read and set it only through `modelChoice()` / `chooseModel()`, with
   no row checked when the runtime id is missing. It is rebuilt only when its
@@ -6664,7 +6677,10 @@ socket or native cleanup process. Real browser/profile checks are separate.
 `smoke-execution-selector.json` uses a fresh FLUX.1 Krea [dev] fake on 7930.
 It checks inspectable configuration, honest unavailable status and held Load/render
 actions, structural conflicts, saved and unsaved recipes across polling/reload,
-explicit Eager recovery and per-render cache persistence/Reuse/Reset/Undo. Nonempty
+explicit Eager recovery and per-render cache persistence/Reuse/Reset/Undo. The
+Performance disclosure is collapsed at Eager/Native, opens for a saved, invalid
+or (stubbed) admitted choice while hidden or as the picker opens, and a refresh
+with the picker open neither opens it nor moves the table. Nonempty
 record Reuse stays refused. Only an ordinary Eager fixture may generate; no compiler,
 model download, non-Eager execution or performance/quality acceptance is established.
 `tests/test_attention_selection.py` checks coverage, transactional failures,
