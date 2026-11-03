@@ -81,13 +81,15 @@ ratings, which stay open (`DEV#30`):
    masked area and Then refine have no rating yet: Never, Sometimes or Often.
 4. **Models' loader options (prep S1-01): collapsed.** Compilation and
    Attention sit in a folded Performance disclosure until a recipe is
-   admitted, and show themselves when a choice is admitted, or when the
-   draft is not the default.
+   admitted. The fold opens itself as the picker opens, never on a refresh,
+   when a choice is admitted or the draft or saved choice is not the
+   default.
 5. **Smaller placements:**
    - Finish run's counts on the banner (EXP-01): built, on a line of their
      own under the banner's text.
    - The automatic startup backup section (R-01): hidden by default. It
-     shows when the gallery already has backup settings.
+     shows when the gallery already has something saved for it, or on a
+     page opened with `?automatic-backup`.
    - Gallery beside and quieter sheet exports (C-06, C-07), and a cold guide
      summary in Models (prep S1-06): not taken.
 6. **Cancel's width: left as it is.** A fixed width would shorten the Now
