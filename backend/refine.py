@@ -632,9 +632,9 @@ def mask_image(mask: str, width: int, height: int) -> "Image":
     return image
 
 
-# The side of the square of pixels one latent cell covers in both enabled
-# inpaint families (SDXL's VAE and Z-Image's both downsample by 8), where the
-# runner names none of its own (`vae_scale_factor`).
+# The side of the square of pixels one latent cell covers in every enabled
+# inpaint family (the VAEs of FLUX.1, SDXL and Z-Image all downsample by 8),
+# where the runner names none of its own (`vae_scale_factor`).
 LATENT_BLOCK = 8
 
 
@@ -642,7 +642,7 @@ def pipeline_mask(mask: "Image", block: int = LATENT_BLOCK) -> "Image":
     """The mask the inpaint class is handed for a painted `mask`: every
     latent cell that holds any painted pixel, all white; the rest black.
 
-    Both enabled classes binarise their mask at 0.5 and then shrink it to the
+    The enabled classes binarise their mask at 0.5 and then shrink it to the
     latent grid by nearest sampling - the top-left pixel of each `block`
     square - so the painted mask as it is repaints only the cells whose
     corner pixel is past 128. A stroke narrower than a cell could repaint

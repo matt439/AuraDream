@@ -143,6 +143,10 @@ before changing it.
   (`Outpaint`), the stored mask's answer (`MaskStored`) and the presets'
   (`OutpaintPreset(s)`); a leaf over `outpaint`'s constants, no settings.
   `schemas_generate` imports `Outpaint` for the request
+- `backend/schemas_mask_crop.py` — only the masked area's spec
+  (`MaskCropSpec`: the frozen rule, the padding, the working tier) and its
+  one spelling (`key()`, `bbox16:32@1`, and its inverse `parse_key()`); a
+  leaf over `mask_crop`'s constants, no settings
 - `backend/schemas_prompt.py` — Expand, Check (analysis, findings, orders),
   the chip count, the critic's critique, Danbooru tag suggestion/validation
 - `backend/schemas_gallery.py` — `ImageRecord`, run summaries, gallery pages,
@@ -258,6 +262,14 @@ before changing it.
   refine guard's limits passed in) and the off-grid words
   (`source_off_grid`); numpy, Pillow and `sizes` only. Each fill and the
   mask are frozen, their bytes pinned by `tests/test_outpaint.py`
+- `backend/mask_crop.py` — only the masked area's pure parts (INP#9): the
+  frozen rule `bbox16` (`region`: the mask's box plus the padding on the 16
+  grid at about 1 MP in the box's own aspect), the no-gain test
+  (`no_gain`), the class's inputs (`crop_inputs`: the box resized, the mask
+  thresholded and widened by `radius` to the paste back's reach) and
+  `paste_back`; numpy, Pillow, `sizes` and `refine`. The app crops, never
+  the class's `padding_mask_crop`; the rule's boxes are pinned by
+  `tests/test_mask_crop.py`
 - `backend/sizes.py` — the preset table; the CLI's `--aspect/--mp`, config's
   `max_side`/`max_pixels` and a refine pass's `refine_max_side`/
   `refine_max_pixels` (any 2 MP preset at 2x), `web/state.js`'s copy,
