@@ -248,6 +248,8 @@ const els = {
   outpaintTall: $('outpaint-tall'), outpaintShape: $('outpaint-shape'),
   outpaintShapeApply: $('outpaint-shape-apply'),
   outpaintBand: $('outpaint-band'), outpaintBandNote: $('outpaint-band-note'),
+  outpaintCropField: $('outpaint-crop-field'), outpaintCrop: $('outpaint-crop'), outpaintCropPad: $('outpaint-crop-pad'),
+  outpaintCropBox: $('outpaint-crop-box'),
   outpaintSourceLine: $('outpaint-source-line'), outpaintReused: $('outpaint-reused'),
   outpaintDraft: $('outpaint-draft'), outpaintDraftText: $('outpaint-draft-text'),
   outpaintStartOver: $('outpaint-start-over'), outpaintUnavailable: $('outpaint-unavailable'),

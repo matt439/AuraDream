@@ -1485,6 +1485,8 @@
         <div class="op-canvas" id="outpaint-canvas">
           <img id="outpaint-image" alt="" draggable="false">
           <div class="op-band" id="outpaint-band-edge"></div>
+          <!-- Only the masked area's box, where the server's preview put it. -->
+          <div class="ip-crop-box" id="outpaint-crop-box" aria-hidden="true" hidden></div>
         </div>
       </div>
       <label class="op-side op-right"><span>Right</span>
@@ -1511,6 +1513,19 @@
       <input type="number" id="outpaint-band" min="0" max="256" step="8" inputmode="numeric"
              aria-describedby="outpaint-band-note">
       <p class="hint" id="outpaint-band-note"></p>
+      <!-- Only the masked area (mask_crop), as the Inpaint dialog's: a box
+           around the new area and its band, denoised at about 1 MP and
+           pasted back. At the end of the band's row, whose note gives way,
+           so it costs the dialog no height; unticked, the padding is
+           greyed, never hidden. -->
+      <div class="ip-crop op-crop off" id="outpaint-crop-field" role="group" aria-label="Only the masked area">
+        <label class="check"><input type="checkbox" id="outpaint-crop" aria-describedby="outpaint-crop-tip"> Only the masked area</label>
+        <span class="help above" tabindex="0" role="note" aria-label="Only the masked area help" aria-describedby="outpaint-crop-tip">?<span
+          class="tip wide" id="outpaint-crop-tip">Denoise just a box around the new area and the band - their extent plus Padding - at about 1 MP, then paste it back onto the canvas. A thin strip gets the checkpoint's full detail; a large canvas stays within the card. The kept original is unchanged either way. Padding 32 has not been measured on the card.</span></span>
+        <label class="ip-crop-pad" title="Padding around the new area's extent, in the canvas's pixels: 0 to 256 in steps of 8"><span>Pad</span>
+          <input type="number" id="outpaint-crop-pad" min="0" max="256" step="8" placeholder="32" inputmode="numeric"
+                 aria-label="Padding, px"> px</label>
+      </div>
     </div>
   </div>
   <div class="ip-controls">

@@ -229,6 +229,11 @@ async function openOutpaint(rec, from = null, restart = false) {
     ? `made on ${checkpointName(start.model_id)}: steps and CFG are ${checkpointName(loadedModel)}'s`
     : `as #${start.id} was made`;
   els.outpaintMore.open = foreign;
+  // Only the masked area as the reused outpaint ran it; otherwise off at the
+  // default padding.
+  els.outpaintCrop.checked = !!from?.mask_crop;
+  els.outpaintCropPad.value = String(from?.mask_crop?.pad ?? MASK_CROP_PAD);
+  showOutpaintCropBox(null);
   outpaintFilled = outpaintValues();
   if (draft) {
     applyOutpaintValues(draft.values);
@@ -311,19 +316,23 @@ function outpaintBoxes() {
   return {
     strength: els.outpaintStrength, versions: els.outpaintVersions, seed: els.outpaintSeed,
     prompt: els.outpaintPrompt, negative: els.outpaintNegative, steps: els.outpaintSteps,
-    cfg: els.outpaintCfg, mu: els.outpaintMu, trueCfg: els.outpaintTrueCfg,
+    cfg: els.outpaintCfg, mu: els.outpaintMu, trueCfg: els.outpaintTrueCfg, cropPad: els.outpaintCropPad,
   };
 }
 
 function outpaintValues() {
   const values = Object.fromEntries(Object.entries(outpaintBoxes()).map(([key, el]) => [key, el.value]));
-  return { ...values, more: els.outpaintMore.open, sides: outpaintKey({ fill: '', ...outpaintSides, band: outpaintBandPx }) };
+  return {
+    ...values, crop: els.outpaintCrop.checked, more: els.outpaintMore.open,
+    sides: outpaintKey({ fill: '', ...outpaintSides, band: outpaintBandPx }),
+  };
 }
 
 function applyOutpaintValues(values) {
   for (const [key, el] of Object.entries(outpaintBoxes())) {
     if (typeof values[key] === 'string') el.value = values[key];
   }
+  if (typeof values.crop === 'boolean') els.outpaintCrop.checked = values.crop;
   els.outpaintMore.open = !!values.more;
 }
 
@@ -600,8 +609,43 @@ function syncOutpaint() {
   syncPassSampling(outpaintSampling());
   els.outpaintUnavailable.hidden = inpaintSupported;
   els.outpaintUnavailable.textContent = inpaintSupported ? '' : inpaintUnavailableText(true);
+  syncOutpaintCrop();
   syncOutpaintRun();
   syncOutpaintCheck();
+}
+
+// Only the masked area, as the Inpaint dialog's (syncInpaintCrop): the
+// padding greyed while unticked, never hidden, and the tick held -
+// aria-disabled, the reason its title - where the checkpoint has no inpaint.
+function syncOutpaintCrop() {
+  const on = els.outpaintCrop.checked;
+  els.outpaintCropField.classList.toggle('off', !on);
+  els.outpaintCrop.setAttribute('aria-disabled', String(!inpaintSupported));
+  els.outpaintCrop.title = !inpaintSupported ? `Only the masked area - ${inpaintNone(true)}`
+    : on ? 'Only a box around the new area and the band is denoised, at about 1 MP, and pasted back; '
+      + 'the box is drawn dotted on the canvas'
+      : 'Off: the whole canvas is denoised at its own size';
+}
+
+// A press on a held Only the masked area changes nothing and says why.
+function outpaintCropClick(event) {
+  if (els.outpaintCrop.getAttribute('aria-disabled') !== 'true') return;
+  event.preventDefault();
+  outpaintFailed(inpaintNone(true));
+}
+
+// The server's box ({box, working, scale}) drawn on the canvas, in the
+// canvas's proportions, or nothing.
+function showOutpaintCropBox(area) {
+  const box = els.outpaintCropBox;
+  if (!area || !outpaintSource || !els.outpaintCrop.checked) { box.hidden = true; return; }
+  const [cw, ch] = outpaintCanvasSize();
+  const [x1, y1, x2, y2] = area.box;
+  Object.assign(box.style, {
+    left: `${(100 * x1) / cw}%`, top: `${(100 * y1) / ch}%`,
+    width: `${(100 * (x2 - x1)) / cw}%`, height: `${(100 * (y2 - y1)) / ch}%`,
+  });
+  box.hidden = false;
 }
 
 function outpaintSampling() {
@@ -626,6 +670,9 @@ function syncOutpaintRun() {
 
 function outpaintChanged() {
   els.outpaintStrength.removeAttribute('aria-invalid');
+  // The box the last preview drew is for the last canvas: gone until the
+  // next answer.
+  showOutpaintCropBox(null);
   els.outpaintPreview.hidden = false;
   outpaintFailed('');
   syncOutpaint();
@@ -690,6 +737,7 @@ function outpaintRequest() {
     lora_scale: outpaintLora?.scale ?? 1,
     refine: outpaintSource.id,
     outpaint: { fill: outpaintFill, ...outpaintSides, band: outpaintBandPx },
+    mask_crop: maskCropAsked(els.outpaintCrop, els.outpaintCropPad),
     strength: single && strength !== '' ? +strength : inpaintStartStrength(),
     seed: seed === '' ? null : +seed,
     runs: 1,
@@ -720,6 +768,7 @@ async function previewOutpaint() {
   const asked = JSON.stringify(preview);
   els.outpaintPreview.classList.remove('warn');
   outpaintProblem = null;
+  showOutpaintCropBox(null);
   if (!inpaintSupported || outpaintExtendProblem()) {
     els.outpaintPreview.textContent = '';
     outpaintPreviewed = asked;
@@ -752,9 +801,15 @@ async function previewOutpaint() {
     els.outpaintPreview.textContent = plural(p.images, 'image')
       + ` · ${preview.width} × ${preview.height}`
       + ` · strength ${axisText(strengths)}${noise}${run}`
-      + (p.seconds ? ` · about ${humanTime(p.seconds)}` : ` · no estimate: nothing has run at ${preview.width} × ${preview.height} here`)
+      // A cropped pass is priced only from cropped ones (gallery_reports'
+      // mask_crop_cost_ms), never by the canvas's size.
+      + (p.seconds ? ` · about ${humanTime(p.seconds)}`
+        : preview.mask_crop ? ' · no estimate: no masked-area pass has run here yet'
+          : ` · no estimate: nothing has run at ${preview.width} × ${preview.height} here`)
       + (p.duplicates ? ` · ${p.duplicates} would be identical to another` : '')
+      + (preview.mask_crop && p.mask_crop ? maskCropText(p.mask_crop, preview.mask_crop.pad) : '')
       + (sweep ? '\nOpens as a sheet when it is done.' : '');
+    if (preview.mask_crop) showOutpaintCropBox(p.mask_crop);
   } catch (err) {
     if (epoch !== outpaintEpoch) return;
     if (await dropOutpaintLora(err.message)) return previewOutpaint();
@@ -880,7 +935,7 @@ function outpaintClosed() {
   const ran = outpaintRan || outpaintSending;
   if (src && !ran) {
     const values = outpaintValues();
-    const edited = [...Object.keys(outpaintBoxes()), 'sides'].some((key) => values[key] !== outpaintFilled?.[key]);
+    const edited = [...Object.keys(outpaintBoxes()), 'crop', 'sides'].some((key) => values[key] !== outpaintFilled?.[key]);
     if (edited) {
       outpaintKept.set(src.id, { model: loadedModel, values, sides: { ...outpaintSides }, band: outpaintBandPx });
       while (outpaintKept.size > OUTPAINT_KEPT) outpaintKept.delete(outpaintKept.keys().next().value);
@@ -948,7 +1003,7 @@ async function checkOutpaintPrompt() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        ...body, outpaint: undefined, strength: undefined, strength_axis: undefined, seeds: undefined,
+        ...body, outpaint: undefined, mask_crop: undefined, strength: undefined, strength_axis: undefined, seeds: undefined,
       }),
     });
   } catch { /* advice only */ }

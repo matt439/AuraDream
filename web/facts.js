@@ -310,7 +310,9 @@ function maskCropFact(rec) {
 function maskCropFactTitle(rec) {
   const box = rec.mask_crop_box;
   const spec = `${rec.mask_crop.rule}:${rec.mask_crop.pad}@${rec.mask_crop.tier}`;
-  return box ? `${spec} - box ${box[0]},${box[1]} to ${box[2]},${box[3]} on the source` : spec;
+  // An outpaint's box is on its canvas, the source plus the padding.
+  const on = rec.outpaint ? 'the canvas' : 'the source';
+  return box ? `${spec} - box ${box[0]},${box[1]} to ${box[2]},${box[3]} on ${on}` : spec;
 }
 
 // A record's mask as a tint and an outline over the source's thumbnail - the

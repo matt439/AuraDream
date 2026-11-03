@@ -492,6 +492,8 @@ function syncReuseButton(button, rec, compact = false) {
   // An outpaint's spec by its key (`fill:L,T,R,B@band`), so a status
   // refresh rebuilds an outpaint's button rather than an inpaint's.
   button.dataset.reuseOutpaint = rec.outpaint ? outpaintKey(rec.outpaint) : '';
+  // Only the masked area's padding, for a refresh to keep the title's words.
+  button.dataset.reuseMaskCrop = rec.mask_crop ? String(rec.mask_crop.pad) : '';
   button.dataset.reuseReference = (rec.reference ?? []).join(',');
   button.dataset.reuseLora = rec.lora || '';
   button.dataset.reuseExecution = JSON.stringify(rec.execution ?? null);
@@ -545,7 +547,8 @@ function syncReuseButton(button, rec, compact = false) {
   if (pass != null && !gone && rec.outpaint) {
     button.textContent = compact ? (mismatch ? '⚠' : '↻') : `${mismatch ? '⚠ ' : ''}Reuse outpaint…`;
     button.title = mismatch ? `Warning: ${warning}`
-      : `Open the Outpaint dialog on #${pass} with this outpaint's sides, band, strength and seed`;
+      : `Open the Outpaint dialog on #${pass} with this outpaint's sides, band, strength and seed`
+        + (rec.mask_crop ? `, only the masked area at padding ${rec.mask_crop.pad} px` : '');
     button.setAttribute('aria-label', `Reuse outpaint in the Outpaint dialog${mismatch ? ` (warning: ${warning})` : ''}`);
     button.dataset.tip = 'Reuse outpaint…';
     return;
@@ -608,6 +611,7 @@ function syncReuseButtons() {
       refine: kept.reusePass ? +kept.reusePass : null,
       mask: kept.reuseMask || null,
       outpaint: parseOutpaintKey(kept.reuseOutpaint),
+      mask_crop: kept.reuseMaskCrop ? { pad: +kept.reuseMaskCrop } : null,
       refine_missing: kept.reusePassGone === 'true',
       refine_binned: kept.reusePassBinned === 'true',
       reference: kept.reuseReference ? kept.reuseReference.split(',').map(Number) : [],

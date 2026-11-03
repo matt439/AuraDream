@@ -619,10 +619,13 @@ function inpaintCropClick(event) {
   inpaintFailed(inpaintNone());
 }
 
-// The padding the box asks for: the box's number, or the default while empty.
-function inpaintCropPad() {
-  const text = els.inpaintCropPad.value.trim();
-  return text === '' ? MASK_CROP_PAD : +text;
+// The `mask_crop` a dialog's tick and Padding box ask for, or null while
+// unticked: the box's number, or the default padding while it is empty. The
+// server checks the padding (0-256 in steps of 8) and says why it refuses.
+function maskCropAsked(check, padBox) {
+  if (!check.checked) return null;
+  const text = padBox.value.trim();
+  return { rule: MASK_CROP_RULE, pad: text === '' ? MASK_CROP_PAD : +text, tier: MASK_CROP_TIER };
 }
 
 // The server's box ({box, working, scale}) drawn dashed over the picture, in
@@ -742,8 +745,7 @@ function inpaintRequest() {
     lora_scale: inpaintLora?.scale ?? 1,
     refine: inpaintSource.id,
     mask: inpaintMask?.hash ?? null,
-    mask_crop: els.inpaintCrop.checked
-      ? { rule: MASK_CROP_RULE, pad: inpaintCropPad(), tier: MASK_CROP_TIER } : null,
+    mask_crop: maskCropAsked(els.inpaintCrop, els.inpaintCropPad),
     strength: single && strength !== '' ? +strength : inpaintStartStrength(),
     seed: seed === '' ? null : +seed,
     runs: 1,

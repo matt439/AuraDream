@@ -618,10 +618,14 @@ for (const button of [els.outpaintGrow, els.outpaintWide, els.outpaintTall]) {
 els.outpaintShape.addEventListener('change', syncOutpaintPresets);
 els.outpaintShapeApply.onclick = applyOutpaintShape;
 for (const el of [els.outpaintStrength, els.outpaintVersions, els.outpaintSeed, els.outpaintPrompt,
-                  els.outpaintNegative, els.outpaintSteps, els.outpaintCfg, els.outpaintMu, els.outpaintTrueCfg]) {
+                  els.outpaintNegative, els.outpaintSteps, els.outpaintCfg, els.outpaintMu, els.outpaintTrueCfg,
+                  els.outpaintCropPad]) {
   el.addEventListener('input', outpaintChanged);
 }
 els.outpaintVersions.addEventListener('change', outpaintChanged);
+// Only the masked area, held as the Inpaint dialog's where there is no inpaint.
+els.outpaintCrop.addEventListener('click', outpaintCropClick);
+els.outpaintCrop.addEventListener('change', outpaintChanged);
 for (const el of [els.outpaintPrompt, els.outpaintNegative, els.outpaintCfg, els.outpaintTrueCfg]) {
   el.addEventListener('input', () => { syncOutpaintCheck(); scheduleOutpaintCheck(); });
 }
