@@ -31,7 +31,7 @@ from typing import Any
 # config is the first project import, before anything that could import
 # diffusers (AGENTS.md); nothing here does, but the rule holds everywhere.
 from .config import settings
-from . import server_probe
+from . import hf_sign_in, server_probe
 
 PASS, WARN, FAIL = "PASS", "WARN", "FAIL"
 GIB = 1024 ** 3
@@ -281,12 +281,11 @@ def check_hf_login(token_path: Path | None = None, environ: dict[str, str] | Non
     HF_TOKEN being set. Never read, printed or checked with the Hub."""
     environ = dict(os.environ) if environ is None else environ
     if token_path is None:
-        from huggingface_hub import constants
-
-        token_path = Path(constants.HF_TOKEN_PATH)
-    if environ.get("HF_TOKEN"):
+        token_path = hf_sign_in.default_token_path()
+    found = hf_sign_in.token_source(token_path, environ)
+    if found == "env":
         return [Check(PASS, "Hugging Face", "a token is set in HF_TOKEN (not checked with the Hub here).")]
-    if token_path.is_file():
+    if found == "file":
         return [Check(PASS, "Hugging Face", f"signed in: a token file is in {token_path.parent} "
                       "(not checked with the Hub here).")]
     return [Check(WARN, "Hugging Face", "not signed in. Open checkpoints such as Animagine XL 4.0 need no "

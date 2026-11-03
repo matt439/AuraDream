@@ -70,6 +70,8 @@ Backend (`backend/`):
   `startup_preferences.py` atomically saves loader/startup choices;
   `model_info.py` supplies cold catalogue details from existing sourced guides;
   `hub_access.py` asks the Hub whether a switch's checkpoint can download;
+  `hf_sign_in.py` whether a Hugging Face token is present (existence only,
+  shared by the doctor and the status that preselects an open checkpoint);
   `model_benchmarks.py` supplies retained timing references and speed categories
 - `execution.py` frozen execution recipes, composer/replay resolution, cold candidate checks and shared
   SQL/PNG codecs; nonempty recipes remain unavailable until runtime support
@@ -585,7 +587,8 @@ Gotchas:
   and a later run sweeps any left over six hours.
 - Fake-server knobs: `POST /api/fake/load`, `/api/fake/step`,
   `/api/fake/expand`, `/api/fake/model` (`overrides`, `stuck_critic`,
-  `access`), `/api/fake/lora`, `/api/fake/bin-age`, `/api/fake/peak`,
+  `access`), `/api/fake/sign-in` (`token`, `unsourced`), `/api/fake/lora`,
+  `/api/fake/bin-age`, `/api/fake/peak`,
   `/api/fake/refine` (`supported`: the claimed checkpoint's refine pass),
   `/api/fake/instruction-edit` (the edit gate, open by default only on a
   Kontext fake); a prompt containing `[fail]` fails its cell;

@@ -120,6 +120,12 @@ before changing it.
   it releases the working checkpoint: cache first, then one HEAD per recipe
   source at its revision (or the repo's auth check); a `Refusal` only when the
   Hub says no
+- `backend/hf_sign_in.py` — whether a Hugging Face sign-in is present:
+  `token_source` ("env" for a nonempty `HF_TOKEN`, "file" for
+  huggingface_hub's `constants.HF_TOKEN_PATH` existing, else None) and
+  `token_present`; stdlib and huggingface_hub's constants only, the token
+  never read, logged, sent or checked with the Hub. The doctor's sign-in
+  check and the status's `hf_token_present` share it
 - `backend/model_benchmarks.py` — retained RTX 5080 timing references, exact
   checkpoint/loading-option matching and coarse speed categories; no live benchmark
 - `backend/schemas.py` — re-exports the pydantic request/response models;
@@ -470,7 +476,7 @@ before changing it.
   disk per drive for `HF_HUB_CACHE`, `hf_home_dir("converted")` and the
   outputs (under 50 GB for the downloads warns, under 2 GB fails); the port
   through `server_probe` (AuraDream already there passes); a Hugging Face
-  token as `HF_TOKEN` or the token file's existence, never read or sent.
+  token as `HF_TOKEN` or the token file's existence (`hf_sign_in`), never read or sent.
   Imports `config` first and torch inside the GPU check; never diffusers,
   a model or the Hub (`tests/test_doctor.py`). `install.ps1` runs it
 - `backend/server_probe.py` — the port checks `main.run` and the doctor
@@ -1050,7 +1056,20 @@ measured on the card and when.
   (`modelPickerOffered`, cleared by an accepted press or any close/reopen)
   first says Switch & load saves for the next start and closing saves
   nothing, while unloaded or failed and nothing else leads (a failed load's
-  detail does). Then: a request error, a press's refusal
+  detail does). With no Hugging Face sign-in on a gated default nothing
+  chose, the status names an open checkpoint (`open_model_suggestion`,
+  `model_defaults.OPEN_DEFAULT_MODEL_ID`, Z-Image Turbo; `GEN#41`): only
+  that opening's first catalogue reply (`suggestOpenModel`, once a page)
+  chooses its row as a click would - unsaved, with Revert, never focused or
+  scrolled to, nothing if the row is not listed or a row was already picked -
+  and while it stays chosen the note says why next ("No Hugging Face sign-in
+  was found and <default> needs one, so the open <name> is chosen."). The
+  server decides: `main._open_model_suggestion` answers None once a token is
+  present (`hf_sign_in`), the start's checkpoint came from anywhere (a saved
+  choice, `AURADREAM_MODEL_ID`, `--model`, `--defaults` or `--menu`), the
+  selection is not `DEFAULT_MODEL_ID`, or any switch route has saved since
+  the start. The server's default, the CLI and saved metadata are unchanged.
+  Then: a request error, a press's refusal
   (`modelPressReason`, dropped once that action's hold changes or the picker
   reopens), `switch_error`, a failed load's detail, then
   `modelPickerMessage`; after it Loading, the unsaved edits with Revert, or
@@ -8112,7 +8131,17 @@ closing does not, gone after an accepted save and from a hand opening; a
 failed load's detail leads in its place; an
 element and a 1400x900 screenshot) and every model's row and facts shown,
 suppression when ready/loading/busy, no reopening after dismissal or later
-Unload, and focus/caret preservation.
+Unload, and focus/caret preservation. Through `POST /api/fake/sign-in`
+(`token`, `unsourced`; the fake starts signed in and sourced, never reading
+this machine's token) it checks `GEN#41`: no token on an unsourced FLUX.1
+Krea [dev] preselects Z-Image Turbo unsaved, the note saying why after the
+recommendation, the server's selection unchanged (screenshot
+`model-startup-open-suggestion.png`), and Revert putting the default back;
+a token, a sourced start or a save since the start keep the default row.
+`test_open_model_suggestion.py` covers the shared predicate (presence only,
+the file never opened), the doctor using it, the status field by
+`HF_TOKEN` and a temporary token path, and every source that keeps the
+default.
 `smoke-model-hover.json` hovers a table row and checks that its hover, every
 row's position and the focus survive status polls, a catalogue reply and
 another tab's favourites, with only the star's glyph (and, for a server
@@ -8141,7 +8170,8 @@ load (`test_api.py`); `test_server_start.py` covers the busy port (AuraDream
 already there, another program, a listener that never answers) and `--open`
 waiting for the bind on an ephemeral port, with `webbrowser.open` replaced;
 `POST /api/fake/model` sets the fake's `overrides`, a
-`stuck_critic` and an `access` refusal ("gated"/"not_found") for page checks;
+`stuck_critic` and an `access` refusal ("gated"/"not_found") for page checks,
+and `POST /api/fake/sign-in` a fresh visit's `token` and `unsourced` start;
 `test_model_benchmarks.py` covers speed categories, exact sample matching and
 no category for an unmatched setup or a first run on a busy PC;
 `test_gallery_timing.py` covers the picker's gallery timing (refine, edit,

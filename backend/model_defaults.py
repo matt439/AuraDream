@@ -145,6 +145,12 @@ from .refine import DEFAULT_STRENGTH, leaves_a_step, upscaler_supported
 DEFAULT_MODEL_ID = "black-forest-labs/FLUX.1-Krea-dev"
 DEFAULT_QUANT = "fp8"
 DEFAULT_OFFLOAD = "model"
+# The open checkpoint a fresh browser visit preselects in the Models picker
+# when the server runs the built-in default above (which is gated) chosen by
+# nothing and no Hugging Face sign-in is present (GEN#41). A preselection
+# only: the server's default, the CLI and saved choices are unchanged.
+# General-purpose like the default; measured at fp8 on Windows (verified.md).
+OPEN_DEFAULT_MODEL_ID = "Tongyi-MAI/Z-Image-Turbo"
 
 # The vocabularies config.py validates AURADREAM_QUANT and AURADREAM_OFFLOAD against, and
 # launch.py builds its menus from. An unknown value used to select the heaviest

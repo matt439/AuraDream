@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import ipaddress
 import logging
+import os
 import sqlite3
 import sys
 import threading
@@ -41,7 +42,7 @@ if __name__ == "__main__":
 else:
     compiler_cache._seal_startup()
 
-from . import api_backup, api_bundles, api_gallery, api_generate, api_jobs, api_masks, api_more_seeds, api_png, api_presets, api_prompt, api_refine_batch, api_rerender, api_runs, api_saved_searches, api_snippets, api_swap, app_context, bundle_common, bundles, gallery_lock, gallery_reports, hub_access, loras, model_selection, prompt_encoding, startup_preferences, storage  # noqa: E402
+from . import api_backup, api_bundles, api_gallery, api_generate, api_jobs, api_masks, api_more_seeds, api_png, api_presets, api_prompt, api_refine_batch, api_rerender, api_runs, api_saved_searches, api_snippets, api_swap, app_context, bundle_common, bundles, gallery_lock, gallery_reports, hf_sign_in, hub_access, loras, model_selection, prompt_encoding, startup_preferences, storage  # noqa: E402
 from .backup_service import BackupService  # noqa: E402
 from .server_probe import auradream_at as _auradream_at, page_url as _page_url, port_busy as _port_busy  # noqa: E402
 from .backends import get_backend  # noqa: E402
@@ -57,7 +58,7 @@ from .instruction_edit import (  # noqa: E402
     INSTRUCTION_EDIT_UNAVAILABLE, is_edit_only, option_refusals, require_model_available,
 )
 from . import api_instruction_edit  # noqa: E402
-from .model_defaults import defaults_for, guide_for, hints_for  # noqa: E402
+from .model_defaults import DEFAULT_MODEL_ID, OPEN_DEFAULT_MODEL_ID, defaults_for, guide_for, hints_for  # noqa: E402
 from .schemas import (  # noqa: E402
     ExpanderDownload,
     ExpanderStatus,
@@ -105,6 +106,29 @@ _startup_preload: bool | None = None
 _switch_error: str | None = None
 # Which saved choices this start's flags/environment override (launch.configure).
 _startup_overrides = startup_preferences.startup_overrides()
+# Whether this start's checkpoint came from nothing: no saved browser choice,
+# AURADREAM_MODEL_ID or --model filled the variable before config read it (the
+# launcher applies those first). With no Hugging Face sign-in, a fresh page's
+# picker then preselects the open checkpoint (`_open_model_suggestion`).
+_model_unsourced = not os.environ.get("AURADREAM_MODEL_ID")
+# Set once a switch route saves a choice in this process, from any tab.
+_model_choice_saved = False
+
+
+def _hf_token_present() -> bool:
+    """The token file's existence or HF_TOKEN; never read or sent (the fake swaps this)."""
+    return hf_sign_in.token_present()
+
+
+def _open_model_suggestion(model_id: str, token_present: bool) -> str | None:
+    """The open checkpoint a fresh visit's picker preselects, or None: only
+    while the selection is the built-in gated default that nothing chose
+    (no saved choice, environment, --model, --defaults or --menu, and
+    nothing saved since this start) and no sign-in is present. The page
+    still checks the row is listed and the picker opened by itself."""
+    if token_present or _model_choice_saved or not _model_unsourced or "model_id" in _startup_overrides:
+        return None
+    return OPEN_DEFAULT_MODEL_ID if model_id == DEFAULT_MODEL_ID else None
 
 # When this process started. A page that sees it change knows the server it
 # was talking to went away - and every job with it - which nothing else in a
@@ -546,6 +570,7 @@ async def status() -> ModelStatus:
     defaults = _merged_defaults(info)
     selected_settings = current_settings(settings)
     card_holder, card_ticket = jobs.card()
+    token_present = _hf_token_present()
     return ModelStatus(
         state=state,
         switching=_switching,
@@ -573,6 +598,8 @@ async def status() -> ModelStatus:
         format=model_selection.format_for(settings),
         load_on_startup=_load_on_startup(),
         startup_overrides=_startup_overrides,
+        hf_token_present=token_present,
+        open_model_suggestion=_open_model_suggestion(info["model_id"], token_present),
         attention_environment_warning=ATTENTION_ENVIRONMENT_WARNING,
         switch_error=_switch_error,
         detail=_load_state["detail"],
@@ -970,7 +997,7 @@ async def _refuse_hub_access(model_id: str) -> None:
 
 @app.post("/api/model/switch", response_model=ModelStatus)
 async def switch_model(request: ModelSwitchRequest, http_request: Request) -> ModelStatus:
-    global _switching, _switch_task, _startup_preload, _switch_error, _switch_draining
+    global _switching, _switch_task, _startup_preload, _switch_error, _switch_draining, _model_choice_saved
     # Unlike model readers this route is not counted while its body arrives.
     # Another switch can finish after the middleware's revision check.
     expected = (http_request.headers.get("x-auradream-model-revision")
@@ -1041,6 +1068,7 @@ async def switch_model(request: ModelSwitchRequest, http_request: Request) -> Mo
         log.error("could not save startup settings: %s", short_error(exc))
         raise HTTPException(status_code=500, detail=f"Could not save startup settings: {short_error(exc)}") from exc
     _startup_preload = preload
+    _model_choice_saved = True
     current = current_settings(settings)
     if (target.model_id, target.quantization, target.offload, target.loader_execution, target.loader_execution_error) == (
         current.model_id, current.quantization, current.offload, current.loader_execution, current.loader_execution_error,

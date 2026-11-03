@@ -110,7 +110,8 @@ can bring a `storage._migrate` step the user cannot undo.
 - 8-12 GB cards, the common newcomer case, have no guidance; only the 16 GB
   RTX 5080 is measured, and fit on smaller cards is the card's to say.
 - The gated default (`backend/config.py:76-78`) is the first thing a user
-  without a token meets.
+  without a token meets; since `GEN#41` (2026-11-03) a fresh visit with no
+  token preselects the open Z-Image Turbo instead (Stages, below).
 
 ### F8 Not covered elsewhere (low)
 
@@ -242,6 +243,31 @@ Each stage is self-contained; do them in order.
 
 Decision for Matt (`GEN#41`): should a fresh browser visit with no stored
 Hugging Face token preselect an open checkpoint instead of the gated default?
+Decided 2026-11-03: yes, Z-Image Turbo (`Tongyi-MAI/Z-Image-Turbo`: open,
+general-purpose like the default, measured at fp8 on Windows).
+Built 2026-11-03: a preselection in the browser's Models picker only. The
+id is one constant, `model_defaults.OPEN_DEFAULT_MODEL_ID`. The sign-in is
+`backend/hf_sign_in.py` (`HF_TOKEN` set or huggingface_hub's token file
+existing; never read, logged, sent or checked with the Hub), which the
+doctor's check now shares. `/api/status` reports `hf_token_present` and
+`open_model_suggestion`: the open id only while the selection is
+FLUX.1 Krea [dev] that nothing chose (no saved choice, `AURADREAM_MODEL_ID`,
+`--model`, `--defaults` or `--menu`), no switch route has saved since the
+start, and no token is present (`main._open_model_suggestion`). The page's
+automatic opening (`suggestOpenModel` in `web/model-switch.js`, once a
+page) then chooses that row as a click would: unsaved, with Revert, not
+focused or scrolled to, nothing when the row is not listed or a row was
+already picked; while it stays chosen the existing note adds "No Hugging
+Face sign-in was found and FLUX.1 Krea [dev] needs one, so the open Z-Image
+Turbo is chosen." after the Switch & load recommendation. No new row or
+height at 1400x900. The server's default, the CLI, settings and saved
+metadata are unchanged; Generate without a press still uses the server's
+selection. Fake knob `POST /api/fake/sign-in` (`token`, `unsourced`);
+`smoke-model-startup` covers no token (preselected, the note, Revert),
+a token, a sourced start and a save since the start, with a screenshot;
+`tests/test_open_model_suggestion.py` the predicate, the doctor and the
+status field. Not verified: a real first run without a token on a clean
+machine.
 
 ## Not taken
 
