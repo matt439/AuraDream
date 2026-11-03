@@ -54,8 +54,11 @@ function automaticBackupRequested() {
   try { return new URLSearchParams(location.search).has('automatic-backup'); } catch { return false; }
 }
 
+// 'unavailable' alone is the bundles directory's own warning (no settings
+// needed), so it does not count; a startup outcome needs saved settings.
 function automaticBackupConfigured(status) {
-  return !!status && (status.revision !== 'missing' || !!status.enabled || status.state !== 'disabled'
+  return !!status && (status.revision !== 'missing' || !!status.enabled
+    || !['disabled', 'unavailable'].includes(status.state)
     || !!status.retention_enabled || !!status.retention_pending || !!status.retention_uncertain
     || (status.credential_state || 'not_configured') !== 'not_configured' || !!status.shared_mode_id);
 }
