@@ -295,7 +295,8 @@ def test_no_source_reads_a_legacy_variable():
     root = Path(__file__).resolve().parent.parent
     sources = [
         *(root / "backend").rglob("*.py"), *(root / "tools").glob("*.py"),
-        *(root / "tools").glob("*.mjs"), *(root / "wsl").glob("*.sh"), *(root / "bin").iterdir(),
+        *(root / "tools").glob("*.mjs"), *(root / "wsl").glob("*.sh"), *(root / "linux").glob("*.sh"),
+        *(root / "bin").iterdir(),
     ]
     readers = [
         p.relative_to(root).as_posix() for p in sources
