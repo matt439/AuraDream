@@ -138,11 +138,15 @@ def test_skip_unknown_job_is_404(client):
 
 def test_a_sweep_reports_every_image_and_finishes(client, fake):
     _, events = run_one(client, runs=2, num_images=2, seed=7)
-    images = [e for e in events if e["type"] == "image"]
-    assert len(images) == 4
+    # As the page reads them: the attach snapshot carries what was made before
+    # the stream opened, and each later image is its own event, keyed by id.
+    # The fake can finish its first image before the stream attaches.
+    seeds = {record["id"]: record["seed"] for record in events[0].get("images", [])}
+    seeds |= {e["image"]["id"]: e["image"]["seed"] for e in events if e["type"] == "image"}
+    assert len(seeds) == 4
     assert events[-1]["type"] == "done" and events[-1]["status"] == "done"
     # seed + run * batch, then +1 per image in the batch.
-    assert [i["image"]["seed"] for i in images] == [7, 8, 9, 10]
+    assert [seeds[key] for key in sorted(seeds)] == [7, 8, 9, 10]
     assert fake.seeds == [7, 9]
 
 

@@ -62,7 +62,7 @@ searches for `model:=<id>`). A checkpoint with no images says so instead.
 a step and nearer BF16 on fourteen, and FLUX.1, Krea 2, klein 9B and
 Qwen-Image were not compared),
 BF16 is full precision and the largest, and Nunchaku
-4-bit builds are the smallest but run only on Linux or WSL. **Offload** trades
+4-bit builds are the smallest but run only on Linux (native or WSL). **Offload** trades
 memory for speed: Model offload keeps one component on the GPU at a time,
 Sequential moves smaller pieces and is much slower, and No offload is fastest
 but needs 24 GB or more for FLUX-size models. FP8 with Model offload is
@@ -116,8 +116,8 @@ need their licence accepted on the model page; Krea 2 Turbo and Raw need the
 authors' approval, which can take days. Then sign in once with
 `uv run hf auth login`. The 4-bit lite-infer builds are not gated. Each
 row says **Open**, **Accept licence** or **Needs approval** under the name.
-Qwen-Image's row also says **Over 16 GB**: only its 4-bit Nunchaku build (WSL)
-fits this card, and choosing it under FP8, INT8 or BF16 says so under the
+Qwen-Image's row also says **Over 16 GB**: only its 4-bit Nunchaku build (Linux
+or WSL) fits a 16 GB card, and choosing it under FP8, INT8 or BF16 says so under the
 buttons before you press one.
 **FLUX.1 Kontext [dev]**, listed last, only edits (its licence is accepted
 like FLUX.1 Krea [dev]'s): it loads only inside its measured envelope and
@@ -156,7 +156,8 @@ stay while the picker is closed. If the server was started with flags or
 variables that beat the saved choice, the saved message names them.
 
 The list follows the chosen quantization. Nunchaku offers its mapped checkpoints
-and an nvfp4/int4 weight format on Linux/WSL. Explicit launch flags and environment
+and an nvfp4/int4 weight format on Linux (native or WSL); below an RTX 50
+card choose int4, since nvfp4 needs compute capability 10.0 or higher. Explicit launch flags and environment
 variables override remembered settings. Starting with a different model
 (`--model` or `AURADREAM_MODEL_ID`) ignores the whole saved choice,
 since its quantization, offload and auto-load were picked for its own model.
@@ -263,9 +264,9 @@ is already saved; uncertain copies need a fresh action choice.
 ### Load settings from a PNG
 
 Drop a PNG anywhere on the page, or press **Load settings from PNG…** under
-**Generate**, to fill the panel from a file - a PNG from the
-other gallery (Windows and WSL keep separate ones), from a backup, or from
-another tool. It works like Reuse: the note offers **Undo**, Ctrl+Z gives
+**Generate**, to fill the panel from a file - a PNG from another gallery
+(Windows, WSL and a native Linux server each keep their own), from a
+backup, or from another tool. It works like Reuse: the note offers **Undo**, Ctrl+Z gives
 back the prompt boxes, and a PNG made on another checkpoint says so.
 
 - An **AuraDream PNG** (including one made before the rename from Local
@@ -1000,13 +1001,16 @@ top, right, bottom) or `--outpaint 16:9` / `--outpaint +25%` outpaints, with
 denoises only the masked area with that padding.
 `--from-image` restores PNG settings; explicit flags override them. Add
 `--scale` explicitly to enlarge its recorded size. Quantization is not carried
-over, allowing a WSL PNG to be used on Windows, and differences are reported.
+over, allowing a PNG made under WSL or on a Linux server to be used on
+Windows, and differences are reported.
 
 Without `--via-server`, the CLI loads its own weights. It first probes the
 configured server and stops if it is ready, loading or times out; use
 `--via-server` or unload the server model first.
 `--ignore-server` overrides this advisory check, which cannot see a server
-across the Windows/WSL boundary. Ctrl+C cancels cooperatively and preserves
+across the Windows/WSL boundary or on another machine. On Linux the CLI holds
+the PC awake (`systemd-inhibit`) from its load to its last cell, unless
+`AURADREAM_KEEP_AWAKE=false`; under `--via-server` the server holds it. Ctrl+C cancels cooperatively and preserves
 saved images. Exit codes: 0 complete, 130 cancelled, 2 bad arguments, 1 failed
 load or skipped cells, 4 server holding the GPU. Failed cells are reported
 and skipped; repeated failures stop the run. If another AuraDream
@@ -1058,6 +1062,40 @@ hostname in `AURADREAM_ALLOWED_HOSTS` and serve it on the same port as
 another host or port, so a proxy on 443 in front of 7860 has every write
 refused. The server logs a warning at start-up whenever it binds to anything
 other than loopback.
+
+### Keep a Linux server awake
+
+On Linux the server holds the PC awake with `systemd-inhibit` (a block on
+sleep and idle, named `AuraDream` in `systemd-inhibit --list`) while it is
+busy, so a PC that suspends when idle does not do so in the middle of a load
+or a render. It holds while a job is queued or running, a model loads or a
+switch is under way, something holds the card, a gallery bundle operation
+runs, or the model's or the critic's download is still working (a download
+outlives a cancelled request, and holds until it ends). It also holds for
+`AURADREAM_KEEP_AWAKE_IDLE_MINUTES` (default 20) after the last request
+someone made: a page load or an API call. The page's own timed requests are
+not one - the status poll, the bundle dialog's and automatic backup's status
+reads, the job streams and listings, an inpaint's mask keep-alive and its
+files and thumbnails - so a tab left open on an idle server lets the PC
+sleep after the idle minutes. `0` holds only while busy;
+`AURADREAM_KEEP_AWAKE=false` holds nothing. Off Linux, or without
+`systemd-inhibit`, nothing is held.
+
+`GET /api/status` reports it as `keep_awake`, from the last check (the poll
+starts no process): `kind` (`systemd-inhibit`, `none` where nothing can be
+held, or `off`), `holding`, `wanted` (there is a reason to hold), `reasons`
+(such as `in use (a request in the last 20 minutes)` or the job's), `detail`
+(why the last hold was refused, until one works) and `idle_minutes`. A hold
+polkit refuses is `wanted` but not `holding`, is logged once and is tried
+again every five minutes; the doctor's **Keep awake** row prints a polkit
+rule that allows it. Waking a suspended PC from the network is outside
+AuraDream.
+
+A page opened by a LAN address over plain `http` is not a secure context, so
+the context menu's copy items and **Notify when done** are held there with
+their reasons. Encrypted automatic backups and backup cleanup are Windows
+only; unencrypted automatic backups use the ordinary bundle path on Linux
+(not run there yet).
 
 ## Review starred rates
 
@@ -1167,8 +1205,8 @@ move the image to the recycle bin and delete it permanently there. A
 again when the render finishes. One left by a crash or a power cut is
 settled an hour after it was written, at the next server start or dialog
 refresh: put in place when it is an image the gallery already lists,
-removed otherwise. In Windows
-and WSL, the saved-bundle directory belongs to the server environment whose
+removed otherwise. Windows, WSL and a native Linux server each have their
+own: the saved-bundle directory belongs to the server environment whose
 gallery is open.
 
 To move saved bundles to another drive, stop the server, copy the existing
@@ -1190,7 +1228,9 @@ auradream
 ```
 
 Existing terminals inherit their old environment; open a new terminal or set
-the variable there too. WSL can use its own Linux path via an explicit export.
+the variable there too. WSL can use its own Linux path via an explicit export;
+a Linux service takes it in its environment file
+(`~/.config/auradream/auradream.env`), as an absolute path.
 
 Automatic backups are off by default and stay so: Matt declined unattended
 backups on 2026-10-29
@@ -1285,8 +1325,8 @@ is deleted and the command exits 1 so it can be run again; **Empty recycle
 bin** refuses the same way.
 Without `--where`, it also removes orphan PNGs, which have no favorite flag
 to preserve. Scoped deletion removes matching rows and files without that
-orphan sweep. The Windows and WSL galleries are separate; run the command
-in the environment whose gallery you intend to clear.
+orphan sweep. The Windows, WSL and native Linux galleries are separate; run
+the command in the environment whose gallery you intend to clear.
 
 ```powershell
 uv run python -m backend.reindex --dry-run

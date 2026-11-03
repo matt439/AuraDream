@@ -203,6 +203,110 @@ concurrency (`HF_XET_CLIENT_ENABLE_ADAPTIVE_CONCURRENCY=false`), because its
 adaptive controller collapsed to one connection and stalled a 12 GB checkpoint
 twice on this connection.
 
+## Native Linux: a server on the network
+
+The third route (2026-11-03) is a Linux PC with its own NVIDIA card that
+serves the page to browsers on other machines: `linux/setup.sh`,
+`linux/install-service.sh` and `linux/update.sh`, with `backend/keep_awake.py`
+for the part only a headless server needs.
+
+**The venv and the gallery stay in the checkout.** Under WSL, `wsl/env.sh`
+moves the venv, the gallery and the Hugging Face cache off `/mnt/c`, because
+9P is slow and SQLite cannot lock over it, and because the Windows `.venv`
+in the same folder is not a Linux one. A native checkout is on the machine's
+own filesystem and has no Windows twin, so the defaults work as they are:
+`.venv`, `auradream.db`, `outputs/` and `auradream.settings.json` in the
+checkout, `~/.cache/huggingface` for the downloads. The scripts set no
+`UV_PROJECT_ENVIRONMENT` and no gallery paths, and `update.sh` copies the
+database where Windows's `update.ps1` would find it. That gallery is
+separate from any Windows or WSL one.
+
+**`TORCH_DISABLE_NATIVE_JIT` is not set by default.** `wsl/env.sh` sets it
+because a fresh WSL Ubuntu had no C compiler and torch 2.13's eager Triton
+overrides died at the first step ("Failed to find C compiler"). A native
+install almost always has gcc, and the Triton kernels are what torch picked,
+so `setup.sh` checks for `cc`/`gcc` and, without one, says to install it or
+to set the variable in the service's environment file. Nothing turns the
+kernels off where they would compile.
+
+**The service is a user unit, not a system one.** The checkout, `.venv`, the
+Hugging Face sign-in and the gallery belong to the user who cloned it, so
+`install-service.sh` writes `~/.config/systemd/user/auradream.service` and
+never needs root; lingering (`loginctl enable-linger`, printed for the user
+to run) makes it start at boot with nobody logged in. Its settings go in a
+separate environment file the script writes once and never rewrites, so
+rerunning it to pick up a new unit never loses a hand edit. The file lists
+loopback first in `AURADREAM_ALLOWED_HOSTS`, because a second start, the
+doctor and the CLI ask the server at `127.0.0.1`, and only exact lowercase
+names: the host check compares exactly, browsers send names lowercased, and
+the origin check refuses every write from a wildcard name the host check
+might have let in. The doctor's LAN rows warn about each.
+
+**Keeping the PC awake.** A server that suspends after a spell of idleness
+(logind's `IdleAction`) sees no keyboard or mouse while a browser on another
+machine drives it, so it could suspend in the middle of a load, a render or
+a gallery bundle. Wrapping `ExecStart` in `systemd-inhibit` would hold it
+awake for ever; the server holds it only while there is a reason:
+
+- The hold is a child process, `systemd-inhibit --what=sleep:idle
+  --who=AuraDream --mode=block cat`, whose `cat` reads a stdin pipe only the
+  server holds. Releasing closes the pipe (then terminate, then kill), and
+  so does the server dying in any way, so nothing is ever left holding the
+  PC awake.
+- Refusal is the common failure: polkit may refuse a block lock to a service
+  with no session, and there may be no logind or system bus. `systemd-inhibit`
+  then exits, so a child gone within `START_WAIT` (0.5 s), or dead within
+  `SHORT_LIFE` (60 s) of starting, was refused: logged once, reported as
+  wanted but not holding with its first error line, and tried again after
+  `RETRY_AFTER` (five minutes) rather than respawned every tick. The
+  doctor's Keep awake row runs the same hold around `true` and prints the
+  polkit rule that allows it.
+- Reasons come from providers `main` registers (the job queue, the card's
+  holder, the load, a switch, a bundle operation), read on the event loop
+  only, since `JobManager.active()` is not safe from another thread. The
+  model load's and the critic's downloads run on daemon threads that outlive
+  a cancelled request, so they hold through a counted `busy(reason)` for as
+  long as the thread works, which no provider could see.
+- After the work, an idle grace: `AURADREAM_KEEP_AWAKE_IDLE_MINUTES` (20)
+  after the last request someone made, so the PC does not suspend between
+  one image and the person's next click. The page's own timed requests are
+  excluded (`counts_as_activity`: the 3 s status poll, the bundle and backup
+  status reads, the job streams and listings, the mask keep-alive, the
+  page's files), or an idle open tab would hold the PC awake for ever.
+  Starting the server counts as a request.
+- The controller ticks every 15 s as an asyncio task and at once (`wake`)
+  when a counted hold starts or a write arrives, so a job is held as it is
+  queued; the blocking hold and release run through `asyncio.to_thread`,
+  and `/api/status` reads the last check's answer, never a subprocess.
+
+The activity note was first `@app.middleware("http")`. That wraps every
+response, the job streams included, in another task and memory stream, and
+on the Ubuntu server under `-n 8` the extra hop delayed a stream's attach
+enough that the instant fake finished its first image first: two stream
+tests failed in two of three full runs, against none on main. It is now
+`keep_awake.ActivityMiddleware`, a plain ASGI layer that passes every
+response straight through, and the two tests stopped assuming the stream
+attaches before the first image (79c18a8). `backend.generate` takes the same
+hold (`hold_while`) from its load to its last cell; under `--via-server` the
+server holds it.
+
+**The 8 GB card.** The measured Linux machine has an RTX 3070 (8 GB,
+compute capability 8.6), where the 5080 has 16 GB. torchao's fp8
+weight-only quantization (`Float8WeightOnlyConfig`) runs there: the weights
+are stored in fp8 and dequantized to bf16 for each matmul, so it needs no
+fp8 tensor cores (Animagine XL 4.0 at 1024x1024 peaked at 4.2 GiB, 4,289
+MiB, of the whole card). What does not fit is size: model offload keeps a whole
+transformer on the card, and the FLUX-size ones are larger than 8 GB at
+fp8 (the default peaked at 12.0 GiB on the 5080). The doctor's VRAM row
+warns under that figure and names the lighter checkpoints; the Models
+panel's fit badge still knows only Qwen-Image's over-16 GB, and the refine
+and inpaint "measured" sizes are the 5080's. Nunchaku's nvfp4 repos need
+compute capability 10.0, so a 3070 needs the int4 ones, which the setup
+script and the doctor name; whether the published kernels include sm_86 is
+not measured. The Models panel and a switch still default the Nunchaku
+format to nvfp4 whatever the card (`GEN#42`), and the fit badge and the
+measured sizes are `GEN#43` and `GEN#44`.
+
 ## Krea 2's components and offload order
 
 Components are `text_encoder` (Qwen3-VL), `transformer` (Krea2Transformer2DModel),

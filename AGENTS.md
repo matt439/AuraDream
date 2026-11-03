@@ -40,6 +40,9 @@ uv run --group dev python tools/typecheck.py  # pinned Pyright basic; Node requi
 ```bash
 bash wsl/setup.sh                  # WSL 2, once: Linux venv + CUDA check
 source wsl/env.sh && bash wsl/serve.sh   # 4-bit Nunchaku, same URL
+bash linux/setup.sh                # native Linux, once: driver/card checks, uv, uv sync, doctor
+bash linux/install-service.sh      # systemd user service on the LAN (--uninstall, --dry-run)
+bash linux/update.sh --restart     # stop when idle, pull + sync, start again
 ```
 
 `bin\` (on the user PATH) holds `auradream` and `auradream-wsl`:
@@ -88,7 +91,10 @@ Backend (`backend/`):
   `analysis` data
 - `main.py` lifecycle, model state, switching and the model routes;
   `app_context.py` the `AppServices` getters routers read main through;
-  `detached.py` daemon-thread calls; `api_prompt.py` tag helper and prompt
+  `detached.py` daemon-thread calls; `keep_awake.py` the Linux
+  `systemd-inhibit` hold while busy and for the idle minutes after a request
+  (`ActivityMiddleware`, never the page's timed polls), stdlib only, the
+  CLI's `hold_while` too; `api_prompt.py` tag helper and prompt
   routes, `prompt_check.py` Check's layer 1, `tag_lookup.py` the Danbooru
   lookup (`tag_vocabulary`); `submission.py` submit checks and the gallery
   selection, its service-free checks and wording in `submission_rules.py`
@@ -226,7 +232,9 @@ merge dialogs share (the rows, choice reasons and holds), stateless; each
 file keeps its own state, preview, commit and uncertain-import flow.
 
 Also: `tools/` (fake server, headless-browser smokes), `tests/`, `wsl/`,
-`docs/`. At the root, `install.cmd`/`install.ps1` (the Windows installer:
+`linux/` (native Linux `setup.sh`, `install-service.sh` for the systemd
+user service and its env file, `update.sh`, sharing `common.sh`; bash,
+ASCII, LF, no sudo; `tests/test_linux_scripts.py`), `docs/`. At the root, `install.cmd`/`install.ps1` (the Windows installer:
 checks, uv/Git if missing, `HF_HOME` before any download, `uv sync`, the
 doctor, shortcuts to `bin\auradream.cmd --open`; `-DryRun`, `-Yes`) and
 `update.cmd`/`update.ps1` (refuses while AuraDream runs, copies the
@@ -267,7 +275,7 @@ Model and loader:
   scheduler overrides, exact-id profiles, what is unavailable) are in
   `docs/rules.md` under "Model and loader". Keep official/public ids in
   settings and saved metadata; never silently drop weights or scales.
-- `AURADREAM_QUANT=nunchaku` is Linux (WSL) only; the preflight refuses
+- `AURADREAM_QUANT=nunchaku` is Linux only (native or WSL); the preflight refuses
   other pairings before any download.
 - App-owned names say AuraDream (`AURADREAM_*`,
   `auradream.*`); Krea only in checkpoint/vendor names. Pre-rename
@@ -372,6 +380,9 @@ Jobs:
 - The preview callback never raises.
 - GPU work outside jobs (Expand, the critic) goes through
   `jobs.run_when_idle`; nothing holding the gate awaits the load lock.
+- Keep-awake providers are read on the event loop only; work on a daemon
+  thread holds through `keep_awake.busy`. A new timed poll joins
+  `counts_as_activity`'s exclusions, or an idle tab holds the PC awake.
 
 Prompt analyser:
 

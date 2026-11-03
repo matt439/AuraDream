@@ -127,6 +127,7 @@ from .schemas_model import (
     CriticStatus,
     ExpanderDownload,
     ExpanderStatus,
+    KeepAwakeStatus,
     ModelSwitchRequest,
     ModelStatus,
 )
@@ -226,6 +227,7 @@ __all__ = [
     "CriticStatus",
     "ExpanderDownload",
     "ExpanderStatus",
+    "KeepAwakeStatus",
     "ModelSwitchRequest",
     "ModelStatus",
     "Snippet",

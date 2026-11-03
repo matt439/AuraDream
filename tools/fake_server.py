@@ -127,6 +127,9 @@ def main() -> int:
     os.environ["AURADREAM_BUNDLES_DIR"] = str(data / "bundles")
     os.environ["AURADREAM_PORT"] = str(args.port)
     os.environ["AURADREAM_MODEL_ID"] = args.model
+    # A fake does no work worth keeping a PC awake for, and a smoke run on a
+    # Linux desktop must not take a real systemd-inhibit hold.
+    os.environ["AURADREAM_KEEP_AWAKE"] = "false"
     # An adapter directory of its own, with one file in it, so the LoRA select
     # has something to offer and the panel can be driven end to end. The fake
     # never opens it - it draws gradients - but every path up to the load is

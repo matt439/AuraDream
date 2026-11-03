@@ -11,8 +11,11 @@ the frontend has no build step.
 
 ## Requirements
 
-- **Windows 11**, or **WSL 2** on Windows (needed for Nunchaku); both tested.
-  Native Linux is untested; macOS is not supported.
+- **Windows 11**, **WSL 2** on Windows (needed for Nunchaku there), or
+  **native Linux** as a server other PCs on the network open; all three
+  tested. Native Linux was measured on Ubuntu 26.04 with an 8 GB RTX 3070
+  ([its section](docs/verified.md#rtx-3070-8-gb-native-ubuntu-2026-11-03)).
+  macOS is not supported.
 - NVIDIA GPU with a driver recent enough for **CUDA 13** (torch comes from the
   cu130 index), of a generation those wheels are built for: the installed
   torch lists compute capability 7.5 to 12.0, the RTX 20 and GTX 16 series
@@ -108,7 +111,7 @@ selected checkpoint. **Apply & save** selects changed settings without loading
 weights; an unchanged selection stays loaded. Both buttons remember the choice
 in `auradream.settings.json` beside the gallery database. Save **Load
 automatically on startup** to preload next time; leave it unchecked to open
-quickly and load on demand. Nunchaku and its weight-format choices require Linux/WSL.
+quickly and load on demand. Nunchaku and its weight-format choices require Linux (native or WSL).
 The full
 catalogue is in [backend/launch.py](backend/launch.py).
 
@@ -174,6 +177,51 @@ Nunchaku mode downloads and runs Hugging Face kernels. An explicit
 `DIFFUSERS_TRUST_REMOTE_KERNELS=false` disables that permission. See the
 [WSL design notes](docs/design-notes.md#nunchaku-lite-pre-quantized-repos-linux-only)
 for details.
+
+## Native Linux (a server on your network)
+
+A Linux PC with an NVIDIA card can run AuraDream as a systemd user service
+that other PCs on the network open in their browsers. It needs the
+distribution's NVIDIA driver with CUDA 13.0 or higher (no CUDA Toolkit).
+From a clone, as your own user (never under sudo):
+
+```bash
+bash linux/setup.sh               # once: driver and card checks, uv, Python 3.13, uv sync, the doctor
+bash linux/install-service.sh     # write, enable and start ~/.config/systemd/user/auradream.service
+sudo loginctl enable-linger $USER # start at boot and keep running with nobody logged in
+```
+
+`install-service.sh` writes the service's settings once, to
+`~/.config/auradream/auradream.env`, and never rewrites it: edit it, then
+`systemctl --user restart auradream`. It sets `AURADREAM_HOST=0.0.0.0` and
+`AURADREAM_ALLOWED_HOSTS` to the names and addresses the machine had then,
+for example `127.0.0.1,localhost,my-box,my-box.local,192.168.1.20`. Keep
+`127.0.0.1` (and `localhost`) in that list (a second start, the doctor and
+the CLI ask the server at `127.0.0.1`, and without it they take AuraDream
+for another program), write the other names exactly and in lowercase,
+as browsers send them, and use no wildcards: `*.local` loads the page and
+then refuses every change it asks for. The script prints the addresses to
+open; a firewall needs the port allowed (`sudo ufw allow 7860/tcp`).
+
+While a job, a load, a switch, a gallery bundle or the critic's download
+runs, and for `AURADREAM_KEEP_AWAKE_IDLE_MINUTES` (20) after the last request
+someone made, the server holds the PC awake with `systemd-inhibit`, so an
+idle suspend does not cut a render short; the page's own timed polls do not
+count, so an open, idle tab lets it sleep. `/api/status`'s `keep_awake`
+says whether it holds and why ([usage](docs/usage.md#keep-a-linux-server-awake)).
+
+```bash
+journalctl --user -u auradream -f   # its log
+bash linux/update.sh --restart      # stop it when idle, update (git pull --ff-only, uv sync), start it again
+bash linux/install-service.sh --uninstall
+```
+
+The venv, the gallery and `auradream.settings.json` stay in the checkout,
+as on Windows; this is a separate gallery from any Windows or WSL one.
+[First-time setup](docs/setup.md#native-linux-a-server-on-your-network) has
+the full route, including 8 GB cards and moving the downloads to another
+disk. **The server has no login** ([Settings](#settings)): only do this on a
+network you trust.
 
 ## Sizes
 
@@ -261,11 +309,13 @@ set in a start-up warning.
 | `AURADREAM_MAX_GRID_IMAGES` | `1024` | Image limit for a grid |
 | `AURADREAM_HOST` | `127.0.0.1` | Bind address |
 | `AURADREAM_PORT` | `7860` | Server port |
-| `AURADREAM_ALLOWED_HOSTS` | `127.0.0.1,localhost` | Allowed hostnames/IPs; include the browser's destination when exposing the server on a LAN |
+| `AURADREAM_ALLOWED_HOSTS` | `127.0.0.1,localhost` | Allowed hostnames/IPs; include the browser's destination when exposing the server on a LAN, keeping `127.0.0.1` and `localhost`; exact lowercase names, no wildcards |
 | `AURADREAM_LOG_LEVEL` | `INFO` | Server logging; `DEBUG` includes tracebacks |
 | `AURADREAM_CRITIC` | `true` | Enable the optional local prompt critic |
 | `AURADREAM_CRITIC_SERVER` | unset | Use a local compatible `llama-server` binary |
 | `AURADREAM_CRITIC_MODEL` | unset | Use a local `.gguf` instead of downloading the pinned critic model |
+| `AURADREAM_KEEP_AWAKE` | `true` | On Linux, hold the PC awake with `systemd-inhibit` while AuraDream is busy |
+| `AURADREAM_KEEP_AWAKE_IDLE_MINUTES` | `20` | Minutes to keep holding after the last request someone made (the page's timed polls are not one); `0` holds only while busy |
 
 **The server has no login.** Anyone who can reach it can read every prompt and
 image, delete or import galleries, and make the machine download checkpoints

@@ -179,6 +179,14 @@ class Settings:
     critic_server: Path | None = _env_path("AURADREAM_CRITIC_SERVER")
     critic_model: Path | None = _env_path("AURADREAM_CRITIC_MODEL")
 
+    # Keeping the PC awake (`keep_awake`): on Linux a systemd-inhibit block
+    # hold while a job, a load, the critic or a gallery bundle is busy, and
+    # for the idle minutes after the last request someone made (the page's
+    # timed polls are not one; 0 holds only while busy). Off Linux, or with
+    # no systemd-inhibit, nothing is held; off here, nothing is even tried.
+    keep_awake: bool = _env_bool("AURADREAM_KEEP_AWAKE", True)
+    keep_awake_idle_minutes: int = int(os.getenv("AURADREAM_KEEP_AWAKE_IDLE_MINUTES", "20"))
+
 
 settings = Settings()
 
@@ -194,8 +202,15 @@ def _check_vocabulary(name: str, value: str, allowed: tuple[str, ...]) -> None:
         raise SystemExit(f"{name}={value!r} is not one of: {', '.join(allowed)}")
 
 
+def _check_at_least(name: str, value: int, minimum: int) -> None:
+    """Refuse a AURADREAM_* number below its least value, at import, by name."""
+    if value < minimum:
+        raise SystemExit(f"{name}={value} is less than {minimum}")
+
+
 _check_vocabulary("AURADREAM_QUANT", settings.quantization, QUANT_MODES)
 _check_vocabulary("AURADREAM_OFFLOAD", settings.offload, OFFLOAD_MODES)
+_check_at_least("AURADREAM_KEEP_AWAKE_IDLE_MINUTES", settings.keep_awake_idle_minutes, 0)
 
 # The outputs directory is created by `storage.ensure_outputs_dir()` - from
 # `init_db()`, the server's mount and the first write - not here: an import-time
