@@ -28,7 +28,7 @@ const SHORTCUT_GROUPS = [
   {
     id: 'gallery',
     title: 'Gallery and selection',
-    scope: 'Click opens an image. Ctrl/Cmd+click toggles a pick; Ctrl/Cmd+Shift+click adds a range. Select makes clicks pick. These keys act on the focused card; Ctrl/Cmd+A also works on Select.',
+    scope: 'Click opens an image. Ctrl/Cmd+click toggles a pick; Ctrl/Cmd+Shift+click adds a range; Shift+click alone replaces the picks with the range from the anchor. Select makes clicks pick. These keys act on the focused card; Ctrl/Cmd+A also works on Select.',
     rows: [
       [['Tab'], 'Enter the current card and its controls.'],
       [['Left', 'Right', 'Up', 'Down', 'Home', 'End'], 'Move between card images; moving past the last loaded card can load more.'],

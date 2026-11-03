@@ -124,7 +124,9 @@ function syncSelection() {
   els.select.classList.toggle('active', picking);
   els.select.setAttribute('aria-disabled', String(sheetMode));
   els.select.dataset.title ??= els.select.title;
-  els.select.title = sheetMode ? SELECT_ON_SHEET : els.select.dataset.title;
+  // Ctrl+A's cap is the server's (selectionCap); index.html says the default.
+  els.select.title = sheetMode ? SELECT_ON_SHEET
+    : els.select.dataset.title.replace(/up to \d+ picks/, `up to ${selectionCap()} picks`);
   els.select.setAttribute('aria-keyshortcuts', sheetMode ? 'Escape' : 'Escape Control+A Meta+A');
   const n = selection.size;
   const away = n - selectedIds().filter((id) => shown.has(id)).length;
@@ -362,6 +364,8 @@ function recordRunScope(rec) {
 }
 
 const RUN_NONE = 'That image predates runs being grouped, so it belongs to no run';
+// Pick this run's title before the cap: its scope is the run, not the view.
+const RUN_PICK_TITLE = "Add the images of the run that made this to the picks: every checkpoint's, whatever the search or Starred shows";
 
 // The card menu's Pick this run (UI#37, context-menu.js): the run's live ids
 // as the server lists them - every checkpoint's, whatever the search,

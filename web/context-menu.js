@@ -187,7 +187,7 @@ function imageItems({ kind, rec, host }) {
     // A live card's only (UI#37): held, saying why, on a row of no run.
     ...(card ? [{
       label: 'Pick this run', held: !recordRunScope(rec),
-      title: recordRunScope(rec) ? 'Add the images of the run that made this to the picks' : RUN_NONE,
+      title: recordRunScope(rec) ? `${RUN_PICK_TITLE}, up to ${selectionCap()}` : RUN_NONE,
       run: () => pickRun(rec),
     }] : []),
     null,
@@ -221,6 +221,8 @@ function pickedItems() {
     { heading: n === 1 ? '1 picked' : `${n} picked` },
     pick('star'), pick('unstar'), pick('compare'), pick('tier'), pick('seeds'), pick('bin'),
     null,
+    // The head's exact-size Re-render, shown while it takes the picks.
+    buttonItem(els.rerender.textContent, els.rerender),
     buttonItem('Swap tags…', els.swap),
     buttonItem('Refine…', els.refineBatch),
     buttonItem('More seeds…', els.moreSeeds),
