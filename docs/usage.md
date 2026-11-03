@@ -67,10 +67,15 @@ memory for speed: Model offload keeps one component on the GPU at a time,
 Sequential moves smaller pieces and is much slower, and No offload is fastest
 but needs 24 GB or more for FLUX-size models. FP8 with Model offload is
 recommended for a 16 GB card; each choice's note says the same under its menu.
-The **Compilation** menu offers **Eager** and the **Attention** menu **Native
-(default)**; their **Regional v1 (unavailable)** and **cuDNN v1
-(unavailable)** entries are listed but cannot run in this build, as the note
-under each menu says.
+Under them, the **Performance** line names the current compilation and
+attention (**Eager, Native**) and says no other choice is available yet;
+click it to show the **Compilation** and **Attention** menus. **Compilation**
+offers **Eager** and **Attention** **Native (default)**; their **Regional v1
+(unavailable)** and **cuDNN v1 (unavailable)** entries are listed but cannot
+run in this build, as the note under each menu says. The line opens by
+itself, when you open Models, if a saved or unsaved choice is not Eager and
+Native or is unreadable (so you can see what holds loading and choose Eager
+and Native, or **Revert**), or once a build admits another choice.
 
 The server's checkpoint says
 **Loaded**, **Loading…**, **Load failed** or **Current** under its name. A dotted

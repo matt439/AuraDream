@@ -45,6 +45,9 @@ let modelChoiceIntent = null;
 // The row a dialog's Open Models… asked the picker to open on
 // (showModelPickerAt), until its catalogue answers.
 let modelPickerPointAt = null;
+// The opening's own catalogue may still admit a performance choice: its reply
+// may open the disclosure once, unless the pointer is over the body.
+let modelPerformanceOpening = false;
 let modelPickerStartupSeen = false;
 // The picker opened by itself for an unloaded server, and nothing has been
 // saved from it yet: its note recommends Switch & load, since closing saves
@@ -980,6 +983,8 @@ function showModelPicker(on, { focus = true, offered = false } = {}) {
     restoreModelGrouping();
     if (modelCatalogueLoaded) renderModelOptions(modelChoice() || modelRuntimeSettings?.model_id);
     syncModelSwitch();
+    syncPerformanceDisclosure({ opening: true });
+    modelPerformanceOpening = true;
     // The chosen row's images as they are now, in place of the last opening's.
     syncModelShots({ fresh: true });
     void refreshModelCatalogue();
@@ -990,6 +995,7 @@ function showModelPicker(on, { focus = true, offered = false } = {}) {
       revealModelControl(target);
     }
   } else {
+    modelPerformanceOpening = false;
     stopModelShots();
     if (focus && els.modelPicker.contains(document.activeElement)) els.models.focus({ preventScroll: true });
   }
@@ -1143,13 +1149,19 @@ async function refreshModelCatalogue({ current = false } = {}) {
     modelCatalogueRequested = `${modelCatalogueKind}|${wantedModel}`;
     modelCatalogueLoaded = true;
     modelSwitchError = null;
+    if (modelPerformanceOpening) {
+      modelPerformanceOpening = false;
+      syncExecutionControls();
+      if (!els.modelPickerBody.matches(':hover')) syncPerformanceDisclosure({ opening: true });
+    }
   } catch (err) {
     if (epoch !== modelCatalogueEpoch) return;
     modelSwitchError = err.message;
     modelCatalogueLoaded = false;
     // The opening's catalogue did not answer: a later retry never moves the
-    // choice, or the picker's body, by itself.
+    // choice, or the picker's body, by itself (nor opens the disclosure).
     modelPickerPointAt = null;
+    modelPerformanceOpening = false;
     modelCatalogueFailedAt = Date.now();
   } finally {
     if (epoch === modelCatalogueEpoch) {

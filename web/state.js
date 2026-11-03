@@ -87,6 +87,8 @@ const els = {
   modelQuantization: $('model-quantization'), modelOffload: $('model-offload'),
   modelCompilation: $('model-compilation'), modelAttention: $('model-attention'),
   modelCompilationHelp: $('model-compilation-help'), modelAttentionHelp: $('model-attention-help'),
+  modelPerformance: $('model-performance'), modelPerformanceChoices: $('model-performance-choices'),
+  modelPerformanceNote: $('model-performance-note'),
   modelQuantizationHelp: $('model-quantization-help'), modelOffloadHelp: $('model-offload-help'),
   modelFormat: $('model-format'), modelFormatField: $('model-format-field'), modelFormatHelp: $('model-format-help'),
   modelLoadOnStartup: $('model-load-on-startup'), modelGroupByType: $('model-group-by-type'),
