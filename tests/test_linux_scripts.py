@@ -127,6 +127,8 @@ def _install_stubs(stubs: Path) -> None:
         '  start) begin ;;\n'
         '  restart) rm -f "$state"; begin ;;\n'
         '  show)\n'
+        '    case " $* " in *" ControlGroup "*)\n'
+        '      [ -e "$STUB_STATE/cgroup" ] && cat "$STUB_STATE/cgroup"; exit 0 ;; esac\n'
         '    if [ -e "$STUB_STATE/failed" ]; then a=failed s=failed\n'
         '    elif [ -e "$STUB_STATE/auto-restart" ]; then a=activating s=auto-restart\n'
         '    elif [ -e "$state" ]; then a=active s=running\n'
@@ -559,6 +561,38 @@ def test_update_refuses_while_a_venv_program_runs(sandbox):
     assert "A program from this folder's .venv is still running" in result.stdout
     assert f"(process {child.pid})" in result.stdout
     assert _no_git_or_uv(sandbox)
+
+
+@on_linux
+def test_update_restart_dry_run_leaves_out_the_services_own_python(sandbox, auradream_listening):
+    # The live server's first `auradream-server update -DryRun` refused over
+    # the service's own python: a dry run does not stop it, the real run does.
+    _checkout_with_gallery(sandbox)
+    python = _venv(sandbox)
+    _service_active(sandbox)
+    auradream_listening["track"]["service"] = True
+    service = subprocess.Popen([str(python), "-c", "import time; time.sleep(60)"])
+    stray = subprocess.Popen([str(python), "-c", "import time; time.sleep(60)"])
+    group = sandbox["tmp"] / "cgroup" / "user.slice" / "auradream.service"
+    group.mkdir(parents=True)
+    (group / "cgroup.procs").write_text(f"{service.pid}\n")
+    (sandbox["state"] / "cgroup").write_text("/user.slice/auradream.service\n")
+    sandbox["env"]["AURADREAM_INSTALL_TEST_CGROUP_ROOT"] = str(sandbox["tmp"] / "cgroup")
+    try:
+        lone = _run(sandbox, "update.sh", "--restart", "--dry-run")
+        stray.kill()
+        stray.wait()
+        clean = _run(sandbox, "update.sh", "--restart", "--dry-run")
+    finally:
+        for child in (service, stray):
+            child.kill()
+            child.wait()
+    # Another program from the .venv still stops it; the service's own does not.
+    assert lone.returncode == 1 and f"(process {stray.pid})" in lone.stdout, lone.stdout
+    assert f"(process {service.pid})" not in lone.stdout
+    assert clean.returncode == 0, clean.stdout + clean.stderr
+    assert "still running" not in clean.stdout
+    assert "would run: systemctl --user stop auradream" in clean.stdout
 
 
 @on_linux

@@ -6,6 +6,8 @@
 #   AURADREAM_INSTALL_TEST_ROOT        the project folder, instead of this
 #                                      script's own checkout
 #   AURADREAM_INSTALL_TEST_PROC_VERSION a file read instead of /proc/version
+#   AURADREAM_INSTALL_TEST_CGROUP_ROOT  the cgroup v2 mount, instead of
+#                                      /sys/fs/cgroup
 # Everything else a test changes comes from PATH (stub nvidia-smi, uv, git,
 # systemctl, journalctl, systemd-inhibit, loginctl, hostname, id) and a
 # temporary HOME/XDG_CONFIG_HOME.
@@ -172,12 +174,28 @@ PY
 # itself is never under .venv: a process counts when the path it was started
 # by (its first argument) is, or when it is a python whose environment names
 # this .venv as VIRTUAL_ENV (as uv run leaves it). This shell is skipped.
+# The processes in the service's own control group, one per line (nothing
+# when it has none or it cannot be read): what stopping it would end.
+service_pids() {
+    local cgroup root=${AURADREAM_INSTALL_TEST_CGROUP_ROOT:-/sys/fs/cgroup}
+    cgroup=$(systemctl --user show -p ControlGroup --value "$UNIT_NAME" 2>/dev/null) || return 0
+    [ -n "$cgroup" ] && [ -r "$root$cgroup/cgroup.procs" ] || return 0
+    cat "$root$cgroup/cgroup.procs" 2>/dev/null || true
+}
+
+# VENV_SKIP_PIDS, one per line, are left out (a dry run of --restart: the
+# service's own python, which the real run would stop first).
 venv_processes() {
-    local dir pid argv0 comm environ
+    local dir pid argv0 comm environ skip=$'
+'"${VENV_SKIP_PIDS:-}"$'
+'
     for dir in /proc/[0-9]*; do
         pid=${dir#/proc/}
         [ "$pid" = "$$" ] && continue
         [ "$pid" = "${BASHPID:-$$}" ] && continue
+        [[ "$skip" == *$'
+'"$pid"$'
+'* ]] && continue
         # Only this user's programs: another user's (a root daemon's) environ
         # cannot be read. Each read's errors are silenced around it, since a
         # redirection that fails (a process that ended mid-scan) reports

@@ -121,6 +121,11 @@ if [ "$state" = auradream ] && ! { [ "$dry_run" = 1 ] && [ "$restart" = 1 ]; }; 
 fi
 [ "$state" != other ] || note "Another program is using port $port; it is not AuraDream, so carrying on."
 [ "$state" != unknown ] || note "Could not check port $port (no .venv python and no curl); the process check below still runs."
+# A dry run of --restart leaves the service running, but the real run stops
+# it before this check: its own processes are not in the way.
+if [ "$dry_run" = 1 ] && [ "$restart" = 1 ] && service_active; then
+    VENV_SKIP_PIDS=$(service_pids)
+fi
 running=$(venv_processes)
 if [ -n "$running" ]; then
     stop_update "A program from this folder's .venv is still running: $(paste -sd ',' <<<"$running" | sed 's/,/, /g'). It may be AuraDream on another port, or a command such as generate." 'Stop it (Ctrl-C in its terminal), then run bash linux/update.sh again.'
