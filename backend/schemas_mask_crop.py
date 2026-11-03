@@ -17,6 +17,10 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from . import mask_crop as rules
 from .schemas_outpaint import _on_grid
 
+# The request's refusals, in the words the dialog and the CLI show.
+MASK_CROP_NEEDS_A_MASK = "Only the masked area needs an inpaint or outpaint: a source and a mask."
+MASK_CROP_WITH_EDIT = "An instruction edit has no masked-area crop."
+
 _MASK_CROP_KEY = re.compile(r"^([a-z0-9][a-z0-9-]{0,31}):(\d{1,6})@(\d{1,6})$")
 
 

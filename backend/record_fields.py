@@ -18,6 +18,7 @@ from PIL import Image
 
 from . import refine
 from .schemas import OutpaintSpec
+from .schemas_mask_crop import MaskCropSpec
 
 
 _MASK_HASH = re.compile(r"[0-9a-f]{64}")
@@ -123,6 +124,30 @@ def _canonical_outpaint(text: str | None) -> str | None:
         return OutpaintSpec.parse_key(text).key()
     except ValueError:
         return text
+
+
+def _canonical_mask_crop(text: str | None) -> str | None:
+    """A column's only-the-masked-area key in `MaskCropSpec.key()`'s one
+    spelling, or the text itself where it is no key (a key the resume side
+    then never matches, rather than one guessed)."""
+    if not text:
+        return text or None
+    try:
+        return MaskCropSpec.parse_key(text).key()
+    except ValueError:
+        return text
+
+
+def stored_mask_crop(text: Any) -> str | None:
+    """A copied row's only-the-masked-area key in its one spelling, or None
+    where it is no key this build reads - left off, as a malformed outpaint
+    is, rather than refusing the row it rides on."""
+    if not isinstance(text, str) or not text:
+        return None
+    try:
+        return MaskCropSpec.parse_key(text).key()
+    except ValueError:
+        return None
 
 
 def chunk_outpaint(meta: dict[str, Any]) -> OutpaintSpec | None:

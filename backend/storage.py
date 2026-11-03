@@ -40,12 +40,13 @@ from .png_settings import crop_anchor as _crop_anchor
 # The pure codecs, imported back by name: storage uses most of them, and the
 # reindex, the bundle layer and the CLI reach all of them as `storage.<name>`.
 from .record_fields import (  # noqa: F401 - re-exported for storage.<name>
-    _MASK_HASH, _batch, _canonical_outpaint, _mask, _peak, _upscaler, chunk_outpaint, malformed_outpaint,
-    mask_hash, mask_provenance, outpaint_chunk, outpaint_mask_hash, outpaint_parameters, peak_chunk,
-    rebuilt_outpaint_mask, recovered_outpaint,
+    _MASK_HASH, _batch, _canonical_mask_crop, _canonical_outpaint, _mask, _peak, _upscaler, chunk_outpaint,
+    malformed_outpaint, mask_hash, mask_provenance, outpaint_chunk, outpaint_mask_hash, outpaint_parameters,
+    peak_chunk, rebuilt_outpaint_mask, recovered_outpaint, stored_mask_crop,
 )
 from .search import like_escape, parse_search
 from .schemas import ImageRecord, OutpaintSpec, effective_true_cfg
+from .schemas_mask_crop import MaskCropSpec
 
 if TYPE_CHECKING:
     from .grid import CellKey
@@ -184,7 +185,8 @@ CREATE TABLE IF NOT EXISTS images (
     execution       TEXT,
     edit            TEXT,
     vram_peak_allocated INTEGER,
-    vram_peak_reserved  INTEGER
+    vram_peak_reserved  INTEGER,
+    mask_crop       TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_images_created ON images (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_images_job ON images (job_id);
@@ -308,6 +310,9 @@ _ADDED_COLUMNS = (
     # nothing was measured (a CPU, the fake, rows from before it).
     ("vram_peak_allocated", "INTEGER", None),
     ("vram_peak_reserved", "INTEGER", None),
+    # Only the masked area's spec, `MaskCropSpec.key()`: NULL on every row
+    # that did not crop, and only ever set beside `refine` and `mask`.
+    ("mask_crop", "TEXT", None),
 )
 
 
@@ -461,6 +466,7 @@ def _row_to_record(
         # Unguarded, as every column: the stored type has no bound a setting
         # could move, and only validated keys are ever written.
         outpaint=OutpaintSpec.parse_key(row["outpaint"]) if row["outpaint"] else None,
+        mask_crop=MaskCropSpec.parse_key(row["mask_crop"]) if row["mask_crop"] else None,
         vram_peak_allocated=row["vram_peak_allocated"],
         vram_peak_reserved=row["vram_peak_reserved"],
     )
@@ -475,7 +481,7 @@ _COLUMNS = (
     "mu", "seed", "model_id", "duration_ms", "favorite", "created_at", "job_id", "run_id",
     "quantization", "variables", "true_cfg", "content_hash", "reference", "lora", "lora_scale",
     "refine", "strength", "crop_anchor", "batch", "binned_at", "mask", "outpaint", "upscaler",
-    "execution", "edit", "vram_peak_allocated", "vram_peak_reserved",
+    "execution", "edit", "vram_peak_allocated", "vram_peak_reserved", "mask_crop",
 )
 
 # What every live-facing read adds: an image in the recycle bin is gone from
@@ -563,6 +569,8 @@ def save_image(
     mask = request.mask if request.refine is not None else None
     # An outpaint never without its source and its stamped mask.
     outpaint = request.outpaint if mask is not None else None
+    # Only the masked area never without its source and its mask either.
+    mask_crop = request.mask_crop.key() if mask is not None and request.mask_crop is not None else None
     upscaler = _upscaler(
         request.upscaler, source=request.refine, model_id=model_id, mask=mask, outpaint=request.outpaint,
     )
@@ -730,6 +738,7 @@ def save_image(
                         "edit": edit_key(edit),
                         "vram_peak_allocated": allocated,
                         "vram_peak_reserved": reserved,
+                        "mask_crop": mask_crop,
                     },
                 )
                 # A pass whose source was deleted while it ran - read as the
@@ -1194,7 +1203,7 @@ def completed_cells(
             rows = conn.execute(
                 f"""SELECT prompt, negative_prompt, steps, guidance_scale, mu, true_cfg,
                            reference, lora, lora_scale, refine, strength, mask, outpaint, upscaler, edit, execution,
-                           crop_anchor, seed
+                           crop_anchor, mask_crop, seed
                     FROM images
                     WHERE width = ? AND height = ? AND model_id = ? {scope}
                       AND prompt IN ({marks})""",
@@ -1217,7 +1226,10 @@ def completed_cells(
                         reference_key(json.loads(row["reference"]) if row["reference"] else None),
                         lora_key(row["lora"], row["lora_scale"]),
                         refine_key(row["refine"], row["strength"]),
-                        mask_key(row["mask"], _canonical_outpaint(row["outpaint"])),
+                        mask_key(
+                            row["mask"], _canonical_outpaint(row["outpaint"]),
+                            _canonical_mask_crop(row["mask_crop"]),
+                        ),
                         row["upscaler"],
                         edit_key(edit_from_json(row["edit"])),
                         execution_key(execution_from_json(row["execution"])),
@@ -1384,6 +1396,9 @@ def index_file(
                 "edit": edit,
                 "vram_peak_allocated": _peak(meta.get("vram_peak_allocated")),
                 "vram_peak_reserved": _peak(meta.get("vram_peak_reserved")),
+                # The chunk's crop is read back with its recovery (INP#9's
+                # storage slice); until then a PNG-only reindex leaves it off.
+                "mask_crop": None,
             },
         )
         states = _edit_states(conn, [row])

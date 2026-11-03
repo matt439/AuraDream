@@ -718,6 +718,9 @@ def merge_database(
             "outpaint": spec.key() if spec is not None else None,
             "vram_peak_allocated": storage._peak(row.get("vram_peak_allocated")),
             "vram_peak_reserved": storage._peak(row.get("vram_peak_reserved")),
+            # Only the masked area beside its mask, in its one spelling; its
+            # checks and chunk come with INP#9's storage slice.
+            "mask_crop": storage.stored_mask_crop(row.get("mask_crop")) if mask is not None else None,
         }
         copied = source != outputs
         try:

@@ -1067,6 +1067,13 @@ def _import_bundle(path: Path, password: str | None, progress: Progress,
                         if spec is not None:
                             values["outpaint"] = spec.key()
                             outpaints_recovered += 1
+                    # Only the masked area never without its source and mask;
+                    # kept in its one spelling (its recovery and checks come
+                    # with INP#9's storage slice).
+                    values["mask_crop"] = (
+                        storage.stored_mask_crop(values.get("mask_crop"))
+                        if values.get("mask") is not None and values.get("refine") is not None else None
+                    )
                     if values.get("mask") is not None and values["mask"] not in carried:
                         # Lost in the gallery it came from, so no member - but
                         # the result's own PNG carries it (`PNG_MASK_KEY`),

@@ -174,10 +174,12 @@ def refine_key(source: int | None, strength: float | None) -> str | None:
     return f"{source}@{round(float(strength), 6):g}"
 
 
-def mask_key(mask: str | None, outpaint: str | None = None) -> str | None:
+def mask_key(mask: str | None, outpaint: str | None = None, crop: str | None = None) -> str | None:
     """Which region is repainted, as one key element: an inpaint's mask by
     its whole 64-digit hash, an outpaint by `outpaint:` and its spec's key
-    (`OutpaintSpec.key()`, the fill included) whatever its mask, or None.
+    (`OutpaintSpec.key()`, the fill included) whatever its mask, or None;
+    with only the masked area, `+` and its spec's key
+    (`MaskCropSpec.key()`, e.g. `<hash>+bbox16:32@1`) after either.
 
     Content-addressed, so the hash is the same in every gallery and needs no
     rounding or remapping; spelled here once all the same, since the element
@@ -187,16 +189,26 @@ def mask_key(mask: str | None, outpaint: str | None = None) -> str | None:
     than inside it. An outpaint is named by its spec, never by its stamped
     hash, so an unstamped cell, a stamped one and a `--dry-run` key alike;
     an outpaint and a painted mask never meet in one request, so they
-    share the element rather than adding a sixth.
+    share the element rather than adding a sixth. The crop is a spec of
+    that same region - its box a pure function of the mask and the spec -
+    so it widens the element rather than adding a slot, and without one
+    the element (every existing id with it) is exactly what it was.
     """
-    if outpaint:
-        return f"outpaint:{outpaint}"
-    return mask or None
+    base = f"outpaint:{outpaint}" if outpaint else (mask or None)
+    if base is None or not crop:
+        return base
+    return f"{base}+{crop}"
 
 
 def _outpaint_text(outpaint: Any) -> str | None:
     """A request's or a record's outpaint as its key text, or None."""
     return outpaint.key() if outpaint is not None else None
+
+
+def _mask_crop_text(mask_crop: Any) -> str | None:
+    """A request's or a record's only-the-masked-area spec as its key text,
+    or None."""
+    return mask_crop.key() if mask_crop is not None else None
 
 
 @dataclass(frozen=True)
@@ -710,7 +722,7 @@ def cell_key(cell: "Cell") -> CellKey:
         reference_key(request.reference),
         lora_key(request.lora, request.lora_scale),
         refine_key(request.refine, request.strength),
-        mask_key(request.mask, _outpaint_text(request.outpaint)),
+        mask_key(request.mask, _outpaint_text(request.outpaint), _mask_crop_text(request.mask_crop)),
         request.upscaler,
         edit_key(bound_edit),
         execution_key(request.execution),
@@ -848,6 +860,14 @@ def cell_from_record(
         "mask": record.mask if record.refine is not None and record.outpaint is None else None,
         "outpaint": (
             record.outpaint.model_dump() if record.refine is not None and record.outpaint is not None else None
+        ),
+        # Only the masked area runs again over the same region, as its mask
+        # (or outpaint) does; never without one.
+        "mask_crop": (
+            record.mask_crop.model_dump()
+            if record.mask_crop is not None and record.refine is not None
+            and (record.mask is not None or record.outpaint is not None)
+            else None
         ),
         # Recorded arithmetic must not silently become Eager. The ordinary
         # request validator refuses recipes unavailable in this build.

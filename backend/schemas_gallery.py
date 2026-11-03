@@ -15,6 +15,7 @@ from .refine import Upscaler
 from .png_settings import crop_anchor
 from .metadata import validate_edit_record
 from .schemas_generate import CropAnchor
+from .schemas_mask_crop import MaskCropSpec
 from .schemas_outpaint import OutpaintSpec
 
 class ImageRecord(BaseModel):
@@ -79,6 +80,9 @@ class ImageRecord(BaseModel):
     # set only beside `refine` and `mask` (the mask the server built from
     # it): `refine` is the unpadded source and `width` x `height` the canvas.
     outpaint: OutpaintSpec | None = None
+    # Only the masked area's spec (`MaskCropSpec.key()` in the column):
+    # set only beside `refine` and `mask`, an outpaint's built mask too.
+    mask_crop: MaskCropSpec | None = None
     # Recorded arithmetic, not permission to execute it on this build.
     execution: ExecutionSpec | None = None
     # Frozen source proof survives missing or unproven imported source ids.
@@ -131,8 +135,11 @@ class ImageRecord(BaseModel):
     @model_validator(mode="after")
     def _crop_needs_an_ordinary_source(self) -> ImageRecord:
         crop_anchor(self.crop_anchor, source=self.refine, mask=self.mask, outpaint=self.outpaint)
+        if self.mask_crop is not None and (self.refine is None or self.mask is None):
+            raise ValueError("only the masked area is recorded beside its source and mask")
         if self.edit is not None and (
             self.refine is not None or self.mask is not None or self.outpaint is not None
+            or self.mask_crop is not None
             or self.reference or self.lora is not None or self.upscaler is not None
             or self.crop_anchor is not None or self.execution is not None
         ):
