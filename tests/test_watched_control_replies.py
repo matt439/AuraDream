@@ -241,6 +241,32 @@ async function main() {
     assert.equal(s.els.pause.textContent, 'Pause');
     c.requests[0].resolve({});
     await old;
+  } else if (scenario === 'cancel-elsewhere-snapshot') {
+    // Asked in another tab or before a reload: the worker's account holds it here.
+    s.els.cancel.title = 'Stop "x" after the current step';
+    vm.runInContext(`syncCancel({ job_id: 'first', status: 'running', cancel_requested: true })`, s);
+    assert.equal(held(f, 'cancel'), 'true');
+    assert.equal(s.els.cancel.textContent, 'Stopping…');
+    assert.equal(s.els.cancel.title, 'This job is stopping after the current step');
+    await f.cancel();
+    assert.equal(c.requests.length, 0);
+    assert.deepEqual(c.errors, ['This job is stopping after the current step.']);
+    f.successor();
+    vm.runInContext(`syncCancel({ job_id: 'second', status: 'running', cancel_requested: false })`, s);
+    assert.equal(held(f, 'cancel'), 'false');
+    assert.equal(s.els.cancel.textContent, 'Cancel');
+  } else if (scenario === 'cancel-own-stale-snapshot') {
+    // A frame from before this page's own press does not offer Cancel again.
+    s.els.cancel.title = 'Stop "x" after the current step';
+    const work = f.cancel();
+    vm.runInContext(`syncCancel({ job_id: 'first', status: 'running', cancel_requested: false })`, s);
+    assert.equal(held(f, 'cancel'), 'true');
+    assert.equal(s.els.cancel.textContent, 'Stopping…');
+    c.requests[0].reject(Error('cancel failed'));
+    await work;
+    assert.equal(held(f, 'cancel'), 'false');
+    assert.equal(s.els.cancel.textContent, 'Cancel');
+    assert.equal(s.els.cancel.title, 'Stop "x" after the current step');
   } else if (scenario === 'held-and-idle-refuse') {
     s.currentJob = null;
     s.busy = false;
@@ -248,12 +274,13 @@ async function main() {
     await f.pause();
     f.successor();
     s.els.cancel.setAttribute('aria-disabled', 'true');
+    s.els.cancel.title = 'This job is stopping after the current step';
     s.els.pause.setAttribute('aria-disabled', 'true');
     s.els.pause.title = 'No pause point';
     await f.cancel();
     await f.pause();
     assert.equal(c.requests.length, 0);
-    assert.deepEqual(c.errors, ['No pause point.']);
+    assert.deepEqual(c.errors, ['This job is stopping after the current step.', 'No pause point.']);
   } else throw Error('unknown scenario: ' + scenario);
   console.log('passed: ' + scenario);
 }
@@ -270,6 +297,7 @@ main().catch(error => { console.error(error); process.exitCode = 1; });
     "pause-current-success", "pause-current-error", "pause-successor-error",
     "pause-newer-pending", "pause-newer-settled", "pause-restart-error",
     "pause-restart-snapshot", "held-and-idle-refuse",
+    "cancel-elsewhere-snapshot", "cancel-own-stale-snapshot",
 ])
 def test_watched_action_reply_ownership(scenario: str):
     node = shutil.which("node")

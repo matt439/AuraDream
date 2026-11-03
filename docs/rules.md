@@ -2119,7 +2119,12 @@ measured on the card and when.
   label from every status frame's `paused`/`pause_requested` but one that
   contradicts its own press while that POST is out (`pauseAsking`); the
   label is the state, so it has no `aria-pressed` (the toggle rule,
-  Frontend). A
+  Frontend). Cancel is likewise held from every status frame's
+  `cancel_requested` (`syncCancel`), which `JobManager.cancel` sends to
+  every stream at once for a running job: "Stopping…", `aria-disabled`,
+  titled "This job is stopping after the current step", in any tab
+  watching the job and after a reload, and not offered again by a frame
+  older than this page's own press while its POST is out. A
   running job of one cell has Pause `aria-disabled` with the reason. A queued
   job's pause is kept (`JobManager.pause`) and holds it before its first unit
   once its turn comes, keeping the gate; its cell line says "will hold before
@@ -8822,7 +8827,10 @@ restart through a changed start time; the load's ticker with its
 aria-hidden clock and indeterminate bar, also shown in the empty viewer's
 one line, whose own words come back after a cancel; a second job queued
 during the load keeping the load's note under the bars through the queue's
-redraw; a cancel during the load; a gated
+redraw; a cancel during the load; a cancel asked elsewhere
+(`cancel_requested`) and seen again after a reload: Cancel "Stopping…" where
+it stood, held with "This job is stopping after the current step", which a
+press says, and Cancel again at the job's end; a gated
 load's detail said in the panel line after every Generate while the viewer
 holds images; a gated load's card said once and not re-announced by the
 banner, its Retry load handing focus to Generate; Load and Unload handing
