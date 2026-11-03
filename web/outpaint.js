@@ -671,7 +671,9 @@ function syncOutpaintRun() {
 function outpaintChanged() {
   els.outpaintStrength.removeAttribute('aria-invalid');
   // The box the last preview drew is for the last canvas: gone until the
-  // next answer.
+  // next answer, and an answer still on its way for the last canvas is
+  // dropped, never drawn against this one's proportions.
+  outpaintEpoch++;
   showOutpaintCropBox(null);
   els.outpaintPreview.hidden = false;
   outpaintFailed('');

@@ -19,7 +19,7 @@ from PIL import Image, PngImagePlugin
 from backend import bundle_images, bundles, gallery_reports, grid, mask_crop, reindex, storage
 from backend import submission, then_refine
 from backend.metadata import PNG_MASK_KEY, PNG_METADATA_KEY
-from backend.png_settings import PngSettingsError, record as png_record
+from backend.png_settings import record as png_record
 from backend.schemas import GenerateRequest, ThenRefine
 from backend.schemas_mask_crop import MaskCropSpec
 from tests.api_helpers import run_one, stream_job
@@ -309,6 +309,83 @@ def test_no_recovery_without_the_mask_to_draw_it_from(store, monkeypatch):
     assert _the_pass(store).mask_crop is None
 
 
+def _parameters(store, record) -> str:
+    with Image.open(store.settings.outputs_dir / record.filename) as image:
+        return image.info["parameters"]
+
+
+@pytest.mark.parametrize("chunk", [
+    {"rule": "bbox16", "pad": 32, "tier": 1, "box": [0, 0, 256, 256], "working": [1024, 1024]},
+    {"rule": "bbox16", "pad": 32, "tier": 1, "box": [0, 0, 64]},
+    {"rule": "bbox16", "pad": 30, "tier": 1},
+])
+def test_a_crop_left_off_stays_off_on_the_next_reindex(store, monkeypatch, chunk):
+    monkeypatch.setattr(reindex, "settings", store.settings)
+    source, made = _gallery()
+    before = _parameters(store, made)
+    _with_chunk(store, made, chunk)
+    _lose_the_database(store)
+    assert reindex.reindex(store.settings.outputs_dir)["mask_crop_malformed"] == 1
+    # Its `Mask crop:` is out of the A1111 line, and nothing else is.
+    assert _parameters(store, made) == before.replace(f", Mask crop: {KEY}", "")
+    _lose_the_database(store)
+    counts = reindex.reindex(store.settings.outputs_dir)
+    assert (counts["mask_crop_malformed"], counts["mask_crops_recovered"]) == (0, 0)
+    assert _the_pass(store).mask_crop is None
+
+
+def test_a_prompt_naming_a_crop_is_never_one(store, monkeypatch, tmp_path):
+    monkeypatch.setattr(reindex, "settings", store.settings)
+    source = save_source("source", 1)
+    digest, _ = storage.store_mask(_mask())
+    words = f"a red scarf, Mask crop: {KEY}, and more"
+    made = storage.save_image(
+        Image.new("RGB", (256, 256), (200, 10, 10)),
+        GenerateRequest(prompt=words, negative_prompt=f"blurry\nSteps: 9, Mask crop: {KEY}", width=256,
+                        height=256, steps=28, refine=source.id, strength=0.6, mask=digest),
+        seed=2, duration_ms=10, model_id="test/model", job_id="job-one", run_id="run-one",
+    )
+    parameters = _parameters(store, made)
+    assert f"Mask crop: {KEY}" in parameters
+    assert storage.parameters_mask_crop(parameters) is None
+    assert storage.recovered_mask_crop(parameters, _mask()) is None
+    # Neither the reindex nor an import gives the whole-picture inpaint a crop.
+    archive = bundles.export_bundle(keep_gallery=True)
+    _lose_the_database(store)
+    counts = reindex.reindex(store.settings.outputs_dir)
+    assert (counts["mask_crops_recovered"], _the_pass(store).mask_crop) == (0, None)
+    use_destination(store, monkeypatch, tmp_path)
+    imported = bundles.import_bundle(Path(archive["path"]))
+    assert imported["mask_crops_recovered"] == 0
+    assert next(r for r in store.list_images()[0] if r.refine is not None).mask_crop is None
+
+
+def test_only_the_settings_line_names_a_crop():
+    line = f"Steps: 28, CFG scale: 4.5, Seed: 2, Size: 256x256, Model: m, Mask crop: {KEY}"
+    block = f"a prompt, Mask crop: {KEY}\nNegative prompt: \n{line}"
+    assert storage.parameters_mask_crop(block) == MaskCropSpec(pad=32)
+    assert storage.without_mask_crop_parameters(block) == block[: -len(f", Mask crop: {KEY}")]
+    # No settings line, or one without the key: nothing to read or take out.
+    for text in (f"a prompt, Mask crop: {KEY}", f"a prompt\nNegative prompt: Mask crop: {KEY}\nSteps: 28"):
+        assert storage.parameters_mask_crop(text) is None
+        assert storage.without_mask_crop_parameters(text) is None
+
+
+def test_the_rewritten_a1111_line_keeps_its_text(tmp_path):
+    """`reindex._with_auradream_metadata` with an A1111 block: Latin-1 as
+    tEXt, anything else as UTF-8 iTXt, each read back as written."""
+    from io import BytesIO
+
+    for text in ("a scarf\nNegative prompt: \nSteps: 28", "a scarf ☃ café\nNegative prompt: \nSteps: 28"):
+        stream = BytesIO()
+        info = PngImagePlugin.PngInfo()
+        info.add_text("parameters", "old")
+        Image.new("RGB", (4, 4)).save(stream, format="PNG", pnginfo=info)
+        rewritten = reindex._with_auradream_metadata(stream.getvalue(), {"prompt": "new"}, text)
+        with Image.open(BytesIO(rewritten)) as image:
+            assert (image.info["parameters"], json.loads(image.info[PNG_METADATA_KEY])) == (text, {"prompt": "new"})
+
+
 def test_a_directory_reindex_drops_the_crop_with_its_source(store, monkeypatch, tmp_path):
     mine = store.settings
     monkeypatch.setattr(reindex, "settings", mine)
@@ -372,6 +449,9 @@ def test_a_database_merge_proves_what_it_copies(store, monkeypatch, tmp_path, ch
     row = next(r for r in store.list_images(limit=10)[0] if r.filename == made.filename)
     assert ((row.mask_crop.key() if row.mask_crop else None), row.mask_crop_box,
             counts["mask_crop_malformed"]) == expected
+    # One left off leaves no `Mask crop:` on the copy's A1111 line to bring it back.
+    with Image.open(mine.outputs_dir / made.filename) as image:
+        assert ("Mask crop:" in image.info["parameters"]) == (expected[0] is not None)
 
 
 def test_a_database_merge_recovers_from_the_a1111_line(store, monkeypatch, tmp_path):
@@ -636,17 +716,22 @@ def test_mass_refine_drops_the_crop_with_the_mask(client, fake, store):
     assert client.get("/api/gallery").json()["items"][0]["mask_crop"] is None
 
 
-def test_load_settings_from_png_drops_the_crop_and_refuses_a_broken_one(client, fake, store):
+def test_load_settings_from_png_drops_the_crop_whatever_it_is(client, fake, store):
     record, made, digest = _http_inpainted(client, store)
     with Image.open(store.settings.outputs_dir / made["filename"]) as handle:
         chunks = {key: value for key, value in handle.info.items() if isinstance(value, str)}
     chunks[PNG_MASK_KEY] = ""
-    response = client.post("/api/png/settings", json={"name": "made.png", "chunks": chunks})
-    assert response.status_code == 200, response.text
-    settings = response.json()["settings"]
-    assert (settings["mask"], settings.get("mask_crop"), settings["refine"]) == (None, None, None)
     meta = json.loads(chunks[PNG_METADATA_KEY])
-    for broken, words in (({**meta, "mask_crop": {"rule": "bbox16", "pad": 30, "tier": 1}}, "cannot read"),
-                          ({**meta, "mask": None}, "without the source and mask")):
-        with pytest.raises(PngSettingsError, match=words):
-            png_record({PNG_METADATA_KEY: json.dumps(broken)}, "made.png")
+    # A later build's rule, an off-grid padding, a crop with no mask beside
+    # it: the panel never takes the crop, so none refuses the file.
+    for crop in (meta["mask_crop"], {"rule": "bbox24", "pad": 32, "tier": 1},
+                 {"rule": "bbox16", "pad": 30, "tier": 2}, "nonsense"):
+        for changed in ({**meta, "mask_crop": crop}, {**meta, "mask_crop": crop, "mask": None}):
+            assert png_record({PNG_METADATA_KEY: json.dumps(changed)}, "made.png") == changed
+            response = client.post("/api/png/settings", json={
+                "name": "made.png", "chunks": {**chunks, PNG_METADATA_KEY: json.dumps(changed)},
+            })
+            assert response.status_code == 200, response.text
+            settings = response.json()["settings"]
+            assert (settings["mask"], settings.get("mask_crop"), settings["refine"]) == (None, None, None)
+            assert settings["prompt"] == meta["prompt"]

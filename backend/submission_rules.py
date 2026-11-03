@@ -9,6 +9,8 @@ own checks without importing FastAPI or `AppServices`.
 """
 from __future__ import annotations
 
+from collections.abc import Collection
+
 from . import grid, mask_crop, outpaint, refine, storage
 from .schemas import GenerateRequest, ImageRecord
 
@@ -150,14 +152,23 @@ def _recorded_region(record) -> tuple | None:
     return (tuple(crop.box), tuple(crop.working))
 
 
-def mismatched_mask_crop_detail(ids: list[int]) -> str:
-    """Why a selection with those cropped rows is refused, naming each one."""
+def mismatched_mask_crop_detail(ids: list[int], outpaints: Collection[int] = ()) -> str:
+    """Why a selection with those cropped rows is refused, naming each one,
+    and what to do instead by the pass: an inpaint's mask is painted again,
+    an outpaint (`outpaints`, ids among `ids`) has none to paint - its mask
+    is the server's - so its source is outpainted again."""
     said = "; ".join(
         f"the recorded masked area of #{image_id} does not match its mask under rule {mask_crop.RULE}"
         for image_id in ids[:6]
     )
     more = f"; and {len(ids) - 6} more" if len(ids) > 6 else ""
-    return f"{said}{more} - it cannot be run again; paint the mask on its source again instead"
+    outpainted = sum(image_id in outpaints for image_id in ids)
+    remedy = (
+        "paint the mask on its source again instead" if not outpainted
+        else "outpaint its source again instead" if outpainted == len(ids)
+        else "paint an inpaint's mask on its source again, or outpaint an outpaint's source again, instead"
+    )
+    return f"{said}{more} - it cannot be run again; {remedy}"
 
 
 def unusable_detail(kind: str, why: str, image_id: int) -> str:

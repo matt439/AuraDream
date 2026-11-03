@@ -450,10 +450,12 @@ function inpaintCheckpointChanged() {
 // ------------------------------------------------------------- the mask's upload
 
 // A stroke has begun: the mask stored before it is no longer the one shown,
-// and nor is the preview's estimate of it.
+// and nor is the preview's estimate of it - nor one still on its way, whose
+// box would be drawn over the new strokes: its answer is dropped.
 function inpaintMaskEditing() {
   clearTimeout(inpaintUploadTimer);
   inpaintUploadEpoch++;
+  inpaintEpoch++;
   inpaintMask = null;
   inpaintMaskState = 'pending';
   inpaintMaskRefusal = '';

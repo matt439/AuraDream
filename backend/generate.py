@@ -63,6 +63,20 @@ from backend.seeds import random_seed, wrap_seed  # noqa: E402
 
 
 def _check_carried_source(args: argparse.Namespace, p: SimpleNamespace, parser: argparse.ArgumentParser) -> bool:
+    """`_carried_source_dropped`, then the refusal of a masked area the PNG
+    records that this build cannot read - only where the mask or outpaint it
+    crops is still carried: one dropped with its source runs as a plain
+    generation, never refused for its crop. Answers whether it dropped."""
+    dropped = _carried_source_dropped(args, p, parser)
+    if not dropped and args.carried_mask_crop_malformed:
+        parser.error(
+            "--from-image: the PNG records a masked area this build cannot read; "
+            "name one with --mask-crop PAD"
+        )
+    return dropped
+
+
+def _carried_source_dropped(args: argparse.Namespace, p: SimpleNamespace, parser: argparse.ArgumentParser) -> bool:
     """Drop a refine source --from-image carried that is not, in this
     gallery, the picture the PNG was made from; answers whether it did.
 
@@ -434,12 +448,12 @@ def main(argv: list[str] | None = None) -> int:
         if not inpainting and outpaint_sides is None:
             parser.error(f"--mask-crop needs --mask or --outpaint: {MASK_CROP_NEEDS_A_MASK}")
         if not 0 <= args.mask_crop <= 256 or args.mask_crop % 8:
-            parser.error(f"--mask-crop: a masked-area padding is 0 to 256 in steps of 8, not {args.mask_crop}")
-    elif args.carried_mask_crop_malformed and (inpainting or outpaint_sides is not None):
-        parser.error(
-            "--from-image: the PNG records a masked area this build cannot read; "
-            "name one with --mask-crop PAD"
-        )
+            # A carried padding is the PNG's, not a flag's: said as its.
+            named = "--mask-crop" if args.mask_crop_given else "--from-image: the PNG's masked area"
+            parser.error(f"{named}: a masked-area padding is 0 to 256 in steps of 8, not {args.mask_crop}")
+    # A carried masked area this build cannot read is refused once the
+    # carried source is checked (`_check_carried_source`): one that drops
+    # with its source never stops a plain generation.
     if args.crop_anchor not in (None, "center") and (inpainting or outpaint_sides is not None):
         parser.error("--crop-anchor is for an ordinary --refine pass, without --mask or --outpaint")
     if inpainting and args.scale is not None:
@@ -609,7 +623,8 @@ def main(argv: list[str] | None = None) -> int:
                 tier=carried_spec.get("tier", p.mask_crop.TIER),
             )
         except ValueError as exc:
-            print(f"--mask-crop: {p.error_detail(exc)}", file=sys.stderr)
+            named = "--mask-crop" if args.mask_crop_given else "--from-image: the PNG's masked area"
+            print(f"{named}: {p.error_detail(exc)}", file=sys.stderr)
             return 2
 
     profile = p.defaults_for(p.settings.model_id)

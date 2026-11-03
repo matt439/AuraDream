@@ -54,33 +54,17 @@ def crop_anchor(value: Any, *, source: Any, mask: Any = None, outpaint: Any = No
     return value
 
 
-def _mask_crop(meta: Mapping[str, Any]) -> None:
-    """Refuse a record's `mask_crop` that is no spec this build reads, or one
-    without the source and mask it crops. Its region is a result, proved
-    against the mask where a row is made (`storage`, `reindex`), not here:
-    nothing here reads a mask. Pure, as `crop_anchor` is."""
-    value = meta.get("mask_crop")
-    if value is None:
-        return
-    from .schemas_mask_crop import MaskCropSpec
-
-    fields = (value.get("rule"), value.get("pad"), value.get("tier")) if isinstance(value, dict) else None
-    try:
-        if fields is None or not isinstance(fields[0], str) or any(type(v) is not int for v in fields[1:]):
-            raise ValueError
-        MaskCropSpec(rule=fields[0], pad=fields[1], tier=fields[2])  # pyright: ignore[reportArgumentType]
-    except ValueError:
-        raise ValueError("a masked-area crop this build cannot read") from None
-    if meta.get("refine") is None or meta.get("mask") is None:
-        raise ValueError("a masked-area crop without the source and mask it crops")
-
-
 def record(chunks: Mapping[str, Any], name: str) -> dict | None:
     """This app's record in `chunks`, or None when it carries none.
 
     A record that is there but is not a JSON object is refused rather than
     passed over: another reader of the same file would take the 'parameters'
     line and fill a panel that is not what made the image.
+
+    Its `mask_crop` is not read here: Load settings from PNG drops it with
+    the mask, and `--from-image` carries it only beside the mask or outpaint
+    it crops, refusing there, by name, a spec or region this build cannot
+    run - a later build's rule never refuses the whole file.
     """
     raw = embedded_metadata(chunks)
     if not raw:
@@ -99,7 +83,6 @@ def record(chunks: Mapping[str, Any], name: str) -> dict | None:
             meta.get("crop_anchor"), source=meta.get("refine"),
             mask=meta.get("mask"), outpaint=meta.get("outpaint"),
         )
-        _mask_crop(meta)
     except ValueError as exc:
         raise PngSettingsError(f"the AuraDream metadata in {name} has {exc}") from None
     return meta

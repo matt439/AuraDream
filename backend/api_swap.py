@@ -111,7 +111,9 @@ async def swap_plan(
             result.status, result.detail = "outpaint", submission.mismatched_outpaint_detail([record.id])
             continue
         if record.id in cropped:
-            result.status, result.detail = "mask_crop", submission.mismatched_mask_crop_detail([record.id])
+            result.status, result.detail = "mask_crop", submission.mismatched_mask_crop_detail(
+                [record.id], [record.id] if record.outpaint is not None else (),
+            )
             continue
         try:
             cell = grid.cell_from_record(

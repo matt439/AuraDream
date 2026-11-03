@@ -45,7 +45,7 @@ from .record_fields import (  # noqa: F401 - re-exported for storage.<name>
     chunk_outpaint, malformed_mask_crop, malformed_outpaint, mask_crop_box, mask_crop_chunk, mask_crop_parameters,
     mask_hash, mask_provenance, outpaint_chunk, outpaint_mask_hash, outpaint_parameters, parameters_mask_crop,
     parse_mask_crop_box, peak_chunk, proven_mask_crop, rebuilt_outpaint_mask, recovered_mask_crop,
-    recovered_outpaint, stored_mask_crop, stored_mask_crop_box,
+    recovered_outpaint, stored_mask_crop, stored_mask_crop_box, without_mask_crop_parameters,
 )
 from .search import like_escape, parse_search
 from .schemas import ImageRecord, OutpaintSpec, effective_true_cfg

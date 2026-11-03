@@ -66,7 +66,8 @@ try:
         PNG_METADATA_KEY,  # noqa: F401 - re-exported; tests read reindex.PNG_METADATA_KEY
         PNG_METADATA_KEYS, PNG_SIGNATURE, canonical_edit, edit_chunk, edit_from_info,
         edit_from_json, edit_from_sources, embedded_mask, embedded_metadata, execution_from_info,
-        execution_from_sources, metadata_chunk, require_header_metadata, text_keyword, validate_edit_record,
+        execution_from_sources, metadata_chunk, require_header_metadata, text_chunk, text_keyword,
+        validate_edit_record,
     )
 except ModuleNotFoundError as exc:  # pragma: no cover - startup guard
     sys.exit(
@@ -243,11 +244,16 @@ def _dependency_order(rows: list[dict], cycles: set[int]) -> list[dict]:
     return ordered
 
 
-def _with_auradream_metadata(data: bytes, meta: dict) -> bytes:
-    """Replace app metadata without recompressing or changing pixels."""
+def _with_auradream_metadata(data: bytes, meta: dict, parameters: str | None = None) -> bytes:
+    """Replace app metadata without recompressing or changing pixels; with
+    `parameters`, the A1111 block too (`png_settings.PARAMETERS_KEY`)."""
     if not data.startswith(_PNG_SIGNATURE):
         raise OSError("not a PNG")
     replacement = metadata_chunk(meta)
+    owned = {key.encode("ascii") for key in PNG_METADATA_KEYS}
+    if parameters is not None:
+        replacement += text_chunk(png_settings.PARAMETERS_KEY, parameters)
+        owned.add(png_settings.PARAMETERS_KEY.encode("ascii"))
     out = bytearray(_PNG_SIGNATURE)
     offset = len(_PNG_SIGNATURE)
     inserted = False
@@ -258,9 +264,7 @@ def _with_auradream_metadata(data: bytes, meta: dict) -> bytes:
             raise OSError("truncated PNG")
         kind = data[offset + 4 : offset + 8]
         chunk_data = data[offset + 8 : offset + 8 + length]
-        if _text_keyword(kind, chunk_data) in {
-            key.encode("ascii") for key in PNG_METADATA_KEYS
-        }:
+        if _text_keyword(kind, chunk_data) in owned:
             offset = end
             continue
         # Pillow reads metadata preceding the image data during Image.open().
@@ -279,12 +283,13 @@ def _with_auradream_metadata(data: bytes, meta: dict) -> bytes:
     return bytes(out)
 
 
-def _copy_in(source: Path, target: Path, meta: dict | None = None) -> None:
-    """Copy into outputs under a temporary name, optionally replacing app metadata."""
+def _copy_in(source: Path, target: Path, meta: dict | None = None, parameters: str | None = None) -> None:
+    """Copy into outputs under a temporary name, optionally replacing app
+    metadata (and, with it, the A1111 block)."""
     partial = target.with_name(target.name + ".part")
     data = source.read_bytes()
     partial.write_bytes(
-        _with_auradream_metadata(data, meta) if meta is not None else data
+        _with_auradream_metadata(data, meta, parameters) if meta is not None else data
     )
     partial.replace(target)
 
@@ -465,35 +470,42 @@ def _outpaint(mask: str | None, spec, image: Image.Image | None, width: int, hei
 
 def _mask_crop(mask: str | None, recorded, malformed: bool, painted, image: Image.Image | None,
                counts: dict[str, int]):
-    """A result's masked area as this reindex records it, `(spec, region)`
-    or `(None, None)`: only beside a mask; its recorded region proved against
-    the mask under the frozen rule (`storage.proven_mask_crop`), drawn again
+    """A result's masked area as this reindex records it, `(spec, region,
+    parameters)`, `(None, None, ...)` for none: only beside a mask; its
+    recorded region proved against the mask under the frozen rule
+    (`storage.proven_mask_crop`), drawn again
     where none was recorded, and left off - counted malformed - where it is
     not the mask's; a spec this build cannot read is left off and counted
     too. Where none came with it, one an older build's import stripped, from
     the A1111 line, its region drawn from the mask
     (`storage.recovered_mask_crop`), counted. Without the mask to read, a
-    recorded spec and region are kept as given."""
+    recorded spec and region are kept as given.
+
+    `parameters` is the A1111 block to write in place of the PNG's, or None
+    to keep it: one left off takes its `Mask crop:` out of the settings
+    line (`storage.without_mask_crop_parameters`), which would otherwise
+    give it back - drawn again from the mask it did not match - on the next
+    reindex or import."""
+    parameters = image.info.get("parameters") if image is not None else None
     if mask is None:
-        return None, None
+        return None, None, None
     if malformed:
         counts["mask_crop_malformed"] += 1
-        return None, None
+        return None, None, storage.without_mask_crop_parameters(parameters)
     if recorded is not None:
         spec, region = recorded
         if painted is None:
-            return spec, region
+            return spec, region, None
         proven = storage.proven_mask_crop(spec, painted, region)
         if proven is None:
             counts["mask_crop_malformed"] += 1
-            return None, None
-        return spec, proven
-    parameters = image.info.get("parameters") if image is not None else None
+            return None, None, storage.without_mask_crop_parameters(parameters)
+        return spec, proven, None
     recovered = storage.recovered_mask_crop(parameters, painted)
     if recovered is None:
-        return None, None
+        return None, None, None
     counts["mask_crops_recovered"] += 1
-    return recovered
+    return (*recovered, None)
 
 
 def _names_a_mask_crop(recorded, image: Image.Image | None) -> bool:
@@ -759,7 +771,7 @@ def merge_database(
             masks.picture(mask, source / storage.MASKS_DIR, image, spec, (width, height))
             if mask is not None and _names_a_mask_crop(recorded, image) else None
         )
-        crop_spec, crop_region = _mask_crop(mask, recorded, malformed, painted, image, counts)
+        crop_spec, crop_region, parameters = _mask_crop(mask, recorded, malformed, painted, image, counts)
         crop = (crop_spec, crop_region) if crop_spec is not None else None
         digest = storage.content_hash(image)
         counts["indexed"] += 1
@@ -818,12 +830,12 @@ def merge_database(
             png_crop = png_meta.get("mask_crop") if png_meta is not None else None
             if (copied or row.get("refine") != refine or row.get("crop_anchor") != meta.get("crop_anchor")
                     or execution != png_execution or remapped_edit != stored_edit
-                    or png_crop != meta.get("mask_crop")):
+                    or png_crop != meta.get("mask_crop") or parameters is not None):
                 # A database rebuilt beside its original PNGs can renumber or
                 # lose a source too. Keep --from-image's crop and source in
                 # agreement with the new row, without rewriting an unchanged
                 # legacy centered PNG in place.
-                _copy_in(path, target, meta)
+                _copy_in(path, target, meta, parameters)
             record = storage.import_file(values)
         except BaseException:
             if copied:
@@ -1027,7 +1039,7 @@ def reindex(
             masks.picture(mask, source / storage.MASKS_DIR, image, spec, (width, height))
             if mask is not None and _names_a_mask_crop(recorded, image) else None
         )
-        crop_spec, crop_region = _mask_crop(
+        crop_spec, crop_region, parameters = _mask_crop(
             mask, recorded, mask is not None and storage.malformed_mask_crop(meta), painted, image, counts,
         )
         crop_meta = storage.mask_crop_chunk(crop_spec, crop_region) if crop_spec is not None else None
@@ -1050,6 +1062,7 @@ def reindex(
             or meta.get("upscaler") != upscaler
             or meta.get("crop_anchor") != crop_anchor
             or meta.get("mask_crop") != crop_meta
+            or parameters is not None
             or stored_edit != remapped_edit
         )
         meta = {
@@ -1097,7 +1110,7 @@ def reindex(
         if not in_place or links_changed:
             # Keep --from-image safe after an in-place id remap as well. Only
             # metadata changes; _copy_in preserves the compressed pixels.
-            _copy_in(path, target, meta)
+            _copy_in(path, target, meta, parameters)
         # The hash of the pixels as decoded here, not the block's copy of it:
         # the file is the truth, and a PNG from before the hash has no copy.
         record = storage.index_file(

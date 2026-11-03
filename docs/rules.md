@@ -2000,7 +2000,15 @@ measured on the card and when.
   not give, a missing
   region recomputed, a stripped crop recovered from the A1111 line only
   where the mask recomputes its region (`mask_crops_recovered`); reindex
-  likewise, counting `mask_crop_malformed`. `refine_cost_ms(inpaint=True)`
+  likewise, counting `mask_crop_malformed`. Recovery reads only the
+  settings line (the last, from `Steps: `), never the prompt or negative,
+  and a crop reindex leaves off has its `Mask crop:` taken out of that line
+  (`storage.without_mask_crop_parameters`), so no later run brings it back.
+  `png_settings.record` never judges `mask_crop`: Load settings from PNG
+  drops it, and `--from-image` refuses by name a carried spec or region
+  this build cannot run only where the mask or outpaint stays carried (a
+  dropped source runs a plain generation; `--mask`, `--refine` or
+  `--mask-crop` replace it). `refine_cost_ms(inpaint=True)`
   leaves cropped rows out, and `gallery_reports.mask_crop_cost_ms` prices a
   cropped cell from cropped rows of its tier only, else no estimate.
   `/api/grid/preview` answers `mask_crop` {box, working, scale} for cells

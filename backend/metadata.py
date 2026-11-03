@@ -78,12 +78,20 @@ def metadata_chunk(meta: dict) -> bytes:
     rewrite both insert in place of the app's earlier metadata chunks.
     """
     payload = PNG_METADATA_KEY.encode("ascii") + b"\0" + json.dumps(meta).encode("ascii")
-    return (
-        len(payload).to_bytes(4, "big")
-        + b"tEXt"
-        + payload
-        + zlib.crc32(b"tEXt" + payload).to_bytes(4, "big")
-    )
+    return _chunk(b"tEXt", payload)
+
+
+def text_chunk(keyword: str, text: str) -> bytes:
+    """A whole PNG text chunk for ``keyword``, as Pillow's `add_text` writes
+    one uncompressed: tEXt where the text is Latin-1, else iTXt in UTF-8."""
+    try:
+        return _chunk(b"tEXt", keyword.encode("latin-1") + b"\0" + text.encode("latin-1"))
+    except UnicodeEncodeError:
+        return _chunk(b"iTXt", keyword.encode("latin-1") + b"\0\0\0\0\0" + text.encode("utf-8"))
+
+
+def _chunk(kind: bytes, payload: bytes) -> bytes:
+    return len(payload).to_bytes(4, "big") + kind + payload + zlib.crc32(kind + payload).to_bytes(4, "big")
 
 
 def embedded_metadata(info: Mapping[str, Any]) -> str | None:

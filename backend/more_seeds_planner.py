@@ -115,7 +115,9 @@ async def more_seeds_plan(
             continue
         if template.id in cropped:
             batch.status = "mask_crop"
-            batch.detail = submission.mismatched_mask_crop_detail([template.id])
+            batch.detail = submission.mismatched_mask_crop_detail(
+                [template.id], [template.id] if template.outpaint is not None else (),
+            )
             continue
         # New seeds are new pictures under any quantizer, but the batch's
         # images were all made under one; said, not refused.

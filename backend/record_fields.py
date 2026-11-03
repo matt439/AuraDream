@@ -242,18 +242,45 @@ def mask_crop_parameters(spec: MaskCropSpec) -> str:
     return f", Mask crop: {spec.key()}"
 
 
-_PARAMETERS_MASK_CROP = re.compile(r"Mask crop: ([a-z0-9][a-z0-9-]{0,31}:\d{1,6}@\d{1,6})(?:,|$|\s)")
+_PARAMETERS_MASK_CROP = re.compile(r", Mask crop: ([a-z0-9][a-z0-9-]{0,31}:\d{1,6}@\d{1,6})(?=,|$|\s)")
+
+
+def _settings_line(parameters: Any) -> tuple[str, str] | None:
+    """An A1111 block split as (everything before its settings line, the
+    settings line), or None where it has none. The settings line is the last
+    (`storage.save_image` writes it after the prompt and the negative, which
+    may hold any text, newlines and `Mask crop:` included) and starts with
+    `Steps: `; only it is ever read for a key."""
+    if not isinstance(parameters, str):
+        return None
+    head, newline, line = parameters.rpartition("\n")
+    if not newline or not line.startswith("Steps: "):
+        return None
+    return head + newline, line
 
 
 def parameters_mask_crop(parameters: Any) -> MaskCropSpec | None:
-    """The spec an A1111 line's `Mask crop:` names, or None."""
-    match = _PARAMETERS_MASK_CROP.search(parameters) if isinstance(parameters, str) else None
+    """The spec an A1111 block's settings line names by `Mask crop:`, or
+    None - never one the prompt or negative merely spells out."""
+    split = _settings_line(parameters)
+    match = _PARAMETERS_MASK_CROP.search(split[1]) if split is not None else None
     if match is None:
         return None
     try:
         return MaskCropSpec.parse_key(match.group(1))
     except ValueError:
         return None
+
+
+def without_mask_crop_parameters(parameters: Any) -> str | None:
+    """An A1111 block with its settings line's `Mask crop:` taken out, or
+    None where that line names none. For a row whose masked area this build
+    left off (malformed, or not its mask's): the line would otherwise give
+    it back on the next reindex or import (`recovered_mask_crop`)."""
+    split = _settings_line(parameters)
+    if split is None or _PARAMETERS_MASK_CROP.search(split[1]) is None:
+        return None
+    return split[0] + _PARAMETERS_MASK_CROP.sub("", split[1])
 
 
 def proven_mask_crop(spec: MaskCropSpec, painted: Image.Image | None, recorded: Crop | None = None) -> Crop | None:

@@ -176,6 +176,31 @@ def test_a_recorded_region_its_mask_no_longer_decides_cannot_run_again(client, f
     assert len(fake.requests) == before
 
 
+def test_a_mismatched_outpaint_is_sent_to_outpaint_again(client, fake, store):
+    run_one(client, width=256, height=256)
+    record = client.get("/api/gallery").json()["items"][0]
+    _, events = run_one(client, prompt="1girl, red hair, long hair", width=320, height=256, steps=10,
+                        refine=record["id"], strength=1.0, mask_crop={"pad": 0}, seed=3,
+                        outpaint={"left": 64, "top": 0, "right": 0, "bottom": 0, "band": 16})
+    assert events[-1]["status"] == "done", events[-1]
+    made = events[-1]["images"][0]
+    with gallery_lock.hold(store.settings.db_path), store._write_lock, store._session() as conn:
+        conn.execute("UPDATE images SET mask_crop_box = ? WHERE id = ?", ("0,0,320,256>1144x915", made["id"]))
+    remedy = "it cannot be run again; outpaint its source again instead"
+    response = client.post("/api/rerender", json={"ids": [made["id"]], "width": 320, "height": 256})
+    assert response.status_code == 422 and response.json()["detail"].endswith(remedy), response.text
+    swap = [{"find": "red hair, long hair", "replace": "silver hair"}]
+    swapped = client.post("/api/swap-tags/preview", json={"swaps": swap, "ids": [made["id"]]})
+    result = next(item for item in swapped.json()["images"] if item["id"] == made["id"])
+    assert result["status"] == "mask_crop" and result["detail"].endswith(remedy)
+    seeds = client.post("/api/more-seeds/preview", json={"ids": [made["id"]], "count": 2})
+    batch = next(item for item in seeds.json()["results"] if item["id"] == made["id"])
+    assert batch["status"] == "mask_crop" and batch["detail"].endswith(remedy)
+    # An inpaint's mask is painted again; a selection of both is told both.
+    assert submission_rules.mismatched_mask_crop_detail([4]).endswith("paint the mask on its source again instead")
+    assert "or outpaint an outpaint's source again" in submission_rules.mismatched_mask_crop_detail([4, 5], {5})
+
+
 def test_more_seeds_says_a_mismatched_or_gainless_crop_per_batch(client, fake, store):
     made = _mismatched(client, store)
     response = client.post("/api/more-seeds/preview", json={"ids": [made["id"]], "count": 2})
@@ -273,23 +298,47 @@ def test_from_image_carries_the_crop_beside_its_mask(cli, store, monkeypatch, tm
     with pytest.raises(SystemExit):
         generate.main(["--from-image", made, "-q"])
     assert "records a masked area this build cannot read" in capsys.readouterr().err
-    # A spec this build lacks, by the PNG's own reader.
+    # A spec this build lacks is refused by name where it would be carried...
+    count = len(cli.requests)
     rewrite_record(made, lambda meta: meta.update(mask_crop={"rule": "bbox32", "pad": 16, "tier": 1}))
+    assert generate.main(["--from-image", made, "-q"]) == 2
+    err = capsys.readouterr().err
+    assert "--from-image: the PNG's masked area:" in err and "bbox16" in err
+    # ...and an off-grid padding as the PNG's, not a flag's.
+    rewrite_record(made, lambda meta: meta.update(mask_crop={"rule": "bbox16", "pad": 12, "tier": 1}))
     with pytest.raises(SystemExit):
         generate.main(["--from-image", made, "-q"])
-    assert "masked-area crop this build cannot read" in capsys.readouterr().err
+    assert "--from-image: the PNG's masked area: a masked-area padding is 0 to 256 in steps of 8, not 12" in (
+        capsys.readouterr().err
+    )
+    assert len(cli.requests) == count
+    # Never refusing the file: a padding of its own, a mask of its own or a
+    # --refine of another image runs without it.
+    rewrite_record(made, lambda meta: meta.update(mask_crop={"rule": "bbox32", "pad": 16, "tier": 1}))
+    assert generate.main(["--from-image", made, "--mask-crop", "32", "-q"]) == 0
+    assert cli.requests[-1].mask_crop == MaskCropSpec(pad=32)
+    assert generate.main(["--from-image", made, "--mask", str(path), "-q"]) == 0
+    assert (cli.requests[-1].mask, cli.requests[-1].mask_crop) == (first.mask, None)
+    assert generate.main(["--from-image", made, "--refine", str(source.id), "-q"]) == 0
+    assert (cli.requests[-1].mask, cli.requests[-1].mask_crop) == (None, None)
 
 
-def test_a_dropped_source_drops_the_crop_with_the_mask(cli, store, monkeypatch, tmp_path, capsys):
+@pytest.mark.parametrize("crop", [None, {"rule": "bbox16", "pad": 32, "tier": 1, "box": [0, 0, 64]},
+                                  {"rule": "bbox32", "pad": 16, "tier": 1}])
+def test_a_dropped_source_drops_the_crop_with_the_mask(cli, store, monkeypatch, tmp_path, capsys, crop):
     source = to_refine(store)
     path, _ = mask_file(tmp_path)
     monkeypatch.setattr(generate, "_project", project_claiming(generate, ANIMAGINE))
     assert generate.main(["a red scarf", "--refine", str(source.id), "--mask", str(path), "--mask-crop", "32",
                           "--seed", "4", "-q"]) == 0
     made = capsys.readouterr().out.split("  seed ")[0]
+    if crop is not None:
+        # One this build cannot read never refuses the plain generation.
+        rewrite_record(made, lambda meta: meta.update(mask_crop=crop))
     with gallery_lock.hold(store.settings.db_path), store._write_lock, store._session() as conn:
         conn.execute("UPDATE images SET content_hash = ? WHERE id = ?", ("0" * 16, source.id))
     assert generate.main(["--from-image", made, "-q"]) == 0
+    assert "running as a plain generation instead of an inpaint" in capsys.readouterr().err
     ran = cli.requests[-1]
     assert (ran.refine, ran.mask, ran.mask_crop) == (None, None, None)
     # A padding named on the command line asks for the pass: refused instead.
