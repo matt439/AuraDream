@@ -870,9 +870,10 @@ function lbArrowDown(e) { lbArrowPress = e.timeStamp; }
 // the picture about their midpoint and pan it as they move together; one,
 // zoomed in, pans as a mouse's drag does; one at or below fit is a swipe -
 // sideways to the next or previous image, down to close - with the picture
-// following it until it lets go. A tap is the mouse's click (beside the
-// picture at fit it closes), and a second tap within 300 ms on the picture
-// is its double-click, 1:1 there or back to fit.
+// following it until it lets go; after a pinch, the finger left down pans. A
+// tap is the mouse's click (beside the picture at fit it closes), and a
+// second tap within 300 ms on the picture is its double-click, 1:1 there or
+// back to fit.
 const lbTouches = new Map();
 let lbPinch = null;
 let lbSwipe = null;
@@ -929,7 +930,13 @@ function lbTouchUp(e) {
   lbTouches.delete(e.pointerId);
   if (lbPinch) {
     if (lbTouches.size < 2) lbPinch = null;
-    if (!lbTouches.size) { lbDrag = null; sayZoom(); }
+    // The finger still down pans on, as a photo viewer's does - a drag that
+    // has moved already, so its lift is no tap.
+    if (lbTouches.size === 1) {
+      const [rest] = lbTouches.values();
+      lbDrag = { x: rest.x, y: rest.y, moved: true, onStage: false, split: false };
+    }
+    if (!lbTouches.size) { lbDrag = null; els.lbStage.classList.remove('dragging'); sayZoom(); }
     return;
   }
   const swipe = lbSwipe;
@@ -957,6 +964,16 @@ function lbTouchUp(e) {
     lbLastTap = { time: e.timeStamp, x: e.clientX, y: e.clientY };
   }
   lbPointerUp();
+}
+
+// A long press on the picture opened the image's menu (context-menu.js):
+// this finger is the menu's now, so its lift is no tap and its moves no
+// swipe or pan.
+function lbForgetPress() {
+  lbDrag = null;
+  lbSwipe = null;
+  els.lbImg.style.translate = '';
+  els.lbStage.classList.remove('dragging');
 }
 
 function lbTouchCancel(e) {

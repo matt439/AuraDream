@@ -49,6 +49,17 @@ function syncPhoneTabsBusy() {
   fill.style.width = els.topbarFill.style.width;
 }
 
+// A box that takes the keyboard: on a phone the tab bar steps aside while it
+// has the focus (styles/touch.css). Not a select, whose wheel is no keyboard,
+// nor a checkbox's or a button's focus.
+const TYPING_FIELD = 'textarea, [contenteditable="true"], input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"], [type="button"], [type="submit"], [type="reset"])';
+
+function syncTyping() {
+  const at = document.activeElement;
+  if (at?.matches?.(TYPING_FIELD) && !at.readOnly && !at.disabled) document.body.dataset.typing = '';
+  else delete document.body.dataset.typing;
+}
+
 function initTouchLayout() {
   let saved = null;
   try { saved = sessionStorage.getItem(PHONE_VIEW_KEY); } catch { /* storage off */ }
@@ -70,6 +81,10 @@ function initTouchLayout() {
   watch.observe(els.topbarLine, { attributes: true, attributeFilter: ['hidden', 'class'] });
   watch.observe(els.topbarFill, { attributes: true, attributeFilter: ['style'] });
   syncPhoneTabsBusy();
+  // A box may have the focus before this runs (the prompt's, at boot).
+  syncTyping();
+  document.addEventListener('focusin', syncTyping);
+  document.addEventListener('focusout', () => queueMicrotask(syncTyping));
   // "/ to focus" is a keyboard's.
   if (matchMedia('(pointer: coarse)').matches) els.search.placeholder = 'Search prompts';
 }

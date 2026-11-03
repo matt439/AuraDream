@@ -6506,15 +6506,18 @@ measured on the card and when.
   `(pointer: coarse) and (700px <= width <= 900px) and (height > 500px)`
   (an iPad Air 11 in portrait, 820x1180; landscape, 1180x820, is already
   the PC's two columns); the phone
-  `(pointer: coarse) and ((max-width: 600px) or (max-height: 500px))` (an
-  iPhone 15 Pro, 393x852, either way up). The touch tier overrides the
+  `(pointer: coarse) and ((width < 700px) or (max-height: 500px))` (an
+  iPhone 15 Pro, 393x852, either way up, and an iPad's Split View or Slide
+  Over pane short of the two columns, 678 px at two thirds, which otherwise
+  fell to the PC's one column). The touch tier overrides the
   height tokens on `:root` (fields and ordinary buttons 44 px, the primary
   50, small 36, tiny 32), sets every text box, number box and select to
   16 px or more (`!important`: under 16 iOS zooms the page on focus and
   leaves it zoomed), takes the keyboard's hints away (`::after` key
   letters, `.lb-keys`, `.key-hint` spans in the idle line, the png drop
   hint, the search's "/ to focus"), widens a `?` badge's press, wraps the
-  gallery footer, gives the lightbox's stage `touch-action: none`, and
+  gallery footer from the left with every button at its full name (the
+  gallery's line a row of its own, and none while it is silent), gives the lightbox's stage `touch-action: none`, and
   keeps the topbar, the page and the lightbox inside the safe areas
   (`viewport-fit=cover` in `index.html`; `--safe-*` from `env()`; the
   topbar's top inset is inside `--topbar-h`, so whatever reads it reads
@@ -6537,8 +6540,40 @@ measured on the card and when.
   swipes - 50 px sideways (and 1.3 times its rise) steps, 90 px down
   closes - the picture following it; a tap is the mouse's click; two taps
   within 300 ms and 30 px are the double-click, and the browser's own
-  dblclick for them is dropped (`lbTouchDouble`). A mouse's events take
+  dblclick for them is dropped (`lbTouchDouble`). After a pinch the finger
+  left down pans (a drag already moved, so its lift is no tap). The stage
+  refuses iOS's `gesturestart`/`gesturechange`, so two fingers never zoom
+  the page whatever WebKit's `touch-action` support. A mouse's events take
   the old paths unchanged.
+  A long press is the right-click (`context-menu.js`,
+  `contextMenuTouch*`): iOS Safari sends no `contextmenu` for one, and the
+  menu holds what no button does on a phone (Edit by instruction…, Pick
+  this run, the Copy items, Open PNG; under 900 px Inpaint… and More
+  seeds… too). 500 ms held within 10 px on an image `contextTarget` knows
+  opens the menu 16 px under the finger; a move, a second finger, a scroll's
+  pointercancel or an earlier lift is no press. The lift's click, wherever
+  it lands - the menu's own row under the finger, as Chromium's did - is
+  swallowed (`contextMenuPressClick`, within 300 ms of that pointer's lift,
+  cleared by the next press), and the lightbox forgets the finger
+  (`lbForgetPress`), so the lift neither taps nor swipes. Android's own
+  `contextmenu` for the same press is the menu's (`ctxMenu.pressAt`). The
+  touch tier sets `-webkit-touch-callout: none` and `user-select: none` on
+  cards, results, sheet cells and the stage, so iOS's callout and a text
+  selection do not answer the press too, and gives the menu 36 px rows
+  without its key hint or key letters.
+  While a text box has the focus the phone's tab bar is not drawn
+  (`body[data-typing]`, `syncTyping` in `touch.js`, read at boot and on
+  focusin/focusout): iOS keeps a fixed foot on the layout viewport, which
+  its keyboard does not shrink, so the bar sat behind the keyboard or over
+  the text. The phone lightbox's facts fade over their last 1.2 em, padded
+  by as much, so a box cut mid-line says it scrolls. On its side
+  (`(pointer: coarse) and (max-height: 500px) and (orientation: landscape)`)
+  the topbar is 46 px with small buttons and no free-space readout, the tab
+  bar 44 with its glyph beside its word, and the lightbox the PC's row: the
+  picture beside a 300 px (at most 42 vw) column that scrolls as a whole,
+  its actions wrapping. `index.html` has no `apple-mobile-web-app-capable`:
+  a full-screen home-screen app on iOS has no Safari round Download's file
+  or Open PNG's tab to come back from, so the icon opens a Safari tab.
 
 ## Tests
 
@@ -7338,8 +7373,17 @@ a swipe left and right stepping, a swipe down closing, a pinch zooming
 past 1.5, a swipe while zoomed panning without stepping, and a double tap
 back to fit; Reuse from the Gallery view bringing Create with the prompt;
 a job's dot and line on the bar in both views and gone at its end; the
-Models sheet across the window between the topbar and the bar; 852x393
-still the phone; and a mouse at 1400x900 back to no bar, both views, a
+Models sheet across the window between the topbar and the bar; the tab
+bar gone while the prompt has a tapped focus and back on blur; the
+gallery footer starting at its left edge with Saved searches… in full; a
+long press on a card opening the menu (Edit by instruction… in it, no key
+hint, 36 px rows, the card unselectable) with the lightbox shut, Escape
+closing it; after a pinch the remaining finger panning 40 px at the same
+scale (synthetic touch pointer events, capture stubbed); a long press on
+the lightbox's picture opening the menu inside it with no dialog opened
+and the lightbox still up; 852x393 still the phone, with a topbar of at
+most 48 px, a tab bar of at most 45, and the lightbox's column beside a
+stage at least 300 tall; and a mouse at 1400x900 back to no bar, both views, a
 43 px Generate, 14 px text and the Ctrl+Enter hint.
 
 `smoke-tablet.json` uses a fresh FLUX.1 Krea [dev] fake on 7957 with touch
@@ -7347,7 +7391,8 @@ at 820x1180@2: the panel beside the stage and sticky, two cards across,
 no tab bar, the keyboard help kept, finger sizes, the chips' host the wide
 one; a tapped Generate's result in the stage beside the panel with no New
 image pill fixed over the page; at 1180x820 the PC's two columns at finger
-sizes; and a mouse at 820x1180 one column as before, 43 px Generate, the
+sizes; at 678x1180 (Split View) the phone with its tab bar; and a mouse
+at 820x1180 one column as before, 43 px Generate, the
 chips under the prompt.
 
 `smoke-queue-controls.json` uses a fresh FLUX.1 Krea [dev] fake on 7914 with

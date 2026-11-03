@@ -10,7 +10,7 @@
 // on the image focus is in. One menu, moved into the lightbox while that is
 // up: a modal dialog leaves the page under it inert.
 
-const ctxMenu = { host: null, opener: null, keyAt: -Infinity };
+const ctxMenu = { host: null, opener: null, keyAt: -Infinity, pressAt: -Infinity, pressId: null, liftAt: -Infinity };
 
 // What a right-click or the Menu key at `target` is over: the lightbox's
 // stage, a live gallery card, a viewer result, a sheet's populated cell.
@@ -322,11 +322,21 @@ function chooseContextItem(li) {
 function contextMenuEvent(e) {
   // The menu the Menu key opened already (contextMenuKey) is this event's.
   if (performance.now() - ctxMenu.keyAt < 400) { e.preventDefault(); return; }
+  // And the one a finger's long press opened (Android sends this as well).
+  if (performance.now() - ctxMenu.pressAt < 1000) { e.preventDefault(); return; }
   if (e.target.closest?.('#context-menu')) { e.preventDefault(); return; }
   if (e.shiftKey || e.target.closest?.('input, textarea, select, [contenteditable="true"]')) return;
   const found = contextTarget(e.target);
   if (!found) { closeContextMenu(false); return; }
   e.preventDefault();
+  // A finger's long press that the browser answered first: the timer's menu
+  // would be this one again, and the lift's click is still the menu's.
+  if (longPress) {
+    ctxMenu.pressId = longPress.id;
+    contextMenuTouchEnd();
+    ctxMenu.pressAt = performance.now();
+    if (found.kind === 'lightbox') lbForgetPress();
+  }
   openContextMenu(found, e.clientX, e.clientY, false);
 }
 
@@ -388,4 +398,63 @@ function contextMenuPointerDown(e) {
 // one does. Its own scroll, where it is taller than the window, is its own.
 function contextMenuAway(e) {
   if (!els.contextMenu.hidden && !els.contextMenu.contains(e.target)) closeContextMenu(false);
+}
+
+// A finger's long press is the right-click: iOS Safari never sends
+// `contextmenu` for one (Android does, and the menu that press opened
+// already takes that event - `ctxMenu.pressAt`). Half a second held still on
+// an image opens the menu at the finger; a move past the slop, a second
+// finger, a scroll (pointercancel) or a lift before then is no press. The
+// lift, and the click it would make on the card or the lightbox's stage, are
+// the menu's: they neither open the image nor close the lightbox, nor choose
+// the item the menu put under the finger.
+const LONG_PRESS_MS = 500, LONG_PRESS_SLOP = 10;
+let longPress = null;
+
+function contextMenuTouchDown(e) {
+  clearTimeout(longPress?.timer);
+  longPress = null;
+  // A new press: the last lift's click, if the browser made one, has been.
+  ctxMenu.liftAt = -Infinity;
+  if (e.pointerType !== 'touch' || !e.isPrimary) return;
+  if (e.target.closest?.('#context-menu, input, textarea, select, button, a, [contenteditable="true"]')) return;
+  const found = contextTarget(e.target);
+  if (!found) return;
+  const press = { id: e.pointerId, x: e.clientX, y: e.clientY };
+  press.timer = setTimeout(() => {
+    if (longPress !== press) return;
+    longPress = null;
+    ctxMenu.pressAt = performance.now();
+    ctxMenu.pressId = press.id;
+    // The lightbox's own handling of this finger stops here: its lift is no
+    // tap, its moves no swipe (lightbox.js).
+    if (found.kind === 'lightbox') lbForgetPress();
+    // A little below the finger, so the first rows are not under it.
+    openContextMenu(found, press.x, press.y + 16, false);
+  }, LONG_PRESS_MS);
+  longPress = press;
+}
+
+function contextMenuTouchMove(e) {
+  if (!longPress) return;
+  if (e.pointerId !== longPress.id) { contextMenuTouchEnd(); return; }
+  if (Math.hypot(e.clientX - longPress.x, e.clientY - longPress.y) > LONG_PRESS_SLOP) contextMenuTouchEnd();
+}
+
+function contextMenuTouchEnd(e) {
+  clearTimeout(longPress?.timer);
+  longPress = null;
+  if (e?.type === 'pointerup' && e.pointerId === ctxMenu.pressId) {
+    ctxMenu.pressId = null;
+    ctxMenu.liftAt = performance.now();
+  }
+}
+
+// The click a long press's lift makes, where the browser makes one: it lands
+// wherever the finger is now - the menu's own row under it, as often as not.
+function contextMenuPressClick(e) {
+  if (performance.now() - ctxMenu.liftAt > 300) return;
+  ctxMenu.liftAt = -Infinity;
+  e.preventDefault();
+  e.stopPropagation();
 }

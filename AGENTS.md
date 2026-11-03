@@ -229,7 +229,8 @@ it never writes the composer's prompt, negative or references.
 `touch.js` (`styles/touch.css`, linked last) owns the phone's Create and
 Gallery views and its tab bar; the phone and tablet tier keys on a coarse
 primary pointer (iPhone 15 Pro, iPad Air 11), never width alone, so a PC's
-mouse and the smokes never match it.
+mouse and the smokes never match it. On touch a long press is the image's
+right-click menu (`context-menu.js`): iOS sends no `contextmenu`.
 
 `snippet-import.js` owns explicit personal-snippet export and the native
 merge dialog; it preserves the editor and prompt boxes, with no automatic retry.
