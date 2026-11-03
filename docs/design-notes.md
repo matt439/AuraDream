@@ -8502,6 +8502,19 @@ scroll 0 the panel is in the page's flow either way, and scrolled, its top
 stays under the topbar. smoke-wide holds both; it had expected the panel to
 rest with the banner up and failed there since those additions.
 
+The banner's Finish run counts (EXP-01, 2026-11-03) were only in the
+button's tooltip, where the sheet's run line already said them as text. They
+are a line of their own, `#last-run-finish`, between the banner's words and
+its buttons: the preview answers after the banner is up, and words before
+the buttons that grew when it landed would move them under the pointer. So
+the line is there from the first display ("Checking Finish run…"), one line
+high whatever the answer (`nowrap` and an ellipsis, the whole text as its
+title). Appending the counts to the banner's text instead would rewrap it
+and shift the buttons. The line costs the banner 26 px (18 px of text and the
+gap) when Finish run is shown: at 1400 x 900 a cancelled grid's banner ran
+851-965 px rather than 851-939, already below the fold either way, with
+Generate (bottom 797) unmoved, since the banner sits under it.
+
 ## Design tokens
 
 `web/style.css` opens with tokens on `:root` - seven type sizes, the four

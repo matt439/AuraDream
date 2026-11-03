@@ -412,4 +412,10 @@ button { font: inherit; cursor: pointer; }
   padding: 8px 10px;
 }
 .last-run span { flex: 1 1 100%; word-break: break-word; }
+/* Finish run's counts, a line of their own over the buttons: one line at
+   most, the whole text in its title, so the answer never moves them. */
+#last-run-finish {
+  min-width: 0; color: var(--text-readout); font-variant-numeric: tabular-nums;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .last-run.bad { border-color: var(--danger); }

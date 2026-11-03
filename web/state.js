@@ -166,7 +166,7 @@ const els = {
   sheetFixed: $('sheet-fixed'), sheetGrid: $('sheet-grid'), sheetNote: $('sheet-note'), sheetSaid: $('sheet-said'),
   sheetZoomSaid: $('sheet-zoom-said'),
   runHint: $('run-hint'),
-  lastRun: $('last-run'), lastRunText: $('last-run-text'),
+  lastRun: $('last-run'), lastRunText: $('last-run-text'), lastRunFinish: $('last-run-finish'),
   lastRunShow: $('last-run-show'), lastRunMore: $('last-run-more'), lastRunResume: $('last-run-resume'), lastRunDismiss: $('last-run-dismiss'),
   runList: $('run-list'),
   dot: $('status-dot'), statusText: $('status-text'), statusAside: $('status-aside'), vram: $('vram'),

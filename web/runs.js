@@ -74,16 +74,42 @@ function syncFinishRunButtons() {
   // changing answer never moves a control under the pointer.
   for (const line of els.sheetControls.querySelectorAll('.sheet-run-status[data-run]')) {
     const state = finishRuns.get(line.dataset.run);
-    const preview = state?.preview;
-    const extra = preview?.available
-      ? [preview.cells ? plural(preview.cells, 'missing cell') : '', preview.passes ? missingPasses(preview.passes) : '']
-        .filter(Boolean).join(' and ') + ((preview.redrawn || 0) + (preview.redrawn_passes || 0)
-          ? `; ${(preview.redrawn || 0) + (preview.redrawn_passes || 0)} deleted to redraw` : '')
-      : state?.pending ? 'checking Finish run' : preview?.reason || state?.error || '';
+    const extra = finishRunCounts(state) ?? (state?.pending ? 'checking Finish run' : '');
     line.dataset.base = sheetRunStatus(line.dataset.run);
     line.textContent = `${line.dataset.base}${extra ? ` · ${extra}` : ''}`;
     line.title = line.textContent;
   }
+  syncLastRunFinish();
+}
+
+// What Finish run would do, in the sheet line's words: the missing cells and
+// passes, those deleted to redraw, or the server's reason. Null while the
+// answer is out (or not yet asked for).
+function finishRunCounts(state) {
+  const preview = state?.preview;
+  if (preview?.available) {
+    const redrawn = (preview.redrawn || 0) + (preview.redrawn_passes || 0);
+    return [preview.cells ? plural(preview.cells, 'missing cell') : '', preview.passes ? missingPasses(preview.passes) : '']
+      .filter(Boolean).join(' and ') + (redrawn ? `; ${redrawn} deleted to redraw` : '');
+  }
+  if (!state || state.pending) return null;
+  return preview?.reason || state.error || '';
+}
+
+// The banner's own line for the same counts, between its text and its
+// buttons. It is there, one line high, from the banner's first display
+// whenever Finish run is (Checking while the answer is out), so the answer
+// landing never moves a button. Written only when it changes: the banner is
+// a polite live region, and the status poll syncs every few seconds.
+function syncLastRunFinish() {
+  const line = els.lastRunFinish;
+  const run = els.lastRun.dataset.run;
+  line.hidden = !run || els.lastRunResume.hidden;
+  if (line.hidden) return;
+  const counts = finishRunCounts(finishRuns.get(run));
+  const text = counts === null ? 'Checking Finish run…' : `Finish run: ${counts || 'nothing missing'}`;
+  if (line.textContent !== text) line.textContent = text;
+  if (line.title !== text) line.title = text;
 }
 
 function configureFinishRun(button, run, { slot = els.galleryError } = {}) {
@@ -302,6 +328,7 @@ async function announceLastRun() {
   // with no surviving images. The composer is never a run definition.
   els.lastRunResume.hidden = !last.run_id;
   if (last.run_id) configureFinishRun(els.lastRunResume, last.run_id, { slot: els.error });
+  syncLastRunFinish();
   els.lastRun.hidden = false;
 }
 
