@@ -13,6 +13,10 @@ Read [research](./research.md), [workbench](./workbench.md) and
 include the completed model-cache facts, Expand cancellation, restart recovery,
 picked comparison/navigation and import work. The workbench layout and its
 human task trials remain candidates; these source updates do not validate it.
+**2026-11-03:** UX#3, UX#5, UX#7, UX#12, UX#14, UX#15, UX#20 and UX#21 add
+named setups, compact setup, saved searches, Pick this run, Only the masked
+area and Edit by instruction. No status changes; ratings Matt has not given
+stay open for him.
 
 `Current` means the behavior exists, not that usability is established.
 `Accepted-unbuilt` identifies an existing decision awaiting implementation.
@@ -67,7 +71,7 @@ answers and exceptions.
 - **Story:** when I am generating, I can edit my prompt and negative, choose aspect/resolution, set a fixed seed and Batch/Repeat, or Reset without opening secondary controls.
 - **Acceptance:** the next composer study shows separate aspect/resolution selectors, a readable fixed Seed, distinct Batch and Repeat with their total, and a direct undoable Reset. Specific values remain owned or illustrative, never inferred from frequency.
 - **Acceptance:** Steps/CFG/Mu are one disclosure away with effective values visible; unused custom dimensions/orientation, True CFG and random-seed actions remain accessible secondarily. No unreported feature is hidden on the basis of these answers.
-- **Trace:** [placement](workbench.md#reported-generation-control-priorities), [validation](validation.md#reported-control-use-follow-up), `DEV#1`. Matt confirmed today's Reset behavior: clear Seed, retain existing reset scope and Undo, then let him enter another seed. No automatic replacement or new empty-seed submission guard.
+- **Trace:** [placement](workbench.md#reported-generation-control-priorities), [validation](validation.md#reported-control-use-follow-up), `DEV#1`. Compact setup (`UI#19`, [plan](../plan-shortcut-workflow.md), [usage](../usage.md#compact-setup)) is built: Custom dimensions/Orientation sit in a disclosure whose summary shows the dimensions. Still candidate: the Steps/CFG/Mu disclosure, and True CFG and the dice as secondary. Matt confirmed today's Reset behavior: clear Seed, retain existing reset scope and Undo, then let him enter another seed. No automatic replacement or new empty-seed submission guard.
 - **Dependency:** model applicability and existing persistence/undo; no application implementation is implied by this design requirement.
 
 ### UX#1 — Find the next useful action · P1 · Proposed
@@ -91,7 +95,7 @@ answers and exceptions.
 
 ### UX#3 — Judge preparation cost before committing time · P1 · Proposed
 
-- **Basis:** K2 Often supports prominent model guidance, recorded timings and examples. First-use downloads and reference timings are documented; Models already shows offline cache/download facts (`GEN#1`, built). Their placement in a redesigned workbench remains a hypothesis.
+- **Basis:** K2 Often supports prominent model guidance, recorded timings and examples. First-use downloads and reference timings are documented; Models already shows offline cache/download facts (`GEN#1`, built). Their placement in a redesigned workbench remains a hypothesis. Today's Models rows already separate access, cache/download, speed reference and unmeasured; only the workbench placement is proposed (2026-11-03).
 - **Story:** I can distinguish a ready local choice from one that may need downloads, approval or unmeasured resource use.
 - **Acceptance:** a candidate model row separates cached/download information where known, access requirements, recorded speed references and unmeasured combinations; unknown values remain explicit.
 - **Acceptance:** a reference timing is never presented as an ETA for my prompt or as proof that a size fits the card.
@@ -116,7 +120,7 @@ answers and exceptions.
 - **Story:** I can try advice or reuse an image without losing the prompt and controls I was editing.
 - **Acceptance:** each replacement uses the established text undo path; Reuse/PNG restoration offers the documented settings Undo and names replaced prompt text and omitted inputs.
 - **Acceptance:** edits made while Expand is waiting survive its answer; stale advice cannot silently overwrite newer text.
-- **Trace:** [usage: prompts](../usage.md#write-and-check-prompts), [PNG settings](../usage.md#load-settings-from-a-png), [Reuse owner](../design-notes.md#per-control-defaults-and-reuse); Expand cancellation (`GEN#2`) is built, recorded in [Stop Expand](../design-notes.md#stop-expand-2026-10-18).
+- **Trace:** [usage: prompts](../usage.md#write-and-check-prompts), [PNG settings](../usage.md#load-settings-from-a-png), [Reuse owner](../design-notes.md#per-control-defaults-and-reuse); Expand cancellation (`GEN#2`) is built, recorded in [Stop Expand](../design-notes.md#stop-expand-2026-10-18). Saved setups' Restore and whole-draft Undo are built ([usage](../usage.md#save-generation-and-grid-setups), `GEN#27`).
 - **Dependency:** preserve separate prompt-text undo and whole-settings restoration semantics.
 
 ### UX#6 — Iterate from the result I am judging · P0 · Current
@@ -136,7 +140,8 @@ answers and exceptions.
 - **Acceptance:** representative loading, queued, paused, canceling, failed and completed states identify the work and relevant available action; a held action explains its reason when pressed.
 - **Acceptance:** closing/reopening a tab reconnects to surviving server work; a server restart does not imply that queued jobs survived.
 - **Acceptance:** progress/elapsed/estimates, watched-job identity, running and queued cancel actions, and retry/remainder remain direct without opening advanced job controls. Live preview can be shown contextually; Pause is secondary and retains its existing semantics. New arrivals do not displace the watched job or move its cancel target.
-- **Trace:** [usage: jobs](../usage.md#generate-and-manage-jobs), [queue owner](../design-notes.md#the-browsers-queue); notifications (`UI#2`) and Expand cancellation (`GEN#2`) are built. Actual native notification delivery remains a hands-on check under `UI#7`.
+- **Trace:** [usage: jobs](../usage.md#generate-and-manage-jobs), [queue owner](../design-notes.md#the-browsers-queue); notifications (`UI#2`) and Expand cancellation (`GEN#2`) are built. Actual native notification delivery remains a hands-on check under `UI#7`. A job whose cancel was requested shows Cancel as Stopping…, held, in every tab watching it (2026-11-03).
+- **Note, 2026-11-03:** choosing the watched job is not built. The page watches the running job, else the oldest queued ([the browser's queue](../design-notes.md#the-browsers-queue)); Move to front steers what runs next. The workbench's watch selector is proposed; whether to build an entry point is open for Matt.
 - **Dependency:** single-worker lifecycle and cooperative cancel/pause contracts; no background auto-queueing.
 
 ## Experiments, comparison and continuation
@@ -180,12 +185,12 @@ answers and exceptions.
 
 ### UX#12 — Curate a set across searches without losing it · P1 · Proposed
 
-- **Basis:** E1–E5, E9–E10, E12 and G9 Often supports browsing, Stars, All models, Runs, prompt/from-setting search, card sizing/Fit/Crop, retained picks and bulk starring. Persistent picks/hidden counts and Ctrl+A are built (`UI#6`), and Pick this run on a card's menu since 2026-10-30 (`UI#37`, [F19 follow-up](../review-2026-10-12.md#f19-follow-up-pick-this-run-ui37)). Their placement and clarity remain part of task trials.
+- **Basis:** E1–E5, E9–E10, E12 and G9 Often supports browsing, Stars, All models, Runs, prompt/from-setting search, card sizing/Fit/Crop, retained picks and bulk starring. Persistent picks/hidden counts and Ctrl+A are built (`UI#6`), and Pick this run on a card's menu since 2026-10-30 (`UI#37`, [F19 follow-up](../review-2026-10-12.md#f19-follow-up-pick-this-run-ui37)). Saved searches (`GAL#7`) are built; they have no preference rating, which is open for Matt. Their placement and clarity remain part of task trials.
 - **Story:** I can gather keepers across my runs, inspect them and apply an action to exactly that set.
 - **Acceptance:** design trials retain picks and anchor across search/paging and a bin visit; hidden-pick counts remain understandable and Clear is deliberate.
 - **Acceptance:** existing pick-all/run controls state their loaded/run scope and cap before action; they do not quietly select an unlimited gallery.
 - **Acceptance:** browse/older images, prompt search, Stars, All models, Runs, density/Fit/Crop and picked-star actions are directly available in gallery review; searches from an image's prompt/settings preserve the relevant route back. Technical search syntax remains available, while LoRA/source/mask/edit-type search (E8 Never) is secondary.
-- **Trace:** [usage: gallery](../usage.md#browse-compare-and-keep-results), [selection owner](../design-notes.md#the-gallery-selection); `UI#6` and a sheet of picks are built. This requirement evaluates the curation journey rather than creating another implementation row.
+- **Trace:** [usage: gallery](../usage.md#browse-compare-and-keep-results), [selection owner](../design-notes.md#the-gallery-selection); `UI#6`, saved searches (`GAL#7`, [plan](../plan-saved-searches.md#browser-acceptance)) and Pick this run (`UI#37`) are built. A sheet of the picks is deliberately not built ([No sheet of the picks](../design-notes.md#the-gallery-selection)); a run's sheet is its `run:` or `job:` search. This requirement evaluates the curation journey rather than creating another implementation row.
 - **Dependency:** UX#11; keep current per-card star behavior and the separate temporary bin selection.
 
 ### UX#13 — Compare two chosen candidates · P1 · Current
@@ -206,7 +211,7 @@ answers and exceptions.
 - **Acceptance:** representative edit dialogs identify their source, output size, strength, versions, supported checkpoint and relevant measured/unmeasured guidance before running.
 - **Acceptance:** Inpaint previews its painted mask and Outpaint its padding/band; held capabilities explain why and preserve keyboard access to that explanation.
 - **Acceptance:** frequent Refine/enlarge and strength/version controls are direct in the image action flow; Mass refine, Re-render and Swap tags are directly available at the picked/filter scope point. Inpaint/outpaint remain easy to open as contextual tools; cross-model/existing-pass inclusion remains secondary without changing defaults or eligibility.
-- **Trace:** [Refine](../usage.md#refine-an-existing-image), [Inpaint](../usage.md#inpaint-part-of-an-image), [Outpaint](../usage.md#outpaint-an-image), [edit plans](../plan-inpainting.md), [outpaint plan](../plan-outpainting.md); `INP#5`–`INP#10` retain their own status (FLUX.1 inpaint, `INP#3`, was enabled 2026-10-19).
+- **Trace:** [Refine](../usage.md#refine-an-existing-image), [Inpaint](../usage.md#inpaint-part-of-an-image), [Outpaint](../usage.md#outpaint-an-image), [edit plans](../plan-inpainting.md), [outpaint plan](../plan-outpainting.md); `INP#5`–`INP#10` retain their own status (FLUX.1 inpaint, `INP#3`, was enabled 2026-10-19). Since then: Only the masked area (`INP#9`, built 2026-11-03; card step `CARD#13`) and [Edit by instruction](../usage.md#edit-by-instruction) (`INP#11`, on main 2026-10-30; FLUX.1 Kontext [dev] inside its measured envelope; its card acceptance step is not run). Neither has a preference rating; that is open for Matt.
 - **Dependency:** current size guards and measured families; personal-file references `GEN#8` remain deferred until Matt raises them.
 
 ### UX#15 — Retain an edit's lineage and reproduce its intent · P0 · Current
@@ -215,7 +220,7 @@ answers and exceptions.
 - **Story:** I can trace a result back to its inputs and recognize when a rerun can no longer reproduce the original operation.
 - **Acceptance:** facts, Reuse and rerun previews identify source and mask/spec; a binned source offers the documented recovery and a permanently missing one is not silently replaced.
 - **Acceptance:** inpaint reruns preserve source size/mask, outpaint reruns preserve padding/fill/band, and an action that drops a mask states that resulting operation.
-- **Trace:** [usage: edits](../usage.md#inpaint-part-of-an-image), [inpaint reproduction](../plan-inpainting.md#the-reproduction-set), [outpaint lineage](../plan-outpainting.md#lineage-and-gallery-actions); related measurement rows `CARD#1`–`CARD#3` remain open.
+- **Trace:** [usage: edits](../usage.md#inpaint-part-of-an-image), [inpaint reproduction](../plan-inpainting.md#the-reproduction-set), [outpaint lineage](../plan-outpainting.md#lineage-and-gallery-actions); related measurement rows `CARD#1`–`CARD#3` remain open. An instruction edit retains its source proof through rows, PNGs and reruns, and Re-render refuses an edit ([plan](../plan-instruction-editing.md)). Only the masked area's crop box and working size are results, never keyed; its key rides `mask_key` as `+bbox16:32@1`. Swap tags, Mass refine and More seeds previews name an inpaint, outpaint, masked-area or edit row (Swap tags leaves an edit out), and Mass refine notes that it refines such a row whole, its mask not used (2026-11-03).
 - **Dependency:** UX#14 and stored reproduction invariants; browser checks cannot establish pixel quality or GPU fit.
 
 ### UX#16 — Back up, archive and clear the intended gallery · P0 · Current
@@ -259,7 +264,7 @@ answers and exceptions.
 
 ### UX#20 — Complete the same cycle with keyboard and assistive technology · P0 · Proposed
 
-- **Basis:** L6–L8 Often confirms keyboard, image right-click and Ctrl/Shift selection as primary interaction paths; L1–L5 terminal tasks are Never and need no common-task layout space. Semantic/focus support exists; browser keyboard/forced-colour/reduced-motion coverage is `UI#9`, while hands-on screen-reader/touch validation remains `UI#7`. These checks are not self-reported feature use.
+- **Basis:** L6–L8 Often confirms keyboard, image right-click and Ctrl/Shift selection as primary interaction paths; L1–L5 terminal tasks are Never and need no common-task layout space. Semantic/focus support exists; browser keyboard/forced-colour/reduced-motion coverage is `UI#9` (browser pass completed 2026-10-18, [validation.md](validation.md#accessibility-and-desktop-checks)), while hands-on screen-reader/touch validation remains `UI#7`. These checks are not self-reported feature use.
 - **Story:** I can navigate, judge, select, edit and recover work without relying on a mouse, colour alone or visual status alone.
 - **Acceptance:** validate complete tasks with an actual screen reader and keyboard; held-action reasons, status updates, modal focus/return and mask controls are understandable in use.
 - **Acceptance:** forced colours, reduced motion and touch are exercised; sheet navigation is evaluated against `UI#4`, and arbitrary feature shortcuts are not presumed necessary.

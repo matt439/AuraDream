@@ -142,6 +142,9 @@ async def swap_plan(
             continue
         seen[key] = record.id
         result.status = "queued"
+        kind = submission.pass_note(record)
+        if kind is not None:
+            result.notes = [kind, *result.notes]
         queued.append((result, cell))
     unheld, kept = await submission.prune_held(services, [cell for _, cell in queued])
     cells = []

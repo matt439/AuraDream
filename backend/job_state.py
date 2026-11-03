@@ -344,6 +344,10 @@ class Job:
             "status": self.status,
             "waiting_on": self.waiting_on,
             "ahead_paused_at": self.ahead_paused_at,
+            # A cancel asked for and not yet landed, so every tab watching -
+            # and a reloaded page - holds Cancel as "Stopping…", not only the
+            # one that pressed it.
+            "cancel_requested": self.cancel_requested,
             "pause_requested": self.pause_requested,
             "paused": self.paused,
             "paused_at": self.paused_at,

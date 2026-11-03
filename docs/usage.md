@@ -28,6 +28,13 @@ the selected checkpoint loads. While it loads, Check, tag lookup and adapters
 work, and Generate queues behind the load. A failed load shows its reason and
 **Retry load**; you can also select another checkpoint.
 
+On that automatic opening the line under the buttons says **Switch & load**
+saves the choice for the next start and closing the panel saves nothing.
+If no Hugging Face sign-in is found and the server's checkpoint needs one
+(a plain start with nothing saved), the open Z-Image Turbo is chosen
+instead, and the line says so; nothing is saved until you press **Switch &
+load** or **Apply & save**, and **Revert** puts the default back.
+
 Prompts and saved images stay available. Sampling starts from that checkpoint's
 defaults or its remembered settings, and the guide, supported controls, adapters
 and gallery scope update. **All models** shows images from the other checkpoints.
@@ -60,6 +67,10 @@ memory for speed: Model offload keeps one component on the GPU at a time,
 Sequential moves smaller pieces and is much slower, and No offload is fastest
 but needs 24 GB or more for FLUX-size models. FP8 with Model offload is
 recommended for a 16 GB card; each choice's note says the same under its menu.
+The **Compilation** menu offers **Eager** and the **Attention** menu **Native
+(default)**; their **Regional v1 (unavailable)** and **cuDNN v1
+(unavailable)** entries are listed but cannot run in this build, as the note
+under each menu says.
 
 The server's checkpoint says
 **Loaded**, **Loading…**, **Load failed** or **Current** under its name. A dotted
@@ -85,6 +96,16 @@ without a sample show default steps instead of an invented timing. These are
 previous runs, not estimates for your current prompt, size or steps; loading
 time is separate.
 
+The Models table's badge shows the full download size, **On disk**,
+**Part cached** or **Unknown**. Its tooltip and cache note explain absent
+files when the badge shows a size. This is an offline file check, not a
+download or integrity test. The size is the full sourced cost, not the
+amount still missing. Cached files may reduce the actual download.
+Unknown means the app cannot establish a complete reference, including
+some gated models and custom checkpoints.
+An On disk model still takes time to load or convert. Facts refresh after
+successful or failed loads without moving the chosen row or its controls.
+
 Some checkpoints are gated on Hugging Face. FLUX.1 Krea [dev] and FLUX.1 [dev]
 need their licence accepted on the model page; Krea 2 Turbo and Raw need the
 authors' approval, which can take days. Then sign in once with
@@ -93,6 +114,9 @@ row says **Open**, **Accept licence** or **Needs approval** under the name.
 Qwen-Image's row also says **Over 16 GB**: only its 4-bit Nunchaku build (WSL)
 fits this card, and choosing it under FP8, INT8 or BF16 says so under the
 buttons before you press one.
+**FLUX.1 Kontext [dev]**, listed last, only edits (its licence is accepted
+like FLUX.1 Krea [dev]'s): it loads only inside its measured envelope and
+Generate is held on it; see [Edit by instruction](#edit-by-instruction).
 Before a switch to another checkpoint lets the running one go, the server
 asks Hugging Face whether your sign-in can download it (nothing is asked
 when its files are already cached). If the answer is no - gated and not yet
@@ -143,14 +167,6 @@ selected and loaded and the saved settings are left as they were. The preference
 
 ## Generate and manage jobs
 
-Queued rows have a **Move to front** arrow: it puts that job next without
-interrupting current work. The progress row has the same arrow when the
-watched job is queued. **Skip** stops only the current image, batch or grid
-cell after its next step and continues with the next one. Earlier images
-stay, and **Finish run** can check the missing work later. Skip explains why
-it is held while loading, paused, saving or between cells. A Then refine pass
-also holds Skip because Finish currently recovers its base cells only.
-
 Enter a prompt, choose a size and press **Generate**. The checkpoint supplies
 its starting Steps, CFG and Mu. The **?** badges explain each control and
 which settings the model uses. A blank Seed draws a new seed; a fixed Seed
@@ -166,6 +182,8 @@ quantizer, size and other inputs. Nunchaku is not bitwise reproducible.
   jobs have individual cancel buttons. Jobs survive closing or reloading the
   browser, but a server restart ends them.
 - **Cancel** stops after the current denoising step and keeps saved images.
+  Once a job's cancel is requested, its Cancel reads **Stopping…**, held,
+  in every tab watching that job.
 - **Pause** waits for the current cell to finish. It needs a job with another
   cell to run; a single batch has no such boundary. Resume continues it.
   Pressed on a queued job, it holds that job before its first image once its
@@ -173,6 +191,22 @@ quantizer, size and other inputs. Nunchaku is not bitwise reproducible.
   The model remains loaded, so Unload is unavailable while paused. A pause
   past a minute says how long it has lasted, in the tab's title and, in a
   tab whose job waits behind it, the note under the bars.
+
+Queued rows have a **Move to front** arrow: it puts that job next without
+interrupting current work. The progress row has the same arrow when the
+watched job is queued. **Skip** stops only the current image, batch or grid
+cell after its next step and continues with the next one. Earlier images
+stay, and **Finish run** can check the missing work later. Skip explains why
+it is held while loading, paused, saving or between cells. A Then refine pass
+also holds Skip because Finish currently recovers its base cells only.
+
+**Notify when done** below progress is off until you opt in. Tick it to
+request browser notification permission. It notifies when this tab is hidden
+and its own watched job ends, with distinct messages for failure, cancellation
+and budget stops. Visible or replayed finishes do not alert again. The
+browser preference is separate from generation settings; blocked or
+unsupported notifications show a reason beside the checkbox. Desktop
+permission and delivery depend on your browser and operating system.
 
 The browser remembers prompts and controls; sampling settings are remembered
 per checkpoint. **Reset** restores defaults. Resume is never remembered as
@@ -339,25 +373,7 @@ call already underway may finish; the server keeps its GPU gate until that
 stage ends. Generate can then queue behind it, and another Expand has its
 own ticket. Unload explains when an abandoned expansion is still finishing.
 
-**Notify when done** below progress is off until you opt in. Tick it to
-request browser notification permission. It notifies when this tab is hidden
-and its own watched job ends, with distinct messages for failure, cancellation
-and budget stops. Visible or replayed finishes do not alert again. The
-browser preference is separate from generation settings; blocked or
-unsupported notifications show a reason beside the checkbox. Desktop
-permission and delivery depend on your browser and operating system.
-
 ## Use references and adapters
-
-The Models table's badge shows the full download size, **On disk**,
-**Part cached** or **Unknown**. Its tooltip and cache note explain absent
-files when the badge shows a size. This is an offline file check, not a
-download or integrity test. The size is the full sourced cost, not the
-amount still missing. Cached files may reduce the actual download.
-Unknown means the app cannot establish a complete reference, including
-some gated models and custom checkpoints.
-An On disk model still takes time to load or convert. Facts refresh after
-successful or failed loads without moving the chosen row or its controls.
 
 FLUX.2 [klein] accepts up to four gallery images as references. Add them with
 the card's **Reference** button or `--reference 12,15` in the CLI. Their order
@@ -539,6 +555,44 @@ Search `outpaint:yes` for outpaints; `inpaint:yes outpaint:no` gives the
 painted inpaints alone. Lower strengths let the blurred fill show through;
 see [verified.md](verified.md#outpaint).
 
+## Edit by instruction
+
+**✎ Edit by instruction…** in a gallery image's right-click menu opens a
+dialog that changes that image by a written instruction ("make it night,
+keep the composition"). Reuse of an edit opens it again on its source, with
+its instruction. It runs only on **FLUX.1 Kontext [dev]**, an edit-only
+checkpoint listed last in **Models**. The menu item is there on every
+checkpoint; elsewhere the dialog says what holds it, and **Open Models…**
+opens the picker on the editor's row without switching. The instruction and
+seed you typed survive that switch.
+
+The whole picture is redrawn: there is no mask, Strength or negative
+prompt, and the panel's prompt is not used. **Seed** (blank or the dice:
+random), **Steps** and **Guidance** start from the server's preview of the
+source, which also says the size it renders at. The line under the
+instruction says what the card measured: the rest of the picture still
+drifts. Ctrl+Enter runs, as **Edit** does.
+
+Kontext loads and edits only inside the envelope the card measured: FP8,
+Model offload, CUDA, Windows, Eager, diffusers 0.40.0, and square (1:1)
+sources, rendered at 512x512. Another quantization or offload is held in
+Models with its reason, and a source of another aspect is held in the
+dialog with its reason; nothing is quietly moved to the measured choice.
+Generate is held on the editor, which has no text-to-image call.
+
+An edit keeps its source, and a proof of the source's pixels, on its row
+and in its PNG. Each queued edit proves its source again as it starts: a
+source binned, deleted or changed meanwhile fails that edit with the
+reason. **More seeds…** of an edit makes new seeds of the same instruction
+on the same source, with no time estimate. Re-render refuses an edit (use
+More seeds or Reuse), Swap tags leaves it out, Finish run is held, and Mass
+refine leaves it out as a pass unless **Skip refine passes** is unticked.
+Search `edit:yes` for edits, `edit:no` for everything else.
+
+Its [card acceptance step](plan-instruction-editing.md#card-acceptance-step)
+(`INP#11`, one load through this page) has not been run; the bounded first
+trial is in [verified.md](verified.md#instruction-edit).
+
 ## Sweep settings with Grid search
 
 Blank axes use the main panel's value; populated axes cross with one another.
@@ -683,6 +737,11 @@ direct renders. Where the row has no room for both, **Delete unstarred**
 gives Re-render its place while cards are picked, so a pick never moves the
 gallery; Clear brings it back (once the pointer has left the gallery, where
 bringing it back would move the row under it).
+**Picked ▾ > Re-render picked at N MP…** (also on a picked card's
+right-click menu) renders each pick again at the panel's megapixel tier,
+each at its own aspect's size, and asks first with the sizes. Picks that
+include an instruction edit, or an inpaint the new size would resize, are
+refused with the ids to unpick.
 
 **Sheet** lays out varying settings as rows, columns and selectors. Prompt
 comparison versions take the rows; refine sweeps include their source.
@@ -706,10 +765,11 @@ driver and any spill into shared system memory are not counted, so a
 number close to 16 GB is no proof the render fitted. Images made before
 this was recorded, or without a GPU, show no number.
 
-**Select** (first in the row under the search box) picks cards for an
-action on several images: in select mode a click or Space picks a card,
+**Select** (after **Picked ▾** in the row under the search box) picks cards
+for an action on several images: in select mode a click picks a card,
 Shift picks a range from the last card picked, and Enter still opens the
-lightbox. Without Select, a plain click opens the large image without changing
+lightbox. In either mode Space picks or unpicks the focused card and
+Shift+Space adds the range. Without Select, a plain click opens the large image without changing
 the picks. Ctrl+click (Cmd+click) picks or unpicks one card; Ctrl+Shift+click
 (Cmd+Shift+click) adds the range from the last card toggled. Shift+click alone
 replaces the picks with that range. The selection survives searches, filters and paging; its count
@@ -728,14 +788,15 @@ numbers are held with a reason; the normal server preview reports grid
 limits and Batch duplicates. It never trims your picked list. Deleted images, and
 images moved to the recycle bin, leave the selection on their own.
 
-In Select mode, **Ctrl/Cmd+A** from a card or the Select button adds every
-loaded card up to the selection cap. Picks hidden by another filter stay
+**Ctrl/Cmd+A** from a card or the Select button, whether or not Select is
+on, adds every loaded card up to the selection cap. Picks hidden by another filter stay
 picked; unloaded results are not fetched. In the bin it adds only bin cards.
 
 **Pick this run** on a live card's right-click menu adds the images of the
 run that made it - every checkpoint's, whatever the search or Starred shows -
 to the picks, up to the selection cap; the note says how many it added of the
-run's total. Picks made under other filters stay. It is held, with the
+run's total. Its tooltip names that scope and the cap. Picks made under
+other filters stay. It is held, with the
 reason, on an image from before runs were grouped. If the picks are cleared
 or replaced, or the recycle bin opened, before the server answers, nothing is
 added.
@@ -762,7 +823,8 @@ what it would run (the swap marked, and what it takes out struck through
 under it) or why it is left out - a missing tag,
 already rendered, already queued, a deleted source or LoRA, the same as another image.
 Each image keeps its own seed, size and settings; one job is queued per
-size.
+size. A listed row notes when it is an inpaint or outpaint, and when only
+its masked area runs; an instruction edit is left out with its reason.
 
 **Refine…** (beside **Swap tags…**) runs a refine pass of each selected
 image - or, with nothing selected, of what the filter matches - from its
@@ -775,6 +837,9 @@ passes** to refine those again), another checkpoint's (tick **Include
 other checkpoints**: they take this checkpoint's steps, CFG and mu), too
 large at this scale, no step left at this strength, a missing file or
 LoRA, already refined, or this pass already queued. One job is queued per size.
+A listed row notes when it is an inpaint, outpaint, masked-area pass or
+edit, and that the new pass refines it whole as an ordinary image, its mask
+not used.
 
 **More seeds…** (beside **Refine…**) makes more images of each batch the
 selection holds - or, with nothing selected, of each batch the filter
@@ -790,7 +855,8 @@ queued at those settings - and runs at the Batch the batch was made with;
 images from before the Batch was recorded run at the panel's **Batch**,
 and a Batch too large for the size runs fewer at a time. The dialog lists
 each batch's seeds now and the seeds it will get, or why it gets none
-(another checkpoint's, a deleted refine source or LoRA). One job is
+(another checkpoint's, a deleted refine source or LoRA), and notes a batch
+that is an inpaint, outpaint, masked-area pass or edit. One job is
 queued per run, and the new images join it: the **Runs** list, `run:` and
 the run's sheet show them as one set. The same dialog opens where a run
 ends, on that run's images rather than the selection; see
@@ -851,10 +917,10 @@ it, or the visible opener of a menu that closed. Help can be opened above a ligh
 | Where | Keys |
 | --- | --- |
 | Main workspace | Ctrl/Cmd+Enter generates; inside an open Grid field runs the grid; in Refine runs the pass; in Refine… (Mass refine) runs the batch; in Swap tags queues; in More seeds… queues the batches. P, outside fields, menus and dialogs, goes back to the prompt box with the caret at the end, changing no text |
-| Gallery | `/` focuses search outside fields, menus and dialogs. M opens More seeds for the focused image's batch without queuing. Tab enters the cards; arrows/Home/End navigate, Enter opens, F stars; in select mode Space picks, Shift+Space picks a range, Esc clears |
+| Gallery | `/` focuses search outside fields, menus and dialogs. M opens More seeds for the focused image's batch without queuing. Tab enters the cards; arrows/Home/End navigate, Enter opens, F stars; Space picks (in either mode), Shift+Space picks a range, Ctrl/Cmd+A adds every loaded card, Esc clears |
 | Lightbox | Left/Right browse, F stars, R opens Refine, M opens More seeds without queuing, S toggles the picked pair, or otherwise compares a pass with its source or an image with its CFG neighbour, Delete moves the image to the recycle bin (in the bin: asks to delete it permanently), Esc closes |
 | Lightbox zoom | Wheel or +/− zoom, drag pans, 0 fits, 1 or double-click shows actual pixels |
-| Right-click an image | A menu of its actions: Star, Reuse settings, Use seed, More seeds of this batch…, Refine…, Inpaint…, Outpaint…, reference, Show run as sheet, Pick this run (a live card), Copy prompt / seed / image, Open PNG in new tab, Move to recycle bin. On a picked card: the picks' actions. The Menu key or Shift+F10 opens it from the keyboard; Shift+right-click gives the browser's own menu |
+| Right-click an image | A menu of its actions: Star, Reuse settings, Use seed, More seeds of this batch…, Refine…, Inpaint…, Outpaint…, Edit by instruction…, reference, Show run as sheet, Pick this run (a live card), Copy prompt / seed / image, Open PNG in new tab, Move to recycle bin. On a picked card: the picks' actions. The Menu key or Shift+F10 opens it from the keyboard; Shift+right-click gives the browser's own menu |
 | Contact sheet | Arrows move between populated cells; Home/End use row ends, Ctrl+Home/End the corners. Tab reaches the current cell's star; Enter/Space opens its lightbox, F stars |
 | Prompt/tag chips | Tab/Enter accepts a suggestion after three matching characters; Alt+Left/Right reorders chips, Delete removes, Enter edits |
 | Prompt replacements | Ctrl+Z restores text after Apply, Reuse (or a loaded PNG), Expand, Examples or a chip edit |
@@ -1056,7 +1122,7 @@ bundle.
 The dialog lists saved bundles with **Download** and **Import** controls.
 You can also choose a bundle file from your computer and import it. Saved
 bundles marked **Protected**, and selected `.ldbundle` files, need the
-password under **Password for protected bundles**; a wrong password is
+password under **Import password**; a wrong password is
 refused before a selected file is uploaded. Import
 merges into the current gallery, keeps existing images, remaps source-image
 links, and skips images already present (an image already present keeps
@@ -1117,6 +1183,11 @@ auradream
 
 Existing terminals inherit their old environment; open a new terminal or set
 the variable there too. WSL can use its own Linux path via an explicit export.
+
+The collapsed **Automatic startup backup** section in the dialog is off by
+default and stays so: Matt declined unattended backups on 2026-10-29
+([plan](plan-automatic-backups.md#matts-choices-for-unattended-backups)).
+Manual and password-protected bundles are unchanged.
 
 ## Clear or recover a gallery
 

@@ -4,13 +4,16 @@ the order its reasons are decided in, the cell it builds through
 from __future__ import annotations
 
 import dataclasses
+from types import SimpleNamespace
 
 import pytest
 
 from backend import grid, refine_batch
 from backend.config import settings
 from backend.model_defaults import defaults_for
-from backend.schemas import ImageRecord
+from backend.schemas import ImageRecord, OutpaintSpec
+from backend.schemas_mask_crop import MaskCropSpec
+from backend.submission_rules import pass_note
 
 RUNNING = settings.model_id
 
@@ -97,3 +100,34 @@ def test_versions_count_seeds_up_from_the_records_one_cell_each():
 def test_versions_wrap_at_the_seed_ceiling():
     top = 2**63 - 1
     assert [c.seed for c in plan(record(seed=top - 1), versions=4).cells] == [top - 1, top, 0, 1]
+
+
+MASK = "a" * 64
+
+
+def test_a_pass_note_names_what_the_record_ran_as():
+    assert pass_note(record()) is None
+    assert pass_note(record(refine=2, strength=0.5)) is None
+    assert pass_note(record(refine=2, strength=0.5, mask=MASK)) == "an inpaint of #2 under its mask"
+    cropped = record(refine=2, strength=0.5, mask=MASK, mask_crop=MaskCropSpec())
+    assert pass_note(cropped) == "an inpaint of #2 under its mask, only the masked area"
+    spec = OutpaintSpec(fill="edge-box3-r16", left=32, top=0, right=16, bottom=0, band=16)
+    padded = record(refine=2, strength=0.9, mask=MASK, outpaint=spec)
+    assert pass_note(padded) == "an outpaint of #2, padded 32 px left, 16 px right"
+    assert pass_note(_edited(7)) == "an instruction edit of #7"
+    assert pass_note(_edited(None)) == "an instruction edit of an unresolved source"
+
+
+def _edited(source):
+    # Only the spec's source is read; its proof is the admission's to check.
+    return record().model_copy(update={"edit": SimpleNamespace(source=source)})
+
+
+def test_a_pass_refined_again_says_what_it_leaves_behind():
+    inpaint = plan(record(refine=2, strength=0.5, mask=MASK), skip_passes=False)
+    assert inpaint.status == "queued" and inpaint.cell.request.mask is None
+    assert inpaint.notes == ["an inpaint of #2 under its mask: refined whole, its mask not used"]
+    edit = plan(_edited(7), skip_passes=False)
+    assert edit.status == "queued" and edit.cell.request.edit is None
+    assert edit.notes == ["an instruction edit of #7: refined as an ordinary image"]
+    assert plan(record(refine=2, strength=0.5), skip_passes=False).notes == []

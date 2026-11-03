@@ -7,12 +7,19 @@
 // its attribution and can settle only the watched context that sent it.
 const watchedCancelling = new Map();
 async function cancelJob() {
-  if (!busy || !currentJob || els.cancel.getAttribute('aria-disabled') === 'true') return;
+  if (!busy || !currentJob) return;
+  // Held: stopping already, asked here or elsewhere (syncCancel); a press says so.
+  if (els.cancel.getAttribute('aria-disabled') === 'true') {
+    showJobNote(`${els.cancel.title}.`);
+    return;
+  }
   const jobId = currentJob;
   const asking = { jobId, startedAt: serverStartedAt };
   watchedCancelling.set(jobId, asking);
+  const title = els.cancel.title;
   els.cancel.setAttribute('aria-disabled', 'true');
   els.cancel.textContent = 'Stopping…';
+  els.cancel.title = CANCEL_STOPPING;
   // This page's own press: its end is said as a plain cancel (finishJob).
   cancelledHere.add(jobId);
   try {
@@ -27,6 +34,7 @@ async function cancelJob() {
     showError(err.message);
     els.cancel.setAttribute('aria-disabled', 'false');
     els.cancel.textContent = 'Cancel';
+    els.cancel.title = title;
   } finally {
     if (watchedCancelling.get(jobId) === asking) watchedCancelling.delete(jobId);
   }
@@ -266,6 +274,8 @@ function streamJob(jobId, { reattached = 0 } = {}) {
           if (data.paused) setExecutionProgress(jobId, null, runs > 1 && data.run ? `${unit} ${data.run}/${runs}` : 'paused');
           else if (waiting) setExecutionProgress(jobId, null, waiting.text);
           else if (runs > 1 && data.run) setExecutionProgress(jobId, executionDiagnostics, `${unit} ${data.run}/${runs}`);
+          // Stopping, as the press that asked says it (cancelJob), in any tab.
+          else if (data.cancel_requested) setProgressText('finishing this step…');
           // A single image's counter is the step count from here on, shown
           // beside these words rather than said (the progress branch).
           else setExecutionProgress(jobId, executionDiagnostics, 'denoising…', 'denoising…');

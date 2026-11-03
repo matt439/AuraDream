@@ -696,7 +696,11 @@ function receiveStatus(s, asked = Date.now()) {
       lorasLive = s.state === 'ready';
       void refreshLoras();
     }
-    if (typeof s.max_grid_images === 'number') sheetPage = s.max_grid_images;
+    // A changed cap re-words Select's Ctrl+A clause (syncSelection).
+    if (typeof s.max_grid_images === 'number' && s.max_grid_images !== sheetPage) {
+      sheetPage = s.max_grid_images;
+      syncSelection();
+    }
     // The grid preview's budget line says whether the load counts against it,
     // and an open Refine dialog's preview where its pass starts, which only
     // the loaded schedule answers (`start_sigma`): a load that lands with the

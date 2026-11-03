@@ -656,8 +656,13 @@ class JobManager:
         if job is None or job.status in _TERMINAL:
             return job
         job.cancel_requested = True
+        loop = asyncio.get_running_loop()
         if job.status == "queued":
-            self._finish(asyncio.get_running_loop(), job, "cancelled")
+            self._finish(loop, job, "cancelled")
+        else:
+            # Said at once to every stream, not at the next boundary: another
+            # tab watching it holds its Cancel as stopping too.
+            self._emit(loop, job, {"type": "status", **job.snapshot(images=False)})
         return job
 
     def pause(self, job_id: str, paused: bool) -> Job | None:

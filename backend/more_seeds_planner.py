@@ -119,6 +119,11 @@ async def more_seeds_plan(
                 [template.id], [template.id] if template.outpaint is not None else (),
             )
             continue
+        # What the new seeds run as where it is more than the prompt: the
+        # same edit, inpaint or outpaint of the same source.
+        kind = submission.pass_note(template)
+        if kind is not None:
+            batch.notes.insert(0, kind)
         # New seeds are new pictures under any quantizer, but the batch's
         # images were all made under one; said, not refused.
         if template.quantization and quantization and template.quantization != quantization:

@@ -69,19 +69,30 @@ function oppositeAspect(aspect) {
   return opposite !== aspect && ASPECTS.includes(opposite) ? opposite : null;
 }
 
+// Held on a square aspect, aria-disabled with the reason: a press says it,
+// until another aspect takes the hold away (syncOrientation).
+const ORIENTATION_NONE = 'Square has no portrait or landscape orientation';
+let orientationHeldNote = null;
+
 function swapOrientation() {
   const opposite = oppositeAspect(pickedAspect);
-  if (opposite) choose(opposite, pickedTier);
+  if (opposite) { choose(opposite, pickedTier); return; }
+  orientationHeldNote = `${ORIENTATION_NONE}.`;
+  showError(orientationHeldNote, true);
 }
 
 function syncOrientation() {
   const opposite = oppositeAspect(pickedAspect);
-  els.orientation.disabled = !opposite;
+  els.orientation.setAttribute('aria-disabled', String(!opposite));
   if (!opposite) {
     els.orientation.textContent = 'Orientation';
-    els.orientation.title = 'Square has no portrait or landscape orientation';
+    els.orientation.title = ORIENTATION_NONE;
     els.orientation.setAttribute('aria-label', els.orientation.title);
     return;
+  }
+  if (orientationHeldNote !== null) {
+    if (els.error.textContent === orientationHeldNote) showError('');
+    orientationHeldNote = null;
   }
   const [width, height] = SIZES[opposite][pickedTier];
   const target = width > height ? 'Landscape' : 'Portrait';

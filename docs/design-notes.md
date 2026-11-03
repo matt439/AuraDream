@@ -1307,16 +1307,16 @@ server keeps closed. The
 owns the frozen recipe and sizes; the [carry inventory](instruction-edit-carry.md)
 and [bundle contract](instruction-edit-bundles.md) own integration acceptance.
 
-**Current status, 2026-10-30:** stage 3's approved [first card trial and bounded
+**Current status, 2026-11-03:** stage 3's approved [first card trial and bounded
 pair](verified.md#instruction-edit) ran on 2026-10-27 at 512x512, fp8 and model
 offload. That slice fits, replays, cancels and unloads, with drift beyond the
 instruction. Matt reviewed those results and approved stage 4 on 2026-10-29.
-Stage 4's ten slices are built on a local branch: its release (slice 7) opens
-the real server's gate, and the measured envelope holds everything the card
-did not measure. The real server's route and page await the plan's
-[card acceptance step](plan-instruction-editing.md#card-acceptance-step);
-until it passes the branch stays local. Other sizes and configurations
-remain unqualified.
+Stage 4's ten slices are on main (PR #17, 2026-10-30): its release (slice 7)
+opens the real server's gate inside the measured envelope, which holds
+everything the card did not measure. Only the plan's
+[card acceptance step](plan-instruction-editing.md#card-acceptance-step)
+remains, for the real server's route and page. Other sizes and
+configurations remain unqualified.
 
 An editor's `image` argument is a source for an instruction, rather than a
 klein reference list or a Refine strength. It must get explicit capabilities
@@ -1416,8 +1416,8 @@ means something against its source. The wide viewer gets no Edit tool yet,
 which keeps `smoke-wide` untouched; the context menu reaches the dialog at
 every width.
 
-**Stage 4 (2026-10-29/30): released inside the measured envelope, local
-until the card step.** The [plan](plan-instruction-editing.md#stage-4-the-qualified-first-slice-2026-10-29)
+**Stage 4 (2026-10-29/30): released inside the measured envelope, on main
+since PR #17; the card step remains.** The [plan](plan-instruction-editing.md#stage-4-the-qualified-first-slice-2026-10-29)
 records the ten slices; the reasons that are not obvious from the code:
 
 *Why an envelope, not wider defaults.* Stage 3 measured one configuration.

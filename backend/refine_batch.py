@@ -35,6 +35,7 @@ from .config import settings
 from .refine import scaled
 from .schemas import ImageRecord, error_detail
 from .seeds import wrap_seed
+from .submission_rules import pass_note
 
 # The statuses this module decides; the routes add `file_missing`,
 # `lora_missing`, `rendered` and `deleted`.
@@ -162,6 +163,14 @@ def plan(
             out.notes.append(f"LoRA {record.lora} not applied: it was for another checkpoint")
     elif steps is not None:
         changes["steps"] = steps
+    # What the record ran as and the pass leaves behind: the new pass is an
+    # ordinary refine of the whole picture.
+    kind = pass_note(record)
+    if kind is not None:
+        out.notes.append(
+            f"{kind}: refined as an ordinary image" if record.edit is not None
+            else f"{kind}: refined whole, its mask not used"
+        )
     try:
         cell = grid.cell_from_record(
             record, width=width, height=height, label=f"#{record.id}", **changes
