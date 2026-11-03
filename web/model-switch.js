@@ -1159,8 +1159,9 @@ async function refreshModelCatalogue({ current = false } = {}) {
     modelSwitchError = err.message;
     modelCatalogueLoaded = false;
     // The opening's catalogue did not answer: a later retry never moves the
-    // choice, or the picker's body, by itself.
+    // choice, or the picker's body, by itself (nor opens the disclosure).
     modelPickerPointAt = null;
+    modelPerformanceOpening = false;
     modelCatalogueFailedAt = Date.now();
   } finally {
     if (epoch === modelCatalogueEpoch) {

@@ -108,5 +108,9 @@
   {"eval":"showModelPicker(true, {focus:false});"},
   {"expect":"__until(() => modelCatalogueLoaded && !modelCataloguePending && els.modelPerformance.open)"},
   {"eval":"revertModelPicker();"},
-  {"expect":"__until(() => !modelCataloguePending && !invalidLoaderDraftReason() && els.modelPerformance.open && els.modelPerformanceChoices.textContent === 'Eager, Native')"}
+  {"expect":"__until(() => !modelCataloguePending && !invalidLoaderDraftReason() && els.modelPerformance.open && els.modelPerformanceChoices.textContent === 'Eager, Native')"},
+  {"log":"'A failed opening catalogue ends the opening: its later automatic retry never opens the disclosure.'"},
+  {"eval":"showModelPicker(false); els.modelPerformance.open=false; window.__api=api; window.api=(path,...rest)=>String(path).startsWith('/api/models')?Promise.reject(new Error('fake catalogue failure')):__api(path,...rest); showModelPicker(true, {focus:false});"},
+  {"expect":"__until(() => modelCatalogueFailedAt > 0 && !modelCataloguePending && !modelPerformanceOpening && !els.modelPerformance.open)"},
+  {"eval":"window.api=__api; showModelPicker(false);"}
 ]

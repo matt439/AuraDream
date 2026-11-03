@@ -6680,7 +6680,8 @@ actions, structural conflicts, saved and unsaved recipes across polling/reload,
 explicit Eager recovery and per-render cache persistence/Reuse/Reset/Undo. The
 Performance disclosure is collapsed at Eager/Native, opens for a saved, invalid
 or (stubbed) admitted choice while hidden or as the picker opens, and a refresh
-with the picker open neither opens it nor moves the table. Nonempty
+with the picker open neither opens it nor moves the table; a failed opening
+catalogue ends the opening, so its later retry cannot open it. Nonempty
 record Reuse stays refused. Only an ordinary Eager fixture may generate; no compiler,
 model download, non-Eager execution or performance/quality acceptance is established.
 `tests/test_attention_selection.py` checks coverage, transactional failures,
