@@ -739,8 +739,9 @@ gallery; Clear brings it back (once the pointer has left the gallery, where
 bringing it back would move the row under it).
 **Picked ▾ > Re-render picked at N MP…** (also on a picked card's
 right-click menu) renders each pick again at the panel's megapixel tier,
-each at its own aspect's size, and asks first with the sizes. Its question
-notes a row that is an inpaint, outpaint, masked-area pass or edit.
+each at its own aspect's size, and asks first with the sizes. Picks that
+include an instruction edit, or an inpaint the new size would resize, are
+refused with the ids to unpick.
 
 **Sheet** lays out varying settings as rows, columns and selectors. Prompt
 comparison versions take the rows; refine sweeps include their source.
@@ -822,8 +823,8 @@ what it would run (the swap marked, and what it takes out struck through
 under it) or why it is left out - a missing tag,
 already rendered, already queued, a deleted source or LoRA, the same as another image.
 Each image keeps its own seed, size and settings; one job is queued per
-size. A listed row notes when it is an inpaint, outpaint, masked-area pass
-or edit.
+size. A listed row notes when it is an inpaint or outpaint, and when only
+its masked area runs; an instruction edit is left out with its reason.
 
 **Refine…** (beside **Swap tags…**) runs a refine pass of each selected
 image - or, with nothing selected, of what the filter matches - from its
@@ -837,7 +838,8 @@ other checkpoints**: they take this checkpoint's steps, CFG and mu), too
 large at this scale, no step left at this strength, a missing file or
 LoRA, already refined, or this pass already queued. One job is queued per size.
 A listed row notes when it is an inpaint, outpaint, masked-area pass or
-edit, and what its pass drops (the mask or the outpaint's spec).
+edit, and that the new pass refines it whole as an ordinary image, its mask
+not used.
 
 **More seeds…** (beside **Refine…**) makes more images of each batch the
 selection holds - or, with nothing selected, of each batch the filter
