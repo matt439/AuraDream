@@ -580,7 +580,8 @@ before changing it.
   and answering), `start`, `stop`/`restart` (refused while `server_busy`
   says busy or cannot tell, unless `--force`, which says what it
   interrupts; then a wait for `/api/status` of up to 60 s that stops early
-  on a failed unit), `logs` (`journalctl`, `-n` 100 by default, `-f`) and
+  on a failed unit, or a crashing one: `Restart=on-failure` shows it as
+  SubState `auto-restart` or a grown `NRestarts`, not failed), `logs` (`journalctl`, `-n` 100 by default, `-f`) and
   `doctor` (with the env file); it reads only the page's polled GETs, which
   keep awake does not count. Test seams:
   `AURADREAM_INSTALL_TEST_ROOT`, `AURADREAM_INSTALL_TEST_PROC_VERSION`,
@@ -737,10 +738,11 @@ before changing it.
   beside a `.cmd` for cmd.exe, which always asks; keep each pair in step.
   `auradream-server` (`.ps1`, with a `.cmd` that runs it) updates and
   controls a Linux server over `ssh`: `status`, `start`, `stop`/`restart`
-  (`-Force`), `update` (`linux/update.sh --restart`, `-DryRun` its
-  `--dry-run`), `logs` (`-Follow`, `-Lines N`), `doctor`, `connect`
-  (`-Command`) and `open`. Settings are only `AURADREAM_SERVER` (required;
-  no default address, the repository is public), `AURADREAM_SERVER_DIR`,
+  (`-Force`), `update` (`linux/update.sh --restart`; `-DryRun`:
+  `--restart --dry-run`), `logs` (`-Follow`/`-f`, `-Lines N`/`-n N`),
+  `doctor`, `connect` (`-Command`), `open` and `help` (or `-h`,
+  `--help`). Settings are only `AURADREAM_SERVER` (required; no default
+  address, the repository is public), `AURADREAM_SERVER_DIR`,
   `AURADREAM_SERVER_PORT` and `AURADREAM_SERVER_WAKE` (an http(s) URL to
   POST or a MAC for a Wake-on-LAN broadcast), read by it and never by the
   app. Before each command but `help` it tests the ssh port that `ssh -G`
@@ -7339,7 +7341,8 @@ that answers only while the stub service is active; no real systemctl, git
 or uv runs and nothing touches the network. `control.sh`'s tests cover
 status of an answering and a stopped service, stop and restart refusing a
 busy server (no `systemctl` change) and `--force`, the wait for the page
-(a delayed stub start) and its limit, a failed unit, `logs`' `-n`/`-f`,
+(a delayed stub start) and its limit, a failed unit, an auto-restarting
+one and a grown `NRestarts`, `logs`' `-n`/`-f`,
 `doctor` with the env file, unknown commands (exit 2) and root. Those tests
 are Linux only (skipped on Windows and where bash is missing); the static
 checks (the script set, ASCII, LF, the shebang and `set -euo pipefail`) run
@@ -7352,8 +7355,10 @@ and a test's port: a listener there is an awake server, a closed port a
 sleeping one, and a loopback wake gate starts the listener on its POST. It
 covers the missing and malformed settings (exit 2), each command's ssh
 line (folder default and override quoted for bash, `-Force`, `-Lines`,
-`-Follow` with `-t`, `update`/`-DryRun`, `connect`), refused double quotes
-and trailing backslashes, the remote exit code and the 255 and 127 hints,
+`-Follow` with `-t`, `-f`/`-n`, `update` and `-DryRun` (`--restart
+--dry-run`), `connect`), `-h`/`--help`, refused double quotes and trailing
+backslashes, the remote exit code and the 255 and 127 hints (`connect`'s
+without the `BatchMode` sentence),
 waking by URL, `open`, and the 102-byte magic packet through a dot-source.
 Windows only; its static checks (every `bin\` and root `.ps1`/`.cmd` ASCII
 and CRLF, no address but the placeholders) run everywhere.

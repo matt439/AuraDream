@@ -72,9 +72,24 @@ except Exception:  # noqa: BLE001 - any failure means "not yet"
 PY
 }
 
-# After a start: wait for the page, or for the service to fail.
+# The unit's SubState and NRestarts, as "<sub> <count>" ("-" when unknown).
+unit_restart_state() {
+    local key value sub='' restarts=''
+    while IFS='=' read -r key value; do
+        case "$key" in
+            SubState) sub=$value ;;
+            NRestarts) restarts=$value ;;
+        esac
+    done < <(systemctl --user show -p SubState -p NRestarts "$UNIT_NAME" 2>/dev/null || true)
+    printf '%s %s\n' "${sub:--}" "${restarts:--}"
+}
+
+# After a start: wait for the page, or for the service to fail. The unit has
+# Restart=on-failure, so a crash while starting shows as auto-restart (or a
+# grown NRestarts) rather than failed, until systemd's start limit trips.
 wait_for_page() {
-    local waited=0
+    local waited=0 sub restarts first_restarts
+    read -r sub first_restarts < <(unit_restart_state)
     say "  Waiting for the page at http://127.0.0.1:$port/ (up to $wait_seconds s)..."
     while :; do
         if server_answers; then
@@ -83,6 +98,10 @@ wait_for_page() {
         fi
         if systemctl --user is-failed --quiet "$UNIT_NAME" 2>/dev/null; then
             refuse 'The AuraDream service failed while starting.' 'Read its log: bash linux/control.sh logs (or journalctl --user -u auradream -e).'
+        fi
+        read -r sub restarts < <(unit_restart_state)
+        if [ "$sub" = auto-restart ] || { [[ $restarts =~ ^[0-9]+$ ]] && [[ $first_restarts =~ ^[0-9]+$ ]] && [ "$restarts" -gt "$first_restarts" ]; }; then
+            refuse 'The AuraDream service exited while starting, and systemd is starting it again (Restart=on-failure): it is crashing, not slow.' 'Read its log: bash linux/control.sh logs (or journalctl --user -u auradream -e).'
         fi
         if [ "$waited" -ge "$wait_seconds" ]; then
             refuse "The service is started, but the page did not answer within $wait_seconds s." 'It may still be starting; run bash linux/control.sh status in a minute, and read its log: bash linux/control.sh logs.'

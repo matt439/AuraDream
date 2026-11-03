@@ -172,6 +172,25 @@ def test_help_and_an_unknown_command(sandbox):
 
 
 @on_windows
+@pytest.mark.parametrize("args", [("-h",), ("--help",), ("help", "--help")])
+def test_dash_h_and_dash_dash_help_are_help(sandbox, args):
+    """They name no parameter, so PowerShell hands them over as leftovers."""
+    del sandbox["env"]["AURADREAM_SERVER"]
+    result = _run(sandbox, *args)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "AURADREAM_SERVER_WAKE" in result.stdout
+    assert _calls(sandbox) == []
+
+
+@on_windows
+def test_logs_takes_f_and_n_like_control_sh(sandbox, awake):
+    """-f is not ambiguous between -Force and -Follow: it is -Follow's alias."""
+    result = _run(sandbox, "logs", "-f", "-n", "5")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert _remote(sandbox) == ["-t", *BATCH, "me@my-box", _control("'logs' '--follow' '--lines' '5'")]
+
+
+@on_windows
 @pytest.mark.parametrize("args", [("status", "-Force"), ("logs", "-DryRun"), ("stop", "-Lines", "5"),
                                   ("status", "-Command", "ls"), ("status", "extra")])
 def test_an_option_for_another_command_is_refused(sandbox, args):
@@ -208,7 +227,8 @@ def test_logs_follow_asks_for_a_terminal(sandbox, awake):
 
 
 @on_windows
-@pytest.mark.parametrize(("args", "flag"), [(("update",), "'--restart'"), (("update", "-DryRun"), "'--dry-run'")])
+@pytest.mark.parametrize(("args", "flag"), [(("update",), "'--restart'"),
+                                           (("update", "-DryRun"), "'--restart' '--dry-run'")])
 def test_update_runs_update_sh(sandbox, awake, args, flag):
     assert _run(sandbox, *args).returncode == 0
     assert _remote(sandbox) == [*BATCH, "me@my-box", _control(flag, script="update.sh")]
@@ -271,6 +291,16 @@ def test_ssh_failing_gives_a_hint(sandbox, awake):
     result = _run(sandbox, "status")
     assert result.returncode == 255
     assert "ssh could not reach me@my-box (exit 255)" in result.stderr and "authorized_keys" in result.stderr
+    assert "BatchMode" in result.stderr
+
+
+@on_windows
+def test_connect_failing_does_not_blame_batch_mode(sandbox, awake):
+    sandbox["env"]["STUB_SSH_EXIT"] = "255"
+    result = _run(sandbox, "connect")
+    assert result.returncode == 255
+    assert "ssh could not reach me@my-box (exit 255)" in result.stderr and "authorized_keys" in result.stderr
+    assert "BatchMode" not in result.stderr and "password" in result.stderr
 
 
 @on_windows

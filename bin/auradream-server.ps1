@@ -3,8 +3,8 @@
 #
 #     auradream-server status            # the service, the checkout, the server's own status
 #     auradream-server start | stop | restart [-Force]
-#     auradream-server update [-DryRun]  # bash linux/update.sh --restart (or --dry-run)
-#     auradream-server logs [-Follow] [-Lines N]
+#     auradream-server update [-DryRun]  # bash linux/update.sh --restart (and --dry-run)
+#     auradream-server logs [-Follow] [-Lines N]   # or -f, -n N
 #     auradream-server doctor            # the read-only machine check, on the server
 #     auradream-server connect [-Command '<cmd>']   # a shell in the checkout, or one command
 #     auradream-server open              # the page in this PC's browser
@@ -16,15 +16,15 @@
 # for a Wake-on-LAN packet). Each command but help first wakes the server
 # when its ssh port does not answer. docs/setup.md, "From another PC".
 #
-# Test seam (tests/test_install_scripts.py): AURADREAM_INSTALL_TEST_NO_BROWSER
+# Test seam (tests/test_auradream_server.py): AURADREAM_INSTALL_TEST_NO_BROWSER
 # makes open print the address without starting a browser. Dot-sourced, the
 # script defines its functions and runs nothing.
 param(
     [Parameter(Position = 0)][string]$Action = '',
     [switch]$Force,
     [switch]$DryRun,
-    [switch]$Follow,
-    [int]$Lines = 0,
+    [Alias('f')][switch]$Follow,
+    [Alias('n')][int]$Lines = 0,
     [string]$Command = $null,
     [Parameter(ValueFromRemainingArguments = $true)][string[]]$Rest = @()
 )
@@ -41,8 +41,8 @@ Commands (each runs on the server, over ssh, from its checkout):
   start                  start the service and wait for the page
   stop [-Force]          stop it; refused while it is busy unless -Force
   restart [-Force]       stop it (same check), start it, wait for the page
-  update [-DryRun]       bash linux/update.sh --restart (-DryRun: --dry-run)
-  logs [-Follow] [-Lines N]   its log, the last 100 lines by default
+  update [-DryRun]       bash linux/update.sh --restart (-DryRun: --restart --dry-run)
+  logs [-Follow] [-Lines N]   its log, the last 100 lines by default (-f, -n N)
   doctor                 the read-only machine check, with the service's settings
   connect [-Command 'cmd']    a shell in the checkout, or one command there
   open                   open the page in this PC's browser
@@ -231,9 +231,11 @@ function Get-RemoteCommand([string]$Directory, [string]$Script, [string[]]$Words
 
 function Invoke-Main {
     $action = $Action.ToLowerInvariant()
-    if ($Rest.Count -gt 0) { Stop-WithUsage "Unexpected argument(s): $($Rest -join ' ')" }
+    # -h and --help name no parameter, so PowerShell puts them in $Rest.
+    $askedHelp = $Rest.Count -eq 1 -and @('-h', '--help') -contains $Rest[0] -and @('', 'help') -contains $action
+    if (-not $askedHelp -and $Rest.Count -gt 0) { Stop-WithUsage "Unexpected argument(s): $($Rest -join ' ')" }
     $known = @('status', 'start', 'stop', 'restart', 'update', 'logs', 'doctor', 'connect', 'open', 'help')
-    if ($action -eq '' -or $action -eq 'help' -or $action -eq '-h' -or $action -eq '--help') {
+    if ($askedHelp -or $action -eq '' -or $action -eq 'help') {
         Write-Host $Usage
         exit 0
     }
@@ -279,9 +281,11 @@ function Invoke-Main {
     try {
         switch ($action) {
             'update' {
-                $flag = '--restart'
-                if ($DryRun) { $flag = '--dry-run' }
-                $remote = Get-RemoteCommand $directory 'update.sh' @($flag)
+                # --restart with --dry-run too: without it update.sh stops
+                # at a running service, so the preview would show nothing.
+                $flags = @('--restart')
+                if ($DryRun) { $flags += '--dry-run' }
+                $remote = Get-RemoteCommand $directory 'update.sh' $flags
             }
             'connect' {
                 $cd = ConvertTo-BashPath $directory
@@ -342,8 +346,13 @@ function Invoke-Main {
     if ($code -eq 255) {
         Write-Problem ''
         Write-Problem "ssh could not reach $server (exit 255). Check AURADREAM_SERVER (user@host), that the server is on and"
-        Write-Problem 'answering, and that this PC''s key is in the server''s ~/.ssh/authorized_keys (ssh-keygen, then add'
-        Write-Problem 'the .pub file there): these commands use ssh with BatchMode, which never asks for a password.'
+        if ($action -eq 'connect') {
+            Write-Problem 'answering, and that this PC''s key is in the server''s ~/.ssh/authorized_keys (ssh-keygen, then add'
+            Write-Problem 'the .pub file there), or that its password is right.'
+        } else {
+            Write-Problem 'answering, and that this PC''s key is in the server''s ~/.ssh/authorized_keys (ssh-keygen, then add'
+            Write-Problem 'the .pub file there): these commands use ssh with BatchMode, which never asks for a password.'
+        }
     } elseif ($code -eq 127 -and $action -ne 'connect') {
         Write-Problem ''
         if ($action -eq 'update') {

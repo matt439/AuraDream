@@ -594,7 +594,7 @@ $env:AURADREAM_SERVER_WAKE = 'aa:bb:cc:dd:ee:ff'           # optional
 auradream-server status
 auradream-server restart            # -Force: even while it is busy
 auradream-server stop               # start, stop, restart
-auradream-server update             # bash linux/update.sh --restart; -DryRun: --dry-run
+auradream-server update             # bash linux/update.sh --restart; -DryRun: --restart --dry-run
 auradream-server logs -Lines 50     # -Follow keeps reading; Ctrl-C ends it
 auradream-server doctor
 auradream-server connect            # a shell in the checkout

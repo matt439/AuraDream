@@ -108,12 +108,17 @@ def _install_stubs(stubs: Path) -> None:
     ))
     # The service's state is a file: is-active answers from it, stop removes
     # it, start (or restart) makes it, STUB_START_DELAY seconds later when
-    # set; a "failed" file beside it is a failed unit.
+    # set; a "failed" file beside it is a failed unit, an "auto-restart" file
+    # one systemd is restarting. STUB_CRASH_AFTER seconds after a start,
+    # NRestarts (the "restarts" file, else 0) grows by one.
     _stub(stubs, "systemctl", (
         'state="$STUB_STATE/active"\n'
         'begin() {\n'
         '  if [ -n "${STUB_START_DELAY:-}" ]; then (sleep "$STUB_START_DELAY"; : >"$state") >/dev/null 2>&1 &\n'
         '  else : >"$state"; fi\n'
+        '  if [ -n "${STUB_CRASH_AFTER:-}" ]; then\n'
+        '    (sleep "$STUB_CRASH_AFTER"; echo 1 >"$STUB_STATE/restarts") >/dev/null 2>&1 &\n'
+        '  fi\n'
         '}\n'
         'case "$2" in\n'
         '  is-active) [ -e "$state" ]; exit ;;\n'
@@ -123,9 +128,11 @@ def _install_stubs(stubs: Path) -> None:
         '  restart) rm -f "$state"; begin ;;\n'
         '  show)\n'
         '    if [ -e "$STUB_STATE/failed" ]; then a=failed s=failed\n'
+        '    elif [ -e "$STUB_STATE/auto-restart" ]; then a=activating s=auto-restart\n'
         '    elif [ -e "$state" ]; then a=active s=running\n'
         '    else a=inactive s=dead; fi\n'
-        '    printf "LoadState=loaded\\nActiveState=%s\\nSubState=%s\\n" "$a" "$s"\n'
+        '    n=0; [ -e "$STUB_STATE/restarts" ] && n=$(cat "$STUB_STATE/restarts")\n'
+        '    printf "LoadState=loaded\\nActiveState=%s\\nSubState=%s\\nNRestarts=%s\\n" "$a" "$s" "$n"\n'
         '    printf "StateChangeTimestamp=Tue 2026-11-03 10:00:00 AEDT\\nUnitFileState=enabled\\n" ;;\n'
         'esac\n'
         'exit 0'
@@ -880,6 +887,29 @@ def test_control_start_stops_waiting_for_a_failed_unit(sandbox):
     result = _run(sandbox, "control.sh", "start")
     assert result.returncode == 1, result.stdout + result.stderr
     assert "The AuraDream service failed while starting." in result.stdout
+
+
+@on_linux
+def test_control_start_stops_waiting_for_an_auto_restarting_unit(sandbox):
+    """Restart=on-failure: a crash while starting is auto-restart, not failed."""
+    _venv(sandbox)
+    (sandbox["state"] / "auto-restart").touch()
+    result = _run(sandbox, "control.sh", "start")       # the default 60 s wait
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "it is crashing, not slow" in result.stdout
+    assert "did not answer within" not in result.stdout
+
+
+@on_linux
+def test_control_restart_stops_waiting_when_the_unit_restarts(sandbox):
+    """NRestarts growing since the start is a crash too, whatever SubState says."""
+    _venv(sandbox)
+    (sandbox["state"] / "active").touch()
+    sandbox["env"]["STUB_CRASH_AFTER"] = "1"
+    result = _run(sandbox, "control.sh", "restart", "--force")
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "it is crashing, not slow" in result.stdout
+    assert "did not answer within" not in result.stdout
 
 
 @on_linux
