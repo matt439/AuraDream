@@ -1,6 +1,6 @@
 {
   "include": ["backend", "tools"],
-  "typeCheckingMode": "basic",
+  "typeCheckingMode": "standard",
   "pythonVersion": "3.13",
   "pythonPlatform": "All",
   "venvPath": ".",

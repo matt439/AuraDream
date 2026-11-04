@@ -48,7 +48,8 @@ class NewbieTimestepCaptionEmbedding(Lumina2CombinedTimestepCaptionEmbedding):
         time_dim = min(hidden_size, 1024)
         self.time_text_embed = nn.Sequential(nn.SiLU(), nn.Linear(time_dim + pooled_projection_dim, time_dim))
 
-    def forward(self, hidden_states, timestep, encoder_hidden_states, pooled_projections):
+    # The author's embedder takes the pooled projection the base class lacks.
+    def forward(self, hidden_states, timestep, encoder_hidden_states, pooled_projections):  # pyright: ignore[reportIncompatibleMethodOverride]
         time_embed, caption_embed = super().forward(hidden_states, timestep, encoder_hidden_states)
         pooled_embed = self.clip_text_pooled_proj(pooled_projections)
         return self.time_text_embed(torch.cat([time_embed, pooled_embed], dim=-1)), caption_embed
@@ -90,8 +91,10 @@ class NewbieTransformer2DModel(Lumina2Transformer2DModel):
             hidden_size, cap_feat_dim, pooled_projection_dim, norm_eps,
         )
 
+    # The pooled projection comes before the base's attention_kwargs, as the
+    # author's model takes it.
     @apply_lora_scale("attention_kwargs")
-    def forward(
+    def forward(  # pyright: ignore[reportIncompatibleMethodOverride]
         self,
         hidden_states: torch.Tensor,
         timestep: torch.Tensor,

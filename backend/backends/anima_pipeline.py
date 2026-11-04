@@ -32,8 +32,8 @@ class _CallbackDenoiseStep(AnimaDenoiseStep):
 
     callback: Callable | None = None
 
-    def loop_step(self, components, state, *, i, t):
-        components, state = super().loop_step(components, state, i=i, t=t)
+    def loop_step(self, components, state, *, i, t, **kwargs):
+        components, state = super().loop_step(components, state, i=i, t=t, **kwargs)
         if self.callback is not None:
             updates = self.callback(components, i, t, {"latents": state.latents})
             if updates is not None and "latents" in updates:

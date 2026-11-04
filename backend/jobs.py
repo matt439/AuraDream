@@ -96,6 +96,10 @@ class JobManager:
         self.backend = backend
         self._ensure_loaded = ensure_loaded
         self._jobs: dict[str, Job] = {}
+        # The event loop holds only a weak reference to a task: each job's
+        # runner is kept here until it finishes, or it could be collected
+        # mid-run.
+        self._runners: set[asyncio.Task] = set()
         # Admission is ours, rather than asyncio.Lock's FIFO waiters. A moved
         # head is checked again inside the gate before it may generate.
         self._pending: list[str] = []
@@ -642,7 +646,9 @@ class JobManager:
             for stale in list(self._jobs)[:-100]:
                 if self._jobs[stale].status in _TERMINAL:
                     self._jobs.pop(stale, None)
-        asyncio.create_task(self._run(job))
+        runner = asyncio.create_task(self._run(job))
+        self._runners.add(runner)
+        runner.add_done_callback(self._runners.discard)
         return job
 
     def cancel(self, job_id: str) -> Job | None:

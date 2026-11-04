@@ -964,7 +964,7 @@ def reindex(
             print(f"  skip  {path.name}: invalid PNG metadata: {exc}", file=out)
             return
         except OSError:  # not a PNG at all, or truncated - UnidentifiedImageError is one
-            meta = None
+            meta, (width, height), image = None, (0, 0), None
         if meta is None:
             counts["no_metadata"] += 1
             print(f"  skip  {path.name}: no AuraDream metadata", file=out)

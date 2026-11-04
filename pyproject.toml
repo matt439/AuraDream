@@ -76,9 +76,10 @@ line-length = 120
 extend-exclude = ["docs"]
 
 [tool.ruff.lint]
-# Correctness only: syntax, undefined and unused names, and the bugbear
-# checks that catch real mistakes. Style stays the code's own.
-select = ["E4", "E7", "E9", "F", "B"]
+# Correctness only: syntax, undefined and unused names, the bugbear checks
+# that catch real mistakes, and a task the event loop could collect mid-run
+# (RUF006). Style stays the code's own.
+select = ["E4", "E7", "E9", "F", "B", "RUF006"]
 # Body()/Query() defaults are FastAPI's idiom; zip() lengths are checked
 # where they matter; the base class's no-op hooks are optional on purpose.
 ignore = ["B008", "B905", "B027", "E731"]

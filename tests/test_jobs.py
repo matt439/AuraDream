@@ -682,3 +682,20 @@ def test_submit_steps_the_seeds_exactly_as_grid_expand_does(store):
         await manager.shutdown()
 
     asyncio.run(scenario())
+
+
+def test_each_job_runner_is_held_until_it_finishes(store):
+    # The event loop keeps only a weak reference to a task; a runner nothing
+    # else held could be collected mid-run (ruff's RUF006).
+    async def scenario():
+        manager = JobManager(FakeBackend())
+        await manager._gate.acquire()
+        manager._holder = "critic"
+        job = await manager.submit(GenerateRequest(prompt="held", width=256, height=256, steps=1))
+        assert len(manager._runners) == 1
+        manager._holder = None
+        manager._gate.release()
+        await _until_queue(lambda: job.status == "done" and not manager._runners)
+        await manager.shutdown()
+
+    asyncio.run(scenario())

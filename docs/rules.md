@@ -8048,8 +8048,12 @@ the full-test fallback when classification cannot be established. The
 design notes' [CI range policy](design-notes.md#ci-compares-the-whole-change-range)
 explains why the workflow itself is never path-filtered away.
 
-`uv run --group dev python tools/typecheck.py` checks basic Pyright over
-all Python in `backend/` and `tools/`, using `pyrightconfig.json` and the
+`uv run --group dev python tools/typecheck.py` checks Pyright's standard
+mode over all Python in `backend/` and `tools/` (raised from basic on
+2026-11-04: a possibly unbound name and an incompatible override are now
+errors; the three model-port overrides that mirror their authors' calls
+carry a commented `reportIncompatibleMethodOverride` ignore), using
+`pyrightconfig.json` and the
 locked `pyright==1.1.407` Python package. Node must already be installed.
 The gate verifies the package and bundled JavaScript version, constrains
 the wrapper to that bundle/global Node and disables its update/provision

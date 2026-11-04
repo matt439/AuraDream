@@ -645,6 +645,7 @@ def export_bundle(expected: int | None = None, password: str | None = None, prog
         managed = backup_receipts.read_marker(managed.marker())
     settings = _settings()
     with gallery_lock.hold(settings.db_path):
+        chosen: list[dict] = []
         if ids is None:
             before = preview()  # which settles stale partials first
             if not keep_gallery and before["records"] != expected:

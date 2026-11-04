@@ -54,7 +54,8 @@ class NewbieJinaTextEncoder(JinaEmbeddingsV3Model):
     def __init__(self, config: JinaEmbeddingsV3Config):
         super().__init__(config, add_pooling_layer=False)
 
-    def forward(self, input_ids=None, attention_mask=None, **kwargs):
+    # The author encoder's narrower call, not the base model's full signature.
+    def forward(self, input_ids=None, attention_mask=None, **kwargs):  # pyright: ignore[reportIncompatibleMethodOverride]
         # Author HFTextEncoder derives the mask from pad ids, including when
         # the caller only passes input_ids to get_text_features().
         if attention_mask is None:

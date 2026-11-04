@@ -7,6 +7,7 @@ is one HTTP request, never retried: a lost submission may already be queued.
 """
 from __future__ import annotations
 
+import argparse
 import sys
 import time
 from types import SimpleNamespace
@@ -55,7 +56,7 @@ def _server_json(base: str, path: str, *, body=None, data=None, headers=None, ti
     return answer
 
 
-def _via_server(args, parser, source, carried, mask_image, width, height, sized, outpaint_sides, *,
+def _via_server(args, parser: argparse.ArgumentParser, source, carried, mask_image, width, height, sized, outpaint_sides, *,
                 check_carried_source, mask_from_record, resolved_execution) -> int:
     """Script the public API; all model defaults and admission stay server-owned.
 
