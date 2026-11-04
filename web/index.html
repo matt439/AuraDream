@@ -7,11 +7,17 @@
      areas. Not a full-screen home-screen app on iOS (no
      apple-mobile-web-app-capable): there Download's file and Open PNG in new
      tab have no Safari round them to come back from, so the icon opens a
-     Safari tab. The name and the bar's colour are the icon's and the tab's. -->
+     Safari tab, and the manifest's display stays "browser". The name and the
+     bar's colour are the icon's and the tab's; web/icons/icon.svg is the one
+     drawing, the PNGs it rendered at their sizes. -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#131318">
 <meta name="apple-mobile-web-app-title" content="AuraDream">
 <title>AuraDream</title>
+<link rel="icon" href="/static/icons/icon.svg" type="image/svg+xml">
+<link rel="icon" href="/static/icons/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
+<link rel="manifest" href="/static/manifest.webmanifest">
 <!-- Keep this order: these sections preserve the original stylesheet cascade. -->
 <link rel="stylesheet" href="/static/style.css">
 <link rel="stylesheet" href="/static/styles/model-picker.css">
