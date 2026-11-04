@@ -8126,7 +8126,8 @@ to main without such a run, and any failure of the check run; the step has
 `tests/test_ci_duplicates.py` holds those answers against canned API replies.
 
 Merging is gated. main's ruleset ("Protect main") requires a pull request,
-the one status check `gate`, and branches up to date with main before
+the status checks `gate` and `ci-definition` (both pinned to the GitHub
+Actions app), and branches up to date with main before
 merging (besides refusing deletion and force-pushes, which
 `ci_duplicates.py`'s main skip relies on); there are no bypass actors, so
 sessions acting with Matt's credentials are held as well. The `gate` job
@@ -8152,6 +8153,27 @@ pull request retargeted onto main starts no run (`pull_request` fires on
 `opened`, `synchronize` and `reopened`) and has no `gate` until it gets a
 new commit or is closed and reopened, so a pull request targets main from
 the start.
+
+A pull request's own `gate` cannot judge a change to CI: `ci.yml` runs as
+the pull request defines it, so one that edited it, added a workflow with a
+job named `gate`, or taught `tools/ci_changes.py` that everything is
+documentation would pass. `ci-definition` (`.github/workflows/ci-guard.yml`)
+is run by `pull_request_target`, which always uses main's copy of the
+workflow; it never checks out or runs the pull request's code (so a fork's
+run is safe without approval), reads the changed paths from the files API
+(a rename's old name too; more than the API's 3000 fails) and fails on any
+under `.github/` or `tools/ci_changes.py`/`tools/ci_duplicates.py`. A job
+the pull request adds under the same name is its own check suite and does
+not replace the guard's failure. What the tests themselves check, and
+their configuration, stay the change's own, as for any code.
+
+So a CI change never merges on its own say: Matt removes `ci-definition`
+from the ruleset's required checks for that one pull request, merges it on
+a green `gate`, and puts the check back at once. GitHub cannot lock the
+ruleset against the repository's owner; the edit is recorded in the
+ruleset's history (Settings > Rules > Rulesets > Protect main > History).
+The guard added by a pull request runs only once it is on main, so a change
+to `ci-guard.yml` takes effect from the next pull request.
 
 `tests/test_ci_changes.py` exercises the path policy and real temporary
 Git histories: full pushed ranges, PR merge bases, deletions/renames and

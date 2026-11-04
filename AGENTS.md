@@ -491,8 +491,12 @@ balanced by `tools/run_smoke_costs.json`; fonts from `tools/smoke_fonts.py`;
 a smoke passing alone after failing still fails), printing their timings
 and rerun verdicts (`tools/smoke_timings.py --annotate`) and uploading
 diagnostics on failure. Node is pinned to 24 (`actions/setup-node`).
-The `gate` job is the one required check: main's ruleset requires a pull
-request, `gate` and an up-to-date branch, with no bypass. A commit
+main's ruleset requires a pull request, an up-to-date branch and two
+checks, with no bypass: `gate`, and `ci-definition`
+(`.github/workflows/ci-guard.yml`, run by `pull_request_target` as main
+defines it), which fails a pull request that changes `.github/` or
+`tools/ci_changes.py`/`ci_duplicates.py`: a CI change lands only through a
+deliberate ruleset edit (`docs/rules.md`, Tests). A commit
 runs once (`tools/ci_duplicates.py`): a branch push with an open pull
 request (or one opened within 45 seconds) leaves it to that pull request's
 run, and main's merge push skips when a passed pull request run tested the

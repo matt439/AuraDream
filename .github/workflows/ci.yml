@@ -6,8 +6,10 @@
 # already covered runs once (tools/ci_duplicates.py): a branch push with an
 # open pull request (or one opened within its grace) leaves it to the pull
 # request's run, and the push merging a pull request whose run passed the
-# same tree skips. The `gate` job is the one check main's ruleset requires:
-# it passes only when every job its run owed passed.
+# same tree skips. The `gate` job is the check main's ruleset requires of
+# this workflow: it passes only when every job its run owed passed. The
+# other required check, ci-guard.yml's `ci-definition`, refuses a pull
+# request that changes this file or what decides its run.
 # Hosted runners cost nothing on a public repository.
 name: CI
 
@@ -210,7 +212,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-  # The one check main's ruleset requires. The matrix jobs cannot be required
+  # The check main's ruleset requires of this workflow. The matrix jobs cannot be required
   # by name: skipped (documentation-only, or a duplicate push) they report
   # an unexpanded name, and GitHub counts a skipped required check as
   # passed. Only a pull request run into main reports "gate"; any other run
@@ -245,7 +247,7 @@ jobs:
 
   # Weekly and by hand: the Linux suite on the newest Node, ahead of the
   # pinned 24, so a change like Node 26's (ea44414) shows here before it
-  # reaches a PC. Informational: the ruleset requires only the gate.
+  # reaches a PC. Informational: the ruleset requires only the gate here.
   node-latest:
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
