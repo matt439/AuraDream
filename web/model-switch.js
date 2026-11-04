@@ -579,6 +579,10 @@ function modelLoaderChanged() {
     || (selected.quantization === 'nunchaku' && selected.format !== modelRuntimeSettings.format);
 }
 
+function modelRuntimeIdentity(settings) {
+  return settings ? `${settings.model_id}|${modelCatalogueKey(settings)}` : '';
+}
+
 function modelCatalogueKey(selected) {
   return `${selected.quantization}|${selected.quantization === 'nunchaku' ? selected.format : ''}|${selected.offload}|${selected.compilation || ''}|${selected.attention || ''}`;
 }
@@ -1078,6 +1082,11 @@ async function refreshModelCatalogue({ current = false } = {}) {
   // A failed catalogue request must not make its retry use the old runtime
   // quantization while the controls still show the user's edited choice.
   const selected = { ...(!els.modelQuantization.options.length || current ? modelRuntimeSettings : modelPickerSettings()) };
+  // The runtime this request was asked under. A status that changes it while
+  // the request is in flight can find the catalogue already of its new kind
+  // and ask for none, so this reply would put the old loader back in the
+  // picker - the runtime's own, or a draft's unedited fields taken from it.
+  const runtimeAsked = modelRuntimeIdentity(modelRuntimeSettings);
   for (const [key, control] of [['compilation', els.modelCompilation], ['attention', els.modelAttention]]) {
     if (modelPickerEditedKeys.has(key)) selected[key] = control.value;
   }
@@ -1093,6 +1102,12 @@ async function refreshModelCatalogue({ current = false } = {}) {
     if (modelListOpen()) {
       await whenModelListsClosed();
       if (epoch !== modelCatalogueEpoch) return;
+    }
+    if (runtimeAsked !== modelRuntimeIdentity(modelRuntimeSettings)) {
+      // Asked again as the picker and runtime are now; that request's epoch
+      // keeps the picker pending, so Switch stays held until it answers.
+      void refreshModelCatalogue({ current });
+      return;
     }
     const wanted = { ...(selected ?? body) };
     // Keep edits made while this request was in flight or a list was open,

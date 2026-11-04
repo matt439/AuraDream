@@ -7477,6 +7477,17 @@ timestamped "No answer" after Try again); with it off, Try again opens
 AuraDream itself, under the worker, its topbar ready. The open page's own
 "server not answering" was already held by other smokes.
 
+`smoke-catalogue-stale.json` uses a fresh FLUX.1 Krea [dev] fake on 7959:
+a Models catalogue reply asked for the runtime loader is held while the
+server saves the edited one and a status brings it (the catalogue already
+of that kind, so the status asks for none). Landing, the reply is dropped
+and the runtime asked for again (`refreshModelCatalogue`'s
+`modelRuntimeIdentity` check): the picker stays pending, so Switch stays
+held, and never shows the old loader. Before, it put the old one back and
+a Switch & load pressed before the next poll loaded it. A second case holds
+a performance draft's request (`current: false`, its unedited loader the
+runtime's) while the server saves away and back: dropped the same way.
+
 `smoke-queue-controls.json` uses a fresh FLUX.1 Krea [dev] fake on 7914 with
 0.3 s steps. It checks authoritative Move order and focus through reload,
 delayed-response/new-submission races, a watched queued job's Move control,
