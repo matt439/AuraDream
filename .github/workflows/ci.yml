@@ -2,11 +2,12 @@
 # and its application/tokenizer downloads (prose the tests read is not
 # documentation-only: tools/ci_changes.py). Manual and weekly runs keep the
 # full gate. CPU tests use Linux and, for main and pull requests into it,
-# Windows, split across three runners. No GPU or model weights. A commit
+# Windows, split across five runners. No GPU or model weights. A commit
 # already covered runs once (tools/ci_duplicates.py): a branch push with an
 # open pull request (or one opened within its grace) leaves it to the pull
 # request's run, and the push merging a pull request whose run passed the
-# same tree skips.
+# same tree skips. The `gate` job is the one check main's ruleset requires:
+# it passes only when every job its run owed passed.
 # Hosted runners cost nothing on a public repository.
 name: CI
 
@@ -76,19 +77,27 @@ jobs:
     strategy:
       # One system's failure never cancels the other's answer.
       fail-fast: false
-      # Windows takes about four times as long as Linux for the suite (17
-      # minutes on four workers), so it runs for main only: pull requests into
-      # it, and pushes, manual and weekly runs on it, in three parts on three
-      # runners (`pytest --shard`, tests/shard.py). Other branches get Linux.
+      # Windows takes about five times as long as Linux for the suite (about
+      # 25 minutes on four workers), so it runs for main only: pull requests
+      # into it, and pushes, manual and weekly runs on it, in five parts on
+      # five runners (`pytest --shard`, tests/shard.py), about six minutes
+      # each. Other branches get Linux.
       matrix:
-        include: ${{ fromJSON((github.event_name == 'pull_request' && github.base_ref == 'main' || github.event_name != 'pull_request' && github.ref == 'refs/heads/main') && '[{"os":"ubuntu-latest","shard":"1/1"},{"os":"windows-latest","shard":"1/3"},{"os":"windows-latest","shard":"2/3"},{"os":"windows-latest","shard":"3/3"}]' || '[{"os":"ubuntu-latest","shard":"1/1"}]') }}
-    # "test (ubuntu-latest)", "test (windows-latest, 2/3)": ci_duplicates.py
+        include: ${{ fromJSON((github.event_name == 'pull_request' && github.base_ref == 'main' || github.event_name != 'pull_request' && github.ref == 'refs/heads/main') && '[{"os":"ubuntu-latest","shard":"1/1"},{"os":"windows-latest","shard":"1/5"},{"os":"windows-latest","shard":"2/5"},{"os":"windows-latest","shard":"3/5"},{"os":"windows-latest","shard":"4/5"},{"os":"windows-latest","shard":"5/5"}]' || '[{"os":"ubuntu-latest","shard":"1/1"}]') }}
+    # "test (ubuntu-latest)", "test (windows-latest, 2/5)": ci_duplicates.py
     # reads these names.
     name: test (${{ matrix.os }}${{ matrix.shard != '1/1' && format(', {0}', matrix.shard) || '' }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+    # A part takes about six minutes; a hung one fails well inside this (and
+    # pytest-timeout names a hung test first).
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
+      # One Node major on every runner, as on the PCs the suite runs on: the
+      # images' own differ (22 on Windows, 24 on Linux).
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
       # The pytest classic-script guard needs Node; absence must fail the gate.
       - name: Verify Node
         run: node --version
@@ -109,7 +118,9 @@ jobs:
       # The real-tokenizer tests skip without these: tokenizer files only,
       # never weights. HF_TOKEN (a read token whose account has accepted the
       # gated repos REAL lists: FLUX.1-Krea-dev, FLUX.1-Kontext-dev and Krea 2
-      # Turbo) reaches this step alone; forks' pull requests get no secrets, so
+      # Turbo) reaches this step alone. With it, a tokenizer that will not
+      # come down fails the step, so a revoked token or an outage never
+      # passes as skipped tests; forks' pull requests get no secrets, so
       # those warn and skip. The key hashes REAL's file too, so a checkpoint
       # added there is fetched once and cached rather than on every run.
       - uses: actions/cache@v5
@@ -123,32 +134,38 @@ jobs:
           HF_HUB_DISABLE_PROGRESS_BARS: "1"
       # One worker per runner core (pytest-xdist): about half the serial time.
       # The 25 slowest tests across workers are listed after the result (DEV#25).
+      # A test still running after ten minutes is hung: pytest-timeout fails
+      # it by name (test_storage_interruptions bounds its own child at five).
       - name: Test
-        run: uv run --group dev pytest -q -n auto --durations=25 --shard ${{ matrix.shard }}
+        run: uv run --group dev pytest -q -n auto --durations=25 --timeout=600 --shard ${{ matrix.shard }}
 
   # The browser smokes (DEV#4): every row of AGENTS.md's port table on the
   # runner's Chrome against fake servers, no GPU or weights. Its own job so
   # it never holds up or replaces the CPU tests. Selawik stands in for the
   # Segoe UI the smokes are written against (tools/smoke_fonts.py). The
-  # table is about 37 minutes of smoke time: three runners take a third
+  # table is about 37 minutes of smoke time: five runners take a fifth
   # each (`run_smoke.py --shard`, balanced by tools/run_smoke_costs.json), two
   # smokes at once on each four-core runner, longest first. One runner at
   # three at once took about 15 minutes, and on four cores four at once
   # failed smokes that pass alone (refine, sheet, compare-cfg,
-  # compact-setup in PR #36's work).
+  # compact-setup in PR #36's work). Five is about the most that helps:
+  # the longest row (smoke-jobs) takes nearly four minutes alone.
   browser:
     needs: lint
     if: ${{ needs.lint.outputs.full_tests == 'true' && needs.lint.outputs.duplicate != 'true' }}
     strategy:
       fail-fast: false
       matrix:
-        shard: ["1/3", "2/3", "3/3"]
-    # "browser (2/3)": ci_duplicates.py reads these names.
+        shard: ["1/5", "2/5", "3/5", "4/5", "5/5"]
+    # "browser (2/5)": ci_duplicates.py reads these names.
     name: browser (${{ matrix.shard }})
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
       - name: Verify Node and Chrome
         run: |
           node --version
@@ -169,16 +186,20 @@ jobs:
             sudo apt-get update -q && sudo apt-get install -yq --no-install-recommends fonts-dejavu-core fonts-noto-color-emoji
           fi
           uv run --no-sync python tools/smoke_fonts.py "$RUNNER_TEMP/smoke-fonts"
+      # A smoke that failed beside another is rerun alone afterwards, for
+      # the diagnosis only: the exit stays the first pass's, so one that
+      # passes alone still fails the job (a race to fix, never a pass).
       - name: Smokes
-        run: uv run --no-sync python tools/run_smoke.py --all --shard ${{ matrix.shard }} --jobs 2 --artifacts "$RUNNER_TEMP/smoke-artifacts"
+        run: uv run --no-sync python tools/run_smoke.py --all --shard ${{ matrix.shard }} --jobs 2 --rerun-failed-alone --artifacts "$RUNNER_TEMP/smoke-artifacts"
         env:
           AURADREAM_BROWSER: /usr/bin/google-chrome
           AURADREAM_BROWSER_DIAGNOSTICS: "1"
       # Where the table's time went, from summary.json, passed or failed
-      # (DEV#25); read-only, so it adds no failure beyond a missing summary.
+      # (DEV#25), and each rerun's verdict as an annotation on the run's
+      # page; read-only, so it adds no failure beyond a missing summary.
       - name: Smoke timings
         if: ${{ success() || failure() }}
-        run: uv run --no-sync python tools/smoke_timings.py "$RUNNER_TEMP/smoke-artifacts"
+        run: uv run --no-sync python tools/smoke_timings.py "$RUNNER_TEMP/smoke-artifacts" --annotate
       # Each smoke's result, browser output, screenshots and a failed fake's log.
       - name: Keep the diagnostics
         if: ${{ failure() }}
@@ -188,3 +209,60 @@ jobs:
           path: ${{ runner.temp }}/smoke-artifacts
           if-no-files-found: warn
           retention-days: 14
+
+  # The one check main's ruleset requires. The matrix jobs cannot be required
+  # by name: skipped (documentation-only, or a duplicate push) they report
+  # an unexpanded name, and GitHub counts a skipped required check as
+  # passed. Only a pull request run into main reports "gate"; any other run
+  # reports "gate (push)", "gate (pull_request into dev)" and the like, so a
+  # branch push's duplicate run, finished minutes before the pull request's
+  # own, never answers for it, and neither does a Linux-only run from before
+  # a pull request was retargeted onto main (GitHub matches a required check
+  # by name on the head commit, whatever run reported it). A pull
+  # request's gate runs however its jobs ended, so a cancelled run fails it;
+  # elsewhere a run superseded by a newer push is left cancelled, not red.
+  gate:
+    name: ${{ github.event_name == 'pull_request' && github.base_ref == 'main' && 'gate' || github.event_name == 'pull_request' && format('gate (pull_request into {0})', github.base_ref) || format('gate ({0})', github.event_name) }}
+    needs: [lint, test, browser]
+    if: ${{ always() && (github.event_name == 'pull_request' || !cancelled()) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Every job this run owed passed
+        env:
+          LINT: ${{ needs.lint.result }}
+          TEST: ${{ needs.test.result }}
+          BROWSER: ${{ needs.browser.result }}
+          FULL: ${{ needs.lint.outputs.full_tests }}
+          DUPLICATE: ${{ needs.lint.outputs.duplicate }}
+        run: |
+          echo "lint=$LINT test=$TEST browser=$BROWSER full_tests=$FULL duplicate=$DUPLICATE"
+          [ "$LINT" = success ] || { echo "::error::lint: $LINT"; exit 1; }
+          if [ "$FULL" = true ] && [ "$DUPLICATE" != true ]; then
+            [ "$TEST" = success ] || { echo "::error::test: $TEST"; exit 1; }
+            [ "$BROWSER" = success ] || { echo "::error::browser: $BROWSER"; exit 1; }
+          fi
+
+  # Weekly and by hand: the Linux suite on the newest Node, ahead of the
+  # pinned 24, so a change like Node 26's (ea44414) shows here before it
+  # reaches a PC. Informational: the ruleset requires only the gate.
+  node-latest:
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: latest
+      - run: node --version
+      - uses: astral-sh/setup-uv@v10.3.2
+        with:
+          enable-cache: true
+          cache-suffix: app
+          save-cache: false
+          python-version: "3.13"
+      - name: Install
+        run: uv sync --locked --group dev
+      - name: Test
+        run: uv run --no-sync pytest -q -n auto --timeout=600

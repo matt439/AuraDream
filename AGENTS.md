@@ -25,6 +25,18 @@ Matt explicitly requests one, collecting the accumulated commits into that
 PR. Do not create a PR for each commit or split related work into stacked
 PRs unless requested. Keep commits local until Matt requests a push or a PR.
 
+A pull request targets main from the start: a retargeted one starts no CI
+run and has no `gate` until a new commit. main accepts only pull requests
+whose `gate` check passed on a branch up to date with main. When asked to
+merge, run `gh pr update-branch` if the branch is behind, then
+`gh pr merge --auto --merge`, which merges once `gate` passes; never merge
+around a red or pending gate. Watch it until it has merged: if main moves
+first, the pull request waits behind it until `gh pr update-branch` again. On a red smoke, read
+its rerun verdict: "passed alone" is a race to fix where it comes from (a
+press before the page is idle, a state that passes between polls), not a
+reason to rerun until green. Rerun only the failed jobs
+(`gh run rerun <id> --failed`), and only for an infrastructure failure.
+
 ## Run
 
 ```powershell
@@ -472,11 +484,15 @@ and the prose tests read (this file, `docs/rules.md`, `docs/verified.md`)
 still get tests. Other changes, manual and weekly runs get the pinned type
 gate and `pytest -n auto --durations=25` (the 25 slowest tests) on Linux,
 and on Windows too for main (pull requests into it, pushes, by hand and
-weekly), split in three runners by `pytest --shard K/N`; three `browser`
-jobs run a third of the smoke table each on Linux Chrome
-(`run_smoke.py --shard K/3 --jobs 2`, balanced by `tools/run_smoke_costs.json`;
-fonts from `tools/smoke_fonts.py`), printing their timings
-(`tools/smoke_timings.py`) and uploading diagnostics on failure. A commit
+weekly), split in five runners by `pytest --shard K/N`, each test under
+`--timeout=600`; five `browser` jobs run a fifth of the smoke table each on
+Linux Chrome (`run_smoke.py --shard K/5 --jobs 2 --rerun-failed-alone`,
+balanced by `tools/run_smoke_costs.json`; fonts from `tools/smoke_fonts.py`;
+a smoke passing alone after failing still fails), printing their timings
+and rerun verdicts (`tools/smoke_timings.py --annotate`) and uploading
+diagnostics on failure. Node is pinned to 24 (`actions/setup-node`).
+The `gate` job is the one required check: main's ruleset requires a pull
+request, `gate` and an up-to-date branch, with no bypass. A commit
 runs once (`tools/ci_duplicates.py`): a branch push with an open pull
 request (or one opened within 45 seconds) leaves it to that pull request's
 run, and main's merge push skips when a passed pull request run tested the

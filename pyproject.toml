@@ -46,7 +46,7 @@ regional-compiler = [
 
 [dependency-groups]
 # Nothing in the app imports these; `uv run --group dev pytest` gets them.
-dev = ["pytest>=8", "pytest-xdist>=3.8", "ruff>=0.17", "pyright==1.1.407"]
+dev = ["pytest>=8", "pytest-xdist>=3.8", "pytest-timeout>=2.3", "ruff>=0.17", "pyright==1.1.407"]
 
 [tool.uv]
 # torch/torchvision come from the CUDA 13.0 index (Blackwell sm_120 support)
