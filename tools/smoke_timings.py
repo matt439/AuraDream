@@ -7,7 +7,10 @@ Given a summary.json, or a directory with exactly one summary.json below it
 smokes (port, model, result, seconds), each port-table row's total, and the
 sum of smoke times beside the run's wall clock. Only the first pass's
 `results` are counted; a rerun's receipts (`--rerun-failed-alone`) get one
-line of their own.
+line of their own. `--annotate` also prints each rerun verdict as a GitHub
+Actions annotation: an error for a smoke that failed again alone, a warning
+for one that passed alone (a race to fix, never a pass: the run's exit stays
+the first pass's).
 
 Read-only and standard library: no server, no browser, nothing written,
 except that `--write-costs` merges the run's passed first-pass times into
@@ -72,6 +75,26 @@ def _receipts(summary: dict, key: str, path: Path) -> list[dict]:
     return receipts
 
 
+def _verdicts(summary: dict, path: Path) -> dict[str, str]:
+    verdicts = summary.get("verdicts") or {}
+    if not (isinstance(verdicts, dict)
+            and all(isinstance(name, str) and isinstance(value, str) for name, value in verdicts.items())):
+        raise Refused(f"{path}: `verdicts` is not a map of smoke names to verdicts")
+    return verdicts
+
+
+def verdict_annotations(verdicts: dict[str, str]) -> list[str]:
+    """One GitHub Actions annotation per rerun verdict, by smoke name."""
+    lines = []
+    for smoke, verdict in sorted(verdicts.items()):
+        if verdict == "passed-alone":
+            lines.append(f"::warning title=Smoke passed alone::{smoke} failed beside other smokes and passed "
+                         "alone: a race to fix (the run still fails), not a pass")
+        else:
+            lines.append(f"::error title=Smoke failed alone::{smoke} failed beside other smokes and again alone")
+    return lines
+
+
 def load(path: Path) -> dict:
     """The summary, its first-pass and rerun receipts checked for what is read."""
     try:
@@ -87,6 +110,7 @@ def load(path: Path) -> dict:
         "wall": float(wall), "jobs": summary.get("jobs"), "offset": summary.get("offset"),
         "results": _receipts(summary, "results", path),
         "rerun": _receipts(summary, "rerun", path),
+        "verdicts": _verdicts(summary, path),
     }
 
 
@@ -160,6 +184,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Where a smoke run's time went, from its summary.json.")
     parser.add_argument("path", type=Path, help="a summary.json, or a directory with exactly one below it")
     parser.add_argument("--top", type=int, default=TOP, help=f"how many of the slowest smokes to list (default {TOP})")
+    parser.add_argument("--annotate", action="store_true",
+                        help="also print each rerun verdict as a GitHub Actions annotation")
     parser.add_argument("--write-costs", action="store_true",
                         help="merge this run's passed times into tools/run_smoke_costs.json")
     args = parser.parse_args(argv)
@@ -174,6 +200,9 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     rows = _runner().parse_table((ROOT / "AGENTS.md").read_text(encoding="utf-8"))
     print(report(path, summary, rows, args.top))
+    if args.annotate:
+        for line in verdict_annotations(summary["verdicts"]):
+            print(line)
     if args.write_costs:
         costs_path = ROOT / "tools" / "run_smoke_costs.json"
         try:

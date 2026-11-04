@@ -160,3 +160,27 @@ def test_write_costs_updates_the_costs_file_in_place(tmp_path, capsys, monkeypat
     written = json.loads((root / "tools" / "run_smoke_costs.json").read_text(encoding="utf-8"))
     assert written == {"seconds": {"smoke-flux": 3, "smoke-grid": 28}}
     assert _lines(capsys)[-1] == "wrote tools/run_smoke_costs.json"
+
+
+def test_annotate_prints_each_rerun_verdict_and_plain_runs_do_not(tmp_path, capsys):
+    path = _summary(tmp_path, [_receipt("smoke-flux", 2.0, result="failed"), _receipt("smoke-grid", 3.0, result="failed")],
+                    rerun=[_receipt("smoke-flux", 2.5), _receipt("smoke-grid", 3.5, result="failed")],
+                    verdicts={"smoke-grid": "failed-alone", "smoke-flux": "passed-alone"})
+    assert smoke_timings.main([str(path)]) == 0
+    assert "::" not in capsys.readouterr().out
+    assert smoke_timings.main([str(path), "--annotate"]) == 0
+    lines = _lines(capsys)
+    assert lines[-2].startswith("::warning title=Smoke passed alone::smoke-flux failed beside")
+    assert lines[-1].startswith("::error title=Smoke failed alone::smoke-grid failed beside")
+
+
+def test_annotate_without_a_rerun_prints_nothing_more(tmp_path, capsys):
+    path = _summary(tmp_path, [_receipt("smoke-flux", 2.0)])
+    assert smoke_timings.main([str(path), "--annotate"]) == 0
+    assert "::" not in capsys.readouterr().out
+
+
+def test_malformed_verdicts_are_refused(tmp_path, capsys):
+    path = _summary(tmp_path, [_receipt("smoke-flux", 2.0)], verdicts=["smoke-flux"])
+    assert smoke_timings.main([str(path)]) == 2
+    assert "`verdicts`" in capsys.readouterr().out

@@ -23,7 +23,7 @@ Get = Callable[[str], Any]
 WORKFLOW = ".github/workflows/ci.yml"
 # Every job a full run on a pull request into main passes; a documentation-
 # only run passes lint alone. A job split across runners is named with its
-# part, "browser (2/3)" or "test (windows-latest, 2/3)", and passes only
+# part, "browser (2/5)" or "test (windows-latest, 2/5)", and passes only
 # when every part of one split passed.
 FULL_JOBS = frozenset({"lint", "browser", "test (ubuntu-latest)", "test (windows-latest)"})
 _PART = re.compile(r"^(?P<name>.*?)(?: \((?P<k1>\d+)/(?P<n1>\d+)\)|, (?P<k2>\d+)/(?P<n2>\d+)\))$")
@@ -43,7 +43,7 @@ def _q(value: str) -> str:
 
 def job_part(name: str) -> tuple[str, int, int]:
     """A job's name without its part, and the part: ("browser", 2, 3) for
-    "browser (2/3)"; a job run whole is part 1 of 1."""
+    "browser (2/5)"; a job run whole is part 1 of 1."""
     found = _PART.match(name)
     if not found:
         return name, 1, 1

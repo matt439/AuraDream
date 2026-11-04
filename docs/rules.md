@@ -8037,18 +8037,31 @@ Other changes and manual runs get the CPU suite on Ubuntu
 (`uv sync --locked --group dev`, the pinned type gate, `pytest -n auto
 --durations=25`, listing the 25 slowest tests across workers); for main
 (pull requests into it, pushes, by hand and weekly) it runs on Windows too,
-about four times slower (17 minutes on one runner), so there in three parts
-on three runners: `pytest --shard K/N` (`tests/shard.py`, a CRC of each node
+about five times slower (about 25 minutes on one runner), so there in five
+parts on five runners: `pytest --shard K/N` (`tests/shard.py`, a CRC of each node
 id, so every runner and xdist worker splits alike), jobs named
-`test (windows-latest, K/3)`, the type gate on the first part only. A
+`test (windows-latest, K/5)`, the type gate on the first part only. Every
+test job runs `--timeout=600` (pytest-timeout): a hung test fails by name
+inside the job's 20 minutes, and `test_storage_interruptions.py` bounds its
+own child at 300 seconds, so the two never race. Every test and browser job
+installs Node 24 (`actions/setup-node`), the major the PCs run, since the
+runner images' own differ (22 on Windows, 24 on Linux); a weekly and manual
+`node-latest` job runs the Linux suite on the newest Node, informational,
+so a change like Node 26's (ea44414) shows before it reaches a PC. A
 separate `browser` job (same condition, never holding up `test`) runs the
-whole smoke table on the runner's Linux Chrome in three parts, `browser
-(K/3)`, each on its own runner (`run_smoke.py --all --shard K/3 --jobs 2`:
-the rows split by `tools/run_smoke_costs.json`, longest first; one runner at
-three at once took about 15 minutes, and four at once on four cores failed
-smokes that pass alone), then, passed or failed, `tools/smoke_timings.py` over its
+whole smoke table on the runner's Linux Chrome in five parts, `browser
+(K/5)`, each on its own runner (`run_smoke.py --all --shard K/5 --jobs 2
+--rerun-failed-alone`: the rows split by `tools/run_smoke_costs.json`,
+longest first; one runner at three at once took about 15 minutes, and four
+at once on four cores failed smokes that pass alone; more than five parts
+gains little, since `smoke-jobs`'s row alone takes nearly four minutes). A
+smoke that fails is rerun alone after its part for the diagnosis only: the
+exit stays the first pass's, so one that passes alone still fails the job.
+Then, passed or failed, `tools/smoke_timings.py --annotate` reads its
 part's `summary.json` (the slowest 25 smokes, each row's total, smoke time
-beside wall clock), and uploads each smoke's result, browser log,
+beside wall clock, and each rerun verdict as an annotation on the run's
+page: an error for one that failed again alone, a warning for one that
+passed alone, a race to fix), and uploads each smoke's result, browser log,
 screenshots and failed fake's log as `smoke-artifacts-<index>` when it
 fails. A smoke `run_smoke_costs.json` lacks counts as twelve seconds; refresh it
 with `smoke_timings.py <part's artifacts> --write-costs` per part after the
@@ -8058,8 +8071,8 @@ on each system and restored by the rest and the browser parts): sharing
 one key, a skipped lint once saved an empty cache every run then restored,
 and the Linux jobs downloaded the CUDA wheels each time. `tests/test_smoke_timings.py` holds the
 timing tool's order, `--top`, row totals (a row is the port table's, so two
-rows on one port stay apart) and its exit-2 refusals of a missing,
-malformed or ambiguous summary. Before it, `tools/smoke_fonts.py`
+rows on one port stay apart), `--annotate`'s verdict lines and its exit-2
+refusals of a missing, malformed or ambiguous summary. Before it, `tools/smoke_fonts.py`
 installs Selawik as Segoe UI with Windows line metrics, beside copies of
 DejaVu Sans and Noto Color Emoji for the symbols Segoe UI lacks, hiding
 Inter and the system's own copies of those two (`FONTCONFIG_FILE`); other
@@ -8067,7 +8080,14 @@ system fonts stay, since Google Chrome aborts on a character no font has. Every 
 widths Windows measured (`tools/segoe-widths.json`), so text is laid out as
 on Windows; `tools/font-widths.json` logs every page character's advance
 width, the run that table came from. A character the page newly draws gets
-a Windows run of it and a new table. Windows stays where the smokes are written. `tests/conftest.py` makes
+a Windows run of it and a new table:
+`test_every_character_the_page_draws_has_its_windows_width` fails on a
+non-ASCII character in `web/`'s scripts, page or styles (written, or as a JS,
+CSS or HTML escape) that `__chars` lacks, format and combining characters
+aside, and `test_the_width_table_holds_exactly_the_measured_characters` holds
+each weight's table to `__chars`. Text the server sends (guides, cites,
+prompts) is not covered, and Linux Chrome's shaping and kerning still differ
+from Edge's. Windows stays where the smokes are written. `tests/conftest.py` makes
 `torch.cuda.is_current_stream_capturing` answer False on a driverless Windows
 machine, where torch's native call crashes the worker. It runs the suite with
 `pytest -n auto` (pytest-xdist, one worker per core). Before it,
@@ -8075,7 +8095,12 @@ machine, where torch's native call crashes the worker. It runs the suite with
 the real-tokenizer tests in `test_prompt_encoding.py` and
 `test_critic_tokens.py` read, so those tests run instead of skipping. The
 `HF_TOKEN` repository secret covers the gated FLUX.1-Krea-dev and Krea 2
-Turbo; without it, as on forks' pull requests, those two warn and skip.
+Turbo. Each tokenizer is tried three times; with `HF_TOKEN` set, one that
+still will not come down fails the step (`::error::`), so a revoked token or a
+Hub outage never shows as a green run with those tests skipped, and the
+tokenizer cache, saved only after a passing job, never keeps a partial set.
+Without it, as on forks' pull requests, those warn and skip
+(`tests/test_fetch_tokenizers.py`).
 
 A commit runs once. Before installing anything, the lint job asks the
 GitHub API (`tools/ci_duplicates.py`, standard library, the read-only token
@@ -8094,11 +8119,39 @@ the same tree that contains main's previous commit (the compare API answers
 for that head, branch and this repository (not a fork's, which had no
 secrets; a merged pull request's runs list no pull requests) whose jobs
 passed: `lint`, `browser` and both `test` systems, every part of a split
-job (`browser (1/3)` to `(3/3)`), or `lint` alone when this push is
+job (`browser (1/5)` to `(5/5)`), or `lint` alone when this push is
 documentation-only. Pull requests, manual runs, tags, direct pushes
 to main without such a run, and any failure of the check run; the step has
 `continue-on-error`, and a crash leaves its output unset, which runs.
 `tests/test_ci_duplicates.py` holds those answers against canned API replies.
+
+Merging is gated. main's ruleset ("Protect main") requires a pull request,
+the one status check `gate`, and branches up to date with main before
+merging (besides refusing deletion and force-pushes, which
+`ci_duplicates.py`'s main skip relies on); there are no bypass actors, so
+sessions acting with Matt's credentials are held as well. The `gate` job
+needs `lint`, `test` and `browser` and passes only when `lint` passed and,
+where the run owed full tests (`full_tests` and not a duplicate), every part
+of `test` and `browser` passed. The matrix jobs are never required by name:
+skipped, they report an unexpanded name, and GitHub counts a skipped
+required check as passed. Only a `pull_request` run into main reports
+`gate`; other runs report `gate (push)`, `gate (pull_request into dev)` and
+the like, since GitHub matches a required check by its name on the head
+commit, whatever run reported it: a branch push's duplicate run finishes
+minutes before the pull request's own, and a pull request opened against
+another branch had a Linux-only run, and neither may answer for main. A pull request's gate runs however its jobs ended (`always()`), so a
+cancelled run fails; elsewhere `!cancelled()` leaves a superseded run
+cancelled rather than red, while a job that timed out still turns the gate
+red. Up to date means GitHub tested the merge with main as it is, so the
+merge push's tree is the tested one and its run skips as a duplicate. A
+pull request behind main is updated (`gh pr update-branch`) and runs again.
+Repository settings allow auto-merge and the update-branch button. GitHub
+never updates a branch itself: a pull request waiting on auto-merge that
+falls behind when another merges first waits until it is updated again. A
+pull request retargeted onto main starts no run (`pull_request` fires on
+`opened`, `synchronize` and `reopened`) and has no `gate` until it gets a
+new commit or is closed and reopened, so a pull request targets main from
+the start.
 
 `tests/test_ci_changes.py` exercises the path policy and real temporary
 Git histories: full pushed ranges, PR merge bases, deletions/renames and

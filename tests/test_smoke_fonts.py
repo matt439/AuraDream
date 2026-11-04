@@ -8,13 +8,20 @@ readers (and fontTools' strict mode) would.
 from __future__ import annotations
 
 import hashlib
+import html
 import io
+import json
+import re
 import struct
+import unicodedata
 import zipfile
+from pathlib import Path
 
 import pytest
 
 from tools import smoke_fonts
+
+ROOT = Path(__file__).resolve().parent.parent
 
 
 def _sfnt(tables: dict[bytes, bytes]) -> bytes:
@@ -164,6 +171,58 @@ def test_the_width_table_covers_each_weight_the_page_draws():
     widths = smoke_fonts.json.loads(smoke_fonts.WIDTHS.read_text(encoding="utf-8"))["widths"]
     assert set(widths) == set(smoke_fonts.SELAWIK_WEIGHTS.values()) | set(smoke_fonts.FALLBACKS.values())
     assert all(len(table) == len(widths["400"]) for table in widths.values())
+
+
+def _measured_chars() -> set[str]:
+    """`tools/font-widths.json`'s `__chars`: what the Windows run measured."""
+    steps = json.loads((ROOT / "tools" / "font-widths.json").read_text(encoding="utf-8"))
+    (setup,) = [step["eval"] for step in steps if "__chars" in step.get("eval", "")]
+    return set(json.loads(setup.split("=", 1)[1].strip().removesuffix(";")))
+
+
+_JS_ESCAPE = re.compile(r"\\u\{([0-9a-fA-F]+)\}|\\u([0-9a-fA-F]{4})")
+_CSS_ESCAPE = re.compile(r"\\([0-9a-fA-F]{1,6})")
+
+
+def _page_chars() -> dict[str, str]:
+    """Each non-ASCII character `web/`'s scripts, page and styles hold, written
+    or escaped, to its first place. Text the server sends (guides, cites,
+    prompts) is not here."""
+    found: dict[str, str] = {}
+    for path in sorted((ROOT / "web").rglob("*")):
+        if path.suffix not in {".js", ".html", ".css"}:
+            continue
+        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            text = line
+            if path.suffix == ".js":
+                text += "".join(chr(int(a or b, 16)) for a, b in _JS_ESCAPE.findall(line))
+            elif path.suffix == ".css":
+                text += "".join(chr(int(code, 16)) for code in _CSS_ESCAPE.findall(line))
+            else:
+                text = html.unescape(line)
+            for char in text:
+                if ord(char) > 127:
+                    found.setdefault(char, f"{path.relative_to(ROOT).as_posix()}:{number}")
+    return found
+
+
+def test_every_character_the_page_draws_has_its_windows_width():
+    # A format character (a zero-width space, a word joiner) has no advance
+    # to carry; every other one is laid out at Selawik's own width on Linux
+    # unless Windows measured it, and a smoke measuring a fit sees the gap.
+    measured = _measured_chars()
+    missing = {char: where for char, where in _page_chars().items()
+               if char not in measured and unicodedata.category(char) not in {"Cf", "Mn"}}
+    assert not missing, (
+        "add these to tools/font-widths.json's __chars, run `node tools/browser.mjs "
+        "tools/font-widths.json` on Windows and put its widths in tools/segoe-widths.json: "
+        + ", ".join(f"U+{ord(char):04X} ({where})" for char, where in sorted(missing.items())))
+
+
+def test_the_width_table_holds_exactly_the_measured_characters():
+    widths = json.loads(smoke_fonts.WIDTHS.read_text(encoding="utf-8"))["widths"]
+    measured = _measured_chars()
+    assert {weight: set(table) for weight, table in widths.items()} == {weight: measured for weight in widths}
 
 
 def test_an_archive_off_its_pin_is_refused_before_anything_is_written(tmp_path):
