@@ -399,8 +399,8 @@
           <div class="row size-row">
             <!-- max is the longest side of any preset - backend/sizes.py, which
                  tests/test_profiles.py holds this to. -->
-            <label class="sub"><i>W</i><input type="number" id="width" value="1024" step="16" min="256" max="3168"></label>
-            <label class="sub"><i>H</i><input type="number" id="height" value="1024" step="16" min="256" max="3168"></label>
+            <label class="sub"><i>W</i><input type="number" id="width" aria-label="Width" value="1024" step="16" min="256" max="3168"></label>
+            <label class="sub"><i>H</i><input type="number" id="height" aria-label="Height" value="1024" step="16" min="256" max="3168"></label>
           </div>
           <div class="custom-orientation">
             <button type="button" class="ghost small orientation" id="btn-orientation"
@@ -1234,8 +1234,8 @@
       <div class="presets" id="refine-scales" role="group"
            aria-label="Size, as a multiple of the source image's"></div>
       <div class="row">
-        <label class="sub grow"><i>W</i><input type="number" id="refine-width" step="16" min="256"></label>
-        <label class="sub grow"><i>H</i><input type="number" id="refine-height" step="16" min="256"></label>
+        <label class="sub grow"><i>W</i><input type="number" id="refine-width" aria-label="Width" step="16" min="256"></label>
+        <label class="sub grow"><i>H</i><input type="number" id="refine-height" aria-label="Height" step="16" min="256"></label>
         <!-- Typing one side moves the other to the source's shape; off, a
              size of another shape is a reframing, which the line below says. -->
         <label class="check rf-lock" title="Typing W or H keeps the source's shape"><input type="checkbox" id="refine-lock" checked> Keep shape</label>
@@ -1408,7 +1408,7 @@
           <span class="help above" tabindex="0" role="note" aria-label="Only the masked area help" aria-describedby="inpaint-crop-tip">?<span
             class="tip wide" id="inpaint-crop-tip">Denoise just a box around the mask - its extent plus Padding - at about 1 MP, then paste it back. A small region gets the checkpoint's full detail; a large picture stays within the card. Outside the mask nothing changes either way. Padding 32 has not been measured on the card.</span></span>
           <label class="ip-crop-pad" title="Padding around the mask's extent, in the picture's pixels: 0 to 256 in steps of 8"><span>Pad</span>
-            <input type="number" id="inpaint-crop-pad" min="0" max="256" step="8" placeholder="32" inputmode="numeric"
+            <input type="number" id="inpaint-crop-pad" aria-disabled="true" min="0" max="256" step="8" placeholder="32" inputmode="numeric"
                    aria-label="Padding, px"> px</label>
         </div>
         <label class="check ip-show" title="Show the mask over the picture"><input type="checkbox" id="inpaint-show" checked> Show mask</label>
@@ -1568,7 +1568,7 @@
         <span class="help above" tabindex="0" role="note" aria-label="Outpaint: only the masked area help" aria-describedby="outpaint-crop-tip">?<span
           class="tip wide" id="outpaint-crop-tip">Denoise just a box around the new area and the band - their extent plus Padding - at about 1 MP, then paste it back onto the canvas. A thin strip gets the checkpoint's full detail; a large canvas stays within the card. The kept original is unchanged either way. Padding 32 has not been measured on the card.</span></span>
         <label class="ip-crop-pad" title="Padding around the new area's extent, in the canvas's pixels: 0 to 256 in steps of 8"><span>Pad</span>
-          <input type="number" id="outpaint-crop-pad" min="0" max="256" step="8" placeholder="32" inputmode="numeric"
+          <input type="number" id="outpaint-crop-pad" aria-disabled="true" min="0" max="256" step="8" placeholder="32" inputmode="numeric"
                  aria-label="Padding, px"> px</label>
       </div>
     </div>
@@ -2098,9 +2098,9 @@
     <button type="button" class="ghost" id="snippet-import-close">Cancel</button>
   </div>
   <p class="hint" id="snippet-import-intro">Choose Add, Replace or Skip for each file item. Nothing is saved until Import; your prompt boxes and snippet editor stay unchanged.</p>
-  <p id="snippet-import-filename" aria-label="Selected file"></p>
+  <p class="import-filename"><span class="sr-only">Selected file: </span><span id="snippet-import-filename"></span></p>
   <p id="snippet-import-summary" role="status" aria-live="polite">Nothing has been imported.</p>
-  <div id="snippet-import-rows" tabindex="-1" aria-label="Snippet merge choices"></div>
+  <div id="snippet-import-rows" role="group" tabindex="-1" aria-label="Snippet merge choices"></div>
   <p id="snippet-import-status" role="status" aria-live="polite"></p>
   <div class="snippet-import-actions">
     <button type="button" class="ghost" id="snippet-import-preview">Preview</button>
@@ -2121,7 +2121,7 @@
       </div>
       <div class="setups-editor">
         <label>Name<input type="text" id="setups-name" maxlength="160" aria-description="Up to 80 characters." autocomplete="off" autofocus></label>
-        <pre id="setups-summary" aria-label="Saved and effective settings"></pre>
+        <pre id="setups-summary" role="group" aria-label="Saved and effective settings"></pre>
         <button type="button" class="ghost" id="setups-models" hidden>Open Models</button>
       </div>
     </div>
@@ -2139,9 +2139,9 @@
 <dialog class="setup-import-dialog" id="setup-import-dialog" aria-labelledby="setup-import-title" aria-describedby="setup-import-intro">
   <div class="setups-head"><h2 id="setup-import-title">Import saved setups</h2><button type="button" class="ghost" id="setup-import-close">Cancel</button></div>
   <p class="hint" id="setup-import-intro">Choose Skip, Add, Add as copy or Replace for each file item. Nothing is saved until Import; your composer, setup name and Undo stay unchanged, and no work is queued.</p>
-  <p id="setup-import-filename" aria-label="Selected file"></p>
+  <p class="import-filename"><span class="sr-only">Selected file: </span><span id="setup-import-filename"></span></p>
   <p id="setup-import-summary" role="status" aria-live="polite">Nothing has been imported.</p>
-  <div id="setup-import-rows" tabindex="-1" aria-label="Setup merge choices"></div>
+  <div id="setup-import-rows" role="group" tabindex="-1" aria-label="Setup merge choices"></div>
   <p id="setup-import-status" role="status" aria-live="polite"></p>
   <div class="setup-import-actions">
     <button type="button" class="ghost" id="setup-import-preview">Preview</button>

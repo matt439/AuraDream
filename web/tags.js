@@ -474,6 +474,7 @@ function buildTagEditor(initial = null) {
   input.value = initial ?? '';
   if (editing && initial.length > 24) input.style.width = `${Math.min(initial.length + 2, 64)}ch`;
   input.setAttribute('aria-label', editing ? `Edit ${initial}` : 'New tag');
+  input.setAttribute('role', 'combobox');
   input.setAttribute('aria-autocomplete', 'list');
   input.setAttribute('aria-expanded', 'false');
   const menu = document.createElement('ul');
