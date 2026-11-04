@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 import urllib.parse
 import urllib.request
@@ -21,27 +22,62 @@ Get = Callable[[str], Any]
 
 WORKFLOW = ".github/workflows/ci.yml"
 # Every job a full run on a pull request into main passes; a documentation-
-# only run passes lint alone.
+# only run passes lint alone. A job split across runners is named with its
+# part, "browser (2/3)" or "test (windows-latest, 2/3)", and passes only
+# when every part of one split passed.
 FULL_JOBS = frozenset({"lint", "browser", "test (ubuntu-latest)", "test (windows-latest)"})
+_PART = re.compile(r"^(?P<name>.*?)(?: \((?P<k1>\d+)/(?P<n1>\d+)\)|, (?P<k2>\d+)/(?P<n2>\d+)\))$")
 # GitHub computes a pull request's mergeability after a push; until then
 # `mergeable` is null.
 MERGEABLE_POLLS = 5
 MERGEABLE_WAIT = 3.0
+# A pull request is often opened seconds after its branch's first push, so
+# the push's run found none and tested everything beside the pull request's
+# own run. With no open pull request the push asks once more after this.
+OPENING_GRACE = 45.0
 
 
 def _q(value: str) -> str:
     return urllib.parse.quote(value, safe="")
 
 
+def job_part(name: str) -> tuple[str, int, int]:
+    """A job's name without its part, and the part: ("browser", 2, 3) for
+    "browser (2/3)"; a job run whole is part 1 of 1."""
+    found = _PART.match(name)
+    if not found:
+        return name, 1, 1
+    if found.group("k1") is not None:
+        return found.group("name"), int(found.group("k1")), int(found.group("n1"))
+    return found.group("name") + ")", int(found.group("k2")), int(found.group("n2"))
+
+
+def passed_jobs(jobs: list[dict]) -> set[str]:
+    """The names, without parts, of the jobs whose every part passed."""
+    parts: dict[tuple[str, int], set[int]] = {}
+    for job in jobs:
+        if job.get("conclusion") == "success" and isinstance(job.get("name"), str):
+            name, index, count = job_part(job["name"])
+            parts.setdefault((name, count), set()).add(index)
+    return {name for (name, count), done in parts.items() if done >= set(range(1, count + 1))}
+
+
 def run_covers(jobs: list[dict], *, full_tests: bool) -> bool:
-    passed = {job.get("name") for job in jobs if job.get("conclusion") == "success"}
+    passed = passed_jobs(jobs)
     return FULL_JOBS <= passed if full_tests else "lint" in passed
+
+
+def _open_pulls(get: Get, repo: str, owner: str, branch: str) -> list[dict]:
+    return get(f"/repos/{repo}/pulls?state=open&per_page=100&head={_q(f'{owner}:{branch}')}")
 
 
 def open_pull_request(get: Get, repo: str, owner: str, branch: str, sha: str, *,
                       sleep: Callable[[float], None] = time.sleep) -> str | None:
     """A branch push's open pull request whose own run will test it."""
-    pulls = get(f"/repos/{repo}/pulls?state=open&per_page=100&head={_q(f'{owner}:{branch}')}")
+    pulls = _open_pulls(get, repo, owner, branch)
+    if not pulls:
+        sleep(OPENING_GRACE)
+        pulls = _open_pulls(get, repo, owner, branch)
     for pull in pulls:
         # Workflows never run on a pull request with a merge conflict, so it
         # covers the push only once it shows this commit as its head and

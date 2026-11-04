@@ -710,8 +710,10 @@ before changing it.
   bin holds their own source alone; `tests/test_card_packs.py` holds them
   to their rules (`docs/plan-card-harness.md`, CARD#10 step packs);
   `smoke_timings.py` reads a run's `summary.json` and prints the slowest
-  smokes, each row's total and the wall clock, writing nothing
-  (`docs/plan-tooling.md`, Suite and smoke timings);
+  smokes, each row's total and the wall clock, writing nothing unless
+  `--write-costs` merges the passed times into `run_smoke_costs.json`, the
+  seconds per smoke `run_smoke.py` starts longest-first and splits
+  `--shard K/N` by (`docs/plan-tooling.md`, Suite and smoke timings);
   `trial_fixture.py` prepares the formative-trial kit's disposable fake
   gallery and sidecars through the fake's own routes, and
   `trial_walkthrough.py` writes the agent walkthrough's real-input steps
@@ -7928,23 +7930,42 @@ documentation-only push or PR, this is the only job that runs: no tokenizer
 downloads or test matrix. `tools/ci_changes.py` compares the entire push's
 before/after range or the PR's merge-base/head range with a local Git diff.
 Root and `docs/` Markdown/reStructuredText, plus images/PDFs under `docs/`,
-are documentation; executable files and JSON under `docs/` still get full
-tests, as do workflows, dependencies and any other paths. Renames check
+are documentation, except the prose the tests read (`AGENTS.md`'s port
+table and module map, `CLAUDE.md`, `README.md`, `docs/rules.md`,
+`docs/verified.md`; `test_prose_the_tests_open_runs_the_tests` keeps the list
+to what tests and tools open); executable files and JSON under `docs/` still
+get full tests, as do workflows, dependencies and any other paths. Renames check
 both the old and new paths. New branches without a previous SHA, missing
-history, unknown/empty comparisons and manual dispatch keep the full gate.
+history, unknown/empty comparisons, manual dispatch and the weekly run
+(Monday 03:17 UTC on main: the full gate against the runners' current images
+and Chrome, and main's dependency caches kept warm, since a merge push skips
+its tests and saves none) keep the full gate.
 A docs-only tip on a code-changing PR does not bypass its tests.
 
 Other changes and manual runs get the CPU suite on Ubuntu
 (`uv sync --locked --group dev`, the pinned type gate, `pytest -n auto
 --durations=25`, listing the 25 slowest tests across workers); for main
-(pull requests into it, pushes and by hand) it runs on Windows too, about
-five times slower. A separate
-`browser` job (same condition, never holding up `test`) runs the whole smoke
-table on the runner's Linux Chrome (`run_smoke.py --all --jobs 3`), then,
-passed or failed, `tools/smoke_timings.py` over the run's `summary.json`
-(the slowest 25 smokes, each row's total, smoke time beside wall clock),
-and uploads each smoke's result, browser log, screenshots and failed fake's log
-as `smoke-artifacts` when it fails. `tests/test_smoke_timings.py` holds the
+(pull requests into it, pushes, by hand and weekly) it runs on Windows too,
+about four times slower (17 minutes on one runner), so there in three parts
+on three runners: `pytest --shard K/N` (`tests/shard.py`, a CRC of each node
+id, so every runner and xdist worker splits alike), jobs named
+`test (windows-latest, K/3)`, the type gate on the first part only. A
+separate `browser` job (same condition, never holding up `test`) runs the
+whole smoke table on the runner's Linux Chrome in three parts, `browser
+(K/3)`, each on its own runner (`run_smoke.py --all --shard K/3 --jobs 2`:
+the rows split by `tools/run_smoke_costs.json`, longest first; one runner at
+three at once took about 15 minutes, and four at once on four cores failed
+smokes that pass alone), then, passed or failed, `tools/smoke_timings.py` over its
+part's `summary.json` (the slowest 25 smokes, each row's total, smoke time
+beside wall clock), and uploads each smoke's result, browser log,
+screenshots and failed fake's log as `smoke-artifacts-<index>` when it
+fails. A smoke `run_smoke_costs.json` lacks counts as twelve seconds; refresh it
+with `smoke_timings.py <part's artifacts> --write-costs` per part after the
+table changes much. uv's cache is the lint job's own (`cache-suffix: lint`,
+dev tools only) apart from the test jobs' (`app`, saved by the first part
+on each system and restored by the rest and the browser parts): sharing
+one key, a skipped lint once saved an empty cache every run then restored,
+and the Linux jobs downloaded the CUDA wheels each time. `tests/test_smoke_timings.py` holds the
 timing tool's order, `--top`, row totals (a row is the port table's, so two
 rows on one port stay apart) and its exit-2 refusals of a missing,
 malformed or ambiguous summary. Before it, `tools/smoke_fonts.py`
@@ -7972,14 +7993,18 @@ if so skips lint and every later job, naming the covering run in a notice.
 A push to a branch leaves the commit to an open pull request's run only
 once that pull request shows the pushed commit as its head and answers
 `mergeable: true` (five polls three seconds apart); a conflicted one runs no
-workflow, and a stale head or unknown mergeability runs the push. A push to
+workflow, and a stale head or unknown mergeability runs the push. A push
+that finds no open pull request looks once more after 45 seconds, since a
+pull request is often opened just after its branch's first push, which then
+ran in full beside it. A push to
 main skips when a pull request associated with the commit has a head with
 the same tree that contains main's previous commit (the compare API answers
 `ahead` or `identical`), and a passed `pull_request` run of this workflow
 for that head, branch and this repository (not a fork's, which had no
 secrets; a merged pull request's runs list no pull requests) whose jobs
-passed: `lint`, `browser` and both `test` systems, or `lint` alone when this
-push is documentation-only. Pull requests, manual runs, tags, direct pushes
+passed: `lint`, `browser` and both `test` systems, every part of a split
+job (`browser (1/3)` to `(3/3)`), or `lint` alone when this push is
+documentation-only. Pull requests, manual runs, tags, direct pushes
 to main without such a run, and any failure of the check run; the step has
 `continue-on-error`, and a crash leaves its output unset, which runs.
 `tests/test_ci_duplicates.py` holds those answers against canned API replies.

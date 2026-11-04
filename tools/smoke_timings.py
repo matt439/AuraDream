@@ -9,7 +9,11 @@ sum of smoke times beside the run's wall clock. Only the first pass's
 `results` are counted; a rerun's receipts (`--rerun-failed-alone`) get one
 line of their own.
 
-Read-only and standard library: no server, no browser, nothing written.
+Read-only and standard library: no server, no browser, nothing written,
+except that `--write-costs` merges the run's passed first-pass times into
+`tools/run_smoke_costs.json` (what `run_smoke.py` orders and shards by), keeping
+the times of smokes this run did not cover (another shard's) and dropping
+smokes the port table no longer lists. Run it once per shard's summary.
 A row is the `AGENTS.md` row that lists the smoke (two rows can share a
 port); a smoke no longer in the table is its own row, by the receipt's port
 and model. Exit 2 refuses a missing, malformed or ambiguous summary.
@@ -139,12 +143,25 @@ def report(path: Path, summary: dict, rows: list, top: int) -> str:
     return "\n".join(lines)
 
 
+def merged_costs(current: dict, results: list[dict], rows: list) -> dict:
+    """`current` (run_smoke_costs.json's document) with each passed receipt's
+    whole seconds in place; smokes no longer in the table leave."""
+    listed = {smoke for row in rows for smoke in row.smokes}
+    seconds = {name: value for name, value in dict(current.get("seconds") or {}).items() if name in listed}
+    for receipt in results:
+        if receipt.get("result") == "passed" and receipt["smoke"] in listed:
+            seconds[receipt["smoke"]] = max(1, round(float(receipt["duration_seconds"])))
+    return {**current, "seconds": dict(sorted(seconds.items()))}
+
+
 def main(argv: list[str] | None = None) -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
     parser = argparse.ArgumentParser(description="Where a smoke run's time went, from its summary.json.")
     parser.add_argument("path", type=Path, help="a summary.json, or a directory with exactly one below it")
     parser.add_argument("--top", type=int, default=TOP, help=f"how many of the slowest smokes to list (default {TOP})")
+    parser.add_argument("--write-costs", action="store_true",
+                        help="merge this run's passed times into tools/run_smoke_costs.json")
     args = parser.parse_args(argv)
     if args.top < 1:
         print("--top must be at least 1")
@@ -157,6 +174,17 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     rows = _runner().parse_table((ROOT / "AGENTS.md").read_text(encoding="utf-8"))
     print(report(path, summary, rows, args.top))
+    if args.write_costs:
+        costs_path = ROOT / "tools" / "run_smoke_costs.json"
+        try:
+            current = json.loads(costs_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            current = {}
+        if not isinstance(current, dict):
+            current = {}
+        costs_path.write_text(json.dumps(merged_costs(current, summary["results"], rows), indent=2,
+                                         ensure_ascii=False) + "\n", encoding="utf-8")
+        print(f"\nwrote {costs_path.relative_to(ROOT).as_posix()}")
     return 0
 
 

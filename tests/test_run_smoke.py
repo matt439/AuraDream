@@ -661,3 +661,55 @@ def test_from_summary_refuses_bad_input_before_any_startup_effect(monkeypatch, t
     assert runner.main() == 2
     assert message in output.getvalue()
     assert not (tmp_path / "runs").exists()
+
+
+def _plan(*costs: float):
+    runner = _runner()
+    rows = [runner.Row(7000 + index, "owner/model", None, [f"smoke-{index}"]) for index in range(len(costs))]
+    return runner, [(row, row.smokes) for row in rows], {f"smoke-{i}": c for i, c in enumerate(costs)}
+
+
+def test_the_costs_file_names_only_smokes_in_the_table():
+    costs = _runner().load_costs()
+    named = {smoke for row in _rows() for smoke in row.smokes}
+    assert costs and set(costs) <= named
+
+
+def test_an_unreadable_costs_file_leaves_every_row_equal(tmp_path):
+    runner = _runner()
+    assert runner.load_costs(tmp_path / "missing.json") == {}
+    (tmp_path / "bad.json").write_text("[1, 2]", encoding="utf-8")
+    assert runner.load_costs(tmp_path / "bad.json") == {}
+
+
+def test_longest_rows_start_first_and_ties_keep_the_table_order():
+    runner, plan, costs = _plan(5, 50, 5, 20)
+    assert [smokes[0] for _row, smokes in runner.longest_first(plan, costs)] == [
+        "smoke-1", "smoke-3", "smoke-0", "smoke-2"]
+    # A smoke the file lacks counts as DEFAULT_COST.
+    assert runner.plan_cost(plan[0], {}) == runner.DEFAULT_COST
+
+
+@pytest.mark.parametrize("count", [1, 2, 3, 5])
+def test_shards_split_the_real_table_once_each_and_evenly(count):
+    runner = _runner()
+    plan = [(row, row.smokes) for row in _rows()]
+    costs = runner.load_costs()
+    parts = [runner.shard(plan, costs, index, count) for index in range(1, count + 1)]
+    smokes = [smoke for part in parts for _row, names in part for smoke in names]
+    assert sorted(smokes) == sorted(smoke for _row, names in plan for smoke in names)
+    totals = [sum(runner.plan_cost(item, costs) for item in part) for part in parts]
+    longest = max(runner.plan_cost(item, costs) for item in plan)
+    # Greedy longest-first: no part exceeds another by more than its largest row.
+    assert max(totals) - min(totals) <= longest
+    for part in parts:
+        positions = [plan.index(item) for item in part]
+        assert positions == sorted(positions)
+
+
+@pytest.mark.parametrize("text", ["0/3", "4/3", "1", "a/b", "1/0", ""])
+def test_a_bad_shard_is_refused(text):
+    runner = _runner()
+    with pytest.raises(runner.argparse.ArgumentTypeError):
+        runner.parse_shard(text)
+    assert runner.parse_shard(" 2/3 ") == (2, 3)

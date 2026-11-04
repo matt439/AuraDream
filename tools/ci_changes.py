@@ -14,12 +14,18 @@ from pathlib import Path, PurePosixPath
 
 
 _PROSE = {".md", ".rst"}
+# Prose the test suite reads (the port table, the module maps, verified
+# measurements): a change to one alone still runs the tests that read it.
+# tests/test_ci_changes.py holds this to the files the tests open.
+_TESTED_PROSE = {"AGENTS.md", "CLAUDE.md", "README.md", "docs/rules.md", "docs/verified.md"}
 _DOC_IMAGES = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".avif", ".pdf"}
 
 
 def is_documentation(name: str) -> bool:
     path = PurePosixPath(name)
     if path.is_absolute() or ".." in path.parts:
+        return False
+    if path.as_posix() in _TESTED_PROSE:
         return False
     # docs/ also contains runnable prototypes, fixtures and Python helpers.
     if path.suffix.lower() in _PROSE:
