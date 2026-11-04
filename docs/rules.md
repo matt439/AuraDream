@@ -6570,10 +6570,32 @@ measured on the card and when.
   the text. The phone lightbox's facts fade over their last 1.2 em, padded
   by as much, so a box cut mid-line says it scrolls. On its side
   (`(pointer: coarse) and (max-height: 500px) and (orientation: landscape)`)
-  the topbar is 46 px with small buttons and no free-space readout, the tab
-  bar 44 with its glyph beside its word, and the lightbox the PC's row: the
+  the topbar is 46 px with small buttons and no free-space readout and
+  scrolls away with the page (`position: relative`; `--topbar-h` there is
+  the notch's inset alone, so New image's pill and the scroll margins read
+  nothing over the page, and the Models sheet hangs at 46 px plus it), the
+  tab bar 44 with its glyph beside its word, the prompt three lines rather
+  than five (until its grip sets a height), the gallery's search beside
+  Runs, and the lightbox the PC's row: the
   picture beside a 300 px (at most 42 vw) column that scrolls as a whole,
-  its actions wrapping. `index.html` has no `apple-mobile-web-app-capable`:
+  its actions wrapping. Under 360 px wide (a third of an iPad, Slide Over)
+  Sampling's four boxes go two to a row: four ran past the panel and the
+  page scrolled sideways.
+  Accessibility on touch: the tab bar is a `nav` landmark ("Views",
+  `#phone-tabs`) holding a `.phone-tablist` (`role="tablist"`): a role on
+  the nav itself took the landmark away. The phone's `html` has a
+  `scroll-padding-bottom` of the bar's height, so a tablet keyboard's Tab
+  never leaves the focus under the bar (WCAG 2.4.11). Presses smaller than
+  a finger reach further by a pseudo-element without moving anything (the
+  panel's fold summaries, Then refine's opener), and a card's or a run
+  tile's tools are 32 px tall; a tool's name and fill on `:hover` are
+  dropped unless the focus is the keyboard's, since iOS leaves `:hover` on
+  what was tapped. The brand's "Dream" is `--accent-text` (#8a6dff, 5.0:1
+  on `--panel`; `--accent` was 4.26) at every size, the PC's too. The
+  prompt boxes keep `aria-expanded` on their textareas, which axe-core
+  reports (a textbox has no expanded state in ARIA 1.2): it is how a screen
+  reader hears that the suggestion list is open, and `smoke-tags` and
+  `smoke-refine-sdxl` hold it. `index.html` has no `apple-mobile-web-app-capable`:
   a full-screen home-screen app on iOS has no Safari round Download's file
   or Open PNG's tab to come back from, so the icon opens a Safari tab.
   The icon is `web/icons/icon.svg` (full bleed, its ring inside Android's
@@ -7390,9 +7412,14 @@ closing it; after a pinch the remaining finger panning 40 px at the same
 scale (synthetic touch pointer events, capture stubbed); a long press on
 the lightbox's picture opening the menu inside it with no dialog opened
 and the lightbox still up; 852x393 still the phone, with a topbar of at
-most 48 px, a tab bar of at most 45, and the lightbox's column beside a
-stage at least 300 tall; and a mouse at 1400x900 back to no bar, both views, a
-43 px Generate, 14 px text and the Ctrl+Enter hint.
+most 48 px, a tab bar of at most 45, a topbar that scrolls away, a
+three-line prompt, the search beside Runs, card tools 32 px tall, and the
+lightbox's column beside a stage at least 300 tall; the tab bar a nav
+landmark holding the tablist, the brand at #8a6dff and a scroll padding
+the bar's height; at 320x1106 Sampling two to a row with no sideways
+scroll; and a mouse at 1400x900 back to no bar, both views, a sticky
+topbar, no scroll padding, a 43 px Generate, 14 px text and the
+Ctrl+Enter hint.
 
 `smoke-tablet.json` uses a fresh FLUX.1 Krea [dev] fake on 7957 with touch
 at 820x1180@2: the panel beside the stage and sticky, two cards across,

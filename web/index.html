@@ -1039,11 +1039,15 @@
 </main>
 <!-- A phone's two views (touch.js, styles/touch.css): Create - the panel and
      the results - or the gallery. Drawn only on a phone; elsewhere it is
-     display: none and out of the tab order. -->
-<nav class="phone-tabs" id="phone-tabs" aria-label="View" role="tablist">
+     display: none and out of the tab order. The nav is the landmark (a
+     screen reader's rotor lists it beside main), the tablist inside it the
+     two tabs: a role on the nav itself took its landmark away. -->
+<nav class="phone-tabs" id="phone-tabs" aria-label="Views">
   <div class="phone-tabs-line" id="phone-tabs-line" aria-hidden="true" hidden><div class="fill" id="phone-tabs-fill"></div></div>
-  <button type="button" role="tab" id="tab-create" data-view="create" aria-selected="true"><svg class="tab-glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.2 6.3 6.3 2.2-6.3 2.2L12 19.5l-2.2-6.3L3.5 11l6.3-2.2z"/></svg>Create<span class="tab-busy" id="tab-busy" hidden></span></button>
-  <button type="button" role="tab" id="tab-gallery" data-view="gallery" aria-selected="false"><svg class="tab-glyph" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg>Gallery</button>
+  <div class="phone-tablist" role="tablist" aria-label="View">
+    <button type="button" role="tab" id="tab-create" data-view="create" aria-selected="true"><svg class="tab-glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.2 6.3 6.3 2.2-6.3 2.2L12 19.5l-2.2-6.3L3.5 11l6.3-2.2z"/></svg>Create<span class="tab-busy" id="tab-busy" hidden></span></button>
+    <button type="button" role="tab" id="tab-gallery" data-view="gallery" aria-selected="false"><svg class="tab-glyph" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg>Gallery</button>
+  </div>
 </nav>
 
 <!-- A <dialog> opened with showModal(): focus is trapped inside it, the page

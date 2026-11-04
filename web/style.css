@@ -33,6 +33,7 @@
      --accent-strong the primary buttons' fill and a selected preset's: white on it
                     is 5.4:1, where on --accent it was 4.35:1
      --accent-soft  a selected or hovered row on the accent: preset, menu item, critic kind
+     --accent-text  the accent as text (the brand's "Dream"): 5.0:1 on --panel
      --danger-strong the delete dialog's Delete fill: white on it is 6.5:1, where
                     on --danger, the red of text and edges, it is 3.0:1
      --warn         amber: stale, pooled-only, a warning, the loading dot, a mismatch
@@ -126,6 +127,9 @@
   --accent: #7c5cff;
   --accent-strong: #6a4cf0;
   --accent-soft: #221c3d;
+  /* The accent as text: the brand's second half, 5.0:1 on --panel where
+     --accent was 4.26 (WCAG 1.4.3 asks 4.5 of bold 15-16 px). */
+  --accent-text: #8a6dff;
   --accent-2: #4ad6c8;
   --danger: #ff5c72;
   --danger-strong: #b4233a;
@@ -312,7 +316,7 @@ body.png-drop::after {
    second half in the accent, with no space between the two for a screen
    reader to read as two words. */
 .brand { margin: 0; font-weight: 700; letter-spacing: -0.02em; font-size: var(--fs-xl); }
-.brand span { color: var(--accent); }
+.brand span { color: var(--accent-text); }
 
 .status { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: var(--fs-body-sm); }
 /* "· busy in another tab" (status.js) gives way in a phone-width bar, where

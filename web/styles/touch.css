@@ -147,6 +147,21 @@
   .gallery-footer #btn-saved-searches .full { display: inline; }
   .gallery-footer #btn-saved-searches .short { display: none; }
   .gallery-footer #btn-saved-searches { min-width: 0; padding-inline: 10px; }
+
+  /* The folds' summaries (Custom dimensions, Grid search, Advanced) were a
+     line of text, 18 px to press: a finger's height without moving their
+     text. Then refine's opener, a word at the Notify row's end, likewise. */
+  .panel summary { position: relative; }
+  .panel summary::after { content: ""; position: absolute; inset: -9px 0; }
+  .notification-choice > .tr-open { position: relative; }
+  .notification-choice > .tr-open::after { content: ""; position: absolute; inset: -10px -6px; }
+  /* The tools over a picture - a gallery card's, a run's tiles' - were 24 px
+     tall: a finger's 32, their widths still shrinking to share the card. */
+  .card .tools button, .viewer.many .tools button { min-height: var(--h-xs); }
+  /* A tap leaves :hover on iOS, so a tool's name stayed hung over the card
+     after its press, and its fill lit; the keyboard's focus still shows them. */
+  :is(.card, .viewer) .tools button:hover:not(:focus-visible)::after { content: none; }
+  .card .tools button:hover:not(:focus-visible) { background: rgba(0, 0, 0, 0.55); }
 }
 
 /* ------------------------------------------------------- tablet, portrait */
@@ -175,6 +190,10 @@
   .brand { font-size: var(--fs-lg); }
 
   main { padding-bottom: calc(var(--tabbar-h) + var(--safe-b) + var(--gutter)); }
+  /* A tablet keyboard's Tab brought a control in at the window's foot, under
+     the tab bar (WCAG 2.4.11): the scroll that follows the focus stops short
+     of the bar. Nothing else scrolls by it. */
+  html { scroll-padding-bottom: calc(var(--tabbar-h) + var(--safe-b) + var(--sp-2)); }
 
   /* One view at a time: Create is the panel and the results, Gallery the
      gallery's head, grid and paging. */
@@ -189,6 +208,7 @@
     border-top: 1px solid var(--line);
     -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
   }
+  .phone-tablist { display: flex; flex: 1; min-width: 0; }
   .phone-tabs button {
     position: relative; flex: 1 1 0; min-width: 0;
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
@@ -212,8 +232,18 @@
     bottom: calc(var(--tabbar-h) + var(--safe-b) + var(--gutter));
   }
 
-  /* The gallery's head: the search across the column, the rest under it. */
+  /* The gallery's head: the search across the column, the rest under it
+     (beside Runs on a phone on its side, below). */
   #search { flex: 1 1 100%; max-width: none; }
+
+  /* Under 360 px (Split View or Slide Over at a third, an iPhone SE's
+     zoomed view) Sampling's four boxes and their names were wider than the
+     panel: True CFG ran past its edge and the page scrolled sideways. Two
+     to a row there. */
+  @media (width < 360px) {
+    .sampling-row { flex-wrap: wrap; row-gap: var(--sp-2); }
+    .sampling-row > .sub, .sampling-row > .sub.grow { flex: 1 1 calc(50% - var(--sp-2)); width: auto; min-width: 0; }
+  }
 
   /* The lightbox: the picture across the screen, its facts and actions under
      it in one scrolling column, the actions a row that scrolls sideways
@@ -260,7 +290,7 @@
    facts. Here both bars are slimmer - the tab bar's glyph beside its word -
    and the lightbox is the PC's row again, its column scrolling as a whole. */
 @media (pointer: coarse) and (max-height: 500px) and (orientation: landscape) {
-  :root { --topbar-h: calc(46px + var(--safe-t)); --tabbar-h: 44px; }
+  :root { --tabbar-h: 44px; }
   .topbar { padding-top: calc(4px + var(--safe-t)); padding-bottom: 4px; }
   .topbar > button, .topbar .ghost { min-height: var(--h-sm); }
   .topbar > .vram { display: none; }
@@ -280,4 +310,18 @@
   .lb-compare { flex: none; }
   /* The column's own scroll is the way down: its actions wrap in it. */
   .lb-actions { flex-wrap: wrap; overflow-x: visible; }
+
+  /* The topbar scrolls away with the page rather than staying over a third
+     of it: nothing under it is sticky on a phone, the tab bar carries a
+     job's line, and Models and Unload are a scroll to the top. What reads
+     --topbar-h (New image's pill, the scroll margins) reads the notch alone. */
+  :root { --topbar-h: var(--safe-t); }
+  .topbar { position: relative; height: calc(46px + var(--safe-t)); }
+  .model-picker { top: calc(46px + var(--safe-t)); max-height: calc(100dvh - 46px - var(--safe-t) - var(--tabbar-h) - var(--safe-b)); }
+  /* The prompt three lines, not five: at five, Create on its side was the
+     prompt box and nothing else. A drag on its grip still sets its own. */
+  #prompt:not([style*="height"]) { height: calc(2lh + var(--h-field)); }
+  /* The gallery's search beside Runs: one row of the head fewer over the
+     cards. */
+  #search { flex: 1 1 200px; }
 }
