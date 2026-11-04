@@ -18,7 +18,8 @@ def test_served_at_the_root_uncached(client):
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/javascript")
     assert response.headers["cache-control"] == "no-cache"
-    assert response.text == SW
+    # The file as it is on disk: a Windows checkout has CRLF line ends.
+    assert response.content == (WEB / "sw.js").read_bytes()
 
 
 def test_registered_only_in_a_secure_context():
