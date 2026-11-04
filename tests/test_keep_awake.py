@@ -370,6 +370,7 @@ def test_hold_while_holds_for_the_block_and_never_raises_a_refusal():
     ("POST", "/api/masks/" + "a" * 64 + "/keep", False),
     ("POST", "/api/masks", True),
     ("GET", "/static/app.js", False),
+    ("GET", "/sw.js", False),
     ("GET", "/outputs/thumbnails/1.webp", False),
     ("HEAD", "/", False),
     ("OPTIONS", "/api/generate", False),

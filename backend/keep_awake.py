@@ -66,7 +66,8 @@ _POLLED_GETS = frozenset({
     "/api/gallery/automatic-backup",
 })
 # The page's files: a page load is counted by "/" and its API calls, and a
-# cached page's revalidations or a thumbnail are not someone using it.
+# cached page's revalidations or a thumbnail are not someone using it, nor
+# the browser's own check for a newer service worker (/sw.js).
 _FILE_PREFIXES = ("/static/", "/outputs/")
 
 
@@ -82,7 +83,7 @@ def counts_as_activity(method: str, path: str) -> bool:
     if method == "GET":
         if path in _POLLED_GETS or path == "/api/jobs" or path.startswith("/api/jobs/"):
             return False
-        if path.startswith(_FILE_PREFIXES) or path == "/favicon.ico":
+        if path.startswith(_FILE_PREFIXES) or path in ("/favicon.ico", "/sw.js"):
             return False
     if method == "POST" and path.startswith("/api/masks/") and path.endswith("/keep"):
         return False

@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- What sw.js answers for "/" when the server does not: the PC is off,
+     asleep, off this network, or AuraDream is not running. Self-contained
+     (its style and icon inline), since nothing else can be fetched while it
+     shows. It asks the server again every few seconds, at once when the
+     phone wakes or rejoins a network, and on Try again; the first answer
+     opens AuraDream. Its probe is a page file, which neither counts as use
+     (keep_awake) nor waits on a load. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#131318">
+<title>AuraDream is not answering</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    display: flex; align-items: center; justify-content: center;
+    padding: max(24px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right))
+             max(24px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+    background: #0b0b0e; color: #e8e8ee;
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main {
+    width: 100%; max-width: 420px; padding: 28px 24px;
+    background: #131318; border: 1px solid #26262f; border-radius: 14px; text-align: center;
+  }
+  svg { width: 72px; height: 72px; border-radius: 16px; }
+  h1 { margin: 16px 0 8px; font-size: 20px; line-height: 1.3; }
+  p { margin: 0 0 12px; color: #c9c9d4; }
+  #state { margin: 16px 0; color: #8b8b9a; font-size: 13px; min-height: 1.5em; }
+  button {
+    min-height: 44px; padding: 10px 22px; border: 0; border-radius: 10px;
+    background: #6a4cf0; color: #fff; font: inherit; font-weight: 600; cursor: pointer;
+  }
+  button[aria-disabled="true"] { opacity: 0.6; cursor: progress; }
+  button:focus-visible { outline: 2px solid #b48cff; outline-offset: 2px; }
+</style>
+</head>
+<body>
+<main>
+  <svg viewBox="0 0 512 512" aria-hidden="true">
+    <defs>
+      <radialGradient id="bg" cx="50%" cy="42%" r="70%">
+        <stop offset="0" stop-color="#221c3d"/><stop offset="1" stop-color="#0b0b0e"/>
+      </radialGradient>
+      <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#4ad6c8"/><stop offset="0.55" stop-color="#7c5cff"/><stop offset="1" stop-color="#b48cff"/>
+      </linearGradient>
+      <mask id="crescent">
+        <circle cx="248" cy="262" r="104" fill="#fff"/><circle cx="302" cy="218" r="92" fill="#000"/>
+      </mask>
+    </defs>
+    <rect width="512" height="512" fill="url(#bg)"/>
+    <circle cx="256" cy="256" r="158" fill="none" stroke="url(#ring)" stroke-width="18"/>
+    <rect width="512" height="512" fill="#ece8ff" mask="url(#crescent)"/>
+  </svg>
+  <h1>AuraDream is not answering</h1>
+  <p>The page could not reach <strong id="where">the PC</strong>. It may be
+    off or asleep, on another network, or AuraDream may not be running on it.</p>
+  <p>Wake or start it, and this page opens AuraDream as soon as it answers.</p>
+  <div id="state" aria-live="polite">Trying again every few seconds…</div>
+  <button type="button" id="retry">Try again</button>
+</main>
+<script>
+'use strict';
+// Every few seconds, and at once on waking: a sleeping phone's timers stop.
+const EVERY_MS = 5000;
+const PROBE_TIMEOUT_MS = 5000;
+const where = document.getElementById('where');
+const state = document.getElementById('state');
+const retry = document.getElementById('retry');
+where.textContent = location.host || 'the PC';
+let probing = false;
+let timer = 0;
+
+async function probe() {
+  if (probing) return;
+  probing = true;
+  retry.setAttribute('aria-disabled', 'true');
+  state.textContent = 'Trying…';
+  clearTimeout(timer);
+  const abort = new AbortController();
+  const stop = setTimeout(() => abort.abort(), PROBE_TIMEOUT_MS);
+  try {
+    // Any answer at all is the server back; "/" again then goes through the
+    // worker to the network and opens the page itself.
+    await fetch('/static/manifest.webmanifest', { cache: 'no-store', signal: abort.signal });
+    state.textContent = 'AuraDream answered — opening…';
+    location.replace('/');
+    return;
+  } catch {
+    const at = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    state.textContent = `No answer at ${at}. Trying again every few seconds…`;
+  } finally {
+    clearTimeout(stop);
+    probing = false;
+    retry.removeAttribute('aria-disabled');
+  }
+  timer = setTimeout(probe, EVERY_MS);
+}
+
+retry.addEventListener('click', probe);
+window.addEventListener('online', probe);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) probe(); });
+timer = setTimeout(probe, EVERY_MS);
+</script>
+</body>
+</html>

@@ -928,3 +928,12 @@ loadGallery();
 loadRuns();
 resumeActiveJob();
 setInterval(refreshStatus, 3000);
+// The offline page (sw.js): where the page is a secure context, a later visit
+// that finds the server silent says so in a page of its own, rather than the
+// browser's "can't connect". Plain http to a LAN address is not one, so a
+// phone there has the topbar's "server not answering" once the page is open.
+if ('serviceWorker' in navigator && window.isSecureContext) {
+  try {
+    navigator.serviceWorker.register('/sw.js').catch(() => { /* the page runs without it */ });
+  } catch { /* the page runs without it */ }
+}

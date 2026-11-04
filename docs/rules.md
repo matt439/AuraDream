@@ -655,6 +655,24 @@ before changing it.
   and the job's mark on its tab bar; the touch tier's media queries
   (`PHONE_MEDIA`, `TABLET_COLUMNS_MEDIA`, `TWO_COLUMNS_MEDIA`) are
   `state.js`'s, beside `styles/touch.css`'s copies of them.
+  `sw.js` is no classic script: the service worker, served at `/sw.js`
+  (`main.service_worker`, `Cache-Control: no-cache`) so its scope is the
+  whole site, and registered at the end of `app.js` only in a secure context
+  (127.0.0.1, localhost, HTTPS; never plain http to a LAN address, where
+  browsers refuse one). It answers only the navigation to `/`: the network
+  first, always, and `cache: 'no-cache'` (`/` sends no Cache-Control,
+  and heuristic freshness served the page from the HTTP cache with the
+  server gone), and `offline.html` from
+  its one cache (`auradream-offline-v<N>`, older ones dropped at activation)
+  only on a network error or no answer within `NAVIGATION_TIMEOUT_MS` (6 s).
+  Any answer, a refusal or a 500 included, is the server's and passes. It
+  never caches the page, its scripts, the API or images: a cached page could
+  outlive an update and talk to a newer server. `offline.html` is
+  self-contained (style and icon inline) and probes a page file
+  (`/static/manifest.webmanifest`, which neither counts as use nor waits on
+  a load) every 5 s, at once on Try again, `online` and the tab coming back
+  into view, then `location.replace('/')` on any answer. A change to
+  `offline.html` raises the cache's version in `sw.js`.
   The stylesheet is
   `style.css` (tokens and base layout), followed by `styles/*.css` in the
   explicit link order: `model-picker.css` the Models picker (first, at its
@@ -6604,6 +6622,13 @@ measured on the card and when.
   are it rendered at those sizes, opaque, and are rendered again after any
   change to it. `web/manifest.webmanifest` keeps `display: "browser"` for
   the same reason as above (`tests/test_app_icon.py`).
+- Offline (`web/sw.js`, `web/offline.html`): opening AuraDream while the
+  server is silent shows the offline page, never the browser's error, where
+  a service worker is allowed; an open page keeps the topbar's "server not
+  answering — retrying" (`goOffline`) everywhere. The worker caches nothing
+  but the offline page, `/sw.js` is not activity (`keep_awake`), and the
+  smoke drives the offline case through the fake's `/api/fake/unreachable`
+  (`tests/test_service_worker.py`, `smoke-offline`).
 
 ## Tests
 
@@ -7430,6 +7455,14 @@ sizes; at 678x1180 (Split View) the phone with its tab bar; and a mouse
 at 820x1180 one column as before, 43 px Generate, the
 chips under the prompt.
 
+`smoke-offline.json` uses a fresh FLUX.1 Krea [dev] fake on 7958: the
+page at 127.0.0.1 registers `sw.js`, which controls the next load; with
+`/api/fake/unreachable` on, opening `/` again shows `offline.html` after the
+navigation timeout (its heading, the host, the in-page script's own
+timestamped "No answer" after Try again); with it off, Try again opens
+AuraDream itself, under the worker, its topbar ready. The open page's own
+"server not answering" was already held by other smokes.
+
 `smoke-queue-controls.json` uses a fresh FLUX.1 Krea [dev] fake on 7914 with
 0.3 s steps. It checks authoritative Move order and focus through reload,
 delayed-response/new-submission races, a watched queued job's Move control,
@@ -8243,7 +8276,9 @@ fake's directory and back, as a rename by hand would; `POST
 `days` for Empty's age scope, leaving live rows live; `POST
 /api/fake/refine` (`{supported}`, answering what it replaced) takes the
 claimed checkpoint's refine pass away and gives it back, as a loaded
-pipeline with no image-to-image sibling answers; the fake's rewriter and translator count as downloaded from their
+pipeline with no image-to-image sibling answers; `POST /api/fake/unreachable`
+(`{on}`) holds every request but the knobs unanswered while on (two
+minutes at most, released when it goes off), as a PC asleep on Wi-Fi; the fake's rewriter and translator count as downloaded from their
 first use), and `node tools/browser.mjs tools/smoke.json` drives headless
 Edge or Chrome over the DevTools protocol with Node's own WebSocket - no npm
 install - through the lightbox zoom and the focus its close leaves on the
