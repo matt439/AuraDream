@@ -334,3 +334,98 @@ def test_the_whole_clear_and_where_reach_the_recycle_bin(fresh, capsys):
     assert clear.main(["--yes"]) == 0
     assert "Deleted 1 record(s), 1 file(s)" in capsys.readouterr().out
     assert storage.summarise()["records"] == 0
+
+
+# The confirmation prompt: only the typed word deletes. Closed input and any
+# other answer are the abort code, 1, with everything still on disk.
+@pytest.mark.parametrize("answer", ["", "yes", "Clear", "y"])
+def test_any_answer_but_clear_aborts_and_deletes_nothing(fresh, capsys, monkeypatch, answer):
+    (fresh.outputs_dir / "one.png").write_bytes(b"png")
+    monkeypatch.setattr("builtins.input", lambda prompt="": answer)
+
+    assert clear.main([]) == 1
+    assert (fresh.outputs_dir / "one.png").exists()
+    assert "Aborted." in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("error", [EOFError, KeyboardInterrupt])
+def test_closed_input_at_the_prompt_aborts_and_names_yes(fresh, capsys, monkeypatch, error):
+    (fresh.outputs_dir / "one.png").write_bytes(b"png")
+
+    def closed(prompt=""):
+        raise error
+
+    monkeypatch.setattr("builtins.input", closed)
+    assert clear.main([]) == 1
+    assert (fresh.outputs_dir / "one.png").exists()
+    assert "Pass --yes" in capsys.readouterr().err
+
+
+def test_typing_clear_at_the_prompt_deletes(fresh, capsys, monkeypatch):
+    (fresh.outputs_dir / "one.png").write_bytes(b"png")
+    monkeypatch.setattr("builtins.input", lambda prompt="": "  clear ")
+
+    assert clear.main([]) == 0
+    assert not (fresh.outputs_dir / "one.png").exists()
+
+
+def test_an_empty_gallery_has_nothing_to_clear(fresh, capsys):
+    storage.init_db()
+
+    assert clear.main(["--yes"]) == 0
+    assert "Nothing to clear." in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("argv", [["--where", "seed:1"], ["--bin"]])
+def test_the_scoped_paths_refuse_a_missing_gallery(fresh, capsys, argv):
+    assert clear.main([*argv, "--yes"]) == 1
+    assert "No gallery yet." in capsys.readouterr().err
+    assert not fresh.db_path.exists()
+
+
+def test_where_refuses_a_blank_filter(fresh, capsys):
+    storage.init_db()
+
+    assert clear.main(["--where", "   ", "--yes"]) == 2
+    assert "a filter is required" in capsys.readouterr().err
+
+
+def test_where_previews_jobs_and_more_than_three_prompts(fresh, capsys):
+    _seed(fresh, a=(1, "job-a"), b=(2, "job-a"), c=(3, "job-b"), d=(4, "job-b"))
+
+    assert clear.main(["--where", "model:m", "--dry-run"]) == 0
+    out = capsys.readouterr().out
+    assert "4 records match" in out
+    assert "jobs: " in out and "job-a" in out and "job-b" in out
+    assert "         - ..." in out
+
+
+def test_a_failure_during_a_where_delete_has_its_own_exit_code(fresh, capsys, monkeypatch):
+    _seed(fresh, a=(1, "j"))
+
+    def boom(*args, **kwargs):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(gallery_delete, "delete_matching", boom)
+    assert clear.main(["--where", "seed:1", "--yes"]) == 3
+    assert "OSError: disk full" in capsys.readouterr().err
+
+
+def test_a_failure_while_emptying_the_bin_has_its_own_exit_code(fresh, capsys, monkeypatch):
+    made = _seed(fresh, a=(1, "j"))
+    gallery_delete.bin_images([made["a"].id])
+
+    def boom(*args, **kwargs):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(gallery_delete, "empty_bin", boom)
+    assert clear.main(["--bin", "--yes"]) == 3
+    assert "OSError: disk full" in capsys.readouterr().err
+
+
+def test_an_empty_bin_says_so_and_deletes_nothing(fresh, capsys):
+    made = _seed(fresh, a=(1, "j"))
+
+    assert clear.main(["--bin", "--yes"]) == 0
+    assert "The recycle bin is empty." in capsys.readouterr().out
+    assert storage.get_image(made["a"].id) is not None
