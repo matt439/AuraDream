@@ -56,7 +56,7 @@
 .snippet-import-dialog::backdrop, .setup-import-dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
 .snippet-import-dialog > :not(#snippet-import-rows), .setup-import-dialog > :not(#setup-import-rows) { flex: none; }
 .snippet-import-dialog p, .setup-import-dialog p { margin: 0; }
-#snippet-import-filename, #setup-import-filename {
+.snippet-import-dialog .import-filename, .setup-import-dialog .import-filename {
   max-height: 2lh; overflow: auto; overflow-wrap: anywhere; font-size: var(--fs-body-sm);
 }
 #snippet-import-summary, #setup-import-summary { min-height: 2lh; max-height: 2lh; overflow: auto; font-size: var(--fs-body-sm); }

@@ -118,6 +118,15 @@
   display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 3px var(--sp-3);
   margin: 0; font-size: var(--fs-body-sm); line-height: 1.45;
 }
+/* A fact's buttons - the ⌕ and a link - are 24 px tall, WCAG 2.5.8's least
+   target (the ⌕ alone was 11x13): padding grows the box upward over the line
+   and the negative margin gives it back, so the rows keep their lines and the
+   column its height. Upward only: grown below, the last row's box overflowed
+   the side, which then scrolled where every fact used to fit. */
+.facts :is(.lb-search, .lb-link) {
+  --target-pad: calc(24px - 1lh);
+  padding-top: var(--target-pad); margin-top: calc(-1 * var(--target-pad));
+}
 .facts > div { display: contents; }
 .facts dt { color: var(--muted); }
 .facts dd { margin: 0; color: var(--text-2); overflow-wrap: anywhere; }
@@ -156,8 +165,8 @@
 /* The gallery search from a fact (gallery-search.js): a glyph after the
    value, muted until pointed at, so the rows still read as facts. */
 .lb-search {
-  padding: 0 2px; border: 0; background: none; color: var(--muted);
-  font: inherit; line-height: 1; cursor: pointer;
+  min-width: 24px; padding: 0 2px; border: 0; background: none; color: var(--muted);
+  font: inherit; cursor: pointer;
 }
 .lb-search:hover, .lb-search:focus-visible { color: var(--accent-2); }
 .lb-prompt-search { margin: calc(-1 * var(--sp-1)) 0 var(--sp-2); font-size: var(--fs-body-sm); }

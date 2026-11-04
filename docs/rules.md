@@ -4309,7 +4309,9 @@ measured on the card and when.
   for with `?binned=true`. "Only the masked area" (`#inpaint-crop-field`,
   in the first tools row, where it costs no height) is a tick and a
   Padding box (0-256, step 8, 32): unticked, the padding is greyed by a
-  class, never hidden; where the checkpoint has no inpaint the tick is
+  class, never hidden, and `aria-disabled` (still typable), so its greyed
+  "Pad" is an inactive control's text, which WCAG 1.4.3 exempts (it was
+  2.1:1); where the checkpoint has no inpaint the tick is
   `aria-disabled` with the reason and a press says it. `inpaintRequest`
   sends `mask_crop` or null; the preview's area words come after the
   existing text; `#inpaint-crop-box` draws the server's box, hidden on a
@@ -5170,7 +5172,10 @@ measured on the card and when.
   `peakFact`, "N.NN GiB peak" in GiB of the allocated bytes, "of its batch"
   when `batch > 1`, the reserved figure and the allocator caveat in its
   title, nothing at all without one) with a muted ⌕ (`.lb-search`,
-  `aria-label` "Search the gallery for …", the terms in its title), and
+  `aria-label` "Search the gallery for …", the terms in its title; it and
+  a fact's link are 24 px tall and the ⌕ 24 wide, WCAG 2.5.8's target,
+  grown upward over the line by padding a negative margin gives back, so
+  the column keeps its height and the last row never overflows it), and
   `promptSearchLine` puts "⌕ Search for this prompt" over the facts: the
   prompt's words, less any with no letter or digit or that would read as a
   filter. A press goes through `showGallerySearch` (the passes link's too):
@@ -6613,7 +6618,16 @@ measured on the card and when.
   prompt boxes keep `aria-expanded` on their textareas, which axe-core
   reports (a textbox has no expanded state in ARIA 1.2): it is how a screen
   reader hears that the suggestion list is open, and `smoke-tags` and
-  `smoke-refine-sdxl` hold it. `index.html` has no `apple-mobile-web-app-capable`:
+  `smoke-refine-sdxl` hold it. A chip editor's `<input>` is a `combobox`,
+  where `aria-expanded` is valid. Elsewhere an `aria-label` sits only on an
+  element with a role that takes one: the import dialogs' rows are a
+  `group`, the setups summary's `pre` too, and the selected file's name
+  follows a visually hidden "Selected file:" (`.import-filename`). Every
+  `<input>` named by a one-letter caption (W, H) has the word as its
+  `aria-label`. axe-core (4.14, with `target-size`) reports nothing on the
+  page, the phone's Gallery view, Models, the menus, the lightbox and every
+  dialog at 1400x900, the iPhone 15 Pro and the iPad Air 11, except that
+  textarea attribute and an empty confirm heading before it is filled. `index.html` has no `apple-mobile-web-app-capable`:
   a full-screen home-screen app on iOS has no Safari round Download's file
   or Open PNG's tab to come back from, so the icon opens a Safari tab.
   The icon is `web/icons/icon.svg` (full bleed, its ring inside Android's
