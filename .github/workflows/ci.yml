@@ -268,3 +268,5 @@ jobs:
         run: uv sync --locked --group dev
       - name: Test
         run: uv run --no-sync pytest -q -n auto --timeout=600
+
+# probe

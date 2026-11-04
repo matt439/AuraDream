@@ -1,0 +1,10 @@
+name: Probe
+on: pull_request
+permissions:
+  contents: read
+jobs:
+  ci-definition:
+    name: ci-definition
+    runs-on: ubuntu-latest
+    steps:
+      - run: sleep 120
