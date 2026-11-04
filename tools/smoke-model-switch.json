@@ -369,10 +369,16 @@
     "eval": "__pick(__anime);"
   },
   {
+    "expect": "__until(() => !modelSwitchHold({load: true}))"
+  },
+  {
     "click": "#btn-model-switch"
   },
   {
     "expect": "__model(__anime)"
+  },
+  {
+    "log": "'After the press: ' + JSON.stringify({loadedModel, modelState, error: modelSwitchError, message: modelPickerMessage, reason: modelPressReason})"
   },
   {
     "expect": "els.steps.value === '24' && els.cfg.value === '6' && els.prompt.value === '1girl, blue eyes, outdoors'"
