@@ -90,6 +90,9 @@ _load_state: _LoadState = {"state": "unloaded", "detail": None}
 _load_lock = asyncio.Lock()
 _switching = False
 _switch_task: asyncio.Task | None = None
+# A load started in the background, held until it finishes: the event loop
+# keeps only a weak reference to a task.
+_load_tasks: set[asyncio.Task] = set()
 _model_requests = 0
 # The counted requests in flight by path, for a refusal that names them.
 _model_request_paths: dict[str, int] = {}
@@ -881,7 +884,9 @@ async def load_model() -> ModelStatus:
     if _load_state["state"] != "ready" or not backend.is_ready():
         # Reserve the pending load before its task has entered the lock.
         _load_state.update(state="loading", detail=None)
-        asyncio.create_task(_load_in_background())
+        load = asyncio.create_task(_load_in_background())
+        _load_tasks.add(load)
+        load.add_done_callback(_load_tasks.discard)
     return await status()
 
 
