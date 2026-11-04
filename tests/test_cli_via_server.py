@@ -419,3 +419,53 @@ def test_gan_via_server_carries_the_choice_and_refuses_before_mask_upload(via_se
     assert generate.main([*argv, "--mask", str(mask)]) == 2
     assert "ordinary Refine" in capsys.readouterr().err
     assert not any(call[1].startswith("/api/masks") or call[1] == "/api/generate" for call in via_server.calls[calls:])
+
+
+def test_server_json_keeps_a_non_json_error_and_refuses_a_non_object_answer(monkeypatch):
+    import urllib.error
+    import urllib.request
+
+    def proxy_page(request, timeout):
+        raise urllib.error.HTTPError(request.full_url, 502, "Bad Gateway", {}, io.BytesIO(b"<html>bad gateway</html>"))
+
+    monkeypatch.setattr(urllib.request, "urlopen", proxy_page)
+    with pytest.raises(generate_remote._ServerError, match="502") as error:
+        generate_remote._server_json("http://127.0.0.1:9999", "/api/status")
+    assert error.value.status == 502
+
+    monkeypatch.setattr(urllib.request, "urlopen", lambda request, timeout: io.BytesIO(b'["a list"]'))
+    with pytest.raises(generate_remote._ServerError, match="did not answer with a JSON object") as error:
+        generate_remote._server_json("http://127.0.0.1:9999", "/api/status")
+    assert error.value.status == 0
+
+
+@pytest.mark.parametrize(("host", "port", "base"), [
+    ("0.0.0.0", "7861", "http://127.0.0.1:7861"),
+    ("::", "7860", "http://127.0.0.1:7860"),
+    ("::1", "7860", "http://[::1]:7860"),
+    ("[::1]", "7860", "http://[::1]:7860"),
+    ("my-box.local", "8000", "http://my-box.local:8000"),
+])
+def test_via_server_asks_the_address_the_server_can_be_reached_at(via_server, monkeypatch, capsys, host, port, base):
+    monkeypatch.setenv("AURADREAM_HOST", host)
+    monkeypatch.setenv("AURADREAM_PORT", port)
+    asked = []
+
+    def unreachable(base_url, path, **kwargs):
+        asked.append(base_url)
+        raise generate_remote._ServerError(f"no usable answer from {base_url}: refused")
+
+    monkeypatch.setattr(generate_remote, "_server_json", unreachable)
+    assert generate.main(["a fox", "--via-server"]) == 1
+    assert asked == [base]
+    assert f"no usable answer from {base}" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("port", ["0", "65536", "http", ""])
+def test_via_server_refuses_a_port_out_of_range_before_any_call(via_server, monkeypatch, capsys, port):
+    monkeypatch.setenv("AURADREAM_PORT", port)
+    with pytest.raises(SystemExit) as stop:
+        generate.main(["a fox", "--via-server"])
+    assert stop.value.code == 2
+    assert "AURADREAM_PORT must be a port from 1 to 65535" in capsys.readouterr().err
+    assert via_server.calls == []
