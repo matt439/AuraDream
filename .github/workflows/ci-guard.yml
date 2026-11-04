@@ -1,0 +1,59 @@
+# A pull request's own CI cannot judge a change to CI. ci.yml runs as the
+# pull request defines it, so one that edited ci.yml, added a workflow with
+# a job named `gate` or taught tools/ci_changes.py that everything is
+# documentation would report a green `gate`. This check is main's ruleset's
+# second required one. `pull_request_target` runs it as main defines it,
+# whatever the pull request changes, and it never checks out or runs the
+# pull request's code: it reads the changed paths from the API and fails
+# when any is part of the CI definition. A job of the same name in a
+# workflow the pull request adds is a separate check suite and does not
+# replace this one's failure. Landing a CI change is therefore a deliberate
+# ruleset edit, recorded in the ruleset's history (docs/rules.md, Tests).
+name: CI guard
+
+on:
+  pull_request_target:
+    # `edited` too: a pull request retargeted onto main is checked again.
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  pull-requests: read
+
+concurrency:
+  group: ci-guard-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  ci-definition:
+    name: ci-definition
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: The pull request leaves the CI definition alone
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          NUMBER: ${{ github.event.pull_request.number }}
+          CHANGED: ${{ github.event.pull_request.changed_files }}
+          # Everything that decides what CI runs or how `gate` is reached.
+          GUARDED: '^(\.github/|tools/ci_changes\.py$|tools/ci_duplicates\.py$)'
+        run: |
+          set -euo pipefail
+          # The files API lists at most 3000; beyond that it cannot show
+          # every path, so the check fails rather than pass unseen ones.
+          if [ "$CHANGED" -gt 3000 ]; then
+            echo "::error::$CHANGED changed files: more than the API can list"
+            exit 1
+          fi
+          # A rename counts under its old name as well as its new one.
+          paths=$(gh api --paginate "repos/$REPO/pulls/$NUMBER/files?per_page=100" \
+            --jq '.[] | .filename, (.previous_filename // empty)')
+          echo "$paths" | sed 's/^/  /'
+          hits=$(printf '%s\n' "$paths" | grep -E "$GUARDED" || true)
+          if [ -n "$hits" ]; then
+            while IFS= read -r path; do
+              echo "::error::Changes the CI definition: $path"
+            done <<< "$hits"
+            exit 1
+          fi
+          echo "No CI definition file changed."
