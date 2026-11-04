@@ -13067,3 +13067,50 @@ or rehashed to reconstruct the missing values. Preserve the current lock and
 resolve that discrepancy during the [optional compiler proposal's isolated
 lock review](plan-regional-compilation.md#dependency-proposal-and-remaining-artifact-check-2026-10-28);
 the historical measurement is not proof that the present lock retains it.
+
+## Opening AuraDream while the PC is silent
+
+Added 2026-11-04 at Matt's request ("offline and app feel"): opening the
+home-screen icon while the PC slept showed Safari's "can't connect to the
+server" after a long wait, which read as a broken app. A page already open
+had its own words for it (`goOffline`, "server not answering — retrying"),
+but nothing answered a fresh visit.
+
+`web/sw.js` is a service worker that answers only the navigation to `/`.
+The network always goes first; only a network error, or no answer within
+six seconds (a PC asleep on Wi-Fi leaves the connection hanging much
+longer), gets `offline.html`, which names the host, says what to check,
+retries every five seconds and at once when the phone wakes, and opens the
+page on the first answer. Any answer is the server's, a 400 from the host
+check or a 500 included, so the worker never hides a real refusal behind
+"not answering".
+
+What was not taken, and why:
+
+- Caching the app shell (cache first, or stale while revalidate). The page
+  is 70-odd scripts and stylesheets that change with every `git pull`, and
+  the server keeps no compatibility with older pages: a cached page talking
+  to a newer server would fail in ways no test covers. On a LAN the shell
+  costs little; one revalidated navigation adds next to nothing. A cached shell with the server gone would also show a gallery and
+  composer that can do nothing.
+- Serving the cached app instead of a page of its own. Booting the whole
+  page against a silent server leaves every panel's first request failed,
+  and recovering it means running the boot again: a reload, which the
+  offline page does anyway.
+- Leaving the worker's fetch to the HTTP cache. `/` sends no
+  Cache-Control, so Chrome treated the page as fresh by its Last-Modified
+  and, in the first browser check, served the whole app from the HTTP cache
+  with the server stopped: the topbar's red "server not ans…" over a page
+  that could do nothing. The worker's fetch is `no-cache` (a 304 when
+  unchanged); the page's own headers are left as they were, so a browser
+  without the worker behaves as before.
+- `/static/sw.js`. A worker's scope is its own directory, so it could not
+  answer `/` without a `Service-Worker-Allowed` header; `/sw.js` is a route
+  of its own, `no-cache`, and not activity for keep-awake.
+
+A service worker needs a secure context: 127.0.0.1, localhost or HTTPS.
+A phone opening `http://192.168.x.y:7860` is not one, and Safari refuses to
+register the worker there, so on the phone the offline page needs AuraDream
+behind HTTPS (a reverse proxy with a certificate the phone trusts, for
+example); `app.js` does not try elsewhere. The open page's topbar state
+works on every origin.

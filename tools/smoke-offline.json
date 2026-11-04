@@ -1,0 +1,27 @@
+[
+  {"log": "'Offline page: a fresh FLUX.1 Krea [dev] fake on 7958, the page at 127.0.0.1 (a secure context)'"},
+  {"navigate": "http://127.0.0.1:7958/"},
+  {"viewport": [1400, 900]},
+  {"expect": "(async () => { const end = Date.now() + 20000; while (Date.now() < end) { if (document.getElementById('status-dot')?.className.includes('ready')) return true; await new Promise((r) => setTimeout(r, 50)); } return false; })()", "fatal": true},
+  {"expect": "(async () => { const end = Date.now() + 15000; while (Date.now() < end) { if (navigator.serviceWorker.controller?.scriptURL === location.origin + '/sw.js') return true; await new Promise((r) => setTimeout(r, 50)); } return false; })()", "fatal": true},
+
+  {"log": "'The worker answers nothing but the page: the API and the files reach the server as before'"},
+  {"expect": "(async () => { const r = await fetch('/api/status'); return r.ok && (await r.json()).state !== undefined; })()"},
+  {"expect": "(async () => { const r = await fetch('/sw.js'); return r.ok && r.headers.get('cache-control') === 'no-cache' && r.headers.get('content-type').startsWith('text/javascript'); })()"},
+
+  {"log": "'The PC goes quiet: opening AuraDream again shows the offline page, not a browser error'"},
+  {"expect": "(async () => (await (await fetch('/api/fake/unreachable', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({on: true})})).json()).on === true)()", "fatal": true},
+  {"navigate": "http://127.0.0.1:7958/"},
+  {"wait": 6500},
+  {"expect": "(async () => { const end = Date.now() + 10000; while (Date.now() < end) { if (document.querySelector('h1')?.textContent === 'AuraDream is not answering') return true; await new Promise((r) => setTimeout(r, 50)); } return false; })()", "fatal": true},
+  {"expect": "location.pathname === '/' && document.title === 'AuraDream is not answering' && document.getElementById('where').textContent === '127.0.0.1:7958'"},
+  {"expect": "!document.getElementById('status-dot') && document.getElementById('retry').textContent === 'Try again'"},
+  {"expect": "(async () => { document.getElementById('retry').click(); if (document.getElementById('retry').getAttribute('aria-disabled') !== 'true') return false; const end = Date.now() + 12000; while (Date.now() < end) { if (/^No answer at .+ Trying again every few seconds/.test(document.getElementById('state').textContent) && !document.getElementById('retry').hasAttribute('aria-disabled')) return true; await new Promise((r) => setTimeout(r, 50)); } return false; })()"},
+
+  {"log": "'The PC answers again: Try again opens AuraDream itself'"},
+  {"expect": "(async () => (await (await fetch('/api/fake/unreachable', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({on: false})})).json()).on === false)()", "fatal": true},
+  {"eval": "document.getElementById('retry').click()"},
+  {"wait": 1500},
+  {"expect": "(async () => { const end = Date.now() + 20000; while (Date.now() < end) { if (document.getElementById('status-dot')?.className.includes('ready')) return true; await new Promise((r) => setTimeout(r, 50)); } return false; })()", "fatal": true},
+  {"expect": "location.pathname === '/' && document.title.includes('AuraDream') && navigator.serviceWorker.controller?.scriptURL === location.origin + '/sw.js'"}
+]

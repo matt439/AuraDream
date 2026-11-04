@@ -232,6 +232,11 @@ primary pointer (iPhone 15 Pro, iPad Air 11), never width alone, so a PC's
 mouse and the smokes never match it. On touch a long press is the image's
 right-click menu (`context-menu.js`): iOS sends no `contextmenu`.
 
+`sw.js`, served at `/sw.js` and registered by `app.js` only in a secure
+context (never plain http to a LAN address), answers a silent server's
+`/` with `offline.html`, which retries and reopens the page; it caches
+nothing else, and the network always goes first.
+
 `snippet-import.js` owns explicit personal-snippet export and the native
 merge dialog; it preserves the editor and prompt boxes, with no automatic retry.
 `setup-import.js` owns Saved setups Export…/Import… and its separate merge
@@ -599,6 +604,7 @@ uses the driver's graceful close/cleanup. See the full Tests rules.
 | 7955 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-gallery-top` |
 | 7956 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-phone` |
 | 7957 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-tablet` |
+| 7958 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-offline` |
 
 FLUX.1-Krea-dev is `black-forest-labs/FLUX.1-Krea-dev`; animagine is
 `cagliostrolab/animagine-xl-4.0`.
@@ -622,7 +628,8 @@ Gotchas:
   `/api/fake/bin-age`, `/api/fake/peak`,
   `/api/fake/refine` (`supported`: the claimed checkpoint's refine pass),
   `/api/fake/instruction-edit` (the edit gate, open by default only on a
-  Kontext fake); a prompt containing `[fail]` fails its cell;
+  Kontext fake), `/api/fake/unreachable` (`on`: every other request held
+  unanswered, a PC asleep); a prompt containing `[fail]` fails its cell;
   `--critic-delay`, `--no-critic`.
 
 GPU behaviour, pixels, timing and memory are the card's to say, recorded in

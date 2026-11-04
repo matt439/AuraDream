@@ -40,13 +40,15 @@ Port zero remains accepted.
 from __future__ import annotations
 
 import argparse
+import asyncio
 import math
 import os
 import sys
 import tempfile
 import threading
+import time
 from pathlib import Path
-from typing import NoReturn
+from typing import Any, NoReturn
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -719,6 +721,31 @@ def main() -> int:
                 )
             ] if ids else []
         return {"ids": sorted(moved), "binned_at": stamp}
+
+    # A server that does not answer, as a PC asleep on Wi-Fi: while on, every
+    # request but these knobs is held unanswered (released when it goes off,
+    # or after HOLD_LIMIT), which sw.js's navigation timeout and
+    # offline.html's probe take for silence. Answers the state.
+    hold_limit = 120.0
+    silent = {"on": False}
+
+    class HoldWhileUnreachable:
+        def __init__(self, app: Any) -> None:
+            self.app = app
+
+        async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+            if scope.get("type") == "http" and silent["on"] and not scope.get("path", "").startswith("/api/fake/"):
+                end = time.monotonic() + hold_limit
+                while silent["on"] and time.monotonic() < end:
+                    await asyncio.sleep(0.05)
+            await self.app(scope, receive, send)
+
+    app_main.app.add_middleware(HoldWhileUnreachable)
+
+    @app_main.app.post("/api/fake/unreachable", include_in_schema=False)
+    async def fake_unreachable(on: bool = Body(..., embed=True)) -> dict:
+        silent["on"] = on
+        return {"on": on}
 
     import uvicorn
 

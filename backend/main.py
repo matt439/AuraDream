@@ -637,6 +637,17 @@ async def index() -> FileResponse:
     return FileResponse(settings.web_dir / "index.html")
 
 
+@app.get("/sw.js", include_in_schema=False)
+async def service_worker() -> FileResponse:
+    # At the root, not under /static/, so the worker's scope covers "/";
+    # no-cache so a changed worker reaches a phone at its next visit.
+    return FileResponse(
+        settings.web_dir / "sw.js",
+        media_type="text/javascript",
+        headers={"Cache-Control": "no-cache"},
+    )
+
+
 # ------------------------------------------------------------------- model
 
 
