@@ -1,0 +1,17 @@
+{
+  "id": "/",
+  "name": "AuraDream",
+  "short_name": "AuraDream",
+  "description": "Local text-to-image generator",
+  "start_url": "/",
+  "scope": "/",
+  "display": "browser",
+  "background_color": "#0b0b0e",
+  "theme_color": "#131318",
+  "icons": [
+    { "src": "/static/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/static/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/static/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/static/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

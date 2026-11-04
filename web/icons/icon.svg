@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- AuraDream: a crescent moon inside its aura, on the page's panel colour.
+       The square is full bleed: iOS and launchers round its corners, and the
+       ring (outer edge 167 of 256) sits inside Android's 80% maskable circle.
+       The PNGs beside it are this file rendered at their sizes; render them
+       again after a change. -->
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="42%" r="70%">
+      <stop offset="0" stop-color="#221c3d"/>
+      <stop offset="1" stop-color="#0b0b0e"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0.55" stop-color="#7c5cff" stop-opacity="0"/>
+      <stop offset="0.72" stop-color="#7c5cff" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#7c5cff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4ad6c8"/>
+      <stop offset="0.55" stop-color="#7c5cff"/>
+      <stop offset="1" stop-color="#b48cff"/>
+    </linearGradient>
+    <linearGradient id="moon" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#d9d0ff"/>
+    </linearGradient>
+    <mask id="crescent">
+      <circle cx="248" cy="262" r="104" fill="#fff"/>
+      <circle cx="302" cy="218" r="92" fill="#000"/>
+    </mask>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <circle cx="256" cy="256" r="210" fill="url(#glow)"/>
+  <circle cx="256" cy="256" r="158" fill="none" stroke="url(#ring)" stroke-width="18"/>
+  <rect width="512" height="512" fill="url(#moon)" mask="url(#crescent)"/>
+  <path d="M332 150 l9 25 25 9 -25 9 -9 25 -9 -25 -25 -9 25 -9z" fill="#4ad6c8"/>
+  <path d="M370 236 l5 13 13 5 -13 5 -5 13 -5 -13 -13 -5 13 -5z" fill="#e8e8ee"/>
+</svg>

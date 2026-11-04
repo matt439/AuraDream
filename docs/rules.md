@@ -6574,6 +6574,12 @@ measured on the card and when.
   its actions wrapping. `index.html` has no `apple-mobile-web-app-capable`:
   a full-screen home-screen app on iOS has no Safari round Download's file
   or Open PNG's tab to come back from, so the icon opens a Safari tab.
+  The icon is `web/icons/icon.svg` (full bleed, its ring inside Android's
+  80% maskable circle); `apple-touch-icon.png` (180), `icon-192.png`,
+  `icon-512.png` (also the manifest's maskable entry) and `favicon-32.png`
+  are it rendered at those sizes, opaque, and are rendered again after any
+  change to it. `web/manifest.webmanifest` keeps `display: "browser"` for
+  the same reason as above (`tests/test_app_icon.py`).
 
 ## Tests
 
