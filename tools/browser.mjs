@@ -39,6 +39,8 @@
 //                                is coarse and has no hover (a phone, a tablet; false
 //                                puts the mouse back). Mouse steps still send a mouse.
 //   {"tap": [x, y]}, {"tap": "selector"}   one finger's tap there
+//   {"press": [x, y]}, {"press": "selector"}   one finger held still there for
+//                                700 ms, then lifted (a long press)
 //   {"swipe": [x1, y1, x2, y2]}  one finger dragged from the first point to the second
 //   {"pinch": [x, y, d1, d2]}    two fingers about (x, y), level with each other, moved
 //                                from d1 px apart to d2 (wider zooms in)
@@ -173,6 +175,9 @@ const invalidTouch = steps.flatMap((step, index) => {
   if (Object.hasOwn(step, 'touch') && typeof step.touch !== 'boolean') bad.push('touch needs true or false');
   if (Object.hasOwn(step, 'tap') && !(typeof step.tap === 'string' && step.tap.trim()) && !numbers(step.tap, 2)) {
     bad.push('tap needs [x, y] or a selector');
+  }
+  if (Object.hasOwn(step, 'press') && !(typeof step.press === 'string' && step.press.trim()) && !numbers(step.press, 2)) {
+    bad.push('press needs [x, y] or a selector');
   }
   if (Object.hasOwn(step, 'swipe') && !numbers(step.swipe, 4)) bad.push('swipe needs [x1, y1, x2, y2]');
   if (Object.hasOwn(step, 'pinch') && !(numbers(step.pinch, 4) && step.pinch[2] > 0 && step.pinch[3] > 0)) {
@@ -617,6 +622,12 @@ for (const [n, step] of steps.entries()) {
     await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
     await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     await sleep(150);
+  } else if (step.press) {
+    const [x, y] = await point(step.press);
+    await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+    await sleep(700);
+    await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await sleep(200);
   } else if (step.swipe) {
     const [x1, y1, x2, y2] = step.swipe;
     await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: x1, y: y1 }] });

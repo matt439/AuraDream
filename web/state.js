@@ -15,10 +15,11 @@ const $ = (id) => document.getElementById(id);
 // where the browser cannot say.
 const isShown = (el) => el.checkVisibility?.({ visibilityProperty: true, checkVisibilityCSS: true }) ?? true;
 // The same conditions as styles/touch.css: a coarse primary pointer (a
-// finger, never a PC's mouse) and, for the phone, at most 600 px wide or 500
-// tall - an iPhone either way up; for the tablet's two columns, 700-900 px
-// wide and taller than that. A window that is neither keeps the PC's layout.
-const PHONE_MEDIA = '(pointer: coarse) and ((max-width: 600px) or (max-height: 500px))';
+// finger, never a PC's mouse) and, for the phone, under 700 px wide or at most
+// 500 tall - an iPhone either way up, and an iPad's Split View or Slide Over
+// pane short of the tablet's columns; for those two columns, 700-900 px wide
+// and taller than 500. A window that is neither keeps the PC's layout.
+const PHONE_MEDIA = '(pointer: coarse) and ((width < 700px) or (max-height: 500px))';
 const TABLET_COLUMNS_MEDIA = '(pointer: coarse) and (700px <= width <= 900px) and (height > 500px)';
 // Two columns - the panel beside the stage: a mouse's window over 900 px, or
 // a tablet in portrait (tag-chips.js reads it to place the chips' host).

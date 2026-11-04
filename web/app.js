@@ -370,6 +370,12 @@ document.addEventListener('contextmenu', contextMenuEvent);
 document.addEventListener('keydown', contextMenuKey, true);
 document.addEventListener('pointerdown', contextMenuPointerDown, true);
 document.addEventListener('scroll', contextMenuAway, true);
+// A finger's long press is its right-click (iOS sends no contextmenu).
+document.addEventListener('pointerdown', contextMenuTouchDown, true);
+document.addEventListener('pointermove', contextMenuTouchMove, true);
+document.addEventListener('pointerup', contextMenuTouchEnd, true);
+document.addEventListener('pointercancel', contextMenuTouchEnd, true);
+document.addEventListener('click', contextMenuPressClick, true);
 window.addEventListener('resize', () => closeContextMenu(false));
 window.addEventListener('blur', () => closeContextMenu(false));
 els.contextMenu.addEventListener('keydown', contextMenuKeydown);
@@ -493,6 +499,10 @@ els.lbStage.onpointermove = lbPointerMove;
 els.lbStage.onpointerup = lbPointerUp;
 els.lbStage.onpointercancel = lbPointerCancel;
 els.lbStage.ondblclick = lbDoubleClick;
+// iOS Safari's own pinch events: refused on the stage, so two fingers there
+// zoom the picture (lightbox.js) and never the page under the lightbox,
+// whatever its touch-action support.
+for (const type of ['gesturestart', 'gesturechange']) els.lbStage.addEventListener(type, (e) => e.preventDefault());
 els.lbSplit.onkeydown = lbSplitKey;
 els.lbFit.onclick = zoomFit;
 els.lbOne.onclick = () => zoomOneToOne();

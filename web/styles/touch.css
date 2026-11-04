@@ -17,9 +17,10 @@
      The one-column rules elsewhere (style.css, fields.css, generation.css,
      tag-chips.js) leave it out with the same condition; landscape, 1180 px,
      is the PC's two columns already.
-   - Phone (coarse, at most 600 px wide or at most 500 tall - an iPhone either
-     way up): one column with a tab bar at the foot (touch.js) that shows
-     Create - the panel and the results - or the gallery. `body[data-view]`
+   - Phone (coarse, under 700 px wide or at most 500 tall - an iPhone either
+     way up, an iPad's Split View pane short of the two columns): one column
+     with a tab bar at the foot (touch.js) that shows Create - the panel and
+     the results - or the gallery. `body[data-view]`
      says which; nothing is removed from the page, only not drawn.
 
    The page's tokens stay the source: the tier overrides them on :root, as
@@ -118,6 +119,34 @@
   /* The picture takes the finger: a drag pans or swipes, two fingers zoom
      (lightbox.js), never the page behind. */
   .lb-stage { touch-action: none; }
+
+  /* A long press on an image is its right-click (context-menu.js), so iOS's
+     own callout (Save to Photos, Copy) and a text selection must not answer
+     it too; the menu's Copy image and Open PNG in new tab are there. */
+  #gallery .card, #viewer figure .tile, #sheet-grid .sheet-cell, .lb-stage {
+    -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
+  }
+  /* Its rows a finger's height; its keys' hint and its key letters have no
+     keyboard to name. */
+  .context-menu li[role="menuitem"] { min-height: var(--h-sm); align-items: center; }
+  .context-menu .context-key-hint, .context-menu kbd { display: none; }
+
+  /* The gallery's footer wraps from the left on a touch screen, every button
+     at its full name: right-aligned, the wrap stranded Picked's arrow before
+     Select and Saved searches' ⌕ alone on a line of its own. */
+  .gallery-footer { justify-content: flex-start; }
+  /* Its line, which keeps its room on a PC so nothing moves when it speaks,
+     takes a row of its own here, and none while it says nothing. */
+  .gallery-footer #gallery-error { flex: 1 0 100%; }
+  .gallery-footer #gallery-error[hidden] { display: none !important; }
+  .gallery-footer .select-count:empty { display: none; }
+  .gallery-footer #btn-bundles { margin-left: 0; }
+  .gallery-footer .picked .word, .gallery-footer #btn-select-clear .word {
+    position: static; width: auto; height: auto; overflow: visible; clip: auto;
+  }
+  .gallery-footer #btn-saved-searches .full { display: inline; }
+  .gallery-footer #btn-saved-searches .short { display: none; }
+  .gallery-footer #btn-saved-searches { min-width: 0; padding-inline: 10px; }
 }
 
 /* ------------------------------------------------------- tablet, portrait */
@@ -137,7 +166,7 @@
 /* The tab bar is the phone's alone. */
 .phone-tabs { display: none; }
 
-@media (pointer: coarse) and ((max-width: 600px) or (max-height: 500px)) {
+@media (pointer: coarse) and ((width < 700px) or (max-height: 500px)) {
   :root { --gutter: 12px; --panel-pad: 14px; }
 
   /* The topbar: the keyboard list has no keyboard to list; the checkpoint's
@@ -188,11 +217,24 @@
 
   /* The lightbox: the picture across the screen, its facts and actions under
      it in one scrolling column, the actions a row that scrolls sideways
-     rather than wrapping into a third line. */
+     rather than wrapping into a third line. The facts fade out at their foot,
+     so a box cut mid-line says it scrolls; the padding under the last line
+     lets it be read clear of the fade. */
   .lightbox { gap: var(--sp-2); }
   .lb-actions { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; }
   .lb-actions > * { flex: none; }
   .lb-nav { display: none; }
+  .lb-meta {
+    padding-bottom: 1.2em;
+    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 1.2em), transparent);
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 1.2em), transparent);
+  }
+
+  /* While a box has the keyboard the tab bar goes: iOS keeps a fixed foot on
+     the layout viewport, which its keyboard does not shrink, so the bar sat
+     behind the keyboard or floated over the text being typed. touch.js says
+     when (`body[data-typing]`); a select's wheel is no keyboard. */
+  body[data-typing] .phone-tabs { display: none; }
 
   /* The dialogs open as sheets across the screen. */
   dialog:not(.lightbox):not(.context-menu) {
@@ -209,4 +251,33 @@
     border-radius: 0; border-inline: none;
     padding-left: var(--safe-l); padding-right: var(--safe-r);
   }
+}
+
+/* ------------------------------------------------------- phone, landscape */
+
+/* An iPhone on its side is 340-ish px tall in Safari: the topbar and the tab
+   bar took a third of it, and the lightbox stacked a 170 px picture over its
+   facts. Here both bars are slimmer - the tab bar's glyph beside its word -
+   and the lightbox is the PC's row again, its column scrolling as a whole. */
+@media (pointer: coarse) and (max-height: 500px) and (orientation: landscape) {
+  :root { --topbar-h: calc(46px + var(--safe-t)); --tabbar-h: 44px; }
+  .topbar { padding-top: calc(4px + var(--safe-t)); padding-bottom: 4px; }
+  .topbar > button, .topbar .ghost { min-height: var(--h-sm); }
+  .topbar > .vram { display: none; }
+  #btn-models { margin-left: auto; }
+  .phone-tabs button { flex-direction: row; gap: var(--sp-2); }
+  .phone-tabs button .tab-glyph { width: 20px; height: 20px; }
+  .phone-tabs .tab-busy { top: 10px; left: auto; right: calc(50% - 46px); }
+
+  .lightbox { flex-direction: row; }
+  .lb-side {
+    flex: 0 0 min(300px, 42vw); width: min(300px, 42vw);
+    flex-direction: column; flex-wrap: nowrap; align-items: stretch;
+    overflow-y: auto; overscroll-behavior: contain;
+  }
+  .lb-head { order: 0; margin-left: 0; }
+  .lb-meta { flex: none; max-height: none; overflow: visible; padding-bottom: 0; -webkit-mask-image: none; mask-image: none; }
+  .lb-compare { flex: none; }
+  /* The column's own scroll is the way down: its actions wrap in it. */
+  .lb-actions { flex-wrap: wrap; overflow-x: visible; }
 }
