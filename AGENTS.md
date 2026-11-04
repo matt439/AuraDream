@@ -463,16 +463,19 @@ Node and bundled checker files, without automatic updates or downloads.
 CI (`.github/workflows/ci.yml`, detail in `docs/rules.md` under Tests): ruff
 on Linux for every push and pull request. Documentation-only changes run
 just lint, without app/tokenizer installs; executable files under `docs/`
-still get tests. Other changes and manual runs get the pinned type gate
-and `pytest -n auto --durations=25` (the 25 slowest tests) on Linux,
-and on Windows too for main (pull requests into it, pushes and by hand;
-about 12 minutes); a separate
-`browser` job runs the smoke table on Linux Chrome (fonts from
-`tools/smoke_fonts.py`), printing its timings (`tools/smoke_timings.py`)
-and uploading diagnostics on failure. A commit runs once
-(`tools/ci_duplicates.py`): a branch push with an open pull request leaves
-it to that pull request's run, and main's merge push skips when a passed
-pull request run tested the same tree. Its runners are
+and the prose tests read (this file, `docs/rules.md`, `docs/verified.md`)
+still get tests. Other changes, manual and weekly runs get the pinned type
+gate and `pytest -n auto --durations=25` (the 25 slowest tests) on Linux,
+and on Windows too for main (pull requests into it, pushes, by hand and
+weekly), split in three runners by `pytest --shard K/N`; three `browser`
+jobs run a third of the smoke table each on Linux Chrome
+(`run_smoke.py --shard K/3 --jobs 2`, balanced by `tools/run_smoke_costs.json`;
+fonts from `tools/smoke_fonts.py`), printing their timings
+(`tools/smoke_timings.py`) and uploading diagnostics on failure. A commit
+runs once (`tools/ci_duplicates.py`): a branch push with an open pull
+request (or one opened within 45 seconds) leaves it to that pull request's
+run, and main's merge push skips when a passed pull request run tested the
+same tree. Its runners are
 slow and have no GPU driver: a test that races a clock (a time budget, a
 cell to skip or pause mid-run) needs seconds of margin, not milliseconds.
 `tools/fetch_tokenizers.py` fetches the real-tokenizer tests' files first,
@@ -484,7 +487,7 @@ What each smoke covers is listed in `docs/rules.md` under Tests.
 
 ```powershell
 uv run python tools/run_smoke.py <smoke> [...]   # starts the row's fake, runs, stops it
-uv run python tools/run_smoke.py --all --jobs 4  # every row; --offset N moves ports
+uv run python tools/run_smoke.py --all --jobs 4  # every row, longest first; --offset N moves ports; --shard K/N a part
 uv run python tools/run_smoke.py --all --jobs 4 --rerun-failed-alone  # or --from-summary <summary.json>
 uv run python tools/fake_server.py --port <port> [--model <id>] [--step 0.3]   # by hand
 node tools/browser.mjs tools/<smoke>.json

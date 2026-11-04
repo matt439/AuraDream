@@ -1,4 +1,5 @@
-"""`tools/smoke_timings.py` reads a run's summary.json and writes nothing.
+"""`tools/smoke_timings.py` reads a run's summary.json and writes nothing
+but, asked, `tools/run_smoke_costs.json`.
 
 docs/plan-tooling.md, "Suite and smoke timings": synthetic summaries shaped
 like `run_smoke.py`'s, checked for the slowest-first order, `--top`, each
@@ -133,3 +134,29 @@ def test_a_malformed_summary_is_refused(tmp_path, capsys, text, message):
     path.write_text(text, encoding="utf-8")
     assert smoke_timings.main([str(path)]) == 2
     assert message in capsys.readouterr().out
+
+
+def test_merged_costs_take_passed_times_and_keep_other_shards():
+    rows = [_row(7861, "owner/model", ["smoke", "smoke-a"]), _row(7862, "owner/model", ["smoke-b"])]
+    current = {"_comment": ["kept"], "seconds": {"smoke": 40, "smoke-b": 9, "smoke-gone": 3}}
+    results = [_receipt("smoke-a", 12.4), _receipt("smoke-b", 30.0, result="failed"),
+               _receipt("smoke", 0.2), _receipt("smoke-unlisted", 5.0)]
+    assert smoke_timings.merged_costs(current, results, rows) == {
+        "_comment": ["kept"], "seconds": {"smoke": 1, "smoke-a": 12, "smoke-b": 9}}
+
+
+def test_write_costs_updates_the_costs_file_in_place(tmp_path, capsys, monkeypatch):
+    root = tmp_path / "repo"
+    (root / "tools").mkdir(parents=True)
+    (root / "AGENTS.md").write_text((smoke_timings.ROOT / "AGENTS.md").read_text(encoding="utf-8"),
+                                    encoding="utf-8")
+    (root / "tools" / "run_smoke_costs.json").write_text(json.dumps({"seconds": {"smoke-flux": 3}}),
+                                                     encoding="utf-8")
+    runner = smoke_timings._runner()
+    monkeypatch.setattr(smoke_timings, "_runner", lambda: runner)
+    monkeypatch.setattr(smoke_timings, "ROOT", root)
+    path = _summary(tmp_path, [_receipt("smoke-grid", 28.0)])
+    assert smoke_timings.main([str(path), "--write-costs"]) == 0
+    written = json.loads((root / "tools" / "run_smoke_costs.json").read_text(encoding="utf-8"))
+    assert written == {"seconds": {"smoke-flux": 3, "smoke-grid": 28}}
+    assert _lines(capsys)[-1] == "wrote tools/run_smoke_costs.json"

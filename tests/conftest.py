@@ -38,6 +38,7 @@ from backend import bundle_crypto, main, prompt_encoding, storage  # noqa: E402
 from backend.jobs import JobManager  # noqa: E402
 from tests.api_helpers import ORIGIN  # noqa: E402
 from tests.fakes import FakeBackend, FakeCritic, FakeTranslator, fake_tokenizer  # noqa: E402
+from tests import shard  # noqa: E402
 
 # The CUDA build of torch on Windows with no NVIDIA driver (the CI runner) dies
 # with an access violation when transformers' masks ask whether a CUDA stream
@@ -194,3 +195,23 @@ def client(fake):
     # middleware, and why TestClient's default "testserver" would 400.
     with TestClient(main.app, base_url=ORIGIN) as c:
         yield c
+
+
+def pytest_addoption(parser):
+    parser.addoption("--shard", metavar="K/N", default=None,
+                     help="run only the K-th of N parts of the collected tests (tests/shard.py)")
+
+
+def pytest_collection_modifyitems(config, items):
+    value = config.getoption("--shard")
+    if not value:
+        return
+    try:
+        index, count = shard.parse(value)
+    except ValueError as exc:
+        raise pytest.UsageError(str(exc)) from exc
+    kept = [item for item in items if shard.part(item.nodeid, count) == index]
+    dropped = [item for item in items if shard.part(item.nodeid, count) != index]
+    if dropped:
+        config.hook.pytest_deselected(items=dropped)
+    items[:] = kept

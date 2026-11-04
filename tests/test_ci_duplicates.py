@@ -146,8 +146,22 @@ def test_branch_push_with_an_open_pull_request_leaves_it_to_that_run():
     assert _branch_push(_api(_branch([{"number": 3, "html_url": PR_URL}], True))) == PR_URL
 
 
-def test_branch_push_without_a_pull_request_runs():
-    assert _branch_push(_api(_branch([]))) is None
+def test_branch_push_without_a_pull_request_runs_after_one_more_look():
+    sleeps = []
+    get = _api(_branch([]))
+    assert _branch_push(get, sleeps) is None
+    assert sleeps == [ci_duplicates.OPENING_GRACE]
+    assert get.calls.count(f"/repos/{REPO}/pulls?state=open&per_page=100&head=owner%3Afeat%2Fx") == 2
+
+
+def test_a_pull_request_opened_during_the_grace_takes_the_push():
+    # The push came seconds before its pull request (run 184 beside 185).
+    sleeps = []
+    answers = _branch([], True)
+    answers[f"/repos/{REPO}/pulls?state=open&per_page=100&head=owner%3Afeat%2Fx"] = _Polls(
+        [[], [{"number": 3, "html_url": PR_URL}]])
+    assert _branch_push(_api(answers), sleeps) == PR_URL
+    assert sleeps == [ci_duplicates.OPENING_GRACE]
 
 
 def test_conflicted_pull_request_runs_no_workflow_so_the_push_runs():
@@ -189,6 +203,33 @@ def test_other_events_never_ask_the_api(kind):
 def test_tag_push_runs():
     get = _api({})
     assert covering_run("push", _push("refs/tags/v1", MAIN_SHA), get, full_tests=True) is None
+
+
+SPLIT = ["lint", "browser (1/3)", "browser (2/3)", "browser (3/3)", "test (ubuntu-latest)",
+         "test (windows-latest, 1/3)", "test (windows-latest, 2/3)", "test (windows-latest, 3/3)"]
+
+
+@pytest.mark.parametrize("name, parts", [
+    ("lint", ("lint", 1, 1)),
+    ("browser", ("browser", 1, 1)),
+    ("browser (2/3)", ("browser", 2, 3)),
+    ("test (ubuntu-latest)", ("test (ubuntu-latest)", 1, 1)),
+    ("test (windows-latest, 3/3)", ("test (windows-latest)", 3, 3)),
+])
+def test_a_jobs_part_comes_off_its_name(name, parts):
+    assert ci_duplicates.job_part(name) == parts
+
+
+def test_split_jobs_cover_when_every_part_passed():
+    assert run_covers(_jobs(*SPLIT)["jobs"], full_tests=True)
+
+
+@pytest.mark.parametrize("missing", [name for name in SPLIT if "/" in name])
+def test_a_missing_or_failed_part_does_not_cover(missing):
+    kept = [name for name in SPLIT if name != missing]
+    assert not run_covers(_jobs(*kept)["jobs"], full_tests=True)
+    failed = _jobs(*kept)["jobs"] + [{"name": missing, "conclusion": "failure"}]
+    assert not run_covers(failed, full_tests=True)
 
 
 def test_run_covers_requires_success():

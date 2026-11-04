@@ -35,6 +35,13 @@ root. summary.json records `jobs` and `offset`, and after a rerun `rerun`
 keep the first pass's, written before any rerun starts. The exit
 stays the first pass's: a smoke that passes alone is reported, not believed.
 Exit 2 is never rerun.
+
+Under `--jobs` the longest rows start first, by `tools/run_smoke_costs.json`
+(seconds per smoke from a CI run; a smoke it lacks counts as
+`DEFAULT_COST`), so a long row never starts last and runs alone at the end.
+`--shard K/N` runs the K-th of N parts of the selected rows, the parts
+balanced by the same costs: CI's browser job runs each part on its own
+runner. Every row lands in exactly one part, the same for every K.
 """
 from __future__ import annotations
 
@@ -60,6 +67,9 @@ ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_MODEL = "krea/Krea-2-Turbo"
 WORKER_SPAN = 100
 READY_SECONDS = 90.0
+COSTS_PATH = ROOT / "tools" / "run_smoke_costs.json"
+# A smoke run_smoke_costs.json does not list yet: about the table's median.
+DEFAULT_COST = 12.0
 _print_lock = threading.Lock()
 
 
@@ -129,6 +139,49 @@ def _port_plan_error(plan: list[tuple[Row, list[str]]], bands: list[int]) -> str
             # owns that band at a time. Different bands must never overlap.
             used[port] = band
     return None
+
+
+def load_costs(path: Path = COSTS_PATH) -> dict[str, float]:
+    """Seconds per smoke; empty (every row equal) when the file is missing or unreadable."""
+    try:
+        seconds = json.loads(path.read_text(encoding="utf-8")).get("seconds", {})
+    except (OSError, ValueError, AttributeError):
+        return {}
+    if not isinstance(seconds, dict):
+        return {}
+    return {name: float(value) for name, value in seconds.items()
+            if isinstance(name, str) and isinstance(value, (int, float)) and value >= 0}
+
+
+def plan_cost(item: tuple[Row, list[str]], costs: dict[str, float]) -> float:
+    return sum(costs.get(smoke, DEFAULT_COST) for smoke in item[1])
+
+
+def longest_first(plan: list[tuple[Row, list[str]]], costs: dict[str, float]) -> list[tuple[Row, list[str]]]:
+    """The plan with its costliest rows first; equal rows keep the table's order."""
+    return sorted(plan, key=lambda item: -plan_cost(item, costs))
+
+
+def parse_shard(text: str) -> tuple[int, int]:
+    """`K/N` with 1 <= K <= N."""
+    found = re.fullmatch(r"(\d+)/(\d+)", text.strip())
+    if not found or not 1 <= int(found.group(1)) <= int(found.group(2)):
+        raise argparse.ArgumentTypeError(f"--shard takes K/N with 1 <= K <= N, not {text!r}")
+    return int(found.group(1)), int(found.group(2))
+
+
+def shard(plan: list[tuple[Row, list[str]]], costs: dict[str, float], index: int,
+          count: int) -> list[tuple[Row, list[str]]]:
+    """The `index`-th (from 1) of `count` parts of `plan`, balanced by cost:
+    each row, costliest first, joins the part with the least so far (the
+    lower-numbered on a tie). Rows keep the plan's order within a part."""
+    totals = [0.0] * count
+    owner: dict[int, int] = {}
+    for position, item in sorted(enumerate(plan), key=lambda pair: -plan_cost(pair[1], costs)):
+        part = min(range(count), key=lambda n: (totals[n], n))
+        totals[part] += plan_cost(item, costs)
+        owner[position] = part
+    return [item for position, item in enumerate(plan) if owner[position] == index - 1]
 
 
 def _port_free(port: int) -> bool:
@@ -362,6 +415,8 @@ def main() -> int:
     parser.add_argument("--list", action="store_true", help="print the table as read, and stop")
     parser.add_argument("--offset", type=int, default=0, help="add N to every port (default 0)")
     parser.add_argument("--jobs", type=int, default=1, help="rows run in parallel (default 1)")
+    parser.add_argument("--shard", type=parse_shard, metavar="K/N",
+                        help="run only the K-th of N cost-balanced parts of the selected rows")
     parser.add_argument("--artifacts", type=Path, help="retain each run's screenshot directories below PATH")
     parser.add_argument("--rerun-failed-alone", action="store_true",
                         help="after the run, rerun each exit-1 smoke alone, serially")
@@ -392,7 +447,14 @@ def main() -> int:
             if mine:
                 plan.append((row, mine))
 
+    costs = load_costs()
+    if args.shard is not None:
+        plan = shard(plan, costs, *args.shard)
+        print(f"shard {args.shard[0]}/{args.shard[1]}: {sum(len(smokes) for _row, smokes in plan)} smokes, "
+              f"about {sum(plan_cost(item, costs) for item in plan):.0f} s of smoke time", flush=True)
     jobs = max(1, min(args.jobs, len(plan)))
+    if jobs > 1:
+        plan = longest_first(plan, costs)
     bands = [args.offset + WORKER_SPAN * n for n in range(jobs)]
     if error := _port_plan_error(plan, bands):
         print(error)
@@ -433,6 +495,8 @@ def main() -> int:
         "results": _receipts(artifacts, "*/result.json"),
         "jobs": jobs, "offset": args.offset,
     }
+    if args.shard is not None:
+        summary["shard"] = f"{args.shard[0]}/{args.shard[1]}"
     (artifacts / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     # Only exit 1 reruns: exit 2 is a refusal no rerun could explain.
     verdicts = None
@@ -454,8 +518,8 @@ def main() -> int:
 def _main_from_summary(args: argparse.Namespace, known: dict[str, Row]) -> int:
     """Rerun alone, in a new run root, the exit-1 smokes an earlier run recorded.
     Those failures stand: the exit is 1 whenever anything was rerun."""
-    if args.smokes or args.all:
-        print("--from-summary takes no smoke names and no --all")
+    if args.smokes or args.all or args.shard is not None:
+        print("--from-summary takes no smoke names, no --all and no --shard")
         return 2
     again, error = _summary_failures(args.from_summary, known)
     if error is None:

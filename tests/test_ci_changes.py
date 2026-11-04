@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import re
 from pathlib import Path
 
 import pytest
@@ -60,7 +61,7 @@ def _event(kind: str, base: str, head: str) -> dict:
 
 
 @pytest.mark.parametrize("path", [
-    "README.md", "TODO.md", "AGENTS.md", "CONTRIBUTING.rst",
+    "TODO.md", "CONTRIBUTING.rst", "docs/README.md",
     "docs/usage.md", "docs/design/notes.rst", "docs/design/a spaced name.md",
     "docs/design/日本語.md", "docs/figure.png", "docs/figure.jpg",
     "docs/figure.jpeg", "docs/figure.gif", "docs/figure.svg",
@@ -76,9 +77,25 @@ def test_prose_and_documentation_assets_are_documentation(path):
     "docs/verify.py", "docs/check.json", "docs/README.yml", "docs/env.sh",
     ".github/workflows/ci.yml", ".github/PULL_REQUEST_TEMPLATE.md",
     "pyproject.toml", "uv.lock", "README.png", "backend/README.md",
+    "AGENTS.md", "CLAUDE.md", "README.md", "docs/rules.md", "docs/verified.md",
 ])
 def test_executable_docs_and_other_paths_require_full_tests(path):
     assert not is_documentation(path)
+
+
+def test_prose_the_tests_open_runs_the_tests():
+    # A test that reads ROOT / "AGENTS.md" or ROOT / "docs" / "rules.md"
+    # fails on a change to that file alone only if that change runs tests.
+    root = Path(__file__).resolve().parent.parent
+    opened = set()
+    for source in [*(root / "tests").glob("*.py"), *(root / "tools").glob("*.py")]:
+        text = source.read_text(encoding="utf-8")
+        for parts in re.findall(r'ROOT((?: / "[^"]+")+)', text):
+            path = "/".join(re.findall(r'"([^"]+)"', parts))
+            if path.lower().endswith((".md", ".rst")):
+                opened.add(path)
+    assert {"AGENTS.md", "docs/rules.md", "docs/verified.md"} <= opened
+    assert [path for path in sorted(opened) if is_documentation(path)] == []
 
 
 @pytest.mark.parametrize("kind", ["push", "pull_request"])
@@ -92,7 +109,7 @@ def test_documentation_only_event_skips_full_tests(history, kind):
 def test_code_in_earlier_commit_is_not_hidden_by_documentation_tip(history, kind):
     repo, base = history
     _commit(repo, {"backend/main.py": "print('changed')\n"})
-    head = _commit(repo, {"README.md": "Documentation-only tip\n"})
+    head = _commit(repo, {"TODO.md": "Documentation-only tip\n"})
     assert full_tests_required(kind, _event(kind, base, head), cwd=repo)
 
 
@@ -123,7 +140,7 @@ def test_pr_does_not_include_changes_only_on_the_base_branch(history):
 @pytest.mark.parametrize("kind", ["workflow_dispatch", "schedule", "unknown"])
 def test_manual_and_unknown_events_always_run_full_tests(history, kind):
     repo, base = history
-    head = _commit(repo, {"README.md": "Docs only\n"})
+    head = _commit(repo, {"TODO.md": "Docs only\n"})
     assert full_tests_required(kind, _event(kind, base, head), cwd=repo)
 
 
@@ -152,7 +169,7 @@ def test_git_failure_runs_full_tests(tmp_path):
 
 def test_main_appends_the_gate_output(history, tmp_path, monkeypatch):
     repo, base = history
-    head = _commit(repo, {"README.md": "Docs only\n"})
+    head = _commit(repo, {"TODO.md": "Docs only\n"})
     event_path = tmp_path / "event.json"
     event_path.write_text(json.dumps(_event("push", base, head)), encoding="utf-8")
     output = tmp_path / "output.txt"

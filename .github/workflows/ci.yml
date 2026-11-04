@@ -1,10 +1,12 @@
 # Lint every push/PR. Documentation-only changes skip the CPU test matrix
-# and its application/tokenizer downloads. Manual runs keep the full gate.
-# CPU tests use Linux and, for main and pull requests into it, Windows.
-# No GPU or model weights. A commit already covered runs once
-# (tools/ci_duplicates.py): a branch push with an open pull request leaves
-# it to the pull request's run, and the push merging a pull request whose
-# run passed the same tree skips.
+# and its application/tokenizer downloads (prose the tests read is not
+# documentation-only: tools/ci_changes.py). Manual and weekly runs keep the
+# full gate. CPU tests use Linux and, for main and pull requests into it,
+# Windows, split across three runners. No GPU or model weights. A commit
+# already covered runs once (tools/ci_duplicates.py): a branch push with an
+# open pull request (or one opened within its grace) leaves it to the pull
+# request's run, and the push merging a pull request whose run passed the
+# same tree skips.
 # Hosted runners cost nothing on a public repository.
 name: CI
 
@@ -12,6 +14,11 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+  # Weekly on main: the full gate against the runners' current images and
+  # Chrome, and main's dependency caches, which pull requests restore,
+  # kept warm (a merge push skips its tests, so nothing else saves them).
+  schedule:
+    - cron: "17 3 * * 1"
 
 # Read-only token: the job checks out, lints and tests, and forks' pull
 # requests run it too. The duplicate check reads pull requests and runs.
@@ -21,7 +28,8 @@ permissions:
   actions: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  # A push to main never cancels the weekly run.
+  group: ci-${{ github.ref }}${{ github.event_name == 'schedule' && '-weekly' || '' }}
   cancel-in-progress: true
 
 jobs:
@@ -39,6 +47,10 @@ jobs:
       - uses: astral-sh/setup-uv@v10.3.2
         with:
           enable-cache: true
+          # Its own cache: lint installs only the dev tools, or nothing when
+          # it skips, and once saved under the test jobs' key that empty
+          # cache was what every later run restored.
+          cache-suffix: lint
           python-version: "3.13"
       - name: Classify changed paths
         id: changes
@@ -64,12 +76,15 @@ jobs:
     strategy:
       # One system's failure never cancels the other's answer.
       fail-fast: false
-      # Windows takes about five times as long as Linux for the suite, so it
-      # runs for main only: pull requests into it, and pushes and manual runs
-      # on it, beside the longer browser job. Other branches
-      # get Linux.
+      # Windows takes about four times as long as Linux for the suite (17
+      # minutes on four workers), so it runs for main only: pull requests into
+      # it, and pushes, manual and weekly runs on it, in three parts on three
+      # runners (`pytest --shard`, tests/shard.py). Other branches get Linux.
       matrix:
-        os: ${{ fromJSON((github.event_name == 'pull_request' && github.base_ref == 'main' || github.event_name != 'pull_request' && github.ref == 'refs/heads/main') && '["ubuntu-latest", "windows-latest"]' || '["ubuntu-latest"]') }}
+        include: ${{ fromJSON((github.event_name == 'pull_request' && github.base_ref == 'main' || github.event_name != 'pull_request' && github.ref == 'refs/heads/main') && '[{"os":"ubuntu-latest","shard":"1/1"},{"os":"windows-latest","shard":"1/3"},{"os":"windows-latest","shard":"2/3"},{"os":"windows-latest","shard":"3/3"}]' || '[{"os":"ubuntu-latest","shard":"1/1"}]') }}
+    # "test (ubuntu-latest)", "test (windows-latest, 2/3)": ci_duplicates.py
+    # reads these names.
+    name: test (${{ matrix.os }}${{ matrix.shard != '1/1' && format(', {0}', matrix.shard) || '' }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:
@@ -80,10 +95,16 @@ jobs:
       - uses: astral-sh/setup-uv@v10.3.2
         with:
           enable-cache: true
+          cache-suffix: app
+          # One part per system saves (about 2 GB on Linux, where the CUDA
+          # wheels took nearly two minutes to download); the rest restore.
+          save-cache: ${{ startsWith(matrix.shard, '1/') }}
           python-version: "3.13"
       - name: Install
         run: uv sync --locked --group dev
+      # Once per system: the checker reads every file whichever part runs.
       - name: Type check
+        if: ${{ startsWith(matrix.shard, '1/') }}
         run: uv run --no-sync python tools/typecheck.py
       # The real-tokenizer tests skip without these: tokenizer files only,
       # never weights. HF_TOKEN (a read token whose account has accepted the
@@ -103,19 +124,29 @@ jobs:
       # One worker per runner core (pytest-xdist): about half the serial time.
       # The 25 slowest tests across workers are listed after the result (DEV#25).
       - name: Test
-        run: uv run --group dev pytest -q -n auto --durations=25
+        run: uv run --group dev pytest -q -n auto --durations=25 --shard ${{ matrix.shard }}
 
   # The browser smokes (DEV#4): every row of AGENTS.md's port table on the
   # runner's Chrome against fake servers, no GPU or weights. Its own job so
   # it never holds up or replaces the CPU tests. Selawik stands in for the
-  # Segoe UI the smokes are written against (tools/smoke_fonts.py). Three
-  # smokes at once on the four-core runner; the table took about 15 minutes
-  # at that width on four cores.
+  # Segoe UI the smokes are written against (tools/smoke_fonts.py). The
+  # table is about 37 minutes of smoke time: three runners take a third
+  # each (`run_smoke.py --shard`, balanced by tools/run_smoke_costs.json), two
+  # smokes at once on each four-core runner, longest first. One runner at
+  # three at once took about 15 minutes, and on four cores four at once
+  # failed smokes that pass alone (refine, sheet, compare-cfg,
+  # compact-setup in PR #36's work).
   browser:
     needs: lint
     if: ${{ needs.lint.outputs.full_tests == 'true' && needs.lint.outputs.duplicate != 'true' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ["1/3", "2/3", "3/3"]
+    # "browser (2/3)": ci_duplicates.py reads these names.
+    name: browser (${{ matrix.shard }})
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
       - name: Verify Node and Chrome
@@ -125,6 +156,9 @@ jobs:
       - uses: astral-sh/setup-uv@v10.3.2
         with:
           enable-cache: true
+          # The Linux test job's cache: the same install, saved there.
+          cache-suffix: app
+          save-cache: false
           python-version: "3.13"
       - name: Install
         run: uv sync --locked --group dev
@@ -136,7 +170,7 @@ jobs:
           fi
           uv run --no-sync python tools/smoke_fonts.py "$RUNNER_TEMP/smoke-fonts"
       - name: Smokes
-        run: uv run --no-sync python tools/run_smoke.py --all --jobs 3 --artifacts "$RUNNER_TEMP/smoke-artifacts"
+        run: uv run --no-sync python tools/run_smoke.py --all --shard ${{ matrix.shard }} --jobs 2 --artifacts "$RUNNER_TEMP/smoke-artifacts"
         env:
           AURADREAM_BROWSER: /usr/bin/google-chrome
           AURADREAM_BROWSER_DIAGNOSTICS: "1"
@@ -150,7 +184,7 @@ jobs:
         if: ${{ failure() }}
         uses: actions/upload-artifact@v7
         with:
-          name: smoke-artifacts
+          name: smoke-artifacts-${{ strategy.job-index }}
           path: ${{ runner.temp }}/smoke-artifacts
           if-no-files-found: warn
           retention-days: 14
