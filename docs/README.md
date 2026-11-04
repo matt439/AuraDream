@@ -59,6 +59,9 @@
     [tooling](plan-tooling.md).
 - [design/](design/README.md): the product design study (requirements,
   research, a prototype and trial material).
+- `images/`: the README's screenshots (2026-11-04): a fake server's gallery
+  whose PNGs and thumbnails were replaced with drawn stand-in pictures, then
+  Playwright at 1600x1000, an iPhone 15 Pro and an iPad Pro 11 in landscape.
 - [testing-notes.md](testing-notes.md): observations from use, each marked
   with the commit that closed it; every entry so far is closed.
 

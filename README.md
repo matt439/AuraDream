@@ -1,5 +1,7 @@
 # AuraDream
 
+<img src="web/icons/icon-192.png" alt="AuraDream icon: a crescent moon and two sparkles in a glowing ring" width="96" align="right">
+
 Run text-to-image models locally with a browser UI, live previews and a searchable
 gallery. Supports FLUX, Krea 2, Z-Image, Qwen-Image, ERNIE-Image and a range of
 anime checkpoints. Built with FastAPI, diffusers, vanilla JavaScript and SQLite;
@@ -8,6 +10,29 @@ the frontend has no build step.
 [First-time setup](docs/setup.md) · [Quick start](#quick-start) · [Usage guide](docs/usage.md) ·
 [Anime model guide](docs/anime-model-guide.md) · [GPU measurements](docs/verified.md) ·
 [Product design](docs/design/README.md)
+
+![The AuraDream page on a PC: the prompt and settings panel on the left, the gallery on the right](docs/images/desktop.png)
+
+Phones and tablets can use it too, once the server listens on your network
+(the [native Linux server](#native-linux-a-server-on-your-network) does; on
+Windows set `AURADREAM_HOST` and `AURADREAM_ALLOWED_HOSTS`, only on a
+network you trust, as [the usage guide](docs/usage.md#scripting-the-running-server)
+explains). On a touch screen the page splits into Create and Gallery views
+with a tab bar, and the lightbox, long-press menu and pinch zoom work by
+finger. Added to an iPhone's home screen, it opens in Safari under
+AuraDream's icon.
+
+![Three iPhone screens: the Create view, the Gallery view and an image open in the lightbox](docs/images/phone.png)
+
+<details>
+<summary>On an iPad (landscape)</summary>
+
+![AuraDream on an iPad held sideways: the settings panel beside a four-column gallery](docs/images/tablet.png)
+
+</details>
+
+The screenshots come from the test server (`tools/fake_server.py`), so the
+pictures in them are drawn stand-ins, not model output.
 
 ## Requirements
 
