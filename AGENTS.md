@@ -34,7 +34,7 @@ uv run python -m backend.main --menu       # optional terminal picker
 uv run python -m backend.main --open       # also open the browser once listening
 uv run --group dev pytest          # no GPU, no weights; add -n auto for parallel
 uv run --group dev ruff check .    # correctness lint
-uv run --group dev python tools/typecheck.py  # pinned Pyright basic; Node required
+uv run --group dev python tools/typecheck.py  # pinned Pyright standard; Node required
 ```
 
 ```bash

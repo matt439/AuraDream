@@ -251,6 +251,8 @@ def _inspect_mask(member: str, data: bytes, known: dict | None) -> tuple[int, in
     differently, or renamed, is refused before anything is merged.
     """
     digest = PurePosixPath(member).stem
+    actual: str | None = None
+    size: tuple[int, int] = (0, 0)
     try:
         with Image.open(io.BytesIO(data)) as image:
             fmt, mode = image.format, image.mode

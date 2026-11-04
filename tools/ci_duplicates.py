@@ -79,6 +79,7 @@ def open_pull_request(get: Get, repo: str, owner: str, branch: str, sha: str, *,
         sleep(OPENING_GRACE)
         pulls = _open_pulls(get, repo, owner, branch)
     for pull in pulls:
+        current, answer = False, {}
         # Workflows never run on a pull request with a merge conflict, so it
         # covers the push only once it shows this commit as its head and
         # answers mergeable; stale or unknown after the polls, the push runs.

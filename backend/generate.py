@@ -896,9 +896,10 @@ def _main(argv: list[str] | None, awake: contextlib.ExitStack) -> int:
     total_images = sum(cell.request.num_images for cell in cells)
     # Then refine: the same checks the server's submit makes, and the run the
     # passes are saved under; a pass of each image follows its cell below.
+    from backend import then_refine
+
     spec = pass_run = None
     if args.then_refine is not None and cells:
-        from backend import then_refine
         from backend.schemas import ThenRefine
 
         spec = then_refine.resolved(ThenRefine(**args.then_refine))

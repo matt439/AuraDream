@@ -585,6 +585,8 @@ def empty_bin(
     with storage._write_lock, storage._session() as conn:
         if before is not None:
             conn.execute("BEGIN IMMEDIATE")
+        rows: list = []
+        ids: list[int] = []
         if expected is not None or pin is not None or before is not None:
             rows = _binned_rows(conn, before)
             ids = [row["id"] for row in rows]
