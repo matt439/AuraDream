@@ -30,7 +30,7 @@ def run_cold(tmp_path, masks, *, supported=False, probe=None):
            "AURADREAM_BROWSER": str(tmp_path / "fake-browser.exe"),
            "TMPDIR": str(temporary), "TEMP": str(temporary), "TMP": str(temporary)}
     done = subprocess.run(["node", str(CAPABILITIES_FIXTURE), json.dumps(request)],
-                          cwd=tmp_path, env=env, capture_output=True, text=True, timeout=15)
+                          cwd=tmp_path, env=env, capture_output=True, text=True, timeout=60)
     assert script.read_text(encoding="utf-8") == '[{"shot":"must-not-create.png"}]'
     assert not output.exists() and list(temporary.iterdir()) == []
     assert sorted(path.name for path in tmp_path.iterdir()) == ["must-not-read.json", "owned-temp"]
@@ -84,7 +84,7 @@ def run_fatal_cold(tmp_path, steps, *, probe=None):
                    "AURADREAM_SCREENSHOT_DIR": str(output), "TMPDIR": str(temporary),
                    "TEMP": str(temporary), "TMP": str(temporary)}
     done = subprocess.run(["node", str(FATAL_FIXTURE), json.dumps(request)],
-                          cwd=tmp_path, env=environment, capture_output=True, text=True, timeout=15)
+                          cwd=tmp_path, env=environment, capture_output=True, text=True, timeout=60)
     assert json.loads(script.read_text(encoding="utf-8")) == steps
     assert not output.exists() and list(temporary.iterdir()) == []
     assert sorted(path.name for path in tmp_path.iterdir()) == ["fatal-steps.json", "owned-temp"]

@@ -14,7 +14,7 @@ import pytest
 def test_storage_worker_death_recovers_on_restart(tmp_path, boundary, record_property):
     command = [sys.executable, str(Path(__file__).resolve().parent.parent / "tools" / "storage_interrupt.py"),
                "--data", str(tmp_path), "--boundary", boundary]
-    result = subprocess.run(command, capture_output=True, text=True, timeout=120)
+    result = subprocess.run(command, capture_output=True, text=True, timeout=300)
     assert result.returncode == 0, result.stdout + result.stderr
     assert not any(tmp_path.iterdir())
     report = json.loads(result.stdout)

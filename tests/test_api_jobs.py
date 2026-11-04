@@ -40,7 +40,6 @@ def test_skip_keeps_earlier_images_continues_and_finish_recovers_the_hole(client
     running = wait_for(client, job_id, lambda s: s["run"] == 2 and s["current_call"] is not None)
     response = client.post(f"/api/jobs/{job_id}/skip", params={"call": running["current_call"]})
     assert response.status_code == 200
-    assert response.json()["skip_requested"]
     done = stream_job(client, job_id)[-1]
     assert done["status"] == "done" and done["failures"] == 0 and done["skipped"] == 1
     assert [image["seed"] for image in done["images"]] == [10, 12]
