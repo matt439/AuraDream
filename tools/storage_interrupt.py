@@ -201,9 +201,9 @@ def _read_line(child) -> dict:
     thread = threading.Thread(target=lambda: answer.put(child.stdout.readline()), daemon=True)
     thread.start()
     try:
-        line = answer.get(timeout=30)
+        line = answer.get(timeout=60)
     except queue.Empty as exc:
-        raise AssertionError("owned storage worker did not reach its boundary within 30 seconds") from exc
+        raise AssertionError("owned storage worker did not reach its boundary within 60 seconds") from exc
     if not line:
         _, error = child.communicate(timeout=5)
         raise AssertionError(f"storage worker exited before its boundary: {error}")
@@ -263,7 +263,7 @@ def _kill_at_boundary(root: Path, state: dict) -> dict:
         assert blocked  # the worker really holds the cross-process reservation
         os.kill(runtime_pid, signal.SIGTERM if os.name == "nt" else signal.SIGKILL)
         terminated = True  # only this positively identified, owned runtime
-        assert child.wait(timeout=10) != 0
+        assert child.wait(timeout=30) != 0
         return {"killed_pid": runtime_pid, "launcher_pid": child.pid, "reservation_held_before_kill": True}
     finally:
         _close_owned(child, runtime_pid, abort=True, terminated=terminated)

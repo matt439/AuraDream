@@ -3,6 +3,7 @@ inverse of the per-card delete."""
 from __future__ import annotations
 
 import threading
+import time
 
 import pytest
 from PIL import Image
@@ -743,22 +744,31 @@ def test_a_pass_whose_source_is_in_the_bin_says_so_until_it_is_restored(client, 
 # ---------------------------------------------------------------- newest id
 
 
+def _newest_id(client):
+    # None is the status's answer while its 0.2 s wait for the reservation
+    # runs out, as it can under load straight after a save: not a value.
+    deadline = time.monotonic() + 15
+    while (newest := client.get("/api/status").json()["newest_image_id"]) is None and time.monotonic() < deadline:
+        time.sleep(0.05)
+    return newest
+
+
 def test_the_status_names_the_galleries_newest_id_binned_rows_included(client, store):
     # A page learns of images it did not watch being made - another tab's job
     # that ran between two polls - by this moving past what it has seen.
-    assert client.get("/api/status").json()["newest_image_id"] == 0
+    assert _newest_id(client) == 0
     job_id, events = run_one(client, seed=7)
     made = events[-1]["images"][0]["id"]
-    assert client.get("/api/status").json()["newest_image_id"] == made
+    assert _newest_id(client) == made
     # Binned, still counted: only an insert raises it.
     assert client.post("/api/images/bin", json={"ids": [made]}).status_code == 200
-    assert client.get("/api/status").json()["newest_image_id"] == made
+    assert _newest_id(client) == made
     # Cleared, the table is empty and the next image's id is past the old one.
     store.clear_history()
-    assert client.get("/api/status").json()["newest_image_id"] == 0
+    assert _newest_id(client) == 0
     planted = _plant(store, settings.model_id, seed=8)
     assert planted.id > made
-    assert client.get("/api/status").json()["newest_image_id"] == planted.id
+    assert _newest_id(client) == planted.id
 
 
 def test_a_gallery_page_carries_the_newest_id_read_with_it(client, store):

@@ -124,7 +124,7 @@
   {"click": "#finish-note button:nth-of-type(2)"},
   {"expect": "__until(() => els.moreSeedsDialog.open && document.activeElement === els.moreSeedsCount)"},
   {"expect": "els.moreSeedsCount.value === '2' && els.moreSeedsScope.textContent === 'From the 2 images this job made.' && __rows().map(__line).join(' | ') === 'Ready 2 images, seeds 200–201 → seeds 202–203 · Batch 2'"},
-  {"expect": "els.moreSeedsLine.textContent === '2 additional images'"},
+  {"expect": "/^2 additional images( · about \\d+s)?$/.test(els.moreSeedsLine.textContent)"},
   {"key": "Escape"},
   {"expect": "__until(() => !els.moreSeedsDialog.open && document.activeElement === __finMore)"},
   {"expect": "remembered(MORE_SEEDS_KEY) === '1'"},

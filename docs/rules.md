@@ -8893,7 +8893,11 @@ key code, so a modal dialog closes on it as on a real press. A click, right clic
 selector waits until the element's centre holds still across two reads
 50 ms apart (2 s at most), so a press made during a smooth scroll lands
 on its target: `smoke-bundles` missed the Bundles button now and then
-after Show new gallery images scrolled to the gallery's head. Fake servers
+after Show new gallery images scrolled to the gallery's head. Its
+`__bundlePress` presses again, for up to about 25 s, on exactly the server's
+"still finishing" refusal, which an open thumbnail stream can cause, and
+logs every press's refusals before the page reloads; `__bundlePressOnce` is
+the single click the mid-send Cancel needs. Fake servers
 share one throwaway gallery unless `--data` gives each its own, and
 `smoke.json` counts the images planted under another checkpoint: run it on
 a fake of its own while others are up.
