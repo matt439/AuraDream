@@ -383,6 +383,10 @@ before changing it.
   storage) and its terminal outcome, for Finish run; reads storage's
   settings, lock and session at call time, and every caller (and test
   patch) reaches it as `storage.<name>` through `_MOVED`
+- `backend/gallery_partials.py` — the bundles and staging directories and
+  the settling of stale partials and bundle leftovers (`settle_partials`);
+  reads storage's settings and helpers at call time, and every caller
+  reaches it as `storage.<name>` through `_MOVED`
 - `backend/gallery_lock.py` — reentrant reservation of complete gallery
   operations across threads and cooperating server/CLI processes
 - `backend/bundles.py` — verified ZIP snapshots (of the whole gallery, or

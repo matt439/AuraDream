@@ -3,7 +3,9 @@
 The read-only aggregate queries (estimates, keep rates, runs) are
 `gallery_reports`; taking images out (scoped delete, recycle bin, clear) is
 `gallery_delete`. Both read this module's settings and helpers at call time,
-and their names still resolve here through `__getattr__` at the end.
+and their names still resolve here through `__getattr__` at the end. The
+bundles and staging directories and the settling of stale partials and bundle
+leftovers are `gallery_partials`, reached the same way.
 """
 from __future__ import annotations
 
@@ -12,8 +14,6 @@ import hashlib
 import importlib
 import json
 import logging
-import re
-import shutil
 import sqlite3
 import threading
 import time
@@ -29,7 +29,6 @@ from PIL import Image, PngImagePlugin
 from .config import settings
 from .execution import canonical_execution, execution_chunk, execution_from_json, execution_key
 from . import gallery_lock, refine
-from .bundle_common import BundleError
 # The key elements that are built from columns here and from a request
 # in `grid`: one spelling of each, or a resume compares strings that only look
 # alike. `grid` imports neither this module nor anything that does.
@@ -838,186 +837,6 @@ def _rename_with_retry(src, dst, attempts: int = 5) -> None:
             if attempt == attempts - 1:
                 raise
             time.sleep(0.05 * (attempt + 1))
-
-
-# Bundle imports unpack, and uploads land, in this directory on the images'
-# volume, so installing a staged image is a rename rather than a second copy.
-# Its name matches none of the sweeps' globs or `_BUNDLE_WORK`.
-BUNDLE_STAGING = ".auradream-staging"
-# The same directory as Local Diffusion named it. Nothing stages there any
-# more; only what a killed operation of that build left is swept from it.
-LEGACY_BUNDLE_STAGING = (".local-diffusion-staging",)
-# What bundles.py and api_bundles.py create beside the database: export's
-# snapshot directory and import's merge directory (tempfile's eight random
-# characters), and uploads from before they moved to BUNDLE_STAGING.
-_BUNDLE_WORK = re.compile(r"\.bundle-(?:import-|merge-|upload-)?[a-z0-9_]{8}(?:\.part)?")
-
-
-def bundle_directory() -> Path:
-    """The saved archives' directory, shared by reads, writes and cleanup."""
-    directory = settings.bundles_dir
-    if directory is None:
-        directory = settings.db_path.parent.resolve() / "bundles"
-    # Check the configured name before resolve follows a direct junction or
-    # symlink and hides it. Parent links still resolve for the containment test.
-    if directory.is_symlink() or directory.is_junction():
-        raise BundleError("the bundles directory must not be a symbolic link")
-    directory = directory.resolve()
-    outputs = settings.outputs_dir.resolve()
-    if directory == outputs or directory.is_relative_to(outputs):
-        raise BundleError("the bundles directory must be outside the images directory")
-    return directory
-
-
-def bundle_staging_dir() -> Path:
-    """The staging directory on the images' volume, created on demand.
-
-    Beside the images directory, out of what `/outputs` serves, unless that
-    is another volume (the images directory is a mount point); then inside
-    it, where the inventory skips directories.
-    """
-    ensure_outputs_dir()
-    outputs = settings.outputs_dir.resolve()
-    root = outputs.parent
-    try:
-        if root.stat().st_dev != outputs.stat().st_dev:
-            root = outputs
-    except OSError:
-        root = outputs
-    staging = root / BUNDLE_STAGING
-    staging.mkdir(exist_ok=True)
-    return staging
-
-
-def _bundle_leftovers() -> list:
-    """Everything a bundle operation writes outside the gallery proper.
-
-    A finished or failed operation removes its own; a killed one (power cut,
-    a second Ctrl-C) leaves a gallery-sized copy that nothing else reaches.
-    """
-    beside = settings.db_path.parent
-    outputs = settings.outputs_dir
-    return [
-        *bundle_directory().glob("*.part"),
-        *(p for p in beside.glob(".bundle-*") if _BUNDLE_WORK.fullmatch(p.name)),
-        *(
-            path
-            for name in (BUNDLE_STAGING, *LEGACY_BUNDLE_STAGING)
-            for root in (outputs.parent, outputs)
-            for path in (root / name).glob("*")
-        ),
-    ]
-
-
-def _stale_partials() -> list:
-    """Partials nothing can still be writing - see PARTIAL_SETTLE_SECONDS.
-
-    Bundle leftovers too: an hour is as safe for them. Every bundle operation
-    holds the gallery reservation throughout, as every sweep does, and an
-    upload still arriving keeps writing its file.
-    """
-    cutoff = time.time() - PARTIAL_SETTLE_SECONDS
-    stale = []
-    paths = [
-        *settings.outputs_dir.glob("*.part"),
-        *(settings.outputs_dir / "thumbnails").glob("*.part"),
-        *masks_dir().glob("*.part"),
-        *_bundle_leftovers(),
-    ]
-    for path in paths:
-        try:
-            if path.stat().st_mtime < cutoff:
-                stale.append(path)
-        except OSError:
-            continue
-    return stale
-
-
-def _discard(path) -> bool:
-    """Remove a stale partial: a file, or a bundle's work directory."""
-    if path.is_dir() and not path.is_symlink() and not path.is_junction():
-        shutil.rmtree(path, ignore_errors=True)
-        return not path.exists()
-    return _unlink(path)
-
-
-def _settle_plan(stale: Sequence, tracked: set[str] | None = None) -> list:
-    """Each stale partial with the name it should be renamed to, or None.
-
-    `save_image` commits the row and then renames, so a `<name>.png.part`
-    whose row exists and whose `<name>.png` does not is the only copy of a
-    committed image - the rename failed, or the process died between the two.
-    That one is finished, never discarded; every other stale partial is
-    debris. A thumbnail's `.webp.part` is debris too, even beside a committed
-    row: `thumbnail_for` encodes for rows already tracked, so one may be cut
-    short, and a placed thumbnail is never encoded again. The card falls back
-    to the PNG until a reindex writes a whole one. A mask's `.png.part` whose
-    `masks` row exists is finished likewise: `store_mask` commits the row
-    before the rename too - but only once it decodes to the mask its name
-    says (`_whole_mask`). A row can already be there while a lost file is
-    encoded again, so a partial cut short by a crash is debris, never
-    installed as the mask.
-    """
-    if tracked is None:
-        tracked = {row["filename"] for row in _tracked_files()}
-    outputs = settings.outputs_dir
-    masks = masks_dir()
-    held = _tracked_masks() if any(path.parent == masks for path in stale) else set()
-    plan = []
-    for path in stale:
-        name = path.name[: -len(".part")] if path.name.endswith(".part") else None
-        target = None
-        if name and path.parent == outputs and name.endswith(".png") and name in tracked:
-            target = path.with_name(name)
-        elif (
-            name and path.parent == masks and name.endswith(".png") and name[: -len(".png")] in held
-            and _whole_mask(path, name[: -len(".png")])
-        ):
-            target = path.with_name(name)
-        plan.append((path, None if target is None or target.exists() else target))
-    return plan
-
-
-def _whole_mask(path: Path, digest: str) -> bool:
-    """Whether the file at `path` is a whole PNG of the mask `digest` names."""
-    try:
-        with Image.open(path) as image:
-            image.load()
-            return image.format == "PNG" and image.mode == "L" and mask_hash(image) == digest
-    except (OSError, ValueError, SyntaxError, Image.DecompressionBombError):
-        return False
-
-
-def _settle(stale: Sequence) -> tuple[int, int]:
-    """Finish or discard stale partials, under the reservation the caller holds.
-
-    Returns (recovered, discarded). A recovery that fails leaves the partial
-    where it is: it is the image, and the next sweep tries again.
-    """
-    recovered = discarded = 0
-    for path, target in _settle_plan(stale):
-        if target is None:
-            discarded += _discard(path)
-            continue
-        try:
-            _rename_with_retry(path, target)
-            recovered += 1
-            log.info("recovered %s from an interrupted save", target.name)
-        except OSError:
-            log.warning("could not finish the interrupted save of %s", target.name, exc_info=True)
-    return recovered, discarded
-
-
-@gallery_lock.protected(lambda: settings.db_path)
-def settle_partials() -> dict[str, int]:
-    """Finish or sweep what killed saves and bundle operations left.
-
-    At startup, at every bundle preview and before each bundle operation. Only
-    partials older than PARTIAL_SETTLE_SECONDS: a fresh one may be an encode
-    in flight, which a bundle inventory refuses instead.
-    """
-    recovered, discarded = _settle(_stale_partials())
-    return {"recovered": recovered, "discarded": discarded}
 
 
 def _page(
@@ -1856,14 +1675,16 @@ def _tracked_masks() -> set[str]:
         return {row["hash"] for row in conn.execute("SELECT hash FROM masks")}
 
 
-# The names `gallery_reports`, `gallery_delete` and `run_jobs` took out of
-# this module, still reachable as `storage.<name>` for the tests and tools that
-# use them. Only `run_jobs`' are called through it by backend modules (jobs,
-# api_runs, more_seeds_planner, gallery_reports), so a test's
-# `monkeypatch.setattr(storage, "retain_run_job", ...)` still intercepts them.
-# PEP 562 rather than an import at the bottom: both modules import this one at
-# their top, so a caller that imported one of them first would find it half
-# initialised. Each name resolves to the one object its module defines - an
+# The names `gallery_reports`, `gallery_delete`, `run_jobs` and
+# `gallery_partials` took out of this module, still reachable as
+# `storage.<name>` for the tests and tools that use them. `run_jobs`' are
+# called through it by backend modules (jobs, api_runs, more_seeds_planner,
+# gallery_reports), so a test's `monkeypatch.setattr(storage,
+# "retain_run_job", ...)` still intercepts them; so are `gallery_partials`'
+# (bundles, api_bundles, backup_service, backup_coordinator, gallery_delete,
+# main). PEP 562 rather than an import at the bottom: each module imports this
+# one at its top, so a caller that imported one of them first would find it
+# half initialised. Each name resolves to the one object its module defines - an
 # `except storage.SelectionChanged` catches what `gallery_delete` raises.
 _MOVED = {
     **dict.fromkeys(
@@ -1879,6 +1700,12 @@ _MOVED = {
     **dict.fromkeys(
         ("retain_run_job", "retained_run_metadata", "retained_run_jobs", "finish_run_job"),
         "run_jobs",
+    ),
+    **dict.fromkeys(
+        ("BUNDLE_STAGING", "LEGACY_BUNDLE_STAGING", "_BUNDLE_WORK", "bundle_directory", "bundle_staging_dir",
+         "_bundle_leftovers", "_stale_partials", "_discard", "_settle_plan", "_whole_mask", "_settle",
+         "settle_partials"),
+        "gallery_partials",
     ),
 }
 

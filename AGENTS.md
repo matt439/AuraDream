@@ -174,6 +174,8 @@ Backend (`backend/`):
 - `jobs.py` single-worker queue and SSE; `job_state.py` the `Job` record and
   its status snapshot (`jobs` re-exports it); `error_text.py` `short_error`,
   stdlib only (`jobs` re-exports it); `storage.py` SQLite + PNGs;
+  `gallery_partials.py` the bundles/staging directories and settling stale
+  partials (as `storage.<name>`);
   `metadata.py` the PNG chunk's key and codec, legacy `krea` reader and file-placement guard;
   `record_fields.py` the pure row/chunk field codecs (mask hash, outpaint
   chunk, peaks), imported back into storage by name;
