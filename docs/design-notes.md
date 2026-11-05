@@ -299,13 +299,30 @@ MiB, of the whole card). What does not fit is size: model offload keeps a whole
 transformer on the card, and the FLUX-size ones are larger than 8 GB at
 fp8 (the default peaked at 12.0 GiB on the 5080). The doctor's VRAM row
 warns under that figure and names the lighter checkpoints; the Models
-panel's fit badge still knows only Qwen-Image's over-16 GB, and the refine
-and inpaint "measured" sizes are the 5080's. Nunchaku's nvfp4 repos need
+panel's fit badge sizes a build from the card (`GEN#43`, 2026-11-05):
+under a FLUX-size checkpoint's need, its row says "Over 8 GB" (from the
+card's own size) with the 5080's measured peak, or a sibling's or the
+transformer's size where its own is unmeasured, said so; at BF16 the
+lighter checkpoints whose measured BF16 peak passes the card (Z-Image
+Turbo, Z-Anime, klein 4B) say so too; an INT4 lite row,
+unmeasured, says "Likely over" from its NVFP4 build; an unknown card or a
+16 GB one changes nothing. The refine and inpaint "measured" words say
+whose card they were measured on (`GEN#44`, 2026-11-05): on a card of
+another size the Refine dialog's tight line keeps the 5080's measured pass,
+scaled nothing, and says it was "on a 16 GB card; this card has 8 GB"
+(the panel's generic 1600x1600 line too), and the inpaint Strength note's
+"measured on the card" reads "measured on a 16 GB card"; an unknown card or
+a 16 GB one changes nothing. Nunchaku's nvfp4 repos need
 compute capability 10.0, so a 3070 needs the int4 ones, which the setup
 script and the doctor name; whether the published kernels include sm_86 is
-not measured. The Models panel and a switch still default the Nunchaku
-format to nvfp4 whatever the card (`GEN#42`), and the fit badge and the
-measured sizes are `GEN#43` and `GEN#44`.
+not measured. A Nunchaku load with no format chosen takes the card's
+(`GEN#42`, 2026-11-05): int4 below compute capability 10.0, nvfp4 on
+Blackwell or when the card is unknown (`loader_choices.default_format`,
+from `card_facts`), in the Models panel, a switch and the `--menu`'s
+default, and the format help marks the card's "(this card)"; a chosen
+format, or a lite repo already selected, is kept. The `--menu` imports
+torch for it only once Nunchaku is picked. The measured sizes are
+`GEN#44`.
 
 ## Krea 2's components and offload order
 

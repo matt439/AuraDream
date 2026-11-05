@@ -20,7 +20,9 @@ before changing it.
   "edit only");
   `warn_legacy_env` names any `LOCAL_DIFFUSION_*` still set, which is not read
 - `backend/loader_choices.py` — quantization, offload and Nunchaku format
-  choices, worded once for the `--menu` and the browser picker
+  choices, worded once for the `--menu` and the browser picker;
+  `default_format` the format an unchosen Nunchaku load takes (int4 below
+  compute capability 10.0, nvfp4 on Blackwell or an unknown card)
 - `backend/model_selection.py` — the server's selected checkpoint, loader options
   and revision, separate from immutable startup settings; `current_model_id`
   and `current_settings` supply runtime reads, and `available` limits choices
@@ -115,7 +117,9 @@ before changing it.
   FLUX.1 Kontext [dev]'s facts are kept by its exact id (the catalogue's last,
   edit-only entry),
   and `details_for`'s `edit_reason` (the backend's live answer, which `main`'s
-  listing passes for the draft loader) decides the editor row's Held or Yes
+  listing passes for the draft loader) decides the editor row's Held or Yes;
+  its `card_memory` (`card_facts.total_memory`, passed by the listing) sizes
+  the fit badge (`card_fit`)
 - `backend/hub_access.py` — the Hugging Face access check a switch asks before
   it releases the working checkpoint: cache first, then one HEAD per recipe
   source at its revision (or the repo's auth check); a `Refusal` only when the
@@ -127,6 +131,13 @@ before changing it.
   `token_present`; stdlib and huggingface_hub's constants only, the token
   never read, logged, sent or checked with the Hub. The doctor's sign-in
   check and the status's `hf_token_present` share it
+- `backend/card_facts.py` — the server's CUDA card: `card(device)` (total
+  memory in bytes, compute capability), `total_memory`, `capability`; None
+  for a CPU device, no CUDA, no card or any error. Cold (torch only on the
+  first ask, `torch.cuda` queries only, never diffusers), cached per device;
+  the routes read it off the event loop (`main._read_card`, the status's
+  describe thread). The tests' `no_real_card` and the fake server make it
+  None (the fake's until `POST /api/fake/card` claims one); a test that wants a card patches `card`
 - `backend/model_benchmarks.py` — retained RTX 5080 timing references, exact
   checkpoint/loading-option matching and coarse speed categories; no live benchmark
 - `backend/schemas.py` — re-exports the pydantic request/response models;
@@ -157,7 +168,7 @@ before changing it.
 - `backend/schemas_model.py` — the model status poll, the prompting guide and
   its tag helper, critic/Expand status, the switch request
 - `backend/model_defaults.py` — recommended steps/CFG/mu per checkpoint and
-  the control tooltips; each profile hangs its prompting guide from
+  the control tooltips (`card_words`: the measured card's words on another); each profile hangs its prompting guide from
 - `backend/guides.py` — the guides themselves, one dict per checkpoint: prompt
   and size prose, the documented megapixel range with its word, the authors'
   example prompts, and `analysis` - the prose's checkable statements as data
@@ -1279,6 +1290,22 @@ measured on the card and when.
   not hold Switch & load: sequential offload is not refused. FP8 with it
   stopped at the RAM guard during the load (2026-10-25, a 64 GB machine,
   transformer shard 6 of 9); BF16 with it is untried.
+- A card smaller than a build needs (GEN#43) gets `model_info.card_fit`'s
+  badge, "Over N GB" from the card's total memory rounded to whole GiB
+  ("Likely over N GB" on an INT4 lite-infer row, whose need is its NVFP4
+  sibling's), replacing `_FIT`'s; the note quotes the figure and says
+  how it is known. `_CARD_NEEDS` holds the FLUX-size official repos
+  (docs/verified.md's fp8, model-offload allocator peaks on the 5080, FLUX.1
+  Krea [dev]'s the doctor's `DEFAULT_PEAK_GIB`; an unmeasured one its
+  measured sibling's figure or its transformer at one byte a weight, said
+  so), `_LITE_NEEDS` the lite builds measured above 8 GiB, `_BF16_NEEDS`
+  the other official repos whose BF16 model-offload peak (2026-10-25's
+  table) is above 7 GiB, for quantization none only. FP8's figure
+  stands for INT8 and, as a floor, BF16; sequential offload, and Nunchaku
+  on an official id, are not sized. Qwen-Image keeps `_FIT`'s "Over 16 GB";
+  Kontext's qualified-size note follows the card's, as the 5080's. An
+  unknown card (None) or one at least the need leaves every row as it was,
+  byte for byte (`tests/test_card_fit.py`).
 - The editor's row (FLUX.1 Kontext [dev]) has `loader_holds`
   (`instruction_edit.option_refusals`, every other row `{}`): each
   quantization and offload the card trial never measured, in the envelope's
@@ -1927,7 +1954,15 @@ measured on the card and when.
   with a pass has one, so only an unprofiled pipeline gets it. A shared
   profile shares its row (FLUX.1 dev and the lite repos quote Krea dev's
   fp8 run), so the size line names the run it quotes, never "this
-  checkpoint". FLUX.1's `hints.refine_large` is shown
+  checkpoint". Every row is the 16 GB card's (GEN#44): on a server whose
+  card is another size (`card_facts.total_memory` to whole GiB, passed to
+  `hints_for` as `card_memory`) `hints.refine_tight` ends "on a 16 GB card;
+  this card has N GB" and `hints.tight_card` carries those words for the
+  page's lines with no run ("may run tight on a 16 GB card; ..."; with a
+  run, "may run tight, past ..."), the pixels unscaled; the inpaint
+  Strength note's "measured on the card" says "a 16 GB card". An unknown or
+  16 GB card leaves every hint as it was (`tests/test_card_measured.py`).
+  FLUX.1's `hints.refine_large` is shown
   under Strength past it (`applyHints` clears it where a status has none).
   The preview reports where a pass of one strength starts
   (`GridPreview.start_sigma`, the dialog's "starts at N% noise", and the
@@ -4142,7 +4177,7 @@ measured on the card and when.
   opened at the size line names the next scale up and the line it is past
   (`refineCapNote`: "1.25× and larger go past the 1536×1536 (2.36 MP)
   measured on Z-Anime at fp8", or the generic "may run tight on 16GB
-  VRAM"); a run at the size it opened at in place of the scale asked for
+  VRAM", every tight line's words from `tightWords` in `sizes.js`); a run at the size it opened at in place of the scale asked for
   leaves the remembered scale alone (`refineCapped`) - unless settings a
   close left unsent on the same image and checkpoint are restored
   (`unsentRefine`, page memory only, never `auradream.refine.v1`),
@@ -8665,7 +8700,10 @@ Generate pressed while the switch is being sent says so as a note that goes
 once the change ends; another tab's switch names the unsaved choice it
 dropped; Qwen-Image's row and note say its torchao builds are larger than
 the card, and no other row does (the editor's names its one qualified size,
-512×512 only). The listed editor's row (last, "Instruction editor", Held)
+512×512 only); with an 8 GB card claimed (`POST /api/fake/card`), FLUX.1
+Krea [dev]'s and the editor's rows say "Over 8 GB" on one line, the chosen
+row's note says why, Animagine's says nothing, and with no card again every
+row is as before. The listed editor's row (last, "Instruction editor", Held)
 answers Switch & load with the closed gate's words in the note and the error
 line, FLUX still loaded and selected at the same revision. Chosen, its
 unmeasured quantization and offload options are `aria-disabled` with the
@@ -8771,7 +8809,9 @@ already there, another program, a listener that never answers) and `--open`
 waiting for the bind on an ephemeral port, with `webbrowser.open` replaced;
 `POST /api/fake/model` sets the fake's `overrides`, a
 `stuck_critic` and an `access` refusal ("gated"/"not_found") for page checks,
-and `POST /api/fake/sign-in` a fresh visit's `token` and `unsourced` start;
+`POST /api/fake/sign-in` a fresh visit's `token` and `unsourced` start, and
+`POST /api/fake/card` (`{total_memory, capability}`, empty for none) the card
+`card_facts` answers, unknown until a smoke claims one;
 `test_model_benchmarks.py` covers speed categories, exact sample matching and
 no category for an unmatched setup or a first run on a busy PC;
 `test_gallery_timing.py` covers the picker's gallery timing (refine, edit,
@@ -8781,7 +8821,7 @@ history or a missing database, a reserved gallery refused after the short
 wait) and `test_api_model_catalogue.py` the field per model with the speed facts
 unchanged and a reserved gallery leaving it out without stalling the reply; `test_model_info.py` covers compact facts
 for every catalogue entry, favourite ids shared by Lite/Nunchaku variants,
-access, Qwen-Image's fit, size labels that never claim an unsourced maximum and the shared
+access, Qwen-Image's fit (`test_card_fit.py` the card-sized badge), size labels that never claim an unsourced maximum and the shared
 loader descriptions:
 
 ```powershell
@@ -8918,7 +8958,9 @@ named on its button and a run at the capped size not remembered as the
 scale, the crop's kept percentage and Keep shape - Versions and their
 seeds, the rows and the lightbox's settings line (`refine of #N`), the
 facts' Refined from link and S comparing a pass with its source, a pass past
-4 MP and one past the guard refused in place, Refine held while a submit
+4 MP and one past the guard refused in place, the measured line said as the
+16 GB card's with an 8 GB card claimed (`POST /api/fake/card`) and as before
+without one, Refine held while a submit
 is in flight and a press saying so, Escape on a dialog opened from
 the lightbox giving the lightbox back on the same image, a strength sweep's
 preview, its sheet axis and `refine:` in the search box, the passes strip

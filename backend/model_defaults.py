@@ -60,6 +60,9 @@ generic 1600x1600 line - and `hints_for` the words naming the run
 repos quote Krea dev's fp8 run, and say so (Qwen-Image's is NVFP4, the
 only way it fits the card). A figure, never a VRAM model:
 each one is a row of that file, and `tests/test_profiles.py` holds it there.
+Every row is the 16 GB card's; a server on a card of another size quotes
+them as that card's and names its own (`card_words`, `hints_for`'s
+`card_memory`), the inpaint strength's "measured on the card" too.
 Beside it, the hint `refine_large` (FLUX.1's) says under Strength why one
 strength redraws more of a pass past the measured one; `hints_for` drops it
 where the checkpoint has no pass.
@@ -1456,13 +1459,35 @@ def _runs_named(runs: list[str]) -> tuple[str, str]:
     return names, "runs" if len(runs) == 1 else "run"
 
 
-def _inpaint_strength_hint(profile: dict[str, Any]) -> str:
+# The card every measured figure here was taken on: the 5080's 16 GB
+# (docs/verified.md). A server on another card - the 8 GB 3070, say - still
+# quotes them, and says whose they are (`card_words`).
+MEASURED_CARD_GB = 16
+_GIB = 1024 ** 3
+
+
+def card_words(card_memory: int | None) -> str | None:
+    """Where the measurements were taken, against this server's card, in
+    bytes (`card_facts.total_memory`, which `main` passes): None on an
+    unknown card or one of the measured card's size - whole GiB, as the
+    Models panel's fit badge rounds - so the words stay as they were."""
+    if card_memory is None:
+        return None
+    size = round(card_memory / _GIB)
+    if size == MEASURED_CARD_GB:
+        return None
+    return f"on a {MEASURED_CARD_GB} GB card; this card has {size} GB"
+
+
+def _inpaint_strength_hint(profile: dict[str, Any], card: str | None = None) -> str:
+    # "The card" is the one it was measured on; on another, that one by size.
+    where = "the card" if card is None else f"a {MEASURED_CARD_GB} GB card"
     own = profile.get("inpaint_strength_measured")
     if profile.get("inpaint_start") is not None:
         # A start of the profile's own over a library default measured as the
         # wrong one: said as such, never as the library's number.
         kept = f"the library's own {FLUX_LIBRARY_STRENGTH:g} kept the old colour under the mask"
-        when = f"measured on the card ({INPAINT_START_MEASURED_ON})"
+        when = f"measured on {where} ({INPAINT_START_MEASURED_ON})"
         if own:
             return f"{when} as the right strength to start at on {own}, where {kept}"
         names, verb = _runs_named(_inpaint_strength_runs(profile.get("inpaint_family")))
@@ -1470,12 +1495,12 @@ def _inpaint_strength_hint(profile: dict[str, Any]) -> str:
             f"{when} on {names}, which {verb} the same inpaint class, not on this "
             f"checkpoint; there {kept}"
         )
-    when = f"measured on the card ({INPAINT_STRENGTH_MEASURED_ON}) as the right strength to start at"
+    when = f"measured on {where} ({INPAINT_STRENGTH_MEASURED_ON}) as the right strength to start at"
     if own:
         return f"the library's number, {when} on {own}: lower ones left some of what was under the mask"
     runs = _inpaint_strength_runs(profile.get("inpaint_family"))
     if not runs:
-        return "the library's number, not one measured on the card for this checkpoint"
+        return f"the library's number, not one measured on {where} for this checkpoint"
     names, verb = _runs_named(runs)
     return (
         f"the library's number, {when} on {names}, which {verb} the same inpaint class, "
@@ -1491,6 +1516,7 @@ def hints_for(
     reference_supported: bool | None = None,
     lora_supported: bool | None = None,
     refine_supported: bool | None = None,
+    card_memory: int | None = None,
 ) -> dict[str, str]:
     """Tooltip text for steps/CFG/mu/true CFG, the prompt and the size on this
     checkpoint - and, on FLUX.1, the CFG box's own name (`cfg_label`).
@@ -1501,8 +1527,16 @@ def hints_for(
     where guidance switches on, whether a negative prompt does anything at
     all, or which box drives it. `reference_supported` and `refine_supported`
     do the same for their boxes.
+
+    `card_memory` is the server's card in bytes, None when unknown. On a
+    card of another size than the 16 GB one every figure was measured on,
+    the measured words say whose they are and what this card has, and
+    `tight_card` gives the page those words for its own tight line (the
+    panel's 1600x1600 and a pass with no measured run); on the measured
+    card's size, or an unknown one, nothing changes.
     """
     profile = _profile_for(model_id)
+    card = card_words(card_memory)
     values = {k: v for k, v in profile.items() if k not in _NOT_DEFAULTS}
     if cfg_threshold is not None:
         values["cfg_threshold"] = cfg_threshold
@@ -1545,6 +1579,7 @@ def hints_for(
             f"past the {measured.width}×{measured.height} "
             f"({measured.width * measured.height / 1e6:.2f} MP) measured on "
             f"{measured.checkpoint} at {measured.quantization}"
+            + (f" {card}" if card else "")
         )
     if not refines:
         hints.pop("refine_large", None)
@@ -1552,9 +1587,13 @@ def hints_for(
     # number: where that number was measured as the right start - here, or
     # only on the checkpoints running the same inpaint class.
     if profile["inpaint_supported"]:
-        hints["inpaint_strength"] = _inpaint_strength_hint(profile)
+        hints["inpaint_strength"] = _inpaint_strength_hint(profile, card)
     # No profile guess to fall back on: whether an adapter can be loaded is a
     # fact about this installation, which only the backend knows.
     if lora_supported is not None:
         hints["lora"] = _LORA_HINTS[bool(lora_supported)]
+    # The page's own "may run tight on 16GB VRAM" lines, on another card:
+    # the 16 GB card's line, said as that card's (sizes.js, `tightWords`).
+    if card:
+        hints["tight_card"] = card
     return {key: text.format(**values) for key, text in hints.items()}

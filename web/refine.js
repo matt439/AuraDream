@@ -86,7 +86,7 @@ function compareScales(src = refineSource) {
     const size = refineScaled(src.width, src.height, factor);
     const named = `${factor}× (${size[0]}×${size[1]})`;
     if (!refineFits(size)) dropped.push(`${named} is past what a refine pass renders`);
-    else if (refineTight(...size)) dropped.push(run ? `${named} goes ${run}` : `${named} may run tight on 16GB VRAM`);
+    else if (refineTight(...size)) dropped.push(run ? `${named} goes ${run}` : `${named} ${tightWords(null)}`);
     else if (!sizes.some(([w, h]) => w === size[0] && h === size[1])) {
       sizes.push(size);
       factors.push(factor);
@@ -148,7 +148,7 @@ function refineCapNote(src, run) {
   if (next === undefined) return '';
   const size = refineScaled(src.width, src.height, next);
   const why = !refineFits(size) ? 'are past what a refine pass renders'
-    : run ? `go ${run}` : 'may run tight on 16GB VRAM';
+    : run ? `go ${run}` : tightWords(null);
   return `${next}× and larger ${why}`;
 }
 
@@ -469,7 +469,7 @@ function syncRefine() {
   const run = typeof lastDefaults?.refine_tight_pixels === 'number' ? lastHints?.refine_tight : null;
   const tight = !problem && !comparing && refineTight(w, h);
   const notes = problem ? [problem] : tight
-    ? [run ? `may run tight on 16GB VRAM, ${run}` : 'may run tight on 16GB VRAM']
+    ? [tightWords(run)]
     : [];
   const fx = w / src.width;
   const fy = h / src.height;

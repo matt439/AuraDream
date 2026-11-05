@@ -42,7 +42,7 @@ if __name__ == "__main__":
 else:
     compiler_cache._seal_startup()
 
-from . import api_backup, api_bundles, api_gallery, api_generate, api_jobs, api_masks, api_more_seeds, api_png, api_presets, api_prompt, api_refine_batch, api_rerender, api_runs, api_saved_searches, api_snippets, api_swap, app_context, bundle_common, bundles, gallery_lock, gallery_reports, hf_sign_in, hub_access, keep_awake, loras, model_selection, prompt_encoding, startup_preferences, storage  # noqa: E402
+from . import api_backup, api_bundles, api_gallery, api_generate, api_jobs, api_masks, api_more_seeds, api_png, api_presets, api_prompt, api_refine_batch, api_rerender, api_runs, api_saved_searches, api_snippets, api_swap, app_context, bundle_common, bundles, card_facts, gallery_lock, gallery_reports, hf_sign_in, hub_access, keep_awake, loras, model_selection, prompt_encoding, startup_preferences, storage  # noqa: E402
 from .backup_service import BackupService  # noqa: E402
 from .server_probe import auradream_at as _auradream_at, is_loopback as _is_loopback, page_url as _page_url, port_busy as _port_busy  # noqa: E402
 from .backends import get_backend  # noqa: E402
@@ -696,6 +696,9 @@ async def status() -> ModelStatus:
             defaults["reference_supported"],
             defaults["lora_supported"],
             defaults["refine_supported"],
+            # Read off the event loop with the description above; None without
+            # a card, which keeps the measured words as they were.
+            card_memory=card_facts.total_memory(selected_settings.device),
         ),
         guide=PromptGuide.model_validate(guide_for(info["model_id"])),
         model_id=info["model_id"],
@@ -746,8 +749,19 @@ async def status() -> ModelStatus:
 
 
 def _describe_with_newest() -> tuple[dict, int | None]:
-    """The backend's description and the gallery's newest id, for one status."""
+    """The backend's description and the gallery's newest id, for one status;
+    the card's facts are read here too, off the event loop (`_read_card`)."""
+    card_facts.card(current_settings(settings).device)
     return backend.describe(), storage.newest_image_id()
+
+
+async def _read_card() -> None:
+    """Read the card's facts once, off the event loop, before a route's
+    Nunchaku format default (`model_selection.card_format`) or the
+    catalogue's fit badge (`model_info.card_fit`) asks (the status reads
+    them in `_describe_with_newest`, for its measured words too): a first
+    CUDA query can queue behind a cold load, as `describe()`'s can."""
+    await asyncio.to_thread(card_facts.card, current_settings(settings).device)
 
 
 def _expander_status() -> ExpanderStatus | None:
@@ -906,6 +920,7 @@ async def list_models(
     quantization: str | None = None, format: str | None = None, offload: str | None = None,
     compilation: str | None = None, attention: str | None = None,
 ) -> dict:
+    await _read_card()
     options = model_selection.options(settings)
     if quantization is not None and quantization not in {o["value"] for o in options["quantizations"]}:
         raise HTTPException(status_code=422, detail="choose a quantization available on this server")
@@ -954,12 +969,16 @@ async def list_models(
             offload=offload or current.offload, **chosen,
         ))
 
+    # Read above, off the event loop (`_read_card`); None without a card.
+    card_memory = card_facts.total_memory(current.device)
+
     def catalogue_details() -> dict:
         timing = _gallery_timing(quantization or current.quantization)
         return {model["model_id"]: {
             **details_for(
                 model["model_id"], quantization=quantization or current.quantization,
                 offload=offload or current.offload, edit_reason=edit_reason(model["model_id"]),
+                card_memory=card_memory,
             ),
             "execution_options": model_selection.execution_options(
                 current, execution=draft, model_id=model["model_id"],
@@ -1112,6 +1131,8 @@ async def _refuse_hub_access(model_id: str) -> None:
 @app.post("/api/model/switch", response_model=ModelStatus)
 async def switch_model(request: ModelSwitchRequest, http_request: Request) -> ModelStatus:
     global _switching, _switch_task, _startup_preload, _switch_error, _switch_draining, _model_choice_saved
+    # Before the revision check: nothing awaits between it and the switch.
+    await _read_card()
     # Unlike model readers this route is not counted while its body arrives.
     # Another switch can finish after the middleware's revision check.
     expected = (http_request.headers.get("x-auradream-model-revision")

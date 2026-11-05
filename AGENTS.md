@@ -86,10 +86,15 @@ Backend (`backend/`):
   separate from frozen startup settings; runtime readers use
   `current_model_id(settings)` / `current_settings(settings)`;
   `startup_preferences.py` atomically saves loader/startup choices;
-  `model_info.py` supplies cold catalogue details from existing sourced guides;
+  `model_info.py` supplies cold catalogue details from existing sourced guides,
+  and a fit badge for a card smaller than a build's measured need (`card_fit`);
   `hub_access.py` asks the Hub whether a switch's checkpoint can download;
   `hf_sign_in.py` whether a Hugging Face token is present (existence only,
   shared by the doctor and the status that preselects an open checkpoint);
+  `card_facts.py` the server's CUDA card (total memory, compute capability;
+  None when unknown), read once and off the event loop; on a card of
+  another size the status's measured refine/inpaint words say they are the
+  16 GB card's (`model_defaults.card_words`);
   `model_benchmarks.py` supplies retained timing references and speed categories
 - `execution.py` frozen execution recipes, composer/replay resolution, cold candidate checks and shared
   SQL/PNG codecs; nonempty recipes remain unavailable until runtime support
@@ -650,7 +655,7 @@ Gotchas:
 - Fake-server knobs: `POST /api/fake/load`, `/api/fake/step`,
   `/api/fake/expand`, `/api/fake/model` (`overrides`, `stuck_critic`,
   `access`), `/api/fake/sign-in` (`token`, `unsourced`), `/api/fake/lora`,
-  `/api/fake/bin-age`, `/api/fake/peak`,
+  `/api/fake/bin-age`, `/api/fake/peak`, `/api/fake/card` (a claimed card),
   `/api/fake/refine` (`supported`: the claimed checkpoint's refine pass),
   `/api/fake/instruction-edit` (the edit gate, open by default only on a
   Kontext fake), `/api/fake/unreachable` (`on`: every other request held

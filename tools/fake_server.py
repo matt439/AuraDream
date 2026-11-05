@@ -153,6 +153,15 @@ def main() -> int:
     # Match the tests' factory boundary before app startup can create workers.
     _install_credential_refusal()
     from backend import main as app_main
+    # No card, whatever this machine has: a smoke sees an unknown card's
+    # defaults (nvfp4 for Nunchaku) on a 3070 as on CI, until it claims one
+    # (`/api/fake/card`).
+    claimed_card: list = [None]
+
+    def no_card(device: str = "cuda"):
+        return claimed_card[0]
+
+    app_main.card_facts.card = no_card
     from backend import prompt_encoding
     from backend.jobs import JobManager
     from tests.fakes import FakeBackend, FakeCritic, fake_tokenizer
@@ -703,6 +712,16 @@ def main() -> int:
     async def fake_peak(allocated: int | None = Body(None), reserved: int | None = Body(None)) -> dict:
         fake.peak = (allocated, reserved) if allocated is not None and reserved is not None else None
         return {"peak": fake.peak}
+
+    # A card of this size and capability for the server's card facts (the
+    # Models panel's fit badge, the Nunchaku format); an empty body is no card.
+    @app_main.app.post("/api/fake/card", include_in_schema=False)
+    async def fake_card(total_memory: int | None = Body(None), capability: list[int] | None = Body(None)) -> dict:
+        claimed_card[0] = (
+            app_main.card_facts.Card(total_memory, (capability[0], capability[1]))
+            if total_memory is not None and capability is not None and len(capability) == 2 else None
+        )
+        return {"card": claimed_card[0]}
 
     # Time in the recycle bin, which no page can make: these binned images
     # backdated to `days` ago, for Empty recycle bin's age scope. Live rows

@@ -19,7 +19,8 @@ from .execution import (
     loader_unavailable_reason, require_loader_available, step_cache_configuration_reason,
     unavailable_reason,
 )
-from .loader_choices import OFFLOAD_CHOICES, QUANTIZATION_CHOICES
+from . import card_facts
+from .loader_choices import OFFLOAD_CHOICES, QUANTIZATION_CHOICES, default_format
 from .model_defaults import OFFLOAD_MODES, QUANT_MODES
 
 # One assignment publishes the entire selection, including its revision. The
@@ -141,17 +142,33 @@ def execution_options(
     return result
 
 
+def card_format(settings) -> str:
+    """The Nunchaku format for this server's card when none is chosen: int4
+    below compute capability 10.0, nvfp4 on Blackwell or an unknown card.
+    The card is read once (`card_facts`); the routes read it off the event
+    loop first (`main._read_card`)."""
+    return default_format(card_facts.capability(_device(settings)))
+
+
+def _device(settings) -> str:
+    # A switch never changes the device, so the startup settings' is the
+    # selection's; "cuda" for a settings stand-in without one.
+    return getattr(settings, "device", "cuda")
+
+
 def format_for(settings) -> str:
-    """The selected Nunchaku weight format, or the RTX 50 default."""
+    """The selected Nunchaku weight format, or the card's (`card_format`)."""
     model_id = current_model_id(settings)
     return next((
         name for name, _ in FORMATS
         if any(c.lite_repo(name) == model_id for c in CHECKPOINTS)
-    ), "nvfp4")
+    ), None) or card_format(settings)
 
 
 def options(settings) -> dict[str, list[dict[str, str]]]:
     """Cold browser choices; Nunchaku's kernels are Linux-only."""
+    known = card_facts.capability(_device(settings)) is not None
+    suited = card_format(settings) if known else None
     return {
         "quantizations": [
             {"value": value, "label": label, "description": description}
@@ -162,8 +179,11 @@ def options(settings) -> dict[str, list[dict[str, str]]]:
             {"value": value, "label": label, "description": description}
             for value, label, description in OFFLOAD_CHOICES
         ],
+        # The card's own format says so, once the card is known.
         "formats": [
-            {"value": value, "label": value.upper(), "description": label} for value, label in FORMATS
+            {"value": value, "label": value.upper(), "description": (
+                f"{label} (this card)" if value == suited else label
+            )} for value, label in FORMATS
         ],
     }
 

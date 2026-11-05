@@ -35,6 +35,7 @@ from typing import Any
 # diffusers (AGENTS.md); nothing here does, but the rule holds everywhere.
 from .config import settings
 from . import hf_sign_in, server_probe
+from .loader_choices import default_format
 
 PASS, WARN, FAIL = "PASS", "WARN", "FAIL"
 GIB = 1024 ** 3
@@ -51,8 +52,6 @@ DISK_LOW_GB = 2
 # offload, 12.00 GiB allocated (12.63 reserved) on the RTX 5080
 # (docs/verified.md, "RAM at the load, the fixed loader (2026-10-27)").
 DEFAULT_PEAK_GIB = 12.0
-# Nunchaku's nvfp4 checkpoints need Blackwell (`loader_choices.FORMATS`).
-NVFP4_CAPABILITY = (10, 0)
 # Seconds the keep-awake trial may take; a polkit answer is immediate.
 INHIBIT_TRIAL_SECONDS = 10
 
@@ -139,7 +138,7 @@ def check_vram(torch: Any = None, platform: str | None = None) -> list[Check]:
     detail = (f"{_gib(total)} on the card. The default checkpoint, FLUX.1 Krea [dev] at fp8 with model "
               f"offload, peaked at {DEFAULT_PEAK_GIB:.1f} GiB allocated on the measured RTX 5080 "
               "(docs/verified.md).")
-    if platform.startswith("linux") and capability < NVFP4_CAPABILITY:
+    if platform.startswith("linux") and default_format(capability) == "int4":
         detail += (" For AURADREAM_QUANT=nunchaku, use the int4 4-bit repos: nvfp4 needs an RTX 50 card "
                    "(compute capability 10.0 or higher).")
     if total / GIB < DEFAULT_PEAK_GIB:
