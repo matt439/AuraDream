@@ -190,6 +190,87 @@ _FIT = {
 }
 
 
+_GIB = 1024 ** 3
+_5080 = "the 16 GB RTX 5080"
+_FP8_ON_5080 = f"FP8 with model offload peaked at {{}} on {_5080} ({{}})"
+# What a checkpoint needs on the card, for a card smaller than the 5080
+# (`card_fit`): (GiB to compare with the card's total memory, how that
+# figure is known). Measured peaks are docs/verified.md's allocator peaks,
+# fp8 with model offload on the 5080, quoted as recorded there (FLUX.1 Krea
+# [dev]'s is backend/doctor.py's DEFAULT_PEAK_GIB); an unmeasured
+# checkpoint carries its measured sibling's figure, or its transformer's
+# size at one byte a weight, each said as such. Only the FLUX-size
+# checkpoints are listed: every other catalogue entry peaked at 6.8 GiB
+# allocated or less, so a card under that is not sized here.
+_CARD_NEEDS: dict[str, tuple[float, str]] = {
+    "black-forest-labs/FLUX.1-Krea-dev": (12.00, _FP8_ON_5080.format(
+        "12.00 GiB allocated (12.63 reserved) at 1024×1024", "2026-10-27")),
+    "black-forest-labs/FLUX.1-schnell": (11.99, _FP8_ON_5080.format(
+        "11.99 GiB allocated (12.66 reserved) at 1024×1024", "2026-10-05")),
+    "black-forest-labs/FLUX.1-dev": (12.00, (
+        "FP8 is unmeasured here; FLUX.1 [dev] has the same 12B transformer as FLUX.1 Krea [dev] "
+        f"and [schnell], which peaked at about 12.0 GiB allocated at 1024×1024 with FP8 and "
+        f"model offload on {_5080}")),
+    "krea/Krea-2-Turbo": (13e9 / _GIB, f"FP8 with model offload took about 13 GB of {_5080} at 1 MP (2026-09)"),
+    "krea/Krea-2-Raw": (13e9 / _GIB, (
+        "FP8 is unmeasured here; Krea 2 Turbo, distilled from it, took about 13 GB of "
+        f"{_5080} at 1 MP with FP8 and model offload (2026-09)")),
+    "black-forest-labs/FLUX.2-klein-9B": (9e9 / _GIB, (
+        "FP8 is unmeasured here; the 9B transformer alone is about 9 GB at one byte a weight, "
+        "and model offload keeps it whole on the card")),
+    "black-forest-labs/FLUX.2-klein-base-9B": (9e9 / _GIB, (
+        "FP8 is unmeasured here; the 9B transformer alone is about 9 GB at one byte a weight, "
+        "and model offload keeps it whole on the card")),
+    "baidu/ERNIE-Image-Turbo": (8.53, _FP8_ON_5080.format(
+        "8.53 GiB allocated (8.93 reserved) at 1 MP", "2026-10-25")),
+    "black-forest-labs/FLUX.1-Kontext-dev": (12.00, _FP8_ON_5080.format(
+        "12.00 GiB allocated (12.55 reserved) at 512×512", "2026-10-27")),
+}
+# The Nunchaku 4-bit builds, measured as NVFP4 under WSL with model offload
+# at 1 MP on the 5080 (docs/verified.md's first table); only those above
+# 8 GiB (the rest peaked at 7.4 GiB or less). INT4 is unmeasured, so its
+# row says "Likely".
+_LITE_NEEDS: dict[str, tuple[float, str]] = {
+    "krea/Krea-2-Turbo": (8.1, f"The NVFP4 build peaked at 8.1 GiB at 1 MP on {_5080} (WSL, 2026-09-05)"),
+    "Qwen/Qwen-Image": (11.75, f"The NVFP4 build peaked at 11.75 GiB at 1 MP on {_5080} (WSL, 2026-09-08)"),
+}
+_PEAKS_LEAVE_OUT = "Allocator peaks leave out the CUDA context and the desktop."
+_SEQUENTIAL = (
+    "Sequential offload needs far less, much more slowly: 2.43 GiB allocated or less "
+    "at BF16 on the 5080 for the FLUX.1, Krea 2, klein 9B and ERNIE checkpoints."
+)
+
+
+def card_fit(
+    checkpoint_repo: str, lite_format: str | None, quantization: str | None,
+    offload: str, card_memory: int | None,
+) -> tuple[str, str] | None:
+    """The fit badge and note when this card is smaller than what the build
+    needs, else None (an unknown card, a large enough one, or a loader that
+    was not sized: sequential offload, or Nunchaku on an official repo).
+    FP8's figure stands for INT8 too (the same size on the card, within
+    0.4 GiB where measured) and as a floor for BF16, which is larger."""
+    if card_memory is None or offload == "sequential":
+        return None
+    if lite_format is None:
+        if quantization == "nunchaku":
+            return None
+        need, known = _CARD_NEEDS.get(checkpoint_repo, (0.0, ""))
+    else:
+        need, known = _LITE_NEEDS.get(checkpoint_repo, (0.0, ""))
+    total = card_memory / _GIB
+    if not known or total >= need:
+        return None
+    size = f"{round(total)} GB"
+    badge = f"Over {size}" if lite_format in (None, "nvfp4") else f"Likely over {size}"
+    if lite_format == "int4":
+        known = "The INT4 build is unmeasured. " + known
+    note = f"{known}; this card has {total:.1f} GiB. {_PEAKS_LEAVE_OUT}"
+    if lite_format is None and checkpoint_repo != "black-forest-labs/FLUX.1-Kontext-dev":
+        note += f" {_SEQUENTIAL}"
+    return badge, note
+
+
 _LOGIN = "then sign in once with `uv run hf auth login` and a read token"
 # Hugging Face access before the first download, from the catalogue's own gate
 # word (launch.CHECKPOINTS, as the --menu prints it). lite-infer's re-uploads
@@ -403,11 +484,14 @@ def _instruction_edit_facts(model_id: str, *, catalogued: bool, reason: str | No
 
 def details_for(
     model_id: str, quantization: str | None = None, offload: str = "model",
-    *, edit_reason: str | None = INSTRUCTION_EDIT_UNAVAILABLE,
+    *, edit_reason: str | None = INSTRUCTION_EDIT_UNAVAILABLE, card_memory: int | None = None,
 ) -> dict[str, str]:
     """A row's compact facts. `edit_reason` is the backend's live answer
     for an edit with the loader being chosen (`main`'s model listing passes
-    it); cold, the closed gate's words."""
+    it); cold, the closed gate's words. `card_memory` is the server's card
+    in bytes (`card_facts.total_memory`, which `main` passes): a card
+    smaller than the build needs gets its own fit badge (`card_fit`);
+    None, or a card large enough, keeps the 5080's rows as they were."""
     checkpoint = next((
         entry for entry in CHECKPOINTS
         if model_id == entry.repo or any(model_id == entry.lite_repo(fmt) for fmt, _ in FORMATS)
@@ -434,6 +518,12 @@ def details_for(
     ), _OPEN)
     profile = defaults_for(model_id)
     fit, fit_note = ("", "") if lite else _FIT.get(checkpoint.repo, ("", ""))
+    lite_format = next((fmt for fmt, _ in FORMATS if model_id == checkpoint.lite_repo(fmt)), None)
+    on_card = card_fit(checkpoint.repo, lite_format, quantization, offload, card_memory)
+    if on_card is not None:
+        # The card's own words first; a fact it does not cover (Kontext's
+        # one qualified size, measured on the 5080) stays after them.
+        fit, fit_note = on_card[0], on_card[1] + (f" On the 5080: {fit_note}" if fit_note else "")
     return {
         "style": style,
         "refine": "Yes" if profile["refine_supported"] else "No",

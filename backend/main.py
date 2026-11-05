@@ -754,7 +754,8 @@ def _describe_with_newest() -> tuple[dict, int | None]:
 
 async def _read_card() -> None:
     """Read the card's facts once, off the event loop, before a route's
-    Nunchaku format default (`model_selection.card_format`) asks: a first
+    Nunchaku format default (`model_selection.card_format`) or the
+    catalogue's fit badge (`model_info.card_fit`) asks: a first
     CUDA query can queue behind a cold load, as `describe()`'s can."""
     await asyncio.to_thread(card_facts.card, current_settings(settings).device)
 
@@ -964,12 +965,16 @@ async def list_models(
             offload=offload or current.offload, **chosen,
         ))
 
+    # Read above, off the event loop (`_read_card`); None without a card.
+    card_memory = card_facts.total_memory(current.device)
+
     def catalogue_details() -> dict:
         timing = _gallery_timing(quantization or current.quantization)
         return {model["model_id"]: {
             **details_for(
                 model["model_id"], quantization=quantization or current.quantization,
                 offload=offload or current.offload, edit_reason=edit_reason(model["model_id"]),
+                card_memory=card_memory,
             ),
             "execution_options": model_selection.execution_options(
                 current, execution=draft, model_id=model["model_id"],

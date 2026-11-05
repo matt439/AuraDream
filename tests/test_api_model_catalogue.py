@@ -49,7 +49,7 @@ def test_catalogue_speed_uses_draft_loading_options_without_applying_them(client
     initial = client.get("/api/status").json()
     calls = []
 
-    def details(model_id, *, quantization, offload, edit_reason):
+    def details(model_id, *, quantization, offload, edit_reason, card_memory=None):
         calls.append((model_id, quantization, offload))
         return {"speed_label": "Unmeasured"}
 
@@ -134,7 +134,7 @@ def test_the_editors_row_carries_the_backends_answer_for_the_draft_loader(client
 
     seen = {}
 
-    def details(model_id, *, quantization, offload, edit_reason):
+    def details(model_id, *, quantization, offload, edit_reason, card_memory=None):
         seen[model_id] = edit_reason
         return {}
 

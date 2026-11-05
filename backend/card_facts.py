@@ -7,8 +7,9 @@ context); diffusers is never imported. Each device's answer is read once
 and kept. Unknown - a CPU device, a CPU build of torch, no driver, no card,
 any error - is None, and every caller treats None as it treated every card
 before it asked: the 5080's defaults. The tests and the fake server have no
-card; `tests/conftest.py` and `tools/fake_server.py` answer None here, and a
-test that wants one patches `card`.
+card; `tests/conftest.py` and `tools/fake_server.py` answer None here (the
+fake until `/api/fake/card` claims one), and a test that wants one patches
+`card`.
 """
 from __future__ import annotations
 
