@@ -98,8 +98,45 @@
   select { min-height: var(--h-field); }
 
   /* The ? badges stay their size and take a finger's press around them: the
-     tip opens on the focus a tap gives them, and a tap elsewhere closes it. */
-  .help::before { content: ""; position: absolute; inset: -12px; }
+     tip opens on the focus a tap gives them, and a tap elsewhere closes it.
+     Above and to each side, never below: a badge sits a few px over the box
+     it explains (Steps, CFG, Strength), and a press reaching down took the
+     top of that box's own press. Up 10, short of a fold's summary 10 px
+     above (Reference images); the phone parts the grid's rows (below). */
+  .help::before { content: ""; position: absolute; inset: -10px -12px 0; }
+  /* A fold's rows (Grid search's axes) stood touching, a badge 3 px under
+     the box above it: 8 px apart here, so its press stops short of that box. */
+  .panel details > .row + .row { margin-top: var(--sp-2); }
+
+  /* The sliders (Inpaint's Size and Feather) were the UA's 16 px line with a
+     16 px thumb: a finger's 44 px box, a 6 px track filled to the value
+     (--fill, which inpaint-mask.js sets) and a 28 px thumb. */
+  input[type="range"] {
+    -webkit-appearance: none; appearance: none;
+    height: var(--h-md); margin: 0; padding: 0; background: transparent;
+  }
+  input[type="range"]::-webkit-slider-runnable-track {
+    height: 6px; border-radius: 3px;
+    background: linear-gradient(to right, var(--accent) var(--fill, 0%), var(--line-strong) var(--fill, 0%));
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none; box-sizing: border-box;
+    width: 28px; height: 28px; margin-top: -11px; border-radius: 50%;
+    background: var(--text); border: 2px solid var(--accent);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  }
+  input[type="range"]::-moz-range-track { height: 6px; border-radius: 3px; background: var(--line-strong); }
+  input[type="range"]::-moz-range-progress { height: 6px; border-radius: 3px; background: var(--accent); }
+  input[type="range"]::-moz-range-thumb {
+    box-sizing: border-box; width: 28px; height: 28px; border-radius: 50%;
+    background: var(--text); border: 2px solid var(--accent);
+  }
+  input[type="range"]:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+  /* Inpaint's two rows of tools take the slider's height: their fixed
+     height (inpaint.css) cut it. Still the window's alone, never what is
+     painted, so the picture above never moves. */
+  .ip-tools { height: auto; }
+  .ip-row { height: auto; min-height: var(--h-sm); }
   .help .tip::before { content: none; }
 
   /* No keyboard here (a tablet's own keyboard aside, whose user has the ?
@@ -339,6 +376,68 @@
     padding: 20px max(16px, var(--safe-r)) calc(var(--safe-b) + 16px) max(16px, var(--safe-l));
     overscroll-behavior: contain;
   }
+
+  /* Saved setups, Saved searches and Prompt snippets scroll as one sheet:
+     their body was a scroller of its own between the sticky title and
+     action rows, cut mid-line at its foot (the snippets' Insert into and
+     Position, the setups' Undo line), a third scrollbar beside the list's
+     and the sheet's. Nothing in them shrinks to make room (the setups'
+     intro had shrunk under the list's caption). */
+  dialog:is(.setups-dialog, .saved-searches-dialog, .snippets-dialog) > * { flex-shrink: 0; }
+  dialog:is(.setups-dialog, .saved-searches-dialog, .snippets-dialog)
+    > :is(.setups-body, .saved-searches-body, .snippets-layout) {
+    min-height: auto; overflow: visible;
+  }
+
+  /* Inpaint's tools wrap inside the screen: in two rows that never wrapped,
+     Only the masked area, its Pad and Show mask lay past the right edge.
+     The tools a finger's 44 px; the masked area and its Pad a line of
+     their own, Show mask at the end of the next; each slider a row of its
+     own across the sheet. What wraps is the screen's width alone, so the
+     picture above never moves with what is painted. */
+  .ip-row { flex-wrap: wrap; white-space: normal; row-gap: var(--sp-2); }
+  .ip-tools { gap: var(--sp-2); }
+  .ip-tools .ghost.small { min-height: var(--h-md); }
+  .ip-row > .ip-crop { flex: 1 1 100%; margin-left: 0; }
+  .ip-crop-pad input { height: var(--h-md); }
+  .ip-slider { flex: 1 1 100%; }
+  .ip-slider + .ip-slider { margin-left: 0; }
+
+  /* Outpaint's cross: a 360 px frame between Left and Right ran Right off
+     the screen. Here the frame takes what the four boxes leave - its width
+     the screen's alone, read by drawOutpaintFrame - Left and Right each
+     under its name beside it, Top and Bottom above and below; the reading
+     order is still Top, Left, Right, Bottom. The presets and the band's
+     row wrap, Only the masked area a line of its own under the band. */
+  .op-cross {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-rows: auto var(--op-frame-h) auto;
+  }
+  .outpaint-dialog { --op-frame-h: 180px; }
+  .op-frame { width: 100%; }
+  .op-cross > .op-side input, .op-band-row > input { height: var(--h-md); }
+  .op-cross > :is(.op-left, .op-right) {
+    flex-direction: column; align-items: flex-start; gap: 2px; height: auto;
+  }
+  .op-cross > .op-side { height: auto; }
+  .op-presets { flex-wrap: wrap; height: auto; row-gap: var(--sp-2); white-space: normal; }
+  .op-band-row { flex-wrap: wrap; height: auto; row-gap: var(--sp-2); }
+  .op-band-row .hint { flex: 1 1 0; }
+  .op-band-row .op-crop { flex: 1 1 100%; }
+
+  /* A sheet's ticks and choices - Then refine's, Mass refine's, Bundles'
+     scope and backups, Keep shape, Only the masked area - were 20 px boxes
+     on 23-36 px rows: drawn at 24, their rows a finger's 44 px. */
+  dialog:not(.lightbox) :is(input[type="checkbox"], input[type="radio"]) { width: 24px; height: 24px; }
+  dialog:not(.lightbox) :is(.check, .bundle-scope label, .bundle-automatic-check) { min-height: var(--h-md); }
+  dialog:not(.lightbox) .bundle-automatic-check { align-items: center; }
+
+  /* Refine's, Inpaint's and Outpaint's Strength a row of its own, Versions,
+     Seed and the dice the next: four abreast, Refine's dice ran off the
+     screen behind a Seed kept 16 digits wide (fields.css). */
+  .rf-strength .row { flex-wrap: wrap; row-gap: var(--sp-3); }
+  .rf-strength .row > .sub:first-child { flex: 1 1 100%; }
+  .rf-strength .row > .sub.grow:has(> #refine-seed) { min-width: 0; }
 
   /* The Examples and Picked menus: hung under their buttons they ran past the
      screen's right edge (the page then scrolled sideways) or stood on 29 px

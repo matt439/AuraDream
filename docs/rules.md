@@ -6590,7 +6590,15 @@ measured on the card and when.
   16 px or more (`!important`: under 16 iOS zooms the page on focus and
   leaves it zoomed), takes the keyboard's hints away (`::after` key
   letters, `.lb-keys`, `.key-hint` spans in the idle line, the png drop
-  hint, the search's "/ to focus"), widens a `?` badge's press, makes
+  hint, the search's "/ to focus"), widens a `?` badge's press 10 px up
+  and 12 to each side but never below it (a badge sits a few px over the
+  box it explains - Steps, CFG, Strength - and a press reaching down took
+  the top of that box's own), parts a fold's touching rows by 8 px (Grid
+  search's axes, whose badges sat 3 px under the box above), draws a
+  slider (`input[type="range"]`, Inpaint's Size and Feather) as a 44 px
+  box with a 6 px track filled to its value (`--fill`, which
+  `syncMaskTools` sets) and a 28 px thumb rather than the UA's 16 px line,
+  lets Inpaint's two tool rows take that height, makes
   every close ✕ (`.close`: the lightbox's, the dialogs') a 44 px square
   with the glyph centred and lets the prompt check's 28 px ✕ reach 44 by
   a pseudo-element, wraps the
@@ -6679,12 +6687,32 @@ measured on the card and when.
   its button (a ✕ or a word: Close, Cancel) at least 44 px square; the
   action row is sticky at the foot, padded by the bottom safe area, and
   `margin-top: auto` keeps it at the foot of a short sheet; the sheet's
-  own scroll has `overscroll-behavior: contain`. A dialog whose body has
-  a scroller of its own (the setups', searches' and snippets', which are
-  `overflow: hidden`) fills the sheet with it. Where something follows the
+  own scroll has `overscroll-behavior: contain`. The sheet is the one
+  scroller: Saved setups', Saved searches' and Prompt snippets' bodies
+  (`.setups-body`, `.saved-searches-body`, `.snippets-layout`), scrollers
+  of their own in the PC's `overflow: hidden` boxes, are not, and nothing
+  in those three shrinks (their inner scroll cut the snippets' Insert into
+  and Position and the setups' Undo line mid-line at its foot, and the
+  setups' intro shrank under the list's caption). Where something follows the
   action row (More seeds' fold, a status line) or there is none (Bundles,
   the keyboard list), an `::after` spacer ends the sheet clear of the home
   indicator. Inpaint's picture keeps its fixed top, under the title row.
+  Every control of a sheet is inside the screen: Inpaint's tool rows wrap
+  (their fixed `nowrap` rows put Only the masked area, Pad and Show mask
+  past the right edge), the tools 44 px, the masked area and Pad a line
+  of their own, each slider a row of its own across the sheet; Outpaint's
+  cross keeps Top, Left, Right and Bottom round its frame, but the frame
+  takes what the four 44 px boxes leave (`drawOutpaintFrame` reads its
+  width) with Left and Right each under its name (a 360 px frame put
+  Right at x 533), and its presets and band row wrap, Only the masked
+  area a line of its own under the band, whose note keeps one line;
+  Refine's, Inpaint's and Outpaint's Strength is a row of its own with
+  Versions, Seed and the dice on the next (four abreast, Refine's dice
+  ran off the screen behind a Seed kept 16 digits wide). What wraps
+  depends on the screen's width alone, so nothing moves with what is
+  typed or painted. A sheet's checkboxes and radios are drawn at 24 px on
+  44 px rows (`.check`, Bundles' scope and backup ticks; 20 px boxes on
+  23-36 px rows).
   The delete question (`#confirm-dialog`) is a sheet from the screen's
   foot across it, rounded at the top, and `placeAsk` places it nowhere.
   The Examples and Picked menus are fixed across the screen 8 px above
@@ -7669,7 +7697,11 @@ finding no overflow, nothing off the screen sideways and no dialog outside
 tier following each `change`, Generate, the viewer and the gallery shown
 and Generate focusable at 820, Create back at the 300 px it was left at
 on the phone with Generate focusable, and a Gallery view chosen at 678
-kept through 820 and back; and a mouse
+kept through 820 and back; at 820 the touch tier's slider (44 px, the
+UA's look gone), the `?` reach ending at the badge's foot and the fold
+rows 8 px apart, but none of the phone's dialog changes (its rows
+unwrapped, its ticks 20 px, Saved setups' body its own scroller); and a
+mouse
 at 820x1180 one column as before, 43 px Generate, the
 chips under the prompt, no `data-tier`, the search's "/ to focus" back.
 
@@ -7685,11 +7717,25 @@ footer; Delete unstarred's question - and `__sheet` checks it at its top
 and scrolled to its foot: the sheet exactly the window, its close and its
 primary each inside the window, the element `elementFromPoint` finds at
 their centre and at least 44 px square, the phone audit finding no dialog
-outside the window and no sideways overflow, and the sheet not scrolling
-sideways (not checked for Inpaint and Outpaint, whose settings rows are
-still wider than the screen, or for Refine, whose dice runs past it);
-each state's controls under 44 px and off the screen are logged as the
-baseline. `__sheet` answers `true` or a string naming every check that
+outside the window and no sideways overflow, and neither the sheet
+scrolling sideways nor any control of it off the screen sideways; each
+state's controls under 44 px and off the screen are logged as the
+baseline. Then: every `?` badge in the panel, all its folds open, and in
+Refine, Inpaint and Outpaint reaching at least 8 px up and 10 to each
+side but never below itself, and its press (`__helpReach`, the badge
+grown by its `::before`) overlapping no box, select, button or summary
+(`__helpOverlaps`); Saved setups', Saved searches' and Prompt snippets'
+bodies no scrollers of their own, the setups' intro whole above its
+body, the snippets' Export… and Import… so named and Insert into and
+Position whole above the action row; Refine's Strength above Versions,
+Seed and the dice, the dice inside the screen with 8 px to spare and
+both pressable; Inpaint's tools 44 px and inside the screen with Pad and
+Show mask, each slider at least 44 px tall, 60% of the screen wide, the
+UA's look gone and its `--fill` the value's place in its range;
+Outpaint's four boxes 44 px, pressable and round the frame (at least 150
+px wide), a tap on Right focusing it and typing 64 setting that side,
+the canvas still inside the frame; and the ticks of Then refine, Inpaint,
+Refine… and Bundles at 24 px on 44 px rows (`__ticks`). `__sheet` answers `true` or a string naming every check that
 failed, so each step logs its answer and then expects `=== true` (a
 string is truthy, and `browser.mjs` passes any truthy value). The lightbox's ✕ is 44 px and
 closes it after Refine's ✕ returns there. The delete question is a sheet
@@ -7697,9 +7743,12 @@ across the window at its foot with Cancel and Delete on it. The Examples
 menu and the Picked menu sit inside the window above the tab bar with
 48 px rows and no sideways scroll; the long-press menu is docked across
 the window at its foot, its rows 48 px, a menu item first. A mouse at
-1400x900 then has the PC's question (under 480 px wide, off the window's
-foot, small buttons), Saved setups' inset box with an unstuck action row,
-and the right-click menu placed at the pointer with its PC rows.
+1400x900 then has the UA's sliders, Inpaint's tool rows, Outpaint's
+presets and band row and Refine's Strength row unwrapped, no reach past a
+`?` badge, the library dialogs' own scrollers and the UA's ticks; the
+PC's question (under 480 px wide, off the window's foot, small buttons),
+Saved setups' inset box with an unstuck action row, and the right-click
+menu placed at the pointer with its PC rows.
 
 `smoke-offline.json` uses a fresh FLUX.1 Krea [dev] fake on 7958: the
 page at 127.0.0.1 registers `sw.js`, which controls the next load; with

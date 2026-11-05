@@ -397,6 +397,12 @@ function syncMaskTools() {
   els.inpaintSizeOut.textContent = `${maskSizePx} px`;
   els.inpaintFeather.value = String(maskFeatherPx);
   els.inpaintFeatherOut.textContent = `${maskFeatherPx} px`;
+  // How far each slider's track is filled, which a touch screen draws
+  // (touch.css; the UA's own slider fills itself).
+  for (const range of [els.inpaintSize, els.inpaintFeather]) {
+    const lo = +range.min, hi = +range.max;
+    range.style.setProperty('--fill', `${hi > lo ? (100 * (+range.value - lo)) / (hi - lo) : 0}%`);
+  }
   const hold = (button, why, title) => {
     button.setAttribute('aria-disabled', String(!!why));
     button.title = why || title;
