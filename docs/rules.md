@@ -6605,7 +6605,7 @@ measured on the card and when.
   Beside the viewer a wheel over it scrolls the column (`galleryTopWheel`),
   not the page.
 - Phones and tablets (`styles/touch.css` and `styles/phone.css`, linked
-  last, `touch.js` and `phone.js`): one
+  last, `touch.js`, `phone.js` and `phone-compose.js`): one
   page, keyed on a coarse primary pointer, never on width alone, so a PC's
   mouse - a touch laptop's included, whose primary pointer is fine - and
   every smoke written with one see none of it at any window size. Three
