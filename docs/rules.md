@@ -7537,6 +7537,8 @@ measured on the card and when.
   row says "Today, 4:47 am" likewise, `runWhen`), else
   its day, then where the chip has the room (a container query: on its
   side, not at 393 px) the rest ("· 4 images"), its whole line its name;
+  under 171 px of chip (360 px wide) the drawn "Run" goes, so a two-digit
+  hour ("12:44 PM") is whole where "9:42 AM" had filled the 59 px left;
   its press opens the runs' sheet, and its 44 px ✕ is the gallery as it was
   before the run - the search the run replaced where the page wrote it,
   else none - through `applyGalleryFilter`, which shuts the sheet. Not in

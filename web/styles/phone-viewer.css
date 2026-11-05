@@ -114,12 +114,17 @@
   }
   .lbp-peek { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: var(--fs-body-sm); }
   .lbp-word { flex: none; color: var(--accent-2); font-size: var(--fs-sm); }
-  .lbp-word::after { content: " ⌃" / ""; }
+  /* A chevron drawn as the folds' is (touch.css): up while lowered, down
+     once raised. */
+  .lbp-word::after {
+    content: ""; display: inline-block; width: 7px; height: 7px; margin: 0 2px 0 8px;
+    border: solid currentColor; border-width: 0 2px 2px 0; rotate: -135deg; translate: 0 2px;
+  }
   .lightbox[data-facts] .lbp-handle {
     position: sticky; top: 0; z-index: 1; background: var(--bg);
   }
   .lightbox[data-facts] .lbp-peek { visibility: hidden; }
-  .lightbox[data-facts] .lbp-word::after { content: " ⌄" / ""; }
+  .lightbox[data-facts] .lbp-word::after { rotate: 45deg; translate: 0 -2px; }
   .lightbox[data-facts] .lbp-word { margin-left: auto; }
 
   .lb-meta {

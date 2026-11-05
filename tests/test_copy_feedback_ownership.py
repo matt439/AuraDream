@@ -96,6 +96,7 @@ function fixture() {
     settingsLine: () => 'cold', promptSearchLine: () => element(), factsList: () => element(),
     syncReuseButton: noop, syncMoreSeedsFor: noop, syncOutpaintTool: noop, syncEditTool: noop,
     syncReferenceTool: noop, syncLightboxInpaint: noop, syncLightboxOutpaint: noop,
+    syncPhoneViewerImage: noop, $: () => element(),
     forgetLadders: noop, showModelPicker: poison('model picker'), OFFLINE_MESSAGE: 'offline',
     selection: new Map(), lightboxPickHeld: () => '', lightboxPickTitle: () => 'Pick',
     pickFromLightbox: poison('pickFromLightbox'),

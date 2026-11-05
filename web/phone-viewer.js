@@ -181,7 +181,7 @@ function openViewerMore(event) {
     .filter((item) => !item || !VIEWER_BAR_ITEMS.has(item.label));
   const png = items.findIndex((item) => item?.label === 'Open PNG in new tab');
   items.splice(png < 0 ? items.length : png, 0,
-    { label: '⤓ Download', title: els.lbDownload.title, run: () => downloadLightboxImage() });
+    { label: 'Download', title: els.lbDownload.title, run: () => downloadLightboxImage() });
   showContextMenu([{ heading: `#${rec.id}` }, ...items], `More for #${rec.id}`, event.currentTarget, 0, 0, event.detail === 0);
 }
 
