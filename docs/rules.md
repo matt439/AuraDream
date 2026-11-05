@@ -5504,7 +5504,8 @@ measured on the card and when.
   binned, and `noteBinned` with Restore for all of them; no question, as
   ⌦ asks none). Each outcome is said in `#gallery-error`, ids named up to
   six in id order, then counted. F stays the focused card's. The button is
-  aria-disabled with `PICKED_NONE` while nothing is picked and `BIN_HELD`
+  aria-disabled with `PICKED_NONE` (`pickedNone()`: on a touch screen
+  "Pick images with Select to ...") while nothing is picked and `BIN_HELD`
   in the bin (`syncPickedButton`, from `syncSelection` and
   `syncBinControls`), a held press saying it; its title and its items'
   name the count. It keeps Examples' menu keyboard (`pickedKey`: ArrowDown
@@ -7312,7 +7313,9 @@ measured on the card and when.
   view, so the row sits on the topbar; a card scrolled into view stops
   under the row. The gallery's line (`#gallery-error`) is under the row
   over the cards, out of the flow, two lines at most on a card of
-  `--panel-2`, so a message moves nothing; a tap puts it away. Filters and
+  `--panel-2`, so a message moves nothing; a tap puts it away, which a
+  drawn ✕ at its end says (it lies over the first cards' stars until
+  then). Filters and
   ⋯ open sheets docked at the screen's foot (`.gallery-sheet`; not the
   screen-wide sheet of every other dialog: what they hold is a list to
   pick from), across it, at most 80% of its height and scrolling inside,
@@ -7333,8 +7336,9 @@ measured on the card and when.
   rows open inside the sheet under it rather than hung over the page;
   Re-render, Swap tags…, Refine… and More seeds…; Saved searches…,
   Bundles… and the recycle bin ("Recycle bin", its count in its line);
-  the bin's own Restore picked, Delete picked permanently, its age and
-  Empty recycle bin; and Delete unstarred last, in `--danger`. In the bin
+  the bin's own Restore picked, Delete picked permanently, its age (a
+  select across the sheet under its caption "Empty which images",
+  `#bin-age-caption`, drawn only with it) and Empty recycle bin; and Delete unstarred last, in `--danger`. In the bin
   its own group comes first, Recycle bin ("Back to the gallery") at its
   head, the way out at the sheet's top (`placeBinGroup`, never while the
   sheet is open; out of the bin Recycle bin goes back after Bundles…). A row is the button across the sheet, 48 px at least, its name
@@ -7350,7 +7354,11 @@ measured on the card and when.
   unstarred image the filter matches, after a question. The scope was the
   title alone, which a finger never shows. A held row stays listed,
   `aria-disabled` with its title; its press keeps the sheet open and says
-  why in the sheet's foot, where the gallery's line is moved while a sheet
+  why in the sheet's foot (in a touch screen's words, as every reason
+  that says how to pick is on the phone and the tablet:
+  `pickCardsWords` and `pickedNone` in `gallery-select.js` name Select
+  alone, never Ctrl/Cmd+click, and Bundles' picked scope the same;
+  `syncTier` re-syncs the selection, so a change of tier re-titles them), where the gallery's line is moved while a sheet
   is open, and its words go when the sheet is shut without an action. An
   action's press (`galleryMorePress`, capture) takes the line home and
   shuts the sheet in the same turn before the action runs, so the dialog
@@ -8674,7 +8682,8 @@ at 820x1180@2, its touch viewports `"mobile": true`: `data-tier` tablet
 and `viewBand` the whole window; the panel beside the
 stage and sticky, two cards across,
 no tab bar, the keyboard help kept, finger sizes, the chips' host the wide
-one, the page all 820 px wide; the touch tier's small tokens kept
+one, the page all 820 px wide; the held gallery actions' reasons in a touch
+screen's words ("Pick images with Select…", `pickedNone()`, no Ctrl/Cmd); the touch tier's small tokens kept
 (`--h-sm` 36, `--h-xs` 32, `--h-tool` 36), a card's tools drawn at 32 px,
 its star 28 and the dice under 44, where the phone has 44; the page's
 14 px body, 12 px captions in capitals, the panel framed and padded 14 and
@@ -8799,11 +8808,15 @@ and More seeds… held, listed, titled, at full opacity in the muted
 colour, each with its line; the scope over them saying why none can, Picked's
 line "Pick images with Select first", Swap tags' what it does, Delete
 unstarred red with its scope; the audit clean in it; a held Swap tags…
-pressed keeping the sheet open with its reason in the sheet's foot, which
+pressed keeping the sheet open with its reason in the sheet's foot in a
+touch screen's words ("Pick images with Select, or narrow the gallery",
+no Ctrl/Cmd in it nor in the four held titles), which
 its ✕ clears and takes home; Recycle bin pressed in it shutting it (no
 entry left) and showing the bin, its title drawn and the placeholder
 "Search the bin", ⋯ there with the bin's group first and Recycle bin
-tonal at its head with "Back to the gallery", the audit clean, and its
+tonal at its head with "Back to the gallery", Empty's choice under its
+caption "Empty which images" (not drawn out of the bin), the audit
+clean, and its
 second press back to the four cards, the group before Delete unstarred
 and Recycle bin after Bundles… again; with a
 card picked in Select mode, ⋯'s badge 1 and its name "More gallery

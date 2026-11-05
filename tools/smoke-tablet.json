@@ -17,6 +17,7 @@
   {"expect": "(() => { const p = __box(__panel()), s = __box(els.stage); return p.right < s.left && Math.abs(p.top - s.top) < 1 && getComputedStyle(__panel()).position === 'sticky'; })()"},
   {"expect": "(() => { const cards = [...document.querySelectorAll('#gallery .card[data-id]')].map(__box); return cards[0].top === cards[1].top && cards[0].right <= cards[1].left && cards[1].right <= __box(els.stage).right + 0.5; })()"},
   {"expect": "!isShown(document.getElementById('phone-tabs')) && isShown(els.gallery) && isShown(els.viewer) && isShown(document.getElementById('btn-shortcuts'))"},
+  {"expect": "__until(() => selection.size === 0 && els.swap.title.startsWith('Pick images with Select, or narrow the gallery') && els.pickedBtn.title === pickedNone() && els.pickedBtn.title.startsWith('Pick images with Select to star') && !/Ctrl|Cmd/.test(els.swap.title + els.pickedBtn.title + els.refineBatch.title + els.moreSeeds.title))"},
   {"expect": "__box(els.generate).height >= 48 && parseFloat(getComputedStyle(els.prompt).fontSize) >= 16 && getComputedStyle(els.generate, '::after').content === 'none'"},
   {"expect": "document.documentElement.scrollWidth <= document.documentElement.clientWidth"},
   {"expect": "els.tagValidation.parentElement === els.tagChipsWide"},

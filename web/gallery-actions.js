@@ -117,7 +117,7 @@ const wasWere = (ids) => (ids.length === 1 ? 'was' : 'were');
 async function starPicked(value) {
   const slot = { slot: els.galleryError };
   const ids = selectedIds();
-  if (!ids.length) { showError(`${PICKED_NONE}.`, true, slot); return; }
+  if (!ids.length) { showError(`${pickedNone()}.`, true, slot); return; }
   const held = favoriteWriteReason(ids);
   if (held) { showError(held + '.', true, slot); return; }
   for (const id of ids) favoriteWriteIds.add(id);
@@ -159,7 +159,7 @@ async function starPicked(value) {
 async function binPicked() {
   const slot = { slot: els.galleryError };
   const recs = selectedRecords();
-  if (!recs.length) { showError(`${PICKED_NONE}.`, true, slot); return; }
+  if (!recs.length) { showError(`${pickedNone()}.`, true, slot); return; }
   const ids = recs.map((r) => r.id);
   const held = binWriteReason(ids);
   if (held) { showError(held + '.', true, slot); return; }

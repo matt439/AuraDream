@@ -38,6 +38,9 @@ function syncTier() {
   // The phone's hosts (phone.js): Generate into the action bar and the
   // results under the settings, or home again and the queue's sheet shut.
   syncPhoneHosts();
+  // The held titles that say how to pick cards (gallery-select.js,
+  // pickCardsWords) are a touch screen's or a mouse's: re-read them.
+  if (was !== undefined) syncSelection();
   // Back on the phone, the view shows where it was left, as a tab's press
   // does: the page between was the whole of both views, scrolled elsewhere.
   // The right-click menu is docked at the phone's foot and placed at the

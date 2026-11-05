@@ -26,6 +26,7 @@ let loadedModel = 'current/model', modelRevision = 1, serverStartedAt = 11;
 const els = { lightbox: { open: false }, galleryError: {}, allModels: { checked: false } };
 const document = { activeElement: null, querySelectorAll: () => [] };
 const PICKED_NONE = 'Pick images first';
+const pickedNone = () => PICKED_NONE;
 const writes = [], reads = [], notes = [], forgotten = [], spoken = [], holdStates = [];
 function api(path, options) {
   return new Promise((resolve, reject) => writes.push({ path, options, resolve, reject }));

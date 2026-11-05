@@ -432,13 +432,21 @@ function forgetSelected(gone, { stashed = true } = {}) {
 // closes it with focus back on the button, and leaving it closes it.
 const PICKED_NONE = 'Pick cards (Ctrl/Cmd+click or Select) to star, unstar, bin or use their seeds in a grid';
 
+// How cards are picked, in the pointer's words: a touch screen (the phone's
+// and the tablet's, touch.js's touchQuery) has no Ctrl/Cmd+click, so its
+// reasons name Select alone. Read at each sync; a change of tier re-syncs the
+// selection (touch.js, syncTier), so the held titles follow it.
+const pickCardsWords = () => (touchQuery.matches ? 'Pick images with Select' : 'Pick cards (Ctrl/Cmd+click or Select)');
+const pickedNone = () => (touchQuery.matches
+  ? `${pickCardsWords()} to star, unstar, bin or use their seeds in a grid` : PICKED_NONE);
+
 // Seeds only: the picked order is the investigation's order, while another
 // image of the same seed contributes no second entry. Leave grid limits to
 // its existing server preview; never silently trim the selected seeds.
 function pickedGridSeeds() {
   if (binMode) return { why: BIN_HELD };
   const records = selectedRecords();
-  if (!records.length) return { why: PICKED_NONE };
+  if (!records.length) return { why: pickedNone() };
   const unsafe = records.find((rec) => !Number.isSafeInteger(rec.seed) || rec.seed < 0);
   if (unsafe) return { why: `#${unsafe.id} has a seed the browser cannot copy exactly; use whole seeds from 0 to ${Number.MAX_SAFE_INTEGER}` };
   return { seeds: [...new Set(records.map((rec) => rec.seed))] };
@@ -485,7 +493,7 @@ function comparePicked() {
 
 function syncPickedButton() {
   const n = selection.size;
-  const why = binMode ? BIN_HELD : n ? '' : PICKED_NONE;
+  const why = binMode ? BIN_HELD : n ? '' : pickedNone();
   els.pickedBtn.setAttribute('aria-disabled', String(!!why));
   const them = n === 1 ? 'the picked image' : `the ${n} picked images`;
   els.pickedBtn.title = why || `Actions on ${them}: star, unstar, compare, bin, copy seeds to the grid or re-render at a tier`;
@@ -621,7 +629,7 @@ function galleryActionTarget(purpose, one) {
   const search = els.search.value.trim();
   const filtered = els.favOnly.checked || search !== '';
   if (!filtered) {
-    return { why: `Pick cards (Ctrl/Cmd+click or Select), or narrow the gallery with a search or Starred, ${purpose}` };
+    return { why: `${pickCardsWords()}, or narrow the gallery with a search or Starred, ${purpose}` };
   }
   if (total === 0) return { why: 'Nothing in the gallery matches the filter' };
   if (total > sheetPage) {

@@ -96,11 +96,10 @@ function syncPhoneGalleryHead() {
   for (const row of gallerySubRows()) syncGallerySub(row, target);
 }
 
-// A held reason in a phone's words: there is no Ctrl+click on a phone, and
-// Bin is the ⋯ sheet's Recycle bin.
-const phoneWords = (why) => (why || '')
-  .replace('Pick cards (Ctrl/Cmd+click or Select)', 'Pick images with Select')
-  .replace('leave it with Bin', 'leave it with Recycle bin in ⋯');
+// A held reason in a phone's words: Bin is the ⋯ sheet's Recycle bin. (How
+// cards are picked is already a touch screen's, gallery-select.js's
+// pickCardsWords, in the title and in what a held press says.)
+const phoneWords = (why) => (why || '').replace('leave it with Bin', 'leave it with Recycle bin in ⋯');
 
 // In the recycle bin its own rows come first in ⋯ - Recycle bin itself
 // ("Back to the gallery"), then Restore picked, Delete picked permanently,
@@ -118,6 +117,8 @@ function placeBinGroup() {
   if (group !== before && group.nextElementSibling !== before) body.insertBefore(group, before);
   if (binMode) phoneMove(els.bin, group, group.firstChild);
   else phoneMove(els.bin, $('gallery-more-library'));
+  // Empty's choice's caption, straight over it.
+  if (els.binAge.parentNode === group) phoneMove($('bin-age-caption'), group, els.binAge);
 }
 
 function badge(el, n) {
