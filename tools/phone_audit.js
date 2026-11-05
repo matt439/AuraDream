@@ -9,9 +9,11 @@
 // __phoneAudit(options) returns
 //   small     visible controls whose press box is under min x min (44 px): the
 //             box, grown by an absolutely placed ::before/::after that reaches
-//             past it, and for a checkbox or radio its label's box
+//             past it, and for a checkbox or radio its label's box (a
+//             display: contents label by its rendered children and text)
 //   offside   visible controls whose box leaves 0..innerWidth (a row that
-//             runs off the screen, scrolled sideways or not)
+//             runs off the screen, scrolled sideways or not), except one
+//             scrolled out of a strip named in `strips` that is on the screen
 //   dialogs   open dialogs and menus whose box leaves 0..innerWidth or
 //             0..innerHeight (a footer past the foot of the screen)
 //   overflow  how far the document scrolls sideways (0 when it does not)
@@ -29,6 +31,10 @@
 //   except  selectors left out of `small`, added to the standing exceptions:
 //           inline citation links in prose (.lb-link, .analysis-link), the
 //           one documented exception to the 44 px rule
+//   strips  selectors of deliberate sideways scrollers (a chip strip): a
+//           control scrolled out of one is not offside while the strip is on
+//           the screen. Opt-in, never inferred from overflow-x, so a row that
+//           scrolls with no cue is still reported
 // Visible means rendered with a box, not visibility: hidden, not under
 // opacity 0 or [inert], and larger than 1x1 (a visually hidden input).
 // Tests only: no app script loads this file.
@@ -75,14 +81,39 @@ globalThis.__phoneAudit = (options = {}) => {
     left: Math.min(u.left, b.left), top: Math.min(u.top, b.top),
     right: Math.max(u.right, b.right), bottom: Math.max(u.bottom, b.bottom),
   }));
+  // A label's boxes. One that is display: contents has no box of its own (the
+  // Models sheet's row label, whose cells are the row's grid items), so its
+  // rendered children and text stand for it.
+  const labelBoxes = (node) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      const r = range.getBoundingClientRect();
+      return r.width > 0 && r.height > 0 ? [r] : [];
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) return [];
+    if (getComputedStyle(node).display === 'contents') return [...node.childNodes].flatMap(labelBoxes);
+    return visible(node) ? [node.getBoundingClientRect()] : [];
+  };
   const pressBox = (el) => {
     const r = el.getBoundingClientRect();
     const boxes = [r, ...reach(el, r)];
     if (el.matches('input[type="checkbox"], input[type="radio"]')) {
-      for (const label of el.labels ?? []) if (visible(label)) boxes.push(label.getBoundingClientRect());
+      for (const label of el.labels ?? []) if (!label.closest('[inert]')) boxes.push(...labelBoxes(label));
     }
     return union(boxes);
   };
+  // A control scrolled out of a strip the smoke names (a deliberate sideways
+  // scroller, a chip strip) is reached by swiping it, so it is not offside
+  // while the strip itself is on the screen. Never automatic: a row that
+  // scrolls with no cue (the lightbox's actions, P29) is the defect itself.
+  const strips = options.strips ?? [];
+  const inStrip = (el) => strips.some((sel) => {
+    const strip = el.parentElement?.closest(sel);
+    if (!strip) return false;
+    const s = strip.getBoundingClientRect();
+    return s.left >= -slack && s.right <= vw + slack;
+  });
   const name = (el) => {
     const id = el.id ? '#' + el.id : '';
     const cls = !id && typeof el.className === 'string' && el.className.trim()
@@ -117,7 +148,7 @@ globalThis.__phoneAudit = (options = {}) => {
       (except.some((sel) => el.matches(sel)) ? excepted : small).push(`${name(el)} ${at(box)}`);
     }
     const r = el.getBoundingClientRect();
-    if (r.left < -slack || r.right > vw + slack) offside.push(`${name(el)} ${at(r)}`);
+    if ((r.left < -slack || r.right > vw + slack) && !inStrip(el)) offside.push(`${name(el)} ${at(r)}`);
   }
   const dialogs = [...document.querySelectorAll(SURFACES)].filter(visible).flatMap((el) => {
     const r = el.getBoundingClientRect();

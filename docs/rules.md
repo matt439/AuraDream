@@ -7205,7 +7205,12 @@ navigate drops it, so it is injected again after one), then calls
 `__phoneAudit(options)` from `log` and `expect` steps. The report lists
 `small`, visible controls whose press box is under 44x44 (the box grown by an
 absolutely placed `::before`/`::after` reaching past it, and a checkbox's or
-radio's label); `offside`, visible controls whose box leaves 0..innerWidth;
+radio's label, a `display: contents` label by its rendered children and text,
+as the Models sheet's rows are); `offside`, visible controls whose box leaves
+0..innerWidth, scrolled sideways or not, except one scrolled out of a strip
+the smoke names in `strips` (a deliberate sideways scroller, such as a chip
+strip) while the strip is on the screen; never inferred from `overflow-x`,
+since a row that scrolls with no cue is the defect (P29);
 `dialogs`, open dialogs and menus whose box leaves the window; `overflow`,
 the document's sideways scroll in px; `excepted`, the controls the exception
 list kept out of `small` (standing: `.lb-link` and `.analysis-link`, inline
