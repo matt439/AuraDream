@@ -329,7 +329,7 @@
   {"expect": "__until(() => !sheetMode && !galleryPending)"},
   {"log": "'A matrix is a table to a screen reader: each row a role=row that lays nothing out, the heads column and row headers, every cell named by what the sheet lays out rather than by the prompt every cell shares, described by the facts its name leaves out; the sheet says what it is as it opens, and focus left in view on the Runs picker stays there'"},
   {"viewport": [2560, 1305, 1]},
-  {"eval": "(async () => { window.__teapot = (await __post('/api/grid', {prompt: 'a teapot on a wooden table', steps_axis: '2,4,6', seeds: 2, seed: 7601520420449509})).run_id; window.__kites = (await __post('/api/grid', {prompt: 'a red kite', prompt_variants: [{label: 'original', prompt: 'a red kite'}, {label: 'yours', prompt: 'a kite, red'}], seeds: 8, seed: 7601520420449509, width: 256, height: 256})).run_id; await loadRuns(); })()"},
+  {"eval": "(async () => { window.__teapot = (await __done(await __post('/api/grid', {prompt: 'a teapot on a wooden table', steps_axis: '2,4,6', seeds: 2, seed: 7601520420449509}))).run_id; window.__kites = (await __done(await __post('/api/grid', {prompt: 'a red kite', prompt_variants: [{label: 'original', prompt: 'a red kite'}, {label: 'yours', prompt: 'a kite, red'}], seeds: 8, seed: 7601520420449509, width: 256, height: 256}))).run_id; await loadRuns(); })()"},
   {"eval": "scrollTo(0, 0); els.sheetSaid.textContent = ''; els.runList.focus(); els.runList.value = window.__teapot; els.runList.onchange(); window.__settled()"},
   {"expect": "__until(() => els.sheetSaid.textContent === 'Sheet: 6 images, Steps × Seed')"},
   {"expect": "els.sheetSaid.getAttribute('aria-live') === 'polite' && !els.sheet.contains(els.sheetSaid) && els.sheetSaid.getBoundingClientRect().width <= 1"},
@@ -416,7 +416,8 @@
   {"expect": "__until(() => elsewhereBusy, 15000)"},
   {"expect": "__until(() => !elsewhereBusy, 30000)"},
   {"expect": "document.activeElement === __cell && __cell.isConnected && sheetMode"},
-  {"eval": "fetch('/api/fake/step', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({seconds: __pace.previous ?? 0})}); setSheet(false); els.search.value = ''; resetGallery();"},
+  {"eval": "fetch('/api/fake/step', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({seconds: __pace.previous ?? 0})}); setSheet(false); els.search.value = ''; resetGallery();"}
+,
 
   {"log":"\"UI#4: one roving image and its star, sparse matrix movement, row ends and corners, real activation keys, redraw/pin/delete focus, and no page scroll\""},
   {"viewport":[1400,900,1]},
