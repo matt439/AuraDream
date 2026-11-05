@@ -257,7 +257,11 @@ hosts: Generate in the Create view's action bar over the tab bar, beside
 the newest result's picture and the queue's count, the results moved
 under the settings, and the queue's sheet (the job, its buttons and the
 queue, each queued row's ⋯ a menu); a result's row and a queued row's ⋯
-are drawn on the phone alone. Nodes are moved whole under
+are drawn on the phone alone. `phone-compose.js`, after it, owns the
+phone's compose controls: the topbar's model chip (the status moved into
+Models) and its ⋯ menu, the prompt's toolbar under the box, the check's
+sheet and its line, and the size as Shape and a Size chip over the
+undrawn strips. Nodes are moved whole under
 `PHONE_MEDIA` (`moveBefore`) and home again on the tier's change, never
 copied or reordered with CSS. On touch
 each open overlay (lightbox, dialog, Models, context menu, run sheet) holds

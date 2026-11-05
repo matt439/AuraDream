@@ -285,9 +285,16 @@ function syncWriteButton(button) {
 // button waits out the critic's own check, since a disabled one takes no focus
 // and it would fall to <body>.
 function closeAnalysis() {
+  dismissAnalysis();
+  (els.analyze.disabled ? els.prompt : els.analyze).focus();
+}
+
+// Shut, what was found kept, with the focus left where it is: Escape from
+// outside the panel, and a phone's sheet left by a finding's Show or by the
+// tier's change (phone-compose.js).
+function dismissAnalysis() {
   analysisDismissal += 1;
   els.promptAnalysis.hidden = true;
-  (els.analyze.disabled ? els.prompt : els.analyze).focus();
 }
 
 // Escape closes it too, once nothing nearer took the key (app.js's keydown:
@@ -297,10 +304,7 @@ function closeAnalysis() {
 function escapeAnalysis() {
   const focused = document.activeElement;
   if (!focused || focused === document.body || els.promptAnalysis.contains(focused)) closeAnalysis();
-  else {
-    analysisDismissal += 1;
-    els.promptAnalysis.hidden = true;
-  }
+  else dismissAnalysis();
 }
 
 // Forget the check: another checkpoint's tokenizers and guide, or a Reset. An
@@ -370,6 +374,9 @@ function selectIn(el, text, start, end) {
     return false;
   }
   if (el === els.negative) openPhoneNegative();
+  // On a phone the check is a sheet over the box: Show leaves it, its line
+  // under the prompt opening it again (phone.js).
+  leavePhoneCheck();
   el.focus();
   el.setSelectionRange(lead + from, lead + to);
   scrollToSelection(el);

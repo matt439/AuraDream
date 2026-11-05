@@ -267,6 +267,9 @@ function renderContextMenu(items) {
     if (item.held) li.setAttribute('aria-disabled', 'true');
     // What destroys or stops: in --danger on a phone (styles/phone.css).
     if (item.danger) li.classList.add('danger');
+    // The choice in force, ticked (a phone's ratio and size menus,
+    // phone-compose.js).
+    if (item.checked) { li.classList.add('checked'); li.setAttribute('aria-current', 'true'); }
     const label = document.createElement('span');
     label.textContent = item.label;
     li.append(label);

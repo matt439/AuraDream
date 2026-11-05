@@ -10,6 +10,9 @@
    tokens it reads: --phone-actions-h, --phone-bottom-chrome, --tabbar-h
    and the safe areas. */
 .phone-actions, .phone-results, .more-options, .neg-fold { display: none; }
+/* The compose controls (phone-compose.js): the topbar's ⋯, the prompt's
+   toolbar and its check's line, Shape and Size. */
+.topbar-more, .prompt-toolbar, .check-chip, .phone-shape, .phone-size-chip { display: none; }
 /* A result's ⋯ (viewer.js) and a queued row's (job-queue.js): the phone's
    way to the rest of their buttons, drawn on the phone alone. */
 .viewer .tools .more-tool, .queue-list .queue-more { display: none; }
@@ -395,6 +398,191 @@
   .phone-results:has(> .viewer:not(.multi)) > #viewer-note > #viewer-seeds,
   .phone-results #viewer-note .seed-line { display: none; }
   .phone-results:has(> .viewer:not(.multi)) > #viewer-note:not(:has(#viewer-note-text > :not(.seed-line))) { display: none; }
+
+  /* The topbar (phone-compose.js): the model chip and a ⋯, 52 px with the
+     notch's inset, where the word mark, a name cut to "FLUX.1 Kre…" and
+     Models and Unload at equal weight took 58. The chip is Models with the
+     status moved into it - the dot, the checkpoint's name and its state
+     ("· loading…") in 16 px - a 44 px pill to the name's width, a chevron
+     at its end that turns while Models is open; the word Models said, not
+     drawn. The ⋯ a 44 px square at the bar's end. Unload, Load and the
+     job's line are its menu's and the action bar's; the word mark goes. */
+  :root { --topbar-h: calc(52px + var(--safe-t)); }
+  .topbar {
+    gap: var(--sp-2);
+    padding: calc(4px + var(--safe-t)) max(var(--gutter), var(--safe-r)) 4px max(var(--gutter), var(--safe-l));
+  }
+  .topbar > :is(.brand, .job-mirror, .vram, #btn-load, #btn-unload) { display: none; }
+  #btn-models {
+    position: relative; display: inline-flex; align-items: center;
+    flex: 0 1 auto; min-width: 0; max-width: 100%; height: var(--h-md); margin: 0 auto 0 0;
+    padding: 0 34px 0 var(--sp-3); border-radius: 22px;
+    background-color: var(--panel-2); border-color: var(--line-strong); color: var(--text);
+  }
+  #btn-models > .status { min-width: 0; gap: var(--sp-2); color: var(--text); font-size: var(--fs-md); font-weight: 600; }
+  #btn-models #status-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #btn-models > .models-word {
+    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+  #btn-models::after {
+    content: ""; position: absolute; top: 50%; right: 15px;
+    width: 8px; height: 8px; margin-top: -6px;
+    border: solid var(--muted); border-width: 0 2px 2px 0; rotate: 45deg;
+  }
+  #btn-models[aria-expanded="true"]::after { margin-top: -2px; rotate: -135deg; }
+  .topbar-more {
+    display: inline-grid; place-items: center; flex: none;
+    width: var(--h-md); min-width: var(--h-md); height: var(--h-md); padding: 0;
+    border-color: transparent; background-color: transparent; color: var(--text-2);
+    font-size: 24px; font-weight: 700; line-height: 1;
+  }
+
+  /* The prompt's toolbar under its box: Examples, Check, Tags and Expand,
+     moved from the caption (34 px, 3.8 px apart, wrapping with Tags and
+     Expand) into one row of 44 px tonal buttons 8 px apart, each its
+     words' width, 16 px; the caption is the box's name and ? alone. What
+     hangs from the editor's foot - the suggestions as one types, Find tag -
+     hangs from the box's, over the toolbar (and the check's line), so a
+     list is where the caret is; the Tags helper hangs under the toolbar, from
+     its button. */
+  .prompt-toolbar { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; margin-top: var(--sp-2); }
+  .prompt-toolbar > :is(span, button) { flex: none; margin: 0; }
+  .prompt-toolbar .ghost.tiny { margin: 0; }
+  /* Reset and Load settings from PNG… are the topbar ⋯'s rows here (each
+     its own button's press), not drawn in the caption or the panel. */
+  .field > span #btn-reset, .panel > .png-load { display: none; }
+  .prompt-toolbar > [hidden] { display: none; }
+  .prompt-toolbar .ghost.tiny {
+    min-height: var(--h-md); height: var(--h-md); padding-inline: var(--sp-4);
+    background-color: var(--panel-2); border-color: var(--line-strong); color: var(--text);
+    font-size: var(--fs-md); font-weight: 600;
+  }
+  .prompt-editor:has(> .prompt-toolbar) { --tools-h: calc(var(--h-md) + var(--sp-2)); }
+  .prompt-editor:has(> .check-chip:not([hidden])) { --tools-h: calc(2 * (var(--h-md) + var(--sp-2))); }
+  .prompt-editor > :is(.tag-suggestions, .tag-finder) { top: calc(100% + 4px - var(--tools-h, 0px)); }
+
+  /* The check's line while a check is kept and its sheet shut: "Check:"
+     and what it found - amber with a warning - across the column, 44 px,
+     a chevron into the sheet. */
+  .check-chip:not([hidden]) {
+    position: relative; display: flex; align-items: center; gap: var(--sp-2);
+    width: 100%; min-height: var(--h-md); margin: var(--sp-2) 0 0; padding: 0 36px 0 var(--sp-3);
+    border: 1px solid var(--line-strong); border-radius: var(--r-md);
+    background-color: var(--panel-2); color: var(--text); text-align: left; font-size: var(--fs-body-sm);
+  }
+  .check-chip-name { flex: none; font-weight: 600; }
+  .check-chip-words { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-3); }
+  .check-chip.warn .check-chip-words { color: var(--warn); }
+  .check-chip::after {
+    content: ""; position: absolute; top: 50%; right: 16px;
+    width: 8px; height: 8px; margin-top: -4px;
+    border: solid var(--muted); border-width: 0 2px 2px 0; rotate: -45deg;
+  }
+  .check-chip:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+
+  /* The check's sheet: the screen across, as every dialog on the phone
+     (styles/touch.css); the check's own head its title row, sticky, its
+     name 18 px and its ✕ a 44 px square in the corner; one column under
+     it, the sections 24 px apart, their names a caption's 14 px in
+     sentence case, the prose 15 px; the end clear of the home indicator. */
+  .check-sheet { background: var(--panel); color: var(--text); }
+  .check-sheet[open] { display: flex; flex-direction: column; }
+  .check-sheet-body { display: flex; flex-direction: column; min-width: 0; }
+  .check-sheet .prompt-analysis {
+    gap: var(--sp-4); padding: 0 0 calc(var(--safe-b) + var(--sp-4));
+    border: 0; border-radius: 0; background: none; font-size: var(--fs-body-sm);
+  }
+  .check-sheet .analysis-head {
+    position: sticky; top: 0; z-index: 5; min-height: calc(var(--safe-t) + 60px);
+    margin: 0 calc(-1 * var(--sheet-r)) 0 calc(-1 * var(--sheet-l));
+    padding: calc(var(--safe-t) + 8px) var(--sheet-r) 8px var(--sheet-l);
+    background: var(--panel); border-bottom: 1px solid var(--line);
+  }
+  .check-sheet .analysis-head h2 { font-size: var(--fs-lg); line-height: var(--h-md); }
+  /* The checkpoint's name beside the title stops short of the ✕; the
+     summary under them has the row's whole width. */
+  .check-sheet .analysis-model {
+    flex: 1 1 0; min-width: 0; padding-right: 52px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .check-sheet .analysis-head .analysis-close {
+    top: calc(var(--safe-t) + 8px); right: var(--sheet-r);
+    width: var(--h-md); height: var(--h-md); min-width: var(--h-md); min-height: var(--h-md); padding: 0;
+  }
+  .check-sheet .analysis-head .analysis-close::before { content: none; }
+  .check-sheet .analysis-body { grid-template-columns: minmax(0, 1fr); gap: var(--sp-5); }
+  .check-sheet .analysis-section { gap: var(--sp-2); }
+  .check-sheet .analysis-section h3 {
+    font-size: var(--fs-label); text-transform: none; letter-spacing: 0; color: var(--text-readout);
+  }
+
+  /* Shape and Size (phone-compose.js): the Size caption's line holds the
+     chip at its end - the megapixels bold, the pixels after them, a
+     chevron; amber-edged while the size line warns - and under it Shape,
+     one 50 px segmented control of three 44 px segments, each its name
+     over the ratio it takes; the chosen one tonal (the accent's soft fill
+     and a 2 px edge), with a ▾ after its ratio where a press opens the
+     others. The strips themselves are in the page, undrawn; the size line
+     is drawn only while it warns, the chip saying the megapixels. */
+  .field:has(> .phone-shape) {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--sp-2) var(--sp-3);
+  }
+  .field:has(> .phone-shape) > * { grid-column: 1 / -1; }
+  .field:has(> .phone-shape) > span:first-child { grid-column: 1; grid-row: 1; }
+  .field:has(> .phone-shape) > .phone-size-chip { grid-column: 2; grid-row: 1; }
+  .field:has(> .phone-shape) > :is(#presets, .size-tier-row),
+  .field:has(> .phone-shape) > #size-hint:not(.warn) { display: none; }
+  .phone-size-chip {
+    position: relative; display: inline-flex; align-items: baseline; gap: var(--sp-2);
+    grid-column: 2; grid-row: 1; height: var(--h-md); min-width: 0; margin: 0;
+    padding: 0 34px 0 var(--sp-4); line-height: var(--h-md);
+    border: 1px solid var(--line-strong); border-radius: 22px; background-color: var(--panel-2); color: var(--text);
+  }
+  .phone-size-chip.warn { border-color: var(--warn); }
+  .size-chip-mp { font-size: var(--fs-md); font-weight: 600; white-space: nowrap; }
+  .size-chip-px { font-size: var(--fs-body-sm); color: var(--text-3); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .phone-size-chip::after {
+    content: ""; position: absolute; top: 50%; right: 15px;
+    width: 8px; height: 8px; margin-top: -6px;
+    border: solid var(--muted); border-width: 0 2px 2px 0; rotate: 45deg;
+  }
+  .phone-shape {
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3px; padding: 2px;
+    border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--panel-2);
+  }
+  .phone-shape > button {
+    position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+    min-width: 0; min-height: var(--h-md); margin: 0; padding: 2px var(--sp-1);
+    border: 1px solid transparent; border-radius: calc(var(--r-md) - 3px);
+    background: none; color: var(--text-2); line-height: 1.15;
+  }
+  .phone-shape > button[aria-pressed="true"] {
+    background-color: var(--accent-soft); border-color: var(--accent); color: var(--text);
+    box-shadow: inset 0 0 0 1px var(--accent);
+  }
+  .shape-name { font-size: var(--fs-body-sm); font-weight: 600; white-space: nowrap; }
+  .shape-ratio { font-size: var(--fs-sm); color: var(--text-3); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .phone-shape > button[aria-pressed="true"] .shape-ratio { color: var(--text-2); }
+  .phone-shape > button.opens .shape-ratio::after { content: " ▾"; }
+  /* The guide's mark (the strips' green dot) after the ratio it is for. */
+  .phone-shape > button.recommended .shape-ratio::before {
+    content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 5px; vertical-align: 2px;
+    border-radius: 50%; background: var(--ok);
+  }
+  /* A docked menu's chosen row (a ratio, a size) ticked at its end. */
+  .context-menu li.checked::after { content: "✓"; margin-left: auto; padding-left: var(--sp-3); color: var(--accent-2); font-weight: 700; }
+  .phone-shape > button:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 1px; }
+  /* A glyph of the shape before its name, where the segment has the room
+     (at 360 px and up): a 12 px square, a 10x14 and a 14x10 frame. */
+  @media (width >= 360px) {
+    .phone-shape .shape-name::before {
+      content: ""; display: inline-block; width: 10px; height: 10px; margin-right: 6px; vertical-align: -1px;
+      border: 1.5px solid currentColor; border-radius: 2px;
+    }
+    .phone-shape [data-shape="portrait"] .shape-name::before { width: 8px; height: 12px; vertical-align: -2px; }
+    .phone-shape [data-shape="landscape"] .shape-name::before { width: 13px; height: 8px; vertical-align: 0; }
+  }
 }
 
 @media (pointer: coarse) and ((width < 700px) or (max-height: 500px)) and (prefers-reduced-motion: reduce) {
@@ -410,4 +598,11 @@
     padding-inline: max(var(--gutter), var(--safe-l), calc((100% - 560px) / 2));
   }
   .panel .sub:has(> .phone-step) { max-width: 400px; }
+  /* The topbar as touch.css has it on its side: 46 px, scrolling away,
+     its 44 px chip and ⋯ a pixel from its edges. */
+  :root { --topbar-h: var(--safe-t); }
+  .topbar { padding-block: calc(1px + var(--safe-t)) 1px; }
+  /* Shape at most 400 px, as the steppers' rows are. */
+  .phone-shape { max-width: 400px; }
+  .field:has(> .phone-shape) { max-width: 400px; }
 }

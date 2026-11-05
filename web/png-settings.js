@@ -99,6 +99,8 @@ async function loadPngSettings(file) {
   if (epoch !== pngEpoch) return;
   if (!chunks) {
     showError(`${name} is not a PNG: settings are read from a PNG's text, so only a PNG can fill the panel.`);
+    // On a phone, picked from the topbar's ⋯: said over the bars (touch.js).
+    sayAtGenerate();
     return;
   }
   const sent = Object.fromEntries(Object.entries(chunks).map(([key, text]) => [key, PNG_SETTINGS_KEYS.has(key) ? text : '']));
@@ -113,7 +115,7 @@ async function loadPngSettings(file) {
       body: JSON.stringify({ name: name.slice(0, 255), chunks: sent, panel: { steps, guidance_scale, true_cfg, mu } }),
     });
   } catch (err) {
-    if (epoch === pngEpoch) showError(err.message);
+    if (epoch === pngEpoch) { showError(err.message); sayAtGenerate(); }
     return;
   }
   if (epoch !== pngEpoch) return;

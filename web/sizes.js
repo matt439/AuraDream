@@ -216,6 +216,8 @@ function syncSize() {
   els.sizeHint.textContent = `${mp.toFixed(1)} MP` + notes.map((n) => ` — ${n}`).join('');
   els.sizeHint.classList.toggle('warn', notes.length > 0);
   syncCustomSizeSummary(match);
+  // A phone's Shape and Size read the strips (phone.js).
+  syncPhoneSize();
 }
 
 // 4 MP on a 16GB card is the edge of what fits once the DiT is resident; the

@@ -170,8 +170,10 @@ document.addEventListener('click', (e) => {
   // dropped by the time the click reaches here, so no longer in the page.
   if (!els.tagFinderMenu.hidden && e.target.isConnected
       && !e.target.closest('#tag-finder, #prompt, #tag-suggestions')) showTagFinder(false);
-  // The token line is in the editor (under the box) but no part of typing.
-  if (!e.target.closest('.prompt-editor') || e.target === els.promptTokens) hideTagSuggestions();
+  // The token line is in the editor (under the box) but no part of typing,
+  // nor is a phone's toolbar or its check's line there (phone.js).
+  if (!e.target.closest('.prompt-editor') || e.target === els.promptTokens
+      || e.target.closest('#prompt-toolbar, #check-chip')) hideTagSuggestions();
 });
 els.unload.onclick = unloadModel;
 els.more.onclick = () => loadGallery();
@@ -285,7 +287,8 @@ els.modelShotsAll.onclick = showModelShotsGallery;
 window.addEventListener('resize', refitModelShots);
 document.addEventListener('pointerdown', (event) => {
   if (els.lightbox.open) return;
-  if (!els.modelPicker.hidden && !els.modelPicker.contains(event.target) && event.target !== els.models) {
+  // The button's own parts too: on a phone the status rides in it (phone.js).
+  if (!els.modelPicker.hidden && !els.modelPicker.contains(event.target) && !els.models.contains(event.target)) {
     showModelPicker(false, { focus: false });
   }
 });

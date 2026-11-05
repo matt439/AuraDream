@@ -63,7 +63,10 @@
   <span class="job-mirror" id="job-mirror" aria-hidden="true" hidden></span>
   <div class="vram" id="vram"></div>
   <button type="button" class="ghost" id="btn-shortcuts" aria-label="Keyboard shortcuts" aria-keyshortcuts="?" aria-haspopup="dialog" aria-controls="shortcuts-dialog" title="Keyboard shortcuts (?)">?</button>
-  <button class="ghost" id="btn-models" aria-expanded="false" aria-controls="model-picker">Models</button>
+  <!-- On a phone the status rides in this button (phone.js): the model chip,
+       its dot and its name, that opens Models; the word is then said, not
+       drawn. -->
+  <button class="ghost" id="btn-models" aria-expanded="false" aria-controls="model-picker"><span class="models-word">Models</span></button>
   <section class="model-picker" id="model-picker" aria-label="Models" hidden>
     <!-- tabindex -1: a press on the picker's empty space or its heading keeps
          the focus inside it, where the focusout check leaves the picker open. -->
@@ -148,6 +151,13 @@
        queueing an image to start it. Unload is hidden meanwhile. -->
   <button class="ghost" id="btn-load" title="Load the weights now" hidden>Load</button>
   <button class="ghost" id="btn-unload" title="Free VRAM">Unload</button>
+  <!-- A phone's ⋯ (phone.js, styles/phone.css): Load or Unload, Saved
+       setups, Personal snippets, Load settings from PNG and Reset, as an
+       action sheet pressing those same buttons, which the phone does not
+       draw. Not drawn anywhere else. -->
+  <button type="button" class="ghost topbar-more" id="btn-topbar-more" aria-haspopup="menu"
+          aria-label="More: Unload, saved setups, snippets, Load settings from PNG, Reset"
+          title="Unload, saved setups, snippets, Load settings from PNG and Reset">⋯</button>
   <div class="topbar-line" id="topbar-line" aria-hidden="true" hidden><div class="fill" id="topbar-fill"></div></div>
 </header>
 
@@ -205,6 +215,16 @@
              so what hangs from the editor's foot - the Example's Undo note
              above all - hangs under this line rather than over it. -->
         <p class="hint prompt-tokens" id="prompt-tokens" hidden></p>
+        <!-- A phone's toolbar under the box (phone.js, styles/phone.css):
+             Examples, Check, Tags and Expand moved here from the caption
+             whole, in a row of 44 px buttons; and the check's one line,
+             which opens its sheet again once it is shut. Inside the editor,
+             ahead of what hangs from its foot - the Tags helper hangs under
+             the toolbar, a note's coming moves nothing over it. Empty and not
+             drawn anywhere else. -->
+        <div class="prompt-toolbar" id="prompt-toolbar" role="group" aria-label="Prompt tools"></div>
+        <button type="button" class="check-chip" id="check-chip" aria-haspopup="dialog"
+                aria-controls="check-sheet" hidden></button>
         <ul class="tag-suggestions" id="tag-suggestions" role="listbox" aria-label="Tag suggestions" hidden></ul>
         <!-- The Tags button's helper, under the box rather than over it: the
              caret it inserts at stays in sight. -->
@@ -525,6 +545,15 @@
       <div class="more-sheet-actions dialog-actions" id="more-sheet-actions">
         <p class="hint more-sheet-note" id="more-sheet-note" role="status" hidden></p>
       </div>
+    </dialog>
+    <!-- A phone's prompt check (phone.js, tag-chips.js placeTagValidation):
+         #prompt-analysis is moved here whole under PHONE_MEDIA, and the
+         sheet is open while the check is shown - its own head the sheet's
+         title row, its ✕ the sheet's close - where under the prompt it was a
+         thousand pixels between the box and the rest of Create. Not drawn
+         anywhere else. -->
+    <dialog class="check-sheet" id="check-sheet" aria-label="Prompt check">
+      <div class="check-sheet-body" id="check-sheet-body"></div>
     </dialog>
 
     <!-- A phone's results (phone.js, styles/phone.css): the viewer, its note
@@ -2289,6 +2318,7 @@
 <script src="/static/setup-import.js"></script>
 <script src="/static/touch.js"></script>
 <script src="/static/phone.js"></script>
+<script src="/static/phone-compose.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

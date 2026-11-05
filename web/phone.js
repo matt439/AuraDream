@@ -85,6 +85,9 @@ function syncPhoneHosts() {
   syncPhoneDock();
   syncPhoneQueue();
   syncMoreOptions();
+  // The topbar's chip and ⋯, the prompt's toolbar and check, Shape and
+  // Size (phone-compose.js).
+  syncPhoneCompose();
 }
 
 // ------------------------------------------------------- the newest result
@@ -424,10 +427,16 @@ function moreSheetClosed() {
 // up over it. The press's own scroll, as on a PC, where it brings Run grid
 // into view; never by itself.
 function revealPhoneGrid() {
+  revealInMoreSheet(els.gridSection);
+}
+
+// A fold in the open sheet brought up under its title by a press (Grid
+// search's row, the Size chip's Custom dimensions…).
+function revealInMoreSheet(el) {
   const sheet = $('more-sheet');
-  if (!sheet.open || !sheet.contains(els.gridSection)) return;
+  if (!sheet.open || !sheet.contains(el)) return;
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  els.gridSection.scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
+  el.scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
 }
 
 // A press elsewhere that hands the focus to a control in the closed sheet -
@@ -445,6 +454,7 @@ function initPhone() {
     node.before(mark);
     phoneHomes.set(node, mark);
   }
+  initPhoneCompose();
   makePhoneStepper(els.batch, 'Batch');
   makePhoneStepper(els.runs, 'Repeat');
   phoneNegFold = document.createElement('button');
