@@ -32,7 +32,11 @@
 //   {"hover": "selector"}, {"click": "selector"}, {"dblclick": "selector"}   the same at the middle of that
 //                                element's box as it is at that moment, wherever the
 //                                layout has put it
-//   {"viewport": [w, h, dpr]}    resize the page (dpr optional, default 1) and wait for layout
+//   {"viewport": [w, h, dpr]}    resize the page (dpr optional, default 1) and wait for layout;
+//                                "mobile": true emulates a phone's or tablet's screen on it:
+//                                the page lays out by its <meta viewport> and scrollbars
+//                                overlay the page instead of taking 15 px of its width (each
+//                                viewport step sets it: one without it is the PC's window again)
 //   {"media": {"prefers-reduced-motion": "reduce"}}   emulate media features ("" for
 //                                one drops its override and the host's setting is back)
 //   {"touch": true}              a touch screen from here on: the page's primary pointer
@@ -44,6 +48,10 @@
 //   {"swipe": [x1, y1, x2, y2]}  one finger dragged from the first point to the second
 //   {"pinch": [x, y, d1, d2]}    two fingers about (x, y), level with each other, moved
 //                                from d1 px apart to d2 (wider zooms in)
+//   {"inject": "phone_audit.js"}   run a JavaScript file, named relative to the steps file's
+//                                folder, in the page, as `eval` does; one that cannot be read
+//                                or throws fails the run. A navigate drops what it defined, so
+//                                inject again after one (tools/phone_audit.js: `__phoneAudit`)
 //   {"shot": "file.png"}         screenshot the viewport; {"fullshot": "file.png"} the
 //                                whole scrollable page; {"elshot": ["selector", "file.png"]}
 //                                one element's box, scrolled into view
@@ -73,6 +81,7 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { dirname, resolve as resolvePath } from 'node:path';
 import { screenshotRoot, writeScreenshot } from './browser-output.mjs';
 
 // Fail before even looking for a browser or preparing script/output paths.
@@ -141,14 +150,22 @@ if (invalidSteps.length) {
 // steps have run. Refuse every declared viewport before browser discovery or
 // output/profile preparation: [width, height], or [width, height, dpr] (an
 // omitted dpr keeps the runtime's default).
+// An optional "mobile" belongs only to a viewport step, as true or false.
 const invalidViewports = steps.flatMap((step, index) => {
-  if (step === null || typeof step !== 'object' || !Object.hasOwn(step, 'viewport')) return [];
-  const values = step.viewport;
-  const valid = Array.isArray(values) && (values.length === 2 || values.length === 3)
-    && Number.isInteger(values[0]) && values[0] >= 0 && values[0] <= 10000000
-    && Number.isInteger(values[1]) && values[1] >= 0 && values[1] <= 10000000
-    && (values.length === 2 || (Number.isFinite(values[2]) && values[2] >= 0));
-  return valid ? [] : [`step ${index + 1}: viewport needs [width, height] or [width, height, dpr] with integer dimensions from 0 to 10000000 and a finite nonnegative dpr`];
+  if (step === null || typeof step !== 'object') return [];
+  const bad = [];
+  if (Object.hasOwn(step, 'viewport')) {
+    const values = step.viewport;
+    const valid = Array.isArray(values) && (values.length === 2 || values.length === 3)
+      && Number.isInteger(values[0]) && values[0] >= 0 && values[0] <= 10000000
+      && Number.isInteger(values[1]) && values[1] >= 0 && values[1] <= 10000000
+      && (values.length === 2 || (Number.isFinite(values[2]) && values[2] >= 0));
+    if (!valid) bad.push(`step ${index + 1}: viewport needs [width, height] or [width, height, dpr] with integer dimensions from 0 to 10000000 and a finite nonnegative dpr`);
+  }
+  if (Object.hasOwn(step, 'mobile') && !(Object.hasOwn(step, 'viewport') && typeof step.mobile === 'boolean')) {
+    bad.push(`step ${index + 1}: mobile needs true or false on a viewport step`);
+  }
+  return bad;
 });
 if (invalidViewports.length) {
   console.error(invalidViewports.join('\n'));
@@ -168,7 +185,7 @@ if (invalidFatal.length) {
   console.error(invalidFatal.join('\n'));
   process.exit(2);
 }
-// The touch steps' shapes, refused before the browser starts as a resize is.
+// The touch and inject steps' shapes, refused before the browser starts as a resize is.
 const numbers = (v, n) => Array.isArray(v) && v.length === n && v.every(Number.isFinite);
 const invalidTouch = steps.flatMap((step, index) => {
   const bad = [];
@@ -182,6 +199,12 @@ const invalidTouch = steps.flatMap((step, index) => {
   if (Object.hasOwn(step, 'swipe') && !numbers(step.swipe, 4)) bad.push('swipe needs [x1, y1, x2, y2]');
   if (Object.hasOwn(step, 'pinch') && !(numbers(step.pinch, 4) && step.pinch[2] > 0 && step.pinch[3] > 0)) {
     bad.push('pinch needs [x, y, d1, d2] with positive distances');
+  }
+  // A file beside the steps (or below them), never an absolute path or one
+  // climbing out of their folder: the smokes name tools/ files portably.
+  if (Object.hasOwn(step, 'inject') && !(typeof step.inject === 'string' && /^[\w.-]+(\/[\w.-]+)*\.js$/.test(step.inject)
+      && !step.inject.split('/').includes('..'))) {
+    bad.push('inject needs a relative path to a .js file in or below the folder of the steps file');
   }
   return bad.map((why) => `step ${index + 1}: ${why}`);
 });
@@ -465,8 +488,8 @@ const send = (method, params = {}) => new Promise((resolve) => {
   ws.send(JSON.stringify({ id: n, method, params }));
 });
 
-const viewport = (width, height, deviceScaleFactor = 1) =>
-  send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor, mobile: false });
+const viewport = (width, height, deviceScaleFactor = 1, mobile = false) =>
+  send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor, mobile });
 
 await send('Page.enable');
 await send('Network.enable');
@@ -632,7 +655,7 @@ for (const [n, step] of steps.entries()) {
     await sleep(150);
   } else if (step.viewport) {
     const [w, h, dpr = 1] = step.viewport;
-    await viewport(w, h, dpr);
+    await viewport(w, h, dpr, step.mobile === true);
     await sleep(300);
   } else if (Object.hasOwn(step, 'touch')) {
     await send('Emulation.setTouchEmulationEnabled', { enabled: step.touch, maxTouchPoints: step.touch ? 5 : 1 });
@@ -663,6 +686,14 @@ for (const [n, step] of steps.entries()) {
     for (let i = 1; i <= 8; i++) await send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: at(d1 + (d2 - d1) * i / 8) });
     await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     await sleep(200);
+  } else if (step.inject) {
+    let source;
+    try { source = readFileSync(resolvePath(dirname(file), step.inject), 'utf8'); } catch { /* reported below */ }
+    if (source === undefined) console.log('  ! could not read ' + step.inject);
+    // The file's own value is no verdict: true after it says it ran without throwing.
+    const value = source !== undefined && await evaluate(source + '\n;true');
+    if (!value) failures += 1;
+    console.log(`  ${value ? 'ok  ' : 'FAIL'} inject ${step.inject}`);
   } else if (step.media) {
     const features = Object.entries(step.media).map(([name, value]) => ({ name, value }));
     await send('Emulation.setEmulatedMedia', { features });

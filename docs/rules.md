@@ -7183,7 +7183,38 @@ receive a fixed step-indexed refusal before browser discovery, output/profile
 preparation, process creation or network. Valid arrays reach a poisoned lookup;
 these cold tests do not qualify real resizing or browser cleanup. Native API
 refusal still precedes the input read. Startup geometry is checked separately;
-ordinary browser flags are unchanged.
+ordinary browser flags are unchanged. The same file checks the viewport step's
+optional `"mobile"` (true or false, and only beside `viewport`) and the
+`inject` step's path (a relative `.js` path in or below the steps file's
+folder, no `..`, no backslash, no absolute or drive path); each is refused by
+step with a fixed message, and a valid one reaches the poisoned lookup without
+the named file being read.
+
+The phone smokes run with `{"viewport": [w, h, dpr], "mobile": true}`:
+`Emulation.setDeviceMetricsOverride` gets `mobile: true`, so the page lays
+out by its `<meta viewport>` and scrollbars overlay it, as on an iPhone or
+iPad, instead of a classic 15 px scrollbar narrowing the page (378 px of a
+393 px window). Each viewport step sets the flag; one without it is the PC's
+window again (`mobile: false`, as every desktop smoke runs). The phone and
+tablet smokes' touch viewports carry it; their mouse steps do not.
+
+`tools/phone_audit.js` is the phone audit. A smoke loads it with
+`{"inject": "phone_audit.js"}` (the driver reads the file beside the steps
+and runs it in the page; an unreadable or throwing file fails the run, and a
+navigate drops it, so it is injected again after one), then calls
+`__phoneAudit(options)` from `log` and `expect` steps. The report lists
+`small`, visible controls whose press box is under 44x44 (the box grown by an
+absolutely placed `::before`/`::after` reaching past it, and a checkbox's or
+radio's label); `offside`, visible controls whose box leaves 0..innerWidth;
+`dialogs`, open dialogs and menus whose box leaves the window; `overflow`,
+the document's sideways scroll in px; `excepted`, the controls the exception
+list kept out of `small` (standing: `.lb-link` and `.analysis-link`, inline
+citation links in prose; `except` adds selectors); and `ok`. The controls
+audited are `root`'s (a selector or element), by default the open modal
+dialogs when there are any, else the body. A smoke asserts only the checks
+that hold today and logs the rest as the baseline later phases bring up: the
+phone review's undersized controls (P54) and the lightbox's Delete off the
+right edge (P29) are logged, not asserted.
 
 `tests/test_fbc_runtime.py` exercises installed FBC hooks and arithmetic on tiny
 CPU blocks in an isolated worker. Only the unrelated optional bitsandbytes backend
@@ -7476,9 +7507,16 @@ column, not the page; unticking re-asks of the page. Focused and scrolled
 near the top it stays until its blur.
 
 `smoke-phone.json` uses a fresh FLUX.1 Krea [dev] fake on 7956 with touch
-emulated (`{"touch": true}`) at 393x852@3: the phone query alone matching,
+emulated (`{"touch": true}`) at 393x852@3 with `"mobile": true` (as are
+852x393 and 320x1106): the phone query alone matching,
 Generate and Models at least 48 and 44 px, 16 px boxes, no keyboard hints
-or keyboard help, no sideways scroll; Create drawing the panel and viewer
+or keyboard help, no sideways scroll, the page all 393 px wide (no
+classic scrollbar); the phone audit finding no sideways overflow, no
+control off the screen sideways and no dialog outside the window on Create,
+on Gallery and in the Models sheet, and in the lightbox no overflow and no
+dialog outside, its only excepted controls `.lb-link`s, with each state's
+count of controls under 44 px (and the lightbox's controls off the screen)
+logged as the baseline; Create drawing the panel and viewer
 but not the gallery and the bar at the window's foot; Gallery the reverse,
 two cards across, Back to top above the bar, each view's own scroll and
 the view kept through a reload; in the lightbox no arrows or key legend,
@@ -7505,11 +7543,15 @@ topbar, no scroll padding, a 43 px Generate, 14 px text and the
 Ctrl+Enter hint.
 
 `smoke-tablet.json` uses a fresh FLUX.1 Krea [dev] fake on 7957 with touch
-at 820x1180@2: the panel beside the stage and sticky, two cards across,
+at 820x1180@2, its touch viewports `"mobile": true`: the panel beside the
+stage and sticky, two cards across,
 no tab bar, the keyboard help kept, finger sizes, the chips' host the wide
-one; a tapped Generate's result in the stage beside the panel with no New
+one, the page all 820 px wide; a tapped Generate's result in the stage
+beside the panel with no New
 image pill fixed over the page; at 1180x820 the PC's two columns at finger
-sizes; at 678x1180 (Split View) the phone with its tab bar; and a mouse
+sizes; at 678x1180 (Split View) the phone with its tab bar, the phone audit
+finding no overflow, nothing off the screen sideways and no dialog outside
+(its under-44 px count logged); and a mouse
 at 820x1180 one column as before, 43 px Generate, the
 chips under the prompt.
 

@@ -645,6 +645,10 @@ Gotchas:
   own; `smoke.json` counts images planted under another checkpoint.
 - Smokes are written at 1400x900; `AURADREAM_VIEWPORT`,
   `AURADREAM_DPR` and `AURADREAM_PORT_OFFSET` move them.
+- A phone or tablet smoke's viewport steps add `"mobile": true` (overlay
+  scrollbars, no 15 px classic one), and `{"inject": "phone_audit.js"}`
+  gives it `__phoneAudit()` (controls under 44 px, off the screen, dialogs
+  outside the window, sideways overflow); `docs/rules.md` Tests has both.
 - `browser.mjs` exits 1 on a failed `expect`, 2 on a script it refuses
   (an async helper joined with `&&`/`||` is never awaited: put the whole
   condition inside the predicate).

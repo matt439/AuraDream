@@ -1,10 +1,11 @@
 [
   {"log": "'Tablet: a fresh FLUX.1 Krea [dev] fake on 7957, an iPad Air 11 (820x1180 at 2x, and 1180x820) with a touch screen: two columns either way up, the touch sizes, no tab bar; a mouse at 820 px wide still one column'"},
   {"touch": true},
-  {"viewport": [820, 1180, 2]},
+  {"viewport": [820, 1180, 2], "mobile": true},
   {"navigate": "http://127.0.0.1:7957/"},
   {"media": {"prefers-reduced-motion": "reduce"}},
   {"eval": "window.__until = async (fn, ms = 20000) => { const end = Date.now() + ms; while (Date.now() < end) { try { if (fn()) return true; } catch { /* not yet */ } await new Promise((r) => setTimeout(r, 50)); } return false; }; window.__box = (el) => el.getBoundingClientRect(); window.__panel = () => document.querySelector('.panel');"},
+  {"inject": "phone_audit.js"},
   {"expect": "__until(() => document.getElementById('status-dot').className.includes('ready') && !galleryPending)", "fatal": true},
   {"expect": "(async () => { for (const seed of [21, 22, 23]) { const j = await (await fetch('/api/generate', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({prompt: 'a reading room with tall windows', width: 512, height: 512, seed})})).json(); let done = false; for (let i = 0; i < 600 && !done; i++) { const s = await (await fetch('/api/jobs/' + j.job_id)).json(); if (s.status === 'done') done = true; else if (s.status !== 'queued' && s.status !== 'running') return false; else await new Promise((r) => setTimeout(r, 100)); } if (!done) return false; } return true; })()", "fatal": true},
   {"eval": "resetGallery();"},
@@ -18,6 +19,7 @@
   {"expect": "__box(els.generate).height >= 48 && parseFloat(getComputedStyle(els.prompt).fontSize) >= 16 && getComputedStyle(els.generate, '::after').content === 'none'"},
   {"expect": "document.documentElement.scrollWidth <= document.documentElement.clientWidth"},
   {"expect": "els.tagValidation.parentElement === els.tagChipsWide"},
+  {"expect": "innerWidth === 820 && document.documentElement.clientWidth === innerWidth"},
 
   {"log": "'Generate runs from the side panel; the result lands in the stage beside it, with no New image pill over the page'"},
   {"eval": "els.prompt.value = 'a quiet harbour at dawn'; els.prompt.dispatchEvent(new Event('input', {bubbles: true}));"},
@@ -27,14 +29,16 @@
   {"expect": "(() => { const v = __box(els.viewer); return v.left >= __box(__panel()).right && v.right <= document.documentElement.clientWidth; })()"},
 
   {"log": "'Landscape (1180x820): the PC two columns at finger sizes'"},
-  {"viewport": [1180, 820, 2]},
+  {"viewport": [1180, 820, 2], "mobile": true},
   {"expect": "!matchMedia(TABLET_COLUMNS_MEDIA).matches && matchMedia(TWO_COLUMNS_MEDIA).matches && !matchMedia(PHONE_MEDIA).matches"},
   {"expect": "(() => { const p = __box(__panel()), s = __box(els.stage); return p.right < s.left && !isShown(document.getElementById('phone-tabs')) && __box(els.generate).height >= 48; })()"},
   {"expect": "document.documentElement.scrollWidth <= document.documentElement.clientWidth"},
 
   {"log": "'Split View at two thirds (678x1180): short of the two columns, so the phone, tab bar and all'"},
-  {"viewport": [678, 1180, 2]},
+  {"viewport": [678, 1180, 2], "mobile": true},
   {"expect": "matchMedia(PHONE_MEDIA).matches && !matchMedia(TABLET_COLUMNS_MEDIA).matches && isShown(document.getElementById('phone-tabs')) && document.documentElement.scrollWidth <= document.documentElement.clientWidth"},
+  {"expect": "(() => { const r = __phoneAudit(); return r.overflow === 0 && !r.offside.length && !r.dialogs.length; })()"},
+  {"log": "(() => { const r = __phoneAudit(); return {small: r.small.length, offside: r.offside, dialogs: r.dialogs}; })()"},
 
   {"log": "'A mouse at 820x1180: one column, as before, at the PC sizes'"},
   {"touch": false},
