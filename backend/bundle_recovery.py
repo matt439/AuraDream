@@ -63,12 +63,10 @@ def _mask_picture(work: Path, digest: str, embedded: dict[str, Path], outputs: P
     recovered from its PNG, or this gallery's own file - each verified to be
     the mask its name says - or None. Read only to prove (or draw again) a
     masked area's region."""
-    from .reindex import _open_mask
-
     for path in (work / storage.MASKS_DIR / f"{digest}.png", embedded.get(digest),
                  outputs / storage.MASKS_DIR / f"{digest}.png"):
         if path is not None and path.is_file():
-            mask = _open_mask(path, digest)
+            mask = storage.open_mask(path, digest)
             if mask is not None:
                 return mask
     return None
@@ -113,8 +111,6 @@ def _embedded_member(work: Path, values: dict) -> Path | None:
     the mask its row names, at the row's size. A whole-gallery or selection
     bundle carries only the masks whose files were there, so a mask lost in
     the gallery it came from travels only this way - as `reindex` finds it."""
-    from .reindex import _embedded_mask
-
     digest = values["mask"]
     target = work / storage.MASKS_DIR / f"{digest}.png"
     if target.is_file():
@@ -122,7 +118,7 @@ def _embedded_member(work: Path, values: dict) -> Path | None:
     staged = work / "images" / values["filename"]
     try:
         with Image.open(staged) as image:
-            mask = _embedded_mask(image, digest)
+            mask = storage.embedded_mask_picture(image, digest)
     except (OSError, ValueError, Image.DecompressionBombError):
         return None
     if mask is None or mask.size != (values["width"], values["height"]):

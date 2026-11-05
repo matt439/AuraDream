@@ -179,8 +179,8 @@ Backend (`backend/`):
   `gallery_partials.py` the bundles/staging directories and settling stale
   partials (as `storage.<name>`);
   `metadata.py` the PNG chunk's key and codec, legacy `krea` reader and file-placement guard;
-  `record_fields.py` the pure row/chunk field codecs (mask hash, outpaint
-  chunk, peaks), imported back into storage by name;
+  `record_fields.py` the pure row/chunk field codecs (mask hash and decode,
+  outpaint chunk, peaks), imported back into storage by name;
   `png_settings.py` a PNG's record and A1111 'parameters' block read back
   (`--from-image` and `api_png.py` share it);
   `gallery_reports.py` estimates, keep rates, runs; `gallery_delete.py`

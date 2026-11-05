@@ -40,9 +40,6 @@ sys.path bootstrap below.
 from __future__ import annotations
 
 import argparse
-import base64
-import binascii
-import io
 import json
 import re
 import sqlite3
@@ -65,7 +62,7 @@ try:
     from backend.metadata import (
         PNG_METADATA_KEY,  # noqa: F401 - re-exported; tests read reindex.PNG_METADATA_KEY
         PNG_METADATA_KEYS, PNG_SIGNATURE, canonical_edit, edit_chunk, edit_from_info,
-        edit_from_json, edit_from_sources, embedded_mask, embedded_metadata, execution_from_info,
+        edit_from_json, edit_from_sources, embedded_metadata, execution_from_info,
         execution_from_sources, metadata_chunk, require_header_metadata, text_chunk, text_keyword,
         validate_edit_record,
     )
@@ -83,14 +80,17 @@ _NAME = re.compile(r"^(\d{8})-(\d{6})-")
 # The keys an embedded metadata block must carry to make a row at all.
 _REQUIRED = ("prompt", "steps", "guidance_scale", "seed", "model")
 
-# The PNG chunk codec and the recipe reconciliation live in `metadata`, and
-# the required columns in `bundle_common`, where the bundle layer reads them
-# without importing this CLI; the old private names stay for this module and
-# its tests.
+# The PNG chunk codec and the recipe reconciliation live in `metadata`, the
+# mask decoders in `record_fields` (as `storage.<name>`), and the required
+# columns in `bundle_common`, where the bundle layer reads them without
+# importing this CLI; the old private names stay for this module and its
+# tests.
 _PNG_SIGNATURE = PNG_SIGNATURE
 _text_keyword = text_keyword
 _execution_from_sources = execution_from_sources
 _execution_from_info = execution_from_info
+_open_mask = storage.open_mask
+_embedded_mask = storage.embedded_mask_picture
 
 
 def _created_at(path: Path) -> datetime:
@@ -292,34 +292,6 @@ def _copy_in(source: Path, target: Path, meta: dict | None = None, parameters: s
         _with_auradream_metadata(data, meta, parameters) if meta is not None else data
     )
     partial.replace(target)
-
-
-def _open_mask(source, digest: str) -> Image.Image | None:
-    """The mask `source` (a path, or a PNG's bytes) holds, where it is the
-    mask `digest` names: one `L` channel whose `storage.mask_hash` - its size
-    and its levels - is that hash. None for anything else, a file that is
-    not a PNG included."""
-    try:
-        with Image.open(io.BytesIO(source) if isinstance(source, bytes) else source) as image:
-            if image.format != "PNG" or image.mode != "L":
-                return None
-            image.load()
-            return image.copy() if storage.mask_hash(image) == digest else None
-    except (OSError, ValueError, Image.DecompressionBombError):
-        return None
-
-
-def _embedded_mask(image: Image.Image | None, digest: str) -> Image.Image | None:
-    """The mask a result carries in its own `auradream-mask` chunk (or
-    Local Diffusion's legacy one), where it is the one its record names."""
-    raw = embedded_mask(image.info) if image is not None else None
-    if raw is None:
-        return None
-    try:
-        data = base64.b64decode(raw, validate=True)
-    except (binascii.Error, ValueError):
-        return None
-    return _open_mask(data, digest)
 
 
 class _Masks:

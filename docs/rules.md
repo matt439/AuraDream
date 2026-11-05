@@ -356,8 +356,10 @@ before changing it.
 - `backend/storage.py` — SQLite index + PNGs with embedded metadata
 - `backend/record_fields.py` — the pure field codecs rows and PNG chunks
   share: the chunk's mask, upscaler, batch and peak sanitisers and
-  `peak_chunk`, `mask_hash` and `mask_provenance`, and the outpaint's chunk,
-  A1111 line, recovery and rebuilt mask; no settings, session or lock.
+  `peak_chunk`, `mask_hash` and `mask_provenance`, the mask decoders
+  `open_mask`/`embedded_mask_picture` (a stored mask file or PNG bytes,
+  verified against its hash), and the outpaint's chunk, A1111 line, recovery
+  and rebuilt mask; no settings, session or lock.
   storage imports every name back, so `storage.<name>` still answers; the
   mask writers, holds and `mask_path` stay in storage, where tests patch them
 - `backend/metadata.py` — the PNG chunk's key (`auradream`) and
@@ -366,7 +368,7 @@ before changing it.
   PNG chunk codec (`PNG_SIGNATURE`, `text_keyword`, `metadata_chunk`) and
   the SQL/PNG edit and execution reconciliation; shared by storage,
   `png_settings.py` (so `generate.py` and `api_png.py`), `reindex.py` and
-  the bundle layer, which never imports the `reindex` CLI at module level
+  the bundle layer, which never imports the `reindex` CLI
 - `backend/png_settings.py` — settings read back from a PNG's text chunks:
   this app's record (`record`, and `image_settings` for a file on disk,
   which `--from-image` reads through) and A1111's 'parameters' block
