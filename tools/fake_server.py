@@ -153,6 +153,12 @@ def main() -> int:
     # Match the tests' factory boundary before app startup can create workers.
     _install_credential_refusal()
     from backend import main as app_main
+    # No card, whatever this machine has: a smoke sees an unknown card's
+    # defaults (nvfp4 for Nunchaku) on a 3070 as on CI.
+    def no_card(device: str = "cuda") -> None:
+        return None
+
+    app_main.card_facts.card = no_card
     from backend import prompt_encoding
     from backend.jobs import JobManager
     from tests.fakes import FakeBackend, FakeCritic, fake_tokenizer

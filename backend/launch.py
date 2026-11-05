@@ -28,7 +28,8 @@ from backend.instruction_edit import (
     INSTRUCTION_EDIT_EXACT_ID, INSTRUCTION_EDITOR_UNSUPPORTED, KONTEXT_V1, installed_diffusers_version,
     is_edit_only, loader_refusal,
 )
-from backend.loader_choices import FORMATS, OFFLOADS, QUANTIZATIONS
+from backend import card_facts  # cold: torch only when a card is asked for
+from backend.loader_choices import FORMATS, OFFLOADS, QUANTIZATIONS, default_format
 # What config.py falls back to, from the one module both may import - importing
 # config itself is the one thing this module must not do.
 from backend.model_defaults import DEFAULT_MODEL_ID, DEFAULT_OFFLOAD, DEFAULT_QUANT, defaults_for
@@ -502,6 +503,15 @@ def _match(model_id: str) -> tuple[Checkpoint | None, str | None]:
     return None, None
 
 
+def _card_format(env: Mapping[str, str]) -> str:
+    """The menu's Nunchaku default for this card: int4 below compute
+    capability 10.0, nvfp4 otherwise or when unknown. Asked only once
+    Nunchaku is chosen, on Linux, so only that menu imports torch (a few
+    seconds, before config and never diffusers); the server's own reads
+    reuse the answer (`card_facts` keeps one per device)."""
+    return default_format(card_facts.capability(env.get("AURADREAM_DEVICE", "cuda")))
+
+
 def prompt(
     *,
     ask: Callable[[str], str] = input,
@@ -547,7 +557,7 @@ def _prompt(ask: Callable[[str], str], out: TextIO, env: Mapping[str, str], linu
         fmt = _pick(
             "4-bit format",
             formats,
-            _index(formats, current_fmt, "nvfp4"),
+            _index(formats, current_fmt, _card_format(env)),
             ask=ask,
             out=out,
         )

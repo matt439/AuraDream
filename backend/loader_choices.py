@@ -28,3 +28,12 @@ FORMATS: tuple[tuple[str, str], ...] = (
     ("nvfp4", "RTX 50 (Blackwell)"),
     ("int4", "RTX 20 to 40"),
 )
+# Nunchaku's nvfp4 checkpoints need Blackwell; below it, the int4 ones.
+NVFP4_CAPABILITY = (10, 0)
+
+
+def default_format(capability: tuple[int, int] | None) -> str:
+    """The Nunchaku format for a card of `capability` when none was chosen:
+    int4 below compute capability 10.0, nvfp4 at or above it or when the card
+    is unknown (`card_facts` answered None)."""
+    return "int4" if capability is not None and tuple(capability) < NVFP4_CAPABILITY else "nvfp4"

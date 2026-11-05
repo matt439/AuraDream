@@ -69,6 +69,16 @@ def node():
 
 
 @pytest.fixture(autouse=True)
+def no_real_card(monkeypatch):
+    """Every test runs on an unknown card, whatever this machine has, so a
+    card-keyed default (the Nunchaku format) is the one CI sees; a test that
+    wants a card patches `card_facts.card` itself."""
+    from backend import card_facts
+
+    monkeypatch.setattr(card_facts, "card", lambda device="cuda": None)
+
+
+@pytest.fixture(autouse=True)
 def no_real_credential_vault(monkeypatch):
     """All credential qualification is stub-only; never call the user's vault."""
     from backend import backup_credentials

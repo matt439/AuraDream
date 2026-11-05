@@ -303,9 +303,14 @@ panel's fit badge still knows only Qwen-Image's over-16 GB, and the refine
 and inpaint "measured" sizes are the 5080's. Nunchaku's nvfp4 repos need
 compute capability 10.0, so a 3070 needs the int4 ones, which the setup
 script and the doctor name; whether the published kernels include sm_86 is
-not measured. The Models panel and a switch still default the Nunchaku
-format to nvfp4 whatever the card (`GEN#42`), and the fit badge and the
-measured sizes are `GEN#43` and `GEN#44`.
+not measured. A Nunchaku load with no format chosen takes the card's
+(`GEN#42`, 2026-11-05): int4 below compute capability 10.0, nvfp4 on
+Blackwell or when the card is unknown (`loader_choices.default_format`,
+from `card_facts`), in the Models panel, a switch and the `--menu`'s
+default, and the format help marks the card's "(this card)"; a chosen
+format, or a lite repo already selected, is kept. The `--menu` imports
+torch for it only once Nunchaku is picked. The fit badge and the measured
+sizes are `GEN#43` and `GEN#44`.
 
 ## Krea 2's components and offload order
 

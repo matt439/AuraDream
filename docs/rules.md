@@ -20,7 +20,9 @@ before changing it.
   "edit only");
   `warn_legacy_env` names any `LOCAL_DIFFUSION_*` still set, which is not read
 - `backend/loader_choices.py` — quantization, offload and Nunchaku format
-  choices, worded once for the `--menu` and the browser picker
+  choices, worded once for the `--menu` and the browser picker;
+  `default_format` the format an unchosen Nunchaku load takes (int4 below
+  compute capability 10.0, nvfp4 on Blackwell or an unknown card)
 - `backend/model_selection.py` — the server's selected checkpoint, loader options
   and revision, separate from immutable startup settings; `current_model_id`
   and `current_settings` supply runtime reads, and `available` limits choices
@@ -127,6 +129,13 @@ before changing it.
   `token_present`; stdlib and huggingface_hub's constants only, the token
   never read, logged, sent or checked with the Hub. The doctor's sign-in
   check and the status's `hf_token_present` share it
+- `backend/card_facts.py` — the server's CUDA card: `card(device)` (total
+  memory in bytes, compute capability), `total_memory`, `capability`; None
+  for a CPU device, no CUDA, no card or any error. Cold (torch only on the
+  first ask, `torch.cuda` queries only, never diffusers), cached per device;
+  the routes read it off the event loop (`main._read_card`, the status's
+  describe thread). The tests' `no_real_card` and the fake server make it
+  None; a test that wants a card patches `card`
 - `backend/model_benchmarks.py` — retained RTX 5080 timing references, exact
   checkpoint/loading-option matching and coarse speed categories; no live benchmark
 - `backend/schemas.py` — re-exports the pydantic request/response models;
