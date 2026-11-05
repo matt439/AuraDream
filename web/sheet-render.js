@@ -287,6 +287,9 @@ function drawSheet() {
   const axisOptions = [['', '—']].concat(
     sheetAxesList.filter((a) => values[a.key].length > 1).map((a) => [a.key, a.label]),
   );
+  // A phone's foot holds the last drawing's run actions (phone-runs.js):
+  // they go with the rest, these drawn afresh.
+  dropPhoneSheetFoot();
   els.sheetControls.innerHTML = '';
   els.sheetControls.append(
     labelled('Columns', picker(axisOptions, sheetAxes.cols ?? '', (key) => setAxis('cols', key))),
@@ -351,6 +354,8 @@ function drawSheet() {
     els.sheetControls.append(status);
     syncFinishRunButtons();
   }
+  // On a phone the run's actions in a foot over the tab bar (phone-runs.js).
+  placePhoneSheetFoot();
   els.sheetFixed.textContent = fixedSettings(values);
   els.sheetFixed.hidden = !els.sheetFixed.textContent;
 

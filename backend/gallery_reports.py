@@ -595,6 +595,7 @@ def runs(limit: int = 20, model_id: str | None = None) -> list[RunSummary]:
                     [group["strength_min"], group["strength_max"]]
                     if group["n_sources"] == 1 and group["refine"] is not None else None
                 ),
+                cover=group["first_id"],
             )
         )
     # Retained jobs can exist before their first image, or after every image

@@ -398,6 +398,10 @@ function runAxes(run) {
 }
 
 let runsEpoch = 0;
+// The runs the picker lists, by id, as /api/runs answered them: what a
+// phone's run rows and its run chip draw (phone-runs.js) beside the
+// picker's own options, which stay the one list of what can be picked.
+let runsListed = new Map();
 let runsShownScope = null;
 let runsHaveList = false;
 let runsLoading = false;
@@ -456,6 +460,7 @@ async function loadRuns() {
     runsShownScope = scope;
     runPending = null;
     runKeyed = false;
+    runsListed = new Map();
     runListHead('Loading runs…');
   }
   syncRunList();
@@ -479,6 +484,7 @@ async function loadRuns() {
   runsFailed = false;
   runsShownScope = scope;
   runsHaveList = !!runs.length;
+  runsListed = new Map(runs.map((run) => [run.run_id, run]));
   // An independently completed refresh retires a browsed Retry choice.
   runRetryPending = false;
   const several = (run) => run.images !== 1 || run.jobs > 1;
@@ -552,6 +558,8 @@ function syncRunList() {
     : !current || (runsLoading && !runsHaveList) ? 'Loading runs…'
     : runsFailed ? `${runsHaveList ? 'Could not refresh recent runs.' : 'Recent runs unavailable.'} Choose Retry loading runs.`
     : realRunOption(selected) ? selected.text : 'Recent runs';
+  // A phone's Runs row, its sheet and its run chip read the same state.
+  syncPhoneRuns();
 }
 
 // Closed-picker navigation is only a candidate. Enter or blur commits it;

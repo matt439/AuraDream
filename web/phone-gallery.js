@@ -9,7 +9,11 @@
 // every sync and every hold keep the one node. A bulk action says in its own
 // row what it would take (its scope, or why it is held). While Select is on,
 // the selection bar holds some of them instead (phone-select.js). The cards'
-// size on the phone is this file's too (phoneCardSize). Declarations only;
+// size on the phone is this file's too (phoneCardSize), and the recycle bin
+// as a screen of its own: its name under a ‹ back, only its own rows in the
+// sheets, Back leaving it (touch.js). The runs - Filters' Runs row, their
+// sheet, the run chip and a run sheet's foot - are phone-runs.js's.
+// Declarations only;
 // phone.js calls initPhoneGallery from initPhone and syncPhoneGallery from
 // syncPhoneHosts.
 'use strict';
@@ -54,13 +58,20 @@ function syncPhoneGallery() {
     }
     phoneMove(els.select, head, $('btn-gallery-more'));
   } else {
-    for (const sheet of [$('gallery-filter-sheet'), $('gallery-more-sheet')]) if (sheet.open) sheet.close();
+    for (const sheet of gallerySheets()) if (sheet.open) sheet.close();
     for (const node of [els.galleryError, ...phoneGalleryMoved()]) phoneHome(node);
     for (const row of gallerySubRows()) row.querySelector(':scope > .row-sub')?.remove();
     head.removeAttribute('data-bin');
+    for (const sheet of gallerySheets()) sheet.removeAttribute('data-bin');
+    $('btn-bin-back').hidden = true;
+    // The runs' rows, chip and foot put away (phone-runs.js).
+    syncPhoneRuns();
   }
   syncPhoneGalleryHead();
 }
+
+// The gallery's sheets on the phone: Filters, ⋯ and the runs'.
+const gallerySheets = () => [$('gallery-filter-sheet'), $('gallery-more-sheet'), $('runs-sheet')];
 
 let phoneGallerySyncQueued = false;
 function queuePhoneGallerySync() {
@@ -82,7 +93,12 @@ function syncPhoneGalleryHead() {
   syncSearchPlaceholder();
   const head = els.search.closest('.gallery-head');
   head.toggleAttribute('data-bin', binMode);
+  // The bin's own screen: its name under a ‹ back, the sheets holding only
+  // its own rows (styles/phone-gallery.css, `[data-bin]`).
+  for (const sheet of gallerySheets()) sheet.toggleAttribute('data-bin', binMode);
+  $('btn-bin-back').hidden = !binMode;
   placeBinGroup();
+  syncPhoneRuns();
   const on = [els.favOnly.checked && !binMode ? 'Starred' : '', els.allModels.checked && !binMode ? 'all models' : ''].filter(Boolean);
   const filters = $('btn-gallery-filters');
   badge($('gallery-filters-count'), on.length);
@@ -105,18 +121,18 @@ function syncPhoneGalleryHead() {
   $('gallery-more-view').hidden = sheetMode;
 }
 
-// A held reason in a phone's words: Bin is the ⋯ sheet's Recycle bin. (How
+// A held reason in a phone's words: the bin is left by the ‹ before its
+// name. (How
 // cards are picked is already a touch screen's, gallery-select.js's
 // pickCardsWords, in the title and in what a held press says.)
-const phoneWords = (why) => (why || '').replace('leave it with Bin', 'leave it with Recycle bin in ⋯');
+const phoneWords = (why) => (why || '').replace('leave it with Bin', 'leave it with ‹ beside its name');
 
-// In the recycle bin its own rows come first in ⋯ - Recycle bin itself
-// ("Back to the gallery"), then Restore picked, Delete picked permanently,
-// which images Empty takes and Empty recycle bin - the gallery's after
-// them, held; out of it, the bin's rows before Delete unstarred and
-// Recycle bin back after Bundles…. The hosts move, never while the sheet
-// is open (the bin is entered and left by the sheet's own row, which
-// shuts it first).
+// In the recycle bin its own rows come first in ⋯ - Restore picked,
+// Delete picked permanently, which images Empty takes and Empty recycle
+// bin - and the gallery's are not drawn (Recycle bin itself is the ‹ by
+// the bin's name); out of it, the bin's rows before Delete unstarred.
+// The group moves, never while the sheet is open (the bin is entered by
+// the sheet's own row, which shuts it first).
 function placeBinGroup() {
   const sheet = $('gallery-more-sheet');
   if (sheet.open) return;
@@ -124,8 +140,7 @@ function placeBinGroup() {
   const body = group.parentNode;
   const before = binMode ? body.firstElementChild : $('gallery-more-danger');
   if (group !== before && group.nextElementSibling !== before) body.insertBefore(group, before);
-  if (binMode) phoneMove(els.bin, group, group.firstChild);
-  else phoneMove(els.bin, $('gallery-more-library'));
+  phoneMove(els.bin, $('gallery-more-library'));
   // Empty's choice's caption, straight over it.
   if (els.binAge.parentNode === group) phoneMove($('bin-age-caption'), group, els.binAge);
 }
@@ -224,7 +239,7 @@ function openGallerySheet(sheet) {
 }
 
 function gallerySheetClosed() {
-  if ($('gallery-filter-sheet').open || $('gallery-more-sheet').open) return;
+  if (gallerySheets().some((s) => s.open)) return;
   const said = els.galleryError.hidden ? '' : els.galleryError.textContent;
   if (gallerySheetSaid !== null && said && said !== gallerySheetSaid) showError('', false, { slot: els.galleryError, mirror: false });
   gallerySheetSaid = null;
@@ -242,12 +257,14 @@ function closeGallerySheetFor(sheet) {
 }
 
 // Where the gallery's line is on the phone: in the foot of an open sheet
-// (`closing` aside), else at the selection bar's top while it is up, else
-// under the head.
+// (`closing` aside; the top one), else at the selection bar's top while it
+// is up, else over a run sheet's foot while that is up, else under the
+// head.
 function placeGalleryLine(closing = null) {
-  const open = [$('gallery-filter-sheet'), $('gallery-more-sheet')].find((s) => s.open && s !== closing);
+  const open = gallerySheets().filter((s) => s.open && s !== closing).at(-1);
   if (open) phoneMove(els.galleryError, open.querySelector('.gallery-sheet-foot'));
   else if (isPhone() && !$('phone-select-bar').hidden) phoneMove(els.galleryError, $('phone-select-bar'), $('select-bar-head'));
+  else if (isPhone() && !$('sheet-foot').hidden) phoneMove(els.galleryError, $('sheet-foot'), $('sheet-foot').firstChild);
   else phoneHome(els.galleryError);
 }
 
@@ -352,8 +369,12 @@ function initPhoneGallery() {
   $('gallery-more-view').addEventListener('click', galleryViewPress);
   $('phone-card-size').addEventListener('keydown', (e) => stepPreset($('phone-card-size'), e));
   restorePhoneCardSize();
-  // The selection bar (phone-select.js), once the homes above are marked.
+  // The selection bar (phone-select.js), once the homes above are marked,
+  // and the runs (phone-runs.js).
   initPhoneSelect();
+  initPhoneRuns();
+  // The bin's ‹: the gallery again, as Recycle bin's own press leaves it.
+  $('btn-bin-back').addEventListener('click', () => { if (binMode) toggleBin(); });
   filterSheet.addEventListener('click', galleryFilterPress, true);
   els.runList.addEventListener('change', () => { if (filterSheet.open && els.runList.value) closeGallerySheetFor(filterSheet); });
   // The gallery's line under the head, over the cards: a tap puts it away.

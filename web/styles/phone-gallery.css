@@ -10,8 +10,9 @@
    query, so a PC, a tablet and every smoke written with a mouse see none
    of it. */
 .gallery-filters, .gallery-more { display: none; }
-/* The selection bar is the phone's alone (phone-select.js). */
-.phone-select-bar { display: none; }
+/* The selection bar is the phone's alone (phone-select.js), as are the
+   bin's ‹, the run chip and a run sheet's foot (phone-runs.js). */
+.phone-select-bar, .bin-back, .phone-run-chip, .sheet-foot { display: none; }
 
 @media (pointer: coarse) and ((width < 700px) or (max-height: 500px)) {
   /* The row: sticky under the topbar (at the screen's top on its side,
@@ -257,14 +258,8 @@
     border-color: var(--line); background-color: transparent; color: var(--muted); box-shadow: none; cursor: not-allowed;
   }
   .gallery-filter-chips #other-models { color: var(--text-3); font-weight: 400; }
-  .gallery-filter-run { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-3) 0; border-top: 1px solid var(--line); }
+  .gallery-filter-run { display: flex; flex-direction: column; border-top: 1px solid var(--line); }
   .gallery-sheet-caption { font-size: var(--fs-label); font-weight: 600; color: var(--text-readout); }
-  #gallery-filter-sheet #run-list {
-    width: 100%; height: 48px; margin: 0; padding: 0 var(--sp-3);
-    background: var(--panel-2); border: 1px solid var(--line-strong); border-radius: var(--r-md);
-    color: var(--text); font-size: var(--fs-md);
-  }
-  #gallery-filter-sheet #run-list:disabled, #gallery-filter-sheet #run-list[aria-disabled="true"] { color: var(--muted); border-color: var(--line); opacity: 1; }
   #gallery-filter-view { border-top: 1px solid var(--line); padding-top: var(--sp-2); }
   .search-help-fold { border-top: 1px solid var(--line); margin-top: var(--sp-2); }
   .search-help-fold > summary {
@@ -331,6 +326,203 @@
     box-shadow: inset 0 0 0 1px var(--accent);
   }
   #gallery-more-view .view-pick button:focus-visible { z-index: 2; outline: 2px solid var(--accent-2); outline-offset: 2px; }
+
+  /* ---------------------------------------------------------- the runs */
+
+  /* Filters' Runs row (phone-runs.js): a sheet row, its line the run shown
+     or what a pick does, a chevron at its end; the picker's own select is
+     in the group, not drawn (a pick still sets it). */
+  #gallery-filter-sheet #run-list { display: none; }
+  #btn-phone-runs {
+    position: relative; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px;
+    width: auto; min-height: 56px; height: auto;
+    margin: 0 calc(-1 * var(--sheet-r)) 0 calc(-1 * var(--sheet-l));
+    padding: var(--sp-2) calc(var(--sheet-r) + 28px) var(--sp-2) var(--sheet-l);
+    border: none; border-radius: 0; background-color: transparent; box-shadow: none;
+    color: var(--text); font-size: var(--fs-md); font-weight: 600; line-height: var(--lh-tight); text-align: left;
+  }
+  #btn-phone-runs::after {
+    content: ""; position: absolute; top: 50%; right: calc(var(--sheet-r) + 10px);
+    width: 9px; height: 9px; margin-top: -5px;
+    border: solid var(--muted); border-width: 0 2px 2px 0; rotate: -45deg;
+  }
+  .runs-row-line {
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+    font-size: var(--fs-body-sm); font-weight: 400; color: var(--text-3);
+  }
+  #btn-phone-runs[aria-disabled="true"] { color: var(--muted); opacity: 1; }
+  #btn-phone-runs[aria-disabled="true"] > .runs-row-line { color: var(--muted); }
+  #btn-phone-runs:focus-visible { outline: 2px solid var(--accent-2); outline-offset: -2px; }
+
+  /* The runs' sheet: as tall as Filters' may be, a group's name over its
+     rows; a row 56 px at least - its first image a 44 px square (a blank
+     one for a run with none left), when it ran and its count in 16 px
+     bold over what it varied and its prompt in 15 px, one line each, cut
+     at the end - the run shown tonal with an accent bar, as a chosen row
+     is in ⋯. Its height fixed at the most a sheet takes, so over Filters
+     it covers that sheet rather than stacking a short one on it. */
+  dialog.runs-sheet:not(.lightbox):not(.confirm-dialog) { height: min(80dvh, calc(100dvh - var(--safe-t) - 48px)); }
+  .runs-sheet .runs-group { margin: var(--sp-2) 0 0; }
+  .runs-sheet .runs-group:first-child { margin-top: 0; }
+  .run-row {
+    display: flex; align-items: center; gap: var(--sp-3);
+    width: auto; min-width: 0; min-height: 56px; height: auto;
+    margin: 0 calc(-1 * var(--sheet-r)) 0 calc(-1 * var(--sheet-l));
+    padding: var(--sp-1) var(--sheet-r) var(--sp-1) var(--sheet-l);
+    border: none; border-radius: 0; background-color: transparent; box-shadow: none;
+    color: var(--text); text-align: left; white-space: normal;
+  }
+  .run-row.active { background-color: var(--accent-soft); box-shadow: inset 4px 0 0 var(--accent); }
+  .run-row:focus-visible { outline: 2px solid var(--accent-2); outline-offset: -2px; }
+  .run-face {
+    flex: none; width: var(--h-md); height: var(--h-md); overflow: hidden;
+    border-radius: var(--r-sm); background: var(--panel-2); box-shadow: inset 0 0 0 1px var(--line);
+  }
+  .run-face > img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .run-text { display: flex; flex-direction: column; gap: 2px; flex: 1 1 0; min-width: 0; }
+  .run-when, .run-what { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: var(--lh-tight); }
+  .run-when { font-size: var(--fs-md); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .run-what { font-size: var(--fs-body-sm); color: var(--text-3); }
+  .runs-retry { font-size: var(--fs-md); font-weight: 600; color: var(--accent-2); }
+  .runs-empty { margin: 0; padding: var(--sp-3) 0; font-size: var(--fs-body-sm); color: var(--text-3); }
+
+  /* The run chip, in the search's place while the gallery shows a run
+     (`.gallery-head[data-run]`): the field's height and edge, tonal, "Run"
+     then when it ran and its count, cut at the end; ✕ a 44 px square at
+     its end. The search is not drawn under it (a ✕ brings it back). */
+  .gallery-head[data-run] > #search { display: none; }
+  .gallery-head[data-run] > .phone-run-chip:not([hidden]) {
+    display: flex; flex: 1 1 0; min-width: 0; height: var(--h-field);
+    border-radius: var(--r-md); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent);
+  }
+  .run-chip-open {
+    display: flex; align-items: center; gap: 6px; flex: 1 1 0; min-width: 0; height: 100%; margin: 0;
+    padding: 0 0 0 var(--sp-3); border: none; border-radius: var(--r-md) 0 0 var(--r-md);
+    background: transparent; box-shadow: none; color: var(--text); font-size: var(--fs-body-sm); text-align: left;
+  }
+  .run-chip-name { flex: none; font-weight: 600; color: var(--accent-2); }
+  .run-chip-words { flex: 1 1 0; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+  /* Its time or day always; the rest (", 3:48 am · 8 images") only where
+     the chip has the room for it whole - on its side, not at 393 px. */
+  .phone-run-chip { container-type: inline-size; }
+  .run-chip-more { display: none; }
+  @container (min-width: 300px) { .run-chip-more { display: inline; } }
+  .run-chip-clear {
+    flex: none; width: var(--h-md); min-width: var(--h-md); height: 100%; margin: 0; padding: 0;
+    border: none; border-radius: 0 var(--r-md) var(--r-md) 0; background: transparent; box-shadow: none;
+    color: var(--text-2); font-size: 18px;
+  }
+  :is(.run-chip-open, .run-chip-clear):focus-visible { outline: 2px solid var(--accent-2); outline-offset: -2px; }
+
+  /* A run's sheet (sheet-render.js) on the phone: Columns and Rows (and a
+     pinned axis's picker) two to a row, each its name over a 44 px select
+     across its half; the run's line and what every image shares under
+     them. Its zoom is not drawn - a cell's tap opens the lightbox, which
+     pinches - and its swipes, Fill width and exports are pressed from the
+     foot's ⋯ (still in the page, `hidden` never set, which `buttonItem`
+     reads). */
+  #sheet-controls {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; gap: var(--sp-2) var(--sp-3);
+  }
+  #sheet-controls > .sheet-pick {
+    flex-direction: column; align-items: stretch; gap: var(--sp-1); min-width: 0;
+    font-size: var(--fs-label); font-weight: 600; color: var(--text-readout);
+  }
+  #sheet-controls > .sheet-pick > select {
+    width: 100%; min-width: 0; height: var(--h-md); padding: 0 var(--sp-3); font-size: var(--fs-md);
+    border-radius: var(--r-md);
+  }
+  #sheet-controls > :is(.sheet-zoom, .sheet-fill, .sheet-export, .sheet-cfg-swipe, .sheet-steps-swipe) { display: none; }
+  #sheet-controls > .sheet-run-status { grid-column: 1 / -1; font-size: var(--fs-body-sm); }
+
+  /* The foot: over the tab bar while a sheet is shown in the Gallery view
+     (`body[data-run-foot]`), opaque on the bar's colour with a hairline
+     above it; Finish run and More seeds of this run… sharing the row, ⋯
+     a 44 px square at its end (alone, on a sheet that is no run, its
+     words beside it). 61 px, which the page's foot, its scroll padding and
+     --phone-bottom-chrome count; it steps aside while a box has the
+     keyboard, as the tab bar does. */
+  :root { --run-foot-h: 61px; }
+  body[data-run-foot]:not([data-typing]) { --phone-bottom-chrome: calc(var(--tabbar-h) + var(--run-foot-h) + var(--safe-b)); }
+  body[data-run-foot] main { padding-bottom: calc(var(--tabbar-h) + var(--run-foot-h) + var(--safe-b) + var(--gutter)); }
+  html:has(> body[data-run-foot]) { scroll-padding-bottom: calc(var(--tabbar-h) + var(--run-foot-h) + var(--safe-b) + var(--sp-2)); }
+  body[data-run-foot] #btn-gallery-top { bottom: calc(var(--tabbar-h) + var(--run-foot-h) + var(--safe-b) + var(--gutter)); }
+  body[data-typing] .sheet-foot { display: none; }
+  .sheet-foot:not([hidden]) {
+    position: fixed; left: 0; right: 0; z-index: 25; bottom: calc(var(--tabbar-h) + var(--safe-b));
+    display: flex; align-items: center; gap: var(--sp-2);
+    height: var(--run-foot-h);
+    padding: 0 max(var(--gutter), var(--safe-r)) 0 max(var(--gutter), var(--safe-l));
+    background: var(--panel); border-top: 1px solid var(--line);
+  }
+  .sheet-foot > button[data-run] {
+    flex: 1 1 0; min-width: 0; height: var(--h-md); min-height: var(--h-md); margin: 0; padding: 0 var(--sp-2);
+    font-size: var(--fs-md); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  /* "More seeds of this run…" is "More seeds…" here, over the run's sheet
+     (its name, for a screen reader, the whole). */
+  .sheet-foot > button[data-run]:not(.finish-run-tool) { font-size: 0; }
+  .sheet-foot > button[data-run]:not(.finish-run-tool)::before { content: "More seeds…"; font-size: var(--fs-md); }
+  .sheet-foot-more {
+    display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-2); flex: none;
+    min-width: var(--h-md); height: var(--h-md); margin: 0; padding: 0;
+    border: 1px solid transparent; border-radius: var(--r-md); background: transparent; box-shadow: none;
+    color: var(--text-2); font-size: var(--fs-md); font-weight: 600;
+  }
+  .sheet-foot-glyph { font-size: 24px; font-weight: 700; line-height: 1; }
+  .sheet-foot-word { display: none; }
+  .sheet-foot.alone > .sheet-foot-more { flex: 1 1 0; border-color: var(--line-strong); background: var(--panel-2); }
+  .sheet-foot.alone .sheet-foot-word { display: inline; }
+  .sheet-foot-more[aria-disabled="true"] { color: var(--muted); }
+  .sheet-foot-more:focus-visible { outline: 2px solid var(--accent-2); outline-offset: -2px; }
+  /* The gallery's line, while the foot is up: a card 8 px over it, as over
+     the selection bar. */
+  #sheet-foot > #gallery-error:not([hidden]) {
+    position: absolute; bottom: calc(100% + var(--sp-2));
+    left: max(var(--gutter), var(--safe-l)); right: max(var(--gutter), var(--safe-r));
+    pointer-events: auto; cursor: pointer; margin: 0; padding: 0 calc(var(--sp-3) + 1.25em) 0 var(--sp-3);
+    border: var(--sp-2) solid transparent; border-inline-width: 0; border-radius: var(--r-md);
+    background: var(--panel-2); box-shadow: 0 0 0 1px var(--line-strong), var(--shadow-pop);
+    font-size: var(--fs-body-sm); line-height: var(--lh-tight);
+    white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+  }
+  #sheet-foot > #gallery-error:not([hidden])::after { content: '✕' / ''; position: absolute; top: 0; right: var(--sp-3); color: var(--text-3); }
+  #sheet-foot > #gallery-error[hidden] { display: none !important; }
+
+  /* ------------------------------------------------------ the recycle bin */
+
+  /* The bin is a screen of its own (`[data-bin]`, phone-gallery.js): a ‹
+     before its name, the way back to the gallery (as Back is); its cards
+     with no tools - a tap opens the image (Restore and Delete permanently
+     in the lightbox), Select picks them for the bar's Restore picked and
+     Delete picked permanently - and how long ago each was binned on its
+     foot. The sheets hold only what the bin takes: Filters All models and
+     the search's terms; ⋯ the picks' count and Clear, the bin's own rows
+     and the cards' size, not Picked, the bulk actions, Saved searches…,
+     Bundles… or Recycle bin itself. */
+  .gallery-head[data-bin] > .bin-back:not([hidden]) {
+    display: inline-grid; place-items: center; flex: none;
+    width: var(--h-md); min-width: var(--h-md); height: var(--h-md); margin: 0 0 0 calc(-1 * var(--sp-3)); padding: 0;
+    border: none; border-radius: var(--r-md); background: transparent; box-shadow: none; color: var(--accent-2);
+  }
+  .bin-back > svg { width: 26px; height: 26px; fill: currentColor; }
+  .bin-back:focus-visible { outline: 2px solid var(--accent-2); outline-offset: -2px; }
+  .gallery-head[data-bin] > .bin-back:not([hidden]) + h2 { flex: 1 0 calc(100% - var(--h-md)); min-width: 0; line-height: var(--h-md); }
+  #gallery .card.binned .tools {
+    inset: auto auto 0 0; display: block; padding: 0; background: none; opacity: 1; pointer-events: none;
+  }
+  #gallery .card.binned .tools > button { display: none; }
+  #gallery .card.binned .tools::before { content: none; }
+  #gallery .card.binned .tools[data-age]::before {
+    content: attr(data-age) / ""; position: static; display: block; max-width: none; margin: var(--sp-1);
+    padding: 1px var(--sp-2); border-radius: 10px; background: rgba(0, 0, 0, 0.7); color: #fff;
+    font-size: var(--fs-xs); line-height: 18px; white-space: nowrap; visibility: visible;
+  }
+  #gallery-filter-sheet[data-bin] :is(.check:has(> #fav-only), #gallery-filter-run, #gallery-filter-view) { display: none; }
+  #gallery-more-sheet[data-bin] :is(#picked, #gallery-more-act, #gallery-more-library) { display: none; }
+  /* With Picked not drawn, the picks' group is empty while nothing is
+     picked (or the selection bar holds the count and Clear). */
+  #gallery-more-sheet[data-bin] #gallery-more-picks:not(:has(> .select-count:not(:empty), > #btn-select-clear:not([hidden]))) { display: none; }
 
   /* ------------------------------------------------- the selection bar */
 

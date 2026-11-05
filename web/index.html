@@ -910,6 +910,11 @@
          viewer, in its column or across its grid, as they always were. -->
     <div class="library" id="library">
       <div class="gallery-head">
+        <!-- On a phone in the recycle bin, the way back to the gallery, before the
+             bin's name (phone-gallery.js); drawn nowhere else. -->
+        <button type="button" class="bin-back" id="btn-bin-back" hidden aria-label="Back to the gallery"
+                title="Leave the recycle bin for the gallery"><svg viewBox="0 0 24 24" aria-hidden="true"><path
+                d="M15.4 4.6 8 12l7.4 7.4-1.4 1.4L5.2 12l8.8-8.8z"/></svg></button>
         <!-- "Recycle bin" while the bin is shown in the gallery's place (bin.js). -->
         <h2><span id="gallery-title">Gallery</span> <span id="gallery-count"></span></h2>
         <!-- How the cards are drawn, from 1800 px, where the grid has the
@@ -939,6 +944,16 @@
         <select id="run-list" class="runs" aria-label="Recent runs" disabled>
           <option value="">Runs…</option>
         </select>
+        <!-- On a phone, the run the gallery shows (the search's `run:<id>`) in
+             the search's place (phone-runs.js): when it ran and its count, which
+             a press opens the runs' sheet from, and ✕, the gallery as it was
+             before it. Drawn nowhere else. -->
+        <span class="phone-run-chip" id="phone-run-chip" hidden><button type="button" class="run-chip-open"
+          id="run-chip-open" aria-haspopup="dialog" aria-controls="runs-sheet"><span class="run-chip-name"
+          aria-hidden="true">Run</span><span class="run-chip-words"><span class="run-chip-short"></span><span
+          class="run-chip-more"></span></span></button><button type="button"
+          class="run-chip-clear" id="run-chip-clear" aria-label="Show the gallery, not only this run"
+          title="Leave this run: the gallery as it was before it">✕</button></span>
         <input type="search" id="search" enterkeyhint="search" placeholder="Search prompts · / to focus" aria-label="Search gallery"
                aria-keyshortcuts="/" title="Search gallery (/ outside fields, menus and dialogs)" aria-describedby="search-tip">
         <span class="help" tabindex="0" role="note" aria-label="Search help" aria-describedby="search-tip">?<span class="tip" id="search-tip">
@@ -1181,6 +1196,15 @@
       class="select-more-glyph" aria-hidden="true">⋯</span><span class="select-act-word">More</span></button>
   </div>
 </div>
+<!-- A run's sheet's foot on a phone (phone-runs.js), over the tab bar in the
+     Gallery view while a sheet is shown: the sheet's own Finish run and More
+     seeds of this run…, moved in whole while it is drawn, and ⋯, a menu that
+     presses the sheet's swipes, Fill width and exports. Drawn nowhere else. -->
+<div class="sheet-foot" id="sheet-foot" role="group" aria-label="This sheet" hidden>
+  <button type="button" class="sheet-foot-more" id="sheet-foot-more" aria-haspopup="menu" aria-expanded="false"
+          aria-label="More for this sheet"><span class="sheet-foot-glyph" aria-hidden="true">⋯</span><span
+          class="sheet-foot-word">Swipe, fill, export</span></button>
+</div>
 <!-- The queue's sheet on a phone (phone.js), from the action bar's count: the
      running job's #progress - Pause, Skip, Cancel and the bars - and the
      queue's #queue-note, the panel's own nodes moved in whole while it is
@@ -1214,10 +1238,27 @@
   </div>
   <div class="gallery-sheet-body">
     <div class="gallery-filter-chips" id="gallery-filter-chips" role="group" aria-label="Show"></div>
-    <div class="gallery-filter-run" id="gallery-filter-run"><span class="gallery-sheet-caption" aria-hidden="true">Run</span></div>
+    <!-- Runs: a row opening the runs' sheet (phone-runs.js); the picker's own
+         select is moved in beside it, not drawn, still what a pick sets. -->
+    <div class="gallery-filter-run" id="gallery-filter-run"><button type="button" class="runs-row"
+      id="btn-phone-runs" aria-haspopup="dialog" aria-controls="runs-sheet">Runs<span
+      class="runs-row-line"></span></button></div>
     <div class="gallery-sheet-group" id="gallery-filter-view"></div>
     <details class="search-help-fold" id="search-help-fold"><summary>Search terms</summary></details>
   </div>
+  <div class="gallery-sheet-foot"></div>
+</dialog>
+<!-- The runs on a phone (phone-runs.js), from Filters' Runs row or the run
+     chip: a 56 px row per run - its first image, when it ran, its count, what
+     it varied and its prompt - in the picker's own order and groups, drawn
+     from its options; a press picks it as the picker does. -->
+<dialog class="gallery-sheet runs-sheet" id="runs-sheet" aria-labelledby="runs-sheet-title">
+  <div class="gallery-sheet-head">
+    <h2 id="runs-sheet-title">Runs</h2>
+    <span class="gallery-sheet-count" id="runs-sheet-count"></span>
+    <button type="button" class="close" id="runs-sheet-close" aria-label="Close">✕</button>
+  </div>
+  <div class="gallery-sheet-body runs-sheet-body" id="runs-sheet-body"></div>
   <div class="gallery-sheet-foot"></div>
 </dialog>
 <dialog class="gallery-sheet" id="gallery-more-sheet" aria-labelledby="gallery-more-title">
@@ -2426,6 +2467,7 @@
 <script src="/static/phone-compose.js"></script>
 <script src="/static/phone-gallery.js"></script>
 <script src="/static/phone-select.js"></script>
+<script src="/static/phone-runs.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

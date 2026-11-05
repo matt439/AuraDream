@@ -465,8 +465,9 @@
      press opens the card's menu, which presses these same buttons (still in
      the page, `hidden` never set: `buttonItem` reads that, not the CSS).
      A long run's tiles in the viewer likewise (the menu's result rows). The
-     recycle bin's two, Restore and Delete permanently, have the room and no
-     menu: they stay, 44 px. The card's caption is its tools' ::before, so
+     recycle bin's two, Restore and Delete permanently, have no menu: 44 px
+     here, and not drawn on the bin's own screen either (its Select bar and
+     the lightbox do them; styles/phone-gallery.css). The card's caption is its tools' ::before, so
      it goes with them; the image's name says it. */
   .card:not(.binned) .tools, .viewer.many .tile > .tools { display: none; }
   .card.binned .tools button { flex: 0 0 auto; min-width: var(--h-md); min-height: var(--h-md); }

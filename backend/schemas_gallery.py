@@ -201,6 +201,10 @@ class RunSummary(BaseModel):
     # and the strengths it ran at, lowest and highest.
     refine: int | None = None
     strengths: list[float] | None = None
+    # A picture of it for a phone's run rows: the id of its oldest image
+    # outside the recycle bin (whose prompt and seed the line already
+    # gives). None for a run with no image left, recovered from its jobs.
+    cover: int | None = None
 
 
 class GalleryPage(BaseModel):

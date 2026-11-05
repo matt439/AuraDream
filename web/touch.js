@@ -165,7 +165,8 @@ function restorePhoneScroll(top) {
 // too - each overlay open holds one history entry (`pushState`, the URL as
 // it is): Android's Back and iOS's edge swipe went back a page from inside
 // the lightbox, since nothing else stood behind it (the phone's selection
-// bar is one too: Back leaves Select). Back (`popstate`)
+// bar is one too: Back leaves Select; so is the recycle bin, which Back
+// leaves). Back (`popstate`)
 // closes the overlays above the entry it lands on, top first, each by the
 // close its own button makes; any other close - its ✕, Escape, a swipe
 // down, Reuse, a light dismiss - takes its entry back with `history.go`.
@@ -207,6 +208,10 @@ function backLayerList() {
   const dialogs = [...document.querySelectorAll('dialog')].filter((d) => d !== els.lightbox);
   const selectBar = $('phone-select-bar');
   return [
+    // The recycle bin, shown in the gallery's place: Back leaves it, as its
+    // own button does (on the phone the ‹ by its name). Its Empty button is
+    // shown exactly while it is. Under Select's bar, opened inside it.
+    { el: els.emptyBin, open: () => binMode, close: () => { if (binMode) toggleBin(); } },
     // The phone's selection bar (phone-select.js): Back leaves Select, the
     // picks kept, as Done does. Under every overlay opened from it.
     { el: selectBar, open: () => !selectBar.hidden, close: () => setSelectMode(false) },

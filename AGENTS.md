@@ -269,10 +269,17 @@ why it is held, and the cards' size (three or two across).
 `phone-select.js`, after it, owns the phone's selection bar: in the tab
 bar's place while Select is on, the picks' count and actions (Star, Bin,
 Refine…, More seeds…, Swap tags…; the bin's Restore and Delete) moved
-in, Back leaving Select. Nodes are moved whole under
+in, Back leaving Select. `phone-runs.js`, after it, owns the phone's runs:
+Filters' Runs row opening a sheet of run rows built from the Runs
+picker's own options (the select kept, not drawn), the run shown as a
+chip in the search's place, and a run sheet's foot (Finish run and More
+seeds… moved in, a ⋯ pressing its swipes, Fill width and exports). The
+recycle bin is a screen of its own on the phone (a ‹ before its name, no
+card tools, only its own rows in the sheets). Nodes are moved whole under
 `PHONE_MEDIA` (`moveBefore`) and home again on the tier's change, never
 copied or reordered with CSS. On touch
-each open overlay (lightbox, dialog, Models, context menu, run sheet) holds
+each open overlay (lightbox, dialog, Models, context menu, run sheet,
+recycle bin) holds
 one history entry, so Back closes the top one (`touch.js`); a mouse adds none.
 On the phone every dialog is a sheet across the screen whose `.dialog-head`
 and `.dialog-actions` (`index.html`) stay at its top and foot, and the

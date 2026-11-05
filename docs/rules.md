@@ -608,7 +608,7 @@ before changing it.
   `AURADREAM_INSTALL_TEST_ROOT`, `AURADREAM_INSTALL_TEST_PROC_VERSION`,
   `AURADREAM_INSTALL_TEST_WAIT` (control.sh's wait)
   (`tests/test_linux_scripts.py`)
-- `web/` - served as-is from `/static`; `index.html` loads 72 classic
+- `web/` - served as-is from `/static`; `index.html` loads 73 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `page-helpers.js`, right
   after it, the page-wide pure helpers (`plural`, `excerpt`, `units`,
@@ -699,6 +699,11 @@ before changing it.
   (`phoneSearchWords`, which `touch.js`'s `syncSearchPlaceholder` reads)
   and the cards' size (`phoneCardSize`); `phone-select.js`, after it, the
   selection bar (`syncPhoneSelectBar`, which `syncPhoneGalleryHead`
+  calls); `phone-runs.js`, after it, the runs on the phone
+  (`syncPhoneRuns`, which `syncRunList` and `syncPhoneGallery` call):
+  Filters' Runs row and the runs' sheet (`openRunsSheet`), the run chip
+  (`syncRunChip`, `clearRunChip`) and a run sheet's foot
+  (`placePhoneSheetFoot` and `dropPhoneSheetFoot`, which `drawSheet`
   calls); the
   touch tier's media queries (`PHONE_MEDIA`, `TABLET_COLUMNS_MEDIA`,
   `TWO_COLUMNS_MEDIA`, `TOUCH_MEDIA`) are `state.js`'s, beside
@@ -745,7 +750,8 @@ before changing it.
   sheet, the topbar's chip, the prompt's toolbar, the check's sheet, Shape -
   and last `phone-gallery.css`, the gallery's one-row head and its two
   sheets (`phone-gallery.js`), the cards' size and the selection bar
-  (`phone-select.js`), which read
+  (`phone-select.js`), the runs' sheet, the run chip, a run sheet's foot
+  (`phone-runs.js`) and the recycle bin's screen, which read
   `touch.css`'s tokens (all under
   "Phones and tablets");
   preserve that cascade (`tests/test_docs_maps.py` holds this list to
@@ -6954,16 +6960,19 @@ measured on the card and when.
   Back closes the top overlay on any touch screen, the tablet's too
   (`touch.js`, `syncBackLayers`): Android's Back and iOS's edge swipe went
   back a page from inside the lightbox. The lightbox, every `<dialog>`, the
-  Models picker, the context menu, the run sheet and the phone's selection
-  bar each hold one history entry while open (`history.pushState`, the URL unchanged, the state
+  Models picker, the context menu, the run sheet, the recycle bin and the
+  phone's selection bar each hold one history entry while open (`history.pushState`, the URL unchanged, the state
   `auradreamLayer` with this load's token and the entry's depth); a mouse's
   overlays hold none, so a PC's history is untouched. Back (`popstate`)
   closes the overlays above the entry it lands on, top first, each by the
   user's own close: `dismissLightbox`; a dialog's `cancel` and then
   `close()`, as Escape does, which a dialog still sending refuses;
   `showModelPicker(false)`; `closeContextMenu`; `setSheet(false)`, which
-  puts back a search the sheet wrote; `setSelectMode(false)`, the picks
-  kept (the selection bar, under every other). Any other close - ✕, Escape, a
+  puts back a search the sheet wrote; `toggleBin()` while the bin is shown
+  (its Empty button shown exactly then, the element watched), back to the
+  gallery as its own button leaves it (under the selection bar, opened
+  inside it); `setSelectMode(false)`, the picks kept (the selection bar,
+  under every other). Any other close - ✕, Escape, a
   swipe down, Reuse, a light dismiss - takes its entry back with one
   `history.go`, never below this load's own entry, so the page is never
   left and no entries pile up. The stack is read from the page (each
@@ -7321,7 +7330,7 @@ measured on the card and when.
   placeholder says the count ("Search 4 images", `phoneSearchWords`, which
   `syncSearchPlaceholder` in `touch.js` reads on the phone; "Search the
   bin" in it). In the recycle bin the title is drawn, a row of its own
-  over the search. The main's 16 px top gutter is dropped in the Gallery
+  over the search, after a ‹ (below). The main's 16 px top gutter is dropped in the Gallery
   view, so the row sits on the topbar; a card scrolled into view stops
   under the row. The gallery's line (`#gallery-error`) is under the row
   over the cards, out of the flow, two lines at most on a card of
@@ -7338,8 +7347,8 @@ measured on the card and when.
   no copy, so every sync, hold and handler keeps the one node. Filters
   holds Starred and All models as 44 px chips (the tick out of sight,
   still the control a screen reader names, the label's press ticking it;
-  on, tonal with a ✓ before the word; held in the bin, muted), the Runs
-  picker across the sheet under its name, Sheet, and the search's terms
+  on, tonal with a ✓ before the word), Runs (a 56 px row opening the
+  runs' sheet, below), Sheet, and the search's terms
   as a fold (`#search-help-fold`, the `?` badge's tip read in the flow,
   where it was a tip over two thirds of the screen); a chip leaves it
   open, its title row saying the count ("4 images"), and Sheet or a run's
@@ -7352,9 +7361,8 @@ measured on the card and when.
   the bin's own Restore picked, Delete picked permanently, its age (a
   select across the sheet under its caption "Empty which images",
   `#bin-age-caption`, drawn only with it) and Empty recycle bin; and Delete unstarred last, in `--danger`. In the bin
-  its own group comes first, Recycle bin ("Back to the gallery") at its
-  head, the way out at the sheet's top (`placeBinGroup`, never while the
-  sheet is open; out of the bin Recycle bin goes back after Bundles…). A row is the button across the sheet, 48 px at least, its name
+  its own group comes first (`placeBinGroup`, never while the sheet is
+  open) and the gallery's rows are not drawn (below). A row is the button across the sheet, 48 px at least, its name
   16 px bold over a line in 15 px (`.row-sub`, the phone's alone, taken
   out off it) that says what it would take or why it is held: what the
   four over-the-filter actions take is said once over them
@@ -7429,13 +7437,83 @@ measured on the card and when.
   bar holds a history entry (`touch.js`'s layers, under every overlay
   opened from it), so a dialog from the bar comes off first. With Select
   on, a card's ring is at its foot's right corner, 28 px (a bin card's at
-  its top's, over Restore and Delete permanently), a tap anywhere on the
+  its top's, its foot its age's), a tap anywhere on the
   card picks it, and an unstarred card's star is not drawn and no star
   takes a press - the bar's Star does that for the picks. A long press's
   menu gains Select (above). The bar's nodes go back into ⋯'s groups in
   their order (`placeInGallerySheet`) as it goes; nothing moves while a
   gallery sheet is open. Skipped: a "Download" of the picks (there is
   none; Bundles… backs up the picked images) and drag-select.
+  Runs on the phone (the review's P20; `phone-runs.js`) are a sheet of
+  rows, where the picker was a native select whose one line was cut to
+  "5 Nov, 01:35 pm · 4 …". Filters holds Runs, a 56 px row (its line the
+  run shown, else "Lay one run out by its settings", else the picker's
+  held reason, which a press says in the sheet's foot) with a chevron;
+  its press opens the runs' sheet (`#runs-sheet`, a `.gallery-sheet` of
+  the most height one takes, over Filters', Back going back to it). Its
+  rows are drawn from the select's own options, in their order and groups
+  ("Grids and batches", "Single images"), with the run's line from
+  `/api/runs` beside them (`runsListed`, `runs.js`): its first image (the
+  run's `cover`, the oldest of its images outside the bin; a blank square
+  for a run with none left), a 44 px square, then when it ran and its
+  count ("6 Nov, 03:48 am · 4 images", a single image's second and seed)
+  in 16 px bold over what it varied and its prompt in 15 px, each one line
+  cut at its end; 56 px at least, the run shown tonal with an accent bar
+  and `aria-current`; Retry where the list did not load; drawn again only
+  when what it would draw changes. A row's press shuts both sheets and
+  picks it as the select's own change does (`runListChange`: the bin, a
+  list of another scope or a run gone from it change nothing), so the run
+  opens as its sheet with its one Back entry. The select stays in the
+  Filters sheet, not drawn, and stays what a pick sets: the `run:<id>` in
+  the search, the server's run logic and the PC are unchanged. The run the
+  gallery shows (the search's `run:<id>`, however it got there: a pick, a
+  card's ⊞, Show run, typing) is a chip in the search's place
+  (`#phone-run-chip`; the head's `data-run`, the search not drawn under it
+  until it has the focus): "Run" and the run's time if it began today, else
+  its day, then where the chip has the room (a container query: on its
+  side, not at 393 px) the rest ("· 4 images"), its whole line its name;
+  its press opens the runs' sheet, and its 44 px ✕ is the gallery as it was
+  before the run - the search the run replaced where the page wrote it,
+  else none - through `applyGalleryFilter`, which shuts the sheet. Not in
+  the recycle bin.
+  A run's sheet on the phone (the review's P21) is tidied to the phone's
+  sheet pattern: Columns and Rows (and a pinned axis's picker) two to a
+  row, each its name over a 44 px select across its half, the run's line
+  and what every image shares under them; the zoom's −, +, 1:1 and readout
+  are not drawn (a cell's tap opens the lightbox, which pinches), nor are
+  its swipes, Fill width and exports in the controls. Its run actions are
+  in a foot over the tab bar (`#sheet-foot`, `body[data-run-foot]`, 61 px,
+  which `main`'s foot, the scroll padding and `--phone-bottom-chrome`
+  count, so `viewBand` stops over it; it steps aside under `data-typing`):
+  Finish run and More seeds of this run… (drawn "More seeds…", its name
+  the whole), the sheet's own buttons moved in whole after each drawing
+  (`placePhoneSheetFoot`; `dropPhoneSheetFoot` takes the last drawing's out
+  first, and off the phone they go home before the keyboard's line), and
+  a 44 px ⋯ (`#sheet-foot-more`) whose docked menu presses the sheet's own
+  Swipe CFG, Swipe steps, Fill width (ticked while on) and Export PNG or
+  Export all, each held and titled as it is, a held one's reason said over
+  the foot. The gallery's line is moved 8 px over the foot while it is up,
+  so a held Finish run says why where it was pressed. The foot is not
+  drawn in the Create view, nor anywhere off the phone.
+  The recycle bin on the phone (the review's P22) is a screen of its own:
+  a 44 px ‹ (`#btn-bin-back`, the accent's colour, no edge) before its
+  name ("Recycle bin (3)"), the way back to the gallery, as Back is (the
+  bin holds a history entry on any touch screen, above); its cards draw
+  no tools - a tap opens the image, whose lightbox restores or deletes it
+  permanently, and Select picks them for the bar's Restore picked and
+  Delete picked permanently, in `--danger`, which asks first - and each
+  card says how long ago it was binned ("today", "3 days ago": the
+  tools' `data-age`, `binCard`) on a dark pill at its foot's left. Its
+  sheets hold only what the bin takes: Filters, All models and the
+  search's terms (not Starred, Runs or Sheet, which the bin holds); ⋯,
+  the picks' count and Clear while anything is picked, the bin's own
+  Restore picked, Delete picked permanently, Empty which images and Empty
+  recycle bin, and the cards' size - not Picked, Re-render, the bulk
+  actions, Saved searches…, Bundles… or Recycle bin itself (the sheets'
+  and the head's `data-bin`). These are not held controls hidden: they
+  are the gallery's, not drawn on the bin's screen, as the PC's head
+  draws Delete unstarred only outside it. A held reason that says to
+  leave the bin says the ‹ beside its name (`phoneWords`).
   The phone's page does not pull to refresh: `html` and `body` have
   `overscroll-behavior-y: contain`, so a pull at the page's top no longer
   reloads it (the prompt's Undo, a Check, a selection and each view's
@@ -7502,8 +7580,10 @@ measured on the card and when.
   and a tap opens the lightbox, which has them too; the card's caption,
   their `::before`, goes with them. The star is a 44 px square in the
   card's corner (a sheet cell's too) with its 28 px dark disc drawn inside
-  it. A recycle bin card has no menu, so its Restore and Delete
-  permanently stay, 44 px. A result's tools under its picture are the
+  it. A recycle bin card has no menu: on the tablet its Restore and
+  Delete permanently stay, 44 px; on the phone the bin is a screen of its
+  own whose cards draw only their age, its Select bar and the lightbox
+  restoring or deleting (below). A result's tools under its picture are the
   phone's own row (`styles/phone.css`): Reuse, Refine and Star, each its
   glyph and its word (`data-word`, drawn by `::after` after the glyph, so
   the glyph stays the button's text and a PC's smokes read it; Starred
@@ -8870,7 +8950,8 @@ the cards three across (`data-phone-size` 's'), 4 px apart, each card
 its column's width, Fit's `contain`;
 every checkbox and radio drawn (`appearance: none`; Notify's 24 px with
 a 2 px `--text-3` edge); Filters' sheet at the window's foot across it,
-Starred and All models 44 px chips on one line, Runs, Sheet and the
+Starred and All models 44 px chips on one line, Runs (a 56 px row, the
+select in the sheet not drawn), Sheet and the
 search terms in it, its count "4 images", the audit clean in it; the
 Starred chip's press ticking it with the sheet still open (the button's
 badge 1, its name "Filters: Starred", the chip tonal), the terms' fold
@@ -8892,14 +8973,15 @@ leaving the default; a held Swap tags…
 pressed keeping the sheet open with its reason in the sheet's foot in a
 touch screen's words ("Pick images with Select, or narrow the gallery",
 no Ctrl/Cmd in it nor in the four held titles), which
-its ✕ clears and takes home; Recycle bin pressed in it shutting it (no
-entry left) and showing the bin, its title drawn and the placeholder
-"Search the bin", ⋯ there with the bin's group first and Recycle bin
-tonal at its head with "Back to the gallery", Empty's choice under its
-caption "Empty which images" (not drawn out of the bin), the audit
-clean, and its
-second press back to the four cards, the group before Delete unstarred
-and Recycle bin after Bundles… again. Select: its press puts the
+its ✕ clears and takes home; Recycle bin pressed in it shutting it and
+showing the bin (its one entry), its title drawn after a 44 px ‹ on its
+row and the placeholder "Search the bin", ⋯ there with the bin's group
+first, Restore picked at its head, held, and Recycle bin, Picked,
+Re-render, the bulk actions, Saved searches… and Bundles… not drawn, the
+card size still, the empty picks group not drawn, Empty's choice under
+its caption "Empty which images" (not drawn out of the bin), the audit
+clean; the ‹ back to the four cards (no entry left), the ‹ gone, the
+group before Delete unstarred and Recycle bin after Bundles… again. Select: its press puts the
 selection bar in the tab bar's place (`body[data-selecting]`, one
 history entry, the tab bar not drawn) at the screen's foot across it, at
 most 120 px tall, `viewBand` stopping at its top and `main`'s foot at
@@ -8966,10 +9048,40 @@ stopping at its top, the audit finding nothing under 44 px;
 `lbNarrow` and `LB_STACKED_MEDIA` are false, the lightbox a row with the
 column beside a stage at least 300 tall, the seven actions inside the
 column and 44 px, the actions a row under 250 px tall, the lightbox
-black. A mouse at 800x900 then has the PC's narrow lightbox: stacked,
+black. Back at 393x852 with a steps × CFG grid of four planted: Filters'
+Runs row live with its line, its press opening the runs' sheet over
+Filters (two entries) at the window's foot, five rows of the select's
+five options in order, each 56 px inside the screen, the groups "Grids
+and batches" and "Single images", the count "5 runs", the grid first
+with its `cover`'s thumbnail in a 44 px square, "· 4 images" and
+"steps×CFG 2×2 · a lighthouse at dusk", the audit clean; its press
+shutting both sheets and opening the run's sheet (one entry), the chip
+in the search's place on the row, 44 px with a 44 px ✕, named "Run …",
+its time whole and the rest not drawn, the search `run:<id>` and not
+drawn; Columns and Rows side by side as 44 px selects, the zoom, swipes,
+Fill width and exports not drawn in the controls and no run action left
+there; the foot on the tab bar holding Finish run, More seeds… (whole)
+and ⋯, 44 px on one row inside the screen, `viewBand` stopping at its
+top, the audit clean; ⋯'s menu Swipe CFG, Swipe steps, Fill width and
+Export PNG, Fill width turning the sheet's fill on (ticked when the menu
+opens again) and off; a held Finish run's press saying why in the line
+over the foot; the chip's press opening the runs' sheet with the run
+marked current, Escape back; its ✕ the gallery of eight again, the
+search empty and drawn, no foot, no entry. At 360x780 the chip's time
+and the foot's words whole, the audit clean; on its side the rest of the
+chip's words drawn; Back leaves the run. Two images binned, the bin
+(one entry): its cards no tools, each `data-age` "today" drawn at its
+foot, the audit clean; Filters there All models and the terms, not
+Starred, Runs or Sheet; Select with a card picked: Restore picked and
+Delete picked permanently in the bar, 44 px, the latter in `--danger`,
+whose press asks (the confirm, a third entry), Escape keeping both;
+Back leaves Select, then the bin (six cards, no entry). A mouse at
+800x900 then has the PC's narrow lightbox: stacked,
 Inpaint… and More seeds… not drawn, 0.97 over a clear backdrop, the
 actions unwrapped and Compare with source's S drawn, and the grid's gap
-the PC's 10 px, `#card-fit` home last in `#card-view`, no selection bar.
+the PC's 10 px, `#card-fit` home last in `#card-view`, no selection bar,
+no run foot, chip or ‹, the Runs select home in the head and drawn, the
+runs' sheet shut and empty.
 
 `smoke-offline.json` uses a fresh FLUX.1 Krea [dev] fake on 7958: the
 page at 127.0.0.1 registers `sw.js`, which controls the next load; with
