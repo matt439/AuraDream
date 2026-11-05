@@ -7863,8 +7863,9 @@ PC's question (under 480 px wide, off the window's foot, small buttons),
 Saved setups' inset box with an unstuck action row, and the right-click
 menu placed at the pointer with its PC rows.
 
-`smoke-phone-gallery.json` uses a fresh FLUX.1 Krea [dev] fake on 7961
-with touch at 393x852@3, `"mobile": true`. On the empty gallery its
+`smoke-phone-gallery.json` uses a fresh FLUX.1 Krea [dev] fake of its own
+on 7960, a row beside `smoke-phone-dialogs`'s (the table's ports are full
+at `--jobs`' 100-port span), with touch at 393x852@3, `"mobile": true`. On the empty gallery its
 Examples press brings the Create view (Create's tab selected) with the
 panel's menu open, inside the window and holding the focus. Then, with
 three images and a refine pass of the first planted: a card tapped in
