@@ -57,6 +57,17 @@
   {"expect": "__until(() => !els.lightbox.open && backDepth === 0 && !backGoing)"},
   {"expect": "window.__stay === true && Math.abs(scrollY - __y) < 1 && !history.state?.auradreamLayer"},
 
+  {"log": "'A long press on the tablet keeps its menu, Select after Open: Select on with that card picked'"},
+  {"eval": "{ const c = document.querySelectorAll('#gallery .card[data-id]')[1]; c.id = 'smoke-tab-card'; c.scrollIntoView({block: 'center'}); } true"},
+  {"press": "#smoke-tab-card img"},
+  {"expect": "__until(() => !els.contextMenu.hidden && !backGoing)", "fatal": true},
+  {"expect": "(() => { const rows = [...els.contextMenu.querySelectorAll('[role=\"menuitem\"]')]; rows[1].id = 'smoke-tab-select'; return rows[0].textContent === 'Open' && rows[1].textContent === 'Select'; })()", "fatal": true},
+  {"tap": "#smoke-tab-select"},
+  {"expect": "__until(() => selectMode && els.contextMenu.hidden && selection.size === 1 && selection.has(+$('smoke-tab-card').dataset.id) && !backGoing)", "fatal": true},
+  {"eval": "setSelectMode(false); clearSelection(); true"},
+  {"expect": "__until(() => !selectMode && selection.size === 0 && backDepth === 0 && !backGoing)", "fatal": true},
+  {"wait": 300},
+
   {"log": "'A tapped card keeps no caption on the tablet too (a tap leaves :hover and :focus-within); the keyboard focus still shows it'"},
   {"eval": "document.getElementById('btn-select').scrollIntoView({block: 'center'});"},
   {"tap": "#btn-select"},

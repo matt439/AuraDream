@@ -366,6 +366,9 @@
   body[data-selecting] main { padding-bottom: calc(var(--select-bar-h) + var(--safe-b) + var(--gutter)); }
   html:has(> body[data-selecting]) { scroll-padding-bottom: calc(var(--select-bar-h) + var(--safe-b) + var(--sp-2)); }
   body[data-selecting] #btn-gallery-top { bottom: calc(var(--select-bar-h) + var(--safe-b) + var(--gutter)); }
+  /* The picks' count is the bar's while it shows: ⋯'s badge says it only
+     when the bar is down or stepped aside. */
+  body[data-selecting]:not([data-typing]) #gallery-more-count { display: none; }
   .phone-select-bar:not([hidden]) {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 25;
     display: flex; flex-direction: column; gap: var(--sp-1);

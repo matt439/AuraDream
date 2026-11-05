@@ -64,11 +64,27 @@ function syncPhoneSelectBar() {
     else for (const node of selectBarGalleryActs()) phoneMove(node, acts, $('select-bin'));
     syncSelectBarButtons();
   }
-  // The line with it: up, at its top; down, where it was, or what it said
-  // there goes with the bar.
+  // The line with it: up, at its top; down, back under the head with what
+  // it says - an outcome, or the bin's Restore, outlives Select (Done, Back)
+  // as on the PC. Only a held press's reason in the bar goes with the bar.
   const inBar = els.galleryError.parentNode === bar;
   placeGalleryLine();
-  if (inBar && !up && !els.galleryError.hidden) showError('', false, { slot: els.galleryError, mirror: false });
+  if (inBar && !up && !els.galleryError.hidden && els.galleryError.textContent === selectBarHeldSaid) {
+    showError('', false, { slot: els.galleryError, mirror: false });
+  }
+  if (!up) selectBarHeldSaid = null;
+}
+
+// What a held press in the bar said in the line, so that only it goes when
+// the bar does. Read on the window, after the press's own handlers (the
+// button's, the document's) have written it.
+let selectBarHeldSaid = null;
+function noteSelectBarHeld(e) {
+  const bar = $('phone-select-bar');
+  if (bar.hidden || !(e.target instanceof Element) || !bar.contains(e.target)) return;
+  const control = e.target.closest('button');
+  if (control?.getAttribute('aria-disabled') !== 'true') return;
+  if (els.galleryError.parentNode === bar && !els.galleryError.hidden) selectBarHeldSaid = els.galleryError.textContent;
 }
 
 // A node back in its place in ⋯'s sheet (phone-gallery.js, galleryMorePlaces):
@@ -126,6 +142,7 @@ function initPhoneSelect() {
     });
   }
   $('select-more').addEventListener('click', () => openGallerySheet($('gallery-more-sheet')));
+  window.addEventListener('click', noteSelectBarHeld);
   // The Picked items' holds and titles as the page's own code changes them
   // (a star's write pending, the picks changing), and the stars they read.
   const watch = new MutationObserver(queueSelectBarSync);

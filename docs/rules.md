@@ -7419,7 +7419,13 @@ measured on the card and when.
   hidden for being held: a held press says why in the gallery's line,
   moved to 8 px over the bar while it is up (`placeGalleryLine`), and a
   touch screen's reasons say "Tap images to pick them" inside Select
-  (`pickCardsWords`, `pickedNone`). Back leaves Select as Done does: the
+  (`pickCardsWords`, `pickedNone`). As the bar goes the line goes home
+  under the head with what it says - an outcome, or the bin's "Moved … to
+  the recycle bin." and its Restore, outlives Select as on the PC; only a
+  held press's reason said in the bar (`selectBarHeldSaid`) goes with it.
+  While the bar is up ⋯'s badge is not drawn (the bar has the count); the
+  head's Select stays where it was pressed, a pressed toggle, rather than
+  hiding or changing its word under the finger. Back leaves Select as Done does: the
   bar holds a history entry (`touch.js`'s layers, under every overlay
   opened from it), so a dialog from the bar comes off first. With Select
   on, a card's ring is at its foot's right corner, 28 px (a bin card's at
@@ -8763,7 +8769,8 @@ but the PC's tiers and ticks (the chosen size and Run grid the accent's
 solid fill, Reset not red, Notify's tick 20 px); a tapped Generate's result in the stage
 beside the panel with no New
 image pill fixed over the page; a card's lightbox closed by Back with the
-page still loaded at its scroll; at 1180x820 the PC's two columns at finger
+page still loaded at its scroll; a long press on a card keeping its menu,
+Open then Select, whose press turns Select on with that card picked; at 1180x820 the PC's two columns at finger
 sizes; at 678x1180 (Split View) the phone with its tab bar, the phone audit
 finding no overflow, nothing off the screen sideways and no dialog outside
 (its under-44 px count logged); the pane dragged 678 -> 820 -> 678, the
@@ -8905,19 +8912,28 @@ unstarred card's star not drawn and taking no press. A held Star pressed
 says "Tap images to pick them first." in the gallery's line, moved into
 the bar and drawn over it, which a tap puts away. A tap picks the first
 card (the lightbox not opened; the count, Clear, a free Star and Swap
-tags…, ⋯'s badge 1); Star stars it, saying so, and becomes Unstar. Swap
+tags…, ⋯'s badge 1 and not drawn); Star stars it, saying so, and becomes
+Unstar. With Select on and the pick, a mouse at 1400x900 takes the bar
+down (no `data-selecting`) with Select and the pick kept and the count,
+Clear, Refine…, More seeds…, Swap tags…, the bin's two and the line each
+next to its `phoneHomes` mark; the phone again puts the bar up with them
+in it and its one entry. Swap
 tags… opens its dialog from the bar over it (two entries), Escape back to
 Select; More opens ⋯ (two entries) with Picked, the scope "On the
 selected image" and Re-render in it and neither Swap tags… nor the count;
 Back (`history.back()`) leaves Select with the pick kept, the bar gone
 and the tab bar back, no entry left, Swap tags… after Re-render in ⋯
-again, the count and Clear first in its picks group, the line home. A
+again, the count and Clear first in its picks group, the line home, ⋯'s badge drawn. A
 long press on the second card keeps its menu, Open then Select, whose
 press turns Select on with that card picked too (one entry, the menu
 shut); Select all adds the two other loaded cards ("Added 2 loaded
 images; 4 images selected"); Clear empties the picks with Select all
 unmoved; the starred card picked again shows Unstar, which unstars it;
 Done leaves Select (no entry left, ⋯'s badge gone, the focus off Done).
+Select again with two cards picked, the bar's Bin moves them ("Moved …"
+and a Restore in the line in the bar); Done leaves Select with the line
+kept, home under the head, its Restore inside the screen, whose press
+brings the four cards back.
 Then: a card tapped in
 Select mode, `:hover` or `:focus-within` on it, shows no caption
 (`.tools::before`) and no tools, nor, Select off, with a Tab's keyboard
@@ -8941,7 +8957,8 @@ head is still one line with the placeholder whole in the box and the
 first card within 200 px, the audit clean on the Gallery view and in ⋯;
 the cards three across, and with a card picked in Select the bar whole -
 its head on one line inside the screen, the count not cut, six actions
-inside the screen - and the audit clean; Done leaves it.
+inside the screen - and the audit clean; a held Star's reason in the
+bar goes with it as Done leaves it.
 On its side (852x393) the head is one line and the first card within
 140 px; the cards six across; Select's bar one row at most 64 px tall at
 the screen's foot, its six actions 44 px after Select all, `viewBand`
