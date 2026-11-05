@@ -13,6 +13,9 @@
 /* The selection bar is the phone's alone (phone-select.js), as are the
    bin's ‹, the run chip and a run sheet's foot (phone-runs.js). */
 .phone-select-bar, .bin-back, .phone-run-chip, .sheet-foot { display: none; }
+/* So are the place hung under the head and an empty gallery's screen
+   (phone-gallery.js; below). */
+.gallery-place { display: none; }
 
 @media (pointer: coarse) and ((width < 700px) or (max-height: 500px)) {
   /* The row: sticky under the topbar (at the screen's top on its side,
@@ -669,5 +672,67 @@
   .sheet:not(.wrapped) .sheet-scroll { max-height: var(--sheet-band); }
   .sheet:not(.wrapped) .sheet-grid {
     --cell-max: calc(((var(--sheet-band) - var(--sheet-head, 0px)) / var(--sheet-rows, 1) - 6px) * var(--sheet-ar, 1));
+  }
+}
+
+@media (pointer: coarse) and ((width < 700px) or (max-height: 500px)) {
+  /* ------------------------------------------------- where the page is */
+
+  /* Where the cards under the head are (syncGalleryPlace): a 32 px pill
+     hung 8 px under the sticky head, across its middle, while the page
+     scrolls - the top card's day and its place, "Yesterday · 52 of 160" -
+     fading a moment after it stops. A picture over the cards: a press goes
+     through it to the card or the star under it, and nothing moves. */
+  .gallery-place {
+    position: absolute; top: calc(100% + var(--sp-2)); left: 50%; translate: -50% 0;
+    display: block; max-width: calc(100% - 2 * var(--gutter)); height: 32px; padding: 0 var(--sp-3);
+    overflow: hidden; border-radius: 16px; background: var(--panel-2); box-shadow: var(--shadow-pop);
+    color: var(--text); font-size: var(--fs-sm); font-weight: 600; line-height: 32px;
+    white-space: nowrap; text-overflow: ellipsis; font-variant-numeric: tabular-nums;
+    pointer-events: none; opacity: 0; transition: opacity 0.2s;
+  }
+  .gallery-place[data-on] { opacity: 1; }
+  @media (prefers-reduced-motion: reduce) { .gallery-place { transition: none; } }
+
+  /* Back to the top: a 44 px round ↑ at the screen's foot on the left, over
+     the bars, where it was a 54x36 pill at the right over the right-hand
+     cards' corner. The left 44 px of a card is never its star (the star
+     is the card's top right, and a card is 93 px across at 320 px), so the
+     button lies over no star whichever row passes under it. Its words
+     stay its name. */
+  #btn-gallery-top {
+    left: max(var(--gutter), var(--safe-l)); right: auto;
+    width: var(--h-md); min-width: var(--h-md); height: var(--h-md); padding: 0;
+    border: 1px solid var(--line-strong); border-radius: 50%; font-size: 0;
+  }
+  #btn-gallery-top::before { content: "↑" / ""; font-size: 22px; font-weight: 700; line-height: 1; }
+
+  /* ------------------------------------------------- an empty gallery */
+
+  /* A first visit with nothing made (phoneGalleryStart): a screen under
+     the head, not a line with a button in its middle - the Create glyph in
+     a tonal disc, "No images yet" and what fills it, Create an image the
+     one solid button, the authors' examples and All models quieter under
+     it, each a full 44 px row at most 320 px across. */
+  #gallery-empty[data-start] {
+    display: flex; flex-direction: column; align-items: center; gap: var(--sp-3);
+    max-width: 320px; margin: 0 auto; padding: clamp(var(--sp-6), 10vh, 96px) 0 var(--sp-6);
+    text-align: center; color: var(--text-2);
+  }
+  .gallery-start-glyph {
+    display: grid; place-items: center; width: 72px; height: 72px; margin-bottom: var(--sp-1);
+    border-radius: 50%; background: var(--accent-soft); color: var(--accent-2);
+  }
+  .gallery-start-glyph > svg { width: 32px; height: 32px; fill: currentColor; }
+  .gallery-start-title { font-size: var(--fs-xl); font-weight: 700; line-height: var(--lh-tight); color: var(--text); }
+  .gallery-start-note { margin-bottom: var(--sp-3); font-size: var(--fs-body-sm); }
+  #gallery-empty[data-start] > button { width: 100%; margin: 0; }
+  #gallery-empty[data-start] > .gallery-start-create { min-height: 50px; font-size: var(--fs-md); }
+  .gallery-start-others { margin-top: var(--sp-3); font-size: var(--fs-body-sm); }
+  /* On its side the screen is 393 px tall: no disc, and the words and
+     Create an image start 16 px under the head, above the tab bar. */
+  @media (max-height: 500px) {
+    #gallery-empty[data-start] { padding-top: var(--sp-4); }
+    .gallery-start-glyph { display: none; }
   }
 }

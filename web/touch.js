@@ -82,6 +82,15 @@ function setPhoneView(view, { remember = true } = {}) {
   if (changed) queuePhoneGallerySync();
 }
 
+// A press of the tab already chosen: its view back at its top, as a phone's
+// own apps have it - the Gallery's newest cards, Create's prompt. The
+// user's press, so the page's one scroll of its own a tab makes; smooth
+// unless the system asks for less motion. The focus stays on the tab.
+function phoneViewToTop() {
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  scrollTo({ top: 0, behavior: reduce ? 'instant' : 'smooth' });
+}
+
 // A refusal of Generate's press (pressGenerate), on the phone: the panel's
 // line, under Generate's own place in the panel, was a screen below the
 // button riding on the tab bar, and the press seemed to do nothing. The
@@ -317,7 +326,9 @@ function initTouchLayout() {
   const tabs = $('phone-tabs');
   tabs.addEventListener('click', (e) => {
     const tab = e.target.closest('[data-view]');
-    if (tab) setPhoneView(tab.dataset.view);
+    if (!tab) return;
+    if (tab.dataset.view === phoneView && isPhone()) phoneViewToTop();
+    else setPhoneView(tab.dataset.view);
   });
   // The tabs pattern's keys: the arrows move between the two and select.
   tabs.addEventListener('keydown', (e) => {

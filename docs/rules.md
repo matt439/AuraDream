@@ -4999,7 +4999,8 @@ measured on the card and when.
   only for a viewer holding something. A gallery with nothing to show says
   so under its head (`syncGalleryEmpty`, `#gallery-empty`: what fills it and
   the authors' Examples, or that nothing matches the filter, and what All
-  models would add), never over tombstones or in sheet mode. A search that
+  models would add), never over tombstones or in sheet mode; on a phone
+  the first visit is a screen of its own ("Phones and tablets"). A search that
   finds nothing, in the gallery or the bin, names each `word:value` whose
   word is nearest to exactly one of `SEARCH_KEYS` (two edits at most, a
   transposition one, fewer than the key's letters; a tie says nothing) with a "Search seed:42"
@@ -6623,6 +6624,10 @@ measured on the card and when.
   key scroll from it moved focus into a field off screen). It is not hidden
   for the gallery being hidden - it is hidden with `#library` - so a check
   made under the prompt check or the model picker holds once they close.
+  On a phone, whose head is sticky and never above the view, it is
+  offered three screens down the page (`scrollY` past three window
+  heights) and its press takes the page to 0; there it is a 44 px round ↑
+  at the screen's foot on the left over the bars ("Phones and tablets").
   Beside the viewer a wheel over it scrolls the column (`galleryTopWheel`),
   not the page.
 - Phones and tablets (`styles/touch.css`, `styles/phone.css` and
@@ -6817,9 +6822,13 @@ measured on the card and when.
   (`.library`), the other not drawn; each view keeps its own scroll, the
   choice is kept for the tab in `sessionStorage`, and only a press - the
   tab's, Reuse (`revealReused` calls `showCreateView`), or the empty
-  gallery's Examples (`viewerExamples` calls it before opening the panel's
-  menu, which the Gallery view does not draw) - switches it, never a job
-  starting or ending. The bar is opaque (`--panel`, no blur: at 94% the
+  gallery's Create an image or its example (`viewerExamples` calls it
+  before opening the panel's menu, which the Gallery view does not draw) -
+  switches it, never a job starting or ending. A press of the tab already
+  chosen takes its view to its top (`phoneViewToTop`, the review's P24):
+  the Gallery's newest cards, Create's prompt, smooth unless reduced
+  motion is asked for, the focus left on the tab and no history entry -
+  the user's own press, so the one scroll of the page's own a tab makes. The bar is opaque (`--panel`, no blur: at 94% the
   presets read through it on its side); each tab's 24 px glyph sits in a
   56x28 pill (`.tab-pill`), the chosen tab's filled with the accent mixed
   into the bar and its words in the text's colour, the other's clear and
@@ -7387,6 +7396,42 @@ measured on the card and when.
   with it, and what the action says after it is the gallery's line's. Off
   the phone nothing of this is drawn: the PC's and the tablet's head and
   footer are as they were.
+  Where the page is (the review's P28; `syncGalleryPlace` in
+  `phone-gallery.js`): an endless page of cards three across said nothing
+  of how far down it a finger had come, the day's lines scrolling away. A
+  32 px pill (`#gallery-place`, in the head, absolute 8 px under it across
+  its middle) says the top card's day and its place in what the filter
+  matches - "Yesterday · 52 of 160" (Today, Yesterday, else a short
+  weekday and date; in the bin its place alone, its cards' days not when
+  they were binned) - while the page scrolls (a scroll listener, one
+  read a frame, the top child found by halving the grid's children), and
+  goes 1.5 s after the scroll stops, at once while the head covers no
+  card, in a run's sheet and off the phone. It is a picture over the
+  cards, not a control: `aria-hidden` (the day's lines are the headings a
+  screen reader lists), `pointer-events: none` so a press goes to the card
+  or star under it, faded by opacity (no transition under reduced
+  motion), so nothing moves and nothing scrolls. Sticky day lines were the
+  finding's first fix and were not taken: in one grid every stuck line
+  stays stuck to its end, so they pile at one place, a longer one's tail
+  showing past a shorter one's, or an opaque band across the cards' stars.
+  Back to top (`#btn-gallery-top`, above) is a 44 px round ↑ at the
+  screen's foot on the left over the bars (its words its name), where it
+  was a 54x36 pill at the right over the right-hand cards' corner: a
+  card's star is its top right, and its left 44 px is never under one (a
+  card is 93 px across at 320 px), so whichever row passes under the
+  button, no star does. The empty gallery's first visit (no search, no
+  Starred, outside the bin; `phoneGalleryStart`, `#gallery-empty[data-start]`)
+  is a screen under the head rather than the PC's line with a button in
+  its middle: the Create glyph in a 72 px tonal disc, "No images yet" and
+  what fills it, Create an image the one solid button (50 px; the Create
+  view, the prompt given the focus), then Start from an example (the
+  first run's Examples) and, while All models is off, how many images are
+  on other checkpoints with Show all models, which ticks it - each full
+  width up to 320 px, 44 px at least; on its side no disc and 16 px under
+  the head, so Create an image is above the tab bar. A change of tier
+  writes the empty words again (`syncPhoneGallery`), so the PC has its
+  line back. A search or Starred that matched nothing and the bin keep
+  their lines.
   The phone's cards (the review's P19; `styles/phone-gallery.css`) are
   three across upright and six on their side, each filling its cell, 4 px
   apart (`--thumb-min` a third of the row less its gaps, a hair under,
@@ -8581,9 +8626,12 @@ not drawn, but not the gallery, and the bar at the window's foot,
 foot while the prompt has the focus, both bars then not drawn and the
 topbar `relative` and gone from the window once scrolled (`viewBand` from
 0; the prompt dragged 900 px tall by its grip first, since the Create view
-is about a screen tall now), all back on blur, and the prompt typed then back after the reload;
+is about a screen tall now), all back on blur; before that, a press of
+Create, the tab already chosen, at the page's foot puts the page at 0,
+the focus on the tab, the view and the history as they were; and the prompt typed then back after the reload;
 Gallery the reverse, no action bar and the band to the tab bar,
-two cards across, Back to top above the bar, each view's own scroll
+two cards across, Back to top above the bar (a 44 px round button 16 px
+from the left), each view's own scroll
 (Create's 300 px) and the view kept through a reload; in the lightbox no arrows or key legend,
 a swipe left and right stepping, a swipe down closing, a pinch zooming
 past 1.5, a swipe while zoomed panning without stepping, and a double tap
@@ -8948,9 +8996,18 @@ menu placed at the pointer with its PC rows.
 
 `smoke-phone-gallery.json` uses a fresh FLUX.1 Krea [dev] fake of its own
 on 7960, a row beside `smoke-phone-dialogs`'s (the table's ports are full
-at `--jobs`' 100-port span), with touch at 393x852@3, `"mobile": true`. On the empty gallery its
-Examples press brings the Create view (Create's tab selected) with the
-panel's menu open, inside the window and holding the focus. Then, with
+at `--jobs`' 100-port span), with touch at 393x852@3, `"mobile": true`. The empty
+gallery is its screen (`data-start`): "No images yet", Create an image
+(`.primary`), Start from an example and Show all models (`.ghost`) in that
+order, each 44 px at least, inside the screen's width and above the tab
+bar, "2 images on other checkpoints.", the block across the middle, the
+audit and `__phoneText` clean; the same at 360x780, and on its side
+(852x393) with no disc and Create an image above the tab bar. Show all
+models ticks All models (the two planted images instead), and unticked
+the screen is back; Create an image brings the Create view, Create's
+tab selected, the prompt holding the focus; Start from an example
+brings the Create view (Create's tab selected) with the panel's menu
+open, inside the window and holding the focus. Then, with
 three images and a refine pass of the first planted: the gallery head
 one sticky row on the topbar (the search, Filters, Select and ⋯ on one
 line, 44 px, the row at most 64 px, the title not drawn, the placeholder
@@ -9092,7 +9149,20 @@ the search's help (not Starred, All models, Runs or Sheet), ⋯ titled
 "Bin actions" ("Gallery actions" again once out); Select with a card picked: Restore picked and
 Delete picked permanently in the bar, 44 px, the latter in `--danger`,
 whose press asks (the confirm, a third entry), Escape keeping both;
-Back leaves Select, then the bin (six cards, no entry). A mouse at
+Back leaves Select, then the bin (six cards, no entry). Forty images
+more and Large cards (a page of more than four screens): at the top no
+place pill and no Back to top; 1200 px down `#gallery-place` on, opaque,
+"Today · N of 46" where N is the top card's place in `galleryRecords`,
+`aria-hidden`, `pointer-events: none` (the point at its middle hits what
+is under it), 32 px tall, within 9 px under the head and across its
+middle, 13 px at least, and off within 4 s of the scroll's end, Back to
+top still hidden; three screens and 200 px down Back to top shown, 44 px
+round, 16 px from the left, over the tab bar, its middle its own, over no
+card's star, the Gallery view audited clean, and its press putting the
+page at 0 with the focus on the first card's picture; there again, a
+press of Gallery (the tab already chosen) puts the page at 0, the focus
+on the tab, no history entry; at 360x780 and on its side (852x393) Back
+to top over no star, inside the screen over the tab bar. A mouse at
 800x900 then has the PC's narrow lightbox: stacked,
 Inpaint… and More seeds… not drawn, 0.97 over a clear backdrop, the
 actions unwrapped and Compare with source's S drawn, and the grid's gap

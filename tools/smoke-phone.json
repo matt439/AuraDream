@@ -143,6 +143,11 @@
   {"expect": "(() => { const b = viewBand(); return Math.abs(b.top - __box(document.querySelector('.topbar')).bottom) < 1 && Math.abs(b.bottom - __barTop()) < 1 && parseFloat(getComputedStyle(document.body).getPropertyValue('--phone-bottom-chrome')) === __box(document.getElementById('phone-tabs')).height + __box(document.getElementById('phone-actions')).height; })()"},
   {"expect": "!!els.viewer.querySelector(':scope > .placeholder:not(.held)') && !isShown(els.viewer) && !isShown(document.getElementById('phone-results'))"},
 
+  {"log": "'A press of Create, the tab already chosen, takes the view to its top (the user\\'s own press; at once under reduced motion), the focus on the tab, the view still Create, no history entry'"},
+  {"expect": "(() => { els.prompt.style.height = '900px'; scrollTo(0, document.documentElement.scrollHeight); return scrollY > 300; })()"},
+  {"tap": "#tab-create"},
+  {"expect": "__until(() => scrollY === 0 && document.body.dataset.view === 'create' && document.activeElement.id === 'tab-create' && document.getElementById('tab-create').getAttribute('aria-selected') === 'true' && backDepth === 0)"},
+
   {"log": "'Typing: while a box has the keyboard the tab bar and the action bar go and the topbar scrolls away with the page; all come back with the focus'"},
   {"log": "'(The prompt dragged tall by its grip, so the page, short now with More options, has a topbar to scroll away)'"},
   {"eval": "els.prompt.style.height = '900px'; els.prompt.scrollIntoView({block: 'start'});"},
@@ -167,7 +172,7 @@
   {"log": "(() => { const r = __phoneAudit(); return {small: r.small, offside: r.offside, dialogs: r.dialogs}; })()"},
   {"expect": "__phoneText().small.length === 0 && getComputedStyle(document.querySelector('.gallery-head h2')).fontSize === '18px'"},
   {"expect": "(() => { const c = document.querySelector('#gallery .card[data-id]'), star = __box(c.querySelector('.fav-badge')), card = __box(c); return !isShown(c.querySelector('.tools')) && c.querySelectorAll('.tools button').length === 6 && star.width >= 44 && star.height >= 44 && Math.abs(star.right - card.right) < 2 && Math.abs(star.top - card.top) < 2; })()"},
-  {"expect": "(() => { els.galleryTop.hidden = false; const ok = __box(els.galleryTop).bottom <= __tabTop(); els.galleryTop.hidden = true; return ok; })()"},
+  {"expect": "(() => { els.galleryTop.hidden = false; const b = __box(els.galleryTop), ok = b.bottom <= __tabTop() && b.width >= 44 - 0.5 && b.height >= 44 - 0.5 && Math.abs(b.left - 16) < 1 && getComputedStyle(els.galleryTop).borderRadius === '50%'; els.galleryTop.hidden = true; return ok; })()"},
   {"tap": "#tab-create"},
   {"expect": "document.body.dataset.view === 'create' && __createY === 300 && Math.abs(scrollY - __createY) < 1"},
   {"tap": "#tab-gallery"},

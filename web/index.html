@@ -917,6 +917,11 @@
                 d="M15.4 4.6 8 12l7.4 7.4-1.4 1.4L5.2 12l8.8-8.8z"/></svg></button>
         <!-- "Recycle bin" while the bin is shown in the gallery's place (bin.js). -->
         <h2><span id="gallery-title">Gallery</span> <span id="gallery-count"></span></h2>
+        <!-- On a phone, where the cards under the head are, hung under it
+             while the page scrolls ("Yesterday · 52 of 160"; phone-gallery.js,
+             syncGalleryPlace); drawn nowhere else. A picture of the day's
+             lines and the count, so not read out. -->
+        <span class="gallery-place" id="gallery-place" aria-hidden="true"></span>
         <!-- How the cards are drawn, from 1800 px, where the grid has the
              width to choose and the head the room (gallery.js, cardView):
              smaller cards, more to a row; the whole picture or the card

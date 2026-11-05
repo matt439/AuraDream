@@ -12,7 +12,9 @@
 // size on the phone is this file's too (phoneCardSize), and the recycle bin
 // as a screen of its own: its name under a ‹ back, only its own rows in the
 // sheets, Back leaving it (touch.js). The runs - Filters' Runs row, their
-// sheet, the run chip and a run sheet's foot - are phone-runs.js's.
+// sheet, the run chip and a run sheet's foot - are phone-runs.js's. And the
+// empty gallery's first visit as a screen (phoneGalleryStart) and the place
+// hung under the head while the page scrolls (syncGalleryPlace).
 // Declarations only;
 // phone.js calls initPhoneGallery from initPhone and syncPhoneGallery from
 // syncPhoneHosts.
@@ -66,8 +68,121 @@ function syncPhoneGallery() {
     $('btn-bin-back').hidden = true;
     // The runs' rows, chip and foot put away (phone-runs.js).
     syncPhoneRuns();
+    delete $('gallery-place').dataset.on;
   }
   syncPhoneGalleryHead();
+  // An empty gallery's words are the tier's: a phone's screen, a PC's line.
+  if (!els.galleryEmpty.hidden) syncGalleryEmpty();
+}
+
+// The empty gallery's first visit on a phone (syncGalleryEmpty), a screen
+// of its own under the head rather than a line with a button in its middle:
+// what the gallery is, Create an image its one solid button - the Create
+// view, the prompt given the focus - then the authors' examples (the first
+// run's own Examples, viewerExamples) and, while the All models tick is off,
+// the images on other checkpoints with a button that ticks it. A search or
+// Starred that matched nothing, and the bin, keep their lines.
+function phoneGalleryStart(elsewhere) {
+  const box = els.galleryEmpty;
+  box.dataset.start = '';
+  const piece = (tag, className, text) => {
+    const el = document.createElement(tag);
+    el.className = className;
+    el.textContent = text;
+    return el;
+  };
+  const press = (className, text, title, onPress) => {
+    const button = piece('button', className, text);
+    button.type = 'button';
+    button.title = title;
+    button.addEventListener('click', onPress);
+    return button;
+  };
+  const glyph = document.createElement('span');
+  glyph.className = 'gallery-start-glyph';
+  glyph.setAttribute('aria-hidden', 'true');
+  glyph.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 2.5l2.2 6.3 6.3 2.2-6.3 2.2L12 19.5l-2.2-6.3L3.5 11l6.3-2.2z"/></svg>';
+  const nodes = [
+    glyph,
+    piece('span', 'gallery-start-title', 'No images yet'),
+    piece('span', 'gallery-start-note', 'What you make is kept here, newest first.'),
+    press('primary gallery-start-create', 'Create an image', 'Write a prompt on Create', () => {
+      showCreateView();
+      els.prompt.focus();
+    }),
+    press('ghost gallery-start-examples', 'Start from an example', 'Example prompts for this checkpoint, from its authors', viewerExamples),
+  ];
+  if (elsewhere) {
+    nodes.push(
+      piece('span', 'gallery-start-others', `${plural(elsewhere, 'image')} on other checkpoints.`),
+      press('ghost gallery-start-all', 'Show all models', "Tick All models: every checkpoint's images", () => {
+        if (!els.allModels.checked) els.allModels.click();
+      }),
+    );
+  }
+  box.replaceChildren(...nodes);
+}
+
+// Where in the gallery the cards under the head are (P28), on a phone: an
+// endless page of pictures three across said nothing of how far down it a
+// finger had come, the day's lines scrolling away with the cards. Hung under
+// the sticky head while the page scrolls - the day of the top card ("Today",
+// "Yesterday", "Thu 5 Nov") and its place in what the filter matches ("52
+// of 160"; the bin's place only, its cards' days not when they were binned)
+// - and gone a moment after it stops. A picture over the cards, which a
+// press goes through (styles/phone-gallery.css): nothing moves, nothing
+// scrolls. Not over the top of the page, nor a run's sheet.
+let galleryPlaceFrame = 0;
+let galleryPlaceTimer = 0;
+
+function queueGalleryPlace() {
+  if (galleryPlaceFrame || !isPhone()) return;
+  galleryPlaceFrame = requestAnimationFrame(() => { galleryPlaceFrame = 0; syncGalleryPlace(); });
+}
+
+// The first of the grid's children still in sight under `line`: the grid's
+// rows run down the page in the children's order, so a halving search.
+function galleryChildAt(line) {
+  const kids = els.gallery.children;
+  let lo = 0;
+  let hi = kids.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (kids[mid].getBoundingClientRect().bottom > line) hi = mid;
+    else lo = mid + 1;
+  }
+  return kids[lo] ?? null;
+}
+
+function placeDay(made) {
+  const day = new Date(made);
+  const now = new Date();
+  if (day.toDateString() === now.toDateString()) return 'Today';
+  if (day.toDateString() === new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1).toDateString()) return 'Yesterday';
+  return day.toLocaleDateString([], {
+    weekday: 'short', day: 'numeric', month: 'short',
+    ...(day.getFullYear() === now.getFullYear() ? {} : { year: 'numeric' }),
+  });
+}
+
+function syncGalleryPlace() {
+  const label = $('gallery-place');
+  const line = els.search.closest('.gallery-head').getBoundingClientRect().bottom;
+  const first = els.gallery.firstElementChild;
+  let at = isPhone() && phoneView === 'gallery' && !sheetMode && isShown(els.gallery)
+    && first && first.getBoundingClientRect().top < line - 1 ? galleryChildAt(line) : null;
+  while (at && !at.matches('.card[data-id]')) at = at.nextElementSibling;
+  const index = at ? galleryRecords.findIndex((rec) => String(rec.id) === at.dataset.id) : -1;
+  clearTimeout(galleryPlaceTimer);
+  if (index < 0) {
+    delete label.dataset.on;
+    return;
+  }
+  const place = `${index + 1} of ${Math.max(total, galleryRecords.length)}`;
+  const words = binMode || !at.dataset.made ? place : `${placeDay(at.dataset.made)} · ${place}`;
+  if (label.textContent !== words) label.textContent = words;
+  label.dataset.on = '';
+  galleryPlaceTimer = setTimeout(() => { delete label.dataset.on; }, 1500);
 }
 
 // The gallery's sheets on the phone: Filters, ⋯ and the runs'.
@@ -394,4 +509,5 @@ function initPhoneGallery() {
   }
   for (const el of [els.favOnly, els.allModels, els.binAge]) el.addEventListener('change', queuePhoneGallerySync);
   onSelectionChange(queuePhoneGallerySync);
+  addEventListener('scroll', queueGalleryPlace, { passive: true });
 }
