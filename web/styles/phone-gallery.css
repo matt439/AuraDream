@@ -10,6 +10,8 @@
    query, so a PC, a tablet and every smoke written with a mouse see none
    of it. */
 .gallery-filters, .gallery-more { display: none; }
+/* The selection bar is the phone's alone (phone-select.js). */
+.phone-select-bar { display: none; }
 
 @media (pointer: coarse) and ((width < 700px) or (max-height: 500px)) {
   /* The row: sticky under the topbar (at the screen's top on its side,
@@ -88,7 +90,7 @@
     left: max(var(--gutter), var(--safe-l)); right: max(var(--gutter), var(--safe-r));
     display: block; min-height: 0; margin: 0; pointer-events: none;
   }
-  .gallery-footer > #gallery-error:not([hidden]) {
+  :is(.gallery-footer, .phone-select-bar) > #gallery-error:not([hidden]) {
     pointer-events: auto; cursor: pointer; margin: 0; padding: 0 calc(var(--sp-3) + 1.25em) 0 var(--sp-3);
     /* Its 8 px above and below are transparent border, not padding: the
        clamp's third line is clipped at the padding box, and a padding
@@ -101,7 +103,7 @@
   }
   /* It lies over the first cards' stars until a tap puts it away: a ✕ says
      so (the whole line is the press; the mark is drawn, not read). */
-  .gallery-footer > #gallery-error:not([hidden])::after {
+  :is(.gallery-footer, .phone-select-bar) > #gallery-error:not([hidden])::after {
     content: '✕' / ''; position: absolute; top: 0; right: var(--sp-3); color: var(--text-3);
   }
 
@@ -291,4 +293,166 @@
     font-size: var(--fs-body-sm); line-height: 1.55; color: var(--text-2); pointer-events: auto;
   }
   #search-help-fold > .help .tip b { color: var(--text); font-weight: 600; }
+
+  /* ---------------------------------------------------- the cards' size */
+
+  /* The cards: three across the screen upright, six on its side - two and
+     four at Large (phoneCardSize, phone-gallery.js, in ⋯'s sheet) - each
+     filling its cell, 4 px apart, where two 160 px columns left a third of
+     the screen to their gaps and letterboxes. Each least width is a third
+     (a half) of the row less its gaps, a hair under, so the count never
+     drops one at 320 px; capped at 130 (200) px, so the row on its side
+     takes six (four). Fit stays the default (the whole picture: its
+     lettering and which way up it was); Crop, #card-view's pair moved
+     into ⋯, fills the cards. */
+  #gallery { gap: var(--sp-1); --thumb-min: min(130px, calc((100% - 9px) / 3)); }
+  #gallery[data-phone-size="l"] { --thumb-min: min(200px, calc((100% - 5px) / 2)); }
+  #gallery .card { border-radius: var(--r-sm); }
+  #gallery[data-fit="cover"] .card img { object-fit: cover; }
+
+  /* ⋯'s card rows: the size and Fit or Crop as two segmented pairs, each a
+     48 px row with its name; the chosen one tonal, as a chosen size is on
+     Create. A run's sheet over the cards leaves the group out. */
+  #gallery-more-view[hidden] { display: none; }
+  .gallery-more-view .view-row {
+    display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3);
+    min-height: 48px;
+  }
+  .gallery-more-view .view-pick { display: flex; flex: none; }
+  #gallery-more-view .view-pick button {
+    position: relative; min-width: 76px; min-height: var(--h-md); height: auto; margin: 0; padding: 0 var(--sp-4);
+    border: 1px solid var(--line-strong); border-radius: 0; background-color: var(--panel-2); box-shadow: none;
+    color: var(--text-2); font-size: var(--fs-md); font-weight: 600;
+  }
+  #gallery-more-view .view-pick button:first-child { border-radius: var(--r-md) 0 0 var(--r-md); }
+  #gallery-more-view .view-pick button:last-child { margin-left: -1px; border-radius: 0 var(--r-md) var(--r-md) 0; }
+  #gallery-more-view .view-pick button[aria-pressed="true"] {
+    z-index: 1; background-color: var(--accent-soft); border-color: var(--accent); color: var(--text);
+    box-shadow: inset 0 0 0 1px var(--accent);
+  }
+  #gallery-more-view .view-pick button:focus-visible { z-index: 2; outline: 2px solid var(--accent-2); outline-offset: 2px; }
+
+  /* ------------------------------------------------- the selection bar */
+
+  /* Select on: every card's ring at its foot's right corner, 28 px, where
+     nothing else is (the star has the top's corner, a pass's and a
+     reference's badges the left's); a tap anywhere on the card picks it -
+     the star is drawn only on a starred card and takes no press there, the
+     bar's Star doing that for the picks. */
+  #gallery.selecting .card:not(.gone)::after, #gallery .card.selected:not(.gone)::after {
+    top: auto; left: auto; right: var(--sp-2); bottom: var(--sp-2);
+    width: 28px; height: 28px; margin: 0; font-size: 16px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  }
+  /* A recycle bin card has no star, and its foot is Restore's and Delete
+     permanently's: its ring is at the top's right corner instead. */
+  #gallery.selecting .card.binned:not(.gone)::after, #gallery .card.binned.selected:not(.gone)::after {
+    top: var(--sp-2); bottom: auto;
+  }
+  #gallery.selecting .card .fav-badge { pointer-events: none; }
+  #gallery.selecting .card:not(.fav) .fav-badge { visibility: hidden; }
+
+  /* The bar, in the tab bar's place while Select is on in the Gallery
+     view (`body[data-selecting]`, phone-select.js): opaque on the bar's
+     colour, its 1 px top edge, the home indicator's inset under it. Done,
+     the count, Clear and Select all on a 44 px row; under it the picks'
+     actions, each a column of its glyph over its words. 117 px in all,
+     which the page's foot, its scroll padding and --phone-bottom-chrome
+     count in its place; it steps aside while a box has the keyboard, as
+     the tab bar does. */
+  :root { --select-bar-h: 117px; }
+  body[data-selecting] .phone-tabs, body[data-typing] .phone-select-bar { display: none; }
+  body[data-selecting]:not([data-typing]) { --phone-bottom-chrome: calc(var(--select-bar-h) + var(--safe-b)); }
+  body[data-selecting] main { padding-bottom: calc(var(--select-bar-h) + var(--safe-b) + var(--gutter)); }
+  html:has(> body[data-selecting]) { scroll-padding-bottom: calc(var(--select-bar-h) + var(--safe-b) + var(--sp-2)); }
+  body[data-selecting] #btn-gallery-top { bottom: calc(var(--select-bar-h) + var(--safe-b) + var(--gutter)); }
+  .phone-select-bar:not([hidden]) {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 25;
+    display: flex; flex-direction: column; gap: var(--sp-1);
+    height: calc(var(--select-bar-h) + var(--safe-b));
+    padding: var(--sp-1) max(var(--gutter), var(--safe-r)) calc(var(--safe-b) + var(--sp-1)) max(var(--gutter), var(--safe-l));
+    background: var(--panel); border-top: 1px solid var(--line);
+  }
+  .select-bar-head { display: flex; align-items: center; gap: var(--sp-2); flex: none; height: var(--h-md); min-width: 0; }
+  #select-done, #select-all, #phone-select-bar #btn-select-clear {
+    flex: none; min-width: var(--h-md); min-height: var(--h-md); height: var(--h-md); margin: 0; padding: 0 var(--sp-3);
+    border-radius: var(--r-md); font-size: var(--fs-md); font-weight: 600; line-height: 1;
+  }
+  /* Done, the way out, the accent's text with no edge, at the start;
+     Clear (shown while anything is picked) and Select all at the end,
+     Select all last, so Clear's coming and going moves nothing under a
+     finger. */
+  #select-done { margin-left: calc(-1 * var(--sp-3)); border: none; background-color: transparent; color: var(--accent-2); }
+  #phone-select-bar #btn-select-clear { border: none; background-color: transparent; color: var(--text-2); }
+  #select-all { border: 1px solid var(--line-strong); background-color: var(--panel-2); color: var(--text); }
+  :is(#select-done, #select-all, #phone-select-bar #btn-select-clear):focus-visible { outline: 2px solid var(--accent-2); outline-offset: -2px; }
+  #phone-select-bar .select-count {
+    flex: 1 1 0; min-width: 0; display: flex; overflow: hidden; white-space: nowrap;
+    color: var(--text); font-size: var(--fs-md); font-weight: 600; font-variant-numeric: tabular-nums;
+  }
+  .select-bar-acts {
+    display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: var(--sp-1);
+    flex: 1 1 0; min-height: 0;
+  }
+  /* An action: its glyph over its words in 13 px, two lines at most (More
+     seeds… and Swap tags… take two at 393 px), no edge or fill; a press
+     lights it (the touch tier's state layer). Held, the muted colour, its
+     reason said above the bar on a press. Bin in --danger. The footer's
+     buttons keep their own words; their glyphs are drawn here. */
+  #select-bar-acts > button {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    min-width: 0; min-height: var(--h-md); height: auto; margin: 0; padding: var(--sp-1) 2px;
+    border: none; border-radius: var(--r-md); background-color: transparent; box-shadow: none;
+    color: var(--text); font-size: var(--fs-sm); font-weight: 600; line-height: 1.15; text-align: center;
+    white-space: normal; overflow: hidden;
+  }
+  #select-bar-acts > button[hidden] { display: none; }
+  #select-bar-acts > button[aria-disabled="true"] { color: var(--muted); opacity: 1; }
+  #select-bar-acts > button.danger:not([aria-disabled="true"]) { color: var(--danger); }
+  #select-bar-acts > button:focus-visible { outline: 2px solid var(--accent-2); outline-offset: -2px; }
+  #select-bar-acts > button > .row-sub { display: none; }
+  .select-glyph { flex: none; width: 24px; height: 24px; fill: currentColor; }
+  #select-star .select-glyph path { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; }
+  #select-star[data-picked-act="unstar"]:not([aria-disabled="true"]) .select-glyph path { fill: var(--star); stroke: var(--star); }
+  .select-more-glyph { flex: none; height: 24px; font-size: 24px; font-weight: 700; line-height: 22px; }
+  #select-bar-acts > :is(#btn-refine-batch, #btn-more-seeds, #btn-swap)::before {
+    content: ""; flex: none; width: 24px; height: 24px; background-color: currentColor;
+    -webkit-mask: var(--glyph) center / 24px 24px no-repeat; mask: var(--glyph) center / 24px 24px no-repeat;
+  }
+  #select-bar-acts > #btn-refine-batch {
+    --glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M14 3h7v7h-2V6.4l-5.3 5.3-1.4-1.4L17.6 5H14zM3 14h2v3.6l5.3-5.3 1.4 1.4L6.4 19H10v2H3z'/%3E%3C/svg%3E");
+  }
+  #select-bar-acts > #btn-more-seeds {
+    --glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill-rule='evenodd' d='M3 3h12v2H5v10H3zm4 4h14v14H7zm2 2v10h10V9zm4 1.5h2v2.5h2.5v2H15v2.5h-2V16h-2.5v-2H13z'/%3E%3C/svg%3E");
+  }
+  #select-bar-acts > #btn-swap {
+    --glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7.5 3.5 3 8l4.5 4.5 1.4-1.4L6.8 9H20V7H6.8l2.1-2.1zm9 8-1.4 1.4 2.1 2.1H4v2h13.2l-2.1 2.1 1.4 1.4L21 16z'/%3E%3C/svg%3E");
+  }
+  /* In the recycle bin: Restore picked and Delete picked permanently, two
+     tonal buttons across the row, their words on one line. */
+  .phone-select-bar[data-bin] #select-bar-acts { gap: var(--sp-2); align-items: center; }
+  .phone-select-bar[data-bin] #select-bar-acts > button {
+    flex-direction: row; min-height: 48px; padding: 0 var(--sp-2);
+    border: 1px solid var(--line-strong); background-color: var(--panel-2);
+    font-size: var(--fs-md); line-height: var(--lh-tight);
+  }
+  /* The gallery's line, while the bar is up: a card 8 px over the bar,
+     across the screen, out of the flow, so a message moves nothing; a tap
+     puts it away. */
+  #phone-select-bar > #gallery-error:not([hidden]) {
+    position: absolute; bottom: calc(100% + var(--sp-2));
+    left: max(var(--gutter), var(--safe-l)); right: max(var(--gutter), var(--safe-r));
+  }
+  /* (gallery.css keeps the line's room while it is empty, !important.) */
+  #phone-select-bar > #gallery-error[hidden] { display: none !important; }
+}
+
+/* The selection bar on a phone on its side: one row, its head then its
+   actions, each glyph over a line of words; 61 px in all. */
+@media (pointer: coarse) and (max-height: 500px) and (orientation: landscape) {
+  :root { --select-bar-h: 61px; }
+  .phone-select-bar:not([hidden]) { flex-direction: row; align-items: center; gap: var(--sp-3); }
+  .select-bar-head { flex: 0 1 auto; max-width: 46%; }
+  .select-bar-acts { flex: 1 1 0; height: 52px; }
+  #select-bar-acts > button { white-space: nowrap; }
 }

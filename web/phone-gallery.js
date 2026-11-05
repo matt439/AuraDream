@@ -3,11 +3,13 @@
 // the two sheets those open from the screen's foot: Filters holding Starred,
 // All models, the Runs picker, Sheet and the search's terms; ⋯ the picks'
 // count, Clear and Picked, Re-render, Swap tags…, Refine…, More seeds…,
-// Saved searches…, Bundles…, the recycle bin and its own buttons, and Delete
-// unstarred last. Each is the head's own node, moved whole under PHONE_MEDIA
+// Saved searches…, Bundles…, the card size and Fit or Crop, the recycle bin
+// and its own buttons, and Delete unstarred last. Each is the head's own node, moved whole under PHONE_MEDIA
 // with phone.js's phoneMove and home again off it - never a copy, so `els`,
 // every sync and every hold keep the one node. A bulk action says in its own
-// row what it would take (its scope, or why it is held). Declarations only;
+// row what it would take (its scope, or why it is held). While Select is on,
+// the selection bar holds some of them instead (phone-select.js). The cards'
+// size on the phone is this file's too (phoneCardSize). Declarations only;
 // phone.js calls initPhoneGallery from initPhone and syncPhoneGallery from
 // syncPhoneHosts.
 'use strict';
@@ -27,6 +29,7 @@ const galleryMorePlaces = () => [
   ['gallery-more-picks', [els.selectCount, els.selectClear, els.picked]],
   ['gallery-more-act', [els.rerender, els.swap, els.refineBatch, els.moreSeeds]],
   ['gallery-more-library', [els.savedSearches, els.bundles, els.bin]],
+  ['phone-fit-row', [$('card-fit')]],
   ['gallery-more-bin', [els.restorePicked, els.purgePicked, els.binAge, els.emptyBin]],
   ['gallery-more-danger', [els.deleteUnstarred]],
 ];
@@ -72,6 +75,9 @@ function queuePhoneGallerySync() {
 // lines, and the Filters sheet's count. The page's own writes are watched
 // (initPhoneGallery), so this follows whatever changed them.
 function syncPhoneGalleryHead() {
+  // The selection bar (phone-select.js) first: what it holds is out of the
+  // sheets, and the bin's rows are placed after it.
+  syncPhoneSelectBar();
   if (!isPhone()) return;
   syncSearchPlaceholder();
   const head = els.search.closest('.gallery-head');
@@ -94,6 +100,9 @@ function syncPhoneGalleryHead() {
   if (scope.textContent !== said) scope.textContent = said;
   scope.classList.toggle('held', !target.scope);
   for (const row of gallerySubRows()) syncGallerySub(row, target);
+  // The card size and Fit or Crop are the cards': a run's sheet draws its
+  // cells its own way (as #card-view is hidden there off the phone).
+  $('gallery-more-view').hidden = sheetMode;
 }
 
 // A held reason in a phone's words: Bin is the ⋯ sheet's Recycle bin. (How
@@ -207,10 +216,10 @@ function gallerySubText(row, target) {
 let gallerySheetSaid = null;
 function openGallerySheet(sheet) {
   if (!isPhone() || sheet.open) return;
-  phoneMove(els.galleryError, sheet.querySelector('.gallery-sheet-foot'));
   gallerySheetSaid = els.galleryError.hidden ? '' : els.galleryError.textContent;
   syncPhoneGalleryHead();
   sheet.showModal();
+  placeGalleryLine();
   sheet.scrollTop = 0;
 }
 
@@ -219,15 +228,27 @@ function gallerySheetClosed() {
   const said = els.galleryError.hidden ? '' : els.galleryError.textContent;
   if (gallerySheetSaid !== null && said && said !== gallerySheetSaid) showError('', false, { slot: els.galleryError, mirror: false });
   gallerySheetSaid = null;
-  phoneHome(els.galleryError);
+  placeGalleryLine();
+  // What the selection bar holds waited for the sheet (phone-select.js).
+  queuePhoneGallerySync();
 }
 
 // An action pressed in a sheet: the line home, then the sheet shut, before
 // the action's own handler runs (the press's capture).
 function closeGallerySheetFor(sheet) {
   gallerySheetSaid = null;
-  phoneHome(els.galleryError);
+  placeGalleryLine(sheet);
   sheet.close();
+}
+
+// Where the gallery's line is on the phone: in the foot of an open sheet
+// (`closing` aside), else at the selection bar's top while it is up, else
+// under the head.
+function placeGalleryLine(closing = null) {
+  const open = [$('gallery-filter-sheet'), $('gallery-more-sheet')].find((s) => s.open && s !== closing);
+  if (open) phoneMove(els.galleryError, open.querySelector('.gallery-sheet-foot'));
+  else if (isPhone() && !$('phone-select-bar').hidden) phoneMove(els.galleryError, $('phone-select-bar'), $('select-bar-head'));
+  else phoneHome(els.galleryError);
 }
 
 // A press on the dimmed page beside the sheet closes it (its box is the
@@ -249,6 +270,8 @@ function galleryMorePress(e) {
   const control = e.target.closest('button, [role="menuitem"]');
   if (!control || !sheet.contains(control) || control.closest('.gallery-sheet-head')) return;
   if (control === els.pickedBtn || control.getAttribute('aria-disabled') === 'true') return;
+  // The card size and Fit or Crop: settings, the sheet left open.
+  if (control.closest('#gallery-more-view')) return;
   if (control.matches('[role="menuitem"]') && els.pickedBtn.getAttribute('aria-disabled') === 'true') return;
   closeGallerySheetFor(sheet);
 }
@@ -258,6 +281,54 @@ function galleryMorePress(e) {
 function galleryFilterPress(e) {
   const sheet = $('gallery-filter-sheet');
   if (e.target.closest('button') === els.sheetBtn && els.sheetBtn.getAttribute('aria-disabled') !== 'true') closeGallerySheetFor(sheet);
+}
+
+// ---------------------------------------------------------- the card size
+
+// The cards on a phone: three across the screen upright and six on its side
+// ('s', the default), or two and four ('l') - each filling its cell, 4 px
+// apart (styles/phone-gallery.css). The whole picture or the card filled is
+// #card-view's Fit or Crop, its pair moved into ⋯ on the phone; the PC's S
+// and M are a wide window's and change nothing here. This browser's choice,
+// kept apart from the PC's (auradream.gallery.v1), every access in
+// try/catch (remembered/remember).
+const PHONE_CARD_KEY = 'auradream.gallery.phone.v1';
+const PHONE_CARD_SIZES = ['s', 'l'];
+let phoneCardSize = 's';
+
+function restorePhoneCardSize() {
+  const stored = remembered(PHONE_CARD_KEY);
+  if (PHONE_CARD_SIZES.includes(stored)) phoneCardSize = stored;
+  syncPhoneCardSize();
+}
+
+function setPhoneCardSize(size) {
+  if (!PHONE_CARD_SIZES.includes(size)) return;
+  phoneCardSize = size;
+  remember(PHONE_CARD_KEY, size);
+  syncPhoneCardSize();
+}
+
+// The grid's data attribute, which the phone's stylesheet reads (a PC's
+// reads none), and the pair as #card-view's are: the chosen one pressed and
+// the pair's one tab stop.
+function syncPhoneCardSize() {
+  els.gallery.dataset.phoneSize = phoneCardSize;
+  for (const button of $('phone-card-size').querySelectorAll('button')) {
+    const on = button.dataset.phoneSize === phoneCardSize;
+    button.setAttribute('aria-pressed', String(on));
+    button.tabIndex = on ? 0 : -1;
+  }
+}
+
+// A press in the sheet's card rows: the size, or Fit or Crop (whose own
+// listener is #card-view's, which the moved pair has left). The sheet stays
+// open, the cards changing behind it.
+function galleryViewPress(e) {
+  const button = e.target.closest('button');
+  if (!button) return;
+  if ('phoneSize' in button.dataset) setPhoneCardSize(button.dataset.phoneSize);
+  else if ($('card-fit').contains(button)) cardViewClick(e);
 }
 
 function initPhoneGallery() {
@@ -278,6 +349,11 @@ function initPhoneGallery() {
     sheet.addEventListener('click', gallerySheetBackdrop);
   }
   moreSheet.addEventListener('click', galleryMorePress, true);
+  $('gallery-more-view').addEventListener('click', galleryViewPress);
+  $('phone-card-size').addEventListener('keydown', (e) => stepPreset($('phone-card-size'), e));
+  restorePhoneCardSize();
+  // The selection bar (phone-select.js), once the homes above are marked.
+  initPhoneSelect();
   filterSheet.addEventListener('click', galleryFilterPress, true);
   els.runList.addEventListener('change', () => { if (filterSheet.open && els.runList.value) closeGallerySheetFor(filterSheet); });
   // The gallery's line under the head, over the cards: a tap puts it away.

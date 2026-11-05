@@ -152,6 +152,13 @@ function imageItems({ kind, rec, host }) {
       run: () => (card ? openLightbox(rec, galleryRecords) : sheet ? sheet.querySelector('img')?.click()
         : openViewerImage(rec)),
     },
+    // A gallery card's on a touch screen, outside Select (phone-select.js):
+    // a long press is the way in with the card picked, where a mouse has
+    // Ctrl+click. Inside Select a tap picks.
+    ...(card && touchQuery.matches && !selectMode ? [{
+      label: 'Select', title: `Turn on Select with #${rec.id} picked; then each tap picks or unpicks an image`,
+      run: () => selectFromCard(rec),
+    }] : []),
     null,
     buttonItem(starred ? '★ Unstar' : '☆ Star', lightbox ? els.lbFav : find('.star'), kind === 'result' ? '' : 'F'),
     // The lightbox's pick (UI#33); a card's is its click and Space. Spread,

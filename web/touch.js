@@ -78,6 +78,8 @@ function setPhoneView(view, { remember = true } = {}) {
     try { sessionStorage.setItem(PHONE_VIEW_KEY, view); } catch { /* storage off: the view is this page's */ }
   }
   if (changed && isPhone()) scrollTo({ top: phoneViewScroll[view], behavior: 'instant' });
+  // The gallery's selection bar is the Gallery view's (phone-select.js).
+  if (changed) queuePhoneGallerySync();
 }
 
 // A refusal of Generate's press (pressGenerate), on the phone: the panel's
@@ -162,7 +164,8 @@ function restorePhoneScroll(top) {
 // Back closes the top overlay. On a finger - the touch tier, the tablet's
 // too - each overlay open holds one history entry (`pushState`, the URL as
 // it is): Android's Back and iOS's edge swipe went back a page from inside
-// the lightbox, since nothing else stood behind it. Back (`popstate`)
+// the lightbox, since nothing else stood behind it (the phone's selection
+// bar is one too: Back leaves Select). Back (`popstate`)
 // closes the overlays above the entry it lands on, top first, each by the
 // close its own button makes; any other close - its ✕, Escape, a swipe
 // down, Reuse, a light dismiss - takes its entry back with `history.go`.
@@ -202,7 +205,11 @@ const backDepthOf = (state) => {
 
 function backLayerList() {
   const dialogs = [...document.querySelectorAll('dialog')].filter((d) => d !== els.lightbox);
+  const selectBar = $('phone-select-bar');
   return [
+    // The phone's selection bar (phone-select.js): Back leaves Select, the
+    // picks kept, as Done does. Under every overlay opened from it.
+    { el: selectBar, open: () => !selectBar.hidden, close: () => setSelectMode(false) },
     { el: els.sheet, open: () => sheetMode, close: () => { void setSheet(false); } },
     { el: els.modelPicker, open: () => !els.modelPicker.hidden, close: () => showModelPicker(false) },
     { el: els.lightbox, open: () => els.lightbox.open, close: dismissLightbox },

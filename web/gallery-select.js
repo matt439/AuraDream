@@ -131,7 +131,7 @@ function syncSelection() {
   const n = selection.size;
   const away = n - selectedIds().filter((id) => shown.has(id)).length;
   const text = n ? `${n} selected${away ? ` · ${away} not shown` : ''}`
-    : picking ? 'Click cards to pick them' : '';
+    : picking ? (touchQuery.matches ? 'Tap images to pick them' : 'Click cards to pick them') : '';
   // Written only when it changes: a page landing re-syncs, and a status
   // repeated is read out again.
   if (els.selectCount.textContent !== text) els.selectCount.replaceChildren(...countParts(n, away, text));
@@ -208,6 +208,15 @@ function selectOnly(rec) {
   selection.set(rec.id, rec);
   selectAnchor = rec.id;
   syncSelection();
+}
+
+// A long press's Select (context-menu.js: a gallery card's menu on a touch
+// screen, where no Ctrl+click picks): Select on with this card picked, as
+// Select and a tap on it would.
+function selectFromCard(rec) {
+  if (sheetMode) { showError(`${SELECT_ON_SHEET}.`, true, { slot: els.galleryError }); return; }
+  setSelectMode(true);
+  if (!selection.has(rec.id)) toggleSelected(rec);
 }
 
 // A click on the grid between cards (on a day's line, past the last card)
@@ -434,11 +443,13 @@ const PICKED_NONE = 'Pick cards (Ctrl/Cmd+click or Select) to star, unstar, bin 
 
 // How cards are picked, in the pointer's words: a touch screen (the phone's
 // and the tablet's, touch.js's touchQuery) has no Ctrl/Cmd+click, so its
-// reasons name Select alone. Read at each sync; a change of tier re-syncs the
-// selection (touch.js, syncTier), so the held titles follow it.
-const pickCardsWords = () => (touchQuery.matches ? 'Pick images with Select' : 'Pick cards (Ctrl/Cmd+click or Select)');
-const pickedNone = () => (touchQuery.matches
-  ? `${pickCardsWords()} to star, unstar, bin or use their seeds in a grid` : PICKED_NONE);
+// reasons name Select alone - or, Select on, a tap. Read at each sync; a
+// change of tier or of Select re-syncs the selection (touch.js, syncTier;
+// setSelectMode), so the held titles follow it.
+const pickCardsWords = () => (!touchQuery.matches ? 'Pick cards (Ctrl/Cmd+click or Select)'
+  : selectMode ? 'Tap images to pick them' : 'Pick images with Select');
+const pickedNone = () => (!touchQuery.matches ? PICKED_NONE
+  : selectMode ? 'Tap images to pick them first' : `${pickCardsWords()} to star, unstar, bin or use their seeds in a grid`);
 
 // Seeds only: the picked order is the investigation's order, while another
 // image of the same seed contributes no second entry. Leave grid limits to

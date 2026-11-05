@@ -101,6 +101,7 @@ function fixture() {
     pickFromLightbox: poison('pickFromLightbox'),
     recordRunScope: rec => (rec.run_id ? `run:${rec.run_id}` : null), RUN_NONE: 'No run',
     pickRun: poison('pickRun'),
+    touchQuery: { matches: false }, selectMode: false, selectFromCard: poison('selectFromCard'),
   });
   const read = name => fs.readFileSync(path.join(root, 'web', name), 'utf8').replace(/\r\n/g, '\n');
   new vm.Script(exactSlice(read('state.js'), 'const offlineSlots = new Map();',

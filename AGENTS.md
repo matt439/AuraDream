@@ -265,7 +265,11 @@ undrawn strips. `phone-gallery.js` (`styles/phone-gallery.css`, linked
 last), after it, owns the phone's gallery head: one sticky row (search,
 Filters, Select, ⋯) and the Filters and ⋯ sheets holding the head's and
 footer's own buttons, each bulk action's line saying what it takes or
-why it is held. Nodes are moved whole under
+why it is held, and the cards' size (three or two across).
+`phone-select.js`, after it, owns the phone's selection bar: in the tab
+bar's place while Select is on, the picks' count and actions (Star, Bin,
+Refine…, More seeds…, Swap tags…; the bin's Restore and Delete) moved
+in, Back leaving Select. Nodes are moved whole under
 `PHONE_MEDIA` (`moveBefore`) and home again on the tier's change, never
 copied or reordered with CSS. On touch
 each open overlay (lightbox, dialog, Models, context menu, run sheet) holds

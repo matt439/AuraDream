@@ -925,7 +925,9 @@
             <button type="button" class="ghost small" data-density="m" aria-pressed="true"
                     title="Medium cards: the wide screen's own size">M</button>
           </div>
-          <div class="view-pick" role="group" aria-label="Thumbnails">
+          <!-- On a phone this pair is moved into ⋯'s sheet (phone-gallery.js),
+               beside the phone's own card size. -->
+          <div class="view-pick" id="card-fit" role="group" aria-label="Thumbnails">
             <button type="button" class="ghost small" data-fit="contain" aria-pressed="true"
                     title="Fit: the whole picture, letterboxed on the card">Fit</button>
             <button type="button" class="ghost small" data-fit="cover" aria-pressed="false"
@@ -1150,6 +1152,35 @@
     <button type="button" role="tab" id="tab-gallery" data-view="gallery" aria-selected="false"><span class="tab-pill"><svg class="tab-glyph" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg></span>Gallery</button>
   </div>
 </nav>
+<!-- The gallery's selection bar on a phone (phone-select.js, styles/phone-
+     gallery.css), in the tab bar's place while Select is on in the Gallery
+     view: Done (Select off, the picks kept), the picks' count, Clear and
+     Select all over a row of what the picks take - Star or Unstar and Bin
+     (the Picked menu's own items, pressed), Refine…, More seeds… and Swap
+     tags… (the footer's own buttons, moved in while the bar is up) and ⋯,
+     the gallery's actions sheet; in the recycle bin, Restore picked and
+     Delete picked permanently. Held ones say why above the bar, in the
+     gallery's line, moved in too. Back leaves Select (touch.js). Drawn
+     nowhere else. -->
+<div class="phone-select-bar" id="phone-select-bar" role="group" aria-label="Selection" hidden>
+  <div class="select-bar-head" id="select-bar-head">
+    <button type="button" class="select-done" id="select-done" title="Leave Select; the picks stay picked">Done</button>
+    <button type="button" class="select-all" id="select-all"
+            title="Pick every image loaded here; those further down load as you scroll and are not picked">Select all</button>
+  </div>
+  <div class="select-bar-acts" id="select-bar-acts">
+    <button type="button" class="select-act" id="select-star"><svg class="select-glyph" viewBox="0 0 24 24"
+      aria-hidden="true"><path d="M12 2.8l2.8 5.9 6.4.8-4.7 4.4 1.2 6.4L12 17.2l-5.7 3.1 1.2-6.4-4.7-4.4 6.4-.8z"/></svg><span
+      class="select-act-word">Star</span></button>
+    <button type="button" class="select-act danger" id="select-bin"><svg class="select-glyph" viewBox="0 0 24 24"
+      aria-hidden="true"><path d="M9 3h6l1 2h4v2H4V5h4zM5.9 9h12.2l-.9 11.1A2 2 0 0 1 15.2 22H8.8a2 2 0 0 1-2-1.9z"/></svg><span
+      class="select-act-word">Bin</span></button>
+    <button type="button" class="select-act select-more" id="select-more" aria-haspopup="dialog"
+            aria-controls="gallery-more-sheet" aria-label="More actions on the picks"
+            title="Unstar, compare, re-render, seeds to the grid, saved searches, bundles and the recycle bin"><span
+      class="select-more-glyph" aria-hidden="true">⋯</span><span class="select-act-word">More</span></button>
+  </div>
+</div>
 <!-- The queue's sheet on a phone (phone.js), from the action bar's count: the
      running job's #progress - Pause, Skip, Cancel and the bars - and the
      queue's #queue-note, the panel's own nodes moved in whole while it is
@@ -1168,8 +1199,10 @@
      the screen's foot. Filters holds the gallery's own Starred and All models
      ticks (drawn as chips), the Runs picker, Sheet and the search's terms;
      ⋯ holds the picks' count, Clear and Picked, Re-render, Swap tags…,
-     Refine…, More seeds…, Saved searches…, Bundles…, the recycle bin and its
-     own buttons, and Delete unstarred last. Each is the head's own node,
+     Refine…, More seeds…, Saved searches…, Bundles…, the card size and Fit
+     or Crop, the recycle bin and its own buttons, and Delete unstarred last
+     (while Select is on, the selection bar holds the count, Clear and the
+     bulk actions instead: phone-select.js). Each is the head's own node,
      moved in whole on the phone and home again off it; the gallery's line
      (#gallery-error) is moved into the open sheet's foot, so a held press
      says why where it was pressed. -->
@@ -1199,6 +1232,20 @@
          none of them can (syncPhoneGalleryHead). -->
     <div class="gallery-sheet-group" id="gallery-more-act"><p class="gallery-sheet-scope" id="gallery-more-scope"></p></div>
     <div class="gallery-sheet-group" id="gallery-more-library"></div>
+    <!-- How the cards are drawn on the phone: its own card size, three
+         across or two (upright; six or four on its side), remembered in this
+         browser (phone-gallery.js, phoneCardSize), and #card-view's own Fit
+         and Crop pair, moved in. Not drawn over a run's sheet. -->
+    <div class="gallery-sheet-group gallery-more-view" id="gallery-more-view">
+      <div class="view-row"><span class="gallery-sheet-caption" aria-hidden="true">Card size</span><div
+        class="view-pick" id="phone-card-size" role="group" aria-label="Card size">
+        <button type="button" data-phone-size="s" aria-pressed="true"
+                title="Small cards: three across the screen upright, six on its side">Small</button>
+        <button type="button" data-phone-size="l" aria-pressed="false" tabindex="-1"
+                title="Large cards: two across the screen upright, four on its side">Large</button>
+      </div></div>
+      <div class="view-row" id="phone-fit-row"><span class="gallery-sheet-caption" aria-hidden="true">Thumbnails</span></div>
+    </div>
     <!-- The bin's rows; the caption names #bin-age, placed over it
          (placeBinGroup) and drawn only while it is. -->
     <div class="gallery-sheet-group" id="gallery-more-bin"><span class="gallery-sheet-caption" id="bin-age-caption" aria-hidden="true">Empty which images</span></div>
@@ -2378,6 +2425,7 @@
 <script src="/static/phone.js"></script>
 <script src="/static/phone-compose.js"></script>
 <script src="/static/phone-gallery.js"></script>
+<script src="/static/phone-select.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

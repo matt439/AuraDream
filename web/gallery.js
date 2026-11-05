@@ -242,7 +242,8 @@ function setCardView(key, value) {
 function syncCardView() {
   els.gallery.dataset.density = cardView.density;
   els.gallery.dataset.fit = cardView.fit;
-  for (const button of els.cardView.querySelectorAll('button')) {
+  // The Fit and Crop pair is in ⋯'s sheet on a phone (phone-gallery.js).
+  for (const button of document.querySelectorAll('#card-view button, #card-fit button')) {
     const key = 'density' in button.dataset ? 'density' : 'fit';
     const on = button.dataset[key] === cardView[key];
     button.setAttribute('aria-pressed', String(on));

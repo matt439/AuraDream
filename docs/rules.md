@@ -608,7 +608,7 @@ before changing it.
   `AURADREAM_INSTALL_TEST_ROOT`, `AURADREAM_INSTALL_TEST_PROC_VERSION`,
   `AURADREAM_INSTALL_TEST_WAIT` (control.sh's wait)
   (`tests/test_linux_scripts.py`)
-- `web/` - served as-is from `/static`; `index.html` loads 71 classic
+- `web/` - served as-is from `/static`; `index.html` loads 72 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `page-helpers.js`, right
   after it, the page-wide pure helpers (`plural`, `excerpt`, `units`,
@@ -695,8 +695,11 @@ before changing it.
   (`syncPhoneGallery`, which `syncPhoneHosts` calls): one row, and the
   Filters and ⋯ sheets holding the head's and the footer's own buttons
   (`openGallerySheet`, `galleryMorePress`), their lines of what each
-  takes (`syncPhoneGalleryHead`) and the search's placeholder
-  (`phoneSearchWords`, which `touch.js`'s `syncSearchPlaceholder` reads); the
+  takes (`syncPhoneGalleryHead`), the search's placeholder
+  (`phoneSearchWords`, which `touch.js`'s `syncSearchPlaceholder` reads)
+  and the cards' size (`phoneCardSize`); `phone-select.js`, after it, the
+  selection bar (`syncPhoneSelectBar`, which `syncPhoneGalleryHead`
+  calls); the
   touch tier's media queries (`PHONE_MEDIA`, `TABLET_COLUMNS_MEDIA`,
   `TWO_COLUMNS_MEDIA`, `TOUCH_MEDIA`) are `state.js`'s, beside
   `styles/touch.css`'s copies of them, as is `viewBand`, and so is the
@@ -741,7 +744,8 @@ before changing it.
   action bar, the results' place, the queue's sheet, More options' row and
   sheet, the topbar's chip, the prompt's toolbar, the check's sheet, Shape -
   and last `phone-gallery.css`, the gallery's one-row head and its two
-  sheets (`phone-gallery.js`), which read
+  sheets (`phone-gallery.js`), the cards' size and the selection bar
+  (`phone-select.js`), which read
   `touch.css`'s tokens (all under
   "Phones and tablets");
   preserve that cascade (`tests/test_docs_maps.py` holds this list to
@@ -3511,7 +3515,8 @@ measured on the card and when.
   along `strip.querySelectorAll('button')` without choosing (`stepPreset`),
   and `syncSize` resets the stop. The gallery head's two card-view pairs
   (`#card-view`: S/M and Fit/Crop, shown from 1800 px only, hidden on a sheet
-  by `setSheet`) follow the same pattern: one tab stop each (the chosen
+  by `setSheet`; on a phone Fit/Crop, `#card-fit`, is in the gallery's ⋯
+  beside the phone's own card size, `#phone-card-size`) follow the same pattern: one tab stop each (the chosen
   button), `aria-pressed`, and `stepPreset` arrows. The Refine dialog's
   scale buttons (`#refine-scales`, role=group) carry `aria-pressed` beside
   `.active`; past the guard they stay `disabled` (the documented exception),
@@ -4694,7 +4699,9 @@ measured on the card and when.
   it, since clearing the gallery never reaches the browser. The cards' S/M
   and Fit/Crop (`cardView`, gallery.js) belong to the gallery: they are
   stored under `auradream.gallery.v1`, every access in try/catch,
-  read back at load (`restoreCardView`), and Reset leaves them. Reset first
+  read back at load (`restoreCardView`), and Reset leaves them; so does
+  the phone's card size (`phoneCardSize`, `phone-gallery.js`), stored
+  apart under `auradream.gallery.phone.v1` ('s' or 'l'). Reset first
   keeps an in-memory snapshot read off the page (`panelState()`, the raw
   sampling values, `owned`, the size preset, `REFINE_KEY`'s value and
   `unsentRefine`). It empties the prompt and negative through `rewriteBox`,
@@ -6873,7 +6880,11 @@ measured on the card and when.
   `contextMenuTouch*`): iOS Safari sends no `contextmenu` for one, and the
   menu holds what no button does on a phone (Edit by instruction…, Pick
   this run, the Copy items, Open PNG; under 900 px Inpaint… and More
-  seeds… too, which the phone's lightbox also shows). 500 ms held within 10 px on an image `contextTarget` knows
+  seeds… too, which the phone's lightbox also shows). A gallery card's,
+  on a touch screen and outside Select, also has Select after Open
+  (`selectFromCard`, `gallery-select.js`): Select on with that card
+  picked, where a mouse has Ctrl+click - a long press keeps its menu
+  rather than picking. 500 ms held within 10 px on an image `contextTarget` knows
   opens the menu - on the tablet 16 px under the finger, on the phone
   docked at the screen's foot (below) - and a move, a second finger, a
   scroll's pointercancel or an earlier lift is no press. The lift's
@@ -6943,15 +6954,16 @@ measured on the card and when.
   Back closes the top overlay on any touch screen, the tablet's too
   (`touch.js`, `syncBackLayers`): Android's Back and iOS's edge swipe went
   back a page from inside the lightbox. The lightbox, every `<dialog>`, the
-  Models picker, the context menu and the run sheet each hold one history
-  entry while open (`history.pushState`, the URL unchanged, the state
+  Models picker, the context menu, the run sheet and the phone's selection
+  bar each hold one history entry while open (`history.pushState`, the URL unchanged, the state
   `auradreamLayer` with this load's token and the entry's depth); a mouse's
   overlays hold none, so a PC's history is untouched. Back (`popstate`)
   closes the overlays above the entry it lands on, top first, each by the
   user's own close: `dismissLightbox`; a dialog's `cancel` and then
   `close()`, as Escape does, which a dialog still sending refuses;
   `showModelPicker(false)`; `closeContextMenu`; `setSheet(false)`, which
-  puts back a search the sheet wrote. Any other close - ✕, Escape, a
+  puts back a search the sheet wrote; `setSelectMode(false)`, the picks
+  kept (the selection bar, under every other). Any other close - ✕, Escape, a
   swipe down, Reuse, a light dismiss - takes its entry back with one
   `history.go`, never below this load's own entry, so the page is never
   left and no entries pile up. The stack is read from the page (each
@@ -7332,7 +7344,8 @@ measured on the card and when.
   where it was a tip over two thirds of the screen); a chip leaves it
   open, its title row saying the count ("4 images"), and Sheet or a run's
   choice shuts it as the gallery they make shows. ⋯ holds, in groups 8 px
-  and a hairline apart: the picks' count and Clear and Picked, whose
+  and a hairline apart: the picks' count and Clear (the selection bar's
+  while Select is on, below) and Picked, whose
   rows open inside the sheet under it rather than hung over the page;
   Re-render, Swap tags…, Refine… and More seeds…; Saved searches…,
   Bundles… and the recycle bin ("Recycle bin", its count in its line);
@@ -7366,6 +7379,57 @@ measured on the card and when.
   with it, and what the action says after it is the gallery's line's. Off
   the phone nothing of this is drawn: the PC's and the tablet's head and
   footer are as they were.
+  The phone's cards (the review's P19; `styles/phone-gallery.css`) are
+  three across upright and six on their side, each filling its cell, 4 px
+  apart (`--thumb-min` a third of the row less its gaps, a hair under,
+  capped at 130 px), where two 160 px columns left a third of an 852 px
+  screen to gaps and letterboxes; at Large two across and four (a half,
+  capped at 200). ⋯ holds the choice, after Bundles… and the recycle bin
+  (`#gallery-more-view`): Card size, Small or Large (`#phone-card-size`,
+  `phoneCardSize`, kept in this browser under `auradream.gallery.phone.v1`
+  in try/catch, apart from the PC's S and M, which change nothing here),
+  and Thumbnails, Fit or Crop - `#card-view`'s own pair (`#card-fit`),
+  moved in, so the PC's and the phone's Fit or Crop is one choice
+  (`cardView.fit`). Each pair is 44 px, the chosen one tonal, one tab stop
+  with `stepPreset`'s arrows; a press leaves the sheet open, the cards
+  changing behind it; over a run's sheet the group is not drawn. Fit stays
+  the default (the whole picture: its lettering and which way up it was).
+  Select on the phone (the review's P18; `phone-select.js`) is a mode with
+  a bar of its own: while Select is on in the Gallery view (not over a
+  run's sheet, where it is held), `#phone-select-bar` is in the tab bar's
+  place (`body[data-selecting]`; the tab bar not drawn), opaque across the
+  screen's foot, 117 px with the home indicator's inset under it (61 on
+  its side, one row), which `main`'s foot, the scroll padding and
+  `--phone-bottom-chrome` count, so `viewBand` stops over it; it steps
+  aside under `data-typing` as the tab bar does. Its first row is Done
+  (Select off, the picks kept, the focus to Select), the count
+  (`#select-count`, moved in: "2 selected", or "Tap images to pick them"),
+  Clear (moved in, drawn while anything is picked) and Select all (Ctrl+A's
+  `pickLoadedCards`: the loaded cards, up to the cap), Select all last so
+  Clear's coming and going moves nothing under a finger. Its second is
+  what the picks take, each a column of its glyph over its words, 44 px at
+  least: Star (Unstar where every pick is starred) and Bin, in `--danger`
+  - the Picked menu's own items, pressed (`pickedChoose`), each held and
+  titled as its item is - then Refine…, More seeds… and Swap tags…, the
+  footer's own buttons moved in from ⋯ while the bar is up (their glyphs
+  drawn there, their row lines not), and More, which opens ⋯ (Picked's
+  rows - Unstar, Compare, Re-render at a tier, Seeds to grid - Re-render,
+  and the rest). In the recycle bin the second row is Restore picked and
+  Delete picked permanently, moved in likewise. Nothing in the bar is
+  hidden for being held: a held press says why in the gallery's line,
+  moved to 8 px over the bar while it is up (`placeGalleryLine`), and a
+  touch screen's reasons say "Tap images to pick them" inside Select
+  (`pickCardsWords`, `pickedNone`). Back leaves Select as Done does: the
+  bar holds a history entry (`touch.js`'s layers, under every overlay
+  opened from it), so a dialog from the bar comes off first. With Select
+  on, a card's ring is at its foot's right corner, 28 px (a bin card's at
+  its top's, over Restore and Delete permanently), a tap anywhere on the
+  card picks it, and an unstarred card's star is not drawn and no star
+  takes a press - the bar's Star does that for the picks. A long press's
+  menu gains Select (above). The bar's nodes go back into ⋯'s groups in
+  their order (`placeInGallerySheet`) as it goes; nothing moves while a
+  gallery sheet is open. Skipped: a "Download" of the picks (there is
+  none; Bundles… backs up the picked images) and drag-select.
   The phone's page does not pull to refresh: `html` and `body` have
   `overscroll-behavior-y: contain`, so a pull at the page's top no longer
   reloads it (the prompt's Undo, a Check, a selection and each view's
@@ -8735,7 +8799,8 @@ closes; Saved setups and Prompt snippets from the Examples menu, each
 import over its own dialog (`openSetupImport`, `openSnippetImport` with
 the server's own export); Refine from the lightbox; Inpaint, Outpaint,
 Edit by instruction and More seeds from a card's long-press menu; Swap
-tags and Refine… with a card picked, Saved searches, Bundles and Delete
+tags and Refine… with a card picked, from the selection bar (over it,
+Select still on); Saved searches, Bundles and Delete
 unstarred's question from the gallery's ⋯ sheet, which each press shuts -
 and `__sheet` checks it at its top
 and scrolled to its foot: the sheet exactly the window, its close and its
@@ -8770,7 +8835,8 @@ string is truthy, and `browser.mjs` passes any truthy value). The lightbox's ✕
 closes it after Refine's ✕ returns there. The delete question is a sheet
 across the window at its foot with Cancel and Delete on it. The Examples
 menu sits inside the window above the tab bar with 48 px rows and no
-sideways scroll; the Picked menu's rows open inside the ⋯ sheet under
+sideways scroll; the Picked menu's rows open inside the ⋯ sheet (from
+the selection bar's More: two entries) under
 Picked (static, inside the window, 48 px), Escape shutting them and not
 the sheet; the long-press menu is docked across
 the window at its foot, its rows 48 px, a menu item first. A mouse at
@@ -8793,6 +8859,8 @@ one sticky row on the topbar (the search, Filters, Select and ⋯ on one
 line, 44 px, the row at most 64 px, the title not drawn, the placeholder
 "Search 4 images") and the first card within 200 px of the screen's top
 (its place logged), the phone audit finding nothing on the Gallery view;
+the cards three across (`data-phone-size` 's'), 4 px apart, each card
+its column's width, Fit's `contain`;
 every checkbox and radio drawn (`appearance: none`; Notify's 24 px with
 a 2 px `--text-3` edge); Filters' sheet at the window's foot across it,
 Starred and All models 44 px chips on one line, Runs, Sheet and the
@@ -8807,7 +8875,13 @@ buttons and Delete unstarred, each id once; Picked, Swap tags…, Refine…
 and More seeds… held, listed, titled, at full opacity in the muted
 colour, each with its line; the scope over them saying why none can, Picked's
 line "Pick images with Select first", Swap tags' what it does, Delete
-unstarred red with its scope; the audit clean in it; a held Swap tags…
+unstarred red with its scope; the audit clean in it; Card size and
+Thumbnails in it (`#card-fit` moved out of `#card-view`), every button
+44 px, Large making two across with the sheet still open and
+`auradream.gallery.phone.v1` 'l', its pressed state and tab stop moved,
+Crop filling the cards (`cover`), Fit and Small again three across, the
+size read back as stored by `restorePhoneCardSize` and an unknown value
+leaving the default; a held Swap tags…
 pressed keeping the sheet open with its reason in the sheet's foot in a
 touch screen's words ("Pick images with Select, or narrow the gallery",
 no Ctrl/Cmd in it nor in the four held titles), which
@@ -8818,14 +8892,37 @@ tonal at its head with "Back to the gallery", Empty's choice under its
 caption "Empty which images" (not drawn out of the bin), the audit
 clean, and its
 second press back to the four cards, the group before Delete unstarred
-and Recycle bin after Bundles… again; with a
-card picked in Select mode, ⋯'s badge 1 and its name "More gallery
-actions: 1 picked", the scope "On the selected image", the count, Clear
-and Re-render shown, Swap tags… free, and its press opening its dialog
-with the sheet shut (one entry). Then: a card tapped in
+and Recycle bin after Bundles… again. Select: its press puts the
+selection bar in the tab bar's place (`body[data-selecting]`, one
+history entry, the tab bar not drawn) at the screen's foot across it, at
+most 120 px tall, `viewBand` stopping at its top and `main`'s foot at
+least its height; its actions Star, Refine…, More seeds…, Swap tags…,
+Bin and More in that order on one row, each 44 px at least, the first
+five held with a title, Star muted; Done, the count ("Tap images to pick
+them") and Select all on one line, Clear not drawn, Swap tags… out of ⋯;
+the audit clean; each card's ring 28 px at its foot's right corner, an
+unstarred card's star not drawn and taking no press. A held Star pressed
+says "Tap images to pick them first." in the gallery's line, moved into
+the bar and drawn over it, which a tap puts away. A tap picks the first
+card (the lightbox not opened; the count, Clear, a free Star and Swap
+tags…, ⋯'s badge 1); Star stars it, saying so, and becomes Unstar. Swap
+tags… opens its dialog from the bar over it (two entries), Escape back to
+Select; More opens ⋯ (two entries) with Picked, the scope "On the
+selected image" and Re-render in it and neither Swap tags… nor the count;
+Back (`history.back()`) leaves Select with the pick kept, the bar gone
+and the tab bar back, no entry left, Swap tags… after Re-render in ⋯
+again, the count and Clear first in its picks group, the line home. A
+long press on the second card keeps its menu, Open then Select, whose
+press turns Select on with that card picked too (one entry, the menu
+shut); Select all adds the two other loaded cards ("Added 2 loaded
+images; 4 images selected"); Clear empties the picks with Select all
+unmoved; the starred card picked again shows Unstar, which unstars it;
+Done leaves Select (no entry left, ⋯'s badge gone, the focus off Done).
+Then: a card tapped in
 Select mode, `:hover` or `:focus-within` on it, shows no caption
-(`.tools::before`) and no tools, nor with a Tab's keyboard focus on its
-star (the tablet's caption with that focus is `smoke-tablet`'s); the Sheet
+(`.tools::before`) and no tools, nor, Select off, with a Tab's keyboard
+focus on its star (the tablet's caption with that focus is
+`smoke-tablet`'s); the Sheet
 button's run sheet (from Filters' sheet, which it shuts) has its
 `.sheet-hint` but does not draw it; the
 lightbox on the pass is black over a black `::backdrop`, `lbNarrow` and
@@ -8841,15 +8938,21 @@ seeds… opens its dialog over the lightbox (two entries; a tap within
 half a second of the fast swipe gave no click in the emulator), which
 Escape closes, and Inpaint… opens its dialog. At 360x780 the gallery
 head is still one line with the placeholder whole in the box and the
-first card within 200 px, the audit clean on the Gallery view and in ⋯.
+first card within 200 px, the audit clean on the Gallery view and in ⋯;
+the cards three across, and with a card picked in Select the bar whole -
+its head on one line inside the screen, the count not cut, six actions
+inside the screen - and the audit clean; Done leaves it.
 On its side (852x393) the head is one line and the first card within
-140 px;
+140 px; the cards six across; Select's bar one row at most 64 px tall at
+the screen's foot, its six actions 44 px after Select all, `viewBand`
+stopping at its top, the audit finding nothing under 44 px;
 `lbNarrow` and `LB_STACKED_MEDIA` are false, the lightbox a row with the
 column beside a stage at least 300 tall, the seven actions inside the
 column and 44 px, the actions a row under 250 px tall, the lightbox
 black. A mouse at 800x900 then has the PC's narrow lightbox: stacked,
 Inpaint… and More seeds… not drawn, 0.97 over a clear backdrop, the
-actions unwrapped and Compare with source's S drawn.
+actions unwrapped and Compare with source's S drawn, and the grid's gap
+the PC's 10 px, `#card-fit` home last in `#card-view`, no selection bar.
 
 `smoke-offline.json` uses a fresh FLUX.1 Krea [dev] fake on 7958: the
 page at 127.0.0.1 registers `sw.js`, which controls the next load; with
