@@ -32,9 +32,12 @@ function phoneHome(node) {
   if (mark && mark.nextSibling !== node) phoneMove(node, mark.parentNode, mark.nextSibling);
 }
 
-// The nodes that move, in the order each host holds them.
+// The nodes that move, in the order each host holds them: the queue's sheet
+// has the panel's line (#error) between the job and the queue, so a held
+// press in the sheet - ↑, Pause, a row's menu - says why where it was
+// pressed, not in a panel the sheet covers.
 const phoneResultNodes = () => [els.viewer, els.viewerNote, els.recent];
-const phoneQueueNodes = () => [els.progress, els.queueNote];
+const phoneQueueNodes = () => [els.progress, els.error, els.queueNote];
 
 // On the phone, Generate in the bar before the queue's count and the
 // results in their host; off it, both home and the queue's sheet shut, its
@@ -155,12 +158,39 @@ function openQueueSheet() {
     return;
   }
   if (!isPhone() || sheet.open) return;
+  // A refusal riding over the bars (sayAtGenerate) is the panel's again.
+  els.error.classList.remove('at-generate');
   for (const node of phoneQueueNodes()) phoneMove(node, $('queue-sheet-body'));
   sheet.showModal();
 }
 
 function queueSheetClosed() {
   for (const node of phoneQueueNodes()) phoneHome(node);
+}
+
+// A queued row's ⋯ (job-queue.js queueRow): its Move to front and its
+// Cancel as the docked menu's rows (context-menu.js), in the sheet, the
+// job named over them, Cancel last in --danger. Each row presses the row's
+// own button as it is at the choice - the queue redraws its rows - so a
+// held one says why, as its press would.
+function openQueueRowMenu(button, byKey) {
+  const li = button.closest('li[data-id]');
+  if (!li) return;
+  const id = li.dataset.id;
+  const live = (action) => [...els.queueList.children].find((row) => row.dataset.id === id)
+    ?.querySelector(`[data-queue-action="${action}"]`);
+  const item = (label, action) => {
+    const own = live(action);
+    if (!own) return null;
+    return {
+      label, held: own.getAttribute('aria-disabled') === 'true', title: own.title,
+      run: () => (live(action) ?? own).click(),
+    };
+  };
+  const name = li.querySelector(':scope > span')?.textContent ?? '';
+  const box = button.getBoundingClientRect();
+  showContextMenu([{ heading: name }, item('↑ Move to front', 'front'), null, dangerItem(item('× Cancel this job', 'cancel'))],
+    'Queued job', button, box.left, box.bottom, byKey);
 }
 
 function initPhone() {

@@ -476,14 +476,9 @@
   }
   :is(.card, .sheet-cell) .fav-badge:is(:hover, :active) { background: radial-gradient(circle, rgba(0, 0, 0, 0.85) 13.5px, transparent 14px); }
   :is(.card, .sheet-cell) .fav-badge:focus-visible { outline-offset: -4px; }
-  /* A result's tools under its picture, 44 px tall (--h-tool), each 44 wide
-     where the tile has the room - a lone result, a batch of two one above
-     the other - and sharing a narrower one (three or four side by side,
-     165 px a tile) rather than running past it. */
-  .viewer:not(.many) .tile > .tools button { flex: 0 1 var(--h-md); }
-  /* The job's Pause, Skip and Cancel, and the queue's rows with their × and
-     ↑, 8 px apart rather than 4: at 44 px a row's buttons met the next's. */
-  .progress-actions, .queue-list { gap: var(--sp-2); }
+  /* A result's tools under its picture are the phone's own row, Reuse,
+     Refine, Star and ⋯ (styles/phone.css). The job's Pause, Skip and
+     Cancel and the queue's rows are in the queue's sheet (there too). */
 
   /* One frame, not two: the bordered panel padded 14 px inside a 12 px
      gutter took 54 px of a 393 px screen's width from every box. The panel

@@ -200,12 +200,15 @@ function imageItems({ kind, rec, host }) {
     },
     null,
     lightbox && buttonItem('↶ Restore', els.lbRestore),
-    lightbox ? buttonItem(rec.binned_at ? '⌦ Delete permanently' : '⌦ Move to recycle bin', els.lbDelete, 'Del')
+    dangerItem(lightbox ? buttonItem(rec.binned_at ? '⌦ Delete permanently' : '⌦ Move to recycle bin', els.lbDelete, 'Del')
       : sheet ? syncedItem('⌦ Move to recycle bin',
         (b) => syncBinWriteButton(b, [rec.id], `Move #${rec.id} to the recycle bin`), () => deleteImage(rec), 'Del')
-        : buttonItem('⌦ Move to recycle bin', find('.del')),
+        : buttonItem('⌦ Move to recycle bin', find('.del'))),
   ];
 }
+
+// An item that destroys or stops, drawn so where the phone draws it.
+const dangerItem = (item) => item && { ...item, danger: true };
 
 // A picked card in select mode: what the footer does with the picks, as the
 // footer would - the Picked menu's items and the buttons after it.
@@ -262,6 +265,8 @@ function renderContextMenu(items) {
     li.tabIndex = -1;
     li.title = item.title ?? '';
     if (item.held) li.setAttribute('aria-disabled', 'true');
+    // What destroys or stops: in --danger on a phone (styles/phone.css).
+    if (item.danger) li.classList.add('danger');
     const label = document.createElement('span');
     label.textContent = item.label;
     li.append(label);
@@ -279,14 +284,23 @@ function renderContextMenu(items) {
 // At the point, or for the keyboard at the focused element's corner; kept
 // inside the window, turned up or left where it would run off it.
 function openContextMenu(found, x, y, byKey) {
+  const picked = found.kind === 'card' && selection.has(found.rec.id);
+  showContextMenu(picked ? pickedItems() : imageItems(found), picked ? 'Picked images' : `#${found.rec.id}`,
+    found.host, x, y, byKey);
+}
+
+// The menu with `items`, named `label`, for `host`: in the modal dialog
+// `host` is in where it is in one (the lightbox, the phone's queue sheet,
+// phone.js), since a modal dialog leaves the page under it inert, else the
+// page's.
+function showContextMenu(items, label, host, x, y, byKey) {
   const menu = els.contextMenu;
   closeContextMenu(false);
-  const picked = found.kind === 'card' && selection.has(found.rec.id);
-  renderContextMenu(picked ? pickedItems() : imageItems(found));
-  menu.setAttribute('aria-label', picked ? 'Picked images' : `#${found.rec.id}`);
-  const home = els.lightbox.open ? els.lightbox : document.body;
+  renderContextMenu(items);
+  menu.setAttribute('aria-label', label);
+  const home = host.closest?.('dialog[open]') ?? (els.lightbox.open ? els.lightbox : document.body);
   if (menu.parentElement !== home) home.append(menu);
-  ctxMenu.host = found.host;
+  ctxMenu.host = host;
   ctxMenu.opener = document.activeElement;
   // On a phone it is an action sheet docked at the screen's foot (touch.css),
   // not placed at the finger: no place of its own to set.

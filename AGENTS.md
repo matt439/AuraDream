@@ -255,7 +255,9 @@ right-click menu (`context-menu.js`): iOS sends no `contextmenu`.
 `phone.js` (`styles/phone.css`, after `touch.css`) owns the phone's own
 hosts: Generate in the Create view's action bar over the tab bar, beside
 the newest result's picture and the queue's count, the results moved
-under the settings, and the queue's sheet. Nodes are moved whole under
+under the settings, and the queue's sheet (the job, its buttons and the
+queue, each queued row's ⋯ a menu); a result's row and a queued row's ⋯
+are drawn on the phone alone. Nodes are moved whole under
 `PHONE_MEDIA` (`moveBefore`) and home again on the tier's change, never
 copied or reordered with CSS. On touch
 each open overlay (lightbox, dialog, Models, context menu, run sheet) holds

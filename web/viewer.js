@@ -310,9 +310,25 @@ function resultFigure(rec) {
   const del = tool('⌦', `Move #${rec.id} to the recycle bin`, () => deleteImage(rec), 'Move to recycle bin');
   del.classList.add('del');
   syncBinWriteButton(del, [rec.id]);
+  // A phone's row (styles/phone.css): Reuse, Refine and Star with their
+  // words (`data-word`, drawn after the glyph, so the glyph stays the
+  // button's text), and ⋯ for the rest - the image's own menu, the long
+  // press's, which presses these same buttons: Use seed, More seeds,
+  // Inpaint, a reference, Copy, and the recycle bin last, away from Star.
+  // Not drawn anywhere else.
+  const reuse = reuseButton(rec, true);
+  reuse.dataset.word = 'Reuse';
+  refine.dataset.word = 'Refine';
+  star.dataset.word = 'Star';
+  const more = tool('⋯', `More for #${rec.id}: Use seed, More seeds, Inpaint, Copy, the recycle bin`, (e) => {
+    const box = more.getBoundingClientRect();
+    openContextMenu({ kind: 'result', rec, host: tile }, box.left, box.bottom, e.detail === 0);
+  });
+  more.classList.add('more-tool');
+  more.setAttribute('aria-haspopup', 'menu');
   const tools = document.createElement('div');
   tools.className = 'tools';
-  tools.append(reuseButton(rec, true), refine, reference, star, inpaint, del);
+  tools.append(reuse, refine, reference, star, inpaint, del, more);
   // Out of the tab order in a long run's strip (viewerTier).
   if (els.viewer.classList.contains('many')) tools.querySelectorAll('button').forEach((b) => { b.tabIndex = -1; });
   tile.append(img, tools);

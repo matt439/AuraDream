@@ -6477,9 +6477,13 @@ measured on the card and when.
   (`UI#30`; the dated copy-feedback review owns qualification).
   A picked card, in select mode or out of it, gets the picks' items instead (the
   Picked menu's three, Swap tags…, Refine…, More seeds…). One `ul.menu`,
-  moved into the lightbox while that is up (a modal dialog leaves the page
-  inert), fixed at the pointer and turned up or left at the window's edge
-  (on a phone, docked at the screen's foot instead: "Phones and tablets").
+  moved into the modal dialog its opener is in while that is up - the
+  lightbox, the phone's queue sheet (`showContextMenu`; a modal dialog
+  leaves the page inert) - fixed at the pointer and turned up or left at
+  the window's edge (on a phone, docked at the screen's foot instead, and
+  opened by a result's ⋯ and a queued row's ⋯ too: "Phones and tablets").
+  An item may be `danger` (the recycle bin's, a queued job's Cancel),
+  drawn in `--danger` on the phone alone.
   Its key hint, first, is no group: a group's line comes only after an
   item or a heading, so the lightbox's menu, which has no Open, starts with
   Star rather than a line. A press outside, a scroll, a resize or the window going closes it; a
@@ -6970,14 +6974,38 @@ measured on the card and when.
   sheet (`#queue-sheet`, `openQueueSheet`), a `<dialog>` like every other
   on the phone (the screen across, its title row sticky, its own history
   entry): the panel's own `#progress` - the job's line, ↑, Pause, Skip,
-  Cancel and the bars - and `#queue-note` - the queue's line, its rows
-  with their × and ↑, Cancel queued - are moved into it while it is open
-  and home again on its `close` (✕, Escape, Back, the phone going), so
-  `setQueue` and the job's writers write the one copy; with neither
-  shown it says nothing runs. While they are in it, `movedByQueue` counts
-  the sheet's list as what a poll's change would move. The sheet's own
-  design - a grid of the job's buttons, 56 px rows with a ⋯ - is the
-  review's P3, still to come. A held picture's or queue's press, as a
+  Cancel and the bars - the panel's line `#error`, and `#queue-note` -
+  the queue's line, its rows, Cancel queued - are moved into it while it
+  is open and home again on its `close` (✕, Escape, Back, the phone
+  going), so `setQueue` and the job's writers write the one copy, and a
+  held press in the sheet (↑, Pause, a row's Move to front) says why
+  under the job, where it was pressed, not in a panel the sheet covers;
+  with neither shown it says nothing runs. While they are in it,
+  `movedByQueue` counts the sheet's list as what a poll's change would
+  move. The panel draws no `#progress` or `#queue-note` of its own on the
+  phone (`.panel > :is(#progress, #queue-note)`, not drawn): in the
+  panel they were a Now line, four buttons 4 px apart and the queue's
+  rows mid-page between the results and Load settings from PNG, which the
+  bar's ring and count now say; the sheet is the one place to Pause,
+  Skip or Cancel there. In the sheet the job's name is two lines at most
+  at 16 px over the bars and counters, then ↑ (with its word, Front),
+  Pause, Skip and Cancel as four equal 44 px columns 8 px apart (the
+  head's two halves the line's own items, `display: contents`, so the
+  buttons come after the bars; nothing in it is focusable but the
+  buttons, whose order is the markup's), Cancel last in `--danger`. Each
+  queued job is a row of at least 56 px under a hairline, its price, size
+  and prompt over two lines at most, and one 44 px borderless ⋯
+  (`.queue-more`, `queueRow`, its glyph drawn so the row's text is the
+  PC's; not drawn anywhere else) where a × and an ↑ stood 8 px apart at
+  21-24 px wide: those two stay in the row for the menu to press but are
+  not drawn. The ⋯ (`openQueueRowMenu`, `phone.js`) opens the docked
+  menu (`context-menu.js`'s `showContextMenu`, moved into the sheet, the
+  modal dialog its opener is in) with the job's words over Move to front
+  and Cancel this job, each pressing the row's own button as it is at the
+  choice (the queue redraws its rows), held and titled as it is, so a
+  held one says why as its press would; Cancel last in `--danger`. Cancel
+  queued stays under the rows where there are several. The sheet never
+  closes by itself as the queue empties. A held picture's or queue's press, as a
   refused Generate's (`pressGenerate`: an empty prompt, a seed past 2^53,
   a hold, the server's own refusal once its answer is in), is said in the
   panel's line, `#error`, a screen below the bar; on the phone that line
@@ -7079,10 +7107,43 @@ measured on the card and when.
   their `::before`, goes with them. The star is a 44 px square in the
   card's corner (a sheet cell's too) with its 28 px dark disc drawn inside
   it. A recycle bin card has no menu, so its Restore and Delete
-  permanently stay, 44 px. A result's tools under its picture are 44 px
-  tall and 44 wide where the tile has the room (a lone result, a batch of
-  two one above the other), sharing a narrower tile (three or four side by
-  side, 165 px a tile) rather than running past it. A tool's name and
+  permanently stay, 44 px. A result's tools under its picture are the
+  phone's own row (`styles/phone.css`): Reuse, Refine and Star, each its
+  glyph and its word (`data-word`, drawn by `::after` after the glyph, so
+  the glyph stays the button's text and a PC's smokes read it; Starred
+  when it is), and ⋯ (`.more-tool`, `resultFigure`; not drawn anywhere
+  else), which opens the image's own menu, the long press's, docked at
+  the screen's foot: Use seed, More seeds of this batch, Inpaint…, a
+  reference, Copy, and the recycle bin last in `--danger` (a menu item's
+  `danger`, drawn so on the phone alone), away from Star. The three share
+  the row and ⋯ is a 44 px square, 44 px tall and 8 px apart, tonal
+  (`--panel-2`), where five 27-33 px glyphs stood 4 px apart with Delete
+  beside Star. Their order is the markup's (Reuse, Refine, Star), so the
+  focus order is the order drawn. Inpaint, a reference and Delete stay in
+  the tile for the menu to press, not drawn. The words go by the tile's
+  width (the tile a size container on the phone): under 270 px (a square
+  on a phone on its side) the glyphs alone; under 200 px (a batch of
+  three or four side by side, 160 px a tile) Star with its word and ⋯
+  only, Reuse and Refine the menu's rows. A long run's strip - more than
+  four images, `.viewer.many` - is a grid of plain pictures, as many
+  140 px or wider columns as fit (two on a phone held upright, five on
+  its side), 8 px apart, where its 20vh tiles stood one under another
+  down the page: no tools over them, a tap opens the image in the
+  lightbox and a long press its menu. The same actions appear once: the
+  result's ⋯ has Use seed and More seeds, so the finished job's line
+  (`#finish-note`) keeps its sentence and what only it offers - Show
+  sheet, a grid run's More seeds, a Finish run with cells to finish - but
+  its Use seed and More seeds… (`.result-dup`, `finishJob`) are not drawn,
+  nor a Finish run held with nothing to finish (a PC and a tablet keep
+  it, held, with its reason), and its focus after a job's end goes to its
+  first button drawn, else Generate; under a lone result the note's seed
+  line, whose dotted Use seed was the third, and More seeds for its one
+  settings group (the menu's More seeds of this batch) are not drawn,
+  nor the note while that is all it holds. A batch's More seeds, for every
+  settings group the strip holds, stays: the menu's is one image's. The
+  morning-after banner (`#last-run`) keeps its buttons: it shows only at
+  a page's load with nothing running, when the viewer holds nothing of
+  that run. A tool's name and
   fill on `:hover` are
   dropped unless the focus is the keyboard's, since iOS leaves `:hover` on
   what was tapped, and so is a card's caption ("#14 · 1024×1024 · seed 5",
@@ -8091,27 +8152,60 @@ and `running`, a `--ring` past 0 and a conic gradient), pressable with
 its title; the queue its count of 1, unheld, `running`, named "Queue: a
 job running, 1 waiting"; New image hidden with the viewer below the
 window; a tap on the live picture bringing the viewer into sight with the
-focus in it and no lightbox. The queue's sheet from its button: the
-panel's own `#progress` and `#queue-note` moved into it (one of each,
-and one Cancel), Cancel and the list shown, the idle line not, the phone
+focus in it and no lightbox. While a job runs the panel draws no
+`#progress`, `#queue-note` or Cancel of its own, though both are
+unhidden there. The queue's sheet from its button: the panel's own
+`#progress`, `#error` and `#queue-note` moved into it (one of each, and
+one Cancel), Cancel and the list shown, the idle line not, the phone
 audit finding nothing under 44 px, off it or outside the window, and one
-history entry; Back closing it, the nodes back in the panel, no entry
-left and the focus on the queue button; its ✕ closing it as well. Both
-jobs done (`/api/jobs` listing none, so the moment between them is never
-taken for the end): the result card shown in `#phone-results`, after the Output
+history entry; the job's name above its bar, then ↑, Pause, Skip and
+Cancel in that order as four 44 px columns of one width and top under
+the bar, 8 px apart, from 16 px to the window's width less 16, none cut,
+Cancel in `--danger` and ↑'s `::after` Front; the queued row at least
+56 px, its text the span's and × and ↑ (so the ⋯ adds none), its × and ↑
+not drawn and its ⋯ a 44 px square at the right gutter with
+`aria-haspopup="menu"` and its "Move or cancel queued job" name. Back
+closes it, the nodes (`#error` too) back in the panel, no entry left
+and the focus on the queue button. Opened again, the row's ⋯ opens the
+menu inside the sheet (a second entry): the row's words as its heading
+over ↑ Move to front, held with "This job is already first in the
+queue", and × Cancel this job, `danger` in `--danger`, each row at least
+48 px and the menu at the window's foot; the held row's tap says why in
+`#error` between the job's buttons and the queue, the job still queued;
+the ⋯ again and Cancel this job cancels it, the row, the queue's line
+and the count gone, the job still running and the sheet open; its ✕
+closes it, the nodes home. The job done (`/api/jobs` listing none):
+the result card shown in `#phone-results`, after the Output
 field and before `#progress`, its top under 1100 px down the page and
 less than one band below the band's foot (a scroll of under a screen
 reaches it; it is logged), the band's own scroll putting its top in
 sight; the bar's picture the newest image's thumbnail with its title,
-the queue held again. The picture tapped at a 120 px scroll opens the
+the queue held again. The result's row: Reuse, Refine, Star and ⋯
+the four drawn, in that order, the first three's `::after` their
+words, 44 px tall on one top inside the tile, 8 px apart, ⋯ 44 wide,
+none cut, Inpaint and Delete in the tile but not drawn. The finished
+line starts "Finished 1 image" with its two `.result-dup` buttons and a
+held Finish run in it, none drawn, and neither `#viewer-seeds` nor the
+note under the strip (its seed line still in it) drawn. The result's ⋯
+opens the image's menu on the page with one entry, named by its id,
+Use seed, More seeds of this batch…, ✎ Inpaint… and ⤢ Refine… among its
+rows and the recycle bin last in `--danger`, the menu at the window's
+foot; its Use seed puts the seed in the Seed box and closes it. The picture tapped at a 120 px scroll opens the
 lightbox on the newest image with one entry; Escape closes it, the focus
 on the picture and the page at its scroll. The Models sheet in the
 Create view ends at the action bar's top; the Gallery view has no
-action bar and its band ends at the tab bar. A mouse at 1400x900 has
+action bar and its band ends at the tab bar. A batch of four lands two
+by two, each tile drawing Star (its word) and a 44 px ⋯ alone inside it,
+`#viewer-seeds` drawn. Two batches of four make the long run's strip:
+eight pictures two across, at least 140 px, 8 px apart across and down,
+no tools drawn and every tool out of the tab order; two across at
+360x780 too, with no sideways scroll; a tap on the third picture opens
+the lightbox on it, Escape closing it. A mouse at 1400x900 has
 no `data-tier` and no action bar, Generate home in the panel after the
 empty `#phone-results`, 43 px and static, the viewer and `#recent` in the
-stage beside the panel, the progress in the panel, no scroll padding and
-the band the window.
+stage beside the panel, the progress and `#error` in the panel, no scroll
+padding and the band the window; no ⋯ drawn, the tile no size container,
+and the finished line's Use seed and More seeds… drawn.
 
 `smoke-tablet.json` uses a fresh FLUX.1 Krea [dev] fake on 7957 with touch
 at 820x1180@2, its touch viewports `"mobile": true`: `data-tier` tablet

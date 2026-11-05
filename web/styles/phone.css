@@ -10,6 +10,9 @@
    tokens it reads: --phone-actions-h, --phone-bottom-chrome, --tabbar-h
    and the safe areas. */
 .phone-actions, .phone-results { display: none; }
+/* A result's ⋯ (viewer.js) and a queued row's (job-queue.js): the phone's
+   way to the rest of their buttons, drawn on the phone alone. */
+.viewer .tools .more-tool, .queue-list .queue-more { display: none; }
 
 /* The newest result's ring while a job runs: where it starts, turned while
    the weights load and there is no fraction to show. */
@@ -132,6 +135,138 @@
   .queue-sheet-body:has(> #progress:not([hidden])) > .queue-sheet-idle,
   .queue-sheet-body:has(> #queue-note:not([hidden])) > .queue-sheet-idle { display: none; }
   .queue-sheet::backdrop { background: rgba(0, 0, 0, 0.6); }
+  /* The sheet is where the job and the queue are on a phone: in the panel,
+     between the results and Load settings from PNG, they were a Now line,
+     four buttons 4 px apart and the queue's rows mid-page, which the bar's
+     ring and count now say. */
+  .panel > :is(#progress, #queue-note) { display: none; }
+
+  /* The running job: its name over two lines at most, 16 px; the bars and
+     counters under it; then ↑, Pause, Skip and Cancel as four equal 44 px
+     columns 8 px apart, Cancel last in --danger (styles/touch.css), ↑ with
+     its word. The head's two halves are the line's own items here
+     (`display: contents`) so the buttons come after the bars; nothing in
+     it is focusable but the buttons, whose order is the markup's. */
+  .queue-sheet .progress { row-gap: 0; }
+  .queue-sheet .progress-head { display: contents; }
+  .queue-sheet .progress .now {
+    order: 0; flex: 1 0 100%; margin-bottom: var(--sp-2);
+    font-size: var(--fs-md); color: var(--text);
+    white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  }
+  .queue-sheet .progress-actions {
+    order: 5; flex: 1 0 100%; margin: var(--sp-4) 0 0;
+    display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp-2);
+  }
+  .queue-sheet .progress-actions > button {
+    width: auto; min-width: 0; height: var(--h-md); margin: 0; padding-inline: var(--sp-1);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .queue-sheet #btn-queue-front { width: auto; }
+  .queue-sheet #btn-queue-front::after { content: "Front"; margin-left: var(--sp-1); }
+  /* A held press's word (#error, moved in under the job, phone.js). */
+  .queue-sheet-body > #error { margin-top: calc(-1 * var(--sp-2)); }
+
+  /* The queue: its line, then each job a row of at least 56 px under a
+     hairline - its price, size and prompt over two lines at most, and one
+     44 px ⋯, borderless as a list's, whose menu has Move to front and Cancel (phone.js), where a ×
+     and an ↑ stood 8 px apart at 21-24 px wide - and Cancel queued under
+     them where there are several. */
+  .queue-sheet #queue-note { gap: var(--sp-2); }
+  .queue-sheet #queue-text { font-size: var(--fs-label); color: var(--text-readout); }
+  .queue-sheet .queue-list { gap: 0; border-top: 1px solid var(--line); }
+  .queue-sheet .queue-list li {
+    min-height: 56px; padding-block: var(--sp-1); gap: var(--sp-3);
+    border-bottom: 1px solid var(--line);
+  }
+  .queue-sheet .queue-list li > span {
+    font-size: var(--fs-body-sm); line-height: var(--lh-tight);
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+  }
+  .queue-sheet .queue-list li > :is([data-queue-action="cancel"], [data-queue-action="front"]) { display: none; }
+  .queue-sheet .queue-list li > .queue-more {
+    display: inline-grid; place-items: center; flex: none;
+    width: var(--h-md); min-width: var(--h-md); height: var(--h-md); padding: 0;
+    border-color: transparent; color: var(--text-2); font-size: 24px; font-weight: 700; line-height: 1;
+  }
+  .queue-sheet .queue-list li > .queue-more::before { content: "⋯" / ""; }
+  .queue-sheet #btn-cancel-queued { margin-top: var(--sp-2); }
+
+  /* A menu's row that destroys or stops (context-menu.js): a queued job's
+     Cancel, an image's recycle bin, in --danger as the page's other such
+     buttons are on a phone; held, it is any held row. */
+  .context-menu li.danger:not([aria-disabled="true"]) { color: var(--danger); }
+
+  /* A result's row under its picture: Reuse, Refine and Star, each its
+     glyph and its word (`data-word`, drawn after the glyph, so the glyph
+     stays the button's text), and ⋯ - the image's own menu, the long
+     press's: Use seed, More seeds, Inpaint, a reference, Copy, and the
+     recycle bin last in --danger, away from Star - 44 px tall and 8 px
+     apart, the three sharing the row and ⋯ a 44 px square, tonal, where
+     five 27-33 px glyphs stood 4 px apart with Delete beside Star. Inpaint, a reference and Delete are in the
+     page still, for the menu to press (`buttonItem` reads `hidden`, not
+     the CSS). Its words by the tile's width (a container): under 270 px
+     (a square on a phone on its side) the glyphs alone, under 200 (a batch
+     of three or four side by side, 160 px a tile) Star with its word and ⋯
+     only - Reuse and Refine are the menu's rows there. */
+  .viewer .tile { container: result-tile / inline-size; }
+  .viewer:not(.many) .tile > .tools {
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) var(--h-md); gap: var(--sp-2);
+  }
+  .viewer:not(.many) .tile > .tools > :is(.ref-tool, .inpaint-tool, .del) { display: none; }
+  .viewer:not(.many) .tile > .tools > .more-tool { display: block; }
+  .viewer:not(.many) .tile > .tools > button {
+    min-width: 0; height: var(--h-md); margin: 0; padding: 0 2px;
+    background-color: var(--panel-2); border-color: var(--line-strong); color: var(--text);
+    font-size: var(--fs-md); line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .viewer:not(.many) .tile > .tools > .star[aria-pressed="true"] { color: var(--star); }
+  .viewer:not(.many) .tile > .tools > .more-tool { font-size: 24px; font-weight: 700; }
+  /* Over the tip a PC's pointer hangs here (styles/gallery.css) and the
+     touch tier's hover and a card note's turning it off (styles/touch.css):
+     the word sits after the glyph, always. */
+  #viewer:not(.many) .tile > .tools > button[data-word]::after {
+    content: attr(data-word); position: static; inset: auto; z-index: auto;
+    margin-left: 5px; padding: 0; border-radius: 0; background: none; color: inherit; opacity: 1;
+    font-size: var(--fs-label); font-weight: 600; white-space: nowrap; pointer-events: none;
+  }
+  #viewer:not(.many) .tile > .tools > .star[aria-pressed="true"][data-word]::after { content: "Starred"; }
+  #viewer:not(.many) .tile > .tools > button:not([data-word])::after { content: none; }
+  @container result-tile (width < 270px) {
+    #viewer:not(.many) .tile > .tools > button[data-word]::after { content: none; }
+  }
+  @container result-tile (width < 200px) {
+    .viewer:not(.many) .tile > .tools { grid-template-columns: minmax(0, 1fr) var(--h-md); }
+    .viewer:not(.many) .tile > .tools > :is(.reuse-settings, .refine-tool) { display: none; }
+    #viewer:not(.many) .tile > .tools > .star[data-word]::after { content: attr(data-word); }
+    #viewer:not(.many) .tile > .tools > .star[aria-pressed="true"][data-word]::after { content: "Starred"; }
+  }
+
+  /* A long run's strip - more than four images - as a grid of plain
+     pictures, two across a phone held upright (140 px at least, as many as
+     fit on its side), 8 px apart: its 20vh tiles stood one under another
+     down the page. No tools over them (styles/touch.css): a tap opens the
+     image, a long press its menu. */
+  .viewer.many {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: var(--sp-2); justify-content: stretch; align-content: start; align-items: start;
+  }
+  .viewer.many > figure, .viewer.many .tile { width: 100%; }
+
+  /* The same actions once (P7): the result's ⋯ has Use seed and More seeds,
+     so the finished job's line keeps its sentence and what only it offers
+     - Show sheet, a grid run's More seeds, a Finish run with cells to
+     finish - but not its Use seed and More seeds… (`.result-dup`), nor a
+     Finish run held with nothing to finish (a PC keeps it, held, with its
+     reason); a lone result's note under the strip drops its seed line, whose
+     dotted Use seed was the third, and More seeds for its one settings
+     group, the menu's More seeds of this batch. A batch's More seeds, for
+     every settings group the strip holds, stays: the menu's is one
+     image's. */
+  #finish-note > :is(.result-dup, .finish-run-tool[aria-disabled="true"]) { display: none; }
+  .phone-results:has(> .viewer:not(.multi)) > #viewer-note > #viewer-seeds,
+  .phone-results #viewer-note .seed-line { display: none; }
+  .phone-results:has(> .viewer:not(.multi)) > #viewer-note:not(:has(#viewer-note-text > :not(.seed-line))) { display: none; }
 }
 
 @media (pointer: coarse) and ((width < 700px) or (max-height: 500px)) and (prefers-reduced-motion: reduce) {
