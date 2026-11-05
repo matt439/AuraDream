@@ -7469,7 +7469,8 @@ measured on the card and when.
   gallery shows (the search's `run:<id>`, however it got there: a pick, a
   card's ⊞, Show run, typing) is a chip in the search's place
   (`#phone-run-chip`; the head's `data-run`, the search not drawn under it
-  until it has the focus): "Run" and the run's time if it began today, else
+  until it has the focus): "Run" and the run's time if it began today (a
+  row says "Today, 4:47 am" likewise, `runWhen`), else
   its day, then where the chip has the room (a container query: on its
   side, not at 393 px) the rest ("· 4 images"), its whole line its name;
   its press opens the runs' sheet, and its 44 px ✕ is the gallery as it was
@@ -7488,13 +7489,21 @@ measured on the card and when.
   Finish run and More seeds of this run… (drawn "More seeds…", its name
   the whole), the sheet's own buttons moved in whole after each drawing
   (`placePhoneSheetFoot`; `dropPhoneSheetFoot` takes the last drawing's out
-  first, and off the phone they go home before the keyboard's line), and
+  first, and off the phone they go home before the keyboard's line; back
+  on the phone with a run shown, `syncPhoneRuns` puts them in the foot
+  again without a drawing), and
   a 44 px ⋯ (`#sheet-foot-more`) whose docked menu presses the sheet's own
   Swipe CFG, Swipe steps, Fill width (ticked while on) and Export PNG or
   Export all, each held and titled as it is, a held one's reason said over
   the foot. The gallery's line is moved 8 px over the foot while it is up,
   so a held Finish run says why where it was pressed. The foot is not
-  drawn in the Create view, nor anywhere off the phone.
+  drawn in the Create view, nor anywhere off the phone. On its side, what
+  sits round the matrix once the page lands on the head (the controls,
+  the Fixed line, the note, the tab bar and the foot) is most of the
+  screen, so the matrix's box and its cells' `--cell-max` are at least
+  the band under the sticky head and over the foot (`--sheet-band`): a
+  scroll of the page takes the controls up under the head and the matrix
+  fills the screen between the bars, where it was a 42 px sliver.
   The recycle bin on the phone (the review's P22) is a screen of its own:
   a 44 px ‹ (`#btn-bin-back`, the accent's colour, no edge) before its
   name ("Recycle bin (3)"), the way back to the gallery, as Back is (the
@@ -7504,9 +7513,10 @@ measured on the card and when.
   Delete picked permanently, in `--danger`, which asks first - and each
   card says how long ago it was binned ("today", "3 days ago": the
   tools' `data-age`, `binCard`) on a dark pill at its foot's left. Its
-  sheets hold only what the bin takes: Filters, All models and the
-  search's terms (not Starred, Runs or Sheet, which the bin holds); ⋯,
-  the picks' count and Clear while anything is picked, the bin's own
+  sheets hold only what the bin takes: Filters, the search's terms (not
+  Starred, Runs or Sheet, which the bin holds, nor All models, which
+  changes nothing there: the bin is every checkpoint's, `loadGallery`);
+  ⋯, titled "Bin actions" there, the picks' count and Clear while anything is picked, the bin's own
   Restore picked, Delete picked permanently, Empty which images and Empty
   recycle bin, and the cards' size - not Picked, Re-render, the bulk
   actions, Saved searches…, Bundles… or Recycle bin itself (the sheets'
@@ -9053,7 +9063,7 @@ Runs row live with its line, its press opening the runs' sheet over
 Filters (two entries) at the window's foot, five rows of the select's
 five options in order, each 56 px inside the screen, the groups "Grids
 and batches" and "Single images", the count "5 runs", the grid first
-with its `cover`'s thumbnail in a 44 px square, "· 4 images" and
+with its `cover`'s thumbnail in a 44 px square, "Today, … · 4 images" and
 "steps×CFG 2×2 · a lighthouse at dusk", the audit clean; its press
 shutting both sheets and opening the run's sheet (one entry), the chip
 in the search's place on the row, 44 px with a 44 px ✕, named "Run …",
@@ -9069,10 +9079,17 @@ over the foot; the chip's press opening the runs' sheet with the run
 marked current, Escape back; its ✕ the gallery of eight again, the
 search empty and drawn, no foot, no entry. At 360x780 the chip's time
 and the foot's words whole, the audit clean; on its side the rest of the
-chip's words drawn; Back leaves the run. Two images binned, the bin
+chip's words drawn and the matrix's box at least a cell row and its
+heads tall and no taller than the band under the head, the foot at
+`viewBand`'s foot; the page scrolled by the box's offset putting the box
+under the head and its first row whole over the foot. A mouse at
+1400x900 with the run shown takes Finish run and More seeds… home in the
+controls before the line, no foot; touch at 393 again puts them in the
+foot, up, with ⋯ live. Back leaves the run. Two images binned, the bin
 (one entry): its cards no tools, each `data-age` "today" drawn at its
-foot, the audit clean; Filters there All models and the terms, not
-Starred, Runs or Sheet; Select with a card picked: Restore picked and
+foot, the audit clean; Filters there only its ✕, the terms' fold and
+the search's help (not Starred, All models, Runs or Sheet), ⋯ titled
+"Bin actions" ("Gallery actions" again once out); Select with a card picked: Restore picked and
 Delete picked permanently in the bar, 44 px, the latter in `--danger`,
 whose press asks (the confirm, a third entry), Escape keeping both;
 Back leaves Select, then the bin (six cards, no entry). A mouse at

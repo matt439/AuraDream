@@ -496,10 +496,12 @@
      with no tools - a tap opens the image (Restore and Delete permanently
      in the lightbox), Select picks them for the bar's Restore picked and
      Delete picked permanently - and how long ago each was binned on its
-     foot. The sheets hold only what the bin takes: Filters All models and
-     the search's terms; ⋯ the picks' count and Clear, the bin's own rows
-     and the cards' size, not Picked, the bulk actions, Saved searches…,
-     Bundles… or Recycle bin itself. */
+     foot. The sheets hold only what the bin takes: Filters the search's
+     terms (the bin is every checkpoint's, so All models would change
+     nothing there, gallery.js's loadGallery); ⋯, titled Bin actions, the
+     picks' count and Clear, the bin's own rows and the cards' size, not
+     Picked, the bulk actions, Saved searches…, Bundles… or Recycle bin
+     itself. */
   .gallery-head[data-bin] > .bin-back:not([hidden]) {
     display: inline-grid; place-items: center; flex: none;
     width: var(--h-md); min-width: var(--h-md); height: var(--h-md); margin: 0 0 0 calc(-1 * var(--sp-3)); padding: 0;
@@ -518,7 +520,9 @@
     padding: 1px var(--sp-2); border-radius: 10px; background: rgba(0, 0, 0, 0.7); color: #fff;
     font-size: var(--fs-xs); line-height: 18px; white-space: nowrap; visibility: visible;
   }
-  #gallery-filter-sheet[data-bin] :is(.check:has(> #fav-only), #gallery-filter-run, #gallery-filter-view) { display: none; }
+  #gallery-filter-sheet[data-bin] :is(#gallery-filter-chips, #gallery-filter-run, #gallery-filter-view) { display: none; }
+  /* The terms' fold alone, its rule and gap above nothing are not drawn. */
+  #gallery-filter-sheet[data-bin] .search-help-fold { border-top: none; margin-top: 0; }
   #gallery-more-sheet[data-bin] :is(#picked, #gallery-more-act, #gallery-more-library) { display: none; }
   /* With Picked not drawn, the picks' group is empty while nothing is
      picked (or the selection bar holds the count and Clear). */
@@ -650,4 +654,20 @@
   .select-bar-head { flex: 0 1 auto; max-width: 46%; }
   .select-bar-acts { flex: 1 1 0; height: 52px; }
   #select-bar-acts > button { white-space: nowrap; }
+  /* A run's sheet on its side: what sits round its matrix once the page has
+     landed on the head - the controls, the Fixed line, the note, the tab
+     bar and the run's foot - is most of a screen 393 px tall, and the box
+     the matrix scrolls in was 42 px, a sliver of its first row. Here the
+     box (and the cells' --cell-max) are at least the band under the sticky
+     head and over the foot, 60 px and a hairline: a scroll of the page
+     takes the controls up under the head and the matrix fills the screen
+     between the two bars. */
+  .sheet:not(.wrapped) {
+    --sheet-band: max(calc(100vh - var(--sheet-chrome, 0px)),
+      calc(100vh - var(--topbar-h) - var(--h-md) - 2 * var(--sp-2) - 1px - var(--phone-bottom-chrome, 0px)));
+  }
+  .sheet:not(.wrapped) .sheet-scroll { max-height: var(--sheet-band); }
+  .sheet:not(.wrapped) .sheet-grid {
+    --cell-max: calc(((var(--sheet-band) - var(--sheet-head, 0px)) / var(--sheet-rows, 1) - 6px) * var(--sheet-ar, 1));
+  }
 }

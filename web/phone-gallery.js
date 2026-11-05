@@ -96,6 +96,8 @@ function syncPhoneGalleryHead() {
   // The bin's own screen: its name under a ‹ back, the sheets holding only
   // its own rows (styles/phone-gallery.css, `[data-bin]`).
   for (const sheet of gallerySheets()) sheet.toggleAttribute('data-bin', binMode);
+  const moreTitle = binMode ? 'Bin actions' : 'Gallery actions';
+  if ($('gallery-more-title').textContent !== moreTitle) $('gallery-more-title').textContent = moreTitle;
   $('btn-bin-back').hidden = !binMode;
   placeBinGroup();
   syncPhoneRuns();

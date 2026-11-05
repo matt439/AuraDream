@@ -34,14 +34,24 @@ function syncPhoneRuns() {
   syncRunsRow();
   syncRunChip();
   if (sheet.open) drawRunsSheet();
+  // Back on the phone from a mouse's screen with a run's sheet shown: its
+  // actions, home in the controls there, into the foot again, and the foot
+  // up (drawSheet's own placing is the same, so this moves nothing then).
+  const foot = $('sheet-foot');
+  if (sheetRunActs(els.sheetControls).length || foot.hidden === phoneSheetFootUp()) placePhoneSheetFoot();
 }
 
 // The run's words for its row and chip: when it began, then how many
-// images ("6 Nov, 03:48 · 4 images"); a single image's second and seed.
+// images ("6 Nov, 03:48 · 4 images"); a single image's second and seed. A
+// run of today is its time alone ("Today, 4:47 am"), as the chip says it,
+// so a list of mostly recent runs reads by the time.
 function runWhen(run) {
   const several = run.images !== 1 || run.jobs > 1;
   const at = Date.parse(run.started_at);
-  return several ? `${when(at)} · ${plural(run.images, 'image')}` : `${whenExactly(at)} · seed ${run.seed}`;
+  const date = new Date(at);
+  const said = date.toDateString() !== new Date().toDateString() ? (several ? when(at) : whenExactly(at))
+    : `Today, ${date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', ...(several ? {} : { second: '2-digit' }) })}`;
+  return several ? `${said} · ${plural(run.images, 'image')}` : `${said} · seed ${run.seed}`;
 }
 
 // ---------------------------------------------------------- the Runs row
