@@ -6653,7 +6653,10 @@ measured on the card and when.
   Variable mode) a sub-label's 13 px. A `?` badge is drawn 20 px with a
   13 px glyph, its press reaching 9 px up and 12 to each side (10 up took
   a pixel of the box in the grid's row above), and a finding's mark 18 px
-  with `--fs-xs`; the PC's 10 px literals stay its own. The rhythm is
+  with `--fs-xs`; the PC's 10 px literals stay its own. A small counter's
+  column (`.sub.narrow`) is at least as wide as its name and badge
+  (`min-width: min-content`): "Budget ?" is 69 px over a 62 px box, and
+  its badge ran 4 px into the gutter at the grid row's end. The rhythm is
   4 px inside a control, 8 between controls (a caption 8 over its box,
   `.field` `gap`), 16 between fields and round the page (`--gutter` and
   `--panel-gap`, the dialogs' gaps with it) and 32 between sections
@@ -6678,7 +6681,10 @@ measured on the card and when.
   kept for it) at 45° shut and -135° open - in place of the PC's three
   marks (capitals and a faint ▸, a bold name and the UA's ▶, a dialog's)
   and the touch tier's `::after` reach, which a 48 px row no longer needs.
-  The Performance line keeps its words in one flow. An open grid fold's
+  The Performance line keeps its words in one flow. A shut fold is its
+  row alone: `.section`'s flex `gap` still stood between the summary and
+  its hidden contents, 12 px more under Grid search than under LoRA &
+  references, so a shut `.section` has none. An open grid fold's
   rows and its Resume tick are 12 px apart, a setup fold's body 8 below
   its row. Step cache is a field like the others, its name over a full
   width box. A caption, a status line and a row of actions wrap cleanly
@@ -6692,7 +6698,9 @@ measured on the card and when.
   actions after the sentence or on the next line from the left edge, its
   empty lead not drawn (wrapped, More seeds… started 8 px in); the Notify
   row is a grid, Notify when done and Then refine on one line and the
-  note under the label's words (33 px in), whole and keeping its line
+  note under the label's words (the label a subgrid of the row's columns,
+  its tick in the first and its words in the second, where the note
+  starts, whatever size the tick is drawn), whole and keeping its line
   while empty, so a permission's answer moves nothing (at 320 px it was
   cut to "Hi…"); and Inpaint's state line and the run sheet's line, kept
   to a height and cut with an ellipsis, are two lines (`2lh`), always
@@ -7859,13 +7867,15 @@ card's tools are in the page (six) but not drawn and its star is a 44 px
 square in its corner; the lightbox's under-44 list logged; the phone's
 type - body 16 px, a caption 14 in sentence case, a sub-label 13 - and no
 word under 13 px (`__phoneText`) on Create with its folds shut and open
-and on Gallery, whose heading is 18; the panel with no padding, edge or
+and on Gallery, whose heading is 18; no visible `?` badge in the panel
+ending past the screen less 16, its folds open, at 393 and 320 px wide; the panel with no padding, edge or
 fill, the prompt box 16 px from the screen's edge and the screen less 32
 wide, its fields 16 apart; Custom dimensions', Grid search's and LoRA &
 references' summaries 48 px rows (under 49) of 16 px bold, under a 1 px
 rule, their values ending 28 px short of the row's end, a 9 px chevron
 (`::after`, absolute) at 45° and -135° once open (Grid search's waited for,
-its ▾ gone) and no `::before`; the negative caption's name and Set True
+its ▾ gone) and no `::before`; each of those folds shut 48 px whole (its
+`<details>`, under 50), Step cache 16 below Grid search; the negative caption's name and Set True
 CFG centred on one line, the button at the screen's edge less 16, the
 note under them from the left; Notify and Then refine on one line and the
 note under the label's words, whole; a finished job's actions 44 px and
