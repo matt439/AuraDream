@@ -49,21 +49,21 @@
 <body>
 <header class="topbar">
   <h1 class="brand">Aura<span>Dream</span></h1>
-  <div class="status" id="status">
+  <span class="status" id="status">
     <span class="dot" id="status-dot"></span>
     <span id="status-text" aria-live="polite">checking…</span>
     <!-- Another tab's job, beside the name and outside its live region: it
          came and went with jobs nobody here started, each read out. The held
          buttons' titles and their presses say it to a screen reader. -->
     <span id="status-aside" aria-hidden="true" hidden></span>
-  </div>
+  </span>
   <!-- The watched job in one line, and a line along the bar's foot: in view
        at any scroll and in the tab's title's company. aria-hidden, since the
        panel's #progress-text is the status a screen reader hears. -->
   <span class="job-mirror" id="job-mirror" aria-hidden="true" hidden></span>
   <div class="vram" id="vram"></div>
   <button type="button" class="ghost" id="btn-shortcuts" aria-label="Keyboard shortcuts" aria-keyshortcuts="?" aria-haspopup="dialog" aria-controls="shortcuts-dialog" title="Keyboard shortcuts (?)">?</button>
-  <!-- On a phone the status rides in this button (phone.js): the model chip,
+  <!-- On a phone the status rides in this button (phone-compose.js): the chip,
        its dot and its name, that opens Models; the word is then said, not
        drawn. -->
   <button class="ghost" id="btn-models" aria-expanded="false" aria-controls="model-picker"><span class="models-word">Models</span></button>
@@ -151,11 +151,11 @@
        queueing an image to start it. Unload is hidden meanwhile. -->
   <button class="ghost" id="btn-load" title="Load the weights now" hidden>Load</button>
   <button class="ghost" id="btn-unload" title="Free VRAM">Unload</button>
-  <!-- A phone's ⋯ (phone.js, styles/phone.css): Load or Unload, Saved
+  <!-- A phone's ⋯ (phone-compose.js, styles/phone.css): Load or Unload, Saved
        setups, Personal snippets, Load settings from PNG and Reset, as an
        action sheet pressing those same buttons, which the phone does not
        draw. Not drawn anywhere else. -->
-  <button type="button" class="ghost topbar-more" id="btn-topbar-more" aria-haspopup="menu"
+  <button type="button" class="ghost topbar-more" id="btn-topbar-more" aria-haspopup="menu" aria-expanded="false"
           aria-label="More: Unload, saved setups, snippets, Load settings from PNG, Reset"
           title="Unload, saved setups, snippets, Load settings from PNG and Reset">⋯</button>
   <div class="topbar-line" id="topbar-line" aria-hidden="true" hidden><div class="fill" id="topbar-fill"></div></div>

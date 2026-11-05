@@ -7168,14 +7168,23 @@ measured on the card and when.
   is `#btn-models` itself with `#status` moved into it before its word -
   the dot, the checkpoint's name and its state ("· loading…", "· load
   failed") in 16 px bold, a 44 px pill at most the bar's width less the
-  ⋯, the name cut with an ellipsis, a chevron at its end that turns while
-  Models is open; the word Models is visually hidden, so the button's name
-  is the status's words and "Models". `#status` stays a live region in it,
+  ⋯, a chevron at its end that turns while Models is open. The name is
+  cut with an ellipsis, never the state: `writeStatusLine` (`status.js`)
+  writes the two as their own spans (`.status-name`, `.status-state`, the
+  whole line still `#status-text`'s one string), and the state keeps its
+  width, cut only where it alone is wider than the chip (a lost server's
+  line, all state, whose "retrying" is cut under 393 px) - "Animagine XL 4.0 Opt · loa…" at 360 px lost the
+  words to be read. `#status` is a `span`, phrasing content inside a
+  button. The word Models is visually hidden, so the button's name
+  is the status's words and "Models". `#status-text` stays a live region in it,
   and the picker's outside-press check counts a press on the status as the
   button's own (`els.models.contains`). The ⋯ (`#btn-topbar-more`,
   `openTopbarMenu`, a 44 px borderless square at the bar's end, drawn on
-  the phone alone) opens the docked menu (`showContextMenu`, its own
-  history entry): Load or Retry load while it is shown, Unload while it is
+  the phone alone; borderless after a tap too, over the touch tier's
+  sticky `.ghost:hover`) opens the docked menu (`showContextMenu`, its own
+  history entry; `aria-expanded` while it is open, as on every
+  `aria-haspopup="menu"` host the menu opens from - Shape, the Size chip,
+  a queued row's ⋯): Load or Retry load while it is shown, Unload while it is
   shown, then Saved setups… (`openSetups`), Personal snippets…
   (`openSnippets`), Load settings from PNG… and Reset, last in
   `--danger`. Each of Load, Unload, Load settings from PNG… and Reset

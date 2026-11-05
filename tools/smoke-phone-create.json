@@ -391,6 +391,16 @@
   {"tap": "#neg-fold"},
   {"expect": "__until(() => els.negField.dataset.fold === 'shut' && __el('neg-fold').querySelector('.neg-fold-summary').textContent === 'lowres, bad anatomy, bad hands' && __el('neg-fold').getAttribute('aria-label') === 'Negative prompt: lowres, bad anatomy, bad hands')"},
 
+  {"log": "'At 360x780 the model chip cuts a long name, never its state (loading, load failed): the state its own span, whole inside the chip before the chevron; a lost server line, all state, takes the whole box and is cut only at its end'"},
+  {"viewport": [360, 780, 3], "mobile": true},
+  {"eval": "scrollTo({top: 0, behavior: 'instant'}); window.__stateWhole = () => { const chip = __box(els.models), text = __box(els.statusText), st = els.statusText.querySelector('.status-state'), s = st && __box(st); return !!st && st.scrollWidth <= st.clientWidth + 0.5 && s.right <= text.right + 0.5 && text.right <= chip.right - 34 + 0.5 && getComputedStyle(st).whiteSpace === 'pre'; };"},
+  {"expect": "(() => { writeStatusLine('Animagine XL 4.0 Opt', ' · load failed'); const name = els.statusText.querySelector('.status-name'), ok = __stateWhole() && name.scrollWidth > name.clientWidth && els.statusText.textContent === 'Animagine XL 4.0 Opt · load failed' && els.statusText.getAttribute('aria-live') === 'polite'; writeStatusLine('', LOST_PHRASE); const st = els.statusText.querySelector('.status-state'), lost = !els.statusText.querySelector('.status-name') && els.statusText.textContent === LOST_PHRASE && Math.abs(__box(st).width - __box(els.statusText).width) < 0.5 && getComputedStyle(st).textOverflow === 'ellipsis'; return ok && lost; })()"},
+  {"expect": "(async () => { await fetch('/api/fake/load', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({hold: true})}); await fetch('/api/model/load', {method: 'POST'}); await refreshStatus(); return true; })()", "fatal": true},
+  {"expect": "__until(() => els.statusText.textContent.endsWith(' · loading…') && __stateWhole())"},
+  {"expect": "(async () => { await fetch('/api/fake/load', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({})}); return __until(() => document.getElementById('status-dot').className.includes('ready') && !els.statusText.querySelector('.status-state')); })()", "fatal": true},
+  {"expect": "(async () => { await fetch('/api/model/unload', {method: 'POST'}); await refreshStatus(); return __until(() => els.statusText.textContent.endsWith(' · not loaded')); })()", "fatal": true},
+  {"viewport": [393, 852, 3], "mobile": true},
+
   {"log": "'A mouse at 1400x900: no action bar, Generate home in the panel after Output at the PC height, the results home in the stage beside it'"},
   {"touch": false},
   {"viewport": [1400, 900]},

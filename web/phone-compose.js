@@ -195,7 +195,7 @@ function syncPhoneSize() {
     b.classList.toggle('opens', opens);
     b.classList.toggle('recommended', marks && !!aspect && presetIsInGuide(aspect, pickedTier));
     if (opens) b.setAttribute('aria-haspopup', 'menu');
-    else b.removeAttribute('aria-haspopup');
+    else { b.removeAttribute('aria-haspopup'); b.removeAttribute('aria-expanded'); }
     b.title = opens ? `${name} ${ratio}, ${dims}: press for the other ${shape} ratios` : `${name} ${ratio}, ${dims}`;
     b.setAttribute('aria-label', opens ? `${name}, ${ratio}, ${dims}. Other ${shape} ratios` : `${name}, ${ratio}, ${dims}`);
   }

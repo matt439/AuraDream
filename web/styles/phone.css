@@ -420,7 +420,14 @@
     background-color: var(--panel-2); border-color: var(--line-strong); color: var(--text);
   }
   #btn-models > .status { min-width: 0; gap: var(--sp-2); color: var(--text); font-size: var(--fs-md); font-weight: 600; }
-  #btn-models #status-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* A long name is cut, never its state: "Animagine XL 4.0 Opt · loa…" at
+     360 px lost the words that had to be read. The name ellipsizes; the
+     state (its own span, status.js's writeStatusLine) keeps its width and
+     its leading space, cut only where it alone is wider than the chip
+     (the lost server's line, whose "retrying" is cut under 393 px). */
+  #btn-models #status-text { display: flex; min-width: 0; overflow: hidden; white-space: nowrap; }
+  #btn-models .status-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  #btn-models .status-state { flex: none; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: pre; }
   #btn-models > .models-word {
     position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
     overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
@@ -437,6 +444,10 @@
     border-color: transparent; background-color: transparent; color: var(--text-2);
     font-size: 24px; font-weight: 700; line-height: 1;
   }
+  /* Borderless after a tap too: the touch tier's sticky .ghost:hover (iOS
+     keeps :hover after one) framed it while its menu was open and after
+     Back gave it the focus again. */
+  .topbar-more:hover { border-color: transparent; }
 
   /* The prompt's toolbar under its box: Examples, Check, Tags and Expand,
      moved from the caption (34 px, 3.8 px apart, wrapping with Tags and

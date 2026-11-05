@@ -10,7 +10,7 @@
 // on the image focus is in. One menu, moved into the lightbox while that is
 // up: a modal dialog leaves the page under it inert.
 
-const ctxMenu = { host: null, opener: null, keyAt: -Infinity, pressAt: -Infinity, pressId: null, liftAt: -Infinity };
+const ctxMenu = { host: null, opener: null, expanded: null, keyAt: -Infinity, pressAt: -Infinity, pressId: null, liftAt: -Infinity };
 
 // What a right-click or the Menu key at `target` is over: the lightbox's
 // stage, a live gallery card, a viewer result, a sheet's populated cell.
@@ -305,6 +305,12 @@ function showContextMenu(items, label, host, x, y, byKey) {
   if (menu.parentElement !== home) home.append(menu);
   ctxMenu.host = host;
   ctxMenu.opener = document.activeElement;
+  // A menu button (aria-haspopup="menu": the phone's topbar ⋯, Shape, the
+  // Size chip, a queued row's ⋯) says its menu is open until it shuts.
+  if (host.getAttribute?.('aria-haspopup') === 'menu') {
+    host.setAttribute('aria-expanded', 'true');
+    ctxMenu.expanded = host;
+  }
   // On a phone it is an action sheet docked at the screen's foot (touch.css),
   // not placed at the finger: no place of its own to set.
   const docked = matchMedia(PHONE_MEDIA).matches;
@@ -333,6 +339,8 @@ function closeContextMenu(refocus = true) {
   const opener = ctxMenu.opener;
   ctxMenu.host = null;
   ctxMenu.opener = null;
+  ctxMenu.expanded?.setAttribute('aria-expanded', 'false');
+  ctxMenu.expanded = null;
   if (refocus && inside && opener?.isConnected && opener !== document.body) opener.focus({ preventScroll: true });
 }
 
