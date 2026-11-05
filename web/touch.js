@@ -37,7 +37,9 @@ function syncTier() {
   // Back on the phone, the view shows where it was left, as a tab's press
   // does: the page between was the whole of both views, scrolled elsewhere.
   // (Phone-only layers - sheets, hosts - close or move back here as they
-  // come; today the phone has none.)
+  // come.) The right-click menu is docked at the phone's foot and placed at
+  // the pointer elsewhere: an open one closes as the phone comes or goes.
+  if (was !== undefined && (was === 'phone' || pageTier === 'phone')) closeContextMenu(false);
   if (was !== undefined && pageTier === 'phone') scrollTo({ top: phoneViewScroll[phoneView], behavior: 'instant' });
   // The bar's state and the keyboard's hold read the page as it is now.
   syncPhoneTabsBusy();

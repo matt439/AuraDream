@@ -241,7 +241,9 @@ function renderContextMenu(items) {
   menu.append(hint);
   let gap = false;
   for (const item of items) {
-    if (!item) { gap = menu.childElementCount > 0; continue; }
+    // The key hint, first, is no group: a line after it alone (the
+    // lightbox's menu, which has no Open) stood over its first row.
+    if (!item) { gap = !!menu.querySelector('[role="menuitem"], .heading'); continue; }
     if (gap) {
       const line = document.createElement('li');
       line.setAttribute('role', 'separator');
@@ -286,14 +288,19 @@ function openContextMenu(found, x, y, byKey) {
   if (menu.parentElement !== home) home.append(menu);
   ctxMenu.host = found.host;
   ctxMenu.opener = document.activeElement;
-  menu.style.left = '0px';
-  menu.style.top = '0px';
+  // On a phone it is an action sheet docked at the screen's foot (touch.css),
+  // not placed at the finger: no place of its own to set.
+  const docked = matchMedia(PHONE_MEDIA).matches;
+  menu.style.left = docked ? '' : '0px';
+  menu.style.top = docked ? '' : '0px';
   menu.hidden = false;
-  const { width, height } = menu.getBoundingClientRect();
-  const left = x + width + 4 > innerWidth ? Math.max(4, x - width) : x;
-  const top = y + height + 4 > innerHeight ? Math.max(4, y - height) : y;
-  menu.style.left = `${left}px`;
-  menu.style.top = `${top}px`;
+  if (!docked) {
+    const { width, height } = menu.getBoundingClientRect();
+    const left = x + width + 4 > innerWidth ? Math.max(4, x - width) : x;
+    const top = y + height + 4 > innerHeight ? Math.max(4, y - height) : y;
+    menu.style.left = `${left}px`;
+    menu.style.top = `${top}px`;
+  }
   const first = menu.querySelector('[role="menuitem"]');
   if (byKey && first) first.focus({ preventScroll: true });
   else menu.focus({ preventScroll: true });
@@ -455,6 +462,16 @@ function contextMenuTouchEnd(e) {
 function contextMenuPressClick(e) {
   if (performance.now() - ctxMenu.liftAt > 300) return;
   ctxMenu.liftAt = -Infinity;
+  e.preventDefault();
+  e.stopPropagation();
+}
+
+// The mousedown before that click, likewise: on a phone the menu is docked at
+// the screen's foot, so the finger lifts on the picture, not the menu, and a
+// mousedown there moved the focus out of the menu just opened - to the
+// lightbox's stage - which closed it.
+function contextMenuPressMouseDown(e) {
+  if (performance.now() - ctxMenu.liftAt > 300) return;
   e.preventDefault();
   e.stopPropagation();
 }

@@ -133,6 +133,14 @@
      keyboard to name. */
   .context-menu li[role="menuitem"] { min-height: var(--h-sm); align-items: center; }
   .context-menu .context-key-hint, .context-menu kbd { display: none; }
+  /* A close ✕ - the lightbox's, the dialogs' - was a 26 px glyph: a
+     finger's 44 square, the glyph centred in it. The prompt check's, kept
+     at 28 in its head's corner, reaches the same 44 round it. */
+  .close {
+    min-width: var(--h-md); min-height: var(--h-md); padding: 0;
+    display: inline-grid; place-items: center;
+  }
+  .analysis-head .analysis-close::before { content: ""; position: absolute; inset: -8px; }
 
   /* The gallery's footer wraps from the left on a touch screen, every button
      at its full name: right-aligned, the wrap stranded Picked's arrow before
@@ -284,11 +292,82 @@
      when (`body[data-typing]`); a select's wheel is no keyboard. */
   body[data-typing] .phone-tabs { display: none; }
 
-  /* The dialogs open as sheets across the screen. */
-  dialog:not(.lightbox):not(.context-menu) {
-    max-width: calc(100vw - var(--safe-l) - var(--safe-r) - 16px);
-    max-height: calc(100dvh - var(--safe-t) - var(--safe-b) - 16px);
+  /* The dialogs are sheets: the whole screen, edge to edge, rather than a
+     rounded box inset 8 px whose foot - Inpaint's, Outpaint's and Edit's
+     Cancel and primary, under a 34 px top margin - ran 18 px past the
+     screen's. Each keeps its own markup and column; its title row
+     (.dialog-head, index.html) stays at the top while the body scrolls under
+     it, and its action row (.dialog-actions) at the foot, clear of the home
+     indicator, so the primary and the close are always on the screen. The
+     sheet's own scroll stops at its ends (no pull on the page behind). A
+     dialog whose body has a scroller of its own (the setups', searches' and
+     snippets') fills the sheet with it; a short one keeps its actions at the
+     foot. Inpaint's picture keeps its fixed top: under the title row. */
+  dialog:not(.lightbox):not(.confirm-dialog) {
+    --sheet-l: max(16px, var(--safe-l));
+    --sheet-r: max(16px, var(--safe-r));
+    position: fixed; inset: 0;
+    width: auto; height: auto; max-width: none; max-height: none;
+    margin: 0; border: none; border-radius: 0; box-shadow: none;
+    padding: 0 var(--sheet-r) 0 var(--sheet-l);
+    overflow-y: auto; overscroll-behavior: contain;
   }
+  dialog:not(.lightbox):not(.confirm-dialog) > .dialog-head {
+    position: sticky; top: 0; z-index: 5;
+    margin: 0 calc(-1 * var(--sheet-r)) 0 calc(-1 * var(--sheet-l));
+    padding: calc(var(--safe-t) + 8px) var(--sheet-r) 8px var(--sheet-l);
+    background: var(--panel); border-bottom: 1px solid var(--line);
+  }
+  /* Its close, a ✕ or a word, a finger's size in either corner. */
+  dialog:not(.lightbox) > .dialog-head > button { min-width: var(--h-md); min-height: var(--h-md); }
+  dialog:not(.lightbox):not(.confirm-dialog) .dialog-actions {
+    position: sticky; bottom: 0; z-index: 5;
+    margin: auto calc(-1 * var(--sheet-r)) 0 calc(-1 * var(--sheet-l));
+    padding: 8px var(--sheet-r) calc(var(--safe-b) + 8px) var(--sheet-l);
+    background: var(--panel); border-top: 1px solid var(--line);
+  }
+  /* Where something follows the actions (More seeds' fold, a status line) or
+     there are none (Bundles), the sheet's end clears the home indicator too. */
+  dialog:not(.lightbox):not(.confirm-dialog):not(:has(.dialog-actions:last-child))::after {
+    content: ""; display: block; flex: none; height: calc(var(--safe-b) + 16px);
+  }
+  /* A delete's question is short: a sheet from the foot, across the screen. */
+  dialog.confirm-dialog {
+    position: fixed; inset: auto 0 0 0;
+    width: auto; max-width: none; max-height: calc(100dvh - var(--safe-t) - 16px);
+    margin: 0; border-width: 1px 0 0; border-radius: var(--r-lg) var(--r-lg) 0 0;
+    padding: 20px max(16px, var(--safe-r)) calc(var(--safe-b) + 16px) max(16px, var(--safe-l));
+    overscroll-behavior: contain;
+  }
+
+  /* The Examples and Picked menus: hung under their buttons they ran past the
+     screen's right edge (the page then scrolled sideways) or stood on 29 px
+     rows. Here each sits across the screen just above the tab bar, scrolling
+     inside itself, its rows a finger's 48 px. */
+  .menu:is(#examples-menu, #picked-menu) {
+    position: fixed; top: auto;
+    left: max(8px, var(--safe-l)); right: max(8px, var(--safe-r));
+    bottom: calc(var(--phone-bottom-chrome) + 8px);
+    width: auto;
+    max-height: min(70dvh, calc(100dvh - var(--topbar-h) - var(--phone-bottom-chrome) - 16px));
+    overscroll-behavior: contain;
+  }
+  .menu:is(#examples-menu, #picked-menu) li {
+    display: flex; flex-direction: column; justify-content: center;
+    min-height: 48px; padding-block: 8px;
+  }
+  /* The right-click menu a long press opens: an action sheet docked at the
+     screen's foot (context-menu.js leaves it unplaced on the phone) rather
+     than a popover hung under the finger, its own scroll past 70% of the
+     screen, its rows 48 px. */
+  .context-menu {
+    top: auto; left: 0; right: 0; bottom: 0;
+    width: auto; min-width: 0; max-width: none; max-height: 70dvh;
+    border-width: 1px 0 0; border-radius: var(--r-lg) var(--r-lg) 0 0;
+    padding: var(--sp-2) max(8px, var(--safe-r)) calc(var(--safe-b) + 8px) max(8px, var(--safe-l));
+    overscroll-behavior: contain;
+  }
+  .context-menu li[role="menuitem"] { min-height: 48px; }
 
   /* The Models picker: a sheet across the screen between the topbar and the
      tab bar, rather than a box hung from the topbar's corner whose foot - the

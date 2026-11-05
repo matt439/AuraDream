@@ -1190,7 +1190,7 @@
      the tree's at every width. -->
 <dialog class="refine-dialog" id="refine-dialog" aria-labelledby="refine-title"
         aria-describedby="refine-source-line refine-reused">
-  <div class="rf-head">
+  <div class="rf-head dialog-head">
     <h2 id="refine-title">Refine</h2>
     <button type="button" class="close" id="refine-close" aria-label="Close (Escape)">✕</button>
   </div>
@@ -1349,7 +1349,7 @@
     <p class="sr-only" id="refine-check-said" aria-live="polite"></p>
     <p class="hint pre" id="refine-preview" aria-live="polite"></p>
     <p class="error" id="refine-error" role="alert" hidden></p>
-    <div class="rf-actions">
+    <div class="rf-actions dialog-actions">
       <button type="button" class="ghost" id="refine-cancel">Cancel</button>
       <button type="button" class="primary" id="refine-run" aria-keyshortcuts="Control+Enter">Refine</button>
     </div>
@@ -1370,7 +1370,7 @@
      from 1800 px the picture is a pane of its own. -->
 <dialog class="inpaint-dialog" id="inpaint-dialog" aria-labelledby="inpaint-title"
         aria-describedby="inpaint-source-line">
-  <div class="ip-head">
+  <div class="ip-head dialog-head">
     <h2 id="inpaint-title">Inpaint</h2>
     <button type="button" class="close" id="inpaint-close" aria-label="Close (Escape)">✕</button>
   </div>
@@ -1491,7 +1491,7 @@
     <p class="sr-only" id="inpaint-check-said" aria-live="polite"></p>
     <p class="hint pre" id="inpaint-preview" aria-live="polite"></p>
     <p class="error" id="inpaint-error" role="alert" hidden></p>
-    <div class="rf-actions">
+    <div class="rf-actions dialog-actions">
       <button type="button" class="ghost" id="inpaint-cancel">Cancel</button>
       <button type="button" class="primary" id="inpaint-run" aria-keyshortcuts="Control+Enter" aria-disabled="true">Inpaint</button>
     </div>
@@ -1513,7 +1513,7 @@
      (outpaint.css). -->
 <dialog class="inpaint-dialog outpaint-dialog" id="outpaint-dialog" aria-labelledby="outpaint-title"
         aria-describedby="outpaint-source-line">
-  <div class="ip-head">
+  <div class="ip-head dialog-head">
     <h2 id="outpaint-title">Outpaint</h2>
     <button type="button" class="close" id="outpaint-close" aria-label="Close (Escape)">✕</button>
   </div>
@@ -1631,7 +1631,7 @@
     <p class="sr-only" id="outpaint-check-said" aria-live="polite"></p>
     <p class="hint pre" id="outpaint-preview" aria-live="polite"></p>
     <p class="error" id="outpaint-error" role="alert" hidden></p>
-    <div class="rf-actions">
+    <div class="rf-actions dialog-actions">
       <button type="button" class="ghost" id="outpaint-cancel">Cancel</button>
       <button type="button" class="primary" id="outpaint-run" aria-keyshortcuts="Control+Enter" aria-disabled="true">Outpaint</button>
     </div>
@@ -1650,7 +1650,7 @@
      (inpaint.css), the picture read-only. -->
 <dialog class="inpaint-dialog edit-dialog" id="edit-dialog" aria-labelledby="edit-title"
         aria-describedby="edit-source-line">
-  <div class="ip-head">
+  <div class="ip-head dialog-head">
     <h2 id="edit-title">Edit by instruction</h2>
     <button type="button" class="close" id="edit-close" aria-label="Close (Escape)">✕</button>
   </div>
@@ -1700,7 +1700,7 @@
       <p class="hint pre" id="edit-preview" aria-live="polite"></p>
       <p class="error" id="edit-error" role="alert" hidden></p>
     </div>
-    <div class="rf-actions">
+    <div class="rf-actions dialog-actions">
       <button type="button" class="ghost" id="edit-cancel">Cancel</button>
       <button type="button" class="primary" id="edit-run" aria-keyshortcuts="Control+Enter" aria-disabled="true">Edit</button>
     </div>
@@ -1721,7 +1721,7 @@
     <span id="confirm-count-label"></span>
     <input type="text" id="confirm-count" inputmode="numeric" autocomplete="off" spellcheck="false">
   </label>
-  <div class="confirm-actions">
+  <div class="confirm-actions dialog-actions">
     <button type="button" class="ghost" id="confirm-cancel">Cancel</button>
     <button type="button" class="primary destroy" id="confirm-ok">Delete</button>
   </div>
@@ -1732,7 +1732,7 @@
      each image's outcome listed, and Queue held with its reason until the
      check matches what is typed. Escape and Cancel close it. -->
 <dialog class="swap-dialog" id="swap-dialog" aria-labelledby="swap-title" aria-describedby="swap-scope">
-  <header class="swap-head">
+  <header class="swap-head dialog-head">
     <h2 id="swap-title">Swap tags</h2>
     <p id="swap-scope"></p>
   </header>
@@ -1752,7 +1752,7 @@
   <p class="swap-count" id="swap-count" role="status"></p>
   <ol class="swap-results" id="swap-results" aria-label="What happens to each image"></ol>
   <p class="error one-line" id="swap-error" role="alert"></p>
-  <div class="swap-actions">
+  <div class="swap-actions dialog-actions">
     <button type="button" class="ghost" id="swap-cancel">Cancel</button>
     <button type="button" class="primary" id="swap-queue" aria-disabled="true">Queue</button>
   </div>
@@ -1762,7 +1762,7 @@
      for the passes Generate and Run grid follow each image with. -->
 <dialog class="rb-dialog tr-dialog" id="then-refine-dialog" aria-labelledby="then-refine-title"
         aria-describedby="then-refine-hint">
-  <header class="rb-head">
+  <header class="rb-head dialog-head">
     <h2 id="then-refine-title">Then refine</h2>
   </header>
   <label class="check" id="then-refine-label"><input type="checkbox" id="then-refine"> Refine each image as it is made
@@ -1785,7 +1785,7 @@
   <p class="hint" id="then-refine-hint" role="status"></p>
   <p class="hint">Each pass is the one Mass refine makes of its image: its own prompt, seed, CFG, mu and LoRA,
     resized with Lanczos, saved in a run of its own. The tick is off each time the page loads.</p>
-  <div class="rb-actions">
+  <div class="rb-actions dialog-actions">
     <button type="button" class="primary" id="then-refine-close">Done</button>
   </div>
 </dialog>
@@ -1795,7 +1795,7 @@
      with its reason until the answer is to what the dialog says. -->
 <dialog class="rb-dialog" id="refine-batch-dialog" aria-labelledby="refine-batch-title"
         aria-describedby="refine-batch-scope">
-  <header class="rb-head">
+  <header class="rb-head dialog-head">
     <h2 id="refine-batch-title">Refine</h2>
     <p id="refine-batch-scope"></p>
   </header>
@@ -1840,7 +1840,7 @@
   <p class="rb-count" id="refine-batch-count" role="status"></p>
   <ol class="rb-results" id="refine-batch-results" aria-label="What happens to each image"></ol>
   <p class="error one-line" id="refine-batch-error" role="alert"></p>
-  <div class="rb-actions">
+  <div class="rb-actions dialog-actions">
     <button type="button" class="ghost" id="refine-batch-cancel">Cancel</button>
     <button type="button" class="primary" id="refine-batch-run" aria-disabled="true">Refine</button>
   </div>
@@ -1851,7 +1851,7 @@
      with its reason until the answer is to what the dialog says. -->
 <dialog class="ms-dialog" id="more-seeds-dialog" aria-labelledby="more-seeds-title"
         aria-describedby="more-seeds-scope">
-  <header class="ms-head">
+  <header class="ms-head dialog-head">
     <h2 id="more-seeds-title">More seeds</h2>
     <p id="more-seeds-scope"></p>
   </header>
@@ -1877,7 +1877,7 @@
     <p class="ms-hold" id="more-seeds-hold" role="status"></p>
     <p class="error one-line" id="more-seeds-error" role="alert"></p>
   </div>
-  <div class="ms-actions">
+  <div class="ms-actions dialog-actions">
     <button type="button" class="ghost" id="more-seeds-cancel">Cancel</button>
     <button type="button" class="primary" id="more-seeds-run" aria-disabled="true">Queue</button>
   </div>
@@ -1891,7 +1891,7 @@
 </dialog>
 
 <dialog class="bundles-dialog" id="bundles-dialog" aria-labelledby="bundles-title" aria-describedby="bundles-intro">
-  <header class="bundles-head bundles-top">
+  <header class="bundles-head bundles-top dialog-head">
     <h2 id="bundles-title">Gallery bundles</h2>
     <button type="button" class="ghost small" id="bundles-close">Close</button>
   </header>
@@ -2013,7 +2013,7 @@
 <ul class="menu context-menu" id="context-menu" role="menu" tabindex="-1" hidden></ul>
 
 <dialog class="shortcuts-dialog" id="shortcuts-dialog" aria-labelledby="shortcuts-title" aria-describedby="shortcuts-intro">
-  <div class="shortcuts-head">
+  <div class="shortcuts-head dialog-head">
     <h2 id="shortcuts-title">Keyboard shortcuts</h2>
     <button type="button" class="ghost" id="shortcuts-close" autofocus>Close</button>
   </div>
@@ -2022,7 +2022,7 @@
 </dialog>
 
 <dialog class="saved-searches-dialog" id="saved-searches-dialog" aria-labelledby="saved-searches-title" aria-describedby="saved-searches-intro">
-  <div class="saved-searches-head">
+  <div class="saved-searches-head dialog-head">
     <h2 id="saved-searches-title">Saved searches</h2>
     <button type="button" class="ghost" id="saved-searches-close">Close</button>
   </div>
@@ -2045,7 +2045,7 @@
       </div>
     </div>
   </div>
-  <div class="saved-searches-actions">
+  <div class="saved-searches-actions dialog-actions">
     <button type="button" class="ghost" id="saved-searches-save" aria-disabled="true">Save</button>
     <button type="button" class="ghost danger" id="saved-searches-delete" aria-disabled="true">Delete</button>
     <button type="button" class="primary" id="saved-searches-apply">Apply to gallery</button>
@@ -2057,7 +2057,7 @@
 </dialog>
 
 <dialog class="snippets-dialog" id="snippets-dialog" aria-labelledby="snippets-title" aria-describedby="snippets-intro">
-  <div class="snippets-head">
+  <div class="snippets-head dialog-head">
     <h2 id="snippets-title">Prompt snippets</h2>
     <button type="button" class="ghost" id="snippets-close">Close</button>
   </div>
@@ -2083,7 +2083,7 @@
       </div>
     </div>
   </div>
-  <div class="snippets-actions">
+  <div class="snippets-actions dialog-actions">
     <button type="button" class="ghost" id="snippets-new">New</button>
     <button type="button" class="ghost" id="snippets-save" aria-disabled="true">Save</button>
     <button type="button" class="ghost danger" id="snippets-delete" aria-disabled="true">Delete</button>
@@ -2093,7 +2093,7 @@
 </dialog>
 
 <dialog class="snippet-import-dialog" id="snippet-import-dialog" aria-labelledby="snippet-import-title" aria-describedby="snippet-import-intro">
-  <div class="snippets-head">
+  <div class="snippets-head dialog-head">
     <h2 id="snippet-import-title">Import prompt snippets</h2>
     <button type="button" class="ghost" id="snippet-import-close">Cancel</button>
   </div>
@@ -2102,14 +2102,14 @@
   <p id="snippet-import-summary" role="status" aria-live="polite">Nothing has been imported.</p>
   <div id="snippet-import-rows" role="group" tabindex="-1" aria-label="Snippet merge choices"></div>
   <p id="snippet-import-status" role="status" aria-live="polite"></p>
-  <div class="snippet-import-actions">
+  <div class="snippet-import-actions dialog-actions">
     <button type="button" class="ghost" id="snippet-import-preview">Preview</button>
     <button type="button" class="primary" id="snippet-import-run" aria-disabled="true">Import</button>
   </div>
 </dialog>
 
 <dialog class="setups-dialog" id="setups-dialog" aria-labelledby="setups-title" aria-describedby="setups-intro">
-  <div class="setups-head"><h2 id="setups-title">Saved setups</h2><button type="button" class="ghost" id="setups-close">Close</button></div>
+  <div class="setups-head dialog-head"><h2 id="setups-title">Saved setups</h2><button type="button" class="ghost" id="setups-close">Close</button></div>
   <p class="hint" id="setups-intro">Save a generation or grid draft for this checkpoint. Restore replaces the composer with Undo; it queues no work.</p>
   <div class="setups-body">
     <div class="setups-layout">
@@ -2126,7 +2126,7 @@
       </div>
     </div>
   </div>
-  <div class="setups-actions">
+  <div class="setups-actions dialog-actions">
     <button type="button" class="ghost" id="setups-save">Save current</button>
     <button type="button" class="ghost" id="setups-update">Update from current</button>
     <button type="button" class="ghost" id="setups-rename">Rename</button>
@@ -2137,13 +2137,13 @@
 </dialog>
 
 <dialog class="setup-import-dialog" id="setup-import-dialog" aria-labelledby="setup-import-title" aria-describedby="setup-import-intro">
-  <div class="setups-head"><h2 id="setup-import-title">Import saved setups</h2><button type="button" class="ghost" id="setup-import-close">Cancel</button></div>
+  <div class="setups-head dialog-head"><h2 id="setup-import-title">Import saved setups</h2><button type="button" class="ghost" id="setup-import-close">Cancel</button></div>
   <p class="hint" id="setup-import-intro">Choose Skip, Add, Add as copy or Replace for each file item. Nothing is saved until Import; your composer, setup name and Undo stay unchanged, and no work is queued.</p>
   <p class="import-filename"><span class="sr-only">Selected file: </span><span id="setup-import-filename"></span></p>
   <p id="setup-import-summary" role="status" aria-live="polite">Nothing has been imported.</p>
   <div id="setup-import-rows" role="group" tabindex="-1" aria-label="Setup merge choices"></div>
   <p id="setup-import-status" role="status" aria-live="polite"></p>
-  <div class="setup-import-actions">
+  <div class="setup-import-actions dialog-actions">
     <button type="button" class="ghost" id="setup-import-preview">Preview</button>
     <button type="button" class="primary" id="setup-import-run" aria-disabled="true">Import</button>
   </div>

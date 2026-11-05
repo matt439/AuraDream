@@ -6380,7 +6380,8 @@ measured on the card and when.
   `<dialog id="confirm-dialog">` (`openAsk`, its `okLabel` defaulting to
   "Delete", placed beside what was pressed
   by `placeAsk`, inside `documentElement`'s clientWidth/clientHeight -
-  `innerWidth` counts the scrollbar), never `window.confirm` or `window.prompt`: Cancel focused,
+  `innerWidth` counts the scrollbar; on a phone placed by nothing, a sheet
+  from the screen's foot), never `window.confirm` or `window.prompt`: Cancel focused,
   or the count's box; Escape and a press outside are Cancel; while it is up
   the document's keys do nothing (its Escape closed the lightbox under it).
   The smokes stand in for it by assigning `askConfirm`/`askCount` and put
@@ -6463,8 +6464,11 @@ measured on the card and when.
   A picked card, in select mode or out of it, gets the picks' items instead (the
   Picked menu's three, Swap tags…, Refine…, More seeds…). One `ul.menu`,
   moved into the lightbox while that is up (a modal dialog leaves the page
-  inert), fixed at the pointer and turned up or left at the window's edge.
-  A press outside, a scroll, a resize or the window going closes it; a
+  inert), fixed at the pointer and turned up or left at the window's edge
+  (on a phone, docked at the screen's foot instead: "Phones and tablets").
+  Its key hint, first, is no group: a group's line comes only after an
+  item or a heading, so the lightbox's menu, which has no Open, starts with
+  Star rather than a line. A press outside, a scroll, a resize or the window going closes it; a
   left press on the lightbox's stage that only closed it is the menu's
   (stopped in capture), so the lightbox stays open. Escape and Tab close it
   with focus back where it was, and its keys go no further. `cardNote` and
@@ -6586,7 +6590,10 @@ measured on the card and when.
   16 px or more (`!important`: under 16 iOS zooms the page on focus and
   leaves it zoomed), takes the keyboard's hints away (`::after` key
   letters, `.lb-keys`, `.key-hint` spans in the idle line, the png drop
-  hint, the search's "/ to focus"), widens a `?` badge's press, wraps the
+  hint, the search's "/ to focus"), widens a `?` badge's press, makes
+  every close ✕ (`.close`: the lightbox's, the dialogs') a 44 px square
+  with the glyph centred and lets the prompt check's 28 px ✕ reach 44 by
+  a pseudo-element, wraps the
   gallery footer from the left with every button at its full name (the
   gallery's line a row of its own, and none while it is silent), gives the lightbox's stage `touch-action: none`, and
   keeps the topbar, the page and the lightbox inside the safe areas
@@ -6609,12 +6616,14 @@ measured on the card and when.
   `syncTier` sets it at boot and again on every `change` of `PHONE_MEDIA`
   or `TOUCH_MEDIA` (an iPad pane dragged across 700 px, a pointer
   changing), with the search's placeholder, the bar's job state and
-  `data-typing`. Returning to the phone it puts back the current view's
+  `data-typing`, and closes an open right-click menu when the phone comes
+  or goes (it is docked there and placed at the pointer elsewhere).
+  Returning to the phone it puts back the current view's
   scroll as a tab's press does: the view's scroll is kept as it moves
   (`notePhoneScroll`), counting no scroll told while the tier is changing,
   so the resize's own clamp or anchoring never replaces it. Leaving the
-  phone moves nothing, and the view chosen there stays chosen. Phone-only
-  layers that come later (sheets, moved nodes) close or go home in
+  phone moves nothing else, and the view chosen there stays chosen.
+  Phone-only layers that come later (moved nodes) close or go home in
   `syncTier`. The reveal and in-sight checks (New image's
   `viewerOutOfSight`, `focusPromptBox`, `focusGallerySearch`, Reuse's
   `promptInSight` and Undo lift, the panel's `revealInPanel` and its `?`
@@ -6643,17 +6652,50 @@ measured on the card and when.
   menu holds what no button does on a phone (Edit by instruction…, Pick
   this run, the Copy items, Open PNG; under 900 px Inpaint… and More
   seeds… too). 500 ms held within 10 px on an image `contextTarget` knows
-  opens the menu 16 px under the finger; a move, a second finger, a scroll's
-  pointercancel or an earlier lift is no press. The lift's click, wherever
-  it lands - the menu's own row under the finger, as Chromium's did - is
-  swallowed (`contextMenuPressClick`, within 300 ms of that pointer's lift,
-  cleared by the next press), and the lightbox forgets the finger
-  (`lbForgetPress`), so the lift neither taps nor swipes. Android's own
+  opens the menu - on the tablet 16 px under the finger, on the phone
+  docked at the screen's foot (below) - and a move, a second finger, a
+  scroll's pointercancel or an earlier lift is no press. The lift's
+  mousedown and click, wherever they land - the menu's own row under the
+  finger, as Chromium's did, or the picture beside a docked menu - are
+  swallowed (`contextMenuPressMouseDown`, `contextMenuPressClick`, within
+  300 ms of that pointer's lift, cleared by the click or the next press):
+  the mousedown would move the focus out of the menu just opened, which
+  closes it. The lightbox forgets the finger (`lbForgetPress`), so the
+  lift neither taps nor swipes. Android's own
   `contextmenu` for the same press is the menu's (`ctxMenu.pressAt`). The
   touch tier sets `-webkit-touch-callout: none` and `user-select: none` on
   cards, results, sheet cells and the stage, so iOS's callout and a text
   selection do not answer the press too, and gives the menu 36 px rows
   without its key hint or key letters.
+  On the phone the dialogs are sheets and the menus sit inside the screen
+  (`touch.css`; `smoke-phone-dialogs`). Every `<dialog>` but the lightbox
+  and the delete question covers the screen edge to edge, with no radius
+  or inset (the 34 px top margin Inpaint, Outpaint and Edit kept put their
+  Cancel and primary 18 px past the screen's foot). Each keeps its own
+  markup and column; `index.html` marks its title row `.dialog-head` and
+  its action row `.dialog-actions` (one per dialog: the setups', searches'
+  and snippets' outer row, not their lists' rows), the hooks the sheet
+  needs. The title row is sticky at the top, padded by the top safe area,
+  its button (a ✕ or a word: Close, Cancel) at least 44 px square; the
+  action row is sticky at the foot, padded by the bottom safe area, and
+  `margin-top: auto` keeps it at the foot of a short sheet; the sheet's
+  own scroll has `overscroll-behavior: contain`. A dialog whose body has
+  a scroller of its own (the setups', searches' and snippets', which are
+  `overflow: hidden`) fills the sheet with it. Where something follows the
+  action row (More seeds' fold, a status line) or there is none (Bundles,
+  the keyboard list), an `::after` spacer ends the sheet clear of the home
+  indicator. Inpaint's picture keeps its fixed top, under the title row.
+  The delete question (`#confirm-dialog`) is a sheet from the screen's
+  foot across it, rounded at the top, and `placeAsk` places it nowhere.
+  The Examples and Picked menus are fixed across the screen 8 px above
+  the tab bar (`--phone-bottom-chrome`), at most 70 dvh and below the
+  topbar, scrolling inside themselves, with 48 px rows: under their
+  buttons the Examples menu ran 20 px past the screen's right edge, so the
+  page scrolled sideways, and Picked's rows were 29 px. The right-click
+  menu is an action sheet docked at the screen's foot across it, at most
+  70 dvh with its own scroll, 48 px rows: `openContextMenu` sets no place
+  under `PHONE_MEDIA`. The tablet keeps the PC's dialogs and menus at its
+  finger sizes.
   Back closes the top overlay on any touch screen, the tablet's too
   (`touch.js`, `syncBackLayers`): Android's Back and iOS's edge swipe went
   back a page from inside the lightbox. The lightbox, every `<dialog>`, the
@@ -7594,11 +7636,13 @@ Models sheet across the window between the topbar and the bar; the tab
 bar gone while the prompt has a tapped focus and back on blur; the
 gallery footer starting at its left edge with Saved searches… in full; a
 long press on a card opening the menu (Edit by instruction… in it, no key
-hint, 36 px rows, the card unselectable) with the lightbox shut, Escape
-closing it; after a pinch the remaining finger panning 40 px at the same
-scale (synthetic touch pointer events, capture stubbed); a long press on
-the lightbox's picture opening the menu inside it with no dialog opened
-and the lightbox still up; 852x393 still the phone, with a topbar of at
+hint, 48 px rows, docked across the window at its foot, the card
+unselectable) with the lightbox shut, Escape closing it; after a pinch the
+remaining finger panning 40 px at the same scale (synthetic touch pointer
+events, capture stubbed); a long press on the lightbox's picture opening
+the menu inside it with no dialog opened and the lightbox still up, still
+open after the lift on the picture, docked at the foot with a menu item,
+not a line, first; 852x393 still the phone, with a topbar of at
 most 48 px, a tab bar of at most 45, a topbar that scrolls away (the
 band then from 0 to the bar), a three-line prompt, the search beside Runs, card tools 32 px tall, and the
 lightbox's column beside a stage at least 300 tall; the tab bar a nav
@@ -7628,6 +7672,31 @@ on the phone with Generate focusable, and a Gallery view chosen at 678
 kept through 820 and back; and a mouse
 at 820x1180 one column as before, 43 px Generate, the
 chips under the prompt, no `data-tier`, the search's "/ to focus" back.
+
+`smoke-phone-dialogs.json` uses a fresh FLUX.1 Krea [dev] fake on 7960
+with touch at 393x852@3, `"mobile": true`, and two planted images. Every
+dialog a phone reaches is opened the way a finger does - Then refine from
+its opener; Saved setups and Prompt snippets from the Examples menu, each
+import over its own dialog (`openSetupImport`, `openSnippetImport` with
+the server's own export); Refine from the lightbox; Inpaint, Outpaint,
+Edit by instruction and More seeds from a card's long-press menu; Swap
+tags and Refine… with a card picked; Saved searches and Bundles from the
+footer; Delete unstarred's question - and `__sheet` checks it at its top
+and scrolled to its foot: the sheet exactly the window, its close and its
+primary each inside the window, the element `elementFromPoint` finds at
+their centre and at least 44 px square, the phone audit finding no dialog
+outside the window and no sideways overflow, and the sheet not scrolling
+sideways (not checked for Inpaint and Outpaint, whose settings rows are
+still wider than the screen); each state's controls under 44 px and off
+the screen are logged as the baseline. The lightbox's ✕ is 44 px and
+closes it after Refine's ✕ returns there. The delete question is a sheet
+across the window at its foot with Cancel and Delete on it. The Examples
+menu and the Picked menu sit inside the window above the tab bar with
+48 px rows and no sideways scroll; the long-press menu is docked across
+the window at its foot, its rows 48 px, a menu item first. A mouse at
+1400x900 then has the PC's question (under 480 px wide, off the window's
+foot, small buttons), Saved setups' inset box with an unstuck action row,
+and the right-click menu placed at the pointer with its PC rows.
 
 `smoke-offline.json` uses a fresh FLUX.1 Krea [dev] fake on 7958: the
 page at 127.0.0.1 registers `sw.js`, which controls the next load; with

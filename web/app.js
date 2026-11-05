@@ -375,6 +375,7 @@ document.addEventListener('pointerdown', contextMenuTouchDown, true);
 document.addEventListener('pointermove', contextMenuTouchMove, true);
 document.addEventListener('pointerup', contextMenuTouchEnd, true);
 document.addEventListener('pointercancel', contextMenuTouchEnd, true);
+document.addEventListener('mousedown', contextMenuPressMouseDown, true);
 document.addEventListener('click', contextMenuPressClick, true);
 window.addEventListener('resize', () => closeContextMenu(false));
 window.addEventListener('blur', () => closeContextMenu(false));

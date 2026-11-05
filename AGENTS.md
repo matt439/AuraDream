@@ -254,6 +254,9 @@ mouse and the smokes never match it. On touch a long press is the image's
 right-click menu (`context-menu.js`): iOS sends no `contextmenu`. On touch
 each open overlay (lightbox, dialog, Models, context menu, run sheet) holds
 one history entry, so Back closes the top one (`touch.js`); a mouse adds none.
+On the phone every dialog is a sheet across the screen whose `.dialog-head`
+and `.dialog-actions` (`index.html`) stay at its top and foot, and the
+menus sit inside the screen, the right-click one docked at its foot.
 
 `sw.js`, served at `/sw.js` and registered by `app.js` only in a secure
 context (never plain http to a LAN address), answers a silent server's
@@ -637,6 +640,7 @@ uses the driver's graceful close/cleanup. See the full Tests rules.
 | 7957 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-tablet` |
 | 7958 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-offline` |
 | 7959 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-catalogue-stale` |
+| 7960 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-phone-dialogs` |
 
 FLUX.1-Krea-dev is `black-forest-labs/FLUX.1-Krea-dev`; animagine is
 `cagliostrolab/animagine-xl-4.0`.
