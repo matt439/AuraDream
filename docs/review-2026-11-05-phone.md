@@ -544,6 +544,13 @@ Constant across phases: every rule sits under `PHONE_MEDIA` (or the coarse tier 
 | **6. Sheets and dialogs** | P43 step 2, P44, P45, P42, P40 steps 2-3, P49, P48 list-then-edit, P52, P51, P53, P9 sheet if not already done | L (≈2 weeks) | rules.md (the Models picker "between the topbar and the bar", the phone sheet pattern, the keyboard inset), smoke-phone-dialogs, smoke-generation-presets, smoke-saved-searches and smoke-snippets (their `<select>` kept), smoke-model-* (desktop unchanged) |
 | **7. Landscape and platform polish** | P65, P35 if deferred, P67 (only if HTTPS is wanted), the remaining P63 | M | rules.md landscape paragraph, smoke-phone-landscape |
 
+**Status (2026-11-05).** Phases 0 and 1 are built on `phone/review-and-phase-0-1`.
+- Done: P70, P71, P64 (the whole touch tier, the tablet too), P41, P46, P47, P37, P36, P23, P27, P14; and the parts the plan gave these phases: P29 interim, P40 step 1, P8 interim, P1 step 1 (sticky Generate; a refused press says why beside it), P21 hint, P50 inset (and the Grid search rows 8 px apart), P48 text bug and captions, P38 stopgap, P43 step 1, P39 base (docked, 48 px rows, no orphan line).
+- Done ahead of phase 6: P42 by CSS alone (Left and Right beside the frame); the 2x2 steppers and chip row stay there.
+- Partly done: P69 (the `mobile` flag, `inject` and `tools/phone_audit.js`; two new rows, `smoke-phone-dialogs` and `smoke-phone-gallery`, both on 7960 because the port table is full; smoke-phone-create and -landscape wait for their phases; under-44 px counts are logged, not asserted); P72 (the `data-tier` hook only); P31 (the 44 px close; the top-left Back is P30); P52 (24 px ticks on 44 px rows in dialogs; Swap tags' radios, scale buttons and switch rows left); P66 (pull-to-refresh stopped).
+- Skipped: P66's sessionStorage draft (`persistPanel`/`restorePanel` already keep the prompt across a reload, which smoke-phone checks); P72's phone-*.css split and `phone.js` (nothing phone-only needed a file of its own yet).
+- Left: phases 2-7, with the rest of P1 and P8 (the action bar), P29's full bar, P39's action sheet (scrim, Cancel row), P43 step 2, P40 steps 2-3 and P48's list-then-edit.
+
 Notes:
 - Order within phase 3: sticky Generate (CSS) first, which removes most of the reach problem on its own. Then the result card moved up, then More options with the size control, then the Queue and Check sheets. Re-measure after each step.
 - P54 must land with P17, otherwise the six 44 px card tools overflow a 180 px card.
