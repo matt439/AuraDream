@@ -682,6 +682,8 @@ before changing it.
   settings, the queue's sheet (`openQueueSheet`), and More options - its
   row's words and dot (`syncMoreOptions`), its sheet holding the tuning
   (`openMoreSheet`), the negative prompt's place (`placePhoneNegative`)
+  and its fold row under the prompt (`syncPhoneNegativeFold`,
+  `openPhoneNegative`, which `replaceBoxText` and `selectIn` call)
   and Batch's and Repeat's − and + (`syncPhoneSteppers`); the
   touch tier's media queries (`PHONE_MEDIA`, `TABLET_COLUMNS_MEDIA`,
   `TWO_COLUMNS_MEDIA`, `TOUCH_MEDIA`) are `state.js`'s, beside
@@ -7100,12 +7102,35 @@ measured on the card and when.
   first screen, inert. `placePhoneNegative` (from `syncCfg` and the
   sheet's close) moves it, never while the sheet is open or the box has
   the focus, so nothing moves under a finger: True CFG set in the sheet
-  brings it under the prompt as the sheet closes. Batch, on the first
-  screen, and Repeat, in the sheet, are each one row: the name at the
-  start (14 px bold), the box 72 px wide with its number centred, then −
-  and + (`.phone-step`, created by `initPhone` and inserted after the box
-  on the phone only - after it inside Repeat's `<label>`, so the box stays
-  the label's control - and taken out off it), 44 px squares 8 px apart.
+  brings it under the prompt as the sheet closes. Under the prompt it is
+  a fold row (`#neg-fold`, made by `initPhone` and put first in the field
+  only while it is under the prompt on the phone; `data-fold` on the
+  field): 48 px under a hairline as the panel's folds are, "Negative
+  prompt" 16 px bold, its first words - "none" while empty - right-aligned
+  on one line in 15 px `--text-3`, and a chevron. Shut at first, the row
+  is the whole field: the caption and the two-row box were about 200 px
+  of an SDXL checkpoint's first screen and put More options under the
+  bars and the results off it. A press opens it to its note and box, the
+  row their head (`aria-expanded`, the label visually hidden and still
+  the box's name), and a second shuts it. A write of words into it opens
+  it first - `replaceBoxText` calls `openPhoneNegative`, so Reuse, Load
+  settings from PNG, a setup's Restore, the tag helper's recommended
+  negative, a snippet and a finding's rewrite all do, and the write is
+  typing's, since a box not drawn takes no focus - and so does Check
+  selecting words in it (`selectIn`); an empty write (Reset) leaves it
+  shut, and the panel restored at load writes `.value`, so a remembered
+  negative is the row's words, shut. The prompt's English translation
+  stays under the prompt (`placeTranslation` puts it before the negative,
+  or before Size while the negative is in the sheet, never into the
+  sheet). Batch, on the first screen, and Repeat, in the sheet, are each
+  one row: the name at the start (14 px bold), then −, the box 72 px wide
+  with its number centred, and + (`.phone-step`, created by `initPhone`
+  and inserted either side of the box on the phone only, taken out off
+  it), 44 px squares 8 px apart; on its side the row is 400 px at most,
+  so the name is not 800 px from its −. Repeat's `<label>` names its box
+  by `for`, so the − ahead of the box in it is not the label's control,
+  and each box is named by an `aria-label` (its name) while the buttons
+  are in, or the label's content would name Repeat's "Repeat − +".
   A press steps the box (`stepUp`/`stepDown`) and sends its `input` and
   `change`, so `syncRuns` and the remembered panel follow; at the box's
   least or most the button is held, titled "Batch is at its least, 1",
@@ -7116,6 +7141,9 @@ measured on the card and when.
   home in its caption off the phone), where it was 28x18 with a press
   reaching over the box's top. Load settings from PNG… stays in the
   panel under the results until the topbar's ⋯ (the review's P12).
+  Picked's seeds to grid, in the Gallery view, cannot focus the seed list
+  in Create's sheet, so its words say where the list is ("… in picked
+  order (Create > More options > Grid search).").
   The phone's page does not pull to refresh: `html` and `body` have
   `overscroll-behavior-y: contain`, so a pull at the page's top no longer
   reloads it (the prompt's Undo, a Check, a selection and each view's
@@ -8238,14 +8266,17 @@ defaults), Sampling, Seed, Repeat, Custom dimensions, LoRA & references,
 the Notify row, Step cache and Grid search, Run grid in its foot, none
 of them drawn, each id once; the row at least 56 px from 16 px to the
 window's width less 16, its words "28 steps · CFG 3.5 · seed random",
-its dot hidden, `aria-haspopup="dialog"`. Batch's − and + after its box,
-44 px squares on its top 8 px apart, + at the gutter; − held with "Batch
+its dot hidden, `aria-haspopup="dialog"`. Batch's −, box and + in that
+order, 44 px squares on its top 8 px either side of the box, + at the
+gutter, the box named "Batch"; − held with "Batch
 is at its least, 1"; + making Batch 2 (the run line "2 images at
 once…"), − 1 again, the held − said in `#error` above the bars. The row
 tapped opens the sheet with one entry, the screen across, Done at least
 44 px, the phone audit finding nothing in it under 44 px or off it, its
 foot not drawn; Seed's dice 44 px square right after the Seed box on its
-top, 8 px clear of it, at the gutter, with no `::after`; Repeat's held −
+top, 8 px clear of it, at the gutter, with no `::after`; Repeat's −, box
+and + in that order, its label's `for` "runs" and its control the box,
+the box named "Repeat"; Repeat's held −
 saying why in the sheet's foot (inside the window, `#error` not riding
 the bars), its + making it 2 and clearing that line; Steps typed 30 there
 rewriting the row at once ("30 steps · CFG 3.5 · seed random · repeat
@@ -8256,10 +8287,18 @@ row's words ending " · grid"; shut, Run grid and the foot not drawn;
 Back closing the sheet, no entry left and the focus on the row. The
 negative prompt in the sheet and disabled; True CFG 4 typed in the sheet
 waking it there, Done bringing it under the prompt and before the size,
-drawn, the row's words with "True CFG 4"; True CFG cleared, Steps 28 and
+the row's words with "True CFG 4"; there its fold row first in the field,
+shut, at least 48 px from gutter to gutter, "none", `aria-expanded`
+false, named "Negative prompt: none", the box and its note not drawn; a
+tap opening it (the box drawn under the row, its label still "Negative
+prompt") and a second shutting it; True CFG cleared, Steps 28 and
 Repeat 1 again in the sheet leaving it under the prompt while the sheet
 is open, Escape taking it back into the sheet, and the row back to its
-first words with no dot. A job (1 s a step) and a second tapped
+first words with no dot. A refusal into the shut sheet: Steps tapped in
+it, a "-" typed (a bad input), Done, and Generate tapped opening the
+sheet with "Steps has an incomplete number. Finish typing it before
+running." in its foot, the focus in Steps between the title row and the
+foot and no job started; Steps 28 again, the line cleared. A job (1 s a step) and a second tapped
 behind it: the bar's picture the live preview (`data:` source, `live`
 and `running`, a `--ring` past 0 and a conic gradient), pressable with
 its title; the queue its count of 1, unheld, `running`, named "Queue: a
@@ -8317,7 +8356,14 @@ by two, each tile drawing Star (its word) and a 44 px ⋯ alone inside it,
 eight pictures two across, at least 140 px, 8 px apart across and down,
 no tools drawn and every tool out of the tab order; two across at
 360x780 too, with no sideways scroll; a tap on the third picture opens
-the lightbox on it, Escape closing it. A mouse at 1400x900 has
+the lightbox on it, Escape closing it. The checkpoint switched to
+Animagine XL 4.0 (SDXL, `/api/model/switch` without a load, then
+`refreshStatus`): the negative under the prompt, live, its row shut; the
+prompt emptied, as a first visit has it (a tag checkpoint's chips are
+the prompt's own), the row, More options and the results' top inside the
+band at 393x852, the box not drawn; Reuse's writer (`fillPanel`) with a
+negative opening the row, the words in the box; the row tapped shut,
+its words and its name those words. A mouse at 1400x900 has
 no `data-tier` and no action bar, Generate home in the panel after the
 empty `#phone-results`, 43 px and static, the viewer and `#recent` in the
 stage beside the panel, the progress and `#error` in the panel, no scroll
@@ -8326,7 +8372,8 @@ and the finished line's Use seed and More seeds… drawn; the panel's
 fields home in the PC's order (the prompt, the negative, the size with
 Custom dimensions in it, Sampling, Output, the Notify row, Grid search,
 Step cache, LoRA & references, each a child of the panel), no More
-options row drawn, its sheet shut and empty, no − or +, the dice in
+options row drawn, its sheet shut and empty, no − or +, no negative
+fold row (no `data-fold`), Batch and Repeat with no `aria-label`, the dice in
 Seed's caption, Seed and Repeat on one row, Run grid in its fold, and
 Steps, Seed, Repeat, the negative, Step cache and Then refine's opener
 drawn.
@@ -8344,7 +8391,8 @@ a fold's summary under 40 px with its touch reach (the phone's type, frame
 and fold rows not), with the touch tier's rows that wrap cleanly: the
 negative caption's name and Set True CFG on one line with the note under
 them, Notify and Then refine on one line, the note whole; the panel whole
-(no More options row or sheet, no − or + on Batch and Repeat, the dice in
+(no More options row or sheet, no − or + on Batch and Repeat, no
+negative fold row, the dice in
 Seed's caption, Sampling the panel's); no tap flash
 and a tap on the chosen size laying the touch tier's state layer over it,
 but the PC's tiers and ticks (the chosen size and Run grid the accent's

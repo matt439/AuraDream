@@ -498,8 +498,12 @@ function showPromptTranslation(source, translation) {
 const TRANSLATION_WIDE = matchMedia('(min-width: 1800px)');
 function placeTranslation() {
   const field = els.promptTranslationField;
-  const [host, before] = TRANSLATION_WIDE.matches
-    ? [els.stage, els.viewer] : [els.negField.parentElement, els.negField];
+  // Under the prompt: before the negative, or before Size where a phone has
+  // put the negative in More options' sheet (phone.js), which is no place
+  // for the English.
+  const panel = els.prompt.closest('.panel');
+  const [host, before] = TRANSLATION_WIDE.matches ? [els.stage, els.viewer]
+    : [panel, els.negField.parentElement === panel ? els.negField : els.presets.closest('.field')];
   if (field.parentElement === host && field.nextElementSibling === before) return;
   const focused = document.activeElement;
   const inside = field.contains(focused);

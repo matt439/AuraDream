@@ -369,6 +369,7 @@ function selectIn(el, text, start, end) {
     analysisMessage('Those words are no longer where the check found them; Check again.');
     return false;
   }
+  if (el === els.negative) openPhoneNegative();
   el.focus();
   el.setSelectionRange(lead + from, lead + to);
   scrollToSelection(el);
@@ -446,6 +447,10 @@ function writeButton(label, title, onClick, { negative = false } = {}) {
 // ERNIE's Expand holds a result the user typed over, never one they replaced.
 let replacingBox = false;
 function replaceBoxText(el, text) {
+  // On a phone the negative's shut fold opens for words written into it, so
+  // the box can take the focus this write needs and the change is seen
+  // (phone.js).
+  if (el === els.negative) openPhoneNegative(text);
   replacingBox = true;
   try {
     el.focus();

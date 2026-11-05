@@ -457,7 +457,10 @@ function seedsToGrid() {
   els.gridSeedList.dispatchEvent(new Event('input', { bubbles: true }));
   els.gridSeedList.focus();
   els.gridSeedList.select();
-  showError(`Seed list now has ${plural(target.seeds.length, 'distinct picked seed')} in picked order.`, true, { slot: els.galleryError });
+  // On a phone the list is in Create's More options sheet, a view away
+  // (phone.js): the focus cannot reach it there, so the words say where.
+  const where = isPhone() ? ' (Create > More options > Grid search)' : '';
+  showError(`Seed list now has ${plural(target.seeds.length, 'distinct picked seed')} in picked order${where}.`, true, { slot: els.galleryError });
 }
 
 function pickedComparison() {

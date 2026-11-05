@@ -70,12 +70,17 @@ function syncPhoneHosts() {
     }
     if (els.seed.nextElementSibling !== els.dice) phoneMove(els.dice, els.seed.parentNode, els.seed.nextSibling);
     phoneMove(els.gridRun, $('more-sheet-actions'));
-    for (const s of phoneSteppers) s.input.after(s.minus, s.plus);
+    for (const s of phoneSteppers) {
+      s.input.before(s.minus);
+      s.input.after(s.plus);
+      s.input.setAttribute('aria-label', s.name);
+    }
     placePhoneNegative({ now: true });
   } else {
     for (const sheet of [$('queue-sheet'), $('more-sheet')]) if (sheet.open) sheet.close();
-    for (const s of phoneSteppers) { s.minus.remove(); s.plus.remove(); }
+    for (const s of phoneSteppers) { s.minus.remove(); s.plus.remove(); s.input.removeAttribute('aria-label'); }
     for (const node of [els.generate, ...phoneResultNodes(), ...phoneQueueNodes(), ...moreSheetMoved()]) phoneHome(node);
+    syncPhoneNegativeFold();
   }
   syncPhoneDock();
   syncPhoneQueue();
@@ -238,14 +243,65 @@ function placePhoneNegative({ now = false } = {}) {
   const body = $('more-sheet-body');
   if (!els.negative.disabled) phoneHome(els.negField);
   else if (els.negField.parentNode !== body) phoneMove(els.negField, body, body.firstChild);
+  syncPhoneNegativeFold();
 }
 
-// Batch's and Repeat's − and +, the phone's alone: inserted after their box
-// on the phone (inside Repeat's <label> after the box, so the box stays the
-// label's control) and taken out off it. A press steps the box as its own
-// arrows would and sends its input and change, so syncRuns and the
-// remembered panel follow; at the box's least or most the button is held,
-// titled with why, and a press says it.
+// Under the prompt the negative is one 48 px fold row, shut at first: its
+// name and its first words ("none" while empty), where its caption and
+// two-row box were 200 px of an SDXL checkpoint's first screen and pushed
+// More options under the bars. A press opens it to its note and box, the row
+// staying as their head (a press there shuts it); a write of words into it
+// - Reuse, Load settings from PNG, a setup's Restore, the tag helper's
+// negative, a snippet, a finding's rewrite - opens it first, through
+// `replaceBoxText` (analysis.js), so the write is typing's and the change is
+// seen, and so does Check selecting words in it. In the sheet it is the
+// field it always was. The row is the phone's alone: made once, put in the
+// field while it is under the prompt on the phone, and taken out otherwise.
+let phoneNegFold = null;
+let phoneNegOpen = false;
+
+function syncPhoneNegativeFold() {
+  const fold = phoneNegFold;
+  if (!fold) return;
+  const field = els.negField;
+  if (!isPhone() || field.parentNode === $('more-sheet-body')) {
+    if (fold.isConnected) fold.remove();
+    delete field.dataset.fold;
+    return;
+  }
+  if (field.firstElementChild !== fold) field.prepend(fold);
+  field.dataset.fold = phoneNegOpen ? 'open' : 'shut';
+  fold.setAttribute('aria-expanded', String(phoneNegOpen));
+  const text = els.negative.value.replace(/\s+/g, ' ').trim();
+  const words = text ? (text.length > 120 ? `${text.slice(0, 120)}…` : text) : 'none';
+  const summary = fold.querySelector('.neg-fold-summary');
+  if (summary.textContent !== words) summary.textContent = words;
+  fold.setAttribute('aria-label', phoneNegOpen ? 'Negative prompt' : `Negative prompt: ${words}`);
+}
+
+function togglePhoneNegative() {
+  phoneNegOpen = !phoneNegOpen;
+  if (!phoneNegOpen) hideNegativeSuggestions();
+  syncPhoneNegativeFold();
+}
+
+// Opened for words about to be written into it (`text`, empty ones leave it
+// shut) or for a selection in it (no `text`). Only from a press's own write.
+function openPhoneNegative(text = null) {
+  if (phoneNegOpen || !phoneNegFold?.isConnected) return;
+  if (text !== null && !String(text).trim()) return;
+  phoneNegOpen = true;
+  syncPhoneNegativeFold();
+}
+
+// Batch's and Repeat's − and +, the phone's alone: − before the box and +
+// after it, as a phone's steppers read (Repeat's <label> names its box by
+// `for`, so a − ahead of the box in it is not the label's control, and the
+// box takes its name from aria-label while they are in, or the label's
+// content would name it "Repeat − +"); taken out off the phone. A press
+// steps the box as its own arrows would and sends its input and change, so
+// syncRuns and the remembered panel follow; at the box's least or most the
+// button is held, titled with why, and a press says it.
 const phoneSteppers = [];
 
 function makePhoneStepper(input, name) {
@@ -314,6 +370,7 @@ function setMoreNote(words) {
 function syncMoreOptions() {
   if (!isPhone()) return;
   syncPhoneSteppers();
+  syncPhoneNegativeFold();
   const d = lastDefaults;
   const val = (el) => el.value.trim();
   const num = (text) => (text === '' ? null : +text);
@@ -390,6 +447,18 @@ function initPhone() {
   }
   makePhoneStepper(els.batch, 'Batch');
   makePhoneStepper(els.runs, 'Repeat');
+  phoneNegFold = document.createElement('button');
+  phoneNegFold.type = 'button';
+  phoneNegFold.className = 'neg-fold';
+  phoneNegFold.id = 'neg-fold';
+  phoneNegFold.setAttribute('aria-controls', 'negative');
+  const name = document.createElement('span');
+  name.className = 'neg-fold-name';
+  name.textContent = 'Negative prompt';
+  const summary = document.createElement('span');
+  summary.className = 'neg-fold-summary';
+  phoneNegFold.append(name, summary);
+  phoneNegFold.addEventListener('click', togglePhoneNegative);
   $('more-options').addEventListener('click', openMoreSheet);
   $('more-sheet-done').addEventListener('click', () => $('more-sheet').close());
   $('more-sheet').addEventListener('close', moreSheetClosed);
