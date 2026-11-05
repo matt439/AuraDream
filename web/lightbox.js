@@ -536,7 +536,10 @@ function renderLightbox() {
   syncLightboxOutpaint(rec);
   syncCompare(rec);
   // Open first: the stage has no size while the dialog is display: none.
-  if (!els.lightbox.open) els.lightbox.showModal();
+  const opening = !els.lightbox.open;
+  if (opening) els.lightbox.showModal();
+  // The phone's bars (phone-viewer.js): the peek, Edit's place, Reuse's word.
+  syncPhoneViewerImage(opening);
   layoutLightbox();
   // Facts links are replaced for another image, and a source can hide the
   // comparison toggle that held focus. Keep keyboard focus in this modal;
@@ -958,6 +961,8 @@ function lbTouchUp(e) {
     const { dx, dy } = swipe;
     if (Math.abs(dx) >= SWIPE_STEP && Math.abs(dx) > Math.abs(dy) * 1.3) void stepLightbox(dx < 0 ? 1 : -1);
     else if (dy >= SWIPE_CLOSE && dy > Math.abs(dx) * 1.3) dismissLightbox();
+    // Up, on the phone's viewer: its facts as a sheet (phone-viewer.js).
+    else if (isPhone() && -dy >= SWIPE_CLOSE && -dy > Math.abs(dx) * 1.3) setPhoneFacts(true);
     return;
   }
   // A tap: a second on the picture soon after the first is a double-click.
@@ -1025,6 +1030,14 @@ function lbPointerUp(e) {
   const drag = lbDrag;
   lbDrag = null;
   els.lbStage.classList.remove('dragging');
+  // On the phone's viewer a tap anywhere on the picture or beside it shows
+  // or hides its bars, or lowers its facts (phone-viewer.js), never closes:
+  // the picture is the whole screen. After a double tap's wait, which the
+  // second tap's press clears (lbTouchDown).
+  if (isPhone() && drag && !drag.moved && !drag.split) {
+    lbCloseTimer = setTimeout(phoneViewerTap, 300);
+    return;
+  }
   if (!drag || drag.moved || drag.split || !drag.onStage || lbAfterArrow || lbView.scale > 1) return;
   if (lbView.scale === 1) dismissLightbox();
   else lbCloseTimer = setTimeout(dismissLightbox, 400);

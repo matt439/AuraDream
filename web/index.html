@@ -46,6 +46,7 @@
 <link rel="stylesheet" href="/static/styles/touch.css">
 <link rel="stylesheet" href="/static/styles/phone.css">
 <link rel="stylesheet" href="/static/styles/phone-gallery.css">
+<link rel="stylesheet" href="/static/styles/phone-viewer.css">
 </head>
 <body>
 <header class="topbar">
@@ -1307,6 +1308,15 @@
      wider than it is tall and most images are not, so a row of text and
      buttons under the stage was taking the axis the image was short of. -->
 <dialog class="lightbox" id="lightbox" aria-labelledby="lb-prompt" aria-describedby="lb-desc">
+  <!-- The phone's viewer (phone-viewer.js, styles/phone-viewer.css): the
+       picture across the whole screen with bars over it. This top bar holds
+       the cross, moved in and drawn as a ‹, the place in the walk, moved in,
+       and Share; the foot after the column holds the lightbox's line and a
+       bar of Star, Reuse and Refine (moved in), Edit and More, whose action
+       sheets press the lightbox's other buttons. Not drawn off the phone. -->
+  <div class="lbp-top" id="lbp-top">
+    <button type="button" class="ghost lbp-share" id="lbp-share">Share</button>
+  </div>
   <!-- The arrows sit over the stage's edges but beside it in the tree, not
        inside it: the stage captures the pointer on press, and a press on a
        child would be a pan or a close rather than the button's click. Each
@@ -1335,6 +1345,10 @@
     </div>
   </div>
   <div class="lb-side">
+    <!-- The phone's facts sheet's handle: its peek over the foot, the
+         prompt's first line; a press, or a swipe up on the picture, raises
+         the column as a sheet. Not drawn off the phone. -->
+    <button type="button" class="lbp-handle" id="lbp-handle" aria-expanded="false" aria-controls="lb-meta"><span class="lbp-peek" id="lbp-peek" aria-hidden="true"></span><span class="lbp-word">Details</span></button>
     <div class="lb-head">
       <span class="lb-count" id="lb-count" aria-live="polite"></span>
       <!-- autofocus: showModal() would otherwise focus the first control in
@@ -1424,6 +1438,12 @@
            Delete permanently, which asks first. -->
       <button class="ghost" id="lb-restore" title="Move this image back to the gallery" hidden>↶ Restore</button>
       <button class="ghost" id="lb-delete" title="Move to the recycle bin (Del)">⌦ Delete</button>
+    </div>
+  </div>
+  <div class="lbp-foot" id="lbp-foot">
+    <div class="lbp-bar" id="lbp-bar" role="group" aria-label="This image">
+      <button type="button" class="ghost" id="lbp-edit" aria-haspopup="menu">✎ Edit</button>
+      <button type="button" class="ghost" id="lbp-more" aria-haspopup="menu">⋯ More</button>
     </div>
   </div>
 </dialog>
@@ -2260,6 +2280,10 @@
 <!-- The right-click menu on an image (context-menu.js): filled as it opens,
      moved into the lightbox while that is up, since a modal dialog leaves
      the page under it inert. -->
+<!-- Under it on a phone, where it is an action sheet: a scrim over the
+     screen whose press shuts the menu and nothing else (context-menu.js
+     moves it with the menu). -->
+<div class="ctx-scrim" id="ctx-scrim" hidden></div>
 <ul class="menu context-menu" id="context-menu" role="menu" tabindex="-1" hidden></ul>
 
 <dialog class="shortcuts-dialog" id="shortcuts-dialog" aria-labelledby="shortcuts-title" aria-describedby="shortcuts-intro">
@@ -2473,6 +2497,7 @@
 <script src="/static/phone-gallery.js"></script>
 <script src="/static/phone-select.js"></script>
 <script src="/static/phone-runs.js"></script>
+<script src="/static/phone-viewer.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>
