@@ -34,6 +34,7 @@ function syncTier() {
   // "/ to focus" is a keyboard's.
   els.search.placeholder = touchQuery.matches ? 'Search prompts' : searchPlaceholder;
   if (was === pageTier) return;
+  if (pageTier !== 'phone') els.error.classList.remove('at-generate');
   // Back on the phone, the view shows where it was left, as a tab's press
   // does: the page between was the whole of both views, scrolled elsewhere.
   // (Phone-only layers - sheets, hosts - close or move back here as they
@@ -64,6 +65,17 @@ function setPhoneView(view, { remember = true } = {}) {
     try { sessionStorage.setItem(PHONE_VIEW_KEY, view); } catch { /* storage off: the view is this page's */ }
   }
   if (changed && isPhone()) scrollTo({ top: phoneViewScroll[view], behavior: 'instant' });
+}
+
+// A refusal of Generate's press (pressGenerate), on the phone: the panel's
+// line, under Generate's own place in the panel, was a screen below the
+// button riding on the tab bar, and the press seemed to do nothing. The
+// line, the same node, rides above Generate instead (styles/touch.css),
+// until its next write (showError) or a tap on it, which leaves it in its
+// place; a press of a button inside it is the button's. Not a PC's or a
+// tablet's: there the line is beside the button pressed.
+function sayAtGenerate() {
+  if (isPhone() && !els.error.hidden && els.error.textContent) els.error.classList.add('at-generate');
 }
 
 // Reuse, Load settings and the like write the panel: on a phone looking at
@@ -263,6 +275,9 @@ function initTouchLayout() {
   const watch = new MutationObserver(syncPhoneTabsBusy);
   watch.observe(els.topbarLine, { attributes: true, attributeFilter: ['hidden', 'class'] });
   watch.observe(els.topbarFill, { attributes: true, attributeFilter: ['style'] });
+  els.error.addEventListener('click', (e) => {
+    if (!e.target.closest('button')) els.error.classList.remove('at-generate');
+  });
   document.addEventListener('focusin', syncTyping);
   document.addEventListener('focusout', () => queueMicrotask(syncTyping));
   addEventListener('scroll', notePhoneScroll, { passive: true });

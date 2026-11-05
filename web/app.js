@@ -8,7 +8,7 @@
 // --------------------------------------------------------------------- wire
 
 let searchTimer;
-els.generate.onclick = generate;
+els.generate.onclick = pressGenerate;
 els.cancel.onclick = cancelJob;
 els.pause.onclick = togglePause;
 els.cancelQueued.onclick = cancelQueued;

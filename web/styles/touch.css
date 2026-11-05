@@ -309,6 +309,24 @@
     bottom: calc(var(--tabbar-h) + var(--safe-b) + var(--h-lg) + 3 * var(--sp-2));
   }
   body[data-typing] #btn-new-image { display: none; }
+  /* A refusal of Generate's press (sayAtGenerate, touch.js): the panel's
+     line, a screen below the button, rides above it as Generate does, 8 px
+     clear of its ring, and over New image's pill while that is offered.
+     Sticky, so nothing in the page moves; a ring and a background of the
+     panel's colour, no padding, so its own place keeps its height. Its
+     next write or a tap on it leaves it in its place; while a box has the
+     keyboard it is there too. */
+  #error.at-generate {
+    position: sticky; z-index: 16;
+    bottom: calc(var(--tabbar-h) + var(--safe-b) + var(--h-lg) + 4 * var(--sp-2));
+    background: var(--panel);
+    box-shadow: 0 0 0 var(--sp-2) var(--panel), 0 0 0 calc(var(--sp-2) + 1px) var(--line-strong);
+    border-radius: var(--r-xs);
+  }
+  body:has(#btn-new-image:not([hidden])) #error.at-generate {
+    bottom: calc(var(--tabbar-h) + var(--safe-b) + var(--h-lg) + var(--h-sm) + 5 * var(--sp-2));
+  }
+  body[data-typing] #error.at-generate { position: static; box-shadow: none; background: none; }
 
   /* One view at a time: Create is the panel and the results, Gallery the
      gallery's head, grid and paging. */

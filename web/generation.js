@@ -571,7 +571,7 @@ async function dropRefusedLora(err, path, payload, slot) {
 // the grid's, and Generate would render it literally as one image: that is
 // Run grid's press. The same pattern as grid.PLACEHOLDER.
 const GRID_PLACEHOLDER = /\{[A-Za-z_]\w*\}/;
-function generate() {
+function generate({ onRefused = null } = {}) {
   // A checkpoint that only edits (FLUX.1 Kontext [dev]): the press says so,
   // in the server's words, and sends nothing.
   if (textToImageReason) { showError(textToImageReason); return undefined; }
@@ -584,7 +584,20 @@ function generate() {
     return;
   }
   const then = thenRefinePayload();
-  return startJob('/api/generate', then ? { ...body, then_refine: then } : body);
+  return startJob('/api/generate', then ? { ...body, then_refine: then } : body, { onRefused });
+}
+
+// Generate's own press (app.js). A refusal is said in the panel's line,
+// under Generate's place in the panel; on a phone, where Generate rides on
+// the tab bar from the page's top, that line was a screen below the press,
+// so there the refusal is said beside the button too (sayAtGenerate,
+// touch.js): one written before the request went out (an empty prompt, a
+// seed past 2^53, a hold) and the server's own, once its answer is in.
+function pressGenerate() {
+  const writes = panelErrorWrites;
+  const job = generate({ onRefused: sayAtGenerate });
+  if (panelErrorWrites !== writes) sayAtGenerate();
+  return job;
 }
 
 // The gallery's picked cards, else its current filter - the search box, the

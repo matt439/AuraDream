@@ -753,10 +753,19 @@ function readableDetail(detail) {
 // OFFLINE_MESSAGE, and those that say so in their own words - which the
 // first status poll the server answers takes back (clearOffline): it used to
 // stay up, red, long after the server was back.
+// `panelErrorWrites` counts writes to the panel's line, for a press to tell
+// whether it was answered there (pressGenerate); each write also takes the
+// line back from the phone's place by Generate (#error.at-generate,
+// sayAtGenerate in touch.js).
 const offlineSlots = new Map();
+let panelErrorWrites = 0;
 function showError(message, note = false, {
   slot = els.error, mirror = true, offline = !!message?.includes(OFFLINE_MESSAGE),
 } = {}) {
+  if (slot === els.error) {
+    panelErrorWrites++;
+    slot.classList.remove('at-generate');
+  }
   // Unhide *before* writing: the slot is role=alert, and text written into a
   // display:none node is never announced.
   slot.hidden = !message;

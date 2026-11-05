@@ -6795,9 +6795,23 @@ measured on the card and when.
   that is in view. New image's pill on the phone sits above it, at the
   bar, the safe area, the primary's height and 24 px from the foot, rather
   than under the topbar, where at the page's top it lay over Examples and
-  Check. This is the first step of the phone's Create action bar; the bar
+  Check. A refusal of Generate's press (`pressGenerate`: an empty prompt,
+  a seed past 2^53, a hold, the server's own refusal once its answer is
+  in) is said in the panel's line, `#error`, a screen below the button
+  riding on the bar; on the phone that line rides above Generate too
+  (`#error.at-generate`, `sayAtGenerate` in `touch.js`): sticky, 8 px
+  clear of Generate's ring, above New image's pill while that is
+  offered, solid in a ring of the panel's colour with no padding, so its
+  own place keeps its height and nothing moves. The focus stays on
+  Generate. Its next write (`showError`, which counts the panel line's
+  writes in `panelErrorWrites`) or a tap on it (not on a button inside
+  it) leaves it in its place, as does a box with the keyboard; a PC and a
+  tablet say it in the line beside the button as before. This is the
+  first step of the phone's Create action bar; the bar
   itself (Generate moved into a host above the tab bar with the result
-  and the queue) is still to come.
+  and the queue) is still to come, and with it a place for the press's
+  answer and New image's pill, whose interim place at the foot lies over
+  the Sampling labels at the page's top.
   The phone's page does not pull to refresh: `html` and `body` have
   `overscroll-behavior-y: contain`, so a pull at the page's top no longer
   reloads it (the prompt's Undo, a Check, a selection and each view's
@@ -7720,8 +7734,13 @@ Sampling and Output boxes' `enterkeyhint` done and the search's search;
 `html` and `body` with `overscroll-behavior-y: contain`; at the page's top
 Generate sticky 8 px above the bar, in sight under the topbar and the
 element at its centre, with Load settings from PNG still below the window,
-solid while held (opacity 1) and the scroll padding the bar's and its
-band; at the page's foot Generate in its place above Load settings from
+solid while held (opacity 1, its background's alpha 1) and the scroll
+padding the bar's and its band; a press there refused for an empty
+prompt, a seed past 2^53 and a stubbed server refusal each saying why in
+`#error` riding above Generate (`at-generate`, solid, at least 16 px
+above its top, under the topbar, the element at its centre, the focus
+not taken to a box), a tap on it leaving it in its place below the
+window; at the page's foot Generate in its place above Load settings from
 PNG; the phone audit finding no
 sideways overflow, no control off the screen sideways and no dialog outside the window on Create,
 on Gallery and in the Models sheet, and in the lightbox no overflow and no
