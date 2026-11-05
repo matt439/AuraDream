@@ -1,5 +1,5 @@
 [
-  {"log": "'Tablet: a fresh FLUX.1 Krea [dev] fake on 7957, an iPad Air 11 (820x1180 at 2x, and 1180x820) with a touch screen: two columns either way up, the touch sizes, no tab bar; a mouse at 820 px wide still one column'"},
+  {"log": "'Tablet: a fresh FLUX.1 Krea [dev] fake on 7957, an iPad Air 11 (820x1180 at 2x, and 1180x820) with a touch screen: two columns either way up, the touch sizes, no tab bar, Back closing the lightbox; a mouse at 820 px wide still one column'"},
   {"touch": true},
   {"viewport": [820, 1180, 2], "mobile": true},
   {"navigate": "http://127.0.0.1:7957/"},
@@ -28,6 +28,14 @@
   {"expect": "__until(() => els.viewer.querySelector('.result img') && !els.viewer.querySelector('.placeholder:not(.held)'), 30000)"},
   {"expect": "els.newImage.hidden || getComputedStyle(els.newImage).position !== 'fixed'"},
   {"expect": "(() => { const v = __box(els.viewer); return v.left >= __box(__panel()).right && v.right <= document.documentElement.clientWidth; })()"},
+
+  {"log": "'Back closes the lightbox on the tablet too, and the page stays'"},
+  {"eval": "window.__stay = true; document.querySelector('#gallery .card[data-id] img').scrollIntoView({block: 'center'}); window.__y = scrollY;"},
+  {"tap": "#gallery .card[data-id] img"},
+  {"expect": "__until(() => els.lightbox.open && backDepth === 1 && !backGoing)", "fatal": true},
+  {"eval": "history.back();"},
+  {"expect": "__until(() => !els.lightbox.open && backDepth === 0 && !backGoing)"},
+  {"expect": "window.__stay === true && Math.abs(scrollY - __y) < 1 && !history.state?.auradreamLayer"},
 
   {"log": "'Landscape (1180x820): the PC two columns at finger sizes'"},
   {"viewport": [1180, 820, 2], "mobile": true},

@@ -251,7 +251,9 @@ it never writes the composer's prompt, negative or references.
 Gallery views and its tab bar; the phone and tablet tier keys on a coarse
 primary pointer (iPhone 15 Pro, iPad Air 11), never width alone, so a PC's
 mouse and the smokes never match it. On touch a long press is the image's
-right-click menu (`context-menu.js`): iOS sends no `contextmenu`.
+right-click menu (`context-menu.js`): iOS sends no `contextmenu`. On touch
+each open overlay (lightbox, dialog, Models, context menu, run sheet) holds
+one history entry, so Back closes the top one (`touch.js`); a mouse adds none.
 
 `sw.js`, served at `/sw.js` and registered by `app.js` only in a secure
 context (never plain http to a LAN address), answers a silent server's

@@ -1,5 +1,6 @@
 // AuraDream's page script: the phone's two views (styles/touch.css has the
-// layouts; state.js the media queries they share). Declarations only;
+// layouts; state.js the media queries they share) and, on any touch screen,
+// Back closing the top overlay. Declarations only;
 // app.js calls initTouchLayout() once at boot.
 'use strict';
 
@@ -101,6 +102,144 @@ function notePhoneScroll() {
   if (pageTier === 'phone' && isPhone()) phoneViewScroll[phoneView] = scrollY;
 }
 
+// Back closes the top overlay. On a finger - the touch tier, the tablet's
+// too - each overlay open holds one history entry (`pushState`, the URL as
+// it is): Android's Back and iOS's edge swipe went back a page from inside
+// the lightbox, since nothing else stood behind it. Back (`popstate`)
+// closes the overlays above the entry it lands on, top first, each by the
+// close its own button makes; any other close - its ✕, Escape, a swipe
+// down, Reuse, a light dismiss - takes its entry back with `history.go`.
+// The stack is read from the page itself (each overlay's `open` or
+// `hidden`, watched), so a close and an open in one turn (Refine closing
+// the lightbox for its dialog) keep one entry, a close the overlay refuses
+// (a dialog still sending) leaves it open and its entry is pushed again,
+// and a dialog over the lightbox comes off first. A mouse's overlays hold
+// none: a PC's history is untouched.
+const BACK_KEY = 'auradreamLayer';
+// This page's entries, told from those of an earlier load of the same tab,
+// which the back never counts on.
+const backPage = `${Date.now().toString(36)}.${Math.random().toString(36).slice(2)}`;
+// The overlays, in the order two opened in one turn stack (the context menu
+// is always on top): each with what it is shown by and the user's own close.
+let backLayers = [];
+// The open overlays that hold an entry, oldest first, and those opened with
+// a mouse, which hold none.
+let backStack = [];
+const backUnheld = new Set();
+// The entries of this page the current one stands on (0 at the page's own).
+let backDepth = 0;
+// A `history.go` of ours whose `popstate` has not come: nothing is pushed
+// meanwhile, and its arrival closes nothing.
+let backGoing = false;
+let backGoingTimer = 0;
+let backSyncQueued = false;
+// The page's own scroll restoration while entries stand on it: 'manual'
+// then, or a Back (or a ✕'s go) restored the scroll each entry was pushed
+// at - a tab switched under the Models sheet scrolled back on its close.
+let backScrollMode = null;
+
+const backDepthOf = (state) => {
+  const mark = state?.[BACK_KEY];
+  return mark?.page === backPage && Number.isInteger(mark.depth) ? mark.depth : 0;
+};
+
+function backLayerList() {
+  const dialogs = [...document.querySelectorAll('dialog')].filter((d) => d !== els.lightbox);
+  return [
+    { el: els.sheet, open: () => sheetMode, close: () => { void setSheet(false); } },
+    { el: els.modelPicker, open: () => !els.modelPicker.hidden, close: () => showModelPicker(false) },
+    { el: els.lightbox, open: () => els.lightbox.open, close: dismissLightbox },
+    // Escape's way: the dialog's `cancel` first, which a dialog busy sending
+    // refuses, or which closes it by its own path (Saved searches).
+    ...dialogs.map((d) => ({
+      el: d,
+      open: () => d.open,
+      close: () => { if (d.dispatchEvent(new Event('cancel', { cancelable: true })) && d.open) d.close(); },
+    })),
+    { el: els.contextMenu, open: () => !els.contextMenu.hidden, close: () => closeContextMenu() },
+  ];
+}
+
+function queueBackSync() {
+  if (backSyncQueued) return;
+  backSyncQueued = true;
+  queueMicrotask(syncBackLayers);
+}
+
+// The entries made to match the overlays open now: one pushed for each
+// opened, the closed ones' gone back over in one `go`. Never a step below
+// this page's own entry, so the page is never left.
+function syncBackLayers() {
+  backSyncQueued = false;
+  backStack = backStack.filter((layer) => layer.open());
+  for (const layer of backUnheld) if (!layer.open()) backUnheld.delete(layer);
+  for (const layer of backLayers) {
+    if (!layer.open() || backStack.includes(layer) || backUnheld.has(layer)) continue;
+    if (touchQuery.matches) backStack.push(layer);
+    else backUnheld.add(layer);
+  }
+  if (backGoing) return;
+  const want = backStack.length;
+  if (backDepth < want) {
+    if (backScrollMode === null) {
+      backScrollMode = history.scrollRestoration;
+      history.scrollRestoration = 'manual';
+    }
+    // Safari refuses a page's hundredth push in 30 seconds (a SecurityError):
+    // the overlay then has no entry, and Back leaves the page as before.
+    try {
+      while (backDepth < want) {
+        history.pushState({ [BACK_KEY]: { page: backPage, depth: backDepth + 1 } }, '');
+        backDepth += 1;
+      }
+    } catch {
+      if (backDepth === 0) {
+        history.scrollRestoration = backScrollMode;
+        backScrollMode = null;
+      }
+    }
+  } else if (backDepth > want) {
+    backGoing = true;
+    // A go that never arrives (the page hidden mid-way) frees the next one.
+    backGoingTimer = setTimeout(() => {
+      backGoing = false;
+      backDepth = backDepthOf(history.state);
+      queueBackSync();
+    }, 3000);
+    history.go(want - backDepth);
+  }
+}
+
+function backPopped(event) {
+  const ours = backGoing;
+  backGoing = false;
+  clearTimeout(backGoingTimer);
+  backDepth = backDepthOf(event.state);
+  if (backDepth === 0 && backScrollMode !== null) {
+    history.scrollRestoration = backScrollMode;
+    backScrollMode = null;
+  }
+  // The user's Back (or a step back in the browser's list): the overlays
+  // above the entry it reached close, the top one first.
+  if (!ours) for (const layer of backStack.slice(backDepth).reverse()) layer.close();
+  syncBackLayers();
+}
+
+function initBackLayers() {
+  // A reload, or a page opened again in the tab, starts at its own entry:
+  // a mark left by the last load is no layer of this one.
+  if (history.state?.[BACK_KEY]) {
+    history.replaceState(null, '');
+    history.scrollRestoration = 'auto';
+  }
+  backLayers = backLayerList();
+  const watch = new MutationObserver(queueBackSync);
+  for (const layer of backLayers) watch.observe(layer.el, { attributes: true, attributeFilter: ['open', 'hidden'] });
+  addEventListener('popstate', backPopped);
+  // One already open (the Models picker offered at startup) holds its entry.
+  queueBackSync();
+}
+
 function initTouchLayout() {
   let saved = null;
   try { saved = sessionStorage.getItem(PHONE_VIEW_KEY); } catch { /* storage off */ }
@@ -130,4 +269,5 @@ function initTouchLayout() {
   syncTier();
   phoneQuery.addEventListener('change', syncTier);
   touchQuery.addEventListener('change', syncTier);
+  initBackLayers();
 }

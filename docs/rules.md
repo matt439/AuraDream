@@ -673,7 +673,8 @@ before changing it.
   bin (`applyGalleryFilter`), which Apply, Show all, the Models picker's
   See all and a bundle's Show share. `touch.js`, just before `app.js`, the
   phone's two views (Create and Gallery, `setPhoneView`, `showCreateView`),
-  the job's mark on its tab bar and the tier's re-sync (`syncTier`); the
+  the job's mark on its tab bar, the tier's re-sync (`syncTier`) and, on
+  any touch screen, Back closing the top overlay (`syncBackLayers`); the
   touch tier's media queries (`PHONE_MEDIA`, `TABLET_COLUMNS_MEDIA`,
   `TWO_COLUMNS_MEDIA`, `TOUCH_MEDIA`) are `state.js`'s, beside
   `styles/touch.css`'s copies of them, as is `viewBand`.
@@ -6653,6 +6654,32 @@ measured on the card and when.
   cards, results, sheet cells and the stage, so iOS's callout and a text
   selection do not answer the press too, and gives the menu 36 px rows
   without its key hint or key letters.
+  Back closes the top overlay on any touch screen, the tablet's too
+  (`touch.js`, `syncBackLayers`): Android's Back and iOS's edge swipe went
+  back a page from inside the lightbox. The lightbox, every `<dialog>`, the
+  Models picker, the context menu and the run sheet each hold one history
+  entry while open (`history.pushState`, the URL unchanged, the state
+  `auradreamLayer` with this load's token and the entry's depth); a mouse's
+  overlays hold none, so a PC's history is untouched. Back (`popstate`)
+  closes the overlays above the entry it lands on, top first, each by the
+  user's own close: `dismissLightbox`; a dialog's `cancel` and then
+  `close()`, as Escape does, which a dialog still sending refuses;
+  `showModelPicker(false)`; `closeContextMenu`; `setSheet(false)`, which
+  puts back a search the sheet wrote. Any other close - ✕, Escape, a
+  swipe down, Reuse, a light dismiss - takes its entry back with one
+  `history.go`, never below this load's own entry, so the page is never
+  left and no entries pile up. The stack is read from the page (each
+  overlay's `open` or `hidden`, watched by a MutationObserver), so a close
+  and an open in one turn (Refine closing the lightbox for its dialog) keep
+  one entry, a refused close leaves its overlay open and its entry pushed
+  again, a dialog over the lightbox comes off first, and nothing is pushed
+  while a `go` of the page's is on its way. While its entries stand, the
+  page's `history.scrollRestoration` is `manual`, so neither a Back nor a
+  ✕ scrolls the page to where an entry was pushed (`auto` again at the
+  page's own entry); a load finding an earlier load's mark on its entry
+  drops it. The tabs write no history - the view is the tab's
+  (`sessionStorage`) - so Back with nothing open leaves the page as before.
+  The Examples, Tags and tag finder menus hold no entry yet.
   While a text box has the focus the phone's tab bar is not drawn
   (`body[data-typing]`, `syncTyping` in `touch.js`, read at boot and on
   focusin/focusout): iOS keeps a fixed foot on the layout viewport, which
@@ -7554,7 +7581,15 @@ the view kept through a reload; in the lightbox no arrows or key legend,
 a swipe left and right stepping, a swipe down closing, a pinch zooming
 past 1.5, a swipe while zoomed panning without stepping, and a double tap
 back to fit; Reuse from the Gallery view bringing Create with the prompt;
-a job's dot and line on the bar in both views and gone at its end; the
+a job's dot and line on the bar in both views and gone at its end; Back
+(`history.back()`) closing one overlay per call - the menu over the
+lightbox, then More seeds… opened from that menu over it, then the
+lightbox - with the page still loaded at its scroll, the lightbox's entry
+taken back by a swipe down and by Escape, a reopened lightbox adding no
+entry past the one it had, `scrollRestoration` `manual` while an entry
+stands and `auto` after; the Models sheet holding an entry that Escape and
+Back each take back; the Sheet button's run sheet closed by Back with the
+search it wrote put back; the
 Models sheet across the window between the topbar and the bar; the tab
 bar gone while the prompt has a tapped focus and back on blur; the
 gallery footer starting at its left edge with Saved searches… in full; a
@@ -7571,8 +7606,9 @@ landmark holding the tablist, the brand at #8a6dff and a scroll padding
 the bar's height; at 320x1106 Sampling two to a row with no sideways
 scroll; and a mouse at 1400x900 back to no bar, both views, a sticky
 topbar, no scroll padding, a 43 px Generate, 14 px text and the
-Ctrl+Enter hint, no `data-tier`, the search's "/ to focus" back and
-`viewBand` the window under the topbar.
+Ctrl+Enter hint, no `data-tier`, the search's "/ to focus" back,
+`viewBand` the window under the topbar, and the lightbox and the Models
+picker opened by the mouse adding no history entry.
 
 `smoke-tablet.json` uses a fresh FLUX.1 Krea [dev] fake on 7957 with touch
 at 820x1180@2, its touch viewports `"mobile": true`: `data-tier` tablet
@@ -7581,7 +7617,8 @@ stage and sticky, two cards across,
 no tab bar, the keyboard help kept, finger sizes, the chips' host the wide
 one, the page all 820 px wide; a tapped Generate's result in the stage
 beside the panel with no New
-image pill fixed over the page; at 1180x820 the PC's two columns at finger
+image pill fixed over the page; a card's lightbox closed by Back with the
+page still loaded at its scroll; at 1180x820 the PC's two columns at finger
 sizes; at 678x1180 (Split View) the phone with its tab bar, the phone audit
 finding no overflow, nothing off the screen sideways and no dialog outside
 (its under-44 px count logged); the pane dragged 678 -> 820 -> 678, the
