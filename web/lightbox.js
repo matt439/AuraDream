@@ -114,7 +114,7 @@ function sidePorts(reach, sw, sh, stacked) {
   return [{ x: inset, y: 0, w, h: sh }, { x: inset + w + LB_SIDE_GAP, y: 0, w, h: sh }];
 }
 
-// The stage as it is with the facts at six lines: under 901 px they take
+// The stage as it is with the facts at six lines: under it (lbNarrow) they take
 // what the picture leaves of it (lbFactsRoom), and this is the stage before
 // they did, whatever the picture before this one left them.
 function lbBaseStage() {
@@ -123,14 +123,17 @@ function lbBaseStage() {
   if (lbNarrow()) sh += Math.max(0, els.lbMeta.clientHeight - lbSixLines());
   return [sw, sh];
 }
-const lbNarrow = () => matchMedia('(max-width: 900px)').matches;
+// The column under the stage (LB_STACKED_MEDIA): a phone on its side has it
+// beside the stage, as a PC's window over 900 px does, though under 901 px.
+const lbNarrow = () => matchMedia(LB_STACKED_MEDIA).matches;
 const lbSixLines = () => parseFloat(getComputedStyle(els.lbMeta).fontSize) * 6;
 
-// Whether side by side's halves go one above the other: where the window is
-// under 901 px, or the stage taller than it is wide, and the halves stacked
-// fit `rec` at least LB_STACK_GAIN larger than left and right do. The gain
+// Whether side by side's halves go one above the other: where the column is
+// under the stage (lbNarrow), or the stage taller than it is wide, and the
+// halves stacked fit `rec` at least LB_STACK_GAIN larger than left and
+// right do. The gain
 // is asked because stacked halves take the stage's height, which was the
-// facts' letterbox (lbFactsRoom). A landscape stage from 901 px keeps left
+// facts' letterbox (lbFactsRoom). A landscape stage beside its column keeps left
 // and right whatever the picture: the layout side by side was designed in.
 // Decided on the stage with the facts at six lines (lbBaseStage), never on
 // what the facts left of it, which drew a landscape pass's halves left and
@@ -283,7 +286,7 @@ function sayZoom() {
   if (els.lbZoomSaid.textContent !== text) els.lbZoomSaid.textContent = text;
 }
 
-// Under a one-column stage (under 901 px) the facts are a scroller six lines
+// With the column under the stage (lbNarrow) the facts are a scroller six lines
 // tall (styles/lightbox.css, .lb-meta), which showed Model and Size and hid the seed,
 // while a square picture at 600 px wide, or any landscape one, left the
 // stage a band of letterbox above and below it. The band is the facts':

@@ -640,7 +640,11 @@ function syncEmptyInstall(page) {
 
 // The first run's Examples: the panel's own menu, open on its first item.
 // After the click is through, whose document handler closes an open menu.
+// From the empty gallery's line on a phone, the press brings Create first:
+// the menu is the panel's, which the Gallery view does not draw, so it
+// opened unseen and took the focus with it.
 function viewerExamples() {
+  showCreateView();
   requestAnimationFrame(() => {
     showExamples(true);
     els.examplesMenu.querySelector('[role="menuitem"]')?.focus();

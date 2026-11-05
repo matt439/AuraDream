@@ -677,7 +677,8 @@ before changing it.
   any touch screen, Back closing the top overlay (`syncBackLayers`); the
   touch tier's media queries (`PHONE_MEDIA`, `TABLET_COLUMNS_MEDIA`,
   `TWO_COLUMNS_MEDIA`, `TOUCH_MEDIA`) are `state.js`'s, beside
-  `styles/touch.css`'s copies of them, as is `viewBand`.
+  `styles/touch.css`'s copies of them, as is `viewBand`, and so is the
+  lightbox's `LB_STACKED_MEDIA` (its copy in `styles/lightbox.css`).
   `sw.js` is no classic script: the service worker, served at `/sw.js`
   (`main.service_worker`, `Cache-Control: no-cache`) so its scope is the
   whole site, and registered at the end of `app.js` only in a secure context
@@ -4343,8 +4344,9 @@ measured on the card and when.
   box to select). The two-pane layout is only in its `@media (min-width:
   1800px)` block. Where it does not fit, the card's ✎ hides in the wide
   tier (a container query) and at S density, the docked result row drops
-  ✎ Inpaint…, and the lightbox's Inpaint… hides under 901 px; another entry
-  point remains in each case. Cards, facts, the settings line and job
+  ✎ Inpaint…, and the lightbox's Inpaint… hides under 901 px (not on the
+  phone, whose lightbox wraps its actions: "Phones and tablets"); another
+  entry point remains in each case. Cards, facts, the settings line and job
   labels read "inpaint of #N @ 0.6", the facts list has a Mask row (the
   mask as a tint and an outline over the source's thumbnail, in an 80 px
   box of the mask's shape, then the hash's first 16 digits; `maskOutline`
@@ -4370,8 +4372,8 @@ measured on the card and when.
   the panel's and never a mode of the Inpaint dialog: `collect()` sends no
   outpaint. `openOutpaint(rec, from)` (async: it asks `GET
   /api/images/{id}/outpaint-presets` first) - the lightbox's Outpaint… in the
-  Refine/Inpaint row (one row, never wrapping; under 901 px Inpaint… hides
-  and Outpaint… stays, the pair at their own widths, since a gallery image
+  Refine/Inpaint row (one row, never wrapping; under 901 px Inpaint… hides,
+  but on the phone, and Outpaint… stays, the pair at their own widths, since a gallery image
   has no card glyph for it), a viewer result column's ⬚ Outpaint… and Reuse on an
   outpainted record ("Reuse outpaint…", asked before the inpaint's since the
   row has a mask too; `dataset.reuseOutpaint` holds `OutpaintSpec.key()`, so
@@ -5032,11 +5034,12 @@ measured on the card and when.
   the arrows' circles (`lbPorts`, `lbNavRoom`, measured off the circle as
   drawn - read once per `layoutLightbox`, before its writes), on one
   `lbView`; switching keeps the magnification. The halves go left and
-  right, or the source above the pass: stacked only where the window is
-  under 901 px or the stage is taller than wide, and only where stacked
+  right, or the source above the pass: stacked only where the column is
+  under the stage (`lbNarrow`, `LB_STACKED_MEDIA`: under 901 px, but for a
+  phone on its side) or the stage is taller than wide, and only where stacked
   halves fit the picture at least an eighth larger (`lbStacked(rec)`,
   `LB_STACK_GAIN`), because stacking takes the letterbox the facts use; a
-  landscape stage from 901 px is always left and right. The split is
+  landscape stage beside its column is always left and right. The split is
   decided once per layout, on the stage with the facts at six lines
   (`lbBaseStage`), before `lbFactsRoom`, and both use that decision; every
   reader of the ports takes a port's y as well as its x. Side by side keeps
@@ -5107,7 +5110,8 @@ measured on the card and when.
   the last page, or a failed request, makes the note add "may be
   incomplete: more may be in the gallery", and the held reason says how far
   it looked (below). The box
-  (`#lb-compare`) is on every image from 901 px: its note first (the column
+  (`#lb-compare`) is on every image where the column is beside the stage
+  (from 901 px, and a phone on its side): its note first (the column
   is pinned to the bottom, so a line written there grows the box upward and
   moves no button), Compare with source on a pass only, Compare CFG and
   Compare steps on one row (`.lb-kinds`, gone where both are hidden), Swipe
@@ -5127,8 +5131,8 @@ measured on the card and when.
   every image now, a plain Generate's held mode buttons were untitled. A
   press, S or a mode press says it in
   `#lb-compare-note` (`lbCompareSaid`, kept for that image until another
-  is drawn or a comparison is turned on or off). Under 901 px the box is a
-  row under the stage that the picture and the facts' letterbox pay for: it
+  is drawn or a comparison is turned on or off). Under the stage
+  (`lbNarrow`) the box is a row that the picture and the facts' letterbox pay for: it
   is drawn on a pass, or where the page's own records give the image a CFG
   neighbour when the image is drawn (`ladderShown`, `lbCfgShown`), kept until
   another image is, and from a comparison turned on - never on the
@@ -5203,7 +5207,7 @@ measured on the card and when.
   the keys line "← → steps" and the divider's title "… ← → step along
   steps". The fewer steps are on the left (`lbSwapped` by the axis's
   value). S with the divider focused hands focus to Compare steps. Under
-  901 px each axis's part (its Compare button and its step row) is drawn
+  the stage (`lbNarrow`) each axis's part (its Compare button and its step row) is drawn
   where the page's own records give the image a neighbour along it, or
   once a comparison along it is on (`ladderShown` answers per axis), and
   Against with the part of the axis it lists - never for CFG's "none"
@@ -5914,8 +5918,8 @@ measured on the card and when.
   same dialog on a ready target, `openMoreSeeds(target, {count, opener, host})`
   with `target` `{scope, line}`: an image's batch (`{ids: [id]}`,
   `moreSeedsImageTarget`, "From #N's batch.") from the lightbox's
-  `#lb-more-seeds` (paired with Reuse in an `.lb-pair`, hidden under 900 px
-  where the menu has it), the menu's More seeds of this batch… and the
+  `#lb-more-seeds` (paired with Reuse in an `.lb-pair`, hidden under 901 px
+  where the menu has it, but on the phone), the menu's More seeds of this batch… and the
   result column's More seeds…; a finished job's images (`{ids}` of those
   still live, `finishMoreSeeds`) on the finish line of a plain job
   (after its Use seed), a More seeds job and a single refine, inpaint or outpaint
@@ -6589,8 +6593,12 @@ measured on the card and when.
   50, small 36, tiny 32), sets every text box, number box and select to
   16 px or more (`!important`: under 16 iOS zooms the page on focus and
   leaves it zoomed), takes the keyboard's hints away (`::after` key
-  letters, `.lb-keys`, `.key-hint` spans in the idle line, the png drop
-  hint, the search's "/ to focus"), widens a `?` badge's press 10 px up
+  letters, `.lb-keys`, `.key-hint` spans in the idle line, the run sheet's
+  `.sheet-hint` "F stars the image in focus · Ctrl+wheel zooms, drag
+  pans", the png drop hint, the search's "/ to focus"; Compare with
+  source's and Compare CFG's S by `[aria-keyshortcuts]::after`, the
+  specificity of the lightbox's rule that draws it, under which a bare
+  `#lb-compare-on::after` lost and the S stayed), widens a `?` badge's press 10 px up
   and 12 to each side but never below it (a badge sits a few px over the
   box it explains - Steps, CFG, Strength - and a press reaching down took
   the top of that box's own), parts a fold's touching rows by 8 px (Grid
@@ -6615,8 +6623,10 @@ measured on the card and when.
   `body[data-view]` is `create` (the panel and the results) or `gallery`
   (`.library`), the other not drawn; each view keeps its own scroll, the
   choice is kept for the tab in `sessionStorage`, and only a press - the
-  tab's, or Reuse (`revealReused` calls `showCreateView`) - switches it,
-  never a job starting or ending. While a job runs, Create carries a dot
+  tab's, Reuse (`revealReused` calls `showCreateView`), or the empty
+  gallery's Examples (`viewerExamples` calls it before opening the panel's
+  menu, which the Gallery view does not draw) - switches it, never a job
+  starting or ending. While a job runs, Create carries a dot
   and the bar's top edge the topbar's line (`syncPhoneTabsBusy`, from
   `#topbar-line`'s attributes). `body[data-tier]` names the tier -
   `phone` (`PHONE_MEDIA`), `tablet` (the rest of the touch tier) or no
@@ -6659,7 +6669,7 @@ measured on the card and when.
   `contextMenuTouch*`): iOS Safari sends no `contextmenu` for one, and the
   menu holds what no button does on a phone (Edit by instruction…, Pick
   this run, the Copy items, Open PNG; under 900 px Inpaint… and More
-  seeds… too). 500 ms held within 10 px on an image `contextTarget` knows
+  seeds… too, which the phone's lightbox also shows). 500 ms held within 10 px on an image `contextTarget` knows
   opens the menu - on the tablet 16 px under the finger, on the phone
   docked at the screen's foot (below) - and a move, a second finger, a
   scroll's pointercancel or an earlier lift is no press. The lift's
@@ -6754,8 +6764,24 @@ measured on the card and when.
   (`body[data-typing]`, `syncTyping` in `touch.js`, read at boot and on
   focusin/focusout): iOS keeps a fixed foot on the layout viewport, which
   its keyboard does not shrink, so the bar sat behind the keyboard or over
-  the text. The phone lightbox's facts fade over their last 1.2 em, padded
-  by as much, so a box cut mid-line says it scrolls. On its side
+  the text. The phone's lightbox is black, its `::backdrop` too (the
+  PC's 0.97 over a clear backdrop let the tab bar's names and the cards'
+  glyphs and captions show through). Its facts fade over their last
+  1.2 em, padded by as much, so a box cut mid-line says it scrolls. Its
+  actions wrap across the column (`.lb-actions` `flex: 1 1 100%;
+  min-width: 0`, each `.lb-pair` at most the line's width and wrapping
+  inside itself), every button 44 px and inside the screen: as a row that
+  scrolled sideways with no sign of it, it grew to its content's 369 px in
+  a 354 px column and Delete lay past the screen's edge. Inpaint… and More
+  seeds…, which the PC hides under 901 px, show in it on the phone either
+  way up. The lightbox's layout has one query, `LB_STACKED_MEDIA`
+  (`state.js`; the same text in `lightbox.css`):
+  `(max-width: 900px) and (not ((pointer: coarse) and (max-height: 500px) and (orientation: landscape)))`,
+  the column under the stage; `lbNarrow` reads it, so the facts' room
+  (`lbFactsRoom`), side by side's split (`lbStacked`) and the comparison
+  rows drawn (`ladderShown`) are measured on the layout drawn, where
+  `(max-width: 900px)` alone had them stacked on a phone on its side
+  (852x393) whose column is beside the stage. On its side
   (`(pointer: coarse) and (max-height: 500px) and (orientation: landscape)`)
   the topbar is 46 px with small buttons and no free-space readout and
   scrolls away with the page (`position: relative`; `--topbar-h` there is
@@ -6763,9 +6789,11 @@ measured on the card and when.
   nothing over the page, and the Models sheet hangs at 46 px plus it), the
   tab bar 44 with its glyph beside its word, the prompt three lines rather
   than five (until its grip sets a height), the gallery's search beside
-  Runs, and the lightbox the PC's row: the
+  Runs, and the lightbox the PC's row (outside `LB_STACKED_MEDIA`): the
   picture beside a 300 px (at most 42 vw) column that scrolls as a whole,
-  its actions wrapping. Under 360 px wide (a third of an iPad, Slide Over)
+  its prompt four lines, its comparison and actions wrapping rows at their
+  own widths, and the comparison box on every image, held where it has
+  nothing to compare, as from 901 px. Under 360 px wide (a third of an iPad, Slide Over)
   Sampling's four boxes go two to a row: four ran past the panel and the
   page scrolled sideways.
   Accessibility on touch: the tab bar is a `nav` landmark ("Views",
@@ -6777,7 +6805,9 @@ measured on the card and when.
   panel's fold summaries, Then refine's opener), and a card's or a run
   tile's tools are 32 px tall; a tool's name and fill on `:hover` are
   dropped unless the focus is the keyboard's, since iOS leaves `:hover` on
-  what was tapped. The brand's "Dream" is `--accent-text` (#8a6dff, 5.0:1
+  what was tapped, and so is a card's caption ("#14 · 1024×1024 · seed 5",
+  `.tools::before`), shown only while the card holds `:focus-visible`: a
+  tap's `:hover` and `:focus-within` left it over the picture. The brand's "Dream" is `--accent-text` (#8a6dff, 5.0:1
   on `--panel`; `--accent` was 4.26) at every size, the PC's too. The
   prompt boxes keep `aria-expanded` on their textareas, which axe-core
   reports (a textbox has no expanded state in ARIA 1.2): it is how a screen
@@ -7640,8 +7670,8 @@ classic scrollbar), `data-tier` phone; the phone audit finding no
 sideways overflow, no control off the screen sideways and no dialog outside the window on Create,
 on Gallery and in the Models sheet, and in the lightbox no overflow and no
 dialog outside, its only excepted controls `.lb-link`s, with each state's
-count of controls under 44 px (and the lightbox's controls off the screen)
-logged as the baseline; Create drawing the panel and viewer
+count of controls under 44 px logged as the baseline, and in the
+lightbox no control off the screen sideways either; Create drawing the panel and viewer
 but not the gallery and the bar at the window's foot, `viewBand` from the
 topbar's foot to the bar's top, a viewer 14 px above the bar counted out
 of sight below (`viewerOutOfSight`) and the band to the window's foot
@@ -7697,7 +7727,9 @@ finding no overflow, nothing off the screen sideways and no dialog outside
 tier following each `change`, Generate, the viewer and the gallery shown
 and Generate focusable at 820, Create back at the 300 px it was left at
 on the phone with Generate focusable, and a Gallery view chosen at 678
-kept through 820 and back; at 820 the touch tier's slider (44 px, the
+kept through 820 and back; the lightbox at 820 not the phone's (stacked,
+0.97 over a clear backdrop, Inpaint… and More seeds… not drawn); a card
+tapped in Select mode showing no caption and a Tab's focus showing it; at 820 the touch tier's slider (44 px, the
 UA's look gone), the `?` reach ending at the badge's foot and the fold
 rows 8 px apart, but none of the phone's dialog changes (its rows
 unwrapped, its ticks 20 px, Saved setups' body its own scroller); and a
@@ -7749,6 +7781,33 @@ presets and band row and Refine's Strength row unwrapped, no reach past a
 PC's question (under 480 px wide, off the window's foot, small buttons),
 Saved setups' inset box with an unstuck action row, and the right-click
 menu placed at the pointer with its PC rows.
+
+`smoke-phone-gallery.json` uses a fresh FLUX.1 Krea [dev] fake on 7961
+with touch at 393x852@3, `"mobile": true`. On the empty gallery its
+Examples press brings the Create view (Create's tab selected) with the
+panel's menu open, inside the window and holding the focus. Then, with
+three images and a refine pass of the first planted: a card tapped in
+Select mode, `:hover` or `:focus-within` on it, shows no caption
+(`.tools::before`), and a Tab's keyboard focus shows it; the Sheet
+button's run sheet has its `.sheet-hint` but does not draw it; the
+lightbox on the pass is black over a black `::backdrop`, `lbNarrow` and
+`LB_STACKED_MEDIA` true and its flex a column, Compare with source shown
+with `aria-keyshortcuts` S and no `::after`; `.lb-actions` wraps with no
+sideways scroll inside the window, and Star, Reuse, More seeds…, Refine,
+Inpaint…, Outpaint… and Delete are each shown, inside the screen, their
+own press at their centre and 44 px tall (their boxes logged); the phone
+audit finds no overflow, no control off the screen sideways and no
+dialog outside (its under-44 px count logged). Swiped to an image that
+is no pass, Compare CFG holds S with no `::after`; a second later More
+seeds… opens its dialog over the lightbox (two entries; a tap within
+half a second of the fast swipe gave no click in the emulator), which
+Escape closes, and Inpaint… opens its dialog. On its side (852x393)
+`lbNarrow` and `LB_STACKED_MEDIA` are false, the lightbox a row with the
+column beside a stage at least 300 tall, the seven actions inside the
+column and 44 px, the actions a row under 250 px tall, the lightbox
+black. A mouse at 800x900 then has the PC's narrow lightbox: stacked,
+Inpaint… and More seeds… not drawn, 0.97 over a clear backdrop, the
+actions unwrapped and Compare with source's S drawn.
 
 `smoke-offline.json` uses a fresh FLUX.1 Krea [dev] fake on 7958: the
 page at 127.0.0.1 registers `sw.js`, which controls the next load; with

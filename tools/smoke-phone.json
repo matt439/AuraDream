@@ -74,7 +74,7 @@
   {"tap": "#gallery .card[data-id] img"},
   {"expect": "__until(() => els.lightbox.open && lbIndex === 0 && els.lbImg.complete)", "fatal": true},
   {"expect": "!isShown(els.lbPrev) && !isShown(els.lbNext) && !isShown(document.getElementById('lb-keys')) && getComputedStyle(els.lbStage).touchAction === 'none'"},
-  {"expect": "(() => { const r = __phoneAudit(); return r.overflow === 0 && !r.dialogs.length && r.excepted.length > 0 && r.excepted.every((s) => s.startsWith('button.lb-link')); })()"},
+  {"expect": "(() => { const r = __phoneAudit(); return r.overflow === 0 && !r.offside.length && !r.dialogs.length && r.excepted.length > 0 && r.excepted.every((s) => s.startsWith('button.lb-link')); })()"},
   {"log": "(() => { const r = __phoneAudit(); return {small: r.small.length, offside: r.offside, dialogs: r.dialogs}; })()"},
   {"eval": "window.__mid = (() => { const r = __box(els.lbStage); return [Math.round(r.left + r.width / 2), Math.round(r.top + r.height / 2)]; })();"},
   {"expect": "(() => { const r = __box(els.lightbox); return r.right <= 393 && r.bottom <= 852; })()"},

@@ -140,10 +140,13 @@
   .help .tip::before { content: none; }
 
   /* No keyboard here (a tablet's own keyboard aside, whose user has the ?
-     list still): the hints after Generate's label and the lightbox's keys. */
-  #btn-generate::after, #btn-grid::after, #refine-run::after, #lb-compare-on::after,
-  #lb-compare-cfg[aria-keyshortcuts="S"]::after, #lb-refine::after, #lb-more-seeds::after { content: none; }
-  .lb-keys, .key-hint { display: none; }
+     list still): the hints after Generate's label, the lightbox's keys and
+     the run sheet's line (F stars, Ctrl+wheel zooms). Compare with source's
+     and Compare CFG's S at the specificity of lightbox.css's rule that
+     draws it, [aria-keyshortcuts] and all: without it the S stayed. */
+  #btn-generate::after, #btn-grid::after, #refine-run::after, #lb-refine::after, #lb-more-seeds::after,
+  #lb-compare-on[aria-keyshortcuts]::after, #lb-compare-cfg[aria-keyshortcuts]::after { content: none; }
+  .lb-keys, .key-hint, .sheet-hint { display: none; }
 
   /* Hover states stick after a tap on iOS; the card's tools and name show
      without one (gallery.css already shows the tools on a coarse pointer). */
@@ -210,6 +213,10 @@
      after its press, and its fill lit; the keyboard's focus still shows them. */
   :is(.card, .viewer) .tools button:hover:not(:focus-visible)::after { content: none; }
   .card .tools button:hover:not(:focus-visible) { background: rgba(0, 0, 0, 0.55); }
+  /* Likewise the card's caption ("#14 · 1024×1024 · seed 5", sheet.css),
+     which a tap's :hover and :focus-within left over the picture until
+     another card was pressed: shown here only with the keyboard's focus. */
+  .card:not(:has(:focus-visible)) .tools::before { display: none; }
 }
 
 /* ------------------------------------------------------- tablet, portrait */
@@ -309,13 +316,24 @@
   }
 
   /* The lightbox: the picture across the screen, its facts and actions under
-     it in one scrolling column, the actions a row that scrolls sideways
-     rather than wrapping into a third line. The facts fade out at their foot,
-     so a box cut mid-line says it scrolls; the padding under the last line
-     lets it be read clear of the fade. */
+     it. Black, not lightbox.css's 0.97 over a clear backdrop, through which
+     the tab bar's names and the cards' glyphs and captions showed. The
+     actions wrap, the line's width at most (min-width: 0; at its content's
+     369 px in a 354 px column it scrolled sideways with no sign of it, and
+     Delete was past the screen's edge), each pair wrapping inside itself
+     where it is wider than the line. Inpaint… and More seeds…, which a PC's
+     window under 901 px leaves to the card's ✎ and the right-click menu
+     for want of room on one row, are here: the wrapped rows have the room,
+     and a long press's menu is not where a finger looks for an action on
+     the image in view. The facts fade out at their foot, so a box cut
+     mid-line says it scrolls; the padding under the last line lets it be
+     read clear of the fade. */
+  .lightbox, .lightbox::backdrop { background: #000; }
   .lightbox { gap: var(--sp-2); }
-  .lb-actions { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; }
+  .lb-actions { flex: 1 1 100%; min-width: 0; flex-wrap: wrap; }
   .lb-actions > * { flex: none; }
+  .lb-actions > .lb-pair { max-width: 100%; flex-wrap: wrap; }
+  #lb-inpaint, #lb-more-seeds { display: revert; }
   .lb-nav { display: none; }
   .lb-meta {
     padding-bottom: 1.2em;
@@ -495,17 +513,21 @@
   .phone-tabs button .tab-glyph { width: 20px; height: 20px; }
   .phone-tabs .tab-busy { top: 10px; left: auto; right: calc(50% - 46px); }
 
-  .lightbox { flex-direction: row; }
+  /* LB_STACKED_MEDIA leaves this out, so lightbox.css's column beside the
+     stage is the base; here it is wider, scrolls as a whole, and keeps the
+     narrow layout's rows inside it - the prompt four lines, the comparison
+     and the actions wrapping rows at their own widths. */
   .lb-side {
     flex: 0 0 min(300px, 42vw); width: min(300px, 42vw);
-    flex-direction: column; flex-wrap: nowrap; align-items: stretch;
     overflow-y: auto; overscroll-behavior: contain;
   }
-  .lb-head { order: 0; margin-left: 0; }
-  .lb-meta { flex: none; max-height: none; overflow: visible; padding-bottom: 0; -webkit-mask-image: none; mask-image: none; }
-  .lb-compare { flex: none; }
+  .lb-meta { flex: none; overflow: visible; padding-bottom: 0; -webkit-mask-image: none; mask-image: none; }
+  .lb-prompt { max-height: 4lh; }
+  .lb-compare { flex: none; flex-direction: row; flex-wrap: wrap; align-items: center; }
   /* The column's own scroll is the way down: its actions wrap in it. */
-  .lb-actions { flex-wrap: wrap; overflow-x: visible; }
+  .lb-actions { flex: none; flex-direction: row; }
+  .lb-actions .ghost { width: auto; }
+  .lb-pair .ghost { flex: 0 0 auto; }
 
   /* The topbar scrolls away with the page rather than staying over a third
      of it: nothing under it is sticky on a phone, the tab bar carries a
