@@ -7687,8 +7687,11 @@ primary each inside the window, the element `elementFromPoint` finds at
 their centre and at least 44 px square, the phone audit finding no dialog
 outside the window and no sideways overflow, and the sheet not scrolling
 sideways (not checked for Inpaint and Outpaint, whose settings rows are
-still wider than the screen); each state's controls under 44 px and off
-the screen are logged as the baseline. The lightbox's ✕ is 44 px and
+still wider than the screen, or for Refine, whose dice runs past it);
+each state's controls under 44 px and off the screen are logged as the
+baseline. `__sheet` answers `true` or a string naming every check that
+failed, so each step logs its answer and then expects `=== true` (a
+string is truthy, and `browser.mjs` passes any truthy value). The lightbox's ✕ is 44 px and
 closes it after Refine's ✕ returns there. The delete question is a sheet
 across the window at its foot with Cancel and Delete on it. The Examples
 menu and the Picked menu sit inside the window above the tab bar with

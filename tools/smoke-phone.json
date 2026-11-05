@@ -161,6 +161,8 @@
   {"log": "'The Models sheet: the screen across, between the topbar and the tab bar'"},
   {"tap": "#btn-models"},
   {"expect": "__until(() => !els.modelPicker.hidden)", "fatal": true},
+  {"log": "'The rows arrive after the sheet shows: wait for them before auditing it'"},
+  {"expect": "__until(() => els.modelPicker.querySelectorAll('.model-row-choice input[type=\"radio\"]').length > 0 && !!els.modelPicker.querySelector('.model-star'))", "fatal": true},
   {"expect": "(() => { const r = __box(els.modelPicker); return r.left === 0 && Math.abs(r.right - document.documentElement.clientWidth) < 1 && r.top >= __box(document.querySelector('.topbar')).bottom - 1 && r.bottom <= __tabTop() + 0.5; })()"},
   {"expect": "(() => { const r = __phoneAudit({root: els.modelPicker}); return r.overflow === 0 && !r.offside.length && !r.dialogs.length; })()"},
   {"log": "\"A model row is its radio's press box: the row label is display: contents, so its cells stand for it and no radio reads as a 20 px control\""},
