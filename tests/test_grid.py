@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from backend import grid
+from backend import gallery_reports, grid
 from backend.schemas import GenerateRequest, PromptVariant
 
 BASE = dict(prompt="a lighthouse in fog", width=256, height=256, steps=8, guidance_scale=0.0, mu=1.15)
@@ -286,17 +286,17 @@ def test_a_budget_completes_the_seeds_whose_last_cell_starts_in_time():
     # deadline and lets the one in flight finish, made 5 - the fifth seed's
     # last cell began at 108 s.
     cells = grid.expand(request(seed=1), steps="12,28,40", seeds=6)
-    assert grid.seeds_within_budget(cells, 6, 301.0, 120) == 5
-    assert grid.estimate_seconds(cells, 301.0) == pytest.approx(144.5)
+    assert gallery_reports.seeds_within_budget(cells, 6, 301.0, 120) == 5
+    assert gallery_reports.estimate_seconds(cells, 301.0) == pytest.approx(144.5)
     # The deadline itself still starts a cell: the job stops only once it
     # has passed. A seed's first cell starting at the deadline is not enough.
     flat = grid.expand(request(seed=1, steps=10), seeds=3)
-    assert grid.seeds_within_budget(flat, 3, 1000.0, 10) == 2
-    assert grid.seeds_within_budget(flat, 3, 1000.0, 9.99) == 1
-    assert grid.seeds_within_budget(flat, 3, 1000.0, 0) == 1
-    assert grid.seeds_within_budget(flat, 3, 1000.0, 1000) == 3
+    assert gallery_reports.seeds_within_budget(flat, 3, 1000.0, 10) == 2
+    assert gallery_reports.seeds_within_budget(flat, 3, 1000.0, 9.99) == 1
+    assert gallery_reports.seeds_within_budget(flat, 3, 1000.0, 0) == 1
+    assert gallery_reports.seeds_within_budget(flat, 3, 1000.0, 1000) == 3
     # No price, no count.
-    assert grid.seeds_within_budget(cells, 6, None, 120) is None
+    assert gallery_reports.seeds_within_budget(cells, 6, None, 120) is None
 
 
 def test_every_cell_is_a_single_run():

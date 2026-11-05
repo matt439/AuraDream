@@ -212,7 +212,7 @@ def create_router(services: AppServices) -> APIRouter:
         # Under Resume the seeds left are no longer alike, and the page says
         # nothing of the budget there.
         budget_seeds = (
-            grid.seeds_within_budget(
+            gallery_reports.seeds_within_budget(
                 priced, listed or request.seeds, None, request.budget_minutes * 60, by_size=prices,
             )
             if request.budget_minutes and not request.resume
@@ -268,7 +268,7 @@ def create_router(services: AppServices) -> APIRouter:
                 values, listed or request.seeds, listed=bool(listed),
                 prompt_mode=request.prompt_mode, batch=request.num_images,
             ),
-            seconds=grid.estimate_seconds(
+            seconds=gallery_reports.estimate_seconds(
                 priced, None, by_size=prices
             ),
             budget_seeds=budget_seeds,

@@ -375,8 +375,9 @@ before changing it.
   (`parse_parameters`, A1111's own reading of it); pure, no config, Pillow
   only where a file is opened
 - `backend/gallery_reports.py` — read-only aggregate queries: the preview's
-  cost and size estimates, keep rates, runs, the picker's gallery timing
-  (reads `storage` at call time)
+  cost and size estimates and the cells' pricing arithmetic
+  (`estimate_seconds`, `seeds_within_budget`), keep rates, runs, the
+  picker's gallery timing (reads `storage` at call time)
 - `backend/gallery_delete.py` — taking images out: the keep-favourites
   predicates, scoped delete and its preview, per-image delete, recycle bin,
   clear and VACUUM (under `storage._write_lock`, read at call time)
@@ -4083,7 +4084,7 @@ measured on the card and when.
   Repeat above one, cells already in the gallery) never refuse anything, and
   are appended to `#grid-preview` as nodes, never by rewriting `textContent`,
   since `.totals` is its first child. The budget line's count is the
-  server's (`GridPreview.budget_seeds`, `grid.seeds_within_budget`: the
+  server's (`GridPreview.budget_seeds`, `gallery_reports.seeds_within_budget`: the
   job's stop rule, a cell starting until the deadline has passed, so a seed
   whose last cell starts in time completes); it needs the preview's
   estimate, is left out under Resume, and names what else spends a budget
