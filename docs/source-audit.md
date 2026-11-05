@@ -11,7 +11,9 @@ verbatim, with no new build step or runtime feature. This is the second pass;
 the first, at `21afcdf` on 2026-10-07, is kept below and marked as such. The
 third, on 2026-10-31, is [its own section](#third-pass-2026-10-31) after
 this one's verification; its splits are the 2026-10-31 rows of the
-boundaries table, and its retained files have a table of their own.
+boundaries table, and its retained files have a table of their own. The
+fourth, on 2026-11-05, is [its own section](#fourth-pass-2026-11-05) after
+the third's, in the same form: its splits are the 2026-11-05 rows.
 
 After the second pass 8 files were above 1,000 lines; the table of retained
 files says why each stayed whole. Its figures are as audited then.
@@ -29,6 +31,11 @@ init function follows.
 
 | Pass | Original file | Lines before | Responsibilities after the split |
 | --- | --- | ---: | --- |
+| 2026-11-05 | `backend/storage.py` | 1,889 | Schema, migrations, connections, record conversion, the writers and thumbnails, the masks table and its holds, and live reads (1,717). `gallery_partials.py` (207, of which 178 are the moved code) the bundles and staging directories and the settling of stale partials and bundle leftovers (`BUNDLE_STAGING` .. `settle_partials`), reached as `storage.<name>` through `_MOVED`. Its callers are `bundles`, `api_bundles`, `backup_service`, `backup_coordinator`, `gallery_delete`, `main` and `tools/storage_interrupt.py`; storage never calls in, so this is consistent with the 2026-10-11 note: what `save_image`, `_row_to_record` and `init_db` call stays. It reads `storage.settings` and seven helpers at call time (`ensure_outputs_dir`, `PARTIAL_SETTLE_SECONDS`, `masks_dir`, `_unlink`, `_tracked_files`, `_tracked_masks`, `_rename_with_retry`), as `gallery_delete` does. The two `bundle_directory` patches in `test_api_automatic_backup.py` still reach `backup_service` and `backup_coordinator`, which call `storage.bundle_directory()`; they no longer reach `_bundle_leftovers`' own call, which no test relies on. The growth since the last row was the masked-area-only columns, in the core. |
+| 2026-11-05 | `backend/bundles.py` | 1,266 | Export and import, with every name tests patch (1,147). The 2026-10-31 trigger, import growing again, fired with the masked-area recovery. `bundle_recovery.py` (128) the six helpers that give an import's new rows back what their staged PNGs and masks hold (`_rebuilt_member`, `_recovered_outpaint`, `_staged_parameters`, `_mask_picture`, `_mask_crop`, `_embedded_member`; the last row said five), moved verbatim in that order, called only from `_import_bundle` and patched by no test; `bundles` imports back the four it calls. `_merge_masks` stays, as the database merge that reads `_settings()` and `datetime`. |
+| 2026-11-05 | `backend/reindex.py` | 1,241 | Not a length split: `060c5ba` gave the bundle layer a second lazy import of the CLI (`_open_mask` beside `_embedded_mask`), the kind of edge the 2026-10-31 row removed. The two mask decoders moved to `record_fields.py` (390 to 425) as `open_mask` and `embedded_mask_picture` (`embedded_mask` is metadata's text reader) and are re-exported as `storage.<name>`, as every `record_fields` name is; `bundle_recovery.py` calls them there, so no bundle module imports the CLI. `reindex` (1,213) keeps `_open_mask`/`_embedded_mask` as aliases for `_Masks` and `test_reindex.py`. |
+| 2026-11-05 | `backend/grid.py` | 1,220 | The `Cell`/`CellKey` vocabulary, expansion, variables, variants and keys (1,119). Not a new file: the pricing seam the 2026-10-31 row recorded (about 80 lines then) grew with the masked area's prices (`crop_costs`, the four-part price) and moved verbatim, 101 lines with the `SizePrices` comment and alias, beside the prices it reads in `gallery_reports.py` (539 to 643): `SizePrices`, `estimate_seconds`, `_cell_ms` and `seeds_within_budget`. `denoised_steps`/`progress_steps` stay, called as grid names by jobs, the fakes and the CLI. Nothing is imported back: no patch targets the names, and grid importing `gallery_reports` would risk a cycle through storage. `api_generate`, `api_more_seeds`, `api_refine_batch`, `generate` and the tests (`test_grid.py`, 11 calls in `test_refine.py`, `test_mask_crop_storage.py`) call `gallery_reports.<name>`. |
+| 2026-11-05 | `web/inpaint.js` | 1,083 | The Inpaint dialog and the class's capability, `inpaintSupported` and `syncInpaintCapability` (967). Not a new file: the stateless rules the Outpaint dialog shares, to which the masked area had added three reach-ins (`maskCropAsked`, `maskCropText`, `MASK_CROP_PAD`), moved verbatim in source order to the end of `refine-rules.js` (145 to 267), under "what the inpaint class's dialogs share": `INPAINT_FAMILIES`, `MASK_CROP_RULE`/`_PAD`/`_TIER`, `inpaintNone`, `inpaintUnavailableText`, `inpaintLibraryStrength`, `inpaintStartStrength`, `inpaintStrengthNote`, `libraryStrengthInto`, `maskCropAsked`, `maskCropText` and `syncPassSampling`. `takeLibraryStrength`, `showInpaintCropBox` and `inpaintSampling` stay, reading the dialog's state. `refine-rules.js` loads before `inpaint.js` and `outpaint.js`, so `index.html` is unchanged; `outpaint.js` (1,050) gained one header line naming the new owner. The page loads 68 classic scripts. |
 | 2026-10-31 | `backend/storage.py` | 2,112 | Schema, migrations, connections, record conversion, writers, the masks table and its holds, partial files and live reads (1,808). `run_jobs.py` (162) retained run jobs (`retain_run_job` .. `finish_run_job`), reached as `storage.<name>` through `_MOVED` and reading `storage.settings`, `_write_lock` and `_session()` at call time, as `gallery_delete` does; `record_fields.py` (207) the pure row and chunk field codecs (mask hash and provenance, the outpaint chunk, the peaks), imported back by name. The mask writers, holds, `mask_path` and `stamp_outpaints` stay, since tests patch them on `storage`. |
 | 2026-10-31 | `backend/reindex.py` | 1,150 | Not a length split: the bundle layer imported the CLI for private names. The PNG chunk codec (`PNG_SIGNATURE`, `text_keyword`, `metadata_chunk`) and `execution_from_sources`/`_info` moved to `metadata.py`, `_DB_REQUIRED` to `bundle_common`; `reindex` (1,110) keeps its old names as aliases. |
 | 2026-10-31 | `backend/generate.py` | 2,084 | The local run, `main()` and the helpers that reach the gallery (1,262). `generate_args.py` (591) the parser, `--from-image` settings, the outpaint, mask and size reads and the flag-only checks, imported back as globals so `generate._image_settings`/`_mask_file` patches intercept; `generate_remote.py` (284) the `--via-server` client, handed the three shared helpers by `main()`; `submission_rules.py` (202, from `submission.py`, which re-exports it) the service-free submit checks. `test_profiles.py` holds `generate_args.SIZES is sizes.SIZES`. |
@@ -312,12 +319,12 @@ What the pass did, by package (each split is a 2026-10-31 row in
 | `backend/bundles.py` | 590; 1,193 | Export and import, the two operations tests patch through (`bundles._verify_archive`, `_install`, `_replace_database`, `bundles.datetime`), `_import_bundle` about 350 lines and `export_bundle` about 265. Moving the five import-only recovery helpers to a `bundle_recovery.py`, and `_read_whole`/`_ReadAhead` to `bundle_archive.py`, is safe and optional, not taken; revisit if import grows again. |
 | `backend/grid.py` | 951 (`2659e36`); 1,182 | Every role works on the one `Cell`/`CellKey` vocabulary AGENTS.md anchors here (`expand`, `cell_from_record`, `run_id`), and tests patch `grid.settings` and `grid.random_seed`, which both `expand` and the prompt-variable code read. Seams recorded: a `grid_prompts.py` of about 220 lines (variables, variants, random assignment), which would need `PLACEHOLDER`/`VARIANT` re-exported and would stop following `grid.settings` patches; and about 80 lines of pricing (`estimate_seconds`, `_cell_ms`, `seeds_within_budget`) beside `gallery_reports.execution_estimates`. Revisit if either grows. |
 | `backend/main.py` | 856; 1,180 | Growth is the model routes, bound to module globals tests rebind (26 distinct names, among them `settings`, `_switching`, `details_for` and `_merged_defaults`), which `AppServices` reaches late-bound. Seam recorded, not taken: `_merged_defaults`, `_expander_status`, `_listed_loras`, `_disk_free_mb` and `_gallery_timing` (about 130 lines) as a `model_views.py`, imported back under main's names so the patches still intercept. Revisit if `/api/models` grows again. |
-| `backend/reindex.py` | 584 (`2659e36`); 1,110 | The in-place reindex and `merge_database` share the PNG reading, the mask and edit checks and about 50 patch sites (`reindex.settings` 44 times, `_copy_in`, `_Masks.resolve`). This pass moved out what the bundle layer read, so only `bundles.py`'s one lazy `_embedded_mask`, which needs storage's mask hash, still imports the CLI. |
+| `backend/reindex.py` | 584 (`2659e36`); 1,110 | The in-place reindex and `merge_database` share the PNG reading, the mask and edit checks and about 50 patch sites (`reindex.settings` 44 times, `_copy_in`, `_Masks.resolve`). This pass moved out what the bundle layer read, so only `bundles.py`'s one lazy `_embedded_mask`, which needs storage's mask hash, still imports the CLI. Superseded: `060c5ba` added a second (`_open_mask`), and since 2026-11-05 no bundle module imports the CLI ([fourth pass](#long-files-retained-2026-11-05)). |
 | `web/refine.js` | 1,018; 1,080 | Split this pass (from 1,178): the 2026-10-11 retain's reason, four callers of the rules seam, no longer held. The dialog's state machine around its shared lets remains. |
 | `tests/test_profiles.py` | 936 (`d7c71db`); 1,080 | One role, profile and size facts held to the page, the CLI, the README and verified.md, about 8% over the screen. Seam recorded: the size-table tests (`test_the_page_writes_the_cfg_label_on_both_cfg_boxes` through `test_the_batch_budget_names_what_to_use_instead`, about 177 lines) could join `tests/test_sizes.py` if the file passes about 1,200 lines or gains another size-table check; rules.md, design-notes and the 2026-10-11 rows cite this file for them, so retarget those then. |
 | `backend/prompt_rules.py` | 1,064; 1,067 | Unchanged in kind: one `_Context`, one `_RULES` table of 26 rules, and the heuristics seam still about 67 lines. |
 | `web/gallery-actions.js` | 826 (`2659e36`); 1,029 | Split this pass (from 1,180); the ask dialogs stayed, an optional move not taken. |
-| `web/inpaint.js` | 1,070; 1,004 | Trimmed this pass (from 1,083) by the moves to `refine-prompt.js` and `refine-rules.js`. Still the Inpaint dialog's one role; Outpaint shares its capability helpers (`inpaintSupported`, `syncInpaintCapability`, `inpaintNone`). |
+| `web/inpaint.js` | 1,070; 1,004 | Trimmed this pass (from 1,083) by the moves to `refine-prompt.js` and `refine-rules.js`. Still the Inpaint dialog's one role; Outpaint shares its capability helpers (`inpaintSupported`, `syncInpaintCapability`, `inpaintNone`). Superseded: since 2026-11-05 `inpaintNone` is `refine-rules.js`'s, and Outpaint takes only the first two from here. |
 
 Screened and retained under 1,000 lines, without a row of their own:
 `web/outpaint.js` 989 (its extend controls are its own role but have no
@@ -356,3 +363,116 @@ The page splits ran the whole smoke table (100 of 100 passed), and the page's
 duplicate removals the 20 smokes over what they touched. As before, these
 establish equivalence at the source, API and fake-backend levels, and add no
 GPU measurement to `docs/verified.md`.
+
+## Fourth pass, 2026-11-05
+
+Screened the 556 tracked Python, JavaScript, CSS and HTML files in
+`backend/`, `web/`, `tests/` and `tools/` at `0351278`, 112 commits after the
+third pass ended at `3a86327`, then worked on the `chore/source-audit-4`
+branch. 21 files were over 1,000 lines (19 application, 2 test), up from 18:
+`web/outpaint.js` (989 to 1,049) and `web/lightbox.js` (909 to 1,037) had
+grown past the screen, and `tests/test_linux_scripts.py` (1,010) was new.
+Each was mapped by role, with the growth since `3a86327` read commit by
+commit, beside three files close under the screen (`schemas_generate.py`,
+`app.js`, `prompt_text.py`): 24 in all. The method is the second pass's.
+
+Most of the growth is one feature, INP#9's Only the masked area, which
+touched `storage.py`, `bundles.py`, `reindex.py`, `grid.py`, `inpaint.js`,
+`outpaint.js`, `generate.py`, `jobs.py`, `diffusers_backend.py` and
+`schemas_generate.py`; the rest is the phone and tablet tier, the Linux
+keep-awake and service scripts, the first-visit model choice and NetaYume's
+Tags helper. Two recorded triggers had fired (`bundles.py`'s "revisit if
+import grows again" and `grid.py`'s "revisit if either grows"), the
+masked area had brought back two edges earlier passes removed (the bundle
+layer importing the `reindex` CLI, and Outpaint reaching into `inpaint.js`),
+and `storage.py` had a block its core never calls.
+
+After the pass 20 files are over 1,000 lines: 18 application files and the
+two test modules. Each has a row in the table below. Figures are `wc -l`
+after the pass.
+
+What the pass did (each change is a 2026-11-05 row in
+[Implemented boundaries](#implemented-boundaries)), moving code verbatim:
+
+- **Storage and the bundle layer.** The bundles and staging directories and
+  the settling of stale partials went to `gallery_partials.py` (207),
+  reached as `storage.<name>`, taking `storage.py` from 1,889 to 1,717. The
+  six import-only row-recovery helpers went to `bundle_recovery.py` (128),
+  taking `bundles.py` from 1,266 to 1,147. The two mask decoders went from
+  `reindex.py` to `record_fields.py` (390 to 425), so no bundle module
+  imports the `reindex` CLI again.
+- **Pricing.** The cells' pricing arithmetic moved from `grid.py` (1,220 to
+  1,119) to `gallery_reports.py` (539 to 643), beside the prices it reads;
+  callers name `gallery_reports.<name>`, with nothing imported back.
+- **The page.** The inpaint class's stateless shared rules moved from
+  `inpaint.js` (1,083 to 967) to the end of `refine-rules.js` (145 to 267),
+  so Outpaint takes only the capability from `inpaint.js`. No script was
+  added; the page still loads 68 classic scripts.
+
+`docs/rules.md` and `AGENTS.md` name each new module in their Layout, and
+references there and in `docs/design-notes.md` and
+`docs/instruction-edit-carry.md` to a moved name give its new owner;
+historical plans and reviews are left as written.
+
+### Long files retained, 2026-11-05
+
+| File | Lines (last row or base, then now) | Audit decision |
+| --- | ---: | --- |
+| `web/index.html` | 2,135; 2,223 | The page's static DOM, still no code: no inline script, 18 `<dialog>`s, 68 scripts (`touch.js` added). `state.js` builds `els` with about 600 lookups at parse time, so a split still needs a build step, a server template or fetches that race `app.js`. The 88 lines are the phone and tablet tier (the `touch.css` link, `#phone-tabs`), the home-screen icon and manifest links, the collapsed Performance details in Models, Only the masked area in Inpaint and Outpaint, the Finish run counts line, the gallery's Top button and accessibility labels, each beside its trigger or in its own dialog. About 26% of the lines are comments. Revisit only if the page gains a way to deliver DOM fragments before the scripts run. |
+| `backend/backends/diffusers_backend.py` | 1,976; 2,036 | Unchanged in kind. Growth is Only the masked area's call path (`9f6cbc0`: `_mask_crop`/`last_mask_crop()` beside the peak, `start_sigma` at the region's working size, the cropped branch of `_generate_images_prepared`, `_preview`'s latent size), whose crop logic lives in `mask_crop.py`, and load's plain-words CUDA refusal (`da7bbf8`: `cuda_unavailable_message`, 22 lines, which `test_klein.py` calls through this module). Tests patch about 15 module globals the class reads at call time (`settings` 20 times, `current_settings` 15, `ATTENTION_ENVIRONMENT_WARNING` 14, `compiler_metadata` 12), so moving its methods would retarget every patch. The 2026-10-31 seam stands: the ownership classes, moved verbatim to a `backends/pipeline_ownership.py` and imported back by name. Revisit if that protocol gains another class, or the call path (`_generate_images_prepared`, about 260 lines) another pass kind. |
+| `backend/guides.py` | 1,735; 1,766 | Still one role: 25 sourced guide dicts and the two pure Anima builders, with no mutable state and no test patching the module. Growth is NetaYume's `tag_helper` and its prompt-book paragraph (`16ba10f`, 31 lines). The 2026-10-31 facade requirements stand (`guide_constants()` and `_all_guides()` enumerate the module, and `test_critic_sources` asserts `GROUNDING` equals that set), and the `_BFL_*`/`_SHORT*` constants span the prose families, so a family split would need a shared module as well. Revisit if a guide gains a non-data role or one family passes about 1,000 lines. |
+| `backend/storage.py` | 1,808; 1,717 | Split this pass (from 1,889). What remains is the core. The masks block (about 215 lines) stays: tests patch `storage.store_mask`, `mask_path`, `hold_masks` and `mask_png` and expect the calls inside `stamp_outpaints`, `touch_mask` and `mask_png` to be intercepted. Thumbnails stay for the 2026-10-11 reason, and `save_image` (about 240 lines) and the live reads are what the 45 `storage.settings` patches go through. |
+| `backend/model_defaults.py` | 1,554; 1,560 | Growth is one constant, `OPEN_DEFAULT_MODEL_ID` (`7960d5a`), beside `DEFAULT_MODEL_ID`, which `main` compares it with. The shape is unchanged: about 145 lines of docstring schema, 970 of profile data and 420 of views. No profile holds a callable, so the 2026-10-11 trigger has not fired, and the 2026-10-31 reasons against an `inpaint_profile.py` (a new cycle to move about 70 lines) and a data/views split stand. |
+| `backend/prompt_sources.py` | 1,469; 1,485 | Growth is 16 lines, NetaYume's inherited excerpts for its Danbooru helper (`16ba10f`); about 85% is still excerpts and `GROUNDING`. The 2026-10-11 reasons stand, and a family split would separate groundings that borrow from each other (`_ANIMA_AESTHETIC` from `_ANIMA`, `_bfl_family`, `_z_image`). Revisit if the resolver gains logic beyond lookup, or if `guides.py` is split by family: then split the groundings along the same lines. |
+| `backend/generate.py` | 1,262; 1,375 | Growth is `--mask-crop` on the local run (the carried masked area's refusal, its spec and region checks, the header line) and the Linux keep-awake hold (`main()` now an `ExitStack` around `_main`), each inside `_main` or a helper only it calls. Tests patch or call those helpers on `generate` (`_project` 33 times, `_check_carried_source`, `_mask_from_record`), and `_main`, about 1,000 lines, shares about 20 locals and the SIGINT, progress and cancel closures. Seam recorded, not taken: the two flag-only `--mask-crop` checks (about 10 lines) could join `generate_args.py`. Revisit if `_main` passes about 1,100 lines or another flag family adds flag-only checks inside it. |
+| `backend/main.py` | 1,180; 1,368 | Still the app's composition and the model's lifecycle state. Growth: the keep-awake providers and their lifespan hold (about 85 lines), the open-checkpoint preselection (35), plain-words load failures (10), `run`'s busy-port and `--open` handling (50) and `/sw.js`, each reading globals tests rebind on `main` (`test_keep_awake.py` calls `main._busy_*`). `run` and `Server` stay because `python -m backend.main` runs this file as `__main__`. The `model_views.py` trigger has not fired: `/api/models` is unchanged. New seam recorded, not taken: `_HUB_FAILURES` and `_hub_failure` (about 45 lines, no state) into `hub_access.py` as `load_refusal_kind`, imported back as `main._hub_failure`. Revisit if a second module needs the load-failure wording, the keep-awake providers grow past five, or `/api/models` grows. |
+| `backend/jobs.py` | 1,319; 1,336 | Unchanged in kind. Growth (17 lines) is inside `JobManager`: the runner set holding each `_run` task (RUF006), `cancel`'s immediate status for a running job (UX#7) and `mask_region` through `_save`. The 2026-10-31 reasons stand. Revisit if Then refine's stage (about 100 lines) passes about 250, or a second post-generation stage joins it. |
+| `web/model-switch.js` | 1,236; 1,311 | Still the Models picker's one role. Growth is the first-visit opening (the Switch & load offer, `suggestOpenModel`'s open-checkpoint suggestion), the Performance opening (`modelPerformanceOpening`) and the stale-runtime catalogue guard (`modelRuntimeIdentity`), all on the lets the table and `syncModelSwitch` read, so the 2026-10-31 reason stands. Seam recorded, not taken: `checkpointChanged` and `submissionModelHold` (about 60 lines, called from `status.js` and `generation.js`) as a `checkpoint-change.js`. Revisit if that role passes about 150 lines or the file about 1,400. |
+| `backend/reindex.py` | 1,110; 1,213 | Trimmed this pass (from 1,241). Growth was the masked area (`060c5ba`: `_mask_crop`, `_names_a_mask_crop`, `_Masks.picture` and the crop branches of `_database_meta`, `merge_database` and the in-place `index`), the mask role both entry points already shared. They still share `_read`, the edit checks, `_copy_in`, `_Masks` and `_database_meta`, with about 50 patch sites (`reindex.settings` 44 times). No bundle module imports the CLI. Seam recorded, not taken: `_outpaint`, `_mask_crop` and `_names_a_mask_crop` (about 70 lines) as a `reindex_masks.py`. Revisit if a third masked-area variant lands or the file passes about 1,350. |
+| `backend/bundles.py` | 1,193; 1,147 | Split this pass (from 1,266). Export and import remain, with what tests patch on `bundles`: `_verify_archive`, `_check_space`, `_install`, `_replace_database`, `_claim`, `_remove_file`, `_backup`, `_import_uploaded_bundle`, `export_bundle`, `bundle_path` and `datetime`, and the reads of `_directory`, `_inventory` and `_rows`. Moving `_read_whole`/`_ReadAhead` to `bundle_archive.py` is still optional and not taken: it is export-side reading, about 35 lines, and would give the archive format an export worker pool. |
+| `backend/grid.py` | 1,182; 1,119 | Trimmed this pass (from 1,220): the pricing seam the last row recorded had grown. The rest shares the `Cell`/`CellKey` vocabulary, `grid.settings` and `grid.random_seed`. The `grid_prompts.py` seam (about 250 lines) is unchanged since `3a86327` and still not taken, for the 2026-10-31 reasons. Revisit if prompt variables grow. |
+| `tests/test_profiles.py` | 1,080; 1,094 | Grew 14 lines, the NetaYume Tags helper assertion (`16ba10f`), a guide fact, not a size-table check, so the 2026-10-31 seam's triggers (about 1,200 lines, or another size-table check) have not fired. `CASES` stays here in any split: `test_inpaint.py`, `test_inpaint_ui.py`, `test_refine.py` and `test_refine_schedules.py` import it. |
+| `web/refine.js` | 1,080; 1,080 | Unchanged since the 2026-10-31 split. Other files call only its entry points (`openRefine`, `refineClosed`, `closeRefine`, `syncRefine`, `dropRefineLora`, `rememberRefine`), which sit on its state. Seam recorded, not taken: Compare scales/strengths (about 120 lines) as a `refine-compare.js`. Nothing outside calls it, it reads `refineSource`, `refineComparing` and the step boxes, and `test_profiles.py` reads two of its expressions here. Revisit if compare gains another axis or an outside caller, or the file passes about 1,200. |
+| `backend/prompt_rules.py` | 1,067; 1,067 | Unchanged since the last pass: one `_Context`, one `_RULES` table of 26 rules, and the facade re-exports two test patches reach (`prompt_rules.check`, `prompt_rules.order_slots`). The heuristics seam is still about 60 lines. Revisit if the heuristic rules pass about 200 lines or the file about 1,200; then the tag rules (`_subject` through `_sentences`, about 300 lines) are the cleaner move, to a `prompt_tag_rules.py` imported back into `_RULES`. |
+| `web/outpaint.js` | 989; 1,050 | One role, the Outpaint dialog's lifecycle around its shared lets, 5% over the screen. Growth is Only the masked area mirrored from Inpaint (`syncOutpaintCrop`, `outpaintCropClick`, `showOutpaintCropBox`, the crop fields), which reads `outpaintSource`, `outpaintEpoch` and `outpaintCanvasSize`, and this pass's header line. The extend controls (about 270 lines) still share the dialog's lets. Seam recorded: the pure spec codecs (`OUTPAINT_SIDES`, `outpaintSidesText`, `parseOutpaintKey`, `outpaintKey`, about 25 lines), which `facts.js`, `generation.js`, `viewer.js` and `reuse.js` call, could move to the end of `facts.js` if the file passes about 1,150 lines or a fifth file reads them. |
+| `web/lightbox.js` | 909; 1,037 | One state machine: view, layout, walk and gestures. Growth is finger gestures for the touch tier (`a174fb8`, `41eb22c`: pinch, pan, swipe, tap and double-tap, about 120 lines) and touch dispatch in the pointer handlers, writing the same `lbView`, `lbDrag` and `lbCloseTimer`; its one outside caller is `lbForgetPress` (`context-menu.js`). Seam recorded, not taken: the gesture section (`lbWheel` through `lbDoubleClick`, about 195 lines) as a `lightbox-gestures.js`, which `test_copy_feedback_ownership.py` would have to load too. Revisit when that section passes about 300 lines or the file about 1,200. |
+| `web/gallery-actions.js` | 1,029; 1,029 | Unchanged since the 2026-10-31 split. Starring, Bin picked, single delete, Delete unstarred and `forgetImages` share `deletedIds`/`binnedIds`/`isGone` and `imageNames`/`sayGalleryAction`. The ask dialogs (`askAnswer` through `askBackdrop`, about 100 lines, called from `bin.js`, `model-switch.js`, `generation.js` and `app.js`) remain the optional seam, as an `ask-dialog.js` loaded just before it that keeps `askConfirm`/`askCount` the top-level `let`s smokes reassign. Revisit if the file passes about 1,100 lines or a fourth outside file asks. |
+| `tests/test_linux_scripts.py` | new since `3a86327`; 1,010 | One role, `linux/*.sh` run for real under bash in one stub sandbox, 1% over the screen (`d577f4a` .. `ea01d32`). The stubs serve several scripts (systemctl's `show`/`ControlGroup` and restart knobs both `control.sh` and `update.sh --restart` read), so a split would first move about 245 lines of harness to a `tests/linux_script_helpers.py` and import its fixtures by name, to take out about 213 lines. Seam recorded: the `control.sh` section as `tests/test_linux_control.py`. Revisit if the file passes about 1,200 lines or a fifth script gets tests. Its docstring leaves out `control.sh`, `journalctl` and `systemd-inhibit`, a fix worth making on its own. |
+
+The 2026-10-31 rows for `storage.py`, `bundles.py`, `reindex.py`, `grid.py`
+and `inpaint.js` are superseded by this pass's; the `grid.py` row's pricing
+seam is closed. Screened and retained under 1,000 lines, without a row of
+their own: `backend/schemas_generate.py` 975 (the request and `applied()`,
+about 545 lines of one class whose subclasses inherit its validators; the
+50 lines since the split are the masked area's field, refusals and keys,
+the spec already in `schemas_mask_crop.py`; revisit past 1,100),
+`web/inpaint.js` 967 (trimmed this pass), `web/app.js` 939 (wiring and boot
+for features whose code lives elsewhere, no function or state added; the
+keydown-router seam stays optional, revisit at 1,000) and
+`backend/prompt_text.py` 933 (unchanged; the `prompt_lettering.py` seam's
+trigger, 1,000 lines, has not fired).
+
+### Verification, 2026-11-05
+
+Each change records its own checks in its message: an AST comparison of the
+top-level names before and after (every moved name declared once, in its
+new owner only; for the page, the same name set across `inpaint.js`,
+`refine-rules.js` and `outpaint.js`, and no name declared twice in
+`web/*.js`), `node --check` on the touched scripts, and the targeted tests
+for what it moved. At the end of the pass, on Windows with this
+documentation change: `uv run --group dev pytest -q -n auto` **8,608
+passed, 69 skipped** in 217 seconds, the same counts each change reported;
+`ruff check .` clean; and the pinned type gate 0 errors and 0 warnings over
+174 files. Here `uv run --group dev pytest` stops before collecting with
+"uv trampoline failed to canonicalize script path", a fault of the local
+venv's `pytest.exe` shim, so the suite ran as `uv run --group dev python -m
+pytest`. The nine smokes over what the pass touched (`smoke-inpaint`,
+`smoke-inpaint-unavailable`, `smoke-outpaint`, `smoke-refine`,
+`smoke-refine-sdxl`, `smoke-bundles`, `smoke-grid`, `smoke-more-seeds`,
+`smoke-refine-batch`, `run_smoke.py --jobs 4`) passed 9 of 9 in 87 seconds.
+`tests/test_docs_maps.py` passes, so `docs/rules.md` and `AGENTS.md` name
+`gallery_partials.py` and `bundle_recovery.py`; every relative link and
+anchor in the tracked Markdown resolves (775 links in 115 files), and `git
+diff --check` is clean. As before, these establish equivalence at the
+source, API and fake-backend levels, and add no GPU measurement to
+`docs/verified.md`.
