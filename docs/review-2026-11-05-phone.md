@@ -1,0 +1,588 @@
+# AuraDream phone UI review (2026-11-05)
+
+Scope: the phone tier (`(pointer: coarse)` with width under 700 px, or height of 500 px or less), measured at 393x852 (iPhone 15 Pro), 360x780, 320x700 and 852x393 landscape against the fake server. Eight reviewers covered Create information architecture, touch targets, Gallery, viewer and lightbox, dialogs, platform conventions, visual design and architecture. Every finding below was re-checked against the screenshots, `measure-create.json`, `measure-gallery.json` and the source. The screenshots (about 50 MB, named in the evidence below) are not committed: the tours in [`review-2026-11-05-phone/`](review-2026-11-05-phone/) take them again against a fake server (`tools/fake_server.py --port 7990/7991 --step 0.3 --data <scratch>`, then `AURADREAM_SCREENSHOT_DIR=<dir> node tools/browser.mjs <tour>`); `measure-*.json` were their logged small-target lists.
+
+Measurement caveat: the capture ran with `mobile: false`, so Chrome drew a 15 px classic scrollbar. Widths and "limit 377/378 px" figures are about 15 px narrower than a real iPhone, which uses overlay scrollbars. No on-screen keyboard was drawn, so the keyboard findings are inferred from code and need a device check.
+
+---
+
+## 1. Verdict
+
+The owner is right, and the cause is structural rather than a matter of sizes. The phone tier is about 327 lines of overrides in `web/styles/touch.css` and 90 lines in `web/touch.js`, laid over desktop components whose DOM order, markup and JS placement code were written for a two-column mouse layout. On the phone, the desktop's panel and stage are stacked into one column. The result is that Generate sits about 880 px down the page and is not on the first screen (`create-01-load-top.png`). The finished image and its live preview land about 1300 px down, under Notify, Grid search, Step cache and LoRA (`create-18-finished-full.png`). The running job's progress and queue sit mid-panel. The Gallery shows about 370 px of toolbar before the first picture (`gallery-01-top.png`), and the lightbox gives the picture about 40% of the screen (`gallery-20-lightbox-fit.png`). On top of that, the touch tokens deliberately keep a second tier of 32-36 px targets and never set a minimum width, so 40 of the 55 visible Create controls at load are under 44 px. The type scale is still the desktop's 12-13 px. There are no phone primitives: no bottom action bar, no sheet with a sticky footer, no action sheet, no history-backed Back. The phone smokes run with `mobile: false` and assert none of these properties. Several real breakages come straight from this override-only approach: the Inpaint, Outpaint and Edit footers end past the screen, the Inpaint and Outpaint settings sit off the right edge, the lightbox Delete is clipped, and the Examples menu scrolls the page sideways. Resizing alone will not fix it. The phone needs its own task order (compose, Generate, watch, judge, iterate), a thumb-zone action bar, its own viewer and its own sheet patterns. All of this can be built inside the phone media query while the desktop (and its 1400x900 smokes) and the tablet's two columns stay unchanged.
+
+---
+
+## 2. Target phone design
+
+### 2.1 Principles
+
+- Phone-only. Everything is keyed on `PHONE_MEDIA` (`state.js`, the same text as in `touch.css`). The desktop, the 1400x900 mouse smokes and the tablet's two columns are unchanged.
+- Move nodes, never copy or reorder them with CSS. Where a control must leave the panel (a sheet, the action bar), `touch.js`/`phone.js` moves the live node into a phone host with the existing `moveBefore` pattern (as `placeTagValidation` does) and moves it back on a `matchMedia` change. Each id exists once, so `els`, `writeBox`, `setReferences` and `setQueue` keep working. Do not use `display: contents` on `.panel` or CSS `order` for anything whose focus order matters (WCAG 1.3.2/2.4.3; WebKit drops the region's landmark). `position: sticky` on `#btn-generate` is allowed, since it changes no order.
+- Targets: at least 44x44 px with at least 8 px between neighbours. List and menu rows 48 px. The primary action 50-56 px. Inline citation links in prose are the only exception, and the audit helper lists them.
+- Held buttons stay visible and `aria-disabled`, and a press says why (AGENTS.md). Nothing scrolls by itself. Nothing moves under the pointer: fixed bars reserve their height in `main`'s padding and `scroll-padding-bottom`.
+
+### 2.2 Navigation model
+
+Two tabs stay: Create and Gallery. The Create view gets a bottom action bar (Generate, a progress or result thumbnail, a queue badge) docked above the tab bar. Results do not get a third tab.
+
+Reconciled: platform and architecture proposed a third Results tab, while create-ia and viewer proposed a Create action bar with a result dock. I chose the action bar with a dock. It keeps the compose, Generate, look loop on one screen, keeps "only a press switches the view" without a badge-driven tab, and adds one row of chrome instead of a destination the user has to keep switching to. The dock's thumbnail opens the full-screen result viewer, which is the lightbox in its phone layout, on a press only. The queue opens as a sheet from the badge. If the dock proves too small in use, a Results tab can be added later on the same `body[data-view]` mechanism, and the dock design does not block it.
+
+Back: the lightbox, every sheet, the Models sheet, the context and action sheets and the run sheet push a history entry on the phone. Back (Android's button, iOS's edge swipe) closes the top layer first. Tabs use `replaceState`.
+
+### 2.3 Create view (393x852 portrait)
+
+```
++---------------------------------------+  0
+| [● FLUX.1 Krea [dev] ▾]          [⋯] |  44  topbar: model chip opens Models,
++---------------------------------------+       ⋯ = Unload, Saved setups,
+|  ┌─────────────────────────────────┐  |       Snippets, Load settings from PNG,
+|  │ a fox walking in the snow,      │  |       Reset
+|  │ overcast light                  │  |
+|  │                                 │  |  prompt (16 px text)
+|  └─────────────────────────────────┘  |
+|  [Examples] [Check] [Tags]            |  44 px toolbar under the box
+|                                       |
+|  Shape [Square|Portrait 3:4|Lands 4:3]|  44 px segmented control
+|  Size  [1 MP ▾]     Images [− 1 +]    |  44 px chip + stepper
+|                                       |
+|  More options                      ›  |  48 px row, live summary:
+|  28 steps · CFG 3.5 · seed random  •  |  dot when anything differs
+|                                       |
+|  ┌─ Latest result ────────────────┐   |  result card, moved here
+|  │            [image]             │   |  from under the panel
+|  │ [☆ Star][↻ Reuse][⤢ Refine][⋯] │   |  labelled 44 px actions
+|  └────────────────────────────────┘   |
+|  Recent ...                           |
++---------------------------------------+ 732
+| [▣ 48] [      Generate       ] [ 2 ]  |  64  action bar: thumbnail or progress
++---------------------------------------+ 796       ring "20/28", Generate 50 px,
+|      ✦ Create        ▦ Gallery        |  56       queue badge opens the Queue sheet
++---------------------------------------+ 852  tab bar (+ safe area)
+```
+
+- Fixed chrome is 44 + 64 + 56 = 164 px (19%), against 114 px today. In exchange, Generate, the job's state and the newest result are always one tap away. While a box has focus (`body[data-typing]`), the action bar and tab bar step aside, as the tab bar does today. Once the visualViewport inset (P44) exists, the action bar rides above the keyboard instead.
+- More options is a full-height sheet holding Sampling (Steps, CFG; Mu and True CFG under Advanced), Seed with a 44 px dice, Repeat, the negative prompt (inline under the prompt instead on checkpoints that use negatives), Custom dimensions, LoRA & references, Then refine, Notify, Step cache (still visible and inspectable) and Grid search (Run grid in the sheet's footer).
+- The Queue sheet hosts the real `#progress` and `#queue-list` nodes: Pause, Skip and Cancel in a 4-column 44 px grid with Cancel last in danger colour, and queued jobs as 56 px rows with a ⋯ for Move to front and Cancel.
+- Check opens as a sheet. A one-line "Check: N findings ›" chip under the prompt reopens it.
+- The tablet (two columns) keeps today's layout.
+
+### 2.4 Gallery
+
+```
++---------------------------------------+
+| [● FLUX.1 Krea ▾]                [⋯] |  44  app topbar
+| Gallery 15         [Search] [Select][⋯]| 48  sticky head (not hide-on-scroll)
+| (Starred)(All models +2)(Runs ▾)(Sheet)| 44  one sideways-scrolling chip row
++---------------------------------------+ ~140 first image
+| [img ][img ][img ]                    |  3 columns (--thumb-min ~110 px), 4 px gap,
+| [img ][img ][img ]                    |  Fit by default, Crop/size in ⋯;
+| [img ][img ][img ]   no tools on tiles|  star badge only (44 px press)
+| ...  sticky day header "5 Nov"        |
++---------------------------------------+
+|      ✦ Create        ▦ Gallery        |  tab bar; in Select mode replaced by:
+| [Cancel] 3 selected [☆][Refine][More..]|  selection bar (44+ px, labelled)
++---------------------------------------+
+```
+
+- Tap opens the viewer. Long press keeps the context menu (it is the only way to some actions on touch), now shown as a bottom action sheet, with a new "Select" item that enters select mode with that image picked.
+- The head's ⋯ holds Saved searches…, Bundles…, Recycle bin, card size and Crop, and last, in danger colour, Delete unstarred (its confirm is kept).
+- Runs opens a sheet of run rows (thumbnails, date, count, axes). Picking one shows a removable "Run 5 Nov 01:35 ×" chip. The `run:` text stays in the underlying search, so the server logic and smokes are unchanged.
+- The recycle bin is its own screen: "‹ Gallery", Recycle bin (2), Select, Empty bin, with Restore and Delete in the selection bar.
+- Pressing the already-selected tab scrolls that view to the top (the user's own press).
+
+### 2.5 Viewer (lightbox, phone)
+
+```
++---------------------------------------+
+| [‹]          2 / 15           [Share] |  overlay top bar 44, 40% gradient
+|                                       |
+|                                       |
+|          full-bleed image             |  100vw x 100dvh on #000,
+|          (pinch, double-tap 1:1,      |  tap toggles chrome,
+|           swipe ← → next, ↓ close,    |  swipe up = facts sheet
+|           ↑ facts)                    |
+|  ─── a lighthouse on a cliff… seed 11 |  facts peek (72 px)
++---------------------------------------+
+| ☆Star | ↻Reuse | ⤢Refine | ✎Edit | ⋯More|  56 px bar + safe area
++---------------------------------------+
+```
+
+- Edit opens a small sheet: Inpaint…, Outpaint…, Edit by instruction…. More opens the shared action sheet: Use seed, More seeds…, Use as reference, Show run, Copy…, Download, then Recycle bin last in red. This brings back Inpaint and More seeds, which are hidden today at 900 px or less.
+- Facts become 48 px rows (term, value, chevron). Tapping a row opens Search / Copy / Use seed / Open source. The inline 24 px ⌕ buttons and dotted links go on the phone.
+- Fit, 1:1 and the readout leave the screen (gestures do these). The zoom readout shows briefly as a chip while zooming. Share uses `navigator.share` in a secure context and falls back to the download link on plain-http LAN.
+- Reconciled close placement: the targets verifier said keep the close at the foot, where the thumb reaches. The viewer reviewer wanted a top-left Back. In the immersive layout the foot belongs to the action bar, so Back goes top-left at 44 px, and it is backed by the history entry (system Back) and swipe-down. The interim fix, before the immersive layout, keeps the close at the foot and makes it 44x44.
+- Landscape: the same immersive layout, with the five actions as a 56 px rail on the right and facts as a side sheet.
+- The result dock opens this same viewer on the newest result. While a job runs it shows the live preview full width.
+
+### 2.6 Sheets and menus
+
+Three patterns replace the 16 desktop dialogs and 3 popover menus:
+
+1. Form sheet (Refine, Inpaint, Outpaint, Edit, More seeds, Swap tags, Mass refine, Then refine, Bundles, Saved setups/searches/snippets, imports, Check, More options, Queue, Models): full screen with no radius. A sticky header (title plus a 44 px ✕), one scrolling body, and a sticky footer holding the primary action and its summary ("1280×1280 · Outpaint"), padded by the safe area and by `--kb-inset` above the keyboard. No text-box autofocus on touch. Inpaint keeps its fixed-top rule: the canvas is anchored under the header and sized by the viewport, never by what is painted.
+2. Action sheet (long-press menu, More ⋯, Examples, Picked ▾, the head ⋯): bottom-anchored, with a scrim, max 70dvh with its own scroll, 48 px rows, grouped with 8 px spacers, destructive rows last in `--danger`, a Cancel row, and a history entry. `contextMenuPressClick`'s swallowing of the lift's click stays.
+3. Confirm: a short alert. Optionally bottom-anchored with stacked 48 px buttons. Empty bin and Delete permanently keep their confirmations; the per-image delete still never confirms.
+
+List managers (setups, searches, snippets) use list-then-edit: 56 px rows that apply on tap, a trailing ⋯ (Edit, Rename, Delete), and an edit screen pushed inside the same sheet. The native `<select>` stays in the DOM, hidden on the phone, as the source of truth for the desktop smokes.
+
+The Models sheet keeps its element and its light-dismiss logic. It becomes one scroller: a header with Done, the checkpoint list as card rows (the whole row selects; star and guide link at 44 px), Performance as a fold, "Made with…" collapsed below, and a sticky footer with Apply & save, Switch & load and Unload (moved from the topbar, still held with its reason while a job or load is live).
+
+### 2.7 Sizing and type scale (phone `:root` in touch.css)
+
+| Token | Today (touch) | Phone target | Use |
+|---|---|---|---|
+| `--h-xs` / `--h-sm` / `--h-tool` | 32 / 36 / 36 | 44 / 44 / 44 | every control |
+| `--h-md` | 44 | 44 | fields, buttons |
+| primary | 50 | 50-56 | Generate, sheet primary |
+| list row | 36 (menus), 29 (Picked) | 48 | menus, sheets, disclosure rows |
+| `--fs-xs` | 11 | 12 | badges only |
+| `--fs-sm` | 12 | 13 | meta, timestamps |
+| `--fs-label` | 12 (uppercase) | 14, sentence case, weight 600 | captions |
+| `--fs-body-sm` | 13 | 15 | status, facts, queue, Check prose |
+| `--fs-md` | 14 | 16 | body, buttons, inputs share a baseline |
+| `--fs-lg` | - | 18 | view and sheet titles |
+| spacing | 0-8 between controls | 4 inside / 8 between / 16 fields / 32 sections (`--sp-5` 24, `--sp-6` 32) | |
+| page frame | gutter 12 + bordered panel padded 14 | gutter 16, panel border, background and padding dropped | 361 px of content |
+
+The tablet can keep 36/32: split the token block so the phone values live in the phone query, not the shared coarse `:root`. Button tiers: Generate is the only solid accent shape. Selected presets and toggles use `--accent-soft` with an accent border. Frequent actions are tonal (`--panel-2`), rare ones are text-only, and destructive ones use `--danger` text. Pressed states use a 12% `color-mix` background on `:active` (background only, no scale).
+
+---
+
+## 3. Findings
+
+Severity is after verification. Effort: S (under a day), M (1-3 days), L (more than 3 days). "Merged" names the reviewer dimensions a finding combines.
+
+### A. Create
+
+**P1 - Critical - Generate is below the fold and never in the thumb zone; no action bar.** Merged: create-ia, platform, architecture.
+- Evidence: `create-01-load-top.png`: the 738 px band between the topbar (58) and the tab bar (56) ends at Sampling/Output, so Generate is not on screen. It is at page y ≈874-924 at 393x852 (`create-01-load-scroll-0700.png`), and further down at 360x780 and 320x700 (dice at pageTop 910). In landscape only the prompt and negative show (`create-23-landscape-top.png`). With Check or the folds open it moves to about 1900 px. `#btn-generate` (index.html:502) and `#progress` (:504) are mid-panel children; touch.css only makes the panel static.
+- Fix: step 1 (CSS only): under the phone query, `#btn-generate { position: sticky; bottom: calc(var(--tabbar-h) + var(--safe-b)) }` inside the static panel (no panel scroller needed), on the tab bar's background with a hairline. Step 2: a `#phone-actions` host above the tab bar (thumbnail or progress ring, Generate at 50 px, queue badge), with `#btn-generate` moved in by `moveBefore` and restored on a media change. Reserve its height in `main` padding and `scroll-padding-bottom`, hide it under `body[data-typing]` until the keyboard inset (P44) exists, and keep it `aria-disabled` with its reason when held. Update the smoke-phone line 28 assertion (panel bottom against `__tabTop`) to include the bar.
+- Files: web/styles/touch.css, web/touch.js, web/index.html, web/job-progress.js, web/styles/generation.css. Effort: M.
+
+**P2 - Critical - The latest result and the live preview are about 1300 px below Generate.** Merged: viewer, create-ia, platform, architecture.
+- Evidence: `create-18-finished-full.png`: the result card starts at ≈1310 CSS px, its tools at pageTop 1636 and `#viewer-more-seeds` at 1701, on an 1827 px page. `create-18-finished-top.png`: nothing of the result is visible. `create-15-job-running-at-generate.png`: mid-run, only a 2 px bar and "8/28" show. The live preview renders in the same `#viewer` (`.viewer .live img`). touch.css:200-202 makes Create the whole `.panel` followed by `.stage`.
+- Fix: under `PHONE_MEDIA`, move `#viewer` and `#recent` (one node each) to sit right after the quick settings, and move them back on a media change. The action bar's left slot shows the live preview thumbnail with a progress ring, then the finished thumbnail. A press opens the phone viewer (P30) on the newest image, showing the live preview full width while the job runs. It never switches or scrolls by itself. Document the phone exception in rules.md.
+- Files: web/touch.js, web/styles/touch.css, web/viewer.js, web/job-results.js, web/lightbox.js, web/index.html. Effort: L.
+
+**P3 - High - Job progress and the queue sit mid-page, with Cancel 4 px from Skip and 21-24 px queue buttons.** Merged: create-ia, targets.
+- Evidence: `create-16-queue-several.png`: the topbar reads "FLUX.… 20/28 …". The Now row and three queue rows sit between Generate and Load PNG. `#btn-queue-front` 36x36, `#btn-pause` 48.6x36, `#btn-skip` 40.3x36 and `#btn-cancel` 53.1x36 are 4 px apart. The queued × is 23.5x32 and ↑ is 21.2x32, 8 px apart (measure-create "job running + 3 queued"). The tab bar carries only an 8 px dot and a 2 px line (`create-15-tabbar-busy.png`).
+- Fix: drive the action bar from job-progress state (step count over the preview, a queue badge). A press opens the Queue sheet hosting the real `#progress` and `#queue-list` (so `setQueue` stays their only writer): Pause, Skip and Cancel as a `repeat(4,1fr)` 44 px grid with an 8 px gap and Cancel last in danger colour, and queue rows of fixed 56 px height with a 44 px ⋯ (Move to front, Cancel). Keep `#topbar-line` and `#topbar-fill` in the DOM (`syncPhoneTabsBusy` observes them). Interim: give the existing buttons 44 px and 8-12 px gaps.
+- Files: web/job-progress.js, web/job-queue.js, web/touch.js, web/styles/touch.css, web/styles/generation.css, web/index.html. Effort: L (interim S).
+
+**P4 - High - No progressive disclosure: desktop tuning controls fill the first screen.** Merged: create-ia (disclosure and advanced folds), architecture.
+- Evidence: `create-01-load-top.png`: the negative's caption, 14 aspect buttons, 4 tiers, Custom dimensions, a stray "1.0 MP" (`#size-hint`, index.html:411) and Steps/CFG/Mu/True CFG with four ? badges. Then Seed, Batch, Repeat, Load PNG, Notify, Then refine, Grid search, Step cache "Off" and LoRA (`create-01-load-scroll-0700.png`). 40 of 55 visible controls are under 44 px. With the folds open the page is 2405 px.
+- Fix: the More options row and sheet (section 2.3). Move the nodes in (they are moved, not copied, and restored on a media change), show a dot when any hidden value differs from the checkpoint default, and keep Step cache inspectable inside the sheet. Load settings from PNG also goes in the topbar ⋯, since `#png-hint` is hidden on touch and this is the phone's only way in.
+- Files: web/index.html, web/touch.js, web/styles/touch.css, web/panel.js, web/execution.js, web/grid-preview.js. Effort: L.
+
+**P5 - High - The size picker spends three rows on 18 equal-weight buttons with joined pairs.** Merged: create-ia, targets, visual.
+- Evidence: `create-04-aspect-presets.png`: `#presets` buttons are 37.5x36 with 0 px inside a pair (7:9|9:7) and 6 px between pairs; 9:16/16:9 are 44x36. `#tiers` adds a third row at 43-58x36. At 320 px there are four rows, about 330 of 700 px (`create-22-320x700-top.png`). The selected 1:1 and 1 MP use the same solid accent as Generate. touch.css:79 sets only height.
+- Fix: stage 1 (CSS only): an even 44 px grid with 8 px between items, the tiers as a 4-segment row, and the selection drawn in `--accent-soft` with an accent border. Stage 2: a Square | Portrait | Landscape segmented control that remembers the last ratio per orientation (a second tap opens that orientation's ratios as 48 px rows), plus a "1 MP ▾" chip. It uses the existing `#btn-orientation` and the server's own pair members from `sizes.js`, so it is presentation only. Move "1.0 MP" into the Custom dimensions summary.
+- Files: web/styles/touch.css, web/styles/generation.css, web/sizes.js, web/touch.js. Effort: M.
+
+**P6 - High - The result's actions are five unlabelled 27-33 px glyphs 4 px apart, with Delete next to Star.** Merged: targets, viewer.
+- Evidence: measure-create "after job finished": reuse 27x36, refine 27x36, star 28x36, inpaint 30x36, del 33x36, 4 px gaps (0 in landscape). gallery.css:115-134 names them only on hover; touch.css:163 removes that on touch (`create-18-viewer.png`).
+- Fix: on the phone, a labelled action row under the image (icon plus word, `repeat(4,1fr)`, 44 px, 8 px gap): Star, Reuse, Refine, ⋯. Delete and Inpaint go into ⋯ (the action sheet). `resultFigure` is shared with the gallery cards, so use a phone CSS branch or phone-only label spans.
+- Files: web/styles/touch.css, web/styles/gallery.css, web/viewer.js. Effort: M.
+
+**P7 - Medium - After a run, the same actions appear three times.** Merged: create-ia, viewer.
+- Evidence: `create-18-finished-full.png`: `#finish-note` has Use seed, More seeds… and a held Finish run (63.6/86.1/67.4 x 33.5, 8 px gaps). Under the result there is More seeds and a 47.6x18 dotted "Use seed" link. `#last-run` repeats Show run, More seeds… and Finish run at load.
+- Fix: on the phone, keep `#finish-note` as a one-line status ("Done · 9 s") with no buttons, and keep `#job-said` for screen readers. Make the result card the home of the per-result actions (P6), with Use seed and More seeds in its ⋯, and replace the 18 px link. Hide `#last-run`'s buttons only while the viewer shows that same run. Document that a Finish run with nothing to finish is not drawn on the phone (the PC keeps it aria-disabled). Use phone-only hides so smoke-results and smoke-more-seeds keep their desktop paths.
+- Files: web/job-results.js, web/viewer.js, web/generation.js, web/styles/touch.css. Effort: M.
+
+**P8 - Medium - The "New image ↓" pill covers Examples and Check.** Merged: viewer, platform.
+- Evidence: `create-19-new-image-pill.png`: a 95x36 pill fixed at topbar + 8 px (generation.css:382-386), sitting over `#btn-examples` with a 0 px gap. It appears when a job ends, so it can land under a finger heading for Check.
+- Fix: once the dock exists (P1/P2), hide `#btn-new-image` on the phone; the dock shows the unseen result. Until then, move it to `bottom: calc(var(--tabbar-h) + var(--safe-b) + 8px)`. Revise the generation.css comment about the window's foot.
+- Files: web/styles/generation.css, web/styles/touch.css, web/generation.js. Effort: S.
+
+**P9 - Medium - Prompt Check expands inline and pushes Generate down about 1000 px.** Merged: create-ia, dialogs.
+- Evidence: measure-create: scrollHeight 2493 with Check open against 1483 at load. `create-13-check-a..d.png`: a nested card about 300 px wide, a 32 px "Show" button mid-paragraph, small pills, and a 28 px ✕.
+- Fix: a `PHONE_MEDIA` branch in `placeTagValidation` docks `#prompt-analysis` in a form sheet: a sticky head (summary chips, Check again, 44 px ✕), sections as 48 px folds, each finding as a card with its source chip and a trailing 44 px Show. Leave a "Check: N findings ›" chip under the prompt. `TWO_COLUMNS_MEDIA` keeps the tablet's docking. Do this after P1.
+- Files: web/analysis.js, web/tag-chips.js, web/styles/analysis.css, web/styles/touch.css. Effort: M.
+
+**P10 - Medium - The prompt caption crams 34 px Examples, Check and Reset into one row, 3.8 px apart.** Merged: create-ia, targets.
+- Evidence: measure-create: `#btn-examples` 65.4x34 is 3.8 px from `#btn-analyze` 48.8x34; `#btn-reset` is 44.5x34; the ? badge is 14x14. On tag checkpoints, Tags and Expand join the row and it wraps.
+- Fix: a non-wrapping 44 px toolbar under the textarea (Examples · Check · Tags/Expand) with 8 px gaps. Reset moves to the topbar ⋯ (optional; its Undo note must still appear under the editor). The Examples menu overflow is P38.
+- Files: web/index.html, web/styles/touch.css, web/styles/fields.css, web/panel.js. Effort: S.
+
+**P11 - Medium - The negative prompt is a full field even where the checkpoint ignores it.**
+- Evidence: `create-01-load-top.png`: on FLUX.1 Krea, "(needs True CFG > 1 — ~2× slower)", Set True CFG (77.7x32) and a 2-row box take about 150 px of the first screen and are inert at defaults.
+- Fix: when inactive, a one-line "Negative prompt — off (needs True CFG)" row inside More options. On checkpoints that use negatives, a collapsible field under the prompt with a first-words summary. A non-empty negative written by Reuse or Load PNG expands it. Writes still go through `writeBox`.
+- Files: web/index.html, web/panel.js, web/styles/touch.css. Effort: S.
+
+**P12 - Medium - The topbar spends 58 px on the wordmark, a truncated name and an equal-weight Unload.** Merged: create-ia, platform, visual.
+- Evidence: `create-21-topbar.png` (378x58): "FLUX.1 Krea [d…" beside 44 px Models and Unload. At 320 px the name is "FL…" (`create-22-320x700-topbar.png`). During a job it reads "FLUX.… 20/28 …".
+- Fix: a 44 px phone topbar: a model chip (dot, short name, ▾, at least 44 px tall) that opens Models, and one 44x44 ⋯. Drop `.brand` on the phone. Unload moves into the Models sheet's footer, staying held with its 409 reason. Step counts leave the topbar only once the action bar shows them; `#job-mirror` stays until then. Extend the landscape topbar rules rather than forking them. No hide-on-scroll in portrait.
+- Files: web/index.html, web/styles/touch.css, web/style.css, web/status.js, web/model-switch.js. Effort: M.
+
+**P13 - Medium - The Seed dice is 28x18 with a press zone over the Seed box; Batch and Repeat have no steppers.**
+- Evidence: `#btn-dice` 28.5x18; touch.css:85-86 `::after inset -10px -8px` covers the top 2 px of `#seed`. The dialogs' dice are 41x44. Batch and Repeat are 62x44 number boxes for values of 1-4.
+- Fix: a 44x44 trailing dice inside the Seed row; remove the caption button's `::after`. Optional: −/value/+ steppers with 44 px buttons for Batch, Repeat and Steps, wired through the existing input events.
+- Files: web/styles/touch.css, web/styles/fields.css, web/touch.js. Effort: M.
+
+**P14 - Medium - While typing, the sticky topbar eats the visible area, and the numeric keypads are generic.**
+- Evidence: `create-08-prompt-long-focused.png`: the caption sits under the 58 px sticky bar. touch.css:263-267 hides only the tab bar. There is no visualViewport handling, no `enterkeyhint`, and no `inputmode` on `#cfg`, `#seed` or `#steps`.
+- Fix: `body[data-typing] .topbar { position: static }` on the phone (landscape already does this). `enterkeyhint="search"` on `#search` (already `type=search`), `enterkeyhint="done"` on the sampling boxes, `inputmode="decimal"` on `#cfg`/`#true-cfg`/`#mu` and `inputmode="numeric"` on `#steps`/`#seed`/`#batch`/`#repeat`. The keyboard inset is P44.
+- Files: web/styles/touch.css, web/index.html, web/touch.js. Effort: S.
+
+**P15 - Low - Runs of more than 4 images (`.viewer.many`) are 20vh tiles with five 32 px tools always drawn over them.**
+- Evidence: gallery.css:29 `--tile-h: 20vh`, :137-145 overlaid tools, touch.css:160. Batch 4 is `.multi` (34vh, tools below), so this applies to Batch above 4 or a grid.
+- Fix: on the phone, `.many` becomes a 2-column grid of plain thumbnails; tap opens the viewer at that index, long press opens the action sheet. `.multi` gets P6's labelled tools.
+- Files: web/styles/gallery.css, web/styles/touch.css, web/viewer.js. Effort: S.
+
+### B. Gallery
+
+**P16 - Critical - The gallery head takes 43% of the screen before the first image.** Merged: gallery, platform, visual (density, hierarchy), targets (head and footer).
+- Evidence: `gallery-01-top.png`: the first card is at y≈370 of 852. Above it: topbar 58, Gallery plus Runs, full-width search, ?/Starred/All models/Sheet, "Delete unstarred" on its own row, and 8 footer buttons in two 36 px rows (Bin 34.6 wide; filters 20x20 boxes in 74x36 and 123x36 labels). Landscape leaves about 140 of 393 px for images (`gallery-52-landscape-top.png`). Nothing is sticky, so the filters scroll away.
+- Fix: section 2.4. A sticky 48 px head (title and count, Search, Select, ⋯) and one chip row. Delete unstarred, Bin, Bundles, Saved searches and the card view go into ⋯ (an action sheet). The selection actions go to the selection bar (P18). No hide-on-scroll. The existing buttons stay the DOM sources and keep their aria-disabled holds. `#gallery-error` gets a line under the chips. Target: first image at y≈140 in portrait and ≈90 in landscape.
+- Files: web/index.html, web/styles/touch.css, web/styles/gallery.css, web/gallery-head.js, web/gallery.js, web/gallery-select.js. Effort: L.
+
+**P17 - High - Every card carries six 22-28 x 32 px glyph tools, Delete 4 px from Inpaint.** Merged: targets, gallery, visual, architecture.
+- Evidence: measure-gallery "gallery top": reuse 22.2, refine 22.2, ref 23.7, run 24.9, inpaint 24.9, del 27.6 wide, all 32 tall; Inpaint ends at x 153 and Delete starts at 157. sheet.css:202 forces them visible on coarse pointers. About 105 targets on a 15-image page (`gallery-11-card-tools-closeup.png`). Delete only bins, so it is recoverable.
+- Fix: phone only: `#gallery .card .tools { display: none }`. Keep the DOM, because context-menu.js `buttonItem` rows click these buttons (it checks `hidden`, not CSS display). Give the star badge a 44x44 press area. Optionally add one 44 px ⋯ per card that opens the same sheet. The tablet keeps its tools. Update rules.md ("a card's or a run tile's tools are 32 px tall") and smoke-phone's "card tools 32 px tall".
+- Files: web/styles/touch.css, web/styles/sheet.css. Effort: S.
+
+**P18 - High - Selection is a desktop modifier model: the count and actions scroll away and there is no bottom bar.**
+- Evidence: gallery-select.js:9-13,186-200. `#btn-select` is one of eight 36 px footer buttons. With 3 picked (`gallery-15-select-mode-top.png`) the head reads "✓3 | Clear✕ | Picked ▾ …", and once scrolled nothing shows (`gallery-16`). There is no Select all; the rings are 24 px pseudo-elements.
+- Fix: while select mode is on, a fixed selection bar replaces the tab bar: Cancel, "N selected", Star, Bin, Compare (from Picked ▾), Swap tags…, Refine…, More seeds…, each at least 44 px and labelled. Add "Select" to the long-press sheet and a cheap Select all. Drag-select is optional.
+- Files: web/gallery-select.js, web/context-menu.js, web/index.html, web/styles/touch.css, web/styles/gallery.css, web/touch.js. Effort: L.
+
+**P19 - Medium - Two letterboxed columns and no density control.**
+- Evidence: `--thumb-min` 160 px gives 2 columns at 393 and 360 and 4 in landscape. Cards are `object-fit: contain`. `#card-view` (S/M, Fit/Crop) is `display: none` below 1800 px, so `gallery-09` is identical to `gallery-01`.
+- Fix: phone `--thumb-min` ≈110 px (3 columns, 5-6 in landscape) with a 4 px gap. Expose `#card-view` in ⋯ with phone values. Fit stays the default (sheet.css:183-186 rationale). Note the phone density in gallery.css and rules.md.
+- Files: web/styles/touch.css, web/styles/gallery.css, web/gallery.js. Effort: M.
+
+**P20 - Medium - Runs is a truncated native select that writes `run:<id>` into the search.**
+- Evidence: `gallery-12-runs-sheet-top.png`: "5 Nov, 01:35 pm · 4 …", and the search fills with `run:7615e4504d30`; the first image is at y≈640.
+- Fix: a Runs chip opening a sheet of run rows (a 3-thumbnail strip, date, count, axes, checkpoint). A pick shows a removable run chip. Keep `#run-list` (hidden) and the `run:` search string.
+- Files: web/index.html, web/gallery-head.js, web/gallery.js, web/styles/touch.css. Effort: M.
+
+**P21 - Medium - The run sheet shows keyboard hints and three rows of desktop controls.**
+- Evidence: "F stars the image in focus · Ctrl+wheel zooms, drag pans" (sheet-render.js:336-338, `span.sheet-hint`) shows on touch; touch.css:106 hides only `.lb-keys` and `.key-hint`. Columns/Rows/Fill width, −(26x36)/+(33x36)/1:1, Export, Swipe ×2, Finish run and More seeds take three rows, and the 2x2 grid starts at y≈640 (`gallery-14`).
+- Fix: now, add `.sheet-hint` to the hidden list (this is a bug against a documented rule). Then one row: an axis chip "Steps × CFG ▾", a Swipe toggle and ⋯ (Export, Fill width, Finish run, More seeds). Drop −/+/1:1 in favour of pinch and double-tap; sticky axis labels.
+- Files: web/styles/touch.css, web/sheet-render.js, web/sheet-zoom.js, web/styles/sheet.css. Effort: M (hint S).
+
+**P22 - Medium - The recycle bin keeps every gallery control and uses small per-card Restore/Delete.**
+- Evidence: `gallery-41-bin-view-top.png`: Runs, Starred, Sheet, Picked, Select, Swap, Refine, More seeds, Saved searches and Bundles remain, the bin's own controls are added, and the first card is at y≈425. Per-card ↶ is 24x32 and ⌦ 29x32.
+- Fix: its own screen (section 2.4), with no per-cell tools; Restore and Delete (red, confirmed) in the selection bar; Back leaves the bin. Hide gallery-only controls while bin mode is on.
+- Files: web/bin.js, web/styles/bin.css, web/styles/touch.css, web/index.html. Effort: M.
+
+**P23 - Medium - A tapped card keeps its "#14 · 1024×1024 · seed 5" label.**
+- Evidence: `gallery-15` (right column, second card). sheet.css:256 shows `.tools::before` on `:focus-within`; touch.css:163-164 drops only the tool names.
+- Fix: `.card:not(:has(:focus-visible)) .tools::before { display: none }` in the touch tier. This becomes moot under P17 on the phone, but the tablet needs it.
+- Files: web/styles/touch.css. Effort: S.
+
+**P24 - Medium - Pressing the active tab does nothing; "Top" is a 54x36 pill over the cards.**
+- Evidence: touch.js:68-71 `setPhoneView` is a no-op when the view is unchanged. `#btn-gallery-top` 54.2x36 sits bottom-right over the cards' ⌦ position.
+- Fix: a press on the selected tab scrolls that view to the top (reuse `goToGalleryTop`, which honours reduced motion). Keep the pill at 44 px, bottom-centre, shown after 3 screens. Add the re-press to rules.md's list of presses.
+- Files: web/touch.js, web/styles/touch.css, web/gallery.js. Effort: S.
+
+**P25 - Low - Filters are checkbox labels and search help is a two-thirds-screen tip.**
+- Evidence: `#fav-only` and `#all-models` 20x20 in 74x36 and 123x36 labels. `gallery-07-search-help-tip.png` covers y 215-790 with 25 non-tappable lines.
+- Fix: the labels become 44 px toggle chips (ids kept). A tappable token sheet with recent and saved searches is optional.
+- Files: web/styles/touch.css, web/index.html. Effort: S.
+
+**P26 - Low - The scope of bulk buttons is stated only in a tooltip.**
+- Evidence: with nothing picked, More seeds… acts on the filter, and the title never shows on touch. Each action opens a preview dialog stating scope and count before anything queues.
+- Fix: labels carry the scope on the phone ("More seeds of all…", "of 3…"), or filter-scoped actions sit under a scoped heading in ⋯. Never hide held buttons without a documented exception.
+- Files: web/gallery-select.js, web/more-seeds.js, web/tag-swap.js, web/refine-batch.js. Effort: S.
+
+**P27 - Low - The empty-gallery Examples button opens a menu in the hidden Create view.**
+- Evidence: gallery.js:191-198 → `viewerExamples` (viewer.js:643-648) → `showExamples(true)` with no `showCreateView()`; the panel is `display: none` in Gallery (touch.css:200). Found in code, not in a screenshot.
+- Fix: call `showCreateView()` first and add this press to rules.md's list. Optionally a proper empty state with a "Create your first image" button.
+- Files: web/viewer.js. Effort: S.
+
+**P28 - Low - Infinite scroll gives no sense of position.**
+- Evidence: `.gallery-break` day lines are not sticky, there is no scrubber, and the count scrolls away.
+- Fix: sticky day headers under the sticky head (they overlay, so nothing moves). A date fast-scroll thumb is optional. A 44 px full-width Load more retry.
+- Files: web/styles/touch.css, web/styles/gallery.css, web/gallery.js. Effort: M.
+
+### C. Viewer and lightbox
+
+**P29 - High - The lightbox action row runs off screen, Inpaint and More seeds are hidden, and the JS uses the wrong breakpoint.** Merged: viewer, targets, visual, architecture.
+- Evidence: measure-gallery: `#lb-delete` at x 348-433 on 393 in every portrait state (`gallery-20-lightbox-fit.png`). The row does scroll (`gallery-24`), but with no cue (`scrollbar-width: none`). Root cause: `.lb-actions` is a flex item with no `min-width: 0`, so it grows to 369 px inside a 354 px column. lightbox.css:318-323 hides `#lb-inpaint` and `#lb-more-seeds` at 900 px or less. lightbox.js:126 `lbNarrow` is `(max-width: 900px)`, true on an 852x393 landscape phone where touch.css lays the lightbox out as a row, and lightbox-compare.js:203 does the same.
+- Fix: interim: `.lb-actions { flex: 1 1 100%; min-width: 0; flex-wrap: wrap }` with 44 px buttons, and stop hiding Inpaint and More seeds on the phone. Add `LB_STACKED_MEDIA` to state.js and use the same text in lightbox.js, lightbox-compare.js, lightbox.css and touch.css. Full fix: the 5-slot bar from section 2.5 (P30). Update rules.md's "a row that scrolls sideways".
+- Files: web/lightbox.js, web/lightbox-compare.js, web/state.js, web/styles/lightbox.css, web/styles/touch.css. Effort: M.
+
+**P30 - High - The picture gets about 40% of a portrait screen.**
+- Evidence: `gallery-20-lightbox-fit.png`: a 1280² image drawn ≈340x340 (y 14-383). Below it: the prompt, 8 fact rows, the Compare row, the Fit/1:1/Download row, the action row and the counter. A 2:3 portrait would be about 245 px wide. lightbox.css:296-311; touch.css:113-118 gutters.
+- Fix: the immersive layout from section 2.5: full-bleed on #000, overlay top and bottom bars, a tap toggles the chrome (instead of a backdrop tap closing), swipe up for facts. `lbFactsRoom`/`--lb-room` get a phone branch. Update the rules.md gesture text.
+- Files: web/styles/lightbox.css, web/styles/touch.css, web/lightbox.js, web/index.html. Effort: L.
+
+**P31 - High - Leaving the lightbox: a 26x26 ✕ in the bottom-right corner, and Back leaves the app.** Merged: viewer, targets (history itself is P64).
+- Evidence: `#lb-close` 26x26 at (355, 814), 12 px from `#lb-delete`, over the ghosted tab bar. lightbox.css:225-231 `.close` padding 2px 4px; :302 orders `.lb-head` last. There is no pushState or popstate anywhere in web/*.js. Swipe-down (90 px) works but nothing hints at it.
+- Fix: now, a 44x44 `.close` in the touch tier (`min-width`/`min-height: var(--h-md); display: inline-grid; place-items: center; padding: 0`), which also fixes the dialogs' ✕ (P47). With P30, a 44 px ‹ Back top-left, Back through history (P64), and swipe-down kept.
+- Files: web/styles/touch.css, web/styles/lightbox.css, web/lightbox.js. Effort: S, then part of P30.
+
+**P32 - Medium - Facts are a desktop list: seven 24 px ⌕ buttons touching 15-50 px links.**
+- Evidence: measure-gallery: `button.lb-search` 24x24 with 0-8.9 px gaps on rows 22 px apart (so neighbouring targets overlap). "#3" is 14.7x24; "Use seed" 51.6x24 is 0 px from its ⌕ (lightbox.css:116-127, the 24 px WCAG floor).
+- Fix: a facts pull-up sheet with 48 px rows; a tap opens Search / Copy / Use seed / Open source. This is a phone branch only, since `factsList` is shared with the desktop.
+- Files: web/lightbox.js, web/styles/lightbox.css, web/styles/touch.css. Effort: M.
+
+**P33 - Medium - Fit, 1:1, the readout and Download take a row of mixed heights for what gestures already do.**
+- Evidence: Fit 39x44, 1:1 42x44, Download 72x36 (`gallery-20`). Pinch and double-tap already zoom.
+- Fix: hide `.lb-zoom-group` on the phone and show the readout as a transient chip. Share via `navigator.share({files})` where `canShare` allows it, falling back to the download link on plain-http LAN.
+- Files: web/styles/touch.css, web/lightbox.js, web/index.html. Effort: S.
+
+**P34 - Medium - Swipe is the only way between images, with no hint, and the counter is in the corner.**
+- Evidence: touch.css:256 `.lb-nav { display: none }`; "2/15 · #16" bottom-right beside the ✕.
+- Fix: the counter centred in the top bar; a one-time 24 px nudge on the first open (skipped under reduced motion); an optional 44 px filmstrip.
+- Files: web/styles/touch.css, web/lightbox.js. Effort: M.
+
+**P35 - Medium - Landscape lightbox: the actions sit below the fold of a 300 px column.**
+- Evidence: `gallery-29-lightbox-landscape.png`: `#lb-fit` and `#lb-download` are at y 424-428 of 393 (not in view); `.lb-side` is `min(300px, 42vw)` with its own scroll (touch.css:302-312); `#lb-close` is 26x26.
+- Fix: the immersive landscape layout: an action rail on the right, facts as a side sheet.
+- Files: web/styles/touch.css, web/styles/lightbox.css, web/lightbox.js. Effort: M.
+
+**P36 - Low - The page shows through the lightbox.**
+- Evidence: `gallery-20` and `gallery-26`: tab labels, card glyphs and "#16 1280×1280 · seed 11" show through. lightbox.css:23 is 0.97 alpha with a transparent `::backdrop`.
+- Fix: phone only: `.lightbox, .lightbox::backdrop { background: #000 }`. Nothing else needs hiding, since the dialog is in the top layer.
+- Files: web/styles/touch.css. Effort: S.
+
+**P37 - Low - The key letter "S" shows on Compare with source (a specificity bug).**
+- Evidence: lightbox.css:187 `:is(#lb-compare-on[aria-keyshortcuts="S"], …)::after` at (1,1,0) beats touch.css's `#lb-compare-on::after { content: none }` at (1,0,0). Visible in `gallery-20`.
+- Fix: `#lb-compare-on[aria-keyshortcuts]::after, #lb-compare-cfg[aria-keyshortcuts]::after { content: none }` in touch.css.
+- Files: web/styles/touch.css. Effort: S.
+
+### D. Menus
+
+**P38 - High - The Examples and Picked menus run off screen or use 29 px rows.** Merged: dialogs, create-ia, targets, architecture.
+- Evidence: measure-create "examples menu open": scrollWidth 413 against innerWidth 393, so the page scrolls sideways (`create-10-examples-menu.png`; fields.css:298-304 `position: absolute; left: 0; width: var(--menu-w)`). Sample text is cut and max-height is 320 px. Picked ▾ rows are 159.5x28.8 (`gallery-18`); touch.css's row rule covers only `.context-menu li`.
+- Fix: stopgap: `.menu { position: fixed; left: 8px; right: 8px; width: auto; bottom: calc(var(--tabbar-h) + var(--safe-b) + 8px); top: auto } .menu li { min-height: 44px }`. Then the shared action sheet, with Saved setups… pinned first in Examples.
+- Files: web/styles/fields.css, web/styles/touch.css, web/prompt-examples.js, web/gallery-select.js. Effort: S.
+
+**P39 - Medium - The long-press menu is a 17-row, 658 px desktop popover anchored at the finger.** Merged: gallery, targets, viewer, dialogs, platform, architecture.
+- Evidence: `gallery-31-card-context-menu.png`: 17 rows of 190x36, no scrim, Move to recycle bin directly under Open PNG. context-menu.js:292-294 places it at the finger; touch.css:131 sets 36 px rows. In the lightbox (`gallery-26`) a leading orphan separator appears where Open is hidden. This is today's documented design and it works, so it is a design change rather than a breakage.
+- Fix: an early return in the placement code under `isPhone()`, and the action sheet (section 2.6): a header naming the image, 48 px rows, groups, Bin last in red, Cancel, no "Open" (a tap opens), and a Select item (P18). Keep `contextMenuPressClick`. Fix the orphan separator now. Raising rows to 44 px is a cheap first step.
+- Files: web/context-menu.js, web/styles/context-menu.css, web/styles/touch.css. Effort: M.
+
+### E. Dialogs and sheets
+
+**P40 - Critical - Inpaint's mask settings sit off the right edge, and its sliders are 16 px tall.** Merged: dialogs, targets.
+- Evidence: measure-gallery "dialog inpaint": "Only the masked area" at x 364-512, `#inpaint-crop-pad` at 562-631 and Show mask at 655-748, past a 377 px limit, with no sideways scroll. These cannot be used (`gallery-dlg-inpaint-open.png`). `#inpaint-size` is 77.7x16 and `#inpaint-feather` 59.1x16 with the UA thumb (no range styling anywhere). Brush and Eraser are 47.7/49.9x36 at a 4 px gap. Cause: inpaint.css:64-82 `.ip-tools` has two fixed-height `nowrap` rows.
+- Fix: step 1 (S): in the coarse block, `.ip-tools { height: auto }` and `.ip-row { flex-wrap: wrap; height: auto; white-space: normal; row-gap: var(--sp-2) }`, 44 px tools, and each slider on its own full-width row (44 px track, 28 px thumb via `::-webkit-slider-thumb`/`::-moz-range-thumb`). The wrap depends only on viewport width, so the canvas still never resizes with what is painted (inpaint.css:34-39). Brush|Eraser becomes a 2-segment control. Step 2: the strength paragraph goes behind its ?. Step 3 (optional): canvas pinch-zoom, with mask-coordinate tests.
+- Files: web/styles/inpaint.css, web/styles/touch.css. Effort: S (step 1), L in total.
+
+**P41 - High - Inpaint, Outpaint and Edit end 18 px past the bottom of the screen.** Merged: dialogs, platform, architecture.
+- Evidence: measure-gallery `modalPastViewportBottom` is true for all three (top 34 + height 836 = 870 on 852). In `gallery-dlg-inpaint-bottom.png` Cancel and Inpaint are cut at the foot (still pressable). Cause: touch.css:270-273 `dialog:not(.lightbox):not(.context-menu)` (0,2,1) replaces `.inpaint-dialog`'s max-height but keeps inpaint.css:15 `margin-top: var(--ip-top)` (34 px).
+- Fix: one rule at matching specificity, for example `dialog.inpaint-dialog:not(.lightbox):not(.context-menu) { max-height: calc(100dvh - var(--ip-top) - var(--safe-t) - var(--safe-b) - var(--sp-2)) }`. Add a smoke assertion that each dialog's rect is inside the viewport.
+- Files: web/styles/touch.css. Effort: S.
+
+**P42 - High - Outpaint's cross layout overflows 393 px, so Right padding cannot be set.**
+- Evidence: measure-gallery: `#outpaint-right` at x 546-624 (entirely off screen), `#outpaint-bottom` 307-385, crop pad 355-424. Number boxes are 77.6x36 and presets 48-99x36 (`gallery-dlg-outpaint-grown-25.png`: the frame is cut on the right).
+- Fix: the frame preview at full width, then Top/Right/Bottom/Left as a 2x2 grid of 48 px fields with 44 px steppers (`min-width: 0`). The presets become a scrolling 44 px chip row that applies on tap, using the server's own preset ids. Band, "Only the masked area" and Pad go under Advanced. A sticky footer reads "1280×1280 · Outpaint".
+- Files: web/styles/outpaint.css, web/styles/touch.css, web/index.html, web/outpaint.js. Effort: M.
+
+**P43 - High - There is no phone dialog pattern: the only rule is a max-size clamp.** Merged: dialogs, platform, architecture.
+- Evidence: touch.css:269-273 is the only touch dialog rule. The 16 dialogs are rounded cards inset 8 px with 18 px padding (about 341 px of content) and actions at the end of the scroll. Closing varies: a 26 px ✕, a 47x36 "Close", or only a bottom Cancel. There are 11 different action-row classes and none is sticky. 13 of 17 dialogs fit; the umbrella problem is the missing pattern.
+- Fix: step 1 (CSS only): under `(pointer: coarse) and (max-width: 600px)`, `inset: 0`, no radius, a sticky existing head and a sticky existing action row (list `.rf-actions, .swap-actions, .rb-actions, .ms-actions, .confirm-actions, …`), and `overscroll-behavior: contain`. Keep inpaint's top at 0 under the sheet. Step 2: a shared `.dialog-actions` hook and a uniform 44 px header ✕ (index.html). Record the pattern in rules.md.
+- Files: web/styles/touch.css, web/index.html, web/styles/refine.css, web/styles/inpaint.css, web/styles/bundles.css. Effort: M.
+
+**P44 - High - The keyboard can cover dialog actions: several dialogs focus a text box on open.**
+- Evidence: autofocus at index.html:1280 (`#refine-strength`), :2038, :2078, :2123; `.focus()` calls at refine.js:302, tag-swap.js:145, more-seeds.js:331. Dialogs are sized in dvh, which iOS does not shrink for the keyboard. Inferred, not captured: verify on an iPhone.
+- Fix: on coarse pointers, no autofocus on text boxes (move focus to the sheet's header or ✕); the desktop keeps its reasons. A visualViewport listener in touch.js sets `--kb-inset` while a sheet is open, and the sticky footer uses `bottom: var(--kb-inset, 0)`. The same inset lets the Create action bar ride above the keyboard (P1).
+- Files: web/touch.js, web/styles/touch.css, web/index.html, web/refine.js, web/tag-swap.js, web/more-seeds.js. Effort: M.
+
+**P45 - High - The Models sheet is a squeezed desktop table in a 439 px inner scroll.** Merged: dialogs, platform, targets, visual, architecture.
+- Evidence: `create-20-models-sheet*.png`: 4198 px of content in a 439 px box. The header "Model / Style Refine / Size Speed" wraps to three lines. Four dotted links per row; star 36x36; link 32x21; radio and Group-by-type 20x20; 128 of 153 targets small. "Made with…" and "Load automatically" take about 260 px. It is non-modal (`topModal` null), but light dismiss works (app.js:286-291), so a tap outside closes it.
+- Fix: section 2.6. One scroller, a Done header, card rows whose whole row is the radio, chips instead of dotted links (the verbatim sources reachable from one ⓘ), a sticky footer with Apply & save, Switch & load and Unload. `inert` on main while it is open, on the phone only. Keep the element (not a dialog) because of the focusout-close logic and app.js:729/761 guards. Keep the table cells the desktop smokes read.
+- Files: web/styles/model-picker.css, web/styles/touch.css, web/model-switch.js, web/model-picker.js, web/index.html. Effort: L.
+
+**P46 - Medium - Refine's Seed box and dice run off the right edge.**
+- Evidence: measure-gallery: `#refine-seed` 246-392 and `#refine-dice` 400-442 against the limit. fields.css:101 `min-width: min(calc(16ch + 26px), 45%)`, plus Compare widening Strength. `#refine-compare-scales` 92x32 sits at a 0 px gap.
+- Fix: in the coarse block, `.rf-strength .row { flex-wrap: wrap }` with Strength at 100%, Versions and Seed plus the dice sharing the next row, and the min-width overridden. The scale pickers become a 44 px 4-segment control.
+- Files: web/styles/touch.css, web/styles/refine.css, web/styles/refine-batch.css. Effort: S.
+
+**P47 - Medium - Dialog ✕ buttons are 26x26 glyphs.**
+- Evidence: `#refine-close`, `#inpaint-close`, `#outpaint-close` and `#edit-close` are 26x26; `#analysis-close` is 28.3x28; `.close` has no touch override (lightbox.css:225-232).
+- Fix: the same one rule as P31.
+- Files: web/styles/touch.css. Effort: S.
+
+**P48 - Medium - Saved setups, searches and snippets use native list boxes and a crowded one-screen editor, with two text bugs.** Merged: dialogs, visual.
+- Evidence: `create-12-saved-setups-dialog.png`: a native `<select size>` inside two inner scrolls (three scrollbars); `#setups-all` is 13x20. Names are cut with "…". The snippets dialog's captions above New/Save/Delete are clipped to a sliver. "Export./Import." is literal in index.html:2066-2067. iOS draws a multi-row select as a one-line picker.
+- Fix: now: correct "Export…" and "Import…" and give the caption row auto height. Then list-then-edit (section 2.6), with the `<select>` kept hidden for smoke-generation-presets, smoke-saved-searches and smoke-snippets. Restore, Undo and import rules are unchanged.
+- Files: web/index.html, web/styles/snippets.css, web/styles/setups.css, web/styles/saved-searches.css, web/styles/touch.css, web/generation-presets.js, web/saved-searches.js, web/prompt-snippets.js. Effort: L (text fix S).
+
+**P49 - Medium - Swap tags opens with the keyboard up, small row controls and an empty results box.**
+- Evidence: tag-swap.js:145 focuses Find. `.swap-at` 62x32, `.swap-remove` 24x32, radios 20x20, a 100-word paragraph and an empty ≈320 px box push Swap below the fold (`gallery-dlg-swap-tags-open.png`).
+- Fix: each row as a card (Find over Replace at 48 px, a 44 px ✕), a Prompt | Negative segmented control, the explanation behind a disclosure, a results box with no min-height, and the sticky "Swap in 3 images" footer.
+- Files: web/styles/touch.css, web/index.html, web/tag-swap.js. Effort: S.
+
+**P50 - Medium - ? help badges: 14 px drawn, and their 38 px press zone covers the field below.** Merged: targets, dialogs.
+- Evidence: fields.css:204-210 draws 14x14; touch.css:96 `.help::before { inset: -12px }`. The Steps/CFG/Mu/True CFG badges sit 6 px above their boxes, so the zone covers about the top 6 px of each box. Outpaint's strength ? is 4 px from a label. About 25 badges in all.
+- Fix: `inset: -12px -12px 0` so the zone never reaches the field below. Optionally draw 20-24 px. Inside sheets, show the tip inline below its label (`position: static`), and put the long strength paragraphs behind their ?.
+- Files: web/styles/touch.css, web/styles/fields.css, web/styles/inpaint.css. Effort: S.
+
+**P51 - Low - Confirm dialogs put Cancel and the destructive action about 190 px apart.**
+- Evidence: `gallery-dlg-empty-bin-confirm-open.png`. The 16 px off-centre is the emulator's scrollbar, not the CSS.
+- Fix: optionally bottom-anchored with stacked 48 px buttons. The confirmations themselves stay.
+- Files: web/styles/touch.css. Effort: S.
+
+**P52 - Low - Bundles, Mass refine and Then refine use 20 px radios and checkboxes and 36 px scale buttons.**
+- Evidence: radios 20x20 in 88-106x23 labels, `#bundles-close` 47x36, a 335x21 native file input, scale buttons 37-52x36 at 6 px gaps.
+- Fix: 44 px label rows, segmented controls, a 48 px "Choose bundle…" button, and Then refine as a switch row. Holds stay aria-disabled.
+- Files: web/styles/touch.css, web/styles/bundles.css, web/styles/generation.css, web/index.html. Effort: S.
+
+**P53 - Low - Explanatory prose dominates dialogs and Check.**
+- Evidence: `gallery-dlg-inpaint-open.png`: a 5-line paragraph about 0.95 (≈300 device px) before the folds; Check's notes run 2-4 lines each.
+- Fix: one line inline plus a "Why?" that holds the verbatim text, keeping the result-bearing number and the 16 GB card qualifier (`card_words`). The sticky footer (P43) keeps the actions visible.
+- Files: web/styles/inpaint.css, web/styles/outpaint.css, web/styles/instruction-edit.css, web/styles/analysis.css, web/styles/touch.css. Effort: M.
+
+### F. Visual system and touch targets
+
+**P54 - High - The touch tokens bake in sub-44 sizes and never set widths.** (targets, systemic)
+- Evidence: touch.css:30-33 `--h-xs` 32, `--h-sm` 36, `--h-tool` 36. The only touch min-width rule is `#btn-saved-searches { min-width: 0 }`. 40 of 55 Create controls are under 44 at load, 54 of 84 with the folds open, and about 120 per Gallery screen.
+- Fix: in the phone query's `:root` (not the shared coarse one, so the tablet is untouched), set all three to 44 px. Add `min-width: 44px` per component (icons, presets, queue, `.close`), not globally, and exclude `.lb-link` and `.analysis-link`. Land it with P17, otherwise the card row overflows (6x44 > 180 px), and check `.viewer .tile > .tools`' fixed height (gallery.css:94). Add the audit check (P69). Update rules.md ~6582 and smoke-phone's 36/32 px assertions.
+- Files: web/styles/touch.css, tools/smoke-phone.json, docs/rules.md. Effort: M.
+
+**P55 - High - The phone keeps the desktop type scale: most text is 12-13 px next to 16 px inputs.**
+- Evidence: touch.css:37-38 changes only `--fs-xs` (11) and `--fs-sm` (12). `--fs-label` 12 is used by 93 rules and `--fs-body-sm` 13 by 61. 10 px literals at fields.css:209, generation.css:69 and analysis.css:223. Uppercase 12 px captions (`create-01-load-top.png`); queue and status text at 12-13 px (`create-16`); facts at 13 px.
+- Fix: the scale in section 2.7 on the phone `:root`, `--lh-tight` 1.25, the literals replaced by a token, and no uppercase or letter-spacing on `.field > span` and `.section > summary` on the phone. Update the style.css token comment and rules.md.
+- Files: web/styles/touch.css, web/styles/fields.css, web/styles/generation.css, web/styles/analysis.css. Effort: M.
+
+**P56 - Medium - No button hierarchy: selected presets share Generate's solid accent and everything else is the same outline.**
+- Evidence: 1:1 and 1 MP are solid `--accent-strong`, like Generate (`create-01`). Examples, Check, Reset, Set True CFG, Show run, More seeds and Finish run are identical ghosts. Delete unstarred has its own top row (`gallery-01`). Disabled buttons are visibly dimmer, so that part was overstated.
+- Fix: section 2.7 tiers. Selected toggles in `--accent-soft` with an accent border; tonal, text and danger tiers. Held buttons stay visible.
+- Files: web/styles/touch.css, web/styles/generation.css, web/styles/gallery.css. Effort: M.
+
+**P57 - Medium - No spacing rhythm, and nested frames waste 52 px of width.**
+- Evidence: aspect pairs at 0 px; ragged row ends (≈305 and ≈287 of 351); a ≈45 px hole before the orphan "1.0 MP"; section captions as close to the previous section as to their own fields; footer buttons 4-8 px apart; about 80 px of dead space in Snippets; `--gutter` 12 plus a bordered panel padded 14.
+- Fix: the rhythm in section 2.7 with `--sp-5` and `--sp-6`. On the phone `.panel` has no border, background or padding, and the gutter is 16.
+- Files: web/styles/touch.css, web/styles/generation.css, web/styles/fields.css, web/styles/snippets.css. Effort: M.
+
+**P58 - Medium - Rows break badly when they wrap.**
+- Evidence: Set True CFG orphaned on its own line (`create-01`); More seeds…/Finish run on an indented second line (`create-18-finished-full`); "Hi…" (Hidden tabs only) at 320 px; the topbar's "FLUX.… 20/28 …"; Check's mid-paragraph Show; inpaint's "nothing masked yet - paint the p…"; "Run 7615… nothing in th…".
+- Fix: caption rows hold a label and at most one trailing action, with notes on their own line. Status sentences go full width with actions on a row below, starting at the left edge. Instructions wrap to 2 lines with a "more" toggle, never ellipsize. Reserved heights are kept.
+- Files: web/styles/touch.css, web/styles/fields.css, web/styles/generation.css, web/styles/analysis.css, web/styles/inpaint.css, web/styles/sheet.css. Effort: M.
+
+**P59 - Medium - Folds and section headings use four different styles.**
+- Evidence: "GRID SEARCH" uppercase, muted, with a 10 px ▸ at 0.7 opacity (generation.css:56-69); "Custom dimensions" and "LoRA" bold with a large ▶ (fields.css:14); Step cache an inline label; dialog summaries uppercase. The fold summaries are 18 px drawn, reaching about 36 px only by a pseudo-element.
+- Fix: one phone disclosure row for every `<details>`: 48 px, a hairline above, the label at `--fs-md` 600, the value right-aligned (up to 2 lines), a 16 px rotating chevron. Non-folding section headings get a distinct style. Step cache stacks its label. This replaces the pseudo-element reach.
+- Files: web/styles/touch.css, web/styles/generation.css, web/styles/fields.css, web/styles/model-picker.css, web/styles/inpaint.css. Effort: S.
+
+**P60 - Medium - Checkboxes and radios are fixed at 20x20.**
+- Evidence: touch.css:76. `#notify-done`, `#grid-resume`, `#model-group-by-type`, 22 model radios, `#refine-lock` and the bundle and swap radios are all 20x20; bare labels 23 px; `#setups-all` 13x20. `label.check` rows are 36 px. Accent-color is already set (style.css:113).
+- Fix: booleans as 51x31 switches in 44-48 px full-width rows; 2-3 option radio groups as 44 px segmented controls; `.check, label:has(> input) { min-height: 44px }`. Keep the native inputs underneath.
+- Files: web/styles/touch.css, web/styles/setups.css, web/styles/swap.css, web/styles/bundles.css, web/styles/model-picker.css. Effort: M.
+
+**P61 - Medium - There is no pressed state anywhere.**
+- Evidence: no `:active` in style.css or styles/*.css. Hover fills are removed on touch; only a 25% tap highlight remains.
+- Fix: background-only `:active` state layers from tokens on buttons, presets, tabs and menu rows (the primary darkened with color-mix). Then a transparent tap highlight, and a passive no-op `touchstart` listener so iOS applies `:active`. No scale transform.
+- Files: web/styles/touch.css, web/touch.js. Effort: S.
+
+**P62 - Low - Text-link actions: "Then refine: off" is 80x18 and fold summaries are 18 px.**
+- Evidence: `#then-refine-open` 80x18 (pseudo-element to ≈38); summaries 324x18 (≈36); finish-note buttons 33.5 px at 8 px gaps (not touching, as first claimed).
+- Fix: real 44-48 px rows on the phone (P59, P60); finish-note buttons at 44 px or moved (P7). Citation links stay as the documented exception.
+- Files: web/styles/touch.css, web/styles/generation.css. Effort: S.
+
+**P63 - Low - Tab bar: weak selected state, an 8 px busy dot, and translucency.**
+- Evidence: `create-21-tabbar.png`: only the text and glyph colour change; an 8x8 dot; 22 px glyphs; a 94% background with blur, through which the presets read in landscape.
+- Fix: a 56x30 active-indicator pill, 24-26 px glyphs, an opaque `var(--panel)` background, and the busy state carried by the action bar (P1/P3). The badge count goes in the accessible name.
+- Files: web/styles/touch.css, web/touch.js, web/index.html. Effort: S.
+
+### G. Platform
+
+**P64 - High - Back is not integrated: there are no history entries for overlays.** Merged: platform, viewer.
+- Evidence: no pushState, replaceState, popstate or location.hash in web/*.js. Views switch by sessionStorage only. Chrome's CloseWatcher closes showModal dialogs on Android Back, but not the Models section, the context menu or the run sheet, and iOS's edge swipe leaves the page from any layer.
+- Fix: a phone-only history layer in touch.js. `pushState({layer})` on opening the lightbox, a sheet, Models, an action sheet or the run sheet; on `popstate`, close the top layer with its own close function; on any other close (✕, Escape, swipe-down), call `history.back()` only if its own state is on top, so no orphan entries pile up. Tabs use `replaceState`. Guarded by `isPhone()`. Add a smoke step that calls `history.back()`.
+- Files: web/touch.js, web/lightbox.js, web/model-switch.js, web/context-menu.js, web/sheet.js. Effort: M.
+
+**P65 - Medium - Phone landscape is the portrait column stretched to 852 px.** Merged: visual (high), create-ia (low), platform (low).
+- Evidence: `create-23-landscape-top.png`: one 790 px column, only the prompt and negative, and presets showing through the 44 px tab bar. `create-23-landscape-scroll-2.png`: Generate is 790x50, Then refine is flung 640 px right, and Step cache is 715 px wide. The Gallery leaves about 140 px for images.
+- Fix: after the portrait work. Now: an opaque tab bar, the action bar (P1) in landscape, `max-inline-size: 560px` centred for single-column content, and the gallery head in one row under the existing landscape query. Later, a two-pane Create that scrolls as the page (no inner scroller on the panel). No navigation rail. The tablet query and the one-column exclusions are unchanged.
+- Files: web/styles/touch.css, web/styles/generation.css, web/styles/gallery.css. Effort: M (two panes L).
+
+**P66 - Low - Pull-to-refresh is unmanaged, and the prompt draft does not survive a reload.**
+- Evidence: no `overscroll-behavior` on html or body; no draft persistence (the inner scrollers already contain their overscroll).
+- Fix: `html { overscroll-behavior-y: contain }` on the phone, plus `overscroll-behavior: contain` on sheets. Optional: a per-tab draft in sessionStorage (try/catch), restored through `writeBox` only into empty boxes before any Reuse or Load PNG.
+- Files: web/styles/touch.css, web/touch.js, web/panel.js. Effort: S.
+
+**P67 - Low - The home-screen PWA is a browser tab by design.**
+- Evidence: the manifest's `display: "browser"`; index.html:5-12 explains omitting `apple-mobile-web-app-capable` (downloads need Safari around them).
+- Fix: keep the default. A standalone mode only for HTTPS setups, routing Download through the share sheet (`navigator.share` needs a secure context). Update index.html and rules.md together; sw.js still caches only the offline page.
+- Files: web/manifest.webmanifest, web/index.html, web/lightbox.js. Effort: M.
+
+### H. Architecture and tests
+
+**P68 - High - The phone tier only overrides desktop components, so it cannot give the phone its own structure (the root cause).**
+- Evidence: touch.css is 327 lines of tokens, min-heights, pseudo-elements and `display: none !important`; touch.js (90 lines) only switches `body[data-view]`. The DOM order is the desktop's: the panel at index.html:157, Generate at :502 mid-panel, grid, step cache and LoRA after it, the stage and viewer at :795/:815. Note: `.panel` is already a flex column (style.css:395-403), so sticky positioning works without moves.
+- Fix: stage it. Use CSS where no order changes (sticky Generate, collapsed folds). Then phone hosts (action bar, More options, Queue and Check sheets), filled by a `phone.js` that moves nodes with `moveBefore` and restores them on a media change. Amend AGENTS.md ("touch.css and styles/phone-*.css, linked last"), rules.md ("nothing is removed, only not drawn" becomes "moved, never copied, on the phone"), docs/source-audit.md, and add phone.js to the classic-script order guard.
+- Files: web/touch.js (+ web/phone.js), web/styles/touch.css, web/index.html, AGENTS.md, docs/rules.md, docs/source-audit.md. Effort: L (spread across phases).
+
+**P69 - Medium - The phone smokes emulate a desktop window and assert none of the complaints.**
+- Evidence: tools/browser.mjs:468-469 sends `mobile: false`, so there is a 15 px scrollbar (scrollWidth 378 against 393). smoke-phone checks overflow, the panel bottom and one wrap. It opens no dialog and checks no target size. P29, P38, P40 and P41 all pass today.
+- Fix: an opt-in `"mobile": true` on the viewport step (the default stays false). A page-side audit helper that fails on visible controls whose press box is under 44x44 (with a listed exception set), controls past the viewport, and dialogs outside 0..innerHeight. New rows: smoke-phone-create, smoke-phone-gallery, smoke-phone-dialogs and smoke-phone-landscape on ports 7960-7963 with fresh scratch `--data`, plus their costs in run_smoke_costs.json. tools/ changes are not CI-definition changes.
+- Files: tools/browser.mjs, tools/smoke-phone.json, tools/smoke-phone-*.json, tools/run_smoke_costs.json, AGENTS.md (smoke table), docs/rules.md (Tests). Effort: M.
+
+**P70 - Medium - JS computes the visible area as topbar to innerHeight and ignores the bottom chrome.**
+- Evidence: job-results.js:521-523 (`viewerOutOfSight`, `innerHeight - 48` while the tab bar is 56 + safe-b), app.js:706, reuse.js:350-351/364, gallery-search.js:19, gallery-select.js:549-550, panel.js:555-602, sheet-render.js:917-918, tag-chips.js:89.
+- Fix: a `viewBand()` helper in state.js that subtracts a `--phone-bottom-chrome` custom property (tab bar plus action bar) and returns `innerHeight` when it is 0, so the desktop is identical. Adopt it in the reveal and visibility checks first. Prerequisite for P1.
+- Files: web/state.js, web/job-results.js, web/reuse.js, web/app.js, web/panel.js, web/gallery-select.js. Effort: M.
+
+**P71 - Low (prerequisite) - The tier never re-syncs on a media change.**
+- Evidence: touch.js reads `isPhone()` on demand; there is no `change` listener on `PHONE_MEDIA` (app.js:197 does listen on `BESIDE_MEDIA`).
+- Fix: one listener that moves nodes in and out of the phone hosts (keeping focus), closes phone sheets and restores the per-view scroll. smoke-tablet steps resize 678→820→678 and check that Generate and the viewer are shown and focusable.
+- Files: web/touch.js, tools/smoke-tablet.json. Effort: S.
+
+**P72 - Low - touch.css is one cascade-order monolith held together by `!important` and specificity.**
+- Evidence: `!important` at touch.css:72, :141 and :200-202; the dialog clamp winning by accident (P41); width-only narrow rules that phones also hit (style.css:325/335/358/423, gallery.css:382, model-picker.css:136/144, …); coarse rules scattered in sheet.css:202/308 and gallery.css:144.
+- Fix: phone rules stay unlayered and linked last (no `@layer`, which would lose to the unlayered desktop CSS). Add a `body[data-tier="phone"]` hook set from `PHONE_MEDIA`, plus `:where()` for predictable specificity. Split into `styles/phone-*.css` as the work lands. List in rules.md the width-only rules that phones also hit.
+- Files: web/styles/touch.css, web/index.html, docs/rules.md, docs/source-audit.md. Effort: M.
+
+---
+
+## 4. Implementation plan
+
+Constant across phases: every rule sits under `PHONE_MEDIA` (or the coarse tier where the tablet should share it). The 1400x900 mouse smokes and the tablet's two columns do not change. Per AGENTS.md, each phase rewrites the parts of `docs/rules.md` "Phones and tablets" it changes (and Tests for new smokes), in the same commit as the code. New smoke rows go into the AGENTS.md table. A `web/` change needs no server restart. GPU-free: this is all browser work against the fake server.
+
+| Phase | Findings | Size | Rules and smokes touched |
+|---|---|---|---|
+| **0. Enablers** | P69 (mobile flag, audit helper, four new smoke rows; start with a baseline that records today's failures as known), P71 (media-change sync), P70 (`viewBand`), P72 (`data-tier` hook, phone-*.css split), P64 (history layer), the sheet and action-sheet CSS primitives (P43 step 1, P39 base) | M-L (≈1 week) | AGENTS.md (where phone CSS lives, the smoke table), rules.md Tests and Phones and tablets ("moved, never copied"), docs/source-audit.md, smoke-tablet (resize steps), the classic-script order guard (phone.js) |
+| **1. Stop the breakage (quick wins)** | P41, P40 step 1, P29 interim (`min-width: 0`, wrap, unhide Inpaint and More seeds, `LB_STACKED_MEDIA`), P38 stopgap, P46, P31/P47 (44 px `.close`), P37, P21 hint, P23, P27, P36, P50 inset, P48 text bug and captions, P8 interim, P66, P14 | S each, ≈2-3 days in all | smoke-phone (dialog fit, lightbox action row, Examples overflow), rules.md (lightbox row, keyboard hints, data-typing, the phone dialog rule), the smoke-phone-dialogs row starts passing |
+| **2. Visual foundation** | P54 together with P17 (tokens to 44 and card tools hidden in one change), P55, P57, P56, P59, P60, P61, P62, P58, P63 | M-L (≈1 week) | rules.md (heights, type tokens, card tools, pseudo-element reach, fold summaries), style.css token comment, smoke-phone ("card tools 32 px", "36 px rows"), smoke-tablet (unchanged values confirmed) |
+| **3. Create structure** | P1 (sticky first, then the action bar), P2, P3, P8, P4, P5, P11, P12, P10, P6, P7, P13, P9, P15, P68 (hosts) | L (≈2 weeks) | rules.md (one column with a tab bar → action bar, data-typing for the bar, New image pill phone exception, Finish run not drawn, placeTagValidation phone branch, topbar, Unload in the sheet), smoke-phone-create, smoke-phone (Generate position, line 28), smoke-size-crop and smoke-results (desktop paths unchanged) |
+| **4. Gallery** | P16, P18, P19, P20, P22, P24, P21 rest, P25, P26, P28 | L (≈1.5 weeks) | rules.md (footer at full names, long press adds Select, tab bar replaced while selecting, card view below 1800 px, tab re-press, bin screen), index.html placement comments, smoke-phone-gallery, smoke-phone, smoke-select and smoke-gallery (desktop unchanged) |
+| **5. Viewer** | P30, P31, P29 full bar, P32, P33, P34, P35, P39 (action sheet) | L (≈1.5 weeks) | rules.md (lightbox gestures: tap toggles chrome, Back; context menu "16 px under the finger" and "36 px rows" → bottom sheet; the menu holding Inpaint and More seeds), lightbox.css header comments, smoke-phone-gallery, smoke-context-menu (phone branch), smoke-lightbox (desktop unchanged) |
+| **6. Sheets and dialogs** | P43 step 2, P44, P45, P42, P40 steps 2-3, P49, P48 list-then-edit, P52, P51, P53, P9 sheet if not already done | L (≈2 weeks) | rules.md (the Models picker "between the topbar and the bar", the phone sheet pattern, the keyboard inset), smoke-phone-dialogs, smoke-generation-presets, smoke-saved-searches and smoke-snippets (their `<select>` kept), smoke-model-* (desktop unchanged) |
+| **7. Landscape and platform polish** | P65, P35 if deferred, P67 (only if HTTPS is wanted), the remaining P63 | M | rules.md landscape paragraph, smoke-phone-landscape |
+
+Notes:
+- Order within phase 3: sticky Generate (CSS) first, which removes most of the reach problem on its own. Then the result card moved up, then More options with the size control, then the Queue and Check sheets. Re-measure after each step.
+- P54 must land with P17, otherwise the six 44 px card tools overflow a 180 px card.
+- Device check before closing phase 6: a real iPhone for P44 (keyboard over sheets), P1's keyboard behaviour and P36's ghosting; Android for P64's Back.
+- Rough total: 8-10 weeks of focused work. Phase 1 alone fixes every control that is out of reach today.
+
+---
+
+## 5. Refuted or narrowed claims (what was checked and dropped)
+
+The verification pass refuted no finding outright. These claims were corrected or dropped:
+
+- CSS `order` or `display: contents` on `.panel` to reorder Create: dropped. Visual order would no longer match focus order (WCAG 1.3.2/2.4.3), WebKit drops the region's landmark, and the panel loses its padding. Nodes are moved instead.
+- "CSS overrides cannot give the phone a hierarchy": overstated. `.panel` is already a flex column, so sticky Generate needs no DOM move.
+- `@layer phone` for the phone rules: wrong. A layered rule loses to unlayered desktop CSS.
+- Long press repurposed to select: dropped. Long press is the only way to Use seed, Copy and Open PNG on touch. It keeps the menu, which gains a Select item.
+- Lightbox Delete "unreachable" and "the row did not scroll": wrong. `gallery-24` shows it reachable by a sideways scroll with no cue. It is a discoverability problem, high rather than critical.
+- Card ⌦ as critical data loss: lowered. It bins, which is recoverable.
+- "Inpaint, Outpaint and Edit primary buttons cannot be reached at all": overstated. About 18 px is past the screen and they are still pressable. Only 3-4 of 17 dialogs fail.
+- Lightbox long-press menu "first row scrolled away": wrong. It is an orphan separator where Open is hidden. The menu starts inside the screen.
+- Empty-bin confirm off-centre: an emulator scrollbar artefact, not a CSS bug.
+- "No accent-color on checkboxes": false (style.css:113).
+- Models picker "must press Models again to close": wrong. It light-dismisses on any outside press.
+- Topbar costing 117 px: true only in standalone mode, which the app does not use. The real cost is 58 px.
+- Finish-note buttons touching at 0 px: wrong. They are 33.5 px tall with 8 px gaps.
+- Batch 4 drawn as 20vh `.many` tiles: wrong. Batch 4 is `.multi`; `.many` starts above 4.
+- Bulk buttons queueing large GPU work in one tap: wrong. Each opens a preview dialog that states the scope and count.
+- iOS `type=number` lacking a decimal point: wrong. `inputmode="decimal"` is a nicer keypad, not a missing capability. `#search` is already `type=search`.
+- Hiding held buttons on the phone: dropped. The aria-disabled-with-reason rule applies; they move to the selection bar instead.
+- `cover` crop as the gallery default: dropped. Fit stays (it shows lettering and orientation), with Crop one tap away.
+- A separate Grid search sheet, and hiding Step cache: dropped. Both go into More options, and Step cache stays inspectable.
+- Hiding `#last-run`'s buttons outright: narrowed to "only while the viewer shows that run".
+- Hiding `.phone-tabs` under open dialogs: unnecessary once the lightbox is opaque.
+- Hide-on-scroll headers in portrait: dropped. They move controls the user is not touching.
+- A navigation rail in landscape: dropped for now as a large change for little gain.
+- `transform: scale()` press feedback: dropped in favour of background-only state layers.
+- Standalone PWA on plain-http LAN: blocked, since `navigator.share` needs a secure context. "Two stacked bottom bars" is overstated because Safari's toolbar collapses on scroll.
+- Pull-to-refresh "scroll chaining from the Models list": already contained (model-picker.css:25).
+- Optional extras kept as later work, not fixes: pinch-to-change columns, drag-select, a date scrubber, a search-token sheet, canvas pinch-zoom, swipe-to-dismiss sheets, a lightbox filmstrip.
+- A third Results tab: not chosen. The action bar with a result dock covers the need with less chrome (see 2.2). It stays possible later.
+- Severity adjustments applied: Help badges high → medium; Check inline high → medium; the context menu high → medium; Models sheet (platform) high → medium, kept high here as a merged core task; the lightbox backdrop to low; the stuck-label and Delete unstarred findings to medium.
+- Not yet verified on a device: whether the keyboard rises over sheets on open (P44), and lightbox ghosting outside headless capture (P36).

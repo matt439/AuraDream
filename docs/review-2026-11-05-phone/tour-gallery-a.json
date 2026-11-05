@@ -1,0 +1,315 @@
+[
+ {
+  "touch": true
+ },
+ {
+  "viewport": [
+   393,
+   852,
+   3
+  ]
+ },
+ {
+  "navigate": "http://127.0.0.1:7991/"
+ },
+ {
+  "media": {
+   "prefers-reduced-motion": "reduce"
+  }
+ },
+ {
+  "eval": "window.__until = async (fn, ms = 20000) => { const end = Date.now() + ms; while (Date.now() < end) { try { if (fn()) return true; } catch { } await new Promise((r) => setTimeout(r, 50)); } return false; };\nwindow.__sleep = (ms) => new Promise((r) => setTimeout(r, ms));\nwindow.__box = (el) => el.getBoundingClientRect();\nwindow.__M = (state) => {\n  const SEL = 'button, a[href], input:not([type=hidden]), select, textarea, summary, [role=button], [role=tab], [role=menuitem], [role=slider], [tabindex]:not([tabindex=\"-1\"]), label';\n  const modals = [...document.querySelectorAll('dialog[open]')].filter((d) => d.matches(':modal'));\n  const top = modals[modals.length - 1] || null;\n  const shown = (el) => {\n    if (!el.checkVisibility({ visibilityProperty: true, checkVisibilityCSS: true, opacityProperty: true })) return false;\n    const r = el.getBoundingClientRect();\n    if (r.width < 1 || r.height < 1) return false;\n    if (el.closest('[inert]')) return false;\n    if (top && !top.contains(el)) return false;\n    return true;\n  };\n  let all = [...document.querySelectorAll(SEL)].filter((el) => {\n    if (el.tagName === 'LABEL') return !!el.querySelector('input[type=checkbox], input[type=radio]');\n    return true;\n  }).filter(shown);\n  const set = new Set(all);\n  const rects = all.map((el) => ({ el, r: el.getBoundingClientRect() }));\n  const name = (el) => el.id ? '#' + el.id : el.tagName.toLowerCase() + (el.className && typeof el.className === 'string' ? '.' + el.className.trim().split(/\\s+/).join('.') : '') + (el.dataset.density ? `[density=${el.dataset.density}]` : '') + (el.dataset.fit ? `[fit=${el.dataset.fit}]` : '');\n  const text = (el) => (el.getAttribute('aria-label') || el.textContent || el.value || el.placeholder || el.title || '').replace(/\\s+/g, ' ').trim().slice(0, 40);\n  const gap = (a, b) => { const dx = Math.max(0, Math.max(a.left, b.left) - Math.min(a.right, b.right)); const dy = Math.max(0, Math.max(a.top, b.top) - Math.min(a.bottom, b.bottom)); return Math.hypot(dx, dy); };\n  const small = [];\n  for (const { el, r } of rects) {\n    if (r.width >= 44 && r.height >= 44) continue;\n    let g = Infinity, nb = null;\n    for (const o of rects) {\n      if (o.el === el || o.el.contains(el) || el.contains(o.el)) continue;\n      const d = gap(r, o.r);\n      if (d < g) { g = d; nb = o.el; }\n    }\n    const inView = r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth;\n    small.push({ id: name(el), text: text(el), w: Math.round(r.width * 10) / 10, h: Math.round(r.height * 10) / 10, x: Math.round(r.left), y: Math.round(r.top), inView, gap: g === Infinity ? null : Math.round(g * 10) / 10, neighbour: nb ? name(nb) : null });\n  }\n  const sc = document.scrollingElement;\n  const out = { state, viewport: [innerWidth, innerHeight], overflowX: sc.scrollWidth > innerWidth + 0.5, scrollWidth: sc.scrollWidth, innerWidth, scrollHeight: sc.scrollHeight, topModal: top ? top.id : null, interactive: rects.length, smallCount: small.length, small };\n  if (top) { out.modalScrollHeight = top.scrollHeight; out.modalClientHeight = top.clientHeight; out.modalScrollWidth = top.scrollWidth; out.modalClientWidth = top.clientWidth; out.modalBox = (({ left, top: t, width, height }) => ({ left, top: t, width, height }))(top.getBoundingClientRect()); }\n  return 'MEASURE ' + JSON.stringify(out);\n};\n// Scroll the top modal (or its scrolling child) to its bottom.\nwindow.__modalBottom = () => { const d = [...document.querySelectorAll('dialog[open]')].pop(); if (!d) return false; const scrollers = [d, ...d.querySelectorAll('*')].filter((e) => e.scrollHeight > e.clientHeight + 2 && /(auto|scroll)/.test(getComputedStyle(e).overflowY)); scrollers.forEach((e) => { e.scrollTop = e.scrollHeight; }); return scrollers.map((e) => e.id || e.className).join(','); };\nwindow.__rec = (i) => galleryRecords[i];\ntrue;\n"
+ },
+ {
+  "expect": "__until(() => document.getElementById('status-dot').className.includes('ready') && !galleryPending && document.querySelectorAll('#gallery .card[data-id]').length >= 10)",
+  "fatal": true
+ },
+ {
+  "tap": "#tab-gallery"
+ },
+ {
+  "eval": "__until(() => document.body.dataset.view === 'gallery' && isShown(els.gallery), 8000)"
+ },
+ {
+  "wait": 800
+ },
+ {
+  "shot": "gallery-01-top.png"
+ },
+ {
+  "log": "__M(\"gallery top (393x852)\")"
+ },
+ {
+  "fullshot": "gallery-02-fullpage.png"
+ },
+ {
+  "eval": "scrollTo(0, 1400); true"
+ },
+ {
+  "wait": 600
+ },
+ {
+  "shot": "gallery-03-scrolled.png"
+ },
+ {
+  "log": "__M(\"gallery scrolled 1400px\")"
+ },
+ {
+  "eval": "scrollTo(0, document.scrollingElement.scrollHeight); true"
+ },
+ {
+  "wait": 600
+ },
+ {
+  "shot": "gallery-04-bottom-footer.png"
+ },
+ {
+  "log": "__M(\"gallery scrolled to bottom (footer)\")"
+ },
+ {
+  "eval": "scrollTo(0, 0); true"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "tap": "#search"
+ },
+ {
+  "wait": 400
+ },
+ {
+  "type": "light"
+ },
+ {
+  "wait": 900
+ },
+ {
+  "shot": "gallery-05-search-focused-typed.png"
+ },
+ {
+  "log": "__M(\"gallery search focused, 'light' typed\")"
+ },
+ {
+  "eval": "els.search.value = ''; els.search.dispatchEvent(new Event('input', {bubbles: true})); els.search.blur(); true"
+ },
+ {
+  "wait": 900
+ },
+ {
+  "elshot": [
+   ".gallery-head",
+   "gallery-06-head-closeup.png"
+  ]
+ },
+ {
+  "tap": ".gallery-head .help"
+ },
+ {
+  "wait": 400
+ },
+ {
+  "shot": "gallery-07-search-help-tip.png"
+ },
+ {
+  "log": "__M(\"gallery search help tip tapped\")"
+ },
+ {
+  "eval": "document.activeElement.blur(); true"
+ },
+ {
+  "tap": "#fav-only"
+ },
+ {
+  "wait": 900
+ },
+ {
+  "shot": "gallery-08-starred-filter.png"
+ },
+ {
+  "log": "__M(\"gallery Starred filter on\")"
+ },
+ {
+  "tap": "#fav-only"
+ },
+ {
+  "wait": 900
+ },
+ {
+  "tap": "[data-density=s]"
+ },
+ {
+  "tap": "[data-fit=cover]"
+ },
+ {
+  "wait": 600
+ },
+ {
+  "shot": "gallery-09-small-crop-cards.png"
+ },
+ {
+  "log": "__M(\"gallery S density + Crop\")"
+ },
+ {
+  "tap": "[data-density=m]"
+ },
+ {
+  "tap": "[data-fit=contain]"
+ },
+ {
+  "wait": 600
+ },
+ {
+  "elshot": [
+   "#gallery .card[data-id]",
+   "gallery-10-card-closeup.png"
+  ]
+ },
+ {
+  "elshot": [
+   "#gallery .card[data-id] .tools",
+   "gallery-11-card-tools-closeup.png"
+  ]
+ },
+ {
+  "log": "(() => { const c = document.querySelector('#gallery .card[data-id]'); return [...c.querySelectorAll('button, .star')].map((b) => (b.className || b.tagName) + ' ' + (b.getAttribute('aria-label') || b.textContent).trim().slice(0, 30) + ' ' + Math.round(b.getBoundingClientRect().width) + 'x' + Math.round(b.getBoundingClientRect().height) + ' shown=' + isShown(b)); })()"
+ },
+ {
+  "log": "[...document.getElementById('run-list').options].map((o) => o.textContent).join(' | ')"
+ },
+ {
+  "eval": "(() => { const r = galleryRecords.find((x) => x.prompt.includes('teapot')); window.__gridRun = r.run_id; showRun(r.run_id); return true; })()"
+ },
+ {
+  "eval": "__until(() => isShown(document.getElementById('sheet')), 8000)"
+ },
+ {
+  "wait": 1000
+ },
+ {
+  "eval": "scrollTo(0, 0); true"
+ },
+ {
+  "shot": "gallery-12-runs-sheet-top.png"
+ },
+ {
+  "log": "__M(\"Runs: grid run sheet\")"
+ },
+ {
+  "fullshot": "gallery-13-runs-sheet-full.png"
+ },
+ {
+  "elshot": [
+   "#sheet-controls",
+   "gallery-14-sheet-controls-closeup.png"
+  ]
+ },
+ {
+  "eval": "setSheet(false); applyGalleryFilter({query: '', favorites: false, all_models: false}); true"
+ },
+ {
+  "eval": "__until(() => !isShown(document.getElementById('sheet')) && document.querySelectorAll('#gallery .card[data-id]').length >= 10, 8000)"
+ },
+ {
+  "wait": 600
+ },
+ {
+  "eval": "scrollTo(0, document.scrollingElement.scrollHeight); true"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "tap": "#btn-select"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "log": "'select pressed after tap: ' + document.getElementById('btn-select').getAttribute('aria-pressed')"
+ },
+ {
+  "eval": "if (document.getElementById('btn-select').getAttribute('aria-pressed') !== 'true') setSelectMode(true); true"
+ },
+ {
+  "eval": "scrollTo(0, 0); true"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "eval": "document.querySelectorAll('#gallery .card[data-id]').forEach((c, i) => { c.dataset.pk = i; }); true"
+ },
+ {
+  "tap": "#gallery .card[data-pk='0'] img"
+ },
+ {
+  "tap": "#gallery .card[data-pk='1'] img"
+ },
+ {
+  "tap": "#gallery .card[data-pk='3'] img"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "shot": "gallery-15-select-mode-top.png"
+ },
+ {
+  "log": "__M(\"selection mode, 3 picked (top)\")"
+ },
+ {
+  "eval": "scrollTo(0, document.scrollingElement.scrollHeight); true"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "shot": "gallery-16-select-mode-footer.png"
+ },
+ {
+  "elshot": [
+   ".gallery-footer",
+   "gallery-17-footer-selecting-closeup.png"
+  ]
+ },
+ {
+  "log": "__M(\"selection mode, 3 picked, scrolled to footer\")"
+ },
+ {
+  "tap": "#btn-picked"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "shot": "gallery-18-picked-menu.png"
+ },
+ {
+  "log": "__M(\"Picked menu open\")"
+ },
+ {
+  "key": "Escape"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "tap": "#btn-select-clear"
+ },
+ {
+  "tap": "#btn-select"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "elshot": [
+   ".gallery-footer",
+   "gallery-19-footer-idle-closeup.png"
+  ]
+ },
+ {
+  "log": "__M(\"gallery footer idle (scrolled to bottom)\")"
+ }
+]

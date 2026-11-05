@@ -1,0 +1,876 @@
+[
+ {
+  "touch": true
+ },
+ {
+  "viewport": [
+   393,
+   852,
+   3
+  ]
+ },
+ {
+  "navigate": "http://127.0.0.1:7991/"
+ },
+ {
+  "media": {
+   "prefers-reduced-motion": "reduce"
+  }
+ },
+ {
+  "eval": "window.__until = async (fn, ms = 20000) => { const end = Date.now() + ms; while (Date.now() < end) { try { if (fn()) return true; } catch { } await new Promise((r) => setTimeout(r, 50)); } return false; };\nwindow.__sleep = (ms) => new Promise((r) => setTimeout(r, ms));\nwindow.__box = (el) => el.getBoundingClientRect();\nwindow.__M = (state) => {\n  const SEL = 'button, a[href], input:not([type=hidden]), select, textarea, summary, [role=button], [role=tab], [role=menuitem], [role=slider], [tabindex]:not([tabindex=\"-1\"]), label';\n  const modals = [...document.querySelectorAll('dialog[open]')].filter((d) => d.matches(':modal'));\n  const top = modals[modals.length - 1] || null;\n  const shown = (el) => {\n    if (!el.checkVisibility({ visibilityProperty: true, checkVisibilityCSS: true, opacityProperty: true })) return false;\n    const r = el.getBoundingClientRect();\n    if (r.width < 1 || r.height < 1) return false;\n    if (el.closest('[inert]')) return false;\n    if (top && !top.contains(el)) return false;\n    return true;\n  };\n  let all = [...document.querySelectorAll(SEL)].filter((el) => {\n    if (el.tagName === 'LABEL') return !!el.querySelector('input[type=checkbox], input[type=radio]');\n    return true;\n  }).filter(shown);\n  const set = new Set(all);\n  const rects = all.map((el) => ({ el, r: el.getBoundingClientRect() }));\n  const name = (el) => el.id ? '#' + el.id : el.tagName.toLowerCase() + (el.className && typeof el.className === 'string' ? '.' + el.className.trim().split(/\\s+/).join('.') : '') + (el.dataset.density ? `[density=${el.dataset.density}]` : '') + (el.dataset.fit ? `[fit=${el.dataset.fit}]` : '');\n  const text = (el) => (el.getAttribute('aria-label') || el.textContent || el.value || el.placeholder || el.title || '').replace(/\\s+/g, ' ').trim().slice(0, 40);\n  const gap = (a, b) => { const dx = Math.max(0, Math.max(a.left, b.left) - Math.min(a.right, b.right)); const dy = Math.max(0, Math.max(a.top, b.top) - Math.min(a.bottom, b.bottom)); return Math.hypot(dx, dy); };\n  const small = [];\n  for (const { el, r } of rects) {\n    if (r.width >= 44 && r.height >= 44) continue;\n    let g = Infinity, nb = null;\n    for (const o of rects) {\n      if (o.el === el || o.el.contains(el) || el.contains(o.el)) continue;\n      const d = gap(r, o.r);\n      if (d < g) { g = d; nb = o.el; }\n    }\n    const inView = r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth;\n    small.push({ id: name(el), text: text(el), w: Math.round(r.width * 10) / 10, h: Math.round(r.height * 10) / 10, x: Math.round(r.left), y: Math.round(r.top), inView, gap: g === Infinity ? null : Math.round(g * 10) / 10, neighbour: nb ? name(nb) : null });\n  }\n  const sc = document.scrollingElement;\n  const out = { state, viewport: [innerWidth, innerHeight], overflowX: sc.scrollWidth > innerWidth + 0.5, scrollWidth: sc.scrollWidth, innerWidth, scrollHeight: sc.scrollHeight, topModal: top ? top.id : null, interactive: rects.length, smallCount: small.length, small };\n  if (top) { out.modalScrollHeight = top.scrollHeight; out.modalClientHeight = top.clientHeight; out.modalScrollWidth = top.scrollWidth; out.modalClientWidth = top.clientWidth; out.modalBox = (({ left, top: t, width, height }) => ({ left, top: t, width, height }))(top.getBoundingClientRect()); }\n  return 'MEASURE ' + JSON.stringify(out);\n};\n// Scroll the top modal (or its scrolling child) to its bottom.\nwindow.__modalBottom = () => { const d = [...document.querySelectorAll('dialog[open]')].pop(); if (!d) return false; const scrollers = [d, ...d.querySelectorAll('*')].filter((e) => e.scrollHeight > e.clientHeight + 2 && /(auto|scroll)/.test(getComputedStyle(e).overflowY)); scrollers.forEach((e) => { e.scrollTop = e.scrollHeight; }); return scrollers.map((e) => e.id || e.className).join(','); };\nwindow.__rec = (i) => galleryRecords[i];\ntrue;\n"
+ },
+ {
+  "expect": "__until(() => document.getElementById('status-dot').className.includes('ready') && !galleryPending && document.querySelectorAll('#gallery .card[data-id]').length >= 10)",
+  "fatal": true
+ },
+ {
+  "tap": "#tab-gallery"
+ },
+ {
+  "wait": 800
+ },
+ {
+  "eval": "window.__R = galleryRecords.find((x) => !x.refine && x.width === 1024 && !x.prompt.includes('teapot')); window.__P = galleryRecords.find((x) => x.height > x.width); true"
+ },
+ {
+  "eval": "openLightbox(__R, galleryRecords); true"
+ },
+ {
+  "eval": "__until(() => els.lightbox.open, 8000)"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "eval": "document.getElementById('lb-refine').scrollIntoView({block: 'center'}); true"
+ },
+ {
+  "tap": "#lb-refine"
+ },
+ {
+  "log": "\"DIALOG refine\""
+ },
+ {
+  "eval": "true"
+ },
+ {
+  "eval": "__until(() => document.getElementById('refine-dialog').open, 6000)"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "shot": "gallery-dlg-refine-open.png"
+ },
+ {
+  "log": "__M(\"dialog refine (open, top)\")"
+ },
+ {
+  "log": "(() => { const d = document.getElementById('refine-dialog'); return d.open + ' ' + JSON.stringify(d.getBoundingClientRect()) + ' scroll ' + d.scrollHeight + '/' + d.clientHeight; })()"
+ },
+ {
+  "log": "__modalBottom()"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "shot": "gallery-dlg-refine-bottom.png"
+ },
+ {
+  "log": "__M(\"dialog refine (scrolled to bottom)\")"
+ },
+ {
+  "eval": "for (const d of [...document.querySelectorAll('dialog[open]')].reverse()) d.close(); if (els.contextMenu && !els.contextMenu.hidden) els.contextMenu.hidden = true; true"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "log": "\"DIALOG inpaint\""
+ },
+ {
+  "eval": "openInpaint(__R); true"
+ },
+ {
+  "eval": "__until(() => document.getElementById('inpaint-dialog').open, 6000)"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "shot": "gallery-dlg-inpaint-open.png"
+ },
+ {
+  "log": "__M(\"dialog inpaint (open, top)\")"
+ },
+ {
+  "log": "(() => { const d = document.getElementById('inpaint-dialog'); return d.open + ' ' + JSON.stringify(d.getBoundingClientRect()) + ' scroll ' + d.scrollHeight + '/' + d.clientHeight; })()"
+ },
+ {
+  "log": "__modalBottom()"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "shot": "gallery-dlg-inpaint-bottom.png"
+ },
+ {
+  "log": "__M(\"dialog inpaint (scrolled to bottom)\")"
+ },
+ {
+  "eval": "(() => { const d = document.getElementById('inpaint-dialog'); d.querySelectorAll('*').forEach((e) => { if (e.scrollTop) e.scrollTop = 0; }); d.scrollTop = 0; return true; })()"
+ },
+ {
+  "wait": 200
+ },
+ {
+  "log": "(() => { const c = document.querySelector('#inpaint-dialog canvas'); return c ? JSON.stringify(c.getBoundingClientRect()) : 'no canvas'; })()"
+ },
+ {
+  "log": "(() => { const c = [...document.querySelectorAll('#inpaint-dialog canvas')].filter(isShown).pop(); if (!c) return 'none'; c.scrollIntoView({block: 'center'}); const r = c.getBoundingClientRect(); window.__cv = [Math.round(r.left + r.width * 0.3), Math.round(r.top + r.height * 0.4), Math.round(r.left + r.width * 0.7), Math.round(r.top + r.height * 0.6)]; return JSON.stringify(window.__cv); })()"
+ },
+ {
+  "elshot": [
+   "#inpaint-dialog",
+   "gallery-dlg-inpaint-whole.png"
+  ]
+ },
+ {
+  "eval": "for (const d of [...document.querySelectorAll('dialog[open]')].reverse()) d.close(); if (els.contextMenu && !els.contextMenu.hidden) els.contextMenu.hidden = true; true"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "log": "\"DIALOG outpaint\""
+ },
+ {
+  "eval": "openOutpaint(__R); true"
+ },
+ {
+  "eval": "__until(() => document.getElementById('outpaint-dialog').open, 6000)"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "shot": "gallery-dlg-outpaint-open.png"
+ },
+ {
+  "log": "__M(\"dialog outpaint (open, top)\")"
+ },
+ {
+  "log": "(() => { const d = document.getElementById('outpaint-dialog'); return d.open + ' ' + JSON.stringify(d.getBoundingClientRect()) + ' scroll ' + d.scrollHeight + '/' + d.clientHeight; })()"
+ },
+ {
+  "log": "__modalBottom()"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "shot": "gallery-dlg-outpaint-bottom.png"
+ },
+ {
+  "log": "__M(\"dialog outpaint (scrolled to bottom)\")"
+ },
+ {
+  "elshot": [
+   "#outpaint-dialog",
+   "gallery-dlg-outpaint-whole.png"
+  ]
+ },
+ {
+  "eval": "for (const d of [...document.querySelectorAll('dialog[open]')].reverse()) d.close(); if (els.contextMenu && !els.contextMenu.hidden) els.contextMenu.hidden = true; true"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "log": "\"DIALOG edit\""
+ },
+ {
+  "eval": "void openEdit(__R); true"
+ },
+ {
+  "eval": "__until(() => document.getElementById('edit-dialog').open, 6000)"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "shot": "gallery-dlg-edit-open.png"
+ },
+ {
+  "log": "__M(\"dialog edit (open, top)\")"
+ },
+ {
+  "log": "(() => { const d = document.getElementById('edit-dialog'); return d.open + ' ' + JSON.stringify(d.getBoundingClientRect()) + ' scroll ' + d.scrollHeight + '/' + d.clientHeight; })()"
+ },
+ {
+  "log": "__modalBottom()"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "shot": "gallery-dlg-edit-bottom.png"
+ },
+ {
+  "log": "__M(\"dialog edit (scrolled to bottom)\")"
+ },
+ {
+  "eval": "for (const d of [...document.querySelectorAll('dialog[open]')].reverse()) d.close(); if (els.contextMenu && !els.contextMenu.hidden) els.contextMenu.hidden = true; true"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "eval": "openLightbox(__R, galleryRecords); true"
+ },
+ {
+  "eval": "__until(() => els.lightbox.open, 8000)"
+ },
+ {
+  "wait": 400
+ },
+ {
+  "eval": "document.getElementById('lb-more-seeds').scrollIntoView({block: 'center'}); true"
+ },
+ {
+  "tap": "#lb-more-seeds"
+ },
+ {
+  "log": "\"DIALOG more-seeds\""
+ },
+ {
+  "eval": "true"
+ },
+ {
+  "eval": "__until(() => document.getElementById('more-seeds-dialog').open, 6000)"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "shot": "gallery-dlg-more-seeds-open.png"
+ },
+ {
+  "log": "__M(\"dialog more-seeds (open, top)\")"
+ },
+ {
+  "log": "(() => { const d = document.getElementById('more-seeds-dialog'); return d.open + ' ' + JSON.stringify(d.getBoundingClientRect()) + ' scroll ' + d.scrollHeight + '/' + d.clientHeight; })()"
+ },
+ {
+  "log": "__modalBottom()"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "shot": "gallery-dlg-more-seeds-bottom.png"
+ },
+ {
+  "log": "__M(\"dialog more-seeds (scrolled to bottom)\")"
+ },
+ {
+  "eval": "for (const d of [...document.querySelectorAll('dialog[open]')].reverse()) d.close(); if (els.contextMenu && !els.contextMenu.hidden) els.contextMenu.hidden = true; true"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "eval": "setSelectMode(true); for (const r of galleryRecords.slice(0, 3)) toggleSelected(r); true"
+ },
+ {
+  "wait": 400
+ },
+ {
+  "log": "\"DIALOG swap-tags\""
+ },
+ {
+  "eval": "openSwapDialog(); true"
+ },
+ {
+  "eval": "__until(() => document.getElementById('swap-dialog').open, 6000)"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "shot": "gallery-dlg-swap-tags-open.png"
+ },
+ {
+  "log": "__M(\"dialog swap-tags (open, top)\")"
+ },
+ {
+  "log": "(() => { const d = document.getElementById('swap-dialog'); return d.open + ' ' + JSON.stringify(d.getBoundingClientRect()) + ' scroll ' + d.scrollHeight + '/' + d.clientHeight; })()"
+ },
+ {
+  "log": "__modalBottom()"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "shot": "gallery-dlg-swap-tags-bottom.png"
+ },
+ {
+  "log": "__M(\"dialog swap-tags (scrolled to bottom)\")"
+ },
+ {
+  "eval": "for (const d of [...document.querySelectorAll('dialog[open]')].reverse()) d.close(); if (els.contextMenu && !els.contextMenu.hidden) els.contextMenu.hidden = true; true"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "log": "\"DIALOG mass-refine\""
+ },
+ {
+  "eval": "void openRefineBatch(); true"
+ },
+ {
+  "eval": "__until(() => document.getElementById('refine-batch-dialog').open, 6000)"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "shot": "gallery-dlg-mass-refine-open.png"
+ },
+ {
+  "log": "__M(\"dialog mass-refine (open, top)\")"
+ },
+ {
+  "log": "(() => { const d = document.getElementById('refine-batch-dialog'); return d.open + ' ' + JSON.stringify(d.getBoundingClientRect()) + ' scroll ' + d.scrollHeight + '/' + d.clientHeight; })()"
+ },
+ {
+  "log": "__modalBottom()"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "shot": "gallery-dlg-mass-refine-bottom.png"
+ },
+ {
+  "log": "__M(\"dialog mass-refine (scrolled to bottom)\")"
+ },
+ {
+  "eval": "for (const d of [...document.querySelectorAll('dialog[open]')].reverse()) d.close(); if (els.contextMenu && !els.contextMenu.hidden) els.contextMenu.hidden = true; true"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "log": "\"DIALOG more-seeds-picked\""
+ },
+ {
+  "eval": "void openMoreSeeds(); true"
+ },
+ {
+  "eval": "__until(() => document.getElementById('more-seeds-dialog').open, 6000)"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "shot": "gallery-dlg-more-seeds-picked-open.png"
+ },
+ {
+  "log": "__M(\"dialog more-seeds-picked (open, top)\")"
+ },
+ {
+  "log": "(() => { const d = document.getElementById('more-seeds-dialog'); return d.open + ' ' + JSON.stringify(d.getBoundingClientRect()) + ' scroll ' + d.scrollHeight + '/' + d.clientHeight; })()"
+ },
+ {
+  "log": "__modalBottom()"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "shot": "gallery-dlg-more-seeds-picked-bottom.png"
+ },
+ {
+  "log": "__M(\"dialog more-seeds-picked (scrolled to bottom)\")"
+ },
+ {
+  "eval": "for (const d of [...document.querySelectorAll('dialog[open]')].reverse()) d.close(); if (els.contextMenu && !els.contextMenu.hidden) els.contextMenu.hidden = true; true"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "eval": "clearSelection(); setSelectMode(false); true"
+ },
+ {
+  "eval": "scrollTo(0, 0); true"
+ },
+ {
+  "tap": "#btn-saved-searches"
+ },
+ {
+  "log": "\"DIALOG saved-searches\""
+ },
+ {
+  "eval": "true"
+ },
+ {
+  "eval": "__until(() => document.getElementById('saved-searches-dialog').open, 6000)"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "shot": "gallery-dlg-saved-searches-open.png"
+ },
+ {
+  "log": "__M(\"dialog saved-searches (open, top)\")"
+ },
+ {
+  "log": "(() => { const d = document.getElementById('saved-searches-dialog'); return d.open + ' ' + JSON.stringify(d.getBoundingClientRect()) + ' scroll ' + d.scrollHeight + '/' + d.clientHeight; })()"
+ },
+ {
+  "log": "__modalBottom()"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "shot": "gallery-dlg-saved-searches-bottom.png"
+ },
+ {
+  "log": "__M(\"dialog saved-searches (scrolled to bottom)\")"
+ },
+ {
+  "eval": "for (const d of [...document.querySelectorAll('dialog[open]')].reverse()) d.close(); if (els.contextMenu && !els.contextMenu.hidden) els.contextMenu.hidden = true; true"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "eval": "scrollTo(0, 0); true"
+ },
+ {
+  "tap": "#btn-bundles"
+ },
+ {
+  "log": "\"DIALOG bundles\""
+ },
+ {
+  "eval": "true"
+ },
+ {
+  "eval": "__until(() => document.getElementById('bundles-dialog').open, 6000)"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "shot": "gallery-dlg-bundles-open.png"
+ },
+ {
+  "log": "__M(\"dialog bundles (open, top)\")"
+ },
+ {
+  "log": "(() => { const d = document.getElementById('bundles-dialog'); return d.open + ' ' + JSON.stringify(d.getBoundingClientRect()) + ' scroll ' + d.scrollHeight + '/' + d.clientHeight; })()"
+ },
+ {
+  "log": "__modalBottom()"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "shot": "gallery-dlg-bundles-bottom.png"
+ },
+ {
+  "log": "__M(\"dialog bundles (scrolled to bottom)\")"
+ },
+ {
+  "eval": "for (const d of [...document.querySelectorAll('dialog[open]')].reverse()) d.close(); if (els.contextMenu && !els.contextMenu.hidden) els.contextMenu.hidden = true; true"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "log": "\"DIALOG confirm\""
+ },
+ {
+  "eval": "void openAsk('Move 12 unstarred images to the recycle bin?', {count: true, okLabel: 'Move to bin'}); true"
+ },
+ {
+  "eval": "__until(() => document.getElementById('confirm-dialog').open, 6000)"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "shot": "gallery-dlg-confirm-open.png"
+ },
+ {
+  "log": "__M(\"dialog confirm (open, top)\")"
+ },
+ {
+  "log": "(() => { const d = document.getElementById('confirm-dialog'); return d.open + ' ' + JSON.stringify(d.getBoundingClientRect()) + ' scroll ' + d.scrollHeight + '/' + d.clientHeight; })()"
+ },
+ {
+  "log": "__modalBottom()"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "shot": "gallery-dlg-confirm-bottom.png"
+ },
+ {
+  "log": "__M(\"dialog confirm (scrolled to bottom)\")"
+ },
+ {
+  "eval": "for (const d of [...document.querySelectorAll('dialog[open]')].reverse()) d.close(); if (els.contextMenu && !els.contextMenu.hidden) els.contextMenu.hidden = true; true"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "log": "\"DIALOG then-refine\""
+ },
+ {
+  "eval": "els.thenRefineOpen.click(); true"
+ },
+ {
+  "eval": "__until(() => document.getElementById('then-refine-dialog').open, 6000)"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "shot": "gallery-dlg-then-refine-open.png"
+ },
+ {
+  "log": "__M(\"dialog then-refine (open, top)\")"
+ },
+ {
+  "log": "(() => { const d = document.getElementById('then-refine-dialog'); return d.open + ' ' + JSON.stringify(d.getBoundingClientRect()) + ' scroll ' + d.scrollHeight + '/' + d.clientHeight; })()"
+ },
+ {
+  "log": "__modalBottom()"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "shot": "gallery-dlg-then-refine-bottom.png"
+ },
+ {
+  "log": "__M(\"dialog then-refine (scrolled to bottom)\")"
+ },
+ {
+  "eval": "for (const d of [...document.querySelectorAll('dialog[open]')].reverse()) d.close(); if (els.contextMenu && !els.contextMenu.hidden) els.contextMenu.hidden = true; true"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "log": "\"DIALOG shortcuts\""
+ },
+ {
+  "eval": "openShortcuts(); true"
+ },
+ {
+  "eval": "__until(() => document.getElementById('shortcuts-dialog').open, 6000)"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "shot": "gallery-dlg-shortcuts-open.png"
+ },
+ {
+  "log": "__M(\"dialog shortcuts (open, top)\")"
+ },
+ {
+  "log": "(() => { const d = document.getElementById('shortcuts-dialog'); return d.open + ' ' + JSON.stringify(d.getBoundingClientRect()) + ' scroll ' + d.scrollHeight + '/' + d.clientHeight; })()"
+ },
+ {
+  "log": "__modalBottom()"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "shot": "gallery-dlg-shortcuts-bottom.png"
+ },
+ {
+  "log": "__M(\"dialog shortcuts (scrolled to bottom)\")"
+ },
+ {
+  "eval": "for (const d of [...document.querySelectorAll('dialog[open]')].reverse()) d.close(); if (els.contextMenu && !els.contextMenu.hidden) els.contextMenu.hidden = true; true"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "log": "\"DIALOG snippets\""
+ },
+ {
+  "eval": "void openSnippets(); true"
+ },
+ {
+  "eval": "__until(() => document.getElementById('snippets-dialog').open, 6000)"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "shot": "gallery-dlg-snippets-open.png"
+ },
+ {
+  "log": "__M(\"dialog snippets (open, top)\")"
+ },
+ {
+  "log": "(() => { const d = document.getElementById('snippets-dialog'); return d.open + ' ' + JSON.stringify(d.getBoundingClientRect()) + ' scroll ' + d.scrollHeight + '/' + d.clientHeight; })()"
+ },
+ {
+  "log": "__modalBottom()"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "shot": "gallery-dlg-snippets-bottom.png"
+ },
+ {
+  "log": "__M(\"dialog snippets (scrolled to bottom)\")"
+ },
+ {
+  "eval": "(async () => { const raw = await (await fetch('/api/snippets/export')).text(); window.__snipFile = new File([raw.replace('Golden hour', 'Golden hour light')], 'auradream-snippets.json', {type: 'application/json'}); return true; })()"
+ },
+ {
+  "log": "\"DIALOG snippet-import\""
+ },
+ {
+  "eval": "void openSnippetImport(__snipFile); true"
+ },
+ {
+  "eval": "__until(() => document.getElementById('snippet-import-dialog').open, 6000)"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "shot": "gallery-dlg-snippet-import-open.png"
+ },
+ {
+  "log": "__M(\"dialog snippet-import (open, top)\")"
+ },
+ {
+  "log": "(() => { const d = document.getElementById('snippet-import-dialog'); return d.open + ' ' + JSON.stringify(d.getBoundingClientRect()) + ' scroll ' + d.scrollHeight + '/' + d.clientHeight; })()"
+ },
+ {
+  "log": "__modalBottom()"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "shot": "gallery-dlg-snippet-import-bottom.png"
+ },
+ {
+  "log": "__M(\"dialog snippet-import (scrolled to bottom)\")"
+ },
+ {
+  "eval": "for (const d of [...document.querySelectorAll('dialog[open]')].reverse()) d.close(); if (els.contextMenu && !els.contextMenu.hidden) els.contextMenu.hidden = true; true"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "log": "\"DIALOG setups\""
+ },
+ {
+  "eval": "void openSetups(); true"
+ },
+ {
+  "eval": "__until(() => document.getElementById('setups-dialog').open, 6000)"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "shot": "gallery-dlg-setups-open.png"
+ },
+ {
+  "log": "__M(\"dialog setups (open, top)\")"
+ },
+ {
+  "log": "(() => { const d = document.getElementById('setups-dialog'); return d.open + ' ' + JSON.stringify(d.getBoundingClientRect()) + ' scroll ' + d.scrollHeight + '/' + d.clientHeight; })()"
+ },
+ {
+  "log": "__modalBottom()"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "shot": "gallery-dlg-setups-bottom.png"
+ },
+ {
+  "log": "__M(\"dialog setups (scrolled to bottom)\")"
+ },
+ {
+  "eval": "(async () => { const raw = await (await fetch('/api/presets/export')).text(); window.__setupFile = new File([raw], 'auradream-setups.json', {type: 'application/json'}); return true; })()"
+ },
+ {
+  "log": "\"DIALOG setup-import\""
+ },
+ {
+  "eval": "void openSetupImport(__setupFile); true"
+ },
+ {
+  "eval": "__until(() => document.getElementById('setup-import-dialog').open, 6000)"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "shot": "gallery-dlg-setup-import-open.png"
+ },
+ {
+  "log": "__M(\"dialog setup-import (open, top)\")"
+ },
+ {
+  "log": "(() => { const d = document.getElementById('setup-import-dialog'); return d.open + ' ' + JSON.stringify(d.getBoundingClientRect()) + ' scroll ' + d.scrollHeight + '/' + d.clientHeight; })()"
+ },
+ {
+  "log": "__modalBottom()"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "shot": "gallery-dlg-setup-import-bottom.png"
+ },
+ {
+  "log": "__M(\"dialog setup-import (scrolled to bottom)\")"
+ },
+ {
+  "eval": "for (const d of [...document.querySelectorAll('dialog[open]')].reverse()) d.close(); if (els.contextMenu && !els.contextMenu.hidden) els.contextMenu.hidden = true; true"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "eval": "openLightbox(galleryRecords[galleryRecords.length - 1], galleryRecords); true"
+ },
+ {
+  "eval": "__until(() => els.lightbox.open, 8000)"
+ },
+ {
+  "wait": 400
+ },
+ {
+  "eval": "document.getElementById('lb-delete').scrollIntoView({block: 'center'}); true"
+ },
+ {
+  "tap": "#lb-delete"
+ },
+ {
+  "wait": 800
+ },
+ {
+  "tap": "#lb-delete"
+ },
+ {
+  "wait": 800
+ },
+ {
+  "shot": "gallery-40-lightbox-after-delete.png"
+ },
+ {
+  "eval": "for (const d of [...document.querySelectorAll('dialog[open]')].reverse()) d.close(); if (els.contextMenu && !els.contextMenu.hidden) els.contextMenu.hidden = true; true"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "eval": "scrollTo(0, 0); true"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "tap": "#btn-bin"
+ },
+ {
+  "eval": "__until(() => document.querySelectorAll('#gallery .card[data-id]').length >= 1 && els.gallery.closest('.library').classList.length >= 0, 6000)"
+ },
+ {
+  "wait": 1200
+ },
+ {
+  "eval": "scrollTo(0, 0); true"
+ },
+ {
+  "shot": "gallery-41-bin-view-top.png"
+ },
+ {
+  "log": "__M(\"recycle bin view (top)\")"
+ },
+ {
+  "fullshot": "gallery-42-bin-view-full.png"
+ },
+ {
+  "elshot": [
+   ".gallery-head",
+   "gallery-43-bin-head-closeup.png"
+  ]
+ },
+ {
+  "eval": "document.getElementById('btn-empty-bin').scrollIntoView({block: 'center'}); true"
+ },
+ {
+  "tap": "#btn-empty-bin"
+ },
+ {
+  "log": "\"DIALOG empty-bin-confirm\""
+ },
+ {
+  "eval": "true"
+ },
+ {
+  "eval": "__until(() => document.getElementById('confirm-dialog').open, 6000)"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "shot": "gallery-dlg-empty-bin-confirm-open.png"
+ },
+ {
+  "log": "__M(\"dialog empty-bin-confirm (open, top)\")"
+ },
+ {
+  "log": "(() => { const d = document.getElementById('confirm-dialog'); return d.open + ' ' + JSON.stringify(d.getBoundingClientRect()) + ' scroll ' + d.scrollHeight + '/' + d.clientHeight; })()"
+ },
+ {
+  "eval": "for (const d of [...document.querySelectorAll('dialog[open]')].reverse()) d.close(); if (els.contextMenu && !els.contextMenu.hidden) els.contextMenu.hidden = true; true"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "eval": "scrollTo(0, 0); true"
+ },
+ {
+  "tap": "#btn-bin"
+ },
+ {
+  "wait": 800
+ }
+]
