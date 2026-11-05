@@ -202,7 +202,8 @@
 
   /* The folds' summaries (Custom dimensions, Grid search, Advanced) were a
      line of text, 18 px to press: a finger's height without moving their
-     text. Then refine's opener, a word at the Notify row's end, likewise. */
+     text (a phone's are 48 px rows, below). Then refine's opener, a word at
+     the Notify row's end, likewise. */
   .panel summary { position: relative; }
   .panel summary::after { content: ""; position: absolute; inset: -9px 0; }
   .notification-choice > .tr-open { position: relative; }
@@ -219,6 +220,45 @@
      which a tap's :hover and :focus-within left over the picture until
      another card was pressed: shown here only with the keyboard's focus. */
   .card:not(:has(:focus-visible)) .tools::before { display: none; }
+
+  /* Rows that wrapped badly, a tablet's panel as a phone's. A caption holds
+     its name and one action at its end, a note on a line of its own under
+     them: Set True CFG had a line to itself after the negative's note,
+     Compare scales (floated, its margins keeping the caption's line) hung
+     over the scales under it at a finger's height. */
+  #negative-field > span {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: var(--sp-2);
+  }
+  #negative-field > span > label { grid-row: 1; }
+  #negative-field > span > #neg-enable { grid-row: 1; grid-column: 2; margin: 0; }
+  #negative-field > span > #neg-note { grid-row: 2; grid-column: 1 / -1; }
+  .field > span:has(> #refine-compare-scales) { display: flex; align-items: center; }
+  #refine-compare-scales { float: none; margin: 0 0 0 auto; }
+  /* A sentence and the actions after it: the actions on the line it
+     leaves or the next, from the left edge (they were indented 8 px under
+     More seeds…). */
+  #finish-note { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+  #finish-note button { margin-left: 0; }
+  #finish-note .lead:empty { display: none; }
+  /* Notify when done and Then refine on one line, the note under them
+     whole (at 320 px it was cut to "Hi…") under the label's words (the
+     tick's 20 px, its margins and the gap), its line kept while it is
+     empty, so a permission's answer moves nothing. */
+  .notification-choice { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 var(--sp-2); }
+  .notification-choice > .check { grid-row: 1; }
+  .notification-choice > .tr-open { grid-row: 1; grid-column: 2; }
+  .notification-choice > .hint {
+    grid-row: 2; grid-column: 1 / -1; padding-left: 33px;
+    min-height: calc(var(--lh) * var(--fs-sm)); white-space: normal; overflow: visible;
+  }
+  /* A line kept to its height that was cut with an ellipsis - Inpaint's
+     state ("nothing masked yet - paint the p…"), the run sheet's ("Run
+     7615… nothing in th…") - two lines here, always two, so its change of
+     words moves nothing. */
+  .ip-status, .sheet-run-status {
+    height: 2lh; white-space: normal;
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  }
 }
 
 /* ------------------------------------------------------- tablet, portrait */
@@ -254,7 +294,19 @@
      too: the touch tier's 32 and 36 kept 40 of the 55 controls on Create's
      first screen under it. The tablet keeps 36 and 32 (above), where its
      panel beside the stage and its cards' rows of tools want the room. */
-  :root { --gutter: 12px; --panel-pad: 14px; --h-xs: 44px; --h-sm: 44px; --h-tool: 44px; }
+  :root {
+    --panel-pad: 14px; --h-xs: 44px; --h-sm: 44px; --h-tool: 44px;
+    /* The phone's type: the PC's 10-13 px captions, notes and labels read
+       at arm's length beside 16 px boxes. Body, buttons and boxes 16 (one
+       baseline), the status, facts and queue 15, captions and small buttons
+       14, notes, meta and sub-labels 13, nothing under it - a badge's word
+       included; titles 18. */
+    --fs-xs: 13px; --fs-sm: 13px; --fs-label: 14px; --fs-body-sm: 15px;
+    --fs-md: 16px; --fs-lg: 18px; --fs-xl: 20px;
+    /* The rhythm: 4 inside a control, 8 between controls, 16 between
+       fields (the panel's gap) and round the page, 32 between sections. */
+    --gutter: var(--sp-4); --panel-gap: var(--sp-4);
+  }
   /* And as wide: a glyph's button (a queue row's × and ↑, Bin, the run
      sheet's − and +), a size pill (1:1), a close. Words are wider already. */
   .ghost:is(.small, .tiny), .presets button, .close, #lb-fit, #lb-one { min-width: var(--h-md); }
@@ -269,7 +321,7 @@
   /* The topbar: the keyboard list has no keyboard to list; the checkpoint's
      name gives way to the buttons. */
   #btn-shortcuts { display: none; }
-  .brand { font-size: var(--fs-lg); }
+  .brand { font-size: var(--fs-md); }
 
   main { padding-bottom: calc(var(--tabbar-h) + var(--safe-b) + var(--gutter)); }
   /* The tab bar and the home indicator's inset, over the window's foot;
@@ -291,7 +343,7 @@
      window. Sticky inside the static panel, so nothing in the page moves
      and the focus order is the markup's; past its own place in the panel
      it scrolls with it. It rests 8 px over the bar in an 8 px ring of the
-     panel's colour, short of the panel's gap (14 px) so no neighbour's
+     page's colour, short of the panel's gap (16 px) so no neighbour's
      focus ring is covered where it rests, which parts it from what scrolls
      under it and fills the gap to the bar; its held look is solid (the
      PC's opacity let that show through). Its z-index, 16: over what it
@@ -303,12 +355,12 @@
      place, as the tab bar steps aside. */
   #btn-generate {
     position: sticky; bottom: calc(var(--tabbar-h) + var(--safe-b) + var(--sp-2)); z-index: 16;
-    box-shadow: 0 0 0 var(--sp-2) var(--panel);
+    box-shadow: 0 0 0 var(--sp-2) var(--bg);
   }
   #btn-generate[aria-disabled="true"] {
     opacity: 1;
-    background: color-mix(in srgb, var(--accent-strong) 50%, var(--panel));
-    color: color-mix(in srgb, #fff 50%, var(--panel));
+    background: color-mix(in srgb, var(--accent-strong) 50%, var(--bg));
+    color: color-mix(in srgb, #fff 50%, var(--bg));
   }
   /* iOS leaves :hover on what was tapped, and the hover's brightness lit
      the ring round it as well as the button. */
@@ -329,14 +381,14 @@
      line, a screen below the button, rides above it as Generate does, 8 px
      clear of its ring, and over New image's pill while that is offered.
      Sticky, so nothing in the page moves; a ring and a background of the
-     panel's colour, no padding, so its own place keeps its height. Its
+     page's colour, no padding, so its own place keeps its height. Its
      next write or a tap on it leaves it in its place; while a box has the
      keyboard it is there too. */
   #error.at-generate {
     position: sticky; z-index: 16;
     bottom: calc(var(--tabbar-h) + var(--safe-b) + var(--h-lg) + 4 * var(--sp-2));
-    background: var(--panel);
-    box-shadow: 0 0 0 var(--sp-2) var(--panel), 0 0 0 calc(var(--sp-2) + 1px) var(--line-strong);
+    background: var(--bg);
+    box-shadow: 0 0 0 var(--sp-2) var(--bg), 0 0 0 calc(var(--sp-2) + 1px) var(--line-strong);
     border-radius: var(--r-xs);
   }
   body:has(#btn-new-image:not([hidden])) #error.at-generate {
@@ -412,6 +464,77 @@
   /* The job's Pause, Skip and Cancel, and the queue's rows with their × and
      ↑, 8 px apart rather than 4: at 44 px a row's buttons met the next's. */
   .progress-actions, .queue-list { gap: var(--sp-2); }
+
+  /* One frame, not two: the bordered panel padded 14 px inside a 12 px
+     gutter took 54 px of a 393 px screen's width from every box. The panel
+     is the page here - no edge, fill or padding, the gutter 16 - and its
+     fields 16 apart, a caption 8 over its box; the results 32 below it. */
+  .panel { padding: 0; border: 0; border-radius: 0; background: none; }
+  main { row-gap: var(--sp-6); }
+  .field { gap: var(--sp-2); }
+  /* A caption is a heading in sentence case, 14 px and bold, not 12 px
+     capitals spaced out: what it names reads first, a fold's row (below)
+     is told from it by its size, its rule and its chevron. */
+  .field > span, .section > summary { text-transform: none; letter-spacing: 0; }
+  .field > span { font-size: var(--fs-label); color: var(--text-readout); }
+  /* A box's own name in a row of them (Grid search's Variable mode) as the
+     names in an <i> are, not body text. */
+  .panel .sub > label { font-size: var(--fs-sm); color: var(--muted); }
+  /* A ? badge 20 px with a 13 px glyph, its press reaching 9 px up rather
+     than 10 (34 px tall now, where 10 took a pixel of the box in the grid's
+     row above). */
+  .help { width: 20px; height: 20px; font-size: var(--fs-sm); }
+  .help::before { inset: -9px -12px 0; }
+  .analysis-mark { width: 18px; height: 18px; font-size: var(--fs-xs); }
+  /* A tiny button is a finger's 44 here and reads at a caption's size. */
+  .ghost.tiny { font-size: var(--fs-label); }
+
+  /* Every fold one row: 48 px under a hairline, its name 16 px bold, what
+     it holds (Custom dimensions' 1024 × 1024, the grid's sweeps, LoRA's
+     choice, a dialog's "as #9 was made") right-aligned in two lines at
+     most, and a chevron at its end that turns as it opens - where the PC
+     has three marks (capitals and a faint ▸, a bold name and the UA's triangle,
+     a dialog's) and the summary was an 18 px line reaching 36 by a
+     pseudo-element. Two lines of 15 px at 1.25 and its padding are its 48,
+     so a summary rewritten from one line to two moves nothing under it. */
+  details:is(.setup-disclosure, .section, .ms-technical, .bundle-automatic, .model-performance) {
+    border-top: 1px solid var(--line); padding-block: 0;
+  }
+  details:is(.setup-disclosure, .section, .ms-technical, .bundle-automatic, .model-performance) > summary {
+    position: relative; display: flex; align-items: center; gap: var(--sp-3);
+    min-height: 48px; height: auto; margin: 0; padding: var(--sp-1) 28px var(--sp-1) 0;
+    list-style: none; cursor: pointer; white-space: normal; overflow: visible;
+    font-size: var(--fs-md); font-weight: 600; line-height: var(--lh-tight); color: var(--text);
+  }
+  details:is(.setup-disclosure, .section, .ms-technical, .bundle-automatic, .model-performance) > summary::-webkit-details-marker { display: none; }
+  details:is(.setup-disclosure, .section, .ms-technical, .bundle-automatic, .model-performance) > summary::before,
+  details[open].section > summary::before { content: none; }
+  details:is(.setup-disclosure, .section, .ms-technical, .bundle-automatic, .model-performance) > summary::after {
+    content: ""; position: absolute; inset: 50% 6px auto auto;
+    width: 9px; height: 9px; margin-top: -7px;
+    border: solid var(--muted); border-width: 0 2px 2px 0; rotate: 45deg;
+  }
+  details[open]:is(.setup-disclosure, .section, .ms-technical, .bundle-automatic, .model-performance) > summary::after {
+    margin-top: -2px; rotate: -135deg;
+  }
+  details:is(.setup-disclosure, .section) > summary > :is(span, em) {
+    flex: 1 1 0; min-width: 0; text-align: right;
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+    font-size: var(--fs-body-sm); font-weight: 400; color: var(--text-3);
+  }
+  /* The Models sheet's Performance line keeps its words in one flow (its
+     name, its choices, its note), two lines at most. */
+  .model-performance > summary { display: block; padding-block: 13px 5px; }
+  .model-performance > summary > span { font-size: var(--fs-body-sm); }
+  .section { padding-top: 0; gap: var(--sp-3); }
+  /* An open grid fold's rows 12 px apart, as a field's parts are, not
+     touching its intro (a <details> lays them out in a block). */
+  .panel .section > :is(.row, .check) { margin-top: var(--sp-3); }
+  .setup-body { margin-top: var(--sp-2); margin-bottom: var(--sp-2); }
+  /* Step cache a field like the rest: its name over its box. */
+  .execution-cache-row { flex-direction: column; align-items: stretch; gap: var(--sp-2); }
+  .execution-cache-row > label { font-size: var(--fs-label); font-weight: 600; color: var(--text-readout); }
+  .execution-cache-row select { flex: none; height: var(--h-field); }
 
   /* Under 360 px (Split View or Slide Over at a third, an iPhone SE's
      zoomed view) Sampling's four boxes and their names were wider than the

@@ -6638,7 +6638,66 @@ measured on the card and when.
   below) and the tab bar 45 px, its tabs 44 under its top edge. The
   tablet keeps 36 and 32, where its panel beside the stage and its cards'
   rows of tools want the room. The phone audit (Tests) holds the Gallery
-  view and Create's first screen to it. The
+  view and Create's first screen to it.
+  The phone has a type scale of its own, set on its `:root` (the tablet
+  keeps the page's, with the touch tier's 11 px `--fs-xs` and 12 px
+  `--fs-sm`): `--fs-xs` and `--fs-sm` 13, `--fs-label` 14, `--fs-body-sm`
+  15, `--fs-md` 16, `--fs-lg` 18, `--fs-xl` 20 - body text, buttons and
+  boxes on one 16 px baseline, the status, facts and queue 15, captions
+  and small and tiny buttons 14 (`.ghost.tiny` takes `--fs-label` there),
+  notes, meta and sub-labels 13, view and sheet titles 18, and no text
+  under 13 px, a badge's word included (`__phoneText`, Tests); the brand is
+  16. A field's caption (`.field > span`) is a heading in sentence case,
+  14 px bold in `--text-readout`, not the PC's 12 px spaced capitals, and
+  a box's bare name in a row of them (`.sub > label`, Grid search's
+  Variable mode) a sub-label's 13 px. A `?` badge is drawn 20 px with a
+  13 px glyph, its press reaching 9 px up and 12 to each side (10 up took
+  a pixel of the box in the grid's row above), and a finding's mark 18 px
+  with `--fs-xs`; the PC's 10 px literals stay its own. The rhythm is
+  4 px inside a control, 8 between controls (a caption 8 over its box,
+  `.field` `gap`), 16 between fields and round the page (`--gutter` and
+  `--panel-gap`, the dialogs' gaps with it) and 32 between sections
+  (`main`'s `row-gap`, the panel to the results); `--sp-5` (24) and
+  `--sp-6` (32) and `--lh-tight` (1.25) are page tokens. The panel is the
+  page on the phone, no padding, edge, radius or fill: its frame, padded
+  14 px inside a 12 px gutter, took 54 px of a 393 px screen's width from
+  every box, which is now the screen less 32. Generate's ring and the
+  refusal beside it (`#error.at-generate`) take the page's colour
+  (`--bg`) for it, the held Generate's mix too.
+  Every fold (`details` of `.setup-disclosure`, `.section`,
+  `.ms-technical`, `.bundle-automatic`, `.model-performance`: Custom
+  dimensions, Grid search, LoRA & references, a dialog's Prompt and
+  sampling, More seeds' and Bundles' folds, the Models sheet's
+  Performance) is one row on the phone: 48 px under a 1 px rule, no
+  padding above it, its name 16 px bold in `--text` with no capitals, what
+  it holds (a summary's `span` or `em`: 1024 × 1024, the grid's sweeps,
+  none selected, as #9 was made) right-aligned in 15 px `--text-3`, two
+  lines at most at `--lh-tight` (two lines and the row's padding are its
+  48, so a summary rewritten from one line to two moves nothing under it),
+  and a 9 px chevron drawn by borders at its end (`::after`, absolute, 28 px
+  kept for it) at 45° shut and -135° open - in place of the PC's three
+  marks (capitals and a faint ▸, a bold name and the UA's ▶, a dialog's)
+  and the touch tier's `::after` reach, which a 48 px row no longer needs.
+  The Performance line keeps its words in one flow. An open grid fold's
+  rows and its Resume tick are 12 px apart, a setup fold's body 8 below
+  its row. Step cache is a field like the others, its name over a full
+  width box. A caption, a status line and a row of actions wrap cleanly
+  on any touch screen, the tablet's panel too: the negative prompt's
+  caption is a grid, its name and Set True CFG on one line, the button at
+  its end, the note on a line of its own under them (Set True CFG had a
+  line to itself after the note); Refine's Size caption is a flex row with
+  Compare scales at its end, unfloated (its margins kept the caption's
+  line, so at a finger's height it hung over the scales under it); the
+  finished job's line (`#finish-note`) is a wrapping flex row, its
+  actions after the sentence or on the next line from the left edge, its
+  empty lead not drawn (wrapped, More seeds… started 8 px in); the Notify
+  row is a grid, Notify when done and Then refine on one line and the
+  note under the label's words (33 px in), whole and keeping its line
+  while empty, so a permission's answer moves nothing (at 320 px it was
+  cut to "Hi…"); and Inpaint's state line and the run sheet's line, kept
+  to a height and cut with an ellipsis, are two lines (`2lh`), always
+  two. The topbar's job mirror and the prompt check's Show keep their
+  rows until their own places come (the review's P12 and P9). The
   phone is one column with a tab bar at the foot (`#phone-tabs`):
   `body[data-view]` is `create` (the panel and the results) or `gallery`
   (`.library`), the other not drawn; each view keeps its own scroll, the
@@ -6882,8 +6941,9 @@ measured on the card and when.
   Create view), so a tablet keyboard's Tab never leaves the focus under
   the bar (WCAG 2.4.11). Presses smaller than
   a finger reach further by a pseudo-element without moving anything (the
-  panel's fold summaries, Then refine's opener: 36 and 38 px, the two
-  controls under 44 on the phone's Create view until their own rows come),
+  tablet's fold summaries, 36 px, and Then refine's opener, 38, the one
+  control under 44 on the phone's Create view until its own row comes;
+  the phone's folds are 48 px rows),
   and on the tablet a card's or a run tile's tools are 32 px tall. On the
   phone a card carries its star alone (`.card:not(.binned) .tools` and a
   long run's tile tools not drawn): six tools at 44 px are 284 px on a
@@ -7467,10 +7527,17 @@ dialogs when there are any, else the body; `screen: true` counts in
 first screen). A smoke asserts the checks that hold and logs the rest as
 the baseline later phases bring up: `smoke-phone` asserts no control under
 44 px on the Gallery view and on Create's first screen, and on the whole
-Create view but for its listed exceptions (Then refine's opener and the
-Grid search summary, whose 48 px rows are the review's P59 and P62); the
-lightbox's (its facts' ⌕ buttons), the dialogs' and the Models sheet's
-undersized controls are logged, not asserted.
+Create view but for its listed exception (Then refine's opener, whose row
+is the review's P62); the lightbox's (its facts' ⌕ buttons), the dialogs'
+and the Models sheet's undersized controls are logged, not asserted. The
+same file defines `__phoneText(options)`, the phone's type: `small`, each
+run of visible text under `min` px (13), named by its element, size and
+first words - a text node with a letter or a digit, or an
+`::before`/`::after` whose content has one (glyphs alone, ?, ✕, ★, a
+chevron, are drawn to a box of their own and do not count) - and
+`sizes`, how many runs are set at each size; `root`, `screen` and an
+`except` list as the audit's. `smoke-phone` asserts no word under 13 px
+on Create, its folds shut and open, and on Gallery, at 393 and 320 px.
 
 `tests/test_fbc_runtime.py` exercises installed FBC hooks and arithmetic on tiny
 CPU blocks in an isolated worker. Only the unrelated optional bitsandbytes backend
@@ -7786,10 +7853,23 @@ on Gallery and in the Models sheet, and in the lightbox no overflow and no
 dialog outside, its only excepted controls `.lb-link`s, and in the
 lightbox no control off the screen sideways either; no control under
 44 px on Create's first screen (`screen: true`), nor on the whole Create
-view but its two listed exceptions, Then refine's opener and the Grid
-search summary (`except`), nor on the whole Gallery view, where each
+view but its one listed exception, Then refine's opener (`except`), nor on
+the whole Gallery view, where each
 card's tools are in the page (six) but not drawn and its star is a 44 px
-square in its corner; the lightbox's under-44 list logged; a long press's
+square in its corner; the lightbox's under-44 list logged; the phone's
+type - body 16 px, a caption 14 in sentence case, a sub-label 13 - and no
+word under 13 px (`__phoneText`) on Create with its folds shut and open
+and on Gallery, whose heading is 18; the panel with no padding, edge or
+fill, the prompt box 16 px from the screen's edge and the screen less 32
+wide, its fields 16 apart; Custom dimensions', Grid search's and LoRA &
+references' summaries 48 px rows (under 49) of 16 px bold, under a 1 px
+rule, their values ending 28 px short of the row's end, a 9 px chevron
+(`::after`, absolute) at 45° and -135° once open (Grid search's waited for,
+its ▾ gone) and no `::before`; the negative caption's name and Set True
+CFG centred on one line, the button at the screen's edge less 16, the
+note under them from the left; Notify and Then refine on one line and the
+note under the label's words, whole; a finished job's actions 44 px and
+from the left edge; a long press's
 menu on a card holding Reuse settings, Refine…, the reference, Show run as
 sheet, Inpaint… and Move to recycle bin, and its Refine… row, tapped,
 opening Refine (closed by Escape with no entry left); Create drawing the panel and viewer
@@ -7833,8 +7913,12 @@ band then from 0 to the bar), a three-line prompt, the search beside Runs, every
 lightbox's column beside a stage at least 300 tall; the tab bar a nav
 landmark holding the tablist, the brand at #8a6dff and a scroll padding
 the bar's height; at 320x1106 Sampling two to a row with no sideways
-scroll; and a mouse at 1400x900 back to no bar, both views, a sticky
-topbar, no scroll padding, a 43 px Generate, 14 px text and the
+scroll; at 320x700 no sideways overflow, no control off the screen and no
+word under 13 px on Create (its folds shut, and open with no overflow or
+control off the screen) and on Gallery; and a mouse at 1400x900 back to
+no bar, both views, a sticky topbar, no scroll padding, a 43 px Generate,
+14 px text, 12 px capitals in a caption and a fold's summary with its ▸,
+the panel framed and padded 16, the Notify row a flex row, and the
 Ctrl+Enter hint, no `data-tier`, the search's "/ to focus" back,
 `viewBand` the window under the topbar, and the lightbox and the Models
 picker opened by the mouse adding no history entry.
@@ -7846,7 +7930,12 @@ stage and sticky, two cards across,
 no tab bar, the keyboard help kept, finger sizes, the chips' host the wide
 one, the page all 820 px wide; the touch tier's small tokens kept
 (`--h-sm` 36, `--h-xs` 32, `--h-tool` 36), a card's tools drawn at 32 px,
-its star 28 and the dice under 44, where the phone has 44; a tapped Generate's result in the stage
+its star 28 and the dice under 44, where the phone has 44; the page's
+14 px body, 12 px captions in capitals, the panel framed and padded 14 and
+a fold's summary under 40 px with its touch reach (the phone's type, frame
+and fold rows not), with the touch tier's rows that wrap cleanly: the
+negative caption's name and Set True CFG on one line with the note under
+them, Notify and Then refine on one line, the note whole; a tapped Generate's result in the stage
 beside the panel with no New
 image pill fixed over the page; a card's lightbox closed by Back with the
 page still loaded at its scroll; at 1180x820 the PC's two columns at finger

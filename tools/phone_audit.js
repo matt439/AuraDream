@@ -166,3 +166,73 @@ globalThis.__phoneAudit = (options = {}) => {
     small, offside, dialogs, overflow, excepted,
   };
 };
+
+// The phone's type: visible text set under a size, from `log` and `expect`
+// steps after the same inject:
+//
+//   {"expect": "__phoneText().small.length === 0"}   no word under 13 px
+//
+// __phoneText(options) returns
+//   small   each run of visible text under `min` px (13 by default): its
+//           element (tag#id.class), its size and its first words. A text
+//           node with a letter or a digit counts, and an ::before/::after
+//           whose content has one (a tool's name, a size under a scale);
+//           glyphs alone (?, ✕, ★, ▸, a chevron) are drawn to a box of
+//           their own and do not
+//   sizes   how many runs are set at each size, for a log
+// Options: `root` and `screen` as __phoneAudit's (the open modal dialogs or
+// the body by default; only what meets the window as it is scrolled), `min`,
+// and `except`, selectors whose text is left out (by closest()).
+globalThis.__phoneText = (options = {}) => {
+  const min = options.min ?? 13;
+  const except = options.except ?? [];
+  const vw = innerWidth, vh = innerHeight;
+  let roots;
+  if (options.root) {
+    const root = typeof options.root === 'string' ? document.querySelector(options.root) : options.root;
+    if (!root) throw new Error('__phoneText: no element for root ' + options.root);
+    roots = [root];
+  } else {
+    const modal = [...document.querySelectorAll('dialog:modal')];
+    roots = modal.length ? modal : [document.body];
+  }
+  const shown = (el) => el.getClientRects().length > 0 && !el.closest('[inert]')
+    && el.checkVisibility({ opacityProperty: true, visibilityProperty: true });
+  const onScreen = (r) => r.right > 0 && r.bottom > 0 && r.left < vw && r.top < vh;
+  const name = (el) => el.tagName.toLowerCase() + (el.id ? '#' + el.id : '')
+    + (!el.id && typeof el.className === 'string' && el.className.trim()
+      ? '.' + el.className.trim().split(/\s+/).slice(0, 2).join('.') : '');
+  const letters = /[\p{L}\p{N}]/u;
+  const small = [], sizes = {}, seen = new Set();
+  const note = (el, size, text) => {
+    size = Math.round(size * 10) / 10;
+    sizes[size] = (sizes[size] ?? 0) + 1;
+    if (size >= min - 0.01 || except.some((sel) => el.closest(sel))) return;
+    const line = `${name(el)} ${size}px "${text.slice(0, 32)}"`;
+    if (!seen.has(line)) { seen.add(line); small.push(line); }
+  };
+  for (const root of roots) {
+    const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    for (let n = walk.nextNode(); n; n = walk.nextNode()) {
+      const text = n.textContent.replace(/\s+/g, ' ').trim();
+      const el = n.parentElement;
+      if (!text || !letters.test(text) || !el || el.closest('script, style, template, option') || !shown(el)) continue;
+      const range = document.createRange();
+      range.selectNodeContents(n);
+      const r = range.getBoundingClientRect();
+      if (r.width < 1 || r.height < 1 || (options.screen && !onScreen(r))) continue;
+      note(el, parseFloat(getComputedStyle(el).fontSize), text);
+    }
+    for (const el of [root, ...root.querySelectorAll('*')]) {
+      if (!shown(el)) continue;
+      for (const which of ['::before', '::after']) {
+        const p = getComputedStyle(el, which);
+        if (p.display === 'none' || !/^".*"$/.test(p.content)) continue;
+        const text = p.content.slice(1, -1);
+        if (!letters.test(text) || (options.screen && !onScreen(el.getBoundingClientRect()))) continue;
+        note(el, parseFloat(p.fontSize), which + ' ' + text);
+      }
+    }
+  }
+  return { small, sizes };
+};
