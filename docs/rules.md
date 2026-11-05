@@ -4536,7 +4536,9 @@ measured on the card and when.
   aria-label and follows a scroll that jumps past the viewer. Under 901 px
   it is a pill fixed and centred under the sticky topbar, never in the
   window's foot, where it covered Generate's right end and took a press
-  meant for Generate. Its press scrolls the viewer into view and focuses the
+  meant for Generate; on a phone it is at the foot, above the Generate that
+  rides on the tab bar there, since under the topbar it covered the Prompt
+  row's Examples and Check ("Phones and tablets"). Its press scrolls the viewer into view and focuses the
   newest image; before one has landed, the live preview's tile (or a pass's
   stand-in), which `streamJob` hands on to the image that replaces it, or to
   Generate where nothing does; with nothing in the viewer, the viewer itself
@@ -6764,7 +6766,52 @@ measured on the card and when.
   (`body[data-typing]`, `syncTyping` in `touch.js`, read at boot and on
   focusin/focusout): iOS keeps a fixed foot on the layout viewport, which
   its keyboard does not shrink, so the bar sat behind the keyboard or over
-  the text. The phone's lightbox is black, its `::backdrop` too (the
+  the text. Then too the topbar is `position: relative`, in its place in
+  the flow, and scrolls away with the page rather than standing over the
+  few hundred px the keyboard leaves (nothing under it moves, as its place
+  is the same either way); Generate is in its place in the panel, not
+  riding on the bar; and New image's pill is not drawn.
+  On the phone Generate rides at the window's foot, 8 px above the tab bar
+  (`position: sticky` with `bottom` the bar, the safe area and 8 px), while
+  the panel above it is in view: at the page's top it was about 870 px
+  down, below the window, in landscape further. It is sticky inside the
+  static panel, so no node moves, nothing in the page shifts and the focus
+  order stays the markup's; scrolled past its place it scrolls with the
+  panel. An 8 px ring of the panel's colour (`box-shadow`), short of the
+  panel's 14 px gap so no neighbour's focus ring is covered where it rests,
+  parts it from what scrolls under it and fills the gap to the bar. Its
+  held look is solid (the accent and the white mixed half with `--panel`,
+  `opacity: 1`) rather than the PC's half opacity, which let what scrolls
+  under it show through, still `aria-disabled` with its reason as the
+  title; the hover's brightness is dropped, since iOS leaves `:hover` on
+  what was tapped and it lit the ring. Its z-index is 16: over what it
+  passes (the size pairs' 1-3) and over New image's pill (15), so where a
+  Generate scrolled just above its resting place meets the pill a press
+  there is Generate's; under the topbar (20), the tab bar (25) and every
+  menu and tip. The Create view's `html` scroll padding adds its band (the
+  primary's height and 24 px) to the bar's, so a keyboard's Tab never
+  leaves the focus under it. `--phone-bottom-chrome` and `viewBand` leave
+  it out: it covers only what comes before it in the panel, and only while
+  that is in view. New image's pill on the phone sits above it, at the
+  bar, the safe area, the primary's height and 24 px from the foot, rather
+  than under the topbar, where at the page's top it lay over Examples and
+  Check. This is the first step of the phone's Create action bar; the bar
+  itself (Generate moved into a host above the tab bar with the result
+  and the queue) is still to come.
+  The phone's page does not pull to refresh: `html` and `body` have
+  `overscroll-behavior-y: contain`, so a pull at the page's top no longer
+  reloads it (the prompt's Undo, a Check, a selection and each view's
+  place went with it). The prompt and the rest of the panel already
+  survive a reload in the remembered panel (`persistPanel`), which a
+  reload on the phone restores as on a PC, so the phone keeps no draft of
+  its own. Every `type="number"` box has an `inputmode` - `decimal` where
+  its `step` has a fraction (CFG, Mu, True CFG, a LoRA's weight, the
+  dialogs' CFG and Mu, Edit's guidance), `numeric` otherwise (Steps, Seed,
+  Batch, Repeat, the sizes) - so a touch keyboard opens on its digits; the
+  type stays `number`, so a PC's box, its arrows and its checks are
+  unchanged. The panel's Sampling and Output boxes have
+  `enterkeyhint="done"` (Enter there does nothing), the gallery's search
+  `enterkeyhint="search"`. The phone's lightbox is black, its `::backdrop` too (the
   PC's 0.97 over a clear backdrop let the tab bar's names and the cards'
   glyphs and captions show through). Its facts fade over their last
   1.2 em, padded by as much, so a box cut mid-line says it scrolls. Its
@@ -6785,8 +6832,8 @@ measured on the card and when.
   (`(pointer: coarse) and (max-height: 500px) and (orientation: landscape)`)
   the topbar is 46 px with small buttons and no free-space readout and
   scrolls away with the page (`position: relative`; `--topbar-h` there is
-  the notch's inset alone, so New image's pill and the scroll margins read
-  nothing over the page, and the Models sheet hangs at 46 px plus it), the
+  the notch's inset alone, so the scroll margins read nothing over the
+  page, and the Models sheet hangs at 46 px plus it), the
   tab bar 44 with its glyph beside its word, the prompt three lines rather
   than five (until its grip sets a height), the gallery's search beside
   Runs, and the lightbox the PC's row (outside `LB_STACKED_MEDIA`): the
@@ -6799,8 +6846,9 @@ measured on the card and when.
   Accessibility on touch: the tab bar is a `nav` landmark ("Views",
   `#phone-tabs`) holding a `.phone-tablist` (`role="tablist"`): a role on
   the nav itself took the landmark away. The phone's `html` has a
-  `scroll-padding-bottom` of the bar's height, so a tablet keyboard's Tab
-  never leaves the focus under the bar (WCAG 2.4.11). Presses smaller than
+  `scroll-padding-bottom` of the bar's height (with Generate's band in the
+  Create view), so a tablet keyboard's Tab never leaves the focus under
+  the bar (WCAG 2.4.11). Presses smaller than
   a finger reach further by a pseudo-element without moving anything (the
   panel's fold summaries, Then refine's opener), and a card's or a run
   tile's tools are 32 px tall; a tool's name and fill on `:hover` are
@@ -7666,7 +7714,15 @@ emulated (`{"touch": true}`) at 393x852@3 with `"mobile": true` (as are
 852x393 and 320x1106): the phone query alone matching,
 Generate and Models at least 48 and 44 px, 16 px boxes, no keyboard hints
 or keyboard help, no sideways scroll, the page all 393 px wide (no
-classic scrollbar), `data-tier` phone; the phone audit finding no
+classic scrollbar), `data-tier` phone; every number box's `inputmode`
+(`decimal` where its step has a fraction, `numeric` otherwise), the
+Sampling and Output boxes' `enterkeyhint` done and the search's search;
+`html` and `body` with `overscroll-behavior-y: contain`; at the page's top
+Generate sticky 8 px above the bar, in sight under the topbar and the
+element at its centre, with Load settings from PNG still below the window,
+solid while held (opacity 1) and the scroll padding the bar's and its
+band; at the page's foot Generate in its place above Load settings from
+PNG; the phone audit finding no
 sideways overflow, no control off the screen sideways and no dialog outside the window on Create,
 on Gallery and in the Models sheet, and in the lightbox no overflow and no
 dialog outside, its only excepted controls `.lb-link`s, with each state's
@@ -7675,13 +7731,19 @@ lightbox no control off the screen sideways either; Create drawing the panel and
 but not the gallery and the bar at the window's foot, `viewBand` from the
 topbar's foot to the bar's top, a viewer 14 px above the bar counted out
 of sight below (`viewerOutOfSight`) and the band to the window's foot
-while the prompt has the focus; Gallery the reverse,
+while the prompt has the focus, the topbar then `relative` and gone from
+the window once scrolled (`viewBand` from 0) and Generate `static`, both
+sticky again on blur, and the prompt typed then back after the reload; Gallery the reverse,
 two cards across, Back to top above the bar, each view's own scroll and
 the view kept through a reload; in the lightbox no arrows or key legend,
 a swipe left and right stepping, a swipe down closing, a pinch zooming
 past 1.5, a swipe while zoomed panning without stepping, and a double tap
 back to fit; Reuse from the Gallery view bringing Create with the prompt;
-a job's dot and line on the bar in both views and gone at its end; Back
+Generate tapped at the page's top queuing a job whose New image ↓ pill
+sits at least 8 px above Generate in the window's lower half, clear of
+Examples and Check and the element at its centre, and its press bringing
+the viewer into sight; a job's dot and line on the bar in both views and
+gone at its end; Back
 (`history.back()`) closing one overlay per call - the menu over the
 lightbox, then More seeds… opened from that menu over it, then the
 lightbox - with the page still loaded at its scroll, the lightbox's entry
