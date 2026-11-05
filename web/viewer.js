@@ -538,13 +538,15 @@ function syncViewerMoreSeeds() {
 // only one, on the gallery from it, so → walks back through what came before
 // it: alone, it opened a lightbox of one, with both arrows dead. Not in the
 // gallery (a search, a sheet), it walks this page's earlier results.
-function openViewerImage(rec) {
+// `origin` is where its close gives the focus back: the strip's picture, or
+// the phone's action bar picture (`'dock'`, phone.js), which opens the same.
+function openViewerImage(rec, origin = 'viewer') {
   if (viewerRecords.length === 1 && viewerRecords[0] === rec) {
     const copy = !sheetMode && galleryRecords.find((r) => r.id === rec.id);
-    if (copy) { openLightbox(copy, galleryRecords, 'viewer'); return; }
-    if (sessionRecords.length) { openLightbox(rec, [rec, ...sessionRecords], 'viewer'); return; }
+    if (copy) { openLightbox(copy, galleryRecords, origin); return; }
+    if (sessionRecords.length) { openLightbox(rec, [rec, ...sessionRecords], origin); return; }
   }
-  openLightbox(rec, viewerRecords, 'viewer');
+  openLightbox(rec, viewerRecords, origin);
 }
 
 // #recent: beside a single image from 2000 px (styles/gallery.css), up to six of this

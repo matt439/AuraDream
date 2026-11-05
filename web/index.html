@@ -41,8 +41,10 @@
 <link rel="stylesheet" href="/static/styles/snippets.css">
 <link rel="stylesheet" href="/static/styles/setups.css">
 <link rel="stylesheet" href="/static/styles/saved-searches.css">
-<!-- Last: the phone and tablet tier overrides the components above it. -->
+<!-- Last: the phone and tablet tier overrides the components above it, and
+     the phone's own hosts (phone.js) after it. -->
 <link rel="stylesheet" href="/static/styles/touch.css">
+<link rel="stylesheet" href="/static/styles/phone.css">
 </head>
 <body>
 <header class="topbar">
@@ -499,6 +501,14 @@
       </div>
     </div>
 
+    <!-- A phone's results (phone.js, styles/phone.css): the viewer, its note
+         and #recent, moved here whole from the stage under PHONE_MEDIA, in
+         Generate's place - Generate is in the action bar there - so the image
+         just made sits under the settings that made it rather than 1300 px
+         down, under every fold of the panel; and home again off the phone.
+         Ahead of the job's progress, whose coming and going then never moves
+         the picture. Empty and not drawn anywhere else. -->
+    <div class="phone-results" id="phone-results"></div>
     <button class="primary" id="btn-generate" title="Generate (Ctrl+Enter)"
             aria-keyshortcuts="Control+Enter">Generate</button>
     <div class="progress" id="progress" hidden>
@@ -556,9 +566,9 @@
     <p class="job-said" id="job-said" aria-live="polite"></p>
     <!-- A result that landed in a viewer out of sight - above the window, or
          below it in one column: said here (under 901 px a pill centred under
-         the topbar, styles/generation.css; on a phone above Generate at the
-         foot, styles/touch.css), and a press goes to it, its arrow and label
-         written by syncNewImage. Never a scroll of the page's own. Outside
+         the topbar, styles/generation.css; never on a phone, whose action
+         bar shows the new image, phone.js), and a press goes to it, its
+         arrow and label written by syncNewImage. Never a scroll of the page's own. Outside
          #progress, which a finished job hides. -->
     <button class="ghost small" id="btn-new-image" hidden
             aria-label="New image: scroll up to it in the viewer">New image ↑</button>
@@ -1038,6 +1048,23 @@
     </div>
   </section>
 </main>
+<!-- The Create view's action bar on a phone (phone.js, styles/phone.css),
+     docked over the tab bar in the thumb's reach: the newest result - the
+     live preview, ringed with the job's progress, while one runs - which a
+     press opens in the lightbox; Generate, the panel's own button moved in
+     whole under PHONE_MEDIA and home again off it; and the queue's count,
+     which a press opens as a sheet. Not drawn anywhere else, nor in the
+     Gallery view, nor while a box has the keyboard. -->
+<div class="phone-actions" id="phone-actions" role="group" aria-label="Generate and its results">
+  <button type="button" class="phone-dock" id="phone-dock" aria-disabled="true"
+          title="Nothing generated on this page yet" aria-label="Newest result: nothing generated on this page yet"><span
+    class="dock-face"><svg class="dock-glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm0 2v9.6l3.6-3.6 3 3 4.4-4.4 3 3V6H5zm4 1.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z"/></svg><img
+    class="dock-img" id="phone-dock-img" alt="" hidden></span></button>
+  <button type="button" class="phone-queue" id="phone-queue" aria-haspopup="dialog" aria-controls="queue-sheet"
+          aria-disabled="true" title="Nothing running or queued" aria-label="Queue: nothing running or queued"><svg
+    class="queue-glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h10v2H4z"/></svg><span
+    class="queue-count" id="phone-queue-count" aria-hidden="true" hidden></span></button>
+</div>
 <!-- A phone's two views (touch.js, styles/touch.css): Create - the panel and
      the results - or the gallery. Drawn only on a phone; elsewhere it is
      display: none and out of the tab order. The nav is the landmark (a
@@ -1052,6 +1079,20 @@
     <button type="button" role="tab" id="tab-gallery" data-view="gallery" aria-selected="false"><span class="tab-pill"><svg class="tab-glyph" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg></span>Gallery</button>
   </div>
 </nav>
+<!-- The queue's sheet on a phone (phone.js), from the action bar's count: the
+     running job's #progress - Pause, Skip, Cancel and the bars - and the
+     queue's #queue-note, the panel's own nodes moved in whole while it is
+     open and home again as it closes, so setQueue and the job's writers
+     write the one copy. -->
+<dialog class="queue-sheet" id="queue-sheet" aria-labelledby="queue-sheet-title">
+  <div class="queue-sheet-head dialog-head">
+    <h2 id="queue-sheet-title">Queue</h2>
+    <button type="button" class="close" id="queue-sheet-close" aria-label="Close">✕</button>
+  </div>
+  <div class="queue-sheet-body" id="queue-sheet-body">
+    <p class="hint queue-sheet-idle">Nothing is running or queued.</p>
+  </div>
+</dialog>
 
 <!-- A <dialog> opened with showModal(): focus is trapped inside it, the page
      behind it is inert, Escape closes it and focus returns to where it was.
@@ -2221,6 +2262,7 @@
 <script src="/static/generation-presets.js"></script>
 <script src="/static/setup-import.js"></script>
 <script src="/static/touch.js"></script>
+<script src="/static/phone.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

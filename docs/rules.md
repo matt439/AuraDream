@@ -608,7 +608,7 @@ before changing it.
   `AURADREAM_INSTALL_TEST_ROOT`, `AURADREAM_INSTALL_TEST_PROC_VERSION`,
   `AURADREAM_INSTALL_TEST_WAIT` (control.sh's wait)
   (`tests/test_linux_scripts.py`)
-- `web/` - served as-is from `/static`; `index.html` loads 68 classic
+- `web/` - served as-is from `/static`; `index.html` loads 69 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `page-helpers.js`, right
   after it, the page-wide pure helpers (`plural`, `excerpt`, `units`,
@@ -674,7 +674,12 @@ before changing it.
   See all and a bundle's Show share. `touch.js`, just before `app.js`, the
   phone's two views (Create and Gallery, `setPhoneView`, `showCreateView`),
   the job's mark on its tab bar, the tier's re-sync (`syncTier`) and, on
-  any touch screen, Back closing the top overlay (`syncBackLayers`); the
+  any touch screen, Back closing the top overlay (`syncBackLayers`);
+  `phone.js`, after it, the phone's own hosts (`syncPhoneHosts`, which
+  `syncTier` calls): Generate moved into the Create view's action bar
+  with the newest result's picture (`syncPhoneDock`, `pressPhoneDock`) and
+  the queue's count (`syncPhoneQueue`), the results moved under the
+  settings, and the queue's sheet (`openQueueSheet`); the
   touch tier's media queries (`PHONE_MEDIA`, `TABLET_COLUMNS_MEDIA`,
   `TWO_COLUMNS_MEDIA`, `TOUCH_MEDIA`) are `state.js`'s, beside
   `styles/touch.css`'s copies of them, as is `viewBand`, and so is the
@@ -713,8 +718,11 @@ before changing it.
   `shortcuts.css` the keyboard help dialog, `snippets.css` the snippet dialog
   (and the rules both merge dialogs share) and `setups.css` the named setup
   dialog, followed by `saved-searches.css`
-  for the saved gallery search dialog and its footer opener, and last
-  `touch.css`, the phone and tablet tier (under "Phones and tablets");
+  for the saved gallery search dialog and its footer opener, then
+  `touch.css`, the phone and tablet tier, and last `phone.css`, the
+  phone's own hosts that `phone.js` fills - the action bar, the results'
+  place, the queue's sheet - which read `touch.css`'s tokens (both under
+  "Phones and tablets");
   preserve that cascade (`tests/test_docs_maps.py` holds this list to
   `index.html`'s links, in order). `docs/source-audit.md` records the
   split audits and why each long file it kept stays whole.
@@ -4536,9 +4544,9 @@ measured on the card and when.
   aria-label and follows a scroll that jumps past the viewer. Under 901 px
   it is a pill fixed and centred under the sticky topbar, never in the
   window's foot, where it covered Generate's right end and took a press
-  meant for Generate; on a phone it is at the foot, above the Generate that
-  rides on the tab bar there, since under the topbar it covered the Prompt
-  row's Examples and Check ("Phones and tablets"). Its press scrolls the viewer into view and focuses the
+  meant for Generate; a phone offers none (`offerNewImage`): its action
+  bar's picture is the new image, always in sight ("Phones and tablets").
+  Its press scrolls the viewer into view and focuses the
   newest image; before one has landed, the live preview's tile (or a pass's
   stand-in), which `streamJob` hands on to the image that replaces it, or to
   Generate where nothing does; with nothing in the viewer, the viewer itself
@@ -6578,7 +6586,8 @@ measured on the card and when.
   made under the prompt check or the model picker holds once they close.
   Beside the viewer a wheel over it scrolls the column (`galleryTopWheel`),
   not the page.
-- Phones and tablets (`styles/touch.css`, linked last, and `touch.js`): one
+- Phones and tablets (`styles/touch.css` and `styles/phone.css`, linked
+  last, `touch.js` and `phone.js`): one
   page, keyed on a coarse primary pointer, never on width alone, so a PC's
   mouse - a touch laptop's included, whose primary pointer is fine - and
   every smoke written with one see none of it at any window size. Three
@@ -6626,7 +6635,8 @@ measured on the card and when.
   are untouched and nothing moves or scales - but never over a held
   control (`:disabled`, `aria-disabled`, a label round a held input),
   whose press only says why. A card's star darkens its own disc instead,
-  and the phone's tabs light their pill, not the bar's half. The
+  and the phone's tabs light their pill, not the bar's half; the action
+  bar's picture darkens itself inside its progress ring. The
   browser's tap flash is transparent, and `initTouchLayout` adds a
   passive no-op `touchstart` listener, without which iOS Safari applies
   no `:active`. A mouse's press is the PC's. The one-column rules elsewhere that would undo the
@@ -6777,19 +6787,30 @@ measured on the card and when.
   (`notePhoneScroll`), counting no scroll told while the tier is changing,
   so the resize's own clamp or anchoring never replaces it. Leaving the
   phone moves nothing else, and the view chosen there stays chosen.
-  Phone-only layers that come later (moved nodes) close or go home in
-  `syncTier`. The reveal and in-sight checks (New image's
+  The phone's own hosts (`phone.js`, `styles/phone.css`) are filled and
+  emptied there too (`syncPhoneHosts`, from `syncTier` at boot and on each
+  change): on the phone Generate, the viewer, its note and `#recent` are
+  moved - whole, with `moveBefore` where the browser has it (which keeps a
+  node's focus and state; elsewhere the focus is put back by hand), never
+  copied, so every id is once in the page and `els`, `setQueue`,
+  `forgetImages` and every writer write the one node - and off it they go
+  home before a comment `initPhone` left in each one's place, and the
+  queue's sheet closes, its nodes home too. The phone never reorders the
+  panel with CSS `order` or `display: contents`: the focus order is the
+  page's. The reveal and in-sight checks (New image's
   `viewerOutOfSight`, `focusPromptBox`, `focusGallerySearch`, Reuse's
   `promptInSight` and Undo lift, the panel's `revealInPanel` and its `?`
   tips, Picked's menu, the sheet's `wholeInSight`, the tag tip) measure
   against `viewBand()` (`state.js`): from the topbar's foot (0 once it has
   scrolled away) to `innerHeight` less `--phone-bottom-chrome`, which
   `touch.css` registers as a `<length>` (`@property`, initial 0) and sets
-  on the phone's `body` to the tab bar plus the bottom safe area, 0 while
-  `data-typing` hides the bar. On a PC and the tablet it is 0, so those
+  on the phone's `body` to the tab bar plus the bottom safe area - and in
+  the Create view the action bar over it, `--phone-actions-h` - 0 while
+  `data-typing` hides the bars. On a PC and the tablet it is 0, so those
   checks are innerHeight's as before; on the phone a control under the
-  tab bar is out of sight. On the phone the Models picker is a sheet
-  between the topbar and the bar, Back to top clears the bar, the
+  bars is out of sight. On the phone the Models picker is a sheet
+  between the topbar and the bars (its height less
+  `--phone-bottom-chrome`), Back to top clears the bar, the
   lightbox's arrows give way to swipes, and the keyboard help button is
   gone. A finger in the lightbox (`lightbox.js`, `lbTouch*`): two pinch
   about their midpoint and pan; one zoomed in pans; one at or below fit
@@ -6862,7 +6883,7 @@ measured on the card and when.
   The delete question (`#confirm-dialog`) is a sheet from the screen's
   foot across it, rounded at the top, and `placeAsk` places it nowhere.
   The Examples and Picked menus are fixed across the screen 8 px above
-  the tab bar (`--phone-bottom-chrome`), at most 70 dvh and below the
+  the bars (`--phone-bottom-chrome`), at most 70 dvh and below the
   topbar, scrolling inside themselves, with 48 px rows: under their
   buttons the Examples menu ran 20 px past the screen's right edge, so the
   page scrolled sideways, and Picked's rows were 29 px. The right-click
@@ -6896,56 +6917,101 @@ measured on the card and when.
   drops it. The tabs write no history - the view is the tab's
   (`sessionStorage`) - so Back with nothing open leaves the page as before.
   The Examples, Tags and tag finder menus hold no entry yet.
-  While a text box has the focus the phone's tab bar is not drawn
+  While a text box has the focus the phone's tab bar and the Create
+  view's action bar are not drawn
   (`body[data-typing]`, `syncTyping` in `touch.js`, read at boot and on
   focusin/focusout): iOS keeps a fixed foot on the layout viewport, which
   its keyboard does not shrink, so the bar sat behind the keyboard or over
   the text. Then too the topbar is `position: relative`, in its place in
   the flow, and scrolls away with the page rather than standing over the
   few hundred px the keyboard leaves (nothing under it moves, as its place
-  is the same either way); Generate is in its place in the panel, not
-  riding on the bar; and New image's pill is not drawn.
-  On the phone Generate rides at the window's foot, 8 px above the tab bar
-  (`position: sticky` with `bottom` the bar, the safe area and 8 px), while
-  the panel above it is in view: at the page's top it was about 870 px
-  down, below the window, in landscape further. It is sticky inside the
-  static panel, so no node moves, nothing in the page shifts and the focus
-  order stays the markup's; scrolled past its place it scrolls with the
-  panel. An 8 px ring of the panel's colour (`box-shadow`), short of the
-  panel's 14 px gap so no neighbour's focus ring is covered where it rests,
-  parts it from what scrolls under it and fills the gap to the bar. Its
-  held look is solid (the accent and the white mixed half with `--panel`,
-  `opacity: 1`) rather than the PC's half opacity, which let what scrolls
-  under it show through, still `aria-disabled` with its reason as the
-  title; the hover's brightness is dropped, since iOS leaves `:hover` on
-  what was tapped and it lit the ring. Its z-index is 16: over what it
-  passes (the size pairs' 1-3) and over New image's pill (15), so where a
-  Generate scrolled just above its resting place meets the pill a press
-  there is Generate's; under the topbar (20), the tab bar (25) and every
-  menu and tip. The Create view's `html` scroll padding adds its band (the
-  primary's height and 24 px) to the bar's, so a keyboard's Tab never
-  leaves the focus under it. `--phone-bottom-chrome` and `viewBand` leave
-  it out: it covers only what comes before it in the panel, and only while
-  that is in view. New image's pill on the phone sits above it, at the
-  bar, the safe area, the primary's height and 24 px from the foot, rather
-  than under the topbar, where at the page's top it lay over Examples and
-  Check. A refusal of Generate's press (`pressGenerate`: an empty prompt,
-  a seed past 2^53, a hold, the server's own refusal once its answer is
-  in) is said in the panel's line, `#error`, a screen below the button
-  riding on the bar; on the phone that line rides above Generate too
-  (`#error.at-generate`, `sayAtGenerate` in `touch.js`): sticky, 8 px
-  clear of Generate's ring, above New image's pill while that is
-  offered, solid in a ring of the panel's colour with no padding, so its
-  own place keeps its height and nothing moves. The focus stays on
-  Generate. Its next write (`showError`, which counts the panel line's
-  writes in `panelErrorWrites`) or a tap on it (not on a button inside
-  it) leaves it in its place, as does a box with the keyboard; a PC and a
-  tablet say it in the line beside the button as before. This is the
-  first step of the phone's Create action bar; the bar
-  itself (Generate moved into a host above the tab bar with the result
-  and the queue) is still to come, and with it a place for the press's
-  answer and New image's pill, whose interim place at the foot lies over
-  the Sampling labels at the page's top.
+  is the same either way). The page's foot keeps the bars' room either
+  way, so their going and coming moves nothing. Once the keyboard's inset
+  is read (the review's P44) the action bar can ride above the keyboard
+  instead.
+  On the phone the Create view has an action bar (`#phone-actions`,
+  `styles/phone.css`) docked over the tab bar in the thumb's reach: at the
+  page's top Generate was about 870 px down, below the window, and the
+  image it made 1300 px down, under every fold of the panel. The bar is
+  one row, fixed at the tab bar's top, 66 px (a 1 px hairline, the
+  primary's 50 px and 7-8 px round it; on its side 53 px with 44 px
+  controls and the row at most 560 px across the middle of the screen),
+  opaque on the tab bar's `--panel`, at the tab bar's z-index (25): under
+  every menu, tip, sheet and the lightbox, over the page. Not in the
+  Gallery view. Its middle is Generate itself, moved in (`syncPhoneHosts`)
+  rather than copied, 50 px tall and the rest of the row's width, its
+  label one line; its held look is solid (the accent and the white mixed
+  half with `--panel`, `opacity: 1`) rather than the PC's half opacity,
+  still `aria-disabled` with its reason as the title, and the hover's
+  brightness is dropped, since iOS leaves `:hover` on what was tapped. On
+  its left is the newest result's picture (`#phone-dock`, 50 px square,
+  the picture in a 2 px ring, `syncPhoneDock`): the running job's live
+  preview while it sends one, its ring then the job's fraction from the
+  top clockwise in `--accent-2` (the topbar line's width, a quarter
+  turning while the weights load, still under reduced motion), else the
+  viewer's newest image not gone, else this page's newest earlier result
+  (`#recent`'s), else a picture glyph, held ("Nothing generated on this
+  page yet", or "No image of this job yet" while a job has none). It is
+  read from what the page shows - the viewer's preview frame and images
+  and `#recent`, and the topbar's line and fill, watched by a
+  MutationObserver - so no writer of the viewer or the job knows of it.
+  A press (`pressPhoneDock`), never a job, opens what it shows: the
+  newest image in the lightbox, walking the strip from it as the strip's
+  own picture does (`openViewerImage` with the origin `'dock'`), whose
+  close (`dismissLightbox`, and the close after a delete) gives the focus
+  back to the picture, fixed over the page, so nothing scrolls; the live
+  preview's tile in the results, scrolled to by that press as New image's
+  was (`goToNewImage`), until the phone's own viewer can show a live
+  preview (the review's P30). On its right is the queue (`#phone-queue`,
+  50 px, `syncPhoneQueue`): a list glyph, the accent's soft fill and edge
+  while a job runs, the count of jobs waiting behind it in a 22 px badge
+  on its corner (13 px, from `#queue-list`'s rows), held while nothing
+  runs or waits ("Nothing running or queued"). A press opens the queue's
+  sheet (`#queue-sheet`, `openQueueSheet`), a `<dialog>` like every other
+  on the phone (the screen across, its title row sticky, its own history
+  entry): the panel's own `#progress` - the job's line, ↑, Pause, Skip,
+  Cancel and the bars - and `#queue-note` - the queue's line, its rows
+  with their × and ↑, Cancel queued - are moved into it while it is open
+  and home again on its `close` (✕, Escape, Back, the phone going), so
+  `setQueue` and the job's writers write the one copy; with neither
+  shown it says nothing runs. While they are in it, `movedByQueue` counts
+  the sheet's list as what a poll's change would move. The sheet's own
+  design - a grid of the job's buttons, 56 px rows with a ⋯ - is the
+  review's P3, still to come. A held picture's or queue's press, as a
+  refused Generate's (`pressGenerate`: an empty prompt, a seed past 2^53,
+  a hold, the server's own refusal once its answer is in), is said in the
+  panel's line, `#error`, a screen below the bar; on the phone that line
+  rides 8 px above the bars (`#error.at-generate`, `sayAtGenerate` in
+  `touch.js`, its `bottom` `--phone-bottom-chrome` and 8 px): sticky,
+  solid in a ring of the page's colour with no padding, so its own place
+  keeps its height and nothing moves, its z-index 16, over what it passes
+  (the size pairs' 1-3) and under the topbar and the bars. The focus
+  stays on what was pressed. Its next write (`showError`, which counts
+  the panel line's writes in `panelErrorWrites`) or a tap on it (not on a
+  button inside it) leaves it in its place, as does a box with the
+  keyboard; a PC and a tablet say it in the line beside the button as
+  before. The bars' room is kept: `main`'s bottom padding, the Create
+  view's `html` `scroll-padding-bottom` (so a keyboard's Tab never leaves
+  the focus under them) and `--phone-bottom-chrome` (so `viewBand` and
+  the menus above the bars) each count the tab bar, the action bar and
+  the safe area; the Models sheet stops at the action bar's top. New
+  image's pill is not offered on the phone (`offerNewImage`, and not
+  drawn there): the bar's picture is the new image, always in sight, and
+  the pill lay over the page wherever it went - under the topbar over
+  Examples and Check, then over the Sampling labels at the foot.
+  The results on the phone are under the settings that make them: the
+  viewer, its note and `#recent` are moved from the stage into
+  `#phone-results`, in Generate's place in the panel - after Output,
+  ahead of the job's progress, whose coming and going then never moves
+  the picture - a card on the frameless page, 12 px between its parts.
+  The image just made starts about 950 px down a 393x852 screen, a scroll
+  of less than one screen, where it was about 1480 px down (1670 while a
+  job ran); the review's More options sheet (P4) will bring it higher
+  still. Idle, before anything is made on the page, the viewer's one line
+  ("Nothing generated this session") is not drawn there, nor the empty
+  host: the bar's held picture says it. The load's wait in that line, a
+  failed load's card, a lost run's, a first run's box with the examples
+  and a deleted image's held line still are.
   The phone's page does not pull to refresh: `html` and `body` have
   `overscroll-behavior-y: contain`, so a pull at the page's top no longer
   reloads it (the prompt's Undo, a Check, a selection and each view's
@@ -6982,7 +7048,9 @@ measured on the card and when.
   scrolls away with the page (`position: relative`; `--topbar-h` there is
   the notch's inset alone, so the scroll margins read nothing over the
   page, and the Models sheet hangs at 46 px plus it), the
-  tab bar 44 with its glyph beside its word, the prompt three lines rather
+  tab bar 44 with its glyph beside its word, the action bar over it 53
+  with 44 px controls in a row of at most 560 px across the middle, the
+  prompt three lines rather
   than five (until its grip sets a height), the gallery's search beside
   Runs, and the lightbox the PC's row (outside `LB_STACKED_MEDIA`): the
   picture beside a 300 px (at most 42 vw) column that scrolls as a whole,
@@ -6994,7 +7062,7 @@ measured on the card and when.
   Accessibility on touch: the tab bar is a `nav` landmark ("Views",
   `#phone-tabs`) holding a `.phone-tablist` (`role="tablist"`): a role on
   the nav itself took the landmark away. The phone's `html` has a
-  `scroll-padding-bottom` of the bar's height (with Generate's band in the
+  `scroll-padding-bottom` of the bar's height (with the action bar's in the
   Create view), so a tablet keyboard's Tab never leaves the focus under
   the bar (WCAG 2.4.11). Presses smaller than
   a finger reach further by a pseudo-element without moving anything (the
@@ -7894,17 +7962,17 @@ classic scrollbar), `data-tier` phone; every number box's `inputmode`
 (`decimal` where its step has a fraction, `numeric` otherwise), the
 Sampling and Output boxes' `enterkeyhint` done and the search's search;
 `html` and `body` with `overscroll-behavior-y: contain`; at the page's top
-Generate sticky 8 px above the bar, in sight under the topbar and the
-element at its centre, with Load settings from PNG still below the window,
-solid while held (opacity 1, its background's alpha 1) and the scroll
-padding the bar's and its band; a press there refused for an empty
-prompt, a seed past 2^53 and a stubbed server refusal each saying why in
-`#error` riding above Generate (`at-generate`, solid, at least 16 px
-above its top, under the topbar, the element at its centre, the focus
-not taken to a box), a tap on it leaving it in its place below the
+Generate moved into the action bar (one `#btn-generate`, the bar fixed,
+its foot the tab bar's top), at least 50 px tall in the window's bottom
+third and the element at its centre, solid while held (opacity 1, its
+background's alpha 1) and the scroll padding both bars'; a press there
+refused for an empty prompt, a seed past 2^53 and a stubbed server
+refusal each saying why in `#error` riding 8 px above the bars
+(`at-generate`, solid, under the topbar, the element at its centre, the
+focus not taken to a box), a tap on it leaving it in its place below the
 window, the refused press's `:active` (polled every 5 ms) laying black at
-20% over Generate with its box unmoved; at the page's foot Generate in its place above Load settings from
-PNG; the phone audit finding no
+20% over Generate with its box unmoved; at the page's foot the panel
+ending above the action bar and Generate still in it; the phone audit finding no
 sideways overflow, no control off the screen sideways and no dialog outside the window on Create,
 on Gallery and in the Models sheet, and in the lightbox no overflow and no
 dialog outside, its only excepted controls `.lb-link`s, and in the
@@ -7941,22 +8009,23 @@ with no backdrop filter, Create's pill 56x28 round its 24 px glyph and
 filled, Gallery's clear; a long press's
 menu on a card holding Reuse settings, Refine…, the reference, Show run as
 sheet, Inpaint… and Move to recycle bin, and its Refine… row, tapped,
-opening Refine (closed by Escape with no entry left); Create drawing the panel and viewer
-but not the gallery and the bar at the window's foot, `viewBand` from the
-topbar's foot to the bar's top, a viewer 14 px above the bar counted out
-of sight below (`viewerOutOfSight`) and the band to the window's foot
-while the prompt has the focus, the topbar then `relative` and gone from
-the window once scrolled (`viewBand` from 0) and Generate `static`, both
-sticky again on blur, and the prompt typed then back after the reload; Gallery the reverse,
+opening Refine (closed by Escape with no entry left); Create drawing the
+panel with the viewer moved into it (`#phone-results`), the idle viewer
+not drawn, but not the gallery, and the bar at the window's foot,
+`viewBand` from the topbar's foot to the action bar's top and
+`--phone-bottom-chrome` both bars' height, and the band to the window's
+foot while the prompt has the focus, both bars then not drawn and the
+topbar `relative` and gone from the window once scrolled (`viewBand` from
+0), all back on blur, and the prompt typed then back after the reload;
+Gallery the reverse, no action bar and the band to the tab bar,
 two cards across, Back to top above the bar, each view's own scroll and
 the view kept through a reload; in the lightbox no arrows or key legend,
 a swipe left and right stepping, a swipe down closing, a pinch zooming
 past 1.5, a swipe while zoomed panning without stepping, and a double tap
 back to fit; Reuse from the Gallery view bringing Create with the prompt;
-Generate tapped at the page's top queuing a job whose New image ↓ pill
-sits at least 8 px above Generate in the window's lower half, clear of
-Examples and Check and the element at its centre, and its press bringing
-the viewer into sight; a job's dot and line on the bar in both views and
+Generate tapped at the page's top queuing a job with the viewer below the
+window and no New image pill, the action bar's picture the live preview,
+ringed and pressable; a job's dot and line on the bar in both views and
 gone at its end, the dot at least 12 px at the top corner of Create's
 pill, the tab's "a job running" shown while it runs and hidden after, and
 Cancel (unless held) `--danger`; Back
@@ -7980,14 +8049,17 @@ the menu inside it with no dialog opened and the lightbox still up, still
 open after the lift on the picture, docked at the foot with a menu item,
 not a line, first; 852x393 still the phone, with a topbar of at
 most 48 px, a tab bar of at most 45, a topbar that scrolls away (the
-band then from 0 to the bar), a three-line prompt, the search beside Runs, every card's tools not drawn and its star 44 px, no control under 44 px in the Gallery view, and the
+band then from 0 to the action bar), the action bar 53 px on the tab bar
+with 44 px controls in a centred row of at most 560 px, a three-line prompt, the search beside Runs, every card's tools not drawn and its star 44 px, no control under 44 px in the Gallery view, and the
 lightbox's column beside a stage at least 300 tall; the tab bar a nav
 landmark holding the tablist, the brand at #8a6dff and a scroll padding
 the bar's height; at 320x1106 Sampling two to a row with no sideways
 scroll; at 320x700 no sideways overflow, no control off the screen and no
 word under 13 px on Create (its folds shut, and open with no overflow or
 control off the screen) and on Gallery; and a mouse at 1400x900 back to
-no bar, both views, a sticky topbar, no scroll padding, a 43 px Generate,
+no bar, both views, Generate and the results home (Generate in the panel
+after the empty `#phone-results`, the viewer, its note and `#recent` in
+the stage, one `#btn-generate`), a sticky topbar, no scroll padding, a 43 px Generate,
 14 px text, 12 px capitals in a caption and a fold's summary with its ▸,
 the panel framed and padded 16, the Notify row a flex row, and the
 Ctrl+Enter hint, no `data-tier`, the search's "/ to focus" back,
@@ -7995,6 +8067,51 @@ Ctrl+Enter hint, no `data-tier`, the search's "/ to focus" back,
 accent's solid fill with no ring, Reset not red, Notify's tick not 24 px
 and Then refine's opener no 44 px box, and the lightbox and the Models
 picker opened by the mouse adding no history entry.
+
+`smoke-phone-create.json` uses a fresh FLUX.1 Krea [dev] fake of its own
+on 7956, a row beside `smoke-phone`'s (the table's ports are full at
+`--jobs`' 100-port span), with touch at 393x852@3, `"mobile": true`, and
+two planted images. At load Generate is in the action bar - one
+`#btn-generate`, the bar fixed, 66 px, across the window, its foot the
+tab bar's top - at least 50 px tall, in the window's bottom third and the
+element at its centre; the bar's picture and queue 50 px squares 8 px
+either side of it and 16 px from the window's edges, both held with their
+reasons as titles; the phone audit finding nothing on the first screen
+under 44 px or off it; `main`'s bottom padding and the scroll padding at
+least both bars, `viewBand` ending at the action bar, the idle viewer and
+New image not drawn. A tap on the held picture and on the held queue
+says why in `#error` 8 px above the bars (its element at its centre),
+opening neither the lightbox nor the sheet. At 360x780 Generate is in the
+bottom third too, at least 150 px wide, the bar on the tab bar, its
+controls inside the screen and no sideways scroll. A tap on the prompt
+leaves `data-typing` with neither bar drawn and the band the window;
+the blur brings both back. A job (1 s a step) and a second tapped
+behind it: the bar's picture the live preview (`data:` source, `live`
+and `running`, a `--ring` past 0 and a conic gradient), pressable with
+its title; the queue its count of 1, unheld, `running`, named "Queue: a
+job running, 1 waiting"; New image hidden with the viewer below the
+window; a tap on the live picture bringing the viewer into sight with the
+focus in it and no lightbox. The queue's sheet from its button: the
+panel's own `#progress` and `#queue-note` moved into it (one of each,
+and one Cancel), Cancel and the list shown, the idle line not, the phone
+audit finding nothing under 44 px, off it or outside the window, and one
+history entry; Back closing it, the nodes back in the panel, no entry
+left and the focus on the queue button; its ✕ closing it as well. Both
+jobs done (`/api/jobs` listing none, so the moment between them is never
+taken for the end): the result card shown in `#phone-results`, after the Output
+field and before `#progress`, its top under 1100 px down the page and
+less than one band below the band's foot (a scroll of under a screen
+reaches it; it is logged), the band's own scroll putting its top in
+sight; the bar's picture the newest image's thumbnail with its title,
+the queue held again. The picture tapped at a 120 px scroll opens the
+lightbox on the newest image with one entry; Escape closes it, the focus
+on the picture and the page at its scroll. The Models sheet in the
+Create view ends at the action bar's top; the Gallery view has no
+action bar and its band ends at the tab bar. A mouse at 1400x900 has
+no `data-tier` and no action bar, Generate home in the panel after the
+empty `#phone-results`, 43 px and static, the viewer and `#recent` in the
+stage beside the panel, the progress in the panel, no scroll padding and
+the band the window.
 
 `smoke-tablet.json` uses a fresh FLUX.1 Krea [dev] fake on 7957 with touch
 at 820x1180@2, its touch viewports `"mobile": true`: `data-tier` tablet
@@ -8019,8 +8136,12 @@ sizes; at 678x1180 (Split View) the phone with its tab bar, the phone audit
 finding no overflow, nothing off the screen sideways and no dialog outside
 (its under-44 px count logged); the pane dragged 678 -> 820 -> 678, the
 tier following each `change`, Generate, the viewer and the gallery shown
-and Generate focusable at 820, Create back at the 300 px it was left at
-on the phone with Generate focusable, and a Gallery view chosen at 678
+and Generate focusable at 820, Generate home in the panel and the viewer
+and `#recent` home in the stage there with no action bar and an empty
+`#phone-results`, Create back at the 300 px it was left at on the phone
+with Generate focusable, Generate moved into the action bar and the
+viewer into `#phone-results` again (each id once), the band ending at
+the action bar on the tab bar, and a Gallery view chosen at 678
 kept through 820 and back; the lightbox at 820 not the phone's (stacked,
 0.97 over a clear backdrop, Inpaint… and More seeds… not drawn); a card
 tapped in Select mode showing no caption and a Tab's focus showing it; at 820 the touch tier's slider (44 px, the

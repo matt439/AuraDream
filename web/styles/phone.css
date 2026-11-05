@@ -1,0 +1,148 @@
+/* ----------------------------------------------------------- phone hosts */
+
+/* The phone's own places for nodes the page holds once (phone.js): the
+   Create view's action bar over the tab bar, with Generate moved into it;
+   the results moved under the settings that make them; and the queue's
+   sheet, which the running job's progress and the queue are moved into
+   while it is open. Each node is moved whole under PHONE_MEDIA, never
+   copied, and home again off it, so a PC, a tablet and every smoke written
+   with a mouse see none of this. Linked last, after touch.css, whose
+   tokens it reads: --phone-actions-h, --phone-bottom-chrome, --tabbar-h
+   and the safe areas. */
+.phone-actions, .phone-results { display: none; }
+
+/* The newest result's ring while a job runs: where it starts, turned while
+   the weights load and there is no fraction to show. */
+@property --ring-from {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+@keyframes phone-ring-turn { to { --ring-from: 360deg; } }
+
+@media (pointer: coarse) and ((width < 700px) or (max-height: 500px)) {
+  /* The results - the viewer, its note, #recent - in Generate's place under
+     Output rather than after every fold of the panel: the image just made
+     was 1300 px down a 393 px screen, under Notify, Grid search, Step
+     cache and LoRA. A card on the frameless page, its parts 12 px apart. */
+  .phone-results:not(:empty) { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
+  /* Idle - nothing made on this page yet - the viewer's one line ("Nothing
+     generated this session") is not drawn: it stood alone between Output
+     and the panel's foot, and the bar's picture says it, held. The load's
+     wait in that line, a failed load's card, a lost run's, a first run's
+     box with the examples and a deleted image's held line still are. */
+  .phone-results:has(> .viewer > .placeholder:not([hidden], .held, .waiting)):not(:has(> .viewer.empty-install)) { display: none; }
+
+  /* The action bar: the newest result, Generate and the queue, one row in
+     the thumb's reach over the tab bar, opaque on the bar's colour with a
+     hairline above it. 66 px (53 on its side, below), which the page's
+     foot, its scroll padding and --phone-bottom-chrome count in the
+     Create view (styles/touch.css). Not in the Gallery view, nor while a
+     box has the keyboard: iOS keeps a fixed foot on the layout viewport,
+     behind the keyboard, as the tab bar does. Its z-index the tab bar's,
+     over the page and New image's place (the pill is not offered here),
+     under every menu, tip and sheet. */
+  .phone-actions {
+    --ctl: var(--h-lg);
+    display: flex; align-items: center; gap: var(--sp-2);
+    position: fixed; left: 0; right: 0; z-index: 25;
+    bottom: calc(var(--tabbar-h) + var(--safe-b));
+    height: var(--phone-actions-h);
+    padding: 0 max(var(--gutter), var(--safe-r)) 0 max(var(--gutter), var(--safe-l));
+    background: var(--panel); border-top: 1px solid var(--line);
+  }
+  body:is([data-view="gallery"], [data-typing]) .phone-actions { display: none; }
+
+  /* Generate, the bar's middle: the one solid accent on Create, 50 px tall,
+     its label one line. Held it stays solid on the bar (the accent and the
+     white half mixed with the bar's colour) rather than the PC's half
+     opacity, still aria-disabled with its reason as its title; iOS leaves
+     :hover on what was tapped, so the hover's brightness is dropped. */
+  .phone-actions > #btn-generate {
+    flex: 1 1 0; min-width: 0; height: var(--ctl); margin: 0; padding-block: 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .phone-actions > #btn-generate[aria-disabled="true"] {
+    opacity: 1;
+    background-color: color-mix(in srgb, var(--accent-strong) 50%, var(--panel));
+    color: color-mix(in srgb, #fff 50%, var(--panel));
+  }
+  .phone-actions > #btn-generate:hover { filter: none; }
+
+  /* The newest result (#phone-dock): its picture in a 2 px ring, 50 px
+     square - the live preview while a job sends one, ringed then with the
+     job's progress from the top clockwise (the topbar's fraction), a
+     quarter turning while the weights load (still under reduced motion).
+     Before anything is made, a picture glyph, held. A press darkens the
+     picture rather than the ring. */
+  .phone-dock {
+    position: relative; flex: none; width: var(--ctl); height: var(--ctl); padding: 0;
+    border: none; border-radius: var(--r-md); background: var(--line-strong);
+  }
+  .phone-dock .dock-face {
+    position: absolute; inset: 2px; display: grid; place-items: center; overflow: hidden;
+    border-radius: calc(var(--r-md) - 2px); background: var(--panel-2); color: var(--muted);
+  }
+  .phone-dock .dock-glyph { width: 24px; height: 24px; fill: currentColor; }
+  .phone-dock .dock-face:has(> .dock-img:not([hidden])) > .dock-glyph { display: none; }
+  .phone-dock .dock-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .phone-dock.running {
+    background: conic-gradient(var(--accent-2) calc(var(--ring, 0) * 1turn), var(--line-strong) 0);
+  }
+  .phone-dock.running .dock-face { inset: 3px; border-radius: calc(var(--r-md) - 3px); }
+  .phone-dock.running.indeterminate {
+    background: conic-gradient(from var(--ring-from), var(--accent-2) 0 25%, var(--line-strong) 0);
+    animation: phone-ring-turn 1.2s linear infinite;
+  }
+  .phone-dock.live .dock-img { opacity: 0.85; }
+  .phone-dock:active:not([aria-disabled="true"]) .dock-face { filter: brightness(0.75); }
+  .phone-dock:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+
+  /* The queue (#phone-queue): a list glyph, the accent's soft fill and edge
+     while a job runs, the count of those waiting behind it in a 22 px
+     badge on its corner (13 px, ringed in the bar's colour); held, muted,
+     when nothing runs or waits. */
+  .phone-queue {
+    position: relative; flex: none; width: var(--ctl); height: var(--ctl); padding: 0;
+    display: grid; place-items: center;
+    border: 1px solid var(--line-strong); border-radius: var(--r-md);
+    background-color: var(--panel-2); color: var(--text-2);
+  }
+  .phone-queue .queue-glyph { width: 24px; height: 24px; fill: currentColor; }
+  .phone-queue.running { border-color: var(--accent); background-color: var(--accent-soft); color: var(--text); }
+  .phone-queue[aria-disabled="true"] { color: var(--muted); border-color: var(--line); }
+  .phone-queue .queue-count {
+    position: absolute; top: -7px; right: -7px;
+    min-width: 22px; height: 22px; padding: 0 5px; border-radius: 11px;
+    background: var(--accent-2); color: #08080c; box-shadow: 0 0 0 2px var(--panel);
+    font-size: var(--fs-xs); font-weight: 700; line-height: 22px; text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* The queue's sheet: the screen across, as every dialog on the phone
+     (styles/touch.css), its title row at the top; the running job's
+     progress and the queue's rows under it, 16 px apart, or a line saying
+     nothing runs. */
+  .queue-sheet { background: var(--panel); color: var(--text); }
+  .queue-sheet[open] { display: flex; flex-direction: column; gap: var(--sp-4); }
+  .queue-sheet-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+  .queue-sheet-head h2 { margin: 0; font-size: var(--fs-lg); font-weight: 600; }
+  .queue-sheet-body { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
+  .queue-sheet-idle { margin: 0; font-size: var(--fs-body-sm); }
+  .queue-sheet-body:has(> #progress:not([hidden])) > .queue-sheet-idle,
+  .queue-sheet-body:has(> #queue-note:not([hidden])) > .queue-sheet-idle { display: none; }
+  .queue-sheet::backdrop { background: rgba(0, 0, 0, 0.6); }
+}
+
+@media (pointer: coarse) and ((width < 700px) or (max-height: 500px)) and (prefers-reduced-motion: reduce) {
+  .phone-dock.running.indeterminate { animation: none; }
+}
+
+/* On its side the bar is 53 px, its controls 44, and its row at most 560 px
+   across the middle of the screen: Generate 790 px wide read as a banner. */
+@media (pointer: coarse) and (max-height: 500px) and (orientation: landscape) {
+  .phone-actions {
+    --ctl: var(--h-md);
+    padding-inline: max(var(--gutter), var(--safe-l), calc((100% - 560px) / 2));
+  }
+}

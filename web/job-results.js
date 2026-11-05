@@ -513,8 +513,8 @@ async function joinFinished(page, epoch, now = false) {
 // - is said with a press that goes to it: "New image ↑" or "↓". Never a
 // scroll of the page's own, which would take the gallery from under the
 // pointer. In one column the button is a pill fixed under the topbar
-// (styles/generation.css; on a phone above Generate at the foot,
-// styles/touch.css): in the static panel it was as far out of view as the viewer.
+// (styles/generation.css): in the static panel it was as far out of view as
+// the viewer. A phone offers none (offerNewImage).
 // Gone once the viewer is in view, however it got there; its arrow follows a
 // scroll that jumps past the viewer without showing it (End, Home).
 let viewerWatch = null;
@@ -538,8 +538,10 @@ function syncNewImage() {
   els.newImage.setAttribute('aria-label', label);
 }
 
+// Not on a phone, where the action bar's picture (phone.js) is the new
+// image, always in sight over the tab bar, a press from the lightbox.
 function offerNewImage() {
-  if (!viewerOutOfSight()) return;
+  if (isPhone() || !viewerOutOfSight()) return;
   els.newImage.hidden = false;
   syncNewImage();
   if (!viewerWatch) {

@@ -22,7 +22,10 @@
      way up, an iPad's Split View pane short of the two columns): one column
      with a tab bar at the foot (touch.js) that shows Create - the panel and
      the results - or the gallery. `body[data-view]`
-     says which; nothing is removed from the page, only not drawn.
+     says which; nothing is removed from the page, only not drawn, or
+     moved whole - never copied - into the phone's own hosts (phone.js,
+     styles/phone.css, linked after this): Generate into the Create view's
+     action bar, the results under the settings.
 
    `body[data-tier]` ('phone', 'tablet', or none on a PC; touch.js keeps it
    in step with the queries) is a hook for a rule to key on beside them.
@@ -64,11 +67,12 @@
      would wash out. Not over a held control, whose press says why and does
      nothing more, and not as the browser's own tap flash, which lit a box
      round the control after the lift. A card's star darkens its own disc;
-     the phone's tabs light their pill (below). iOS applies :active only
-     where a touchstart listener is (touch.js). */
+     the phone's tabs light their pill (below), and the action bar's
+     picture darkens itself inside its ring (styles/phone.css). iOS
+     applies :active only where a touchstart listener is (touch.js). */
   body { -webkit-tap-highlight-color: transparent; }
   :root { --press-layer: color-mix(in srgb, var(--text) 12%, transparent); }
-  :is(button, summary, [role="menuitem"], [role="option"], .check, label:has(> input[type="radio"]), .model-row):active:not(:disabled):not([aria-disabled="true"]):not(.primary, .fav-badge, .phone-tabs button):not(:has(> input:is(:disabled, [aria-disabled="true"]))) {
+  :is(button, summary, [role="menuitem"], [role="option"], .check, label:has(> input[type="radio"]), .model-row):active:not(:disabled):not([aria-disabled="true"]):not(.primary, .fav-badge, .phone-tabs button, .phone-dock):not(:has(> input:is(:disabled, [aria-disabled="true"]))) {
     background-image: linear-gradient(var(--press-layer), var(--press-layer));
   }
   .primary:active:not(:disabled):not([aria-disabled="true"]) {
@@ -328,6 +332,9 @@
     /* The rhythm: 4 inside a control, 8 between controls, 16 between
        fields (the panel's gap) and round the page, 32 between sections. */
     --gutter: var(--sp-4); --panel-gap: var(--sp-4);
+    /* The Create view's action bar over the tab bar (styles/phone.css): a
+       1 px edge, 7 px, the primary's 50 px and 8 px. */
+    --phone-actions-h: 66px;
   }
   /* And as wide: a glyph's button (a queue row's × and ↑, Bin, the run
      sheet's − and +), a size pill (1:1), a close. Words are wider already. */
@@ -345,76 +352,53 @@
   #btn-shortcuts { display: none; }
   .brand { font-size: var(--fs-md); }
 
+  /* The page's foot clears what is fixed over the window's: the tab bar, and
+     in the Create view the action bar over it (styles/phone.css). The same
+     whether or not a box has the keyboard, so its going and coming moves
+     nothing. */
   main { padding-bottom: calc(var(--tabbar-h) + var(--safe-b) + var(--gutter)); }
-  /* The tab bar and the home indicator's inset, over the window's foot;
-     nothing while a box has the keyboard and the bar steps aside. */
+  body:not([data-view="gallery"]) main {
+    padding-bottom: calc(var(--tabbar-h) + var(--phone-actions-h) + var(--safe-b) + var(--gutter));
+  }
+  /* The tab bar, the action bar in the Create view and the home indicator's
+     inset, over the window's foot; nothing while a box has the keyboard and
+     the bars step aside. */
   body { --phone-bottom-chrome: calc(var(--tabbar-h) + var(--safe-b)); }
+  body:not([data-view="gallery"]) { --phone-bottom-chrome: calc(var(--tabbar-h) + var(--phone-actions-h) + var(--safe-b)); }
   body[data-typing] { --phone-bottom-chrome: 0px; }
   /* A tablet keyboard's Tab brought a control in at the window's foot, under
      the tab bar (WCAG 2.4.11): the scroll that follows the focus stops short
-     of the bar. Nothing else scrolls by it. */
+     of the bars. Nothing else scrolls by it. */
   html { scroll-padding-bottom: calc(var(--tabbar-h) + var(--safe-b) + var(--sp-2)); }
+  html:has(> body:not([data-view="gallery"])) {
+    scroll-padding-bottom: calc(var(--tabbar-h) + var(--phone-actions-h) + var(--safe-b) + var(--sp-2));
+  }
   /* A pull down at the page's top reloaded it (Chrome's and Safari's pull
      to refresh): the prompt's Undo, a Check, a selection and each view's
      place went with it. The page's own scroll stops at its ends; a tap on
      the browser's reload still reloads. */
   html, body { overscroll-behavior-y: contain; }
 
-  /* Generate rides at the window's foot, on the tab bar, while the panel
-     above it is in view: at the page's top it was 870 px down, below the
-     window. Sticky inside the static panel, so nothing in the page moves
-     and the focus order is the markup's; past its own place in the panel
-     it scrolls with it. It rests 8 px over the bar in an 8 px ring of the
-     page's colour, short of the panel's gap (16 px) so no neighbour's
-     focus ring is covered where it rests, which parts it from what scrolls
-     under it and fills the gap to the bar; its held look is solid (the
-     PC's opacity let that show through). Its z-index, 16: over what it
-     passes (the size pairs' 1-3) and over New image's pill (15), which a
-     Generate scrolled just above its resting place meets, so a press there
-     is Generate's; under the topbar (20), the tab bar (25) and every menu
-     and tip. The scroll that follows a keyboard's focus stops short of it
-     in the Create view. While a box has the keyboard it stays in its
-     place, as the tab bar steps aside. */
-  #btn-generate {
-    position: sticky; bottom: calc(var(--tabbar-h) + var(--safe-b) + var(--sp-2)); z-index: 16;
-    box-shadow: 0 0 0 var(--sp-2) var(--bg);
-  }
-  #btn-generate[aria-disabled="true"] {
-    opacity: 1;
-    background: color-mix(in srgb, var(--accent-strong) 50%, var(--bg));
-    color: color-mix(in srgb, #fff 50%, var(--bg));
-  }
-  /* iOS leaves :hover on what was tapped, and the hover's brightness lit
-     the ring round it as well as the button. */
-  #btn-generate:hover { filter: none; }
-  body[data-typing] #btn-generate { position: static; box-shadow: none; }
-  html:has(> body:not([data-view="gallery"])) {
-    scroll-padding-bottom: calc(var(--tabbar-h) + var(--safe-b) + var(--h-lg) + 3 * var(--sp-2));
-  }
-  /* New image's pill above it, out of the way of the Prompt row's Examples
-     and Check, which it covered under the topbar at the page's top; while
-     a box has the keyboard, not drawn, as the tab bar is not. */
-  #btn-new-image {
-    top: auto;
-    bottom: calc(var(--tabbar-h) + var(--safe-b) + var(--h-lg) + 3 * var(--sp-2));
-  }
-  body[data-typing] #btn-new-image { display: none; }
-  /* A refusal of Generate's press (sayAtGenerate, touch.js): the panel's
-     line, a screen below the button, rides above it as Generate does, 8 px
-     clear of its ring, and over New image's pill while that is offered.
-     Sticky, so nothing in the page moves; a ring and a background of the
-     page's colour, no padding, so its own place keeps its height. Its
-     next write or a tap on it leaves it in its place; while a box has the
-     keyboard it is there too. */
+  /* Generate is in the Create view's action bar over the tab bar
+     (styles/phone.css, phone.js), with the newest result beside it. New
+     image's pill, which said a result had landed out of sight, is not
+     offered here (offerNewImage): the bar's picture is that result,
+     always in sight, and the pill lay over the page wherever it went. */
+  #btn-new-image { display: none; }
+  /* A refusal of Generate's press (sayAtGenerate, touch.js), or of the
+     bar's held picture or queue: the panel's line, a screen below the bar,
+     rides 8 px above the bars. Sticky, so nothing in the page moves; a
+     ring and a background of the page's colour, no padding, so its own
+     place keeps its height. Its next write or a tap on it leaves it in its
+     place; while a box has the keyboard it is there too. Its z-index, 16:
+     over what it passes (the size pairs' 1-3), under the topbar (20), the
+     bars (25) and every menu and tip. */
   #error.at-generate {
     position: sticky; z-index: 16;
-    bottom: calc(var(--tabbar-h) + var(--safe-b) + var(--h-lg) + 4 * var(--sp-2));
+    bottom: calc(var(--phone-bottom-chrome) + var(--sp-2));
     background: var(--bg);
     box-shadow: 0 0 0 var(--sp-2) var(--bg), 0 0 0 calc(var(--sp-2) + 1px) var(--line-strong);
     border-radius: var(--r-xs);
-  }
-  body:has(#btn-new-image:not([hidden])) #error.at-generate {
-    bottom: calc(var(--tabbar-h) + var(--safe-b) + var(--h-lg) + var(--h-sm) + 5 * var(--sp-2));
   }
   body[data-typing] #error.at-generate { position: static; box-shadow: none; background: none; }
 
@@ -820,11 +804,11 @@
   .context-menu li[role="menuitem"] { min-height: 48px; }
 
   /* The Models picker: a sheet across the screen between the topbar and the
-     tab bar, rather than a box hung from the topbar's corner whose foot - the
-     load's state under Apply & save - lay under the tab bar. */
+     bars at the foot, rather than a box hung from the topbar's corner whose
+     foot - the load's state under Apply & save - lay under the tab bar. */
   .model-picker {
     position: fixed; top: var(--topbar-h); left: 0; right: 0; width: auto;
-    max-height: calc(100dvh - var(--topbar-h) - var(--tabbar-h) - var(--safe-b));
+    max-height: calc(100dvh - var(--topbar-h) - var(--phone-bottom-chrome));
     border-radius: 0; border-inline: none;
     padding-left: var(--safe-l); padding-right: var(--safe-r);
   }
@@ -837,8 +821,9 @@
    facts. Here both bars are slimmer - the tab bar's glyph beside its word -
    and the lightbox is the PC's row again, its column scrolling as a whole. */
 @media (pointer: coarse) and (max-height: 500px) and (orientation: landscape) {
-  /* The bar 45 px: its tabs 44 under its 1 px top edge. */
-  :root { --tabbar-h: 45px; }
+  /* The bar 45 px: its tabs 44 under its 1 px top edge; the action bar over
+     it 53, its controls 44 (styles/phone.css). */
+  :root { --tabbar-h: 45px; --phone-actions-h: 53px; }
   /* Its buttons the phone's 44 px in its 46: a pixel above and below. */
   .topbar { padding-top: calc(1px + var(--safe-t)); padding-bottom: 1px; }
   .topbar > button, .topbar .ghost { min-height: var(--h-sm); }
@@ -868,7 +853,7 @@
      --topbar-h (the scroll margins) reads the notch alone. */
   :root { --topbar-h: var(--safe-t); }
   .topbar { position: relative; height: calc(46px + var(--safe-t)); }
-  .model-picker { top: calc(46px + var(--safe-t)); max-height: calc(100dvh - 46px - var(--safe-t) - var(--tabbar-h) - var(--safe-b)); }
+  .model-picker { top: calc(46px + var(--safe-t)); max-height: calc(100dvh - 46px - var(--safe-t) - var(--phone-bottom-chrome)); }
   /* The prompt three lines, not five: at five, Create on its side was the
      prompt box and nothing else. A drag on its grip still sets its own. */
   #prompt:not([style*="height"]) { height: calc(2lh + var(--h-field)); }

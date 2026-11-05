@@ -652,8 +652,10 @@ function movedByQueue(target) {
   const after = Node.DOCUMENT_POSITION_FOLLOWING | Node.DOCUMENT_POSITION_CONTAINED_BY;
   if (!(els.queueNote.compareDocumentPosition(target) & after)) return false;
   // Beside the stage only the panel's foot moves: the panel holds its
-  // place while the pointer is on it (panelPos.pointer).
+  // place while the pointer is on it (panelPos.pointer). In the phone's
+  // queue sheet (phone.js), the rows under the list's top are what move.
   const panel = els.queueNote.closest('.panel');
+  if (!panel) return els.queueNote.parentElement.contains(target);
   return getComputedStyle(panel).position !== 'sticky' || panel.contains(target);
 }
 

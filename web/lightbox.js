@@ -716,6 +716,14 @@ function dismissLightbox() {
   }
   closeLightbox();
   if (!last) return;
+  // Opened from the phone's action bar (phone.js), the focus goes back to its
+  // picture, fixed over the page: the strip's image it shows was a focus
+  // that scrolled the page to it.
+  const dock = document.getElementById('phone-dock');
+  if (origin === 'dock' && isShown(dock)) {
+    requestAnimationFrame(() => dock.focus({ preventScroll: true }));
+    return;
+  }
   const strips = { viewer: `#viewer img[data-id="${last.id}"]`, recent: `#recent img[data-id="${last.id}"]`,
     gallery: `#gallery .card[data-id="${last.id}"] img`, sheet: `#sheet-grid .sheet-cell[data-id="${last.id}"] img` };
   const order = origin === 'recent' ? ['recent', 'viewer', 'gallery', 'sheet']

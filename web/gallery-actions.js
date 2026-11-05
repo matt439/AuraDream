@@ -779,11 +779,14 @@ function unforgetImages(ids) {
 // else the search box, as dismissLightbox's last resort.
 function closeLightboxAfterDelete() {
   const fromViewer = lbList === viewerRecords || lbOrigin === 'viewer' || lbOrigin === 'recent';
+  // From the phone's action bar picture (phone.js), back to it: fixed over
+  // the page, it takes the focus with no scroll.
+  const dock = lbOrigin === 'dock' && isShown($('phone-dock')) ? $('phone-dock') : null;
   closeLightbox();
   requestAnimationFrame(() => {
     const held = els.viewer.querySelector(':scope > .placeholder.held, :scope > .tomb');
     const card = currentCard()?.querySelector('img');
-    const target = (fromViewer ? held ?? card : card ?? held) ?? els.search;
+    const target = dock ?? (fromViewer ? held ?? card : card ?? held) ?? els.search;
     if (target === held) target.tabIndex = -1;
     target.focus({ preventScroll: true });
   });

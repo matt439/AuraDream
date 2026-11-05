@@ -1,7 +1,8 @@
 // AuraDream's page script: the phone's two views (styles/touch.css has the
 // layouts; state.js the media queries they share) and, on any touch screen,
-// Back closing the top overlay. Declarations only;
-// app.js calls initTouchLayout() once at boot.
+// Back closing the top overlay; phone.js has the phone's own hosts, which
+// syncTier places. Declarations only; app.js calls initTouchLayout() once
+// at boot.
 'use strict';
 
 const PHONE_VIEW_KEY = 'auradream.phoneView';
@@ -35,11 +36,13 @@ function syncTier() {
   els.search.placeholder = touchQuery.matches ? 'Search prompts' : searchPlaceholder;
   if (was === pageTier) return;
   if (pageTier !== 'phone') els.error.classList.remove('at-generate');
+  // The phone's hosts (phone.js): Generate into the action bar and the
+  // results under the settings, or home again and the queue's sheet shut.
+  syncPhoneHosts();
   // Back on the phone, the view shows where it was left, as a tab's press
   // does: the page between was the whole of both views, scrolled elsewhere.
-  // (Phone-only layers - sheets, hosts - close or move back here as they
-  // come.) The right-click menu is docked at the phone's foot and placed at
-  // the pointer elsewhere: an open one closes as the phone comes or goes.
+  // The right-click menu is docked at the phone's foot and placed at the
+  // pointer elsewhere: an open one closes as the phone comes or goes.
   if (was !== undefined && (was === 'phone' || pageTier === 'phone')) closeContextMenu(false);
   if (was !== undefined && pageTier === 'phone') scrollTo({ top: phoneViewScroll[phoneView], behavior: 'instant' });
   // The bar's state and the keyboard's hold read the page as it is now.
@@ -286,6 +289,9 @@ function initTouchLayout() {
   document.addEventListener('focusin', syncTyping);
   document.addEventListener('focusout', () => queueMicrotask(syncTyping));
   addEventListener('scroll', notePhoneScroll, { passive: true });
+  // The phone's hosts' marks and watchers, before the tier first places
+  // their nodes.
+  initPhone();
   // The tier, the bar's job state and the keyboard's hold (a box may have
   // the focus before this runs: the prompt's, at boot).
   syncTier();
