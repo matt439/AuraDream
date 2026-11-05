@@ -8630,7 +8630,7 @@ is about a screen tall now), all back on blur; before that, a press of
 Create, the tab already chosen, at the page's foot puts the page at 0,
 the focus on the tab, the view and the history as they were; and the prompt typed then back after the reload;
 Gallery the reverse, no action bar and the band to the tab bar,
-two cards across, Back to top above the bar (a 44 px round button 16 px
+the first two cards side by side, Back to top above the bar (a 44 px round button 16 px
 from the left), each view's own scroll
 (Create's 300 px) and the view kept through a reload; in the lightbox no arrows or key legend,
 a swipe left and right stepping, a swipe down closing, a pinch zooming
