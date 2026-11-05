@@ -356,8 +356,10 @@ before changing it.
 - `backend/storage.py` — SQLite index + PNGs with embedded metadata
 - `backend/record_fields.py` — the pure field codecs rows and PNG chunks
   share: the chunk's mask, upscaler, batch and peak sanitisers and
-  `peak_chunk`, `mask_hash` and `mask_provenance`, and the outpaint's chunk,
-  A1111 line, recovery and rebuilt mask; no settings, session or lock.
+  `peak_chunk`, `mask_hash` and `mask_provenance`, the mask decoders
+  `open_mask`/`embedded_mask_picture` (a stored mask file or PNG bytes,
+  verified against its hash), and the outpaint's chunk, A1111 line, recovery
+  and rebuilt mask; no settings, session or lock.
   storage imports every name back, so `storage.<name>` still answers; the
   mask writers, holds and `mask_path` stay in storage, where tests patch them
 - `backend/metadata.py` — the PNG chunk's key (`auradream`) and
@@ -366,15 +368,16 @@ before changing it.
   PNG chunk codec (`PNG_SIGNATURE`, `text_keyword`, `metadata_chunk`) and
   the SQL/PNG edit and execution reconciliation; shared by storage,
   `png_settings.py` (so `generate.py` and `api_png.py`), `reindex.py` and
-  the bundle layer, which never imports the `reindex` CLI at module level
+  the bundle layer, which never imports the `reindex` CLI
 - `backend/png_settings.py` — settings read back from a PNG's text chunks:
   this app's record (`record`, and `image_settings` for a file on disk,
   which `--from-image` reads through) and A1111's 'parameters' block
   (`parse_parameters`, A1111's own reading of it); pure, no config, Pillow
   only where a file is opened
 - `backend/gallery_reports.py` — read-only aggregate queries: the preview's
-  cost and size estimates, keep rates, runs, the picker's gallery timing
-  (reads `storage` at call time)
+  cost and size estimates and the cells' pricing arithmetic
+  (`estimate_seconds`, `seeds_within_budget`), keep rates, runs, the
+  picker's gallery timing (reads `storage` at call time)
 - `backend/gallery_delete.py` — taking images out: the keep-favourites
   predicates, scoped delete and its preview, per-image delete, recycle bin,
   clear and VACUUM (under `storage._write_lock`, read at call time)
@@ -383,6 +386,10 @@ before changing it.
   storage) and its terminal outcome, for Finish run; reads storage's
   settings, lock and session at call time, and every caller (and test
   patch) reaches it as `storage.<name>` through `_MOVED`
+- `backend/gallery_partials.py` — the bundles and staging directories and
+  the settling of stale partials and bundle leftovers (`settle_partials`);
+  reads storage's settings and helpers at call time, and every caller
+  reaches it as `storage.<name>` through `_MOVED`
 - `backend/gallery_lock.py` — reentrant reservation of complete gallery
   operations across threads and cooperating server/CLI processes
 - `backend/bundles.py` — verified ZIP snapshots (of the whole gallery, or
@@ -390,7 +397,10 @@ before changing it.
   cleanup, skipped for a backup, and staged database/image merges; `bundle_archive.py` the archive format, its one
   verifying read (`_verify_archive`), the decode pool, the staging writer and
   the free-space check; `bundle_images.py` a tracked PNG's pixel identity,
-  row validation, embedded metadata and tEXt rewrite; `bundle_common.py` the
+  row validation, embedded metadata and tEXt rewrite; `bundle_recovery.py`
+  what an import gives back to new rows (an outpaint's rebuilt mask, a mask
+  from its staged PNG's copy, stripped outpaint specs and masked areas, a
+  masked area's region proved against its mask); `bundle_common.py` the
   bundle errors, progress type and read-only database reads every layer
   shares; `bundle_crypto.py` the optional password layer
   (streamed chunked AES-256-GCM, scrypt); `api_bundles.py` owns browser routes
@@ -608,7 +618,7 @@ before changing it.
   and facts list (`settingsLine`, `factsList`), shared by the lightbox and
   the viewer; `lightbox.js` the lightbox's view, layout, walk and gestures,
   `lightbox-compare.js` its comparison's controls, divider and pass
-  stepping, `lightbox-cfg.js` its comparison across CFG and across steps; `refine-rules.js` the refine pass's shared rules (its bounds and sizes, `refinePrefs`, `SINGLE_STRENGTH`, `refineDefaultStrength`, `refineKept`, `sourceGoneKind`/`sourceGoneWords`, a gone source's words, and what the pass dialogs share: `stepStrength`, `dropPassLora` and `PASS_IN_FLIGHT`), which every pass dialog, Mass refine, Then refine, the lightbox and the panel read; `refine.js` and `refine-prompt.js` the Refine dialog, `refine-prompt.js` also the check lines the Inpaint and Outpaint dialogs share (`renderPassCheck`, `syncPassCheck`, `selectPassFrom`); `inpaint.js` the Inpaint dialog (its mask's
+  stepping, `lightbox-cfg.js` its comparison across CFG and across steps; `refine-rules.js` the refine pass's shared rules (its bounds and sizes, `refinePrefs`, `SINGLE_STRENGTH`, `refineDefaultStrength`, `refineKept`, `sourceGoneKind`/`sourceGoneWords`, a gone source's words, and what the pass dialogs share: `stepStrength`, `dropPassLora` and `PASS_IN_FLIGHT`, and what the inpaint class's dialogs share: `inpaintNone`, `inpaintUnavailableText`, `inpaintLibraryStrength`, `inpaintStartStrength`, `inpaintStrengthNote`, `libraryStrengthInto`, `syncPassSampling`, `maskCropAsked`, `maskCropText`, `INPAINT_FAMILIES`, `MASK_CROP_*`), which every pass dialog, Mass refine, Then refine, the lightbox and the panel read; `refine.js` and `refine-prompt.js` the Refine dialog, `refine-prompt.js` also the check lines the Inpaint and Outpaint dialogs share (`renderPassCheck`, `syncPassCheck`, `selectPassFrom`); `inpaint.js` the Inpaint dialog (its mask's
   upload, preview, submit and Reuse) and `inpaint-mask.js` its canvas, tools, strokes and export
   (`styles/inpaint.css`); `outpaint.js` the Outpaint dialog (the side, band and preset
   controls, the frame, the preview, submit, close and Reuse; `styles/outpaint.css`);
@@ -1999,7 +2009,7 @@ measured on the card and when.
   name, the size its row records), merges rows by hash (`bundles._merge_masks`;
   one hash at another size is refused), installs absent files, and counts a
   row whose mask neither the bundle nor its result's own embedded copy
-  (`bundles._embedded_member`, held to the hash and the row's size) holds
+  (`bundle_recovery._embedded_member`, held to the hash and the row's size) holds
   as `masks_missing`, keeping the hash; an unresolved source takes the
   row's mask with it. A whole-gallery inventory carries only files in
   `masks/` named by 64 lowercase hex digits plus `.png` that decode to that
@@ -4074,7 +4084,7 @@ measured on the card and when.
   Repeat above one, cells already in the gallery) never refuse anything, and
   are appended to `#grid-preview` as nodes, never by rewriting `textContent`,
   since `.totals` is its first child. The budget line's count is the
-  server's (`GridPreview.budget_seeds`, `grid.seeds_within_budget`: the
+  server's (`GridPreview.budget_seeds`, `gallery_reports.seeds_within_budget`: the
   job's stop rule, a cell starting until the deadline has passed, so a seed
   whose last cell starts in time completes); it needs the preview's
   estimate, is left out under Resume, and names what else spends a budget
@@ -4360,14 +4370,13 @@ measured on the card and when.
   the dialog has `scrollbar-gutter: stable`, so nothing moves under the
   pointer. A close that ran nothing keeps the sides, band and boxes in page
   memory (`outpaintKept`) for that image on the same checkpoint. Its
-  shared helpers are inpaint.js's (`inpaintStartStrength`,
-  `inpaintLibraryStrength`, `inpaintStrengthNote`, `libraryStrengthInto`,
-  `syncPassSampling`, and the capability it shares with the Inpaint
-  dialog: `inpaintSupported`, `syncInpaintCapability`, `inpaintNone`,
-  `inpaintUnavailableText`), refine-prompt.js's (`renderPassCheck`,
+  shared helpers are inpaint.js's capability (`inpaintSupported`,
+  `syncInpaintCapability`), refine-prompt.js's (`renderPassCheck`,
   `syncPassCheck`, `selectPassFrom`) and refine-rules.js's
-  (`sourceGoneKind`, `sourceGoneWords`, `dropPassLora`, `stepStrength`,
-  `PASS_IN_FLIGHT`). Cards, the
+  (`inpaintNone`, `inpaintUnavailableText`, `inpaintStartStrength`,
+  `inpaintLibraryStrength`, `inpaintStrengthNote`, `libraryStrengthInto`,
+  `syncPassSampling`, `maskCropAsked`, `sourceGoneKind`, `sourceGoneWords`,
+  `dropPassLora`, `stepStrength`, `PASS_IN_FLIGHT`). Cards, the
   settings line and job labels read "outpaint of #N +L/+T/+R/+B @ S", the
   facts "Outpainted from" and an Outpaint row, an outpainted card a ⬚
   badge; Against source draws the source at (left, top) at the result's

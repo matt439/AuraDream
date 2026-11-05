@@ -21,7 +21,7 @@ import torch
 from diffusers import FlowMatchEulerDiscreteScheduler
 from PIL import Image
 
-from backend import grid, latent_preview, launch, refine, schemas
+from backend import gallery_reports, grid, latent_preview, launch, refine, schemas
 from backend.backends import Cancelled, schedule
 from backend.backends.diffusers_backend import DiffusersBackend
 from backend.model_defaults import defaults_for, hints_for
@@ -302,15 +302,15 @@ def test_the_estimate_and_the_progress_count_the_steps_that_run():
     assert grid.denoised_steps(request) == 14
     # Per image for the time, and through every image for the bar: a refine
     # batch is one call per image.
-    assert grid.estimate_seconds([cell], 100.0, refine_costs={14: 1800.0}) == 3.6
+    assert gallery_reports.estimate_seconds([cell], 100.0, refine_costs={14: 1800.0}) == 3.6
     # A direct timing cannot price a pass's fixed encode/decode work, nor
     # can a pass with a different denoised count.
-    assert grid.estimate_seconds([cell], 100.0) is None
-    assert grid.estimate_seconds([cell], 100.0, refine_costs={13: 1700.0}) is None
+    assert gallery_reports.estimate_seconds([cell], 100.0) is None
+    assert gallery_reports.estimate_seconds([cell], 100.0, refine_costs={13: 1700.0}) is None
     assert grid.progress_steps(request) == 28
     plain = GenerateRequest(prompt="a fox", steps=28, num_images=2)
     assert grid.denoised_steps(plain) == 28 and grid.progress_steps(plain) == 28
-    assert grid.estimate_seconds([grid.Cell(request=plain, seed=1)], 100.0) == 5.6
+    assert gallery_reports.estimate_seconds([grid.Cell(request=plain, seed=1)], 100.0) == 5.6
 
 
 # --------------------------------------------------------------- the record
@@ -388,14 +388,14 @@ def test_refine_timing_keeps_fixed_costs_and_cannot_price_direct_renders(store):
     assert store.step_cost_ms(256, 256, model) == 3618
     costs = store.refine_cost_ms(256, 256, model)
     assert costs == {3: 16_900}
-    assert grid.estimate_seconds([grid.Cell(plain, 8)], 3618, refine_costs=costs) == 101.3
-    assert grid.estimate_seconds([grid.Cell(request, 8)], None, refine_costs=costs) == 16.9
+    assert gallery_reports.estimate_seconds([grid.Cell(plain, 8)], 3618, refine_costs=costs) == 101.3
+    assert gallery_reports.estimate_seconds([grid.Cell(request, 8)], None, refine_costs=costs) == 16.9
     # Two strengths at the same integer start use the same measured duration.
     same_count = request.model_copy(update={"strength": 0.09, "num_images": 2})
-    assert grid.estimate_seconds([grid.Cell(same_count, 8)], None, refine_costs=costs) == 33.8
+    assert gallery_reports.estimate_seconds([grid.Cell(same_count, 8)], None, refine_costs=costs) == 33.8
     unmeasured = request.model_copy(update={"strength": 0.4})
-    assert grid.estimate_seconds([grid.Cell(unmeasured, 8)], 3618, refine_costs=costs) is None
-    assert grid.estimate_seconds([grid.Cell(plain, 8), grid.Cell(request, 8)], 3618,
+    assert gallery_reports.estimate_seconds([grid.Cell(unmeasured, 8)], 3618, refine_costs=costs) is None
+    assert gallery_reports.estimate_seconds([grid.Cell(plain, 8), grid.Cell(request, 8)], 3618,
                                  refine_costs=costs) == 118.2
 
 
@@ -922,8 +922,8 @@ def test_gan_time_is_never_estimated_from_lanczos_history(store):
         conn.execute("UPDATE images SET duration_ms = 100000 WHERE upscaler IS NOT NULL")
     costs = store.refine_cost_ms(256, 256, _WAI)
     assert costs == {8: 1000}
-    assert grid.estimate_seconds([grid.Cell(ordinary, 1)], None, refine_costs=costs) == 1
-    assert grid.estimate_seconds([grid.Cell(gan, 1)], None, refine_costs=costs) is None
+    assert gallery_reports.estimate_seconds([grid.Cell(ordinary, 1)], None, refine_costs=costs) == 1
+    assert gallery_reports.estimate_seconds([grid.Cell(gan, 1)], None, refine_costs=costs) is None
 
 
 @pytest.mark.parametrize("changes", [

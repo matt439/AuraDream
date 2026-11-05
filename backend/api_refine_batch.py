@@ -153,7 +153,7 @@ def create_router(services: AppServices) -> APIRouter:
         unpriced = 0
         for (width, height), group in sizes.items():
             costs = await asyncio.to_thread(gallery_reports.refine_cost_ms, width, height, model)
-            priced = grid.estimate_seconds(group, None, refine_costs=costs)
+            priced = gallery_reports.estimate_seconds(group, None, refine_costs=costs)
             if priced is None:
                 unpriced += 1
             else:

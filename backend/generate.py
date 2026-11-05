@@ -1095,7 +1095,7 @@ def _main(argv: list[str] | None, awake: contextlib.ExitStack) -> int:
         if p.settings.db_path.exists():
             priced = cells if spec is None else then_refine.execution_units(cells, spec)
             prices, need = p.gallery_reports.execution_estimates(priced, p.settings.model_id)
-            seconds = p.grid.estimate_seconds(priced, None, by_size=prices)
+            seconds = p.gallery_reports.estimate_seconds(priced, None, by_size=prices)
             if seconds is not None:
                 print(f"estimate : about {_duration(seconds)} of generation, plus the load")
             # And the disk, which is the other thing a night can run out of:

@@ -14,7 +14,9 @@ from tests.fakes import FakeBackend
 
 
 async def _until_queue(predicate):
-    deadline = time.monotonic() + 3
+    # Seconds of margin: a loaded CI runner (Windows, -n auto) once took
+    # more than 3 s to let three submits reach the held gate.
+    deadline = time.monotonic() + 15
     while not predicate():
         assert time.monotonic() < deadline, "queue did not reach the expected state"
         await asyncio.sleep(0.005)

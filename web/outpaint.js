@@ -16,10 +16,11 @@
 // The page sends four sides and a band; it draws no fill and paints no mask.
 // It is a dialog of its own rather than a mode of the Inpaint dialog, whose
 // stage and tools are all about painting; what is the same is inpaint.js's
-// (the start strength and its note, the unavailable words, the sampling
-// boxes' rules) or refine-rules.js's and refine-prompt.js's (a gone source's
-// words, a dropped adapter, the strength's arrow keys, the prompt check's
-// lines), called rather than copied. The dialog's own lifecycle - open,
+// (the capability: inpaintSupported, syncInpaintCapability) or
+// refine-rules.js's and refine-prompt.js's (the start strength and its note,
+// the unavailable words, the sampling boxes' rules, the masked area, a gone
+// source's words, a dropped adapter, the strength's arrow keys, the prompt
+// check's lines), called rather than copied. The dialog's own lifecycle - open,
 // preview, run, close and Reuse - is this file's, written after the Inpaint
 // dialog's but not shared with it.
 

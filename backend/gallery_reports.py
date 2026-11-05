@@ -1,6 +1,7 @@
 """Read-only aggregate queries over the gallery: the preview's cost and size
-estimates (and the formatting of that disk estimate), the starred-rate table
-the stats CLI prints, and the Runs summary.
+estimates (and the formatting of that disk estimate), and the pure arithmetic
+that prices cells from them (`estimate_seconds`, `seeds_within_budget`), the
+starred-rate table the stats CLI prints, and the Runs summary.
 
 No writes and no file changes. Like `bundles`, everything storage owns -
 `settings`, `_session`, `_LIVE` - is read through `storage` at call time, so
@@ -18,7 +19,7 @@ from typing import Any
 from . import gallery_lock, storage
 # VARIANT is the variable a comparison's versions are recorded under, which
 # `keep_rates` groups by.
-from .grid import VARIANT, estimate_seconds
+from .grid import VARIANT, Cell, denoised_steps
 from .refine import start_index
 from .schemas import RunSummary
 from .search import TRUE_CFG_SQL, strict_scope
@@ -230,6 +231,109 @@ def gallery_timing(quantization: str, sample: int = 50) -> dict[str, dict[str, i
             "steps": best["steps"], "images": len(durations),
         }
     return answers
+
+
+# A size's prices (`gallery_reports.execution_estimates`): the direct step
+# cost, refine passes and whole-picture inpaints by denoised steps, and
+# masked-area-only inpaints by (tier, denoised steps). A three-tuple is read
+# as one with no cropped history.
+SizePrices = tuple[float | None, dict[int, float], dict[int, float], dict[tuple[int, int], float]]
+
+
+def estimate_seconds(
+    cells: list[Cell], per_step_ms: float | None, *,
+    refine_costs: dict[int, float] | None = None,
+    inpaint_costs: dict[int, float] | None = None,
+    crop_costs: dict[tuple[int, int], float] | None = None,
+    by_size: dict[tuple[int, int], SizePrices] | None = None,
+) -> float | None:
+    """Generation time from direct step costs or matching refine durations.
+
+    One helper for the preview and the CLI so the arithmetic is not written
+    twice. Per *step* times the cell's steps times its batch: a grid's cells
+    disagree about step count, so an average image duration would misstate
+    most of them. Refine cells use full per-image durations at the same number
+    of denoised steps: their fixed encode/decode work must not be multiplied
+    away or priced from direct renders. An inpaint cell is priced from
+    inpaints' durations (`inpaint_costs`) the same way, never from passes';
+    one that runs only the masked area from cropped inpaints of its working
+    tier (`crop_costs`), never by its source's size.
+    No estimate if any cell has no matching history. The CLI pays a load per
+    invocation on top.
+    """
+    priced = _cell_ms(cells, per_step_ms, refine_costs, inpaint_costs, by_size, crop_costs)
+    return None if priced is None else round(sum(priced) / 1000, 1)
+
+
+def _cell_ms(
+    cells: list[Cell], per_step_ms: float | None, refine_costs: dict[int, float] | None,
+    inpaint_costs: dict[int, float] | None = None,
+    by_size: dict[tuple[int, int], SizePrices] | None = None,
+    crop_costs: dict[tuple[int, int], float] | None = None,
+) -> list[float] | None:
+    """Each cell's price in milliseconds, as `estimate_seconds` sums them;
+    None if any cell has no matching history."""
+    priced = []
+    for cell in cells:
+        request = cell.request
+        prices = (
+            by_size.get((request.width, request.height), (None, {}, {}, {}))
+            if by_size is not None else (per_step_ms, refine_costs, inpaint_costs, crop_costs)
+        )
+        direct, passes, inpaints = prices[:3]
+        crops = prices[3] if len(prices) > 3 else None
+        # The GAN adds work before VAE encoding. Ordinary Refine history
+        # cannot price it; keep the estimate unknown until measured apart.
+        if request.upscaler is not None:
+            return None
+        # Nor can a direct render's step price an instruction edit (More
+        # seeds queues one): no edit history is qualified in this release.
+        if request.edit is not None:
+            return None
+        if request.refine is None:
+            if direct is None:
+                return None
+            image_ms = direct * denoised_steps(request)
+        elif request.mask_crop is not None:
+            image_ms = (crops or {}).get((request.mask_crop.tier, denoised_steps(request)))
+            if image_ms is None:
+                return None
+        else:
+            costs = inpaints if request.inpainting else passes
+            image_ms = (costs or {}).get(denoised_steps(request))
+            if image_ms is None:
+                return None
+        priced.append(image_ms * request.num_images)
+    return priced
+
+
+def seeds_within_budget(
+    cells: list[Cell], seeds: int, per_step_ms: float | None, budget_seconds: float, *,
+    refine_costs: dict[int, float] | None = None,
+    inpaint_costs: dict[int, float] | None = None,
+    crop_costs: dict[tuple[int, int], float] | None = None,
+    by_size: dict[tuple[int, int], SizePrices] | None = None,
+) -> int | None:
+    """How many of a grid's seeds a time budget completes, by the job's own
+    rule: a cell starts while the deadline has not passed and runs to its end
+    (`JobManager._generate`), so a seed whose last cell starts in time
+    completes, though it ends past the deadline. Dividing the budget by a
+    seed's share of the estimate said 4 of 6 for a grid that made 5. Seeds are
+    the outer loop, each running the same cells; priced as `estimate_seconds`
+    prices, from the job's start - the load and any job ahead spend a budget
+    too, which no estimate counts. None where it has no price."""
+    priced = _cell_ms(cells, per_step_ms, refine_costs, inpaint_costs, by_size, crop_costs)
+    if priced is None or seeds < 1 or len(cells) % seeds:
+        return None
+    per_seed = len(cells) // seeds
+    elapsed_ms = 0.0
+    for index, ms in enumerate(priced):
+        if elapsed_ms > budget_seconds * 1000:
+            return index // per_seed
+        elapsed_ms += ms
+    return seeds
+
+
 
 
 def execution_estimates(

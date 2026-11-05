@@ -1,8 +1,11 @@
 """The pure field codecs gallery rows and PNG chunks share.
 
 A PNG chunk's mask, upscaler, batch and peak sanitisers; a mask's hash and its
-`mask_source` provenance; an outpaint's chunk, its A1111 line, and recovering
-or rebuilding one from either; only the masked area's chunk, column box and
+`mask_source` provenance; the mask decoders `open_mask` and
+`embedded_mask_picture`, a stored mask file's or a result's `auradream-mask`
+copy's picture, verified against its hash (they read the file or bytes given,
+never settings, a session or a lock); an outpaint's chunk, its A1111 line, and
+recovering or rebuilding one from either; only the masked area's chunk, column box and
 A1111 line, proved or recovered against its mask under the frozen rule. None reads settings, a session or a lock.
 `storage` imports every name back, so `storage.<name>` still answers for the
 reindex, the bundle layer and the CLI; the mask writers, holds and
@@ -10,7 +13,10 @@ reindex, the bundle layer and the CLI; the mask writers, holds and
 """
 from __future__ import annotations
 
+import base64
+import binascii
 import hashlib
+import io
 import re
 from collections.abc import Mapping
 from typing import Any
@@ -19,6 +25,7 @@ from PIL import Image
 
 from . import mask_crop, refine
 from .mask_crop import Crop
+from .metadata import embedded_mask
 from .schemas import OutpaintSpec
 from .schemas_mask_crop import MaskCropSpec
 
@@ -88,6 +95,34 @@ def mask_hash(mask: Image.Image) -> str:
     digest = hashlib.sha256(f"L {mask.width}x{mask.height}\n".encode("ascii"))
     digest.update(mask.tobytes())
     return digest.hexdigest()
+
+
+def open_mask(source, digest: str) -> Image.Image | None:
+    """The mask `source` (a path, or a PNG's bytes) holds, where it is the
+    mask `digest` names: one `L` channel whose `mask_hash` - its size
+    and its levels - is that hash. None for anything else, a file that is
+    not a PNG included."""
+    try:
+        with Image.open(io.BytesIO(source) if isinstance(source, bytes) else source) as image:
+            if image.format != "PNG" or image.mode != "L":
+                return None
+            image.load()
+            return image.copy() if mask_hash(image) == digest else None
+    except (OSError, ValueError, Image.DecompressionBombError):
+        return None
+
+
+def embedded_mask_picture(image: Image.Image | None, digest: str) -> Image.Image | None:
+    """The mask a result carries in its own `auradream-mask` chunk (or
+    Local Diffusion's legacy one), where it is the one its record names."""
+    raw = embedded_mask(image.info) if image is not None else None
+    if raw is None:
+        return None
+    try:
+        data = base64.b64decode(raw, validate=True)
+    except (binascii.Error, ValueError):
+        return None
+    return open_mask(data, digest)
 
 
 def mask_provenance(mask: str | None, width: int, height: int) -> dict[str, Any] | None:

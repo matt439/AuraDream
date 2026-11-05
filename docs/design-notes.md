@@ -2769,7 +2769,8 @@ about painting; in a mode every one would be held, and the stage would
 swap for a frame of another shape, moving every control under the pointer
 as the tab changed. What is the same is shared by generalising inpaint.js
 in place (the sampling boxes' rules, the check's lines, the library
-strength, the gone-source words) and wearing its box and panes in CSS.
+strength, the gone-source words; the stateless parts since in
+refine-rules.js) and wearing its box and panes in CSS.
 
 **Why the page does no arithmetic.** The presets' numbers, their held
 words ("already 16:9 - the 16:9 preset at 1 MP", "within 16 px"), an
@@ -3729,7 +3730,7 @@ variable that never varies, Repeat above one (a grid steps its own seeds,
 so the panel's `runs` is sent as 1 and the preview says it does not apply),
 and a time budget. The budget line says how many seeds the minutes complete,
 warning at none, as the server counts them (`GridPreview.budget_seeds`,
-`grid.seeds_within_budget`) by the job's own stop rule: each cell priced as
+`gallery_reports.seeds_within_budget`) by the job's own stop rule: each cell priced as
 the estimate prices it, in the order the job runs them, a cell starting while
 the deadline has not passed and running to its end. It had divided the
 budget by a seed's share of the estimate, which counts only the seeds that
@@ -7838,7 +7839,7 @@ deliberately: routing it through `expand()` would apply the grid's
 placeholder check to an ordinary prompt with braces in it. Its arithmetic is
 asserted equal to the CLI's in `tests/test_cli.py`. The CLI still owns the
 per-image `seed + offset` and the `save_image` call, and shares
-`grid.estimate_seconds` with the preview. Nor does it duplicate settings:
+`gallery_reports.estimate_seconds` with the preview. Nor does it duplicate settings:
 `--model/--quant/--offload` are written into `os.environ` *before* the first
 import of `backend.config`, because `settings` is a frozen dataclass whose
 fields are evaluated at import time.

@@ -486,6 +486,26 @@ async function evaluate(expression) {
   }
   return res.result?.result?.value;
 }
+// A navigate waits for the new document's load event (every classic script
+// run, 30 s at most), then the 800 ms it always gave the boot's first
+// fetches. A fixed 800 ms alone let a slow runner evaluate the first steps
+// against a page whose later scripts had not run yet (`REFINE_KEY is not
+// defined` from `resetPanel`). The new document is told from the old by
+// its time origin, since a navigate may reload the same URL.
+async function navigate(url) {
+  const read = async () => (await send('Runtime.evaluate', {
+    expression: '[performance.timeOrigin, document.readyState]', returnByValue: true,
+  })).result?.result?.value;
+  const before = (await read().catch(() => undefined))?.[0];
+  await send('Page.navigate', { url });
+  const end = Date.now() + 30000;
+  while (Date.now() < end) {
+    const now = await read().catch(() => undefined);
+    if (now && now[0] !== before && now[1] === 'complete') break;
+    await sleep(50);
+  }
+  await sleep(800);
+}
 const mouse = (type, x, y, extra = {}) =>
   send('Input.dispatchMouseEvent', { type, x, y, button: 'left', clickCount: 1, ...extra });
 // A point, or a selector standing for the middle of its element's box.
@@ -532,7 +552,7 @@ const NATIVE_KEYS = {
 
 for (const [n, step] of steps.entries()) {
   at = `step ${n + 1}: ${JSON.stringify(step).slice(0, 160)}`;
-  if (step.navigate) { await send('Page.navigate', { url: step.navigate }); await sleep(800); }
+  if (step.navigate) await navigate(step.navigate);
   else if (step.wait) await sleep(step.wait);
   else if (step.eval) await evaluate(step.eval);
   else if (step.log) console.log('  ' + step.log + ' => ' + JSON.stringify(await evaluate(step.log)));

@@ -632,15 +632,15 @@ def test_a_cropped_pass_is_priced_by_its_tier_never_by_its_size(store):
     record = store.get_image(store.list_images(search="maskcrop:yes")[0][0].id)
     cropped = grid.cell_from_record(record)
     uncropped = dataclasses.replace(cropped, request=cropped.request.model_copy(update={"mask_crop": None}))
-    assert grid.estimate_seconds([cropped], None, inpaint_costs=whole, crop_costs=crops) == 4.2
-    assert grid.estimate_seconds([uncropped], None, inpaint_costs=whole, crop_costs=crops) == 1.1
+    assert gallery_reports.estimate_seconds([cropped], None, inpaint_costs=whole, crop_costs=crops) == 4.2
+    assert gallery_reports.estimate_seconds([uncropped], None, inpaint_costs=whole, crop_costs=crops) == 1.1
     # No cropped history, no price - never the source size's.
-    assert grid.estimate_seconds([cropped], None, inpaint_costs=whole) is None
+    assert gallery_reports.estimate_seconds([cropped], None, inpaint_costs=whole) is None
     prices, _ = gallery_reports.execution_estimates([cropped, uncropped], ANIMAGINE, disk=False)
     assert prices[(256, 256)][2:] == (whole, crops)
-    assert grid.estimate_seconds([cropped, uncropped], None, by_size=prices) == 5.3
+    assert gallery_reports.estimate_seconds([cropped, uncropped], None, by_size=prices) == 5.3
     # A three-tuple from before is read as no cropped history.
-    assert grid.estimate_seconds([cropped], None, by_size={(256, 256): (None, {}, whole)}) is None
+    assert gallery_reports.estimate_seconds([cropped], None, by_size={(256, 256): (None, {}, whole)}) is None
 
 
 # ------------------------------------------------------------------- over HTTP
