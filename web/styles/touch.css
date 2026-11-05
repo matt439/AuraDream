@@ -8,7 +8,8 @@
    written with a mouse at 1400x900, see none of it. Three layouts:
 
    - Touch (pointer: coarse): finger-sized controls (Apple's 44 pt for the
-     ordinary buttons and fields, 32-36 for the small ones), 16 px text in
+     ordinary buttons and fields, 32-36 for the small ones on a tablet and
+     44 on a phone), 16 px text in
      every box so iOS does not zoom the page on focus, the notch's and the
      home indicator's safe areas, the keyboard's hints taken away.
    - Tablet, two columns (coarse, 700-900 px wide and taller than 500): an
@@ -207,7 +208,8 @@
   .notification-choice > .tr-open { position: relative; }
   .notification-choice > .tr-open::after { content: ""; position: absolute; inset: -10px -6px; }
   /* The tools over a picture - a gallery card's, a run's tiles' - were 24 px
-     tall: a finger's 32, their widths still shrinking to share the card. */
+     tall: a finger's 32, their widths still shrinking to share the card.
+     The phone draws none (below). */
   .card .tools button, .viewer.many .tools button { min-height: var(--h-xs); }
   /* A tap leaves :hover on iOS, so a tool's name stayed hung over the card
      after its press, and its fill lit; the keyboard's focus still shows them. */
@@ -248,7 +250,21 @@
 }
 
 @media (pointer: coarse) and ((width < 700px) or (max-height: 500px)) {
-  :root { --gutter: 12px; --panel-pad: 14px; }
+  /* Every control a finger's 44 px, the small and tiny ones and a tool row
+     too: the touch tier's 32 and 36 kept 40 of the 55 controls on Create's
+     first screen under it. The tablet keeps 36 and 32 (above), where its
+     panel beside the stage and its cards' rows of tools want the room. */
+  :root { --gutter: 12px; --panel-pad: 14px; --h-xs: 44px; --h-sm: 44px; --h-tool: 44px; }
+  /* And as wide: a glyph's button (a queue row's × and ↑, Bin, the run
+     sheet's − and +), a size pill (1:1), a close. Words are wider already. */
+  .ghost:is(.small, .tiny), .presets button, .close, #lb-fit, #lb-one { min-width: var(--h-md); }
+  /* The Prompt row's Examples, Check and Reset are a step under the small
+     buttons elsewhere (fields.css): here they are the same 44. */
+  .field > span:has(> label[for="prompt"]) .ghost.tiny { min-height: var(--h-md); }
+  /* Seed's dice stays its caption's height, so Seed's box stays level with
+     Batch's and Repeat's: its press reaches 44 px square round it, up over
+     the Output caption, never down into the Seed box under it. */
+  #btn-dice::after { inset: auto calc(50% - 22px) 0; height: 44px; }
 
   /* The topbar: the keyboard list has no keyboard to list; the checkpoint's
      name gives way to the buttons. */
@@ -368,6 +384,34 @@
   /* The gallery's head: the search across the column, the rest under it
      (beside Runs on a phone on its side, below). */
   #search { flex: 1 1 100%; max-width: none; }
+
+  /* A card carries its star and nothing else: six tools at a finger's 44 px
+     are 284 px on a card of 180, and at 22-28 x 32 Delete stood 4 px from
+     Inpaint. A tap opens the image, whose lightbox has every action; a long
+     press opens the card's menu, which presses these same buttons (still in
+     the page, `hidden` never set: `buttonItem` reads that, not the CSS).
+     A long run's tiles in the viewer likewise (the menu's result rows). The
+     recycle bin's two, Restore and Delete permanently, have the room and no
+     menu: they stay, 44 px. The card's caption is its tools' ::before, so
+     it goes with them; the image's name says it. */
+  .card:not(.binned) .tools, .viewer.many .tile > .tools { display: none; }
+  .card.binned .tools button { flex: 0 0 auto; min-width: var(--h-md); min-height: var(--h-md); }
+  /* The star a finger's 44 px square in the card's corner, its 28 px dark
+     disc drawn inside it, so it reads as before over a white render. */
+  :is(.card, .sheet-cell) .fav-badge {
+    top: 0; right: 0; width: var(--h-md); height: var(--h-md);
+    background: radial-gradient(circle, rgba(0, 0, 0, 0.62) 13.5px, transparent 14px);
+  }
+  :is(.card, .sheet-cell) .fav-badge:hover { background: radial-gradient(circle, rgba(0, 0, 0, 0.85) 13.5px, transparent 14px); }
+  :is(.card, .sheet-cell) .fav-badge:focus-visible { outline-offset: -4px; }
+  /* A result's tools under its picture, 44 px tall (--h-tool), each 44 wide
+     where the tile has the room - a lone result, a batch of two one above
+     the other - and sharing a narrower one (three or four side by side,
+     165 px a tile) rather than running past it. */
+  .viewer:not(.many) .tile > .tools button { flex: 0 1 var(--h-md); }
+  /* The job's Pause, Skip and Cancel, and the queue's rows with their × and
+     ↑, 8 px apart rather than 4: at 44 px a row's buttons met the next's. */
+  .progress-actions, .queue-list { gap: var(--sp-2); }
 
   /* Under 360 px (Split View or Slide Over at a third, an iPhone SE's
      zoomed view) Sampling's four boxes and their names were wider than the
@@ -571,8 +615,10 @@
    facts. Here both bars are slimmer - the tab bar's glyph beside its word -
    and the lightbox is the PC's row again, its column scrolling as a whole. */
 @media (pointer: coarse) and (max-height: 500px) and (orientation: landscape) {
-  :root { --tabbar-h: 44px; }
-  .topbar { padding-top: calc(4px + var(--safe-t)); padding-bottom: 4px; }
+  /* The bar 45 px: its tabs 44 under its 1 px top edge. */
+  :root { --tabbar-h: 45px; }
+  /* Its buttons the phone's 44 px in its 46: a pixel above and below. */
+  .topbar { padding-top: calc(1px + var(--safe-t)); padding-bottom: 1px; }
   .topbar > button, .topbar .ghost { min-height: var(--h-sm); }
   .topbar > .vram { display: none; }
   #btn-models { margin-left: auto; }

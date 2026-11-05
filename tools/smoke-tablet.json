@@ -21,6 +21,8 @@
   {"expect": "document.documentElement.scrollWidth <= document.documentElement.clientWidth"},
   {"expect": "els.tagValidation.parentElement === els.tagChipsWide"},
   {"expect": "innerWidth === 820 && document.documentElement.clientWidth === innerWidth"},
+  {"log": "'The tablet keeps the touch tier’s 36 and 32 px small buttons and its cards’ rows of tools (32 px), where the phone has 44 px and a star alone'"},
+  {"expect": "(() => { const root = getComputedStyle(document.documentElement), c = document.querySelector('#gallery .card[data-id]'), tools = [...c.querySelectorAll('.tools button')].filter(isShown); return root.getPropertyValue('--h-sm').trim() === '36px' && root.getPropertyValue('--h-xs').trim() === '32px' && root.getPropertyValue('--h-tool').trim() === '36px' && tools.length >= 5 && tools.every((b) => Math.round(__box(b).height) === 32) && __box(c.querySelector('.fav-badge')).width === 28 && Math.round(__box(els.dice).height) < 44; })()"},
   {"log": "'The touch tier’s slider, ? reach and fold rows here too; the phone’s wrapping dialog rows and 24 px ticks not'"},
   {"expect": "(() => { const cs = (sel, pseudo) => getComputedStyle(document.querySelector(sel), pseudo); return cs('#inpaint-size').appearance === 'none' && cs('#inpaint-size').height === '44px' && cs('.panel .help', '::before').bottom === '0px' && cs('#inpaint-tools .ip-row').flexWrap === 'nowrap' && cs('.op-presets').flexWrap === 'nowrap' && cs('#refine-dialog .rf-strength .row').flexWrap === 'nowrap' && cs('#then-refine').width === '20px' && cs('#setups-dialog .setups-body').overflowY === 'auto' && getComputedStyle(document.getElementById('grid-mu').closest('.row')).marginTop === '8px'; })()"},
 

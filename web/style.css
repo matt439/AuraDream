@@ -52,6 +52,8 @@
                           Apply, Use rewrite were 2 mm tall at QHD)
      --h-tool       26px  a result tile's row of tools, or the line in its place, under
                           the picture (32 px from 1800 px), and a card's tools there
+                          (on a touch screen, styles/touch.css: the tiny, small and
+                          tool row 32, 36, 36 on a tablet, all 44 on a phone)
      --h-field      41px  text inputs (37 px in the panel under 900 px tall)
      --h-lg         43px  the primary buttons
                           A control's vertical padding is what its height leaves

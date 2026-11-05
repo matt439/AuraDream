@@ -6592,7 +6592,8 @@ measured on the card and when.
   Over pane short of the two columns, 678 px at two thirds, which otherwise
   fell to the PC's one column). The touch tier overrides the
   height tokens on `:root` (fields and ordinary buttons 44 px, the primary
-  50, small 36, tiny 32), sets every text box, number box and select to
+  50, small 36, tiny 32, a result's tool row 36; the phone's are below),
+  sets every text box, number box and select to
   16 px or more (`!important`: under 16 iOS zooms the page on focus and
   leaves it zoomed), takes the keyboard's hints away (`::after` key
   letters, `.lb-keys`, `.key-hint` spans in the idle line, the run sheet's
@@ -6621,6 +6622,23 @@ measured on the card and when.
   tablet's columns (the prompt note's and New image's in `fields.css` and
   `generation.css`) exclude it with the same condition, and
   `placeTagValidation` reads `TWO_COLUMNS_MEDIA` rather than 901 px. The
+  phone raises the small, tiny and tool-row tokens to 44 px as well
+  (`--h-sm`, `--h-xs`, `--h-tool` on the phone's `:root`), so no control
+  there is under a finger's 44: at 32 and 36, 40 of the 55 controls on
+  Create's first screen were. Widths follow per component, never
+  globally: a small or tiny ghost button, a size pill, a close and the
+  lightbox's Fit and 1:1 are at least 44 px wide (a queue row's × and ↑,
+  Bin, the run sheet's − and +; words are wider already). The Prompt
+  row's Examples, Check and Reset, 2 px under the small buttons elsewhere,
+  are 44 too; Seed's dice keeps its caption's height, so Seed's box stays
+  level with Batch's and Repeat's, and its `::after` reaches a 44 px
+  square up over the Output caption, never down into the box. The job's
+  Pause, Skip and Cancel and the queue's rows stand 8 px apart, not 4. On
+  its side the topbar's buttons are 44 in its 46 px (1 px above and
+  below) and the tab bar 45 px, its tabs 44 under its top edge. The
+  tablet keeps 36 and 32, where its panel beside the stage and its cards'
+  rows of tools want the room. The phone audit (Tests) holds the Gallery
+  view and Create's first screen to it. The
   phone is one column with a tab bar at the foot (`#phone-tabs`):
   `body[data-view]` is `create` (the panel and the results) or `gallery`
   (`.library`), the other not drawn; each view keeps its own scroll, the
@@ -6864,8 +6882,24 @@ measured on the card and when.
   Create view), so a tablet keyboard's Tab never leaves the focus under
   the bar (WCAG 2.4.11). Presses smaller than
   a finger reach further by a pseudo-element without moving anything (the
-  panel's fold summaries, Then refine's opener), and a card's or a run
-  tile's tools are 32 px tall; a tool's name and fill on `:hover` are
+  panel's fold summaries, Then refine's opener: 36 and 38 px, the two
+  controls under 44 on the phone's Create view until their own rows come),
+  and on the tablet a card's or a run tile's tools are 32 px tall. On the
+  phone a card carries its star alone (`.card:not(.binned) .tools` and a
+  long run's tile tools not drawn): six tools at 44 px are 284 px on a
+  card of 180, and at 22-28 x 32 Delete stood 4 px from Inpaint. They stay
+  in the page with `hidden` unset, so the long press's menu, whose rows
+  press them (`buttonItem` reads `hidden`, not the CSS), holds every one -
+  Reuse, Refine…, Inpaint…, the reference, Show run as sheet, the bin -
+  and a tap opens the lightbox, which has them too; the card's caption,
+  their `::before`, goes with them. The star is a 44 px square in the
+  card's corner (a sheet cell's too) with its 28 px dark disc drawn inside
+  it. A recycle bin card has no menu, so its Restore and Delete
+  permanently stay, 44 px. A result's tools under its picture are 44 px
+  tall and 44 wide where the tile has the room (a lone result, a batch of
+  two one above the other), sharing a narrower tile (three or four side by
+  side, 165 px a tile) rather than running past it. A tool's name and
+  fill on `:hover` are
   dropped unless the focus is the keyboard's, since iOS leaves `:hover` on
   what was tapped, and so is a card's caption ("#14 · 1024×1024 · seed 5",
   `.tools::before`), shown only while the card holds `:focus-visible`: a
@@ -7428,10 +7462,15 @@ the document's sideways scroll in px; `excepted`, the controls the exception
 list kept out of `small` (standing: `.lb-link` and `.analysis-link`, inline
 citation links in prose; `except` adds selectors); and `ok`. The controls
 audited are `root`'s (a selector or element), by default the open modal
-dialogs when there are any, else the body. A smoke asserts only the checks
-that hold today and logs the rest as the baseline later phases bring up: the
-phone review's undersized controls (P54) and the lightbox's Delete off the
-right edge (P29) are logged, not asserted.
+dialogs when there are any, else the body; `screen: true` counts in
+`small` only the controls that meet the window as it is scrolled (a view's
+first screen). A smoke asserts the checks that hold and logs the rest as
+the baseline later phases bring up: `smoke-phone` asserts no control under
+44 px on the Gallery view and on Create's first screen, and on the whole
+Create view but for its listed exceptions (Then refine's opener and the
+Grid search summary, whose 48 px rows are the review's P59 and P62); the
+lightbox's (its facts' ⌕ buttons), the dialogs' and the Models sheet's
+undersized controls are logged, not asserted.
 
 `tests/test_fbc_runtime.py` exercises installed FBC hooks and arithmetic on tiny
 CPU blocks in an isolated worker. Only the unrelated optional bitsandbytes backend
@@ -7744,9 +7783,16 @@ window; at the page's foot Generate in its place above Load settings from
 PNG; the phone audit finding no
 sideways overflow, no control off the screen sideways and no dialog outside the window on Create,
 on Gallery and in the Models sheet, and in the lightbox no overflow and no
-dialog outside, its only excepted controls `.lb-link`s, with each state's
-count of controls under 44 px logged as the baseline, and in the
-lightbox no control off the screen sideways either; Create drawing the panel and viewer
+dialog outside, its only excepted controls `.lb-link`s, and in the
+lightbox no control off the screen sideways either; no control under
+44 px on Create's first screen (`screen: true`), nor on the whole Create
+view but its two listed exceptions, Then refine's opener and the Grid
+search summary (`except`), nor on the whole Gallery view, where each
+card's tools are in the page (six) but not drawn and its star is a 44 px
+square in its corner; the lightbox's under-44 list logged; a long press's
+menu on a card holding Reuse settings, Refine…, the reference, Show run as
+sheet, Inpaint… and Move to recycle bin, and its Refine… row, tapped,
+opening Refine (closed by Escape with no entry left); Create drawing the panel and viewer
 but not the gallery and the bar at the window's foot, `viewBand` from the
 topbar's foot to the bar's top, a viewer 14 px above the bar counted out
 of sight below (`viewerOutOfSight`) and the band to the window's foot
@@ -7783,7 +7829,7 @@ the menu inside it with no dialog opened and the lightbox still up, still
 open after the lift on the picture, docked at the foot with a menu item,
 not a line, first; 852x393 still the phone, with a topbar of at
 most 48 px, a tab bar of at most 45, a topbar that scrolls away (the
-band then from 0 to the bar), a three-line prompt, the search beside Runs, card tools 32 px tall, and the
+band then from 0 to the bar), a three-line prompt, the search beside Runs, every card's tools not drawn and its star 44 px, no control under 44 px in the Gallery view, and the
 lightbox's column beside a stage at least 300 tall; the tab bar a nav
 landmark holding the tablist, the brand at #8a6dff and a scroll padding
 the bar's height; at 320x1106 Sampling two to a row with no sideways
@@ -7798,7 +7844,9 @@ at 820x1180@2, its touch viewports `"mobile": true`: `data-tier` tablet
 and `viewBand` the whole window; the panel beside the
 stage and sticky, two cards across,
 no tab bar, the keyboard help kept, finger sizes, the chips' host the wide
-one, the page all 820 px wide; a tapped Generate's result in the stage
+one, the page all 820 px wide; the touch tier's small tokens kept
+(`--h-sm` 36, `--h-xs` 32, `--h-tool` 36), a card's tools drawn at 32 px,
+its star 28 and the dice under 44, where the phone has 44; a tapped Generate's result in the stage
 beside the panel with no New
 image pill fixed over the page; a card's lightbox closed by Back with the
 page still loaded at its scroll; at 1180x820 the PC's two columns at finger
@@ -7870,7 +7918,8 @@ Examples press brings the Create view (Create's tab selected) with the
 panel's menu open, inside the window and holding the focus. Then, with
 three images and a refine pass of the first planted: a card tapped in
 Select mode, `:hover` or `:focus-within` on it, shows no caption
-(`.tools::before`), and a Tab's keyboard focus shows it; the Sheet
+(`.tools::before`) and no tools, nor with a Tab's keyboard focus on its
+star (the tablet's caption with that focus is `smoke-tablet`'s); the Sheet
 button's run sheet has its `.sheet-hint` but does not draw it; the
 lightbox on the pass is black over a black `::backdrop`, `lbNarrow` and
 `LB_STACKED_MEDIA` true and its flex a column, Compare with source shown

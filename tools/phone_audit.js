@@ -35,6 +35,8 @@
 //           control scrolled out of one is not offside while the strip is on
 //           the screen. Opt-in, never inferred from overflow-x, so a row that
 //           scrolls with no cue is still reported
+//   screen  true: `small` counts only the controls that meet the screen as
+//           it is scrolled now (a view's first screen), not the whole page
 // Visible means rendered with a box, not visibility: hidden, not under
 // opacity 0 or [inert], and larger than 1x1 (a visually hidden input).
 // Tests only: no app script loads this file.
@@ -142,9 +144,11 @@ globalThis.__phoneAudit = (options = {}) => {
   ]))].filter(visible);
 
   const small = [], excepted = [], offside = [];
+  const onScreen = (r) => r.right > 0 && r.bottom > 0 && r.left < vw && r.top < vh;
   for (const el of controls) {
     const box = pressBox(el);
-    if (box.right - box.left < min - slack || box.bottom - box.top < min - slack) {
+    if ((!options.screen || onScreen(el.getBoundingClientRect()))
+        && (box.right - box.left < min - slack || box.bottom - box.top < min - slack)) {
       (except.some((sel) => el.matches(sel)) ? excepted : small).push(`${name(el)} ${at(box)}`);
     }
     const r = el.getBoundingClientRect();
