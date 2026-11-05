@@ -2769,7 +2769,8 @@ about painting; in a mode every one would be held, and the stage would
 swap for a frame of another shape, moving every control under the pointer
 as the tab changed. What is the same is shared by generalising inpaint.js
 in place (the sampling boxes' rules, the check's lines, the library
-strength, the gone-source words) and wearing its box and panes in CSS.
+strength, the gone-source words; the stateless parts since in
+refine-rules.js) and wearing its box and panes in CSS.
 
 **Why the page does no arithmetic.** The presets' numbers, their held
 words ("already 16:9 - the 16:9 preset at 1 MP", "within 16 px"), an

@@ -618,7 +618,7 @@ before changing it.
   and facts list (`settingsLine`, `factsList`), shared by the lightbox and
   the viewer; `lightbox.js` the lightbox's view, layout, walk and gestures,
   `lightbox-compare.js` its comparison's controls, divider and pass
-  stepping, `lightbox-cfg.js` its comparison across CFG and across steps; `refine-rules.js` the refine pass's shared rules (its bounds and sizes, `refinePrefs`, `SINGLE_STRENGTH`, `refineDefaultStrength`, `refineKept`, `sourceGoneKind`/`sourceGoneWords`, a gone source's words, and what the pass dialogs share: `stepStrength`, `dropPassLora` and `PASS_IN_FLIGHT`), which every pass dialog, Mass refine, Then refine, the lightbox and the panel read; `refine.js` and `refine-prompt.js` the Refine dialog, `refine-prompt.js` also the check lines the Inpaint and Outpaint dialogs share (`renderPassCheck`, `syncPassCheck`, `selectPassFrom`); `inpaint.js` the Inpaint dialog (its mask's
+  stepping, `lightbox-cfg.js` its comparison across CFG and across steps; `refine-rules.js` the refine pass's shared rules (its bounds and sizes, `refinePrefs`, `SINGLE_STRENGTH`, `refineDefaultStrength`, `refineKept`, `sourceGoneKind`/`sourceGoneWords`, a gone source's words, and what the pass dialogs share: `stepStrength`, `dropPassLora` and `PASS_IN_FLIGHT`, and what the inpaint class's dialogs share: `inpaintNone`, `inpaintUnavailableText`, `inpaintLibraryStrength`, `inpaintStartStrength`, `inpaintStrengthNote`, `libraryStrengthInto`, `syncPassSampling`, `maskCropAsked`, `maskCropText`, `MASK_CROP_*`), which every pass dialog, Mass refine, Then refine, the lightbox and the panel read; `refine.js` and `refine-prompt.js` the Refine dialog, `refine-prompt.js` also the check lines the Inpaint and Outpaint dialogs share (`renderPassCheck`, `syncPassCheck`, `selectPassFrom`); `inpaint.js` the Inpaint dialog (its mask's
   upload, preview, submit and Reuse) and `inpaint-mask.js` its canvas, tools, strokes and export
   (`styles/inpaint.css`); `outpaint.js` the Outpaint dialog (the side, band and preset
   controls, the frame, the preview, submit, close and Reuse; `styles/outpaint.css`);
@@ -4370,14 +4370,13 @@ measured on the card and when.
   the dialog has `scrollbar-gutter: stable`, so nothing moves under the
   pointer. A close that ran nothing keeps the sides, band and boxes in page
   memory (`outpaintKept`) for that image on the same checkpoint. Its
-  shared helpers are inpaint.js's (`inpaintStartStrength`,
-  `inpaintLibraryStrength`, `inpaintStrengthNote`, `libraryStrengthInto`,
-  `syncPassSampling`, and the capability it shares with the Inpaint
-  dialog: `inpaintSupported`, `syncInpaintCapability`, `inpaintNone`,
-  `inpaintUnavailableText`), refine-prompt.js's (`renderPassCheck`,
+  shared helpers are inpaint.js's capability (`inpaintSupported`,
+  `syncInpaintCapability`), refine-prompt.js's (`renderPassCheck`,
   `syncPassCheck`, `selectPassFrom`) and refine-rules.js's
-  (`sourceGoneKind`, `sourceGoneWords`, `dropPassLora`, `stepStrength`,
-  `PASS_IN_FLIGHT`). Cards, the
+  (`inpaintNone`, `inpaintUnavailableText`, `inpaintStartStrength`,
+  `inpaintLibraryStrength`, `inpaintStrengthNote`, `libraryStrengthInto`,
+  `syncPassSampling`, `maskCropAsked`, `sourceGoneKind`, `sourceGoneWords`,
+  `dropPassLora`, `stepStrength`, `PASS_IN_FLIGHT`). Cards, the
   settings line and job labels read "outpaint of #N +L/+T/+R/+B @ S", the
   facts "Outpainted from" and an Outpaint row, an outpainted card a ⬚
   badge; Against source draws the source at (left, top) at the result's
