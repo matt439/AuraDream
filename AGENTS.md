@@ -128,7 +128,9 @@ Backend (`backend/`):
   `BundleManager`/`GalleryAdmission`) and `schemas_bundles.py` (its bodies); `bundles.py` verified export/merge,
   `bundle_archive.py` the archive format and its verifying read,
   `bundle_images.py` a tracked PNG's identity, row checks and metadata
-  rewrite, `bundle_common.py` their errors and database reads,
+  rewrite, `bundle_recovery.py` what an import gives back to new rows
+  (masks, outpaint specs, masked areas), `bundle_common.py` their errors and
+  database reads,
   `bundle_crypto.py` its optional password layer;
   `backup_policy.py` pure default-off backup age and retention planning;
   `backup_preferences.py` the backup settings sidecar's path (its v1 format legacy);

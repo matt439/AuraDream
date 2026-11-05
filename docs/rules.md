@@ -394,7 +394,10 @@ before changing it.
   cleanup, skipped for a backup, and staged database/image merges; `bundle_archive.py` the archive format, its one
   verifying read (`_verify_archive`), the decode pool, the staging writer and
   the free-space check; `bundle_images.py` a tracked PNG's pixel identity,
-  row validation, embedded metadata and tEXt rewrite; `bundle_common.py` the
+  row validation, embedded metadata and tEXt rewrite; `bundle_recovery.py`
+  what an import gives back to new rows (an outpaint's rebuilt mask, a mask
+  from its staged PNG's copy, stripped outpaint specs and masked areas, a
+  masked area's region proved against its mask); `bundle_common.py` the
   bundle errors, progress type and read-only database reads every layer
   shares; `bundle_crypto.py` the optional password layer
   (streamed chunked AES-256-GCM, scrypt); `api_bundles.py` owns browser routes
@@ -2003,7 +2006,7 @@ measured on the card and when.
   name, the size its row records), merges rows by hash (`bundles._merge_masks`;
   one hash at another size is refused), installs absent files, and counts a
   row whose mask neither the bundle nor its result's own embedded copy
-  (`bundles._embedded_member`, held to the hash and the row's size) holds
+  (`bundle_recovery._embedded_member`, held to the hash and the row's size) holds
   as `masks_missing`, keeping the hash; an unresolved source takes the
   row's mask with it. A whole-gallery inventory carries only files in
   `masks/` named by 64 lowercase hex digits plus `.png` that decode to that
