@@ -501,6 +501,32 @@
       </div>
     </div>
 
+    <!-- A phone's More options (phone.js, styles/phone.css): one row under
+         the size and Batch, saying what the sheet holds - steps, CFG, the
+         seed and whatever else is set - with a dot when any of it is off the
+         checkpoint's defaults; a press opens the sheet. Sampling, Seed,
+         Repeat, Custom dimensions, LoRA & references, Notify and Then
+         refine, Step cache and Grid search are moved into its body whole
+         under PHONE_MEDIA (the negative prompt too while it does not run),
+         Run grid into its foot, and home again off it. Inside the panel, so
+         their input and change events still reach its listeners (the
+         remembered panel, a setup's Undo). Not drawn anywhere else. -->
+    <button type="button" class="more-options" id="more-options" aria-haspopup="dialog"
+            aria-controls="more-sheet"><span class="more-options-name">More options<span
+      class="more-options-dot" id="more-options-dot" hidden><span class="sr-only">, changed from
+      this checkpoint's defaults</span></span></span> <span class="more-options-summary"
+      id="more-options-summary"></span></button>
+    <dialog class="more-sheet" id="more-sheet" aria-labelledby="more-sheet-title">
+      <div class="more-sheet-head dialog-head">
+        <h2 id="more-sheet-title">More options</h2>
+        <button type="button" class="ghost" id="more-sheet-done">Done</button>
+      </div>
+      <div class="more-sheet-body" id="more-sheet-body"></div>
+      <div class="more-sheet-actions dialog-actions" id="more-sheet-actions">
+        <p class="hint more-sheet-note" id="more-sheet-note" role="status" hidden></p>
+      </div>
+    </dialog>
+
     <!-- A phone's results (phone.js, styles/phone.css): the viewer, its note
          and #recent, moved here whole from the stage under PHONE_MEDIA, in
          Generate's place - Generate is in the action bar there - so the image

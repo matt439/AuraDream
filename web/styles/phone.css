@@ -2,14 +2,14 @@
 
 /* The phone's own places for nodes the page holds once (phone.js): the
    Create view's action bar over the tab bar, with Generate moved into it;
-   the results moved under the settings that make them; and the queue's
+   the results moved under the settings that make them; the queue's
    sheet, which the running job's progress and the queue are moved into
-   while it is open. Each node is moved whole under PHONE_MEDIA, never
+   while it is open; and More options' sheet, which holds the tuning. Each node is moved whole under PHONE_MEDIA, never
    copied, and home again off it, so a PC, a tablet and every smoke written
    with a mouse see none of this. Linked last, after touch.css, whose
    tokens it reads: --phone-actions-h, --phone-bottom-chrome, --tabbar-h
    and the safe areas. */
-.phone-actions, .phone-results { display: none; }
+.phone-actions, .phone-results, .more-options { display: none; }
 /* A result's ⋯ (viewer.js) and a queued row's (job-queue.js): the phone's
    way to the rest of their buttons, drawn on the phone alone. */
 .viewer .tools .more-tool, .queue-list .queue-more { display: none; }
@@ -35,6 +35,95 @@
      wait in that line, a failed load's card, a lost run's, a first run's
      box with the examples and a deleted image's held line still are. */
   .phone-results:has(> .viewer > .placeholder:not([hidden], .held, .waiting)):not(:has(> .viewer.empty-install)) { display: none; }
+
+  /* More options (phone.js): the first screen is the prompt, the size,
+     Batch, this row and the newest result; the tuning is a press away in
+     the sheet it opens, where it filled the first screen (40 of its 55
+     controls under 44 px) and put the result 1300 px down. A tonal card
+     row, 56 px at least: its name 16 px bold, an 8 px dot after it while
+     anything in the sheet is off the checkpoint's defaults (its words for a
+     screen reader inside it), what the sheet holds under it in 15 px, two
+     lines at most, and a chevron pointing into the sheet. */
+  .more-options {
+    position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+    width: 100%; min-height: 56px; margin: 0; padding: var(--sp-2) 44px var(--sp-2) var(--sp-4);
+    border: 1px solid var(--line-strong); border-radius: var(--r-md);
+    background-color: var(--panel-2); color: var(--text); text-align: left; cursor: pointer;
+  }
+  .more-options-name {
+    display: inline-flex; align-items: center; gap: var(--sp-2);
+    font-size: var(--fs-md); font-weight: 600; line-height: var(--lh-tight);
+  }
+  .more-options-dot:not([hidden]) {
+    display: inline-block; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--accent-2);
+  }
+  .more-options-summary {
+    max-width: 100%; font-size: var(--fs-body-sm); line-height: var(--lh-tight); color: var(--text-3);
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+  }
+  .more-options::after {
+    content: ""; position: absolute; top: 50%; right: 20px;
+    width: 9px; height: 9px; margin-top: -5px;
+    border: solid var(--muted); border-width: 0 2px 2px 0; rotate: -45deg;
+  }
+  .more-options:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+
+  /* Its sheet: the screen across, as every dialog on the phone (styles/
+     touch.css), Done in its title row; the panel's own fields in its body
+     16 px apart, the folds their 48 px rows; its foot, sticky, Run grid
+     (the grid fold's action, secondary as on Create, 50 px across the
+     sheet) while the grid fold is open, and a held press's why. With
+     neither, no foot, and the body ends clear of the home indicator. */
+  .more-sheet { background: var(--panel); color: var(--text); }
+  .more-sheet[open] { display: flex; flex-direction: column; gap: var(--sp-4); }
+  .more-sheet-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+  .more-sheet-head h2 { margin: 0; font-size: var(--fs-lg); font-weight: 600; }
+  .more-sheet-body { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
+  /* What is brought into view in it (Grid search's row, a focused box)
+     stops under the sticky title row, not behind it. */
+  .more-sheet-body > * { scroll-margin-top: calc(var(--safe-t) + 72px); }
+  .more-sheet-actions { display: flex; flex-direction: column; gap: var(--sp-2); }
+  .more-sheet-actions > #btn-grid { width: 100%; height: var(--h-lg); margin: 0; }
+  .more-sheet-note { margin: 0; font-size: var(--fs-body-sm); color: var(--text-2); }
+  .more-sheet:not(:has(#grid-section[open])) .more-sheet-actions > #btn-grid { display: none; }
+  .more-sheet:not(:has(#grid-section[open])) .more-sheet-actions:has(> .more-sheet-note[hidden]) { display: none; }
+  .more-sheet:not(:has(#grid-section[open])):has(.more-sheet-note[hidden])::after {
+    content: ""; display: block; flex: none; height: calc(var(--safe-b) + var(--sp-4));
+  }
+
+  /* Batch on the first screen and Repeat in the sheet: each one row, its
+     name (a caption's 14 px bold) at the start, its box 72 px with the
+     number centred, then − and + (phone.js), 44 px squares 8 px apart,
+     where they were 62 px boxes for values of 1-4 with no steppers. The
+     Output group's caption is its name alone here, as on a PC's two
+     columns (styles/fields.css): Batch's row names itself. */
+  #output-caption {
+    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+  .panel .sub:has(> .phone-step) {
+    display: grid; grid-template-columns: minmax(0, 1fr) 72px var(--h-md) var(--h-md);
+    align-items: center; gap: 0 var(--sp-2); flex: 1 1 auto; width: auto; min-width: 0;
+  }
+  .panel .sub:has(> .phone-step) > i { font-size: var(--fs-label); font-weight: 600; color: var(--text-readout); }
+  .panel .sub:has(> .phone-step) > input { width: 100%; min-width: 0; padding-inline: var(--sp-1); text-align: center; }
+  .phone-step {
+    width: var(--h-md); min-width: var(--h-md); height: var(--h-md); padding: 0;
+    font-size: 22px; font-weight: 600; line-height: 1;
+  }
+
+  /* Seed in the sheet: its caption over the box, and the dice a 44 px
+     square after the box in its row - where it was 28x18 in the caption,
+     its press reaching over the box's top. */
+  .more-sheet .sub:has(> #seed) {
+    display: grid; grid-template-columns: minmax(0, 1fr) var(--h-md); gap: var(--sp-2);
+  }
+  .more-sheet .sub:has(> #seed) > i { grid-column: 1 / -1; font-size: var(--fs-label); font-weight: 600; color: var(--text-readout); }
+  .more-sheet #btn-dice {
+    width: var(--h-md); min-width: var(--h-md); height: var(--h-md); min-height: var(--h-md);
+    padding: 0; font-size: 20px;
+  }
+  .more-sheet #btn-dice::after { content: none; }
 
   /* The action bar: the newest result, Generate and the queue, one row in
      the thumb's reach over the tab bar, opaque on the bar's colour with a

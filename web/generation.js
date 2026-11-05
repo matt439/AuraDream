@@ -25,8 +25,11 @@ function refuseBadNumber(inputs) {
   const bad = inputs.find(([el]) => !el.disabled && el.validity.badInput);
   if (!bad) return false;
   const [el, name] = bad;
-  showError(`${name} has an incomplete number. Finish typing it before running.`);
+  const words = `${name} has an incomplete number. Finish typing it before running.`;
+  showError(words);
   revealSetupField(el);
+  // On a phone the box may be in More options' sheet (phone.js).
+  openMoreOptionsFor(el, words);
   el.focus({ preventScroll: true });
   return true;
 }

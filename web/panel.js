@@ -515,6 +515,9 @@ function revealInPanel(el) {
 // still in its flow, at the top of the page.
 function revealGridRun() {
   if (!els.gridSection.open) return;
+  // On a phone Run grid is in More options' foot, in sight; what the press
+  // brings up there is the fold's rows, from under that foot (phone.js).
+  if (isPhone()) { revealPhoneGrid(); return; }
   placePanel();
   revealInPanel(els.gridRun);
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;

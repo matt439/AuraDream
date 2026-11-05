@@ -85,8 +85,10 @@ async function expandPrompt() {
     return box.value.trim() === '' || !Number.isInteger(value) || value < +box.min || value > +box.max;
   });
   if (side) {
-    showError(`Expand writes for the size in W and H: set both to whole pixels from ${els.width.min} to ${els.width.max} first.`);
+    const words = `Expand writes for the size in W and H: set both to whole pixels from ${els.width.min} to ${els.width.max} first.`;
+    showError(words);
     revealSetupField(side);
+    openMoreOptionsFor(side, words);
     side.focus({ preventScroll: true });
     return;
   }

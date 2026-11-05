@@ -25,7 +25,8 @@
      says which; nothing is removed from the page, only not drawn, or
      moved whole - never copied - into the phone's own hosts (phone.js,
      styles/phone.css, linked after this): Generate into the Create view's
-     action bar, the results under the settings.
+     action bar, the results under the settings, the tuning into More
+     options' sheet.
 
    `body[data-tier]` ('phone', 'tablet', or none on a PC; touch.js keeps it
    in step with the queries) is a hook for a rule to key on beside them.
@@ -342,10 +343,8 @@
   /* The Prompt row's Examples, Check and Reset are a step under the small
      buttons elsewhere (fields.css): here they are the same 44. */
   .field > span:has(> label[for="prompt"]) .ghost.tiny { min-height: var(--h-md); }
-  /* Seed's dice stays its caption's height, so Seed's box stays level with
-     Batch's and Repeat's: its press reaches 44 px square round it, up over
-     the Output caption, never down into the Seed box under it. */
-  #btn-dice::after { inset: auto calc(50% - 22px) 0; height: 44px; }
+  /* Seed's dice is a 44 px square after the Seed box in More options'
+     sheet (styles/phone.css). */
 
   /* The topbar: the keyboard list has no keyboard to list; the checkpoint's
      name gives way to the buttons. */

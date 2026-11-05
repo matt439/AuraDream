@@ -679,7 +679,10 @@ before changing it.
   `syncTier` calls): Generate moved into the Create view's action bar
   with the newest result's picture (`syncPhoneDock`, `pressPhoneDock`) and
   the queue's count (`syncPhoneQueue`), the results moved under the
-  settings, and the queue's sheet (`openQueueSheet`); the
+  settings, the queue's sheet (`openQueueSheet`), and More options - its
+  row's words and dot (`syncMoreOptions`), its sheet holding the tuning
+  (`openMoreSheet`), the negative prompt's place (`placePhoneNegative`)
+  and Batch's and Repeat's − and + (`syncPhoneSteppers`); the
   touch tier's media queries (`PHONE_MEDIA`, `TABLET_COLUMNS_MEDIA`,
   `TWO_COLUMNS_MEDIA`, `TOUCH_MEDIA`) are `state.js`'s, beside
   `styles/touch.css`'s copies of them, as is `viewBand`, and so is the
@@ -721,7 +724,8 @@ before changing it.
   for the saved gallery search dialog and its footer opener, then
   `touch.css`, the phone and tablet tier, and last `phone.css`, the
   phone's own hosts that `phone.js` fills - the action bar, the results'
-  place, the queue's sheet - which read `touch.css`'s tokens (both under
+  place, the queue's sheet, More options' row and sheet - which read
+  `touch.css`'s tokens (both under
   "Phones and tablets");
   preserve that cascade (`tests/test_docs_maps.py` holds this list to
   `index.html`'s links, in order). `docs/source-audit.md` records the
@@ -6655,9 +6659,8 @@ measured on the card and when.
   lightbox's Fit and 1:1 are at least 44 px wide (a queue row's × and ↑,
   Bin, the run sheet's − and +; words are wider already). The Prompt
   row's Examples, Check and Reset, 2 px under the small buttons elsewhere,
-  are 44 too; Seed's dice keeps its caption's height, so Seed's box stays
-  level with Batch's and Repeat's, and its `::after` reaches a 44 px
-  square up over the Output caption, never down into the box. The job's
+  are 44 too; Seed's dice is a 44 px square after the Seed box in More
+  options' sheet (below), with no `::after` reach. The job's
   Pause, Skip and Cancel and the queue's rows stand 8 px apart, not 4. On
   its side the topbar's buttons are 44 in its 46 px (1 px above and
   below) and the tab bar 45 px, its tabs 44 under its top edge. The
@@ -6789,7 +6792,13 @@ measured on the card and when.
   Returning to the phone it puts back the current view's
   scroll as a tab's press does: the view's scroll is kept as it moves
   (`notePhoneScroll`), counting no scroll told while the tier is changing,
-  so the resize's own clamp or anchoring never replaces it. Leaving the
+  so the resize's own clamp or anchoring never replaces it. At the media
+  query's change the page can still be laid out at the old tier's sizes,
+  shorter than it is about to be (More options' sheet holds most of the
+  panel), which clamped the scroll short of the kept place: while it is
+  short, `restorePhoneScroll` puts the place back again as the page grows
+  (a ResizeObserver on `body`), for a second at most or until a finger
+  touches the page, noting no scroll meanwhile. Leaving the
   phone moves nothing else, and the view chosen there stays chosen.
   The phone's own hosts (`phone.js`, `styles/phone.css`) are filled and
   emptied there too (`syncPhoneHosts`, from `syncTier` at boot and on each
@@ -7034,14 +7043,79 @@ measured on the card and when.
   `#phone-results`, in Generate's place in the panel - after Output,
   ahead of the job's progress, whose coming and going then never moves
   the picture - a card on the frameless page, 12 px between its parts.
-  The image just made starts about 950 px down a 393x852 screen, a scroll
-  of less than one screen, where it was about 1480 px down (1670 while a
-  job ran); the review's More options sheet (P4) will bring it higher
-  still. Idle, before anything is made on the page, the viewer's one line
+  With More options (below) the image just made starts about 600 px down
+  a 393x852 screen, on the first screen, where it was about 1480 px down
+  (1670 while a job ran). Idle, before anything is made on the page, the viewer's one line
   ("Nothing generated this session") is not drawn there, nor the empty
   host: the bar's held picture says it. The load's wait in that line, a
   failed load's card, a lost run's, a first run's box with the examples
   and a deleted image's held line still are.
+  The phone's first screen is the prompt, the size, Batch, More options
+  and the newest result; the tuning is a press away (the review's P4,
+  P11, P13). More options (`#more-options`, `phone.js`,
+  `styles/phone.css`) is a row under Batch, in the panel before the
+  results: a tonal card at least 56 px tall across the column, "More
+  options" 16 px bold over what its sheet holds in 15 px `--text-3`, two
+  lines at most - the steps, CFG and the seed ("28 steps · CFG 3.5 ·
+  seed random"), then whatever else there is set: a Repeat past 1, True
+  CFG, a Mu off the profile's, a size of no preset, a LoRA, references,
+  Then refine, the step cache, an open grid, a negative prompt waiting in
+  the sheet - and an 8 px `--accent-2` dot after its name while anything
+  there is off the checkpoint's defaults (the profile's steps, CFG and
+  Mu from `lastDefaults`, a seed, and every item after the seed; Notify is
+  the browser's and counts for neither), named for a screen reader inside
+  the dot ("changed from this checkpoint's defaults"), and a chevron
+  pointing into the sheet. `syncMoreOptions` writes it, on the phone only:
+  from the panel's `input` and `change`, `syncCfg`, `syncRuns`,
+  `syncConditioningSummary` and `syncCustomSizeSummary` (the page's own
+  writes - a status, Reuse, Reset, the dice, a preset), the three folds'
+  `toggle`, Then refine's opener and the sheet's close. A press opens
+  its sheet (`#more-sheet`, `openMoreSheet`), a `<dialog>` inside the
+  panel - so its controls' `input` and `change` still reach the panel's
+  listeners (the remembered panel, a setup's Undo) - and a sheet like
+  every other on the phone: the screen across, its own history entry
+  (Back, Escape and Done in its title row close it). Its body holds the
+  panel's own nodes, moved in by `syncPhoneHosts` for the phone's life and
+  home off it (each before the comment `initPhone` left in its place), in
+  this order: the negative prompt while it does not run, Sampling (Steps,
+  CFG, Mu, True CFG), Seed, Repeat, Custom dimensions, LoRA & references,
+  Notify with Then refine, Step cache (still its name over its box) and
+  Grid search; Run grid is in its sticky foot, drawn only while the grid
+  fold is open, secondary as on Create, 50 px across the sheet. The
+  folds are their 48 px rows there. Opening Grid search by its row's
+  press brings the fold up under the sheet's title (`revealGridRun` calls
+  `revealPhoneGrid`; the row is the sheet's last, and the foot it brings
+  covered it), as a PC's press brings Run grid into view; `scroll-margin-top`
+  keeps what is brought into view clear of the title row. A box in the
+  closed sheet that a press elsewhere sends the focus to - Generate's
+  refusal of an unfinished number (`refuseBadNumber`), Expand's of a
+  size - opens the sheet first (`openMoreOptionsFor`), the refusal's
+  words in its foot's line (`#more-sheet-note`, a status); a held press
+  in the sheet says why in that line too, and the next input in the sheet
+  or its close clears it. The negative prompt is under the prompt (its
+  place in the markup) only while it runs - `#negative` not disabled: a
+  checkpoint whose CFG, or True CFG, applies it - and first in the sheet
+  otherwise, its caption saying what wakes it and Set True CFG going to
+  the box beside it there; on FLUX.1 at its defaults it was 150 px of the
+  first screen, inert. `placePhoneNegative` (from `syncCfg` and the
+  sheet's close) moves it, never while the sheet is open or the box has
+  the focus, so nothing moves under a finger: True CFG set in the sheet
+  brings it under the prompt as the sheet closes. Batch, on the first
+  screen, and Repeat, in the sheet, are each one row: the name at the
+  start (14 px bold), the box 72 px wide with its number centred, then −
+  and + (`.phone-step`, created by `initPhone` and inserted after the box
+  on the phone only - after it inside Repeat's `<label>`, so the box stays
+  the label's control - and taken out off it), 44 px squares 8 px apart.
+  A press steps the box (`stepUp`/`stepDown`) and sends its `input` and
+  `change`, so `syncRuns` and the remembered panel follow; at the box's
+  least or most the button is held, titled "Batch is at its least, 1",
+  and a press says it (above the bars for Batch, `sayAtGenerate`; in the
+  sheet's foot for Repeat). The Output caption is its group's name alone
+  there (visually hidden, as on a PC's two columns). Seed's dice is a
+  44 px square after the Seed box on its row (moved there in the sheet,
+  home in its caption off the phone), where it was 28x18 with a press
+  reaching over the box's top. Load settings from PNG… stays in the
+  panel under the results until the topbar's ⋯ (the review's P12).
   The phone's page does not pull to refresh: `html` and `body` have
   `overscroll-behavior-y: contain`, so a pull at the page's top no longer
   reloads it (the prompt's Undo, a Check, a selection and each view's
@@ -8034,8 +8108,8 @@ background's alpha 1) and the scroll padding both bars'; a press there
 refused for an empty prompt, a seed past 2^53 and a stubbed server
 refusal each saying why in `#error` riding 8 px above the bars
 (`at-generate`, solid, under the topbar, the element at its centre, the
-focus not taken to a box), a tap on it leaving it in its place below the
-window, the refused press's `:active` (polled every 5 ms) laying black at
+focus not taken to a box), a tap on it leaving it in its place (static),
+the refused press's `:active` (polled every 5 ms) laying black at
 20% over Generate with its box unmoved; at the page's foot the panel
 ending above the action bar and Generate still in it; the phone audit finding no
 sideways overflow, no control off the screen sideways and no dialog outside the window on Create,
@@ -8048,16 +8122,17 @@ the whole Gallery view, where each
 card's tools are in the page (six) but not drawn and its star is a 44 px
 square in its corner; the lightbox's under-44 list logged; the phone's
 type - body 16 px, a caption 14 in sentence case, a sub-label 13 - and no
-word under 13 px (`__phoneText`) on Create with its folds shut and open
-and on Gallery, whose heading is 18; no visible `?` badge in the panel
+word under 13 px (`__phoneText`) on Create, in More options' sheet
+(opened by its row, its entry held) with its folds shut and open, and on
+Gallery, whose heading is 18; no visible `?` badge in the panel
 ending past the screen less 16, its folds open, at 393 and 320 px wide; the panel with no padding, edge or
 fill, the prompt box 16 px from the screen's edge and the screen less 32
-wide, its fields 16 apart; Custom dimensions', Grid search's and LoRA &
+wide, its fields 16 apart; in the sheet, Custom dimensions', Grid search's and LoRA &
 references' summaries 48 px rows (under 49) of 16 px bold, under a 1 px
 rule, their values ending 28 px short of the row's end, a 9 px chevron
 (`::after`, absolute) at 45° and -135° once open (Grid search's waited for,
 its ▾ gone) and no `::before`; each of those folds shut 48 px whole (its
-`<details>`, under 50), Step cache 16 below Grid search; the negative caption's name and Set True
+`<details>`, under 50), Grid search 16 below Step cache; the negative caption's name and Set True
 CFG centred on one line, the button at the screen's edge less 16, the
 note under them from the left; Notify and Then refine on one line and the
 note under the label's words, whole; a finished job's actions 44 px and
@@ -8067,7 +8142,8 @@ Notify's tick 24 px on a 44 px row; Generate the one visible button or
 summary in the panel, its folds open, with the accent's solid fill, Run
 grid `--panel-2`, every chosen size pill `--accent-soft` with an accent
 edge, an inset ring and the text's colour, and every unheld
-`.ghost.danger` (Reset among them) `--danger`; no tap flash, and a tap on
+`.ghost.danger` (Reset among them) `--danger`; Done closing the sheet
+with its entry; no tap flash, and a tap on
 the chosen size laying the 12% state layer over it (its box unmoved) and
 a tap on Create laying it over the pill, not the tab; the bar `--panel`
 with no backdrop filter, Create's pill 56x28 round its 24 px glyph and
@@ -8081,15 +8157,16 @@ not drawn, but not the gallery, and the bar at the window's foot,
 `--phone-bottom-chrome` both bars' height, and the band to the window's
 foot while the prompt has the focus, both bars then not drawn and the
 topbar `relative` and gone from the window once scrolled (`viewBand` from
-0), all back on blur, and the prompt typed then back after the reload;
+0; the prompt dragged 900 px tall by its grip first, since the Create view
+is about a screen tall now), all back on blur, and the prompt typed then back after the reload;
 Gallery the reverse, no action bar and the band to the tab bar,
-two cards across, Back to top above the bar, each view's own scroll and
-the view kept through a reload; in the lightbox no arrows or key legend,
+two cards across, Back to top above the bar, each view's own scroll
+(Create's 300 px) and the view kept through a reload; in the lightbox no arrows or key legend,
 a swipe left and right stepping, a swipe down closing, a pinch zooming
 past 1.5, a swipe while zoomed panning without stepping, and a double tap
 back to fit; Reuse from the Gallery view bringing Create with the prompt;
-Generate tapped at the page's top queuing a job with the viewer below the
-window and no New image pill, the action bar's picture the live preview,
+Generate tapped at the page's top queuing a job with the viewer's top
+inside the band and no New image pill, the action bar's picture the live preview,
 ringed and pressable; a job's dot and line on the bar in both views and
 gone at its end, the dot at least 12 px at the top corner of Create's
 pill, the tab's "a job running" shown while it runs and hidden after, and
@@ -8118,11 +8195,14 @@ band then from 0 to the action bar), the action bar 53 px on the tab bar
 with 44 px controls in a centred row of at most 560 px, a three-line prompt, the search beside Runs, every card's tools not drawn and its star 44 px, no control under 44 px in the Gallery view, and the
 lightbox's column beside a stage at least 300 tall; the tab bar a nav
 landmark holding the tablist, the brand at #8a6dff and a scroll padding
-the bar's height; at 320x1106 Sampling two to a row with no sideways
-scroll; at 320x700 no sideways overflow, no control off the screen and no
-word under 13 px on Create (its folds shut, and open with no overflow or
-control off the screen) and on Gallery; and a mouse at 1400x900 back to
-no bar, both views, Generate and the results home (Generate in the panel
+the bar's height; at 320x1106 Sampling two to a row in More options'
+sheet with no sideways scroll; at 320x700 no sideways overflow, no
+control off the screen and no word under 13 px on Create and on Gallery,
+and in More options' sheet with its folds open no overflow, no control
+off the screen or under 44 px and no word under 13 px; and a mouse at 1400x900 back to
+no bar, both views, no More options row, no − or +, the sheet's nodes
+home (Sampling a child of the panel, the dice in Seed's caption, Run
+grid in its fold, the negative before the size), Generate and the results home (Generate in the panel
 after the empty `#phone-results`, the viewer, its note and `#recent` in
 the stage, one `#btn-generate`), a sticky topbar, no scroll padding, a 43 px Generate,
 14 px text, 12 px capitals in a caption and a fold's summary with its ▸,
@@ -8150,12 +8230,41 @@ opening neither the lightbox nor the sheet. At 360x780 Generate is in the
 bottom third too, at least 150 px wide, the bar on the tab bar, its
 controls inside the screen and no sideways scroll. A tap on the prompt
 leaves `data-typing` with neither bar drawn and the band the window;
-the blur brings both back. A job (1 s a step) and a second tapped
+the blur brings both back. More options: the prompt, the size presets
+and tiers, Batch and the More options row each inside the band at the
+page's top, in that order, the row before `#phone-results`; the sheet
+closed, its body holding, in order, the negative prompt (FLUX.1 at its
+defaults), Sampling, Seed, Repeat, Custom dimensions, LoRA & references,
+the Notify row, Step cache and Grid search, Run grid in its foot, none
+of them drawn, each id once; the row at least 56 px from 16 px to the
+window's width less 16, its words "28 steps · CFG 3.5 · seed random",
+its dot hidden, `aria-haspopup="dialog"`. Batch's − and + after its box,
+44 px squares on its top 8 px apart, + at the gutter; − held with "Batch
+is at its least, 1"; + making Batch 2 (the run line "2 images at
+once…"), − 1 again, the held − said in `#error` above the bars. The row
+tapped opens the sheet with one entry, the screen across, Done at least
+44 px, the phone audit finding nothing in it under 44 px or off it, its
+foot not drawn; Seed's dice 44 px square right after the Seed box on its
+top, 8 px clear of it, at the gutter, with no `::after`; Repeat's held −
+saying why in the sheet's foot (inside the window, `#error` not riding
+the bars), its + making it 2 and clearing that line; Steps typed 30 there
+rewriting the row at once ("30 steps · CFG 3.5 · seed random · repeat
+×2") with the dot shown; Grid search, its row the sheet's last at the
+window's foot, opened by a tap: its row brought up under Done (top under
+160 px), Run grid in the foot at least 44 px tall across the sheet, the
+row's words ending " · grid"; shut, Run grid and the foot not drawn;
+Back closing the sheet, no entry left and the focus on the row. The
+negative prompt in the sheet and disabled; True CFG 4 typed in the sheet
+waking it there, Done bringing it under the prompt and before the size,
+drawn, the row's words with "True CFG 4"; True CFG cleared, Steps 28 and
+Repeat 1 again in the sheet leaving it under the prompt while the sheet
+is open, Escape taking it back into the sheet, and the row back to its
+first words with no dot. A job (1 s a step) and a second tapped
 behind it: the bar's picture the live preview (`data:` source, `live`
 and `running`, a `--ring` past 0 and a conic gradient), pressable with
 its title; the queue its count of 1, unheld, `running`, named "Queue: a
-job running, 1 waiting"; New image hidden with the viewer below the
-window; a tap on the live picture bringing the viewer into sight with the
+job running, 1 waiting"; New image hidden with the viewer's top inside
+the band; a tap on the live picture bringing the viewer into sight with the
 focus in it and no lightbox. While a job runs the panel draws no
 `#progress`, `#queue-note` or Cancel of its own, though both are
 unhidden there. The queue's sheet from its button: the panel's own
@@ -8180,9 +8289,9 @@ the ⋯ again and Cancel this job cancels it, the row, the queue's line
 and the count gone, the job still running and the sheet open; its ✕
 closes it, the nodes home. The job done (`/api/jobs` listing none):
 the result card shown in `#phone-results`, after the Output
-field and before `#progress`, its top under 1100 px down the page and
-less than one band below the band's foot (a scroll of under a screen
-reaches it; it is logged), the band's own scroll putting its top in
+field and More options and before `#progress`, its top on the first
+screen with at least 80 px of it above the band's foot (it and the
+panel's parts are logged), the band's own scroll putting its top in
 sight; the bar's picture the newest image's thumbnail with its title,
 the queue held again. The result's row: Reuse, Refine, Star and ⋯
 the four drawn, in that order, the first three's `::after` their
@@ -8213,7 +8322,14 @@ no `data-tier` and no action bar, Generate home in the panel after the
 empty `#phone-results`, 43 px and static, the viewer and `#recent` in the
 stage beside the panel, the progress and `#error` in the panel, no scroll
 padding and the band the window; no ⋯ drawn, the tile no size container,
-and the finished line's Use seed and More seeds… drawn.
+and the finished line's Use seed and More seeds… drawn; the panel's
+fields home in the PC's order (the prompt, the negative, the size with
+Custom dimensions in it, Sampling, Output, the Notify row, Grid search,
+Step cache, LoRA & references, each a child of the panel), no More
+options row drawn, its sheet shut and empty, no − or +, the dice in
+Seed's caption, Seed and Repeat on one row, Run grid in its fold, and
+Steps, Seed, Repeat, the negative, Step cache and Then refine's opener
+drawn.
 
 `smoke-tablet.json` uses a fresh FLUX.1 Krea [dev] fake on 7957 with touch
 at 820x1180@2, its touch viewports `"mobile": true`: `data-tier` tablet
@@ -8227,7 +8343,9 @@ its star 28 and the dice under 44, where the phone has 44; the page's
 a fold's summary under 40 px with its touch reach (the phone's type, frame
 and fold rows not), with the touch tier's rows that wrap cleanly: the
 negative caption's name and Set True CFG on one line with the note under
-them, Notify and Then refine on one line, the note whole; no tap flash
+them, Notify and Then refine on one line, the note whole; the panel whole
+(no More options row or sheet, no − or + on Batch and Repeat, the dice in
+Seed's caption, Sampling the panel's); no tap flash
 and a tap on the chosen size laying the touch tier's state layer over it,
 but the PC's tiers and ticks (the chosen size and Run grid the accent's
 solid fill, Reset not red, Notify's tick 20 px); a tapped Generate's result in the stage
@@ -8240,9 +8358,13 @@ finding no overflow, nothing off the screen sideways and no dialog outside
 tier following each `change`, Generate, the viewer and the gallery shown
 and Generate focusable at 820, Generate home in the panel and the viewer
 and `#recent` home in the stage there with no action bar and an empty
-`#phone-results`, Create back at the 300 px it was left at on the phone
-with Generate focusable, Generate moved into the action bar and the
-viewer into `#phone-results` again (each id once), the band ending at
+`#phone-results`, More options' nodes home (Grid search, the negative and
+Run grid, its sheet's body empty, no − or +), Create back at the 300 px
+it was left at on the phone (waited for, and noted as 300, while the page
+grows to its phone height) with Generate focusable, Generate moved into the action bar and the
+viewer into `#phone-results` again (each id once), More options' nodes
+in its sheet again (Run grid in its foot, four − and +, each id once),
+the band ending at
 the action bar on the tab bar, and a Gallery view chosen at 678
 kept through 820 and back; the lightbox at 820 not the phone's (stacked,
 0.97 over a clear backdrop, Inpaint… and More seeds… not drawn); a card
@@ -8256,8 +8378,11 @@ chips under the prompt, no `data-tier`, the search's "/ to focus" back.
 
 `smoke-phone-dialogs.json` uses a fresh FLUX.1 Krea [dev] fake on 7960
 with touch at 393x852@3, `"mobile": true`, and two planted images. Every
-dialog a phone reaches is opened the way a finger does - Then refine from
-its opener; Saved setups and Prompt snippets from the Examples menu, each
+dialog a phone reaches is opened the way a finger does - More options
+from its row (with Grid search open, Run grid its primary in its foot;
+its ticks 24 px on 44 px rows); Then refine from its opener in that
+sheet, over it (a second entry), the sheet still open behind it once it
+closes; Saved setups and Prompt snippets from the Examples menu, each
 import over its own dialog (`openSetupImport`, `openSnippetImport` with
 the server's own export); Refine from the lightbox; Inpaint, Outpaint,
 Edit by instruction and More seeds from a card's long-press menu; Swap
@@ -8269,7 +8394,8 @@ their centre and at least 44 px square, the phone audit finding no dialog
 outside the window and no sideways overflow, and neither the sheet
 scrolling sideways nor any control of it off the screen sideways; and
 the phone audit finding no control under 44 px in any of those sheets
-(`__smallIn`, the whole sheet, logged and asserted). Then: every `?` badge in the panel, all its folds open, and in
+(`__smallIn`, the whole sheet, logged and asserted). Then: every `?` badge on Create's first screen (Prompt, Size,
+Batch), in More options' body with all its folds open, and in
 Refine, Inpaint and Outpaint reaching at least 8 px up and 10 to each
 side but never below itself, and its press (`__helpReach`, the badge
 grown by its `::before`) overlapping no box, select, button or summary

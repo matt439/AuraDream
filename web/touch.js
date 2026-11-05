@@ -44,7 +44,7 @@ function syncTier() {
   // The right-click menu is docked at the phone's foot and placed at the
   // pointer elsewhere: an open one closes as the phone comes or goes.
   if (was !== undefined && (was === 'phone' || pageTier === 'phone')) closeContextMenu(false);
-  if (was !== undefined && pageTier === 'phone') scrollTo({ top: phoneViewScroll[phoneView], behavior: 'instant' });
+  if (was !== undefined && pageTier === 'phone') restorePhoneScroll(phoneViewScroll[phoneView]);
   // The bar's state and the keyboard's hold read the page as it is now.
   syncPhoneTabsBusy();
   syncTyping();
@@ -118,7 +118,35 @@ function syncTyping() {
 // `isPhone()`, read live, already says no; coming back, `pageTier` does
 // until syncTier, which then puts the kept place back.
 function notePhoneScroll() {
-  if (pageTier === 'phone' && isPhone()) phoneViewScroll[phoneView] = scrollY;
+  if (pageTier === 'phone' && isPhone() && !phoneScrollSettling) phoneViewScroll[phoneView] = scrollY;
+}
+
+// The kept place put back as the phone comes. At the media query's change
+// the page can still be laid out at the sizes the tier had (Chrome, an
+// iPad's pane dragged across), shorter than it is about to be - the More
+// options sheet holds most of the panel - which clamped the scroll short of
+// it: put back again as the page grows, for a second at most, unless a
+// finger takes the page first. What the clamp scrolled is not noted.
+let phoneScrollSettling = 0;
+function restorePhoneScroll(top) {
+  scrollTo({ top, behavior: 'instant' });
+  if (Math.abs(scrollY - top) < 1) return;
+  const settle = ++phoneScrollSettling;
+  let timer = 0;
+  const grown = new ResizeObserver(() => {
+    if (settle !== phoneScrollSettling || !isPhone()) { done(); return; }
+    scrollTo({ top, behavior: 'instant' });
+    if (Math.abs(scrollY - top) < 1) done();
+  });
+  const done = () => {
+    grown.disconnect();
+    clearTimeout(timer);
+    removeEventListener('touchstart', done);
+    if (settle === phoneScrollSettling) phoneScrollSettling = 0;
+  };
+  timer = setTimeout(done, 1000);
+  addEventListener('touchstart', done, { passive: true });
+  grown.observe(document.body);
 }
 
 // Back closes the top overlay. On a finger - the touch tier, the tablet's

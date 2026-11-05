@@ -3,9 +3,11 @@
 // bar over the tab bar, the results under the settings that make them, the
 // running job and the queue in a sheet - each moved there whole under
 // PHONE_MEDIA, never copied, and home again off it, so `els`, `setQueue`
-// and every writer keep writing the one node; and the bar's newest result
-// and queue count. Declarations only; touch.js calls initPhone at boot and
-// syncPhoneHosts whenever the tier changes.
+// and every writer keep writing the one node; the bar's newest result and
+// queue count; and More options - its row, its sheet holding the tuning,
+// the negative prompt's place and Batch's and Repeat's − and +.
+// Declarations only; touch.js calls initPhone at boot and syncPhoneHosts
+// whenever the tier changes.
 'use strict';
 
 // Each moved node's home: a comment left where it stood in the markup.
@@ -32,6 +34,18 @@ function phoneHome(node) {
   if (mark && mark.nextSibling !== node) phoneMove(node, mark.parentNode, mark.nextSibling);
 }
 
+// More options' sheet holds, in this order, the tuning the phone's first
+// screen leaves out: Sampling, Seed (its dice after the box), Repeat,
+// Custom dimensions, LoRA & references, Notify and Then refine, Step cache
+// and Grid search - and, first, the negative prompt while it does not run
+// (placePhoneNegative). Run grid is in its foot.
+const moreSheetNodes = () => [
+  $('sampling-caption').closest('.field'), els.seed.closest('.sub'), els.runs.closest('.sub'),
+  els.customSize, els.conditioningSection, document.querySelector('.notification-choice'),
+  document.querySelector('.execution-cache-row'), els.gridSection,
+];
+const moreSheetMoved = () => [...moreSheetNodes(), els.negField, els.dice, els.gridRun];
+
 // The nodes that move, in the order each host holds them: the queue's sheet
 // has the panel's line (#error) between the job and the queue, so a held
 // press in the sheet - ↑, Pause, a row's menu - says why where it was
@@ -39,22 +53,33 @@ function phoneHome(node) {
 const phoneResultNodes = () => [els.viewer, els.viewerNote, els.recent];
 const phoneQueueNodes = () => [els.progress, els.error, els.queueNote];
 
-// On the phone, Generate in the bar before the queue's count and the
-// results in their host; off it, both home and the queue's sheet shut, its
-// nodes home too. From syncTier (touch.js): at boot and on every change.
+// On the phone, Generate in the bar before the queue's count, the results
+// in their host and the tuning in More options' sheet (the dice after the
+// Seed box, Run grid in the foot, the − and + after their boxes); off it,
+// all home, the sheets shut, the queue's nodes home too and the − and +
+// gone. From syncTier (touch.js): at boot and on every change.
 function syncPhoneHosts() {
   if (isPhone()) {
     phoneMove(els.generate, $('phone-actions'), $('phone-queue'));
     for (const node of phoneResultNodes()) {
       if (node.parentNode !== $('phone-results')) phoneMove(node, $('phone-results'));
     }
+    const body = $('more-sheet-body');
+    for (const node of moreSheetNodes()) {
+      if (node.parentNode !== body) phoneMove(node, body);
+    }
+    if (els.seed.nextElementSibling !== els.dice) phoneMove(els.dice, els.seed.parentNode, els.seed.nextSibling);
+    phoneMove(els.gridRun, $('more-sheet-actions'));
+    for (const s of phoneSteppers) s.input.after(s.minus, s.plus);
+    placePhoneNegative({ now: true });
   } else {
-    const sheet = $('queue-sheet');
-    if (sheet.open) sheet.close();
-    for (const node of [els.generate, ...phoneResultNodes(), ...phoneQueueNodes()]) phoneHome(node);
+    for (const sheet of [$('queue-sheet'), $('more-sheet')]) if (sheet.open) sheet.close();
+    for (const s of phoneSteppers) { s.minus.remove(); s.plus.remove(); }
+    for (const node of [els.generate, ...phoneResultNodes(), ...phoneQueueNodes(), ...moreSheetMoved()]) phoneHome(node);
   }
   syncPhoneDock();
   syncPhoneQueue();
+  syncMoreOptions();
 }
 
 // ------------------------------------------------------- the newest result
@@ -198,12 +223,181 @@ function openQueueRowMenu(button, byKey) {
     'Queued job', button, box.left, box.bottom, byKey);
 }
 
+// ------------------------------------------------------------ More options
+
+// The negative prompt is under the prompt on the phone only while it runs -
+// a checkpoint whose CFG (or True CFG) at its value applies it - and the
+// first thing in More options otherwise, its caption saying what wakes it:
+// on FLUX.1 at its defaults it was 150 px of the first screen, inert. Its
+// place changes as the sheet closes (where True CFG is set), with a status
+// or a Reuse, never while the sheet is open or the box has the focus, so
+// nothing moves under a finger; `now` is the tier's own sync.
+function placePhoneNegative({ now = false } = {}) {
+  if (!isPhone()) return;
+  if (!now && ($('more-sheet').open || els.negField.contains(document.activeElement))) return;
+  const body = $('more-sheet-body');
+  if (!els.negative.disabled) phoneHome(els.negField);
+  else if (els.negField.parentNode !== body) phoneMove(els.negField, body, body.firstChild);
+}
+
+// Batch's and Repeat's − and +, the phone's alone: inserted after their box
+// on the phone (inside Repeat's <label> after the box, so the box stays the
+// label's control) and taken out off it. A press steps the box as its own
+// arrows would and sends its input and change, so syncRuns and the
+// remembered panel follow; at the box's least or most the button is held,
+// titled with why, and a press says it.
+const phoneSteppers = [];
+
+function makePhoneStepper(input, name) {
+  const s = { input, name };
+  const button = (dir, glyph, label) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'ghost phone-step';
+    b.textContent = glyph;
+    b.dataset.label = label;
+    b.setAttribute('aria-label', label);
+    b.addEventListener('click', () => stepPhoneNumber(s, dir, b));
+    return b;
+  };
+  s.minus = button(-1, '−', `${name}: one fewer`);
+  s.plus = button(1, '+', `${name}: one more`);
+  phoneSteppers.push(s);
+}
+
+function stepPhoneNumber(s, dir, b) {
+  if (b.getAttribute('aria-disabled') === 'true') { sayPhoneHeld(b, `${b.title}.`); return; }
+  try {
+    if (dir > 0) s.input.stepUp(); else s.input.stepDown();
+  } catch { return; }
+  s.input.dispatchEvent(new Event('input', { bubbles: true }));
+  s.input.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function syncPhoneSteppers() {
+  for (const s of phoneSteppers) {
+    const text = s.input.value.trim();
+    const value = text === '' ? +s.input.min : +text;
+    const at = (b, held) => {
+      b.setAttribute('aria-disabled', String(!!held));
+      b.title = held || b.dataset.label;
+    };
+    at(s.minus, Number.isFinite(value) && value <= +s.input.min ? `${s.name} is at its least, ${s.input.min}` : '');
+    at(s.plus, Number.isFinite(value) && value >= +s.input.max ? `${s.name} is at its most, ${s.input.max}` : '');
+  }
+}
+
+// A held press's why: in the sheet, in its foot's line, where the press
+// was; in the panel, the panel's line above the bars (sayAtGenerate).
+function sayPhoneHeld(at, words) {
+  if ($('more-sheet').contains(at)) { setMoreNote(words); return; }
+  showError(words, true);
+  sayAtGenerate();
+}
+
+// The sheet's foot line: unhidden before it is written, so it is read out.
+function setMoreNote(words) {
+  const note = $('more-sheet-note');
+  note.hidden = !words;
+  note.textContent = words;
+}
+
+// The row's words - steps, CFG and the seed, then whatever else the sheet
+// holds that is set - and its dot while anything there is off the
+// checkpoint's defaults (the profile's steps, CFG and Mu; a seed, a second
+// batch, a size of no preset, a LoRA or a reference, Then refine, the step
+// cache, an open grid, or a negative prompt waiting in the sheet). Notify is
+// the browser's, not the picture's, and counts for neither. Then the
+// steppers' holds. From the panel's input and change, syncCfg and syncRuns
+// (the page's own writes: a status, Reuse, Reset, the dice), the folds and
+// Then refine's opener, and the sheet's close.
+function syncMoreOptions() {
+  if (!isPhone()) return;
+  syncPhoneSteppers();
+  const d = lastDefaults;
+  const val = (el) => el.value.trim();
+  const num = (text) => (text === '' ? null : +text);
+  const steps = val(els.steps) || (d ? String(d.steps) : '');
+  const cfg = val(els.cfg) || (d ? String(d.guidance_scale) : '');
+  const seed = val(els.seed);
+  const runs = Math.max(1, +els.runs.value || 1);
+  const refs = referenceIds.length;
+  const negativeWaits = els.negField.parentNode === $('more-sheet-body') && val(els.negative) !== '';
+  const extra = [
+    runs > 1 ? `repeat ×${runs}` : '',
+    trueCfgSupported && val(els.trueCfg) ? `True CFG ${val(els.trueCfg)}` : '',
+    muSupported && val(els.mu) && num(val(els.mu)) !== (d?.mu ?? null) ? `mu ${val(els.mu)}` : '',
+    sizePresetMatch() ? '' : `${els.width.value} × ${els.height.value}`,
+    els.lora.value || pendingLora ? 'LoRA' : '',
+    refs ? `${refs} reference${refs === 1 ? '' : 's'}` : '',
+    thenRefineOn() ? 'then refine' : '',
+    stepCacheValue() ? 'step cache' : '',
+    els.gridSection.open ? 'grid' : '',
+    negativeWaits ? 'negative' : '',
+  ].filter(Boolean);
+  const changed = extra.length > 0 || seed !== ''
+    || (d && ((val(els.steps) !== '' && +val(els.steps) !== +d.steps)
+      || (val(els.cfg) !== '' && +val(els.cfg) !== +d.guidance_scale)));
+  const words = [steps ? `${steps} steps` : '', cfg ? `CFG ${cfg}` : '', `seed ${seed || 'random'}`, ...extra]
+    .filter(Boolean).join(' · ');
+  const summary = $('more-options-summary');
+  if (summary.textContent !== words) summary.textContent = words;
+  $('more-options-dot').hidden = !changed;
+}
+
+// The sheet: the screen across, as every dialog on the phone, its own
+// history entry (Back closes it), Done or Escape too. Its controls are the
+// panel's own, there for the phone's life, so it opens on what they hold.
+function openMoreSheet() {
+  const sheet = $('more-sheet');
+  if (!isPhone() || sheet.open) return;
+  setMoreNote('');
+  sheet.showModal();
+}
+
+function moreSheetClosed() {
+  setMoreNote('');
+  placePhoneNegative();
+  syncMoreOptions();
+}
+
+// Grid search opened by its row's press in the sheet (revealGridRun): its
+// row is brought up under the sheet's title, its rows under it in sight -
+// the row is the sheet's last, and opening it brings the foot with Run grid
+// up over it. The press's own scroll, as on a PC, where it brings Run grid
+// into view; never by itself.
+function revealPhoneGrid() {
+  const sheet = $('more-sheet');
+  if (!sheet.open || !sheet.contains(els.gridSection)) return;
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  els.gridSection.scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
+}
+
+// A press elsewhere that hands the focus to a control in the closed sheet -
+// Generate's refusal of an unfinished number, Expand's of a size - opens
+// it, the refusal's words in its foot, where the focus lands.
+function openMoreOptionsFor(el, words = '') {
+  if (!isPhone() || !$('more-sheet').contains(el)) return;
+  openMoreSheet();
+  setMoreNote(words);
+}
+
 function initPhone() {
-  for (const node of [els.generate, ...phoneResultNodes(), ...phoneQueueNodes()]) {
-    const mark = document.createComment(` ${node.id}'s place off the phone (phone.js) `);
+  for (const node of [els.generate, ...phoneResultNodes(), ...phoneQueueNodes(), ...moreSheetMoved()]) {
+    const mark = document.createComment(` ${node.id || node.className}'s place off the phone (phone.js) `);
     node.before(mark);
     phoneHomes.set(node, mark);
   }
+  makePhoneStepper(els.batch, 'Batch');
+  makePhoneStepper(els.runs, 'Repeat');
+  $('more-options').addEventListener('click', openMoreSheet);
+  $('more-sheet-done').addEventListener('click', () => $('more-sheet').close());
+  $('more-sheet').addEventListener('close', moreSheetClosed);
+  const panel = document.querySelector('.panel');
+  for (const type of ['input', 'change']) panel.addEventListener(type, syncMoreOptions);
+  $('more-sheet-body').addEventListener('input', () => setMoreNote(''));
+  for (const fold of [els.gridSection, els.customSize, els.conditioningSection]) fold.addEventListener('toggle', syncMoreOptions);
+  new MutationObserver(syncMoreOptions).observe(els.thenRefineOpen, { childList: true, characterData: true, subtree: true });
   $('phone-dock').addEventListener('click', pressPhoneDock);
   $('phone-queue').addEventListener('click', openQueueSheet);
   $('queue-sheet-close').addEventListener('click', () => $('queue-sheet').close());
