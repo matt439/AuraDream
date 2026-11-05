@@ -269,6 +269,8 @@ function binCard(div, img, rec) {
   const age = binnedAge(rec);
   if (age) {
     tools.dataset.binned = age.replaceAll(' ', '\u00a0');
+    // A phone's card shows the age alone, on its foot ("3 days ago").
+    tools.dataset.age = age.replace(/^binned /, '').replaceAll(' ', '\u00a0');
     img.setAttribute('aria-label', `Open #${rec.id}, ${age}: ${rec.prompt}`);
   }
   tools.append(restore, del);

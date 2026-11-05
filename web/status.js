@@ -342,6 +342,23 @@ async function unloadModel() {
   refreshStatus();
 }
 
+// The topbar's status line: the checkpoint's name and its state
+// (" · loading…", " · load failed"), each its own span, so the phone's
+// model chip cuts the name and keeps the state whole (styles/phone.css);
+// the server lost is a state with no name. The live region's text is the
+// two as one string, written only when it changes.
+function writeStatusLine(name, state = '') {
+  if (els.statusText.textContent === name + state) return;
+  const part = (cls, text) => {
+    const span = document.createElement('span');
+    span.className = cls;
+    span.textContent = text;
+    return span;
+  };
+  els.statusText.replaceChildren(...(name ? [part('status-name', name)] : []),
+    ...(state ? [part('status-state', state)] : []));
+}
+
 // No answer to a status poll: fetch rejected, never a slow reply - a load's
 // CUDA read can stall one for a while, which the statusPending guard absorbs.
 // The topbar said "ready" in green over a dead server for as long as it was
@@ -350,7 +367,7 @@ function goOffline() {
   if (serverOffline) return;
   serverOffline = true;
   els.dot.className = 'dot error';
-  els.statusText.textContent = LOST_PHRASE;
+  writeStatusLine('', LOST_PHRASE);
   els.statusAside.hidden = true;
   els.load.hidden = true;
   syncUnload();
@@ -498,8 +515,12 @@ function showPromptTranslation(source, translation) {
 const TRANSLATION_WIDE = matchMedia('(min-width: 1800px)');
 function placeTranslation() {
   const field = els.promptTranslationField;
-  const [host, before] = TRANSLATION_WIDE.matches
-    ? [els.stage, els.viewer] : [els.negField.parentElement, els.negField];
+  // Under the prompt: before the negative, or before Size where a phone has
+  // put the negative in More options' sheet (phone.js), which is no place
+  // for the English.
+  const panel = els.prompt.closest('.panel');
+  const [host, before] = TRANSLATION_WIDE.matches ? [els.stage, els.viewer]
+    : [panel, els.negField.parentElement === panel ? els.negField : els.presets.closest('.field')];
   if (field.parentElement === host && field.nextElementSibling === before) return;
   const focused = document.activeElement;
   const inside = field.contains(focused);
@@ -754,11 +775,11 @@ function receiveStatus(s, asked = Date.now()) {
     // poll, all session long. Its id is the title. Another tab's job is
     // beside it, outside the live region (index.html, #status-aside).
     const name = checkpointName(s.model_id);
-    const line = s.state === 'ready' ? name
-      : s.state === 'loading' ? `${name} · loading…`
-      : s.state === 'error' ? `${name} · load failed`
-      : `${name} · not loaded`;
-    if (els.statusText.textContent !== line) els.statusText.textContent = line;
+    const state = s.state === 'ready' ? ''
+      : s.state === 'loading' ? ' · loading…'
+      : s.state === 'error' ? ' · load failed'
+      : ' · not loaded';
+    writeStatusLine(name, state);
     const aside = s.state === 'ready' && elsewhereBusy ? '· busy in another tab' : '';
     if (els.statusAside.textContent !== aside) els.statusAside.textContent = aside;
     els.statusAside.hidden = !aside;

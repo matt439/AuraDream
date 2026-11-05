@@ -700,6 +700,12 @@ def test_a_run_says_what_varied_across_it(client, fake):
     grid = client.get("/api/runs").json()[0]
     assert grid["axes"] == {"steps": 3, "cfg": 2}
     assert (grid["refine"], grid["strengths"]) == (None, None)
+    # Its picture on a phone's run rows: the oldest of its images.
+    first = min(r["id"] for r in client.get(f"/api/gallery?search=run:{grid['run_id']}").json()["items"])
+    assert grid["cover"] == first
+    # Never one in the recycle bin.
+    assert client.post("/api/images/bin", json={"ids": [first]}).status_code == 200
+    assert client.get("/api/runs").json()[0]["cover"] > first
     run_grid(client, prompt_variants=VARIANTS, seeds=2, seed=21)
     compared = client.get("/api/runs").json()[0]
     assert compared["axes"] == {"seed": 2, "variant": len(VARIANTS)}

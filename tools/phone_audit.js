@@ -1,0 +1,238 @@
+// The phone audit: what a finger meets on the page as it is drawn now.
+// Loaded into the page by a smoke's {"inject": "phone_audit.js"} step (again
+// after every navigate), then read from `log` and `expect` steps:
+//
+//   {"log": "__phoneAudit()"}                       the whole report
+//   {"expect": "__phoneAudit().overflow === 0"}     one of its checks
+//   {"expect": "__phoneAudit({root: '#lightbox'}).small.length === 0"}
+//
+// __phoneAudit(options) returns
+//   small     visible controls whose press box is under min x min (44 px): the
+//             box, grown by an absolutely placed ::before/::after that reaches
+//             past it, and for a checkbox or radio its label's box (a
+//             display: contents label by its rendered children and text)
+//   offside   visible controls whose box leaves 0..innerWidth (a row that
+//             runs off the screen, scrolled sideways or not), except one
+//             scrolled out of a strip named in `strips` that is on the screen
+//   dialogs   open dialogs and menus whose box leaves 0..innerWidth or
+//             0..innerHeight (a footer past the foot of the screen)
+//   overflow  how far the document scrolls sideways (0 when it does not)
+//   excepted  controls left out of `small` by the exception list
+//   ok        true when small, offside and dialogs are empty and overflow is 0
+// Each entry names the element (tag#id.class "label") and its press box, w x h
+// at left,top in CSS px.
+//
+// Options:
+//   root    a selector or element whose controls are audited; by default the
+//           open modal dialogs when there are any (nothing else can be
+//           pressed), else the body. The dialog and overflow checks are always
+//           the page's.
+//   min     the smallest press box, 44 (Apple's HIG; WCAG 2.5.5)
+//   except  selectors left out of `small`, added to the standing exceptions:
+//           inline citation links in prose (.lb-link, .analysis-link), the
+//           one documented exception to the 44 px rule
+//   strips  selectors of deliberate sideways scrollers (a chip strip): a
+//           control scrolled out of one is not offside while the strip is on
+//           the screen. Opt-in, never inferred from overflow-x, so a row that
+//           scrolls with no cue is still reported
+//   screen  true: `small` counts only the controls that meet the screen as
+//           it is scrolled now (a view's first screen), not the whole page
+// Visible means rendered with a box, not visibility: hidden, not under
+// opacity 0 or [inert], and larger than 1x1 (a visually hidden input).
+// Tests only: no app script loads this file.
+globalThis.__phoneAudit = (options = {}) => {
+  const min = options.min ?? 44;
+  const STANDING = ['.lb-link', '.analysis-link'];
+  const except = [...STANDING, ...(options.except ?? [])];
+  const CONTROLS = [
+    'button', 'a[href]', 'input:not([type="hidden"])', 'select', 'textarea', 'summary',
+    '[role="button"]', '[role="link"]', '[role="tab"]', '[role="menuitem"]',
+    '[role="menuitemcheckbox"]', '[role="menuitemradio"]', '[role="option"]',
+    '[role="checkbox"]', '[role="radio"]', '[role="switch"]', '[contenteditable="true"]',
+  ].join(', ');
+  const SURFACES = 'dialog[open], [role="dialog"], [role="alertdialog"], [role="menu"]';
+  const vw = innerWidth, vh = innerHeight, slack = 0.5;
+
+  const visible = (el) => {
+    if (!el.getClientRects().length || el.closest('[inert]')) return false;
+    if (!el.checkVisibility({ opacityProperty: true, visibilityProperty: true })) return false;
+    const r = el.getBoundingClientRect();
+    return r.width > 1 && r.height > 1;
+  };
+  const px = (v) => (v.endsWith('px') ? parseFloat(v) : NaN);
+  // An absolutely placed pseudo-element reaching past its element: it is
+  // pressed as the element, so it counts toward the press box. Its four
+  // offsets read as used values, from the element's padding box.
+  const reach = (el, r) => {
+    const cs = getComputedStyle(el);
+    if (cs.position === 'static') return [];
+    const pad = {
+      left: r.left + parseFloat(cs.borderLeftWidth), top: r.top + parseFloat(cs.borderTopWidth),
+      right: r.right - parseFloat(cs.borderRightWidth), bottom: r.bottom - parseFloat(cs.borderBottomWidth),
+    };
+    return ['::before', '::after'].flatMap((which) => {
+      const p = getComputedStyle(el, which);
+      if (p.content === 'none' || p.content === 'normal' || p.display === 'none'
+          || p.position !== 'absolute' || p.pointerEvents === 'none') return [];
+      const [l, t, rt, b] = [p.left, p.top, p.right, p.bottom].map(px);
+      if ([l, t, rt, b].some(Number.isNaN)) return [];
+      return [{ left: pad.left + l, top: pad.top + t, right: pad.right - rt, bottom: pad.bottom - b }];
+    });
+  };
+  const union = (boxes) => boxes.reduce((u, b) => ({
+    left: Math.min(u.left, b.left), top: Math.min(u.top, b.top),
+    right: Math.max(u.right, b.right), bottom: Math.max(u.bottom, b.bottom),
+  }));
+  // A label's boxes. One that is display: contents has no box of its own (the
+  // Models sheet's row label, whose cells are the row's grid items), so its
+  // rendered children and text stand for it.
+  const labelBoxes = (node) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      const r = range.getBoundingClientRect();
+      return r.width > 0 && r.height > 0 ? [r] : [];
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) return [];
+    if (getComputedStyle(node).display === 'contents') return [...node.childNodes].flatMap(labelBoxes);
+    return visible(node) ? [node.getBoundingClientRect()] : [];
+  };
+  const pressBox = (el) => {
+    const r = el.getBoundingClientRect();
+    const boxes = [r, ...reach(el, r)];
+    if (el.matches('input[type="checkbox"], input[type="radio"]')) {
+      for (const label of el.labels ?? []) if (!label.closest('[inert]')) boxes.push(...labelBoxes(label));
+    }
+    return union(boxes);
+  };
+  // A control scrolled out of a strip the smoke names (a deliberate sideways
+  // scroller, a chip strip) is reached by swiping it, so it is not offside
+  // while the strip itself is on the screen. Never automatic: a row that
+  // scrolls with no cue (the lightbox's actions, P29) is the defect itself.
+  const strips = options.strips ?? [];
+  const inStrip = (el) => strips.some((sel) => {
+    const strip = el.parentElement?.closest(sel);
+    if (!strip) return false;
+    const s = strip.getBoundingClientRect();
+    return s.left >= -slack && s.right <= vw + slack;
+  });
+  const name = (el) => {
+    const id = el.id ? '#' + el.id : '';
+    const cls = !id && typeof el.className === 'string' && el.className.trim()
+      ? '.' + el.className.trim().split(/\s+/).slice(0, 2).join('.') : '';
+    // A field is named by its label, never by what was typed into it.
+    const field = el.matches('input, select, textarea');
+    const label = (el.getAttribute('aria-label') || (field ? el.labels?.[0]?.textContent : el.textContent)
+      || el.title || (field ? el.placeholder || el.name : '') || '')
+      .replace(/\s+/g, ' ').trim().slice(0, 32);
+    return el.tagName.toLowerCase() + id + cls + (label ? ` "${label}"` : '');
+  };
+  const at = (b) => `${Math.round(b.right - b.left)}x${Math.round(b.bottom - b.top)}`
+    + ` at ${Math.round(b.left)},${Math.round(b.top)}`;
+
+  let roots;
+  if (options.root) {
+    const root = typeof options.root === 'string' ? document.querySelector(options.root) : options.root;
+    if (!root) throw new Error('__phoneAudit: no element for root ' + options.root);
+    roots = [root];
+  } else {
+    const modal = [...document.querySelectorAll('dialog:modal')];
+    roots = modal.length ? modal : [document.body];
+  }
+  const controls = [...new Set(roots.flatMap((root) => [
+    ...(root.matches(CONTROLS) ? [root] : []), ...root.querySelectorAll(CONTROLS),
+  ]))].filter(visible);
+
+  const small = [], excepted = [], offside = [];
+  const onScreen = (r) => r.right > 0 && r.bottom > 0 && r.left < vw && r.top < vh;
+  for (const el of controls) {
+    const box = pressBox(el);
+    if ((!options.screen || onScreen(el.getBoundingClientRect()))
+        && (box.right - box.left < min - slack || box.bottom - box.top < min - slack)) {
+      (except.some((sel) => el.matches(sel)) ? excepted : small).push(`${name(el)} ${at(box)}`);
+    }
+    const r = el.getBoundingClientRect();
+    if ((r.left < -slack || r.right > vw + slack) && !inStrip(el)) offside.push(`${name(el)} ${at(r)}`);
+  }
+  const dialogs = [...document.querySelectorAll(SURFACES)].filter(visible).flatMap((el) => {
+    const r = el.getBoundingClientRect();
+    return r.left < -slack || r.top < -slack || r.right > vw + slack || r.bottom > vh + slack
+      ? [`${name(el).replace(/ ".*$/, '')} ${at(r)}`] : [];
+  });
+  const doc = document.documentElement;
+  const overflow = Math.max(0, doc.scrollWidth - doc.clientWidth);
+  return {
+    ok: !small.length && !offside.length && !dialogs.length && !overflow,
+    small, offside, dialogs, overflow, excepted,
+  };
+};
+
+// The phone's type: visible text set under a size, from `log` and `expect`
+// steps after the same inject:
+//
+//   {"expect": "__phoneText().small.length === 0"}   no word under 13 px
+//
+// __phoneText(options) returns
+//   small   each run of visible text under `min` px (13 by default): its
+//           element (tag#id.class), its size and its first words. A text
+//           node with a letter or a digit counts, and an ::before/::after
+//           whose content has one (a tool's name, a size under a scale);
+//           glyphs alone (?, ✕, ★, ▸, a chevron) are drawn to a box of
+//           their own and do not
+//   sizes   how many runs are set at each size, for a log
+// Options: `root` and `screen` as __phoneAudit's (the open modal dialogs or
+// the body by default; only what meets the window as it is scrolled), `min`,
+// and `except`, selectors whose text is left out (by closest()).
+globalThis.__phoneText = (options = {}) => {
+  const min = options.min ?? 13;
+  const except = options.except ?? [];
+  const vw = innerWidth, vh = innerHeight;
+  let roots;
+  if (options.root) {
+    const root = typeof options.root === 'string' ? document.querySelector(options.root) : options.root;
+    if (!root) throw new Error('__phoneText: no element for root ' + options.root);
+    roots = [root];
+  } else {
+    const modal = [...document.querySelectorAll('dialog:modal')];
+    roots = modal.length ? modal : [document.body];
+  }
+  const shown = (el) => el.getClientRects().length > 0 && !el.closest('[inert]')
+    && el.checkVisibility({ opacityProperty: true, visibilityProperty: true });
+  const onScreen = (r) => r.right > 0 && r.bottom > 0 && r.left < vw && r.top < vh;
+  const name = (el) => el.tagName.toLowerCase() + (el.id ? '#' + el.id : '')
+    + (!el.id && typeof el.className === 'string' && el.className.trim()
+      ? '.' + el.className.trim().split(/\s+/).slice(0, 2).join('.') : '');
+  const letters = /[\p{L}\p{N}]/u;
+  const small = [], sizes = {}, seen = new Set();
+  const note = (el, size, text) => {
+    size = Math.round(size * 10) / 10;
+    sizes[size] = (sizes[size] ?? 0) + 1;
+    if (size >= min - 0.01 || except.some((sel) => el.closest(sel))) return;
+    const line = `${name(el)} ${size}px "${text.slice(0, 32)}"`;
+    if (!seen.has(line)) { seen.add(line); small.push(line); }
+  };
+  for (const root of roots) {
+    const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    for (let n = walk.nextNode(); n; n = walk.nextNode()) {
+      const text = n.textContent.replace(/\s+/g, ' ').trim();
+      const el = n.parentElement;
+      if (!text || !letters.test(text) || !el || el.closest('script, style, template, option') || !shown(el)) continue;
+      const range = document.createRange();
+      range.selectNodeContents(n);
+      const r = range.getBoundingClientRect();
+      if (r.width < 1 || r.height < 1 || (options.screen && !onScreen(r))) continue;
+      note(el, parseFloat(getComputedStyle(el).fontSize), text);
+    }
+    for (const el of [root, ...root.querySelectorAll('*')]) {
+      if (!shown(el)) continue;
+      for (const which of ['::before', '::after']) {
+        const p = getComputedStyle(el, which);
+        if (p.display === 'none' || !/^".*"$/.test(p.content)) continue;
+        const text = p.content.slice(1, -1);
+        if (!letters.test(text) || (options.screen && !onScreen(el.getBoundingClientRect()))) continue;
+        note(el, parseFloat(p.fontSize), which + ' ' + text);
+      }
+    }
+  }
+  return { small, sizes };
+};

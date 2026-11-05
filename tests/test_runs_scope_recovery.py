@@ -67,6 +67,8 @@ function flushKeys() { while (keyTimers.length) keyTimers.shift()(); }
 function clip(value) { return String(value); }
 function promptGist(value) { return String(value); }
 function plural(value, word) { return value + ' ' + word + (value === 1 ? '' : 's'); }
+// A phone's runs (phone-runs.js) follow the picker; no phone here.
+function syncPhoneRuns() {}
 function row(run_id) {
   return { run_id, images: 2, jobs: 1, favorites: 0, prompts: 1, axes: {},
     sizes: [[256, 256]], size_count: 1, width: 256, height: 256,

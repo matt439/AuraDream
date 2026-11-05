@@ -25,7 +25,8 @@ function setFinish(nodes = []) {
   els.finishNote.replaceChildren(...(nodes.length ? [lead, ...nodes] : []));
   finishStale = false;
   syncFinishLead();
-  if (focused) (els.finishNote.querySelector('button') ?? els.generate).focus({ preventScroll: true });
+  // The first one drawn: a phone leaves some out (styles/phone.css).
+  if (focused) ([...els.finishNote.querySelectorAll('button')].find(isShown) ?? els.generate).focus({ preventScroll: true });
 }
 
 function syncFinishLead() {
@@ -120,8 +121,12 @@ function finishJob(jobId, data, { submitted, sheet, foreign = false, staleBefore
         ? ` Job ${split.indexOf(jobId) + 1} of ${split.length} of ${data.swap != null ? 'this swap' : data.refine_batch != null ? 'this batch refine' : data.more_seeds != null ? 'these more seeds' : 'this submission'}${data.width && data.height ? `, at ${data.width}×${data.height}` : ''}.`
         : '';
       line.push(`Finished ${plural(made, 'image')}${deleted} in ${took}${seeds}.${part}${distinct}`);
+      // Both are the result's too, in its ⋯ (viewer.js), and a phone draws
+      // them there alone (styles/phone.css): `.result-dup`.
       if (plain) {
-        line.push(noteButton('Use seed', () => useSeed(images[0].seed), `Put ${images[0].seed} in the Seed box`));
+        const use = noteButton('Use seed', () => useSeed(images[0].seed), `Put ${images[0].seed} in the Seed box`);
+        use.classList.add('result-dup');
+        line.push(use);
       }
       // More of what it made, the seeds following on: a plain job's, a More
       // seeds job's, and a single refine, inpaint or outpaint pass's - whose
@@ -131,7 +136,7 @@ function finishJob(jobId, data, { submitted, sheet, foreign = false, staleBefore
       // another's. Held where every image has gone since, or the checkpoint
       // is another; the batches are the server's.
       const pass = !data.grid && data.refine != null && data.refine_batch == null && data.swap == null;
-      if ((seeded || pass) && images.length) line.push(finishMoreSeeds(images));
+      if ((seeded || pass) && images.length) line.push(finishMoreSeeds(images, 'result-dup'));
     }
   }
   if (data.skipped) line.push(intentionalSkippedCells(data));
@@ -326,9 +331,10 @@ function skippedCells(data) {
 // The finish line's More seeds…: the batches of the images the job made, as
 // they are at the press - those deleted since left out, and held with the
 // reason once none is left (moreSeedsToolHold).
-function finishMoreSeeds(images) {
+function finishMoreSeeds(images, className = '') {
   const ids = images.map((r) => r.id);
   const button = noteButton('More seeds…', null, '');
+  if (className) button.classList.add(className);
   button.setAttribute('aria-haspopup', 'dialog');
   syncMoreSeedsTool(button, {
     model: images[0].model_id,
@@ -513,14 +519,15 @@ async function joinFinished(page, epoch, now = false) {
 // - is said with a press that goes to it: "New image ↑" or "↓". Never a
 // scroll of the page's own, which would take the gallery from under the
 // pointer. In one column the button is a pill fixed under the topbar
-// (styles/generation.css): in the static panel it was as far out of view as the viewer.
+// (styles/generation.css): in the static panel it was as far out of view as
+// the viewer. A phone offers none (offerNewImage).
 // Gone once the viewer is in view, however it got there; its arrow follows a
 // scroll that jumps past the viewer without showing it (End, Home).
 let viewerWatch = null;
 function viewerOutOfSight() {
-  const top = document.querySelector('.topbar').getBoundingClientRect().bottom;
+  const { top, bottom } = viewBand();
   const box = els.viewer.getBoundingClientRect();
-  return box.bottom < top + 48 ? 'above' : box.top > innerHeight - 48 ? 'below' : null;
+  return box.bottom < top + 48 ? 'above' : box.top > bottom - 48 ? 'below' : null;
 }
 
 const NEW_IMAGE_WORDS = {
@@ -537,8 +544,10 @@ function syncNewImage() {
   els.newImage.setAttribute('aria-label', label);
 }
 
+// Not on a phone, where the action bar's picture (phone.js) is the new
+// image, always in sight over the tab bar, a press from the lightbox.
 function offerNewImage() {
-  if (!viewerOutOfSight()) return;
+  if (isPhone() || !viewerOutOfSight()) return;
   els.newImage.hidden = false;
   syncNewImage();
   if (!viewerWatch) {

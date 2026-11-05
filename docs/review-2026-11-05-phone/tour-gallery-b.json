@@ -1,0 +1,256 @@
+[
+ {
+  "touch": true
+ },
+ {
+  "viewport": [
+   393,
+   852,
+   3
+  ]
+ },
+ {
+  "navigate": "http://127.0.0.1:7991/"
+ },
+ {
+  "media": {
+   "prefers-reduced-motion": "reduce"
+  }
+ },
+ {
+  "eval": "window.__until = async (fn, ms = 20000) => { const end = Date.now() + ms; while (Date.now() < end) { try { if (fn()) return true; } catch { } await new Promise((r) => setTimeout(r, 50)); } return false; };\nwindow.__sleep = (ms) => new Promise((r) => setTimeout(r, ms));\nwindow.__box = (el) => el.getBoundingClientRect();\nwindow.__M = (state) => {\n  const SEL = 'button, a[href], input:not([type=hidden]), select, textarea, summary, [role=button], [role=tab], [role=menuitem], [role=slider], [tabindex]:not([tabindex=\"-1\"]), label';\n  const modals = [...document.querySelectorAll('dialog[open]')].filter((d) => d.matches(':modal'));\n  const top = modals[modals.length - 1] || null;\n  const shown = (el) => {\n    if (!el.checkVisibility({ visibilityProperty: true, checkVisibilityCSS: true, opacityProperty: true })) return false;\n    const r = el.getBoundingClientRect();\n    if (r.width < 1 || r.height < 1) return false;\n    if (el.closest('[inert]')) return false;\n    if (top && !top.contains(el)) return false;\n    return true;\n  };\n  let all = [...document.querySelectorAll(SEL)].filter((el) => {\n    if (el.tagName === 'LABEL') return !!el.querySelector('input[type=checkbox], input[type=radio]');\n    return true;\n  }).filter(shown);\n  const set = new Set(all);\n  const rects = all.map((el) => ({ el, r: el.getBoundingClientRect() }));\n  const name = (el) => el.id ? '#' + el.id : el.tagName.toLowerCase() + (el.className && typeof el.className === 'string' ? '.' + el.className.trim().split(/\\s+/).join('.') : '') + (el.dataset.density ? `[density=${el.dataset.density}]` : '') + (el.dataset.fit ? `[fit=${el.dataset.fit}]` : '');\n  const text = (el) => (el.getAttribute('aria-label') || el.textContent || el.value || el.placeholder || el.title || '').replace(/\\s+/g, ' ').trim().slice(0, 40);\n  const gap = (a, b) => { const dx = Math.max(0, Math.max(a.left, b.left) - Math.min(a.right, b.right)); const dy = Math.max(0, Math.max(a.top, b.top) - Math.min(a.bottom, b.bottom)); return Math.hypot(dx, dy); };\n  const small = [];\n  for (const { el, r } of rects) {\n    if (r.width >= 44 && r.height >= 44) continue;\n    let g = Infinity, nb = null;\n    for (const o of rects) {\n      if (o.el === el || o.el.contains(el) || el.contains(o.el)) continue;\n      const d = gap(r, o.r);\n      if (d < g) { g = d; nb = o.el; }\n    }\n    const inView = r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth;\n    small.push({ id: name(el), text: text(el), w: Math.round(r.width * 10) / 10, h: Math.round(r.height * 10) / 10, x: Math.round(r.left), y: Math.round(r.top), inView, gap: g === Infinity ? null : Math.round(g * 10) / 10, neighbour: nb ? name(nb) : null });\n  }\n  const sc = document.scrollingElement;\n  const out = { state, viewport: [innerWidth, innerHeight], overflowX: sc.scrollWidth > innerWidth + 0.5, scrollWidth: sc.scrollWidth, innerWidth, scrollHeight: sc.scrollHeight, topModal: top ? top.id : null, interactive: rects.length, smallCount: small.length, small };\n  if (top) { out.modalScrollHeight = top.scrollHeight; out.modalClientHeight = top.clientHeight; out.modalScrollWidth = top.scrollWidth; out.modalClientWidth = top.clientWidth; out.modalBox = (({ left, top: t, width, height }) => ({ left, top: t, width, height }))(top.getBoundingClientRect()); }\n  return 'MEASURE ' + JSON.stringify(out);\n};\n// Scroll the top modal (or its scrolling child) to its bottom.\nwindow.__modalBottom = () => { const d = [...document.querySelectorAll('dialog[open]')].pop(); if (!d) return false; const scrollers = [d, ...d.querySelectorAll('*')].filter((e) => e.scrollHeight > e.clientHeight + 2 && /(auto|scroll)/.test(getComputedStyle(e).overflowY)); scrollers.forEach((e) => { e.scrollTop = e.scrollHeight; }); return scrollers.map((e) => e.id || e.className).join(','); };\nwindow.__rec = (i) => galleryRecords[i];\ntrue;\n"
+ },
+ {
+  "expect": "__until(() => document.getElementById('status-dot').className.includes('ready') && !galleryPending && document.querySelectorAll('#gallery .card[data-id]').length >= 10)",
+  "fatal": true
+ },
+ {
+  "tap": "#tab-gallery"
+ },
+ {
+  "wait": 800
+ },
+ {
+  "eval": "scrollTo(0, 0); true"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "eval": "document.querySelectorAll('#gallery .card[data-id]').forEach((c, i) => { c.dataset.pk = i; }); true"
+ },
+ {
+  "tap": "#gallery .card[data-pk='1'] img"
+ },
+ {
+  "eval": "__until(() => els.lightbox.open && els.lbImg.complete, 8000)"
+ },
+ {
+  "wait": 900
+ },
+ {
+  "shot": "gallery-20-lightbox-fit.png"
+ },
+ {
+  "log": "__M(\"lightbox fit (portrait image)\")"
+ },
+ {
+  "log": "(() => { const s = document.querySelector('.lb-side'); const m = document.getElementById('lb-meta'); return JSON.stringify({stage: els.lbStage.getBoundingClientRect(), side: s && s.getBoundingClientRect(), sideScroll: s && [s.scrollHeight, s.clientHeight], meta: m.getBoundingClientRect(), metaScroll: [m.scrollHeight, m.clientHeight]}); })()"
+ },
+ {
+  "log": "__modalBottom()"
+ },
+ {
+  "wait": 400
+ },
+ {
+  "shot": "gallery-21-lightbox-facts-scrolled.png"
+ },
+ {
+  "log": "__M(\"lightbox facts/side scrolled to bottom\")"
+ },
+ {
+  "elshot": [
+   ".lb-side",
+   "gallery-22-lightbox-side-closeup.png"
+  ]
+ },
+ {
+  "log": "(() => { const a = document.querySelector('.lb-actions') || document.getElementById('lb-fav').parentElement; return a.className + ' ' + JSON.stringify(a.getBoundingClientRect()); })()"
+ },
+ {
+  "elshot": [
+   "#lb-fav",
+   "gallery-23-lightbox-star-btn.png"
+  ]
+ },
+ {
+  "eval": "(() => { const p = document.getElementById('lb-fav').closest('.lb-side > *') || document.getElementById('lb-fav').parentElement; p.scrollIntoView({block: 'center'}); return true; })()"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "shot": "gallery-24-lightbox-actions.png"
+ },
+ {
+  "eval": "zoomFit(); [...document.querySelectorAll('#lightbox *')].forEach((e) => { if (e.scrollTop) e.scrollTop = 0; }); els.lightbox.scrollTop = 0; true"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "pinch": [
+   196,
+   250,
+   60,
+   260
+  ]
+ },
+ {
+  "wait": 500
+ },
+ {
+  "log": "'scale ' + lbView.scale"
+ },
+ {
+  "shot": "gallery-25-lightbox-pinched.png"
+ },
+ {
+  "log": "__M(\"lightbox zoomed by pinch\")"
+ },
+ {
+  "eval": "zoomFit(); true"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "press": [
+   196,
+   250
+  ]
+ },
+ {
+  "eval": "__until(() => !els.contextMenu.hidden, 8000)"
+ },
+ {
+  "wait": 400
+ },
+ {
+  "shot": "gallery-26-lightbox-context-menu.png"
+ },
+ {
+  "log": "__M(\"lightbox long-press context menu\")"
+ },
+ {
+  "key": "Escape"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "eval": "(() => { const r = galleryRecords.find((x) => x.refine); if (r) openLightbox(r, galleryRecords); return !!r; })()"
+ },
+ {
+  "eval": "__until(() => els.lightbox.open && els.lbImg.complete, 8000)"
+ },
+ {
+  "wait": 800
+ },
+ {
+  "shot": "gallery-27-lightbox-refine-pass.png"
+ },
+ {
+  "log": "__M(\"lightbox on a refine pass\")"
+ },
+ {
+  "log": "__modalBottom()"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "shot": "gallery-28-lightbox-refine-pass-scrolled.png"
+ },
+ {
+  "viewport": [
+   852,
+   393,
+   3
+  ]
+ },
+ {
+  "wait": 900
+ },
+ {
+  "shot": "gallery-29-lightbox-landscape.png"
+ },
+ {
+  "log": "__M(\"lightbox landscape 852x393\")"
+ },
+ {
+  "log": "__modalBottom()"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "shot": "gallery-30-lightbox-landscape-side-scrolled.png"
+ },
+ {
+  "viewport": [
+   393,
+   852,
+   3
+  ]
+ },
+ {
+  "wait": 600
+ },
+ {
+  "key": "Escape"
+ },
+ {
+  "eval": "__until(() => !els.lightbox.open, 8000)"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "eval": "scrollTo(0, 0); true"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "eval": "document.querySelectorAll('#gallery .card[data-id]').forEach((c, i) => { c.dataset.pk = i; }); true"
+ },
+ {
+  "press": "#gallery .card[data-pk='2'] img"
+ },
+ {
+  "eval": "__until(() => !els.contextMenu.hidden, 8000)"
+ },
+ {
+  "wait": 400
+ },
+ {
+  "shot": "gallery-31-card-context-menu.png"
+ },
+ {
+  "log": "__M(\"card long-press context menu\")"
+ },
+ {
+  "log": "[...els.contextMenu.querySelectorAll('[role=menuitem]')].map((li) => li.textContent.trim() + ' ' + Math.round(li.getBoundingClientRect().height)).join(' | ')"
+ },
+ {
+  "log": "JSON.stringify(els.contextMenu.getBoundingClientRect()) + ' scroll ' + els.contextMenu.scrollHeight + '/' + els.contextMenu.clientHeight"
+ },
+ {
+  "key": "Escape"
+ },
+ {
+  "wait": 400
+ }
+]

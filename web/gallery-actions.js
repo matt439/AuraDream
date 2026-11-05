@@ -117,7 +117,7 @@ const wasWere = (ids) => (ids.length === 1 ? 'was' : 'were');
 async function starPicked(value) {
   const slot = { slot: els.galleryError };
   const ids = selectedIds();
-  if (!ids.length) { showError(`${PICKED_NONE}.`, true, slot); return; }
+  if (!ids.length) { showError(`${pickedNone()}.`, true, slot); return; }
   const held = favoriteWriteReason(ids);
   if (held) { showError(held + '.', true, slot); return; }
   for (const id of ids) favoriteWriteIds.add(id);
@@ -159,7 +159,7 @@ async function starPicked(value) {
 async function binPicked() {
   const slot = { slot: els.galleryError };
   const recs = selectedRecords();
-  if (!recs.length) { showError(`${PICKED_NONE}.`, true, slot); return; }
+  if (!recs.length) { showError(`${pickedNone()}.`, true, slot); return; }
   const ids = recs.map((r) => r.id);
   const held = binWriteReason(ids);
   if (held) { showError(held + '.', true, slot); return; }
@@ -280,10 +280,12 @@ let askCount = countDialog;
 // Beside what asked, clear of the image it asks about - its card or tile, not
 // just the button, which sits on the picture: under it, over it, then to its
 // right or left, whichever the window has room for, else as near as fits -
-// and inside the window. Centred where nothing on the page has focus.
+// and inside the window. Centred where nothing on the page has focus. On a
+// phone it is a sheet from the screen's foot (touch.css), placed by nothing.
 function placeAsk(anchor) {
   const dialog = els.confirmDialog;
   for (const side of ['margin', 'top', 'left', 'right', 'bottom']) dialog.style[side] = '';
+  if (matchMedia(PHONE_MEDIA).matches) return;
   const near = anchor?.closest?.('.card, .viewer > figure, .sheet-cell, .lb-actions') ?? anchor;
   const at = near?.getBoundingClientRect();
   if (!at || (!at.width && !at.height)) return;
@@ -777,11 +779,14 @@ function unforgetImages(ids) {
 // else the search box, as dismissLightbox's last resort.
 function closeLightboxAfterDelete() {
   const fromViewer = lbList === viewerRecords || lbOrigin === 'viewer' || lbOrigin === 'recent';
+  // From the phone's action bar picture (phone.js), back to it: fixed over
+  // the page, it takes the focus with no scroll.
+  const dock = lbOrigin === 'dock' && isShown($('phone-dock')) ? $('phone-dock') : null;
   closeLightbox();
   requestAnimationFrame(() => {
     const held = els.viewer.querySelector(':scope > .placeholder.held, :scope > .tomb');
     const card = currentCard()?.querySelector('img');
-    const target = (fromViewer ? held ?? card : card ?? held) ?? els.search;
+    const target = dock ?? (fromViewer ? held ?? card : card ?? held) ?? els.search;
     if (target === held) target.tabIndex = -1;
     target.focus({ preventScroll: true });
   });

@@ -16,7 +16,8 @@ function focusGallerySearch() {
   els.search.focus({ preventScroll: true });
   els.search.select();
   const box = els.search.getBoundingClientRect();
-  if (box.top < document.querySelector('.topbar').getBoundingClientRect().bottom || box.bottom > innerHeight) {
+  const band = viewBand();
+  if (box.top < band.top || box.bottom > band.bottom) {
     els.search.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' });
   }
 }

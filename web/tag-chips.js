@@ -86,7 +86,7 @@ function showTagTip(chip, lines) {
   tip.textContent = lines.join('\n');
   tip.hidden = false;
   const box = chip.getBoundingClientRect();
-  const below = box.bottom + 6 + tip.offsetHeight <= innerHeight - 8;
+  const below = box.bottom + 6 + tip.offsetHeight <= viewBand().bottom - 8;
   tip.style.top = `${below ? box.bottom + 6 : box.top - 6 - tip.offsetHeight}px`;
   tip.style.left = `${Math.max(8, Math.min(box.left, innerWidth - tip.offsetWidth - 8))}px`;
 }
@@ -586,16 +586,18 @@ function syncTagVocabulary() {
 // window crossing 901 px under someone typing in Your version or on a chip
 // otherwise sent it to <body> with the next keystroke: moveBefore keeps it
 // whole where the browser has it, and elsewhere the focus and the selection
-// are put back by hand.
+// are put back by hand. On a phone the check is in its own sheet
+// (phone.js), the chips under the prompt.
 function placeTagValidation() {
   const wide = window.matchMedia(TWO_COLUMNS_MEDIA).matches;
+  const phone = window.matchMedia(PHONE_MEDIA).matches;
   const focused = document.activeElement;
   const range = typeof focused?.selectionStart === 'number'
     ? [focused.selectionStart, focused.selectionEnd, focused.selectionDirection]
     : null;
   for (const [node, host] of [
     [els.tagValidation, wide ? els.tagChipsWide : els.tagValidationHome],
-    [els.promptAnalysis, wide ? els.tagValidationWide : els.tagValidationHome],
+    [els.promptAnalysis, phone ? $('check-sheet-body') : wide ? els.tagValidationWide : els.tagValidationHome],
   ]) {
     if (node.parentElement === host) continue;
     // Under the prompt the chips go ahead of the check, wherever it is.

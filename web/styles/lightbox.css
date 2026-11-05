@@ -189,7 +189,8 @@
 .lb-modes .ghost { flex: 1 1 0; white-space: nowrap; }
 .lb-modes .ghost[aria-pressed="true"] { color: var(--text); border-color: var(--accent-2); }
 /* Compare CFG and Compare steps: a row of their own, gone with both - a
-   picked pair hides steps', and under 901 px either may be. */
+   picked pair hides steps', and with the column under the stage either may
+   be. */
 .lb-kinds:not(:has(> :not([hidden]))) { display: none; }
 @media (forced-colors: active) {
   .lb-compare button[aria-pressed="true"] {
@@ -292,8 +293,11 @@
 .lb-nav:disabled span { opacity: 0.2; }
 
 /* Too narrow for a column beside the stage: it goes under, as a wrapping row
-   with the prompt on its own line. */
-@media (max-width: 900px) {
+   with the prompt on its own line. Not a phone on its side, 340-ish px tall,
+   whose column stays beside the stage (touch.css). LB_STACKED_MEDIA in
+   state.js is this text, for lightbox.js's and lightbox-compare.js's
+   measures of the same layout. */
+@media (max-width: 900px) and (not ((pointer: coarse) and (max-height: 500px) and (orientation: landscape))) {
   .lightbox { flex-direction: column; }
   .lb-side {
     flex: 0 0 auto; width: auto;

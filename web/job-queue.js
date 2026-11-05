@@ -248,7 +248,19 @@ function queueRow(jobId, alone) {
     if (reason) { showJobNote(`${reason}.`); return; }
     void moveQueuedFront(jobId);
   };
-  li.append(text, cancel, front);
+  // A phone's one button for the row, in the queue's sheet (phone.js,
+  // styles/phone.css): × and ↑ as a menu's two rows, held and titled as
+  // they are. Its glyph is drawn, so the row's text is the PC's; not drawn
+  // anywhere else.
+  const more = document.createElement('button');
+  more.type = 'button';
+  more.dataset.queueAction = 'more';
+  more.className = 'ghost tiny queue-more';
+  more.setAttribute('aria-haspopup', 'menu');
+  more.setAttribute('aria-label', `Move or cancel ${foreign ? "another tab's " : ''}queued job: ${label}`);
+  more.title = 'Move to front or cancel';
+  more.onclick = (e) => openQueueRowMenu(more, e.detail === 0);
+  li.append(text, cancel, front, more);
   return li;
 }
 
@@ -652,8 +664,10 @@ function movedByQueue(target) {
   const after = Node.DOCUMENT_POSITION_FOLLOWING | Node.DOCUMENT_POSITION_CONTAINED_BY;
   if (!(els.queueNote.compareDocumentPosition(target) & after)) return false;
   // Beside the stage only the panel's foot moves: the panel holds its
-  // place while the pointer is on it (panelPos.pointer).
+  // place while the pointer is on it (panelPos.pointer). In the phone's
+  // queue sheet (phone.js), the rows under the list's top are what move.
   const panel = els.queueNote.closest('.panel');
+  if (!panel) return els.queueNote.parentElement.contains(target);
   return getComputedStyle(panel).position !== 'sticky' || panel.contains(target);
 }
 

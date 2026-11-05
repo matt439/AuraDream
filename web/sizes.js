@@ -112,6 +112,7 @@ function syncCustomSizeSummary(match = sizePresetMatch()) {
     : `${+els.width.value} × ${+els.height.value}${match ? '' : ' · custom'}`;
   if (els.customSizeValue.textContent !== text) els.customSizeValue.textContent = text;
   els.customSizeValue.classList.toggle('warn', bad);
+  syncMoreOptions();
 }
 
 // These sync functions change words only. Polling or a preset match must not
@@ -131,6 +132,7 @@ function syncConditioningSummary() {
   const text = parts.join(' · ') || 'none selected';
   if (els.conditioningSummary.textContent !== text) els.conditioningSummary.textContent = text;
   els.conditioningSummary.classList.toggle('warn', badWeight || (!!adapter && !loraSupported) || (!!n && !referenceSupported));
+  syncMoreOptions();
 }
 
 function revealSetupField(input) {
@@ -214,6 +216,8 @@ function syncSize() {
   els.sizeHint.textContent = `${mp.toFixed(1)} MP` + notes.map((n) => ` — ${n}`).join('');
   els.sizeHint.classList.toggle('warn', notes.length > 0);
   syncCustomSizeSummary(match);
+  // A phone's Shape and Size read the strips (phone.js).
+  syncPhoneSize();
 }
 
 // 4 MP on a 16GB card is the edge of what fits once the DiT is resident; the
@@ -364,6 +368,10 @@ function syncCfg() {
   // A negative prompt greyed or woken here stops or starts running, and the
   // prompt check read it as it ran then.
   syncAnalysisStale();
+  // On a phone it is under the prompt only while it runs, and More options'
+  // row says the sampling values (phone.js).
+  placePhoneNegative();
+  syncMoreOptions();
 }
 
 // What a negative box sends, for every collect() (the panel's, Refine's,
@@ -615,4 +623,6 @@ function syncRuns() {
     : batch === 1
       ? `${runs} images, one after another, seed +1 each, ${start}`
       : `${runs * batch} images: ${runs} batches of ${batch}, one after another, seed +${batch} each, ${start}`;
+  // The phone's More options row and its − and + (phone.js).
+  syncMoreOptions();
 }

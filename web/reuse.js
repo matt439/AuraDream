@@ -344,11 +344,12 @@ function revealReused(note) {
   else addEventListener('scrollend', () => showUndo(note), { once: true });
 }
 
-// The prompt's field, label and all, between the topbar and the window's foot.
+// The prompt's field, label and all, between the topbar and the window's foot
+// (above the phone's tab bar: `viewBand`).
 function promptInSight() {
   const field = els.prompt.closest('.field').getBoundingClientRect();
-  return field.top >= document.querySelector('.topbar').getBoundingClientRect().bottom - 0.5
-    && els.prompt.getBoundingClientRect().bottom <= innerHeight + 0.5;
+  const band = viewBand();
+  return field.top >= band.top - 0.5 && els.prompt.getBoundingClientRect().bottom <= band.bottom + 0.5;
 }
 
 // The Undo, after the note's first sentence: a stuck panel goes up to bring
@@ -358,11 +359,11 @@ function promptInSight() {
 // in it still gives the text back.
 function showUndo(note) {
   if (panelPos.top === null || reuseNote !== note || !note.button.isConnected) return;
-  const room = els.prompt.closest('.field').getBoundingClientRect().top
-    - document.querySelector('.topbar').getBoundingClientRect().bottom;
+  const band = viewBand();
+  const room = els.prompt.closest('.field').getBoundingClientRect().top - band.top;
   const bottom = note.button.getBoundingClientRect().bottom;
-  const lift = Math.min(bottom - (innerHeight - panelPos.gap), room);
-  if (lift > 0 && bottom - lift <= innerHeight) setPanelTop(panelPos.top - lift);
+  const lift = Math.min(bottom - (band.bottom - panelPos.gap), room);
+  if (lift > 0 && bottom - lift <= band.bottom) setPanelTop(panelPos.top - lift);
 }
 
 // What a Reuse could only find out by asking, once the panel is filled: a

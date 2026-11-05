@@ -310,9 +310,25 @@ function resultFigure(rec) {
   const del = tool('⌦', `Move #${rec.id} to the recycle bin`, () => deleteImage(rec), 'Move to recycle bin');
   del.classList.add('del');
   syncBinWriteButton(del, [rec.id]);
+  // A phone's row (styles/phone.css): Reuse, Refine and Star with their
+  // words (`data-word`, drawn after the glyph, so the glyph stays the
+  // button's text), and ⋯ for the rest - the image's own menu, the long
+  // press's, which presses these same buttons: Use seed, More seeds,
+  // Inpaint, a reference, Copy, and the recycle bin last, away from Star.
+  // Not drawn anywhere else.
+  const reuse = reuseButton(rec, true);
+  reuse.dataset.word = 'Reuse';
+  refine.dataset.word = 'Refine';
+  star.dataset.word = 'Star';
+  const more = tool('⋯', `More for #${rec.id}: Use seed, More seeds, Inpaint, Copy, the recycle bin`, (e) => {
+    const box = more.getBoundingClientRect();
+    openContextMenu({ kind: 'result', rec, host: tile }, box.left, box.bottom, e.detail === 0);
+  });
+  more.classList.add('more-tool');
+  more.setAttribute('aria-haspopup', 'menu');
   const tools = document.createElement('div');
   tools.className = 'tools';
-  tools.append(reuseButton(rec, true), refine, reference, star, inpaint, del);
+  tools.append(reuse, refine, reference, star, inpaint, del, more);
   // Out of the tab order in a long run's strip (viewerTier).
   if (els.viewer.classList.contains('many')) tools.querySelectorAll('button').forEach((b) => { b.tabIndex = -1; });
   tile.append(img, tools);
@@ -538,13 +554,15 @@ function syncViewerMoreSeeds() {
 // only one, on the gallery from it, so → walks back through what came before
 // it: alone, it opened a lightbox of one, with both arrows dead. Not in the
 // gallery (a search, a sheet), it walks this page's earlier results.
-function openViewerImage(rec) {
+// `origin` is where its close gives the focus back: the strip's picture, or
+// the phone's action bar picture (`'dock'`, phone.js), which opens the same.
+function openViewerImage(rec, origin = 'viewer') {
   if (viewerRecords.length === 1 && viewerRecords[0] === rec) {
     const copy = !sheetMode && galleryRecords.find((r) => r.id === rec.id);
-    if (copy) { openLightbox(copy, galleryRecords, 'viewer'); return; }
-    if (sessionRecords.length) { openLightbox(rec, [rec, ...sessionRecords], 'viewer'); return; }
+    if (copy) { openLightbox(copy, galleryRecords, origin); return; }
+    if (sessionRecords.length) { openLightbox(rec, [rec, ...sessionRecords], origin); return; }
   }
-  openLightbox(rec, viewerRecords, 'viewer');
+  openLightbox(rec, viewerRecords, origin);
 }
 
 // #recent: beside a single image from 2000 px (styles/gallery.css), up to six of this
@@ -640,7 +658,11 @@ function syncEmptyInstall(page) {
 
 // The first run's Examples: the panel's own menu, open on its first item.
 // After the click is through, whose document handler closes an open menu.
+// From the empty gallery's line on a phone, the press brings Create first:
+// the menu is the panel's, which the Gallery view does not draw, so it
+// opened unseen and took the focus with it.
 function viewerExamples() {
+  showCreateView();
   requestAnimationFrame(() => {
     showExamples(true);
     els.examplesMenu.querySelector('[role="menuitem"]')?.focus();

@@ -452,8 +452,9 @@ function pickAgainst() {
 // One axis's part of the comparison's controls: its Compare button (S on
 // CFG's where the image is no pass, `sKey`) and its two steps. Each is held,
 // its title saying why, while the gallery is still being asked and the page
-// holds no other value, and where there is none; a press says so. Under
-// 901 px drawn only where `shown` (ladderShown, lightbox-compare.js).
+// holds no other value, and where there is none; a press says so. With the
+// column under the stage (lbNarrow) drawn only where `shown` (ladderShown,
+// lightbox-compare.js).
 // `against`: whether Against lists this axis. Answers `held`, the reason a
 // press cannot turn it on; `steps`, whether ← → step along it; `note`, the
 // line while on; and the ladder and partner Against offers.

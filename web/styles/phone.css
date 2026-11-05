@@ -1,0 +1,619 @@
+/* ----------------------------------------------------------- phone hosts */
+
+/* The phone's own places for nodes the page holds once (phone.js): the
+   Create view's action bar over the tab bar, with Generate moved into it;
+   the results moved under the settings that make them; the queue's
+   sheet, which the running job's progress and the queue are moved into
+   while it is open; and More options' sheet, which holds the tuning. Each node is moved whole under PHONE_MEDIA, never
+   copied, and home again off it, so a PC, a tablet and every smoke written
+   with a mouse see none of this. Linked after touch.css, whose tokens it
+   reads (and before phone-gallery.css, the gallery head's): --phone-actions-h, --phone-bottom-chrome, --tabbar-h
+   and the safe areas. */
+.phone-actions, .phone-results, .more-options, .neg-fold { display: none; }
+/* The compose controls (phone-compose.js): the topbar's ⋯, the prompt's
+   toolbar and its check's line, Shape and Size. */
+.topbar-more, .prompt-toolbar, .check-chip, .phone-shape, .phone-size-chip { display: none; }
+/* A result's ⋯ (viewer.js) and a queued row's (job-queue.js): the phone's
+   way to the rest of their buttons, drawn on the phone alone. */
+.viewer .tools .more-tool, .queue-list .queue-more { display: none; }
+
+/* The newest result's ring while a job runs: where it starts, turned while
+   the weights load and there is no fraction to show. */
+@property --ring-from {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+@keyframes phone-ring-turn { to { --ring-from: 360deg; } }
+
+@media (pointer: coarse) and ((width < 700px) or (max-height: 500px)) {
+  /* The results - the viewer, its note, #recent - in Generate's place under
+     Output rather than after every fold of the panel: the image just made
+     was 1300 px down a 393 px screen, under Notify, Grid search, Step
+     cache and LoRA. A card on the frameless page, its parts 12 px apart. */
+  .phone-results:not(:empty) { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
+  /* Idle - nothing made on this page yet - the viewer's one line ("Nothing
+     generated this session") is not drawn: it stood alone between Output
+     and the panel's foot, and the bar's picture says it, held. The load's
+     wait in that line, a failed load's card, a lost run's, a first run's
+     box with the examples and a deleted image's held line still are. */
+  .phone-results:has(> .viewer > .placeholder:not([hidden], .held, .waiting)):not(:has(> .viewer.empty-install)) { display: none; }
+
+  /* More options (phone.js): the first screen is the prompt, the size,
+     Batch, this row and the newest result; the tuning is a press away in
+     the sheet it opens, where it filled the first screen (40 of its 55
+     controls under 44 px) and put the result 1300 px down. A tonal card
+     row, 56 px at least: its name 16 px bold, an 8 px dot after it while
+     anything in the sheet is off the checkpoint's defaults (its words for a
+     screen reader inside it), what the sheet holds under it in 15 px, two
+     lines at most, and a chevron pointing into the sheet. */
+  .more-options {
+    position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+    width: 100%; min-height: 56px; margin: 0; padding: var(--sp-2) 44px var(--sp-2) var(--sp-4);
+    border: 1px solid var(--line-strong); border-radius: var(--r-md);
+    background-color: var(--panel-2); color: var(--text); text-align: left; cursor: pointer;
+  }
+  .more-options-name {
+    display: inline-flex; align-items: center; gap: var(--sp-2);
+    font-size: var(--fs-md); font-weight: 600; line-height: var(--lh-tight);
+  }
+  .more-options-dot:not([hidden]) {
+    display: inline-block; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--accent-2);
+  }
+  .more-options-summary {
+    max-width: 100%; font-size: var(--fs-body-sm); line-height: var(--lh-tight); color: var(--text-3);
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+  }
+  .more-options::after {
+    content: ""; position: absolute; top: 50%; right: 20px;
+    width: 9px; height: 9px; margin-top: -5px;
+    border: solid var(--muted); border-width: 0 2px 2px 0; rotate: -45deg;
+  }
+  .more-options:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+
+  /* Its sheet: the screen across, as every dialog on the phone (styles/
+     touch.css), Done in its title row; the panel's own fields in its body
+     16 px apart, the folds their 48 px rows; its foot, sticky, Run grid
+     (the grid fold's action, secondary as on Create, 50 px across the
+     sheet) while the grid fold is open, and a held press's why. With
+     neither, no foot, and the body ends clear of the home indicator. */
+  .more-sheet { background: var(--panel); color: var(--text); }
+  .more-sheet[open] { display: flex; flex-direction: column; gap: var(--sp-4); }
+  .more-sheet-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+  .more-sheet-head h2 { margin: 0; font-size: var(--fs-lg); font-weight: 600; }
+  .more-sheet-body { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
+  /* What is brought into view in it (Grid search's row, a focused box)
+     stops under the sticky title row, not behind it. */
+  .more-sheet-body > * { scroll-margin-top: calc(var(--safe-t) + 72px); }
+  .more-sheet-actions { display: flex; flex-direction: column; gap: var(--sp-2); }
+  .more-sheet-actions > #btn-grid { width: 100%; height: var(--h-lg); margin: 0; }
+  .more-sheet-note { margin: 0; font-size: var(--fs-body-sm); color: var(--text-2); }
+  .more-sheet:not(:has(#grid-section[open])) .more-sheet-actions > #btn-grid { display: none; }
+  .more-sheet:not(:has(#grid-section[open])) .more-sheet-actions:has(> .more-sheet-note[hidden]) { display: none; }
+  .more-sheet:not(:has(#grid-section[open])):has(.more-sheet-note[hidden])::after {
+    content: ""; display: block; flex: none; height: calc(var(--safe-b) + var(--sp-4));
+  }
+
+  /* The negative prompt under the prompt (phone.js): a fold row as the
+     panel's folds are (styles/touch.css) - 48 px under a hairline, its
+     name 16 px bold, its first words ("none") right-aligned in 15 px on
+     one line, a chevron that turns as it opens. Shut, the row is the field;
+     open, it heads the note and the box, the label's words said by the row
+     (the label stays the box's name). */
+  #negative-field[data-fold] { gap: 0; border-top: 1px solid var(--line); }
+  #negative-field[data-fold] > .neg-fold {
+    position: relative; display: flex; align-items: center; gap: var(--sp-3);
+    width: 100%; min-height: 48px; height: auto; margin: 0; padding: var(--sp-1) 28px var(--sp-1) 0;
+    border: none; border-radius: 0; background: none; color: var(--text); text-align: left; cursor: pointer;
+    font-size: var(--fs-md); font-weight: 600; line-height: var(--lh-tight);
+  }
+  #negative-field[data-fold] > .neg-fold::after {
+    content: ""; position: absolute; inset: 50% 6px auto auto;
+    width: 9px; height: 9px; margin-top: -7px;
+    border: solid var(--muted); border-width: 0 2px 2px 0; rotate: 45deg;
+  }
+  #negative-field[data-fold="open"] > .neg-fold::after { margin-top: -2px; rotate: -135deg; }
+  .neg-fold-name { flex: none; }
+  .neg-fold-summary {
+    flex: 1 1 0; min-width: 0; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    font-size: var(--fs-body-sm); font-weight: 400; color: var(--text-3);
+  }
+  .neg-fold:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+  #negative-field[data-fold="shut"] > :not(.neg-fold) { display: none; }
+  #negative-field[data-fold="open"] > .neg-fold > .neg-fold-summary { display: none; }
+  #negative-field[data-fold="open"] > span { margin-bottom: var(--sp-2); }
+  #negative-field[data-fold="open"] > span > label {
+    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+
+  /* Batch on the first screen and Repeat in the sheet: each one row, its
+     name (a caption's 14 px bold) at the start, then −, its box 72 px with
+     the number centred, and + (phone.js), 44 px squares 8 px apart, where
+     they were 62 px boxes for values of 1-4 with no steppers. The
+     Output group's caption is its name alone here, as on a PC's two
+     columns (styles/fields.css): Batch's row names itself. */
+  #output-caption {
+    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+  .panel .sub:has(> .phone-step) {
+    display: grid; grid-template-columns: minmax(0, 1fr) var(--h-md) 72px var(--h-md);
+    align-items: center; gap: 0 var(--sp-2); flex: 1 1 auto; width: auto; min-width: 0;
+  }
+  .panel .sub:has(> .phone-step) > i { font-size: var(--fs-label); font-weight: 600; color: var(--text-readout); }
+  .panel .sub:has(> .phone-step) > input { width: 100%; min-width: 0; padding-inline: var(--sp-1); text-align: center; }
+  .phone-step {
+    width: var(--h-md); min-width: var(--h-md); height: var(--h-md); padding: 0;
+    font-size: 22px; font-weight: 600; line-height: 1;
+  }
+
+  /* Seed in the sheet: its caption over the box, and the dice a 44 px
+     square after the box in its row - where it was 28x18 in the caption,
+     its press reaching over the box's top. */
+  .more-sheet .sub:has(> #seed) {
+    display: grid; grid-template-columns: minmax(0, 1fr) var(--h-md); gap: var(--sp-2);
+  }
+  .more-sheet .sub:has(> #seed) > i { grid-column: 1 / -1; font-size: var(--fs-label); font-weight: 600; color: var(--text-readout); }
+  .more-sheet #btn-dice {
+    width: var(--h-md); min-width: var(--h-md); height: var(--h-md); min-height: var(--h-md);
+    padding: 0; font-size: 20px;
+  }
+  .more-sheet #btn-dice::after { content: none; }
+
+  /* The action bar: the newest result, Generate and the queue, one row in
+     the thumb's reach over the tab bar, opaque on the bar's colour with a
+     hairline above it. 66 px (53 on its side, below), which the page's
+     foot, its scroll padding and --phone-bottom-chrome count in the
+     Create view (styles/touch.css). Not in the Gallery view, nor while a
+     box has the keyboard: iOS keeps a fixed foot on the layout viewport,
+     behind the keyboard, as the tab bar does. Its z-index the tab bar's,
+     over the page and New image's place (the pill is not offered here),
+     under every menu, tip and sheet. */
+  .phone-actions {
+    --ctl: var(--h-lg);
+    display: flex; align-items: center; gap: var(--sp-2);
+    position: fixed; left: 0; right: 0; z-index: 25;
+    bottom: calc(var(--tabbar-h) + var(--safe-b));
+    height: var(--phone-actions-h);
+    padding: 0 max(var(--gutter), var(--safe-r)) 0 max(var(--gutter), var(--safe-l));
+    background: var(--panel); border-top: 1px solid var(--line);
+  }
+  body:is([data-view="gallery"], [data-typing]) .phone-actions { display: none; }
+
+  /* Generate, the bar's middle: the one solid accent on Create, 50 px tall,
+     its label one line. Held it stays solid on the bar (the accent and the
+     white half mixed with the bar's colour) rather than the PC's half
+     opacity, still aria-disabled with its reason as its title; iOS leaves
+     :hover on what was tapped, so the hover's brightness is dropped. */
+  .phone-actions > #btn-generate {
+    flex: 1 1 0; min-width: 0; height: var(--ctl); margin: 0; padding-block: 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .phone-actions > #btn-generate[aria-disabled="true"] {
+    opacity: 1;
+    background-color: color-mix(in srgb, var(--accent-strong) 50%, var(--panel));
+    color: color-mix(in srgb, #fff 50%, var(--panel));
+  }
+  .phone-actions > #btn-generate:hover { filter: none; }
+
+  /* The newest result (#phone-dock): its picture in a 2 px ring, 50 px
+     square - the live preview while a job sends one, ringed then with the
+     job's progress from the top clockwise (the topbar's fraction), a
+     quarter turning while the weights load (still under reduced motion).
+     Before anything is made, a picture glyph, held. A press darkens the
+     picture rather than the ring. */
+  .phone-dock {
+    position: relative; flex: none; width: var(--ctl); height: var(--ctl); padding: 0;
+    border: none; border-radius: var(--r-md); background: var(--line-strong);
+  }
+  .phone-dock .dock-face {
+    position: absolute; inset: 2px; display: grid; place-items: center; overflow: hidden;
+    border-radius: calc(var(--r-md) - 2px); background: var(--panel-2); color: var(--muted);
+  }
+  .phone-dock .dock-glyph { width: 24px; height: 24px; fill: currentColor; }
+  .phone-dock .dock-face:has(> .dock-img:not([hidden])) > .dock-glyph { display: none; }
+  .phone-dock .dock-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .phone-dock.running {
+    background: conic-gradient(var(--accent-2) calc(var(--ring, 0) * 1turn), var(--line-strong) 0);
+  }
+  .phone-dock.running .dock-face { inset: 3px; border-radius: calc(var(--r-md) - 3px); }
+  .phone-dock.running.indeterminate {
+    background: conic-gradient(from var(--ring-from), var(--accent-2) 0 25%, var(--line-strong) 0);
+    animation: phone-ring-turn 1.2s linear infinite;
+  }
+  .phone-dock.live .dock-img { opacity: 0.85; }
+  .phone-dock:active:not([aria-disabled="true"]) .dock-face { filter: brightness(0.75); }
+  .phone-dock:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+
+  /* The queue (#phone-queue): a list glyph, the accent's soft fill and edge
+     while a job runs, the count of those waiting behind it in a 22 px
+     badge on its corner (13 px, ringed in the bar's colour); held, muted,
+     when nothing runs or waits. */
+  .phone-queue {
+    position: relative; flex: none; width: var(--ctl); height: var(--ctl); padding: 0;
+    display: grid; place-items: center;
+    border: 1px solid var(--line-strong); border-radius: var(--r-md);
+    background-color: var(--panel-2); color: var(--text-2);
+  }
+  .phone-queue .queue-glyph { width: 24px; height: 24px; fill: currentColor; }
+  .phone-queue.running { border-color: var(--accent); background-color: var(--accent-soft); color: var(--text); }
+  .phone-queue[aria-disabled="true"] { color: var(--muted); border-color: var(--line); }
+  .phone-queue .queue-count {
+    position: absolute; top: -7px; right: -7px;
+    min-width: 22px; height: 22px; padding: 0 5px; border-radius: 11px;
+    background: var(--accent-2); color: #08080c; box-shadow: 0 0 0 2px var(--panel);
+    font-size: var(--fs-xs); font-weight: 700; line-height: 22px; text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* The queue's sheet: the screen across, as every dialog on the phone
+     (styles/touch.css), its title row at the top; the running job's
+     progress and the queue's rows under it, 16 px apart, or a line saying
+     nothing runs. */
+  .queue-sheet { background: var(--panel); color: var(--text); }
+  .queue-sheet[open] { display: flex; flex-direction: column; gap: var(--sp-4); }
+  .queue-sheet-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+  .queue-sheet-head h2 { margin: 0; font-size: var(--fs-lg); font-weight: 600; }
+  .queue-sheet-body { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
+  .queue-sheet-idle { margin: 0; font-size: var(--fs-body-sm); }
+  .queue-sheet-body:has(> #progress:not([hidden])) > .queue-sheet-idle,
+  .queue-sheet-body:has(> #queue-note:not([hidden])) > .queue-sheet-idle { display: none; }
+  .queue-sheet::backdrop { background: rgba(0, 0, 0, 0.6); }
+  /* The sheet is where the job and the queue are on a phone: in the panel,
+     between the results and Load settings from PNG, they were a Now line,
+     four buttons 4 px apart and the queue's rows mid-page, which the bar's
+     ring and count now say. */
+  .panel > :is(#progress, #queue-note) { display: none; }
+
+  /* The running job: its name over two lines at most, 16 px; the bars and
+     counters under it; then ↑, Pause, Skip and Cancel as four equal 44 px
+     columns 8 px apart, Cancel last in --danger (styles/touch.css), ↑ with
+     its word. The head's two halves are the line's own items here
+     (`display: contents`) so the buttons come after the bars; nothing in
+     it is focusable but the buttons, whose order is the markup's. */
+  .queue-sheet .progress { row-gap: 0; }
+  .queue-sheet .progress-head { display: contents; }
+  .queue-sheet .progress .now {
+    order: 0; flex: 1 0 100%; margin-bottom: var(--sp-2);
+    font-size: var(--fs-md); color: var(--text);
+    white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  }
+  .queue-sheet .progress-actions {
+    order: 5; flex: 1 0 100%; margin: var(--sp-4) 0 0;
+    display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp-2);
+  }
+  .queue-sheet .progress-actions > button {
+    width: auto; min-width: 0; height: var(--h-md); margin: 0; padding-inline: var(--sp-1);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .queue-sheet #btn-queue-front { width: auto; }
+  .queue-sheet #btn-queue-front::after { content: "Front"; margin-left: var(--sp-1); }
+  /* A held press's word (#error, moved in under the job, phone.js). */
+  .queue-sheet-body > #error { margin-top: calc(-1 * var(--sp-2)); }
+
+  /* The queue: its line, then each job a row of at least 56 px under a
+     hairline - its price, size and prompt over two lines at most, and one
+     44 px ⋯, borderless as a list's, whose menu has Move to front and Cancel (phone.js), where a ×
+     and an ↑ stood 8 px apart at 21-24 px wide - and Cancel queued under
+     them where there are several. */
+  .queue-sheet #queue-note { gap: var(--sp-2); }
+  .queue-sheet #queue-text { font-size: var(--fs-label); color: var(--text-readout); }
+  .queue-sheet .queue-list { gap: 0; border-top: 1px solid var(--line); }
+  .queue-sheet .queue-list li {
+    min-height: 56px; padding-block: var(--sp-1); gap: var(--sp-3);
+    border-bottom: 1px solid var(--line);
+  }
+  .queue-sheet .queue-list li > span {
+    font-size: var(--fs-body-sm); line-height: var(--lh-tight);
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+  }
+  .queue-sheet .queue-list li > :is([data-queue-action="cancel"], [data-queue-action="front"]) { display: none; }
+  .queue-sheet .queue-list li > .queue-more {
+    display: inline-grid; place-items: center; flex: none;
+    width: var(--h-md); min-width: var(--h-md); height: var(--h-md); padding: 0;
+    border-color: transparent; color: var(--text-2); font-size: 24px; font-weight: 700; line-height: 1;
+  }
+  .queue-sheet .queue-list li > .queue-more::before { content: "⋯" / ""; }
+  .queue-sheet #btn-cancel-queued { margin-top: var(--sp-2); }
+
+  /* A menu's row that destroys or stops (context-menu.js): a queued job's
+     Cancel, an image's recycle bin, in --danger as the page's other such
+     buttons are on a phone; held, it is any held row. */
+  .context-menu li.danger:not([aria-disabled="true"]) { color: var(--danger); }
+
+  /* A result's row under its picture: Reuse, Refine and Star, each its
+     glyph and its word (`data-word`, drawn after the glyph, so the glyph
+     stays the button's text), and ⋯ - the image's own menu, the long
+     press's: Use seed, More seeds, Inpaint, a reference, Copy, and the
+     recycle bin last in --danger, away from Star - 44 px tall and 8 px
+     apart, the three sharing the row and ⋯ a 44 px square, tonal, where
+     five 27-33 px glyphs stood 4 px apart with Delete beside Star. Inpaint, a reference and Delete are in the
+     page still, for the menu to press (`buttonItem` reads `hidden`, not
+     the CSS). Its words by the tile's width (a container): under 270 px
+     (a batch of two stacked held upright, 259 px a tile; a square on a
+     phone on its side) each word under its glyph, in --fs-sm, a 63 px slot
+     holding Starred - the glyphs alone left Reuse and Refine unexplained -
+     and under 200 (a batch of three or four side by side, 160 px a tile)
+     Star with its word and ⋯ only - Reuse and Refine are the menu's rows
+     there. */
+  .viewer .tile { container: result-tile / inline-size; }
+  .viewer:not(.many) .tile > .tools {
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) var(--h-md); gap: var(--sp-2);
+  }
+  .viewer:not(.many) .tile > .tools > :is(.ref-tool, .inpaint-tool, .del) { display: none; }
+  .viewer:not(.many) .tile > .tools > .more-tool { display: block; }
+  .viewer:not(.many) .tile > .tools > button {
+    min-width: 0; height: var(--h-md); margin: 0; padding: 0 2px;
+    background-color: var(--panel-2); border-color: var(--line-strong); color: var(--text);
+    font-size: var(--fs-md); line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .viewer:not(.many) .tile > .tools > .star[aria-pressed="true"] { color: var(--star); }
+  .viewer:not(.many) .tile > .tools > .more-tool { font-size: 24px; font-weight: 700; }
+  /* Over the tip a PC's pointer hangs here (styles/gallery.css) and the
+     touch tier's hover and a card note's turning it off (styles/touch.css):
+     the word sits after the glyph, always. */
+  #viewer:not(.many) .tile > .tools > button[data-word]::after {
+    content: attr(data-word); position: static; inset: auto; z-index: auto;
+    margin-left: 5px; padding: 0; border-radius: 0; background: none; color: inherit; opacity: 1;
+    font-size: var(--fs-label); font-weight: 600; white-space: nowrap; pointer-events: none;
+  }
+  #viewer:not(.many) .tile > .tools > .star[aria-pressed="true"][data-word]::after { content: "Starred"; }
+  #viewer:not(.many) .tile > .tools > button:not([data-word])::after { content: none; }
+  @container result-tile (200px <= width < 270px) {
+    #viewer:not(.many) .tile > .tools > button[data-word]:not([hidden]) {
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    }
+    #viewer:not(.many) .tile > .tools > button[data-word]::after { margin-left: 0; font-size: var(--fs-sm); line-height: 1; }
+  }
+  @container result-tile (width < 200px) {
+    .viewer:not(.many) .tile > .tools { grid-template-columns: minmax(0, 1fr) var(--h-md); }
+    .viewer:not(.many) .tile > .tools > :is(.reuse-settings, .refine-tool) { display: none; }
+    #viewer:not(.many) .tile > .tools > .star[data-word]::after { content: attr(data-word); }
+    #viewer:not(.many) .tile > .tools > .star[aria-pressed="true"][data-word]::after { content: "Starred"; }
+  }
+
+  /* A long run's strip - more than four images - as a grid of plain
+     pictures, two across a phone held upright (140 px at least, as many as
+     fit on its side), 8 px apart: its 20vh tiles stood one under another
+     down the page. No tools over them (styles/touch.css): a tap opens the
+     image, a long press its menu. */
+  .viewer.many {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: var(--sp-2); justify-content: stretch; align-content: start; align-items: start;
+  }
+  .viewer.many > figure, .viewer.many .tile { width: 100%; }
+
+  /* The same actions once (P7): the result's ⋯ has Use seed and More seeds,
+     so the finished job's line keeps its sentence and what only it offers
+     - Show sheet, a grid run's More seeds, a Finish run with cells to
+     finish - but not its Use seed and More seeds… (`.result-dup`), nor a
+     Finish run held with nothing to finish (a PC keeps it, held, with its
+     reason); a lone result's note under the strip drops its seed line, whose
+     dotted Use seed was the third, and More seeds for its one settings
+     group, the menu's More seeds of this batch. A batch's More seeds, for
+     every settings group the strip holds, stays: the menu's is one
+     image's. */
+  #finish-note > :is(.result-dup, .finish-run-tool[aria-disabled="true"]) { display: none; }
+  .phone-results:has(> .viewer:not(.multi)) > #viewer-note > #viewer-seeds,
+  .phone-results #viewer-note .seed-line { display: none; }
+  .phone-results:has(> .viewer:not(.multi)) > #viewer-note:not(:has(#viewer-note-text > :not(.seed-line))) { display: none; }
+
+  /* The topbar (phone-compose.js): the model chip and a ⋯, 52 px with the
+     notch's inset, where the word mark, a name cut to "FLUX.1 Kre…" and
+     Models and Unload at equal weight took 58. The chip is Models with the
+     status moved into it - the dot, the checkpoint's name and its state
+     ("· loading…") in 16 px - a 44 px pill to the name's width, a chevron
+     at its end that turns while Models is open; the word Models said, not
+     drawn. The ⋯ a 44 px square at the bar's end. Unload, Load and the
+     job's line are its menu's and the action bar's; the word mark goes. */
+  :root { --topbar-h: calc(52px + var(--safe-t)); }
+  .topbar {
+    gap: var(--sp-2);
+    padding: calc(4px + var(--safe-t)) max(var(--gutter), var(--safe-r)) 4px max(var(--gutter), var(--safe-l));
+  }
+  .topbar > :is(.brand, .job-mirror, .vram, #btn-load, #btn-unload) { display: none; }
+  #btn-models {
+    position: relative; display: inline-flex; align-items: center;
+    flex: 0 1 auto; min-width: 0; max-width: 100%; height: var(--h-md); margin: 0 auto 0 0;
+    padding: 0 34px 0 var(--sp-3); border-radius: 22px;
+    background-color: var(--panel-2); border-color: var(--line-strong); color: var(--text);
+  }
+  #btn-models > .status { min-width: 0; gap: var(--sp-2); color: var(--text); font-size: var(--fs-md); font-weight: 600; }
+  /* A long name is cut, never its state: "Animagine XL 4.0 Opt · loa…" at
+     360 px lost the words that had to be read. The name ellipsizes; the
+     state (its own span, status.js's writeStatusLine) keeps its width and
+     its leading space, cut only where it alone is wider than the chip
+     (the lost server's line, whose "retrying" is cut under 393 px). */
+  #btn-models #status-text { display: flex; min-width: 0; overflow: hidden; white-space: nowrap; }
+  #btn-models .status-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  #btn-models .status-state { flex: none; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: pre; }
+  #btn-models > .models-word {
+    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+  #btn-models::after {
+    content: ""; position: absolute; top: 50%; right: 15px;
+    width: 8px; height: 8px; margin-top: -6px;
+    border: solid var(--muted); border-width: 0 2px 2px 0; rotate: 45deg;
+  }
+  #btn-models[aria-expanded="true"]::after { margin-top: -2px; rotate: -135deg; }
+  .topbar-more {
+    display: inline-grid; place-items: center; flex: none;
+    width: var(--h-md); min-width: var(--h-md); height: var(--h-md); padding: 0;
+    border-color: transparent; background-color: transparent; color: var(--text-2);
+    font-size: 24px; font-weight: 700; line-height: 1;
+  }
+  /* Borderless after a tap too: the touch tier's sticky .ghost:hover (iOS
+     keeps :hover after one) framed it while its menu was open and after
+     Back gave it the focus again. */
+  .topbar-more:hover { border-color: transparent; }
+
+  /* The prompt's toolbar under its box: Examples, Check, Tags and Expand,
+     moved from the caption (34 px, 3.8 px apart, wrapping with Tags and
+     Expand) into one row of 44 px tonal buttons 8 px apart, each its
+     words' width, 16 px; the caption is the box's name and ? alone. What
+     hangs from the editor's foot - the suggestions as one types, Find tag -
+     hangs from the box's, over the toolbar (and the check's line), so a
+     list is where the caret is; the Tags helper hangs under the toolbar, from
+     its button. */
+  .prompt-toolbar { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; margin-top: var(--sp-2); }
+  .prompt-toolbar > :is(span, button) { flex: none; margin: 0; }
+  .prompt-toolbar .ghost.tiny { margin: 0; }
+  /* Reset and Load settings from PNG… are the topbar ⋯'s rows here (each
+     its own button's press), not drawn in the caption or the panel. */
+  .field > span #btn-reset, .panel > .png-load { display: none; }
+  .prompt-toolbar > [hidden] { display: none; }
+  .prompt-toolbar .ghost.tiny {
+    min-height: var(--h-md); height: var(--h-md); padding-inline: var(--sp-4);
+    background-color: var(--panel-2); border-color: var(--line-strong); color: var(--text);
+    font-size: var(--fs-md); font-weight: 600;
+  }
+  .prompt-editor:has(> .prompt-toolbar) { --tools-h: calc(var(--h-md) + var(--sp-2)); }
+  .prompt-editor:has(> .check-chip:not([hidden])) { --tools-h: calc(2 * (var(--h-md) + var(--sp-2))); }
+  .prompt-editor > :is(.tag-suggestions, .tag-finder) { top: calc(100% + 4px - var(--tools-h, 0px)); }
+
+  /* The check's line while a check is kept and its sheet shut: "Check:"
+     and what it found - amber with a warning - across the column, 44 px,
+     a chevron into the sheet. */
+  .check-chip:not([hidden]) {
+    position: relative; display: flex; align-items: center; gap: var(--sp-2);
+    width: 100%; min-height: var(--h-md); margin: var(--sp-2) 0 0; padding: 0 36px 0 var(--sp-3);
+    border: 1px solid var(--line-strong); border-radius: var(--r-md);
+    background-color: var(--panel-2); color: var(--text); text-align: left; font-size: var(--fs-body-sm);
+  }
+  .check-chip-name { flex: none; font-weight: 600; }
+  .check-chip-words { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-3); }
+  .check-chip.warn .check-chip-words { color: var(--warn); }
+  .check-chip::after {
+    content: ""; position: absolute; top: 50%; right: 16px;
+    width: 8px; height: 8px; margin-top: -4px;
+    border: solid var(--muted); border-width: 0 2px 2px 0; rotate: -45deg;
+  }
+  .check-chip:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+
+  /* The check's sheet: the screen across, as every dialog on the phone
+     (styles/touch.css); the check's own head its title row, sticky, its
+     name 18 px and its ✕ a 44 px square in the corner; one column under
+     it, the sections 24 px apart, their names a caption's 14 px in
+     sentence case, the prose 15 px; the end clear of the home indicator. */
+  .check-sheet { background: var(--panel); color: var(--text); }
+  .check-sheet[open] { display: flex; flex-direction: column; }
+  .check-sheet-body { display: flex; flex-direction: column; min-width: 0; }
+  .check-sheet .prompt-analysis {
+    gap: var(--sp-4); padding: 0 0 calc(var(--safe-b) + var(--sp-4));
+    border: 0; border-radius: 0; background: none; font-size: var(--fs-body-sm);
+  }
+  .check-sheet .analysis-head {
+    position: sticky; top: 0; z-index: 5; min-height: calc(var(--safe-t) + 60px);
+    margin: 0 calc(-1 * var(--sheet-r)) 0 calc(-1 * var(--sheet-l));
+    padding: calc(var(--safe-t) + 8px) var(--sheet-r) 8px var(--sheet-l);
+    background: var(--panel); border-bottom: 1px solid var(--line);
+  }
+  .check-sheet .analysis-head h2 { font-size: var(--fs-lg); line-height: var(--h-md); }
+  /* The checkpoint's name beside the title stops short of the ✕; the
+     summary under them has the row's whole width. */
+  .check-sheet .analysis-model {
+    flex: 1 1 0; min-width: 0; padding-right: 52px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .check-sheet .analysis-head .analysis-close {
+    top: calc(var(--safe-t) + 8px); right: var(--sheet-r);
+    width: var(--h-md); height: var(--h-md); min-width: var(--h-md); min-height: var(--h-md); padding: 0;
+  }
+  .check-sheet .analysis-head .analysis-close::before { content: none; }
+  .check-sheet .analysis-body { grid-template-columns: minmax(0, 1fr); gap: var(--sp-5); }
+  .check-sheet .analysis-section { gap: var(--sp-2); }
+  .check-sheet .analysis-section h3 {
+    font-size: var(--fs-label); text-transform: none; letter-spacing: 0; color: var(--text-readout);
+  }
+
+  /* Shape and Size (phone-compose.js): the Size caption's line holds the
+     chip at its end - the megapixels bold, the pixels after them, a
+     chevron; amber-edged while the size line warns - and under it Shape,
+     one 50 px segmented control of three 44 px segments, each its name
+     over the ratio it takes; the chosen one tonal (the accent's soft fill
+     and a 2 px edge), with a ▾ after its ratio where a press opens the
+     others. The strips themselves are in the page, undrawn; the size line
+     is drawn only while it warns, the chip saying the megapixels. */
+  .field:has(> .phone-shape) {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--sp-2) var(--sp-3);
+  }
+  .field:has(> .phone-shape) > * { grid-column: 1 / -1; }
+  .field:has(> .phone-shape) > span:first-child { grid-column: 1; grid-row: 1; }
+  .field:has(> .phone-shape) > .phone-size-chip { grid-column: 2; grid-row: 1; }
+  .field:has(> .phone-shape) > :is(#presets, .size-tier-row),
+  .field:has(> .phone-shape) > #size-hint:not(.warn) { display: none; }
+  .phone-size-chip {
+    position: relative; display: inline-flex; align-items: baseline; gap: var(--sp-2);
+    grid-column: 2; grid-row: 1; height: var(--h-md); min-width: 0; margin: 0;
+    padding: 0 34px 0 var(--sp-4); line-height: var(--h-md);
+    border: 1px solid var(--line-strong); border-radius: 22px; background-color: var(--panel-2); color: var(--text);
+  }
+  .phone-size-chip.warn { border-color: var(--warn); }
+  .size-chip-mp { font-size: var(--fs-md); font-weight: 600; white-space: nowrap; }
+  .size-chip-px { font-size: var(--fs-body-sm); color: var(--text-3); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .phone-size-chip::after {
+    content: ""; position: absolute; top: 50%; right: 15px;
+    width: 8px; height: 8px; margin-top: -6px;
+    border: solid var(--muted); border-width: 0 2px 2px 0; rotate: 45deg;
+  }
+  .phone-shape {
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3px; padding: 2px;
+    border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--panel-2);
+  }
+  .phone-shape > button {
+    position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+    min-width: 0; min-height: var(--h-md); margin: 0; padding: 2px var(--sp-1);
+    border: 1px solid transparent; border-radius: calc(var(--r-md) - 3px);
+    background: none; color: var(--text-2); line-height: 1.15;
+  }
+  .phone-shape > button[aria-pressed="true"] {
+    background-color: var(--accent-soft); border-color: var(--accent); color: var(--text);
+    box-shadow: inset 0 0 0 1px var(--accent);
+  }
+  .shape-name { font-size: var(--fs-body-sm); font-weight: 600; white-space: nowrap; }
+  .shape-ratio { font-size: var(--fs-sm); color: var(--text-3); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .phone-shape > button[aria-pressed="true"] .shape-ratio { color: var(--text-2); }
+  .phone-shape > button.opens .shape-ratio::after { content: " ▾"; }
+  /* The guide's mark (the strips' green dot) after the ratio it is for. */
+  .phone-shape > button.recommended .shape-ratio::before {
+    content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 5px; vertical-align: 2px;
+    border-radius: 50%; background: var(--ok);
+  }
+  /* A docked menu's chosen row (a ratio, a size) ticked at its end. */
+  .context-menu li.checked::after { content: "✓"; margin-left: auto; padding-left: var(--sp-3); color: var(--accent-2); font-weight: 700; }
+  .phone-shape > button:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 1px; }
+  /* A glyph of the shape before its name, where the segment has the room
+     (at 360 px and up): a 12 px square, a 10x14 and a 14x10 frame. */
+  @media (width >= 360px) {
+    .phone-shape .shape-name::before {
+      content: ""; display: inline-block; width: 10px; height: 10px; margin-right: 6px; vertical-align: -1px;
+      border: 1.5px solid currentColor; border-radius: 2px;
+    }
+    .phone-shape [data-shape="portrait"] .shape-name::before { width: 8px; height: 12px; vertical-align: -2px; }
+    .phone-shape [data-shape="landscape"] .shape-name::before { width: 13px; height: 8px; vertical-align: 0; }
+  }
+}
+
+@media (pointer: coarse) and ((width < 700px) or (max-height: 500px)) and (prefers-reduced-motion: reduce) {
+  .phone-dock.running.indeterminate { animation: none; }
+}
+
+/* On its side the bar is 53 px, its controls 44, and its row at most 560 px
+   across the middle of the screen: Generate 790 px wide read as a banner.
+   A stepper's row at most 400 px, so its name is not 800 px from its −. */
+@media (pointer: coarse) and (max-height: 500px) and (orientation: landscape) {
+  .phone-actions {
+    --ctl: var(--h-md);
+    padding-inline: max(var(--gutter), var(--safe-l), calc((100% - 560px) / 2));
+  }
+  .panel .sub:has(> .phone-step) { max-width: 400px; }
+  /* The topbar as touch.css has it on its side: 46 px, scrolling away,
+     its 44 px chip and ⋯ a pixel from its edges. */
+  :root { --topbar-h: var(--safe-t); }
+  .topbar { padding-block: calc(1px + var(--safe-t)) 1px; }
+  /* Shape at most 400 px, as the steppers' rows are. */
+  .phone-shape { max-width: 400px; }
+  .field:has(> .phone-shape) { max-width: 400px; }
+}

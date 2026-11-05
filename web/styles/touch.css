@@ -8,7 +8,8 @@
    written with a mouse at 1400x900, see none of it. Three layouts:
 
    - Touch (pointer: coarse): finger-sized controls (Apple's 44 pt for the
-     ordinary buttons and fields, 32-36 for the small ones), 16 px text in
+     ordinary buttons and fields, 32-36 for the small ones on a tablet and
+     44 on a phone), 16 px text in
      every box so iOS does not zoom the page on focus, the notch's and the
      home indicator's safe areas, the keyboard's hints taken away.
    - Tablet, two columns (coarse, 700-900 px wide and taller than 500): an
@@ -21,7 +22,15 @@
      way up, an iPad's Split View pane short of the two columns): one column
      with a tab bar at the foot (touch.js) that shows Create - the panel and
      the results - or the gallery. `body[data-view]`
-     says which; nothing is removed from the page, only not drawn.
+     says which; nothing is removed from the page, only not drawn, or
+     moved whole - never copied - into the phone's own hosts (phone.js,
+     styles/phone.css, linked after this): Generate into the Create view's
+     action bar, the results under the settings, the tuning into More
+     options' sheet; and the gallery head's buttons into its two sheets
+     (phone-gallery.js, styles/phone-gallery.css, linked last).
+
+   `body[data-tier]` ('phone', 'tablet', or none on a PC; touch.js keeps it
+   in step with the queries) is a hook for a rule to key on beside them.
 
    The page's tokens stay the source: the tier overrides them on :root, as
    the wide tier does, and a component's own rule here uses them. */
@@ -39,7 +48,7 @@
     /* The notch, the Dynamic Island and the home indicator (viewport-fit=cover
        in index.html; each 0 where a device has none). The topbar takes the
        top one inside its own height, so whatever reads --topbar-h - the
-       sticky panel, the scroll margins, New image's pill - reads it too. */
+       sticky panel, the scroll margins - reads it too. */
     --safe-t: env(safe-area-inset-top, 0px);
     --safe-r: env(safe-area-inset-right, 0px);
     --safe-b: env(safe-area-inset-bottom, 0px);
@@ -52,7 +61,25 @@
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
   }
-  body { -webkit-tap-highlight-color: color-mix(in srgb, var(--accent) 25%, transparent); }
+  /* A press shows while the finger is down: a state layer over the
+     control's own fill (a background image, so its colour, its border, its
+     ring and its box are untouched; no scale, nothing moves), the text's
+     colour at 12% over a button, a fold's row, a menu's row, an option and
+     a tick's row, and black at 20% over a primary, which a light layer
+     would wash out. Not over a held control, whose press says why and does
+     nothing more, and not as the browser's own tap flash, which lit a box
+     round the control after the lift. A card's star darkens its own disc;
+     the phone's tabs light their pill (below), and the action bar's
+     picture darkens itself inside its ring (styles/phone.css). iOS
+     applies :active only where a touchstart listener is (touch.js). */
+  body { -webkit-tap-highlight-color: transparent; }
+  :root { --press-layer: color-mix(in srgb, var(--text) 12%, transparent); }
+  :is(button, summary, [role="menuitem"], [role="option"], .check, label:has(> input[type="radio"]), .model-row):active:not(:disabled):not([aria-disabled="true"]):not(.primary, .fav-badge, .phone-tabs button, .phone-dock):not(:has(> input:is(:disabled, [aria-disabled="true"]))) {
+    background-image: linear-gradient(var(--press-layer), var(--press-layer));
+  }
+  .primary:active:not(:disabled):not([aria-disabled="true"]) {
+    background-image: linear-gradient(rgb(0 0 0 / 0.2), rgb(0 0 0 / 0.2));
+  }
 
   .topbar {
     padding-top: calc(10px + var(--safe-t));
@@ -95,15 +122,55 @@
   select { min-height: var(--h-field); }
 
   /* The ? badges stay their size and take a finger's press around them: the
-     tip opens on the focus a tap gives them, and a tap elsewhere closes it. */
-  .help::before { content: ""; position: absolute; inset: -12px; }
+     tip opens on the focus a tap gives them, and a tap elsewhere closes it.
+     Above and to each side, never below: a badge sits a few px over the box
+     it explains (Steps, CFG, Strength), and a press reaching down took the
+     top of that box's own press. Up 10, short of a fold's summary 10 px
+     above (Reference images); the phone parts the grid's rows (below). */
+  .help::before { content: ""; position: absolute; inset: -10px -12px 0; }
+  /* A fold's rows (Grid search's axes) stood touching, a badge 3 px under
+     the box above it: 8 px apart here, so its press stops short of that box. */
+  .panel details > .row + .row { margin-top: var(--sp-2); }
+
+  /* The sliders (Inpaint's Size and Feather) were the UA's 16 px line with a
+     16 px thumb: a finger's 44 px box, a 6 px track filled to the value
+     (--fill, which inpaint-mask.js sets) and a 28 px thumb. */
+  input[type="range"] {
+    -webkit-appearance: none; appearance: none;
+    height: var(--h-md); margin: 0; padding: 0; background: transparent;
+  }
+  input[type="range"]::-webkit-slider-runnable-track {
+    height: 6px; border-radius: 3px;
+    background: linear-gradient(to right, var(--accent) var(--fill, 0%), var(--line-strong) var(--fill, 0%));
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none; box-sizing: border-box;
+    width: 28px; height: 28px; margin-top: -11px; border-radius: 50%;
+    background: var(--text); border: 2px solid var(--accent);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  }
+  input[type="range"]::-moz-range-track { height: 6px; border-radius: 3px; background: var(--line-strong); }
+  input[type="range"]::-moz-range-progress { height: 6px; border-radius: 3px; background: var(--accent); }
+  input[type="range"]::-moz-range-thumb {
+    box-sizing: border-box; width: 28px; height: 28px; border-radius: 50%;
+    background: var(--text); border: 2px solid var(--accent);
+  }
+  input[type="range"]:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+  /* Inpaint's two rows of tools take the slider's height: their fixed
+     height (inpaint.css) cut it. Still the window's alone, never what is
+     painted, so the picture above never moves. */
+  .ip-tools { height: auto; }
+  .ip-row { height: auto; min-height: var(--h-sm); }
   .help .tip::before { content: none; }
 
   /* No keyboard here (a tablet's own keyboard aside, whose user has the ?
-     list still): the hints after Generate's label and the lightbox's keys. */
-  #btn-generate::after, #btn-grid::after, #refine-run::after, #lb-compare-on::after,
-  #lb-compare-cfg[aria-keyshortcuts="S"]::after, #lb-refine::after, #lb-more-seeds::after { content: none; }
-  .lb-keys, .key-hint { display: none; }
+     list still): the hints after Generate's label, the lightbox's keys and
+     the run sheet's line (F stars, Ctrl+wheel zooms). Compare with source's
+     and Compare CFG's S at the specificity of lightbox.css's rule that
+     draws it, [aria-keyshortcuts] and all: without it the S stayed. */
+  #btn-generate::after, #btn-grid::after, #refine-run::after, #lb-refine::after, #lb-more-seeds::after,
+  #lb-compare-on[aria-keyshortcuts]::after, #lb-compare-cfg[aria-keyshortcuts]::after { content: none; }
+  .lb-keys, .key-hint, .sheet-hint { display: none; }
 
   /* Hover states stick after a tap on iOS; the card's tools and name show
      without one (gallery.css already shows the tools on a coarse pointer). */
@@ -130,6 +197,14 @@
      keyboard to name. */
   .context-menu li[role="menuitem"] { min-height: var(--h-sm); align-items: center; }
   .context-menu .context-key-hint, .context-menu kbd { display: none; }
+  /* A close ✕ - the lightbox's, the dialogs' - was a 26 px glyph: a
+     finger's 44 square, the glyph centred in it. The prompt check's, kept
+     at 28 in its head's corner, reaches the same 44 round it. */
+  .close {
+    min-width: var(--h-md); min-height: var(--h-md); padding: 0;
+    display: inline-grid; place-items: center;
+  }
+  .analysis-head .analysis-close::before { content: ""; position: absolute; inset: -8px; }
 
   /* The gallery's footer wraps from the left on a touch screen, every button
      at its full name: right-aligned, the wrap stranded Picked's arrow before
@@ -150,18 +225,68 @@
 
   /* The folds' summaries (Custom dimensions, Grid search, Advanced) were a
      line of text, 18 px to press: a finger's height without moving their
-     text. Then refine's opener, a word at the Notify row's end, likewise. */
+     text (a phone's are 48 px rows, below). Then refine's opener, a word at
+     the Notify row's end, likewise. */
   .panel summary { position: relative; }
   .panel summary::after { content: ""; position: absolute; inset: -9px 0; }
   .notification-choice > .tr-open { position: relative; }
   .notification-choice > .tr-open::after { content: ""; position: absolute; inset: -10px -6px; }
   /* The tools over a picture - a gallery card's, a run's tiles' - were 24 px
-     tall: a finger's 32, their widths still shrinking to share the card. */
+     tall: a finger's 32, their widths still shrinking to share the card.
+     The phone draws none (below). */
   .card .tools button, .viewer.many .tools button { min-height: var(--h-xs); }
   /* A tap leaves :hover on iOS, so a tool's name stayed hung over the card
      after its press, and its fill lit; the keyboard's focus still shows them. */
   :is(.card, .viewer) .tools button:hover:not(:focus-visible)::after { content: none; }
   .card .tools button:hover:not(:focus-visible) { background: rgba(0, 0, 0, 0.55); }
+  /* Likewise the card's caption ("#14 · 1024×1024 · seed 5", sheet.css),
+     which a tap's :hover and :focus-within left over the picture until
+     another card was pressed: shown here only with the keyboard's focus. */
+  .card:not(:has(:focus-visible)) .tools::before { display: none; }
+
+  /* Rows that wrapped badly, a tablet's panel as a phone's. A caption holds
+     its name and one action at its end, a note on a line of its own under
+     them: Set True CFG had a line to itself after the negative's note,
+     Compare scales (floated, its margins keeping the caption's line) hung
+     over the scales under it at a finger's height. */
+  #negative-field > span {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: var(--sp-2);
+  }
+  #negative-field > span > label { grid-row: 1; }
+  #negative-field > span > #neg-enable { grid-row: 1; grid-column: 2; margin: 0; }
+  #negative-field > span > #neg-note { grid-row: 2; grid-column: 1 / -1; }
+  .field > span:has(> #refine-compare-scales) { display: flex; align-items: center; }
+  #refine-compare-scales { float: none; margin: 0 0 0 auto; }
+  /* A sentence and the actions after it: the actions on the line it
+     leaves or the next, from the left edge (they were indented 8 px under
+     More seeds…). */
+  #finish-note { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+  #finish-note button { margin-left: 0; }
+  #finish-note .lead:empty { display: none; }
+  /* Notify when done and Then refine on one line, the note under them
+     whole (at 320 px it was cut to "Hi…") under the label's words, its
+     line kept while it is empty, so a permission's answer moves nothing.
+     The label shares the row's columns (a subgrid): its tick takes the
+     first, its words the second, where the note starts too, whatever
+     size the tick is drawn. */
+  .notification-choice { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 0 var(--sp-2); }
+  .notification-choice > .check {
+    grid-row: 1; grid-column: 1 / 3;
+    display: grid; grid-template-columns: subgrid; gap: inherit; justify-items: start;
+  }
+  .notification-choice > .tr-open { grid-row: 1; grid-column: 3; }
+  .notification-choice > .hint {
+    grid-row: 2; grid-column: 2 / -1;
+    min-height: calc(var(--lh) * var(--fs-sm)); white-space: normal; overflow: visible;
+  }
+  /* A line kept to its height that was cut with an ellipsis - Inpaint's
+     state ("nothing masked yet - paint the p…"), the run sheet's ("Run
+     7615… nothing in th…") - two lines here, always two, so its change of
+     words moves nothing. */
+  .ip-status, .sheet-run-status {
+    height: 2lh; white-space: normal;
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  }
 }
 
 /* ------------------------------------------------------- tablet, portrait */
@@ -181,19 +306,106 @@
 /* The tab bar is the phone's alone. */
 .phone-tabs { display: none; }
 
+/* What is fixed over the window's foot, which the page's reveal and in-sight
+   checks leave out of the band they count as seen (`viewBand`, state.js).
+   Registered as a length so it computes to px, the safe area's env() and
+   all, for the script to read; 0 wherever the phone's rule below does not
+   set it, so a PC's and a tablet's checks are innerHeight's as before. */
+@property --phone-bottom-chrome {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 0px;
+}
+
 @media (pointer: coarse) and ((width < 700px) or (max-height: 500px)) {
-  :root { --gutter: 12px; --panel-pad: 14px; }
+  /* Every control a finger's 44 px, the small and tiny ones and a tool row
+     too: the touch tier's 32 and 36 kept 40 of the 55 controls on Create's
+     first screen under it. The tablet keeps 36 and 32 (above), where its
+     panel beside the stage and its cards' rows of tools want the room. */
+  :root {
+    --panel-pad: 14px; --h-xs: 44px; --h-sm: 44px; --h-tool: 44px;
+    /* The phone's type: the PC's 10-13 px captions, notes and labels read
+       at arm's length beside 16 px boxes. Body, buttons and boxes 16 (one
+       baseline), the status, facts and queue 15, captions and small buttons
+       14, notes, meta and sub-labels 13, nothing under it - a badge's word
+       included; titles 18. */
+    --fs-xs: 13px; --fs-sm: 13px; --fs-label: 14px; --fs-body-sm: 15px;
+    --fs-md: 16px; --fs-lg: 18px; --fs-xl: 20px;
+    /* The rhythm: 4 inside a control, 8 between controls, 16 between
+       fields (the panel's gap) and round the page, 32 between sections. */
+    --gutter: var(--sp-4); --panel-gap: var(--sp-4);
+    /* The Create view's action bar over the tab bar (styles/phone.css): a
+       1 px edge, 7 px, the primary's 50 px and 8 px. */
+    --phone-actions-h: 66px;
+  }
+  /* And as wide: a glyph's button (a queue row's × and ↑, Bin, the run
+     sheet's − and +), a size pill (1:1), a close, the sheets' seed dice
+     (`.square`: the glyph's own width was 32 on Linux's fonts). Words are
+     wider already. */
+  .ghost:is(.small, .tiny, .square), .presets button, .close, #lb-fit, #lb-one { min-width: var(--h-md); }
+  /* The Prompt row's Examples, Check and Reset are a step under the small
+     buttons elsewhere (fields.css): here they are the same 44. */
+  .field > span:has(> label[for="prompt"]) .ghost.tiny { min-height: var(--h-md); }
+  /* Seed's dice is a 44 px square after the Seed box in More options'
+     sheet (styles/phone.css). */
 
   /* The topbar: the keyboard list has no keyboard to list; the checkpoint's
      name gives way to the buttons. */
   #btn-shortcuts { display: none; }
-  .brand { font-size: var(--fs-lg); }
+  .brand { font-size: var(--fs-md); }
 
+  /* The page's foot clears what is fixed over the window's: the tab bar, and
+     in the Create view the action bar over it (styles/phone.css). The same
+     whether or not a box has the keyboard, so its going and coming moves
+     nothing. */
   main { padding-bottom: calc(var(--tabbar-h) + var(--safe-b) + var(--gutter)); }
+  body:not([data-view="gallery"]) main {
+    padding-bottom: calc(var(--tabbar-h) + var(--phone-actions-h) + var(--safe-b) + var(--gutter));
+  }
+  /* The tab bar, the action bar in the Create view and the home indicator's
+     inset, over the window's foot; nothing while a box has the keyboard and
+     the bars step aside. */
+  body { --phone-bottom-chrome: calc(var(--tabbar-h) + var(--safe-b)); }
+  body:not([data-view="gallery"]) { --phone-bottom-chrome: calc(var(--tabbar-h) + var(--phone-actions-h) + var(--safe-b)); }
+  body[data-typing] { --phone-bottom-chrome: 0px; }
   /* A tablet keyboard's Tab brought a control in at the window's foot, under
      the tab bar (WCAG 2.4.11): the scroll that follows the focus stops short
-     of the bar. Nothing else scrolls by it. */
+     of the bars. Nothing else scrolls by it. */
   html { scroll-padding-bottom: calc(var(--tabbar-h) + var(--safe-b) + var(--sp-2)); }
+  html:has(> body:not([data-view="gallery"])) {
+    scroll-padding-bottom: calc(var(--tabbar-h) + var(--phone-actions-h) + var(--safe-b) + var(--sp-2));
+  }
+  /* A pull down at the page's top reloaded it (Chrome's and Safari's pull
+     to refresh): the prompt's Undo, a Check, a selection and each view's
+     place went with it. The page's own scroll stops at its ends; a tap on
+     the browser's reload still reloads. */
+  html, body { overscroll-behavior-y: contain; }
+
+  /* Generate is in the Create view's action bar over the tab bar
+     (styles/phone.css, phone.js), with the newest result beside it. New
+     image's pill, which said a result had landed out of sight, is not
+     offered here (offerNewImage): the bar's picture is that result,
+     always in sight, and the pill lay over the page wherever it went. */
+  #btn-new-image { display: none; }
+  /* A refusal of Generate's press (sayAtGenerate, touch.js), or of the
+     bar's held picture or queue: the panel's line, a screen below the bar,
+     rides 8 px above the bars, across the column. Fixed, out of the flow:
+     the refusal unhid it and placed it in one turn, so nothing in the page
+     moves (sticky, it stayed at its own place wherever the panel ended
+     short of the bars - on a first screen holding the whole of Create, 150
+     px above them); a ring and a background of the page's colour, no
+     padding. Its next write or a tap on it leaves it in its place; while a
+     box has the keyboard it is there too. Its z-index, 16: over what it
+     passes, under the topbar (20), the bars (25) and every menu and tip. */
+  #error.at-generate {
+    position: fixed; z-index: 16; margin: 0;
+    left: max(var(--gutter), var(--safe-l)); right: max(var(--gutter), var(--safe-r));
+    bottom: calc(var(--phone-bottom-chrome) + var(--sp-2));
+    background: var(--bg);
+    box-shadow: 0 0 0 var(--sp-2) var(--bg), 0 0 0 calc(var(--sp-2) + 1px) var(--line-strong);
+    border-radius: var(--r-xs);
+  }
+  body[data-typing] #error.at-generate { position: static; box-shadow: none; background: none; }
 
   /* One view at a time: Create is the panel and the results, Gallery the
      gallery's head, grid and paging. */
@@ -204,25 +416,39 @@
     display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 25;
     height: calc(var(--tabbar-h) + var(--safe-b));
     padding: 0 var(--safe-r) var(--safe-b) var(--safe-l);
-    background: color-mix(in srgb, var(--panel) 94%, transparent);
+    /* Opaque: at 94% with a blur, what scrolled under it read through it
+       (the presets, on its side). */
+    background: var(--panel);
     border-top: 1px solid var(--line);
-    -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
   }
   .phone-tablist { display: flex; flex: 1; min-width: 0; }
   .phone-tabs button {
     position: relative; flex: 1 1 0; min-width: 0;
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
     border: none; background: none; color: var(--muted);
-    font-size: var(--fs-label); font-weight: 600;
+    font-size: var(--fs-label); font-weight: 600; line-height: var(--lh-tight);
   }
-  .phone-tabs button .tab-glyph { width: 22px; height: 22px; fill: currentColor; }
+  /* The chosen tab says so by more than its words' colour: its glyph sits
+     in a 56x28 pill of the accent, its words in the text's colour.
+     The glyph 24 px, not 22. A press lights the pill (the state layer the
+     touch tier gives a button), not the bar's half. */
+  .phone-tabs .tab-pill {
+    position: relative; display: grid; place-items: center;
+    width: 56px; height: 28px; border-radius: 14px;
+  }
+  .phone-tabs button .tab-glyph { width: 24px; height: 24px; fill: currentColor; }
   .phone-tabs button[aria-selected="true"] { color: var(--text); }
-  .phone-tabs button[aria-selected="true"] .tab-glyph { color: var(--accent); }
+  .phone-tabs button[aria-selected="true"] .tab-pill { background-color: color-mix(in srgb, var(--accent) 34%, var(--panel)); }
+  .phone-tabs button:active .tab-pill { background-image: linear-gradient(var(--press-layer), var(--press-layer)); }
   .phone-tabs button:focus-visible { outline-offset: -4px; }
-  /* A job running: a dot on Create, and the topbar's line along the bar's top. */
+  /* A job running: a 12 px dot at the Create pill's corner, ringed in the
+     bar's colour so it reads over the pill (an 8 px dot beside the glyph
+     was easy to miss), its words for a screen reader after the tab's name
+     ("Create, a job running"), and the topbar's line along the bar's top. */
   .phone-tabs .tab-busy {
-    position: absolute; top: 8px; left: calc(50% + 14px);
-    width: 8px; height: 8px; border-radius: 50%; background: var(--accent-2);
+    position: absolute; top: -3px; right: 2px;
+    width: 12px; height: 12px; border-radius: 50%; background: var(--accent-2);
+    box-shadow: 0 0 0 2px var(--panel);
   }
   .phone-tabs-line { position: absolute; left: 0; right: 0; top: -1px; height: 2px; overflow: hidden; }
 
@@ -232,9 +458,146 @@
     bottom: calc(var(--tabbar-h) + var(--safe-b) + var(--gutter));
   }
 
-  /* The gallery's head: the search across the column, the rest under it
-     (beside Runs on a phone on its side, below). */
-  #search { flex: 1 1 100%; max-width: none; }
+  /* The gallery's head is one row on the phone, its other controls in two
+     sheets (styles/phone-gallery.css, phone-gallery.js). */
+
+  /* A card carries its star and nothing else: six tools at a finger's 44 px
+     are 284 px on a card of 180, and at 22-28 x 32 Delete stood 4 px from
+     Inpaint. A tap opens the image, whose lightbox has every action; a long
+     press opens the card's menu, which presses these same buttons (still in
+     the page, `hidden` never set: `buttonItem` reads that, not the CSS).
+     A long run's tiles in the viewer likewise (the menu's result rows). The
+     recycle bin's two, Restore and Delete permanently, have no menu: 44 px
+     here, and not drawn on the bin's own screen either (its Select bar and
+     the lightbox do them; styles/phone-gallery.css). The card's caption is its tools' ::before, so
+     it goes with them; the image's name says it. */
+  .card:not(.binned) .tools, .viewer.many .tile > .tools { display: none; }
+  .card.binned .tools button { flex: 0 0 auto; min-width: var(--h-md); min-height: var(--h-md); }
+  /* The star a finger's 44 px square in the card's corner, its 28 px dark
+     disc drawn inside it, so it reads as before over a white render. */
+  :is(.card, .sheet-cell) .fav-badge {
+    top: 0; right: 0; width: var(--h-md); height: var(--h-md);
+    background: radial-gradient(circle, rgba(0, 0, 0, 0.62) 13.5px, transparent 14px);
+  }
+  :is(.card, .sheet-cell) .fav-badge:is(:hover, :active) { background: radial-gradient(circle, rgba(0, 0, 0, 0.85) 13.5px, transparent 14px); }
+  :is(.card, .sheet-cell) .fav-badge:focus-visible { outline-offset: -4px; }
+  /* A result's tools under its picture are the phone's own row, Reuse,
+     Refine, Star and ⋯ (styles/phone.css). The job's Pause, Skip and
+     Cancel and the queue's rows are in the queue's sheet (there too). */
+
+  /* One frame, not two: the bordered panel padded 14 px inside a 12 px
+     gutter took 54 px of a 393 px screen's width from every box. The panel
+     is the page here - no edge, fill or padding, the gutter 16 - and its
+     fields 16 apart, a caption 8 over its box; the results 32 below it. */
+  .panel { padding: 0; border: 0; border-radius: 0; background: none; }
+  main { row-gap: var(--sp-6); }
+  .field { gap: var(--sp-2); }
+  /* A caption is a heading in sentence case, 14 px and bold, not 12 px
+     capitals spaced out: what it names reads first, a fold's row (below)
+     is told from it by its size, its rule and its chevron. */
+  .field > span, .section > summary { text-transform: none; letter-spacing: 0; }
+  .field > span { font-size: var(--fs-label); color: var(--text-readout); }
+  /* A box's own name in a row of them (Grid search's Variable mode) as the
+     names in an <i> are, not body text. */
+  .panel .sub > label { font-size: var(--fs-sm); color: var(--muted); }
+  /* A ? badge 20 px with a 13 px glyph, its press reaching 9 px up rather
+     than 10 (34 px tall now, where 10 took a pixel of the box in the grid's
+     row above). */
+  .help { width: 20px; height: 20px; font-size: var(--fs-sm); }
+  .help::before { inset: -9px -12px 0; }
+  /* A small counter's column at least as wide as its name and badge:
+     "Budget ?" is 69 px over the 62 px box, its badge 4 px into the
+     gutter at the row's end. */
+  .panel .sub.narrow { min-width: min-content; }
+  .analysis-mark { width: 18px; height: 18px; font-size: var(--fs-xs); }
+  /* A tiny button is a finger's 44 here and reads at a caption's size. */
+  .ghost.tiny { font-size: var(--fs-label); }
+
+  /* The buttons' tiers. Generate is the one solid accent on Create, and a
+     sheet's primary the one in its sheet: the chosen size (1:1, 1 MP) and
+     scale were the same solid accent a few px above Generate riding on the
+     bar, and read as two more things to press. A chosen pill or toggle -
+     a size, a scale, Compare scales, a result used as a reference, Select,
+     Sheet, Bin, an Inpaint tool - is tonal: the accent's soft fill, its
+     words in the text's colour and a 2 px accent edge (the border and an
+     inset ring, so its box is the unchosen one's). Run grid, the grid
+     fold's own action, is a secondary button there, its words bold, as
+     Generate stays the page's. The rest are outlined (.ghost) or text
+     (.ghost.tiny) as on a PC. What destroys or stops - Cancel, Cancel
+     queued, a queue row's ×, Reset, Delete unstarred, Empty recycle bin,
+     the lightbox's and a result's Delete - says so in --danger at rest, as
+     a PC's pointer only showed on hover; held, it is any held button. */
+  .presets button.active, .presets button.active.recommended,
+  :is(#refine-compare-scales, .result-actions .ref-tool)[aria-pressed="true"],
+  .ghost.small.active, .ip-tools .ghost.small[aria-pressed="true"] {
+    background-color: var(--accent-soft); border-color: var(--accent); color: var(--text);
+    box-shadow: inset 0 0 0 1px var(--accent);
+  }
+  .presets button.active.recommended::after { background: var(--ok); }
+  #btn-grid { background-color: var(--panel-2); color: var(--text); box-shadow: inset 0 0 0 1px var(--line-strong); }
+  :is(.ghost.danger, #lb-delete, :is(.viewer, .card.binned) .tools .del):not(:disabled):not([aria-disabled="true"]) {
+    color: var(--danger);
+  }
+  /* Then refine's opener, words at the Notify row's end, reached 38 px by
+     a pseudo-element: a box of a finger's 44 here, the row's own height (its
+     tick's row is 44), 8 px of it each side of the words, which keep their
+     place - the box runs 8 px into the gutter at the row's end. */
+  .notification-choice > .tr-open {
+    min-height: var(--h-md); padding-inline: var(--sp-2); margin-right: calc(-1 * var(--sp-2));
+    border-radius: var(--r-sm);
+  }
+  .notification-choice > .tr-open::after { content: none; }
+
+  /* Every fold one row: 48 px under a hairline, its name 16 px bold, what
+     it holds (Custom dimensions' 1024 × 1024, the grid's sweeps, LoRA's
+     choice, a dialog's "as #9 was made") right-aligned in two lines at
+     most, and a chevron at its end that turns as it opens - where the PC
+     has three marks (capitals and a faint ▸, a bold name and the UA's triangle,
+     a dialog's) and the summary was an 18 px line reaching 36 by a
+     pseudo-element. Two lines of 15 px at 1.25 and its padding are its 48,
+     so a summary rewritten from one line to two moves nothing under it. */
+  details:is(.setup-disclosure, .section, .ms-technical, .bundle-automatic, .model-performance) {
+    border-top: 1px solid var(--line); padding-block: 0;
+  }
+  details:is(.setup-disclosure, .section, .ms-technical, .bundle-automatic, .model-performance) > summary {
+    position: relative; display: flex; align-items: center; gap: var(--sp-3);
+    min-height: 48px; height: auto; margin: 0; padding: var(--sp-1) 28px var(--sp-1) 0;
+    list-style: none; cursor: pointer; white-space: normal; overflow: visible;
+    font-size: var(--fs-md); font-weight: 600; line-height: var(--lh-tight); color: var(--text);
+  }
+  details:is(.setup-disclosure, .section, .ms-technical, .bundle-automatic, .model-performance) > summary::-webkit-details-marker { display: none; }
+  details:is(.setup-disclosure, .section, .ms-technical, .bundle-automatic, .model-performance) > summary::before,
+  details[open].section > summary::before { content: none; }
+  details:is(.setup-disclosure, .section, .ms-technical, .bundle-automatic, .model-performance) > summary::after {
+    content: ""; position: absolute; inset: 50% 6px auto auto;
+    width: 9px; height: 9px; margin-top: -7px;
+    border: solid var(--muted); border-width: 0 2px 2px 0; rotate: 45deg;
+  }
+  details[open]:is(.setup-disclosure, .section, .ms-technical, .bundle-automatic, .model-performance) > summary::after {
+    margin-top: -2px; rotate: -135deg;
+  }
+  details:is(.setup-disclosure, .section) > summary > :is(span, em) {
+    flex: 1 1 0; min-width: 0; text-align: right;
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+    font-size: var(--fs-body-sm); font-weight: 400; color: var(--text-3);
+  }
+  /* The Models sheet's Performance line keeps its words in one flow (its
+     name, its choices, its note), two lines at most. */
+  .model-performance > summary { display: block; padding-block: 13px 5px; }
+  .model-performance > summary > span { font-size: var(--fs-body-sm); }
+  .section { padding-top: 0; gap: var(--sp-3); }
+  /* Shut, a fold is its 48 px row: the flex gap still stood between the
+     summary and its hidden contents, 12 px more under Grid search than
+     under LoRA & references. */
+  details.section:not([open]) { gap: 0; }
+  /* An open grid fold's rows 12 px apart, as a field's parts are, not
+     touching its intro (a <details> lays them out in a block). */
+  .panel .section > :is(.row, .check) { margin-top: var(--sp-3); }
+  .setup-body { margin-top: var(--sp-2); margin-bottom: var(--sp-2); }
+  /* Step cache a field like the rest: its name over its box. */
+  .execution-cache-row { flex-direction: column; align-items: stretch; gap: var(--sp-2); }
+  .execution-cache-row > label { font-size: var(--fs-label); font-weight: 600; color: var(--text-readout); }
+  .execution-cache-row select { flex: none; height: var(--h-field); }
 
   /* Under 360 px (Split View or Slide Over at a third, an iPhone SE's
      zoomed view) Sampling's four boxes and their names were wider than the
@@ -246,13 +609,24 @@
   }
 
   /* The lightbox: the picture across the screen, its facts and actions under
-     it in one scrolling column, the actions a row that scrolls sideways
-     rather than wrapping into a third line. The facts fade out at their foot,
-     so a box cut mid-line says it scrolls; the padding under the last line
-     lets it be read clear of the fade. */
+     it. Black, not lightbox.css's 0.97 over a clear backdrop, through which
+     the tab bar's names and the cards' glyphs and captions showed. The
+     actions wrap, the line's width at most (min-width: 0; at its content's
+     369 px in a 354 px column it scrolled sideways with no sign of it, and
+     Delete was past the screen's edge), each pair wrapping inside itself
+     where it is wider than the line. Inpaint… and More seeds…, which a PC's
+     window under 901 px leaves to the card's ✎ and the right-click menu
+     for want of room on one row, are here: the wrapped rows have the room,
+     and a long press's menu is not where a finger looks for an action on
+     the image in view. The facts fade out at their foot, so a box cut
+     mid-line says it scrolls; the padding under the last line lets it be
+     read clear of the fade. */
+  .lightbox, .lightbox::backdrop { background: #000; }
   .lightbox { gap: var(--sp-2); }
-  .lb-actions { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; }
+  .lb-actions { flex: 1 1 100%; min-width: 0; flex-wrap: wrap; }
   .lb-actions > * { flex: none; }
+  .lb-actions > .lb-pair { max-width: 100%; flex-wrap: wrap; }
+  #lb-inpaint, #lb-more-seeds { display: revert; }
   .lb-nav { display: none; }
   .lb-meta {
     padding-bottom: 1.2em;
@@ -265,19 +639,242 @@
      behind the keyboard or floated over the text being typed. touch.js says
      when (`body[data-typing]`); a select's wheel is no keyboard. */
   body[data-typing] .phone-tabs { display: none; }
+  /* And the topbar scrolls away with the page rather than standing over
+     the 300-odd px the keyboard leaves (as on its side, below): in its
+     place in the flow either way, so nothing under it moves. */
+  body[data-typing] .topbar { position: relative; }
 
-  /* The dialogs open as sheets across the screen. */
-  dialog:not(.lightbox):not(.context-menu) {
-    max-width: calc(100vw - var(--safe-l) - var(--safe-r) - 16px);
-    max-height: calc(100dvh - var(--safe-t) - var(--safe-b) - 16px);
+  /* The dialogs are sheets: the whole screen, edge to edge, rather than a
+     rounded box inset 8 px whose foot - Inpaint's, Outpaint's and Edit's
+     Cancel and primary, under a 34 px top margin - ran 18 px past the
+     screen's. Each keeps its own markup and column; its title row
+     (.dialog-head, index.html) stays at the top while the body scrolls under
+     it, and its action row (.dialog-actions) at the foot, clear of the home
+     indicator, so the primary and the close are always on the screen. The
+     sheet's own scroll stops at its ends (no pull on the page behind). A
+     dialog whose body has a scroller of its own (the setups', searches' and
+     snippets') fills the sheet with it; a short one keeps its actions at the
+     foot. Inpaint's picture keeps its fixed top: under the title row. */
+  dialog:not(.lightbox):not(.confirm-dialog) {
+    --sheet-l: max(16px, var(--safe-l));
+    --sheet-r: max(16px, var(--safe-r));
+    position: fixed; inset: 0;
+    width: auto; height: auto; max-width: none; max-height: none;
+    margin: 0; border: none; border-radius: 0; box-shadow: none;
+    padding: 0 var(--sheet-r) 0 var(--sheet-l);
+    overflow-y: auto; overscroll-behavior: contain;
+  }
+  dialog:not(.lightbox):not(.confirm-dialog) > .dialog-head {
+    position: sticky; top: 0; z-index: 5;
+    margin: 0 calc(-1 * var(--sheet-r)) 0 calc(-1 * var(--sheet-l));
+    padding: calc(var(--safe-t) + 8px) var(--sheet-r) 8px var(--sheet-l);
+    background: var(--panel); border-bottom: 1px solid var(--line);
+  }
+  /* Its close, a ✕ or a word, a finger's size in either corner. */
+  dialog:not(.lightbox) > .dialog-head > button { min-width: var(--h-md); min-height: var(--h-md); }
+  dialog:not(.lightbox):not(.confirm-dialog) .dialog-actions {
+    position: sticky; bottom: 0; z-index: 5;
+    margin: auto calc(-1 * var(--sheet-r)) 0 calc(-1 * var(--sheet-l));
+    padding: 8px var(--sheet-r) calc(var(--safe-b) + 8px) var(--sheet-l);
+    background: var(--panel); border-top: 1px solid var(--line);
+  }
+  /* Where something follows the actions (More seeds' fold, a status line) or
+     there are none (Bundles), the sheet's end clears the home indicator too. */
+  dialog:not(.lightbox):not(.confirm-dialog):not(:has(.dialog-actions:last-child))::after {
+    content: ""; display: block; flex: none; height: calc(var(--safe-b) + 16px);
+  }
+  /* A delete's question is short: a sheet from the foot, across the screen. */
+  dialog.confirm-dialog {
+    position: fixed; inset: auto 0 0 0;
+    width: auto; max-width: none; max-height: calc(100dvh - var(--safe-t) - 16px);
+    margin: 0; border-width: 1px 0 0; border-radius: var(--r-lg) var(--r-lg) 0 0;
+    padding: 20px max(16px, var(--safe-r)) calc(var(--safe-b) + 16px) max(16px, var(--safe-l));
+    overscroll-behavior: contain;
   }
 
+  /* Saved setups, Saved searches and Prompt snippets scroll as one sheet:
+     their body was a scroller of its own between the sticky title and
+     action rows, cut mid-line at its foot (the snippets' Insert into and
+     Position, the setups' Undo line), a third scrollbar beside the list's
+     and the sheet's. Nothing in them shrinks to make room (the setups'
+     intro had shrunk under the list's caption). */
+  dialog:is(.setups-dialog, .saved-searches-dialog, .snippets-dialog) > * { flex-shrink: 0; }
+  dialog:is(.setups-dialog, .saved-searches-dialog, .snippets-dialog)
+    > :is(.setups-body, .saved-searches-body, .snippets-layout) {
+    min-height: auto; overflow: visible;
+  }
+
+  /* Inpaint's tools wrap inside the screen: in two rows that never wrapped,
+     Only the masked area, its Pad and Show mask lay past the right edge.
+     The tools a finger's 44 px; the masked area and its Pad a line of
+     their own, Show mask at the end of the next; each slider a row of its
+     own across the sheet. What wraps is the screen's width alone, so the
+     picture above never moves with what is painted. */
+  .ip-row { flex-wrap: wrap; white-space: normal; row-gap: var(--sp-2); }
+  .ip-tools { gap: var(--sp-2); }
+  .ip-tools .ghost.small { min-height: var(--h-md); }
+  .ip-row > .ip-crop { flex: 1 1 100%; margin-left: 0; }
+  .ip-crop-pad input { height: var(--h-md); }
+  .ip-slider { flex: 1 1 100%; }
+  .ip-slider + .ip-slider { margin-left: 0; }
+
+  /* Outpaint's cross: a 360 px frame between Left and Right ran Right off
+     the screen. Here the frame takes what the four boxes leave - its width
+     the screen's alone, read by drawOutpaintFrame - Left and Right each
+     under its name beside it, Top and Bottom above and below; the reading
+     order is still Top, Left, Right, Bottom. The presets and the band's
+     row wrap, Only the masked area a line of its own under the band. */
+  .op-cross {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-rows: auto var(--op-frame-h) auto;
+  }
+  .outpaint-dialog { --op-frame-h: 180px; }
+  .op-frame { width: 100%; }
+  .op-cross > .op-side input, .op-band-row > input { height: var(--h-md); }
+  .op-cross > :is(.op-left, .op-right) {
+    flex-direction: column; align-items: flex-start; gap: 2px; height: auto;
+  }
+  .op-cross > .op-side { height: auto; }
+  .op-presets { flex-wrap: wrap; height: auto; row-gap: var(--sp-2); white-space: normal; }
+  .op-band-row { flex-wrap: wrap; height: auto; row-gap: var(--sp-2); }
+  .op-band-row .hint { flex: 1 1 0; }
+  .op-band-row .op-crop { flex: 1 1 100%; }
+
+  /* Every tick and choice on the phone - Notify, Resume, the gallery's
+     Starred, the Models sheet's rows, Then refine's, Mass refine's, Swap
+     tags' Prompt and Negative prompt, Bundles' scope and backups, Keep
+     shape, Only the masked area - was a 20 px box on a 23-36 px row: drawn
+     at 24, its row (the label round it, which takes its press) a finger's
+     44 px. A label laid out inline (none is today) keeps its line. */
+  input[type="checkbox"], input[type="radio"] { width: 24px; height: 24px; }
+  :is(.check, label:has(> :is(input[type="checkbox"], input[type="radio"]))) { min-height: var(--h-md); }
+  dialog:not(.lightbox) .bundle-automatic-check { align-items: center; }
+  /* A tick is drawn, not the platform's: unticked, the browser's dark box
+     was a grey square that read as held (accent-color colours a ticked one
+     only). A 24 px box with a 2 px edge in the third text colour, its inside
+     the page's; ticked, the accent with a white check; half-ticked, a white
+     bar. Held, its edge dim and a ticked one's fill the accent half mixed
+     with the panel. Its least width and height too, where a component set
+     `width: auto` (the setups' Show all). The gallery's Starred and All
+     models are chips (styles/phone-gallery.css), their ticks out of sight. */
+  input[type="checkbox"] {
+    -webkit-appearance: none; appearance: none; box-sizing: border-box; flex: none;
+    min-width: 24px; min-height: 24px; margin: 0;
+    border: 2px solid var(--text-3); border-radius: 6px;
+    background: transparent no-repeat center / 16px 16px;
+    vertical-align: middle; cursor: pointer;
+  }
+  input[type="checkbox"]:checked {
+    border-color: var(--accent); background-color: var(--accent);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.2 8.4l3.1 3.1L12.8 5' fill='none' stroke='%23fff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  }
+  input[type="checkbox"]:indeterminate {
+    border-color: var(--accent); background-color: var(--accent);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 8h8' stroke='%23fff' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E");
+  }
+  input[type="checkbox"]:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+  input[type="checkbox"]:is(:disabled, [aria-disabled="true"]) { border-color: var(--line-strong); cursor: not-allowed; }
+  input[type="checkbox"]:is(:disabled, [aria-disabled="true"]):is(:checked, :indeterminate) {
+    border-color: transparent; background-color: color-mix(in srgb, var(--accent) 45%, var(--panel));
+  }
+  /* A choice likewise (Bundles' scope, Swap tags', the Models sheet's rows):
+     a 24 px ring in the third text colour; chosen, the accent ring round a
+     10 px accent dot, where the platform drew a grey disc. */
+  input[type="radio"] {
+    -webkit-appearance: none; appearance: none; box-sizing: border-box; flex: none;
+    min-width: 24px; min-height: 24px; margin: 0;
+    border: 2px solid var(--text-3); border-radius: 50%; background: transparent;
+    vertical-align: middle; cursor: pointer;
+  }
+  input[type="radio"]:checked {
+    border-color: var(--accent);
+    background: radial-gradient(circle, var(--accent) 0 5px, transparent 5.5px);
+  }
+  input[type="radio"]:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+  input[type="radio"]:is(:disabled, [aria-disabled="true"]) { border-color: var(--line-strong); cursor: not-allowed; }
+  input[type="radio"]:is(:disabled, [aria-disabled="true"]):checked {
+    border-color: color-mix(in srgb, var(--accent) 45%, var(--panel));
+    background: radial-gradient(circle, color-mix(in srgb, var(--accent) 45%, var(--panel)) 0 5px, transparent 5.5px);
+  }
+
+  /* A held button reads, rather than fading to 45% of the muted colour
+     (#45454d on the page, about 2:1): the muted colour itself, about 6:1,
+     on no fill and a dim edge, so it is told from an available one by its
+     flat look, not by being hard to read. A held primary is solid as
+     Generate's on the bar is (styles/phone.css), the accent and the white
+     half mixed with the panel; a result's held tool likewise. Still
+     aria-disabled with its reason as its title, and a press says it. */
+  .ghost:is(:disabled, [aria-disabled="true"]) {
+    opacity: 1; color: var(--muted); border-color: var(--line); background-color: transparent;
+  }
+  .primary:is(:disabled, [aria-disabled="true"]) {
+    opacity: 1;
+    background-color: color-mix(in srgb, var(--accent-strong) 50%, var(--panel));
+    color: color-mix(in srgb, #fff 55%, var(--panel));
+  }
+  .viewer .tools button[aria-disabled="true"], .viewer .tools button[aria-disabled="true"]:hover {
+    opacity: 1; color: var(--muted); border-color: var(--line);
+  }
+  /* Swap tags' two choices and Bundles' three: 16 px between one choice's
+     words and the next one's circle, 8 between a circle and its words
+     (12 and 4), so each row reads as one press; a wrapped choice starts at
+     the sheet's edge. */
+  :is(.swap-field, .bundle-scope) { column-gap: var(--sp-4); row-gap: 0; }
+  :is(.swap-field, .bundle-scope) label { gap: var(--sp-2); }
+  /* A sheet's scale buttons (Then refine's, Mass refine's, Refine's 1x to
+     2x) 8 px apart, as a finger's neighbours are, not 6. */
+  dialog .presets { gap: var(--sp-2); }
+  /* Bundles' file: the native picker was a 23 px line; its button a
+     finger's 44 px. */
+  input[type="file"] { min-height: var(--h-md); }
+  input[type="file"]::file-selector-button {
+    min-height: var(--h-md); margin-right: var(--sp-3); padding: 0 var(--sp-4);
+    border: 1px solid var(--line-strong); border-radius: var(--r-md);
+    background: var(--panel-2); color: var(--text-2); font: inherit;
+  }
+
+  /* Refine's, Inpaint's and Outpaint's Strength a row of its own, Versions,
+     Seed and the dice the next: four abreast, Refine's dice ran off the
+     screen behind a Seed kept 16 digits wide (fields.css). */
+  .rf-strength .row { flex-wrap: wrap; row-gap: var(--sp-3); }
+  .rf-strength .row > .sub:first-child { flex: 1 1 100%; }
+  .rf-strength .row > .sub.grow:has(> #refine-seed) { min-width: 0; }
+
+  /* The Examples and Picked menus: hung under their buttons they ran past the
+     screen's right edge (the page then scrolled sideways) or stood on 29 px
+     rows. Here each sits across the screen just above the tab bar, scrolling
+     inside itself, its rows a finger's 48 px. */
+  .menu:is(#examples-menu, #picked-menu) {
+    position: fixed; top: auto;
+    left: max(8px, var(--safe-l)); right: max(8px, var(--safe-r));
+    bottom: calc(var(--phone-bottom-chrome) + 8px);
+    width: auto;
+    max-height: min(70dvh, calc(100dvh - var(--topbar-h) - var(--phone-bottom-chrome) - 16px));
+    overscroll-behavior: contain;
+  }
+  .menu:is(#examples-menu, #picked-menu) li {
+    display: flex; flex-direction: column; justify-content: center;
+    min-height: 48px; padding-block: 8px;
+  }
+  /* The right-click menu a long press opens: an action sheet docked at the
+     screen's foot (context-menu.js leaves it unplaced on the phone) rather
+     than a popover hung under the finger, its own scroll past 70% of the
+     screen, its rows 48 px. */
+  .context-menu {
+    top: auto; left: 0; right: 0; bottom: 0;
+    width: auto; min-width: 0; max-width: none; max-height: 70dvh;
+    border-width: 1px 0 0; border-radius: var(--r-lg) var(--r-lg) 0 0;
+    padding: var(--sp-2) max(8px, var(--safe-r)) calc(var(--safe-b) + 8px) max(8px, var(--safe-l));
+    overscroll-behavior: contain;
+  }
+  .context-menu li[role="menuitem"] { min-height: 48px; }
+
   /* The Models picker: a sheet across the screen between the topbar and the
-     tab bar, rather than a box hung from the topbar's corner whose foot - the
-     load's state under Apply & save - lay under the tab bar. */
+     bars at the foot, rather than a box hung from the topbar's corner whose
+     foot - the load's state under Apply & save - lay under the tab bar. */
   .model-picker {
     position: fixed; top: var(--topbar-h); left: 0; right: 0; width: auto;
-    max-height: calc(100dvh - var(--topbar-h) - var(--tabbar-h) - var(--safe-b));
+    max-height: calc(100dvh - var(--topbar-h) - var(--phone-bottom-chrome));
     border-radius: 0; border-inline: none;
     padding-left: var(--safe-l); padding-right: var(--safe-r);
   }
@@ -290,38 +887,40 @@
    facts. Here both bars are slimmer - the tab bar's glyph beside its word -
    and the lightbox is the PC's row again, its column scrolling as a whole. */
 @media (pointer: coarse) and (max-height: 500px) and (orientation: landscape) {
-  :root { --tabbar-h: 44px; }
-  .topbar { padding-top: calc(4px + var(--safe-t)); padding-bottom: 4px; }
+  /* The bar 45 px: its tabs 44 under its 1 px top edge; the action bar over
+     it 53, its controls 44 (styles/phone.css). */
+  :root { --tabbar-h: 45px; --phone-actions-h: 53px; }
+  /* Its buttons the phone's 44 px in its 46: a pixel above and below. */
+  .topbar { padding-top: calc(1px + var(--safe-t)); padding-bottom: 1px; }
   .topbar > button, .topbar .ghost { min-height: var(--h-sm); }
   .topbar > .vram { display: none; }
   #btn-models { margin-left: auto; }
   .phone-tabs button { flex-direction: row; gap: var(--sp-2); }
-  .phone-tabs button .tab-glyph { width: 20px; height: 20px; }
-  .phone-tabs .tab-busy { top: 10px; left: auto; right: calc(50% - 46px); }
 
-  .lightbox { flex-direction: row; }
+  /* LB_STACKED_MEDIA leaves this out, so lightbox.css's column beside the
+     stage is the base; here it is wider, scrolls as a whole, and keeps the
+     narrow layout's rows inside it - the prompt four lines, the comparison
+     and the actions wrapping rows at their own widths. */
   .lb-side {
     flex: 0 0 min(300px, 42vw); width: min(300px, 42vw);
-    flex-direction: column; flex-wrap: nowrap; align-items: stretch;
     overflow-y: auto; overscroll-behavior: contain;
   }
-  .lb-head { order: 0; margin-left: 0; }
-  .lb-meta { flex: none; max-height: none; overflow: visible; padding-bottom: 0; -webkit-mask-image: none; mask-image: none; }
-  .lb-compare { flex: none; }
+  .lb-meta { flex: none; overflow: visible; padding-bottom: 0; -webkit-mask-image: none; mask-image: none; }
+  .lb-prompt { max-height: 4lh; }
+  .lb-compare { flex: none; flex-direction: row; flex-wrap: wrap; align-items: center; }
   /* The column's own scroll is the way down: its actions wrap in it. */
-  .lb-actions { flex-wrap: wrap; overflow-x: visible; }
+  .lb-actions { flex: none; flex-direction: row; }
+  .lb-actions .ghost { width: auto; }
+  .lb-pair .ghost { flex: 0 0 auto; }
 
   /* The topbar scrolls away with the page rather than staying over a third
      of it: nothing under it is sticky on a phone, the tab bar carries a
      job's line, and Models and Unload are a scroll to the top. What reads
-     --topbar-h (New image's pill, the scroll margins) reads the notch alone. */
+     --topbar-h (the scroll margins) reads the notch alone. */
   :root { --topbar-h: var(--safe-t); }
   .topbar { position: relative; height: calc(46px + var(--safe-t)); }
-  .model-picker { top: calc(46px + var(--safe-t)); max-height: calc(100dvh - 46px - var(--safe-t) - var(--tabbar-h) - var(--safe-b)); }
+  .model-picker { top: calc(46px + var(--safe-t)); max-height: calc(100dvh - 46px - var(--safe-t) - var(--phone-bottom-chrome)); }
   /* The prompt three lines, not five: at five, Create on its side was the
      prompt box and nothing else. A drag on its grip still sets its own. */
   #prompt:not([style*="height"]) { height: calc(2lh + var(--h-field)); }
-  /* The gallery's search beside Runs: one row of the head fewer over the
-     cards. */
-  #search { flex: 1 1 200px; }
 }

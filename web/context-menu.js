@@ -10,7 +10,7 @@
 // on the image focus is in. One menu, moved into the lightbox while that is
 // up: a modal dialog leaves the page under it inert.
 
-const ctxMenu = { host: null, opener: null, keyAt: -Infinity, pressAt: -Infinity, pressId: null, liftAt: -Infinity };
+const ctxMenu = { host: null, opener: null, expanded: null, keyAt: -Infinity, pressAt: -Infinity, pressId: null, liftAt: -Infinity };
 
 // What a right-click or the Menu key at `target` is over: the lightbox's
 // stage, a live gallery card, a viewer result, a sheet's populated cell.
@@ -152,6 +152,13 @@ function imageItems({ kind, rec, host }) {
       run: () => (card ? openLightbox(rec, galleryRecords) : sheet ? sheet.querySelector('img')?.click()
         : openViewerImage(rec)),
     },
+    // A gallery card's on a touch screen, outside Select (phone-select.js):
+    // a long press is the way in with the card picked, where a mouse has
+    // Ctrl+click. Inside Select a tap picks.
+    ...(card && touchQuery.matches && !selectMode ? [{
+      label: 'Select', title: `Turn on Select with #${rec.id} picked; then each tap picks or unpicks an image`,
+      run: () => selectFromCard(rec),
+    }] : []),
     null,
     buttonItem(starred ? '★ Unstar' : '☆ Star', lightbox ? els.lbFav : find('.star'), kind === 'result' ? '' : 'F'),
     // The lightbox's pick (UI#33); a card's is its click and Space. Spread,
@@ -200,12 +207,15 @@ function imageItems({ kind, rec, host }) {
     },
     null,
     lightbox && buttonItem('↶ Restore', els.lbRestore),
-    lightbox ? buttonItem(rec.binned_at ? '⌦ Delete permanently' : '⌦ Move to recycle bin', els.lbDelete, 'Del')
+    dangerItem(lightbox ? buttonItem(rec.binned_at ? '⌦ Delete permanently' : '⌦ Move to recycle bin', els.lbDelete, 'Del')
       : sheet ? syncedItem('⌦ Move to recycle bin',
         (b) => syncBinWriteButton(b, [rec.id], `Move #${rec.id} to the recycle bin`), () => deleteImage(rec), 'Del')
-        : buttonItem('⌦ Move to recycle bin', find('.del')),
+        : buttonItem('⌦ Move to recycle bin', find('.del'))),
   ];
 }
+
+// An item that destroys or stops, drawn so where the phone draws it.
+const dangerItem = (item) => item && { ...item, danger: true };
 
 // A picked card in select mode: what the footer does with the picks, as the
 // footer would - the Picked menu's items and the buttons after it.
@@ -241,7 +251,9 @@ function renderContextMenu(items) {
   menu.append(hint);
   let gap = false;
   for (const item of items) {
-    if (!item) { gap = menu.childElementCount > 0; continue; }
+    // The key hint, first, is no group: a line after it alone (the
+    // lightbox's menu, which has no Open) stood over its first row.
+    if (!item) { gap = !!menu.querySelector('[role="menuitem"], .heading'); continue; }
     if (gap) {
       const line = document.createElement('li');
       line.setAttribute('role', 'separator');
@@ -260,6 +272,11 @@ function renderContextMenu(items) {
     li.tabIndex = -1;
     li.title = item.title ?? '';
     if (item.held) li.setAttribute('aria-disabled', 'true');
+    // What destroys or stops: in --danger on a phone (styles/phone.css).
+    if (item.danger) li.classList.add('danger');
+    // The choice in force, ticked (a phone's ratio and size menus,
+    // phone-compose.js).
+    if (item.checked) { li.classList.add('checked'); li.setAttribute('aria-current', 'true'); }
     const label = document.createElement('span');
     label.textContent = item.label;
     li.append(label);
@@ -277,23 +294,43 @@ function renderContextMenu(items) {
 // At the point, or for the keyboard at the focused element's corner; kept
 // inside the window, turned up or left where it would run off it.
 function openContextMenu(found, x, y, byKey) {
+  const picked = found.kind === 'card' && selection.has(found.rec.id);
+  showContextMenu(picked ? pickedItems() : imageItems(found), picked ? 'Picked images' : `#${found.rec.id}`,
+    found.host, x, y, byKey);
+}
+
+// The menu with `items`, named `label`, for `host`: in the modal dialog
+// `host` is in where it is in one (the lightbox, the phone's queue sheet,
+// phone.js), since a modal dialog leaves the page under it inert, else the
+// page's.
+function showContextMenu(items, label, host, x, y, byKey) {
   const menu = els.contextMenu;
   closeContextMenu(false);
-  const picked = found.kind === 'card' && selection.has(found.rec.id);
-  renderContextMenu(picked ? pickedItems() : imageItems(found));
-  menu.setAttribute('aria-label', picked ? 'Picked images' : `#${found.rec.id}`);
-  const home = els.lightbox.open ? els.lightbox : document.body;
+  renderContextMenu(items);
+  menu.setAttribute('aria-label', label);
+  const home = host.closest?.('dialog[open]') ?? (els.lightbox.open ? els.lightbox : document.body);
   if (menu.parentElement !== home) home.append(menu);
-  ctxMenu.host = found.host;
+  ctxMenu.host = host;
   ctxMenu.opener = document.activeElement;
-  menu.style.left = '0px';
-  menu.style.top = '0px';
+  // A menu button (aria-haspopup="menu": the phone's topbar ⋯, Shape, the
+  // Size chip, a queued row's ⋯) says its menu is open until it shuts.
+  if (host.getAttribute?.('aria-haspopup') === 'menu') {
+    host.setAttribute('aria-expanded', 'true');
+    ctxMenu.expanded = host;
+  }
+  // On a phone it is an action sheet docked at the screen's foot (touch.css),
+  // not placed at the finger: no place of its own to set.
+  const docked = matchMedia(PHONE_MEDIA).matches;
+  menu.style.left = docked ? '' : '0px';
+  menu.style.top = docked ? '' : '0px';
   menu.hidden = false;
-  const { width, height } = menu.getBoundingClientRect();
-  const left = x + width + 4 > innerWidth ? Math.max(4, x - width) : x;
-  const top = y + height + 4 > innerHeight ? Math.max(4, y - height) : y;
-  menu.style.left = `${left}px`;
-  menu.style.top = `${top}px`;
+  if (!docked) {
+    const { width, height } = menu.getBoundingClientRect();
+    const left = x + width + 4 > innerWidth ? Math.max(4, x - width) : x;
+    const top = y + height + 4 > innerHeight ? Math.max(4, y - height) : y;
+    menu.style.left = `${left}px`;
+    menu.style.top = `${top}px`;
+  }
   const first = menu.querySelector('[role="menuitem"]');
   if (byKey && first) first.focus({ preventScroll: true });
   else menu.focus({ preventScroll: true });
@@ -309,6 +346,8 @@ function closeContextMenu(refocus = true) {
   const opener = ctxMenu.opener;
   ctxMenu.host = null;
   ctxMenu.opener = null;
+  ctxMenu.expanded?.setAttribute('aria-expanded', 'false');
+  ctxMenu.expanded = null;
   if (refocus && inside && opener?.isConnected && opener !== document.body) opener.focus({ preventScroll: true });
 }
 
@@ -455,6 +494,16 @@ function contextMenuTouchEnd(e) {
 function contextMenuPressClick(e) {
   if (performance.now() - ctxMenu.liftAt > 300) return;
   ctxMenu.liftAt = -Infinity;
+  e.preventDefault();
+  e.stopPropagation();
+}
+
+// The mousedown before that click, likewise: on a phone the menu is docked at
+// the screen's foot, so the finger lifts on the picture, not the menu, and a
+// mousedown there moved the focus out of the menu just opened - to the
+// lightbox's stage - which closed it.
+function contextMenuPressMouseDown(e) {
+  if (performance.now() - ctxMenu.liftAt > 300) return;
   e.preventDefault();
   e.stopPropagation();
 }

@@ -131,7 +131,7 @@ function syncSelection() {
   const n = selection.size;
   const away = n - selectedIds().filter((id) => shown.has(id)).length;
   const text = n ? `${n} selected${away ? ` · ${away} not shown` : ''}`
-    : picking ? 'Click cards to pick them' : '';
+    : picking ? (touchQuery.matches ? 'Tap images to pick them' : 'Click cards to pick them') : '';
   // Written only when it changes: a page landing re-syncs, and a status
   // repeated is read out again.
   if (els.selectCount.textContent !== text) els.selectCount.replaceChildren(...countParts(n, away, text));
@@ -208,6 +208,15 @@ function selectOnly(rec) {
   selection.set(rec.id, rec);
   selectAnchor = rec.id;
   syncSelection();
+}
+
+// A long press's Select (context-menu.js: a gallery card's menu on a touch
+// screen, where no Ctrl+click picks): Select on with this card picked, as
+// Select and a tap on it would.
+function selectFromCard(rec) {
+  if (sheetMode) { showError(`${SELECT_ON_SHEET}.`, true, { slot: els.galleryError }); return; }
+  setSelectMode(true);
+  if (!selection.has(rec.id)) toggleSelected(rec);
 }
 
 // A click on the grid between cards (on a day's line, past the last card)
@@ -432,13 +441,23 @@ function forgetSelected(gone, { stashed = true } = {}) {
 // closes it with focus back on the button, and leaving it closes it.
 const PICKED_NONE = 'Pick cards (Ctrl/Cmd+click or Select) to star, unstar, bin or use their seeds in a grid';
 
+// How cards are picked, in the pointer's words: a touch screen (the phone's
+// and the tablet's, touch.js's touchQuery) has no Ctrl/Cmd+click, so its
+// reasons name Select alone - or, Select on, a tap. Read at each sync; a
+// change of tier or of Select re-syncs the selection (touch.js, syncTier;
+// setSelectMode), so the held titles follow it.
+const pickCardsWords = () => (!touchQuery.matches ? 'Pick cards (Ctrl/Cmd+click or Select)'
+  : selectMode ? 'Tap images to pick them' : 'Pick images with Select');
+const pickedNone = () => (!touchQuery.matches ? PICKED_NONE
+  : selectMode ? 'Tap images to pick them first' : `${pickCardsWords()} to star, unstar, bin or use their seeds in a grid`);
+
 // Seeds only: the picked order is the investigation's order, while another
 // image of the same seed contributes no second entry. Leave grid limits to
 // its existing server preview; never silently trim the selected seeds.
 function pickedGridSeeds() {
   if (binMode) return { why: BIN_HELD };
   const records = selectedRecords();
-  if (!records.length) return { why: PICKED_NONE };
+  if (!records.length) return { why: pickedNone() };
   const unsafe = records.find((rec) => !Number.isSafeInteger(rec.seed) || rec.seed < 0);
   if (unsafe) return { why: `#${unsafe.id} has a seed the browser cannot copy exactly; use whole seeds from 0 to ${Number.MAX_SAFE_INTEGER}` };
   return { seeds: [...new Set(records.map((rec) => rec.seed))] };
@@ -457,7 +476,10 @@ function seedsToGrid() {
   els.gridSeedList.dispatchEvent(new Event('input', { bubbles: true }));
   els.gridSeedList.focus();
   els.gridSeedList.select();
-  showError(`Seed list now has ${plural(target.seeds.length, 'distinct picked seed')} in picked order.`, true, { slot: els.galleryError });
+  // On a phone the list is in Create's More options sheet, a view away
+  // (phone.js): the focus cannot reach it there, so the words say where.
+  const where = isPhone() ? ' (Create > More options > Grid search)' : '';
+  showError(`Seed list now has ${plural(target.seeds.length, 'distinct picked seed')} in picked order${where}.`, true, { slot: els.galleryError });
 }
 
 function pickedComparison() {
@@ -482,7 +504,7 @@ function comparePicked() {
 
 function syncPickedButton() {
   const n = selection.size;
-  const why = binMode ? BIN_HELD : n ? '' : PICKED_NONE;
+  const why = binMode ? BIN_HELD : n ? '' : pickedNone();
   els.pickedBtn.setAttribute('aria-disabled', String(!!why));
   const them = n === 1 ? 'the picked image' : `the ${n} picked images`;
   els.pickedBtn.title = why || `Actions on ${them}: star, unstar, compare, bin, copy seeds to the grid or re-render at a tier`;
@@ -546,8 +568,8 @@ function showPickedMenu(open) {
   }
   els.pickedMenu.classList.remove('up');
   const box = els.pickedMenu.getBoundingClientRect();
-  const top = document.querySelector('.topbar').getBoundingClientRect().bottom;
-  if (box.bottom > innerHeight && els.pickedBtn.getBoundingClientRect().top - box.height - 6 >= top) {
+  const { top, bottom } = viewBand();
+  if (box.bottom > bottom && els.pickedBtn.getBoundingClientRect().top - box.height - 6 >= top) {
     els.pickedMenu.classList.add('up');
   }
 }
@@ -618,7 +640,7 @@ function galleryActionTarget(purpose, one) {
   const search = els.search.value.trim();
   const filtered = els.favOnly.checked || search !== '';
   if (!filtered) {
-    return { why: `Pick cards (Ctrl/Cmd+click or Select), or narrow the gallery with a search or Starred, ${purpose}` };
+    return { why: `${pickCardsWords()}, or narrow the gallery with a search or Starred, ${purpose}` };
   }
   if (total === 0) return { why: 'Nothing in the gallery matches the filter' };
   if (total > sheetPage) {

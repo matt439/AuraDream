@@ -1,0 +1,826 @@
+[
+ {
+  "log": "'create tour: iPhone 15 Pro 393x852@3, touch'"
+ },
+ {
+  "touch": true
+ },
+ {
+  "viewport": [
+   393,
+   852,
+   3
+  ]
+ },
+ {
+  "navigate": "http://127.0.0.1:7990/"
+ },
+ {
+  "media": {
+   "prefers-reduced-motion": "reduce"
+  }
+ },
+ {
+  "eval": "\nwindow.__until = async (fn, ms = 20000) => { const end = Date.now() + ms; while (Date.now() < end) { try { if (fn()) return true; } catch { } await new Promise((r) => setTimeout(r, 50)); } return false; };\nwindow.__measure = (state) => {\n  const sel = 'button, a[href], input, select, textarea, summary, [role=button], [role=tab], [role=menuitem], [tabindex]:not([tabindex=\"-1\"]), label';\n  const vis = (el) => { const r = el.getBoundingClientRect(); if (r.width <= 1 || r.height <= 1) return false; const cs = getComputedStyle(el); if (cs.visibility === 'hidden' || cs.display === 'none' || cs.opacity === '0') return false; if (el.closest('[hidden]')) return false; if (el.checkVisibility && !el.checkVisibility({visibilityProperty: true, checkVisibilityCSS: true, opacityProperty: true})) return false; return true; };\n  let list = [...document.querySelectorAll(sel)].filter((el) => el.tagName !== 'LABEL' || el.querySelector('input[type=checkbox],input[type=radio]'));\n  const openDialog = [...document.querySelectorAll('dialog[open]')].filter((d) => d.matches(':modal'))[0];\n  if (openDialog) list = list.filter((el) => openDialog.contains(el));\n  list = list.filter(vis);\n  const boxes = list.map((el) => ({el, r: el.getBoundingClientRect()}));\n  const name = (el) => el.id ? '#' + el.id : el.tagName.toLowerCase() + (typeof el.className === 'string' && el.className.trim() ? '.' + el.className.trim().split(/\\s+/).join('.') : '') + (el.parentElement && el.parentElement.id ? ' in #' + el.parentElement.id : '');\n  const small = boxes.filter((b) => b.r.width < 44 || b.r.height < 44).map((b) => {\n    let gap = null, near = null;\n    for (const o of boxes) { if (o === b || o.el.contains(b.el) || b.el.contains(o.el)) continue; const dx = Math.max(0, o.r.left - b.r.right, b.r.left - o.r.right); const dy = Math.max(0, o.r.top - b.r.bottom, b.r.top - o.r.bottom); const d = Math.hypot(dx, dy); if (gap === null || d < gap) { gap = d; near = name(o.el); } }\n    const el = b.el;\n    return {id: name(el), text: (el.getAttribute('aria-label') || el.textContent || el.value || el.placeholder || '').trim().replace(/\\s+/g, ' ').slice(0, 40), w: Math.round(b.r.width * 10) / 10, h: Math.round(b.r.height * 10) / 10, pageTop: Math.round(b.r.top + scrollY), gap: gap === null ? null : Math.round(gap * 10) / 10, nearest: near};\n  });\n  return {MEASURE: true, state, innerWidth, scrollWidth: document.documentElement.scrollWidth, overflowX: document.documentElement.scrollWidth > innerWidth, overflowPx: document.documentElement.scrollWidth - innerWidth, scrollHeight: document.documentElement.scrollHeight, innerHeight, interactiveVisible: boxes.length, smallCount: small.length, small};\n};\nwindow.__setStep = (s) => fetch('/api/fake/step', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({seconds: s})}).then((r) => r.ok);\ntrue;\n"
+ },
+ {
+  "expect": "__until(() => document.getElementById('status-dot').className.includes('ready') && !galleryPending)",
+  "fatal": true
+ },
+ {
+  "expect": "(async () => { await __setStep(0); for (const seed of [11, 12, 13]) { const j = await (await fetch('/api/generate', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({prompt: 'a lighthouse on a cliff at dusk, volumetric light', width: 1024, height: 1024, seed})})).json(); for (let i = 0; i < 600; i++) { const s = await (await fetch('/api/jobs/' + j.job_id)).json(); if (s.status === 'done') break; await new Promise((r) => setTimeout(r, 100)); } } return true; })()"
+ },
+ {
+  "eval": "try { sessionStorage.clear(); localStorage.clear(); } catch {}"
+ },
+ {
+  "navigate": "http://127.0.0.1:7990/"
+ },
+ {
+  "media": {
+   "prefers-reduced-motion": "reduce"
+  }
+ },
+ {
+  "eval": "\nwindow.__until = async (fn, ms = 20000) => { const end = Date.now() + ms; while (Date.now() < end) { try { if (fn()) return true; } catch { } await new Promise((r) => setTimeout(r, 50)); } return false; };\nwindow.__measure = (state) => {\n  const sel = 'button, a[href], input, select, textarea, summary, [role=button], [role=tab], [role=menuitem], [tabindex]:not([tabindex=\"-1\"]), label';\n  const vis = (el) => { const r = el.getBoundingClientRect(); if (r.width <= 1 || r.height <= 1) return false; const cs = getComputedStyle(el); if (cs.visibility === 'hidden' || cs.display === 'none' || cs.opacity === '0') return false; if (el.closest('[hidden]')) return false; if (el.checkVisibility && !el.checkVisibility({visibilityProperty: true, checkVisibilityCSS: true, opacityProperty: true})) return false; return true; };\n  let list = [...document.querySelectorAll(sel)].filter((el) => el.tagName !== 'LABEL' || el.querySelector('input[type=checkbox],input[type=radio]'));\n  const openDialog = [...document.querySelectorAll('dialog[open]')].filter((d) => d.matches(':modal'))[0];\n  if (openDialog) list = list.filter((el) => openDialog.contains(el));\n  list = list.filter(vis);\n  const boxes = list.map((el) => ({el, r: el.getBoundingClientRect()}));\n  const name = (el) => el.id ? '#' + el.id : el.tagName.toLowerCase() + (typeof el.className === 'string' && el.className.trim() ? '.' + el.className.trim().split(/\\s+/).join('.') : '') + (el.parentElement && el.parentElement.id ? ' in #' + el.parentElement.id : '');\n  const small = boxes.filter((b) => b.r.width < 44 || b.r.height < 44).map((b) => {\n    let gap = null, near = null;\n    for (const o of boxes) { if (o === b || o.el.contains(b.el) || b.el.contains(o.el)) continue; const dx = Math.max(0, o.r.left - b.r.right, b.r.left - o.r.right); const dy = Math.max(0, o.r.top - b.r.bottom, b.r.top - o.r.bottom); const d = Math.hypot(dx, dy); if (gap === null || d < gap) { gap = d; near = name(o.el); } }\n    const el = b.el;\n    return {id: name(el), text: (el.getAttribute('aria-label') || el.textContent || el.value || el.placeholder || '').trim().replace(/\\s+/g, ' ').slice(0, 40), w: Math.round(b.r.width * 10) / 10, h: Math.round(b.r.height * 10) / 10, pageTop: Math.round(b.r.top + scrollY), gap: gap === null ? null : Math.round(gap * 10) / 10, nearest: near};\n  });\n  return {MEASURE: true, state, innerWidth, scrollWidth: document.documentElement.scrollWidth, overflowX: document.documentElement.scrollWidth > innerWidth, overflowPx: document.documentElement.scrollWidth - innerWidth, scrollHeight: document.documentElement.scrollHeight, innerHeight, interactiveVisible: boxes.length, smallCount: small.length, small};\n};\nwindow.__setStep = (s) => fetch('/api/fake/step', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({seconds: s})}).then((r) => r.ok);\ntrue;\n"
+ },
+ {
+  "expect": "__until(() => document.getElementById('status-dot').className.includes('ready') && !galleryPending)",
+  "fatal": true
+ },
+ {
+  "eval": "if (document.body.dataset.view !== 'create') document.getElementById('tab-create').click(); scrollTo(0, 0);"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "shot": "create-01-load-top.png"
+ },
+ {
+  "log": "__measure(\"load (top)\")"
+ },
+ {
+  "log": "({sh: document.documentElement.scrollHeight, view: document.body.dataset.view, order: [...document.querySelectorAll('main > *')].map((e) => (e.className||e.tagName) + ':' + Math.round(e.getBoundingClientRect().top + scrollY) + '+' + Math.round(e.getBoundingClientRect().height))})"
+ },
+ {
+  "eval": "scrollTo(0, 700);"
+ },
+ {
+  "wait": 200
+ },
+ {
+  "shot": "create-01-load-scroll-0700.png"
+ },
+ {
+  "eval": "scrollTo(0, 1400);"
+ },
+ {
+  "wait": 200
+ },
+ {
+  "shot": "create-01-load-scroll-1400.png"
+ },
+ {
+  "eval": "scrollTo(0, 0);"
+ },
+ {
+  "fullshot": "create-02-load-full.png"
+ },
+ {
+  "eval": "document.querySelectorAll('.panel details').forEach((d) => { d.open = true; }); scrollTo(0, 0);"
+ },
+ {
+  "wait": 400
+ },
+ {
+  "fullshot": "create-03-folds-open-full.png"
+ },
+ {
+  "log": "__measure(\"panel folds all open\")"
+ },
+ {
+  "elshot": [
+   "#custom-size",
+   "create-04-fold-custom-size.png"
+  ]
+ },
+ {
+  "elshot": [
+   "#grid-section",
+   "create-04-fold-grid.png"
+  ]
+ },
+ {
+  "elshot": [
+   "#conditioning-section",
+   "create-04-fold-lora-refs.png"
+  ]
+ },
+ {
+  "elshot": [
+   ".execution-cache-row",
+   "create-04-step-cache-row.png"
+  ]
+ },
+ {
+  "elshot": [
+   "[aria-labelledby=sampling-caption]",
+   "create-04-sampling.png"
+  ]
+ },
+ {
+  "elshot": [
+   "[aria-labelledby=output-caption]",
+   "create-04-output.png"
+  ]
+ },
+ {
+  "elshot": [
+   "#presets",
+   "create-04-aspect-presets.png"
+  ]
+ },
+ {
+  "elshot": [
+   ".size-tier-row",
+   "create-04-size-tiers.png"
+  ]
+ },
+ {
+  "eval": "document.getElementById('grid-section').scrollIntoView({block: 'start'});"
+ },
+ {
+  "wait": 200
+ },
+ {
+  "shot": "create-05-grid-viewport-a.png"
+ },
+ {
+  "eval": "scrollBy(0, 700);"
+ },
+ {
+  "wait": 200
+ },
+ {
+  "shot": "create-05-grid-viewport-b.png"
+ },
+ {
+  "eval": "scrollBy(0, 700);"
+ },
+ {
+  "wait": 200
+ },
+ {
+  "shot": "create-05-grid-viewport-c.png"
+ },
+ {
+  "eval": "els.prompt.value = 'a {size} fox in the {place}'; els.prompt.dispatchEvent(new Event('input', {bubbles: true})); if (els.gridPrompt) { els.gridPrompt.value = 'size = small | large\\nplace = snow | forest | city'; els.gridPrompt.dispatchEvent(new Event('input', {bubbles: true})); } if (els.gridPromptMode) { els.gridPromptMode.value = 'random'; els.gridPromptMode.dispatchEvent(new Event('change', {bubbles: true})); }"
+ },
+ {
+  "wait": 1200
+ },
+ {
+  "eval": "(els.gridPrompt || document.getElementById('grid-section')).scrollIntoView({block: 'start'});"
+ },
+ {
+  "wait": 200
+ },
+ {
+  "shot": "create-06-grid-random-vars.png"
+ },
+ {
+  "eval": "document.getElementById('grid-preview').scrollIntoView({block: 'center'});"
+ },
+ {
+  "wait": 200
+ },
+ {
+  "shot": "create-06-grid-preview.png"
+ },
+ {
+  "log": "__measure(\"grid with random prompt variables\")"
+ },
+ {
+  "eval": "document.getElementById('conditioning-section').scrollIntoView({block: 'start'});"
+ },
+ {
+  "wait": 200
+ },
+ {
+  "shot": "create-07-lora-refs-viewport.png"
+ },
+ {
+  "eval": "els.gridPrompt && (els.gridPrompt.value = '', els.gridPrompt.dispatchEvent(new Event('input', {bubbles: true}))); document.querySelectorAll('.panel details').forEach((d) => { d.open = false; }); scrollTo(0, 0);"
+ },
+ {
+  "eval": "els.prompt.scrollIntoView({block: 'start'});"
+ },
+ {
+  "tap": "#prompt"
+ },
+ {
+  "type": "a weathered lighthouse keeper "
+ },
+ {
+  "eval": "els.prompt.value = \"a weathered lighthouse keeper in a yellow oilskin coat standing on wet black basalt rocks at the foot of a tall white lighthouse, storm clouds rolling in from the north atlantic, spray from a breaking wave caught in golden low sunlight, gulls wheeling overhead, cinematic composition, 35mm film grain, shallow depth of field, muted teal and amber palette, highly detailed textures on the rocks and coat, dramatic rim light\"; els.prompt.dispatchEvent(new Event('input', {bubbles: true}));"
+ },
+ {
+  "wait": 1500
+ },
+ {
+  "shot": "create-08-prompt-long-focused.png"
+ },
+ {
+  "log": "__measure(\"prompt focused, long text (tab bar hidden?)\")"
+ },
+ {
+  "log": "({typing: document.body.dataset.typing, tabsShown: isShown(document.getElementById('phone-tabs')), promptH: els.prompt.getBoundingClientRect().height})"
+ },
+ {
+  "eval": "els.prompt.blur(); scrollTo(0, 0);"
+ },
+ {
+  "wait": 400
+ },
+ {
+  "shot": "create-09-prompt-long-blurred-top.png"
+ },
+ {
+  "elshot": [
+   ".panel > .field",
+   "create-09-prompt-field.png"
+  ]
+ },
+ {
+  "eval": "scrollTo(0, 0);"
+ },
+ {
+  "tap": "#btn-examples"
+ },
+ {
+  "wait": 600
+ },
+ {
+  "shot": "create-10-examples-menu.png"
+ },
+ {
+  "log": "__measure(\"examples menu open\")"
+ },
+ {
+  "fullshot": "create-10-examples-menu-full.png"
+ },
+ {
+  "eval": "{ const it = [...els.examplesMenu.querySelectorAll('[role=menuitem], li, button')].find((x) => /Personal snippets/.test(x.textContent)); if (it) it.click(); }"
+ },
+ {
+  "wait": 800
+ },
+ {
+  "shot": "create-11-snippets-dialog.png"
+ },
+ {
+  "log": "__measure(\"personal snippets dialog\")"
+ },
+ {
+  "key": "Escape"
+ },
+ {
+  "wait": 400
+ },
+ {
+  "eval": "if (els.examplesMenu.hidden) els.examplesBtn.click();"
+ },
+ {
+  "wait": 400
+ },
+ {
+  "eval": "{ const it = [...els.examplesMenu.querySelectorAll('[role=menuitem], li, button')].find((x) => /Saved setups/.test(x.textContent)); if (it) it.click(); }"
+ },
+ {
+  "wait": 1000
+ },
+ {
+  "shot": "create-12-saved-setups-dialog.png"
+ },
+ {
+  "log": "__measure(\"saved setups dialog\")"
+ },
+ {
+  "key": "Escape"
+ },
+ {
+  "wait": 400
+ },
+ {
+  "eval": "if (!els.examplesMenu.hidden) els.examplesBtn.click(); document.querySelectorAll('dialog[open]').forEach((d) => d.close());"
+ },
+ {
+  "eval": "scrollTo(0, 0);"
+ },
+ {
+  "tap": "#btn-analyze"
+ },
+ {
+  "expect": "__until(() => isShown(document.getElementById('prompt-analysis')) && document.getElementById('analysis-findings').childElementCount > 0, 15000)"
+ },
+ {
+  "wait": 800
+ },
+ {
+  "eval": "document.getElementById('prompt-analysis').scrollIntoView({block: 'start'});"
+ },
+ {
+  "wait": 200
+ },
+ {
+  "shot": "create-13-check-a.png"
+ },
+ {
+  "eval": "scrollBy(0, 700);"
+ },
+ {
+  "wait": 200
+ },
+ {
+  "shot": "create-13-check-b.png"
+ },
+ {
+  "eval": "scrollBy(0, 700);"
+ },
+ {
+  "wait": 200
+ },
+ {
+  "shot": "create-13-check-c.png"
+ },
+ {
+  "eval": "scrollBy(0, 700);"
+ },
+ {
+  "wait": 200
+ },
+ {
+  "shot": "create-13-check-d.png"
+ },
+ {
+  "fullshot": "create-13-check-full.png"
+ },
+ {
+  "log": "__measure(\"prompt Check result open\")"
+ },
+ {
+  "elshot": [
+   "#prompt-analysis .analysis-head",
+   "create-13-check-head.png"
+  ]
+ },
+ {
+  "eval": "document.getElementById('analysis-close').click(); scrollTo(0, 0);"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "eval": "els.thenRefineOpen.scrollIntoView({block: 'center'});"
+ },
+ {
+  "tap": "#then-refine-open"
+ },
+ {
+  "wait": 700
+ },
+ {
+  "shot": "create-14-then-refine-dialog.png"
+ },
+ {
+  "log": "__measure(\"then refine dialog\")"
+ },
+ {
+  "key": "Escape"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "eval": "els.prompt.value = 'a lighthouse on a cliff at dusk'; els.prompt.dispatchEvent(new Event('input', {bubbles: true})); scrollTo(0, 0);"
+ },
+ {
+  "expect": "__setStep(0.3)"
+ },
+ {
+  "eval": "els.generate.scrollIntoView({block: 'center'});"
+ },
+ {
+  "tap": "#btn-generate"
+ },
+ {
+  "wait": 2500
+ },
+ {
+  "shot": "create-15-job-running-at-generate.png"
+ },
+ {
+  "log": "__measure(\"job running (one job)\")"
+ },
+ {
+  "eval": "scrollTo(0, 0);"
+ },
+ {
+  "wait": 200
+ },
+ {
+  "shot": "create-15-job-running-top.png"
+ },
+ {
+  "elshot": [
+   "#phone-tabs",
+   "create-15-tabbar-busy.png"
+  ]
+ },
+ {
+  "eval": "els.generate.scrollIntoView({block: 'center'});"
+ },
+ {
+  "tap": "#btn-generate"
+ },
+ {
+  "wait": 400
+ },
+ {
+  "tap": "#btn-generate"
+ },
+ {
+  "wait": 400
+ },
+ {
+  "tap": "#btn-generate"
+ },
+ {
+  "wait": 1500
+ },
+ {
+  "shot": "create-16-queue-several.png"
+ },
+ {
+  "elshot": [
+   "#queue-note",
+   "create-16-queue-note.png"
+  ]
+ },
+ {
+  "elshot": [
+   "#progress",
+   "create-16-progress.png"
+  ]
+ },
+ {
+  "fullshot": "create-16-queue-full.png"
+ },
+ {
+  "log": "__measure(\"job running + 3 queued\")"
+ },
+ {
+  "eval": "document.getElementById('queue-note').scrollIntoView({block: 'center'});"
+ },
+ {
+  "wait": 200
+ },
+ {
+  "tap": "#btn-cancel-queued"
+ },
+ {
+  "wait": 700
+ },
+ {
+  "shot": "create-17-after-cancel-queued.png"
+ },
+ {
+  "eval": "scrollTo(0, document.documentElement.scrollHeight);"
+ },
+ {
+  "expect": "__until(() => !busy, 40000)"
+ },
+ {
+  "wait": 1200
+ },
+ {
+  "shot": "create-18-finished-scrolled-bottom-newimage.png"
+ },
+ {
+  "log": "({newImageShown: isShown(document.getElementById('btn-new-image'))})"
+ },
+ {
+  "eval": "scrollTo(0, 0);"
+ },
+ {
+  "wait": 400
+ },
+ {
+  "shot": "create-18-finished-top.png"
+ },
+ {
+  "fullshot": "create-18-finished-full.png"
+ },
+ {
+  "log": "__measure(\"after job finished\")"
+ },
+ {
+  "elshot": [
+   "#viewer",
+   "create-18-viewer.png"
+  ]
+ },
+ {
+  "eval": "const n = document.getElementById('finish-note'); n.scrollIntoView({block: 'center'});"
+ },
+ {
+  "wait": 200
+ },
+ {
+  "shot": "create-18-finish-note-area.png"
+ },
+ {
+  "eval": "els.generate.scrollIntoView({block: 'center'});"
+ },
+ {
+  "tap": "#btn-generate"
+ },
+ {
+  "wait": 800
+ },
+ {
+  "eval": "scrollTo(0, 0);"
+ },
+ {
+  "expect": "__until(() => !busy, 40000)"
+ },
+ {
+  "wait": 800
+ },
+ {
+  "shot": "create-19-new-image-pill.png"
+ },
+ {
+  "log": "({newImageShown: isShown(document.getElementById('btn-new-image')), box: JSON.stringify(document.getElementById('btn-new-image').getBoundingClientRect())})"
+ },
+ {
+  "elshot": [
+   "#btn-new-image",
+   "create-19-new-image-pill-close.png"
+  ]
+ },
+ {
+  "log": "__measure(\"new image pill state\")"
+ },
+ {
+  "eval": "scrollTo(0, 0);"
+ },
+ {
+  "tap": "#btn-models"
+ },
+ {
+  "expect": "__until(() => !els.modelPicker.hidden, 20000)"
+ },
+ {
+  "wait": 800
+ },
+ {
+  "shot": "create-20-models-sheet.png"
+ },
+ {
+  "log": "__measure(\"models picker sheet\")"
+ },
+ {
+  "eval": "(() => { const p = els.modelPicker; const sc = [p, ...p.querySelectorAll('*')].find((e) => e.scrollHeight > e.clientHeight + 4 && /auto|scroll/.test(getComputedStyle(e).overflowY)) || p; sc.scrollTop = 600; })()"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "shot": "create-20-models-sheet-scroll-1.png"
+ },
+ {
+  "eval": "(() => { const p = els.modelPicker; const sc = [p, ...p.querySelectorAll('*')].find((e) => e.scrollHeight > e.clientHeight + 4 && /auto|scroll/.test(getComputedStyle(e).overflowY)) || p; sc.scrollTop = 1200; })()"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "shot": "create-20-models-sheet-scroll-2.png"
+ },
+ {
+  "eval": "(() => { const p = els.modelPicker; const sc = [p, ...p.querySelectorAll('*')].find((e) => e.scrollHeight > e.clientHeight + 4 && /auto|scroll/.test(getComputedStyle(e).overflowY)) || p; sc.scrollTop = 1800; })()"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "shot": "create-20-models-sheet-scroll-3.png"
+ },
+ {
+  "eval": "(() => { const p = els.modelPicker; const sc = [p, ...p.querySelectorAll('*')].find((e) => e.scrollHeight > e.clientHeight + 4 && /auto|scroll/.test(getComputedStyle(e).overflowY)) || p; sc.scrollTop = 2400; })()"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "shot": "create-20-models-sheet-scroll-4.png"
+ },
+ {
+  "log": "({pickerScroller: (() => { const p = els.modelPicker; const sc = [p, ...p.querySelectorAll('*')].find((e) => e.scrollHeight > e.clientHeight + 4 && /auto|scroll/.test(getComputedStyle(e).overflowY)); return sc ? (sc.id || sc.className) + ' ' + sc.scrollHeight + '/' + sc.clientHeight : 'none'; })()})"
+ },
+ {
+  "eval": "document.getElementById('model-performance') && (document.getElementById('model-performance').open = true);"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "shot": "create-20-models-sheet-performance-open.png"
+ },
+ {
+  "key": "Escape"
+ },
+ {
+  "expect": "__until(() => els.modelPicker.hidden, 20000)"
+ },
+ {
+  "eval": "scrollTo(0, 0);"
+ },
+ {
+  "wait": 200
+ },
+ {
+  "elshot": [
+   ".topbar",
+   "create-21-topbar.png"
+  ]
+ },
+ {
+  "elshot": [
+   "#phone-tabs",
+   "create-21-tabbar.png"
+  ]
+ },
+ {
+  "log": "__measure(\"topbar + tab bar idle (top of Create)\")"
+ },
+ {
+  "viewport": [
+   360,
+   780,
+   3
+  ]
+ },
+ {
+  "wait": 600
+ },
+ {
+  "eval": "scrollTo(0, 0);"
+ },
+ {
+  "wait": 200
+ },
+ {
+  "shot": "create-22-360x780-top.png"
+ },
+ {
+  "eval": "scrollTo(0, 700);"
+ },
+ {
+  "wait": 200
+ },
+ {
+  "shot": "create-22-360x780-scroll-700.png"
+ },
+ {
+  "fullshot": "create-22-360x780-full.png"
+ },
+ {
+  "log": "__measure(\"Create at 360x780\")"
+ },
+ {
+  "elshot": [
+   ".topbar",
+   "create-22-360x780-topbar.png"
+  ]
+ },
+ {
+  "viewport": [
+   320,
+   700,
+   2
+  ]
+ },
+ {
+  "wait": 600
+ },
+ {
+  "eval": "scrollTo(0, 0);"
+ },
+ {
+  "wait": 200
+ },
+ {
+  "shot": "create-22-320x700-top.png"
+ },
+ {
+  "eval": "scrollTo(0, 700);"
+ },
+ {
+  "wait": 200
+ },
+ {
+  "shot": "create-22-320x700-scroll-700.png"
+ },
+ {
+  "fullshot": "create-22-320x700-full.png"
+ },
+ {
+  "log": "__measure(\"Create at 320x700\")"
+ },
+ {
+  "elshot": [
+   ".topbar",
+   "create-22-320x700-topbar.png"
+  ]
+ },
+ {
+  "viewport": [
+   852,
+   393,
+   3
+  ]
+ },
+ {
+  "wait": 600
+ },
+ {
+  "eval": "if (document.body.dataset.view !== 'create') document.getElementById('tab-create').click(); scrollTo(0, 0);"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "shot": "create-23-landscape-top.png"
+ },
+ {
+  "eval": "scrollTo(0, 360);"
+ },
+ {
+  "wait": 200
+ },
+ {
+  "shot": "create-23-landscape-scroll-1.png"
+ },
+ {
+  "eval": "scrollTo(0, 720);"
+ },
+ {
+  "wait": 200
+ },
+ {
+  "shot": "create-23-landscape-scroll-2.png"
+ },
+ {
+  "eval": "scrollTo(0, 1080);"
+ },
+ {
+  "wait": 200
+ },
+ {
+  "shot": "create-23-landscape-scroll-3.png"
+ },
+ {
+  "fullshot": "create-23-landscape-full.png"
+ },
+ {
+  "log": "__measure(\"Create landscape 852x393\")"
+ },
+ {
+  "touch": false
+ },
+ {
+  "viewport": [
+   1400,
+   900,
+   1
+  ]
+ },
+ {
+  "wait": 800
+ },
+ {
+  "eval": "scrollTo(0, 0);"
+ },
+ {
+  "shot": "create-24-desktop-top.png"
+ },
+ {
+  "fullshot": "create-24-desktop-full.png"
+ },
+ {
+  "log": "__measure(\"desktop 1400x900 mouse\")"
+ }
+]

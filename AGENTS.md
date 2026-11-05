@@ -247,11 +247,43 @@ raw composer capture, validated Restore and whole-draft Undo; it queues no work.
 instruction… (the menu item, the dialog, Reuse of an edit and its lineage);
 it never writes the composer's prompt, negative or references.
 
-`touch.js` (`styles/touch.css`, linked last) owns the phone's Create and
+`touch.js` (`styles/touch.css`, linked before the phone's own sheets) owns the phone's Create and
 Gallery views and its tab bar; the phone and tablet tier keys on a coarse
 primary pointer (iPhone 15 Pro, iPad Air 11), never width alone, so a PC's
 mouse and the smokes never match it. On touch a long press is the image's
 right-click menu (`context-menu.js`): iOS sends no `contextmenu`.
+`phone.js` (`styles/phone.css`, after `touch.css`) owns the phone's own
+hosts: Generate in the Create view's action bar over the tab bar, beside
+the newest result's picture and the queue's count, the results moved
+under the settings, and the queue's sheet (the job, its buttons and the
+queue, each queued row's ⋯ a menu); a result's row and a queued row's ⋯
+are drawn on the phone alone. `phone-compose.js`, after it, owns the
+phone's compose controls: the topbar's model chip (the status moved into
+Models) and its ⋯ menu, the prompt's toolbar under the box, the check's
+sheet and its line, and the size as Shape and a Size chip over the
+undrawn strips. `phone-gallery.js` (`styles/phone-gallery.css`, linked
+last), after it, owns the phone's gallery head: one sticky row (search,
+Filters, Select, ⋯) and the Filters and ⋯ sheets holding the head's and
+footer's own buttons, each bulk action's line saying what it takes or
+why it is held, and the cards' size (three or two across).
+`phone-select.js`, after it, owns the phone's selection bar: in the tab
+bar's place while Select is on, the picks' count and actions (Star, Bin,
+Refine…, More seeds…, Swap tags…; the bin's Restore and Delete) moved
+in, Back leaving Select. `phone-runs.js`, after it, owns the phone's runs:
+Filters' Runs row opening a sheet of run rows built from the Runs
+picker's own options (the select kept, not drawn), the run shown as a
+chip in the search's place, and a run sheet's foot (Finish run and More
+seeds… moved in, a ⋯ pressing its swipes, Fill width and exports). The
+recycle bin is a screen of its own on the phone (a ‹ before its name, no
+card tools, only its own rows in the sheets). Nodes are moved whole under
+`PHONE_MEDIA` (`moveBefore`) and home again on the tier's change, never
+copied or reordered with CSS. On touch
+each open overlay (lightbox, dialog, Models, context menu, run sheet,
+recycle bin) holds
+one history entry, so Back closes the top one (`touch.js`); a mouse adds none.
+On the phone every dialog is a sheet across the screen whose `.dialog-head`
+and `.dialog-actions` (`index.html`) stay at its top and foot, and the
+menus sit inside the screen, the right-click one docked at its foot.
 
 `sw.js`, served at `/sw.js` and registered by `app.js` only in a secure
 context (never plain http to a LAN address), answers a silent server's
@@ -442,7 +474,9 @@ Frontend:
   `@media (min-width: 1800px)` block in the component's section; nothing
   changes under 1800 px, where the smokes run, but the panel's own gap and
   field height under 900 px tall (`docs/rules.md`). Phone and tablet rules
-  go in `styles/touch.css` under `(pointer: coarse)`; a one-column rule
+  go in `styles/touch.css` under `(pointer: coarse)` (the phone's own
+  hosts, filled by `phone.js`, in `styles/phone.css`, its gallery head in
+  `styles/phone-gallery.css`); a one-column rule
   keyed on 900 px excludes the tablet's two columns with the same query.
 - A button held for a reason is `aria-disabled` with the reason as its title,
   never `disabled` (documented exceptions in `docs/rules.md`); a press says
@@ -632,12 +666,17 @@ uses the driver's graceful close/cleanup. See the full Tests rules.
 | 7954 | FLUX.1-Krea-dev, fresh scratch `--data`, `--step 0.3` | `smoke-queue-estimates` |
 | 7955 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-gallery-top` |
 | 7956 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-phone` |
+| 7956 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-phone-create` |
 | 7957 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-tablet` |
 | 7958 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-offline` |
 | 7959 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-catalogue-stale` |
+| 7960 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-phone-dialogs` |
+| 7960 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-phone-gallery` |
 
 FLUX.1-Krea-dev is `black-forest-labs/FLUX.1-Krea-dev`; animagine is
-`cagliostrolab/animagine-xl-4.0`.
+`cagliostrolab/animagine-xl-4.0`. The ports are full: `--jobs` puts each
+worker 100 ports on, so 7961 would be `smoke.json`'s 7861 in the next
+band; a new row shares a port (its own fake, one at a time per band).
 
 Gotchas:
 
@@ -645,6 +684,10 @@ Gotchas:
   own; `smoke.json` counts images planted under another checkpoint.
 - Smokes are written at 1400x900; `AURADREAM_VIEWPORT`,
   `AURADREAM_DPR` and `AURADREAM_PORT_OFFSET` move them.
+- A phone or tablet smoke's viewport steps add `"mobile": true` (overlay
+  scrollbars, no 15 px classic one), and `{"inject": "phone_audit.js"}`
+  gives it `__phoneAudit()` (controls under 44 px, off the screen, dialogs
+  outside the window, sideways overflow); `docs/rules.md` Tests has both.
 - `browser.mjs` exits 1 on a failed `expect`, 2 on a script it refuses
   (an async helper joined with `&&`/`||` is never awaited: put the whole
   condition inside the predicate).

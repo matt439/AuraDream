@@ -108,8 +108,9 @@ function syncCompare(rec) {
   const sourceHeld = syncSourceCompare(rec, on && kind === 'source', !pair);
   const ladders = pair ? syncPickedCompare(rec, on && kind === 'picked')
     : syncLadderCompare(rec, on && axis ? kind : null, !pass, ladderShown(rec, on && axis ? kind : null));
-  // The box: on every image from 901 px, where it is the column's; under it
-  // only where there is something in it (ladderShown), as the ladders' part is.
+  // The box: on every image where it is the column's beside the stage; under
+  // the stage (lbNarrow) only where there is something in it (ladderShown),
+  // as the ladders' part is.
   els.lbCompare.hidden = !pass && !ladders.shown;
   // A mode turns on the kind a press of S would, or switches the one on: held
   // where that has nothing to compare with, its press saying why.
@@ -182,9 +183,10 @@ function syncCompare(rec) {
 }
 
 // Whether each ladder's part of the comparison is drawn, CFG's and steps'.
-// From 901 px always, held where there is nothing to compare: the box is the
-// column's, pinned above the buttons, and an answer from the gallery changes
-// no layout. Under 901 px the box is a row of the strip under the stage, and
+// Beside the stage (from 901 px, and a phone on its side) always, held where
+// there is nothing to compare: the box is the column's, pinned above the
+// buttons, and an answer from the gallery changes no layout. Under the stage
+// (lbNarrow, LB_STACKED_MEDIA) the box is a row of the strip there, and
 // a row there is height the picture and the facts' letterbox lose
 // (lbFactsRoom): a square picture at 600x900 kept 77 px of letterbox where
 // it had 126, and lost its last facts. There each is drawn where the page's

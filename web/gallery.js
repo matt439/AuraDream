@@ -173,6 +173,7 @@ let galleryOthers = 0;
 function syncGalleryEmpty() {
   const empty = !sheetMode && total <= 0 && !galleryRecords.length && !els.gallery.querySelector('.card');
   els.galleryEmpty.hidden = !empty;
+  delete els.galleryEmpty.dataset.start;
   if (!empty) return;
   const search = els.search.value.trim();
   const hints = search ? mistypedSearchHints(search) : [];
@@ -180,14 +181,17 @@ function syncGalleryEmpty() {
     els.galleryEmpty.replaceChildren(search ? 'No image in the recycle bin matches this search.' : 'The recycle bin is empty.', ...hints);
     return;
   }
-  const others = galleryOthers && !els.allModels.checked
-    ? ` ${plural(galleryOthers, 'image')} on other checkpoints: tick All models.` : '';
+  const elsewhere = galleryOthers && !els.allModels.checked ? galleryOthers : 0;
+  const others = elsewhere ? ` ${plural(elsewhere, 'image')} on other checkpoints: tick All models.` : '';
   if (search || els.favOnly.checked) {
     els.galleryEmpty.replaceChildren(
       `${search ? 'No image matches this search' : 'No starred image here yet'}`
       + `${search && els.favOnly.checked ? ' among the starred' : ''}.${others}`, ...hints);
     return;
   }
+  // On a phone the first visit is a screen of its own, Create an image its
+  // one solid button (phone-gallery.js).
+  if (isPhone()) { phoneGalleryStart(elsewhere); return; }
   const examples = document.createElement('button');
   examples.type = 'button';
   examples.className = 'ghost tiny';
@@ -242,7 +246,8 @@ function setCardView(key, value) {
 function syncCardView() {
   els.gallery.dataset.density = cardView.density;
   els.gallery.dataset.fit = cardView.fit;
-  for (const button of els.cardView.querySelectorAll('button')) {
+  // The Fit and Crop pair is in ⋯'s sheet on a phone (phone-gallery.js).
+  for (const button of document.querySelectorAll('#card-view button, #card-fit button')) {
     const key = 'density' in button.dataset ? 'density' : 'fit';
     const on = button.dataset[key] === cardView[key];
     button.setAttribute('aria-pressed', String(on));
@@ -372,7 +377,10 @@ function holdGalleryView(change) {
 // it got there - except while it has focus, which it keeps until it loses
 // it (a scroll by keys from it would otherwise end in a field off screen).
 // Never a scroll of the page's own: only its press scrolls, the page to the
-// head (as the search's own reveal does) or the column to its top. Focus
+// head (as the search's own reveal does) or the column to its top. On a
+// phone, whose head is sticky, it shows three screens down and takes the
+// page to its top, as a press of the Gallery tab already chosen does
+// (touch.js, phoneViewToTop). Focus
 // goes first, before the button hides under it: to the grid's first card -
 // its image, as Home on a card - else, a sheet or an empty grid, the search.
 // Asked whatever hides the gallery: the button is in #library and hidden
@@ -380,6 +388,9 @@ function holdGalleryView(change) {
 // made meanwhile still holds once it is back. A wheel over it beside the
 // viewer scrolls the column it lies on, not the page.
 function galleryFarDown() {
+  // On a phone the head is sticky, never above the view: three screens
+  // down the page instead.
+  if (isPhone()) return scrollY > 3 * innerHeight;
   if (besideOn) {
     const box = els.libraryScroll;
     return box.clientHeight > 0 && box.scrollTop > box.clientHeight;
@@ -412,6 +423,8 @@ function goToGalleryTop() {
   const first = isShown(els.gallery) ? els.gallery.querySelector('.card[data-id] > img') : null;
   (first ?? els.search).focus({ preventScroll: true });
   if (besideOn) els.libraryScroll.scrollTo({ top: 0, behavior });
+  // The phone's sticky head is in sight wherever the page is: its top.
+  else if (isPhone()) scrollTo({ top: 0, behavior });
   else els.library.querySelector('.gallery-head').scrollIntoView({ block: 'start', behavior });
 }
 

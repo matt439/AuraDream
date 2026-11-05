@@ -8,7 +8,7 @@
 // --------------------------------------------------------------------- wire
 
 let searchTimer;
-els.generate.onclick = generate;
+els.generate.onclick = pressGenerate;
 els.cancel.onclick = cancelJob;
 els.pause.onclick = togglePause;
 els.cancelQueued.onclick = cancelQueued;
@@ -170,8 +170,10 @@ document.addEventListener('click', (e) => {
   // dropped by the time the click reaches here, so no longer in the page.
   if (!els.tagFinderMenu.hidden && e.target.isConnected
       && !e.target.closest('#tag-finder, #prompt, #tag-suggestions')) showTagFinder(false);
-  // The token line is in the editor (under the box) but no part of typing.
-  if (!e.target.closest('.prompt-editor') || e.target === els.promptTokens) hideTagSuggestions();
+  // The token line is in the editor (under the box) but no part of typing,
+  // nor is a phone's toolbar or its check's line there (phone.js).
+  if (!e.target.closest('.prompt-editor') || e.target === els.promptTokens
+      || e.target.closest('#prompt-toolbar, #check-chip')) hideTagSuggestions();
 });
 els.unload.onclick = unloadModel;
 els.more.onclick = () => loadGallery();
@@ -285,7 +287,8 @@ els.modelShotsAll.onclick = showModelShotsGallery;
 window.addEventListener('resize', refitModelShots);
 document.addEventListener('pointerdown', (event) => {
   if (els.lightbox.open) return;
-  if (!els.modelPicker.hidden && !els.modelPicker.contains(event.target) && event.target !== els.models) {
+  // The button's own parts too: on a phone the status rides in it (phone.js).
+  if (!els.modelPicker.hidden && !els.modelPicker.contains(event.target) && !els.models.contains(event.target)) {
     showModelPicker(false, { focus: false });
   }
 });
@@ -375,6 +378,7 @@ document.addEventListener('pointerdown', contextMenuTouchDown, true);
 document.addEventListener('pointermove', contextMenuTouchMove, true);
 document.addEventListener('pointerup', contextMenuTouchEnd, true);
 document.addEventListener('pointercancel', contextMenuTouchEnd, true);
+document.addEventListener('mousedown', contextMenuPressMouseDown, true);
 document.addEventListener('click', contextMenuPressClick, true);
 window.addEventListener('resize', () => closeContextMenu(false));
 window.addEventListener('blur', () => closeContextMenu(false));
@@ -703,7 +707,8 @@ function focusPromptBox() {
   box.focus({ preventScroll: true });
   box.setSelectionRange(box.value.length, box.value.length);
   const rect = box.getBoundingClientRect();
-  if (rect.top < document.querySelector('.topbar').getBoundingClientRect().bottom || rect.bottom > innerHeight) {
+  const band = viewBand();
+  if (rect.top < band.top || rect.bottom > band.bottom) {
     box.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' });
   }
 }

@@ -285,9 +285,16 @@ function syncWriteButton(button) {
 // button waits out the critic's own check, since a disabled one takes no focus
 // and it would fall to <body>.
 function closeAnalysis() {
+  dismissAnalysis();
+  (els.analyze.disabled ? els.prompt : els.analyze).focus();
+}
+
+// Shut, what was found kept, with the focus left where it is: Escape from
+// outside the panel, and a phone's sheet left by a finding's Show or by the
+// tier's change (phone-compose.js).
+function dismissAnalysis() {
   analysisDismissal += 1;
   els.promptAnalysis.hidden = true;
-  (els.analyze.disabled ? els.prompt : els.analyze).focus();
 }
 
 // Escape closes it too, once nothing nearer took the key (app.js's keydown:
@@ -297,10 +304,7 @@ function closeAnalysis() {
 function escapeAnalysis() {
   const focused = document.activeElement;
   if (!focused || focused === document.body || els.promptAnalysis.contains(focused)) closeAnalysis();
-  else {
-    analysisDismissal += 1;
-    els.promptAnalysis.hidden = true;
-  }
+  else dismissAnalysis();
 }
 
 // Forget the check: another checkpoint's tokenizers and guide, or a Reset. An
@@ -369,6 +373,10 @@ function selectIn(el, text, start, end) {
     analysisMessage('Those words are no longer where the check found them; Check again.');
     return false;
   }
+  if (el === els.negative) openPhoneNegative();
+  // On a phone the check is a sheet over the box: Show leaves it, its line
+  // under the prompt opening it again (phone.js).
+  leavePhoneCheck();
   el.focus();
   el.setSelectionRange(lead + from, lead + to);
   scrollToSelection(el);
@@ -446,6 +454,10 @@ function writeButton(label, title, onClick, { negative = false } = {}) {
 // ERNIE's Expand holds a result the user typed over, never one they replaced.
 let replacingBox = false;
 function replaceBoxText(el, text) {
+  // On a phone the negative's shut fold opens for words written into it, so
+  // the box can take the focus this write needs and the change is seen
+  // (phone.js).
+  if (el === els.negative) openPhoneNegative(text);
   replacingBox = true;
   try {
     el.focus();

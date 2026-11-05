@@ -24,6 +24,28 @@ const TABLET_COLUMNS_MEDIA = '(pointer: coarse) and (700px <= width <= 900px) an
 // Two columns - the panel beside the stage: a mouse's window over 900 px, or
 // a tablet in portrait (tag-chips.js reads it to place the chips' host).
 const TWO_COLUMNS_MEDIA = `(min-width: 901px), ${TABLET_COLUMNS_MEDIA}`;
+// The touch tier: a coarse primary pointer, the phone's and the tablet's.
+const TOUCH_MEDIA = '(pointer: coarse)';
+// The lightbox with its column under the stage rather than beside it: a
+// window under 901 px, but for a phone on its side, where the column is
+// beside the stage again (styles/lightbox.css and styles/touch.css, the same
+// text). lightbox.js and lightbox-compare.js read it for the facts' room,
+// side by side's split and which comparisons have room.
+const LB_STACKED_MEDIA = '(max-width: 900px) and (not ((pointer: coarse) and (max-height: 500px) and (orientation: landscape)))';
+
+// The part of the window the page's content shows in: from the topbar's foot
+// (0 where it has scrolled away, as on a phone on its side) down to the
+// window's foot less what is fixed over it there - on the phone the tab bar
+// and the home indicator's inset, `--phone-bottom-chrome` (styles/touch.css;
+// 0 while a box has the keyboard and the bar steps aside). Everywhere else
+// that is 0, so `bottom` is innerHeight: a PC's checks are what they were.
+// The reveal and in-sight checks read this rather than innerHeight, so a
+// control under the tab bar counts as out of sight.
+function viewBand() {
+  const top = Math.max(0, document.querySelector('.topbar').getBoundingClientRect().bottom);
+  const chrome = parseFloat(getComputedStyle(document.body).getPropertyValue('--phone-bottom-chrome')) || 0;
+  return { top, bottom: innerHeight - chrome };
+}
 
 const PAGE = 48;
 // A sheet wants the whole run in one go - it is a matrix, and a matrix with a
@@ -731,10 +753,19 @@ function readableDetail(detail) {
 // OFFLINE_MESSAGE, and those that say so in their own words - which the
 // first status poll the server answers takes back (clearOffline): it used to
 // stay up, red, long after the server was back.
+// `panelErrorWrites` counts writes to the panel's line, for a press to tell
+// whether it was answered there (pressGenerate); each write also takes the
+// line back from the phone's place by Generate (#error.at-generate,
+// sayAtGenerate in touch.js).
 const offlineSlots = new Map();
+let panelErrorWrites = 0;
 function showError(message, note = false, {
   slot = els.error, mirror = true, offline = !!message?.includes(OFFLINE_MESSAGE),
 } = {}) {
+  if (slot === els.error) {
+    panelErrorWrites++;
+    slot.classList.remove('at-generate');
+  }
   // Unhide *before* writing: the slot is role=alert, and text written into a
   // display:none node is never announced.
   slot.hidden = !message;
