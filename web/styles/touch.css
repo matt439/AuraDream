@@ -339,8 +339,10 @@
     --phone-actions-h: 66px;
   }
   /* And as wide: a glyph's button (a queue row's × and ↑, Bin, the run
-     sheet's − and +), a size pill (1:1), a close. Words are wider already. */
-  .ghost:is(.small, .tiny), .presets button, .close, #lb-fit, #lb-one { min-width: var(--h-md); }
+     sheet's − and +), a size pill (1:1), a close, the sheets' seed dice
+     (`.square`: the glyph's own width was 32 on Linux's fonts). Words are
+     wider already. */
+  .ghost:is(.small, .tiny, .square), .presets button, .close, #lb-fit, #lb-one { min-width: var(--h-md); }
   /* The Prompt row's Examples, Check and Reset are a step under the small
      buttons elsewhere (fields.css): here they are the same 44. */
   .field > span:has(> label[for="prompt"]) .ghost.tiny { min-height: var(--h-md); }
