@@ -132,6 +132,8 @@ def test_lite_rows_use_the_nvfp4_measurements_and_int4_says_likely():
 def test_every_sized_entry_is_in_the_catalogue():
     repos = {entry.repo for entry in CHECKPOINTS}
     assert set(model_info._CARD_NEEDS) <= repos
+    assert set(model_info._BF16_NEEDS) <= repos
+    assert not set(model_info._BF16_NEEDS) & set(model_info._CARD_NEEDS)
     assert set(model_info._LITE_NEEDS) <= {entry.repo for entry in CHECKPOINTS if entry.lite}
 
 
@@ -147,3 +149,26 @@ def test_the_listing_sizes_rows_from_the_servers_card(client, monkeypatch):
 def test_the_listing_without_a_card_is_unchanged(client):
     details = client.get("/api/models").json()["details"]
     assert details[KREA_DEV]["fit"] == ""
+
+
+def test_bf16_flags_the_rows_whose_measured_bf16_peak_is_over_the_card():
+    """Z-Image Turbo, Z-Anime and klein 4B fit an 8 GB card at fp8 but not at
+    BF16 (docs/verified.md's 2026-10-25 table); NewBie's 7.28 GiB fits 7.8."""
+    card = _bytes(RTX_3070)
+    for repo in ("Tongyi-MAI/Z-Image-Turbo", "SeeSee21/Z-Anime",
+                 "black-forest-labs/FLUX.2-klein-4B", "black-forest-labs/FLUX.2-klein-base-4B"):
+        assert model_info.details_for(repo, quantization="fp8", card_memory=card)["fit"] == "", repo
+        bf16 = model_info.details_for(repo, quantization="none", card_memory=card)
+        assert bf16["fit"] == "Over 8 GB", repo
+        assert bf16["fit_note"].startswith("BF16 with model offload peaked at "), repo
+        assert "Sequential" not in bf16["fit_note"]
+        assert model_info.details_for(repo, quantization="none", offload="sequential",
+                                      card_memory=card)["fit"] == ""
+        assert model_info.details_for(repo, quantization="none", card_memory=_bytes(RTX_5080))["fit"] == ""
+    assert model_info.details_for("NewBie-AI/NewBie-image-Exp0.1", quantization="none",
+                                  card_memory=card)["fit"] == ""
+
+
+def test_the_sequential_ceiling_covers_every_listed_measurement():
+    """2.44 GiB: FLUX.2 klein base 9B's BF16 sequential peak, the highest."""
+    assert "2.44 GiB allocated or less" in model_info._SEQUENTIAL

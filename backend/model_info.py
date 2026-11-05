@@ -201,7 +201,10 @@ _FP8_ON_5080 = f"FP8 with model offload peaked at {{}} on {_5080} ({{}})"
 # checkpoint carries its measured sibling's figure, or its transformer's
 # size at one byte a weight, each said as such. Only the FLUX-size
 # checkpoints are listed: every other catalogue entry peaked at 6.8 GiB
-# allocated or less, so a card under that is not sized here.
+# allocated or less at fp8 or int8 on an ordinary first image at 1024x1024
+# (Z-Anime Base's 10.35 GiB, 2026-09-19, was the first image after a
+# cancellation; its repeat took 6.78), so a card under that is not sized
+# here. BF16's larger peaks are `_BF16_NEEDS`.
 _CARD_NEEDS: dict[str, tuple[float, str]] = {
     "black-forest-labs/FLUX.1-Krea-dev": (12.00, _FP8_ON_5080.format(
         "12.00 GiB allocated (12.63 reserved) at 1024×1024", "2026-10-27")),
@@ -234,9 +237,21 @@ _LITE_NEEDS: dict[str, tuple[float, str]] = {
     "krea/Krea-2-Turbo": (8.1, f"The NVFP4 build peaked at 8.1 GiB at 1 MP on {_5080} (WSL, 2026-09-05)"),
     "Qwen/Qwen-Image": (11.75, f"The NVFP4 build peaked at 11.75 GiB at 1 MP on {_5080} (WSL, 2026-09-08)"),
 }
+# Full BF16 (quantization none) with model offload, where docs/verified.md's
+# 2026-10-25 table records a peak above 7 GiB for a checkpoint `_CARD_NEEDS`
+# does not list (Windows, 1024x1024, on the 5080). For the listed ones the
+# fp8 figure stands as a floor.
+_BF16_ON_5080 = f"BF16 with model offload peaked at {{}} allocated at 1024×1024 on {_5080} (2026-10-25)"
+_BF16_NEEDS: dict[str, tuple[float, str]] = {
+    "Tongyi-MAI/Z-Image-Turbo": (12.07, _BF16_ON_5080.format("12.07 GiB")),
+    "SeeSee21/Z-Anime": (12.55, _BF16_ON_5080.format("12.55 GiB")),
+    "black-forest-labs/FLUX.2-klein-4B": (7.83, _BF16_ON_5080.format("7.83 GiB")),
+    "black-forest-labs/FLUX.2-klein-base-4B": (7.84, _BF16_ON_5080.format("7.84 GiB")),
+    "NewBie-AI/NewBie-image-Exp0.1": (7.28, _BF16_ON_5080.format("7.28 GiB")),
+}
 _PEAKS_LEAVE_OUT = "Allocator peaks leave out the CUDA context and the desktop."
 _SEQUENTIAL = (
-    "Sequential offload needs far less, much more slowly: 2.43 GiB allocated or less "
+    "Sequential offload needs far less, much more slowly: 2.44 GiB allocated or less "
     "at BF16 on the 5080 for the FLUX.1, Krea 2, klein 9B and ERNIE checkpoints."
 )
 
@@ -256,6 +271,8 @@ def card_fit(
         if quantization == "nunchaku":
             return None
         need, known = _CARD_NEEDS.get(checkpoint_repo, (0.0, ""))
+        if not known and quantization == "none":
+            need, known = _BF16_NEEDS.get(checkpoint_repo, (0.0, ""))
     else:
         need, known = _LITE_NEEDS.get(checkpoint_repo, (0.0, ""))
     total = card_memory / _GIB
@@ -266,7 +283,7 @@ def card_fit(
     if lite_format == "int4":
         known = "The INT4 build is unmeasured. " + known
     note = f"{known}; this card has {total:.1f} GiB. {_PEAKS_LEAVE_OUT}"
-    if lite_format is None and checkpoint_repo != "black-forest-labs/FLUX.1-Kontext-dev":
+    if checkpoint_repo in _CARD_NEEDS and lite_format is None and checkpoint_repo != "black-forest-labs/FLUX.1-Kontext-dev":
         note += f" {_SEQUENTIAL}"
     return badge, note
 

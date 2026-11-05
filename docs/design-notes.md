@@ -302,7 +302,9 @@ warns under that figure and names the lighter checkpoints; the Models
 panel's fit badge sizes a build from the card (`GEN#43`, 2026-11-05):
 under a FLUX-size checkpoint's need, its row says "Over 8 GB" (from the
 card's own size) with the 5080's measured peak, or a sibling's or the
-transformer's size where its own is unmeasured, said so; an INT4 lite row,
+transformer's size where its own is unmeasured, said so; at BF16 the
+lighter checkpoints whose measured BF16 peak passes the card (Z-Image
+Turbo, Z-Anime, klein 4B) say so too; an INT4 lite row,
 unmeasured, says "Likely over" from its NVFP4 build; an unknown card or a
 16 GB one changes nothing. The refine and inpaint "measured" words say
 whose card they were measured on (`GEN#44`, 2026-11-05): on a card of

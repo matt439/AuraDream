@@ -1298,7 +1298,9 @@ measured on the card and when.
   (docs/verified.md's fp8, model-offload allocator peaks on the 5080, FLUX.1
   Krea [dev]'s the doctor's `DEFAULT_PEAK_GIB`; an unmeasured one its
   measured sibling's figure or its transformer at one byte a weight, said
-  so), `_LITE_NEEDS` the lite builds measured above 8 GiB. FP8's figure
+  so), `_LITE_NEEDS` the lite builds measured above 8 GiB, `_BF16_NEEDS`
+  the other official repos whose BF16 model-offload peak (2026-10-25's
+  table) is above 7 GiB, for quantization none only. FP8's figure
   stands for INT8 and, as a floor, BF16; sequential offload, and Nunchaku
   on an official id, are not sized. Qwen-Image keeps `_FIT`'s "Over 16 GB";
   Kontext's qualified-size note follows the card's, as the 5080's. An
