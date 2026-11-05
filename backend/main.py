@@ -696,6 +696,9 @@ async def status() -> ModelStatus:
             defaults["reference_supported"],
             defaults["lora_supported"],
             defaults["refine_supported"],
+            # Read off the event loop with the description above; None without
+            # a card, which keeps the measured words as they were.
+            card_memory=card_facts.total_memory(selected_settings.device),
         ),
         guide=PromptGuide.model_validate(guide_for(info["model_id"])),
         model_id=info["model_id"],
@@ -755,7 +758,8 @@ def _describe_with_newest() -> tuple[dict, int | None]:
 async def _read_card() -> None:
     """Read the card's facts once, off the event loop, before a route's
     Nunchaku format default (`model_selection.card_format`) or the
-    catalogue's fit badge (`model_info.card_fit`) asks: a first
+    catalogue's fit badge (`model_info.card_fit`) asks (the status reads
+    them in `_describe_with_newest`, for its measured words too): a first
     CUDA query can queue behind a cold load, as `describe()`'s can."""
     await asyncio.to_thread(card_facts.card, current_settings(settings).device)
 

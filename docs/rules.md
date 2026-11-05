@@ -168,7 +168,7 @@ before changing it.
 - `backend/schemas_model.py` — the model status poll, the prompting guide and
   its tag helper, critic/Expand status, the switch request
 - `backend/model_defaults.py` — recommended steps/CFG/mu per checkpoint and
-  the control tooltips; each profile hangs its prompting guide from
+  the control tooltips (`card_words`: the measured card's words on another); each profile hangs its prompting guide from
 - `backend/guides.py` — the guides themselves, one dict per checkpoint: prompt
   and size prose, the documented megapixel range with its word, the authors'
   example prompts, and `analysis` - the prose's checkable statements as data
@@ -1952,7 +1952,15 @@ measured on the card and when.
   with a pass has one, so only an unprofiled pipeline gets it. A shared
   profile shares its row (FLUX.1 dev and the lite repos quote Krea dev's
   fp8 run), so the size line names the run it quotes, never "this
-  checkpoint". FLUX.1's `hints.refine_large` is shown
+  checkpoint". Every row is the 16 GB card's (GEN#44): on a server whose
+  card is another size (`card_facts.total_memory` to whole GiB, passed to
+  `hints_for` as `card_memory`) `hints.refine_tight` ends "on a 16 GB card;
+  this card has N GB" and `hints.tight_card` carries those words for the
+  page's lines with no run ("may run tight on a 16 GB card; ..."; with a
+  run, "may run tight, past ..."), the pixels unscaled; the inpaint
+  Strength note's "measured on the card" says "a 16 GB card". An unknown or
+  16 GB card leaves every hint as it was (`tests/test_card_measured.py`).
+  FLUX.1's `hints.refine_large` is shown
   under Strength past it (`applyHints` clears it where a status has none).
   The preview reports where a pass of one strength starts
   (`GridPreview.start_sigma`, the dialog's "starts at N% noise", and the
@@ -4167,7 +4175,7 @@ measured on the card and when.
   opened at the size line names the next scale up and the line it is past
   (`refineCapNote`: "1.25× and larger go past the 1536×1536 (2.36 MP)
   measured on Z-Anime at fp8", or the generic "may run tight on 16GB
-  VRAM"); a run at the size it opened at in place of the scale asked for
+  VRAM", every tight line's words from `tightWords` in `sizes.js`); a run at the size it opened at in place of the scale asked for
   leaves the remembered scale alone (`refineCapped`) - unless settings a
   close left unsent on the same image and checkpoint are restored
   (`unsentRefine`, page memory only, never `auradream.refine.v1`),
@@ -8948,7 +8956,9 @@ named on its button and a run at the capped size not remembered as the
 scale, the crop's kept percentage and Keep shape - Versions and their
 seeds, the rows and the lightbox's settings line (`refine of #N`), the
 facts' Refined from link and S comparing a pass with its source, a pass past
-4 MP and one past the guard refused in place, Refine held while a submit
+4 MP and one past the guard refused in place, the measured line said as the
+16 GB card's with an 8 GB card claimed (`POST /api/fake/card`) and as before
+without one, Refine held while a submit
 is in flight and a press saying so, Escape on a dialog opened from
 the lightbox giving the lightbox back on the same image, a strength sweep's
 preview, its sheet axis and `refine:` in the search box, the passes strip

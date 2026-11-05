@@ -210,7 +210,7 @@ function syncSize() {
   } else if (sizeRange && mp < sizeRange[0] * 0.9) {
     notes.push(`below the ${fmtMp(sizeRange[0])} MP ${rangeOwner()}`);
   }
-  if (sizeIsTight(w, h)) notes.push('may run tight on 16GB VRAM');
+  if (sizeIsTight(w, h)) notes.push(tightWords(null));
   els.sizeHint.textContent = `${mp.toFixed(1)} MP` + notes.map((n) => ` — ${n}`).join('');
   els.sizeHint.classList.toggle('warn', notes.length > 0);
   syncCustomSizeSummary(match);
@@ -219,6 +219,17 @@ function syncSize() {
 // 4 MP on a 16GB card is the edge of what fits once the DiT is resident; the
 // Refine dialog's size line says the same past it.
 const sizeIsTight = (w, h) => w * h > 1600 * 1600;
+
+// The tight line's words. On the 16 GB card every figure was measured on, or
+// an unknown one, "may run tight on 16GB VRAM", then the measured run where
+// the profile has one (`hints.refine_tight`). On another card the server says
+// whose line it is (`hints.tight_card`: "on a 16 GB card; this card has
+// 8 GB"), and the run already ends with those words.
+function tightWords(run) {
+  const card = typeof lastHints?.tight_card === 'string' ? lastHints.tight_card : null;
+  if (!card) return run ? `may run tight on 16GB VRAM, ${run}` : 'may run tight on 16GB VRAM';
+  return run ? `may run tight, ${run}` : `may run tight ${card}`;
+}
 
 // A size's framing is the preset aspect nearest its ratio, within 3%:
 // Animagine's 1216x832 is its 3:2, 2.6% off; ERNIE's 768x1376 its 9:16, 0.8%

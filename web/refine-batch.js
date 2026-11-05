@@ -249,7 +249,7 @@ function syncRefineBatchScales(largest) {
       const size = refineScaled(largest[0], largest[1], scale);
       const fits = refineFits(size);
       const why = !fits ? ' - past what a refine pass renders; the images that would go past it are left out'
-        : refineTight(...size) ? ` - may run tight on 16GB VRAM${run ? `, ${run}` : ''}` : '';
+        : refineTight(...size) ? ` - ${tightWords(run)}` : '';
       button.title = `${scale}×: the largest image, ${largest[0]}×${largest[1]}, becomes ${size[0]}×${size[1]}${why}${capped}`;
     }
     button.setAttribute('aria-label', `${scale} times each image's size. ${button.title}`);

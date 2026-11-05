@@ -304,8 +304,13 @@ under a FLUX-size checkpoint's need, its row says "Over 8 GB" (from the
 card's own size) with the 5080's measured peak, or a sibling's or the
 transformer's size where its own is unmeasured, said so; an INT4 lite row,
 unmeasured, says "Likely over" from its NVFP4 build; an unknown card or a
-16 GB one changes nothing. The refine and inpaint "measured" sizes are
-the 5080's. Nunchaku's nvfp4 repos need
+16 GB one changes nothing. The refine and inpaint "measured" words say
+whose card they were measured on (`GEN#44`, 2026-11-05): on a card of
+another size the Refine dialog's tight line keeps the 5080's measured pass,
+scaled nothing, and says it was "on a 16 GB card; this card has 8 GB"
+(the panel's generic 1600x1600 line too), and the inpaint Strength note's
+"measured on the card" reads "measured on a 16 GB card"; an unknown card or
+a 16 GB one changes nothing. Nunchaku's nvfp4 repos need
 compute capability 10.0, so a 3070 needs the int4 ones, which the setup
 script and the doctor name; whether the published kernels include sm_86 is
 not measured. A Nunchaku load with no format chosen takes the card's

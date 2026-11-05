@@ -92,7 +92,9 @@ Backend (`backend/`):
   `hf_sign_in.py` whether a Hugging Face token is present (existence only,
   shared by the doctor and the status that preselects an open checkpoint);
   `card_facts.py` the server's CUDA card (total memory, compute capability;
-  None when unknown), read once and off the event loop;
+  None when unknown), read once and off the event loop; on a card of
+  another size the status's measured refine/inpaint words say they are the
+  16 GB card's (`model_defaults.card_words`);
   `model_benchmarks.py` supplies retained timing references and speed categories
 - `execution.py` frozen execution recipes, composer/replay resolution, cold candidate checks and shared
   SQL/PNG codecs; nonempty recipes remain unavailable until runtime support
