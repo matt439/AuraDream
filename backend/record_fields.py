@@ -99,7 +99,7 @@ def mask_hash(mask: Image.Image) -> str:
 
 def open_mask(source, digest: str) -> Image.Image | None:
     """The mask `source` (a path, or a PNG's bytes) holds, where it is the
-    mask `digest` names: one `L` channel whose `storage.mask_hash` - its size
+    mask `digest` names: one `L` channel whose `mask_hash` - its size
     and its levels - is that hash. None for anything else, a file that is
     not a PNG included."""
     try:
