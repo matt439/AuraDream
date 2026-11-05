@@ -88,6 +88,8 @@ function syncPhoneHosts() {
   // The topbar's chip and ⋯, the prompt's toolbar and check, Shape and
   // Size (phone-compose.js).
   syncPhoneCompose();
+  // The gallery's one-row head and its two sheets (phone-gallery.js).
+  syncPhoneGallery();
 }
 
 // ------------------------------------------------------- the newest result
@@ -455,6 +457,7 @@ function initPhone() {
     phoneHomes.set(node, mark);
   }
   initPhoneCompose();
+  initPhoneGallery();
   makePhoneStepper(els.batch, 'Batch');
   makePhoneStepper(els.runs, 'Repeat');
   phoneNegFold = document.createElement('button');

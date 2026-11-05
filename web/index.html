@@ -45,6 +45,7 @@
      the phone's own hosts (phone.js) after it. -->
 <link rel="stylesheet" href="/static/styles/touch.css">
 <link rel="stylesheet" href="/static/styles/phone.css">
+<link rel="stylesheet" href="/static/styles/phone-gallery.css">
 </head>
 <body>
 <header class="topbar">
@@ -958,6 +959,21 @@
           <b>model:=</b> takes one checkpoint&#39;s whole id.
           <b>mu:none</b> (the pipeline&#39;s own shift, none of ours) is not <b>mu:0</b>.<br>
           In the full view, ⌕ beside a setting adds it here.</span></span>
+        <!-- A phone's head is one row (phone-gallery.js, styles/phone-gallery.css):
+             the search, Filters, Select and ⋯. Filters opens a sheet of
+             Starred, All models, Runs, Sheet and the search's terms; ⋯ a sheet
+             of the head's and the footer's other buttons. Each is moved there
+             whole and home again off the phone. These two are drawn nowhere
+             else. -->
+        <button type="button" class="gallery-filters" id="btn-gallery-filters" aria-haspopup="dialog"
+          aria-controls="gallery-filter-sheet" aria-label="Filters"
+          title="Starred, all models, a run, the sheet and the search's terms"><svg class="gallery-filters-glyph"
+          viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h10.2a3 3 0 0 1 5.6 0H21v2h-2.2a3 3 0 0 1-5.6 0H3zm13 1a1 1 0 1 0 0 .01zM3 16h2.2a3 3 0 0 1 5.6 0H21v2H10.8a3 3 0 0 1-5.6 0H3zm5 1a1 1 0 1 0 0 .01z"/></svg><span
+          class="gallery-badge" id="gallery-filters-count" aria-hidden="true" hidden></span></button>
+        <button type="button" class="gallery-more" id="btn-gallery-more" aria-haspopup="dialog"
+          aria-controls="gallery-more-sheet" aria-label="More gallery actions"
+          title="The picks, Swap tags, Refine, More seeds, saved searches, bundles, the recycle bin and Delete unstarred"><span
+          class="gallery-badge" id="gallery-more-count" aria-hidden="true" hidden></span></button>
         <label class="check"><input type="checkbox" id="fav-only"> Starred</label>
         <!-- Off, the gallery is the running checkpoint's images: steps, CFG and
              mu are the checkpoint's, so another one's are settings that cannot
@@ -1147,6 +1163,46 @@
   <div class="queue-sheet-body" id="queue-sheet-body">
     <p class="hint queue-sheet-idle">Nothing is running or queued.</p>
   </div>
+</dialog>
+<!-- The gallery head's two sheets on a phone (phone-gallery.js), docked at
+     the screen's foot. Filters holds the gallery's own Starred and All models
+     ticks (drawn as chips), the Runs picker, Sheet and the search's terms;
+     ⋯ holds the picks' count, Clear and Picked, Re-render, Swap tags…,
+     Refine…, More seeds…, Saved searches…, Bundles…, the recycle bin and its
+     own buttons, and Delete unstarred last. Each is the head's own node,
+     moved in whole on the phone and home again off it; the gallery's line
+     (#gallery-error) is moved into the open sheet's foot, so a held press
+     says why where it was pressed. -->
+<dialog class="gallery-sheet" id="gallery-filter-sheet" aria-labelledby="gallery-filter-title">
+  <div class="gallery-sheet-head">
+    <h2 id="gallery-filter-title">Filters</h2>
+    <span class="gallery-sheet-count" id="gallery-filter-count"></span>
+    <button type="button" class="close" id="gallery-filter-close" aria-label="Close">✕</button>
+  </div>
+  <div class="gallery-sheet-body">
+    <div class="gallery-filter-chips" id="gallery-filter-chips" role="group" aria-label="Show"></div>
+    <div class="gallery-filter-run" id="gallery-filter-run"><span class="gallery-sheet-caption" aria-hidden="true">Run</span></div>
+    <div class="gallery-sheet-group" id="gallery-filter-view"></div>
+    <details class="search-help-fold" id="search-help-fold"><summary>Search terms</summary></details>
+  </div>
+  <div class="gallery-sheet-foot"></div>
+</dialog>
+<dialog class="gallery-sheet" id="gallery-more-sheet" aria-labelledby="gallery-more-title">
+  <div class="gallery-sheet-head">
+    <h2 id="gallery-more-title">Gallery actions</h2>
+    <button type="button" class="close" id="gallery-more-close" aria-label="Close">✕</button>
+  </div>
+  <div class="gallery-sheet-body">
+    <div class="gallery-sheet-group gallery-more-picks" id="gallery-more-picks"></div>
+    <!-- What Re-render, Swap tags…, Refine… and More seeds… would act on, said
+         once over them: the picks, else what the filter matches, else why
+         none of them can (syncPhoneGalleryHead). -->
+    <div class="gallery-sheet-group" id="gallery-more-act"><p class="gallery-sheet-scope" id="gallery-more-scope"></p></div>
+    <div class="gallery-sheet-group" id="gallery-more-library"></div>
+    <div class="gallery-sheet-group" id="gallery-more-bin"></div>
+    <div class="gallery-sheet-group" id="gallery-more-danger"></div>
+  </div>
+  <div class="gallery-sheet-foot"></div>
 </dialog>
 
 <!-- A <dialog> opened with showModal(): focus is trapped inside it, the page
@@ -2319,6 +2375,7 @@
 <script src="/static/touch.js"></script>
 <script src="/static/phone.js"></script>
 <script src="/static/phone-compose.js"></script>
+<script src="/static/phone-gallery.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

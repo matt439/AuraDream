@@ -247,7 +247,7 @@ raw composer capture, validated Restore and whole-draft Undo; it queues no work.
 instruction… (the menu item, the dialog, Reuse of an edit and its lineage);
 it never writes the composer's prompt, negative or references.
 
-`touch.js` (`styles/touch.css`, linked next to last) owns the phone's Create and
+`touch.js` (`styles/touch.css`, linked before the phone's own sheets) owns the phone's Create and
 Gallery views and its tab bar; the phone and tablet tier keys on a coarse
 primary pointer (iPhone 15 Pro, iPad Air 11), never width alone, so a PC's
 mouse and the smokes never match it. On touch a long press is the image's
@@ -261,7 +261,11 @@ are drawn on the phone alone. `phone-compose.js`, after it, owns the
 phone's compose controls: the topbar's model chip (the status moved into
 Models) and its ⋯ menu, the prompt's toolbar under the box, the check's
 sheet and its line, and the size as Shape and a Size chip over the
-undrawn strips. Nodes are moved whole under
+undrawn strips. `phone-gallery.js` (`styles/phone-gallery.css`, linked
+last), after it, owns the phone's gallery head: one sticky row (search,
+Filters, Select, ⋯) and the Filters and ⋯ sheets holding the head's and
+footer's own buttons, each bulk action's line saying what it takes or
+why it is held. Nodes are moved whole under
 `PHONE_MEDIA` (`moveBefore`) and home again on the tier's change, never
 copied or reordered with CSS. On touch
 each open overlay (lightbox, dialog, Models, context menu, run sheet) holds
@@ -460,7 +464,8 @@ Frontend:
   changes under 1800 px, where the smokes run, but the panel's own gap and
   field height under 900 px tall (`docs/rules.md`). Phone and tablet rules
   go in `styles/touch.css` under `(pointer: coarse)` (the phone's own
-  hosts, filled by `phone.js`, in `styles/phone.css`); a one-column rule
+  hosts, filled by `phone.js`, in `styles/phone.css`, its gallery head in
+  `styles/phone-gallery.css`); a one-column rule
   keyed on 900 px excludes the tablet's two columns with the same query.
 - A button held for a reason is `aria-disabled` with the reason as its title,
   never `disabled` (documented exceptions in `docs/rules.md`); a press says

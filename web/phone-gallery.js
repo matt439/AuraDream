@@ -1,0 +1,297 @@
+// AuraDream's page script: the gallery's head on a phone (styles/phone-
+// gallery.css draws it) - one row, the search, Filters, Select and ⋯ - and
+// the two sheets those open from the screen's foot: Filters holding Starred,
+// All models, the Runs picker, Sheet and the search's terms; ⋯ the picks'
+// count, Clear and Picked, Re-render, Swap tags…, Refine…, More seeds…,
+// Saved searches…, Bundles…, the recycle bin and its own buttons, and Delete
+// unstarred last. Each is the head's own node, moved whole under PHONE_MEDIA
+// with phone.js's phoneMove and home again off it - never a copy, so `els`,
+// every sync and every hold keep the one node. A bulk action says in its own
+// row what it would take (its scope, or why it is held). Declarations only;
+// phone.js calls initPhoneGallery from initPhone and syncPhoneGallery from
+// syncPhoneHosts.
+'use strict';
+
+// The search's help badge, the `.help` after the search: moved into the
+// Filters sheet's fold, so it is kept here rather than looked up by place.
+let phoneSearchHelp = null;
+
+// What each sheet holds, host by host, in the order drawn.
+const galleryFilterPlaces = () => [
+  ['gallery-filter-chips', [els.favOnly.closest('label'), $('all-models-label')]],
+  ['gallery-filter-run', [els.runList]],
+  ['gallery-filter-view', [els.sheetBtn]],
+  ['search-help-fold', [phoneSearchHelp]],
+];
+const galleryMorePlaces = () => [
+  ['gallery-more-picks', [els.selectCount, els.selectClear, els.picked]],
+  ['gallery-more-act', [els.rerender, els.swap, els.refineBatch, els.moreSeeds]],
+  ['gallery-more-library', [els.savedSearches, els.bundles, els.bin]],
+  ['gallery-more-bin', [els.restorePicked, els.purgePicked, els.binAge, els.emptyBin]],
+  ['gallery-more-danger', [els.deleteUnstarred]],
+];
+const phoneGalleryMoved = () => [
+  ...[...galleryFilterPlaces(), ...galleryMorePlaces()].flatMap(([, nodes]) => nodes), els.select,
+];
+
+// The rows that say under their name what they take: a bulk action's scope
+// (the picks, else what the filter matches), or the reason it is held.
+const gallerySubRows = () => [
+  els.pickedBtn, els.swap, els.refineBatch, els.moreSeeds, els.savedSearches, els.bundles, els.bin,
+  els.restorePicked, els.purgePicked, els.emptyBin, els.deleteUnstarred, els.sheetBtn,
+];
+
+// From syncPhoneHosts: at boot and at every change of tier.
+function syncPhoneGallery() {
+  const head = els.search.closest('.gallery-head');
+  if (isPhone()) {
+    for (const [id, nodes] of [...galleryFilterPlaces(), ...galleryMorePlaces()]) {
+      const host = $(id);
+      for (const node of nodes) phoneMove(node, host);
+    }
+    phoneMove(els.select, head, $('btn-gallery-more'));
+  } else {
+    for (const sheet of [$('gallery-filter-sheet'), $('gallery-more-sheet')]) if (sheet.open) sheet.close();
+    for (const node of [els.galleryError, ...phoneGalleryMoved()]) phoneHome(node);
+    for (const row of gallerySubRows()) row.querySelector(':scope > .row-sub')?.remove();
+    head.removeAttribute('data-bin');
+  }
+  syncPhoneGalleryHead();
+}
+
+let phoneGallerySyncQueued = false;
+function queuePhoneGallerySync() {
+  if (phoneGallerySyncQueued) return;
+  phoneGallerySyncQueued = true;
+  queueMicrotask(() => { phoneGallerySyncQueued = false; syncPhoneGalleryHead(); });
+}
+
+// The head's state as the phone draws it: the search's words (the count it
+// searches), Filters' badge (how many of Starred and All models are on),
+// ⋯'s (how many images are picked), the bin's title row, each sheet's rows'
+// lines, and the Filters sheet's count. The page's own writes are watched
+// (initPhoneGallery), so this follows whatever changed them.
+function syncPhoneGalleryHead() {
+  if (!isPhone()) return;
+  syncSearchPlaceholder();
+  const head = els.search.closest('.gallery-head');
+  head.toggleAttribute('data-bin', binMode);
+  placeBinGroup();
+  const on = [els.favOnly.checked && !binMode ? 'Starred' : '', els.allModels.checked && !binMode ? 'all models' : ''].filter(Boolean);
+  const filters = $('btn-gallery-filters');
+  badge($('gallery-filters-count'), on.length);
+  filters.classList.toggle('on', on.length > 0);
+  filters.setAttribute('aria-label', on.length ? `Filters: ${on.join(', ')}` : 'Filters');
+  const n = selection.size;
+  badge($('gallery-more-count'), n);
+  $('btn-gallery-more').setAttribute('aria-label', n ? `More gallery actions: ${n} picked` : 'More gallery actions');
+  const count = $('gallery-filter-count');
+  const words = galleryShown();
+  if (count.textContent !== words) count.textContent = words;
+  const scope = $('gallery-more-scope');
+  const target = galleryActionTarget('to choose the images', 'one press');
+  const said = target.scope ? `On ${target.words}` : phoneWords(target.why);
+  if (scope.textContent !== said) scope.textContent = said;
+  scope.classList.toggle('held', !target.scope);
+  for (const row of gallerySubRows()) syncGallerySub(row, target);
+}
+
+// A held reason in a phone's words: there is no Ctrl+click on a phone, and
+// Bin is the ⋯ sheet's Recycle bin.
+const phoneWords = (why) => (why || '')
+  .replace('Pick cards (Ctrl/Cmd+click or Select)', 'Pick images with Select')
+  .replace('leave it with Bin', 'leave it with Recycle bin in ⋯');
+
+// In the recycle bin its own rows come first in ⋯ - Recycle bin itself
+// ("Back to the gallery"), then Restore picked, Delete picked permanently,
+// which images Empty takes and Empty recycle bin - the gallery's after
+// them, held; out of it, the bin's rows before Delete unstarred and
+// Recycle bin back after Bundles…. The hosts move, never while the sheet
+// is open (the bin is entered and left by the sheet's own row, which
+// shuts it first).
+function placeBinGroup() {
+  const sheet = $('gallery-more-sheet');
+  if (sheet.open) return;
+  const group = $('gallery-more-bin');
+  const body = group.parentNode;
+  const before = binMode ? body.firstElementChild : $('gallery-more-danger');
+  if (group !== before && group.nextElementSibling !== before) body.insertBefore(group, before);
+  if (binMode) phoneMove(els.bin, group, group.firstChild);
+  else phoneMove(els.bin, $('gallery-more-library'));
+}
+
+function badge(el, n) {
+  el.hidden = !n;
+  const text = n > 99 ? '99+' : String(n);
+  if (el.textContent !== text) el.textContent = text;
+}
+
+// The gallery's count (`total`, which the head's title says as "(9)"), in
+// words: what the filters show.
+function galleryShown() {
+  return binMode ? `${plural(total, 'image')} in the bin` : plural(total, 'image');
+}
+
+// The search's placeholder on the phone: what it searches, the count the
+// head's title would say ("Search 9 images"); the touch tier's own words
+// elsewhere (touch.js, syncTier).
+function phoneSearchWords() {
+  if (binMode) return 'Search the bin';
+  return total > 0 ? `Search ${plural(total, 'image')}` : 'Search prompts';
+}
+
+// A row's second line: the held reason (its title, the press's own words),
+// else what it would take. Swap tags…, Refine… and More seeds… share their
+// scope, said once over them (#gallery-more-scope): each line says what the
+// action does to it, or a reason of its own (no refine pass on this
+// checkpoint) where it is held for one.
+function syncGallerySub(row, target) {
+  let sub = row.querySelector(':scope > .row-sub');
+  if (!sub) {
+    sub = document.createElement('span');
+    sub.className = 'row-sub';
+    row.append(sub);
+  }
+  const words = gallerySubText(row, target);
+  if (sub.textContent !== words) sub.textContent = words;
+  sub.hidden = !words;
+}
+
+const GALLERY_ACT_WORDS = new Map();
+
+function gallerySubText(row, target) {
+  const n = selection.size;
+  const them = n === 1 ? 'the picked image' : `the ${n} picked images`;
+  const held = row.getAttribute('aria-disabled') === 'true';
+  if (GALLERY_ACT_WORDS.size === 0) {
+    GALLERY_ACT_WORDS.set(els.swap, 'Run them again with some tags swapped');
+    GALLERY_ACT_WORDS.set(els.refineBatch, 'A refine pass of each, at one strength and scale');
+    GALLERY_ACT_WORDS.set(els.moreSeeds, 'More images of each batch, the seeds following on');
+  }
+  if (GALLERY_ACT_WORDS.has(row)) {
+    // Held for a reason of its own: Refine… on a checkpoint with no refine
+    // pass. Held for the shared one, the heading says it.
+    const own = held && (target.scope || (row === els.refineBatch && !refineSupported));
+    return own ? phoneWords(row.title) : GALLERY_ACT_WORDS.get(row);
+  }
+  if (held) {
+    if (row === els.pickedBtn && !binMode && !n) return 'Pick images with Select first';
+    return phoneWords(row.title);
+  }
+  switch (row) {
+    case els.pickedBtn: return `Star, compare, re-render or bin ${them}`;
+    case els.restorePicked: return `Back to the gallery: ${them}`;
+    case els.purgePicked: return `From disk, after a question: ${them}`;
+    case els.emptyBin: return els.binAge.value
+      ? `From disk: those binned over ${els.binAge.value} days ago, after a question`
+      : 'From disk: everything in it, after a question';
+    case els.deleteUnstarred: return 'To the recycle bin: every unstarred image the filter matches, after a question';
+    case els.bin: return binMode ? 'Back to the gallery'
+      : binCount ? `${plural(binCount, 'image')}: restore them, or empty it` : 'Empty';
+    case els.savedSearches: return 'Save, manage and apply named filters';
+    case els.bundles: return 'Back up, merge, or bundle the gallery and clear it';
+    case els.sheetBtn: return sheetMode ? 'Back to the cards' : 'These images laid out by their settings';
+    default: return '';
+  }
+}
+
+// --------------------------------------------------------------- the sheets
+
+// A sheet opens from its button, the gallery's line (#gallery-error) moved
+// into its foot, so a held press there says why in the sheet; it closes by
+// its ✕, Escape, Back, a press on the dimmed page above it, or the press of
+// one of its actions. Shut without an action, a held press's words go with
+// it; an action's press takes the line home first, so what the action says
+// after it (a refusal, a sweep's outcome) is the gallery's to show.
+let gallerySheetSaid = null;
+function openGallerySheet(sheet) {
+  if (!isPhone() || sheet.open) return;
+  phoneMove(els.galleryError, sheet.querySelector('.gallery-sheet-foot'));
+  gallerySheetSaid = els.galleryError.hidden ? '' : els.galleryError.textContent;
+  syncPhoneGalleryHead();
+  sheet.showModal();
+  sheet.scrollTop = 0;
+}
+
+function gallerySheetClosed() {
+  if ($('gallery-filter-sheet').open || $('gallery-more-sheet').open) return;
+  const said = els.galleryError.hidden ? '' : els.galleryError.textContent;
+  if (gallerySheetSaid !== null && said && said !== gallerySheetSaid) showError('', false, { slot: els.galleryError, mirror: false });
+  gallerySheetSaid = null;
+  phoneHome(els.galleryError);
+}
+
+// An action pressed in a sheet: the line home, then the sheet shut, before
+// the action's own handler runs (the press's capture).
+function closeGallerySheetFor(sheet) {
+  gallerySheetSaid = null;
+  phoneHome(els.galleryError);
+  sheet.close();
+}
+
+// A press on the dimmed page beside the sheet closes it (its box is the
+// dialog's; the backdrop's press is the dialog's own, outside its box).
+function gallerySheetBackdrop(e) {
+  const sheet = e.currentTarget;
+  if (e.target !== sheet) return;
+  const r = sheet.getBoundingClientRect();
+  if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) sheet.close();
+}
+
+// ⋯'s rows: an action's press closes the sheet first, in the same turn, so
+// the dialog it opens (Swap tags, Bundles, a question) or the view it
+// changes (the bin, a comparison) is what the screen shows, and Back's one
+// entry goes with it. Picked opens its rows inside the sheet; a held row
+// keeps the sheet open, its reason in the foot.
+function galleryMorePress(e) {
+  const sheet = $('gallery-more-sheet');
+  const control = e.target.closest('button, [role="menuitem"]');
+  if (!control || !sheet.contains(control) || control.closest('.gallery-sheet-head')) return;
+  if (control === els.pickedBtn || control.getAttribute('aria-disabled') === 'true') return;
+  if (control.matches('[role="menuitem"]') && els.pickedBtn.getAttribute('aria-disabled') === 'true') return;
+  closeGallerySheetFor(sheet);
+}
+
+// Filters' rows: Starred and All models leave it open (the count in its
+// title follows them); Sheet and a run's choice show the gallery they make.
+function galleryFilterPress(e) {
+  const sheet = $('gallery-filter-sheet');
+  if (e.target.closest('button') === els.sheetBtn && els.sheetBtn.getAttribute('aria-disabled') !== 'true') closeGallerySheetFor(sheet);
+}
+
+function initPhoneGallery() {
+  phoneSearchHelp = els.search.parentNode.querySelector(':scope > .help');
+  for (const node of [els.galleryError, ...phoneGalleryMoved()]) {
+    const mark = document.createComment(` ${node.id || node.className}'s place off the phone (phone-gallery.js) `);
+    node.before(mark);
+    phoneHomes.set(node, mark);
+  }
+  const filterSheet = $('gallery-filter-sheet');
+  const moreSheet = $('gallery-more-sheet');
+  $('btn-gallery-filters').addEventListener('click', () => openGallerySheet(filterSheet));
+  $('btn-gallery-more').addEventListener('click', () => openGallerySheet(moreSheet));
+  $('gallery-filter-close').addEventListener('click', () => filterSheet.close());
+  $('gallery-more-close').addEventListener('click', () => moreSheet.close());
+  for (const sheet of [filterSheet, moreSheet]) {
+    sheet.addEventListener('close', gallerySheetClosed);
+    sheet.addEventListener('click', gallerySheetBackdrop);
+  }
+  moreSheet.addEventListener('click', galleryMorePress, true);
+  filterSheet.addEventListener('click', galleryFilterPress, true);
+  els.runList.addEventListener('change', () => { if (filterSheet.open && els.runList.value) closeGallerySheetFor(filterSheet); });
+  // The gallery's line under the head, over the cards: a tap puts it away.
+  els.galleryError.addEventListener('click', () => {
+    if (isPhone() && !filterSheet.contains(els.galleryError) && !moreSheet.contains(els.galleryError)) {
+      showError('', false, { slot: els.galleryError, mirror: false });
+    }
+  });
+  // What the head and the rows read, as the page's own code changes it.
+  const watch = new MutationObserver(queuePhoneGallerySync);
+  watch.observe(els.count, { childList: true, characterData: true, subtree: true });
+  watch.observe(els.gallery, { childList: true });
+  for (const row of gallerySubRows()) {
+    watch.observe(row, { attributes: true, attributeFilter: ['title', 'aria-disabled', 'aria-pressed', 'aria-label', 'class'] });
+  }
+  for (const el of [els.favOnly, els.allModels, els.binAge]) el.addEventListener('change', queuePhoneGallerySync);
+  onSelectionChange(queuePhoneGallerySync);
+}

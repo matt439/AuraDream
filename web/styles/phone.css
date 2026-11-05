@@ -6,8 +6,8 @@
    sheet, which the running job's progress and the queue are moved into
    while it is open; and More options' sheet, which holds the tuning. Each node is moved whole under PHONE_MEDIA, never
    copied, and home again off it, so a PC, a tablet and every smoke written
-   with a mouse see none of this. Linked last, after touch.css, whose
-   tokens it reads: --phone-actions-h, --phone-bottom-chrome, --tabbar-h
+   with a mouse see none of this. Linked after touch.css, whose tokens it
+   reads (and before phone-gallery.css, the gallery head's): --phone-actions-h, --phone-bottom-chrome, --tabbar-h
    and the safe areas. */
 .phone-actions, .phone-results, .more-options, .neg-fold { display: none; }
 /* The compose controls (phone-compose.js): the topbar's ⋯, the prompt's

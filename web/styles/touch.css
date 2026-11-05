@@ -26,7 +26,8 @@
      moved whole - never copied - into the phone's own hosts (phone.js,
      styles/phone.css, linked after this): Generate into the Create view's
      action bar, the results under the settings, the tuning into More
-     options' sheet.
+     options' sheet; and the gallery head's buttons into its two sheets
+     (phone-gallery.js, styles/phone-gallery.css, linked last).
 
    `body[data-tier]` ('phone', 'tablet', or none on a PC; touch.js keeps it
    in step with the queries) is a hook for a rule to key on beside them.
@@ -455,9 +456,8 @@
     bottom: calc(var(--tabbar-h) + var(--safe-b) + var(--gutter));
   }
 
-  /* The gallery's head: the search across the column, the rest under it
-     (beside Runs on a phone on its side, below). */
-  #search { flex: 1 1 100%; max-width: none; }
+  /* The gallery's head is one row on the phone, its other controls in two
+     sheets (styles/phone-gallery.css, phone-gallery.js). */
 
   /* A card carries its star and nothing else: six tools at a finger's 44 px
      are 284 px on a card of 180, and at 22-28 x 32 Delete stood 4 px from
@@ -746,6 +746,72 @@
   input[type="checkbox"], input[type="radio"] { width: 24px; height: 24px; }
   :is(.check, label:has(> :is(input[type="checkbox"], input[type="radio"]))) { min-height: var(--h-md); }
   dialog:not(.lightbox) .bundle-automatic-check { align-items: center; }
+  /* A tick is drawn, not the platform's: unticked, the browser's dark box
+     was a grey square that read as held (accent-color colours a ticked one
+     only). A 24 px box with a 2 px edge in the third text colour, its inside
+     the page's; ticked, the accent with a white check; half-ticked, a white
+     bar. Held, its edge dim and a ticked one's fill the accent half mixed
+     with the panel. Its least width and height too, where a component set
+     `width: auto` (the setups' Show all). The gallery's Starred and All
+     models are chips (styles/phone-gallery.css), their ticks out of sight. */
+  input[type="checkbox"] {
+    -webkit-appearance: none; appearance: none; box-sizing: border-box; flex: none;
+    min-width: 24px; min-height: 24px; margin: 0;
+    border: 2px solid var(--text-3); border-radius: 6px;
+    background: transparent no-repeat center / 16px 16px;
+    vertical-align: middle; cursor: pointer;
+  }
+  input[type="checkbox"]:checked {
+    border-color: var(--accent); background-color: var(--accent);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.2 8.4l3.1 3.1L12.8 5' fill='none' stroke='%23fff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  }
+  input[type="checkbox"]:indeterminate {
+    border-color: var(--accent); background-color: var(--accent);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 8h8' stroke='%23fff' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E");
+  }
+  input[type="checkbox"]:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+  input[type="checkbox"]:is(:disabled, [aria-disabled="true"]) { border-color: var(--line-strong); cursor: not-allowed; }
+  input[type="checkbox"]:is(:disabled, [aria-disabled="true"]):is(:checked, :indeterminate) {
+    border-color: transparent; background-color: color-mix(in srgb, var(--accent) 45%, var(--panel));
+  }
+  /* A choice likewise (Bundles' scope, Swap tags', the Models sheet's rows):
+     a 24 px ring in the third text colour; chosen, the accent ring round a
+     10 px accent dot, where the platform drew a grey disc. */
+  input[type="radio"] {
+    -webkit-appearance: none; appearance: none; box-sizing: border-box; flex: none;
+    min-width: 24px; min-height: 24px; margin: 0;
+    border: 2px solid var(--text-3); border-radius: 50%; background: transparent;
+    vertical-align: middle; cursor: pointer;
+  }
+  input[type="radio"]:checked {
+    border-color: var(--accent);
+    background: radial-gradient(circle, var(--accent) 0 5px, transparent 5.5px);
+  }
+  input[type="radio"]:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+  input[type="radio"]:is(:disabled, [aria-disabled="true"]) { border-color: var(--line-strong); cursor: not-allowed; }
+  input[type="radio"]:is(:disabled, [aria-disabled="true"]):checked {
+    border-color: color-mix(in srgb, var(--accent) 45%, var(--panel));
+    background: radial-gradient(circle, color-mix(in srgb, var(--accent) 45%, var(--panel)) 0 5px, transparent 5.5px);
+  }
+
+  /* A held button reads, rather than fading to 45% of the muted colour
+     (#45454d on the page, about 2:1): the muted colour itself, about 6:1,
+     on no fill and a dim edge, so it is told from an available one by its
+     flat look, not by being hard to read. A held primary is solid as
+     Generate's on the bar is (styles/phone.css), the accent and the white
+     half mixed with the panel; a result's held tool likewise. Still
+     aria-disabled with its reason as its title, and a press says it. */
+  .ghost:is(:disabled, [aria-disabled="true"]) {
+    opacity: 1; color: var(--muted); border-color: var(--line); background-color: transparent;
+  }
+  .primary:is(:disabled, [aria-disabled="true"]) {
+    opacity: 1;
+    background-color: color-mix(in srgb, var(--accent-strong) 50%, var(--panel));
+    color: color-mix(in srgb, #fff 55%, var(--panel));
+  }
+  .viewer .tools button[aria-disabled="true"], .viewer .tools button[aria-disabled="true"]:hover {
+    opacity: 1; color: var(--muted); border-color: var(--line);
+  }
   /* Swap tags' two choices and Bundles' three: 16 px between one choice's
      words and the next one's circle, 8 between a circle and its words
      (12 and 4), so each row reads as one press; a wrapped choice starts at
@@ -854,7 +920,4 @@
   /* The prompt three lines, not five: at five, Create on its side was the
      prompt box and nothing else. A drag on its grip still sets its own. */
   #prompt:not([style*="height"]) { height: calc(2lh + var(--h-field)); }
-  /* The gallery's search beside Runs: one row of the head fewer over the
-     cards. */
-  #search { flex: 1 1 200px; }
 }

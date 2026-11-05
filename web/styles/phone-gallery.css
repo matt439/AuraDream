@@ -1,0 +1,281 @@
+/* --------------------------------------------------------- phone gallery */
+
+/* The gallery's head on a phone (phone-gallery.js): one sticky row - the
+   search, Filters, Select and ⋯ - where it was five rows (the title and
+   Runs, the search, ? and the ticks and Sheet, Delete unstarred alone, and
+   two rows of the footer's buttons with Bundles… alone) and the first card
+   started 450 px down a 852 px screen. Filters and ⋯ open sheets from the
+   screen's foot that hold the head's own nodes, moved in whole and home
+   again off the phone. Linked last, after phone.css; keyed on the phone's
+   query, so a PC, a tablet and every smoke written with a mouse see none
+   of it. */
+.gallery-filters, .gallery-more { display: none; }
+
+@media (pointer: coarse) and ((width < 700px) or (max-height: 500px)) {
+  /* The row: sticky under the topbar (at the screen's top on its side,
+     where the topbar scrolls away), opaque on the page's colour across the
+     screen with a hairline under it, so the cards scroll under it and the
+     search, Filters and ⋯ stay in reach - never hidden on a scroll, which
+     moves controls the user is not touching. 60 px: 44 px controls 8 px
+     apart, 8 px above and below. */
+  .gallery-head {
+    position: sticky; top: var(--topbar-h); z-index: 15;
+    flex-wrap: wrap; gap: var(--sp-2);
+    margin: 0 calc(-1 * max(var(--gutter), var(--safe-r))) 0 calc(-1 * max(var(--gutter), var(--safe-l)));
+    padding: var(--sp-2) max(var(--gutter), var(--safe-r)) var(--sp-2) max(var(--gutter), var(--safe-l));
+    background: var(--bg); border-bottom: 1px solid var(--line);
+  }
+  /* Right under the topbar, not 16 px below it (the page's own gutter),
+     a dark band between the two. */
+  body[data-view="gallery"] main { padding-top: 0; }
+  /* A card brought into view (the arrow keys, a focus) stops under the row. */
+  #gallery .card { scroll-margin-top: calc(var(--topbar-h) + 60px + var(--sp-2)); }
+  /* The title says nothing the tab bar does not ("Gallery"); its count is
+     the search's placeholder ("Search 9 images", phoneSearchWords). Still
+     the heading a screen reader lists. In the recycle bin it is drawn, a
+     row of its own over the search, so the bin says it is the bin. */
+  .gallery-head > h2 {
+    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+  .gallery-head[data-bin] > h2 {
+    position: static; width: auto; height: auto; margin: 0; overflow: visible; clip: auto;
+    flex: 1 0 100%; line-height: var(--h-sm);
+  }
+  .gallery-head #search {
+    flex: 1 1 0; min-width: 0; max-width: none; height: var(--h-field); margin: 0; padding: 0 var(--sp-2) 0 var(--sp-3);
+  }
+  /* The clear button's room only once there is something to clear: kept
+     while empty, it cut "Search 7 images" at 360 px. */
+  .gallery-head #search:placeholder-shown::-webkit-search-cancel-button { display: none; }
+  /* Filters: a 44 px square, its glyph the sliders, tonal while Starred or
+     All models is on, with how many in a badge on its corner. ⋯ a 44 px
+     square without an edge, as the topbar's is, the count of picked
+     images in its badge. Select between them, its word 16 px. */
+  .gallery-filters, .gallery-more {
+    position: relative; display: inline-grid; place-items: center; flex: none;
+    width: var(--h-md); min-width: var(--h-md); height: var(--h-md); margin: 0; padding: 0;
+    border: 1px solid var(--line-strong); border-radius: var(--r-md);
+    background-color: var(--panel-2); color: var(--text-2);
+  }
+  .gallery-filters-glyph { width: 22px; height: 22px; fill: currentColor; }
+  .gallery-filters.on {
+    background-color: var(--accent-soft); border-color: var(--accent); color: var(--text);
+    box-shadow: inset 0 0 0 1px var(--accent);
+  }
+  .gallery-more { border-color: transparent; background-color: transparent; font-size: 24px; font-weight: 700; line-height: 1; }
+  .gallery-more::before { content: "⋯" / ""; }
+  .gallery-filters:focus-visible, .gallery-more:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+  .gallery-badge {
+    position: absolute; top: -6px; right: -6px;
+    min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px;
+    background: var(--accent-2); color: #08080c; box-shadow: 0 0 0 2px var(--bg);
+    font-size: var(--fs-xs); font-weight: 700; line-height: 20px; text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+  .gallery-head > #btn-select {
+    flex: none; min-height: var(--h-md); height: var(--h-md); margin: 0; padding: 0 var(--sp-3);
+    font-size: var(--fs-md);
+  }
+
+  /* The gallery's line (#gallery-footer's #gallery-error): under the row,
+     over the cards, out of the flow, so a message moves nothing; a card on
+     the page's second colour, two lines at most, its whole text the title.
+     A tap puts it away (phone-gallery.js); while a sheet is open it is in
+     the sheet's foot. The footer holds nothing else on the phone. */
+  .gallery-head > .gallery-footer {
+    position: absolute; top: calc(100% + var(--sp-2));
+    left: max(var(--gutter), var(--safe-l)); right: max(var(--gutter), var(--safe-r));
+    display: block; min-height: 0; margin: 0; pointer-events: none;
+  }
+  .gallery-footer > #gallery-error:not([hidden]) {
+    pointer-events: auto; cursor: pointer; margin: 0; padding: var(--sp-2) var(--sp-3);
+    background: var(--panel-2); border: 1px solid var(--line-strong); border-radius: var(--r-md);
+    box-shadow: var(--shadow-pop); font-size: var(--fs-body-sm); line-height: var(--lh-tight);
+    white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  }
+
+  /* The sheets: docked at the screen's foot over a dimmed page, across
+     it, 80% of its height at most and scrolling inside (the page behind
+     never), their title row sticky with a 44 px ✕; the rows 48 px at
+     least, a group from the next by 8 px and a hairline; the end clear of
+     the home indicator (touch.css's sheet rule). Not the screen-wide sheet
+     every other dialog is on the phone: what they hold is a list to pick
+     from, not a form. */
+  dialog.gallery-sheet:not(.lightbox):not(.confirm-dialog) {
+    inset: auto 0 0 0;
+    max-height: min(80dvh, calc(100dvh - var(--safe-t) - 48px));
+    border-top: 1px solid var(--line-strong); border-radius: var(--r-lg) var(--r-lg) 0 0;
+    background: var(--panel); color: var(--text);
+  }
+  .gallery-sheet[open] { display: flex; flex-direction: column; }
+  .gallery-sheet::backdrop { background: rgba(0, 0, 0, 0.55); }
+  .gallery-sheet-head {
+    position: sticky; top: 0; z-index: 5; flex: none;
+    display: flex; align-items: center; gap: var(--sp-3);
+    margin: 0 calc(-1 * var(--sheet-r)) 0 calc(-1 * var(--sheet-l));
+    padding: var(--sp-2) var(--sheet-r) var(--sp-2) var(--sheet-l);
+    background: var(--panel); border-bottom: 1px solid var(--line);
+  }
+  .gallery-sheet-head h2 { margin: 0; font-size: var(--fs-lg); font-weight: 600; }
+  .gallery-sheet-count { flex: 1 1 0; min-width: 0; font-size: var(--fs-body-sm); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .gallery-sheet-head > .close { margin-left: auto; }
+  .gallery-sheet-body { display: flex; flex-direction: column; min-width: 0; padding-top: var(--sp-2); }
+  .gallery-sheet-group { display: flex; flex-direction: column; min-width: 0; }
+  .gallery-sheet-group + .gallery-sheet-group:not(:empty) { margin-top: var(--sp-2); padding-top: var(--sp-2); border-top: 1px solid var(--line); }
+  /* A group whose every row is hidden (the bin's outside it, Delete
+     unstarred with no filter) takes no room and no hairline. */
+  .gallery-sheet-group:not(:has(> :not([hidden], .select-count:empty))) { display: none; }
+  .gallery-sheet-foot { flex: none; }
+  .gallery-sheet-foot:has(> #gallery-error:not([hidden])) {
+    position: sticky; bottom: 0; z-index: 5;
+    margin: var(--sp-2) calc(-1 * var(--sheet-r)) 0 calc(-1 * var(--sheet-l));
+    padding: var(--sp-2) var(--sheet-r) calc(var(--safe-b) + var(--sp-2)) var(--sheet-l);
+    background: var(--panel); border-top: 1px solid var(--line);
+  }
+  .gallery-sheet-foot > #gallery-error { margin: 0; white-space: normal; font-size: var(--fs-body-sm); }
+
+  /* A row: the button across the sheet, its name 16 px bold over its line
+     in 15 px - a bulk action's scope ("The 3 selected images", "The 9
+     images the filter matches") or the reason it is held, two lines at
+     most - left-aligned, no edge or fill; a press lights it (the touch
+     tier's state layer). Held, its name and line in the muted colour. A
+     chosen one (the bin while it is shown, Sheet while it is open) tonal. */
+  /* (One id's weight, so a button's own rule - More seeds' colour, a
+     small button's size - gives way, and the touch tier's red for what
+     destroys, at an id and two classes, does not.) */
+  :is(#gallery-more-sheet, #gallery-filter-sheet) :where(.gallery-sheet-group > button, .picked > button) {
+    display: flex; flex-flow: row wrap; align-items: baseline; align-content: center; gap: 2px 0;
+    width: auto; min-width: 0; min-height: 48px; height: auto;
+    margin: 0 calc(-1 * var(--sheet-r)) 0 calc(-1 * var(--sheet-l));
+    padding: var(--sp-2) var(--sheet-r) var(--sp-2) var(--sheet-l);
+    border: none; border-radius: 0; background-color: transparent; box-shadow: none;
+    color: var(--text); font-size: var(--fs-md); font-weight: 600; line-height: var(--lh-tight);
+    text-align: left; white-space: normal;
+  }
+  /* The bin while it is shown, Sheet while it is open: the accent's soft
+     fill across the row and an accent bar at its start. */
+  :is(#gallery-more-sheet, #gallery-filter-sheet) :where(.gallery-sheet-group > button).active {
+    background-color: var(--accent-soft); color: var(--text); box-shadow: inset 4px 0 0 var(--accent);
+  }
+  :is(#gallery-more-sheet, #gallery-filter-sheet) :where(.gallery-sheet-group > button, .picked > button)[aria-disabled="true"] {
+    color: var(--muted); opacity: 1;
+  }
+  /* What the four over-the-filter actions take, said once over them. */
+  .gallery-sheet-scope {
+    margin: 0; padding: var(--sp-1) 0 var(--sp-1);
+    font-size: var(--fs-label); font-weight: 600; line-height: var(--lh-tight); color: var(--text-readout);
+  }
+  .gallery-sheet-scope.held { font-weight: 400; color: var(--text-3); }
+  .gallery-sheet .row-sub {
+    flex: 1 0 100%;
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+    font-size: var(--fs-body-sm); font-weight: 400; color: var(--text-3);
+  }
+  .gallery-sheet .row-sub[hidden] { display: none; }
+  .gallery-sheet [aria-disabled="true"] > .row-sub { color: var(--muted); }
+  .gallery-sheet button.danger:not([aria-disabled="true"]) > .row-sub { color: var(--text-3); }
+  /* Saved searches… by its whole name; the recycle bin by its own ("Bin"
+     and its count were the footer's short word; the line under it says how
+     many), as its name for a screen reader already does. */
+  #gallery-more-sheet #btn-saved-searches .full { display: inline; }
+  #gallery-more-sheet #btn-saved-searches .short { display: none; }
+  #gallery-more-sheet #btn-bin { font-size: 0; }
+  #gallery-more-sheet #btn-bin::before { content: "Recycle bin"; font-size: var(--fs-md); line-height: var(--lh-tight); }
+  #gallery-more-sheet #btn-bin > .count { display: none; }
+
+  /* The picks: their count and Clear on one line, Picked under it, whose
+     rows open inside the sheet under it (not hung over the page), 48 px. */
+  .gallery-more-picks {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: var(--sp-2);
+  }
+  .gallery-more-picks > * { grid-column: 1 / -1; }
+  .gallery-more-picks > .select-count {
+    grid-column: 1; display: flex; min-width: 0;
+    font-size: var(--fs-body-sm); color: var(--text-readout); white-space: nowrap; overflow: hidden;
+  }
+  .gallery-more-picks > .select-count:empty { display: none; }
+  .gallery-more-picks > #btn-select-clear {
+    grid-column: 2; min-height: var(--h-md); margin: 0; padding: 0 var(--sp-3); font-size: var(--fs-md);
+  }
+  .gallery-more-picks > .picked { display: flex; flex-direction: column; min-width: 0; }
+  #gallery-more-sheet #picked-menu {
+    position: static; width: auto; max-height: none; margin: 0 0 var(--sp-2) var(--sp-2); padding: 0;
+    border: none; border-left: 2px solid var(--line); border-radius: 0; background: none; box-shadow: none;
+  }
+  #gallery-more-sheet #picked-menu li {
+    display: flex; flex-direction: row; align-items: center; justify-content: flex-start;
+    min-height: 48px; padding: var(--sp-1) var(--sp-3);
+    font-size: var(--fs-md); border-radius: 0 var(--r-md) var(--r-md) 0;
+  }
+  /* Which images Empty takes: a select across the sheet as Runs is in
+     Filters', its choice said again in Empty's line under it. */
+  #gallery-more-sheet .gallery-sheet-group > select {
+    width: 100%; height: 48px; margin: var(--sp-1) 0; padding: 0 var(--sp-3);
+    background: var(--panel-2); border: 1px solid var(--line-strong); border-radius: var(--r-md);
+    color: var(--text); font-size: var(--fs-md);
+  }
+
+  /* Filters: Starred and All models as 44 px chips - the tick out of
+     sight, still the control a screen reader names and the label's press
+     ticks; a chip that is on is tonal with a ✓ before its word - then the
+     Runs picker across the sheet under its name, Sheet, and the search's
+     terms as a fold, read in the sheet, where they were a tip over two
+     thirds of the screen. */
+  .gallery-filter-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); padding: var(--sp-2) 0 var(--sp-3); }
+  .gallery-filter-chips > .check {
+    position: relative; display: inline-flex; align-items: center; gap: var(--sp-2);
+    min-height: var(--h-md); margin: 0; padding: 0 var(--sp-4);
+    border: 1px solid var(--line-strong); border-radius: 22px; background-color: var(--panel-2);
+    color: var(--text); font-size: var(--fs-md); font-weight: 600; cursor: pointer;
+  }
+  .gallery-filter-chips > .check > input {
+    position: absolute; width: 1px; height: 1px; min-width: 0; min-height: 0; margin: 0; padding: 0;
+    opacity: 0; clip-path: inset(50%); pointer-events: none;
+  }
+  .gallery-filter-chips > .check:has(> input:checked) {
+    background-color: var(--accent-soft); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent);
+  }
+  .gallery-filter-chips > .check:has(> input:checked)::before { content: "✓" / ""; color: var(--accent-2); font-weight: 700; }
+  .gallery-filter-chips > .check:has(> input:focus-visible) { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+  .gallery-filter-chips > .check:has(> input[aria-disabled="true"]) {
+    border-color: var(--line); background-color: transparent; color: var(--muted); box-shadow: none; cursor: not-allowed;
+  }
+  .gallery-filter-chips #other-models { color: var(--text-3); font-weight: 400; }
+  .gallery-filter-run { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-3) 0; border-top: 1px solid var(--line); }
+  .gallery-sheet-caption { font-size: var(--fs-label); font-weight: 600; color: var(--text-readout); }
+  #gallery-filter-sheet #run-list {
+    width: 100%; height: 48px; margin: 0; padding: 0 var(--sp-3);
+    background: var(--panel-2); border: 1px solid var(--line-strong); border-radius: var(--r-md);
+    color: var(--text); font-size: var(--fs-md);
+  }
+  #gallery-filter-sheet #run-list:disabled, #gallery-filter-sheet #run-list[aria-disabled="true"] { color: var(--muted); border-color: var(--line); opacity: 1; }
+  #gallery-filter-view { border-top: 1px solid var(--line); padding-top: var(--sp-2); }
+  .search-help-fold { border-top: 1px solid var(--line); margin-top: var(--sp-2); }
+  .search-help-fold > summary {
+    position: relative; display: flex; align-items: center; min-height: 48px; padding: 0 28px 0 0;
+    list-style: none; cursor: pointer; font-size: var(--fs-md); font-weight: 600; color: var(--text);
+  }
+  .search-help-fold > summary::-webkit-details-marker { display: none; }
+  .search-help-fold > summary::after {
+    content: ""; position: absolute; inset: 50% 10px auto auto;
+    width: 9px; height: 9px; margin-top: -7px;
+    border: solid var(--muted); border-width: 0 2px 2px 0; rotate: 45deg;
+  }
+  .search-help-fold[open] > summary::after { margin-top: -2px; rotate: -135deg; }
+  .search-help-fold > summary:focus-visible { outline: 2px solid var(--accent-2); outline-offset: -2px; }
+  /* The ? badge's tip, as text in the fold: the badge's glyph not drawn
+     (font-size 0 on the badge, its tip's own size back), no press round
+     it, the tip in the flow whatever placeTip writes. */
+  #search-help-fold > .help {
+    position: static; display: block; width: auto; height: auto; margin: 0; padding: 0;
+    border: 0; border-radius: 0; background: none; font-size: 0; cursor: auto;
+  }
+  #search-help-fold > .help::before { content: none; }
+  #search-help-fold > .help .tip, #search-help-fold > .help .tip.floating {
+    position: static; display: block; width: auto; max-width: none; translate: none;
+    margin: 0; padding: 0 0 var(--sp-3); border: 0; border-radius: 0; background: none; box-shadow: none;
+    font-size: var(--fs-body-sm); line-height: 1.55; color: var(--text-2); pointer-events: auto;
+  }
+  #search-help-fold > .help .tip b { color: var(--text); font-weight: 600; }
+}

@@ -32,8 +32,7 @@ function syncTier() {
   pageTier = pageTierNow();
   if (pageTier) document.body.dataset.tier = pageTier;
   else delete document.body.dataset.tier;
-  // "/ to focus" is a keyboard's.
-  els.search.placeholder = touchQuery.matches ? 'Search prompts' : searchPlaceholder;
+  syncSearchPlaceholder();
   if (was === pageTier) return;
   if (pageTier !== 'phone') els.error.classList.remove('at-generate');
   // The phone's hosts (phone.js): Generate into the action bar and the
@@ -48,6 +47,14 @@ function syncTier() {
   // The bar's state and the keyboard's hold read the page as it is now.
   syncPhoneTabsBusy();
   syncTyping();
+}
+
+// The search's placeholder: "/ to focus" is a keyboard's; on a phone it
+// says the count it searches, the head's title being out of sight there
+// (phone-gallery.js, phoneSearchWords).
+function syncSearchPlaceholder() {
+  const words = isPhone() ? phoneSearchWords() : touchQuery.matches ? 'Search prompts' : searchPlaceholder;
+  if (els.search.placeholder !== words) els.search.placeholder = words;
 }
 
 // Show one of the phone's views. Only the user's press, or an action of
