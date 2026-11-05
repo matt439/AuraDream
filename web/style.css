@@ -36,7 +36,9 @@
                     ? badges, at 3.1:1 or better on both fills (WCAG 1.4.11);
                     --line stays on the panel, the cards and the folds
      --accent-strong the primary buttons' fill and a selected preset's: white on it
-                    is 5.4:1, where on --accent it was 4.35:1
+                    is 5.4:1, where on --accent it was 4.35:1 (on a phone a chosen
+                    preset is --accent-soft with an accent edge: Generate keeps
+                    the solid fill to itself, styles/touch.css)
      --accent-soft  a selected or hovered row on the accent: preset, menu item, critic kind
      --accent-text  the accent as text (the brand's "Dream"): 5.0:1 on --panel
      --danger-strong the delete dialog's Delete fill: white on it is 6.5:1, where

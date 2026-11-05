@@ -84,13 +84,15 @@ function showCreateView() {
   if (isPhone() && phoneView !== 'create') setPhoneView('create');
 }
 
-// The running job, on the tab bar: Create's dot, and the topbar's line
-// copied along the bar's top edge (job-progress.js writes the topbar's).
+// The running job, on the tab bar: Create's dot and its words in the tab's
+// name, and the topbar's line copied along the bar's top edge
+// (job-progress.js writes the topbar's).
 function syncPhoneTabsBusy() {
   const line = $('phone-tabs-line');
   const fill = $('phone-tabs-fill');
   const busy = !els.topbarLine.hidden;
   $('tab-busy').hidden = !busy;
+  $('tab-busy-said').hidden = !busy;
   line.hidden = !busy;
   line.classList.toggle('indeterminate', els.topbarLine.classList.contains('indeterminate'));
   fill.style.width = els.topbarFill.style.width;
@@ -278,6 +280,9 @@ function initTouchLayout() {
   els.error.addEventListener('click', (e) => {
     if (!e.target.closest('button')) els.error.classList.remove('at-generate');
   });
+  // iOS Safari applies :active - the press's state layer (styles/touch.css)
+  // - only where a touchstart listener is; passive, it does nothing else.
+  document.addEventListener('touchstart', () => {}, { passive: true });
   document.addEventListener('focusin', syncTyping);
   document.addEventListener('focusout', () => queueMicrotask(syncTyping));
   addEventListener('scroll', notePhoneScroll, { passive: true });

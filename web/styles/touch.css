@@ -56,7 +56,24 @@
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
   }
-  body { -webkit-tap-highlight-color: color-mix(in srgb, var(--accent) 25%, transparent); }
+  /* A press shows while the finger is down: a state layer over the
+     control's own fill (a background image, so its colour, its border, its
+     ring and its box are untouched; no scale, nothing moves), the text's
+     colour at 12% over a button, a fold's row, a menu's row, an option and
+     a tick's row, and black at 20% over a primary, which a light layer
+     would wash out. Not over a held control, whose press says why and does
+     nothing more, and not as the browser's own tap flash, which lit a box
+     round the control after the lift. A card's star darkens its own disc;
+     the phone's tabs light their pill (below). iOS applies :active only
+     where a touchstart listener is (touch.js). */
+  body { -webkit-tap-highlight-color: transparent; }
+  :root { --press-layer: color-mix(in srgb, var(--text) 12%, transparent); }
+  :is(button, summary, [role="menuitem"], [role="option"], .check, label:has(> input[type="radio"]), .model-row):active:not(:disabled):not([aria-disabled="true"]):not(.primary, .fav-badge, .phone-tabs button):not(:has(> input:is(:disabled, [aria-disabled="true"]))) {
+    background-image: linear-gradient(var(--press-layer), var(--press-layer));
+  }
+  .primary:active:not(:disabled):not([aria-disabled="true"]) {
+    background-image: linear-gradient(rgb(0 0 0 / 0.2), rgb(0 0 0 / 0.2));
+  }
 
   .topbar {
     padding-top: calc(10px + var(--safe-t));
@@ -410,25 +427,39 @@
     display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 25;
     height: calc(var(--tabbar-h) + var(--safe-b));
     padding: 0 var(--safe-r) var(--safe-b) var(--safe-l);
-    background: color-mix(in srgb, var(--panel) 94%, transparent);
+    /* Opaque: at 94% with a blur, what scrolled under it read through it
+       (the presets, on its side). */
+    background: var(--panel);
     border-top: 1px solid var(--line);
-    -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
   }
   .phone-tablist { display: flex; flex: 1; min-width: 0; }
   .phone-tabs button {
     position: relative; flex: 1 1 0; min-width: 0;
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
     border: none; background: none; color: var(--muted);
-    font-size: var(--fs-label); font-weight: 600;
+    font-size: var(--fs-label); font-weight: 600; line-height: var(--lh-tight);
   }
-  .phone-tabs button .tab-glyph { width: 22px; height: 22px; fill: currentColor; }
+  /* The chosen tab says so by more than its words' colour: its glyph sits
+     in a 56x28 pill of the accent, its words in the text's colour.
+     The glyph 24 px, not 22. A press lights the pill (the state layer the
+     touch tier gives a button), not the bar's half. */
+  .phone-tabs .tab-pill {
+    position: relative; display: grid; place-items: center;
+    width: 56px; height: 28px; border-radius: 14px;
+  }
+  .phone-tabs button .tab-glyph { width: 24px; height: 24px; fill: currentColor; }
   .phone-tabs button[aria-selected="true"] { color: var(--text); }
-  .phone-tabs button[aria-selected="true"] .tab-glyph { color: var(--accent); }
+  .phone-tabs button[aria-selected="true"] .tab-pill { background-color: color-mix(in srgb, var(--accent) 34%, var(--panel)); }
+  .phone-tabs button:active .tab-pill { background-image: linear-gradient(var(--press-layer), var(--press-layer)); }
   .phone-tabs button:focus-visible { outline-offset: -4px; }
-  /* A job running: a dot on Create, and the topbar's line along the bar's top. */
+  /* A job running: a 12 px dot at the Create pill's corner, ringed in the
+     bar's colour so it reads over the pill (an 8 px dot beside the glyph
+     was easy to miss), its words for a screen reader after the tab's name
+     ("Create, a job running"), and the topbar's line along the bar's top. */
   .phone-tabs .tab-busy {
-    position: absolute; top: 8px; left: calc(50% + 14px);
-    width: 8px; height: 8px; border-radius: 50%; background: var(--accent-2);
+    position: absolute; top: -3px; right: 2px;
+    width: 12px; height: 12px; border-radius: 50%; background: var(--accent-2);
+    box-shadow: 0 0 0 2px var(--panel);
   }
   .phone-tabs-line { position: absolute; left: 0; right: 0; top: -1px; height: 2px; overflow: hidden; }
 
@@ -459,7 +490,7 @@
     top: 0; right: 0; width: var(--h-md); height: var(--h-md);
     background: radial-gradient(circle, rgba(0, 0, 0, 0.62) 13.5px, transparent 14px);
   }
-  :is(.card, .sheet-cell) .fav-badge:hover { background: radial-gradient(circle, rgba(0, 0, 0, 0.85) 13.5px, transparent 14px); }
+  :is(.card, .sheet-cell) .fav-badge:is(:hover, :active) { background: radial-gradient(circle, rgba(0, 0, 0, 0.85) 13.5px, transparent 14px); }
   :is(.card, .sheet-cell) .fav-badge:focus-visible { outline-offset: -4px; }
   /* A result's tools under its picture, 44 px tall (--h-tool), each 44 wide
      where the tile has the room - a lone result, a batch of two one above
@@ -497,6 +528,41 @@
   .analysis-mark { width: 18px; height: 18px; font-size: var(--fs-xs); }
   /* A tiny button is a finger's 44 here and reads at a caption's size. */
   .ghost.tiny { font-size: var(--fs-label); }
+
+  /* The buttons' tiers. Generate is the one solid accent on Create, and a
+     sheet's primary the one in its sheet: the chosen size (1:1, 1 MP) and
+     scale were the same solid accent a few px above Generate riding on the
+     bar, and read as two more things to press. A chosen pill or toggle -
+     a size, a scale, Compare scales, a result used as a reference, Select,
+     Sheet, Bin, an Inpaint tool - is tonal: the accent's soft fill, its
+     words in the text's colour and a 2 px accent edge (the border and an
+     inset ring, so its box is the unchosen one's). Run grid, the grid
+     fold's own action, is a secondary button there, its words bold, as
+     Generate stays the page's. The rest are outlined (.ghost) or text
+     (.ghost.tiny) as on a PC. What destroys or stops - Cancel, Cancel
+     queued, a queue row's ×, Reset, Delete unstarred, Empty recycle bin,
+     the lightbox's and a result's Delete - says so in --danger at rest, as
+     a PC's pointer only showed on hover; held, it is any held button. */
+  .presets button.active, .presets button.active.recommended,
+  :is(#refine-compare-scales, .result-actions .ref-tool)[aria-pressed="true"],
+  .ghost.small.active, .ip-tools .ghost.small[aria-pressed="true"] {
+    background-color: var(--accent-soft); border-color: var(--accent); color: var(--text);
+    box-shadow: inset 0 0 0 1px var(--accent);
+  }
+  .presets button.active.recommended::after { background: var(--ok); }
+  #btn-grid { background-color: var(--panel-2); color: var(--text); box-shadow: inset 0 0 0 1px var(--line-strong); }
+  :is(.ghost.danger, #lb-delete, :is(.viewer, .card.binned) .tools .del):not(:disabled):not([aria-disabled="true"]) {
+    color: var(--danger);
+  }
+  /* Then refine's opener, words at the Notify row's end, reached 38 px by
+     a pseudo-element: a box of a finger's 44 here, the row's own height (its
+     tick's row is 44), 8 px of it each side of the words, which keep their
+     place - the box runs 8 px into the gutter at the row's end. */
+  .notification-choice > .tr-open {
+    min-height: var(--h-md); padding-inline: var(--sp-2); margin-right: calc(-1 * var(--sp-2));
+    border-radius: var(--r-sm);
+  }
+  .notification-choice > .tr-open::after { content: none; }
 
   /* Every fold one row: 48 px under a hairline, its name 16 px bold, what
      it holds (Custom dimensions' 1024 × 1024, the grid's sweeps, LoRA's
@@ -690,12 +756,32 @@
   .op-band-row .hint { flex: 1 1 0; }
   .op-band-row .op-crop { flex: 1 1 100%; }
 
-  /* A sheet's ticks and choices - Then refine's, Mass refine's, Bundles'
-     scope and backups, Keep shape, Only the masked area - were 20 px boxes
-     on 23-36 px rows: drawn at 24, their rows a finger's 44 px. */
-  dialog:not(.lightbox) :is(input[type="checkbox"], input[type="radio"]) { width: 24px; height: 24px; }
-  dialog:not(.lightbox) :is(.check, .bundle-scope label, .bundle-automatic-check) { min-height: var(--h-md); }
+  /* Every tick and choice on the phone - Notify, Resume, the gallery's
+     Starred, the Models sheet's rows, Then refine's, Mass refine's, Swap
+     tags' Prompt and Negative prompt, Bundles' scope and backups, Keep
+     shape, Only the masked area - was a 20 px box on a 23-36 px row: drawn
+     at 24, its row (the label round it, which takes its press) a finger's
+     44 px. A label laid out inline (none is today) keeps its line. */
+  input[type="checkbox"], input[type="radio"] { width: 24px; height: 24px; }
+  :is(.check, label:has(> :is(input[type="checkbox"], input[type="radio"]))) { min-height: var(--h-md); }
   dialog:not(.lightbox) .bundle-automatic-check { align-items: center; }
+  /* Swap tags' two choices and Bundles' three: 16 px between one choice's
+     words and the next one's circle, 8 between a circle and its words
+     (12 and 4), so each row reads as one press; a wrapped choice starts at
+     the sheet's edge. */
+  :is(.swap-field, .bundle-scope) { column-gap: var(--sp-4); row-gap: 0; }
+  :is(.swap-field, .bundle-scope) label { gap: var(--sp-2); }
+  /* A sheet's scale buttons (Then refine's, Mass refine's, Refine's 1x to
+     2x) 8 px apart, as a finger's neighbours are, not 6. */
+  dialog .presets { gap: var(--sp-2); }
+  /* Bundles' file: the native picker was a 23 px line; its button a
+     finger's 44 px. */
+  input[type="file"] { min-height: var(--h-md); }
+  input[type="file"]::file-selector-button {
+    min-height: var(--h-md); margin-right: var(--sp-3); padding: 0 var(--sp-4);
+    border: 1px solid var(--line-strong); border-radius: var(--r-md);
+    background: var(--panel-2); color: var(--text-2); font: inherit;
+  }
 
   /* Refine's, Inpaint's and Outpaint's Strength a row of its own, Versions,
      Seed and the dice the next: four abreast, Refine's dice ran off the
@@ -759,8 +845,6 @@
   .topbar > .vram { display: none; }
   #btn-models { margin-left: auto; }
   .phone-tabs button { flex-direction: row; gap: var(--sp-2); }
-  .phone-tabs button .tab-glyph { width: 20px; height: 20px; }
-  .phone-tabs .tab-busy { top: 10px; left: auto; right: calc(50% - 46px); }
 
   /* LB_STACKED_MEDIA leaves this out, so lightbox.css's column beside the
      stage is the base; here it is wider, scrolls as a whole, and keeps the

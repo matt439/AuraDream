@@ -6618,7 +6618,18 @@ measured on the card and when.
   keeps the topbar, the page and the lightbox inside the safe areas
   (`viewport-fit=cover` in `index.html`; `--safe-*` from `env()`; the
   topbar's top inset is inside `--topbar-h`, so whatever reads it reads
-  the real height). The one-column rules elsewhere that would undo the
+  the real height). A press shows while the finger is down, on the tablet
+  too: a state layer over a button, a fold's summary, a menu's row, an
+  option, a tick's row (`.check`, a radio's label) and a Models row - a
+  `background-image` of the text's colour at 12% (`--press-layer`), black
+  at 20% over a `.primary`, so the control's fill, border, ring and box
+  are untouched and nothing moves or scales - but never over a held
+  control (`:disabled`, `aria-disabled`, a label round a held input),
+  whose press only says why. A card's star darkens its own disc instead,
+  and the phone's tabs light their pill, not the bar's half. The
+  browser's tap flash is transparent, and `initTouchLayout` adds a
+  passive no-op `touchstart` listener, without which iOS Safari applies
+  no `:active`. A mouse's press is the PC's. The one-column rules elsewhere that would undo the
   tablet's columns (the prompt note's and New image's in `fields.css` and
   `generation.css`) exclude it with the same condition, and
   `placeTagValidation` reads `TWO_COLUMNS_MEDIA` rather than 901 px. The
@@ -6638,7 +6649,38 @@ measured on the card and when.
   below) and the tab bar 45 px, its tabs 44 under its top edge. The
   tablet keeps 36 and 32, where its panel beside the stage and its cards'
   rows of tools want the room. The phone audit (Tests) holds the Gallery
-  view and Create's first screen to it.
+  view, the whole Create view and every sheet to it. Every checkbox and
+  radio on the phone is drawn at 24 px, its row (`.check`, or a label
+  round it) at least 44 px - Notify, Resume, the gallery's Starred and
+  All models, the Models sheet's rows, Swap tags' Prompt and Negative
+  prompt, Bundles' scope and backups, Then refine's and Mass refine's
+  ticks; the tablet keeps 20 and the PC the UA's. Swap tags' and Bundles'
+  choices stand 16 px apart, 8 between a circle and its words; a sheet's
+  scale buttons (`dialog .presets`: Then refine's, Mass refine's,
+  Refine's) 8 px apart; a file picker (Bundles') and its button 44 px.
+  The booleans stay ticks rather than drawn switches: one look across the
+  phone, the press the same row, and a trailing switch would clash with
+  the Notify row's grid and Then refine's opener at its end. Then refine's
+  opener, words at the Notify row's end that reached 38 px by an `::after`,
+  is a 44 px box of its own with 8 px each side of its words, which keep
+  their place (the box runs 8 px into the gutter); the row was 44 already,
+  so nothing moves.
+  The phone's buttons have tiers. Generate is the one solid accent on
+  Create, and a sheet's primary the one in its sheet. A chosen pill or
+  toggle - a size and its megapixels, a sheet's scale, Compare scales, a
+  result used as a reference, Select, Sheet and Bin pressed
+  (`.ghost.small.active`), an Inpaint tool - is tonal: `--accent-soft`
+  fill, the text's colour and a 2 px accent edge (its border and an inset
+  ring, so its box is the unchosen one's); the recommended dot is green
+  on it. The chosen 1:1 and 1 MP were Generate's solid fill a few px over
+  Generate riding on the bar. Run grid is a secondary button on the phone
+  (`--panel-2` with an inset `--line-strong` ring, its words bold). The
+  rest stay outlined (`.ghost`) or text (`.ghost.tiny`). What destroys or
+  stops - `.ghost.danger` (Reset, Cancel, Cancel queued, a queue row's ×,
+  Delete unstarred, Empty recycle bin, the library dialogs' Delete, Bundle
+  & clear), the lightbox's Delete, a result's and a binned card's Delete -
+  is in `--danger` at rest, where a PC shows it under the pointer only;
+  held, it is any held button. The tablet keeps the PC's tiers.
   The phone has a type scale of its own, set on its `:root` (the tablet
   keeps the page's, with the touch tier's 11 px `--fs-xs` and 12 px
   `--fs-sm`): `--fs-xs` and `--fs-sm` 13, `--fs-label` 14, `--fs-body-sm`
@@ -6713,9 +6755,16 @@ measured on the card and when.
   tab's, Reuse (`revealReused` calls `showCreateView`), or the empty
   gallery's Examples (`viewerExamples` calls it before opening the panel's
   menu, which the Gallery view does not draw) - switches it, never a job
-  starting or ending. While a job runs, Create carries a dot
-  and the bar's top edge the topbar's line (`syncPhoneTabsBusy`, from
-  `#topbar-line`'s attributes). `body[data-tier]` names the tier -
+  starting or ending. The bar is opaque (`--panel`, no blur: at 94% the
+  presets read through it on its side); each tab's 24 px glyph sits in a
+  56x28 pill (`.tab-pill`), the chosen tab's filled with the accent mixed
+  into the bar and its words in the text's colour, the other's clear and
+  muted, the words' weight the same either way so nothing shifts. While
+  a job runs, Create's pill carries a 12 px dot at its top corner, ringed
+  in the bar's colour (an 8 px dot beside the glyph was easy to miss),
+  the tab's name says so after its word ("Create, a job running", the
+  `sr-only` `#tab-busy-said`), and the bar's top edge carries the
+  topbar's line (`syncPhoneTabsBusy`, from `#topbar-line`'s attributes). `body[data-tier]` names the tier -
   `phone` (`PHONE_MEDIA`), `tablet` (the rest of the touch tier) or no
   attribute on a PC - as a hook for phone rules beside the media query;
   `syncTier` sets it at boot and again on every `change` of `PHONE_MEDIA`
@@ -6808,8 +6857,8 @@ measured on the card and when.
   ran off the screen behind a Seed kept 16 digits wide). What wraps
   depends on the screen's width alone, so nothing moves with what is
   typed or painted. A sheet's checkboxes and radios are drawn at 24 px on
-  44 px rows (`.check`, Bundles' scope and backup ticks; 20 px boxes on
-  23-36 px rows).
+  44 px rows, as the phone's are everywhere (above; they were 20 px boxes
+  on 23-36 px rows).
   The delete question (`#confirm-dialog`) is a sheet from the screen's
   foot across it, rounded at the top, and `placeAsk` places it nowhere.
   The Examples and Picked menus are fixed across the screen 8 px above
@@ -6949,9 +6998,8 @@ measured on the card and when.
   Create view), so a tablet keyboard's Tab never leaves the focus under
   the bar (WCAG 2.4.11). Presses smaller than
   a finger reach further by a pseudo-element without moving anything (the
-  tablet's fold summaries, 36 px, and Then refine's opener, 38, the one
-  control under 44 on the phone's Create view until its own row comes;
-  the phone's folds are 48 px rows),
+  tablet's fold summaries, 36 px, and Then refine's opener, 38; on the
+  phone the folds are 48 px rows and the opener a 44 px box),
   and on the tablet a card's or a run tile's tools are 32 px tall. On the
   phone a card carries its star alone (`.card:not(.binned) .tools` and a
   long run's tile tools not drawn): six tools at 44 px are 284 px on a
@@ -7534,10 +7582,10 @@ dialogs when there are any, else the body; `screen: true` counts in
 `small` only the controls that meet the window as it is scrolled (a view's
 first screen). A smoke asserts the checks that hold and logs the rest as
 the baseline later phases bring up: `smoke-phone` asserts no control under
-44 px on the Gallery view and on Create's first screen, and on the whole
-Create view but for its listed exception (Then refine's opener, whose row
-is the review's P62); the lightbox's (its facts' ⌕ buttons), the dialogs'
-and the Models sheet's undersized controls are logged, not asserted. The
+44 px on the Gallery view, on Create's first screen and on the whole
+Create view, with no exception, and `smoke-phone-dialogs` none in each
+sheet it opens; the lightbox's (its facts' ⌕ buttons) and the Models
+sheet's undersized controls are logged, not asserted. The
 same file defines `__phoneText(options)`, the phone's type: `small`, each
 run of visible text under `min` px (13), named by its element, size and
 first words - a text node with a letter or a digit, or an
@@ -7854,14 +7902,15 @@ prompt, a seed past 2^53 and a stubbed server refusal each saying why in
 `#error` riding above Generate (`at-generate`, solid, at least 16 px
 above its top, under the topbar, the element at its centre, the focus
 not taken to a box), a tap on it leaving it in its place below the
-window; at the page's foot Generate in its place above Load settings from
+window, the refused press's `:active` (polled every 5 ms) laying black at
+20% over Generate with its box unmoved; at the page's foot Generate in its place above Load settings from
 PNG; the phone audit finding no
 sideways overflow, no control off the screen sideways and no dialog outside the window on Create,
 on Gallery and in the Models sheet, and in the lightbox no overflow and no
 dialog outside, its only excepted controls `.lb-link`s, and in the
 lightbox no control off the screen sideways either; no control under
 44 px on Create's first screen (`screen: true`), nor on the whole Create
-view but its one listed exception, Then refine's opener (`except`), nor on
+view (nothing excepted), nor on
 the whole Gallery view, where each
 card's tools are in the page (six) but not drawn and its star is a 44 px
 square in its corner; the lightbox's under-44 list logged; the phone's
@@ -7879,7 +7928,17 @@ its ▾ gone) and no `::before`; each of those folds shut 48 px whole (its
 CFG centred on one line, the button at the screen's edge less 16, the
 note under them from the left; Notify and Then refine on one line and the
 note under the label's words, whole; a finished job's actions 44 px and
-from the left edge; a long press's
+from the left edge; Then refine's opener a 44 px box with no `::after`,
+level with the Notify row, its words ending 16 px from the screen's edge;
+Notify's tick 24 px on a 44 px row; Generate the one visible button or
+summary in the panel, its folds open, with the accent's solid fill, Run
+grid `--panel-2`, every chosen size pill `--accent-soft` with an accent
+edge, an inset ring and the text's colour, and every unheld
+`.ghost.danger` (Reset among them) `--danger`; no tap flash, and a tap on
+the chosen size laying the 12% state layer over it (its box unmoved) and
+a tap on Create laying it over the pill, not the tab; the bar `--panel`
+with no backdrop filter, Create's pill 56x28 round its 24 px glyph and
+filled, Gallery's clear; a long press's
 menu on a card holding Reuse settings, Refine…, the reference, Show run as
 sheet, Inpaint… and Move to recycle bin, and its Refine… row, tapped,
 opening Refine (closed by Escape with no entry left); Create drawing the panel and viewer
@@ -7898,7 +7957,9 @@ Generate tapped at the page's top queuing a job whose New image ↓ pill
 sits at least 8 px above Generate in the window's lower half, clear of
 Examples and Check and the element at its centre, and its press bringing
 the viewer into sight; a job's dot and line on the bar in both views and
-gone at its end; Back
+gone at its end, the dot at least 12 px at the top corner of Create's
+pill, the tab's "a job running" shown while it runs and hidden after, and
+Cancel (unless held) `--danger`; Back
 (`history.back()`) closing one overlay per call - the menu over the
 lightbox, then More seeds… opened from that menu over it, then the
 lightbox - with the page still loaded at its scroll, the lightbox's entry
@@ -7930,7 +7991,9 @@ no bar, both views, a sticky topbar, no scroll padding, a 43 px Generate,
 14 px text, 12 px capitals in a caption and a fold's summary with its ▸,
 the panel framed and padded 16, the Notify row a flex row, and the
 Ctrl+Enter hint, no `data-tier`, the search's "/ to focus" back,
-`viewBand` the window under the topbar, and the lightbox and the Models
+`viewBand` the window under the topbar, a chosen preset and Run grid the
+accent's solid fill with no ring, Reset not red, Notify's tick not 24 px
+and Then refine's opener no 44 px box, and the lightbox and the Models
 picker opened by the mouse adding no history entry.
 
 `smoke-tablet.json` uses a fresh FLUX.1 Krea [dev] fake on 7957 with touch
@@ -7945,7 +8008,10 @@ its star 28 and the dice under 44, where the phone has 44; the page's
 a fold's summary under 40 px with its touch reach (the phone's type, frame
 and fold rows not), with the touch tier's rows that wrap cleanly: the
 negative caption's name and Set True CFG on one line with the note under
-them, Notify and Then refine on one line, the note whole; a tapped Generate's result in the stage
+them, Notify and Then refine on one line, the note whole; no tap flash
+and a tap on the chosen size laying the touch tier's state layer over it,
+but the PC's tiers and ticks (the chosen size and Run grid the accent's
+solid fill, Reset not red, Notify's tick 20 px); a tapped Generate's result in the stage
 beside the panel with no New
 image pill fixed over the page; a card's lightbox closed by Back with the
 page still loaded at its scroll; at 1180x820 the PC's two columns at finger
@@ -7978,9 +8044,9 @@ and scrolled to its foot: the sheet exactly the window, its close and its
 primary each inside the window, the element `elementFromPoint` finds at
 their centre and at least 44 px square, the phone audit finding no dialog
 outside the window and no sideways overflow, and neither the sheet
-scrolling sideways nor any control of it off the screen sideways; each
-state's controls under 44 px and off the screen are logged as the
-baseline. Then: every `?` badge in the panel, all its folds open, and in
+scrolling sideways nor any control of it off the screen sideways; and
+the phone audit finding no control under 44 px in any of those sheets
+(`__smallIn`, the whole sheet, logged and asserted). Then: every `?` badge in the panel, all its folds open, and in
 Refine, Inpaint and Outpaint reaching at least 8 px up and 10 to each
 side but never below itself, and its press (`__helpReach`, the badge
 grown by its `::before`) overlapping no box, select, button or summary
@@ -7995,7 +8061,11 @@ UA's look gone and its `--fill` the value's place in its range;
 Outpaint's four boxes 44 px, pressable and round the frame (at least 150
 px wide), a tap on Right focusing it and typing 64 setting that side,
 the canvas still inside the frame; and the ticks of Then refine, Inpaint,
-Refine… and Bundles at 24 px on 44 px rows (`__ticks`). `__sheet` answers `true` or a string naming every check that
+Refine…, Swap tags and Bundles at 24 px on 44 px rows (`__ticks`), Swap
+tags' two choices on one line 16 px apart, Mass refine's scale buttons
+44 px and 8 px apart with the chosen one `--accent-soft`, an accent edge
+and the text's colour beside a solid Refine, and Bundles' file picker
+44 px inside the sheet. `__sheet` answers `true` or a string naming every check that
 failed, so each step logs its answer and then expects `=== true` (a
 string is truthy, and `browser.mjs` passes any truthy value). The lightbox's ✕ is 44 px and
 closes it after Refine's ✕ returns there. The delete question is a sheet
@@ -8005,7 +8075,9 @@ menu and the Picked menu sit inside the window above the tab bar with
 the window at its foot, its rows 48 px, a menu item first. A mouse at
 1400x900 then has the UA's sliders, Inpaint's tool rows, Outpaint's
 presets and band row and Refine's Strength row unwrapped, no reach past a
-`?` badge, the library dialogs' own scrollers and the UA's ticks; the
+`?` badge, the library dialogs' own scrollers and the UA's ticks (Swap
+tags' radios too), Bundles' file picker not 44 px and a chosen scale the
+accent's solid fill; the
 PC's question (under 480 px wide, off the window's foot, small buttons),
 Saved setups' inset box with an unstuck action row, and the right-click
 menu placed at the pointer with its PC rows.
