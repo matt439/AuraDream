@@ -148,6 +148,12 @@
   {"tap": "#tab-create"},
   {"expect": "isShown(__el('phone-actions')) && isShown(els.viewer)"},
 
+  {"log": "'A batch of two, one picture under the other (P6): tiles under 270 px, each with Reuse, Refine and Star, each word under its glyph, and a 44 px ⋯, none cut'"},
+  {"eval": "els.batch.value = '2'; els.batch.dispatchEvent(new Event('input', {bubbles: true})); scrollTo({top: 0, behavior: 'instant'});"},
+  {"tap": "#btn-generate"},
+  {"expect": "__until(() => busy)", "fatal": true},
+  {"expect": "__until(() => !busy && viewerRecords.length === 2, 60000)", "fatal": true},
+  {"expect": "(() => { const tiles = [...els.viewer.querySelectorAll(':scope > figure.result .tile')]; return els.viewer.classList.contains('multi') && !els.viewer.classList.contains('many') && tiles.length === 2 && __box(tiles[1]).top >= __box(tiles[0]).bottom && tiles.every((t) => { const tb = __box(t), shown = [...t.querySelectorAll('.tools > button')].filter(isShown), r = shown.map(__box); return tb.width >= 200 && tb.width < 270 && shown.length === 4 && ['reuse-settings', 'refine-tool', 'star', 'more-tool'].every((c, i) => shown[i].classList.contains(c)) && shown.slice(0, 3).map((b) => getComputedStyle(b, '::after').content).join() === '\"Reuse\",\"Refine\",\"Star\"' && shown.slice(0, 3).every((b) => getComputedStyle(b).flexDirection === 'column') && r.every((b) => Math.abs(b.height - 44) < 0.5 && b.left >= tb.left - 0.5 && b.right <= tb.right + 0.5) && Math.abs(r[3].width - 44) < 0.5 && r.slice(1).every((b, i) => Math.abs(b.left - r[i].right - 8) < 0.5) && shown.every((b) => b.scrollWidth <= b.clientWidth && b.scrollHeight <= b.clientHeight); }); })()"},
   {"log": "'A batch of four, two by two (P15): each picture with Star and a 44 px ⋯ alone, its Reuse and Refine the menu rows'"},
   {"eval": "els.batch.value = '4'; els.batch.dispatchEvent(new Event('input', {bubbles: true})); scrollTo({top: 0, behavior: 'instant'});"},
   {"tap": "#btn-generate"},

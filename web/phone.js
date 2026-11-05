@@ -172,7 +172,8 @@ function queueSheetClosed() {
 // Cancel as the docked menu's rows (context-menu.js), in the sheet, the
 // job named over them, Cancel last in --danger. Each row presses the row's
 // own button as it is at the choice - the queue redraws its rows - so a
-// held one says why, as its press would.
+// held one says why, as its press would; a job gone from the queue while
+// the menu was open (started, cancelled elsewhere) is said, never pressed.
 function openQueueRowMenu(button, byKey) {
   const li = button.closest('li[data-id]');
   if (!li) return;
@@ -184,7 +185,11 @@ function openQueueRowMenu(button, byKey) {
     if (!own) return null;
     return {
       label, held: own.getAttribute('aria-disabled') === 'true', title: own.title,
-      run: () => (live(action) ?? own).click(),
+      run: () => {
+        const now = live(action);
+        if (now) now.click();
+        else showJobNote('That job is no longer queued.');
+      },
     };
   };
   const name = li.querySelector(':scope > span')?.textContent ?? '';

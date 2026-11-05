@@ -7003,7 +7003,9 @@ measured on the card and when.
   modal dialog its opener is in) with the job's words over Move to front
   and Cancel this job, each pressing the row's own button as it is at the
   choice (the queue redraws its rows), held and titled as it is, so a
-  held one says why as its press would; Cancel last in `--danger`. Cancel
+  held one says why as its press would; a job that left the queue while
+  the menu was open is said ("That job is no longer queued"), its old
+  button never pressed; Cancel last in `--danger`. Cancel
   queued stays under the rows where there are several. The sheet never
   closes by itself as the queue empties. A held picture's or queue's press, as a
   refused Generate's (`pressGenerate`: an empty prompt, a seed past 2^53,
@@ -7121,8 +7123,10 @@ measured on the card and when.
   beside Star. Their order is the markup's (Reuse, Refine, Star), so the
   focus order is the order drawn. Inpaint, a reference and Delete stay in
   the tile for the menu to press, not drawn. The words go by the tile's
-  width (the tile a size container on the phone): under 270 px (a square
-  on a phone on its side) the glyphs alone; under 200 px (a batch of
+  width (the tile a size container on the phone): under 270 px (a batch
+  of two, one picture under the other, 259 px a tile held upright; a
+  square on a phone on its side) each word under its glyph in `--fs-sm`,
+  as glyphs alone left Reuse and Refine unexplained; under 200 px (a batch of
   three or four side by side, 160 px a tile) Star with its word and ⋯
   only, Reuse and Refine the menu's rows. A long run's strip - more than
   four images, `.viewer.many` - is a grid of plain pictures, as many
@@ -8194,7 +8198,11 @@ foot; its Use seed puts the seed in the Seed box and closes it. The picture tapp
 lightbox on the newest image with one entry; Escape closes it, the focus
 on the picture and the page at its scroll. The Models sheet in the
 Create view ends at the action bar's top; the Gallery view has no
-action bar and its band ends at the tab bar. A batch of four lands two
+action bar and its band ends at the tab bar. A batch of two lands one
+picture under the other, each tile 200-270 px wide drawing Reuse,
+Refine, Star and ⋯ in that order, the first three's words under their
+glyphs (a column), 44 px tall inside the tile, 8 px apart, ⋯ 44 wide,
+none cut across or down. A batch of four lands two
 by two, each tile drawing Star (its word) and a 44 px ⋯ alone inside it,
 `#viewer-seeds` drawn. Two batches of four make the long run's strip:
 eight pictures two across, at least 140 px, 8 px apart across and down,

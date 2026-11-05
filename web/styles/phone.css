@@ -206,9 +206,12 @@
      five 27-33 px glyphs stood 4 px apart with Delete beside Star. Inpaint, a reference and Delete are in the
      page still, for the menu to press (`buttonItem` reads `hidden`, not
      the CSS). Its words by the tile's width (a container): under 270 px
-     (a square on a phone on its side) the glyphs alone, under 200 (a batch
-     of three or four side by side, 160 px a tile) Star with its word and ⋯
-     only - Reuse and Refine are the menu's rows there. */
+     (a batch of two stacked held upright, 259 px a tile; a square on a
+     phone on its side) each word under its glyph, in --fs-sm, a 63 px slot
+     holding Starred - the glyphs alone left Reuse and Refine unexplained -
+     and under 200 (a batch of three or four side by side, 160 px a tile)
+     Star with its word and ⋯ only - Reuse and Refine are the menu's rows
+     there. */
   .viewer .tile { container: result-tile / inline-size; }
   .viewer:not(.many) .tile > .tools {
     display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) var(--h-md); gap: var(--sp-2);
@@ -232,8 +235,11 @@
   }
   #viewer:not(.many) .tile > .tools > .star[aria-pressed="true"][data-word]::after { content: "Starred"; }
   #viewer:not(.many) .tile > .tools > button:not([data-word])::after { content: none; }
-  @container result-tile (width < 270px) {
-    #viewer:not(.many) .tile > .tools > button[data-word]::after { content: none; }
+  @container result-tile (200px <= width < 270px) {
+    #viewer:not(.many) .tile > .tools > button[data-word]:not([hidden]) {
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    }
+    #viewer:not(.many) .tile > .tools > button[data-word]::after { margin-left: 0; font-size: var(--fs-sm); line-height: 1; }
   }
   @container result-tile (width < 200px) {
     .viewer:not(.many) .tile > .tools { grid-template-columns: minmax(0, 1fr) var(--h-md); }
