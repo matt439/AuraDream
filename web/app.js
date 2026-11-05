@@ -703,7 +703,8 @@ function focusPromptBox() {
   box.focus({ preventScroll: true });
   box.setSelectionRange(box.value.length, box.value.length);
   const rect = box.getBoundingClientRect();
-  if (rect.top < document.querySelector('.topbar').getBoundingClientRect().bottom || rect.bottom > innerHeight) {
+  const band = viewBand();
+  if (rect.top < band.top || rect.bottom > band.bottom) {
     box.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' });
   }
 }

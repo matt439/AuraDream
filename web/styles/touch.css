@@ -23,6 +23,9 @@
      the results - or the gallery. `body[data-view]`
      says which; nothing is removed from the page, only not drawn.
 
+   `body[data-tier]` ('phone', 'tablet', or none on a PC; touch.js keeps it
+   in step with the queries) is a hook for a rule to key on beside them.
+
    The page's tokens stay the source: the tier overrides them on :root, as
    the wide tier does, and a component's own rule here uses them. */
 
@@ -181,6 +184,17 @@
 /* The tab bar is the phone's alone. */
 .phone-tabs { display: none; }
 
+/* What is fixed over the window's foot, which the page's reveal and in-sight
+   checks leave out of the band they count as seen (`viewBand`, state.js).
+   Registered as a length so it computes to px, the safe area's env() and
+   all, for the script to read; 0 wherever the phone's rule below does not
+   set it, so a PC's and a tablet's checks are innerHeight's as before. */
+@property --phone-bottom-chrome {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 0px;
+}
+
 @media (pointer: coarse) and ((width < 700px) or (max-height: 500px)) {
   :root { --gutter: 12px; --panel-pad: 14px; }
 
@@ -190,6 +204,10 @@
   .brand { font-size: var(--fs-lg); }
 
   main { padding-bottom: calc(var(--tabbar-h) + var(--safe-b) + var(--gutter)); }
+  /* The tab bar and the home indicator's inset, over the window's foot;
+     nothing while a box has the keyboard and the bar steps aside. */
+  body { --phone-bottom-chrome: calc(var(--tabbar-h) + var(--safe-b)); }
+  body[data-typing] { --phone-bottom-chrome: 0px; }
   /* A tablet keyboard's Tab brought a control in at the window's foot, under
      the tab bar (WCAG 2.4.11): the scroll that follows the focus stops short
      of the bar. Nothing else scrolls by it. */

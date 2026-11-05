@@ -672,10 +672,11 @@ before changing it.
   `gallery.js` the single explicit filter transition out of sheets and the
   bin (`applyGalleryFilter`), which Apply, Show all, the Models picker's
   See all and a bundle's Show share. `touch.js`, just before `app.js`, the
-  phone's two views (Create and Gallery, `setPhoneView`, `showCreateView`)
-  and the job's mark on its tab bar; the touch tier's media queries
-  (`PHONE_MEDIA`, `TABLET_COLUMNS_MEDIA`, `TWO_COLUMNS_MEDIA`) are
-  `state.js`'s, beside `styles/touch.css`'s copies of them.
+  phone's two views (Create and Gallery, `setPhoneView`, `showCreateView`),
+  the job's mark on its tab bar and the tier's re-sync (`syncTier`); the
+  touch tier's media queries (`PHONE_MEDIA`, `TABLET_COLUMNS_MEDIA`,
+  `TWO_COLUMNS_MEDIA`, `TOUCH_MEDIA`) are `state.js`'s, beside
+  `styles/touch.css`'s copies of them, as is `viewBand`.
   `sw.js` is no classic script: the service worker, served at `/sw.js`
   (`main.service_worker`, `Cache-Control: no-cache`) so its scope is the
   whole site, and registered at the end of `app.js` only in a secure context
@@ -6601,7 +6602,29 @@ measured on the card and when.
   tab's, or Reuse (`revealReused` calls `showCreateView`) - switches it,
   never a job starting or ending. While a job runs, Create carries a dot
   and the bar's top edge the topbar's line (`syncPhoneTabsBusy`, from
-  `#topbar-line`'s attributes). On the phone the Models picker is a sheet
+  `#topbar-line`'s attributes). `body[data-tier]` names the tier -
+  `phone` (`PHONE_MEDIA`), `tablet` (the rest of the touch tier) or no
+  attribute on a PC - as a hook for phone rules beside the media query;
+  `syncTier` sets it at boot and again on every `change` of `PHONE_MEDIA`
+  or `TOUCH_MEDIA` (an iPad pane dragged across 700 px, a pointer
+  changing), with the search's placeholder, the bar's job state and
+  `data-typing`. Returning to the phone it puts back the current view's
+  scroll as a tab's press does: the view's scroll is kept as it moves
+  (`notePhoneScroll`), counting no scroll told while the tier is changing,
+  so the resize's own clamp or anchoring never replaces it. Leaving the
+  phone moves nothing, and the view chosen there stays chosen. Phone-only
+  layers that come later (sheets, moved nodes) close or go home in
+  `syncTier`. The reveal and in-sight checks (New image's
+  `viewerOutOfSight`, `focusPromptBox`, `focusGallerySearch`, Reuse's
+  `promptInSight` and Undo lift, the panel's `revealInPanel` and its `?`
+  tips, Picked's menu, the sheet's `wholeInSight`, the tag tip) measure
+  against `viewBand()` (`state.js`): from the topbar's foot (0 once it has
+  scrolled away) to `innerHeight` less `--phone-bottom-chrome`, which
+  `touch.css` registers as a `<length>` (`@property`, initial 0) and sets
+  on the phone's `body` to the tab bar plus the bottom safe area, 0 while
+  `data-typing` hides the bar. On a PC and the tablet it is 0, so those
+  checks are innerHeight's as before; on the phone a control under the
+  tab bar is out of sight. On the phone the Models picker is a sheet
   between the topbar and the bar, Back to top clears the bar, the
   lightbox's arrows give way to swipes, and the keyboard help button is
   gone. A finger in the lightbox (`lightbox.js`, `lbTouch*`): two pinch
@@ -7516,13 +7539,16 @@ emulated (`{"touch": true}`) at 393x852@3 with `"mobile": true` (as are
 852x393 and 320x1106): the phone query alone matching,
 Generate and Models at least 48 and 44 px, 16 px boxes, no keyboard hints
 or keyboard help, no sideways scroll, the page all 393 px wide (no
-classic scrollbar); the phone audit finding no sideways overflow, no
-control off the screen sideways and no dialog outside the window on Create,
+classic scrollbar), `data-tier` phone; the phone audit finding no
+sideways overflow, no control off the screen sideways and no dialog outside the window on Create,
 on Gallery and in the Models sheet, and in the lightbox no overflow and no
 dialog outside, its only excepted controls `.lb-link`s, with each state's
 count of controls under 44 px (and the lightbox's controls off the screen)
 logged as the baseline; Create drawing the panel and viewer
-but not the gallery and the bar at the window's foot; Gallery the reverse,
+but not the gallery and the bar at the window's foot, `viewBand` from the
+topbar's foot to the bar's top, a viewer 14 px above the bar counted out
+of sight below (`viewerOutOfSight`) and the band to the window's foot
+while the prompt has the focus; Gallery the reverse,
 two cards across, Back to top above the bar, each view's own scroll and
 the view kept through a reload; in the lightbox no arrows or key legend,
 a swipe left and right stepping, a swipe down closing, a pinch zooming
@@ -7538,17 +7564,19 @@ closing it; after a pinch the remaining finger panning 40 px at the same
 scale (synthetic touch pointer events, capture stubbed); a long press on
 the lightbox's picture opening the menu inside it with no dialog opened
 and the lightbox still up; 852x393 still the phone, with a topbar of at
-most 48 px, a tab bar of at most 45, a topbar that scrolls away, a
-three-line prompt, the search beside Runs, card tools 32 px tall, and the
+most 48 px, a tab bar of at most 45, a topbar that scrolls away (the
+band then from 0 to the bar), a three-line prompt, the search beside Runs, card tools 32 px tall, and the
 lightbox's column beside a stage at least 300 tall; the tab bar a nav
 landmark holding the tablist, the brand at #8a6dff and a scroll padding
 the bar's height; at 320x1106 Sampling two to a row with no sideways
 scroll; and a mouse at 1400x900 back to no bar, both views, a sticky
 topbar, no scroll padding, a 43 px Generate, 14 px text and the
-Ctrl+Enter hint.
+Ctrl+Enter hint, no `data-tier`, the search's "/ to focus" back and
+`viewBand` the window under the topbar.
 
 `smoke-tablet.json` uses a fresh FLUX.1 Krea [dev] fake on 7957 with touch
-at 820x1180@2, its touch viewports `"mobile": true`: the panel beside the
+at 820x1180@2, its touch viewports `"mobile": true`: `data-tier` tablet
+and `viewBand` the whole window; the panel beside the
 stage and sticky, two cards across,
 no tab bar, the keyboard help kept, finger sizes, the chips' host the wide
 one, the page all 820 px wide; a tapped Generate's result in the stage
@@ -7556,9 +7584,13 @@ beside the panel with no New
 image pill fixed over the page; at 1180x820 the PC's two columns at finger
 sizes; at 678x1180 (Split View) the phone with its tab bar, the phone audit
 finding no overflow, nothing off the screen sideways and no dialog outside
-(its under-44 px count logged); and a mouse
+(its under-44 px count logged); the pane dragged 678 -> 820 -> 678, the
+tier following each `change`, Generate, the viewer and the gallery shown
+and Generate focusable at 820, Create back at the 300 px it was left at
+on the phone with Generate focusable, and a Gallery view chosen at 678
+kept through 820 and back; and a mouse
 at 820x1180 one column as before, 43 px Generate, the
-chips under the prompt.
+chips under the prompt, no `data-tier`, the search's "/ to focus" back.
 
 `smoke-offline.json` uses a fresh FLUX.1 Krea [dev] fake on 7958: the
 page at 127.0.0.1 registers `sw.js`, which controls the next load; with

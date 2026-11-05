@@ -86,7 +86,7 @@ function showTagTip(chip, lines) {
   tip.textContent = lines.join('\n');
   tip.hidden = false;
   const box = chip.getBoundingClientRect();
-  const below = box.bottom + 6 + tip.offsetHeight <= innerHeight - 8;
+  const below = box.bottom + 6 + tip.offsetHeight <= viewBand().bottom - 8;
   tip.style.top = `${below ? box.bottom + 6 : box.top - 6 - tip.offsetHeight}px`;
   tip.style.left = `${Math.max(8, Math.min(box.left, innerWidth - tip.offsetWidth - 8))}px`;
 }

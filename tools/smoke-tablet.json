@@ -13,6 +13,7 @@
 
   {"log": "'Portrait: the panel beside the stage and sticky, the gallery two cards across beside it, no tab bar, finger sizes'"},
   {"expect": "matchMedia(TABLET_COLUMNS_MEDIA).matches && matchMedia(TWO_COLUMNS_MEDIA).matches && !matchMedia(PHONE_MEDIA).matches", "fatal": true},
+  {"expect": "document.body.dataset.tier === 'tablet' && viewBand().bottom === innerHeight && els.search.placeholder === 'Search prompts'"},
   {"expect": "(() => { const p = __box(__panel()), s = __box(els.stage); return p.right < s.left && Math.abs(p.top - s.top) < 1 && getComputedStyle(__panel()).position === 'sticky'; })()"},
   {"expect": "(() => { const cards = [...document.querySelectorAll('#gallery .card[data-id]')].map(__box); return cards[0].top === cards[1].top && cards[0].right <= cards[1].left && cards[1].right <= __box(els.stage).right + 0.5; })()"},
   {"expect": "!isShown(document.getElementById('phone-tabs')) && isShown(els.gallery) && isShown(els.viewer) && isShown(document.getElementById('btn-shortcuts'))"},
@@ -40,9 +41,34 @@
   {"expect": "(() => { const r = __phoneAudit(); return r.overflow === 0 && !r.offside.length && !r.dialogs.length; })()"},
   {"log": "(() => { const r = __phoneAudit(); return {small: r.small.length, offside: r.offside, dialogs: r.dialogs}; })()"},
 
+  {"log": "'The pane dragged across 700 px and back (678 -> 820 -> 678): the tier follows each change; Create shows where it was left; a view chosen on the phone stays chosen'"},
+  {"expect": "document.body.dataset.tier === 'phone' && document.body.dataset.view === 'create' && Math.abs(viewBand().bottom - __box(document.getElementById('phone-tabs')).top) < 1"},
+  {"eval": "scrollTo({top: 300, behavior: 'instant'});"},
+  {"expect": "__until(() => phoneViewScroll.create === 300)"},
+  {"viewport": [820, 1180, 2], "mobile": true},
+  {"expect": "__until(() => document.body.dataset.tier === 'tablet')"},
+  {"expect": "isShown(els.generate) && isShown(els.viewer) && isShown(els.gallery) && !isShown(document.getElementById('phone-tabs')) && viewBand().bottom === innerHeight"},
+  {"expect": "(() => { els.generate.focus({preventScroll: true}); const ok = document.activeElement === els.generate; els.generate.blur(); return ok; })()"},
+  {"eval": "scrollTo({top: 0, behavior: 'instant'});"},
+  {"viewport": [678, 1180, 2], "mobile": true},
+  {"expect": "__until(() => document.body.dataset.tier === 'phone')"},
+  {"expect": "Math.abs(scrollY - 300) < 1 && isShown(els.generate) && isShown(els.viewer) && !isShown(els.gallery) && isShown(document.getElementById('phone-tabs'))"},
+  {"expect": "(() => { els.generate.focus({preventScroll: true}); const ok = document.activeElement === els.generate; els.generate.blur(); return ok; })()"},
+  {"tap": "#tab-gallery"},
+  {"expect": "document.body.dataset.view === 'gallery' && isShown(els.gallery) && !isShown(els.generate)"},
+  {"viewport": [820, 1180, 2], "mobile": true},
+  {"expect": "__until(() => document.body.dataset.tier === 'tablet')"},
+  {"expect": "isShown(els.generate) && isShown(els.viewer) && isShown(els.gallery)"},
+  {"viewport": [678, 1180, 2], "mobile": true},
+  {"expect": "__until(() => document.body.dataset.tier === 'phone')"},
+  {"expect": "document.body.dataset.view === 'gallery' && isShown(els.gallery) && !isShown(els.generate) && !isShown(els.viewer)"},
+  {"tap": "#tab-create"},
+  {"expect": "isShown(els.generate) && isShown(els.viewer) && !isShown(els.gallery)"},
+
   {"log": "'A mouse at 820x1180: one column, as before, at the PC sizes'"},
   {"touch": false},
   {"viewport": [820, 1180]},
   {"expect": "!matchMedia(TWO_COLUMNS_MEDIA).matches && getComputedStyle(__panel()).position === 'static' && __box(els.stage).top > __box(__panel()).bottom"},
-  {"expect": "Math.round(__box(els.generate).height) === 43 && els.tagValidation.parentElement === els.tagValidationHome"}
+  {"expect": "Math.round(__box(els.generate).height) === 43 && els.tagValidation.parentElement === els.tagValidationHome"},
+  {"expect": "__until(() => !('tier' in document.body.dataset) && els.search.placeholder.includes('/ to focus') && viewBand().bottom === innerHeight)"}
 ]

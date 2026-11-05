@@ -518,9 +518,9 @@ async function joinFinished(page, epoch, now = false) {
 // scroll that jumps past the viewer without showing it (End, Home).
 let viewerWatch = null;
 function viewerOutOfSight() {
-  const top = document.querySelector('.topbar').getBoundingClientRect().bottom;
+  const { top, bottom } = viewBand();
   const box = els.viewer.getBoundingClientRect();
-  return box.bottom < top + 48 ? 'above' : box.top > innerHeight - 48 ? 'below' : null;
+  return box.bottom < top + 48 ? 'above' : box.top > bottom - 48 ? 'below' : null;
 }
 
 const NEW_IMAGE_WORDS = {

@@ -914,8 +914,8 @@ function focusSheet(asker) {
 // Tab took the page back to it.
 function wholeInSight(el) {
   const box = el.getBoundingClientRect();
-  let top = document.querySelector('.topbar').getBoundingClientRect().bottom;
-  let bottom = innerHeight, left = 0, right = innerWidth;
+  let { top, bottom } = viewBand();
+  let left = 0, right = innerWidth;
   for (let up = el.parentElement; up && up !== document.body; up = up.parentElement) {
     const style = getComputedStyle(up);
     if (style.display === 'contents' || (style.overflowX === 'visible' && style.overflowY === 'visible')) continue;

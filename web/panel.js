@@ -501,7 +501,8 @@ function revealInPanel(el) {
   else if (up > 0) setPanelTop(Math.min(panelPos.top, box.top - up));
   if (!jumped) return;
   const now = el.getBoundingClientRect();
-  if (now.top < document.querySelector('.topbar').getBoundingClientRect().bottom || now.bottom > innerHeight) {
+  const band = viewBand();
+  if (now.top < band.top || now.bottom > band.bottom) {
     scrollTo(scrollX, panelPos.scrollY + jumped);
   }
 }
@@ -552,15 +553,15 @@ function placeTip(help) {
   const badge = help.getBoundingClientRect();
   const shown = tip.getBoundingClientRect();
   tip.style.display = '';
-  const topbar = document.querySelector('.topbar').getBoundingClientRect().bottom;
+  const { top: topbar, bottom: foot } = viewBand();
   const above = badge.top - (shown.top - badge.bottom) - topbar;
-  const up = shown.bottom > innerHeight && above > innerHeight - shown.top;
+  const up = shown.bottom > foot && above > foot - shown.top;
   if (up) help.classList.add('up');
   // Too tall for either side of a badge mid-window (the Search tip at 600x900,
   // once it listed lora: and quant:): it stays under, and rises by what it
   // would run past the window's foot, never above the topbar. It may then lie
   // over its own badge, which keeps it open: the tip is inside the .help.
-  const rise = up ? 0 : Math.max(0, Math.min(shown.bottom - (innerHeight - TIP_EDGE), shown.top - topbar - TIP_EDGE));
+  const rise = up ? 0 : Math.max(0, Math.min(shown.bottom - (foot - TIP_EDGE), shown.top - topbar - TIP_EDGE));
   const right = document.documentElement.clientWidth - TIP_EDGE;
   const past = shown.right > right ? right - shown.right : 0;
   const shift = shown.left + past < TIP_EDGE ? TIP_EDGE - shown.left : past;
@@ -596,10 +597,10 @@ function floatTip(help, tip = help.querySelector('.tip')) {
   const view = tipClipper(help)?.getBoundingClientRect();
   help.classList.toggle('clipped', !!view && (badge.bottom <= view.top || badge.top >= view.bottom
     || badge.right <= view.left || badge.left >= view.right));
-  const topbar = document.querySelector('.topbar').getBoundingClientRect().bottom;
+  const { top: topbar, bottom: foot } = viewBand();
   const below = badge.bottom + 7;
   const above = badge.top - 7 - height;
-  const up = below + height > innerHeight && badge.top - 7 - topbar > innerHeight - below;
+  const up = below + height > foot && badge.top - 7 - topbar > foot - below;
   const end = help.classList.contains('end');
   const right = document.documentElement.clientWidth - TIP_EDGE;
   let left = end ? badge.right + 6 - width : badge.left - 6;

@@ -546,8 +546,8 @@ function showPickedMenu(open) {
   }
   els.pickedMenu.classList.remove('up');
   const box = els.pickedMenu.getBoundingClientRect();
-  const top = document.querySelector('.topbar').getBoundingClientRect().bottom;
-  if (box.bottom > innerHeight && els.pickedBtn.getBoundingClientRect().top - box.height - 6 >= top) {
+  const { top, bottom } = viewBand();
+  if (box.bottom > bottom && els.pickedBtn.getBoundingClientRect().top - box.height - 6 >= top) {
     els.pickedMenu.classList.add('up');
   }
 }

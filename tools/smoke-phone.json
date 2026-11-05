@@ -16,7 +16,7 @@
   {"expect": "__box(els.generate).height >= 48 && __box(document.getElementById('btn-models')).height >= 44"},
   {"expect": "[els.prompt, els.steps, els.seed, els.search, els.stepCache].every((el) => parseFloat(getComputedStyle(el).fontSize) >= 16)"},
   {"expect": "getComputedStyle(els.generate, '::after').content === 'none' && !isShown(document.getElementById('btn-shortcuts')) && !isShown(document.getElementById('png-hint')) && ![...document.querySelectorAll('.key-hint')].some(isShown)"},
-  {"expect": "els.search.placeholder === 'Search prompts'"},
+  {"expect": "els.search.placeholder === 'Search prompts' && document.body.dataset.tier === 'phone'"},
   {"log": "'Accessibility: the tab bar a nav landmark holding the tablist, the brand accent at 4.5:1, a focus never under the bar'"},
   {"expect": "(() => { const nav = document.getElementById('phone-tabs'), list = nav.querySelector('.phone-tablist'); return nav.tagName === 'NAV' && !nav.hasAttribute('role') && nav.getAttribute('aria-label') === 'Views' && list.parentElement === nav && list.getAttribute('role') === 'tablist' && list.querySelectorAll(':scope > [role=tab]').length === 2; })()"},
   {"expect": "getComputedStyle(document.querySelector('.brand span')).color === 'rgb(138, 109, 255)'"},
@@ -31,11 +31,14 @@
   {"expect": "document.body.dataset.view === 'create' && isShown(document.querySelector('.panel')) && isShown(els.viewer) && !isShown(els.gallery)"},
   {"expect": "(() => { const r = __box(document.getElementById('phone-tabs')); return Math.abs(r.bottom - innerHeight) < 1 && r.height >= 56 && document.getElementById('tab-create').getAttribute('aria-selected') === 'true'; })()"},
   {"expect": "(() => { scrollTo(0, document.documentElement.scrollHeight); const last = document.querySelector('.panel').getBoundingClientRect().bottom; return last <= __tabTop(); })()"},
+  {"log": "'The band the page counts as seen (viewBand) stops at the tab bar: a viewer 14 px into the window above the bar is out of sight below'"},
+  {"expect": "(() => { const b = viewBand(); return Math.abs(b.top - __box(document.querySelector('.topbar')).bottom) < 1 && Math.abs(b.bottom - __tabTop()) < 1; })()"},
+  {"expect": "(() => { scrollTo({top: scrollY + __box(els.viewer).top - (__tabTop() - 14), behavior: 'instant'}); return Math.abs(__box(els.viewer).top - (__tabTop() - 14)) < 1 && viewerOutOfSight() === 'below'; })()"},
 
   {"log": "'Typing: while a box has the keyboard the tab bar goes, and comes back with the focus'"},
   {"eval": "els.prompt.scrollIntoView({block: 'center'});"},
   {"tap": "#prompt"},
-  {"expect": "!isShown(document.getElementById('phone-tabs'))"},
+  {"expect": "!isShown(document.getElementById('phone-tabs')) && viewBand().bottom === innerHeight"},
   {"eval": "els.prompt.blur();"},
   {"expect": "isShown(document.getElementById('phone-tabs'))"},
 
@@ -138,6 +141,7 @@
   {"expect": "__box(document.querySelector('.topbar')).height <= 48 && __box(document.getElementById('phone-tabs')).height <= 45"},
   {"log": "'On its side the topbar scrolls away, the prompt is three lines, and the gallery search sits beside Runs'"},
   {"expect": "getComputedStyle(document.querySelector('.topbar')).position === 'relative' && (() => { const lh = parseFloat(getComputedStyle(els.prompt).lineHeight); return __box(els.prompt).height <= 3 * lh + 30; })()"},
+  {"expect": "(() => { scrollTo({top: 400, behavior: 'instant'}); const b = viewBand(), gone = __box(document.querySelector('.topbar')).bottom < 0; scrollTo({top: 0, behavior: 'instant'}); return gone && b.top === 0 && Math.abs(b.bottom - __tabTop()) < 1; })()"},
   {"tap": "#tab-gallery"},
   {"expect": "Math.abs(__box(els.search).top - __box(document.querySelector('.gallery-head .runs')).top) < 8 && document.documentElement.scrollWidth <= document.documentElement.clientWidth"},
   {"expect": "(() => { const tools = [...document.querySelectorAll('#gallery .card[data-id] .tools button')].filter(isShown); return tools.length > 0 && tools.every((b) => __box(b).height >= 32); })()"},
@@ -158,5 +162,6 @@
   {"viewport": [1400, 900]},
   {"expect": "!matchMedia('(pointer: coarse)').matches && !isShown(document.getElementById('phone-tabs')) && isShown(document.querySelector('.panel')) && isShown(els.gallery) && isShown(els.viewer)"},
   {"expect": "Math.round(__box(els.generate).height) === 43 && parseFloat(getComputedStyle(els.prompt).fontSize) === 14 && getComputedStyle(els.generate, '::after').content.includes('Ctrl+Enter')"},
-  {"expect": "getComputedStyle(document.querySelector('.topbar')).position === 'sticky' && getComputedStyle(document.documentElement).scrollPaddingBottom === 'auto'"}
+  {"expect": "getComputedStyle(document.querySelector('.topbar')).position === 'sticky' && getComputedStyle(document.documentElement).scrollPaddingBottom === 'auto'"},
+  {"expect": "!('tier' in document.body.dataset) && els.search.placeholder.includes('/ to focus') && viewBand().bottom === innerHeight && viewBand().top === __box(document.querySelector('.topbar')).bottom"}
 ]

@@ -24,6 +24,22 @@ const TABLET_COLUMNS_MEDIA = '(pointer: coarse) and (700px <= width <= 900px) an
 // Two columns - the panel beside the stage: a mouse's window over 900 px, or
 // a tablet in portrait (tag-chips.js reads it to place the chips' host).
 const TWO_COLUMNS_MEDIA = `(min-width: 901px), ${TABLET_COLUMNS_MEDIA}`;
+// The touch tier: a coarse primary pointer, the phone's and the tablet's.
+const TOUCH_MEDIA = '(pointer: coarse)';
+
+// The part of the window the page's content shows in: from the topbar's foot
+// (0 where it has scrolled away, as on a phone on its side) down to the
+// window's foot less what is fixed over it there - on the phone the tab bar
+// and the home indicator's inset, `--phone-bottom-chrome` (styles/touch.css;
+// 0 while a box has the keyboard and the bar steps aside). Everywhere else
+// that is 0, so `bottom` is innerHeight: a PC's checks are what they were.
+// The reveal and in-sight checks read this rather than innerHeight, so a
+// control under the tab bar counts as out of sight.
+function viewBand() {
+  const top = Math.max(0, document.querySelector('.topbar').getBoundingClientRect().bottom);
+  const chrome = parseFloat(getComputedStyle(document.body).getPropertyValue('--phone-bottom-chrome')) || 0;
+  return { top, bottom: innerHeight - chrome };
+}
 
 const PAGE = 48;
 // A sheet wants the whole run in one go - it is a matrix, and a matrix with a
