@@ -608,7 +608,7 @@ before changing it.
   `AURADREAM_INSTALL_TEST_ROOT`, `AURADREAM_INSTALL_TEST_PROC_VERSION`,
   `AURADREAM_INSTALL_TEST_WAIT` (control.sh's wait)
   (`tests/test_linux_scripts.py`)
-- `web/` - served as-is from `/static`; `index.html` loads 74 classic
+- `web/` - served as-is from `/static`; `index.html` loads 75 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `page-helpers.js`, right
   after it, the page-wide pure helpers (`plural`, `excerpt`, `units`,
@@ -709,7 +709,14 @@ before changing it.
   `renderLightbox` calls): the lightbox's bars over the picture, Edit's and
   More's action sheets (`openViewerEdit`, `openViewerMore`), Share
   (`sharePhoneImage`), the facts' sheet (`setPhoneFacts`) and a tap's bars
-  (`phoneViewerTap`, which `lbPointerUp` calls); the
+  (`phoneViewerTap`, which `lbPointerUp` calls); `phone-sheets.js`, after
+  it, what every dialog does as a phone's sheet (`syncPhoneSheets`, which
+  `syncPhoneHosts` calls): a sheet's focus off its text boxes as it opens
+  (`settlePhoneSheetFocus`; `keepSheetFocus`, which `openMoreOptionsFor`
+  calls, for a refusal's box), the head's ✕ (`pressSheetClose`), the
+  keyboard's inset (`syncKeyboardInset`), the long explanations' folds
+  (`syncPhoneWhy`), the setups', searches' and snippets' lists
+  (`drawPhoneList`) and the Models sheet's foot (`syncPhoneModels`); the
   touch tier's media queries (`PHONE_MEDIA`, `TABLET_COLUMNS_MEDIA`,
   `TWO_COLUMNS_MEDIA`, `TOUCH_MEDIA`) are `state.js`'s, beside
   `styles/touch.css`'s copies of them, as is `viewBand`, and so is the
@@ -758,7 +765,8 @@ before changing it.
   (`phone-select.js`), the runs' sheet, the run chip, a run sheet's foot
   (`phone-runs.js`) and the recycle bin's screen, then
   `phone-viewer.css`, the phone's viewer (`phone-viewer.js`) and its
-  action sheets' scrim, heading and Cancel row - all of which read
+  action sheets' scrim, heading and Cancel row, then `phone-sheets.css`,
+  what the dialogs do as sheets (`phone-sheets.js`) - all of which read
   `touch.css`'s tokens (all under
   "Phones and tablets");
   preserve that cascade (`tests/test_docs_maps.py` holds this list to
@@ -6638,9 +6646,10 @@ measured on the card and when.
   Beside the viewer a wheel over it scrolls the column (`galleryTopWheel`),
   not the page.
 - Phones and tablets (`styles/touch.css`, `styles/phone.css`,
-  `styles/phone-gallery.css` and `styles/phone-viewer.css`, linked last,
-  `touch.js`, `phone.js`, `phone-compose.js`, `phone-gallery.js` and
-  `phone-viewer.js`): one
+  `styles/phone-gallery.css`, `styles/phone-viewer.css` and
+  `styles/phone-sheets.css`, linked last, `touch.js`, `phone.js`,
+  `phone-compose.js`, `phone-gallery.js`, `phone-viewer.js` and
+  `phone-sheets.js`): one
   page, keyed on a coarse primary pointer, never on width alone, so a PC's
   mouse - a touch laptop's included, whose primary pointer is fine - and
   every smoke written with one see none of it at any window size. Three
@@ -6928,6 +6937,41 @@ measured on the card and when.
   cards, results, sheet cells and the stage, so iOS's callout and a text
   selection do not answer the press too, and gives the menu 36 px rows
   without its key hint or key letters.
+  What the sheets do on the phone beyond their markup (`phone-sheets.js`,
+  `styles/phone-sheets.css`; the review's phase 6). A dialog that opens with
+  the focus in a text box - its `autofocus`, or its opener's `.focus()`,
+  then or within two seconds with no press or key since (Saved setups'
+  name once its list has come) - has it moved to its head's ✕ (else the
+  sheet): the keyboard had come up over half the sheet before anything was
+  read; a press in the box brings it. A refusal that opens More options on
+  a box keeps that focus (`keepSheetFocus`). A PC and the tablet keep the
+  dialogs' own focus. Swap tags, Then refine, Mass refine and More seeds
+  have a ✕ in their head (`data-sheet-close`, not drawn off the phone),
+  which sends the dialog's `cancel` as Escape and Back do. The keyboard's
+  height over the layout viewport (`visualViewport`, more than 80 px) is
+  `--kb-inset` on the root, which the sticky action rows and the delete
+  question stand on. The delete question's Delete and Cancel are stacked
+  across its sheet, 48 px each, the destructive one first (P51). Swap
+  tags' explanation, Mass refine's, and Inpaint's and Outpaint's notes on
+  the strength are each moved into a shut fold of their own in their
+  place, "How it works" (`details.section.phone-why`, not drawn while its
+  words are empty), and home off the phone. What happens to each image
+  (Swap tags', Mass refine's, More seeds' lists) is as tall as its rows,
+  not drawn while empty: the sheet is the one scroller. Swap tags' rows
+  are the sheet's too, each a card of Find, the start or end toggle and
+  Replace across it, its × 44 px at its top right. The check's sheet draws
+  each finding and critic issue as a card, its Show at the card's end,
+  44 px, its source chip 44 px tall, the Compare selects 64 px wide. Saved
+  setups', Saved searches' and Prompt snippets' list boxes are drawn as
+  56 px rows from their options (`drawPhoneList`; the option of no value
+  is the list's line, inert) - the select hidden, what a row's press sets
+  with its `change`, and redrawn when its options or the dialog change.
+  The Models sheet is one scroller: the options, the checkpoints (each a
+  card, the head row not drawn, its ↗ 44 px, the chosen card's notes in
+  words under it), the pictures and Load automatically, with a sticky foot
+  (`#models-foot`) holding the note, Apply & save, Switch & load and the
+  topbar's Load and Unload, moved in; the note and the options' help as
+  tall as their words.
   On the phone the dialogs are sheets and the menus sit inside the screen
   (`touch.css`; `smoke-phone-dialogs`). Every `<dialog>` but the lightbox
   and the delete question covers the screen edge to edge, with no radius
@@ -9034,14 +9078,29 @@ the selection bar's More: two entries) under
 Picked (static, inside the window, 48 px), Escape shutting them and not
 the sheet; the long-press menu is docked across
 the window at its foot, its rows 48 px, its name at its head with a menu
-item under it and Cancel last, over the scrim. A mouse at
+item under it and Cancel last, over the scrim. Then the sheets
+(`phone-sheets.js`): Swap tags, More seeds and Refine open with the
+focus on their head's ✕ (Swap tags' 44 px, its own, inside the screen,
+closing it with its entry), Swap tags' rows unscrolled cards (Replace
+under Find, the × 44 px), its explanation in a shut How it works fold
+and its empty results not drawn, the audit clean; a 300 px
+`--kb-inset` lifts Refine's action row by 300; the delete question's
+Delete over Cancel, each 48 px and as wide; Inpaint's strength note in
+its shut fold; Saved setups opening on its ✕, a setup saved, its rows
+56 px from the hidden select, none chosen after New, a row's press
+choosing it in the select (its name in the box, the row chosen), the
+audit clean; and the Models sheet one scroller with its foot - note,
+Apply & save, Switch & load, Unload - at its end and Switch & load its
+own press, each checkpoint a card with the head row not drawn and its ↗
+44 px. A mouse at
 1400x900 then has the UA's sliders, Inpaint's tool rows, Outpaint's
 presets and band row and Refine's Strength row unwrapped, no reach past a
 `?` badge, the library dialogs' own scrollers and the UA's ticks (Swap
 tags' radios too), Bundles' file picker not 44 px and a chosen scale the
 accent's solid fill; the
 PC's question (under 480 px wide, off the window's foot, small buttons),
-Saved setups' inset box with an unstuck action row, and the right-click
+Saved setups' inset box with an unstuck action row (its select drawn, no
+rows; no sheet ✕, Models' foot or folds), and the right-click
 menu placed at the pointer with its PC rows.
 
 `smoke-phone-gallery.json` uses a fresh FLUX.1 Krea [dev] fake of its own
