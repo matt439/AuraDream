@@ -47,6 +47,7 @@
 <link rel="stylesheet" href="/static/styles/phone.css">
 <link rel="stylesheet" href="/static/styles/phone-gallery.css">
 <link rel="stylesheet" href="/static/styles/phone-viewer.css">
+<link rel="stylesheet" href="/static/styles/phone-sheets.css">
 </head>
 <body>
 <header class="topbar">
@@ -147,6 +148,11 @@
       </div>
       <p id="model-picker-note" role="status" tabindex="0"><button class="ghost tiny model-revert" id="btn-model-revert" type="button" title="Put back the server's checkpoint and loading options" hidden>Revert</button><span id="model-picker-note-text"></span></p>
     </div>
+    <!-- The phone's foot of the sheet (phone-sheets.js): the note, Apply &
+         save and Switch & load, and the topbar's Load and Unload, moved in
+         whole, sticky under the one scroller the sheet is there. Not drawn
+         off the phone. -->
+    <div class="models-foot" id="models-foot"></div>
   </section>
   <!-- Shown while nothing is loaded, or after a failed load (as Retry load):
        the first download, or a retry once repo access was granted, without
@@ -2005,6 +2011,7 @@
   <header class="swap-head dialog-head">
     <h2 id="swap-title">Swap tags</h2>
     <p id="swap-scope"></p>
+    <button type="button" class="close sheet-close" data-sheet-close aria-label="Close (Escape)">✕</button>
   </header>
   <div class="swap-rows" id="swap-rows"></div>
   <div class="swap-options">
@@ -2034,6 +2041,7 @@
         aria-describedby="then-refine-hint">
   <header class="rb-head dialog-head">
     <h2 id="then-refine-title">Then refine</h2>
+    <button type="button" class="close sheet-close" data-sheet-close aria-label="Close (Escape)">✕</button>
   </header>
   <label class="check" id="then-refine-label"><input type="checkbox" id="then-refine"> Refine each image as it is made
     <span class="tr-unavailable" aria-hidden="true">Not available on this checkpoint</span></label>
@@ -2068,6 +2076,7 @@
   <header class="rb-head dialog-head">
     <h2 id="refine-batch-title">Refine</h2>
     <p id="refine-batch-scope"></p>
+    <button type="button" class="close sheet-close" data-sheet-close aria-label="Close (Escape)">✕</button>
   </header>
   <div class="rb-controls">
     <div class="field rb-strength">
@@ -2124,6 +2133,7 @@
   <header class="ms-head dialog-head">
     <h2 id="more-seeds-title">More seeds</h2>
     <p id="more-seeds-scope"></p>
+    <button type="button" class="close sheet-close" data-sheet-close aria-label="Close (Escape)">✕</button>
   </header>
   <div class="ms-controls">
     <div class="field ms-count">
@@ -2498,6 +2508,7 @@
 <script src="/static/phone-select.js"></script>
 <script src="/static/phone-runs.js"></script>
 <script src="/static/phone-viewer.js"></script>
+<script src="/static/phone-sheets.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

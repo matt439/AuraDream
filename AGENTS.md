@@ -276,13 +276,20 @@ chip in the search's place, and a run sheet's foot (Finish run and More
 seeds… moved in, a ⋯ pressing its swipes, Fill width and exports). The
 recycle bin is a screen of its own on the phone (a ‹ before its name, no
 card tools, only its own rows in the sheets). `phone-viewer.js`
-(`styles/phone-viewer.css`, linked last), after it, owns the phone's
+(`styles/phone-viewer.css`, after `phone-gallery.css`), after it, owns the phone's
 viewer: the lightbox's picture across the screen with a top bar (‹, the
 place, Share) and a bar of Star, Reuse, Refine (moved in), Edit and More
 over it, whose action sheets press the lightbox's other buttons; the
 facts a peek that a press or a swipe up raises as a sheet; a tap on the
 picture hides or shows the bars, never closes. `LB_STACKED_MEDIA`
-leaves the phone out. Nodes are moved whole under
+leaves the phone out. `phone-sheets.js` (`styles/phone-sheets.css`,
+linked after it), after it, owns what the dialogs do as phone sheets: no
+text box focused as one opens (the head's ✕ instead; a refusal's box is
+kept), a ✕ in every head, `--kb-inset` from `visualViewport` under the
+sticky action rows, long explanations in shut folds, the setups',
+searches' and snippets' list boxes drawn as rows (the select kept, hidden),
+and the Models sheet as one scroller with a sticky foot (Apply & save,
+Switch & load, Load and Unload moved in). Nodes are moved whole under
 `PHONE_MEDIA` (`moveBefore`) and home again on the tier's change, never
 copied or reordered with CSS. On touch
 each open overlay (lightbox, the viewer's raised facts, dialog, Models,

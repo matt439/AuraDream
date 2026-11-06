@@ -1,0 +1,140 @@
+/* ------------------------------------------------------ the phone's sheets */
+
+/* What every dialog does as a sheet on the phone (phone-sheets.js), over
+   touch.css's sheet: the head's ✕ where a dialog had only Cancel at its
+   foot, the action row above the keyboard, and the delete question's two
+   buttons stacked. Linked last. Off the phone the added ✕ is not drawn. */
+.sheet-close, .models-foot, .phone-list { display: none; }
+
+@media (pointer: coarse) and ((width < 700px) or (max-height: 500px)) {
+  /* Swap tags', Then refine's, Mass refine's and More seeds' heads: their
+     ✕ at the top right, 44 px, as Refine's and the others' are; the title
+     and the scope line keep clear of it. */
+  dialog:not(.lightbox) > .dialog-head:has(> .sheet-close) { padding-right: calc(var(--sheet-r) + var(--h-md) + 4px); }
+  dialog:not(.lightbox) > .dialog-head > .sheet-close {
+    display: inline-grid; place-items: center; position: absolute;
+    top: calc(var(--safe-t) + 4px); right: max(4px, calc(var(--sheet-r) - 12px));
+  }
+
+  /* The keyboard's inset (`--kb-inset`, phone-sheets.js): the sticky action
+     row stands on the keyboard, not behind it, and a box scrolled to keeps
+     clear of both. */
+  dialog:not(.lightbox):not(.confirm-dialog) .dialog-actions { bottom: var(--kb-inset, 0px); }
+  dialog:not(.lightbox):not(.confirm-dialog) { scroll-padding-bottom: calc(var(--kb-inset, 0px) + 96px); }
+  dialog.confirm-dialog { bottom: var(--kb-inset, 0px); }
+
+  /* The delete question's buttons (P51) were the screen's width apart, at
+     its two edges: stacked across it, 48 px each, the destructive one over
+     Cancel, as a phone's own action sheet has them. */
+  dialog.confirm-dialog .confirm-actions {
+    flex-direction: column-reverse; align-items: stretch; gap: var(--sp-2); margin-top: var(--sp-4);
+  }
+  dialog.confirm-dialog .confirm-actions > button { width: 100%; min-height: 48px; }
+
+  /* A long explanation in its own shut fold (phone-sheets.js, P53), the
+     words under its row once open; not drawn while they are empty. */
+  details.phone-why:not(:has(> :not(summary):not(:empty))) { display: none; }
+  details.phone-why > :not(summary) { margin: 0 0 var(--sp-3); }
+
+  /* What happens to each image (Swap tags', Mass refine's, More seeds'):
+     a fixed box with a scroll of its own, which an empty list left as half
+     a screen of nothing and a long one cut in two scrollers. The sheet is
+     the one scroller here; the list is as tall as its rows. */
+  :is(.swap-results, .rb-results, .ms-results) { height: auto; max-height: none; overflow: visible; }
+  :is(.swap-results, .rb-results, .ms-results):empty { display: none; }
+
+  /* Swap tags (P49): its rows are the sheet's, not a three-row box of
+     their own; each row a card - Find over Replace across it, the start
+     or end toggle (an empty Find's) between them, its ✕ a 44 px square at
+     the card's top right. + Add row under the cards. */
+  .swap-rows { height: auto; overflow: visible; padding-right: 0; scrollbar-gutter: auto; gap: var(--sp-3); }
+  .swap-row {
+    grid-template-columns: minmax(0, 1fr) var(--h-md);
+    grid-template-areas: "find remove" "mid ." "replace .";
+    row-gap: var(--sp-2); column-gap: var(--sp-2);
+    padding: var(--sp-3); border: 1px solid var(--line); border-radius: var(--r-md); background: var(--panel-2);
+  }
+  .swap-row .swap-find { grid-area: find; }
+  .swap-row .swap-mid { grid-area: mid; justify-content: flex-start; width: auto; }
+  .swap-row .swap-replace { grid-area: replace; grid-column: auto; }
+  .swap-row .swap-remove { grid-area: remove; grid-row: auto; grid-column: auto; width: var(--h-md); min-width: var(--h-md); height: var(--h-md); align-self: start; }
+  .swap-row .swap-arrow { display: none; }
+  .swap-row .swap-mid:not(:has(> :not([hidden]):not(.swap-arrow))) { display: none; }
+
+  /* The check's sheet (P9): each finding, and each critic issue, a card -
+     its mark, its words and its source chip on top, its Show (which put a
+     36 px button mid-sentence) at the card's end, 44 px - and the source
+     chips, which were 50x21 links, a finger's 44 px tall. */
+  .check-sheet .analysis-list { display: flex; flex-direction: column; gap: var(--sp-2); padding: 0; }
+  .check-sheet .analysis-item {
+    display: grid; grid-template-columns: auto minmax(0, 1fr) auto; column-gap: var(--sp-2); row-gap: var(--sp-1);
+    align-items: start; margin: 0; padding: var(--sp-3);
+    border: 1px solid var(--line); border-radius: var(--r-md); background: var(--panel-2);
+  }
+  .check-sheet .analysis-item > .analysis-extra { grid-column: 2 / -1; }
+  .check-sheet .analysis-message { display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--sp-1); row-gap: var(--sp-2); }
+  .check-sheet .analysis-message > .analysis-show { flex: 0 0 auto; margin-left: auto; min-height: var(--h-md); min-width: 64px; }
+  .check-sheet .analysis-source {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-height: var(--h-md); min-width: var(--h-md); padding-inline: var(--sp-3);
+  }
+  .check-sheet select { min-width: 64px; }
+
+  /* Saved setups', searches' and snippets' lists (P48, phone-sheets.js):
+     rows of 56 px across the sheet, the chosen one tonal with an accent
+     edge, a held one (the empty list's line) muted; the select under them
+     not drawn. */
+  #setups-list, #saved-searches-list, #snippets-list { display: none; }
+  .phone-list {
+    display: flex; flex-direction: column; overflow: hidden;
+    border: 1px solid var(--line); border-radius: var(--r-md); background: var(--panel-2);
+  }
+  .phone-list:empty { display: none; }
+  .phone-list-row {
+    display: flex; align-items: center; min-height: 56px; width: 100%; margin: 0;
+    padding: var(--sp-2) var(--sp-4); border: 0; border-top: 1px solid var(--line); border-radius: 0;
+    background: transparent; color: var(--text); font: inherit; text-align: left; overflow-wrap: anywhere;
+  }
+  .phone-list-row:first-child { border-top: 0; }
+  .phone-list-row[aria-selected="true"] { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
+  .phone-list-row[aria-disabled="true"] { color: var(--muted); cursor: default; }
+
+  /* The Models sheet (P45): one scroller, the sheet itself, rather than the
+     checkpoints in a box of their own over a footer of pictures and
+     buttons that held half the screen; its foot (phone-sheets.js) sticky
+     at the end - the note over Apply & save and Switch & load, and Load or
+     Unload under them. */
+  .model-picker:not([hidden]) { overflow-y: auto; overscroll-behavior: contain; }
+  .model-picker > * { flex-shrink: 0; }
+  .model-picker-body { overflow: visible; min-height: auto; }
+  .model-picker-footer { border-radius: 0; padding-bottom: var(--sp-3); }
+  .models-foot {
+    display: grid; gap: var(--sp-2); position: sticky; bottom: 0; z-index: 3;
+    padding: var(--sp-2) var(--panel-pad) var(--sp-3); margin-top: auto;
+    background: var(--panel); border-top: 1px solid var(--line);
+  }
+  /* Its note as tall as its words (three lines kept for it on a PC, where
+     nothing under it may move), and the options' help likewise: the sheet
+     scrolls, and the foot is its words' height over the buttons. */
+  .models-foot > #model-picker-note { margin: 0; height: auto; max-height: 6lh; }
+  .model-picker .model-loader-help, .model-picker :is(#model-compilation-help, #model-attention-help) { height: auto; }
+  .models-foot > #model-picker-note:not(:has(> :not([hidden]):not(:empty))) { display: none; }
+  .models-foot > :is(#btn-load, #btn-unload):not([hidden]) { width: 100%; }
+  /* Each checkpoint a card, the whole of it its choice (the label round
+     its words); its star and its page's ↗ 44 px; its facts' notes, which a
+     finger never sees as a tooltip, under the chosen card in words. */
+  .model-table { border: 0; gap: var(--sp-2); }
+  .model-row-head { display: none; }
+  .model-row:not(.model-row-head) {
+    border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--sp-2) var(--sp-2) var(--sp-3);
+    grid-template-columns: var(--h-md) repeat(2, minmax(0, 1fr)) var(--h-md);
+  }
+  .model-row:first-child { border-top: 1px solid var(--line); }
+  .model-row:has(input:checked) { border-color: var(--accent); }
+  .model-row .model-link { display: inline-grid; place-items: center; min-width: var(--h-md); min-height: var(--h-md); }
+  .model-row :is(.model-fact, .model-access, .model-fit, .model-state, .model-download)[title] { text-decoration: none; }
+  .model-row:has(input:checked) > .sr-only[id^="model-notes-"] {
+    position: static; width: auto; height: auto; margin: 0; clip: auto; clip-path: none; overflow: visible; white-space: normal;
+    grid-column: 2 / -1; color: var(--text-3); font-size: var(--fs-sm);
+  }
+}

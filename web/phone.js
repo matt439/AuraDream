@@ -92,6 +92,8 @@ function syncPhoneHosts() {
   syncPhoneGallery();
   // The viewer's bars over the picture (phone-viewer.js).
   syncPhoneViewer();
+  // The sheets' explanations folded, the keyboard's inset (phone-sheets.js).
+  syncPhoneSheets();
 }
 
 // ------------------------------------------------------- the newest result
@@ -448,6 +450,8 @@ function revealInMoreSheet(el) {
 // it, the refusal's words in its foot, where the focus lands.
 function openMoreOptionsFor(el, words = '') {
   if (!isPhone() || !$('more-sheet').contains(el)) return;
+  // The box is the point: its focus, and the keyboard, stay (phone-sheets.js).
+  keepSheetFocus($('more-sheet'));
   openMoreSheet();
   setMoreNote(words);
 }
@@ -461,6 +465,7 @@ function initPhone() {
   initPhoneCompose();
   initPhoneGallery();
   initPhoneViewer();
+  initPhoneSheets();
   makePhoneStepper(els.batch, 'Batch');
   makePhoneStepper(els.runs, 'Repeat');
   phoneNegFold = document.createElement('button');
