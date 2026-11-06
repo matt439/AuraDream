@@ -227,6 +227,9 @@ function backLayerList() {
     { el: els.sheet, open: () => sheetMode, close: () => { void setSheet(false); } },
     { el: els.modelPicker, open: () => !els.modelPicker.hidden, close: () => showModelPicker(false) },
     { el: els.lightbox, open: () => els.lightbox.open, close: dismissLightbox },
+    // The phone viewer's facts raised as a sheet (phone-viewer.js, which
+    // asks for the sync itself): Back lowers them first.
+    { el: $('lbp-handle'), open: () => phoneFactsUp, close: () => setPhoneFacts(false) },
     // Escape's way: the dialog's `cancel` first, which a dialog busy sending
     // refuses, or which closes it by its own path (Saved searches).
     ...dialogs.map((d) => ({

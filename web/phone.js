@@ -90,6 +90,8 @@ function syncPhoneHosts() {
   syncPhoneCompose();
   // The gallery's one-row head and its two sheets (phone-gallery.js).
   syncPhoneGallery();
+  // The viewer's bars over the picture (phone-viewer.js).
+  syncPhoneViewer();
 }
 
 // ------------------------------------------------------- the newest result
@@ -458,6 +460,7 @@ function initPhone() {
   }
   initPhoneCompose();
   initPhoneGallery();
+  initPhoneViewer();
   makePhoneStepper(els.batch, 'Batch');
   makePhoneStepper(els.runs, 'Repeat');
   phoneNegFold = document.createElement('button');

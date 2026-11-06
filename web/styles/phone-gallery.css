@@ -410,6 +410,9 @@
   .phone-run-chip { container-type: inline-size; }
   .run-chip-more { display: none; }
   @container (min-width: 300px) { .run-chip-more { display: inline; } }
+  /* At 360 px its words had 59 px, which "9:42 AM" filled: a two-digit
+     hour was cut. There the drawn "Run" goes (the button's name keeps it). */
+  @container (max-width: 170px) { .run-chip-name { display: none; } }
   .run-chip-clear {
     flex: none; width: var(--h-md); min-width: var(--h-md); height: 100%; margin: 0; padding: 0;
     border: none; border-radius: 0 var(--r-md) var(--r-md) 0; background: transparent; box-shadow: none;

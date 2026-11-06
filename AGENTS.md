@@ -262,7 +262,7 @@ phone's compose controls: the topbar's model chip (the status moved into
 Models) and its ⋯ menu, the prompt's toolbar under the box, the check's
 sheet and its line, and the size as Shape and a Size chip over the
 undrawn strips. `phone-gallery.js` (`styles/phone-gallery.css`, linked
-last), after it, owns the phone's gallery head: one sticky row (search,
+after `phone.css`), after it, owns the phone's gallery head: one sticky row (search,
 Filters, Select, ⋯) and the Filters and ⋯ sheets holding the head's and
 footer's own buttons, each bulk action's line saying what it takes or
 why it is held, and the cards' size (three or two across).
@@ -275,15 +275,23 @@ picker's own options (the select kept, not drawn), the run shown as a
 chip in the search's place, and a run sheet's foot (Finish run and More
 seeds… moved in, a ⋯ pressing its swipes, Fill width and exports). The
 recycle bin is a screen of its own on the phone (a ‹ before its name, no
-card tools, only its own rows in the sheets). Nodes are moved whole under
+card tools, only its own rows in the sheets). `phone-viewer.js`
+(`styles/phone-viewer.css`, linked last), after it, owns the phone's
+viewer: the lightbox's picture across the screen with a top bar (‹, the
+place, Share) and a bar of Star, Reuse, Refine (moved in), Edit and More
+over it, whose action sheets press the lightbox's other buttons; the
+facts a peek that a press or a swipe up raises as a sheet; a tap on the
+picture hides or shows the bars, never closes. `LB_STACKED_MEDIA`
+leaves the phone out. Nodes are moved whole under
 `PHONE_MEDIA` (`moveBefore`) and home again on the tier's change, never
 copied or reordered with CSS. On touch
-each open overlay (lightbox, dialog, Models, context menu, run sheet,
-recycle bin) holds
+each open overlay (lightbox, the viewer's raised facts, dialog, Models,
+context menu, run sheet, recycle bin) holds
 one history entry, so Back closes the top one (`touch.js`); a mouse adds none.
 On the phone every dialog is a sheet across the screen whose `.dialog-head`
 and `.dialog-actions` (`index.html`) stay at its top and foot, and the
-menus sit inside the screen, the right-click one docked at its foot.
+menus sit inside the screen, the right-click one an action sheet docked
+at its foot over a scrim, named at its head with a Cancel row last.
 
 `sw.js`, served at `/sw.js` and registered by `app.js` only in a secure
 context (never plain http to a LAN address), answers a silent server's

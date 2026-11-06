@@ -253,7 +253,9 @@ function renderContextMenu(items) {
   for (const item of items) {
     // The key hint, first, is no group: a line after it alone (the
     // lightbox's menu, which has no Open) stood over its first row.
-    if (!item) { gap = !!menu.querySelector('[role="menuitem"], .heading'); continue; }
+    // A heading alone is no group either: a line under it stood between a
+    // phone's action sheet's name and its first row.
+    if (!item) { gap = !!menu.querySelector('[role="menuitem"]'); continue; }
     if (gap) {
       const line = document.createElement('li');
       line.setAttribute('role', 'separator');
@@ -274,6 +276,8 @@ function renderContextMenu(items) {
     if (item.held) li.setAttribute('aria-disabled', 'true');
     // What destroys or stops: in --danger on a phone (styles/phone.css).
     if (item.danger) li.classList.add('danger');
+    // A phone's Cancel row (showContextMenu).
+    if (item.cancel) li.classList.add('cancel');
     // The choice in force, ticked (a phone's ratio and size menus,
     // phone-compose.js).
     if (item.checked) { li.classList.add('checked'); li.setAttribute('aria-current', 'true'); }
@@ -306,10 +310,24 @@ function openContextMenu(found, x, y, byKey) {
 function showContextMenu(items, label, host, x, y, byKey) {
   const menu = els.contextMenu;
   closeContextMenu(false);
-  renderContextMenu(items);
+  // On a phone it is an action sheet docked at the screen's foot (touch.css),
+  // not placed at the finger: named at its head where no heading of its
+  // own does, a Cancel row last, over a scrim whose press shuts it alone -
+  // a second press of the ⋯ that opened it among them.
+  const docked = matchMedia(PHONE_MEDIA).matches;
+  const sheet = docked
+    ? [...(items.some((item) => item?.heading) ? [] : [{ heading: label }]), ...items, null,
+      { label: 'Cancel', title: 'Shut this menu', cancel: true, run: () => {} }]
+    : items;
+  renderContextMenu(sheet);
   menu.setAttribute('aria-label', label);
   const home = host.closest?.('dialog[open]') ?? (els.lightbox.open ? els.lightbox : document.body);
   if (menu.parentElement !== home) home.append(menu);
+  const scrim = $('ctx-scrim');
+  if (docked) {
+    if (menu.previousElementSibling !== scrim) menu.before(scrim);
+    scrim.hidden = false;
+  }
   ctxMenu.host = host;
   ctxMenu.opener = document.activeElement;
   // A menu button (aria-haspopup="menu": the phone's topbar ⋯, Shape, the
@@ -318,9 +336,6 @@ function showContextMenu(items, label, host, x, y, byKey) {
     host.setAttribute('aria-expanded', 'true');
     ctxMenu.expanded = host;
   }
-  // On a phone it is an action sheet docked at the screen's foot (touch.css),
-  // not placed at the finger: no place of its own to set.
-  const docked = matchMedia(PHONE_MEDIA).matches;
   menu.style.left = docked ? '' : '0px';
   menu.style.top = docked ? '' : '0px';
   menu.hidden = false;
@@ -343,6 +358,7 @@ function closeContextMenu(refocus = true) {
   if (menu.hidden) return;
   const inside = menu.contains(document.activeElement);
   menu.hidden = true;
+  $('ctx-scrim').hidden = true;
   const opener = ctxMenu.opener;
   ctxMenu.host = null;
   ctxMenu.opener = null;
@@ -429,8 +445,19 @@ function contextMenuKeydown(e) {
 function contextMenuPointerDown(e) {
   if (els.contextMenu.hidden || els.contextMenu.contains(e.target)) return;
   const stage = ctxMenu.host === els.lbStage && e.button === 0 && els.lbStage.contains(e.target);
+  const scrim = $('ctx-scrim');
+  const onScrim = e.target === scrim;
   closeContextMenu(false);
   if (stage) e.stopPropagation();
+  // A phone's scrim stays under the finger until its click: hidden at the
+  // press, the lift's click went to what was under it - the lightbox's
+  // backdrop, which closed it.
+  if (onScrim) {
+    scrim.hidden = false;
+    const away = () => { clearTimeout(timer); if (els.contextMenu.hidden) scrim.hidden = true; };
+    const timer = setTimeout(away, 600);
+    scrim.addEventListener('click', away, { once: true });
+  }
 }
 
 // Scrolling under it, the window resized or left: it closes, as a native

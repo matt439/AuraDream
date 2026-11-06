@@ -293,11 +293,11 @@
 .lb-nav:disabled span { opacity: 0.2; }
 
 /* Too narrow for a column beside the stage: it goes under, as a wrapping row
-   with the prompt on its own line. Not a phone on its side, 340-ish px tall,
-   whose column stays beside the stage (touch.css). LB_STACKED_MEDIA in
-   state.js is this text, for lightbox.js's and lightbox-compare.js's
-   measures of the same layout. */
-@media (max-width: 900px) and (not ((pointer: coarse) and (max-height: 500px) and (orientation: landscape))) {
+   with the prompt on its own line. Not a phone, either way up, whose viewer
+   is the picture across the screen with its bars over it
+   (styles/phone-viewer.css). LB_STACKED_MEDIA in state.js is this text, for
+   lightbox.js's and lightbox-compare.js's measures of the same layout. */
+@media (max-width: 900px) and (not ((pointer: coarse) and ((width < 700px) or (max-height: 500px)))) {
   .lightbox { flex-direction: column; }
   .lb-side {
     flex: 0 0 auto; width: auto;

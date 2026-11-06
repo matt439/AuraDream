@@ -608,7 +608,7 @@ before changing it.
   `AURADREAM_INSTALL_TEST_ROOT`, `AURADREAM_INSTALL_TEST_PROC_VERSION`,
   `AURADREAM_INSTALL_TEST_WAIT` (control.sh's wait)
   (`tests/test_linux_scripts.py`)
-- `web/` - served as-is from `/static`; `index.html` loads 73 classic
+- `web/` - served as-is from `/static`; `index.html` loads 74 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `page-helpers.js`, right
   after it, the page-wide pure helpers (`plural`, `excerpt`, `units`,
@@ -704,7 +704,12 @@ before changing it.
   Filters' Runs row and the runs' sheet (`openRunsSheet`), the run chip
   (`syncRunChip`, `clearRunChip`) and a run sheet's foot
   (`placePhoneSheetFoot` and `dropPhoneSheetFoot`, which `drawSheet`
-  calls); the
+  calls); `phone-viewer.js`, after it, the phone's viewer (`syncPhoneViewer`,
+  which `syncPhoneHosts` calls, and `syncPhoneViewerImage`, which
+  `renderLightbox` calls): the lightbox's bars over the picture, Edit's and
+  More's action sheets (`openViewerEdit`, `openViewerMore`), Share
+  (`sharePhoneImage`), the facts' sheet (`setPhoneFacts`) and a tap's bars
+  (`phoneViewerTap`, which `lbPointerUp` calls); the
   touch tier's media queries (`PHONE_MEDIA`, `TABLET_COLUMNS_MEDIA`,
   `TWO_COLUMNS_MEDIA`, `TOUCH_MEDIA`) are `state.js`'s, beside
   `styles/touch.css`'s copies of them, as is `viewBand`, and so is the
@@ -751,7 +756,9 @@ before changing it.
   and last `phone-gallery.css`, the gallery's one-row head and its two
   sheets (`phone-gallery.js`), the cards' size and the selection bar
   (`phone-select.js`), the runs' sheet, the run chip, a run sheet's foot
-  (`phone-runs.js`) and the recycle bin's screen, which read
+  (`phone-runs.js`) and the recycle bin's screen, then
+  `phone-viewer.css`, the phone's viewer (`phone-viewer.js`) and its
+  action sheets' scrim, heading and Cancel row - all of which read
   `touch.css`'s tokens (all under
   "Phones and tablets");
   preserve that cascade (`tests/test_docs_maps.py` holds this list to
@@ -4385,7 +4392,7 @@ measured on the card and when.
   1800px)` block. Where it does not fit, the card's ✎ hides in the wide
   tier (a container query) and at S density, the docked result row drops
   ✎ Inpaint…, and the lightbox's Inpaint… hides under 901 px (not on the
-  phone, whose lightbox wraps its actions: "Phones and tablets"); another
+  phone, whose viewer has it in Edit's action sheet: "Phones and tablets"); another
   entry point remains in each case. Cards, facts, the settings line and job
   labels read "inpaint of #N @ 0.6", the facts list has a Mask row (the
   mask as a tint and an outline over the source's thumbnail, in an 80 px
@@ -6521,8 +6528,8 @@ measured on the card and when.
   An item may be `danger` (the recycle bin's, a queued job's Cancel),
   drawn in `--danger` on the phone alone.
   Its key hint, first, is no group: a group's line comes only after an
-  item or a heading, so the lightbox's menu, which has no Open, starts with
-  Star rather than a line. A press outside, a scroll, a resize or the window going closes it; a
+  item (never straight under a heading), so the lightbox's menu, which has
+  no Open, starts with Star rather than a line. A press outside, a scroll, a resize or the window going closes it; a
   left press on the lightbox's stage that only closed it is the menu's
   (stopped in capture), so the lightbox stays open. Escape and Tab close it
   with focus back where it was, and its keys go no further. `cardNote` and
@@ -6630,9 +6637,10 @@ measured on the card and when.
   at the screen's foot on the left over the bars ("Phones and tablets").
   Beside the viewer a wheel over it scrolls the column (`galleryTopWheel`),
   not the page.
-- Phones and tablets (`styles/touch.css`, `styles/phone.css` and
-  `styles/phone-gallery.css`, linked last, `touch.js`, `phone.js`,
-  `phone-compose.js` and `phone-gallery.js`): one
+- Phones and tablets (`styles/touch.css`, `styles/phone.css`,
+  `styles/phone-gallery.css` and `styles/phone-viewer.css`, linked last,
+  `touch.js`, `phone.js`, `phone-compose.js`, `phone-gallery.js` and
+  `phone-viewer.js`): one
   page, keyed on a coarse primary pointer, never on width alone, so a PC's
   mouse - a touch laptop's included, whose primary pointer is fine - and
   every smoke written with one see none of it at any window size. Three
@@ -6884,7 +6892,12 @@ measured on the card and when.
   gone. A finger in the lightbox (`lightbox.js`, `lbTouch*`): two pinch
   about their midpoint and pan; one zoomed in pans; one at or below fit
   swipes - 50 px sideways (and 1.3 times its rise) steps, 90 px down
-  closes - the picture following it; a tap is the mouse's click; two taps
+  closes, and on the phone 90 px up raises the viewer's facts - the
+  picture following it; a tap is the mouse's click (on the tablet beside
+  the picture at fit it closes), but on the phone's viewer a tap anywhere
+  on the stage lowers the raised facts or else hides or shows the bars,
+  300 ms after it (`phoneViewerTap`, by `lbCloseTimer`, which the next
+  press clears) and never closes; two taps
   within 300 ms and 30 px are the double-click, and the browser's own
   dblclick for them is dropped (`lbTouchDouble`). After a pinch the finger
   left down pans (a drag already moved, so its lift is no tap). The stage
@@ -6895,7 +6908,7 @@ measured on the card and when.
   `contextMenuTouch*`): iOS Safari sends no `contextmenu` for one, and the
   menu holds what no button does on a phone (Edit by instruction…, Pick
   this run, the Copy items, Open PNG; under 900 px Inpaint… and More
-  seeds… too, which the phone's lightbox also shows). A gallery card's,
+  seeds… too, which the phone's viewer has in its Edit and More sheets). A gallery card's,
   on a touch screen and outside Select, also has Select after Open
   (`selectFromCard`, `gallery-select.js`): Select on with that card
   picked, where a mouse has Ctrl+click - a long press keeps its menu
@@ -6963,8 +6976,14 @@ measured on the card and when.
   in the gallery's ⋯ sheet on the phone, below, where its rows open in
   the sheet's flow under it instead.) The right-click
   menu is an action sheet docked at the screen's foot across it, at most
-  70 dvh with its own scroll, 48 px rows: `openContextMenu` sets no place
-  under `PHONE_MEDIA`. The tablet keeps the PC's dialogs and menus at its
+  70 dvh with its own scroll, 48 px rows: `showContextMenu` sets no place
+  under `PHONE_MEDIA`, names it at its head (its label, where its items
+  bring no heading of their own), ends it with a Cancel row (`.cancel`,
+  after a line) and puts `#ctx-scrim` under it, in the same parent (the
+  lightbox, a sheet, the body). A press of the scrim shuts the menu alone
+  (`contextMenuPointerDown`) - a second press of the ⋯ that opened it among
+  them - and the scrim stays until that press's click, which, hidden at the
+  press, went to the lightbox's backdrop and closed it. The tablet keeps the PC's dialogs and menus at its
   finger sizes.
   Back closes the top overlay on any touch screen, the tablet's too
   (`touch.js`, `syncBackLayers`): Android's Back and iOS's edge swipe went
@@ -7518,6 +7537,8 @@ measured on the card and when.
   row says "Today, 4:47 am" likewise, `runWhen`), else
   its day, then where the chip has the room (a container query: on its
   side, not at 393 px) the rest ("· 4 images"), its whole line its name;
+  under 171 px of chip (360 px wide) the drawn "Run" goes, so a two-digit
+  hour ("12:44 PM") is whole where "9:42 AM" had filled the 59 px left;
   its press opens the runs' sheet, and its 44 px ✕ is the gallery as it was
   before the run - the search the run replaced where the page wrote it,
   else none - through `applyGalleryFilter`, which shuts the sheet. Not in
@@ -7582,24 +7603,52 @@ measured on the card and when.
   type stays `number`, so a PC's box, its arrows and its checks are
   unchanged. The panel's Sampling and Output boxes have
   `enterkeyhint="done"` (Enter there does nothing), the gallery's search
-  `enterkeyhint="search"`. The phone's lightbox is black, its `::backdrop` too (the
-  PC's 0.97 over a clear backdrop let the tab bar's names and the cards'
-  glyphs and captions show through). Its facts fade over their last
-  1.2 em, padded by as much, so a box cut mid-line says it scrolls. Its
-  actions wrap across the column (`.lb-actions` `flex: 1 1 100%;
-  min-width: 0`, each `.lb-pair` at most the line's width and wrapping
-  inside itself), every button 44 px and inside the screen: as a row that
-  scrolled sideways with no sign of it, it grew to its content's 369 px in
-  a 354 px column and Delete lay past the screen's edge. Inpaint… and More
-  seeds…, which the PC hides under 901 px, show in it on the phone either
-  way up. The lightbox's layout has one query, `LB_STACKED_MEDIA`
+  `enterkeyhint="search"`. The phone's lightbox is its viewer
+  (`phone-viewer.js`, `styles/phone-viewer.css`, linked last): black, its
+  `::backdrop` too (the PC's 0.97 over a clear backdrop let the tab bar's
+  names and the cards' glyphs and captions show through), the stage the
+  whole screen and the picture fitted to all of it (it had about 40% of a
+  portrait screen under a column of facts and three rows of buttons), and
+  bars over it. The top bar (`#lbp-top`, 52 px under the notch's inset)
+  holds the cross, moved in and drawn as a 44 px ‹, the place in the walk
+  (`#lb-count`, moved in) across its middle, and Share (`navigator.share`
+  with the PNG as a file in a secure context; elsewhere it reads Download
+  and downloads, as it does when the share is refused for want of the
+  press). The foot (`#lbp-foot`) holds the lightbox's line and F's said
+  line, moved in over a bar of five equal 44 px columns, each a glyph and
+  one word: Star, Reuse and Refine (the lightbox's own buttons, moved in;
+  Reuse reads "↻ Reuse", its whole name kept as its `aria-label`), Edit
+  and More (`#lbp-edit`, `#lbp-more`), with Restore moved in as well and
+  shown, Edit not, for an image in the recycle bin. Edit's action sheet
+  is Inpaint…, Outpaint… and Edit by instruction…; More's is the image's
+  own menu (`imageItems`) less what the bar and Edit hold, with Download
+  before Open PNG and the recycle bin last in `--danger`; each item
+  presses the lightbox's own button or the menu's own item, held as it
+  is. Fit, 1:1 and their row, the arrows, the keys' line and the
+  lightbox's action column are not drawn (gestures zoom, a swipe walks,
+  the sheets act); the zoom's readout (`#lb-zoom`, moved over the stage
+  with its said copy) shows as a chip under the top bar for 1.2 s after
+  it changes, not as a walk lands on another image at its fit
+  (`flashPhoneZoom`). The facts (`.lb-side`) are a peek over the foot - a
+  44 px handle (`#lbp-handle`, "Details") with the prompt's first line
+  and the seed - and, raised by the handle or a swipe up, a sheet from
+  under the top bar (25% down at least) to the foot with its own scroll,
+  holding one history entry (Back lowers it; a tap on the picture above
+  it does too): the prompt whole, its search, each fact a 48 px row with
+  its name over its value and its ⌕ a 44 px square at the row's end, its
+  links 44 px tall (no `.lb-link` is left to the audit's exception), and
+  the comparison. A tap on the stage hides the bars, the facts' peek
+  with them, and another brings them back (`data-bare`). The first open
+  with more than one image to walk nudges the picture 24 px aside and back
+  once, unless motion is reduced (`auradream.viewer.nudge.v1`). Off the
+  phone every node goes home, Reuse's words with the next draw. The
+  lightbox's layout has one query, `LB_STACKED_MEDIA`
   (`state.js`; the same text in `lightbox.css`):
-  `(max-width: 900px) and (not ((pointer: coarse) and (max-height: 500px) and (orientation: landscape)))`,
-  the column under the stage; `lbNarrow` reads it, so the facts' room
+  `(max-width: 900px) and (not ((pointer: coarse) and ((width < 700px) or (max-height: 500px))))`,
+  the column under the stage, which leaves the phone out either way up;
+  `lbNarrow` reads it, so the facts' room
   (`lbFactsRoom`), side by side's split (`lbStacked`) and the comparison
-  rows drawn (`ladderShown`) are measured on the layout drawn, where
-  `(max-width: 900px)` alone had them stacked on a phone on its side
-  (852x393) whose column is beside the stage. On its side
+  rows drawn (`ladderShown`) are measured on the layout drawn. On its side
   (`(pointer: coarse) and (max-height: 500px) and (orientation: landscape)`)
   the topbar is 46 px with small buttons and no free-space readout and
   scrolls away with the page (`position: relative`; `--topbar-h` there is
@@ -7609,11 +7658,11 @@ measured on the card and when.
   with 44 px controls in a row of at most 560 px across the middle, the
   prompt three lines rather
   than five (until its grip sets a height), the gallery's head its one
-  row at the screen's top once the topbar has scrolled away, and the lightbox the PC's row (outside `LB_STACKED_MEDIA`): the
-  picture beside a 300 px (at most 42 vw) column that scrolls as a whole,
-  its prompt four lines, its comparison and actions wrapping rows at their
-  own widths, and the comparison box on every image, held where it has
-  nothing to compare, as from 901 px. Under 360 px wide (a third of an iPad, Slide Over)
+  row at the screen's top once the topbar has scrolled away, and the
+  viewer's bar a 72 px rail at the right (its five a column of 44 px
+  rows, its line beside it over the picture's foot), the top bar and the
+  facts' peek beside the rail, the raised facts a side sheet of at most
+  380 px beside it. Under 360 px wide (a third of an iPad, Slide Over)
   Sampling's four boxes go two to a row: four ran past the panel and the
   page scrolled sideways.
   Accessibility on touch: the tab bar is a `nav` landmark ("Views",
@@ -8581,7 +8630,7 @@ the refused press's `:active` (polled every 5 ms) laying black at
 ending above the action bar and Generate still in it; the phone audit finding no
 sideways overflow, no control off the screen sideways and no dialog outside the window on Create,
 on Gallery and in the Models sheet, and in the lightbox no overflow and no
-dialog outside, its only excepted controls `.lb-link`s, and in the
+dialog outside and no control under 44 px, nothing excepted, and in the
 lightbox no control off the screen sideways either; no control under
 44 px on Create's first screen (`screen: true`), nor on the whole Create
 view (nothing excepted), nor on
@@ -8662,12 +8711,12 @@ unselectable) with the lightbox shut, Escape closing it; after a pinch the
 remaining finger panning 40 px at the same scale (synthetic touch pointer
 events, capture stubbed); a long press on the lightbox's picture opening
 the menu inside it with no dialog opened and the lightbox still up, still
-open after the lift on the picture, docked at the foot with a menu item,
-not a line, first; 852x393 still the phone, with a topbar of at
+open after the lift on the picture, docked at the foot over the scrim,
+its head "#N" with a menu item, not a line, under it and Cancel last; 852x393 still the phone, with a topbar of at
 most 48 px, a tab bar of at most 45, a topbar that scrolls away (the
 band then from 0 to the action bar), the action bar 53 px on the tab bar
 with 44 px controls in a centred row of at most 560 px, a three-line prompt, the gallery head one row, every card's tools not drawn and its star 44 px, no control under 44 px in the Gallery view, and the
-lightbox's column beside a stage at least 300 tall; the tab bar a nav
+viewer's stage the whole window with its bar a rail at the right; the tab bar a nav
 landmark holding the tablist, the brand at #8a6dff and a scroll padding
 the bar's height; at 320x1106 Sampling two to a row in More options'
 sheet with no sideways scroll; at 320x700 no sideways overflow, no
@@ -8984,7 +9033,8 @@ sideways scroll; the Picked menu's rows open inside the ⋯ sheet (from
 the selection bar's More: two entries) under
 Picked (static, inside the window, 48 px), Escape shutting them and not
 the sheet; the long-press menu is docked across
-the window at its foot, its rows 48 px, a menu item first. A mouse at
+the window at its foot, its rows 48 px, its name at its head with a menu
+item under it and Cancel last, over the scrim. A mouse at
 1400x900 then has the UA's sliders, Inpaint's tool rows, Outpaint's
 presets and band row and Refine's Strength row unwrapped, no reach past a
 `?` badge, the library dialogs' own scrollers and the UA's ticks (Swap
@@ -9090,18 +9140,29 @@ focus on its star (the tablet's caption with that focus is
 `smoke-tablet`'s); the Sheet
 button's run sheet (from Filters' sheet, which it shuts) has its
 `.sheet-hint` but does not draw it; the
-lightbox on the pass is black over a black `::backdrop`, `lbNarrow` and
-`LB_STACKED_MEDIA` true and its flex a column, Compare with source shown
-with `aria-keyshortcuts` S and no `::after`; `.lb-actions` wraps with no
-sideways scroll inside the window, and Star, Reuse, More seeds…, Refine,
-Inpaint…, Outpaint… and Delete are each shown, inside the screen, their
-own press at their centre and 44 px tall (their boxes logged); the phone
-audit finds no overflow, no control off the screen sideways and no
-dialog outside (its under-44 px count logged). Swiped to an image that
-is no pass, Compare CFG holds S with no `::after`; a second later More
-seeds… opens its dialog over the lightbox (two entries; a tap within
-half a second of the fast swipe gave no click in the emulator), which
-Escape closes, and Inpaint… opens its dialog. At 360x780 the gallery
+viewer on the pass (`phone-viewer.js`) is black over a black `::backdrop`,
+`lbNarrow` and `LB_STACKED_MEDIA` false and its stage the whole window;
+the top bar holds ‹ (the cross, 44 px) left of the place, which is
+centred, and Share (Download where the browser cannot share); the bar's
+five - Star, Reuse ("↻ Reuse", its name kept as its label), Refine, Edit
+and More - are inside the screen on one row, their own press at their
+centre and 44 px tall, More seeds…, Inpaint…, Outpaint…, Delete, Fit
+and Download not drawn; the audit clean with nothing excepted. The
+facts' peek sits over the bar with the prompt's first line; its press
+raises the sheet (two entries) between the bars, each fact row 48 px
+and each ⌕ 44 px square, Compare with source in it with
+`aria-keyshortcuts` S and no `::after`, the audit clean; Back lowers it,
+a swipe up raises it, a tap on the picture above it lowers it, a tap on
+the picture hides the bars and another brings them back. Swiped to an
+image that is no pass, Compare CFG holds S with no `::after`; Edit's
+action sheet (two entries, Edit `aria-expanded`) is docked at the foot
+over the scrim, its head "Edit #N", its rows Inpaint…, Outpaint… and Edit
+by instruction…, 48 px, a Cancel row last, and its Inpaint… opens the
+dialog. More's sheet has Use seed, More seeds of this batch…, Download
+and Copy prompt, none of the bar's or Edit's, the bin last in red, its
+head "#N"; a press of the scrim shuts it alone (the viewer open, its
+bars shown, one entry), and its More seeds… opens the dialog over the
+viewer (two entries), which Escape closes. At 360x780 the gallery
 head is still one line with the placeholder whole in the box and the
 first card within 200 px, the audit clean on the Gallery view and in ⋯;
 the cards three across, and with a card picked in Select the bar whole -
@@ -9112,10 +9173,10 @@ On its side (852x393) the head is one line and the first card within
 140 px; the cards six across; Select's bar one row at most 64 px tall at
 the screen's foot, its six actions 44 px after Select all, `viewBand`
 stopping at its top, the audit finding nothing under 44 px;
-`lbNarrow` and `LB_STACKED_MEDIA` are false, the lightbox a row with the
-column beside a stage at least 300 tall, the seven actions inside the
-column and 44 px, the actions a row under 250 px tall, the lightbox
-black. Back at 393x852 with a steps × CFG grid of four planted: Filters'
+the viewer's stage the whole window and its bar a rail at the right
+(taller than wide, within 120 px of the edge), its five in one column,
+44 px, inside the screen and their own press, the audit clean, the
+raised facts a side sheet left of the rail at most 380 px wide. Back at 393x852 with a steps × CFG grid of four planted: Filters'
 Runs row live with its line, its press opening the runs' sheet over
 Filters (two entries) at the window's foot, five rows of the select's
 five options in order, each 56 px inside the screen, the groups "Grids

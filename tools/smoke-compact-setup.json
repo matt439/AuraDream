@@ -882,7 +882,7 @@
     "expect": "__conditioning().open&&referenceIds.join()===__readyRecords.map(r=>r.id).join()&&__conditioningSummary().textContent.includes('2')&&els.referenceList.querySelectorAll('.chip').length===2"
   },
   {
-    "eval": "els.referenceList.querySelector('.chip button').focus({preventScroll:true});"
+    "expect": "__until(() => { const b = els.referenceList.querySelector('.chip button'); b.focus({preventScroll:true}); return document.activeElement === b; })"
   },
   {
     "keycombo": [
@@ -891,7 +891,7 @@
     ]
   },
   {
-    "expect": "referenceIds.join()===__readyRecords.map(r=>r.id).reverse().join()&&document.activeElement===els.referenceList.querySelectorAll('.chip button')[1]&&__conditioning().open"
+    "expect": "__until(() => referenceIds.join()===__readyRecords.map(r=>r.id).reverse().join()&&document.activeElement===els.referenceList.querySelectorAll('.chip button')[1]&&__conditioning().open)"
   },
   {
     "eval": "window.__referenceValues=__values();__conditioningSummary().focus({preventScroll:true});"

@@ -27,11 +27,12 @@ const TWO_COLUMNS_MEDIA = `(min-width: 901px), ${TABLET_COLUMNS_MEDIA}`;
 // The touch tier: a coarse primary pointer, the phone's and the tablet's.
 const TOUCH_MEDIA = '(pointer: coarse)';
 // The lightbox with its column under the stage rather than beside it: a
-// window under 901 px, but for a phone on its side, where the column is
-// beside the stage again (styles/lightbox.css and styles/touch.css, the same
-// text). lightbox.js and lightbox-compare.js read it for the facts' room,
-// side by side's split and which comparisons have room.
-const LB_STACKED_MEDIA = '(max-width: 900px) and (not ((pointer: coarse) and (max-height: 500px) and (orientation: landscape)))';
+// window under 901 px, but for a phone (PHONE_MEDIA), whose viewer is the
+// picture across the whole screen with its bars and facts over it
+// (styles/phone-viewer.css; styles/lightbox.css has the same text).
+// lightbox.js and lightbox-compare.js read it for the facts' room, side by
+// side's split and which comparisons have room.
+const LB_STACKED_MEDIA = '(max-width: 900px) and (not ((pointer: coarse) and ((width < 700px) or (max-height: 500px))))';
 
 // The part of the window the page's content shows in: from the topbar's foot
 // (0 where it has scrolled away, as on a phone on its side) down to the

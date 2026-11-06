@@ -1,0 +1,194 @@
+/* ----------------------------------------------------- the phone's viewer */
+
+/* The lightbox on a phone (phone-viewer.js): the picture across the whole
+   screen on black, and over it a top bar (the cross as a ‹, the place in
+   the walk, Share), a foot (the lightbox's line and a bar of five: Star,
+   Reuse, Refine, Edit, More) and the facts - a line of the prompt over the
+   foot until a press of it, or a swipe up, raises them as a sheet with its
+   own scroll. A tap on the picture hides the bars, and another brings them
+   back. Linked last: it overrides styles/lightbox.css and touch.css. Off the
+   phone none of its own nodes are drawn, and the lightbox is lightbox.css's
+   (LB_STACKED_MEDIA leaves the phone out). */
+.lbp-top, .lbp-foot, .lbp-handle, .ctx-scrim { display: none; }
+
+@media (pointer: coarse) and ((width < 700px) or (max-height: 500px)) {
+  .lightbox {
+    --lbp-top-h: 52px;
+    --lbp-bar-h: 60px;
+    display: block; padding: 0; gap: 0;
+    /* Black, not lightbox.css's 0.97 over a clear backdrop, through which
+       the tab bar's names and the cards' glyphs showed. */
+    background: #000;
+  }
+  .lightbox::backdrop { background: #000; }
+  /* The stage is the screen: the picture fitted to all of it, the bars
+     over its edges (a tap takes them away). No arrows: a swipe walks. */
+  .lb-main { position: absolute; inset: 0; }
+  .lb-nav { display: none; }
+
+  .lightbox :is(.lbp-top, .lbp-foot, .lb-side) { transition: opacity 0.15s, visibility 0.15s; }
+  .lightbox[data-bare] :is(.lbp-top, .lbp-foot, .lb-side) { opacity: 0; visibility: hidden; }
+  @media (prefers-reduced-motion: reduce) {
+    .lightbox :is(.lbp-top, .lbp-foot, .lb-side) { transition: none; }
+  }
+
+  /* The top bar: ‹ at the left, the place in the walk across its middle,
+     Share at the right, over a shade that fades into the picture. */
+  .lbp-top {
+    display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+    position: absolute; z-index: 2; top: 0; left: 0; right: 0;
+    height: calc(var(--lbp-top-h) + var(--safe-t));
+    padding: var(--safe-t) max(4px, var(--safe-r)) 0 max(4px, var(--safe-l));
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.66), rgba(0, 0, 0, 0.4) 70%, transparent);
+  }
+  #lb-close { justify-self: start; color: #fff; font-size: 0; }
+  #lb-close::before { content: "‹" / ""; font-size: 36px; line-height: 1; padding-bottom: 4px; }
+  .lbp-top .lb-count { color: #fff; font-size: var(--fs-md); text-align: center; white-space: nowrap; }
+  .lbp-share { justify-self: end; border: 0; background: none; color: #fff; }
+
+  /* The zoom's readout: a chip under the top bar while it changes. */
+  .lb-main > .lb-zoom {
+    position: absolute; z-index: 1; left: 50%; top: calc(var(--lbp-top-h) + var(--safe-t) + 8px);
+    translate: -50% 0; width: auto; min-width: 0;
+    padding: 4px 12px; border-radius: 999px; background: rgba(0, 0, 0, 0.66); color: #fff;
+    opacity: 0; transition: opacity 0.2s; pointer-events: none;
+  }
+  .lb-main > .lb-zoom.shown { opacity: 1; }
+
+  /* The foot: the line (a press's refusal, Use seed's note, F's outcome)
+     over the bar, the home indicator's inset under it. */
+  .lbp-foot {
+    display: block; position: absolute; z-index: 2; left: 0; right: 0; bottom: 0;
+    padding: 0 max(4px, var(--safe-r)) var(--safe-b) max(4px, var(--safe-l));
+    background: rgba(0, 0, 0, 0.82);
+  }
+  .lbp-foot .error { margin: 0; padding: var(--sp-2) var(--sp-3) 0; min-height: 0; }
+  .lbp-foot .star-said { margin: 0; padding: 0 var(--sp-3); }
+  .lbp-foot .star-said:empty { display: none; }
+  /* Five equal columns, each a 44 px press with its glyph and one word;
+     Edit's place is Restore's for an image in the recycle bin. */
+  .lbp-bar {
+    display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px;
+    align-items: center; height: var(--lbp-bar-h);
+  }
+  .lbp-bar > button {
+    width: auto; min-width: 0; min-height: var(--h-md); padding: 0 2px;
+    border: 0; background: none; font-size: var(--fs-sm);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .lbp-bar > [hidden] { display: none; }
+  .lbp-bar > button:not([aria-disabled="true"]) { color: #fff; }
+  .lbp-bar > #lb-fav.active { color: var(--star); }
+  .lbp-bar > #lb-reuse.model-mismatch { color: var(--warn); }
+
+  /* The facts: a peek over the foot - the prompt's first line and the
+     seed, and the word that raises them - then, raised, a sheet from under
+     the top bar (or 25% down the screen, where the picture still shows)
+     to the foot, its own scroll. The lightbox's other rows (the zoom's,
+     the actions the bar and its sheets press) are not drawn. */
+  .lb-side {
+    position: absolute; z-index: 1; left: 0; right: 0;
+    bottom: var(--lbp-foot-h, calc(var(--lbp-bar-h) + var(--safe-b)));
+    width: auto; flex: none; min-height: 0;
+    display: flex; flex-direction: column; gap: var(--sp-3);
+    padding: 0 max(16px, var(--safe-r)) var(--sp-3) max(16px, var(--safe-l));
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.82), rgba(0, 0, 0, 0.6) 70%, transparent);
+  }
+  .lightbox:not([data-facts]) .lb-side > :not(.lbp-handle) { display: none; }
+  .lb-side > :is(.lb-head, .lb-zoom-group, .lb-actions, .lb-keys) { display: none; }
+  .lightbox[data-facts] .lb-side {
+    top: max(calc(var(--lbp-top-h) + var(--safe-t)), 25dvh);
+    overflow-y: auto; overscroll-behavior: contain;
+    background: var(--bg);
+    border-top: 1px solid var(--line-strong); border-radius: var(--r-lg) var(--r-lg) 0 0;
+  }
+  .lbp-handle {
+    display: flex; align-items: center; gap: var(--sp-3); flex: none;
+    position: relative; min-height: 48px; padding: var(--sp-3) 0 0;
+    border: 0; background: none; color: #fff; font: inherit; text-align: left;
+  }
+  /* The grabber: a sheet's own sign that it pulls up. */
+  .lbp-handle::before {
+    content: ""; position: absolute; top: 4px; left: 50%; translate: -50% 0;
+    width: 36px; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.45);
+  }
+  .lbp-peek { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: var(--fs-body-sm); }
+  .lbp-word { flex: none; color: var(--accent-2); font-size: var(--fs-sm); }
+  /* A chevron drawn as the folds' is (touch.css): up while lowered, down
+     once raised. */
+  .lbp-word::after {
+    content: ""; display: inline-block; width: 7px; height: 7px; margin: 0 2px 0 8px;
+    border: solid currentColor; border-width: 0 2px 2px 0; rotate: -135deg; translate: 0 2px;
+  }
+  .lightbox[data-facts] .lbp-handle {
+    position: sticky; top: 0; z-index: 1; background: var(--bg);
+  }
+  .lightbox[data-facts] .lbp-peek { visibility: hidden; }
+  .lightbox[data-facts] .lbp-word::after { rotate: 45deg; translate: 0 -2px; }
+  .lightbox[data-facts] .lbp-word { margin-left: auto; }
+
+  .lb-meta {
+    flex: none; max-height: none; overflow: visible; padding-bottom: 0;
+    -webkit-mask-image: none; mask-image: none;
+  }
+  .lb-prompt { max-height: none; overflow: visible; font-size: var(--fs-md); }
+  .lb-compare { flex: none; flex-direction: row; flex-wrap: wrap; align-items: center; }
+
+  /* Each fact a row a finger's height, its name over its value, a line
+     between; its ⌕ a 44 px press at the row's end, its links 44 tall. */
+  .lightbox .facts { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .lightbox .facts > div {
+    display: block; position: relative; min-height: 48px; padding: 6px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  /* A row with a ⌕ leaves it the row's end, centred on the row's height. */
+  .lightbox .facts > div:has(.lb-search) { padding-right: calc(var(--h-md) + 4px); }
+  .lightbox .facts dt { font-size: var(--fs-sm); }
+  .lightbox .facts dd { display: flex; flex-wrap: wrap; align-items: center; column-gap: 4px; }
+  .lightbox .facts dd.text { display: block; }
+  .lightbox :is(.facts, .lb-prompt-search, .lb-passes) :is(.lb-search, .lb-link) {
+    display: inline-flex; align-items: center; min-height: var(--h-md); margin-top: 0; padding-top: 0;
+  }
+  .lightbox .facts .lb-search {
+    position: absolute; right: 0; top: 50%; translate: 0 -50%;
+    min-width: var(--h-md); justify-content: center; font-size: var(--fs-lg);
+  }
+  .lightbox .lb-prompt-search { margin: 0; }
+
+  /* On its side: the bar a rail at the right, the top bar and the facts
+     beside it, the raised facts a side sheet. */
+  @media (orientation: landscape) {
+    .lightbox { --lbp-rail-w: 72px; }
+    .lbp-top { right: calc(var(--lbp-rail-w) + var(--safe-r)); padding-right: 0; }
+    .lbp-foot {
+      left: auto; top: 0; width: calc(var(--lbp-rail-w) + var(--safe-r));
+      display: flex; flex-direction: column; justify-content: center;
+      padding: var(--safe-t) var(--safe-r) var(--safe-b) 0;
+    }
+    .lbp-bar { grid-auto-flow: row; grid-auto-rows: var(--h-md); height: auto; gap: 4px; }
+    /* Its line beside the rail, over the picture's foot. */
+    .lbp-foot :is(.error, .star-said) {
+      position: absolute; right: 100%; bottom: calc(var(--safe-b) + 8px);
+      width: max-content; max-width: 60vw; padding: var(--sp-2) var(--sp-3);
+      background: rgba(0, 0, 0, 0.82); border-radius: var(--r-md);
+    }
+    .lb-side { right: calc(var(--lbp-rail-w) + var(--safe-r)); bottom: 0; padding-bottom: calc(var(--safe-b) + var(--sp-2)); }
+    .lightbox[data-facts] .lb-side {
+      left: auto; width: min(380px, 60vw); top: calc(var(--lbp-top-h) + var(--safe-t));
+      border-radius: var(--r-lg) 0 0 0; border-left: 1px solid var(--line-strong);
+    }
+  }
+
+  /* The action sheets (context-menu.js): a scrim over the screen under the
+     docked menu, which shuts it; a heading naming what it is about; and a
+     Cancel row last, apart from the rest. */
+  .ctx-scrim:not([hidden]) {
+    display: block; position: fixed; inset: 0; z-index: 69;
+    background: rgba(0, 0, 0, 0.5);
+  }
+  .context-menu li.heading {
+    min-height: 40px; display: flex; align-items: center;
+    padding-inline: var(--sp-3); color: var(--muted); font-size: var(--fs-sm);
+  }
+  .context-menu li.cancel { justify-content: center; font-weight: 600; }
+}

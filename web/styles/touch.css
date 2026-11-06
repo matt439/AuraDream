@@ -608,31 +608,7 @@
     .sampling-row > .sub, .sampling-row > .sub.grow { flex: 1 1 calc(50% - var(--sp-2)); width: auto; min-width: 0; }
   }
 
-  /* The lightbox: the picture across the screen, its facts and actions under
-     it. Black, not lightbox.css's 0.97 over a clear backdrop, through which
-     the tab bar's names and the cards' glyphs and captions showed. The
-     actions wrap, the line's width at most (min-width: 0; at its content's
-     369 px in a 354 px column it scrolled sideways with no sign of it, and
-     Delete was past the screen's edge), each pair wrapping inside itself
-     where it is wider than the line. Inpaint… and More seeds…, which a PC's
-     window under 901 px leaves to the card's ✎ and the right-click menu
-     for want of room on one row, are here: the wrapped rows have the room,
-     and a long press's menu is not where a finger looks for an action on
-     the image in view. The facts fade out at their foot, so a box cut
-     mid-line says it scrolls; the padding under the last line lets it be
-     read clear of the fade. */
-  .lightbox, .lightbox::backdrop { background: #000; }
-  .lightbox { gap: var(--sp-2); }
-  .lb-actions { flex: 1 1 100%; min-width: 0; flex-wrap: wrap; }
-  .lb-actions > * { flex: none; }
-  .lb-actions > .lb-pair { max-width: 100%; flex-wrap: wrap; }
-  #lb-inpaint, #lb-more-seeds { display: revert; }
-  .lb-nav { display: none; }
-  .lb-meta {
-    padding-bottom: 1.2em;
-    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 1.2em), transparent);
-    mask-image: linear-gradient(to bottom, #000 calc(100% - 1.2em), transparent);
-  }
+  /* The lightbox is the phone's viewer: styles/phone-viewer.css. */
 
   /* While a box has the keyboard the tab bar goes: iOS keeps a fixed foot on
      the layout viewport, which its keyboard does not shrink, so the bar sat
@@ -884,8 +860,9 @@
 
 /* An iPhone on its side is 340-ish px tall in Safari: the topbar and the tab
    bar took a third of it, and the lightbox stacked a 170 px picture over its
-   facts. Here both bars are slimmer - the tab bar's glyph beside its word -
-   and the lightbox is the PC's row again, its column scrolling as a whole. */
+   facts. Here both bars are slimmer - the tab bar's glyph beside its word;
+   the lightbox is the phone's viewer either way up (styles/phone-viewer.css),
+   its bar a rail at the right here. */
 @media (pointer: coarse) and (max-height: 500px) and (orientation: landscape) {
   /* The bar 45 px: its tabs 44 under its 1 px top edge; the action bar over
      it 53, its controls 44 (styles/phone.css). */
@@ -896,22 +873,6 @@
   .topbar > .vram { display: none; }
   #btn-models { margin-left: auto; }
   .phone-tabs button { flex-direction: row; gap: var(--sp-2); }
-
-  /* LB_STACKED_MEDIA leaves this out, so lightbox.css's column beside the
-     stage is the base; here it is wider, scrolls as a whole, and keeps the
-     narrow layout's rows inside it - the prompt four lines, the comparison
-     and the actions wrapping rows at their own widths. */
-  .lb-side {
-    flex: 0 0 min(300px, 42vw); width: min(300px, 42vw);
-    overflow-y: auto; overscroll-behavior: contain;
-  }
-  .lb-meta { flex: none; overflow: visible; padding-bottom: 0; -webkit-mask-image: none; mask-image: none; }
-  .lb-prompt { max-height: 4lh; }
-  .lb-compare { flex: none; flex-direction: row; flex-wrap: wrap; align-items: center; }
-  /* The column's own scroll is the way down: its actions wrap in it. */
-  .lb-actions { flex: none; flex-direction: row; }
-  .lb-actions .ghost { width: auto; }
-  .lb-pair .ghost { flex: 0 0 auto; }
 
   /* The topbar scrolls away with the page rather than staying over a third
      of it: nothing under it is sticky on a phone, the tab bar carries a
