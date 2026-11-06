@@ -683,6 +683,7 @@ uses the driver's graceful close/cleanup. See the full Tests rules.
 | 7956 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-phone` |
 | 7956 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-phone-create` |
 | 7957 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-tablet` |
+| 7957 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-phone-landscape` |
 | 7958 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-offline` |
 | 7959 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-catalogue-stale` |
 | 7960 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-phone-dialogs` |

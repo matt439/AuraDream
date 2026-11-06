@@ -21,9 +21,11 @@ const isShown = (el) => el.checkVisibility?.({ visibilityProperty: true, checkVi
 // and taller than 500. A window that is neither keeps the PC's layout.
 const PHONE_MEDIA = '(pointer: coarse) and ((width < 700px) or (max-height: 500px))';
 const TABLET_COLUMNS_MEDIA = '(pointer: coarse) and (700px <= width <= 900px) and (height > 500px)';
-// Two columns - the panel beside the stage: a mouse's window over 900 px, or
-// a tablet in portrait (tag-chips.js reads it to place the chips' host).
-const TWO_COLUMNS_MEDIA = `(min-width: 901px), ${TABLET_COLUMNS_MEDIA}`;
+// Two columns - the panel beside the stage: a window over 900 px but a
+// phone on its side (one column at any width: a Pro Max's 932 px had the
+// PC's two), or a tablet in portrait (tag-chips.js reads it to place the
+// chips' host). style.css's one-column query is this one's complement.
+const TWO_COLUMNS_MEDIA = `(min-width: 901px) and (not ((pointer: coarse) and (max-height: 500px))), ${TABLET_COLUMNS_MEDIA}`;
 // The touch tier: a coarse primary pointer, the phone's and the tablet's.
 const TOUCH_MEDIA = '(pointer: coarse)';
 // The lightbox with its column under the stage rather than beside it: a

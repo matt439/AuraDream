@@ -266,8 +266,9 @@
    tall the panel alone takes 4 px off its gaps and its fields' height, so
    the whole progress block is in the window. On the panel, not `:root`: the
    dialogs, the gallery and the stage keep today's heights. 1400x900, where
-   the smokes are written, is not short. */
-@media (900px < width < 1800px) and (height < 900px) {
+   the smokes are written, is not short. Nor is a phone on its side, which
+   keeps its 44 px fields however wide (a Pro Max's 932 px). */
+@media (900px < width < 1800px) and (height < 900px) and (not ((pointer: coarse) and (max-height: 500px))) {
   .panel { --panel-gap: 10px; --h-field: 37px; }
 }
 
@@ -432,8 +433,10 @@ main {
    and a running job's Now line - one unbroken line - set that, so under
    about 680 px the page scrolled sideways for as long as the job ran, Cancel
    and the panel's right edge past the window, rather than letting the line's
-   ellipsis take the prompt. */
-@media (max-width: 900px) {
+   ellipsis take the prompt. A phone on its side is one column whatever its
+   width: a Pro Max's 932 px had the PC's two, the panel and each view a
+   third of the screen. */
+@media (max-width: 900px), ((pointer: coarse) and (max-height: 500px)) {
   main { grid-template-columns: minmax(0, 1fr); }
   .panel { position: static; }
 }

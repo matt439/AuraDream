@@ -128,7 +128,12 @@
   .model-row:not(.model-row-head) {
     border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--sp-2) var(--sp-2) var(--sp-3);
     grid-template-columns: var(--h-md) repeat(2, minmax(0, 1fr)) var(--h-md);
+    /* Its areas the narrow ones whatever the width: on its side (852 px)
+       the PC's seven areas in four columns made a card 500 px tall. */
+    grid-template-areas: "star name name link" ". style refine ." ". max speed .";
   }
+  /* Its pictures a finger's size: a short window's 40 px were under 44. */
+  .model-shots { --model-shot: 56px; }
   .model-row:first-child { border-top: 1px solid var(--line); }
   .model-row:has(input:checked) { border-color: var(--accent); }
   .model-row .model-link { display: inline-grid; place-items: center; min-width: var(--h-md); min-height: var(--h-md); }

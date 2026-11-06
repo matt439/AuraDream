@@ -7706,7 +7706,20 @@ measured on the card and when.
   viewer's bar a 72 px rail at the right (its five a column of 44 px
   rows, its line beside it over the picture's foot), the top bar and the
   facts' peek beside the rail, the raised facts a side sheet of at most
-  380 px beside it. Under 360 px wide (a third of an iPad, Slide Over)
+  380 px beside it. The portrait column is not stretched there (the
+  review's P65; `styles/phone.css`): Create's panel is a column of at
+  most 600 px across the middle, every sheet's words and controls a
+  centred 640 px column (`--sheet-l`/`--sheet-r`) under a title row and
+  an action row still across the screen, the delete question at most
+  560 px at the foot's middle, and the Models sheet in the same column.
+  A phone on its side is one column at any width: style.css's one-column
+  query, fields.css's and generation.css's one-column rules and
+  `TWO_COLUMNS_MEDIA` (state.js, its complement) take in
+  `(pointer: coarse) and (max-height: 500px)`, and the short two-column
+  window's smaller fields leave it out - a Pro Max's 932 px had the PC's
+  two columns, Create and the Gallery a third of the screen each, and
+  37 px boxes. Its Models sheet's cards keep their narrow areas and its
+  pictures are 56 px. Under 360 px wide (a third of an iPad, Slide Over)
   Sampling's four boxes go two to a row: four ran past the panel and the
   page scrolled sideways.
   Accessibility on touch: the tab bar is a `nav` landmark ("Views",
@@ -8978,6 +8991,22 @@ Seed's caption, Seed and Repeat on one row, Run grid in its fold, and
 Steps, Seed, Repeat, the negative, Step cache and Then refine's opener
 drawn.
 
+`smoke-phone-landscape.json` uses a FLUX.1 Krea [dev] fake of its own on
+7957 (its own fresh scratch `--data`) with touch at 852x393@3, `"mobile":
+true`, and three planted images (P65). Create's panel is at most 600 px
+and at least 560, centred, the prompt no wider, the action bar's row at
+most 560 and centred, the audit clean and no word under 13 px; More
+options' title row reaches across the screen while its padding and its
+Sampling row keep to the centred 640 px; the gallery's three cards on one
+row, each under a fifth of the screen, the audit clean; Inpaint's canvas
+and tools inside the 640 px column, its action row across the screen;
+the delete question at most 560 px, centred, at the foot, its Delete
+48 px; the Models sheet's first card and Switch & load inside the column
+(waited for: its table redraws once open), the audit clean. At 932x430 (a
+Pro Max on its side) Create's panel is still 600 px and centred, the
+Gallery one column (`TWO_COLUMNS_MEDIA` false, `main` one track) with its
+cards over 120 px and under a fifth of the screen, the audit clean; back
+at 393x852 the prompt is the screen less 32 px.
 `smoke-tablet.json` uses a fresh FLUX.1 Krea [dev] fake on 7957 with touch
 at 820x1180@2, its touch viewports `"mobile": true`: `data-tier` tablet
 and `viewBand` the whole window; the panel beside the

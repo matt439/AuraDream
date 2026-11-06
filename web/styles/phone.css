@@ -616,4 +616,22 @@
   /* Shape at most 400 px, as the steppers' rows are. */
   .phone-shape { max-width: 400px; }
   .field:has(> .phone-shape) { max-width: 400px; }
+
+  /* The portrait column, not stretched (P65): Create's panel - the prompt,
+     the size, More options, the results under them - is a column of at
+     most 600 px across the middle, as the action bar's row is 560; at
+     852 px wide the column was 820, its Size chip floating half-way along
+     its line and a finished run's buttons strung along the left. */
+  .panel { width: min(100%, 600px); margin-inline: auto; }
+  /* The sheets likewise: their words and controls a centred 640 px column
+     whose title row and action row still reach across the screen. Inpaint's
+     picture and Outpaint's frame are sized from that column. */
+  dialog:not(.lightbox):not(.confirm-dialog) {
+    --sheet-l: max(16px, var(--safe-l), calc((100vw - 640px) / 2));
+    --sheet-r: max(16px, var(--safe-r), calc((100vw - 640px) / 2));
+  }
+  /* The delete question a sheet of at most 560 px at the foot's middle. */
+  dialog.confirm-dialog { left: max(0px, calc((100vw - 560px) / 2)); right: max(0px, calc((100vw - 560px) / 2)); }
+  /* The Models sheet's options, checkpoints and foot in the same column. */
+  .model-picker { padding-inline: max(var(--safe-l), calc((100vw - 640px) / 2)) max(var(--safe-r), calc((100vw - 640px) / 2)); }
 }
