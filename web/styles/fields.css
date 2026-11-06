@@ -236,8 +236,9 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
 .help.end .tip { left: auto; right: -6px; }
 /* In two columns Batch's badge is near the panel's middle and its tip opens
    over the stage; in one column it is 600 px along an 800 px row, and the tip
-   ran out past the window and widened the page. */
-@media (max-width: 900px) {
+   ran out past the window and widened the page. (A phone on its side is
+   one column at any width: style.css.) */
+@media (max-width: 900px), ((pointer: coarse) and (max-height: 500px)) {
   #batch-tip { left: auto; right: -6px; }
 }
 /* And one that would run past the window's bottom opens upwards (placeTip,
@@ -333,7 +334,7 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
    their first row, taking their clicks; there it takes a line of its own -
    the panel is not sticky, so nothing it moves was under the pointer. A
    tablet's two columns (styles/touch.css) keep the overlay. */
-@media (max-width: 900px) and (not ((pointer: coarse) and (700px <= width) and (height > 500px))) {
+@media (max-width: 900px) and (not ((pointer: coarse) and (700px <= width) and (height > 500px))), ((pointer: coarse) and (max-height: 500px)) {
   .prompt-note:not([data-at="box"]) { position: static; width: fit-content; margin: var(--sp-1) 0 0 auto; box-shadow: none; }
 }
 /* Nor over the caption while the negative box is greyed: the caption then

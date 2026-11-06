@@ -380,7 +380,7 @@ button { font: inherit; cursor: pointer; }
    viewer is beside the panel as on a PC. Nor on a phone, which offers none
    (offerNewImage): its action bar's picture is the new image, in sight over
    the tab bar (styles/phone.css). */
-@media (max-width: 900px) and (not ((pointer: coarse) and (700px <= width) and (height > 500px))) {
+@media (max-width: 900px) and (not ((pointer: coarse) and (700px <= width) and (height > 500px))), ((pointer: coarse) and (max-height: 500px)) {
   #btn-new-image {
     position: fixed; top: calc(var(--topbar-h) + var(--sp-2)); left: 50%; translate: -50% 0; z-index: 15;
     padding-inline: var(--sp-3); border-radius: 999px;
