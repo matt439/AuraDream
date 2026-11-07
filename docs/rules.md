@@ -7463,7 +7463,7 @@ measured on the card and when.
   started 450 px down an 852 px screen; it starts at 129 now (at 360x780
   too; 123 on its side). The title is visually hidden (still the heading
   a screen reader lists): the tab says Gallery, and the search's
-  placeholder says the count ("Search 4 images", `phoneSearchWords`, which
+  placeholder says the count ("Search 4", `phoneSearchWords`, which
   `syncSearchPlaceholder` in `touch.js` reads on the phone; "Search the
   bin" in it). In the recycle bin the title is drawn, a row of its own
   over the search, after a ‹ (below). The main's 16 px top gutter is dropped in the Gallery
@@ -8831,7 +8831,7 @@ sheet, which its press shuts in the same turn, one entry) closed by Back
 with the search it wrote put back; the
 Models sheet across the window between the topbar and the bar; the tab
 bar gone while the prompt has a tapped focus and back on blur; the
-search's placeholder "Search 4 images"; the gallery head one row (the
+search's placeholder "Search 4"; the gallery head one row (the
 search, Filters, Select and ⋯ on one line, 44 px) with Bundles… in the ⋯
 sheet and Starred in the Filters sheet; a
 long press on a card opening the menu (Edit by instruction… in it, no key
@@ -9238,6 +9238,9 @@ Two count-confirmation states at 48 px use the real `countDialog` and Cancel
 only. The total is 88 field/late-content states. Rendered-height prerequisites
 prevent stale geometry from passing; raw drafts, node identity, holds, page
 scroll, sticky restoration and Cancel's null answer are checked too.
+The [native image-pass follow-up](review-2026-11-05-phone.md#10-edit-dialog-keyboard-acceptance-2026-11-07)
+records 23 accepted field cases with per-run source provenance. It does not
+qualify the additional phone-form fallback, physical devices or Split View.
 
 The remaining phone corrections extend the existing smokes:
 `smoke-phone-create.json` checks full-screen live frames, cancellation,
@@ -9271,7 +9274,7 @@ open, inside the window and holding the focus. Then, with
 three images and a refine pass of the first planted: the gallery head
 one sticky row on the topbar (the search, Filters, Select and ⋯ on one
 line, 44 px, the row at most 64 px, the title not drawn, the placeholder
-"Search 4 images") and the first card within 200 px of the screen's top
+"Search 4") and the first card within 200 px of the screen's top
 (its place logged), the phone audit finding nothing on the Gallery view;
 the cards three across (`data-phone-size` 's'), 4 px apart, each card
 its column's width, Fit's `contain`;

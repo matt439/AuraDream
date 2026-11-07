@@ -2345,8 +2345,9 @@ and head reset.
 This is a mechanism check. Native control rectangles, software-keyboard
 rectangles and screenshots remain the Simulator acceptance evidence in
 the [phone review](review-2026-11-05-phone.md#7-refine-keyboard-correction-2026-11-07);
-native acceptance of the other image-pass dialogs and physical-device acceptance
-need their own checks. The supplied-viewport mechanism checks now cover all four
+the other image-pass dialogs' scoped native checks are recorded in the
+[follow-up](review-2026-11-05-phone.md#10-edit-dialog-keyboard-acceptance-2026-11-07).
+Physical-device acceptance remains separate. The supplied-viewport checks cover all four
 image-pass dialogs, including a 678 px Split View emulation.
 
 **Other phone forms need space for the field too (2026-11-07).** More options

@@ -332,11 +332,12 @@ function galleryShown() {
 }
 
 // The search's placeholder on the phone: what it searches, the count the
-// head's title would say ("Search 9 images"); the touch tier's own words
+// head's title would say ("Search 160"); the accessible name says gallery.
+// Omit the unit so three-digit counts fit at 320 px. The touch tier's words
 // elsewhere (touch.js, syncTier).
 function phoneSearchWords() {
   if (binMode) return 'Search the bin';
-  return total > 0 ? `Search ${plural(total, 'image')}` : 'Search prompts';
+  return total > 0 ? `Search ${total}` : 'Search prompts';
 }
 
 // A row's second line: the held reason (its title, the press's own words),
