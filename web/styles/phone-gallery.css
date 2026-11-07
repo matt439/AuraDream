@@ -695,6 +695,9 @@
     pointer-events: none; opacity: 0; transition: opacity 0.2s;
   }
   .gallery-place[data-on] { opacity: 1; }
+  /* A crossing day heading must be readable immediately, without the
+     pill's fade sitting over its words (syncGalleryPlace). */
+  .gallery-place[data-crossing] { visibility: hidden; transition: none; }
   @media (prefers-reduced-motion: reduce) { .gallery-place { transition: none; } }
 
   /* Back to the top: a 44 px round ↑ at the screen's foot on the left, over

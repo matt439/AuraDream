@@ -766,3 +766,46 @@ Remaining simulator work includes the other edit dialogs' keyboards and iPad
 Split View. Physical iPhone acceptance, Android and native edge-swipe Back,
 completed sharing delivery, long press/pinch and GPU/model acceptance remain
 separate. `UI#40` stays open for those checks and the review's partial findings.
+
+## 8. Residual phone corrections (2026-11-07)
+
+Four defects from phase 4's final tour are corrected:
+
+- The newest Today group has a day heading on the phone. Same-day prepends
+  reuse it; different-day prepends keep the old heading as its group's
+  boundary, including a page left open across midnight and historical
+  images arriving with their own heading. A mouse keeps the gallery's
+  original first-group presentation.
+- The floating place pill hides immediately while a day heading crosses
+  its box, so the two dates do not overlap, and returns after it passes.
+- Bin headings explicitly say "Created" before the creation day, separate
+  from each card's binned age. Grouping, order and date searches still use
+  creation dates.
+- Cancelling after the first preview, before an image finishes, leaves no
+  empty result frame on Create. The outcome remains above the action bar,
+  and its picture still opens the newest earlier result from the session.
+  Single-image, two-image and six-image cancellations cover the ordinary,
+  fitted and long-strip layouts.
+
+The regressions extend `smoke-phone-create` and `smoke-phone-gallery` on
+isolated fake galleries. The cancellation assertion failed against the old
+CSS before the fix. Retained screenshots: [cancelled Create](review-2026-11-05-phone/residual-cancelled-create.png),
+[day-heading crossing](review-2026-11-05-phone/residual-day-crossing.png) and
+[bin dates](review-2026-11-05-phone/residual-bin-dates.png).
+
+Validation passed: 36 classic-script and documentation-map tests, Ruff, and
+eight browser smokes (`smoke-phone-create`, `smoke-phone-gallery`,
+`smoke-phone`, `smoke-phone-dialogs`, `smoke-phone-landscape`,
+`smoke-tablet`, `smoke-gallery`, `smoke-bin`). The gallery smoke includes
+same-day, midnight, historical and both mixed-day prepend orders through
+the real `joinFinished`, plus the mouse roundtrip. These Chromium checks
+use only synthetic galleries and do not extend the native Safari result.
+
+Still open from that tour: runs with no images have a blank cover and the
+sheet's empty wording refers to "the filters above the sheet"; the topbar
+and gallery head have two overflow controls one above the other. The other
+partial findings remain as recorded in their phases, with optional and
+skipped choices kept distinct from defects. Other edit dialogs' keyboard
+checks, iPad Split View, physical iPhone/Android acceptance and native
+sharing/gesture checks remain. The Refine-only Simulator result in section
+7 does not qualify those dialogs. No model or GPU acceptance is claimed.

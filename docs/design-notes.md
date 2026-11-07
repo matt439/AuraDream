@@ -5901,6 +5901,21 @@ still intersect. It adds no open end, relative range or new date comparator.
 Gallery reads, strict scopes and saved-query validation share this parser.
 [The range plan](plan-gallery-date-ranges.md) records the rationale and checks.
 
+**Phone day headings and the place pill (2026-11-07).** The phone now names
+the newest Today group as well as the older groups. Without that heading,
+the first older day's line looked as though it named the images above it.
+`syncPhoneGalleryDays` in `phone-gallery.js` owns the extra first heading
+and removes it when leaving the phone. When a different-day image prepends,
+the old first heading becomes an ordinary boundary for its group; a new
+first heading must not move it away. This includes a page left open across
+midnight and historical images arriving with their own leading heading.
+The bin still groups by creation date, so those headings explicitly say
+"Created", beside each card's separate binned age. Neither order nor date
+search changes. While scrolling, a day heading crossing the fixed place
+pill hides the pill immediately instead of drawing two dates over each
+other; the pill returns after the heading passes. `smoke-phone-gallery`
+checks these transitions, bin wording and the return to a mouse layout.
+
 ## Re-render
 
 **`POST /api/rerender` is the third producer of cells**, beside
@@ -7981,6 +7996,21 @@ leaves the gallery where it was. The 2026-10-04 review measured the preview
 at a fixed 320 px after a 917 px result: the gallery head went from 1,046 to
 509 and back at every Generate, about 540 px twice. It now stays put from the
 first frame to the image (smoke-results).
+
+**No empty result frame after cancellation on the phone (2026-11-07).**
+The first preview clears the previous job's strip. If that job then ends
+without an image, removing the preview leaves the viewer's normal minimum
+height behind: about 370 px of empty frame on Create. The phone hides that
+results host in `styles/phone.css` while its viewer is empty. The action
+bar's picture still opens the newest earlier result from the session.
+The cancellation outcome stays above the action bar. The rule keys on an
+empty DOM container, so a
+live preview, a pending pass, a failed-load card, a lost-run card and a
+deleted-image placeholder keep their own presentations. Desktop and tablet
+geometry are unchanged. `smoke-phone-create` cancels through the API after
+the first preview both before and after a completed result, checks the
+outcome and the retained earlier image, and saves screenshots. It also
+cancels two- and six-image jobs to cover the fitted grid and long strip.
 
 **Two to four, best fit.** `fitViewer` tries each column count and keeps the
 one with the largest tile within the strip's width and the single image's

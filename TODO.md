@@ -105,7 +105,7 @@ The maintainer's working backlog for this personal project: it records what is p
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `UI#40` | OPEN | MED | XL | Phone redesign: remaining partial findings, keyboard checks for other dialogs, iPad Split View and physical iPhone/Android checks. [Phone review](docs/review-2026-11-05-phone.md#7-refine-keyboard-correction-2026-11-07). |
+| `UI#40` | OPEN | MED | XL | Phone redesign: remaining partial findings, keyboard checks for other dialogs, iPad Split View and physical iPhone/Android checks. Date headings, the overlapping place pill and the empty cancelled-result frame fixed 2026-11-07. [Phone review](docs/review-2026-11-05-phone.md#8-residual-phone-corrections-2026-11-07). |
 | `UI#7` | USER | LOW | M | Hands-on NVDA/Narrator, touch, native notification delivery and actual Windows scaling checks; browser emulation and accessibility-tree inspection do not complete them. [Manual checks](docs/design/validation.md#accessibility-and-desktop-checks). |
 
 ## Review coverage

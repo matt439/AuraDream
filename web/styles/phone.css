@@ -38,6 +38,10 @@
      wait in that line, a failed load's card, a lost run's, a first run's
      box with the examples and a deleted image's held line still are. */
   .phone-results:has(> .viewer > .placeholder:not([hidden], .held, .waiting)):not(:has(> .viewer.empty-install)) { display: none; }
+  /* A cancel after the first preview removes that tile. The empty viewer
+     still had its job's height: leave the outcome above the action bar,
+     and keep earlier results available from the action bar's picture. */
+  .phone-results:has(> #viewer:empty) { display: none; }
 
   /* More options (phone.js): the first screen is the prompt, the size,
      Batch, this row and the newest result; the tuning is a press away in

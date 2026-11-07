@@ -165,6 +165,47 @@ function placeDay(made) {
   });
 }
 
+// The phone names the newest group too: without its own heading, the first
+// older day's line looked as though it named the newest pictures above it.
+// Keep this one extra heading here, so paging, finished-image prepends and
+// tombstones retain the gallery's own date groups, and a mouse gets its
+// original top group back. Bin groups still name creation dates (the order
+// and date: search are by those); say so beside their separate binned ages.
+let phoneFirstDay = null;
+function syncPhoneGalleryDays() {
+  const first = els.gallery.firstElementChild;
+  const top = first && first === phoneFirstDay ? first.nextElementSibling : first;
+  // A finished-image prepend treats the existing leading heading as the
+  // old group's boundary. If it is now a different day, leave that heading
+  // there as an ordinary boundary instead of moving it away with the phone's
+  // new first-group heading (a page left open across midnight).
+  const before = phoneFirstDay?.previousElementSibling;
+  if (phoneFirstDay?.isConnected && before?.dataset.made
+      && localDay({ created_at: phoneFirstDay.dataset.phoneMade }) !== localDay({ created_at: before.dataset.made })) {
+    phoneFirstDay.classList.remove('phone-first-day');
+    phoneFirstDay.dataset.phoneDay = dayBreak({ created_at: phoneFirstDay.dataset.phoneMade }).textContent;
+    phoneFirstDay = null;
+  }
+  if (isPhone() && !sheetMode && top?.dataset.made) {
+    if (!phoneFirstDay) {
+      phoneFirstDay = document.createElement('h3');
+      phoneFirstDay.className = 'gallery-break phone-first-day';
+    }
+    const rec = { created_at: top.dataset.made };
+    const words = `${isToday(rec) ? 'Today · ' : ''}${dayBreak(rec).textContent}`;
+    phoneFirstDay.dataset.phoneMade = top.dataset.made;
+    if (phoneFirstDay.dataset.phoneDay !== words) phoneFirstDay.dataset.phoneDay = words;
+    if (top.previousElementSibling !== phoneFirstDay) top.before(phoneFirstDay);
+  } else {
+    phoneFirstDay?.remove();
+  }
+  for (const heading of els.gallery.querySelectorAll(':scope > .gallery-break')) {
+    if (!('phoneDay' in heading.dataset)) heading.dataset.phoneDay = heading.textContent;
+    const words = `${isPhone() && binMode ? 'Created ' : ''}${heading.dataset.phoneDay}`;
+    if (heading.textContent !== words) heading.textContent = words;
+  }
+}
+
 function syncGalleryPlace() {
   const label = $('gallery-place');
   const line = els.search.closest('.gallery-head').getBoundingClientRect().bottom;
@@ -174,6 +215,7 @@ function syncGalleryPlace() {
   while (at && !at.matches('.card[data-id]')) at = at.nextElementSibling;
   const index = at ? galleryRecords.findIndex((rec) => String(rec.id) === at.dataset.id) : -1;
   clearTimeout(galleryPlaceTimer);
+  delete label.dataset.crossing;
   if (index < 0) {
     delete label.dataset.on;
     return;
@@ -181,6 +223,20 @@ function syncGalleryPlace() {
   const place = `${index + 1} of ${Math.max(total, galleryRecords.length)}`;
   const words = binMode || !at.dataset.made ? place : `${placeDay(at.dataset.made)} · ${place}`;
   if (label.textContent !== words) label.textContent = words;
+  // A day line crossing under the fixed pill otherwise shows two different
+  // dates on top of each other. Hide the pill immediately, with its box kept
+  // for the next scroll's geometry; the heading stays readable and no card
+  // moves. The pill returns once the line has passed it.
+  const box = label.getBoundingClientRect();
+  const crossing = [...els.gallery.querySelectorAll(':scope > .gallery-break')].some((heading) => {
+    const day = heading.getBoundingClientRect();
+    return day.bottom > box.top && day.top < box.bottom;
+  });
+  if (crossing) {
+    delete label.dataset.on;
+    label.dataset.crossing = '';
+    return;
+  }
   label.dataset.on = '';
   galleryPlaceTimer = setTimeout(() => { delete label.dataset.on; }, 1500);
 }
@@ -204,6 +260,7 @@ function syncPhoneGalleryHead() {
   // The selection bar (phone-select.js) first: what it holds is out of the
   // sheets, and the bin's rows are placed after it.
   syncPhoneSelectBar();
+  syncPhoneGalleryDays();
   if (!isPhone()) return;
   syncSearchPlaceholder();
   const head = els.search.closest('.gallery-head');

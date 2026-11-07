@@ -7217,6 +7217,10 @@ measured on the card and when.
   host: the bar's held picture says it. The load's wait in that line, a
   failed load's card, a lost run's, a first run's box with the examples
   and a deleted image's held line still are.
+  After a preview is cancelled before an image lands, an empty viewer and
+  its seed row are not drawn either: the whole results host is not drawn.
+  Earlier results stay available from the action bar's picture. The
+  cancellation outcome stays above the bar.
   The phone's first screen is the prompt and its toolbar, Size and Shape,
   Batch, More options and the newest result; the tuning is a press away
   (the review's P4, P11, P13). More options (`#more-options`, `phone.js`,
@@ -7508,7 +7512,15 @@ measured on the card and when.
   cards, not a control: `aria-hidden` (the day's lines are the headings a
   screen reader lists), `pointer-events: none` so a press goes to the card
   or star under it, faded by opacity (no transition under reduced
-  motion), so nothing moves and nothing scrolls. Sticky day lines were the
+  motion), so nothing moves and nothing scrolls. When a day heading crosses
+  the pill's box, the pill is hidden immediately, without its fade over the
+  heading's words; it returns after the heading passes. The phone names the
+  newest Today group too (`syncPhoneGalleryDays`); its extra first heading
+  is removed off the phone. A prepend on a different day preserves the old
+  first heading as that group's boundary, including historical images
+  arriving with their own heading. Bin headings say "Created" before the
+  creation day, distinct from the binned age on each card. Grouping, order
+  and `date:` search still use creation dates. Sticky day lines were the
   finding's first fix and were not taken: in one grid every stuck line
   stays stuck to its end, so they pile at one place, a longer one's tail
   showing past a shorter one's, or an opaque band across the cards' stars.
@@ -8938,7 +8950,15 @@ first words with no dot. A refusal into the shut sheet: Steps tapped in
 it, a "-" typed (a bad input), Done, and Generate tapped opening the
 sheet with "Steps has an incomplete number. Finish typing it before
 running." in its foot, the focus in Steps between the title row and the
-foot and no job started; Steps 28 again, the line cleared. A job (1 s a step) and a second tapped
+foot and no job started; Steps 28 again, the line cleared. A job cancelled
+through the API after its first live preview leaves an empty viewer, no
+result frame or New image pill, the dock held again and the external
+cancellation outcome still visible. The same cancellation after a completed
+result hides the empty results host while keeping the earlier result in
+the session and pressable from the dock; the dock opens that image.
+Screenshots retain both states. Cancelled two- and six-image jobs leave
+no empty fitted grid or reserved-height frame and keep the earlier image
+available from the dock. A job (1 s a step) and a second tapped
 behind it: the bar's picture the live preview (`data:` source, `live`
 and `running`, a `--ring` past 0 and a conic gradient), pressable with
 its title; the queue its count of 1, unheld, `running`, named "Queue: a
@@ -9365,6 +9385,15 @@ actions unwrapped and Compare with source's S drawn, and the grid's gap
 the PC's 10 px, `#card-fit` home last in `#card-view`, no selection bar,
 no run foot, chip or ‹, the Runs select home in the head and drawn, the
 runs' sheet shut and empty.
+
+Its date regressions check the phone's newest Today heading, same-day,
+midnight, historical and mixed-day prepends through `joinFinished`, and
+heading cleanup on return to a mouse. Supplied gallery replies put yesterday's
+creation dates beside today's binned ages, checking the explicit "Created"
+heading. A second supplied day group is scrolled through the place pill:
+their boxes intersect while the pill is immediately hidden, then the pill
+returns with Yesterday's place. Screenshots retain the gallery, the crossing
+and the bin. These are presentation checks on fake data, not device acceptance.
 
 `smoke-offline.json` uses a fresh FLUX.1 Krea [dev] fake on 7958: the
 page at 127.0.0.1 registers `sw.js`, which controls the next load; with
