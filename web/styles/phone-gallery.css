@@ -55,9 +55,9 @@
      while empty, it cut "Search 7 images" at 360 px. */
   .gallery-head #search:placeholder-shown::-webkit-search-cancel-button { display: none; }
   /* Filters: a 44 px square, its glyph the sliders, tonal while Starred or
-     All models is on, with how many in a badge on its corner. ⋯ a 44 px
-     square without an edge, as the topbar's is, the count of picked
-     images in its badge. Select between them, its word 16 px. */
+     All models is on, with how many in a badge on its corner. Gallery
+     actions has a list glyph, distinct from the app topbar's ⋯, the count
+     of picked images in its badge. Select between them, its word 16 px. */
   .gallery-filters, .gallery-more {
     position: relative; display: inline-grid; place-items: center; flex: none;
     width: var(--h-md); min-width: var(--h-md); height: var(--h-md); margin: 0; padding: 0;
@@ -70,7 +70,10 @@
     box-shadow: inset 0 0 0 1px var(--accent);
   }
   .gallery-more { border-color: transparent; background-color: transparent; font-size: 24px; font-weight: 700; line-height: 1; }
-  .gallery-more::before { content: "⋯" / ""; }
+  .gallery-more::before {
+    content: ""; width: 20px; height: 14px; border-block: 2px solid currentColor;
+    background: linear-gradient(currentColor, currentColor) center / 100% 2px no-repeat;
+  }
   .gallery-filters:focus-visible, .gallery-more:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
   .gallery-badge {
     position: absolute; top: -6px; right: -6px;
@@ -358,8 +361,8 @@
   #btn-phone-runs:focus-visible { outline: 2px solid var(--accent-2); outline-offset: -2px; }
 
   /* The runs' sheet: as tall as Filters' may be, a group's name over its
-     rows; a row 56 px at least - its first image a 44 px square (a blank
-     one for a run with none left), when it ran and its count in 16 px
+     rows; a row 56 px at least - its first image a 44 px square (an empty
+     set for a run with none left), when it ran and its count in 16 px
      bold over what it varied and its prompt in 15 px, one line each, cut
      at the end - the run shown tonal with an accent bar, as a chosen row
      is in ⋯. Its height fixed at the most a sheet takes, so over Filters
@@ -382,6 +385,7 @@
     border-radius: var(--r-sm); background: var(--panel-2); box-shadow: inset 0 0 0 1px var(--line);
   }
   .run-face > img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .run-face-empty { display: grid; place-items: center; color: var(--muted); font-size: var(--fs-lg); }
   .run-text { display: flex; flex-direction: column; gap: 2px; flex: 1 1 0; min-width: 0; }
   .run-when, .run-what { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: var(--lh-tight); }
   .run-when { font-size: var(--fs-md); font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -695,6 +699,9 @@
     pointer-events: none; opacity: 0; transition: opacity 0.2s;
   }
   .gallery-place[data-on] { opacity: 1; }
+  /* A crossing day heading must be readable immediately, without the
+     pill's fade sitting over its words (syncGalleryPlace). */
+  .gallery-place[data-crossing] { visibility: hidden; transition: none; }
   @media (prefers-reduced-motion: reduce) { .gallery-place { transition: none; } }
 
   /* Back to the top: a 44 px round ↑ at the screen's foot on the left, over

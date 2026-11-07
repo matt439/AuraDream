@@ -66,6 +66,7 @@ function pressSheetClose(event) {
 // The top compensates for that pan, and the height is what the keys leave.
 // Page pinch zoom keeps the ordinary layout rather than resizing its forms.
 let sheetViewportFrame = 0;
+const IMAGE_PASS_DIALOG = '.refine-dialog, .inpaint-dialog';
 function syncSheetViewport() {
   const vv = window.visualViewport;
   const root = document.documentElement.style;
@@ -77,16 +78,24 @@ function syncSheetViewport() {
   const short = isPhone() && vv && vv.scale === 1 && vv.height < 200;
   document.documentElement.toggleAttribute('data-short-sheet', !!short);
   // Safari's focus pan does not account for sticky rows. Reveal only the
-  // part of the focused field they cover, inside Refine's own scroll box.
+  // part of the focused field they cover, inside its image pass dialog.
   if (touchQuery.matches && vv?.scale === 1 && !sheetViewportFrame) {
     sheetViewportFrame = requestAnimationFrame(() => {
       sheetViewportFrame = 0;
       if (!touchQuery.matches || window.visualViewport?.scale !== 1) return;
       const field = document.activeElement;
-      if (!els.refineDialog.open || !field?.matches(KEYBOARD_FIELD) || !els.refineDialog.contains(field)) return;
-      const dialog = els.refineDialog.getBoundingClientRect();
-      const head = els.refineDialog.querySelector(':scope > .dialog-head');
-      const actions = els.refineDialog.querySelector('.dialog-actions').getBoundingClientRect();
+      const sheet = field?.closest('dialog');
+      if (!field?.matches(KEYBOARD_FIELD) || !sheet?.open || sheet.matches('.lightbox')) return;
+      if (!sheet.matches(IMAGE_PASS_DIALOG)) {
+        if (isPhone()) {
+          if (sheet.matches('.confirm-dialog')) revealPhoneConfirmField(sheet, field);
+          else if (!sheet.matches('.gallery-sheet')) revealPhoneFormField(sheet, field);
+        }
+        return;
+      }
+      const dialog = sheet.getBoundingClientRect();
+      const head = sheet.querySelector(':scope > .dialog-head');
+      const actions = sheet.querySelector('.dialog-actions').getBoundingClientRect();
       const top = head && getComputedStyle(head).position === 'sticky'
         ? Math.max(dialog.top, head.getBoundingClientRect().bottom) : dialog.top;
       const box = field.getBoundingClientRect();
@@ -98,9 +107,49 @@ function syncSheetViewport() {
       const gap = Math.min(4, Math.max(0, (bottom - top - box.height) / 2));
       const shift = box.bottom > bottom - gap ? box.bottom - bottom + gap
         : box.top < top + gap ? box.top - top - gap : 0;
-      if (shift) els.refineDialog.scrollTop += shift;
+      if (shift) sheet.scrollTop += shift;
     });
   }
+}
+
+// Other phone forms can have several action rows. Only a shown sticky or
+// fixed row obscures the field; a row in ordinary scroll flow does not.
+// Safari pans fixed sheets as the keyboard opens, so translate the visual
+// viewport into the sheet's rendered coordinates before intersecting it.
+// Image-pass dialogs keep their independently qualified calculation above.
+function revealPhoneFormField(sheet, field) {
+  const vv = window.visualViewport;
+  if (!vv || vv.scale !== 1) return;
+  const dialog = sheet.getBoundingClientRect(), style = getComputedStyle(sheet);
+  const cssTop = parseFloat(style.top);
+  const pan = style.position === 'fixed' && Number.isFinite(cssTop) ? dialog.top - cssTop : 0;
+  const viewportTop = vv.offsetTop + pan;
+  let top = Math.max(dialog.top, viewportTop), bottom = Math.min(dialog.bottom, viewportTop + vv.height);
+  const overlay = (node) => node && isShown(node) && ['sticky', 'fixed'].includes(getComputedStyle(node).position)
+    ? node.getBoundingClientRect() : null;
+  const head = overlay(sheet.querySelector(':scope > .dialog-head') ?? sheet.querySelector('.analysis-head'));
+  if (head) top = Math.max(top, head.bottom);
+  const actions = overlay(sheet.querySelector('.dialog-actions'));
+  const box = field.getBoundingClientRect();
+  if (actions && box.left < actions.right && box.right > actions.left) bottom = Math.min(bottom, actions.top);
+  revealPhoneFieldBand(sheet, field, top, bottom);
+}
+
+// Count questions are anchored by their bottom with translateY(-100%).
+// Their rendered box already ends at the visible foot, so no CSS-top pan
+// inference applies. The question and its actions remain ordinary scroll.
+function revealPhoneConfirmField(sheet, field) {
+  const dialog = sheet.getBoundingClientRect();
+  revealPhoneFieldBand(sheet, field, dialog.top, dialog.bottom);
+}
+
+function revealPhoneFieldBand(sheet, field, top, bottom) {
+  const box = field.getBoundingClientRect();
+  if (box.height > bottom - top) return;
+  const gap = Math.min(4, Math.max(0, (bottom - top - box.height) / 2));
+  const shift = box.bottom > bottom - gap ? box.bottom - bottom + gap
+    : box.top < top + gap ? box.top - top - gap : 0;
+  if (shift) sheet.scrollTop += shift;
 }
 
 // The long explanations a sheet opened on (P53): Swap tags' matching rules,
@@ -268,9 +317,21 @@ function initPhoneSheets() {
   document.addEventListener('focusin', syncSheetViewport);
   // A late preview or restored-draft line can move the field after the
   // keyboard has settled, at any touch size.
-  new MutationObserver(() => {
-    if (touchQuery.matches && els.refineDialog.contains(document.activeElement)) syncSheetViewport();
-  }).observe(els.refineDialog, { childList: true, subtree: true, characterData: true, attributes: true });
+  const passChanges = new MutationObserver(() => {
+    if (touchQuery.matches && document.activeElement?.closest('dialog')?.matches(IMAGE_PASS_DIALOG)) syncSheetViewport();
+  });
+  for (const dialog of document.querySelectorAll(IMAGE_PASS_DIALOG)) {
+    passChanges.observe(dialog, { childList: true, subtree: true, characterData: true, attributes: true });
+  }
+  const formChanges = new MutationObserver(() => {
+    const sheet = document.activeElement?.closest('dialog');
+    if (isPhone() && sheet?.open && !sheet.matches(`${IMAGE_PASS_DIALOG}, .lightbox, .gallery-sheet`)) syncSheetViewport();
+  });
+  for (const dialog of document.querySelectorAll('dialog:not(.lightbox):not(.gallery-sheet)')) {
+    if (!dialog.matches(IMAGE_PASS_DIALOG)) {
+      formChanges.observe(dialog, { childList: true, subtree: true, characterData: true, attributes: true });
+    }
+  }
   window.visualViewport?.addEventListener('resize', syncSheetViewport);
   window.visualViewport?.addEventListener('scroll', syncSheetViewport);
   syncSheetViewport();

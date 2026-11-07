@@ -661,6 +661,8 @@ function forgetImages(ids, { binned = false } = {}) {
     : dropped.length === 1 ? ` ${imageNames(dropped)} was a reference image; it is no longer in the references.`
       : ` ${imageNames(dropped)} were reference images; they are no longer in the references.`;
   lightboxAfterGone();
+  // The live-preview viewer may retain a finished record no strip holds.
+  syncPhoneLivePreview();
   return note;
 }
 
@@ -769,6 +771,7 @@ function unforgetImages(ids) {
   viewerSourcesGone();
   renderRecent();
   if (els.lightbox.open && lbList[lbIndex]) { lbDrawn = null; renderLightbox(); }
+  syncPhoneLivePreview();
 }
 
 // The lightbox's only image went - a strip of one, a gallery or a search of

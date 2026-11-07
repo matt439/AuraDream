@@ -373,7 +373,9 @@ function drawSheet() {
   if (!sheetRecords.length) {
     sheetLayout = null;
     els.sheet.classList.remove('wrapped');
-    els.sheetNote.textContent = 'Nothing matches. The filters above the sheet are the gallery search.';
+    els.sheetNote.textContent = barRun && runsListed.get(barRun)?.images === 0
+      ? 'No images from this run are in the gallery.'
+      : 'No images match the gallery search and filters.';
     return;
   }
   if (colValues.length * rowValues.length > MAX_SHEET_CELLS) {

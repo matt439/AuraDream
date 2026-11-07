@@ -252,7 +252,7 @@
   {"wait": 600},
   {"log": "'A sheet with nothing to lay out says so and draws no screen-tall empty cell'"},
   {"eval": "showSheetScope('zzqqxx'); window.__settled()"},
-  {"expect": "sheetMode && sheetRecords.length === 0 && els.sheetNote.textContent.startsWith('Nothing matches') && els.sheetGrid.children.length === 0 && els.sheetGrid.getBoundingClientRect().height < 400"},
+  {"expect": "sheetMode && sheetRecords.length === 0 && els.sheetNote.textContent === 'No images match the gallery search and filters.' && els.sheetGrid.children.length === 0 && els.sheetGrid.getBoundingClientRect().height < 400"},
   {"eval": "setSheet(false); els.search.value = ''; resetGallery();"},
   {"expect": "__until(() => !sheetMode && !galleryPending)"},
   {"log": "'Fill width: the cells take the whole width and the box scrolls under its heads, sizes following, a resize too; named Fill width with its state in aria-pressed and the title, remembered under auradream.sheet.v1; the export draws the cells as wide as the screen does, from the PNGs; nothing pinned, no Export all'"},

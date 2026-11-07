@@ -36,6 +36,7 @@ const phoneCanShare = () => window.isSecureContext
   && typeof navigator.share === 'function' && typeof navigator.canShare === 'function';
 
 function syncPhoneViewer() {
+  if (!isPhone() && $('phone-preview-viewer').open) $('phone-preview-viewer').close();
   if (isPhone()) {
     const top = $('lbp-top'), share = $('lbp-share'), bar = $('lbp-bar'), foot = $('lbp-foot');
     phoneMove(els.lbClose, top, share);
@@ -185,7 +186,78 @@ function openViewerMore(event) {
   showContextMenu([{ heading: `#${rec.id}` }, ...items], `More for #${rec.id}`, event.currentTarget, 0, 0, event.detail === 0);
 }
 
+// A live frame has no record, metadata or image actions. Its viewer follows
+// only the job opened by the dock's press, even when another job starts.
+// A finished image replaces the frame; its ordinary lightbox opens only on
+// the explicit Open finished image press. Cancellation keeps the last frame
+// labelled as a preview, never as a saved result.
+let phonePreviewJob = null;
+let phonePreviewRecord = null;
+function syncPhoneLivePreview() {
+  const dialog = $('phone-preview-viewer');
+  if (!dialog.open) return;
+  const frame = currentJob === phonePreviewJob
+    ? els.viewer.querySelector(':scope > figure.live img.preview[src]') : null;
+  // Retain the newest own-job record even after it leaves the bounded lists
+  // or the gallery. A removed image must not silently become an older one.
+  const rec = [phonePreviewRecord, ...viewerRecords, ...sessionRecords]
+    .filter((r) => r?.job_id === phonePreviewJob)
+    .reduce((newest, r) => !newest || r.id > newest.id ? r : newest, null);
+  phonePreviewRecord = rec;
+  const gone = !frame && rec && isGone(rec.id);
+  const img = $('phone-preview-image');
+  const src = frame?.getAttribute('src') ?? (gone ? null : rec?.url);
+  if (gone) img.removeAttribute('src');
+  img.hidden = !!gone;
+  if (src && img.getAttribute('src') !== src) img.src = src;
+  const running = currentJob === phonePreviewJob && busy;
+  const title = frame ? 'Live preview' : gone ? 'Finished image removed'
+    : running ? 'Live preview' : rec ? `Finished image #${rec.id}` : 'Preview ended';
+  const note = frame ? frame.closest('figure').querySelector('.foot').textContent
+    : gone ? `#${rec.id} ${binnedIds.has(rec.id) ? 'is in the recycle bin' : 'has been deleted'}.`
+    : running ? 'Waiting for the next preview…'
+    : rec ? 'The finished image is ready.' : 'This preview ended without a finished image.';
+  if ($('phone-preview-title').textContent !== title) $('phone-preview-title').textContent = title;
+  if ($('phone-preview-note').textContent !== note) $('phone-preview-note').textContent = note;
+  img.alt = rec && !frame ? `Finished image #${rec.id}` : 'Live preview of the image being generated';
+  const result = $('phone-preview-result');
+  const hideResult = !!frame || !rec || !!gone;
+  if (hideResult && document.activeElement === result) $('phone-preview-close').focus({ preventScroll: true });
+  result.hidden = hideResult;
+}
+
+function openPhoneLivePreview() {
+  const dialog = $('phone-preview-viewer');
+  if (!isPhone() || dialog.open || !currentJob || !els.viewer.querySelector(':scope > figure.live img.preview[src]')) return;
+  phonePreviewJob = currentJob;
+  phonePreviewRecord = null;
+  dialog.showModal();
+  syncPhoneLivePreview();
+  $('phone-preview-close').focus({ preventScroll: true });
+}
+
 function initPhoneViewer() {
+  const preview = $('phone-preview-viewer');
+  $('phone-preview-close').addEventListener('click', () => preview.close());
+  preview.addEventListener('close', () => {
+    if (preview.open) return;
+    // A late close event from the handoff must not steal the lightbox's focus.
+    phonePreviewJob = null;
+    phonePreviewRecord = null;
+    $('phone-preview-image').removeAttribute('src');
+    const target = isPhone() ? $('phone-dock') : els.generate;
+    if (!els.lightbox.open && isShown(target)) target.focus({ preventScroll: true });
+  });
+  $('phone-preview-result').addEventListener('click', () => {
+    const rec = phonePreviewRecord;
+    if (!rec || isGone(rec.id) || $('phone-preview-result').hidden) return;
+    preview.close();
+    openLightbox(rec, [rec], 'dock');
+  });
+  const progressWatch = new MutationObserver(syncPhoneLivePreview);
+  for (const node of [els.progressText, els.stepText]) {
+    progressWatch.observe(node, { childList: true, characterData: true, subtree: true });
+  }
   for (const node of viewerMoved()) {
     const mark = document.createComment(` ${node.id}'s place off the phone (phone-viewer.js) `);
     node.before(mark);

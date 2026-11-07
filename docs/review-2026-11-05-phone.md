@@ -377,7 +377,7 @@ Severity is after verification. Effort: S (under a day), M (1-3 days), L (more t
 - Files: web/styles/touch.css, web/index.html, web/styles/refine.css, web/styles/inpaint.css, web/styles/bundles.css. Effort: M.
 
 **P44 - High - The keyboard can cover dialog actions: several dialogs focus a text box on open.**
-- Simulator follow-up (2026-11-07): Refine now opens without the keyboard on the phone, but focusing Strength can still leave Cancel and Refine behind it on an iPhone 15 Pro in portrait and on iPad Air 11-inch (M2). Native rectangles and screenshots confirm the overlap. That pre-fix failure is retained in the [Safari Simulator check](#6-safari-simulator-check-2026-11-07); Refine's correction is verified in [section 7](#7-refine-keyboard-correction-2026-11-07). Other dialogs and physical-device acceptance remain open.
+- Simulator follow-up (2026-11-07): Refine now opens without the keyboard on the phone, but focusing Strength can still leave Cancel and Refine behind it on an iPhone 15 Pro in portrait and on iPad Air 11-inch (M2). Native rectangles and screenshots confirm the overlap. That pre-fix failure is retained in the [Safari Simulator check](#6-safari-simulator-check-2026-11-07); Refine's correction is verified in [section 7](#7-refine-keyboard-correction-2026-11-07). The other edit dialogs' scoped native checks are recorded in [section 10](#10-edit-dialog-keyboard-acceptance-2026-11-07); its physical-device and caret gates remain open.
 - Original review evidence (2026-11-05): autofocus at index.html:1280 (`#refine-strength`), :2038, :2078, :2123; `.focus()` calls at refine.js:302, tag-swap.js:145, more-seeds.js:331. Dialogs are sized in dvh, which iOS does not shrink for the keyboard. Then inferred, not captured; the Simulator follow-up above now supplies native evidence.
 - Fix: on coarse pointers, no autofocus on text boxes (move focus to the sheet's header or ✕); the desktop keeps its reasons. A visualViewport listener in touch.js sets `--kb-inset` while a sheet is open, and the sticky footer uses `bottom: var(--kb-inset, 0)`. The same inset lets the Create action bar ride above the keyboard (P1).
 - Files: web/touch.js, web/styles/touch.css, web/index.html, web/refine.js, web/tag-swap.js, web/more-seeds.js. Effort: M.
@@ -766,3 +766,191 @@ Remaining simulator work includes the other edit dialogs' keyboards and iPad
 Split View. Physical iPhone acceptance, Android and native edge-swipe Back,
 completed sharing delivery, long press/pinch and GPU/model acceptance remain
 separate. `UI#40` stays open for those checks and the review's partial findings.
+
+## 8. Residual phone corrections (2026-11-07)
+
+Four defects from phase 4's final tour are corrected:
+
+- The newest Today group has a day heading on the phone. Same-day prepends
+  reuse it; different-day prepends keep the old heading as its group's
+  boundary, including a page left open across midnight and historical
+  images arriving with their own heading. A mouse keeps the gallery's
+  original first-group presentation.
+- The floating place pill hides immediately while a day heading crosses
+  its box, so the two dates do not overlap, and returns after it passes.
+- Bin headings explicitly say "Created" before the creation day, separate
+  from each card's binned age. Grouping, order and date searches still use
+  creation dates.
+- Cancelling after the first preview, before an image finishes, leaves no
+  empty result frame on Create. The outcome remains above the action bar,
+  and its picture still opens the newest earlier result from the session.
+  Single-image, two-image and six-image cancellations cover the ordinary,
+  fitted and long-strip layouts.
+
+The regressions extend `smoke-phone-create` and `smoke-phone-gallery` on
+isolated fake galleries. The cancellation assertion failed against the old
+CSS before the fix. Retained screenshots: [cancelled Create](review-2026-11-05-phone/residual-cancelled-create.png),
+[day-heading crossing](review-2026-11-05-phone/residual-day-crossing.png) and
+[bin dates](review-2026-11-05-phone/residual-bin-dates.png).
+
+Validation passed: 36 classic-script and documentation-map tests, Ruff, and
+eight browser smokes (`smoke-phone-create`, `smoke-phone-gallery`,
+`smoke-phone`, `smoke-phone-dialogs`, `smoke-phone-landscape`,
+`smoke-tablet`, `smoke-gallery`, `smoke-bin`). The gallery smoke includes
+same-day, midnight, historical and both mixed-day prepend orders through
+the real `joinFinished`, plus the mouse roundtrip. These Chromium checks
+use only synthetic galleries and do not extend the native Safari result.
+
+The remaining tour defects and the implementable partial findings are
+addressed in section 9. The Refine-only Simulator result in section 7 does
+not qualify other dialogs. No model or GPU acceptance is claimed.
+
+## 9. Remaining implementation findings (2026-11-07)
+
+- Empty runs use an intentional ∅ cover marker beside their image count.
+  Their sheet says that the run has no images; a filter miss asks for a
+  change of search or filters without referring to controls above a sheet.
+  Finish run and More seeds retain their existing availability.
+- Gallery actions uses a list icon, distinct from the app topbar's ⋯.
+  The 44 px button keeps its actions and says Gallery actions or Bin
+  actions, including the selected count where applicable.
+- The phone search uses a compact count at narrow widths:
+  `Search 160` is 77.27 px wide, fitting the 126 px available at
+  360 px and 86 px at 320 px. Its accessible name remains Search gallery;
+  empty and bin wording are unchanged. The gallery smoke checks both sizes.
+- Check's sections are 48 px disclosures (P9), Findings open initially and
+  the other sections closed. Choices survive redraws and tier changes.
+  Content nodes, hidden states and the critic's existing selectors stay in
+  place; the mouse gets its plain headings back.
+- The result dock opens live frames across the phone (P30), without
+  scrolling Create. The preview follows only the job opened by the press.
+  Its finished image replaces the frame, with an explicit Open finished
+  image handoff to the normal viewer. A job ending without a saved image
+  keeps the last frame labelled Preview ended; a partly completed batch
+  keeps its latest finished image. Back, Escape and close restore dock focus, with
+  one history entry through the handoff. Frames never become records.
+  A finished image removed elsewhere clears its pixels and Open action,
+  showing its bin/deleted status without falling back to an older image.
+  Restore recovers that same cached image. Leaving the phone closes the
+  preview and gives focus to the visible Generate button.
+- The keyboard viewport, sticky-action and focused-field protections now
+  cover Inpaint, Outpaint and Edit by instruction as well as Refine (P44).
+  Tablet widths and top gaps stay intact, and the short phone landscape
+  actions fit beside the field. Inpaint's fixed-top canvas rule is retained.
+- More options and the library forms had the same tiny-keyboard problem:
+  their 61 px sticky heads and multi-action footers covered a 48 px viewport.
+  On the phone those rows now scroll normally in the short state; dismissing
+  the keyboard restores their usual sticky positions. A separate reveal
+  keeps the focused field clear after late content without changing drafts,
+  holds, nodes or page scroll. Count confirmations use their rendered
+  bottom-anchored box and a full 48 px cap, preserving count validation and
+  Cancel. The four image-pass dialogs retain their existing calculation.
+
+The earlier phases' explicitly skipped alternatives and optional extras
+remain skipped: the list manager edit sub-screen, fact-row menus, different
+Outpaint controls, sheet axis chips/zoom, switches, drag-select, the date
+scrubber and standalone mode. Refine and Edit retain their brief two-line
+context notes (P53); landscape facts keep their peek at the foot until raised
+as a side sheet (P35). These retained presentations are the chosen alternatives,
+not remaining implementation defects.
+
+Validation uses synthetic galleries with no weights or GPU work. The new
+`smoke-phone-keyboard` supplies viewport dimensions for 88 field/late-content
+states: 70 image-pass cases across phone portrait, 48 px landscape, both
+tablet orientations and a 678 px Split View emulation; 16 other phone-form
+cases at 391/48 px; and two count-confirmation cases at 48 px. Baseline
+checks reproduced the sticky-row and count-field clipping before their fixes.
+That emulation does not qualify actual iPad
+multitasking or a software keyboard. The existing Create, dialogs and Gallery
+smokes exercise the new preview, disclosures, cancelled zero-image run and
+menu semantics. All twelve relevant browser smokes passed, alongside 36
+classic-script/documentation-map tests and Ruff. Native follow-up is a
+separate acceptance step.
+
+CI follow-up (2026-11-07): the new empty-run marker, ∅ (U+2205), was
+missing from the smoke fonts' measured characters. A Windows Edge 156 run
+of `tools/font-widths.json` measured its advance at 627.93 px for weight
+400 and 647.95 px for weights 600/700, at 1000 px and DPR 1. The character
+and all three widths are now retained in the measurement fixture and
+`tools/segoe-widths.json`; every earlier width matched the existing table.
+The 15 smoke-font tests, 36 classic-script/documentation-map tests and Ruff
+passed after the correction. CI also caught the desktop contact-sheet
+smoke's old empty-filter wording. Its assertion now checks the complete
+current message, keeping the empty-grid and height checks; the corrected
+contact-sheet smoke passed locally.
+
+Still requiring device acceptance: physical iPhone keyboard behaviour,
+Share's timing and completed delivery, Android/system and native iOS edge
+Back, long press/pinch, and actual iPad Split View. `UI#40` remains indexed
+for that acceptance; the earlier skipped design choices do not block it.
+
+## 10. Edit-dialog keyboard acceptance (2026-11-07)
+
+**23 native field checks passed across four Simulator configurations.**
+These cover Inpaint, Outpaint and Edit by instruction; section 7 retains
+Refine's separate acceptance. The phone landscape Instruction textarea is
+larger than the available keyboard viewport, so its caret behaviour remains
+unqualified. It is not counted as a passed field.
+
+| Simulator | Orientation | Passed fields | Accepted evidence |
+|---|---|---|---|
+| iPhone 15 Pro | Portrait | 6 | `results-20261107T033550Z` |
+| iPhone 15 Pro | Landscape | 5 | `results-20261107T033550Z`; Instruction caret unqualified |
+| iPad Air 11-inch (M2) | Portrait | 6 | Five numeric fields in `results-20261107T040316Z`; Instruction in `results-20261107T043039Z` |
+| iPad Air 11-inch (M2) | Landscape | 6 | `results-20261107T043039Z` |
+
+Each field has native typing that changes its value, five clear interior
+DOM hit tests, two stable samples of action rectangles above the real
+software keyboard, and an actual native Cancel that closes the dialog and
+keyboard and restores the viewport. Dialogs open through their application
+callback on a seeded synthetic row; opener gestures and edit submission are
+outside this keyboard scope. The editor is held by the fake's checkpoint,
+so this proves neither model loading nor GPU/edit output.
+
+This is per-field acceptance across retained runs, not one all-green full
+matrix run. Sixteen accepted fields were measured on `da14e75efc7f6039e2f446645790c9842275ebe8`;
+the seven missing cases passed on `14f6b04c062411ddc42f66d2e06f981fea0d1220`.
+Portrait Edit Seed has its own completed field receipt before the later
+Instruction selector failure; that enclosing failed flow remains recorded.
+That later change adds other phone-form/count protection while retaining
+the image-pass arithmetic and CSS. Application assets stayed unchanged
+through each run. The later gallery placeholder wording change leaves
+those image-pass paths untouched. The [receipt](review-2026-11-05-phone/simulator-edit-keyboards-2026-11-07.json)
+records each accepted field's source, harness and raw evidence hashes,
+alongside every excluded setup/selector attempt and cleanup.
+
+The attempts exposed harness defects: treating Inpaint's valid canvas focus
+as keyboard autofocus; probing obsolete Safari contexts before their newer
+replacement; using the shared initial navigation gate before AuraDream's
+visible-document routine; and expecting sentence-case Instruction on the
+tablet's uppercase native caption. The final harness filters the installed
+driver's context URL metadata before probing JS, still requires the exact
+visible AuraDream document, and matches the observed unique native label
+without case sensitivity. After the retained phone acceptance, retries
+selected only missing iPad cases. Earlier pilots are excluded, and the
+setup/selector failures remain recorded; they are not silently combined
+into passed configurations.
+
+Retained native screenshots: [iPhone portrait](review-2026-11-05-phone/simulator-edit-iphone-portrait.png),
+[iPhone landscape](review-2026-11-05-phone/simulator-edit-iphone-landscape.png),
+[iPad portrait](review-2026-11-05-phone/simulator-edit-ipad-portrait.png) and
+[iPad landscape](review-2026-11-05-phone/simulator-edit-ipad-landscape.png).
+Full reports, command logs, XML and frozen harnesses are retained under
+`work/safari-edit-keyboard-20261107/` and the corresponding Mac directory in
+the [rerun notes](ios-simulator.md#other-image-pass-keyboard-checks).
+
+Independent cleanup verified all ten created Simulators absent, all five
+Appium ports closed, no owned runner/Appium/tunnel, and Windows fixture
+port 17961 closed. Raw evidence and synthetic scratch galleries are retained.
+
+`UI#40` is now `USER`. Remaining acceptance is:
+
+- Physical iPhone/iPad keyboard use, including the other phone-form fallback,
+  count confirmation and landscape Instruction caret behaviour.
+- Actual iPad Split View/Slide Over transitions and their keyboards.
+- Android/system Back and native iOS edge Back through stacked overlays.
+- Physical viewer opacity, long press, pinch/double-tap and swipes.
+- Share timing and completed file delivery, including the LAN Download fallback.
+
+Other phone forms have the supplied-viewport evidence in section 9, not
+native keyboard acceptance. No weights, GPU work or real gallery were used.

@@ -2284,26 +2284,26 @@ so a guessed keyboard height is not the sheet's available space.
 `syncSheetViewport` (`phone-sheets.js`) now publishes the visible viewport's
 top and height on touch. Phone form sheets take those dimensions directly,
 with their existing sticky heads and action rows inside them; the short
-delete question ends at the visible foot. Tablet Refine keeps its width
-and top gap, but its height cap uses the visible viewport and its action
-row stays sticky. This tablet change is limited to Refine. Page pinch zoom
+delete question ends at the visible foot. Tablet Refine, Inpaint, Outpaint and Edit by instruction keep their widths
+and top gaps, but their height caps use the visible viewport and their action
+rows stay sticky. Page pinch zoom
 clears the properties so the forms keep their normal geometry while the
 user magnifies the page; a mouse or a missing viewport API uses the CSS
 fallbacks. The phone's opening-focus guard still puts focus on the head's
-close button, while the tablet keeps Refine's Strength focus.
+close button, while the tablet keeps each dialog's opening focus.
 
 **Enough space to edit on a phone held sideways.** A software keyboard
 can leave only 94 px, and a later pan can leave just 48 px. Fitting the
 sheet to that height alone is not enough: the usual sticky head and
 padded footer together cover more than the
 available space. Below 200 px of visible height at scale 1, the phone
-marks `data-short-sheet`. Refine's head becomes ordinary scrolling content,
+marks `data-short-sheet`. Each image-pass dialog's head becomes ordinary scrolling content,
 its footer loses vertical and bottom-safe-area padding and its two buttons
 are 44 px tall. Narrower phones keep this compact footer, with 48 px of
 bottom scroll padding.
 
 On a wide phone (coarse pointer, width at least 700 px and height at most
-500 px), Refine instead reserves a right-hand space for the two actions.
+500 px), each image-pass dialog reserves a right-hand space for its two actions.
 Its centred-column gutters reset to the safe-area minimum of 16 px, with
 204 px plus `--sp-4` added at the right. Cancel and Refine form a fixed
 204x44 px row there, vertically centred in the visible viewport, with the
@@ -2320,17 +2320,17 @@ focus pan does not account for the sheet's sticky head and footer. The
 actions can be above the keyboard while Strength is still covered by the
 footer, and a late preview or restored-draft line can move the field
 after the keyboard settles. At scale 1, viewport changes, focus changes
-and Refine content updates queue one animation frame to check the focused
+and image-pass content updates queue one animation frame to check the focused
 keyboard field against the open dialog's band between its sticky head,
 if any, and its actions where they overlap horizontally; beside the side
 actions the band extends to the dialog's bottom. Only a clipped field
 causes a scroll, by the nearest amount needed with up to 4 px clearance.
-This changes Refine's
-`scrollTop` alone; it moves neither the page nor another dialog and skips
+This changes only that dialog's
+`scrollTop`; it moves neither the page nor another dialog and skips
 page pinch zoom. An already clear field keeps its place. A text area taller
 than the available band is left to Safari's caret pan: trying to reveal
 the whole box would alternate between its top and bottom on later updates.
-This guard also applies to tablet Refine; the compact layout remains
+This guard also applies to those four dialogs on the tablet; the compact layout remains
 phone-only.
 
 The phone-dialogs smoke supplies height 391 and top 131, checks the sheet
@@ -2345,7 +2345,26 @@ and head reset.
 This is a mechanism check. Native control rectangles, software-keyboard
 rectangles and screenshots remain the Simulator acceptance evidence in
 the [phone review](review-2026-11-05-phone.md#7-refine-keyboard-correction-2026-11-07);
-other tablet dialogs and physical-device acceptance need their own checks.
+the other image-pass dialogs' scoped native checks are recorded in the
+[follow-up](review-2026-11-05-phone.md#10-edit-dialog-keyboard-acceptance-2026-11-07).
+Physical-device acceptance remains separate. The supplied-viewport checks cover all four
+image-pass dialogs, including a 678 px Split View emulation.
+
+**Other phone forms need space for the field too (2026-11-07).** More options
+and the setup, snippet and saved-search editors kept 61 px sticky heads and
+multi-action footers inside a 48 px visible viewport. Below 200 px these rows
+now scroll normally; dismissing the keyboard restores their sticky layout.
+Their separate field reveal translates the visible viewport into rendered
+coordinates, accounts only for shown sticky/fixed overlays and changes only
+the dialog's scroll. Count confirmations already have a bottom anchor, so
+their reveal uses the rendered box directly. Their short cap uses the full
+48 px without vertical padding, enough for the 44 px count field. Raw drafts,
+holds, count validation and Cancel retain their existing behavior. Oversized
+textareas keep native caret pan. The image-pass arithmetic and CSS are
+unchanged; other tablet forms keep their own layout. The keyboard smoke
+checks 88 field/late-content states, including the real count dialog with
+Cancel only. These additional phone-form cases are supplied-viewport checks,
+not native keyboard acceptance.
 
 **What is around the source.** Opened from Reuse on a pass, the title and a
 line of their own name the pass being run again ("Refine #4 as #5 was
@@ -5901,6 +5920,21 @@ still intersect. It adds no open end, relative range or new date comparator.
 Gallery reads, strict scopes and saved-query validation share this parser.
 [The range plan](plan-gallery-date-ranges.md) records the rationale and checks.
 
+**Phone day headings and the place pill (2026-11-07).** The phone now names
+the newest Today group as well as the older groups. Without that heading,
+the first older day's line looked as though it named the images above it.
+`syncPhoneGalleryDays` in `phone-gallery.js` owns the extra first heading
+and removes it when leaving the phone. When a different-day image prepends,
+the old first heading becomes an ordinary boundary for its group; a new
+first heading must not move it away. This includes a page left open across
+midnight and historical images arriving with their own leading heading.
+The bin still groups by creation date, so those headings explicitly say
+"Created", beside each card's separate binned age. Neither order nor date
+search changes. While scrolling, a day heading crossing the fixed place
+pill hides the pill immediately instead of drawing two dates over each
+other; the pill returns after the heading passes. `smoke-phone-gallery`
+checks these transitions, bin wording and the return to a mouse layout.
+
 ## Re-render
 
 **`POST /api/rerender` is the third producer of cells**, beside
@@ -7981,6 +8015,38 @@ leaves the gallery where it was. The 2026-10-04 review measured the preview
 at a fixed 320 px after a 917 px result: the gallery head went from 1,046 to
 509 and back at every Generate, about 540 px twice. It now stays put from the
 first frame to the image (smoke-results).
+
+**No empty result frame after cancellation on the phone (2026-11-07).**
+The first preview clears the previous job's strip. If that job then ends
+without an image, removing the preview leaves the viewer's normal minimum
+height behind: about 370 px of empty frame on Create. The phone hides that
+results host in `styles/phone.css` while its viewer is empty. The action
+bar's picture still opens the newest earlier result from the session.
+The cancellation outcome stays above the action bar. The rule keys on an
+empty DOM container, so a
+live preview, a pending pass, a failed-load card, a lost-run card and a
+deleted-image placeholder keep their own presentations. Desktop and tablet
+geometry are unchanged. `smoke-phone-create` cancels through the API after
+the first preview both before and after a completed result, checks the
+outcome and the retained earlier image, and saves screenshots. It also
+cancels two- and six-image jobs to cover the fitted grid and long strip.
+
+**Live previews open across the phone (2026-11-07).** The action bar's
+picture opens a full-screen black preview canvas, without scrolling Create.
+The preview has no saved-image metadata or actions. It follows the job opened
+by that press; a later job cannot replace it. When an image finishes it
+replaces the frame and offers Open finished image, which hands it to the
+ordinary lightbox on a press. If the job ends without a saved image, the
+last frame stays labelled Preview ended; a partly completed batch keeps its
+latest finished image. Back, Escape and the close return focus to the dock;
+the finished-image handoff keeps one history entry. Leaving the phone closes
+the preview. Its frame source is released on close. Removing its finished
+image clears the pixels and action, with explicit bin/deleted wording; it
+retains the latest image's identity, so an older sibling cannot silently
+replace it. Restore recovers the cached image even after its strip is gone.
+The Create smoke covers
+both orientations, advancing frames, cancellation, completion, the handoff
+and a later job starting while the earlier image stays open.
 
 **Two to four, best fit.** `fitViewer` tries each column count and keeps the
 one with the largest tile within the strip's width and the single image's

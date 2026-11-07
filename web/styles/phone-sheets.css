@@ -6,14 +6,18 @@
    buttons stacked. Linked last. Off the phone the added ✕ is not drawn. */
 .sheet-close, .models-foot, .phone-list { display: none; }
 
-/* The tablet keeps Refine's width and top gap, with its scroll and actions
+/* The tablet keeps each image pass's width and top gap, with its scroll and actions
    inside what Safari's keyboard leaves. Its old 100vh cap ignored the keys. */
 @media (pointer: coarse) and (min-width: 700px) and (min-height: 501px) {
   .refine-dialog {
     top: var(--sheet-viewport-top, 0px); bottom: auto;
     max-height: calc(var(--sheet-viewport-height, 100dvh) - var(--rf-top) - var(--sp-4));
   }
-  .refine-dialog .dialog-actions {
+  .inpaint-dialog {
+    top: var(--sheet-viewport-top, 0px); bottom: auto;
+    max-height: calc(var(--sheet-viewport-height, 100dvh) - var(--ip-top) - var(--sp-4));
+  }
+  :is(.refine-dialog, .inpaint-dialog) .dialog-actions {
     position: sticky; bottom: 0; z-index: 5; background: var(--panel);
     padding-block: var(--sp-2); margin-top: auto;
   }
@@ -41,13 +45,32 @@
     max-height: calc(var(--sheet-viewport-height, 100dvh) - var(--safe-t) - 16px);
   }
 
-  /* A landscape software keyboard can leave less than 200 px. Refine's
+  /* A landscape software keyboard can leave less than 200 px. The pass's
      focused box and 44 px actions take that space; its head scrolls away.
      The keyboard already occupies the home indicator's safe area. */
-  :root[data-short-sheet] #refine-dialog { scroll-padding-block: 0 48px; }
-  :root[data-short-sheet] #refine-dialog > .dialog-head { position: static; }
-  :root[data-short-sheet] #refine-dialog .dialog-actions { padding-block: 0; }
-  :root[data-short-sheet] #refine-dialog .dialog-actions > button { height: 44px; min-height: 44px; padding-block: 0; }
+  :root[data-short-sheet] :is(.refine-dialog, .inpaint-dialog) { scroll-padding-block: 0 48px; }
+  :root[data-short-sheet] :is(.refine-dialog, .inpaint-dialog) > .dialog-head { position: static; }
+  :root[data-short-sheet] :is(.refine-dialog, .inpaint-dialog) .dialog-actions { padding-block: 0; }
+  :root[data-short-sheet] :is(.refine-dialog, .inpaint-dialog) .dialog-actions > button { height: 44px; min-height: 44px; padding-block: 0; }
+
+  /* Other forms have several actions, which cannot share a 48 px keyboard
+     viewport with the field. Let those rows scroll normally while editing;
+     dismissing the keyboard restores their usual sticky positions. */
+  :root[data-short-sheet] dialog:not(:is(.lightbox, .confirm-dialog, .gallery-sheet, .refine-dialog, .inpaint-dialog)) {
+    scroll-padding-block: 2px;
+  }
+  :root[data-short-sheet] dialog:not(:is(.lightbox, .confirm-dialog, .gallery-sheet, .refine-dialog, .inpaint-dialog)) > .dialog-head,
+  :root[data-short-sheet] .check-sheet .analysis-head,
+  :root[data-short-sheet] dialog:not(:is(.lightbox, .confirm-dialog, .gallery-sheet, .refine-dialog, .inpaint-dialog)) .dialog-actions {
+    position: static;
+  }
+  /* A count question keeps its bottom anchor and ordinary scroll. Its old
+     16 px clearance plus padding left less room than the 44 px input. */
+  :root[data-short-sheet] dialog.confirm-dialog {
+    max-height: var(--sheet-viewport-height, 100dvh);
+    padding-block: 0; scroll-padding-block: 2px;
+  }
+  :root[data-short-sheet] dialog.confirm-dialog > * { flex-shrink: 0; }
 
   /* The delete question's buttons (P51) were the screen's width apart, at
      its two edges: stacked across it, 48 px each, the destructive one over
@@ -174,18 +197,18 @@
    field and the same two actions share that row, with the actions beside
    the form rather than over it. Narrower phones keep the compact foot. */
 @media (pointer: coarse) and (min-width: 700px) and (max-height: 500px) {
-  :root[data-short-sheet] #refine-dialog {
+  :root[data-short-sheet] :is(.refine-dialog, .inpaint-dialog) {
     --sheet-l: max(16px, var(--safe-l));
     --sheet-r: max(16px, var(--safe-r));
     padding-right: calc(var(--sheet-r) + 204px + var(--sp-4));
     scroll-padding-block: 2px;
   }
-  :root[data-short-sheet] #refine-dialog .dialog-actions {
+  :root[data-short-sheet] :is(.refine-dialog, .inpaint-dialog) .dialog-actions {
     position: fixed;
     top: calc(var(--sheet-viewport-top, 0px) + (var(--sheet-viewport-height, 100dvh) - 44px) / 2);
     right: var(--sheet-r); bottom: auto;
     width: 204px; height: 44px; margin: 0; padding: 0; border: 0;
   }
-  :root[data-short-sheet] #refine-dialog .dialog-actions > .ghost { flex: 1; min-width: 0; }
-  :root[data-short-sheet] #refine-dialog .dialog-actions > .primary { flex: 0 0 120px; }
+  :root[data-short-sheet] :is(.refine-dialog, .inpaint-dialog) .dialog-actions > .ghost { flex: 1; min-width: 0; }
+  :root[data-short-sheet] :is(.refine-dialog, .inpaint-dialog) .dialog-actions > .primary { flex: 0 0 120px; }
 }

@@ -12,6 +12,23 @@
 .lbp-top, .lbp-foot, .lbp-handle, .ctx-scrim { display: none; }
 
 @media (pointer: coarse) and ((width < 700px) or (max-height: 500px)) {
+  /* Live frames use the same immersive black canvas, without saved-image
+     actions. Only a press opens it or hands its finished image to the lightbox. */
+  .phone-preview-viewer > img {
+    position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain;
+  }
+  .phone-preview-head {
+    position: absolute; inset: 0 0 auto; display: flex; align-items: center; gap: var(--sp-3);
+    padding: var(--safe-t) max(8px, var(--safe-r)) 8px max(8px, var(--safe-l));
+    background: linear-gradient(#000b, transparent); color: #fff;
+  }
+  .phone-preview-head h2 { margin: 0; font-size: var(--fs-md); }
+  .phone-preview-foot {
+    position: absolute; inset: auto 0 0; display: flex; flex-wrap: wrap; align-items: center;
+    gap: var(--sp-3); padding: var(--sp-3) max(16px, var(--safe-r)) calc(var(--sp-3) + var(--safe-b)) max(16px, var(--safe-l));
+    background: #000c; color: #fff;
+  }
+  .phone-preview-foot p { flex: 1; margin: 0; font-size: var(--fs-body-sm); }
   .lightbox {
     --lbp-top-h: 52px;
     --lbp-bar-h: 60px;

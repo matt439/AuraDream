@@ -138,18 +138,19 @@ function syncPhoneDock() {
   const job = running ? ` - a job running${step ? `, ${step}` : ''}` : '';
   let held = '';
   let title = '';
-  if (phoneDockShows === 'live') title = 'Show the live preview in the results';
+  if (phoneDockShows === 'live') title = 'Open the live preview';
   else if (phoneDockShows) title = `Open #${phoneDockShows.id}, the newest result`;
   else held = running ? 'No image of this job yet' : 'Nothing generated on this page yet';
   dock.setAttribute('aria-disabled', String(!!held));
   dock.title = held || title;
   dock.setAttribute('aria-label', held ? `Newest result: ${held[0].toLowerCase()}${held.slice(1)}${job}` : `${title}${job}`);
+  syncPhoneLivePreview();
 }
 
 // A press: the newest result in the lightbox, walking the viewer's strip
 // (or this page's earlier results) from it, as the result's own picture
-// does; the live preview's tile in the results, scrolled to by this press
-// as New image's was (goToNewImage), while that is what the picture shows.
+// does; the live preview in its full-screen viewer while that is what the
+// picture shows. Its frames never become gallery records.
 // Held, it says why above the bars. Never by itself.
 function pressPhoneDock() {
   const dock = $('phone-dock');
@@ -158,7 +159,7 @@ function pressPhoneDock() {
     sayAtGenerate();
     return;
   }
-  if (phoneDockShows === 'live') { goToNewImage(); return; }
+  if (phoneDockShows === 'live') { openPhoneLivePreview(); return; }
   const newest = phoneNewest();
   if (!newest) return;
   if (newest.list === viewerRecords) openViewerImage(newest.rec, 'dock');

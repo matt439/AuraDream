@@ -16,7 +16,7 @@
   {"expect": "__box(els.generate).height >= 48 && __box(document.getElementById('btn-models')).height >= 44"},
   {"expect": "[els.prompt, els.steps, els.seed, els.search, els.stepCache].every((el) => parseFloat(getComputedStyle(el).fontSize) >= 16)"},
   {"expect": "getComputedStyle(els.generate, '::after').content === 'none' && !isShown(document.getElementById('btn-shortcuts')) && !isShown(document.getElementById('png-hint')) && ![...document.querySelectorAll('.key-hint')].some(isShown)"},
-  {"expect": "els.search.placeholder === 'Search 4 images' && document.body.dataset.tier === 'phone'"},
+  {"expect": "els.search.placeholder === 'Search 4' && document.body.dataset.tier === 'phone'"},
   {"log": "'The keypads: every number box a digits pad, a decimal one where its step has a fraction; the panel sampling and output boxes say Done, the search Search'"},
   {"expect": "(() => { const boxes = [...document.querySelectorAll('input[type=\"number\"]')]; return boxes.length >= 30 && boxes.every((i) => i.inputMode === (i.step.includes('.') ? 'decimal' : 'numeric')) && els.cfg.inputMode === 'decimal' && els.steps.inputMode === 'numeric' && els.seed.inputMode === 'numeric'; })()"},
   {"expect": "els.search.enterKeyHint === 'search' && ['steps', 'cfg', 'mu', 'trueCfg', 'seed', 'batch', 'runs'].every((k) => els[k].enterKeyHint === 'done')"},

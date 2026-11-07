@@ -285,8 +285,8 @@ picture hides or shows the bars, never closes. `LB_STACKED_MEDIA`
 leaves the phone out. `phone-sheets.js` (`styles/phone-sheets.css`,
 linked after it), after it, owns what the dialogs do as phone sheets: no
 text box focused as one opens (the head's ✕ instead; a refusal's box is
-kept), a ✕ in every head, sheets fitted to `visualViewport` (Refine's
-height and sticky actions on the tablet too), long explanations in shut folds, the setups',
+kept), a ✕ in every head, sheets fitted to `visualViewport` (the image-pass
+dialogs' height and sticky actions on the tablet too), long explanations in shut folds, the setups',
 searches' and snippets' list boxes drawn as rows (the select kept, hidden),
 and the Models sheet as one scroller with a sticky foot (Apply & save,
 Switch & load, Load and Unload moved in). Nodes are moved whole under
@@ -688,6 +688,7 @@ uses the driver's graceful close/cleanup. See the full Tests rules.
 | 7959 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-catalogue-stale` |
 | 7960 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-phone-dialogs` |
 | 7960 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-phone-gallery` |
+| 7960 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-phone-keyboard` |
 
 FLUX.1-Krea-dev is `black-forest-labs/FLUX.1-Krea-dev`; animagine is
 `cagliostrolab/animagine-xl-4.0`. The ports are full: `--jobs` puts each

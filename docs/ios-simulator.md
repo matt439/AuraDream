@@ -296,6 +296,53 @@ hashes, per-configuration coverage and raw report hash. The old
 `summarize.py` selects specific historical run IDs; do not reuse it unchanged
 to summarize a new run or combine away a failure.
 
+## Other image-pass keyboard checks
+
+The UI40 follow-up keeps its harness in
+`work/safari-edit-keyboard-20261107/` locally and
+`/Users/matt/DeckLabSafari/auradream-edit-keyboard-20261107/` on the Mac.
+It reuses the fixture, tunnel, clean source manifest and copy procedure above;
+replace the P44 harness directories with these paths and run `start.sh`
+without `--keyboard-only`. `--phone-only` and `--ipad-only` each restrict
+the run to that device's two orientations.
+
+Its scope is Inpaint Strength/Seed, Outpaint Right/Seed and Edit by
+instruction Seed/Instruction. Dialogs open through their application callback
+on a synthetic gallery row; native opener gestures are outside this scope.
+Field taps, keyboard input and Cancel are native. Action rectangles, five
+field hit tests, changed values and keyboard dismissal are checked. A phone
+may open Inpaint on its canvas: non-keyboard focus with no software keyboard
+is valid. An oversized textarea cannot be qualified by requiring its entire
+box above a tiny landscape keyboard viewport; retain that limitation and
+distinguish caret behaviour from action visibility.
+
+Harness version `2026-11-07.3-native-edit-keyboards` checks the newest Safari
+contexts first, preserving the exact URL, title and visible-document checks.
+Older contexts can otherwise spend the driver's full timeout on tabs already
+replaced by a reset. The earlier interrupted runs remain separate evidence;
+their passed fields do not turn an incomplete matrix into a passed run.
+Keep all application assets unchanged throughout a run. These ignored
+harnesses are not supplied by a fresh clone; review or restore them first.
+
+The [accepted per-field results](review-2026-11-05-phone.md#10-edit-dialog-keyboard-acceptance-2026-11-07)
+combine the completed cases from `.3`, `.4` and `.5`, retaining their actual
+source revisions and the failed setup/selector attempts. The latest harness
+is `2026-11-07.5-native-edit-keyboards`. Its initial gate sets orientation
+first and uses AuraDream's exact visible-document navigation. It calls
+`mobile:getContexts` for URL/title metadata, skips non-target URLs before
+any page JS probe, then still verifies the exact URL, title and visibility.
+Instruction's native TextView must match the observed label uniquely,
+without case sensitivity; the tablet's caption is uppercase.
+
+For a targeted retry, also transfer `targets.json` and pass
+`--ipad-only --targets targets.json` to `start.sh`. The target keys must
+equal the exact requested device/orientation matrix, with supported unique
+fields. The retained `.5` targets contain only the seven missing cases:
+portrait Instruction, then landscape Inpaint Strength/Seed, Outpaint
+Right/Seed and Edit Seed/Instruction. `--portrait-only` or `--landscape-only`
+with a device filter restricts the expected matrix to one configuration.
+Do not reuse those historical targets as a new full acceptance run.
+
 ## Stop and verify cleanup
 
 Press Ctrl+C once in the attached run terminal and allow its `finally` blocks

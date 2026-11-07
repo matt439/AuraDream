@@ -1,0 +1,3468 @@
+{
+  "schema_version": 1,
+  "date": "2026-11-07",
+  "scope": "Native iOS Simulator Safari image-pass form keyboards. App dialog opening scripted on synthetic gallery records; field taps, keys and Cancel native. No generation submit/model load in these scenarios.",
+  "coverage": "Aggregate per-field acceptance across three runs, not one all-green complete matrix.",
+  "accepted_field_count": 23,
+  "accepted_source_counts": {
+    "da14e75efc7f6039e2f446645790c9842275ebe8": 16,
+    "14f6b04c062411ddc42f66d2e06f981fea0d1220": 7
+  },
+  "physical_device_acceptance": false,
+  "environment": {
+    "xcode": "27.2 (27B52)",
+    "ios": "27.0 (24A434)",
+    "appium": "3.8.0",
+    "xcuitest": "12.22.7",
+    "backend": "Owned Windows fake, fresh synthetic scratch gallery, loopback17961; no weights/GPU/private gallery"
+  },
+  "runs": [
+    {
+      "run_id": "results-20261107T031525Z",
+      "raw_report": "work/safari-edit-keyboard-20261107/results-20261107T031525Z/report.json",
+      "raw_report_sha256": "e6fb05af0c7740226b679b35a25a6178694b6d8f2bc0d2fd8673add0cb50f4d5",
+      "source": {
+        "repository": "AuraDream",
+        "revision": "b8bc0af16b70f72c0bceaa82d7a6e81a025e3b40",
+        "dirty": false,
+        "changed_files": [],
+        "application_assets_unmodified": true,
+        "web_tree": "d05db04bec2d5b03c8c3c27d1911cfd5ed9dcb7e",
+        "backend_tree": "eac797f8b7110cc6d76f86291ab614c40ea49e84"
+      },
+      "harness_sha256": {
+        "run.py": "a0a71a28f3700951c4dfb6ea28dbe126b6c0c7f64486a2170166855a1ac614c7",
+        "flows.py": "2c7191672f2e48fec26b8db66074cce171c15fd611ba6c60965dc6c17f2b463c",
+        "phone_audit.js": "b42a2e8cf2ca070950772d5abcc6104a410c6a9620e46259db978068ee273715"
+      },
+      "flow_scope": "UI40 Inpaint Outpaint instruction edit keyboard; scripted dialog opening, native field taps typing Cancel",
+      "expected_configurations": 4,
+      "exit_code": 1,
+      "errors": [
+        "Interrupted"
+      ],
+      "accepted_field_count": 0,
+      "disposition": "Interrupted pilot: opening-focus assertion incorrectly rejected valid Inpaint canvas focus. Outpaint Right and Seed completed; excluded from accepted set.",
+      "configurations": [
+        {
+          "device": "iPhone 15 Pro",
+          "orientation": "PORTRAIT",
+          "status": "interrupted",
+          "error": null
+        },
+        {
+          "device": "iPhone 15 Pro",
+          "orientation": "LANDSCAPE",
+          "status": "pending",
+          "error": null
+        },
+        {
+          "device": "iPad Air 11-inch (M2)",
+          "orientation": "PORTRAIT",
+          "status": "pending",
+          "error": null
+        },
+        {
+          "device": "iPad Air 11-inch (M2)",
+          "orientation": "LANDSCAPE",
+          "status": "pending",
+          "error": null
+        }
+      ]
+    },
+    {
+      "run_id": "results-20261107T032124Z",
+      "raw_report": "work/safari-edit-keyboard-20261107/results-20261107T032124Z/report.json",
+      "raw_report_sha256": "30e1fae1d49cd32111be701313bb4e35248c81e74fb1e66c1e76efbed61d6722",
+      "source": {
+        "repository": "AuraDream",
+        "revision": "a56fcb0d8bc112f0df5c670f7d509367d98d6522",
+        "dirty": false,
+        "changed_files": [],
+        "application_assets_unmodified": true,
+        "web_tree": "d05db04bec2d5b03c8c3c27d1911cfd5ed9dcb7e",
+        "backend_tree": "eac797f8b7110cc6d76f86291ab614c40ea49e84"
+      },
+      "harness_sha256": {
+        "run.py": "a0a71a28f3700951c4dfb6ea28dbe126b6c0c7f64486a2170166855a1ac614c7",
+        "flows.py": "23ffcb8a9048497ba0bd22d5d589c48047c7c889f95a355342c026d5ec634d18",
+        "phone_audit.js": "b42a2e8cf2ca070950772d5abcc6104a410c6a9620e46259db978068ee273715"
+      },
+      "flow_scope": "UI40 Inpaint Outpaint instruction edit keyboard; scripted dialog opening, native field taps typing Cancel",
+      "expected_configurations": 4,
+      "exit_code": 1,
+      "errors": [
+        "Interrupted"
+      ],
+      "accepted_field_count": 0,
+      "disposition": "Interrupted partial run: four Inpaint/Outpaint portrait fields completed, excluded from accepted set. Old Safari contexts consumed a 120s driver probe timeout.",
+      "configurations": [
+        {
+          "device": "iPhone 15 Pro",
+          "orientation": "PORTRAIT",
+          "status": "interrupted",
+          "error": null
+        },
+        {
+          "device": "iPhone 15 Pro",
+          "orientation": "LANDSCAPE",
+          "status": "pending",
+          "error": null
+        },
+        {
+          "device": "iPad Air 11-inch (M2)",
+          "orientation": "PORTRAIT",
+          "status": "pending",
+          "error": null
+        },
+        {
+          "device": "iPad Air 11-inch (M2)",
+          "orientation": "LANDSCAPE",
+          "status": "pending",
+          "error": null
+        }
+      ]
+    },
+    {
+      "run_id": "results-20261107T033550Z",
+      "raw_report": "work/safari-edit-keyboard-20261107/results-20261107T033550Z/report.json",
+      "raw_report_sha256": "58c5c8a1144d547b7a20731dcd6ad3c0ec7e7d3df1e02ed557dcb5615ae7820b",
+      "source": {
+        "repository": "AuraDream",
+        "revision": "da14e75efc7f6039e2f446645790c9842275ebe8",
+        "dirty": false,
+        "changed_files": [],
+        "application_assets_unmodified": true,
+        "web_tree": "ddb8d63dce4e37803dab9438442ca4d4ae0034d9",
+        "backend_tree": "eac797f8b7110cc6d76f86291ab614c40ea49e84"
+      },
+      "harness_sha256": {
+        "run.py": "a0a71a28f3700951c4dfb6ea28dbe126b6c0c7f64486a2170166855a1ac614c7",
+        "flows.py": "57776b88fba0ec1c7447f00ac36296dc785b42fd05fd17c1479859b8659d2410",
+        "phone_audit.js": "b42a2e8cf2ca070950772d5abcc6104a410c6a9620e46259db978068ee273715"
+      },
+      "flow_scope": "UI40 Inpaint Outpaint instruction edit keyboard; scripted dialog opening, native field taps typing Cancel",
+      "expected_configurations": 4,
+      "exit_code": 1,
+      "errors": [],
+      "accepted_field_count": 11,
+      "disposition": "Accepted iPhone cases only. Both iPad configurations failed shared initial Safari context setup before keyboard scenarios.",
+      "configurations": [
+        {
+          "device": "iPhone 15 Pro",
+          "orientation": "PORTRAIT",
+          "status": "passed",
+          "error": null
+        },
+        {
+          "device": "iPhone 15 Pro",
+          "orientation": "LANDSCAPE",
+          "status": "passed",
+          "error": null
+        },
+        {
+          "device": "iPad Air 11-inch (M2)",
+          "orientation": "PORTRAIT",
+          "status": "failed",
+          "error": "No inspectable Safari context for http://127.0.0.1:17961"
+        },
+        {
+          "device": "iPad Air 11-inch (M2)",
+          "orientation": "LANDSCAPE",
+          "status": "failed",
+          "error": "No inspectable Safari context for http://127.0.0.1:17961"
+        }
+      ]
+    },
+    {
+      "run_id": "results-20261107T040316Z",
+      "raw_report": "work/safari-edit-keyboard-20261107/results-20261107T040316Z/report.json",
+      "raw_report_sha256": "e8f3ac821263219c70446727dd9273e9011e921b398f870c663bb49927198fb3",
+      "source": {
+        "repository": "AuraDream",
+        "revision": "da14e75efc7f6039e2f446645790c9842275ebe8",
+        "dirty": false,
+        "changed_files": [],
+        "application_assets_unmodified": true,
+        "web_tree": "ddb8d63dce4e37803dab9438442ca4d4ae0034d9",
+        "backend_tree": "eac797f8b7110cc6d76f86291ab614c40ea49e84"
+      },
+      "harness_sha256": {
+        "run.py": "d6b235ee3c2c6fe154df50062c3bd727028df9b656570dc0af973cb016d0677a",
+        "flows.py": "b70b8b42214357366a155f1b917cd63dbd3da7d3ecb002e9fc57db20768f34f5",
+        "phone_audit.js": "b42a2e8cf2ca070950772d5abcc6104a410c6a9620e46259db978068ee273715"
+      },
+      "flow_scope": "UI40 Inpaint Outpaint instruction edit keyboard; scripted dialog opening, native field taps typing Cancel",
+      "expected_configurations": 2,
+      "exit_code": 1,
+      "errors": [],
+      "accepted_field_count": 5,
+      "disposition": "Accepted five iPad portrait numeric fields. Outer Edit later failed case-sensitive Instruction lookup (native label INSTRUCTION); landscape initial visible-page setup failed before scenarios.",
+      "configurations": [
+        {
+          "device": "iPad Air 11-inch (M2)",
+          "orientation": "PORTRAIT",
+          "status": "failed",
+          "error": null
+        },
+        {
+          "device": "iPad Air 11-inch (M2)",
+          "orientation": "LANDSCAPE",
+          "status": "failed",
+          "error": "requested AuraDream URL is not the visible Safari page"
+        }
+      ]
+    },
+    {
+      "run_id": "results-20261107T043039Z",
+      "raw_report": "work/safari-edit-keyboard-20261107/results-20261107T043039Z/report.json",
+      "raw_report_sha256": "dd2322f7fc6ff7cc798bf3f346170e348d986405744c9772ff162fcdc53bea4f",
+      "source": {
+        "repository": "AuraDream",
+        "revision": "14f6b04c062411ddc42f66d2e06f981fea0d1220",
+        "dirty": false,
+        "changed_files": [],
+        "application_assets_unmodified": true,
+        "web_tree": "6b8e31d9c58a396e680812d05d905c61e4b1fe6c",
+        "backend_tree": "eac797f8b7110cc6d76f86291ab614c40ea49e84"
+      },
+      "harness_sha256": {
+        "run.py": "64f3679e9d76461db59a7d79734aa022c1a330b16d5c7192f30a2307a8cc6358",
+        "flows.py": "08e692e55d81357c023702e051ebdab48a2f10a3ee289fc2417dab412bc70571",
+        "phone_audit.js": "b42a2e8cf2ca070950772d5abcc6104a410c6a9620e46259db978068ee273715",
+        "targets.json": "f6c5239cd84e1d760f84d7220c521dc20a2f48ac5b84cd3845ee3779b1f7d8c3"
+      },
+      "flow_scope": "UI40 exact missing fields from targets.json",
+      "expected_configurations": 2,
+      "exit_code": 0,
+      "errors": [],
+      "accepted_field_count": 7,
+      "disposition": "Seven targeted missing fields passed on final source. Exact URL context metadata and observed case-insensitive native labels; no portrait numeric or iPhone repeats.",
+      "configurations": [
+        {
+          "device": "iPad Air 11-inch (M2)",
+          "orientation": "PORTRAIT",
+          "status": "passed",
+          "error": null
+        },
+        {
+          "device": "iPad Air 11-inch (M2)",
+          "orientation": "LANDSCAPE",
+          "status": "passed",
+          "error": null
+        }
+      ]
+    }
+  ],
+  "accepted_fields": [
+    {
+      "device": "iPhone 15 Pro",
+      "orientation": "PORTRAIT",
+      "field": "inpaint-strength",
+      "status": "passed",
+      "run_id": "results-20261107T033550Z",
+      "source_revision": "da14e75efc7f6039e2f446645790c9842275ebe8",
+      "flow_report_status": "passed",
+      "partial_field_evidence": false,
+      "field_evidence": {
+        "path": "work/safari-edit-keyboard-20261107/results-20261107T033550Z/iPhone-15-Pro-PORTRAIT/inpaint_keyboard/keyboard-evidence.json",
+        "sha256": "a641af3d24604e95e794531d6b817d9bf87ac525d471983e985267683ae2c4e6"
+      },
+      "initial_viewport": {
+        "width": 393,
+        "height": 695,
+        "vv": {
+          "height": 695,
+          "width": 393,
+          "offsetTop": 0,
+          "offsetLeft": 0,
+          "scale": 1
+        }
+      },
+      "keyboard_viewport": {
+        "top": 130,
+        "bottom": 521,
+        "height": 391
+      },
+      "dom_field": {
+        "left": 16,
+        "top": 276.59375,
+        "right": 377,
+        "bottom": 320.59375,
+        "width": 361,
+        "height": 44,
+        "position": "static"
+      },
+      "dom_five_interior_hits": [
+        {
+          "name": "center",
+          "x": 196.5,
+          "y": 298.59375,
+          "hittable": true,
+          "hit": "inpaint-strength"
+        },
+        {
+          "name": "top-left",
+          "x": 20,
+          "y": 280.59375,
+          "hittable": true,
+          "hit": "inpaint-strength"
+        },
+        {
+          "name": "top-right",
+          "x": 373,
+          "y": 280.59375,
+          "hittable": true,
+          "hit": "inpaint-strength"
+        },
+        {
+          "name": "bottom-left",
+          "x": 20,
+          "y": 316.59375,
+          "hittable": true,
+          "hit": "inpaint-strength"
+        },
+        {
+          "name": "bottom-right",
+          "x": 373,
+          "y": 316.59375,
+          "hittable": true,
+          "hit": "inpaint-strength"
+        }
+      ],
+      "native_field": {
+        "name": "Strength",
+        "label": "Strength",
+        "visible": "true",
+        "value": "0.95",
+        "rect": {
+          "x": 16.0,
+          "y": 335.0,
+          "width": 361.0,
+          "height": 45.0
+        }
+      },
+      "native_window": {
+        "y": 0,
+        "x": 0,
+        "width": 393,
+        "height": 852
+      },
+      "native_keyboard": {
+        "shown": true,
+        "rect": {
+          "y": 567,
+          "x": 0,
+          "width": 393,
+          "height": 227
+        }
+      },
+      "stable_native_actions": {
+        "Cancel": {
+          "y": 392,
+          "x": 175,
+          "width": 75,
+          "height": 50
+        },
+        "Inpaint": {
+          "y": 392,
+          "x": 257,
+          "width": 120,
+          "height": 50
+        }
+      },
+      "stable_sample_count": 2,
+      "native_key": "1",
+      "value_before": "0.95",
+      "value_after": "0.951",
+      "native_cancel_rect": {
+        "y": 392,
+        "x": 175,
+        "width": 75,
+        "height": 50
+      },
+      "native_cancel_closed_dialog_and_keyboard": true,
+      "dismissed_viewport": {
+        "height": 695,
+        "width": 393,
+        "offsetTop": 0,
+        "offsetLeft": 0,
+        "scale": 1
+      }
+    },
+    {
+      "device": "iPhone 15 Pro",
+      "orientation": "PORTRAIT",
+      "field": "inpaint-seed",
+      "status": "passed",
+      "run_id": "results-20261107T033550Z",
+      "source_revision": "da14e75efc7f6039e2f446645790c9842275ebe8",
+      "flow_report_status": "passed",
+      "partial_field_evidence": false,
+      "field_evidence": {
+        "path": "work/safari-edit-keyboard-20261107/results-20261107T033550Z/iPhone-15-Pro-PORTRAIT/inpaint_keyboard/keyboard-evidence.json",
+        "sha256": "a641af3d24604e95e794531d6b817d9bf87ac525d471983e985267683ae2c4e6"
+      },
+      "initial_viewport": {
+        "width": 393,
+        "height": 695,
+        "vv": {
+          "height": 695,
+          "width": 393,
+          "offsetTop": 0,
+          "offsetLeft": 0,
+          "scale": 1
+        }
+      },
+      "keyboard_viewport": {
+        "top": 210,
+        "bottom": 601,
+        "height": 391
+      },
+      "dom_field": {
+        "left": 86,
+        "top": 276.09375,
+        "right": 324,
+        "bottom": 320.09375,
+        "width": 238,
+        "height": 44,
+        "position": "static"
+      },
+      "dom_five_interior_hits": [
+        {
+          "name": "center",
+          "x": 205,
+          "y": 298.09375,
+          "hittable": true,
+          "hit": "inpaint-seed"
+        },
+        {
+          "name": "top-left",
+          "x": 90,
+          "y": 280.09375,
+          "hittable": true,
+          "hit": "inpaint-seed"
+        },
+        {
+          "name": "top-right",
+          "x": 320,
+          "y": 280.09375,
+          "hittable": true,
+          "hit": "inpaint-seed"
+        },
+        {
+          "name": "bottom-left",
+          "x": 90,
+          "y": 316.09375,
+          "hittable": true,
+          "hit": "inpaint-seed"
+        },
+        {
+          "name": "bottom-right",
+          "x": 320,
+          "y": 316.09375,
+          "hittable": true,
+          "hit": "inpaint-seed"
+        }
+      ],
+      "native_field": {
+        "name": "Seed",
+        "label": "Seed",
+        "visible": "true",
+        "value": "12",
+        "rect": {
+          "x": 86.0,
+          "y": 335.0,
+          "width": 238.0,
+          "height": 45.0
+        }
+      },
+      "native_window": {
+        "y": 0,
+        "x": 0,
+        "width": 393,
+        "height": 852
+      },
+      "native_keyboard": {
+        "shown": true,
+        "rect": {
+          "y": 567,
+          "x": 0,
+          "width": 393,
+          "height": 227
+        }
+      },
+      "stable_native_actions": {
+        "Cancel": {
+          "y": 392,
+          "x": 175,
+          "width": 75,
+          "height": 50
+        },
+        "Inpaint": {
+          "y": 392,
+          "x": 257,
+          "width": 120,
+          "height": 50
+        }
+      },
+      "stable_sample_count": 2,
+      "native_key": "1",
+      "value_before": "12",
+      "value_after": "121",
+      "native_cancel_rect": {
+        "y": 392,
+        "x": 175,
+        "width": 75,
+        "height": 50
+      },
+      "native_cancel_closed_dialog_and_keyboard": true,
+      "dismissed_viewport": {
+        "height": 695,
+        "width": 393,
+        "offsetTop": 0,
+        "offsetLeft": 0,
+        "scale": 1
+      }
+    },
+    {
+      "device": "iPhone 15 Pro",
+      "orientation": "PORTRAIT",
+      "field": "outpaint-right",
+      "status": "passed",
+      "run_id": "results-20261107T033550Z",
+      "source_revision": "da14e75efc7f6039e2f446645790c9842275ebe8",
+      "flow_report_status": "passed",
+      "partial_field_evidence": false,
+      "field_evidence": {
+        "path": "work/safari-edit-keyboard-20261107/results-20261107T033550Z/iPhone-15-Pro-PORTRAIT/outpaint_keyboard/keyboard-evidence.json",
+        "sha256": "1fa267c61fb5155eb32f298c5d8d3f5f3891ea6f34ba38bed753fbd57e98784c"
+      },
+      "initial_viewport": {
+        "width": 393,
+        "height": 695,
+        "vv": {
+          "height": 695,
+          "width": 393,
+          "offsetTop": 0,
+          "offsetLeft": 0,
+          "scale": 1
+        }
+      },
+      "keyboard_viewport": {
+        "top": 35,
+        "bottom": 426,
+        "height": 391
+      },
+      "dom_field": {
+        "left": 289.109375,
+        "top": 208.5,
+        "right": 377,
+        "bottom": 252.5,
+        "width": 87.890625,
+        "height": 44,
+        "position": "static"
+      },
+      "dom_five_interior_hits": [
+        {
+          "name": "center",
+          "x": 333.0546875,
+          "y": 230.5,
+          "hittable": true,
+          "hit": "outpaint-right"
+        },
+        {
+          "name": "top-left",
+          "x": 293.109375,
+          "y": 212.5,
+          "hittable": true,
+          "hit": "outpaint-right"
+        },
+        {
+          "name": "top-right",
+          "x": 373,
+          "y": 212.5,
+          "hittable": true,
+          "hit": "outpaint-right"
+        },
+        {
+          "name": "bottom-left",
+          "x": 293.109375,
+          "y": 248.5,
+          "hittable": true,
+          "hit": "outpaint-right"
+        },
+        {
+          "name": "bottom-right",
+          "x": 373,
+          "y": 248.5,
+          "hittable": true,
+          "hit": "outpaint-right"
+        }
+      ],
+      "native_field": {
+        "name": "Right",
+        "label": "Right",
+        "visible": "true",
+        "value": "0",
+        "rect": {
+          "x": 289.0,
+          "y": 267.0,
+          "width": 89.0,
+          "height": 45.0
+        }
+      },
+      "native_window": {
+        "y": 0,
+        "x": 0,
+        "width": 393,
+        "height": 852
+      },
+      "native_keyboard": {
+        "shown": true,
+        "rect": {
+          "y": 567,
+          "x": 0,
+          "width": 393,
+          "height": 227
+        }
+      },
+      "stable_native_actions": {
+        "Cancel": {
+          "y": 392,
+          "x": 175,
+          "width": 75,
+          "height": 50
+        },
+        "Outpaint": {
+          "y": 392,
+          "x": 257,
+          "width": 120,
+          "height": 50
+        }
+      },
+      "stable_sample_count": 2,
+      "native_key": "1",
+      "value_before": "0",
+      "value_after": "01",
+      "native_cancel_rect": {
+        "y": 392,
+        "x": 175,
+        "width": 75,
+        "height": 50
+      },
+      "native_cancel_closed_dialog_and_keyboard": true,
+      "dismissed_viewport": {
+        "height": 695,
+        "width": 393,
+        "offsetTop": 0,
+        "offsetLeft": 0,
+        "scale": 1
+      }
+    },
+    {
+      "device": "iPhone 15 Pro",
+      "orientation": "PORTRAIT",
+      "field": "outpaint-seed",
+      "status": "passed",
+      "run_id": "results-20261107T033550Z",
+      "source_revision": "da14e75efc7f6039e2f446645790c9842275ebe8",
+      "flow_report_status": "passed",
+      "partial_field_evidence": false,
+      "field_evidence": {
+        "path": "work/safari-edit-keyboard-20261107/results-20261107T033550Z/iPhone-15-Pro-PORTRAIT/outpaint_keyboard/keyboard-evidence.json",
+        "sha256": "1fa267c61fb5155eb32f298c5d8d3f5f3891ea6f34ba38bed753fbd57e98784c"
+      },
+      "initial_viewport": {
+        "width": 393,
+        "height": 695,
+        "vv": {
+          "height": 695,
+          "width": 393,
+          "offsetTop": 0,
+          "offsetLeft": 0,
+          "scale": 1
+        }
+      },
+      "keyboard_viewport": {
+        "top": 202,
+        "bottom": 593,
+        "height": 391
+      },
+      "dom_field": {
+        "left": 86,
+        "top": 276.5,
+        "right": 324,
+        "bottom": 320.5,
+        "width": 238,
+        "height": 44,
+        "position": "static"
+      },
+      "dom_five_interior_hits": [
+        {
+          "name": "center",
+          "x": 205,
+          "y": 298.5,
+          "hittable": true,
+          "hit": "outpaint-seed"
+        },
+        {
+          "name": "top-left",
+          "x": 90,
+          "y": 280.5,
+          "hittable": true,
+          "hit": "outpaint-seed"
+        },
+        {
+          "name": "top-right",
+          "x": 320,
+          "y": 280.5,
+          "hittable": true,
+          "hit": "outpaint-seed"
+        },
+        {
+          "name": "bottom-left",
+          "x": 90,
+          "y": 316.5,
+          "hittable": true,
+          "hit": "outpaint-seed"
+        },
+        {
+          "name": "bottom-right",
+          "x": 320,
+          "y": 316.5,
+          "hittable": true,
+          "hit": "outpaint-seed"
+        }
+      ],
+      "native_field": {
+        "name": "Seed",
+        "label": "Seed",
+        "visible": "true",
+        "value": "12",
+        "rect": {
+          "x": 86.0,
+          "y": 335.0,
+          "width": 238.0,
+          "height": 45.0
+        }
+      },
+      "native_window": {
+        "y": 0,
+        "x": 0,
+        "width": 393,
+        "height": 852
+      },
+      "native_keyboard": {
+        "shown": true,
+        "rect": {
+          "y": 567,
+          "x": 0,
+          "width": 393,
+          "height": 227
+        }
+      },
+      "stable_native_actions": {
+        "Cancel": {
+          "y": 392,
+          "x": 175,
+          "width": 75,
+          "height": 50
+        },
+        "Outpaint": {
+          "y": 392,
+          "x": 257,
+          "width": 120,
+          "height": 50
+        }
+      },
+      "stable_sample_count": 2,
+      "native_key": "1",
+      "value_before": "12",
+      "value_after": "121",
+      "native_cancel_rect": {
+        "y": 392,
+        "x": 175,
+        "width": 75,
+        "height": 50
+      },
+      "native_cancel_closed_dialog_and_keyboard": true,
+      "dismissed_viewport": {
+        "height": 695,
+        "width": 393,
+        "offsetTop": 0,
+        "offsetLeft": 0,
+        "scale": 1
+      }
+    },
+    {
+      "device": "iPhone 15 Pro",
+      "orientation": "PORTRAIT",
+      "field": "edit-seed",
+      "status": "passed",
+      "run_id": "results-20261107T033550Z",
+      "source_revision": "da14e75efc7f6039e2f446645790c9842275ebe8",
+      "flow_report_status": "passed",
+      "partial_field_evidence": false,
+      "field_evidence": {
+        "path": "work/safari-edit-keyboard-20261107/results-20261107T033550Z/iPhone-15-Pro-PORTRAIT/edit_keyboard/keyboard-evidence.json",
+        "sha256": "5abc79adc59702cdd64974b08928285dc2b5809a0a9106ee20951207e3af0547"
+      },
+      "initial_viewport": {
+        "width": 393,
+        "height": 695,
+        "vv": {
+          "height": 695,
+          "width": 393,
+          "offsetTop": 0,
+          "offsetLeft": 0,
+          "scale": 1
+        }
+      },
+      "keyboard_viewport": {
+        "top": 304,
+        "bottom": 695,
+        "height": 391
+      },
+      "dom_field": {
+        "left": 16,
+        "top": 276.296875,
+        "right": 113.328125,
+        "bottom": 320.296875,
+        "width": 97.328125,
+        "height": 44,
+        "position": "static"
+      },
+      "dom_five_interior_hits": [
+        {
+          "name": "center",
+          "x": 64.6640625,
+          "y": 298.296875,
+          "hittable": true,
+          "hit": "edit-seed"
+        },
+        {
+          "name": "top-left",
+          "x": 20,
+          "y": 280.296875,
+          "hittable": true,
+          "hit": "edit-seed"
+        },
+        {
+          "name": "top-right",
+          "x": 109.328125,
+          "y": 280.296875,
+          "hittable": true,
+          "hit": "edit-seed"
+        },
+        {
+          "name": "bottom-left",
+          "x": 20,
+          "y": 316.296875,
+          "hittable": true,
+          "hit": "edit-seed"
+        },
+        {
+          "name": "bottom-right",
+          "x": 109.328125,
+          "y": 316.296875,
+          "hittable": true,
+          "hit": "edit-seed"
+        }
+      ],
+      "native_field": {
+        "name": "Seed",
+        "label": "Seed",
+        "visible": "true",
+        "value": "random",
+        "rect": {
+          "x": 16.0,
+          "y": 335.0,
+          "width": 98.0,
+          "height": 45.0
+        }
+      },
+      "native_window": {
+        "y": 0,
+        "x": 0,
+        "width": 393,
+        "height": 852
+      },
+      "native_keyboard": {
+        "shown": true,
+        "rect": {
+          "y": 567,
+          "x": 0,
+          "width": 393,
+          "height": 227
+        }
+      },
+      "stable_native_actions": {
+        "Cancel": {
+          "y": 392,
+          "x": 175,
+          "width": 75,
+          "height": 50
+        },
+        "Edit": {
+          "y": 392,
+          "x": 257,
+          "width": 120,
+          "height": 50
+        }
+      },
+      "stable_sample_count": 2,
+      "native_key": "1",
+      "value_before": "",
+      "value_after": "1",
+      "native_cancel_rect": {
+        "y": 392,
+        "x": 175,
+        "width": 75,
+        "height": 50
+      },
+      "native_cancel_closed_dialog_and_keyboard": true,
+      "dismissed_viewport": {
+        "height": 695,
+        "width": 393,
+        "offsetTop": 0,
+        "offsetLeft": 0,
+        "scale": 1
+      }
+    },
+    {
+      "device": "iPhone 15 Pro",
+      "orientation": "PORTRAIT",
+      "field": "edit-instruction",
+      "status": "passed",
+      "run_id": "results-20261107T033550Z",
+      "source_revision": "da14e75efc7f6039e2f446645790c9842275ebe8",
+      "flow_report_status": "passed",
+      "partial_field_evidence": false,
+      "field_evidence": {
+        "path": "work/safari-edit-keyboard-20261107/results-20261107T033550Z/iPhone-15-Pro-PORTRAIT/edit_keyboard/keyboard-evidence.json",
+        "sha256": "5abc79adc59702cdd64974b08928285dc2b5809a0a9106ee20951207e3af0547"
+      },
+      "initial_viewport": {
+        "width": 393,
+        "height": 695,
+        "vv": {
+          "height": 695,
+          "width": 393,
+          "offsetTop": 0,
+          "offsetLeft": 0,
+          "scale": 1
+        }
+      },
+      "keyboard_viewport": {
+        "top": 110.65625,
+        "bottom": 502.65625,
+        "height": 392
+      },
+      "dom_field": {
+        "left": 16,
+        "top": 228.953125,
+        "right": 377,
+        "bottom": 320.953125,
+        "width": 361,
+        "height": 92,
+        "position": "static"
+      },
+      "dom_five_interior_hits": [
+        {
+          "name": "center",
+          "x": 196.5,
+          "y": 274.953125,
+          "hittable": true,
+          "hit": "edit-instruction"
+        },
+        {
+          "name": "top-left",
+          "x": 20,
+          "y": 232.953125,
+          "hittable": true,
+          "hit": "edit-instruction"
+        },
+        {
+          "name": "top-right",
+          "x": 373,
+          "y": 232.953125,
+          "hittable": true,
+          "hit": "edit-instruction"
+        },
+        {
+          "name": "bottom-left",
+          "x": 20,
+          "y": 316.953125,
+          "hittable": true,
+          "hit": "edit-instruction"
+        },
+        {
+          "name": "bottom-right",
+          "x": 373,
+          "y": 316.953125,
+          "hittable": true,
+          "hit": "edit-instruction"
+        }
+      ],
+      "native_field": {
+        "name": "Instruction",
+        "label": "Instruction",
+        "visible": "true",
+        "value": "What to change - \"make it night, keep the composition\"",
+        "rect": {
+          "x": 16.0,
+          "y": 287.0,
+          "width": 361.0,
+          "height": 94.0
+        }
+      },
+      "native_window": {
+        "y": 0,
+        "x": 0,
+        "width": 393,
+        "height": 852
+      },
+      "native_keyboard": {
+        "shown": true,
+        "rect": {
+          "y": 568,
+          "x": 0,
+          "width": 393,
+          "height": 226
+        }
+      },
+      "stable_native_actions": {
+        "Cancel": {
+          "y": 392,
+          "x": 175,
+          "width": 75,
+          "height": 52
+        },
+        "Edit": {
+          "y": 392,
+          "x": 257,
+          "width": 120,
+          "height": 52
+        }
+      },
+      "stable_sample_count": 2,
+      "native_key": "a",
+      "value_before": "",
+      "value_after": "A",
+      "native_cancel_rect": {
+        "y": 392,
+        "x": 175,
+        "width": 75,
+        "height": 52
+      },
+      "native_cancel_closed_dialog_and_keyboard": true,
+      "dismissed_viewport": {
+        "height": 695,
+        "width": 393,
+        "offsetTop": 0,
+        "offsetLeft": 0,
+        "scale": 1
+      }
+    },
+    {
+      "device": "iPhone 15 Pro",
+      "orientation": "LANDSCAPE",
+      "field": "inpaint-strength",
+      "status": "passed",
+      "run_id": "results-20261107T033550Z",
+      "source_revision": "da14e75efc7f6039e2f446645790c9842275ebe8",
+      "flow_report_status": "passed",
+      "partial_field_evidence": false,
+      "field_evidence": {
+        "path": "work/safari-edit-keyboard-20261107/results-20261107T033550Z/iPhone-15-Pro-LANDSCAPE/inpaint_keyboard/keyboard-evidence.json",
+        "sha256": "07f6f861942c26ee30864e15f4c31e67b68426c7875cdf315cfca11ac7582e57"
+      },
+      "initial_viewport": {
+        "width": 852,
+        "height": 283,
+        "vv": {
+          "height": 283,
+          "width": 852,
+          "offsetTop": 0,
+          "offsetLeft": 0,
+          "scale": 1
+        }
+      },
+      "keyboard_viewport": {
+        "top": 69,
+        "bottom": 117,
+        "height": 48
+      },
+      "dom_field": {
+        "left": 59,
+        "top": 2,
+        "right": 573,
+        "bottom": 46,
+        "width": 514,
+        "height": 44,
+        "position": "static"
+      },
+      "dom_five_interior_hits": [
+        {
+          "name": "center",
+          "x": 316,
+          "y": 24,
+          "hittable": true,
+          "hit": "inpaint-strength"
+        },
+        {
+          "name": "top-left",
+          "x": 63,
+          "y": 6,
+          "hittable": true,
+          "hit": "inpaint-strength"
+        },
+        {
+          "name": "top-right",
+          "x": 569,
+          "y": 6,
+          "hittable": true,
+          "hit": "inpaint-strength"
+        },
+        {
+          "name": "bottom-left",
+          "x": 63,
+          "y": 42,
+          "hittable": true,
+          "hit": "inpaint-strength"
+        },
+        {
+          "name": "bottom-right",
+          "x": 569,
+          "y": 42,
+          "hittable": true,
+          "hit": "inpaint-strength"
+        }
+      ],
+      "native_field": {
+        "name": "Strength",
+        "label": "Strength",
+        "visible": "true",
+        "value": "0.95",
+        "rect": {
+          "x": 59.0,
+          "y": 112.0,
+          "width": 514.0,
+          "height": 44.0
+        }
+      },
+      "native_window": {
+        "y": 0,
+        "x": 0,
+        "width": 852,
+        "height": 393
+      },
+      "native_keyboard": {
+        "shown": true,
+        "rect": {
+          "y": 222,
+          "x": 75,
+          "width": 702,
+          "height": 168
+        }
+      },
+      "stable_native_actions": {
+        "Cancel": {
+          "y": 112,
+          "x": 589,
+          "width": 76,
+          "height": 44
+        },
+        "Inpaint": {
+          "y": 112,
+          "x": 673,
+          "width": 120,
+          "height": 44
+        }
+      },
+      "stable_sample_count": 2,
+      "native_key": "1",
+      "value_before": "0.95",
+      "value_after": "0.951",
+      "native_cancel_rect": {
+        "y": 112,
+        "x": 589,
+        "width": 76,
+        "height": 44
+      },
+      "native_cancel_closed_dialog_and_keyboard": true,
+      "dismissed_viewport": {
+        "height": 283,
+        "width": 852,
+        "offsetTop": 0,
+        "offsetLeft": 0,
+        "scale": 1
+      }
+    },
+    {
+      "device": "iPhone 15 Pro",
+      "orientation": "LANDSCAPE",
+      "field": "inpaint-seed",
+      "status": "passed",
+      "run_id": "results-20261107T033550Z",
+      "source_revision": "da14e75efc7f6039e2f446645790c9842275ebe8",
+      "flow_report_status": "passed",
+      "partial_field_evidence": false,
+      "field_evidence": {
+        "path": "work/safari-edit-keyboard-20261107/results-20261107T033550Z/iPhone-15-Pro-LANDSCAPE/inpaint_keyboard/keyboard-evidence.json",
+        "sha256": "07f6f861942c26ee30864e15f4c31e67b68426c7875cdf315cfca11ac7582e57"
+      },
+      "initial_viewport": {
+        "width": 852,
+        "height": 283,
+        "vv": {
+          "height": 283,
+          "width": 852,
+          "offsetTop": 0,
+          "offsetLeft": 0,
+          "scale": 1
+        }
+      },
+      "keyboard_viewport": {
+        "top": 69,
+        "bottom": 117,
+        "height": 48
+      },
+      "dom_field": {
+        "left": 129,
+        "top": 2,
+        "right": 520,
+        "bottom": 46,
+        "width": 391,
+        "height": 44,
+        "position": "static"
+      },
+      "dom_five_interior_hits": [
+        {
+          "name": "center",
+          "x": 324.5,
+          "y": 24,
+          "hittable": true,
+          "hit": "inpaint-seed"
+        },
+        {
+          "name": "top-left",
+          "x": 133,
+          "y": 6,
+          "hittable": true,
+          "hit": "inpaint-seed"
+        },
+        {
+          "name": "top-right",
+          "x": 516,
+          "y": 6,
+          "hittable": true,
+          "hit": "inpaint-seed"
+        },
+        {
+          "name": "bottom-left",
+          "x": 133,
+          "y": 42,
+          "hittable": true,
+          "hit": "inpaint-seed"
+        },
+        {
+          "name": "bottom-right",
+          "x": 516,
+          "y": 42,
+          "hittable": true,
+          "hit": "inpaint-seed"
+        }
+      ],
+      "native_field": {
+        "name": "Seed",
+        "label": "Seed",
+        "visible": "true",
+        "value": "12",
+        "rect": {
+          "x": 129.0,
+          "y": 112.0,
+          "width": 391.0,
+          "height": 44.0
+        }
+      },
+      "native_window": {
+        "y": 0,
+        "x": 0,
+        "width": 852,
+        "height": 393
+      },
+      "native_keyboard": {
+        "shown": true,
+        "rect": {
+          "y": 222,
+          "x": 75,
+          "width": 702,
+          "height": 168
+        }
+      },
+      "stable_native_actions": {
+        "Cancel": {
+          "y": 112,
+          "x": 589,
+          "width": 76,
+          "height": 44
+        },
+        "Inpaint": {
+          "y": 112,
+          "x": 673,
+          "width": 120,
+          "height": 44
+        }
+      },
+      "stable_sample_count": 2,
+      "native_key": "1",
+      "value_before": "12",
+      "value_after": "121",
+      "native_cancel_rect": {
+        "y": 112,
+        "x": 589,
+        "width": 76,
+        "height": 44
+      },
+      "native_cancel_closed_dialog_and_keyboard": true,
+      "dismissed_viewport": {
+        "height": 283,
+        "width": 852,
+        "offsetTop": 0,
+        "offsetLeft": 0,
+        "scale": 1
+      }
+    },
+    {
+      "device": "iPhone 15 Pro",
+      "orientation": "LANDSCAPE",
+      "field": "outpaint-right",
+      "status": "passed",
+      "run_id": "results-20261107T033550Z",
+      "source_revision": "da14e75efc7f6039e2f446645790c9842275ebe8",
+      "flow_report_status": "passed",
+      "partial_field_evidence": false,
+      "field_evidence": {
+        "path": "work/safari-edit-keyboard-20261107/results-20261107T033550Z/iPhone-15-Pro-LANDSCAPE/outpaint_keyboard/keyboard-evidence.json",
+        "sha256": "9188fa18104c245d4e903d44ad46587271cfaf4e0ff7d8e7d81247fe1b6c4127"
+      },
+      "initial_viewport": {
+        "width": 852,
+        "height": 283,
+        "vv": {
+          "height": 283,
+          "width": 852,
+          "offsetTop": 0,
+          "offsetLeft": 0,
+          "scale": 1
+        }
+      },
+      "keyboard_viewport": {
+        "top": 68.65625,
+        "bottom": 116.640625,
+        "height": 47.984375
+      },
+      "dom_field": {
+        "left": 485.109375,
+        "top": 2.15625,
+        "right": 573,
+        "bottom": 46.15625,
+        "width": 87.890625,
+        "height": 44,
+        "position": "static"
+      },
+      "dom_five_interior_hits": [
+        {
+          "name": "center",
+          "x": 529.0546875,
+          "y": 24.15625,
+          "hittable": true,
+          "hit": "outpaint-right"
+        },
+        {
+          "name": "top-left",
+          "x": 489.109375,
+          "y": 6.15625,
+          "hittable": true,
+          "hit": "outpaint-right"
+        },
+        {
+          "name": "top-right",
+          "x": 569,
+          "y": 6.15625,
+          "hittable": true,
+          "hit": "outpaint-right"
+        },
+        {
+          "name": "bottom-left",
+          "x": 489.109375,
+          "y": 42.15625,
+          "hittable": true,
+          "hit": "outpaint-right"
+        },
+        {
+          "name": "bottom-right",
+          "x": 569,
+          "y": 42.15625,
+          "hittable": true,
+          "hit": "outpaint-right"
+        }
+      ],
+      "native_field": {
+        "name": "Right",
+        "label": "Right",
+        "visible": "true",
+        "value": "0",
+        "rect": {
+          "x": 485.0,
+          "y": 112.0,
+          "width": 89.0,
+          "height": 46.0
+        }
+      },
+      "native_window": {
+        "y": 0,
+        "x": 0,
+        "width": 852,
+        "height": 393
+      },
+      "native_keyboard": {
+        "shown": true,
+        "rect": {
+          "y": 222,
+          "x": 75,
+          "width": 702,
+          "height": 168
+        }
+      },
+      "stable_native_actions": {
+        "Cancel": {
+          "y": 111,
+          "x": 589,
+          "width": 76,
+          "height": 46
+        },
+        "Outpaint": {
+          "y": 111,
+          "x": 673,
+          "width": 120,
+          "height": 46
+        }
+      },
+      "stable_sample_count": 2,
+      "native_key": "1",
+      "value_before": "0",
+      "value_after": "01",
+      "native_cancel_rect": {
+        "y": 111,
+        "x": 589,
+        "width": 76,
+        "height": 46
+      },
+      "native_cancel_closed_dialog_and_keyboard": true,
+      "dismissed_viewport": {
+        "height": 283,
+        "width": 852,
+        "offsetTop": 0,
+        "offsetLeft": 0,
+        "scale": 1
+      }
+    },
+    {
+      "device": "iPhone 15 Pro",
+      "orientation": "LANDSCAPE",
+      "field": "outpaint-seed",
+      "status": "passed",
+      "run_id": "results-20261107T033550Z",
+      "source_revision": "da14e75efc7f6039e2f446645790c9842275ebe8",
+      "flow_report_status": "passed",
+      "partial_field_evidence": false,
+      "field_evidence": {
+        "path": "work/safari-edit-keyboard-20261107/results-20261107T033550Z/iPhone-15-Pro-LANDSCAPE/outpaint_keyboard/keyboard-evidence.json",
+        "sha256": "9188fa18104c245d4e903d44ad46587271cfaf4e0ff7d8e7d81247fe1b6c4127"
+      },
+      "initial_viewport": {
+        "width": 852,
+        "height": 283,
+        "vv": {
+          "height": 283,
+          "width": 852,
+          "offsetTop": 0,
+          "offsetLeft": 0,
+          "scale": 1
+        }
+      },
+      "keyboard_viewport": {
+        "top": 68.65625,
+        "bottom": 116.640625,
+        "height": 47.984375
+      },
+      "dom_field": {
+        "left": 129,
+        "top": 2.15625,
+        "right": 520,
+        "bottom": 46.15625,
+        "width": 391,
+        "height": 44,
+        "position": "static"
+      },
+      "dom_five_interior_hits": [
+        {
+          "name": "center",
+          "x": 324.5,
+          "y": 24.15625,
+          "hittable": true,
+          "hit": "outpaint-seed"
+        },
+        {
+          "name": "top-left",
+          "x": 133,
+          "y": 6.15625,
+          "hittable": true,
+          "hit": "outpaint-seed"
+        },
+        {
+          "name": "top-right",
+          "x": 516,
+          "y": 6.15625,
+          "hittable": true,
+          "hit": "outpaint-seed"
+        },
+        {
+          "name": "bottom-left",
+          "x": 133,
+          "y": 42.15625,
+          "hittable": true,
+          "hit": "outpaint-seed"
+        },
+        {
+          "name": "bottom-right",
+          "x": 516,
+          "y": 42.15625,
+          "hittable": true,
+          "hit": "outpaint-seed"
+        }
+      ],
+      "native_field": {
+        "name": "Seed",
+        "label": "Seed",
+        "visible": "true",
+        "value": "12",
+        "rect": {
+          "x": 129.0,
+          "y": 112.0,
+          "width": 391.0,
+          "height": 46.0
+        }
+      },
+      "native_window": {
+        "y": 0,
+        "x": 0,
+        "width": 852,
+        "height": 393
+      },
+      "native_keyboard": {
+        "shown": true,
+        "rect": {
+          "y": 222,
+          "x": 75,
+          "width": 702,
+          "height": 168
+        }
+      },
+      "stable_native_actions": {
+        "Cancel": {
+          "y": 111,
+          "x": 589,
+          "width": 76,
+          "height": 46
+        },
+        "Outpaint": {
+          "y": 111,
+          "x": 673,
+          "width": 120,
+          "height": 46
+        }
+      },
+      "stable_sample_count": 2,
+      "native_key": "1",
+      "value_before": "12",
+      "value_after": "121",
+      "native_cancel_rect": {
+        "y": 111,
+        "x": 589,
+        "width": 76,
+        "height": 46
+      },
+      "native_cancel_closed_dialog_and_keyboard": true,
+      "dismissed_viewport": {
+        "height": 283,
+        "width": 852,
+        "offsetTop": 0,
+        "offsetLeft": 0,
+        "scale": 1
+      }
+    },
+    {
+      "device": "iPhone 15 Pro",
+      "orientation": "LANDSCAPE",
+      "field": "edit-seed",
+      "status": "passed",
+      "run_id": "results-20261107T033550Z",
+      "source_revision": "da14e75efc7f6039e2f446645790c9842275ebe8",
+      "flow_report_status": "passed",
+      "partial_field_evidence": false,
+      "field_evidence": {
+        "path": "work/safari-edit-keyboard-20261107/results-20261107T033550Z/iPhone-15-Pro-LANDSCAPE/edit_keyboard/keyboard-evidence.json",
+        "sha256": "46c9dc4041c892f489a75c237de4761da3f105a7cd8347e2b6b231360b90eca5"
+      },
+      "initial_viewport": {
+        "width": 852,
+        "height": 283,
+        "vv": {
+          "height": 283,
+          "width": 852,
+          "offsetTop": 0,
+          "offsetLeft": 0,
+          "scale": 1
+        }
+      },
+      "keyboard_viewport": {
+        "top": 72.65625,
+        "bottom": 120.640625,
+        "height": 47.984375
+      },
+      "dom_field": {
+        "left": 59,
+        "top": 1.65625,
+        "right": 207.328125,
+        "bottom": 45.65625,
+        "width": 148.328125,
+        "height": 44,
+        "position": "static"
+      },
+      "dom_five_interior_hits": [
+        {
+          "name": "center",
+          "x": 133.1640625,
+          "y": 23.65625,
+          "hittable": true,
+          "hit": "edit-seed"
+        },
+        {
+          "name": "top-left",
+          "x": 63,
+          "y": 5.65625,
+          "hittable": true,
+          "hit": "edit-seed"
+        },
+        {
+          "name": "top-right",
+          "x": 203.328125,
+          "y": 5.65625,
+          "hittable": true,
+          "hit": "edit-seed"
+        },
+        {
+          "name": "bottom-left",
+          "x": 63,
+          "y": 41.65625,
+          "hittable": true,
+          "hit": "edit-seed"
+        },
+        {
+          "name": "bottom-right",
+          "x": 203.328125,
+          "y": 41.65625,
+          "hittable": true,
+          "hit": "edit-seed"
+        }
+      ],
+      "native_field": {
+        "name": "Seed",
+        "label": "Seed",
+        "visible": "true",
+        "value": "random",
+        "rect": {
+          "x": 59.0,
+          "y": 111.0,
+          "width": 149.0,
+          "height": 46.0
+        }
+      },
+      "native_window": {
+        "y": 0,
+        "x": 0,
+        "width": 852,
+        "height": 393
+      },
+      "native_keyboard": {
+        "shown": true,
+        "rect": {
+          "y": 222,
+          "x": 75,
+          "width": 702,
+          "height": 168
+        }
+      },
+      "stable_native_actions": {
+        "Cancel": {
+          "y": 111,
+          "x": 589,
+          "width": 76,
+          "height": 46
+        },
+        "Edit": {
+          "y": 111,
+          "x": 673,
+          "width": 120,
+          "height": 46
+        }
+      },
+      "stable_sample_count": 2,
+      "native_key": "1",
+      "value_before": "",
+      "value_after": "1",
+      "native_cancel_rect": {
+        "y": 111,
+        "x": 589,
+        "width": 76,
+        "height": 46
+      },
+      "native_cancel_closed_dialog_and_keyboard": true,
+      "dismissed_viewport": {
+        "height": 283,
+        "width": 852,
+        "offsetTop": 0,
+        "offsetLeft": 0,
+        "scale": 1
+      }
+    },
+    {
+      "device": "iPad Air 11-inch (M2)",
+      "orientation": "PORTRAIT",
+      "field": "inpaint-strength",
+      "status": "passed",
+      "run_id": "results-20261107T040316Z",
+      "source_revision": "da14e75efc7f6039e2f446645790c9842275ebe8",
+      "flow_report_status": "passed",
+      "partial_field_evidence": false,
+      "field_evidence": {
+        "path": "work/safari-edit-keyboard-20261107/results-20261107T040316Z/iPad-Air-11-inch-(M2)-PORTRAIT/inpaint_keyboard/keyboard-evidence.json",
+        "sha256": "7f8c9ea60efaca94d6e2714ffd598c0457c865a41c868d4be05d725e2390a81c"
+      },
+      "initial_viewport": {
+        "width": 820,
+        "height": 1048,
+        "vv": {
+          "height": 1048,
+          "width": 820,
+          "offsetTop": 0,
+          "offsetLeft": 0,
+          "scale": 1
+        }
+      },
+      "keyboard_viewport": {
+        "top": 337,
+        "bottom": 1048,
+        "height": 711
+      },
+      "dom_field": {
+        "left": 45,
+        "top": 562.671875,
+        "right": 346,
+        "bottom": 609.671875,
+        "width": 301,
+        "height": 47,
+        "position": "static"
+      },
+      "dom_five_interior_hits": [
+        {
+          "name": "center",
+          "x": 195.5,
+          "y": 586.171875,
+          "hittable": true,
+          "hit": "inpaint-strength"
+        },
+        {
+          "name": "top-left",
+          "x": 49,
+          "y": 566.671875,
+          "hittable": true,
+          "hit": "inpaint-strength"
+        },
+        {
+          "name": "top-right",
+          "x": 342,
+          "y": 566.671875,
+          "hittable": true,
+          "hit": "inpaint-strength"
+        },
+        {
+          "name": "bottom-left",
+          "x": 49,
+          "y": 605.671875,
+          "hittable": true,
+          "hit": "inpaint-strength"
+        },
+        {
+          "name": "bottom-right",
+          "x": 342,
+          "y": 605.671875,
+          "hittable": true,
+          "hit": "inpaint-strength"
+        }
+      ],
+      "native_field": {
+        "name": "Strength",
+        "label": "Strength",
+        "visible": "true",
+        "value": "0.95",
+        "rect": {
+          "x": 45.0,
+          "y": 694.0,
+          "width": 301.0,
+          "height": 50.0
+        }
+      },
+      "native_window": {
+        "y": 0,
+        "x": 0,
+        "width": 820,
+        "height": 1180
+      },
+      "native_keyboard": {
+        "shown": true,
+        "rect": {
+          "y": 898,
+          "x": 0,
+          "width": 820,
+          "height": 279
+        }
+      },
+      "stable_native_actions": {
+        "Cancel": {
+          "y": 754,
+          "x": 578,
+          "width": 70,
+          "height": 52
+        },
+        "Inpaint": {
+          "y": 754,
+          "x": 655,
+          "width": 120,
+          "height": 52
+        }
+      },
+      "stable_sample_count": 2,
+      "native_key": "1",
+      "value_before": "0.95",
+      "value_after": "0.951",
+      "native_cancel_rect": {
+        "y": 753,
+        "x": 578,
+        "width": 70,
+        "height": 51
+      },
+      "native_cancel_closed_dialog_and_keyboard": true,
+      "dismissed_viewport": {
+        "height": 1048,
+        "width": 820,
+        "offsetTop": 0,
+        "offsetLeft": 0,
+        "scale": 1
+      }
+    },
+    {
+      "device": "iPad Air 11-inch (M2)",
+      "orientation": "PORTRAIT",
+      "field": "inpaint-seed",
+      "status": "passed",
+      "run_id": "results-20261107T040316Z",
+      "source_revision": "da14e75efc7f6039e2f446645790c9842275ebe8",
+      "flow_report_status": "passed",
+      "partial_field_evidence": false,
+      "field_evidence": {
+        "path": "work/safari-edit-keyboard-20261107/results-20261107T040316Z/iPad-Air-11-inch-(M2)-PORTRAIT/inpaint_keyboard/keyboard-evidence.json",
+        "sha256": "7f8c9ea60efaca94d6e2714ffd598c0457c865a41c868d4be05d725e2390a81c"
+      },
+      "initial_viewport": {
+        "width": 820,
+        "height": 1048,
+        "vv": {
+          "height": 1048,
+          "width": 820,
+          "offsetTop": 0,
+          "offsetLeft": 0,
+          "scale": 1
+        }
+      },
+      "keyboard_viewport": {
+        "top": 337,
+        "bottom": 1048,
+        "height": 711
+      },
+      "dom_field": {
+        "left": 424,
+        "top": 562.671875,
+        "right": 725,
+        "bottom": 609.671875,
+        "width": 301,
+        "height": 47,
+        "position": "static"
+      },
+      "dom_five_interior_hits": [
+        {
+          "name": "center",
+          "x": 574.5,
+          "y": 586.171875,
+          "hittable": true,
+          "hit": "inpaint-seed"
+        },
+        {
+          "name": "top-left",
+          "x": 428,
+          "y": 566.671875,
+          "hittable": true,
+          "hit": "inpaint-seed"
+        },
+        {
+          "name": "top-right",
+          "x": 721,
+          "y": 566.671875,
+          "hittable": true,
+          "hit": "inpaint-seed"
+        },
+        {
+          "name": "bottom-left",
+          "x": 428,
+          "y": 605.671875,
+          "hittable": true,
+          "hit": "inpaint-seed"
+        },
+        {
+          "name": "bottom-right",
+          "x": 721,
+          "y": 605.671875,
+          "hittable": true,
+          "hit": "inpaint-seed"
+        }
+      ],
+      "native_field": {
+        "name": "Seed",
+        "label": "Seed",
+        "visible": "true",
+        "value": "12",
+        "rect": {
+          "x": 424.0,
+          "y": 694.0,
+          "width": 301.0,
+          "height": 50.0
+        }
+      },
+      "native_window": {
+        "y": 0,
+        "x": 0,
+        "width": 820,
+        "height": 1180
+      },
+      "native_keyboard": {
+        "shown": true,
+        "rect": {
+          "y": 898,
+          "x": 0,
+          "width": 820,
+          "height": 279
+        }
+      },
+      "stable_native_actions": {
+        "Cancel": {
+          "y": 754,
+          "x": 578,
+          "width": 70,
+          "height": 52
+        },
+        "Inpaint": {
+          "y": 754,
+          "x": 655,
+          "width": 120,
+          "height": 52
+        }
+      },
+      "stable_sample_count": 2,
+      "native_key": "1",
+      "value_before": "12",
+      "value_after": "121",
+      "native_cancel_rect": {
+        "y": 753,
+        "x": 578,
+        "width": 70,
+        "height": 51
+      },
+      "native_cancel_closed_dialog_and_keyboard": true,
+      "dismissed_viewport": {
+        "height": 1048,
+        "width": 820,
+        "offsetTop": 0,
+        "offsetLeft": 0,
+        "scale": 1
+      }
+    },
+    {
+      "device": "iPad Air 11-inch (M2)",
+      "orientation": "PORTRAIT",
+      "field": "outpaint-right",
+      "status": "passed",
+      "run_id": "results-20261107T040316Z",
+      "source_revision": "da14e75efc7f6039e2f446645790c9842275ebe8",
+      "flow_report_status": "passed",
+      "partial_field_evidence": false,
+      "field_evidence": {
+        "path": "work/safari-edit-keyboard-20261107/results-20261107T040316Z/iPad-Air-11-inch-(M2)-PORTRAIT/outpaint_keyboard/keyboard-evidence.json",
+        "sha256": "7dd5676ff8e3f291ec20f56fc7ba198781a89057f3b20288a626164ac1bd881f"
+      },
+      "initial_viewport": {
+        "width": 820,
+        "height": 1048,
+        "vv": {
+          "height": 1048,
+          "width": 820,
+          "offsetTop": 0,
+          "offsetLeft": 0,
+          "scale": 1
+        }
+      },
+      "keyboard_viewport": {
+        "top": 0,
+        "bottom": 711,
+        "height": 711
+      },
+      "dom_field": {
+        "left": 635.546875,
+        "top": 223.90625,
+        "right": 723.4375,
+        "bottom": 259.90625,
+        "width": 87.890625,
+        "height": 36,
+        "position": "static"
+      },
+      "dom_five_interior_hits": [
+        {
+          "name": "center",
+          "x": 679.4921875,
+          "y": 241.90625,
+          "hittable": true,
+          "hit": "outpaint-right"
+        },
+        {
+          "name": "top-left",
+          "x": 639.546875,
+          "y": 227.90625,
+          "hittable": true,
+          "hit": "outpaint-right"
+        },
+        {
+          "name": "top-right",
+          "x": 719.4375,
+          "y": 227.90625,
+          "hittable": true,
+          "hit": "outpaint-right"
+        },
+        {
+          "name": "bottom-left",
+          "x": 639.546875,
+          "y": 255.90625,
+          "hittable": true,
+          "hit": "outpaint-right"
+        },
+        {
+          "name": "bottom-right",
+          "x": 719.4375,
+          "y": 255.90625,
+          "hittable": true,
+          "hit": "outpaint-right"
+        }
+      ],
+      "native_field": {
+        "name": "Right",
+        "label": "Right",
+        "visible": "true",
+        "value": "0",
+        "rect": {
+          "x": 635.0,
+          "y": 355.0,
+          "width": 89.0,
+          "height": 37.0
+        }
+      },
+      "native_window": {
+        "y": 0,
+        "x": 0,
+        "width": 820,
+        "height": 1180
+      },
+      "native_keyboard": {
+        "shown": true,
+        "rect": {
+          "y": 898,
+          "x": 0,
+          "width": 820,
+          "height": 279
+        }
+      },
+      "stable_native_actions": {
+        "Cancel": {
+          "y": 753,
+          "x": 578,
+          "width": 70,
+          "height": 51
+        },
+        "Outpaint": {
+          "y": 753,
+          "x": 655,
+          "width": 120,
+          "height": 51
+        }
+      },
+      "stable_sample_count": 2,
+      "native_key": "1",
+      "value_before": "0",
+      "value_after": "01",
+      "native_cancel_rect": {
+        "y": 753,
+        "x": 578,
+        "width": 70,
+        "height": 51
+      },
+      "native_cancel_closed_dialog_and_keyboard": true,
+      "dismissed_viewport": {
+        "height": 1048,
+        "width": 820,
+        "offsetTop": 0,
+        "offsetLeft": 0,
+        "scale": 1
+      }
+    },
+    {
+      "device": "iPad Air 11-inch (M2)",
+      "orientation": "PORTRAIT",
+      "field": "outpaint-seed",
+      "status": "passed",
+      "run_id": "results-20261107T040316Z",
+      "source_revision": "da14e75efc7f6039e2f446645790c9842275ebe8",
+      "flow_report_status": "passed",
+      "partial_field_evidence": false,
+      "field_evidence": {
+        "path": "work/safari-edit-keyboard-20261107/results-20261107T040316Z/iPad-Air-11-inch-(M2)-PORTRAIT/outpaint_keyboard/keyboard-evidence.json",
+        "sha256": "7dd5676ff8e3f291ec20f56fc7ba198781a89057f3b20288a626164ac1bd881f"
+      },
+      "initial_viewport": {
+        "width": 820,
+        "height": 1048,
+        "vv": {
+          "height": 1048,
+          "width": 820,
+          "offsetTop": 0,
+          "offsetLeft": 0,
+          "scale": 1
+        }
+      },
+      "keyboard_viewport": {
+        "top": 301.5,
+        "bottom": 1012.5,
+        "height": 711
+      },
+      "dom_field": {
+        "left": 424,
+        "top": 563.40625,
+        "right": 725,
+        "bottom": 610.40625,
+        "width": 301,
+        "height": 47,
+        "position": "static"
+      },
+      "dom_five_interior_hits": [
+        {
+          "name": "center",
+          "x": 574.5,
+          "y": 586.90625,
+          "hittable": true,
+          "hit": "outpaint-seed"
+        },
+        {
+          "name": "top-left",
+          "x": 428,
+          "y": 567.40625,
+          "hittable": true,
+          "hit": "outpaint-seed"
+        },
+        {
+          "name": "top-right",
+          "x": 721,
+          "y": 567.40625,
+          "hittable": true,
+          "hit": "outpaint-seed"
+        },
+        {
+          "name": "bottom-left",
+          "x": 428,
+          "y": 606.40625,
+          "hittable": true,
+          "hit": "outpaint-seed"
+        },
+        {
+          "name": "bottom-right",
+          "x": 721,
+          "y": 606.40625,
+          "hittable": true,
+          "hit": "outpaint-seed"
+        }
+      ],
+      "native_field": {
+        "name": "Seed",
+        "label": "Seed",
+        "visible": "true",
+        "value": "12",
+        "rect": {
+          "x": 424.0,
+          "y": 695.0,
+          "width": 301.0,
+          "height": 49.0
+        }
+      },
+      "native_window": {
+        "y": 0,
+        "x": 0,
+        "width": 820,
+        "height": 1180
+      },
+      "native_keyboard": {
+        "shown": true,
+        "rect": {
+          "y": 898,
+          "x": 0,
+          "width": 820,
+          "height": 279
+        }
+      },
+      "stable_native_actions": {
+        "Cancel": {
+          "y": 753,
+          "x": 578,
+          "width": 70,
+          "height": 52
+        },
+        "Outpaint": {
+          "y": 753,
+          "x": 655,
+          "width": 120,
+          "height": 52
+        }
+      },
+      "stable_sample_count": 2,
+      "native_key": "1",
+      "value_before": "12",
+      "value_after": "121",
+      "native_cancel_rect": {
+        "y": 753,
+        "x": 578,
+        "width": 70,
+        "height": 52
+      },
+      "native_cancel_closed_dialog_and_keyboard": true,
+      "dismissed_viewport": {
+        "height": 1048,
+        "width": 820,
+        "offsetTop": 0,
+        "offsetLeft": 0,
+        "scale": 1
+      }
+    },
+    {
+      "device": "iPad Air 11-inch (M2)",
+      "orientation": "PORTRAIT",
+      "field": "edit-seed",
+      "status": "passed",
+      "run_id": "results-20261107T040316Z",
+      "source_revision": "da14e75efc7f6039e2f446645790c9842275ebe8",
+      "flow_report_status": "failed",
+      "partial_field_evidence": true,
+      "field_evidence": {
+        "path": "work/safari-edit-keyboard-20261107/results-20261107T040316Z/iPad-Air-11-inch-(M2)-PORTRAIT/edit_keyboard/keyboard-evidence.json",
+        "sha256": "9be98baf9dc9ea63a9ee3b1f320a85e730c20f2baf90f17a2b1af604dc59e757"
+      },
+      "initial_viewport": {
+        "width": 820,
+        "height": 1048,
+        "vv": {
+          "height": 1048,
+          "width": 820,
+          "offsetTop": 0,
+          "offsetLeft": 0,
+          "scale": 1
+        }
+      },
+      "keyboard_viewport": {
+        "top": 337,
+        "bottom": 1048,
+        "height": 711
+      },
+      "dom_field": {
+        "left": 45,
+        "top": 562.84375,
+        "right": 266.328125,
+        "bottom": 609.84375,
+        "width": 221.328125,
+        "height": 47,
+        "position": "static"
+      },
+      "dom_five_interior_hits": [
+        {
+          "name": "center",
+          "x": 155.6640625,
+          "y": 586.34375,
+          "hittable": true,
+          "hit": "edit-seed"
+        },
+        {
+          "name": "top-left",
+          "x": 49,
+          "y": 566.84375,
+          "hittable": true,
+          "hit": "edit-seed"
+        },
+        {
+          "name": "top-right",
+          "x": 262.328125,
+          "y": 566.84375,
+          "hittable": true,
+          "hit": "edit-seed"
+        },
+        {
+          "name": "bottom-left",
+          "x": 49,
+          "y": 605.84375,
+          "hittable": true,
+          "hit": "edit-seed"
+        },
+        {
+          "name": "bottom-right",
+          "x": 262.328125,
+          "y": 605.84375,
+          "hittable": true,
+          "hit": "edit-seed"
+        }
+      ],
+      "native_field": {
+        "name": "Seed",
+        "label": "Seed",
+        "visible": "true",
+        "value": "random",
+        "rect": {
+          "x": 45.0,
+          "y": 695.0,
+          "width": 222.0,
+          "height": 49.0
+        }
+      },
+      "native_window": {
+        "y": 0,
+        "x": 0,
+        "width": 820,
+        "height": 1180
+      },
+      "native_keyboard": {
+        "shown": true,
+        "rect": {
+          "y": 898,
+          "x": 0,
+          "width": 820,
+          "height": 279
+        }
+      },
+      "stable_native_actions": {
+        "Cancel": {
+          "y": 754,
+          "x": 578,
+          "width": 70,
+          "height": 52
+        },
+        "Edit": {
+          "y": 754,
+          "x": 655,
+          "width": 120,
+          "height": 52
+        }
+      },
+      "stable_sample_count": 2,
+      "native_key": "1",
+      "value_before": "",
+      "value_after": "1",
+      "native_cancel_rect": {
+        "y": 753,
+        "x": 578,
+        "width": 70,
+        "height": 51
+      },
+      "native_cancel_closed_dialog_and_keyboard": true,
+      "dismissed_viewport": {
+        "height": 1048,
+        "width": 820,
+        "offsetTop": 0,
+        "offsetLeft": 0,
+        "scale": 1
+      }
+    },
+    {
+      "device": "iPad Air 11-inch (M2)",
+      "orientation": "PORTRAIT",
+      "field": "edit-instruction",
+      "status": "passed",
+      "run_id": "results-20261107T043039Z",
+      "source_revision": "14f6b04c062411ddc42f66d2e06f981fea0d1220",
+      "flow_report_status": "passed",
+      "partial_field_evidence": false,
+      "field_evidence": {
+        "path": "work/safari-edit-keyboard-20261107/results-20261107T043039Z/iPad-Air-11-inch-(M2)-PORTRAIT/edit_keyboard/keyboard-evidence.json",
+        "sha256": "6b921b8c54ec7b14903fd92da1009f47ffd8fc016917491dbbf1cad7e535641a"
+      },
+      "initial_viewport": {
+        "width": 820,
+        "height": 1048,
+        "vv": {
+          "height": 1048,
+          "width": 820,
+          "offsetTop": 0,
+          "offsetLeft": 0,
+          "scale": 1
+        }
+      },
+      "keyboard_viewport": {
+        "top": 0,
+        "bottom": 711,
+        "height": 711
+      },
+      "dom_field": {
+        "left": 45,
+        "top": 515.34375,
+        "right": 775,
+        "bottom": 610.34375,
+        "width": 730,
+        "height": 95,
+        "position": "static"
+      },
+      "dom_five_interior_hits": [
+        {
+          "name": "center",
+          "x": 410,
+          "y": 562.84375,
+          "hittable": true,
+          "hit": "edit-instruction"
+        },
+        {
+          "name": "top-left",
+          "x": 49,
+          "y": 519.34375,
+          "hittable": true,
+          "hit": "edit-instruction"
+        },
+        {
+          "name": "top-right",
+          "x": 771,
+          "y": 519.34375,
+          "hittable": true,
+          "hit": "edit-instruction"
+        },
+        {
+          "name": "bottom-left",
+          "x": 49,
+          "y": 606.34375,
+          "hittable": true,
+          "hit": "edit-instruction"
+        },
+        {
+          "name": "bottom-right",
+          "x": 771,
+          "y": 606.34375,
+          "hittable": true,
+          "hit": "edit-instruction"
+        }
+      ],
+      "native_field": {
+        "name": "INSTRUCTION",
+        "label": "INSTRUCTION",
+        "visible": "true",
+        "value": "What to change - \"make it night, keep the composition\"",
+        "rect": {
+          "x": 45.0,
+          "y": 647.0,
+          "width": 730.0,
+          "height": 96.0
+        }
+      },
+      "native_window": {
+        "y": 0,
+        "x": 0,
+        "width": 820,
+        "height": 1180
+      },
+      "native_keyboard": {
+        "shown": true,
+        "rect": {
+          "y": 898,
+          "x": 0,
+          "width": 820,
+          "height": 279
+        }
+      },
+      "stable_native_actions": {
+        "Cancel": {
+          "y": 753,
+          "x": 578,
+          "width": 70,
+          "height": 51
+        },
+        "Edit": {
+          "y": 753,
+          "x": 655,
+          "width": 120,
+          "height": 51
+        }
+      },
+      "stable_sample_count": 2,
+      "native_key": "a",
+      "value_before": "",
+      "value_after": "A",
+      "native_cancel_rect": {
+        "y": 753,
+        "x": 578,
+        "width": 70,
+        "height": 51
+      },
+      "native_cancel_closed_dialog_and_keyboard": true,
+      "dismissed_viewport": {
+        "height": 1048,
+        "width": 820,
+        "offsetTop": 0,
+        "offsetLeft": 0,
+        "scale": 1
+      }
+    },
+    {
+      "device": "iPad Air 11-inch (M2)",
+      "orientation": "LANDSCAPE",
+      "field": "inpaint-strength",
+      "status": "passed",
+      "run_id": "results-20261107T043039Z",
+      "source_revision": "14f6b04c062411ddc42f66d2e06f981fea0d1220",
+      "flow_report_status": "passed",
+      "partial_field_evidence": false,
+      "field_evidence": {
+        "path": "work/safari-edit-keyboard-20261107/results-20261107T043039Z/iPad-Air-11-inch-(M2)-LANDSCAPE/inpaint_keyboard/keyboard-evidence.json",
+        "sha256": "6c5f47b61d456d14c86201d01381b66d63b24dd91293303b5118874d150c62b6"
+      },
+      "initial_viewport": {
+        "width": 1180,
+        "height": 688,
+        "vv": {
+          "height": 688,
+          "width": 1180,
+          "offsetTop": 0,
+          "offsetLeft": 0,
+          "scale": 1
+        }
+      },
+      "keyboard_viewport": {
+        "top": 240,
+        "bottom": 506,
+        "height": 266
+      },
+      "dom_field": {
+        "left": 229,
+        "top": 114.1875,
+        "right": 526,
+        "bottom": 161.1875,
+        "width": 297,
+        "height": 47,
+        "position": "static"
+      },
+      "dom_five_interior_hits": [
+        {
+          "name": "center",
+          "x": 377.5,
+          "y": 137.6875,
+          "hittable": true,
+          "hit": "inpaint-strength"
+        },
+        {
+          "name": "top-left",
+          "x": 233,
+          "y": 118.1875,
+          "hittable": true,
+          "hit": "inpaint-strength"
+        },
+        {
+          "name": "top-right",
+          "x": 522,
+          "y": 118.1875,
+          "hittable": true,
+          "hit": "inpaint-strength"
+        },
+        {
+          "name": "bottom-left",
+          "x": 233,
+          "y": 157.1875,
+          "hittable": true,
+          "hit": "inpaint-strength"
+        },
+        {
+          "name": "bottom-right",
+          "x": 522,
+          "y": 157.1875,
+          "hittable": true,
+          "hit": "inpaint-strength"
+        }
+      ],
+      "native_field": {
+        "name": "Strength",
+        "label": "Strength",
+        "visible": "true",
+        "value": "0.95",
+        "rect": {
+          "x": 229.0,
+          "y": 246.0,
+          "width": 297.0,
+          "height": 48.0
+        }
+      },
+      "native_window": {
+        "y": 0,
+        "x": 0,
+        "width": 1180,
+        "height": 820
+      },
+      "native_keyboard": {
+        "shown": true,
+        "rect": {
+          "y": 453,
+          "x": 0,
+          "width": 1180,
+          "height": 364
+        }
+      },
+      "stable_native_actions": {
+        "Cancel": {
+          "y": 304,
+          "x": 754,
+          "width": 70,
+          "height": 51
+        },
+        "Inpaint": {
+          "y": 304,
+          "x": 831,
+          "width": 120,
+          "height": 51
+        }
+      },
+      "stable_sample_count": 2,
+      "native_key": "1",
+      "value_before": "0.95",
+      "value_after": "0.951",
+      "native_cancel_rect": {
+        "y": 304,
+        "x": 754,
+        "width": 70,
+        "height": 51
+      },
+      "native_cancel_closed_dialog_and_keyboard": true,
+      "dismissed_viewport": {
+        "height": 688,
+        "width": 1180,
+        "offsetTop": 0,
+        "offsetLeft": 0,
+        "scale": 1
+      }
+    },
+    {
+      "device": "iPad Air 11-inch (M2)",
+      "orientation": "LANDSCAPE",
+      "field": "inpaint-seed",
+      "status": "passed",
+      "run_id": "results-20261107T043039Z",
+      "source_revision": "14f6b04c062411ddc42f66d2e06f981fea0d1220",
+      "flow_report_status": "passed",
+      "partial_field_evidence": false,
+      "field_evidence": {
+        "path": "work/safari-edit-keyboard-20261107/results-20261107T043039Z/iPad-Air-11-inch-(M2)-LANDSCAPE/inpaint_keyboard/keyboard-evidence.json",
+        "sha256": "6c5f47b61d456d14c86201d01381b66d63b24dd91293303b5118874d150c62b6"
+      },
+      "initial_viewport": {
+        "width": 1180,
+        "height": 688,
+        "vv": {
+          "height": 688,
+          "width": 1180,
+          "offsetTop": 0,
+          "offsetLeft": 0,
+          "scale": 1
+        }
+      },
+      "keyboard_viewport": {
+        "top": 240,
+        "bottom": 506,
+        "height": 266
+      },
+      "dom_field": {
+        "left": 604,
+        "top": 114.1875,
+        "right": 901,
+        "bottom": 161.1875,
+        "width": 297,
+        "height": 47,
+        "position": "static"
+      },
+      "dom_five_interior_hits": [
+        {
+          "name": "center",
+          "x": 752.5,
+          "y": 137.6875,
+          "hittable": true,
+          "hit": "inpaint-seed"
+        },
+        {
+          "name": "top-left",
+          "x": 608,
+          "y": 118.1875,
+          "hittable": true,
+          "hit": "inpaint-seed"
+        },
+        {
+          "name": "top-right",
+          "x": 897,
+          "y": 118.1875,
+          "hittable": true,
+          "hit": "inpaint-seed"
+        },
+        {
+          "name": "bottom-left",
+          "x": 608,
+          "y": 157.1875,
+          "hittable": true,
+          "hit": "inpaint-seed"
+        },
+        {
+          "name": "bottom-right",
+          "x": 897,
+          "y": 157.1875,
+          "hittable": true,
+          "hit": "inpaint-seed"
+        }
+      ],
+      "native_field": {
+        "name": "Seed",
+        "label": "Seed",
+        "visible": "true",
+        "value": "12",
+        "rect": {
+          "x": 604.0,
+          "y": 246.0,
+          "width": 297.0,
+          "height": 48.0
+        }
+      },
+      "native_window": {
+        "y": 0,
+        "x": 0,
+        "width": 1180,
+        "height": 820
+      },
+      "native_keyboard": {
+        "shown": true,
+        "rect": {
+          "y": 453,
+          "x": 0,
+          "width": 1180,
+          "height": 364
+        }
+      },
+      "stable_native_actions": {
+        "Cancel": {
+          "y": 304,
+          "x": 754,
+          "width": 70,
+          "height": 51
+        },
+        "Inpaint": {
+          "y": 304,
+          "x": 831,
+          "width": 120,
+          "height": 51
+        }
+      },
+      "stable_sample_count": 2,
+      "native_key": "1",
+      "value_before": "12",
+      "value_after": "121",
+      "native_cancel_rect": {
+        "y": 304,
+        "x": 754,
+        "width": 70,
+        "height": 51
+      },
+      "native_cancel_closed_dialog_and_keyboard": true,
+      "dismissed_viewport": {
+        "height": 688,
+        "width": 1180,
+        "offsetTop": 0,
+        "offsetLeft": 0,
+        "scale": 1
+      }
+    },
+    {
+      "device": "iPad Air 11-inch (M2)",
+      "orientation": "LANDSCAPE",
+      "field": "outpaint-right",
+      "status": "passed",
+      "run_id": "results-20261107T043039Z",
+      "source_revision": "14f6b04c062411ddc42f66d2e06f981fea0d1220",
+      "flow_report_status": "passed",
+      "partial_field_evidence": false,
+      "field_evidence": {
+        "path": "work/safari-edit-keyboard-20261107/results-20261107T043039Z/iPad-Air-11-inch-(M2)-LANDSCAPE/outpaint_keyboard/keyboard-evidence.json",
+        "sha256": "d1eafe2d8a7a8b0470bbf7b54111a9e65d1bed7a21a8b44eca483be49708c7b6"
+      },
+      "initial_viewport": {
+        "width": 1180,
+        "height": 688,
+        "vv": {
+          "height": 688,
+          "width": 1180,
+          "offsetTop": 0,
+          "offsetLeft": 0,
+          "scale": 1
+        }
+      },
+      "keyboard_viewport": {
+        "top": 98.5,
+        "bottom": 364.5,
+        "height": 266
+      },
+      "dom_field": {
+        "left": 815.546875,
+        "top": 125.015625,
+        "right": 903.4375,
+        "bottom": 161.015625,
+        "width": 87.890625,
+        "height": 36,
+        "position": "static"
+      },
+      "dom_five_interior_hits": [
+        {
+          "name": "center",
+          "x": 859.4921875,
+          "y": 143.015625,
+          "hittable": true,
+          "hit": "outpaint-right"
+        },
+        {
+          "name": "top-left",
+          "x": 819.546875,
+          "y": 129.015625,
+          "hittable": true,
+          "hit": "outpaint-right"
+        },
+        {
+          "name": "top-right",
+          "x": 899.4375,
+          "y": 129.015625,
+          "hittable": true,
+          "hit": "outpaint-right"
+        },
+        {
+          "name": "bottom-left",
+          "x": 819.546875,
+          "y": 157.015625,
+          "hittable": true,
+          "hit": "outpaint-right"
+        },
+        {
+          "name": "bottom-right",
+          "x": 899.4375,
+          "y": 157.015625,
+          "hittable": true,
+          "hit": "outpaint-right"
+        }
+      ],
+      "native_field": {
+        "name": "Right",
+        "label": "Right",
+        "visible": "true",
+        "value": "0",
+        "rect": {
+          "x": 815.0,
+          "y": 257.0,
+          "width": 89.0,
+          "height": 38.0
+        }
+      },
+      "native_window": {
+        "y": 0,
+        "x": 0,
+        "width": 1180,
+        "height": 820
+      },
+      "native_keyboard": {
+        "shown": true,
+        "rect": {
+          "y": 453,
+          "x": 0,
+          "width": 1180,
+          "height": 364
+        }
+      },
+      "stable_native_actions": {
+        "Cancel": {
+          "y": 304,
+          "x": 754,
+          "width": 70,
+          "height": 52
+        },
+        "Outpaint": {
+          "y": 304,
+          "x": 831,
+          "width": 120,
+          "height": 52
+        }
+      },
+      "stable_sample_count": 2,
+      "native_key": "1",
+      "value_before": "0",
+      "value_after": "01",
+      "native_cancel_rect": {
+        "y": 304,
+        "x": 754,
+        "width": 70,
+        "height": 52
+      },
+      "native_cancel_closed_dialog_and_keyboard": true,
+      "dismissed_viewport": {
+        "height": 688,
+        "width": 1180,
+        "offsetTop": 0,
+        "offsetLeft": 0,
+        "scale": 1
+      }
+    },
+    {
+      "device": "iPad Air 11-inch (M2)",
+      "orientation": "LANDSCAPE",
+      "field": "outpaint-seed",
+      "status": "passed",
+      "run_id": "results-20261107T043039Z",
+      "source_revision": "14f6b04c062411ddc42f66d2e06f981fea0d1220",
+      "flow_report_status": "passed",
+      "partial_field_evidence": false,
+      "field_evidence": {
+        "path": "work/safari-edit-keyboard-20261107/results-20261107T043039Z/iPad-Air-11-inch-(M2)-LANDSCAPE/outpaint_keyboard/keyboard-evidence.json",
+        "sha256": "d1eafe2d8a7a8b0470bbf7b54111a9e65d1bed7a21a8b44eca483be49708c7b6"
+      },
+      "initial_viewport": {
+        "width": 1180,
+        "height": 688,
+        "vv": {
+          "height": 688,
+          "width": 1180,
+          "offsetTop": 0,
+          "offsetLeft": 0,
+          "scale": 1
+        }
+      },
+      "keyboard_viewport": {
+        "top": 235,
+        "bottom": 501,
+        "height": 266
+      },
+      "dom_field": {
+        "left": 604,
+        "top": 114.515625,
+        "right": 901,
+        "bottom": 161.515625,
+        "width": 297,
+        "height": 47,
+        "position": "static"
+      },
+      "dom_five_interior_hits": [
+        {
+          "name": "center",
+          "x": 752.5,
+          "y": 138.015625,
+          "hittable": true,
+          "hit": "outpaint-seed"
+        },
+        {
+          "name": "top-left",
+          "x": 608,
+          "y": 118.515625,
+          "hittable": true,
+          "hit": "outpaint-seed"
+        },
+        {
+          "name": "top-right",
+          "x": 897,
+          "y": 118.515625,
+          "hittable": true,
+          "hit": "outpaint-seed"
+        },
+        {
+          "name": "bottom-left",
+          "x": 608,
+          "y": 157.515625,
+          "hittable": true,
+          "hit": "outpaint-seed"
+        },
+        {
+          "name": "bottom-right",
+          "x": 897,
+          "y": 157.515625,
+          "hittable": true,
+          "hit": "outpaint-seed"
+        }
+      ],
+      "native_field": {
+        "name": "Seed",
+        "label": "Seed",
+        "visible": "true",
+        "value": "12",
+        "rect": {
+          "x": 604.0,
+          "y": 246.0,
+          "width": 297.0,
+          "height": 48.0
+        }
+      },
+      "native_window": {
+        "y": 0,
+        "x": 0,
+        "width": 1180,
+        "height": 820
+      },
+      "native_keyboard": {
+        "shown": true,
+        "rect": {
+          "y": 453,
+          "x": 0,
+          "width": 1180,
+          "height": 364
+        }
+      },
+      "stable_native_actions": {
+        "Cancel": {
+          "y": 304,
+          "x": 754,
+          "width": 70,
+          "height": 51
+        },
+        "Outpaint": {
+          "y": 304,
+          "x": 831,
+          "width": 120,
+          "height": 51
+        }
+      },
+      "stable_sample_count": 2,
+      "native_key": "1",
+      "value_before": "12",
+      "value_after": "121",
+      "native_cancel_rect": {
+        "y": 304,
+        "x": 754,
+        "width": 70,
+        "height": 51
+      },
+      "native_cancel_closed_dialog_and_keyboard": true,
+      "dismissed_viewport": {
+        "height": 688,
+        "width": 1180,
+        "offsetTop": 0,
+        "offsetLeft": 0,
+        "scale": 1
+      }
+    },
+    {
+      "device": "iPad Air 11-inch (M2)",
+      "orientation": "LANDSCAPE",
+      "field": "edit-seed",
+      "status": "passed",
+      "run_id": "results-20261107T043039Z",
+      "source_revision": "14f6b04c062411ddc42f66d2e06f981fea0d1220",
+      "flow_report_status": "passed",
+      "partial_field_evidence": false,
+      "field_evidence": {
+        "path": "work/safari-edit-keyboard-20261107/results-20261107T043039Z/iPad-Air-11-inch-(M2)-LANDSCAPE/edit_keyboard/keyboard-evidence.json",
+        "sha256": "9b8c45fb959a2bf14fe81a70d7e70a0d7969ea4db2c7741cb02ed3b1a60231e4"
+      },
+      "initial_viewport": {
+        "width": 1180,
+        "height": 688,
+        "vv": {
+          "height": 688,
+          "width": 1180,
+          "offsetTop": 0,
+          "offsetLeft": 0,
+          "scale": 1
+        }
+      },
+      "keyboard_viewport": {
+        "top": 363,
+        "bottom": 629,
+        "height": 266
+      },
+      "dom_field": {
+        "left": 229,
+        "top": 114.140625,
+        "right": 447.671875,
+        "bottom": 161.140625,
+        "width": 218.671875,
+        "height": 47,
+        "position": "static"
+      },
+      "dom_five_interior_hits": [
+        {
+          "name": "center",
+          "x": 338.3359375,
+          "y": 137.640625,
+          "hittable": true,
+          "hit": "edit-seed"
+        },
+        {
+          "name": "top-left",
+          "x": 233,
+          "y": 118.140625,
+          "hittable": true,
+          "hit": "edit-seed"
+        },
+        {
+          "name": "top-right",
+          "x": 443.671875,
+          "y": 118.140625,
+          "hittable": true,
+          "hit": "edit-seed"
+        },
+        {
+          "name": "bottom-left",
+          "x": 233,
+          "y": 157.140625,
+          "hittable": true,
+          "hit": "edit-seed"
+        },
+        {
+          "name": "bottom-right",
+          "x": 443.671875,
+          "y": 157.140625,
+          "hittable": true,
+          "hit": "edit-seed"
+        }
+      ],
+      "native_field": {
+        "name": "Seed",
+        "label": "Seed",
+        "visible": "true",
+        "value": "random",
+        "rect": {
+          "x": 229.0,
+          "y": 246.0,
+          "width": 219.0,
+          "height": 48.0
+        }
+      },
+      "native_window": {
+        "y": 0,
+        "x": 0,
+        "width": 1180,
+        "height": 820
+      },
+      "native_keyboard": {
+        "shown": true,
+        "rect": {
+          "y": 453,
+          "x": 0,
+          "width": 1180,
+          "height": 364
+        }
+      },
+      "stable_native_actions": {
+        "Cancel": {
+          "y": 304,
+          "x": 754,
+          "width": 70,
+          "height": 51
+        },
+        "Edit": {
+          "y": 304,
+          "x": 831,
+          "width": 120,
+          "height": 51
+        }
+      },
+      "stable_sample_count": 2,
+      "native_key": "1",
+      "value_before": "",
+      "value_after": "1",
+      "native_cancel_rect": {
+        "y": 304,
+        "x": 754,
+        "width": 70,
+        "height": 51
+      },
+      "native_cancel_closed_dialog_and_keyboard": true,
+      "dismissed_viewport": {
+        "height": 688,
+        "width": 1180,
+        "offsetTop": 0,
+        "offsetLeft": 0,
+        "scale": 1
+      }
+    },
+    {
+      "device": "iPad Air 11-inch (M2)",
+      "orientation": "LANDSCAPE",
+      "field": "edit-instruction",
+      "status": "passed",
+      "run_id": "results-20261107T043039Z",
+      "source_revision": "14f6b04c062411ddc42f66d2e06f981fea0d1220",
+      "flow_report_status": "passed",
+      "partial_field_evidence": false,
+      "field_evidence": {
+        "path": "work/safari-edit-keyboard-20261107/results-20261107T043039Z/iPad-Air-11-inch-(M2)-LANDSCAPE/edit_keyboard/keyboard-evidence.json",
+        "sha256": "9b8c45fb959a2bf14fe81a70d7e70a0d7969ea4db2c7741cb02ed3b1a60231e4"
+      },
+      "initial_viewport": {
+        "width": 1180,
+        "height": 688,
+        "vv": {
+          "height": 688,
+          "width": 1180,
+          "offsetTop": 0,
+          "offsetLeft": 0,
+          "scale": 1
+        }
+      },
+      "keyboard_viewport": {
+        "top": 218,
+        "bottom": 484,
+        "height": 266
+      },
+      "dom_field": {
+        "left": 229,
+        "top": 66.140625,
+        "right": 951,
+        "bottom": 161.140625,
+        "width": 722,
+        "height": 95,
+        "position": "static"
+      },
+      "dom_five_interior_hits": [
+        {
+          "name": "center",
+          "x": 590,
+          "y": 113.640625,
+          "hittable": true,
+          "hit": "edit-instruction"
+        },
+        {
+          "name": "top-left",
+          "x": 233,
+          "y": 70.140625,
+          "hittable": true,
+          "hit": "edit-instruction"
+        },
+        {
+          "name": "top-right",
+          "x": 947,
+          "y": 70.140625,
+          "hittable": true,
+          "hit": "edit-instruction"
+        },
+        {
+          "name": "bottom-left",
+          "x": 233,
+          "y": 157.140625,
+          "hittable": true,
+          "hit": "edit-instruction"
+        },
+        {
+          "name": "bottom-right",
+          "x": 947,
+          "y": 157.140625,
+          "hittable": true,
+          "hit": "edit-instruction"
+        }
+      ],
+      "native_field": {
+        "name": "INSTRUCTION",
+        "label": "INSTRUCTION",
+        "visible": "true",
+        "value": "What to change - \"make it night, keep the composition\"",
+        "rect": {
+          "x": 229.0,
+          "y": 198.0,
+          "width": 722.0,
+          "height": 96.0
+        }
+      },
+      "native_window": {
+        "y": 0,
+        "x": 0,
+        "width": 1180,
+        "height": 820
+      },
+      "native_keyboard": {
+        "shown": true,
+        "rect": {
+          "y": 453,
+          "x": 0,
+          "width": 1180,
+          "height": 364
+        }
+      },
+      "stable_native_actions": {
+        "Cancel": {
+          "y": 304,
+          "x": 754,
+          "width": 70,
+          "height": 51
+        },
+        "Edit": {
+          "y": 304,
+          "x": 831,
+          "width": 120,
+          "height": 51
+        }
+      },
+      "stable_sample_count": 2,
+      "native_key": "a",
+      "value_before": "",
+      "value_after": "A",
+      "native_cancel_rect": {
+        "y": 304,
+        "x": 754,
+        "width": 70,
+        "height": 51
+      },
+      "native_cancel_closed_dialog_and_keyboard": true,
+      "dismissed_viewport": {
+        "height": 688,
+        "width": 1180,
+        "offsetTop": 0,
+        "offsetLeft": 0,
+        "scale": 1
+      }
+    }
+  ],
+  "screenshots": [
+    {
+      "file": "simulator-edit-iphone-portrait.png",
+      "sha256": "ab999690d84989d5f3653f207293898e91705de593c5820f483b8d2376c19e6a",
+      "raw_source": "work/safari-edit-keyboard-20261107/results-20261107T033550Z/iPhone-15-Pro-PORTRAIT/inpaint_keyboard/inpaint-strength/focused-field.png",
+      "run_id": "results-20261107T033550Z",
+      "device": "iPhone 15 Pro",
+      "orientation": "PORTRAIT",
+      "field": "inpaint-strength",
+      "visually_inspected": true,
+      "unaltered": true
+    },
+    {
+      "file": "simulator-edit-iphone-landscape.png",
+      "sha256": "070206c329399a3f0a08c86c3bdf0815b2bf3b4107ffc59e78d2213f1f5afe25",
+      "raw_source": "work/safari-edit-keyboard-20261107/results-20261107T033550Z/iPhone-15-Pro-LANDSCAPE/outpaint_keyboard/outpaint-seed/focused-field.png",
+      "run_id": "results-20261107T033550Z",
+      "device": "iPhone 15 Pro",
+      "orientation": "LANDSCAPE",
+      "field": "outpaint-seed",
+      "visually_inspected": true,
+      "unaltered": true
+    },
+    {
+      "file": "simulator-edit-ipad-portrait.png",
+      "sha256": "0048331ff8d06da35bee957144b739f9006cc4dbc8b84c02853b3221e887e06a",
+      "raw_source": "work/safari-edit-keyboard-20261107/results-20261107T043039Z/iPad-Air-11-inch-(M2)-PORTRAIT/edit_keyboard/edit-instruction/focused-field-typed.png",
+      "run_id": "results-20261107T043039Z",
+      "device": "iPad Air 11-inch (M2)",
+      "orientation": "PORTRAIT",
+      "field": "edit-instruction",
+      "visually_inspected": true,
+      "unaltered": true
+    },
+    {
+      "file": "simulator-edit-ipad-landscape.png",
+      "sha256": "6cbfa3e9045ef9693ffe9c6c8730cb46f2a8c4bb3e3fa8c7d9990eb5767e0db3",
+      "raw_source": "work/safari-edit-keyboard-20261107/results-20261107T043039Z/iPad-Air-11-inch-(M2)-LANDSCAPE/edit_keyboard/edit-instruction/focused-field-typed.png",
+      "run_id": "results-20261107T043039Z",
+      "device": "iPad Air 11-inch (M2)",
+      "orientation": "LANDSCAPE",
+      "field": "edit-instruction",
+      "visually_inspected": true,
+      "unaltered": true
+    }
+  ],
+  "cleanup": {
+    "checked_at": "2026-11-07T04:40:56.845725+00:00",
+    "run_ids": [
+      "results-20261107T031525Z",
+      "results-20261107T032124Z",
+      "results-20261107T033550Z",
+      "results-20261107T040316Z",
+      "results-20261107T043039Z"
+    ],
+    "owned_simulator_count": 10,
+    "owned_simulator_uuids": [
+      "1BD2D4CC-BB3A-4761-83C0-29FEE4AA589D",
+      "1D7FBE0D-5ED5-4880-BF80-41EF535A8F15",
+      "27341C8A-D91B-4EE2-A699-D4071FA80357",
+      "2F15251A-EF05-4E8D-8669-05F5BDA3C6AB",
+      "A5196893-3D09-4EEF-93B4-6A8D5081A1FC",
+      "ACA2EF9C-AD43-4D74-AD6A-72C1CF4DACA6",
+      "BAB400A7-BB6D-49AD-B92C-18B8924C4F2B",
+      "C63AEA13-501D-47B0-92D8-B718E5BA571B",
+      "DD0BB08E-9BCF-4095-929D-65D244327DB0",
+      "F4908A9F-4745-4263-A7E1-1021720AD113"
+    ],
+    "remaining_owned_devices": [],
+    "appium_ports_closed": {
+      "49364": true,
+      "50839": true,
+      "61131": true,
+      "61979": true,
+      "62966": true
+    },
+    "owned_runner_processes": [],
+    "owned_appium_processes": [],
+    "remote_fixture_tunnel_port_closed": true,
+    "passed": true
+  },
+  "windows_fixture": {
+    "port": 17961,
+    "listener_closed": true,
+    "scratch_gallery_retained": "C:/Users/matsi/AppData/Local/Temp/auradream-fake-rel82pes",
+    "listener_checked_at": "2026-11-07T04:44:26.612972+00:00",
+    "stop": "Owned fake terminal received Ctrl+C; process session exited; Get-NetTCPConnection found no listening17961 endpoint."
+  },
+  "not_qualified": [
+    "Physical iPhone or Android acceptance",
+    "Native iPad Split View",
+    "Phone landscape Instruction textarea caret behavior: taller than extremely short keyboard band; not exercised in native field suite",
+    "Native keyboards in non-image forms/count confirmation, Models or other dialogs",
+    "Completed sharing delivery, long press/pinch, native iOS edge-swipe Back",
+    "GPU/model, image quality, timing or memory acceptance"
+  ],
+  "harness_corrections": [
+    "Opening Inpaint may validly focus its canvas; phone rule forbids keyboard autofocus, not every non-close focus target.",
+    "Newest-first context enumeration cannot exclude an old context before target appears.",
+    "Installed XCUITest12.22.7 mobile:getContexts exposes URL/title metadata (commands/context.js137-163,437-443; execute-method-map.js141-145). Final gate filters exact requested URL before page JS and still requires unique visible AuraDream document.",
+    "Tablet text-transform yields native label INSTRUCTION. Final focus requires one observed visible TextView with case-folded semantic name/label, uses its observed label, and applies same match in extraction."
+  ],
+  "retained_raw_root": "work/safari-edit-keyboard-20261107",
+  "retained_mac_root": "/Users/matt/DeckLabSafari/auradream-edit-keyboard-20261107"
+}
