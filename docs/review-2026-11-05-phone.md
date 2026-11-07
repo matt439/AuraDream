@@ -615,6 +615,9 @@ The verification pass refuted no finding outright. These claims were corrected o
 
 ## 6. Safari Simulator check (2026-11-07)
 
+The [connection and rerun notes](ios-simulator.md) describe the prepared
+machines, tunnel, fixture, retained harness and native-input pitfalls.
+
 Tested application revision `4e1127c194871acf437637679e39cf349c2756cf` through
 DeckLab's prepared MacBook SSH/Appium setup: Xcode 27.2 (27B52), iOS 27.0
 (24A434), Appium 3.8.0 and XCUITest 12.22.7. The Windows fake server served the

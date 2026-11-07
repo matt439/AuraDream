@@ -19,6 +19,9 @@
   sources, and what went wrong before.
 - [source-audit.md](source-audit.md): the file splits and why the long files
   stay whole, pass by pass.
+- [ios-simulator.md](ios-simulator.md): the prepared MacBook connection,
+  Windows fake server and SSH tunnel, retained native Safari test workflow,
+  input pitfalls and cleanup.
 - `plan-*.md`: feature plans. Code comments, the rules and
   [TODO.md](../TODO.md) cite them as the owners of their designs; what was
   built differently is recorded in the design notes. A finished plan opens
