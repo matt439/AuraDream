@@ -821,8 +821,9 @@ not qualify other dialogs. No model or GPU acceptance is claimed.
 - The result dock opens live frames across the phone (P30), without
   scrolling Create. The preview follows only the job opened by the press.
   Its finished image replaces the frame, with an explicit Open finished
-  image handoff to the normal viewer. Cancellation keeps the last frame
-  labelled Preview ended. Back, Escape and close restore dock focus, with
+  image handoff to the normal viewer. A job ending without a saved image
+  keeps the last frame labelled Preview ended; a partly completed batch
+  keeps its latest finished image. Back, Escape and close restore dock focus, with
   one history entry through the handoff. Frames never become records.
 - The keyboard viewport, sticky-action and focused-field protections now
   cover Inpaint, Outpaint and Edit by instruction as well as Refine (P44).
@@ -832,7 +833,10 @@ not qualify other dialogs. No model or GPU acceptance is claimed.
 The earlier phases' explicitly skipped alternatives and optional extras
 remain skipped: the list manager edit sub-screen, fact-row menus, different
 Outpaint controls, sheet axis chips/zoom, switches, drag-select, the date
-scrubber and standalone mode. They are not remaining implementation defects.
+scrubber and standalone mode. Refine and Edit retain their brief two-line
+context notes (P53); landscape facts keep their peek at the foot until raised
+as a side sheet (P35). These retained presentations are the chosen alternatives,
+not remaining implementation defects.
 
 Validation uses synthetic galleries with no weights or GPU work. The new
 `smoke-phone-keyboard` supplies viewport dimensions for 70 field/late-content

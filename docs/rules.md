@@ -7149,8 +7149,8 @@ measured on the card and when.
   Frames have no saved-image actions or metadata. It follows only the job
   opened by the press, even when a later job starts. A finished image
   replaces the frame and offers Open finished image, an explicit handoff to
-  the ordinary lightbox. Cancellation keeps the last frame labelled Preview
-  ended. Back, Escape and its close return focus to the dock; leaving the
+  the ordinary lightbox. If a job ends without a saved image, its last frame
+  stays labelled Preview ended; a partly completed batch keeps its latest result. Back, Escape and its close return focus to the dock; leaving the
   phone closes it. It holds one history entry, including the handoff. On its right is the queue (`#phone-queue`,
   50 px, `syncPhoneQueue`): a list glyph, the accent's soft fill and edge
   while a job runs, the count of jobs waiting behind it in a 22 px badge
@@ -9216,7 +9216,7 @@ menu placed at the pointer with its PC rows.
 focused-field states in Inpaint, Outpaint and Edit by instruction:
 phone portrait, 48 px landscape, both tablet orientations and a 678 px
 Split View emulation. It checks field bounds and five hit points against
-sticky rows, visible actions, late content, pinch reset and mouse geometry.
+sticky rows, visible actions, late content, viewport restoration and mouse geometry.
 These complement the Refine cases in `smoke-phone-dialogs.json`; they are
 layout mechanism checks, without a native software keyboard.
 

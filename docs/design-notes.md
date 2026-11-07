@@ -8019,8 +8019,9 @@ picture opens a full-screen black preview canvas, without scrolling Create.
 The preview has no saved-image metadata or actions. It follows the job opened
 by that press; a later job cannot replace it. When an image finishes it
 replaces the frame and offers Open finished image, which hands it to the
-ordinary lightbox on a press. Cancellation keeps the last frame clearly
-labelled Preview ended. Back, Escape and the close return focus to the dock;
+ordinary lightbox on a press. If the job ends without a saved image, the
+last frame stays labelled Preview ended; a partly completed batch keeps its
+latest finished image. Back, Escape and the close return focus to the dock;
 the finished-image handoff keeps one history entry. Leaving the phone closes
 the preview. Its frame source is released on close. The Create smoke covers
 both orientations, advancing frames, cancellation, completion, the handoff
