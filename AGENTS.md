@@ -285,8 +285,8 @@ picture hides or shows the bars, never closes. `LB_STACKED_MEDIA`
 leaves the phone out. `phone-sheets.js` (`styles/phone-sheets.css`,
 linked after it), after it, owns what the dialogs do as phone sheets: no
 text box focused as one opens (the head's ✕ instead; a refusal's box is
-kept), a ✕ in every head, `--kb-inset` from `visualViewport` under the
-sticky action rows, long explanations in shut folds, the setups',
+kept), a ✕ in every head, sheets fitted to `visualViewport` (Refine's
+height and sticky actions on the tablet too), long explanations in shut folds, the setups',
 searches' and snippets' list boxes drawn as rows (the select kept, hidden),
 and the Models sheet as one scroller with a sticky foot (Apply & save,
 Switch & load, Load and Unload moved in). Nodes are moved whole under

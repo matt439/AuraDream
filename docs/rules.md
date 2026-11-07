@@ -714,7 +714,7 @@ before changing it.
   `syncPhoneHosts` calls): a sheet's focus off its text boxes as it opens
   (`settlePhoneSheetFocus`; `keepSheetFocus`, which `openMoreOptionsFor`
   calls, for a refusal's box), the head's ✕ (`pressSheetClose`), the
-  keyboard's inset (`syncKeyboardInset`), the long explanations' folds
+  touch dialogs' visible viewport (`syncSheetViewport`), the long explanations' folds
   (`syncPhoneWhy`), the setups', searches' and snippets' lists
   (`drawPhoneList`) and the Models sheet's foot (`syncPhoneModels`); the
   touch tier's media queries (`PHONE_MEDIA`, `TABLET_COLUMNS_MEDIA`,
@@ -6947,10 +6947,19 @@ measured on the card and when.
   a box keeps that focus (`keepSheetFocus`). A PC and the tablet keep the
   dialogs' own focus. Swap tags, Then refine, Mass refine and More seeds
   have a ✕ in their head (`data-sheet-close`, not drawn off the phone),
-  which sends the dialog's `cancel` as Escape and Back do. The keyboard's
-  height over the layout viewport (`visualViewport`, more than 80 px) is
-  `--kb-inset` on the root, which the sticky action rows and the delete
-  question stand on. The delete question's Delete and Cancel are stacked
+  which sends the dialog's `cancel` as Escape and Back do. Touch dialogs
+  use the visible viewport itself (`syncSheetViewport`): its `offsetTop`
+  and `height` become `--sheet-viewport-top` and `--sheet-viewport-height`
+  on the root, updated on the viewport's resize and scroll and the tier's
+  change. Every phone form sheet takes that top and height, keeping its
+  sticky head and action row inside the visible area; the delete question
+  ends at its foot. On the tablet only Refine takes the viewport's top and
+  height cap, preserving its width and top gap, with a sticky action row.
+  No keyboard-height threshold is used: Safari can resize `innerHeight`
+  and pan a fixed dialog together. Page pinch zoom (`scale !== 1`), a mouse
+  and a missing `visualViewport` clear the properties and keep the normal
+  CSS geometry. Other tablet dialogs are unchanged by this correction.
+  The delete question's Delete and Cancel are stacked
   across its sheet, 48 px each, the destructive one first (P51). Swap
   tags' explanation, Mass refine's, and Inpaint's and Outpaint's notes on
   the strength are each moved into a shut fold of their own in their
@@ -9112,9 +9121,13 @@ item under it and Cancel last, over the scrim. Then the sheets
 focus on their head's ✕ (Swap tags' 44 px, its own, inside the screen,
 closing it with its entry), Swap tags' rows unscrolled cards (Replace
 under Find, the × 44 px), its explanation in a shut How it works fold
-and its empty results not drawn, the audit clean; a 300 px
-`--kb-inset` lifts Refine's action row by 300; the delete question's
-Delete over Cancel, each 48 px and as wide; Inpaint's strength note in
+and its empty results not drawn, the audit clean; a supplied visible
+viewport of height 391 px with a 131 px pan fits Refine's sheet and action
+row within that area; page pinch zoom clears the viewport properties,
+and restoring the real viewport restores the sheet's full height and top.
+These supplied metrics check the layout mechanism, not native Safari's
+keyboard. The delete question keeps Delete over Cancel, each 48 px and as
+wide; Inpaint's strength note in
 its shut fold; Saved setups opening on its ✕, a setup saved, its rows
 56 px from the hidden select, none chosen after New, a row's press
 choosing it in the select (its name in the box, the row chosen), the

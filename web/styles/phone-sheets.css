@@ -6,6 +6,19 @@
    buttons stacked. Linked last. Off the phone the added ✕ is not drawn. */
 .sheet-close, .models-foot, .phone-list { display: none; }
 
+/* The tablet keeps Refine's width and top gap, with its scroll and actions
+   inside what Safari's keyboard leaves. Its old 100vh cap ignored the keys. */
+@media (pointer: coarse) and (min-width: 700px) and (min-height: 501px) {
+  .refine-dialog {
+    top: var(--sheet-viewport-top, 0px); bottom: auto;
+    max-height: calc(var(--sheet-viewport-height, 100dvh) - var(--rf-top) - var(--sp-4));
+  }
+  .refine-dialog .dialog-actions {
+    position: sticky; bottom: 0; z-index: 5; background: var(--panel);
+    padding-block: var(--sp-2); margin-top: auto;
+  }
+}
+
 @media (pointer: coarse) and ((width < 700px) or (max-height: 500px)) {
   /* Swap tags', Then refine's, Mass refine's and More seeds' heads: their
      ✕ at the top right, 44 px, as Refine's and the others' are; the title
@@ -16,12 +29,17 @@
     top: calc(var(--safe-t) + 4px); right: max(4px, calc(var(--sheet-r) - 12px));
   }
 
-  /* The keyboard's inset (`--kb-inset`, phone-sheets.js): the sticky action
-     row stands on the keyboard, not behind it, and a box scrolled to keeps
-     clear of both. */
-  dialog:not(.lightbox):not(.confirm-dialog) .dialog-actions { bottom: var(--kb-inset, 0px); }
-  dialog:not(.lightbox):not(.confirm-dialog) { scroll-padding-bottom: calc(var(--kb-inset, 0px) + 96px); }
-  dialog.confirm-dialog { bottom: var(--kb-inset, 0px); }
+  /* Size the sheet, rather than lifting only its foot: the head and the
+     focused field also need the space above the software keyboard. */
+  dialog:not(.lightbox):not(.confirm-dialog) {
+    top: var(--sheet-viewport-top, 0px); bottom: auto;
+    height: var(--sheet-viewport-height, 100dvh); scroll-padding-bottom: 96px;
+  }
+  dialog.confirm-dialog {
+    top: calc(var(--sheet-viewport-top, 0px) + var(--sheet-viewport-height, 100dvh));
+    bottom: auto; translate: 0 -100%;
+    max-height: calc(var(--sheet-viewport-height, 100dvh) - var(--safe-t) - 16px);
+  }
 
   /* The delete question's buttons (P51) were the screen's width apart, at
      its two edges: stacked across it, 48 px each, the destructive one over

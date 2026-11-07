@@ -2273,6 +2273,32 @@ shrinks its items (`flex-shrink: 0`): too tall for the window, it squeezed
 each to its min-height, a hint's 15 px, and a two-line preview ran over the
 line under it.
 
+**Touch dialogs use the visible viewport, 2026-11-07 (P44).** Native Safari
+Simulator checks found Refine's Cancel and Refine behind the software
+keyboard on iPhone portrait and both iPad orientations. The phone's old
+`innerHeight - visualViewport.height - visualViewport.offsetTop` estimate
+became 42 px in one failing state and was discarded by its 80 px threshold;
+the tablet had no correction at all. Safari can resize and pan together,
+so a guessed keyboard height is not the sheet's available space.
+
+`syncSheetViewport` (`phone-sheets.js`) now publishes the visible viewport's
+top and height on touch. Phone form sheets take those dimensions directly,
+with their existing sticky heads and action rows inside them; the short
+delete question ends at the visible foot. Tablet Refine keeps its width
+and top gap, but its height cap uses the visible viewport and its action
+row stays sticky. This tablet change is limited to Refine. Page pinch zoom
+clears the properties so the forms keep their normal geometry while the
+user magnifies the page; a mouse or a missing viewport API uses the CSS
+fallbacks. The phone's opening-focus guard still puts focus on the head's
+close button, while the tablet keeps Refine's Strength focus.
+
+The phone-dialogs smoke supplies height 391 and top 131, checks the sheet
+and footer, checks the pinch-zoom reset and restores the real viewport.
+This is a mechanism check. Native control rectangles, software-keyboard
+rectangles and screenshots remain the Simulator acceptance evidence in
+the [phone review](review-2026-11-05-phone.md#6-safari-simulator-check-2026-11-07);
+other tablet dialogs and physical-device acceptance need their own checks.
+
 **What is around the source.** Opened from Reuse on a pass, the title and a
 line of their own name the pass being run again ("Refine #4 as #5 was
 made", "Reusing #5: 1344×1728 at strength 0.2, seed 9"), since the dialog
