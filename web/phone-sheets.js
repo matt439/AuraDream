@@ -76,16 +76,28 @@ function syncSheetViewport() {
   }
   const short = isPhone() && vv && vv.scale === 1 && vv.height < 200;
   document.documentElement.toggleAttribute('data-short-sheet', !!short);
-  // A landscape keyboard can leave only 94 px: the focused input and the
-  // compact action row fit, with the header scrolled away. Keep this scroll
-  // inside Refine; neither the page nor another dialog is moved.
-  if (short && !sheetViewportFrame) {
+  // Safari's focus pan does not account for sticky rows. Reveal only the
+  // part of the focused field they cover, inside Refine's own scroll box.
+  if (touchQuery.matches && vv?.scale === 1 && !sheetViewportFrame) {
     sheetViewportFrame = requestAnimationFrame(() => {
       sheetViewportFrame = 0;
-      if (!document.documentElement.hasAttribute('data-short-sheet')) return;
+      if (!touchQuery.matches || window.visualViewport?.scale !== 1) return;
       const field = document.activeElement;
       if (!els.refineDialog.open || !field?.matches(KEYBOARD_FIELD) || !els.refineDialog.contains(field)) return;
-      els.refineDialog.scrollTop += field.getBoundingClientRect().top - els.refineDialog.getBoundingClientRect().top;
+      const dialog = els.refineDialog.getBoundingClientRect();
+      const head = els.refineDialog.querySelector(':scope > .dialog-head');
+      const actions = els.refineDialog.querySelector('.dialog-actions').getBoundingClientRect();
+      const top = head && getComputedStyle(head).position === 'sticky'
+        ? Math.max(dialog.top, head.getBoundingClientRect().bottom) : dialog.top;
+      const bottom = Math.min(dialog.bottom, actions.top);
+      const box = field.getBoundingClientRect();
+      // A textarea taller than this space keeps Safari's native caret pan;
+      // alternating its top and bottom into view would make it bounce.
+      if (box.height > bottom - top) return;
+      const gap = Math.min(4, Math.max(0, (bottom - top - box.height) / 2));
+      const shift = box.bottom > bottom - gap ? box.bottom - bottom + gap
+        : box.top < top + gap ? box.top - top - gap : 0;
+      if (shift) els.refineDialog.scrollTop += shift;
     });
   }
 }
@@ -254,9 +266,9 @@ function initPhoneSheets() {
   document.addEventListener('focusin', lateSheetFocus);
   document.addEventListener('focusin', syncSheetViewport);
   // A late preview or restored-draft line can move the field after the
-  // keyboard has settled. Keep the same compact editing space when it does.
+  // keyboard has settled, at any touch size.
   new MutationObserver(() => {
-    if (document.documentElement.hasAttribute('data-short-sheet')) syncSheetViewport();
+    if (touchQuery.matches && els.refineDialog.contains(document.activeElement)) syncSheetViewport();
   }).observe(els.refineDialog, { childList: true, subtree: true, characterData: true, attributes: true });
   window.visualViewport?.addEventListener('resize', syncSheetViewport);
   window.visualViewport?.addEventListener('scroll', syncSheetViewport);

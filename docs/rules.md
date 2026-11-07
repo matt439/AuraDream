@@ -6962,14 +6962,20 @@ measured on the card and when.
   A phone's visible viewport below 200 px at scale 1 marks the root
   `data-short-sheet`. In Refine alone, the head then scrolls away instead
   of sticking, the action row has no vertical or bottom-safe-area padding,
-  its buttons are 44 px and the bottom scroll padding is 48 px. After a
-  viewport or focus change, or a late Refine content update, one animation
-  frame aligns the currently focused
-  keyboard field with Refine's top by changing that dialog's `scrollTop`
-  only. It requires Refine to be open and to contain the focused field;
-  neither the page nor another dialog scrolls. The marker clears as the
-  viewport grows, on page pinch zoom and off the phone, restoring the
-  normal head and footer.
+  its buttons are 44 px and the bottom scroll padding is 48 px. The marker
+  clears as the viewport grows, on page pinch zoom and off the phone,
+  restoring the normal head and footer.
+  At every touch size and scale 1, a viewport or focus change or a late
+  Refine content update queues one animation frame to check the focused
+  keyboard field against the open Refine dialog's visible band: below its
+  sticky head, if any, and above its action row. It changes only that
+  dialog's `scrollTop`, by the nearest amount needed to reveal a clipped
+  field with up to 4 px clearance; an already clear field stays put. It
+  requires Refine to be open and to contain the focused keyboard field.
+  A field taller than that band is left to the browser's caret pan,
+  rather than alternating between its top and bottom on later updates.
+  Neither the page nor another dialog scrolls, and page pinch zoom skips
+  the adjustment.
   The delete question's Delete and Cancel are stacked
   across its sheet, 48 px each, the destructive one first (P51). Swap
   tags' explanation, Mass refine's, and Inpaint's and Outpaint's notes on
@@ -9134,7 +9140,9 @@ closing it with its entry), Swap tags' rows unscrolled cards (Replace
 under Find, the × 44 px), its explanation in a shut How it works fold
 and its empty results not drawn, the audit clean; a supplied visible
 viewport of height 391 px with a 131 px pan fits Refine's sheet and action
-row within that area; page pinch zoom clears the viewport properties,
+row within that area; focused Strength stays between the sticky rows and
+receives hit tests near both vertical edges, including after a late 28 px
+line is inserted above it. Page pinch zoom clears the viewport properties,
 and restoring the real viewport restores the sheet's full height and top.
 At 852x393, a supplied height 94 and top 69 exercise Refine's compact
 state: Strength and Seed each keep focus, fit above its 44 px actions and

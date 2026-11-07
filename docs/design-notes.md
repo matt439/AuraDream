@@ -2301,15 +2301,30 @@ its footer loses vertical and bottom-safe-area padding and its two buttons
 are 44 px tall. The focused input and actions can then share the remaining
 height. Its bottom scroll padding becomes 48 px.
 
-After the viewport changes, one animation frame aligns the focused
-keyboard field with the top of the open Refine dialog. This changes only
-Refine's `scrollTop`, following the keyboard change while the user edits;
-it moves neither the page nor another dialog. Growing the viewport, page
-pinch zoom or leaving the phone clears the compact state. The tablet keeps
-the height cap described above, without this phone-only layout.
+Growing the viewport, page pinch zoom or leaving the phone clears the
+compact state. The tablet keeps the height cap described above, without
+this phone-only layout.
+
+**Keep the field clear of sticky rows at every touch size.** Safari's
+focus pan does not account for the sheet's sticky head and footer. The
+actions can be above the keyboard while Strength is still covered by the
+footer, and a late preview or restored-draft line can move the field
+after the keyboard settles. At scale 1, viewport changes, focus changes
+and Refine content updates queue one animation frame to check the focused
+keyboard field against the open dialog's band between its sticky head,
+if any, and its actions. Only a clipped field causes a scroll, by the
+nearest amount needed with up to 4 px clearance. This changes Refine's
+`scrollTop` alone; it moves neither the page nor another dialog and skips
+page pinch zoom. An already clear field keeps its place. A text area taller
+than the available band is left to Safari's caret pan: trying to reveal
+the whole box would alternate between its top and bottom on later updates.
+This guard also applies to tablet Refine; the 94 px compact layout remains
+phone-only.
 
 The phone-dialogs smoke supplies height 391 and top 131, checks the sheet
-and footer, checks the pinch-zoom reset and restores the real viewport.
+and footer, focuses Strength and checks that the sticky rows do not cover
+its vertical edges, including after a late 28 px line appears above it.
+It checks the pinch-zoom reset and restores the real viewport.
 It also supplies height 94 and top 69 in landscape, checks Strength and
 Seed above the compact footer with hit tests near their vertical edges,
 then restores portrait and checks that the compact marker and head reset.
