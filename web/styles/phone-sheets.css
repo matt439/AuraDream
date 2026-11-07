@@ -169,3 +169,23 @@
     grid-column: 2 / -1; color: var(--text-3); font-size: var(--fs-sm);
   }
 }
+
+/* A wide phone's landscape keyboard can leave only 48 px. The focused
+   field and the same two actions share that row, with the actions beside
+   the form rather than over it. Narrower phones keep the compact foot. */
+@media (pointer: coarse) and (min-width: 700px) and (max-height: 500px) {
+  :root[data-short-sheet] #refine-dialog {
+    --sheet-l: max(16px, var(--safe-l));
+    --sheet-r: max(16px, var(--safe-r));
+    padding-right: calc(var(--sheet-r) + 204px + var(--sp-4));
+    scroll-padding-block: 2px;
+  }
+  :root[data-short-sheet] #refine-dialog .dialog-actions {
+    position: fixed;
+    top: calc(var(--sheet-viewport-top, 0px) + (var(--sheet-viewport-height, 100dvh) - 44px) / 2);
+    right: var(--sheet-r); bottom: auto;
+    width: 204px; height: 44px; margin: 0; padding: 0; border: 0;
+  }
+  :root[data-short-sheet] #refine-dialog .dialog-actions > .ghost { flex: 1; min-width: 0; }
+  :root[data-short-sheet] #refine-dialog .dialog-actions > .primary { flex: 0 0 120px; }
+}

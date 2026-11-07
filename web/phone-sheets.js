@@ -89,8 +89,9 @@ function syncSheetViewport() {
       const actions = els.refineDialog.querySelector('.dialog-actions').getBoundingClientRect();
       const top = head && getComputedStyle(head).position === 'sticky'
         ? Math.max(dialog.top, head.getBoundingClientRect().bottom) : dialog.top;
-      const bottom = Math.min(dialog.bottom, actions.top);
       const box = field.getBoundingClientRect();
+      const underActions = box.left < actions.right && box.right > actions.left;
+      const bottom = underActions ? Math.min(dialog.bottom, actions.top) : dialog.bottom;
       // A textarea taller than this space keeps Safari's native caret pan;
       // alternating its top and bottom into view would make it bounce.
       if (box.height > bottom - top) return;

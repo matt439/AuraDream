@@ -6965,10 +6965,19 @@ measured on the card and when.
   its buttons are 44 px and the bottom scroll padding is 48 px. The marker
   clears as the viewport grows, on page pinch zoom and off the phone,
   restoring the normal head and footer.
+  A wide phone (coarse pointer, width at least 700 px, height at most
+  500 px) uses side actions while that marker is present: Refine resets
+  its centred-column gutters to the safe-area minimum of 16 px and
+  reserves 204 px plus `--sp-4` on the right. Its two actions form a fixed
+  204x44 px row in that space, vertically centred in the visible viewport,
+  with no old footer margins, padding or border; scroll padding is 2 px.
+  This lets a 44 px field and the actions coexist when the viewport is
+  only 48 px tall. Narrower phones keep the compact footer.
   At every touch size and scale 1, a viewport or focus change or a late
   Refine content update queues one animation frame to check the focused
   keyboard field against the open Refine dialog's visible band: below its
-  sticky head, if any, and above its action row. It changes only that
+  sticky head, if any, and above its action row where their horizontal
+  ranges overlap, otherwise to the dialog's bottom. It changes only that
   dialog's `scrollTop`, by the nearest amount needed to reveal a clipped
   field with up to 4 px clearance; an already clear field stays put. It
   requires Refine to be open and to contain the focused keyboard field.
@@ -9144,10 +9153,12 @@ row within that area; focused Strength stays between the sticky rows and
 receives hit tests near both vertical edges, including after a late 28 px
 line is inserted above it. Page pinch zoom clears the viewport properties,
 and restoring the real viewport restores the sheet's full height and top.
-At 852x393, a supplied height 94 and top 69 exercise Refine's compact
-state: Strength and Seed each keep focus, fit above its 44 px actions and
-receive hit tests near both vertical edges; restoring the real viewport
-and portrait clears the compact marker and restores the sticky head.
+At 852x393, supplied heights 94 and 48 with top 69 exercise Refine's
+compact side actions: Strength and Seed each keep focus, fit in the
+visible dialog without overlapping the actions and receive hit tests near
+both vertical edges; at 48 px Seed also ends horizontally before the
+action row. Restoring the real viewport and portrait clears the compact
+marker and restores the sticky head.
 These supplied metrics check the layout mechanism, not native Safari's
 keyboard. The delete question keeps Delete over Cancel, each 48 px and as
 wide; Inpaint's strength note in
