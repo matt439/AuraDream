@@ -31,7 +31,7 @@
 
   /* Size the sheet, rather than lifting only its foot: the head and the
      focused field also need the space above the software keyboard. */
-  dialog:not(.lightbox):not(.confirm-dialog) {
+  dialog:not(.lightbox):not(.confirm-dialog):not(.gallery-sheet) {
     top: var(--sheet-viewport-top, 0px); bottom: auto;
     height: var(--sheet-viewport-height, 100dvh); scroll-padding-bottom: 96px;
   }
