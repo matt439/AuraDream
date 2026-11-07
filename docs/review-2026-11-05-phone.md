@@ -611,7 +611,7 @@ The verification pass refuted no finding outright. These claims were corrected o
 - Optional extras kept as later work, not fixes: pinch-to-change columns, drag-select, a date scrubber, a search-token sheet, canvas pinch-zoom, swipe-to-dismiss sheets, a lightbox filmstrip.
 - A third Results tab: not chosen. The action bar with a result dock covers the need with less chrome (see 2.2). It stays possible later.
 - Severity adjustments applied: Help badges high → medium; Check inline high → medium; the context menu high → medium; Models sheet (platform) high → medium, kept high here as a merged core task; the lightbox backdrop to low; the stuck-label and Delete unstarred findings to medium.
-- Physical-device acceptance remains for P44 and P36. The [Safari Simulator check](#6-safari-simulator-check-2026-11-07) separately checks native iOS Safari and records a remaining P44 keyboard overlap.
+- Physical-device acceptance remains for P44 and P36. The [initial Safari Simulator check](#6-safari-simulator-check-2026-11-07) recorded P44's Refine keyboard overlap; the [Refine correction](#7-refine-keyboard-correction-2026-11-07) now passes its focused native Safari checks.
 
 ## 6. Safari Simulator check (2026-11-07)
 

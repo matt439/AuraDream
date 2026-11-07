@@ -2344,7 +2344,7 @@ at 48 px. It then restores portrait and checks that the compact marker
 and head reset.
 This is a mechanism check. Native control rectangles, software-keyboard
 rectangles and screenshots remain the Simulator acceptance evidence in
-the [phone review](review-2026-11-05-phone.md#6-safari-simulator-check-2026-11-07);
+the [phone review](review-2026-11-05-phone.md#7-refine-keyboard-correction-2026-11-07);
 other tablet dialogs and physical-device acceptance need their own checks.
 
 **What is around the source.** Opened from Reuse on a pass, the title and a
