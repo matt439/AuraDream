@@ -1,0 +1,445 @@
+{
+  "date": "2026-11-07",
+  "coverage": "Xcode iOS Simulator Safari",
+  "physical_device_acceptance": false,
+  "gpu_or_model_acceptance": false,
+  "application_revision": "4e1127c194871acf437637679e39cf349c2756cf",
+  "backend": "AuraDream fake backend with a new disposable gallery; no weights",
+  "raw_evidence_root": "work/safari-20261107",
+  "environment": {
+    "xcode": "27.2 (27B52)",
+    "ios": "27.0 (24A434)",
+    "appium": "3.8.0",
+    "xcuitest": "12.22.7"
+  },
+  "results": [
+    {
+      "model": "iPhone 15 Pro",
+      "orientation": "PORTRAIT",
+      "viewport": [
+        393,
+        695
+      ],
+      "status": "failed",
+      "counts": {
+        "passed": 9,
+        "failed": 1
+      },
+      "harness": {
+        "version": "2026-11-07.4",
+        "sha256": "86fe5e16c3d870b858058bd8d3d553ebcd14da054b610205259b89fd1ae5e074"
+      },
+      "checks": [
+        {
+          "name": "create_layout",
+          "status": "passed",
+          "error": null
+        },
+        {
+          "name": "prompt_keyboard",
+          "status": "passed",
+          "error": null
+        },
+        {
+          "name": "generate_queue",
+          "status": "passed",
+          "error": null
+        },
+        {
+          "name": "models",
+          "status": "passed",
+          "error": null
+        },
+        {
+          "name": "more_options",
+          "status": "passed",
+          "error": null
+        },
+        {
+          "name": "gallery_selection",
+          "status": "passed",
+          "error": null
+        },
+        {
+          "name": "viewer_details_back",
+          "status": "passed",
+          "error": null
+        },
+        {
+          "name": "viewer_more_menu",
+          "status": "passed",
+          "error": null
+        },
+        {
+          "name": "refine_keyboard",
+          "status": "failed",
+          "error": "native Cancel action covered by keyboard: action={'y': 565, 'x': 175, 'width': 75, 'height': 50}, keyboard={'shown': True, 'rect': {'y': 567, 'x': 0, 'width': 393, 'height': 227}}"
+        },
+        {
+          "name": "native_share",
+          "status": "passed",
+          "error": null
+        }
+      ]
+    },
+    {
+      "model": "iPhone 15 Pro",
+      "orientation": "LANDSCAPE",
+      "viewport": [
+        852,
+        329
+      ],
+      "status": "passed",
+      "counts": {
+        "passed": 10
+      },
+      "harness": {
+        "version": "2026-11-07.4",
+        "sha256": "86fe5e16c3d870b858058bd8d3d553ebcd14da054b610205259b89fd1ae5e074"
+      },
+      "checks": [
+        {
+          "name": "create_layout",
+          "status": "passed",
+          "error": null
+        },
+        {
+          "name": "prompt_keyboard",
+          "status": "passed",
+          "error": null
+        },
+        {
+          "name": "generate_queue",
+          "status": "passed",
+          "error": null
+        },
+        {
+          "name": "models",
+          "status": "passed",
+          "error": null
+        },
+        {
+          "name": "more_options",
+          "status": "passed",
+          "error": null
+        },
+        {
+          "name": "gallery_selection",
+          "status": "passed",
+          "error": null
+        },
+        {
+          "name": "viewer_details_back",
+          "status": "passed",
+          "error": null
+        },
+        {
+          "name": "viewer_more_menu",
+          "status": "passed",
+          "error": null
+        },
+        {
+          "name": "refine_keyboard",
+          "status": "passed",
+          "error": null
+        },
+        {
+          "name": "native_share",
+          "status": "passed",
+          "error": null
+        }
+      ]
+    },
+    {
+      "model": "iPad Air 11-inch (M2)",
+      "orientation": "PORTRAIT",
+      "viewport": [
+        820,
+        1048
+      ],
+      "status": "failed",
+      "counts": {
+        "passed": 8,
+        "failed": 1,
+        "not_applicable": 1
+      },
+      "harness": {
+        "version": "2026-11-07.6-visible-safari",
+        "sha256": "672f147a204fbb9946a768e28d7a01f47dccb4baec0cff9a377196e4dd552171"
+      },
+      "checks": [
+        {
+          "name": "create_layout",
+          "status": "passed",
+          "error": null
+        },
+        {
+          "name": "prompt_keyboard",
+          "status": "passed",
+          "error": null
+        },
+        {
+          "name": "generate_queue",
+          "status": "passed",
+          "error": null
+        },
+        {
+          "name": "models",
+          "status": "passed",
+          "error": null
+        },
+        {
+          "name": "more_options",
+          "status": "passed",
+          "error": null
+        },
+        {
+          "name": "gallery_selection",
+          "status": "passed",
+          "error": null
+        },
+        {
+          "name": "viewer_details_back",
+          "status": "passed",
+          "error": null
+        },
+        {
+          "name": "viewer_more_menu",
+          "status": "passed",
+          "error": null
+        },
+        {
+          "name": "refine_keyboard",
+          "status": "failed",
+          "error": "native Cancel action covered by keyboard: action={'y': 918, 'x': 428, 'width': 70, 'height': 51}, keyboard={'shown': True, 'rect': {'y': 898, 'x': 0, 'width': 820, 'height': 279}}"
+        },
+        {
+          "name": "native_share",
+          "status": "not_applicable",
+          "error": null
+        }
+      ]
+    },
+    {
+      "model": "iPad Air 11-inch (M2)",
+      "orientation": "LANDSCAPE",
+      "viewport": [
+        1180,
+        688
+      ],
+      "status": "failed",
+      "counts": {
+        "passed": 8,
+        "failed": 1,
+        "not_applicable": 1
+      },
+      "harness": {
+        "version": "2026-11-07.6-visible-safari",
+        "sha256": "672f147a204fbb9946a768e28d7a01f47dccb4baec0cff9a377196e4dd552171"
+      },
+      "checks": [
+        {
+          "name": "create_layout",
+          "status": "passed",
+          "error": null
+        },
+        {
+          "name": "prompt_keyboard",
+          "status": "passed",
+          "error": null
+        },
+        {
+          "name": "generate_queue",
+          "status": "passed",
+          "error": null
+        },
+        {
+          "name": "models",
+          "status": "passed",
+          "error": null
+        },
+        {
+          "name": "more_options",
+          "status": "passed",
+          "error": null
+        },
+        {
+          "name": "gallery_selection",
+          "status": "passed",
+          "error": null
+        },
+        {
+          "name": "viewer_details_back",
+          "status": "passed",
+          "error": null
+        },
+        {
+          "name": "viewer_more_menu",
+          "status": "passed",
+          "error": null
+        },
+        {
+          "name": "refine_keyboard",
+          "status": "failed",
+          "error": "POST /session/bd5d1cc0-2109-4627-a8b4-1317ebd6eef2/element: An element could not be located on the page using the given search parameters."
+        },
+        {
+          "name": "native_share",
+          "status": "not_applicable",
+          "error": null
+        }
+      ]
+    }
+  ],
+  "reports": [
+    {
+      "path": "results-20261107T003614Z/report.json",
+      "sha256": "034cd762f3c8ce6825b031402901425b061883277746a6119b2885b3e96f9aa1",
+      "source": {
+        "repository": "AuraDream",
+        "revision": "4e1127c194871acf437637679e39cf349c2756cf",
+        "dirty": false
+      },
+      "remaining_owned_devices": [],
+      "run_errors": [
+        "Interrupted"
+      ],
+      "exit_code": 1
+    },
+    {
+      "path": "results-20261107T004658Z/report.json",
+      "sha256": "0880db13b63563f89738e6db31e15ae977b7bb9a6378948073025ae07c05d73a",
+      "source": {
+        "backend_tree": "eac797f8b7110cc6d76f86291ab614c40ea49e84",
+        "repository": "AuraDream",
+        "changed_files": [
+          "TODO.md",
+          "docs/review-2026-11-05-phone.md"
+        ],
+        "web_tree": "e64ae893ca24405764e71f1efcca4c23078536e1",
+        "revision": "4e1127c194871acf437637679e39cf349c2756cf",
+        "dirty": true,
+        "application_assets_unmodified": true
+      },
+      "remaining_owned_devices": [],
+      "run_errors": [],
+      "exit_code": 1
+    }
+  ],
+  "excluded_attempts": "The initial pilot used an incorrect nonzero-inset assertion and share selector. The first iPad attempt inspected a background tab while Safari displayed Start Page; its rows are excluded. The corrected iPad runner opens native Safari and requires the exact URL to be visible.",
+  "scope_limits": [
+    "History Back was invoked through history.back(), not an iOS edge swipe.",
+    "Share checks native PNG activity UI opening, not completed delivery.",
+    "Physical iPhone/Android, iPad Split View, long press, pinch, other dialogs and GPU work remain separate."
+  ],
+  "counts": {
+    "passed": 35,
+    "failed": 3,
+    "not_applicable": 2
+  },
+  "findings": [
+    {
+      "owner": "UI#40 / P44",
+      "model": "iPhone 15 Pro",
+      "orientation": "PORTRAIT",
+      "classification": "Refine footer obscured by software keyboard or outside visible viewport; confirmed in screenshot and native accessibility XML",
+      "native_controls": {
+        "Cancel": {
+          "x": "175",
+          "y": "565",
+          "width": "75",
+          "height": "50",
+          "visible": "true",
+          "enabled": "true"
+        },
+        "Refine": {
+          "x": "257",
+          "y": "565",
+          "width": "120",
+          "height": "50",
+          "visible": "true",
+          "enabled": "true"
+        }
+      },
+      "native_keyboard": {
+        "x": "0",
+        "y": "567",
+        "width": "393",
+        "height": "227"
+      },
+      "xml_path": "results-20261107T003614Z/iPhone-15-Pro-PORTRAIT/refine_keyboard/refine-keyboard-source.xml",
+      "xml_sha256": "8cb4602ad828ae4691be25841a0b4aaad2b08821e046b87539c4db96892e8b4f"
+    },
+    {
+      "owner": "UI#40 / P44",
+      "model": "iPad Air 11-inch (M2)",
+      "orientation": "PORTRAIT",
+      "classification": "Refine footer obscured by software keyboard or outside visible viewport; confirmed in screenshot and native accessibility XML",
+      "native_controls": {
+        "Cancel": {
+          "x": "428",
+          "y": "918",
+          "width": "70",
+          "height": "51",
+          "visible": "true",
+          "enabled": "true"
+        },
+        "Refine": {
+          "x": "505",
+          "y": "918",
+          "width": "120",
+          "height": "51",
+          "visible": "true",
+          "enabled": "true"
+        }
+      },
+      "native_keyboard": {
+        "x": "0",
+        "y": "898",
+        "width": "820",
+        "height": "279"
+      },
+      "xml_path": "results-20261107T004658Z/iPad-Air-11-inch-(M2)-PORTRAIT/refine_keyboard/refine-keyboard-source.xml",
+      "xml_sha256": "3ef56a71ec2496e7e3e4e1e2fcfee2d35f1dd23871875d7dbb57bf3188100b15"
+    },
+    {
+      "owner": "UI#40 / P44",
+      "model": "iPad Air 11-inch (M2)",
+      "orientation": "LANDSCAPE",
+      "classification": "Refine footer obscured by software keyboard or outside visible viewport; confirmed in screenshot and native accessibility XML",
+      "native_controls": {
+        "Cancel": {
+          "x": "604",
+          "y": "809",
+          "width": "70",
+          "height": "51",
+          "visible": "false",
+          "enabled": "true"
+        },
+        "Refine": {
+          "x": "681",
+          "y": "809",
+          "width": "120",
+          "height": "51",
+          "visible": "false",
+          "enabled": "false"
+        }
+      },
+      "native_keyboard": {
+        "x": "0",
+        "y": "453",
+        "width": "1180",
+        "height": "364"
+      },
+      "xml_path": "results-20261107T004658Z/iPad-Air-11-inch-(M2)-LANDSCAPE/refine_keyboard/refine-keyboard-source.xml",
+      "xml_sha256": "23b36fffb2b13db8889d5c3d76deec50d820bd0fe838285f79fee752a796b0cc"
+    }
+  ],
+  "cleanup": {
+    "path": "cleanup-verification.json",
+    "sha256": "68b18590e6430c97a5adaf0f0d9e32791e794554d6c26eb61e7bebf357400f58",
+    "all_created_simulators_removed": true,
+    "all_owned_appium_ports_closed": true,
+    "windows_fake_server_port_17961_closed": true
+  }
+}

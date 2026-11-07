@@ -1,0 +1,1583 @@
+{
+  "date": "2026-11-07",
+  "coverage": "Xcode iOS Simulator Safari; focused Refine keyboard checks",
+  "physical_device_acceptance": false,
+  "gpu_or_model_acceptance": false,
+  "source": {
+    "backend_tree": "eac797f8b7110cc6d76f86291ab614c40ea49e84",
+    "repository": "AuraDream",
+    "changed_files": [],
+    "web_tree": "ff627f3f9ae2ce5532b39a0bbc797c0ef76f319d",
+    "revision": "68695a25d422fb343d1c064d5a32c200b189cdb1",
+    "dirty": false,
+    "application_assets_unmodified": true
+  },
+  "run_id": "results-20261107T020921Z",
+  "raw_evidence_root": "work/safari-p44-20261107/results-20261107T020921Z",
+  "report_sha256": "e70e398f0abe22e1ad6ec36d2c1a1ac42932ac41205cd597a92c6d1cf50bf4db",
+  "harness_sha256_recorded": {
+    "run.py": "4f77b46e54fb543191aafa439e960eee3ee89779b957b9b5ade2c1ed6c36b0d8",
+    "flows.py": "06b50b271326236c66cdae31e7cc0e5af8ab9b1f732b1713b899b4ba04c5dc9a",
+    "phone_audit.js": "b42a2e8cf2ca070950772d5abcc6104a410c6a9620e46259db978068ee273715"
+  },
+  "harness_sha256_snapshots": {
+    "flows.py": "06b50b271326236c66cdae31e7cc0e5af8ab9b1f732b1713b899b4ba04c5dc9a",
+    "phone_audit.js": "b42a2e8cf2ca070950772d5abcc6104a410c6a9620e46259db978068ee273715",
+    "run.py": "4f77b46e54fb543191aafa439e960eee3ee89779b957b9b5ade2c1ed6c36b0d8",
+    "source.json": "83255024383e2d233065c5623e5f4e652b3dfecd058616664598a1c170d22996",
+    "start.sh": "e8f9838b519f12bcf67680ff2e5f1d9bfed722edaf2c45c3cce523583fdde2fb"
+  },
+  "harness_hash_mismatches": [],
+  "environment": {
+    "host": "ProductName:\t\tmacOS\nProductVersion:\t\t27.0.1\nBuildVersion:\t\t26A434",
+    "xcode": "Xcode 27.2\nBuild version 27B52",
+    "appium": "3.8.0",
+    "xcuitest": "12.22.7"
+  },
+  "counts": {
+    "configurations_passed": 4,
+    "configurations_failed": 0,
+    "field_scenarios_passed": 8
+  },
+  "configurations": [
+    {
+      "model": "iPhone 15 Pro",
+      "orientation": "PORTRAIT",
+      "status": "passed",
+      "initial_viewport": [
+        393,
+        695
+      ],
+      "harness": {
+        "version": "2026-11-07.10-native-refine",
+        "sha256": "06b50b271326236c66cdae31e7cc0e5af8ab9b1f732b1713b899b4ba04c5dc9a"
+      },
+      "screenshot": {
+        "file": "simulator-p44-iphone-portrait.png",
+        "sha256": "986144f00a2d92adbedb1b8c0d69b9921eb05c50d62fee13f086b840375bf751"
+      },
+      "fields": [
+        {
+          "id": "refine-strength",
+          "status": "passed",
+          "viewport": {
+            "height": 391,
+            "width": 393,
+            "offsetTop": 131,
+            "offsetLeft": 0,
+            "scale": 1
+          },
+          "dialog": {
+            "left": 0,
+            "top": 0,
+            "right": 393,
+            "bottom": 391,
+            "width": 393,
+            "height": 391,
+            "display": "flex",
+            "visibility": "visible",
+            "position": "fixed",
+            "font": "16px"
+          },
+          "native_window": {
+            "y": 0,
+            "x": 0,
+            "width": 393,
+            "height": 852
+          },
+          "native_keyboard": {
+            "shown": true,
+            "rect": {
+              "y": 567,
+              "x": 0,
+              "width": 393,
+              "height": 227
+            }
+          },
+          "native_actions": {
+            "Cancel": {
+              "y": 392,
+              "x": 175,
+              "width": 75,
+              "height": 50
+            },
+            "Refine": {
+              "y": 392,
+              "x": 257,
+              "width": 120,
+              "height": 50
+            }
+          },
+          "field_usability": {
+            "native_field": {
+              "name": "Strength",
+              "label": "Strength",
+              "visible": "true",
+              "value": "0.1",
+              "rect": {
+                "x": 16.0,
+                "y": 335.0,
+                "width": 361.0,
+                "height": 45.0
+              }
+            },
+            "native_keyboard": {
+              "shown": true,
+              "rect": {
+                "y": 567,
+                "x": 0,
+                "width": 393,
+                "height": 227
+              }
+            },
+            "dom_field": {
+              "left": 16,
+              "top": 276.5,
+              "right": 377,
+              "bottom": 320.5,
+              "width": 361,
+              "height": 44,
+              "position": "static"
+            },
+            "dom_dialog": {
+              "left": 0,
+              "top": 0,
+              "right": 393,
+              "bottom": 391,
+              "width": 393,
+              "height": 391,
+              "position": "fixed"
+            },
+            "dom_head": {
+              "left": 0,
+              "top": 0,
+              "right": 393,
+              "bottom": 61,
+              "width": 393,
+              "height": 61,
+              "position": "sticky"
+            },
+            "dom_footer": {
+              "left": 0,
+              "top": 324,
+              "right": 393,
+              "bottom": 391,
+              "width": 393,
+              "height": 67,
+              "position": "sticky"
+            },
+            "interior_hits": [
+              {
+                "name": "center",
+                "x": 196.5,
+                "y": 298.5,
+                "hittable": true,
+                "hit": "refine-strength"
+              },
+              {
+                "name": "top-left",
+                "x": 20,
+                "y": 280.5,
+                "hittable": true,
+                "hit": "refine-strength"
+              },
+              {
+                "name": "top-right",
+                "x": 373,
+                "y": 280.5,
+                "hittable": true,
+                "hit": "refine-strength"
+              },
+              {
+                "name": "bottom-left",
+                "x": 20,
+                "y": 316.5,
+                "hittable": true,
+                "hit": "refine-strength"
+              },
+              {
+                "name": "bottom-right",
+                "x": 373,
+                "y": 316.5,
+                "hittable": true,
+                "hit": "refine-strength"
+              }
+            ],
+            "before": "0.1",
+            "after": "0.11",
+            "native_key_press": {
+              "digit": "1",
+              "key_rect": {
+                "y": 574,
+                "x": 4,
+                "width": 130,
+                "height": 54
+              }
+            }
+          },
+          "native_cancel_rect": {
+            "y": 392,
+            "x": 175,
+            "width": 75,
+            "height": 50
+          },
+          "cancel_closed_dialog_and_keyboard": true,
+          "restored_viewport": {
+            "height": 695,
+            "width": 393,
+            "offsetTop": 0,
+            "offsetLeft": 0,
+            "scale": 1
+          }
+        },
+        {
+          "id": "refine-seed",
+          "status": "passed",
+          "viewport": {
+            "height": 391,
+            "width": 393,
+            "offsetTop": 210,
+            "offsetLeft": 0,
+            "scale": 1
+          },
+          "dialog": {
+            "left": 0,
+            "top": 0,
+            "right": 393,
+            "bottom": 391,
+            "width": 393,
+            "height": 391,
+            "display": "flex",
+            "visibility": "visible",
+            "position": "fixed",
+            "font": "16px"
+          },
+          "native_window": {
+            "y": 0,
+            "x": 0,
+            "width": 393,
+            "height": 852
+          },
+          "native_keyboard": {
+            "shown": true,
+            "rect": {
+              "y": 567,
+              "x": 0,
+              "width": 393,
+              "height": 227
+            }
+          },
+          "native_actions": {
+            "Cancel": {
+              "y": 392,
+              "x": 175,
+              "width": 75,
+              "height": 50
+            },
+            "Refine": {
+              "y": 392,
+              "x": 257,
+              "width": 120,
+              "height": 50
+            }
+          },
+          "field_usability": {
+            "native_field": {
+              "name": "Seed",
+              "label": "Seed",
+              "visible": "true",
+              "value": "5074918688323269",
+              "rect": {
+                "x": 86.0,
+                "y": 335.0,
+                "width": 238.0,
+                "height": 45.0
+              }
+            },
+            "native_keyboard": {
+              "shown": true,
+              "rect": {
+                "y": 567,
+                "x": 0,
+                "width": 393,
+                "height": 227
+              }
+            },
+            "dom_field": {
+              "left": 86,
+              "top": 276.59375,
+              "right": 324,
+              "bottom": 320.59375,
+              "width": 238,
+              "height": 44,
+              "position": "static"
+            },
+            "dom_dialog": {
+              "left": 0,
+              "top": 0,
+              "right": 393,
+              "bottom": 391,
+              "width": 393,
+              "height": 391,
+              "position": "fixed"
+            },
+            "dom_head": {
+              "left": 0,
+              "top": 0,
+              "right": 393,
+              "bottom": 61,
+              "width": 393,
+              "height": 61,
+              "position": "sticky"
+            },
+            "dom_footer": {
+              "left": 0,
+              "top": 324,
+              "right": 393,
+              "bottom": 391,
+              "width": 393,
+              "height": 67,
+              "position": "sticky"
+            },
+            "interior_hits": [
+              {
+                "name": "center",
+                "x": 205,
+                "y": 298.59375,
+                "hittable": true,
+                "hit": "refine-seed"
+              },
+              {
+                "name": "top-left",
+                "x": 90,
+                "y": 280.59375,
+                "hittable": true,
+                "hit": "refine-seed"
+              },
+              {
+                "name": "top-right",
+                "x": 320,
+                "y": 280.59375,
+                "hittable": true,
+                "hit": "refine-seed"
+              },
+              {
+                "name": "bottom-left",
+                "x": 90,
+                "y": 316.59375,
+                "hittable": true,
+                "hit": "refine-seed"
+              },
+              {
+                "name": "bottom-right",
+                "x": 320,
+                "y": 316.59375,
+                "hittable": true,
+                "hit": "refine-seed"
+              }
+            ],
+            "before": "5074918688323269",
+            "after": "50749186883232691",
+            "native_key_press": {
+              "digit": "1",
+              "key_rect": {
+                "y": 574,
+                "x": 4,
+                "width": 130,
+                "height": 54
+              }
+            }
+          },
+          "native_cancel_rect": {
+            "y": 392,
+            "x": 175,
+            "width": 75,
+            "height": 50
+          },
+          "cancel_closed_dialog_and_keyboard": true,
+          "restored_viewport": {
+            "height": 695,
+            "width": 393,
+            "offsetTop": 0,
+            "offsetLeft": 0,
+            "scale": 1
+          }
+        }
+      ]
+    },
+    {
+      "model": "iPhone 15 Pro",
+      "orientation": "LANDSCAPE",
+      "status": "passed",
+      "initial_viewport": [
+        852,
+        283
+      ],
+      "harness": {
+        "version": "2026-11-07.10-native-refine",
+        "sha256": "06b50b271326236c66cdae31e7cc0e5af8ab9b1f732b1713b899b4ba04c5dc9a"
+      },
+      "screenshot": {
+        "file": "simulator-p44-iphone-landscape.png",
+        "sha256": "7d9bb3948fb219bed235bbb5cc88cba288eaccd27562b4194bd6429a917d4312"
+      },
+      "fields": [
+        {
+          "id": "refine-strength",
+          "status": "passed",
+          "viewport": {
+            "height": 48,
+            "width": 852,
+            "offsetTop": 69,
+            "offsetLeft": 0,
+            "scale": 1
+          },
+          "dialog": {
+            "left": 0,
+            "top": 0,
+            "right": 852,
+            "bottom": 48,
+            "width": 852,
+            "height": 48,
+            "display": "flex",
+            "visibility": "visible",
+            "position": "fixed",
+            "font": "16px"
+          },
+          "native_window": {
+            "y": 0,
+            "x": 0,
+            "width": 852,
+            "height": 393
+          },
+          "native_keyboard": {
+            "shown": true,
+            "rect": {
+              "y": 222,
+              "x": 75,
+              "width": 702,
+              "height": 168
+            }
+          },
+          "native_actions": {
+            "Cancel": {
+              "y": 112,
+              "x": 589,
+              "width": 76,
+              "height": 44
+            },
+            "Refine": {
+              "y": 112,
+              "x": 673,
+              "width": 120,
+              "height": 44
+            }
+          },
+          "field_usability": {
+            "native_field": {
+              "name": "Strength",
+              "label": "Strength",
+              "visible": "true",
+              "value": "0.1",
+              "rect": {
+                "x": 59.0,
+                "y": 112.0,
+                "width": 514.0,
+                "height": 44.0
+              }
+            },
+            "native_keyboard": {
+              "shown": true,
+              "rect": {
+                "y": 222,
+                "x": 75,
+                "width": 702,
+                "height": 168
+              }
+            },
+            "dom_field": {
+              "left": 59,
+              "top": 2,
+              "right": 573,
+              "bottom": 46,
+              "width": 514,
+              "height": 44,
+              "position": "static"
+            },
+            "dom_dialog": {
+              "left": 0,
+              "top": 0,
+              "right": 852,
+              "bottom": 48,
+              "width": 852,
+              "height": 48,
+              "position": "fixed"
+            },
+            "dom_head": {
+              "left": 0,
+              "top": -540,
+              "right": 632,
+              "bottom": -479,
+              "width": 632,
+              "height": 61,
+              "position": "static"
+            },
+            "dom_footer": {
+              "left": 589,
+              "top": 2,
+              "right": 793,
+              "bottom": 46,
+              "width": 204,
+              "height": 44,
+              "position": "fixed"
+            },
+            "interior_hits": [
+              {
+                "name": "center",
+                "x": 316,
+                "y": 24,
+                "hittable": true,
+                "hit": "refine-strength"
+              },
+              {
+                "name": "top-left",
+                "x": 63,
+                "y": 6,
+                "hittable": true,
+                "hit": "refine-strength"
+              },
+              {
+                "name": "top-right",
+                "x": 569,
+                "y": 6,
+                "hittable": true,
+                "hit": "refine-strength"
+              },
+              {
+                "name": "bottom-left",
+                "x": 63,
+                "y": 42,
+                "hittable": true,
+                "hit": "refine-strength"
+              },
+              {
+                "name": "bottom-right",
+                "x": 569,
+                "y": 42,
+                "hittable": true,
+                "hit": "refine-strength"
+              }
+            ],
+            "before": "0.1",
+            "after": "0.11",
+            "native_key_press": {
+              "digit": "1",
+              "key_rect": {
+                "y": 230,
+                "x": 225,
+                "width": 136,
+                "height": 40
+              }
+            }
+          },
+          "native_cancel_rect": {
+            "y": 112,
+            "x": 589,
+            "width": 76,
+            "height": 44
+          },
+          "cancel_closed_dialog_and_keyboard": true,
+          "restored_viewport": {
+            "height": 283,
+            "width": 852,
+            "offsetTop": 0,
+            "offsetLeft": 0,
+            "scale": 1
+          }
+        },
+        {
+          "id": "refine-seed",
+          "status": "passed",
+          "viewport": {
+            "height": 47.984375,
+            "width": 852,
+            "offsetTop": 68.65625,
+            "offsetLeft": 0,
+            "scale": 1
+          },
+          "dialog": {
+            "left": 0,
+            "top": -0.34375,
+            "right": 852,
+            "bottom": 47.640625,
+            "width": 852,
+            "height": 47.984375,
+            "display": "flex",
+            "visibility": "visible",
+            "position": "fixed",
+            "font": "16px"
+          },
+          "native_window": {
+            "y": 0,
+            "x": 0,
+            "width": 852,
+            "height": 393
+          },
+          "native_keyboard": {
+            "shown": true,
+            "rect": {
+              "y": 222,
+              "x": 75,
+              "width": 702,
+              "height": 168
+            }
+          },
+          "native_actions": {
+            "Cancel": {
+              "y": 111,
+              "x": 589,
+              "width": 76,
+              "height": 46
+            },
+            "Refine": {
+              "y": 111,
+              "x": 673,
+              "width": 120,
+              "height": 46
+            }
+          },
+          "field_usability": {
+            "native_field": {
+              "name": "Seed",
+              "label": "Seed",
+              "visible": "true",
+              "value": "5074918688323269",
+              "rect": {
+                "x": 129.0,
+                "y": 112.0,
+                "width": 391.0,
+                "height": 46.0
+              }
+            },
+            "native_keyboard": {
+              "shown": true,
+              "rect": {
+                "y": 222,
+                "x": 75,
+                "width": 702,
+                "height": 168
+              }
+            },
+            "dom_field": {
+              "left": 129,
+              "top": 2.25,
+              "right": 520,
+              "bottom": 46.25,
+              "width": 391,
+              "height": 44,
+              "position": "static"
+            },
+            "dom_dialog": {
+              "left": 0,
+              "top": -0.34375,
+              "right": 852,
+              "bottom": 47.640625,
+              "width": 852,
+              "height": 47.984375,
+              "position": "fixed"
+            },
+            "dom_head": {
+              "left": 0,
+              "top": -643.34375,
+              "right": 632,
+              "bottom": -582.34375,
+              "width": 632,
+              "height": 61,
+              "position": "static"
+            },
+            "dom_footer": {
+              "left": 589,
+              "top": 1.640625,
+              "right": 793,
+              "bottom": 45.640625,
+              "width": 204,
+              "height": 44,
+              "position": "fixed"
+            },
+            "interior_hits": [
+              {
+                "name": "center",
+                "x": 324.5,
+                "y": 24.25,
+                "hittable": true,
+                "hit": "refine-seed"
+              },
+              {
+                "name": "top-left",
+                "x": 133,
+                "y": 6.25,
+                "hittable": true,
+                "hit": "refine-seed"
+              },
+              {
+                "name": "top-right",
+                "x": 516,
+                "y": 6.25,
+                "hittable": true,
+                "hit": "refine-seed"
+              },
+              {
+                "name": "bottom-left",
+                "x": 133,
+                "y": 42.25,
+                "hittable": true,
+                "hit": "refine-seed"
+              },
+              {
+                "name": "bottom-right",
+                "x": 516,
+                "y": 42.25,
+                "hittable": true,
+                "hit": "refine-seed"
+              }
+            ],
+            "before": "5074918688323269",
+            "after": "50749186883232691",
+            "native_key_press": {
+              "digit": "1",
+              "key_rect": {
+                "y": 230,
+                "x": 225,
+                "width": 136,
+                "height": 40
+              }
+            }
+          },
+          "native_cancel_rect": {
+            "y": 111,
+            "x": 589,
+            "width": 76,
+            "height": 46
+          },
+          "cancel_closed_dialog_and_keyboard": true,
+          "restored_viewport": {
+            "height": 283,
+            "width": 852,
+            "offsetTop": 0,
+            "offsetLeft": 0,
+            "scale": 1
+          }
+        }
+      ]
+    },
+    {
+      "model": "iPad Air 11-inch (M2)",
+      "orientation": "PORTRAIT",
+      "status": "passed",
+      "initial_viewport": [
+        820,
+        1048
+      ],
+      "harness": {
+        "version": "2026-11-07.10-native-refine",
+        "sha256": "06b50b271326236c66cdae31e7cc0e5af8ab9b1f732b1713b899b4ba04c5dc9a"
+      },
+      "screenshot": {
+        "file": "simulator-p44-ipad-portrait.png",
+        "sha256": "888fdca394ba66a79ec0616f9c1f85c2baaf94336a2e329a7efc4ccb60678736"
+      },
+      "fields": [
+        {
+          "id": "refine-strength",
+          "status": "passed",
+          "viewport": {
+            "height": 711,
+            "width": 820,
+            "offsetTop": 0,
+            "offsetLeft": 0,
+            "scale": 1
+          },
+          "dialog": {
+            "left": 180,
+            "top": 89.828125,
+            "right": 640,
+            "bottom": 694.984375,
+            "width": 460,
+            "height": 605.15625,
+            "display": "flex",
+            "visibility": "visible",
+            "position": "fixed",
+            "font": "14px"
+          },
+          "native_window": {
+            "y": 0,
+            "x": 0,
+            "width": 820,
+            "height": 1180
+          },
+          "native_keyboard": {
+            "shown": true,
+            "rect": {
+              "y": 898,
+              "x": 0,
+              "width": 820,
+              "height": 279
+            }
+          },
+          "native_actions": {
+            "Cancel": {
+              "y": 753,
+              "x": 428,
+              "width": 70,
+              "height": 51
+            },
+            "Refine": {
+              "y": 753,
+              "x": 505,
+              "width": 120,
+              "height": 51
+            }
+          },
+          "field_usability": {
+            "native_field": {
+              "name": "Strength",
+              "label": "Strength",
+              "visible": "true",
+              "value": "0.1",
+              "rect": {
+                "x": 195.0,
+                "y": 539.0,
+                "width": 147.0,
+                "height": 48.0
+              }
+            },
+            "native_keyboard": {
+              "shown": true,
+              "rect": {
+                "y": 898,
+                "x": 0,
+                "width": 820,
+                "height": 279
+              }
+            },
+            "dom_field": {
+              "left": 195,
+              "top": 407.828125,
+              "right": 341.625,
+              "bottom": 454.828125,
+              "width": 146.625,
+              "height": 47,
+              "position": "static"
+            },
+            "dom_dialog": {
+              "left": 180,
+              "top": 89.828125,
+              "right": 640,
+              "bottom": 694.984375,
+              "width": 460,
+              "height": 605.15625,
+              "position": "fixed"
+            },
+            "dom_head": {
+              "left": 195,
+              "top": -68.171875,
+              "right": 625,
+              "bottom": -24.171875,
+              "width": 430,
+              "height": 44,
+              "position": "static"
+            },
+            "dom_footer": {
+              "left": 195,
+              "top": 613.328125,
+              "right": 625,
+              "bottom": 679.328125,
+              "width": 430,
+              "height": 66,
+              "position": "sticky"
+            },
+            "interior_hits": [
+              {
+                "name": "center",
+                "x": 268.3125,
+                "y": 431.328125,
+                "hittable": true,
+                "hit": "refine-strength"
+              },
+              {
+                "name": "top-left",
+                "x": 199,
+                "y": 411.828125,
+                "hittable": true,
+                "hit": "refine-strength"
+              },
+              {
+                "name": "top-right",
+                "x": 337.625,
+                "y": 411.828125,
+                "hittable": true,
+                "hit": "refine-strength"
+              },
+              {
+                "name": "bottom-left",
+                "x": 199,
+                "y": 450.828125,
+                "hittable": true,
+                "hit": "refine-strength"
+              },
+              {
+                "name": "bottom-right",
+                "x": 337.625,
+                "y": 450.828125,
+                "hittable": true,
+                "hit": "refine-strength"
+              }
+            ],
+            "before": "0.1",
+            "after": "0.11",
+            "native_key_press": {
+              "digit": "1",
+              "key_rect": {
+                "y": 905,
+                "x": 87,
+                "width": 65,
+                "height": 64
+              }
+            }
+          },
+          "native_cancel_rect": {
+            "y": 753,
+            "x": 428,
+            "width": 70,
+            "height": 51
+          },
+          "cancel_closed_dialog_and_keyboard": true,
+          "restored_viewport": {
+            "height": 1048,
+            "width": 820,
+            "offsetTop": 0,
+            "offsetLeft": 0,
+            "scale": 1
+          }
+        },
+        {
+          "id": "refine-seed",
+          "status": "passed",
+          "viewport": {
+            "height": 711,
+            "width": 820,
+            "offsetTop": 0,
+            "offsetLeft": 0,
+            "scale": 1
+          },
+          "dialog": {
+            "left": 180,
+            "top": 89.828125,
+            "right": 640,
+            "bottom": 694.984375,
+            "width": 460,
+            "height": 605.15625,
+            "display": "flex",
+            "visibility": "visible",
+            "position": "fixed",
+            "font": "14px"
+          },
+          "native_window": {
+            "y": 0,
+            "x": 0,
+            "width": 820,
+            "height": 1180
+          },
+          "native_keyboard": {
+            "shown": true,
+            "rect": {
+              "y": 898,
+              "x": 0,
+              "width": 820,
+              "height": 279
+            }
+          },
+          "native_actions": {
+            "Cancel": {
+              "y": 753,
+              "x": 428,
+              "width": 70,
+              "height": 51
+            },
+            "Refine": {
+              "y": 753,
+              "x": 505,
+              "width": 120,
+              "height": 51
+            }
+          },
+          "field_usability": {
+            "native_field": {
+              "name": "Seed",
+              "label": "Seed",
+              "visible": "true",
+              "value": "5074918688323269",
+              "rect": {
+                "x": 419.0,
+                "y": 540.0,
+                "width": 166.0,
+                "height": 48.0
+              }
+            },
+            "native_keyboard": {
+              "shown": true,
+              "rect": {
+                "y": 898,
+                "x": 0,
+                "width": 820,
+                "height": 279
+              }
+            },
+            "dom_field": {
+              "left": 419.625,
+              "top": 408.625,
+              "right": 584.3125,
+              "bottom": 455.625,
+              "width": 164.6875,
+              "height": 47,
+              "position": "static"
+            },
+            "dom_dialog": {
+              "left": 180,
+              "top": 89.828125,
+              "right": 640,
+              "bottom": 694.984375,
+              "width": 460,
+              "height": 605.15625,
+              "position": "fixed"
+            },
+            "dom_head": {
+              "left": 195,
+              "top": -72.171875,
+              "right": 625,
+              "bottom": -28.171875,
+              "width": 430,
+              "height": 44,
+              "position": "static"
+            },
+            "dom_footer": {
+              "left": 195,
+              "top": 613.984375,
+              "right": 625,
+              "bottom": 679.984375,
+              "width": 430,
+              "height": 66,
+              "position": "sticky"
+            },
+            "interior_hits": [
+              {
+                "name": "center",
+                "x": 501.96875,
+                "y": 432.125,
+                "hittable": true,
+                "hit": "refine-seed"
+              },
+              {
+                "name": "top-left",
+                "x": 423.625,
+                "y": 412.625,
+                "hittable": true,
+                "hit": "refine-seed"
+              },
+              {
+                "name": "top-right",
+                "x": 580.3125,
+                "y": 412.625,
+                "hittable": true,
+                "hit": "refine-seed"
+              },
+              {
+                "name": "bottom-left",
+                "x": 423.625,
+                "y": 451.625,
+                "hittable": true,
+                "hit": "refine-seed"
+              },
+              {
+                "name": "bottom-right",
+                "x": 580.3125,
+                "y": 451.625,
+                "hittable": true,
+                "hit": "refine-seed"
+              }
+            ],
+            "before": "5074918688323269",
+            "after": "50749186883232691",
+            "native_key_press": {
+              "digit": "1",
+              "key_rect": {
+                "y": 905,
+                "x": 87,
+                "width": 65,
+                "height": 64
+              }
+            }
+          },
+          "native_cancel_rect": {
+            "y": 753,
+            "x": 428,
+            "width": 70,
+            "height": 51
+          },
+          "cancel_closed_dialog_and_keyboard": true,
+          "restored_viewport": {
+            "height": 1048,
+            "width": 820,
+            "offsetTop": 0,
+            "offsetLeft": 0,
+            "scale": 1
+          }
+        }
+      ]
+    },
+    {
+      "model": "iPad Air 11-inch (M2)",
+      "orientation": "LANDSCAPE",
+      "status": "passed",
+      "initial_viewport": [
+        1180,
+        688
+      ],
+      "harness": {
+        "version": "2026-11-07.10-native-refine",
+        "sha256": "06b50b271326236c66cdae31e7cc0e5af8ab9b1f732b1713b899b4ba04c5dc9a"
+      },
+      "screenshot": {
+        "file": "simulator-p44-ipad-landscape.png",
+        "sha256": "ad9aa44602f695a77926e7a38bf5f9a2f15bb7438fb52d9afe14d7872e932a2f"
+      },
+      "fields": [
+        {
+          "id": "refine-strength",
+          "status": "passed",
+          "viewport": {
+            "height": 266,
+            "width": 1180,
+            "offsetTop": 0,
+            "offsetLeft": 0,
+            "scale": 1
+          },
+          "dialog": {
+            "left": 360,
+            "top": 61.03125,
+            "right": 820,
+            "bottom": 249.984375,
+            "width": 460,
+            "height": 188.953125,
+            "display": "flex",
+            "visibility": "visible",
+            "position": "fixed",
+            "font": "14px"
+          },
+          "native_window": {
+            "y": 0,
+            "x": 0,
+            "width": 1180,
+            "height": 820
+          },
+          "native_keyboard": {
+            "shown": true,
+            "rect": {
+              "y": 453,
+              "x": 0,
+              "width": 1180,
+              "height": 364
+            }
+          },
+          "native_actions": {
+            "Cancel": {
+              "y": 304,
+              "x": 604,
+              "width": 70,
+              "height": 51
+            },
+            "Refine": {
+              "y": 304,
+              "x": 681,
+              "width": 120,
+              "height": 51
+            }
+          },
+          "field_usability": {
+            "native_field": {
+              "name": "Strength",
+              "label": "Strength",
+              "visible": "true",
+              "value": "0.1",
+              "rect": {
+                "x": 379.0,
+                "y": 246.0,
+                "width": 147.0,
+                "height": 48.0
+              }
+            },
+            "native_keyboard": {
+              "shown": true,
+              "rect": {
+                "y": 453,
+                "x": 0,
+                "width": 1180,
+                "height": 364
+              }
+            },
+            "dom_field": {
+              "left": 379,
+              "top": 114.03125,
+              "right": 525.625,
+              "bottom": 161.03125,
+              "width": 146.625,
+              "height": 47,
+              "position": "static"
+            },
+            "dom_dialog": {
+              "left": 360,
+              "top": 61.03125,
+              "right": 820,
+              "bottom": 249.984375,
+              "width": 460,
+              "height": 188.953125,
+              "position": "fixed"
+            },
+            "dom_head": {
+              "left": 379,
+              "top": -361.96875,
+              "right": 801,
+              "bottom": -317.96875,
+              "width": 422,
+              "height": 44,
+              "position": "static"
+            },
+            "dom_footer": {
+              "left": 379,
+              "top": 164.984375,
+              "right": 801,
+              "bottom": 230.984375,
+              "width": 422,
+              "height": 66,
+              "position": "sticky"
+            },
+            "interior_hits": [
+              {
+                "name": "center",
+                "x": 452.3125,
+                "y": 137.53125,
+                "hittable": true,
+                "hit": "refine-strength"
+              },
+              {
+                "name": "top-left",
+                "x": 383,
+                "y": 118.03125,
+                "hittable": true,
+                "hit": "refine-strength"
+              },
+              {
+                "name": "top-right",
+                "x": 521.625,
+                "y": 118.03125,
+                "hittable": true,
+                "hit": "refine-strength"
+              },
+              {
+                "name": "bottom-left",
+                "x": 383,
+                "y": 157.03125,
+                "hittable": true,
+                "hit": "refine-strength"
+              },
+              {
+                "name": "bottom-right",
+                "x": 521.625,
+                "y": 157.03125,
+                "hittable": true,
+                "hit": "refine-strength"
+              }
+            ],
+            "before": "0.1",
+            "after": "0.11",
+            "native_key_press": {
+              "digit": "1",
+              "key_rect": {
+                "y": 463,
+                "x": 128,
+                "width": 94,
+                "height": 85
+              }
+            }
+          },
+          "native_cancel_rect": {
+            "y": 304,
+            "x": 604,
+            "width": 70,
+            "height": 51
+          },
+          "cancel_closed_dialog_and_keyboard": true,
+          "restored_viewport": {
+            "height": 688,
+            "width": 1180,
+            "offsetTop": 0,
+            "offsetLeft": 0,
+            "scale": 1
+          }
+        },
+        {
+          "id": "refine-seed",
+          "status": "passed",
+          "viewport": {
+            "height": 266,
+            "width": 1180,
+            "offsetTop": 0,
+            "offsetLeft": 0,
+            "scale": 1
+          },
+          "dialog": {
+            "left": 360,
+            "top": 61.03125,
+            "right": 820,
+            "bottom": 249.984375,
+            "width": 460,
+            "height": 188.953125,
+            "display": "flex",
+            "visibility": "visible",
+            "position": "fixed",
+            "font": "14px"
+          },
+          "native_window": {
+            "y": 0,
+            "x": 0,
+            "width": 1180,
+            "height": 820
+          },
+          "native_keyboard": {
+            "shown": true,
+            "rect": {
+              "y": 453,
+              "x": 0,
+              "width": 1180,
+              "height": 364
+            }
+          },
+          "native_actions": {
+            "Cancel": {
+              "y": 304,
+              "x": 604,
+              "width": 70,
+              "height": 51
+            },
+            "Refine": {
+              "y": 304,
+              "x": 681,
+              "width": 120,
+              "height": 51
+            }
+          },
+          "field_usability": {
+            "native_field": {
+              "name": "Seed",
+              "label": "Seed",
+              "visible": "true",
+              "value": "5074918688323269",
+              "rect": {
+                "x": 603.0,
+                "y": 246.0,
+                "width": 166.0,
+                "height": 48.0
+              }
+            },
+            "native_keyboard": {
+              "shown": true,
+              "rect": {
+                "y": 453,
+                "x": 0,
+                "width": 1180,
+                "height": 364
+              }
+            },
+            "dom_field": {
+              "left": 603.625,
+              "top": 114.828125,
+              "right": 768.3125,
+              "bottom": 161.828125,
+              "width": 164.6875,
+              "height": 47,
+              "position": "static"
+            },
+            "dom_dialog": {
+              "left": 360,
+              "top": 61.03125,
+              "right": 820,
+              "bottom": 249.984375,
+              "width": 460,
+              "height": 188.953125,
+              "position": "fixed"
+            },
+            "dom_head": {
+              "left": 379,
+              "top": -383.96875,
+              "right": 801,
+              "bottom": -339.96875,
+              "width": 422,
+              "height": 44,
+              "position": "static"
+            },
+            "dom_footer": {
+              "left": 379,
+              "top": 164.984375,
+              "right": 801,
+              "bottom": 230.984375,
+              "width": 422,
+              "height": 66,
+              "position": "sticky"
+            },
+            "interior_hits": [
+              {
+                "name": "center",
+                "x": 685.96875,
+                "y": 138.328125,
+                "hittable": true,
+                "hit": "refine-seed"
+              },
+              {
+                "name": "top-left",
+                "x": 607.625,
+                "y": 118.828125,
+                "hittable": true,
+                "hit": "refine-seed"
+              },
+              {
+                "name": "top-right",
+                "x": 764.3125,
+                "y": 118.828125,
+                "hittable": true,
+                "hit": "refine-seed"
+              },
+              {
+                "name": "bottom-left",
+                "x": 607.625,
+                "y": 157.828125,
+                "hittable": true,
+                "hit": "refine-seed"
+              },
+              {
+                "name": "bottom-right",
+                "x": 764.3125,
+                "y": 157.828125,
+                "hittable": true,
+                "hit": "refine-seed"
+              }
+            ],
+            "before": "5074918688323269",
+            "after": "50749186883232691",
+            "native_key_press": {
+              "digit": "1",
+              "key_rect": {
+                "y": 463,
+                "x": 128,
+                "width": 94,
+                "height": 85
+              }
+            }
+          },
+          "native_cancel_rect": {
+            "y": 304,
+            "x": 604,
+            "width": 70,
+            "height": 51
+          },
+          "cancel_closed_dialog_and_keyboard": true,
+          "restored_viewport": {
+            "height": 688,
+            "width": 1180,
+            "offsetTop": 0,
+            "offsetLeft": 0,
+            "scale": 1
+          }
+        }
+      ]
+    }
+  ],
+  "cleanup": {
+    "mac": {
+      "checked_at": "2026-11-07T02:21:05.332987+00:00",
+      "run_ids": [
+        "results-20261107T011820Z",
+        "results-20261107T012219Z",
+        "results-20261107T013929Z",
+        "results-20261107T014443Z",
+        "results-20261107T015957Z",
+        "results-20261107T020921Z"
+      ],
+      "owned_simulator_count": 16,
+      "owned_simulator_uuids": [
+        "098FDC7C-446B-4238-AE1F-22583FF88F9C",
+        "4586AA96-9C19-4852-B485-8D05466FAAD1",
+        "4DA5A6BF-538B-4DF8-8D62-C44D885ED723",
+        "59569667-A0CE-4327-85C9-A45A46C6C29E",
+        "665246A8-1575-4037-BBDF-17B36C22F9FF",
+        "68F8E13B-677D-4451-9FC9-0400B1A0691A",
+        "775C154E-7823-4D4B-81C7-076C891A0078",
+        "7A5786AF-7B1D-4F74-9F82-FDBDD1423CD2",
+        "7DAED7FC-7B88-4822-AFAA-9E2C2D5A06EA",
+        "8367FAB0-E0D2-4924-B0D0-FEA92CF6E66E",
+        "A6C3B57E-855B-4C18-8365-14D3E823A803",
+        "AC316B11-2D87-4797-84A0-91635CEA9074",
+        "CEBBEC46-86C2-4A68-9C31-4F91C373B7D8",
+        "E173AB8A-C2A2-4C8C-9291-CAB561BC29B3",
+        "E7EFE4B1-9595-4825-A157-E0B43A15E945",
+        "F169A769-1E70-4F7F-8306-AE399284C7EA"
+      ],
+      "remaining_owned_devices": [],
+      "appium_ports_closed": {
+        "52181": true,
+        "52730": true,
+        "54310": true,
+        "55089": true,
+        "57496": true,
+        "58576": true
+      },
+      "owned_runner_processes": [],
+      "owned_appium_processes": [],
+      "remote_fixture_tunnel_port_closed": true,
+      "passed": true
+    },
+    "windows": {
+      "fixture_port_17961_closed": true,
+      "checked_at": "2026-11-07T02:21:29.3316195Z",
+      "diagnostic_port_7960_closed": true,
+      "stopped_fixture_pid": 17040
+    }
+  },
+  "pilot_attempts": {
+    "file": "simulator-p44-pilots-2026-11-07.json",
+    "sha256": "2b0007e228da303a6ca6a37246183ac723cbe7ba19346bada8ff7f7b42ab2170"
+  },
+  "automated_checks": {
+    "focused_tests": {
+      "command": "uv run --group dev python -m pytest tests/test_classic_scripts.py tests/test_docs_maps.py -q",
+      "passed": 36
+    },
+    "browser_smokes": {
+      "passed": 7,
+      "names": [
+        "smoke-phone-dialogs",
+        "smoke-phone-gallery",
+        "smoke-phone-landscape",
+        "smoke-tablet",
+        "smoke-phone",
+        "smoke-phone-create",
+        "smoke-refine"
+      ],
+      "log_sha256": "843d7e7d8de376e051ba76d0ab670af714f3aa72cc37d7464b348cc2e87cea1b"
+    }
+  },
+  "scope_limits": [
+    "Other edit dialogs and iPad Split View were not qualified.",
+    "Physical iPhone, Android Back, native edge-swipe Back, completed sharing and GPU/model acceptance remain separate.",
+    "The final run was --keyboard-only, not all ten general flows."
+  ]
+}

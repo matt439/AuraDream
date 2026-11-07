@@ -60,17 +60,46 @@ function pressSheetClose(event) {
   if (dialog.dispatchEvent(new Event('cancel', { cancelable: true })) && dialog.open) dialog.close();
 }
 
-// The keyboard's height over the layout viewport (`--kb-inset` on the
-// root): iOS keeps a fixed sheet the screen's height under its keyboard,
-// so its sticky foot - the primary and Cancel - stood behind the keys.
-// visualViewport is what the keyboard leaves; 0 without one, or with no
-// keyboard up (a bar's few pixels of difference are no keyboard).
-function syncKeyboardInset() {
+// Fit touch sheets to the visible viewport itself. Safari can resize
+// innerHeight AND pan a fixed dialog while the keyboard opens; subtracting
+// offsetTop from a guessed keyboard height lost the phone's last 42 px.
+// The top compensates for that pan, and the height is what the keys leave.
+// Page pinch zoom keeps the ordinary layout rather than resizing its forms.
+let sheetViewportFrame = 0;
+function syncSheetViewport() {
   const vv = window.visualViewport;
-  const inset = vv ? Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop)) : 0;
-  const value = isPhone() && inset > 80 ? `${inset}px` : '0px';
-  if (document.documentElement.style.getPropertyValue('--kb-inset') !== value) {
-    document.documentElement.style.setProperty('--kb-inset', value);
+  const root = document.documentElement.style;
+  for (const [name, value] of [['--sheet-viewport-top', vv?.offsetTop], ['--sheet-viewport-height', vv?.height]]) {
+    if (!touchQuery.matches || !vv || vv.scale !== 1) { root.removeProperty(name); continue; }
+    const pixels = `${value}px`;
+    if (root.getPropertyValue(name) !== pixels) root.setProperty(name, pixels);
+  }
+  const short = isPhone() && vv && vv.scale === 1 && vv.height < 200;
+  document.documentElement.toggleAttribute('data-short-sheet', !!short);
+  // Safari's focus pan does not account for sticky rows. Reveal only the
+  // part of the focused field they cover, inside Refine's own scroll box.
+  if (touchQuery.matches && vv?.scale === 1 && !sheetViewportFrame) {
+    sheetViewportFrame = requestAnimationFrame(() => {
+      sheetViewportFrame = 0;
+      if (!touchQuery.matches || window.visualViewport?.scale !== 1) return;
+      const field = document.activeElement;
+      if (!els.refineDialog.open || !field?.matches(KEYBOARD_FIELD) || !els.refineDialog.contains(field)) return;
+      const dialog = els.refineDialog.getBoundingClientRect();
+      const head = els.refineDialog.querySelector(':scope > .dialog-head');
+      const actions = els.refineDialog.querySelector('.dialog-actions').getBoundingClientRect();
+      const top = head && getComputedStyle(head).position === 'sticky'
+        ? Math.max(dialog.top, head.getBoundingClientRect().bottom) : dialog.top;
+      const box = field.getBoundingClientRect();
+      const underActions = box.left < actions.right && box.right > actions.left;
+      const bottom = underActions ? Math.min(dialog.bottom, actions.top) : dialog.bottom;
+      // A textarea taller than this space keeps Safari's native caret pan;
+      // alternating its top and bottom into view would make it bounce.
+      if (box.height > bottom - top) return;
+      const gap = Math.min(4, Math.max(0, (bottom - top - box.height) / 2));
+      const shift = box.bottom > bottom - gap ? box.bottom - bottom + gap
+        : box.top < top + gap ? box.top - top - gap : 0;
+      if (shift) els.refineDialog.scrollTop += shift;
+    });
   }
 }
 
@@ -199,7 +228,7 @@ function initPhoneLists() {
 function syncPhoneSheets() {
   syncPhoneWhy();
   syncPhoneModels();
-  syncKeyboardInset();
+  syncSheetViewport();
 }
 
 function initPhoneSheets() {
@@ -236,7 +265,13 @@ function initPhoneSheets() {
   document.addEventListener('pointerdown', noteSheetInput, true);
   document.addEventListener('keydown', noteSheetInput, true);
   document.addEventListener('focusin', lateSheetFocus);
-  window.visualViewport?.addEventListener('resize', syncKeyboardInset);
-  window.visualViewport?.addEventListener('scroll', syncKeyboardInset);
-  syncKeyboardInset();
+  document.addEventListener('focusin', syncSheetViewport);
+  // A late preview or restored-draft line can move the field after the
+  // keyboard has settled, at any touch size.
+  new MutationObserver(() => {
+    if (touchQuery.matches && els.refineDialog.contains(document.activeElement)) syncSheetViewport();
+  }).observe(els.refineDialog, { childList: true, subtree: true, characterData: true, attributes: true });
+  window.visualViewport?.addEventListener('resize', syncSheetViewport);
+  window.visualViewport?.addEventListener('scroll', syncSheetViewport);
+  syncSheetViewport();
 }

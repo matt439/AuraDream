@@ -1,0 +1,1405 @@
+{
+  "purpose": "Receipt of every explicitly supplied pilot attempt; no pass/failure replacement or cross-run acceptance merge",
+  "helper_sha256": "4b7e62c9b92218b1291b55f5405b6d04c888f8acefebad3d2be9d07e9f1baf22",
+  "attempts": [
+    {
+      "run_id": "results-20261107T011820Z",
+      "run_directory": "C:/Projects/AuraDream/work/safari-p44-20261107/results-20261107T011820Z",
+      "source": {
+        "backend_tree": "eac797f8b7110cc6d76f86291ab614c40ea49e84",
+        "repository": "AuraDream",
+        "changed_files": [],
+        "web_tree": "2298943a210248b8a7d1305f1db455eb599f752e",
+        "revision": "0bb07dd6b3f7000d70975564cc4b94a2d69d3725",
+        "dirty": false,
+        "application_assets_unmodified": true
+      },
+      "report_sha256": "10074a91dcddefa6c7796dc0fd1e2ae9ee48eb91884eed2e28a7eee233fddd45",
+      "harness_sha256": {
+        "run.py": "4f77b46e54fb543191aafa439e960eee3ee89779b957b9b5ade2c1ed6c36b0d8",
+        "flows.py": "025d73d06faa5ddf0ffa2b2bb3db46c8fe550cbf391bf6cd90fa27e18efab3cd",
+        "phone_audit.js": "b42a2e8cf2ca070950772d5abcc6104a410c6a9620e46259db978068ee273715"
+      },
+      "flow_scope": "P44 Refine keyboard only",
+      "started_at": "2026-11-07T01:18:20.863269+00:00",
+      "finished_at": "2026-11-07T01:20:49.264541+00:00",
+      "exit_code": 1,
+      "errors": [
+        "Interrupted"
+      ],
+      "disposition": [
+        "interrupted"
+      ],
+      "used_as_final_acceptance": false,
+      "expected_configurations": 4,
+      "configurations": [
+        {
+          "model": "iPhone 15 Pro",
+          "orientation": "PORTRAIT",
+          "status": "passed",
+          "test_udid": "AC316B11-2D87-4797-84A0-91635CEA9074",
+          "test_name": "DeckLabSafari-7e3c010721f1",
+          "reported_check_counts": {
+            "passed": 1
+          },
+          "reported_checks": [
+            {
+              "name": "refine_keyboard",
+              "status": "passed",
+              "error": null,
+              "seconds": 57.6,
+              "harness": {
+                "version": "2026-11-07.7-p44-native-bounds",
+                "sha256": "025d73d06faa5ddf0ffa2b2bb3db46c8fe550cbf391bf6cd90fa27e18efab3cd"
+              }
+            }
+          ],
+          "retained_cases_not_in_report": [],
+          "incomplete_case_directories": [],
+          "retained_partial_keyboard_evidence": {
+            "receipt": {
+              "path": "iPhone-15-Pro-PORTRAIT/refine_keyboard/keyboard-evidence.json",
+              "sha256": "f00c816f4e2b0d6cdbc4f0dcc049323724fc5b10aee5dce7470eb431b2b03e25"
+            },
+            "fields": [
+              {
+                "field": "refine-strength",
+                "native_cancel_closed_dialog_and_keyboard": true,
+                "focused_field_status": null,
+                "native_key_press": null,
+                "value_before_native_typing": null,
+                "value_after_native_typing": null,
+                "interior_dom_hits": null,
+                "native_field": null,
+                "native_keyboard": null
+              },
+              {
+                "field": "refine-seed",
+                "native_cancel_closed_dialog_and_keyboard": true,
+                "focused_field_status": null,
+                "native_key_press": null,
+                "value_before_native_typing": null,
+                "value_after_native_typing": null,
+                "interior_dom_hits": null,
+                "native_field": null,
+                "native_keyboard": null
+              }
+            ],
+            "does_not_complete_interrupted_configuration": true
+          }
+        },
+        {
+          "model": "iPhone 15 Pro",
+          "orientation": "LANDSCAPE",
+          "status": "interrupted",
+          "test_udid": "E173AB8A-C2A2-4C8C-9291-CAB561BC29B3",
+          "test_name": "DeckLabSafari-40c469ac7d7f",
+          "reported_check_counts": {},
+          "reported_checks": [],
+          "retained_cases_not_in_report": [],
+          "incomplete_case_directories": []
+        },
+        {
+          "model": "iPad Air 11-inch (M2)",
+          "orientation": "PORTRAIT",
+          "status": "pending",
+          "reported_check_counts": {},
+          "reported_checks": [],
+          "retained_cases_not_in_report": [],
+          "incomplete_case_directories": []
+        },
+        {
+          "model": "iPad Air 11-inch (M2)",
+          "orientation": "LANDSCAPE",
+          "status": "pending",
+          "reported_check_counts": {},
+          "reported_checks": [],
+          "retained_cases_not_in_report": [],
+          "incomplete_case_directories": []
+        }
+      ],
+      "exact_failed_cases": [],
+      "remaining_owned_devices": []
+    },
+    {
+      "run_id": "results-20261107T012219Z",
+      "run_directory": "C:/Projects/AuraDream/work/safari-p44-20261107/results-20261107T012219Z",
+      "source": {
+        "backend_tree": "eac797f8b7110cc6d76f86291ab614c40ea49e84",
+        "repository": "AuraDream",
+        "changed_files": [],
+        "web_tree": "0e6ad776a8c7f7afe9240e53a8cf2016d07283ec",
+        "revision": "b9dd0d36a4d8d06ec842a0d885ac4acfb2bb73ef",
+        "dirty": false,
+        "application_assets_unmodified": true
+      },
+      "report_sha256": "89de1ff19850701e3bd6585eb2284c695556e3447213ebd9032bde89fadd4390",
+      "harness_sha256": {
+        "run.py": "4f77b46e54fb543191aafa439e960eee3ee89779b957b9b5ade2c1ed6c36b0d8",
+        "flows.py": "025d73d06faa5ddf0ffa2b2bb3db46c8fe550cbf391bf6cd90fa27e18efab3cd",
+        "phone_audit.js": "b42a2e8cf2ca070950772d5abcc6104a410c6a9620e46259db978068ee273715"
+      },
+      "flow_scope": "all ten AuraDream flows",
+      "started_at": "2026-11-07T01:22:19.730916+00:00",
+      "finished_at": "2026-11-07T01:31:47.775693+00:00",
+      "exit_code": 1,
+      "errors": [
+        "Interrupted"
+      ],
+      "disposition": [
+        "interrupted"
+      ],
+      "used_as_final_acceptance": false,
+      "expected_configurations": 4,
+      "configurations": [
+        {
+          "model": "iPhone 15 Pro",
+          "orientation": "PORTRAIT",
+          "status": "passed",
+          "test_udid": "4DA5A6BF-538B-4DF8-8D62-C44D885ED723",
+          "test_name": "DeckLabSafari-e05d21b0a5ff",
+          "reported_check_counts": {
+            "passed": 10
+          },
+          "reported_checks": [
+            {
+              "name": "create_layout",
+              "status": "passed",
+              "error": null,
+              "seconds": 10.31,
+              "harness": {
+                "version": "2026-11-07.7-p44-native-bounds",
+                "sha256": "025d73d06faa5ddf0ffa2b2bb3db46c8fe550cbf391bf6cd90fa27e18efab3cd"
+              }
+            },
+            {
+              "name": "prompt_keyboard",
+              "status": "passed",
+              "error": null,
+              "seconds": 11.74,
+              "harness": {
+                "version": "2026-11-07.7-p44-native-bounds",
+                "sha256": "025d73d06faa5ddf0ffa2b2bb3db46c8fe550cbf391bf6cd90fa27e18efab3cd"
+              }
+            },
+            {
+              "name": "generate_queue",
+              "status": "passed",
+              "error": null,
+              "seconds": 19.17,
+              "harness": {
+                "version": "2026-11-07.7-p44-native-bounds",
+                "sha256": "025d73d06faa5ddf0ffa2b2bb3db46c8fe550cbf391bf6cd90fa27e18efab3cd"
+              }
+            },
+            {
+              "name": "models",
+              "status": "passed",
+              "error": null,
+              "seconds": 3.87,
+              "harness": {
+                "version": "2026-11-07.7-p44-native-bounds",
+                "sha256": "025d73d06faa5ddf0ffa2b2bb3db46c8fe550cbf391bf6cd90fa27e18efab3cd"
+              }
+            },
+            {
+              "name": "more_options",
+              "status": "passed",
+              "error": null,
+              "seconds": 2.64,
+              "harness": {
+                "version": "2026-11-07.7-p44-native-bounds",
+                "sha256": "025d73d06faa5ddf0ffa2b2bb3db46c8fe550cbf391bf6cd90fa27e18efab3cd"
+              }
+            },
+            {
+              "name": "gallery_selection",
+              "status": "passed",
+              "error": null,
+              "seconds": 4.09,
+              "harness": {
+                "version": "2026-11-07.7-p44-native-bounds",
+                "sha256": "025d73d06faa5ddf0ffa2b2bb3db46c8fe550cbf391bf6cd90fa27e18efab3cd"
+              }
+            },
+            {
+              "name": "viewer_details_back",
+              "status": "passed",
+              "error": null,
+              "seconds": 5.26,
+              "harness": {
+                "version": "2026-11-07.7-p44-native-bounds",
+                "sha256": "025d73d06faa5ddf0ffa2b2bb3db46c8fe550cbf391bf6cd90fa27e18efab3cd"
+              }
+            },
+            {
+              "name": "viewer_more_menu",
+              "status": "passed",
+              "error": null,
+              "seconds": 3.55,
+              "harness": {
+                "version": "2026-11-07.7-p44-native-bounds",
+                "sha256": "025d73d06faa5ddf0ffa2b2bb3db46c8fe550cbf391bf6cd90fa27e18efab3cd"
+              }
+            },
+            {
+              "name": "refine_keyboard",
+              "status": "passed",
+              "error": null,
+              "seconds": 16.78,
+              "harness": {
+                "version": "2026-11-07.7-p44-native-bounds",
+                "sha256": "025d73d06faa5ddf0ffa2b2bb3db46c8fe550cbf391bf6cd90fa27e18efab3cd"
+              }
+            },
+            {
+              "name": "native_share",
+              "status": "passed",
+              "error": null,
+              "seconds": 7.05,
+              "harness": {
+                "version": "2026-11-07.7-p44-native-bounds",
+                "sha256": "025d73d06faa5ddf0ffa2b2bb3db46c8fe550cbf391bf6cd90fa27e18efab3cd"
+              }
+            }
+          ],
+          "retained_cases_not_in_report": [],
+          "incomplete_case_directories": [],
+          "retained_partial_keyboard_evidence": {
+            "receipt": {
+              "path": "iPhone-15-Pro-PORTRAIT/refine_keyboard/keyboard-evidence.json",
+              "sha256": "0c6983a787015092ced110a09065c6b369bc8192da565fcc8baf640fec6251e6"
+            },
+            "fields": [
+              {
+                "field": "refine-strength",
+                "native_cancel_closed_dialog_and_keyboard": true,
+                "focused_field_status": null,
+                "native_key_press": null,
+                "value_before_native_typing": null,
+                "value_after_native_typing": null,
+                "interior_dom_hits": null,
+                "native_field": null,
+                "native_keyboard": null
+              },
+              {
+                "field": "refine-seed",
+                "native_cancel_closed_dialog_and_keyboard": true,
+                "focused_field_status": null,
+                "native_key_press": null,
+                "value_before_native_typing": null,
+                "value_after_native_typing": null,
+                "interior_dom_hits": null,
+                "native_field": null,
+                "native_keyboard": null
+              }
+            ],
+            "does_not_complete_interrupted_configuration": true
+          }
+        },
+        {
+          "model": "iPhone 15 Pro",
+          "orientation": "LANDSCAPE",
+          "status": "interrupted",
+          "test_udid": "E7EFE4B1-9595-4825-A157-E0B43A15E945",
+          "test_name": "DeckLabSafari-68758e9a43b9",
+          "reported_check_counts": {},
+          "reported_checks": [],
+          "retained_cases_not_in_report": [
+            {
+              "name": "create_layout",
+              "status": "passed",
+              "error": null,
+              "seconds": 3.88,
+              "harness": {
+                "version": "2026-11-07.7-p44-native-bounds",
+                "sha256": "025d73d06faa5ddf0ffa2b2bb3db46c8fe550cbf391bf6cd90fa27e18efab3cd"
+              },
+              "receipt": {
+                "path": "iPhone-15-Pro-LANDSCAPE/create_layout/result.json",
+                "sha256": "8334589a1a881a5d2b5b191056c9447cac3ac0e3485d4fb39769fededd9e18c2"
+              }
+            },
+            {
+              "name": "prompt_keyboard",
+              "status": "passed",
+              "error": null,
+              "seconds": 139.77,
+              "harness": {
+                "version": "2026-11-07.7-p44-native-bounds",
+                "sha256": "025d73d06faa5ddf0ffa2b2bb3db46c8fe550cbf391bf6cd90fa27e18efab3cd"
+              },
+              "receipt": {
+                "path": "iPhone-15-Pro-LANDSCAPE/prompt_keyboard/result.json",
+                "sha256": "b79ee631b195463478dd2f4663bd422c6f1116070c71fbc08a39332625ce0139"
+              }
+            }
+          ],
+          "incomplete_case_directories": [
+            "generate_queue"
+          ]
+        },
+        {
+          "model": "iPad Air 11-inch (M2)",
+          "orientation": "PORTRAIT",
+          "status": "pending",
+          "reported_check_counts": {},
+          "reported_checks": [],
+          "retained_cases_not_in_report": [],
+          "incomplete_case_directories": []
+        },
+        {
+          "model": "iPad Air 11-inch (M2)",
+          "orientation": "LANDSCAPE",
+          "status": "pending",
+          "reported_check_counts": {},
+          "reported_checks": [],
+          "retained_cases_not_in_report": [],
+          "incomplete_case_directories": []
+        }
+      ],
+      "exact_failed_cases": [],
+      "remaining_owned_devices": []
+    },
+    {
+      "run_id": "results-20261107T013929Z",
+      "run_directory": "C:/Projects/AuraDream/work/safari-p44-20261107/results-20261107T013929Z",
+      "source": {
+        "backend_tree": "eac797f8b7110cc6d76f86291ab614c40ea49e84",
+        "repository": "AuraDream",
+        "changed_files": [],
+        "web_tree": "1ab824abd403c347f1fda8e680863183e067b9c2",
+        "revision": "7aa75fc5730e41ae4b6d4489bed26483ea897922",
+        "dirty": false,
+        "application_assets_unmodified": true
+      },
+      "report_sha256": "22da943ac2ca01fcc691a831024b30b4b5721eb87e207ad4f5a0d148c5c50178",
+      "harness_sha256": {
+        "run.py": "4f77b46e54fb543191aafa439e960eee3ee89779b957b9b5ade2c1ed6c36b0d8",
+        "flows.py": "89986a0eb12533bcf67fff5d40dafd7ef379113f86180b640a6cd6738ff7bfdc",
+        "phone_audit.js": "b42a2e8cf2ca070950772d5abcc6104a410c6a9620e46259db978068ee273715"
+      },
+      "flow_scope": "P44 Refine keyboard only",
+      "started_at": "2026-11-07T01:39:29.611946+00:00",
+      "finished_at": "2026-11-07T01:42:29.848933+00:00",
+      "exit_code": 1,
+      "errors": [
+        "Interrupted"
+      ],
+      "disposition": [
+        "interrupted",
+        "audit_failure"
+      ],
+      "used_as_final_acceptance": false,
+      "expected_configurations": 4,
+      "configurations": [
+        {
+          "model": "iPhone 15 Pro",
+          "orientation": "PORTRAIT",
+          "status": "failed",
+          "test_udid": "59569667-A0CE-4327-85C9-A45A46C6C29E",
+          "test_name": "DeckLabSafari-967709fd7b6d",
+          "reported_check_counts": {
+            "failed": 1
+          },
+          "reported_checks": [
+            {
+              "name": "refine_keyboard",
+              "status": "failed",
+              "error": "focused Strength input is covered by a sticky row or overlay: {'active': 'refine-strength', 'value': '0.1', 'field': {'left': 16, 'top': 304.5, 'right': 377, 'bottom': 348.5, 'width': 361, 'height': 44, 'position': 'static'}, 'dialog': {'left': 0, 'top': 0, 'right': 393, 'bottom': 391, 'width': 393, 'height': 391, 'position': 'fixed'}, 'viewport': {'top': 131, 'bottom': 522, 'height': 391}, 'head': {'left': 0, 'top': 0, 'right': 393, 'bottom': 61, 'width': 393, 'height': 61, 'position': 'sticky'}, 'footer': {'left': 0, 'top': 324, 'right': 393, 'bottom': 391, 'width': 393, 'height': 67, 'position': 'sticky'}, 'interior_hits': [{'name': 'center', 'x': 196.5, 'y': 326.5, 'hittable': False, 'hit': 'rf-actions dialog-actions'}, {'name': 'top-left', 'x': 20, 'y': 308.5, 'hittable': True, 'hit': 'refine-strength'}, {'name': 'top-right', 'x': 373, 'y': 308.5, 'hittable': True, 'hit': 'refine-strength'}, {'name': 'bottom-left', 'x': 20, 'y': 344.5, 'hittable': False, 'hit': 'rf-actions dialog-actions'}, {'name': 'bottom-right', 'x': 373, 'y': 344.5, 'hittable': False, 'hit': 'refine-run'}]}",
+              "seconds": 17.02,
+              "harness": {
+                "version": "2026-11-07.9-p44-focused-field-native-generate",
+                "sha256": "89986a0eb12533bcf67fff5d40dafd7ef379113f86180b640a6cd6738ff7bfdc"
+              }
+            }
+          ],
+          "retained_cases_not_in_report": [],
+          "incomplete_case_directories": []
+        },
+        {
+          "model": "iPhone 15 Pro",
+          "orientation": "LANDSCAPE",
+          "status": "interrupted",
+          "test_udid": "68F8E13B-677D-4451-9FC9-0400B1A0691A",
+          "test_name": "DeckLabSafari-0d118bee2d26",
+          "reported_check_counts": {},
+          "reported_checks": [],
+          "retained_cases_not_in_report": [],
+          "incomplete_case_directories": [
+            "refine_keyboard"
+          ]
+        },
+        {
+          "model": "iPad Air 11-inch (M2)",
+          "orientation": "PORTRAIT",
+          "status": "pending",
+          "reported_check_counts": {},
+          "reported_checks": [],
+          "retained_cases_not_in_report": [],
+          "incomplete_case_directories": []
+        },
+        {
+          "model": "iPad Air 11-inch (M2)",
+          "orientation": "LANDSCAPE",
+          "status": "pending",
+          "reported_check_counts": {},
+          "reported_checks": [],
+          "retained_cases_not_in_report": [],
+          "incomplete_case_directories": []
+        }
+      ],
+      "exact_failed_cases": [
+        {
+          "model": "iPhone 15 Pro",
+          "orientation": "PORTRAIT",
+          "name": "refine_keyboard",
+          "status": "failed",
+          "error": "focused Strength input is covered by a sticky row or overlay: {'active': 'refine-strength', 'value': '0.1', 'field': {'left': 16, 'top': 304.5, 'right': 377, 'bottom': 348.5, 'width': 361, 'height': 44, 'position': 'static'}, 'dialog': {'left': 0, 'top': 0, 'right': 393, 'bottom': 391, 'width': 393, 'height': 391, 'position': 'fixed'}, 'viewport': {'top': 131, 'bottom': 522, 'height': 391}, 'head': {'left': 0, 'top': 0, 'right': 393, 'bottom': 61, 'width': 393, 'height': 61, 'position': 'sticky'}, 'footer': {'left': 0, 'top': 324, 'right': 393, 'bottom': 391, 'width': 393, 'height': 67, 'position': 'sticky'}, 'interior_hits': [{'name': 'center', 'x': 196.5, 'y': 326.5, 'hittable': False, 'hit': 'rf-actions dialog-actions'}, {'name': 'top-left', 'x': 20, 'y': 308.5, 'hittable': True, 'hit': 'refine-strength'}, {'name': 'top-right', 'x': 373, 'y': 308.5, 'hittable': True, 'hit': 'refine-strength'}, {'name': 'bottom-left', 'x': 20, 'y': 344.5, 'hittable': False, 'hit': 'rf-actions dialog-actions'}, {'name': 'bottom-right', 'x': 373, 'y': 344.5, 'hittable': False, 'hit': 'refine-run'}]}"
+        }
+      ],
+      "remaining_owned_devices": []
+    },
+    {
+      "run_id": "results-20261107T014443Z",
+      "run_directory": "C:/Projects/AuraDream/work/safari-p44-20261107/results-20261107T014443Z",
+      "source": {
+        "backend_tree": "eac797f8b7110cc6d76f86291ab614c40ea49e84",
+        "repository": "AuraDream",
+        "changed_files": [],
+        "web_tree": "541d647ce17feabc2a6d95a879058af347293e1a",
+        "revision": "4c9cebbb7871779e37554ee40fa59ff6875612a5",
+        "dirty": false,
+        "application_assets_unmodified": true
+      },
+      "report_sha256": "365e07aa69a0ad70ed101d1c841d4753b3721e67181c691d58c7a957108fa260",
+      "harness_sha256": {
+        "run.py": "4f77b46e54fb543191aafa439e960eee3ee89779b957b9b5ade2c1ed6c36b0d8",
+        "flows.py": "89986a0eb12533bcf67fff5d40dafd7ef379113f86180b640a6cd6738ff7bfdc",
+        "phone_audit.js": "b42a2e8cf2ca070950772d5abcc6104a410c6a9620e46259db978068ee273715"
+      },
+      "flow_scope": "P44 Refine keyboard only",
+      "started_at": "2026-11-07T01:44:43.468298+00:00",
+      "finished_at": "2026-11-07T01:56:38.247873+00:00",
+      "exit_code": 1,
+      "errors": [],
+      "disposition": [
+        "audit_failure"
+      ],
+      "used_as_final_acceptance": false,
+      "expected_configurations": 4,
+      "configurations": [
+        {
+          "model": "iPhone 15 Pro",
+          "orientation": "PORTRAIT",
+          "status": "passed",
+          "test_udid": "F169A769-1E70-4F7F-8306-AE399284C7EA",
+          "test_name": "DeckLabSafari-759a74434997",
+          "reported_check_counts": {
+            "passed": 1
+          },
+          "reported_checks": [
+            {
+              "name": "refine_keyboard",
+              "status": "passed",
+              "error": null,
+              "seconds": 30.92,
+              "harness": {
+                "version": "2026-11-07.9-p44-focused-field-native-generate",
+                "sha256": "89986a0eb12533bcf67fff5d40dafd7ef379113f86180b640a6cd6738ff7bfdc"
+              }
+            }
+          ],
+          "retained_cases_not_in_report": [],
+          "incomplete_case_directories": [],
+          "retained_partial_keyboard_evidence": {
+            "receipt": {
+              "path": "iPhone-15-Pro-PORTRAIT/refine_keyboard/keyboard-evidence.json",
+              "sha256": "83601bc0d16a390c45d9852d69fc6d4b1f67c9793119d1c660afb2e115d52c7a"
+            },
+            "fields": [
+              {
+                "field": "refine-strength",
+                "native_cancel_closed_dialog_and_keyboard": true,
+                "focused_field_status": "passed",
+                "native_key_press": {
+                  "digit": "1",
+                  "key_rect": {
+                    "y": 574,
+                    "x": 4,
+                    "width": 130,
+                    "height": 54
+                  }
+                },
+                "value_before_native_typing": "0.1",
+                "value_after_native_typing": "0.11",
+                "interior_dom_hits": [
+                  {
+                    "name": "center",
+                    "x": 196.5,
+                    "y": 298.5,
+                    "hittable": true,
+                    "hit": "refine-strength"
+                  },
+                  {
+                    "name": "top-left",
+                    "x": 20,
+                    "y": 280.5,
+                    "hittable": true,
+                    "hit": "refine-strength"
+                  },
+                  {
+                    "name": "top-right",
+                    "x": 373,
+                    "y": 280.5,
+                    "hittable": true,
+                    "hit": "refine-strength"
+                  },
+                  {
+                    "name": "bottom-left",
+                    "x": 20,
+                    "y": 316.5,
+                    "hittable": true,
+                    "hit": "refine-strength"
+                  },
+                  {
+                    "name": "bottom-right",
+                    "x": 373,
+                    "y": 316.5,
+                    "hittable": true,
+                    "hit": "refine-strength"
+                  }
+                ],
+                "native_field": {
+                  "name": "Strength",
+                  "label": "Strength",
+                  "visible": "true",
+                  "value": "0.1",
+                  "rect": {
+                    "x": 16.0,
+                    "y": 335.0,
+                    "width": 361.0,
+                    "height": 45.0
+                  }
+                },
+                "native_keyboard": {
+                  "shown": true,
+                  "rect": {
+                    "y": 567,
+                    "x": 0,
+                    "width": 393,
+                    "height": 227
+                  }
+                }
+              },
+              {
+                "field": "refine-seed",
+                "native_cancel_closed_dialog_and_keyboard": true,
+                "focused_field_status": "passed",
+                "native_key_press": {
+                  "digit": "1",
+                  "key_rect": {
+                    "y": 574,
+                    "x": 4,
+                    "width": 130,
+                    "height": 54
+                  }
+                },
+                "value_before_native_typing": "5074918688323269",
+                "value_after_native_typing": "50749186883232691",
+                "interior_dom_hits": [
+                  {
+                    "name": "center",
+                    "x": 205,
+                    "y": 298.59375,
+                    "hittable": true,
+                    "hit": "refine-seed"
+                  },
+                  {
+                    "name": "top-left",
+                    "x": 90,
+                    "y": 280.59375,
+                    "hittable": true,
+                    "hit": "refine-seed"
+                  },
+                  {
+                    "name": "top-right",
+                    "x": 320,
+                    "y": 280.59375,
+                    "hittable": true,
+                    "hit": "refine-seed"
+                  },
+                  {
+                    "name": "bottom-left",
+                    "x": 90,
+                    "y": 316.59375,
+                    "hittable": true,
+                    "hit": "refine-seed"
+                  },
+                  {
+                    "name": "bottom-right",
+                    "x": 320,
+                    "y": 316.59375,
+                    "hittable": true,
+                    "hit": "refine-seed"
+                  }
+                ],
+                "native_field": {
+                  "name": "Seed",
+                  "label": "Seed",
+                  "visible": "true",
+                  "value": "5074918688323269",
+                  "rect": {
+                    "x": 86.0,
+                    "y": 335.0,
+                    "width": 238.0,
+                    "height": 45.0
+                  }
+                },
+                "native_keyboard": {
+                  "shown": true,
+                  "rect": {
+                    "y": 567,
+                    "x": 0,
+                    "width": 393,
+                    "height": 227
+                  }
+                }
+              }
+            ],
+            "does_not_complete_interrupted_configuration": true
+          }
+        },
+        {
+          "model": "iPhone 15 Pro",
+          "orientation": "LANDSCAPE",
+          "status": "failed",
+          "test_udid": "665246A8-1575-4037-BBDF-17B36C22F9FF",
+          "test_name": "DeckLabSafari-56251e9628df",
+          "reported_check_counts": {
+            "failed": 1
+          },
+          "reported_checks": [
+            {
+              "name": "refine_keyboard",
+              "status": "failed",
+              "error": "focused Strength input is covered by a sticky row or overlay: {'active': 'refine-strength', 'value': '0.1', 'field': {'left': 106, 'top': 71, 'right': 746, 'bottom': 115, 'width': 640, 'height': 44, 'position': 'static'}, 'dialog': {'left': 0, 'top': 0, 'right': 852, 'bottom': 48, 'width': 852, 'height': 48, 'position': 'fixed'}, 'viewport': {'top': 0, 'bottom': 48, 'height': 48}, 'head': {'left': 0, 'top': -471, 'right': 852, 'bottom': -410, 'width': 852, 'height': 61, 'position': 'static'}, 'footer': {'left': 0, 'top': 3, 'right': 852, 'bottom': 48, 'width': 852, 'height': 45, 'position': 'sticky'}, 'interior_hits': [{'name': 'center', 'x': 426, 'y': 93, 'hittable': False, 'hit': 'refine-dialog'}, {'name': 'top-left', 'x': 110, 'y': 75, 'hittable': False, 'hit': 'refine-dialog'}, {'name': 'top-right', 'x': 742, 'y': 75, 'hittable': False, 'hit': 'refine-dialog'}, {'name': 'bottom-left', 'x': 110, 'y': 111, 'hittable': False, 'hit': 'refine-dialog'}, {'name': 'bottom-right', 'x': 742, 'y': 111, 'hittable': False, 'hit': 'refine-dialog'}]}",
+              "seconds": 186.95,
+              "harness": {
+                "version": "2026-11-07.9-p44-focused-field-native-generate",
+                "sha256": "89986a0eb12533bcf67fff5d40dafd7ef379113f86180b640a6cd6738ff7bfdc"
+              }
+            }
+          ],
+          "retained_cases_not_in_report": [],
+          "incomplete_case_directories": []
+        },
+        {
+          "model": "iPad Air 11-inch (M2)",
+          "orientation": "PORTRAIT",
+          "status": "passed",
+          "test_udid": "8367FAB0-E0D2-4924-B0D0-FEA92CF6E66E",
+          "test_name": "DeckLabSafari-d2c9cb6b5538",
+          "reported_check_counts": {
+            "passed": 1
+          },
+          "reported_checks": [
+            {
+              "name": "refine_keyboard",
+              "status": "passed",
+              "error": null,
+              "seconds": 60.5,
+              "harness": {
+                "version": "2026-11-07.9-p44-focused-field-native-generate",
+                "sha256": "89986a0eb12533bcf67fff5d40dafd7ef379113f86180b640a6cd6738ff7bfdc"
+              }
+            }
+          ],
+          "retained_cases_not_in_report": [],
+          "incomplete_case_directories": [],
+          "retained_partial_keyboard_evidence": {
+            "receipt": {
+              "path": "iPad-Air-11-inch-(M2)-PORTRAIT/refine_keyboard/keyboard-evidence.json",
+              "sha256": "789d24c0a24e6ff63dfb98f360b45ba54811bdcd600b0b991a319fce78ad2066"
+            },
+            "fields": [
+              {
+                "field": "refine-strength",
+                "native_cancel_closed_dialog_and_keyboard": true,
+                "focused_field_status": "passed",
+                "native_key_press": {
+                  "digit": "1",
+                  "key_rect": {
+                    "y": 905,
+                    "x": 87,
+                    "width": 65,
+                    "height": 64
+                  }
+                },
+                "value_before_native_typing": "0.1",
+                "value_after_native_typing": "0.11",
+                "interior_dom_hits": [
+                  {
+                    "name": "center",
+                    "x": 268.3125,
+                    "y": 431.328125,
+                    "hittable": true,
+                    "hit": "refine-strength"
+                  },
+                  {
+                    "name": "top-left",
+                    "x": 199,
+                    "y": 411.828125,
+                    "hittable": true,
+                    "hit": "refine-strength"
+                  },
+                  {
+                    "name": "top-right",
+                    "x": 337.625,
+                    "y": 411.828125,
+                    "hittable": true,
+                    "hit": "refine-strength"
+                  },
+                  {
+                    "name": "bottom-left",
+                    "x": 199,
+                    "y": 450.828125,
+                    "hittable": true,
+                    "hit": "refine-strength"
+                  },
+                  {
+                    "name": "bottom-right",
+                    "x": 337.625,
+                    "y": 450.828125,
+                    "hittable": true,
+                    "hit": "refine-strength"
+                  }
+                ],
+                "native_field": {
+                  "name": "Strength",
+                  "label": "Strength",
+                  "visible": "true",
+                  "value": "0.1",
+                  "rect": {
+                    "x": 195.0,
+                    "y": 539.0,
+                    "width": 147.0,
+                    "height": 48.0
+                  }
+                },
+                "native_keyboard": {
+                  "shown": true,
+                  "rect": {
+                    "y": 898,
+                    "x": 0,
+                    "width": 820,
+                    "height": 279
+                  }
+                }
+              },
+              {
+                "field": "refine-seed",
+                "native_cancel_closed_dialog_and_keyboard": true,
+                "focused_field_status": "passed",
+                "native_key_press": {
+                  "digit": "1",
+                  "key_rect": {
+                    "y": 905,
+                    "x": 87,
+                    "width": 65,
+                    "height": 64
+                  }
+                },
+                "value_before_native_typing": "5074918688323269",
+                "value_after_native_typing": "50749186883232691",
+                "interior_dom_hits": [
+                  {
+                    "name": "center",
+                    "x": 501.96875,
+                    "y": 432.125,
+                    "hittable": true,
+                    "hit": "refine-seed"
+                  },
+                  {
+                    "name": "top-left",
+                    "x": 423.625,
+                    "y": 412.625,
+                    "hittable": true,
+                    "hit": "refine-seed"
+                  },
+                  {
+                    "name": "top-right",
+                    "x": 580.3125,
+                    "y": 412.625,
+                    "hittable": true,
+                    "hit": "refine-seed"
+                  },
+                  {
+                    "name": "bottom-left",
+                    "x": 423.625,
+                    "y": 451.625,
+                    "hittable": true,
+                    "hit": "refine-seed"
+                  },
+                  {
+                    "name": "bottom-right",
+                    "x": 580.3125,
+                    "y": 451.625,
+                    "hittable": true,
+                    "hit": "refine-seed"
+                  }
+                ],
+                "native_field": {
+                  "name": "Seed",
+                  "label": "Seed",
+                  "visible": "true",
+                  "value": "5074918688323269",
+                  "rect": {
+                    "x": 419.0,
+                    "y": 540.0,
+                    "width": 166.0,
+                    "height": 48.0
+                  }
+                },
+                "native_keyboard": {
+                  "shown": true,
+                  "rect": {
+                    "y": 898,
+                    "x": 0,
+                    "width": 820,
+                    "height": 279
+                  }
+                }
+              }
+            ],
+            "does_not_complete_interrupted_configuration": true
+          }
+        },
+        {
+          "model": "iPad Air 11-inch (M2)",
+          "orientation": "LANDSCAPE",
+          "status": "passed",
+          "test_udid": "A6C3B57E-855B-4C18-8365-14D3E823A803",
+          "test_name": "DeckLabSafari-ae6dc2284656",
+          "reported_check_counts": {
+            "passed": 1
+          },
+          "reported_checks": [
+            {
+              "name": "refine_keyboard",
+              "status": "passed",
+              "error": null,
+              "seconds": 75.19,
+              "harness": {
+                "version": "2026-11-07.9-p44-focused-field-native-generate",
+                "sha256": "89986a0eb12533bcf67fff5d40dafd7ef379113f86180b640a6cd6738ff7bfdc"
+              }
+            }
+          ],
+          "retained_cases_not_in_report": [],
+          "incomplete_case_directories": [],
+          "retained_partial_keyboard_evidence": {
+            "receipt": {
+              "path": "iPad-Air-11-inch-(M2)-LANDSCAPE/refine_keyboard/keyboard-evidence.json",
+              "sha256": "9bd496d0d6c6ed55dfcb2d98eccbe4b6a3e5648e936cfbd03218d26e26529aee"
+            },
+            "fields": [
+              {
+                "field": "refine-strength",
+                "native_cancel_closed_dialog_and_keyboard": true,
+                "focused_field_status": "passed",
+                "native_key_press": {
+                  "digit": "1",
+                  "key_rect": {
+                    "y": 463,
+                    "x": 128,
+                    "width": 94,
+                    "height": 85
+                  }
+                },
+                "value_before_native_typing": "0.1",
+                "value_after_native_typing": "0.11",
+                "interior_dom_hits": [
+                  {
+                    "name": "center",
+                    "x": 452.3125,
+                    "y": 137.53125,
+                    "hittable": true,
+                    "hit": "refine-strength"
+                  },
+                  {
+                    "name": "top-left",
+                    "x": 383,
+                    "y": 118.03125,
+                    "hittable": true,
+                    "hit": "refine-strength"
+                  },
+                  {
+                    "name": "top-right",
+                    "x": 521.625,
+                    "y": 118.03125,
+                    "hittable": true,
+                    "hit": "refine-strength"
+                  },
+                  {
+                    "name": "bottom-left",
+                    "x": 383,
+                    "y": 157.03125,
+                    "hittable": true,
+                    "hit": "refine-strength"
+                  },
+                  {
+                    "name": "bottom-right",
+                    "x": 521.625,
+                    "y": 157.03125,
+                    "hittable": true,
+                    "hit": "refine-strength"
+                  }
+                ],
+                "native_field": {
+                  "name": "Strength",
+                  "label": "Strength",
+                  "visible": "true",
+                  "value": "0.1",
+                  "rect": {
+                    "x": 379.0,
+                    "y": 246.0,
+                    "width": 147.0,
+                    "height": 48.0
+                  }
+                },
+                "native_keyboard": {
+                  "shown": true,
+                  "rect": {
+                    "y": 453,
+                    "x": 0,
+                    "width": 1180,
+                    "height": 364
+                  }
+                }
+              },
+              {
+                "field": "refine-seed",
+                "native_cancel_closed_dialog_and_keyboard": true,
+                "focused_field_status": "passed",
+                "native_key_press": {
+                  "digit": "1",
+                  "key_rect": {
+                    "y": 463,
+                    "x": 128,
+                    "width": 94,
+                    "height": 85
+                  }
+                },
+                "value_before_native_typing": "5074918688323269",
+                "value_after_native_typing": "50749186883232691",
+                "interior_dom_hits": [
+                  {
+                    "name": "center",
+                    "x": 685.96875,
+                    "y": 138.328125,
+                    "hittable": true,
+                    "hit": "refine-seed"
+                  },
+                  {
+                    "name": "top-left",
+                    "x": 607.625,
+                    "y": 118.828125,
+                    "hittable": true,
+                    "hit": "refine-seed"
+                  },
+                  {
+                    "name": "top-right",
+                    "x": 764.3125,
+                    "y": 118.828125,
+                    "hittable": true,
+                    "hit": "refine-seed"
+                  },
+                  {
+                    "name": "bottom-left",
+                    "x": 607.625,
+                    "y": 157.828125,
+                    "hittable": true,
+                    "hit": "refine-seed"
+                  },
+                  {
+                    "name": "bottom-right",
+                    "x": 764.3125,
+                    "y": 157.828125,
+                    "hittable": true,
+                    "hit": "refine-seed"
+                  }
+                ],
+                "native_field": {
+                  "name": "Seed",
+                  "label": "Seed",
+                  "visible": "true",
+                  "value": "5074918688323269",
+                  "rect": {
+                    "x": 603.0,
+                    "y": 246.0,
+                    "width": 166.0,
+                    "height": 48.0
+                  }
+                },
+                "native_keyboard": {
+                  "shown": true,
+                  "rect": {
+                    "y": 453,
+                    "x": 0,
+                    "width": 1180,
+                    "height": 364
+                  }
+                }
+              }
+            ],
+            "does_not_complete_interrupted_configuration": true
+          }
+        }
+      ],
+      "exact_failed_cases": [
+        {
+          "model": "iPhone 15 Pro",
+          "orientation": "LANDSCAPE",
+          "name": "refine_keyboard",
+          "status": "failed",
+          "error": "focused Strength input is covered by a sticky row or overlay: {'active': 'refine-strength', 'value': '0.1', 'field': {'left': 106, 'top': 71, 'right': 746, 'bottom': 115, 'width': 640, 'height': 44, 'position': 'static'}, 'dialog': {'left': 0, 'top': 0, 'right': 852, 'bottom': 48, 'width': 852, 'height': 48, 'position': 'fixed'}, 'viewport': {'top': 0, 'bottom': 48, 'height': 48}, 'head': {'left': 0, 'top': -471, 'right': 852, 'bottom': -410, 'width': 852, 'height': 61, 'position': 'static'}, 'footer': {'left': 0, 'top': 3, 'right': 852, 'bottom': 48, 'width': 852, 'height': 45, 'position': 'sticky'}, 'interior_hits': [{'name': 'center', 'x': 426, 'y': 93, 'hittable': False, 'hit': 'refine-dialog'}, {'name': 'top-left', 'x': 110, 'y': 75, 'hittable': False, 'hit': 'refine-dialog'}, {'name': 'top-right', 'x': 742, 'y': 75, 'hittable': False, 'hit': 'refine-dialog'}, {'name': 'bottom-left', 'x': 110, 'y': 111, 'hittable': False, 'hit': 'refine-dialog'}, {'name': 'bottom-right', 'x': 742, 'y': 111, 'hittable': False, 'hit': 'refine-dialog'}]}"
+        }
+      ],
+      "remaining_owned_devices": []
+    },
+    {
+      "run_id": "results-20261107T015957Z",
+      "run_directory": "C:/Projects/AuraDream/work/safari-p44-20261107/results-20261107T015957Z",
+      "source": {
+        "backend_tree": "eac797f8b7110cc6d76f86291ab614c40ea49e84",
+        "repository": "AuraDream",
+        "changed_files": [],
+        "web_tree": "ff627f3f9ae2ce5532b39a0bbc797c0ef76f319d",
+        "revision": "68695a25d422fb343d1c064d5a32c200b189cdb1",
+        "dirty": false,
+        "application_assets_unmodified": true
+      },
+      "report_sha256": "293f3668bb0f99e9d54ec6de136f7cb9afa13bcf532f408188b402117c3f49e5",
+      "harness_sha256": {
+        "run.py": "4f77b46e54fb543191aafa439e960eee3ee89779b957b9b5ade2c1ed6c36b0d8",
+        "flows.py": "89986a0eb12533bcf67fff5d40dafd7ef379113f86180b640a6cd6738ff7bfdc",
+        "phone_audit.js": "b42a2e8cf2ca070950772d5abcc6104a410c6a9620e46259db978068ee273715"
+      },
+      "flow_scope": "P44 Refine keyboard only",
+      "started_at": "2026-11-07T01:59:57.494187+00:00",
+      "finished_at": "2026-11-07T02:07:26.638474+00:00",
+      "exit_code": 1,
+      "errors": [
+        "Interrupted"
+      ],
+      "disposition": [
+        "interrupted"
+      ],
+      "used_as_final_acceptance": false,
+      "expected_configurations": 4,
+      "configurations": [
+        {
+          "model": "iPhone 15 Pro",
+          "orientation": "PORTRAIT",
+          "status": "passed",
+          "test_udid": "7A5786AF-7B1D-4F74-9F82-FDBDD1423CD2",
+          "test_name": "DeckLabSafari-488af2120e68",
+          "reported_check_counts": {
+            "passed": 1
+          },
+          "reported_checks": [
+            {
+              "name": "refine_keyboard",
+              "status": "passed",
+              "error": null,
+              "seconds": 30.26,
+              "harness": {
+                "version": "2026-11-07.9-p44-focused-field-native-generate",
+                "sha256": "89986a0eb12533bcf67fff5d40dafd7ef379113f86180b640a6cd6738ff7bfdc"
+              }
+            }
+          ],
+          "retained_cases_not_in_report": [],
+          "incomplete_case_directories": [],
+          "retained_partial_keyboard_evidence": {
+            "receipt": {
+              "path": "iPhone-15-Pro-PORTRAIT/refine_keyboard/keyboard-evidence.json",
+              "sha256": "716efae6234ae0a093cbcb5d020a6e3618961b42af5d7ba42468077d24fb314a"
+            },
+            "fields": [
+              {
+                "field": "refine-strength",
+                "native_cancel_closed_dialog_and_keyboard": true,
+                "focused_field_status": "passed",
+                "native_key_press": {
+                  "digit": "1",
+                  "key_rect": {
+                    "y": 574,
+                    "x": 4,
+                    "width": 130,
+                    "height": 54
+                  }
+                },
+                "value_before_native_typing": "0.1",
+                "value_after_native_typing": "0.11",
+                "interior_dom_hits": [
+                  {
+                    "name": "center",
+                    "x": 196.5,
+                    "y": 298.5,
+                    "hittable": true,
+                    "hit": "refine-strength"
+                  },
+                  {
+                    "name": "top-left",
+                    "x": 20,
+                    "y": 280.5,
+                    "hittable": true,
+                    "hit": "refine-strength"
+                  },
+                  {
+                    "name": "top-right",
+                    "x": 373,
+                    "y": 280.5,
+                    "hittable": true,
+                    "hit": "refine-strength"
+                  },
+                  {
+                    "name": "bottom-left",
+                    "x": 20,
+                    "y": 316.5,
+                    "hittable": true,
+                    "hit": "refine-strength"
+                  },
+                  {
+                    "name": "bottom-right",
+                    "x": 373,
+                    "y": 316.5,
+                    "hittable": true,
+                    "hit": "refine-strength"
+                  }
+                ],
+                "native_field": {
+                  "name": "Strength",
+                  "label": "Strength",
+                  "visible": "true",
+                  "value": "0.1",
+                  "rect": {
+                    "x": 16.0,
+                    "y": 335.0,
+                    "width": 361.0,
+                    "height": 45.0
+                  }
+                },
+                "native_keyboard": {
+                  "shown": true,
+                  "rect": {
+                    "y": 567,
+                    "x": 0,
+                    "width": 393,
+                    "height": 227
+                  }
+                }
+              },
+              {
+                "field": "refine-seed",
+                "native_cancel_closed_dialog_and_keyboard": true,
+                "focused_field_status": "passed",
+                "native_key_press": {
+                  "digit": "1",
+                  "key_rect": {
+                    "y": 574,
+                    "x": 4,
+                    "width": 130,
+                    "height": 54
+                  }
+                },
+                "value_before_native_typing": "5074918688323269",
+                "value_after_native_typing": "50749186883232691",
+                "interior_dom_hits": [
+                  {
+                    "name": "center",
+                    "x": 205,
+                    "y": 298.59375,
+                    "hittable": true,
+                    "hit": "refine-seed"
+                  },
+                  {
+                    "name": "top-left",
+                    "x": 90,
+                    "y": 280.59375,
+                    "hittable": true,
+                    "hit": "refine-seed"
+                  },
+                  {
+                    "name": "top-right",
+                    "x": 320,
+                    "y": 280.59375,
+                    "hittable": true,
+                    "hit": "refine-seed"
+                  },
+                  {
+                    "name": "bottom-left",
+                    "x": 90,
+                    "y": 316.59375,
+                    "hittable": true,
+                    "hit": "refine-seed"
+                  },
+                  {
+                    "name": "bottom-right",
+                    "x": 320,
+                    "y": 316.59375,
+                    "hittable": true,
+                    "hit": "refine-seed"
+                  }
+                ],
+                "native_field": {
+                  "name": "Seed",
+                  "label": "Seed",
+                  "visible": "true",
+                  "value": "5074918688323269",
+                  "rect": {
+                    "x": 86.0,
+                    "y": 335.0,
+                    "width": 238.0,
+                    "height": 45.0
+                  }
+                },
+                "native_keyboard": {
+                  "shown": true,
+                  "rect": {
+                    "y": 567,
+                    "x": 0,
+                    "width": 393,
+                    "height": 227
+                  }
+                }
+              }
+            ],
+            "does_not_complete_interrupted_configuration": true
+          }
+        },
+        {
+          "model": "iPhone 15 Pro",
+          "orientation": "LANDSCAPE",
+          "status": "interrupted",
+          "test_udid": "775C154E-7823-4D4B-81C7-076C891A0078",
+          "test_name": "DeckLabSafari-89213ce39a39",
+          "reported_check_counts": {},
+          "reported_checks": [],
+          "retained_cases_not_in_report": [],
+          "incomplete_case_directories": [
+            "refine_keyboard"
+          ],
+          "retained_partial_keyboard_evidence": {
+            "receipt": {
+              "path": "iPhone-15-Pro-LANDSCAPE/refine_keyboard/keyboard-evidence.json",
+              "sha256": "986ae3145134e6b6bf6bcdda7126209dfd3e91a009298817f1f7b9573fb47efb"
+            },
+            "fields": [
+              {
+                "field": "refine-strength",
+                "native_cancel_closed_dialog_and_keyboard": true,
+                "focused_field_status": "passed",
+                "native_key_press": {
+                  "digit": "1",
+                  "key_rect": {
+                    "y": 230,
+                    "x": 225,
+                    "width": 136,
+                    "height": 40
+                  }
+                },
+                "value_before_native_typing": "0.1",
+                "value_after_native_typing": "0.11",
+                "interior_dom_hits": [
+                  {
+                    "name": "center",
+                    "x": 316,
+                    "y": 24,
+                    "hittable": true,
+                    "hit": "refine-strength"
+                  },
+                  {
+                    "name": "top-left",
+                    "x": 63,
+                    "y": 6,
+                    "hittable": true,
+                    "hit": "refine-strength"
+                  },
+                  {
+                    "name": "top-right",
+                    "x": 569,
+                    "y": 6,
+                    "hittable": true,
+                    "hit": "refine-strength"
+                  },
+                  {
+                    "name": "bottom-left",
+                    "x": 63,
+                    "y": 42,
+                    "hittable": true,
+                    "hit": "refine-strength"
+                  },
+                  {
+                    "name": "bottom-right",
+                    "x": 569,
+                    "y": 42,
+                    "hittable": true,
+                    "hit": "refine-strength"
+                  }
+                ],
+                "native_field": {
+                  "name": "Strength",
+                  "label": "Strength",
+                  "visible": "true",
+                  "value": "0.1",
+                  "rect": {
+                    "x": 59.0,
+                    "y": 112.0,
+                    "width": 514.0,
+                    "height": 44.0
+                  }
+                },
+                "native_keyboard": {
+                  "shown": true,
+                  "rect": {
+                    "y": 222,
+                    "x": 75,
+                    "width": 702,
+                    "height": 168
+                  }
+                }
+              }
+            ],
+            "does_not_complete_interrupted_configuration": true
+          }
+        },
+        {
+          "model": "iPad Air 11-inch (M2)",
+          "orientation": "PORTRAIT",
+          "status": "pending",
+          "reported_check_counts": {},
+          "reported_checks": [],
+          "retained_cases_not_in_report": [],
+          "incomplete_case_directories": []
+        },
+        {
+          "model": "iPad Air 11-inch (M2)",
+          "orientation": "LANDSCAPE",
+          "status": "pending",
+          "reported_check_counts": {},
+          "reported_checks": [],
+          "retained_cases_not_in_report": [],
+          "incomplete_case_directories": []
+        }
+      ],
+      "exact_failed_cases": [],
+      "remaining_owned_devices": [],
+      "explicit_review_notes": [
+        "Interrupted after nativeWebTap stalled at the second #lb-refine opener in iPhone landscape. Strength field passed its native bounds, five DOM hit tests, digit-entry and genuine Cancel checks; Seed and the configuration were not completed. Source remained 68695a2."
+      ]
+    }
+  ]
+}

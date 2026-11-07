@@ -2273,6 +2273,80 @@ shrinks its items (`flex-shrink: 0`): too tall for the window, it squeezed
 each to its min-height, a hint's 15 px, and a two-line preview ran over the
 line under it.
 
+**Touch dialogs use the visible viewport, 2026-11-07 (P44).** Native Safari
+Simulator checks found Refine's Cancel and Refine behind the software
+keyboard on iPhone portrait and both iPad orientations. The phone's old
+`innerHeight - visualViewport.height - visualViewport.offsetTop` estimate
+became 42 px in one failing state and was discarded by its 80 px threshold;
+the tablet had no correction at all. Safari can resize and pan together,
+so a guessed keyboard height is not the sheet's available space.
+
+`syncSheetViewport` (`phone-sheets.js`) now publishes the visible viewport's
+top and height on touch. Phone form sheets take those dimensions directly,
+with their existing sticky heads and action rows inside them; the short
+delete question ends at the visible foot. Tablet Refine keeps its width
+and top gap, but its height cap uses the visible viewport and its action
+row stays sticky. This tablet change is limited to Refine. Page pinch zoom
+clears the properties so the forms keep their normal geometry while the
+user magnifies the page; a mouse or a missing viewport API uses the CSS
+fallbacks. The phone's opening-focus guard still puts focus on the head's
+close button, while the tablet keeps Refine's Strength focus.
+
+**Enough space to edit on a phone held sideways.** A software keyboard
+can leave only 94 px, and a later pan can leave just 48 px. Fitting the
+sheet to that height alone is not enough: the usual sticky head and
+padded footer together cover more than the
+available space. Below 200 px of visible height at scale 1, the phone
+marks `data-short-sheet`. Refine's head becomes ordinary scrolling content,
+its footer loses vertical and bottom-safe-area padding and its two buttons
+are 44 px tall. Narrower phones keep this compact footer, with 48 px of
+bottom scroll padding.
+
+On a wide phone (coarse pointer, width at least 700 px and height at most
+500 px), Refine instead reserves a right-hand space for the two actions.
+Its centred-column gutters reset to the safe-area minimum of 16 px, with
+204 px plus `--sp-4` added at the right. Cancel and Refine form a fixed
+204x44 px row there, vertically centred in the visible viewport, with the
+old footer margins, padding and border removed. Scroll padding is 2 px.
+A 44 px input and the actions then share the 48 px visible height beside
+each other. This layout stays inside the wide-phone query.
+
+Growing the viewport, page pinch zoom or leaving the phone clears the
+compact state. The tablet keeps the height cap described above, without
+this phone-only layout.
+
+**Keep the field clear of sticky rows at every touch size.** Safari's
+focus pan does not account for the sheet's sticky head and footer. The
+actions can be above the keyboard while Strength is still covered by the
+footer, and a late preview or restored-draft line can move the field
+after the keyboard settles. At scale 1, viewport changes, focus changes
+and Refine content updates queue one animation frame to check the focused
+keyboard field against the open dialog's band between its sticky head,
+if any, and its actions where they overlap horizontally; beside the side
+actions the band extends to the dialog's bottom. Only a clipped field
+causes a scroll, by the nearest amount needed with up to 4 px clearance.
+This changes Refine's
+`scrollTop` alone; it moves neither the page nor another dialog and skips
+page pinch zoom. An already clear field keeps its place. A text area taller
+than the available band is left to Safari's caret pan: trying to reveal
+the whole box would alternate between its top and bottom on later updates.
+This guard also applies to tablet Refine; the compact layout remains
+phone-only.
+
+The phone-dialogs smoke supplies height 391 and top 131, checks the sheet
+and footer, focuses Strength and checks that the sticky rows do not cover
+its vertical edges, including after a late 28 px line appears above it.
+It checks the pinch-zoom reset and restores the real viewport.
+It also supplies heights 94 and 48 with top 69 in landscape, checks
+Strength and Seed clear of the compact side actions with hit tests near
+their vertical edges, and checks that Seed ends before the side actions
+at 48 px. It then restores portrait and checks that the compact marker
+and head reset.
+This is a mechanism check. Native control rectangles, software-keyboard
+rectangles and screenshots remain the Simulator acceptance evidence in
+the [phone review](review-2026-11-05-phone.md#7-refine-keyboard-correction-2026-11-07);
+other tablet dialogs and physical-device acceptance need their own checks.
+
 **What is around the source.** Opened from Reuse on a pass, the title and a
 line of their own name the pass being run again ("Refine #4 as #5 was
 made", "Reusing #5: 1344×1728 at strength 0.2, seed 9"), since the dialog
