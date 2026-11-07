@@ -6959,6 +6959,17 @@ measured on the card and when.
   and pan a fixed dialog together. Page pinch zoom (`scale !== 1`), a mouse
   and a missing `visualViewport` clear the properties and keep the normal
   CSS geometry. Other tablet dialogs are unchanged by this correction.
+  A phone's visible viewport below 200 px at scale 1 marks the root
+  `data-short-sheet`. In Refine alone, the head then scrolls away instead
+  of sticking, the action row has no vertical or bottom-safe-area padding,
+  its buttons are 44 px and the bottom scroll padding is 48 px. After a
+  viewport or focus change, or a late Refine content update, one animation
+  frame aligns the currently focused
+  keyboard field with Refine's top by changing that dialog's `scrollTop`
+  only. It requires Refine to be open and to contain the focused field;
+  neither the page nor another dialog scrolls. The marker clears as the
+  viewport grows, on page pinch zoom and off the phone, restoring the
+  normal head and footer.
   The delete question's Delete and Cancel are stacked
   across its sheet, 48 px each, the destructive one first (P51). Swap
   tags' explanation, Mass refine's, and Inpaint's and Outpaint's notes on
@@ -9125,6 +9136,10 @@ and its empty results not drawn, the audit clean; a supplied visible
 viewport of height 391 px with a 131 px pan fits Refine's sheet and action
 row within that area; page pinch zoom clears the viewport properties,
 and restoring the real viewport restores the sheet's full height and top.
+At 852x393, a supplied height 94 and top 69 exercise Refine's compact
+state: Strength and Seed each keep focus, fit above its 44 px actions and
+receive hit tests near both vertical edges; restoring the real viewport
+and portrait clears the compact marker and restores the sticky head.
 These supplied metrics check the layout mechanism, not native Safari's
 keyboard. The delete question keeps Delete over Cancel, each 48 px and as
 wide; Inpaint's strength note in

@@ -65,6 +65,7 @@ function pressSheetClose(event) {
 // offsetTop from a guessed keyboard height lost the phone's last 42 px.
 // The top compensates for that pan, and the height is what the keys leave.
 // Page pinch zoom keeps the ordinary layout rather than resizing its forms.
+let sheetViewportFrame = 0;
 function syncSheetViewport() {
   const vv = window.visualViewport;
   const root = document.documentElement.style;
@@ -72,6 +73,20 @@ function syncSheetViewport() {
     if (!touchQuery.matches || !vv || vv.scale !== 1) { root.removeProperty(name); continue; }
     const pixels = `${value}px`;
     if (root.getPropertyValue(name) !== pixels) root.setProperty(name, pixels);
+  }
+  const short = isPhone() && vv && vv.scale === 1 && vv.height < 200;
+  document.documentElement.toggleAttribute('data-short-sheet', !!short);
+  // A landscape keyboard can leave only 94 px: the focused input and the
+  // compact action row fit, with the header scrolled away. Keep this scroll
+  // inside Refine; neither the page nor another dialog is moved.
+  if (short && !sheetViewportFrame) {
+    sheetViewportFrame = requestAnimationFrame(() => {
+      sheetViewportFrame = 0;
+      if (!document.documentElement.hasAttribute('data-short-sheet')) return;
+      const field = document.activeElement;
+      if (!els.refineDialog.open || !field?.matches(KEYBOARD_FIELD) || !els.refineDialog.contains(field)) return;
+      els.refineDialog.scrollTop += field.getBoundingClientRect().top - els.refineDialog.getBoundingClientRect().top;
+    });
   }
 }
 
@@ -237,6 +252,12 @@ function initPhoneSheets() {
   document.addEventListener('pointerdown', noteSheetInput, true);
   document.addEventListener('keydown', noteSheetInput, true);
   document.addEventListener('focusin', lateSheetFocus);
+  document.addEventListener('focusin', syncSheetViewport);
+  // A late preview or restored-draft line can move the field after the
+  // keyboard has settled. Keep the same compact editing space when it does.
+  new MutationObserver(() => {
+    if (document.documentElement.hasAttribute('data-short-sheet')) syncSheetViewport();
+  }).observe(els.refineDialog, { childList: true, subtree: true, characterData: true, attributes: true });
   window.visualViewport?.addEventListener('resize', syncSheetViewport);
   window.visualViewport?.addEventListener('scroll', syncSheetViewport);
   syncSheetViewport();

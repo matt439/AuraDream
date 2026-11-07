@@ -2292,8 +2292,27 @@ user magnifies the page; a mouse or a missing viewport API uses the CSS
 fallbacks. The phone's opening-focus guard still puts focus on the head's
 close button, while the tablet keeps Refine's Strength focus.
 
+**Enough space to edit on a phone held sideways.** A software keyboard
+can leave only 94 px. Fitting the sheet to that height alone is not enough:
+the usual sticky head and padded footer together cover more than the
+available space. Below 200 px of visible height at scale 1, the phone
+marks `data-short-sheet`. Refine's head becomes ordinary scrolling content,
+its footer loses vertical and bottom-safe-area padding and its two buttons
+are 44 px tall. The focused input and actions can then share the remaining
+height. Its bottom scroll padding becomes 48 px.
+
+After the viewport changes, one animation frame aligns the focused
+keyboard field with the top of the open Refine dialog. This changes only
+Refine's `scrollTop`, following the keyboard change while the user edits;
+it moves neither the page nor another dialog. Growing the viewport, page
+pinch zoom or leaving the phone clears the compact state. The tablet keeps
+the height cap described above, without this phone-only layout.
+
 The phone-dialogs smoke supplies height 391 and top 131, checks the sheet
 and footer, checks the pinch-zoom reset and restores the real viewport.
+It also supplies height 94 and top 69 in landscape, checks Strength and
+Seed above the compact footer with hit tests near their vertical edges,
+then restores portrait and checks that the compact marker and head reset.
 This is a mechanism check. Native control rectangles, software-keyboard
 rectangles and screenshots remain the Simulator acceptance evidence in
 the [phone review](review-2026-11-05-phone.md#6-safari-simulator-check-2026-11-07);

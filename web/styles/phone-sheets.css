@@ -41,6 +41,14 @@
     max-height: calc(var(--sheet-viewport-height, 100dvh) - var(--safe-t) - 16px);
   }
 
+  /* A landscape software keyboard can leave less than 200 px. Refine's
+     focused box and 44 px actions take that space; its head scrolls away.
+     The keyboard already occupies the home indicator's safe area. */
+  :root[data-short-sheet] #refine-dialog { scroll-padding-block: 0 48px; }
+  :root[data-short-sheet] #refine-dialog > .dialog-head { position: static; }
+  :root[data-short-sheet] #refine-dialog .dialog-actions { padding-block: 0; }
+  :root[data-short-sheet] #refine-dialog .dialog-actions > button { height: 44px; min-height: 44px; padding-block: 0; }
+
   /* The delete question's buttons (P51) were the screen's width apart, at
      its two edges: stacked across it, 48 px each, the destructive one over
      Cancel, as a phone's own action sheet has them. */
