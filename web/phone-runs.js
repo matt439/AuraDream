@@ -131,7 +131,7 @@ function drawRunsSheet() {
   body.replaceChildren(...rows);
 }
 
-// A run's row: its first image (a blank square for a run with none left),
+// A run's row: its first image (an empty-set marker for a run with none left),
 // then when it ran and its count over what it varied and its prompt. The
 // option's own words are its title; the run shown is marked.
 function runRow(option, shown) {
@@ -147,6 +147,7 @@ function runRow(option, shown) {
   }
   const face = document.createElement('span');
   face.className = 'run-face';
+  face.setAttribute('aria-hidden', 'true');
   if (run?.cover != null) {
     const img = document.createElement('img');
     img.alt = '';
@@ -154,6 +155,10 @@ function runRow(option, shown) {
     img.decoding = 'async';
     img.src = `/api/images/${run.cover}/thumb`;
     face.append(img);
+  } else {
+    face.classList.add('run-face-empty');
+    face.textContent = '∅';
+    face.title = run?.images === 0 ? 'No images in this run' : 'No preview image';
   }
   const text = document.createElement('span');
   text.className = 'run-text';

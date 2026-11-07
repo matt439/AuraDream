@@ -280,7 +280,7 @@ function syncPhoneGalleryHead() {
   filters.setAttribute('aria-label', on.length ? `Filters: ${on.join(', ')}` : 'Filters');
   const n = selection.size;
   badge($('gallery-more-count'), n);
-  $('btn-gallery-more').setAttribute('aria-label', n ? `More gallery actions: ${n} picked` : 'More gallery actions');
+  $('btn-gallery-more').setAttribute('aria-label', n ? `${moreTitle}: ${n} picked` : moreTitle);
   const count = $('gallery-filter-count');
   const words = galleryShown();
   if (count.textContent !== words) count.textContent = words;

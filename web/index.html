@@ -1000,7 +1000,7 @@
           viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h10.2a3 3 0 0 1 5.6 0H21v2h-2.2a3 3 0 0 1-5.6 0H3zm13 1a1 1 0 1 0 0 .01zM3 16h2.2a3 3 0 0 1 5.6 0H21v2H10.8a3 3 0 0 1-5.6 0H3zm5 1a1 1 0 1 0 0 .01z"/></svg><span
           class="gallery-badge" id="gallery-filters-count" aria-hidden="true" hidden></span></button>
         <button type="button" class="gallery-more" id="btn-gallery-more" aria-haspopup="dialog"
-          aria-controls="gallery-more-sheet" aria-label="More gallery actions"
+          aria-controls="gallery-more-sheet" aria-label="Gallery actions"
           title="The picks, Swap tags, Refine, More seeds, saved searches, bundles, the recycle bin and Delete unstarred"><span
           class="gallery-badge" id="gallery-more-count" aria-hidden="true" hidden></span></button>
         <label class="check"><input type="checkbox" id="fav-only"> Starred</label>
@@ -1222,6 +1222,17 @@
      queue's #queue-note, the panel's own nodes moved in whole while it is
      open and home again as it closes, so setQueue and the job's writers
      write the one copy. -->
+<dialog class="lightbox phone-preview-viewer" id="phone-preview-viewer" aria-labelledby="phone-preview-title">
+  <img id="phone-preview-image" alt="Live preview of the image being generated">
+  <div class="phone-preview-head">
+    <button type="button" class="close" id="phone-preview-close" aria-label="Close live preview">‹</button>
+    <h2 id="phone-preview-title">Live preview</h2>
+  </div>
+  <div class="phone-preview-foot">
+    <p id="phone-preview-note"></p>
+    <button type="button" class="ghost" id="phone-preview-result" hidden>Open finished image</button>
+  </div>
+</dialog>
 <dialog class="queue-sheet" id="queue-sheet" aria-labelledby="queue-sheet-title">
   <div class="queue-sheet-head dialog-head">
     <h2 id="queue-sheet-title">Queue</h2>

@@ -709,7 +709,9 @@ before changing it.
   `renderLightbox` calls): the lightbox's bars over the picture, Edit's and
   More's action sheets (`openViewerEdit`, `openViewerMore`), Share
   (`sharePhoneImage`), the facts' sheet (`setPhoneFacts`) and a tap's bars
-  (`phoneViewerTap`, which `lbPointerUp` calls); `phone-sheets.js`, after
+  (`phoneViewerTap`, which `lbPointerUp` calls); its live-preview viewer
+  (`openPhoneLivePreview`, `syncPhoneLivePreview`) follows only the opened
+  job's frames and offers an explicit finished-image handoff; `phone-sheets.js`, after
   it, what every dialog does as a phone's sheet (`syncPhoneSheets`, which
   `syncPhoneHosts` calls): a sheet's focus off its text boxes as it opens
   (`settlePhoneSheetFocus`; `keepSheetFocus`, which `openMoreOptionsFor`
@@ -6953,20 +6955,21 @@ measured on the card and when.
   on the root, updated on the viewport's resize and scroll and the tier's
   change. Every phone form sheet takes that top and height, keeping its
   sticky head and action row inside the visible area; the delete question
-  ends at its foot. On the tablet only Refine takes the viewport's top and
-  height cap, preserving its width and top gap, with a sticky action row.
+  ends at its foot. On the tablet Refine, Inpaint, Outpaint and Edit by
+  instruction take the viewport's top and height cap, preserving each
+  dialog's width and top gap, with a sticky action row.
   No keyboard-height threshold is used: Safari can resize `innerHeight`
   and pan a fixed dialog together. Page pinch zoom (`scale !== 1`), a mouse
   and a missing `visualViewport` clear the properties and keep the normal
-  CSS geometry. Other tablet dialogs are unchanged by this correction.
+  CSS geometry. Other tablet dialogs keep their own geometry.
   A phone's visible viewport below 200 px at scale 1 marks the root
-  `data-short-sheet`. In Refine alone, the head then scrolls away instead
+  `data-short-sheet`. In those four image-pass dialogs the head scrolls away instead
   of sticking, the action row has no vertical or bottom-safe-area padding,
   its buttons are 44 px and the bottom scroll padding is 48 px. The marker
   clears as the viewport grows, on page pinch zoom and off the phone,
   restoring the normal head and footer.
   A wide phone (coarse pointer, width at least 700 px, height at most
-  500 px) uses side actions while that marker is present: Refine resets
+  500 px) uses side actions while that marker is present: each image-pass dialog resets
   its centred-column gutters to the safe-area minimum of 16 px and
   reserves 204 px plus `--sp-4` on the right. Its two actions form a fixed
   204x44 px row in that space, vertically centred in the visible viewport,
@@ -6974,13 +6977,13 @@ measured on the card and when.
   This lets a 44 px field and the actions coexist when the viewport is
   only 48 px tall. Narrower phones keep the compact footer.
   At every touch size and scale 1, a viewport or focus change or a late
-  Refine content update queues one animation frame to check the focused
-  keyboard field against the open Refine dialog's visible band: below its
+  image-pass content update queues one animation frame to check the focused
+  keyboard field against its open dialog's visible band: below its
   sticky head, if any, and above its action row where their horizontal
   ranges overlap, otherwise to the dialog's bottom. It changes only that
   dialog's `scrollTop`, by the nearest amount needed to reveal a clipped
   field with up to 4 px clearance; an already clear field stays put. It
-  requires Refine to be open and to contain the focused keyboard field.
+  requires that image-pass dialog to be open and contain the focused field.
   A field taller than that band is left to the browser's caret pan,
   rather than alternating between its top and bottom on later updates.
   Neither the page nor another dialog scrolls, and page pinch zoom skips
@@ -6996,7 +6999,11 @@ measured on the card and when.
   are the sheet's too, each a card of Find, the start or end toggle and
   Replace across it, its × 44 px at its top right. The check's sheet draws
   each finding and critic issue as a card, its Show at the card's end,
-  44 px, its source chip 44 px tall, the Compare selects 64 px wide. Saved
+  44 px, its source chip 44 px tall, the Compare selects 64 px wide. Its
+  sections have 48 px disclosure buttons (`syncPhoneCheckFolds`), Findings
+  open initially and the other sections shut. Their choices survive redraws
+  and tier changes; original content nodes and hidden states stay in place.
+  A mouse gets the plain headings back. Saved
   setups', Saved searches' and Prompt snippets' list boxes are drawn as
   56 px rows from their options (`drawPhoneList`; the option of no value
   is the list's line, inert) - the select hidden, what a row's press sets
@@ -7137,9 +7144,14 @@ measured on the card and when.
   own picture does (`openViewerImage` with the origin `'dock'`), whose
   close (`dismissLightbox`, and the close after a delete) gives the focus
   back to the picture, fixed over the page, so nothing scrolls; the live
-  preview's tile in the results, scrolled to by that press as New image's
-  was (`goToNewImage`), until the phone's own viewer can show a live
-  preview (the review's P30). On its right is the queue (`#phone-queue`,
+  preview across an immersive black canvas (`#phone-preview-viewer`,
+  `openPhoneLivePreview` in `phone-viewer.js`), without scrolling Create.
+  Frames have no saved-image actions or metadata. It follows only the job
+  opened by the press, even when a later job starts. A finished image
+  replaces the frame and offers Open finished image, an explicit handoff to
+  the ordinary lightbox. Cancellation keeps the last frame labelled Preview
+  ended. Back, Escape and its close return focus to the dock; leaving the
+  phone closes it. It holds one history entry, including the handoff. On its right is the queue (`#phone-queue`,
   50 px, `syncPhoneQueue`): a list glyph, the accent's soft fill and edge
   while a job runs, the count of jobs waiting behind it in a 22 px badge
   on its corner (13 px, from `#queue-list`'s rows), held while nothing
@@ -7609,8 +7621,8 @@ measured on the card and when.
   rows are drawn from the select's own options, in their order and groups
   ("Grids and batches", "Single images"), with the run's line from
   `/api/runs` beside them (`runsListed`, `runs.js`): its first image (the
-  run's `cover`, the oldest of its images outside the bin; a blank square
-  for a run with none left), a 44 px square, then when it ran and its
+  run's `cover`, the oldest of its images outside the bin; a decorative ∅
+  beside the image count for a run with none left), a 44 px square, then when it ran and its
   count ("6 Nov, 03:48 am · 4 images", a single image's second and seed)
   in 16 px bold over what it varied and its prompt in 15 px, each one line
   cut at its end; 56 px at least, the run shown tonal with an accent bar
@@ -9198,6 +9210,26 @@ PC's question (under 480 px wide, off the window's foot, small buttons),
 Saved setups' inset box with an unstuck action row (its select drawn, no
 rows; no sheet ✕, Models' foot or folds), and the right-click
 menu placed at the pointer with its PC rows.
+
+`smoke-phone-keyboard.json` uses its own fresh FLUX.1 Krea [dev] fake on
+7960 and `phone_keyboard_audit.js`. Supplied viewport heights cover 70
+focused-field states in Inpaint, Outpaint and Edit by instruction:
+phone portrait, 48 px landscape, both tablet orientations and a 678 px
+Split View emulation. It checks field bounds and five hit points against
+sticky rows, visible actions, late content, pinch reset and mouse geometry.
+These complement the Refine cases in `smoke-phone-dialogs.json`; they are
+layout mechanism checks, without a native software keyboard.
+
+The remaining phone corrections extend the existing smokes:
+`smoke-phone-create.json` checks full-screen live frames, cancellation,
+completion and explicit lightbox handoff, one-entry Back, focus restoration,
+landscape geometry and isolation from a later job. `smoke-phone-dialogs.json`
+checks Check's disclosure buttons by tap and Enter at 393 and 320 px,
+including redraws and mouse roundtrips without replacing content nodes.
+`smoke-phone-gallery.json` checks an actual cancelled zero-image run, its
+intentional empty cover and sheet wording, filter misses, and the distinct
+44 px Gallery actions list icon at 320 and 360 px. The app topbar retains
+its overflow control; the gallery's list icon keeps its existing actions.
 
 `smoke-phone-gallery.json` uses a fresh FLUX.1 Krea [dev] fake of its own
 on 7960, a row beside `smoke-phone-dialogs`'s (the table's ports are full

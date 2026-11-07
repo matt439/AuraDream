@@ -499,7 +499,7 @@
   /* The check's sheet: the screen across, as every dialog on the phone
      (styles/touch.css); the check's own head its title row, sticky, its
      name 18 px and its ✕ a 44 px square in the corner; one column under
-     it, the sections 24 px apart, their names a caption's 14 px in
+     it, the sections as 48 px disclosure rows, their names a caption's 14 px in
      sentence case, the prose 15 px; the end clear of the home indicator. */
   .check-sheet { background: var(--panel); color: var(--text); }
   .check-sheet[open] { display: flex; flex-direction: column; }
@@ -526,11 +526,24 @@
     width: var(--h-md); height: var(--h-md); min-width: var(--h-md); min-height: var(--h-md); padding: 0;
   }
   .check-sheet .analysis-head .analysis-close::before { content: none; }
-  .check-sheet .analysis-body { grid-template-columns: minmax(0, 1fr); gap: var(--sp-5); }
+  .check-sheet .analysis-body { grid-template-columns: minmax(0, 1fr); gap: var(--sp-2); }
   .check-sheet .analysis-section { gap: var(--sp-2); }
   .check-sheet .analysis-section h3 {
     font-size: var(--fs-label); text-transform: none; letter-spacing: 0; color: var(--text-readout);
   }
+  .check-sheet .phone-check-toggle {
+    display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3);
+    width: 100%; min-height: 48px; padding: var(--sp-3) 0;
+    border: 0; border-top: 1px solid var(--line); border-radius: 0;
+    background: transparent; color: inherit; font: inherit; text-align: left;
+  }
+  .check-sheet .phone-check-toggle::after {
+    content: ""; flex: 0 0 8px; width: 8px; height: 8px; margin-right: 4px;
+    border: solid var(--muted); border-width: 0 2px 2px 0; rotate: 45deg;
+  }
+  .check-sheet .phone-check-toggle[aria-expanded="true"]::after { rotate: 225deg; }
+  .check-sheet .analysis-section[data-check-collapsed] { gap: 0; }
+  .check-sheet .analysis-section[data-check-collapsed] > :not(h3) { display: none; }
 
   /* Shape and Size (phone-compose.js): the Size caption's line holds the
      chip at its end - the megapixels bold, the pixels after them, a

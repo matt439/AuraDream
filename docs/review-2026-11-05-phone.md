@@ -801,11 +801,50 @@ same-day, midnight, historical and both mixed-day prepend orders through
 the real `joinFinished`, plus the mouse roundtrip. These Chromium checks
 use only synthetic galleries and do not extend the native Safari result.
 
-Still open from that tour: runs with no images have a blank cover and the
-sheet's empty wording refers to "the filters above the sheet"; the topbar
-and gallery head have two overflow controls one above the other. The other
-partial findings remain as recorded in their phases, with optional and
-skipped choices kept distinct from defects. Other edit dialogs' keyboard
-checks, iPad Split View, physical iPhone/Android acceptance and native
-sharing/gesture checks remain. The Refine-only Simulator result in section
-7 does not qualify those dialogs. No model or GPU acceptance is claimed.
+The remaining tour defects and the implementable partial findings are
+addressed in section 9. The Refine-only Simulator result in section 7 does
+not qualify other dialogs. No model or GPU acceptance is claimed.
+
+## 9. Remaining implementation findings (2026-11-07)
+
+- Empty runs use an intentional ∅ cover marker beside their image count.
+  Their sheet says that the run has no images; a filter miss asks for a
+  change of search or filters without referring to controls above a sheet.
+  Finish run and More seeds retain their existing availability.
+- Gallery actions uses a list icon, distinct from the app topbar's ⋯.
+  The 44 px button keeps its actions and says Gallery actions or Bin
+  actions, including the selected count where applicable.
+- Check's sections are 48 px disclosures (P9), Findings open initially and
+  the other sections closed. Choices survive redraws and tier changes.
+  Content nodes, hidden states and the critic's existing selectors stay in
+  place; the mouse gets its plain headings back.
+- The result dock opens live frames across the phone (P30), without
+  scrolling Create. The preview follows only the job opened by the press.
+  Its finished image replaces the frame, with an explicit Open finished
+  image handoff to the normal viewer. Cancellation keeps the last frame
+  labelled Preview ended. Back, Escape and close restore dock focus, with
+  one history entry through the handoff. Frames never become records.
+- The keyboard viewport, sticky-action and focused-field protections now
+  cover Inpaint, Outpaint and Edit by instruction as well as Refine (P44).
+  Tablet widths and top gaps stay intact, and the short phone landscape
+  actions fit beside the field. Inpaint's fixed-top canvas rule is retained.
+
+The earlier phases' explicitly skipped alternatives and optional extras
+remain skipped: the list manager edit sub-screen, fact-row menus, different
+Outpaint controls, sheet axis chips/zoom, switches, drag-select, the date
+scrubber and standalone mode. They are not remaining implementation defects.
+
+Validation uses synthetic galleries with no weights or GPU work. The new
+`smoke-phone-keyboard` supplies viewport dimensions for 70 field/late-content
+states across phone portrait, 48 px landscape, both tablet orientations and
+a 678 px Split View emulation. That emulation does not qualify actual iPad
+multitasking or a software keyboard. The existing Create, dialogs and Gallery
+smokes exercise the new preview, disclosures, cancelled zero-image run and
+menu semantics. All twelve relevant browser smokes passed, alongside 36
+classic-script/documentation-map tests and Ruff. Native follow-up is a
+separate acceptance step.
+
+Still requiring device acceptance: physical iPhone keyboard behaviour,
+Share's timing and completed delivery, Android/system and native iOS edge
+Back, long press/pinch, and actual iPad Split View. `UI#40` remains indexed
+for that acceptance; the earlier skipped design choices do not block it.

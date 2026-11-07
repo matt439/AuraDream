@@ -32,6 +32,7 @@ function syncPhoneCompose() {
   }
   // The check's place - the sheet on the phone - is placeTagValidation's.
   placeTagValidation();
+  syncPhoneCheckFolds();
   syncPhoneSize();
   syncCheckChip();
 }
@@ -121,6 +122,54 @@ function syncCheckChip() {
 function pressCheckChip() {
   if (!analysisResult) return;
   renderAnalysis(true);
+}
+
+// The check's sections are disclosures on a phone. Keep every content node
+// in its original section: the critic's stale/status rules and the writers'
+// own hidden states still apply. Only the heading's text moves into its
+// disclosure button; a wider tier gets the plain heading back. A redraw or
+// tier change keeps each section's choice, with Findings open initially.
+const phoneCheckFolds = [];
+
+function syncPhoneCheckFolds() {
+  for (const fold of phoneCheckFolds) {
+    const { section, heading, button, words } = fold;
+    if (isPhone()) {
+      if (button.parentNode !== heading) {
+        button.append(...words);
+        heading.append(button);
+      }
+      button.setAttribute('aria-expanded', String(fold.open));
+      section.toggleAttribute('data-check-collapsed', !fold.open);
+    } else {
+      section.removeAttribute('data-check-collapsed');
+      if (button.parentNode === heading) {
+        heading.append(...words);
+        button.remove();
+      }
+    }
+  }
+}
+
+function initPhoneCheckFolds() {
+  for (const [i, section] of [...els.promptAnalysis.querySelectorAll('.analysis-section')].entries()) {
+    const heading = section.querySelector(':scope > h3');
+    const content = [...section.children].filter((node) => node !== heading);
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'phone-check-toggle';
+    button.id = `phone-check-toggle-${i + 1}`;
+    button.setAttribute('aria-controls', content.map((node, j) => {
+      if (!node.id) node.id = `phone-check-content-${i + 1}-${j + 1}`;
+      return node.id;
+    }).join(' '));
+    const fold = { section, heading, button, words: [...heading.childNodes], open: content.includes(els.analysisFindings) };
+    button.addEventListener('click', () => {
+      fold.open = !fold.open;
+      syncPhoneCheckFolds();
+    });
+    phoneCheckFolds.push(fold);
+  }
 }
 
 // ----------------------------------------------------------- Shape and Size
@@ -292,6 +341,7 @@ function initPhoneCompose() {
     phoneHomes.set(node, mark);
   }
   makePhoneSize();
+  initPhoneCheckFolds();
   const chip = $('check-chip');
   const name = document.createElement('span');
   name.className = 'check-chip-name';

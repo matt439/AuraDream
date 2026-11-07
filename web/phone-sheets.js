@@ -66,6 +66,7 @@ function pressSheetClose(event) {
 // The top compensates for that pan, and the height is what the keys leave.
 // Page pinch zoom keeps the ordinary layout rather than resizing its forms.
 let sheetViewportFrame = 0;
+const IMAGE_PASS_DIALOG = '.refine-dialog, .inpaint-dialog';
 function syncSheetViewport() {
   const vv = window.visualViewport;
   const root = document.documentElement.style;
@@ -77,16 +78,17 @@ function syncSheetViewport() {
   const short = isPhone() && vv && vv.scale === 1 && vv.height < 200;
   document.documentElement.toggleAttribute('data-short-sheet', !!short);
   // Safari's focus pan does not account for sticky rows. Reveal only the
-  // part of the focused field they cover, inside Refine's own scroll box.
+  // part of the focused field they cover, inside its image pass dialog.
   if (touchQuery.matches && vv?.scale === 1 && !sheetViewportFrame) {
     sheetViewportFrame = requestAnimationFrame(() => {
       sheetViewportFrame = 0;
       if (!touchQuery.matches || window.visualViewport?.scale !== 1) return;
       const field = document.activeElement;
-      if (!els.refineDialog.open || !field?.matches(KEYBOARD_FIELD) || !els.refineDialog.contains(field)) return;
-      const dialog = els.refineDialog.getBoundingClientRect();
-      const head = els.refineDialog.querySelector(':scope > .dialog-head');
-      const actions = els.refineDialog.querySelector('.dialog-actions').getBoundingClientRect();
+      const sheet = field?.closest('dialog');
+      if (!field?.matches(KEYBOARD_FIELD) || !sheet?.open || !sheet.matches(IMAGE_PASS_DIALOG)) return;
+      const dialog = sheet.getBoundingClientRect();
+      const head = sheet.querySelector(':scope > .dialog-head');
+      const actions = sheet.querySelector('.dialog-actions').getBoundingClientRect();
       const top = head && getComputedStyle(head).position === 'sticky'
         ? Math.max(dialog.top, head.getBoundingClientRect().bottom) : dialog.top;
       const box = field.getBoundingClientRect();
@@ -98,7 +100,7 @@ function syncSheetViewport() {
       const gap = Math.min(4, Math.max(0, (bottom - top - box.height) / 2));
       const shift = box.bottom > bottom - gap ? box.bottom - bottom + gap
         : box.top < top + gap ? box.top - top - gap : 0;
-      if (shift) els.refineDialog.scrollTop += shift;
+      if (shift) sheet.scrollTop += shift;
     });
   }
 }
@@ -268,9 +270,12 @@ function initPhoneSheets() {
   document.addEventListener('focusin', syncSheetViewport);
   // A late preview or restored-draft line can move the field after the
   // keyboard has settled, at any touch size.
-  new MutationObserver(() => {
-    if (touchQuery.matches && els.refineDialog.contains(document.activeElement)) syncSheetViewport();
-  }).observe(els.refineDialog, { childList: true, subtree: true, characterData: true, attributes: true });
+  const passChanges = new MutationObserver(() => {
+    if (touchQuery.matches && document.activeElement?.closest('dialog')?.matches(IMAGE_PASS_DIALOG)) syncSheetViewport();
+  });
+  for (const dialog of document.querySelectorAll(IMAGE_PASS_DIALOG)) {
+    passChanges.observe(dialog, { childList: true, subtree: true, characterData: true, attributes: true });
+  }
   window.visualViewport?.addEventListener('resize', syncSheetViewport);
   window.visualViewport?.addEventListener('scroll', syncSheetViewport);
   syncSheetViewport();
