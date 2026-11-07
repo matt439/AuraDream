@@ -825,6 +825,10 @@ not qualify other dialogs. No model or GPU acceptance is claimed.
   keeps the last frame labelled Preview ended; a partly completed batch
   keeps its latest finished image. Back, Escape and close restore dock focus, with
   one history entry through the handoff. Frames never become records.
+  A finished image removed elsewhere clears its pixels and Open action,
+  showing its bin/deleted status without falling back to an older image.
+  Restore recovers that same cached image. Leaving the phone closes the
+  preview and gives focus to the visible Generate button.
 - The keyboard viewport, sticky-action and focused-field protections now
   cover Inpaint, Outpaint and Edit by instruction as well as Refine (P44).
   Tablet widths and top gaps stay intact, and the short phone landscape

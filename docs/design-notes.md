@@ -8023,7 +8023,11 @@ ordinary lightbox on a press. If the job ends without a saved image, the
 last frame stays labelled Preview ended; a partly completed batch keeps its
 latest finished image. Back, Escape and the close return focus to the dock;
 the finished-image handoff keeps one history entry. Leaving the phone closes
-the preview. Its frame source is released on close. The Create smoke covers
+the preview. Its frame source is released on close. Removing its finished
+image clears the pixels and action, with explicit bin/deleted wording; it
+retains the latest image's identity, so an older sibling cannot silently
+replace it. Restore recovers the cached image even after its strip is gone.
+The Create smoke covers
 both orientations, advancing frames, cancellation, completion, the handoff
 and a later job starting while the earlier image stays open.
 

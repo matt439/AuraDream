@@ -198,22 +198,32 @@ function syncPhoneLivePreview() {
   if (!dialog.open) return;
   const frame = currentJob === phonePreviewJob
     ? els.viewer.querySelector(':scope > figure.live img.preview[src]') : null;
-  const belongs = (r) => r.job_id === phonePreviewJob && !isGone(r.id);
-  const rec = viewerRecords.filter(belongs).at(-1) ?? sessionRecords.find(belongs)
-    ?? (phonePreviewRecord && belongs(phonePreviewRecord) ? phonePreviewRecord : null);
-  phonePreviewRecord = frame ? null : rec ?? null;
+  // Retain the newest own-job record even after it leaves the bounded lists
+  // or the gallery. A removed image must not silently become an older one.
+  const rec = [phonePreviewRecord, ...viewerRecords, ...sessionRecords]
+    .filter((r) => r?.job_id === phonePreviewJob)
+    .reduce((newest, r) => !newest || r.id > newest.id ? r : newest, null);
+  phonePreviewRecord = rec;
+  const gone = !frame && rec && isGone(rec.id);
   const img = $('phone-preview-image');
-  const src = frame?.getAttribute('src') ?? rec?.url;
+  const src = frame?.getAttribute('src') ?? (gone ? null : rec?.url);
+  if (gone) img.removeAttribute('src');
+  img.hidden = !!gone;
   if (src && img.getAttribute('src') !== src) img.src = src;
   const running = currentJob === phonePreviewJob && busy;
-  const title = frame || running ? 'Live preview' : rec ? `Finished image #${rec.id}` : 'Preview ended';
+  const title = frame ? 'Live preview' : gone ? 'Finished image removed'
+    : running ? 'Live preview' : rec ? `Finished image #${rec.id}` : 'Preview ended';
   const note = frame ? frame.closest('figure').querySelector('.foot').textContent
+    : gone ? `#${rec.id} ${binnedIds.has(rec.id) ? 'is in the recycle bin' : 'has been deleted'}.`
     : running ? 'Waiting for the next preview…'
     : rec ? 'The finished image is ready.' : 'This preview ended without a finished image.';
   if ($('phone-preview-title').textContent !== title) $('phone-preview-title').textContent = title;
   if ($('phone-preview-note').textContent !== note) $('phone-preview-note').textContent = note;
   img.alt = rec && !frame ? `Finished image #${rec.id}` : 'Live preview of the image being generated';
-  $('phone-preview-result').hidden = !phonePreviewRecord;
+  const result = $('phone-preview-result');
+  const hideResult = !!frame || !rec || !!gone;
+  if (hideResult && document.activeElement === result) $('phone-preview-close').focus({ preventScroll: true });
+  result.hidden = hideResult;
 }
 
 function openPhoneLivePreview() {
@@ -235,11 +245,12 @@ function initPhoneViewer() {
     phonePreviewJob = null;
     phonePreviewRecord = null;
     $('phone-preview-image').removeAttribute('src');
-    if (!els.lightbox.open && isPhone()) $('phone-dock').focus({ preventScroll: true });
+    const target = isPhone() ? $('phone-dock') : els.generate;
+    if (!els.lightbox.open && isShown(target)) target.focus({ preventScroll: true });
   });
   $('phone-preview-result').addEventListener('click', () => {
     const rec = phonePreviewRecord;
-    if (!rec || isGone(rec.id)) return;
+    if (!rec || isGone(rec.id) || $('phone-preview-result').hidden) return;
     preview.close();
     openLightbox(rec, [rec], 'dock');
   });

@@ -9223,7 +9223,11 @@ layout mechanism checks, without a native software keyboard.
 The remaining phone corrections extend the existing smokes:
 `smoke-phone-create.json` checks full-screen live frames, cancellation,
 completion and explicit lightbox handoff, one-entry Back, focus restoration,
-landscape geometry and isolation from a later job. `smoke-phone-dialogs.json`
+landscape geometry and isolation from a later job. It also bins the latest
+of two completed images, checks that an older sibling cannot replace it,
+removes the sibling too, restores the cached-only result, and checks the
+removed pixels, hidden action and focus. Leaving the phone closes the
+preview and returns focus to visible Generate. `smoke-phone-dialogs.json`
 checks Check's disclosure buttons by tap and Enter at 393 and 320 px,
 including redraws and mouse roundtrips without replacing content nodes.
 `smoke-phone-gallery.json` checks an actual cancelled zero-image run, its
