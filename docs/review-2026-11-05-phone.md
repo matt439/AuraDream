@@ -867,6 +867,18 @@ menu semantics. All twelve relevant browser smokes passed, alongside 36
 classic-script/documentation-map tests and Ruff. Native follow-up is a
 separate acceptance step.
 
+CI follow-up (2026-11-07): the new empty-run marker, ∅ (U+2205), was
+missing from the smoke fonts' measured characters. A Windows Edge 156 run
+of `tools/font-widths.json` measured its advance at 627.93 px for weight
+400 and 647.95 px for weights 600/700, at 1000 px and DPR 1. The character
+and all three widths are now retained in the measurement fixture and
+`tools/segoe-widths.json`; every earlier width matched the existing table.
+The 15 smoke-font tests, 36 classic-script/documentation-map tests and Ruff
+passed after the correction. CI also caught the desktop contact-sheet
+smoke's old empty-filter wording. Its assertion now checks the complete
+current message, keeping the empty-grid and height checks; the corrected
+contact-sheet smoke passed locally.
+
 Still requiring device acceptance: physical iPhone keyboard behaviour,
 Share's timing and completed delivery, Android/system and native iOS edge
 Back, long press/pinch, and actual iPad Split View. `UI#40` remains indexed
