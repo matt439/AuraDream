@@ -377,7 +377,8 @@ Severity is after verification. Effort: S (under a day), M (1-3 days), L (more t
 - Files: web/styles/touch.css, web/index.html, web/styles/refine.css, web/styles/inpaint.css, web/styles/bundles.css. Effort: M.
 
 **P44 - High - The keyboard can cover dialog actions: several dialogs focus a text box on open.**
-- Evidence: autofocus at index.html:1280 (`#refine-strength`), :2038, :2078, :2123; `.focus()` calls at refine.js:302, tag-swap.js:145, more-seeds.js:331. Dialogs are sized in dvh, which iOS does not shrink for the keyboard. Inferred, not captured: verify on an iPhone.
+- Simulator follow-up (2026-11-07): Refine now opens without the keyboard on the phone, but focusing Strength can still leave Cancel and Refine behind it on an iPhone 15 Pro in portrait and on iPad Air 11-inch (M2). Native rectangles and screenshots confirm the overlap. This part remains open; see the [Safari Simulator check](#6-safari-simulator-check-2026-11-07).
+- Original review evidence (2026-11-05): autofocus at index.html:1280 (`#refine-strength`), :2038, :2078, :2123; `.focus()` calls at refine.js:302, tag-swap.js:145, more-seeds.js:331. Dialogs are sized in dvh, which iOS does not shrink for the keyboard. Then inferred, not captured; the Simulator follow-up above now supplies native evidence.
 - Fix: on coarse pointers, no autofocus on text boxes (move focus to the sheet's header or ✕); the desktop keeps its reasons. A visualViewport listener in touch.js sets `--kb-inset` while a sheet is open, and the sticky footer uses `bottom: var(--kb-inset, 0)`. The same inset lets the Create action bar ride above the keyboard (P1).
 - Files: web/touch.js, web/styles/touch.css, web/index.html, web/refine.js, web/tag-swap.js, web/more-seeds.js. Effort: M.
 
@@ -610,4 +611,87 @@ The verification pass refuted no finding outright. These claims were corrected o
 - Optional extras kept as later work, not fixes: pinch-to-change columns, drag-select, a date scrubber, a search-token sheet, canvas pinch-zoom, swipe-to-dismiss sheets, a lightbox filmstrip.
 - A third Results tab: not chosen. The action bar with a result dock covers the need with less chrome (see 2.2). It stays possible later.
 - Severity adjustments applied: Help badges high → medium; Check inline high → medium; the context menu high → medium; Models sheet (platform) high → medium, kept high here as a merged core task; the lightbox backdrop to low; the stuck-label and Delete unstarred findings to medium.
-- Not yet verified on a device: whether the keyboard rises over sheets on open (P44), and lightbox ghosting outside headless capture (P36).
+- Physical-device acceptance remains for P44 and P36. The [Safari Simulator check](#6-safari-simulator-check-2026-11-07) separately checks native iOS Safari and records a remaining P44 keyboard overlap.
+
+## 6. Safari Simulator check (2026-11-07)
+
+Tested application revision `4e1127c194871acf437637679e39cf349c2756cf` through
+DeckLab's prepared MacBook SSH/Appium setup: Xcode 27.2 (27B52), iOS 27.0
+(24A434), Appium 3.8.0 and XCUITest 12.22.7. The Windows fake server served the
+actual checkout over a reverse SSH loopback tunnel, with a fresh synthetic
+gallery. No weights, GPU work or household gallery were used. Documentation
+changed during the iPad rerun; application assets remained unchanged.
+
+**Result: 35 passed, 3 failed, 2 not applicable.** Each failed scenario is
+Refine's software-keyboard check. The two not-applicable checks are the
+phone-only image Share control on iPad.
+
+| Simulator | Orientation | Initial viewport (CSS px) | Passed | Failed | N/A |
+|---|---|---|---|---|---|
+| iPhone 15 Pro | Portrait | 393 x 695 | 9 | 1 | 0 |
+| iPhone 15 Pro | Landscape | 852 x 329 | 10 | 0 | 0 |
+| iPad Air 11-inch (M2) | Portrait | 820 x 1048 | 8 | 1 | 1 |
+| iPad Air 11-inch (M2) | Landscape | 1180 x 688 | 8 | 1 | 1 |
+
+The [JSON evidence](review-2026-11-05-phone/simulator-2026-11-07.json)
+records every scenario, source and harness hashes, raw report receipts, the
+native control/keyboard rectangles and cleanup verification. The cases cover
+Create, prompt entry, Generate/Queue, Models, More options (its absence on
+iPad), gallery selection, viewer/swipe/Details/Back, viewer actions, Refine's
+keyboard and phone Share.
+
+Native taps and software-key presses exercised composition and Generate.
+Native touch swipes advanced the viewer exactly one image. The phone's secure
+loopback Share opened the native PNG activity UI. History Back closed the
+tested overlay layers; this used `history.back()`, not the iOS edge gesture.
+The phone's Refine dialog opened on its close button without raising the
+keyboard, but explicitly focusing Strength exposed the remaining P44 defect.
+
+**P44 remains open on iPhone 15 Pro in portrait and on iPad Air 11-inch (M2).**
+After generating an image, open it in the viewer, choose Refine, scroll
+Strength into view and tap it. Cancel and Refine can sit behind the software
+keyboard. On the iPhone, the native buttons
+span y=565..615, while the keyboard starts at y=567: 48 px of each button is
+covered. The [native screenshot](review-2026-11-05-phone/simulator-portrait-refine-keyboard.png)
+and retained accessibility XML confirm the overlap.
+
+On iPad in portrait, Cancel spans y=918..969 while the keyboard starts at
+y=898, leaving the entire button underneath it. The [iPad screenshot](review-2026-11-05-phone/simulator-ipad-portrait-refine-keyboard.png)
+shows the Refine footer hidden below the keyboard too. The current keyboard
+inset adjustment is phone-only, so tablet dialogs need their own validation
+when P44 is corrected.
+
+On iPad in landscape, Cancel and Refine span y=809..860 and are marked
+`visible=false` by native accessibility; the keyboard starts at y=453.
+The [landscape screenshot](review-2026-11-05-phone/simulator-ipad-landscape-refine-keyboard.png)
+confirms the hidden footer. The automated case failed while finding the
+native button; the screenshot and XML distinguish this product problem from
+a selector-only failure. iPhone landscape passed the native footer check.
+
+On iPhone portrait, the observed values were `innerHeight=564`, `visualViewport.height=391`,
+`offsetTop=131` and `--kb-inset=0px`. `syncKeyboardInset`
+(`web/phone-sheets.js`) calculates 42 px and discards it under its 80 px
+threshold; `phone-sheets.css` consequently applies no footer lift. Safari's
+resize/pan interaction is the likely mechanism. Changing that calculation
+still needs implementation and validation across both orientations. A zero
+inset alone is not a defect: the pilot also captured a state where Safari
+resized the viewport and the footer was visible without an inset.
+
+Accepted rows come from the completed phone configurations of
+`results-20261107T003614Z` and the corrected iPad run
+`results-20261107T004658Z`. The original iPad attempts are excluded: Safari
+displayed Start Page while WebDriver inspected a background AuraDream tab.
+The corrected harness opens each URL through native Safari, requires that
+exact document to be visible, and uses measured native taps on iPad. The
+earlier pilot's nonzero-inset and Share-selector assumptions were corrected
+before the accepted phone run. Raw reports, command logs, harness snapshots,
+screenshots and native XML are retained under `work/safari-20261107/` locally.
+
+Independent cleanup verified that all eight test-created Simulators across
+the three runs were removed, all three owned Appium ports were closed, and
+no runner remained. The Windows fake server and its port 17961 were stopped.
+
+This is Simulator evidence. Physical iPhone acceptance, Android Back, native
+iOS edge-swipe Back, iPad Split View, long press/pinch, other edit dialogs,
+completed sharing delivery and GPU/model acceptance remain separate. No
+product code was changed by this test session.

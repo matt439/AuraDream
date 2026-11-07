@@ -105,7 +105,7 @@ The maintainer's working backlog for this personal project: it records what is p
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `UI#40` | OPEN | MED | XL | Phone UI redesign: 72 findings (P1-P72) in eight phases. Phases 0-4 (enablers, breakage, visual foundation, Create's bar and sheets, the gallery) built 2026-11-06 (PR #54); phase 5 (the viewer and the action sheets) built 2026-11-06 (PR #55); phase 6 (sheets and dialogs) built 2026-11-06 (PR #56); phase 7 (landscape) built 2026-11-06 on `phone/phase-7-landscape`; left: the partly done findings and the iPhone/Android device check. [Phone review](docs/review-2026-11-05-phone.md#4-implementation-plan). |
+| `UI#40` | OPEN | MED | XL | Phone redesign: eight phases built; left the partial findings, P44's Refine keyboard overlap on iPhone/iPad found in native Safari Simulator (2026-11-07), and physical iPhone/Android checks. [Phone review](docs/review-2026-11-05-phone.md#6-safari-simulator-check-2026-11-07). |
 | `UI#7` | USER | LOW | M | Hands-on NVDA/Narrator, touch, native notification delivery and actual Windows scaling checks; browser emulation and accessibility-tree inspection do not complete them. [Manual checks](docs/design/validation.md#accessibility-and-desktop-checks). |
 
 ## Review coverage
