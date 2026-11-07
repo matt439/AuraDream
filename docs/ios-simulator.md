@@ -5,9 +5,11 @@ SSH connects to the MacBook, where Xcode and Appium run native iOS Safari.
 A reverse SSH tunnel makes the Windows fake available on the Mac's loopback
 address. The Mac does not run AuraDream's backend or load model weights.
 
-The [2026-11-07 results](review-2026-11-05-phone.md#6-safari-simulator-check-2026-11-07)
+The [initial 2026-11-07 results](review-2026-11-05-phone.md#6-safari-simulator-check-2026-11-07)
 record 35 passed checks, three Refine keyboard failures and two not-applicable
-checks. P44 remains open. Keep new results separate from that dated evidence.
+checks. The [focused P44 follow-up](review-2026-11-05-phone.md#7-refine-keyboard-correction-2026-11-07)
+checks the correction on all four configurations. Keep that Refine-only
+acceptance separate from the initial ten-flow run and its retained failures.
 
 ## Prepared machines
 
@@ -20,8 +22,10 @@ Working values verified on **2026-11-07**, not permanent network addresses:
 | Mac tool checkout | `/Users/matt/DeckLabSafari/decklab` |
 | Mac prerequisite launcher | `/Users/matt/DeckLabSafari/run-safari-decklab` |
 | Private toolchain | `/Users/matt/DeckLabSafari/toolchain/` |
-| Retained AuraDream harness | `/Users/matt/DeckLabSafari/auradream-20261107/` |
-| Local harness and raw evidence | `work/safari-20261107/` (gitignored) |
+| Initial AuraDream harness | `/Users/matt/DeckLabSafari/auradream-20261107/` |
+| Initial local harness and raw evidence | `work/safari-20261107/` (gitignored) |
+| P44 follow-up harness | `/Users/matt/DeckLabSafari/auradream-p44-20261107/` |
+| P44 local harness and raw evidence | `work/safari-p44-20261107/` (gitignored) |
 | App origin on both machines | `http://127.0.0.1:17961` |
 
 The prepared toolchain is Xcode 27.2 (27B52), iOS 27.0 (24A434), Python
@@ -109,12 +113,91 @@ Loopback is a secure context for the phone's native PNG Share path. Ordinary
 HTTP to a LAN address exercises its Download fallback instead. Appium has a
 separate, automatically selected loopback port; 17961 is the app transport.
 
-## Repeat the retained automated run
+## Repeat the P44 focused follow-up
+
+The accepted focused run is `results-20261107T020921Z`, against application
+revision `68695a25d422fb343d1c064d5a32c200b189cdb1`. Its
+`2026-11-07.10-native-refine` flows file has SHA256
+`06b50b271326236c66cdae31e7cc0e5af8ab9b1f732b1713b899b4ba04c5dc9a`.
+It passed Refine's Strength and Seed checks on iPhone 15 Pro and iPad Air
+11-inch (M2), each portrait and landscape. Native field visibility, five
+DOM hit tests, an actual native digit changing the value, the action
+rectangles above the software keyboard, a genuine Cancel tap and the
+restored viewport after keyboard dismissal are part of each field's check.
+This proves the focused Refine flow, not all ten flows on the final source.
+The [review's correction section](review-2026-11-05-phone.md#7-refine-keyboard-correction-2026-11-07)
+owns the result and its [evidence receipt](review-2026-11-05-phone/simulator-p44-2026-11-07.json).
+
+The P44 `run.py`, `flows.py`, `phone_audit.js` and `start.sh` are retained
+under the P44 directories in the table, with snapshots in each run's
+`harness/` directory. These ignored files are not supplied by a fresh clone.
+Review or restore them before running. The P44 launcher changes to the
+P44 Mac directory and forwards its arguments to `run.py`; it uses the same
+prepared toolchain and disposable-device lifecycle as the initial harness.
+The command below runs one Refine scenario on all four configurations.
+`--phone-only` or `--ipad-only` restricts it to that device's orientations.
+
+Use the fresh fixture and loopback checks above. Refresh a clean source
+manifest and transfer every input before each new run:
+
+```powershell
+$ErrorActionPreference = 'Stop'
+Set-Location C:\Projects\AuraDream
+$sourceStatus = git status --porcelain
+if ($LASTEXITCODE -ne 0) { throw 'Cannot read the source checkout' }
+if ($sourceStatus) { throw 'Commit or resolve source changes before recording a new run' }
+$harnessDir = 'work/safari-p44-20261107'
+$manifest = @{
+    repository = 'AuraDream'
+    revision = (git rev-parse HEAD)
+    dirty = $false
+    changed_files = @()
+    application_assets_unmodified = $true
+    web_tree = (git rev-parse HEAD:web)
+    backend_tree = (git rev-parse HEAD:backend)
+}
+foreach ($value in @($manifest.revision, $manifest.web_tree, $manifest.backend_tree)) {
+    if ($value -notmatch '^[0-9a-f]{40}$') { throw 'Cannot identify the tested source' }
+}
+$manifest | ConvertTo-Json -Depth 4 | Set-Content -Encoding UTF8 "$harnessDir/source.json"
+$inputs = @('run.py', 'flows.py', 'phone_audit.js', 'start.sh', 'source.json') | ForEach-Object { Join-Path $harnessDir $_ }
+foreach ($path in $inputs) {
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Missing harness input: $path" }
+}
+$macTarget = 'matt@192.168.0.103'
+$macRunDir = '/Users/matt/DeckLabSafari/auradream-p44-20261107'
+scp $inputs "${macTarget}:$macRunDir/"
+if ($LASTEXITCODE -ne 0) { throw 'Harness transfer failed; do not run with older inputs' }
+ssh -t -o BatchMode=yes -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=6 -R 127.0.0.1:17961:127.0.0.1:17961 $macTarget "sh $macRunDir/start.sh --keyboard-only"
+$LASTEXITCODE
+```
+
+The P44 runner requires `source.json` to identify AuraDream's revision and
+web/backend trees, with `dirty=false` and an empty changed-file list. It
+has no revision fallback: a missing or invalid manifest stops the run.
+Keep the Windows application assets unchanged until it finishes. Inspect
+the new report's source, `flow_scope`, four configuration rows and cleanup
+fields, then copy the complete printed directory:
+
+```powershell
+$runId = 'results-REPLACE-WITH-PRINTED-UTC-TIME'
+$localResults = 'work/safari-p44-20261107'
+scp -r "${macTarget}:$macRunDir/$runId" $localResults
+if ($LASTEXITCODE -ne 0) { throw 'Results copy failed' }
+Get-FileHash -Algorithm SHA256 "$localResults/$runId/report.json"
+```
+
+Use the cleanup checks below for the exact UUIDs and Appium port owned by
+that run, its SSH tunnel and the Windows fake. Other dialogs' keyboard
+checks, physical-device acceptance and the wider touch checks remain
+separate. Preserve failed and interrupted runs beside the accepted one.
+
+## Repeat the initial ten-flow run
 
 There is no checked-in AuraDream Simulator runner. The dated `run.py`,
-`flows.py`, `phone_audit.js` and `start.sh` remain in the local and Mac harness
-directories above; accepted raw run directories also contain `harness/`
-snapshots. A fresh clone does not contain these ignored files. Restore or
+`flows.py`, `phone_audit.js` and `start.sh` remain in the initial local and
+Mac directories in the table; accepted raw run directories also contain
+`harness/` snapshots. A fresh clone does not contain these ignored files. Restore or
 review them before using this section; do not treat them as a supported CLI.
 
 The retained runner imports DeckLab's Appium client, disposable-device
@@ -186,10 +269,12 @@ uses exit 1 for failed checks, interrupted/incomplete coverage or setup errors.
   iPad controls use native touch coordinates measured from the current
   WebView and a visible app control, with DOM hit tests. Keep those checks;
   fixed toolbar offsets and stale coordinate translations are unreliable.
-- A keyboard check must compare the actual native action rectangles with the
-  software keyboard and visible screen. A nonzero `--kb-inset` is not itself
-  required, and accessibility `visible=true` does not prove a button is above
-  the keyboard. Preserve screenshots and native XML for failures.
+- A keyboard check must compare actual native field and action rectangles
+  with the software keyboard and visible screen. Accessibility
+  `visible=true` and computed viewport variables do not prove that a field
+  is clear of sticky rows. The P44 follow-up adds five interior hit tests
+  and a native key changing the focused field's value. Preserve screenshots
+  and native XML for failures.
 - History Back in these flows uses `history.back()`. Share proves that the
   native activity UI opens, not that a file was delivered. Keep physical
   hardware, Android Back, edge-swipe Back, Split View, long press/pinch, other

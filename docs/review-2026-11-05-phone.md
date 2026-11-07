@@ -377,7 +377,7 @@ Severity is after verification. Effort: S (under a day), M (1-3 days), L (more t
 - Files: web/styles/touch.css, web/index.html, web/styles/refine.css, web/styles/inpaint.css, web/styles/bundles.css. Effort: M.
 
 **P44 - High - The keyboard can cover dialog actions: several dialogs focus a text box on open.**
-- Simulator follow-up (2026-11-07): Refine now opens without the keyboard on the phone, but focusing Strength can still leave Cancel and Refine behind it on an iPhone 15 Pro in portrait and on iPad Air 11-inch (M2). Native rectangles and screenshots confirm the overlap. This part remains open; see the [Safari Simulator check](#6-safari-simulator-check-2026-11-07).
+- Simulator follow-up (2026-11-07): Refine now opens without the keyboard on the phone, but focusing Strength can still leave Cancel and Refine behind it on an iPhone 15 Pro in portrait and on iPad Air 11-inch (M2). Native rectangles and screenshots confirm the overlap. That pre-fix failure is retained in the [Safari Simulator check](#6-safari-simulator-check-2026-11-07); Refine's correction is verified in [section 7](#7-refine-keyboard-correction-2026-11-07). Other dialogs and physical-device acceptance remain open.
 - Original review evidence (2026-11-05): autofocus at index.html:1280 (`#refine-strength`), :2038, :2078, :2123; `.focus()` calls at refine.js:302, tag-swap.js:145, more-seeds.js:331. Dialogs are sized in dvh, which iOS does not shrink for the keyboard. Then inferred, not captured; the Simulator follow-up above now supplies native evidence.
 - Fix: on coarse pointers, no autofocus on text boxes (move focus to the sheet's header or ✕); the desktop keeps its reasons. A visualViewport listener in touch.js sets `--kb-inset` while a sheet is open, and the sticky footer uses `bottom: var(--kb-inset, 0)`. The same inset lets the Create action bar ride above the keyboard (P1).
 - Files: web/touch.js, web/styles/touch.css, web/index.html, web/refine.js, web/tag-swap.js, web/more-seeds.js. Effort: M.
@@ -650,7 +650,7 @@ tested overlay layers; this used `history.back()`, not the iOS edge gesture.
 The phone's Refine dialog opened on its close button without raising the
 keyboard, but explicitly focusing Strength exposed the remaining P44 defect.
 
-**P44 remains open on iPhone 15 Pro in portrait and on iPad Air 11-inch (M2).**
+**At this tested revision, P44 remained open on iPhone 15 Pro in portrait and on iPad Air 11-inch (M2).**
 After generating an image, open it in the viewer, choose Refine, scroll
 Strength into view and tap it. Cancel and Refine can sit behind the software
 keyboard. On the iPhone, the native buttons
@@ -697,4 +697,72 @@ no runner remained. The Windows fake server and its port 17961 were stopped.
 This is Simulator evidence. Physical iPhone acceptance, Android Back, native
 iOS edge-swipe Back, iPad Split View, long press/pinch, other edit dialogs,
 completed sharing delivery and GPU/model acceptance remain separate. No
-product code was changed by this test session.
+product code was changed by that initial testing run.
+
+## 7. Refine keyboard correction (2026-11-07)
+
+**Refine passes on iPhone 15 Pro and iPad Air 11-inch (M2), both orientations.**
+Tested application revision `68695a25d422fb343d1c064d5a32c200b189cdb1`, with
+unchanged committed application assets throughout `results-20261107T020921Z`.
+The final retained harness is `2026-11-07.10-native-refine`. This is a focused
+Refine run: four passed configurations, eight passed field scenarios, no failures.
+It does not repeat the ten general flows from section 6.
+
+| Simulator | Orientation | Initial viewport (CSS px) | Smallest keyboard viewport height | Strength / Seed | Evidence |
+|---|---|---|---|---|---|
+| iPhone 15 Pro | Portrait | 393 x 695 | 391 | Passed / passed | [Native screenshot](review-2026-11-05-phone/simulator-p44-iphone-portrait.png) |
+| iPhone 15 Pro | Landscape | 852 x 283 | 47.9844 | Passed / passed | [Native screenshot](review-2026-11-05-phone/simulator-p44-iphone-landscape.png) |
+| iPad Air 11-inch (M2) | Portrait | 820 x 1048 | 711 | Passed / passed | [Native screenshot](review-2026-11-05-phone/simulator-p44-ipad-portrait.png) |
+| iPad Air 11-inch (M2) | Landscape | 1180 x 688 | 266 | Passed / passed | [Native screenshot](review-2026-11-05-phone/simulator-p44-ipad-landscape.png) |
+
+Each field must be fully visible inside the native window and above the real
+software keyboard, with five interior DOM hit tests clear of the sticky rows.
+A native keyboard digit changes its value. The actual native Cancel then closes
+Refine alone, dismisses the keyboard and restores the visible viewport. Both
+native action rectangles must be clear of the keyboard in consecutive stable
+samples. Screenshots were inspected as well as these geometry checks.
+
+Phone form sheets now use the visible viewport's top and height directly.
+Tablet Refine keeps its width and top gap, with a visible-height cap and sticky
+actions. A touch Refine field covered by the header or actions is revealed by
+scrolling only the dialog, including after a late preview or restored-draft line.
+Already clear fields stay in place; an oversized textarea keeps Safari's caret
+pan. The small landscape state scrolls the header away. On a wide phone its
+44 px Cancel and Refine buttons sit beside the field: Safari can leave only
+48 px, too little for a full-width input and footer stacked vertically.
+
+The [accepted JSON receipt](review-2026-11-05-phone/simulator-p44-2026-11-07.json)
+records the source trees, harness/report hashes, field values before and after
+native typing, native and DOM rectangles, hit tests, screenshots and cleanup.
+The raw report SHA256 is
+`e70e398f0abe22e1ad6ec36d2c1a1ac42932ac41205cd597a92c6d1cf50bf4db`.
+Full reports, command logs, XML, pictures and frozen harness snapshots remain in
+`work/safari-p44-20261107/` and the corresponding Mac directory in the
+[rerun notes](ios-simulator.md#repeat-the-p44-focused-follow-up).
+
+The [five development attempts](review-2026-11-05-phone/simulator-p44-pilots-2026-11-07.json)
+remain separate, including failures and interrupted coverage. Stronger input
+checks exposed late field displacement in portrait and the 48 px landscape
+case. Appium's web-tap calibration also stalled on Generate and on reopening
+Refine; the retained harness waits for keyboard dismissal before Generate and
+opens Refine through its unique visible native button, with observed bounds.
+The interrupted run on the final application source passed landscape Strength
+but did not finish Seed; it is not counted as a passed configuration.
+
+Automated checks on the resulting application source: 36 focused classic-script
+and documentation-map tests, and seven browser smokes (`smoke-phone-dialogs`,
+`smoke-phone-gallery`, `smoke-phone-landscape`, `smoke-tablet`, `smoke-phone`,
+`smoke-phone-create`, `smoke-refine`). The dialog smoke exercises supplied 391 px
+and 94/48 px viewport heights, a late 28 px content line, focus changes, page
+pinch reset and restoration. These mechanism checks complement native Safari.
+
+Independent cleanup found all 16 Simulators created across the six runs absent,
+all six Appium ports closed, no owned runner/Appium process and no reverse
+fixture tunnel. Windows fixture ports 17961 and 7960 are closed; the synthetic
+scratch galleries and raw evidence are retained. No weights, GPU work or real
+gallery were used.
+
+Remaining simulator work includes the other edit dialogs' keyboards and iPad
+Split View. Physical iPhone acceptance, Android and native edge-swipe Back,
+completed sharing delivery, long press/pinch and GPU/model acceptance remain
+separate. `UI#40` stays open for those checks and the review's partial findings.
