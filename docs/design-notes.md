@@ -2349,6 +2349,22 @@ native acceptance of the other image-pass dialogs and physical-device acceptance
 need their own checks. The supplied-viewport mechanism checks now cover all four
 image-pass dialogs, including a 678 px Split View emulation.
 
+**Other phone forms need space for the field too (2026-11-07).** More options
+and the setup, snippet and saved-search editors kept 61 px sticky heads and
+multi-action footers inside a 48 px visible viewport. Below 200 px these rows
+now scroll normally; dismissing the keyboard restores their sticky layout.
+Their separate field reveal translates the visible viewport into rendered
+coordinates, accounts only for shown sticky/fixed overlays and changes only
+the dialog's scroll. Count confirmations already have a bottom anchor, so
+their reveal uses the rendered box directly. Their short cap uses the full
+48 px without vertical padding, enough for the 44 px count field. Raw drafts,
+holds, count validation and Cancel retain their existing behavior. Oversized
+textareas keep native caret pan. The image-pass arithmetic and CSS are
+unchanged; other tablet forms keep their own layout. The keyboard smoke
+checks 88 field/late-content states, including the real count dialog with
+Cancel only. These additional phone-form cases are supplied-viewport checks,
+not native keyboard acceptance.
+
 **What is around the source.** Opened from Reuse on a pass, the title and a
 line of their own name the pass being run again ("Refine #4 as #5 was
 made", "Reusing #5: 1344×1728 at strength 0.2, seed 9"), since the dialog

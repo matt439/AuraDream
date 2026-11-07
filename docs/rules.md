@@ -6988,6 +6988,19 @@ measured on the card and when.
   rather than alternating between its top and bottom on later updates.
   Neither the page nor another dialog scrolls, and page pinch zoom skips
   the adjustment.
+  Other phone forms use a separate focused-field reveal. It translates the
+  visible viewport into the sheet's rendered coordinates before measuring
+  shown sticky/fixed overlays; static action rows reserve no space. Below
+  200 px, their head and action rows scroll normally, so a 61 px head or
+  multi-row footer cannot cover a 48 px viewport. Dismissing the keyboard
+  restores the usual sticky rows. Gallery action sheets keep their layout.
+  Count confirmations have their own bottom-anchored reveal: the rendered
+  box is already at the visible foot, so no CSS-top translation applies.
+  In the short state their cap uses the full visible height and no vertical
+  padding, leaving room for the 44 px count field. Values, count validation,
+  holds and Cancel are unchanged. These helpers scroll only the focused
+  dialog, skip oversized fields and page pinch, and leave other tablet
+  forms' layout untouched. The image-pass calculation above is unchanged.
   The delete question's Delete and Cancel are stacked
   across its sheet, 48 px each, the destructive one first (P51). Swap
   tags' explanation, Mass refine's, and Inpaint's and Outpaint's notes on
@@ -9219,6 +9232,12 @@ Split View emulation. It checks field bounds and five hit points against
 sticky rows, visible actions, late content, viewport restoration and mouse geometry.
 These complement the Refine cases in `smoke-phone-dialogs.json`; they are
 layout mechanism checks, without a native software keyboard.
+Another 16 states cover More options' Steps and the setups', snippets' and
+searches' Name fields at 391 and 48 px, with late content and five hit tests.
+Two count-confirmation states at 48 px use the real `countDialog` and Cancel
+only. The total is 88 field/late-content states. Rendered-height prerequisites
+prevent stale geometry from passing; raw drafts, node identity, holds, page
+scroll, sticky restoration and Cancel's null answer are checked too.
 
 The remaining phone corrections extend the existing smokes:
 `smoke-phone-create.json` checks full-screen live frames, cancellation,

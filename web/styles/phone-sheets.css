@@ -53,6 +53,25 @@
   :root[data-short-sheet] :is(.refine-dialog, .inpaint-dialog) .dialog-actions { padding-block: 0; }
   :root[data-short-sheet] :is(.refine-dialog, .inpaint-dialog) .dialog-actions > button { height: 44px; min-height: 44px; padding-block: 0; }
 
+  /* Other forms have several actions, which cannot share a 48 px keyboard
+     viewport with the field. Let those rows scroll normally while editing;
+     dismissing the keyboard restores their usual sticky positions. */
+  :root[data-short-sheet] dialog:not(:is(.lightbox, .confirm-dialog, .gallery-sheet, .refine-dialog, .inpaint-dialog)) {
+    scroll-padding-block: 2px;
+  }
+  :root[data-short-sheet] dialog:not(:is(.lightbox, .confirm-dialog, .gallery-sheet, .refine-dialog, .inpaint-dialog)) > .dialog-head,
+  :root[data-short-sheet] .check-sheet .analysis-head,
+  :root[data-short-sheet] dialog:not(:is(.lightbox, .confirm-dialog, .gallery-sheet, .refine-dialog, .inpaint-dialog)) .dialog-actions {
+    position: static;
+  }
+  /* A count question keeps its bottom anchor and ordinary scroll. Its old
+     16 px clearance plus padding left less room than the 44 px input. */
+  :root[data-short-sheet] dialog.confirm-dialog {
+    max-height: var(--sheet-viewport-height, 100dvh);
+    padding-block: 0; scroll-padding-block: 2px;
+  }
+  :root[data-short-sheet] dialog.confirm-dialog > * { flex-shrink: 0; }
+
   /* The delete question's buttons (P51) were the screen's width apart, at
      its two edges: stacked across it, 48 px each, the destructive one over
      Cancel, as a phone's own action sheet has them. */

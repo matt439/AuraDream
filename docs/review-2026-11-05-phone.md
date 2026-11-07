@@ -833,6 +833,14 @@ not qualify other dialogs. No model or GPU acceptance is claimed.
   cover Inpaint, Outpaint and Edit by instruction as well as Refine (P44).
   Tablet widths and top gaps stay intact, and the short phone landscape
   actions fit beside the field. Inpaint's fixed-top canvas rule is retained.
+- More options and the library forms had the same tiny-keyboard problem:
+  their 61 px sticky heads and multi-action footers covered a 48 px viewport.
+  On the phone those rows now scroll normally in the short state; dismissing
+  the keyboard restores their usual sticky positions. A separate reveal
+  keeps the focused field clear after late content without changing drafts,
+  holds, nodes or page scroll. Count confirmations use their rendered
+  bottom-anchored box and a full 48 px cap, preserving count validation and
+  Cancel. The four image-pass dialogs retain their existing calculation.
 
 The earlier phases' explicitly skipped alternatives and optional extras
 remain skipped: the list manager edit sub-screen, fact-row menus, different
@@ -843,9 +851,12 @@ as a side sheet (P35). These retained presentations are the chosen alternatives,
 not remaining implementation defects.
 
 Validation uses synthetic galleries with no weights or GPU work. The new
-`smoke-phone-keyboard` supplies viewport dimensions for 70 field/late-content
-states across phone portrait, 48 px landscape, both tablet orientations and
-a 678 px Split View emulation. That emulation does not qualify actual iPad
+`smoke-phone-keyboard` supplies viewport dimensions for 88 field/late-content
+states: 70 image-pass cases across phone portrait, 48 px landscape, both
+tablet orientations and a 678 px Split View emulation; 16 other phone-form
+cases at 391/48 px; and two count-confirmation cases at 48 px. Baseline
+checks reproduced the sticky-row and count-field clipping before their fixes.
+That emulation does not qualify actual iPad
 multitasking or a software keyboard. The existing Create, dialogs and Gallery
 smokes exercise the new preview, disclosures, cancelled zero-image run and
 menu semantics. All twelve relevant browser smokes passed, alongside 36
