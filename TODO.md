@@ -78,6 +78,7 @@ The maintainer's working backlog for this personal project: it records what is p
 | `GEN#6` | DEFERRED | LOW | M+card | Live-preview maps for the four-channel SDXL VAE and FLUX.2's VAE (ERNIE; klein also lacks an unpack hook); previews switch themselves off there. [Behaviour](docs/verified.md#behaviour). |
 | `GEN#8` | DEFERRED | LOW | L | U61 part B: one's own photo or sketch as a reference (import route, a source marker through storage, reindex and reruns; add, drop and paste). Matt deferred it 2026-10-05; only when he raises it. [References](docs/design-notes.md#reference-images-by-gallery-id). |
 | `GEN#20` | DEFERRED | LOW | L+card | Opt-in A1111 weighting and 77-token chunking on SDXL, deferred by Matt 2026-10-27 because he does not write weighted prompts; revisit on request. [10-24 G10](docs/review-2026-10-24.md#g10-a1111-style-weighting-and-long-prompts-on-sdxl). |
+| `GEN#45` | DEFERRED | LOW | L+card | Newer checkpoints (FLUX 3 Image Klein first, then Qwen-Image-2.1/Turbo, Qwen-Image-2512) wait on a released diffusers that carries their pipelines; Matt chose to wait 2026-11-08. The bump reopens the Kontext envelope and `encoder_table`. [Candidates](docs/design-notes.md#newer-checkpoints-wait-on-a-released-diffusers). |
 
 ## Speed
 

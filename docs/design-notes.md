@@ -985,6 +985,39 @@ class from `model_index.json`, and `_component_libraries()` reads the same file
 to decide which components to quantize and with whose `TorchAoConfig`. FLUX
 layouts therefore pick up `text_encoder_2` (T5) automatically.
 
+## Newer checkpoints wait on a released diffusers
+
+**Candidates (researched 2026-11-08, `GEN#45`).** These were read from the
+model cards and launch posts, and nothing was run on the card:
+
+- FLUX 3 Image Klein (`black-forest-labs/flux-3-image-klein`, 2026-10-15). A
+  5.6B transformer with a Qwen3-VL-4B encoder, 16 steps, that does
+  text-to-image and editing. FLUX Kommunity License. Diffusers runs it as a
+  `ModularPipeline` (diffusers main only), so `load()`'s check for
+  `generator` and `callback_on_step_end` has to be answered for it. Its card
+  says to always run a 9B prompt upsampler. lite-infer has int4 and nvfp4
+  Nunchaku builds (r32, no bnb4 encoder suffix).
+- Qwen-Image-2.1 and 2.1-Turbo (`Qwen/Qwen-Image-2.1`, 2026-09; Turbo 8
+  steps). A 7B DiT with a Qwen3-VL 8B encoder, through `QwenImage21Pipeline`
+  (diffusers main). Qwen Research License, non-commercial. It edits and makes
+  RGBA. lite-infer has int4 and nvfp4 builds for both.
+- Qwen-Image-2512 (Apache 2.0). The catalogue's Qwen-Image family at 20B, so
+  the same 4-bit-only fit, with community Nunchaku builds only.
+
+Fibo 2.0 (gated, CC BY-NC, diffusers 0.42+, prompts written through Gemini),
+HunyuanImage 3.0, Cosmos3, Ming-Image and FLUX.2 [dev] were left off as too
+large for the 16 GB card or as needing an outside service.
+
+**Waiting is the decision (Matt, 2026-11-08).** There is no hurry, so the
+app stays on diffusers 0.40.0 until a released version carries both new
+pipelines, and it never pins the development build. The bump itself is the
+work. It reopens what 0.40.0 pins: the Kontext `QUALIFIED_ENVELOPE` (its
+gate closes until it is re-measured), `encoder_table`'s copied strings
+(`tests/test_prompt_encoding.py`), and the tests and execution recipes that
+name the version. After it, one card run checks that the shipped checkpoints
+are unchanged. Then FLUX 3 Klein comes first: it fits the 16 GB card and,
+as int4, the 3070.
+
 ## Anima Turbo: a standard interface over modular inference
 
 **Anima Turbo v1.1** uses the official `circlestone-labs/Anima` selection.
