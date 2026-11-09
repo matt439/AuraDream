@@ -15,7 +15,7 @@ from tests.test_instruction_edit_identity import applied, request, stored
 KONTEXT = "black-forest-labs/FLUX.1-Kontext-dev"
 ENVELOPE = {
     "quantization": "fp8", "offload": "model", "device": "cuda", "platform": "win32",
-    "loader_execution": None, "diffusers_version": "0.40.0",
+    "loader_execution": None, "diffusers_version": "0.42.1",
 }
 
 
@@ -29,7 +29,7 @@ def test_the_envelope_is_what_stage_3_measured():
         edit.KONTEXT_V1.model_id, edit.KONTEXT_V1.revision, edit.KONTEXT_V1.name,
     )
     assert (envelope.quantization, envelope.offload, envelope.platform, envelope.diffusers_version) == (
-        "fp8", "model", "win32", "0.40.0",
+        "fp8", "model", "win32", "0.42.1",
     )
     assert envelope.sizes == (((1, 1), (512, 512)),)
     with pytest.raises(AttributeError):
@@ -55,9 +55,10 @@ def test_only_the_envelope_is_unrefused(device, loader_execution):
     (KONTEXT, {"loader_execution": {"attention_backend": "cudnn-v1"}}, "cudnn-v1 attention"),
     (KONTEXT, {"loader_execution": {"step_cache": "fbc-005-v1"}}, "an unreadable performance configuration"),
     (KONTEXT, {"loader_execution": {"compilation": "future"}}, "an unreadable performance configuration"),
-    (KONTEXT, {"diffusers_version": "0.41.0"}, "diffusers 0.41.0 (only 0.40.0 was)"),
-    (KONTEXT, {"diffusers_version": "0.40.0.dev0"}, "diffusers 0.40.0.dev0 (only 0.40.0 was)"),
-    (KONTEXT, {"diffusers_version": "0.42.1"}, "diffusers 0.42.1 (only 0.40.0 was)"),
+    (KONTEXT, {"diffusers_version": "0.40.0"}, "diffusers 0.40.0 (only 0.42.1 was)"),
+    (KONTEXT, {"diffusers_version": "0.42.0"}, "diffusers 0.42.0 (only 0.42.1 was)"),
+    (KONTEXT, {"diffusers_version": "0.42.1.dev0"}, "diffusers 0.42.1.dev0 (only 0.42.1 was)"),
+    (KONTEXT, {"diffusers_version": "0.43.0"}, "diffusers 0.43.0 (only 0.42.1 was)"),
     (KONTEXT, {"diffusers_version": None}, "a missing diffusers"),
     (KONTEXT.lower(), {}, f"the checkpoint {KONTEXT.lower()!r}"),
     ("black-forest-labs/FLUX.1-Krea-dev", {}, "the checkpoint 'black-forest-labs/FLUX.1-Krea-dev'"),
@@ -69,15 +70,18 @@ def test_loader_refusal_names_each_unmeasured_choice(model_id, changes, named):
     assert reason.endswith(f"{named} is not measured.")
 
 
-def test_the_installed_diffusers_holds_every_kontext_load_until_remeasured():
-    # The app installs diffusers 0.42 while the envelope stays at the measured
-    # 0.40.0: the exact envelope otherwise, refused in words naming both.
+def test_the_installed_diffusers_is_the_measured_one():
+    # Kontext was re-measured on the installed 0.42.1 (pixel-identical to
+    # 0.40.0, 2026-11-10), so the envelope admits it; any other version, the
+    # earlier measured one included, is refused in words naming both until
+    # the card measures it in turn.
     installed = edit.installed_diffusers_version()
-    assert installed is not None and installed.startswith("0.42.")
-    assert edit.QUALIFIED_ENVELOPE.diffusers_version == "0.40.0"
-    reason = refusal(diffusers_version=installed)
-    assert reason is not None
-    assert reason.endswith(f"diffusers {installed} (only 0.40.0 was) is not measured.")
+    assert installed == edit.QUALIFIED_ENVELOPE.diffusers_version == "0.42.1"
+    assert refusal(diffusers_version=installed) is None
+    for other in ("0.40.0", "0.43.0"):
+        reason = refusal(diffusers_version=other)
+        assert reason is not None
+        assert reason.endswith(f"diffusers {other} (only 0.42.1 was) is not measured.")
 
 
 def test_the_first_unmeasured_choice_is_the_one_named():
@@ -169,7 +173,7 @@ sys.meta_path.insert(0, RefuseWarm())
 from backend import instruction_edit as edit
 assert edit.loader_refusal(
     edit.KONTEXT_V1.model_id, quantization='fp8', offload='model', device='cuda', platform='win32',
-    loader_execution=None, diffusers_version='0.40.0',
+    loader_execution=None, diffusers_version='0.42.1',
 ) is None
 assert edit.geometry_refusal(edit.geometry(768, 512)) is not None
 edit.installed_diffusers_version()

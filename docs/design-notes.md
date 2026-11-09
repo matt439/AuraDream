@@ -1040,11 +1040,12 @@ Expand, never automatic. The bump came alone, first:
   annotation includes a key list's dict.
 - Kept on 0.40, held, in words naming the version: Kontext's
   `QUALIFIED_ENVELOPE` (`diffusers_version="0.40.0"`), so every Kontext load,
-  `POST /api/instruction-edit` and edit More seeds refuse with "diffusers
-  0.42.1 (only 0.40.0 was) is not measured" until a card run re-measures
-  Kontext on 0.42.1; and `execution.py`'s regional and attention/cache
-  candidates (`_CANDIDATE_DIFFUSERS`), which were read against 0.40's hooks.
-  Nonempty recipes stay unavailable either way.
+  `POST /api/instruction-edit` and edit More seeds refused with "diffusers
+  0.42.1 (only 0.40.0 was) is not measured" until a card run re-measured
+  Kontext on 0.42.1 (done 2026-11-10, below: the envelope is now 0.42.1);
+  and `execution.py`'s regional and attention/cache candidates
+  (`_CANDIDATE_DIFFUSERS`), which were read against 0.40's hooks and stay
+  held there, not re-measured. Nonempty recipes stay unavailable either way.
 - `encoder_table`'s copied prompt strings did not change in 0.42.1
   (`tests/test_prompt_encoding.py` passes against it).
 - 0.42.1's `download`/`from_pretrained` first resolve the revision on the Hub
@@ -1052,17 +1053,30 @@ Expand, never automatic. The bump came alone, first:
   back to the given revision). `tests/conftest.py`'s `no_hub` refuses
   `resolve_revision` too, with an error it does not swallow.
 
-None of it is measured on the card. 0.42.1 also changed the device placement
+Before the 2026-11-10 card run none of it was measured. 0.42.1 also changed the device placement
 of encoder inputs and latents in FLUX.1, Kontext, Klein and SDXL, torchao's
 `create_quantized_param` (`Parameter(value.to(device))`), the offload
 device's default (`get_device()`), and dropped `force_upcast` from
 `AutoencoderKLFlux2` (the shipped FLUX.2 [klein] VAE). Whether the shipped
-checkpoints' pictures, peak memory, RAM and time are unchanged is a card
-run's to say (`CARD#17`), as is Kontext on 0.42.1 (`CARD#18`: only after it
-does `QUALIFIED_ENVELOPE`'s `diffusers_version` move). Then FLUX 3
+checkpoints' pictures, peak memory, RAM and time are unchanged was a card
+run's to say (`CARD#17`), as was Kontext on 0.42.1 (`CARD#18`: only after it
+did `QUALIFIED_ENVELOPE`'s `diffusers_version` move). Then FLUX 3
 Klein comes first. Whether it fits the 16 GB card, or as int4 the 3070, is
 unmeasured: the int4 lite repo's index points at nvfp4 weights, which Ampere
 cannot run.
+
+**Re-measured on the card (2026-11-10).** Both runs compared 0.42.1 with an
+overlay of 0.40.0 in the same script, one load per process. Animagine XL
+4.0, FLUX.2 [klein] 4B, Z-Image-Turbo and FLUX.1 Krea [dev] (fp8, model
+offload, 1024x1024, two seeds) rendered the same pixels with the same GPU
+peaks on both; timing followed run order (cold file cache), not the
+version. Kontext inside the envelope (fp8, model offload, Eager, 1:1 at
+512x512) rendered pixel-identical edits and replays, with cancel unchanged,
+and the same memory and step time, so `QUALIFIED_ENVELOPE.diffusers_version`
+is now "0.42.1" and Kontext edits open again on the installed diffusers; any
+other version, 0.40.0 included, is refused in the same words. The execution
+candidates were not re-measured and stay held on 0.40. Numbers in
+`docs/verified.md` (diffusers 0.42.1 against 0.40.0, measured 2026-11-10).
 
 **lite-infer renamed its repositories (seen 2026-11-09).** The re-uploads
 the catalogue names (`launch._LITE`,
@@ -1739,8 +1753,8 @@ real gate is one changed literal, `return True` in `DiffusersBackend`, held by
 the same source scan, rather than a flag that could open the editor on a
 machine nobody measured. What the literal opens is narrow on purpose:
 `QUALIFIED_ENVELOPE` is the stage 3 run's configuration (the exact id, fp8,
-model offload, Windows, Eager, diffusers 0.40.0, 1:1 sources at 512x512), and
-every load entry and queue answer asks it first. A choice outside it is
+model offload, Windows, Eager, diffusers 0.40.0 - since 2026-11-10 the
+re-measured 0.42.1 - 1:1 sources at 512x512), and every load entry and queue answer asks it first. A choice outside it is
 refused in words naming that choice, never silently changed to the measured
 one. Widening the envelope is a one-line follow-up to the data after a card
 run, not a code path.

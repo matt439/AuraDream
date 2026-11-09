@@ -298,7 +298,7 @@ KONTEXT = "black-forest-labs/FLUX.1-Kontext-dev"
     (["--model", "Qwen/Qwen-Image-Edit"], "it has no recipe"),
 ], ids=["sequential", "int8", "compiled", "case-variant", "qwen"])
 def test_explicit_unmeasured_edit_checkpoint_is_refused_in_the_loads_words(monkeypatch, capsys, flags, words):
-    monkeypatch.setattr(launch, "_edit_host", lambda: ("win32", "0.40.0"))
+    monkeypatch.setattr(launch, "_edit_host", lambda: ("win32", "0.42.1"))
     with pytest.raises(SystemExit) as stopped:
         launch.configure(flags, ask=lambda _p: pytest.fail("asked terminal question"))
     assert stopped.value.code == 2 and words in capsys.readouterr().err
@@ -306,11 +306,11 @@ def test_explicit_unmeasured_edit_checkpoint_is_refused_in_the_loads_words(monke
 
 
 def test_explicit_measured_kontext_starts_and_leaves_the_gate_to_the_backend(monkeypatch):
-    monkeypatch.setattr(launch, "_edit_host", lambda: ("win32", "0.40.0"))
+    monkeypatch.setattr(launch, "_edit_host", lambda: ("win32", "0.42.1"))
     launch.configure(["--model", KONTEXT], ask=lambda _p: pytest.fail("asked terminal question"))
     assert os.environ["AURADREAM_MODEL_ID"] == KONTEXT
     # Off the measured host the same flags are refused, by name.
-    monkeypatch.setattr(launch, "_edit_host", lambda: ("linux", "0.40.0"))
+    monkeypatch.setattr(launch, "_edit_host", lambda: ("linux", "0.42.1"))
     with pytest.raises(SystemExit):
         launch.configure(["--model", KONTEXT])
 
