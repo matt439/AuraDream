@@ -1996,7 +1996,7 @@ the critic, and a rewrite against its original over more than two seeds on
 FLUX.1 (both measured 2026-10-25 on Z-Image Turbo and Animagine, the rows
 above); kill-on-close under WSL; Ctrl-C during a critique.
 
-## diffusers 0.42.1 and FLUX 3 [Klein] (built 2026-11-09, not measured)
+## FLUX 3 [Klein] (built 2026-11-09, not measured)
 
 Every measurement above was taken on diffusers 0.40.0, except where its
 section says otherwise. The app now installs

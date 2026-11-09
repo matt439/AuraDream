@@ -1053,7 +1053,7 @@ Expand, never automatic. The bump came alone, first:
   back to the given revision). `tests/conftest.py`'s `no_hub` refuses
   `resolve_revision` too, with an error it does not swallow.
 
-None of it is measured on the card. 0.42.1 also changed the device placement
+Before the 2026-11-10 card run none of it was measured. 0.42.1 also changed the device placement
 of encoder inputs and latents in FLUX.1, Kontext, Klein and SDXL, torchao's
 `create_quantized_param` (`Parameter(value.to(device))`), the offload
 device's default (`get_device()`), and dropped `force_upcast` from
@@ -1061,7 +1061,9 @@ device's default (`get_device()`), and dropped `force_upcast` from
 checkpoints' pictures, peak memory, RAM and time are unchanged was a card
 run's to say (`CARD#17`), as was Kontext on 0.42.1 (`CARD#18`: only after it
 did `QUALIFIED_ENVELOPE`'s `diffusers_version` move). Then FLUX 3
-Klein comes first.
+Klein comes first. Whether it fits the 16 GB card, or as int4 the 3070, is
+unmeasured: the int4 lite repo's index points at nvfp4 weights, which Ampere
+cannot run.
 
 **Re-measured on the card (2026-11-10).** Both runs compared 0.42.1 with an
 overlay of 0.40.0 in the same script, one load per process. Animagine XL
@@ -1069,14 +1071,12 @@ overlay of 0.40.0 in the same script, one load per process. Animagine XL
 offload, 1024x1024, two seeds) rendered the same pixels with the same GPU
 peaks on both; timing followed run order (cold file cache), not the
 version. Kontext inside the envelope (fp8, model offload, Eager, 1:1 at
-512x512) rendered pixel-identical edits, replays and cancels with the same
-memory and step time, so `QUALIFIED_ENVELOPE.diffusers_version` is now
-"0.42.1" and Kontext edits open again on the installed diffusers; any other
-version, 0.40.0 included, is refused in the same words. The execution
+512x512) rendered pixel-identical edits and replays, with cancel unchanged,
+and the same memory and step time, so `QUALIFIED_ENVELOPE.diffusers_version`
+is now "0.42.1" and Kontext edits open again on the installed diffusers; any
+other version, 0.40.0 included, is refused in the same words. The execution
 candidates were not re-measured and stay held on 0.40. Numbers in
-`docs/verified.md` (diffusers 0.42.1 against 0.40.0, measured 2026-11-10). Whether it fits the 16 GB card, or as int4 the 3070, is
-unmeasured: the int4 lite repo's index points at nvfp4 weights, which Ampere
-cannot run.
+`docs/verified.md` (diffusers 0.42.1 against 0.40.0, measured 2026-11-10).
 
 **lite-infer renamed its repositories (seen 2026-11-09).** The re-uploads
 the catalogue names (`launch._LITE`,
