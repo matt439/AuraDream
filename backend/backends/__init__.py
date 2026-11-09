@@ -1,6 +1,6 @@
-from .base import Cancelled, CancelFn, GenerationBackend, ProgressFn
+from .base import Cancelled, CancelFn, ExpansionTooLong, GenerationBackend, ProgressFn
 
-__all__ = ["Cancelled", "CancelFn", "GenerationBackend", "ProgressFn", "get_backend"]
+__all__ = ["Cancelled", "CancelFn", "ExpansionTooLong", "GenerationBackend", "ProgressFn", "get_backend"]
 
 
 def get_backend(name: str = "diffusers") -> GenerationBackend:

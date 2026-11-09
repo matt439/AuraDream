@@ -94,7 +94,8 @@ def test_the_chat_is_diffusers_t2i_with_its_shipped_system_prompt():
         "return_tensors": "pt", "enable_thinking": False,
     }
     # Only the answer is decoded, never the prompt's tokens.
-    assert len(processor.decoded[0]) == model.steps
+    assert len(processor.decoded[-1]) == model.steps
+    assert all(len(ids) <= model.steps for ids in processor.decoded)
 
 
 def test_decoding_is_greedy_with_the_cards_presence_penalty():
@@ -114,13 +115,13 @@ def test_decoding_is_greedy_with_the_cards_presence_penalty():
     assert "top_p" not in call and "top_k" not in call and "temperature" not in call
     # 11 (prompt id, unpenalised), then 11 is penalised to 8.5, still first;
     # the penalty is once per token however often: 11 again; never 5 over it.
-    assert processor.decoded[0] == [11, 11, 11, 11]
+    assert processor.decoded[-1] == [11, 11, 11, 11]
     assert flux3_upsampler.PRESENCE_PENALTY == 1.5
     scores[0, 11] = 0.0
     model, processor = _Upsampler(scores=scores, steps=3), _UpsamplerProcessor()
     flux3_upsampler.upsample(model, processor, "a fox", torch.device("cpu"))
     # 5 (3.0); then 5 at 1.5 loses to 6 (2.0); then 6 at 0.5 and 5 at 1.5: 5.
-    assert processor.decoded[0] == [5, 6, 5]
+    assert processor.decoded[-1] == [5, 6, 5]
 
 
 def test_stop_ends_the_generation_at_the_next_token_and_raises():
@@ -135,6 +136,39 @@ def test_stop_ends_the_generation_at_the_next_token_and_raises():
     model.generate = generate  # type: ignore[method-assign]
     with pytest.raises(Cancelled):
         flux3_upsampler.upsample(model, _UpsamplerProcessor(), "a fox", torch.device("cpu"), lambda: stopped["value"])
+
+
+def test_a_caption_past_the_prompt_limit_is_stopped_there_and_refused_in_words():
+    from backend.backends import ExpansionTooLong
+    from backend.schemas import GenerateRequest
+
+    # The limit is the box's own, not diffusers' 3584 tokens (10k+ characters).
+    (limit,) = [m.max_length for m in GenerateRequest.model_fields["prompt"].metadata if hasattr(m, "max_length")]
+    assert flux3_upsampler.PROMPT_LIMIT == limit == 4000
+
+    class Wordy(_UpsamplerProcessor):
+        def decode(self, ids, skip_special_tokens):
+            self.decoded.append(ids.tolist())
+            return "word " * (400 * len(ids.tolist()))  # 2,000 characters a token
+
+    model, processor = _Upsampler(steps=50), Wordy()
+    with pytest.raises(ExpansionTooLong) as raised:
+        flux3_upsampler.upsample(model, processor, "a crowded market", torch.device("cpu"))
+    # Stopped at the token that crossed 4,000 characters, not after 50.
+    assert max(len(ids) for ids in processor.decoded) == 3
+    assert str(raised.value) == flux3_upsampler.too_long()
+    assert "4,000 characters" in str(raised.value) and "Expand again" in str(raised.value)
+
+
+def test_a_caption_at_the_limit_is_kept_whole():
+    class Exact(_UpsamplerProcessor):
+        def decode(self, ids, skip_special_tokens):
+            self.decoded.append(ids.tolist())
+            return "x" * flux3_upsampler.PROMPT_LIMIT
+
+    model = _Upsampler(steps=5)
+    caption = flux3_upsampler.upsample(model, Exact(), "a fox", torch.device("cpu"))
+    assert len(caption) == flux3_upsampler.PROMPT_LIMIT
 
 
 def test_an_empty_caption_is_an_error():

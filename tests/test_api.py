@@ -573,6 +573,19 @@ def test_flux3s_upsampler_held_by_the_settings_is_refused_before_the_load(client
     assert fake.loads == 0 and fake.expansions == []
 
 
+def test_flux3s_caption_stopped_at_the_prompt_limit_is_a_422_in_its_words(client, fake, monkeypatch):
+    # The upsampler stops itself at the box's limit and says why; the page
+    # shows the sentence, never a 500 or advice to shorten the request.
+    from backend.backends import ExpansionTooLong, flux3_upsampler
+
+    _flux3(fake, monkeypatch)
+    fake.expand_error = ExpansionTooLong(flux3_upsampler.too_long())
+    response = client.post("/api/prompt/expand", json={"prompt": "a crowded market"})
+    assert response.status_code == 422
+    assert response.json()["detail"] == flux3_upsampler.too_long()
+    assert "4,000 characters" in response.json()["detail"]
+
+
 def test_expand_is_refused_off_ernie_and_flux3(client, fake):
     assert not fake.prompt_expansion_supported()
     response = client.post("/api/prompt/expand", json={"prompt": "a lighthouse"})

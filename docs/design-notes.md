@@ -1193,17 +1193,34 @@ offload. It then stays in host RAM until Unload, as ERNIE's does - about
 the parameter count). Its linear-attention layers may run transformers'
 torch fallback without the optional kernels; speed is unknown.
 
+**A caption stops at the prompt box's limit.** diffusers' cap is 3584 new
+tokens, sized for its own call, where the caption never reaches a text box -
+10,000 characters and more, against the app's 4000-character prompt
+(`GenerateRequest.prompt`). The t2i system prompt asks for "100 to 350
+words, more for complex scenes", every quoted text copied out, so a busy
+scene can pass 4000 characters, and the route's general refusal came only
+after the whole generation, telling the user to shorten a request that
+does not decide the caption's length. So a `StoppingCriteria` decodes the
+answer each token and stops once it is past `PROMPT_LIMIT` (4000), and the
+caption is refused as `ExpansionTooLong` - a 422 in words that name the
+limit and say to ask for less, or write the caption - never truncated into
+the box. The encoder's 8192-token window is wider than the box; raising the
+box for FLUX 3 alone would touch every schema that carries a prompt, so the
+box decides. How often a caption reaches the limit is unmeasured.
+
 **Unmeasured.** Whether the quantized upsampler fits beside nothing else on
-the card with its KV cache (up to 3584 new tokens), its peak, RAM at the
+the card with its KV cache (up to 3584 new tokens, stopped sooner at 4000
+characters), its peak, RAM at the
 load (the bf16 file is read and quantized on the CPU), its time per caption,
 and whether int8/fp8 changes its captions against BFL's bf16: `CARD#20`.
 
 **Unmeasured.** Fit, peak, RAM at the load, time and quality on the card,
 for both checkpoints at fp8, int8 and bf16, with references and without. The
 picker's fit figure (`_CARD_NEEDS`) is the transformer's size at one byte a
-weight, said as such; the cards' 31/26/25 GB peaks are a B200 with
-everything resident. `CARD#19` holds the run (Klein at fp8 first, then Klein
-Base).
+weight, said as such. The cards' peaks are BFL's "reference code, B200,
+1024x1024, prompt upsampler off": 31/26/25 GB for Klein and 31/29/26 GB for
+Klein Base (BF16/FP8/NVFP4); they do not say how the components were placed.
+`CARD#19` holds the run (Klein at fp8 first, then Klein Base).
 
 **Not built: FLUX 3 on the 8 GB 3070.** Only a 4-bit transformer could fit
 it, and the upsampler not at all. lite-infer's int4 repository's own index

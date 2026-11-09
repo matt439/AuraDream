@@ -19,6 +19,12 @@ What is followed, and from where:
   reference images or layout boxes to give it.
 - The messages are built as diffusers' `upsample_prompt` builds them (content
   as lists of parts, `enable_thinking=False`, at most 3584 new tokens).
+- The caption is stopped as soon as it runs past the app's 4000-character
+  prompt limit (`PROMPT_LIMIT`, `GenerateRequest.prompt`'s): diffusers' 3584
+  tokens are 10,000 characters and more, which the box could never take, so
+  an over-long caption ends there and is refused in words
+  (`ExpansionTooLong`), never written whole and thrown away after. The
+  encoder's own window (8192 tokens) is wider than the box; the box decides.
 - The decoding is the model card's: "greedy, `top_p` 0.95, `top_k` 20,
   presence penalty 1.5 for text-to-image" - BFL's own `flux3/pup.py` passes
   the same to vLLM (`temperature` 0, `presence_penalty` 1.5 for t2i).
@@ -46,7 +52,7 @@ from typing import TYPE_CHECKING, Any
 
 # Resolve the app's remote-kernel policy even for direct imports.
 from .. import config as _config  # noqa: F401
-from .base import CancelFn, Cancelled
+from .base import CancelFn, Cancelled, ExpansionTooLong
 from .single_file import HubRepo
 
 if TYPE_CHECKING:
@@ -75,6 +81,9 @@ MODE = "t2i"
 PRESENCE_PENALTY = 1.5
 # The one-byte scheme when the image model is not one of them.
 FALLBACK_QUANT = "int8"
+# The longest prompt the app takes (`GenerateRequest.prompt`'s max_length):
+# a caption past it is stopped there and refused (`too_long`).
+PROMPT_LIMIT = 4000
 
 
 def system_prompt() -> str:
@@ -88,6 +97,15 @@ def max_new_tokens() -> int:
     from diffusers.modular_pipelines.flux3.prompt_upsampler import MAX_NEW_TOKENS
 
     return MAX_NEW_TOKENS
+
+
+def too_long() -> str:
+    """The refusal for a caption past `PROMPT_LIMIT`, in the page's words."""
+    return (
+        f"{NAME} wrote past {PROMPT_LIMIT:,} characters, the most a prompt takes here, and was "
+        "stopped there. Its caption grows with the scene asked for: ask for fewer subjects, or "
+        "less quoted text, and Expand again, or write the caption yourself"
+    )
 
 
 def quantization(settings: Settings) -> str:
@@ -191,7 +209,9 @@ def messages(prompt: str) -> list[dict[str, Any]]:
     ]
 
 
-def _processors(prompt_length: int, should_cancel: CancelFn | None) -> tuple[Any, Any]:
+def _processors(
+    prompt_length: int, should_cancel: CancelFn | None, decode: Any = None,
+) -> tuple[Any, Any]:
     import torch
     from transformers import LogitsProcessor, LogitsProcessorList, StoppingCriteria, StoppingCriteriaList
 
@@ -215,12 +235,21 @@ def _processors(prompt_length: int, should_cancel: CancelFn | None) -> tuple[Any
             stop = should_cancel is not None and should_cancel()
             return torch.full((input_ids.shape[0],), stop, dtype=torch.bool, device=input_ids.device)  # pyright: ignore[reportReturnType]
 
-    return LogitsProcessorList([PresencePenalty()]), StoppingCriteriaList([StopWhenAsked()])
+    class StopPastLimit(StoppingCriteria):
+        """Ends the generation once the caption so far is past the prompt
+        limit: the rest could never reach the box (`too_long`)."""
+
+        def __call__(self, input_ids: torch.LongTensor, scores: Any, **kwargs: Any) -> torch.BoolTensor:
+            stop = decode is not None and len(decode(input_ids[0, prompt_length:]).strip()) > PROMPT_LIMIT
+            return torch.full((input_ids.shape[0],), stop, dtype=torch.bool, device=input_ids.device)  # pyright: ignore[reportReturnType]
+
+    return LogitsProcessorList([PresencePenalty()]), StoppingCriteriaList([StopWhenAsked(), StopPastLimit()])
 
 
 def upsample(model: Any, processor: Any, prompt: str, device: Any, should_cancel: CancelFn | None = None) -> str:
     """One caption for `prompt`: greedy, with the card's presence penalty,
-    polled for Stop at every token. Raises `Cancelled` when stopped."""
+    polled for Stop at every token. Raises `Cancelled` when stopped, and
+    `ExpansionTooLong` once the caption runs past `PROMPT_LIMIT`."""
     import torch
 
     inputs = processor.apply_chat_template(
@@ -228,7 +257,10 @@ def upsample(model: Any, processor: Any, prompt: str, device: Any, should_cancel
         return_tensors="pt", enable_thinking=False,
     ).to(device)
     prompt_length = int(inputs["input_ids"].shape[1])
-    logits, stopping = _processors(prompt_length, should_cancel)
+    def decode(ids: Any) -> str:
+        return str(processor.decode(ids, skip_special_tokens=True))
+
+    logits, stopping = _processors(prompt_length, should_cancel, decode)
     # no_grad, never inference_mode, as around every pipeline call: offload
     # moves torchao tensors across devices inside forward().
     with torch.no_grad():
@@ -238,7 +270,9 @@ def upsample(model: Any, processor: Any, prompt: str, device: Any, should_cancel
         )
     if should_cancel is not None and should_cancel():
         raise Cancelled("prompt expansion stopped")
-    caption = processor.decode(generated[0, prompt_length:], skip_special_tokens=True).strip()
+    caption = decode(generated[0, prompt_length:]).strip()
     if not caption:
         raise RuntimeError("FLUX 3's prompt upsampler returned an empty caption")
+    if len(caption) > PROMPT_LIMIT:
+        raise ExpansionTooLong(too_long())
     return caption

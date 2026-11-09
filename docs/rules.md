@@ -1631,7 +1631,10 @@ measured on the card and when.
   new tokens); the decoding is the card's - greedy with presence penalty 1.5
   (`PresencePenalty`, vLLM's meaning, generated tokens only), never
   diffusers' penalty-free greedy; a `StoppingCriteria` polls Stop each
-  token. No size is sent (BFL's `flux3/pup.py` sends none). The status says
+  token, and another decodes the answer each token and stops it once past
+  the prompt box's 4000 characters (`flux3_upsampler.PROMPT_LIMIT`, held
+  equal to `GenerateRequest.prompt`'s max_length): `ExpansionTooLong`, a
+  422 in `too_long()`'s words, never a truncated caption or a 500. No size is sent (BFL's `flux3/pup.py` sends none). The status says
   `name` ("FLUX 3's prompt upsampler") and `translates: false`: its English
   answer is never translated and the translator is never fetched. Nothing
   about it is measured on the card (`CARD#20`).
@@ -10712,8 +10715,9 @@ placeholder at the fixed shift (1.94), the ignored-CFG, steps and Mu tips,
 references on and negative prompt, True CFG, Refine and LoRAs off, the
 shared guide's caption advice and example-size line, its one Qwen3-VL budget
 (8189), Expand as FLUX 3's prompt upsampler (its name and 17.5 GiB first-use
-download in the title, no translator, a settings hold aria-disabled with the
-server's sentence, the running line's download/load/expanding steps, the
+download in the title, no translator, a page-side held status shown
+aria-disabled with its held text as the title (the server's own refusal
+sentence and its 422 are pytest's, `tests/test_api.py`), the running line's download/load/expanding steps, the
 caption written into the box with an Undo and Ctrl+Z, no translation), the
 LoRA and Refine refusals, and a saved cell recording the public id, the
 upsampled prompt, 16 steps, Mu and no negative prompt, on port 7911 with its own fresh

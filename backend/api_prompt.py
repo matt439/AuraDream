@@ -19,7 +19,7 @@ from fastapi import APIRouter, HTTPException, Path, Query
 
 from . import keep_awake, prompt_check, prompt_encoding, prompt_parts, prompt_text, tag_lookup
 from .app_context import AppServices
-from .backends.base import Cancelled
+from .backends.base import Cancelled, ExpansionTooLong
 from .critic import CriticError, CriticUnavailable, pinned_build_refusal
 from .detached import detached
 from .jobs import BackendBusy, LoadFailed, short_error
@@ -309,6 +309,10 @@ def create_router(services: AppServices) -> APIRouter:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         except Cancelled:
             raise
+        except ExpansionTooLong as exc:
+            # Stopped at the limit by the expander itself, in its own words.
+            run.check()
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
         except Exception as exc:
             run.check()
             log.error("prompt expansion failed: %s", short_error(exc))

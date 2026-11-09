@@ -44,6 +44,11 @@ class Cancelled(Exception):
     """
 
 
+class ExpansionTooLong(Exception):
+    """Raised out of `expand_prompt()` when the expander's answer ran past the
+    prompt box's limit. Its message is the page's sentence (a 422 there)."""
+
+
 class GenerationBackend(abc.ABC):
     name: str = "base"
 

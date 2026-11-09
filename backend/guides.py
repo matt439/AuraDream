@@ -1746,10 +1746,13 @@ NEWBIE_GUIDE = {
 
 # FLUX 3 Image Klein and Klein Base, from the two model cards, which say the
 # same about prompting (the Base card adds only its fine-tuning section). Its
-# opening sentences are the cards' "Prompting" section, verbatim; the
-# upsampler the cards ask for runs here only when Expand is pressed, which
-# the prose says in the app's voice (`prompt_sources` keeps those sentences
-# uncitable). The cards
+# opening sentences follow the cards' "Prompting" section, not verbatim: the
+# first clause is reworded ("ours or your own LLM" there, "BFL's own, or any
+# LLM" here, since "ours" would be the app's) and the card's two opening
+# sentences are swapped. What the analysis cites is the card's own words,
+# held by `test_every_cite_is_the_guides_own_words`. The upsampler the cards
+# ask for runs here only when Expand is pressed, which the prose says in the
+# app's voice (`prompt_sources` keeps those sentences uncitable). The cards
 # publish no output size range, only that their figures are for 1024x1024
 # and how references are sized; the size prose says the square is an example.
 _FLUX3_CARD = "https://huggingface.co/black-forest-labs/flux-3-image-klein"

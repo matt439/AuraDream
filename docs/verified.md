@@ -1976,8 +1976,10 @@ here has been on the card. Not measured:
 - FLUX 3 [Klein] and Klein Base (`CARD#19`): fit, peak, RAM at the load and
   time per image at fp8, int8 and bf16, with references and without, and
   whether the pictures look right at 16 and 50 steps. The picker's fit
-  figure is an estimate (one byte a weight); the model cards' 31/26/25 GB
-  peaks are a B200 with everything resident.
+  figure is an estimate (one byte a weight). The cards' peaks are "with the
+  reference code, B200, 1024x1024, prompt upsampler off": Klein's 31/26/25
+  GB and Klein Base's 31/29/26 GB (BF16/FP8/NVFP4); neither says how the
+  components were placed, and neither is this card's.
 - FLUX 3's prompt upsampler (`CARD#20`): its 18.8 GB first download, RAM
   while it is quantized on the CPU and resident after (about 9.4 GB
   estimated), its peak on the card with the KV cache, seconds per caption,
