@@ -132,19 +132,18 @@ class AnimaTurboPipeline(DiffusionPipeline):
         })
         self._step.callback = callback_on_step_end
         try:
-            # The installed block returns (components, state), despite its
-            # PipelineState annotation, and reads the standard components we
-            # register above rather than requiring AnimaModularPipeline itself.
-            _, state = self._encode(self, state)  # pyright: ignore[reportGeneralTypeIssues, reportArgumentType]
+            # Each block returns (components, state). The encoder's annotation
+            # names AnimaModularPipeline, but it reads only the standard
+            # components we register above.
+            _, state = self._encode(self, state)  # pyright: ignore[reportArgumentType]
             # SequentialPipelineBlocks logs every escaping exception as an
             # error. Call its blocks directly so cooperative cancellation is
             # handled by the job layer without a misleading error traceback.
             for block in self._denoise.sub_blocks.values():
                 _, state = block(self, state)
-            # SequentialPipelineBlocks also returns (components, state), not
-            # the PipelineState stated by its installed return annotation.
-            _, state = self._decode(self, state)  # pyright: ignore[reportGeneralTypeIssues]
-            return ImagePipelineOutput(images=state.get("images"))
+            _, state = self._decode(self, state)
+            # The decode step always sets it; `get` is typed for a key list too.
+            return ImagePipelineOutput(images=state.values["images"])
         finally:
             self._step.callback = None
             # In particular, cancellation must offload the resident denoiser.

@@ -25,7 +25,7 @@ from .sizes import (
     refine_largest_side,
 )
 
-# Diffusers 0.40 snapshots os.getenv(name, "native") verbatim at import:
+# Diffusers 0.42 (as 0.40) snapshots os.getenv(name, "native") verbatim at import:
 # absence uses native, but an explicitly empty value is not that default.
 # Observe before its import without interpreting, clearing or accepting it.
 ATTENTION_ENVIRONMENT_WARNING: str | None = (

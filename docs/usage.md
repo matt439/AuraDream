@@ -586,6 +586,11 @@ Models with its reason, and a source of another aspect is held in the
 dialog with its reason; nothing is quietly moved to the measured choice.
 Generate is held on the editor, which has no text-to-image call.
 
+The app now installs diffusers 0.42.1, which the card has not measured with
+Kontext yet, so every Kontext load and edit is held for now with a reason
+naming both versions ("diffusers 0.42.1 (only 0.40.0 was) is not
+measured"). It opens again once a card run re-measures it.
+
 An edit keeps its source, and a proof of the source's pixels, on its row
 and in its PNG. Each queued edit proves its source again as it starts: a
 source binned, deleted or changed meanwhile fails that edit with the

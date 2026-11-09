@@ -54,6 +54,8 @@ The maintainer's working backlog for this personal project: it records what is p
 | `CARD#14` | CARD | MED | S+card | On the 3070 server: a suspend with a model loaded, and whether the loaded pipeline survives the resume (`NVreg_PreserveVideoMemoryAllocations=1` is set). [RTX 3070](docs/verified.md#rtx-3070-8-gb-native-ubuntu-2026-11-03). |
 | `CARD#15` | CARD | LOW | S+card | Nunchaku int4 on the 3070 (sm_86): whether the lite-infer kernels load and render, its time and peak. [RTX 3070](docs/verified.md#rtx-3070-8-gb-native-ubuntu-2026-11-03). |
 | `CARD#16` | CARD | LOW | S+card | The prompt critic's pinned CUDA 13.4 llama.cpp build under the 3070's 13.2 driver (first use, a critique). [RTX 3070](docs/verified.md#rtx-3070-8-gb-native-ubuntu-2026-11-03). |
+| `CARD#17` | CARD | MED | M+card | After the diffusers 0.42.1 bump (`GEN#45`, unmeasured): the shipped checkpoints' pictures, peak, RAM at the load and time against `docs/verified.md`, at least FLUX.1 Krea dev fp8/model, SDXL, Z-Image and FLUX.2 [klein] (its VAE lost `force_upcast`); 0.42.1 moved encoder-input and latent placement, torchao's quantized `Parameter` and the offload device's default. One load per session. [Bump](docs/design-notes.md#newer-checkpoints-and-the-diffusers-042-bump). |
+| `CARD#18` | CARD | MED | S+card | FLUX.1 Kontext [dev] on diffusers 0.42.1: edits are held (`QUALIFIED_ENVELOPE` stays at the measured 0.40.0) until this re-measure inside the envelope; only then raise `diffusers_version`. `INP#11`'s acceptance step needs it first. [Bump](docs/design-notes.md#newer-checkpoints-and-the-diffusers-042-bump). |
 
 ## Inpainting, outpainting and edits
 
@@ -61,7 +63,7 @@ The maintainer's working backlog for this personal project: it records what is p
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `INP#11` | CARD | LOW | XL+card | Stages 0-3 done; stage 4's ten slices on main since PR #17 (Kontext listed, the real gate open inside the measured envelope: fp8, model offload, Windows, 1:1 at 512x512). Left: the card acceptance step, one load on the real server and page. [Card step](docs/plan-instruction-editing.md#card-acceptance-step). |
+| `INP#11` | CARD | LOW | XL+card | Stages 0-3 done; stage 4's ten slices on main since PR #17 (Kontext listed, the real gate open inside the measured envelope: fp8, model offload, Windows, 1:1 at 512x512). Left: the card acceptance step, one load on the real server and page; since the diffusers 0.42.1 bump (`GEN#45`) Kontext loads are held until `CARD#18`. [Card step](docs/plan-instruction-editing.md#card-acceptance-step). |
 | `INP#5` | DEFERRED | LOW | M+card | Phase 4, klein: one reference beside the source, its mu recipe, memory with the sequence doubled, `smoke-inpaint-klein`. Matt doesn't run klein. |
 | `INP#6` | DEFERRED | LOW | M+card | Phase 5, Qwen-Image under Nunchaku (WSL), only if the inpaint class runs over the Nunchaku transformer at all. |
 | `INP#10` | DEFERRED | LOW | M | Outpaint, later if wanted: the server's fill shown in the frame (kept for later, 2026-10-17), an outpaint over a painted mask, a second fill. |
@@ -78,7 +80,7 @@ The maintainer's working backlog for this personal project: it records what is p
 | `GEN#6` | DEFERRED | LOW | M+card | Live-preview maps for the four-channel SDXL VAE and FLUX.2's VAE (ERNIE; klein also lacks an unpack hook); previews switch themselves off there. [Behaviour](docs/verified.md#behaviour). |
 | `GEN#8` | DEFERRED | LOW | L | U61 part B: one's own photo or sketch as a reference (import route, a source marker through storage, reindex and reruns; add, drop and paste). Matt deferred it 2026-10-05; only when he raises it. [References](docs/design-notes.md#reference-images-by-gallery-id). |
 | `GEN#20` | DEFERRED | LOW | L+card | Opt-in A1111 weighting and 77-token chunking on SDXL, deferred by Matt 2026-10-27 because he does not write weighted prompts; revisit on request. [10-24 G10](docs/review-2026-10-24.md#g10-a1111-style-weighting-and-long-prompts-on-sdxl). |
-| `GEN#45` | DEFERRED | LOW | L+card | Newer checkpoints (FLUX 3 Image Klein first, then Qwen-Image-2.1/Turbo, Qwen-Image-2512) wait on a released diffusers that carries their pipelines; Matt chose to wait 2026-11-08. The bump reopens the Kontext envelope and `encoder_table`. [Candidates](docs/design-notes.md#newer-checkpoints-wait-on-a-released-diffusers). |
+| `GEN#45` | OPEN | LOW | L+card | Newer checkpoints. The wait's premise was met (diffusers 0.42.0 shipped 2026-10-23, 0.42.1 2026-10-27); Matt started 2026-11-09: FLUX 3 Image Klein and Klein Base, the FLUX 3 prompt upsampler as an opt-in Expand-style step; not Qwen-Image-2.1/Turbo/2512. Stage 1, the bump to diffusers 0.42.1, is built on `gen45/newer-checkpoints` (Kontext and the execution candidates held on 0.40; card checks `CARD#17`, `CARD#18`). Left: the FLUX 3 checkpoints. [Bump and candidates](docs/design-notes.md#newer-checkpoints-and-the-diffusers-042-bump). |
 
 ## Speed
 

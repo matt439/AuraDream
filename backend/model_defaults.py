@@ -70,7 +70,7 @@ where the checkpoint has no pass.
 `inpaint_supported` says whether the checkpoint can run an inpaint - a refine
 pass at the source's own size with a painted mask - through the inpaint class
 diffusers ships beside its pipeline (`refine.sibling(..., "Inpaint")`). It is
-a decision as well as a guess: diffusers 0.40 ships one for FLUX.1, SDXL,
+a decision as well as a guess: diffusers 0.42 ships one for FLUX.1, SDXL,
 Z-Image, Qwen-Image and FLUX.2 [klein], and SDXL, Z-Image and FLUX.1 are
 enabled (FLUX.1's history: docs/design-notes.md, Inpainting, "FLUX.1
 enabled"). The rest are deferred (`INPAINT_DEFERRED`, docs/plan-inpainting.md's

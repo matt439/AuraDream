@@ -929,9 +929,10 @@ measured on the card and when.
 - Z-Anime Base has a pinned nested `diffusers/` tree. `loading.resolve_model`
   resolves configs before quantization checks and weights after them; both
   passes use the same revision and keep the official id in settings/metadata.
-  Diffusers 0.40 does not support pipeline-level `subfolder`. Keep the supplied
-  FlowMatch Euler scheduler (shift 6); the card's ComfyUI Euler Ancestral/beta
-  recommendation is a different setup, not a verified equivalent.
+  Diffusers 0.42 (as 0.40) does not support pipeline-level `subfolder`. Keep
+  the supplied FlowMatch Euler scheduler (shift 6); the card's ComfyUI Euler
+  Ancestral/beta recommendation is a different setup, not a verified
+  equivalent.
   Its bundled encoder has scaled FP8 tensors without quantization metadata.
   Skip those weights: `loading.component_overrides` loads the standard Qwen3
   encoder from pinned `Tongyi-MAI/Z-Image`, using the same Transformers-owned
@@ -998,10 +999,10 @@ measured on the card and when.
 
 - `NewBie-AI/NewBie-image-Exp0.1` selects pinned official components, strictly
   converted on CPU by `newbie_loading`. Keep its public id in status/metadata.
-  Diffusers 0.40 has no native NewBie pipeline; use the local classes, Gemma 3
-  penultimate hidden states and Jina's unnormalized masked mean. Keep both
-  prompts free of system prefixes, FlowMatch Euler shift 6, normalized reverse
-  transformer time, and whole-sample CFG norm limiting. The exact-id profile
+  Diffusers 0.42 (as 0.40) has no native NewBie pipeline; use the local
+  classes, Gemma 3 penultimate hidden states and Jina's unnormalized masked
+  mean. Keep both prompts free of system prefixes, FlowMatch Euler shift 6,
+  normalized reverse transformer time, and whole-sample CFG norm limiting. The exact-id profile
   starts at the card's 28 steps and the author's sample CFG 4. XML is text,
   never comma chips; 1024x1024 is an example, not a published size ceiling.
   References, user LoRAs and Nunchaku are unavailable for this integration.
@@ -1432,6 +1433,12 @@ measured on the card and when.
   stored 3:2 edits still bind and inspect. The tests' `FakeBackend` reports
   the envelope's own host (`edit_host`), so its answers follow the selection
   on any machine.
+- The envelope's diffusers is the measured 0.40.0, while the app installs
+  0.42 (GEN#45). So on a real install every Kontext load, the edit route and
+  edit More seeds refuse, naming both versions ("diffusers 0.42.1 (only
+  0.40.0 was) is not measured"). Raise `diffusers_version` only after the
+  card re-measures Kontext on the installed diffusers, never with the bump
+  itself (`test_the_installed_diffusers_holds_every_kontext_load_until_remeasured`).
 - Every load entry refuses an unmeasured Kontext choice before the Hub is
   asked and before anything is saved, unloaded or downloaded.
   `require_model_available(model_id, qualified=, loader=)` answers, in order:
@@ -1709,6 +1716,12 @@ measured on the card and when.
   changing the environment. FBC additionally refuses true CFG and an existing
   cache. A matching candidate grants no runtime availability or loaded-API,
   processor, shape, kernel or device qualification.
+- The regional and attention/cache candidates were read against diffusers
+  0.40 and stay keyed to it (`execution._CANDIDATE_DIFFUSERS`) while the app
+  installs 0.42, whose hooks API changed (`StateManager.set_context` takes a
+  `CacheContext`; `enable_cache`/`disable_cache` invalidate child-registry
+  caches). Every 0.42 install answers "checked only on diffusers 0.40".
+  Moving them is its own qualification, with the fixtures that pass 0.40.0.
 - Private FBC ownership validates exact eager FLUX block identities, order,
   counts and output metadata. One retained owner covers the shared denoiser;
   each call installs fresh fixed-threshold hooks, resets state/context before

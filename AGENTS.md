@@ -443,7 +443,8 @@ Reproduction and storage:
   (literal `True` only), never a setting; `DiffusersBackend` returns the
   literal True (stage 4's release), every other gate the literal False.
   `QUALIFIED_ENVELOPE` then decides loads and edits: the exact Kontext id,
-  fp8, model offload, CUDA, Windows, Eager, diffusers 0.40.0, and 1:1
+  fp8, model offload, CUDA, Windows, Eager, diffusers 0.40.0 (the app
+  installs 0.42, so Kontext stays held until re-measured), and 1:1
   sources at 512x512. The editor load holds open only for the exact id inside
   the envelope (the pinned configs-then-weights loader); Qwen-Image-Edit is
   always refused. Kontext is an edit-only catalogue entry, listed last.
@@ -728,4 +729,5 @@ GPU behaviour, pixels, timing and memory are the card's to say, recorded in
 ## Environment
 
 Python 3.13 (not 3.14 — torchao/diffusers wheels lag there).
-torch 2.13.0+cu130, diffusers 0.40.0, torchao 0.18.0.
+torch 2.13.0+cu130, diffusers 0.42.1, torchao 0.18.0 (Kontext edits and the
+execution candidates stay held on their measured diffusers 0.40).

@@ -205,7 +205,7 @@ def test_unavailable_reason_gives_its_five_answers():
     for change, words in (
         ({"quantization": "int8"}, "int8 quantization"), ({"offload": "sequential"}, "sequential offload"),
         ({"device": "cpu"}, "the device 'cpu'"), ({"platform": "linux"}, "Linux (WSL)"),
-        ({"diffusers_version": "0.41.0"}, "diffusers 0.41.0"),
+        ({"diffusers_version": "0.42.1"}, "diffusers 0.42.1 (only 0.40.0 was)"),
     ):
         reason = edit.edit_unavailable_reason(
             kontext, qualified=True, loader=dataclasses.replace(_ENVELOPE_LOADER, **change),

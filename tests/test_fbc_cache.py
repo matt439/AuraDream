@@ -68,25 +68,32 @@ class FluxSingleTransformerBlock(Module):
     pass
 
 
+@dataclasses.dataclass(frozen=True)
+class CacheContext:
+    """diffusers 0.42's hooks.CacheContext, reduced to the name that keys state."""
+
+    name: str
+
+
 class Manager:
     def __init__(self):
-        self._current_context = None
+        self._context = None
         self._state_cache = {}
         self.fail_reset = False
 
-    def set_context(self, name):
-        self._current_context = name
+    def set_context(self, context):
+        self._context = context
 
     def get_state(self):
-        if self._current_context is None:
+        if self._context is None:
             raise ValueError("no context")
-        return self._state_cache.setdefault(self._current_context, {})
+        return self._state_cache.setdefault(self._context.name, {})
 
     def reset(self):
         if self.fail_reset:
             raise RuntimeError("reset failed")
         self._state_cache.clear()
-        self._current_context = None
+        self._context = None
 
 
 class Hook:
@@ -160,12 +167,19 @@ class Registry:
                                             if path and hasattr(module, "_diffusers_hook")]
         return self._child_registries_cache
 
-    def _set_context(self, name=None):
-        for hook in self.hooks.values():
+    def invalidate_child_registries_cache(self):
+        for _, module in self._module_ref.named_modules():
+            if hasattr(module, "_diffusers_hook"):
+                module._diffusers_hook._child_registries_cache = None
+
+
+def _set_cache_context(module, context):
+    # diffusers 0.42's hooks._set_cache_context: the root and its cached children.
+    registry = Registry.check_if_exists_or_initialize(module)
+    for child in (registry, *registry._get_child_registries()):
+        for hook in child.hooks.values():
             if hook._is_stateful:
-                hook.state_manager.set_context(name)
-        for registry in self._get_child_registries():
-            registry._set_context(name)
+                hook.state_manager.set_context(context)
 
 
 @dataclasses.dataclass
@@ -213,6 +227,8 @@ class FluxTransformer2DModel(Module):
             Registry.check_if_exists_or_initialize(block).register_hook(hook, HEAD if index == 0 else BLOCK)
             if self.world.fail_after == index:
                 raise self.world.setup_failure
+        # 0.42 invalidates every registry's child list once the block hooks are in.
+        Registry.check_if_exists_or_initialize(self).invalidate_child_registries_cache()
         self._cache_config = config  # Deliberately after sequential installation.
 
     def disable_cache(self):
@@ -223,14 +239,16 @@ class FluxTransformer2DModel(Module):
             registry = Registry.check_if_exists_or_initialize(self)
             registry.remove_hook(HEAD, recurse=True)
             registry.remove_hook(BLOCK, recurse=True)
+            registry.invalidate_child_registries_cache()
             self._cache_config = None
 
     @contextmanager
     def cache_context(self, name):
-        registry = Registry.check_if_exists_or_initialize(self)
-        registry._set_context(name)
-        yield  # Match the installed generator's missing exceptional-exit reset.
-        registry._set_context(None)
+        _set_cache_context(self, CacheContext(name))
+        try:
+            yield
+        finally:  # 0.42 clears the context on every exit, as the installed generator does.
+            _set_cache_context(self, None)
 
 
 @pytest.fixture
@@ -340,13 +358,13 @@ def test_fixed_config_and_fresh_cond_uncond_state_for_consecutive_calls(world):
             assert facts.threshold == 0.05 and world.configs[-1].threshold == 0.05
             manager = world.managers[-1]
             managers.append(manager)
-            assert manager._state_cache == {} and manager._current_context is None
+            assert manager._state_cache == {} and manager._context is None
             with model.cache_context("cond"):
                 manager.get_state()["value"] = object()
             with model.cache_context("uncond"):
                 assert manager.get_state() == {}
             assert set(manager._state_cache) == {"cond", "uncond"}
-        assert manager._state_cache == {} and manager._current_context is None
+        assert manager._state_cache == {} and manager._context is None
         assert_clean(model, owner)
     assert len({id(manager) for manager in managers}) == len({id(config) for config in world.configs}) == 3
     assert discarded == []
@@ -362,7 +380,7 @@ def test_eager_cached_child_list_is_invalidated_and_restored_by_identity(world):
     for _ in range(2):
         with owner.cached_call():
             with model.cache_context("cond"):
-                assert world.managers[-1]._current_context == "cond"
+                assert world.managers[-1]._context.name == "cond"
                 world.managers[-1].get_state()["fresh"] = True
         assert registry._child_registries_cache is old_cache
         owner.assert_off()
@@ -416,7 +434,7 @@ def test_exceptional_pipeline_context_is_reset_and_original_error_preserved(worl
                 world.managers[-1].get_state()["residual"] = object()
                 raise failure
     assert raised.value is failure
-    assert world.managers[-1]._current_context is None and world.managers[-1]._state_cache == {}
+    assert world.managers[-1]._context is None and world.managers[-1]._state_cache == {}
     assert_clean(model, owner)
     assert discarded == []
 
@@ -460,14 +478,14 @@ def test_partial_discovery_problems_do_not_replace_the_original_setup_error(worl
 def test_replaced_state_manager_is_not_reset_as_though_it_were_owned(world):
     model, owner, discarded = make_owner(world)
     foreign = Manager()
-    foreign.set_context("foreign")
+    foreign.set_context(CacheContext("foreign"))
     foreign.get_state()["keep"] = True
     with pytest.raises(fbc.CacheCleanupFailed, match="state manager was replaced"):
         with owner.cached_call():
             original = world.managers[-1]
             model.transformer_blocks[0]._diffusers_hook.get_hook(HEAD).state_manager = foreign
-    assert original._state_cache == {} and original._current_context is None
-    assert foreign._current_context == "foreign" and foreign._state_cache == {"foreign": {"keep": True}}
+    assert original._state_cache == {} and original._context is None
+    assert foreign._context.name == "foreign" and foreign._state_cache == {"foreign": {"keep": True}}
     assert owner.invalidated and discarded == [True]
 
 
@@ -689,7 +707,17 @@ def test_installed_source_contract_registry_cache_and_flux_output_metadata():
     remove = ast.unparse(definition(hooks, "remove_hook"))
     assert "recurse" in remove and "_fn_refs" in remove and "old_forward" in remove
     manager = ast.unparse(definition(definition(hooks, "StateManager"), "reset"))
-    assert "self._state_cache.pop(name)" in manager and "self._current_context = None" in manager
+    assert "self._state_cache.pop(name)" in manager and "self._context = None" in manager
+    setter = ast.unparse(definition(definition(hooks, "StateManager"), "set_context"))
+    assert "self._context = context" in setter
+    invalidate = ast.unparse(definition(hooks, "invalidate_child_registries_cache"))
+    assert "_child_registries_cache = None" in invalidate and "named_modules()" in invalidate
+    # The stub mirrors both: enable/disable invalidate the child lists the owner snapshots and restores.
+    mixin = source("models/cache_utils.py")
+    for method in ("enable_cache", "disable_cache"):
+        assert "invalidate_child_registries_cache()" in ast.unparse(definition(mixin, method))
+    context = ast.unparse(definition(mixin, "cache_context"))
+    assert "_set_cache_context(self, None)" in context and "finally" in context
     registry = source("hooks/_helpers.py")
     found = {}
     for node in ast.walk(registry):

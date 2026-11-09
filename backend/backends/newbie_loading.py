@@ -71,7 +71,7 @@ def _convert(destination: Path) -> None:
     jina = load_jina_text_encoder(
         load_file(source / "clip_model/jina-clip-v2.safetensors", device="cpu"),
     )
-    # Diffusers 0.40 / Transformers 5 wrap Module.to with functools.wraps;
+    # Diffusers 0.42 / Transformers 5 wrap Module.to with functools.wraps;
     # Pyright retains its unbound `self`, though these are bound instances.
     # Keep the subclass methods, including their dtype/quantization guards.
     pipe = NewbiePipeline(

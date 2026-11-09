@@ -189,7 +189,7 @@ def test_one_forward_owns_fresh_cache_context_and_preserves_original_failure(cac
             backend._invoke_pipeline(pipe, kwargs)
         assert caught.value is failure and not getattr(failure, "__notes__", [])
     assert calls == [kwargs] and len(state.configs) == 1 and not owner.active
-    assert state.managers[-1]._state_cache == {} and state.managers[-1]._current_context is None
+    assert state.managers[-1]._state_cache == {} and state.managers[-1]._context is None
     assert_clean(control.root, owner)
     backend.unload()
 
@@ -206,7 +206,7 @@ def test_native_change_during_forward_refuses_result_or_preserves_primary_with_c
         assert caught.value is failure
         assert "Native attention verification also failed" in " ".join(failure.__notes__)
     assert len(calls) == 1 and len(state.configs) == 1 and state.disable_calls == 1
-    assert state.managers[-1]._state_cache == {} and state.managers[-1]._current_context is None
+    assert state.managers[-1]._state_cache == {} and state.managers[-1]._context is None
     assert_clean(control.root, owner)
     assert backend._pending_cache_disposal is None
     backend.unload()

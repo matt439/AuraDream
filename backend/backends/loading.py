@@ -49,7 +49,7 @@ COMPONENT_LIBRARY_OWNERS = {
 # their folders out of the download too, *through the concrete class*: the
 # base `DiffusionPipeline.from_pretrained` filters passed components against
 # its own empty `_optional_components` (`_get_signature_keys` is a classmethod
-# on `cls`, diffusers 0.40), takes `pe=None` for a pipeline kwarg, downloads
+# on `cls`, diffusers 0.40 and 0.42), takes `pe=None` for a pipeline kwarg, downloads
 # the folder and loads the model - seen on the card, 7.7 GB pulled and 11 GB
 # of RAM taken, before load() switched class. ErnieImagePipeline carries a 7.7 GB
 # bf16 Ministral prompt rewriter (`pe`) and, unless `use_pe` is off, samples
@@ -153,7 +153,7 @@ def prompt_expander_cached(model_id: str) -> bool:
         return False
     return isinstance(found, str) and os.path.isfile(found)
 
-# Pipeline-level from_pretrained in Diffusers 0.40 does not resolve a
+# Pipeline-level from_pretrained in Diffusers 0.42 (as 0.40) does not resolve a
 # subfolder. Materialize just this pinned tree in the Hub cache and hand the
 # ordinary loader its local directory; keep the public id in runtime metadata.
 NESTED_MODELS = {

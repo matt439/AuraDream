@@ -178,7 +178,7 @@ try:
         changed = forward(model)
         assert counts(model) == [3, 2, 2]
         equal(changed, (baseline[0], baseline[1] + 1.0))
-    assert state._state_cache == {} and state._current_context is None
+    assert state._state_cache == {} and state._context is None
     restored(model, owner)
     equal(forward(model), changed)
     assert discarded == []
@@ -195,7 +195,7 @@ try:
         assert counts(model) == [4, 2, 2]
         assert set(state._state_cache) == {"cond", "uncond"}
         assert state._state_cache["cond"] is not state._state_cache["uncond"]
-    assert state._state_cache == {} and state._current_context is None
+    assert state._state_cache == {} and state._context is None
     restored(model, owner)
     owner.close()
     assert discarded == []
@@ -236,7 +236,7 @@ try:
         assert caught is cancelled
     else:
         raise AssertionError("cancellation did not propagate")
-    assert state._current_context is None and state._state_cache == {}
+    assert state._context is None and state._state_cache == {}
     restored(model, owner)
     equal(forward(model), expected)
     assert counts(model) == [2, 2, 2]

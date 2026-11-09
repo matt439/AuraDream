@@ -985,22 +985,22 @@ class from `model_index.json`, and `_component_libraries()` reads the same file
 to decide which components to quantize and with whose `TorchAoConfig`. FLUX
 layouts therefore pick up `text_encoder_2` (T5) automatically.
 
-## Newer checkpoints wait on a released diffusers
+## Newer checkpoints and the diffusers 0.42 bump
 
 **Candidates (researched 2026-11-08, `GEN#45`).** These were read from the
 model cards and launch posts, and nothing was run on the card:
 
 - FLUX 3 Image Klein (`black-forest-labs/flux-3-image-klein`, 2026-10-15). A
   5.6B transformer with a Qwen3-VL-4B encoder, 16 steps, that does
-  text-to-image and editing. FLUX Kommunity License. Diffusers runs it as a
-  `ModularPipeline` (diffusers main only), so `load()`'s check for
+  text-to-image and editing. FLUX Kommunity License. Diffusers (0.42.0 and
+  later) runs it as a `ModularPipeline`, so `load()`'s check for
   `generator` and `callback_on_step_end` has to be answered for it. Its card
   says to always run a 9B prompt upsampler. lite-infer has int4 and nvfp4
   Nunchaku builds (r32, no bnb4 encoder suffix).
 - Qwen-Image-2.1 and 2.1-Turbo (`Qwen/Qwen-Image-2.1`, 2026-09; Turbo 8
   steps). A 7B DiT with a Qwen3-VL 8B encoder, through `QwenImage21Pipeline`
-  (diffusers main). Qwen Research License, non-commercial. It edits and makes
-  RGBA. lite-infer has int4 and nvfp4 builds for both.
+  (diffusers 0.42.0 and later). Qwen Research License, non-commercial. It
+  edits and makes RGBA. lite-infer has int4 and nvfp4 builds for both.
 - Qwen-Image-2512 (Apache 2.0). The catalogue's Qwen-Image family at 20B, so
   the same 4-bit-only fit, with community Nunchaku builds only.
 
@@ -1008,15 +1008,60 @@ Fibo 2.0 (gated, CC BY-NC, diffusers 0.42+, prompts written through Gemini),
 HunyuanImage 3.0, Cosmos3, Ming-Image and FLUX.2 [dev] were left off as too
 large for the 16 GB card or as needing an outside service.
 
-**Waiting is the decision (Matt, 2026-11-08).** There is no hurry, so the
-app stays on diffusers 0.40.0 until a released version carries both new
-pipelines, and it never pins the development build. The bump itself is the
-work. It reopens what 0.40.0 pins: the Kontext `QUALIFIED_ENVELOPE` (its
-gate closes until it is re-measured), `encoder_table`'s copied strings
-(`tests/test_prompt_encoding.py`), and the tests and execution recipes that
-name the version. After it, one card run checks that the shipped checkpoints
-are unchanged. Then FLUX 3 Klein comes first: it fits the 16 GB card and,
-as int4, the 3070.
+**The wait's premise was already met (corrected 2026-11-09).** On 2026-11-08
+Matt chose to stay on diffusers 0.40.0 until a released version carried both
+new pipelines, never pinning the development build. The note then said both
+were on "diffusers main only", which was stale when written: diffusers
+0.42.0 shipped on 2026-10-23 with both, and 0.42.1 on 2026-10-27 (PyPI).
+
+**The bump (Matt, 2026-11-09).** Matt started the work on 2026-11-09: bump to
+diffusers 0.42.1 now, then add FLUX 3 Image Klein (distilled, 16 steps) and
+FLUX 3 Klein Base (`black-forest-labs/flux-3-image-klein-base`, 50 steps,
+CFG); not Qwen-Image-2.1, 2.1-Turbo or 2512. FLUX 3's prompt upsampler
+(`black-forest-labs/flux-3-image-klein-pup`, 9.4B) is an opt-in step like
+Expand, never automatic. The bump came alone, first:
+
+- `pyproject.toml` asks for `diffusers>=0.42.1` and
+  `huggingface-hub[hf-xet]>=1.32.0,<2` (0.42.1 does not import with hub
+  1.29; the cap keeps transformers at 5.16.1, which hub 2 would move).
+- The hooks API changed under the private FBC owner:
+  `StateManager.set_context` takes a `CacheContext` (or None) and keeps it
+  in `_context`; `HookRegistry._set_context` is gone; `enable_cache` and
+  `disable_cache` now call `invalidate_child_registries_cache()`, which
+  writes None into every registry's `_child_registries_cache`.
+  `fbc_cache.py` needed no change: it snapshots each pre-existing
+  registry's child cache before enabling, deletes registries the call made,
+  and restores the snapshot after `disable_cache`, so the invalidation in
+  between is undone. The test stub copies the 0.42 API, and a source
+  contract holds the stub to the installed `cache_utils`.
+- `anima_pipeline.py`: the modular blocks are now annotated as returning
+  `(components, state)`, so the stale "despite its annotation" comments and
+  ignores went; `state.values["images"]` replaces `state.get`, whose 0.42
+  annotation includes a key list's dict.
+- Kept on 0.40, held, in words naming the version: Kontext's
+  `QUALIFIED_ENVELOPE` (`diffusers_version="0.40.0"`), so every Kontext load,
+  `POST /api/instruction-edit` and edit More seeds refuse with "diffusers
+  0.42.1 (only 0.40.0 was) is not measured" until a card run re-measures
+  Kontext on 0.42.1; and `execution.py`'s regional and attention/cache
+  candidates (`_CANDIDATE_DIFFUSERS`), which were read against 0.40's hooks.
+  Nonempty recipes stay unavailable either way.
+- `encoder_table`'s copied prompt strings did not change in 0.42.1
+  (`tests/test_prompt_encoding.py` passes against it).
+- 0.42.1's `download`/`from_pretrained` first resolve the revision on the Hub
+  (`hub_utils._resolve_revision`, best-effort: Hub and transport errors fall
+  back to the given revision). `tests/conftest.py`'s `no_hub` refuses
+  `resolve_revision` too, with an error it does not swallow.
+
+None of it is measured on the card. 0.42.1 also changed the device placement
+of encoder inputs and latents in FLUX.1, Kontext, Klein and SDXL, torchao's
+`create_quantized_param` (`Parameter(value.to(device))`), the offload
+device's default (`get_device()`), and dropped `force_upcast` from
+`AutoencoderKLFlux2` (the shipped FLUX.2 [klein] VAE). Whether the shipped
+checkpoints' pictures, peak memory, RAM and time are unchanged is a card
+run's to say (`TODO.md`, the CARD rows), as is Kontext on 0.42.1. Then FLUX 3
+Klein comes first. Whether it fits the 16 GB card, or as int4 the 3070, is
+unmeasured: the int4 lite repo's index points at nvfp4 weights, which Ampere
+cannot run.
 
 ## Anima Turbo: a standard interface over modular inference
 

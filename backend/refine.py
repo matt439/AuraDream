@@ -307,7 +307,7 @@ def anime6b_upscale(image: "Image", should_cancel=None, *, device: str = "cpu") 
 # of any pipeline - the per-image seed and the cancellation point.
 REQUIRED = frozenset({"image", "strength", "generator", "callback_on_step_end"})
 
-# And an inpaint's: the same, and the mask. Every inpaint class diffusers 0.40
+# And an inpaint's: the same, and the mask. Every inpaint class diffusers 0.42
 # exports for the catalogue's pipelines takes all of it.
 INPAINT_REQUIRED = REQUIRED | {"mask_image"}
 

@@ -67,7 +67,7 @@ def _load_transformer(config: Path, checkpoint: dict[str, Any]) -> Any:
 
 def _convert(destination: Path) -> None:
     import torch
-    # Diffusers 0.40 explicitly lazy-reexports this public pipeline; keep the
+    # Diffusers 0.42 explicitly lazy-reexports this public pipeline; keep the
     # public lookup used by conversion's fake-pipeline boundary.
     from diffusers import Lumina2Pipeline  # pyright: ignore[reportPrivateImportUsage]
     from diffusers.models.autoencoders.autoencoder_kl import AutoencoderKL
