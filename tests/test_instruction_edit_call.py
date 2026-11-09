@@ -328,8 +328,8 @@ def test_an_unbound_edit_never_reaches_the_branch(editor):
 
 @pytest.mark.parametrize(("cls", "host", "words"), [
     ("closed", None, INSTRUCTION_EDIT_UNAVAILABLE),
-    ("real", ("linux", "0.40.0"), INSTRUCTION_EDIT_LOADER_UNQUALIFIED.format(choice="Linux (WSL)")),
-    ("real", ("win32", "0.42.1"), INSTRUCTION_EDIT_LOADER_UNQUALIFIED.format(choice="diffusers 0.42.1 (only 0.40.0 was)")),
+    ("real", ("linux", "0.42.1"), INSTRUCTION_EDIT_LOADER_UNQUALIFIED.format(choice="Linux (WSL)")),
+    ("real", ("win32", "0.40.0"), INSTRUCTION_EDIT_LOADER_UNQUALIFIED.format(choice="diffusers 0.40.0 (only 0.42.1 was)")),
 ])
 def test_a_closed_gate_or_an_unmeasured_host_refuses_before_any_call(editor, monkeypatch, cls, host, words):
     _, bound, prepared = editor
@@ -375,7 +375,7 @@ def test_describe_follows_the_gate_and_the_selection(store, monkeypatch):
         def instruction_edit_loader(self, selected):
             return LoaderChoice(
                 quantization="fp8", offload="model", device="cuda", platform="win32",
-                loader_execution=None, diffusers_version="0.40.0",
+                loader_execution=None, diffusers_version="0.42.1",
             )
 
     opened = Measured().describe()

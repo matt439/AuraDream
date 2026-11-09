@@ -451,7 +451,7 @@ def test_an_unmeasured_loader_is_held_in_words_before_any_source_is_read(client,
 def test_the_fake_host_decides_the_platform_and_diffusers_answers(client, fake, store, monkeypatch):
     open_gate(fake, monkeypatch)
     rec, _ = source(store)
-    fake.edit_host = ("linux", "0.40.0")
+    fake.edit_host = ("linux", "0.42.1")
     answer = client.post("/api/instruction-edit/preview", json={"source": rec.id, "recipe": "kontext-v1"}).json()
     assert answer["reason"] == INSTRUCTION_EDIT_LOADER_UNQUALIFIED.format(choice="Linux (WSL)")
     fake.edit_host = ("win32", None)

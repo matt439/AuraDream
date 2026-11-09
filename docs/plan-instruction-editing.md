@@ -8,11 +8,12 @@ load on the real server and page, never run so far.
 
 What the branch does on the real server: `DiffusersBackend`'s gate is the
 literal True (slice 7), and the measured envelope (`QUALIFIED_ENVELOPE`: the
-exact Kontext id, fp8, model offload, Windows, Eager, diffusers 0.40.0, 1:1
-sources at 512x512) holds everything else in words. Since the diffusers
-0.42.1 bump (`GEN#45`, 2026-11-09) the installed version is outside the
-envelope, so every Kontext load and edit is held until `CARD#18`
-re-measures it. FLUX.1 Kontext [dev] is
+exact Kontext id, fp8, model offload, Windows, Eager, diffusers 0.42.1, 1:1
+sources at 512x512) holds everything else in words. Stage 3 measured it on
+diffusers 0.40.0; after the 0.42.1 bump (`GEN#45`, 2026-11-09) Kontext was
+held until the card re-measured it on 0.42.1 on 2026-11-10, pixel-identical
+to 0.40.0 ([results](verified.md#flux1-kontext-dev-on-diffusers-0421-2026-11-10)),
+and the envelope moved to 0.42.1. FLUX.1 Kontext [dev] is
 the catalogue's last entry. Inside the envelope it switches, loads through
 the pinned configs-then-weights loader, and queues an edit from Edit by
 instruction… or More seeds of an edit. Re-render of an edit is refused in
@@ -584,7 +585,8 @@ measured, and nothing wider:
 - the exact id `black-forest-labs/FLUX.1-Kontext-dev` at `KONTEXT_V1.revision`,
   recipe `kontext-v1`;
 - fp8, model offload, a CUDA device, `sys.platform == "win32"`, Eager (no
-  loader recipe, attention or cache override) and diffusers 0.40.0;
+  loader recipe, attention or cache override) and diffusers 0.42.1 (stage 3
+  measured 0.40.0; 0.42.1 was re-measured pixel-identical on 2026-11-10);
 - a 1:1 source aspect, rendering at 512x512. Aspect, not source size, is the
   qualified dimension: a 256x256 and a 1024x1024 source both render at 512x512.
 

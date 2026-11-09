@@ -1729,6 +1729,47 @@ what would measure them), and WSL. Evidence:
 `events.jsonl`, `samples.jsonl`, the PNGs, `sheet.png` (source and the four
 edits) and the scratch gallery in `%TEMP%/auradream-inp11-stage3/`.
 
+### FLUX.1 Kontext [dev] on diffusers 0.42.1 (2026-11-10)
+
+`CARD#18`, run with Matt's OK: the envelope re-measured on the diffusers the
+app installs, against 0.40.0 in the same script. The harness was the real
+`DiffusersBackend`; a subclass reported only `instruction_edit_host()` as
+the measured 0.40.0, so the envelope admitted the 0.42.1 run as stage 3's
+harness opened the gate. Everything else was the app's: `load()`,
+`instruction_edit_admission.bind_request` and `generate()`. Environment,
+method and guard as in
+[diffusers 0.42.1 against 0.40.0](#diffusers-0421-against-0400-2026-11-10).
+
+The source was a new synthetic, owned 1024x1024 picture in a scratch gallery
+(sky, grass, sun, a house with a red roof, a red ball), pixels
+`c8b7f5deef55486fc4b7e9baadf33eb4b52a845383ecbde9589c8894a59e583e`; it is
+not the 2026-10-27 source, which was not kept, so its hashes do not compare
+with the stage 3 trial's. 1:1, so 512x512; 28 steps, guidance 2.5, one
+image. "Pixels" is the sha256 of the decoded RGB bytes.
+
+| What | diffusers 0.42.1 (ran first) | diffusers 0.40.0 (ran second) |
+| --- | --- | --- |
+| Load | 47.5 s; process peak 26.94 GiB working set, 33.4 private; guard tree peak 26.97 GiB; 16.77 GiB available at the lowest | 28.0 s (warm file cache); tree peak 27.13 GiB; 18.94 GiB available at the lowest |
+| "Change the red ball to a blue ball.", seed 12345 | 43.1 s (the first step 20.8 s: the transformer onto the card), pixels `df2d0229c6ed46eee3fcf1eb5e1e12cfed967a7ab53d30a43004fbcd3654b338` | 41.0 s, pixels identical |
+| Replay, the same request and seed | 26.2 s, pixels identical to the first | 25.5 s, identical |
+| Cancel from step 10, seed 777 | `Cancelled` at step 10 after 12.2 s; 0.04 GiB allocated after | 11.6 s; the same |
+| "Cover the grass with snow.", seed 777 | 25.5 s, pixels `6f2f926aa2048b436492458169238686b491798698db58159a0fc3c467386133` | 25.2 s, identical |
+| Each edit's memory | 12.00 GiB allocated, 12.55 reserved (torch peak); 14,700 MiB whole-card peak (`nvidia-smi`) | 12.00 / 12.55; 14,698 MiB |
+| Steps | about 1.34 it/s (0.75 s a step) | the same |
+| Unload | 0.2 s, 0.03 GiB allocated | the same |
+
+So Kontext on 0.42.1 is pixel-identical to 0.40.0 inside the envelope, with
+the same memory and step time, and replay and cancel unchanged:
+`QUALIFIED_ENVELOPE.diffusers_version` moved to "0.42.1". The load-time gap
+is file-cache order (the first run read from disk), not the version: the
+FLUX.1 Krea [dev] pair, run in the opposite order, shows the same.
+
+Not measured: everything stage 3 left unmeasured (above), and the real
+server's route and page (the
+[card acceptance step](plan-instruction-editing.md#card-acceptance-step)).
+Evidence (events, guard samples, PNGs, the scratch gallery) is kept in a
+local scratch directory, not committed.
+
 ## Prompt analyser
 
 Measured 2026-09-27 on the real server (`--quant fp8 --offload model`, port
@@ -1957,22 +1998,18 @@ above); kill-on-close under WSL; Ctrl-C during a critique.
 
 ## diffusers 0.42.1 and FLUX 3 [Klein] (built 2026-11-09, not measured)
 
-Every measurement above was taken on diffusers 0.40.0. The app now installs
+Every measurement above was taken on diffusers 0.40.0, except where its
+section says otherwise. The app now installs
 0.42.1 (`GEN#45`, [the bump](design-notes.md#newer-checkpoints-and-the-diffusers-042-bump)),
 and adds FLUX 3 [Klein], Klein Base and FLUX 3's prompt upsampler as Expand
 ([FLUX 3](design-notes.md#flux-3-klein-an-app-owned-pipeline-over-pinned-folders)).
-Their tests and the fake server's smoke run without a GPU or weights; nothing
-here has been on the card. Not measured:
+The bump itself was re-measured on 2026-11-10 for four shipped checkpoints
+and for Kontext's envelope
+([diffusers 0.42.1 against 0.40.0](#diffusers-0421-against-0400-2026-11-10));
+what that run left out is listed there. FLUX 3's tests and the fake
+server's smoke run without a GPU or weights, and nothing of it has been on
+the card. Not measured:
 
-- After the bump (`CARD#17`): whether the shipped checkpoints' pictures,
-  peaks, RAM at the load and times above still hold, at least FLUX.1 Krea
-  [dev] at fp8 with model offload, an SDXL checkpoint, Z-Image and FLUX.2
-  [klein], whose VAE lost `force_upcast`; 0.42.1 also moved encoder-input
-  and latent placement, torchao's quantized `Parameter` and the offload
-  device's default.
-- FLUX.1 Kontext [dev] on 0.42.1 (`CARD#18`): the Instruction edit numbers
-  are 0.40.0's, so edits are held until they are re-measured inside the
-  envelope.
 - FLUX 3 [Klein] and Klein Base (`CARD#19`): fit, peak, RAM at the load and
   time per image at fp8, int8 and bf16, with references and without, and
   whether the pictures look right at 16 and 50 steps. The picker's fit
@@ -1985,6 +2022,65 @@ here has been on the card. Not measured:
   estimated), its peak on the card with the KV cache, seconds per caption,
   and its captions at one byte a weight against BFL's bf16.
 - FLUX 3 on the 8 GB 3070 (`CARD#21`, deferred): no int4 build is wired in.
+
+## diffusers 0.42.1 against 0.40.0 (2026-11-10)
+
+`CARD#17` and `CARD#18`, run with Matt's OK. Windows 11, RTX 5080 (16,303
+MiB; the desktop held 1,539 MiB at the start), 64 GB of RAM (35.9 GiB
+available at the start), Python 3.13.15, torch 2.13.0+cu130, transformers
+5.16.1, torchao 0.18.0, main at f1b4ad7 (after PR #61).
+
+Method: the same script and the same process shape, run once on the locked
+diffusers 0.42.1 (huggingface-hub 1.33.0) and once on an overlay,
+`uv run --with diffusers==0.40.0 --with huggingface-hub==1.29.0` (the
+versions printed in-process). One load per process, the processes strictly
+one after another in the foreground, each watched by
+`tools/card_guard.py watch --watch-pid PID --period 0.5` at its default
+limits (card 15,500 MiB, shared rise 1,024/512 MiB, RAM floor 4 GiB, commit
+floor 4 GiB). No guard tripped; shared GPU memory rose at most 82 MiB in
+every run (no spill). Kontext's run is under
+[Instruction edit](#flux1-kontext-dev-on-diffusers-0421-2026-11-10):
+pixel-identical, with the same memory and step time.
+
+The shipped checkpoints: `python -m backend.generate "a red fox sitting in a
+snowy pine forest at dawn, photograph" --model M --quant fp8 --offload model
+--seed 12345 --grid-seeds 2 --ignore-server`, the profile's steps and
+guidance at 1024x1024, a scratch gallery and outputs per run. Peaks are the
+row's `vram_peak_allocated`/`reserved`; the card peak is the guard's
+`nvidia-smi` reading; pixels are the first 16 hex of the sha256 of the
+decoded RGB bytes.
+
+| Checkpoint (run order) | Steps / CFG | Pixels, seeds 12345 / 12346 (0.42.1 == 0.40.0) | Peak allocated / reserved | Card peak | RAM tree peak 0.42.1 / 0.40.0 | Per image 0.42.1 / 0.40.0 |
+| --- | --- | --- | --- | --- | --- | --- |
+| cagliostrolab/animagine-xl-4.0 (0.42.1 first) | 28 / 5.0 | `124d0f1aa29c11cd` / `6b1ffcbcd4b53ce0`, identical | 3.12 / 3.47 GiB both | 5,396 MiB both | 8.59 / 7.92 GiB | 9.5, 7.7 s / 8.4, 7.6 s |
+| black-forest-labs/FLUX.2-klein-4B (0.42.1 first) | 4 / 1.0 | `a586f5311591d4da` / `e663920f9305fcb6`, identical | 4.58 / 5.19 GiB both | 7,160 MiB both | 17.15 / 14.75 GiB | 10.6, 4.7 s / 5.5, 4.2 s |
+| Tongyi-MAI/Z-Image-Turbo (0.42.1 first) | 8 / 0.0 | `e619709cf6926630` / `f5ec9f032bfe1b8d`, identical | 6.42 / 7.16 GiB both | 9,180 MiB both | 18.92 / 15.78 GiB | 11.9, 10.3 s / 10.9, 10.1 s |
+| black-forest-labs/FLUX.1-Krea-dev (0.40.0 first) | 28 / 3.5 | `cd6613512d57c47d` / `81fb89460911a17b`, identical | 12.00 / 12.63 GiB both | 14,772 MiB both | 28.60 / 25.51 GiB | 42.7, 41.2 s / 43.1, 41.8 s |
+
+The peaks in bytes (allocated/reserved): SDXL 3350174208/3724541952, klein
+4913255424/5574230016, Z-Image 6896113664/7692353536, Krea dev
+12880261120/13555990528. Process wall time (load and two images): SDXL
+31/31 s, klein 43/30 s, Z-Image 58/47 s (0.42.1/0.40.0), Krea dev 118 s on
+0.42.1 (second) and 133 s on 0.40.0 (first).
+
+So on all four checkpoints 0.42.1 renders the same pixels with the same GPU
+peaks as 0.40.0: FLUX.2 [klein]'s VAE losing `force_upcast`, the latent
+placement change and the offload device's default change nothing here.
+Timing differences follow run order (whichever ran first was slower, from a
+cold file cache), not the version: Krea dev, run on 0.40.0 first, was the
+slower there. The RAM tree peaks ran 1-3 GiB higher on 0.42.1 for the three
+run 0.42.1 first and for Krea dev run 0.42.1 second, so a small RAM rise on
+0.42.1 is possible but not established (one run each, working-set
+sampling).
+
+Not measured: int8, bf16, sequential or no offload, other sizes, batches,
+Krea 2 Turbo, klein 9B, Qwen-Image, ERNIE, the Anima, NetaYume and NewBie
+converters, Nunchaku and WSL, refine, inpaint and outpaint, LoRA, the
+latent preview, the execution candidates (regional compile, cuDNN attention
+and the FBC cache stay held on 0.40), and the 3070 server. FLUX 3 (`CARD#19`,
+`CARD#20`) was not run: the token still gets 403 on both Klein repos
+(`GEN#46`, the licence not accepted). Evidence (events, guard samples, PNGs,
+the scratch galleries) is kept in a local scratch directory, not committed.
 
 ## RTX 3070 (8 GB), native Ubuntu (2026-11-03)
 

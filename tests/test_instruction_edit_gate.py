@@ -136,7 +136,7 @@ def test_model_gate_always_refuses_qwen_and_opens_kontext_only_when_qualified():
     # and only inside the measured loader envelope.
     measured = edit.LoaderChoice(
         quantization="fp8", offload="model", device="cuda", platform="win32",
-        loader_execution=None, diffusers_version="0.40.0",
+        loader_execution=None, diffusers_version="0.42.1",
     )
     assert edit.require_model_available(edit.KONTEXT_V1.model_id, qualified=True, loader=measured) is None
     with pytest.raises(ValueError) as caught:
@@ -164,7 +164,7 @@ def test_editor_classes_are_refused_in_their_own_words():
 
 _ENVELOPE_LOADER = edit.LoaderChoice(
     quantization="fp8", offload="model", device="cuda", platform="win32",
-    loader_execution=None, diffusers_version="0.40.0",
+    loader_execution=None, diffusers_version="0.42.1",
 )
 
 
@@ -205,7 +205,7 @@ def test_unavailable_reason_gives_its_five_answers():
     for change, words in (
         ({"quantization": "int8"}, "int8 quantization"), ({"offload": "sequential"}, "sequential offload"),
         ({"device": "cpu"}, "the device 'cpu'"), ({"platform": "linux"}, "Linux (WSL)"),
-        ({"diffusers_version": "0.42.1"}, "diffusers 0.42.1 (only 0.40.0 was)"),
+        ({"diffusers_version": "0.40.0"}, "diffusers 0.40.0 (only 0.42.1 was)"),
     ):
         reason = edit.edit_unavailable_reason(
             kontext, qualified=True, loader=dataclasses.replace(_ENVELOPE_LOADER, **change),

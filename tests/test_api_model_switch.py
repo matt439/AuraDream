@@ -797,7 +797,7 @@ def test_switch_to_kontext_refuses_unmeasured_loader_before_hub(client, fake, mo
             assert reply.status_code == 422, reply.text
             assert reply.json()["detail"] == detail
     # The host as well as the selection: off Windows nothing was measured.
-    fake.edit_host = ("linux", "0.40.0")
+    fake.edit_host = ("linux", "0.42.1")
     reply = client.post("/api/model/switch", json={"model_id": KONTEXT_V1.model_id})
     assert reply.status_code == 422
     assert reply.json()["detail"] == INSTRUCTION_EDIT_LOADER_UNQUALIFIED.format(choice="Linux (WSL)")

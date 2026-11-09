@@ -590,16 +590,17 @@ instruction says what the card measured: the rest of the picture still
 drifts. Ctrl+Enter runs, as **Edit** does.
 
 Kontext loads and edits only inside the envelope the card measured: FP8,
-Model offload, CUDA, Windows, Eager, diffusers 0.40.0, and square (1:1)
+Model offload, CUDA, Windows, Eager, diffusers 0.42.1, and square (1:1)
 sources, rendered at 512x512. Another quantization or offload is held in
 Models with its reason, and a source of another aspect is held in the
 dialog with its reason; nothing is quietly moved to the measured choice.
 Generate is held on the editor, which has no text-to-image call.
 
-The app now installs diffusers 0.42.1, which the card has not measured with
-Kontext yet, so every Kontext load and edit is held for now with a reason
-naming both versions ("diffusers 0.42.1 (only 0.40.0 was) is not
-measured"). It opens again once a card run re-measures it.
+The envelope follows the diffusers the app installs, 0.42.1, which the
+card re-measured with Kontext on 2026-11-10 (pixel-identical to the 0.40.0
+it was first measured on). Any other diffusers is held with a reason naming
+both versions, for example "diffusers 0.40.0 (only 0.42.1 was) is not
+measured".
 
 An edit keeps its source, and a proof of the source's pixels, on its row
 and in its PNG. Each queued edit proves its source again as it starts: a

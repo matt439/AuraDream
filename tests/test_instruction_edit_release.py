@@ -64,7 +64,7 @@ def test_the_real_backend_loads_the_pinned_editor_on_fp8_with_model_offload(kont
     fixture, _, events, hub = kontext_hub
     backend = DiffusersBackend()
     # The synthetic load runs on the CPU, so only the loader facts are the
-    # card's (fp8, model offload, cuda, Windows, diffusers 0.40.0); the gate
+    # card's (fp8, model offload, cuda, Windows, diffusers 0.42.1); the gate
     # is the real class's.
     monkeypatch.setattr(backend, "instruction_edit_loader", lambda selected: MEASURED)
     monkeypatch.setattr(backend, "_release", fixture._release)

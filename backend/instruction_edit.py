@@ -284,6 +284,9 @@ def prepare_source(image: Image.Image, resolved: InstructionEditGeometry | None 
 class QualifiedEnvelope:
     """What stage 3 measured on this card, and nothing wider.
 
+    Its diffusers is the one re-measured on 2026-11-10 (0.42.1,
+    pixel-identical to stage 3's 0.40.0).
+
     Data only: nothing here opens the gate, and nothing here reaches
     ``applied()``, a ``CellKey``, a run id or the PNG chunk, so stored rows
     of an unqualified shape still bind and inspect. Batch 1 and no LoRA or
@@ -309,7 +312,7 @@ QUALIFIED_ENVELOPE = QualifiedEnvelope(
     offload="model",
     devices=("cuda", "cuda:0"),
     platform="win32",
-    diffusers_version="0.40.0",
+    diffusers_version="0.42.1",
     sizes=(((1, 1), (512, 512)),),
 )
 
@@ -375,8 +378,9 @@ def loader_refusal(
     elif (execution := _loader_execution_words(loader_execution)) is not None:
         choice = execution
     elif diffusers_version != envelope.diffusers_version:
-        # Names the measured version too: an app-wide bump (0.42 since GEN#45)
-        # holds edits here until the card re-measures Kontext on it.
+        # Names the measured version too: an app-wide bump holds edits here
+        # until the card re-measures Kontext on it (0.40.0 to 0.42.1 was
+        # re-measured pixel-identical on 2026-11-10).
         choice = ("a missing diffusers" if diffusers_version is None
                   else f"diffusers {diffusers_version} (only {envelope.diffusers_version} was)")
     else:

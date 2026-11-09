@@ -1478,12 +1478,14 @@ measured on the card and when.
   stored 3:2 edits still bind and inspect. The tests' `FakeBackend` reports
   the envelope's own host (`edit_host`), so its answers follow the selection
   on any machine.
-- The envelope's diffusers is the measured 0.40.0, while the app installs
-  0.42 (GEN#45). So on a real install every Kontext load, the edit route and
-  edit More seeds refuse, naming both versions ("diffusers 0.42.1 (only
-  0.40.0 was) is not measured"). Raise `diffusers_version` only after the
-  card re-measures Kontext on the installed diffusers, never with the bump
-  itself (`test_the_installed_diffusers_holds_every_kontext_load_until_remeasured`).
+- The envelope's diffusers is 0.42.1, the version the app installs:
+  stage 3 measured 0.40.0, and the card re-measured Kontext on 0.42.1 on
+  2026-11-10, pixel-identical (`docs/verified.md`). Any other version
+  refuses every Kontext load, the edit route and edit More seeds, naming
+  both ("diffusers 0.40.0 (only 0.42.1 was) is not measured"). On a later
+  bump, raise `diffusers_version` only after the card re-measures Kontext on
+  the new version, never with the bump itself
+  (`test_the_installed_diffusers_is_the_measured_one` fails until then).
 - Every load entry refuses an unmeasured Kontext choice before the Hub is
   asked and before anything is saved, unloaded or downloaded.
   `require_model_available(model_id, qualified=, loader=)` answers, in order:
