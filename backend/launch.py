@@ -193,6 +193,14 @@ CHECKPOINTS: tuple[Checkpoint, ...] = (
         "open",
         "lite-infer/ERNIE-Image-Turbo-nunchaku-lite-{fmt}-bnb4-text-encoder",
     ),
+    # FLUX 3 Image Klein: a 5.6B flow-map transformer with a Qwen3-VL-4B
+    # encoder, distilled to 16 steps without guidance; Base is its undistilled
+    # 50-step sibling with CFG. diffusers runs them only as modular blocks and
+    # the repos carry no model_index.json, so the app's own pipeline loads
+    # their pinned folders (`backends/flux3_loading.py`). Nothing about them is
+    # measured on the card yet; no Nunchaku Lite build is wired in.
+    Checkpoint("FLUX 3 [Klein]", "black-forest-labs/flux-3-image-klein", "click-through gate"),
+    Checkpoint("FLUX 3 [Klein] Base", "black-forest-labs/flux-3-image-klein-base", "click-through gate"),
     # 12B instruction editor: it edits a gallery image and never generates
     # from text. Last, so the menu's numbers do not move. Listed is not
     # loadable: its loads are held by the backend's gate and the measured

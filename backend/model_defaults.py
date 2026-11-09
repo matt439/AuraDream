@@ -1077,6 +1077,74 @@ _EXACT_PROFILES: dict[str, dict[str, Any]] = {
             ),
         },
     },
+    # FLUX 3 Image Klein and Klein Base, by their exact ids: both contain
+    # "klein" and "flux", whose FLUX.2 [klein] and FLUX.1 profiles they are
+    # not. The app's own pipeline (`backends/flux3_pipeline.py`): references
+    # through `image`, no refine or inpaint class beside it, the scheduler's
+    # fixed shift of 6.93 (mu ln 6.93) with a requested Mu as pre-shifted
+    # sigmas. None of it is measured on the card.
+    "black-forest-labs/flux-3-image-klein": {
+        "steps": 16,
+        "guidance_scale": 1.0,
+        "cfg_ignored": True,
+        "mu": None,
+        "mu_supported": True,
+        "mu_static": math.log(6.93),
+        "cfg_threshold": 1.0,
+        "negative_prompt_supported": False,
+        "reference_supported": True,
+        "refine_supported": False,
+        "inpaint_supported": False,
+        "refine_strength": None,
+        "true_cfg_supported": False,
+        "guide": guides.FLUX3_KLEIN_GUIDE,
+        "hints": {
+            "steps": (
+                "Denoising steps. FLUX 3 [Klein] is distilled to {steps}, the card's "
+                "figure; other counts run but are not the authors' recipe."
+            ),
+            "guidance_scale": (
+                "Ignored on the distilled FLUX 3 [Klein]: the card lists no guidance, "
+                "and the pipeline runs none. Leave it at {guidance_scale:g}. There is "
+                "no negative prompt either."
+            ),
+            "mu": (
+                "Flow-matching timestep shift. Leave blank for the scheduler's fixed "
+                "shift of 6.93 (mu {mu_static:.2f}), the Diffusers recipe; a value here "
+                "replaces it."
+            ),
+        },
+    },
+    "black-forest-labs/flux-3-image-klein-base": {
+        "steps": 50,
+        "guidance_scale": 3.5,
+        "mu": None,
+        "mu_supported": True,
+        "mu_static": math.log(6.93),
+        "cfg_threshold": 1.0,
+        "negative_prompt_supported": True,
+        "reference_supported": True,
+        "refine_supported": False,
+        "inpaint_supported": False,
+        "refine_strength": None,
+        "true_cfg_supported": False,
+        "guide": guides.FLUX3_KLEIN_GUIDE,
+        "hints": {
+            "steps": (
+                "Denoising steps. Klein Base is undistilled; its card gives {steps}."
+            ),
+            "guidance_scale": (
+                "Real classifier-free guidance, {guidance_scale:g} on the card. Above "
+                "{cfg_threshold:g} the negative prompt applies and adds an uncond pass "
+                "per step (~2x slower)."
+            ),
+            "mu": (
+                "Flow-matching timestep shift. Leave blank for the scheduler's fixed "
+                "shift of 6.93 (mu {mu_static:.2f}), the Diffusers recipe; a value here "
+                "replaces it."
+            ),
+        },
+    },
     # Exact edit-only intent cannot inherit ordinary FLUX generation capabilities,
     # so every key is written out rather than spread from `_FALLBACK`: no
     # text-to-image, Refine, inpaint, reference or upscaler (`upscaler_supported`
@@ -1189,8 +1257,8 @@ def _inpaint_strength_runs(family: str | None) -> list[str]:
             names.append(name)
     return names
 
-# The checkpoints whose pipeline is this repo's own class - the Anima variants'
-# modular blocks and NewBie's - beside which diffusers exports no
+# The checkpoints whose pipeline is this repo's own class - the Anima variants',
+# FLUX 3 [Klein]'s modular blocks and NewBie's - beside which diffusers exports no
 # image-to-image class, so `refine.sibling` answers None loaded or not
 # (`tests/test_refine.py`). Their `refine_supported` is the answer a load
 # would give, not a guess: `refine_settled` says so, and the Refine dialog
@@ -1199,6 +1267,7 @@ _OWN_PIPELINES = frozenset({
     "circlestone-labs/anima", "circlestone-labs/anima@aesthetic-v1.1",
     "gazingstars123/anima-2.9b",
     "newbie-ai/newbie-image-exp0.1",
+    "black-forest-labs/flux-3-image-klein", "black-forest-labs/flux-3-image-klein-base",
 })
 
 

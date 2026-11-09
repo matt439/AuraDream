@@ -224,7 +224,8 @@ Backend (`backend/`):
   (private processor ownership, restoration, terminal discard and Native policy), `fbc_cache.py`
   (private per-call cache ownership, cleanup and deferred disposal),
   per-checkpoint converters and pipelines (`single_file`,
-  `anima_*`, `netayume_loading`, `newbie_*`)
+  `anima_*`, `netayume_loading`, `newbie_*`; `flux3_*`, FLUX 3 [Klein]'s pinned
+  folders under its own pipeline, no `model_index.json`)
 - CLIs: `generate.py` (its arguments and the checks that need only the
   flags in `generate_args.py`, the `--via-server` client in
   `generate_remote.py`), `clear.py`, `stats.py`, `reindex.py`;
@@ -637,6 +638,7 @@ uses the driver's graceful close/cleanup. See the full Tests rules.
 | 7909 | animagine-xl-4.0 | `smoke-tag-finder` |
 | 7910 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-sheet-zoom` |
 | 7911 | Gazingstars123/Anima-2.9B, fresh scratch `--data` | `smoke-anima-preview` |
+| 7911 | black-forest-labs/flux-3-image-klein, its own fresh scratch `--data` | `smoke-flux3` |
 | 7912 | FLUX.1-Krea-dev, fresh scratch `--data`, `--step 0.3` | `smoke-then-refine` |
 | 7913 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-shortcuts` |
 | 7914 | FLUX.1-Krea-dev, fresh scratch `--data`, `--step 0.3` | `smoke-queue-controls` |

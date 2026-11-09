@@ -1063,6 +1063,84 @@ Klein comes first. Whether it fits the 16 GB card, or as int4 the 3070, is
 unmeasured: the int4 lite repo's index points at nvfp4 weights, which Ampere
 cannot run.
 
+## FLUX 3 [Klein]: an app-owned pipeline over pinned folders
+
+**What was read (2026-11-09).** Both repositories are gated "auto" (a
+click-through) under the FLUX Kommunity License; the Qwen3-VL-4B encoder is
+Apache-2.0. The Hub API gave each one's head commit, pinned in
+`flux3_loading` (Klein `09561231…`, Base `a83ce283…`), and its file tree with
+sizes. Everything else in the repositories answered 403 to the local token
+(its account has not accepted the licence yet), so the official
+`modular_model_index.json` and the `transformer/`, `text_encoder/` and `vae/`
+configs were **not** read. What stands in for them: diffusers 0.42.1's own
+flux3 blocks (the expected components, `Flux3SetTimestepsStep`'s shift 6.93,
+the encoder's 8192/80 window), the two model cards (readable), and
+lite-infer's public re-upload of Klein
+(`lite-infer/flux-3-image-klein-nunchaku-lite-nvfp4-r32`), whose modular
+index names `Flux3DistilledModularPipeline` with `Flux3Transformer2DModel`,
+`Qwen3VLForConditionalGeneration` (+ `Qwen3VLProcessor` from `text_encoder/`)
+and `AutoencoderKLFlux2`, and whose transformer config says `flow_map: true`.
+Its tokenizer files have the official ones' exact sizes; the encoder's
+budgets (8189, clean 8184) were measured on them. The loader's preflight
+reads the official index and transformer config before any weight and
+refuses a mismatch in words, so a wrong inference here fails a load early
+rather than a picture late. Base's `flow_map: false` is inferred (its loop
+passes no `target_timestep`, which the transformer requires of, and only
+of, a flow-map model).
+
+**Loading.** There is no `model_index.json`, so `DiffusionPipeline` cannot
+resolve these repositories, and `component_libraries`, `unused_components`
+and `denoiser` cannot read them. Rather than writing a local tree (about
+20 GB copied unless linked) the app's pipeline class has its own
+`from_pretrained`, which loads each component from its subfolder of one
+pinned snapshot: the transformer and the Qwen3-VL encoder with the
+per-component `TorchAoConfig`s `loading.quantization_config` built (from the
+modular index's library names, `flux3_loading.component_libraries`), the
+processor from `text_encoder/`, the VAE in float32 as the cards' Diffusers
+example loads it, and a fresh `FlowMatchEulerDiscreteScheduler(shift=6.93)`
+(the repositories ship no scheduler). The index's own component paths are
+never followed (lite-infer's int4 index points at its nvfp4 weights). The
+shard release still holds: the transformer loads through diffusers' patched
+shard loader; the text encoder, loaded directly and so bypassing
+`load_sub_model`, has its unquantized tensors copied out (`own_tensors`)
+when quantized. Two snapshot passes at the pin (configs, then
+`transformer/*`, `text_encoder/*`, `vae/*` and the index) leave the root BFL
+`model.safetensors` (11.1 GB), `ae.safetensors` and the `variants/` (11.5 GB)
+on the Hub. No Nunchaku Lite build is wired in yet; `AURADREAM_QUANT=nunchaku`
+is refused before any download.
+
+**The pipeline.** As Anima's (below): a `DiffusionPipeline` subclass holding
+the upstream blocks, a denoise loop whose `loop_step` calls the app's
+callback after each finished step (progress, preview attempts, `Cancelled`),
+`sub_blocks` called directly so a cancel logs no "Error in block",
+`maybe_free_model_hooks` in `finally`. The distilled call runs the
+flow-map loop (each step's `target_timestep` the next timestep) and takes no
+negative prompt; Base's builds a fresh `ClassifierFreeGuidance` each call,
+enabled only above 1 (the app's threshold, not the guider's "not exactly
+1"), and passes the negative prompt only then. `sigmas` reaches
+`Flux3SetTimestepsStep`, so a requested Mu lands as the whole shift through
+`schedule.requested_shift` (less the scheduler's static 6.93); a blank Mu is
+the blocks' own linear ramp at 6.93 (`mu_static` ln 6.93). Quality off the
+cards' 16/50 steps or at another shift is untested. References run the
+upstream preprocess, VAE-encode and image-conditioned core, since the app
+always sends a size: no crop-back to the reference. The live preview stays
+off (no fitted `AutoencoderKLFlux2` map, as for FLUX.2 [klein]).
+
+**The upsampler is not run.** The cards say to always run BFL's 9.4B prompt
+upsampler (`flux-3-image-klein-pup`), and the modular blocks run it by
+default. The app records the prompt the model saw, as with ERNIE's
+`use_pe=False`, so the pipeline never includes that block; Matt chose it as
+an opt-in Expand-style step, never automatic (`GEN#45`), not built yet. The
+guide says so in the app's voice, and the critic is told (its caveat), so
+short prompts are expected to look generic until the user writes the full
+caption.
+
+**Unmeasured.** Fit, peak, RAM at the load, time and quality on the card,
+for both checkpoints at fp8, int8 and bf16, with references and without. The
+picker's fit figure (`_CARD_NEEDS`) is the transformer's size at one byte a
+weight, said as such; the cards' 31/26/25 GB peaks are a B200 with
+everything resident. `TODO.md`'s CARD row holds the run.
+
 ## Anima Turbo: a standard interface over modular inference
 
 **Anima Turbo v1.1** uses the official `circlestone-labs/Anima` selection.

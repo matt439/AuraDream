@@ -197,6 +197,36 @@ def test_chat_template_switches_and_lengths_match_the_installed_pipelines():
     assert pe.encoders_for("black-forest-labs/FLUX.2-klein-4B")[0].chat_thinking is False
 
 
+def test_flux3_lengths_and_template_match_the_installed_blocks_and_the_apps_pipeline():
+    from backend.backends import flux3_loading
+    from backend.backends.flux3_pipeline import MAX_SEQUENCE_LENGTH
+
+    encoders = _diffusers("modular_pipelines/flux3/encoders.py")
+    assert _default(encoders, "Flux3TextEncoderStep", "__init__", "pad_multiple") == pe.FLUX3_PAD_MULTIPLE
+    assert _default(encoders, "Flux3TextEncoderStep", "_get_qwen3_vl_prompt_embeds", "max_sequence_length") == (
+        pe.FLUX3_SEQUENCE
+    )
+    # The processor's chat template, one user turn, the generation prompt on.
+    assert {"tokenize": "False", "add_generation_prompt": "True"} in _keywords(encoders, "apply_chat_template")
+    # The whole rendered string truncated to the window, then padded.
+    lengths = [kw.get("max_length") for kw in _keywords(encoders, "tokenizer")]
+    assert "max_sequence_length" in lengths and "padded_length" in lengths
+    # The app's pipeline hands the step that same length, and nothing longer.
+    assert MAX_SEQUENCE_LENGTH == pe.FLUX3_SEQUENCE
+    for model_id, negative in ((FLUX3, "none"), (FLUX3_BASE, "same")):
+        (spec,) = pe.encoders_for(model_id)
+        pin = flux3_loading.source(model_id)
+        assert (spec.source.repo, spec.source.subfolder, spec.source.revision) == (
+            pin["repo_id"], "text_encoder", pin["revision"],
+        )
+        assert spec.chat_thinking is False and spec.negative == negative
+        assert spec.max_length == pe.FLUX3_SEQUENCE
+    # Exact ids, never FLUX.2 [klein]'s Qwen3 rows or FLUX.1's CLIP and T5.
+    assert names(FLUX3.upper()) == ["Qwen3-VL-4B"]
+    assert pe.encoders_for("someone/flux-3-image-klein-remix") is not None  # FLUX.2's "klein" family
+    assert names("someone/flux-3-image-klein-remix") == ["Qwen3-4B"]
+
+
 def test_lumina_flux_ernie_and_sdxl_lengths_match_the_installed_pipelines():
     lumina = _diffusers("pipelines/lumina2/pipeline_lumina2.py")
     constants = {node.value for node in ast.walk(lumina) if isinstance(node, ast.Constant)}
@@ -363,9 +393,20 @@ def test_real_clip_reads_its_control_tokens_in_any_case(monkeypatch):
 
 # Qwen-Image is not measured above, but its budget is the pipeline's own
 # arithmetic: it drops its 34-token system turn and keeps 512, and the
-# template's closing turn goes past 507.
-FAKE_ONLY = [("Qwen/Qwen-Image", {"Qwen2.5-VL-7B": pe.QWEN_IMAGE_SEQUENCE})]
-FAKE_CLEAN = {**REAL_CLEAN, "Qwen/Qwen-Image": 507}
+# template's closing turn goes past 507. FLUX 3 [Klein]'s repos are gated, and
+# REAL waits until CI's HF_TOKEN account has accepted their licence
+# (tools/fetch_tokenizers.py fails the run on a token that cannot fetch one);
+# its 8189 and 8184 were measured on 2026-11-09 with the same Qwen3-VL
+# tokenizer files (equal sizes) from lite-infer's public re-upload: the user
+# turn's three tokens before the text, the four of the closing turn after it.
+FLUX3 = "black-forest-labs/flux-3-image-klein"
+FLUX3_BASE = "black-forest-labs/flux-3-image-klein-base"
+FAKE_ONLY = [
+    ("Qwen/Qwen-Image", {"Qwen2.5-VL-7B": pe.QWEN_IMAGE_SEQUENCE}),
+    (FLUX3, {"Qwen3-VL-4B": pe.FLUX3_SEQUENCE - 3}),
+    (FLUX3_BASE, {"Qwen3-VL-4B": pe.FLUX3_SEQUENCE - 3}),
+]
+FAKE_CLEAN = {**REAL_CLEAN, "Qwen/Qwen-Image": 507, FLUX3: 8184, FLUX3_BASE: 8184}
 
 
 @pytest.mark.parametrize("model_id, budgets", REAL + FAKE_ONLY)

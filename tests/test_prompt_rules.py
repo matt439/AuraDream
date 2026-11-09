@@ -139,8 +139,11 @@ def test_documented_orders_are_the_guides():
     assert flux.cite in guides.FLUX1_GUIDE["prompt"] and flux.url.startswith("https://docs.bfl.ai/")
     for repo in (KREA_DEV, SCHNELL):
         assert prompt_rules.documented_order(repo).steps == ["subject first"]
-    kleins = [c.repo for c in launch.CHECKPOINTS if "klein" in c.repo]
+    kleins = [c.repo for c in launch.CHECKPOINTS if "FLUX.2-klein" in c.repo]
     assert len(kleins) == 4
+    # FLUX 3 [Klein]'s cards state no order: none is borrowed from FLUX.2's.
+    for repo in ("black-forest-labs/flux-3-image-klein", "black-forest-labs/flux-3-image-klein-base"):
+        assert prompt_rules.documented_order(repo) is None
     for repo in kleins:
         steps = prompt_rules.documented_order(repo).steps
         assert steps == ["subject", "action", "style", "context"]

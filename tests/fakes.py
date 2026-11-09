@@ -633,9 +633,11 @@ class WordTokenizer:
     def apply_chat_template(self, messages, *, tokenize, add_generation_prompt, enable_thinking):
         # Qwen3's template for one user turn, with the empty thinking block
         # that klein's `enable_thinking=False` renders.
+        # Qwen3-VL's (FLUX 3's processor) has no thinking block at all.
         (message,) = messages
         text = f"<|im_start|>user\n{message['content']}<|im_end|>\n<|im_start|>assistant\n"
-        return text + ("<think>\n\n</think>\n\n" if enable_thinking is False else "")
+        thinks = "<think>" in (self.chat_template or "")
+        return text + ("<think>\n\n</think>\n\n" if thinks and enable_thinking is False else "")
 
 
 _QWEN_ADDED = (
@@ -662,6 +664,8 @@ def _word_tokenizer(spec: prompt_encoding.EncoderSpec) -> WordTokenizer:
         # `<think>` is a control token only where the template uses it:
         # Z-Image's and klein's, which render the chat template.
         template = "<|im_start|> <think> </think>" if spec.chat_thinking is not None else None
+        if template and spec.name.startswith("Qwen3-VL"):
+            template = "<|im_start|>"  # FLUX 3's Qwen3-VL template renders none
         return WordTokenizer(
             max_length=131072, special=0, added=_QWEN_ADDED, template=template, newlines=True
         )

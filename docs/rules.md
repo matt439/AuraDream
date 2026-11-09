@@ -321,6 +321,16 @@ before changing it.
   and separate cached trees
 - `backend/backends/anima_pipeline.py` — upstream Anima modular blocks behind
   the standard pipeline interface, with per-step progress and cancellation
+- `backend/backends/flux3_loading.py` — FLUX 3 [Klein] and Klein Base: the
+  pinned snapshot's configs (preflight: the modular index's classes, the
+  transformer's `flow_map`) then only its `transformer/`, `text_encoder/` and
+  `vae/` folders; each component loaded from its subfolder with the
+  per-component torchao mapping (the VAE in float32), the text encoder's
+  unquantized tensors copied out as `checkpoint_files_released` does
+- `backend/backends/flux3_pipeline.py` — upstream FLUX 3 modular blocks
+  (distilled flow-map and Base with a per-call guider; references through
+  the conditioned core) behind the standard pipeline interface, with per-step
+  progress and cancellation; the prompt upsampler is never run
 - `backend/backends/netayume_loading.py` — pinned CPU conversion of NetaYume
   v4's split denoiser, with the official Lumina 2 parent's shared components
 - `backend/backends/newbie_loading.py` — pinned CPU conversion of NewBie Exp0.1;
@@ -980,6 +990,33 @@ measured on the card and when.
   describes detailed mixed prompts and the preview's size advice without
   inheriting Turbo distillation or Aesthetic score prohibitions. Do not infer
   measured speed, memory or quality from the other Anima selections.
+
+- `black-forest-labs/flux-3-image-klein` (distilled, flow-map, 16 steps, no
+  guidance) and `black-forest-labs/flux-3-image-klein-base` (undistilled, 50
+  steps, CFG 3.5) have no `model_index.json`: `loading.resolve_model` hands
+  them to `flux3_loading`, which downloads the pinned revision's configs and
+  modular index first, refuses another variant before weights (the index's
+  classes, the transformer's `flow_map`), then only `transformer/*`,
+  `text_encoder/*`, `vae/*` - never the root BFL `model.safetensors`,
+  `ae.safetensors` or `variants/`. `Flux3KleinPipeline` /
+  `Flux3KleinBasePipeline.from_pretrained` load each component from its
+  subfolder (never the index's component paths) with the
+  `PipelineQuantizationConfig` mapping `loading.quantization_config` built
+  from the modular index (`flux3_loading.component_libraries`); the VAE
+  stays float32 and is never quantized; the text encoder, which bypasses
+  `load_sub_model`, gets `own_tensors` inside the shard-release context when
+  quantized. The scheduler is `FlowMatchEulerDiscreteScheduler(shift=6.93)`
+  (the blocks' fixed shift; `mu_static` ln 6.93), a requested Mu reaching it
+  as pre-shifted `sigmas`. The pipelines run the upstream encoder, core and
+  decode blocks with `sub_blocks` called directly (a cooperative `Cancelled`
+  logs no "Error in block"), a callback denoise loop, a fresh guider per Base
+  call (`enabled` only above 1), and `maybe_free_model_hooks` in `finally`.
+  The prompt upsampler block never runs: the row records the prompt the
+  model saw. References go through the upstream conditioned core; refine,
+  inpaint, user LoRAs (`lora_refusal`), Nunchaku and the latent preview are
+  unavailable. Exact-id profiles, ahead of FLUX.2 [klein]'s `klein` and
+  FLUX.1's `flux` tokens; one shared guide from the two cards. Nothing about
+  either is measured on the card (fit, peak, RAM, time, quality).
 
 - `duongve/NetaYume-Lumina-Image-2.0` selects the pinned v4 split denoiser.
   `netayume_loading` strictly converts it on CPU and uses the pinned official
@@ -10623,6 +10660,21 @@ fresh scratch gallery:
 ```powershell
 uv run python tools/fake_server.py --port 7911 --model Gazingstars123/Anima-2.9B --data <scratch-directory>
 node tools/browser.mjs tools/smoke-anima-preview.json
+```
+
+`smoke-flux3.json` checks FLUX 3 [Klein]'s name and public identity, its and
+Klein Base's picker rows (example size, licence click-through, unknown
+download, unmeasured note), the distilled 16-step/CFG-1 defaults with the Mu
+placeholder at the fixed shift (1.94), the ignored-CFG, steps and Mu tips,
+references on and negative prompt, True CFG, Refine and LoRAs off, the
+shared guide's caption advice and example-size line, its one Qwen3-VL budget
+(8189), the LoRA and Refine refusals, and a saved cell recording the public
+id, 16 steps, Mu and no negative prompt, on port 7911 with its own fresh
+scratch gallery (it shares the port with `smoke-anima-preview`):
+
+```powershell
+uv run python tools/fake_server.py --port 7911 --model black-forest-labs/flux-3-image-klein --data <scratch-directory>
+node tools/browser.mjs tools/smoke-flux3.json
 ```
 
 `smoke-model-switch.json` runs a FLUX.1-claiming fake on port 7896, on a

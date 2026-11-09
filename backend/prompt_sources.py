@@ -913,6 +913,43 @@ _NETAYUME = (
     ),
 )
 
+# FLUX 3 Image Klein's and Klein Base's cards, which say the same about
+# prompting; the Base card is quoted through the distilled one's page.
+_FLUX3 = (
+    Excerpt(
+        "flux3.captions",
+        "Always run a prompt upsampler. FLUX 3 Image Klein is trained on full scene "
+        "captions, for editing, text-to-image and layout with boxes alike; a short "
+        "prompt sent as typed gives generic output.",
+        guides._FLUX3_CARD,
+    ),
+    Excerpt(
+        "flux3.caption_contents",
+        "The prompt upsampler turns a short request, together with the reference images "
+        "when editing, into the full scene caption the model takes: medium and style, "
+        "scene, lighting and camera, each subject with its colors, materials and "
+        "position in the frame.",
+        guides._FLUX3_CARD,
+    ),
+    Excerpt(
+        "flux3.composition",
+        "The caption controls composition; reference images anchor content, they do not "
+        "lock structure.",
+        guides._FLUX3_CARD,
+    ),
+    Excerpt(
+        "flux3.style",
+        "For style, describe the attributes (palette, stroke, texture) rather than "
+        "naming an artwork.",
+        guides._FLUX3_CARD,
+    ),
+    Excerpt(
+        "flux3.prompting_style",
+        "Prompt following is heavily influenced by the prompting style. Short prompts "
+        "produce generic output.",
+        guides._FLUX3_CARD,
+    ),
+)
 _NEWBIE_CARD = "https://huggingface.co/NewBie-AI/NewBie-image-Exp0.1"
 _NEWBIE_XML = (
     "https://huggingface.co/NewBie-AI/NewBie-image-Exp0.1/blob/"
@@ -1407,6 +1444,19 @@ GROUNDING: dict[str, Grounding] = {
                 "https://github.com/NewBieAI-Lab/NewBie-image-Exp0.1/blob/"
                 "709e9a482fb2b861ad6aa50dcafb0198cad66c1d/finetune.py",
             ),
+        ),
+    ),
+    "FLUX3_KLEIN_GUIDE": Grounding(
+        _FLUX3,
+        caveat=(
+            "The cards ask for a prompt upsampler before every image; this app sends the "
+            "prompt as typed and runs none, so the prompt itself has to be the full scene "
+            "caption. The distilled FLUX 3 [Klein] takes no negative prompt; Klein Base "
+            "takes one with guidance above 1."
+        ),
+        unsourced=(guides.FLUX3_UPSAMPLER_NOTE,),
+        sentence_urls=(
+            ("The Qwen3-VL encoder reads up to 8192 tokens.", guides._FLUX3_ENCODER),
         ),
     ),
     # Its prose is the app's general advice, cited as that (`build_context`

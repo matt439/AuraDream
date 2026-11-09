@@ -381,7 +381,8 @@ own ticket. Unload explains when an abandoned expansion is still finishing.
 
 ## Use references and adapters
 
-FLUX.2 [klein] accepts up to four gallery images as references. Add them with
+FLUX.2 [klein] and FLUX 3 [Klein] accept up to four gallery images as references (FLUX 3's
+references are unmeasured on the card). Add them with
 the card's **Reference** button or `--reference 12,15` in the CLI. Their order
 defines “image 1”, “image 2” in the prompt; drag chips or use Alt+Left/Right
 to reorder them. Reference import from personal files is not implemented.

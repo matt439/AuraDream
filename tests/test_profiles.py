@@ -577,6 +577,7 @@ def test_the_example_word_is_exactly_where_the_prose_says_no_bound():
     } == {
         "duongve/NetaYume-Lumina-Image-2.0", "NewBie-AI/NewBie-image-Exp0.1",
         "LyliaEngine/waiIllustriousSDXL_v170", "black-forest-labs/FLUX.1-Kontext-dev",
+        "black-forest-labs/flux-3-image-klein", "black-forest-labs/flux-3-image-klein-base",
     }
     # Whose sizes the line names them as, exactly where the word is
     # "example": what the size prose calls them, and one author's ("the
@@ -604,9 +605,11 @@ def test_a_fixed_shift_is_the_profiles_mu_static():
     # 3 (design notes). Everywhere else the shift is derived, or Mu is off.
     import math
 
-    from backend.backends import netayume_loading, newbie_loading
+    from backend.backends import flux3_loading, netayume_loading, newbie_loading
 
     fixed = {repo: defaults_for(repo)["mu_static"] for repo in catalogue_repos()}
+    # FLUX 3's scheduler is the loader's own, at the blocks' fixed shift.
+    assert fixed[flux3_loading.MODEL_ID] == fixed[flux3_loading.BASE_MODEL_ID] == math.log(flux3_loading.SHIFT)
     assert fixed["duongve/NetaYume-Lumina-Image-2.0"] == math.log(netayume_loading.RECIPE["shift"])
     assert fixed["NewBie-AI/NewBie-image-Exp0.1"] == math.log(newbie_loading.RECIPE["shift"])
     assert fixed["SeeSee21/Z-Anime"] == math.log(6)
@@ -614,7 +617,7 @@ def test_a_fixed_shift_is_the_profiles_mu_static():
     named = {repo for repo, value in fixed.items() if value is not None}
     assert {repo for repo in named if not repo.startswith("lite-infer/")} == {
         "duongve/NetaYume-Lumina-Image-2.0", "NewBie-AI/NewBie-image-Exp0.1", "SeeSee21/Z-Anime",
-        "Tongyi-MAI/Z-Image-Turbo",
+        "Tongyi-MAI/Z-Image-Turbo", flux3_loading.MODEL_ID, flux3_loading.BASE_MODEL_ID,
     }
     for repo in named:
         profile = defaults_for(repo)
@@ -638,10 +641,11 @@ def test_cfg_ignored_is_exactly_where_the_cfg_tip_says_ignored():
         assert ignored == hints_for(repo)["guidance_scale"].startswith("Ignored"), repo
     assert {repo for repo in repos if defaults_for(repo)["cfg_ignored"] and not repo.startswith("lite-infer/")} == {
         "black-forest-labs/FLUX.1-schnell", "black-forest-labs/FLUX.2-klein-4B",
-        "black-forest-labs/FLUX.2-klein-9B", "Qwen/Qwen-Image",
+        "black-forest-labs/FLUX.2-klein-9B", "Qwen/Qwen-Image", "black-forest-labs/flux-3-image-klein",
     }
-    # klein base is real CFG, whatever its family shares.
+    # klein base is real CFG, whatever its family shares; so is FLUX 3's Base.
     assert defaults_for("black-forest-labs/FLUX.2-klein-base-4B")["cfg_ignored"] is False
+    assert defaults_for("black-forest-labs/flux-3-image-klein-base")["cfg_ignored"] is False
 
 
 def test_every_guide_admits_the_1_mp_presets():

@@ -47,6 +47,8 @@ from . import prompt_weighting
 from .backends import anima_loading, netayume_loading, newbie_loading, single_file
 from .encoder_table import (  # noqa: F401 - re-exported for callers and tests
     ANIMA_SEQUENCE,
+    FLUX3_PAD_MULTIPLE,
+    FLUX3_SEQUENCE,
     FLUX_T5_SEQUENCE,
     KLEIN_SEQUENCE,
     KREA2_PREFIX_TOKENS,

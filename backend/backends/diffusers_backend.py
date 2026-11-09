@@ -40,7 +40,10 @@ from ..execution import (
 from ..instruction_edit import KONTEXT_V1
 from ..model_defaults import INPAINT_DEFERRED, defaults_for, inpaint_family, inpaint_start
 from ..seeds import wrap_seed
-from . import anima_loading, attention_selection, fbc_cache, loading, netayume_loading, newbie_loading, regional_compile, schedule, single_file
+from . import (
+    anima_loading, attention_selection, fbc_cache, flux3_loading, loading, netayume_loading, newbie_loading,
+    regional_compile, schedule, single_file,
+)
 from .base import CancelFn, Cancelled, ExecutionDiagnosticsReader, GenerationBackend, PreviewFn, ProgressFn
 
 if TYPE_CHECKING:
@@ -562,6 +565,9 @@ class DiffusersBackend(GenerationBackend):
                 from .newbie_pipeline import NewbiePipeline
 
                 loader = NewbiePipeline
+            elif flux3_loading.matches(checkpoint_id):
+                # No model_index.json: the app's pipeline loads each folder.
+                loader = flux3_loading.pipeline_class(checkpoint_id)
             elif editor:
                 # The explicit class stage 3 loaded, never one resolved again.
                 import diffusers

@@ -193,6 +193,11 @@ def resolve_model(model_id: str, *, weights: bool = False, quantization: str | N
     # pinned editor tree (`require_model_available` refused it already).
     if model_id == KONTEXT_V1.model_id:
         return _resolve_kontext(weights=weights)
+    from . import flux3_loading
+
+    if flux3_loading.matches(model_id):
+        # No model_index.json: its own pinned folders, checked before weights.
+        return flux3_loading.resolve_model(model_id, weights=weights, quantization=quantization)
     if model_id.lower() == NOOB_MODEL_ID.lower():
         if quantization == NUNCHAKU:
             raise RuntimeError(
@@ -318,12 +323,13 @@ def lora_refusal(model_id: str) -> str | None:
 
     A fact about the integration, answerable from the id before anything
     downloads: the Anima variants' and NewBie's pipelines are the app's own, with no
-    adapter path. `DiffusersBackend.lora_unavailable_reason` asks this first,
+    adapter path, and FLUX 3 [Klein]'s too (its modular blocks' LoRA mixin is
+    not on the app's pipeline). `DiffusersBackend.lora_unavailable_reason` asks this first,
     and the browser checks' fake server asks it of the id it claims, so the
     fake refuses an adapter exactly where the real server does. The ids are
     the loaders' own constants, so the two cannot drift apart.
     """
-    from . import anima_loading, newbie_loading
+    from . import anima_loading, flux3_loading, newbie_loading
 
     key = model_id.lower()
     if key == anima_loading.MODEL_ID.lower():
@@ -334,6 +340,10 @@ def lora_refusal(model_id: str) -> str | None:
         return "User LoRAs are not supported by this Anima 2.9B Preview integration"
     if key == newbie_loading.MODEL_ID.lower():
         return "User LoRAs are not supported by this NewBie integration"
+    if key == flux3_loading.MODEL_ID.lower():
+        return "User LoRAs are not supported by this FLUX 3 [Klein] integration"
+    if key == flux3_loading.BASE_MODEL_ID.lower():
+        return "User LoRAs are not supported by this FLUX 3 [Klein] Base integration"
     return None
 
 
@@ -362,6 +372,12 @@ def component_libraries(model_id: str) -> dict[str, str]:
     is exactly what decides whether a component needs the diffusers or the
     transformers flavour of TorchAoConfig.
     """
+    from . import flux3_loading
+
+    # A FLUX 3 snapshot has a modular index instead (`flux3_loading`).
+    modular = flux3_loading.component_libraries(model_id)
+    if modular is not None:
+        return modular
     with open(hub_file(model_id, "model_index.json"), encoding="utf-8") as fh:
         index = json.load(fh)
 
