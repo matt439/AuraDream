@@ -1955,6 +1955,35 @@ the critic, and a rewrite against its original over more than two seeds on
 FLUX.1 (both measured 2026-10-25 on Z-Image Turbo and Animagine, the rows
 above); kill-on-close under WSL; Ctrl-C during a critique.
 
+## diffusers 0.42.1 and FLUX 3 [Klein] (built 2026-11-09, not measured)
+
+Every measurement above was taken on diffusers 0.40.0. The app now installs
+0.42.1 (`GEN#45`, [the bump](design-notes.md#newer-checkpoints-and-the-diffusers-042-bump)),
+and adds FLUX 3 [Klein], Klein Base and FLUX 3's prompt upsampler as Expand
+([FLUX 3](design-notes.md#flux-3-klein-an-app-owned-pipeline-over-pinned-folders)).
+Their tests and the fake server's smoke run without a GPU or weights; nothing
+here has been on the card. Not measured:
+
+- After the bump (`CARD#17`): whether the shipped checkpoints' pictures,
+  peaks, RAM at the load and times above still hold, at least FLUX.1 Krea
+  [dev] at fp8 with model offload, an SDXL checkpoint, Z-Image and FLUX.2
+  [klein], whose VAE lost `force_upcast`; 0.42.1 also moved encoder-input
+  and latent placement, torchao's quantized `Parameter` and the offload
+  device's default.
+- FLUX.1 Kontext [dev] on 0.42.1 (`CARD#18`): the Instruction edit numbers
+  are 0.40.0's, so edits are held until they are re-measured inside the
+  envelope.
+- FLUX 3 [Klein] and Klein Base (`CARD#19`): fit, peak, RAM at the load and
+  time per image at fp8, int8 and bf16, with references and without, and
+  whether the pictures look right at 16 and 50 steps. The picker's fit
+  figure is an estimate (one byte a weight); the model cards' 31/26/25 GB
+  peaks are a B200 with everything resident.
+- FLUX 3's prompt upsampler (`CARD#20`): its 18.8 GB first download, RAM
+  while it is quantized on the CPU and resident after (about 9.4 GB
+  estimated), its peak on the card with the KV cache, seconds per caption,
+  and its captions at one byte a weight against BFL's bf16.
+- FLUX 3 on the 8 GB 3070 (`CARD#21`, deferred): no int4 build is wired in.
+
 ## RTX 3070 (8 GB), native Ubuntu (2026-11-03)
 
 The native Linux route on a second machine: Ubuntu 26.04 LTS (kernel 7.0),

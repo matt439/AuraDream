@@ -1058,10 +1058,24 @@ of encoder inputs and latents in FLUX.1, Kontext, Klein and SDXL, torchao's
 device's default (`get_device()`), and dropped `force_upcast` from
 `AutoencoderKLFlux2` (the shipped FLUX.2 [klein] VAE). Whether the shipped
 checkpoints' pictures, peak memory, RAM and time are unchanged is a card
-run's to say (`TODO.md`, the CARD rows), as is Kontext on 0.42.1. Then FLUX 3
+run's to say (`CARD#17`), as is Kontext on 0.42.1 (`CARD#18`: only after it
+does `QUALIFIED_ENVELOPE`'s `diffusers_version` move). Then FLUX 3
 Klein comes first. Whether it fits the 16 GB card, or as int4 the 3070, is
 unmeasured: the int4 lite repo's index points at nvfp4 weights, which Ampere
 cannot run.
+
+**lite-infer renamed its repositories (seen 2026-11-09).** The re-uploads
+the catalogue names (`launch._LITE`,
+`{stem}-nunchaku-lite-{fmt}_r32-bnb4-text-encoder`, and ERNIE's
+`...-{fmt}-bnb4-text-encoder`) now answer the Hub API with HTTP 307 to new
+names without the encoder suffix (`...-{fmt}-r32`; ERNIE's `...-{fmt}`):
+Qwen-Image int4, Krea 2 Turbo nvfp4 and ERNIE int4 were checked. The old ids
+still resolve, but only through that redirect, and nothing in the app was
+tested against one: `hub_access.check`'s `auth_check`, the pinned
+`model-downloads.json` sources and a fresh download. The catalogue keeps the
+old ids for now, since they are saved in settings and PNG metadata; moving
+to the new names, with the old ones still read from saved settings and
+metadata, is deferred (`GEN#47`).
 
 ## FLUX 3 [Klein]: an app-owned pipeline over pinned folders
 
@@ -1188,7 +1202,16 @@ and whether int8/fp8 changes its captions against BFL's bf16: `CARD#20`.
 for both checkpoints at fp8, int8 and bf16, with references and without. The
 picker's fit figure (`_CARD_NEEDS`) is the transformer's size at one byte a
 weight, said as such; the cards' 31/26/25 GB peaks are a B200 with
-everything resident. `TODO.md`'s CARD row holds the run.
+everything resident. `CARD#19` holds the run (Klein at fp8 first, then Klein
+Base).
+
+**Not built: FLUX 3 on the 8 GB 3070.** Only a 4-bit transformer could fit
+it, and the upsampler not at all. lite-infer's int4 repository's own index
+points at its nvfp4 weights, which sm_86 cannot run, so an int4 load would
+have to be built from that repository's int4 subfolders, never its index,
+and its Nunchaku transformer class read against diffusers 0.42.1's.
+Deferred (`CARD#21`) until the 16 GB card's fp8 numbers say FLUX 3 is worth
+it.
 
 ## Anima Turbo: a standard interface over modular inference
 

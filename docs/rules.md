@@ -1577,7 +1577,11 @@ measured on the card and when.
 - `AURADREAM_QUANT=nunchaku` means a pre-quantized lite-infer repo, Linux only
   (WSL 2 on the 5080; native Linux too, with the int4 repos below compute
   capability 10.0, unmeasured on the 3070), and no quantization config; `loading.nunchaku_preflight` and `loading.refuse_prequantized` refuse the other pairings before any download. Under
-  WSL, `source wsl/env.sh` before `uv`.
+  WSL, `source wsl/env.sh` before `uv`. The catalogue's lite-infer ids
+  (`launch._LITE`, ERNIE's) are the pre-rename names, which the Hub now
+  answers with a 307 to names without the encoder suffix; keep them (saved
+  settings and PNGs name them) until `GEN#47` moves the catalogue with the
+  old ids still read. FLUX 3 has no Nunchaku build (`CARD#21`).
 - `config.py` sets `DIFFUSERS_TRUST_REMOTE_KERNELS` and must be imported
   before diffusers everywhere, the CLI included. The offload hooks are handed
   `AURADREAM_DEVICE` explicitly; given nothing, diffusers takes GPU 0.

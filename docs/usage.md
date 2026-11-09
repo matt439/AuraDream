@@ -111,8 +111,9 @@ some gated models and custom checkpoints.
 An On disk model still takes time to load or convert. Facts refresh after
 successful or failed loads without moving the chosen row or its controls.
 
-Some checkpoints are gated on Hugging Face. FLUX.1 Krea [dev] and FLUX.1 [dev]
-need their licence accepted on the model page; Krea 2 Turbo and Raw need the
+Some checkpoints are gated on Hugging Face. FLUX.1 Krea [dev], FLUX.1 [dev],
+FLUX 3 [Klein] and Klein Base need their licence accepted on the model page
+(FLUX 3's prompt upsampler is open); Krea 2 Turbo and Raw need the
 authors' approval, which can take days. Then sign in once with
 `uv run hf auth login`. The 4-bit lite-infer builds are not gated. Each
 row says **Open**, **Accept licence** or **Needs approval** under the name.
