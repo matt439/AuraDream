@@ -247,14 +247,17 @@ def test_the_status_names_the_rewriters_download_until_it_is_loaded(monkeypatch)
     backend = loaded_backend(pipe)
     cached = {"value": False}
     monkeypatch.setattr(loading, "prompt_expander_cached", lambda model_id: cached["value"])
+    named = {"name": "ERNIE's prompt rewriter", "translate": True}
     assert backend.prompt_expander_status() == {
-        "loaded": False, "fetch": [("ERNIE's prompt rewriter", loading.PROMPT_EXPANDER_BYTES)],
+        "loaded": False, "fetch": [("ERNIE's prompt rewriter", loading.PROMPT_EXPANDER_BYTES)], **named,
     }
     cached["value"] = True
-    assert backend.prompt_expander_status() == {"loaded": False, "fetch": []}
+    assert backend.prompt_expander_status() == {"loaded": False, "fetch": [], **named}
     pipe.register_modules(pe=object(), pe_tokenizer=object())
     cached["value"] = False
-    assert backend.prompt_expander_status() == {"loaded": True, "fetch": []}
+    assert backend.prompt_expander_status() == {"loaded": True, "fetch": [], **named}
+    # ERNIE's is never held by the settings.
+    assert backend.prompt_expansion_refusal() is None
     # A pipeline with no rewriter has no status to give.
     backend._call_params = set()
     assert backend.prompt_expander_status() is None

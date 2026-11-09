@@ -263,12 +263,20 @@ class GenerationBackend(abc.ABC):
         """Expand synchronously, polling cancellation between opaque stages."""
         raise RuntimeError("this checkpoint has no prompt expander")
 
+    def prompt_expansion_refusal(self) -> str | None:
+        """Why a supported expander cannot run under the current settings, in
+        the page's words, answered before anything loads - or None. Optional;
+        the default refuses nothing."""
+        return None
+
     def prompt_expander_status(self) -> dict | None:
         """What an expansion would wait on before it runs, for `/api/status`:
-        ``{"loaded": bool, "fetch": [(name, bytes), ...]}`` - whether the
-        expander is in memory already, and what a first use downloads - or
-        None where there is no expander. File checks only, never the network:
-        the status is polled. Optional; the default has no expander.
+        ``{"loaded": bool, "fetch": [(name, bytes), ...], "name": str,
+        "translate": bool}`` - whether the expander is in memory already,
+        what a first use downloads, the expander's name as the page says it,
+        and whether its answer is translated after (ERNIE's) - or None where
+        there is no expander. File checks only, never the network: the
+        status is polled. Optional; the default has no expander.
         """
         return None
 

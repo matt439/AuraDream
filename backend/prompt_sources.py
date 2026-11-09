@@ -1449,9 +1449,9 @@ GROUNDING: dict[str, Grounding] = {
     "FLUX3_KLEIN_GUIDE": Grounding(
         _FLUX3,
         caveat=(
-            "The cards ask for a prompt upsampler before every image; this app sends the "
-            "prompt as typed and runs none, so the prompt itself has to be the full scene "
-            "caption. The distilled FLUX 3 [Klein] takes no negative prompt; Klein Base "
+            "The cards ask for a prompt upsampler before every image; this app runs BFL's "
+            "only when Expand is pressed and otherwise sends the prompt as typed, so the "
+            "prompt itself has to be the full scene caption. The distilled FLUX 3 [Klein] takes no negative prompt; Klein Base "
             "takes one with guidance above 1."
         ),
         unsourced=(guides.FLUX3_UPSAMPLER_NOTE,),

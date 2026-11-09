@@ -1747,8 +1747,9 @@ NEWBIE_GUIDE = {
 # FLUX 3 Image Klein and Klein Base, from the two model cards, which say the
 # same about prompting (the Base card adds only its fine-tuning section). Its
 # opening sentences are the cards' "Prompting" section, verbatim; the
-# upsampler the cards ask for is not run here, which the prose says in the
-# app's voice (`prompt_sources` keeps those sentences uncitable). The cards
+# upsampler the cards ask for runs here only when Expand is pressed, which
+# the prose says in the app's voice (`prompt_sources` keeps those sentences
+# uncitable). The cards
 # publish no output size range, only that their figures are for 1024x1024
 # and how references are sized; the size prose says the square is an example.
 _FLUX3_CARD = "https://huggingface.co/black-forest-labs/flux-3-image-klein"
@@ -1757,8 +1758,9 @@ _FLUX3_ENCODER = (
     "modular_pipelines/flux3/encoders.py"
 )
 FLUX3_UPSAMPLER_NOTE = (
-    "This app sends the prompt as typed and runs no upsampler, so write the full "
-    "caption yourself."
+    "This app runs BFL's prompt upsampler only when you press Expand, which puts its "
+    "caption in the prompt box for review; otherwise the prompt is sent as typed, so "
+    "write the full caption yourself."
 )
 FLUX3_KLEIN_GUIDE = {
     "prompt": (

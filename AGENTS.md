@@ -225,7 +225,8 @@ Backend (`backend/`):
   (private per-call cache ownership, cleanup and deferred disposal),
   per-checkpoint converters and pipelines (`single_file`,
   `anima_*`, `netayume_loading`, `newbie_*`; `flux3_*`, FLUX 3 [Klein]'s pinned
-  folders under its own pipeline, no `model_index.json`)
+  folders under its own pipeline, no `model_index.json`, and
+  `flux3_upsampler` its prompt upsampler as Expand)
 - CLIs: `generate.py` (its arguments and the checks that need only the
   flags in `generate_args.py`, the `--via-server` client in
   `generate_remote.py`), `clear.py`, `stats.py`, `reindex.py`;

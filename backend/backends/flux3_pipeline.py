@@ -7,8 +7,10 @@ schedule, flow-map denoising and decode implementations, and adds what the app
 needs around them: the mandatory per-step callback (progress, previews and the
 cooperative cancel), a per-call guider on the undistilled Base, and component
 loading from the pinned repository's own subfolders (`flux3_loading`). The
-prompt upsampler block is never run: the prompt the row records is the prompt
-the model saw, as with ERNIE's `use_pe=False`.
+prompt upsampler block is never run inside the image call: the prompt the row
+records is the prompt the model saw, as with ERNIE's `use_pe=False`. Expand
+registers the upsampler as an optional component (`flux3_upsampler`), first in
+the offload sequence, and runs it on its own when asked.
 """
 from __future__ import annotations
 
@@ -35,7 +37,7 @@ from diffusers.modular_pipelines.flux3.modular_blocks_flux3_distilled import (
 from diffusers.modular_pipelines.modular_pipeline import PipelineState, SequentialPipelineBlocks
 from diffusers.pipelines.pipeline_utils import DiffusionPipeline, ImagePipelineOutput
 from diffusers.schedulers.scheduling_flow_match_euler_discrete import FlowMatchEulerDiscreteScheduler
-from transformers import Qwen3VLForConditionalGeneration, Qwen3VLProcessor
+from transformers import Qwen3_5ForConditionalGeneration, Qwen3VLForConditionalGeneration, Qwen3VLProcessor
 
 # The text window the encoder step may fill (its own default, passed
 # explicitly so `tests/test_prompt_encoding.py` can hold `encoder_table` to it).
@@ -72,12 +74,16 @@ _CallbackDenoiseStep = _with_callback(Flux3DenoiseStep)
 class Flux3KleinPipeline(DiffusionPipeline):
     """FLUX 3 Image Klein (distilled, flow-map, 16 steps, no guidance).
 
-    A dedicated interface exposes only the app's controls. User LoRAs, the
-    prompt upsampler and layout boxes are not part of this integration.
+    A dedicated interface exposes only the app's controls. User LoRAs and
+    layout boxes are not part of this integration; the prompt upsampler is
+    never part of the image call, only of Expand (`upsample_prompt`).
     """
 
-    model_cpu_offload_seq = "text_encoder->transformer->vae"
-    _optional_components: list[str] = []
+    # The upsampler first, as ERNIE's `pe`: under model offload it is on the
+    # card only while Expand runs it, never beside the transformer.
+    model_cpu_offload_seq = "prompt_upsampler->text_encoder->transformer->vae"
+    # Absent until a first Expand registers them (`flux3_upsampler.load`).
+    _optional_components: list[str] = ["prompt_upsampler", "prompt_upsampler_processor"]
     # Which upstream blocks this variant runs; the Base subclass swaps them.
     _distilled = True
 
@@ -88,11 +94,14 @@ class Flux3KleinPipeline(DiffusionPipeline):
         transformer: Flux3Transformer2DModel,
         vae: AutoencoderKLFlux2,
         scheduler: FlowMatchEulerDiscreteScheduler,
+        prompt_upsampler: Qwen3_5ForConditionalGeneration | None = None,
+        prompt_upsampler_processor: Any = None,
     ) -> None:
         super().__init__()
         self.register_modules(
             tokenizer=tokenizer, text_encoder=text_encoder,
             transformer=transformer, vae=vae, scheduler=scheduler,
+            prompt_upsampler=prompt_upsampler, prompt_upsampler_processor=prompt_upsampler_processor,
         )
         # The upstream decode and reference steps read this processor (its
         # 16-pixel token grid and its reference sizing), not a VaeImageProcessor.
@@ -142,6 +151,20 @@ class Flux3KleinPipeline(DiffusionPipeline):
     def requires_unconditional_embeds(self) -> bool:
         guider = self.guider
         return guider is not None and guider._enabled and guider.num_conditions > 1
+
+    def upsample_prompt(self, prompt: str, should_cancel: Callable[[], bool] | None = None) -> str:
+        """Expand: the registered upsampler's caption for `prompt` (t2i).
+
+        Never part of `__call__`. The caller frees the offload hooks after,
+        as it does after ERNIE's rewriter.
+        """
+        from . import flux3_upsampler
+
+        model = getattr(self, "prompt_upsampler", None)
+        processor = getattr(self, "prompt_upsampler_processor", None)
+        if model is None or processor is None:
+            raise RuntimeError("FLUX 3's prompt upsampler is not loaded")
+        return flux3_upsampler.upsample(model, processor, prompt, self._execution_device, should_cancel)
 
     def set_progress_bar_config(self, **kwargs) -> None:
         super().set_progress_bar_config(**kwargs)

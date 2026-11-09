@@ -465,33 +465,47 @@ def quantization_config(settings: "Settings") -> Any:
         return None
     if settings.quantization not in QUANT_BACKENDS:
         return None
+    libraries = component_libraries(settings.model_id)
+    for component, library in libraries.items():
+        if library in ("transformers", "diffusers"):
+            refuse_prequantized(settings, component)
+    return quant_mapping_config(settings.quantization, libraries)
 
+
+def quant_mapping_config(quantization: str, libraries: dict[str, str]) -> Any:
+    """`PipelineQuantizationConfig(quant_mapping=...)` for `libraries`
+    ({component: owning library}): one TorchAoConfig per component, from the
+    library that owns it, each built from its own torchao `AOBaseConfig`
+    instance. None where nothing is quantizable. The image pipeline's
+    (`quantization_config`) and FLUX 3's prompt upsampler's
+    (`flux3_upsampler`) one rule."""
     from diffusers.quantizers.pipe_quant_config import PipelineQuantizationConfig
     from diffusers.quantizers.quantization_config import TorchAoConfig as DiffusersTorchAoConfig
     from torchao.quantization import Float8WeightOnlyConfig, Int8WeightOnlyConfig
     from transformers import TorchAoConfig as TransformersTorchAoConfig
 
+    if quantization not in QUANT_BACKENDS:
+        raise ValueError(f"no torchao weight-only scheme named {quantization!r}")
     # Both are one byte per weight; int8 tends to be more accurate, fp8 keeps
     # more dynamic range for outlier channels.
-    make = Float8WeightOnlyConfig if settings.quantization == "fp8" else Int8WeightOnlyConfig
+    make = Float8WeightOnlyConfig if quantization == "fp8" else Int8WeightOnlyConfig
     config_for = {
         "transformers": TransformersTorchAoConfig,
         "diffusers": DiffusersTorchAoConfig,
     }
 
     mapping = {}
-    for component, library in component_libraries(settings.model_id).items():
+    for component, library in libraries.items():
         cls = config_for.get(library)
         if cls is None:
             log.warning("skipping %s: unknown library %r", component, library)
             continue
-        refuse_prequantized(settings, component)
         mapping[component] = cls(quant_type=make())
 
     if not mapping:
         log.warning("no quantizable components found; loading in full bf16")
         return None
-    log.info("quantizing %s to %s", sorted(mapping), settings.quantization)
+    log.info("quantizing %s to %s", sorted(mapping), quantization)
     return PipelineQuantizationConfig(quant_mapping=mapping)
 
 

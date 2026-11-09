@@ -1126,14 +1126,63 @@ upstream preprocess, VAE-encode and image-conditioned core, since the app
 always sends a size: no crop-back to the reference. The live preview stays
 off (no fitted `AutoencoderKLFlux2` map, as for FLUX.2 [klein]).
 
-**The upsampler is not run.** The cards say to always run BFL's 9.4B prompt
-upsampler (`flux-3-image-klein-pup`), and the modular blocks run it by
-default. The app records the prompt the model saw, as with ERNIE's
-`use_pe=False`, so the pipeline never includes that block; Matt chose it as
-an opt-in Expand-style step, never automatic (`GEN#45`), not built yet. The
-guide says so in the app's voice, and the critic is told (its caveat), so
-short prompts are expected to look generic until the user writes the full
-caption.
+**The upsampler is Expand, never part of the image call.** The cards say
+to always run BFL's 9.4B prompt upsampler (`flux-3-image-klein-pup`), and
+the modular blocks run it by default. The app records the prompt the model
+saw, as with ERNIE's `use_pe=False`, so the pipeline never includes that
+block; Matt chose it as an opt-in Expand-style step, never automatic
+(`GEN#45`, 2026-11-09). It is built into ERNIE's seam rather than a new one
+(`flux3_upsampler`; the rules are in `docs/rules.md` under the expander):
+the same button, route, ticket and Stop, `run_when_idle(holder="expand")`
+after `ensure_loaded` (nothing holding the gate awaits the load lock), and
+the caption written through `rewriteBox`, so Ctrl+Z and the note's Undo give
+the typed request back and the row records the caption the model saw. The
+guide and the critic's caveat say so in the app's voice.
+
+What was read for it (2026-11-09). The pup repository is not gated
+(Apache-2.0, a Qwen3.5-9B fine-tune, one 18.8 GB bf16 `model.safetensors`);
+its head `a5789954…` is pinned. Its `system_prompts.json` is identical,
+all four prompts, to diffusers 0.42.1's embedded copy (which names commit
+`8b069751`), so the app imports `SYSTEM_PROMPTS["t2i"]` from diffusers
+rather than copying it, and builds the chat as diffusers' `upsample_prompt`
+does. Only `t2i`: Expand sends no reference images or layout boxes, so a
+prompt meant as an edit instruction is captioned as a new scene. No size is
+sent: the t2i system prompt allows a leading `TARGET CANVAS: W:H` line, but
+BFL's own `flux3/pup.py` (GitHub, read 2026-11-09) never writes one, nor
+does diffusers.
+
+**Decoding: the card, not diffusers.** The model card says: "Decoding:
+greedy, `top_p` 0.95, `top_k` 20, presence penalty 1.5 for text-to-image
+and 0 for edits." BFL's `flux3/pup.py` passes vLLM exactly that
+(`temperature` 0, `presence_penalty` 1.5 for t2i). diffusers' step, and the
+card's own Transformers snippet, call `generate(..., do_sample=False)` with
+no penalty, so their captions can differ from BFL's. The app follows the
+card: greedy (`top_p`/`top_k` cannot change a greedy choice, so they are not
+passed) with a `LogitsProcessor` taking 1.5 off every token already
+generated, once however often - vLLM's presence penalty, which never counts
+the prompt (transformers 5.16 has no presence penalty of its own). A
+`StoppingCriteria` polls Stop each token, which ERNIE's opaque rewrite
+cannot.
+
+**Memory discipline.** 18.8 GB in bf16 cannot fit the 16 GB card, so it
+loads quantized one byte per weight through the image pipeline's own rule
+(`loading.quant_mapping_config`: transformers' `TorchAoConfig` from an
+`AOBaseConfig` instance), at the server's fp8 or int8, int8 when the image
+model is bf16. As ERNIE's `pe`, it registers on the live pipeline as an
+optional component, first in `model_cpu_offload_seq`, and the offload chain
+is rebuilt: under model offload it is moved to the card for its own call
+and off it before the encoder runs, never beside the transformer. Without
+offload every component stays resident, so it is refused there
+(`ExpanderStatus.held`, 422 before any load), in words that point at Model
+offload. It then stays in host RAM until Unload, as ERNIE's does - about
+9.4 GB at one byte a weight, on top of the image pipeline (an estimate from
+the parameter count). Its linear-attention layers may run transformers'
+torch fallback without the optional kernels; speed is unknown.
+
+**Unmeasured.** Whether the quantized upsampler fits beside nothing else on
+the card with its KV cache (up to 3584 new tokens), its peak, RAM at the
+load (the bf16 file is read and quantized on the CPU), its time per caption,
+and whether int8/fp8 changes its captions against BFL's bf16: `CARD#20`.
 
 **Unmeasured.** Fit, peak, RAM at the load, time and quality on the card,
 for both checkpoints at fp8, int8 and bf16, with references and without. The

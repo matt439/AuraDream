@@ -15,6 +15,7 @@ from typing import NamedTuple
 from PIL import Image
 
 from backend import critic, prompt_encoding
+from backend.backends import flux3_loading, flux3_upsampler
 from backend.backends.base import Cancelled, GenerationBackend
 from backend.config import settings
 from backend.critic import CriticError, CriticUnavailable
@@ -23,6 +24,12 @@ from backend.instruction_edit import QUALIFIED_ENVELOPE, text_to_image_refusal
 from backend.model_defaults import defaults_for
 from backend.model_selection import current_model_id, current_settings
 from backend.schemas import CriticStatus, GenerateRequest, PromptCritique, default_strength
+
+
+def expands(model_id: str) -> bool:
+    """Whether the real backend offers Expand for `model_id` before a load:
+    ERNIE's rewriter, or FLUX 3's prompt upsampler."""
+    return "ernie-image" in model_id.lower().replace("_", "-") or flux3_loading.matches(model_id)
 
 
 class FakeBackend(GenerationBackend):
@@ -60,6 +67,12 @@ class FakeBackend(GenerationBackend):
         # submit. Everything else fits.
         self.lora_mismatches: dict[str, str] = {}
         self.prompt_expander_supported = False
+        # Whether Expand is FLUX 3's prompt upsampler (English, never
+        # translated) rather than ERNIE's rewriter.
+        self.prompt_upsampler = False
+        # The real backend's settings refusal (FLUX 3's upsampler without
+        # offload), as a test sets it.
+        self.expansion_refusal: str | None = None
         self.expansions: list[tuple[str, int, int]] = []
         # The rewriter as the real backend reports it: not on disk until a
         # first expansion has fetched it, in memory from then until Unload.
@@ -120,7 +133,8 @@ class FakeBackend(GenerationBackend):
         ):
             setattr(self, key, profile[key])
         self.lora_reason = lora_refusal(model_id)
-        self.prompt_expander_supported = "ernie-image" in model_id.lower().replace("_", "-")
+        self.prompt_expander_supported = expands(model_id)
+        self.prompt_upsampler = flux3_loading.matches(model_id)
 
     def lora_supported(self) -> bool:
         self._sync_model_profile()
@@ -144,13 +158,26 @@ class FakeBackend(GenerationBackend):
         if self.expand_error is not None:
             raise self.expand_error
         self.expander_cached = self.expander_loaded = True
+        if self.prompt_upsampler:
+            # BFL's upsampler is sent no size.
+            return f"Upsampled: {prompt}"
         return f"Expanded: {prompt} ({width}x{height})"
 
+    def prompt_expansion_refusal(self) -> str | None:
+        return self.expansion_refusal if self.prompt_expansion_supported() else None
+
     def prompt_expander_status(self) -> dict | None:
-        if not self.prompt_expander_supported:
+        if not self.prompt_expansion_supported():
             return None
-        fetch = [] if self.expander_cached else [("ERNIE's prompt rewriter", 7_663_346_520)]
-        return {"loaded": self.loaded and self.expander_loaded, "fetch": fetch}
+        if self.prompt_upsampler:
+            name, size = flux3_upsampler.NAME, flux3_upsampler.BYTES
+        else:
+            name, size = "ERNIE's prompt rewriter", 7_663_346_520
+        fetch = [] if self.expander_cached else [(name, size)]
+        return {
+            "loaded": self.loaded and self.expander_loaded, "fetch": fetch,
+            "name": name, "translate": not self.prompt_upsampler,
+        }
 
     def applied(self, request):
         from backend.execution import require_configured_loader_available, require_default_execution

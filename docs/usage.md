@@ -379,6 +379,14 @@ call already underway may finish; the server keeps its GPU gate until that
 stage ends. Generate can then queue behind it, and another Expand has its
 own ticket. Unload explains when an abandoned expansion is still finishing.
 
+On FLUX 3 [Klein] and Klein Base, **Expand** runs BFL's prompt upsampler,
+which turns a short request into the full English scene caption these models
+are trained on, for review in the prompt box; nothing is translated. It runs
+only when pressed, never inside an image. First use downloads the 18.8 GB
+upsampler, which is loaded at one byte a weight and needs model or sequential
+offload (Expand is held with the reason under offload none). Its memory and
+speed on the card are not measured yet. Stop ends it at the next token.
+
 ## Use references and adapters
 
 FLUX.2 [klein] and FLUX 3 [Klein] accept up to four gallery images as references (FLUX 3's
