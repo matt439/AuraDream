@@ -36,6 +36,12 @@ _ANIMA_SIZE = (
     "Only a 1.05 MP square has been measured locally; equal area does not "
     "establish equal quality at every aspect ratio.",
 )
+_FLUX3_SIZE = (
+    "1.05 MP",
+    "BFL's FLUX 3 cards give their figures at 1024×1024, the Diffusers default; "
+    "they publish no output size range, so this is an example, not a published "
+    "maximum. Nothing about FLUX 3 is measured on this card yet.",
+)
 
 # Exact catalogue selectors: no inherited Illustrious range on WAI or RouWei,
 # no Turbo range on Krea Raw, and no bare 'anima' match catching Animagine.
@@ -143,6 +149,9 @@ _FACTS: dict[str, tuple[str, tuple[str, str]]] = {
         "local renders have completed, but those do not establish a quality "
         "recommendation beyond the author's sizes.",
     )),
+    # Unmeasured on this card: BFL's cards publish no output size range.
+    "black-forest-labs/flux-3-image-klein": ("General", _FLUX3_SIZE),
+    "black-forest-labs/flux-3-image-klein-base": ("General", _FLUX3_SIZE),
     # By its exact id, the catalogue's last entry. An edit renders at its
     # source's frozen size, never a chosen one: the figure is the one
     # qualified size, docs/verified.md's 2026-10-27 trial.
@@ -168,6 +177,8 @@ _SIZE_LABELS = {
     "duongve/NetaYume-Lumina-Image-2.0": "Largest example",
     "NewBie-AI/NewBie-image-Exp0.1": "Largest example",
     "black-forest-labs/FLUX.1-Kontext-dev": "Qualified size",
+    "black-forest-labs/flux-3-image-klein": "Reference size",
+    "black-forest-labs/flux-3-image-klein-base": "Reference size",
 }
 
 
@@ -205,6 +216,10 @@ _FP8_ON_5080 = f"FP8 with model offload peaked at {{}} on {_5080} ({{}})"
 # (Z-Anime Base's 10.35 GiB, 2026-09-19, was the first image after a
 # cancellation; its repeat took 6.78), so a card under that is not sized
 # here. BF16's larger peaks are `_BF16_NEEDS`.
+_FLUX3_UNMEASURED = (
+    "FP8 is unmeasured here; the 5.6B transformer alone is about 5.6 GB at one byte a weight, "
+    "and model offload keeps it whole on the card"
+)
 _CARD_NEEDS: dict[str, tuple[float, str]] = {
     "black-forest-labs/FLUX.1-Krea-dev": (12.00, _FP8_ON_5080.format(
         "12.00 GiB allocated (12.63 reserved) at 1024×1024", "2026-10-27")),
@@ -224,6 +239,10 @@ _CARD_NEEDS: dict[str, tuple[float, str]] = {
     "black-forest-labs/FLUX.2-klein-base-9B": (9e9 / _GIB, (
         "FP8 is unmeasured here; the 9B transformer alone is about 9 GB at one byte a weight, "
         "and model offload keeps it whole on the card")),
+    # Derived, not measured: FLUX 3's 5.55B (Klein) and 5.54B (Base)
+    # transformers (the Hub's parameter counts) at one byte a weight.
+    "black-forest-labs/flux-3-image-klein": (5.55e9 / _GIB, _FLUX3_UNMEASURED),
+    "black-forest-labs/flux-3-image-klein-base": (5.54e9 / _GIB, _FLUX3_UNMEASURED),
     "baidu/ERNIE-Image-Turbo": (8.53, _FP8_ON_5080.format(
         "8.53 GiB allocated (8.93 reserved) at 1 MP", "2026-10-25")),
     "black-forest-labs/FLUX.1-Kontext-dev": (12.00, _FP8_ON_5080.format(

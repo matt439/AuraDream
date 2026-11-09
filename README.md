@@ -3,7 +3,8 @@
 <img src="web/icons/icon-192.png" alt="AuraDream icon: a crescent moon and two sparkles in a glowing ring" width="96" align="right">
 
 Run text-to-image models locally with a browser UI, live previews and a searchable
-gallery. Supports FLUX, Krea 2, Z-Image, Qwen-Image, ERNIE-Image and a range of
+gallery. Supports FLUX (FLUX.1 and FLUX.2 [klein]; FLUX 3 [Klein] is new and not yet
+run on a card), Krea 2, Z-Image, Qwen-Image, ERNIE-Image and a range of
 anime checkpoints. Built with FastAPI, diffusers, vanilla JavaScript and SQLite;
 the frontend has no build step.
 

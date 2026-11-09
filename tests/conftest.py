@@ -148,6 +148,19 @@ def no_hub(monkeypatch):
 
     monkeypatch.setattr(huggingface_hub, "hf_hub_download", refuse_download)
     monkeypatch.setattr(huggingface_hub, "snapshot_download", refuse_download)
+
+    # diffusers 0.42 resolves a revision against the Hub before every
+    # `download`/`from_pretrained` (`hub_utils._resolve_revision`), swallowing
+    # only Hub and transport errors, so this RuntimeError surfaces. Its
+    # binding is taken at diffusers' import: patch the source, and the
+    # imported copy when diffusers is already loaded. Never imports diffusers.
+    def refuse_resolve(*args, **kwargs):
+        raise RuntimeError("the tests do not resolve revisions on the Hub")
+
+    monkeypatch.setattr(huggingface_hub, "resolve_revision", refuse_resolve)
+    hub_utils = sys.modules.get("diffusers.utils.hub_utils")
+    if hub_utils is not None:
+        monkeypatch.setattr(hub_utils, "resolve_revision", refuse_resolve)
     # A switch asks the Hub whether this sign-in may download its checkpoint
     # (`hub_access.check`). Unanswered, as here, the switch goes ahead;
     # tests of the check replace this with the answer they need.

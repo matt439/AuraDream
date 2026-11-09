@@ -224,7 +224,9 @@ Backend (`backend/`):
   (private processor ownership, restoration, terminal discard and Native policy), `fbc_cache.py`
   (private per-call cache ownership, cleanup and deferred disposal),
   per-checkpoint converters and pipelines (`single_file`,
-  `anima_*`, `netayume_loading`, `newbie_*`)
+  `anima_*`, `netayume_loading`, `newbie_*`; `flux3_*`, FLUX 3 [Klein]'s pinned
+  folders under its own pipeline, no `model_index.json`, and
+  `flux3_upsampler` its prompt upsampler as Expand)
 - CLIs: `generate.py` (its arguments and the checks that need only the
   flags in `generate_args.py`, the `--via-server` client in
   `generate_remote.py`), `clear.py`, `stats.py`, `reindex.py`;
@@ -443,7 +445,8 @@ Reproduction and storage:
   (literal `True` only), never a setting; `DiffusersBackend` returns the
   literal True (stage 4's release), every other gate the literal False.
   `QUALIFIED_ENVELOPE` then decides loads and edits: the exact Kontext id,
-  fp8, model offload, CUDA, Windows, Eager, diffusers 0.40.0, and 1:1
+  fp8, model offload, CUDA, Windows, Eager, diffusers 0.40.0 (the app
+  installs 0.42, so Kontext stays held until re-measured), and 1:1
   sources at 512x512. The editor load holds open only for the exact id inside
   the envelope (the pinned configs-then-weights loader); Qwen-Image-Edit is
   always refused. Kontext is an edit-only catalogue entry, listed last.
@@ -636,6 +639,7 @@ uses the driver's graceful close/cleanup. See the full Tests rules.
 | 7909 | animagine-xl-4.0 | `smoke-tag-finder` |
 | 7910 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-sheet-zoom` |
 | 7911 | Gazingstars123/Anima-2.9B, fresh scratch `--data` | `smoke-anima-preview` |
+| 7911 | black-forest-labs/flux-3-image-klein, its own fresh scratch `--data` | `smoke-flux3` |
 | 7912 | FLUX.1-Krea-dev, fresh scratch `--data`, `--step 0.3` | `smoke-then-refine` |
 | 7913 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-shortcuts` |
 | 7914 | FLUX.1-Krea-dev, fresh scratch `--data`, `--step 0.3` | `smoke-queue-controls` |
@@ -728,4 +732,5 @@ GPU behaviour, pixels, timing and memory are the card's to say, recorded in
 ## Environment
 
 Python 3.13 (not 3.14 — torchao/diffusers wheels lag there).
-torch 2.13.0+cu130, diffusers 0.40.0, torchao 0.18.0.
+torch 2.13.0+cu130, diffusers 0.42.1, torchao 0.18.0 (Kontext edits and the
+execution candidates stay held on their measured diffusers 0.40).

@@ -58,7 +58,7 @@ def request_runtime(cache_loader, monkeypatch):
             assert owner is runtime.owners[-1] and owner.active
             assert runtime.root._cache_config.threshold == 0.05
             manager = state.managers[-1]
-            assert manager._state_cache == {} and manager._current_context is None
+            assert manager._state_cache == {} and manager._context is None
             with runtime.root.cache_context("cond"):
                 manager.get_state()["residual"] = object()
             with runtime.root.cache_context("uncond"):
@@ -116,7 +116,7 @@ def test_on_off_on_has_fresh_call_owners_and_state_without_reloading(request_run
         assert backend._cache_owner is None and backend._cache_disposal is None
         assert backend._pending_cache_disposal is None and runtime.control.releases == 0
         _clean_root(runtime.root)
-        assert all(manager._state_cache == {} and manager._current_context is None for manager in state.managers)
+        assert all(manager._state_cache == {} and manager._context is None for manager in state.managers)
     assert [cached for cached, _ in runtime.calls] == [True, False, True]
     assert all(kwargs["generator"] is generators[index]
                and kwargs["callback_on_step_end"] is callbacks[index]

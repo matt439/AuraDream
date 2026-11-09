@@ -9,7 +9,10 @@ load on the real server and page, never run so far.
 What the branch does on the real server: `DiffusersBackend`'s gate is the
 literal True (slice 7), and the measured envelope (`QUALIFIED_ENVELOPE`: the
 exact Kontext id, fp8, model offload, Windows, Eager, diffusers 0.40.0, 1:1
-sources at 512x512) holds everything else in words. FLUX.1 Kontext [dev] is
+sources at 512x512) holds everything else in words. Since the diffusers
+0.42.1 bump (`GEN#45`, 2026-11-09) the installed version is outside the
+envelope, so every Kontext load and edit is held until `CARD#18`
+re-measures it. FLUX.1 Kontext [dev] is
 the catalogue's last entry. Inside the envelope it switches, loads through
 the pinned configs-then-weights loader, and queues an edit from Edit by
 instruction… or More seeds of an edit. Re-render of an edit is refused in

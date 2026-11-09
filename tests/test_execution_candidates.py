@@ -66,6 +66,20 @@ def test_candidate_requires_the_source_inspected_dependency_environment(candidat
     assert candidate(spec, dataclasses.replace(FACTS, **changes), **TARGET) is not None
 
 
+def test_every_candidate_stays_held_on_the_installed_diffusers_042():
+    # The app installs diffusers 0.42; the candidates were read against 0.40's
+    # hooks and are held there, in words that name the version.
+    assert execution.compiler_metadata().diffusers.startswith("0.42.")
+    regional = execution.ExecutionSpec(compilation="regional-v1")
+    for candidate, spec, facts in (
+        *((candidate, spec, FACTS) for candidate, spec in CANDIDATES),
+        (execution.regional_candidate_reason, regional, dataclasses.replace(FACTS, triton_windows="3.7.1.post27")),
+    ):
+        assert candidate(spec, facts, **TARGET) is None
+        reason = candidate(spec, dataclasses.replace(facts, diffusers="0.42.1"), **TARGET)
+        assert reason is not None and "checked only on diffusers 0.40" in reason
+
+
 @pytest.mark.parametrize("candidate, spec", CANDIDATES, ids=["cudnn", "fbc"])
 @pytest.mark.parametrize("external", ["", "NATIVE", " native ", "_native_cudnn", "flash", "secret\n" * 1000])
 def test_external_override_is_conservatively_refused_without_echo(candidate, spec, external):

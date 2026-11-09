@@ -985,22 +985,22 @@ class from `model_index.json`, and `_component_libraries()` reads the same file
 to decide which components to quantize and with whose `TorchAoConfig`. FLUX
 layouts therefore pick up `text_encoder_2` (T5) automatically.
 
-## Newer checkpoints wait on a released diffusers
+## Newer checkpoints and the diffusers 0.42 bump
 
 **Candidates (researched 2026-11-08, `GEN#45`).** These were read from the
 model cards and launch posts, and nothing was run on the card:
 
 - FLUX 3 Image Klein (`black-forest-labs/flux-3-image-klein`, 2026-10-15). A
   5.6B transformer with a Qwen3-VL-4B encoder, 16 steps, that does
-  text-to-image and editing. FLUX Kommunity License. Diffusers runs it as a
-  `ModularPipeline` (diffusers main only), so `load()`'s check for
+  text-to-image and editing. FLUX Kommunity License. Diffusers (0.42.0 and
+  later) runs it as a `ModularPipeline`, so `load()`'s check for
   `generator` and `callback_on_step_end` has to be answered for it. Its card
   says to always run a 9B prompt upsampler. lite-infer has int4 and nvfp4
   Nunchaku builds (r32, no bnb4 encoder suffix).
 - Qwen-Image-2.1 and 2.1-Turbo (`Qwen/Qwen-Image-2.1`, 2026-09; Turbo 8
   steps). A 7B DiT with a Qwen3-VL 8B encoder, through `QwenImage21Pipeline`
-  (diffusers main). Qwen Research License, non-commercial. It edits and makes
-  RGBA. lite-infer has int4 and nvfp4 builds for both.
+  (diffusers 0.42.0 and later). Qwen Research License, non-commercial. It
+  edits and makes RGBA. lite-infer has int4 and nvfp4 builds for both.
 - Qwen-Image-2512 (Apache 2.0). The catalogue's Qwen-Image family at 20B, so
   the same 4-bit-only fit, with community Nunchaku builds only.
 
@@ -1008,15 +1008,227 @@ Fibo 2.0 (gated, CC BY-NC, diffusers 0.42+, prompts written through Gemini),
 HunyuanImage 3.0, Cosmos3, Ming-Image and FLUX.2 [dev] were left off as too
 large for the 16 GB card or as needing an outside service.
 
-**Waiting is the decision (Matt, 2026-11-08).** There is no hurry, so the
-app stays on diffusers 0.40.0 until a released version carries both new
-pipelines, and it never pins the development build. The bump itself is the
-work. It reopens what 0.40.0 pins: the Kontext `QUALIFIED_ENVELOPE` (its
-gate closes until it is re-measured), `encoder_table`'s copied strings
-(`tests/test_prompt_encoding.py`), and the tests and execution recipes that
-name the version. After it, one card run checks that the shipped checkpoints
-are unchanged. Then FLUX 3 Klein comes first: it fits the 16 GB card and,
-as int4, the 3070.
+**The wait's premise was already met (corrected 2026-11-09).** On 2026-11-08
+Matt chose to stay on diffusers 0.40.0 until a released version carried both
+new pipelines, never pinning the development build. The note then said both
+were on "diffusers main only", which was stale when written: diffusers
+0.42.0 shipped on 2026-10-23 with both, and 0.42.1 on 2026-10-27 (PyPI).
+
+**The bump (Matt, 2026-11-09).** Matt started the work on 2026-11-09: bump to
+diffusers 0.42.1 now, then add FLUX 3 Image Klein (distilled, 16 steps) and
+FLUX 3 Klein Base (`black-forest-labs/flux-3-image-klein-base`, 50 steps,
+CFG); not Qwen-Image-2.1, 2.1-Turbo or 2512. FLUX 3's prompt upsampler
+(`black-forest-labs/flux-3-image-klein-pup`, 9.4B) is an opt-in step like
+Expand, never automatic. The bump came alone, first:
+
+- `pyproject.toml` asks for `diffusers>=0.42.1` and
+  `huggingface-hub[hf-xet]>=1.32.0,<2` (0.42.1 does not import with hub
+  1.29; the cap keeps transformers at 5.16.1, which hub 2 would move).
+- The hooks API changed under the private FBC owner:
+  `StateManager.set_context` takes a `CacheContext` (or None) and keeps it
+  in `_context`; `HookRegistry._set_context` is gone; `enable_cache` and
+  `disable_cache` now call `invalidate_child_registries_cache()`, which
+  writes None into every registry's `_child_registries_cache`.
+  `fbc_cache.py` needed no change: it snapshots each pre-existing
+  registry's child cache before enabling, deletes registries the call made,
+  and restores the snapshot after `disable_cache`, so the invalidation in
+  between is undone. The test stub copies the 0.42 API, and a source
+  contract holds the stub to the installed `cache_utils`.
+- `anima_pipeline.py`: the modular blocks are now annotated as returning
+  `(components, state)`, so the stale "despite its annotation" comments and
+  ignores went; `state.values["images"]` replaces `state.get`, whose 0.42
+  annotation includes a key list's dict.
+- Kept on 0.40, held, in words naming the version: Kontext's
+  `QUALIFIED_ENVELOPE` (`diffusers_version="0.40.0"`), so every Kontext load,
+  `POST /api/instruction-edit` and edit More seeds refuse with "diffusers
+  0.42.1 (only 0.40.0 was) is not measured" until a card run re-measures
+  Kontext on 0.42.1; and `execution.py`'s regional and attention/cache
+  candidates (`_CANDIDATE_DIFFUSERS`), which were read against 0.40's hooks.
+  Nonempty recipes stay unavailable either way.
+- `encoder_table`'s copied prompt strings did not change in 0.42.1
+  (`tests/test_prompt_encoding.py` passes against it).
+- 0.42.1's `download`/`from_pretrained` first resolve the revision on the Hub
+  (`hub_utils._resolve_revision`, best-effort: Hub and transport errors fall
+  back to the given revision). `tests/conftest.py`'s `no_hub` refuses
+  `resolve_revision` too, with an error it does not swallow.
+
+None of it is measured on the card. 0.42.1 also changed the device placement
+of encoder inputs and latents in FLUX.1, Kontext, Klein and SDXL, torchao's
+`create_quantized_param` (`Parameter(value.to(device))`), the offload
+device's default (`get_device()`), and dropped `force_upcast` from
+`AutoencoderKLFlux2` (the shipped FLUX.2 [klein] VAE). Whether the shipped
+checkpoints' pictures, peak memory, RAM and time are unchanged is a card
+run's to say (`CARD#17`), as is Kontext on 0.42.1 (`CARD#18`: only after it
+does `QUALIFIED_ENVELOPE`'s `diffusers_version` move). Then FLUX 3
+Klein comes first. Whether it fits the 16 GB card, or as int4 the 3070, is
+unmeasured: the int4 lite repo's index points at nvfp4 weights, which Ampere
+cannot run.
+
+**lite-infer renamed its repositories (seen 2026-11-09).** The re-uploads
+the catalogue names (`launch._LITE`,
+`{stem}-nunchaku-lite-{fmt}_r32-bnb4-text-encoder`, and ERNIE's
+`...-{fmt}-bnb4-text-encoder`) now answer the Hub API with HTTP 307 to new
+names without the encoder suffix (`...-{fmt}-r32`; ERNIE's `...-{fmt}`):
+Qwen-Image int4, Krea 2 Turbo nvfp4 and ERNIE int4 were checked. The old ids
+still resolve, but only through that redirect, and nothing in the app was
+tested against one: `hub_access.check`'s `auth_check`, the pinned
+`model-downloads.json` sources and a fresh download. The catalogue keeps the
+old ids for now, since they are saved in settings and PNG metadata; moving
+to the new names, with the old ones still read from saved settings and
+metadata, is deferred (`GEN#47`).
+
+## FLUX 3 [Klein]: an app-owned pipeline over pinned folders
+
+**What was read (2026-11-09).** Both repositories are gated "auto" (a
+click-through) under the FLUX Kommunity License; the Qwen3-VL-4B encoder is
+Apache-2.0. The Hub API gave each one's head commit, pinned in
+`flux3_loading` (Klein `09561231…`, Base `a83ce283…`), and its file tree with
+sizes. Everything else in the repositories answered 403 to the local token
+(its account has not accepted the licence yet), so the official
+`modular_model_index.json` and the `transformer/`, `text_encoder/` and `vae/`
+configs were **not** read. What stands in for them: diffusers 0.42.1's own
+flux3 blocks (the expected components, `Flux3SetTimestepsStep`'s shift 6.93,
+the encoder's 8192/80 window), the two model cards (readable), and
+lite-infer's public re-upload of Klein
+(`lite-infer/flux-3-image-klein-nunchaku-lite-nvfp4-r32`), whose modular
+index names `Flux3DistilledModularPipeline` with `Flux3Transformer2DModel`,
+`Qwen3VLForConditionalGeneration` (+ `Qwen3VLProcessor` from `text_encoder/`)
+and `AutoencoderKLFlux2`, and whose transformer config says `flow_map: true`.
+Its tokenizer files have the official ones' exact sizes; the encoder's
+budgets (8189, clean 8184) were measured on them. The loader's preflight
+reads the official index and transformer config before any weight and
+refuses a mismatch in words, so a wrong inference here fails a load early
+rather than a picture late. Base's `flow_map: false` is inferred (its loop
+passes no `target_timestep`, which the transformer requires of, and only
+of, a flow-map model).
+
+**Loading.** There is no `model_index.json`, so `DiffusionPipeline` cannot
+resolve these repositories, and `component_libraries`, `unused_components`
+and `denoiser` cannot read them. Rather than writing a local tree (about
+20 GB copied unless linked) the app's pipeline class has its own
+`from_pretrained`, which loads each component from its subfolder of one
+pinned snapshot: the transformer and the Qwen3-VL encoder with the
+per-component `TorchAoConfig`s `loading.quantization_config` built (from the
+modular index's library names, `flux3_loading.component_libraries`), the
+processor from `text_encoder/`, the VAE in float32 as the cards' Diffusers
+example loads it, and a fresh `FlowMatchEulerDiscreteScheduler(shift=6.93)`
+(the repositories ship no scheduler). The index's own component paths are
+never followed (lite-infer's int4 index points at its nvfp4 weights). The
+shard release still holds: the transformer loads through diffusers' patched
+shard loader; the text encoder, loaded directly and so bypassing
+`load_sub_model`, has its unquantized tensors copied out (`own_tensors`)
+when quantized. Two snapshot passes at the pin (configs, then
+`transformer/*`, `text_encoder/*`, `vae/*` and the index) leave the root BFL
+`model.safetensors` (11.1 GB), `ae.safetensors` and the `variants/` (11.5 GB)
+on the Hub. No Nunchaku Lite build is wired in yet; `AURADREAM_QUANT=nunchaku`
+is refused before any download.
+
+**The pipeline.** As Anima's (below): a `DiffusionPipeline` subclass holding
+the upstream blocks, a denoise loop whose `loop_step` calls the app's
+callback after each finished step (progress, preview attempts, `Cancelled`),
+`sub_blocks` called directly so a cancel logs no "Error in block",
+`maybe_free_model_hooks` in `finally`. The distilled call runs the
+flow-map loop (each step's `target_timestep` the next timestep) and takes no
+negative prompt; Base's builds a fresh `ClassifierFreeGuidance` each call,
+enabled only above 1 (the app's threshold, not the guider's "not exactly
+1"), and passes the negative prompt only then. `sigmas` reaches
+`Flux3SetTimestepsStep`, so a requested Mu lands as the whole shift through
+`schedule.requested_shift` (less the scheduler's static 6.93); a blank Mu is
+the blocks' own linear ramp at 6.93 (`mu_static` ln 6.93). Quality off the
+cards' 16/50 steps or at another shift is untested. References run the
+upstream preprocess, VAE-encode and image-conditioned core, since the app
+always sends a size: no crop-back to the reference. The live preview stays
+off (no fitted `AutoencoderKLFlux2` map, as for FLUX.2 [klein]).
+
+**The upsampler is Expand, never part of the image call.** The cards say
+to always run BFL's 9.4B prompt upsampler (`flux-3-image-klein-pup`), and
+the modular blocks run it by default. The app records the prompt the model
+saw, as with ERNIE's `use_pe=False`, so the pipeline never includes that
+block; Matt chose it as an opt-in Expand-style step, never automatic
+(`GEN#45`, 2026-11-09). It is built into ERNIE's seam rather than a new one
+(`flux3_upsampler`; the rules are in `docs/rules.md` under the expander):
+the same button, route, ticket and Stop, `run_when_idle(holder="expand")`
+after `ensure_loaded` (nothing holding the gate awaits the load lock), and
+the caption written through `rewriteBox`, so Ctrl+Z and the note's Undo give
+the typed request back and the row records the caption the model saw. The
+guide and the critic's caveat say so in the app's voice.
+
+What was read for it (2026-11-09). The pup repository is not gated
+(Apache-2.0, a Qwen3.5-9B fine-tune, one 18.8 GB bf16 `model.safetensors`);
+its head `a5789954…` is pinned. Its `system_prompts.json` is identical,
+all four prompts, to diffusers 0.42.1's embedded copy (which names commit
+`8b069751`), so the app imports `SYSTEM_PROMPTS["t2i"]` from diffusers
+rather than copying it, and builds the chat as diffusers' `upsample_prompt`
+does. Only `t2i`: Expand sends no reference images or layout boxes, so a
+prompt meant as an edit instruction is captioned as a new scene. No size is
+sent: the t2i system prompt allows a leading `TARGET CANVAS: W:H` line, but
+BFL's own `flux3/pup.py` (GitHub, read 2026-11-09) never writes one, nor
+does diffusers.
+
+**Decoding: the card, not diffusers.** The model card says: "Decoding:
+greedy, `top_p` 0.95, `top_k` 20, presence penalty 1.5 for text-to-image
+and 0 for edits." BFL's `flux3/pup.py` passes vLLM exactly that
+(`temperature` 0, `presence_penalty` 1.5 for t2i). diffusers' step, and the
+card's own Transformers snippet, call `generate(..., do_sample=False)` with
+no penalty, so their captions can differ from BFL's. The app follows the
+card: greedy (`top_p`/`top_k` cannot change a greedy choice, so they are not
+passed) with a `LogitsProcessor` taking 1.5 off every token already
+generated, once however often - vLLM's presence penalty, which never counts
+the prompt (transformers 5.16 has no presence penalty of its own). A
+`StoppingCriteria` polls Stop each token, which ERNIE's opaque rewrite
+cannot.
+
+**Memory discipline.** 18.8 GB in bf16 cannot fit the 16 GB card, so it
+loads quantized one byte per weight through the image pipeline's own rule
+(`loading.quant_mapping_config`: transformers' `TorchAoConfig` from an
+`AOBaseConfig` instance), at the server's fp8 or int8, int8 when the image
+model is bf16. As ERNIE's `pe`, it registers on the live pipeline as an
+optional component, first in `model_cpu_offload_seq`, and the offload chain
+is rebuilt: under model offload it is moved to the card for its own call
+and off it before the encoder runs, never beside the transformer. Without
+offload every component stays resident, so it is refused there
+(`ExpanderStatus.held`, 422 before any load), in words that point at Model
+offload. It then stays in host RAM until Unload, as ERNIE's does - about
+9.4 GB at one byte a weight, on top of the image pipeline (an estimate from
+the parameter count). Its linear-attention layers may run transformers'
+torch fallback without the optional kernels; speed is unknown.
+
+**A caption stops at the prompt box's limit.** diffusers' cap is 3584 new
+tokens, sized for its own call, where the caption never reaches a text box -
+10,000 characters and more, against the app's 4000-character prompt
+(`GenerateRequest.prompt`). The t2i system prompt asks for "100 to 350
+words, more for complex scenes", every quoted text copied out, so a busy
+scene can pass 4000 characters, and the route's general refusal came only
+after the whole generation, telling the user to shorten a request that
+does not decide the caption's length. So a `StoppingCriteria` decodes the
+answer each token and stops once it is past `PROMPT_LIMIT` (4000), and the
+caption is refused as `ExpansionTooLong` - a 422 in words that name the
+limit and say to ask for less, or write the caption - never truncated into
+the box. The encoder's 8192-token window is wider than the box; raising the
+box for FLUX 3 alone would touch every schema that carries a prompt, so the
+box decides. How often a caption reaches the limit is unmeasured.
+
+**Unmeasured.** Whether the quantized upsampler fits beside nothing else on
+the card with its KV cache (up to 3584 new tokens, stopped sooner at 4000
+characters), its peak, RAM at the
+load (the bf16 file is read and quantized on the CPU), its time per caption,
+and whether int8/fp8 changes its captions against BFL's bf16: `CARD#20`.
+
+**Unmeasured.** Fit, peak, RAM at the load, time and quality on the card,
+for both checkpoints at fp8, int8 and bf16, with references and without. The
+picker's fit figure (`_CARD_NEEDS`) is the transformer's size at one byte a
+weight, said as such. The cards' peaks are BFL's "reference code, B200,
+1024x1024, prompt upsampler off": 31/26/25 GB for Klein and 31/29/26 GB for
+Klein Base (BF16/FP8/NVFP4); they do not say how the components were placed.
+`CARD#19` holds the run (Klein at fp8 first, then Klein Base).
+
+**Not built: FLUX 3 on the 8 GB 3070.** Only a 4-bit transformer could fit
+it, and the upsampler not at all. lite-infer's int4 repository's own index
+points at its nvfp4 weights, which sm_86 cannot run, so an int4 load would
+have to be built from that repository's int4 subfolders, never its index,
+and its Nunchaku transformer class read against diffusers 0.42.1's.
+Deferred (`CARD#21`) until the 16 GB card's fp8 numbers say FLUX 3 is worth
+it.
 
 ## Anima Turbo: a standard interface over modular inference
 

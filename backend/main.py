@@ -765,24 +765,29 @@ async def _read_card() -> None:
 
 
 def _expander_status() -> ExpanderStatus | None:
-    """ERNIE's Expand before it is pressed: whether the rewriter is loaded,
-    and what a first use downloads - the backend's rewriter before the
-    expansion, then the translator after it - for the page to say so, each
-    at its own step. A few file checks, as the critic's `describe()` is."""
+    """Expand before it is pressed: whether the expander is loaded, and what
+    a first use downloads - the backend's expander before the expansion,
+    then, for ERNIE's, the translator after it - for the page to say so,
+    each at its own step, and why it is held where it is. A few file
+    checks, as the critic's `describe()` is."""
     state = backend.prompt_expander_status() if backend.prompt_expansion_supported() else None
     if state is None:
         return None
     fetch = [
         ExpanderDownload(name=name, bytes=size, step="expand") for name, size in state.get("fetch", [])
     ]
-    if not prompt_translator.cached():
+    translates = bool(state.get("translate", True))
+    if translates and not prompt_translator.cached():
         fetch.append(
             ExpanderDownload(name="the opus-mt-zh-en translator", bytes=TRANSLATOR_BYTES, step="translate")
         )
     return ExpanderStatus(
+        name=str(state.get("name") or "ERNIE's prompt rewriter"),
+        translates=translates,
         loaded=bool(state.get("loaded")),
         fetch=fetch,
         fetch_bytes=sum(item.bytes for item in fetch),
+        held=backend.prompt_expansion_refusal(),
     )
 
 

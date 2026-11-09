@@ -111,8 +111,9 @@ some gated models and custom checkpoints.
 An On disk model still takes time to load or convert. Facts refresh after
 successful or failed loads without moving the chosen row or its controls.
 
-Some checkpoints are gated on Hugging Face. FLUX.1 Krea [dev] and FLUX.1 [dev]
-need their licence accepted on the model page; Krea 2 Turbo and Raw need the
+Some checkpoints are gated on Hugging Face. FLUX.1 Krea [dev], FLUX.1 [dev],
+FLUX 3 [Klein] and Klein Base need their licence accepted on the model page
+(FLUX 3's prompt upsampler is open); Krea 2 Turbo and Raw need the
 authors' approval, which can take days. Then sign in once with
 `uv run hf auth login`. The 4-bit lite-infer builds are not gated. Each
 row says **Open**, **Accept licence** or **Needs approval** under the name.
@@ -379,9 +380,18 @@ call already underway may finish; the server keeps its GPU gate until that
 stage ends. Generate can then queue behind it, and another Expand has its
 own ticket. Unload explains when an abandoned expansion is still finishing.
 
+On FLUX 3 [Klein] and Klein Base, **Expand** runs BFL's prompt upsampler,
+which turns a short request into the full English scene caption these models
+are trained on, for review in the prompt box; nothing is translated. It runs
+only when pressed, never inside an image. First use downloads the 18.8 GB
+upsampler, which is loaded at one byte a weight and needs model or sequential
+offload (Expand is held with the reason under offload none). Its memory and
+speed on the card are not measured yet. Stop ends it at the next token.
+
 ## Use references and adapters
 
-FLUX.2 [klein] accepts up to four gallery images as references. Add them with
+FLUX.2 [klein] and FLUX 3 [Klein] accept up to four gallery images as references (FLUX 3's
+references are unmeasured on the card). Add them with
 the card's **Reference** button or `--reference 12,15` in the CLI. Their order
 defines “image 1”, “image 2” in the prompt; drag chips or use Alt+Left/Right
 to reorder them. Reference import from personal files is not implemented.
@@ -585,6 +595,11 @@ sources, rendered at 512x512. Another quantization or offload is held in
 Models with its reason, and a source of another aspect is held in the
 dialog with its reason; nothing is quietly moved to the measured choice.
 Generate is held on the editor, which has no text-to-image call.
+
+The app now installs diffusers 0.42.1, which the card has not measured with
+Kontext yet, so every Kontext load and edit is held for now with a reason
+naming both versions ("diffusers 0.42.1 (only 0.40.0 was) is not
+measured"). It opens again once a card run re-measures it.
 
 An edit keeps its source, and a proof of the source's pixels, on its row
 and in its PNG. Each queued edit proves its source again as it starts: a

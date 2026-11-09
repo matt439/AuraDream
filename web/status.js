@@ -210,20 +210,23 @@ function syncPromptExpansion() {
 // them, and after a failure too; a press says why (expandPrompt). Running,
 // it reads "Expand…": "Expanding…" was 23 px wider, and at 1400 px wrapped
 // Reset onto a line of its own, moving the prompt box down under the pointer
-// for the length of the request. Its title names what a first use costs.
-const EXPAND_TITLE = els.expandPrompt.title;
+// for the length of the request. Its title names the expander and what a
+// first use costs; the settings' hold (FLUX 3's upsampler without offload,
+// `prompt_expander.held`) is the server's sentence.
 function syncExpandButton() {
   els.expandPrompt.hidden = !promptExpansionSupported;
   const why = expandingPrompt ? 'Expanding…'
     : serverOffline ? 'The server is not answering'
     : modelChangeHold() ? modelChangeHold()
+    : expanderStatus?.held ? expanderStatus.held
     : busy ? 'A job is queued or running: Expand waits for the image queue to finish'
     : elsewhereBusy ? EXPAND_ELSEWHERE
     : critiquing ? 'Wait for the critic to finish'
     : '';
   const cost = expandCost();
+  const title = expandTitle();
   els.expandPrompt.setAttribute('aria-disabled', String(!!why));
-  els.expandPrompt.title = why || (cost ? `${EXPAND_TITLE}. ${cost}` : EXPAND_TITLE);
+  els.expandPrompt.title = why || (cost ? `${title}. ${cost}` : title);
   // Running, it keeps the width it had idle, locked as the label changes, and
   // the "…" takes its side padding (.running, fields.css): below 1800 px the
   // caption row is exactly full at 1400 px, and the 9 px "Expand…" adds would
@@ -241,8 +244,19 @@ function syncExpandButton() {
   button.textContent = expandingPrompt ? 'Expand…' : 'Expand';
 }
 
+// The expander as the status names it: ERNIE's rewriter, or FLUX 3's
+// prompt upsampler (`prompt_expander.name`); ERNIE's before a status says.
+function expanderName() {
+  return expanderStatus?.name || "ERNIE's prompt rewriter";
+}
+
+// Expand's own title, index.html's for ERNIE.
+function expandTitle() {
+  return `Use ${expanderName()} once, put its result here, then review it before generating`;
+}
+
 // What a first Expand costs before it does anything, from the status: the
-// downloads a first use makes, else the rewriter's load into memory once a
+// downloads a first use makes, else the expander's load into memory once a
 // session - as the critic's line names its own first download.
 function expandCost() {
   const s = expanderStatus;
@@ -250,7 +264,7 @@ function expandCost() {
   if (s.fetch?.length) {
     return `First use downloads ${s.fetch.map((f) => f.name).join(' and ')} (about ${humanBytes(s.fetch_bytes)}) once.`;
   }
-  return s.loaded ? '' : "Its first use this session loads ERNIE's prompt rewriter into memory first.";
+  return s.loaded ? '' : `Its first use this session loads ${expanderName()} into memory first.`;
 }
 
 // Unload's one writer. setBusy, Expand and the critic each used to set it,

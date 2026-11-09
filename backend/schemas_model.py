@@ -118,24 +118,34 @@ class ExpanderDownload(BaseModel):
 
     name: str
     bytes: int
-    # "expand": fetched before the expansion runs (ERNIE's rewriter);
+    # "expand": fetched before the expansion runs (the expander's weights);
     # "translate": after it, for the English (the translator).
     step: Literal["expand", "translate"]
 
 
 class ExpanderStatus(BaseModel):
-    """What the page says about ERNIE's Expand before it is pressed, from the
-    live pipeline and a few file checks, as `CriticStatus` is the critic's: a
-    first use loads a 7.7 GB rewriter, and downloads it and a translator
-    where they are not on disk, behind a small button in the Prompt caption."""
+    """What the page says about Expand before it is pressed, from the live
+    pipeline and a few file checks, as `CriticStatus` is the critic's: a
+    first use loads ERNIE's 7.7 GB rewriter (and downloads it and a
+    translator), or FLUX 3's 18.8 GB prompt upsampler, where they are not on
+    disk, behind a small button in the Prompt caption."""
 
-    # The rewriter is on the live pipeline: an Expand waits for nothing but
+    # The expander as the page names it: "ERNIE's prompt rewriter", "FLUX 3's
+    # prompt upsampler".
+    name: str = "ERNIE's prompt rewriter"
+    # Whether its answer is translated after (ERNIE's, which may be Chinese);
+    # FLUX 3's upsampler writes English only.
+    translates: bool = True
+    # The expander is on the live pipeline: an Expand waits for nothing but
     # itself. False before the image model loads, and again after Unload.
     loaded: bool = False
-    # What a first use downloads, in the order it does - ERNIE's rewriter,
-    # the translator, both or neither - and their size together in bytes.
+    # What a first use downloads, in the order it does - the expander, the
+    # translator, both or neither - and their size together in bytes.
     fetch: list[ExpanderDownload] = Field(default_factory=list)
     fetch_bytes: int = 0
+    # Why it cannot run under the current settings (FLUX 3's upsampler
+    # without offload), said before the press; None where it can.
+    held: str | None = None
 
 
 
@@ -270,8 +280,9 @@ class ModelStatus(BaseModel):
     # the status poll; the file tally (`summarise()`) walks the directory and
     # does not.
     disk_free_mb: int | None = None
-    # ERNIE's separate rewriter is an explicit editor action, never a hidden
-    # part of generation. False for every pipeline without that facility.
+    # ERNIE's separate rewriter and FLUX 3's prompt upsampler are an explicit
+    # editor action, never a hidden part of generation. False for every
+    # pipeline without that facility.
     prompt_expansion_supported: bool = False
     # Beside it, where it is True: whether the expander is loaded and what a
     # first use downloads. None for every pipeline without one.

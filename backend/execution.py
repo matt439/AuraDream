@@ -250,6 +250,15 @@ def _minor(value: str | None, expected: str) -> bool:
     return value is not None and value.split("+", 1)[0].split(".")[:2] == expected.split(".")
 
 
+# The candidates' private hooks (regional_compile, attention_selection,
+# fbc_cache) were read against diffusers 0.40's sources. The app now installs
+# 0.42, whose hook/cache API changed (StateManager contexts, child-registry
+# invalidation). Their CPU tests pass against 0.42, but no candidate matrix
+# was re-qualified there, so they stay held on 0.40 and every 0.42 install
+# answers with this reason. Moving them is a later, separate qualification.
+_CANDIDATE_DIFFUSERS = "0.40"
+
+
 def regional_candidate_reason(
     spec: ExecutionSpec, facts: CompilerMetadata, *, model_id: str, quantization: str,
     offload: str, device: str, num_images: int = 1, lora: str | None = None,
@@ -279,8 +288,9 @@ def regional_candidate_reason(
         return "The regional compilation candidate needs Windows or Linux with Python 3.13."
     if not _minor(facts.torch, "2.13") or not (facts.torch or "").endswith("+cu130"):
         return "The regional compilation candidate needs the torch 2.13 CUDA 13.0 environment."
-    if not _minor(facts.diffusers, "0.40") or not _minor(facts.torchao, "0.18"):
-        return "The regional compilation candidate needs diffusers 0.40 and torchao 0.18."
+    if not _minor(facts.diffusers, _CANDIDATE_DIFFUSERS) or not _minor(facts.torchao, "0.18"):
+        return ("The regional compilation candidate was checked only on diffusers 0.40 with torchao 0.18;"
+                " it is not re-checked on this install.")
     if facts.platform == "win32" and facts.triton_windows != "3.7.1.post27":
         return "The Windows regional compilation candidate needs triton-windows 3.7.1.post27."
     if facts.platform == "linux" and not _minor(facts.triton, "3.7"):
@@ -312,8 +322,9 @@ def _flux_candidate_reason(
         return "The attention/cache candidate needs Windows or Linux with Python 3.13."
     if not _minor(facts.torch, "2.13") or not (facts.torch or "").endswith("+cu130"):
         return "The attention/cache candidate needs the torch 2.13 CUDA 13.0 environment."
-    if not _minor(facts.diffusers, "0.40") or not _minor(facts.torchao, "0.18"):
-        return "The attention/cache candidate needs diffusers 0.40 and torchao 0.18."
+    if not _minor(facts.diffusers, _CANDIDATE_DIFFUSERS) or not _minor(facts.torchao, "0.18"):
+        return ("The attention/cache candidate was checked only on diffusers 0.40 with torchao 0.18;"
+                " it is not re-checked on this install.")
     return None
 
 

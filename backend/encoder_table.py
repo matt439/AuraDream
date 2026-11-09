@@ -14,7 +14,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Literal
 
-from .backends import anima_loading, loading, netayume_loading, newbie_loading, single_file
+from .backends import anima_loading, flux3_loading, loading, netayume_loading, newbie_loading, single_file
 from .instruction_edit import KONTEXT_V1
 
 Field = Literal["prompt", "negative_prompt"]
@@ -52,6 +52,11 @@ LUMINA_SEQUENCE = 256
 # backend/backends/anima_pipeline.py hands this to the modular encoders, which
 # truncate the Qwen3 tokens and the T5 ids to it independently.
 ANIMA_SEQUENCE = 512
+# backend/backends/flux3_pipeline.py hands FLUX 3's text encoder step its own
+# default, which truncates the rendered chat template to it; the step then
+# right-pads the window to a multiple of 80 (padding, not lost text).
+FLUX3_SEQUENCE = 8192
+FLUX3_PAD_MULTIPLE = 80
 
 _Z_ANIME_ID = "SeeSee21/Z-Anime"
 _PIPELINES = "diffusers/pipelines/"
@@ -366,6 +371,28 @@ def _anima(model_id: str) -> list[EncoderSpec]:
     ]
 
 
+def _flux3(model_id: str) -> list[EncoderSpec]:
+    # The Qwen3-VL processor in the pinned repository's text_encoder/ folder;
+    # its chat template has no thinking block, so the switch changes nothing.
+    pin = flux3_loading.source(model_id)
+    base = model_id.lower() == flux3_loading.BASE_MODEL_ID.lower()
+    return [
+        EncoderSpec(
+            "Qwen3-VL-4B",
+            TokenizerSource(pin["repo_id"], "text_encoder", pin["revision"]),
+            FLUX3_SEQUENCE,
+            "FLUX 3's text encoder step renders the processor's chat template and "
+            f"truncates the whole string to {FLUX3_SEQUENCE} tokens, then pads the window "
+            f"to a multiple of {FLUX3_PAD_MULTIPLE}",
+            "diffusers/modular_pipelines/flux3/encoders.py",
+            chat_thinking=False,
+            # The distilled step encodes no negative prompt; Base's encodes it
+            # the same way, with guidance above 1.
+            negative="same" if base else "none",
+        ),
+    ]
+
+
 def _key(model_id: str) -> str:
     # model_defaults' normalisation, so an id matches here where it matches there.
     return model_id.lower().replace("_", "-")
@@ -387,6 +414,9 @@ _EXACT: dict[str, Callable[[str], list[EncoderSpec]]] = {
     _key(newbie_loading.MODEL_ID): _newbie,
     # Ahead of the "flux.1" family, whose FluxPipeline it is not.
     _key(KONTEXT_V1.model_id): _kontext,
+    # Ahead of "klein", whose Flux2KleinPipeline they are not.
+    _key(flux3_loading.MODEL_ID): _flux3,
+    _key(flux3_loading.BASE_MODEL_ID): _flux3,
 }
 # Then first-match on a token, as in model_defaults._PROFILES. The tokens are
 # narrower than the profiles': "flux.1" rather than "flux", so FLUX.2 klein

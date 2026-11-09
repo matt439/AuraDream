@@ -19,7 +19,7 @@ from fastapi import APIRouter, HTTPException, Path, Query
 
 from . import keep_awake, prompt_check, prompt_encoding, prompt_parts, prompt_text, tag_lookup
 from .app_context import AppServices
-from .backends.base import Cancelled
+from .backends.base import Cancelled, ExpansionTooLong
 from .critic import CriticError, CriticUnavailable, pinned_build_refusal
 from .detached import detached
 from .jobs import BackendBusy, LoadFailed, short_error
@@ -259,8 +259,15 @@ def create_router(services: AppServices) -> APIRouter:
         if not services.backend().prompt_expansion_supported():
             raise HTTPException(
                 status_code=422,
-                detail="this checkpoint has no prompt expander; ERNIE-Image is the one here that does",
+                detail=(
+                    "this checkpoint has no prompt expander; ERNIE-Image and FLUX 3 [Klein] "
+                    "are the ones here that do"
+                ),
             )
+        # Answered from the settings, before the load or a download.
+        held = services.backend().prompt_expansion_refusal()
+        if held is not None:
+            raise HTTPException(status_code=422, detail=held)
         if services.jobs().busy():
             raise HTTPException(
                 status_code=409,
@@ -302,6 +309,10 @@ def create_router(services: AppServices) -> APIRouter:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         except Cancelled:
             raise
+        except ExpansionTooLong as exc:
+            # Stopped at the limit by the expander itself, in its own words.
+            run.check()
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
         except Exception as exc:
             run.check()
             log.error("prompt expansion failed: %s", short_error(exc))
@@ -318,9 +329,13 @@ def create_router(services: AppServices) -> APIRouter:
             )
         translated: str | None = None
         translation_detail: str | None = None
+        # ERNIE's answer may be Chinese and is translated for the reader;
+        # FLUX 3's upsampler writes English and is not.
+        state = services.backend().prompt_expander_status() or {}
         try:
             run.check()
-            translated = await asyncio.to_thread(services.translator().translate, expanded, run.stopped.is_set)
+            if state.get("translate", True):
+                translated = await asyncio.to_thread(services.translator().translate, expanded, run.stopped.is_set)
         except Cancelled:
             raise
         except Exception as exc:  # noqa: BLE001 - expansion remains useful on its own

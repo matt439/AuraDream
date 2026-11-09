@@ -49,7 +49,7 @@ COMPONENT_LIBRARY_OWNERS = {
 # their folders out of the download too, *through the concrete class*: the
 # base `DiffusionPipeline.from_pretrained` filters passed components against
 # its own empty `_optional_components` (`_get_signature_keys` is a classmethod
-# on `cls`, diffusers 0.40), takes `pe=None` for a pipeline kwarg, downloads
+# on `cls`, diffusers 0.40 and 0.42), takes `pe=None` for a pipeline kwarg, downloads
 # the folder and loads the model - seen on the card, 7.7 GB pulled and 11 GB
 # of RAM taken, before load() switched class. ErnieImagePipeline carries a 7.7 GB
 # bf16 Ministral prompt rewriter (`pe`) and, unless `use_pe` is off, samples
@@ -153,7 +153,7 @@ def prompt_expander_cached(model_id: str) -> bool:
         return False
     return isinstance(found, str) and os.path.isfile(found)
 
-# Pipeline-level from_pretrained in Diffusers 0.40 does not resolve a
+# Pipeline-level from_pretrained in Diffusers 0.42 (as 0.40) does not resolve a
 # subfolder. Materialize just this pinned tree in the Hub cache and hand the
 # ordinary loader its local directory; keep the public id in runtime metadata.
 NESTED_MODELS = {
@@ -193,6 +193,11 @@ def resolve_model(model_id: str, *, weights: bool = False, quantization: str | N
     # pinned editor tree (`require_model_available` refused it already).
     if model_id == KONTEXT_V1.model_id:
         return _resolve_kontext(weights=weights)
+    from . import flux3_loading
+
+    if flux3_loading.matches(model_id):
+        # No model_index.json: its own pinned folders, checked before weights.
+        return flux3_loading.resolve_model(model_id, weights=weights, quantization=quantization)
     if model_id.lower() == NOOB_MODEL_ID.lower():
         if quantization == NUNCHAKU:
             raise RuntimeError(
@@ -318,12 +323,13 @@ def lora_refusal(model_id: str) -> str | None:
 
     A fact about the integration, answerable from the id before anything
     downloads: the Anima variants' and NewBie's pipelines are the app's own, with no
-    adapter path. `DiffusersBackend.lora_unavailable_reason` asks this first,
+    adapter path, and FLUX 3 [Klein]'s too (its modular blocks' LoRA mixin is
+    not on the app's pipeline). `DiffusersBackend.lora_unavailable_reason` asks this first,
     and the browser checks' fake server asks it of the id it claims, so the
     fake refuses an adapter exactly where the real server does. The ids are
     the loaders' own constants, so the two cannot drift apart.
     """
-    from . import anima_loading, newbie_loading
+    from . import anima_loading, flux3_loading, newbie_loading
 
     key = model_id.lower()
     if key == anima_loading.MODEL_ID.lower():
@@ -334,6 +340,10 @@ def lora_refusal(model_id: str) -> str | None:
         return "User LoRAs are not supported by this Anima 2.9B Preview integration"
     if key == newbie_loading.MODEL_ID.lower():
         return "User LoRAs are not supported by this NewBie integration"
+    if key == flux3_loading.MODEL_ID.lower():
+        return "User LoRAs are not supported by this FLUX 3 [Klein] integration"
+    if key == flux3_loading.BASE_MODEL_ID.lower():
+        return "User LoRAs are not supported by this FLUX 3 [Klein] Base integration"
     return None
 
 
@@ -362,6 +372,12 @@ def component_libraries(model_id: str) -> dict[str, str]:
     is exactly what decides whether a component needs the diffusers or the
     transformers flavour of TorchAoConfig.
     """
+    from . import flux3_loading
+
+    # A FLUX 3 snapshot has a modular index instead (`flux3_loading`).
+    modular = flux3_loading.component_libraries(model_id)
+    if modular is not None:
+        return modular
     with open(hub_file(model_id, "model_index.json"), encoding="utf-8") as fh:
         index = json.load(fh)
 
@@ -449,33 +465,47 @@ def quantization_config(settings: "Settings") -> Any:
         return None
     if settings.quantization not in QUANT_BACKENDS:
         return None
+    libraries = component_libraries(settings.model_id)
+    for component, library in libraries.items():
+        if library in ("transformers", "diffusers"):
+            refuse_prequantized(settings, component)
+    return quant_mapping_config(settings.quantization, libraries)
 
+
+def quant_mapping_config(quantization: str, libraries: dict[str, str]) -> Any:
+    """`PipelineQuantizationConfig(quant_mapping=...)` for `libraries`
+    ({component: owning library}): one TorchAoConfig per component, from the
+    library that owns it, each built from its own torchao `AOBaseConfig`
+    instance. None where nothing is quantizable. The image pipeline's
+    (`quantization_config`) and FLUX 3's prompt upsampler's
+    (`flux3_upsampler`) one rule."""
     from diffusers.quantizers.pipe_quant_config import PipelineQuantizationConfig
     from diffusers.quantizers.quantization_config import TorchAoConfig as DiffusersTorchAoConfig
     from torchao.quantization import Float8WeightOnlyConfig, Int8WeightOnlyConfig
     from transformers import TorchAoConfig as TransformersTorchAoConfig
 
+    if quantization not in QUANT_BACKENDS:
+        raise ValueError(f"no torchao weight-only scheme named {quantization!r}")
     # Both are one byte per weight; int8 tends to be more accurate, fp8 keeps
     # more dynamic range for outlier channels.
-    make = Float8WeightOnlyConfig if settings.quantization == "fp8" else Int8WeightOnlyConfig
+    make = Float8WeightOnlyConfig if quantization == "fp8" else Int8WeightOnlyConfig
     config_for = {
         "transformers": TransformersTorchAoConfig,
         "diffusers": DiffusersTorchAoConfig,
     }
 
     mapping = {}
-    for component, library in component_libraries(settings.model_id).items():
+    for component, library in libraries.items():
         cls = config_for.get(library)
         if cls is None:
             log.warning("skipping %s: unknown library %r", component, library)
             continue
-        refuse_prequantized(settings, component)
         mapping[component] = cls(quant_type=make())
 
     if not mapping:
         log.warning("no quantizable components found; loading in full bf16")
         return None
-    log.info("quantizing %s to %s", sorted(mapping), settings.quantization)
+    log.info("quantizing %s to %s", sorted(mapping), quantization)
     return PipelineQuantizationConfig(quant_mapping=mapping)
 
 

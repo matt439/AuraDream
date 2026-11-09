@@ -321,6 +321,23 @@ before changing it.
   and separate cached trees
 - `backend/backends/anima_pipeline.py` — upstream Anima modular blocks behind
   the standard pipeline interface, with per-step progress and cancellation
+- `backend/backends/flux3_loading.py` — FLUX 3 [Klein] and Klein Base: the
+  pinned snapshot's configs (preflight: the modular index's classes, the
+  transformer's `flow_map`) then only its `transformer/`, `text_encoder/` and
+  `vae/` folders; each component loaded from its subfolder with the
+  per-component torchao mapping (the VAE in float32), the text encoder's
+  unquantized tensors copied out as `checkpoint_files_released` does
+- `backend/backends/flux3_pipeline.py` — upstream FLUX 3 modular blocks
+  (distilled flow-map and Base with a per-call guider; references through
+  the conditioned core) behind the standard pipeline interface, with per-step
+  progress and cancellation; the prompt upsampler never runs in the image
+  call, only as Expand (`upsample_prompt`, first in the offload sequence)
+- `backend/backends/flux3_upsampler.py` — FLUX 3's prompt upsampler as
+  Expand: the pinned `flux-3-image-klein-pup` (configs checked, then
+  `*.json`, the chat template and `model.safetensors`), quantized one byte
+  per weight through `loading.quant_mapping_config`, refused without
+  offload, diffusers' t2i system prompt and chat, the card's greedy decoding
+  with presence penalty 1.5, Stop polled per token
 - `backend/backends/netayume_loading.py` — pinned CPU conversion of NetaYume
   v4's split denoiser, with the official Lumina 2 parent's shared components
 - `backend/backends/newbie_loading.py` — pinned CPU conversion of NewBie Exp0.1;
@@ -637,7 +654,7 @@ before changing it.
   dialog's preview, submit, close and Reuse, and an edit's lineage; `styles/instruction-edit.css`);
   `prompt-note.js` the note under the prompt and its Undo (`showPromptNote`, `promptUndo`); `tags.js`, `tag-tokens.js` and `tag-chips.js` the prompt helper, `tag-lists.js` the editors' suggestion lists and the negative box's, `tag-helper.js` its Tags menu (the toggles, Start with, Finish with and the caret line), `tag-finder.js` its Find
   tag dropdown; `prompt-examples.js` the
-  Examples menu, `prompt-expand.js` ERNIE's Expand; `analysis.js`,
+  Examples menu, `prompt-expand.js` Expand (ERNIE's rewriter, FLUX 3's upsampler); `analysis.js`,
   `analysis-critic.js` and `comparison.js` the check and critic. `sizes.js`
   and `status.js` retain their control/profile roles; `model-switch.js` owns
   checkpoint selection and retiring state prepared under the old model;
@@ -929,9 +946,10 @@ measured on the card and when.
 - Z-Anime Base has a pinned nested `diffusers/` tree. `loading.resolve_model`
   resolves configs before quantization checks and weights after them; both
   passes use the same revision and keep the official id in settings/metadata.
-  Diffusers 0.40 does not support pipeline-level `subfolder`. Keep the supplied
-  FlowMatch Euler scheduler (shift 6); the card's ComfyUI Euler Ancestral/beta
-  recommendation is a different setup, not a verified equivalent.
+  Diffusers 0.42 (as 0.40) does not support pipeline-level `subfolder`. Keep
+  the supplied FlowMatch Euler scheduler (shift 6); the card's ComfyUI Euler
+  Ancestral/beta recommendation is a different setup, not a verified
+  equivalent.
   Its bundled encoder has scaled FP8 tensors without quantization metadata.
   Skip those weights: `loading.component_overrides` loads the standard Qwen3
   encoder from pinned `Tongyi-MAI/Z-Image`, using the same Transformers-owned
@@ -980,6 +998,34 @@ measured on the card and when.
   inheriting Turbo distillation or Aesthetic score prohibitions. Do not infer
   measured speed, memory or quality from the other Anima selections.
 
+- `black-forest-labs/flux-3-image-klein` (distilled, flow-map, 16 steps, no
+  guidance) and `black-forest-labs/flux-3-image-klein-base` (undistilled, 50
+  steps, CFG 3.5) have no `model_index.json`: `loading.resolve_model` hands
+  them to `flux3_loading`, which downloads the pinned revision's configs and
+  modular index first, refuses another variant before weights (the index's
+  classes, the transformer's `flow_map`), then only `transformer/*`,
+  `text_encoder/*`, `vae/*` - never the root BFL `model.safetensors`,
+  `ae.safetensors` or `variants/`. `Flux3KleinPipeline` /
+  `Flux3KleinBasePipeline.from_pretrained` load each component from its
+  subfolder (never the index's component paths) with the
+  `PipelineQuantizationConfig` mapping `loading.quantization_config` built
+  from the modular index (`flux3_loading.component_libraries`); the VAE
+  stays float32 and is never quantized; the text encoder, which bypasses
+  `load_sub_model`, gets `own_tensors` inside the shard-release context when
+  quantized. The scheduler is `FlowMatchEulerDiscreteScheduler(shift=6.93)`
+  (the blocks' fixed shift; `mu_static` ln 6.93), a requested Mu reaching it
+  as pre-shifted `sigmas`. The pipelines run the upstream encoder, core and
+  decode blocks with `sub_blocks` called directly (a cooperative `Cancelled`
+  logs no "Error in block"), a callback denoise loop, a fresh guider per Base
+  call (`enabled` only above 1), and `maybe_free_model_hooks` in `finally`.
+  The prompt upsampler block never runs in the image call: the row records
+  the prompt the model saw. It runs only as Expand (`flux3_upsampler`, below
+  under the expander rule). References go through the upstream conditioned core; refine,
+  inpaint, user LoRAs (`lora_refusal`), Nunchaku and the latent preview are
+  unavailable. Exact-id profiles, ahead of FLUX.2 [klein]'s `klein` and
+  FLUX.1's `flux` tokens; one shared guide from the two cards. Nothing about
+  either is measured on the card (fit, peak, RAM, time, quality).
+
 - `duongve/NetaYume-Lumina-Image-2.0` selects the pinned v4 split denoiser.
   `netayume_loading` strictly converts it on CPU and uses the pinned official
   Lumina 2 parent for configs, Gemma 2, tokenizers and FLUX VAE, excluding the
@@ -998,10 +1044,10 @@ measured on the card and when.
 
 - `NewBie-AI/NewBie-image-Exp0.1` selects pinned official components, strictly
   converted on CPU by `newbie_loading`. Keep its public id in status/metadata.
-  Diffusers 0.40 has no native NewBie pipeline; use the local classes, Gemma 3
-  penultimate hidden states and Jina's unnormalized masked mean. Keep both
-  prompts free of system prefixes, FlowMatch Euler shift 6, normalized reverse
-  transformer time, and whole-sample CFG norm limiting. The exact-id profile
+  Diffusers 0.42 (as 0.40) has no native NewBie pipeline; use the local
+  classes, Gemma 3 penultimate hidden states and Jina's unnormalized masked
+  mean. Keep both prompts free of system prefixes, FlowMatch Euler shift 6,
+  normalized reverse transformer time, and whole-sample CFG norm limiting. The exact-id profile
   starts at the card's 28 steps and the author's sample CFG 4. XML is text,
   never comma chips; 1024x1024 is an example, not a published size ceiling.
   References, user LoRAs and Nunchaku are unavailable for this integration.
@@ -1432,6 +1478,12 @@ measured on the card and when.
   stored 3:2 edits still bind and inspect. The tests' `FakeBackend` reports
   the envelope's own host (`edit_host`), so its answers follow the selection
   on any machine.
+- The envelope's diffusers is the measured 0.40.0, while the app installs
+  0.42 (GEN#45). So on a real install every Kontext load, the edit route and
+  edit More seeds refuse, naming both versions ("diffusers 0.42.1 (only
+  0.40.0 was) is not measured"). Raise `diffusers_version` only after the
+  card re-measures Kontext on the installed diffusers, never with the bump
+  itself (`test_the_installed_diffusers_holds_every_kontext_load_until_remeasured`).
 - Every load entry refuses an unmeasured Kontext choice before the Hub is
   asked and before anything is saved, unloaded or downloaded.
   `require_model_available(model_id, qualified=, loader=)` answers, in order:
@@ -1525,7 +1577,11 @@ measured on the card and when.
 - `AURADREAM_QUANT=nunchaku` means a pre-quantized lite-infer repo, Linux only
   (WSL 2 on the 5080; native Linux too, with the int4 repos below compute
   capability 10.0, unmeasured on the 3070), and no quantization config; `loading.nunchaku_preflight` and `loading.refuse_prequantized` refuse the other pairings before any download. Under
-  WSL, `source wsl/env.sh` before `uv`.
+  WSL, `source wsl/env.sh` before `uv`. The catalogue's lite-infer ids
+  (`launch._LITE`, ERNIE's) are the pre-rename names, which the Hub now
+  answers with a 307 to names without the encoder suffix; keep them (saved
+  settings and PNGs name them) until `GEN#47` moves the catalogue with the
+  old ids still read. FLUX 3 has no Nunchaku build (`CARD#21`).
 - `config.py` sets `DIFFUSERS_TRUST_REMOTE_KERNELS` and must be imported
   before diffusers everywhere, the CLI included. The offload hooks are handed
   `AURADREAM_DEVICE` explicitly; given nothing, diffusers takes GPU 0.
@@ -1537,7 +1593,8 @@ measured on the card and when.
   The explicit Expand endpoint loads those components on first use, rebuilds
   the offload chain, and puts the result in the prompt editor.
   `ModelStatus.prompt_expander` (`ExpanderStatus`: `loaded`, `fetch`
-  [{name, bytes, step}], `fetch_bytes`; None without an expander) says,
+  [{name, bytes, step}], `fetch_bytes`, `name`, `translates`, `held`; None
+  without an expander) says,
   from file checks only (`backend.prompt_expander_status()`,
   `loading.prompt_expander_cached`, `MarianTranslator.cached()`), whether
   the rewriter is on the live pipeline and what a first use downloads, each
@@ -1551,6 +1608,36 @@ measured on the card and when.
   log always does. `generate()`
   still sets `use_pe=False` wherever the switch exists. The tests'
   conftest refuses `loading.hub_file` for every test; one that needs an index stubs it.
+- FLUX 3 [Klein] and Klein Base's Expand is BFL's prompt upsampler
+  (`flux3_upsampler`), through the same seam: `prompt_expansion_supported`
+  (the ids cold, `upsample_prompt` once loaded), `expand_prompt` under the
+  backend's lock, the route's `run_when_idle(holder="expand")` after
+  `ensure_loaded`. The repository is pinned
+  (`black-forest-labs/flux-3-image-klein-pup` at `a5789954`); its
+  `config.json` must name `Qwen3_5ForConditionalGeneration` before the
+  weights come down (only `*.json`, `chat_template.jinja`,
+  `model.safetensors`: `flux3_upsampler.BYTES`). It loads on the CPU in
+  bf16 quantized to the server's fp8 or int8 (int8 otherwise) through
+  `loading.quant_mapping_config` - transformers' `TorchAoConfig` from an
+  `AOBaseConfig` instance, the image pipeline's one rule - with
+  `own_tensors` after; it registers as the pipeline's optional
+  `prompt_upsampler`/`prompt_upsampler_processor`, first in
+  `model_cpu_offload_seq`, and `place_pipeline` rebuilds the chain, so it is
+  on the card only while it writes. With offload `none` it is refused
+  (`flux3_upsampler.refusal`, `backend.prompt_expansion_refusal()`): 422 from
+  the route before the load, `ExpanderStatus.held` holding the button with
+  the sentence. The chat is diffusers' t2i one (its `SYSTEM_PROMPTS["t2i"]`,
+  equal to the pin's `system_prompts.json`; `enable_thinking=False`; 3584
+  new tokens); the decoding is the card's - greedy with presence penalty 1.5
+  (`PresencePenalty`, vLLM's meaning, generated tokens only), never
+  diffusers' penalty-free greedy; a `StoppingCriteria` polls Stop each
+  token, and another decodes the answer each token and stops it once past
+  the prompt box's 4000 characters (`flux3_upsampler.PROMPT_LIMIT`, held
+  equal to `GenerateRequest.prompt`'s max_length): `ExpansionTooLong`, a
+  422 in `too_long()`'s words, never a truncated caption or a 500. No size is sent (BFL's `flux3/pup.py` sends none). The status says
+  `name` ("FLUX 3's prompt upsampler") and `translates: false`: its English
+  answer is never translated and the translator is never fetched. Nothing
+  about it is measured on the card (`CARD#20`).
 
 ### Schedule and guidance
 
@@ -1709,6 +1796,12 @@ measured on the card and when.
   changing the environment. FBC additionally refuses true CFG and an existing
   cache. A matching candidate grants no runtime availability or loaded-API,
   processor, shape, kernel or device qualification.
+- The regional and attention/cache candidates were read against diffusers
+  0.40 and stay keyed to it (`execution._CANDIDATE_DIFFUSERS`) while the app
+  installs 0.42, whose hooks API changed (`StateManager.set_context` takes a
+  `CacheContext`; `enable_cache`/`disable_cache` invalidate child-registry
+  caches). Every 0.42 install answers "checked only on diffusers 0.40".
+  Moving them is its own qualification, with the fixtures that pass 0.40.0.
 - Private FBC ownership validates exact eager FLUX block identities, order,
   counts and output metadata. One retained owner covers the shared denoiser;
   each call installs fresh fixed-threshold hooks, resets state/context before
@@ -3698,13 +3791,16 @@ measured on the card and when.
   itself) has a note naming the gap ("Author sample: under 30-80 words"),
   held by `test_the_authors_examples_draw_no_finding_unnoted`; never edit
   the example to pass.
-- Prompt expansion is ERNIE-only and explicit. `syncExpandButton` is
+- Prompt expansion is explicit, and ERNIE's or FLUX 3's alone (the page
+  names it from `prompt_expander.name`, `expanderName()`, and leaves out the
+  translation where `translates` is false). `syncExpandButton` is
   Expand's one writer: it is held while it runs (reading "Expand…", never
   the wider "Expanding…", in the width it had idle: `syncExpandButton` locks it and
   `.running` gives the ellipsis its side padding, so the caption row, full at 1400 px,
   never wraps Reset), during this page's job or another tab's
   (`EXPAND_ELSEWHERE`, after busy in its reasons), during a critique, or
-  with the server offline - aria-disabled, with the reason as its title, so
+  with the server offline, or held by the settings (`prompt_expander.held`,
+  FLUX 3's upsampler without offload) - aria-disabled, with the reason as its title, so
   a keyboard user's focus stays; otherwise the title names a first use's
   cost from `ModelStatus.prompt_expander`. A press on it held says why,
   through `expandSay`: this page's job's reason is a job note gone at the
@@ -10610,6 +10706,26 @@ fresh scratch gallery:
 ```powershell
 uv run python tools/fake_server.py --port 7911 --model Gazingstars123/Anima-2.9B --data <scratch-directory>
 node tools/browser.mjs tools/smoke-anima-preview.json
+```
+
+`smoke-flux3.json` checks FLUX 3 [Klein]'s name and public identity, its and
+Klein Base's picker rows (example size, licence click-through, unknown
+download, unmeasured note), the distilled 16-step/CFG-1 defaults with the Mu
+placeholder at the fixed shift (1.94), the ignored-CFG, steps and Mu tips,
+references on and negative prompt, True CFG, Refine and LoRAs off, the
+shared guide's caption advice and example-size line, its one Qwen3-VL budget
+(8189), Expand as FLUX 3's prompt upsampler (its name and 17.5 GiB first-use
+download in the title, no translator, a page-side held status shown
+aria-disabled with its held text as the title (the server's own refusal
+sentence and its 422 are pytest's, `tests/test_api.py`), the running line's download/load/expanding steps, the
+caption written into the box with an Undo and Ctrl+Z, no translation), the
+LoRA and Refine refusals, and a saved cell recording the public id, the
+upsampled prompt, 16 steps, Mu and no negative prompt, on port 7911 with its own fresh
+scratch gallery (it shares the port with `smoke-anima-preview`):
+
+```powershell
+uv run python tools/fake_server.py --port 7911 --model black-forest-labs/flux-3-image-klein --data <scratch-directory>
+node tools/browser.mjs tools/smoke-flux3.json
 ```
 
 `smoke-model-switch.json` runs a FLUX.1-claiming fake on port 7896, on a

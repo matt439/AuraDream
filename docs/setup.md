@@ -229,7 +229,9 @@ The two sensible first choices:
   (the RAM item above). It is gated: it needs step 6.
 
 Krea 2 Turbo and Raw are gated too, and need their authors' manual approval,
-which can take a while.
+which can take a while. FLUX 3 [Klein] and Klein Base are click-throughs
+under the FLUX Kommunity License; how much memory they need has not been
+measured.
 
 ## 6. Sign in to Hugging Face (gated checkpoints only)
 

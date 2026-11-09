@@ -40,7 +40,10 @@ from ..execution import (
 from ..instruction_edit import KONTEXT_V1
 from ..model_defaults import INPAINT_DEFERRED, defaults_for, inpaint_family, inpaint_start
 from ..seeds import wrap_seed
-from . import anima_loading, attention_selection, fbc_cache, loading, netayume_loading, newbie_loading, regional_compile, schedule, single_file
+from . import (
+    anima_loading, attention_selection, fbc_cache, flux3_loading, flux3_upsampler, loading, netayume_loading,
+    newbie_loading, regional_compile, schedule, single_file,
+)
 from .base import CancelFn, Cancelled, ExecutionDiagnosticsReader, GenerationBackend, PreviewFn, ProgressFn
 
 if TYPE_CHECKING:
@@ -562,6 +565,9 @@ class DiffusersBackend(GenerationBackend):
                 from .newbie_pipeline import NewbiePipeline
 
                 loader = NewbiePipeline
+            elif flux3_loading.matches(checkpoint_id):
+                # No model_index.json: the app's pipeline loads each folder.
+                loader = flux3_loading.pipeline_class(checkpoint_id)
             elif editor:
                 # The explicit class stage 3 loaded, never one resolved again.
                 import diffusers
@@ -989,26 +995,49 @@ class DiffusersBackend(GenerationBackend):
         require_default_execution(request.execution)
         return request
 
+    def _upsamples(self) -> bool:
+        """Whether Expand is FLUX 3's prompt upsampler: the loaded pipeline's
+        `upsample_prompt`, or before a load the id's."""
+        pipe = self._pipe
+        if pipe is None:
+            return flux3_loading.matches(current_model_id(settings))
+        return callable(getattr(pipe, "upsample_prompt", None))
+
     def prompt_expansion_supported(self) -> bool:
         pipe = self._pipe
         if pipe is None:
             # Enough to expose the button before a load. Once loaded, the
             # method and call signature are the authoritative answer.
-            return "ernie-image" in current_model_id(settings).lower().replace("_", "-")
+            model_id = current_model_id(settings)
+            return "ernie-image" in model_id.lower().replace("_", "-") or flux3_loading.matches(model_id)
+        if self._upsamples():
+            return True
         return callable(getattr(pipe, "_enhance_prompt_with_pe", None)) and "use_pe" in self._call_params
 
+    def prompt_expansion_refusal(self) -> str | None:
+        """FLUX 3's upsampler is held without offload (`flux3_upsampler.refusal`)."""
+        if self.prompt_expansion_supported() and self._upsamples():
+            return flux3_upsampler.refusal(current_settings(settings))
+        return None
+
     def prompt_expander_status(self) -> dict | None:
-        """Whether the rewriter is registered on the live pipeline, and what a
-        first Expand downloads where its weights are not on disk: the 7.7 GB
-        the page should name before the press that starts it."""
+        """Whether the expander is registered on the live pipeline, and what a
+        first Expand downloads where its weights are not on disk: ERNIE's 7.7
+        GB rewriter or FLUX 3's 18.8 GB upsampler, which the page should name
+        before the press that starts it. Only ERNIE's is translated after."""
         if not self.prompt_expansion_supported():
             return None
         pipe = self._pipe
-        loaded = pipe is not None and getattr(pipe, "pe", None) is not None
         fetch = []
+        if self._upsamples():
+            loaded = pipe is not None and getattr(pipe, flux3_upsampler.COMPONENT, None) is not None
+            if not loaded and not flux3_upsampler.cached():
+                fetch.append((flux3_upsampler.NAME, flux3_upsampler.BYTES))
+            return {"loaded": loaded, "fetch": fetch, "name": flux3_upsampler.NAME, "translate": False}
+        loaded = pipe is not None and getattr(pipe, "pe", None) is not None
         if not loaded and not loading.prompt_expander_cached(current_model_id(settings)):
             fetch.append(("ERNIE's prompt rewriter", loading.PROMPT_EXPANDER_BYTES))
-        return {"loaded": loaded, "fetch": fetch}
+        return {"loaded": loaded, "fetch": fetch, "name": "ERNIE's prompt rewriter", "translate": True}
 
     def expand_prompt(
         self, prompt: str, width: int, height: int, should_cancel: CancelFn | None = None,
@@ -1023,6 +1052,8 @@ class DiffusersBackend(GenerationBackend):
             pipe = self._pipe
             if pipe is None:
                 raise RuntimeError("the image model is not loaded")
+            if self._upsamples():
+                return self._upsample(pipe, prompt, check, should_cancel)
             enhance = getattr(pipe, "_enhance_prompt_with_pe", None)
             if not callable(enhance) or "use_pe" not in self._call_params:
                 raise RuntimeError(f"{type(pipe).__name__} has no prompt expander")
@@ -1045,6 +1076,34 @@ class DiffusersBackend(GenerationBackend):
                     free_hooks()
             check()
             return str(expanded).strip()
+
+    def _upsample(self, pipe: Any, prompt: str, check: Callable[[], None], should_cancel: CancelFn | None) -> str:
+        """FLUX 3's upsampler once, under `expand_prompt`'s lock: loaded and
+        joined to the offload chain on first use, as ERNIE's rewriter is.
+        Its caption is the prompt written into the box; no size is sent,
+        as BFL's own `flux3/pup.py` sends none."""
+        current = current_settings(settings)
+        refusal = flux3_upsampler.refusal(current)
+        if refusal is not None:
+            raise RuntimeError(refusal)
+        if getattr(pipe, flux3_upsampler.COMPONENT, None) is None:
+            components = flux3_upsampler.load(current, should_cancel)
+            # The synchronous download/load may finish into the cache;
+            # an abandoned request must not start the GPU work after it.
+            check()
+            pipe.register_modules(**components)
+            # Rebuilt so the upsampler is the offload chain's first model:
+            # moved to the card for its own call and off it after.
+            loading.place_pipeline(pipe, current)
+        try:
+            check()
+            expanded = pipe.upsample_prompt(prompt, should_cancel)
+        finally:
+            free_hooks = getattr(pipe, "maybe_free_model_hooks", None)
+            if callable(free_hooks):
+                free_hooks()
+        check()
+        return str(expanded).strip()
 
     def _apply_console_progress(self, pipe: Any) -> None:
         fn = getattr(pipe, "set_progress_bar_config", None)

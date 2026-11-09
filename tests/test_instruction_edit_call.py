@@ -329,7 +329,7 @@ def test_an_unbound_edit_never_reaches_the_branch(editor):
 @pytest.mark.parametrize(("cls", "host", "words"), [
     ("closed", None, INSTRUCTION_EDIT_UNAVAILABLE),
     ("real", ("linux", "0.40.0"), INSTRUCTION_EDIT_LOADER_UNQUALIFIED.format(choice="Linux (WSL)")),
-    ("real", ("win32", "0.41.0"), INSTRUCTION_EDIT_LOADER_UNQUALIFIED.format(choice="diffusers 0.41.0")),
+    ("real", ("win32", "0.42.1"), INSTRUCTION_EDIT_LOADER_UNQUALIFIED.format(choice="diffusers 0.42.1 (only 0.40.0 was)")),
 ])
 def test_a_closed_gate_or_an_unmeasured_host_refuses_before_any_call(editor, monkeypatch, cls, host, words):
     _, bound, prepared = editor

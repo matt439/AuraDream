@@ -1,10 +1,12 @@
-// AuraDream's page script: ERNIE's prompt Expand.
+// AuraDream's page script: Expand - ERNIE's prompt rewriter, or FLUX 3's
+// prompt upsampler (the status's `prompt_expander.name`).
 // Declarations only; its button is wired in app.js, and state.js has the
 // shared-global load-order contract.
 'use strict';
 
-// ERNIE's Expand: the prompt rewritten once by the checkpoint's own rewriter,
-// visibly, then the English of it - the button's state is status.js's
+// Expand: the prompt rewritten once by the checkpoint's own expander,
+// visibly, then for ERNIE's the English of it (FLUX 3's upsampler writes
+// English and is not translated) - the button's state is status.js's
 // (syncExpandButton). What it does is said under the prompt, where it was
 // pressed (prompt-note.js, showPromptNote): while it runs, with a clock, what it
 // waits on - the model's load, a first use's download - and when it lands,
@@ -241,8 +243,9 @@ function offerDisplaced(run) {
 }
 
 // The running line, with what the press waits on, in the order the server
-// does it: the model's load, the rewriter's first download or its load, the
-// expansion, the translator's first download, the translation. A clock
+// does it: the model's load, the expander's first download or its load, the
+// expansion, and for ERNIE's the translator's first download and the
+// translation (`prompt_expander.translates`; FLUX 3's has neither). A clock
 // counts beside it, aria-hidden, as the load's does: a first use is minutes
 // with nothing else moving. The status's `prompt_expander` gives each
 // download's step (`fetch[].step`), and refreshStatus asks for the line
@@ -265,10 +268,14 @@ function expandRunningText() {
   if (modelState !== 'ready') ahead.push(`loading ${name}`);
   const rewriter = fetch.filter((f) => f.step === 'expand');
   if (rewriter.length) ahead.push(...rewriter.map(download));
-  else if (s && !s.loaded) ahead.push("loading ERNIE's prompt rewriter");
-  const after = fetch.filter((f) => f.step === 'translate').map(download);
-  if (!ahead.length && !after.length) return 'Expanding with ERNIE, then translating locally…';
-  const line = [...ahead, 'expanding', ...after, 'translating…'].join(', then ');
+  else if (s && !s.loaded) ahead.push(`loading ${expanderName()}`);
+  const translates = s?.translates !== false;
+  const after = translates ? fetch.filter((f) => f.step === 'translate').map(download) : [];
+  if (!ahead.length && !after.length) {
+    return translates ? 'Expanding with ERNIE, then translating locally…' : `Expanding with ${expanderName()}…`;
+  }
+  const line = translates ? [...ahead, 'expanding', ...after, 'translating…'].join(', then ')
+    : [...ahead, 'expanding…'].join(', then ');
   return `${line[0].toUpperCase()}${line.slice(1)}`;
 }
 

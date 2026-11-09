@@ -55,8 +55,9 @@ def test_only_the_envelope_is_unrefused(device, loader_execution):
     (KONTEXT, {"loader_execution": {"attention_backend": "cudnn-v1"}}, "cudnn-v1 attention"),
     (KONTEXT, {"loader_execution": {"step_cache": "fbc-005-v1"}}, "an unreadable performance configuration"),
     (KONTEXT, {"loader_execution": {"compilation": "future"}}, "an unreadable performance configuration"),
-    (KONTEXT, {"diffusers_version": "0.41.0"}, "diffusers 0.41.0"),
-    (KONTEXT, {"diffusers_version": "0.40.0.dev0"}, "diffusers 0.40.0.dev0"),
+    (KONTEXT, {"diffusers_version": "0.41.0"}, "diffusers 0.41.0 (only 0.40.0 was)"),
+    (KONTEXT, {"diffusers_version": "0.40.0.dev0"}, "diffusers 0.40.0.dev0 (only 0.40.0 was)"),
+    (KONTEXT, {"diffusers_version": "0.42.1"}, "diffusers 0.42.1 (only 0.40.0 was)"),
     (KONTEXT, {"diffusers_version": None}, "a missing diffusers"),
     (KONTEXT.lower(), {}, f"the checkpoint {KONTEXT.lower()!r}"),
     ("black-forest-labs/FLUX.1-Krea-dev", {}, "the checkpoint 'black-forest-labs/FLUX.1-Krea-dev'"),
@@ -66,6 +67,17 @@ def test_loader_refusal_names_each_unmeasured_choice(model_id, changes, named):
     assert reason == edit.INSTRUCTION_EDIT_LOADER_UNQUALIFIED.format(choice=named)
     assert reason.startswith("FLUX.1 Kontext [dev] is qualified on this card only at fp8 with model offload")
     assert reason.endswith(f"{named} is not measured.")
+
+
+def test_the_installed_diffusers_holds_every_kontext_load_until_remeasured():
+    # The app installs diffusers 0.42 while the envelope stays at the measured
+    # 0.40.0: the exact envelope otherwise, refused in words naming both.
+    installed = edit.installed_diffusers_version()
+    assert installed is not None and installed.startswith("0.42.")
+    assert edit.QUALIFIED_ENVELOPE.diffusers_version == "0.40.0"
+    reason = refusal(diffusers_version=installed)
+    assert reason is not None
+    assert reason.endswith(f"diffusers {installed} (only 0.40.0 was) is not measured.")
 
 
 def test_the_first_unmeasured_choice_is_the_one_named():

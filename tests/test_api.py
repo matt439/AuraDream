@@ -506,25 +506,116 @@ def test_status_names_what_a_first_expansion_downloads(client, fake):
     # after it - the order the page's running line names them in.
     rewriter = {"name": "ERNIE's prompt rewriter", "bytes": 7_663_346_520, "step": "expand"}
     translator = {"name": "the opus-mt-zh-en translator", "bytes": main.TRANSLATOR_BYTES, "step": "translate"}
+    named = {"name": "ERNIE's prompt rewriter", "translates": True, "held": None}
     assert first == {
         "loaded": False,
         "fetch": [rewriter, translator],
         "fetch_bytes": 7_663_346_520 + main.TRANSLATOR_BYTES,
+        **named,
     }
     # The rewriter on disk already: the translator alone, still after the
     # expansion, with the rewriter's load still ahead.
     fake.expander_cached = True
     assert client.get("/api/status").json()["prompt_expander"] == {
-        "loaded": False, "fetch": [translator], "fetch_bytes": main.TRANSLATOR_BYTES,
+        "loaded": False, "fetch": [translator], "fetch_bytes": main.TRANSLATOR_BYTES, **named,
     }
     assert client.post("/api/prompt/expand", json={"prompt": "a lighthouse"}).status_code == 200
     after = client.get("/api/status").json()["prompt_expander"]
-    assert after == {"loaded": True, "fetch": [], "fetch_bytes": 0}
+    assert after == {"loaded": True, "fetch": [], "fetch_bytes": 0, **named}
     # Unload lets the rewriter go; it stays on disk.
     assert client.post("/api/model/unload").status_code == 200
     assert client.get("/api/status").json()["prompt_expander"] == {
-        "loaded": False, "fetch": [], "fetch_bytes": 0,
+        "loaded": False, "fetch": [], "fetch_bytes": 0, **named,
     }
+
+
+def _flux3(fake, monkeypatch):
+    """The fake claiming FLUX 3 [Klein], whose Expand is BFL's upsampler."""
+    from backend.backends import flux3_loading
+
+    main.model_selection.select(flux3_loading.MODEL_ID)
+    assert fake.prompt_expansion_supported() and fake.prompt_upsampler
+
+
+def test_flux3s_status_names_its_upsampler_and_no_translator(client, fake, monkeypatch):
+    from backend.backends import flux3_upsampler
+
+    _flux3(fake, monkeypatch)
+    upsampler = {"name": flux3_upsampler.NAME, "bytes": flux3_upsampler.BYTES, "step": "expand"}
+    named = {"name": "FLUX 3's prompt upsampler", "translates": False, "held": None}
+    # Its 18.8 GB alone: the answer is English, so no translator is fetched.
+    assert client.get("/api/status").json()["prompt_expander"] == {
+        "loaded": False, "fetch": [upsampler], "fetch_bytes": flux3_upsampler.BYTES, **named,
+    }
+    response = client.post("/api/prompt/expand", json={"prompt": "a lighthouse", "width": 1264, "height": 848})
+    assert response.status_code == 200
+    assert response.json() == {
+        "original_prompt": "a lighthouse",
+        "expanded_prompt": "Upsampled: a lighthouse",
+        "translated_prompt": None,
+        "translation_detail": None,
+    }
+    assert fake.translator.translations == []
+    assert client.get("/api/status").json()["prompt_expander"] == {
+        "loaded": True, "fetch": [], "fetch_bytes": 0, **named,
+    }
+
+
+def test_flux3s_upsampler_held_by_the_settings_is_refused_before_the_load(client, fake, monkeypatch):
+    _flux3(fake, monkeypatch)
+    fake.loaded = False
+    fake.expansion_refusal = "FLUX 3's prompt upsampler runs only with model or sequential offload"
+    assert client.get("/api/status").json()["prompt_expander"]["held"] == fake.expansion_refusal
+    response = client.post("/api/prompt/expand", json={"prompt": "a lighthouse"})
+    assert response.status_code == 422
+    assert response.json()["detail"] == fake.expansion_refusal
+    # Nothing loaded, nothing ran.
+    assert fake.loads == 0 and fake.expansions == []
+
+
+def test_flux3s_caption_stopped_at_the_prompt_limit_is_a_422_in_its_words(client, fake, monkeypatch):
+    # The upsampler stops itself at the box's limit and says why; the page
+    # shows the sentence, never a 500 or advice to shorten the request.
+    from backend.backends import ExpansionTooLong, flux3_upsampler
+
+    _flux3(fake, monkeypatch)
+    fake.expand_error = ExpansionTooLong(flux3_upsampler.too_long())
+    response = client.post("/api/prompt/expand", json={"prompt": "a crowded market"})
+    assert response.status_code == 422
+    assert response.json()["detail"] == flux3_upsampler.too_long()
+    assert "4,000 characters" in response.json()["detail"]
+
+
+def test_expand_is_refused_off_ernie_and_flux3(client, fake):
+    assert not fake.prompt_expansion_supported()
+    response = client.post("/api/prompt/expand", json={"prompt": "a lighthouse"})
+    assert response.status_code == 422
+    assert response.json()["detail"] == (
+        "this checkpoint has no prompt expander; ERNIE-Image and FLUX 3 [Klein] are the ones here that do"
+    )
+    assert fake.expansions == []
+
+
+def test_flux3s_upsampler_waits_for_the_card_and_never_beside_a_job(client, fake, monkeypatch):
+    # GPU work outside jobs: through run_when_idle, as "expand", after the
+    # load - and refused while an image job is queued or running.
+    _flux3(fake, monkeypatch)
+    jobs = main.jobs
+    holders: list[tuple[str | None, str | None]] = []
+    original = jobs.run_when_idle
+
+    async def recorded(fn, *, holder=None, ticket=None, **kwargs):
+        holders.append((holder, ticket))
+        return await original(fn, holder=holder, ticket=ticket, **kwargs)
+
+    monkeypatch.setattr(jobs, "run_when_idle", recorded)
+    monkeypatch.setattr(jobs, "busy", lambda: True)
+    response = client.post("/api/prompt/expand", json={"prompt": "a lighthouse"})
+    assert response.status_code == 409 and fake.expansions == [] and holders == []
+    monkeypatch.setattr(jobs, "busy", lambda: False)
+    response = client.post("/api/prompt/expand", json={"prompt": "a lighthouse", "ticket": "t-1"})
+    assert response.status_code == 200
+    assert holders == [("expand", "t-1")] and fake.expansions == [("a lighthouse", 1024, 1024)]
 
 
 def test_an_expansion_failure_reads_without_the_class_name(client, fake):

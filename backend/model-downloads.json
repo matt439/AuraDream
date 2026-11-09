@@ -875,6 +875,26 @@
       ],
       "unknown": "The public inference manifest was unavailable without authentication."
     },
+    "black-forest-labs/flux-3-image-klein": {
+      "kind": "pipeline",
+      "sources": [
+        {
+          "files": null,
+          "source": "black-forest-labs/flux-3-image-klein@09561231f44e41381c461caf53d5452005a60ac9"
+        }
+      ],
+      "unknown": "The gated repository's descriptors (modular_model_index.json and the shard maps) were not readable with the local token on 2026-11-09; file sizes are recorded below, the selection is unverified until access is granted."
+    },
+    "black-forest-labs/flux-3-image-klein-base": {
+      "kind": "pipeline",
+      "sources": [
+        {
+          "files": null,
+          "source": "black-forest-labs/flux-3-image-klein-base@a83ce283b1daa2f3d782645ae7b06c8e73af1b41"
+        }
+      ],
+      "unknown": "The gated repository's descriptors (modular_model_index.json and the shard maps) were not readable with the local token on 2026-11-09; file sizes are recorded below, the selection is unverified until access is granted."
+    },
     "cagliostrolab/animagine-xl-4.0": {
       "kind": "pipeline",
       "sources": [
@@ -13567,6 +13587,105 @@
       "repo_id": "black-forest-labs/FLUX.2-klein-base-9B",
       "revision": "main",
       "url": "https://huggingface.co/api/models/black-forest-labs/FLUX.2-klein-base-9B/revision/main?blobs=true"
+    },
+    "black-forest-labs/flux-3-image-klein-base@a83ce283b1daa2f3d782645ae7b06c8e73af1b41": {
+      "commit": "a83ce283b1daa2f3d782645ae7b06c8e73af1b41",
+      "files": {
+        ".gitattributes": 1732,
+        "LICENSE.md": 19593,
+        "NOTICE.md": 330,
+        "README.md": 14452,
+        "ae.safetensors": 336211292,
+        "config.json": 805,
+        "launch-gallery.jpg": 6537996,
+        "manifest.json": 404,
+        "model.safetensors": 11076957072,
+        "modular_model_index.json": 2117,
+        "teaser.jpg": 1094632,
+        "text_encoder/LICENSE": 11357,
+        "text_encoder/README.md": 7133,
+        "text_encoder/chat_template.json": 5502,
+        "text_encoder/config.json": 1505,
+        "text_encoder/generation_config.json": 269,
+        "text_encoder/merges.txt": 1671839,
+        "text_encoder/model-00001-of-00002.safetensors": 4967229296,
+        "text_encoder/model-00002-of-00002.safetensors": 3908490048,
+        "text_encoder/model.safetensors.index.json": 64742,
+        "text_encoder/preprocessor_config.json": 390,
+        "text_encoder/tokenizer.json": 7032403,
+        "text_encoder/tokenizer_config.json": 10868,
+        "text_encoder/video_preprocessor_config.json": 385,
+        "text_encoder/vocab.json": 2776833,
+        "transformer/config.json": 416,
+        "transformer/diffusion_pytorch_model-00001-of-00002.safetensors": 9887081880,
+        "transformer/diffusion_pytorch_model-00002-of-00002.safetensors": 1189878064,
+        "transformer/diffusion_pytorch_model.safetensors.index.json": 37747,
+        "vae/config.json": 808,
+        "vae/diffusion_pytorch_model.safetensors": 336213556,
+        "variants/fp8r/config.json": 807,
+        "variants/fp8r/hf_quant_config.json": 1377,
+        "variants/fp8r/manifest.json": 1815,
+        "variants/fp8r/model.safetensors": 6250501712,
+        "variants/nvfp4/config.json": 808,
+        "variants/nvfp4/hf_quant_config.json": 2723,
+        "variants/nvfp4/manifest.json": 3916,
+        "variants/nvfp4/model.safetensors": 5257226696
+      },
+      "indexes": {},
+      "repo_id": "black-forest-labs/flux-3-image-klein-base",
+      "revision": "a83ce283b1daa2f3d782645ae7b06c8e73af1b41",
+      "url": "https://huggingface.co/api/models/black-forest-labs/flux-3-image-klein-base/tree/a83ce283b1daa2f3d782645ae7b06c8e73af1b41?recursive=true"
+    },
+    "black-forest-labs/flux-3-image-klein@09561231f44e41381c461caf53d5452005a60ac9": {
+      "commit": "09561231f44e41381c461caf53d5452005a60ac9",
+      "files": {
+        ".gitattributes": 1902,
+        "LICENSE.md": 19593,
+        "NOTICE.md": 330,
+        "README.md": 14259,
+        "ae.safetensors": 336211292,
+        "assets/1_figurine.png": 1774274,
+        "assets/2_coffee.png": 1512352,
+        "assets/balloons.png": 1498230,
+        "config.json": 828,
+        "launch-gallery.jpg": 6537996,
+        "manifest.json": 582,
+        "model.safetensors": 11097404512,
+        "modular_model_index.json": 2115,
+        "teaser.jpg": 3075038,
+        "text_encoder/LICENSE": 11357,
+        "text_encoder/README.md": 7133,
+        "text_encoder/chat_template.json": 5502,
+        "text_encoder/config.json": 1505,
+        "text_encoder/generation_config.json": 269,
+        "text_encoder/merges.txt": 1671839,
+        "text_encoder/model-00001-of-00002.safetensors": 4967229296,
+        "text_encoder/model-00002-of-00002.safetensors": 3908490048,
+        "text_encoder/model.safetensors.index.json": 64742,
+        "text_encoder/preprocessor_config.json": 390,
+        "text_encoder/tokenizer.json": 7032403,
+        "text_encoder/tokenizer_config.json": 10868,
+        "text_encoder/video_preprocessor_config.json": 385,
+        "text_encoder/vocab.json": 2776833,
+        "transformer/config.json": 436,
+        "transformer/diffusion_pytorch_model-00001-of-00002.safetensors": 9907529352,
+        "transformer/diffusion_pytorch_model-00002-of-00002.safetensors": 1189878064,
+        "transformer/diffusion_pytorch_model.safetensors.index.json": 37951,
+        "vae/config.json": 808,
+        "vae/diffusion_pytorch_model.safetensors": 336213556,
+        "variants/fp8r/config.json": 830,
+        "variants/fp8r/hf_quant_config.json": 1438,
+        "variants/fp8r/manifest.json": 1872,
+        "variants/fp8r/model.safetensors": 6270949144,
+        "variants/nvfp4/config.json": 831,
+        "variants/nvfp4/hf_quant_config.json": 2784,
+        "variants/nvfp4/manifest.json": 3974,
+        "variants/nvfp4/model.safetensors": 5277674144
+      },
+      "indexes": {},
+      "repo_id": "black-forest-labs/flux-3-image-klein",
+      "revision": "09561231f44e41381c461caf53d5452005a60ac9",
+      "url": "https://huggingface.co/api/models/black-forest-labs/flux-3-image-klein/tree/09561231f44e41381c461caf53d5452005a60ac9?recursive=true"
     },
     "cagliostrolab/animagine-xl-4.0@main": {
       "commit": "2b7c1b397761bf5bd3cc42e5b39ec99314a75a96",

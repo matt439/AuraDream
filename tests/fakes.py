@@ -15,6 +15,7 @@ from typing import NamedTuple
 from PIL import Image
 
 from backend import critic, prompt_encoding
+from backend.backends import flux3_loading, flux3_upsampler
 from backend.backends.base import Cancelled, GenerationBackend
 from backend.config import settings
 from backend.critic import CriticError, CriticUnavailable
@@ -23,6 +24,12 @@ from backend.instruction_edit import QUALIFIED_ENVELOPE, text_to_image_refusal
 from backend.model_defaults import defaults_for
 from backend.model_selection import current_model_id, current_settings
 from backend.schemas import CriticStatus, GenerateRequest, PromptCritique, default_strength
+
+
+def expands(model_id: str) -> bool:
+    """Whether the real backend offers Expand for `model_id` before a load:
+    ERNIE's rewriter, or FLUX 3's prompt upsampler."""
+    return "ernie-image" in model_id.lower().replace("_", "-") or flux3_loading.matches(model_id)
 
 
 class FakeBackend(GenerationBackend):
@@ -60,6 +67,12 @@ class FakeBackend(GenerationBackend):
         # submit. Everything else fits.
         self.lora_mismatches: dict[str, str] = {}
         self.prompt_expander_supported = False
+        # Whether Expand is FLUX 3's prompt upsampler (English, never
+        # translated) rather than ERNIE's rewriter.
+        self.prompt_upsampler = False
+        # The real backend's settings refusal (FLUX 3's upsampler without
+        # offload), as a test sets it.
+        self.expansion_refusal: str | None = None
         self.expansions: list[tuple[str, int, int]] = []
         # The rewriter as the real backend reports it: not on disk until a
         # first expansion has fetched it, in memory from then until Unload.
@@ -120,7 +133,8 @@ class FakeBackend(GenerationBackend):
         ):
             setattr(self, key, profile[key])
         self.lora_reason = lora_refusal(model_id)
-        self.prompt_expander_supported = "ernie-image" in model_id.lower().replace("_", "-")
+        self.prompt_expander_supported = expands(model_id)
+        self.prompt_upsampler = flux3_loading.matches(model_id)
 
     def lora_supported(self) -> bool:
         self._sync_model_profile()
@@ -144,13 +158,26 @@ class FakeBackend(GenerationBackend):
         if self.expand_error is not None:
             raise self.expand_error
         self.expander_cached = self.expander_loaded = True
+        if self.prompt_upsampler:
+            # BFL's upsampler is sent no size.
+            return f"Upsampled: {prompt}"
         return f"Expanded: {prompt} ({width}x{height})"
 
+    def prompt_expansion_refusal(self) -> str | None:
+        return self.expansion_refusal if self.prompt_expansion_supported() else None
+
     def prompt_expander_status(self) -> dict | None:
-        if not self.prompt_expander_supported:
+        if not self.prompt_expansion_supported():
             return None
-        fetch = [] if self.expander_cached else [("ERNIE's prompt rewriter", 7_663_346_520)]
-        return {"loaded": self.loaded and self.expander_loaded, "fetch": fetch}
+        if self.prompt_upsampler:
+            name, size = flux3_upsampler.NAME, flux3_upsampler.BYTES
+        else:
+            name, size = "ERNIE's prompt rewriter", 7_663_346_520
+        fetch = [] if self.expander_cached else [(name, size)]
+        return {
+            "loaded": self.loaded and self.expander_loaded, "fetch": fetch,
+            "name": name, "translate": not self.prompt_upsampler,
+        }
 
     def applied(self, request):
         from backend.execution import require_configured_loader_available, require_default_execution
@@ -633,9 +660,11 @@ class WordTokenizer:
     def apply_chat_template(self, messages, *, tokenize, add_generation_prompt, enable_thinking):
         # Qwen3's template for one user turn, with the empty thinking block
         # that klein's `enable_thinking=False` renders.
+        # Qwen3-VL's (FLUX 3's processor) has no thinking block at all.
         (message,) = messages
         text = f"<|im_start|>user\n{message['content']}<|im_end|>\n<|im_start|>assistant\n"
-        return text + ("<think>\n\n</think>\n\n" if enable_thinking is False else "")
+        thinks = "<think>" in (self.chat_template or "")
+        return text + ("<think>\n\n</think>\n\n" if thinks and enable_thinking is False else "")
 
 
 _QWEN_ADDED = (
@@ -662,6 +691,8 @@ def _word_tokenizer(spec: prompt_encoding.EncoderSpec) -> WordTokenizer:
         # `<think>` is a control token only where the template uses it:
         # Z-Image's and klein's, which render the chat template.
         template = "<|im_start|> <think> </think>" if spec.chat_thinking is not None else None
+        if template and spec.name.startswith("Qwen3-VL"):
+            template = "<|im_start|>"  # FLUX 3's Qwen3-VL template renders none
         return WordTokenizer(
             max_length=131072, special=0, added=_QWEN_ADDED, template=template, newlines=True
         )

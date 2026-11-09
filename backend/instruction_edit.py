@@ -375,7 +375,10 @@ def loader_refusal(
     elif (execution := _loader_execution_words(loader_execution)) is not None:
         choice = execution
     elif diffusers_version != envelope.diffusers_version:
-        choice = "a missing diffusers" if diffusers_version is None else f"diffusers {diffusers_version}"
+        # Names the measured version too: an app-wide bump (0.42 since GEN#45)
+        # holds edits here until the card re-measures Kontext on it.
+        choice = ("a missing diffusers" if diffusers_version is None
+                  else f"diffusers {diffusers_version} (only {envelope.diffusers_version} was)")
     else:
         return None
     return INSTRUCTION_EDIT_LOADER_UNQUALIFIED.format(choice=choice)

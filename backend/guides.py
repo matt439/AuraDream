@@ -1744,6 +1744,65 @@ NEWBIE_GUIDE = {
     },
 }
 
+# FLUX 3 Image Klein and Klein Base, from the two model cards, which say the
+# same about prompting (the Base card adds only its fine-tuning section). Its
+# opening sentences follow the cards' "Prompting" section, not verbatim: the
+# first clause is reworded ("ours or your own LLM" there, "BFL's own, or any
+# LLM" here, since "ours" would be the app's) and the card's two opening
+# sentences are swapped. What the analysis cites is the card's own words,
+# held by `test_every_cite_is_the_guides_own_words`. The upsampler the cards
+# ask for runs here only when Expand is pressed, which the prose says in the
+# app's voice (`prompt_sources` keeps those sentences uncitable). The cards
+# publish no output size range, only that their figures are for 1024x1024
+# and how references are sized; the size prose says the square is an example.
+_FLUX3_CARD = "https://huggingface.co/black-forest-labs/flux-3-image-klein"
+_FLUX3_ENCODER = (
+    "https://github.com/huggingface/diffusers/blob/v0.42.1/src/diffusers/"
+    "modular_pipelines/flux3/encoders.py"
+)
+FLUX3_UPSAMPLER_NOTE = (
+    "This app runs BFL's prompt upsampler only when you press Expand, which puts its "
+    "caption in the prompt box for review; otherwise the prompt is sent as typed, so "
+    "write the full caption yourself."
+)
+FLUX3_KLEIN_GUIDE = {
+    "prompt": (
+        "Always run a prompt upsampler (BFL's own, or any LLM): the model takes full "
+        "scene captions (framing, subject, background, lighting), and a short prompt "
+        "sent as typed gives generic output. The caption controls composition; "
+        "reference images anchor content, they do not lock structure. The prompt upsampler turns "
+        "a short request, together with the reference images when editing, into the "
+        "full scene caption the model takes: medium and style, scene, lighting and "
+        "camera, each subject with its colors, materials and position in the frame. "
+        "For style, describe the attributes (palette, stroke, texture) rather than "
+        "naming an artwork.\n"
+        f"{FLUX3_UPSAMPLER_NOTE} The Qwen3-VL encoder reads up to 8192 tokens."
+    ),
+    "size": (
+        "BFL's cards give their memory figures at 1024x1024, the Diffusers blocks' "
+        "default size. They publish no range of output sizes, so 1024x1024 is an "
+        "example and no published maximum. Sides are multiples of 16. With references, one is "
+        "kept whole up to 4 MP and several are fitted under 1 MP each."
+    ),
+    "pixels": (1024**2 / 1e6, 1024**2 / 1e6),
+    # One size the cards use, which the prose above says is no bound.
+    "pixels_word": "example",
+    "pixels_source": "the authors' example size",
+    "examples": [
+        'A chunky knitted diorama: three white cable-knit icebergs with tiny pale blue '
+        'houses, a cream banner embroidered "KNITTED ICEBERG VILLAGE", a giant magenta '
+        "knitted whale tail bursting from a yarn sea",
+        "put a red bandana around the dog's neck",
+    ],
+    "analysis": {
+        "url": _FLUX3_CARD,
+        "style": {
+            "expects": "prose",
+            "cite": "the model takes full scene captions (framing, subject, background, lighting)",
+        },
+    },
+}
+
 FALLBACK_GUIDE = {
     "prompt": (
         "Unrecognised checkpoint. Most current models read natural-language "

@@ -195,7 +195,7 @@ def main() -> int:
                 raise gated
             super().load()
 
-        # ERNIE's Expand, slowed, held or failing on request
+        # Expand (ERNIE's or FLUX 3's), slowed, held or failing on request
         # (`POST /api/fake/expand`): a first use's minutes and the route's
         # failures, on the server's side. Held, an expansion waits - inside
         # the generation gate, as a real one runs - until the next call lets
@@ -356,13 +356,17 @@ def main() -> int:
     # And no adapter where the real backend refuses one by the id alone
     # (Anima Turbo, NewBie): the same sentence, from the same function, so
     # /api/loras, the greyed select and a submit's refusal are the real ones.
+    from backend.backends import flux3_loading
     from backend.backends.loading import lora_refusal
+    from tests.fakes import expands
 
     fake.lora_reason = lora_refusal(args.model)
     # ERNIE's browser check drives the real button and endpoint without the
     # multi-GB rewriter. FakeBackend's deterministic sentence makes it clear
     # that the chosen canvas size reached the operation.
-    fake.prompt_expander_supported = "ernie-image" in args.model.lower().replace("_", "-")
+    # FLUX 3's checks press the same button for its prompt upsampler.
+    fake.prompt_expander_supported = expands(args.model)
+    fake.prompt_upsampler = flux3_loading.matches(args.model)
     fake.lora_mismatches = {
         stranger.name: f"{stranger.name} attaches to 494 modules the fake's denoiser "
         "has not got, such as single_transformer_blocks.0.attn.to_k",
@@ -586,7 +590,8 @@ def main() -> int:
         previous, fake.step_seconds = fake.step_seconds, max(0.0, seconds)
         return {"seconds": fake.step_seconds, "previous": previous}
 
-    # ERNIE's Expand: the seconds each expansion takes on the server, inside
+    # Expand (ERNIE's rewriter, FLUX 3's upsampler): the seconds each
+    # expansion takes on the server, inside
     # the generation gate as the real one's are, and an error the expansions
     # after it raise (None for none) - "RuntimeError" for the class name the
     # route strips. `hold` keeps the expansions after it waiting until a
