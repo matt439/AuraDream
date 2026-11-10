@@ -13749,6 +13749,17 @@ doctor's row fails. On Linux it goes in the service's environment file,
 which `install-service.sh` already writes readable by its owner only; the
 file is never rewritten, so an existing one gets the line by hand.
 
+That file has two readers that agree only on plain values: systemd takes
+the line to its end, and `linux/common.sh`'s `load_env_file` sources it as
+bash, where `AURADREAM_PASSCODE=correct horse` sets the variable to
+`correct` and runs `horse`, and `$`, quotes, `#`, `;` and a backslash each
+read differently too. So before it sources the file, `load_env_file` reads
+the `AURADREAM_PASSCODE=` line as text and stops in plain words (never the
+value) unless the value is made only of letters, digits and `. _ - + @ % : , /`.
+The file's commented line says the same. The limit is the file's, not the
+setting's: a passcode set in a Windows or Linux shell may hold a space or
+any other character.
+
 The passcode is asked when it is set and the server can be reached by any
 name but this machine's own:
 
@@ -13878,6 +13889,15 @@ written on the event loop only, on `time.monotonic()`, with an injectable
 clock for the tests. At the cap that is about 1,400 guesses a day, which is
 why eight characters is the floor.
 
+During a lock the right passcode is a 429 as well, in the sign-in form and
+as an `Authorization` header: letting it through would tell a guesser
+which guess was right. That is the limiter's cost, and it falls on whoever
+has no cookie: while someone else on the network keeps guessing, a new
+device cannot sign in and the CLI and the server's scripts, which send the
+passcode on every request, are refused. They say so and never treat it as
+a server that is down or idle (below). A browser already signed in is not
+affected.
+
 ### The sign-in page, the service worker and the offline page
 
 `web/passcode.html` is self-contained as `offline.html` is (its style, icon
@@ -13931,15 +13951,21 @@ argument:
 
 - `generate --via-server` adds the header in `_server_json` whenever the
   variable is set. A 401 says the server asks for a passcode and to set
-  `AURADREAM_PASSCODE` in this shell; a 429 says to wait. Both are refusals
-  (exit 2).
+  `AURADREAM_PASSCODE` in this shell; a 429 says to wait. Before the job is
+  queued both are refusals (exit 2). On a poll after it they end the wait
+  as any failed poll does today: exit 1, naming the job, which may still be
+  running. Never a retry of the submission.
 - `server_probe.running_commit` takes the passcode; the doctor passes its
   environment's. Without it the Commit row says the running server asks for
   a passcode, and does not fail.
 - `linux/common.sh`'s `server_busy` and `linux/control.sh`'s
   `server_answers` and `do_status` already run after `load_env_file`, which exports the service's
   settings, so their Python reads the variable. A 401 there is said as a
-  passcode missing from the environment file, not as a server that is down.
+  passcode missing from the environment file, and a 429 as too many wrong
+  passcodes just now, neither as a server that is down. `server_busy` keeps
+  failing on both ("could not ask it"), so `update.sh` and a stop or restart
+  refuse without `--force` as they do today when it cannot be asked: a
+  server that would not say is never taken for an idle one.
 - The title probes need nothing (above).
 - The doctor gains a **Passcode** row: not asked on a server this machine
   alone reaches; asked; FAIL under 8 characters; and WARN when the server
@@ -14001,7 +14027,10 @@ in the README only with stage 3.
    `tests/test_cli.py` (a server that asks: the header sent, the 401 and
    429 words, the passcode never in the output), `tests/test_doctor.py`,
    the server probe's tests, `tests/test_linux_scripts.py` (a stub server
-   that asks; busy and status read through it) and
+   that asks; busy and status read through it; a 401 and a 429 each said in
+   their own words, with stop and update refusing; an environment file whose
+   passcode holds a space or a `$` refused before it is sourced, the value
+   never printed) and
    `tests/test_install_scripts.py` (the title probe still answers
    `auradream` against the sign-in page).
 3. **The page.** `api()`'s signed-out state, Sign out, the fake's knob, and

@@ -223,7 +223,10 @@ points go past its wording and are Matt's to overrule before stage 1: the
 passcode is also asked on a loopback bind whose `AURADREAM_ALLOWED_HOSTS`
 lists another name (a proxy in front), and a request from 127.0.0.1 is not
 exempt while it is on, so the scripts on the server send the passcode from
-the environment file. `sw.js` and `offline.html` stay behind the passcode
+the environment file (where, since bash and systemd both read it, the
+passcode is limited to letters, digits and a few plain marks). The limit on wrong passcodes is for the whole server, so while
+someone keeps guessing, a right passcode without a cookie is refused too.
+`sw.js` and `offline.html` stay behind the passcode
 and need no change; only the manifest and its icons stay open.
 
 ### S3 an HTTPS route
