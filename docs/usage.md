@@ -1039,8 +1039,8 @@ Without `--via-server`, the CLI loads its own weights. It first probes the
 configured server and stops if it is ready, loading or times out; use
 `--via-server` or unload the server model first.
 `--ignore-server` overrides this advisory check, which cannot see a server
-across the Windows/WSL boundary or on another machine. On Linux the CLI holds
-the PC awake (`systemd-inhibit`) from its load to its last cell, unless
+across the Windows/WSL boundary or on another machine. The CLI holds
+the PC awake (`systemd-inhibit` on Linux, a power request on Windows) from its load to its last cell, unless
 `AURADREAM_KEEP_AWAKE=false`; under `--via-server` the server holds it. Ctrl+C cancels cooperatively and preserves
 saved images. Exit codes: 0 complete, 130 cancelled, 2 bad arguments, 1 failed
 load or skipped cells, 4 server holding the GPU. Failed cells are reported
@@ -1098,12 +1098,17 @@ type is not to be guessed (`X-Content-Type-Options: nosniff`), so another
 site cannot show the page inside its own and steer clicks into it; a proxy
 in front should pass both headers through.
 
-### Keep a Linux server awake
+### Keep the PC awake
 
-On Linux the server holds the PC awake with `systemd-inhibit` (a block on
-sleep and idle, named `AuraDream` in `systemd-inhibit --list`) while it is
-busy, so a PC that suspends when idle does not do so in the middle of a load
-or a render. It holds while a job is queued or running, a model loads or a
+The server holds the PC awake while it is busy, so a PC that sleeps when
+idle does not do so in the middle of a load or a render driven from a phone
+or another machine. On Linux the hold is `systemd-inhibit`'s (a block on
+sleep and idle, named `AuraDream` in `systemd-inhibit --list`). On Windows
+it is a power request: Windows is asked not to sleep on its idle timer, and
+nothing else. The display may still turn off, a sleep you ask for (the Start
+menu, the power button, closing a lid) still happens, and no power setting
+is changed; `powercfg /requests`, from an administrator's prompt, lists the
+request under SYSTEM with its reason while it is held. It holds while a job is queued or running, a model loads or a
 switch is under way, something holds the card, a gallery bundle operation
 runs, or the model's or the critic's download is still working (a download
 outlives a cancelled request, and holds until it ends). It also holds for
@@ -1113,18 +1118,24 @@ not one - the status poll, the bundle dialog's and automatic backup's status
 reads, the job streams and listings, an inpaint's mask keep-alive and its
 files and thumbnails - so a tab left open on an idle server lets the PC
 sleep after the idle minutes. `0` holds only while busy;
-`AURADREAM_KEEP_AWAKE=false` holds nothing. Off Linux, or without
-`systemd-inhibit`, nothing is held.
+`AURADREAM_KEEP_AWAKE=false` holds nothing. On Linux without
+`systemd-inhibit`, or on any other system, nothing is held.
 
 `GET /api/status` reports it as `keep_awake`, from the last check (the poll
-starts no process): `kind` (`systemd-inhibit`, `none` where nothing can be
-held, or `off`), `holding`, `wanted` (there is a reason to hold), `reasons`
-(such as `in use (a request in the last 20 minutes)` or the job's), `detail`
-(why the last hold was refused, until one works) and `idle_minutes`. A hold
-polkit refuses is `wanted` but not `holding`, is logged once and is tried
-again every five minutes; the doctor's **Keep awake** row prints a polkit
-rule that allows it. Waking a suspended PC from the network is outside
+starts no process): `kind` (`systemd-inhibit`, `power-request` on Windows,
+`none` where nothing can be held, or `off`), `holding`, `wanted` (there is a
+reason to hold), `reasons` (such as `in use (a request in the last 20
+minutes)` or the job's), `detail` (why the last hold was refused, until one
+works) and `idle_minutes`. A hold that polkit or Windows refuses is `wanted`
+but not `holding`, is logged once and is tried again every five minutes. The
+doctor's **Keep awake** row tries the same hold and lets go at once: on
+Linux it prints a polkit rule that allows a refused one, on Windows it gives
+Windows' own words. Waking a suspended PC from the network is outside
 AuraDream.
+
+The Windows hold has been tried only as a call that Windows accepted and
+released (2026-11-10); that the PC then stays awake past its sleep timer
+has not been measured.
 
 A page opened by a LAN address over plain `http` is not a secure context, so
 the context menu's copy items and **Notify when done** are held there with

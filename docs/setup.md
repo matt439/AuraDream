@@ -315,9 +315,11 @@ uv run python -m backend.doctor
 
 It prints a PASS, WARN or FAIL line for the GPU and PyTorch, the driver's
 CUDA version, RAM, free disk where the downloads and images go, the port,
-the commit, and whether a Hugging Face sign-in is present, with what to do
-under anything that is not a pass. It downloads and loads nothing and never
-contacts Hugging Face.
+the commit, whether Windows accepts the request that keeps the PC awake
+while AuraDream works (tried and let go at once; see
+[usage](usage.md#keep-the-pc-awake)), and whether a Hugging Face sign-in is
+present, with what to do under anything that is not a pass. It downloads
+and loads nothing, changes no power setting and never contacts Hugging Face.
 
 The **Commit** row is the version: this folder's short Git commit, and the
 running server's own when AuraDream is answering on the port. A server

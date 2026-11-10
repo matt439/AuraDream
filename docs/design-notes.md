@@ -290,6 +290,45 @@ attaches before the first image (79c18a8). `backend.generate` takes the same
 hold (`hold_while`) from its load to its last cell; under `--via-server` the
 server holds it.
 
+**Keeping the Windows PC awake (2026-11-10).** `platform_inhibitor` held
+nothing off Linux, while the 5080 PC had come to be driven from a phone with
+no keyboard or mouse touched. Windows now gets a holder of its own behind
+the same `Holder` shape, so the providers, the counted holds, the idle
+minutes, `counts_as_activity`, the status field and the doctor's row are
+the ones above, unchanged:
+
+- The hold is a power request: `PowerCreateRequest` with the reason as a
+  simple string, then `PowerSetRequest(PowerRequestSystemRequired)`.
+  Release is `PowerClearRequest` and `CloseHandle`. Windows closes the
+  handle when the process dies in any way, which is the pipe's guarantee
+  on Linux: nothing is left holding the PC awake.
+- `SetThreadExecutionState` was not used. Its state belongs to the calling
+  thread, and the controller runs `hold` and `release` through
+  `asyncio.to_thread`, on whichever worker thread is free: a release on
+  another thread would clear nothing, and the hold would end when its
+  thread did. A handle belongs to the process.
+- Only the system is asked for, matching Linux's `sleep:idle`: the display
+  may turn off. A sleep someone asks for (the Start menu, the power button,
+  a lid) is not an idle sleep and still happens. No power setting or plan
+  is read or changed, and nothing runs `powercfg`.
+- A refused call raises `OSError` in Windows' words (the call, the error
+  code, `FormatError`'s text), is `wanted` but not `holding` in the status,
+  and is not asked again for `RETRY_AFTER`, so the log line's "tried again
+  every 5 minutes" is true of both holders. A handle Windows gave before
+  refusing to set it is closed.
+- The four calls sit behind `PowerApi`, and `Kernel32Power` binds kernel32
+  at its first call, so building a `PowerRequest` loads nothing and the
+  tests fake the calls on any system. `REASON_CONTEXT`'s fields are fixed
+  32-bit ones (`c_ulong` is 64 bits on Linux), so its layout is tested
+  there too.
+- The status's `kind` gains `power-request`. The page reads no part of
+  `keep_awake`, so nothing changes there.
+
+The review's done sound and an action when the queue empties were cut and
+are not built. What is not measured: that the PC stays awake past its sleep
+timer while the request is held. The one real call made (2026-11-10, this
+PC) was a request Windows accepted and that was released at once.
+
 **Who may frame the page.** A page on another site that frames the app gets
 the app's own origin inside the frame, so a click it steers there is a
 same-origin write: the Host header is the app's and so is the `Origin`, and

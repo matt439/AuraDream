@@ -182,10 +182,11 @@ class Settings:
     critic_model: Path | None = _env_path("AURADREAM_CRITIC_MODEL")
 
     # Keeping the PC awake (`keep_awake`): on Linux a systemd-inhibit block
-    # hold while a job, a load, the critic or a gallery bundle is busy, and
-    # for the idle minutes after the last request someone made (the page's
-    # timed polls are not one; 0 holds only while busy). Off Linux, or with
-    # no systemd-inhibit, nothing is held; off here, nothing is even tried.
+    # hold, on Windows a power request, while a job, a load, the critic or a
+    # gallery bundle is busy, and for the idle minutes after the last request
+    # someone made (the page's timed polls are not one; 0 holds only while
+    # busy). Elsewhere, or on Linux with no systemd-inhibit, nothing is
+    # held; off here, nothing is even tried.
     keep_awake: bool = _env_bool("AURADREAM_KEEP_AWAKE", True)
     keep_awake_idle_minutes: int = int(os.getenv("AURADREAM_KEEP_AWAKE_IDLE_MINUTES", "20"))
 
