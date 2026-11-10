@@ -190,7 +190,11 @@ function showCell(data, { job = null, budget = null, note = '', jobId = null } =
   if (job?.paused) {
     const held = pausedFor(job.paused_at);
     const lasted = held ? ` for ${held}` : '';
-    parts.push(job.run
+    // The worker's own pause says why (`pause_reason`: a full disk, the
+    // finished render held until Resume) - inside the unit, not after it.
+    parts.push(job.pause_reason
+      ? `Paused at ${unit} ${job.run}/${job.total_runs}${lasted} · ${job.pause_reason}`
+      : job.run
       ? `Paused after ${unit} ${job.run}/${job.total_runs}${lasted} · GPU handed back`
       : `Paused before the first ${unit}${lasted} · GPU handed back`);
     // The card's memory is handed back, but the queue does not move on: a

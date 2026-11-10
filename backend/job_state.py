@@ -142,6 +142,10 @@ class Job:
     # paused: a pause keeps the gate for as long as it lasts, and "⏸ Paused"
     # said nothing of whether that was a minute or the night.
     paused_at: float | None = None
+    # Why the worker paused the job itself, in words for the page, None for
+    # a pause the user asked for: a full disk holds the finished render in
+    # memory until Resume (`jobs.DISK_FULL_PAUSE`).
+    pause_reason: str | None = None
     done_sent: bool = False
     # Unix seconds as floats - JSON-native, since snapshot() goes straight
     # through json.dumps on the SSE path. `last_progress_at` is what tells a
@@ -351,6 +355,7 @@ class Job:
             "pause_requested": self.pause_requested,
             "paused": self.paused,
             "paused_at": self.paused_at,
+            "pause_reason": self.pause_reason,
             "step": self.step,
             "total_steps": self.total_steps,
             "run": self.run,

@@ -198,6 +198,9 @@ quantizer, size and other inputs. Nunchaku is not bitwise reproducible.
   The model remains loaded, so Unload is unavailable while paused. A pause
   past a minute says how long it has lasted, in the tab's title and, in a
   tab whose job waits behind it, the note under the bars.
+  A full disk pauses the job by itself and says so: the image just made is
+  held in memory, not lost. Free some space, then press **Resume** to save
+  it and carry on; Cancel ends the job without that one image.
 
 Queued rows have a **Move to front** arrow: it puts that job next without
 interrupting current work. The progress row has the same arrow when the
