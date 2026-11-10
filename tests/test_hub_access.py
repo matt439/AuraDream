@@ -16,7 +16,7 @@ from huggingface_hub.errors import (
     RevisionNotFoundError,
 )
 
-from backend import hub_access, main, model_info, model_selection, startup_preferences
+from backend import hf_sign_in, hub_access, main, model_info, model_selection, startup_preferences
 from backend.hub_access import _ask as REAL_ASK  # before conftest's stub replaces it
 
 KREA_DEV = "black-forest-labs/FLUX.1-Krea-dev"
@@ -136,7 +136,7 @@ def test_a_refused_sign_in_is_the_shared_sentence(hub, status):
     page = f"https://huggingface.co/{ANIMAGINE}"
     assert refusal.detail == hub_access.denied(ANIMAGINE, page, "switch again") == (
         f"Hugging Face refused this sign-in for {ANIMAGINE}: check its access on {page}, "
-        "run `uv run hf auth login` once with a read token, then switch again."
+        f"{hf_sign_in.login_instructions(replace=True)}, then switch again."
     )
 
 

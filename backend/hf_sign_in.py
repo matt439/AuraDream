@@ -16,6 +16,28 @@ from pathlib import Path
 from typing import Literal
 
 
+def login_instructions(*, replace: bool = False) -> str:
+    """Cold instructions for the project's installed CLI, never a sign-in.
+
+    A refused saved token needs --force or the CLI skips its login menu.
+    The installer is an alternative only for a missing sign-in: it also
+    leaves an existing token alone.
+    """
+    folder = Path(__file__).resolve().parents[1]
+    command = "uv run hf auth login" + (" --force" if replace else "")
+    instructions = (
+        f'run `{command}` from the AuraDream folder `{folder}` '
+        '(press Enter for "Log in with your browser"; '
+        '"Paste an access token" takes a Read token and keeps pasted input hidden)'
+    )
+    if not replace:
+        instructions += (
+            ", or on Windows stop AuraDream, double-click install.cmd there again and answer y "
+            "at the Hugging Face step"
+        )
+    return instructions
+
+
 def default_token_path() -> Path:
     from huggingface_hub import constants
 

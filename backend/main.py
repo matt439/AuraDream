@@ -60,6 +60,7 @@ from .instruction_edit import (  # noqa: E402
 )
 from . import api_instruction_edit  # noqa: E402
 from . import log_file  # noqa: E402
+from .error_text import generation_error  # noqa: E402
 from . import refusal_codes, refusals  # noqa: E402
 from .model_defaults import DEFAULT_MODEL_ID, OPEN_DEFAULT_MODEL_ID, defaults_for, guide_for, hints_for  # noqa: E402
 from .schemas import (  # noqa: E402
@@ -204,8 +205,8 @@ def _load_failure(exc: BaseException) -> tuple[str, str | None, str | None]:
     that fix it; its kind ("gated", a refused sign-in too; "not_found";
     "offline"); and the model page where the fix is, for the page to link. The
     gate is the catalogue's, so the sentence says whether it is a click or the
-    authors' approval. Anything that is not the Hub's is the exception as
-    `short_error` puts it, and no kind."""
+    authors' approval. Known memory failures get plain recovery advice;
+    other non-Hub failures keep `short_error`, with no kind."""
     repo = current_model_id(settings)
     entry = next((checkpoint for checkpoint in CHECKPOINTS if checkpoint.repo == repo), None)
     name = entry.name if entry else repo
@@ -250,7 +251,7 @@ def _load_failure(exc: BaseException) -> tuple[str, str | None, str | None]:
             "offline",
             None,
         )
-    return short_error(exc), None, None
+    return generation_error(exc, loading=True), None, None
 
 
 async def ensure_loaded() -> None:
@@ -1392,66 +1393,72 @@ def run(*, open_browser: bool = False) -> None:
 
     An AURADREAM_PASSCODE under 8 characters (or past what the sign-in
     takes) exits 1 before any of that, in words that never hold it."""
-    # Before anything binds or is asked: a passcode too short to be one is a
-    # mistake, said by the variable's name and never by its value.
+    # An invalid passcode is never handed to a request. Keep only its safe
+    # explanation; the log is opened below before that refusal is reported.
     problem = passcode.setting_problem(settings.passcode)
-    if problem is not None:
-        print(problem, file=sys.stderr, flush=True)
-        raise SystemExit(1)
     url = _page_url(settings.host, settings.port)
-    # Port 0 asks the system for any free port: nothing to collide with.
-    if settings.port and _port_busy(settings.host, settings.port):
-        if _auradream_at(url):
+    busy = False
+    if problem is None:
+        # A successful second launch must not open another handle on the
+        # running server's log: Windows would then refuse its rollover.
+        # Port 0 asks the system for any free port: nothing to collide with.
+        busy = bool(settings.port and _port_busy(settings.host, settings.port))
+        if busy and _auradream_at(url):
             print(f"AuraDream is already running at {url}", flush=True)
             if open_browser:
                 webbrowser.open(url)
             raise SystemExit(0)
-        print(
-            f"Port {settings.port} is in use by another program (or reserved by the system), "
-            f"so AuraDream cannot start on it. Close that program, or set AURADREAM_PORT to "
-            f"a free port, such as {settings.port + 1}, and start again.",
-            file=sys.stderr, flush=True,
-        )
-        raise SystemExit(1)
-    # After the port checks: a second launch leaves the running server's file
-    # alone. Before the first line worth keeping.
+    # Every refusal from here is kept, and every exit closes the file.
     log_to_file = log_file.install(settings.db_path, settings.log_level)
-    if log_to_file.handler is not None:
-        log.info("log file: %s", log_to_file.path)
-    if _passcode_gate is not None:
-        log.info(
-            "Asking for the passcode in %s. Over plain http the passcode, its cookie "
-            "and every prompt and image cross the network unencrypted: it keeps out "
-            "people who can merely reach this address, not anyone who can capture "
-            "the network's traffic.",
-            passcode.VARIABLE,
-        )
-    elif settings.passcode is not None:
-        log.info(
-            "%s is set but not asked: the server listens on this machine only.",
-            passcode.VARIABLE,
-        )
-    elif not _is_loopback(settings.host):
-        # No passcode: anyone who reaches the API can read, delete and import
-        # galleries and make this machine download with the HF token.
-        log.warning(
-            "Serving on %s with no passcode, so anyone who can reach this address "
-            "controls the server. Set %s, or expose it only on a trusted network.",
-            settings.host, passcode.VARIABLE,
-        )
-    log.info("AuraDream at commit %s", COMMIT or "unknown (not a Git checkout, or git was not found)")
-    config = uvicorn.Config(
-        app,
-        host=settings.host,
-        port=settings.port,
-        log_level=log_file.uvicorn_level(settings.log_level),
-        # A client that stops reading its stream must not hold shutdown open.
-        timeout_graceful_shutdown=30,
-    )
-    # uvicorn.Config has just replaced its loggers' handlers; an unhandled
-    # route's traceback is logged there and nowhere else.
-    log_to_file.follow(logging.getLogger(log_file.UVICORN_LOGGER))
     try:
+        if problem is not None:
+            print(problem, file=sys.stderr, flush=True)
+            log_to_file.startup_refusal(problem)
+            raise SystemExit(1)
+        if busy:
+            message = (
+                f"Port {settings.port} is in use by another program (or reserved by the system), "
+                f"so AuraDream cannot start on it. Close that program, or set AURADREAM_PORT to "
+                f"a free port, such as {settings.port + 1}, and start again."
+            )
+            print(message, file=sys.stderr, flush=True)
+            log_to_file.startup_refusal(message)
+            raise SystemExit(1)
+        if log_to_file.handler is not None:
+            log.info("log file: %s", log_to_file.path)
+        if _passcode_gate is not None:
+            log.info(
+                "Asking for the passcode in %s. Over plain http the passcode, its cookie "
+                "and every prompt and image cross the network unencrypted: it keeps out "
+                "people who can merely reach this address, not anyone who can capture "
+                "the network's traffic.",
+                passcode.VARIABLE,
+            )
+        elif settings.passcode is not None:
+            log.info(
+                "%s is set but not asked: the server listens on this machine only.",
+                passcode.VARIABLE,
+            )
+        elif not _is_loopback(settings.host):
+            # No passcode: anyone who reaches the API can read, delete and import
+            # galleries and make this machine download with the HF token.
+            log.warning(
+                "Serving on %s with no passcode, so anyone who can reach this address "
+                "controls the server. Set %s, or expose it only on a trusted network.",
+                settings.host, passcode.VARIABLE,
+            )
+        log.info("AuraDream at commit %s", COMMIT or "unknown (not a Git checkout, or git was not found)")
+        config = uvicorn.Config(
+            app,
+            host=settings.host,
+            port=settings.port,
+            log_level=log_file.uvicorn_level(settings.log_level),
+            # A client that stops reading its stream must not hold shutdown open.
+            timeout_graceful_shutdown=30,
+        )
+        # uvicorn.Config has just replaced its loggers' handlers; an unhandled
+        # route's traceback is logged there and nowhere else.
+        log_to_file.follow(logging.getLogger(log_file.UVICORN_LOGGER))
         server = Server(config)
         if open_browser:
             _open_when_listening(server, url)

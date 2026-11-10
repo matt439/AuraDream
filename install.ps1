@@ -691,16 +691,18 @@ if ($hfTokenSet) {
     $wantGated = $true
 } else {
     Say '  The default checkpoint, FLUX.1 Krea [dev], is gated: it needs a free Hugging Face account, accepting'
-    Say '  its licence (non-commercial) and a read token. Open checkpoints such as Animagine XL 4.0 need none,'
+    Say '  its licence (non-commercial) and signing in. Open checkpoints such as Animagine XL 4.0 need none,'
     Say '  are a much smaller download and lighter on memory: a good first start.'
+    Say '  At the login menu, press Enter for "Log in with your browser", then open its URL and enter its code.'
+    Say '  No copied token is needed. The fallback "Paste an access token" takes a Read token; pasted input stays hidden.'
     $wantGated = Ask-YesNo 'Set up the Hugging Face sign-in for the default checkpoint now?' $false
     if (-not $wantGated -and (Test-SavedChoices)) {
-        Ok 'Skipped. AuraDream starts on the choices saved in its Models panel. Sign in later with: uv run hf auth login (docs/setup.md step 6).'
+        Ok 'Skipped. AuraDream starts on the choices saved in its Models panel.'
     } elseif (-not $wantGated) {
-        Ok "Skipped. AuraDream will start on an open checkpoint ($OpenModel). Sign in later with: uv run hf auth login (docs/setup.md step 6)."
+        Ok "Skipped. AuraDream will start on an open checkpoint ($OpenModel)."
     } elseif ($DryRun) {
-        Would 'open https://huggingface.co/join, https://huggingface.co/black-forest-labs/FLUX.1-Krea-dev and https://huggingface.co/settings/tokens in the browser'
-        Would 'run: uv run hf auth login (you paste the token into Hugging Face''s own tool; this script never sees it)'
+        Would 'open https://huggingface.co/join and https://huggingface.co/black-forest-labs/FLUX.1-Krea-dev in the browser'
+        Would 'run: uv run hf auth login (choose Log in with your browser; Hugging Face saves the sign-in)'
     } else {
         Say '  1. Create a free account (skip if you have one).'
         Start-Process 'https://huggingface.co/join'
@@ -708,16 +710,20 @@ if ($hfTokenSet) {
         Say "  2. Accept the licence on the checkpoint's page."
         Start-Process "https://huggingface.co/$GatedModel"
         Wait-Enter 'When you have accepted it'
-        Say '  3. Create a token: Create new token, type Read. Copy it.'
-        Start-Process 'https://huggingface.co/settings/tokens'
-        Wait-Enter 'When you have copied the token'
-        Say "  4. Paste it below. Hugging Face's own tool asks for it and saves it; this script never sees it."
+        Say '  3. Press Enter for "Log in with your browser" below, then follow the URL and code it shows.'
+        Say '  If the code expires, run the login again for a new one. Hugging Face saves the sign-in.'
+        Say '  To use "Paste an access token" instead, create a Read token at https://huggingface.co/settings/tokens.'
+        Say '  Pasted input stays hidden. This script never sees your token.'
         Push-Location -LiteralPath $Root
         try { $code = Invoke-Live $uv @('run', 'hf', 'auth', 'login') } finally { Pop-Location }
         if ($code -ne 0) {
-            Warn "The sign-in did not finish (exit $code). Run it again later from the project folder: uv run hf auth login"
+            Warn "The sign-in did not finish (exit $code)."
             $wantGated = $false
         } else { Ok 'Signed in to Hugging Face.' }
+    }
+    if (-not $wantGated) {
+        Say "  To sign in later, open PowerShell in '$Root' and run: uv run hf auth login"
+        Say '  Or stop AuraDream, double-click install.cmd in that folder again and answer y at the Hugging Face step (docs/setup.md step 6).'
     }
 }
 

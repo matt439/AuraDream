@@ -261,10 +261,15 @@ function expandTitle() {
 function expandCost() {
   const s = expanderStatus;
   if (!s) return '';
-  if (s.fetch?.length) {
-    return `First use downloads ${s.fetch.map((f) => f.name).join(' and ')} (about ${humanBytes(s.fetch_bytes)}) once.`;
-  }
-  return s.loaded ? '' : `Its first use this session loads ${expanderName()} into memory first.`;
+  const load = s.fetch?.length
+    ? `First use downloads ${s.fetch.map((f) => f.name).join(' and ')} (about ${humanBytes(s.fetch_bytes)}) once.`
+    : s.loaded ? '' : `Its first use this session loads ${expanderName()} into memory first.`;
+  // The retained first-use measurement is Klein's, including its loaded image
+  // model (docs/verified.md, 2026-11-10), not the upsampler's weights alone.
+  const flux3 = ['black-forest-labs/flux-3-image-klein', 'black-forest-labs/flux-3-image-klein-base'].includes(loadedModel);
+  const memory = flux3 && !s.loaded
+    ? 'First use needed about 41 GiB of process RAM with FLUX 3 [Klein] loaded on the measured PC.' : '';
+  return [load, memory].filter(Boolean).join(' ');
 }
 
 // Unload's one writer. setBusy, Expand and the critic each used to set it,
@@ -489,6 +494,7 @@ function syncLoadFailure(s) {
     card = loadFailureCard(s);
     els.viewer.prepend(card);
   }
+  if (card) syncLoadFailureAlternative(card, s);
   if (focused) (card?.querySelector('button') ?? els.generate).focus({ preventScroll: true });
   els.viewer.querySelectorAll('.placeholder').forEach((p) => { p.hidden = !!card; });
   const notMade = els.finishNote.querySelector('.not-made');
@@ -518,6 +524,34 @@ function loadFailureInViewer() {
   return !els.viewer.querySelector('img, figure, .tomb');
 }
 
+// Recover the first visit's dismissed open suggestion, as an explicit picker
+// choice only. A sign-in appearing in another tab retires the offer in place.
+// The server names the suggestion; this does not choose a new default.
+function syncLoadFailureAlternative(card, s) {
+  let button = card.querySelector('.load-open-alternative');
+  const id = s.detail_kind === 'gated' && s.hf_token_present === false
+    && typeof s.open_model_suggestion === 'string' && s.open_model_suggestion !== s.model_id
+    ? s.open_model_suggestion : '';
+  if (!id) {
+    if (button && document.activeElement === button) card.querySelector('.load-retry').focus({ preventScroll: true });
+    button?.remove();
+    return;
+  }
+  if (!button) {
+    button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'ghost load-open-alternative';
+    button.onclick = () => showModelPickerAt(button.dataset.modelId);
+    card.querySelector('h2').after(button);
+  }
+  button.dataset.modelId = id;
+  const label = modelLabel(id);
+  const name = label !== id ? label : id === 'Tongyi-MAI/Z-Image-Turbo' ? 'Z-Image Turbo' : checkpointName(id);
+  const text = `Use ${name} instead`;
+  if (button.textContent !== text) button.textContent = text;
+  button.title = `Choose ${name} in Models, then press Switch & load`;
+}
+
 function loadFailureCard(s) {
   const card = document.createElement('div');
   card.className = 'load-failed';
@@ -545,7 +579,7 @@ function loadFailureCard(s) {
   }
   const retry = document.createElement('button');
   retry.type = 'button';
-  retry.className = 'primary';
+  retry.className = 'primary load-retry';
   retry.textContent = 'Retry load';
   retry.onclick = loadModel;
   card.append(retry);

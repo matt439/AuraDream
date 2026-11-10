@@ -16,6 +16,10 @@
 }
 .shortcuts-head h2 { margin: 0; font-size: var(--fs-lg); }
 .shortcuts-head button { flex: none; }
+.getting-started { margin-block: var(--sp-3) var(--sp-4); }
+.getting-started h3 { margin: 0 0 var(--sp-2); font-size: var(--fs-md); }
+.getting-started ol { margin: 0; padding-left: var(--sp-5); color: var(--text-2); font-size: var(--fs-body-sm); }
+.getting-started li + li { margin-top: var(--sp-2); }
 #shortcuts-intro { margin: var(--sp-2) 0 var(--sp-4); }
 .shortcuts-context { margin: 0 0 var(--sp-4); padding: var(--sp-2); background: var(--panel-2); border-left: 2px solid var(--accent-2); font-size: var(--fs-body-sm); }
 #shortcuts-body .shortcut-relevant h3 { color: var(--accent-2); }

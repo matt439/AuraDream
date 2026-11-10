@@ -87,10 +87,24 @@ uv sync
 
 The default, **FLUX.1 Krea [dev]**, requires accepting the terms on its
 [Hugging Face page](https://huggingface.co/black-forest-labs/FLUX.1-Krea-dev)
-and logging in with a read token:
+and signing in. From the AuraDream folder, run:
 
 ```powershell
 uv run hf auth login
+```
+
+Press **Enter** for **Log in with your browser**, then open the URL it shows
+and enter its code. No copied token is needed. **Paste an access token** is
+the fallback: create a **Read** token at
+[Hugging Face settings](https://huggingface.co/settings/tokens); pasted input
+stays hidden. On Windows you can instead stop AuraDream, double-click
+`install.cmd` again and answer **y** at the Hugging Face step.
+[Setup step 6](docs/setup.md#6-sign-in-to-hugging-face-gated-checkpoints-only)
+covers expired codes and renewing the sign-in.
+
+Then start the server:
+
+```powershell
 uv run python -m backend.main
 ```
 

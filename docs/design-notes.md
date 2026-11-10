@@ -412,6 +412,31 @@ Components are `text_encoder` (Qwen3-VL), `transformer` (Krea2Transformer2DModel
 
 ## Loading happens in one place
 
+**Sign-in help follows the installed CLI (2026-11-10, `DEV#43`, `DEV#44`).**
+`hf_sign_in.login_instructions` keeps the page's Hub failures and the doctor
+on the same folder-aware instructions: browser login first, Read-token paste
+as a hidden-input fallback, or stop AuraDream and rerun `install.cmd` on
+Windows. The installer and setup guide name the actual menu rather than
+asking for a token before its browser-first choice. Replacing a refused
+saved sign-in uses `--force`, because both the CLI and installer otherwise
+skip an existing sign-in. The installed Hub library supplies the lifetime;
+browser OAuth metadata can include a refresh token, so the docs explain
+renewal and reauthentication without inventing a fixed expiry. Tests stub
+the installed menu, CLI and token-save boundary; no real login was performed.
+
+**Memory failures say which memory and what to try (2026-11-10, `GEN#60`).**
+`error_text.generation_error` recognises PyTorch's typed `OutOfMemoryError`
+through the MRO and exception chain without importing torch. A load suggests
+Sequential offload or a lighter checkpoint; a render also suggests a smaller
+image or batch. A load's `MemoryError`, `ENOMEM` or Windows error 1455 names
+RAM/paging-file space, closing other apps, a lighter checkpoint and Windows'
+paging-file/free-disk check. A size change cannot fix the weights failing to
+load, so that advice stays on renders. Unknown exceptions retain `short_error`.
+The load, cell and Then refine failure sites still log the original exception
+and traceback, and the existing skip/stop rules and retry path remain intact.
+CPU-constructed exceptions through the real HTTP/job paths check the wording
+and retained diagnostics; no memory exhaustion or card run was induced.
+
 **Backend publication and failure ownership (2026-10-26, `PERF#1`).** The eager
 backend now holds returned component overrides and a pipeline in one unpublished
 candidate until every preparation step and weights context has completed. The
@@ -468,7 +493,8 @@ Hub's error), as `prompt_encoding._reason` does for tokenizers:
 the steps - for a gate, the catalogue's own word for it (`launch.CHECKPOINTS`:
 a click-through, or the authors' approval), `uv run hf auth login`, then Retry
 load - and `ModelStatus.detail_kind` and `detail_url` (the model page) beside
-`detail`; anything else is `short_error` as before. The log keeps the
+`detail`; known memory failures use `generation_error` as described above,
+and other failures keep `short_error`. The log keeps the
 library's words. It is raised on as `jobs.LoadFailed(detail)` from the
 original, so the job that ended at the load carries the same sentence as the
 status (`_run`) and Expand answers with it too. The page puts it in the
@@ -8952,6 +8978,13 @@ records passing CPU/browser checks and the final screenshot-read limitation.
 
 ## Keyboard shortcut help
 
+**Getting started is reachable in the page (2026-11-10, `UI#45`).** The
+topbar's `?` now names Help and keyboard shortcuts. Its dialog starts with
+Models, Prompt, Generate, automatic Gallery saving and Cancel before the
+existing context-sensitive key inventory. This is read-only prose inside
+the existing modal, keeping its focus and Escape behavior; serving the full
+usage guide remains `UI#43`.
+
 **Small fast routes and compact setup (2026-10-26).** The same approved follow-up
 adds `/` to gallery search and M to the focused image's More seeds preview. M
 uses one image id, independent of picks, and requires a separate Queue action.
@@ -13720,8 +13753,10 @@ pointing where its owner put it.
 
 Choices, and why:
 
-- Installed in `main.run`, after the port checks, and closed when the
-  server stops. At import it would have opened a file for every CLI, every
+- Installed in `main.run`, after read-only duplicate-launch detection, and
+  closed on every exit. A port or passcode refusal is printed once and also
+  kept in the owned file, even at CRITICAL (`DEV#42`, 2026-11-10). Passcode
+  validation still precedes any network probe. At import it would have opened a file for every CLI, every
   test that imports `main` and the fake server, and a second launch (which
   only reports the running server and exits) would have held a second
   handle on the first one's file.

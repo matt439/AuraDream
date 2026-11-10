@@ -131,6 +131,17 @@ Ctrl-C's; install the log file before the port and passcode checks; a
 troubleshooting line for "the window flashes and closes" (run the doctor).
 `DEV#42`.
 
+**Built 2026-11-10 (`todo/overnight-first-run`).** The Windows launcher keeps
+non-zero errors visible while preserving exit codes and skipping the pause
+for Python/Windows Ctrl-C statuses. Port/passcode refusals print once and
+enter `auradream.log` even at CRITICAL, with the handler closed on every
+exit. Read-only duplicate-launch detection stays before opening the file,
+preserving the running server's rollover; passcode validation still comes
+before any network probe. Setup troubleshooting points to the doctor.
+Real batch control flow with inert uv, scratch logs, secret exclusion and
+the existing server/log/passcode tests passed; no clean-machine or typed
+Ctrl-C acceptance is claimed.
+
 ### F4 closing the first-visit panel leads to a gated dead end
 
 With no sign-in, the open checkpoint is only a preselection in the page
@@ -148,6 +159,17 @@ First step: when a gated load fails and no token is present, the card offers
 "Use Z-Image Turbo instead" (open Models with the suggestion chosen) before
 the sign-in route. `UI#44`.
 
+**Built 2026-11-10 (`todo/overnight-first-run`).** The failed-load card puts
+"Use Z-Image Turbo instead" before the sign-in route when the structured
+failure is gated, token presence is explicitly false and the server still
+offers that checkpoint. It opens the existing unsaved Models choice;
+Switch & load remains a separate press. A token appearing removes the
+offer in place and returns its focus to Retry load. The startup smoke
+checks the dismissed-first-visit path, unchanged server selection/prompt/page
+scroll, stale-offer focus and unrelated/absent-suggestion exclusions.
+The longer sign-in card was visually checked. No new default was chosen;
+`GEN#59` remains Matt's decision.
+
 ### F5 signing in later needs a terminal in the project folder
 
 The page's gated words, the doctor (`backend/doctor.py:520-523`) and the
@@ -161,6 +183,15 @@ the sign-in (`install.ps1:686-696`).
 First step: each message says "or double-click install.cmd again and answer
 y at the Hugging Face step"; where the command stays, name the folder (the
 server knows its root) and that pasted input does not show. `DEV#43`.
+
+**Built 2026-11-10 (`todo/overnight-first-run`).** A cold
+`hf_sign_in.login_instructions` gives the page's Hub failures and the doctor
+the actual AuraDream folder, browser/paste instructions and Windows'
+stop-and-rerun-installer alternative. The installer's skipped/failed sign-in
+lines name its folder too. A refused existing sign-in instead names
+`hf auth login --force`, because the installer skips a present token.
+API, doctor, Hub-access and sandboxed installer checks passed; no account
+sign-in or credential read was performed.
 
 ### F6 the sign-in menu differs from the instructions
 
@@ -177,6 +208,15 @@ First step: document the browser login as the route (drop the
 create-and-copy step), keep pasting as the fallback with the hidden-input
 note, find whether the device-flow token expires and say what to do, and pin
 the menu's wording with a test against the installed library. `DEV#44`.
+
+**Built 2026-11-10 (`todo/overnight-first-run`).** README, setup and installer
+lead with the installed browser-login choice; a Read token's hidden paste
+is the fallback. They explain expired codes and `--force` for a saved
+sign-in. Browser-token expiry is server-supplied and can be automatically
+renewed when refresh metadata exists, so the guide names those conditions
+rather than a fixed lifetime. Offline tests invoke the pinned
+`huggingface_hub` 1.33.0 menu, CLI-force and token-save/expiry-note boundaries
+with inputs and persistence stubbed. No real browser authorization ran.
 
 ### F7 two different first open checkpoints
 
@@ -217,6 +257,16 @@ is only in `docs/setup.md:353-354`. A Windows paging-file failure (WinError
 `torch.OutOfMemoryError` on a load and a cell, and the RAM failures on a load,
 to plain sentences; the raw text stays in the log. `GEN#60`.
 
+**Built 2026-11-10 (`todo/overnight-first-run`).** The standard-library-only
+`error_text.generation_error` recognises typed PyTorch memory failures through
+wrappers and subclasses, suggesting Sequential offload or a lighter
+checkpoint at load, and smaller images/batches at render. A load's
+`MemoryError`, `ENOMEM` and Windows 1455 name RAM/paging-file space. Unknown
+exceptions retain their words. Actual HTTP/job tests with CPU-constructed
+exceptions passed: load/job status agrees, retry clears the detail, cell
+skip/stop behavior is retained, and raw exceptions/tracebacks remain in
+diagnostics. No memory exhaustion or card run was induced.
+
 ### F10 a dropped or full download is library words
 
 `_load_failure` gives words to the Hub's gated, denied, not-found and offline
@@ -241,6 +291,14 @@ real help but say nothing about getting started. `UI#43` (from the peer
 review) serves usage.md from the shortcuts dialog. First step: a short
 "Getting started" block at the top of that dialog (pick a model, a prompt,
 Generate, where images go, how to stop) beside `UI#43`'s link. `UI#45`.
+
+**Built 2026-11-10 (`todo/overnight-first-run`).** Help and keyboard shortcuts
+starts with a short Getting started sequence: Models, Prompt, Generate,
+automatic Gallery saving and Cancel. It remains read-only inside the
+existing modal, with the existing shortcut inventory and close/focus
+behavior. The shortcuts smoke covers no submission/state changes, the
+accessibility audit, nested-dialog guards and narrow layout; desktop and
+narrow screenshots were checked. The full guide link remains `UI#43`.
 
 ### F12 README's front and the docs' shape
 
@@ -418,6 +476,13 @@ upsampler's first Expand needed about 41 GiB of process RAM
 (`web/status.js:261-268`). First step: the measured RAM on FLUX 3's Expand
 cost line. `GEN#62`.
 
+**Built 2026-11-10 (`todo/overnight-first-run`).** FLUX 3's cold Expand cost
+now includes about 41 GiB of process RAM, explicitly measured with Klein
+loaded on the test PC. It stays while the upsampler is downloaded but not
+loaded and goes away when it is warm. The FLUX 3 smoke checks cold, cached
+and loaded states, with ERNIE retaining its own cost words. This reuses the
+retained measurement; no card or RAM-pressure run was repeated.
+
 ### F27 FLUX 3's download size is unknown
 
 Both FLUX 3 rows show an Unknown download and cache state
@@ -431,6 +496,40 @@ GitHub lists before rendering `docs/README.md`'s "Using the app". README's
 navigation line links setup.md and usage.md directly, so the cost is small.
 First step: a `docs/maintainer/` move with every citation updated, only if
 Matt wants the churn. `DEV#53`.
+
+## Follow-up verification (2026-11-10)
+
+The seven rows `DEV#42`-`DEV#44`, `GEN#60`, `GEN#62`, `UI#44` and `UI#45`
+were built together on `todo/overnight-first-run`. On Windows, Python
+3.13.15 and explicit Chrome, `uv run --group dev pytest -n 4 --timeout=600
+--durations=25` exited 0: 9,214 passed, 241 skipped, 77 library warnings in
+339.60 s. Ruff passed and pinned Pyright checked 185 files with no
+diagnostics. The final documentation, runner and classic-script contracts
+passed 125 tests. Local receipts are under `work/overnight-first-run/`.
+
+The final Chrome smoke run (`--jobs 2 --offset 3000`) exited 0: all eight
+passed in 134 s. It covered model switch and startup on their shared fake,
+FLUX 3, ERNIE, shortcut help, and the phone's Create, dialogs and keyboard
+smokes. These are fake-server/browser checks, with no real-device claim.
+
+The first combined smoke run exposed a setup dependency: after
+`smoke-model-switch` left Animagine selected, the startup smoke switched to
+Krea then immediately unloaded with the old browser revision. Standalone
+started on Krea and concealed the change. Its fatal prerequisite now polls
+until the switch completes, adopts the authoritative status, then proves
+the unloaded/no-token/suggestion state before navigating. The corrected
+model-switch/startup pair passed while sharing a fake alongside FLUX 3 in
+another worker; no application behavior was relaxed.
+
+Two accessibility-audit tests initially failed under Edge before any page
+navigation: its launcher exited 0 before DevTools was ready. This reproduced
+serially with no concurrent browser work; the same untouched data-markup
+tests passed on explicit Chrome, including the full suite. No browser
+harness change or blanket Edge qualification follows. Product screenshots
+were inspected, but physical-phone/platform acceptance, clean-machine
+installation, a real Hugging Face authorization and card measurements were
+not performed. No weights, live-gallery changes or real-service changes
+were needed for this batch.
 
 ## Not taken
 

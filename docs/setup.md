@@ -60,10 +60,11 @@ What it does, in order:
   `uv run python -m backend.doctor`, which you can also run yourself at any
   time.
 - Only if you want the gated default checkpoint, opens the Hugging Face
-  account, licence and token pages and runs `uv run hf auth login`, where
-  you paste the token into Hugging Face's own tool (the installer never sees
-  it). Otherwise it recommends starting on an open checkpoint, Animagine
-  XL 4.0.
+  account and licence pages and runs `uv run hf auth login`. Press Enter for
+  **Log in with your browser**, then follow its URL and code. No copied token
+  is needed; **Paste an access token** is a fallback whose input stays hidden
+  (the installer never sees it). Otherwise it recommends an open checkpoint,
+  Animagine XL 4.0.
 - Makes a Start-menu shortcut and, if you agree, a desktop shortcut named
   **AuraDream**. Each runs `bin\auradream.cmd --open`: a window with the
   server, and the page in your browser once it is ready. Keep the window
@@ -246,17 +247,34 @@ Skip this for open checkpoints such as Animagine.
    [black-forest-labs/FLUX.1-Krea-dev](https://huggingface.co/black-forest-labs/FLUX.1-Krea-dev),
    and accept its licence. FLUX.1 Krea [dev] is a click-through and is
    non-commercial.
-3. Create a token at
-   [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens):
-   **Create new token**, type **Read**.
-4. From the project folder, run this and paste the token when asked:
+3. On Windows, you can stop AuraDream, double-click `install.cmd` in your
+   AuraDream folder again and answer **y** at the Hugging Face step. Or open
+   a terminal in that folder (the one containing `pyproject.toml` and
+   `backend/`) and run:
 
    ```powershell
    uv run hf auth login
    ```
 
-The token is saved in the Hugging Face cache for your Windows user (step 3),
-so this is once per machine.
+4. At **How would you like to log in?**, press **Enter** for **Log in with
+   your browser**. Open the URL printed by the tool and enter its code, then
+   approve the sign-in in your browser. No copied token is needed. If the
+   code expires before you finish, run the command again for a new one.
+
+If browser sign-in does not work, choose **Paste an access token** with the
+arrow keys. Create a token at
+[huggingface.co/settings/tokens](https://huggingface.co/settings/tokens):
+**Create new token**, type **Read**, and paste it when asked. **Pasted input
+stays hidden**, including its characters: paste once and press Enter.
+
+The tool saves the sign-in in your Hugging Face cache (step 3). Browser
+sign-in can expire; the tool refreshes it automatically when Hugging Face
+supplies a refresh token. When an expiry is supplied, its final note says
+whether it will refresh or when to sign in again. If an expired or revoked
+sign-in cannot be renewed, run `uv run hf auth login --force` from the
+AuraDream folder and sign in again. `--force` also opens the menu when the tool says you are already
+logged in. A token supplied through `HF_TOKEN` takes precedence over the
+saved sign-in; replace or remove that variable if it is the refused token.
 
 ## 7. Start the server and make an image
 
@@ -307,6 +325,12 @@ It restores the checkpoint and settings you last saved in **Models**.
 
 ## If something goes wrong
 
+If the shortcut's window flashes and closes, open PowerShell in the
+AuraDream folder and run the doctor below. A server error now keeps the
+shortcut's window open so you can read it; press a key to close it. A busy
+port or invalid passcode is also recorded in `auradream.log` beside the
+database when that file can be written. Ctrl-C still closes normally.
+
 First, from the project folder, run the read-only machine check:
 
 ```powershell
@@ -341,8 +365,11 @@ anyone. It is not part of a gallery bundle or backup, and deleting it while
 the server is stopped loses nothing else.
 
 - **"is gated on Hugging Face and this sign-in has no access yet"**: accept
-  the licence (or wait for approval) on the checkpoint's page, run
-  `uv run hf auth login` with a read token, then load again.
+  the licence (or wait for approval) on the checkpoint's page, then
+  sign in from the AuraDream folder with `uv run hf auth login` (or
+  `uv run hf auth login --force` to replace a saved sign-in), then load
+  again. [Step 6](#6-sign-in-to-hugging-face-gated-checkpoints-only) covers
+  browser sign-in and the hidden-input token fallback.
 - **`torch.cuda.is_available()` is `False`, or a CUDA error at load**:
   update the NVIDIA driver (step 1), and check the card's generation
   ([Before you start](#before-you-start)). Do not install a separate CUDA

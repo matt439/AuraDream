@@ -145,6 +145,10 @@ def test_install_dry_run_on_an_old_machine_from_a_zip(sandbox):
                                              / "Start Menu" / "Programs" / "AuraDream.lnk") in out
     assert str(sandbox["home"] / "Desktop" / "AuraDream.lnk") in out
     assert "--model cagliostrolab/animagine-xl-4.0 --open" in out       # no sign-in: an open checkpoint
+    assert f"open PowerShell in '{sandbox['root']}' and run: uv run hf auth login" in out
+    assert "double-click install.cmd in that folder again and answer y" in out
+    assert 'press Enter for "Log in with your browser"' in out
+    assert '"Paste an access token" takes a Read token; pasted input stays hidden' in out
     assert "A real run would stop at:" in out
     # Nothing changed: the folder, the shortcuts' places, no HF cache, no git or uv run.
     assert _snapshot(sandbox["root"], sandbox["home"] / "Roaming", sandbox["home"] / "Desktop") == before

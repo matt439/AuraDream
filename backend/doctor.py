@@ -519,8 +519,8 @@ def check_hf_login(token_path: Path | None = None, environ: dict[str, str] | Non
                       "(not checked with the Hub here).")]
     return [Check(WARN, "Hugging Face", "not signed in. Open checkpoints such as Animagine XL 4.0 need no "
                   "sign-in; the default, FLUX.1 Krea [dev], does.",
-                  "For a gated checkpoint, accept its licence on its Hugging Face page, then run "
-                  "`uv run hf auth login` (docs/setup.md step 6).")]
+                  "For a gated checkpoint, accept its licence on its Hugging Face page, then "
+                  f"{hf_sign_in.login_instructions()} (docs/setup.md step 6).")]
 
 
 # --- Running ------------------------------------------------------------------

@@ -135,7 +135,11 @@ before changing it.
   huggingface_hub's `constants.HF_TOKEN_PATH` existing, else None) and
   `token_present`; stdlib and huggingface_hub's constants only, the token
   never read, logged, sent or checked with the Hub. The doctor's sign-in
-  check and the status's `hf_token_present` share it
+  check and the status's `hf_token_present` share it. `login_instructions`
+  supplies the installed CLI's browser/paste menu words and the actual
+  checkout folder to the doctor and Hub failures. A refused saved sign-in
+  uses `--force`; the missing-sign-in alternative says to stop AuraDream
+  before rerunning the Windows installer. It never signs in or reads a token
 - `backend/card_facts.py` — the server's CUDA card: `card(device)` (total
   memory in bytes, compute capability), `total_memory`, `capability`; None
   for a CPU device, no CUDA, no card or any error. Cold (torch only on the
@@ -384,7 +388,8 @@ before changing it.
   `_TERMINAL`; reads no gallery, settings or backend, and `jobs` imports both
   names back, so `from backend.jobs import Job` still answers
 - `backend/error_text.py` — `short_error`, an exception as one UI-presentable
-  paragraph; standard library only, so `prompt_check` and `tag_lookup` need
+  paragraph, and `generation_error`, plain advice for typed GPU failures and
+  a load's RAM/paging-file failures; standard library only, so `prompt_check` and `tag_lookup` need
   not import the queue for it (`jobs` re-exports it for every other caller)
 - `backend/storage.py` — SQLite index + PNGs with embedded metadata
 - `backend/record_fields.py` — the pure field codecs rows and PNG chunks
@@ -641,7 +646,9 @@ before changing it.
   at the configured level and every record with a traceback, holds the
   console's handlers at that level, opens the `auradream` and `backend`
   loggers to DEBUG, and points `faulthandler` at the file unless it was
-  already enabled; `Installed.follow` adds uvicorn's logger, `close` undoes
+  already enabled; `Installed.follow` adds uvicorn's logger,
+  `startup_refusal` keeps an already printed refusal in the owned file even
+  at CRITICAL, and `close` undoes
   all of it; `uvicorn_level` is uvicorn's name for the level. Only
   `main.run` installs it (`tests/test_log_file.py`)
 - `backend/refusal_codes.py` — the stable codes of the refusals the page
@@ -1231,8 +1238,12 @@ measured on the card and when.
   from `launch.CHECKPOINTS`), and for a bare `HfHubHTTPError` answering 401
   or 403 (an invalid, expired or under-permitted token: "denied", kind
   `gated`), worded by `hub_access.denied`, the sentence a switch's check
-  gives, with "the model page" and "press Retry load"; anything else stays
-  `short_error`, and the log keeps the library's words. The CUDA refusal
+  gives, with "the model page" and "press Retry load". `generation_error`
+  gives a typed PyTorch `OutOfMemoryError` plain graphics-card advice, and a
+  load's `MemoryError`, `ENOMEM` or Windows error 1455 plain RAM/paging-file
+  advice, through wrapper causes/contexts too. These carry no Hub kind or
+  URL; unknown failures stay `short_error`, and the log keeps the library's
+  words and traceback. The CUDA refusal
   (`diffusers_backend.cuda_unavailable_message`) names the NVIDIA driver and
   CUDA 13 first, the card's compute capability only when torch reads one,
   then the `AURADREAM_OFFLOAD`/`AURADREAM_DEVICE` CPU route, within
@@ -2661,8 +2672,11 @@ measured on the card and when.
   sent only with the records (the full snapshot). When the failure rule ends
   a job, `stopped_by` is "failures" (status still `error`, through
   `_finish`) and its error reads "Stopped at cell X of Y after N cells
-  failed; K images kept. Last: <short_error>" (a plain job's in images or
-  batches, `Job.units`). Skipped cells and a grid's `stopped_by`
+  failed; K images kept. Last: <generation_error>" (a plain job's in images or
+  batches, `Job.units`). Cells and Then refine passes use `generation_error`
+  for typed GPU-memory failures (smaller size/batch, Sequential offload or a
+  lighter checkpoint), while logging the raw exception and traceback. The
+  skip/stop rule and retained failures are unchanged. Skipped cells and a grid's `stopped_by`
   "failures" or "budget" are recovered by the finish line's Finish run
   (`finishRunButton`, `web/runs.js`), which reads the server's retained run
   (`POST /api/runs/{id}/finish/preview`, `finish_plan`) - never the panel,
@@ -3201,9 +3215,12 @@ measured on the card and when.
   at INFO, and the log file takes any record with `exc_info` at every level
   (`log_file.py`). Keep that pair for a new failure site, on an `auradream`
   or `backend.*` logger; the file is opened to DEBUG for those two trees
-  only. The file is installed in `main.run` after the port checks, never at
-  import, so the CLIs, the tests and the fake server write none and a second
-  launch leaves the running server's file alone. It holds prompts and paths
+  only. The file is installed in `main.run`, never at import, after a valid
+  duplicate launch has been detected without opening it. Port and passcode
+  refusals print once and also enter the owned file even at CRITICAL; every
+  startup exit closes it. Passcode validation still precedes any network
+  probe. The CLIs and fake server install none; a duplicate launch leaves the
+  running server's file alone. It holds prompts and paths
   and is not gallery data: no bundle, export, backup or `clear` reads,
   copies or removes it. Its handler's stream is the only handle on the file
   (a second one makes the rollover's rename fail on Windows), so
@@ -3631,6 +3648,19 @@ measured on the card and when.
   `CritiqueIssue.note`, under the issue and in its tooltip).
 
 ### Frontend and CLI
+
+- Help's `?` dialog starts with a short Getting started sequence (Models,
+  Prompt, Generate, automatic Gallery saving and Cancel), then the existing
+  keyboard inventory. Reading it queues nothing and changes no settings.
+- A gated load's empty-viewer card offers the server's existing
+  `open_model_suggestion` only when `hf_token_present` is explicitly false.
+  The press opens that unsaved choice in Models; Switch & load is still a
+  separate press. A token appearing retires the offer without replacing the
+  failure card, and its focused button hands focus to Retry load.
+- FLUX 3's Expand cost, before the upsampler is loaded, includes the retained
+  first-use measurement of about 41 GiB of process RAM with Klein loaded on
+  the measured PC. It is a measured reference, not a fit guarantee for Base
+  or another PC, and disappears once the upsampler is already loaded.
 
 - What the page does about a refusal is decided by its `code`, never by
   its sentence. A refusal the page acts on answers
@@ -8336,6 +8366,20 @@ measured on the card and when.
 
 ## Tests
 
+`tests/test_startup_refusals.py` checks durable port/passcode refusals at
+INFO and CRITICAL, secret exclusion, closed handles, an unwritable log and
+duplicate launches leaving existing files untouched. On Windows it runs the
+real batch launcher with an inert uv stand-in, including spaced paths,
+argument/exit preservation, ordinary errors and Ctrl-C exit statuses.
+`tests/test_hf_login_instructions.py` stubs the installed Hub CLI's menu and
+token-save boundary to pin browser/paste wording, `--force`, server-supplied
+expiry and refresh notes offline. It never signs in or reads credentials.
+
+`tests/test_memory_errors.py` constructs memory exceptions on the CPU and
+checks actual load status, load-ended jobs, retries, raw traceback retention,
+and skipped-cell/failure-stop streams. It covers wrapper chains, subclasses,
+cycle bounds and unrelated errors without inducing real memory pressure.
+
 `tests/test_browser_startup_wait.py` drives actual harness startup with inert
 filesystem/process ports and virtual sleeps: delayed readiness, bounded
 absence and diagnostic early exit, including actual cleanup. Profile tests
@@ -10091,7 +10135,8 @@ from a card, a sheet cell and the card the lightbox returns to (never from
 fields, menus, the model picker, help, a settings dialog or the lightbox).
 
 `smoke-shortcuts.json` uses a fresh fake on 7913. It checks the complete
-shortcut list before any images exist, the top-bar and `?` openers, typing,
+shortcut list and read-only Getting started block before any images exist,
+the top-bar and `?` openers, typing,
 composition/modifier/repeat guards, help above a lightbox and a Refine draft,
 no underlying submission or image action, native Escape, Close and actual
 backdrop focus restoration, context ordering with the full inventory, menu-opener
@@ -11227,7 +11272,8 @@ placeholder at the fixed shift (1.94), the ignored-CFG, steps and Mu tips,
 references on and negative prompt, True CFG, Refine and LoRAs off, the
 shared guide's caption advice and example-size line, its one Qwen3-VL budget
 (8189), Expand as FLUX 3's prompt upsampler (its name and 17.5 GiB first-use
-download in the title, no translator, a page-side held status shown
+download in the title, measured 41 GiB process-RAM wording while cold or
+cached but unloaded, omitted while warm, no translator, a page-side held status shown
 aria-disabled with its held text as the title (the server's own refusal
 sentence and its 422 are pytest's, `tests/test_api.py`), the running line's download/load/expanding steps, the
 caption written into the box with an Undo and Ctrl+Z, no translation), the
@@ -11340,7 +11386,11 @@ recommendation, the server's selection unchanged (screenshot
 `model-startup-open-suggestion.png`), a token appearing mid-session taking
 the reason away (and its return bringing it back), Revert putting the
 default back, and a later hand click on that row given no reason; a token,
-a sourced start or a save since the start keep the default row.
+a sourced start or a save since the start keep the default row. It also
+checks the dismissed first visit followed by a gated Generate: the no-token
+open alternative opens Models unsaved, leaving the server selection, prompt
+and page scroll alone. A token appearing retires its button and returns focus
+to Retry; unrelated failures or an absent suggestion offer no alternative.
 `test_open_model_suggestion.py` covers the shared predicate (presence only,
 the file never opened), the doctor using it, the status field by
 `HF_TOKEN`, `HUGGING_FACE_HUB_TOKEN` (held to huggingface_hub's own
