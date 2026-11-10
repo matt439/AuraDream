@@ -554,7 +554,9 @@ in the HTTP layer or the UI needs to change.
 `AURADREAM_*` cleared by `tests/conftest.py`. The fake backend is
 `tests/fakes.py`; HTTP tests are `tests/test_api*.py`, one file per area.
 Node is required for the classic-script syntax/shared-scope guard; it
-checks HTML script order without executing the page's boot.
+checks HTML script order without executing the page's boot, and that every
+name a script uses is declared (a new browser global joins `BROWSER_GLOBALS`
+in `tools/check_classic_scripts.mjs`).
 The pinned Pyright gate checks every Python source in `backend/` and
 `tools/`; missing tools and empty scope fail. Its wrapper uses installed
 Node and bundled checker files, without automatic updates or downloads.
@@ -732,7 +734,10 @@ Gotchas:
   outside the window, sideways overflow); `docs/rules.md` Tests has both.
 - `browser.mjs` exits 1 on a failed `expect`, 2 on a script it refuses
   (an async helper joined with `&&`/`||` is never awaited: put the whole
-  condition inside the predicate).
+  condition inside the predicate). It also exits 1 when the page threw: an
+  uncaught exception or unhandled rejection in the page's code is printed
+  as `! page error:` and fails the run though every `expect` passed. Fix
+  the page (or the promise an `eval` dropped); no step allows one.
 - A `web/` edit needs no server restart; a `backend/` edit does.
 - Each run gets its own browser profile directory; a shared one stays locked
   by a crashed Edge. It is removed on every exit (failures and Ctrl-C too),

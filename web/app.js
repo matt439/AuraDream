@@ -7,6 +7,10 @@
 
 // --------------------------------------------------------------------- wire
 
+// Before any wiring, so an error in the wiring or the boot below is said too.
+window.addEventListener('error', sayPageError);
+window.addEventListener('unhandledrejection', sayPageError);
+
 let searchTimer;
 els.generate.onclick = pressGenerate;
 els.cancel.onclick = cancelJob;

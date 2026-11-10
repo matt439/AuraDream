@@ -223,6 +223,13 @@ per checkpoint. **Reset** restores defaults. Resume is never remembered as
 ticked. **Reuse** on an image restores its settings; check the warning when
 reusing one from another checkpoint. Prompt replacements support Ctrl+Z.
 
+If the page itself fails, a red line under Generate says **Page error:**
+with the error and where it came from, and asks you to reload if something
+has stopped working (on a phone it sits over the bottom bars, or under the
+gallery's search row in the Gallery view). It is a fault in AuraDream, not
+in your settings: reloading the page is safe, since jobs run on the server
+and the panel is remembered. The line's text is what to quote in a report.
+
 ### Save generation and grid setups
 
 Use **Examples > Saved setups…** to keep several named drafts for the selected

@@ -1,7 +1,8 @@
 """Check the page's ordered classic scripts without running their bodies.
 
 HTMLParser owns the script inventory; Node's JavaScript parser and global
-declaration instantiation own syntax and declaration-collision semantics.
+declaration instantiation own syntax and declaration-collision semantics,
+and its bundled acorn the names no script declares (no-undef).
 """
 from __future__ import annotations
 
@@ -94,7 +95,8 @@ def main() -> int:
             raise ValueError("Node is required for the classic-script check; install it and retry")
         scripts = [{"filename": str(path), "source": path.read_text(encoding="utf-8")} for path in paths]
         done = subprocess.run(
-            [node, str(ROOT / "tools" / "check_classic_scripts.mjs")],
+            # The no-undef pass reads Node's bundled parser, an internal module.
+            [node, "--expose-internals", str(ROOT / "tools" / "check_classic_scripts.mjs")],
             input=json.dumps(scripts), text=True, encoding="utf-8", timeout=30,
         )
         return done.returncode
