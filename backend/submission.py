@@ -11,7 +11,7 @@ from . import grid, instruction_edit, instruction_edit_admission, loras, refine,
 from .app_context import AppServices
 from .execution import configured_loader_unavailable_reason, unavailable_reason
 from .model_selection import current_settings
-from .refusal_codes import LORA_MISMATCH
+from .refusal_codes import LORA_MISMATCH, MASK_MISSING
 from .refusals import refusal
 from .schemas import GenerateRequest, ImageRecord
 
@@ -58,6 +58,14 @@ class Unusable(tuple[str, str]):
     def from_error(cls, kind: str, exc: ValueError) -> "Unusable":
         return cls.of(kind, str(exc), getattr(exc, "code", None), getattr(exc, "ids", ()))
 
+
+def _mask_gone(mask: str) -> bool:
+    """Whether the stored mask no longer resolves. Blocking: reads the database."""
+    try:
+        storage.mask_path(mask)
+    except ValueError:
+        return True
+    return False
 
 # The per-image status a reason from `unusable_input` becomes.
 UNUSABLE_STATUS: dict[str, Literal["source_deleted", "lora_missing", "mask_missing", "outpaint", "mask_crop"]] = {
@@ -147,7 +155,8 @@ async def unusable_input(
         try:
             await asyncio.to_thread(refine.check_upscaler_source, request.refine)
         except ValueError as exc:
-            return "upscaler", str(exc)
+            # The source gone is the source's refusal, its code beside it.
+            return Unusable.from_error("upscaler", exc)
     if request.refine is not None:
         inpainting = request.inpainting
         if inpainting:
@@ -174,7 +183,10 @@ async def unusable_input(
                 return Unusable.from_error("mask_missing", exc)
             reason = await asyncio.to_thread(mask_unusable, request)
             if reason is not None:
-                return "mask", reason
+                # Swept between the look above and this one: still the
+                # mask's refusal by its code, whatever this one's words.
+                gone = await asyncio.to_thread(_mask_gone, request.mask)
+                return Unusable.of("mask", reason, MASK_MISSING if gone else None)
         if request.mask_crop is not None:
             reason = await asyncio.to_thread(mask_crop_unusable, request)
             if reason is not None:

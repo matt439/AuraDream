@@ -104,6 +104,28 @@ def test_a_submission_names_its_gone_images_by_code_and_id(client, fake, store):
     assert fake.requests and len(fake.requests) == 1
 
 
+def test_a_pass_through_the_upscaler_names_its_gone_source_by_code_too(client, fake, store, monkeypatch):
+    # The upscaler's own look at the source comes before the pass's: the same
+    # refusal, so the Refine dialog says a deleted or binned source the same.
+    from backend import refine
+
+    monkeypatch.setattr(main.model_selection, "_selection", ("LyliaEngine/waiIllustriousSDXL_v170", 0))
+    rec = _plant(store, model_id="LyliaEngine/waiIllustriousSDXL_v170")
+    body = {
+        "prompt": "x", "width": 256, "height": 256, "steps": 20,
+        "refine": rec.id, "strength": 0.4, "upscaler": refine.ANIME6B,
+    }
+    client.post("/api/images/bin", json={"ids": [rec.id]})
+    assert _refused(client.post("/api/grid/preview", json=body), 422, "image_binned", [rec.id]) == (
+        f"source image {rec.id} is in the recycle bin; restore it to use it"
+    )
+    assert client.delete(f"/api/images/{rec.id}").status_code == 200
+    assert _refused(client.post("/api/generate", json=body), 422, "image_unknown", [rec.id]) == (
+        f"no gallery image with id {rec.id}"
+    )
+    assert fake.requests == []
+
+
 def test_an_adapter_is_refused_by_code_missing_or_not_fitting(client, fake, tmp_path, monkeypatch):
     from backend import loras
 
@@ -142,6 +164,28 @@ def test_a_mask_that_has_gone_and_its_source_are_said_by_code(client, fake, stor
     assert _refused(
         client.post("/api/masks", params={"source": record["id"]}, **upload), 422, "image_binned", [record["id"]],
     ) == f"Source image {record['id']} is in the recycle bin; restore it to use it."
+
+
+def test_a_mask_gone_between_the_submissions_two_looks_keeps_its_code(client, fake, store, monkeypatch):
+    # Swept after `unusable_input` found it and before `mask_unusable` read
+    # it: still the mask's refusal, which the Inpaint dialog answers by
+    # sending the mask again.
+    run_one(client)
+    record = client.get("/api/gallery").json()["items"][0]
+    real, looks = storage.mask_path, []
+
+    def swept_after_the_first_look(mask):
+        looks.append(mask)
+        return real("0" * 64) if len(looks) > 1 else Path("held.png")
+
+    monkeypatch.setattr(storage, "mask_path", swept_after_the_first_look)
+    inpaint = {
+        "prompt": "a red scarf", "width": 256, "height": 256, "steps": 10,
+        "refine": record["id"], "strength": 0.6, "mask": "1" * 64,
+    }
+    said = _refused(client.post("/api/generate", json=inpaint), 422, "mask_missing")
+    assert said.startswith("no stored mask 0000000000000000") and len(looks) >= 2
+    assert len(fake.requests) == 1
 
 
 def test_a_mask_gone_between_the_check_and_the_hold_keeps_its_code(client):

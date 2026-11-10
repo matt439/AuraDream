@@ -350,6 +350,10 @@ field and forgets, drops or resends nothing. Tests: `tests/test_refusal_codes.py
 sentence, the page reading exactly the server's codes, no message test in
 `web/`); the rule is in `docs/rules.md` under Frontend and CLI and the
 reasons in `docs/design-notes.md` under "Refusal codes the page reads".
+The review of the build found two submission refusals still going out
+without their code, both fixed in `submission.unusable_input`: a gone
+source found by the upscaler's own look at it (`check_upscaler_source`),
+and a mask swept between the submission's two looks at it.
 
 ## Tooling and the page
 
