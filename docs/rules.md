@@ -474,6 +474,16 @@ before changing it.
   included, in another task and delayed a stream's attach), module `busy`
   (nothing when none is installed) and `hold_while` for the CLI
   (`tests/test_keep_awake.py`)
+- `backend/response_headers.py` — the two headers every response carries,
+  stdlib and Starlette only: `ResponseHeadersMiddleware` (a plain ASGI
+  layer adding `Content-Security-Policy: frame-ancestors 'self'` and
+  `X-Content-Type-Options: nosniff` at each response's start; the policy
+  is appended beside one a response sets itself, never in its place) and
+  `pin_page_types` (`.js` as `text/javascript`, `.css` as `text/css`
+  whatever Windows' registry says, since nosniff refuses a script or a
+  stylesheet served as anything else). It answers an unhandled error's
+  500 itself and raises the error on. `main` adds it last, so it is the
+  outermost of the app's layers (`tests/test_response_headers.py`)
 - `backend/api_prompt.py` — the tag helper and prompt routes (suggest,
   validate, Expand, Check, measure, the critic) and their refusal wording;
   `backend/prompt_check.py` layer 1 of Check (encoder reports and rule
@@ -3419,6 +3429,22 @@ measured on the card and when.
 
 ### Frontend and CLI
 
+- Every response carries `frame-ancestors 'self'` and `nosniff`
+  (`response_headers.ResponseHeadersMiddleware`): the routes, the
+  `/outputs` and `/static` mounts, `/sw.js`, `/docs`, and the refusals of
+  the layers under it (the Host check's 400, the cross-site write's 403).
+  It stays the last `add_middleware` in `main`: Starlette runs the last one
+  added first, and a layer added after it answers without the headers
+  (`test_it_is_the_outermost_of_the_apps_own_layers`). The source is
+  `'self'`, never `'none'`: the smokes open a second tab as an iframe of
+  `/` (`smoke-jobs`, `smoke-queue-controls`, `smoke-analysis`). A new kind
+  of file under `web/` that the page loads as a script or a stylesheet
+  must be served as one, or nosniff refuses it. Starlette's own 500 for
+  an unhandled error would be the one response without the headers (its
+  layer sits outside every layer an app can add), so the layer sends that
+  500 itself, same status and text, and raises the error again for the
+  server to log; never swallow it there. This is not a script policy:
+  there is no `script-src`.
 - Saved gallery searches store only Name, Query, Starred and All models in a
   versioned database-scoped sidecar, never image ids or picks. Names are unique
   after NFC normalization and case folding; duplicate-name replacement is
@@ -9626,6 +9652,16 @@ minutes, `wake`), `counts_as_activity` against the page's polls, the
 activity middleware and `/api/status`'s `keep_awake`, the CLI's
 `hold_while`, the doctor's VRAM, LAN and Keep awake rows, and the two
 settings. No real systemd is used.
+
+`tests/test_response_headers.py` asks the real app for the page, `/sw.js`,
+API routes, `/docs`, files and misses under both mounts, a 404, a 405 and a
+422, and the Host check's 400 and the cross-site 403, each carrying exactly
+one `frame-ancestors 'self'` and one `nosniff`; that the layer is the
+outermost of the app's own; that the page's scripts and stylesheets keep
+their types, a registry naming `.js` as text overruled; that a response's
+own policy is kept beside this one; and that an unhandled error's 500
+carries them and is still raised, with no second start once a response
+began.
 
 `tests/test_linux_scripts.py` runs `linux/*.sh` for real under bash against
 stub `nvidia-smi`, `uv`, `git`, `systemctl`, `journalctl`,

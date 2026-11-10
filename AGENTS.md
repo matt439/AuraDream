@@ -114,7 +114,9 @@ Backend (`backend/`):
   `detached.py` daemon-thread calls; `keep_awake.py` the Linux
   `systemd-inhibit` hold while busy and for the idle minutes after a request
   (`ActivityMiddleware`, never the page's timed polls), stdlib only, the
-  CLI's `hold_while` too; `api_prompt.py` tag helper and prompt
+  CLI's `hold_while` too; `response_headers.py` the ASGI layer putting
+  `frame-ancestors 'self'` and `nosniff` on every response, added last in
+  `main` so it is outermost; `api_prompt.py` tag helper and prompt
   routes, `prompt_check.py` Check's layer 1, `tag_lookup.py` the Danbooru
   lookup (`tag_vocabulary`); `submission.py` submit checks and the gallery
   selection, its service-free checks and wording in `submission_rules.py`
@@ -509,6 +511,11 @@ Frontend:
   pointer; never `overflow-y: auto` on the panel.
 - The server decides (order slots, start sigma, reorders, grid expansion);
   the page adds presentation only.
+- `response_headers.ResponseHeadersMiddleware` stays the last
+  `add_middleware` in `main` (outermost), and its source stays `'self'`:
+  the smokes frame `/`. Under nosniff a script or stylesheet must be served
+  as one. It answers an unhandled error itself (Starlette's own 500 would
+  pass through no layer) and raises it on.
 
 CLI: `generate`, `clear`, `stats`, `reindex` reconfigure stdout to UTF-8 at
 the top of `main()`; `generate.py` applies `--model/--quant/--offload` to

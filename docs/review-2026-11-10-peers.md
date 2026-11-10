@@ -166,6 +166,20 @@ at a guessed address; bins are recoverable). Fix: one middleware adding
 `'self'` stays because `smoke-jobs` frames `/`. A full `script-src` policy
 is a separate, larger item and not opened.
 
+Built 2026-11-10: `backend/response_headers.py`'s
+`ResponseHeadersMiddleware`, a plain ASGI layer `main` adds last, puts
+`Content-Security-Policy: frame-ancestors 'self'` and
+`X-Content-Type-Options: nosniff` on every response: the routes, both
+mounts, `/sw.js`, `/docs`, and the Host check's 400 and the cross-site 403
+under it. The module also pins `.js` and `.css` to their types, since
+nosniff refuses a script served as `text/plain` and Windows' registry can
+say that. Starlette's own 500 for an unhandled error comes from a layer
+outside every one an app can add, so the layer answers such an error itself
+in the same words and raises it on for the server to log. No
+`X-Frame-Options` and no `script-src`. The three smokes that frame `/`
+still pass (`tests/test_response_headers.py`; rule in `docs/rules.md`
+under Frontend and CLI).
+
 ### S2 passcode beyond loopback
 
 `DEV#32`, approved by Matt 2026-11-10. There is no authentication:

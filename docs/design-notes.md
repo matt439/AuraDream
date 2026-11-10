@@ -290,6 +290,32 @@ attaches before the first image (79c18a8). `backend.generate` takes the same
 hold (`hold_while`) from its load to its last cell; under `--via-server` the
 server holds it.
 
+**Who may frame the page.** A page on another site that frames the app gets
+the app's own origin inside the frame, so a click it steers there is a
+same-origin write: the Host header is the app's and so is the `Origin`, and
+both checks pass it. The peer review of 2026-11-10 found no response said
+otherwise (`DEV#31`). `response_headers.ResponseHeadersMiddleware` now adds
+`Content-Security-Policy: frame-ancestors 'self'` and
+`X-Content-Type-Options: nosniff` to every response. It is a plain ASGI
+layer for the reason the activity note is, and the last one `main` adds, so
+the outermost: the Host check's 400 and the cross-site 403 carry the
+headers as the routes and both mounts do. `'self'` and not `'none'`,
+because the smokes open a second tab as an iframe of `/`. No
+`X-Frame-Options` beside it: every browser the page runs in reads
+`frame-ancestors`, and the older header can only say the same thing less
+exactly. nosniff has one cost: a browser then refuses a script not served
+as JavaScript, and `StaticFiles` asks `mimetypes`, which on Windows reads
+the registry over its own table, where some programs register `.js` as
+`text/plain`. The module pins `.js` and `.css` so such a machine still gets
+a page. Starlette's own 500 for an unhandled error comes from a layer
+outside every one an app can add, so it would carry neither header. The
+layer therefore answers an unhandled error itself, with the same status and
+the same "Internal Server Error" text, and raises the error again:
+Starlette's layer finds a response already begun, sends nothing and raises
+it on, so the server logs the traceback as before. An error after a
+response began is only raised on. A full `script-src` policy is a separate,
+larger item and was not opened.
+
 **The 8 GB card.** The measured Linux machine has an RTX 3070 (8 GB,
 compute capability 8.6), where the 5080 has 16 GB. torchao's fp8
 weight-only quantization (`Float8WeightOnlyConfig`) runs there: the weights
