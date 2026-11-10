@@ -1082,7 +1082,11 @@ hostname in `AURADREAM_ALLOWED_HOSTS` and serve it on the same port as
 `AURADREAM_PORT`: the server refuses a write whose `Origin` names
 another host or port, so a proxy on 443 in front of 7860 has every write
 refused. The server logs a warning at start-up whenever it binds to anything
-other than loopback.
+other than loopback. Every response says the page may be framed only by
+itself (`Content-Security-Policy: frame-ancestors 'self'`) and that a file's
+type is not to be guessed (`X-Content-Type-Options: nosniff`), so another
+site cannot show the page inside its own and steer clicks into it; a proxy
+in front should pass both headers through.
 
 ### Keep a Linux server awake
 

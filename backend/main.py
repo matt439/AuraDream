@@ -42,7 +42,7 @@ if __name__ == "__main__":
 else:
     compiler_cache._seal_startup()
 
-from . import api_backup, api_bundles, api_gallery, api_generate, api_jobs, api_masks, api_more_seeds, api_png, api_presets, api_prompt, api_refine_batch, api_rerender, api_runs, api_saved_searches, api_snippets, api_swap, app_context, bundle_common, bundles, card_facts, gallery_lock, gallery_reports, hf_sign_in, hub_access, keep_awake, loras, model_selection, prompt_encoding, startup_preferences, storage  # noqa: E402
+from . import api_backup, api_bundles, api_gallery, api_generate, api_jobs, api_masks, api_more_seeds, api_png, api_presets, api_prompt, api_refine_batch, api_rerender, api_runs, api_saved_searches, api_snippets, api_swap, app_context, bundle_common, bundles, card_facts, gallery_lock, gallery_reports, hf_sign_in, hub_access, keep_awake, loras, model_selection, prompt_encoding, response_headers, startup_preferences, storage  # noqa: E402
 from .backup_service import BackupService  # noqa: E402
 from .server_probe import auradream_at as _auradream_at, is_loopback as _is_loopback, page_url as _page_url, port_busy as _port_busy  # noqa: E402
 from .backends import get_backend  # noqa: E402
@@ -624,6 +624,11 @@ async def hold_model_for_request(request: Request, call_next):
         else:
             del _model_request_paths[path]
 
+
+# Last, so outermost of the app's own layers: the Host check's 400 and the
+# cross-site 403 above carry the headers too, with every route and both
+# mounts below (a layer wraps the whole app, whatever is added to it later).
+app.add_middleware(response_headers.ResponseHeadersMiddleware)
 
 # StaticFiles checks the directory exists at mount time; storage owns creating
 # it (config no longer does at import, so a --dry-run can promise "nothing").
