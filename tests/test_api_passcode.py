@@ -9,7 +9,10 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import os
 import re
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -145,6 +148,47 @@ def test_the_open_list_is_what_the_manifest_and_the_pages_head_name(client, gate
     assert client.get("/static/icons/").status_code == 401
 
 
+@pytest.mark.parametrize("path", [
+    # The open list and the page's address are matched exactly: no doubled
+    # or trailing slash, no other case, no way round through an open folder.
+    "//", "/%2e", "/%2f", "/index.html", "/static", "/static/",
+    "/static/manifest.webmanifest/", "/static//manifest.webmanifest", "//static/manifest.webmanifest",
+    "/STATIC/manifest.webmanifest", "/static/Manifest.webmanifest", "/static/manifest.webmanifest.bak",
+    "/static/icons", "/static/icons/", "/static/icons/icon.svg/", "/static/icons/ICON.SVG",
+    "/static/icons/%2e%2e/app.js", "/static/icons/..%2fapp.js", "/static/icons/icon.svg%2f..%2f..%2fapp.js",
+    "/static/icons/icon.svg%00", "/static/manifest.webmanifest;x=1", "/static%2fapp.js",
+    "/outputs/", "/api", "/api/", "/api/status/", "/API/status", "/api//status", "/sw.js/", "/SW.JS",
+    "/api/passcode/", "/api/Passcode", "/api/passcode/sign-out/",
+])
+def test_no_spelling_of_a_path_gets_round_the_gate(client, gate, path):
+    for method in ("GET", "HEAD", "POST", "OPTIONS", "PUT", "DELETE", "PATCH", "TRACE", "PROPFIND"):
+        # The whole address, so the client sends a doubled slash as it is.
+        response = client.request(method, ORIGIN + path, follow_redirects=False)
+        assert response.status_code == 401, (method, path)
+        assert response.headers["www-authenticate"] == "Bearer"
+        assert "set-cookie" not in response.headers
+    assert gate.limiter.wrong_in_a_row == 0
+
+
+def test_a_query_or_an_odd_method_opens_nothing_more(client, gate):
+    # The page's address with a query is still only the sign-in page.
+    page = client.get("/?next=/api/status")
+    assert page.status_code == 200 and page.content == (WEB / "passcode.html").read_bytes()
+    for method in ("POST", "OPTIONS", "PUT", "DELETE", "PATCH", "TRACE", "PROPFIND"):
+        assert client.request(method, "/").status_code == 401, method
+        for path in sorted(passcode.OPEN_PATHS):
+            assert client.request(method, path).status_code == 401, (method, path)
+    # An encoded spelling of an open file is that same file and nothing else.
+    encoded = client.get("/static/icons/icon%2Esvg")
+    assert encoded.status_code == 200 and encoded.content == (WEB / "icons" / "icon.svg").read_bytes()
+    # A preflight carries no cookie: it is refused like any other request.
+    preflight = client.options("/api/status", headers={
+        "Origin": "http://evil.example", "Access-Control-Request-Method": "GET",
+        "Access-Control-Request-Headers": "authorization",
+    })
+    assert preflight.status_code == 401 and "access-control-allow-origin" not in preflight.headers
+
+
 # -------------------------------------------------- signing in and the cookie
 
 
@@ -182,6 +226,36 @@ def test_the_cookie_is_secure_only_over_https(fake, gate):
         assert "Secure" not in session_cookie(http.post("/api/passcode/sign-out"))
 
 
+def test_a_loopback_proxys_forwarded_scheme_makes_the_cookie_secure(fake, gate, monkeypatch):
+    # Behind a TLS proxy on this machine the scheme is the proxy's word,
+    # which uvicorn takes from 127.0.0.1 only (its default, and `main.run`
+    # leaves it so): the layer it puts round the app stands here.
+    from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
+
+    served = []
+
+    class Kept(Quiet):
+        def __init__(self, config) -> None:
+            super().__init__(config)
+            served.append(config)
+
+    monkeypatch.delenv("FORWARDED_ALLOW_IPS", raising=False)
+    monkeypatch.setattr(main, "settings", dataclasses.replace(main.settings, port=0))
+    monkeypatch.setattr(main, "Server", Kept)
+    main.run()
+    config = served[0]
+    assert config.proxy_headers is True and config.forwarded_allow_ips == "127.0.0.1"
+
+    forwarded = {"X-Forwarded-Proto": "https", "X-Forwarded-For": "192.168.1.50"}
+    behind = ProxyHeadersMiddleware(main.app, trusted_hosts=config.forwarded_allow_ips)
+    with TestClient(behind, base_url=ORIGIN, client=("127.0.0.1", 50000)) as proxied:
+        assert session_cookie(sign_in(proxied, headers=forwarded)).endswith("; Secure")
+        assert "Secure" not in session_cookie(sign_in(proxied))
+    # The same header from another machine is not believed.
+    with TestClient(behind, base_url=ORIGIN, client=("192.168.1.66", 50000)) as direct:
+        assert "Secure" not in session_cookie(sign_in(direct, headers=forwarded))
+
+
 def test_a_wrong_passcode_is_a_401_in_its_own_words(client, gate, caplog):
     with caplog.at_level("DEBUG"):
         response = sign_in(client, WRONG)
@@ -215,6 +289,24 @@ def test_the_passcode_is_read_from_a_json_body_only(client, gate):
     # Other methods on the layer's routes are nobody's.
     assert client.get("/api/passcode").status_code == 401
     assert client.get("/api/passcode/sign-out").status_code == 401
+
+
+def test_a_body_sent_in_pieces_is_cut_off_at_four_kib_too(client, gate):
+    # No Content-Length to refuse it by: the limit is on what is read.
+    def pieces(total: int):
+        yield b'{"passcode": "'
+        for _ in range(total // 512):
+            yield b"x" * 512
+        yield b'"}'
+
+    long = client.post("/api/passcode", content=pieces(64 * 1024))
+    assert "content-length" not in long.request.headers
+    assert long.status_code == 413 and "set-cookie" not in long.headers
+    assert gate.limiter.wrong_in_a_row == 0
+    # Under the limit the same way of sending is read as any other.
+    whole = json.dumps({"passcode": PASSCODE}).encode()
+    short = client.post("/api/passcode", content=iter([whole[:5], whole[5:]]))
+    assert "content-length" not in short.request.headers and short.status_code == 204
 
 
 def test_sign_out_clears_the_cookie_on_this_device_and_needs_no_session(client, gate):
@@ -490,6 +582,37 @@ def test_the_passcode_is_in_no_answer_and_no_log_line(client, gate, caplog):
         assert PASSCODE not in text and WRONG not in text, response.url
     assert PASSCODE not in caplog.text and WRONG not in caplog.text
     assert "passcode" not in json.dumps(main.app.openapi()["paths"])
+
+
+# ------------------------------------------------- the gate `main` is built with
+
+
+@pytest.mark.parametrize(("environment", "expected"), [
+    ({}, "None"),
+    # Set, on a server this machine alone reaches: not asked.
+    ({"AURADREAM_PASSCODE": PASSCODE}, "None"),
+    ({"AURADREAM_PASSCODE": "   "}, "None"),
+    ({"AURADREAM_HOST": "0.0.0.0"}, "None"),
+    ({"AURADREAM_PASSCODE": PASSCODE, "AURADREAM_HOST": "0.0.0.0", "AURADREAM_PORT": "7999"}, "auradream_session_7999"),
+    # A proxy in front of a loopback bind, by the name it is reached under.
+    ({"AURADREAM_PASSCODE": PASSCODE, "AURADREAM_ALLOWED_HOSTS": "127.0.0.1,localhost,my-box"}, "auradream_session_7860"),
+])
+def test_main_builds_its_gate_from_the_bind_the_allowed_hosts_and_the_port(tmp_path, environment, expected):
+    # A fresh interpreter: `main` builds its gate once, at import, from the
+    # environment's settings. The passcode goes in by the environment only.
+    kept = {name: value for name, value in os.environ.items() if not name.startswith("AURADREAM_")}
+    env = {
+        **kept, **environment,
+        "AURADREAM_DB_PATH": str(tmp_path / "auradream.db"), "AURADREAM_OUTPUTS_DIR": str(tmp_path / "outputs"),
+        "AURADREAM_BUNDLES_DIR": str(tmp_path / "bundles"), "AURADREAM_KEEP_AWAKE": "false",
+    }
+    code = ("from backend import main; gate = main._passcode_gate; "
+            "print('gate:', None if gate is None else gate.cookie_name)")
+    done = subprocess.run([sys.executable, "-c", code], cwd=WEB.parent, env=env,
+                          capture_output=True, text=True, timeout=300)
+    assert done.returncode == 0, done.stderr[-2000:]
+    assert done.stdout.splitlines()[-1] == f"gate: {expected}"
+    assert PASSCODE not in done.stdout and PASSCODE not in done.stderr
 
 
 # ------------------------------------------------------------------ main.run

@@ -14098,13 +14098,25 @@ decided, and the few things the design had not said:
 - `Gate` takes `open_prefixes` for the fake's `/api/fake/` (stage 3 sets
   it); the real server passes none.
 - `Secure` follows the request's scheme in the ASGI scope. A real https
-  scope is tested; `X-Forwarded-Proto` from a proxy is uvicorn's to put
-  there and is not tested here (stage 4, or `DEV#33`).
+  scope is tested, and so is `X-Forwarded-Proto` through uvicorn's own
+  proxy-headers layer as `main.run` configures it: believed from 127.0.0.1,
+  not from another address. A real proxy is stage 4's, or `DEV#33`'s.
 - `docs/rules.md`'s Layout already lists `passcode.py`, ahead of stage 3's
   docs: `tests/test_docs_maps.py` fails on a backend module it lacks.
 - The route-table test was written first and passes with the gate off as
   it does on the code before the gate; it was not committed against that
   code separately.
+- Reviewed the same day against this note, on a real uvicorn with raw
+  requests and in a browser, and by changing the code under the tests. No
+  code changed. Four tests were added for what nothing held: no spelling of
+  a path (a doubled or trailing slash, another case, an encoded `..`) or
+  other method opens anything; a sign-in body sent in pieces is cut off at
+  4 KiB; `main` builds its gate from the bind, the allowed hosts and the
+  port (a fresh interpreter); and the forwarded scheme above.
+- For stage 2: a caller's header is read as UTF-8 first, so a passcode
+  outside ASCII must be sent as UTF-8 bytes. `urllib` given a `str` sends
+  Latin-1 and raises on anything beyond it, and Latin-1 bytes that happen
+  to be valid UTF-8 would be read as another passcode.
 
 Not designed, and not to be built under this row: accounts or more than one
 passcode, a passcode set or changed from the page, revoking one device,
