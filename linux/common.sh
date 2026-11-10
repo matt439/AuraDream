@@ -159,7 +159,9 @@ def _passcode():
     # Bytes as they are in the environment, sent as they are.
     raw = os.environb.get(b"AURADREAM_PASSCODE", b"").strip()
     if any((byte < 32 and byte != 9) or byte == 127 for byte in raw):
-        raise Refused("AURADREAM_PASSCODE holds a control character, which a request cannot carry")
+        # Not Refused: no request is made, so nothing has answered.
+        raise ValueError("it was not asked: AURADREAM_PASSCODE holds a control character, "
+                         "which a request cannot carry")
     return raw.decode("latin-1")
 
 

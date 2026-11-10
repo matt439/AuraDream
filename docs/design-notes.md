@@ -14161,7 +14161,12 @@ the source decided, and what the design had not said:
 - **A control character in the passcode** cannot travel in a header, and
   `http.client`'s own error would quote the value. The callers refuse it
   first in words that do not hold it (`--via-server`: exit 2 before any
-  request; the scripts: "could not ask it").
+  request; the scripts: "could not ask it"). In the scripts that is never
+  the gate's refusal: no request was made, so `control.sh status` says the
+  server does not answer rather than "It answers.", and a start keeps
+  waiting. The stage's review found it read as an answer, and fixed it; it
+  also added tests that the scripts' request follows no redirect and that
+  a letter outside ASCII is refused in the environment file.
 - **The words.** A 401 with no passcode in the environment: the server
   "asks for a passcode, and AURADREAM_PASSCODE is not set here"; with one:
   it "did not accept the passcode in AURADREAM_PASSCODE"; a 429: it "is
@@ -14202,7 +14207,7 @@ the source decided, and what the design had not said:
   sends them as they are, so nothing is decoded on the way.
 - `tests/test_linux_scripts.py` runs on Linux only. It was run under WSL
   (Ubuntu, the project's own Linux virtualenv's Python, nothing
-  installed): 230 passed.
+  installed): 230 passed, and 240 with the review's tests.
 
 Not designed, and not to be built under this row: accounts or more than one
 passcode, a passcode set or changed from the page, revoking one device,

@@ -528,6 +528,9 @@ def auradream_listening(sandbox):
                 self._send(429, b'{"detail": "Too many wrong passcodes. Wait 7 seconds and try again."}',
                            Retry_After="7")
                 return
+            if gate.get("redirect"):                   # given the passcode, it points elsewhere
+                self._send(307, b"", Location=gate["redirect"] + self.path)
+                return
             if self.path == "/api/status":
                 body, kind = json.dumps(busy["status"]).encode(), "application/json"
             elif self.path == "/api/gallery/bundles/status":
@@ -1351,6 +1354,8 @@ _UNSAFE = [
     ("amp&ersand-12", "ersand"), ("pipe|touch {marker}", "pipe|"), ("star*glob-123", "glob-123"),
     ("tilde~home-12", "tilde"), ("bang!bang-123", "bang-123"), ("less<more>-12", "more"),
     ("(parens)-1234", "parens"), ("Windows-line-end\r", "Windows-line-end"),
+    # Outside ASCII: "letters" are ASCII's, whatever the shell's locale.
+    ("pässcode-12345", "sscode-12345"),
 ]
 
 
@@ -1422,3 +1427,44 @@ def test_the_passcode_travels_in_the_environment_never_as_an_argument(sandbox, a
     assert result.returncode == 0, result.stdout + result.stderr
     assert auradream_listening["gate"]["sent"] == 2 and seen.exists()
     assert SECRET not in seen.read_text()
+
+
+@on_linux
+def test_a_redirect_never_carries_the_scripts_passcode_elsewhere(sandbox, auradream_listening):
+    from tests.passcode_stub import AskingServer
+
+    elsewhere = AskingServer(None, {"/api/status": {"state": "unloaded", "active_jobs": []},
+                                    "/api/gallery/bundles/status": {"state": "idle"}})
+    try:
+        _asking(sandbox, auradream_listening)
+        auradream_listening["gate"]["redirect"] = elsewhere.url.rstrip("/")
+        stop = _run(sandbox, "control.sh", "stop")
+        status = _run(sandbox, "control.sh", "status")
+        # Not followed: the redirect is an answer these scripts cannot use.
+        assert elsewhere.requests == []
+        assert stop.returncode == 1, stop.stdout + stop.stderr
+        assert "could not be asked" in stop.stdout and "307" in stop.stdout
+        assert _changes(sandbox) == [] and "Checkpoint:" not in status.stdout
+        assert SECRET not in stop.stdout + stop.stderr + status.stdout + status.stderr
+    finally:
+        elsewhere.close()
+
+
+@on_linux
+def test_a_shells_passcode_no_request_can_carry_is_never_an_answer(sandbox, auradream_listening):
+    # No request is made with it, so nothing has answered: never "It
+    # answers.", and never an idle server.
+    _venv(sandbox)
+    _service_active(sandbox)
+    sandbox["env"]["AURADREAM_PASSCODE"] = "wxyz\x01qrst-horse"
+    status = _run(sandbox, "control.sh", "status")
+    assert "It answers." not in status.stdout, status.stdout + status.stderr
+    assert "AURADREAM_PASSCODE holds a control character" in status.stdout
+    assert status.returncode == 1
+    stop = _run(sandbox, "control.sh", "stop")
+    assert stop.returncode == 1 and "could not be asked" in stop.stdout
+    assert "AURADREAM_PASSCODE holds a control character" in stop.stdout
+    assert _changes(sandbox) == [] and auradream_listening["gate"]["sent"] == 0
+    for result in (status, stop):
+        said = result.stdout + result.stderr
+        assert "wxyz" not in said and "qrst" not in said
