@@ -374,7 +374,7 @@ async function checkReused(note, rec) {
   const extra = [];
   const restored = referenceSupported ? (rec.reference ?? []) : [];
   const answers = await Promise.all(restored.map((id) => api(`/api/images/${id}`)
-    .then(() => null, (err) => (/unknown image/.test(err.message) ? id : null))));
+    .then(() => null, (err) => (imageGone(err) ? id : null))));
   const dead = answers.filter((id) => id != null);
   if (dead.length) {
     // Part of what the Reuse left, so not a change that retires its Undo.
@@ -460,7 +460,7 @@ async function reusePass(rec) {
       // Release before the current fallback: it is this intent's deliberate
       // panel replacement, whose own entry retires any older opening.
       reusePassOpening = null;
-      if (!/unknown image/.test(err.message)) { showError(err.message); return; }
+      if (!imageGone(err)) { showError(err.message); return; }
       reuseIntoPanel(rec, false,
         `#${rec.refine}, the source this was refined from, is no longer in the gallery, `
         + 'so the pass cannot be made again. The size is left as it was.');

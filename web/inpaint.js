@@ -308,9 +308,9 @@ function writeInpaintSourceLine(rec, gone = null) {
 
 // A refusal of the source itself - deleted or binned from another tab while
 // the dialog was open - in the page's words, as Refine says it.
-function inpaintSourceGone(message, source = inpaintSource) {
-  const gone = sourceGoneKind(message, source);
-  if (!gone) return message;
+function inpaintSourceGone(err, source = inpaintSource) {
+  const gone = sourceGoneKind(err, source);
+  if (!gone) return err.message;
   if (inpaintSource === source) writeInpaintSourceLine(source, gone);
   return sourceGoneWords(source, gone, 'inpaint');
 }
@@ -423,11 +423,10 @@ async function resendInpaintMask() {
   return inpaintSource === source && inpaintMaskState === 'stored';
 }
 
-// Whether a refusal says the mask has gone (swept, or its file lost), in
-// any of the server's words for it.
-function maskGoneRefusal(message) {
-  return /\bmask [0-9a-f]{16}\b.*(has just gone|is missing)|no stored mask [0-9a-f]{16}|the file for mask [0-9a-f]{16}/i
-    .test(message ?? '');
+// Whether a refusal says the mask has gone (swept, or its file lost): the
+// server's `mask_missing`, whatever its words for it.
+function maskGoneRefusal(err) {
+  return err?.code === 'mask_missing';
 }
 
 // Every change of the mask (inpaint-mask.js's maskEdited, and the feather):
@@ -476,7 +475,7 @@ async function uploadInpaintMask() {
   } catch (err) {
     if (epoch !== inpaintUploadEpoch || inpaintSource !== source) return;
     inpaintMaskState = 'refused';
-    inpaintMaskRefusal = inpaintSourceGone(err.message, source);
+    inpaintMaskRefusal = inpaintSourceGone(err, source);
   }
   syncInpaint();
   scheduleInpaintPreview(0);
@@ -708,12 +707,12 @@ async function previewInpaint() {
   } catch (err) {
     if (epoch !== inpaintEpoch) return;
     // The adapter gone: asked again without it, the refusal said instead.
-    if (await dropInpaintLora(err.message)) return previewInpaint();
+    if (await dropInpaintLora(err)) return previewInpaint();
     // The mask swept while the dialog sat open: the picture it holds goes
     // up again, and that upload asks the preview again.
-    if (maskGoneRefusal(err.message) && await resendInpaintMask()) return undefined;
+    if (maskGoneRefusal(err) && await resendInpaintMask()) return undefined;
     if (epoch !== inpaintEpoch) return;
-    inpaintProblem = inpaintSourceGone(err.message);
+    inpaintProblem = inpaintSourceGone(err);
     els.inpaintPreview.classList.add('warn');
     els.inpaintPreview.textContent = inpaintProblem;
   }
@@ -724,8 +723,8 @@ async function previewInpaint() {
 // An adapter removed or renamed since the dialog opened, named by a refusal:
 // taken out of this inpaint and said (refine-rules.js's dropPassLora, as
 // Refine's). Answers whether it went.
-function dropInpaintLora(message, source = inpaintSource) {
-  return dropPassLora(message, source, {
+function dropInpaintLora(err, source = inpaintSource) {
+  return dropPassLora(err, source, {
     lora: () => inpaintLora, source: () => inpaintSource,
     drop: () => { inpaintLora = null; inpaintLoraDrops++; },
     carried: els.inpaintCarried, failed: inpaintFailed, noun: 'inpaint', run: 'Inpaint',
@@ -772,10 +771,12 @@ async function runInpaint() {
     inpaintSending = false;
     els.inpaintRun.textContent = busy ? 'Inpaint (queue)' : 'Inpaint';
   };
+  let refusal = null;
   const sent = startJob(path, body, {
     sheet: sweep,
     panel: false,
     slot: els.inpaintError,
+    onRefused: (err) => { refusal = err; },
     placeholder: {
       src: source.url ?? source.thumb_url,
       width: body.width,
@@ -799,13 +800,14 @@ async function runInpaint() {
   if (accepted) return;
   settle();
   const refused = els.inpaintError.textContent;
-  const said = inpaintSourceGone(refused, source);
+  refusal = shownRefusal(refusal, refused);
+  const said = inpaintSourceGone(refusal, source);
   if (said !== refused) inpaintFailed(said);
   // An adapter gone since the last preview: taken out, said, and the
   // preview asked again without it.
-  else if (await dropInpaintLora(refused, source)) scheduleInpaintPreview(0);
+  else if (await dropInpaintLora(refusal, source)) scheduleInpaintPreview(0);
   // The mask swept since: sent again, and the press is the user's to repeat.
-  else if (inpaintSource === source && maskGoneRefusal(refused) && await resendInpaintMask()) {
+  else if (inpaintSource === source && maskGoneRefusal(refusal) && await resendInpaintMask()) {
     inpaintFailed('The mask had gone from the server and was sent again; press Inpaint to run it.');
   }
   if (!els.inpaintDialog.open && els.inpaintError.textContent) showError(els.inpaintError.textContent);
@@ -887,7 +889,7 @@ async function reuseInpaint(rec) {
     // than said to be gone for good.
     source = await api(`/api/images/${rec.refine}?binned=true`);
   } catch (err) {
-    if (!/unknown image/.test(err.message)) { showError(err.message); return; }
+    if (!imageGone(err)) { showError(err.message); return; }
     reuseIntoPanel(rec, false,
       `#${rec.refine}, the source this was inpainted from, is no longer in the gallery, `
       + 'so the inpaint cannot be made again. The size is left as it was.');

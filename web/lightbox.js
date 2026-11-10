@@ -830,7 +830,7 @@ async function lbImageFailed() {
     } catch (err) {
       offline = !!err.offline;
       said = offline ? OFFLINE_MESSAGE
-        : /unknown image/.test(err.message) ? `#${rec.id} is no longer in the gallery.`
+        : imageGone(err) ? `#${rec.id} is no longer in the gallery.`
           : 'This image could not be loaded.';
     }
   }

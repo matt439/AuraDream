@@ -719,8 +719,11 @@ async function api(path, options) {
     try { body = await res.json(); detail = body?.detail ?? detail; } catch { /* non-JSON body */ }
     // The status too, for a caller that tells "gone" from "refused" (a job
     // the server no longer knows is a 404), and the body for one that reads a
-    // field beside `detail` (the bundle preview's missing `image_id`).
-    throw Object.assign(new Error(readableDetail(detail)), { status: res.status, body });
+    // field beside `detail` (the bundle preview's missing `image_id`). And
+    // the refusal's `code`, where the server gives one: what the page acts
+    // on, never the sentence (the readers below).
+    const code = typeof body?.code === 'string' ? body.code : null;
+    throw Object.assign(new Error(readableDetail(detail)), { status: res.status, body, code });
   }
   const body = res.status === 204 ? null : await res.json();
   const advisory = /^\/api\/(?:prompt\/|tags\/|loras$|grid\/preview$|swap-tags\/preview$|refine\/batch\/preview$|more-seeds\/preview$|png\/settings$|runs\/[^/]+(?:\/finish\/preview)?$)/.test(path.split('?')[0]);
@@ -728,6 +731,27 @@ async function api(path, options) {
     throw Object.assign(new Error('The checkpoint changed while this request was running. Try again with the current checkpoint.'), { status: 409 });
   }
   return body;
+}
+
+// What the page does about a refusal is decided by its `code`
+// (backend/refusal_codes.py), never by the server's sentence, which may be
+// reworded: an error without the code is only shown.
+// The image asked for is no longer in the gallery - deleted, or in the
+// recycle bin (`imageBinned`, where the server says which).
+function imageGone(err) {
+  return err?.code === 'image_unknown' || err?.code === 'image_binned';
+}
+function imageBinned(err) {
+  return err?.code === 'image_binned';
+}
+// The gallery ids a refusal names: a submission's sources and references.
+function refusedIds(err) {
+  const ids = err?.body?.ids;
+  return Array.isArray(ids) ? ids.filter((id) => Number.isInteger(id)) : [];
+}
+// The request's adapter was refused: no such file, or not this checkpoint's.
+function loraRefused(err) {
+  return err?.code === 'lora_missing' || err?.code === 'lora_mismatch';
 }
 
 // FastAPI's own 422s carry a list of {loc, msg, ctx, input} objects, which as

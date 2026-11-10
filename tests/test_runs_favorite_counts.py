@@ -44,6 +44,7 @@ function loadRuns() {
   return new Promise((resolve, reject) => reads.push({ scope, applied, resolve, reject }));
 }
 function refuseBinned() { return binMode; }
+function imageGone(err) { return err?.code === 'image_unknown' || err?.code === 'image_binned'; }
 function syncPickedButton() { holdStates.push([...favoriteWriteIds].sort((a, b) => a - b)); }
 function selectedIds() { return [...selection.keys()]; }
 function showError(message, informational, slot) { notes.push({ message, informational, slot }); }
@@ -115,7 +116,7 @@ CASES = {
     })()''',
     "unknown_single_keeps_its_existing_one_refresh": r'''(async () => {
       const copies = records(1); const pending = setFavorite(copies[0], true);
-      writes[0].reject(Error('unknown image')); await pending;
+      writes[0].reject(Object.assign(Error('unknown image'), { code: 'image_unknown' })); await pending;
       assert.equal(reads.length, 1); assert.deepEqual(forgotten, [{ ids: [1], options: {} }]);
       assert.ok(copies.every((record) => !record.favorite)); released();
     })()''',

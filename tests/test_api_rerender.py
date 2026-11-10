@@ -165,8 +165,8 @@ def test_a_rerender_takes_the_picked_cards_whatever_the_filter(client, fake, sto
     accepted = client.post("/api/rerender", json=picked)
     assert accepted.status_code == 200, accepted.text
     assert accepted.json()["deleted"] == [
-        {"id": binned, "detail": "in the recycle bin"},
-        {"id": deleted, "detail": "no longer in the gallery"},
+        {"id": binned, "detail": "in the recycle bin", "binned": True},
+        {"id": deleted, "detail": "no longer in the gallery", "binned": False},
     ]
     done = stream_job(client, accepted.json()["job_id"])[-1]
     assert done["status"] == "done" and len(done["images"]) == 2

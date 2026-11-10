@@ -290,7 +290,7 @@ async function compareSource(rec) {
     try {
       source = await api(`/api/images/${id}`);
     } catch (err) {
-      if (!/unknown image/.test(err.message)) { showError(err.message); return null; }
+      if (!imageGone(err)) { showError(err.message); return null; }
       source = null;
     }
   }
@@ -348,7 +348,7 @@ async function lbSourceFailed() {
   try {
     await api(`/api/images/${source.id}`);
   } catch (err) {
-    if (!/unknown image/.test(err.message)) return;
+    if (!imageGone(err)) return;
     if (kind === 'picked') forgetImages([source.id]);
     else forgetLadderImages(new Set([source.id]));
     if (lbList[lbIndex] !== rec || lbCompareSaid?.id !== rec.id) return;

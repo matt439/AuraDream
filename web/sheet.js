@@ -430,7 +430,7 @@ async function learnSheetSource() {
     sheetSources.set(id, await api(`/api/images/${id}`));
   } catch (err) {
     // Gone is an answer; anything else is asked again by the next render.
-    if (/unknown image/.test(err.message)) sheetSources.set(id, null);
+    if (imageGone(err)) sheetSources.set(id, null);
   }
 }
 

@@ -590,6 +590,21 @@ before changing it.
   already enabled; `Installed.follow` adds uvicorn's logger, `close` undoes
   all of it; `uvicorn_level` is uvicorn's name for the level. Only
   `main.run` installs it (`tests/test_log_file.py`)
+- `backend/refusal_codes.py` — the stable codes of the refusals the page
+  acts on (`CODES`: `image_unknown`, `image_binned`, `more_seeds_cap`,
+  `more_seeds_receipt`, `lora_missing`, `lora_mismatch`,
+  `selection_changed`, `mask_missing`) and the errors that carry one out of
+  the modules under the HTTP layer: `CodedError`, a `ValueError` with a
+  `code` and the gallery `ids` it names, and `CodedLookupError`. Stdlib
+  only: `storage.reference_paths`, `storage.mask_path`/`touch_mask`,
+  `loras.path_for` and `instruction_edit_admission` raise them, and the CLI
+  imports those
+- `backend/refusals.py` — `Refused`, an `HTTPException` with a code, whose
+  handler (`refused_response`, registered in `main`) answers
+  `{"detail", "code"}` and `"ids"` where it names images; `refusal(status,
+  detail, source)` is coded where `source` (an error, or
+  `submission.Unusable`) carries a code and a plain `HTTPException`
+  otherwise (`tests/test_refusal_codes.py`)
 - `install.cmd`, `install.ps1`, `update.cmd`, `update.ps1` (repository root)
   — the Windows installer and updater, plain text, Windows PowerShell 5.1
   and ASCII only (5.1 reads a BOM-less script in the ANSI code page), CRLF
@@ -2051,13 +2066,15 @@ measured on the card and when.
   on a chip's ×) builds a new array through `setReferences`, the one writer,
   and chip nodes are never moved. A chip whose picture fails is marked
   `.gone` and asks `GET /api/images/{id}` (`dropGoneReferences`); only
-  "unknown image" forgets it (`forgetImages` through `forgetReferences`,
-  binned where the detail says "in the recycle bin", with its note in
+  the image-gone codes forget it (`imageGone`; `forgetImages` through
+  `forgetReferences`, binned where the code is `image_binned`, with its note in
   `#error`; the lightbox's reference slot likewise reads "in the bin" or
   "deleted"). A
   submit refused with "no gallery image with id N", or with "reference image
   N is in the recycle bin; …" (N the gallery id, not the chip's number), for
-  one of the payload's references does the same (`dropRefusedReferences`)
+  one of the payload's references (the refusal's `ids` under its
+  image-gone code, never read out of the sentence) does the same
+  (`dropRefusedReferences`)
   and says "Nothing was queued: reference #N has been deleted, so it was
   taken out of the references. Generate again to run without it." ("has
   been moved to the recycle bin" for a binned one; "Run the grid again",
@@ -3505,6 +3522,40 @@ measured on the card and when.
 
 ### Frontend and CLI
 
+- What the page does about a refusal is decided by its `code`, never by
+  its sentence. A refusal the page acts on answers
+  `{"detail": ..., "code": ...}`, with `"ids"` where it names gallery
+  images (`refusals.Refused`); `api()` puts the code on the error
+  (`err.code`, the body on `err.body`), and the page reads it through
+  `imageGone`, `imageBinned`, `refusedIds` and `loraRefused` (`state.js`)
+  or by name. `detail` is for the person and may be reworded freely; a
+  code, once the page reads it, is never renamed or given another meaning.
+  The codes (`refusal_codes.CODES`) and where each is given:
+  `image_unknown` and `image_binned` on the routes that take one image
+  (`GET /api/images/{id}` and its thumb, the star, the permanent delete,
+  the outpaint presets), on a submission's source or references
+  (`submission.refuse_unusable_inputs`, which Generate, the grid and its
+  preview and Re-render share), on a mask upload's source and on an
+  instruction edit's source, with the ids; a route that cannot tell a
+  binned image from a deleted one (the star, the permanent delete) says
+  `image_unknown`, so the page treats both codes as gone and only
+  `image_binned` as "in the recycle bin". `lora_missing` and
+  `lora_mismatch` on a submission's adapter. `mask_missing` on a stored
+  mask that has gone, at submit and between the check and the hold
+  (`MaskGone`). `more_seeds_cap` on More seeds' batches times count past
+  one press, and `more_seeds_receipt` on its receipt's own 409.
+  `selection_changed` on Delete unstarred's stale count. A refusal the
+  page only shows carries no code. A new behaviour that depends on a
+  refusal adds a code to `refusal_codes.py` and raises `Refused` (or a
+  `CodedError` under the HTTP layer); it never tests `err.message`.
+  `tests/test_refusal_codes.py` holds each code beside its sentence, that
+  the page reads exactly the codes the server gives, and that no script in
+  `web/` tests a refusal's message. Re-render's left-out picks say
+  `binned` as a field beside their words (`RerenderGone.binned`) for the
+  same reason. A test or smoke that fakes one of these refusals gives it
+  its code. One reading of words stays: a pass dialog marks its Strength
+  box where the sentence it is held with mentions strength, which decides
+  nothing but the mark.
 - Every response carries `frame-ancestors 'self'` and `nosniff`
   (`response_headers.ResponseHeadersMiddleware`): the routes, the
   `/outputs` and `/static` mounts, `/sw.js`, `/docs`, and the refusals of
@@ -6812,8 +6863,8 @@ measured on the card and when.
   persisted. Every other gallery query keeps the live listing, which the
   server gives by default. A record from `GET /api/images/{id}` (and
   `/thumb`) of a binned image is a 404 "unknown image (#N is in the
-  recycle bin)" unless `?binned=true`, so every reader of "unknown image"
-  still reads it as gone. The bundles dialog's preview line adds "(N in the
+  recycle bin)" coded `image_binned` unless `?binned=true`, so every reader
+  of a gone image (`imageGone`) still reads it as gone. The bundles dialog's preview line adds "(N in the
   recycle bin)", and after an export-clear `syncBin()` follows
   `forgetImages`.
 - The gallery pages by id, never by offset,
