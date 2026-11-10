@@ -466,8 +466,13 @@ before changing it.
   `Inhibitor` (a `systemd-inhibit --what=sleep:idle --who=AuraDream
   --mode=block cat` child on a stdin pipe only the server holds; a child
   gone within `START_WAIT` or `SHORT_LIFE` was refused, tried again after
-  `RETRY_AFTER`), `NoInhibitor` off Linux or without systemd-inhibit,
-  `KeepAwake` (an asyncio task holding while `main`'s providers name a
+  `RETRY_AFTER`), `PowerRequest` on Windows (kind `power-request`: a
+  `PowerCreateRequest` handle with `PowerRequestSystemRequired` set, cleared
+  and closed on release, its four calls behind `PowerApi` and bound to
+  kernel32 by `Kernel32Power` only at the first call; never the display,
+  `SetThreadExecutionState` or a power setting), `NoInhibitor` elsewhere or
+  on Linux without systemd-inhibit, `platform_inhibitor` choosing among the
+  three, `KeepAwake` (an asyncio task holding while `main`'s providers name a
   reason, a counted `busy(reason)` is open, or for
   `AURADREAM_KEEP_AWAKE_IDLE_MINUTES` after a request `counts_as_activity`
   passes; `wake` checks again at once from any thread; a cached `status()`
@@ -563,7 +568,9 @@ before changing it.
   warns; on Linux below compute capability 10.0 it names the int4 Nunchaku
   repos); with a non-loopback `AURADREAM_HOST`, `AURADREAM_ALLOWED_HOSTS`
   without 127.0.0.1 or with a wildcard (each warns); on Linux a trial
-  `systemd-inhibit ... true` block hold (refused warns, with a polkit rule);
+  `systemd-inhibit ... true` block hold (refused warns, with a polkit rule),
+  and on Windows a trial `keep_awake.PowerRequest` let go at once (refused
+  warns in Windows' words);
   a Hugging Face
   token as `HF_TOKEN` (or `HUGGING_FACE_HUB_TOKEN`) or the token file's existence (`hf_sign_in`), never read or sent.
   Imports `config` first and torch inside the GPU check; never diffusers,
@@ -3080,9 +3087,15 @@ measured on the card and when.
   /api/jobs*`, the mask keep-alive, `/static/` and `/outputs/`); a new timed
   poll joins that list, or an idle open tab holds the PC awake for ever.
   Nothing in it raises into its callers, and the status poll reads the
-  last check's cached answer, never a subprocess. Tests never take a real
-  hold: `tests/conftest.py` replaces `platform_inhibitor` with
-  `NoInhibitor`.
+  last check's cached answer, never a subprocess. A holder's `hold` and
+  `release` run on different threads (`asyncio.to_thread`), so a holder
+  keeps nothing per thread: Windows' is a power request handle, never
+  `SetThreadExecutionState`. It asks for the system only
+  (`PowerRequestSystemRequired`), never the display, and reads or changes
+  no power setting. Tests never take a real hold through the server or the
+  CLI: `tests/conftest.py` replaces `platform_inhibitor` with
+  `NoInhibitor`. The one real call is `tests/test_keep_awake.py`'s, on
+  Windows, released in the same test.
 - An instruction edit queues through `POST /api/instruction-edit`
   (`InstructionEditSubmission`) or More seeds (below). The submission is strict and refuses extra
   fields such as a negative prompt. It becomes one image and one run. Its
@@ -9904,12 +9917,19 @@ fallbacks, accurate menu hints, the Prompts group's P row with `#prompt`'s
 
 `tests/test_keep_awake.py` checks the `systemd-inhibit` child with a fake
 popen and clock (its argv, a refusal within `START_WAIT` or `SHORT_LIFE`,
-the retry after `RETRY_AFTER`, release by closing the pipe), the controller
+the retry after `RETRY_AFTER`, release by closing the pipe), Windows'
+`PowerRequest` with its four calls faked (create with the reason, set once,
+clear then close; a refused create or set holds nothing, closes the handle
+it was given and waits `RETRY_AFTER`; a refused clear still closes; the
+`REASON_CONTEXT` layout; `Kernel32Power` over a fake kernel32: the system
+asked for, never the display, and a null or invalid handle or a zero
+return a refusal naming the call; one real request on Windows, let go at
+once), the controller
 through its asyncio task (providers, counted holds from threads, the idle
 minutes, `wake`), `counts_as_activity` against the page's polls, the
 activity middleware and `/api/status`'s `keep_awake`, the CLI's
-`hold_while`, the doctor's VRAM, LAN and Keep awake rows, and the two
-settings. No real systemd is used.
+`hold_while`, the doctor's VRAM, LAN and Keep awake rows (Linux's and
+Windows'), and the two settings. No real systemd is used.
 
 `tests/test_response_headers.py` asks the real app for the page, `/sw.js`,
 API routes, `/docs`, files and misses under both mounts, a 404, a 405 and a

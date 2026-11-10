@@ -1,9 +1,11 @@
-"""Keeping the PC awake while AuraDream is busy (Linux, through systemd-inhibit).
+"""Keeping the PC awake while AuraDream is busy (Linux through systemd-inhibit,
+Windows through a power request).
 
-A Linux server that suspends after a spell of idleness (logind's IdleAction)
-sees no keyboard or mouse while a browser on another machine drives it, so
-without this it could suspend in the middle of a load, a render or a gallery
-bundle. The controller (`KeepAwake`) holds a block inhibitor while:
+A PC that suspends after a spell of idleness (logind's IdleAction, Windows'
+sleep timer) sees no keyboard or mouse while a browser on another machine
+drives it, so without this it could suspend in the middle of a load, a
+render or a gallery bundle. The controller (`KeepAwake`) holds the
+platform's holder while:
 
 - any provider returns a reason (main.py registers the job queue, the card's
   holder, the model load, a switch and a bundle operation): each is a
@@ -16,14 +18,27 @@ bundle. The controller (`KeepAwake`) holds a block inhibitor while:
   (`counts_as_activity`: never the page's own timed polls, so an idle open
   tab does not hold the PC awake for ever). Starting the server counts.
 
-The hold is a child process, `systemd-inhibit --what=sleep:idle
+On Linux the hold is a child process, `systemd-inhibit --what=sleep:idle
 --who=AuraDream --why=<reason> --mode=block cat`, whose `cat` reads a pipe
 only this process holds. Releasing closes the pipe (then terminate, then
 kill), and so does this process dying in any way, so nothing is ever left
 holding the PC awake. A child that exits within START_WAIT was refused (polkit,
 or no logind or system bus), as is one that dies within SHORT_LIFE; the
-refusal is logged once and tried again after RETRY_AFTER. Off Linux, or with
-no systemd-inhibit on the PATH, nothing is held (`NoInhibitor`, kind "none").
+refusal is logged once and tried again after RETRY_AFTER.
+
+On Windows the hold is a power request (`PowerRequest`, kind
+"power-request"): a handle from `PowerCreateRequest` carrying the reason,
+with `PowerSetRequest(PowerRequestSystemRequired)` set on it. That asks
+Windows not to sleep on its idle timer and nothing else: the display may
+still turn off, and a sleep someone asks for (the Start menu, the power
+button, a lid) still happens. Releasing clears the request and closes the
+handle, and Windows closes it when this process dies in any way. The handle
+belongs to the process, not a thread, which is why it is this and not
+`SetThreadExecutionState`: hold and release run on different threads. No
+power setting or plan is read or changed.
+
+Elsewhere, or on Linux with no systemd-inhibit on the PATH, nothing is held
+(`NoInhibitor`, kind "none").
 
 The controller ticks every INTERVAL seconds as an asyncio task, and at once
 when a counted hold starts or a request names new work (`wake`, safe from any
@@ -37,6 +52,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import ctypes
 import logging
 import shutil
 import subprocess
@@ -236,8 +252,160 @@ def _close(proc: Any) -> None:
             pass
 
 
+class PowerApi(Protocol):
+    """The four Win32 calls a power request needs, each raising OSError in
+    words when Windows refuses it. `handle` is whatever `create` returned."""
+
+    def create(self, reason: str) -> Any: ...
+
+    def set(self, handle: Any) -> None: ...
+
+    def clear(self, handle: Any) -> None: ...
+
+    def close(self, handle: Any) -> None: ...
+
+
+# winnt.h: POWER_REQUEST_CONTEXT_VERSION, POWER_REQUEST_CONTEXT_SIMPLE_STRING
+# and POWER_REQUEST_TYPE's PowerRequestSystemRequired (the idle sleep timer;
+# 0 would be the display, which is left alone).
+_CONTEXT_VERSION = 0
+_CONTEXT_SIMPLE_STRING = 0x1
+_SYSTEM_REQUIRED = 1
+
+
+class _ReasonDetailed(ctypes.Structure):
+    # ULONG is 32 bits on Windows; c_ulong is not on 64-bit Linux, where
+    # the tests still measure this.
+    _fields_ = [("module", ctypes.c_void_p), ("id", ctypes.c_uint32),
+                ("count", ctypes.c_uint32), ("strings", ctypes.c_void_p)]
+
+
+class _Reason(ctypes.Union):
+    # The localized member is the larger one, so the structure is as large
+    # as Windows expects; only the simple string is ever filled.
+    _fields_ = [("detailed", _ReasonDetailed), ("simple", ctypes.c_wchar_p)]
+
+
+class _ReasonContext(ctypes.Structure):
+    """REASON_CONTEXT (minwinbase.h)."""
+
+    _fields_ = [("version", ctypes.c_uint32), ("flags", ctypes.c_uint32), ("reason", _Reason)]
+
+
+class Kernel32Power:
+    """`PowerApi` on kernel32, bound at the first call so that importing
+    this module, or building a `PowerRequest`, loads no DLL."""
+
+    def __init__(self) -> None:
+        self._bound: Any = None
+
+    def _kernel32(self) -> Any:
+        if self._bound is None:
+            if sys.platform != "win32":
+                raise OSError("power requests are a Windows call")
+            kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+            kernel32.PowerCreateRequest.argtypes = [ctypes.c_void_p]
+            kernel32.PowerCreateRequest.restype = ctypes.c_void_p
+            for name in ("PowerSetRequest", "PowerClearRequest"):
+                call = getattr(kernel32, name)
+                call.argtypes, call.restype = [ctypes.c_void_p, ctypes.c_int], ctypes.c_int
+            kernel32.CloseHandle.argtypes = [ctypes.c_void_p]
+            kernel32.CloseHandle.restype = ctypes.c_int
+            self._bound = kernel32
+        return self._bound
+
+    @staticmethod
+    def _refused(call: str) -> OSError:
+        if sys.platform != "win32":
+            return OSError(f"Windows refused {call}")
+        code = ctypes.get_last_error()
+        text = ctypes.FormatError(code).strip() or "no reason given"
+        return OSError(f"Windows refused {call} (error {code}): {text}")
+
+    def create(self, reason: str) -> Any:
+        kernel32 = self._kernel32()
+        context = _ReasonContext()
+        context.version, context.flags = _CONTEXT_VERSION, _CONTEXT_SIMPLE_STRING
+        context.reason.simple = reason
+        handle = kernel32.PowerCreateRequest(ctypes.byref(context))
+        # NULL, or INVALID_HANDLE_VALUE (-1 as a pointer).
+        if not handle or handle == ctypes.c_void_p(-1).value:
+            raise self._refused("PowerCreateRequest")
+        return handle
+
+    def set(self, handle: Any) -> None:
+        if not self._kernel32().PowerSetRequest(handle, _SYSTEM_REQUIRED):
+            raise self._refused("PowerSetRequest")
+
+    def clear(self, handle: Any) -> None:
+        if not self._kernel32().PowerClearRequest(handle, _SYSTEM_REQUIRED):
+            raise self._refused("PowerClearRequest")
+
+    def close(self, handle: Any) -> None:
+        if not self._kernel32().CloseHandle(handle):
+            raise self._refused("CloseHandle")
+
+
+class PowerRequest:
+    """Windows' hold: a power request handle with system-required set (the
+    module docstring says what that does and does not stop). hold() and
+    release() are idempotent and safe from any thread; held is True from a
+    hold that worked until its release. hold() raises OSError, in Windows'
+    words, when a call was refused, and does not ask again until RETRY_AFTER
+    has passed. release() always forgets the handle, closing it even where
+    clearing was refused. api and monotonic are injectable for tests."""
+
+    kind = "power-request"
+    RETRY_AFTER = 300.0             # seconds before trying again after a refusal
+
+    def __init__(self, reason: str = REASON, *, api: PowerApi | None = None,
+                 monotonic: Callable[[], float] = time.monotonic) -> None:
+        self.reason = reason
+        self._api: PowerApi = api if api is not None else Kernel32Power()
+        self._monotonic = monotonic
+        self._handle: Any = None
+        self._refused: tuple[str, float] | None = None
+        self._lock = threading.Lock()
+
+    @property
+    def held(self) -> bool:
+        return self._handle is not None
+
+    def hold(self) -> None:
+        with self._lock:
+            if self._handle is not None:
+                return
+            if self._refused is not None and self._monotonic() - self._refused[1] < self.RETRY_AFTER:
+                raise OSError(self._refused[0])
+            handle = None
+            try:
+                handle = self._api.create(self.reason)
+                self._api.set(handle)
+            except Exception as exc:  # noqa: BLE001 - a missing DLL entry is a refusal too
+                if handle is not None:
+                    try:
+                        self._api.close(handle)
+                    except Exception:  # noqa: BLE001
+                        pass
+                self._refused = (str(exc) or type(exc).__name__, self._monotonic())
+                raise OSError(self._refused[0]) from None
+            self._handle, self._refused = handle, None
+
+    def release(self) -> None:
+        with self._lock:
+            handle, self._handle = self._handle, None
+            if handle is None:
+                return
+            # Closing ends the request whatever clearing said.
+            for step in (self._api.clear, self._api.close):
+                try:
+                    step(handle)
+                except Exception as exc:  # noqa: BLE001 - logged, never raised
+                    log.warning("Keep awake: letting go of the power request: %s", exc)
+
+
 class NoInhibitor:
-    """Off Linux, or Linux without systemd-inhibit: nothing is held."""
+    """Neither Linux with systemd-inhibit nor Windows: nothing is held."""
 
     kind = "none"
     held = False
@@ -250,10 +418,13 @@ class NoInhibitor:
 
 
 def platform_inhibitor(reason: str = REASON, *, platform: str | None = None,
-                       which: Callable[[str], str | None] = shutil.which) -> Inhibitor | NoInhibitor:
+                       which: Callable[[str], str | None] = shutil.which,
+                       ) -> Inhibitor | PowerRequest | NoInhibitor:
     """This machine's inhibitor: systemd-inhibit's on Linux where it is on
-    the PATH, else one that holds nothing."""
+    the PATH, a power request on Windows, else one that holds nothing."""
     platform = sys.platform if platform is None else platform
+    if platform == "win32":
+        return PowerRequest(reason)
     if platform.startswith("linux"):
         program = which("systemd-inhibit")
         if program:
@@ -402,7 +573,7 @@ class KeepAwake:
 
     def status(self) -> dict[str, Any]:
         """The last check's answer, for /api/status (no subprocess): kind
-        ("systemd-inhibit" or "none"), holding (the inhibitor really holds),
+        ("systemd-inhibit", "power-request" or "none"), holding (the inhibitor really holds),
         wanted (there is a reason to; a refused hold is wanted, not
         holding), reasons, detail (the last refusal, until a hold works) and
         idle_minutes."""

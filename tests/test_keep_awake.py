@@ -1,5 +1,6 @@
 """Keeping the PC awake (`backend.keep_awake`): the systemd-inhibit child with a
-fake popen and clock (no real systemd), the controller through its asyncio
+fake popen and clock (no real systemd), Windows' power request with its four
+calls faked (and once for real, let go at once), the controller through its asyncio
 task, the server's providers, activity middleware and status, the CLI's hold,
 the doctor's rows and the two settings."""
 from __future__ import annotations
@@ -18,7 +19,7 @@ import pytest
 from backend import doctor, keep_awake, main
 from backend.bundle_manager import BACKUP_PREFIX, PREFIX as BUNDLE_PREFIX
 from backend.doctor import PASS, WARN
-from backend.keep_awake import Inhibitor, KeepAwake, NoInhibitor, counts_as_activity
+from backend.keep_awake import Inhibitor, KeepAwake, NoInhibitor, PowerRequest, counts_as_activity
 from backend.schemas import KeepAwakeStatus
 from tests.api_helpers import until
 from tests.cli_helpers import cli, isolated_execution_environment  # noqa: F401 - fixtures
@@ -169,10 +170,278 @@ def test_platform_inhibitor_is_systemd_inhibit_on_linux_only_where_it_is_install
     found = platform_inhibitor(platform="linux", which=lambda name: "/usr/bin/" + name)
     assert isinstance(found, Inhibitor) and found.program == "/usr/bin/systemd-inhibit"
     assert isinstance(platform_inhibitor(platform="linux", which=lambda name: None), NoInhibitor)
-    assert isinstance(platform_inhibitor(platform="win32", which=lambda name: "x"), NoInhibitor)
+    assert isinstance(platform_inhibitor(platform="darwin", which=lambda name: "x"), NoInhibitor)
     nothing = NoInhibitor()
     nothing.hold()
     assert nothing.held is False and nothing.kind == "none"
+
+
+# --- Windows' power request ------------------------------------------------------
+
+class FakePower:
+    """The four Win32 calls, recorded; `refuse` names the ones that fail."""
+
+    def __init__(self, *refuse: str) -> None:
+        self.refuse = set(refuse)
+        self.calls: list[tuple] = []
+        self.thread_ids: set[int] = set()
+        self.handles = 0
+
+    def _call(self, name: str, *args) -> None:
+        self.calls.append((name, *args))
+        self.thread_ids.add(threading.get_ident())
+        if name in self.refuse:
+            raise OSError(f"Windows refused {name} (error 5): Access is denied.")
+
+    def create(self, reason: str):
+        self._call("create", reason)
+        self.handles += 1
+        return 0x100 + self.handles
+
+    def set(self, handle) -> None:
+        self._call("set", handle)
+
+    def clear(self, handle) -> None:
+        self._call("clear", handle)
+
+    def close(self, handle) -> None:
+        self._call("close", handle)
+
+    def named(self) -> list[str]:
+        return [call[0] for call in self.calls]
+
+
+def test_platform_inhibitor_is_a_power_request_on_windows_and_builds_it_without_a_call():
+    # On any platform: building one loads no DLL, so a Linux runner can ask.
+    found = platform_inhibitor("AuraDream is in use", platform="win32", which=lambda name: None)
+    assert isinstance(found, PowerRequest) and found.kind == "power-request"
+    assert found.reason == "AuraDream is in use" and found.held is False
+    assert isinstance(found._api, keep_awake.Kernel32Power) and found._api._bound is None
+
+
+def test_a_power_request_is_created_with_the_reason_set_once_and_cleared_then_closed():
+    api = FakePower()
+    request = PowerRequest("AuraDream is in use", api=api, monotonic=Clock())
+    assert not request.held
+    request.hold()
+    request.hold()                          # idempotent: one handle
+    assert request.held
+    assert api.calls == [("create", "AuraDream is in use"), ("set", 0x101)]
+    request.release()
+    assert not request.held and api.calls[2:] == [("clear", 0x101), ("close", 0x101)]
+    request.release()                       # idempotent
+    assert len(api.calls) == 4
+    request.hold()                          # a new handle each time it is wanted again
+    assert request.held and api.calls[4:] == [("create", "AuraDream is in use"), ("set", 0x102)]
+    request.release()
+
+
+def test_only_the_idle_sleep_timer_is_asked_for_never_the_display():
+    # winnt.h's POWER_REQUEST_TYPE: 0 is the display, 1 the system.
+    assert keep_awake._SYSTEM_REQUIRED == 1
+    assert keep_awake._CONTEXT_VERSION == 0 and keep_awake._CONTEXT_SIMPLE_STRING == 1
+    text = (ROOT / "backend" / "keep_awake.py").read_text(encoding="utf-8")
+    assert "SetThreadExecutionState(" not in text and "powercfg" not in text
+
+
+@pytest.mark.parametrize("failing", ["create", "set"])
+def test_a_refused_power_request_holds_nothing_leaks_no_handle_and_waits_before_asking_again(failing):
+    clock = Clock()
+    api = FakePower(failing)
+    request = PowerRequest(api=api, monotonic=clock)
+    with pytest.raises(OSError, match=f"Windows refused {failing} \\(error 5\\): Access is denied"):
+        request.hold()
+    assert not request.held
+    # A handle Windows gave before refusing to set it is closed, not kept.
+    assert api.named() == (["create"] if failing == "create" else ["create", "set", "close"])
+    asked = len(api.calls)
+    clock.now += PowerRequest.RETRY_AFTER - 1
+    with pytest.raises(OSError, match="Access is denied"):
+        request.hold()                      # within RETRY_AFTER: not asked again
+    assert len(api.calls) == asked
+    api.refuse.clear()
+    clock.now += 2
+    request.hold()
+    assert request.held and api.named()[asked:] == ["create", "set"]
+    request.release()                       # nothing is left held
+    assert not request.held
+
+
+def test_a_call_that_is_missing_altogether_is_a_refusal_in_words():
+    class Broken(FakePower):
+        def create(self, reason: str):
+            raise AttributeError("function 'PowerCreateRequest' not found")
+    request = PowerRequest(api=Broken(), monotonic=Clock())
+    with pytest.raises(OSError, match="PowerCreateRequest"):
+        request.hold()
+    assert not request.held
+
+
+def test_release_closes_the_handle_even_where_clearing_is_refused_and_never_raises(caplog):
+    api = FakePower("clear", "close")
+    request = PowerRequest(api=api, monotonic=Clock())
+    request.hold()
+    with caplog.at_level(logging.WARNING, logger="auradream.keep_awake"):
+        request.release()
+    assert not request.held and api.named() == ["create", "set", "clear", "close"]
+    assert sum("letting go of the power request" in r.getMessage() for r in caplog.records) == 2
+
+
+def test_the_controller_holds_and_releases_a_power_request_on_other_threads():
+    async def scenario():
+        api = FakePower()
+        request = PowerRequest(api=api, monotonic=Clock())
+        controller = KeepAwake(request, idle_minutes=0, monotonic=Clock(), interval=3600)
+        busy = {"reason": None}
+        controller.add_provider(lambda: busy["reason"])
+        controller.start()
+        busy["reason"] = "an image job is queued or running"
+        controller.wake()
+        await _until(lambda: controller.status()["holding"])
+        status = controller.status()
+        assert status["kind"] == "power-request" and status["wanted"] is True
+        assert status["reasons"] == ["an image job is queued or running"]
+        KeepAwakeStatus.model_validate(status)
+        busy["reason"] = None
+        controller.wake()
+        await _until(lambda: not controller.status()["holding"])
+        assert api.named() == ["create", "set", "clear", "close"]
+        busy["reason"] = "loading the model"
+        controller.wake()
+        await _until(lambda: controller.status()["holding"])
+        await controller.stop()             # the way out lets go too
+        assert not request.held and api.named()[-2:] == ["clear", "close"]
+        assert threading.get_ident() not in api.thread_ids
+    _run(scenario)
+
+
+def test_a_refused_power_request_is_wanted_not_holding_with_windows_words(caplog):
+    async def scenario():
+        request = PowerRequest(api=FakePower("set"), monotonic=Clock())
+        controller = KeepAwake(request, idle_minutes=0, monotonic=Clock(), interval=3600)
+        controller.add_provider(lambda: "a gallery export is running")
+        controller.start()
+        await _until(lambda: controller.status()["detail"] is not None)
+        controller.wake()
+        await asyncio.sleep(0.05)
+        status = controller.status()
+        assert status["wanted"] is True and status["holding"] is False
+        assert "Windows refused set" in status["detail"]
+        await controller.stop()
+    with caplog.at_level(logging.WARNING, logger="auradream.keep_awake"):
+        _run(scenario)
+    [warning] = [r.getMessage() for r in caplog.records if "Could not keep the PC awake" in r.getMessage()]
+    assert "Tried again every 5 minutes" in warning
+
+
+def test_the_reason_context_is_the_size_and_shape_windows_reads():
+    import ctypes
+
+    context = keep_awake._ReasonContext()
+    context.version, context.flags = keep_awake._CONTEXT_VERSION, keep_awake._CONTEXT_SIMPLE_STRING
+    context.reason.simple = "AuraDream is in use"
+    assert context.reason.simple == "AuraDream is in use"
+    pointer = ctypes.sizeof(ctypes.c_void_p)
+    # Two ULONGs, then a union as large as its localized member (a module,
+    # two ULONGs and a pointer), which starts on a pointer boundary.
+    assert keep_awake._ReasonContext.reason.offset == max(8, pointer)
+    assert ctypes.sizeof(keep_awake._Reason) == 2 * pointer + 8
+    assert keep_awake._Reason.simple.offset == 0
+
+
+class FakeKernel32:
+    """kernel32's four entries as `Kernel32Power` calls them, recorded.
+    `answers` gives a call's return value; the default is success."""
+
+    def __init__(self, **answers) -> None:
+        self.answers = answers
+        self.calls: list[tuple] = []
+
+    def PowerCreateRequest(self, reference):  # noqa: N802 - Windows' name
+        context = reference._obj            # what byref() points at
+        self.calls.append(("PowerCreateRequest", context.version, context.flags, context.reason.simple))
+        return self.answers.get("PowerCreateRequest", 0x2A4)
+
+    def PowerSetRequest(self, handle, kind):  # noqa: N802
+        self.calls.append(("PowerSetRequest", handle, kind))
+        return self.answers.get("PowerSetRequest", 1)
+
+    def PowerClearRequest(self, handle, kind):  # noqa: N802
+        self.calls.append(("PowerClearRequest", handle, kind))
+        return self.answers.get("PowerClearRequest", 1)
+
+    def CloseHandle(self, handle):  # noqa: N802
+        self.calls.append(("CloseHandle", handle))
+        return self.answers.get("CloseHandle", 1)
+
+
+def _kernel32_power(**answers) -> tuple[keep_awake.Kernel32Power, FakeKernel32]:
+    api, dll = keep_awake.Kernel32Power(), FakeKernel32(**answers)
+    api._bound = dll                        # as if kernel32 were bound: no DLL on any system
+    return api, dll
+
+
+def test_the_kernel32_calls_ask_for_the_system_with_a_simple_reason_on_one_handle():
+    api, dll = _kernel32_power()
+    request = PowerRequest("AuraDream is in use", api=api, monotonic=Clock())
+    request.hold()
+    assert request.held
+    request.release()
+    # Version 0, the simple-string flag, the reason; then the system (1,
+    # never the display's 0) set and cleared on the handle create returned.
+    assert dll.calls == [("PowerCreateRequest", 0, 1, "AuraDream is in use"), ("PowerSetRequest", 0x2A4, 1),
+                         ("PowerClearRequest", 0x2A4, 1), ("CloseHandle", 0x2A4)]
+
+
+def test_a_null_or_invalid_handle_from_kernel32_is_a_refusal_and_nothing_is_set():
+    import ctypes
+
+    for answer in (None, 0, ctypes.c_void_p(-1).value):
+        api, dll = _kernel32_power(PowerCreateRequest=answer)
+        request = PowerRequest(api=api, monotonic=Clock())
+        with pytest.raises(OSError, match="Windows refused PowerCreateRequest"):
+            request.hold()
+        assert not request.held and [call[0] for call in dll.calls] == ["PowerCreateRequest"]
+
+
+@pytest.mark.parametrize("call, method", [("PowerSetRequest", "set"), ("PowerClearRequest", "clear"),
+                                          ("CloseHandle", "close")])
+def test_a_zero_from_kernel32_is_a_refusal_naming_the_call(call, method):
+    api, dll = _kernel32_power(**{call: 0})
+    with pytest.raises(OSError, match=f"Windows refused {call}"):
+        getattr(api, method)(0x2A4)
+    assert dll.calls[0][:2] == (call, 0x2A4)
+
+
+def test_a_handle_kernel32_refuses_to_set_is_closed():
+    api, dll = _kernel32_power(PowerSetRequest=0)
+    request = PowerRequest(api=api, monotonic=Clock())
+    with pytest.raises(OSError, match="Windows refused PowerSetRequest"):
+        request.hold()
+    assert not request.held
+    assert [call[0] for call in dll.calls] == ["PowerCreateRequest", "PowerSetRequest", "CloseHandle"]
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="elsewhere only")
+def test_the_real_calls_are_refused_in_words_off_windows():
+    request = PowerRequest()
+    with pytest.raises(OSError, match="Windows"):
+        request.hold()
+    assert not request.held
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows' own calls")
+def test_the_real_power_request_is_taken_and_let_go_at_once():
+    # The one real call: set and released in the same breath, no power
+    # setting read or changed.
+    request = PowerRequest("AuraDream test: released at once")
+    try:
+        request.hold()
+        assert request.held
+    finally:
+        request.release()
+    assert not request.held
+    request.release()
 
 
 # --- the controller ------------------------------------------------------------
@@ -611,7 +880,48 @@ def test_keep_awake_timeout_missing_off_and_elsewhere():
         raise AssertionError("nothing is run")
     [check] = doctor.check_keep_awake("linux", which=lambda name: "x", run=never, enabled=False)
     assert check.status == PASS and "AURADREAM_KEEP_AWAKE=false" in check.detail
-    assert doctor.check_keep_awake("win32", run=never) == []
+    assert doctor.check_keep_awake("darwin", run=never, power=never) == []
+    [check] = doctor.check_keep_awake("win32", run=never, power=never, enabled=False)
+    assert check.status == PASS and "AURADREAM_KEEP_AWAKE=false" in check.detail
+
+
+def test_keep_awake_on_windows_tries_a_power_request_and_lets_go_at_once():
+    def never(*args, **kwargs):
+        raise AssertionError("nothing is run")
+    api = FakePower()
+    made = []
+
+    def power():
+        made.append(PowerRequest("AuraDream doctor: check", api=api, monotonic=Clock()))
+        return made[-1]
+
+    [check] = doctor.check_keep_awake("win32", which=never, run=never, enabled=True, power=power)
+    assert check.status == PASS and check.title == "Keep awake" and check.fix == ""
+    assert "power request" in check.detail and "display may still turn off" in check.detail
+    assert api.named() == ["create", "set", "clear", "close"] and not made[0].held
+
+
+@pytest.mark.parametrize("failing", ["create", "set"])
+def test_keep_awake_on_windows_refused_warns_in_windows_words_and_holds_nothing(failing):
+    api = FakePower(failing)
+    request = PowerRequest(api=api, monotonic=Clock())
+    [check] = doctor.check_keep_awake("win32", enabled=True, power=lambda: request)
+    assert check.status == WARN and "Access is denied" in check.detail
+    assert "sleep timer" in check.fix and "polkit" not in check.fix
+    assert not request.held and "set" not in api.named()[api.named().index(failing) + 1:]
+
+
+def test_the_doctors_windows_row_asks_for_the_servers_own_holder(monkeypatch):
+    built = []
+
+    class Trial(Recorder):
+        def __init__(self, reason):
+            super().__init__()
+            built.append(reason)
+
+    monkeypatch.setattr(keep_awake, "PowerRequest", Trial)
+    [check] = doctor.check_keep_awake("win32", enabled=True)
+    assert check.status == PASS and built == ["AuraDream doctor: check"]
 
 
 def test_lan_rows():

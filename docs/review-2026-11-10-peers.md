@@ -103,6 +103,26 @@ exclusions, status field and doctor row. A done sound and an action when the
 queue empties were cut: a tone does not play on a locked phone, and a
 command hook is a new trust surface on a LAN server.
 
+Built 2026-11-10. The finding held in the source: `platform_inhibitor`
+returned `NoInhibitor` for every platform but Linux, and the doctor's Keep
+awake row returned nothing there. `keep_awake.PowerRequest` (kind
+`power-request`) is now Windows' holder: a `PowerCreateRequest` handle with
+`PowerRequestSystemRequired` set, cleared and closed on release, and closed
+by Windows if the process dies. It is a handle and not
+`SetThreadExecutionState` because the controller holds and releases on
+different threads. It asks for the system only, so the display may turn
+off, a sleep someone asks for still happens, and no power setting is read
+or changed. Providers, counted holds, the idle minutes and
+`counts_as_activity` are untouched; `/api/status`'s `keep_awake.kind` gains
+`power-request`, and the doctor's row on Windows tries a request and lets
+go at once. The CLI's `hold_while` takes the same hold. Tests fake the four
+Win32 calls (`tests/test_keep_awake.py`); one makes a real request on
+Windows and releases it in the same test, which passed on this PC. Not
+built: the done sound and the queue-empty action, which were cut. Not
+measured: that the PC stays awake past its sleep timer while the request is
+held, which needs the sleep timer to run out on the card's PC
+([design notes](design-notes.md), Keeping the Windows PC awake).
+
 ### R6 a full disk pauses the job
 
 `GEN#52`. `jobs._save` retries only on `GalleryBusy`. Any other error from

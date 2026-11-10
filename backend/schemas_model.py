@@ -152,11 +152,12 @@ class ExpanderStatus(BaseModel):
 class KeepAwakeStatus(BaseModel):
     """Whether the server holds the PC awake (`keep_awake`), from its last
     check: the status poll starts no process. kind is "systemd-inhibit" on
-    Linux with it on the PATH, "none" where nothing can be held, "off" with
-    AURADREAM_KEEP_AWAKE=false. A refused hold is wanted but not holding,
-    with systemd-inhibit's words in detail."""
+    Linux with it on the PATH, "power-request" on Windows, "none" where
+    nothing can be held, "off" with AURADREAM_KEEP_AWAKE=false. A refused
+    hold is wanted but not holding, with systemd-inhibit's or Windows' words
+    in detail."""
 
-    kind: Literal["systemd-inhibit", "none", "off"]
+    kind: Literal["systemd-inhibit", "power-request", "none", "off"]
     holding: bool = False
     wanted: bool = False
     reasons: list[str] = Field(default_factory=list)

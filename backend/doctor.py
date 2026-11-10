@@ -10,7 +10,8 @@ Nothing here changes anything or reaches the network beyond loopback: torch
 is imported to ask CUDA about the card, but diffusers is never imported and
 no model is loaded; `nvidia-smi` is run if it is on the PATH; on Linux,
 `systemd-inhibit` holds the PC awake around `true`, which lets go as soon as
-`true` ends; the Hugging Face sign-in is the token file's existence only
+`true` ends, and on Windows a power request is set and let go at once (no
+power setting is read or changed); the Hugging Face sign-in is the token file's existence only
 (never read, printed or sent to the Hub); the port check is the server's own
 trial bind and loopback probe (`server_probe`); the commit is `git rev-parse`
 in this folder, and the running server's own from its status on loopback.
@@ -35,7 +36,7 @@ from typing import Any
 # config is the first project import, before anything that could import
 # diffusers (AGENTS.md); nothing here does, but the rule holds everywhere.
 from .config import settings
-from . import build_info, hf_sign_in, server_probe
+from . import build_info, hf_sign_in, keep_awake, server_probe
 from .loader_choices import default_format
 
 PASS, WARN, FAIL = "PASS", "WARN", "FAIL"
@@ -396,16 +397,38 @@ def polkit_rule(user: str) -> str:
     )
 
 
+def _check_power_request(request: keep_awake.Holder) -> list[Check]:
+    """Windows' trial: the server's own power request, set and let go at
+    once. It changes no power setting."""
+    try:
+        request.hold()
+    except Exception as exc:  # noqa: BLE001 - whatever stopped it is the row's words
+        why = str(exc) or type(exc).__name__
+        return [Check(WARN, "Keep awake", f"Windows refused a power request ({why}), so this PC may sleep "
+                      "in the middle of a load or a render.",
+                      "If this PC sleeps when idle, lengthen or turn off its sleep timer (Settings > System > "
+                      "Power) while AuraDream is used from another device.")]
+    finally:
+        request.release()
+    return [Check(PASS, "Keep awake", "Windows accepts a power request, so the idle sleep timer waits while "
+                  "AuraDream works. The display may still turn off, and a sleep you ask for still happens.")]
+
+
 def check_keep_awake(platform: str | None = None, which: Callable[[str], str | None] = shutil.which,
                      run: Callable[..., Any] = subprocess.run, enabled: bool | None = None,
-                     user: str | None = None) -> list[Check]:
-    """On Linux, whether the server may hold the PC awake while it works: a
-    trial block hold around `true`, let go when it ends. Nothing elsewhere."""
+                     user: str | None = None,
+                     power: Callable[[], keep_awake.Holder] | None = None) -> list[Check]:
+    """Whether the server may hold the PC awake while it works. On Linux, a
+    trial block hold around `true`, let go when it ends; on Windows, a
+    trial power request (`power` builds it), let go at once. Nothing
+    elsewhere."""
     platform = sys.platform if platform is None else platform
-    if not platform.startswith("linux"):
+    if platform != "win32" and not platform.startswith("linux"):
         return []
     if not (settings.keep_awake if enabled is None else enabled):
         return [Check(PASS, "Keep awake", "switched off (AURADREAM_KEEP_AWAKE=false), so nothing is tried.")]
+    if platform == "win32":
+        return _check_power_request((power or (lambda: keep_awake.PowerRequest("AuraDream doctor: check")))())
     program = which("systemd-inhibit")
     if not program:
         return [Check(WARN, "Keep awake", "systemd-inhibit was not found, so AuraDream cannot keep this PC "

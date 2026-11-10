@@ -233,7 +233,9 @@ runs, and for `AURADREAM_KEEP_AWAKE_IDLE_MINUTES` (20) after the last request
 someone made, the server holds the PC awake with `systemd-inhibit`, so an
 idle suspend does not cut a render short; the page's own timed polls do not
 count, so an open, idle tab lets it sleep. `/api/status`'s `keep_awake`
-says whether it holds and why ([usage](docs/usage.md#keep-a-linux-server-awake)).
+says whether it holds and why ([usage](docs/usage.md#keep-the-pc-awake)).
+On Windows the same reasons hold a power request, which keeps the idle
+sleep timer waiting.
 
 ```bash
 journalctl --user -u auradream -f   # its log
@@ -344,7 +346,7 @@ set in a start-up warning.
 | `AURADREAM_CRITIC` | `true` | Enable the optional local prompt critic |
 | `AURADREAM_CRITIC_SERVER` | unset | Use a local compatible `llama-server` binary |
 | `AURADREAM_CRITIC_MODEL` | unset | Use a local `.gguf` instead of downloading the pinned critic model |
-| `AURADREAM_KEEP_AWAKE` | `true` | On Linux, hold the PC awake with `systemd-inhibit` while AuraDream is busy |
+| `AURADREAM_KEEP_AWAKE` | `true` | Hold the PC awake while AuraDream is busy: `systemd-inhibit` on Linux, a power request on Windows |
 | `AURADREAM_KEEP_AWAKE_IDLE_MINUTES` | `20` | Minutes to keep holding after the last request someone made (the page's timed polls are not one); `0` holds only while busy |
 
 **The server has no login.** Anyone who can reach it can read every prompt and
