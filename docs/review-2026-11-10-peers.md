@@ -212,6 +212,26 @@ untouched. Server-side resolution of a bare `{name}` and style templates
 with a `{prompt}` slot were cut. Starts as an addendum to
 [the snippets plan](plan-prompt-snippets.md).
 
+Built 2026-11-10, after [the addendum](plan-prompt-snippets.md#addendum-2026-11-10-a-third-target-the-grids-variables).
+The finding held: the target was `Literal["prompt", "negative"]` in three
+places, and nothing but a saved setup kept a variable block. The three now
+share `schemas_snippets.SnippetTarget`, which adds `variables`; the sidecar
+and the portable document stay version 1, and export, preview and import
+carry the target as they carry the other two (names collide per target, a
+Replace offers only a variables snippet). The text is stored verbatim and
+never parsed. In the dialog **Insert into** offers **Grid variables**:
+Insert closes the dialog, opens the Grid search fold (More options first
+on the phone), and appends or prepends the block with one newline through
+`rewriteBox`, so Ctrl+Z restores the box; the grid's own preview then reads
+it and refuses what it always refused. Expansion, keys and records are
+untouched (`tests/test_snippets.py`, `tests/test_snippet_portability.py`,
+`tests/test_api_snippet_portability.py`; `smoke-snippets`' last steps, and
+`smoke-phone-dialogs` for the phone's sheet). A build from before this
+refuses a sidecar or an export file holding a variables snippet whole and
+leaves it unchanged. Not built, as cut: a bare `{name}` resolved on the
+server, and `{prompt}` style templates; the `{name}` placeholder is still
+typed into the prompt by hand.
+
 ### R9 storage view
 
 `GEN#55`. Models shows each entry's reference download size and a cache

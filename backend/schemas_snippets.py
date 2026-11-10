@@ -9,13 +9,18 @@ MAX_SNIPPETS = 100
 MAX_SNIPPET_NAME = 80
 MAX_SNIPPET_TEXT = 16_000
 
+# Where Insert writes a snippet: a prompt box, or the grid's Prompt variables
+# box ("variables", a saved `name = a | b` block). The text is never parsed
+# here: the grid's own preview reads the box after the insertion.
+SnippetTarget = Literal["prompt", "negative", "variables"]
+
 
 class SnippetFields(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
     name: str = Field(min_length=1, max_length=MAX_SNIPPET_NAME)
     text: str = Field(min_length=1, max_length=MAX_SNIPPET_TEXT)
-    target: Literal["prompt", "negative"] = "prompt"
+    target: SnippetTarget = "prompt"
 
     @field_validator("name")
     @classmethod
@@ -46,7 +51,7 @@ class Snippet(SnippetFields):
     # may use the convenient Prompt default.
     # Pydantic makes this required by removing the inherited default; Pyright's
     # dataclass override rule cannot represent that supported model contract.
-    target: Literal["prompt", "negative"]  # pyright: ignore[reportGeneralTypeIssues]
+    target: SnippetTarget  # pyright: ignore[reportGeneralTypeIssues]
     id: str = Field(pattern=r"^[a-f0-9]{32}$")
     revision: int = Field(ge=1)
 

@@ -524,3 +524,38 @@ def test_duplicate_keys_in_local_sidecar_refuse_export_and_import_without_rewrit
     assert client.post("/api/snippets/import/preview", json={"payload": document}).status_code == 503
     assert client.post("/api/snippets/import", json=body).status_code == 503
     assert path.read_bytes() == data
+
+
+# The third destination (GEN#54), the grid's Prompt variables box.
+BLOCK = "size = big | small | none\nground = grass | dirt"
+
+
+def test_variables_snippets_export_preview_and_import_through_the_routes(client, store):
+    database = store.settings.db_path
+    snippets.change(database, SnippetFields(**fields("Sizes", BLOCK, "variables")))
+    exported = client.get("/api/snippets/export")
+    assert exported.status_code == 200, exported.text
+    document = json.loads(exported.content)
+    assert document == payload(fields("Sizes", BLOCK, "variables"))
+    # The exact copy is skipped; the same name under Prompt is another snippet.
+    document["items"].append(fields("Sizes", "a prompt of that name"))
+    document["items"].append(fields("Grounds", "ground = sand | snow", "variables"))
+    shown = preview(client, document)
+    assert [row["action"] for row in shown["rows"]] == ["skip", "add", "add"]
+    assert shown["rows"][0]["snippet"]["target"] == "variables"
+    assert [match["target"] for match in shown["rows"][0]["matches"]] == ["variables"]
+    assert shown["rows"][1]["matches"] == []
+    committed = client.post("/api/snippets/import", json=commit_body(document, shown))
+    assert committed.status_code == 200, committed.text
+    saved = snippets.read(database)
+    assert [(item.name, item.target, item.text) for item in saved] == [
+        ("Sizes", "variables", BLOCK), ("Sizes", "prompt", "a prompt of that name"),
+        ("Grounds", "variables", "ground = sand | snow"),
+    ]
+
+
+def test_an_unknown_target_in_a_file_is_still_refused_whole(client, store):
+    document = payload(fields("Sizes", BLOCK, "variables"), fields("Odd", "text", "variable"))
+    response = client.post("/api/snippets/import/preview", json={"payload": document})
+    assert response.status_code == 422, response.text
+    assert not snippets.path_for(store.settings.db_path).exists()
