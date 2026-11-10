@@ -462,6 +462,26 @@ settings, model, LoRA name and an inpaint's mask. The button's title says
 so, but a touch screen shows no title. Share opens two rows, Picture only
 (a canvas re-encode in the page) and With settings.
 
+Built 2026-11-10. The finding held: `storage.save_image` writes the
+`parameters`, `auradream` and mask text chunks, and Share sent that file
+whole. Share on the phone's viewer now opens an action sheet
+(`openViewerShare` in `web/phone-viewer.js`) with **Picture only** and
+**With settings**. Picture only fetches the PNG, draws it on a canvas and
+encodes it again (`pictureOnlyBlob`), so the file has the same pixels and
+no text chunk; it is named `auradream-<id>.png`, since the stored file's
+name holds the checkpoint and the seed. With settings is the stored PNG as
+before. Where the browser shares no file (plain http to a LAN address) the
+button still reads Download and its two rows download; a share refused for
+want of the press downloads the same file it would have shared. A picture
+that cannot be redrawn (over iOS's 16,777,216 canvas pixels, or a failed
+encode) is an error in the viewer's line, never the stored PNG in its
+place; a walk to another image or the next file that is made clears it,
+as Download's failure is cleared. More's Download and the PC's lightbox
+are unchanged.
+`smoke-phone-gallery` checks the sheet, both files' chunks and pixels, the
+two download paths and the two refusals in Chrome; a real phone's share sheet has not been
+tried.
+
 ### T6 the guide from the page
 
 `UI#43`. Nothing in the page links `docs/usage.md`. There is no Markdown
