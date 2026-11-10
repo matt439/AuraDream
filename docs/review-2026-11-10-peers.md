@@ -115,6 +115,23 @@ with a plain-words reason. A submit-time space check was cut.
 First step: a CPU test making `save_image` raise each error, to pin today's
 behaviour (the failure count, a leftover `.png.part`) before the pause.
 
+Built 2026-11-10. The first step confirmed the finding on the CPU: with
+`save_image` raising either error, a five-cell job rendered three cells,
+failed each and ended as an error; `save_image` itself left no `.png.part`
+(its own cleanup takes the partial and the thumbnail back), so there was no
+leftover to fix. `jobs._save` now reads the error through `jobs.disk_full`
+and pauses in `_hold` with `Job.pause_reason`, the render held and saved
+at Resume; a Resume with the disk still full pauses again, a cancel ends
+the job. Every other save error is still the cell's failure
+(`tests/test_jobs_disk_full.py`; `smoke-jobs`' last steps through the
+fake's `/api/fake/disk-full`). The tests also cover a batch whose second
+image is refused, a Then refine pass's save, and SQLite's real error from
+a database capped at its pages. The page takes the worker's own pause over
+a Resume press still awaiting its reply (`syncPause`), or the button read
+Pause over a job paused again. Not built: the CLI's own save loop
+(`generate.py`), which still fails the cell, and the submit-time check
+that was cut. A real full disk has not been tried on the card's PC.
+
 ### R7 prompt recall
 
 `GEN#53`. A prompt is recalled only through its image (Copy prompt, Reuse,

@@ -12,7 +12,7 @@ cells of a grid can be told apart on a sheet. A cell whose prompt holds
 `[fail]` raises, as an out-of-memory cell would, so a grid's skipped cells
 and the failure rule can be driven from the page. The fake's own test-only
 knobs, never on the real server, are POSTs under `/api/fake/`: load, step,
-expand, model, lora, bin-age, peak, refine and instruction-edit; the comment
+expand, model, lora, bin-age, peak, refine, instruction-edit and disk-full; the comment
 above each route states its body and its answer. The instruction-edit gate
 is open on a fake claiming FLUX.1 Kontext [dev] alone - there an edit is
 the source proved and prepared, tinted and stamped, and two more sources
@@ -769,6 +769,26 @@ def main() -> int:
     @app_main.app.post("/api/fake/unreachable", include_in_schema=False)
     async def fake_unreachable(on: bool = Body(..., embed=True)) -> dict:
         silent["on"] = on
+        return {"on": on}
+
+    # A disk with no room, which no page can make: while on, every image
+    # save raises ENOSPC as the PNG's write would, so the job pauses with
+    # its reason, the render held (`jobs.disk_full`). Answers the state.
+    real_save = storage.save_image
+    full = {"on": False}
+
+    def save_unless_full(*save_args: Any, **save_kwargs: Any) -> Any:
+        if full["on"]:
+            import errno
+
+            raise OSError(errno.ENOSPC, "No space left on device")
+        return real_save(*save_args, **save_kwargs)
+
+    storage.save_image = save_unless_full
+
+    @app_main.app.post("/api/fake/disk-full", include_in_schema=False)
+    async def fake_disk_full(on: bool = Body(..., embed=True)) -> dict:
+        full["on"] = on
         return {"on": on}
 
     import uvicorn

@@ -7,6 +7,7 @@ funnelled through one worker thread. Progress hops back to the event loop via
 from __future__ import annotations
 
 import asyncio
+import errno
 import logging
 import sqlite3
 import threading
@@ -62,6 +63,29 @@ class LoadFailed(RuntimeError):
     def __init__(self, detail: str) -> None:
         super().__init__(detail)
         self.detail = detail
+
+
+# What a job paused on a full disk says (`Job.pause_reason`), after the
+# page's "Paused at image 2/5 · ".
+DISK_FULL_PAUSE = "the disk is full: this image is held in memory. Free some space, then Resume"
+
+# Windows' ERROR_HANDLE_DISK_FULL and ERROR_DISK_FULL, for an OSError whose
+# errno the C runtime did not map.
+_DISK_FULL_WINERRORS = (39, 112)
+
+
+def disk_full(exc: BaseException) -> bool:
+    """Whether a save's error is the disk having no room: `ENOSPC` from the
+    PNG or thumbnail write, or SQLite's "database or disk is full" from the
+    row. Freeing space cures it, so the render is worth holding."""
+    if isinstance(exc, sqlite3.Error):
+        return (
+            getattr(exc, "sqlite_errorcode", None) == sqlite3.SQLITE_FULL
+            or "database or disk is full" in str(exc)
+        )
+    if isinstance(exc, OSError):
+        return exc.errno == errno.ENOSPC or getattr(exc, "winerror", None) in _DISK_FULL_WINERRORS
+    return False
 
 
 def _cell_masks(cells: list[Cell]) -> set[str]:
@@ -1201,8 +1225,14 @@ class JobManager:
             job.pending_passes = []
             job.stage = None
 
-    def _hold(self, job: Job, loop: asyncio.AbstractEventLoop, index: int) -> None:
+    def _hold(
+        self, job: Job, loop: asyncio.AbstractEventLoop, index: int, reason: str | None = None,
+    ) -> None:
         """Wait at a cell boundary until resumed or cancelled, the card handed back.
+
+        With `reason` the pause is the worker's own, inside the unit - a
+        full disk under `_save`, the render held - and the status says why
+        for as long as it holds.
 
         Polled, not `Event.wait()`: a bare wait would deadlock `shutdown()`,
         which cancels and then joins this thread, and would make `cancel()` a
@@ -1214,12 +1244,16 @@ class JobManager:
         table this thread must not walk while a submission adds to it.
         """
         job.paused_at = time.time()
+        job.pause_reason = reason
         job.paused = True
         try:
             self.backend.free_cache()
         except Exception:  # noqa: BLE001 - a pause must not fail the night
             log.debug("free_cache failed", exc_info=True)
-        log.info("job %s paused before unit %d/%d", job.id, index + 1, job.total_runs)
+        if reason is None:
+            log.info("job %s paused before unit %d/%d", job.id, index + 1, job.total_runs)
+        else:
+            log.warning("job %s paused at unit %d/%d: %s", job.id, index + 1, job.total_runs, reason)
         self._emit(loop, job, {"type": "status", **job.snapshot(images=False)})
         loop.call_soon_threadsafe(self._relabel_queued, loop)
         held_from = time.monotonic()
@@ -1234,6 +1268,7 @@ class JobManager:
             job.deadline += time.monotonic() - held_from
         job.paused = False
         job.paused_at = None
+        job.pause_reason = None
         if not job.cancel_requested:
             log.info("job %s resumed at unit %d/%d", job.id, index + 1, job.total_runs)
             self._emit(loop, job, {"type": "status", **job.snapshot(images=False)})
@@ -1292,6 +1327,21 @@ class JobManager:
                     if job.cancel_requested:
                         raise Cancelled() from None
                     log.warning("job %s: gallery busy in another process; still waiting to save", job.id)
+                except (OSError, sqlite3.Error) as exc:
+                    # No room for the PNG or its row. Space is the user's to
+                    # free, and the render is in memory: pause with the
+                    # reason and try this image again at Resume, rather than
+                    # fail the cell and render two more into the same disk.
+                    # `save_image` took its partial file back.
+                    if not disk_full(exc):
+                        raise
+                    if job.cancel_requested:
+                        raise Cancelled() from None
+                    log.warning("job %s: the disk is full (%s); holding the image", job.id, exc)
+                    job.pause_requested = True
+                    self._hold(job, loop, max(job.run - 1, 0), DISK_FULL_PAUSE)
+                    if job.cancel_requested:
+                        raise Cancelled() from None
             job.images.append(record.model_dump())
             written.append(record)
             # Publish it now: a long sweep should fill the page as it goes

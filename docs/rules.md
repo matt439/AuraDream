@@ -2511,7 +2511,23 @@ measured on the card and when.
   ahead has been paused for 4 min" (`pausedFor`), moved on by the status
   poll (`tickPauseClock`) and counted on the server's clock (the status's
   `server_time`, `serverClockOffset`), never the page's alone; a `note` that
-  is a function is asked again at each redraw. A plain
+  is a function is asked again at each redraw. A full disk is the one pause
+  the worker takes itself: `jobs._save` reads a save's `OSError` or
+  `sqlite3.Error` through `jobs.disk_full` (`ENOSPC`, Windows' errors 39
+  and 112, SQLite's `SQLITE_FULL` or "database or disk is full"), sets
+  `pause_requested` and holds in `_hold` with `DISK_FULL_PAUSE` as
+  `Job.pause_reason`, inside the unit, the render in memory. Resume (or
+  the pause withdrawn by any tab) saves that image again, pausing again
+  while there is still no room; a cancel ends the job as cancelled, the
+  held image lost. Nothing is counted in `failures`, and no cell is
+  rendered twice. A batch keeps the images it saved before the refused
+  one, through a cancel too, and a Then refine pass's save is held the
+  same way, never a failed pass. `pause_reason` is None for a user's pause
+  and cleared with `paused`; a frame carrying it is never the stale one
+  `pauseAsking` holds back, since a Resume with the disk still full is
+  answered by a pause the press did not ask for; the cell line says "Paused at image 2/5 · " and the
+  reason in place of "Paused after … · GPU handed back". Every other save
+  error is the cell's failure, under the failure rule as before. A plain
   job's units are images, or batches where a repeat makes several
   (`unitWord`, from the snapshot's `grid` and `planned_images`; `Job.unit`
   on the server), in the
@@ -2980,7 +2996,9 @@ measured on the card and when.
   retries a `GalleryBusy` save until the job is cancelled, and `generate.py`
   until a second Ctrl-C (saying once "gallery busy in another process; still
   waiting to save"; its `--resume` lookup refuses in one line, exit 1), never dropping a
-  finished render. `save_image` and `thumbnail_for` encode their
+  finished render. A save with no room on the disk is held the same way by
+  the server's job, paused with its reason (Jobs; `generate.py` still fails
+  that cell). `save_image` and `thumbnail_for` encode their
   `.part` files before taking the reservation and reserve only the row and
   the renames. Keep lock ordering consistent: gallery reservation before
   storage's write lock. Status and bundle downloads remain available.
@@ -10559,7 +10577,9 @@ fake's directory and back, as a rename by hand would; `POST
 claimed checkpoint's refine pass away and gives it back, as a loaded
 pipeline with no image-to-image sibling answers; `POST /api/fake/unreachable`
 (`{on}`) holds every request but the knobs unanswered while on (two
-minutes at most, released when it goes off), as a PC asleep on Wi-Fi; the fake's rewriter and translator count as downloaded from their
+minutes at most, released when it goes off), as a PC asleep on Wi-Fi; `POST
+/api/fake/disk-full` (`{on}`) makes every image save raise `ENOSPC` while
+on, as a disk with no room; the fake's rewriter and translator count as downloaded from their
 first use), and `node tools/browser.mjs tools/smoke.json` drives headless
 Edge or Chrome over the DevTools protocol with Node's own WebSocket - no npm
 install - through the lightbox zoom and the focus its close leaves on the
@@ -11516,7 +11536,11 @@ during the load keeping the load's note under the bars through the queue's
 redraw; a cancel during the load; a cancel asked elsewhere
 (`cancel_requested`) and seen again after a reload: Cancel "Stopping…" where
 it stood, held with "This job is stopping after the current step", which a
-press says, and Cancel again at the job's end; a gated
+press says, and Cancel again at the job's end; a full disk
+(`/api/fake/disk-full`, the smoke's last steps): the job paused at image
+1/2 with the reason in the cell line, no failure and no image, held again
+by a Resume with the disk still full, then both images once there is
+room; a gated
 load's detail said in the panel line after every Generate while the viewer
 holds images; a gated load's card said once and not re-announced by the
 banner, its Retry load handing focus to Generate; Load and Unload handing

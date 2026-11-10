@@ -5666,7 +5666,16 @@ same way, saying once that it is waiting, until a second Ctrl-C: its save
 sat outside the per-cell `try`, so a `GalleryBusy` reached the outer
 handler, discarded the image and ended the night with exit 1 (review
 2026-10-12, R35). Its `--resume` lookup, before anything renders, refuses
-in one line instead of a traceback. The reservation is also a per-process RLock
+in one line instead of a traceback. A full disk is held like the busy
+gallery, but paused rather than polled (review 2026-11-10, R6): `ENOSPC`
+or SQLite's "database or disk is full" was a failed cell, so a disk that
+filled overnight cost three renders, each into the same disk, before the
+failure rule ended the job. Room is the user's to make, so the job pauses
+with the reason and tries that image again at Resume; `save_image` takes
+its `.png.part` and thumbnail back on each refusal, so the retries leave
+nothing. The pause is inside the unit, which `_hold` otherwise never is,
+and frees the card's cache as any pause does. A submit-time space check
+was cut: the size of a night's PNGs is not known at submit. The reservation is also a per-process RLock
 that every read takes, so `save_image` encodes its PNG and WEBP to `.part`
 files before reserving: held through a 2048x2048 encode, a 3 ms `get_image`
 on another thread took 330 ms. The sweeps do glob `*.part`; only their

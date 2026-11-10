@@ -471,6 +471,10 @@ Jobs:
   raising `Cancelled` from `callback_on_step_end`); never `Event.wait()`.
 - Every terminal transition goes through `_finish`.
 - The preview callback never raises.
+- A save the disk has no room for (`jobs.disk_full`: `ENOSPC`, SQLite's
+  "database or disk is full") pauses the job with `pause_reason`, the render
+  held in memory and saved at Resume; never a failed cell. Every other save
+  error stays the cell's failure.
 - GPU work outside jobs (Expand, the critic) goes through
   `jobs.run_when_idle`; nothing holding the gate awaits the load lock.
 - A failure site logs one ERROR line and its traceback at DEBUG with
@@ -740,7 +744,8 @@ Gotchas:
   `/api/fake/refine` (`supported`: the claimed checkpoint's refine pass),
   `/api/fake/instruction-edit` (the edit gate, open by default only on a
   Kontext fake), `/api/fake/unreachable` (`on`: every other request held
-  unanswered, a PC asleep); a prompt containing `[fail]` fails its cell;
+  unanswered, a PC asleep), `/api/fake/disk-full` (`on`: every image save
+  refused as a full disk); a prompt containing `[fail]` fails its cell;
   `--critic-delay`, `--no-critic`.
 
 GPU behaviour, pixels, timing and memory are the card's to say, recorded in
