@@ -132,7 +132,7 @@
   {"eval": "window.__lh = galleryRecords.find((r) => r.run_id === __four[0].run_id && r.seed === 100); const c = document.querySelector(`#gallery .card[data-id=\"${__lh.id}\"]`); c.classList.add('__ms-card'); c.scrollIntoView({block: 'center'});"},
   {"rightclick": "#gallery .card.__ms-card > img"},
   {"expect": "__until(() => !els.contextMenu.hidden)"},
-  {"expect": "(() => { const labels = __mitems().map(__mlabel); return labels[labels.indexOf('Use seed') + 1] === 'More seeds of this batch…'; })()"},
+  {"expect": "(() => { const labels = __mitems().map(__mlabel); return labels[labels.indexOf('Use seed') + 1] === 'Use prompt' && labels[labels.indexOf('Use prompt') + 1] === 'More seeds of this batch…'; })()"},
   {"expect": "__mitem('More seeds of this batch…').getAttribute('aria-disabled') === null && __mitem('More seeds of this batch…').title === `More images of #${__lh.id}'s batch, the seeds following on - each at its own prompt, size, settings and Batch`"},
   {"eval": "__mitem('More seeds of this batch…').click()"},
   {"expect": "__until(() => els.moreSeedsDialog.open && els.contextMenu.hidden)"},
