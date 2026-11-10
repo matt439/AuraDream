@@ -624,6 +624,7 @@ function syncOutpaintCrop() {
   // Greyed, the padding is an inactive control, said as one (WCAG 1.4.3 asks
   // no contrast of inactive text); it still takes a value for a later tick.
   els.outpaintCropPad.setAttribute('aria-disabled', String(!on));
+  els.outpaintCropPad.title = on ? '' : MASK_CROP_PAD_OFF;
   els.outpaintCrop.setAttribute('aria-disabled', String(!inpaintSupported));
   els.outpaintCrop.title = !inpaintSupported ? `Only the masked area - ${inpaintNone(true)}`
     : on ? 'Only a box around the new area and the band is denoised, at about 1 MP, and pasted back; '

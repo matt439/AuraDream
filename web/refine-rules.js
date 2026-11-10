@@ -165,6 +165,9 @@ const INPAINT_FAMILIES = 'The FLUX.1, SDXL and Z-Image checkpoints have it.';
 const MASK_CROP_RULE = 'bbox16';
 const MASK_CROP_PAD = 32;
 const MASK_CROP_TIER = 1;
+// Why the padding is greyed while the tick is off, as its title: the box is
+// aria-disabled then and still takes a value for a later tick.
+const MASK_CROP_PAD_OFF = 'Not used while Only the masked area is off; a value typed here is kept for when it is ticked';
 
 // Why an inpaint cannot run here, one sentence wherever the page says it: no
 // inpaint pipeline in the installed diffusers, or one the app has not enabled

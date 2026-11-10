@@ -1,6 +1,8 @@
 [
   {"log": "'Swap tags against a fake server claiming Animagine XL 4.0 on 7900 (a fresh --data): the footer button held without a selection or a filter, titled with what it takes, the dialog checking every image on the server as rows are typed, Queue held with its reason until the check answers what is typed, statuses and marks from the server, a delete while open, one job per size keeping each image its seed and size, the same swap again finding them rendered, a refused Queue saying why, the finish line of the last job naming its part, + Add row held at sixteen, and nothing moving under the pointer'"},
   {"navigate": "http://127.0.0.1:7900/"},
+  {"inject": "a11y_audit.js"},
+  {"eval": "__a11yWatch()"},
   {"eval": "window.__until = async (fn, ms = 20000) => { const end = Date.now() + ms; while (Date.now() < end) { try { if (fn()) return true; } catch { /* not yet */ } await new Promise((r) => setTimeout(r, 50)); } return false; };"},
   {"expect": "__until(() => document.getElementById('status-dot').className.includes('ready'))"},
   {"eval": "resetPanel(); showError(''); window.__post = (path, body) => fetch(path, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}).then((r) => r.json()); window.__wait = async (id) => { for (let i = 0; i < 600; i++) { const s = await (await fetch('/api/jobs/' + id)).json(); if (s.status !== 'queued' && s.status !== 'running') return s; await new Promise((r) => setTimeout(r, 100)); } }; window.__rows = () => [...els.swapResults.querySelectorAll('.swap-result')]; window.__row = (status) => __rows().find((li) => li.dataset.status === status); window.__seen = (path) => fetch(path).then((r) => r.json());"},
@@ -251,5 +253,6 @@
   {"eval": "(async () => { window.__jobs = await __seen('/api/jobs?include_finished=true'); window.__made = (await __seen('/api/gallery?limit=20&search=' + encodeURIComponent('add test'))).items; })()"},
   {"expect": "__jobs.some((j) => j.swap === '+ night (start); add smoke → add test')"},
   {"expect": "__made.length === 2 && __made.some((r) => r.prompt === 'night, 1girl, add test, smile' && r.seed === 31) && __made.some((r) => r.prompt === 'night,\\n1girl,\\nadd test,\\nsitting' && r.seed === 32)"},
-  {"eval": "clearSelection(); els.swapRows.replaceChildren();"}
+  {"eval": "clearSelection(); els.swapRows.replaceChildren();"},
+  {"expect": "__a11yCheck()"}
 ]

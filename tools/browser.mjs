@@ -51,7 +51,8 @@
 //   {"inject": "phone_audit.js"}   run a JavaScript file, named relative to the steps file's
 //                                folder, in the page, as `eval` does; one that cannot be read
 //                                or throws fails the run. A navigate drops what it defined, so
-//                                inject again after one (tools/phone_audit.js: `__phoneAudit`)
+//                                inject again after one (tools/phone_audit.js: `__phoneAudit`;
+//                                tools/a11y_audit.js: `__a11yAudit`, `__a11yWatch`, `__a11yCheck`)
 //   {"shot": "file.png"}         screenshot the viewport; {"fullshot": "file.png"} the
 //                                whole scrollable page; {"elshot": ["selector", "file.png"]}
 //                                one element's box, scrolled into view

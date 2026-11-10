@@ -1,6 +1,8 @@
 [
   {"log": "'Personal snippets on a scratch FLUX.1 fake at7915: CRUD without modelwork, server persistence, append/prepend through undo-aware writes, held negative insertion, stale-editor conflict and narrow layout'"},
   {"navigate": "http://127.0.0.1:7915/"},
+  {"inject": "a11y_audit.js"},
+  {"eval": "__a11yWatch()"},
   {"eval": "window.__until = async (fn, ms = 30000) => { const end = Date.now() + ms; while (Date.now() < end) { try { if (fn()) return true; } catch {} await new Promise((resolve) => setTimeout(resolve, 50)); } return false; };"},
   {"expect": "__until(() => document.getElementById('status-dot').className.includes('ready'))"},
   {"log": "'Personal snippets stays in the Examples menu: closed/open menus add no caption height or movement beside ordinary, Tags and Expand controls at both viewport sizes.'"},
@@ -49,7 +51,10 @@
   {"keycombo": ["Control", "z"]},
   {"expect": "els.prompt.value === 'a lighthouse'"},
   {"eval": "writePanel();"},
+  {"expect": "__a11yCheck()"},
   {"navigate": "http://127.0.0.1:7915/"},
+  {"inject": "a11y_audit.js"},
+  {"eval": "__a11yWatch()"},
   {"eval": "window.__until = async (fn, ms = 30000) => { const end = Date.now() + ms; while (Date.now() < end) { try { if (fn()) return true; } catch {} await new Promise((resolve) => setTimeout(resolve, 50)); } return false; };"},
   {"expect": "__until(() => document.getElementById('status-dot').className.includes('ready'))"},
   {"click": "#btn-examples"},
@@ -94,5 +99,6 @@
   {"keycombo": ["Control", "Enter"]},
   {"expect": "els.snippetsDialog.open && !busy"},
   {"click": "#snippets-close"},
-  {"expect": "__until(() => !els.snippetsDialog.open)"}
+  {"expect": "__until(() => !els.snippetsDialog.open)"},
+  {"expect": "__a11yCheck()"}
 ]

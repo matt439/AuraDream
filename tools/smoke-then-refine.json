@@ -1,6 +1,8 @@
 [
   {"log": "'Then refine against a fake claiming FLUX.1 Krea [dev] on 7912 (a fresh --data, --step 0.3): the opener at the Notify row's end adding no height, off on every load; its dialog's tick, the opener and both buttons saying the setting; Generate and the grid not moving; a batch of two making two bases then their two passes, the pass named in the cell line; the passes refined from their bases at 1.5x with the bases\\' seeds, in a run of their own; the grid preview counting the passes; the strength remembered and the tick off after a reload; the tick held with its reason where the checkpoint has no pass; and a batch cancelled on its pass finished by Finish run, which says one missing pass and makes it in the pass run, then says it redraws that pass once permanently deleted'"},
   {"navigate": "http://127.0.0.1:7912/"},
+  {"inject": "a11y_audit.js"},
+  {"eval": "__a11yWatch()"},
   {"eval": "window.__until = async (fn, ms = 30000) => { const end = Date.now() + ms; while (Date.now() < end) { try { if (fn()) return true; } catch { /* not yet */ } await new Promise((r) => setTimeout(r, 50)); } return false; };"},
   {"expect": "__until(() => document.getElementById('status-dot').className.includes('ready'))"},
   {"eval": "resetPanel(); showError(''); try { localStorage.removeItem(REFINE_KEY); } catch { /* none */ } els.prompt.value = 'a lighthouse on a cliff'; els.width.value = 512; els.height.value = 512; els.steps.value = 8; els.seed.value = 301; schedulePreview();"},
@@ -56,7 +58,10 @@
   {"click": "#then-refine-open"},
   {"click": "#then-refine"},
   {"expect": "__until(() => els.thenRefine.checked)"},
+  {"expect": "__a11yCheck()"},
   {"navigate": "http://127.0.0.1:7912/"},
+  {"inject": "a11y_audit.js"},
+  {"eval": "__a11yWatch()"},
   {"eval": "window.__until = async (fn, ms = 30000) => { const end = Date.now() + ms; while (Date.now() < end) { try { if (fn()) return true; } catch { /* not yet */ } await new Promise((r) => setTimeout(r, 50)); } return false; };"},
   {"expect": "__until(() => document.getElementById('status-dot').className.includes('ready') && loadedModel)"},
   {"expect": "__until(() => !els.thenRefine.checked && els.thenRefineOpen.textContent === 'Then refine: off' && els.thenRefineStrength.placeholder === '0.4' && els.thenRefineScales.querySelector('button.active')?.textContent === '1.5×')"},
@@ -146,5 +151,6 @@
   {"shot": "then-refine-more-seeds-no-pass.png"},
   {"expect": "JSON.stringify(els.moreSeedsThenRefineLabel.getBoundingClientRect()) === __msTick && JSON.stringify(els.moreSeedsCount.getBoundingClientRect()) === __msCount && JSON.stringify(els.moreSeedsRun.getBoundingClientRect()) === __msRunAt && JSON.stringify(els.moreSeedsResults.getBoundingClientRect()) === __msList"},
   {"eval": "closeMoreSeeds(); (async () => { window.__msPassBack = null; window.__msPassBack = await (await fetch('/api/fake/refine', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({supported: true})})).json(); })()"},
-  {"expect": "__until(() => !els.moreSeedsDialog.open && window.__msPassBack && __msPassBack.supported === true)"}
+  {"expect": "__until(() => !els.moreSeedsDialog.open && window.__msPassBack && __msPassBack.supported === true)"},
+  {"expect": "__a11yCheck()"}
 ]

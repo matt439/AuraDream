@@ -1,6 +1,8 @@
 [
   {"log": "'Edit by instruction… on a fake claiming FLUX.1 Kontext [dev] (port 7931, a fresh scratch --data, its gate open by the fake alone): Generate held with the server\\'s words; the knob closed - the menu item live, the dialog saying why with Run held and Open Models… switching nothing; the knob open - opened from the lightbox, the recipe\\'s size, steps and guidance, no strength, an empty instruction holding Run, Ctrl+Z, a 2:1 source refused in place, a 3:2 source held as unmeasured with its size said and nothing queued, the draft kept and its note never moving the controls, a stale revision refused, a stale preview asked again before Edit queues; a run named in the progress line and the queue, saved as an edit of its source with its proof and no negative; More seeds x2 making two more edits of #1 and Re-render refused naming it; a cancel saving nothing; the source binned and restored; Reuse reopening the dialog, never the composer; the instruction and seed carried across a switch to the editor; the dialog at 800x900, 1400x700 and 1900x1000; nothing scrolls or moves'"},
   {"navigate": "http://127.0.0.1:7931/"},
+  {"inject": "a11y_audit.js"},
+  {"eval": "__a11yWatch()"},
   {"eval": "window.__until = async (fn, ms = 15000) => { const end = Date.now() + ms; while (Date.now() < end) { try { if (await fn()) return true; } catch { /* not yet */ } await new Promise((r) => setTimeout(r, 50)); } return false; };"},
   {"eval": "window.__errs = []; addEventListener('error', (e) => window.__errs.push(e.message)); addEventListener('unhandledrejection', (e) => window.__errs.push(String(e.reason)));"},
   {"expect": "__until(() => document.getElementById('status-dot').className.includes('ready'))"},
@@ -263,5 +265,6 @@
   {"viewport": [1400, 900]},
 
   {"expect": "__errs.length === 0"},
-  {"log": "JSON.stringify(__errs)"}
+  {"log": "JSON.stringify(__errs)"},
+  {"expect": "__a11yCheck()"}
 ]

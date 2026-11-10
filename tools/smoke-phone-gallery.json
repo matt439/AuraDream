@@ -3,6 +3,8 @@
   {"touch": true},
   {"viewport": [393, 852, 3], "mobile": true},
   {"navigate": "http://127.0.0.1:7960/"},
+  {"inject": "a11y_audit.js"},
+  {"eval": "__a11yWatch()"},
   {"media": {"prefers-reduced-motion": "reduce"}},
   {"eval": "window.__until = async (fn, ms = 20000) => { const end = Date.now() + ms; while (Date.now() < end) { try { if (fn()) return true; } catch { /* not yet */ } await new Promise((r) => setTimeout(r, 50)); } return false; }; window.__box = (el) => el.getBoundingClientRect(); window.__inScreen = (el) => { const r = el.getBoundingClientRect(); return r.width > 1 && r.height > 1 && r.left >= -0.5 && r.top >= -0.5 && r.right <= innerWidth + 0.5 && r.bottom <= innerHeight + 0.5; }; window.__hit = (el) => { const r = el.getBoundingClientRect(); const at = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return !!at && (at === el || el.contains(at)); }; window.__gen = async (body) => { const j = await (await fetch('/api/generate', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)})).json(); for (let i = 0; i < 600; i++) { const s = await (await fetch('/api/jobs/' + j.job_id)).json(); if (s.status === 'done') return s.images[0].id; if (s.status !== 'queued' && s.status !== 'running') return null; await new Promise((r) => setTimeout(r, 100)); } return null; }; window.__caption = (card) => getComputedStyle(card.querySelector('.tools'), '::before').display; window.__viewerBar = () => [...$('lbp-bar').children].filter(isShown); window.__words = (menu) => [...menu.querySelectorAll('[role=menuitem]:not(.cancel)')].map((li) => li.querySelector('span').textContent);"},
   {"inject": "phone_audit.js"},
@@ -725,5 +727,6 @@
   {"expect": "getComputedStyle(document.querySelector('.lb-actions')).flexWrap === 'nowrap' && getComputedStyle(els.lbCompareOn, '::after').content.includes('S')"},
   {"expect": "getComputedStyle(els.gallery).columnGap === '10px' && els.cardView.lastElementChild === $('card-fit') && $('phone-select-bar').hidden && $('sheet-foot').hidden && !isShown($('phone-run-chip')) && !isShown($('btn-bin-back')) && isShown(els.runList) && els.runList.parentElement === document.querySelector('.gallery-head') && !$('runs-sheet').open && !$('runs-sheet-body').children.length && !isShown($('phone-select-bar'))"},
   {"key": "Escape"},
-  {"expect": "__until(() => !els.lightbox.open)"}
+  {"expect": "__until(() => !els.lightbox.open)"},
+  {"expect": "__a11yCheck()"}
 ]
