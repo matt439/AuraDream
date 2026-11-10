@@ -894,7 +894,8 @@ before changing it.
   for its version 2 manifest (`docs/design/trials/README.md`;
   `tests/test_trial_kit.py` holds the steps to the page cold);
   `check_classic_scripts.py` with `check_classic_scripts.mjs` checks the
-  page's ordered classic scripts in Node without running their bodies
+  page's ordered classic scripts in Node without running their bodies:
+  syntax, shared declarations and undefined names
   (`tests/test_classic_scripts.py`); `fetch_tokenizers.py` caches the
   real-tokenizer tests' files before CI's pytest; `segoe-widths.json` the
   advance widths `smoke_fonts.py` gives its Segoe UI stand-in, measured
@@ -3661,6 +3662,16 @@ measured on the card and when.
   is classic scripts sharing one global scope, loaded in the order
   `index.html` lists them; their top-level bindings stay top-level, and only
   `app.js`, the last, runs anything at load.
+- An error nothing caught is said on the page: `app.js` adds `sayPageError`
+  (`state.js`) for `error` and `unhandledrejection` before any other wiring.
+  It writes one line, `Page error: <message> (<file>:<line>). Reload the page
+  if something has stopped working.`, to `#error` through `showError` - on
+  the phone over the bars in Create (`sayAtGenerate`) and in the gallery's
+  slot in the Gallery view - and writes the same line once only. It never
+  throws, never calls `preventDefault` (the console and the smoke driver
+  still hear the error) and ignores an `error` event with no error object.
+  It is a last resort, not a way to report: code that can fail catches and
+  says so in its own words, and a smoke that sees this line has failed.
 - `web/style.css` takes its type, greys, spacing, control heights, radii and
   layout widths from the tokens on `:root`, whose table says what each is
   for; a size the page shares is a token, a one-off stays a literal, and a
@@ -8559,7 +8570,16 @@ and its Node helper to parse every local classic script in HTML order,
 including `app.js`, and instantiate declarations without executing source
 bodies. It covers syntax, cross-file lexical collisions and permitted
 sharing, strict/sloppy block functions, unsupported script kinds, missing
-files and missing Node. Node is required locally and verified by CPU CI;
+files and missing Node. A third pass is no-undef: every name a script reads
+or assigns must resolve to a declaration in its own scopes, a top-level
+binding of any script on the page, an ECMAScript built-in, or a browser
+global in the helper's `BROWSER_GLOBALS`. A browser global the page newly
+uses is added to that list by hand; `typeof name` is never a finding. The
+pass parses with Node's bundled acorn, an internal module, so the Python
+wrapper starts Node with `--expose-internals`; the helper run without it
+fails rather than skipping the pass, and CI's weekly `node-latest` job is
+where a Node that moves the module would show first. Node is required
+locally and verified by CPU CI;
 this guard does not replace the independent browser smokes. Every other
 Node-driven test asks for `conftest.py`'s `node` fixture (or asserts Node
 itself), so a missing Node fails them too rather than skipping; only
@@ -8586,6 +8606,30 @@ must explicitly return true. Successful fatal and ordinary nonfatal steps keep
 their normal continuation; eval remains diagnostic-only. Edge selection,
 launch flags and profiles are unchanged. The [dated tooling review](review-2026-10-28-fatal-prerequisites.md)
 owns ordinary-driver probes and the three bounded scratch setup conversions.
+
+`browser.mjs` fails a run in which the page threw. It listens for
+`Runtime.exceptionThrown`: an exception nothing caught, or a promise
+rejected with no handler, in the page's own code (a handler, a timer, a
+fetch's `then`, a promise an `eval` started and left). Each is printed as
+`  ! page error: ...` with the first lines of its stack and the step it
+arrived during, the later steps still run, and the run ends with
+`N page error(s)` and exit 1 whatever the expects said. A rejection that
+gets its handler afterwards (`Runtime.exceptionRevoked`) is taken back and
+does not count. The errors are kept as a list, never keyed by the
+browser's `exceptionId`, which starts again in a new renderer process: a
+revocation takes back the newest with its id. What a step's own expression throws is not a page error:
+it is that step's, printed and judged as before. There is no step that
+allows a page error, so a smoke never throws in the page on purpose; one
+that tests the page's own error line dispatches the `error` or
+`unhandledrejection` event by hand. A smoke that goes red on a page error
+has found a fault in `web/` (or a promise its own `eval` dropped): fix that,
+never the listener. `tests/test_browser_page_errors.py` runs the real
+harness over a scripted DevTools socket (no browser): a thrown error fails a
+run whose expects pass, a revoked one does not, each is counted beside
+failed expects, an id a new renderer uses again neither hides an earlier
+error nor takes it back, and a step's own exception is not one. What Chrome sends
+for a real throw is the browser's to say, checked by hand when this was
+built.
 
 `tests/test_browser_input_refusals.py` executes captured actual harness/helper
 bodies with one counted owned fixture read, counted JSON parsing and poisoned
@@ -8978,7 +9022,15 @@ gone. At 2560x1305 with Gallery beside it shows once the column is scrolled
 its own height, inside the column left of its scrollbar, and its press
 scrolls the column to 0, never the page; a wheel over it scrolls the
 column, not the page; unticking re-asks of the page. Focused and scrolled
-near the top it stays until its blur.
+near the top it stays until its blur. Its last steps are the page's error
+line (`sayPageError`), by hand-made events: an `error` writes
+`Page error: ... (gallery.js:12). Reload the page if something has stopped
+working.` in `#error`, red; the same error again leaves another message
+alone; an `unhandledrejection` with a plain reason is said without a
+place; an `error` with no error object (the browser's ResizeObserver
+notice) writes nothing. `smoke-phone.json` ends with the same on the phone:
+over the bars in Create (`at-generate`, the element at its own centre),
+under the gallery's head in Gallery, the panel's line left as it was.
 
 `smoke-phone.json` uses a fresh FLUX.1 Krea [dev] fake on 7956 with touch
 emulated (`{"touch": true}`) at 393x852@3 with `"mobile": true` (as are

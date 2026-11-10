@@ -72,7 +72,12 @@
 // a job the page watches, once the server has taken it - so to look at a job
 // while it runs write `void startJob(...)`.
 // Exit status is 1 when any `expect` failed - an expect that throws, or whose
-// promise rejects, has failed - or the browser left a call unanswered for
+// promise rejects, has failed - or the page itself threw: an exception nothing
+// caught, or a promise rejected with no handler, in the page's own code
+// (a handler, a timer, a fetch's then) is printed as `! page error:` with the
+// step it came during and fails the run, whatever the expects say (a
+// rejection handled later is taken back; what a step's own expression throws
+// is that step's, as before) - or the browser left a call unanswered for
 // five minutes (the step it was on is printed), so this can gate a check, and 2
 // for a script refused before the browser starts - among them an expect that
 // joins an async helper (`__until`, or a `window.__x = async` of the file's
@@ -459,9 +464,38 @@ const ws = new WebSocket(await target());
 await new Promise((r) => { ws.onopen = r; });
 let id = 0;
 const pending = new Map();
+// What the page threw with nothing to catch it, each with the browser's id
+// for it. No expect read these: a handler that threw on a press failed nothing
+// unless a later step happened to depend on what it had not done. A rejected
+// promise that gets its handler afterwards is revoked by the browser and
+// taken back here (the line already printed stays in the log, answered by
+// its `taken back` line). The id is a renderer process's own count: a
+// navigation that lands in a new process starts again at 1, so the errors
+// are a list, never keyed by the id (a later one would replace an earlier),
+// and a revocation takes back the newest with its id, the one it follows.
+const pageErrors = [];
+function pageErrorText(details) {
+  const said = String(details.exception?.description ?? details.exception?.value ?? details.text ?? 'unknown error');
+  const where = details.url ? ` (${details.url}:${(details.lineNumber ?? 0) + 1})` : '';
+  const text = details.text && !said.startsWith(details.text) ? `${details.text} ` : '';
+  return `${text}${said.split('\n').slice(0, 6).join('\n      ')}${where}`;
+}
 ws.onmessage = (m) => {
   const msg = JSON.parse(m.data);
   if (msg.id && pending.has(msg.id)) { pending.get(msg.id)(msg); pending.delete(msg.id); }
+  else if (msg.method === 'Runtime.exceptionThrown') {
+    const details = msg.params?.exceptionDetails ?? {};
+    const text = pageErrorText(details);
+    pageErrors.push({ id: details.exceptionId, text });
+    console.log(`  ! page error: ${text}\n      during ${at}`);
+  } else if (msg.method === 'Runtime.exceptionRevoked') {
+    const revoked = msg.params?.exceptionId;
+    const index = revoked === undefined ? -1 : pageErrors.findLastIndex((e) => e.id === revoked);
+    if (index >= 0) {
+      pageErrors.splice(index, 1);
+      console.log(`  page error ${revoked} taken back: ${msg.params.reason ?? 'handled later'}`);
+    }
+  }
 };
 // A call the browser never answers - a renderer hung or gone, an eval
 // awaiting a promise that never settles - held the run until whatever ran it
@@ -724,4 +758,5 @@ for (let i = 0; i < 100 && !exited; i++) await sleep(100);
 try { ws.close(); } catch { /* already closed */ }
 cleanup();
 if (failures) console.log(`${failures} expectation(s) failed`);
-process.exit(failures ? 1 : 0);
+if (pageErrors.length) console.log(`${pageErrors.length} page error(s): the page threw outside every step's own expression`);
+process.exit(failures || pageErrors.length ? 1 : 0);

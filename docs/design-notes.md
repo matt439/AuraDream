@@ -14099,3 +14099,81 @@ before, coded `image_unknown`; the page treats either code as gone. The
 instruction edit's "source is missing or in the recycle bin" was told apart
 by the page from its own copy of the record; the server now looks once more
 and gives `image_binned` or `image_unknown` under the same sentence.
+
+## The smoke driver hears page errors
+
+Built 2026-11-10 (`DEV#38`, [the peer review's T1](review-2026-11-10-peers.md#t1-the-smoke-driver-hears-page-errors)).
+`tools/browser.mjs` enabled the `Runtime` domain and read only the answers
+to its own calls. An exception nothing caught in the page (a handler that
+threw on a press, a rejected fetch with no `catch`) was written to a
+console nobody was reading: a smoke failed only if a later `expect`
+happened to depend on what the handler had not done. The page had no
+listener of its own either, so on a phone, which has no console, a press
+that threw looked like a press that did nothing. And a misspelt name
+inside a function body passed the classic-script guard, which checks
+syntax and top-level declarations and runs no body.
+
+Three parts, in the order they were built:
+
+- The driver keeps what `Runtime.exceptionThrown` reports as a list,
+  prints each as it arrives with the step it arrived during, and exits 1
+  at the end if any is left. It does not stop at the first: the steps
+  after it usually say what the error broke. The list was first a map
+  keyed by the browser's `exceptionId`; the review's probe (Edge, two
+  `data:` pages) showed the id is a renderer process's own count, so an
+  error after a navigation into a new process replaced an earlier one
+  with the same id, and its revocation would have taken both. A
+  revocation now takes back the newest error with its id.
+  `Runtime.exceptionRevoked` takes one back, because Chrome reports a
+  rejected promise as soon as a turn ends without a handler on it, and
+  code that attaches its `catch` a turn later is not wrong. What a step's
+  own expression throws comes back in that call's answer, not as an event
+  (checked in Chrome when this was built), and stays the step's own.
+- `sayPageError` in `state.js`, added by `app.js` before its other wiring,
+  writes one line to the error slot. It is written once per distinct
+  error: a handler throwing on every poll would otherwise hold the slot
+  against every other message and be announced each time (the slot is
+  `role=alert`). An `error` event without an error object is ignored:
+  Chrome sends its "ResizeObserver loop" notice that way, and it is not
+  something the page threw.
+- `tools/check_classic_scripts.mjs` resolves every identifier against its
+  scopes, the page's shared top level, the ECMAScript built-ins (read from
+  a fresh `vm` context, so Node's `process` and `require` are not among
+  them) and a hand-kept list of the browser globals the page uses.
+
+Choices, and why:
+
+- No step allows a page error. A smoke that wanted to prove the page's
+  error line with a real throw would need one; the two that test the line
+  dispatch the event by hand instead, which reaches the page's listener
+  and not the browser's report. One rule with no exception is easier to
+  hold than an allowance that later smokes reach for.
+- The no-undef pass needs a parser, and the repository installs nothing
+  from npm. Node carries acorn for its own REPL; it is reachable only
+  under `--expose-internals`, which is not a documented interface. The
+  wrapper passes the flag, the helper fails with its own words when the
+  module is not there (never a skipped pass), and CI's weekly `node-latest`
+  job runs the same test ahead of the pinned Node. The alternative was a
+  hand-written tokenizer guessing at scopes, which would be wrong in ways
+  no one would see.
+- The browser globals are a short list of what the scripts use today, not
+  every name a browser has. A name the page never uses is far more likely
+  a misspelling than a new API, and adding one line when a script first
+  needs `structuredClone` is cheap.
+- The handler is added in `app.js`, not in an earlier script, keeping the
+  rule that only `app.js` runs anything at load. An error thrown while an
+  earlier script loads is therefore not said on the page; those scripts
+  only declare, and the driver hears it either way.
+
+What the first whole run found (2026-11-10, Windows, Edge,
+`run_smoke.py --all --jobs 2`, the listener printing every page error into
+each smoke's `browser.log`): no page error in any of the 111 smokes, so
+nothing in `web/` was changed for it and nothing is recorded as allowed.
+The no-undef pass found no undefined name in the 75 scripts either; every
+name it could not resolve at first was a browser global, and those are
+the list. `smoke-inpaint` and `smoke-outpaint` already kept an `error`
+listener of their own and expect it empty; they stay as they are.
+
+Not built: a Node test suite for the page's helpers (cut by the review),
+a step that expects a page error, and sending page errors to the server's
+log.

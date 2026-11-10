@@ -384,6 +384,34 @@ writing one deduplicated line to the error slot, the phone's only signal; a
 no-undef pass in `tools/check_classic_scripts.mjs`. A Node test suite for
 helpers was cut.
 
+Built 2026-11-10. The claim held: the driver enabled `Runtime` and read
+only the answers to its own calls. It now prints each
+`Runtime.exceptionThrown` as `! page error:` with the step it arrived
+during and exits 1 if any is left at the end; a rejection handled later
+(`Runtime.exceptionRevoked`) is taken back, and what a step's own
+expression throws stays that step's. The one whole run
+(`run_smoke.py --all --jobs 2`, Windows, Edge, every page error printed
+into the smoke's log) found none in 111 smokes, so the driver fails on them
+with nothing to fix or allow first. `app.js` adds `sayPageError`
+(`state.js`) for `error` and `unhandledrejection` before its other wiring:
+one line, `Page error: <message> (<file>:<line>). Reload the page if
+something has stopped working.`, in the panel's slot (over the bars on the
+phone's Create view, in the gallery's slot on its Gallery view), written
+once per distinct error. `tools/check_classic_scripts.mjs` has the
+no-undef pass, over Node's bundled acorn (`--expose-internals`, passed by
+the Python wrapper; no npm install), with the browser's globals a
+hand-kept list; it found no undefined name in the 75 scripts. Tests:
+`tests/test_browser_page_errors.py` (the real harness over a scripted
+DevTools socket), `tests/test_classic_scripts.py`, and steps at the end of
+`smoke-gallery-top` and `smoke-phone`, which dispatch the events by hand
+because a real throw fails the run. The rules are in `docs/rules.md`
+(Frontend, Tests), the reasons in `docs/design-notes.md` ("The smoke
+driver hears page errors"). Not built: a step that allows a page error.
+An error thrown while a script before `app.js` loads is not said on the
+page (the driver hears it). `smoke-phone-gallery` fails on this PC at its
+320 px "Search 160" fit, with or without this change; it is not a page
+error.
+
 ### T2 the scripts in CI
 
 `DEV#39`. Ruff and Pyright are the only static checks; nothing runs

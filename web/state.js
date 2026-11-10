@@ -813,6 +813,38 @@ function showError(message, note = false, {
   els.lbError.classList.toggle('note', note);
 }
 
+// The page's own `error` and `unhandledrejection` listener (app.js adds it
+// first of all): an exception nothing caught used to be said only in the
+// console, which a phone does not have - a press that threw looked like a
+// press that did nothing. One line in the panel's slot (the gallery's on the
+// phone's Gallery view, where the panel is not drawn), naming the error and
+// where the browser says it came from; the same error again writes nothing
+// (a handler that throws on every poll would hold the slot against every
+// other message, and announce itself each time). It never throws itself and
+// never calls preventDefault: the console and the smoke driver still hear
+// the error.
+const pageErrorsSaid = new Set();
+function sayPageError(event) {
+  try {
+    const rejected = event.type === 'unhandledrejection';
+    const thrown = rejected ? event.reason : event.error;
+    // A window `error` with no error object is the browser's own notice (a
+    // ResizeObserver loop), not anything the page threw.
+    if (!rejected && thrown == null) return;
+    const said = String(thrown?.message || thrown || (rejected ? 'a promise was rejected' : 'unknown error'));
+    const at = String(thrown?.stack ?? '').match(/([\w.-]+\.js):(\d+)/)
+      ?? (event.filename ? [null, String(event.filename).split('/').pop(), event.lineno] : null);
+    const line = `Page error: ${said.slice(0, 200)}${at ? ` (${at[1]}:${at[2]})` : ''}.`
+      + ' Reload the page if something has stopped working.';
+    if (pageErrorsSaid.has(line)) return;
+    pageErrorsSaid.add(line);
+    // On the phone the line is said where the screen is: under the gallery's
+    // head in the Gallery view, over the bars in Create (sayAtGenerate).
+    if (isPhone() && phoneView === 'gallery') showError(line, false, { slot: els.galleryError });
+    else { showError(line); sayAtGenerate(); }
+  } catch { /* the reporter itself must never be the next page error */ }
+}
+
 // The server answers again: every message about it not answering goes, where
 // it is still the one shown - the lightbox's copy of one included.
 function clearOffline() {
