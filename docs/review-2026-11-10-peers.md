@@ -252,6 +252,20 @@ the running process after a pull without a restart. Read the short commit
 once at start-up (None when there is no git), log it, and add it to
 `/api/status` and the doctor. An in-page Machine check was cut to optional.
 
+Built 2026-11-10. `backend/build_info.py` asks `git rev-parse --short HEAD`
+in the project folder (None without a `.git` there, without git, or on any
+answer that is not a commit). `main` reads it once at import as `COMMIT`,
+beside `STARTED_AT`; `run` logs "AuraDream at commit ..." and
+`/api/status` carries it as `commit`. The doctor's new **Commit** row
+prints this folder's commit and, when AuraDream answers on the port, the
+running server's own (`server_probe.running_commit`): the two differing is
+a WARN that says to restart. `linux/control.sh status`, which
+`auradream-server status` runs, prints the running server's commit under
+"It answers" and says so when the checkout has moved on. The page shows
+nothing new, and the in-page Machine check stays cut. Tests:
+`tests/test_build_info.py`, `test_doctor.py`, `test_server_start.py`,
+`test_api.py` and `test_linux_scripts.py`.
+
 ### S7 error codes the page reads
 
 `DEV#37`. Over twenty sites in `web/` test English server wording

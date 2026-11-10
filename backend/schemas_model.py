@@ -236,6 +236,11 @@ class ModelStatus(BaseModel):
     # sees it change knows the server restarted, and that every job it was
     # following ended with it.
     started_at: float | None = None
+    # The checkout's short Git commit as the server process started
+    # (`build_info.read_commit`, read once at import): after a pull without a
+    # restart it is still the old one, which the checkout's own no longer
+    # says. None when it could not be told (no Git checkout, no git).
+    commit: str | None = None
     # The server's clock now (Unix seconds): a pause's `paused_at` is on it,
     # and a WSL server's clock is a VM's, which drifts from the host's over a
     # sleep - the page counts a pause's minutes against this, not its own.

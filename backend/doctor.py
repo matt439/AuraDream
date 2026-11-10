@@ -12,9 +12,10 @@ no model is loaded; `nvidia-smi` is run if it is on the PATH; on Linux,
 `systemd-inhibit` holds the PC awake around `true`, which lets go as soon as
 `true` ends; the Hugging Face sign-in is the token file's existence only
 (never read, printed or sent to the Hub); the port check is the server's own
-trial bind and loopback probe (`server_probe`). The figures it compares
-against are the measured ones in docs/setup.md's Before you start and
-docs/verified.md, never a promise for another machine.
+trial bind and loopback probe (`server_probe`); the commit is `git rev-parse`
+in this folder, and the running server's own from its status on loopback.
+The figures it compares against are the measured ones in docs/setup.md's
+Before you start and docs/verified.md, never a promise for another machine.
 """
 from __future__ import annotations
 
@@ -34,7 +35,7 @@ from typing import Any
 # config is the first project import, before anything that could import
 # diffusers (AGENTS.md); nothing here does, but the rule holds everywhere.
 from .config import settings
-from . import hf_sign_in, server_probe
+from . import build_info, hf_sign_in, server_probe
 from .loader_choices import default_format
 
 PASS, WARN, FAIL = "PASS", "WARN", "FAIL"
@@ -311,6 +312,33 @@ def check_port(host: str | None = None, port: int | None = None,
                   f"Close that program, or set AURADREAM_PORT to a free port, such as {port + 1}.")]
 
 
+# --- Commit -------------------------------------------------------------------
+
+def check_commit(host: str | None = None, port: int | None = None,
+                 checkout: Callable[[], str | None] = build_info.read_commit,
+                 busy: Callable[[str, int], bool] = server_probe.port_busy,
+                 running: Callable[[str], str | None] = server_probe.running_commit) -> list[Check]:
+    """This folder's short commit, and the running server's where one
+    answers on the port: they differ after an update without a restart."""
+    host = settings.host if host is None else host
+    port = settings.port if port is None else port
+    here = checkout()
+    # Asked only of a held port: a refused connection is slow on Windows.
+    there = running(server_probe.page_url(host, port)) if port and busy(host, port) else None
+    if here is None and there is None:
+        return [Check(PASS, "Commit", "unknown: this folder is not a Git checkout, or git was not found.")]
+    if there is None:
+        return [Check(PASS, "Commit", f"this folder is at {here}.")]
+    if here is None:
+        return [Check(PASS, "Commit", f"the running server started at {there}; this folder's own is unknown "
+                      "(not a Git checkout, or git was not found).")]
+    if build_info.same_commit(here, there):
+        return [Check(PASS, "Commit", f"this folder and the running server are both at {here}.")]
+    return [Check(WARN, "Commit", f"the running server started at {there}, and this folder is now at {here}: "
+                  "it is still running the code it started with.",
+                  "Restart AuraDream to run this folder's code.")]
+
+
 # --- LAN settings -------------------------------------------------------------
 
 def check_lan(host: str | None = None, allowed: Iterable[str] | None = None) -> list[Check]:
@@ -430,7 +458,8 @@ def check_hf_login(token_path: Path | None = None, environ: dict[str, str] | Non
 # --- Running ------------------------------------------------------------------
 
 CHECKS: tuple[Callable[[], list[Check]], ...] = (
-    check_driver, check_gpu, check_vram, check_ram, check_disk, check_port, check_lan, check_keep_awake,
+    check_driver, check_gpu, check_vram, check_ram, check_disk, check_port, check_commit, check_lan,
+    check_keep_awake,
     check_hf_login,
 )
 
@@ -463,7 +492,7 @@ def main(argv: list[str] | None = None) -> int:
         sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
     argparse.ArgumentParser(
         prog="python -m backend.doctor",
-        description="Read-only checks of this machine: GPU, driver, VRAM, RAM, disk, port, LAN settings, "
+        description="Read-only checks of this machine: GPU, driver, VRAM, RAM, disk, port, commit, LAN settings, "
                     "keeping the PC awake, sign-in.",
     ).parse_args(argv)
     print("AuraDream doctor: read-only checks of this machine.", flush=True)

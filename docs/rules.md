@@ -551,7 +551,11 @@ before changing it.
   `/proc/meminfo` against the measured figures (under 40 GiB warns); free
   disk per drive for `HF_HUB_CACHE`, `hf_home_dir("converted")` and the
   outputs (under 50 GB for the downloads warns, under 2 GB fails); the port
-  through `server_probe` (AuraDream already there passes); the card's
+  through `server_probe` (AuraDream already there passes); the commit
+  (`check_commit`: this folder's from `build_info.read_commit`, and the
+  running server's own, asked through `server_probe.running_commit` only
+  when the port is held; the two differing warns "restart", never fails);
+  the card's
   memory against the default checkpoint's measured 12.0 GiB peak (under it
   warns; on Linux below compute capability 10.0 it names the int4 Nunchaku
   repos); with a non-loopback `AURADREAM_HOST`, `AURADREAM_ALLOWED_HOSTS`
@@ -564,7 +568,19 @@ before changing it.
 - `backend/server_probe.py` — the port checks `main.run` and the doctor
   share, stdlib only and without `config`: `port_busy` (the trial bind),
   `auradream_at` (the index title, `PROBE_SECONDS`, never through a proxy),
-  `page_url` and `is_loopback`; `main` imports them under its old private names
+  `page_url` and `is_loopback`; `main` imports them under its old private names;
+  and `running_commit`, the `commit` of the `/api/status` at a page's
+  address (None for no answer, another program, or a server that could not
+  tell), as direct and as short-lived as `auradream_at`
+- `backend/build_info.py` — `read_commit`, the checkout's short commit
+  from `git rev-parse --short HEAD` in the project folder, stdlib only and
+  without `config`: None when the folder itself has no `.git` (git is then
+  never asked, so a tree unpacked inside another repository is not given
+  that repository's commit), when git is missing, refuses or takes over
+  `GIT_SECONDS`, or answers anything but a commit; never an error.
+  `same_commit` compares two short commits of different lengths. `main`
+  reads it once at import (`COMMIT`), never per request
+  (`tests/test_build_info.py`)
 - `install.cmd`, `install.ps1`, `update.cmd`, `update.ps1` (repository root)
   — the Windows installer and updater, plain text, Windows PowerShell 5.1
   and ASCII only (5.1 reads a BOM-less script in the ANSI code page), CRLF
@@ -630,7 +646,9 @@ before changing it.
   status say idle (`common.sh`'s `server_busy`) and starts it again however
   the update ends. `control.sh` (no `--dry-run`; it changes nothing but
   the service's state) takes `status` (the unit, lingering, the checkout
-  after a quiet `git fetch` that never fails it, `/api/status`'s summary
+  after a quiet `git fetch` that never fails it, `/api/status`'s summary,
+  with the running process's `commit` and a restart note when the
+  checkout's differs,
   and AuraDream's `systemd-inhibit --list` line; exit 0 only when active
   and answering), `start`, `stop`/`restart` (refused while `server_busy`
   says busy or cannot tell, unless `--force`, which says what it
@@ -1126,7 +1144,12 @@ measured on the card and when.
   `short_error`'s 320 characters. It is raised on as `jobs.LoadFailed(detail)`,
   so a job that ended at the load and Expand (a 503 from its route) carry
   the status's sentence.
-  `ModelStatus.started_at` is set once, at import.
+  `ModelStatus.started_at` is set once, at import, and so is
+  `ModelStatus.commit` (`main.COMMIT`, the checkout's short commit as the
+  process started, None when unknown): a `git pull` without a restart
+  moves the checkout's commit and must leave this one, so nothing reads it
+  again. `run` logs it once ("AuraDream at commit ...") before uvicorn
+  starts.
   Status derives ready/unloaded from actual backend readiness without changing
   the load supervisor's cached state; loading/error and their details remain
   authoritative. An explicit Load also consults actual readiness, so an unsafe
@@ -9676,7 +9699,8 @@ stub `nvidia-smi`, `uv`, `git`, `systemctl`, `journalctl`,
 HOME and project folder (the test seams) and a loopback stand-in server
 that answers only while the stub service is active; no real systemctl, git
 or uv runs and nothing touches the network. `control.sh`'s tests cover
-status of an answering and a stopped service, stop and restart refusing a
+status of an answering and a stopped service and the running commit beside
+the checkout's, stop and restart refusing a
 busy server (no `systemctl` change) and `--force`, the wait for the page
 (a delayed stub start) and its limit, a failed unit, an auto-restarting
 one and a grown `NRestarts`, `logs`' `-n`/`-f`,

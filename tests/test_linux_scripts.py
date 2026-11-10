@@ -935,7 +935,7 @@ def test_control_status_of_an_active_answering_service(sandbox, auradream_listen
         "model_id": "cagliostrolab/animagine-xl-4.0", "model_label": "Animagine XL 4.0",
         "quantization": "fp8", "offload": "model", "state": "ready",
         "vram_used_mb": 4289, "vram_total_mb": 7842, "device_name": "NVIDIA GeForce RTX 3070",
-        "disk_free_mb": 819200,
+        "disk_free_mb": 819200, "commit": "abc1234",
         "keep_awake": {"kind": "systemd-inhibit", "holding": True, "wanted": True,
                        "reasons": ["in use (a request in the last 20 minutes)"], "detail": None},
     })
@@ -948,6 +948,7 @@ def test_control_status_of_an_active_answering_service(sandbox, auradream_listen
     assert "Branch main at abc1234 Keep awake (2 days ago)" in out
     assert "3 commit(s) behind origin/main" in out
     assert "It answers." in out
+    assert "Commit:       abc1234\n" in out              # the process's own, the checkout's too
     assert "Animagine XL 4.0 (cagliostrolab/animagine-xl-4.0)" in out and "fp8, model offload" in out
     assert "Jobs:         none" in out and "Card:         free" in out
     assert "systemd-inhibit, holding: in use (a request in the last 20 minutes)" in out
@@ -975,6 +976,28 @@ def test_control_status_tells_idle_from_switched_off(sandbox, auradream_listenin
     auradream_listening["busy"]["status"]["keep_awake"] = {**awake, "detail": None, "idle_minutes": 20}
     result = _run(sandbox, "control.sh", "status")
     assert f"Keep awake:   {said}" in result.stdout, result.stdout + result.stderr
+
+
+@on_linux
+@pytest.mark.parametrize(("running", "said"), [
+    # A pull without a restart: the checkout moved, the process did not.
+    ("def5678", "Commit:       def5678, and the checkout is at abc1234: restart it to run the checkout's code"),
+    ("abc1234e9", "Commit:       abc1234e9\n"),          # the same commit, abbreviated longer
+    (None, None),                                         # a server that could not tell: no line
+])
+def test_control_status_names_the_running_commit(sandbox, auradream_listening, running, said):
+    (sandbox["root"] / ".git").mkdir()
+    _venv(sandbox)
+    _service_active(sandbox)
+    auradream_listening["track"]["service"] = True
+    auradream_listening["busy"]["status"]["commit"] = running
+    result = _run(sandbox, "control.sh", "status")
+    out = result.stdout
+    assert result.returncode == 0, out + result.stderr
+    if said is None:
+        assert "Commit:" not in out
+    else:
+        assert said in out, out
 
 
 @on_linux
