@@ -414,7 +414,7 @@ async function deletePermanently(rec) {
   try {
     await api(`/api/images/${rec.id}`, { method: 'DELETE' });
   } catch (err) {
-    if (!/unknown image/.test(err.message)) {
+    if (!imageGone(err)) {
       showError(err.message, false, { slot: els.galleryError });
       return;
     }

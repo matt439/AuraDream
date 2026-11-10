@@ -164,10 +164,10 @@ async function openOutpaint(rec, from = null, restart = false) {
   } catch (err) {
     if (opened !== outpaintOpenEpoch) return false;
     const message = err.message ?? '';
-    const gone = /^no gallery image with id/.test(message);
+    const gone = imageGone(err);
     // The server says a binned source is in the bin: this page's copy of
     // the record may be older than that.
-    const kind = /recycle bin/.test(message) || rec.binned_at ? 'binned' : 'deleted';
+    const kind = imageBinned(err) || rec.binned_at ? 'binned' : 'deleted';
     const said = gone ? sourceGoneWords(rec, kind, 'outpaint') : message;
     if (outpaintMovedOn(rec, fromLightbox, restart)) return false;
     showError(said, true, els.lightbox.open ? undefined : { slot: els.galleryError });
@@ -281,9 +281,9 @@ function writeOutpaintSourceLine(rec, gone = null) {
   ].filter(Boolean).join(' · ');
 }
 
-function outpaintSourceGone(message, source = outpaintSource) {
-  const gone = sourceGoneKind(message, source);
-  if (!gone) return message;
+function outpaintSourceGone(err, source = outpaintSource) {
+  const gone = sourceGoneKind(err, source);
+  if (!gone) return err.message;
   if (outpaintSource === source) writeOutpaintSourceLine(source, gone);
   return sourceGoneWords(source, gone, 'outpaint');
 }
@@ -818,9 +818,9 @@ async function previewOutpaint() {
     if (preview.mask_crop) showOutpaintCropBox(p.mask_crop);
   } catch (err) {
     if (epoch !== outpaintEpoch) return;
-    if (await dropOutpaintLora(err.message)) return previewOutpaint();
+    if (await dropOutpaintLora(err)) return previewOutpaint();
     if (epoch !== outpaintEpoch) return;
-    outpaintProblem = outpaintSourceGone(err.message);
+    outpaintProblem = outpaintSourceGone(err);
     els.outpaintPreview.classList.add('warn');
     els.outpaintPreview.textContent = outpaintProblem;
   }
@@ -831,8 +831,8 @@ async function previewOutpaint() {
 // An adapter removed or renamed since the dialog opened, named by a refusal:
 // taken out of this outpaint and said (refine-rules.js's dropPassLora, as
 // the Inpaint dialog's). Answers whether it went.
-function dropOutpaintLora(message, source = outpaintSource) {
-  return dropPassLora(message, source, {
+function dropOutpaintLora(err, source = outpaintSource) {
+  return dropPassLora(err, source, {
     lora: () => outpaintLora, source: () => outpaintSource,
     drop: () => { outpaintLora = null; outpaintLoraDrops++; },
     carried: els.outpaintCarried, failed: outpaintFailed, noun: 'outpaint', run: 'Outpaint',
@@ -870,10 +870,12 @@ async function runOutpaint() {
     outpaintSending = false;
     els.outpaintRun.textContent = busy ? 'Outpaint (queue)' : 'Outpaint';
   };
+  let refusal = null;
   const sent = startJob(path, body, {
     sheet: sweep,
     panel: false,
     slot: els.outpaintError,
+    onRefused: (err) => { refusal = err; },
     placeholder: {
       src: source.url ?? source.thumb_url,
       width: body.width,
@@ -897,9 +899,10 @@ async function runOutpaint() {
   if (accepted) return;
   settle();
   const refused = els.outpaintError.textContent;
-  const said = outpaintSourceGone(refused, source);
+  refusal = shownRefusal(refusal, refused);
+  const said = outpaintSourceGone(refusal, source);
   if (said !== refused) outpaintFailed(said);
-  else if (await dropOutpaintLora(refused, source)) scheduleOutpaintPreview(0);
+  else if (await dropOutpaintLora(refusal, source)) scheduleOutpaintPreview(0);
   if (!els.outpaintDialog.open && els.outpaintError.textContent) showError(els.outpaintError.textContent);
 }
 
@@ -978,7 +981,7 @@ async function reuseOutpaint(rec) {
     // than said to be gone for good.
     source = await api(`/api/images/${rec.refine}?binned=true`);
   } catch (err) {
-    if (!/unknown image/.test(err.message)) { showError(err.message); return; }
+    if (!imageGone(err)) { showError(err.message); return; }
     reuseIntoPanel(rec, false,
       `#${rec.refine}, the source this was outpainted from, is no longer in the gallery, `
       + 'so the outpaint cannot be made again. The size is left as it was.');

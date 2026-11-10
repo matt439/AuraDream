@@ -156,6 +156,7 @@ function fixture() {
       calls.errors.push(String(message ?? ''));
       slot.textContent = String(message ?? ''); slot.hidden = !message;
     },
+    imageGone: err => err?.code === 'image_unknown' || err?.code === 'image_binned',
     setStepCache: value => { els.stepCache.value = value; }, stepCacheValue: () => els.stepCache.value,
     setTimeout: () => ++calls.timers, clearTimeout() {},
     calls,
@@ -203,7 +204,7 @@ function fixture() {
     opening: () => read('typeof reusePassOpening === "undefined" ? null : reusePassOpening'),
   };
 }
-const missing = () => Object.assign(Error('unknown image #1'), { status: 404 });
+const missing = () => Object.assign(Error('unknown image #1'), { status: 404, code: 'image_unknown' });
 const failure = () => Object.assign(Error('deliberate source read failure'), { status: 500 });
 function unchanged(f, raw, focus) {
   assert.equal(f.raw(), raw, 'a stale source result rewrote the composer draft');

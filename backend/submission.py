@@ -11,6 +11,8 @@ from . import grid, instruction_edit, instruction_edit_admission, loras, refine,
 from .app_context import AppServices
 from .execution import configured_loader_unavailable_reason, unavailable_reason
 from .model_selection import current_settings
+from .refusal_codes import LORA_MISMATCH, MASK_MISSING
+from .refusals import refusal
 from .schemas import GenerateRequest, ImageRecord
 
 # The checks and wording that need no services, kept where the CLI can
@@ -38,6 +40,33 @@ from .submission_rules import (
 )
 
 
+class Unusable(tuple[str, str]):
+    """`unusable_input`'s (kind, why) where the page acts on the refusal:
+    the same pair, with the stable `code` (`refusal_codes.py`) and the
+    gallery `ids` it names beside it for `refuse_unusable_inputs`' body."""
+
+    code: str | None = None
+    ids: tuple[int, ...] = ()
+
+    @classmethod
+    def of(cls, kind: str, why: str, code: str | None, ids: tuple[int, ...] = ()) -> "Unusable":
+        found = cls((kind, why))
+        found.code, found.ids = code, tuple(ids)
+        return found
+
+    @classmethod
+    def from_error(cls, kind: str, exc: ValueError) -> "Unusable":
+        return cls.of(kind, str(exc), getattr(exc, "code", None), getattr(exc, "ids", ()))
+
+
+def _mask_gone(mask: str) -> bool:
+    """Whether the stored mask no longer resolves. Blocking: reads the database."""
+    try:
+        storage.mask_path(mask)
+    except ValueError:
+        return True
+    return False
+
 # The per-image status a reason from `unusable_input` becomes.
 UNUSABLE_STATUS: dict[str, Literal["source_deleted", "lora_missing", "mask_missing", "outpaint", "mask_crop"]] = {
     "source": "source_deleted", "lora": "lora_missing", "mask_missing": "mask_missing", "outpaint": "outpaint",
@@ -58,7 +87,7 @@ async def refuse_unusable_inputs(services: AppServices, request: GenerateRequest
     """
     unusable = await unusable_input(services, request)
     if unusable is not None:
-        raise HTTPException(status_code=422, detail=unusable[1])
+        raise refusal(422, unusable[1], unusable)
 
 
 async def unusable_input(
@@ -126,7 +155,8 @@ async def unusable_input(
         try:
             await asyncio.to_thread(refine.check_upscaler_source, request.refine)
         except ValueError as exc:
-            return "upscaler", str(exc)
+            # The source gone is the source's refusal, its code beside it.
+            return Unusable.from_error("upscaler", exc)
     if request.refine is not None:
         inpainting = request.inpainting
         if inpainting:
@@ -138,7 +168,7 @@ async def unusable_input(
         try:
             await asyncio.to_thread(storage.reference_paths, [request.refine], "source image")
         except ValueError as exc:
-            return "source", str(exc)
+            return Unusable.from_error("source", exc)
         if request.outpaint is not None:
             reason = await asyncio.to_thread(outpaint_unusable, request)
             if reason is not None:
@@ -150,10 +180,13 @@ async def unusable_input(
             try:
                 await asyncio.to_thread(storage.mask_path, request.mask)
             except ValueError as exc:
-                return "mask_missing", str(exc)
+                return Unusable.from_error("mask_missing", exc)
             reason = await asyncio.to_thread(mask_unusable, request)
             if reason is not None:
-                return "mask", reason
+                # Swept between the look above and this one: still the
+                # mask's refusal by its code, whatever this one's words.
+                gone = await asyncio.to_thread(_mask_gone, request.mask)
+                return Unusable.of("mask", reason, MASK_MISSING if gone else None)
         if request.mask_crop is not None:
             reason = await asyncio.to_thread(mask_crop_unusable, request)
             if reason is not None:
@@ -169,7 +202,7 @@ async def unusable_input(
         try:
             await asyncio.to_thread(storage.reference_paths, request.reference)
         except ValueError as exc:
-            return "references", str(exc)
+            return Unusable.from_error("references", exc)
     if request.lora:
         reason = services.backend().lora_unavailable_reason()
         if reason is not None:
@@ -177,12 +210,12 @@ async def unusable_input(
         try:
             loras.path_for(request.lora)
         except ValueError as exc:
-            return "lora", str(exc)
+            return Unusable.from_error("lora", exc)
         # And one that is there but for another checkpoint: a FLUX.1 adapter
         # on Z-Image fails at the first cell, deep in PEFT, naming neither.
         reason = await asyncio.to_thread(services.backend().lora_mismatch, request.lora)
         if reason is not None:
-            return "lora", reason
+            return Unusable.of("lora", reason, LORA_MISMATCH)
     return None
 
 

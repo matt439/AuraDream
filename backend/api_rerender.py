@@ -136,7 +136,10 @@ def create_router(services: AppServices) -> APIRouter:
             services, ids=request.ids, search=request.search, favorites=request.favorites,
             all_models=request.all_models,
         )
-        deleted = [RerenderGone(id=image_id, detail=submission.gone_detail(image_id, binned)) for image_id in gone]
+        deleted = [
+            RerenderGone(id=image_id, detail=submission.gone_detail(image_id, binned), binned=image_id in binned)
+            for image_id in gone
+        ]
         if not records:
             said = "; ".join(f"#{item.id} is {item.detail}" for item in deleted[:6])
             more = f"; and {len(deleted) - 6} more" if len(deleted) > 6 else ""

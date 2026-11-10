@@ -1,0 +1,58 @@
+"""The stable codes of the refusals the page acts on, and the errors that
+carry one out of the modules below the HTTP layer. Stdlib only: `storage`
+and `loras` raise these, and the CLI imports both.
+
+A refusal's `detail` is a sentence for a person and may be reworded; its
+`code` is what the page reads to decide what to do (forget an image, mark it
+binned, drop an adapter, hold a count), and never changes once a page reads
+it. `refusals.py` puts a code beside `detail` in the response body; a
+refusal the page only shows carries none.
+"""
+from __future__ import annotations
+
+from collections.abc import Iterable
+
+# No live gallery image has this id: deleted, never there, or - where the
+# route cannot or does not tell them apart - in the recycle bin.
+IMAGE_UNKNOWN = "image_unknown"
+# The image is in the recycle bin: gone from the gallery until a Restore.
+IMAGE_BINNED = "image_binned"
+# More seeds' batches x count is past what one press may queue.
+MORE_SEEDS_CAP = "more_seeds_cap"
+# More seeds' receipt expired, is another server's or names another request.
+MORE_SEEDS_RECEIPT = "more_seeds_receipt"
+# The request's adapter has no file in the LoRA directory.
+LORA_MISSING = "lora_missing"
+# The request's adapter is there but does not fit the running checkpoint.
+LORA_MISMATCH = "lora_mismatch"
+# A confirmed count no longer matches what the server counts.
+SELECTION_CHANGED = "selection_changed"
+# The request's stored mask has gone: swept, or its file lost.
+MASK_MISSING = "mask_missing"
+
+CODES = frozenset({
+    IMAGE_UNKNOWN, IMAGE_BINNED, MORE_SEEDS_CAP, MORE_SEEDS_RECEIPT,
+    LORA_MISSING, LORA_MISMATCH, SELECTION_CHANGED, MASK_MISSING,
+})
+
+
+class CodedError(ValueError):
+    """A refusal in words that also carries a code, and the gallery ids it
+    is about where it names images. A `ValueError`, so every caller that
+    reads the sentence alone is unchanged."""
+
+    def __init__(self, message: str, code: str, ids: Iterable[int] = ()) -> None:
+        super().__init__(message)
+        assert code in CODES, code
+        self.code = code
+        self.ids = tuple(ids)
+
+
+class CodedLookupError(LookupError):
+    """The same for an unknown id a caller answers as a 404."""
+
+    def __init__(self, message: str, code: str, ids: Iterable[int] = ()) -> None:
+        super().__init__(message)
+        assert code in CODES, code
+        self.code = code
+        self.ids = tuple(ids)

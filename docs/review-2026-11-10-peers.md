@@ -327,6 +327,51 @@ models on every route and an OpenAPI snapshot were cut.
 First step: list each `err.message` test in `web/`, the server sentence it
 depends on and whether a test already pins it.
 
+Built 2026-11-10. The list, as the source had it (line numbers the tree's
+before the change); "pinned" means a pytest or a smoke asserted the
+sentence, none asserted that the page depended on it:
+
+| Page test | Sites | Server sentence | Pinned | Code now |
+|---|---|---|---|---|
+| `/unknown image/` | 18: `bin.js` 417, `facts.js` 223 and 428, `gallery-actions.js` 63 and 861, `inpaint.js` 890, `instruction-edit.js` 553 and 584, `lightbox-compare.js` 293 and 351, `lightbox.js` 833, `outpaint.js` 981, `reuse.js` 377 and 463, `sheet.js` 433, `sizes.js` 585 | "unknown image" (`api_gallery`: the record, the thumb, the star, the permanent delete) | `test_api_gallery.py` (the record only) | `image_unknown`, `image_binned` |
+| `/recycle bin/` | 5: `facts.js` 224, `gallery-actions.js` 862, `sizes.js` 585, `outpaint.js` 170, `generation.js` 707 | "unknown image (#N is in the recycle bin)"; the presets' "no gallery image with id N (#N is in the recycle bin)"; Re-render's "in the recycle bin" | `test_api_gallery.py`, `test_api_outpaint.py` | `image_binned`; `RerenderGone.binned` |
+| `/^no gallery image with id/` | `outpaint.js` 167 | the outpaint presets' 404 | `test_api_outpaint.py` | `image_unknown`, `image_binned` |
+| `/^no gallery image with id ([\d, ]+)$/`, `/^reference image ... in the recycle bin; /` | `generation.js` 531 | `storage.reference_paths` through a submission | `test_api_conditioning.py`, `test_storage.py` | `image_unknown`, `image_binned` with `ids` |
+| `/^no gallery image with id (\d+)\.?$/`, `/^source image (\d+) is in the recycle bin; /i` | `refine-rules.js` 135 (`sourceGoneKind`: Refine, Inpaint, Outpaint, Edit by instruction, their previews, the mask upload) | the same, and `POST /api/masks` | `test_api_refine.py`, `test_api_inpaint.py`, `smoke-refine` | the same |
+| `/^Instruction-edit source #(\d+) is missing or in the recycle bin\.?$/` | `instruction-edit.js` 208 | `instruction_edit_admission._prove` | `test_instruction_edit_queue.py` | `image_unknown`, `image_binned` with `ids` |
+| `/^\d+ batch/` | `more-seeds.js` 293 and 515 | "N batches × C is I images; a press may queue M." | `test_api_more_seeds.py` | `more_seeds_cap` |
+| `err.message.includes(name)` | `generation.js` 558, `refine-rules.js` 121 (`dropPassLora`) | "no LoRA named 'x' in ..."; the backend's mismatch sentence | `test_api_conditioning.py` (missing only) | `lora_missing`, `lora_mismatch` |
+| `/mask [0-9a-f]{16} ... has just gone ... no stored mask ... the file for mask/` | `inpaint.js` 428 (`maskGoneRefusal`) | `storage.mask_path`, `jobs.MaskGone` | `test_api_inpaint.py` | `mask_missing` |
+| `/selection changed/i` | `gallery-actions.js` 985 | Delete unstarred's 409 | `smoke-delete` | `selection_changed` |
+| `/intent\|receipt\|more seeds request/i` on a 409 | `more-seeds.js` 551 | the receipt ledger's two 409s | no | `more_seeds_receipt` |
+
+The claims held: the tests of a sentence number well over twenty, and no
+test would have failed on a rewording. The finding named four sentences;
+the list found six more of the same kind (the outpaint presets, a
+submission's sources and references, the edit's source, the mask, the
+stale count and the receipt), which were built with them.
+
+`backend/refusal_codes.py` holds the eight codes and `backend/refusals.py`
+the refusal that answers `code` (and `ids`) beside an unchanged `detail`;
+`api()` puts the code on the error and the page reads it through
+`imageGone`, `imageBinned`, `refusedIds` and `loraRefused` (`state.js`).
+No script in `web/` tests a refusal's message any longer. The cuts stand:
+no response models were added and there is no OpenAPI snapshot. Two
+answers became more exact on the way: an instruction edit's source is told
+deleted from binned by the server, where the page guessed from its own copy
+of the record, and a mask upload over a deleted source is said in the
+dialog's words, where the capitalised sentence had not matched the page's
+test. Left as it is: a pass dialog marking its Strength box where the
+sentence it is held with mentions strength (`/strength/i`), which marks a
+field and forgets, drops or resends nothing. Tests: `tests/test_refusal_codes.py` (each code beside its
+sentence, the page reading exactly the server's codes, no message test in
+`web/`); the rule is in `docs/rules.md` under Frontend and CLI and the
+reasons in `docs/design-notes.md` under "Refusal codes the page reads".
+The review of the build found two submission refusals still going out
+without their code, both fixed in `submission.unusable_input`: a gone
+source found by the upscaler's own look at it (`check_upscaler_source`),
+and a mask swept between the submission's two looks at it.
+
 ## Tooling and the page
 
 ### T1 the smoke driver hears page errors

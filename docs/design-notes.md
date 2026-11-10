@@ -14053,3 +14053,49 @@ stored sessions, turning `/docs` off, and anything that changes the Host or
 Origin checks. `DEV#33` must keep two things true when it adds a public
 origin or a certificate: the gate is on whenever such an origin is
 declared, whatever the bind, and the cookie is `Secure` there.
+
+## Refusal codes the page reads
+
+Built 2026-11-10 (`DEV#37`, [the peer review's S7](review-2026-11-10-peers.md#s7-error-codes-the-page-reads)).
+The page decided what to do about a refusal by testing the server's English
+in `err.message`: `/unknown image/` to forget an image, `/recycle bin/` to
+call it binned rather than deleted, `/^\d+ batch/` to mark More seeds'
+count, the adapter's name anywhere in the sentence to drop a LoRA, and five
+more of the kind. Each refusal's `detail` is a sentence for a person. A
+rewording would not have failed a test: the page would have shown the new sentence and quietly
+stopped forgetting the image, and the card would have stayed on the page to
+be starred or deleted again.
+
+The fix is one more key in the body: `code` beside `detail`, and `ids`
+where the refusal names gallery images. `detail` keeps every word it had,
+so the CLI, the job errors and anything reading the sentence are unchanged.
+The code is added only to the refusals the page acts on; a refusal that is
+only shown has none, which keeps the list short enough to hold in a test.
+Response models on every route and an OpenAPI snapshot were proposed with
+it and cut: they would have pinned shapes nothing reads.
+
+Most of these refusals start under the HTTP layer as a `ValueError` whose
+string a route turns into a 422 (`storage.reference_paths`,
+`storage.mask_path`, `loras.path_for`). Those now raise `CodedError`, still
+a `ValueError` with the same string, and the route asks
+`refusals.refusal(status, detail, exc)`, which is coded when the error is.
+`submission.unusable_input` returned a `(kind, why)` pair that Swap tags,
+Mass refine and Finish also read; it returns the same pair as a tuple
+subclass (`Unusable`) with the code and ids as attributes, so those readers
+did not change. `POST /api/masks` had its own wording test on the server
+side (a message starting "no gallery image" was a 404); it reads the code
+too.
+
+The pass dialogs (Refine, Inpaint, Outpaint, Edit by instruction) read a
+refused submission back out of their error line as text, after `startJob`
+had written it there. They now keep the error `startJob` caught
+(`onRefused`) and read its code only while the line still says that
+error's sentence (`shownRefusal`): a line the page has since rewritten in
+its own words is no server refusal and is only shown.
+
+Two refusals could not say which case they were. The star and the
+permanent delete answer one 404 for a deleted image and a binned one, as
+before, coded `image_unknown`; the page treats either code as gone. The
+instruction edit's "source is missing or in the recycle bin" was told apart
+by the page from its own copy of the record; the server now looks once more
+and gives `image_binned` or `image_unknown` under the same sentence.

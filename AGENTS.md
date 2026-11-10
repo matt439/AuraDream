@@ -243,6 +243,9 @@ Backend (`backend/`):
 - `log_file.py` the server's rotating `auradream.log` beside the database
   (tracebacks at every level, `faulthandler`, uvicorn's level), stdlib only,
   installed by `main.run` alone
+- `refusal_codes.py` the stable codes of the refusals the page acts on and
+  the coded errors `storage` and `loras` raise, stdlib only; `refusals.py`
+  `Refused`, the HTTP refusal answering `code` (and `ids`) beside `detail`
 
 Frontend (`web/`, served from `/static`): `index.html` loads classic scripts
 in order, sharing one global scope; only `app.js`, the last, runs anything.
@@ -515,6 +518,10 @@ Frontend:
 - A button held for a reason is `aria-disabled` with the reason as its title,
   never `disabled` (documented exceptions in `docs/rules.md`); a press says
   why.
+- What the page does about a refusal is decided by its `code`
+  (`refusal_codes.py`; `imageGone`, `imageBinned`, `refusedIds`,
+  `loraRefused` in `state.js`), never by testing `err.message`: the
+  sentence is only shown. A refusal the page must act on gets a code first.
 - Whole-box writes to the prompt or negative go through `writeBox` /
   `rewriteBox` / `replaceBoxText`, never `.value`, so Ctrl+Z works.
 - `setReferences` is the one writer of references; `forgetImages` is the one

@@ -10,6 +10,8 @@ from . import gallery_reports, grid, model_selection, more_seeds, submission, th
 from .app_context import AppServices
 from .more_seeds_intents import IntentProblem
 from .more_seeds_planner import more_seeds_plan
+from .refusal_codes import MORE_SEEDS_RECEIPT
+from .refusals import Refused
 from .schemas import (
     JobAccepted,
     MoreSeedsAccepted,
@@ -158,6 +160,10 @@ def create_router(services: AppServices) -> APIRouter:
                 request.intent, _intent_payload(request), _intent_context(services), admitted,
             )
         except IntentProblem as exc:
+            # A 409 is the receipt's own refusal (expired, another server's,
+            # another request's): said by its code, which the page reads.
+            if exc.status_code == 409:
+                raise Refused(409, exc.detail, MORE_SEEDS_RECEIPT) from exc
             raise HTTPException(exc.status_code, exc.detail) from exc
         return MoreSeedsAccepted.model_validate(receipt)
 

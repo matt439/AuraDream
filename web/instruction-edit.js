@@ -203,13 +203,9 @@ function writeEditSourceLine(rec, gone = null) {
 // A refusal of the source itself - deleted or binned from another tab, or
 // here, while the dialog was open - in the page's words, as the other
 // dialogs say it; any other refusal as the server said it.
-function editSourceGone(message, source = editSource) {
-  let gone = sourceGoneKind(message, source);
-  const edit = /^Instruction-edit source #(\d+) is missing or in the recycle bin\.?$/.exec(message ?? '');
-  if (!gone && edit && source && +edit[1] === source.id) {
-    gone = source.binned_at || binnedIds.has(source.id) ? 'binned' : 'deleted';
-  }
-  if (!gone) return message;
+function editSourceGone(err, source = editSource) {
+  const gone = sourceGoneKind(err, source);
+  if (!gone) return err.message;
   if (editSource === source) writeEditSourceLine(source, gone);
   return sourceGoneWords(source, gone, 'edit');
 }
@@ -238,7 +234,7 @@ async function previewEdit() {
       body: JSON.stringify({ source: src.id, recipe: EDIT_RECIPE }),
     });
   } catch (err) {
-    problem = editSourceGone(err.message, src);
+    problem = editSourceGone(err, src);
   }
   if (epoch !== editEpoch || editSource !== src) return;
   editPreview = answer;
@@ -416,9 +412,11 @@ async function runEdit() {
     editSending = false;
     if (editSource) syncEditDialog();
   };
+  let refusal = null;
   const sent = startJob('/api/instruction-edit', body, {
     panel: false,
     slot: els.editError,
+    onRefused: (err) => { refusal = err; },
     placeholder: {
       src: source.url ?? source.thumb_url,
       width: body.width,
@@ -443,7 +441,7 @@ async function runEdit() {
   settle();
   const refused = els.editError.textContent;
   if (refused) {
-    const said = editSourceGone(refused, source);
+    const said = editSourceGone(shownRefusal(refusal, refused), source);
     if (said !== refused) editFailed(said);
     else editFailed(refused);
   }
@@ -550,7 +548,7 @@ async function reuseEdit(rec) {
   try {
     source = await api(`/api/images/${id}?binned=true`);
   } catch (err) {
-    const said = /unknown image/.test(err.message)
+    const said = imageGone(err)
       ? `#${id}, the source this was edited from, is no longer in the gallery, so the edit cannot be reopened.`
       : err.message;
     showError(said, false, { slot: els.galleryError });
@@ -581,7 +579,7 @@ async function openEditSource(rec) {
     try {
       source = await api(`/api/images/${id}`);
     } catch (err) {
-      showError(/unknown image/.test(err.message) ? `#${id} is no longer in the gallery.` : err.message);
+      showError(imageGone(err) ? `#${id} is no longer in the gallery.` : err.message);
       return;
     }
   }

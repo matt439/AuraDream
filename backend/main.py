@@ -60,6 +60,7 @@ from .instruction_edit import (  # noqa: E402
 )
 from . import api_instruction_edit  # noqa: E402
 from . import log_file  # noqa: E402
+from . import refusal_codes, refusals  # noqa: E402
 from .model_defaults import DEFAULT_MODEL_ID, OPEN_DEFAULT_MODEL_ID, defaults_for, guide_for, hints_for  # noqa: E402
 from .schemas import (  # noqa: E402
     ExpanderDownload,
@@ -489,6 +490,10 @@ app.add_middleware(api_bundles.GalleryAdmission, get_manager=lambda: bundle_mana
 app.add_middleware(keep_awake.ActivityMiddleware, get_controller=lambda: _keep_awake)
 
 
+# A refusal the page acts on: its stable `code` (and `ids`) beside `detail`.
+app.add_exception_handler(refusals.Refused, refusals.refused_response)
+
+
 @app.exception_handler(gallery_lock.GalleryBusy)
 async def gallery_busy(request: Request, exc: gallery_lock.GalleryBusy):
     return JSONResponse({"detail": str(exc)}, status_code=409)
@@ -497,7 +502,9 @@ async def gallery_busy(request: Request, exc: gallery_lock.GalleryBusy):
 @app.exception_handler(MaskGone)
 async def mask_gone(request: Request, exc: MaskGone):
     message = str(exc)
-    return JSONResponse({"detail": message[:1].upper() + message[1:] + "."}, status_code=422)
+    return JSONResponse(
+        {"detail": message[:1].upper() + message[1:] + ".", "code": refusal_codes.MASK_MISSING}, status_code=422,
+    )
 
 
 @app.exception_handler(OutpaintStampFailed)

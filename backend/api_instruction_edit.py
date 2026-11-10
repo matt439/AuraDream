@@ -22,6 +22,7 @@ from . import instruction_edit_admission
 from .app_context import AppServices
 from .execution import require_configured_loader_available, require_default_execution
 from .model_selection import current_settings
+from .refusals import refusal
 from .schemas import InstructionEditSubmission, JobAccepted, error_detail
 
 
@@ -38,7 +39,7 @@ def create_router(services: AppServices) -> APIRouter:
         try:
             bound, resolved = await asyncio.to_thread(instruction_edit_admission.bind_source, request)
         except ValueError as exc:
-            raise HTTPException(status_code=422, detail=str(exc)) from exc
+            raise refusal(422, str(exc), exc) from exc
         recipe = edit.recipe_for(bound.recipe)
         # The server's reason first; then whether this source's aspect was
         # measured. The size is still said, so a held 3:2 shows what it is,
@@ -83,7 +84,7 @@ def create_router(services: AppServices) -> APIRouter:
             bound.check_budget()
             bound.check_refine_steps()
         except ValueError as exc:
-            raise HTTPException(status_code=422, detail=error_detail(exc)) from exc
+            raise refusal(422, error_detail(exc), exc) from exc
         try:
             job = await services.jobs().submit(bound)
         except ValueError as exc:
