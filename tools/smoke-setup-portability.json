@@ -6,6 +6,12 @@
     "navigate": "http://127.0.0.1:7953/"
   },
   {
+    "inject": "a11y_audit.js"
+  },
+  {
+    "eval": "__a11yWatch()"
+  },
+  {
     "eval": "window.__until=async(fn,ms=20000)=>{const end=Date.now()+ms;while(Date.now()<end){try{if(await fn())return true;}catch{}await new Promise(r=>setTimeout(r,40));}return false;};\nwindow.__suFLUX='black-forest-labs/FLUX.1-Krea-dev';window.__suANI='cagliostrolab/animagine-xl-4.0';\nwindow.__su=(name)=>document.getElementById('setup-import-'+name);\nwindow.__suRow=(index)=>__su('rows').querySelector('[data-index=\"'+index+'\"]');\nwindow.__suChange=(index,role,value)=>{const field=__suRow(index).querySelector('[data-role=\"'+role+'\"]');if(!field)throw Error('Missing row control '+index+'/'+role);field.value=value;field.dispatchEvent(new Event(field.tagName==='SELECT'?'change':'input',{bubbles:true}));};\nwindow.__suPayload=(prompt,extra={})=>({mode:'generate',prompt,negative_prompt:'',width:1024,height:1024,steps:null,guidance_scale:null,mu:null,true_cfg:null,seed:null,num_images:1,runs:1,grid:null,...extra});\nwindow.__suGrid=(extra={})=>({prompt_axis:'place = river | woods',prompt_mode:'cross',steps_axis:'',cfg_axis:'',mu_axis:'',size_axis:'',seeds:1,seed_axis:'',budget_minutes:null,...extra});\nwindow.__suItem=(name,model_id,payload)=>({name,model_id,payload});\nwindow.__suDoc=(items)=>({format:'auradream.generation-presets',version:1,items});\nwindow.__suErrors=[];addEventListener('error',e=>__suErrors.push(e.message));addEventListener('unhandledrejection',e=>__suErrors.push(String(e.reason)));\nwindow.__suForbidden=[];window.__suBaseFetch=window.fetch;window.__suHoldExport=false;\nwindow.fetch=async(input,init)=>{const path=new URL(String(input?.url??input),location.href).pathname;const method=String(init?.method||input?.method||'GET').toUpperCase();if(method!=='GET'&&(/^\\/api\\/(generate|grid|refine|inpaint|outpaint|more-seeds|swap-tags|instruction-edit|refine\\/batch|jobs.*)$/.test(path)||path.startsWith('/api/model')))__suForbidden.push(method+' '+path);if(path==='/api/presets/export'&&__suHoldExport){__suHoldExport=false;await new Promise(r=>{window.__suReleaseExport=r;});}return __suBaseFetch(input,init);};\nwindow.__suBaseApi=api;window.__suImportPosts=0;window.__suPreviewPosts=0;window.__suListReads=0;window.__suItemWrites=0;\napi=async(path,options)=>{const method=options?.method||'GET';if(path==='/api/presets/import'&&method==='POST')__suImportPosts++;if(path==='/api/presets/import/preview')__suPreviewPosts++;if(path==='/api/presets'&&method==='GET')__suListReads++;if(/^\\/api\\/presets\\/[a-f0-9]{32}/.test(path)&&['PUT','DELETE'].includes(method))__suItemWrites++;return __suBaseApi(path,options);};window.__suTrackedApi=api;\nwindow.__suPost=(path,body)=>__suBaseApi(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});\nwindow.__suRead=()=>__suBaseApi('/api/presets');\nwindow.__suSeed=async(doc)=>{const shown=await __suPost('/api/presets/import/preview',{payload:doc,decisions:[]});return __suPost('/api/presets/import',{payload:doc,decisions:shown.rows.map(row=>({index:row.index,action:row.action})),collection_revision:shown.collection_revision,payload_digest:shown.payload_digest});};\nwindow.__suFile=async(raw,name='auradream-generation-setups.json')=>{if(__su('dialog').open){closeSetupImport();if(!await __until(()=>!__su('dialog').open))throw Error('Import did not close');await new Promise(r=>setTimeout(r,50));}const input=document.getElementById('setups-import-file');const transfer=new DataTransfer();transfer.items.add(new File([raw],name,{type:'application/json'}));input.files=transfer.files;input.dispatchEvent(new Event('change',{bubbles:true}));return true;};\nwindow.__suFits=()=>{const e=__su('dialog'),r=e.getBoundingClientRect();return r.left>=0&&r.top>=0&&r.right<=innerWidth+1&&r.bottom<=innerHeight+1&&e.scrollWidth<=e.clientWidth+1&&document.documentElement.scrollWidth<=innerWidth+1;};\nwindow.__suHeld=(id)=>document.getElementById(id).getAttribute('aria-disabled')==='true'&&document.getElementById(id).title.length>0;\nwindow.__suSame=(a,b)=>JSON.stringify(a)===JSON.stringify(b);"
   },
   {
@@ -692,5 +698,8 @@
   },
   {
     "eval": "api=__suBaseApi;window.fetch=__suBaseFetch;"
+  },
+  {
+    "expect": "__a11yCheck()"
   }
 ]

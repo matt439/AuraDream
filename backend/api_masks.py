@@ -24,6 +24,8 @@ from fastapi.responses import FileResponse
 
 from . import outpaint, refine, storage
 from .app_context import AppServices
+from .refusal_codes import IMAGE_BINNED, IMAGE_UNKNOWN, CodedLookupError
+from .refusals import Refused, refusal
 from .schemas import MaskStored, OutpaintPreset, OutpaintPresets
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
@@ -68,7 +70,7 @@ def _store(services: AppServices, data: bytes, source: int) -> MaskStored:
     storage.reference_paths([source], "source image")
     record = storage.get_image(source)
     if record is None:
-        raise LookupError(f"no gallery image with id {source}")
+        raise CodedLookupError(f"no gallery image with id {source}", IMAGE_UNKNOWN, [source])
     cap = services.settings().refine_max_pixels
     try:
         with Image.open(io.BytesIO(data)) as handle:
@@ -118,12 +120,13 @@ def create_router(services: AppServices) -> APIRouter:
         try:
             return await asyncio.to_thread(_store, services, data, source)
         except LookupError as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
+            raise refusal(404, str(exc), exc) from exc
         except ValueError as exc:
             message = str(exc)
-            # "no gallery image with id N" from the source check is a 404.
-            status = 404 if message.startswith("no gallery image") else 422
-            raise HTTPException(status_code=status, detail=message[:1].upper() + message[1:] + ".") from exc
+            # An unknown source from the source check is a 404; a binned one
+            # is refused as a submission refuses it, its code beside it.
+            status = 404 if getattr(exc, "code", None) == IMAGE_UNKNOWN else 422
+            raise refusal(status, message[:1].upper() + message[1:] + ".", exc) from exc
         except OSError as exc:
             # The disk, or the gallery cleared while this waited on it.
             raise HTTPException(
@@ -168,11 +171,11 @@ def create_router(services: AppServices) -> APIRouter:
         it deleted."""
         record = await asyncio.to_thread(storage.get_image, image_id, True)
         if record is None:
-            raise HTTPException(status_code=404, detail=f"no gallery image with id {image_id}")
+            raise Refused(404, f"no gallery image with id {image_id}", IMAGE_UNKNOWN, [image_id])
         if record.binned_at is not None:
-            raise HTTPException(
-                status_code=404,
-                detail=f"no gallery image with id {image_id} (#{image_id} is in the recycle bin)",
+            raise Refused(
+                404, f"no gallery image with id {image_id} (#{image_id} is in the recycle bin)",
+                IMAGE_BINNED, [image_id],
             )
         limits = services.settings()
         name = f"#{record.id}"

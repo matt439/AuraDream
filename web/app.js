@@ -7,6 +7,10 @@
 
 // --------------------------------------------------------------------- wire
 
+// Before any wiring, so an error in the wiring or the boot below is said too.
+window.addEventListener('error', sayPageError);
+window.addEventListener('unhandledrejection', sayPageError);
+
 let searchTimer;
 els.generate.onclick = pressGenerate;
 els.cancel.onclick = cancelJob;
@@ -176,6 +180,10 @@ document.addEventListener('click', (e) => {
       || e.target.closest('#prompt-toolbar, #check-chip')) hideTagSuggestions();
 });
 els.unload.onclick = unloadModel;
+// The passcode's two buttons (status.js): Sign in after a session ended
+// under the open page, Sign out in the Models panel while one is asked.
+els.signIn.onclick = () => location.reload();
+els.signOut.onclick = signOut;
 els.more.onclick = () => loadGallery();
 // One card at a time in the tab order, walked with the arrow keys (gallery.js).
 els.gallery.addEventListener('keydown', galleryKey);

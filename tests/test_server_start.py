@@ -216,3 +216,20 @@ def test_without_open_no_browser_is_asked_for(fake, monkeypatch, opened):
     main.run()
     assert started.is_set() and opened == []
 
+
+@pytest.mark.parametrize(("commit", "said"), [
+    ("abc1234", "AuraDream at commit abc1234"),
+    (None, "AuraDream at commit unknown (not a Git checkout, or git was not found)"),
+])
+def test_the_start_up_log_names_the_running_commit(fake, monkeypatch, caplog, commit, said):
+    class Stopping(main.Server):
+        async def startup(self, sockets=None):
+            await super().startup(sockets)
+            self.should_exit = True
+
+    monkeypatch.setattr(main, "Server", Stopping)
+    monkeypatch.setattr(main, "settings", dataclasses.replace(main.settings, port=0))
+    monkeypatch.setattr(main, "COMMIT", commit)
+    with caplog.at_level("INFO", logger="auradream"):
+        main.run()
+    assert said in [record.getMessage() for record in caplog.records if record.name == "auradream"]

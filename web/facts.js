@@ -216,12 +216,12 @@ function referenceThumbs(rec) {
     img.src = `/api/images/${id}/thumb`;
     img.alt = '';
     img.loading = 'lazy';
-    // Only the server's "unknown image" is a deleted one - or one in the
-    // recycle bin, where it says so: then the slot says which and opens
-    // nothing.
+    // Only the server's refusal coded as gone (imageGone) is a deleted one -
+    // or one in the recycle bin, where its code says so: then the slot says
+    // which and opens nothing.
     const gone = (err) => {
-      if (!/unknown image/.test(err.message)) return false;
-      const binned = /recycle bin/.test(err.message);
+      if (!imageGone(err)) return false;
+      const binned = imageBinned(err);
       if (img.isConnected) {
         img.replaceWith(Object.assign(document.createElement('span'), {
           className: 'gone', textContent: binned ? 'in the bin' : 'deleted',
@@ -257,7 +257,7 @@ function referenceThumbs(rec) {
   // Every id is asked about again, as Reuse's are (`checkReused`): a slot
   // drawn from the cache says nothing of an image deleted since, and a
   // deleted one put in the panel was an empty chip and a refused Generate.
-  // Only the server's "unknown image" leaves one out; anything else keeps it.
+  // Only the server's image-gone code leaves one out; anything else keeps it.
   use.onclick = async () => {
     syncUseReferences(use);
     if (use.getAttribute('aria-disabled') === 'true') { showError(use.title, true); return; }
@@ -425,7 +425,7 @@ async function openRefineSource(rec) {
     try {
       source = await api(`/api/images/${rec.refine}`);
     } catch (err) {
-      showError(/unknown image/.test(err.message) ? `#${rec.refine} is no longer in the gallery.` : err.message);
+      showError(imageGone(err) ? `#${rec.refine} is no longer in the gallery.` : err.message);
       return;
     }
   }

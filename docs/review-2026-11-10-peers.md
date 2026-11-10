@@ -103,6 +103,26 @@ exclusions, status field and doctor row. A done sound and an action when the
 queue empties were cut: a tone does not play on a locked phone, and a
 command hook is a new trust surface on a LAN server.
 
+Built 2026-11-10. The finding held in the source: `platform_inhibitor`
+returned `NoInhibitor` for every platform but Linux, and the doctor's Keep
+awake row returned nothing there. `keep_awake.PowerRequest` (kind
+`power-request`) is now Windows' holder: a `PowerCreateRequest` handle with
+`PowerRequestSystemRequired` set, cleared and closed on release, and closed
+by Windows if the process dies. It is a handle and not
+`SetThreadExecutionState` because the controller holds and releases on
+different threads. It asks for the system only, so the display may turn
+off, a sleep someone asks for still happens, and no power setting is read
+or changed. Providers, counted holds, the idle minutes and
+`counts_as_activity` are untouched; `/api/status`'s `keep_awake.kind` gains
+`power-request`, and the doctor's row on Windows tries a request and lets
+go at once. The CLI's `hold_while` takes the same hold. Tests fake the four
+Win32 calls (`tests/test_keep_awake.py`); one makes a real request on
+Windows and releases it in the same test, which passed on this PC. Not
+built: the done sound and the queue-empty action, which were cut. Not
+measured: that the PC stays awake past its sleep timer while the request is
+held, which needs the sleep timer to run out on the card's PC
+([design notes](design-notes.md), Keeping the Windows PC awake).
+
 ### R6 a full disk pauses the job
 
 `GEN#52`. `jobs._save` retries only on `GalleryBusy`. Any other error from
@@ -115,6 +135,47 @@ with a plain-words reason. A submit-time space check was cut.
 First step: a CPU test making `save_image` raise each error, to pin today's
 behaviour (the failure count, a leftover `.png.part`) before the pause.
 
+Built 2026-11-10. The first step confirmed the finding on the CPU: with
+`save_image` raising either error, a five-cell job rendered three cells,
+failed each and ended as an error; `save_image` itself left no `.png.part`
+(its own cleanup takes the partial and the thumbnail back), so there was no
+leftover to fix. `jobs._save` now reads the error through `jobs.disk_full`
+and pauses in `_hold` with `Job.pause_reason`, the render held and saved
+at Resume; a Resume with the disk still full pauses again, a cancel ends
+the job. Every other save error is still the cell's failure
+(`tests/test_jobs_disk_full.py`; `smoke-jobs`' last steps through the
+fake's `/api/fake/disk-full`). The tests also cover a batch whose second
+image is refused, a Then refine pass's save, and SQLite's real error from
+a database capped at its pages. The page takes the worker's own pause over
+a Resume press still awaiting its reply (`syncPause`), or the button read
+Pause over a job paused again. Not built: the CLI's own save loop
+(`generate.py`), which still fails the cell (`GEN#57`, a row at Matt's
+word 2026-11-10: hold the image and wait or stop with the same reason,
+through `jobs.disk_full`), and the submit-time check that was cut. A real full disk has not been tried on the card's PC.
+
+Built 2026-11-10 (`GEN#57`). The CPU test first showed the CLI did worse
+than fail the cell: its save sits outside the per-cell `try`, so `ENOSPC`
+or SQLite's error reached the outer handler, which threw the render away
+and ended the run with exit 1, every later cell unrendered. The choice
+between waiting and stopping went to waiting, as the CLI already does for
+a busy gallery: `generate._save_held` reads the error through
+`jobs.disk_full`, says once on stderr "the disk is full: this image is
+held in memory. Free some space and it is saved; Ctrl-C stops without it",
+and tries the save again every `DISK_FULL_POLL` (5 s) until it lands, so
+an unattended night carries on by itself once there is room. The first
+Ctrl-C ends the wait at once, saying "stopped with the disk full: run
+2/3's image was not saved; --resume continues it", and the run ends as any
+cancel does, exit 130 with the saved images kept; nothing is counted as a
+failed cell. Then refine's passes save through the same helper, which also
+gives them the busy-gallery wait they lacked; a pass stopped there says
+"the pass of #12 was not saved; refine that image to make it", since
+`--resume` skips a cell whose base image is saved. Every other save error ends
+the run as before (`tests/test_cli_disk_full.py`). The wait has no limit
+of its own and `--budget` does not end it (the budget only stops cells
+from starting), and `--via-server` is unchanged: the server's job pauses
+and the CLI goes on watching it. A real full disk has not been tried here
+either.
+
 ### R7 prompt recall
 
 `GEN#53`. A prompt is recalled only through its image (Copy prompt, Reuse,
@@ -123,6 +184,23 @@ writing prompt and negative through `rewriteBox`. Only if that falls short:
 Recent prompts under Examples (no panel height), a model-free read of
 distinct recent pairs. A gallery-derived list cannot hold prompts whose jobs
 saved nothing.
+
+Built 2026-11-10, the first slice only. The finding held: the menu had Copy
+prompt and Reuse settings and nothing that put a prompt back by itself.
+**Use prompt** follows Use seed in the image's menu - a card, a result, a
+sheet's cell, the lightbox and the phone's More sheet, which is the same
+list. `usePrompt` (reuse.js) writes the record's prompt and negative
+prompt through `rewriteBox` and leaves the seed, size and sampling alone.
+A record with no negative empties the negative box, as Reuse does. Where
+either box held other text the note under the prompt offers an Undo for
+both, and Ctrl+Z works in each box. From the lightbox it closes the
+lightbox first, as Reuse does: a modal keeps the focus the write needs.
+It is held on an instruction edit, whose words are about its source
+(`tests/test_use_prompt.py`; `smoke-context-menu`, whose `execCommand`
+stub now lets a typing write through; `smoke-phone-gallery` chooses it in
+the phone's More sheet). Not built: Recent prompts under
+Examples, kept for when this falls short; a prompt whose job saved nothing
+is still not recalled.
 
 ### R8 a snippet target for grid variables
 
@@ -133,6 +211,26 @@ variables box as Append does today, leaving expansion and reproduction
 untouched. Server-side resolution of a bare `{name}` and style templates
 with a `{prompt}` slot were cut. Starts as an addendum to
 [the snippets plan](plan-prompt-snippets.md).
+
+Built 2026-11-10, after [the addendum](plan-prompt-snippets.md#addendum-2026-11-10-a-third-target-the-grids-variables).
+The finding held: the target was `Literal["prompt", "negative"]` in three
+places, and nothing but a saved setup kept a variable block. The three now
+share `schemas_snippets.SnippetTarget`, which adds `variables`; the sidecar
+and the portable document stay version 1, and export, preview and import
+carry the target as they carry the other two (names collide per target, a
+Replace offers only a variables snippet). The text is stored verbatim and
+never parsed. In the dialog **Insert into** offers **Grid variables**:
+Insert closes the dialog, opens the Grid search fold (More options first
+on the phone), and appends or prepends the block with one newline through
+`rewriteBox`, so Ctrl+Z restores the box; the grid's own preview then reads
+it and refuses what it always refused. Expansion, keys and records are
+untouched (`tests/test_snippets.py`, `tests/test_snippet_portability.py`,
+`tests/test_api_snippet_portability.py`; `smoke-snippets`' last steps, and
+`smoke-phone-dialogs` for the phone's sheet). A build from before this
+refuses a sidecar or an export file holding a variables snippet whole and
+leaves it unchanged. Not built, as cut: a bare `{name}` resolved on the
+server, and `{prompt}` style templates; the `{name}` placeholder is still
+typed into the prompt by hand.
 
 ### R9 storage view
 
@@ -153,6 +251,30 @@ flags to `model_info.details_for`'s notes (no new columns) with a test over
 every catalogue entry, and generate a `docs/usage.md` table from the same
 function, held equal by a test.
 
+Built 2026-11-10. The finding held: `details_for` had no word for any of
+the seven, and Expand's rule by id lived inside the backend.
+`model_info.capabilities_for` answers each flag as Yes, No or Not yet (an
+inpaint class diffusers ships and the app has not enabled) from the place
+that decides it at run time: the profile for inpaint, outpaint, references
+and the negative prompt, `loading.lora_refusal` and the Nunchaku rule for
+LoRA, `latent_preview`'s fitted maps for the preview (through `_LATENTS`,
+each entry's latents by exact id) and `loading.prompt_expander_by_id` for
+Expand, which the backend and the fake now call too. `details_for` says
+them as `capabilities_note`, and the page joins that to the Refine note:
+the Refine cell's tooltip and the radio's description, no new column.
+docs/usage.md has "What each checkpoint can do", a table generated by
+`tools/capability_table.py --write` from `model_info.capability_table()`
+(`tests/test_capabilities.py`; `smoke-model-hover` and
+`smoke-model-switch` hold the note in the page). Refine is the table's
+first column, from `details_for`. Not built: a column for Edit by
+instruction, whose answer is the backend's live one, not the id's; the
+row's Edit note says it. Not settled: a change to usage.md alone runs no
+tests, so a hand edit to the table is caught at the next code change;
+`tests/test_ci_changes.py` names the exception, and naming the file in
+`tools/ci_changes.py`'s `_TESTED_PROSE` is a CI-definition change for
+Matt's ruleset edit. The preview words are the code's rule for each VAE,
+seen on the card only for the checkpoints docs/verified.md names.
+
 ## Server and security
 
 ### S1 anti-framing headers
@@ -165,6 +287,20 @@ at a guessed address; bins are recoverable). Fix: one middleware adding
 `frame-ancestors 'self'` and `nosniff` to every response, mounts included;
 `'self'` stays because `smoke-jobs` frames `/`. A full `script-src` policy
 is a separate, larger item and not opened.
+
+Built 2026-11-10: `backend/response_headers.py`'s
+`ResponseHeadersMiddleware`, a plain ASGI layer `main` adds last, puts
+`Content-Security-Policy: frame-ancestors 'self'` and
+`X-Content-Type-Options: nosniff` on every response: the routes, both
+mounts, `/sw.js`, `/docs`, and the Host check's 400 and the cross-site 403
+under it. The module also pins `.js` and `.css` to their types, since
+nosniff refuses a script served as `text/plain` and Windows' registry can
+say that. Starlette's own 500 for an unhandled error comes from a layer
+outside every one an app can add, so the layer answers such an error itself
+in the same words and raises it on for the server to log. No
+`X-Frame-Options` and no `script-src`. The three smokes that frame `/`
+still pass (`tests/test_response_headers.py`; rule in `docs/rules.md`
+under Frontend and CLI).
 
 ### S2 passcode beyond loopback
 
@@ -181,6 +317,71 @@ makes it private.
 
 First step: a design note listing every unauthenticated surface before any
 code.
+
+Design note written 2026-11-10, no code yet:
+[A passcode beyond loopback](design-notes.md#a-passcode-beyond-loopback)
+lists the surfaces (88 API operations on 77 paths, the stream, both mounts,
+`/sw.js`, four documentation routes, and every script and tool that calls
+the server) and fixes the design and a four-stage build order. The code is
+next, from its stage 1. Reading the source confirmed the finding. Two
+points go past its wording and are Matt's to overrule before stage 1: the
+passcode is also asked on a loopback bind whose `AURADREAM_ALLOWED_HOSTS`
+lists another name (a proxy in front), and a request from 127.0.0.1 is not
+exempt while it is on, so the scripts on the server send the passcode from
+the environment file (where, since bash and systemd both read it, the
+passcode is limited to letters, digits and a few plain marks). The limit on wrong passcodes is for the whole server, so while
+someone keeps guessing, a right passcode without a cookie is refused too.
+`sw.js` and `offline.html` stay behind the passcode
+and need no change; only the manifest and its icons stay open.
+
+Matt read those flagged choices on 2026-11-10 and said go to all of them as
+written (asked behind a proxy too, no exemption for 127.0.0.1, the
+environment file's character limit, one whole-server limiter, the
+8-character floor and the 30-day stateless cookie). Stage 1, the gate, is
+built the same day: `backend/passcode.py`, the setting, the layer in
+`main.py` with the model hold moved inside the Host check and the write
+block, `web/passcode.html`, `passcode` in the status, and `main.run`'s
+refusal and log lines, with a test that walks the app's route table so a
+route added later is closed or the test fails. What stage 1 settled is in
+the note under [Stage 1 as built](design-notes.md#stage-1-as-built).
+
+Stage 2, the callers, is built the same day. Everything that is not a
+browser reads `AURADREAM_PASSCODE` from its own environment and sends it as
+`Authorization: Bearer`, never as an argument: `generate --via-server`, the
+CLI's check for a server holding the card (a caller the note's table had
+missed), the doctor's Commit row, and the Linux scripts' busy and status
+reads (`linux/common.sh`, `linux/control.sh`), which take it from the
+service's environment file. A 401 and a 429 are each said in their own
+words and never read as a server that is down or idle: stop, restart and
+`update.sh --restart` refuse without `--force`. The doctor gains a Passcode
+row. The scripts refuse an environment file whose passcode bash would read
+differently from systemd before they source it, and `install-service.sh`'s
+new file names the setting in a commented line. The title probes needed
+nothing. `tests/test_linux_scripts.py` was run under WSL. Still to build:
+the page (the signed-out notice, Sign out), the fake's knob, the smoke and
+the docs; until then the setting is not named in the README. What stage 2
+settled is under [Stage 2 as built](design-notes.md#stage-2-as-built).
+
+Built 2026-11-10, stages 1 to 3. Stage 3, the page, the same day: a session
+that ends under an open page shows "signed out" in the top bar with a Sign
+in button and never reloads by itself, so the prompt is kept; Sign out is
+in the Models panel while a passcode is asked; the fake server has a
+`/api/fake/passcode` knob; `smoke-passcode` walks the sign-in page, a wrong
+passcode, the lock, the app opening, an image and a job stream, the ended
+session, Sign out and the sign-in page under the phone audit, and
+`smoke-offline` ends with the gate on. The README, the usage guide and the
+setup guide now name `AURADREAM_PASSCODE` and say what plain http leaves
+readable: it keeps out the household, not anyone who can capture the
+network's traffic. What stage 3 settled is under
+[Stage 3 as built](design-notes.md#stage-3-as-built).
+
+**Stage 4, the real machines, is Matt's and untried.** Everything above
+was checked with tests, a fake server and a headless browser on one PC.
+Nobody has yet set a passcode on the Linux service and signed in from a
+phone or another PC, tried Safari's password autofill, the home-screen
+icon, a session across a restart or an update, `auradream-server status`
+and `update.sh` through the passcode, or a wrong passcode's lock from a
+second device. Until that is done this finding is built, not proven.
 
 ### S3 an HTTPS route
 
@@ -201,6 +402,24 @@ copy by the pre-pull short commit, leave an existing copy for the same
 commit alone, keep the newest three, and write the way back in
 `docs/setup.md`.
 
+Built 2026-11-10. Both scripts name the copy
+`<stem>-before-update-<commit>.db` from `git rev-parse --short HEAD` read
+before the pull, leave a copy already there for that commit as it is, and
+delete all but the newest three commit-named copies beside the database
+(by modification time, this update's never among the deleted, each with its
+`-wal`/`-shm`). The old fixed name is used only when git answers no commit,
+and an existing fixed-name copy is never counted or deleted. A dry run
+prints the copy, the copy it would leave and each delete. The claims held
+as written: both scripts copied with `-Force`/`cp -f` to the one name.
+`docs/setup.md` has "Going back after an update"; the rule is in
+`docs/rules.md` beside the installer's. Tests:
+`tests/test_install_scripts.py` and `tests/test_linux_scripts.py`, the
+second update keeping the first copy among them. One consequence of the
+rule as written: a copy left alone is not refreshed, so after an update
+that pulled nothing, the next update from that same commit keeps the
+earlier copy, without the images made in between (their PNGs remain, and
+`backend.reindex` reads them back).
+
 ### S5 a log file
 
 `DEV#35`. Logging is `basicConfig` to stderr; job, cell, load and switch
@@ -212,6 +431,21 @@ configured level; the console unchanged. The file holds prompts and paths,
 so it is never bundled, exported or treated as gallery data, and is
 installed in `run`, not at import.
 
+Built 2026-11-10: `backend/log_file.py` writes `auradream.log` beside the
+database (5 MB, three older files), installed by `main.run` after the port
+checks and closed when the server stops. It receives the configured level's
+records and, at every level, any record with a traceback, which covers the
+job, cell, pass, load and switch sites unchanged; the `auradream` and
+`backend` loggers are opened to DEBUG for that and the console's handlers
+held at the configured level. `faulthandler` writes to the same file, kept
+on it across rollovers, unless it was already enabled. uvicorn takes
+`AURADREAM_LOG_LEVEL`, and its `uvicorn` logger (an unhandled route's
+traceback) is followed; `uvicorn.access` is not. The rollover moves the
+live file first, so one refused while another program holds the file open
+keeps the older files. Tests in
+`tests/test_log_file.py`; the reasons in `docs/design-notes.md` under "The
+log file".
+
 ### S6 the running commit
 
 `DEV#36`. The version is a static `0.1.0` and there are no tags.
@@ -219,6 +453,20 @@ installed in `run`, not at import.
 the running process after a pull without a restart. Read the short commit
 once at start-up (None when there is no git), log it, and add it to
 `/api/status` and the doctor. An in-page Machine check was cut to optional.
+
+Built 2026-11-10. `backend/build_info.py` asks `git rev-parse --short HEAD`
+in the project folder (None without a `.git` there, without git, or on any
+answer that is not a commit). `main` reads it once at import as `COMMIT`,
+beside `STARTED_AT`; `run` logs "AuraDream at commit ..." and
+`/api/status` carries it as `commit`. The doctor's new **Commit** row
+prints this folder's commit and, when AuraDream answers on the port, the
+running server's own (`server_probe.running_commit`): the two differing is
+a WARN that says to restart. `linux/control.sh status`, which
+`auradream-server status` runs, prints the running server's commit under
+"It answers" and says so when the checkout has moved on. The page shows
+nothing new, and the in-page Machine check stays cut. Tests:
+`tests/test_build_info.py`, `test_doctor.py`, `test_server_start.py`,
+`test_api.py` and `test_linux_scripts.py`.
 
 ### S7 error codes the page reads
 
@@ -232,6 +480,51 @@ models on every route and an OpenAPI snapshot were cut.
 First step: list each `err.message` test in `web/`, the server sentence it
 depends on and whether a test already pins it.
 
+Built 2026-11-10. The list, as the source had it (line numbers the tree's
+before the change); "pinned" means a pytest or a smoke asserted the
+sentence, none asserted that the page depended on it:
+
+| Page test | Sites | Server sentence | Pinned | Code now |
+|---|---|---|---|---|
+| `/unknown image/` | 18: `bin.js` 417, `facts.js` 223 and 428, `gallery-actions.js` 63 and 861, `inpaint.js` 890, `instruction-edit.js` 553 and 584, `lightbox-compare.js` 293 and 351, `lightbox.js` 833, `outpaint.js` 981, `reuse.js` 377 and 463, `sheet.js` 433, `sizes.js` 585 | "unknown image" (`api_gallery`: the record, the thumb, the star, the permanent delete) | `test_api_gallery.py` (the record only) | `image_unknown`, `image_binned` |
+| `/recycle bin/` | 5: `facts.js` 224, `gallery-actions.js` 862, `sizes.js` 585, `outpaint.js` 170, `generation.js` 707 | "unknown image (#N is in the recycle bin)"; the presets' "no gallery image with id N (#N is in the recycle bin)"; Re-render's "in the recycle bin" | `test_api_gallery.py`, `test_api_outpaint.py` | `image_binned`; `RerenderGone.binned` |
+| `/^no gallery image with id/` | `outpaint.js` 167 | the outpaint presets' 404 | `test_api_outpaint.py` | `image_unknown`, `image_binned` |
+| `/^no gallery image with id ([\d, ]+)$/`, `/^reference image ... in the recycle bin; /` | `generation.js` 531 | `storage.reference_paths` through a submission | `test_api_conditioning.py`, `test_storage.py` | `image_unknown`, `image_binned` with `ids` |
+| `/^no gallery image with id (\d+)\.?$/`, `/^source image (\d+) is in the recycle bin; /i` | `refine-rules.js` 135 (`sourceGoneKind`: Refine, Inpaint, Outpaint, Edit by instruction, their previews, the mask upload) | the same, and `POST /api/masks` | `test_api_refine.py`, `test_api_inpaint.py`, `smoke-refine` | the same |
+| `/^Instruction-edit source #(\d+) is missing or in the recycle bin\.?$/` | `instruction-edit.js` 208 | `instruction_edit_admission._prove` | `test_instruction_edit_queue.py` | `image_unknown`, `image_binned` with `ids` |
+| `/^\d+ batch/` | `more-seeds.js` 293 and 515 | "N batches × C is I images; a press may queue M." | `test_api_more_seeds.py` | `more_seeds_cap` |
+| `err.message.includes(name)` | `generation.js` 558, `refine-rules.js` 121 (`dropPassLora`) | "no LoRA named 'x' in ..."; the backend's mismatch sentence | `test_api_conditioning.py` (missing only) | `lora_missing`, `lora_mismatch` |
+| `/mask [0-9a-f]{16} ... has just gone ... no stored mask ... the file for mask/` | `inpaint.js` 428 (`maskGoneRefusal`) | `storage.mask_path`, `jobs.MaskGone` | `test_api_inpaint.py` | `mask_missing` |
+| `/selection changed/i` | `gallery-actions.js` 985 | Delete unstarred's 409 | `smoke-delete` | `selection_changed` |
+| `/intent\|receipt\|more seeds request/i` on a 409 | `more-seeds.js` 551 | the receipt ledger's two 409s | no | `more_seeds_receipt` |
+
+The claims held: the tests of a sentence number well over twenty, and no
+test would have failed on a rewording. The finding named four sentences;
+the list found six more of the same kind (the outpaint presets, a
+submission's sources and references, the edit's source, the mask, the
+stale count and the receipt), which were built with them.
+
+`backend/refusal_codes.py` holds the eight codes and `backend/refusals.py`
+the refusal that answers `code` (and `ids`) beside an unchanged `detail`;
+`api()` puts the code on the error and the page reads it through
+`imageGone`, `imageBinned`, `refusedIds` and `loraRefused` (`state.js`).
+No script in `web/` tests a refusal's message any longer. The cuts stand:
+no response models were added and there is no OpenAPI snapshot. Two
+answers became more exact on the way: an instruction edit's source is told
+deleted from binned by the server, where the page guessed from its own copy
+of the record, and a mask upload over a deleted source is said in the
+dialog's words, where the capitalised sentence had not matched the page's
+test. Left as it is: a pass dialog marking its Strength box where the
+sentence it is held with mentions strength (`/strength/i`), which marks a
+field and forgets, drops or resends nothing. Tests: `tests/test_refusal_codes.py` (each code beside its
+sentence, the page reading exactly the server's codes, no message test in
+`web/`); the rule is in `docs/rules.md` under Frontend and CLI and the
+reasons in `docs/design-notes.md` under "Refusal codes the page reads".
+The review of the build found two submission refusals still going out
+without their code, both fixed in `submission.unusable_input`: a gone
+source found by the upscaler's own look at it (`check_upscaler_source`),
+and a mask swept between the submission's two looks at it.
+
 ## Tooling and the page
 
 ### T1 the smoke driver hears page errors
@@ -243,6 +536,34 @@ In order: the driver records and then fails on them (report-only for one
 writing one deduplicated line to the error slot, the phone's only signal; a
 no-undef pass in `tools/check_classic_scripts.mjs`. A Node test suite for
 helpers was cut.
+
+Built 2026-11-10. The claim held: the driver enabled `Runtime` and read
+only the answers to its own calls. It now prints each
+`Runtime.exceptionThrown` as `! page error:` with the step it arrived
+during and exits 1 if any is left at the end; a rejection handled later
+(`Runtime.exceptionRevoked`) is taken back, and what a step's own
+expression throws stays that step's. The one whole run
+(`run_smoke.py --all --jobs 2`, Windows, Edge, every page error printed
+into the smoke's log) found none in 111 smokes, so the driver fails on them
+with nothing to fix or allow first. `app.js` adds `sayPageError`
+(`state.js`) for `error` and `unhandledrejection` before its other wiring:
+one line, `Page error: <message> (<file>:<line>). Reload the page if
+something has stopped working.`, in the panel's slot (over the bars on the
+phone's Create view, in the gallery's slot on its Gallery view), written
+once per distinct error. `tools/check_classic_scripts.mjs` has the
+no-undef pass, over Node's bundled acorn (`--expose-internals`, passed by
+the Python wrapper; no npm install), with the browser's globals a
+hand-kept list; it found no undefined name in the 75 scripts. Tests:
+`tests/test_browser_page_errors.py` (the real harness over a scripted
+DevTools socket), `tests/test_classic_scripts.py`, and steps at the end of
+`smoke-gallery-top` and `smoke-phone`, which dispatch the events by hand
+because a real throw fails the run. The rules are in `docs/rules.md`
+(Frontend, Tests), the reasons in `docs/design-notes.md` ("The smoke
+driver hears page errors"). Not built: a step that allows a page error.
+An error thrown while a script before `app.js` loads is not said on the
+page (the driver hears it). `smoke-phone-gallery` fails on this PC at its
+320 px "Search 160" fit, with or without this change; it is not a page
+error.
 
 ### T2 the scripts in CI
 
@@ -261,6 +582,29 @@ reason, dialog labels) guards the held-button convention. It is a
 regression guard and does not close `UI#7`. Shared step includes, a fast
 tier and dynamic ports were cut.
 
+Built 2026-11-10. The claim held: `phone_audit.js` reads boxes and type
+sizes only. `tools/a11y_audit.js` defines `__a11yAudit` (unnamed controls,
+duplicate ids, `aria-disabled` with neither a title nor described-by text
+on the element, open dialogs with no label; natively disabled controls
+listed, never failed), `__a11yWatch`, which audits every dialog as the
+smoke's own steps open and shut it, and `__a11yCheck`, one `expect` that
+prints what failed. 23 dialog smokes carry it: two steps after each
+navigate and the check before the next and last. The first run found no
+duplicate id, unnamed dialog or unnamed control, and four holds whose
+reason was not on the held element, all fixed in `web/`: the Then refine
+tick and More seeds' Refine each new image (the reason was the label's
+title only), and the greyed Padding box of Only the masked area in the
+Inpaint and Outpaint dialogs, which now says in its title that it is not
+used while the tick is off. `smoke-phone-dialogs` opened the count question
+without its label line, an empty label of the smoke's own making; its
+message has the line now. Tests: `tests/test_a11y_audit.py` (the smokes'
+shape, and the audit over markup of its own in a real browser, skipped only
+without Edge or Chrome). The rules are in `docs/rules.md` (Frontend, Tests),
+the reasons in `docs/design-notes.md` ("An injected accessibility audit").
+Left: nothing found was left unfixed. Not covered: what a screen reader
+says, focus, contrast, a glyph-only name (a ✕ counts as named), and dialog
+states no smoke reaches; `UI#7` stands as it was.
+
 ### T4 the lightbox loads its neighbours
 
 `UI#41`. Each step sets the full PNG as the picture's source; nothing
@@ -276,6 +620,26 @@ tier was cut.
 settings, model, LoRA name and an inpaint's mask. The button's title says
 so, but a touch screen shows no title. Share opens two rows, Picture only
 (a canvas re-encode in the page) and With settings.
+
+Built 2026-11-10. The finding held: `storage.save_image` writes the
+`parameters`, `auradream` and mask text chunks, and Share sent that file
+whole. Share on the phone's viewer now opens an action sheet
+(`openViewerShare` in `web/phone-viewer.js`) with **Picture only** and
+**With settings**. Picture only fetches the PNG, draws it on a canvas and
+encodes it again (`pictureOnlyBlob`), so the file has the same pixels and
+no text chunk; it is named `auradream-<id>.png`, since the stored file's
+name holds the checkpoint and the seed. With settings is the stored PNG as
+before. Where the browser shares no file (plain http to a LAN address) the
+button still reads Download and its two rows download; a share refused for
+want of the press downloads the same file it would have shared. A picture
+that cannot be redrawn (over iOS's 16,777,216 canvas pixels, or a failed
+encode) is an error in the viewer's line, never the stored PNG in its
+place; a walk to another image or the next file that is made clears it,
+as Download's failure is cleared. More's Download and the PC's lightbox
+are unchanged.
+`smoke-phone-gallery` checks the sheet, both files' chunks and pixels, the
+two download paths and the two refusals in Chrome; a real phone's share sheet has not been
+tried.
 
 ### T6 the guide from the page
 

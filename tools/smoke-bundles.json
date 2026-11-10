@@ -1,6 +1,8 @@
 [
   {"log": "'Gallery bundles on a fresh default fake on port 7897 with its own --data: all-model export, confirmation, merge, duplicates, raw upload and rejected archive. The fake starts with two other-model records, including one star.'"},
   {"navigate": "http://127.0.0.1:7897/"},
+  {"inject": "a11y_audit.js"},
+  {"eval": "__a11yWatch()"},
   {"eval": "window.__until = async (fn, ms = 20000) => { const end = Date.now() + ms; while (Date.now() < end) { try { if (await fn()) return true; } catch {} await new Promise((r) => setTimeout(r, 50)); } return false; }; window.__all = () => api('/api/gallery?limit=100&all_models=true'); window.__bundlePressOnce = (selector) => __until(() => !bundleActionHold()).then((idle) => { document.querySelector(selector).click(); return idle; }); window.__bundleRefusal = 'Another gallery request is still finishing. Try again in a moment.'; window.__bundleSaid = []; window.__bundlePresses = []; { const say = bundleSay; bundleSay = (message, failed) => { __bundleSaid.push(message); say(message, failed); }; } window.__bundlePress = async (selector) => { const record = { selector, refused: 0 }; __bundlePresses.push(record); for (let n = 0; n < 100; n++) { await __until(() => !bundleActionHold() && [...document.images].every((i) => !i.src || i.complete)); const said = __bundleSaid.length; document.querySelector(selector).click(); await __until(() => !bundleSending); if (!__bundleSaid.slice(said).includes(__bundleRefusal)) { record.said = els.bundleStatus.textContent; return true; } record.refused++; await new Promise((r) => setTimeout(r, 250)); } record.said = 'still refused'; return false; }; window.__bundleFields = (r) => JSON.stringify([r.prompt, r.negative_prompt, r.seed, r.steps, r.guidance_scale, r.true_cfg, r.mu, r.width, r.height, r.favorite, r.model_id, r.run_id]);"},
   {"expect": "__until(() => modelState === 'ready' && total === 0 && els.otherModels.textContent.includes('2'))"},
   {"eval": "document.querySelector(\"#btn-bundles\").scrollIntoView({block:'nearest'});"},
@@ -242,7 +244,10 @@
   {"expect": "__until(() => bundleStatus.id !== __lastBundleOp && bundleStatus.operation === 'export' && bundleStatus.state === 'done' && total === 0 && !bundleSettling && !bundleReading)"},
   {"expect": "els.bundleStatus.textContent.startsWith('Saved and verified 5 images') && deletedIds.size > 0"},
   {"log": "'Every press: how many times the server refused it for a read still finishing, and what the page then said: ' + JSON.stringify(__bundlePresses)"},
+  {"expect": "__a11yCheck()"},
   {"navigate": "http://127.0.0.1:7897/"},
+  {"inject": "a11y_audit.js"},
+  {"eval": "__a11yWatch()"},
   {"eval": "window.__until = async (fn, ms = 20000) => { const end = Date.now() + ms; while (Date.now() < end) { try { if (await fn()) return true; } catch {} await new Promise((r) => setTimeout(r, 50)); } return false; };"},
   {"expect": "__until(() => modelState === 'ready' && bundleStatus?.operation === 'export' && bundleStatus.state === 'done' && bundleHandled === bundleStatus.id)"},
   {"expect": "deletedIds.size === 0 && !bundleSettling && total === 0 && els.bundleStatus.textContent.startsWith('Last bundle operation: Saved and verified 5 images') && els.bundleStatus.textContent.includes('The gallery was cleared.') && !els.bundleStatus.textContent.includes('is empty')"},
@@ -391,5 +396,6 @@
   {"eval":"els.bundlePassword.value=els.bundlePasswordAgain.value=els.bundleUnlock.value='fixture-only';syncBundleControls();"},
   {"key":"Escape"},
   {"expect":"__until(()=>!els.bundlesDialog.open&&document.activeElement===els.bundles&&[els.bundlePassword,els.bundlePasswordAgain,els.bundleUnlock].every(el=>el.value===''))"},
-  {"media":{"forced-colors":"","prefers-reduced-motion":""}}
+  {"media":{"forced-colors":"","prefers-reduced-motion":""}},
+  {"expect": "__a11yCheck()"}
 ]

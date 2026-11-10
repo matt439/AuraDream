@@ -86,6 +86,14 @@
     flex: none; min-height: var(--h-md); height: var(--h-md); margin: 0; padding: 0 var(--sp-3);
     font-size: var(--fs-md);
   }
+  /* Under 360 px the search has under 70 px for its words, and "Search 160"
+     is 77 px in Segoe UI (narrower in the smokes' Linux fonts, which hid
+     it): the search and Select give up padding, never their 44 px height
+     or the 8 px between the controls. */
+  @media (width < 360px) {
+    .gallery-head #search { padding: 0 var(--sp-1) 0 var(--sp-2); }
+    .gallery-head > #btn-select { padding: 0 var(--sp-2); }
+  }
 
   /* The gallery's line (#gallery-footer's #gallery-error): under the row,
      over the cards, out of the flow, so a message moves nothing; a card on

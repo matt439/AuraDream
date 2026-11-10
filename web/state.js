@@ -208,6 +208,7 @@ const els = {
   lastRunShow: $('last-run-show'), lastRunMore: $('last-run-more'), lastRunResume: $('last-run-resume'), lastRunDismiss: $('last-run-dismiss'),
   runList: $('run-list'),
   dot: $('status-dot'), statusText: $('status-text'), statusAside: $('status-aside'), vram: $('vram'),
+  signIn: $('btn-sign-in'), signOut: $('btn-sign-out'), signOutRow: $('model-sign-out'),
   jobMirror: $('job-mirror'), topbarLine: $('topbar-line'), topbarFill: $('topbar-fill'),
   lightbox: $('lightbox'), lbImg: $('lb-img'), lbMeta: $('lb-meta'), lbClose: $('lb-close'),
   lbPrompt: $('lb-prompt'), lbSettings: $('lb-settings'), lbCount: $('lb-count'),
@@ -376,6 +377,9 @@ let statusPending = false;
 // that did answer started - a change is a restart, which ended every job.
 let modelState = null;
 let serverOffline = false;
+// The server asks for a passcode and this browser's session has ended (a
+// 401 coded `passcode_required`, api()): the topbar says so, with Sign in.
+let signedOut = false;
 let serverStartedAt = null;
 // The server's clock less this page's (seconds), from the last status: a
 // pause's `paused_at` is the server's time, and a WSL server's clock drifts
@@ -691,6 +695,9 @@ const OFFLINE_MESSAGE = 'No answer from the AuraDream server — is it still run
 // topbar's mirror of it and the tab's title use too while its stream
 // reconnects (job-stream.js): one phrase, not three.
 const LOST_PHRASE = 'server not answering — retrying';
+// The topbar's words, in the same place, for a server that asks for its
+// passcode again (status.js, goSignedOut); Sign in is the button beside it.
+const SIGNED_OUT_PHRASE = 'signed out';
 
 // Every /api/ request carries the checkpoint revision the page last saw; the
 // server alone decides which routes refuse a stale one, so a model-dependent
@@ -719,8 +726,15 @@ async function api(path, options) {
     try { body = await res.json(); detail = body?.detail ?? detail; } catch { /* non-JSON body */ }
     // The status too, for a caller that tells "gone" from "refused" (a job
     // the server no longer knows is a 404), and the body for one that reads a
-    // field beside `detail` (the bundle preview's missing `image_id`).
-    throw Object.assign(new Error(readableDetail(detail)), { status: res.status, body });
+    // field beside `detail` (the bundle preview's missing `image_id`). And
+    // the refusal's `code`, where the server gives one: what the page acts
+    // on, never the sentence (the readers below).
+    const code = typeof body?.code === 'string' ? body.code : null;
+    // The passcode's gate (backend/passcode.py): this browser's session has
+    // ended. Whatever was asked, the topbar says so; the caller still gets
+    // the refusal, whose sentence says to reload and sign in.
+    if (res.status === 401 && code === 'passcode_required') goSignedOut();
+    throw Object.assign(new Error(readableDetail(detail)), { status: res.status, body, code });
   }
   const body = res.status === 204 ? null : await res.json();
   const advisory = /^\/api\/(?:prompt\/|tags\/|loras$|grid\/preview$|swap-tags\/preview$|refine\/batch\/preview$|more-seeds\/preview$|png\/settings$|runs\/[^/]+(?:\/finish\/preview)?$)/.test(path.split('?')[0]);
@@ -728,6 +742,27 @@ async function api(path, options) {
     throw Object.assign(new Error('The checkpoint changed while this request was running. Try again with the current checkpoint.'), { status: 409 });
   }
   return body;
+}
+
+// What the page does about a refusal is decided by its `code`
+// (backend/refusal_codes.py), never by the server's sentence, which may be
+// reworded: an error without the code is only shown.
+// The image asked for is no longer in the gallery - deleted, or in the
+// recycle bin (`imageBinned`, where the server says which).
+function imageGone(err) {
+  return err?.code === 'image_unknown' || err?.code === 'image_binned';
+}
+function imageBinned(err) {
+  return err?.code === 'image_binned';
+}
+// The gallery ids a refusal names: a submission's sources and references.
+function refusedIds(err) {
+  const ids = err?.body?.ids;
+  return Array.isArray(ids) ? ids.filter((id) => Number.isInteger(id)) : [];
+}
+// The request's adapter was refused: no such file, or not this checkpoint's.
+function loraRefused(err) {
+  return err?.code === 'lora_missing' || err?.code === 'lora_mismatch';
 }
 
 // FastAPI's own 422s carry a list of {loc, msg, ctx, input} objects, which as
@@ -787,6 +822,38 @@ function showError(message, note = false, {
   els.lbError.hidden = !(shown && message);
   els.lbError.textContent = shown ? message || '' : '';
   els.lbError.classList.toggle('note', note);
+}
+
+// The page's own `error` and `unhandledrejection` listener (app.js adds it
+// first of all): an exception nothing caught used to be said only in the
+// console, which a phone does not have - a press that threw looked like a
+// press that did nothing. One line in the panel's slot (the gallery's on the
+// phone's Gallery view, where the panel is not drawn), naming the error and
+// where the browser says it came from; the same error again writes nothing
+// (a handler that throws on every poll would hold the slot against every
+// other message, and announce itself each time). It never throws itself and
+// never calls preventDefault: the console and the smoke driver still hear
+// the error.
+const pageErrorsSaid = new Set();
+function sayPageError(event) {
+  try {
+    const rejected = event.type === 'unhandledrejection';
+    const thrown = rejected ? event.reason : event.error;
+    // A window `error` with no error object is the browser's own notice (a
+    // ResizeObserver loop), not anything the page threw.
+    if (!rejected && thrown == null) return;
+    const said = String(thrown?.message || thrown || (rejected ? 'a promise was rejected' : 'unknown error'));
+    const at = String(thrown?.stack ?? '').match(/([\w.-]+\.js):(\d+)/)
+      ?? (event.filename ? [null, String(event.filename).split('/').pop(), event.lineno] : null);
+    const line = `Page error: ${said.slice(0, 200)}${at ? ` (${at[1]}:${at[2]})` : ''}.`
+      + ' Reload the page if something has stopped working.';
+    if (pageErrorsSaid.has(line)) return;
+    pageErrorsSaid.add(line);
+    // On the phone the line is said where the screen is: under the gallery's
+    // head in the Gallery view, over the bars in Create (sayAtGenerate).
+    if (isPhone() && phoneView === 'gallery') showError(line, false, { slot: els.galleryError });
+    else { showError(line); sayAtGenerate(); }
+  } catch { /* the reporter itself must never be the next page error */ }
 }
 
 // The server answers again: every message about it not answering goes, where

@@ -194,3 +194,40 @@ def test_snippets_bypass_gallery_admission_and_model_switch(client, monkeypatch,
         assert client.get("/api/gallery").status_code == 409
         assert client.get("/api/snippets-other").status_code == 409
         assert client.get(f"/api/snippets/{item['id']}/unrelated").status_code == 409
+
+
+# The third destination (GEN#54): a saved `name = a | b` block for the grid's
+# Prompt variables box. The server stores the text as it stores a prompt's.
+VARIABLES = "size = big | small | none\nground = grass | dirt"
+
+
+def test_a_variables_block_is_saved_verbatim_under_its_own_target(tmp_path):
+    database = tmp_path / "gallery.db"
+    first = snippets.change(database, SnippetFields(name="Sizes", text=VARIABLES, target="variables"))[0]
+    assert (first.name, first.text, first.target, first.revision) == ("Sizes", VARIABLES, "variables", 1)
+    assert snippets.read(database) == [first]
+    stored = json.loads(snippets.path_for(database).read_text(encoding="utf-8"))
+    assert stored["version"] == 1
+    assert stored["items"][0]["target"] == "variables" and stored["items"][0]["text"] == VARIABLES
+    # The text is never parsed: what the grid would refuse is still a snippet.
+    odd = snippets.change(database, SnippetFields(name="Odd", text="no equals sign {here}", target="variables"))[1]
+    assert odd.text == "no equals sign {here}"
+    moved = snippets.change(database, SnippetUpdate(
+        name="Sizes", text=VARIABLES, target="prompt", revision=1,
+    ), item_id=first.id)[0]
+    assert (moved.target, moved.revision) == ("prompt", 2)
+
+
+def test_api_takes_the_variables_target_and_still_refuses_an_unknown_one(client, fake, store):
+    body = {"name": "Sizes", "text": VARIABLES, "target": "variables"}
+    created = client.post("/api/snippets", json=body)
+    assert created.status_code == 201, created.text
+    item = created.json()["items"][0]
+    assert (item["target"], item["text"]) == ("variables", VARIABLES)
+    assert client.get("/api/snippets").json()["items"] == [item]
+    for target in ("variable", "grid", "Variables", ""):
+        refused = client.post("/api/snippets", json={**body, "target": target})
+        assert refused.status_code == 422, target
+    updated = client.put(f"/api/snippets/{item['id']}", json={**body, "text": "a = 1 | 2", "revision": 1})
+    assert updated.status_code == 200, updated.text
+    assert updated.json()["items"][0]["text"] == "a = 1 | 2"

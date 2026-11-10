@@ -1,6 +1,8 @@
 [
   {"log": "'the recycle bin against a fake server claiming Krea 2 Turbo on 7903 (a fresh --data): ⌦ bins with no question, its tombstone and the note whose Restore puts the card back in its box, a run of deletes in one note; the lightbox Del bins once however long it is held, and the note Restore survives its own press; Bin in the footer and the bin view - its count and head, the held controls with their reason, its cards Restore and Delete permanently, Restore picked, Empty recycle bin with its question, its count and its ids pinned (409) and its empty line; a star refused in the bin; a job ending meanwhile; leaving it by a search and by a run; the bundle preview counting it'"},
   {"navigate": "http://127.0.0.1:7903/"},
+  {"inject": "a11y_audit.js"},
+  {"eval": "__a11yWatch()"},
   {"eval": "window.__until = async (fn, ms = 20000) => { const end = Date.now() + ms; while (Date.now() < end) { try { if (fn()) return true; } catch { /* not yet */ } await new Promise((r) => setTimeout(r, 50)); } return false; };"},
   {"expect": "__until(() => document.getElementById('status-dot').className.includes('ready'))"},
   {"eval": "resetPanel(); showError(''); window.__post = (path, body) => fetch(path, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}).then((r) => r.json()); window.__wait = async (id) => { for (let i = 0; i < 600; i++) { const s = await (await fetch('/api/jobs/' + id)).json(); if (s.status !== 'queued' && s.status !== 'running') return s; await new Promise((r) => setTimeout(r, 100)); } }; window.__conf = []; askConfirm = (m) => { __conf.push(m); return false; }; window.__card = (id) => document.querySelector('#gallery .card[data-id=\"' + id + '\"]'); window.__binCount = () => els.bin.querySelector('.count').textContent.trim();"},
@@ -319,5 +321,6 @@
   {"key":" "},
   {"expect":"__until(()=>!binMode&&!galleryPending)"},
   {"media":{"forced-colors":"","prefers-reduced-motion":""}},
-  {"viewport":[1400,900]}
+  {"viewport":[1400,900]},
+  {"expect": "__a11yCheck()"}
 ]

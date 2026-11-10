@@ -1,7 +1,9 @@
 """The load-time guard uses JavaScript's own parser; it never boots the page."""
 from __future__ import annotations
 
+import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -43,11 +45,84 @@ def test_allowed_sharing_and_app_boot_are_never_executed(tmp_path):
     index = _page(tmp_path, {
         "state.js": "let shared; var repeated; function helper() {}",
         "other.js": "var repeated; function helper() {} function readsShared() { return shared; }",
-        "app.js": f"let appState = helper(); throw Error('booted'); require('node:fs').writeFileSync({str(marker)!r}, 'x');",
+        "app.js": f"let appState = helper(); throw Error('booted'); globalThis.require('node:fs').writeFileSync({str(marker)!r}, 'x');",
     })
     done = _run(index)
     assert done.returncode == 0, done.stdout + done.stderr
     assert not marker.exists()
+
+
+# ------------------------------------------------------------------ no-undef
+
+def test_a_name_no_script_declares_fails_with_its_place(tmp_path):
+    done = _run(_page(tmp_path, {
+        "state.js": "let shared;",
+        "app.js": "'use strict';\nfunction press() {\n  return sharde + 1;\n}",
+    }))
+    assert done.returncode == 1
+    assert "app.js:3:10 'sharde' is not defined" in done.stderr
+    assert "BROWSER_GLOBALS" in done.stderr
+
+
+@pytest.mark.parametrize("source", [
+    "function f() { undeclared = 1; }",                 # an implicit global is a misspelling too
+    "function f() { if (true) { let inner; } return inner; }",  # a block's name ends with it
+    "const f = (a = missing) => a;",
+    "function f() { return { [missing]: 1 }; }",
+    "function f() { for (const i of []) {} return i; }",
+    "function f() { try {} catch (e) {} return e; }",
+    "const f = function named() {}; function g() { return named; }",
+    "function f() { const { a: renamed } = {}; return a; }",
+    "class A { m() { return missing; } }",
+    "function f() { return process.env; }",              # Node's globals are not the page's
+])
+def test_what_the_no_undef_pass_refuses(tmp_path, source):
+    done = _run(_page(tmp_path, {"app.js": "'use strict';\n" + source}))
+    assert done.returncode == 1, done.stdout + done.stderr
+    assert "is not defined" in done.stderr and "app.js:2:" in done.stderr
+
+
+@pytest.mark.parametrize("source", [
+    # a later script's top-level binding, read from a function body
+    "function f() { return later + laterFn() + new Later(); }",
+    "function f() { return typeof neverDeclared === 'undefined'; }",
+    "function f() { return document.missing.member + window.other; }",
+    "function f({ a, b: [c, ...d], ...rest } = {}, ...more) { return a + c + d + rest + more + arguments.length; }",
+    "function f() { return hoistedVar + inner(); var hoistedVar; function inner() {} }",
+    "function f() { out: for (let i = 0; i < 1; i++) { continue out; } return { key: 1, method() {} }; }",
+    "function f() { switch (1) { case 1: { break; } default: let scoped; return scoped; } }",
+    "class A extends Object { #p = 1; static s = 2; get p() { return this.#p + A.s; } }",
+    "function f() { try {} catch {} return [Math.max, JSON, Promise, console, globalThis, undefined, NaN]; }",
+    "const g = function self() { return self; }; function f() { return new.target; }",
+    "function f() { let a; [a, later] = [1, 2]; ({ a } = {}); return `${a}`; }",
+])
+def test_what_the_no_undef_pass_allows(tmp_path, source):
+    done = _run(_page(tmp_path, {
+        "app.js": "'use strict';\n" + source,
+        "later.js": "let later; function laterFn() {} class Later {}",
+    }))
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert "undefined names in 2 classic scripts" in done.stdout
+
+
+def test_a_sloppy_scripts_block_function_is_a_name_of_its_function(tmp_path):
+    source = "function f() { if (true) { function inner() {} } return inner; }"
+    assert _run(_page(tmp_path, {"app.js": source})).returncode == 0
+    done = _run(_page(tmp_path, {"app.js": "'use strict';\n" + source}))
+    assert done.returncode == 1 and "'inner' is not defined" in done.stderr
+
+
+def test_the_no_undef_pass_needs_nodes_bundled_parser():
+    # Without --expose-internals the parser is out of reach: a failure, never a skipped pass.
+    node = shutil.which("node")
+    assert node is not None
+    done = subprocess.run(
+        [node, str(ROOT / "tools" / "check_classic_scripts.mjs")],
+        input=json.dumps([{"filename": "app.js", "source": "let fine;"}]),
+        capture_output=True, text=True, encoding="utf-8", timeout=40,
+    )
+    assert done.returncode == 1
+    assert "bundled parser is not reachable" in done.stderr
 
 
 @pytest.mark.parametrize("declaration", ["let name", "const name = 2", "class name {}", "var name", "function name() {}"])

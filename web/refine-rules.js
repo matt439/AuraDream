@@ -110,15 +110,15 @@ function refineSizeProblem(w, h) {
   return null;
 }
 
-// An adapter removed or renamed since a pass dialog opened, named by a
-// refusal: taken out of the pass and said. `pass` is the dialog's own -
+// An adapter removed or renamed since a pass dialog opened, refused by its
+// code (loraRefused): taken out of the pass and said. `pass` is the dialog's own -
 // `lora()`/`source()` read its lets as they are now, `drop()` clears the one
 // and counts the drop, `carried` the line naming it, `failed` the error line,
 // `noun` what the words call the pass and `run` its button. Answers whether
 // it went.
-async function dropPassLora(message, source, pass) {
+async function dropPassLora(err, source, pass) {
   const name = pass.lora()?.name;
-  if (!name || !message?.includes(name)) return false;
+  if (!name || !loraRefused(err)) return false;
   const body = await refreshLoras();
   if (!body || pass.source() !== source || pass.lora()?.name !== name) return false;
   const entry = (body.loras ?? []).find((e) => e.name === name);
@@ -131,12 +131,17 @@ async function dropPassLora(message, source, pass) {
 }
 
 // Whether a refusal says `source` has gone: 'deleted', 'binned' or null.
-function sourceGoneKind(message, source) {
-  const deleted = /^no gallery image with id (\d+)\.?$/.exec(message ?? '');
-  const binned = /^source image (\d+) is in the recycle bin; /i.exec(message ?? '');
-  const match = deleted ?? binned;
-  if (!source || !match || +match[1] !== source.id) return null;
-  return binned ? 'binned' : 'deleted';
+// By the refusal's code and the ids it names, never its sentence.
+function sourceGoneKind(err, source) {
+  if (!source || !imageGone(err) || !refusedIds(err).includes(source.id)) return null;
+  return imageBinned(err) ? 'binned' : 'deleted';
+}
+
+// The refusal behind the words in a pass dialog's line after a refused
+// submission: startJob's error (`onRefused`) while the line still says it,
+// else the words alone, which carry no code and so are only shown.
+function shownRefusal(err, text) {
+  return err && err.message === text ? err : { message: text };
 }
 
 // The page's words for it, by the dialog's verb ("refine", "inpaint",
@@ -160,6 +165,9 @@ const INPAINT_FAMILIES = 'The FLUX.1, SDXL and Z-Image checkpoints have it.';
 const MASK_CROP_RULE = 'bbox16';
 const MASK_CROP_PAD = 32;
 const MASK_CROP_TIER = 1;
+// Why the padding is greyed while the tick is off, as its title: the box is
+// aria-disabled then and still takes a value for a later tick.
+const MASK_CROP_PAD_OFF = 'Not used while Only the masked area is off; a value typed here is kept for when it is ticked';
 
 // Why an inpaint cannot run here, one sentence wherever the page says it: no
 // inpaint pipeline in the installed diffusers, or one the app has not enabled

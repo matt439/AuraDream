@@ -152,11 +152,12 @@ class ExpanderStatus(BaseModel):
 class KeepAwakeStatus(BaseModel):
     """Whether the server holds the PC awake (`keep_awake`), from its last
     check: the status poll starts no process. kind is "systemd-inhibit" on
-    Linux with it on the PATH, "none" where nothing can be held, "off" with
-    AURADREAM_KEEP_AWAKE=false. A refused hold is wanted but not holding,
-    with systemd-inhibit's words in detail."""
+    Linux with it on the PATH, "power-request" on Windows, "none" where
+    nothing can be held, "off" with AURADREAM_KEEP_AWAKE=false. A refused
+    hold is wanted but not holding, with systemd-inhibit's or Windows' words
+    in detail."""
 
-    kind: Literal["systemd-inhibit", "none", "off"]
+    kind: Literal["systemd-inhibit", "power-request", "none", "off"]
     holding: bool = False
     wanted: bool = False
     reasons: list[str] = Field(default_factory=list)
@@ -236,6 +237,11 @@ class ModelStatus(BaseModel):
     # sees it change knows the server restarted, and that every job it was
     # following ended with it.
     started_at: float | None = None
+    # The checkout's short Git commit as the server process started
+    # (`build_info.read_commit`, read once at import): after a pull without a
+    # restart it is still the old one, which the checkout's own no longer
+    # says. None when it could not be told (no Git checkout, no git).
+    commit: str | None = None
     # The server's clock now (Unix seconds): a pause's `paused_at` is on it,
     # and a WSL server's clock is a VM's, which drifts from the host's over a
     # sleep - the page counts a pause's minutes against this, not its own.
@@ -298,3 +304,7 @@ class ModelStatus(BaseModel):
     prompt_critic: CriticStatus | None = None
     # Keeping the PC awake while busy; None outside the server's lifespan.
     keep_awake: KeepAwakeStatus | None = None
+    # Whether this server asks for a passcode (`passcode.py`): true while
+    # its gate is on, which is when the page offers Sign out. Never the
+    # passcode, nor whether an unasked one is set.
+    passcode: bool = False

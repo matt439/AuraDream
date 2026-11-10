@@ -80,3 +80,57 @@ Author-example assertions identify those items explicitly. The native Undo
 check also exposed a harness gap: Ctrl+Z now carries its physical Z key code.
 Insertion uses the existing `rewriteBox` wrapper after closing the modal;
 the shared write helpers are unchanged. No real model was loaded or downloaded.
+
+## Addendum 2026-11-10: a third target, the grid's variables
+
+`GEN#54`, from [R8 of the 2026-11-10 review](review-2026-11-10-peers.md#r8-a-snippet-target-for-grid-variables).
+A `name = a | b` block was kept only inside a saved setup, which restores
+the whole composer with it. A snippet may now name a third destination,
+**Grid variables** (`target: "variables"`), beside Prompt and Negative
+prompt.
+
+Behaviour:
+
+- Insert writes the saved text into Grid search's Prompt variables box as it
+  writes a prompt: Append (the default) or Prepend, one newline between
+  nonempty pieces, the saved text verbatim, never a replacement. A variable
+  is one line, so the newline join is what keeps two blocks apart.
+- The dialog closes first, the Grid search fold is opened (a shut fold's box
+  takes no focus, and a block written into a shut fold would not be seen),
+  and the write goes through `rewriteBox`, so one Ctrl+Z restores the box.
+  On the phone the box lives in More options, so that sheet opens first.
+  The grid preview, the comparison preview, the variable chips and the
+  remembered panel are told as typing tells them.
+- The text is not parsed, by the page or the server. The grid's own preview
+  reads the box afterwards and refuses what it always refused (a malformed
+  line, an unused variable, more than its 2,000 characters), in its own
+  words. Expansion, `CellKey`, run ids and saved records are untouched: a
+  snippet is text typed for you.
+- The placeholder still has to be in the prompt. A variables snippet does
+  not write `{name}` anywhere.
+
+Storage and portability:
+
+- The sidecar and the portable document keep version 1; `target` gains one
+  value. Names collide per target as before, so a Prompt and a Grid
+  variables snippet may share a name, and an import's Replace only offers
+  snippets of the same target.
+- A build from before this addendum refuses a sidecar or an export file
+  holding a variables snippet whole, in its usual words, and leaves the
+  file unchanged. Nothing is dropped or retargeted on either side. Files
+  without one read as they did, with the same digests.
+
+Cut, as the review records: resolving a bare `{name}` on the server from the
+saved snippets, and style templates with a `{prompt}` slot. No variable
+library, no per-line picker, and no insertion into a saved setup.
+
+Verification: `tests/test_snippets.py`, `tests/test_snippet_portability.py`
+and `tests/test_api_snippet_portability.py` gain the third target (CRUD,
+export, round trip, per-target collisions, an unknown target still
+refused); `smoke-snippets` appends and prepends a block into a shut fold
+with Ctrl+Z, and checks the grid preview read it; `smoke-phone-dialogs`
+checks that the phone's More options opens for the box on one history entry.
+
+Built 2026-11-10 as written. The three test files pass (170 tests), and
+`smoke-snippets`, `smoke-phone-dialogs` and `smoke-snippet-portability` pass
+on Windows against scratch fake servers. No model was loaded.

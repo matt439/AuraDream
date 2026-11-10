@@ -290,6 +290,87 @@ attaches before the first image (79c18a8). `backend.generate` takes the same
 hold (`hold_while`) from its load to its last cell; under `--via-server` the
 server holds it.
 
+**Keeping the Windows PC awake (2026-11-10).** `platform_inhibitor` held
+nothing off Linux, while the 5080 PC had come to be driven from a phone with
+no keyboard or mouse touched. Windows now gets a holder of its own behind
+the same `Holder` shape, so the providers, the counted holds, the idle
+minutes, `counts_as_activity`, the status field and the doctor's row are
+the ones above, unchanged:
+
+- The hold is a power request: `PowerCreateRequest` with the reason as a
+  simple string, then `PowerSetRequest(PowerRequestSystemRequired)`.
+  Release is `PowerClearRequest` and `CloseHandle`. Windows closes the
+  handle when the process dies in any way, which is the pipe's guarantee
+  on Linux: nothing is left holding the PC awake.
+- `SetThreadExecutionState` was not used. Its state belongs to the calling
+  thread, and the controller runs `hold` and `release` through
+  `asyncio.to_thread`, on whichever worker thread is free: a release on
+  another thread would clear nothing, and the hold would end when its
+  thread did. A handle belongs to the process.
+- Only the system is asked for, matching Linux's `sleep:idle`: the display
+  may turn off. A sleep someone asks for (the Start menu, the power button,
+  a lid) is not an idle sleep and still happens. No power setting or plan
+  is read or changed, and nothing runs `powercfg`.
+- A refused call raises `OSError` in Windows' words (the call, the error
+  code, `FormatError`'s text), is `wanted` but not `holding` in the status,
+  and is not asked again for `RETRY_AFTER`, so the log line's "tried again
+  every 5 minutes" is true of both holders. A handle Windows gave before
+  refusing to set it is closed.
+- The four calls sit behind `PowerApi`, and `Kernel32Power` binds kernel32
+  at its first call, so building a `PowerRequest` loads nothing and the
+  tests fake the calls on any system. `REASON_CONTEXT`'s fields are fixed
+  32-bit ones (`c_ulong` is 64 bits on Linux), so its layout is tested
+  there too.
+- The status's `kind` gains `power-request`. The page reads no part of
+  `keep_awake`, so nothing changes there.
+
+The review's done sound and an action when the queue empties were cut and
+are not built. What is not measured: that the PC stays awake past its sleep
+timer while the request is held. The one real call made (2026-11-10, this
+PC) was a request Windows accepted and that was released at once.
+
+**Who may frame the page.** A page on another site that frames the app gets
+the app's own origin inside the frame, so a click it steers there is a
+same-origin write: the Host header is the app's and so is the `Origin`, and
+both checks pass it. The peer review of 2026-11-10 found no response said
+otherwise (`DEV#31`). `response_headers.ResponseHeadersMiddleware` now adds
+`Content-Security-Policy: frame-ancestors 'self'` and
+`X-Content-Type-Options: nosniff` to every response. It is a plain ASGI
+layer for the reason the activity note is, and the last one `main` adds, so
+the outermost: the Host check's 400 and the cross-site 403 carry the
+headers as the routes and both mounts do. `'self'` and not `'none'`,
+because the smokes open a second tab as an iframe of `/`. No
+`X-Frame-Options` beside it: every browser the page runs in reads
+`frame-ancestors`, and the older header can only say the same thing less
+exactly. nosniff has one cost: a browser then refuses a script not served
+as JavaScript, and `StaticFiles` asks `mimetypes`, which on Windows reads
+the registry over its own table, where some programs register `.js` as
+`text/plain`. The module pins `.js` and `.css` so such a machine still gets
+a page. Starlette's own 500 for an unhandled error comes from a layer
+outside every one an app can add, so it would carry neither header. The
+layer therefore answers an unhandled error itself, with the same status and
+the same "Internal Server Error" text, and raises the error again:
+Starlette's layer finds a response already begun, sends nothing and raises
+it on, so the server logs the traceback as before. An error after a
+response began is only raised on. A full `script-src` policy is a separate,
+larger item and was not opened.
+
+**The running commit (`DEV#36`, 2026-11-10).** The version is a static
+`0.1.0` and nothing is tagged, so the commit is the only version there is.
+`control.sh status` printed the checkout's, which after a `git pull`
+without a restart is no longer what the process runs. The process now
+reads its own once, at import (`main.COMMIT`, from
+`build_info.read_commit`), and never again: reading it per request would
+report the checkout's new commit for old code, the very thing it exists to
+tell apart. It is in the start-up log, `/api/status` (`commit`),
+`control.sh status` and the doctor's Commit row, which asks the running
+server on loopback and warns when this folder has moved on. It is git's
+own answer rather than a parse of `.git`, which has packed refs, worktree
+files and detached heads to get wrong; without git, or in a folder with no
+`.git` of its own, it is None and each place says "unknown". A dirty tree
+is not reported. The page shows nothing: an in-page Machine check was cut
+by the review.
+
 **The 8 GB card.** The measured Linux machine has an RTX 3070 (8 GB,
 compute capability 8.6), where the 5080 has 16 GB. torchao's fp8
 weight-only quantization (`Float8WeightOnlyConfig`) runs there: the weights
@@ -738,6 +819,31 @@ catalogue. Tests never reach the Hub (`conftest.no_hub` stubs
 asks it either, and `POST /api/fake/model {access: "gated"|"not_found"}`
 refuses its switches for the page checks. Not checked on the real Hub from
 here: the wording against a real refusal on a machine without access.
+
+**Capability flags in the notes, and one table (2026-11-10, `GEN#56`).**
+The picker said Style, Refine, Size and Speed; whether a checkpoint
+inpaints, takes references or a LoRA, has a negative prompt, draws a live
+preview or expands a prompt was found by loading it, and no document held
+the catalogue side by side. The flags went into a note, not columns, as
+the review asked: seven more cells a row would not fit beside the four the
+table has. Each flag already has one place that decides it, so
+`model_info.capabilities_for` asks those places by id and adds no
+knowledge of its own. Two things had no cold answer. Expand's rule by id
+lived inside the backend's method, so it moved to
+`loading.prompt_expander_by_id` and the backend and the fake call it. The
+live preview is decided by the loaded VAE's class, so `_LATENTS` names each
+catalogue entry's latents in `latent_preview`'s own key and the flag is
+whether a map is fitted for it; an entry added without one fails a test.
+That table is from the loaders and docs/verified.md's records: frames were
+seen on the card for FLUX.1 Krea [dev], Z-Image Turbo, Z-Anime, the three
+Anima variants, NetaYume and NewBie, and their absence for SDXL, ERNIE and
+FLUX.2 [klein]; the other rows carry their family's answer, unlooked at.
+docs/usage.md's table is generated from the same function and a test
+holds the document to it. A change to usage.md alone runs no tests (it is
+documentation to `tools/ci_changes.py`), so a hand edit inside the markers
+is caught at the next code change, not in its own pull request;
+`tests/test_ci_changes.py` names that exception. Closing it means adding
+the file to `_TESTED_PROSE`, a CI-definition change left for Matt.
 
 That Qwen-Image fits this card only as its 4-bit Nunchaku build was said
 only in a code comment; on Windows its row offered FP8, INT8 and BF16 with
@@ -5624,7 +5730,24 @@ same way, saying once that it is waiting, until a second Ctrl-C: its save
 sat outside the per-cell `try`, so a `GalleryBusy` reached the outer
 handler, discarded the image and ended the night with exit 1 (review
 2026-10-12, R35). Its `--resume` lookup, before anything renders, refuses
-in one line instead of a traceback. The reservation is also a per-process RLock
+in one line instead of a traceback. A full disk is held like the busy
+gallery, but paused rather than polled (review 2026-11-10, R6): `ENOSPC`
+or SQLite's "database or disk is full" was a failed cell, so a disk that
+filled overnight cost three renders, each into the same disk, before the
+failure rule ended the job. Room is the user's to make, so the job pauses
+with the reason and tries that image again at Resume; `save_image` takes
+its `.png.part` and thumbnail back on each refusal, so the retries leave
+nothing. The pause is inside the unit, which `_hold` otherwise never is,
+and frees the card's cache as any pause does. A submit-time space check
+was cut: the size of a night's PNGs is not known at submit. `generate.py`
+has no Resume button and is often left running unattended, so it holds
+the image and tries the save again every five seconds rather than
+stopping: stopping would end an overnight grid at its first refused save
+though the disk had room a minute later, and a wait is what the same loop
+already does for a busy gallery. It says the reason once; the first
+Ctrl-C ends the wait and the run as a cancel, and `--resume` renders that
+cell again. Before this its save was outside the per-cell `try`, so the
+error ended the whole run with exit 1 (`GEN#57`). The reservation is also a per-process RLock
 that every read takes, so `save_image` encodes its PNG and WEBP to `.part`
 files before reserving: held through a 2048x2048 encode, a 3 ms `get_image`
 on another thread took 330 ms. The sweeps do glob `*.part`; only their
@@ -8799,6 +8922,22 @@ clears it, so a reopened dialog cannot send the write a second time (`UI#35`,
 which applies the same rule to Saved setups). Insertion uses `rewriteBox` to preserve page scroll and native Undo;
 the browser harness sends Ctrl+Z's physical key code to exercise that native
 history rather than an application key handler.
+
+A third target, Grid variables, came from the 2026-11-10 review (`GEN#54`,
+[R8](review-2026-11-10-peers.md#r8-a-snippet-target-for-grid-variables)): a
+`name = a | b` block was kept only inside a saved setup, whose Restore
+replaces the whole composer. The snippet is text typed for you and nothing
+more. It is stored verbatim, never parsed, and joined to the box with the
+same newline, which is also what separates two variables. The grid's
+preview stays the only reader of the box, so expansion, `CellKey` and run
+ids did not move, and a block the grid would refuse is refused there in its
+usual words. The fold is opened before the write because a shut fold's box
+cannot take the focus `execCommand` needs: the write would fall back to
+`.value`, lose Ctrl+Z and raise no `input`. The file formats keep version
+1, since an older build refuses an unknown target whole either way and a
+second version would only add a second refusal. Resolving a bare `{name}`
+from the saved snippets on the server was cut: it would make a prompt's
+meaning depend on a sidecar no record or bundle carries.
 
 Portable snippet files extend that separate sidecar, through explicit
 Export/Import inside the existing dialog (`snippet-import.js`). Files omit
@@ -13554,3 +13693,928 @@ register the worker there, so on the phone the offline page needs AuraDream
 behind HTTPS (a reverse proxy with a certificate the phone trusts, for
 example); `app.js` does not try elsewhere. The open page's topbar state
 works on every origin.
+
+## The log file
+
+Built 2026-11-10 (`DEV#35`, [the peer review's S5](review-2026-11-10-peers.md#s5-a-log-file)).
+Logging was `basicConfig` to stderr. The job, cell, pass, load and switch
+failures each log one ERROR line and their traceback at DEBUG, so that a
+gated repository's 403 or an out-of-memory cell is one readable line on the
+console. At the default INFO the traceback was therefore never written
+anywhere, and on Windows a job that failed overnight left nothing at all
+once the console window closed. uvicorn's level was a hard-coded `"info"`
+whatever `AURADREAM_LOG_LEVEL` said.
+
+`backend/log_file.py` adds `auradream.log` beside the database: a
+`RotatingFileHandler` of 5 MB with three older files, in the console's
+format. It receives what the configured level passes and, at every level,
+any record carrying `exc_info`. For those DEBUG records to exist the
+`auradream` and `backend` loggers are opened to DEBUG while the file is
+installed, and the console's handlers, which had no level of their own, are
+held at the configured one: the console prints what it printed before
+(`test_a_traceback_at_debug_reaches_the_file_and_not_the_console`). A
+library's DEBUG is not opened. `faulthandler` writes a fatal error's stacks
+(an access violation in a CUDA library, an abort) to the same file; one
+already enabled by `-X faulthandler` or `PYTHONFAULTHANDLER` is left
+pointing where its owner put it.
+
+Choices, and why:
+
+- Installed in `main.run`, after the port checks, and closed when the
+  server stops. At import it would have opened a file for every CLI, every
+  test that imports `main` and the fake server, and a second launch (which
+  only reports the running server and exits) would have held a second
+  handle on the first one's file.
+- One handle. On Windows a file cannot be renamed while any handle is open
+  on it, so `faulthandler`, which needs a file descriptor, is given the
+  handler's own stream, turned off across a rollover and on again on the
+  new file. If another program holds the file open (a console following
+  it) the rename is refused; the handler then reopens the same file and
+  keeps appending, and the next record tries again, rather than reporting a
+  logging error per line.
+- The rollover is the handler's own (`_move_files`), not the stdlib's. The
+  stdlib moves the older files first and the live file last, so a refused
+  rename of the live file, tried again at every record, pushed two of the
+  three older files out and kept nothing in their place. Here the live file
+  moves first, to `auradream.log.0`, and nothing else has changed when that
+  is refused; a `.0` that a refused later step left behind is finished
+  before the live file is moved again, so it is never overwritten.
+- uvicorn's `uvicorn` logger does not propagate to the root, and
+  `uvicorn.Config` replaces its handlers, so the file's handler is added to
+  it after the config is built. That is where an unhandled route's
+  traceback is logged. `uvicorn.access` is left out: the page's polls would
+  rotate the failures away within hours.
+- A file that cannot be opened (a read-only folder) is one warning on the
+  console and a server that starts without it.
+- It always takes the new name. `legacy_names` keeps old files in use where
+  they are; nothing wrote a log before the rename.
+- The file holds prompts and paths. Bundles, exports, backups and `clear`
+  work from the database's rows and the files they track, so none of them
+  reads, copies or removes it, and `.gitignore` lists it.
+
+Not built: a level for the file separate from the console's, a setting for
+its place or size, and a page that shows it.
+
+## A passcode beyond loopback
+
+Designed 2026-11-10 (`DEV#32`, [the peer review's S2](review-2026-11-10-peers.md#s2-passcode-beyond-loopback),
+Matt's yes the same day). This section is the first step the finding asks
+for: every surface that answers without credentials today, then the design,
+then the order to build it in. Matt read the flagged choices on 2026-11-10
+and said go to all of them as written: the passcode is asked behind a proxy
+too, 127.0.0.1 has no exemption, the environment file's character limit,
+one limiter for the whole server, the 8-character floor and the 30-day
+stateless cookie. **Stages 1 (the gate), 2 (the callers) and 3 (the page,
+the fake, the smoke and the docs) are built**, 2026-11-10; what each
+settled that the design left open is under
+[Stage 1 as built](#stage-1-as-built),
+[Stage 2 as built](#stage-2-as-built) and
+[Stage 3 as built](#stage-3-as-built). **Stage 4, on the real machines, is
+Matt's and untried**: nothing here has met a phone, Safari, a real network,
+the Linux service or a restart with a passcode set.
+
+The server has no authentication. `TrustedHostMiddleware` refuses a Host it
+does not list and `block_cross_site_writes` refuses a write that announces
+another origin; both stop another *site*, neither stops another *person* who
+opens the address. `linux/install-service.sh` writes `AURADREAM_HOST=0.0.0.0`,
+so the Linux service is such an address for the whole network, and
+`main.run` only logs a warning about it.
+
+### Every surface that answers today
+
+Read from the source on 2026-11-10 and from the app's own route table
+(`main.app.routes`): four documentation routes, two mounts, two page routes
+and 88 API operations on 77 paths. Nothing below asks who is calling.
+
+What the server answers:
+
+| Surface | Where | What it gives |
+|---|---|---|
+| `GET /` | `main.index` | `index.html`, the page |
+| `GET /sw.js` | `main.service_worker` | the service worker, `no-cache` |
+| `/static/…` | `StaticFiles` mount on `settings.web_dir` | every page script and stylesheet, `offline.html`, `manifest.webmanifest`, `icons/` |
+| `/outputs/…` | `StaticFiles` mount on `settings.outputs_dir` | every PNG by its file name, binned ones too; the gallery routes give the names |
+| `/docs`, `/redoc`, `/docs/oauth2-redirect`, `/openapi.json` | FastAPI's defaults (`FastAPI(title=…)` sets no `docs_url`) | the whole API, described, with a form to call it |
+| `/api/status`, `/api/loras`, `/api/models`, `/api/model/load`, `/api/model/switch`, `/api/model/unload` | `main.py` | paths, the card, the running commit; loading, switching (a download with the machine's Hugging Face token) and unloading |
+| `/api/generate`, `/api/grid`, `/api/grid/preview` | `api_generate.py` | queueing work |
+| `/api/rerender`, `/api/swap-tags`, `/api/refine/batch`, `/api/more-seeds`, `/api/instruction-edit` and their previews | `api_rerender.py`, `api_swap.py`, `api_refine_batch.py`, `api_more_seeds.py`, `api_instruction_edit.py` | queueing work from gallery rows |
+| `/api/runs/{id}` and Finish run | `api_runs.py` | run details, queueing the rest |
+| `/api/jobs…`: list, one job, cancel, pause, front, skip | `api_jobs.py` | the queue and its controls |
+| `GET /api/jobs/{id}/stream` | `api_jobs.py` | the SSE stream: progress, live previews, saved records |
+| `/api/gallery…`, `/api/runs`, `/api/images…`: records, thumbnails, favorite, bin, restore, purge, Empty bin, Delete unstarred | `api_gallery.py` | reading and deleting the gallery |
+| `/api/gallery/bundles…`: list, preview, status, password, export, import, upload, `files/{name}` | `api_bundles.py` | exporting, downloading, uploading and merging whole galleries |
+| `/api/gallery/automatic-backup` and its reload | `api_backup.py` | backup configuration and status |
+| `/api/gallery/saved-searches…`, `/api/presets…`, `/api/snippets…` | `api_saved_searches.py`, `api_presets.py`, `api_snippets.py` | the saved libraries, their export and import |
+| `/api/masks…`, `/api/images/{id}/outpaint-presets` | `api_masks.py` | storing and reading masks |
+| `/api/png/settings` | `api_png.py` | a PNG's text chunks read back |
+| `/api/prompt/…`, `/api/tags/…` | `api_prompt.py` | Expand and the critic (GPU work), Check, tag lookup |
+| `/api/fake/…` | `tools/fake_server.py` only | the fake's knobs; it adds them to `main.app` and serves it with its own `uvicorn.run` on 127.0.0.1, never through `main.run` |
+
+What calls the server without a browser, each over plain `urllib`, `curl`
+or .NET with no credentials:
+
+| Caller | What it asks | From |
+|---|---|---|
+| `generate --via-server` (`generate_remote._server_json`) | `/api/status`, `/api/images/{id}`, outpaint presets, `POST /api/masks`, `/api/generate` or `/api/grid`, then `/api/jobs/{id}` polls and cancel | wherever the CLI runs, at `AURADREAM_HOST`:`AURADREAM_PORT` |
+| `generate` without `--via-server` (`generate._server_holds_gpu`; found building stage 2) | `GET /api/status`, for whether a server holds a checkpoint on the card | wherever the CLI runs, at `AURADREAM_HOST`:`AURADREAM_PORT` |
+| `server_probe.auradream_at` (`main.run`'s second-launch check, the doctor's Port row, `linux/common.sh`'s `auradream_state`) | `GET /`, looking for `<title>AuraDream</title>` | loopback |
+| `install.ps1`, `update.ps1` | `GET /` for the same title | loopback |
+| `linux/common.sh`'s curl fallback | `GET /` for the same title | loopback |
+| `server_probe.running_commit` (the doctor's Commit row) | `GET /api/status` | loopback |
+| `linux/common.sh`'s `server_busy` (`update.sh`, `control.sh` stop and restart) | `GET /api/status`, `GET /api/gallery/bundles/status` | loopback |
+| `linux/control.sh` (`server_answers`, `do_status`) | `GET /api/status` | loopback |
+| `bin\auradream-server.ps1` | nothing itself: it runs `linux/control.sh` and `linux/update.sh` over ssh and prints the page's address | the server, by ssh |
+| `tools/run_smoke.py` (`_wait_ready`) | `GET /api/status` until 200 | loopback, a fake |
+| `tools/browser.mjs` and the smokes | the page, and through it everything above | loopback, a fake |
+| `tools/check_run_continue.py`, `tools/trial_fixture.py`, `tools/trial_walkthrough.py` | API calls and page steps | loopback, a fake |
+| `web/sw.js` | `GET /` (`credentials: 'same-origin'`), and `/static/offline.html` once at install | the browser |
+| `web/offline.html` | `GET /static/manifest.webmanifest` as its probe, then `location.replace('/')` | the browser |
+| the browser itself | the manifest and icons `index.html`'s head names, for a home-screen icon | the browser, the manifest without cookies |
+
+Not a surface of this server: the critic's `llama-server` (its own loopback
+process and key, `critic_server.py`), and the wake URL
+`bin\auradream-server.ps1` may post to.
+
+### The setting, and when it is on
+
+`AURADREAM_PASSCODE`, read by `config.py` from the environment only. It is
+never written to `auradream.settings.json`, never a command-line flag (a
+flag is in the process list and the shell's history), never in
+`/api/status`, a log line or an error. Leading and trailing whitespace is
+stripped; empty is unset. Fewer than 8 characters after stripping is a
+mistake said in plain words: `main.run` exits 1 before it binds, and the
+doctor's row fails. On Linux it goes in the service's environment file,
+which `install-service.sh` already writes readable by its owner only; the
+file is never rewritten, so an existing one gets the line by hand.
+
+That file has two readers that agree only on plain values: systemd takes
+the line to its end, and `linux/common.sh`'s `load_env_file` sources it as
+bash, where `AURADREAM_PASSCODE=correct horse` sets the variable to
+`correct` and runs `horse`, and `$`, quotes, `#`, `;` and a backslash each
+read differently too. So before it sources the file, `load_env_file` reads
+the `AURADREAM_PASSCODE=` line as text and stops in plain words (never the
+value) unless the value is made only of letters, digits and `. _ - + @ % : , /`.
+The file's commented line says the same. The limit is the file's, not the
+setting's: a passcode set in a Windows or Linux shell may hold a space or
+any other character.
+
+The passcode is asked when it is set and the server can be reached by any
+name but this machine's own:
+
+- `AURADREAM_HOST` is not loopback (`server_probe.is_loopback`), or
+- `AURADREAM_ALLOWED_HOSTS` lists a name that is not loopback.
+
+Otherwise it is off, and `main.run` logs one line saying the passcode is
+set but not asked because the server listens on this machine only. The
+second condition is wider than the finding's "off on loopback-only binds",
+deliberately: `docs/usage.md` documents a proxy in front of a loopback
+bind, and such a server is on the network though its bind is not. A proxy
+needs its public name in `AURADREAM_ALLOWED_HOSTS` for the page's writes to
+pass the Origin check, so that list is what tells the two cases apart.
+
+When it is on, **a request from 127.0.0.1 is asked like any other**. An
+exemption by peer address would be the quiet failure here: behind a proxy
+on the same machine every request arrives from loopback, and nginx's
+default `proxy_pass` also rewrites Host to the loopback address, so no
+header check separates the proxy from a local script. The price is that
+the browser on the PC itself signs in once, and the local scripts send the
+passcode (below).
+
+Without the passcode a non-loopback bind logs today's warning, reworded to
+name `AURADREAM_PASSCODE`.
+
+### What is checked, and what stays open
+
+`backend/passcode.py` holds all of it: the gate (on or off, the derived
+key), the token, the limiter and a plain ASGI layer, `PasscodeMiddleware`.
+A plain layer, not `@app.middleware("http")`, for the reason
+`ActivityMiddleware` gives: the job streams. The layer is always installed
+and passes everything through while the gate is off, so the fake and the
+tests turn it on without rebuilding the app. `lifespan` scopes pass; a
+`websocket` scope is refused while it is on (there are none today).
+
+Its place in `main.py`, outermost first: the response headers, the
+cross-site write block, the Host check, **the passcode**,
+`hold_model_for_request`, keep-awake's activity, gallery admission. That
+moves `hold_model_for_request` inside the Host check and the write block,
+where it is outside both today. The order is the design:
+
+- Inside the Host check and the write block, so a hostile page in a
+  signed-out browser cannot spend the household's sign-in attempts: its
+  cross-site POST is a 403 before the passcode is looked at.
+- Inside the response headers, so a 401 and the sign-in page carry
+  `frame-ancestors` and `nosniff`.
+- Outside the model hold, activity and admission, so a request that is not
+  signed in is never a model reader, never keeps the PC awake and never
+  waits on the gallery.
+
+A request is let through when it carries a valid session cookie or the
+passcode as `Authorization: Bearer <passcode>`. Otherwise, while the gate is
+on:
+
+- `GET` or `HEAD` of exactly `/` answers **200 with the sign-in page**,
+  `Cache-Control: no-store`. Not a redirect and not a 401: `sw.js` hands the
+  server's answer for `/` to `respondWith`, which rejects a redirected
+  response for a navigation, and the four title probes in the table above
+  (`urllib` and .NET both raise on a 401) keep working unchanged because the
+  sign-in page's title is exactly `<title>AuraDream</title>`.
+- `POST /api/passcode` and `POST /api/passcode/sign-out` are the layer's own
+  (below).
+- `GET` of `/static/manifest.webmanifest` and of the icon files the manifest
+  and `index.html`'s head name passes. A browser fetches a manifest without
+  cookies, so a closed one would cost the phone its home-screen name and
+  icon. The list is exact paths, and a test holds it equal to what the two
+  files name.
+- Everything else answers 401 without its body being read:
+  `{"detail": "This server asks for a passcode. Reload the page and sign in.", "code": "passcode_required"}`
+  with `WWW-Authenticate: Bearer` (never `Basic`, which opens the browser's
+  own dialog). That is every API route, the stream, both mounts, `/sw.js`,
+  `offline.html` and the four documentation routes. On the fake,
+  `/api/fake/` stays open, as `HoldWhileUnreachable` leaves it.
+
+A signed-in `GET /` gets `Cache-Control: no-cache` while the gate is on, so
+a signed-out reload is never the cached page.
+
+### The comparison, the cookie and the limiter
+
+The passcode is compared as
+`hmac.compare_digest(sha256(submitted), sha256(passcode))` over UTF-8 bytes,
+the submitted value stripped as the setting is (a phone's keyboard adds a
+space) and refused unread over 256 characters. Digests, so that neither
+length nor a non-ASCII character reaches `compare_digest` raw.
+
+The session is stateless. At start the gate derives one key,
+`hashlib.scrypt(passcode, salt=b"auradream.passcode.session.v1", n=2**14, r=8, p=1, dklen=32)`.
+The cookie's value is `v1.<expires>.<mac>`: `expires` in whole Unix seconds,
+`mac` the hex HMAC-SHA256 of `v1.<expires>` under that key. It is valid when
+it has exactly those three parts, the MAC matches (`compare_digest`) and
+`expires` is in the future. Thirty days; a `GET /` with a valid cookie more
+than a day old sets a fresh one, so a device used within the month stays
+signed in.
+
+- Nothing is stored, so a restart or an update signs nobody out, which
+  matters on the Windows PC that is started by hand each day.
+- Changing the passcode changes the key and signs every device out. That is
+  the only revocation there is.
+- The key is scrypt's, not a plain hash, so a cookie read off the network
+  costs one scrypt per guess to turn back into the passcode. The salt is a
+  fixed label: there is one secret, not a table of them.
+
+The cookie is `auradream_session_<port>`, `HttpOnly`, `SameSite=Lax`,
+`Path=/`, `Max-Age` thirty days, and `Secure` when the request's scheme is
+https (uvicorn's own, or `X-Forwarded-Proto` from a loopback proxy, which
+uvicorn trusts by default). The port is in the name because cookies ignore
+ports: two servers on one host would otherwise overwrite each other's.
+`Lax` rather than `Strict`, so a bookmark or a link opens the page signed
+in; writes are POSTs, which `Lax` withholds across sites and the Origin
+check refuses anyway.
+
+`POST /api/passcode` takes `{"passcode": "…"}` (JSON, at most 4 KiB, never a
+query parameter: addresses are logged and sent as Referer). Right: 204 and
+the cookie. Wrong: 401 `{"detail": "That passcode is not right."}`.
+`POST /api/passcode/sign-out` clears the cookie on that device and needs no
+session.
+
+Wrong passcodes are limited, in memory and for the whole server rather than
+per address (on a LAN an address is free to change). After five wrong in a
+row, each further attempt first waits out a lock of 1, 2, 4 … seconds,
+capped at 60; during the lock an attempt is a 429 with `Retry-After` and is
+neither compared nor counted. A right passcode resets the count. A wrong
+`Authorization` header counts the same. Signed-in devices are untouched by
+a lock, since a cookie is not an attempt. Each wrong attempt logs one
+WARNING with the peer's address and never the value. The state is read and
+written on the event loop only, on `time.monotonic()`, with an injectable
+clock for the tests. At the cap that is about 1,400 guesses a day, which is
+why eight characters is the floor.
+
+During a lock the right passcode is a 429 as well, in the sign-in form and
+as an `Authorization` header: letting it through would tell a guesser
+which guess was right. That is the limiter's cost, and it falls on whoever
+has no cookie: while someone else on the network keeps guessing, a new
+device cannot sign in and the CLI and the server's scripts, which send the
+passcode on every request, are refused. They say so and never treat it as
+a server that is down or idle (below). A browser already signed in is not
+affected.
+
+### The sign-in page, the service worker and the offline page
+
+`web/passcode.html` is self-contained as `offline.html` is (its style, icon
+and script inline, no page script loaded, nothing registered), because
+nothing under `/static/` answers before sign-in. One labelled
+`type="password"` field with `autocomplete="current-password"`, one Sign in
+button of at least 44 px, a line saying which server it is
+(`location.host`), and a live region for "That passcode is not right." or
+the wait a 429 names. It posts with `fetch` and on 204 calls
+`location.replace('/')`. It is not a classic page script, so
+`check_classic_scripts` leaves it alone as it does `offline.html`.
+
+`sw.js` and `offline.html` do not change:
+
+- The worker is registered by `app.js`, which runs only after sign-in, so
+  its install fetch of `/static/offline.html` carries the cookie.
+- Its navigation fetch already sends same-origin credentials. A signed-out
+  `/` is the server's 200 sign-in page, which the worker passes on as it
+  passes every answer.
+- The offline page's probe treats any answer as the server being back, a
+  401 included, and then opens `/`: the page, or the sign-in page.
+- A signed-out browser's check for a newer `/sw.js` gets a 401 and keeps
+  the worker it has.
+
+The cached `offline.html` shows without a passcode; it holds nothing
+private.
+
+In the page, `/api/status` gains `passcode` (true while the gate is on),
+which shows a **Sign out** item. `api()` (`web/state.js`) reads a 401 whose
+`code` is `passcode_required` as signed out: the topbar says so in the place
+`goOffline`'s "server not answering" uses, with a Sign in button that
+reloads. The page never reloads by itself, since the composer may hold
+unsaved text; panel persistence restores it after the reload. Sign out's
+place is the Models panel, under its status, where it takes no height from
+the settings panel; that placement is checked in the browser at 1400x900
+and on the phone tier when it is built.
+
+### SSE, the CLI and the scripts
+
+`EventSource` cannot set a header, and does not need to: a same-origin
+stream request carries the cookie, as every `<img>` under `/outputs/`, a
+thumbnail and a bundle download do. The session is checked when the stream
+opens; an open stream runs to its `done`. A stream refused with 401 does
+not reconnect (`EventSource` gives up on a non-200), and the status poll's
+401 is what tells the page.
+
+Everything that is not a browser sends `Authorization: Bearer <passcode>`
+on each request, the passcode read from `AURADREAM_PASSCODE` in its own
+environment and passed to a child through the environment, never as an
+argument:
+
+- `generate --via-server` adds the header in `_server_json` whenever the
+  variable is set. A 401 says the server asks for a passcode and to set
+  `AURADREAM_PASSCODE` in this shell; a 429 says to wait. Before the job is
+  queued both are refusals (exit 2). On a poll after it they end the wait
+  as any failed poll does today: exit 1, naming the job, which may still be
+  running. Never a retry of the submission.
+- `server_probe.running_commit` takes the passcode; the doctor passes its
+  environment's. Without it the Commit row says the running server asks for
+  a passcode, and does not fail.
+- `linux/common.sh`'s `server_busy` and `linux/control.sh`'s
+  `server_answers` and `do_status` already run after `load_env_file`, which exports the service's
+  settings, so their Python reads the variable. A 401 there is said as a
+  passcode missing from the environment file, and a 429 as too many wrong
+  passcodes just now, neither as a server that is down. `server_busy` keeps
+  failing on both ("could not ask it"), so `update.sh` and a stop or restart
+  refuse without `--force` as they do today when it cannot be asked: a
+  server that would not say is never taken for an idle one.
+- The title probes need nothing (above).
+- The doctor gains a **Passcode** row: not asked on a server this machine
+  alone reaches; asked; FAIL under 8 characters; and WARN when the server
+  is reachable beyond this machine with none set (it has no such warning
+  today; only `main.run` logs one).
+
+The fake and the smokes: every fake binds 127.0.0.1 with default allowed
+hosts, so the gate is off and every existing smoke, `run_smoke.py`'s
+readiness poll and the trial tools run unchanged. The fake gains
+`POST /api/fake/passcode` (`passcode`: a string turns the gate on, null
+off; `reset`: clears the limiter), and `smoke-passcode` signs in through
+the page itself, so `browser.mjs` needs nothing new.
+
+### What the docs must say about plain http
+
+In `README.md`'s settings, `docs/usage.md`'s LAN paragraph, `docs/setup.md`'s
+Linux server section (each says "no login" today) and the start-up log
+line, in these terms:
+
+- Over plain http the passcode, the cookie and every prompt and image cross
+  the network unencrypted. Anyone who can capture that network's traffic
+  reads all of it and can sign in afterwards.
+- So the passcode keeps out people who can merely reach the address: the
+  household, a guest on the Wi-Fi. It is not protection on a network that
+  is not trusted, and never a reason to forward the port to the internet.
+- HTTPS is what makes it private ([S3](review-2026-11-10-peers.md#s3-an-https-route),
+  `DEV#33`).
+- Do not reuse a password from anywhere else. It sits in plain text in the
+  environment file and the process's environment.
+- There is one passcode and no accounts. Changing it and restarting signs
+  every device out; nothing else does.
+
+### Build order
+
+Each stage is a commit series that passes on its own; the setting is named
+in the README only with stage 3.
+
+1. **The gate.** `backend/passcode.py`, the setting, the layer and the
+   reordered `hold_model_for_request` in `main.py`, `web/passcode.html`,
+   `passcode` in the status, `main.run`'s refusal and log lines.
+   First, a test that walks `main.app.routes` (every route and method, both
+   mounts, the four documentation routes) and pins that each answers
+   without credentials today; it then becomes the table: with the gate on,
+   each is 401 except the open list, so a route added later is covered or
+   the test fails. `tests/test_passcode.py`: the token (minted, expired,
+   tampered, wrong version, renewed), the comparison, the limiter on an
+   injected clock, the on/off table over host and allowed hosts, the
+   8-character floor. `tests/test_api_passcode.py`: the sign-in page at `/`
+   with the probes' title; the cookie's attributes, `Secure` only on https;
+   Bearer; the stream opening with a cookie and refused without; a
+   cross-site sign-in refused without counting; a wrong Host still 400; a
+   signed-out request neither activity nor a model reader (a 401, not a
+   409, during a switch); the response headers on a 401; the open list
+   equal to the manifest's and the head's icons; and with the gate off,
+   every existing answer unchanged and no `Set-Cookie`.
+2. **The callers.** `generate_remote`, `server_probe.running_commit`, the
+   doctor's rows, `linux/common.sh` and `linux/control.sh`, the commented
+   line in `install-service.sh`'s environment file. Tests in
+   `tests/test_cli.py` (a server that asks: the header sent, the 401 and
+   429 words, the passcode never in the output), `tests/test_doctor.py`,
+   the server probe's tests, `tests/test_linux_scripts.py` (a stub server
+   that asks; busy and status read through it; a 401 and a 429 each said in
+   their own words, with stop and update refusing; an environment file whose
+   passcode holds a space or a `$` refused before it is sourced, the value
+   never printed) and
+   `tests/test_install_scripts.py` (the title probe still answers
+   `auradream` against the sign-in page).
+3. **The page.** `api()`'s signed-out state, Sign out, the fake's knob, and
+   `smoke-passcode` (sharing a port, its own scratch `--data`): the sign-in
+   page in place of the app, a wrong passcode's words, the right one opening
+   the app, an image and a job stream loading, a session ended under an open
+   page showing the notice with the composer's text kept, Sign out, and the
+   sign-in page under `phone_audit.js`. One step in `smoke-offline` with the
+   gate on: silence, the offline page, then the sign-in page. Then the
+   docs: the words above, `docs/rules.md`, `AGENTS.md`'s layout and rules.
+4. **On the machines**, Matt's: the Linux service with the passcode from a
+   phone and from another PC. Safari's password autofill on the sign-in
+   page, the home-screen icon keeping its name and picture, a session
+   surviving a restart and an update, `auradream-server status` and
+   `update.sh` through the passcode, a wrong passcode's lock.
+
+### Stage 1 as built
+
+Built 2026-11-10: `backend/passcode.py`, `settings.passcode`, the layer in
+`main.py` with `hold_model_for_request` moved inside it, `web/passcode.html`,
+`passcode` in `/api/status`, and `main.run`'s refusal and log lines. Tests:
+`tests/test_api_passcode_routes.py` (the walk), `tests/test_passcode.py`,
+`tests/test_api_passcode.py`. Nothing above was redesigned. What the source
+decided, and the few things the design had not said:
+
+- With the gate off two answers did change, as the reorder says they
+  would: during a checkpoint switch a request with a refused Host is now
+  the Host check's 400, and a cross-site write the block's 403, where the
+  model hold's 409 answered first. `/api/status` gains `"passcode": false`.
+  Every other answer is the same, with no `Set-Cookie`
+  (`test_with_no_passcode_asked_every_surface_answers_without_credentials`).
+- The route table is not flat in the installed FastAPI (0.141): each
+  `include_router` is one entry holding its router. The walk follows those
+  and is held to FastAPI's own schema, so it cannot quietly see less.
+- `GET /` is the only method the app's page route has, so with the gate
+  off `HEAD /` stays the 405 it was; with it on, a signed-out `HEAD /` is
+  the sign-in page's 200, as designed.
+- A setting longer than 256 characters is refused by `main.run` like one
+  under 8: the sign-in refuses a submitted value that long unread, so such
+  a passcode could never be entered. A submitted one past 256 is a wrong
+  attempt: counted and logged.
+- The length checks are `main.run`'s. An app served any other way (the
+  fake, the tests, `uvicorn backend.main:app` by hand) builds its gate
+  from whatever is set, since a short passcode asked is better than none.
+- `POST /api/passcode` answers a body over 4 KiB with 413 and one that is
+  not `{"passcode": "<string>"}` with 422; neither is an attempt. During a
+  lock it answers 429 before the body is read. The 429's words are "Too
+  many wrong passcodes. Wait N seconds and try again." with `Retry-After`.
+- A wrong `Authorization: Bearer` is the same 401 as none (or the sign-in
+  page at `/`), counted; another scheme or an empty value is not an
+  attempt. A valid cookie is read first, so a signed-in browser's stray
+  header is never one either. The header's bytes are read as UTF-8, or
+  Latin-1 when they are not (what `urllib` sends).
+- The 401, the sign-in answers and the sign-in page are `no-store`. The
+  open paths answer `HEAD` as well as `GET`.
+- The gate keeps the passcode's SHA-256 digest and the session key, not
+  the passcode, and `Settings` leaves the field out of its repr.
+- `Gate` takes `open_prefixes` for the fake's `/api/fake/` (stage 3 sets
+  it); the real server passes none.
+- `Secure` follows the request's scheme in the ASGI scope. A real https
+  scope is tested, and so is `X-Forwarded-Proto` through uvicorn's own
+  proxy-headers layer as `main.run` configures it: believed from 127.0.0.1,
+  not from another address. A real proxy is stage 4's, or `DEV#33`'s.
+- `docs/rules.md`'s Layout already lists `passcode.py`, ahead of stage 3's
+  docs: `tests/test_docs_maps.py` fails on a backend module it lacks.
+- The route-table test was written first and passes with the gate off as
+  it does on the code before the gate; it was not committed against that
+  code separately.
+- Reviewed the same day against this note, on a real uvicorn with raw
+  requests and in a browser, and by changing the code under the tests. No
+  code changed. Four tests were added for what nothing held: no spelling of
+  a path (a doubled or trailing slash, another case, an encoded `..`) or
+  other method opens anything; a sign-in body sent in pieces is cut off at
+  4 KiB; `main` builds its gate from the bind, the allowed hosts and the
+  port (a fresh interpreter); and the forwarded scheme above.
+- For stage 2: a caller's header is read as UTF-8 first, so a passcode
+  outside ASCII must be sent as UTF-8 bytes. `urllib` given a `str` sends
+  Latin-1 and raises on anything beyond it, and Latin-1 bytes that happen
+  to be valid UTF-8 would be read as another passcode.
+
+### Stage 2 as built
+
+Built 2026-11-10: the header and the gate's refusal in
+`backend/server_probe.py` (`environment_passcode`, `passcode_headers`,
+`refusal`, `PasscodeRefused`, `no_redirect_opener`, `status_json`), which
+`generate_remote._server_json`, `running_commit` and the doctor share; the
+doctor's Commit row and its new **Passcode** row; `linux/common.sh`'s
+`ask` (the Python `server_busy` and `linux/control.sh`'s `server_answers`
+and `do_status` now run on) and its check of the environment file; the
+commented line in `install-service.sh`'s environment file. Tests:
+`tests/test_server_probe.py` (new), `tests/test_doctor.py`,
+`tests/test_cli_via_server.py` (where `--via-server`'s tests live since
+`test_cli.py` was split), `tests/test_cli.py`,
+`tests/test_linux_scripts.py`, `tests/test_install_scripts.py`, and a
+stand-in server that asks, `tests/passcode_stub.py`. With no passcode set
+and none asked, every request these callers make is the one it was. What
+the source decided, and what the design had not said:
+
+- **One more caller.** `generate` without `--via-server` asks
+  `/api/status` whether a server holds a checkpoint on the card
+  (`_server_holds_gpu`); the table above did not list it. Against a server
+  that asks, its 401 read as "a server that did not answer in time". It now
+  asks again with the environment's passcode, and a gate that still refuses
+  is said in its own words with the same exit status, 4: what the server
+  holds could not be asked, so nothing is loaded beside it without
+  `--ignore-server`.
+- **A redirect never carries the passcode.** `urllib` sends a request's
+  headers on to wherever a redirect points, so every request that carries
+  the passcode goes through an opener that follows none (the redirect is
+  the error it arrives as). The server sends none on these routes.
+- **The probes ask first without it.** `status_json` (the doctor's commit,
+  the CLI's card check) sends the passcode only after the gate's own coded
+  401, so a server that asks for none never sees it and another program
+  holding the port is not handed it. `--via-server` and the Linux scripts
+  send it on every request whenever the variable is set, as designed: they
+  are aimed at the server on purpose, and a second request per call would
+  double the queueing ones. A 401 without the gate's `code` is not the
+  gate's and is treated as it always was.
+- **A control character in the passcode** cannot travel in a header, and
+  `http.client`'s own error would quote the value. The callers refuse it
+  first in words that do not hold it (`--via-server`: exit 2 before any
+  request; the scripts: "could not ask it"). In the scripts that is never
+  the gate's refusal: no request was made, so `control.sh status` says the
+  server does not answer rather than "It answers.", and a start keeps
+  waiting. The stage's review found it read as an answer, and fixed it; it
+  also added tests that the scripts' request follows no redirect and that
+  a letter outside ASCII is refused in the environment file.
+- **The words.** A 401 with no passcode in the environment: the server
+  "asks for a passcode, and AURADREAM_PASSCODE is not set here"; with one:
+  it "did not accept the passcode in AURADREAM_PASSCODE"; a 429: it "is
+  refusing every passcode for now, after too many wrong ones (wait N s)",
+  N from `Retry-After`. The advice never says to run the command again,
+  since after a submission that would queue the work twice. The scripts'
+  own wording names the service's environment file instead of the shell.
+- **The doctor.** The Commit row is a PASS that says so when the server
+  asks and no passcode is set here; a passcode the server refuses, or the
+  lock, is a WARN (never a FAIL). The Passcode row reads `passcode.asked`
+  and `setting_problem`, the server's own two decisions: FAIL for a
+  passcode `main.run` would refuse to start with (under 8, or over 256),
+  wherever the server listens; WARN for none on a server reachable beyond
+  this machine; PASS "asked" or "not asked". The doctor imports
+  `backend.passcode`, so Starlette with it; still never diffusers.
+- **The scripts and a server that asks without them having the passcode.**
+  `server_busy` fails as designed. `control.sh status` says "It answers."
+  and then that its status could not be read, and still exits 0 for an
+  active service: the server is up. `start` and `restart` stop waiting at
+  the first such answer for the same reason, where they would have waited
+  out the minute and reported a page that never came. A passcode changed
+  in the environment file is the new one to the scripts and the old one to
+  the server until the restart, so that restart's busy check is refused:
+  `--force` is what applies a changed passcode, and the message says a
+  restart applies it. A wrong passcode from a script is a wrong attempt
+  like any other; each command spends at most two.
+- **The environment file's check** (`require_plain_env_passcode`) runs
+  before every read of the file: in `load_env_file`, and in
+  `install-service.sh`, which sources a kept file itself for the port and
+  names and so stops before it writes or starts anything. Each
+  `AURADREAM_PASSCODE=` line is checked (leading blanks allowed, as both
+  readers allow them; trailing spaces and tabs dropped, as both drop
+  them); a commented line is not a setting; an empty value is unset. A
+  file saved with Windows line ends is refused: bash would keep the
+  carriage return in the value and systemd would not. Under
+  `LC_ALL=C`, so "letters" means ASCII's.
+- The scripts' Python reads the passcode's bytes from `os.environb` and
+  sends them as they are, so nothing is decoded on the way.
+- `tests/test_linux_scripts.py` runs on Linux only. It was run under WSL
+  (Ubuntu, the project's own Linux virtualenv's Python, nothing
+  installed): 230 passed, and 240 with the review's tests.
+
+### Stage 3 as built
+
+Built 2026-11-10: the page's signed-out state (`web/state.js`'s `api()`,
+`web/status.js`'s `goSignedOut`, `serverAnswers` and `signOut`), Sign in in
+the topbar and Sign out in the Models panel (`web/index.html`), the fake's
+`POST /api/fake/passcode`, `tools/smoke-passcode.json`, the gated steps at
+the end of `tools/smoke-offline.json`, and the docs (README, `docs/usage.md`,
+`docs/setup.md`, `docs/rules.md`, `AGENTS.md`). Checked in a real browser
+through those two smokes at 1400x900 and on the phone tier (393x852,
+touch), the sign-in page under `phone_audit.js`. Nothing above was
+redesigned. What the source decided, and what the design had not said:
+
+- **The notice.** The status line says "signed out" where `goOffline`
+  writes "server not answering — retrying", over a grey dot, and the Sign
+  in button is the topbar's own, before Load (which hides, as it does
+  offline). On the phone the status rides inside the Models chip, which is
+  a button, so Sign in cannot sit in the status itself: it is between the
+  chip and the ⋯, 44 px. Two words, so the chip's state is never cut.
+- **Nothing is held while signed out.** Offline, the buttons that would
+  send are held with a reason. Signed out they are left live, and a press
+  is answered by the gate's own sentence ("This server asks for a
+  passcode. Reload the page and sign in."), which is the instruction. Any
+  request's coded 401 raises the notice, not only the status poll's.
+- **A 401 is an answer.** A server that restarts with a changed passcode
+  is first silent and then refuses: the 401 ends the page's offline state
+  as a status would (`serverAnswers`, shared with `receiveStatus`), so the
+  topbar does not say both. Silence after it takes the notice back, and so
+  does a status that answers (a sign-in in another tab shares the cookie).
+- **Sign out** is a row of its own under the Models panel's note, hidden
+  unless the status's `passcode` is true: no height while none is asked,
+  and with one the picker's footer is one small row taller (the table
+  gives it). On the phone it stays in the sheet's scroller, above the
+  sticky foot, 44 px. It posts the sign-out and then opens `/`
+  (`location.replace`), which is the sign-in page; a refusal is shown in
+  the panel's line and nothing reloads.
+- **The fake's knob.** A body without `passcode` leaves the gate as it is,
+  so `{"reset": true}` alone clears the limiter; it answers `{"on": …}`
+  and never the value; a blank string is a 422. The fake sets its gate to
+  none at start whatever the machine's environment holds, so a developer's
+  own `AURADREAM_HOST` and `AURADREAM_PASSCODE` cannot close a smoke's
+  fake. A new passcode through the knob is a new key, which is how the
+  smoke ends a session under an open page.
+- **The smoke's lock.** The smoke makes the wrong attempts, the right one
+  (429) and the form's press in one in-page step, and reads the page's
+  wait before the knob's reset. The first lock is one second, which a slow
+  CI runner could outlast between two requests, so the step goes on to two
+  more wrong passcodes, each after its lock has run out, and tries the
+  right one inside the four-second lock that follows (the stage's review
+  changed this; as built it raced the one-second lock). `smoke-passcode` shares port 7958 with `smoke-offline`, each a
+  fake of its own. Its `run_smoke_costs.json` entry, and the raised one
+  for `smoke-offline`, are this PC's timings rounded up, not CI's. The
+  smokes' throwaway passcodes are set in `eval` and `type` steps, which
+  the driver does not print, so they are not in a run's output either.
+- **The user docs** say "HTTPS is what makes it private, which AuraDream
+  does not serve yet" and point at a VPN or an HTTPS proxy, rather than
+  linking the review's S3 from the README. They no longer recommend "an
+  authenticating proxy" as the only answer to an untrusted network. The
+  start-up log line is stage 1's and was not reworded: it says what
+  crosses unencrypted and whom the passcode keeps out, not the other three
+  points, which are the docs'.
+- **Tests.** The knob itself has no pytest (no test starts the fake); the
+  two smokes drive it. `tests/test_api_passcode.py` gains one test holding
+  the page to the gate's code and paths and the two buttons hidden in the
+  markup.
+- **Reviewed the same day** against this note, in a browser through the
+  two smokes, on a hand-started fake with raw requests (no spelling of a
+  path under the fake's open `/api/fake/` reaches another route; a fake
+  started with `AURADREAM_HOST` and `AURADREAM_PASSCODE` set asks for
+  nothing until the knob says so), and by changing `status.js` under the
+  smoke. No page or server code changed. Three of the page's transitions
+  were held by nothing, and the smoke now walks them: silence taking the
+  notice back, a 401 ending the offline state with nothing left held, and
+  a status that answers taking the notice back without a reload. The lock
+  step no longer races a one-second lock (above).
+- **Not checked here, stage 4's:** a real phone and Safari's autofill, the
+  home-screen icon, plain http from another machine (where no service
+  worker registers), the cookie across a restart and an update,
+  `auradream-server status` and `update.sh` through the passcode, and a
+  lock met by a real second device.
+
+Not designed, and not to be built under this row: accounts or more than one
+passcode, a passcode set or changed from the page, revoking one device,
+stored sessions, turning `/docs` off, and anything that changes the Host or
+Origin checks. `DEV#33` must keep two things true when it adds a public
+origin or a certificate: the gate is on whenever such an origin is
+declared, whatever the bind, and the cookie is `Secure` there.
+
+## Refusal codes the page reads
+
+Built 2026-11-10 (`DEV#37`, [the peer review's S7](review-2026-11-10-peers.md#s7-error-codes-the-page-reads)).
+The page decided what to do about a refusal by testing the server's English
+in `err.message`: `/unknown image/` to forget an image, `/recycle bin/` to
+call it binned rather than deleted, `/^\d+ batch/` to mark More seeds'
+count, the adapter's name anywhere in the sentence to drop a LoRA, and five
+more of the kind. Each refusal's `detail` is a sentence for a person. A
+rewording would not have failed a test: the page would have shown the new sentence and quietly
+stopped forgetting the image, and the card would have stayed on the page to
+be starred or deleted again.
+
+The fix is one more key in the body: `code` beside `detail`, and `ids`
+where the refusal names gallery images. `detail` keeps every word it had,
+so the CLI, the job errors and anything reading the sentence are unchanged.
+The code is added only to the refusals the page acts on; a refusal that is
+only shown has none, which keeps the list short enough to hold in a test.
+Response models on every route and an OpenAPI snapshot were proposed with
+it and cut: they would have pinned shapes nothing reads.
+
+Most of these refusals start under the HTTP layer as a `ValueError` whose
+string a route turns into a 422 (`storage.reference_paths`,
+`storage.mask_path`, `loras.path_for`). Those now raise `CodedError`, still
+a `ValueError` with the same string, and the route asks
+`refusals.refusal(status, detail, exc)`, which is coded when the error is.
+`submission.unusable_input` returned a `(kind, why)` pair that Swap tags,
+Mass refine and Finish also read; it returns the same pair as a tuple
+subclass (`Unusable`) with the code and ids as attributes, so those readers
+did not change. `POST /api/masks` had its own wording test on the server
+side (a message starting "no gallery image" was a 404); it reads the code
+too.
+
+The pass dialogs (Refine, Inpaint, Outpaint, Edit by instruction) read a
+refused submission back out of their error line as text, after `startJob`
+had written it there. They now keep the error `startJob` caught
+(`onRefused`) and read its code only while the line still says that
+error's sentence (`shownRefusal`): a line the page has since rewritten in
+its own words is no server refusal and is only shown.
+
+Two refusals could not say which case they were. The star and the
+permanent delete answer one 404 for a deleted image and a binned one, as
+before, coded `image_unknown`; the page treats either code as gone. The
+instruction edit's "source is missing or in the recycle bin" was told apart
+by the page from its own copy of the record; the server now looks once more
+and gives `image_binned` or `image_unknown` under the same sentence.
+
+## The smoke driver hears page errors
+
+Built 2026-11-10 (`DEV#38`, [the peer review's T1](review-2026-11-10-peers.md#t1-the-smoke-driver-hears-page-errors)).
+`tools/browser.mjs` enabled the `Runtime` domain and read only the answers
+to its own calls. An exception nothing caught in the page (a handler that
+threw on a press, a rejected fetch with no `catch`) was written to a
+console nobody was reading: a smoke failed only if a later `expect`
+happened to depend on what the handler had not done. The page had no
+listener of its own either, so on a phone, which has no console, a press
+that threw looked like a press that did nothing. And a misspelt name
+inside a function body passed the classic-script guard, which checks
+syntax and top-level declarations and runs no body.
+
+Three parts, in the order they were built:
+
+- The driver keeps what `Runtime.exceptionThrown` reports as a list,
+  prints each as it arrives with the step it arrived during, and exits 1
+  at the end if any is left. It does not stop at the first: the steps
+  after it usually say what the error broke. The list was first a map
+  keyed by the browser's `exceptionId`; the review's probe (Edge, two
+  `data:` pages) showed the id is a renderer process's own count, so an
+  error after a navigation into a new process replaced an earlier one
+  with the same id, and its revocation would have taken both. A
+  revocation now takes back the newest error with its id.
+  `Runtime.exceptionRevoked` takes one back, because Chrome reports a
+  rejected promise as soon as a turn ends without a handler on it, and
+  code that attaches its `catch` a turn later is not wrong. What a step's
+  own expression throws comes back in that call's answer, not as an event
+  (checked in Chrome when this was built), and stays the step's own.
+- `sayPageError` in `state.js`, added by `app.js` before its other wiring,
+  writes one line to the error slot. It is written once per distinct
+  error: a handler throwing on every poll would otherwise hold the slot
+  against every other message and be announced each time (the slot is
+  `role=alert`). An `error` event without an error object is ignored:
+  Chrome sends its "ResizeObserver loop" notice that way, and it is not
+  something the page threw.
+- `tools/check_classic_scripts.mjs` resolves every identifier against its
+  scopes, the page's shared top level, the ECMAScript built-ins (read from
+  a fresh `vm` context, so Node's `process` and `require` are not among
+  them) and a hand-kept list of the browser globals the page uses.
+
+Choices, and why:
+
+- No step allows a page error. A smoke that wanted to prove the page's
+  error line with a real throw would need one; the two that test the line
+  dispatch the event by hand instead, which reaches the page's listener
+  and not the browser's report. One rule with no exception is easier to
+  hold than an allowance that later smokes reach for.
+- The no-undef pass needs a parser, and the repository installs nothing
+  from npm. Node carries acorn for its own REPL; it is reachable only
+  under `--expose-internals`, which is not a documented interface. The
+  wrapper passes the flag, the helper fails with its own words when the
+  module is not there (never a skipped pass), and CI's weekly `node-latest`
+  job runs the same test ahead of the pinned Node. The alternative was a
+  hand-written tokenizer guessing at scopes, which would be wrong in ways
+  no one would see.
+- The browser globals are a short list of what the scripts use today, not
+  every name a browser has. A name the page never uses is far more likely
+  a misspelling than a new API, and adding one line when a script first
+  needs `structuredClone` is cheap.
+- The handler is added in `app.js`, not in an earlier script, keeping the
+  rule that only `app.js` runs anything at load. An error thrown while an
+  earlier script loads is therefore not said on the page; those scripts
+  only declare, and the driver hears it either way.
+
+What the first whole run found (2026-11-10, Windows, Edge,
+`run_smoke.py --all --jobs 2`, the listener printing every page error into
+each smoke's `browser.log`): no page error in any of the 111 smokes, so
+nothing in `web/` was changed for it and nothing is recorded as allowed.
+The no-undef pass found no undefined name in the 75 scripts either; every
+name it could not resolve at first was a browser global, and those are
+the list. `smoke-inpaint` and `smoke-outpaint` already kept an `error`
+listener of their own and expect it empty; they stay as they are.
+
+Not built: a Node test suite for the page's helpers (cut by the review),
+a step that expects a page error, and sending page errors to the server's
+log.
+
+## An injected accessibility audit
+
+Built 2026-11-10 (`DEV#40`, [the peer review's T3](review-2026-11-10-peers.md#t3-an-injected-accessibility-audit)).
+`phone_audit.js` measures boxes; nothing checked what the markup says. The
+held-button convention (a control held for a reason is `aria-disabled` with
+the reason as its title) was kept by review and by the expectations each
+smoke happened to write about its own button.
+
+`tools/a11y_audit.js` is in `phone_audit.js`'s shape: injected by a smoke,
+tests only, a report of lists and an `ok`. It checks four things the review
+named: controls with no accessible name, duplicate ids, `aria-disabled`
+without a reason, and open dialogs without a label.
+
+Choices worth keeping:
+
+- A watch instead of a step per dialog. The review cut shared step
+  includes, and 23 smokes open two dozen dialogs between them, so auditing
+  each by hand would have been a hundred copied steps that the next dialog
+  would not get. `__a11yWatch()` wraps `show`, `showModal` and `close` and
+  hears `cancel`; a smoke pays two steps after a navigate and one check.
+  Each dialog is audited in the states the smoke's own steps put it in,
+  which is the point: opened cold with `showModal()` from a survey step,
+  ten dialogs showed holds and empty labels that no user path reaches.
+- Audited after the opening task, not inside `showModal()`. The page's
+  openers show the dialog and then fill it (`openAsk` sets focus, a pass
+  dialog syncs its holds); a microtask later that is all in, and it is
+  still a fixed point, not a timer. The microtask runs as the opener's
+  script ends or first awaits, so an opener that awaited before filling
+  would be audited half-filled; the audit as the dialog shuts reads what
+  it became either way.
+- The reason must be on the held element. A title on the label around a
+  checkbox is what a mouse sees, and it is not the checkbox's description.
+  This was the audit's one class of real finding.
+- The accessible name is a small reading of the naming rules (references,
+  aria-label, label, contents, title, placeholder), not the browser's own
+  computation. CDP's accessibility tree would give that, at the cost of a
+  driver change for every caller; the cases the page uses are few, and
+  `tests/test_a11y_audit.py` pins each one in a real browser. A
+  `display: contents` element has no box, so `checkVisibility()` says false
+  of it; without the audit treating it as rendered, every radio of the
+  Models panel read as unnamed.
+- Natively `disabled` controls are listed, never failed. The convention is
+  about buttons held for a reason and has documented exceptions (the
+  check's dead buttons), and fields a checkpoint does not take are
+  `disabled` on purpose; a list of selectors to keep in step with them
+  would be a second copy of the rule. The first run listed Mu, True CFG,
+  LoRA weight, the negative box, the runs picker and the lightbox's two
+  arrows at a row's ends; none was changed.
+- One standing exception: a phone list's line of no value ("No saved setups
+  in this view") is an `aria-disabled` option whose own words are the
+  reason.
+
+What the first run found (2026-11-10, Windows, Edge, the 23 smokes with the
+watch logging instead of failing). No duplicate id, no unnamed dialog and no
+unnamed control in the page's own paths. Four holds without a reason on the
+element, all fixed: the Then refine tick and More seeds' Refine each new
+image (the reason was on the label only) now carry it too, and the Padding
+box of Only the masked area in the Inpaint and Outpaint dialogs, greyed and
+`aria-disabled` while the tick is off, says so in its title
+(`MASK_CROP_PAD_OFF`). One finding was the smoke's own: `smoke-phone-dialogs`
+opened the count question with a one-line message, which leaves the count
+box's label empty; `countDialog`'s one caller always sends the line, so the
+smoke's message was given it.
+
+Not covered, and not claimed: what a screen reader says, focus order and
+return, live regions, contrast, and any dialog state the smokes do not
+reach. `UI#7`'s hands-on checks are unchanged by this. Not built: shared
+step includes, a fast tier and dynamic ports (cut by the review), reading
+the browser's accessibility tree, and failing on a glyph-only name (a ✕
+with no label reads as its glyph; the audit counts it as named).
+
+## Use prompt
+
+Built 2026-11-10 (`GEN#53`, [the peer review's R7](review-2026-11-10-peers.md#r7-prompt-recall)).
+A prompt came back only with everything else (Reuse settings, which also
+takes the seed, the size and the sampling) or through the clipboard (Copy
+prompt, then a paste into each box). Use prompt, after Use seed in the
+image's menu, writes the prompt and the negative prompt and nothing else.
+
+Choices, and why:
+
+- The pair, not the prompt alone. A negative written for another prompt is
+  rarely the one wanted with this one, and Reuse already treats the two as
+  one thing. So a record with no negative empties the negative box. What
+  that costs is covered by the Undo.
+- Through `rewriteBox`, so Ctrl+Z in each box walks back. A box that holds
+  the text already is not written: an identical write would add an empty
+  step to its undo history and clear a prompt's translation for nothing.
+- The Undo is the note under the prompt (`offerPromptUndo`), as an
+  Example's is, not Reuse's note at the panel's foot: only the two boxes
+  changed, and that note takes no panel height. It puts the negative back
+  only while the box still holds what the write left, since the note
+  retires on a change to the prompt and would not notice a negative typed
+  since.
+- From the lightbox it closes the lightbox, as the lightbox's Reuse does.
+  A modal dialog leaves the page inert, so the boxes cannot take the focus
+  a typing write needs; the fallback is assigning `.value`, which empties
+  the undo history. Use seed can stay in the lightbox because the Seed box
+  is written by value.
+- Held on an instruction edit. Its words describe a change to its source
+  and mean nothing to a text-to-image prompt, which is also why an edit's
+  Reuse never fills the panel.
+- No scroll of the page. The panel moves to show the prompt where it is
+  stuck beside the gallery; on a one-column page the card's "Prompt set"
+  is the answer in sight. A phone shows the Create view, where the box is.
+
+Not built: Recent prompts under Examples, the review's second slice, which
+waits on whether this one falls short. It would be the only way back to a
+prompt whose job saved no image.

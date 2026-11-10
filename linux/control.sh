@@ -54,19 +54,19 @@ bad_option() {
     exit 2
 }
 
-# Whether the server answers /api/status on loopback (one quick try).
+# Whether the server answers /api/status on loopback (one quick try). A
+# server that answers by asking for a passcode these scripts do not have
+# (or by its lock on wrong ones) is up, not starting: exit 3, with the
+# reason printed.
 server_answers() {
     local python
     python=$(status_python) || return 1
-    "$python" -I -B - "$port" <<'PY' >/dev/null 2>&1
-import json
-import sys
-import urllib.request
-
-direct = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    ask_server_python "$python" "$port" <<'PY' 2>/dev/null
 try:
-    with direct.open(f"http://127.0.0.1:{int(sys.argv[1])}/api/status", timeout=2) as response:
-        sys.exit(0 if isinstance(json.load(response), dict) else 1)
+    sys.exit(0 if isinstance(ask(sys.argv[1], "/api/status", 2), dict) else 1)
+except Refused as exc:
+    print(exc)
+    sys.exit(3)
 except Exception:  # noqa: BLE001 - any failure means "not yet"
     sys.exit(1)
 PY
@@ -88,12 +88,18 @@ unit_restart_state() {
 # Restart=on-failure, so a crash while starting shows as auto-restart (or a
 # grown NRestarts) rather than failed, until systemd's start limit trips.
 wait_for_page() {
-    local waited=0 sub restarts first_restarts
+    local waited=0 sub restarts first_restarts said answers
     read -r sub first_restarts < <(unit_restart_state)
     say "  Waiting for the page at http://127.0.0.1:$port/ (up to $wait_seconds s)..."
     while :; do
-        if server_answers; then
+        answers=0
+        said=$(server_answers) || answers=$?
+        if [ "$answers" = 0 ]; then
             ok "AuraDream answers at http://127.0.0.1:$port/ (after about $waited s)."
+            return 0
+        elif [ "$answers" = 3 ]; then
+            ok "AuraDream answers at http://127.0.0.1:$port/ (after about $waited s)."
+            warn "These scripts cannot ask it anything more: $said."
             return 0
         fi
         if systemctl --user is-failed --quiet "$UNIT_NAME" 2>/dev/null; then
@@ -141,7 +147,7 @@ check_idle() {
 # --- status ------------------------------------------------------------------------
 do_status() {
     [ "$#" = 0 ] || bad_option "$1"
-    local healthy=1 key value active='' sub='' since='' enabled='' loaded='' linger user
+    local healthy=1 key value active='' sub='' since='' enabled='' loaded='' linger user checkout=''
     say 'AuraDream server status'
     say "Project folder: $ROOT"
 
@@ -203,6 +209,8 @@ do_status() {
         branch=$(git -C "$ROOT" rev-parse --abbrev-ref HEAD 2>/dev/null || printf '?')
         commit=$(git -C "$ROOT" log -1 --format='%h %s (%cr)' 2>/dev/null || printf '?')
         say "         Branch $branch at $commit"
+        # The short commit alone, for the running server's own below.
+        [ "$commit" = '?' ] || checkout=${commit%% *}
         if upstream=$(git -C "$ROOT" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null); then
             local fetch_code=0
             fetch_error=$(GIT_TERMINAL_PROMPT=0 git -C "$ROOT" fetch --quiet 2>&1) || fetch_code=$?
@@ -232,16 +240,16 @@ do_status() {
     say "== The server at http://127.0.0.1:$port/"
     local python summary_code=0
     if python=$(status_python); then
-        "$python" -I -B - "$port" <<'PY' || summary_code=$?
-import json
-import sys
-import urllib.request
-
+        ask_server_python "$python" "$port" "$checkout" <<'PY' || summary_code=$?
 port = int(sys.argv[1])
-direct = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+checkout = sys.argv[2] if len(sys.argv) > 2 else ""
 try:
-    with direct.open(f"http://127.0.0.1:{port}/api/status", timeout=10) as response:
-        status = json.load(response)
+    status = ask(port, "/api/status", 10)
+except Refused as exc:
+    # It is running; only its status is closed to these scripts.
+    print("  [ok]   It answers.")
+    print(f"  [warn] Its status could not be read: {exc}.")
+    sys.exit(3)
 except Exception as exc:  # noqa: BLE001 - any failure means "not answering"
     print(f"  [warn] It does not answer ({exc}).")
     sys.exit(1)
@@ -252,6 +260,14 @@ def line(label, text):
 
 
 print("  [ok]   It answers.")
+# The commit the process started from: the checkout's own, above, moves with
+# a pull, and this one only with a restart.
+commit = status.get("commit")
+if isinstance(commit, str) and commit:
+    if checkout and not (commit.startswith(checkout) or checkout.startswith(commit)):
+        line("Commit", f"{commit}, and the checkout is at {checkout}: restart it to run the checkout's code")
+    else:
+        line("Commit", commit)
 label = status.get("model_label") or status.get("model_id") or "?"
 model_id = status.get("model_id")
 if model_id and model_id != label:
@@ -296,7 +312,9 @@ PY
         warn 'No python to ask it with (no .venv here and no python3).'
         summary_code=1
     fi
-    [ "$summary_code" = 0 ] || healthy=0
+    # 3: it answers, by asking for a passcode these scripts do not have (or
+    # by its lock on wrong ones). Running, so not unhealthy.
+    [ "$summary_code" = 0 ] || [ "$summary_code" = 3 ] || healthy=0
 
     say '== Sleep holds (systemd-inhibit --list)'
     local inhibitors held=0 line

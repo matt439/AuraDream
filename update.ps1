@@ -6,8 +6,11 @@
     Double-click update.cmd, which runs this script. It refuses while
     AuraDream is running, copies the gallery database to its before-update
     name (the way back, since a new version may add to the database on its
-    first start), then runs `git pull --ff-only` and `uv sync`. It never
-    discards a change: a pull Git refuses is explained, and nothing is reset.
+    first start), then runs `git pull --ff-only` and `uv sync`. The copy is
+    named by the commit the folder is on before the pull, a copy already
+    there for that commit is left alone, and the newest three are kept. It
+    never discards a change: a pull Git refuses is explained, and nothing is
+    reset.
 
 .PARAMETER DryRun
     Print what it would do and change nothing.
@@ -161,18 +164,60 @@ if ($env:AURADREAM_DB_PATH) {
 if (Test-Path -LiteralPath $db) {
     $dir = Split-Path -Parent $db
     $stem = [IO.Path]::GetFileNameWithoutExtension($db)
-    $copy = Join-Path $dir "$stem-before-update.db"
+    # Named by the commit this folder is on before the pull: a later update,
+    # run after the new version has changed the database, makes a copy of its
+    # own and never replaces this one.
+    $head = Invoke-Capture $git @('-C', $Root, 'rev-parse', '--short', 'HEAD')
+    $commit = $head.Text.Trim()
+    $named = ($head.Code -eq 0 -and $commit -cmatch '^[0-9a-f]{4,40}$')
+    if ($named) {
+        $copy = Join-Path $dir "$stem-before-update-$commit.db"
+    } else {
+        # No commit to name it by: the one fixed name, replaced each time.
+        $copy = Join-Path $dir "$stem-before-update.db"
+    }
     $wal = "$db-wal"
     $hasWal = (Test-Path -LiteralPath $wal) -and ((Get-Item -LiteralPath $wal).Length -gt 0)
+    # A copy already made at this commit is the older one, so it stays.
+    $kept = $named -and (Test-Path -LiteralPath $copy)
+    # The newest three named copies are kept, this update's among them.
+    $old = @()
+    if ($named) {
+        $pattern = '^' + [regex]::Escape("$stem-before-update-") + '[0-9a-f]{4,40}\.db$'
+        $leaf = Split-Path -Leaf $copy
+        $old = @(Get-ChildItem -LiteralPath $dir -File |
+            Where-Object { $_.Name -match $pattern -and $_.Name -ne $leaf } |
+            Sort-Object -Property @{ Expression = 'LastWriteTimeUtc'; Descending = $true }, Name |
+            Select-Object -Skip 2)
+    }
     if ($DryRun) {
-        Would "copy $db to $copy (replacing an older copy)"
-        if ($hasWal) { Would "copy $wal to $copy-wal" }
+        if ($kept) {
+            Would "leave $copy as it is (a copy made at this same commit, $commit)"
+        } elseif ($named) {
+            Would "copy $db to $copy"
+            if ($hasWal) { Would "copy $wal to $copy-wal" }
+        } else {
+            Would "copy $db to $copy (replacing an older copy)"
+            if ($hasWal) { Would "copy $wal to $copy-wal" }
+        }
+        foreach ($item in $old) { Would "delete the older copy $($item.FullName) (the newest three are kept)" }
     } else {
-        Copy-Item -LiteralPath $db -Destination $copy -Force
-        # A journal left from an older copy would be applied to this one.
-        Remove-Item -LiteralPath "$copy-wal", "$copy-shm" -Force -ErrorAction SilentlyContinue
-        if ($hasWal) { Copy-Item -LiteralPath $wal -Destination "$copy-wal" -Force }
-        Ok "Gallery database copied to $copy. If the new version misbehaves, that copy is the way back."
+        if ($kept) {
+            Ok "Gallery database copy $copy is already there from this same commit ($commit), so it was left alone. If the new version misbehaves, that copy is the way back."
+        } else {
+            Copy-Item -LiteralPath $db -Destination $copy -Force
+            # Copy-Item keeps the database's own time; the newest three go by
+            # when each copy was made.
+            (Get-Item -LiteralPath $copy).LastWriteTimeUtc = [DateTime]::UtcNow
+            # A journal left from an older copy would be applied to this one.
+            Remove-Item -LiteralPath "$copy-wal", "$copy-shm" -Force -ErrorAction SilentlyContinue
+            if ($hasWal) { Copy-Item -LiteralPath $wal -Destination "$copy-wal" -Force }
+            Ok "Gallery database copied to $copy. If the new version misbehaves, that copy is the way back."
+        }
+        foreach ($item in $old) {
+            Remove-Item -LiteralPath $item.FullName, "$($item.FullName)-wal", "$($item.FullName)-shm" -Force -ErrorAction SilentlyContinue
+            Note "Deleted the older copy $($item.FullName); the newest three are kept."
+        }
     }
 } else {
     Note "No gallery database yet ($db), so there is nothing to copy."

@@ -582,7 +582,7 @@ async function dropGoneReferences(ids) {
   const asked = ids.filter((id) => referenceIds.includes(id) && !referenceChecks.has(id));
   asked.forEach((id) => referenceChecks.add(id));
   const answers = await Promise.all(asked.map((id) => api(`/api/images/${id}`)
-    .then(() => null, (err) => (/unknown image/.test(err.message) ? { id, binned: /recycle bin/.test(err.message) } : null))));
+    .then(() => null, (err) => (imageGone(err) ? { id, binned: imageBinned(err) } : null))));
   asked.forEach((id) => referenceChecks.delete(id));
   const dead = answers.filter((a) => a != null && referenceIds.includes(a.id));
   return { ids: dead.map((a) => a.id), binned: dead.filter((a) => a.binned).map((a) => a.id) };

@@ -37,6 +37,7 @@ from .instruction_edit import InstructionEditSource, descriptor_from_image, edit
 from .metadata import PNG_MASK_KEY, PNG_METADATA_KEY, canonical_edit, edit_chunk, edit_from_json, validate_edit_record
 from .mask_crop import Crop
 from .png_settings import crop_anchor as _crop_anchor
+from .refusal_codes import IMAGE_BINNED, IMAGE_UNKNOWN, MASK_MISSING, CodedError
 # The pure codecs, imported back by name: storage uses most of them, and the
 # reindex, the bundle layer and the CLI reach all of them as `storage.<name>`.
 from .record_fields import (  # noqa: F401 - re-exported for storage.<name>
@@ -1338,15 +1339,16 @@ def reference_paths(ids: Sequence[int], noun: str = "reference image") -> list:
     by_id = {row["id"]: settings.outputs_dir / row["filename"] for row in rows}
     unknown = [image_id for image_id in wanted if image_id not in by_id]
     if unknown:
-        raise ValueError(
-            f"no gallery image with id {', '.join(str(i) for i in unknown)}"
+        raise CodedError(
+            f"no gallery image with id {', '.join(str(i) for i in unknown)}", IMAGE_UNKNOWN, unknown,
         )
     binned = sorted((row["id"] for row in rows if row["binned_at"] is not None), key=wanted.index)
     if binned:
         it = "it" if len(binned) == 1 else "them"
-        raise ValueError(
+        raise CodedError(
             f"{noun} {', '.join(str(i) for i in binned)} "
-            f"{'is' if len(binned) == 1 else 'are'} in the recycle bin; restore {it} to use {it}"
+            f"{'is' if len(binned) == 1 else 'are'} in the recycle bin; restore {it} to use {it}",
+            IMAGE_BINNED, binned,
         )
     gone = [image_id for image_id in wanted if not by_id[image_id].exists()]
     if gone:
@@ -1391,10 +1393,10 @@ def mask_path(mask: str) -> Path:
     with _session() as conn:
         row = _mask_row(conn, mask)
     if row is None:
-        raise ValueError(f"no stored mask {mask[:16]}; paint it again")
+        raise CodedError(f"no stored mask {mask[:16]}; paint it again", MASK_MISSING)
     path = masks_dir() / f"{row['hash']}.png"
     if not path.is_file():
-        raise ValueError(f"the file for mask {mask[:16]} is missing from the masks directory")
+        raise CodedError(f"the file for mask {mask[:16]} is missing from the masks directory", MASK_MISSING)
     return path
 
 
@@ -1506,7 +1508,7 @@ def touch_mask(mask: str) -> Path:
     with _write_lock, _session() as conn:
         now = datetime.now(timezone.utc).isoformat()
         if conn.execute("UPDATE masks SET created_at = ? WHERE hash = ?", (now, mask)).rowcount != 1:
-            raise ValueError(f"no stored mask {mask[:16]}; paint it again")
+            raise CodedError(f"no stored mask {mask[:16]}; paint it again", MASK_MISSING)
     return path
 
 

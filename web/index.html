@@ -147,6 +147,10 @@
         <button class="primary" id="btn-model-switch" aria-disabled="true" title="The checkpoint list is still loading">Switch &amp; load</button>
       </div>
       <p id="model-picker-note" role="status" tabindex="0"><button class="ghost tiny model-revert" id="btn-model-revert" type="button" title="Put back the server's checkpoint and loading options" hidden>Revert</button><span id="model-picker-note-text"></span></p>
+      <!-- Shown only while the server asks for a passcode (the status's
+           `passcode`; status.js, signOut): under the panel's status, where
+           it takes no height from the settings panel. -->
+      <p class="model-sign-out" id="model-sign-out" hidden><button class="ghost tiny" id="btn-sign-out" type="button" title="Sign this browser out of the server. Other devices stay signed in">Sign out</button></p>
     </div>
     <!-- The phone's foot of the sheet (phone-sheets.js): the note, Apply &
          save and Switch & load, and the topbar's Load and Unload, moved in
@@ -157,6 +161,11 @@
   <!-- Shown while nothing is loaded, or after a failed load (as Retry load):
        the first download, or a retry once repo access was granted, without
        queueing an image to start it. Unload is hidden meanwhile. -->
+  <!-- Shown only once the server has answered that this browser is signed
+       out (a 401 coded passcode_required; status.js, goSignedOut), beside
+       the status line's "signed out". It reloads, which shows the sign-in
+       page; the page never reloads by itself. -->
+  <button type="button" class="ghost" id="btn-sign-in" title="The server asks for its passcode again. Sign in reloads this page; what the panel holds is kept" hidden>Sign in</button>
   <button class="ghost" id="btn-load" title="Load the weights now" hidden>Load</button>
   <button class="ghost" id="btn-unload" title="Free VRAM">Unload</button>
   <!-- A phone's ⋯ (phone-compose.js, styles/phone.css): Load or Unload, Saved
@@ -1332,7 +1341,7 @@
        bar of Star, Reuse and Refine (moved in), Edit and More, whose action
        sheets press the lightbox's other buttons. Not drawn off the phone. -->
   <div class="lbp-top" id="lbp-top">
-    <button type="button" class="ghost lbp-share" id="lbp-share">Share</button>
+    <button type="button" class="ghost lbp-share" id="lbp-share" aria-haspopup="menu">Share</button>
   </div>
   <!-- The arrows sit over the stage's edges but beside it in the tree, not
        inside it: the stage captures the pointer on press, and a press on a
@@ -2356,7 +2365,7 @@
     <h2 id="snippets-title">Prompt snippets</h2>
     <button type="button" class="ghost" id="snippets-close">Close</button>
   </div>
-  <p class="hint" id="snippets-intro">Save your own reusable prompt text. Append or prepend it to a prompt; Ctrl+Z restores the box.</p>
+  <p class="hint" id="snippets-intro">Save your own reusable prompt text. Append or prepend it to a prompt or the grid's variables; Ctrl+Z restores the box.</p>
 <div class="snippets-portability">
   <button type="button" class="ghost" id="snippets-export">Export…</button>
   <button type="button" class="ghost" id="snippets-import" aria-haspopup="dialog" aria-controls="snippet-import-dialog">Import…</button>
@@ -2373,7 +2382,7 @@
       <label>Name<input type="text" id="snippets-name" maxlength="160" aria-description="Up to 80 characters." autocomplete="off" autofocus></label>
       <label>Text<textarea id="snippets-text" rows="5" maxlength="16000" spellcheck="false"></textarea></label>
       <div class="row">
-        <label class="sub grow"><i>Insert into</i><select id="snippets-target"><option value="prompt">Prompt</option><option value="negative">Negative prompt</option></select></label>
+        <label class="sub grow"><i>Insert into</i><select id="snippets-target"><option value="prompt">Prompt</option><option value="negative">Negative prompt</option><option value="variables">Grid variables</option></select></label>
         <label class="sub grow"><i>Position</i><select id="snippets-placement"><option value="append">Append</option><option value="prepend">Prepend</option></select></label>
       </div>
     </div>

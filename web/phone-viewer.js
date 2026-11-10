@@ -4,7 +4,9 @@
 // the lightbox's line and a bar of five - Star, Reuse and Refine, the
 // lightbox's own buttons moved in whole, then Edit and More, whose action
 // sheets press the lightbox's other buttons (Inpaint…, Outpaint…, Edit by
-// instruction…; Use seed, More seeds…, Download, the copies, Delete). The
+// instruction…; Use seed, More seeds…, Download, the copies, Delete). Share
+// opens a sheet of its own: Picture only (the picture drawn again, none of
+// the PNG's settings in the file) and With settings (the stored PNG). The
 // facts are a sheet over the foot, a line of the prompt until it is raised.
 // A tap on the picture shows or hides the bars (lightbox.js), a swipe up
 // raises the facts, and the zoom's readout shows as a chip while it
@@ -55,8 +57,8 @@ function syncPhoneViewer() {
   }
   const share = $('lbp-share');
   share.textContent = phoneCanShare() ? 'Share' : 'Download';
-  share.title = phoneCanShare() ? 'Share the full-size PNG, its settings in it'
-    : 'Download the full-size PNG with its saved settings (sharing needs HTTPS)';
+  share.title = phoneCanShare() ? 'Share the full-size picture, alone or with its saved settings in the PNG'
+    : 'Download the full-size picture, alone or with its saved settings in the PNG (sharing needs HTTPS)';
   // The image as drawn for the other tier: its Reuse's words, its layout.
   if (els.lightbox.open) renderLightbox();
 }
@@ -137,23 +139,88 @@ function flashPhoneZoom() {
   phoneZoomTimer = setTimeout(() => els.lbZoom.classList.remove('shown'), 1200);
 }
 
-async function sharePhoneImage() {
+// Share's action sheet: the two files a share can send, said in the rows'
+// own words, since a touch screen shows no title. The stored PNG carries
+// the prompt, the settings, the checkpoint and LoRA names and an inpaint's
+// mask in its text chunks; Picture only is the picture drawn again without
+// them. Where the browser shares no file the rows download instead.
+function openViewerShare(event) {
+  const rec = lbList[lbIndex];
+  if (!rec) return;
+  const verb = phoneCanShare() ? 'Share' : 'Download';
+  showContextMenu([
+    { heading: `${verb} #${rec.id}` },
+    { label: 'Picture only', title: `${verb} the picture alone: no prompt, settings, model or mask in the file`,
+      run: () => sharePhoneImage(false) },
+    { label: 'With settings', title: `${verb} the stored PNG: its prompt, settings, model and any mask are in the file`,
+      run: () => sharePhoneImage(true) },
+  ], verb, event.currentTarget, 0, 0, event.detail === 0);
+}
+
+// A canvas takes no more than this many pixels on iOS, and draws nothing
+// past it without saying so: a larger picture is refused, never sent blank.
+const PICTURE_ONLY_MAX_PIXELS = 16777216;
+
+// The stored PNG's picture as a new PNG with none of its text chunks: drawn
+// on a canvas and encoded again in the page. It throws where it cannot, so
+// the file with the settings is never sent in its place.
+async function pictureOnlyBlob(blob) {
+  const bitmap = await createImageBitmap(blob);
+  try {
+    if (bitmap.width * bitmap.height > PICTURE_ONLY_MAX_PIXELS) {
+      throw new Error(`${bitmap.width}×${bitmap.height} is too large to redraw without its settings here`);
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('the browser gave no canvas to redraw it on');
+    ctx.drawImage(bitmap, 0, 0);
+    const out = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+    if (!out) throw new Error('the browser could not redraw the picture');
+    return out;
+  } finally {
+    bitmap.close();
+  }
+}
+
+// The file a share sends. Picture only is named by the image's number
+// alone: the stored PNG's name holds the checkpoint and the seed.
+async function shareFile(rec, withSettings) {
+  const res = await fetch(rec.url);
+  if (!res.ok) throw new Error(`the image answered ${res.status}`);
+  const stored = await res.blob();
+  return withSettings ? new File([stored], lightboxFileName(rec), { type: 'image/png' })
+    : new File([await pictureOnlyBlob(stored)], `auradream-${rec.id}.png`, { type: 'image/png' });
+}
+
+async function sharePhoneImage(withSettings) {
   const rec = lbList[lbIndex];
   if (!els.lightbox.open || !rec) return;
-  if (!phoneCanShare()) { void downloadLightboxImage(); return; }
+  let file = null;
   try {
-    const res = await fetch(rec.url);
-    if (!res.ok) throw new Error(`the image answered ${res.status}`);
-    const file = new File([await res.blob()], lightboxFileName(rec), { type: 'image/png' });
-    if (!navigator.canShare({ files: [file] })) { void downloadLightboxImage(); return; }
+    file = await shareFile(rec, withSettings);
+    // The file is made: an earlier failure's words for this image go, as
+    // the lightbox's Download takes its own back.
+    if (lbDownloadError?.id === rec.id) {
+      if (els.lbError.textContent === lbDownloadError.text) showError('', false, { slot: els.lbError, mirror: false });
+      lbDownloadError = null;
+    }
+    if (!phoneCanShare() || !navigator.canShare({ files: [file] })) { saveBlobAs(file, file.name); return; }
     await navigator.share({ files: [file], title: `#${rec.id}` });
   } catch (err) {
     // Shut by the user: nothing to say. Refused for want of the press (the
-    // fetch outlived it): the download, which needs none.
+    // fetch and the redraw outlived it): the download of the same file,
+    // which needs none - never the stored PNG for a Picture only.
     if (err?.name === 'AbortError') return;
-    if (err?.name === 'NotAllowedError') { void downloadLightboxImage(); return; }
+    if (file && err?.name === 'NotAllowedError') { saveBlobAs(file, file.name); return; }
     if (els.lightbox.open && lbList[lbIndex] === rec) {
-      showError(`Could not share #${rec.id}: ${err?.message || err}.`, false, { slot: els.lbError, mirror: false });
+      const verb = phoneCanShare() ? 'share' : 'download';
+      // Owned as Download's is (lightbox.js): a walk to another image or a
+      // later file that is made clears it, and only its own words.
+      const text = `Could not ${verb} #${rec.id}: ${err?.message || err}.`;
+      lbDownloadError = { id: rec.id, text };
+      showError(text, false, { slot: els.lbError, mirror: false });
     }
   }
 }
@@ -263,7 +330,7 @@ function initPhoneViewer() {
     node.before(mark);
     phoneHomes.set(node, mark);
   }
-  $('lbp-share').addEventListener('click', () => { void sharePhoneImage(); });
+  $('lbp-share').addEventListener('click', openViewerShare);
   $('lbp-edit').addEventListener('click', openViewerEdit);
   $('lbp-more').addEventListener('click', openViewerMore);
   $('lbp-handle').addEventListener('click', () => setPhoneFacts(!phoneFactsUp));

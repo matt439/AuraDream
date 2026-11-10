@@ -60,6 +60,9 @@ function syncThenRefine() {
   els.thenRefineLabel.setAttribute('aria-disabled', String(held));
   els.thenRefine.setAttribute('aria-disabled', String(held));
   els.thenRefineLabel.title = held ? REFINE_NONE : 'A refine pass of every image right after the cell that made it';
+  // The held box carries the reason itself: a label's title describes the
+  // label, not the checkbox a screen reader lands on.
+  els.thenRefine.title = held ? REFINE_NONE : '';
   els.thenRefineStrength.placeholder = thenRefineStrengthText();
   const on = thenRefineOn();
   const strength = thenRefineStrengthText();

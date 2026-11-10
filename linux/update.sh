@@ -8,7 +8,8 @@
 #
 # The same steps as update.ps1: it refuses while AuraDream is running, copies
 # the gallery database to its before-update name (the way back, since a new
-# version may add to the database on its first start), then runs
+# version may add to the database on its first start; named by the commit
+# before the pull, the newest three kept), then runs
 # `git pull --ff-only` and `uv sync`. It never discards a change: a pull Git
 # refuses is explained, and nothing is reset, stashed or checked out.
 # --restart stops the service only when it is idle (no job, load or gallery
@@ -25,7 +26,7 @@ for arg in "$@"; do
         --dry-run) dry_run=1 ;;
         --restart) restart=1 ;;
         -h | --help)
-            sed -n '2,15p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+            sed -n '2,16p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
             exit 0
             ;;
         *)
@@ -165,19 +166,75 @@ else
 fi
 if [ -e "$db" ]; then
     name=${db##*/}
-    copy=$(dirname "$db")/${name%.*}-before-update.db
+    dir=$(dirname "$db")
+    prefix=${name%.*}-before-update
+    # Named by the commit this folder is on before the pull: a later update,
+    # run after the new version has changed the database, makes a copy of its
+    # own and never replaces this one.
+    commit=$("$git" -C "$ROOT" rev-parse --short HEAD 2>/dev/null) || commit=
+    case "$commit" in
+        "" | *[!0-9a-f]*) commit= ;;
+    esac
+    [ "${#commit}" -ge 4 ] || commit=
+    if [ -n "$commit" ]; then
+        copy=$dir/$prefix-$commit.db
+    else
+        # No commit to name it by: the one fixed name, replaced each time.
+        copy=$dir/$prefix.db
+    fi
     wal=$db-wal
     has_wal=0
     [ ! -s "$wal" ] || has_wal=1
+    # A copy already made at this commit is the older one, so it stays.
+    kept=0
+    if [ -n "$commit" ] && [ -e "$copy" ]; then kept=1; fi
+    # The newest three named copies are kept, this update's among them.
+    old=()
+    if [ -n "$commit" ]; then
+        listed=
+        for path in "$dir/$prefix-"*.db; do
+            if [ ! -f "$path" ] || [ "$path" = "$copy" ]; then continue; fi
+            hex=${path##*/}
+            hex=${hex#"$prefix-"}
+            hex=${hex%.db}
+            case "$hex" in
+                "" | *[!0-9a-f]*) continue ;;
+            esac
+            listed+="$(stat -c %Y -- "$path") $path"$'\n'
+        done
+        while IFS= read -r line; do
+            [ -z "$line" ] || old+=("${line#* }")
+        done < <(printf '%s' "$listed" | sort -rn | tail -n +3)
+    fi
     if [ "$dry_run" = 1 ]; then
-        would "copy $db to $copy (replacing an older copy)"
-        [ "$has_wal" = 0 ] || would "copy $wal to $copy-wal"
+        if [ "$kept" = 1 ]; then
+            would "leave $copy as it is (a copy made at this same commit, $commit)"
+        elif [ -n "$commit" ]; then
+            would "copy $db to $copy"
+            [ "$has_wal" = 0 ] || would "copy $wal to $copy-wal"
+        else
+            would "copy $db to $copy (replacing an older copy)"
+            [ "$has_wal" = 0 ] || would "copy $wal to $copy-wal"
+        fi
+        if [ "${#old[@]}" -gt 0 ]; then
+            for path in "${old[@]}"; do would "delete the older copy $path (the newest three are kept)"; done
+        fi
     else
-        cp -f -- "$db" "$copy"
-        # A journal left from an older copy would be applied to this one.
-        rm -f -- "$copy-wal" "$copy-shm"
-        [ "$has_wal" = 0 ] || cp -f -- "$wal" "$copy-wal"
-        ok "Gallery database copied to $copy. If the new version misbehaves, that copy is the way back."
+        if [ "$kept" = 1 ]; then
+            ok "Gallery database copy $copy is already there from this same commit ($commit), so it was left alone. If the new version misbehaves, that copy is the way back."
+        else
+            cp -f -- "$db" "$copy"
+            # A journal left from an older copy would be applied to this one.
+            rm -f -- "$copy-wal" "$copy-shm"
+            [ "$has_wal" = 0 ] || cp -f -- "$wal" "$copy-wal"
+            ok "Gallery database copied to $copy. If the new version misbehaves, that copy is the way back."
+        fi
+        if [ "${#old[@]}" -gt 0 ]; then
+            for path in "${old[@]}"; do
+                rm -f -- "$path" "$path-wal" "$path-shm"
+                note "Deleted the older copy $path; the newest three are kept."
+            done
+        fi
     fi
 else
     note "No gallery database yet ($db), so there is nothing to copy."

@@ -87,7 +87,9 @@ Backend (`backend/`):
   `current_model_id(settings)` / `current_settings(settings)`;
   `startup_preferences.py` atomically saves loader/startup choices;
   `model_info.py` supplies cold catalogue details from existing sourced guides,
-  and a fit badge for a card smaller than a build's measured need (`card_fit`);
+  and a fit badge for a card smaller than a build's measured need (`card_fit`),
+  and each entry's capability flags as a Models note and docs/usage.md's
+  generated table (`capabilities_for`, `tools/capability_table.py --write`);
   `hub_access.py` asks the Hub whether a switch's checkpoint can download;
   `hf_sign_in.py` whether a Hugging Face token is present (existence only,
   shared by the doctor and the status that preselects an open checkpoint);
@@ -112,9 +114,16 @@ Backend (`backend/`):
 - `main.py` lifecycle, model state, switching and the model routes;
   `app_context.py` the `AppServices` getters routers read main through;
   `detached.py` daemon-thread calls; `keep_awake.py` the Linux
-  `systemd-inhibit` hold while busy and for the idle minutes after a request
+  `systemd-inhibit` hold, and Windows' power request (`PowerRequest`),
+  while busy and for the idle minutes after a request
   (`ActivityMiddleware`, never the page's timed polls), stdlib only, the
-  CLI's `hold_while` too; `api_prompt.py` tag helper and prompt
+  CLI's `hold_while` too; `response_headers.py` the ASGI layer putting
+  `frame-ancestors 'self'` and `nosniff` on every response, added last in
+  `main` so it is outermost; `passcode.py` the opt-in passcode
+  (`AURADREAM_PASSCODE`) for a server reachable beyond this machine: the
+  gate, the session cookie, the limiter on wrong passcodes and the ASGI
+  layer with its sign-in and sign-out routes, stdlib and Starlette only;
+  `api_prompt.py` tag helper and prompt
   routes, `prompt_check.py` Check's layer 1, `tag_lookup.py` the Danbooru
   lookup (`tag_vocabulary`); `submission.py` submit checks and the gallery
   selection, its service-free checks and wording in `submission_rules.py`
@@ -232,9 +241,19 @@ Backend (`backend/`):
   `generate_remote.py`), `clear.py`, `stats.py`, `reindex.py`;
   `doctor.py` the read-only machine check (`python -m backend.doctor`:
   PASS/WARN/FAIL for torch's GPU, the driver's CUDA, RAM, free disk, the
-  port, the token file's existence; torch but never diffusers, no Hub) that
-  `install.ps1` runs; `server_probe.py` the port's trial bind and
-  AuraDream-title probe, stdlib only, which `main.run` and the doctor share
+  port, the commit, the token file's existence; torch but never diffusers,
+  no Hub) that `install.ps1` runs; `server_probe.py` the port's trial bind,
+  AuraDream-title probe and the running server's commit, stdlib only, which
+  `main.run` and the doctor share, with the passcode's header and the
+  gate's refusal in words for every caller that is not a browser; `build_info.py` the checkout's short
+  commit (None without git), read once at import as `main.COMMIT` for the
+  start-up log and `/api/status`'s `commit`, stdlib only
+- `log_file.py` the server's rotating `auradream.log` beside the database
+  (tracebacks at every level, `faulthandler`, uvicorn's level), stdlib only,
+  installed by `main.run` alone
+- `refusal_codes.py` the stable codes of the refusals the page acts on and
+  the coded errors `storage` and `loras` raise, stdlib only; `refusals.py`
+  `Refused`, the HTTP refusal answering `code` (and `ids`) beside `detail`
 
 Frontend (`web/`, served from `/static`): `index.html` loads classic scripts
 in order, sharing one global scope; only `app.js`, the last, runs anything.
@@ -280,7 +299,8 @@ recycle bin is a screen of its own on the phone (a ‹ before its name, no
 card tools, only its own rows in the sheets). `phone-viewer.js`
 (`styles/phone-viewer.css`, after `phone-gallery.css`), after it, owns the phone's
 viewer: the lightbox's picture across the screen with a top bar (‹, the
-place, Share) and a bar of Star, Reuse, Refine (moved in), Edit and More
+place, Share: Picture only, a canvas re-encode without the PNG's text
+chunks, or With settings) and a bar of Star, Reuse, Refine (moved in), Edit and More
 over it, whose action sheets press the lightbox's other buttons; the
 facts a peek that a press or a swipe up raises as a sheet; a tap on the
 picture hides or shows the bars, never closes. `LB_STACKED_MEDIA`
@@ -306,6 +326,14 @@ at its foot over a scrim, named at its head with a Cancel row last.
 context (never plain http to a LAN address), answers a silent server's
 `/` with `offline.html`, which retries and reopens the page; it caches
 nothing else, and the network always goes first.
+
+`passcode.html` is what the server answers for `/` while it asks for a
+passcode and the browser is not signed in (`backend/passcode.py`):
+self-contained as `offline.html` is, its title exactly the page's. In the
+page, `api()` (`state.js`) reads a 401 coded `passcode_required` as signed
+out (`status.js`, `goSignedOut`: "signed out" in the topbar's status line
+with a Sign in button that reloads), and Sign out sits in the Models panel
+while the status says a passcode is asked.
 
 `snippet-import.js` owns explicit personal-snippet export and the native
 merge dialog; it preserves the editor and prompt boxes, with no automatic retry.
@@ -463,8 +491,18 @@ Jobs:
   raising `Cancelled` from `callback_on_step_end`); never `Event.wait()`.
 - Every terminal transition goes through `_finish`.
 - The preview callback never raises.
+- A save the disk has no room for (`jobs.disk_full`: `ENOSPC`, SQLite's
+  "database or disk is full") pauses the job with `pause_reason`, the render
+  held in memory and saved at Resume; never a failed cell. Every other save
+  error stays the cell's failure. The CLI's own loop holds the image the
+  same way but polls (`generate._save_held`): it says the reason once and
+  saves when there is room; Ctrl-C ends the wait as a cancel.
 - GPU work outside jobs (Expand, the critic) goes through
   `jobs.run_when_idle`; nothing holding the gate awaits the load lock.
+- A failure site logs one ERROR line and its traceback at DEBUG with
+  `exc_info`: the log file (`log_file.py`) takes every `exc_info` record,
+  the console only at DEBUG. The file is installed in `main.run`, never at
+  import, and is never bundled, exported or cleared as gallery data.
 - Keep-awake providers are read on the event loop only; work on a daemon
   thread holds through `keep_awake.busy`. A new timed poll joins
   `counts_as_activity`'s exclusions, or an idle tab holds the PC awake.
@@ -499,6 +537,10 @@ Frontend:
 - A button held for a reason is `aria-disabled` with the reason as its title,
   never `disabled` (documented exceptions in `docs/rules.md`); a press says
   why.
+- What the page does about a refusal is decided by its `code`
+  (`refusal_codes.py`; `imageGone`, `imageBinned`, `refusedIds`,
+  `loraRefused` in `state.js`), never by testing `err.message`: the
+  sentence is only shown. A refusal the page must act on gets a code first.
 - Whole-box writes to the prompt or negative go through `writeBox` /
   `rewriteBox` / `replaceBoxText`, never `.value`, so Ctrl+Z works.
 - `setReferences` is the one writer of references; `forgetImages` is the one
@@ -509,6 +551,40 @@ Frontend:
   pointer; never `overflow-y: auto` on the panel.
 - The server decides (order slots, start sigma, reorders, grid expansion);
   the page adds presentation only.
+- `response_headers.ResponseHeadersMiddleware` stays the last
+  `add_middleware` in `main` (outermost), and its source stays `'self'`:
+  the smokes frame `/`. Under nosniff a script or stylesheet must be served
+  as one. It answers an unhandled error itself (Starlette's own 500 would
+  pass through no layer) and raises it on.
+
+Passcode (`backend/passcode.py`; docs/design-notes.md, "A passcode beyond
+loopback"):
+
+- `AURADREAM_PASSCODE` is read from the environment only: never a flag, the
+  saved settings, `/api/status`, a log line, an error, a process argument
+  or test output. The gate keeps a digest and a derived key, never the
+  passcode.
+- It is asked when it is set and the bind or an allowed host is not
+  loopback, and then of every request, 127.0.0.1's too (a proxy on the
+  same machine arrives from there). Off, the layer passes everything
+  through and every answer is what it was.
+- `PasscodeMiddleware` stays inside the response headers, the cross-site
+  write block and the Host check, and outside `hold_model_for_request`,
+  activity and gallery admission. A new route is closed by default
+  (`tests/test_api_passcode_routes.py` walks the route table); only
+  `OPEN_PATHS` (the manifest and its icons, by exact path) answer signed
+  out, and `/` is the sign-in page as a 200, never a redirect or a 401
+  (the service worker and the title probes).
+- `web/passcode.html` loads nothing under `/static/` and keeps
+  `<title>AuraDream</title>`.
+- The page never reloads by itself when a session ends: Sign in is the
+  user's press. Every caller that is not a browser sends
+  `Authorization: Bearer` from its own environment, through an opener that
+  follows no redirect, and reads the gate's 401 and 429 as refusals in
+  their own words, never as a server that is down or idle.
+- The docs say what plain http leaves readable wherever they name the
+  setting (README, `docs/usage.md`, `docs/setup.md`): it keeps out the
+  household, not anyone who can capture the network's traffic.
 
 CLI: `generate`, `clear`, `stats`, `reindex` reconfigure stdout to UTF-8 at
 the top of `main()`; `generate.py` applies `--model/--quant/--offload` to
@@ -533,7 +609,9 @@ in the HTTP layer or the UI needs to change.
 `AURADREAM_*` cleared by `tests/conftest.py`. The fake backend is
 `tests/fakes.py`; HTTP tests are `tests/test_api*.py`, one file per area.
 Node is required for the classic-script syntax/shared-scope guard; it
-checks HTML script order without executing the page's boot.
+checks HTML script order without executing the page's boot, and that every
+name a script uses is declared (a new browser global joins `BROWSER_GLOBALS`
+in `tools/check_classic_scripts.mjs`).
 The pinned Pyright gate checks every Python source in `backend/` and
 `tools/`; missing tools and empty scope fail. Its wrapper uses installed
 Node and bundled checker files, without automatic updates or downloads.
@@ -689,6 +767,7 @@ uses the driver's graceful close/cleanup. See the full Tests rules.
 | 7957 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-tablet` |
 | 7957 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-phone-landscape` |
 | 7958 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-offline` |
+| 7958 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-passcode` |
 | 7959 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-catalogue-stale` |
 | 7960 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-phone-dialogs` |
 | 7960 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-phone-gallery` |
@@ -709,9 +788,18 @@ Gotchas:
   scrollbars, no 15 px classic one), and `{"inject": "phone_audit.js"}`
   gives it `__phoneAudit()` (controls under 44 px, off the screen, dialogs
   outside the window, sideways overflow); `docs/rules.md` Tests has both.
+- A smoke that opens dialogs follows each navigate with
+  `{"inject": "a11y_audit.js"}` and `{"eval": "__a11yWatch()"}` and ends
+  (and precedes each later navigate) with `{"expect": "__a11yCheck()"}`:
+  unnamed controls, duplicate ids, `aria-disabled` with no reason on the
+  element itself, unnamed dialogs. `tests/test_a11y_audit.py` lists the
+  smokes; a regression guard, never `UI#7`'s evidence.
 - `browser.mjs` exits 1 on a failed `expect`, 2 on a script it refuses
   (an async helper joined with `&&`/`||` is never awaited: put the whole
-  condition inside the predicate).
+  condition inside the predicate). It also exits 1 when the page threw: an
+  uncaught exception or unhandled rejection in the page's code is printed
+  as `! page error:` and fails the run though every `expect` passed. Fix
+  the page (or the promise an `eval` dropped); no step allows one.
 - A `web/` edit needs no server restart; a `backend/` edit does.
 - Each run gets its own browser profile directory; a shared one stays locked
   by a crashed Edge. It is removed on every exit (failures and Ctrl-C too),
@@ -723,7 +811,10 @@ Gotchas:
   `/api/fake/refine` (`supported`: the claimed checkpoint's refine pass),
   `/api/fake/instruction-edit` (the edit gate, open by default only on a
   Kontext fake), `/api/fake/unreachable` (`on`: every other request held
-  unanswered, a PC asleep); a prompt containing `[fail]` fails its cell;
+  unanswered, a PC asleep), `/api/fake/disk-full` (`on`: every image save
+  refused as a full disk), `/api/fake/passcode` (`passcode`: a string
+  turns the passcode's gate on, null off; `reset`: clears the limiter; a
+  fake starts with none); a prompt containing `[fail]` fails its cell;
   `--critic-delay`, `--no-critic`.
 
 GPU behaviour, pixels, timing and memory are the card's to say, recorded in

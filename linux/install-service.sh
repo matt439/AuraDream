@@ -93,6 +93,9 @@ case "$ROOT$uv$ENV_FILE" in
     *$'\n'* | *'"'* | *\\*) refuse 'A path here has a newline, a double quote or a backslash, which a systemd unit cannot hold as written.' 'Move the checkout to a plain folder such as ~/AuraDream.' ;;
 esac
 ok "uv: $uv"
+# An environment file kept from before is sourced below for its port and
+# names: not one whose passcode bash would read differently from systemd.
+require_plain_env_passcode
 
 # --- The environment file ----------------------------------------------------------
 # The names the page may be opened by: loopback first, this machine's name,
@@ -124,9 +127,20 @@ env_text() {
 # One NAME=value per line, no quotes. systemd expands nothing here (no \$HOME,
 # no ~): every path must be absolute.
 
-# Listen on every network interface, so other PCs can open the page. There is
-# no login: anyone who can reach this port can use AuraDream.
+# Listen on every network interface, so other PCs can open the page. Without
+# AURADREAM_PASSCODE (below) there is no login: anyone who can reach this
+# port can use AuraDream.
 AURADREAM_HOST=0.0.0.0
+
+# A passcode every browser, and every script that asks the server, must give:
+# remove the # and write one of 8 characters or more after the = sign. In this
+# file it may hold only letters, digits and . _ - + @ % : , / (no spaces, no
+# quotes, no dollar sign, # or backslash): systemd and AuraDream's own scripts
+# both read this file and agree only on such plain values. It sits here, and
+# crosses the network over plain http, unencrypted: it keeps out people who can
+# merely reach the address, so never reuse a password from anywhere else.
+# Changing it and restarting signs every device out.
+#AURADREAM_PASSCODE=
 
 # The names the page may be opened by, comma-separated, written when the
 # service was installed: this machine's name, its .local name and its IPv4

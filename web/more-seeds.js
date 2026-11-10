@@ -68,6 +68,9 @@ let msAnswer = null;
 let msAnswerKey = '';
 // What the last check was refused with (too many images), or ''.
 let msProblem = '';
+// msProblem is the server's refusal of the count (its `more_seeds_cap`):
+// the count is what a held press marks and focuses.
+let msOverCap = false;
 // A Queue press the server refused: said until the next edit or press.
 let msRefused = false;
 let msAsking = null;
@@ -189,6 +192,8 @@ function syncMoreSeedsThenRefineHold() {
   els.moreSeedsThenRefine.setAttribute('aria-disabled', String(Boolean(held)));
   els.moreSeedsThenRefineLabel.title = held
     || "Follow each new image with its run's refine pass, in the run's own pass run; off makes the images alone";
+  // On the held box too: a label's title is not the checkbox's.
+  els.moreSeedsThenRefine.title = held;
 }
 
 async function askMoreSeeds(payload, signal) {
@@ -290,7 +295,7 @@ async function openMoreSeeds(target = null, { count = null, opener = null, host 
     answer = first;
   } catch (err) {
     if (!opening.valid() || err.name === 'AbortError') return;
-    if (err.status === 422 && /^\d+ batch/.test(err.message)) overCap = err.message;
+    if (err.code === 'more_seeds_cap') overCap = err.message;
     else { msRefuse(err.message, said); return; }
   } finally {
     if (msOpening === opening) {
@@ -306,6 +311,7 @@ async function openMoreSeeds(target = null, { count = null, opener = null, host 
   msAnswer = answer;
   msAnswerKey = JSON.stringify(msPayload());
   msProblem = overCap;
+  msOverCap = !!overCap;
   msRefused = false;
   els.moreSeedsCount.removeAttribute('aria-invalid');
   showError('', false, { slot: els.moreSeedsError });
@@ -370,6 +376,7 @@ async function runMoreSeedsCheck() {
     msAnswer = null;
     msAnswerKey = key;
     msProblem = field;
+    msOverCap = false;
     msSay(field, true);
     syncMoreSeedsRun();
     return;
@@ -382,11 +389,13 @@ async function runMoreSeedsCheck() {
     if (msAsking !== asking) return;
     msAnswer = answer;
     msProblem = '';
+    msOverCap = false;
     renderMoreSeeds(answer);
   } catch (err) {
     if (msAsking !== asking || err.name === 'AbortError') return;
     msAnswer = null;
     msProblem = err.message;
+    msOverCap = err.code === 'more_seeds_cap';
     msSay(err.message, true);
   }
   msAnswerKey = key;
@@ -512,7 +521,7 @@ async function runMoreSeeds() {
   const hold = moreSeedsHold();
   if (hold) {
     showError(hold, false, { slot: els.moreSeedsError });
-    if (hold === msCountProblem() || /^\d+ batch/.test(hold)) {
+    if (hold === msCountProblem() || (msOverCap && hold === msProblem)) {
       els.moreSeedsCount.setAttribute('aria-invalid', 'true');
       els.moreSeedsCount.focus();
     }
@@ -548,7 +557,7 @@ async function runMoreSeeds() {
     onRefused: (err) => {
       msSending = false;
       msRefused = Boolean(els.moreSeedsError.textContent);
-      const receiptRefused = err.status === 409 && /intent|receipt|more seeds request/i.test(err.message);
+      const receiptRefused = err.code === 'more_seeds_receipt';
       // Once a reply was lost, even a later explicit refusal can come from
       // middleware before the receipt is read (for example bundle admission).
       // It cannot resolve whether the original request already queued work.
@@ -562,6 +571,7 @@ async function runMoreSeeds() {
       // Unknown or expired receipts cannot silently acquire a fresh intent.
       if (receiptRefused) {
         msProblem = `${err.message} Review the queue before starting a new More seeds request.`;
+        msOverCap = false;
         showError(msProblem, false, { slot: els.moreSeedsError });
         syncMoreSeedsRun();
         return;

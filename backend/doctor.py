@@ -10,11 +10,15 @@ Nothing here changes anything or reaches the network beyond loopback: torch
 is imported to ask CUDA about the card, but diffusers is never imported and
 no model is loaded; `nvidia-smi` is run if it is on the PATH; on Linux,
 `systemd-inhibit` holds the PC awake around `true`, which lets go as soon as
-`true` ends; the Hugging Face sign-in is the token file's existence only
+`true` ends, and on Windows a power request is set and let go at once (no
+power setting is read or changed); the Hugging Face sign-in is the token file's existence only
 (never read, printed or sent to the Hub); the port check is the server's own
-trial bind and loopback probe (`server_probe`). The figures it compares
-against are the measured ones in docs/setup.md's Before you start and
-docs/verified.md, never a promise for another machine.
+trial bind and loopback probe (`server_probe`); the commit is `git rev-parse`
+in this folder, and the running server's own from its status on loopback
+(with `AURADREAM_PASSCODE` from this environment where that server asks for
+one; the passcode is never printed).
+The figures it compares against are the measured ones in docs/setup.md's
+Before you start and docs/verified.md, never a promise for another machine.
 """
 from __future__ import annotations
 
@@ -26,7 +30,7 @@ import re
 import shutil
 import subprocess
 import sys
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -34,8 +38,9 @@ from typing import Any
 # config is the first project import, before anything that could import
 # diffusers (AGENTS.md); nothing here does, but the rule holds everywhere.
 from .config import settings
-from . import hf_sign_in, server_probe
+from . import build_info, hf_sign_in, keep_awake, server_probe
 from .loader_choices import default_format
+from .passcode import MIN_LENGTH as PASSCODE_MIN_LENGTH, asked as passcode_asked, setting_problem as passcode_problem
 
 PASS, WARN, FAIL = "PASS", "WARN", "FAIL"
 GIB = 1024 ** 3
@@ -311,6 +316,45 @@ def check_port(host: str | None = None, port: int | None = None,
                   f"Close that program, or set AURADREAM_PORT to a free port, such as {port + 1}.")]
 
 
+# --- Commit -------------------------------------------------------------------
+
+def check_commit(host: str | None = None, port: int | None = None,
+                 checkout: Callable[[], str | None] = build_info.read_commit,
+                 busy: Callable[[str, int], bool] = server_probe.port_busy,
+                 running: Callable[[str, str | None], str | None] = server_probe.running_commit,
+                 passcode: str | None = None) -> list[Check]:
+    """This folder's short commit, and the running server's where one
+    answers on the port: they differ after an update without a restart.
+    A server that asks for a passcode is sent this environment's
+    (`settings.passcode`, or `passcode`); without it the row says so, and
+    does not fail."""
+    host = settings.host if host is None else host
+    port = settings.port if port is None else port
+    passcode = settings.passcode if passcode is None else passcode
+    here = checkout()
+    mine = f"this folder is at {here}" if here is not None else "this folder's own is unknown"
+    # Asked only of a held port: a refused connection is slow on Windows.
+    try:
+        there = running(server_probe.page_url(host, port), passcode) if port and busy(host, port) else None
+    except server_probe.PasscodeRefused as refused:
+        detail = f"{mine}. The running server {refused.reason}, so its commit was not read."
+        if refused.sent or refused.locked:
+            return [Check(WARN, "Commit", detail, refused.fix)]
+        return [Check(PASS, "Commit", f"{detail} {refused.fix}")]
+    if here is None and there is None:
+        return [Check(PASS, "Commit", "unknown: this folder is not a Git checkout, or git was not found.")]
+    if there is None:
+        return [Check(PASS, "Commit", f"this folder is at {here}.")]
+    if here is None:
+        return [Check(PASS, "Commit", f"the running server started at {there}; this folder's own is unknown "
+                      "(not a Git checkout, or git was not found).")]
+    if build_info.same_commit(here, there):
+        return [Check(PASS, "Commit", f"this folder and the running server are both at {here}.")]
+    return [Check(WARN, "Commit", f"the running server started at {there}, and this folder is now at {here}: "
+                  "it is still running the code it started with.",
+                  "Restart AuraDream to run this folder's code.")]
+
+
 # --- LAN settings -------------------------------------------------------------
 
 def check_lan(host: str | None = None, allowed: Iterable[str] | None = None) -> list[Check]:
@@ -353,6 +397,36 @@ def check_lan(host: str | None = None, allowed: Iterable[str] | None = None) -> 
     return checks
 
 
+# --- Passcode -----------------------------------------------------------------
+
+def check_passcode(host: str | None = None, allowed: Iterable[str] | None = None,
+                   environ: Mapping[str, str] | None = None) -> list[Check]:
+    """Whether `AURADREAM_PASSCODE` is asked, as `main` decides it
+    (`passcode.asked`): only on a server another machine can reach. A
+    passcode the server would refuse to start with fails; a reachable server
+    with none warns. The value is never printed."""
+    host = settings.host if host is None else host
+    names = list(settings.allowed_hosts if allowed is None else allowed)
+    passcode = settings.passcode if environ is None else server_probe.environment_passcode(environ)
+    variable = server_probe.PASSCODE_VARIABLE
+    problem = passcode_problem(passcode)
+    if problem is not None:
+        said, _, fix = problem.partition(". ")
+        return [Check(FAIL, "Passcode", f"{said}, so the server will not start.", fix)]
+    if not passcode_asked(host, names):
+        return [Check(PASS, "Passcode", ("set, but not asked" if passcode else "not asked")
+                      + ": this server is reached from this machine only.")]
+    if passcode is None:
+        return [Check(
+            WARN, "Passcode", "none is set, and this server can be reached from other machines: anyone who "
+            "can open its address can use it, read and delete the gallery, and queue work.",
+            f"Set {variable} ({PASSCODE_MIN_LENGTH} characters or more, not a password used anywhere else) "
+            "where the server starts, and restart it. For the Linux service that is its environment file.")]
+    return [Check(PASS, "Passcode", "asked of every browser and script: this server can be reached from other "
+                  "machines. Over plain http it crosses the network unencrypted, so it keeps out people who "
+                  "can merely reach the address, and is no protection on a network that is not trusted.")]
+
+
 # --- Keeping the PC awake -----------------------------------------------------
 
 def polkit_rule(user: str) -> str:
@@ -368,16 +442,38 @@ def polkit_rule(user: str) -> str:
     )
 
 
+def _check_power_request(request: keep_awake.Holder) -> list[Check]:
+    """Windows' trial: the server's own power request, set and let go at
+    once. It changes no power setting."""
+    try:
+        request.hold()
+    except Exception as exc:  # noqa: BLE001 - whatever stopped it is the row's words
+        why = str(exc) or type(exc).__name__
+        return [Check(WARN, "Keep awake", f"Windows refused a power request ({why}), so this PC may sleep "
+                      "in the middle of a load or a render.",
+                      "If this PC sleeps when idle, lengthen or turn off its sleep timer (Settings > System > "
+                      "Power) while AuraDream is used from another device.")]
+    finally:
+        request.release()
+    return [Check(PASS, "Keep awake", "Windows accepts a power request, so the idle sleep timer waits while "
+                  "AuraDream works. The display may still turn off, and a sleep you ask for still happens.")]
+
+
 def check_keep_awake(platform: str | None = None, which: Callable[[str], str | None] = shutil.which,
                      run: Callable[..., Any] = subprocess.run, enabled: bool | None = None,
-                     user: str | None = None) -> list[Check]:
-    """On Linux, whether the server may hold the PC awake while it works: a
-    trial block hold around `true`, let go when it ends. Nothing elsewhere."""
+                     user: str | None = None,
+                     power: Callable[[], keep_awake.Holder] | None = None) -> list[Check]:
+    """Whether the server may hold the PC awake while it works. On Linux, a
+    trial block hold around `true`, let go when it ends; on Windows, a
+    trial power request (`power` builds it), let go at once. Nothing
+    elsewhere."""
     platform = sys.platform if platform is None else platform
-    if not platform.startswith("linux"):
+    if platform != "win32" and not platform.startswith("linux"):
         return []
     if not (settings.keep_awake if enabled is None else enabled):
         return [Check(PASS, "Keep awake", "switched off (AURADREAM_KEEP_AWAKE=false), so nothing is tried.")]
+    if platform == "win32":
+        return _check_power_request((power or (lambda: keep_awake.PowerRequest("AuraDream doctor: check")))())
     program = which("systemd-inhibit")
     if not program:
         return [Check(WARN, "Keep awake", "systemd-inhibit was not found, so AuraDream cannot keep this PC "
@@ -430,7 +526,9 @@ def check_hf_login(token_path: Path | None = None, environ: dict[str, str] | Non
 # --- Running ------------------------------------------------------------------
 
 CHECKS: tuple[Callable[[], list[Check]], ...] = (
-    check_driver, check_gpu, check_vram, check_ram, check_disk, check_port, check_lan, check_keep_awake,
+    check_driver, check_gpu, check_vram, check_ram, check_disk, check_port, check_commit, check_lan,
+    check_passcode,
+    check_keep_awake,
     check_hf_login,
 )
 
@@ -463,8 +561,8 @@ def main(argv: list[str] | None = None) -> int:
         sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
     argparse.ArgumentParser(
         prog="python -m backend.doctor",
-        description="Read-only checks of this machine: GPU, driver, VRAM, RAM, disk, port, LAN settings, "
-                    "keeping the PC awake, sign-in.",
+        description="Read-only checks of this machine: GPU, driver, VRAM, RAM, disk, port, commit, LAN settings, "
+                    "the passcode, keeping the PC awake, sign-in.",
     ).parse_args(argv)
     print("AuraDream doctor: read-only checks of this machine.", flush=True)
     lines, status = report(run_checks())

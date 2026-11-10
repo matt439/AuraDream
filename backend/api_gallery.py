@@ -9,6 +9,8 @@ from fastapi.responses import JSONResponse, RedirectResponse
 
 from . import gallery_delete, gallery_reports, storage
 from .jobs import JobManager
+from .refusal_codes import IMAGE_BINNED, IMAGE_UNKNOWN, SELECTION_CHANGED
+from .refusals import Refused
 from .schemas import (
     BinResult,
     BinSummary,
@@ -47,16 +49,15 @@ async def _record_or_404(image_id: int, binned: bool) -> ImageRecord:
     """One image's record, the recycle bin's only when asked for.
 
     A binned image answers 404 like a deleted one - the page's many readers
-    of "unknown image" mean "gone from the gallery", and are right - with
-    the reason after it, for the reader that wants to offer a Restore.
+    of it mean "gone from the gallery", and are right - with the reason
+    after it, for the reader that wants to offer a Restore. The page reads
+    the code (`image_unknown`, `image_binned`), never these words.
     """
     record = await asyncio.to_thread(storage.get_image, image_id, True)
     if record is None:
-        raise HTTPException(status_code=404, detail="unknown image")
+        raise Refused(404, "unknown image", IMAGE_UNKNOWN, [image_id])
     if record.binned_at is not None and not binned:
-        raise HTTPException(
-            status_code=404, detail=f"unknown image (#{image_id} is in the recycle bin)"
-        )
+        raise Refused(404, f"unknown image (#{image_id} is in the recycle bin)", IMAGE_BINNED, [image_id])
     return record
 
 
@@ -175,7 +176,7 @@ def create_router(
         # it was binned, until a Restore.
         record = await asyncio.to_thread(storage.set_favorite, image_id, value)
         if record is None:
-            raise HTTPException(status_code=404, detail="unknown image")
+            raise Refused(404, "unknown image", IMAGE_UNKNOWN, [image_id])
         return record
 
 
@@ -327,7 +328,7 @@ def create_router(
         """Delete one image and its PNG for good, live or binned: the bin
         view's Delete permanently. The page's ordinary delete bins."""
         if not await asyncio.to_thread(gallery_delete.delete_image, image_id, get_jobs().masks_in_flight):
-            raise HTTPException(status_code=404, detail="unknown image")
+            raise Refused(404, "unknown image", IMAGE_UNKNOWN, [image_id])
         # A page that reattaches to the job that made it is replayed the job's
         # records; a deleted one came back as a broken tile.
         get_jobs().forget_images([image_id])
@@ -409,10 +410,11 @@ def create_router(
                 "unstarred again, or let it finish first."
                 if get_jobs().busy() else ""
             )
-            raise HTTPException(
-                status_code=409,
-                detail=f"The selection changed: {exc.found} unstarred images match now, "
+            raise Refused(
+                409,
+                f"The selection changed: {exc.found} unstarred images match now, "
                 f"not the {exc.expected} confirmed. Nothing was moved; look again.{running}",
+                SELECTION_CHANGED,
             ) from exc
         get_jobs().forget_images(result["ids"], binned=True)
         return {"binned": result["ids"], "deleted": result["ids"], "files": result["files"]}

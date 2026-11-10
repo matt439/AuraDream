@@ -91,9 +91,10 @@ def no_real_credential_vault(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def no_real_keep_awake(monkeypatch):
-    """No test takes a real systemd-inhibit hold (a Linux runner has one):
-    the server's lifespan and the CLI get an inhibitor that holds nothing.
-    Tests of the hold build theirs with a fake popen."""
+    """No test takes a real hold through the server or the CLI (a Linux
+    runner has systemd-inhibit, a Windows one power requests): the server's
+    lifespan and the CLI get an inhibitor that holds nothing. Tests of the
+    hold build theirs with a fake popen or faked Win32 calls."""
     from backend import keep_awake
 
     monkeypatch.setattr(keep_awake, "platform_inhibitor", lambda *args, **kwargs: keep_awake.NoInhibitor())

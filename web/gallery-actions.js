@@ -60,7 +60,7 @@ async function setFavorite(rec, value, { say = false } = {}) {
     } catch (err) {
       // A star is a gallery control, and says what went wrong where they do -
       // not in the panel's line a column away (the lightbox's line mirrors it).
-      if (!/unknown image/.test(err.message)) {
+      if (!imageGone(err)) {
         showError(err.message, false, { slot: els.galleryError });
         return;
       }
@@ -852,14 +852,14 @@ function pageInBehind() {
 
 // A viewer tile whose picture would not load: deleted from another tab, or
 // replayed by a job from before its delete - or the server is only out of
-// reach. Asked, and only "unknown image" forgets it - as binned where the
-// server says it is in the recycle bin.
+// reach. Asked, and only the server's image-gone code forgets it - as
+// binned where the code says it is in the recycle bin.
 async function forgetIfGone(id) {
   try {
     await api(`/api/images/${id}`);
   } catch (err) {
-    if (!/unknown image/.test(err.message)) return;
-    const note = forgetImages([id], { binned: /recycle bin/.test(err.message) });
+    if (!imageGone(err)) return;
+    const note = forgetImages([id], { binned: imageBinned(err) });
     if (note) showError(note.trim(), true, { slot: els.galleryError });
   }
 }
@@ -982,7 +982,7 @@ async function deleteUnstarred() {
         headers: revision === null ? {} : { 'X-AuraDream-Model-Revision': String(revision) },
       });
     } catch (err) {
-      if (!/selection changed/i.test(err.message)) { showError(err.message, false, slot); return; }
+      if (err.code !== 'selection_changed') { showError(err.message, false, slot); return; }
       // The server counts something else now - images a job landed in scope,
       // most often. The page shows the server's count rather than the one the
       // message has just called stale. Whether a job is still running is in

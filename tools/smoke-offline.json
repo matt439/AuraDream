@@ -23,5 +23,24 @@
   {"eval": "document.getElementById('retry').click()"},
   {"wait": 1500},
   {"expect": "(async () => { const end = Date.now() + 20000; while (Date.now() < end) { if (document.getElementById('status-dot')?.className.includes('ready')) return true; await new Promise((r) => setTimeout(r, 50)); } return false; })()", "fatal": true},
-  {"expect": "location.pathname === '/' && document.title.includes('AuraDream') && navigator.serviceWorker.controller?.scriptURL === location.origin + '/sw.js'"}
+  {"expect": "location.pathname === '/' && document.title.includes('AuraDream') && navigator.serviceWorker.controller?.scriptURL === location.origin + '/sw.js'"},
+
+  {"log": "'With a passcode asked and this browser signed out: the worker passes the sign-in page on, silence is still the offline page, and the PC answering again opens the sign-in page'"},
+  {"eval": "window.__passcode = 'smoke-offline-passcode';"},
+  {"expect": "(async () => (await (await fetch('/api/fake/passcode', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({passcode: window.__passcode})})).json()).on === true)()", "fatal": true},
+  {"navigate": "http://127.0.0.1:7958/"},
+  {"expect": "(async () => { const end = Date.now() + 20000; while (Date.now() < end) { if (document.getElementById('passcode') && document.title === 'AuraDream') return true; await new Promise((r) => setTimeout(r, 50)); } return false; })()", "fatal": true},
+  {"expect": "navigator.serviceWorker.controller?.scriptURL === location.origin + '/sw.js' && !document.getElementById('status-dot')"},
+  {"expect": "(async () => (await fetch('/sw.js')).status === 401 && (await fetch('/static/offline.html')).status === 401 && (await fetch('/static/manifest.webmanifest')).status === 200)()"},
+  {"expect": "(async () => (await (await fetch('/api/fake/unreachable', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({on: true})})).json()).on === true)()", "fatal": true},
+  {"navigate": "http://127.0.0.1:7958/"},
+  {"wait": 6500},
+  {"expect": "(async () => { const end = Date.now() + 10000; while (Date.now() < end) { if (document.querySelector('h1')?.textContent === 'AuraDream is not answering') return true; await new Promise((r) => setTimeout(r, 50)); } return false; })()", "fatal": true},
+  {"expect": "location.pathname === '/' && !document.getElementById('passcode') && document.getElementById('retry').textContent === 'Try again'"},
+  {"expect": "(async () => (await (await fetch('/api/fake/unreachable', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({on: false})})).json()).on === false)()", "fatal": true},
+  {"eval": "document.getElementById('retry').click()"},
+  {"wait": 1500},
+  {"expect": "(async () => { const end = Date.now() + 20000; while (Date.now() < end) { if (document.getElementById('passcode') && document.title === 'AuraDream') return true; await new Promise((r) => setTimeout(r, 50)); } return false; })()", "fatal": true},
+  {"expect": "location.pathname === '/' && document.querySelector('h1').textContent === 'Sign in to AuraDream' && !document.getElementById('status-dot')"},
+  {"expect": "(async () => (await (await fetch('/api/fake/passcode', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({passcode: null})})).json()).on === false)()"}
 ]

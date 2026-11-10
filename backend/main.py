@@ -42,8 +42,9 @@ if __name__ == "__main__":
 else:
     compiler_cache._seal_startup()
 
-from . import api_backup, api_bundles, api_gallery, api_generate, api_jobs, api_masks, api_more_seeds, api_png, api_presets, api_prompt, api_refine_batch, api_rerender, api_runs, api_saved_searches, api_snippets, api_swap, app_context, bundle_common, bundles, card_facts, gallery_lock, gallery_reports, hf_sign_in, hub_access, keep_awake, loras, model_selection, prompt_encoding, startup_preferences, storage  # noqa: E402
+from . import api_backup, api_bundles, api_gallery, api_generate, api_jobs, api_masks, api_more_seeds, api_png, api_presets, api_prompt, api_refine_batch, api_rerender, api_runs, api_saved_searches, api_snippets, api_swap, app_context, bundle_common, bundles, card_facts, gallery_lock, gallery_reports, hf_sign_in, hub_access, keep_awake, loras, model_selection, passcode, prompt_encoding, response_headers, startup_preferences, storage  # noqa: E402
 from .backup_service import BackupService  # noqa: E402
+from .build_info import read_commit as _read_commit  # noqa: E402
 from .server_probe import auradream_at as _auradream_at, is_loopback as _is_loopback, page_url as _page_url, port_busy as _port_busy  # noqa: E402
 from .backends import get_backend  # noqa: E402
 from .detached import detached as _detached  # noqa: E402
@@ -58,6 +59,8 @@ from .instruction_edit import (  # noqa: E402
     INSTRUCTION_EDIT_UNAVAILABLE, is_edit_only, option_refusals, require_model_available,
 )
 from . import api_instruction_edit  # noqa: E402
+from . import log_file  # noqa: E402
+from . import refusal_codes, refusals  # noqa: E402
 from .model_defaults import DEFAULT_MODEL_ID, OPEN_DEFAULT_MODEL_ID, defaults_for, guide_for, hints_for  # noqa: E402
 from .schemas import (  # noqa: E402
     ExpanderDownload,
@@ -70,9 +73,7 @@ from .schemas import (  # noqa: E402
 from .translation import MODEL_BYTES as TRANSLATOR_BYTES  # noqa: E402
 from .translation import prompt_translator  # noqa: E402
 
-logging.basicConfig(
-    level=settings.log_level, format="%(asctime)s %(levelname)-7s %(name)s | %(message)s"
-)
+logging.basicConfig(level=settings.log_level, format=log_file.FORMAT)
 log = logging.getLogger("auradream")
 warn_legacy_env(log)  # a pre-rename variable left in a shell: named, not read
 
@@ -145,6 +146,11 @@ def _open_model_suggestion(model_id: str, token_present: bool) -> str | None:
 # was talking to went away - and every job with it - which nothing else in a
 # status that reads "not loaded" again says.
 STARTED_AT = time.time()
+# The checkout's short commit as this process started, read once here: a
+# `git pull` without a restart moves the checkout's and leaves this one,
+# which is what tells the two apart. None when it cannot be told (no Git
+# checkout, no git).
+COMMIT = _read_commit()
 
 # huggingface_hub's errors a load can end in, by class name: the user can do
 # something about each, and their own text is a status line, a request id and
@@ -477,11 +483,100 @@ app.add_middleware(api_bundles.GalleryAdmission, get_manager=lambda: bundle_mana
 
 
 # A request someone made keeps the PC awake for the idle minutes. Added before
-# the host and origin checks, so they run outside it and a refused request is
-# never use. A plain ASGI layer, not `@app.middleware("http")`: that wraps
+# the passcode and the host and origin checks, so they run outside it and a
+# refused request is never use. A plain ASGI layer, not
+# `@app.middleware("http")`: that wraps
 # every response, the job streams included, in another task and stream, and
 # the extra hop delayed a stream's attach enough to change what it saw.
 app.add_middleware(keep_awake.ActivityMiddleware, get_controller=lambda: _keep_awake)
+
+
+# The layers, outermost first (Starlette runs the last one added first): the
+# response headers, the cross-site write block, the Host check, the
+# passcode, the model hold, keep-awake's activity, gallery admission. The
+# order is the design (docs/design-notes.md, "A passcode beyond loopback"):
+# a hostile page's cross-site POST is a 403 before the passcode is looked
+# at, so it cannot spend the sign-in attempts; a 401 carries the headers;
+# and a request that is not signed in is never a model reader, never keeps
+# the PC awake and never waits on the gallery.
+@app.middleware("http")
+async def hold_model_for_request(request: Request, call_next):
+    """Keep one checkpoint throughout model-dependent request validation/work.
+
+    Pydantic fills sampling defaults before the route starts, and routes can
+    await gallery reads, tokenizer loads and adapter checks before submitting
+    a job. Counting at the HTTP boundary makes all of those one read of the
+    selected checkpoint: a switch refuses until they finish, and once a switch
+    starts no new reader can enter. This does not take the GPU gate, so cold
+    prompt checks continue to work beside generation.
+
+    A page may still have the previous checkpoint's controls between polls.
+    Its optional revision header refuses that stale submission before request
+    defaults or side effects are evaluated. Existing API clients without the
+    header continue to use the checkpoint currently selected by the server.
+    """
+    global _model_requests
+
+    path = request.url.path
+    depends_on_model = path in {
+        "/api/instruction-edit/preview", "/api/instruction-edit",
+        "/api/generate", "/api/grid", "/api/rerender", "/api/swap-tags", "/api/refine/batch", "/api/more-seeds",
+        "/api/loras", "/api/png/settings",
+        "/api/model/load", "/api/model/unload",
+        "/api/gallery/unstarred",
+    } or path.startswith(("/api/grid/", "/api/prompt/", "/api/tags/", "/api/runs/")) or api_presets.depends_on_model(request.method, path)
+    selects_model = path == "/api/model/switch"
+    if not depends_on_model and not selects_model:
+        return await call_next(request)
+    if _switching or _switch_draining:
+        return JSONResponse(
+            {"detail": "the checkpoint is switching; wait for the switch to finish"},
+            status_code=409,
+        )
+    # The old name is read for a page loaded before the rename to AuraDream.
+    expected = (request.headers.get("x-auradream-model-revision")
+                or request.headers.get("x-local-diffusion-model-revision"))
+    if expected is not None:
+        try:
+            expected_revision = int(expected)
+        except ValueError:
+            return JSONResponse({"detail": "invalid model revision"}, status_code=422)
+        if expected_revision != model_selection.revision():
+            return JSONResponse(
+                {"detail": "the checkpoint changed; refresh its settings before trying again"},
+                status_code=409,
+            )
+    if selects_model:
+        # The switch performs its own exclusive admission. Counting it as a
+        # model reader would make it refuse itself forever.
+        return await call_next(request)
+    _model_requests += 1
+    _model_request_paths[path] = _model_request_paths.get(path, 0) + 1
+    try:
+        return await call_next(request)
+    finally:
+        _model_requests -= 1
+        if _model_request_paths[path] > 1:
+            _model_request_paths[path] -= 1
+        else:
+            del _model_request_paths[path]
+
+
+# The passcode's gate: None while it is not asked (unset, or a server only
+# this machine reaches), and then the layer passes everything through. Built
+# once, here; the fake and the tests install their own.
+_passcode_gate: passcode.Gate | None = passcode.gate_for(
+    settings.passcode, settings.host, settings.allowed_hosts, settings.port,
+)
+app.add_middleware(
+    passcode.PasscodeMiddleware,
+    get_gate=lambda: _passcode_gate,
+    page=settings.web_dir / "passcode.html",
+)
+
+
+# A refusal the page acts on: its stable `code` (and `ids`) beside `detail`.
+app.add_exception_handler(refusals.Refused, refusals.refused_response)
 
 
 @app.exception_handler(gallery_lock.GalleryBusy)
@@ -492,7 +587,9 @@ async def gallery_busy(request: Request, exc: gallery_lock.GalleryBusy):
 @app.exception_handler(MaskGone)
 async def mask_gone(request: Request, exc: MaskGone):
     message = str(exc)
-    return JSONResponse({"detail": message[:1].upper() + message[1:] + "."}, status_code=422)
+    return JSONResponse(
+        {"detail": message[:1].upper() + message[1:] + ".", "code": refusal_codes.MASK_MISSING}, status_code=422,
+    )
 
 
 @app.exception_handler(OutpaintStampFailed)
@@ -562,68 +659,10 @@ async def block_cross_site_writes(request: Request, call_next):
     return await call_next(request)
 
 
-@app.middleware("http")
-async def hold_model_for_request(request: Request, call_next):
-    """Keep one checkpoint throughout model-dependent request validation/work.
-
-    Pydantic fills sampling defaults before the route starts, and routes can
-    await gallery reads, tokenizer loads and adapter checks before submitting
-    a job. Counting at the HTTP boundary makes all of those one read of the
-    selected checkpoint: a switch refuses until they finish, and once a switch
-    starts no new reader can enter. This does not take the GPU gate, so cold
-    prompt checks continue to work beside generation.
-
-    A page may still have the previous checkpoint's controls between polls.
-    Its optional revision header refuses that stale submission before request
-    defaults or side effects are evaluated. Existing API clients without the
-    header continue to use the checkpoint currently selected by the server.
-    """
-    global _model_requests
-
-    path = request.url.path
-    depends_on_model = path in {
-        "/api/instruction-edit/preview", "/api/instruction-edit",
-        "/api/generate", "/api/grid", "/api/rerender", "/api/swap-tags", "/api/refine/batch", "/api/more-seeds",
-        "/api/loras", "/api/png/settings",
-        "/api/model/load", "/api/model/unload",
-        "/api/gallery/unstarred",
-    } or path.startswith(("/api/grid/", "/api/prompt/", "/api/tags/", "/api/runs/")) or api_presets.depends_on_model(request.method, path)
-    selects_model = path == "/api/model/switch"
-    if not depends_on_model and not selects_model:
-        return await call_next(request)
-    if _switching or _switch_draining:
-        return JSONResponse(
-            {"detail": "the checkpoint is switching; wait for the switch to finish"},
-            status_code=409,
-        )
-    # The old name is read for a page loaded before the rename to AuraDream.
-    expected = (request.headers.get("x-auradream-model-revision")
-                or request.headers.get("x-local-diffusion-model-revision"))
-    if expected is not None:
-        try:
-            expected_revision = int(expected)
-        except ValueError:
-            return JSONResponse({"detail": "invalid model revision"}, status_code=422)
-        if expected_revision != model_selection.revision():
-            return JSONResponse(
-                {"detail": "the checkpoint changed; refresh its settings before trying again"},
-                status_code=409,
-            )
-    if selects_model:
-        # The switch performs its own exclusive admission. Counting it as a
-        # model reader would make it refuse itself forever.
-        return await call_next(request)
-    _model_requests += 1
-    _model_request_paths[path] = _model_request_paths.get(path, 0) + 1
-    try:
-        return await call_next(request)
-    finally:
-        _model_requests -= 1
-        if _model_request_paths[path] > 1:
-            _model_request_paths[path] -= 1
-        else:
-            del _model_request_paths[path]
-
+# Last, so outermost of the app's own layers: the Host check's 400 and the
+# cross-site 403 above carry the headers too, with every route and both
+# mounts below (a layer wraps the whole app, whatever is added to it later).
+app.add_middleware(response_headers.ResponseHeadersMiddleware)
 
 # StaticFiles checks the directory exists at mount time; storage owns creating
 # it (config no longer does at import, so a --dry-run can promise "nothing").
@@ -722,6 +761,7 @@ async def status() -> ModelStatus:
         detail_kind=_load_state.get("detail_kind") if _load_state["detail"] else None,
         detail_url=_load_state.get("detail_url") if _load_state["detail"] else None,
         started_at=STARTED_AT,
+        commit=COMMIT,
         server_time=time.time(),
         model_label=_catalogue_label(info["model_id"]),
         # The live jobs' ids, oldest first: a page watching none of them
@@ -745,6 +785,7 @@ async def status() -> ModelStatus:
         prompt_critique_ready=prompt_critic.ready(),
         prompt_critic=prompt_critic.describe(),
         keep_awake=_keep_awake_status(),
+        passcode=_passcode_gate is not None,
     )
 
 
@@ -1347,7 +1388,16 @@ def run(*, open_browser: bool = False) -> None:
     when the holder is AuraDream itself (a second launch), it says so, opens
     the browser at it if `open_browser`, and exits 0; anything else exits 1
     naming the port and AURADREAM_PORT. `open_browser` (--open) otherwise
-    opens the page once the server is listening; never by default."""
+    opens the page once the server is listening; never by default.
+
+    An AURADREAM_PASSCODE under 8 characters (or past what the sign-in
+    takes) exits 1 before any of that, in words that never hold it."""
+    # Before anything binds or is asked: a passcode too short to be one is a
+    # mistake, said by the variable's name and never by its value.
+    problem = passcode.setting_problem(settings.passcode)
+    if problem is not None:
+        print(problem, file=sys.stderr, flush=True)
+        raise SystemExit(1)
     url = _page_url(settings.host, settings.port)
     # Port 0 asks the system for any free port: nothing to collide with.
     if settings.port and _port_busy(settings.host, settings.port):
@@ -1363,29 +1413,53 @@ def run(*, open_browser: bool = False) -> None:
             file=sys.stderr, flush=True,
         )
         raise SystemExit(1)
-    if not _is_loopback(settings.host):
-        # The API has no login: anyone who reaches it can read, delete and
-        # import galleries and make this machine download with the HF token.
-        log.warning(
-            "Serving on %s: the server has no login, so anyone who can reach "
-            "this address controls it. Expose it only on a trusted network.",
-            settings.host,
+    # After the port checks: a second launch leaves the running server's file
+    # alone. Before the first line worth keeping.
+    log_to_file = log_file.install(settings.db_path, settings.log_level)
+    if log_to_file.handler is not None:
+        log.info("log file: %s", log_to_file.path)
+    if _passcode_gate is not None:
+        log.info(
+            "Asking for the passcode in %s. Over plain http the passcode, its cookie "
+            "and every prompt and image cross the network unencrypted: it keeps out "
+            "people who can merely reach this address, not anyone who can capture "
+            "the network's traffic.",
+            passcode.VARIABLE,
         )
+    elif settings.passcode is not None:
+        log.info(
+            "%s is set but not asked: the server listens on this machine only.",
+            passcode.VARIABLE,
+        )
+    elif not _is_loopback(settings.host):
+        # No passcode: anyone who reaches the API can read, delete and import
+        # galleries and make this machine download with the HF token.
+        log.warning(
+            "Serving on %s with no passcode, so anyone who can reach this address "
+            "controls the server. Set %s, or expose it only on a trusted network.",
+            settings.host, passcode.VARIABLE,
+        )
+    log.info("AuraDream at commit %s", COMMIT or "unknown (not a Git checkout, or git was not found)")
     config = uvicorn.Config(
         app,
         host=settings.host,
         port=settings.port,
-        log_level="info",
+        log_level=log_file.uvicorn_level(settings.log_level),
         # A client that stops reading its stream must not hold shutdown open.
         timeout_graceful_shutdown=30,
     )
-    server = Server(config)
-    if open_browser:
-        _open_when_listening(server, url)
+    # uvicorn.Config has just replaced its loggers' handlers; an unhandled
+    # route's traceback is logged there and nowhere else.
+    log_to_file.follow(logging.getLogger(log_file.UVICORN_LOGGER))
     try:
+        server = Server(config)
+        if open_browser:
+            _open_when_listening(server, url)
         server.run()
     except KeyboardInterrupt:
         raise SystemExit(130) from None
+    finally:
+        log_to_file.close()
 
 
 if __name__ == "__main__":

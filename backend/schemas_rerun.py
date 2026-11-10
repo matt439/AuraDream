@@ -86,10 +86,12 @@ class RerenderRequest(BaseModel):
 
 class RerenderGone(BaseModel):
     """A picked image Re-render left out: deleted, or binned since it was
-    picked (`detail`, `submission.gone_detail`'s words)."""
+    picked (`detail`, `submission.gone_detail`'s words; `binned` says
+    which, for the page, whatever the words)."""
 
     id: int
     detail: str
+    binned: bool = False
 
 
 class RerenderUnmatched(BaseModel):

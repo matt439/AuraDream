@@ -1,6 +1,8 @@
 [
   {"log": "'the Refine dialog, against a fake server claiming FLUX.1 Krea [dev] on 7875'"},
   {"navigate": "http://127.0.0.1:7875/"},
+  {"inject": "a11y_audit.js"},
+  {"eval": "__a11yWatch()"},
   {"wait": 1200},
   {"expect": "(async () => { const end = Date.now() + 20000; while (Date.now() < end) { if (document.getElementById('status-dot').className.includes('ready') && !!lastHints) return true; await new Promise((r) => setTimeout(r, 50)); } return false; })()"},
   {"eval": "resetPanel(); showError('');"},
@@ -497,5 +499,6 @@
   {"wait": 300},
   {"log": "'Reset leaves nothing of a pass anywhere'"},
   {"eval": "resetPanel(); showError('');"},
-  {"expect": "refineSource === null && !els.refineDialog.open && collect().refine === null && unsentRefine === null"}
+  {"expect": "refineSource === null && !els.refineDialog.open && collect().refine === null && unsentRefine === null"},
+  {"expect": "__a11yCheck()"}
 ]

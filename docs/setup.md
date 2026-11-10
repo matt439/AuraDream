@@ -315,9 +315,30 @@ uv run python -m backend.doctor
 
 It prints a PASS, WARN or FAIL line for the GPU and PyTorch, the driver's
 CUDA version, RAM, free disk where the downloads and images go, the port,
-and whether a Hugging Face sign-in is present, with what to do under
-anything that is not a pass. It downloads and loads nothing and never
-contacts Hugging Face.
+the commit, whether Windows accepts the request that keeps the PC awake
+while AuraDream works (tried and let go at once; see
+[usage](usage.md#keep-the-pc-awake)), and whether a Hugging Face sign-in is
+present, with what to do under anything that is not a pass. It downloads
+and loads nothing, changes no power setting and never contacts Hugging Face.
+
+The **Commit** row is the version: this folder's short Git commit, and the
+running server's own when AuraDream is answering on the port. A server
+keeps the code it started with, so after an update without a restart the
+two differ and the row warns; restart AuraDream to run the new code. The
+server also writes its commit in its first log lines ("AuraDream at commit
+...") and reports it as `commit` in `/api/status`. Without Git (a copied
+folder) the commit is unknown and the row says so.
+
+The server also writes a log file, `auradream.log`, beside the gallery
+database (the project folder unless `AURADREAM_DB_PATH` moved it). It has
+the server's lines from the console (not the line per request) plus the
+full traceback of every failure, which the console prints only with
+`AURADREAM_LOG_LEVEL=DEBUG`, so a job that failed overnight can still be
+read after the console window has closed. At 5 MB
+it becomes `auradream.log.1` and a new file starts; three older files are
+kept. It contains your prompts and file paths: read it before sending it to
+anyone. It is not part of a gallery bundle or backup, and deleting it while
+the server is stopped loses nothing else.
 
 - **"is gated on Hugging Face and this sign-in has no access yet"**: accept
   the licence (or wait for approval) on the checkpoint's page, run
@@ -347,19 +368,48 @@ and `uv sync`, and explains a pull Git refuses without discarding anything
 folder:
 
 ```powershell
-Copy-Item auradream.db auradream-before-update.db
+Copy-Item auradream.db "auradream-before-update-$(git rev-parse --short HEAD).db"
 git pull --ff-only
 uv run python -m backend.main
 ```
 
 The copy matters: a new version can add to the gallery database on its
 first start, and an older version cannot undo that, so the copy is the way
-back. (A gallery from before the rename may be `local-diffusion.db`; copy
-that one instead, to `local-diffusion-before-update.db`.) Git ignores
-both copies. The next start installs any changed packages before it
+back. It is named by the commit the folder was on before the pull, for
+example `auradream-before-update-8b4fae3.db`, so the next update makes a
+copy of its own instead of replacing this one. `update.cmd` leaves a copy
+it already made at the same commit alone, keeps the newest three and
+deletes older ones. A copy named plain `auradream-before-update.db` is
+from an older `update.cmd`, which replaced it on every update; nothing
+deletes it. (A gallery from before the rename may be `local-diffusion.db`;
+its copies are `local-diffusion-before-update-<commit>.db`.) Git ignores
+all of them. The next start installs any changed packages before it
 runs, which can take a while when torch changes. If `git pull --ff-only`
 refuses, a file of the code was changed in your folder; `git status` names
 it.
+
+### Going back after an update
+
+If the new version misbehaves, the copy and its commit take the folder
+back to how it was before that update. Stop the server, then from the
+project folder, with the commit from the copy's name:
+
+```powershell
+Move-Item auradream.db auradream-after-update.db
+Copy-Item auradream-before-update-8b4fae3.db auradream.db
+git checkout 8b4fae3
+uv run python -m backend.main
+```
+
+If `auradream.db-wal` or `auradream.db-shm` is still there after the server
+has stopped, move it aside with the database; if the copy has a `-wal` file
+beside it, copy that to `auradream.db-wal` too. The first command keeps the
+newer database rather than deleting it. Images made since the copy are
+still in `outputs\` but not in the older database:
+`uv run python -m backend.reindex` adds them back from the PNGs' own
+metadata (without their stars). The folder then stays on that commit, and
+`update.cmd` cannot pull there; `git checkout main` returns to the branch
+that updates.
 
 A ZIP download cannot be updated in place. Running `install.cmd` again
 offers to turn the folder into a Git checkout ([Easy install](#easy-install)),
@@ -490,16 +540,44 @@ nothing there). It holds:
   it asks for. The doctor warns about a missing `127.0.0.1`, capitals and
   wildcards.
 - The xet downloader's fixed connection count (as `wsl/env.sh` sets it),
-  and commented examples for `HF_HOME`, `AURADREAM_PORT` and the two
-  keep-awake settings.
+  and commented examples for `HF_HOME`, `AURADREAM_PORT`, the two
+  keep-awake settings and `AURADREAM_PASSCODE`.
+
+To have the server ask for a passcode, uncomment `AURADREAM_PASSCODE=` in
+that file, give it at least 8 characters, and restart with
+`bash linux/control.sh restart`. Changing a passcode that is already asked
+needs `restart --force`: the scripts read the new one from the file while
+the server still asks for the old one, so the ordinary busy check is
+refused (`--force` interrupts any work in progress). A file
+written before this setting existed has no such line: add it by hand. In
+this file the passcode may hold only letters, digits and `. _ - + @ % : , /`
+(no spaces or quotes): systemd and the scripts read anything else
+differently, and the scripts stop rather than guess. Every device then
+signs in once at the page and stays signed in for thirty days after its
+last visit; `control.sh`, `update.sh` and `auradream-server` send the
+passcode from the file themselves.
 
 At the end the script prints the addresses to open from another PC, such as
 `http://my-box:7860/` or `http://192.168.1.20:7860/`. A `.local` name needs
 mDNS (`avahi-daemon`); if a firewall is on, allow the port
-(`sudo ufw allow 7860/tcp`). **There is no login**: anyone who can reach the
-port can read and delete the gallery and make the machine download
-checkpoints with its Hugging Face token. Only do this on a network you
-trust.
+(`sudo ufw allow 7860/tcp`). **Without a passcode the server asks for
+nothing**: anyone who can reach the port can read and delete the gallery and
+make the machine download checkpoints with its Hugging Face token. With one,
+know what it is worth, since the service speaks plain http:
+
+- The passcode, its cookie and every prompt and image cross the network
+  unencrypted. Anyone who can capture that network's traffic reads all of
+  it and can sign in afterwards.
+- So the passcode keeps out people who can merely reach the address: the
+  household, a guest on the Wi-Fi. It is not protection on a network that
+  is not trusted, and never a reason to forward the port to the internet.
+- HTTPS is what makes it private, which AuraDream does not serve yet.
+- Do not reuse a password from anywhere else: it sits in plain text in the
+  environment file and the process's environment.
+- There is one passcode and no accounts. Changing it and restarting signs
+  every device out; nothing else does.
+
+Either way, only do this on a network you trust.
 
 ```bash
 systemctl --user status auradream          # its state
@@ -539,8 +617,10 @@ bash linux/update.sh --restart
 `--restart` stops the service only when it is idle (no job, load, switch or
 gallery bundle operation), updates, and starts it again even if the update
 fails; without it, `update.sh` refuses while AuraDream runs. It copies the
-gallery database to its before-update name (the way back, as in
-[Updating](#updating)), runs `git pull --ff-only` and `uv sync`, and never
+gallery database to its before-update name
+(`<name>-before-update-<commit>.db` beside the database, the newest three
+kept; the way back, as in
+[Going back after an update](#going-back-after-an-update)), runs `git pull --ff-only` and `uv sync`, and never
 resets, stashes or checks out a change of yours: a pull Git refuses is
 explained. It reads the service's environment file, so it copies the
 database the service uses. `install-service.sh` again rewrites the unit
@@ -561,7 +641,9 @@ bash linux/control.sh doctor            # the read-only machine check, with the 
 `status` shows the service's state, since when, whether it is enabled and
 whether lingering is on; the checkout's branch and commit and how far it is
 behind GitHub (after a quiet `git fetch`; a failed fetch is only noted);
-and the running server's own answer on `127.0.0.1`: the checkpoint and how
+and the running server's own answer on `127.0.0.1`: the commit it started
+from (with a note to restart when the checkout has moved on since), the
+checkpoint and how
 it loads, the model's state, active jobs, the card's holder, keep awake and
 why, the card's memory and the free disk, then AuraDream's line from
 `systemd-inhibit --list`. It exits 0 when the service is active and

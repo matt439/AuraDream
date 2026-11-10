@@ -328,9 +328,9 @@ function writeRefineSourceLine(rec, gone = null) {
 // 28 is in the recycle bin; restore it to use it" as bin.js says it. The
 // dialog stays open with its edits, as for any refusal. Any other message is
 // returned as it is.
-function refineSourceGone(message, source = refineSource) {
-  const gone = sourceGoneKind(message, source);
-  if (!gone) return message;
+function refineSourceGone(err, source = refineSource) {
+  const gone = sourceGoneKind(err, source);
+  if (!gone) return err.message;
   if (refineSource === source) writeRefineSourceLine(source, gone);
   return sourceGoneWords(source, gone, 'refine');
 }
@@ -345,8 +345,8 @@ function refineSourceGone(message, source = refineSource) {
 // that waited on the preview which found it gone runs nothing (runRefine):
 // the pass it would run is not the one the press was for.
 let refineLoraDrops = 0;
-function dropRefineLora(message, source = refineSource) {
-  return dropPassLora(message, source, {
+function dropRefineLora(err, source = refineSource) {
+  return dropPassLora(err, source, {
     lora: () => refineLora, source: () => refineSource,
     drop: () => { refineLora = null; refineLoraDrops++; },
     carried: els.refineCarried, failed: refineFailed, noun: 'pass', run: 'Refine',
@@ -806,9 +806,9 @@ async function previewRefine() {
   } catch (err) {
     if (epoch !== refineEpoch) return;
     // The adapter gone: asked again without it, the refusal said instead.
-    if (await dropRefineLora(err.message)) return previewRefine();
+    if (await dropRefineLora(err)) return previewRefine();
     if (epoch !== refineEpoch) return;
-    refineProblem = refineSourceGone(err.message);
+    refineProblem = refineSourceGone(err);
     els.refinePreview.classList.add('warn');
     els.refinePreview.textContent = refineProblem;
   }
@@ -873,10 +873,12 @@ async function runRefine() {
   };
   // Resolves on a refusal, once an accepted job has ended, or - for one
   // queued behind the watched job - once the server has taken it (startJob).
+  let refusal = null;
   const sent = startJob(path, body, {
     sheet: sweep,
     panel: false,
     slot: els.refineError,
+    onRefused: (err) => { refusal = err; },
     placeholder: {
       src: source.url ?? source.thumb_url,
       width: body.width,
@@ -917,11 +919,12 @@ async function runRefine() {
   // server's words, which startJob wrote into the dialog's line: said again
   // in the page's before the task ends, so the alert is read once, in these.
   const refused = els.refineError.textContent;
-  const said = refineSourceGone(refused, source);
+  refusal = shownRefusal(refusal, refused);
+  const said = refineSourceGone(refusal, source);
   if (said !== refused) refineFailed(said);
   // An adapter gone since the last preview: taken out, said, and the
   // preview asked again without it.
-  else if (await dropRefineLora(refused, source)) scheduleRefinePreview(0);
+  else if (await dropRefineLora(refusal, source)) scheduleRefinePreview(0);
   // Refused with the dialog gone: its line is out of sight, so the panel's says it.
   if (!els.refineDialog.open && els.refineError.textContent) showError(els.refineError.textContent);
 }

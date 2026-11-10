@@ -525,13 +525,12 @@ function pressAgain(path, payload) {
 // reload - is refused at every press until the chip goes: so it goes, by
 // forgetImages, once the server says the image is unknown
 // (dropGoneReferences), and the refusal says so in the page's words. One
-// more press is then enough. The server names a binned one "reference image
-// N", N the gallery id, not the chip's number: said as "#N" here.
+// more press is then enough. Which images is the refusal's `ids` under its
+// image-gone code, never read out of its sentence, which names a binned one
+// "reference image N", N the gallery id, not the chip's number: "#N" here.
 async function dropRefusedReferences(err, path, payload, slot) {
-  const named = /^no gallery image with id ([\d, ]+)$/.exec(err.message)
-    ?? /^reference image ([\d, ]+) (?:is|are) in the recycle bin; /.exec(err.message);
-  if (!named) return;
-  const ids = named[1].split(',').map((id) => +id.trim()).filter((id) => payload.reference?.includes(id));
+  if (!imageGone(err)) return;
+  const ids = refusedIds(err).filter((id) => payload.reference?.includes(id));
   const found = await dropGoneReferences(ids);
   const dead = found.ids;
   if (!dead.length) return;
@@ -549,13 +548,13 @@ async function dropRefusedReferences(err, path, payload, slot) {
 // The same for the panel's adapter: a file renamed or removed while the page
 // was open stayed in LoRA, and every press was refused with the server's
 // sentence for a developer (the directory's full path, the variable that
-// moves it). A refusal that names the chosen adapter reads the list again
+// moves it). A refusal coded as the adapter's (loraRefused) reads the list again
 // (refreshLoras), which drops a name no longer offered; then the refusal
 // says so. One the list still offers was refused for something else, and
 // its sentence stands.
 async function dropRefusedLora(err, path, payload, slot) {
   const name = payload.lora;
-  if (!name || name !== els.lora.value || !err.message.includes(name)) return;
+  if (!name || name !== els.lora.value || !loraRefused(err)) return;
   const body = await refreshLoras();
   if (!body || els.lora.value === name) return;
   persistPanel();
@@ -704,7 +703,7 @@ async function rerenderAtTier() {
 // image the server has let go of.
 function sayRerenderGone(gone) {
   if (!gone.length) return;
-  const binned = gone.filter((item) => /recycle bin/.test(item.detail)).map((item) => item.id);
+  const binned = gone.filter((item) => item.binned).map((item) => item.id);
   const deleted = gone.filter((item) => !binned.includes(item.id)).map((item) => item.id);
   const also = (binned.length ? forgetImages(binned, { binned: true }) : '') + (deleted.length ? forgetImages(deleted) : '');
   const are = (ids) => (ids.length === 1 ? 'is' : 'are');

@@ -99,7 +99,9 @@ def _install_stubs(stubs: Path) -> None:
         'fi\n'
         # What control.sh status reads of a checkout.
         'case "$3" in\n'
-        '  rev-parse) [ "$5" = HEAD ] && printf "main\\n"; [ "$5" = --symbolic-full-name ] && printf "origin/main\\n"; exit 0 ;;\n'
+        # The commit update.sh names the database copy by.
+        '  rev-parse) [ "$4" = --short ] && { printf "%s\\n" "${STUB_COMMIT-abc1234}"; exit 0; }\n'
+        '    [ "$5" = HEAD ] && printf "main\\n"; [ "$5" = --symbolic-full-name ] && printf "origin/main\\n"; exit 0 ;;\n'
         '  log) printf "%s\\n" "abc1234 Keep awake (2 days ago)"; exit 0 ;;\n'
         '  fetch) [ -z "${STUB_FETCH_EXIT:-}" ] || { echo "fatal: unable to access the remote" >&2; exit "$STUB_FETCH_EXIT"; }; exit 0 ;;\n'
         '  rev-list) printf "%s\\n" "${STUB_AHEAD_BEHIND:-0 0}"; exit 0 ;;\n'
@@ -481,16 +483,53 @@ def _no_git_or_uv(sandbox) -> bool:
 def auradream_listening(sandbox):
     """A loopback AuraDream on an ephemeral port: it answers while the stub
     service is active (or always, without one), its page with the title and
-    its status with what `busy` says."""
+    its status with what `busy` says.
+
+    With `gate["passcode"]` set it asks as `backend.passcode` does: signed
+    out, `/` is the real sign-in page and everything else the coded 401; a
+    request carrying that passcode as `Authorization: Bearer` is answered;
+    while `gate["locked"]`, one carrying any passcode is a 429. `gate["sent"]`
+    counts the requests that carried one."""
     busy: dict = {"status": {"state": "ready", "active_jobs": [], "switching": False, "card_holder": None},
                   "bundles": {"state": "idle"}}
     track = {"service": False}
+    gate: dict = {"passcode": None, "locked": False, "sent": 0}
 
     class Handler(BaseHTTPRequestHandler):
+        def _send(self, code, body, kind="application/json", **headers):
+            self.send_response(code)
+            self.send_header("Content-Type", kind)
+            self.send_header("Content-Length", str(len(body)))
+            for name, value in headers.items():
+                self.send_header(name.replace("_", "-"), value)
+            self.end_headers()
+            self.wfile.write(body)
+
         def do_GET(self):  # noqa: N802 - http.server's name
             if track["service"] and not (sandbox["state"] / "active").exists():
                 self.send_response(404)                # a tracked service that is stopped
                 self.end_headers()
+                return
+            sent = self.headers.get("Authorization")
+            gate["sent"] += sent is not None
+            if gate["passcode"] is not None and sent != f"Bearer {gate['passcode']}":
+                if sent is not None and gate["locked"]:
+                    self._send(429, b'{"detail": "Too many wrong passcodes. Wait 7 seconds and try again."}',
+                               Retry_After="7")
+                elif self.path == "/":
+                    self._send(200, (REPO / "web" / "passcode.html").read_bytes(), "text/html; charset=utf-8")
+                else:
+                    self._send(401, json.dumps({
+                        "detail": "This server asks for a passcode. Reload the page and sign in.",
+                        "code": "passcode_required",
+                    }).encode(), WWW_Authenticate="Bearer")
+                return
+            if gate["passcode"] is not None and gate["locked"]:
+                self._send(429, b'{"detail": "Too many wrong passcodes. Wait 7 seconds and try again."}',
+                           Retry_After="7")
+                return
+            if gate.get("redirect"):                   # given the passcode, it points elsewhere
+                self._send(307, b"", Location=gate["redirect"] + self.path)
                 return
             if self.path == "/api/status":
                 body, kind = json.dumps(busy["status"]).encode(), "application/json"
@@ -510,7 +549,7 @@ def auradream_listening(sandbox):
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     sandbox["env"]["AURADREAM_PORT"] = str(server.server_address[1])
-    yield {"port": server.server_address[1], "busy": busy, "track": track}
+    yield {"port": server.server_address[1], "busy": busy, "track": track, "gate": gate}
     server.shutdown()
     server.server_close()
 
@@ -601,7 +640,7 @@ def test_update_dry_run_names_the_legacy_copy(sandbox):
     before = _snapshot(sandbox["root"])
     result = _run(sandbox, "update.sh", "--dry-run")
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "local-diffusion-before-update.db" in result.stdout
+    assert "local-diffusion-before-update-abc1234.db" in result.stdout
     assert "would run in" in result.stdout and "git pull --ff-only" in result.stdout
     assert _snapshot(sandbox["root"]) == before
     assert [c for c in _calls(sandbox) if " pull" in c or c.startswith("uv")] == []
@@ -611,16 +650,16 @@ def test_update_dry_run_names_the_legacy_copy(sandbox):
 def test_update_copies_the_gallery_then_pulls_and_syncs(sandbox):
     _checkout_with_gallery(sandbox)
     root = sandbox["root"]
-    stale = root / "auradream-before-update.db-wal"
+    stale = root / "auradream-before-update-abc1234.db-wal"
     stale.write_bytes(b"old journal")
-    (root / "auradream-before-update.db-shm").write_bytes(b"old index")
+    (root / "auradream-before-update-abc1234.db-shm").write_bytes(b"old index")
     (root / "auradream.db-wal").write_bytes(b"live journal")
     (root / "auradream.db-shm").write_bytes(b"live index")
     result = _run(sandbox, "update.sh")
     assert result.returncode == 0, result.stdout + result.stderr
-    assert (root / "auradream-before-update.db").read_bytes() == b"gallery"
-    assert (root / "auradream-before-update.db-wal").read_bytes() == b"live journal"
-    assert not (root / "auradream-before-update.db-shm").exists()   # never copied
+    assert (root / "auradream-before-update-abc1234.db").read_bytes() == b"gallery"
+    assert (root / "auradream-before-update-abc1234.db-wal").read_bytes() == b"live journal"
+    assert not (root / "auradream-before-update-abc1234.db-shm").exists()   # never copied
     calls = [c for c in _calls(sandbox) if c.startswith(("git", "uv"))]
     pulls = [i for i, c in enumerate(calls) if c.endswith("pull --ff-only")]
     assert pulls and calls.index("uv sync") > pulls[0]
@@ -632,12 +671,135 @@ def test_update_copies_the_gallery_then_pulls_and_syncs(sandbox):
 @on_linux
 def test_update_removes_a_stale_copy_journal_when_the_gallery_has_none(sandbox):
     _checkout_with_gallery(sandbox)
-    stale = sandbox["root"] / "auradream-before-update.db-wal"
+    stale = sandbox["root"] / "auradream-before-update-abc1234.db-wal"
     stale.write_bytes(b"old journal")
     (sandbox["root"] / "auradream.db-wal").write_bytes(b"")          # empty: not copied
     result = _run(sandbox, "update.sh")
     assert result.returncode == 0, result.stdout + result.stderr
     assert not stale.exists()
+
+
+@on_linux
+def test_update_keeps_the_copy_an_earlier_update_made(sandbox):
+    # The second update runs after the new version has changed the database:
+    # the copy from before the first pull is still the way back.
+    _checkout_with_gallery(sandbox)
+    root = sandbox["root"]
+    sandbox["env"]["STUB_COMMIT"] = "aaa1111"
+    assert _run(sandbox, "update.sh").returncode == 0
+    (root / "auradream.db").write_bytes(b"migrated")
+    sandbox["env"]["STUB_COMMIT"] = "bbb2222"
+    result = _run(sandbox, "update.sh")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (root / "auradream-before-update-aaa1111.db").read_bytes() == b"gallery"
+    assert (root / "auradream-before-update-bbb2222.db").read_bytes() == b"migrated"
+    assert not (root / "auradream-before-update.db").exists()
+
+
+@on_linux
+def test_update_leaves_a_copy_from_the_same_commit_alone(sandbox):
+    _checkout_with_gallery(sandbox)
+    root = sandbox["root"]
+    copy = root / "auradream-before-update-abc1234.db"
+    assert _run(sandbox, "update.sh").returncode == 0
+    (copy.parent / (copy.name + "-wal")).write_bytes(b"the copy's journal")
+    (root / "auradream.db").write_bytes(b"changed since")
+    dry = _run(sandbox, "update.sh", "--dry-run")
+    assert dry.returncode == 0, dry.stdout + dry.stderr
+    assert f"would leave {copy} as it is" in dry.stdout
+    result = _run(sandbox, "update.sh")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "left alone" in result.stdout
+    assert copy.read_bytes() == b"gallery"
+    assert (copy.parent / (copy.name + "-wal")).read_bytes() == b"the copy's journal"
+
+
+def _older_copies(root: Path) -> dict[str, Path]:
+    """Four named copies, a1 the oldest, and what never counts as one."""
+    copies = {}
+    for age, commit in enumerate(("a4a4a4a", "a3a3a3a", "a2a2a2a", "a1a1a1a"), start=1):
+        path = root / f"auradream-before-update-{commit}.db"
+        path.write_bytes(commit.encode())
+        os.utime(path, (1_700_000_000 - age * 3600, 1_700_000_000 - age * 3600))
+        copies[commit] = path
+    (root / "auradream-before-update-a1a1a1a.db-wal").write_bytes(b"journal")
+    (root / "auradream-before-update.db").write_bytes(b"the old fixed name")
+    (root / "auradream-before-update-notes.db").write_bytes(b"not a commit")
+    (root / "other-before-update-a0a0a0a.db").write_bytes(b"another database's")
+    return copies
+
+
+@on_linux
+def test_update_keeps_the_newest_three_copies(sandbox):
+    _checkout_with_gallery(sandbox)
+    root = sandbox["root"]
+    copies = _older_copies(root)
+    before = _snapshot(root)
+    dry = _run(sandbox, "update.sh", "--dry-run")
+    assert dry.returncode == 0, dry.stdout + dry.stderr
+    for commit in ("a2a2a2a", "a1a1a1a"):
+        assert f"would delete the older copy {copies[commit]}" in dry.stdout
+    assert "a3a3a3a" not in dry.stdout and "a4a4a4a" not in dry.stdout
+    assert _snapshot(root) == before
+    result = _run(sandbox, "update.sh")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (root / "auradream-before-update-abc1234.db").read_bytes() == b"gallery"
+    assert copies["a4a4a4a"].exists() and copies["a3a3a3a"].exists()
+    assert not copies["a2a2a2a"].exists() and not copies["a1a1a1a"].exists()
+    assert not (root / "auradream-before-update-a1a1a1a.db-wal").exists()
+    # Only this database's commit-named copies are counted or deleted.
+    assert (root / "auradream-before-update.db").read_bytes() == b"the old fixed name"
+    assert (root / "auradream-before-update-notes.db").exists()
+    assert (root / "other-before-update-a0a0a0a.db").exists()
+
+
+@on_linux
+def test_update_counts_a_copy_it_left_alone_among_the_three(sandbox):
+    _checkout_with_gallery(sandbox)
+    root = sandbox["root"]
+    copies = _older_copies(root)
+    sandbox["env"]["STUB_COMMIT"] = "a1a1a1a"         # the oldest copy is this commit's
+    result = _run(sandbox, "update.sh")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert copies["a1a1a1a"].read_bytes() == b"a1a1a1a"
+    assert copies["a4a4a4a"].exists() and copies["a3a3a3a"].exists()
+    assert not copies["a2a2a2a"].exists()
+
+
+@on_linux
+def test_update_orders_a_copy_by_when_it_was_made(sandbox):
+    # A gallery untouched for years: its copy is still the newest one, never
+    # the first deleted because it carries the database's own time.
+    _checkout_with_gallery(sandbox)
+    root = sandbox["root"]
+    os.utime(root / "auradream.db", (1_000_000_000, 1_000_000_000))
+    sandbox["env"]["STUB_COMMIT"] = "aaa1111"
+    assert _run(sandbox, "update.sh").returncode == 0
+    planted = []
+    for age, commit in enumerate(("a2a2a2a", "a1a1a1a"), start=1):
+        path = root / f"auradream-before-update-{commit}.db"
+        path.write_bytes(commit.encode())
+        os.utime(path, (1_700_000_000 - age * 3600, 1_700_000_000 - age * 3600))
+        planted.append(path)
+    sandbox["env"]["STUB_COMMIT"] = "bbb2222"
+    result = _run(sandbox, "update.sh")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (root / "auradream-before-update-aaa1111.db").read_bytes() == b"gallery"
+    assert (root / "auradream-before-update-bbb2222.db").exists()
+    assert planted[0].exists() and not planted[1].exists()
+
+
+@on_linux
+def test_update_without_a_commit_uses_the_fixed_name(sandbox):
+    # Git answers no commit (an unborn branch): the one name, replaced.
+    _checkout_with_gallery(sandbox)
+    root = sandbox["root"]
+    copies = _older_copies(root)
+    sandbox["env"]["STUB_COMMIT"] = ""
+    result = _run(sandbox, "update.sh")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (root / "auradream-before-update.db").read_bytes() == b"gallery"
+    assert all(path.exists() for path in copies.values())   # nothing counted, nothing deleted
 
 
 @on_linux
@@ -652,8 +814,8 @@ def test_update_reads_the_service_env_file(sandbox):
     env_file.write_text(f"# settings\nAURADREAM_DB_PATH={data / 'gallery.db'}\nAURADREAM_PORT=1\n")
     result = _run(sandbox, "update.sh", "--dry-run")
     assert result.returncode == 0, result.stdout + result.stderr
-    assert f"copy {data / 'gallery.db'} to {data / 'gallery-before-update.db'}" in result.stdout
-    assert "auradream-before-update.db" not in result.stdout
+    assert f"copy {data / 'gallery.db'} to {data / 'gallery-before-update-abc1234.db'}" in result.stdout
+    assert "auradream-before-update" not in result.stdout
 
 
 @on_linux
@@ -810,7 +972,7 @@ def test_control_status_of_an_active_answering_service(sandbox, auradream_listen
         "model_id": "cagliostrolab/animagine-xl-4.0", "model_label": "Animagine XL 4.0",
         "quantization": "fp8", "offload": "model", "state": "ready",
         "vram_used_mb": 4289, "vram_total_mb": 7842, "device_name": "NVIDIA GeForce RTX 3070",
-        "disk_free_mb": 819200,
+        "disk_free_mb": 819200, "commit": "abc1234",
         "keep_awake": {"kind": "systemd-inhibit", "holding": True, "wanted": True,
                        "reasons": ["in use (a request in the last 20 minutes)"], "detail": None},
     })
@@ -823,6 +985,7 @@ def test_control_status_of_an_active_answering_service(sandbox, auradream_listen
     assert "Branch main at abc1234 Keep awake (2 days ago)" in out
     assert "3 commit(s) behind origin/main" in out
     assert "It answers." in out
+    assert "Commit:       abc1234\n" in out              # the process's own, the checkout's too
     assert "Animagine XL 4.0 (cagliostrolab/animagine-xl-4.0)" in out and "fp8, model offload" in out
     assert "Jobs:         none" in out and "Card:         free" in out
     assert "systemd-inhibit, holding: in use (a request in the last 20 minutes)" in out
@@ -850,6 +1013,28 @@ def test_control_status_tells_idle_from_switched_off(sandbox, auradream_listenin
     auradream_listening["busy"]["status"]["keep_awake"] = {**awake, "detail": None, "idle_minutes": 20}
     result = _run(sandbox, "control.sh", "status")
     assert f"Keep awake:   {said}" in result.stdout, result.stdout + result.stderr
+
+
+@on_linux
+@pytest.mark.parametrize(("running", "said"), [
+    # A pull without a restart: the checkout moved, the process did not.
+    ("def5678", "Commit:       def5678, and the checkout is at abc1234: restart it to run the checkout's code"),
+    ("abc1234e9", "Commit:       abc1234e9\n"),          # the same commit, abbreviated longer
+    (None, None),                                         # a server that could not tell: no line
+])
+def test_control_status_names_the_running_commit(sandbox, auradream_listening, running, said):
+    (sandbox["root"] / ".git").mkdir()
+    _venv(sandbox)
+    _service_active(sandbox)
+    auradream_listening["track"]["service"] = True
+    auradream_listening["busy"]["status"]["commit"] = running
+    result = _run(sandbox, "control.sh", "status")
+    out = result.stdout
+    assert result.returncode == 0, out + result.stderr
+    if said is None:
+        assert "Commit:" not in out
+    else:
+        assert said in out, out
 
 
 @on_linux
@@ -1008,3 +1193,278 @@ def test_control_help_and_root(sandbox):
     result = _run(sandbox, "control.sh", "stop", "--force")
     assert result.returncode == 1 and "as root" in result.stdout
     assert _calls(sandbox) == []
+
+
+# --- The passcode -------------------------------------------------------------------
+#
+# A server that asks (docs/design-notes.md, "A passcode beyond loopback"): the
+# scripts read AURADREAM_PASSCODE from the service's environment file and send
+# it as a header; a 401 and a 429 are each said in their own words, never as
+# a server that is down or idle; and a passcode bash would read differently
+# from systemd is refused before the file is sourced. The value is never
+# printed.
+
+SECRET = "Horse.Battery_9-+@%:,/"                 # every character the file may hold
+
+
+def _passcode_file(sandbox, value: str, more: str = "") -> Path:
+    env_file = _env_file(sandbox)
+    env_file.parent.mkdir(parents=True, exist_ok=True)
+    env_file.write_bytes(f"# settings\nAURADREAM_HOST=0.0.0.0\nAURADREAM_PASSCODE={value}\n{more}".encode())
+    return env_file
+
+
+def _asking(sandbox, listening, *, file: str | None = SECRET, served: str = SECRET) -> None:
+    """A running service whose server asks for `served`; the environment
+    file holds `file` (None: no such line)."""
+    _venv(sandbox)
+    _service_active(sandbox)
+    listening["gate"]["passcode"] = served
+    if file is not None:
+        _passcode_file(sandbox, file)
+
+
+@on_linux
+def test_install_service_names_the_passcode_in_a_commented_line(sandbox):
+    (sandbox["root"] / ".venv").mkdir()
+    assert _run(sandbox, "install-service.sh").returncode == 0
+    text = _env_file(sandbox).read_text()
+    assert "\n#AURADREAM_PASSCODE=\n" in text
+    assert "letters, digits and . _ - + @ % : , /" in text and "8 characters or more" in text
+    assert "never reuse a password" in text
+    # Commented: nothing is set, and the file as written passes its own check.
+    assert not [line for line in text.splitlines() if line.startswith("AURADREAM_PASSCODE")]
+    again = _run(sandbox, "install-service.sh", "--no-start")
+    assert again.returncode == 0 and "[stop]" not in again.stdout, again.stdout + again.stderr
+
+
+@on_linux
+def test_control_status_reads_through_the_passcode(sandbox, auradream_listening):
+    (sandbox["root"] / ".git").mkdir()
+    _asking(sandbox, auradream_listening)
+    auradream_listening["busy"]["status"].update({"model_id": "m/checkpoint", "commit": "abc1234"})
+    result = _run(sandbox, "control.sh", "status")
+    out = result.stdout
+    assert result.returncode == 0, out + result.stderr
+    assert "It answers." in out and "Checkpoint:   m/checkpoint" in out and "Jobs:         none" in out
+    assert "could not be read" not in out
+    assert auradream_listening["gate"]["sent"] == 1
+    assert SECRET not in out + result.stderr
+
+
+@on_linux
+def test_stop_and_update_ask_whether_it_is_busy_through_the_passcode(sandbox, auradream_listening):
+    _checkout_with_gallery(sandbox)
+    _asking(sandbox, auradream_listening)
+    auradream_listening["busy"]["status"]["active_jobs"] = ["job-1"]
+    busy = _run(sandbox, "control.sh", "stop")
+    assert busy.returncode == 1, busy.stdout + busy.stderr
+    assert "The AuraDream service is busy: 1 job(s) queued or running." in busy.stdout
+    updating = _run(sandbox, "update.sh", "--restart")
+    assert updating.returncode == 1 and "The AuraDream service is busy: 1 job(s)" in updating.stdout
+    assert _changes(sandbox) == [] and _no_git_or_uv(sandbox)
+
+    auradream_listening["busy"]["status"]["active_jobs"] = []
+    idle = _run(sandbox, "control.sh", "stop")
+    assert idle.returncode == 0, idle.stdout + idle.stderr
+    assert "It is idle." in idle.stdout
+    assert _changes(sandbox) == ["systemctl --user stop auradream.service"]
+    for result in (busy, updating, idle):
+        assert SECRET not in result.stdout + result.stderr
+
+
+@on_linux
+@pytest.mark.parametrize(("file", "locked", "words"), [
+    # A 401: no passcode in the file, or one the server does not accept.
+    (None, False, "it asks for a passcode, and AURADREAM_PASSCODE is missing from the service's environment file"),
+    ("another-passcode", False, "it did not accept the AURADREAM_PASSCODE these scripts read"),
+    # A 429: the lock on wrong passcodes, the right one refused too.
+    (SECRET, True, "it is refusing every passcode for now, after too many wrong ones just now: wait 7 s"),
+])
+def test_a_refused_passcode_is_said_in_its_own_words_and_never_taken_for_idle(
+        sandbox, auradream_listening, file, locked, words):
+    _checkout_with_gallery(sandbox)
+    _asking(sandbox, auradream_listening, file=file)
+    auradream_listening["gate"]["locked"] = locked
+    before = _snapshot(sandbox["root"])
+
+    stop = _run(sandbox, "control.sh", "stop")
+    assert stop.returncode == 1, stop.stdout + stop.stderr
+    assert "Whether the AuraDream service is busy could not be asked" in stop.stdout and words in stop.stdout
+    assert "--force" in stop.stdout
+    restart = _run(sandbox, "control.sh", "restart")
+    assert restart.returncode == 1 and words in restart.stdout
+    update = _run(sandbox, "update.sh", "--restart")
+    assert update.returncode == 1, update.stdout + update.stderr
+    assert "whether it is busy could not be asked" in update.stdout and words in update.stdout
+    # Nothing stopped, nothing pulled, no database copy.
+    assert _changes(sandbox) == [] and _no_git_or_uv(sandbox)
+    assert (sandbox["state"] / "active").exists() and _snapshot(sandbox["root"]) == before
+
+    # status: the server is up; only its status is closed.
+    status = _run(sandbox, "control.sh", "status")
+    assert status.returncode == 0, status.stdout + status.stderr
+    assert "It answers." in status.stdout and f"Its status could not be read: {words}" in status.stdout
+    assert "It does not answer" not in status.stdout
+    assert "The service is running and AuraDream answers." in status.stdout
+
+    for result in (stop, restart, update, status):
+        said = result.stdout + result.stderr
+        assert SECRET not in said and "another-passcode" not in said
+
+
+@on_linux
+def test_a_forced_restart_without_the_passcode_still_sees_the_page_come_up(sandbox, auradream_listening):
+    _asking(sandbox, auradream_listening, file=None)
+    auradream_listening["track"]["service"] = True
+    sandbox["env"]["AURADREAM_INSTALL_TEST_WAIT"] = "20"
+    result = _run(sandbox, "control.sh", "restart", "--force")
+    out = result.stdout
+    assert result.returncode == 0, out + result.stderr
+    assert "whether it is busy could not be asked" in out and "restarting it anyway" in out
+    assert f"AuraDream answers at http://127.0.0.1:{auradream_listening['port']}/" in out
+    assert "These scripts cannot ask it anything more: it asks for a passcode" in out
+    assert "did not answer within" not in out
+    assert _changes(sandbox) == ["systemctl --user restart auradream.service"]
+
+
+@on_linux
+@pytest.mark.parametrize("probe", ["venv-python", "curl"])
+def test_the_title_probe_reads_the_sign_in_page_as_auradream(sandbox, auradream_listening, probe):
+    # No passcode anywhere here: the probe needs none.
+    _checkout_with_gallery(sandbox)
+    if probe == "venv-python":
+        _venv(sandbox)
+    elif not shutil.which("curl", path="/usr/bin:/bin"):
+        pytest.skip("no curl here")
+    auradream_listening["gate"]["passcode"] = SECRET
+    result = _run(sandbox, "update.sh")
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert f"AuraDream is running at http://127.0.0.1:{auradream_listening['port']}/" in result.stdout
+    assert auradream_listening["gate"]["sent"] == 0 and _no_git_or_uv(sandbox)
+
+
+# What bash, sourcing the file, would read differently from systemd. The
+# first would set the passcode to "correct" and run a program named horse.
+# Each is (the value, a part of it that must never be printed).
+_UNSAFE = [
+    ("correct horse", "correct"), ("pa$$word-12", "word-12"), ("$(touch {marker})-12345", "12345"),
+    ("`touch {marker}`-12345", "12345"), ('say"quoted"12', "quoted"), ("it's-a-passcode", "a-passcode"),
+    ("semi;colon-12; touch {marker}", "colon-12"), ("hash #tag-1234", "tag-1234"), ("back\\slash-12", "slash-12"),
+    ("amp&ersand-12", "ersand"), ("pipe|touch {marker}", "pipe|"), ("star*glob-123", "glob-123"),
+    ("tilde~home-12", "tilde"), ("bang!bang-123", "bang-123"), ("less<more>-12", "more"),
+    ("(parens)-1234", "parens"), ("Windows-line-end\r", "Windows-line-end"),
+    # Outside ASCII: "letters" are ASCII's, whatever the shell's locale.
+    ("pässcode-12345", "sscode-12345"),
+]
+
+
+@on_linux
+@pytest.mark.parametrize(("value", "part"), _UNSAFE)
+@pytest.mark.parametrize(("script", "args"), [
+    ("control.sh", ("status",)), ("control.sh", ("stop", "--force")), ("control.sh", ("doctor",)),
+    ("update.sh", ("--dry-run",)), ("update.sh", ("--restart",)), ("setup.sh", ("--dry-run",)),
+    ("install-service.sh", ()), ("install-service.sh", ("--dry-run",)),
+])
+def test_a_passcode_the_file_cannot_hold_is_refused_before_the_file_is_sourced(sandbox, script, args, value, part):
+    marker = sandbox["tmp"] / "sourced"
+    value = value.replace("{marker}", str(marker))
+    _checkout_with_gallery(sandbox)
+    (sandbox["root"] / ".venv").mkdir()
+    _service_active(sandbox)
+    # Programs of those names are on PATH: sourcing the file would run one.
+    for name in ("horse", "touch"):
+        _stub(sandbox["stubs"], name, f': >"{marker}"')
+    env_file = _passcode_file(sandbox, value, more="AURADREAM_PORT=1\n")
+    before = _snapshot(sandbox["root"], sandbox["home"])
+    result = _run(sandbox, script, *args)
+    said = result.stdout + result.stderr
+    assert result.returncode == 1, said
+    assert f"[stop] The AURADREAM_PASSCODE line in {env_file} has a character" in result.stdout
+    assert "letters, digits and . _ - + @ % : , /" in result.stdout
+    assert not marker.exists()
+    assert not [c for c in _calls(sandbox) if c.startswith(("horse", "touch"))]
+    # The value is never printed, whole or in part.
+    assert value.strip() not in said and part not in said
+    assert _snapshot(sandbox["root"], sandbox["home"]) == before
+    assert _changes(sandbox) == [] and _no_git_or_uv(sandbox)
+
+
+@on_linux
+@pytest.mark.parametrize(("line", "sent"), [
+    (f"AURADREAM_PASSCODE={SECRET}", 2), (f"  AURADREAM_PASSCODE={SECRET}  ", 2), ("AURADREAM_PASSCODE=", 0),
+    # A comment is no setting, whatever it holds.
+    ("#AURADREAM_PASSCODE=correct horse", 0), ("# AURADREAM_PASSCODE=pa$$word", 0),
+    ("OTHER_AURADREAM_PASSCODE=1", 0),
+])
+def test_a_plain_passcode_or_none_is_read(sandbox, auradream_listening, line, sent):
+    _venv(sandbox)
+    _service_active(sandbox)
+    env_file = _env_file(sandbox)
+    env_file.parent.mkdir(parents=True)
+    env_file.write_text(f"AURADREAM_HOST=0.0.0.0\n{line}\n")
+    result = _run(sandbox, "control.sh", "stop")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "[stop]" not in result.stdout and "It is idle." in result.stdout
+    # Sent (with both of the busy check's reads) only where the file sets one.
+    assert auradream_listening["gate"]["sent"] == sent
+
+
+@on_linux
+def test_the_passcode_travels_in_the_environment_never_as_an_argument(sandbox, auradream_listening):
+    # The python the scripts ask with is replaced by one that records its
+    # arguments and then runs the real one.
+    real = _venv(sandbox)
+    target = os.readlink(real)
+    seen = sandbox["tmp"] / "argv"
+    real.unlink()
+    real.write_text(f'#!/bin/bash\nprintf "%s\\n" "$*" >>"{seen}"\nexec "{target}" "$@"\n')
+    real.chmod(0o755)
+    _service_active(sandbox)
+    auradream_listening["gate"]["passcode"] = SECRET
+    _passcode_file(sandbox, SECRET)
+    result = _run(sandbox, "control.sh", "stop")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert auradream_listening["gate"]["sent"] == 2 and seen.exists()
+    assert SECRET not in seen.read_text()
+
+
+@on_linux
+def test_a_redirect_never_carries_the_scripts_passcode_elsewhere(sandbox, auradream_listening):
+    from tests.passcode_stub import AskingServer
+
+    elsewhere = AskingServer(None, {"/api/status": {"state": "unloaded", "active_jobs": []},
+                                    "/api/gallery/bundles/status": {"state": "idle"}})
+    try:
+        _asking(sandbox, auradream_listening)
+        auradream_listening["gate"]["redirect"] = elsewhere.url.rstrip("/")
+        stop = _run(sandbox, "control.sh", "stop")
+        status = _run(sandbox, "control.sh", "status")
+        # Not followed: the redirect is an answer these scripts cannot use.
+        assert elsewhere.requests == []
+        assert stop.returncode == 1, stop.stdout + stop.stderr
+        assert "could not be asked" in stop.stdout and "307" in stop.stdout
+        assert _changes(sandbox) == [] and "Checkpoint:" not in status.stdout
+        assert SECRET not in stop.stdout + stop.stderr + status.stdout + status.stderr
+    finally:
+        elsewhere.close()
+
+
+@on_linux
+def test_a_shells_passcode_no_request_can_carry_is_never_an_answer(sandbox, auradream_listening):
+    # No request is made with it, so nothing has answered: never "It
+    # answers.", and never an idle server.
+    _venv(sandbox)
+    _service_active(sandbox)
+    sandbox["env"]["AURADREAM_PASSCODE"] = "wxyz\x01qrst-horse"
+    status = _run(sandbox, "control.sh", "status")
+    assert "It answers." not in status.stdout, status.stdout + status.stderr
+    assert "AURADREAM_PASSCODE holds a control character" in status.stdout
+    assert status.returncode == 1
+    stop = _run(sandbox, "control.sh", "stop")
+    assert stop.returncode == 1 and "could not be asked" in stop.stdout
+    assert "AURADREAM_PASSCODE holds a control character" in stop.stdout
+    assert _changes(sandbox) == [] and auradream_listening["gate"]["sent"] == 0
+    for result in (status, stop):
+        said = result.stdout + result.stderr
+        assert "wxyz" not in said and "qrst" not in said

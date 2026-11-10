@@ -13,6 +13,7 @@ from PIL import Image
 
 from . import instruction_edit as edit
 from . import storage
+from .refusal_codes import IMAGE_BINNED, IMAGE_UNKNOWN, CodedError
 
 if TYPE_CHECKING:
     from .schemas_generate import GenerateRequest
@@ -30,7 +31,12 @@ def _prove(
     """
     source = storage.get_image(spec.source)
     if source is None:
-        raise ValueError(f"Instruction-edit source #{spec.source} is missing or in the recycle bin.")
+        # One sentence for both; the code says which, for the page.
+        binned = storage.get_image(spec.source, True) is not None
+        raise CodedError(
+            f"Instruction-edit source #{spec.source} is missing or in the recycle bin.",
+            IMAGE_BINNED if binned else IMAGE_UNKNOWN, [spec.source],
+        )
     edit.InstructionEditSource._bare_png(source.filename)
     path = storage.reference_paths([spec.source], "instruction-edit source")[0]
     if path.is_symlink() or path.is_junction():

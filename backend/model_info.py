@@ -518,6 +518,144 @@ def _instruction_edit_facts(model_id: str, *, catalogued: bool, reason: str | No
     return {"instruction_edit": "No", "instruction_edit_note": _EDIT_CATALOGUE_NOTE if catalogued else ""}
 
 
+# What a render's latents are, by exact catalogue id, as `latent_preview`
+# keys its maps (the VAE's class and channel count): the live preview draws
+# only where one is fitted (`latent_preview.FACTORS`). From the loaders and
+# docs/verified.md: FLUX.1, Z-Image, Lumina and NewBie decode through the
+# 16-channel `AutoencoderKL`, Krea 2, Qwen-Image and Anima through
+# `AutoencoderKLQwenImage`; SDXL's VAE has four channels, and FLUX.2 [klein],
+# ERNIE and FLUX 3 use FLUX.2's (`GEN#6` owns those two maps).
+_FLUX_LATENTS = "AutoencoderKL/16"
+_QWEN_LATENTS = "AutoencoderKLQwenImage/16"
+_SDXL_LATENTS = "AutoencoderKL/4"
+_FLUX2_LATENTS = "AutoencoderKLFlux2/32"
+_LATENTS: dict[str, str] = {
+    "black-forest-labs/FLUX.1-Krea-dev": _FLUX_LATENTS,
+    "krea/Krea-2-Turbo": _QWEN_LATENTS,
+    "krea/Krea-2-Raw": _QWEN_LATENTS,
+    "cagliostrolab/animagine-xl-4.0": _SDXL_LATENTS,
+    "KBlueLeaf/Kohaku-XL-Zeta": _SDXL_LATENTS,
+    "OnomaAIResearch/Illustrious-XL-v2.0": _SDXL_LATENTS,
+    "LyliaEngine/waiIllustriousSDXL_v170": _SDXL_LATENTS,
+    "Minthy/RouWei-0.8": _SDXL_LATENTS,
+    "Laxhar/noobai-XL-Vpred-1.0": _SDXL_LATENTS,
+    "SeeSee21/Z-Anime": _FLUX_LATENTS,
+    "circlestone-labs/Anima": _QWEN_LATENTS,
+    "circlestone-labs/Anima@aesthetic-v1.1": _QWEN_LATENTS,
+    "Gazingstars123/Anima-2.9B": _QWEN_LATENTS,
+    "duongve/NetaYume-Lumina-Image-2.0": _FLUX_LATENTS,
+    "NewBie-AI/NewBie-image-Exp0.1": _FLUX_LATENTS,
+    "black-forest-labs/FLUX.1-dev": _FLUX_LATENTS,
+    "black-forest-labs/FLUX.1-schnell": _FLUX_LATENTS,
+    "black-forest-labs/FLUX.2-klein-4B": _FLUX2_LATENTS,
+    "black-forest-labs/FLUX.2-klein-9B": _FLUX2_LATENTS,
+    "black-forest-labs/FLUX.2-klein-base-4B": _FLUX2_LATENTS,
+    "black-forest-labs/FLUX.2-klein-base-9B": _FLUX2_LATENTS,
+    "Tongyi-MAI/Z-Image-Turbo": _FLUX_LATENTS,
+    "Qwen/Qwen-Image": _QWEN_LATENTS,
+    "baidu/ERNIE-Image-Turbo": _FLUX2_LATENTS,
+    "black-forest-labs/flux-3-image-klein": _FLUX2_LATENTS,
+    "black-forest-labs/flux-3-image-klein-base": _FLUX2_LATENTS,
+    "black-forest-labs/FLUX.1-Kontext-dev": _FLUX_LATENTS,
+}
+
+# The flags the Models notes and docs/usage.md's table say beside Refine, in
+# the order both say them.
+CAPABILITIES: tuple[tuple[str, str], ...] = (
+    ("inpaint", "Inpaint"),
+    ("outpaint", "Outpaint"),
+    ("references", "References"),
+    ("lora", "LoRA"),
+    ("negative_prompt", "Negative prompt"),
+    ("preview", "Live preview"),
+    ("expand", "Expand"),
+)
+_YES_NO = {True: "Yes", False: "No"}
+# An inpaint class diffusers ships that this app has not enabled yet
+# (`model_defaults.INPAINT_DEFERRED`), as the Inpaint dialog says it.
+NOT_YET = "Not yet"
+_CAPABILITIES_BASIS = "From the checkpoint's id, before a load."
+
+
+def _catalogue_entry(model_id: str):
+    return next((
+        entry for entry in CHECKPOINTS
+        if model_id == entry.repo or any(model_id == entry.lite_repo(fmt) for fmt, _ in FORMATS)
+    ), None)
+
+
+def capabilities_for(model_id: str, quantization: str | None = None) -> dict[str, str] | None:
+    """Each `CAPABILITIES` flag as Yes, No or Not yet for a catalogue
+    selection, or None for an id outside the catalogue (whose loaded
+    pipeline decides). Cold, and nothing of its own: each word is asked of
+    the place that decides it at run time, by the id alone.
+
+    Inpaint and outpaint are the profile's `inpaint_supported` (one gate for
+    both), Not yet where the family is deferred; references and the
+    negative prompt its `reference_supported` and
+    `negative_prompt_supported`; LoRA is `loading.lora_refusal`, and No on a
+    Nunchaku build or under `quantization` "nunchaku", whose layers an
+    adapter cannot attach to (peft, the environment's part, is not asked);
+    the live preview is whether `latent_preview` has a map for the
+    checkpoint's latents (`_LATENTS`); Expand is
+    `loading.prompt_expander_by_id`. An edit-only checkpoint never renders
+    from a prompt and its edits take no LoRA or references, so it answers No
+    to all but the preview its edits draw."""
+    checkpoint = _catalogue_entry(model_id)
+    if checkpoint is None:
+        return None
+    from . import latent_preview
+    from .backends import loading
+
+    profile = defaults_for(model_id)
+    generates = profile.get("text_to_image_supported", True)
+    inpaint = (
+        "Yes" if profile["inpaint_supported"]
+        else NOT_YET if profile.get("inpaint_deferred") else "No"
+    )
+    nunchaku = model_id != checkpoint.repo or quantization == loading.NUNCHAKU
+    return {
+        "inpaint": inpaint,
+        "outpaint": inpaint,
+        "references": _YES_NO[bool(profile["reference_supported"])],
+        "lora": _YES_NO[generates and not nunchaku and loading.lora_refusal(checkpoint.repo) is None],
+        "negative_prompt": _YES_NO[bool(profile["negative_prompt_supported"])],
+        "preview": _YES_NO[_LATENTS[checkpoint.repo] in latent_preview.FACTORS],
+        "expand": _YES_NO[generates and loading.prompt_expander_by_id(checkpoint.repo)],
+    }
+
+
+def _capabilities_note(model_id: str, quantization: str | None) -> str:
+    """The flags as one Models note, "" outside the catalogue: nothing is
+    claimed for a custom id before its pipeline has loaded."""
+    flags = capabilities_for(model_id, quantization)
+    if flags is None:
+        return ""
+    words = "; ".join(f"{label} {flags[key].lower()}" for key, label in CAPABILITIES)
+    return f"{words}. {_CAPABILITIES_BASIS}"
+
+
+CAPABILITY_TABLE_START = "<!-- capability-table: generated by tools/capability_table.py --write -->"
+CAPABILITY_TABLE_END = "<!-- /capability-table -->"
+
+
+def capability_table() -> str:
+    """docs/usage.md's table, one row per catalogue entry in the catalogue's
+    order: Refine as `details_for` says it, then every `CAPABILITIES` flag
+    as `capabilities_for` does, for the official repo cold (no quantization
+    chosen). `tests/test_capabilities.py` holds the document to it."""
+    lines = [
+        "| Checkpoint | Refine | " + " | ".join(label for _, label in CAPABILITIES) + " |",
+        "|---|" + "---|" * (len(CAPABILITIES) + 1),
+    ]
+    for entry in CHECKPOINTS:
+        flags = capabilities_for(entry.repo)
+        assert flags is not None
+        words = [details_for(entry.repo)["refine"], *(flags[key] for key, _ in CAPABILITIES)]
+        lines.append(f"| {entry.name} | " + " | ".join(words) + " |")
+    return "\n".join(lines)
+
+
 def details_for(
     model_id: str, quantization: str | None = None, offload: str = "model",
     *, edit_reason: str | None = INSTRUCTION_EDIT_UNAVAILABLE, card_memory: int | None = None,
@@ -528,10 +666,7 @@ def details_for(
     in bytes (`card_facts.total_memory`, which `main` passes): a card
     smaller than the build needs gets its own fit badge (`card_fit`);
     None, or a card large enough, keeps the 5080's rows as they were."""
-    checkpoint = next((
-        entry for entry in CHECKPOINTS
-        if model_id == entry.repo or any(model_id == entry.lite_repo(fmt) for fmt, _ in FORMATS)
-    ), None)
+    checkpoint = _catalogue_entry(model_id)
     if checkpoint is None:
         return {
             "style": "Custom", "refine": "After load",
@@ -543,6 +678,7 @@ def details_for(
             "access": "Unknown",
             "access_note": "Not in the catalogue; its model page says whether it is gated.",
             "fit": "", "fit_note": "",
+            "capabilities_note": "",
             **_instruction_edit_facts(model_id, catalogued=False, reason=edit_reason),
             **download_facts(model_id),
             **speed_for(model_id, quantization, offload),
@@ -583,6 +719,8 @@ def details_for(
         "access_note": access_note,
         "fit": fit,
         "fit_note": fit_note,
+        # A note only, like the edit's: no column of its own.
+        "capabilities_note": _capabilities_note(model_id, quantization),
         **_instruction_edit_facts(model_id, catalogued=True, reason=edit_reason),
         **download_facts(model_id),
         **speed_for(model_id, quantization, offload),

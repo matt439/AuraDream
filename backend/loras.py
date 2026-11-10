@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from .config import settings
+from .refusal_codes import LORA_MISSING, CodedError
 
 # What `load_lora_weights` reads. `.bin`/`.pt` LoRAs exist and are pickles:
 # loading one executes whatever it contains, which is not a thing to do to a
@@ -62,9 +63,10 @@ def path_for(name: str) -> Path:
     directory = settings.loras_dir.resolve()
     path = (directory / name).resolve()
     if directory not in path.parents or path.suffix.lower() not in SUFFIXES or not path.is_file():
-        raise ValueError(
+        raise CodedError(
             f"no LoRA named {name!r} in {settings.loras_dir}; "
-            f"put a .safetensors adapter there (AURADREAM_LORAS_DIR moves the directory)"
+            f"put a .safetensors adapter there (AURADREAM_LORAS_DIR moves the directory)",
+            LORA_MISSING,
         )
     return path
 

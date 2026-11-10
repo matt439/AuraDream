@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import asyncio
 
-from fastapi import HTTPException
-
 from . import grid, more_seeds, storage, submission, then_refine
 from .app_context import AppServices
+from .refusal_codes import MORE_SEEDS_CAP
+from .refusals import Refused
 from .schemas import (
     ImageRecord,
     MoreSeedsRequest,
@@ -59,13 +59,12 @@ async def more_seeds_plan(
             mine.append(batch)
     images = len(mine) * request.count
     if images > services.settings().max_grid_images:
-        raise HTTPException(
-            status_code=422,
-            detail=(
-                f"{len(mine)} batch{'' if len(mine) == 1 else 'es'} × {request.count} is {images} images; "
-                f"a press may queue {services.settings().max_grid_images}. "
-                + ("Ask for fewer." if request.run is not None else "Ask for fewer, or pick fewer batches.")
-            ),
+        raise Refused(
+            422,
+            f"{len(mine)} batch{'' if len(mine) == 1 else 'es'} × {request.count} is {images} images; "
+            f"a press may queue {services.settings().max_grid_images}. "
+            + ("Ask for fewer." if request.run is not None else "Ask for fewer, or pick fewer batches."),
+            MORE_SEEDS_CAP,
         )
     # Every image of each batch's run or job, picked or not: where its
     # seeds end, and the Batch it was made at.

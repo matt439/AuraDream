@@ -404,5 +404,14 @@
   {"wait": 300},
   {"expect": "history.length === __len && backDepth === 0 && !backStack.length && history.scrollRestoration === 'auto'"},
   {"key": "Escape"},
-  {"expect": "__until(() => els.modelPicker.hidden)"}
+  {"expect": "__until(() => els.modelPicker.hidden)"},
+  {"log": "'A page error on the phone, which has no console: over the bars in Create, under the gallery head in Gallery (events made by hand: a real throw fails the run)'"},
+  {"touch": true},
+  {"viewport": [393, 852, 3], "mobile": true},
+  {"expect": "__until(() => isPhone() && document.body.dataset.tier === 'phone')", "fatal": true},
+  {"eval": "setPhoneView('create'); showError(''); showError('', false, {slot: els.galleryError}); window.__rejected = (msg) => window.dispatchEvent(new PromiseRejectionEvent('unhandledrejection', {promise: Promise.resolve(), reason: new Error(msg)})); __rejected('made up in Create'); true"},
+  {"expect": "__until(() => { const e = __box(els.error); return els.error.classList.contains('at-generate') && els.error.textContent === 'Page error: made up in Create. Reload the page if something has stopped working.' && e.bottom <= __tabTop() + 0.5 && e.left >= 0 && e.right <= innerWidth && document.elementFromPoint(e.left + e.width / 2, e.top + e.height / 2) === els.error && els.galleryError.hidden; })"},
+  {"eval": "setPhoneView('gallery'); __rejected('made up in Gallery'); true"},
+  {"expect": "__until(() => isShown(els.galleryError) && els.galleryError.textContent === 'Page error: made up in Gallery. Reload the page if something has stopped working.' && els.galleryError.title === els.galleryError.textContent && els.error.textContent.includes('made up in Create') && __phoneAudit().overflow === 0)"},
+  {"eval": "showError(''); showError('', false, {slot: els.galleryError}); setPhoneView('create'); true"}
 ]

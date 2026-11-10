@@ -1,6 +1,8 @@
 [
   {"log": "'More seeds against a fake server claiming FLUX.1 Krea [dev] on 7902 (a fresh --data): the footer button after Refine…, held without a selection or a filter and titled with what it takes; two picked cards are two batches, one of them a Batch 2 x Repeat 2 taken whole from one of its images; the count refused on the page with its reason; one job per run named as more seeds; the new seeds following each batch on at its own Batch and joining its run, so the run shows one set; asked again it carries on past them; a deleted image said as such; and nothing moving under the pointer'"},
   {"navigate": "http://127.0.0.1:7902/"},
+  {"inject": "a11y_audit.js"},
+  {"eval": "__a11yWatch()"},
   {"eval": "window.__until = async (fn, ms = 20000) => { const end = Date.now() + ms; while (Date.now() < end) { try { if (fn()) return true; } catch { /* not yet */ } await new Promise((r) => setTimeout(r, 50)); } return false; };"},
   {"expect": "__until(() => document.getElementById('status-dot').className.includes('ready'))"},
   {"eval": "resetPanel(); showError(''); try { localStorage.removeItem(MORE_SEEDS_KEY); } catch { /* none */ } window.__post = (path, body) => fetch(path, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}).then((r) => r.json()); window.__wait = async (id) => { for (let i = 0; i < 600; i++) { const s = await (await fetch('/api/jobs/' + id)).json(); if (s.status !== 'queued' && s.status !== 'running') return s; await new Promise((r) => setTimeout(r, 100)); } }; window.__rows = () => [...els.moreSeedsResults.querySelectorAll('.ms-result')]; window.__line = (li) => li.querySelector('.ms-line').textContent.replace(/^#\\d+ /, '');"},
@@ -132,7 +134,7 @@
   {"eval": "window.__lh = galleryRecords.find((r) => r.run_id === __four[0].run_id && r.seed === 100); const c = document.querySelector(`#gallery .card[data-id=\"${__lh.id}\"]`); c.classList.add('__ms-card'); c.scrollIntoView({block: 'center'});"},
   {"rightclick": "#gallery .card.__ms-card > img"},
   {"expect": "__until(() => !els.contextMenu.hidden)"},
-  {"expect": "(() => { const labels = __mitems().map(__mlabel); return labels[labels.indexOf('Use seed') + 1] === 'More seeds of this batch…'; })()"},
+  {"expect": "(() => { const labels = __mitems().map(__mlabel); return labels[labels.indexOf('Use seed') + 1] === 'Use prompt' && labels[labels.indexOf('Use prompt') + 1] === 'More seeds of this batch…'; })()"},
   {"expect": "__mitem('More seeds of this batch…').getAttribute('aria-disabled') === null && __mitem('More seeds of this batch…').title === `More images of #${__lh.id}'s batch, the seeds following on - each at its own prompt, size, settings and Batch`"},
   {"eval": "__mitem('More seeds of this batch…').click()"},
   {"expect": "__until(() => els.moreSeedsDialog.open && els.contextMenu.hidden)"},
@@ -272,7 +274,7 @@
   {"expect": "__lostAll.length === 18 && __lostAll.some((r) => r.seed === 1017) && !__lostAll.some((r) => r.seed === 1018)"},
 
   {"log": "'unknown and expired receipts refuse without an automatic preview or fresh allocation; the user is told to review the queue'"},
-  {"eval": "(async () => { window.__terminalChecks = []; for (const reason of ['unknown', 'expired']) { await openMoreSeeds(moreSeedsImageTarget(__activeSource[0]), {count: 1, opener: els.viewerMoreSeeds}); let previews = 0, posts = 0; api = async (path, options) => { if (path === '/api/more-seeds/preview') previews++; if (path === '/api/more-seeds') { posts++; throw Object.assign(new Error('More seeds receipt ' + reason + '; close and open again'), {status: 409}); } return __uxApi(path, options); }; await runMoreSeeds(); moreSeedsEdited(0); await runMoreSeeds(); await new Promise((r) => setTimeout(r, 300)); __terminalChecks.push(posts === 1 && previews === 0 && els.moreSeedsCount.readOnly && els.moreSeedsRun.getAttribute('aria-disabled') === 'true' && els.moreSeedsError.textContent.includes('Review the queue')); closeMoreSeeds(); await new Promise((r) => setTimeout(r, 30)); api = __uxApi; } })()"},
+  {"eval": "(async () => { window.__terminalChecks = []; for (const reason of ['unknown', 'expired']) { await openMoreSeeds(moreSeedsImageTarget(__activeSource[0]), {count: 1, opener: els.viewerMoreSeeds}); let previews = 0, posts = 0; api = async (path, options) => { if (path === '/api/more-seeds/preview') previews++; if (path === '/api/more-seeds') { posts++; throw Object.assign(new Error('More seeds receipt ' + reason + '; close and open again'), {status: 409, code: 'more_seeds_receipt'}); } return __uxApi(path, options); }; await runMoreSeeds(); moreSeedsEdited(0); await runMoreSeeds(); await new Promise((r) => setTimeout(r, 300)); __terminalChecks.push(posts === 1 && previews === 0 && els.moreSeedsCount.readOnly && els.moreSeedsRun.getAttribute('aria-disabled') === 'true' && els.moreSeedsError.textContent.includes('Review the queue')); closeMoreSeeds(); await new Promise((r) => setTimeout(r, 30)); api = __uxApi; } })()"},
   {"expect": "__terminalChecks.length === 2 && __terminalChecks.every(Boolean) && !els.moreSeedsDialog.open"},
 
   {"log": "'accepted partial results preserve the original queued job IDs and the remaining count in a visible warning, without auto continuation'"},
@@ -307,5 +309,6 @@
   {"expect": "__until(() => els.moreSeedsDialog.open && els.moreSeedsRun.getBoundingClientRect().right <= innerWidth && els.moreSeedsCancel.getBoundingClientRect().left >= 0)"},
   {"shot": "smoke-more-seeds-narrow.png"},
   {"key": "Escape"},
-  {"viewport": [1400, 900]}
+  {"viewport": [1400, 900]},
+  {"expect": "__a11yCheck()"}
 ]

@@ -69,5 +69,14 @@
   {"expect": "!els.galleryTop.hidden"},
   {"eval": "els.besideTick.click();"},
   {"wait": 400},
-  {"expect": "!besideOn && els.galleryTop.hidden === (document.querySelector('.gallery-head').getBoundingClientRect().bottom >= -innerHeight)"}
+  {"expect": "!besideOn && els.galleryTop.hidden === (document.querySelector('.gallery-head').getBoundingClientRect().bottom >= -innerHeight)"},
+  {"log": "'A page error is said: the listener app.js adds first writes one line to the panel slot, once per error. The events are made by hand - a real throw would fail this run, as the driver now does for any page error'"},
+  {"eval": "showError(''); window.__thrown = (msg) => window.dispatchEvent(new ErrorEvent('error', {message: 'Uncaught Error: ' + msg, error: Object.assign(new Error(msg), {stack: 'Error: ' + msg + '\\n    at press (' + location.origin + '/static/gallery.js:12:3)'})})); __thrown('made up by the smoke'); true"},
+  {"expect": "!els.error.hidden && !els.error.classList.contains('note') && els.error.textContent === 'Page error: made up by the smoke (gallery.js:12). Reload the page if something has stopped working.'"},
+  {"eval": "showError('something else since'); __thrown('made up by the smoke'); true"},
+  {"expect": "els.error.textContent === 'something else since'"},
+  {"eval": "window.dispatchEvent(new PromiseRejectionEvent('unhandledrejection', {promise: Promise.resolve(), reason: 'a plain reason'})); true"},
+  {"expect": "els.error.textContent === 'Page error: a plain reason. Reload the page if something has stopped working.' && els.galleryError.hidden"},
+  {"eval": "showError(''); window.dispatchEvent(new ErrorEvent('error', {message: 'ResizeObserver loop completed with undelivered notifications.'})); true"},
+  {"expect": "els.error.hidden && els.error.textContent === ''"}
 ]

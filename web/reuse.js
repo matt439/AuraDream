@@ -53,6 +53,58 @@ function rewriteBox(el, text) {
   writeBox(el, text);
 }
 
+// Use prompt (the image menu's item after Use seed, context-menu.js): a
+// record's prompt and negative prompt alone, where Reuse also takes the seed,
+// the size and the sampling. An instruction edit's words are about its
+// source and are no prompt of their own, so its item is held.
+const USE_PROMPT_EDIT = "An instruction edit's instruction is about its source, not a prompt of its own; "
+  + 'Reuse reopens the edit.';
+const usePromptReason = (rec) => (rec.edit != null ? USE_PROMPT_EDIT : '');
+
+// The pair into its boxes as typing writes it, the negative first so the
+// caret ends in the prompt. A box that holds the text already is left alone:
+// no empty step in its Ctrl+Z, and a prompt's translation stays.
+function writePromptPair({ prompt, negative }) {
+  const changed = els.prompt.value !== prompt;
+  if (els.negative.value !== negative) rewriteBox(els.negative, negative);
+  if (changed) {
+    rewriteBox(els.prompt, prompt);
+    promptReplaced();
+  } else els.prompt.focus({ preventScroll: true });
+  // The negative's caption says whether its text runs here.
+  syncCfg();
+  schedulePreview();
+  scheduleTagValidation(0);
+  persistPanel();
+}
+
+// Answers false, writing nothing, for a record whose item is held. The
+// lightbox is closed first, as its Reuse closes it: a modal keeps the focus
+// the write needs. Other text in either box is given back by the note's Undo
+// (and by Ctrl+Z in each box); the negative only while it still holds what
+// this left there.
+function usePrompt(rec) {
+  if (usePromptReason(rec)) return false;
+  const before = { prompt: els.prompt.value, negative: els.negative.value };
+  const after = { prompt: rec.prompt, negative: rec.negative_prompt ?? '' };
+  if (els.lightbox.open) closeLightbox();
+  // On a phone showing the gallery, the panel is the other view (touch.js).
+  showCreateView();
+  dropPromptUndo();
+  writePromptPair(after);
+  // Beside the gallery the panel moves, never the page.
+  revealInPanel(els.prompt);
+  const lost = (before.prompt.trim() !== '' && before.prompt !== after.prompt)
+    || (before.negative.trim() !== '' && before.negative !== after.negative);
+  if (lost) {
+    offerPromptUndo(`The prompt of #${rec.id} replaced yours.`, () => writePromptPair({
+      prompt: before.prompt,
+      negative: els.negative.value === after.negative ? before.negative : els.negative.value,
+    }), { title: 'Put the prompt and negative prompt back as they were' });
+  }
+  return true;
+}
+
 // Reuse restores what made a record. A direct render's settings go into the
 // panel; a refine pass is the Refine dialog's, so a refined record opens the
 // dialog on its source with the pass as it ran (`reusePass`).
@@ -374,7 +426,7 @@ async function checkReused(note, rec) {
   const extra = [];
   const restored = referenceSupported ? (rec.reference ?? []) : [];
   const answers = await Promise.all(restored.map((id) => api(`/api/images/${id}`)
-    .then(() => null, (err) => (/unknown image/.test(err.message) ? id : null))));
+    .then(() => null, (err) => (imageGone(err) ? id : null))));
   const dead = answers.filter((id) => id != null);
   if (dead.length) {
     // Part of what the Reuse left, so not a change that retires its Undo.
@@ -460,7 +512,7 @@ async function reusePass(rec) {
       // Release before the current fallback: it is this intent's deliberate
       // panel replacement, whose own entry retires any older opening.
       reusePassOpening = null;
-      if (!/unknown image/.test(err.message)) { showError(err.message); return; }
+      if (!imageGone(err)) { showError(err.message); return; }
       reuseIntoPanel(rec, false,
         `#${rec.refine}, the source this was refined from, is no longer in the gallery, `
         + 'so the pass cannot be made again. The size is left as it was.');

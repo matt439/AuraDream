@@ -13,6 +13,14 @@ let snippetsDirty = false;
 let snippetsEditEpoch = 0;
 let snippetsWriteRecovery = null;
 
+// A snippet's destinations: the word the lists show for each, and its box.
+// 'variables' is Grid search's Prompt variables box, for a saved
+// `name = a | b` block; the text is the grid preview's to read, never ours.
+const SNIPPET_TARGET_WORDS = { prompt: 'Prompt', negative: 'Negative', variables: 'Variables' };
+const snippetTargetWord = (target) => SNIPPET_TARGET_WORDS[target] || 'Prompt';
+const snippetBox = (target) => (target === 'negative' ? els.negative
+  : target === 'variables' ? els.gridPrompt : els.prompt);
+
 function snippetSay(text, error = false) {
   els.snippetsStatus.textContent = text;
   els.snippetsStatus.classList.toggle('error', error);
@@ -58,7 +66,7 @@ function snippetInsertReason() {
   if (target === 'negative' && (els.negative.disabled || els.negField.classList.contains('unsupported'))) {
     return `The negative prompt is unavailable: ${els.negNote.textContent || 'this checkpoint takes no negative prompt at these settings.'}`;
   }
-  const box = target === 'negative' ? els.negative : els.prompt;
+  const box = snippetBox(target);
   const length = text.length + box.value.length + (box.value ? 1 : 0);
   if (box.maxLength >= 0 && length > box.maxLength) return `The inserted text would exceed this box's ${box.maxLength}-character limit.`;
   return '';
@@ -73,7 +81,7 @@ function syncSnippets() {
   held(els.snippetsDelete, snippetDeleteReason(), 'Delete only the selected saved snippet');
   held(els.snippetsReload, snippetsPending ? 'Wait for the current snippets request.' : '',
     'Reread the saved list without replacing the editor; select an item to read its latest version');
-  held(els.snippetsInsert, snippetInsertReason(), 'Insert the text into the chosen prompt; Ctrl+Z restores it');
+  held(els.snippetsInsert, snippetInsertReason(), 'Insert the text into the chosen box; Ctrl+Z restores it');
   held(els.snippetsNew, snippetsPending === 'write' ? 'Wait for the snippet to finish saving.' : '', 'Start a new snippet');
   held(els.snippetsClose, snippetsPending === 'write' ? 'Wait for the snippet to finish saving.' : '', 'Close Snippets');
   for (const field of [els.snippetsList, els.snippetsName, els.snippetsText, els.snippetsTarget, els.snippetsPlacement]) {
@@ -94,7 +102,7 @@ function renderSnippets() {
   for (const item of snippetsItems) {
     const option = document.createElement('option');
     option.value = item.id;
-    option.textContent = `${item.name} (${item.target === 'negative' ? 'Negative' : 'Prompt'})`;
+    option.textContent = `${item.name} (${snippetTargetWord(item.target)})`;
     list.append(option);
   }
   list.value = snippetsSelected?.id || '';
@@ -282,7 +290,7 @@ function insertSnippet() {
   const reason = snippetInsertReason();
   if (reason) { snippetSay(reason, true); return; }
   const { text, target } = snippetFields();
-  const box = target === 'negative' ? els.negative : els.prompt;
+  const box = snippetBox(target);
   const before = box.value;
   const prepend = els.snippetsPlacement.value === 'prepend';
   const after = before ? (prepend ? `${text}\n${before}` : `${before}\n${text}`) : text;
@@ -290,11 +298,23 @@ function insertSnippet() {
   // focus without scrolling before the undo-aware write focuses the box.
   snippetsOrigin = null;
   els.snippetsDialog.close();
+  if (target === 'variables') {
+    // A shut fold's box takes no focus, so the write would not be typing's,
+    // and a block written into a shut fold would not be seen. On the phone
+    // the fold is in More options, which opens for it (phone.js).
+    els.gridSection.open = true;
+    openMoreOptionsFor(box);
+  }
   rewriteBox(box, after);
   if (target === 'prompt') {
     promptReplaced();
     syncTagSelection();
     scheduleTagValidation(0);
+  } else if (target === 'variables') {
+    // What the box's own `input` tells (app.js), said again for a write
+    // that could not be typing's and so raised none.
+    scheduleComparePreview();
+    if (gridVariableChips()) scheduleTagValidation(0);
   } else syncAnalysisStale();
   schedulePreview();
   persistPanel();
