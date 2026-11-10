@@ -15,6 +15,9 @@ from tests.api_helpers import stream_job, until, wait_for
 
 
 ROUTES = ("/api/rerender", "/api/swap-tags", "/api/refine/batch")
+# A deadlock guard, not a timing claim: slow CI runners have taken 13 s
+# just to set one of these tests up.
+HELD = 30
 
 
 def plant(store, seed, *, prompt="1girl, red hair", width=256, height=256, quantization=None, **fields):
@@ -171,7 +174,7 @@ def test_overlapping_submissions_are_coordinated_across_the_gallery_await(
 ):
     a, b = plant(store, 1), plant(store, 2)
     scanned, release_scan, release_job = (threading.Event() for _ in range(3))
-    fake.after_generate = lambda: release_job.wait(5)
+    fake.after_generate = lambda: release_job.wait(HELD)
     scan = storage.completed_cells
     calls = []
 
@@ -180,14 +183,14 @@ def test_overlapping_submissions_are_coordinated_across_the_gallery_await(
         calls.append(1)
         if len(calls) == 1:
             scanned.set()
-            assert release_scan.wait(5)
+            assert release_scan.wait(HELD)
         return done
 
     monkeypatch.setattr(storage, "completed_cells", held_scan)
     with ThreadPoolExecutor(max_workers=2) as pool:
         try:
             first = pool.submit(client.post, route, json=payload(route, [a.id]))
-            assert scanned.wait(5)
+            assert scanned.wait(HELD)
             second = pool.submit(client.post, route, json=payload(route, [a.id, b.id]))
             wait_until(lambda: main._model_requests >= 2)
             # Ordinary Generate can still enter while rerun admission waits.
@@ -195,7 +198,7 @@ def test_overlapping_submissions_are_coordinated_across_the_gallery_await(
                 "prompt": "a deliberate repeat", "width": 256, "height": 256,
             })
             release_scan.set()
-            one, two = first.result(timeout=5), second.result(timeout=5)
+            one, two = first.result(timeout=HELD), second.result(timeout=HELD)
             assert one.status_code == two.status_code == 200
             assert two.json()["planned"] == 1 and two.json()["pruned"] == 0
         finally:
@@ -234,28 +237,28 @@ def test_overlapping_masked_reruns_are_coordinated_before_job_admission(
         body.update(width=image.width, height=image.height)
     entered, release_admission, release_job = (threading.Event() for _ in range(3))
     original = getattr(storage, awaited)
-    fake.after_generate = lambda: release_job.wait(5)
+    fake.after_generate = lambda: release_job.wait(HELD)
     calls = []
 
     def held(*args, **kwargs):
         calls.append(1)
         if len(calls) == 1:
             entered.set()
-            assert release_admission.wait(5)
+            assert release_admission.wait(HELD)
         return original(*args, **kwargs)
 
     monkeypatch.setattr(storage, awaited, held)
     with ThreadPoolExecutor(max_workers=2) as pool:
         try:
             first = pool.submit(client.post, route, json=body)
-            assert entered.wait(5)
+            assert entered.wait(HELD)
             assert not main.jobs.active()  # The awaited mask work is before admission.
             second = pool.submit(client.post, route, json=body)
             wait_until(lambda: main._model_requests >= 2)
             # A cold read gets a turn while both HTTP requests are in flight.
             assert client.get("/api/status").status_code == 200
             release_admission.set()
-            one, two = first.result(timeout=5), second.result(timeout=5)
+            one, two = first.result(timeout=HELD), second.result(timeout=HELD)
             assert one.status_code == 200, one.text
             assert two.status_code == 409 and "queued" in two.json()["detail"]
         finally:
@@ -379,7 +382,7 @@ def test_different_rerun_routes_share_admission_for_the_same_cell(client, fake, 
     a = plant(store, 1, prompt="1girl, silver hair")
     b = plant(store, 1, width=384)
     scanned, release_scan, release_job = (threading.Event() for _ in range(3))
-    fake.after_generate = lambda: release_job.wait(5)
+    fake.after_generate = lambda: release_job.wait(HELD)
     scan = storage.completed_cells
     calls = []
 
@@ -388,19 +391,19 @@ def test_different_rerun_routes_share_admission_for_the_same_cell(client, fake, 
         calls.append(1)
         if len(calls) == 1:
             scanned.set()
-            assert release_scan.wait(5)
+            assert release_scan.wait(HELD)
         return done
 
     monkeypatch.setattr(storage, "completed_cells", held_scan)
     with ThreadPoolExecutor(max_workers=2) as pool:
         try:
             first = pool.submit(client.post, "/api/rerender", json=payload("/api/rerender", [a.id]))
-            assert scanned.wait(5)
+            assert scanned.wait(HELD)
             second = pool.submit(client.post, "/api/swap-tags", json=payload("/api/swap-tags", [b.id]))
             wait_until(lambda: main._model_requests >= 2)
             assert client.get("/api/status").status_code == 200
             release_scan.set()
-            one, two = first.result(timeout=5), second.result(timeout=5)
+            one, two = first.result(timeout=HELD), second.result(timeout=HELD)
             assert one.status_code == 200, one.text
             assert two.status_code == 409 and "queued" in two.json()["detail"]
         finally:
