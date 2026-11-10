@@ -153,7 +153,8 @@ both, and Ctrl+Z works in each box. From the lightbox it closes the
 lightbox first, as Reuse does: a modal keeps the focus the write needs.
 It is held on an instruction edit, whose words are about its source
 (`tests/test_use_prompt.py`; `smoke-context-menu`, whose `execCommand`
-stub now lets a typing write through). Not built: Recent prompts under
+stub now lets a typing write through; `smoke-phone-gallery` chooses it in
+the phone's More sheet). Not built: Recent prompts under
 Examples, kept for when this falls short; a prompt whose job saved nothing
 is still not recalled.
 

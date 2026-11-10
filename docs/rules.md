@@ -9590,7 +9590,9 @@ dialog. More's sheet has Use seed, Use prompt, More seeds of this batch…, Down
 and Copy prompt, none of the bar's or Edit's, the bin last in red, its
 head "#N"; a press of the scrim shuts it alone (the viewer open, its
 bars shown, one entry), and its More seeds… opens the dialog over the
-viewer (two entries), which Escape closes. At 360x780 the gallery
+viewer (two entries), which Escape closes; its Use prompt (`GEN#53`)
+closes the viewer and shows Create with the prompt in the box, no
+entry left, the note's Undo giving the replaced words back. At 360x780 the gallery
 head is still one line with the placeholder whole in the box and the
 first card within 200 px, the audit clean on the Gallery view and in ⋯;
 the cards three across, and with a card picked in Select the bar whole -
