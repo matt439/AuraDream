@@ -44,6 +44,7 @@ else:
 
 from . import api_backup, api_bundles, api_gallery, api_generate, api_jobs, api_masks, api_more_seeds, api_png, api_presets, api_prompt, api_refine_batch, api_rerender, api_runs, api_saved_searches, api_snippets, api_swap, app_context, bundle_common, bundles, card_facts, gallery_lock, gallery_reports, hf_sign_in, hub_access, keep_awake, loras, model_selection, prompt_encoding, startup_preferences, storage  # noqa: E402
 from .backup_service import BackupService  # noqa: E402
+from .build_info import read_commit as _read_commit  # noqa: E402
 from .server_probe import auradream_at as _auradream_at, is_loopback as _is_loopback, page_url as _page_url, port_busy as _port_busy  # noqa: E402
 from .backends import get_backend  # noqa: E402
 from .detached import detached as _detached  # noqa: E402
@@ -145,6 +146,11 @@ def _open_model_suggestion(model_id: str, token_present: bool) -> str | None:
 # was talking to went away - and every job with it - which nothing else in a
 # status that reads "not loaded" again says.
 STARTED_AT = time.time()
+# The checkout's short commit as this process started, read once here: a
+# `git pull` without a restart moves the checkout's and leaves this one,
+# which is what tells the two apart. None when it cannot be told (no Git
+# checkout, no git).
+COMMIT = _read_commit()
 
 # huggingface_hub's errors a load can end in, by class name: the user can do
 # something about each, and their own text is a status line, a request id and
@@ -722,6 +728,7 @@ async def status() -> ModelStatus:
         detail_kind=_load_state.get("detail_kind") if _load_state["detail"] else None,
         detail_url=_load_state.get("detail_url") if _load_state["detail"] else None,
         started_at=STARTED_AT,
+        commit=COMMIT,
         server_time=time.time(),
         model_label=_catalogue_label(info["model_id"]),
         # The live jobs' ids, oldest first: a page watching none of them
@@ -1371,6 +1378,7 @@ def run(*, open_browser: bool = False) -> None:
             "this address controls it. Expose it only on a trusted network.",
             settings.host,
         )
+    log.info("AuraDream at commit %s", COMMIT or "unknown (not a Git checkout, or git was not found)")
     config = uvicorn.Config(
         app,
         host=settings.host,

@@ -141,7 +141,7 @@ check_idle() {
 # --- status ------------------------------------------------------------------------
 do_status() {
     [ "$#" = 0 ] || bad_option "$1"
-    local healthy=1 key value active='' sub='' since='' enabled='' loaded='' linger user
+    local healthy=1 key value active='' sub='' since='' enabled='' loaded='' linger user checkout=''
     say 'AuraDream server status'
     say "Project folder: $ROOT"
 
@@ -203,6 +203,8 @@ do_status() {
         branch=$(git -C "$ROOT" rev-parse --abbrev-ref HEAD 2>/dev/null || printf '?')
         commit=$(git -C "$ROOT" log -1 --format='%h %s (%cr)' 2>/dev/null || printf '?')
         say "         Branch $branch at $commit"
+        # The short commit alone, for the running server's own below.
+        [ "$commit" = '?' ] || checkout=${commit%% *}
         if upstream=$(git -C "$ROOT" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null); then
             local fetch_code=0
             fetch_error=$(GIT_TERMINAL_PROMPT=0 git -C "$ROOT" fetch --quiet 2>&1) || fetch_code=$?
@@ -232,12 +234,13 @@ do_status() {
     say "== The server at http://127.0.0.1:$port/"
     local python summary_code=0
     if python=$(status_python); then
-        "$python" -I -B - "$port" <<'PY' || summary_code=$?
+        "$python" -I -B - "$port" "$checkout" <<'PY' || summary_code=$?
 import json
 import sys
 import urllib.request
 
 port = int(sys.argv[1])
+checkout = sys.argv[2] if len(sys.argv) > 2 else ""
 direct = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 try:
     with direct.open(f"http://127.0.0.1:{port}/api/status", timeout=10) as response:
@@ -252,6 +255,14 @@ def line(label, text):
 
 
 print("  [ok]   It answers.")
+# The commit the process started from: the checkout's own, above, moves with
+# a pull, and this one only with a restart.
+commit = status.get("commit")
+if isinstance(commit, str) and commit:
+    if checkout and not (commit.startswith(checkout) or checkout.startswith(commit)):
+        line("Commit", f"{commit}, and the checkout is at {checkout}: restart it to run the checkout's code")
+    else:
+        line("Commit", commit)
 label = status.get("model_label") or status.get("model_id") or "?"
 model_id = status.get("model_id")
 if model_id and model_id != label:

@@ -232,9 +232,12 @@ Backend (`backend/`):
   `generate_remote.py`), `clear.py`, `stats.py`, `reindex.py`;
   `doctor.py` the read-only machine check (`python -m backend.doctor`:
   PASS/WARN/FAIL for torch's GPU, the driver's CUDA, RAM, free disk, the
-  port, the token file's existence; torch but never diffusers, no Hub) that
-  `install.ps1` runs; `server_probe.py` the port's trial bind and
-  AuraDream-title probe, stdlib only, which `main.run` and the doctor share
+  port, the commit, the token file's existence; torch but never diffusers,
+  no Hub) that `install.ps1` runs; `server_probe.py` the port's trial bind,
+  AuraDream-title probe and the running server's commit, stdlib only, which
+  `main.run` and the doctor share; `build_info.py` the checkout's short
+  commit (None without git), read once at import as `main.COMMIT` for the
+  start-up log and `/api/status`'s `commit`, stdlib only
 
 Frontend (`web/`, served from `/static`): `index.html` loads classic scripts
 in order, sharing one global scope; only `app.js`, the last, runs anything.

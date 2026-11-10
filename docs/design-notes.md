@@ -290,6 +290,22 @@ attaches before the first image (79c18a8). `backend.generate` takes the same
 hold (`hold_while`) from its load to its last cell; under `--via-server` the
 server holds it.
 
+**The running commit (`DEV#36`, 2026-11-10).** The version is a static
+`0.1.0` and nothing is tagged, so the commit is the only version there is.
+`control.sh status` printed the checkout's, which after a `git pull`
+without a restart is no longer what the process runs. The process now
+reads its own once, at import (`main.COMMIT`, from
+`build_info.read_commit`), and never again: reading it per request would
+report the checkout's new commit for old code, the very thing it exists to
+tell apart. It is in the start-up log, `/api/status` (`commit`),
+`control.sh status` and the doctor's Commit row, which asks the running
+server on loopback and warns when this folder has moved on. It is git's
+own answer rather than a parse of `.git`, which has packed refs, worktree
+files and detached heads to get wrong; without git, or in a folder with no
+`.git` of its own, it is None and each place says "unknown". A dirty tree
+is not reported. The page shows nothing: an in-page Machine check was cut
+by the review.
+
 **The 8 GB card.** The measured Linux machine has an RTX 3070 (8 GB,
 compute capability 8.6), where the 5080 has 16 GB. torchao's fp8
 weight-only quantization (`Float8WeightOnlyConfig`) runs there: the weights

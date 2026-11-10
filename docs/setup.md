@@ -315,9 +315,17 @@ uv run python -m backend.doctor
 
 It prints a PASS, WARN or FAIL line for the GPU and PyTorch, the driver's
 CUDA version, RAM, free disk where the downloads and images go, the port,
-and whether a Hugging Face sign-in is present, with what to do under
-anything that is not a pass. It downloads and loads nothing and never
+the commit, and whether a Hugging Face sign-in is present, with what to do
+under anything that is not a pass. It downloads and loads nothing and never
 contacts Hugging Face.
+
+The **Commit** row is the version: this folder's short Git commit, and the
+running server's own when AuraDream is answering on the port. A server
+keeps the code it started with, so after an update without a restart the
+two differ and the row warns; restart AuraDream to run the new code. The
+server also writes its commit in its first log lines ("AuraDream at commit
+...") and reports it as `commit` in `/api/status`. Without Git (a copied
+folder) the commit is unknown and the row says so.
 
 - **"is gated on Hugging Face and this sign-in has no access yet"**: accept
   the licence (or wait for approval) on the checkpoint's page, run
@@ -561,7 +569,9 @@ bash linux/control.sh doctor            # the read-only machine check, with the 
 `status` shows the service's state, since when, whether it is enabled and
 whether lingering is on; the checkout's branch and commit and how far it is
 behind GitHub (after a quiet `git fetch`; a failed fetch is only noted);
-and the running server's own answer on `127.0.0.1`: the checkpoint and how
+and the running server's own answer on `127.0.0.1`: the commit it started
+from (with a note to restart when the checkout has moved on since), the
+checkpoint and how
 it loads, the model's state, active jobs, the card's holder, keep awake and
 why, the card's memory and the free disk, then AuraDream's line from
 `systemd-inhibit --list`. It exits 0 when the service is active and

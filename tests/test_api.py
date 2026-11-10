@@ -6,6 +6,7 @@ tests/fakes.py, tests/api_helpers.py)."""
 from __future__ import annotations
 
 import dataclasses
+import re
 import time
 
 import pytest
@@ -99,6 +100,18 @@ def test_status_carries_when_the_server_started(client):
     first = client.get("/api/status").json()["started_at"]
     assert first == main.STARTED_AT
     assert client.get("/api/status").json()["started_at"] == first
+
+
+def test_status_carries_the_commit_the_process_started_from(client, monkeypatch):
+    # Read once, at import, never per request: a pull without a restart moves
+    # the checkout's commit and must leave the running process's.
+    assert main.COMMIT is None or re.fullmatch(r"[0-9a-f]{4,40}", main.COMMIT)
+    assert client.get("/api/status").json()["commit"] == main.COMMIT
+    monkeypatch.setattr(main, "_read_commit", lambda: "fffffff")   # the checkout moved on
+    monkeypatch.setattr(main, "COMMIT", "abc1234")
+    assert client.get("/api/status").json()["commit"] == "abc1234"
+    monkeypatch.setattr(main, "COMMIT", None)                      # no Git checkout
+    assert client.get("/api/status").json()["commit"] is None
 
 
 def test_status_carries_the_servers_clock(client):

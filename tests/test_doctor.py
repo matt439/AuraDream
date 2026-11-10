@@ -184,6 +184,50 @@ def test_port_check_on_a_real_held_port():
         assert doctor.check_port("127.0.0.1", port, ours=lambda u: False)[0].status == FAIL
 
 
+def _commit(here, there, held=True, asked=None):
+    def running(url):
+        if asked is not None:
+            asked.append(url)
+        return there
+    [check] = doctor.check_commit("127.0.0.1", 7860, checkout=lambda: here, busy=lambda h, p: held,
+                                  running=running)
+    return check
+
+
+def test_commit_of_this_folder_alone():
+    asked: list[str] = []
+    check = _commit("abc1234", "def5678", held=False, asked=asked)
+    # A free port has no server to ask (a refused connection is slow on Windows).
+    assert asked == []
+    assert (check.status, check.detail, check.fix) == (PASS, "this folder is at abc1234.", "")
+    unknown = _commit(None, None)
+    assert unknown.status == PASS and "not a Git checkout, or git was not found" in unknown.detail
+
+
+def test_commit_of_a_running_server_that_matches_or_cannot_tell():
+    asked: list[str] = []
+    same = _commit("abc1234", "abc1234e9", asked=asked)           # abbreviated to another length
+    assert asked == ["http://127.0.0.1:7860/"]
+    assert (same.status, same.detail) == (PASS, "this folder and the running server are both at abc1234.")
+    # Another program on the port, or a server that could not tell: this folder's only.
+    assert _commit("abc1234", None).detail == "this folder is at abc1234."
+    copied = _commit(None, "def5678")
+    assert copied.status == PASS and "the running server started at def5678" in copied.detail
+
+
+def test_commit_warns_after_an_update_without_a_restart():
+    check = _commit("abc1234", "def5678")
+    assert check.status == WARN and check.title == "Commit"
+    assert "the running server started at def5678" in check.detail and "now at abc1234" in check.detail
+    assert check.fix == "Restart AuraDream to run this folder's code."
+    # A warning, never a failure: the doctor's exit status stays 0.
+    assert doctor.report([check])[1] == 0
+
+
+def test_commit_is_one_of_the_doctors_checks():
+    assert doctor.check_commit in doctor.CHECKS
+
+
 def test_hf_login_is_the_token_file_only(tmp_path):
     token = tmp_path / "token"
     [missing] = doctor.check_hf_login(token, environ={})
