@@ -538,16 +538,44 @@ nothing there). It holds:
   it asks for. The doctor warns about a missing `127.0.0.1`, capitals and
   wildcards.
 - The xet downloader's fixed connection count (as `wsl/env.sh` sets it),
-  and commented examples for `HF_HOME`, `AURADREAM_PORT` and the two
-  keep-awake settings.
+  and commented examples for `HF_HOME`, `AURADREAM_PORT`, the two
+  keep-awake settings and `AURADREAM_PASSCODE`.
+
+To have the server ask for a passcode, uncomment `AURADREAM_PASSCODE=` in
+that file, give it at least 8 characters, and restart with
+`bash linux/control.sh restart`. Changing a passcode that is already asked
+needs `restart --force`: the scripts read the new one from the file while
+the server still asks for the old one, so the ordinary busy check is
+refused (`--force` interrupts any work in progress). A file
+written before this setting existed has no such line: add it by hand. In
+this file the passcode may hold only letters, digits and `. _ - + @ % : , /`
+(no spaces or quotes): systemd and the scripts read anything else
+differently, and the scripts stop rather than guess. Every device then
+signs in once at the page and stays signed in for thirty days after its
+last visit; `control.sh`, `update.sh` and `auradream-server` send the
+passcode from the file themselves.
 
 At the end the script prints the addresses to open from another PC, such as
 `http://my-box:7860/` or `http://192.168.1.20:7860/`. A `.local` name needs
 mDNS (`avahi-daemon`); if a firewall is on, allow the port
-(`sudo ufw allow 7860/tcp`). **There is no login**: anyone who can reach the
-port can read and delete the gallery and make the machine download
-checkpoints with its Hugging Face token. Only do this on a network you
-trust.
+(`sudo ufw allow 7860/tcp`). **Without a passcode the server asks for
+nothing**: anyone who can reach the port can read and delete the gallery and
+make the machine download checkpoints with its Hugging Face token. With one,
+know what it is worth, since the service speaks plain http:
+
+- The passcode, its cookie and every prompt and image cross the network
+  unencrypted. Anyone who can capture that network's traffic reads all of
+  it and can sign in afterwards.
+- So the passcode keeps out people who can merely reach the address: the
+  household, a guest on the Wi-Fi. It is not protection on a network that
+  is not trusted, and never a reason to forward the port to the internet.
+- HTTPS is what makes it private, which AuraDream does not serve yet.
+- Do not reuse a password from anywhere else: it sits in plain text in the
+  environment file and the process's environment.
+- There is one passcode and no accounts. Changing it and restarting signs
+  every device out; nothing else does.
+
+Either way, only do this on a network you trust.
 
 ```bash
 systemctl --user status auradream          # its state

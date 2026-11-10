@@ -13676,13 +13676,14 @@ then the order to build it in. Matt read the flagged choices on 2026-11-10
 and said go to all of them as written: the passcode is asked behind a proxy
 too, 127.0.0.1 has no exemption, the environment file's character limit,
 one limiter for the whole server, the 8-character floor and the 30-day
-stateless cookie. **Stages 1 (the gate) and 2 (the callers) are built**,
-2026-11-10; what each settled that the design left open is under
-[Stage 1 as built](#stage-1-as-built) and
-[Stage 2 as built](#stage-2-as-built). Stages 3 and 4 are not: until stage
-3 the page has no signed-out notice or Sign out, the fake has no knob for
-it, and the docs do not name the setting (the service's environment file
-does, in a commented line).
+stateless cookie. **Stages 1 (the gate), 2 (the callers) and 3 (the page,
+the fake, the smoke and the docs) are built**, 2026-11-10; what each
+settled that the design left open is under
+[Stage 1 as built](#stage-1-as-built),
+[Stage 2 as built](#stage-2-as-built) and
+[Stage 3 as built](#stage-3-as-built). **Stage 4, on the real machines, is
+Matt's and untried**: nothing here has met a phone, Safari, a real network,
+the Linux service or a restart with a passcode set.
 
 The server has no authentication. `TrustedHostMiddleware` refuses a Host it
 does not list and `block_cross_site_writes` refuses a write that announces
@@ -14208,6 +14209,73 @@ the source decided, and what the design had not said:
 - `tests/test_linux_scripts.py` runs on Linux only. It was run under WSL
   (Ubuntu, the project's own Linux virtualenv's Python, nothing
   installed): 230 passed, and 240 with the review's tests.
+
+### Stage 3 as built
+
+Built 2026-11-10: the page's signed-out state (`web/state.js`'s `api()`,
+`web/status.js`'s `goSignedOut`, `serverAnswers` and `signOut`), Sign in in
+the topbar and Sign out in the Models panel (`web/index.html`), the fake's
+`POST /api/fake/passcode`, `tools/smoke-passcode.json`, the gated steps at
+the end of `tools/smoke-offline.json`, and the docs (README, `docs/usage.md`,
+`docs/setup.md`, `docs/rules.md`, `AGENTS.md`). Checked in a real browser
+through those two smokes at 1400x900 and on the phone tier (393x852,
+touch), the sign-in page under `phone_audit.js`. Nothing above was
+redesigned. What the source decided, and what the design had not said:
+
+- **The notice.** The status line says "signed out" where `goOffline`
+  writes "server not answering — retrying", over a grey dot, and the Sign
+  in button is the topbar's own, before Load (which hides, as it does
+  offline). On the phone the status rides inside the Models chip, which is
+  a button, so Sign in cannot sit in the status itself: it is between the
+  chip and the ⋯, 44 px. Two words, so the chip's state is never cut.
+- **Nothing is held while signed out.** Offline, the buttons that would
+  send are held with a reason. Signed out they are left live, and a press
+  is answered by the gate's own sentence ("This server asks for a
+  passcode. Reload the page and sign in."), which is the instruction. Any
+  request's coded 401 raises the notice, not only the status poll's.
+- **A 401 is an answer.** A server that restarts with a changed passcode
+  is first silent and then refuses: the 401 ends the page's offline state
+  as a status would (`serverAnswers`, shared with `receiveStatus`), so the
+  topbar does not say both. Silence after it takes the notice back, and so
+  does a status that answers (a sign-in in another tab shares the cookie).
+- **Sign out** is a row of its own under the Models panel's note, hidden
+  unless the status's `passcode` is true: no height while none is asked,
+  and with one the picker's footer is one small row taller (the table
+  gives it). On the phone it stays in the sheet's scroller, above the
+  sticky foot, 44 px. It posts the sign-out and then opens `/`
+  (`location.replace`), which is the sign-in page; a refusal is shown in
+  the panel's line and nothing reloads.
+- **The fake's knob.** A body without `passcode` leaves the gate as it is,
+  so `{"reset": true}` alone clears the limiter; it answers `{"on": …}`
+  and never the value; a blank string is a 422. The fake sets its gate to
+  none at start whatever the machine's environment holds, so a developer's
+  own `AURADREAM_HOST` and `AURADREAM_PASSCODE` cannot close a smoke's
+  fake. A new passcode through the knob is a new key, which is how the
+  smoke ends a session under an open page.
+- **The smoke's lock.** The first lock is one second, so the smoke makes
+  the wrong attempts, the right one (429) and the form's press in one
+  in-page step, and reads the page's "Wait 1 second" before the knob's
+  reset. `smoke-passcode` shares port 7958 with `smoke-offline`, each a
+  fake of its own. Its `run_smoke_costs.json` entry, and the raised one
+  for `smoke-offline`, are this PC's timings rounded up, not CI's. The
+  smokes' throwaway passcodes are set in `eval` and `type` steps, which
+  the driver does not print, so they are not in a run's output either.
+- **The user docs** say "HTTPS is what makes it private, which AuraDream
+  does not serve yet" and point at a VPN or an HTTPS proxy, rather than
+  linking the review's S3 from the README. They no longer recommend "an
+  authenticating proxy" as the only answer to an untrusted network. The
+  start-up log line is stage 1's and was not reworded: it says what
+  crosses unencrypted and whom the passcode keeps out, not the other three
+  points, which are the docs'.
+- **Tests.** The knob itself has no pytest (no test starts the fake); the
+  two smokes drive it. `tests/test_api_passcode.py` gains one test holding
+  the page to the gate's code and paths and the two buttons hidden in the
+  markup.
+- **Not checked here, stage 4's:** a real phone and Safari's autofill, the
+  home-screen icon, plain http from another machine (where no service
+  worker registers), the cookie across a restart and an update,
+  `auradream-server status` and `update.sh` through the passcode, and a
+  lock met by a real second device.
 
 Not designed, and not to be built under this row: accounts or more than one
 passcode, a passcode set or changed from the page, revoking one device,

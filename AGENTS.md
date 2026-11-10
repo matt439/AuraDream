@@ -116,7 +116,11 @@ Backend (`backend/`):
   (`ActivityMiddleware`, never the page's timed polls), stdlib only, the
   CLI's `hold_while` too; `response_headers.py` the ASGI layer putting
   `frame-ancestors 'self'` and `nosniff` on every response, added last in
-  `main` so it is outermost; `api_prompt.py` tag helper and prompt
+  `main` so it is outermost; `passcode.py` the opt-in passcode
+  (`AURADREAM_PASSCODE`) for a server reachable beyond this machine: the
+  gate, the session cookie, the limiter on wrong passcodes and the ASGI
+  layer with its sign-in and sign-out routes, stdlib and Starlette only;
+  `api_prompt.py` tag helper and prompt
   routes, `prompt_check.py` Check's layer 1, `tag_lookup.py` the Danbooru
   lookup (`tag_vocabulary`); `submission.py` submit checks and the gallery
   selection, its service-free checks and wording in `submission_rules.py`
@@ -237,7 +241,8 @@ Backend (`backend/`):
   port, the commit, the token file's existence; torch but never diffusers,
   no Hub) that `install.ps1` runs; `server_probe.py` the port's trial bind,
   AuraDream-title probe and the running server's commit, stdlib only, which
-  `main.run` and the doctor share; `build_info.py` the checkout's short
+  `main.run` and the doctor share, with the passcode's header and the
+  gate's refusal in words for every caller that is not a browser; `build_info.py` the checkout's short
   commit (None without git), read once at import as `main.COMMIT` for the
   start-up log and `/api/status`'s `commit`, stdlib only
 - `log_file.py` the server's rotating `auradream.log` beside the database
@@ -318,6 +323,14 @@ at its foot over a scrim, named at its head with a Cancel row last.
 context (never plain http to a LAN address), answers a silent server's
 `/` with `offline.html`, which retries and reopens the page; it caches
 nothing else, and the network always goes first.
+
+`passcode.html` is what the server answers for `/` while it asks for a
+passcode and the browser is not signed in (`backend/passcode.py`):
+self-contained as `offline.html` is, its title exactly the page's. In the
+page, `api()` (`state.js`) reads a 401 coded `passcode_required` as signed
+out (`status.js`, `goSignedOut`: "signed out" in the topbar's status line
+with a Sign in button that reloads), and Sign out sits in the Models panel
+while the status says a passcode is asked.
 
 `snippet-import.js` owns explicit personal-snippet export and the native
 merge dialog; it preserves the editor and prompt boxes, with no automatic retry.
@@ -539,6 +552,35 @@ Frontend:
   as one. It answers an unhandled error itself (Starlette's own 500 would
   pass through no layer) and raises it on.
 
+Passcode (`backend/passcode.py`; docs/design-notes.md, "A passcode beyond
+loopback"):
+
+- `AURADREAM_PASSCODE` is read from the environment only: never a flag, the
+  saved settings, `/api/status`, a log line, an error, a process argument
+  or test output. The gate keeps a digest and a derived key, never the
+  passcode.
+- It is asked when it is set and the bind or an allowed host is not
+  loopback, and then of every request, 127.0.0.1's too (a proxy on the
+  same machine arrives from there). Off, the layer passes everything
+  through and every answer is what it was.
+- `PasscodeMiddleware` stays inside the response headers, the cross-site
+  write block and the Host check, and outside `hold_model_for_request`,
+  activity and gallery admission. A new route is closed by default
+  (`tests/test_api_passcode_routes.py` walks the route table); only
+  `OPEN_PATHS` (the manifest and its icons, by exact path) answer signed
+  out, and `/` is the sign-in page as a 200, never a redirect or a 401
+  (the service worker and the title probes).
+- `web/passcode.html` loads nothing under `/static/` and keeps
+  `<title>AuraDream</title>`.
+- The page never reloads by itself when a session ends: Sign in is the
+  user's press. Every caller that is not a browser sends
+  `Authorization: Bearer` from its own environment, through an opener that
+  follows no redirect, and reads the gate's 401 and 429 as refusals in
+  their own words, never as a server that is down or idle.
+- The docs say what plain http leaves readable wherever they name the
+  setting (README, `docs/usage.md`, `docs/setup.md`): it keeps out the
+  household, not anyone who can capture the network's traffic.
+
 CLI: `generate`, `clear`, `stats`, `reindex` reconfigure stdout to UTF-8 at
 the top of `main()`; `generate.py` applies `--model/--quant/--offload` to
 `os.environ` before importing `backend.config`.
@@ -720,6 +762,7 @@ uses the driver's graceful close/cleanup. See the full Tests rules.
 | 7957 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-tablet` |
 | 7957 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-phone-landscape` |
 | 7958 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-offline` |
+| 7958 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-passcode` |
 | 7959 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-catalogue-stale` |
 | 7960 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-phone-dialogs` |
 | 7960 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-phone-gallery` |
@@ -758,7 +801,9 @@ Gotchas:
   `/api/fake/instruction-edit` (the edit gate, open by default only on a
   Kontext fake), `/api/fake/unreachable` (`on`: every other request held
   unanswered, a PC asleep), `/api/fake/disk-full` (`on`: every image save
-  refused as a full disk); a prompt containing `[fail]` fails its cell;
+  refused as a full disk), `/api/fake/passcode` (`passcode`: a string
+  turns the passcode's gate on, null off; `reset`: clears the limiter; a
+  fake starts with none); a prompt containing `[fail]` fails its cell;
   `--critic-delay`, `--no-critic`.
 
 GPU behaviour, pixels, timing and memory are the card's to say, recorded in

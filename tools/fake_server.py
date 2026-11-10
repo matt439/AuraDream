@@ -12,7 +12,8 @@ cells of a grid can be told apart on a sheet. A cell whose prompt holds
 `[fail]` raises, as an out-of-memory cell would, so a grid's skipped cells
 and the failure rule can be driven from the page. The fake's own test-only
 knobs, never on the real server, are POSTs under `/api/fake/`: load, step,
-expand, model, lora, bin-age, peak, refine, instruction-edit and disk-full; the comment
+expand, model, lora, bin-age, peak, refine, instruction-edit, disk-full and
+passcode; the comment
 above each route states its body and its answer. The instruction-edit gate
 is open on a fake claiming FLUX.1 Kontext [dev] alone - there an edit is
 the source proved and prepared, tinted and stamped, and two more sources
@@ -770,6 +771,34 @@ def main() -> int:
     async def fake_unreachable(on: bool = Body(..., embed=True)) -> dict:
         silent["on"] = on
         return {"on": on}
+
+    # The passcode's gate (backend/passcode.py), which a fake never has by
+    # itself: it binds 127.0.0.1, and starts with none whatever this
+    # machine's environment holds. `passcode`: a string turns the gate on
+    # with that passcode (a new one ends every session, as a changed
+    # passcode and a restart do), null turns it off; a body without the key
+    # leaves it. `reset`: true clears the limiter's count and lock. These
+    # knobs stay open while it is on (`open_prefixes`), as they stay
+    # answered while unreachable. Answers whether it is on, never the value.
+    from fastapi import HTTPException
+
+    from backend import passcode as passcode_gate
+
+    app_main._passcode_gate = None
+
+    @app_main.app.post("/api/fake/passcode", include_in_schema=False)
+    async def fake_passcode(body: dict = Body(...)) -> dict:
+        if "passcode" in body:
+            value = body["passcode"]
+            if value is not None and not (isinstance(value, str) and value.strip()):
+                raise HTTPException(422, "passcode is a non-empty string, or null for none")
+            app_main._passcode_gate = None if value is None else passcode_gate.Gate(
+                value, port=args.port, open_prefixes=("/api/fake/",),
+            )
+        gate = app_main._passcode_gate
+        if body.get("reset") is True and gate is not None:
+            gate.limiter.reset()
+        return {"on": gate is not None}
 
     # A disk with no room, which no page can make: while on, every image
     # save raises ENOSPC as the PNG's write would, so the job pauses with

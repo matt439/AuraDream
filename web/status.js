@@ -378,6 +378,11 @@ function writeStatusLine(name, state = '') {
 // The topbar said "ready" in green over a dead server for as long as it was
 // down; it says what is true, and what would send to the server is held.
 function goOffline() {
+  // Silence now, whatever was said before it: the signed-out notice goes.
+  if (signedOut) {
+    signedOut = false;
+    els.signIn.hidden = true;
+  }
   if (serverOffline) return;
   serverOffline = true;
   els.dot.className = 'dot error';
@@ -388,6 +393,56 @@ function goOffline() {
   syncSubmitButtons();
   syncExpandButton();
   syncCritic();
+}
+
+// The server answers again after none: what was held lets go, and what said
+// it was not answering goes. Answers whether it had been silent.
+function serverAnswers() {
+  if (!serverOffline) return false;
+  serverOffline = false;
+  clearOffline();
+  retryLightboxImage();
+  takeBackCriticOffline();
+  syncSubmitButtons();
+  syncExpandButton();
+  syncCritic();
+  return true;
+}
+
+// The server asks for a passcode and this browser's session has ended: it
+// expired, the passcode was changed, or the passcode was turned on under an
+// open page (api(), on a 401 coded `passcode_required`). An answer, so not
+// the server gone; said in the topbar where that is said, with Sign in
+// beside it, which reloads into the sign-in page. Never a reload by itself:
+// the composer may hold unsaved text, which the panel's persistence gives
+// back after the reload. Nothing is held: a press is answered by the
+// server's own sentence, "Reload the page and sign in." A status that
+// answers again - signed in from another tab - takes it back (receiveStatus).
+function goSignedOut() {
+  serverAnswers();
+  if (signedOut) return;
+  signedOut = true;
+  els.dot.className = 'dot';
+  writeStatusLine('', SIGNED_OUT_PHRASE);
+  els.statusAside.hidden = true;
+  els.load.hidden = true;
+  els.signOutRow.hidden = true;
+  els.signIn.hidden = false;
+  syncUnload();
+}
+
+// Sign out, in the Models panel while the server asks for a passcode: the
+// cookie cleared on this browser alone (nothing is stored, so no other
+// device is touched), then the address opened again, which is the sign-in
+// page. The user's own press, so the reload is theirs.
+async function signOut() {
+  try {
+    await api('/api/passcode/sign-out', { method: 'POST' });
+  } catch (err) {
+    showError(err.message);
+    return;
+  }
+  location.replace('/');
 }
 
 // The server that answers is not the one the page was talking to: its jobs,
@@ -587,16 +642,15 @@ function receiveStatus(s, asked = Date.now()) {
     // An answer after none: what was held lets go, and what said the server
     // was not answering goes. A restart is the start time changing - with or
     // without a poll that failed between, which a quick one leaves none of.
-    const back = serverOffline;
-    if (back) {
-      serverOffline = false;
-      clearOffline();
-      retryLightboxImage();
-      takeBackCriticOffline();
-      syncSubmitButtons();
-      syncExpandButton();
-      syncCritic();
+    const back = serverAnswers();
+    // Signed in again (another tab's sign-in shares the cookie): the notice
+    // goes, and the line and Load below are written as for any answer.
+    if (signedOut) {
+      signedOut = false;
+      els.signIn.hidden = true;
     }
+    // Sign out is offered only while the server asks for a passcode.
+    els.signOutRow.hidden = s.passcode !== true;
     const restarted = serverStartedAt !== null && typeof s.started_at === 'number'
       && s.started_at !== serverStartedAt;
     if (typeof s.started_at === 'number') serverStartedAt = s.started_at;

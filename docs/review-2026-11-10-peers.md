@@ -275,6 +275,27 @@ the page (the signed-out notice, Sign out), the fake's knob, the smoke and
 the docs; until then the setting is not named in the README. What stage 2
 settled is under [Stage 2 as built](design-notes.md#stage-2-as-built).
 
+Built 2026-11-10, stages 1 to 3. Stage 3, the page, the same day: a session
+that ends under an open page shows "signed out" in the top bar with a Sign
+in button and never reloads by itself, so the prompt is kept; Sign out is
+in the Models panel while a passcode is asked; the fake server has a
+`/api/fake/passcode` knob; `smoke-passcode` walks the sign-in page, a wrong
+passcode, the lock, the app opening, an image and a job stream, the ended
+session, Sign out and the sign-in page under the phone audit, and
+`smoke-offline` ends with the gate on. The README, the usage guide and the
+setup guide now name `AURADREAM_PASSCODE` and say what plain http leaves
+readable: it keeps out the household, not anyone who can capture the
+network's traffic. What stage 3 settled is under
+[Stage 3 as built](design-notes.md#stage-3-as-built).
+
+**Stage 4, the real machines, is Matt's and untried.** Everything above
+was checked with tests, a fake server and a headless browser on one PC.
+Nobody has yet set a passcode on the Linux service and signed in from a
+phone or another PC, tried Safari's password autofill, the home-screen
+icon, a session across a restart or an update, `auradream-server status`
+and `update.sh` through the passcode, or a wrong passcode's lock from a
+second device. Until that is done this finding is built, not proven.
+
 ### S3 an HTTPS route
 
 `DEV#33`. `main._origin_allowed` requires the Origin's port to equal

@@ -701,3 +701,29 @@ def test_on_loopback_with_no_passcode_the_start_says_nothing_of_it(fake, monkeyp
     with caplog.at_level("INFO", logger="auradream"):
         main.run()
     assert not [message for _, message in _messages(caplog) if "passcode" in message.lower()]
+
+
+# ------------------------------------------------------------------ the page
+
+
+def test_the_page_reads_the_gates_code_and_draws_nothing_until_it_is_asked():
+    """The app's side of it (stage 3): `api()` acts on the 401's code, the
+    gate's own, never its sentence; Sign in and Sign out are in the page
+    hidden, so a server that asks for nothing draws neither; and the fake's
+    knob builds the same gate with its own knobs left open."""
+    state = (WEB / "state.js").read_text(encoding="utf-8")
+    assert f"res.status === 401 && code === '{passcode.REQUIRED_CODE}'" in state
+    assert passcode.REQUIRED_DETAIL not in state
+    status = (WEB / "status.js").read_text(encoding="utf-8")
+    assert f"api('{passcode.SIGN_OUT_PATH}', {{ method: 'POST' }})" in status
+    assert "els.signOutRow.hidden = s.passcode !== true;" in status
+    page = (WEB / "index.html").read_text(encoding="utf-8")
+    sign_in = re.search(r'<button[^>]*id="btn-sign-in"[^>]*>', page)
+    sign_out = re.search(r'<p[^>]*id="model-sign-out"[^>]*>', page)
+    assert sign_in and sign_out
+    assert " hidden>" in sign_in.group(0) and " hidden>" in sign_out.group(0)
+    # Sign out's row is in the Models panel's footer, after its note.
+    footer = page.split('class="model-picker-footer"', 1)[1].split('id="models-foot"', 1)[0]
+    assert footer.index('id="model-picker-note"') < footer.index('id="model-sign-out"')
+    fake = (WEB.parent / "tools" / "fake_server.py").read_text(encoding="utf-8")
+    assert 'open_prefixes=("/api/fake/",)' in fake and "app_main._passcode_gate = None" in fake
