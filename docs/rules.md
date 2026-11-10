@@ -9903,8 +9903,10 @@ it is drawn. With one, `/` is the sign-in page (the page's own title, the
 host, one inline script, no stylesheet) and the status, scripts, styles,
 `offline.html`, `/sw.js`, `/outputs/`, `/docs`, the gallery and the jobs
 are 401 while the manifest and an icon are 200; nothing typed and a wrong
-passcode are each said in the page; five wrong in a row lock the right one
-too (429) and the page says how long; after the knob's `reset` the right
+passcode are each said in the page; five wrong in a row lock every attempt
+(the step makes two more wrong ones, each after its lock, so the lock is
+four seconds and nothing races a one-second one), the right one too (429),
+and the page says how long; after the knob's `reset` the right
 passcode, typed with stray spaces and entered, opens the app. Signed in:
 no cookie is readable by script, `/` is `no-cache`, the service worker
 installs (its fetch of `offline.html` carried the cookie), Sign out is
@@ -9912,10 +9914,16 @@ under the Models panel's note inside the window at 1400x900, a generated
 image loads from `/outputs/` and its job's stream opens. A changed
 passcode ends the session under the open page: "signed out" and Sign in
 in the topbar, the same document, the prompt kept, Generate answered by
-the server's sentence, nothing changed by later polls; on the phone tier
+the server's sentence, nothing changed by later polls. Silence after it
+(`goOffline()` called in the page; the fake's unreachable knob holds a
+request, it never fails one) takes the notice back and holds Generate, and
+the next poll's 401 ends that offline state with nothing left held; a
+sign-in from elsewhere on the same cookie takes the notice back at the
+next status, Sign out offered again, the same document; another changed
+passcode signs it out again. On the phone tier
 (393x852, touch) Sign in is a finger's 44 px beside the chip with nothing
 off the screen. Sign in reloads into the sign-in page, which passes
-`phone_audit.js` whole (also after a wrong passcode's words); the old
+`phone_audit.js` whole (also after a wrong passcode's words); an old
 passcode is wrong, the new one opens the app with the prompt restored;
 Sign out in the phone's Models sheet is 44 px, on the screen and clear of
 the sticky foot, and pressing it leaves the sign-in page with the status

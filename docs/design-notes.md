@@ -14252,10 +14252,13 @@ redesigned. What the source decided, and what the design had not said:
   own `AURADREAM_HOST` and `AURADREAM_PASSCODE` cannot close a smoke's
   fake. A new passcode through the knob is a new key, which is how the
   smoke ends a session under an open page.
-- **The smoke's lock.** The first lock is one second, so the smoke makes
-  the wrong attempts, the right one (429) and the form's press in one
-  in-page step, and reads the page's "Wait 1 second" before the knob's
-  reset. `smoke-passcode` shares port 7958 with `smoke-offline`, each a
+- **The smoke's lock.** The smoke makes the wrong attempts, the right one
+  (429) and the form's press in one in-page step, and reads the page's
+  wait before the knob's reset. The first lock is one second, which a slow
+  CI runner could outlast between two requests, so the step goes on to two
+  more wrong passcodes, each after its lock has run out, and tries the
+  right one inside the four-second lock that follows (the stage's review
+  changed this; as built it raced the one-second lock). `smoke-passcode` shares port 7958 with `smoke-offline`, each a
   fake of its own. Its `run_smoke_costs.json` entry, and the raised one
   for `smoke-offline`, are this PC's timings rounded up, not CI's. The
   smokes' throwaway passcodes are set in `eval` and `type` steps, which
@@ -14271,6 +14274,16 @@ redesigned. What the source decided, and what the design had not said:
   two smokes drive it. `tests/test_api_passcode.py` gains one test holding
   the page to the gate's code and paths and the two buttons hidden in the
   markup.
+- **Reviewed the same day** against this note, in a browser through the
+  two smokes, on a hand-started fake with raw requests (no spelling of a
+  path under the fake's open `/api/fake/` reaches another route; a fake
+  started with `AURADREAM_HOST` and `AURADREAM_PASSCODE` set asks for
+  nothing until the knob says so), and by changing `status.js` under the
+  smoke. No page or server code changed. Three of the page's transitions
+  were held by nothing, and the smoke now walks them: silence taking the
+  notice back, a 401 ending the offline state with nothing left held, and
+  a status that answers taking the notice back without a reload. The lock
+  step no longer races a one-second lock (above).
 - **Not checked here, stage 4's:** a real phone and Safari's autofill, the
   home-screen icon, plain http from another machine (where no service
   worker registers), the cookie across a restart and an update,
