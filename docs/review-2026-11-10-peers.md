@@ -221,7 +221,9 @@ job, cell, pass, load and switch sites unchanged; the `auradream` and
 held at the configured level. `faulthandler` writes to the same file, kept
 on it across rollovers, unless it was already enabled. uvicorn takes
 `AURADREAM_LOG_LEVEL`, and its `uvicorn` logger (an unhandled route's
-traceback) is followed; `uvicorn.access` is not. Tests in
+traceback) is followed; `uvicorn.access` is not. The rollover moves the
+live file first, so one refused while another program holds the file open
+keeps the older files. Tests in
 `tests/test_log_file.py`; the reasons in `docs/design-notes.md` under "The
 log file".
 

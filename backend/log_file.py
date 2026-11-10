@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import faulthandler
 import logging
+import os
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
@@ -79,15 +80,42 @@ class _Handler(RotatingFileHandler):
     def doRollover(self) -> None:  # noqa: N802 - logging's name
         if self.owns_faulthandler:
             faulthandler.disable()
+        if self.stream is not None:
+            self.stream.close()
+            # As the stdlib's rollover does; its stubs say never None.
+            self.stream = None  # pyright: ignore[reportAttributeAccessIssue]
         try:
-            super().doRollover()
+            self._move_files()
         except OSError:
-            # Windows refuses the rename while another program holds the file
-            # open. Keep appending to it; the next record tries again.
-            if self.stream is None:
-                self.stream = self._open()
-        if self.owns_faulthandler and self.stream is not None:
-            faulthandler.enable(file=self.stream, all_threads=True)
+            # Windows refuses a rename while another program holds the file
+            # open (a console following it). Keep appending to the live
+            # file; the next record tries again.
+            pass
+        try:
+            self.stream = self._open()
+        finally:
+            if self.owns_faulthandler and self.stream is not None:
+                faulthandler.enable(file=self.stream, all_threads=True)
+
+    def _move_files(self) -> None:
+        """The live file becomes `.1` and each older file one older.
+
+        The stdlib moves the older files first, so a refused rename of the
+        live file, tried again at every record, pushed two of the three
+        older files out and kept nothing in their place. Here the live file
+        moves first, to a staging name, and nothing else has changed when
+        that is refused. A staged file a refused later step left behind is
+        finished first, the live file waiting for the next record.
+        """
+        base = self.baseFilename
+        staged = f"{base}.0"
+        if not os.path.exists(staged):
+            os.replace(base, staged)
+        for index in range(self.backupCount - 1, 0, -1):
+            older = f"{base}.{index}"
+            if os.path.exists(older):
+                os.replace(older, f"{base}.{index + 1}")
+        os.replace(staged, f"{base}.1")
 
 
 class Installed:

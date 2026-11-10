@@ -71,9 +71,7 @@ from .schemas import (  # noqa: E402
 from .translation import MODEL_BYTES as TRANSLATOR_BYTES  # noqa: E402
 from .translation import prompt_translator  # noqa: E402
 
-logging.basicConfig(
-    level=settings.log_level, format="%(asctime)s %(levelname)-7s %(name)s | %(message)s"
-)
+logging.basicConfig(level=settings.log_level, format=log_file.FORMAT)
 log = logging.getLogger("auradream")
 warn_legacy_env(log)  # a pre-rename variable left in a shell: named, not read
 

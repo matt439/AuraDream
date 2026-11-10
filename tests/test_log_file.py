@@ -131,22 +131,82 @@ def test_the_file_rotates_and_keeps_only_its_backups(tmp_path, console, monkeypa
     assert "line 0399" in installed.path.read_text(encoding="utf-8")
 
 
-def test_a_refused_rollover_keeps_writing_the_same_file(tmp_path, console, monkeypatch, capsys):
-    # Windows refuses the rename while another program holds the file open.
-    def refuse(self, source, dest):
-        raise PermissionError(13, "The process cannot access the file", source)
+def _refuse_moving(monkeypatch, held: set[str]):
+    """Windows refuses the rename of a file another program holds open (a
+    console following the log). `held` names the files so held."""
+    replace = log_file.os.replace
 
-    monkeypatch.setattr(RotatingFileHandler, "rotate", refuse)
+    def refuse(source, dest):
+        if Path(source).name in held:
+            raise PermissionError(13, "The process cannot access the file", str(source))
+        replace(source, dest)
+
+    monkeypatch.setattr(log_file.os, "replace", refuse)
+
+
+def _fill(tmp_path, first: int, last: int) -> None:
+    for index in range(first, last):
+        logging.getLogger("auradream").info("line %04d %s", index, "x" * 60)
+
+
+def _first_lines(tmp_path) -> dict[str, str]:
+    return {
+        path.name: path.read_text(encoding="utf-8").splitlines()[0].split("| ")[1][:9]
+        for path in sorted(tmp_path.iterdir())
+    }
+
+
+def test_a_refused_rollover_keeps_writing_and_keeps_the_older_files(tmp_path, console, monkeypatch, capsys):
     monkeypatch.setattr(log_file, "MAX_BYTES", 500)
     installed = log_file.install(tmp_path / "auradream.db", "INFO")
     try:
-        for index in range(40):
-            logging.getLogger("auradream").info("line %04d %s", index, "x" * 60)
+        _fill(tmp_path, 0, 40)
+        before = _first_lines(tmp_path)
+        assert sorted(before) == ["auradream.log", "auradream.log.1", "auradream.log.2", "auradream.log.3"]
+        held = {"auradream.log"}
+        _refuse_moving(monkeypatch, held)
+        _fill(tmp_path, 40, 80)  # a rollover refused at every one of them
+        # Nothing moved: the older files are the ones that were there. (The
+        # stdlib's order pushed two of the three out, one per refusal.)
+        assert _first_lines(tmp_path) == before
+        written = installed.path.read_text(encoding="utf-8")
+        assert "line 0040" in written and "line 0079" in written
+        held.clear()
+        _fill(tmp_path, 80, 81)
+        after = _first_lines(tmp_path)
+        assert after["auradream.log"] == "line 0080"
+        assert after["auradream.log.1"] == before["auradream.log"]
+        assert after["auradream.log.2"] == before["auradream.log.1"]
+        assert after["auradream.log.3"] == before["auradream.log.2"]
+        assert "line 0079" in (tmp_path / "auradream.log.1").read_text(encoding="utf-8")
     finally:
         installed.close()
-    written = installed.path.read_text(encoding="utf-8")
-    assert "line 0000" in written and "line 0039" in written
     # logging reports a handler's own failure on stderr; this is not one.
+    assert "Logging error" not in capsys.readouterr().err
+
+
+def test_a_held_older_file_loses_no_lines(tmp_path, console, monkeypatch, capsys):
+    monkeypatch.setattr(log_file, "MAX_BYTES", 500)
+    installed = log_file.install(tmp_path / "auradream.db", "INFO")
+    try:
+        _fill(tmp_path, 0, 40)
+        held = {"auradream.log.1"}
+        _refuse_moving(monkeypatch, held)
+        _fill(tmp_path, 40, 60)
+        # The live file was staged and a new one started; the staged one
+        # waits, and is not overwritten by the rollovers refused after it.
+        assert (tmp_path / "auradream.log.0").exists()
+        staged = (tmp_path / "auradream.log.0").read_text(encoding="utf-8")
+        held.clear()
+        _fill(tmp_path, 60, 61)
+    finally:
+        installed.close()
+    # The staged file took its place as the newest older one, whole, and the
+    # live file kept every line written while it waited.
+    assert not (tmp_path / "auradream.log.0").exists()
+    assert (tmp_path / "auradream.log.1").read_text(encoding="utf-8") == staged
+    written = installed.path.read_text(encoding="utf-8")
+    assert all(f"line {index:04d}" in staged + written for index in range(40, 61))
     assert "Logging error" not in capsys.readouterr().err
 
 

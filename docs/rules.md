@@ -3023,7 +3023,9 @@ measured on the card and when.
   copies or removes it. Its handler's stream is the only handle on the file
   (a second one makes the rollover's rename fail on Windows), so
   `faulthandler` is given that stream and moved at each rollover; a rename
-  another program refuses keeps appending to the same file. uvicorn's level
+  another program refuses keeps appending to the same file, and the live
+  file is moved first (to `auradream.log.0`), so a refused rollover moves no
+  older file. uvicorn's level
   is `AURADREAM_LOG_LEVEL` (`log_file.uvicorn_level`), and its `uvicorn`
   logger is followed only after `uvicorn.Config` has replaced that logger's
   handlers; `uvicorn.access` is not followed.

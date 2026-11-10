@@ -13589,9 +13589,17 @@ Choices, and why:
 - One handle. On Windows a file cannot be renamed while any handle is open
   on it, so `faulthandler`, which needs a file descriptor, is given the
   handler's own stream, turned off across a rollover and on again on the
-  new file. If another program holds the file open the rename is refused;
-  the handler then reopens the same file and keeps appending, and the next
-  record tries again, rather than reporting a logging error per line.
+  new file. If another program holds the file open (a console following
+  it) the rename is refused; the handler then reopens the same file and
+  keeps appending, and the next record tries again, rather than reporting a
+  logging error per line.
+- The rollover is the handler's own (`_move_files`), not the stdlib's. The
+  stdlib moves the older files first and the live file last, so a refused
+  rename of the live file, tried again at every record, pushed two of the
+  three older files out and kept nothing in their place. Here the live file
+  moves first, to `auradream.log.0`, and nothing else has changed when that
+  is refused; a `.0` that a refused later step left behind is finished
+  before the live file is moved again, so it is never overwritten.
 - uvicorn's `uvicorn` logger does not propagate to the root, and
   `uvicorn.Config` replaces its handlers, so the file's handler is added to
   it after the config is built. That is where an unhandled route's

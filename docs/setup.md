@@ -321,9 +321,10 @@ contacts Hugging Face.
 
 The server also writes a log file, `auradream.log`, beside the gallery
 database (the project folder unless `AURADREAM_DB_PATH` moved it). It has
-what the console showed plus the full traceback of every failure, which the
-console prints only with `AURADREAM_LOG_LEVEL=DEBUG`, so a job that failed
-overnight can still be read after the console window has closed. At 5 MB
+the server's lines from the console (not the line per request) plus the
+full traceback of every failure, which the console prints only with
+`AURADREAM_LOG_LEVEL=DEBUG`, so a job that failed overnight can still be
+read after the console window has closed. At 5 MB
 it becomes `auradream.log.1` and a new file starts; three older files are
 kept. It contains your prompts and file paths: read it before sending it to
 anyone. It is not part of a gallery bundle or backup, and deleting it while
