@@ -349,6 +349,79 @@ def test_the_reason_context_is_the_size_and_shape_windows_reads():
     assert keep_awake._Reason.simple.offset == 0
 
 
+class FakeKernel32:
+    """kernel32's four entries as `Kernel32Power` calls them, recorded.
+    `answers` gives a call's return value; the default is success."""
+
+    def __init__(self, **answers) -> None:
+        self.answers = answers
+        self.calls: list[tuple] = []
+
+    def PowerCreateRequest(self, reference):  # noqa: N802 - Windows' name
+        context = reference._obj            # what byref() points at
+        self.calls.append(("PowerCreateRequest", context.version, context.flags, context.reason.simple))
+        return self.answers.get("PowerCreateRequest", 0x2A4)
+
+    def PowerSetRequest(self, handle, kind):  # noqa: N802
+        self.calls.append(("PowerSetRequest", handle, kind))
+        return self.answers.get("PowerSetRequest", 1)
+
+    def PowerClearRequest(self, handle, kind):  # noqa: N802
+        self.calls.append(("PowerClearRequest", handle, kind))
+        return self.answers.get("PowerClearRequest", 1)
+
+    def CloseHandle(self, handle):  # noqa: N802
+        self.calls.append(("CloseHandle", handle))
+        return self.answers.get("CloseHandle", 1)
+
+
+def _kernel32_power(**answers) -> tuple[keep_awake.Kernel32Power, FakeKernel32]:
+    api, dll = keep_awake.Kernel32Power(), FakeKernel32(**answers)
+    api._bound = dll                        # as if kernel32 were bound: no DLL on any system
+    return api, dll
+
+
+def test_the_kernel32_calls_ask_for_the_system_with_a_simple_reason_on_one_handle():
+    api, dll = _kernel32_power()
+    request = PowerRequest("AuraDream is in use", api=api, monotonic=Clock())
+    request.hold()
+    assert request.held
+    request.release()
+    # Version 0, the simple-string flag, the reason; then the system (1,
+    # never the display's 0) set and cleared on the handle create returned.
+    assert dll.calls == [("PowerCreateRequest", 0, 1, "AuraDream is in use"), ("PowerSetRequest", 0x2A4, 1),
+                         ("PowerClearRequest", 0x2A4, 1), ("CloseHandle", 0x2A4)]
+
+
+def test_a_null_or_invalid_handle_from_kernel32_is_a_refusal_and_nothing_is_set():
+    import ctypes
+
+    for answer in (None, 0, ctypes.c_void_p(-1).value):
+        api, dll = _kernel32_power(PowerCreateRequest=answer)
+        request = PowerRequest(api=api, monotonic=Clock())
+        with pytest.raises(OSError, match="Windows refused PowerCreateRequest"):
+            request.hold()
+        assert not request.held and [call[0] for call in dll.calls] == ["PowerCreateRequest"]
+
+
+@pytest.mark.parametrize("call, method", [("PowerSetRequest", "set"), ("PowerClearRequest", "clear"),
+                                          ("CloseHandle", "close")])
+def test_a_zero_from_kernel32_is_a_refusal_naming_the_call(call, method):
+    api, dll = _kernel32_power(**{call: 0})
+    with pytest.raises(OSError, match=f"Windows refused {call}"):
+        getattr(api, method)(0x2A4)
+    assert dll.calls[0][:2] == (call, 0x2A4)
+
+
+def test_a_handle_kernel32_refuses_to_set_is_closed():
+    api, dll = _kernel32_power(PowerSetRequest=0)
+    request = PowerRequest(api=api, monotonic=Clock())
+    with pytest.raises(OSError, match="Windows refused PowerSetRequest"):
+        request.hold()
+    assert not request.held
+    assert [call[0] for call in dll.calls] == ["PowerCreateRequest", "PowerSetRequest", "CloseHandle"]
+
+
 @pytest.mark.skipif(sys.platform == "win32", reason="elsewhere only")
 def test_the_real_calls_are_refused_in_words_off_windows():
     request = PowerRequest()

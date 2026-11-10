@@ -9882,7 +9882,10 @@ the retry after `RETRY_AFTER`, release by closing the pipe), Windows'
 `PowerRequest` with its four calls faked (create with the reason, set once,
 clear then close; a refused create or set holds nothing, closes the handle
 it was given and waits `RETRY_AFTER`; a refused clear still closes; the
-`REASON_CONTEXT` layout; one real request on Windows, let go at once), the controller
+`REASON_CONTEXT` layout; `Kernel32Power` over a fake kernel32: the system
+asked for, never the display, and a null or invalid handle or a zero
+return a refusal naming the call; one real request on Windows, let go at
+once), the controller
 through its asyncio task (providers, counted holds from threads, the idle
 minutes, `wake`), `counts_as_activity` against the page's polls, the
 activity middleware and `/api/status`'s `keep_awake`, the CLI's
