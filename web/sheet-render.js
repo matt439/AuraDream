@@ -881,13 +881,14 @@ function setSheet(on, { land = false, asker = null, reload = true } = {}) {
 
 // Resolves once the page has stopped scrolling - a smooth scroll's frames
 // run out, or there were none - read as three frames at one scrollY, or a
-// second and a half at most.
-function scrollSettled() {
+// second and a half at most. A requested landing can supply its alignment
+// predicate: quiet frames before a smooth scroll starts are not its end.
+function scrollSettled(until = null) {
   return new Promise((resolve) => {
     const start = performance.now();
     let last = scrollY, still = 0;
     const tick = () => {
-      if (scrollY === last) still += 1;
+      if (scrollY === last && (!until || until())) still += 1;
       else { still = 0; last = scrollY; }
       if (still >= 3 || performance.now() - start > 1500) resolve();
       else requestAnimationFrame(tick);

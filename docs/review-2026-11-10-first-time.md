@@ -684,6 +684,21 @@ passed. Late comparison neighbours have held-real-reply coverage with
 pointer/focus deferral and stable action positions. The causal Edge launcher
 handoff repair also passed the real default-Edge profile/audit checks.
 
+PR #67's first CI run passed every Linux/Windows Python shard and found two
+comparison browser cases. The sheet landing's failure also failed alone:
+stationary frames before native smooth scrolling began were mistaken for
+its end. A delayed native-start regression reproduced the offscreen submit
+focus; alignment-gated settling retained the original clip/focus/Tab guards
+and passed comparison, comparison-batch and sheet smokes. The late-neighbour
+focus-deferral case passed alone: a controlled background gallery read
+reproduced its exact failure by supplying neighbours before the focused
+opener's baseline. The fixture now uses a normal excluding gallery filter,
+settles its jobs/streams and explicitly tests background reads while the
+ladder replies are held. Product auto-disclosure and the original pointer,
+focus and geometry guards remain. Both corrected smokes passed concurrently
+on isolated Linux Chrome 156.0.8078.79 / Node 24.22.2 with CI's font metrics,
+without a rerun. Portable tools/private fonts stayed in ignored `work/`.
+
 These receipts establish CPU, script and fake-browser behavior. Physical
 phone/platform acceptance, clean-machine installation, real service/proxy
 and CA trust setup, real Hugging Face authorization and every CARD step

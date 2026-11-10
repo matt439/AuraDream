@@ -3713,6 +3713,11 @@ measured on the card and when.
   tier, with no same-tier keyboard-resize DOM writes; width alone never
   selects the phone. Its regression withholds the MQL notifications and
   requires normal node homing, preview close, history cleanup and focus.
+- A requested sheet landing counts stationary scroll frames only after
+  its head reaches the requested position, clamped to the current page end.
+  Quiet frames before native smooth scrolling starts do not finish that
+  landing. Preserve the 1.5-second bound, epoch guard and the rule that
+  focus moved elsewhere during rendering stays there.
 
 - First-visit automatic Models choices reveal only their own table row,
   without moving focus or page scroll, and name the checkpoint on Switch &
@@ -8467,6 +8472,13 @@ and signal failure with cold fixtures; profile/a11y tests use the real
 browser and verify cleanup. The dialog-audit smoke manifest now contains
 24 rows, including download progress; each page is watched separately and
 checked immediately before navigation and at the end.
+
+Late-ladder fixtures isolate records through the normal gallery filter and
+settle their generated jobs/streams before opening the guarded control.
+Background gallery reads can populate local rows and legitimately disclose
+new neighbours; fixture array edits are not a durable scope. Keep real
+background-read coverage and fatal focused/hovered-control prerequisites
+while the specific ladder replies are held.
 
 `smoke-download-progress.json` uses a fresh FLUX fake on shared port 7959.
 It presents explicit retained status samples without loading: known and

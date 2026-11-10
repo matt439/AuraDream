@@ -14646,6 +14646,26 @@ the actual emulated resize and retains the preview-close/history/focus/src
 assertion, then restores normal listeners. No longer wait or synthetic
 focus correction is used.
 
+PR #67's first CI run then exposed the sheet landing's own settling race.
+Three stationary root-scroll frames can precede a native smooth scroll's
+start, so the submit button looked visible when focus was decided and was
+later hidden under the topbar. A controlled 250 ms delayed native start
+reproduced that exact geometry and failure. The requested sheet-head
+alignment (clamped to the page end) now gates the three quiet frames, with
+the same 1.5-second cap, gallery epoch and no-focus-stealing checks. The
+original geometry, visible first-cell focus and next-Tab assertions remain;
+the smoke now retains a landing screenshot for CI diagnostics.
+
+The other CI failure was the late-neighbour fixture's isolation. A pending
+gallery refresh could legitimately repopulate manually cleared local rows,
+discover a neighbour and expand Compare before the fixture focused its
+opener. A deliberately timed background read reproduced that exact failed
+conjunction. A normal excluding gallery filter now keeps those reads in the
+fixture's intended scope, with completed jobs/streams and explicit held
+ladder replies. Product disclosure stays unchanged. The corrected comparison
+and comparison-CFG smokes passed together under the exact CI Linux browser,
+Node and private font metrics, with no rerun.
+
 The remaining unblocked first-time and peer-review work is collected on
 `todo/overnight-first-run`; individual findings own their Built notes.
 

@@ -705,9 +705,15 @@ function landOnSheet(asker = null) {
   const head = document.querySelector('.gallery-head');
   reserveSheetRoom(head);
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  head.scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
   const epoch = galleryEpoch;
-  void scrollSettled().then(() => { if (sheetMode && epoch === galleryEpoch) focusSheet(asker); });
+  const landed = () => {
+    if (!sheetMode || epoch !== galleryEpoch) return true;
+    const target = head.getBoundingClientRect().top + scrollY - parseFloat(getComputedStyle(head).scrollMarginTop);
+    const end = Math.max(0, document.documentElement.scrollHeight - innerHeight);
+    return Math.abs(scrollY - Math.min(end, Math.max(0, target))) <= 1;
+  };
+  head.scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
+  void scrollSettled(landed).then(() => { if (sheetMode && epoch === galleryEpoch) focusSheet(asker); });
 }
 
 // Room under a sheet for its head to come up to the topbar: a short sheet
