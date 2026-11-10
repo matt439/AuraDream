@@ -208,6 +208,7 @@ const els = {
   lastRunShow: $('last-run-show'), lastRunMore: $('last-run-more'), lastRunResume: $('last-run-resume'), lastRunDismiss: $('last-run-dismiss'),
   runList: $('run-list'),
   dot: $('status-dot'), statusText: $('status-text'), statusAside: $('status-aside'), vram: $('vram'),
+  signIn: $('btn-sign-in'), signOut: $('btn-sign-out'), signOutRow: $('model-sign-out'),
   jobMirror: $('job-mirror'), topbarLine: $('topbar-line'), topbarFill: $('topbar-fill'),
   lightbox: $('lightbox'), lbImg: $('lb-img'), lbMeta: $('lb-meta'), lbClose: $('lb-close'),
   lbPrompt: $('lb-prompt'), lbSettings: $('lb-settings'), lbCount: $('lb-count'),
@@ -376,6 +377,9 @@ let statusPending = false;
 // that did answer started - a change is a restart, which ended every job.
 let modelState = null;
 let serverOffline = false;
+// The server asks for a passcode and this browser's session has ended (a
+// 401 coded `passcode_required`, api()): the topbar says so, with Sign in.
+let signedOut = false;
 let serverStartedAt = null;
 // The server's clock less this page's (seconds), from the last status: a
 // pause's `paused_at` is the server's time, and a WSL server's clock drifts
@@ -691,6 +695,9 @@ const OFFLINE_MESSAGE = 'No answer from the AuraDream server — is it still run
 // topbar's mirror of it and the tab's title use too while its stream
 // reconnects (job-stream.js): one phrase, not three.
 const LOST_PHRASE = 'server not answering — retrying';
+// The topbar's words, in the same place, for a server that asks for its
+// passcode again (status.js, goSignedOut); Sign in is the button beside it.
+const SIGNED_OUT_PHRASE = 'signed out';
 
 // Every /api/ request carries the checkpoint revision the page last saw; the
 // server alone decides which routes refuse a stale one, so a model-dependent
@@ -723,6 +730,10 @@ async function api(path, options) {
     // the refusal's `code`, where the server gives one: what the page acts
     // on, never the sentence (the readers below).
     const code = typeof body?.code === 'string' ? body.code : null;
+    // The passcode's gate (backend/passcode.py): this browser's session has
+    // ended. Whatever was asked, the topbar says so; the caller still gets
+    // the refusal, whose sentence says to reload and sign in.
+    if (res.status === 401 && code === 'passcode_required') goSignedOut();
     throw Object.assign(new Error(readableDetail(detail)), { status: res.status, body, code });
   }
   const body = res.status === 204 ? null : await res.json();

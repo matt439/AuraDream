@@ -304,3 +304,7 @@ class ModelStatus(BaseModel):
     prompt_critic: CriticStatus | None = None
     # Keeping the PC awake while busy; None outside the server's lifespan.
     keep_awake: KeepAwakeStatus | None = None
+    # Whether this server asks for a passcode (`passcode.py`): true while
+    # its gate is on, which is when the page offers Sign out. Never the
+    # passcode, nor whether an unasked one is set.
+    passcode: bool = False

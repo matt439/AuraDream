@@ -15,7 +15,8 @@ the frontend has no build step.
 
 Phones and tablets can use it too, once the server listens on your network
 (the [native Linux server](#native-linux-a-server-on-your-network) does; on
-Windows set `AURADREAM_HOST` and `AURADREAM_ALLOWED_HOSTS`, only on a
+Windows set `AURADREAM_HOST` and `AURADREAM_ALLOWED_HOSTS`, and
+`AURADREAM_PASSCODE` to have it ask for a passcode, only on a
 network you trust, as [the usage guide](docs/usage.md#scripting-the-running-server)
 explains). On a touch screen the page splits into Create and Gallery views
 with a tab bar, and the lightbox, long-press menu and pinch zoom work by
@@ -252,8 +253,10 @@ The venv, the gallery and `auradream.settings.json` stay in the checkout,
 as on Windows; this is a separate gallery from any Windows or WSL one.
 [First-time setup](docs/setup.md#native-linux-a-server-on-your-network) has
 the full route, including 8 GB cards and moving the downloads to another
-disk. **The server has no login** ([Settings](#settings)): only do this on a
-network you trust.
+disk. **The server asks for nothing until you set a passcode**
+(`AURADREAM_PASSCODE` in the service's settings file; [Settings](#settings)),
+and over plain http a passcode keeps out the household, not anyone who can
+capture the network's traffic: only do this on a network you trust.
 
 ## Sizes
 
@@ -342,6 +345,7 @@ set in a start-up warning.
 | `AURADREAM_HOST` | `127.0.0.1` | Bind address |
 | `AURADREAM_PORT` | `7860` | Server port |
 | `AURADREAM_ALLOWED_HOSTS` | `127.0.0.1,localhost` | Allowed hostnames/IPs; include the browser's destination when exposing the server on a LAN, keeping `127.0.0.1` and `localhost`; exact lowercase names, no wildcards |
+| `AURADREAM_PASSCODE` | unset | A passcode the page and every other caller must give, asked whenever the server can be reached beyond this machine (`AURADREAM_HOST` or an allowed host that is not loopback); at least 8 characters, from the environment only; see below |
 | `AURADREAM_LOG_LEVEL` | `INFO` | Server and uvicorn logging; on the console `DEBUG` includes tracebacks, which `auradream.log` beside the database receives at every level |
 | `AURADREAM_CRITIC` | `true` | Enable the optional local prompt critic |
 | `AURADREAM_CRITIC_SERVER` | unset | Use a local compatible `llama-server` binary |
@@ -349,12 +353,38 @@ set in a start-up warning.
 | `AURADREAM_KEEP_AWAKE` | `true` | Hold the PC awake while AuraDream is busy: `systemd-inhibit` on Linux, a power request on Windows |
 | `AURADREAM_KEEP_AWAKE_IDLE_MINUTES` | `20` | Minutes to keep holding after the last request someone made (the page's timed polls are not one); `0` holds only while busy |
 
-**The server has no login.** Anyone who can reach it can read every prompt and
-image, delete or import galleries, and make the machine download checkpoints
-with your Hugging Face token. Keep the default loopback address unless the
-network is trusted; otherwise put it behind an authenticating proxy or VPN
-(see [the usage guide](docs/usage.md#scripting-the-running-server) for the
-proxy's host and port).
+**Without `AURADREAM_PASSCODE` the server asks for nothing.** Anyone who can
+reach it can read every prompt and image, delete or import galleries, and
+make the machine download checkpoints with your Hugging Face token. Keep the
+default loopback address unless the network is trusted.
+
+With `AURADREAM_PASSCODE` set, a server reachable beyond this machine shows
+a sign-in page and refuses everything else until the passcode is given; the
+browser on the PC itself signs in once too. Know what it is and is not:
+
+- Over plain http the passcode, its cookie and every prompt and image cross
+  the network unencrypted. Anyone who can capture that network's traffic
+  reads all of it and can sign in afterwards.
+- So the passcode keeps out people who can merely reach the address: the
+  household, a guest on the Wi-Fi. It is not protection on a network you do
+  not trust, and never a reason to forward the port to the internet.
+- HTTPS is what makes it private, and AuraDream does not serve it yet; until
+  then that means a VPN, or an HTTPS proxy in front (see
+  [the usage guide](docs/usage.md#scripting-the-running-server) for the
+  proxy's host and port).
+- Do not reuse a password from anywhere else. The passcode sits in plain
+  text in the environment (on Linux, the service's settings file).
+- There is one passcode and no accounts. Changing it and restarting signs
+  every device out; nothing else does. **Sign out** in the Models panel
+  signs out the browser it is pressed in. A browser stays signed in for
+  thirty days after its last visit, across restarts and updates.
+
+Set it in the environment only (never a flag or the saved settings); the
+server will not start with fewer than 8 characters. After five wrong
+passcodes in a row every further try waits, up to a minute, for everyone
+not yet signed in. `generate --via-server`, the doctor and the Linux
+scripts send the passcode from `AURADREAM_PASSCODE` in their own
+environment.
 
 Custom critic binaries must support the pinned server's flags and authentication;
 see the [critic design notes](docs/design-notes.md#the-prompt-analyser).

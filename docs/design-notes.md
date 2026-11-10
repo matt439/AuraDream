@@ -13757,12 +13757,21 @@ its place or size, and a page that shows it.
 
 ## A passcode beyond loopback
 
-Designed 2026-11-10, not built (`DEV#32`, [the peer review's S2](review-2026-11-10-peers.md#s2-passcode-beyond-loopback),
+Designed 2026-11-10 (`DEV#32`, [the peer review's S2](review-2026-11-10-peers.md#s2-passcode-beyond-loopback),
 Matt's yes the same day). This section is the first step the finding asks
 for: every surface that answers without credentials today, then the design,
-then the order to build it in. No code exists yet; the names below
-(`backend/passcode.py`, `web/passcode.html`, the routes) are the ones the
-build uses.
+then the order to build it in. Matt read the flagged choices on 2026-11-10
+and said go to all of them as written: the passcode is asked behind a proxy
+too, 127.0.0.1 has no exemption, the environment file's character limit,
+one limiter for the whole server, the 8-character floor and the 30-day
+stateless cookie. **Stages 1 (the gate), 2 (the callers) and 3 (the page,
+the fake, the smoke and the docs) are built**, 2026-11-10; what each
+settled that the design left open is under
+[Stage 1 as built](#stage-1-as-built),
+[Stage 2 as built](#stage-2-as-built) and
+[Stage 3 as built](#stage-3-as-built). **Stage 4, on the real machines, is
+Matt's and untried**: nothing here has met a phone, Safari, a real network,
+the Linux service or a restart with a passcode set.
 
 The server has no authentication. `TrustedHostMiddleware` refuses a Host it
 does not list and `block_cross_site_writes` refuses a write that announces
@@ -13807,6 +13816,7 @@ or .NET with no credentials:
 | Caller | What it asks | From |
 |---|---|---|
 | `generate --via-server` (`generate_remote._server_json`) | `/api/status`, `/api/images/{id}`, outpaint presets, `POST /api/masks`, `/api/generate` or `/api/grid`, then `/api/jobs/{id}` polls and cancel | wherever the CLI runs, at `AURADREAM_HOST`:`AURADREAM_PORT` |
+| `generate` without `--via-server` (`generate._server_holds_gpu`; found building stage 2) | `GET /api/status`, for whether a server holds a checkpoint on the card | wherever the CLI runs, at `AURADREAM_HOST`:`AURADREAM_PORT` |
 | `server_probe.auradream_at` (`main.run`'s second-launch check, the doctor's Port row, `linux/common.sh`'s `auradream_state`) | `GET /`, looking for `<title>AuraDream</title>` | loopback |
 | `install.ps1`, `update.ps1` | `GET /` for the same title | loopback |
 | `linux/common.sh`'s curl fallback | `GET /` for the same title | loopback |
@@ -14134,6 +14144,239 @@ in the README only with stage 3.
    page, the home-screen icon keeping its name and picture, a session
    surviving a restart and an update, `auradream-server status` and
    `update.sh` through the passcode, a wrong passcode's lock.
+
+### Stage 1 as built
+
+Built 2026-11-10: `backend/passcode.py`, `settings.passcode`, the layer in
+`main.py` with `hold_model_for_request` moved inside it, `web/passcode.html`,
+`passcode` in `/api/status`, and `main.run`'s refusal and log lines. Tests:
+`tests/test_api_passcode_routes.py` (the walk), `tests/test_passcode.py`,
+`tests/test_api_passcode.py`. Nothing above was redesigned. What the source
+decided, and the few things the design had not said:
+
+- With the gate off two answers did change, as the reorder says they
+  would: during a checkpoint switch a request with a refused Host is now
+  the Host check's 400, and a cross-site write the block's 403, where the
+  model hold's 409 answered first. `/api/status` gains `"passcode": false`.
+  Every other answer is the same, with no `Set-Cookie`
+  (`test_with_no_passcode_asked_every_surface_answers_without_credentials`).
+- The route table is not flat in the installed FastAPI (0.141): each
+  `include_router` is one entry holding its router. The walk follows those
+  and is held to FastAPI's own schema, so it cannot quietly see less.
+- `GET /` is the only method the app's page route has, so with the gate
+  off `HEAD /` stays the 405 it was; with it on, a signed-out `HEAD /` is
+  the sign-in page's 200, as designed.
+- A setting longer than 256 characters is refused by `main.run` like one
+  under 8: the sign-in refuses a submitted value that long unread, so such
+  a passcode could never be entered. A submitted one past 256 is a wrong
+  attempt: counted and logged.
+- The length checks are `main.run`'s. An app served any other way (the
+  fake, the tests, `uvicorn backend.main:app` by hand) builds its gate
+  from whatever is set, since a short passcode asked is better than none.
+- `POST /api/passcode` answers a body over 4 KiB with 413 and one that is
+  not `{"passcode": "<string>"}` with 422; neither is an attempt. During a
+  lock it answers 429 before the body is read. The 429's words are "Too
+  many wrong passcodes. Wait N seconds and try again." with `Retry-After`.
+- A wrong `Authorization: Bearer` is the same 401 as none (or the sign-in
+  page at `/`), counted; another scheme or an empty value is not an
+  attempt. A valid cookie is read first, so a signed-in browser's stray
+  header is never one either. The header's bytes are read as UTF-8, or
+  Latin-1 when they are not (what `urllib` sends).
+- The 401, the sign-in answers and the sign-in page are `no-store`. The
+  open paths answer `HEAD` as well as `GET`.
+- The gate keeps the passcode's SHA-256 digest and the session key, not
+  the passcode, and `Settings` leaves the field out of its repr.
+- `Gate` takes `open_prefixes` for the fake's `/api/fake/` (stage 3 sets
+  it); the real server passes none.
+- `Secure` follows the request's scheme in the ASGI scope. A real https
+  scope is tested, and so is `X-Forwarded-Proto` through uvicorn's own
+  proxy-headers layer as `main.run` configures it: believed from 127.0.0.1,
+  not from another address. A real proxy is stage 4's, or `DEV#33`'s.
+- `docs/rules.md`'s Layout already lists `passcode.py`, ahead of stage 3's
+  docs: `tests/test_docs_maps.py` fails on a backend module it lacks.
+- The route-table test was written first and passes with the gate off as
+  it does on the code before the gate; it was not committed against that
+  code separately.
+- Reviewed the same day against this note, on a real uvicorn with raw
+  requests and in a browser, and by changing the code under the tests. No
+  code changed. Four tests were added for what nothing held: no spelling of
+  a path (a doubled or trailing slash, another case, an encoded `..`) or
+  other method opens anything; a sign-in body sent in pieces is cut off at
+  4 KiB; `main` builds its gate from the bind, the allowed hosts and the
+  port (a fresh interpreter); and the forwarded scheme above.
+- For stage 2: a caller's header is read as UTF-8 first, so a passcode
+  outside ASCII must be sent as UTF-8 bytes. `urllib` given a `str` sends
+  Latin-1 and raises on anything beyond it, and Latin-1 bytes that happen
+  to be valid UTF-8 would be read as another passcode.
+
+### Stage 2 as built
+
+Built 2026-11-10: the header and the gate's refusal in
+`backend/server_probe.py` (`environment_passcode`, `passcode_headers`,
+`refusal`, `PasscodeRefused`, `no_redirect_opener`, `status_json`), which
+`generate_remote._server_json`, `running_commit` and the doctor share; the
+doctor's Commit row and its new **Passcode** row; `linux/common.sh`'s
+`ask` (the Python `server_busy` and `linux/control.sh`'s `server_answers`
+and `do_status` now run on) and its check of the environment file; the
+commented line in `install-service.sh`'s environment file. Tests:
+`tests/test_server_probe.py` (new), `tests/test_doctor.py`,
+`tests/test_cli_via_server.py` (where `--via-server`'s tests live since
+`test_cli.py` was split), `tests/test_cli.py`,
+`tests/test_linux_scripts.py`, `tests/test_install_scripts.py`, and a
+stand-in server that asks, `tests/passcode_stub.py`. With no passcode set
+and none asked, every request these callers make is the one it was. What
+the source decided, and what the design had not said:
+
+- **One more caller.** `generate` without `--via-server` asks
+  `/api/status` whether a server holds a checkpoint on the card
+  (`_server_holds_gpu`); the table above did not list it. Against a server
+  that asks, its 401 read as "a server that did not answer in time". It now
+  asks again with the environment's passcode, and a gate that still refuses
+  is said in its own words with the same exit status, 4: what the server
+  holds could not be asked, so nothing is loaded beside it without
+  `--ignore-server`.
+- **A redirect never carries the passcode.** `urllib` sends a request's
+  headers on to wherever a redirect points, so every request that carries
+  the passcode goes through an opener that follows none (the redirect is
+  the error it arrives as). The server sends none on these routes.
+- **The probes ask first without it.** `status_json` (the doctor's commit,
+  the CLI's card check) sends the passcode only after the gate's own coded
+  401, so a server that asks for none never sees it and another program
+  holding the port is not handed it. `--via-server` and the Linux scripts
+  send it on every request whenever the variable is set, as designed: they
+  are aimed at the server on purpose, and a second request per call would
+  double the queueing ones. A 401 without the gate's `code` is not the
+  gate's and is treated as it always was.
+- **A control character in the passcode** cannot travel in a header, and
+  `http.client`'s own error would quote the value. The callers refuse it
+  first in words that do not hold it (`--via-server`: exit 2 before any
+  request; the scripts: "could not ask it"). In the scripts that is never
+  the gate's refusal: no request was made, so `control.sh status` says the
+  server does not answer rather than "It answers.", and a start keeps
+  waiting. The stage's review found it read as an answer, and fixed it; it
+  also added tests that the scripts' request follows no redirect and that
+  a letter outside ASCII is refused in the environment file.
+- **The words.** A 401 with no passcode in the environment: the server
+  "asks for a passcode, and AURADREAM_PASSCODE is not set here"; with one:
+  it "did not accept the passcode in AURADREAM_PASSCODE"; a 429: it "is
+  refusing every passcode for now, after too many wrong ones (wait N s)",
+  N from `Retry-After`. The advice never says to run the command again,
+  since after a submission that would queue the work twice. The scripts'
+  own wording names the service's environment file instead of the shell.
+- **The doctor.** The Commit row is a PASS that says so when the server
+  asks and no passcode is set here; a passcode the server refuses, or the
+  lock, is a WARN (never a FAIL). The Passcode row reads `passcode.asked`
+  and `setting_problem`, the server's own two decisions: FAIL for a
+  passcode `main.run` would refuse to start with (under 8, or over 256),
+  wherever the server listens; WARN for none on a server reachable beyond
+  this machine; PASS "asked" or "not asked". The doctor imports
+  `backend.passcode`, so Starlette with it; still never diffusers.
+- **The scripts and a server that asks without them having the passcode.**
+  `server_busy` fails as designed. `control.sh status` says "It answers."
+  and then that its status could not be read, and still exits 0 for an
+  active service: the server is up. `start` and `restart` stop waiting at
+  the first such answer for the same reason, where they would have waited
+  out the minute and reported a page that never came. A passcode changed
+  in the environment file is the new one to the scripts and the old one to
+  the server until the restart, so that restart's busy check is refused:
+  `--force` is what applies a changed passcode, and the message says a
+  restart applies it. A wrong passcode from a script is a wrong attempt
+  like any other; each command spends at most two.
+- **The environment file's check** (`require_plain_env_passcode`) runs
+  before every read of the file: in `load_env_file`, and in
+  `install-service.sh`, which sources a kept file itself for the port and
+  names and so stops before it writes or starts anything. Each
+  `AURADREAM_PASSCODE=` line is checked (leading blanks allowed, as both
+  readers allow them; trailing spaces and tabs dropped, as both drop
+  them); a commented line is not a setting; an empty value is unset. A
+  file saved with Windows line ends is refused: bash would keep the
+  carriage return in the value and systemd would not. Under
+  `LC_ALL=C`, so "letters" means ASCII's.
+- The scripts' Python reads the passcode's bytes from `os.environb` and
+  sends them as they are, so nothing is decoded on the way.
+- `tests/test_linux_scripts.py` runs on Linux only. It was run under WSL
+  (Ubuntu, the project's own Linux virtualenv's Python, nothing
+  installed): 230 passed, and 240 with the review's tests.
+
+### Stage 3 as built
+
+Built 2026-11-10: the page's signed-out state (`web/state.js`'s `api()`,
+`web/status.js`'s `goSignedOut`, `serverAnswers` and `signOut`), Sign in in
+the topbar and Sign out in the Models panel (`web/index.html`), the fake's
+`POST /api/fake/passcode`, `tools/smoke-passcode.json`, the gated steps at
+the end of `tools/smoke-offline.json`, and the docs (README, `docs/usage.md`,
+`docs/setup.md`, `docs/rules.md`, `AGENTS.md`). Checked in a real browser
+through those two smokes at 1400x900 and on the phone tier (393x852,
+touch), the sign-in page under `phone_audit.js`. Nothing above was
+redesigned. What the source decided, and what the design had not said:
+
+- **The notice.** The status line says "signed out" where `goOffline`
+  writes "server not answering — retrying", over a grey dot, and the Sign
+  in button is the topbar's own, before Load (which hides, as it does
+  offline). On the phone the status rides inside the Models chip, which is
+  a button, so Sign in cannot sit in the status itself: it is between the
+  chip and the ⋯, 44 px. Two words, so the chip's state is never cut.
+- **Nothing is held while signed out.** Offline, the buttons that would
+  send are held with a reason. Signed out they are left live, and a press
+  is answered by the gate's own sentence ("This server asks for a
+  passcode. Reload the page and sign in."), which is the instruction. Any
+  request's coded 401 raises the notice, not only the status poll's.
+- **A 401 is an answer.** A server that restarts with a changed passcode
+  is first silent and then refuses: the 401 ends the page's offline state
+  as a status would (`serverAnswers`, shared with `receiveStatus`), so the
+  topbar does not say both. Silence after it takes the notice back, and so
+  does a status that answers (a sign-in in another tab shares the cookie).
+- **Sign out** is a row of its own under the Models panel's note, hidden
+  unless the status's `passcode` is true: no height while none is asked,
+  and with one the picker's footer is one small row taller (the table
+  gives it). On the phone it stays in the sheet's scroller, above the
+  sticky foot, 44 px. It posts the sign-out and then opens `/`
+  (`location.replace`), which is the sign-in page; a refusal is shown in
+  the panel's line and nothing reloads.
+- **The fake's knob.** A body without `passcode` leaves the gate as it is,
+  so `{"reset": true}` alone clears the limiter; it answers `{"on": …}`
+  and never the value; a blank string is a 422. The fake sets its gate to
+  none at start whatever the machine's environment holds, so a developer's
+  own `AURADREAM_HOST` and `AURADREAM_PASSCODE` cannot close a smoke's
+  fake. A new passcode through the knob is a new key, which is how the
+  smoke ends a session under an open page.
+- **The smoke's lock.** The smoke makes the wrong attempts, the right one
+  (429) and the form's press in one in-page step, and reads the page's
+  wait before the knob's reset. The first lock is one second, which a slow
+  CI runner could outlast between two requests, so the step goes on to two
+  more wrong passcodes, each after its lock has run out, and tries the
+  right one inside the four-second lock that follows (the stage's review
+  changed this; as built it raced the one-second lock). `smoke-passcode` shares port 7958 with `smoke-offline`, each a
+  fake of its own. Its `run_smoke_costs.json` entry, and the raised one
+  for `smoke-offline`, are this PC's timings rounded up, not CI's. The
+  smokes' throwaway passcodes are set in `eval` and `type` steps, which
+  the driver does not print, so they are not in a run's output either.
+- **The user docs** say "HTTPS is what makes it private, which AuraDream
+  does not serve yet" and point at a VPN or an HTTPS proxy, rather than
+  linking the review's S3 from the README. They no longer recommend "an
+  authenticating proxy" as the only answer to an untrusted network. The
+  start-up log line is stage 1's and was not reworded: it says what
+  crosses unencrypted and whom the passcode keeps out, not the other three
+  points, which are the docs'.
+- **Tests.** The knob itself has no pytest (no test starts the fake); the
+  two smokes drive it. `tests/test_api_passcode.py` gains one test holding
+  the page to the gate's code and paths and the two buttons hidden in the
+  markup.
+- **Reviewed the same day** against this note, in a browser through the
+  two smokes, on a hand-started fake with raw requests (no spelling of a
+  path under the fake's open `/api/fake/` reaches another route; a fake
+  started with `AURADREAM_HOST` and `AURADREAM_PASSCODE` set asks for
+  nothing until the knob says so), and by changing `status.js` under the
+  smoke. No page or server code changed. Three of the page's transitions
+  were held by nothing, and the smoke now walks them: silence taking the
+  notice back, a 401 ending the offline state with nothing left held, and
+  a status that answers taking the notice back without a reload. The lock
+  step no longer races a one-second lock (above).
+- **Not checked here, stage 4's:** a real phone and Safari's autofill, the
+  home-screen icon, plain http from another machine (where no service
+  worker registers), the cookie across a restart and an update,
+  `auradream-server status` and `update.sh` through the passcode, and a
+  lock met by a real second device.
 
 Not designed, and not to be built under this row: accounts or more than one
 passcode, a passcode set or changed from the page, revoking one device,

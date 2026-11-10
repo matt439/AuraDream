@@ -260,6 +260,9 @@
 .model-picker .model-loader-help { height: 3lh; color: var(--text-readout); }
 .model-format-help { color: var(--text-readout); font-size: var(--fs-body-sm); font-weight: 400; }
 #model-picker-note { height: 3lh; overflow-y: auto; overflow-wrap: anywhere; overscroll-behavior: contain; }
+/* Sign out (index.html, #model-sign-out): a line of its own under the note,
+   at the panel's end, drawn only while the server asks for a passcode. */
+.model-sign-out { text-align: right; }
 /* In the note's first line, so it never moves the text under it. */
 .model-revert { float: right; margin: 0 0 var(--sp-1) var(--sp-2); }
 /* A list that could not be fetched stays in place, dimmed, while it retries:

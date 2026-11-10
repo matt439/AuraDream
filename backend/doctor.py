@@ -14,7 +14,9 @@ no model is loaded; `nvidia-smi` is run if it is on the PATH; on Linux,
 power setting is read or changed); the Hugging Face sign-in is the token file's existence only
 (never read, printed or sent to the Hub); the port check is the server's own
 trial bind and loopback probe (`server_probe`); the commit is `git rev-parse`
-in this folder, and the running server's own from its status on loopback.
+in this folder, and the running server's own from its status on loopback
+(with `AURADREAM_PASSCODE` from this environment where that server asks for
+one; the passcode is never printed).
 The figures it compares against are the measured ones in docs/setup.md's
 Before you start and docs/verified.md, never a promise for another machine.
 """
@@ -28,7 +30,7 @@ import re
 import shutil
 import subprocess
 import sys
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -38,6 +40,7 @@ from typing import Any
 from .config import settings
 from . import build_info, hf_sign_in, keep_awake, server_probe
 from .loader_choices import default_format
+from .passcode import MIN_LENGTH as PASSCODE_MIN_LENGTH, asked as passcode_asked, setting_problem as passcode_problem
 
 PASS, WARN, FAIL = "PASS", "WARN", "FAIL"
 GIB = 1024 ** 3
@@ -318,14 +321,26 @@ def check_port(host: str | None = None, port: int | None = None,
 def check_commit(host: str | None = None, port: int | None = None,
                  checkout: Callable[[], str | None] = build_info.read_commit,
                  busy: Callable[[str, int], bool] = server_probe.port_busy,
-                 running: Callable[[str], str | None] = server_probe.running_commit) -> list[Check]:
+                 running: Callable[[str, str | None], str | None] = server_probe.running_commit,
+                 passcode: str | None = None) -> list[Check]:
     """This folder's short commit, and the running server's where one
-    answers on the port: they differ after an update without a restart."""
+    answers on the port: they differ after an update without a restart.
+    A server that asks for a passcode is sent this environment's
+    (`settings.passcode`, or `passcode`); without it the row says so, and
+    does not fail."""
     host = settings.host if host is None else host
     port = settings.port if port is None else port
+    passcode = settings.passcode if passcode is None else passcode
     here = checkout()
+    mine = f"this folder is at {here}" if here is not None else "this folder's own is unknown"
     # Asked only of a held port: a refused connection is slow on Windows.
-    there = running(server_probe.page_url(host, port)) if port and busy(host, port) else None
+    try:
+        there = running(server_probe.page_url(host, port), passcode) if port and busy(host, port) else None
+    except server_probe.PasscodeRefused as refused:
+        detail = f"{mine}. The running server {refused.reason}, so its commit was not read."
+        if refused.sent or refused.locked:
+            return [Check(WARN, "Commit", detail, refused.fix)]
+        return [Check(PASS, "Commit", f"{detail} {refused.fix}")]
     if here is None and there is None:
         return [Check(PASS, "Commit", "unknown: this folder is not a Git checkout, or git was not found.")]
     if there is None:
@@ -380,6 +395,36 @@ def check_lan(host: str | None = None, allowed: Iterable[str] | None = None) -> 
     if not checks:
         checks.append(Check(PASS, "LAN", f"serving on {host} to {', '.join(names) or 'no names'}."))
     return checks
+
+
+# --- Passcode -----------------------------------------------------------------
+
+def check_passcode(host: str | None = None, allowed: Iterable[str] | None = None,
+                   environ: Mapping[str, str] | None = None) -> list[Check]:
+    """Whether `AURADREAM_PASSCODE` is asked, as `main` decides it
+    (`passcode.asked`): only on a server another machine can reach. A
+    passcode the server would refuse to start with fails; a reachable server
+    with none warns. The value is never printed."""
+    host = settings.host if host is None else host
+    names = list(settings.allowed_hosts if allowed is None else allowed)
+    passcode = settings.passcode if environ is None else server_probe.environment_passcode(environ)
+    variable = server_probe.PASSCODE_VARIABLE
+    problem = passcode_problem(passcode)
+    if problem is not None:
+        said, _, fix = problem.partition(". ")
+        return [Check(FAIL, "Passcode", f"{said}, so the server will not start.", fix)]
+    if not passcode_asked(host, names):
+        return [Check(PASS, "Passcode", ("set, but not asked" if passcode else "not asked")
+                      + ": this server is reached from this machine only.")]
+    if passcode is None:
+        return [Check(
+            WARN, "Passcode", "none is set, and this server can be reached from other machines: anyone who "
+            "can open its address can use it, read and delete the gallery, and queue work.",
+            f"Set {variable} ({PASSCODE_MIN_LENGTH} characters or more, not a password used anywhere else) "
+            "where the server starts, and restart it. For the Linux service that is its environment file.")]
+    return [Check(PASS, "Passcode", "asked of every browser and script: this server can be reached from other "
+                  "machines. Over plain http it crosses the network unencrypted, so it keeps out people who "
+                  "can merely reach the address, and is no protection on a network that is not trusted.")]
 
 
 # --- Keeping the PC awake -----------------------------------------------------
@@ -482,6 +527,7 @@ def check_hf_login(token_path: Path | None = None, environ: dict[str, str] | Non
 
 CHECKS: tuple[Callable[[], list[Check]], ...] = (
     check_driver, check_gpu, check_vram, check_ram, check_disk, check_port, check_commit, check_lan,
+    check_passcode,
     check_keep_awake,
     check_hf_login,
 )
@@ -516,7 +562,7 @@ def main(argv: list[str] | None = None) -> int:
     argparse.ArgumentParser(
         prog="python -m backend.doctor",
         description="Read-only checks of this machine: GPU, driver, VRAM, RAM, disk, port, commit, LAN settings, "
-                    "keeping the PC awake, sign-in.",
+                    "the passcode, keeping the PC awake, sign-in.",
     ).parse_args(argv)
     print("AuraDream doctor: read-only checks of this machine.", flush=True)
     lines, status = report(run_checks())

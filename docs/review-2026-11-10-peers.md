@@ -334,6 +334,55 @@ someone keeps guessing, a right passcode without a cookie is refused too.
 `sw.js` and `offline.html` stay behind the passcode
 and need no change; only the manifest and its icons stay open.
 
+Matt read those flagged choices on 2026-11-10 and said go to all of them as
+written (asked behind a proxy too, no exemption for 127.0.0.1, the
+environment file's character limit, one whole-server limiter, the
+8-character floor and the 30-day stateless cookie). Stage 1, the gate, is
+built the same day: `backend/passcode.py`, the setting, the layer in
+`main.py` with the model hold moved inside the Host check and the write
+block, `web/passcode.html`, `passcode` in the status, and `main.run`'s
+refusal and log lines, with a test that walks the app's route table so a
+route added later is closed or the test fails. What stage 1 settled is in
+the note under [Stage 1 as built](design-notes.md#stage-1-as-built).
+
+Stage 2, the callers, is built the same day. Everything that is not a
+browser reads `AURADREAM_PASSCODE` from its own environment and sends it as
+`Authorization: Bearer`, never as an argument: `generate --via-server`, the
+CLI's check for a server holding the card (a caller the note's table had
+missed), the doctor's Commit row, and the Linux scripts' busy and status
+reads (`linux/common.sh`, `linux/control.sh`), which take it from the
+service's environment file. A 401 and a 429 are each said in their own
+words and never read as a server that is down or idle: stop, restart and
+`update.sh --restart` refuse without `--force`. The doctor gains a Passcode
+row. The scripts refuse an environment file whose passcode bash would read
+differently from systemd before they source it, and `install-service.sh`'s
+new file names the setting in a commented line. The title probes needed
+nothing. `tests/test_linux_scripts.py` was run under WSL. Still to build:
+the page (the signed-out notice, Sign out), the fake's knob, the smoke and
+the docs; until then the setting is not named in the README. What stage 2
+settled is under [Stage 2 as built](design-notes.md#stage-2-as-built).
+
+Built 2026-11-10, stages 1 to 3. Stage 3, the page, the same day: a session
+that ends under an open page shows "signed out" in the top bar with a Sign
+in button and never reloads by itself, so the prompt is kept; Sign out is
+in the Models panel while a passcode is asked; the fake server has a
+`/api/fake/passcode` knob; `smoke-passcode` walks the sign-in page, a wrong
+passcode, the lock, the app opening, an image and a job stream, the ended
+session, Sign out and the sign-in page under the phone audit, and
+`smoke-offline` ends with the gate on. The README, the usage guide and the
+setup guide now name `AURADREAM_PASSCODE` and say what plain http leaves
+readable: it keeps out the household, not anyone who can capture the
+network's traffic. What stage 3 settled is under
+[Stage 3 as built](design-notes.md#stage-3-as-built).
+
+**Stage 4, the real machines, is Matt's and untried.** Everything above
+was checked with tests, a fake server and a headless browser on one PC.
+Nobody has yet set a passcode on the Linux service and signed in from a
+phone or another PC, tried Safari's password autofill, the home-screen
+icon, a session across a restart or an update, `auradream-server status`
+and `update.sh` through the passcode, or a wrong passcode's lock from a
+second device. Until that is done this finding is built, not proven.
+
 ### S3 an HTTPS route
 
 `DEV#33`. `main._origin_allowed` requires the Origin's port to equal

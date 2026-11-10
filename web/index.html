@@ -147,6 +147,10 @@
         <button class="primary" id="btn-model-switch" aria-disabled="true" title="The checkpoint list is still loading">Switch &amp; load</button>
       </div>
       <p id="model-picker-note" role="status" tabindex="0"><button class="ghost tiny model-revert" id="btn-model-revert" type="button" title="Put back the server's checkpoint and loading options" hidden>Revert</button><span id="model-picker-note-text"></span></p>
+      <!-- Shown only while the server asks for a passcode (the status's
+           `passcode`; status.js, signOut): under the panel's status, where
+           it takes no height from the settings panel. -->
+      <p class="model-sign-out" id="model-sign-out" hidden><button class="ghost tiny" id="btn-sign-out" type="button" title="Sign this browser out of the server. Other devices stay signed in">Sign out</button></p>
     </div>
     <!-- The phone's foot of the sheet (phone-sheets.js): the note, Apply &
          save and Switch & load, and the topbar's Load and Unload, moved in
@@ -157,6 +161,11 @@
   <!-- Shown while nothing is loaded, or after a failed load (as Retry load):
        the first download, or a retry once repo access was granted, without
        queueing an image to start it. Unload is hidden meanwhile. -->
+  <!-- Shown only once the server has answered that this browser is signed
+       out (a 401 coded passcode_required; status.js, goSignedOut), beside
+       the status line's "signed out". It reloads, which shows the sign-in
+       page; the page never reloads by itself. -->
+  <button type="button" class="ghost" id="btn-sign-in" title="The server asks for its passcode again. Sign in reloads this page; what the panel holds is kept" hidden>Sign in</button>
   <button class="ghost" id="btn-load" title="Load the weights now" hidden>Load</button>
   <button class="ghost" id="btn-unload" title="Free VRAM">Unload</button>
   <!-- A phone's ⋯ (phone-compose.js, styles/phone.css): Load or Unload, Saved

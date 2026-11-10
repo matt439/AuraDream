@@ -1150,17 +1150,50 @@ same server. Successful completion exits 0; cancellation (including an incomplet
 stop) exits 130, bad arguments/refusals 2, and runtime failures 1. Saved
 images remain available.
 
-These routes have no login. To reach the server from another machine, set
-`AURADREAM_HOST` and name the address the browser uses in
-`AURADREAM_ALLOWED_HOSTS`, but only on a network you trust: anyone who
+Without a passcode these routes ask for nothing. To reach the server from
+another machine, set `AURADREAM_HOST` and name the address the browser uses
+in `AURADREAM_ALLOWED_HOSTS`, but only on a network you trust: anyone who
 can reach it can read and delete the gallery, import bundles and make the
-machine download checkpoints with its Hugging Face token. Otherwise put it
-behind an authenticating proxy or a VPN. Behind a proxy, list its public
+machine download checkpoints with its Hugging Face token.
+
+Set `AURADREAM_PASSCODE` (in the environment only, at least 8 characters)
+and such a server asks for it: the address shows a sign-in page, and every
+route, image and stream answers 401 until the browser has signed in. It is
+asked whenever `AURADREAM_HOST` or a name in `AURADREAM_ALLOWED_HOSTS` is
+not loopback, of every caller, the PC's own browser and a proxy on the same
+machine included; on a server only this machine reaches it is not asked.
+A browser stays signed in for thirty days after its last visit, across
+restarts; **Sign out** is in the Models panel. If the session ends under an
+open page, the top bar says "signed out" with a **Sign in** button, and
+nothing typed is lost. Anything that is not a browser sends
+`Authorization: Bearer <passcode>`: `generate --via-server`, the doctor and
+the Linux scripts read it from `AURADREAM_PASSCODE` in their own
+environment. After five wrong passcodes in a row each further try, a right
+one too, waits out a lock of up to a minute; signed-in browsers are not
+affected.
+
+What the passcode is worth over plain http:
+
+- The passcode, its cookie and every prompt and image cross the network
+  unencrypted. Anyone who can capture that network's traffic reads all of
+  it and can sign in afterwards.
+- So it keeps out people who can merely reach the address: the household, a
+  guest on the Wi-Fi. It is not protection on a network that is not
+  trusted, and never a reason to forward the port to the internet.
+- HTTPS is what makes it private, which AuraDream does not serve yet: until
+  then, a VPN or an HTTPS proxy.
+- Do not reuse a password from anywhere else: it sits in plain text in the
+  environment file and the process's environment.
+- There is one passcode and no accounts. Changing it and restarting signs
+  every device out; nothing else does.
+
+Behind a proxy, list its public
 hostname in `AURADREAM_ALLOWED_HOSTS` and serve it on the same port as
 `AURADREAM_PORT`: the server refuses a write whose `Origin` names
 another host or port, so a proxy on 443 in front of 7860 has every write
-refused. The server logs a warning at start-up whenever it binds to anything
-other than loopback. Every response says the page may be framed only by
+refused. At start-up the server logs a warning whenever it binds to anything
+other than loopback with no passcode, and with one, a line saying it is
+asked and what plain http leaves readable. Every response says the page may be framed only by
 itself (`Content-Security-Policy: frame-ancestors 'self'`) and that a file's
 type is not to be guessed (`X-Content-Type-Options: nosniff`), so another
 site cannot show the page inside its own and steer clicks into it; a proxy

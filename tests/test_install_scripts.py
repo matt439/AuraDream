@@ -240,12 +240,27 @@ def test_wrapper_survives_being_replaced_while_it_runs(tmp_path, name):
     assert result.returncode == 5
 
 
-@pytest.fixture
-def auradream_listening():
-    """A loopback page titled AuraDream on an ephemeral port."""
+@pytest.fixture(params=["the page", "the sign-in page"])
+def auradream_listening(request):
+    """A loopback page titled AuraDream on an ephemeral port: the app's own,
+    or what a server that asks for a passcode answers a signed-out `/` with
+    (`web/passcode.html`, a 200 under the same title), which the scripts'
+    title probe must read as AuraDream running. Any other path there is the
+    passcode's 401."""
+    asks = request.param == "the sign-in page"
+    sign_in = (REPO / "web" / "passcode.html").read_bytes()
+
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):  # noqa: N802 - http.server's name
-            body = b"<!doctype html><title>AuraDream</title>"
+            if asks and self.path != "/":
+                body = b'{"detail": "This server asks for a passcode.", "code": "passcode_required"}'
+                self.send_response(401)
+                self.send_header("WWW-Authenticate", "Bearer")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+                return
+            body = sign_in if asks else b"<!doctype html><title>AuraDream</title>"
             self.send_response(200)
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()

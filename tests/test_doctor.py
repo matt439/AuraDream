@@ -184,13 +184,17 @@ def test_port_check_on_a_real_held_port():
         assert doctor.check_port("127.0.0.1", port, ours=lambda u: False)[0].status == FAIL
 
 
-def _commit(here, there, held=True, asked=None):
-    def running(url):
+def _commit(here, there, held=True, asked=None, passcode=None):
+    def running(url, sent):
         if asked is not None:
             asked.append(url)
+        if isinstance(there, Exception):
+            raise there
+        if callable(there):
+            return there(sent)
         return there
     [check] = doctor.check_commit("127.0.0.1", 7860, checkout=lambda: here, busy=lambda h, p: held,
-                                  running=running)
+                                  running=running, passcode=passcode)
     return check
 
 
@@ -226,6 +230,108 @@ def test_commit_warns_after_an_update_without_a_restart():
 
 def test_commit_is_one_of_the_doctors_checks():
     assert doctor.check_commit in doctor.CHECKS
+
+
+# --- The passcode ---------------------------------------------------------------
+
+SECRET = "correct-horse-battery"
+
+
+def test_commit_is_asked_with_the_environments_passcode():
+    sent: list[str | None] = []
+    check = _commit("abc1234", lambda passcode: sent.append(passcode) or "abc1234", passcode=SECRET)
+    assert sent == [SECRET]
+    assert check.detail == "this folder and the running server are both at abc1234."
+    assert SECRET not in "\n".join(doctor.report([check])[0])
+
+
+def test_commit_of_a_server_that_asks_for_a_passcode_says_so_and_does_not_fail():
+    refused = doctor.server_probe.PasscodeRefused(401, sent=False)
+    check = _commit("abc1234", refused)
+    assert (check.status, check.fix) == (PASS, "")
+    assert check.detail == (
+        "this folder is at abc1234. The running server asks for a passcode, and AURADREAM_PASSCODE is not "
+        "set here, so its commit was not read. Set AURADREAM_PASSCODE in this shell to the server's passcode."
+    )
+    assert "this folder's own is unknown" in _commit(None, refused).detail
+
+
+def test_commit_warns_on_a_passcode_the_server_refuses_or_locks_out():
+    wrong = _commit("abc1234", doctor.server_probe.PasscodeRefused(401, sent=True), passcode=SECRET)
+    assert wrong.status == WARN and "did not accept the passcode in AURADREAM_PASSCODE" in wrong.detail
+    assert wrong.fix == "Set AURADREAM_PASSCODE in this shell to the server's passcode."
+    locked = _commit("abc1234", doctor.server_probe.PasscodeRefused(429, sent=True, retry_after=7), passcode=SECRET)
+    assert locked.status == WARN and "after too many wrong ones (wait 7 s)" in locked.detail
+    lines, status = doctor.report([wrong, locked])
+    # Never a failure, and never the value.
+    assert status == 0 and SECRET not in "\n".join(lines)
+
+
+def test_commit_reads_a_real_server_that_asks(monkeypatch):
+    from tests.passcode_stub import AskingServer
+
+    server = AskingServer(SECRET, {"/api/status": {"state": "unloaded", "commit": "def5678"}})
+    try:
+        def check(passcode):
+            [found] = doctor.check_commit("127.0.0.1", server.port, checkout=lambda: "abc1234",
+                                          busy=lambda h, p: True, passcode=passcode)
+            return found
+
+        through = check(SECRET)
+        assert through.status == WARN and "the running server started at def5678" in through.detail
+        without = check("")                     # none in this environment
+        assert without.status == PASS and "asks for a passcode" in without.detail
+    finally:
+        server.close()
+
+
+@pytest.mark.parametrize(("host", "allowed", "value", "status", "said"), [
+    # Reached from this machine only: not asked, set or not.
+    ("127.0.0.1", ["127.0.0.1", "localhost"], None, PASS, "not asked: this server is reached from this machine only."),
+    ("127.0.0.1", ["127.0.0.1", "localhost"], SECRET, PASS,
+     "set, but not asked: this server is reached from this machine only."),
+    ("::1", ["localhost"], SECRET, PASS, "set, but not asked"),
+    # Reachable beyond it, by the bind or (a proxy before a loopback bind) by a name.
+    ("0.0.0.0", ["127.0.0.1", "my-box"], SECRET, PASS, "asked of every browser and script"),
+    ("127.0.0.1", ["127.0.0.1", "aura.example"], SECRET, PASS, "asked of every browser and script"),
+    ("0.0.0.0", ["127.0.0.1", "my-box"], None, WARN, "none is set, and this server can be reached from other machines"),
+    ("127.0.0.1", ["127.0.0.1", "aura.example"], "   ", WARN, "none is set"),
+    # What main.run refuses to start with, wherever it listens.
+    ("0.0.0.0", ["127.0.0.1", "my-box"], "seven77", FAIL, "AURADREAM_PASSCODE is shorter than 8 characters"),
+    ("127.0.0.1", ["127.0.0.1"], "seven77", FAIL, "so the server will not start."),
+    ("0.0.0.0", ["127.0.0.1"], "x" * 257, FAIL, "AURADREAM_PASSCODE is longer than 256 characters"),
+])
+def test_passcode_row(host, allowed, value, status, said):
+    environ = {} if value is None else {"AURADREAM_PASSCODE": value}
+    [check] = doctor.check_passcode(host, allowed, environ)
+    assert check.title == "Passcode" and check.status == status, check
+    assert said in check.detail
+    assert bool(check.fix) == (status != PASS)
+    printed = "\n".join(doctor.report([check])[0])
+    if value and value.strip():
+        assert value not in printed                 # the row never holds the value
+
+
+def test_passcode_row_agrees_with_what_the_server_does():
+    from backend import passcode
+
+    for host, allowed in (("127.0.0.1", ["localhost"]), ("0.0.0.0", ["127.0.0.1"]), ("127.0.0.1", ["my-box"])):
+        [check] = doctor.check_passcode(host, allowed, {"AURADREAM_PASSCODE": SECRET})
+        asked = passcode.gate_for(SECRET, host, allowed, 7860) is not None
+        assert check.detail.startswith("asked") == asked
+
+
+def test_passcode_row_reads_the_settings_and_is_one_of_the_checks(monkeypatch):
+    import dataclasses
+
+    assert doctor.check_passcode in doctor.CHECKS
+    [quiet] = doctor.check_passcode()               # the suite's defaults: loopback, none set
+    assert (quiet.status, quiet.detail) == (PASS, "not asked: this server is reached from this machine only.")
+    monkeypatch.setattr(doctor, "settings", dataclasses.replace(
+        doctor.settings, host="0.0.0.0", allowed_hosts=("127.0.0.1", "my-box"), passcode="short"))
+    [short] = doctor.check_passcode()
+    assert short.status == FAIL
+    assert doctor.report([short])[1] == 1
 
 
 def test_hf_login_is_the_token_file_only(tmp_path):

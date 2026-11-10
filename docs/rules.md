@@ -494,6 +494,28 @@ before changing it.
   stylesheet served as anything else). It answers an unhandled error's
   500 itself and raises the error on. `main` adds it last, so it is the
   outermost of the app's layers (`tests/test_response_headers.py`)
+- `backend/passcode.py` — the opt-in passcode for a server reachable beyond
+  this machine, stdlib and Starlette only (`DEV#32`; the design, what each
+  stage settled and what is still Matt's to try on the machines are
+  docs/design-notes.md, "A passcode beyond loopback"): `asked`/`gate_for` (on when `AURADREAM_PASSCODE` is set and
+  the bind or an allowed host is not loopback), `Gate` (the comparison, the
+  scrypt-derived session key and the `v1.<expires>.<mac>` cookie; it keeps
+  a digest, never the passcode), `Limiter` (wrong passcodes for the whole
+  server, on the event loop only) and `PasscodeMiddleware`, a plain ASGI
+  layer always installed that passes everything through while `main`'s
+  gate is None. Its place in `main` is inside the response headers, the
+  cross-site write block and the Host check and outside
+  `hold_model_for_request`, activity and gallery admission. Signed out,
+  `/` is `web/passcode.html` (self-contained, the page's own title),
+  `OPEN_PATHS` (the manifest and its icons, by exact path) pass and
+  everything else is a 401 coded `passcode_required`; `POST /api/passcode`
+  and `/api/passcode/sign-out` are the layer's own. The passcode is never
+  in a log line, an error, the status or a process argument
+  (`tests/test_passcode.py`, `tests/test_api_passcode.py`, and
+  `tests/test_api_passcode_routes.py`, which walks the app's route table
+  so a new route is closed or the test fails). The page's part is under
+  Frontend ("Passcode"); the fake turns a gate on with
+  `POST /api/fake/passcode`, its own knobs left open (`open_prefixes`)
 - `backend/api_prompt.py` — the tag helper and prompt routes (suggest,
   validate, Expand, Check, measure, the critic) and their refusal wording;
   `backend/prompt_check.py` layer 1 of Check (encoder reports and rule
@@ -564,7 +586,14 @@ before changing it.
   through `server_probe` (AuraDream already there passes); the commit
   (`check_commit`: this folder's from `build_info.read_commit`, and the
   running server's own, asked through `server_probe.running_commit` only
-  when the port is held; the two differing warns "restart", never fails);
+  when the port is held; the two differing warns "restart", never fails;
+  a server that asks for a passcode is sent this environment's
+  `AURADREAM_PASSCODE`, and without it the row passes and says so, while a
+  refused one or the lock warns); the passcode (`check_passcode`, by
+  `passcode.asked` and `setting_problem` as the server decides them: not
+  asked on a server only this machine reaches, asked, a WARN for none on a
+  server reachable beyond it, a FAIL for one `main.run` would not start
+  with; never the value);
   the card's
   memory against the default checkpoint's measured 12.0 GiB peak (under it
   warns; on Linux below compute capability 10.0 it names the int4 Nunchaku
@@ -583,7 +612,20 @@ before changing it.
   `page_url` and `is_loopback`; `main` imports them under its old private names;
   and `running_commit`, the `commit` of the `/api/status` at a page's
   address (None for no answer, another program, or a server that could not
-  tell), as direct and as short-lived as `auradream_at`
+  tell), as direct and as short-lived as `auradream_at`. It also holds what
+  every caller that is not a browser shares about the passcode (stage 2 of
+  `DEV#32`): `environment_passcode`, `passcode_headers` (`Authorization:
+  Bearer`, the passcode's UTF-8 bytes; a control character refused in words
+  without the value), `refusal`/`PasscodeRefused` (the gate's coded 401 or
+  its 429, in words that never hold a passcode and never say "run this
+  again"), `no_redirect_opener` (a request carrying the passcode follows no
+  redirect) and `status_json`, which asks first without the passcode and
+  sends it only after the gate's own 401; `running_commit` raises
+  `PasscodeRefused` rather than answering None for a gate that refuses.
+  `generate_remote._server_json` sends the header on every request when
+  the variable is set; `generate._server_holds_gpu` asks through
+  `status_json` (`tests/test_server_probe.py`,
+  `tests/test_cli_via_server.py`, `tests/test_cli.py`)
 - `backend/build_info.py` — `read_commit`, the checkout's short commit
   from `git rev-parse --short HEAD` in the project folder, stdlib only and
   without `config`: None when the folder itself has no `.git` (git is then
@@ -692,7 +734,20 @@ before changing it.
   on a failed unit, or a crashing one: `Restart=on-failure` shows it as
   SubState `auto-restart` or a grown `NRestarts`, not failed), `logs` (`journalctl`, `-n` 100 by default, `-f`) and
   `doctor` (with the env file); it reads only the page's polled GETs, which
-  keep awake does not count. Test seams:
+  keep awake does not count. Every such read is `common.sh`'s `ask`
+  (`ASK_SERVER_PY`, run by `ask_server_python`): with `AURADREAM_PASSCODE`
+  in the environment (the env file's, exported by `load_env_file`) it
+  carries `Authorization: Bearer`, read from the environment and never an
+  argument, and follows no redirect; the gate's 401 and 429 are `Refused`
+  in their own words, never a server that is down or idle (`server_busy`
+  fails, so stop, restart and `update.sh --restart` refuse without
+  `--force`; `status` says it answers and exits 0; the wait after a start
+  ends). `require_plain_env_passcode` runs before the env file is sourced
+  (`load_env_file`, and `install-service.sh`'s own read): an
+  `AURADREAM_PASSCODE` with anything but letters, digits and
+  `. _ - + @ % : , /` stops the script, the value never printed, since
+  bash and systemd read anything else differently; the new env file names
+  the setting in a commented line. Test seams:
   `AURADREAM_INSTALL_TEST_ROOT`, `AURADREAM_INSTALL_TEST_PROC_VERSION`,
   `AURADREAM_INSTALL_TEST_WAIT` (control.sh's wait)
   (`tests/test_linux_scripts.py`)
@@ -8249,6 +8304,35 @@ measured on the card and when.
   but the offline page, `/sw.js` is not activity (`keep_awake`), and the
   smoke drives the offline case through the fake's `/api/fake/unreachable`
   (`tests/test_service_worker.py`, `smoke-offline`).
+- Passcode (`web/passcode.html`, `state.js`'s `api()`, `status.js`): while
+  the server asks for a passcode (`backend/passcode.py`) a signed-out
+  browser gets `passcode.html` for `/`: self-contained (inline style, icon
+  and script; nothing under `/static/` answers before sign-in), titled
+  exactly `AuraDream` for the scripts that probe the title, one labelled
+  password field (`autocomplete="current-password"`, 16 px so iOS does not
+  zoom), a Sign in button held with `aria-disabled` while it sends, and a
+  live region for the server's words; it posts `/api/passcode` with
+  `fetch` and opens `/` on 204. `sw.js` and `offline.html` are unchanged:
+  the worker passes the sign-in page on as any answer, and the offline
+  page's probe is the open manifest. In the app, `api()` reads a 401 coded
+  `passcode_required` (the code, never the sentence) as the session ended
+  and calls `goSignedOut`: the status line says "signed out"
+  (`SIGNED_OUT_PHRASE`, in the place `goOffline`'s words use; a grey dot),
+  `#btn-sign-in` appears in the topbar (before Load, which hides; on the
+  phone between the model chip and the ⋯), and nothing is held - a press
+  is answered by the server's sentence, "Reload the page and sign in."
+  The page never reloads by itself, since the composer may hold unsaved
+  text: Sign in reloads, and the panel's persistence gives the text back.
+  A 401 is an answer, so it also ends the offline state (`serverAnswers`,
+  which `receiveStatus` shares); silence after it takes the notice back
+  (`goOffline`), and so does a status that answers (a sign-in in another
+  tab shares the cookie). Sign out (`#model-sign-out`, `signOut`) is a row
+  under the Models panel's note, drawn only while the status's `passcode`
+  is true, so it takes no height from the settings panel and none from the
+  picker while no passcode is asked; on the phone it stays in the sheet's
+  scroller above the sticky foot. It posts `/api/passcode/sign-out` and
+  opens `/`, the sign-in page: the user's own press, so the reload is
+  theirs (`smoke-passcode`; `smoke-offline`'s last steps).
 
 ## Tests
 
@@ -9918,7 +10002,46 @@ page at 127.0.0.1 registers `sw.js`, which controls the next load; with
 navigation timeout (its heading, the host, the in-page script's own
 timestamped "No answer" after Try again); with it off, Try again opens
 AuraDream itself, under the worker, its topbar ready. The open page's own
-"server not answering" was already held by other smokes.
+"server not answering" was already held by other smokes. Its last steps
+turn the passcode's gate on (`/api/fake/passcode`) with the browser signed
+out: the worker passes the sign-in page on, `/sw.js` and `offline.html`
+are 401 and the manifest 200, silence is still the cached offline page,
+and the PC answering again opens the sign-in page.
+
+`smoke-passcode.json` uses its own fresh FLUX.1 Krea [dev] fake on 7958, a
+row beside `smoke-offline`'s (the table's ports are full), and turns the
+gate on and off through `/api/fake/passcode`. With none asked, nothing of
+it is drawn. With one, `/` is the sign-in page (the page's own title, the
+host, one inline script, no stylesheet) and the status, scripts, styles,
+`offline.html`, `/sw.js`, `/outputs/`, `/docs`, the gallery and the jobs
+are 401 while the manifest and an icon are 200; nothing typed and a wrong
+passcode are each said in the page; five wrong in a row lock every attempt
+(the step makes two more wrong ones, each after its lock, so the lock is
+four seconds and nothing races a one-second one), the right one too (429),
+and the page says how long; after the knob's `reset` the right
+passcode, typed with stray spaces and entered, opens the app. Signed in:
+no cookie is readable by script, `/` is `no-cache`, the service worker
+installs (its fetch of `offline.html` carried the cookie), Sign out is
+under the Models panel's note inside the window at 1400x900, a generated
+image loads from `/outputs/` and its job's stream opens. A changed
+passcode ends the session under the open page: "signed out" and Sign in
+in the topbar, the same document, the prompt kept, Generate answered by
+the server's sentence, nothing changed by later polls. Silence after it
+(`goOffline()` called in the page; the fake's unreachable knob holds a
+request, it never fails one) takes the notice back and holds Generate, and
+the next poll's 401 ends that offline state with nothing left held; a
+sign-in from elsewhere on the same cookie takes the notice back at the
+next status, Sign out offered again, the same document; another changed
+passcode signs it out again. On the phone tier
+(393x852, touch) Sign in is a finger's 44 px beside the chip with nothing
+off the screen. Sign in reloads into the sign-in page, which passes
+`phone_audit.js` whole (also after a wrong passcode's words); an old
+passcode is wrong, the new one opens the app with the prompt restored;
+Sign out in the phone's Models sheet is 44 px, on the screen and clear of
+the sticky foot, and pressing it leaves the sign-in page with the status
+and `/outputs/` 401 again. Turned off, the address is the app. The real
+machines (Safari's autofill, the home-screen icon, a session across a
+restart, the scripts) are not a smoke's to say.
 
 `smoke-catalogue-stale.json` uses a fresh FLUX.1 Krea [dev] fake on 7959:
 a Models catalogue reply asked for the runtime loader is held while the
@@ -10843,7 +10966,11 @@ pipeline with no image-to-image sibling answers; `POST /api/fake/unreachable`
 (`{on}`) holds every request but the knobs unanswered while on (two
 minutes at most, released when it goes off), as a PC asleep on Wi-Fi; `POST
 /api/fake/disk-full` (`{on}`) makes every image save raise `ENOSPC` while
-on, as a disk with no room; the fake's rewriter and translator count as downloaded from their
+on, as a disk with no room; `POST /api/fake/passcode` (`{passcode}`: a
+string turns the passcode's gate on with it, a new one ending every
+session, null turns it off; `{reset: true}` clears the limiter; it
+answers `{on}`, never the value, and a fake starts with no gate whatever
+the environment holds); the fake's rewriter and translator count as downloaded from their
 first use), and `node tools/browser.mjs tools/smoke.json` drives headless
 Edge or Chrome over the DevTools protocol with Node's own WebSocket - no npm
 install - through the lightbox zoom and the focus its close leaves on the

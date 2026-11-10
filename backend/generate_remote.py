@@ -24,20 +24,40 @@ class _ServerError(Exception):
 
 
 def _server_json(base: str, path: str, *, body=None, data=None, headers=None, timeout=30.0) -> dict:
-    """One HTTP call, never retried: a lost submission may already be queued."""
+    """One HTTP call, never retried: a lost submission may already be queued.
+
+    With `AURADREAM_PASSCODE` set in this environment every call carries it
+    as `Authorization: Bearer`, and then follows no redirect, which would
+    carry the header elsewhere. The passcode gate's 401 and 429 are said in
+    their own words (`server_probe.PasscodeRefused`), never with the value.
+    """
     import json
     import urllib.error
     import urllib.request
+
+    from backend import server_probe
 
     outgoing = dict(headers or {})
     if body is not None:
         data = json.dumps(body, ensure_ascii=True, allow_nan=False).encode("utf-8")
         outgoing["Content-Type"] = "application/json"
+    passcode = server_probe.environment_passcode()
+    try:
+        outgoing.update(server_probe.passcode_headers(passcode))
+    except ValueError as exc:
+        raise _ServerError(str(exc), 401) from None
     request = urllib.request.Request(base + path, data=data, headers=outgoing)
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
+        # Unchanged without a passcode: the ordinary opener.
+        opened = (urllib.request.urlopen(request, timeout=timeout) if passcode is None
+                  else server_probe.no_redirect_opener().open(request, timeout=timeout))
+        with opened as response:
             answer = json.load(response)
     except urllib.error.HTTPError as exc:
+        refused = server_probe.refusal(exc, sent=passcode is not None)
+        if refused is not None:
+            exc.close()
+            raise _ServerError(f"The server at {base} {refused.reason}. {refused.fix}", refused.status) from None
         try:
             with exc:
                 detail = json.load(exc).get("detail", str(exc))

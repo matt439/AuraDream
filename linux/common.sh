@@ -128,31 +128,98 @@ status_python() {
     fi
 }
 
+# Python every script asks the running server with, put before each
+# script's own lines (ask_server_python): ask(port, path, timeout) answers
+# the JSON at that path on loopback, never through a proxy. Where
+# AURADREAM_PASSCODE is in the environment (load_env_file exports the
+# service's) each request carries it as Authorization: Bearer, read from the
+# environment and never an argument, and then follows no redirect, which
+# would carry the header elsewhere. The passcode's gate refusing is Refused,
+# in words that never hold the passcode: a 401 is a passcode the
+# environment file lacks (or one the server does not accept), a 429 the
+# lock after too many wrong ones. Neither is a server that is down.
+IFS= read -r -d '' ASK_SERVER_PY <<'PY' || true
+import json
+import os
+import sys
+import urllib.error
+import urllib.request
+
+
+class Refused(Exception):
+    """The passcode's gate said no; its text is what to print."""
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+def _passcode():
+    # Bytes as they are in the environment, sent as they are.
+    raw = os.environb.get(b"AURADREAM_PASSCODE", b"").strip()
+    if any((byte < 32 and byte != 9) or byte == 127 for byte in raw):
+        # Not Refused: no request is made, so nothing has answered.
+        raise ValueError("it was not asked: AURADREAM_PASSCODE holds a control character, "
+                         "which a request cannot carry")
+    return raw.decode("latin-1")
+
+
+def ask(port, path, timeout):
+    passcode = _passcode()
+    handlers = [urllib.request.ProxyHandler({})]
+    headers = {}
+    if passcode:
+        handlers.append(_NoRedirect())
+        headers["Authorization"] = "Bearer " + passcode
+    request = urllib.request.Request(f"http://127.0.0.1:{int(port)}{path}", headers=headers)
+    try:
+        with urllib.request.build_opener(*handlers).open(request, timeout=timeout) as response:
+            return json.load(response)
+    except urllib.error.HTTPError as exc:
+        if exc.code == 429:
+            wait = str(exc.headers.get("Retry-After") or "")
+            wait = f"{wait} s" if wait.isdigit() else "a minute"
+            raise Refused(
+                "it is refusing every passcode for now, after too many wrong ones just now: "
+                f"wait {wait} and run this again"
+            ) from None
+        if exc.code == 401 and passcode:
+            raise Refused(
+                "it did not accept the AURADREAM_PASSCODE these scripts read: the service's environment "
+                "file must hold the passcode the server was started with (a restart applies a changed one)"
+            ) from None
+        if exc.code == 401:
+            raise Refused(
+                "it asks for a passcode, and AURADREAM_PASSCODE is missing from the service's environment "
+                "file (or from this shell, where there is no such file)"
+            ) from None
+        raise
+PY
+
+# Run $1 (a python) on ASK_SERVER_PY and then the lines on standard input,
+# with the remaining arguments as that program's own.
+ask_server_python() {
+    local python=$1
+    shift
+    { printf '%s\n' "$ASK_SERVER_PY"; cat; } | "$python" -I -B - "$@"
+}
+
 # The running server's own answer to whether it is busy: a job queued or
 # running, a model loading or switching, something holding the card, or a
 # gallery bundle operation. Prints the reason, or nothing when idle; fails
-# when the server cannot be asked. Both reads are the page's own polls,
-# which the keep-awake hold does not count as someone using it.
+# when the server cannot be asked, which a server that asks for a passcode
+# these scripts do not have is too: one that would not say is never taken
+# for an idle one. Both reads are the page's own polls, which the keep-awake
+# hold does not count as someone using it.
 server_busy() {
     local python
     python=$(status_python) || return 2
-    "$python" -I -B - "$1" <<'PY'
-import json
-import sys
-import urllib.request
-
-base = f"http://127.0.0.1:{int(sys.argv[1])}"
-direct = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-
-
-def get(path):
-    with direct.open(base + path, timeout=10) as response:
-        return json.load(response)
-
-
+    ask_server_python "$python" "$1" <<'PY'
+port = sys.argv[1]
 try:
-    status = get("/api/status")
-    bundles = get("/api/gallery/bundles/status")
+    status = ask(port, "/api/status", 10)
+    bundles = ask(port, "/api/gallery/bundles/status", 10)
 except Exception as exc:  # noqa: BLE001 - any failure means "cannot tell"
     print(f"could not ask it ({exc})")
     sys.exit(1)
@@ -219,11 +286,48 @@ venv_processes() {
     done
 }
 
+# Whether the environment file's AURADREAM_PASSCODE is one both of the
+# file's readers take alike, read as text before anything sources it.
+# systemd takes a line to its end; bash, sourcing it, would set
+# "AURADREAM_PASSCODE=correct horse" to "correct" and run "horse", and
+# reads $, quotes, #, ; and a backslash each its own way. So only letters,
+# digits and . _ - + @ % : , / pass (and no value at all). The limit is this
+# file's: a passcode set in a shell may hold any character. Never prints
+# the value.
+env_file_passcode_plain() {
+    # Spaces and tabs only: a carriage return (a file saved with Windows
+    # line ends) stays in the value, and is refused.
+    local LC_ALL=C line value blank=$' \t'
+    [ -f "$ENV_FILE" ] || return 0
+    while IFS= read -r line || [ -n "$line" ]; do
+        line=${line#"${line%%[!$blank]*}"}
+        case "$line" in
+            AURADREAM_PASSCODE=*) ;;
+            *) continue ;;
+        esac
+        value=${line#AURADREAM_PASSCODE=}
+        value=${value%"${value##*[!$blank]}"}
+        case "$value" in *[!A-Za-z0-9._+@%:,/-]*) return 1 ;; esac
+    done <"$ENV_FILE"
+    return 0
+}
+
+# Stop, in plain words, on an environment file whose passcode the scripts
+# cannot read as systemd does. Before every read of the file.
+require_plain_env_passcode() {
+    env_file_passcode_plain && return 0
+    say "  [stop] The AURADREAM_PASSCODE line in $ENV_FILE has a character these scripts cannot read the way systemd does (a space, a quote, a dollar sign, #, ;, a backslash or another symbol), so the file was not read and nothing was changed."
+    what_to_do 'In that file, use a passcode made only of letters, digits and . _ - + @ % : , / (no quotes round it), then apply it with: systemctl --user restart auradream'
+    exit 1
+}
+
 # The service's environment file, read into this shell when it exists, so a
-# script sees the AURADREAM_DB_PATH and AURADREAM_PORT the service runs with.
+# script sees the AURADREAM_DB_PATH and AURADREAM_PORT the service runs with
+# (and its AURADREAM_PASSCODE, which the scripts' requests then carry).
 # It holds NAME=value lines only (systemd reads the same file).
 load_env_file() {
     if [ -f "$ENV_FILE" ]; then
+        require_plain_env_passcode
         set -a
         # shellcheck disable=SC1090
         . "$ENV_FILE"

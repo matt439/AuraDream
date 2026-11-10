@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from .legacy_names import default_db_path
@@ -125,14 +125,22 @@ class Settings:
     # once rebound the attacker's page is same-origin and CORS stops applying.
     # Deliberately not derived from `host`: with AURADREAM_HOST=0.0.0.0 the browser
     # sends the machine's LAN address or name, never 0.0.0.0, so that case needs
-    # naming here (AURADREAM_ALLOWED_HOSTS=my-box,192.168.1.20). There
-    # is no login: whoever reaches a non-loopback bind controls the server,
-    # which `main.run` warns about at start-up.
+    # naming here (AURADREAM_ALLOWED_HOSTS=my-box,192.168.1.20). Without
+    # AURADREAM_PASSCODE (below) whoever reaches a non-loopback bind controls
+    # the server, which `main.run` warns about at start-up.
     allowed_hosts: tuple[str, ...] = tuple(
         part.strip()
         for part in os.getenv("AURADREAM_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",")
         if part.strip()
     )
+
+    # The opt-in passcode (`passcode.py`), asked when the server can be
+    # reached by a name that is not this machine's own (`passcode.asked`).
+    # The environment only: never the saved settings file or a flag (a flag
+    # is in the process list and the shell's history), never the status, a
+    # log line or an error - and kept out of this object's repr for that.
+    # Stripped; empty is unset. Under 8 characters `main.run` refuses to start.
+    passcode: str | None = field(default=(os.getenv("AURADREAM_PASSCODE", "").strip() or None), repr=False)
 
     # Guard rails so a typo in the UI cannot ask for a 16k image. Both are the
     # largest preset the UI offers, read off the table in `sizes.py` rather
