@@ -129,8 +129,9 @@ image is refused, a Then refine pass's save, and SQLite's real error from
 a database capped at its pages. The page takes the worker's own pause over
 a Resume press still awaiting its reply (`syncPause`), or the button read
 Pause over a job paused again. Not built: the CLI's own save loop
-(`generate.py`), which still fails the cell, and the submit-time check
-that was cut. A real full disk has not been tried on the card's PC.
+(`generate.py`), which still fails the cell (`GEN#57`, a row at Matt's
+word 2026-11-10: hold the image and wait or stop with the same reason,
+through `jobs.disk_full`), and the submit-time check that was cut. A real full disk has not been tried on the card's PC.
 
 ### R7 prompt recall
 
