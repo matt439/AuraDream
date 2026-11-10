@@ -13666,3 +13666,42 @@ Choices, and why:
 
 Not built: a level for the file separate from the console's, a setting for
 its place or size, and a page that shows it.
+
+## Use prompt
+
+Built 2026-11-10 (`GEN#53`, [the peer review's R7](review-2026-11-10-peers.md#r7-prompt-recall)).
+A prompt came back only with everything else (Reuse settings, which also
+takes the seed, the size and the sampling) or through the clipboard (Copy
+prompt, then a paste into each box). Use prompt, after Use seed in the
+image's menu, writes the prompt and the negative prompt and nothing else.
+
+Choices, and why:
+
+- The pair, not the prompt alone. A negative written for another prompt is
+  rarely the one wanted with this one, and Reuse already treats the two as
+  one thing. So a record with no negative empties the negative box. What
+  that costs is covered by the Undo.
+- Through `rewriteBox`, so Ctrl+Z in each box walks back. A box that holds
+  the text already is not written: an identical write would add an empty
+  step to its undo history and clear a prompt's translation for nothing.
+- The Undo is the note under the prompt (`offerPromptUndo`), as an
+  Example's is, not Reuse's note at the panel's foot: only the two boxes
+  changed, and that note takes no panel height. It puts the negative back
+  only while the box still holds what the write left, since the note
+  retires on a change to the prompt and would not notice a negative typed
+  since.
+- From the lightbox it closes the lightbox, as the lightbox's Reuse does.
+  A modal dialog leaves the page inert, so the boxes cannot take the focus
+  a typing write needs; the fallback is assigning `.value`, which empties
+  the undo history. Use seed can stay in the lightbox because the Seed box
+  is written by value.
+- Held on an instruction edit. Its words describe a change to its source
+  and mean nothing to a text-to-image prompt, which is also why an edit's
+  Reuse never fills the panel.
+- No scroll of the page. The panel moves to show the prompt where it is
+  stuck beside the gallery; on a one-column page the card's "Prompt set"
+  is the answer in sight. A phone shows the Create view, where the box is.
+
+Not built: Recent prompts under Examples, the review's second slice, which
+waits on whether this one falls short. It would be the only way back to a
+prompt whose job saved no image.

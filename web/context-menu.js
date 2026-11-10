@@ -129,6 +129,23 @@ function copyImage(rec) {
   return navigator.clipboard.write([new ClipboardItem({ 'image/png': png })]);
 }
 
+// Use prompt: the record's prompt and negative prompt into their boxes
+// (reuse.js's `usePrompt`), the seed and every setting left as they are.
+// Held, saying why, on an instruction edit. From the lightbox it closes the
+// lightbox, as Reuse does, so there is no stage left to say it on.
+function usePromptItem(rec, host, lightbox) {
+  const reason = usePromptReason(rec);
+  return {
+    label: 'Use prompt', held: !!reason,
+    title: reason || `Put #${rec.id}'s prompt and negative prompt in their boxes; the seed and settings stay`,
+    run: () => {
+      if (reason) { refuseInCard(host, reason, 'Not a prompt'); return; }
+      usePrompt(rec);
+      if (!lightbox) cardNote(host, 'Prompt set');
+    },
+  };
+}
+
 // The sheet shows this run already: its Show run as sheet is held.
 const SHEET_SHOWS_RUN = 'The sheet shows this run already';
 
@@ -173,6 +190,7 @@ function imageItems({ kind, rec, host }) {
       label: 'Use seed', title: `Put ${rec.seed} in the Seed box`,
       run: () => { useSeed(rec.seed); cardNote(host, lightbox ? `Seed ${rec.seed} is in the Seed box.` : 'Seed set'); },
     },
+    usePromptItem(rec, host, lightbox),
     // The lightbox's button where it has one; held as it would be elsewhere.
     lightbox ? buttonItem('More seeds of this batch…', els.lbMoreSeeds, 'M')
       : syncedItem('More seeds of this batch…', (b) => syncMoreSeedsFor(b, rec), () => moreSeedsOfImage(rec, host), 'M'),

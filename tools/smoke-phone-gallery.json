@@ -332,7 +332,7 @@
   {"wait": 400},
   {"tap": "#lbp-more"},
   {"expect": "__until(() => !els.contextMenu.hidden && backDepth === 2 && !backGoing)", "fatal": true},
-  {"expect": "(() => { const words = __words(els.contextMenu), items = [...els.contextMenu.querySelectorAll('[role=menuitem]:not(.cancel)')]; return ['Use seed', 'More seeds of this batch…', 'Download', 'Copy prompt'].every((w) => words.includes(w)) && !words.some((w) => /Star|Reuse|Refine|Inpaint|Outpaint|instruction/.test(w)) && items.at(-1).classList.contains('danger') && words.at(-1) === '⌦ Move to recycle bin' && els.contextMenu.querySelector('.heading').textContent === `#${lbList[lbIndex].id}`; })()"},
+  {"expect": "(() => { const words = __words(els.contextMenu), items = [...els.contextMenu.querySelectorAll('[role=menuitem]:not(.cancel)')]; return ['Use seed', 'Use prompt', 'More seeds of this batch…', 'Download', 'Copy prompt'].every((w) => words.includes(w)) && !words.some((w) => /Star|Reuse|Refine|Inpaint|Outpaint|instruction/.test(w)) && items.at(-1).classList.contains('danger') && words.at(-1) === '⌦ Move to recycle bin' && els.contextMenu.querySelector('.heading').textContent === `#${lbList[lbIndex].id}`; })()"},
   {"tap": [196, 60]},
   {"wait": 700},
   {"expect": "__until(() => els.contextMenu.hidden && $('ctx-scrim').hidden && els.lightbox.open && backDepth === 1 && !backGoing && !els.lightbox.hasAttribute('data-bare'))", "fatal": true},
