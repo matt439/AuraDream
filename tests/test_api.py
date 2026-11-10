@@ -11,7 +11,7 @@ import time
 
 import pytest
 
-from backend import api_prompt, main, tag_lookup
+from backend import api_prompt, hf_sign_in, hub_access, main, tag_lookup
 from backend.config import settings
 from backend.model_defaults import defaults_for, hints_for
 from backend.tags import TagLookupUnavailable
@@ -195,7 +195,7 @@ def test_a_gated_load_says_what_to_do(client, fake, monkeypatch, wrapped):
     body = wait_for_status(client, state="error")
     assert body["detail"] == (
         "FLUX.1 Krea [dev] is gated on Hugging Face: accept its terms on the model page "
-        "(a click-through), run `uv run hf auth login` once with a read token, then press Retry load."
+        f"(a click-through), {hub_access.LOGIN}, then press Retry load."
     )
     assert body["detail_kind"] == "gated"
     assert body["detail_url"] == "https://huggingface.co/black-forest-labs/FLUX.1-Krea-dev"
@@ -225,8 +225,6 @@ def _refused(status: int):
 def test_a_refused_sign_in_on_the_load_says_what_to_do(client, fake, monkeypatch, status, wrapped):
     # Was the library's raw text; now the switch check's own sentence
     # (`hub_access.denied`), ending in the load's next step.
-    from backend import hub_access
-
     def load():
         if not wrapped:
             raise _refused(status)
@@ -242,7 +240,7 @@ def test_a_refused_sign_in_on_the_load_says_what_to_do(client, fake, monkeypatch
     body = wait_for_status(client, state="error")
     assert body["detail"] == (
         "Hugging Face refused this sign-in for black-forest-labs/FLUX.1-Krea-dev: check its access "
-        "on the model page, run `uv run hf auth login` once with a read token, then press Retry load."
+        f"on the model page, {hf_sign_in.login_instructions(replace=True)}, then press Retry load."
     )
     assert body["detail"] == hub_access.denied("black-forest-labs/FLUX.1-Krea-dev", "the model page", "press Retry load")
     assert (body["detail_kind"], body["detail_url"]) == ("gated", "https://huggingface.co/black-forest-labs/FLUX.1-Krea-dev")

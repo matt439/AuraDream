@@ -56,6 +56,7 @@
   position: absolute; max-width: none; max-height: none;
   border-radius: var(--r-xs); user-select: none; -webkit-user-drag: none;
 }
+.lb-stage .lb-thumb { pointer-events: none; }
 /* Comparing a pass with its source (lightbox.js places them): the divider
    the source shows left of, a line with a grip, and each picture's name on a
    dark chip, which reads on a white render as on a black one. */
@@ -181,6 +182,7 @@
    and along steps, and the partner. The note is first in the box
    (index.html), so a line written there moves no button. */
 .lb-compare { display: flex; flex-direction: column; gap: var(--sp-2); }
+.lb-compare.collapsed > :not(#lb-compare-open) { display: none; }
 .lb-compare .hint { margin: 0; }
 .lb-compare .hint:empty { display: none; }
 :is(#lb-compare-on, #lb-compare-cfg, #lb-compare-steps)[aria-pressed="true"] { color: var(--text); border-color: var(--accent-2); }

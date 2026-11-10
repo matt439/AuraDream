@@ -9,6 +9,12 @@ rem cmd.exe reads whole before running it: turning a ZIP folder into a Git
 rem checkout may replace this file while it runs, and cmd.exe would
 rem otherwise read on in the new file at the old position.
 setlocal
+if not exist "%~dp0install.ps1" (
+  echo AuraDream's installer files are missing. Extract the whole ZIP first.
+  echo Then open the extracted AuraDream folder and double-click install.cmd there.
+  if not defined AURADREAM_INSTALL_NO_PAUSE pause
+  exit /b 1
+)
 (
   powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0install.ps1" %*
   call set "rc=%%ERRORLEVEL%%"

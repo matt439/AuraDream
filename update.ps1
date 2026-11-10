@@ -98,8 +98,10 @@ function Test-AuraDreamAt([int]$Port) {
         $client.Close()
     }
     try {
-        $request = [System.Net.WebRequest]::Create("http://127.0.0.1:$Port/")
+        $scheme = if ($env:AURADREAM_SSL_CERTFILE) { 'https' } else { 'http' }
+        $request = [System.Net.WebRequest]::Create("${scheme}://127.0.0.1:$Port/")
         $request.Proxy = $null
+        $request.AllowAutoRedirect = $false
         $request.Timeout = 2000
         $response = $request.GetResponse()
         try {
@@ -107,7 +109,13 @@ function Test-AuraDreamAt([int]$Port) {
             $page = $reader.ReadToEnd()
         } finally { $response.Close() }
         if ($page -match '<title>AuraDream</title>') { return 'auradream' }
-    } catch { }
+    } catch {
+        $failure = $_.Exception
+        while ($null -ne $failure) {
+            if ($env:AURADREAM_SSL_CERTFILE -and $failure -is [System.Net.WebException] -and $failure.Status -in @('TrustFailure', 'SecureChannelFailure')) { return 'tls_unverified' }
+            $failure = $failure.InnerException
+        }
+    }
     return 'other'
 }
 
@@ -118,9 +126,14 @@ if ($DryRun) { Say 'Dry run: nothing will be changed; every action is printed in
 # 1. Not while AuraDream runs -------------------------------------------------
 $port = 7860
 if ($env:AURADREAM_PORT -match '^\d+$') { $port = [int]$env:AURADREAM_PORT }
+$scheme = if ($env:AURADREAM_SSL_CERTFILE) { 'https' } else { 'http' }
+$serverUrl = "${scheme}://127.0.0.1:$port/"
 $state = Test-AuraDreamAt $port
+if ($state -eq 'tls_unverified') {
+    Stop-Update "The configured HTTPS listener at $serverUrl could not be verified." 'Use a trusted certificate including 127.0.0.1, or stop that listener before updating. Certificate verification stays on.'
+}
 if ($state -eq 'auradream') {
-    Stop-Update "AuraDream is running at http://127.0.0.1:$port/. Updating under it could break the gallery database copy and the packages it is using." 'Stop it first: press Ctrl-C in its window (answer Y if asked), wait for the window to finish, then run update.cmd again.'
+    Stop-Update "AuraDream is running at $serverUrl. Updating under it could break the gallery database copy and the packages it is using." 'Stop it first: press Ctrl-C in its window (answer Y if asked), wait for the window to finish, then run update.cmd again.'
 }
 if ($state -eq 'other') { Note "Another program is using port $port; it is not AuraDream, so carrying on." }
 $venvDir = Join-Path $Root '.venv'
@@ -130,7 +143,7 @@ try {
     })
 } catch { $running = @() }
 if ($running.Count -gt 0) {
-    $which = ($running | ForEach-Object { "$($_.Name) (process $($_.ProcessId))" }) -join ', '
+    $which = ($running | ForEach-Object { "$($_.Name) (process $($_.ProcessId)): $($_.CommandLine)" }) -join ', '
     Stop-Update "A program from this folder's .venv is still running: $which. It may be AuraDream on another port, or a command such as generate." 'Stop it (Ctrl-C in its window), then run update.cmd again.'
 }
 Ok 'AuraDream is not running.'
@@ -227,6 +240,7 @@ if (Test-Path -LiteralPath $db) {
 if ($DryRun) {
     Would "run in ${Root}: git pull --ff-only"
 } else {
+    $before = Invoke-Capture $git @('-C', $Root, 'rev-parse', '--short', 'HEAD')
     Say '  Getting the latest version (git pull --ff-only)...'
     $pull = Invoke-Capture $git @('-C', $Root, 'pull', '--ff-only')
     if ($pull.Text.Trim()) { $pull.Text -split "`n" | ForEach-Object { Say "    $_" } }
@@ -246,7 +260,17 @@ if ($DryRun) {
             Stop-Update "git pull --ff-only failed (exit $($pull.Code)). Nothing was discarded." 'Read Git''s message above; git status shows the state of the folder.'
         }
     }
-    Ok 'The code is up to date.'
+    $after = Invoke-Capture $git @('-C', $Root, 'rev-parse', '--short', 'HEAD')
+    $oldCommit = $before.Text.Trim()
+    $newCommit = $after.Text.Trim()
+    if ($before.Code -eq 0 -and $after.Code -eq 0 -and $oldCommit -cmatch '^[0-9a-f]{4,40}$' -and $newCommit -cmatch '^[0-9a-f]{4,40}$') {
+        if ($oldCommit -eq $newCommit) { Ok "Already up to date ($newCommit)." }
+        else {
+            $count = Invoke-Capture $git @('-C', $Root, 'rev-list', '--count', "$oldCommit..$newCommit")
+            if ($count.Code -eq 0 -and $count.Text.Trim() -match '^\d+$') { Ok "Updated from $oldCommit to $newCommit ($($count.Text.Trim()) changes)." }
+            else { Ok "Updated from $oldCommit to $newCommit (change count unavailable)." }
+        }
+    } else { Ok 'The update completed; its commit could not be read.' }
 }
 
 # 5. uv sync ------------------------------------------------------------------

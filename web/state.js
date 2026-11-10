@@ -376,6 +376,8 @@ let statusPending = false;
 // first), whether the last poll got no answer at all, and when the server
 // that did answer started - a change is a restart, which ended every job.
 let modelState = null;
+let modelDownload = null;
+let modelLoadStartedAt = null;
 let serverOffline = false;
 // The server asks for a passcode and this browser's session has ended (a
 // 401 coded `passcode_required`, api()): the topbar says so, with Sign in.

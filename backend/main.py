@@ -44,12 +44,14 @@ else:
 
 from . import api_backup, api_bundles, api_gallery, api_generate, api_jobs, api_masks, api_more_seeds, api_png, api_presets, api_prompt, api_refine_batch, api_rerender, api_runs, api_saved_searches, api_snippets, api_swap, app_context, bundle_common, bundles, card_facts, gallery_lock, gallery_reports, hf_sign_in, hub_access, keep_awake, loras, model_selection, passcode, prompt_encoding, response_headers, startup_preferences, storage  # noqa: E402
 from .backup_service import BackupService  # noqa: E402
+from .api_guide import router as guide_router  # noqa: E402
+from .api_model_storage import router as model_storage_router  # noqa: E402
 from .build_info import read_commit as _read_commit  # noqa: E402
 from .server_probe import auradream_at as _auradream_at, is_loopback as _is_loopback, page_url as _page_url, port_busy as _port_busy  # noqa: E402
 from .backends import get_backend  # noqa: E402
 from .detached import detached as _detached  # noqa: E402
 from .model_selection import current_model_id, current_settings  # noqa: E402
-from .model_info import cache_revision as model_cache_revision, details_for, invalidate_cache_facts  # noqa: E402
+from .model_info import cache_revision as model_cache_revision, details_for, download_reference_bytes, invalidate_cache_facts  # noqa: E402
 from .config import ATTENTION_ENVIRONMENT_WARNING, settings  # noqa: E402
 from .critic import CriticError, prompt_critic  # noqa: E402
 from .jobs import JobManager, LoadFailed, MaskGone, OutpaintStampFailed, RunPersistenceFailed, short_error  # noqa: E402
@@ -60,12 +62,17 @@ from .instruction_edit import (  # noqa: E402
 )
 from . import api_instruction_edit  # noqa: E402
 from . import log_file  # noqa: E402
+from .idle_unload import IdleUnload  # noqa: E402
+from . import server_transport  # noqa: E402
+from .error_text import download_failure, generation_error  # noqa: E402
+from . import download_progress  # noqa: E402
 from . import refusal_codes, refusals  # noqa: E402
 from .model_defaults import DEFAULT_MODEL_ID, OPEN_DEFAULT_MODEL_ID, defaults_for, guide_for, hints_for  # noqa: E402
 from .schemas import (  # noqa: E402
     ExpanderDownload,
     ExpanderStatus,
     KeepAwakeStatus,
+    ModelDownloadStatus,
     ModelStatus,
     ModelSwitchRequest,
     PromptGuide,
@@ -85,12 +92,14 @@ class _LoadState(TypedDict):
     detail: str | None
     detail_kind: NotRequired[str | None]
     detail_url: NotRequired[str | None]
+    started_at: NotRequired[float | None]
 
 
 _load_state: _LoadState = {"state": "unloaded", "detail": None}
 _load_lock = asyncio.Lock()
 _switching = False
 _switch_task: asyncio.Task | None = None
+_unload_task: asyncio.Task | None = None
 # A load started in the background, held until it finishes: the event loop
 # keeps only a weak reference to a task.
 _load_tasks: set[asyncio.Task] = set()
@@ -125,6 +134,8 @@ def _compute_model_unsourced(environ: Mapping[str, str]) -> bool:
 _model_unsourced = _compute_model_unsourced(os.environ)
 # Set once a switch route saves a choice in this process, from any tab.
 _model_choice_saved = False
+_idle_unloaded = False
+_idle_unload: IdleUnload | None = None
 
 
 def _hf_token_present() -> bool:
@@ -204,8 +215,8 @@ def _load_failure(exc: BaseException) -> tuple[str, str | None, str | None]:
     that fix it; its kind ("gated", a refused sign-in too; "not_found";
     "offline"); and the model page where the fix is, for the page to link. The
     gate is the catalogue's, so the sentence says whether it is a click or the
-    authors' approval. Anything that is not the Hub's is the exception as
-    `short_error` puts it, and no kind."""
+    authors' approval. Known memory failures get plain recovery advice;
+    other non-Hub failures keep `short_error`, with no kind."""
     repo = current_model_id(settings)
     entry = next((checkpoint for checkpoint in CHECKPOINTS if checkpoint.repo == repo), None)
     name = entry.name if entry else repo
@@ -250,7 +261,9 @@ def _load_failure(exc: BaseException) -> tuple[str, str | None, str | None]:
             "offline",
             None,
         )
-    return short_error(exc), None, None
+    if (failure := download_failure(exc)) is not None:
+        return failure[0], failure[1], None
+    return generation_error(exc, loading=True), None, None
 
 
 async def ensure_loaded() -> None:
@@ -259,6 +272,8 @@ async def ensure_loaded() -> None:
     The lock is held across the whole load, not just the state check, so a burst
     of requests waits on a single attempt instead of each starting its own.
     """
+    global _idle_unloaded
+    _idle_unloaded = False
     async with _load_lock:
         selected = current_settings(settings)
         try:
@@ -272,18 +287,18 @@ async def ensure_loaded() -> None:
             # failed load, in its own words (not the Hub's, nor an exception
             # name), and its saved choice is never rewritten.
             detail = str(exc)
-            _load_state.update(state="error", detail=detail, detail_kind=None, detail_url=None)
+            _load_state.update(state="error", detail=detail, detail_kind=None, detail_url=None, started_at=None)
             raise LoadFailed(detail) from exc
         require_configured_loader_available(selected)
         if backend.is_ready():
-            _load_state.update(state="ready", detail=None)
+            _load_state.update(state="ready", detail=None, started_at=None)
             return
         # An interactive operation holding the generation gate - the prompt
         # critic's server - may have the card, and a load puts the weights on
         # it: wait that out first. Inside the lock, so the critique route's
         # refusal during a load covers the wait too.
         await jobs.wait_for_gate()
-        _load_state.update(state="loading", detail=None)
+        _load_state.update(state="loading", detail=None, started_at=_load_state.get("started_at") or time.time())
 
         def load_and_refresh_cache() -> None:
             try:
@@ -306,9 +321,9 @@ async def ensure_loaded() -> None:
             log.error("model load failed: %s", short_error(exc))
             log.debug("load traceback", exc_info=True)
             detail, kind, url = _load_failure(exc)
-            _load_state.update(state="error", detail=detail, detail_kind=kind, detail_url=url)
+            _load_state.update(state="error", detail=detail, detail_kind=kind, detail_url=url, started_at=None)
             raise LoadFailed(detail) from exc
-        _load_state.update(state="ready", detail=None)
+        _load_state.update(state="ready", detail=None, started_at=None)
         log.info("model ready")
 
 
@@ -371,10 +386,11 @@ KEEP_AWAKE_PROVIDERS = (_busy_jobs, _busy_card, _busy_loading, _busy_switching, 
 
 
 def _start_keep_awake() -> keep_awake.KeepAwake | None:
-    if not settings.keep_awake:
+    if not settings.keep_awake and not settings.idle_unload_minutes:
         return None
     controller = keep_awake.KeepAwake(
-        keep_awake.platform_inhibitor(), idle_minutes=settings.keep_awake_idle_minutes,
+        keep_awake.platform_inhibitor() if settings.keep_awake else keep_awake.NoInhibitor(),
+        idle_minutes=settings.keep_awake_idle_minutes if settings.keep_awake else 0,
     )
     for provider in KEEP_AWAKE_PROVIDERS:
         controller.add_provider(provider)
@@ -395,11 +411,26 @@ async def _stop_keep_awake() -> None:
 
 def _keep_awake_status() -> KeepAwakeStatus | None:
     """The controller's last check, cached: the status poll starts no process."""
-    if _keep_awake is not None:
-        return KeepAwakeStatus.model_validate(_keep_awake.status())
     if not settings.keep_awake:
         return KeepAwakeStatus.model_validate(keep_awake.off_status(settings.keep_awake_idle_minutes))
+    if _keep_awake is not None:
+        return KeepAwakeStatus.model_validate(_keep_awake.status())
     return None
+
+
+def _idle_unload_busy() -> bool:
+    return bool(
+        _switching or _switch_draining or _model_requests or _load_lock.locked()
+        or _load_state["state"] == "loading"
+        or (_keep_awake is not None and _keep_awake.work_reasons())
+    )
+
+
+async def _unload_for_idle() -> None:
+    # Recheck immediately before the ordinary unload reserves the selection.
+    if _idle_unload_busy():
+        return
+    await _unload_weights(idle=True)
 
 
 def _backup_service() -> BackupService:
@@ -427,7 +458,7 @@ def _stop_critic() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global backup_service, _startup_task, _keep_awake
+    global backup_service, _startup_task, _keep_awake, _idle_unload
     storage.init_db()
     # No job survives a restart, so neither does a hold on its mask; one a
     # crashed server left would spare that mask from every sweep for good.
@@ -451,8 +482,19 @@ async def lifespan(app: FastAPI):
     # first check; let go last on the way out, once the worker and any bundle
     # have finished.
     _keep_awake = _start_keep_awake()
+    if settings.idle_unload_minutes and _keep_awake is not None:
+        _idle_unload = IdleUnload(
+            minutes=settings.idle_unload_minutes, activity_age=_keep_awake.idle_seconds,
+            busy=_idle_unload_busy, ready=backend.is_ready, unload=_unload_for_idle,
+        )
+        _idle_unload.start()
     yield
     try:
+        if _idle_unload is not None:
+            await _idle_unload.stop()
+            _idle_unload = None
+        if _unload_task is not None:
+            await asyncio.gather(_unload_task, return_exceptions=True)
         if _startup_task is not None and not _startup_task.done():
             _startup_task.cancel()
             await asyncio.gather(_startup_task, return_exceptions=True)
@@ -628,18 +670,9 @@ def _origin_allowed(origin: str) -> bool:
     refused every one of the app's own writes. `https` is allowed for the LAN
     case behind a TLS proxy.
     """
-    from urllib.parse import urlsplit
-
-    try:
-        parts = urlsplit(origin)
-        port = parts.port
-    except ValueError:
-        return False
-    if parts.scheme not in ("http", "https") or parts.hostname is None:
-        return False
-    if port is None:
-        port = 443 if parts.scheme == "https" else 80
-    return parts.hostname in settings.allowed_hosts and port == settings.port
+    return server_transport.origin_allowed(
+        origin, hosts=settings.allowed_hosts, port=settings.port, extra_origins=settings.allowed_origins,
+    )
 
 
 @app.middleware("http")
@@ -710,6 +743,7 @@ async def status() -> ModelStatus:
         # the reservation.
         active = [job.id for job in jobs.active()]
         info, newest = await asyncio.to_thread(_describe_with_newest)
+        model_download = await asyncio.to_thread(download_progress.sample, info["model_id"])
         if revision == model_selection.revision() and switching == _switching:
             break
     state = _load_state["state"]
@@ -723,9 +757,13 @@ async def status() -> ModelStatus:
     token_present = _hf_token_present()
     return ModelStatus(
         state=state,
+        load_started_at=_load_state.get("started_at") if state == "loading" else None,
         switching=_switching,
+        idle_unload_minutes=settings.idle_unload_minutes,
+        idle_unloaded=_idle_unloaded and state == "unloaded",
         model_revision=revision,
         cache_revision=model_cache_revision(),
+        model_download=ModelDownloadStatus.model_validate(model_download),
         defaults=defaults,
         hints=hints_for(
             info["model_id"],
@@ -941,7 +979,7 @@ def _disk_free_mb() -> int | None:
 
 @app.post("/api/model/load", response_model=ModelStatus)
 async def load_model() -> ModelStatus:
-    global _switch_error
+    global _switch_error, _idle_unloaded
     try:
         selected = current_settings(settings)
         require_model_available(
@@ -952,9 +990,10 @@ async def load_model() -> ModelStatus:
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     _switch_error = None
+    _idle_unloaded = False
     if _load_state["state"] != "ready" or not backend.is_ready():
         # Reserve the pending load before its task has entered the lock.
-        _load_state.update(state="loading", detail=None)
+        _load_state.update(state="loading", detail=None, started_at=_load_state.get("started_at") or time.time())
         load = asyncio.create_task(_load_in_background())
         _load_tasks.add(load)
         load.add_done_callback(_load_tasks.discard)
@@ -1021,6 +1060,7 @@ async def list_models(
     def catalogue_details() -> dict:
         timing = _gallery_timing(quantization or current.quantization)
         return {model["model_id"]: {
+            "download_bytes": download_reference_bytes(model["model_id"]),
             **details_for(
                 model["model_id"], quantization=quantization or current.quantization,
                 offload=offload or current.offload, edit_reason=edit_reason(model["model_id"]),
@@ -1081,7 +1121,7 @@ def _model_name(model_id: str) -> str:
 
 async def _switch_model(target, *, load: bool, previous, previous_preload) -> None:
     """Own the whole transition even if the requesting browser disconnects."""
-    global _switching, _switch_error
+    global _switching, _switch_error, _idle_unloaded
     revision = model_selection.revision()
     current = current_model_id(settings)
     try:
@@ -1094,12 +1134,14 @@ async def _switch_model(target, *, load: bool, previous, previous_preload) -> No
             await asyncio.to_thread(prompt_encoding.unload)
             if not await asyncio.to_thread(backend.try_unload):
                 raise RuntimeError("the weights are still loading; wait for the load")
-            _load_state.update(state="unloaded", detail=None)
+            _load_state.update(state="unloaded", detail=None, started_at=None)
             model_selection.select(
                 target.model_id, quantization=target.quantization, offload=target.offload,
                 loader_execution=target.loader_execution,
             )
-            _load_state.update(state="loading" if load else "unloaded", detail=None)
+            _idle_unloaded = False
+            _load_state.update(state="loading" if load else "unloaded", detail=None,
+                               started_at=time.time() if load else None)
             # The selection is committed: from here on this is an ordinary
             # load, which Check, tags, LoRAs and a queued Generate wait out as
             # they do the Load button's. A second switch is still refused, by
@@ -1123,7 +1165,7 @@ async def _switch_model(target, *, load: bool, previous, previous_preload) -> No
             )
         else:
             detail, kind, url = _load_failure(exc)
-            _load_state.update(state="error", detail=detail, detail_kind=kind, detail_url=url)
+            _load_state.update(state="error", detail=detail, detail_kind=kind, detail_url=url, started_at=None)
     finally:
         _switching = False
 
@@ -1264,7 +1306,12 @@ async def switch_model(request: ModelSwitchRequest, http_request: Request) -> Mo
 
 @app.post("/api/model/unload", response_model=ModelStatus)
 async def unload_model() -> ModelStatus:
-    global _switch_error
+    await _unload_weights()
+    return await status()
+
+
+async def _unload_weights(*, idle: bool = False) -> None:
+    global _switching, _unload_task
     # Unloading under a running job frees nothing - the worker holds its own
     # reference to the pipeline for the length of the call - while the status
     # dot says "not loaded" with 13GB still resident.
@@ -1272,12 +1319,49 @@ async def unload_model() -> ModelStatus:
         raise HTTPException(status_code=409, detail="a job is still running; cancel it first")
     # Refuse rather than block: unload() would wait out a load in progress and
     # then discard what it built, with the request unanswered for minutes.
-    if _load_lock.locked() or not await asyncio.to_thread(backend.try_unload):
+    if _load_lock.locked() or _load_state["state"] == "loading":
+        raise HTTPException(status_code=409, detail="the weights are still loading; wait for the load")
+    if _switching or _switch_draining:
+        raise HTTPException(status_code=409, detail="the checkpoint is in use; wait for its requests to finish")
+    # Reserve before the first await. A new load or Generate cannot enter
+    # while the model and the prompt helpers are being released. The owner
+    # outlives a disconnected/cancelled HTTP waiter and is drained at shutdown.
+    _switching = True
+    _unload_task = asyncio.create_task(_release_owned(idle=idle), name="model-unload")
+    _unload_task.add_done_callback(_unload_finished)
+    await asyncio.shield(_unload_task)
+
+
+def _unload_finished(task: asyncio.Task) -> None:
+    global _unload_task
+    if _unload_task is task:
+        _unload_task = None
+    if task.cancelled():
+        return
+    if (exc := task.exception()) is not None:
+        log.error("model unload failed: %s", short_error(exc))
+        log.debug("unload traceback", exc_info=(type(exc), exc, exc.__traceback__))
+
+
+async def _release_owned(*, idle: bool) -> None:
+    global _switching, _idle_unloaded
+    try:
+        await _release_model()
+        _idle_unloaded = idle
+        if idle:
+            log.info("Released the model after %d idle minutes.", settings.idle_unload_minutes)
+    finally:
+        _switching = False
+
+
+async def _release_model() -> None:
+    global _switch_error
+    if not await asyncio.to_thread(backend.try_unload):
         raise HTTPException(status_code=409, detail="the weights are still loading; wait for the load")
     # Said as soon as it is true: status must not read "ready" over no
     # weights while the rest lets go, and a load asked for meanwhile must not
     # be relabelled "unloaded" when this route finishes.
-    _load_state.update(state="unloaded", detail=None)
+    _load_state.update(state="unloaded", detail=None, started_at=None)
     _switch_error = None
     await asyncio.to_thread(prompt_translator.unload)
     # Unload is "give the card and the memory back": a critic's server still
@@ -1293,7 +1377,6 @@ async def unload_model() -> ModelStatus:
     # is what says so.
     await asyncio.to_thread(_stop_critic)
     await asyncio.to_thread(prompt_encoding.unload)
-    return await status()
 
 
 # The app's state as the route modules read it: every getter reads main's
@@ -1313,6 +1396,8 @@ services = app_context.AppServices(
 
 # The routers read the app-owned worker and scope when a request arrives.
 app.include_router(api_prompt.create_router(services))
+app.include_router(guide_router)
+app.include_router(model_storage_router)
 app.include_router(api_snippets.create_router(services))
 app.include_router(api_saved_searches.create_router(services))
 app.include_router(api_presets.create_router(services))
@@ -1392,66 +1477,82 @@ def run(*, open_browser: bool = False) -> None:
 
     An AURADREAM_PASSCODE under 8 characters (or past what the sign-in
     takes) exits 1 before any of that, in words that never hold it."""
-    # Before anything binds or is asked: a passcode too short to be one is a
-    # mistake, said by the variable's name and never by its value.
-    problem = passcode.setting_problem(settings.passcode)
-    if problem is not None:
-        print(problem, file=sys.stderr, flush=True)
-        raise SystemExit(1)
-    url = _page_url(settings.host, settings.port)
-    # Port 0 asks the system for any free port: nothing to collide with.
-    if settings.port and _port_busy(settings.host, settings.port):
-        if _auradream_at(url):
+    # An invalid passcode is never handed to a request. Keep only its safe
+    # explanation; the log is opened below before that refusal is reported.
+    problem = (passcode.setting_problem(settings.passcode)
+               or server_transport.setting_problem(settings.ssl_certfile, settings.ssl_keyfile))
+    url = _page_url(settings.host, settings.port, secure=settings.ssl_certfile is not None)
+    busy = False
+    if problem is None:
+        # A successful second launch must not open another handle on the
+        # running server's log: Windows would then refuse its rollover.
+        # Port 0 asks the system for any free port: nothing to collide with.
+        busy = bool(settings.port and _port_busy(settings.host, settings.port))
+        if busy and _auradream_at(url):
             print(f"AuraDream is already running at {url}", flush=True)
             if open_browser:
                 webbrowser.open(url)
             raise SystemExit(0)
-        print(
-            f"Port {settings.port} is in use by another program (or reserved by the system), "
-            f"so AuraDream cannot start on it. Close that program, or set AURADREAM_PORT to "
-            f"a free port, such as {settings.port + 1}, and start again.",
-            file=sys.stderr, flush=True,
-        )
-        raise SystemExit(1)
-    # After the port checks: a second launch leaves the running server's file
-    # alone. Before the first line worth keeping.
+    # Every refusal from here is kept, and every exit closes the file.
     log_to_file = log_file.install(settings.db_path, settings.log_level)
-    if log_to_file.handler is not None:
-        log.info("log file: %s", log_to_file.path)
-    if _passcode_gate is not None:
-        log.info(
-            "Asking for the passcode in %s. Over plain http the passcode, its cookie "
-            "and every prompt and image cross the network unencrypted: it keeps out "
-            "people who can merely reach this address, not anyone who can capture "
-            "the network's traffic.",
-            passcode.VARIABLE,
-        )
-    elif settings.passcode is not None:
-        log.info(
-            "%s is set but not asked: the server listens on this machine only.",
-            passcode.VARIABLE,
-        )
-    elif not _is_loopback(settings.host):
-        # No passcode: anyone who reaches the API can read, delete and import
-        # galleries and make this machine download with the HF token.
-        log.warning(
-            "Serving on %s with no passcode, so anyone who can reach this address "
-            "controls the server. Set %s, or expose it only on a trusted network.",
-            settings.host, passcode.VARIABLE,
-        )
-    log.info("AuraDream at commit %s", COMMIT or "unknown (not a Git checkout, or git was not found)")
-    config = uvicorn.Config(
-        app,
-        host=settings.host,
-        port=settings.port,
-        log_level=log_file.uvicorn_level(settings.log_level),
-        # A client that stops reading its stream must not hold shutdown open.
-        timeout_graceful_shutdown=30,
-    )
-    # uvicorn.Config has just replaced its loggers' handlers; an unhandled
-    # route's traceback is logged there and nowhere else.
-    log_to_file.follow(logging.getLogger(log_file.UVICORN_LOGGER))
     try:
+        if problem is not None:
+            print(problem, file=sys.stderr, flush=True)
+            log_to_file.startup_refusal(problem)
+            raise SystemExit(1)
+        if busy:
+            message = (
+                f"Port {settings.port} is in use by another program (or reserved by the system), "
+                f"so AuraDream cannot start on it. Close that program, or set AURADREAM_PORT to "
+                f"a free port, such as {settings.port + 1}, and start again."
+            )
+            print(message, file=sys.stderr, flush=True)
+            log_to_file.startup_refusal(message)
+            raise SystemExit(1)
+        if log_to_file.handler is not None:
+            log.info("log file: %s", log_to_file.path)
+        if _passcode_gate is not None:
+            log.info(
+                "Asking for the passcode in %s. Over plain http the passcode, its cookie "
+                "and every prompt and image cross the network unencrypted: it keeps out "
+                "people who can merely reach this address, not anyone who can capture "
+                "the network's traffic.",
+                passcode.VARIABLE,
+            )
+        elif settings.passcode is not None:
+            log.info(
+                "%s is set but not asked: the server listens on this machine only.",
+                passcode.VARIABLE,
+            )
+        elif not _is_loopback(settings.host):
+            # No passcode: anyone who reaches the API can read, delete and import
+            # galleries and make this machine download with the HF token.
+            log.warning(
+                "Serving on %s with no passcode, so anyone who can reach this address "
+                "controls the server. Set %s, or expose it only on a trusted network.",
+                settings.host, passcode.VARIABLE,
+            )
+        if not _is_loopback(settings.host) and all(_is_loopback(host) for host in settings.allowed_hosts):
+            log.warning(
+                "Only this machine's names are allowed. For a phone, add this PC's LAN IP "
+                "or name to AURADREAM_ALLOWED_HOSTS and restart; see docs/setup.md.",
+            )
+        log.info("AuraDream running at %s; keep this window open; Ctrl-C stops it.", url)
+        log.info("AuraDream at commit %s", COMMIT or "unknown (not a Git checkout, or git was not found)")
+        config = uvicorn.Config(
+            app,
+            host=settings.host,
+            port=settings.port,
+            ssl_certfile=str(settings.ssl_certfile) if settings.ssl_certfile else None,
+            ssl_keyfile=str(settings.ssl_keyfile) if settings.ssl_keyfile else None,
+            log_level=log_file.uvicorn_level(settings.log_level),
+            access_log=settings.log_level == "DEBUG",
+            # A client that stops reading its stream must not hold shutdown open.
+            timeout_graceful_shutdown=30,
+        )
+        # uvicorn.Config has just replaced its loggers' handlers; an unhandled
+        # route's traceback is logged there and nowhere else.
+        log_to_file.follow(logging.getLogger(log_file.UVICORN_LOGGER))
         server = Server(config)
         if open_browser:
             _open_when_listening(server, url)

@@ -369,6 +369,31 @@ def test_open_uses_the_host_and_port(sandbox, awake):
 
 
 @on_windows
+@pytest.mark.parametrize("url", ["https://dream.home.arpa", "https://dream.home.arpa:8443/", "http://localhost:7999/"])
+def test_open_uses_an_explicit_base_url(sandbox, awake, url):
+    sandbox["env"]["AURADREAM_SERVER_URL"] = url
+    result = _run(sandbox, "open")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert f"Opening {url.rstrip('/')}/" in result.stdout
+    assert [c for c in _calls(sandbox) if c[:1] != ["-G"]] == []
+
+
+@on_windows
+@pytest.mark.parametrize("url", [
+    "ftp://dream.home.arpa", "https://person:secret@dream.home.arpa", "https://dream.home.arpa/path",
+    "https://dream.home.arpa/?q=1", "https://dream.home.arpa/#part", "https://dream.home.arpa/../",
+    "https://dream.home.arpa\\path", "https://dream.home.arpa:70000/", "https://",
+])
+def test_open_refuses_non_base_urls_before_ssh_or_waking(sandbox, url):
+    sandbox["env"]["AURADREAM_SERVER_URL"] = url
+    result = _run(sandbox, "open")
+    assert result.returncode == 2, result.stdout + result.stderr
+    assert "AURADREAM_SERVER_URL must be an http(s) base URL" in result.stderr
+    assert "secret" not in result.stdout + result.stderr
+    assert _calls(sandbox) == []
+
+
+@on_windows
 @pytest.mark.parametrize("mac", ["aa:bb:cc:dd:ee:ff", "AA-BB-CC-DD-EE-FF"])
 def test_the_magic_packet(mac):
     # Dot-sourced, the script defines its functions and runs nothing.

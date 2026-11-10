@@ -15,6 +15,7 @@
 # 7860) and AURADREAM_SERVER_WAKE (an http(s) URL to POST, or a MAC address
 # for a Wake-on-LAN packet). Each command but help first wakes the server
 # when its ssh port does not answer. docs/setup.md, "From another PC".
+# AURADREAM_SERVER_URL overrides open's page address for HTTPS or a proxy.
 #
 # Test seam (tests/test_auradream_server.py): AURADREAM_INSTALL_TEST_NO_BROWSER
 # makes open print the address without starting a browser. Dot-sourced, the
@@ -52,6 +53,8 @@ Settings (environment variables):
   AURADREAM_SERVER       required: user@host (or host), e.g. me@my-box
   AURADREAM_SERVER_DIR   the checkout on the server (default ~/AuraDream)
   AURADREAM_SERVER_PORT  the server's port (default 7860)
+  AURADREAM_SERVER_URL   optional: open's exact http(s) base URL, for HTTPS
+                         or a proxy (no credentials, path, query or fragment)
   AURADREAM_SERVER_WAKE  optional: a URL to POST to wake it
                          (e.g. http://192.168.1.5:8650/__wake), or its MAC
                          address for a Wake-on-LAN packet (aa:bb:cc:dd:ee:ff)
@@ -270,6 +273,20 @@ function Invoke-Main {
         }
         $port = [int]$portText.Trim()
     }
+    $pageUrl = $null
+    if ($action -eq 'open' -and -not [string]::IsNullOrWhiteSpace($env:AURADREAM_SERVER_URL)) {
+        $configuredUrl = $env:AURADREAM_SERVER_URL.Trim()
+        $parsedUrl = $null
+        if ($configuredUrl -notmatch '^https?://[^\s/?#\\]+/?$' -or
+            -not [Uri]::TryCreate($configuredUrl, [UriKind]::Absolute, [ref]$parsedUrl) -or
+            $parsedUrl.Scheme -notin @('http', 'https') -or -not $parsedUrl.Host -or
+            $parsedUrl.UserInfo -or $parsedUrl.Query -or $parsedUrl.Fragment -or
+            $parsedUrl.AbsolutePath -ne '/') {
+            Write-Problem 'AURADREAM_SERVER_URL must be an http(s) base URL without credentials, path, query or fragment (for example https://dream.home.arpa/).'
+            exit 2
+        }
+        $pageUrl = $parsedUrl.AbsoluteUri
+    }
     try {
         $wake = Get-WakeSetting $env:AURADREAM_SERVER_WAKE
     } catch {
@@ -325,7 +342,7 @@ function Invoke-Main {
     Wait-ServerAwake $target $wake $server
 
     if ($action -eq 'open') {
-        $url = "http://$($target.Host):$port/"
+        if ($pageUrl) { $url = $pageUrl } else { $url = "http://$($target.Host):$port/" }
         Write-Host "Opening $url"
         if (-not $env:AURADREAM_INSTALL_TEST_NO_BROWSER) { Start-Process $url }
         exit 0

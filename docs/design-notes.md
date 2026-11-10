@@ -412,6 +412,31 @@ Components are `text_encoder` (Qwen3-VL), `transformer` (Krea2Transformer2DModel
 
 ## Loading happens in one place
 
+**Sign-in help follows the installed CLI (2026-11-10, `DEV#43`, `DEV#44`).**
+`hf_sign_in.login_instructions` keeps the page's Hub failures and the doctor
+on the same folder-aware instructions: browser login first, Read-token paste
+as a hidden-input fallback, or stop AuraDream and rerun `install.cmd` on
+Windows. The installer and setup guide name the actual menu rather than
+asking for a token before its browser-first choice. Replacing a refused
+saved sign-in uses `--force`, because both the CLI and installer otherwise
+skip an existing sign-in. The installed Hub library supplies the lifetime;
+browser OAuth metadata can include a refresh token, so the docs explain
+renewal and reauthentication without inventing a fixed expiry. Tests stub
+the installed menu, CLI and token-save boundary; no real login was performed.
+
+**Memory failures say which memory and what to try (2026-11-10, `GEN#60`).**
+`error_text.generation_error` recognises PyTorch's typed `OutOfMemoryError`
+through the MRO and exception chain without importing torch. A load suggests
+Sequential offload or a lighter checkpoint; a render also suggests a smaller
+image or batch. A load's `MemoryError`, `ENOMEM` or Windows error 1455 names
+RAM/paging-file space, closing other apps, a lighter checkpoint and Windows'
+paging-file/free-disk check. A size change cannot fix the weights failing to
+load, so that advice stays on renders. Unknown exceptions retain `short_error`.
+The load, cell and Then refine failure sites still log the original exception
+and traceback, and the existing skip/stop rules and retry path remain intact.
+CPU-constructed exceptions through the real HTTP/job paths check the wording
+and retained diagnostics; no memory exhaustion or card run was induced.
+
 **Backend publication and failure ownership (2026-10-26, `PERF#1`).** The eager
 backend now holds returned component overrides and a pipeline in one unpublished
 candidate until every preparation step and weights context has completed. The
@@ -468,7 +493,8 @@ Hub's error), as `prompt_encoding._reason` does for tokenizers:
 the steps - for a gate, the catalogue's own word for it (`launch.CHECKPOINTS`:
 a click-through, or the authors' approval), `uv run hf auth login`, then Retry
 load - and `ModelStatus.detail_kind` and `detail_url` (the model page) beside
-`detail`; anything else is `short_error` as before. The log keeps the
+`detail`; known memory failures use `generation_error` as described above,
+and other failures keep `short_error`. The log keeps the
 library's words. It is raised on as `jobs.LoadFailed(detail)` from the
 original, so the job that ended at the load carries the same sentence as the
 status (`_run`) and Expand answers with it too. The page puts it in the
@@ -8952,6 +8978,13 @@ records passing CPU/browser checks and the final screenshot-read limitation.
 
 ## Keyboard shortcut help
 
+**Getting started is reachable in the page (2026-11-10, `UI#45`).** The
+topbar's `?` now names Help and keyboard shortcuts. Its dialog starts with
+Models, Prompt, Generate, automatic Gallery saving and Cancel before the
+existing context-sensitive key inventory. This is read-only prose inside
+the existing modal, keeping its focus and Escape behavior; serving the full
+usage guide remains `UI#43`.
+
 **Small fast routes and compact setup (2026-10-26).** The same approved follow-up
 adds `/` to gallery search and M to the focused image's More seeds preview. M
 uses one image id, independent of picks, and requires a separate Queue action.
@@ -13720,8 +13753,10 @@ pointing where its owner put it.
 
 Choices, and why:
 
-- Installed in `main.run`, after the port checks, and closed when the
-  server stops. At import it would have opened a file for every CLI, every
+- Installed in `main.run`, after read-only duplicate-launch detection, and
+  closed on every exit. A port or passcode refusal is printed once and also
+  kept in the owned file, even at CRITICAL (`DEV#42`, 2026-11-10). Passcode
+  validation still precedes any network probe. At import it would have opened a file for every CLI, every
   test that imports `main` and the fake server, and a second launch (which
   only reports the running server and exits) would have held a second
   handle on the first one's file.
@@ -14579,6 +14614,150 @@ reach. `UI#7`'s hands-on checks are unchanged by this. Not built: shared
 step includes, a fast tier and dynamic ports (cut by the review), reading
 the browser's accessibility tree, and failing on a glyph-only name (a ✕
 with no label reads as its glyph; the audit counts it as named).
+
+## First-time polish and cold operational feedback (2026-11-11)
+
+The lightbox now keeps the current thumbnail under a pending PNG and only
+reveals a full image whose request still owns the current record. Native
+load/error events and asynchronous probes both carry that ownership, so a
+quick walk cannot resurrect an old image or clear the next one's feedback.
+One previous/next preload begins after the current image settles and clears
+on close. The fake-gallery [5,000-row receipt](measurements/gallery-5000-2026-11-11.json)
+shows a fast first page and 16.7 ms median / 16.8 ms max nearby scrolling
+after visible thumbnails decoded; append-all and huge-jump stress is
+reported separately. It supplies no evidence for changing containment.
+
+The broad verification also exposed a diagnostic-only browser startup
+error: Edge's launcher can exit 0 after handing off to a child, before its
+DevTools endpoint answers. A scratch proof observed that exit followed by
+a live endpoint and a passing assertion. `browser.mjs` now keeps its
+existing bounded readiness wait after successful handoff; nonzero exits
+and signals still fail early. Cold handoff/timeout/signal regressions and
+real Edge profile/a11y checks passed. This is an observation correction,
+not a retry or browser restart.
+
+The broad phone Create run also captured a separate tier-notification race:
+both live media predicates had left phone mode, but `pageTier` and all
+moved controls still belonged to the phone. Focus was a consequence, not
+the missing transition. `initTouchLayout` now reconciles the same predicate
+on a native resize as well as the two MQL notifications; a same-tier resize
+does no DOM work. The regression withholds only the MQL listeners across
+the actual emulated resize and retains the preview-close/history/focus/src
+assertion, then restores normal listeners. No longer wait or synthetic
+focus correction is used.
+
+PR #67's first CI run then exposed the sheet landing's own settling race.
+Three stationary root-scroll frames can precede a native smooth scroll's
+start, so the submit button looked visible when focus was decided and was
+later hidden under the topbar. A controlled 250 ms delayed native start
+reproduced that exact geometry and failure. The requested sheet-head
+alignment (clamped to the page end) now gates the three quiet frames, with
+the same 1.5-second cap, gallery epoch and no-focus-stealing checks. The
+original geometry, visible first-cell focus and next-Tab assertions remain;
+the smoke now retains a landing screenshot for CI diagnostics.
+
+The other CI failure was the late-neighbour fixture's isolation. A pending
+gallery refresh could legitimately repopulate manually cleared local rows,
+discover a neighbour and expand Compare before the fixture focused its
+opener. A deliberately timed background read reproduced that exact failed
+conjunction. A normal excluding gallery filter now keeps those reads in the
+fixture's intended scope, with completed jobs/streams and explicit held
+ladder replies. Product disclosure stays unchanged. The corrected comparison
+and comparison-CFG smokes passed together under the exact CI Linux browser,
+Node and private font metrics, with no rerun.
+
+The remaining unblocked first-time and peer-review work is collected on
+`todo/overnight-first-run`; individual findings own their Built notes.
+
+The installer's existing-token question distinguishes having a token from
+having a model licence or enough memory. Saved choices still govern the
+next start. Windows wording and ZIP/uv recovery, WSL's driver/CUDA/doctor
+stops, service passcode warnings and commit-specific update receipts use
+stubbed operations; none establishes a clean-machine or real-card install.
+Shellcheck's correctness findings were fixed. The reviewed PowerShell
+style diagnostics remain visible in the audit rather than suppressed.
+Hosted installer CI still needs the deliberate ruleset change.
+
+The page's first choice now reveals only its Models row and names that
+checkpoint on Switch & load. Purely unavailable default performance choices
+stay hidden, while invalid/nondefault intent remains repairable. Image-only
+gallery actions preserve their row height when empty; Import and saved
+searches remain reachable. Check's Findings lead a closed native Details
+fold, tooltip leads describe the visible effect, and author context is a
+hint rather than a warning. Instruction Edit remains visible for an evident
+editor intent; a failed load offers no Finish for work that never started.
+These are presentation changes, never new model/execution admission.
+
+`/guide` renders the checkout's one usage file using MarkdownIt, already
+locked transitively and now an explicit runtime dependency. Escaping raw
+HTML, stable heading ids, repository-link rewriting and a separate style
+sheet avoid an arbitrary file reader and avoid changing the app cascade.
+Help opens it separately so reading cannot replace the composer. Anchor
+tests validate links into the repository's other Markdown documents.
+
+`/api/models/storage` is the deliberately slow, explicit inventory:
+`scan_cache_dir` on a daemon thread, one reservation owned by the worker,
+logical file bytes, shared catalogue ownership, converted trees and unknown
+references reported honestly. Unreferenced does not mean unused or safe to
+delete. No cache delete is designed into this slice.
+
+Status takes a different path: required-file stats plus selected-source
+partial blobs, off-loop under the existing revision retry, sampled at most
+every two seconds. Partial blobs can belong to another download in that
+repository, so the number is approximate and not network speed. Unknown
+selected-file maps or a changed mutable revision remove the denominator.
+The server's load clock covers explicit/switch loads and waiting for the
+card gate, keeps its first start across waiters and clears when terminal.
+The desktop topbar, Models and empty viewer show the tally/clock; the phone
+chip keeps its name/state and its Models footer shows the full tally.
+Dynamic values are visual-only beside stable live-region state. Cache-free
+bytes drive advice, not refusal; disk-full/connection failures get typed
+retry words while existing Hub/auth categories retain precedence.
+
+## HTTPS without weakening the origin check (2026-11-11)
+
+`DEV#33` keeps the backend's port as the default accepted origin port and
+adds exact `AURADREAM_ALLOWED_ORIGINS` for a TLS proxy on another one.
+Each extra origin is a strict scheme/host/effective-port tuple and still
+requires the independent Host allowlist. No wildcard, credentials, path,
+query or fragment is accepted, and it changes no CORS behavior.
+
+The direct alternative passes existing PEM certificate/key paths to
+uvicorn, with both required. Local browser/probe URLs select HTTPS and
+retain certificate verification. A configured TLS listener whose identity
+cannot be verified stops installer/update work rather than being mistaken
+for another idle app. Remote browser opening has its own validated
+`AURADREAM_SERVER_URL`, separate from SSH's host/port. The setup recipe
+keeps a proxy's backend on loopback, or a direct listener on a wildcard
+bind with exact allowed hosts so local scripts can still probe loopback.
+The loopback certificate SAN and client CA trust are explicit prerequisites.
+Tests create a temporary certificate and trust it only in their process;
+no service, firewall, CA store or live LAN installation was changed.
+
+## Releasing the model after idle minutes
+
+`GEN#50` is opt-in through `AURADREAM_IDLE_UNLOAD_MINUTES` (0, off).
+One event-loop timer checks every 15 seconds and calls the same unload
+operation as the Models button. Its activity clock is KeepAwake's, including
+its exclusions for timed page polls; turning off the power inhibitor does
+not turn off activity tracking when idle unload is enabled. Time spent
+busy never counts towards the idle interval: a long job gets a full idle
+interval after it finishes.
+
+It waits while any job, card holder, load, switch, bundle, counted worker
+hold or model-dependent request is present. Unload reserves the selection
+before its first threaded await, so a new Generate, Load or switch cannot
+enter during cleanup. The timer is stopped and any admitted unload drained
+before shutdown tears down the worker. A refusal is retried at the next
+tick; a failed attempt is logged once until a successful check.
+
+Status reports the configured minutes and whether this process most recently
+unloaded for idleness. The page says "released after N idle minutes" beside
+the checkpoint. An explicit Load or switch clears that explanation. This
+releases the model and the prompt helpers as manual Unload does; it promises
+neither a process-RAM reduction nor a measured card result. CPU/fake tests
+own admission, activity, cleanup and lifecycle; no GPU run is needed to
+enable the default-off setting.
 
 ## Use prompt
 

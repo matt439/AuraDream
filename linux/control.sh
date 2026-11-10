@@ -46,6 +46,7 @@ fi
 # The service's settings, so the port asked is the one it uses.
 load_env_file || true
 port=$(server_port)
+scheme=$(server_scheme)
 # How long start and restart wait for the page (a test shortens it).
 wait_seconds=${AURADREAM_INSTALL_TEST_WAIT:-60}
 
@@ -90,15 +91,15 @@ unit_restart_state() {
 wait_for_page() {
     local waited=0 sub restarts first_restarts said answers
     read -r sub first_restarts < <(unit_restart_state)
-    say "  Waiting for the page at http://127.0.0.1:$port/ (up to $wait_seconds s)..."
+    say "  Waiting for the page at $scheme://127.0.0.1:$port/ (up to $wait_seconds s)..."
     while :; do
         answers=0
         said=$(server_answers) || answers=$?
         if [ "$answers" = 0 ]; then
-            ok "AuraDream answers at http://127.0.0.1:$port/ (after about $waited s)."
+            ok "AuraDream answers at $scheme://127.0.0.1:$port/ (after about $waited s)."
             return 0
         elif [ "$answers" = 3 ]; then
-            ok "AuraDream answers at http://127.0.0.1:$port/ (after about $waited s)."
+            ok "AuraDream answers at $scheme://127.0.0.1:$port/ (after about $waited s)."
             warn "These scripts cannot ask it anything more: $said."
             return 0
         fi
@@ -137,7 +138,7 @@ check_idle() {
         return 0
     fi
     if [ "$busy_code" != 0 ]; then
-        refuse "Whether the AuraDream service is busy could not be asked at http://127.0.0.1:$port/: ${busy:-no python to ask with}." "Wait for it to answer (bash linux/control.sh status), or $verb it anyway with --force, which interrupts any work it has."
+        refuse "Whether the AuraDream service is busy could not be asked at $scheme://127.0.0.1:$port/: ${busy:-no python to ask with}." "Wait for it to answer (bash linux/control.sh status), or $verb it anyway with --force, which interrupts any work it has."
     elif [ -n "$busy" ]; then
         refuse "The AuraDream service is busy: $busy." "Let it finish (or cancel it in the page), then run bash linux/control.sh $verb again; --force ${verb}s it anyway and interrupts that work."
     fi
@@ -237,7 +238,7 @@ do_status() {
         [ -z "$(trim "$dirty")" ] || note 'Some code files in this folder are changed (git status lists them).'
     fi
 
-    say "== The server at http://127.0.0.1:$port/"
+    say "== The server at $scheme://127.0.0.1:$port/"
     local python summary_code=0
     if python=$(status_python); then
         ask_server_python "$python" "$port" "$checkout" <<'PY' || summary_code=$?

@@ -51,7 +51,7 @@ def is_loopback(host: str) -> bool:
         return False
 
 
-def page_url(host: str, port: int) -> str:
+def page_url(host: str, port: int, *, secure: bool = False) -> str:
     """The page's address for a browser on this machine: a wildcard bind is
     reached on loopback, which the default allowed hosts accept."""
     if host in ("0.0.0.0", ""):
@@ -60,7 +60,8 @@ def page_url(host: str, port: int) -> str:
         host = "::1"
     if ":" in host:
         host = f"[{host}]"
-    return f"http://{host}:{port}/"
+    scheme = "https" if secure else "http"
+    return f"{scheme}://{host}:{port}/"
 
 
 def port_busy(host: str, port: int) -> bool:

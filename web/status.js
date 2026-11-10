@@ -4,6 +4,34 @@
 
 // ------------------------------------------------------------------- status
 
+function modelDownloadAmount() {
+  if (!modelDownload || modelDownload.cache_state === 'complete') return '';
+  const bytes = modelDownload.downloaded_bytes;
+  const total = modelDownload.total_bytes;
+  if (!Number.isFinite(bytes) || bytes < 0) return '';
+  const have = (bytes / 1e9).toFixed(1);
+  return Number.isFinite(total) && total > 0
+    ? `~${have} of ${(total / 1e9).toFixed(1)} GB`
+    : `~${have} GB cached; total unknown`;
+}
+
+function modelLoadingLabel() {
+  return modelDownload && ['absent', 'partial'].includes(modelDownload.cache_state)
+    ? 'Downloading weights' : 'Loading weights';
+}
+
+function modelLoadClock() {
+  if (!Number.isFinite(modelLoadStartedAt)) return '';
+  const seconds = Math.max(0, Math.floor(Date.now() / 1000 + serverClockOffset - modelLoadStartedAt));
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+}
+
+function firstLoadNote() {
+  return modelDownload?.cache_state === 'complete'
+    ? 'The cached weights still need loading into memory.'
+    : 'A first download can take most of an hour on a 100 Mbit/s connection; cached weights still need loading.';
+}
+
 // Seed the controls from the server's profile for the loaded checkpoint. Turbo
 // wants 8 steps / CFG 0 / mu 1.15; FLUX wants 28 / 3.5 and no mu at all, since
 // it derives its own resolution-dependent shift. Each control follows the
@@ -81,7 +109,11 @@ function muPlaceholder() {
 // words (hints.mu), and the syntax comes back where Mu applies.
 function syncMuWords() {
   els.mu.placeholder = muPlaceholder();
-  const why = muSupported ? '' : (lastHints?.mu || 'Mu does not apply on this checkpoint.');
+  const words = hintWords('mu', lastHints?.mu);
+  // The profile's capability can land after its hints in the same status.
+  // Keep the main tip and the grid's reason on that capability together.
+  if (lastHints?.mu && els.muTip.textContent !== words) els.muTip.textContent = words;
+  const why = muSupported ? '' : (words || 'Mu does not apply on this checkpoint.');
   const d = lastDefaults;
   els.gridMu.placeholder = !muSupported ? 'unavailable'
     // The grid's example compares no shift against this checkpoint's own,
@@ -97,6 +129,18 @@ function syncMuWords() {
 // profile as the values, and unlike those values they keep following it: the
 // user owning the controls does not make the explanation stale.
 let lastHints = null;
+const HINT_EFFECTS = {
+  steps: 'How long to work on each picture; more steps take longer. ',
+  guidance_scale: 'Controls how closely the picture follows your words, where supported; keep the default to start. ',
+  mu: 'Changes how the render spends its steps, where supported; leave Auto to start. ',
+  true_cfg: 'Controls extra prompt guidance and negative prompts where supported; Off avoids the extra work. ',
+};
+function hintWords(key, text) {
+  if (!text) return '';
+  const lead = key === 'mu' && !muSupported
+    ? 'Mu cannot be changed for this checkpoint. ' : HINT_EFFECTS[key] || '';
+  return lead + text;
+}
 function applyHints(hints) {
   if (!hints) return;
   lastHints = hints;
@@ -106,7 +150,7 @@ function applyHints(hints) {
   };
   for (const [key, el] of Object.entries(tips)) {
     if (!hints[key]) continue;
-    el.textContent = hints[key];
+    el.textContent = hintWords(key, hints[key]);
     // A guide's prompt and size halves are paragraphs; styles/fields.css's `.tip.pre`.
     el.classList.toggle('pre', hints[key].includes('\n'));
   }
@@ -261,10 +305,15 @@ function expandTitle() {
 function expandCost() {
   const s = expanderStatus;
   if (!s) return '';
-  if (s.fetch?.length) {
-    return `First use downloads ${s.fetch.map((f) => f.name).join(' and ')} (about ${humanBytes(s.fetch_bytes)}) once.`;
-  }
-  return s.loaded ? '' : `Its first use this session loads ${expanderName()} into memory first.`;
+  const load = s.fetch?.length
+    ? `First use downloads ${s.fetch.map((f) => f.name).join(' and ')} (about ${humanBytes(s.fetch_bytes)}) once.`
+    : s.loaded ? '' : `Its first use this session loads ${expanderName()} into memory first.`;
+  // The retained first-use measurement is Klein's, including its loaded image
+  // model (docs/verified.md, 2026-11-10), not the upsampler's weights alone.
+  const flux3 = ['black-forest-labs/flux-3-image-klein', 'black-forest-labs/flux-3-image-klein-base'].includes(loadedModel);
+  const memory = flux3 && !s.loaded
+    ? 'First use needed about 41 GiB of process RAM with FLUX 3 [Klein] loaded on the measured PC.' : '';
+  return [load, memory].filter(Boolean).join(' ');
 }
 
 // Unload's one writer. setBusy, Expand and the critic each used to set it,
@@ -361,16 +410,33 @@ async function unloadModel() {
 // model chip cuts the name and keeps the state whole (styles/phone.css);
 // the server lost is a state with no name. The live region's text is the
 // two as one string, written only when it changes.
-function writeStatusLine(name, state = '') {
-  if (els.statusText.textContent === name + state) return;
+function writeStatusLine(name, state = '', progress = '') {
+  if (els.statusText.textContent === name + state + progress) return;
   const part = (cls, text) => {
     const span = document.createElement('span');
     span.className = cls;
     span.textContent = text;
     return span;
   };
+  // Byte counts and clocks stay visible without being announced each poll.
+  const oldProgress = els.statusText.querySelector('.status-progress');
+  if ((els.statusText.querySelector('.status-name')?.textContent || '') === name
+      && (els.statusText.querySelector('.status-state')?.textContent || '') === state) {
+    if (oldProgress) oldProgress.textContent = progress;
+    else if (progress) {
+      const span = part('status-progress', progress);
+      span.setAttribute('aria-hidden', 'true');
+      els.statusText.append(span);
+    }
+    return;
+  }
   els.statusText.replaceChildren(...(name ? [part('status-name', name)] : []),
     ...(state ? [part('status-state', state)] : []));
+  if (progress) {
+    const span = part('status-progress', progress);
+    span.setAttribute('aria-hidden', 'true');
+    els.statusText.append(span);
+  }
 }
 
 // No answer to a status poll: fetch rejected, never a slow reply - a load's
@@ -477,6 +543,9 @@ function noteRestart(s) {
 let shownLoadDetail = null;
 let loadDetailInError = null;
 function syncLoadFailure(s) {
+  syncEmptyGalleryTools(s.newest_image_id);
+  if (s.state === 'ready' && els.lastRun.dataset.loadFailedModel
+      && els.lastRun.dataset.loadFailedModel !== s.model_id) dismissLastRun();
   const failed = s.state === 'error' && !!s.detail;
   let card = els.viewer.querySelector('.load-failed');
   let focused = false;
@@ -489,10 +558,14 @@ function syncLoadFailure(s) {
     card = loadFailureCard(s);
     els.viewer.prepend(card);
   }
+  if (card) syncLoadFailureAlternative(card, s);
   if (focused) (card?.querySelector('button') ?? els.generate).focus({ preventScroll: true });
   els.viewer.querySelectorAll('.placeholder').forEach((p) => { p.hidden = !!card; });
   const notMade = els.finishNote.querySelector('.not-made');
-  if (notMade && (failed || ['loading', 'ready', 'unloaded'].includes(s.state))) {
+  if (notMade && s.state === 'ready' && notMade.dataset.model !== s.model_id) {
+    setFinish();
+  }
+  if (notMade?.isConnected && (failed || ['loading', 'ready', 'unloaded'].includes(s.state))) {
     const text = notMadeText(notMade.dataset.lead, failed ? 'error' : s.state);
     if (notMade.textContent !== text) notMade.textContent = text;
   }
@@ -516,6 +589,34 @@ function syncLoadFailure(s) {
 // panel's line: the viewer holds nothing of this session's.
 function loadFailureInViewer() {
   return !els.viewer.querySelector('img, figure, .tomb');
+}
+
+// Recover the first visit's dismissed open suggestion, as an explicit picker
+// choice only. A sign-in appearing in another tab retires the offer in place.
+// The server names the suggestion; this does not choose a new default.
+function syncLoadFailureAlternative(card, s) {
+  let button = card.querySelector('.load-open-alternative');
+  const id = s.detail_kind === 'gated' && s.hf_token_present === false
+    && typeof s.open_model_suggestion === 'string' && s.open_model_suggestion !== s.model_id
+    ? s.open_model_suggestion : '';
+  if (!id) {
+    if (button && document.activeElement === button) card.querySelector('.load-retry').focus({ preventScroll: true });
+    button?.remove();
+    return;
+  }
+  if (!button) {
+    button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'ghost load-open-alternative';
+    button.onclick = () => showModelPickerAt(button.dataset.modelId);
+    card.querySelector('h2').after(button);
+  }
+  button.dataset.modelId = id;
+  const label = modelLabel(id);
+  const name = label !== id ? label : id === 'Tongyi-MAI/Z-Image-Turbo' ? 'Z-Image Turbo' : checkpointName(id);
+  const text = `Use ${name} instead`;
+  if (button.textContent !== text) button.textContent = text;
+  button.title = `Choose ${name} in Models, then press Switch & load`;
 }
 
 function loadFailureCard(s) {
@@ -545,7 +646,7 @@ function loadFailureCard(s) {
   }
   const retry = document.createElement('button');
   retry.type = 'button';
-  retry.className = 'primary';
+  retry.className = 'primary load-retry';
   retry.textContent = 'Retry load';
   retry.onclick = loadModel;
   card.append(retry);
@@ -803,6 +904,8 @@ function receiveStatus(s, asked = Date.now()) {
     els.dot.className = `dot ${s.state}`;
     const was = modelState;
     modelState = s.state;
+    modelDownload = s.model_download ?? null;
+    modelLoadStartedAt = s.state === 'loading' && Number.isFinite(s.load_started_at) ? s.load_started_at : null;
     // An Expand waiting on the load says so, and stops saying it once it
     // lands; the critic is held for the load (criticHold), and what a press
     // on it said meanwhile goes with it.
@@ -844,15 +947,19 @@ function receiveStatus(s, asked = Date.now()) {
     // beside it, outside the live region (index.html, #status-aside).
     const name = checkpointName(s.model_id);
     const state = s.state === 'ready' ? ''
-      : s.state === 'loading' ? ' · loading…'
+      : s.state === 'loading' ? (modelLoadingLabel() === 'Downloading weights' ? ' · downloading…' : ' · loading…')
       : s.state === 'error' ? ' · load failed'
+      : s.idle_unloaded ? ` · released after ${s.idle_unload_minutes} idle minutes`
       : ' · not loaded';
-    writeStatusLine(name, state);
+    const progress = s.state === 'loading'
+      ? [modelDownloadAmount(), modelLoadClock()].filter(Boolean).map((text) => ` · ${text}`).join('') : '';
+    writeStatusLine(name, state, progress);
     const aside = s.state === 'ready' && elsewhereBusy ? '· busy in another tab' : '';
     if (els.statusAside.textContent !== aside) els.statusAside.textContent = aside;
     els.statusAside.hidden = !aside;
     if (s.model_id && els.statusText.title !== s.model_id) els.statusText.title = s.model_id;
     syncLoadFailure(s);
+    if (!busy) viewerWaiting(s.state === 'loading' ? ` · ${modelLoadClock() || '0:00'}` : null);
     if (s.state === 'ready' && was !== 'ready' && unloadRefusal) {
       if (els.error.textContent === unloadRefusal) showError('');
       unloadRefusal = null;

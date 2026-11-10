@@ -731,8 +731,8 @@ function modelPickerNote() {
   const info = modelCatalogueDetails[modelState === 'loading' ? runtime : chosen] ?? {};
   const firstLoad = info.cache_state === 'complete' ? info.cache_note
     : info.download && info.download !== 'Unknown'
-      ? `Full download reference: ${info.download}. ${info.cache_note || ''} A first load may take several minutes.`
-      : 'Download size and cache completeness are unknown. A first load may download weights and take several minutes.';
+      ? `Full download reference: ${info.download}. ${info.cache_note || ''} A first download can take most of an hour on a 100 Mbit/s connection.`
+      : 'Download size and cache completeness are unknown. A first load may download weights and take most of an hour.';
   const unsaved = modelState !== 'loading' && modelPickerUnsaved();
   const unavailable = executionPickerUnavailable();
   const state = modelState === 'loading' ? `Loading ${current}… ${firstLoad}`
@@ -745,6 +745,13 @@ function modelPickerNote() {
   // pressed, not only in its row's title.
   const fitNote = modelCatalogueDetails[chosen]?.fit_note;
   const fit = fitNote ? `${modelLabel(chosen)}: ${fitNote}` : '';
+  const bytes = modelCatalogueDetails[chosen]?.download_bytes;
+  const free = modelDownload?.cache_free_bytes;
+  const cached = chosen === runtime ? modelDownload?.downloaded_bytes : 0;
+  const missing = modelCatalogueDetails[chosen]?.cache_state === 'complete' ? 0
+    : Number.isFinite(bytes) ? Math.max(0, bytes - (Number.isFinite(cached) ? cached : 0)) : null;
+  const space = Number.isFinite(free) && missing !== null && missing > free
+    ? `Cache drive: ${(free / 1e9).toFixed(1)} GB free; this download may need about ${(missing / 1e9).toFixed(1)} GB more. Free space there before loading; other apps may share this cache.` : '';
   // First, on the automatic opening: the finish that saves.
   const offer = modelPickerOffered && !lead && ['unloaded', 'error'].includes(modelState)
     ? 'Switch & load saves this choice for the next start; closing the panel saves nothing.'
@@ -756,7 +763,7 @@ function modelPickerNote() {
       && modelOpenSuggestion === chosen
     ? `No Hugging Face sign-in was found and ${current} needs one, so the open ${modelLabel(chosen)} is chosen.`
     : '';
-  return { text: [offer, suggested, lead, fit, state, modelExecutionNote()].filter(Boolean).join(' '), unsaved };
+  return { text: [offer, suggested, lead, fit, space, state, modelExecutionNote()].filter(Boolean).join(' '), unsaved };
 }
 
 function syncModelSwitch() {
@@ -766,6 +773,9 @@ function syncModelSwitch() {
   const saveWhy = modelSwitchHold({ load: false });
   const configuration = !!modelPickerSettings().execution;
   els.modelSave.textContent = configuration ? 'Save configuration' : 'Apply & save';
+  const switchWords = modelPickerOffered && modelChoice()
+    ? `Switch & load ${modelLabel(modelChoice())}` : 'Switch & load';
+  if (els.modelSwitch.textContent !== switchWords) els.modelSwitch.textContent = switchWords;
   syncExecutionControls();
   syncModelRowStates();
   syncModelTabStops();
@@ -810,6 +820,16 @@ function syncModelSwitch() {
   if (!els.modelPicker.hidden) {
     const { text, unsaved } = modelPickerNote();
     if (els.modelPickerNoteText.textContent !== text) els.modelPickerNoteText.textContent = text;
+    let progress = els.modelPickerNote.querySelector('.model-download-progress');
+    if (!progress) {
+      progress = document.createElement('span');
+      progress.className = 'model-download-progress';
+      progress.setAttribute('aria-hidden', 'true');
+      els.modelPickerNote.append(progress);
+    }
+    const loading = modelState === 'loading'
+      ? [modelDownloadAmount(), modelLoadClock()].filter(Boolean).join(' · ') : '';
+    progress.textContent = loading ? ` ${loading}` : '';
     setModelAttribute(els.modelPickerNote, 'title', modelExecutionNote());
     if (els.modelRevert.hidden === unsaved) els.modelRevert.hidden = !unsaved;
   }
@@ -1005,6 +1025,8 @@ function showModelPicker(on, { focus = true, offered = false } = {}) {
       target.focus({ preventScroll: true });
       // Opening scrolls the picker's own body to the focused row, not the page.
       revealModelControl(target);
+    } else if (offered) {
+      revealModelControl(modelRadios().find((radio) => radio.checked));
     }
   } else {
     modelPerformanceOpening = false;
@@ -1016,11 +1038,14 @@ function showModelPicker(on, { focus = true, offered = false } = {}) {
 // The automatic opening's first catalogue: with no sign-in the server names an
 // open checkpoint for its gated default, chosen here as a click on its row
 // would be (unsaved; Revert puts the default back). Never with a choice
-// already made, never focused or scrolled to; a list without it changes nothing.
+// already made or focused; only the picker's own scroller moves to the choice.
 function suggestOpenModel() {
   if (modelSuggestionTried || !modelPickerOffered || !modelCatalogueLoaded || modelCataloguePending) return;
   modelSuggestionTried = true;
   const id = modelOpenSuggestion;
+  // A signed-in or explicitly selected checkpoint also needs its selected
+  // row in view when the first catalogue arrived after the automatic open.
+  revealModelControl(modelRadios().find((radio) => radio.checked));
   if (!id || els.modelPicker.hidden || modelPickerEditedKeys.has('model_id') || !modelRuntimeSettings
       || modelChoice() !== modelRuntimeSettings.model_id) return;
   if (!modelRadios().some((radio) => radio.value === id)) return;
@@ -1028,6 +1053,7 @@ function suggestOpenModel() {
   modelPickerEdited('model_id');
   modelPickerSuggested = id;
   syncModelSwitch();
+  revealModelControl(modelRadios().find((radio) => radio.checked));
 }
 
 // A dialog's Open Models… for the one checkpoint it needs: the picker opens

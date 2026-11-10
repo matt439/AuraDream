@@ -224,6 +224,10 @@ function syncExecutionControls() {
   if (els.stepCacheNote.textContent !== note) els.stepCacheNote.textContent = note;
   els.stepCacheNote.classList.toggle('sr-only', !performanceChoiceInvalid(els.stepCache));
   els.stepCache.title = note;
+  const cacheAdmitted = executionCacheOptions?.some((option) => option?.value
+    && !option.unavailable_reason && !option.configuration_reason);
+  els.stepCache.closest('.execution-cache-row').hidden = !cacheAdmitted
+    && !els.stepCache.value && !performanceChoiceInvalid(els.stepCache);
   const why = executionLoadHold();
   els.load.setAttribute('aria-disabled', String(!!why));
   if (why) els.load.title = why;
@@ -252,6 +256,11 @@ function executionChoiceHeld() {
 function syncPerformanceDisclosure({ opening = false } = {}) {
   const admitted = executionChoiceAdmitted();
   const held = executionChoiceHeld();
+  if (els.modelPicker.hidden || opening) {
+    els.modelPerformance.hidden = !admitted && !held;
+  } else if (held) {
+    els.modelPerformance.hidden = false;
+  }
   if ((admitted || held) && !els.modelPerformance.open && (els.modelPicker.hidden || opening)) {
     els.modelPerformance.open = true;
   }

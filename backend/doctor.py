@@ -307,7 +307,7 @@ def check_port(host: str | None = None, port: int | None = None,
                ours: Callable[[str], bool] = server_probe.auradream_at) -> list[Check]:
     host = settings.host if host is None else host
     port = settings.port if port is None else port
-    url = server_probe.page_url(host, port)
+    url = server_probe.page_url(host, port, secure=settings.ssl_certfile is not None)
     if not port or not busy(host, port):
         return [Check(PASS, "Port", f"{port} is free; the server will be at {url}")]
     if ours(url):
@@ -335,7 +335,7 @@ def check_commit(host: str | None = None, port: int | None = None,
     mine = f"this folder is at {here}" if here is not None else "this folder's own is unknown"
     # Asked only of a held port: a refused connection is slow on Windows.
     try:
-        there = running(server_probe.page_url(host, port), passcode) if port and busy(host, port) else None
+        there = running(server_probe.page_url(host, port, secure=settings.ssl_certfile is not None), passcode) if port and busy(host, port) else None
     except server_probe.PasscodeRefused as refused:
         detail = f"{mine}. The running server {refused.reason}, so its commit was not read."
         if refused.sent or refused.locked:
@@ -519,8 +519,8 @@ def check_hf_login(token_path: Path | None = None, environ: dict[str, str] | Non
                       "(not checked with the Hub here).")]
     return [Check(WARN, "Hugging Face", "not signed in. Open checkpoints such as Animagine XL 4.0 need no "
                   "sign-in; the default, FLUX.1 Krea [dev], does.",
-                  "For a gated checkpoint, accept its licence on its Hugging Face page, then run "
-                  "`uv run hf auth login` (docs/setup.md step 6).")]
+                  "For a gated checkpoint, accept its licence on its Hugging Face page, then "
+                  f"{hf_sign_in.login_instructions()} (docs/setup.md step 6).")]
 
 
 # --- Running ------------------------------------------------------------------

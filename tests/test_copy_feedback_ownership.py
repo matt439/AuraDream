@@ -31,13 +31,14 @@ const vm = require('node:vm');
 const root = process.argv[1], scenario = process.argv[2];
 function element(tag = 'div') {
   const classes = new Set(), attrs = new Map();
-  const el = { tagName: tag.toUpperCase(), dataset: {}, children: [], parentElement: null,
+  const el = { tagName: tag.toUpperCase(), dataset: {}, style: {}, children: [], parentElement: null,
     hidden: false, disabled: false, isConnected: true, title: '', open: false,
     classList: { add: name => classes.add(name), remove: name => classes.delete(name),
       contains: name => classes.has(name), toggle(name, on) { if (on) classes.add(name); else classes.delete(name); } },
     setAttribute(name, value) { attrs.set(name, String(value)); },
     getAttribute(name) { return attrs.get(name) ?? null; }, removeAttribute(name) { attrs.delete(name); },
     append(...children) { for (const child of children) { child.parentElement = this; this.children.push(child); } },
+    before() {},
     replaceChildren(...children) { this.children = []; this.append(...children); },
     remove() { if (this.parentElement) this.parentElement.children = this.parentElement.children.filter(child => child !== this); this.isConnected = false; },
     closest(selector) {
@@ -87,7 +88,7 @@ function fixture() {
   const noop = () => {};
   const sandbox = vm.createContext({ els, window: { isSecureContext: true }, navigator: { clipboard },
     lbList: [], lbIndex: -1, galleryRecords: [a,b], galleryMore: false, total: 2,
-    viewerRecords: [], lbPickedPair: [], lbCfgShown: {}, refineSupported: true,
+    viewerRecords: [], lbPickedPair: [], lbCfgShown: {}, refineSupported: true, modelRuntimeSettings: null,
     document: { activeElement: element('body'), body: element('body'), querySelector: () => null,
       createElement: tag => element(tag), execCommand: poison('execCommand') },
     requestAnimationFrame: callback => callback(), setTimeout: callback => { timers.push(callback); return timers.length; },

@@ -139,6 +139,22 @@ class Installed:
         self._levels.append((target, target.level))
         target.setLevel(level)
 
+    def startup_refusal(self, message: str) -> None:
+        """Keep a refusal already printed to stderr, whatever the log level.
+
+        Starting must explain itself even at CRITICAL. The caller prints the
+        words independently of logging, so this record goes to the owned file
+        alone, without a second console line or the configured-level filter.
+        """
+        if self.handler is None:
+            return
+        record = log.makeRecord(log.name, logging.ERROR, __file__, 0, message, (), None)
+        self.handler.acquire()
+        try:
+            self.handler.emit(record)
+        finally:
+            self.handler.release()
+
     def close(self) -> None:
         handler, self.handler = self.handler, None
         if handler is None:

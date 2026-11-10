@@ -110,7 +110,8 @@ def _via_server(args, parser: argparse.ArgumentParser, source, carried, mask_ima
             raise ValueError
     except ValueError:
         parser.error("AURADREAM_PORT must be a port from 1 to 65535")
-    base = f"http://{host}:{port}"
+    scheme = "https" if os.getenv("AURADREAM_SSL_CERTFILE", "").strip() else "http"
+    base = f"{scheme}://{host}:{port}"
     headers = {}
     job_id = None
     try:

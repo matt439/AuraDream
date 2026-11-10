@@ -23,6 +23,7 @@ import logging
 import os
 from dataclasses import dataclass
 
+from . import hf_sign_in
 from .launch import CHECKPOINTS
 from .model_info import download_facts, download_references
 
@@ -34,7 +35,7 @@ log = logging.getLogger("auradream")
 REQUEST_SECONDS = 4.0
 CHECK_SECONDS = 9.0
 
-LOGIN = "run `uv run hf auth login` once with a read token"
+LOGIN = hf_sign_in.login_instructions()
 
 
 def denied(repo_id: str, page: str, then: str) -> str:
@@ -42,7 +43,8 @@ def denied(repo_id: str, page: str, then: str) -> str:
     expired or without permission for `repo_id`. Shared by a switch's check
     and a failed load (`main._load_failure`), which differ only in where the
     page is (`page`) and what to do after (`then`)."""
-    return f"Hugging Face refused this sign-in for {repo_id}: check its access on {page}, {LOGIN}, then {then}."
+    login = hf_sign_in.login_instructions(replace=True)
+    return f"Hugging Face refused this sign-in for {repo_id}: check its access on {page}, {login}, then {then}."
 
 
 @dataclass(frozen=True)

@@ -78,6 +78,88 @@ let refineReturn = null;
 let lbSeedNote = null;
 // A failed download belongs to the image it was requested for.
 let lbDownloadError = null;
+// Only the current image's thumbnail is drawn while its PNG arrives. Opacity
+// hides the previous decoded PNG immediately while keeping its hit target,
+// zoom and gestures in the same place. Neighbour requests retain two images
+// at most and begin only after the current picture has loaded and settled.
+let lbThumb = null;
+let lbImageRecord = null;
+let lbImageTicket = 0;
+let lbNeighbourTimer;
+const lbNeighbourImages = new Map();
+
+function lightboxThumbnail() {
+  if (!lbThumb) {
+    lbThumb = document.createElement('img');
+    lbThumb.className = 'lb-thumb';
+    lbThumb.alt = '';
+    lbThumb.setAttribute('aria-hidden', 'true');
+    lbThumb.hidden = true;
+    lbThumb.onerror = () => { if (lbThumb.complete && !lbThumb.naturalWidth) lbThumb.hidden = true; };
+    els.lbImg.before(lbThumb);
+  }
+  return lbThumb;
+}
+
+function clearLightboxNeighbours() {
+  clearTimeout(lbNeighbourTimer);
+  for (const image of lbNeighbourImages.values()) image.removeAttribute('src');
+  lbNeighbourImages.clear();
+}
+
+function lightboxNeighbourUrls(rec) {
+  return new Set([lbList[lbIndex - 1]?.url, lbList[lbIndex + 1]?.url].filter((url) => url && url !== rec.url));
+}
+
+function keepLightboxNeighbours(urls) {
+  for (const [url, image] of lbNeighbourImages) {
+    if (urls.has(url)) continue;
+    image.removeAttribute('src');
+    lbNeighbourImages.delete(url);
+  }
+}
+
+function preloadLightboxNeighbours() {
+  clearTimeout(lbNeighbourTimer);
+  const rec = lbList[lbIndex], ticket = lbImageTicket;
+  lbNeighbourTimer = setTimeout(() => {
+    if (!els.lightbox.open || lbList[lbIndex] !== rec || lbImageTicket !== ticket) return;
+    const urls = lightboxNeighbourUrls(rec);
+    keepLightboxNeighbours(urls);
+    for (const url of urls) {
+      if (lbNeighbourImages.has(url)) continue;
+      const image = new Image();
+      image.decoding = 'async';
+      image.src = url;
+      lbNeighbourImages.set(url, image);
+    }
+  }, 200);
+}
+
+function showLightboxImage(rec, retry = false) {
+  const changed = lbImageRecord !== rec || els.lbImg.getAttribute('src') !== rec.url;
+  if (changed || retry) {
+    lbImageTicket += 1;
+    lbImageRecord = rec;
+    clearTimeout(lbNeighbourTimer);
+    const thumb = lightboxThumbnail();
+    thumb.hidden = !rec.thumb_url || rec.thumb_url === rec.url;
+    if (thumb.hidden) thumb.removeAttribute('src'); else thumb.src = rec.thumb_url;
+    els.lbImg.style.opacity = '0';
+    if (lbLoadError && els.lbError.textContent === lbLoadError) showError('', false, { slot: els.lbError, mirror: false });
+    lbLoadError = '';
+    els.lbImg.src = rec.url;
+    keepLightboxNeighbours(lightboxNeighbourUrls(rec));
+  }
+  // A cached PNG may already be ready; this also refreshes neighbours when
+  // another gallery page arrives while the current image stays in view.
+  if (els.lbImg.complete && els.lbImg.naturalWidth) lbImageLoaded();
+}
+
+function translateLightboxImage(value) {
+  els.lbImg.style.translate = value;
+  if (lbThumb) lbThumb.style.translate = value;
+}
 const LB_SIDE_GAP = 8;
 // How far the arrows' circles reach in from the stage's edges: style.css's
 // --lb-nav (40 px, 52 from 1800 px) and its 10 px inset, measured off the ›
@@ -227,6 +309,10 @@ function layoutLightbox() {
   const pass = boxIn(minePort);
   placeBox(els.lbImg, pass);
   els.lbImg.style.clipPath = ports.length > 1 ? clipBox(pass, rectOf(minePort)) : '';
+  if (lbThumb) {
+    placeBox(lbThumb, pass);
+    lbThumb.style.clipPath = els.lbImg.style.clipPath;
+  }
   layoutCompare(rec, ports, pass, boxIn, rectOf);
   // The mode keeps its name where the halves are stacked; its title says
   // which way they go, or would on a press (lbStacked): before the press it
@@ -478,7 +564,7 @@ function renderLightbox() {
     lbView.scale = clampScale(rec, lbView.scale);
   }
   lbView.aspect = aspect;
-  if (els.lbImg.getAttribute('src') !== rec.url) els.lbImg.src = rec.url;
+  showLightboxImage(rec);
   els.lbImg.alt = rec.prompt;
   els.lbPrompt.textContent = rec.prompt;
   // An edit's prompt is its instruction, and says so (instruction-edit.css).
@@ -681,6 +767,10 @@ function closeLightbox({ keepPicker = false } = {}) {
   // The readouts written only when they change start empty, so the next
   // open says where it is and at what zoom, as a fresh open always did.
   clearTimeout(lbZoomTimer);
+  clearLightboxNeighbours();
+  lbImageTicket += 1;
+  lbImageRecord = null;
+  if (lbThumb) { lbThumb.hidden = true; lbThumb.removeAttribute('src'); }
   els.lbCount.textContent = els.lbZoom.textContent = els.lbZoomSaid.textContent = '';
   els.lbImg.src = '';
   els.lbSrcImg.removeAttribute('src');
@@ -828,7 +918,9 @@ function returnToLightbox(place) {
 let lbLoadError = '';
 async function lbImageFailed() {
   const rec = lbList[lbIndex];
-  if (!els.lightbox.open || !rec || els.lbImg.getAttribute('src') !== rec.url) return;
+  const ticket = lbImageTicket;
+  if (!els.lightbox.open || !rec || els.lbImg.getAttribute('src') !== rec.url
+      || !els.lbImg.complete || els.lbImg.naturalWidth) return;
   let offline = serverOffline;
   let said = OFFLINE_MESSAGE;
   if (!offline) {
@@ -842,12 +934,18 @@ async function lbImageFailed() {
           : 'This image could not be loaded.';
     }
   }
-  if (lbList[lbIndex] !== rec || els.lbImg.complete && els.lbImg.naturalWidth) return;
+  if (!els.lightbox.open || lbList[lbIndex] !== rec || lbImageTicket !== ticket || els.lbImg.complete && els.lbImg.naturalWidth) return;
   lbLoadError = said;
   showError(said, false, { slot: els.lbError, mirror: false, offline });
 }
 
 function lbImageLoaded() {
+  const rec = lbList[lbIndex];
+  if (!els.lightbox.open || !rec || lbImageRecord !== rec || els.lbImg.getAttribute('src') !== rec.url
+      || !els.lbImg.complete || !els.lbImg.naturalWidth) return;
+  els.lbImg.style.opacity = '';
+  if (lbThumb) lbThumb.hidden = true;
+  preloadLightboxNeighbours();
   if (lbLoadError && els.lbError.textContent === lbLoadError) showError('', false, { slot: els.lbError, mirror: false });
   lbLoadError = '';
 }
@@ -857,8 +955,7 @@ function lbImageLoaded() {
 function retryLightboxImage() {
   const rec = lbList[lbIndex];
   if (!els.lightbox.open || !rec || lbLoadError !== OFFLINE_MESSAGE || els.lbImg.naturalWidth) return;
-  lbLoadError = '';
-  els.lbImg.src = rec.url;
+  showLightboxImage(rec, true);
 }
 
 // Wheel: zoom about the pointer. Wired non-passive (app.js), or the page
@@ -916,7 +1013,7 @@ function lbTouchDown(e) {
   if (lbTouches.size === 2) {
     lbDrag = null;
     lbSwipe = null;
-    els.lbImg.style.translate = '';
+    translateLightboxImage('');
     lbPinch = lbPinchState();
     return;
   }
@@ -945,7 +1042,7 @@ function lbTouchMove(e) {
   lbSwipe.dx = dx; lbSwipe.dy = dy;
   // Sideways follows the finger; down only, and only as a close would.
   const across = Math.abs(dx) >= Math.abs(dy);
-  els.lbImg.style.translate = across ? `${dx}px 0` : `0 ${Math.max(0, dy)}px`;
+  translateLightboxImage(across ? `${dx}px 0` : `0 ${Math.max(0, dy)}px`);
 }
 
 function lbTouchUp(e) {
@@ -963,7 +1060,7 @@ function lbTouchUp(e) {
   }
   const swipe = lbSwipe;
   lbSwipe = null;
-  els.lbImg.style.translate = '';
+  translateLightboxImage('');
   if (swipe && lbDrag?.moved) {
     lbDrag = null;
     const { dx, dy } = swipe;
@@ -996,14 +1093,14 @@ function lbTouchUp(e) {
 function lbForgetPress() {
   lbDrag = null;
   lbSwipe = null;
-  els.lbImg.style.translate = '';
+  translateLightboxImage('');
   els.lbStage.classList.remove('dragging');
 }
 
 function lbTouchCancel(e) {
   lbTouches.delete(e.pointerId);
   lbPinch = null; lbSwipe = null;
-  els.lbImg.style.translate = '';
+  translateLightboxImage('');
   lbPointerCancel();
 }
 

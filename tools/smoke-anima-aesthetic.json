@@ -8,7 +8,7 @@
   {"expect": "els.stepsTip.textContent.includes('30-50') && els.cfgTip.textContent.includes('4-5') && els.gridSteps.placeholder === '23,30,38' && els.gridCfg.placeholder === '3,4,5'"},
   {"expect": "els.mu.disabled && els.gridMu.disabled && els.trueCfg.disabled && !els.negative.disabled"},
   {"expect": "!referenceSupported && !refineSupported && lastDefaults.refine_settled && els.lora.disabled && els.gridLoraScale.disabled"},
-  {"expect": "els.loraTip.textContent === 'User LoRAs are not supported by this Anima Aesthetic integration' && els.gridLoraTip.textContent === els.loraTip.textContent && els.muTip.textContent.startsWith('Unavailable: Anima Aesthetic')"},
+  {"expect": "els.loraTip.textContent === 'User LoRAs are not supported by this Anima Aesthetic integration' && els.gridLoraTip.textContent === els.loraTip.textContent && els.muTip.textContent.startsWith('Mu cannot be changed for this checkpoint. ') && els.muTip.textContent.includes('Unavailable: Anima Aesthetic')"},
   {"log": "'The guide names Aesthetic and the advice for score tags in both prompts; the author example is complete and can be checked'"},
   {"expect": "tagVocabularyEnabled && !els.tagHelper.hidden && els.prompt.spellcheck"},
   {"log": "'Aesthetic\\'s Tags menu is the family\\'s order and sections, less the score tags its section advises against, and offers no prefix: the card\\'s carries score_7'"},

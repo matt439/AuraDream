@@ -338,6 +338,10 @@ def test_hf_login_is_the_token_file_only(tmp_path):
     token = tmp_path / "token"
     [missing] = doctor.check_hf_login(token, environ={})
     assert missing.status == WARN and "hf auth login" in missing.fix
+    assert str(Path(doctor.__file__).resolve().parents[1]) in missing.fix
+    assert '"Log in with your browser"' in missing.fix
+    assert "pasted input hidden" in missing.fix
+    assert "double-click install.cmd" in missing.fix and "answer y" in missing.fix
     token.write_text("hf_secretvalue")
     [present] = doctor.check_hf_login(token, environ={})
     assert present.status == PASS and "hf_secretvalue" not in present.detail

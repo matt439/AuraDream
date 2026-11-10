@@ -4,6 +4,55 @@ For a first install, follow [first-time setup](setup.md); for launch options,
 sizes and environment variables, see the [README](../README.md). The [anime model guide](anime-model-guide.md) helps
 choose a checkpoint; [verified.md](verified.md) records measured performance.
 
+## Quick questions
+
+**Where are my images?** Every finished image is saved automatically in
+Gallery and as a PNG in the project's `outputs/` folder unless you changed
+`AURADREAM_OUTPUTS_DIR`. Keep the PNGs and `auradream.db` together for a full
+backup. Binning an image keeps it recoverable until you empty the bin.
+
+**Why is the first image slow?** The first load downloads a checkpoint,
+sometimes converts it, then moves it into memory. Later loads reuse those
+files. Generating after **Unload** still needs to load them again. A large
+model can take most of an hour to download. The loading line shows an
+approximate cache-byte count when available; the server window has the
+download library's progress. [Setup](setup.md#7-start-the-server-and-make-an-image) explains
+the first load.
+
+**Which model should I start with?** Use the starting settings of the model
+you choose. Animagine XL 4.0 is a smaller download and uses less memory,
+especially on an 8 GB card; its style is anime. FLUX.1 Krea [dev] is the
+larger default for general pictures and needs a Hugging Face sign-in and
+accepted terms. The [anime model guide](anime-model-guide.md) compares
+those styles, and the capability table below says which actions each supports.
+
+**My picture looks wrong.** Start with **Examples** for your selected
+checkpoint: models expect different prompting styles. Try its default
+settings, then change one thing at a time. **Check** can explain prompt
+issues. For a failed load or memory error, see
+[setup troubleshooting](setup.md#if-something-goes-wrong); for help reporting
+a problem, see [Getting help](setup.md#getting-help).
+
+## A short glossary
+
+- **Checkpoint / model:** the downloaded weights that determine the image's
+  style and supported actions. Models lists the choices.
+- **Steps:** how many rounds the model uses to make a picture. More takes
+  longer and is not always better; start with the checkpoint's default.
+- **CFG / Guidance:** how strongly the model follows the prompt. Too much
+  can spoil the picture. The meaning and useful range depend on the model.
+- **True CFG:** a separate prompt-versus-negative comparison on models that
+  support it, usually with extra work per step. It is distinct from a
+  distilled model's ordinary Guidance control.
+- **Mu:** a shift in when the model spends its work during generation, on
+  models with the supported flow schedule. Leave the starting value unless
+  the checkpoint's guide recommends another.
+- **Quantization:** storing model weights with fewer bits to reduce memory.
+  **fp8** is the default; other choices can change speed, memory and results.
+- **Offload:** moving weights between RAM and the GPU to reduce video memory.
+  **Model** moves whole components; **Sequential** moves smaller pieces and
+  is usually slower. **None** keeps them on the GPU and needs more room.
+
 ## Load and switch models
 
 **Load** loads the selected checkpoint; **Generate** loads it automatically when
@@ -228,6 +277,26 @@ loaded, not measurements; `docs/verified.md` lists what has run on the card.
 
 The table is generated (`python tools/capability_table.py --write`), and a
 test fails while it differs from the catalogue.
+
+### Inspect model storage
+
+While signed in, open `/api/models/storage` on the same server for a
+read-only JSON inventory. It runs only when requested, off the server's
+request loop, and never deletes anything. It lists measured cached bytes
+for each catalogue selection, converted copies, shared bytes, the Hub cache
+total, incomplete downloads and free space on the cache drive. Model rows
+can share the same files, so adding their totals double-counts them.
+Unknown selected-file lists have a null `cached_bytes` rather than a guess.
+
+Repositories and revisions show which retained catalogue references name
+them. **Unreferenced does not mean safe to delete:** prompt helpers and
+other apps can need those files, and the retained lists can lag a mutable
+upstream branch. `store_only_bytes` is the Hub's shared-store data with no
+scanned snapshot; it is reported separately. These are file bytes rather
+than allocated disk space; incomplete/corrupt repositories may be omitted
+with a warning, and Xet's chunk cache is outside the inventory. The numbers
+can change during a download. For manual cleanup while stopped, follow
+[Free disk space](setup.md#free-disk-space).
 
 ## Generate and manage jobs
 
@@ -1180,18 +1249,20 @@ What the passcode is worth over plain http:
 - So it keeps out people who can merely reach the address: the household, a
   guest on the Wi-Fi. It is not protection on a network that is not
   trusted, and never a reason to forward the port to the internet.
-- HTTPS is what makes it private, which AuraDream does not serve yet: until
-  then, a VPN or an HTTPS proxy.
+- HTTPS encrypts that traffic; use the [HTTPS recipe](setup.md#https-for-a-phone)
+  or a trusted VPN.
 - Do not reuse a password from anywhere else: it sits in plain text in the
   environment file and the process's environment.
 - There is one passcode and no accounts. Changing it and restarting signs
   every device out; nothing else does.
 
-Behind a proxy, list its public
-hostname in `AURADREAM_ALLOWED_HOSTS` and serve it on the same port as
-`AURADREAM_PORT`: the server refuses a write whose `Origin` names
-another host or port, so a proxy on 443 in front of 7860 has every write
-refused. At start-up the server logs a warning whenever it binds to anything
+Behind a proxy, list its public hostname in `AURADREAM_ALLOWED_HOSTS`
+and its exact origin in `AURADREAM_ALLOWED_ORIGINS` (for example,
+`https://dream.home.arpa`). A proxy on 443 can then forward to loopback
+7860. Other hosts and origins remain refused; origins contain no path or
+wildcard. Direct TLS instead uses `AURADREAM_SSL_CERTFILE` and
+`AURADREAM_SSL_KEYFILE` together. The [setup recipe](setup.md#https-for-a-phone)
+covers certificates and client trust. At start-up the server logs a warning whenever it binds to anything
 other than loopback with no passcode, and with one, a line saying it is
 asked and what plain http leaves readable. Every response says the page may be framed only by
 itself (`Content-Security-Policy: frame-ancestors 'self'`) and that a file's
@@ -1233,6 +1304,15 @@ doctor's **Keep awake** row tries the same hold and lets go at once: on
 Linux it prints a polkit rule that allows a refused one, on Windows it gives
 Windows' own words. Waking a suspended PC from the network is outside
 AuraDream.
+
+To release the image model automatically after use, set
+`AURADREAM_IDLE_UNLOAD_MINUTES` to a whole number of minutes and restart
+(default `0`, off). Timed page polls do not count as use. Jobs, loading,
+prompt work, bundles and model requests finish first, followed by a full
+idle interval. The page says when it released the model; Generate or Load
+loads it again. It uses the same activity clock even with keep-awake off.
+This gives back model resources, without promising that the process's RAM
+returns to its startup size.
 
 The Windows hold has been tried only as a call that Windows accepted and
 released (2026-11-10); that the PC then stays awake past its sleep timer
@@ -1309,6 +1389,9 @@ thumbnails. The old database is replaced with a compact empty gallery, ready
 for new images. The bundle includes the database, full-size PNGs, thumbnails
 and unindexed PNGs; generation settings, favourites, timings and image
 relationships are retained, and images in the recycle bin come back in it.
+Before uninstalling or deleting the project folder, **Download** the bundle
+or copy it outside that folder. A saved bundle inside `bundles/` would be
+deleted along with the app.
 Model weights, LoRAs and browser preferences are not part of a gallery
 bundle.
 

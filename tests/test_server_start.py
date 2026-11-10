@@ -18,6 +18,13 @@ import pytest
 from backend import main, server_probe
 
 
+@pytest.fixture(autouse=True)
+def scratch_startup_log(tmp_path, monkeypatch):
+    # Startup refusals now write a log too. The port tests do not all need
+    # a fake backend, but none may write beside the user's gallery.
+    monkeypatch.setattr(main, "settings", dataclasses.replace(main.settings, db_path=tmp_path / "auradream.db"))
+
+
 def _page(title: bytes):
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):  # noqa: N802 - http.server's name
@@ -200,6 +207,7 @@ def test_open_waits_until_the_server_is_listening(fake, monkeypatch, opened):
     monkeypatch.setattr(main.webbrowser, "open", record)
     main.run(open_browser=True)
     assert opened == [f"http://127.0.0.1:{port}/"] and seen_started == [True, True]
+    assert not servers[0].config.access_log
 
 
 def test_without_open_no_browser_is_asked_for(fake, monkeypatch, opened):

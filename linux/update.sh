@@ -92,6 +92,7 @@ fi
 if load_env_file; then note "Read the service's settings from $ENV_FILE."; fi
 cd "$ROOT"
 port=$(server_port)
+scheme=$(server_scheme)
 
 # 1. Not while AuraDream runs -----------------------------------------------------
 if service_active; then
@@ -101,7 +102,7 @@ if service_active; then
     busy_code=0
     busy=$(server_busy "$port") || busy_code=$?
     if [ "$busy_code" != 0 ]; then
-        stop_update "The AuraDream service is running, and whether it is busy could not be asked at http://127.0.0.1:$port/: ${busy:-no python to ask with}." 'Wait for it to finish its work, stop it with: systemctl --user stop auradream, then run bash linux/update.sh again.'
+        stop_update "The AuraDream service is running, and whether it is busy could not be asked at $scheme://127.0.0.1:$port/: ${busy:-no python to ask with}." 'Wait for it to finish its work, stop it with: systemctl --user stop auradream, then run bash linux/update.sh again.'
     elif [ -n "$busy" ]; then
         stop_update "The AuraDream service is busy: $busy." 'Let it finish (or cancel it in the page), then run bash linux/update.sh --restart again.'
     fi
@@ -117,8 +118,11 @@ elif [ "$restart" = 1 ]; then
     note 'The AuraDream service is not running, so there is nothing to restart; updating only.'
 fi
 state=$(auradream_state "$port")
+if [ "$state" = tls_unverified ]; then
+    stop_update "The configured HTTPS listener at $scheme://127.0.0.1:$port/ could not be verified." 'Use a trusted certificate including 127.0.0.1, or stop that listener before updating. Certificate verification stays on.'
+fi
 if [ "$state" = auradream ] && ! { [ "$dry_run" = 1 ] && [ "$restart" = 1 ]; }; then
-    stop_update "AuraDream is running at http://127.0.0.1:$port/. Updating under it could break the gallery database copy and the packages it is using." 'Stop it first: press Ctrl-C in its terminal (or systemctl --user stop auradream for the service), wait for it to finish, then run bash linux/update.sh again.'
+    stop_update "AuraDream is running at $scheme://127.0.0.1:$port/. Updating under it could break the gallery database copy and the packages it is using." 'Stop it first: press Ctrl-C in its terminal (or systemctl --user stop auradream for the service), wait for it to finish, then run bash linux/update.sh again.'
 fi
 [ "$state" != other ] || note "Another program is using port $port; it is not AuraDream, so carrying on."
 [ "$state" != unknown ] || note "Could not check port $port (no .venv python and no curl); the process check below still runs."

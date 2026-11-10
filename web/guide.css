@@ -1,0 +1,23 @@
+/* Standalone read-only guide; the app's tokens and base load first. */
+.guide-page { display: block; margin: 0; padding: var(--gutter); font-size: var(--fs-xl); line-height: var(--lh); }
+.guide-page nav, .guide-page main { width: min(100%, 960px); margin-inline: auto; }
+.guide-page main { display: block; padding: 0; }
+.guide-page nav { display: flex; gap: var(--sp-5); padding-block: var(--sp-3); }
+.guide-page a { color: var(--accent-2); overflow-wrap: anywhere; }
+.guide-page h1, .guide-page h2, .guide-page h3 { line-height: var(--lh-tight); scroll-margin-top: var(--sp-5); }
+.guide-page h1 { margin-block: var(--sp-5); font-size: 2em; }
+.guide-page h2 { margin-block: var(--sp-6) var(--sp-4); font-size: 1.5em; }
+.guide-page h3 { margin-block: var(--sp-5) var(--sp-3); font-size: 1.2em; }
+.guide-page p, .guide-page li { overflow-wrap: anywhere; }
+.guide-page li + li { margin-top: var(--sp-2); }
+.guide-page pre { overflow-x: auto; padding: var(--sp-4); border-radius: var(--r-md); background: var(--panel-2); }
+.guide-page code { color: var(--text-2); font-size: 0.9em; }
+.guide-page pre code { white-space: pre; }
+.guide-page table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; }
+.guide-page th, .guide-page td { padding: var(--sp-2) var(--sp-3); border: 1px solid var(--line-strong); text-align: left; }
+.guide-page th { background: var(--panel-2); }
+.guide-page blockquote { margin-inline: 0; padding-left: var(--sp-4); border-left: 2px solid var(--accent-2); color: var(--text-2); }
+.guide-page img { max-width: 100%; height: auto; }
+@media (pointer: coarse) {
+  .guide-page nav a { min-height: 44px; display: inline-flex; align-items: center; }
+}

@@ -261,8 +261,10 @@ function Test-AuraDreamAt([int]$Port) {
         $client.Close()
     }
     try {
-        $request = [System.Net.WebRequest]::Create("http://127.0.0.1:$Port/")
+        $scheme = if ($env:AURADREAM_SSL_CERTFILE) { 'https' } else { 'http' }
+        $request = [System.Net.WebRequest]::Create("${scheme}://127.0.0.1:$Port/")
         $request.Proxy = $null
+        $request.AllowAutoRedirect = $false
         $request.Timeout = 2000
         $response = $request.GetResponse()
         try {
@@ -270,7 +272,13 @@ function Test-AuraDreamAt([int]$Port) {
             $page = $reader.ReadToEnd()
         } finally { $response.Close() }
         if ($page -match '<title>AuraDream</title>') { return 'auradream' }
-    } catch { }
+    } catch {
+        $failure = $_.Exception
+        while ($null -ne $failure) {
+            if ($env:AURADREAM_SSL_CERTFILE -and $failure -is [System.Net.WebException] -and $failure.Status -in @('TrustFailure', 'SecureChannelFailure')) { return 'tls_unverified' }
+            $failure = $failure.InnerException
+        }
+    }
     return 'other'
 }
 
@@ -330,8 +338,13 @@ if ($Root.StartsWith('\\')) {
 # running AuraDream is using, as update.cmd refuses to.
 $port = 7860
 if ($env:AURADREAM_PORT -match '^\d+$') { $port = [int]$env:AURADREAM_PORT }
-if ((Test-AuraDreamAt $port) -eq 'auradream') {
-    Stop-Install "AuraDream is running at http://127.0.0.1:$port/. Installing under it could break the packages it is using." 'Stop it first: press Ctrl-C in its window (answer Y if asked), wait for the window to finish, then run install.cmd again.'
+$scheme = if ($env:AURADREAM_SSL_CERTFILE) { 'https' } else { 'http' }
+$serverUrl = "${scheme}://127.0.0.1:$port/"
+$state = Test-AuraDreamAt $port
+if ($state -eq 'tls_unverified') {
+    Stop-Install "The configured HTTPS listener at $serverUrl could not be verified." 'Use a trusted certificate including 127.0.0.1, or stop that listener before installing. Certificate verification stays on.'
+} elseif ($state -eq 'auradream') {
+    Stop-Install "AuraDream is running at $serverUrl. Installing under it could break the packages it is using." 'Stop it first: press Ctrl-C in its window (answer Y if asked), wait for the window to finish, then run install.cmd again.'
 } else {
     $running = @(Get-VenvProcesses)
     if ($running.Count -gt 0) {
@@ -357,9 +370,10 @@ if (-not $inOneDrive -and $Root.Length -le 80 -and $Root -notmatch '[^\x00-\x7F]
 # 2. GPU and driver -----------------------------------------------------------
 Step 'NVIDIA GPU and driver'
 $vramGB = $null
+$ramGiB = $null
 $smi = Find-Tool 'nvidia-smi'
 if (-not $smi) {
-    Stop-Install 'nvidia-smi was not found, so there is no working NVIDIA driver. AuraDream needs an NVIDIA GPU.' "Install the current driver from $DriverUrl, reboot, and run install.cmd again."
+    Stop-Install 'nvidia-smi was not found. AuraDream needs an NVIDIA GPU; AMD and Intel graphics are not supported.' "If this PC has an NVIDIA card, install its current driver from $DriverUrl, reboot, and run install.cmd again. Installing that driver does not make an AMD or Intel card work."
 } else {
     $header = Invoke-Capture $smi @()
     if ($header.Code -ne 0) {
@@ -397,7 +411,7 @@ if (-not $smi) {
             if ($vramGB -ge 15.5) {
                 Ok "$vramGB GB of video memory. The measured card is a 16 GB RTX 5080."
             } else {
-                Note "$vramGB GB of video memory. Only a 16 GB card has been measured; whether a checkpoint fits less is not known. The SDXL anime checkpoints are the lightest, and sequential offload (under Models) uses less video memory, more slowly."
+                Note "$vramGB GB of video memory. Animagine XL 4.0 was measured on an 8 GB RTX 3070 under native Linux; the other measured card is a 16 GB RTX 5080 on Windows. This does not establish that every checkpoint fits 8 GB. The SDXL anime checkpoints are the lightest; sequential offload (under Models) uses less video memory, more slowly."
             }
         }
         $more = @($query.Text -split "`n" | Where-Object { $_ -match ',' }).Count
@@ -489,7 +503,8 @@ if ($isCheckout) {
     }
 } else {
     Note 'This folder has no .git: it came from a ZIP download, which cannot update itself.'
-    Say '  It can be turned into a Git checkout of the latest AuraDream, so update.cmd works. That downloads'
+    Say '  Git keeps the code history and lets update.cmd fetch new versions without downloading another ZIP.'
+    Say '  This folder can be turned into a Git checkout of the latest AuraDream. That downloads'
     Say '  the code history into a .git folder and makes the code files match the latest version. Your own'
     Say '  files (images, gallery, settings, LoRAs) are not part of the code and are left alone; any code file'
     Say '  that differs from the latest version is first copied to a zip-files-replaced-<date> folder here.'
@@ -665,7 +680,7 @@ if (Test-Path -LiteralPath $venvPython) {
     Push-Location -LiteralPath $Root
     try { $code = Invoke-Live $venvPython @('-m', 'backend.doctor') } finally { Pop-Location }
     if ($code -ne 0) { Warn 'The check found a problem (FAIL above). AuraDream may not work until it is fixed; the line says what to do.' }
-    else { Ok 'No problems found.' }
+    else { Ok 'No FAIL rows. Read any WARN rows above; they may need a choice or a follow-up.' }
 } else {
     Would 'run the read-only machine check: .venv\Scripts\python.exe -m backend.doctor'
 }
@@ -684,23 +699,23 @@ $hfTokenFile = $env:HF_TOKEN_PATH
 if (-not $hfTokenFile) { $hfTokenFile = Get-UserVariable 'HF_TOKEN_PATH' }
 if (-not $hfTokenFile) { $hfTokenFile = Join-Path $hfEffective 'token' }
 if ($hfTokenSet) {
-    Ok 'Already signed in to Hugging Face (a token is set in HF_TOKEN or HUGGING_FACE_HUB_TOKEN).'
-    $wantGated = $true
+    Ok 'A Hugging Face token is present (a token is set in HF_TOKEN or HUGGING_FACE_HUB_TOKEN).'
 } elseif (Test-Path -LiteralPath $hfTokenFile -PathType Leaf) {
-    Ok "Already signed in to Hugging Face (a token is saved in $(Split-Path -Parent $hfTokenFile))."
-    $wantGated = $true
+    Ok "A Hugging Face token is present (a token is saved in $(Split-Path -Parent $hfTokenFile))."
 } else {
     Say '  The default checkpoint, FLUX.1 Krea [dev], is gated: it needs a free Hugging Face account, accepting'
-    Say '  its licence (non-commercial) and a read token. Open checkpoints such as Animagine XL 4.0 need none,'
+    Say '  its licence (non-commercial) and signing in. Open checkpoints such as Animagine XL 4.0 need none,'
     Say '  are a much smaller download and lighter on memory: a good first start.'
+    Say '  At the login menu, press Enter for "Log in with your browser", then open its URL and enter its code.'
+    Say '  No copied token is needed. The fallback "Paste an access token" takes a Read token; pasted input stays hidden.'
     $wantGated = Ask-YesNo 'Set up the Hugging Face sign-in for the default checkpoint now?' $false
     if (-not $wantGated -and (Test-SavedChoices)) {
-        Ok 'Skipped. AuraDream starts on the choices saved in its Models panel. Sign in later with: uv run hf auth login (docs/setup.md step 6).'
+        Ok 'Skipped. AuraDream starts on the choices saved in its Models panel.'
     } elseif (-not $wantGated) {
-        Ok "Skipped. AuraDream will start on an open checkpoint ($OpenModel). Sign in later with: uv run hf auth login (docs/setup.md step 6)."
+        Ok "Skipped. AuraDream will start on an open checkpoint ($OpenModel)."
     } elseif ($DryRun) {
-        Would 'open https://huggingface.co/join, https://huggingface.co/black-forest-labs/FLUX.1-Krea-dev and https://huggingface.co/settings/tokens in the browser'
-        Would 'run: uv run hf auth login (you paste the token into Hugging Face''s own tool; this script never sees it)'
+        Would 'open https://huggingface.co/join and https://huggingface.co/black-forest-labs/FLUX.1-Krea-dev in the browser'
+        Would 'run: uv run hf auth login (choose Log in with your browser; Hugging Face saves the sign-in)'
     } else {
         Say '  1. Create a free account (skip if you have one).'
         Start-Process 'https://huggingface.co/join'
@@ -708,21 +723,44 @@ if ($hfTokenSet) {
         Say "  2. Accept the licence on the checkpoint's page."
         Start-Process "https://huggingface.co/$GatedModel"
         Wait-Enter 'When you have accepted it'
-        Say '  3. Create a token: Create new token, type Read. Copy it.'
-        Start-Process 'https://huggingface.co/settings/tokens'
-        Wait-Enter 'When you have copied the token'
-        Say "  4. Paste it below. Hugging Face's own tool asks for it and saves it; this script never sees it."
+        Say '  3. Press Enter for "Log in with your browser" below, then follow the URL and code it shows.'
+        Say '  If the code expires, run the login again for a new one. Hugging Face saves the sign-in.'
+        Say '  To use "Paste an access token" instead, create a Read token at https://huggingface.co/settings/tokens.'
+        Say '  Pasted input stays hidden. This script never sees your token.'
         Push-Location -LiteralPath $Root
         try { $code = Invoke-Live $uv @('run', 'hf', 'auth', 'login') } finally { Pop-Location }
         if ($code -ne 0) {
-            Warn "The sign-in did not finish (exit $code). Run it again later from the project folder: uv run hf auth login"
+            Warn "The sign-in did not finish (exit $code)."
             $wantGated = $false
         } else { Ok 'Signed in to Hugging Face.' }
+    }
+    if (-not $wantGated) {
+        Say "  To sign in later, open PowerShell in '$Root' and run: uv run hf auth login"
+        Say '  Or stop AuraDream, double-click install.cmd in that folder again and answer y at the Hugging Face step (docs/setup.md step 6).'
+    }
+}
+if ($hfTokenSet -or (Test-Path -LiteralPath $hfTokenFile -PathType Leaf)) {
+    if (Test-SavedChoices) {
+        Note 'The first start keeps the checkpoint already saved in Models.'
+    } else {
+        Say '  A token does not prove access to FLUX.1 Krea [dev]: accept its licence on Hugging Face first.'
+        Say '  Animagine XL 4.0 is open, a smaller download and lighter on memory.'
+        $gatedDefault = $null -ne $vramGB -and $vramGB -ge 15.5 -and $null -ne $ramGiB -and $ramGiB -ge 40
+        if (-not $gatedDefault) { Note 'The open checkpoint is recommended: this PC has less than the measured default needs, or its memory could not be checked.' }
+        $wantGated = Ask-YesNo 'Start on FLUX.1 Krea [dev] instead of Animagine XL 4.0?' $gatedDefault
     }
 }
 
 # 11. Shortcuts ---------------------------------------------------------------
 Step 'Shortcuts'
+# ZIP downloads can mark PowerShell launchers as internet files. Unblock
+# only the app's own scripts, so RemoteSigned permits the PATH launchers.
+foreach ($scriptName in @('install.ps1', 'update.ps1', 'bin\auradream.ps1', 'bin\auradream-wsl.ps1', 'bin\auradream-server.ps1')) {
+    $scriptPath = Join-Path $Root $scriptName
+    if (-not (Test-Path -LiteralPath $scriptPath -PathType Leaf)) { continue }
+    if ($DryRun) { Would "remove the downloaded-file mark from $scriptPath (Unblock-File)" }
+    else { Unblock-File -LiteralPath $scriptPath }
+}
 $launcher = Join-Path $Root 'bin\auradream.cmd'
 $programs = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs'
 if ($TestRoot) { $desktop = Join-Path $env:USERPROFILE 'Desktop' } else { $desktop = [Environment]::GetFolderPath('Desktop') }

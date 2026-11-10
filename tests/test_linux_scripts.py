@@ -16,6 +16,7 @@ import json
 import os
 import shutil
 import signal
+import ssl
 import stat
 import subprocess
 import sys
@@ -24,6 +25,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import pytest
+
+from tests.tls_helpers import loopback_certificate
 
 REPO = Path(__file__).resolve().parents[1]
 LINUX = REPO / "linux"
@@ -480,7 +483,7 @@ def _no_git_or_uv(sandbox) -> bool:
 
 
 @pytest.fixture
-def auradream_listening(sandbox):
+def auradream_listening(sandbox, request):
     """A loopback AuraDream on an ephemeral port: it answers while the stub
     service is active (or always, without one), its page with the title and
     its status with what `busy` says.
@@ -547,6 +550,13 @@ def auradream_listening(sandbox):
             pass
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    if getattr(request, "param", "http") == "https":
+        certfile, keyfile = loopback_certificate(sandbox["tmp"])
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.load_cert_chain(certfile, keyfile)
+        server.socket = context.wrap_socket(server.socket, server_side=True)
+        sandbox["env"].update(AURADREAM_SSL_CERTFILE=str(certfile), AURADREAM_SSL_KEYFILE=str(keyfile),
+                              SSL_CERT_FILE=str(certfile), CURL_CA_BUNDLE=str(certfile))
     threading.Thread(target=server.serve_forever, daemon=True).start()
     sandbox["env"]["AURADREAM_PORT"] = str(server.server_address[1])
     yield {"port": server.server_address[1], "busy": busy, "track": track, "gate": gate}
@@ -569,6 +579,46 @@ def test_update_refuses_while_auradream_is_running(sandbox, auradream_listening,
     assert "Ctrl-C" in result.stdout
     assert _snapshot(sandbox["root"]) == before       # no database copy
     assert _no_git_or_uv(sandbox)
+
+
+@on_linux
+@pytest.mark.parametrize("auradream_listening", ["https"], indirect=True)
+@pytest.mark.parametrize("probe", ["venv-python", "curl"])
+@pytest.mark.parametrize("trusted", [False, True])
+def test_https_update_probe_preserves_verification(sandbox, auradream_listening, probe, trusted):
+    _checkout_with_gallery(sandbox)
+    if probe == "venv-python":
+        _venv(sandbox)
+    elif not shutil.which("curl", path="/usr/bin:/bin"):
+        pytest.skip("no curl here")
+    if not trusted:
+        for key in ("SSL_CERT_FILE", "CURL_CA_BUNDLE"):
+            sandbox["env"].pop(key, None)
+    result = _run(sandbox, "update.sh")
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert f"https://127.0.0.1:{auradream_listening['port']}/" in result.stdout
+    assert ("AuraDream is running at" in result.stdout) is trusted
+    assert ("could not be verified" in result.stdout) is not trusted
+    assert _no_git_or_uv(sandbox)
+    assert not list(sandbox["root"].glob("*-before-update*.db"))
+
+
+@on_linux
+@pytest.mark.parametrize("auradream_listening", ["https"], indirect=True)
+def test_https_service_status_and_idle_check_send_the_passcode_only_after_verification(sandbox, auradream_listening):
+    _asking(sandbox, auradream_listening)
+    status = _run(sandbox, "control.sh", "status")
+    assert status.returncode == 0, status.stdout + status.stderr
+    assert "== The server at https://127.0.0.1:" in status.stdout and "It answers." in status.stdout
+    assert auradream_listening["gate"]["sent"] == 1
+    sandbox["env"].pop("SSL_CERT_FILE")
+    stopped = _run(sandbox, "control.sh", "stop")
+    assert stopped.returncode == 1, stopped.stdout + stopped.stderr
+    assert "could not be asked at https://127.0.0.1:" in stopped.stdout
+    assert "CERTIFICATE_VERIFY_FAILED" in stopped.stdout
+    assert auradream_listening["gate"]["sent"] == 1
+    assert _changes(sandbox) == []
+    assert SECRET not in status.stdout + status.stderr + stopped.stdout + stopped.stderr
 
 
 @on_linux
@@ -1236,6 +1286,23 @@ def test_install_service_names_the_passcode_in_a_commented_line(sandbox):
     assert not [line for line in text.splitlines() if line.startswith("AURADREAM_PASSCODE")]
     again = _run(sandbox, "install-service.sh", "--no-start")
     assert again.returncode == 0 and "[stop]" not in again.stdout, again.stdout + again.stderr
+
+
+@on_linux
+@pytest.mark.parametrize("passcode", [None, "", SECRET])
+def test_install_service_warns_when_its_file_has_no_active_passcode(sandbox, passcode):
+    (sandbox["root"] / ".venv").mkdir()
+    if passcode is not None:
+        _passcode_file(sandbox, passcode)
+    result = _run(sandbox, "install-service.sh", "--no-start")
+    assert result.returncode == 0, result.stdout + result.stderr
+    warning = "[warn] No passcode is set: anyone who can reach this server can use it."
+    assert (warning in result.stdout) is not bool(passcode)
+    if not passcode:
+        assert str(_env_file(sandbox)) in result.stdout
+        assert "systemctl --user restart auradream" in result.stdout
+        assert "Plain http leaves the passcode and pictures readable" in result.stdout
+    assert SECRET not in result.stdout + result.stderr
 
 
 @on_linux

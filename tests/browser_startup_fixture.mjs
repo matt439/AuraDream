@@ -50,7 +50,7 @@ fs.readFileSync = (path, encoding) => {
     return forbidden();
   }
   ports.polls++;
-  if (input.mode === 'ready_after_75' && ports.polls > 75) {
+  if (['ready_after_75', 'handoff_ready'].includes(input.mode) && ports.polls > 75) {
     return `${devtoolsPort}\n/devtools/browser/owned\n`;
   }
   // Synthetic absence at an inert port: no real missing/denied path is read.
@@ -92,10 +92,11 @@ globalThis.setTimeout = (callback, delay, ...args) => {
   ports.sleeps++;
   ports.elapsed += delay;
   Promise.resolve().then(() => {
-    if (input.mode === 'early_exit' && ports.sleeps === 1) {
-      proc.exitCode = 7;
+    if (['early_exit', 'early_signal', 'handoff_ready', 'handoff_unavailable'].includes(input.mode) && ports.sleeps === 1) {
+      proc.exitCode = input.mode === 'early_exit' ? 7 : input.mode === 'early_signal' ? null : 0;
+      proc.signalCode = input.mode === 'early_signal' ? 'SIGTERM' : null;
       ports.exitEmissions++;
-      proc.emit('exit', 7, null); // Exercise the real installed exit listener.
+      proc.emit('exit', proc.exitCode, proc.signalCode); // Exercise the real installed exit listener.
     }
     callback();
   });
@@ -103,7 +104,7 @@ globalThis.setTimeout = (callback, delay, ...args) => {
 };
 globalThis.clearTimeout = forbidden; // CDP timers must never be reached.
 globalThis.fetch = async url => {
-  if (input.mode !== 'ready_after_75' || ports.polls <= 75
+  if (!['ready_after_75', 'handoff_ready'].includes(input.mode) || ports.polls <= 75
       || url !== `http://127.0.0.1:${devtoolsPort}/json`) return forbidden();
   ports.fetches.push(url);
   return { json: async () => [

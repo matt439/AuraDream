@@ -166,6 +166,10 @@ HF_XET_FIXED_DOWNLOAD_CONCURRENCY=32
 #HF_HOME=/mnt/data/huggingface
 # Another port (the default is 7860):
 #AURADREAM_PORT=7860
+# Optional direct HTTPS: both existing PEM files, with a trusted certificate
+# including the names used by browsers and 127.0.0.1 for these scripts:
+#AURADREAM_SSL_CERTFILE=/absolute/path/cert.pem
+#AURADREAM_SSL_KEYFILE=/absolute/path/key.pem
 # Hold the PC awake (systemd-inhibit) while a job, load or download runs;
 # false lets it suspend whenever the system decides:
 #AURADREAM_KEEP_AWAKE=true
@@ -272,12 +276,18 @@ fi
 # dry run before the first install has not written yet.
 if [ -f "$ENV_FILE" ]; then
     # shellcheck disable=SC1090
-    service_env=$(unset AURADREAM_PORT AURADREAM_ALLOWED_HOSTS && set -a && . "$ENV_FILE" && printf '%s\n%s\n' "${AURADREAM_PORT:-7860}" "${AURADREAM_ALLOWED_HOSTS:-}")
+    service_env=$(unset AURADREAM_PORT AURADREAM_ALLOWED_HOSTS AURADREAM_PASSCODE AURADREAM_SSL_CERTFILE && set -a && . "$ENV_FILE" && printf '%s\n%s\n%s\n%s\n' "${AURADREAM_PORT:-7860}" "${AURADREAM_ALLOWED_HOSTS:-}" "${AURADREAM_PASSCODE:+set}" "$(server_scheme)")
 else
-    service_env=$(printf '7860\n%s\n' "$(allowed_hosts)")
+    service_env=$(printf '7860\n%s\n\nhttp\n' "$(allowed_hosts)")
 fi
 port=$(sed -n 1p <<<"$service_env")
 hosts=$(sed -n 2p <<<"$service_env")
+scheme=$(sed -n 4p <<<"$service_env")
+if [ -z "$(sed -n 3p <<<"$service_env")" ]; then
+    warn 'No passcode is set: anyone who can reach this server can use it.'
+    warn "Edit $ENV_FILE: set AURADREAM_PASSCODE to a new passcode of 8 characters or more, then run: systemctl --user restart auradream"
+    if [ "$scheme" = http ]; then note 'Plain http leaves the passcode and pictures readable to anyone who can capture network traffic; never reuse another password.'; fi
+fi
 say ''
 say 'Open it from another PC on the network at:'
 IFS=',' read -r -a names <<<"$hosts"
@@ -285,10 +295,10 @@ for name in "${names[@]}"; do
     name=$(trim "$name")
     case "$name" in
         '' | 127.0.0.1 | localhost) ;;
-        *) say "    http://$name:$port/" ;;
+        *) say "    $scheme://$name:$port/" ;;
     esac
 done
-say "  (On this machine: http://127.0.0.1:$port/. A .local name needs mDNS, such as avahi-daemon."
+say "  (On this machine: $scheme://127.0.0.1:$port/. A .local name needs mDNS, such as avahi-daemon."
 say "  If a firewall is on, allow the port: sudo ufw allow $port/tcp)"
 cat <<MSG
 

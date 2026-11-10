@@ -287,7 +287,7 @@ function streamJob(jobId, { reattached = 0 } = {}) {
         setStep(runs > 1 && data.status !== 'queued' && !!data.run);
         // What it waits on, in words, carried with the cell's own so a
         // redraw says it again (showCell).
-        note(data, loading ? 'The first load of a session takes a few minutes.' : waiting?.note ?? '');
+        note(data, loading ? firstLoadNote() : waiting?.note ?? '');
         if (loading) {
           if (!ticker) ticker = setInterval(tick, 1000);
           tick();

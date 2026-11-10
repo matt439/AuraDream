@@ -13,6 +13,7 @@ from .more_seeds_planner import more_seeds_plan
 from .app_context import AppServices
 from .execution import require_configured_loader_available, resolve_execution
 from .model_selection import current_settings
+from .launch import CHECKPOINTS, FORMATS
 from .schemas import MoreSeedsRequest, ThenRefine, error_detail
 from .schemas_rerun import (
     FinishRunAccepted, FinishRunPreview, FinishRunRequest, RunAction, RunDetails,
@@ -31,6 +32,11 @@ class FinishPlan:
     # and the one spec the run's retained jobs agree on.
     passes: list[grid.Cell] = field(default_factory=list)
     spec: ThenRefine | None = None
+
+
+def _model_name(model_id: str) -> str:
+    return next((entry.name for entry in CHECKPOINTS if model_id == entry.repo
+                 or any(model_id == entry.lite_repo(fmt) for fmt, _ in FORMATS)), model_id)
 
 
 def _finish_key(services: AppServices, cell: grid.Cell) -> tuple:
@@ -124,7 +130,7 @@ async def finish_plan(services: AppServices, run_id: str) -> FinishPlan:
                 reason = f"the refine passes of run {base_run}: finish that run, and its passes follow"
                 break
     elif any(saved["model_id"] != services.model_id() for saved in definitions):
-        reason = f"made on {definition['model_id']}; the server is running {services.model_id()}"
+        reason = f"made on {_model_name(definition['model_id'])}; the server is running {_model_name(services.model_id())}"
     elif any(saved["quantization"] != services.quantization() for saved in definitions):
         reason = f"made under {definition['quantization']}; every cell would render again under {services.quantization()}"
     elif not cells:
@@ -271,7 +277,7 @@ def create_router(services: AppServices) -> APIRouter:
             quantization, width, height = first.quantization, first.width, first.height
             batch, comparison = first.batch or 1, False
         seed_reason = (
-            f"made on {made_on}; the server is running {services.model_id()}"
+            f"made on {_model_name(made_on)}; the server is running {_model_name(services.model_id())}"
             if made_on != services.model_id() else
             ("this run has no live images; restore binned images to add more seeds" if records
              else "this run has no live images to extend") if not live else ""

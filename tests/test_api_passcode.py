@@ -660,7 +660,8 @@ def test_a_passcode_of_eight_characters_starts(fake, monkeypatch, capsys):
 
 
 def test_the_start_up_log_says_the_passcode_is_asked_and_what_plain_http_means(fake, gate, monkeypatch, caplog):
-    _settings(monkeypatch, passcode=PASSCODE, host="0.0.0.0")
+    _settings(monkeypatch, passcode=PASSCODE, host="0.0.0.0",
+              allowed_hosts=("127.0.0.1", "localhost", "dream.home.arpa"))
     monkeypatch.setattr(main, "Server", Quiet)
     with caplog.at_level("INFO", logger="auradream"):
         main.run()
@@ -690,9 +691,11 @@ def test_without_a_passcode_a_bind_beyond_loopback_is_warned_about_by_its_name(f
     with caplog.at_level("INFO", logger="auradream"):
         main.run()
     warned = [message for level, message in _messages(caplog) if level == "WARNING"]
-    assert len(warned) == 1
+    assert len(warned) == 2
     assert warned[0].startswith("Serving on 0.0.0.0 with no passcode")
     assert "Set AURADREAM_PASSCODE" in warned[0]
+    assert warned[1].startswith("Only this machine's names are allowed.")
+    assert "AURADREAM_ALLOWED_HOSTS" in warned[1] and "restart" in warned[1]
 
 
 def test_on_loopback_with_no_passcode_the_start_says_nothing_of_it(fake, monkeypatch, caplog):

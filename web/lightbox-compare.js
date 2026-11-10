@@ -95,6 +95,36 @@ function stepPicked(delta) {
 
 // ------------------------------------------------------- lightbox compare
 
+function compareDisclosureAvailable(rec) {
+  return !!pickedPair(rec) || rec.refine != null || ladderOf(LADDER_AXES.cfg, rec).length > 1
+    || ladderOf(LADDER_AXES.steps, rec).length > 1;
+}
+
+// The wide column starts with one Compare button for a lone image. Late
+// neighbours reveal its controls only after the pointer and focus leave it.
+// Once revealed, including an explicit press, it stays open for that image.
+function syncCompareDisclosure(rec) {
+  const box = els.lbCompare;
+  const before = box.classList.contains('collapsed');
+  if (box.dataset.image !== String(rec.id)) {
+    box.dataset.image = rec.id;
+    box.classList.toggle('collapsed', !compareDisclosureAvailable(rec));
+  } else if (before && compareDisclosureAvailable(rec)
+      && !box.matches(':hover') && !box.contains(document.activeElement)) {
+    box.classList.remove('collapsed');
+  }
+  if (lbCompare.id === rec.id) box.classList.remove('collapsed');
+  const collapsed = box.classList.contains('collapsed');
+  $('lb-compare-open').hidden = !collapsed;
+  $('lb-compare-open').setAttribute('aria-expanded', String(!collapsed));
+  return before !== collapsed;
+}
+
+function reconcileCompareDisclosure() {
+  const rec = lbList[lbIndex];
+  if (els.lightbox.open && rec && syncCompareDisclosure(rec)) layoutLightbox();
+}
+
 // The comparison's controls, on every image: the shared part here - the two
 // modes, the keys line, the divider's keys, the names and the note - and
 // each kind's own in syncSourceCompare and syncLadderCompare (lightbox-cfg.js,
@@ -103,6 +133,7 @@ function syncCompare(rec) {
   const pass = rec.refine != null;
   const on = lbCompare.id === rec.id;
   const pair = pickedPair(rec);
+  const disclosureChanged = syncCompareDisclosure(rec);
   const kind = on ? lbCompare.kind : pair ? 'picked' : pass ? 'source' : 'cfg';
   const axis = ladderAxis(kind);
   const sourceHeld = syncSourceCompare(rec, on && kind === 'source', !pair);
@@ -180,6 +211,7 @@ function syncCompare(rec) {
   if (els.lbCompareNote.textContent !== note) els.lbCompareNote.textContent = note;
   els.lbCompareNote.title = kind === 'picked' && on ? ladders.full : '';
   for (const tag of [els.lbTagSrc, els.lbTagPass]) tag.classList.toggle('picked', kind === 'picked');
+  if (disclosureChanged && els.lightbox.open) layoutLightbox();
 }
 
 // Whether each ladder's part of the comparison is drawn, CFG's and steps'.

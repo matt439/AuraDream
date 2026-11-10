@@ -82,6 +82,18 @@ session.
 
 ### R4 release the card after idle minutes
 
+**Built 2026-11-11 (`GEN#50`).** The design note fixes one default-off
+setting, `AURADREAM_IDLE_UNLOAD_MINUTES=0`, and a 15-second event-loop
+timer sharing KeepAwake's real-request clock, including when the power
+inhibitor is off. Every live job/card/load/switch/bundle/counted worker or
+model request holds it; work gets a full idle interval afterwards. The
+ordinary unload now owns and shields its cleanup task, reserves the
+selection until its workers finish, and drains at shutdown even if a
+request disconnects. The idle reason is assigned inside that reservation,
+so a later Load clears it authoritatively. Status/page name an idle release.
+Virtual-clock and fake/API tests cover activity, holds, cancellation,
+cleanup and reload. No GPU, RAM-reclamation or sleep measurement is claimed.
+
 `GEN#50`. Nothing unloads by itself. `KeepAwake` already tracks the last
 real activity with timed polls excluded, and unload is already 409 while a
 job or load is live. Opt-in and default off (manual Unload is rated Never).
@@ -234,6 +246,19 @@ typed into the prompt by hand.
 
 ### R9 storage view
 
+**Built 2026-11-11 (`GEN#55`, first slice).**
+`GET /api/models/storage` explicitly starts one daemon-thread inventory,
+with a reservation held through a disconnected caller's worker. It maps
+retained source revisions/file selections to every catalogue entry and
+reports overlapping/shared/exclusive file bytes, converted copies,
+incomplete downloads, free space and unreferenced revisions/repositories.
+Unknown selections have no claimed model total. Scratch-cache and API
+tests check shared accounting, unknown/corrupt/missing caches, concurrency
+and no mutation. "Unreferenced" means absent from these retained catalogue
+references: the critic, other helpers and other apps can need those files.
+This is neither disk-allocation accounting nor a deletion plan. The guarded
+delete remains a later design after this inventory has been considered.
+
 `GEN#55`. Models shows each entry's reference download size and a cache
 word, not bytes on disk. Absent: measured bytes per entry, the cache total,
 free space on the cache drive, any delete, and what no entry references
@@ -384,6 +409,19 @@ and `update.sh` through the passcode, or a wrong passcode's lock from a
 second device. Until that is done this finding is built, not proven.
 
 ### S3 an HTTPS route
+
+**Built 2026-11-11 (`DEV#33`).** `AURADREAM_ALLOWED_ORIGINS` adds exact
+scheme/host/effective-port origins for a proxy on another port, while the
+independent Host allowlist remains required. Credentials, paths, fragments,
+queries and wildcards are refused. The optional PEM certificate/key pair
+is passed to uvicorn; startup, local probes, CLI, doctor and Linux controls
+choose HTTPS and retain certificate verification. An unverified configured
+listener refuses installer/update work. The remote launcher's optional
+`AURADREAM_SERVER_URL` chooses its browser address separately from SSH.
+Setup documents a loopback-backed Caddy recipe, client CA trust, direct TLS
+and their explicit setup boundaries. A real loopback TLS test uses a
+throwaway certificate trusted only in the test process; no system trust,
+firewall, proxy, service or real-phone setup was changed.
 
 `DEV#33`. `main._origin_allowed` requires the Origin's port to equal
 `settings.port`, so a TLS proxy on 443 has every write refused;
@@ -567,6 +605,18 @@ error.
 
 ### T2 the scripts in CI
 
+**Local audit built 2026-11-11 (`DEV#39`).** Shellcheck 0.11.0 over all
+eight Linux/WSL shell files initially found five diagnostics; blank-pattern
+quoting and shell/source directives were fixed, and its final run is clean.
+PSScriptAnalyzer 1.24.0 over the five PowerShell files reports zero errors
+and 49 reviewed style diagnostics (46 Warning, 3 Information): console
+`Write-Host` separation, helper names, positional helper calls, deliberate
+manual dry-run handling and read-only probe catches. No correctness issue
+was left from that review. Windows/Linux/WSL stub tests run without live
+installation. The hosted installer-to-GPU-check job changes `.github`, so
+that next step is USER, waiting for Matt's deliberate CI ruleset edit.
+This PR changes no CI definition and claims no hosted clean install.
+
 `DEV#39`. Ruff and Pyright are the only static checks; nothing runs
 shellcheck, PSScriptAnalyzer or actionlint, and the installer has never run
 on a clean machine (`DEV#28`). Run both linters locally once to see whether
@@ -607,6 +657,24 @@ states no smoke reaches; `UI#7` stands as it was.
 
 ### T4 the lightbox loads its neighbours
 
+**Built and measured 2026-11-11 (`UI#41`).** A loading full PNG exposes
+the current record's thumbnail underneath; failure leaves that thumbnail
+with plain feedback. Request ownership and native event guards keep a late
+PNG/load/error from replacing the next record or its feedback. After the
+current PNG settles, at most one Image owner each way preloads neighbours;
+close releases them. Existing zoom, compare and touch hit targets remain.
+Cold loading/stale-event tests plus desktop lightbox and phone-gallery
+smokes passed.
+
+The [5,000-row receipt](measurements/gallery-5000-2026-11-11.json) records a
+Windows/Edge headless fake at 1400x900: exact 48 initial cards in 21.5 ms,
+all 5,000 after 104 further pages in 19.082 s. Large jumps with pending
+lazy thumbnails had long tasks; after 25 visible tail thumbnails decoded,
+30 nearby 40 px steps measured 16.7 ms median / 16.8 ms maximum frame
+interval. This fixture establishes no containment benefit, so card
+containment remains unchanged. It is a working-tree CPU/browser receipt,
+not a committed-tree, real-gallery, network, phone or card measurement.
+
 `UI#41`. Each step sets the full PNG as the picture's source; nothing
 preloads the next or previous, and no thumbnail stands in meanwhile. Preload
 one each way after a step settles and show the cached thumbnail under the
@@ -642,6 +710,15 @@ two download paths and the two refusals in Chrome; a real phone's share sheet ha
 tried.
 
 ### T6 the guide from the page
+
+**Built 2026-11-11 (`UI#43`).** Help links `/guide` in a new tab, preserving
+the composer. The route reads only checkout-owned `docs/usage.md`, using
+the already locked Markdown parser promoted to an explicit dependency:
+tables, escaped raw HTML, stable duplicate-safe heading ids. Other repo
+document links point to GitHub; no filesystem directory is mounted. Its
+stylesheet sits outside the app's cascade. Route/render/security tests
+verify local anchor targets, and the shortcuts smoke checks desktop and
+narrow layouts. The passcode closes the new route like all other routes.
 
 `UI#43`. Nothing in the page links `docs/usage.md`. There is no Markdown
 library and no build step, so serving it needs a dependency or a small

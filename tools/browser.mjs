@@ -446,7 +446,12 @@ async function target() {
   // Cold Chromium startup can outlast 15 s while CPU tests share a runner.
   // Keep the same readiness/cleanup contract, with a bounded 30 s polling allowance.
   for (let i = 0; i < 150; i++) {
-    if (STARTUP_DIAGNOSTICS && exited) throw new Error('the browser exited before DevTools was ready');
+    // Edge's launcher can exit successfully after handing this unique
+    // profile to its browser child. That child's DevTools endpoint is the
+    // readiness proof; exit 0 alone does not end the bounded wait.
+    if (STARTUP_DIAGNOSTICS && exited && (proc.exitCode !== 0 || proc.signalCode)) {
+      throw new Error('the browser exited before DevTools was ready');
+    }
     try {
       const port = Number(readFileSync(`${PROFILE}/DevToolsActivePort`, 'utf8').split('\n')[0]);
       const list = await (await fetch(`http://127.0.0.1:${port}/json`)).json();

@@ -22,7 +22,7 @@ from . import gallery_lock, gallery_reports, storage
 from .backends import Cancelled, GenerationBackend
 from .model_selection import current_settings
 from .config import settings
-from .error_text import short_error
+from .error_text import generation_error, short_error as short_error
 from .execution import require_configured_loader_available, require_default_execution, resolve_execution
 from .grid import Cell, CellKey, cell_keys, progress_steps, run_id as _run_id
 from .job_state import _TERMINAL, Job
@@ -793,7 +793,7 @@ class JobManager:
             try:
                 await self._ensure_loaded()
             except Exception as exc:  # noqa: BLE001 - surfaced to the client
-                detail = exc.detail if isinstance(exc, LoadFailed) else short_error(exc)
+                detail = exc.detail if isinstance(exc, LoadFailed) else generation_error(exc, loading=True)
                 self._finish(loop, job, "error", detail)
                 return
         # One generation at a time; queued jobs simply wait their turn here. A
@@ -845,11 +845,11 @@ class JobManager:
         try:
             stopped = await loop.run_in_executor(self._pool, self._generate, job, loop)
         except Exception as exc:  # noqa: BLE001 - surfaced to the client
-            # The whole message, here, where it can be read: the banner's
-            # copy is cut, and an OOM's remedy is its last sentence.
+            # Keep the original library message here, even when the banner
+            # gives plain recovery advice for a known memory failure.
             log.error("job %s failed: %s", job.id, exc)
             log.debug("job traceback", exc_info=True)
-            error = short_error(exc)
+            error = generation_error(exc)
             if job.stopped_by == "failures":
                 # The failure rule ended it, which is three in a row or a
                 # third of the grid - not one bad cell, which the last
@@ -1082,7 +1082,7 @@ class JobManager:
                 consecutive += 1
                 job.failures += 1
                 job.failed_indices.append(index)
-                job.error = short_error(exc)
+                job.error = generation_error(exc)
                 job.failed_cells.append({"label": cell.label, "seed": seed, "error": job.error})
                 log.error(
                     "job %s: cell %d/%d failed: %s", job.id, index + 1, len(job.cells), exc
@@ -1136,7 +1136,7 @@ class JobManager:
         the streak."""
         streak += 1
         job.failures += 1
-        job.error = short_error(exc)
+        job.error = generation_error(exc)
         job.failed_cells.append({"label": label, "seed": seed, "error": job.error})
         log.error("job %s: %s failed: %s", job.id, label, exc)
         log.debug("pass traceback", exc_info=exc)

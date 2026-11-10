@@ -11,26 +11,9 @@ the frontend has no build step.
 [Anime model guide](docs/anime-model-guide.md) · [GPU measurements](docs/verified.md) ·
 [Product design](docs/design/README.md)
 
+**On Windows, start with [Easy install](docs/setup.md#easy-install): extract the ZIP, then double-click `install.cmd`.**
+
 ![The AuraDream page on a PC: the prompt and settings panel on the left, the gallery on the right](docs/images/desktop.png)
-
-Phones and tablets can use it too, once the server listens on your network
-(the [native Linux server](#native-linux-a-server-on-your-network) does; on
-Windows set `AURADREAM_HOST` and `AURADREAM_ALLOWED_HOSTS`, and
-`AURADREAM_PASSCODE` to have it ask for a passcode, only on a
-network you trust, as [the usage guide](docs/usage.md#scripting-the-running-server)
-explains). On a touch screen the page splits into Create and Gallery views
-with a tab bar, and the lightbox, long-press menu and pinch zoom work by
-finger. Added to an iPhone's home screen, it opens in Safari under
-AuraDream's icon.
-
-![Three iPhone screens: the Create view, the Gallery view and an image open in the lightbox](docs/images/phone.png)
-
-<details>
-<summary>On an iPad (landscape)</summary>
-
-![AuraDream on an iPad held sideways: the settings panel beside a four-column gallery](docs/images/tablet.png)
-
-</details>
 
 The screenshots come from the test server (`tools/fake_server.py`), so the
 pictures in them are drawn stand-ins, not model output.
@@ -42,23 +25,19 @@ pictures in them are drawn stand-ins, not model output.
   tested. Native Linux was measured on Ubuntu 26.04 with an 8 GB RTX 3070
   ([its section](docs/verified.md#rtx-3070-8-gb-native-ubuntu-2026-11-03)).
   macOS is not supported.
-- NVIDIA GPU with a driver recent enough for **CUDA 13** (torch comes from the
-  cu130 index), of a generation those wheels are built for: the installed
-  torch lists compute capability 7.5 to 12.0, the RTX 20 and GTX 16 series
-  or newer, so the GTX 10 series and older are not in it. The tested
-  configuration is an **RTX 5080 with 16 GB VRAM**, the only card measured;
-  memory requirements depend on the checkpoint, size and batch. The defaults
-  use FP8 quantization and model offload. See [measured results](docs/verified.md).
-- System RAM: a cold load of the default, FLUX.1 Krea [dev] (fp8, model
-  offload), peaked at **27.9 GiB working set and 35.4 GiB private** on the
-  64 GB test machine, and private rose to 39.9 GiB during the first
-  1024x1024 render; see
-  [the fixed loader](docs/verified.md#ram-at-the-load-the-fixed-loader-2026-10-27).
-  Other FLUX-size checkpoints and int8 are not measured with that loader,
-  and no 32 GB machine has been measured. The SDXL anime checkpoints
-  (Animagine, Illustrious, RouWei, NoobAI) need far less and are a lighter
-  place to start.
-- **Python 3.13** and [uv](https://docs.astral.sh/uv/).
+- **NVIDIA GPU**, RTX 20 or GTX 16 series or newer, with a driver supporting
+  **CUDA 13.0 or higher**. AMD, Intel and older NVIDIA cards are unsupported.
+  The measured machines are an **RTX 5080 with 16 GB** on Windows and an
+  **8 GB RTX 3070** on Ubuntu (Animagine XL 4.0 only on the latter).
+  The default checkpoint needs more video memory than that 8 GB card;
+  start with Animagine on a smaller card. See [GPU details](docs/setup.md#before-you-start).
+- **System RAM:** the default FLUX.1 Krea [dev] used nearly 40 GiB of
+  committed memory on the 64 GB test PC; RAM and the Windows page file must
+  cover it. No 32 GB machine has been measured. SDXL anime checkpoints
+  (Animagine, Illustrious, RouWei, NoobAI) need far less.
+  [Measured memory figures](docs/verified.md#ram-at-the-load-the-fixed-loader-2026-10-27)
+  explain the numbers and their limits.
+- [uv](https://docs.astral.sh/uv/) (**the installer brings Python 3.13**).
 - Disk space: about **32 GiB for the default model's weights**, and more
   besides. Some checkpoints also need a converted copy; Illustrious, WAI
   and RouWei each use about 14 GB for the source and conversion together.
@@ -67,8 +46,8 @@ pictures in them are drawn stand-ins, not model output.
 
 ## Quick start
 
-On Windows, the easiest route is the installer: download or clone the
-repository, then double-click **`install.cmd`** in its folder. It checks the
+On Windows, the easiest route is the installer: download and extract the ZIP,
+or clone the repository, then double-click **`install.cmd`** in its folder. It checks the
 driver, card and memory, installs uv and Git if missing, asks where model
 downloads go, installs the packages, makes Start-menu and desktop shortcuts
 and offers to start AuraDream; it never downloads model weights
@@ -87,10 +66,24 @@ uv sync
 
 The default, **FLUX.1 Krea [dev]**, requires accepting the terms on its
 [Hugging Face page](https://huggingface.co/black-forest-labs/FLUX.1-Krea-dev)
-and logging in with a read token:
+and signing in. From the AuraDream folder, run:
 
 ```powershell
 uv run hf auth login
+```
+
+Press **Enter** for **Log in with your browser**, then open the URL it shows
+and enter its code. No copied token is needed. **Paste an access token** is
+the fallback: create a **Read** token at
+[Hugging Face settings](https://huggingface.co/settings/tokens); pasted input
+stays hidden. On Windows you can instead stop AuraDream, double-click
+`install.cmd` again and answer **y** at the Hugging Face step.
+[Setup step 6](docs/setup.md#6-sign-in-to-hugging-face-gated-checkpoints-only)
+covers expired codes and renewing the sign-in.
+
+Then start the server:
+
+```powershell
 uv run python -m backend.main
 ```
 
@@ -174,6 +167,24 @@ For everyday use:
 
 See the [usage guide](docs/usage.md) for these workflows, keyboard shortcuts,
 search syntax and gallery maintenance.
+
+## Phones and tablets
+
+The GPU PC makes the images; a phone or tablet on the same trusted network
+opens its page. Follow [From a phone (Windows)](docs/setup.md#from-a-phone-windows)
+or the [native Linux server](#native-linux-a-server-on-your-network) recipe.
+On touch the page splits into Create and Gallery views with a tab bar;
+the lightbox, long-press menu and pinch zoom work by finger. Added to an
+iPhone's home screen, it opens in Safari under AuraDream's icon.
+
+![Three iPhone screens: the Create view, the Gallery view and an image open in the lightbox](docs/images/phone.png)
+
+<details>
+<summary>On an iPad (landscape)</summary>
+
+![AuraDream on an iPad held sideways: the settings panel beside a four-column gallery](docs/images/tablet.png)
+
+</details>
 
 ## Run under WSL 2 (4-bit Nunchaku)
 
@@ -345,6 +356,8 @@ set in a start-up warning.
 | `AURADREAM_HOST` | `127.0.0.1` | Bind address |
 | `AURADREAM_PORT` | `7860` | Server port |
 | `AURADREAM_ALLOWED_HOSTS` | `127.0.0.1,localhost` | Allowed hostnames/IPs; include the browser's destination when exposing the server on a LAN, keeping `127.0.0.1` and `localhost`; exact lowercase names, no wildcards |
+| `AURADREAM_ALLOWED_ORIGINS` | empty | Extra exact browser origins for a proxy on another port, for example `https://dream.home.arpa`; its hostname must also be allowed above ([HTTPS](docs/setup.md#https-for-a-phone)) |
+| `AURADREAM_SSL_CERTFILE` / `AURADREAM_SSL_KEYFILE` | unset | Existing PEM certificate and private key for direct HTTPS; set both and trust the issuing CA on each client ([recipe](docs/setup.md#https-for-a-phone)) |
 | `AURADREAM_PASSCODE` | unset | A passcode the page and every other caller must give, asked whenever the server can be reached beyond this machine (`AURADREAM_HOST` or an allowed host that is not loopback); at least 8 characters, from the environment only; see below |
 | `AURADREAM_LOG_LEVEL` | `INFO` | Server and uvicorn logging; on the console `DEBUG` includes tracebacks, which `auradream.log` beside the database receives at every level |
 | `AURADREAM_CRITIC` | `true` | Enable the optional local prompt critic |
@@ -352,6 +365,7 @@ set in a start-up warning.
 | `AURADREAM_CRITIC_MODEL` | unset | Use a local `.gguf` instead of downloading the pinned critic model |
 | `AURADREAM_KEEP_AWAKE` | `true` | Hold the PC awake while AuraDream is busy: `systemd-inhibit` on Linux, a power request on Windows |
 | `AURADREAM_KEEP_AWAKE_IDLE_MINUTES` | `20` | Minutes to keep holding after the last request someone made (the page's timed polls are not one); `0` holds only while busy |
+| `AURADREAM_IDLE_UNLOAD_MINUTES` | `0` | Opt-in model release after idle minutes; waits for work to finish, ignores timed page polls, and works with keep-awake off |
 
 **Without `AURADREAM_PASSCODE` the server asks for nothing.** Anyone who can
 reach it can read every prompt and image, delete or import galleries, and
@@ -368,8 +382,8 @@ browser on the PC itself signs in once too. Know what it is and is not:
 - So the passcode keeps out people who can merely reach the address: the
   household, a guest on the Wi-Fi. It is not protection on a network you do
   not trust, and never a reason to forward the port to the internet.
-- HTTPS is what makes it private, and AuraDream does not serve it yet; until
-  then that means a VPN, or an HTTPS proxy in front (see
+- HTTPS encrypts the traffic; use the [phone recipe](docs/setup.md#https-for-a-phone)
+  or a VPN (see
   [the usage guide](docs/usage.md#scripting-the-running-server) for the
   proxy's host and port).
 - Do not reuse a password from anywhere else. The passcode sits in plain

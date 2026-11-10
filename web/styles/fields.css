@@ -320,6 +320,7 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
 /* What an example needs that the panel lacks - a reference image for an edit
    of "this" picture - beside the authors' words, which stay as written. */
 .menu li .example-note { display: block; margin-top: 2px; color: var(--warn); }
+.menu li .example-note.context { color: var(--muted); }
 
 /* An Example written over a prompt of the user's own says so under the box,
    with the Undo that puts it back: over the next field's caption, out of the

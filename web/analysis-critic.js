@@ -31,7 +31,7 @@ function syncCritic() {
   // a keyboard user's focus to <body>. askCritic refuses each case itself.
   const hold = criticHold();
   els.criticAsk.setAttribute('aria-disabled', String(critiquing || !!hold));
-  els.criticAsk.textContent = critiquing ? 'Thinking…' : 'Ask the critic';
+  els.criticAsk.textContent = critiquing ? 'Thinking…' : 'Suggest improvements';
   els.criticAsk.title = hold
     || "A local model reads the prompt against this checkpoint's guide and its authors' own texts, cites what it goes by, and suggests a rewrite";
   // Named as the answer's footer names it, and a first use's download only

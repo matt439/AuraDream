@@ -734,5 +734,17 @@
   {"expect":"__until(()=>!els.lightbox.open&&document.querySelector('#gallery .card[data-id=\"'+__pk.id+'\"]')?.classList.contains('selected')&&els.selectCount.textContent.startsWith('1 selected'))"},
   {"eval":"clearSelection();"},
   {"media":{"forced-colors":"","prefers-reduced-motion":""}},
+  {"log": "'UI#41: a rapid walk shows the current thumbnail, hides the previous PNG, then preloads one neighbour each way; a missing PNG keeps its thumbnail and error, and close releases preload owners'"},
+  {"eval": "window.__loadingRows = galleryRecords.filter((r) => !r.binned_at).slice(0, 3).map((r) => ({...r, url: r.url + '?ui41=' + r.id}));"},
+  {"expect": "__loadingRows.length === 3 && __loadingRows.every((r) => r.thumb_url)", "fatal": true},
+  {"eval": "openLightbox(__loadingRows[0], __loadingRows); openLightbox(__loadingRows[1], __loadingRows); window.__rightThumbImmediately = lbList[lbIndex] === __loadingRows[1] && els.lbImg.style.opacity === '0' && !lbThumb.hidden && lbThumb.getAttribute('src') === __loadingRows[1].thumb_url && els.lbImg.getAttribute('src') === __loadingRows[1].url;"},
+  {"expect": "__rightThumbImmediately"},
+  {"expect": "__until(() => els.lbImg.complete && els.lbImg.naturalWidth > 0 && els.lbImg.style.opacity === '' && lbThumb.hidden && lbNeighbourImages.size === 2 && [__loadingRows[0].url, __loadingRows[2].url].every((url) => lbNeighbourImages.has(url)))"},
+  {"eval": "window.__badFull = {...__loadingRows[1], url: '/images/ui41-missing-picture.png'}; openLightbox(__badFull, [__badFull]);"},
+  {"expect": "__until(() => els.lbError.textContent === 'The file of #' + __badFull.id + ' could not be loaded.' && !lbThumb.hidden && lbThumb.getAttribute('src') === __badFull.thumb_url && els.lbImg.style.opacity === '0')"},
+  {"eval": "openLightbox(__loadingRows[1], __loadingRows);"},
+  {"expect": "__until(() => els.lbImg.complete && els.lbImg.naturalWidth > 0 && els.lbError.hidden && els.lbImg.style.opacity === '' && lbThumb.hidden)"},
+  {"key": "Escape"},
+  {"expect": "__until(() => !els.lightbox.open && lbNeighbourImages.size === 0 && lbThumb.hidden && !lbThumb.getAttribute('src'))"},
   {"expect": "__a11yCheck()"}
 ]

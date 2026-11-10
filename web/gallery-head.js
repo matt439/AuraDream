@@ -24,6 +24,15 @@
 // never breaks), its right edge where it was.
 let headPointer = false;
 let headOthers = null;
+// An empty gallery still needs Import and saved filters. Image-only tools
+// keep their boxes so the first result cannot shift the row under a press.
+function syncEmptyGalleryTools(newest) {
+  if (!Number.isInteger(newest)) return;
+  for (const el of [els.pickedBtn.closest('.picked'), els.select, els.swap,
+    els.refineBatch, els.moreSeeds]) {
+    el.style.visibility = newest > 0 ? '' : 'hidden';
+  }
+}
 function pointHead(on) {
   if (on && !headPointer) {
     headPointer = true;
