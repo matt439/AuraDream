@@ -1,6 +1,8 @@
 [
   {"log": "'deletes taken to completion against a fake server claiming FLUX.1 Krea [dev] on 7881 - a checkpoint with a refine pass, so a starred pass can keep its source: ⌦ into the recycle bin with no question and Restore, Delete unstarred and its count gate into the bin, a pass whose source is in the bin, tombstones and focus, a tile whose image went elsewhere, the lightbox paging in behind a delete, a double-clicked delete, the bin view\\'s Delete permanently and its dialog, and Reuse with its Undo and where it leaves the page'"},
   {"navigate": "http://127.0.0.1:7881/"},
+  {"inject": "a11y_audit.js"},
+  {"eval": "__a11yWatch()"},
   {"eval": "window.__until = async (fn, ms = 15000) => { const end = Date.now() + ms; while (Date.now() < end) { try { if (fn()) return true; } catch { /* not yet */ } await new Promise((r) => setTimeout(r, 50)); } return false; };"},
   {"expect": "__until(() => document.getElementById('status-dot').className.includes('ready'))"},
   {"log": "'(run it on a FLUX.1 fake: run_smokes --extra smoke-delete=7881=black-forest-labs/FLUX.1-Krea-dev)'"},
@@ -277,5 +279,6 @@
   {"expect": "els.rerender.style.width !== '' && Math.abs(els.rerender.getBoundingClientRect().width - __rr1) < 0.5 && els.rerender.scrollWidth > els.rerender.clientWidth && JSON.stringify(els.deleteUnstarred.getBoundingClientRect()) === __du1 && __heldAt() === __head1 && els.count.textContent === '(15)' && els.search.getBoundingClientRect().width < __search1"},
   {"hover": [200, 120]},
   {"expect": "__until(() => !headPointer && !els.search.closest('.gallery-head').classList.contains('held') && els.rerender.style.width === '' && els.rerender.scrollWidth <= els.rerender.clientWidth && els.rerender.textContent.startsWith('Re-render 15 at'))"},
-  {"eval": "els.search.value = ''; resetGallery();"}
+  {"eval": "els.search.value = ''; resetGallery();"},
+  {"expect": "__a11yCheck()"}
 ]

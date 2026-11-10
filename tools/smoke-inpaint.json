@@ -1,6 +1,8 @@
 [
   {"log": "'the Inpaint dialog on an SDXL fake (Animagine XL 4.0, port 7905, a fresh scratch --data): opened from the lightbox, the mask painted with the brush, the eraser, the size keys, the feather, invert, undo and redo and the keyboard brush; Inpaint held until something is masked; nothing scrolls or moves under the pointer; the result is an inpaint of its source whose unmasked pixels are the source exactly; Reuse reopens it with its mask; a strength list opens a sheet; Only the masked area previews and draws the server box, refuses no gain, runs at the source size keeping every unmasked pixel, shows in the facts and comes back with Reuse'"},
   {"navigate": "http://127.0.0.1:7905/"},
+  {"inject": "a11y_audit.js"},
+  {"eval": "__a11yWatch()"},
   {"wait": 1500},
   {"eval": "window.__until = async (fn, ms = 10000) => { const end = Date.now() + ms; while (Date.now() < end) { if (await fn()) return true; await new Promise((r) => setTimeout(r, 50)); } return false; }"},
   {"eval": "window.__errs = []; addEventListener('error', (e) => window.__errs.push(e.message)); addEventListener('unhandledrejection', (e) => window.__errs.push(String(e.reason)));"},
@@ -268,5 +270,6 @@
   {"expect": "!els.inpaintDialog.open"},
 
   {"log": "'no page errors'"},
-  {"expect": "window.__errs.length === 0"}
+  {"expect": "window.__errs.length === 0"},
+  {"expect": "__a11yCheck()"}
 ]

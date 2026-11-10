@@ -2,6 +2,8 @@
   {"log":"'Button hierarchy on an isolated anime fake: enabled actions read as buttons, held hover stays held, selected labels remain readable, keyboard focus stays visible and state changes preserve boxes.'"},
   {"viewport":[1400,900,1]},
   {"navigate":"http://127.0.0.1:7918/"},
+  {"inject": "a11y_audit.js"},
+  {"eval": "__a11yWatch()"},
   {"eval":"window.__until=async(fn,ms=20000)=>{const end=Date.now()+ms;while(Date.now()<end){if(await fn())return true;await new Promise(r=>setTimeout(r,50));}return false;}; window.__style=b=>{const s=getComputedStyle(b);return [s.color,s.backgroundColor,s.borderTopColor,s.opacity].join('|');}; window.__rect=b=>{const r=b.getBoundingClientRect();return [r.x,r.y,r.width,r.height];}; window.__rgb=s=>s.match(/[\\d.]+/g).slice(0,3).map(Number); window.__lum=s=>__rgb(s).map(n=>{n/=255;return n<=0.04045?n/12.92:((n+0.055)/1.055)**2.4;}).reduce((n,v,i)=>n+v*[0.2126,0.7152,0.0722][i],0); window.__contrast=(a,b)=>{const x=__lum(a),y=__lum(b);return (Math.max(x,y)+0.05)/(Math.min(x,y)+0.05);}; window.__ring=b=>{const s=getComputedStyle(b);return s.outlineStyle==='solid'&&parseFloat(s.outlineWidth)>=2&&s.outlineColor==='rgb(74, 214, 200)';};"},
   {"expect":"__until(()=>modelState==='ready'&&!galleryPending)"},
   {"eval":"resetPanel();showError('');els.moreSeeds.scrollIntoView({block:'center'});window.__held=__style(els.moreSeeds);window.__heldBox=__rect(els.moreSeeds);"},
@@ -31,5 +33,6 @@
   {"viewport":[2560,1305,1]},
   {"expect":"__until(()=>document.documentElement.scrollWidth<=innerWidth&&__contrast(getComputedStyle(els.select).color,getComputedStyle(els.select).backgroundColor)>=4.5)"},
   {"viewport":[2048,1040,1.25]},
-  {"expect":"__until(()=>document.documentElement.scrollWidth<=innerWidth&&__contrast(getComputedStyle(els.moreSeeds).color,getComputedStyle(els.moreSeeds).backgroundColor)>=4.5)"}
+  {"expect":"__until(()=>document.documentElement.scrollWidth<=innerWidth&&__contrast(getComputedStyle(els.moreSeeds).color,getComputedStyle(els.moreSeeds).backgroundColor)>=4.5)"},
+  {"expect": "__a11yCheck()"}
 ]

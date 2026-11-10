@@ -446,6 +446,29 @@ reason, dialog labels) guards the held-button convention. It is a
 regression guard and does not close `UI#7`. Shared step includes, a fast
 tier and dynamic ports were cut.
 
+Built 2026-11-10. The claim held: `phone_audit.js` reads boxes and type
+sizes only. `tools/a11y_audit.js` defines `__a11yAudit` (unnamed controls,
+duplicate ids, `aria-disabled` with neither a title nor described-by text
+on the element, open dialogs with no label; natively disabled controls
+listed, never failed), `__a11yWatch`, which audits every dialog as the
+smoke's own steps open and shut it, and `__a11yCheck`, one `expect` that
+prints what failed. 23 dialog smokes carry it: two steps after each
+navigate and the check before the next and last. The first run found no
+duplicate id, unnamed dialog or unnamed control, and four holds whose
+reason was not on the held element, all fixed in `web/`: the Then refine
+tick and More seeds' Refine each new image (the reason was the label's
+title only), and the greyed Padding box of Only the masked area in the
+Inpaint and Outpaint dialogs, which now says in its title that it is not
+used while the tick is off. `smoke-phone-dialogs` opened the count question
+without its label line, an empty label of the smoke's own making; its
+message has the line now. Tests: `tests/test_a11y_audit.py` (the smokes'
+shape, and the audit over markup of its own in a real browser, skipped only
+without Edge or Chrome). The rules are in `docs/rules.md` (Frontend, Tests),
+the reasons in `docs/design-notes.md` ("An injected accessibility audit").
+Left: nothing found was left unfixed. Not covered: what a screen reader
+says, focus, contrast, a glyph-only name (a ✕ counts as named), and dialog
+states no smoke reaches; `UI#7` stands as it was.
+
 ### T4 the lightbox loads its neighbours
 
 `UI#41`. Each step sets the full PNG as the picture's source; nothing

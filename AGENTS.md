@@ -740,6 +740,12 @@ Gotchas:
   scrollbars, no 15 px classic one), and `{"inject": "phone_audit.js"}`
   gives it `__phoneAudit()` (controls under 44 px, off the screen, dialogs
   outside the window, sideways overflow); `docs/rules.md` Tests has both.
+- A smoke that opens dialogs follows each navigate with
+  `{"inject": "a11y_audit.js"}` and `{"eval": "__a11yWatch()"}` and ends
+  (and precedes each later navigate) with `{"expect": "__a11yCheck()"}`:
+  unnamed controls, duplicate ids, `aria-disabled` with no reason on the
+  element itself, unnamed dialogs. `tests/test_a11y_audit.py` lists the
+  smokes; a regression guard, never `UI#7`'s evidence.
 - `browser.mjs` exits 1 on a failed `expect`, 2 on a script it refuses
   (an async helper joined with `&&`/`||` is never awaited: put the whole
   condition inside the predicate). It also exits 1 when the page threw: an

@@ -14178,6 +14178,74 @@ Not built: a Node test suite for the page's helpers (cut by the review),
 a step that expects a page error, and sending page errors to the server's
 log.
 
+## An injected accessibility audit
+
+Built 2026-11-10 (`DEV#40`, [the peer review's T3](review-2026-11-10-peers.md#t3-an-injected-accessibility-audit)).
+`phone_audit.js` measures boxes; nothing checked what the markup says. The
+held-button convention (a control held for a reason is `aria-disabled` with
+the reason as its title) was kept by review and by the expectations each
+smoke happened to write about its own button.
+
+`tools/a11y_audit.js` is in `phone_audit.js`'s shape: injected by a smoke,
+tests only, a report of lists and an `ok`. It checks four things the review
+named: controls with no accessible name, duplicate ids, `aria-disabled`
+without a reason, and open dialogs without a label.
+
+Choices worth keeping:
+
+- A watch instead of a step per dialog. The review cut shared step
+  includes, and 23 smokes open two dozen dialogs between them, so auditing
+  each by hand would have been a hundred copied steps that the next dialog
+  would not get. `__a11yWatch()` wraps `show`, `showModal` and `close` and
+  hears `cancel`; a smoke pays two steps after a navigate and one check.
+  Each dialog is audited in the states the smoke's own steps put it in,
+  which is the point: opened cold with `showModal()` from a survey step,
+  ten dialogs showed holds and empty labels that no user path reaches.
+- Audited after the opening task, not inside `showModal()`. The page's
+  openers show the dialog and then fill it (`openAsk` sets focus, a pass
+  dialog syncs its holds); a microtask later that is all in, and it is
+  still a fixed point, not a timer.
+- The reason must be on the held element. A title on the label around a
+  checkbox is what a mouse sees, and it is not the checkbox's description.
+  This was the audit's one class of real finding.
+- The accessible name is a small reading of the naming rules (references,
+  aria-label, label, contents, title, placeholder), not the browser's own
+  computation. CDP's accessibility tree would give that, at the cost of a
+  driver change for every caller; the cases the page uses are few, and
+  `tests/test_a11y_audit.py` pins each one in a real browser. A
+  `display: contents` element has no box, so `checkVisibility()` says false
+  of it; without the audit treating it as rendered, every radio of the
+  Models panel read as unnamed.
+- Natively `disabled` controls are listed, never failed. The convention is
+  about buttons held for a reason and has documented exceptions (the
+  check's dead buttons), and fields a checkpoint does not take are
+  `disabled` on purpose; a list of selectors to keep in step with them
+  would be a second copy of the rule. The first run listed Mu, True CFG,
+  LoRA weight, the negative box, the runs picker and the lightbox's two
+  arrows at a row's ends; none was changed.
+- One standing exception: a phone list's line of no value ("No saved setups
+  in this view") is an `aria-disabled` option whose own words are the
+  reason.
+
+What the first run found (2026-11-10, Windows, Edge, the 23 smokes with the
+watch logging instead of failing). No duplicate id, no unnamed dialog and no
+unnamed control in the page's own paths. Four holds without a reason on the
+element, all fixed: the Then refine tick and More seeds' Refine each new
+image (the reason was on the label only) now carry it too, and the Padding
+box of Only the masked area in the Inpaint and Outpaint dialogs, greyed and
+`aria-disabled` while the tick is off, says so in its title
+(`MASK_CROP_PAD_OFF`). One finding was the smoke's own: `smoke-phone-dialogs`
+opened the count question with a one-line message, which leaves the count
+box's label empty; `countDialog`'s one caller always sends the line, so the
+smoke's message was given it.
+
+Not covered, and not claimed: what a screen reader says, focus order and
+return, live regions, contrast, and any dialog state the smokes do not
+reach. `UI#7`'s hands-on checks are unchanged by this. Not built: shared
+step includes, a fast tier and dynamic ports (cut by the review), reading
+the browser's accessibility tree, and failing on a glyph-only name (a ✕
+with no label reads as its glyph; the audit counts it as named).
+
 ## Use prompt
 
 Built 2026-11-10 (`GEN#53`, [the peer review's R7](review-2026-11-10-peers.md#r7-prompt-recall)).

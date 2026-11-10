@@ -192,6 +192,8 @@ function syncMoreSeedsThenRefineHold() {
   els.moreSeedsThenRefine.setAttribute('aria-disabled', String(Boolean(held)));
   els.moreSeedsThenRefineLabel.title = held
     || "Follow each new image with its run's refine pass, in the run's own pass run; off makes the images alone";
+  // On the held box too: a label's title is not the checkbox's.
+  els.moreSeedsThenRefine.title = held;
 }
 
 async function askMoreSeeds(payload, signal) {

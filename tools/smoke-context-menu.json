@@ -1,6 +1,8 @@
 [
   {"log": "'the right-click menu on an image against a fake server claiming FLUX.1 Krea dev on 7908 (a fresh --data): a card\\'s menu at the pointer with its buttons\\' holds, Star, Use seed, the copy items, Open PNG, a held Use as reference saying why, Edit by instruction… live with its dialog saying what holds it, Escape giving focus back, Shift and the prompt box keeping the browser\\'s menu, the Menu key, a picked card\\'s picks menu, a result tile\\'s, and the lightbox\\'s - a press outside closing the menu and not the lightbox'"},
   {"navigate": "http://127.0.0.1:7908/"},
+  {"inject": "a11y_audit.js"},
+  {"eval": "__a11yWatch()"},
   {"eval": "window.__until = async (fn, ms = 20000) => { const end = Date.now() + ms; while (Date.now() < end) { try { if (fn()) return true; } catch { /* not yet */ } await new Promise((r) => setTimeout(r, 50)); } return false; };"},
   {"expect": "__until(() => document.getElementById('status-dot').className.includes('ready'))"},
   {"eval": "resetPanel(); showError(''); window.__post = (path, body) => fetch(path, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}).then((r) => r.json()); window.__wait = async (id) => { for (let i = 0; i < 600; i++) { const s = await (await fetch('/api/jobs/' + id)).json(); if (s.status !== 'queued' && s.status !== 'running') return s; await new Promise((r) => setTimeout(r, 100)); } }; window.__cards = () => [...document.querySelectorAll('#gallery .card[data-id]')]; window.__menu = () => document.getElementById('context-menu'); window.__items = () => [...__menu().querySelectorAll('[role=menuitem]')]; window.__item = (label) => __items().find((li) => li.firstChild.textContent.replace(/^[^A-Za-z]+/, '') === label); window.__copied = []; window.__menuClipboardPort = Object.freeze({ writeText: async (t) => { __copied.push(t); }, write: async (items) => { const blob = await items[0].getType('image/png'); __copied.push('png:' + blob.size); }, read: () => { throw Error('Synthetic menu fixture forbids clipboard reads'); }, readText: () => { throw Error('Synthetic menu fixture forbids clipboard reads'); } }); Object.defineProperty(navigator, 'clipboard', { configurable: true, value: __menuClipboardPort }); window.__realExec = document.execCommand.bind(document); window.__menuNoExec = (command, ...rest) => { if (command !== 'insertText' && command !== 'undo') throw Error('Synthetic menu fixture forbids execCommand ' + command); return __realExec(command, ...rest); }; document.execCommand = __menuNoExec; window.__opened = []; window.open = (url) => { __opened.push(url); return null; };"},
@@ -281,5 +283,6 @@
   {"expect": "__until(() => binMode && !galleryPending && __cards().some((c) => +c.dataset.id === __binId))", "fatal": true},
   {"expect": "contextTarget(__cards().find((c) => +c.dataset.id === __binId).querySelector(':scope > img')) === null"},
   {"eval": "(async () => { await __post('/api/images/restore', {ids: [__binId]}); leaveBin(); await resetGallery(); return true; })()"},
-  {"expect": "__until(() => !binMode && !galleryPending && __cards().some((c) => +c.dataset.id === __binId))"}
+  {"expect": "__until(() => !binMode && !galleryPending && __cards().some((c) => +c.dataset.id === __binId))"},
+  {"expect": "__a11yCheck()"}
 ]

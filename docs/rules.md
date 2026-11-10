@@ -3774,7 +3774,13 @@ measured on the card and when.
   result column, the sheet's Fill width on a wrapped row and its export
   buttons while one runs, a negative-prompt finding's Show) is
   `aria-disabled` with the reason as its title, never `disabled`, so it keeps
-  focus and a press can say why. The prompt check's dead Use, Apply and Run
+  focus and a press can say why. The reason is on the held element itself
+  (its title, or text its `aria-describedby` names): a label's title
+  describes the label, not the checkbox inside it, so a held tick (Then
+  refine, More seeds' Refine each new image) carries the reason beside its
+  label's, and the greyed Padding box of Only the masked area says
+  `MASK_CROP_PAD_OFF` while the tick is off. `tools/a11y_audit.js` fails a
+  dialog smoke on a hold without one (Tests). The prompt check's dead Use, Apply and Run
   comparison (stale, or fewer than two versions), the Refine dialog's check
   buttons (Show, Apply) and its scale buttons past the guard are `disabled`
   with the reason as their title - the documented exceptions (below): each
@@ -8759,6 +8765,41 @@ chevron, are drawn to a box of their own and do not count) - and
 `sizes`, how many runs are set at each size; `root`, `screen` and an
 `except` list as the audit's. `smoke-phone` asserts no word under 13 px
 on Create, its folds shut and open, and on Gallery, at 393 and 320 px.
+
+`tools/a11y_audit.js` is the accessibility audit, injected the same way.
+`__a11yAudit(options)` reports `unnamed`, exposed controls with no
+accessible name (aria-labelledby text, aria-label, a label's own words,
+text or an image's alt inside, title, a field's placeholder); `duplicates`,
+ids more than one element of the document carries, drawn or not;
+`unreasoned`, exposed elements with `aria-disabled="true"` and neither a
+title nor aria-describedby text of their own; `dialogs`, open dialogs with
+no aria-labelledby text or aria-label; `disabled`, natively disabled
+controls, listed for a log and never counted (the convention has documented
+exceptions); `excepted`; and `ok`. Exposed means in the accessibility tree:
+rendered, not `visibility: hidden`, not under `[inert]` or
+`aria-hidden="true"`; a `display: contents` element is rendered as its
+parent is, an `<option>` as its `<select>` is, and opacity and size do not
+count. `root` narrows the controls and holds (the body by default, what is
+behind an open modal dialog included); duplicates and dialogs are always the
+page's. `except` adds selectors to the one standing exception, a phone
+list's line of no value (`.phone-list-row[data-value=""]`, "No saved setups
+in this view"), whose own words are why it is no choice.
+`__a11yWatch()` wraps `show`, `showModal` and `close` on dialogs and listens
+for `cancel`, auditing each dialog as `root` once the task that opened it
+has ended and again as it shuts; `__a11yWatched()` returns what it kept,
+once each, with the dialog's id. `__a11yCheck()` is true when the page now
+and everything watched are clean, and otherwise throws the failed lists,
+which the driver prints under the failed `expect`. The 23 smokes that carry
+it (`WATCHED` in `tests/test_a11y_audit.py`: the dialogs', the phone's
+sheets', Models' and the held-button smoke) follow every navigate with
+`{"inject": "a11y_audit.js"}` and `{"eval": "__a11yWatch()"}` and put
+`{"expect": "__a11yCheck()"}` before each later navigate and last; the test
+holds that shape, that no other smoke injects the file and that no script
+under `web/` names it, and runs the audit over markup of its own in a real
+browser (skipped only without Edge or Chrome). A new smoke that opens a
+dialog takes the three steps and joins `WATCHED`. The audit reads markup
+only: it is a regression guard, and passing it is no part of `UI#7`'s
+hands-on screen-reader checks.
 
 `tests/test_fbc_runtime.py` exercises installed FBC hooks and arithmetic on tiny
 CPU blocks in an isolated worker. Only the unrelated optional bitsandbytes backend
