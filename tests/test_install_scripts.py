@@ -388,6 +388,28 @@ def test_update_counts_a_copy_it_left_alone_among_the_three(sandbox):
     assert not copies["a2a2a2a"].exists()
 
 
+def test_update_orders_a_copy_by_when_it_was_made(sandbox):
+    # A gallery untouched for years: its copy is still the newest one, never
+    # the first deleted because it carries the database's own time.
+    _checkout_with_gallery(sandbox)
+    root = sandbox["root"]
+    os.utime(root / "auradream.db", (1_000_000_000, 1_000_000_000))
+    sandbox["env"]["STUB_COMMIT"] = "aaa1111"
+    assert _run(sandbox, "update.ps1").returncode == 0
+    planted = []
+    for age, commit in enumerate(("a2a2a2a", "a1a1a1a"), start=1):
+        path = root / f"auradream-before-update-{commit}.db"
+        path.write_bytes(commit.encode())
+        os.utime(path, (1_700_000_000 - age * 3600, 1_700_000_000 - age * 3600))
+        planted.append(path)
+    sandbox["env"]["STUB_COMMIT"] = "bbb2222"
+    result = _run(sandbox, "update.ps1")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (root / "auradream-before-update-aaa1111.db").read_bytes() == b"gallery"
+    assert (root / "auradream-before-update-bbb2222.db").exists()
+    assert planted[0].exists() and not planted[1].exists()
+
+
 def test_update_without_a_commit_uses_the_fixed_name(sandbox):
     # Git answers no commit (an unborn branch): the one name, replaced.
     _checkout_with_gallery(sandbox)
