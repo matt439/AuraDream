@@ -480,7 +480,9 @@ Jobs:
 - A save the disk has no room for (`jobs.disk_full`: `ENOSPC`, SQLite's
   "database or disk is full") pauses the job with `pause_reason`, the render
   held in memory and saved at Resume; never a failed cell. Every other save
-  error stays the cell's failure.
+  error stays the cell's failure. The CLI's own loop holds the image the
+  same way but polls (`generate._save_held`): it says the reason once and
+  saves when there is room; Ctrl-C ends the wait as a cancel.
 - GPU work outside jobs (Expand, the critic) goes through
   `jobs.run_when_idle`; nothing holding the gate awaits the load lock.
 - A failure site logs one ERROR line and its traceback at DEBUG with

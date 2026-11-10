@@ -5700,7 +5700,15 @@ with the reason and tries that image again at Resume; `save_image` takes
 its `.png.part` and thumbnail back on each refusal, so the retries leave
 nothing. The pause is inside the unit, which `_hold` otherwise never is,
 and frees the card's cache as any pause does. A submit-time space check
-was cut: the size of a night's PNGs is not known at submit. The reservation is also a per-process RLock
+was cut: the size of a night's PNGs is not known at submit. `generate.py`
+has no Resume button and is often left running unattended, so it holds
+the image and tries the save again every five seconds rather than
+stopping: stopping would end an overnight grid at its first refused save
+though the disk had room a minute later, and a wait is what the same loop
+already does for a busy gallery. It says the reason once; the first
+Ctrl-C ends the wait and the run as a cancel, and `--resume` renders that
+cell again. Before this its save was outside the per-cell `try`, so the
+error ended the whole run with exit 1 (`GEN#57`). The reservation is also a per-process RLock
 that every read takes, so `save_image` encodes its PNG and WEBP to `.part`
 files before reserving: held through a 2048x2048 encode, a 3 ms `get_image`
 on another thread took 330 ms. The sweeps do glob `*.part`; only their

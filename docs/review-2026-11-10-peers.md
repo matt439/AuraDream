@@ -133,6 +133,29 @@ Pause over a job paused again. Not built: the CLI's own save loop
 word 2026-11-10: hold the image and wait or stop with the same reason,
 through `jobs.disk_full`), and the submit-time check that was cut. A real full disk has not been tried on the card's PC.
 
+Built 2026-11-10 (`GEN#57`). The CPU test first showed the CLI did worse
+than fail the cell: its save sits outside the per-cell `try`, so `ENOSPC`
+or SQLite's error reached the outer handler, which threw the render away
+and ended the run with exit 1, every later cell unrendered. The choice
+between waiting and stopping went to waiting, as the CLI already does for
+a busy gallery: `generate._save_held` reads the error through
+`jobs.disk_full`, says once on stderr "the disk is full: this image is
+held in memory. Free some space and it is saved; Ctrl-C stops without it",
+and tries the save again every `DISK_FULL_POLL` (5 s) until it lands, so
+an unattended night carries on by itself once there is room. The first
+Ctrl-C ends the wait at once, saying "stopped with the disk full: run
+2/3's image was not saved; --resume continues it", and the run ends as any
+cancel does, exit 130 with the saved images kept; nothing is counted as a
+failed cell. Then refine's passes save through the same helper, which also
+gives them the busy-gallery wait they lacked; a pass stopped there says
+"the pass of #12 was not saved; refine that image to make it", since
+`--resume` skips a cell whose base image is saved. Every other save error ends
+the run as before (`tests/test_cli_disk_full.py`). The wait has no limit
+of its own and `--budget` does not end it (the budget only stops cells
+from starting), and `--via-server` is unchanged: the server's job pauses
+and the CLI goes on watching it. A real full disk has not been tried here
+either.
+
 ### R7 prompt recall
 
 `GEN#53`. A prompt is recalled only through its image (Copy prompt, Reuse,

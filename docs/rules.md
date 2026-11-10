@@ -3045,8 +3045,17 @@ measured on the card and when.
   until a second Ctrl-C (saying once "gallery busy in another process; still
   waiting to save"; its `--resume` lookup refuses in one line, exit 1), never dropping a
   finished render. A save with no room on the disk is held the same way by
-  the server's job, paused with its reason (Jobs; `generate.py` still fails
-  that cell). `save_image` and `thumbnail_for` encode their
+  the server's job, paused with its reason (Jobs). `generate.py` has no
+  Resume, so it polls instead: `_save_held`, the one save of its cells and
+  its Then refine passes, reads the error through `jobs.disk_full`, says
+  once "the disk is full: this image is held in memory. Free some space and
+  it is saved; Ctrl-C stops without it" on stderr, and tries again every
+  `DISK_FULL_POLL` (5 s, slept in quarter seconds so the first Ctrl-C is
+  heard). That Ctrl-C ends the wait with "stopped with the disk full: ...
+  was not saved; --resume continues it" and the run as a cancel (130),
+  never a failed cell (a Then refine pass's line says "refine that image to
+  make it" instead: `--resume` skips a cell whose base image is saved); any other save error ends the run as before
+  (`tests/test_cli_disk_full.py`). `save_image` and `thumbnail_for` encode their
   `.part` files before taking the reservation and reserve only the row and
   the renames. Keep lock ordering consistent: gallery reservation before
   storage's write lock. Status and bundle downloads remain available.
@@ -10018,7 +10027,9 @@ local `cli` fixture, its autouse execution-environment isolation and the
 passes' sources and masks): `tests/test_cli.py` (seeds and the loop equality,
 resume, budgets, `--from-image`, conditioning, Then refine),
 `tests/test_cli_passes.py` (refine, inpaint, outpaint and the GAN upscaler,
-run locally) and `tests/test_cli_via_server.py` (`--via-server` through the
+run locally), `tests/test_cli_disk_full.py` (a full disk under the save:
+the image held and saved once there is room, a batch and a Then refine
+pass too, Ctrl-C ending the wait as a cancel, other errors unchanged) and `tests/test_cli_via_server.py` (`--via-server` through the
 test client's routes, and `_server_json`'s transport).
 
 Helpers shared across test files live in `tests/*_helpers.py` and are

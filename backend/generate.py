@@ -206,6 +206,57 @@ def _server_holds_gpu(host: str, port: int, timeout: float = 2.0) -> str | None:
     return None
 
 
+# Seconds between tries of a save the disk had no room for (`_save_held`).
+DISK_FULL_POLL = 5.0
+
+
+def _save_held(p, should_cancel, what: str, image, ran, **fields):
+    """`storage.save_image`'s record, the rendered image held in memory for
+    as long as the gallery is busy in another process or the disk has no
+    room (`jobs.disk_full`, the server worker's own reading). None when a Ctrl-C
+    ended a full disk's wait, said with the reason; `what` says there which
+    image was not saved and whether --resume makes it again. Any other error
+    is the caller's, as before."""
+    busy = full = False
+    while True:
+        try:
+            return p.storage.save_image(image, ran, **fields)
+        except p.gallery_lock.GalleryBusy:
+            # Another process has held the gallery past one SESSION_WAIT (a
+            # browser bundle export, a reindex). Wait again rather than lose
+            # the render and every cell after it, as the server's job worker
+            # does. A second Ctrl-C still ends it.
+            if not busy:
+                print("  gallery busy in another process; still waiting to save",
+                      file=sys.stderr, flush=True)
+                busy = True
+        except (OSError, p.sqlite3.Error) as exc:
+            # No room for the PNG or its row. The server's job pauses for a
+            # Resume; here nobody may be watching, so the save is tried again
+            # every DISK_FULL_POLL seconds until space is freed. `save_image`
+            # took its partial file back.
+            if not p.jobs.disk_full(exc):
+                raise
+            if not full:
+                print(
+                    "  the disk is full: this image is held in memory. Free some space "
+                    "and it is saved; Ctrl-C stops without it",
+                    file=sys.stderr, flush=True,
+                )
+                full = True
+            # Slept in slices: the first Ctrl-C only sets the flag this reads.
+            waited = 0.0
+            while waited < DISK_FULL_POLL and not should_cancel():
+                time.sleep(min(0.25, DISK_FULL_POLL - waited))
+                waited += 0.25
+            if should_cancel():
+                print(
+                    f"  stopped with the disk full: {what}",
+                    file=sys.stderr, flush=True,
+                )
+                return None
+
+
 def _then_refine_passes(p, backend, records, spec, pass_run, job_id, on_progress, should_cancel, streak,
                         *, quiet: bool, live: bool):
     """A pass of each record a cell just saved, as the server's worker runs
@@ -251,12 +302,19 @@ def _then_refine_passes(p, backend, records, spec, pass_run, job_id, on_progress
         ran = backend.applied(cell.request)
         peak = backend.last_peak()
         for image in images:
-            saved = p.storage.save_image(
+            saved = _save_held(
+                # --resume skips a cell whose base image is saved, so it is not
+                # promised here.
+                p, should_cancel,
+                f"the pass of #{record.id} was not saved; refine that image to make it",
                 image, ran, seed=cell.seed, duration_ms=elapsed_ms // max(len(images), 1),
                 model_id=p.settings.model_id, job_id=job_id, run_id=pass_run,
                 quantization=p.settings.quantization, variables=cell.variables, batch=1, peak=peak,
                 mask_region=backend.last_mask_crop(),
             )
+            if saved is None:
+                # Stopped on a full disk: `should_cancel` ends the run above.
+                return made, failed, streak
             made.append(saved)
             print(f"{p.settings.outputs_dir / saved.filename}  seed {saved.seed}  pass of #{record.id}", flush=True)
     return made, failed, streak
@@ -265,8 +323,11 @@ def _then_refine_passes(p, backend, records, spec, pass_run, job_id, on_progress
 def _project() -> SimpleNamespace:
     """Import the project, reporting the wrong interpreter clearly."""
     try:
+        import sqlite3
+
         from backend import (
-            gallery_lock, gallery_reports, grid, loras, mask_crop, outpaint, refine, storage, submission_rules,
+            gallery_lock, gallery_reports, grid, jobs, loras, mask_crop, outpaint, refine, storage,
+            submission_rules,
         )
         from backend.backends import Cancelled, get_backend
         from backend.config import settings
@@ -285,10 +346,12 @@ def _project() -> SimpleNamespace:
         gallery_lock=gallery_lock,
         gallery_reports=gallery_reports,
         grid=grid,
+        jobs=jobs,
         loras=loras,
         mask_crop=mask_crop,
         outpaint=outpaint,
         refine=refine,
+        sqlite3=sqlite3,
         storage=storage,
         submission_rules=submission_rules,
         Cancelled=Cancelled,
@@ -1305,34 +1368,26 @@ def _main(argv: list[str] | None, awake: contextlib.ExitStack) -> int:
                 # Each image in a batch gets its own reproducible seed, wrapped
                 # with the same helper the generator uses so the recorded seed
                 # and the seed actually drawn cannot disagree.
-                waiting = False
-                while True:
-                    try:
-                        record = p.storage.save_image(
-                            image,
-                            ran,
-                            seed=wrap_seed(run_seed + offset),
-                            duration_ms=elapsed_ms // max(len(images), 1),
-                            model_id=p.settings.model_id,
-                            job_id=job_id,
-                            run_id=run_id,
-                            quantization=p.settings.quantization,
-                            variables=cell.variables,
-                            batch=cell.request.num_images,
-                            peak=peak,
-                            mask_region=backend.last_mask_crop(),
-                        )
-                        break
-                    except p.gallery_lock.GalleryBusy:
-                        # Another process has held the gallery past one
-                        # SESSION_WAIT (a browser bundle export, a reindex).
-                        # The render is in memory: wait again rather than
-                        # lose it and every cell after it, as the server's
-                        # job worker does. A second Ctrl-C still ends it.
-                        if not waiting:
-                            print("  gallery busy in another process; still waiting to save",
-                                  file=sys.stderr, flush=True)
-                            waiting = True
+                record = _save_held(
+                    p,
+                    should_cancel,
+                    f"run {run_index}/{len(cells)}'s image was not saved; --resume continues it",
+                    image,
+                    ran,
+                    seed=wrap_seed(run_seed + offset),
+                    duration_ms=elapsed_ms // max(len(images), 1),
+                    model_id=p.settings.model_id,
+                    job_id=job_id,
+                    run_id=run_id,
+                    quantization=p.settings.quantization,
+                    variables=cell.variables,
+                    batch=cell.request.num_images,
+                    peak=peak,
+                    mask_region=backend.last_mask_crop(),
+                )
+                if record is None:
+                    # Stopped on a full disk: the loop's `stop` check ends it.
+                    break
                 saved += 1
                 written.append(record)
                 if record.content_hash:
