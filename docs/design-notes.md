@@ -13666,3 +13666,390 @@ Choices, and why:
 
 Not built: a level for the file separate from the console's, a setting for
 its place or size, and a page that shows it.
+
+## A passcode beyond loopback
+
+Designed 2026-11-10, not built (`DEV#32`, [the peer review's S2](review-2026-11-10-peers.md#s2-passcode-beyond-loopback),
+Matt's yes the same day). This section is the first step the finding asks
+for: every surface that answers without credentials today, then the design,
+then the order to build it in. No code exists yet; the names below
+(`backend/passcode.py`, `web/passcode.html`, the routes) are the ones the
+build uses.
+
+The server has no authentication. `TrustedHostMiddleware` refuses a Host it
+does not list and `block_cross_site_writes` refuses a write that announces
+another origin; both stop another *site*, neither stops another *person* who
+opens the address. `linux/install-service.sh` writes `AURADREAM_HOST=0.0.0.0`,
+so the Linux service is such an address for the whole network, and
+`main.run` only logs a warning about it.
+
+### Every surface that answers today
+
+Read from the source on 2026-11-10 and from the app's own route table
+(`main.app.routes`): four documentation routes, two mounts, two page routes
+and 88 API operations on 77 paths. Nothing below asks who is calling.
+
+What the server answers:
+
+| Surface | Where | What it gives |
+|---|---|---|
+| `GET /` | `main.index` | `index.html`, the page |
+| `GET /sw.js` | `main.service_worker` | the service worker, `no-cache` |
+| `/static/…` | `StaticFiles` mount on `settings.web_dir` | every page script and stylesheet, `offline.html`, `manifest.webmanifest`, `icons/` |
+| `/outputs/…` | `StaticFiles` mount on `settings.outputs_dir` | every PNG by its file name, binned ones too; the gallery routes give the names |
+| `/docs`, `/redoc`, `/docs/oauth2-redirect`, `/openapi.json` | FastAPI's defaults (`FastAPI(title=…)` sets no `docs_url`) | the whole API, described, with a form to call it |
+| `/api/status`, `/api/loras`, `/api/models`, `/api/model/load`, `/api/model/switch`, `/api/model/unload` | `main.py` | paths, the card, the running commit; loading, switching (a download with the machine's Hugging Face token) and unloading |
+| `/api/generate`, `/api/grid`, `/api/grid/preview` | `api_generate.py` | queueing work |
+| `/api/rerender`, `/api/swap-tags`, `/api/refine/batch`, `/api/more-seeds`, `/api/instruction-edit` and their previews | `api_rerender.py`, `api_swap.py`, `api_refine_batch.py`, `api_more_seeds.py`, `api_instruction_edit.py` | queueing work from gallery rows |
+| `/api/runs/{id}` and Finish run | `api_runs.py` | run details, queueing the rest |
+| `/api/jobs…`: list, one job, cancel, pause, front, skip | `api_jobs.py` | the queue and its controls |
+| `GET /api/jobs/{id}/stream` | `api_jobs.py` | the SSE stream: progress, live previews, saved records |
+| `/api/gallery…`, `/api/runs`, `/api/images…`: records, thumbnails, favorite, bin, restore, purge, Empty bin, Delete unstarred | `api_gallery.py` | reading and deleting the gallery |
+| `/api/gallery/bundles…`: list, preview, status, password, export, import, upload, `files/{name}` | `api_bundles.py` | exporting, downloading, uploading and merging whole galleries |
+| `/api/gallery/automatic-backup` and its reload | `api_backup.py` | backup configuration and status |
+| `/api/gallery/saved-searches…`, `/api/presets…`, `/api/snippets…` | `api_saved_searches.py`, `api_presets.py`, `api_snippets.py` | the saved libraries, their export and import |
+| `/api/masks…`, `/api/images/{id}/outpaint-presets` | `api_masks.py` | storing and reading masks |
+| `/api/png/settings` | `api_png.py` | a PNG's text chunks read back |
+| `/api/prompt/…`, `/api/tags/…` | `api_prompt.py` | Expand and the critic (GPU work), Check, tag lookup |
+| `/api/fake/…` | `tools/fake_server.py` only | the fake's knobs; it adds them to `main.app` and serves it with its own `uvicorn.run` on 127.0.0.1, never through `main.run` |
+
+What calls the server without a browser, each over plain `urllib`, `curl`
+or .NET with no credentials:
+
+| Caller | What it asks | From |
+|---|---|---|
+| `generate --via-server` (`generate_remote._server_json`) | `/api/status`, `/api/images/{id}`, outpaint presets, `POST /api/masks`, `/api/generate` or `/api/grid`, then `/api/jobs/{id}` polls and cancel | wherever the CLI runs, at `AURADREAM_HOST`:`AURADREAM_PORT` |
+| `server_probe.auradream_at` (`main.run`'s second-launch check, the doctor's Port row, `linux/common.sh`'s `auradream_state`) | `GET /`, looking for `<title>AuraDream</title>` | loopback |
+| `install.ps1`, `update.ps1` | `GET /` for the same title | loopback |
+| `linux/common.sh`'s curl fallback | `GET /` for the same title | loopback |
+| `server_probe.running_commit` (the doctor's Commit row) | `GET /api/status` | loopback |
+| `linux/common.sh`'s `server_busy` (`update.sh`, `control.sh` stop and restart) | `GET /api/status`, `GET /api/gallery/bundles/status` | loopback |
+| `linux/control.sh` (`server_answers`, `do_status`) | `GET /api/status` | loopback |
+| `bin\auradream-server.ps1` | nothing itself: it runs `linux/control.sh` and `linux/update.sh` over ssh and prints the page's address | the server, by ssh |
+| `tools/run_smoke.py` (`_wait_ready`) | `GET /api/status` until 200 | loopback, a fake |
+| `tools/browser.mjs` and the smokes | the page, and through it everything above | loopback, a fake |
+| `tools/check_run_continue.py`, `tools/trial_fixture.py`, `tools/trial_walkthrough.py` | API calls and page steps | loopback, a fake |
+| `web/sw.js` | `GET /` (`credentials: 'same-origin'`), and `/static/offline.html` once at install | the browser |
+| `web/offline.html` | `GET /static/manifest.webmanifest` as its probe, then `location.replace('/')` | the browser |
+| the browser itself | the manifest and icons `index.html`'s head names, for a home-screen icon | the browser, the manifest without cookies |
+
+Not a surface of this server: the critic's `llama-server` (its own loopback
+process and key, `critic_server.py`), and the wake URL
+`bin\auradream-server.ps1` may post to.
+
+### The setting, and when it is on
+
+`AURADREAM_PASSCODE`, read by `config.py` from the environment only. It is
+never written to `auradream.settings.json`, never a command-line flag (a
+flag is in the process list and the shell's history), never in
+`/api/status`, a log line or an error. Leading and trailing whitespace is
+stripped; empty is unset. Fewer than 8 characters after stripping is a
+mistake said in plain words: `main.run` exits 1 before it binds, and the
+doctor's row fails. On Linux it goes in the service's environment file,
+which `install-service.sh` already writes readable by its owner only; the
+file is never rewritten, so an existing one gets the line by hand.
+
+That file has two readers that agree only on plain values: systemd takes
+the line to its end, and `linux/common.sh`'s `load_env_file` sources it as
+bash, where `AURADREAM_PASSCODE=correct horse` sets the variable to
+`correct` and runs `horse`, and `$`, quotes, `#`, `;` and a backslash each
+read differently too. So before it sources the file, `load_env_file` reads
+the `AURADREAM_PASSCODE=` line as text and stops in plain words (never the
+value) unless the value is made only of letters, digits and `. _ - + @ % : , /`.
+The file's commented line says the same. The limit is the file's, not the
+setting's: a passcode set in a Windows or Linux shell may hold a space or
+any other character.
+
+The passcode is asked when it is set and the server can be reached by any
+name but this machine's own:
+
+- `AURADREAM_HOST` is not loopback (`server_probe.is_loopback`), or
+- `AURADREAM_ALLOWED_HOSTS` lists a name that is not loopback.
+
+Otherwise it is off, and `main.run` logs one line saying the passcode is
+set but not asked because the server listens on this machine only. The
+second condition is wider than the finding's "off on loopback-only binds",
+deliberately: `docs/usage.md` documents a proxy in front of a loopback
+bind, and such a server is on the network though its bind is not. A proxy
+needs its public name in `AURADREAM_ALLOWED_HOSTS` for the page's writes to
+pass the Origin check, so that list is what tells the two cases apart.
+
+When it is on, **a request from 127.0.0.1 is asked like any other**. An
+exemption by peer address would be the quiet failure here: behind a proxy
+on the same machine every request arrives from loopback, and nginx's
+default `proxy_pass` also rewrites Host to the loopback address, so no
+header check separates the proxy from a local script. The price is that
+the browser on the PC itself signs in once, and the local scripts send the
+passcode (below).
+
+Without the passcode a non-loopback bind logs today's warning, reworded to
+name `AURADREAM_PASSCODE`.
+
+### What is checked, and what stays open
+
+`backend/passcode.py` holds all of it: the gate (on or off, the derived
+key), the token, the limiter and a plain ASGI layer, `PasscodeMiddleware`.
+A plain layer, not `@app.middleware("http")`, for the reason
+`ActivityMiddleware` gives: the job streams. The layer is always installed
+and passes everything through while the gate is off, so the fake and the
+tests turn it on without rebuilding the app. `lifespan` scopes pass; a
+`websocket` scope is refused while it is on (there are none today).
+
+Its place in `main.py`, outermost first: the response headers, the
+cross-site write block, the Host check, **the passcode**,
+`hold_model_for_request`, keep-awake's activity, gallery admission. That
+moves `hold_model_for_request` inside the Host check and the write block,
+where it is outside both today. The order is the design:
+
+- Inside the Host check and the write block, so a hostile page in a
+  signed-out browser cannot spend the household's sign-in attempts: its
+  cross-site POST is a 403 before the passcode is looked at.
+- Inside the response headers, so a 401 and the sign-in page carry
+  `frame-ancestors` and `nosniff`.
+- Outside the model hold, activity and admission, so a request that is not
+  signed in is never a model reader, never keeps the PC awake and never
+  waits on the gallery.
+
+A request is let through when it carries a valid session cookie or the
+passcode as `Authorization: Bearer <passcode>`. Otherwise, while the gate is
+on:
+
+- `GET` or `HEAD` of exactly `/` answers **200 with the sign-in page**,
+  `Cache-Control: no-store`. Not a redirect and not a 401: `sw.js` hands the
+  server's answer for `/` to `respondWith`, which rejects a redirected
+  response for a navigation, and the four title probes in the table above
+  (`urllib` and .NET both raise on a 401) keep working unchanged because the
+  sign-in page's title is exactly `<title>AuraDream</title>`.
+- `POST /api/passcode` and `POST /api/passcode/sign-out` are the layer's own
+  (below).
+- `GET` of `/static/manifest.webmanifest` and of the icon files the manifest
+  and `index.html`'s head name passes. A browser fetches a manifest without
+  cookies, so a closed one would cost the phone its home-screen name and
+  icon. The list is exact paths, and a test holds it equal to what the two
+  files name.
+- Everything else answers 401 without its body being read:
+  `{"detail": "This server asks for a passcode. Reload the page and sign in.", "code": "passcode_required"}`
+  with `WWW-Authenticate: Bearer` (never `Basic`, which opens the browser's
+  own dialog). That is every API route, the stream, both mounts, `/sw.js`,
+  `offline.html` and the four documentation routes. On the fake,
+  `/api/fake/` stays open, as `HoldWhileUnreachable` leaves it.
+
+A signed-in `GET /` gets `Cache-Control: no-cache` while the gate is on, so
+a signed-out reload is never the cached page.
+
+### The comparison, the cookie and the limiter
+
+The passcode is compared as
+`hmac.compare_digest(sha256(submitted), sha256(passcode))` over UTF-8 bytes,
+the submitted value stripped as the setting is (a phone's keyboard adds a
+space) and refused unread over 256 characters. Digests, so that neither
+length nor a non-ASCII character reaches `compare_digest` raw.
+
+The session is stateless. At start the gate derives one key,
+`hashlib.scrypt(passcode, salt=b"auradream.passcode.session.v1", n=2**14, r=8, p=1, dklen=32)`.
+The cookie's value is `v1.<expires>.<mac>`: `expires` in whole Unix seconds,
+`mac` the hex HMAC-SHA256 of `v1.<expires>` under that key. It is valid when
+it has exactly those three parts, the MAC matches (`compare_digest`) and
+`expires` is in the future. Thirty days; a `GET /` with a valid cookie more
+than a day old sets a fresh one, so a device used within the month stays
+signed in.
+
+- Nothing is stored, so a restart or an update signs nobody out, which
+  matters on the Windows PC that is started by hand each day.
+- Changing the passcode changes the key and signs every device out. That is
+  the only revocation there is.
+- The key is scrypt's, not a plain hash, so a cookie read off the network
+  costs one scrypt per guess to turn back into the passcode. The salt is a
+  fixed label: there is one secret, not a table of them.
+
+The cookie is `auradream_session_<port>`, `HttpOnly`, `SameSite=Lax`,
+`Path=/`, `Max-Age` thirty days, and `Secure` when the request's scheme is
+https (uvicorn's own, or `X-Forwarded-Proto` from a loopback proxy, which
+uvicorn trusts by default). The port is in the name because cookies ignore
+ports: two servers on one host would otherwise overwrite each other's.
+`Lax` rather than `Strict`, so a bookmark or a link opens the page signed
+in; writes are POSTs, which `Lax` withholds across sites and the Origin
+check refuses anyway.
+
+`POST /api/passcode` takes `{"passcode": "…"}` (JSON, at most 4 KiB, never a
+query parameter: addresses are logged and sent as Referer). Right: 204 and
+the cookie. Wrong: 401 `{"detail": "That passcode is not right."}`.
+`POST /api/passcode/sign-out` clears the cookie on that device and needs no
+session.
+
+Wrong passcodes are limited, in memory and for the whole server rather than
+per address (on a LAN an address is free to change). After five wrong in a
+row, each further attempt first waits out a lock of 1, 2, 4 … seconds,
+capped at 60; during the lock an attempt is a 429 with `Retry-After` and is
+neither compared nor counted. A right passcode resets the count. A wrong
+`Authorization` header counts the same. Signed-in devices are untouched by
+a lock, since a cookie is not an attempt. Each wrong attempt logs one
+WARNING with the peer's address and never the value. The state is read and
+written on the event loop only, on `time.monotonic()`, with an injectable
+clock for the tests. At the cap that is about 1,400 guesses a day, which is
+why eight characters is the floor.
+
+During a lock the right passcode is a 429 as well, in the sign-in form and
+as an `Authorization` header: letting it through would tell a guesser
+which guess was right. That is the limiter's cost, and it falls on whoever
+has no cookie: while someone else on the network keeps guessing, a new
+device cannot sign in and the CLI and the server's scripts, which send the
+passcode on every request, are refused. They say so and never treat it as
+a server that is down or idle (below). A browser already signed in is not
+affected.
+
+### The sign-in page, the service worker and the offline page
+
+`web/passcode.html` is self-contained as `offline.html` is (its style, icon
+and script inline, no page script loaded, nothing registered), because
+nothing under `/static/` answers before sign-in. One labelled
+`type="password"` field with `autocomplete="current-password"`, one Sign in
+button of at least 44 px, a line saying which server it is
+(`location.host`), and a live region for "That passcode is not right." or
+the wait a 429 names. It posts with `fetch` and on 204 calls
+`location.replace('/')`. It is not a classic page script, so
+`check_classic_scripts` leaves it alone as it does `offline.html`.
+
+`sw.js` and `offline.html` do not change:
+
+- The worker is registered by `app.js`, which runs only after sign-in, so
+  its install fetch of `/static/offline.html` carries the cookie.
+- Its navigation fetch already sends same-origin credentials. A signed-out
+  `/` is the server's 200 sign-in page, which the worker passes on as it
+  passes every answer.
+- The offline page's probe treats any answer as the server being back, a
+  401 included, and then opens `/`: the page, or the sign-in page.
+- A signed-out browser's check for a newer `/sw.js` gets a 401 and keeps
+  the worker it has.
+
+The cached `offline.html` shows without a passcode; it holds nothing
+private.
+
+In the page, `/api/status` gains `passcode` (true while the gate is on),
+which shows a **Sign out** item. `api()` (`web/state.js`) reads a 401 whose
+`code` is `passcode_required` as signed out: the topbar says so in the place
+`goOffline`'s "server not answering" uses, with a Sign in button that
+reloads. The page never reloads by itself, since the composer may hold
+unsaved text; panel persistence restores it after the reload. Sign out's
+place is the Models panel, under its status, where it takes no height from
+the settings panel; that placement is checked in the browser at 1400x900
+and on the phone tier when it is built.
+
+### SSE, the CLI and the scripts
+
+`EventSource` cannot set a header, and does not need to: a same-origin
+stream request carries the cookie, as every `<img>` under `/outputs/`, a
+thumbnail and a bundle download do. The session is checked when the stream
+opens; an open stream runs to its `done`. A stream refused with 401 does
+not reconnect (`EventSource` gives up on a non-200), and the status poll's
+401 is what tells the page.
+
+Everything that is not a browser sends `Authorization: Bearer <passcode>`
+on each request, the passcode read from `AURADREAM_PASSCODE` in its own
+environment and passed to a child through the environment, never as an
+argument:
+
+- `generate --via-server` adds the header in `_server_json` whenever the
+  variable is set. A 401 says the server asks for a passcode and to set
+  `AURADREAM_PASSCODE` in this shell; a 429 says to wait. Before the job is
+  queued both are refusals (exit 2). On a poll after it they end the wait
+  as any failed poll does today: exit 1, naming the job, which may still be
+  running. Never a retry of the submission.
+- `server_probe.running_commit` takes the passcode; the doctor passes its
+  environment's. Without it the Commit row says the running server asks for
+  a passcode, and does not fail.
+- `linux/common.sh`'s `server_busy` and `linux/control.sh`'s
+  `server_answers` and `do_status` already run after `load_env_file`, which exports the service's
+  settings, so their Python reads the variable. A 401 there is said as a
+  passcode missing from the environment file, and a 429 as too many wrong
+  passcodes just now, neither as a server that is down. `server_busy` keeps
+  failing on both ("could not ask it"), so `update.sh` and a stop or restart
+  refuse without `--force` as they do today when it cannot be asked: a
+  server that would not say is never taken for an idle one.
+- The title probes need nothing (above).
+- The doctor gains a **Passcode** row: not asked on a server this machine
+  alone reaches; asked; FAIL under 8 characters; and WARN when the server
+  is reachable beyond this machine with none set (it has no such warning
+  today; only `main.run` logs one).
+
+The fake and the smokes: every fake binds 127.0.0.1 with default allowed
+hosts, so the gate is off and every existing smoke, `run_smoke.py`'s
+readiness poll and the trial tools run unchanged. The fake gains
+`POST /api/fake/passcode` (`passcode`: a string turns the gate on, null
+off; `reset`: clears the limiter), and `smoke-passcode` signs in through
+the page itself, so `browser.mjs` needs nothing new.
+
+### What the docs must say about plain http
+
+In `README.md`'s settings, `docs/usage.md`'s LAN paragraph, `docs/setup.md`'s
+Linux server section (each says "no login" today) and the start-up log
+line, in these terms:
+
+- Over plain http the passcode, the cookie and every prompt and image cross
+  the network unencrypted. Anyone who can capture that network's traffic
+  reads all of it and can sign in afterwards.
+- So the passcode keeps out people who can merely reach the address: the
+  household, a guest on the Wi-Fi. It is not protection on a network that
+  is not trusted, and never a reason to forward the port to the internet.
+- HTTPS is what makes it private ([S3](review-2026-11-10-peers.md#s3-an-https-route),
+  `DEV#33`).
+- Do not reuse a password from anywhere else. It sits in plain text in the
+  environment file and the process's environment.
+- There is one passcode and no accounts. Changing it and restarting signs
+  every device out; nothing else does.
+
+### Build order
+
+Each stage is a commit series that passes on its own; the setting is named
+in the README only with stage 3.
+
+1. **The gate.** `backend/passcode.py`, the setting, the layer and the
+   reordered `hold_model_for_request` in `main.py`, `web/passcode.html`,
+   `passcode` in the status, `main.run`'s refusal and log lines.
+   First, a test that walks `main.app.routes` (every route and method, both
+   mounts, the four documentation routes) and pins that each answers
+   without credentials today; it then becomes the table: with the gate on,
+   each is 401 except the open list, so a route added later is covered or
+   the test fails. `tests/test_passcode.py`: the token (minted, expired,
+   tampered, wrong version, renewed), the comparison, the limiter on an
+   injected clock, the on/off table over host and allowed hosts, the
+   8-character floor. `tests/test_api_passcode.py`: the sign-in page at `/`
+   with the probes' title; the cookie's attributes, `Secure` only on https;
+   Bearer; the stream opening with a cookie and refused without; a
+   cross-site sign-in refused without counting; a wrong Host still 400; a
+   signed-out request neither activity nor a model reader (a 401, not a
+   409, during a switch); the response headers on a 401; the open list
+   equal to the manifest's and the head's icons; and with the gate off,
+   every existing answer unchanged and no `Set-Cookie`.
+2. **The callers.** `generate_remote`, `server_probe.running_commit`, the
+   doctor's rows, `linux/common.sh` and `linux/control.sh`, the commented
+   line in `install-service.sh`'s environment file. Tests in
+   `tests/test_cli.py` (a server that asks: the header sent, the 401 and
+   429 words, the passcode never in the output), `tests/test_doctor.py`,
+   the server probe's tests, `tests/test_linux_scripts.py` (a stub server
+   that asks; busy and status read through it; a 401 and a 429 each said in
+   their own words, with stop and update refusing; an environment file whose
+   passcode holds a space or a `$` refused before it is sourced, the value
+   never printed) and
+   `tests/test_install_scripts.py` (the title probe still answers
+   `auradream` against the sign-in page).
+3. **The page.** `api()`'s signed-out state, Sign out, the fake's knob, and
+   `smoke-passcode` (sharing a port, its own scratch `--data`): the sign-in
+   page in place of the app, a wrong passcode's words, the right one opening
+   the app, an image and a job stream loading, a session ended under an open
+   page showing the notice with the composer's text kept, Sign out, and the
+   sign-in page under `phone_audit.js`. One step in `smoke-offline` with the
+   gate on: silence, the offline page, then the sign-in page. Then the
+   docs: the words above, `docs/rules.md`, `AGENTS.md`'s layout and rules.
+4. **On the machines**, Matt's: the Linux service with the passcode from a
+   phone and from another PC. Safari's password autofill on the sign-in
+   page, the home-screen icon keeping its name and picture, a session
+   surviving a restart and an update, `auradream-server status` and
+   `update.sh` through the passcode, a wrong passcode's lock.
+
+Not designed, and not to be built under this row: accounts or more than one
+passcode, a passcode set or changed from the page, revoking one device,
+stored sessions, turning `/docs` off, and anything that changes the Host or
+Origin checks. `DEV#33` must keep two things true when it adds a public
+origin or a certificate: the gate is on whenever such an origin is
+declared, whatever the bind, and the cookie is `Secure` there.
