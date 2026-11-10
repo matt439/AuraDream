@@ -7942,7 +7942,9 @@ measured on the card and when.
   text chunk, named `auradream-<id>.png` (the stored file's name holds
   the checkpoint and the seed). A picture it cannot redraw (over
   16,777,216 pixels, iOS's canvas, or an encode that fails) is an error in
-  the lightbox's line, never the stored PNG in its place. Either row is
+  the lightbox's line, never the stored PNG in its place; the words are
+  held as Download's failure is (`lbDownloadError`), so a walk to another
+  image or the next file that is made clears them. Either row is
   `navigator.share` with the file in a secure context; elsewhere the
   button reads Download, its sheet is named so and the rows download
   (`saveBlobAs`), as each does with its own file when the browser shares
@@ -9584,7 +9586,10 @@ Cancel): Picture only shares `auradream-<id>.png` with no text chunk and
 the stored PNG's own pixels and size, With settings the stored PNG byte
 for byte in length with its `auradream` chunk; a share refused with
 `NotAllowedError`, and one the browser cannot make of the file, each
-download the picture-only file and never the stored one; with no
+download the picture-only file and never the stored one; a picture that
+cannot be redrawn, and one over the canvas's pixels, each leave an error
+in the viewer's line with nothing shared or downloaded, which the next
+Picture only that is made clears; with no
 `navigator.share` the button reads Download, its sheet "Download #id",
 and With settings downloads the stored PNG. The
 facts' peek sits over the bar with the prompt's first line; its press

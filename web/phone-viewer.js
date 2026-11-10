@@ -200,6 +200,12 @@ async function sharePhoneImage(withSettings) {
   let file = null;
   try {
     file = await shareFile(rec, withSettings);
+    // The file is made: an earlier failure's words for this image go, as
+    // the lightbox's Download takes its own back.
+    if (lbDownloadError?.id === rec.id) {
+      if (els.lbError.textContent === lbDownloadError.text) showError('', false, { slot: els.lbError, mirror: false });
+      lbDownloadError = null;
+    }
     if (!phoneCanShare() || !navigator.canShare({ files: [file] })) { saveBlobAs(file, file.name); return; }
     await navigator.share({ files: [file], title: `#${rec.id}` });
   } catch (err) {
@@ -210,7 +216,11 @@ async function sharePhoneImage(withSettings) {
     if (file && err?.name === 'NotAllowedError') { saveBlobAs(file, file.name); return; }
     if (els.lightbox.open && lbList[lbIndex] === rec) {
       const verb = phoneCanShare() ? 'share' : 'download';
-      showError(`Could not ${verb} #${rec.id}: ${err?.message || err}.`, false, { slot: els.lbError, mirror: false });
+      // Owned as Download's is (lightbox.js): a walk to another image or a
+      // later file that is made clears it, and only its own words.
+      const text = `Could not ${verb} #${rec.id}: ${err?.message || err}.`;
+      lbDownloadError = { id: rec.id, text };
+      showError(text, false, { slot: els.lbError, mirror: false });
     }
   }
 }

@@ -39,6 +39,8 @@ def test_no_share_path_falls_back_to_the_stored_png():
         assert "downloadLightboxImage" not in _function(name), name
     share = _function("sharePhoneImage")
     assert share.count("saveBlobAs(file, file.name)") == 2
+    # Its failure is held as Download's is, so a walk or a later success clears it.
+    assert "lbDownloadError = { id: rec.id, text }" in share
 
 
 def test_picture_only_is_redrawn_and_named_without_the_settings():

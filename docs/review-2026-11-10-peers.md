@@ -368,9 +368,11 @@ button still reads Download and its two rows download; a share refused for
 want of the press downloads the same file it would have shared. A picture
 that cannot be redrawn (over iOS's 16,777,216 canvas pixels, or a failed
 encode) is an error in the viewer's line, never the stored PNG in its
-place. More's Download and the PC's lightbox are unchanged.
-`smoke-phone-gallery` checks the sheet, both files' chunks and pixels and
-the two download paths in Chrome; a real phone's share sheet has not been
+place; a walk to another image or the next file that is made clears it,
+as Download's failure is cleared. More's Download and the PC's lightbox
+are unchanged.
+`smoke-phone-gallery` checks the sheet, both files' chunks and pixels, the
+two download paths and the two refusals in Chrome; a real phone's share sheet has not been
 tried.
 
 ### T6 the guide from the page
