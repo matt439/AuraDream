@@ -8564,7 +8564,9 @@ fetch's `then`, a promise an `eval` started and left). Each is printed as
 arrived during, the later steps still run, and the run ends with
 `N page error(s)` and exit 1 whatever the expects said. A rejection that
 gets its handler afterwards (`Runtime.exceptionRevoked`) is taken back and
-does not count. What a step's own expression throws is not a page error:
+does not count. The errors are kept as a list, never keyed by the
+browser's `exceptionId`, which starts again in a new renderer process: a
+revocation takes back the newest with its id. What a step's own expression throws is not a page error:
 it is that step's, printed and judged as before. There is no step that
 allows a page error, so a smoke never throws in the page on purpose; one
 that tests the page's own error line dispatches the `error` or
@@ -8573,7 +8575,8 @@ has found a fault in `web/` (or a promise its own `eval` dropped): fix that,
 never the listener. `tests/test_browser_page_errors.py` runs the real
 harness over a scripted DevTools socket (no browser): a thrown error fails a
 run whose expects pass, a revoked one does not, each is counted beside
-failed expects, and a step's own exception is not one. What Chrome sends
+failed expects, an id a new renderer uses again neither hides an earlier
+error nor takes it back, and a step's own exception is not one. What Chrome sends
 for a real throw is the browser's to say, checked by hand when this was
 built.
 

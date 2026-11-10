@@ -13682,10 +13682,15 @@ syntax and top-level declarations and runs no body.
 
 Three parts, in the order they were built:
 
-- The driver keeps what `Runtime.exceptionThrown` reports, by the
-  browser's id for it, prints each as it arrives with the step it arrived
-  during, and exits 1 at the end if any is left. It does not stop at the
-  first: the steps after it usually say what the error broke.
+- The driver keeps what `Runtime.exceptionThrown` reports as a list,
+  prints each as it arrives with the step it arrived during, and exits 1
+  at the end if any is left. It does not stop at the first: the steps
+  after it usually say what the error broke. The list was first a map
+  keyed by the browser's `exceptionId`; the review's probe (Edge, two
+  `data:` pages) showed the id is a renderer process's own count, so an
+  error after a navigation into a new process replaced an earlier one
+  with the same id, and its revocation would have taken both. A
+  revocation now takes back the newest error with its id.
   `Runtime.exceptionRevoked` takes one back, because Chrome reports a
   rejected promise as soon as a turn ends without a handler on it, and
   code that attaches its `catch` a turn later is not wrong. What a step's

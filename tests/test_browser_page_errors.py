@@ -81,3 +81,19 @@ def test_a_steps_own_exception_and_a_quiet_run_are_no_page_error(tmp_path):
     assert done.returncode == 0, done.stdout + done.stderr
     assert "  ! TypeError: step's own" in done.stdout
     assert "page error" not in done.stdout
+
+
+def test_a_new_renderers_reused_id_neither_hides_nor_takes_back_an_earlier_error(tmp_path):
+    # The browser numbers exceptions per renderer process: a navigation that
+    # lands in a new one starts again at 1 (seen in Edge between two data: pages).
+    again = json.loads(json.dumps(THROWN))
+    again["params"]["exceptionDetails"]["exception"] = {"type": "object", "description": "Error: after the navigation"}
+    done = _run(tmp_path, [{"eval": "press()"}, {"eval": "elsewhere()"}, {"eval": "handle()"}, {"expect": "after"}],
+                {"press()": {"events": [THROWN]}, "elsewhere()": {"events": [again]}, "handle()": {"events": [REVOKED]}})
+    assert done.returncode == 1, done.stdout + done.stderr
+    # Both were counted until the later one, the revocation's own, was taken back.
+    assert "page error 4 taken back" in done.stdout
+    assert "1 page error(s)" in done.stdout
+    done = _run(tmp_path, [{"eval": "press()"}, {"eval": "elsewhere()"}],
+                {"press()": {"events": [THROWN]}, "elsewhere()": {"events": [again]}})
+    assert done.returncode == 1 and "2 page error(s)" in done.stdout
