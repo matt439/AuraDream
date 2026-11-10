@@ -1405,7 +1405,10 @@ measured on the card and when.
   measured sibling's figure or its transformer at one byte a weight, said
   so), `_LITE_NEEDS` the lite builds measured above 8 GiB, `_BF16_NEEDS`
   the other official repos whose BF16 model-offload peak (2026-10-25's
-  table) is above 7 GiB, for quantization none only. FP8's figure
+  table; FLUX 3 [Klein]'s 2026-11-10) is above 7 GiB, for quantization
+  none only. FLUX 3's fp8 peaks (6.08 GiB plain, 2026-11-10) are below
+  the sized ones, as FLUX.2 [klein] 4B's, so neither has a `_CARD_NEEDS`
+  row. FP8's figure
   stands for INT8 and, as a floor, BF16; sequential offload, and Nunchaku
   on an official id, are not sized. Qwen-Image keeps `_FIT`'s "Over 16 GB";
   Kontext's qualified-size note follows the card's, as the 5080's. An
@@ -1638,8 +1641,9 @@ measured on the card and when.
   equal to `GenerateRequest.prompt`'s max_length): `ExpansionTooLong`, a
   422 in `too_long()`'s words, never a truncated caption or a 500. No size is sent (BFL's `flux3/pup.py` sends none). The status says
   `name` ("FLUX 3's prompt upsampler") and `translates: false`: its English
-  answer is never translated and the translator is never fetched. Nothing
-  about it is measured on the card (`CARD#20`).
+  answer is never translated and the translator is never fetched. Measured
+  on the 5080 (2026-11-10, docs/verified.md): its first Expand needs about
+  41 GiB of process RAM with Klein loaded.
 
 ### Schedule and guidance
 
@@ -10712,7 +10716,7 @@ node tools/browser.mjs tools/smoke-anima-preview.json
 
 `smoke-flux3.json` checks FLUX 3 [Klein]'s name and public identity, its and
 Klein Base's picker rows (example size, licence click-through, unknown
-download, unmeasured note), the distilled 16-step/CFG-1 defaults with the Mu
+download, the note that only 1024×1024 is measured), the distilled 16-step/CFG-1 defaults with the Mu
 placeholder at the fixed shift (1.94), the ignored-CFG, steps and Mu tips,
 references on and negative prompt, True CFG, Refine and LoRAs off, the
 shared guide's caption advice and example-size line, its one Qwen3-VL budget

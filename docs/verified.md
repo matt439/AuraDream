@@ -1996,32 +1996,125 @@ the critic, and a rewrite against its original over more than two seeds on
 FLUX.1 (both measured 2026-10-25 on Z-Image Turbo and Animagine, the rows
 above); kill-on-close under WSL; Ctrl-C during a critique.
 
-## FLUX 3 [Klein] (built 2026-11-09, not measured)
+## FLUX 3 [Klein] and its prompt upsampler (2026-11-10)
 
 Every measurement above was taken on diffusers 0.40.0, except where its
 section says otherwise. The app now installs
-0.42.1 (`GEN#45`, [the bump](design-notes.md#newer-checkpoints-and-the-diffusers-042-bump)),
+0.42.1 (`GEN#45`, [the bump](design-notes.md#newer-checkpoints-and-the-diffusers-042-bump),
+re-measured in [diffusers 0.42.1 against 0.40.0](#diffusers-0421-against-0400-2026-11-10)),
 and adds FLUX 3 [Klein], Klein Base and FLUX 3's prompt upsampler as Expand
 ([FLUX 3](design-notes.md#flux-3-klein-an-app-owned-pipeline-over-pinned-folders)).
-The bump itself was re-measured on 2026-11-10 for four shipped checkpoints
-and for Kontext's envelope
-([diffusers 0.42.1 against 0.40.0](#diffusers-0421-against-0400-2026-11-10));
-what that run left out is listed there. FLUX 3's tests and the fake
-server's smoke run without a GPU or weights, and nothing of it has been on
-the card. Not measured:
 
-- FLUX 3 [Klein] and Klein Base (`CARD#19`): fit, peak, RAM at the load and
-  time per image at fp8, int8 and bf16, with references and without, and
-  whether the pictures look right at 16 and 50 steps. The picker's fit
-  figure is an estimate (one byte a weight). The cards' peaks are "with the
-  reference code, B200, 1024x1024, prompt upsampler off": Klein's 31/26/25
-  GB and Klein Base's 31/29/26 GB (BF16/FP8/NVFP4); neither says how the
-  components were placed, and neither is this card's.
-- FLUX 3's prompt upsampler (`CARD#20`): its 18.8 GB first download, RAM
-  while it is quantized on the CPU and resident after (about 9.4 GB
-  estimated), its peak on the card with the KV cache, seconds per caption,
-  and its captions at one byte a weight against BFL's bf16.
-- FLUX 3 on the 8 GB 3070 (`CARD#21`, deferred): no int4 build is wired in.
+`CARD#19` and `CARD#20`, run with Matt's OK once the licences were accepted.
+Windows 11, RTX 5080 (16,303 MiB; the desktop held about 1.2-2.3 GB), 64 GB
+of RAM, Python 3.13.15, torch 2.13.0+cu130, diffusers 0.42.1, transformers
+5.16.1, torchao 0.18.0, main at 3812179 (after PR #62). One load per
+process, the processes one after another in the foreground, each watched by
+`tools/card_guard.py watch --watch-pid PID --period 0.5` at its default
+limits (card 15,500 MiB, shared rise 1,024/512 MiB, RAM and commit floors
+4 GiB), and the harness's own 4 GiB RAM floor. The harness was the app's
+`DiffusersBackend` (`load()`, `applied()`, `generate()`,
+`expand_prompt()`), model offload, a scratch gallery. "Pixels" is the
+sha256 of the decoded RGB bytes.
+
+Downloads, at the pinned revisions with the loader's allow patterns: Klein
+(`09561231`) in 204 s and Klein Base (`a83ce283`) in 322 s, about 19 GB
+each in bf16 (transformer 10.3 GB, text encoder 8.3 GB, VAE 0.3 GB); the
+upsampler (`a5789954`, 18.8 GB) in 175 s. `flux3_loading.preflight` passed
+on both downloaded snapshots: the official index and configs are what the
+pinned loader expects.
+
+### Klein and Klein Base (`CARD#19`)
+
+1024x1024, "a red fox sitting in a snowy pine forest at dawn, photograph".
+Each run: seed 12345, seed 12346, a replay of 12345, seed 12345 with Mu
+1.0, one reference (a synthetic 1024x1024 picture of a house with a red
+roof and a red ball, pixels `c8b7f5de…`) with "The same house and red ball
+on a sandy beach at sunset, photograph", a cancel at step 5 (seed 777),
+then unload. Klein at its 16 steps and CFG 1.0, Base at 50 steps and CFG
+3.5.
+
+| | Klein fp8 | Klein int8 | Klein bf16 (quantization none) | Klein Base fp8 |
+| --- | --- | --- | --- | --- |
+| Load | 21.4 s | 23.0 s | 2.8 s (lazy) | 19.8 s |
+| RAM: process peak working set / private; guard tree peak; lowest available | 19.79 / 23.4 GiB; 19.2 GiB; 20.4 GiB | 19.51 / 23.1; 17.1; 20.6 | 21.1 / 40.8; 21.0; 19.0 | 18.76 / 23.0; 19.5; 20.8 |
+| Peak allocated / reserved (torch), a plain image | 6.08 / 7.32 GiB | 5.84 / 7.32 | 10.95 / 11.55 | 6.08 / 7.32-7.34 |
+| The same, one reference | 7.40 / 8.01 GiB | 7.40 / 7.97 | stopped by the guard (below) | 7.40 / 7.99 |
+| Whole-card peak (`nvidia-smi`, guard) | 10,964 MiB | 10,702 MiB | 15,744 MiB, stopped at the card limit | 11,012 MiB |
+| Shared rise (process / adapter) | 82 / 91 MiB | 82 / 89 | 146 / 217 | 82 / 131 |
+| Seed 12345, the first image | 27.7 s (the first step 15.3 s: onto the card) | 14.6 s | 22.0 s | 73.9 s |
+| Seed 12346 / replay / Mu 1.0 | 14.6 / 14.5 / 14.8 s | 13.7 / 13.6 / 13.7 | 16.0 / 16.6 / 16.0 | 73.3 / 73.2 / 73.0 |
+| The reference | 29.1 s | 28.7 s | - | 159.6 s |
+| Cancel at step 5 | 6.6 s; 0.04 GiB allocated after | 5.8 s; 0.04 | - | 10.0 s; 0.04 |
+| Unload | 0.3 s; 0.03 GiB | 0.2 s | - | 0.3 s |
+| Replay pixels | identical | identical | identical | identical |
+
+Pixels (sha256 prefixes): Klein fp8 12345 `91b69362`, 12346 `092fec01`, Mu
+1.0 `305818b3`, reference `f1ae2f01`; int8 `c89bd557`, `71764740`,
+`9b7c58ca`, `e2d482dc`; bf16 `f02c96a4`, `89a2b4b6`, `aa1353c1`; Base fp8
+`76db36f8`, `2de3c569`, `2da18997`, `1c7f025d`.
+
+Looked at by eye (the fp8 Klein and Base contact sheets): a red fox in a
+snowy pine forest at dawn on every seed; Mu 1.0 changes the picture (the
+same subject); the reference keeps the house with the red roof and the red
+ball, moved to a beach at sunset. Base's pictures differ from Klein's
+(undistilled, with CFG).
+
+bf16: four plain images ran at 10.95 GiB allocated (about 14.0 GB of the
+card with the desktop); during the reference image the guard stopped the
+process on its card limit. Shared memory had risen 146 MiB, short of a
+spill. So bf16 fits plain 1024x1024 images but not one with a reference;
+it was not retried.
+
+So fp8 and int8 fit with room: about 11 GB of the card with the desktop,
+6.08 GiB allocated on a plain image and 7.40 with one reference, which
+doubles the time (twice the tokens). Klein takes about 14 s an image at 16
+steps, Base about 73 s at 50 steps (CFG: two passes a step). RAM at the
+load is about 19-21 GiB for the process tree, with about 12 GiB of working
+set held after. Both fp8 plain peaks are under the 6.8 GiB below which the
+picker's fit badge sizes no card, so FLUX 3 has no `_CARD_NEEDS` entry, as
+FLUX.2 [klein] 4B has none; Klein's bf16 10.95 GiB is in `_BF16_NEEDS`.
+
+### The prompt upsampler as Expand (`CARD#20`)
+
+Klein at fp8 with model offload, through the app's
+`backend.expand_prompt()`. A first attempt, with a browser and other apps
+open (about 39 GiB available at the start), loaded Klein (12 GiB working
+set); the upsampler's load and quantization then took available RAM to
+3.24 GiB and the harness's 4 GiB floor stopped the process (guard: tree
+peak 33.1 GiB, 7.35 GiB available at its last sample; the card never above
+2,154 MiB). Matt freed RAM, and the retry started with 47.8 GiB available:
+
+| What | Result |
+| --- | --- |
+| Klein load | 21.8 s; no refusal; the status before said not loaded, nothing to fetch (cached) |
+| First Expand (loads and quantizes the upsampler at fp8, joins the offload chain, captions) | 81.9 s in all |
+| RAM | process peak 40.06 GiB working set / 46.2 GiB private; guard tree peak 40.8 GiB; 7.97 GiB available at the lowest (from 47.8); held after, Klein and the upsampler resident: 23.8 GiB working set / 30.2 private |
+| The card during a caption | 11.30 GiB allocated / 11.45 reserved (torch); 13,064 MiB whole card; shared rise 82 MiB, no spill |
+| Later captions | 60.3 s (the same prompt: an identical caption, 1,460 characters); 57.1 s ("lighthouse on a cliff in a storm", 1,432 characters) |
+| Stop | pressed after 3 s; stopped at 4.3 s, 0.03 GiB allocated after |
+| An image from the fox caption, seed 12345, 16 steps | 15.7 s; 6.10 / 7.34 GiB peak, as without Expand (the upsampler is moved off the card before the image); pixels `856069c8` |
+| Unload | the process held 19.6 GiB working set at the end (not all RAM goes back to the OS until exit) |
+
+The captions were faithful and detailed, about 1,450 characters (under the
+4,000-character prompt limit; `ExpansionTooLong` was not reached), and
+greedy, so the same prompt gave the same caption. The image from the fox
+caption matches it (a fox sitting in snow, snowy pines, dawn light).
+
+So Expand on FLUX 3 works on the 5080 at fp8, but its first use needs
+about 41 GiB of process RAM with Klein loaded: it ran with 47.8 GiB
+available and hit the 4 GiB floor with about 39. The cost is the quantizing
+load (the 18.8 GB bf16 file read, then quantized on the CPU); held after,
+it costs about 12 GiB more than Klein alone.
+
+Not measured: Klein Base at int8 and bf16 (the same transformer size as
+Klein's); other sizes than 1024x1024, batches, more than one reference,
+LoRA (none exist), sequential or no offload; the upsampler's captions
+against BFL's bf16 upsampler (18.8 GB in bf16 does not fit the 16 GB card),
+the int8 upsampler, captions long enough to reach the limit; CI's
+`HF_TOKEN` account's access (`GEN#46`); FLUX 3 on the 8 GB 3070 (`CARD#21`,
+deferred: no int4 build is wired in). Evidence (events, guard samples,
+PNGs) is kept in a local scratch directory, not committed.
 
 ## diffusers 0.42.1 against 0.40.0 (2026-11-10)
 
@@ -2078,8 +2171,9 @@ Krea 2 Turbo, klein 9B, Qwen-Image, ERNIE, the Anima, NetaYume and NewBie
 converters, Nunchaku and WSL, refine, inpaint and outpaint, LoRA, the
 latent preview, the execution candidates (regional compile, cuDNN attention
 and the FBC cache stay held on 0.40), and the 3070 server. FLUX 3 (`CARD#19`,
-`CARD#20`) was not run: the token still gets 403 on both Klein repos
-(`GEN#46`, the licence not accepted). Evidence (events, guard samples, PNGs,
+`CARD#20`) was not run here: the token still got 403 on both Klein repos
+(`GEN#46`); it was measured later that day, once the licences were
+accepted ([FLUX 3](#flux-3-klein-and-its-prompt-upsampler-2026-11-10)). Evidence (events, guard samples, PNGs,
 the scratch galleries) is kept in a local scratch directory, not committed.
 
 ## RTX 3070 (8 GB), native Ubuntu (2026-11-03)

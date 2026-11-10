@@ -1061,9 +1061,10 @@ device's default (`get_device()`), and dropped `force_upcast` from
 checkpoints' pictures, peak memory, RAM and time are unchanged was a card
 run's to say (`CARD#17`), as was Kontext on 0.42.1 (`CARD#18`: only after it
 did `QUALIFIED_ENVELOPE`'s `diffusers_version` move). Then FLUX 3
-Klein comes first. Whether it fits the 16 GB card, or as int4 the 3070, is
-unmeasured: the int4 lite repo's index points at nvfp4 weights, which Ampere
-cannot run.
+Klein came first: it fits the 16 GB card with room at fp8 and int8
+(measured 2026-11-10, [below](#flux-3-klein-an-app-owned-pipeline-over-pinned-folders));
+as int4 on the 3070 it is unmeasured: the int4 lite repo's index points at
+nvfp4 weights, which Ampere cannot run.
 
 **Re-measured on the card (2026-11-10).** Both runs compared 0.42.1 with an
 overlay of 0.40.0 in the same script, one load per process. Animagine XL
@@ -1098,7 +1099,7 @@ click-through) under the FLUX Kommunity License; the Qwen3-VL-4B encoder is
 Apache-2.0. The Hub API gave each one's head commit, pinned in
 `flux3_loading` (Klein `09561231…`, Base `a83ce283…`), and its file tree with
 sizes. Everything else in the repositories answered 403 to the local token
-(its account has not accepted the licence yet), so the official
+(its account had not accepted the licence yet; since accepted, below), so the official
 `modular_model_index.json` and the `transformer/`, `text_encoder/` and `vae/`
 configs were **not** read. What stands in for them: diffusers 0.42.1's own
 flux3 blocks (the expected components, `Flux3SetTimestepsStep`'s shift 6.93,
@@ -1114,7 +1115,10 @@ reads the official index and transformer config before any weight and
 refuses a mismatch in words, so a wrong inference here fails a load early
 rather than a picture late. Base's `flow_map: false` is inferred (its loop
 passes no `target_timestep`, which the transformer requires of, and only
-of, a flow-map model).
+of, a flow-map model). On 2026-11-10, with the licences accepted, the local
+account downloaded both repositories and `flux3_loading.preflight` passed
+on both snapshots, so the official index and configs are what the loader
+expected; CI's `HF_TOKEN` account is not checked yet (`GEN#46`).
 
 **Loading.** There is no `model_index.json`, so `DiffusionPipeline` cannot
 resolve these repositories, and `component_libraries`, `unused_components`
@@ -1202,10 +1206,12 @@ is rebuilt: under model offload it is moved to the card for its own call
 and off it before the encoder runs, never beside the transformer. Without
 offload every component stays resident, so it is refused there
 (`ExpanderStatus.held`, 422 before any load), in words that point at Model
-offload. It then stays in host RAM until Unload, as ERNIE's does - about
-9.4 GB at one byte a weight, on top of the image pipeline (an estimate from
-the parameter count). Its linear-attention layers may run transformers'
-torch fallback without the optional kernels; speed is unknown.
+offload. It then stays in host RAM until Unload, as ERNIE's does: about
+12 GiB of working set on top of Klein's, measured. Getting there costs more:
+the bf16 file is read and quantized on the CPU, so the first Expand took the
+process to about 41 GiB of RAM with Klein loaded (below). Its
+linear-attention layers may run transformers' torch fallback without the
+optional kernels.
 
 **A caption stops at the prompt box's limit.** diffusers' cap is 3584 new
 tokens, sized for its own call, where the caption never reaches a text box -
@@ -1222,27 +1228,44 @@ the box. The encoder's 8192-token window is wider than the box; raising the
 box for FLUX 3 alone would touch every schema that carries a prompt, so the
 box decides. How often a caption reaches the limit is unmeasured.
 
-**Unmeasured.** Whether the quantized upsampler fits beside nothing else on
-the card with its KV cache (up to 3584 new tokens, stopped sooner at 4000
-characters), its peak, RAM at the
-load (the bf16 file is read and quantized on the CPU), its time per caption,
-and whether int8/fp8 changes its captions against BFL's bf16: `CARD#20`.
+**Measured on the card (2026-11-10, `CARD#19`, `CARD#20`).** At 1024x1024
+with model offload, Klein and Klein Base at fp8 peaked at 6.08 GiB
+allocated on a plain image and 7.40 with one reference (about 11 GB of the
+card with the desktop); Klein at int8 peaked at 5.84 GiB plain and 7.40
+with a reference (Klein Base was measured at fp8 only). Klein took about
+14 s an image at 16 steps, Base about 73 s at 50 with CFG, and a
+reference about doubled the time (Klein 29 s, Base 160 s). Replays were pixel-identical, a cancel left
+0.04 GiB allocated, and the pictures looked right by eye. Klein at bf16
+fitted plain images (10.95 GiB allocated) but not one with a reference: the
+card guard stopped it at its 15,500 MiB limit (15,744 MiB of the whole
+card, shared memory up 146 MiB, no spill reached; not retried). RAM at the load was about 19-21 GiB.
+The fp8 peaks are below those the fit badge sizes, so FLUX 3 has no
+`_CARD_NEEDS` row (as FLUX.2 [klein] 4B); Klein's bf16 peak is in
+`_BF16_NEEDS`. BFL's own figures (B200, 31/26/25 GB for Klein) were for the
+whole reference code, not this placement.
 
-**Unmeasured.** Fit, peak, RAM at the load, time and quality on the card,
-for both checkpoints at fp8, int8 and bf16, with references and without. The
-picker's fit figure (`_CARD_NEEDS`) is the transformer's size at one byte a
-weight, said as such. The cards' peaks are BFL's "reference code, B200,
-1024x1024, prompt upsampler off": 31/26/25 GB for Klein and 31/29/26 GB for
-Klein Base (BF16/FP8/NVFP4); they do not say how the components were placed.
-`CARD#19` holds the run (Klein at fp8 first, then Klein Base).
+The upsampler at fp8 works: a caption took 13,064 MiB of the whole card
+with the desktop (11.30 GiB allocated, no spill), and it
+was moved off before the image call, whose peak matched one without
+Expand. The first Expand took 82 s (the load and quantization) and about
+41 GiB of process RAM with Klein loaded: it ran with 47.8 GiB available
+and stopped at the 4 GiB floor with about 39.
+Later captions took 57-60 s, about 1,450 characters, the same caption for
+the same prompt; Stop, pressed 3 s in, ended one at 4.3 s (0.03 GiB
+allocated after). Unmeasured: its captions
+against BFL's bf16 (which cannot fit the card), Klein Base at int8 and
+bf16, other sizes. Numbers in `docs/verified.md` (FLUX 3 [Klein] and its
+prompt upsampler).
 
 **Not built: FLUX 3 on the 8 GB 3070.** Only a 4-bit transformer could fit
 it, and the upsampler not at all. lite-infer's int4 repository's own index
 points at its nvfp4 weights, which sm_86 cannot run, so an int4 load would
 have to be built from that repository's int4 subfolders, never its index,
 and its Nunchaku transformer class read against diffusers 0.42.1's.
-Deferred (`CARD#21`) until the 16 GB card's fp8 numbers say FLUX 3 is worth
-it.
+Deferred (`CARD#21`): on the 16 GB card (2026-11-10) fp8 peaked at 6.08
+GiB allocated / 7.32 reserved on a plain image (about 11 GB of the card
+with its desktop); its fit on the 8 GB 3070 is unmeasured. int4 remains
+the planned route there, built only if Matt wants FLUX 3 on the 3070.
 
 ## Anima Turbo: a standard interface over modular inference
 

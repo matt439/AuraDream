@@ -610,11 +610,17 @@ def test_the_catalogue_lists_both_before_the_editor_with_their_cold_facts():
         assert detail["access"] == "Accept licence" and detail["refine"] == "No"
         # The descriptors could not be read: no download size is claimed.
         assert detail["download"] == "Unknown"
-        assert "Nothing about FLUX 3 is measured" in detail["megapixels_note"]
-        # The fit is an estimate, said as one: an 8 GB card is not flagged on it.
-        need, words = model_info._CARD_NEEDS[model_id]
-        assert need < 5.2 and words.startswith("FP8 is unmeasured here; ")
-        assert model_info.details_for(model_id, quantization="fp8", card_memory=4 * 1024 ** 3)["fit"] == "Over 4 GB"
+        assert "Only 1024×1024 has been measured on this card" in detail["megapixels_note"]
+        # Measured 2026-11-10: 6.08 GiB allocated at fp8 on a plain image, under
+        # the 6.8 GiB below which a card is not sized, as FLUX.2 [klein] 4B.
+        assert model_id not in model_info._CARD_NEEDS
+        assert model_info.details_for(model_id, quantization="fp8", card_memory=4 * 1024 ** 3)["fit"] == ""
+    # Klein's BF16 peak (10.95 GiB) is over an 8 GB card; Base's is unmeasured.
+    bf16 = model_info.details_for(flux3_loading.MODEL_ID, quantization="none", card_memory=8 * 1024 ** 3)
+    assert bf16["fit"] == "Over 8 GB" and bf16["fit_note"].startswith("BF16 with model offload peaked at 10.95 GiB")
+    assert model_info.details_for(flux3_loading.MODEL_ID, quantization="none", card_memory=12 * 1024 ** 3)["fit"] == ""
+    assert flux3_loading.BASE_MODEL_ID not in model_info._BF16_NEEDS
+    for model_id in (flux3_loading.MODEL_ID, flux3_loading.BASE_MODEL_ID):
         # A switch asks the Hub about the pinned repository itself.
         pin = flux3_loading.source(model_id)
         assert hub_access.sources(model_id) == [hub_access.Source(pin["repo_id"], pin["revision"], None)]
