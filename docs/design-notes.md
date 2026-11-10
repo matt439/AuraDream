@@ -14204,7 +14204,10 @@ Choices worth keeping:
 - Audited after the opening task, not inside `showModal()`. The page's
   openers show the dialog and then fill it (`openAsk` sets focus, a pass
   dialog syncs its holds); a microtask later that is all in, and it is
-  still a fixed point, not a timer.
+  still a fixed point, not a timer. The microtask runs as the opener's
+  script ends or first awaits, so an opener that awaited before filling
+  would be audited half-filled; the audit as the dialog shuts reads what
+  it became either way.
 - The reason must be on the held element. A title on the label around a
   checkbox is what a mouse sees, and it is not the checkbox's description.
   This was the audit's one class of real finding.

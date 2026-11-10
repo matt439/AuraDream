@@ -8785,8 +8785,10 @@ page's. `except` adds selectors to the one standing exception, a phone
 list's line of no value (`.phone-list-row[data-value=""]`, "No saved setups
 in this view"), whose own words are why it is no choice.
 `__a11yWatch()` wraps `show`, `showModal` and `close` on dialogs and listens
-for `cancel`, auditing each dialog as `root` once the task that opened it
-has ended and again as it shuts; `__a11yWatched()` returns what it kept,
+for `cancel`, auditing each dialog as `root` once the script that opened it
+has run on (to its end, or to its first `await`: a microtask, so an opener
+that fills the dialog after awaiting is audited before it has) and again as
+it shuts; `__a11yWatched()` returns what it kept,
 once each, with the dialog's id. `__a11yCheck()` is true when the page now
 and everything watched are clean, and otherwise throws the failed lists,
 which the driver prints under the failed `expect`. The 23 smokes that carry

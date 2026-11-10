@@ -182,6 +182,8 @@ def test_the_watch_audits_a_dialog_as_it_opens_and_shuts_and_the_check_says_what
         {"navigate": "data:text/html,<title>a11y</title>"}, INJECT, WATCH,
         _body("<button>Open</button>"
               "<dialog id='clean' aria-label='Clean'><button>Close</button></dialog>"
+              "<dialog id='filled' aria-label='Filled'><button id='f'></button></dialog>"
+              "<dialog id='esc' aria-label='Esc'><button id='e'>Esc</button></dialog>"
               "<dialog id='late' aria-label='Late'><button id='run'>Run</button></dialog>"
               "<dialog id='bare'><button id='x'></button></dialog>"),
         {"expect": "__a11yCheck() === true && __a11yWatch() === true"},
@@ -189,20 +191,37 @@ def test_the_watch_audits_a_dialog_as_it_opens_and_shuts_and_the_check_says_what
         {"eval": "(async () => { const d = document.getElementById('clean'); d.showModal();"
                  " await new Promise((r) => setTimeout(r, 50)); d.close(); })()"},
         {"expect": "__a11yCheck() && __a11yWatched().seen.join() === 'clean'"},
+        # A name the opener gives after showing is no finding (the button is gone
+        # again before the dialog shuts, so only the opening's audit read it):
+        # the opening is audited once the opener's script has run on, never
+        # inside showModal().
+        {"eval": "(async () => { const d = document.getElementById('filled'); d.showModal();"
+                 " d.innerHTML = '<button aria-label=\"Filled\"></button>';"
+                 " await new Promise((r) => setTimeout(r, 50)); d.close(); })()"},
+        {"expect": "__a11yCheck() && __a11yWatched().seen.join() === 'clean,filled'"},
+        # Escape shuts a dialog without close(): its cancel is heard, and what the
+        # dialog had become by then is read.
+        {"eval": "(async () => { const d = document.getElementById('esc'); d.showModal();"
+                 " await new Promise((r) => setTimeout(r, 50));"
+                 " document.getElementById('e').setAttribute('aria-disabled', 'true');"
+                 " d.dispatchEvent(new Event('cancel', {cancelable: true}));"
+                 " document.getElementById('e').remove(); d.close(); })()"},
+        {"expect": "__a11yWatched().unreasoned.join() === 'button#e \"Esc\" in #esc'"},
         # ...and a hold that lost its reason while the dialog was open is caught as it shuts.
         {"eval": "(async () => { const d = document.getElementById('late'); d.showModal();"
                  " await new Promise((r) => setTimeout(r, 50));"
                  " document.getElementById('run').setAttribute('aria-disabled', 'true'); d.close(); })()"},
-        {"expect": "__a11yWatched().unreasoned.join() === 'button#run \"Run\" in #late'"},
+        {"expect": "__a11yWatched().unreasoned.at(-1) === 'button#run \"Run\" in #late'"},
         {"eval": "(async () => { const d = document.getElementById('bare'); d.showModal();"
                  " await new Promise((r) => setTimeout(r, 50)); d.close(); d.showModal(); d.close(); })()"},
         # Kept once each, after the dialogs have shut and the page itself is clean again.
         {"expect": "(() => { const w = __a11yWatched(); return w.unnamed.join() === 'button#x in #bare'"
-                   " && w.dialogs.join() === 'dialog#bare' && w.seen.join() === 'clean,late,bare' && __a11yAudit().ok; })()"},
+                   " && w.dialogs.join() === 'dialog#bare' && w.seen.join() === 'clean,filled,esc,late,bare' && __a11yAudit().ok; })()"},
         {"expect": "__a11yCheck()"},
     ])
     assert done.returncode == 1, done.stdout + done.stderr
     lines = done.stdout.splitlines()
     assert [line for line in lines if line.lstrip().startswith("FAIL")] == ["  FAIL __a11yCheck()"], done.stdout
     said = next(line for line in lines if "__a11yCheck: " in line)
-    assert ("unnamed: button#x in #bare | unreasoned: button#run \"Run\" in #late | dialogs: dialog#bare") in said, said
+    assert ("unnamed: button#x in #bare | unreasoned: button#e \"Esc\" in #esc; button#run \"Run\" in #late"
+            " | dialogs: dialog#bare") in said, said

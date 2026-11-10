@@ -151,9 +151,10 @@ globalThis.__a11yAudit = (options = {}) => {
 //   ...the smoke...
 //   {"expect": "__a11yCheck()"}
 //
-// __a11yWatch(options) audits each dialog, as `root`, once the task that
-// called show() or showModal() has ended (what the opener wrote after
-// showing it is in), and again as close() is called or Escape cancels it
+// __a11yWatch(options) audits each dialog, as `root`, once the script that
+// called show() or showModal() has run on to its end or its first await (a
+// microtask: what the opener wrote straight after showing it is in, what it
+// writes after awaiting is not), and again as close() is called or Escape cancels it
 // (what it had become). `options.except` is every audit's. Findings are kept
 // once each, under the dialog's id; __a11yWatched() returns them as
 // {unnamed, duplicates, unreasoned, dialogs, seen}, `seen` the ids of the
