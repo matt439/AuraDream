@@ -95,7 +95,15 @@ def test_prose_the_tests_open_runs_the_tests():
             if path.lower().endswith((".md", ".rst")):
                 opened.add(path)
     assert {"AGENTS.md", "docs/rules.md", "docs/verified.md"} <= opened
-    assert [path for path in sorted(opened) if is_documentation(path)] == []
+    # The one exception, said here rather than hidden from the scan above:
+    # docs/usage.md's capability table is generated from the catalogue
+    # (tests/test_capabilities.py, GEN#56), so every change that can move it
+    # is a code change and runs that test. A hand edit to the table in a
+    # usage.md-only change does not, until `_TESTED_PROSE` names the file -
+    # a change to the CI definition, which is Matt's ruleset edit to make.
+    # Naming it there fails this line, so the exception goes with it.
+    generated_only = ["docs/usage.md"]
+    assert [path for path in sorted(opened) if is_documentation(path)] == generated_only
 
 
 @pytest.mark.parametrize("kind", ["push", "pull_request"])

@@ -1008,8 +1008,7 @@ class DiffusersBackend(GenerationBackend):
         if pipe is None:
             # Enough to expose the button before a load. Once loaded, the
             # method and call signature are the authoritative answer.
-            model_id = current_model_id(settings)
-            return "ernie-image" in model_id.lower().replace("_", "-") or flux3_loading.matches(model_id)
+            return loading.prompt_expander_by_id(current_model_id(settings))
         if self._upsamples():
             return True
         return callable(getattr(pipe, "_enhance_prompt_with_pe", None)) and "use_pe" in self._call_params

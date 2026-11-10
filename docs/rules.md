@@ -119,7 +119,10 @@ before changing it.
   and `details_for`'s `edit_reason` (the backend's live answer, which `main`'s
   listing passes for the draft loader) decides the editor row's Held or Yes;
   its `card_memory` (`card_facts.total_memory`, passed by the listing) sizes
-  the fit badge (`card_fit`)
+  the fit badge (`card_fit`); `capabilities_for` answers the seven flags
+  beside Refine (inpaint, outpaint, references, LoRA, negative prompt, live
+  preview, Expand) as `details_for`'s `capabilities_note`, and
+  `capability_table` is docs/usage.md's table of them
 - `backend/hub_access.py` — the Hugging Face access check a switch asks before
   it releases the working checkpoint: cache first, then one HEAD per recipe
   source at its revision (or the repo's auth check); a `Refusal` only when the
@@ -901,6 +904,9 @@ before changing it.
   advance widths `smoke_fonts.py` gives its Segoe UI stand-in, measured
   with `font-widths.json`; `check_run_continue.py` a by-hand Finish run
   check in fresh pages and across a fake-server restart (port 7999);
+  `capability_table.py` prints `model_info.capability_table()`, and with
+  `--write` replaces it between docs/usage.md's two marker lines
+  (`tests/test_capabilities.py` holds the document to it);
   `storage_interrupt.py` and `storage_scale.py` the storage interruption
   and bundle/bin scale checks `tests/test_storage_interruptions.py` and
   `tests/test_storage_scale.py` run in a disposable process;
@@ -1479,6 +1485,30 @@ measured on the card and when.
   Kontext's qualified-size note follows the card's, as the 5080's. An
   unknown card (None) or one at least the need leaves every row as it was,
   byte for byte (`tests/test_card_fit.py`).
+- Capability flags (GEN#56). `model_info.capabilities_for(model_id,
+  quantization)` answers `CAPABILITIES`' seven flags for a catalogue
+  selection as Yes, No or Not yet, None for a custom id. It decides nothing
+  itself: each word is asked, by the id alone, of the place that decides it
+  at run time. Inpaint and outpaint are the profile's `inpaint_supported`
+  (one gate for both; Not yet where `inpaint_deferred`), references and the
+  negative prompt its `reference_supported` and `negative_prompt_supported`,
+  LoRA `loading.lora_refusal` (and No on a lite-infer build or under
+  quantization `nunchaku`; peft is not asked), the live preview whether
+  `latent_preview.FACTORS` has a map for the entry's latents
+  (`model_info._LATENTS`, by exact id: a new catalogue entry without one
+  fails `tests/test_capabilities.py`), and Expand
+  `loading.prompt_expander_by_id`, the one rule the backend's cold
+  `prompt_expansion_supported` and the fake's `expands` ask too. The
+  edit-only entry answers No to all but the preview. `details_for` says
+  them as one string, `capabilities_note` ("Inpaint yes; Outpaint yes; …
+  Expand no. From the checkpoint's id, before a load."; "" for a custom
+  id): a note, never a column or a fact cell. The page joins it to the
+  Refine note (`modelRefineNote`): the Refine cell's title and the radio's
+  description. docs/usage.md's table ("What each checkpoint can do") is
+  `model_info.capability_table()` between two marker lines, one row per
+  catalogue entry for the official repo with no quantization chosen;
+  regenerate it with `python tools/capability_table.py --write`, never by
+  hand. The words are the code's cold answers, not measurements.
 - The editor's row (FLUX.1 Kontext [dev]) has `loader_holds`
   (`instruction_edit.option_refusals`, every other row `{}`): each
   quantization and offload the card trial never measured, in the envelope's
@@ -11140,7 +11170,11 @@ count, the median and its count, the latest rows only, nothing for an empty
 history or a missing database, a reserved gallery refused after the short
 wait) and `test_api_model_catalogue.py` the field per model with the speed facts
 unchanged and a reserved gallery leaving it out without stalling the reply; `test_model_info.py` covers compact facts
-for every catalogue entry, favourite ids shared by Lite/Nunchaku variants,
+for every catalogue entry (`test_capabilities.py` the capability flags: each held to its own source over the
+catalogue, a Nunchaku build differing only in LoRA, the note's words, and docs/usage.md's generated table and
+its tool; `smoke-model-hover` and `smoke-model-switch` the note in the Refine cell's title and the radio's
+description; a usage.md-only change does not run it, `test_ci_changes.py`'s one named exception until
+`_TESTED_PROSE` names the file), favourite ids shared by Lite/Nunchaku variants,
 access, Qwen-Image's fit (`test_card_fit.py` the card-sized badge), size labels that never claim an unsourced maximum and the shared
 loader descriptions:
 
