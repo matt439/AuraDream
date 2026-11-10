@@ -230,8 +230,12 @@ The two sensible first choices:
 
 Krea 2 Turbo and Raw are gated too, and need their authors' manual approval,
 which can take a while. FLUX 3 [Klein] and Klein Base are click-throughs
-under the FLUX Kommunity License; how much memory they need has not been
-measured.
+under the FLUX Kommunity License. Measured on the 5080 (2026-11-10) at
+fp8 or int8 with model offload, Klein peaked at 6.08 GiB allocated on a
+plain image and 7.40 GiB with one reference, about 11 GB of the card with
+the desktop; the load took about 19-21 GiB of RAM, and the first Expand
+about 41 GiB with Klein loaded
+([results](verified.md#flux-3-klein-and-its-prompt-upsampler-2026-11-10)).
 
 ## 6. Sign in to Hugging Face (gated checkpoints only)
 

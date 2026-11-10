@@ -42,7 +42,12 @@ What is followed, and from where:
   Without offload every component stays on the card, so it is refused there
   (`refusal`).
 
-None of its fit, peak memory, time or output is measured on the card.
+Measured on the 5080 (2026-11-10, docs/verified.md): at fp8 with Klein
+loaded, the first Expand (82 s, the load and quantization included) took
+the process to about 41 GiB of RAM, as the bf16 file is read and quantized
+on the CPU; a caption took 13,064 MiB of the whole card (11.30 GiB
+allocated, no spill), later ones 57-60 s, and Stop, pressed 3 s in, ended
+one at 4.3 s (0.03 GiB allocated after). Its bf16 captions are unmeasured.
 """
 from __future__ import annotations
 

@@ -385,13 +385,18 @@ which turns a short request into the full English scene caption these models
 are trained on, for review in the prompt box; nothing is translated. It runs
 only when pressed, never inside an image. First use downloads the 18.8 GB
 upsampler, which is loaded at one byte a weight and needs model or sequential
-offload (Expand is held with the reason under offload none). Its memory and
-speed on the card are not measured yet. Stop ends it at the next token.
+offload (Expand is held with the reason under offload none). The first
+Expand is the costly one: reading and quantizing the upsampler took the
+server to about 41 GiB of RAM with Klein loaded (measured on the 5080 with
+64 GB of RAM), so close other programs first (it ran with 47.8 GiB
+available and not with about 39); it took
+about 80 s, later captions about a minute. Stop ends it at the next token.
 
 ## Use references and adapters
 
-FLUX.2 [klein] and FLUX 3 [Klein] accept up to four gallery images as references (FLUX 3's
-references are unmeasured on the card). Add them with
+FLUX.2 [klein] and FLUX 3 [Klein] accept up to four gallery images as references (one reference
+was measured on Klein at fp8 and int8 and on Klein Base at fp8; at bf16 the card
+guard stopped Klein's near the 16 GB card's limit, so use fp8 or int8 for references). Add them with
 the card's **Reference** button or `--reference 12,15` in the CLI. Their order
 defines “image 1”, “image 2” in the prompt; drag chips or use Alt+Left/Right
 to reorder them. Reference import from personal files is not implemented.

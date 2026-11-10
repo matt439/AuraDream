@@ -122,6 +122,8 @@
   {"click": "#edit-dice"},
   {"expect": "els.editSeed.value === '' && !els.editDraft.hidden && __dialogAt() === __da"},
   {"eval": "window.__count = galleryRecords.length; els.editSeed.value = '7'; els.editSeed.dispatchEvent(new Event('input', {bubbles: true})); els.editInstruction.focus()"},
+  {"log": "'Ctrl+Enter only once the page would take it: Edit is not held (the same hold a press is refused by), so a slow status or preview cannot eat the press'"},
+  {"expect": "__until(() => els.editSeed.value === '7' && editPreview && editPreview.available && els.editRun.getAttribute('aria-disabled') === 'false' && document.activeElement === els.editInstruction)"},
   {"keycombo": ["Control", "Enter"]},
   {"expect": "__until(() => busy && currentJob && /instruction edit of #1/.test(els.progressNow.textContent))"},
   {"expect": "!els.editDialog.open && els.progressNow.textContent === 'Now: 1 image · 512×512 · instruction edit of #1' && els.prompt.value === __composer[0] && els.negative.value === __composer[1]"},

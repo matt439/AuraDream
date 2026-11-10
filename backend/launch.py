@@ -197,8 +197,8 @@ CHECKPOINTS: tuple[Checkpoint, ...] = (
     # encoder, distilled to 16 steps without guidance; Base is its undistilled
     # 50-step sibling with CFG. diffusers runs them only as modular blocks and
     # the repos carry no model_index.json, so the app's own pipeline loads
-    # their pinned folders (`backends/flux3_loading.py`). Nothing about them is
-    # measured on the card yet; no Nunchaku Lite build is wired in.
+    # their pinned folders (`backends/flux3_loading.py`). Measured on the 5080
+    # 2026-11-10 (docs/verified.md); no Nunchaku Lite build is wired in.
     Checkpoint("FLUX 3 [Klein]", "black-forest-labs/flux-3-image-klein", "click-through gate"),
     Checkpoint("FLUX 3 [Klein] Base", "black-forest-labs/flux-3-image-klein-base", "click-through gate"),
     # 12B instruction editor: it edits a gallery image and never generates

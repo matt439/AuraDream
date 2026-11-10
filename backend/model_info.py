@@ -40,7 +40,7 @@ _FLUX3_SIZE = (
     "1.05 MP",
     "BFL's FLUX 3 cards give their figures at 1024×1024, the Diffusers default; "
     "they publish no output size range, so this is an example, not a published "
-    "maximum. Nothing about FLUX 3 is measured on this card yet.",
+    "maximum. Only 1024×1024 has been measured on this card (2026-11-10).",
 )
 
 # Exact catalogue selectors: no inherited Illustrious range on WAI or RouWei,
@@ -149,7 +149,8 @@ _FACTS: dict[str, tuple[str, tuple[str, str]]] = {
         "local renders have completed, but those do not establish a quality "
         "recommendation beyond the author's sizes.",
     )),
-    # Unmeasured on this card: BFL's cards publish no output size range.
+    # Measured on this card at 1024×1024 only (2026-11-10); BFL's cards
+    # publish no output size range.
     "black-forest-labs/flux-3-image-klein": ("General", _FLUX3_SIZE),
     "black-forest-labs/flux-3-image-klein-base": ("General", _FLUX3_SIZE),
     # By its exact id, the catalogue's last entry. An edit renders at its
@@ -215,11 +216,9 @@ _FP8_ON_5080 = f"FP8 with model offload peaked at {{}} on {_5080} ({{}})"
 # allocated or less at fp8 or int8 on an ordinary first image at 1024x1024
 # (Z-Anime Base's 10.35 GiB, 2026-09-19, was the first image after a
 # cancellation; its repeat took 6.78), so a card under that is not sized
-# here. BF16's larger peaks are `_BF16_NEEDS`.
-_FLUX3_UNMEASURED = (
-    "FP8 is unmeasured here; the 5.6B transformer alone is about 5.6 GB at one byte a weight, "
-    "and model offload keeps it whole on the card"
-)
+# here. FLUX 3 [Klein] and Klein Base are among those: 6.08 GiB allocated
+# on a plain first image at fp8 (7.40 with one reference) on the 5080,
+# 2026-11-10 (FLUX.2 [klein] 4B's was 4.58). BF16's larger peaks are `_BF16_NEEDS`.
 _CARD_NEEDS: dict[str, tuple[float, str]] = {
     "black-forest-labs/FLUX.1-Krea-dev": (12.00, _FP8_ON_5080.format(
         "12.00 GiB allocated (12.63 reserved) at 1024×1024", "2026-10-27")),
@@ -239,10 +238,6 @@ _CARD_NEEDS: dict[str, tuple[float, str]] = {
     "black-forest-labs/FLUX.2-klein-base-9B": (9e9 / _GIB, (
         "FP8 is unmeasured here; the 9B transformer alone is about 9 GB at one byte a weight, "
         "and model offload keeps it whole on the card")),
-    # Derived, not measured: FLUX 3's 5.55B (Klein) and 5.54B (Base)
-    # transformers (the Hub's parameter counts) at one byte a weight.
-    "black-forest-labs/flux-3-image-klein": (5.55e9 / _GIB, _FLUX3_UNMEASURED),
-    "black-forest-labs/flux-3-image-klein-base": (5.54e9 / _GIB, _FLUX3_UNMEASURED),
     "baidu/ERNIE-Image-Turbo": (8.53, _FP8_ON_5080.format(
         "8.53 GiB allocated (8.93 reserved) at 1 MP", "2026-10-25")),
     "black-forest-labs/FLUX.1-Kontext-dev": (12.00, _FP8_ON_5080.format(
@@ -257,9 +252,10 @@ _LITE_NEEDS: dict[str, tuple[float, str]] = {
     "Qwen/Qwen-Image": (11.75, f"The NVFP4 build peaked at 11.75 GiB at 1 MP on {_5080} (WSL, 2026-09-08)"),
 }
 # Full BF16 (quantization none) with model offload, where docs/verified.md's
-# 2026-10-25 table records a peak above 7 GiB for a checkpoint `_CARD_NEEDS`
-# does not list (Windows, 1024x1024, on the 5080). For the listed ones the
-# fp8 figure stands as a floor.
+# 2026-10-25 table (FLUX 3 [Klein]'s, 2026-11-10) records a peak above 7 GiB
+# for a checkpoint `_CARD_NEEDS` does not list (Windows, 1024x1024, on the
+# 5080). For the listed ones the fp8 figure stands as a floor. Klein Base's
+# BF16 is unmeasured, so it is not sized.
 _BF16_ON_5080 = f"BF16 with model offload peaked at {{}} allocated at 1024×1024 on {_5080} (2026-10-25)"
 _BF16_NEEDS: dict[str, tuple[float, str]] = {
     "Tongyi-MAI/Z-Image-Turbo": (12.07, _BF16_ON_5080.format("12.07 GiB")),
@@ -267,6 +263,10 @@ _BF16_NEEDS: dict[str, tuple[float, str]] = {
     "black-forest-labs/FLUX.2-klein-4B": (7.83, _BF16_ON_5080.format("7.83 GiB")),
     "black-forest-labs/FLUX.2-klein-base-4B": (7.84, _BF16_ON_5080.format("7.84 GiB")),
     "NewBie-AI/NewBie-image-Exp0.1": (7.28, _BF16_ON_5080.format("7.28 GiB")),
+    "black-forest-labs/flux-3-image-klein": (10.95, (
+        f"BF16 with model offload peaked at 10.95 GiB allocated at 1024×1024 on {_5080} "
+        "(2026-11-10); with one reference it went past 15.5 GB of that card, desktop "
+        "included, and was stopped")),
 }
 _PEAKS_LEAVE_OUT = "Allocator peaks leave out the CUDA context and the desktop."
 _SEQUENTIAL = (
