@@ -1,6 +1,7 @@
 """Portable snippets preserve text and require explicit, bounded merge decisions."""
 from __future__ import annotations
 
+import hashlib
 import json
 
 import pytest
@@ -351,3 +352,61 @@ def test_explicit_exact_replacement_is_a_revisioned_edit():
     assert plan.changed and plan.replace_count == 1
     assert plan.items[0].id == local.id and plan.items[0].revision == 6
     assert public_fields(plan.items[0]) == public_fields(local)
+
+
+# The third destination (GEN#54), the grid's Prompt variables box.
+BLOCK = "size = big | small | none\nground = grass | dirt"
+
+
+def test_variables_snippets_export_and_parse_back_in_the_same_version_1_document():
+    collection = [saved(1), saved(2, "Sizes", BLOCK, "variables", revision=4)]
+    encoded = portable.export_portable(collection)
+    decoded = json.loads(encoded.decode("utf-8"))
+    assert decoded["version"] == 1
+    assert decoded["items"][1] == {"name": "Sizes", "text": BLOCK, "target": "variables"}
+    restored = portable.parse_portable(encoded)
+    assert [public_fields(x) for x in restored.items] == decoded["items"]
+    repeated = portable.plan_merge(collection, restored)
+    assert not repeated.changed and repeated.skip_count == 2
+
+
+def test_a_file_without_variables_keeps_the_digest_it_had():
+    # The digest is over name, text and target only, in sorted compact JSON:
+    # widening the target's values moved no existing file's pin.
+    document = payload(item(), item("Negative", "blurry", "negative"))
+    expected = hashlib.sha256(json.dumps(
+        {"format": FORMAT, "version": 1, "items": [item(), item("Negative", "blurry", "negative")]},
+        ensure_ascii=False, sort_keys=True, separators=(",", ":"),
+    ).encode("utf-8")).hexdigest()
+    assert portable.payload_digest(document) == expected
+
+
+def test_names_collide_within_the_variables_target_only():
+    collection = [saved(1, "Sizes", "prompt text"), saved(2, "Sizes", BLOCK, "variables")]
+    incoming = payload(
+        item("Sizes", BLOCK, "variables"), item("SIZES", "size = huge | tiny", "variables"),
+        item("Sizes", "blurry", "negative"),
+    )
+    plan = portable.plan_merge(collection, incoming)
+    assert [row.action for row in plan.rows] == ["skip", "skip", "add"]
+    assert plan.rows[0].exact_ids == [collection[1].id]
+    assert [x.id for x in plan.rows[1].matches] == [collection[1].id] and plan.rows[1].exact_ids == []
+    assert plan.rows[2].matches == []
+    assert plan.rows[0].incoming_collisions == [1] and plan.rows[2].incoming_collisions == []
+
+
+def test_a_variables_replacement_takes_only_a_variables_snippet():
+    prompt, block = saved(1, "Sizes", "prompt text"), saved(2, "Sizes", BLOCK, "variables", revision=3)
+    incoming = payload(item("Sizes", "size = huge | tiny", "variables"))
+    with pytest.raises(portable.PortabilityError, match="existing matching"):
+        portable.plan_merge([prompt, block], incoming, [
+            choose(0, "replace", item_id=prompt.id, revision=prompt.revision),
+        ])
+    plan = portable.plan_merge([prompt, block], incoming, [
+        choose(0, "replace", item_id=block.id, revision=3),
+    ])
+    assert plan.items[0] == prompt
+    assert (plan.items[1].id, plan.items[1].revision, plan.items[1].target, plan.items[1].text) == (
+        block.id, 4, "variables", "size = huge | tiny",
+    )
+    assert plan.additions == [] and plan.replace_count == 1

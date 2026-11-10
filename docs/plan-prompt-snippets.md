@@ -128,4 +128,9 @@ Verification: `tests/test_snippets.py`, `tests/test_snippet_portability.py`
 and `tests/test_api_snippet_portability.py` gain the third target (CRUD,
 export, round trip, per-target collisions, an unknown target still
 refused); `smoke-snippets` appends and prepends a block into a shut fold
-with Ctrl+Z, and checks the grid preview read it.
+with Ctrl+Z, and checks the grid preview read it; `smoke-phone-dialogs`
+checks that the phone's More options opens for the box on one history entry.
+
+Built 2026-11-10 as written. The three test files pass (170 tests), and
+`smoke-snippets`, `smoke-phone-dialogs` and `smoke-snippet-portability` pass
+on Windows against scratch fake servers. No model was loaded.

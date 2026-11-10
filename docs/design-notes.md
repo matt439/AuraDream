@@ -8851,6 +8851,22 @@ which applies the same rule to Saved setups). Insertion uses `rewriteBox` to pre
 the browser harness sends Ctrl+Z's physical key code to exercise that native
 history rather than an application key handler.
 
+A third target, Grid variables, came from the 2026-11-10 review (`GEN#54`,
+[R8](review-2026-11-10-peers.md#r8-a-snippet-target-for-grid-variables)): a
+`name = a | b` block was kept only inside a saved setup, whose Restore
+replaces the whole composer. The snippet is text typed for you and nothing
+more. It is stored verbatim, never parsed, and joined to the box with the
+same newline, which is also what separates two variables. The grid's
+preview stays the only reader of the box, so expansion, `CellKey` and run
+ids did not move, and a block the grid would refuse is refused there in its
+usual words. The fold is opened before the write because a shut fold's box
+cannot take the focus `execCommand` needs: the write would fall back to
+`.value`, lose Ctrl+Z and raise no `input`. The file formats keep version
+1, since an older build refuses an unknown target whole either way and a
+second version would only add a second refusal. Resolving a bare `{name}`
+from the saved snippets on the server was cut: it would make a prompt's
+meaning depend on a sidecar no record or bundle carries.
+
 Portable snippet files extend that separate sidecar, through explicit
 Export/Import inside the existing dialog (`snippet-import.js`). Files omit
 local identity and settings. The client retains raw JSON so duplicate keys

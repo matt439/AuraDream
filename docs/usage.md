@@ -302,9 +302,12 @@ gallery image onto the panel does nothing: use its **Reuse** instead.
 ## Write and check prompts
 
 Use **Examples > Personal snippets…** beside the prompt to save
-your own named text for Prompt or Negative prompt. **New**, **Save** and
-**Delete** manage the saved list. **Insert** appends or prepends the editor's
-text; Ctrl+Z restores the prompt. Snippets are shared by tabs on this server
+your own named text for Prompt, Negative prompt or Grid variables. **New**,
+**Save** and **Delete** manage the saved list. **Insert** appends or prepends
+the editor's text; Ctrl+Z restores the box. A Grid variables snippet holds
+`name = a | b` lines and goes into Grid search's Prompt variables box, which
+opens for it; put the `{name}` placeholders in the prompt yourself. Snippets
+are shared by tabs on this server
 and stay through a gallery clear. They are kept separately from gallery
 bundles. **Export.** downloads the saved list as `auradream-snippets.json`;
 the file contains personal prompt text, and excludes an unsaved editor draft.
@@ -663,6 +666,8 @@ ground = grass | dirt
 
 This makes six prompts. `none` removes that fragment; commas remain part of
 a value. Unused variables and placeholders without values are refused.
+To keep a block of variables for another day, save it as a Grid variables
+snippet under **Examples > Personal snippets…**.
 The default **Cross all values** tries every combination. **One choice per
 image** instead draws one value for each variable from the image's seed,
 keeping those choices across the numeric axes. With Batch above one, those

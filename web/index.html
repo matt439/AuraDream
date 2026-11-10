@@ -2356,7 +2356,7 @@
     <h2 id="snippets-title">Prompt snippets</h2>
     <button type="button" class="ghost" id="snippets-close">Close</button>
   </div>
-  <p class="hint" id="snippets-intro">Save your own reusable prompt text. Append or prepend it to a prompt; Ctrl+Z restores the box.</p>
+  <p class="hint" id="snippets-intro">Save your own reusable prompt text. Append or prepend it to a prompt or the grid's variables; Ctrl+Z restores the box.</p>
 <div class="snippets-portability">
   <button type="button" class="ghost" id="snippets-export">Export…</button>
   <button type="button" class="ghost" id="snippets-import" aria-haspopup="dialog" aria-controls="snippet-import-dialog">Import…</button>
@@ -2373,7 +2373,7 @@
       <label>Name<input type="text" id="snippets-name" maxlength="160" aria-description="Up to 80 characters." autocomplete="off" autofocus></label>
       <label>Text<textarea id="snippets-text" rows="5" maxlength="16000" spellcheck="false"></textarea></label>
       <div class="row">
-        <label class="sub grow"><i>Insert into</i><select id="snippets-target"><option value="prompt">Prompt</option><option value="negative">Negative prompt</option></select></label>
+        <label class="sub grow"><i>Insert into</i><select id="snippets-target"><option value="prompt">Prompt</option><option value="negative">Negative prompt</option><option value="variables">Grid variables</option></select></label>
         <label class="sub grow"><i>Position</i><select id="snippets-placement"><option value="append">Append</option><option value="prepend">Prepend</option></select></label>
       </div>
     </div>

@@ -79,7 +79,9 @@ before changing it.
 - `backend/api_snippets.py` - model-free snippet CRUD routes, independent of
   gallery maintenance; bounded export/merge preview/import use the existing
   snippet writer and independent reservation. `backend/schemas_snippets.py`
-  owns CRUD models; portability request/response models live beside the codec
+  owns CRUD models and `SnippetTarget`, the one list of destinations
+  (`prompt`, `negative`, `variables`) the saved, portable and CRUD models
+  share; portability request/response models live beside the codec
 - `backend/saved_searches.py` - bounded atomic database-scoped gallery filter
   definitions, unique normalized names and optimistic item revisions under an
   independent lock; `backend/schemas_saved_searches.py` owns strict fields and
@@ -3602,7 +3604,15 @@ measured on the card and when.
   with declarations in `prompt-snippets.js` and `initSnippets()` called by
   `app.js`. Writes go through `rewriteBox`/`writeBox`, keeping page scroll,
   with Append/Prepend and undo; a
-  greyed negative refuses insertion. The modal owns its keys, with no
+  greyed negative refuses insertion. A third target, Grid variables
+  (`variables`), writes a saved `name = a | b` block into Grid search's
+  Prompt variables box the same way: the fold is opened first
+  (`openMoreOptionsFor` on the phone, where the box is in More options),
+  since a shut fold's box takes no focus and the write would not be
+  typing's. The text is never parsed by the page or the server; the grid's
+  preview reads the box afterwards. `snippetBox` and `snippetTargetWord`
+  are the one map from a target to its box and its word. The modal owns
+  its keys, with no
   Ctrl/Cmd+Enter submission underneath it. CRUD uses a bounded atomic
   `auradream.snippets.json` sidecar, optimistic item revisions and an
   independent lock; unreadable files are never replaced by an empty list.
@@ -9020,6 +9030,13 @@ held negative insertion, conflicts, modal keys and the narrow layout. It also
 checks that the menu adds no caption height beside ordinary, Tags and Expand
 controls at 1400x900 and 400x650, and insertion into an offscreen prompt keeps
 page scroll. Native Undo in the browser harness carries the Z key code.
+Its last steps save a Grid variables snippet and append and prepend it into
+the Grid search fold (shut at first, opened by the insertion) with Ctrl+Z,
+then check that the grid preview counted its values, that the remembered
+panel holds the block and that the export names the target; the three test
+files hold the target through CRUD, export, per-target collisions and
+import. `smoke-phone-dialogs` inserts one on the phone: More options opens
+for the box in the turn the dialog closes, on one history entry.
 
 `tests/test_saved_searches.py` and `tests/test_api_saved_searches.py` cover
 strict fields and file envelopes, Unicode/name/query limits and existing search

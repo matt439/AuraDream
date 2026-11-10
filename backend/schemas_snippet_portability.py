@@ -5,7 +5,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from .schemas_snippets import MAX_SNIPPET_NAME, MAX_SNIPPETS, Snippet, SnippetFields
+from .schemas_snippets import MAX_SNIPPET_NAME, MAX_SNIPPETS, Snippet, SnippetFields, SnippetTarget
 
 PORTABLE_FORMAT = "auradream.prompt-snippets"
 MAX_PORTABLE_BYTES = 8 * 1024 * 1024
@@ -14,7 +14,7 @@ MAX_JSON_DEPTH = 16
 
 class PortableSnippet(SnippetFields):
     # Persisted/portable data must name its destination, unlike a new CRUD draft.
-    target: Literal["prompt", "negative"]  # pyright: ignore[reportGeneralTypeIssues]
+    target: SnippetTarget  # pyright: ignore[reportGeneralTypeIssues]
 
 
 class PortableSnippets(BaseModel):

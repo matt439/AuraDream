@@ -25,7 +25,7 @@ const SNIPPET_IMPORT_KIND = {
   prefix: 'snippet', noun: 'snippet', sameAs: 'target', targetLabel: 'Saved snippet to replace',
   item: (row) => row.snippet,
   collides: (n) => `Snippet #${n} now has a saved name match. Choose Skip, Add as copy or Replace.`,
-  heading: (row) => `#${row.index + 1} ${row.snippet.name} (${row.snippet.target === 'negative' ? 'Negative' : 'Prompt'})`,
+  heading: (row) => `#${row.index + 1} ${row.snippet.name} (${snippetTargetWord(row.snippet.target)})`,
   incoming: (row) => ({ text: row.snippet.text, role: 'incoming-text', label: `Incoming text for item ${row.index + 1}` }),
   matchSummary: (local, i) => `Saved match #${i + 1}: ${local.name}`,
   local: (local) => ({ text: local.text, role: 'local-text' }),
