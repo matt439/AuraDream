@@ -13669,12 +13669,19 @@ its place or size, and a page that shows it.
 
 ## A passcode beyond loopback
 
-Designed 2026-11-10, not built (`DEV#32`, [the peer review's S2](review-2026-11-10-peers.md#s2-passcode-beyond-loopback),
+Designed 2026-11-10 (`DEV#32`, [the peer review's S2](review-2026-11-10-peers.md#s2-passcode-beyond-loopback),
 Matt's yes the same day). This section is the first step the finding asks
 for: every surface that answers without credentials today, then the design,
-then the order to build it in. No code exists yet; the names below
-(`backend/passcode.py`, `web/passcode.html`, the routes) are the ones the
-build uses.
+then the order to build it in. Matt read the flagged choices on 2026-11-10
+and said go to all of them as written: the passcode is asked behind a proxy
+too, 127.0.0.1 has no exemption, the environment file's character limit,
+one limiter for the whole server, the 8-character floor and the 30-day
+stateless cookie. **Stage 1 (the gate) is built**, 2026-11-10; what it
+settled that the design left open is under
+[Stage 1 as built](#stage-1-as-built). Stages 2 to 4 are not: until stage
+2 the CLI and the server's scripts send no passcode, and until stage 3 the
+page has no signed-out notice or Sign out and the docs do not name the
+setting.
 
 The server has no authentication. `TrustedHostMiddleware` refuses a Host it
 does not list and `block_cross_site_writes` refuses a write that announces
@@ -14046,6 +14053,58 @@ in the README only with stage 3.
    page, the home-screen icon keeping its name and picture, a session
    surviving a restart and an update, `auradream-server status` and
    `update.sh` through the passcode, a wrong passcode's lock.
+
+### Stage 1 as built
+
+Built 2026-11-10: `backend/passcode.py`, `settings.passcode`, the layer in
+`main.py` with `hold_model_for_request` moved inside it, `web/passcode.html`,
+`passcode` in `/api/status`, and `main.run`'s refusal and log lines. Tests:
+`tests/test_api_passcode_routes.py` (the walk), `tests/test_passcode.py`,
+`tests/test_api_passcode.py`. Nothing above was redesigned. What the source
+decided, and the few things the design had not said:
+
+- With the gate off two answers did change, as the reorder says they
+  would: during a checkpoint switch a request with a refused Host is now
+  the Host check's 400, and a cross-site write the block's 403, where the
+  model hold's 409 answered first. `/api/status` gains `"passcode": false`.
+  Every other answer is the same, with no `Set-Cookie`
+  (`test_with_no_passcode_asked_every_surface_answers_without_credentials`).
+- The route table is not flat in the installed FastAPI (0.141): each
+  `include_router` is one entry holding its router. The walk follows those
+  and is held to FastAPI's own schema, so it cannot quietly see less.
+- `GET /` is the only method the app's page route has, so with the gate
+  off `HEAD /` stays the 405 it was; with it on, a signed-out `HEAD /` is
+  the sign-in page's 200, as designed.
+- A setting longer than 256 characters is refused by `main.run` like one
+  under 8: the sign-in refuses a submitted value that long unread, so such
+  a passcode could never be entered. A submitted one past 256 is a wrong
+  attempt: counted and logged.
+- The length checks are `main.run`'s. An app served any other way (the
+  fake, the tests, `uvicorn backend.main:app` by hand) builds its gate
+  from whatever is set, since a short passcode asked is better than none.
+- `POST /api/passcode` answers a body over 4 KiB with 413 and one that is
+  not `{"passcode": "<string>"}` with 422; neither is an attempt. During a
+  lock it answers 429 before the body is read. The 429's words are "Too
+  many wrong passcodes. Wait N seconds and try again." with `Retry-After`.
+- A wrong `Authorization: Bearer` is the same 401 as none (or the sign-in
+  page at `/`), counted; another scheme or an empty value is not an
+  attempt. A valid cookie is read first, so a signed-in browser's stray
+  header is never one either. The header's bytes are read as UTF-8, or
+  Latin-1 when they are not (what `urllib` sends).
+- The 401, the sign-in answers and the sign-in page are `no-store`. The
+  open paths answer `HEAD` as well as `GET`.
+- The gate keeps the passcode's SHA-256 digest and the session key, not
+  the passcode, and `Settings` leaves the field out of its repr.
+- `Gate` takes `open_prefixes` for the fake's `/api/fake/` (stage 3 sets
+  it); the real server passes none.
+- `Secure` follows the request's scheme in the ASGI scope. A real https
+  scope is tested; `X-Forwarded-Proto` from a proxy is uvicorn's to put
+  there and is not tested here (stage 4, or `DEV#33`).
+- `docs/rules.md`'s Layout already lists `passcode.py`, ahead of stage 3's
+  docs: `tests/test_docs_maps.py` fails on a backend module it lacks.
+- The route-table test was written first and passes with the gate off as
+  it does on the code before the gate; it was not committed against that
+  code separately.
 
 Not designed, and not to be built under this row: accounts or more than one
 passcode, a passcode set or changed from the page, revoking one device,

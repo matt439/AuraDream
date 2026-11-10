@@ -484,6 +484,26 @@ before changing it.
   stylesheet served as anything else). It answers an unhandled error's
   500 itself and raises the error on. `main` adds it last, so it is the
   outermost of the app's layers (`tests/test_response_headers.py`)
+- `backend/passcode.py` — the opt-in passcode for a server reachable beyond
+  this machine, stdlib and Starlette only (stage 1 of `DEV#32`; the design
+  and what is still to build are docs/design-notes.md, "A passcode beyond
+  loopback"): `asked`/`gate_for` (on when `AURADREAM_PASSCODE` is set and
+  the bind or an allowed host is not loopback), `Gate` (the comparison, the
+  scrypt-derived session key and the `v1.<expires>.<mac>` cookie; it keeps
+  a digest, never the passcode), `Limiter` (wrong passcodes for the whole
+  server, on the event loop only) and `PasscodeMiddleware`, a plain ASGI
+  layer always installed that passes everything through while `main`'s
+  gate is None. Its place in `main` is inside the response headers, the
+  cross-site write block and the Host check and outside
+  `hold_model_for_request`, activity and gallery admission. Signed out,
+  `/` is `web/passcode.html` (self-contained, the page's own title),
+  `OPEN_PATHS` (the manifest and its icons, by exact path) pass and
+  everything else is a 401 coded `passcode_required`; `POST /api/passcode`
+  and `/api/passcode/sign-out` are the layer's own. The passcode is never
+  in a log line, an error, the status or a process argument
+  (`tests/test_passcode.py`, `tests/test_api_passcode.py`, and
+  `tests/test_api_passcode_routes.py`, which walks the app's route table
+  so a new route is closed or the test fails)
 - `backend/api_prompt.py` — the tag helper and prompt routes (suggest,
   validate, Expand, Check, measure, the critic) and their refusal wording;
   `backend/prompt_check.py` layer 1 of Check (encoder reports and rule

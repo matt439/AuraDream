@@ -42,7 +42,7 @@ if __name__ == "__main__":
 else:
     compiler_cache._seal_startup()
 
-from . import api_backup, api_bundles, api_gallery, api_generate, api_jobs, api_masks, api_more_seeds, api_png, api_presets, api_prompt, api_refine_batch, api_rerender, api_runs, api_saved_searches, api_snippets, api_swap, app_context, bundle_common, bundles, card_facts, gallery_lock, gallery_reports, hf_sign_in, hub_access, keep_awake, loras, model_selection, prompt_encoding, response_headers, startup_preferences, storage  # noqa: E402
+from . import api_backup, api_bundles, api_gallery, api_generate, api_jobs, api_masks, api_more_seeds, api_png, api_presets, api_prompt, api_refine_batch, api_rerender, api_runs, api_saved_searches, api_snippets, api_swap, app_context, bundle_common, bundles, card_facts, gallery_lock, gallery_reports, hf_sign_in, hub_access, keep_awake, loras, model_selection, passcode, prompt_encoding, response_headers, startup_preferences, storage  # noqa: E402
 from .backup_service import BackupService  # noqa: E402
 from .build_info import read_commit as _read_commit  # noqa: E402
 from .server_probe import auradream_at as _auradream_at, is_loopback as _is_loopback, page_url as _page_url, port_busy as _port_busy  # noqa: E402
@@ -483,11 +483,96 @@ app.add_middleware(api_bundles.GalleryAdmission, get_manager=lambda: bundle_mana
 
 
 # A request someone made keeps the PC awake for the idle minutes. Added before
-# the host and origin checks, so they run outside it and a refused request is
-# never use. A plain ASGI layer, not `@app.middleware("http")`: that wraps
+# the passcode and the host and origin checks, so they run outside it and a
+# refused request is never use. A plain ASGI layer, not
+# `@app.middleware("http")`: that wraps
 # every response, the job streams included, in another task and stream, and
 # the extra hop delayed a stream's attach enough to change what it saw.
 app.add_middleware(keep_awake.ActivityMiddleware, get_controller=lambda: _keep_awake)
+
+
+# The layers, outermost first (Starlette runs the last one added first): the
+# response headers, the cross-site write block, the Host check, the
+# passcode, the model hold, keep-awake's activity, gallery admission. The
+# order is the design (docs/design-notes.md, "A passcode beyond loopback"):
+# a hostile page's cross-site POST is a 403 before the passcode is looked
+# at, so it cannot spend the sign-in attempts; a 401 carries the headers;
+# and a request that is not signed in is never a model reader, never keeps
+# the PC awake and never waits on the gallery.
+@app.middleware("http")
+async def hold_model_for_request(request: Request, call_next):
+    """Keep one checkpoint throughout model-dependent request validation/work.
+
+    Pydantic fills sampling defaults before the route starts, and routes can
+    await gallery reads, tokenizer loads and adapter checks before submitting
+    a job. Counting at the HTTP boundary makes all of those one read of the
+    selected checkpoint: a switch refuses until they finish, and once a switch
+    starts no new reader can enter. This does not take the GPU gate, so cold
+    prompt checks continue to work beside generation.
+
+    A page may still have the previous checkpoint's controls between polls.
+    Its optional revision header refuses that stale submission before request
+    defaults or side effects are evaluated. Existing API clients without the
+    header continue to use the checkpoint currently selected by the server.
+    """
+    global _model_requests
+
+    path = request.url.path
+    depends_on_model = path in {
+        "/api/instruction-edit/preview", "/api/instruction-edit",
+        "/api/generate", "/api/grid", "/api/rerender", "/api/swap-tags", "/api/refine/batch", "/api/more-seeds",
+        "/api/loras", "/api/png/settings",
+        "/api/model/load", "/api/model/unload",
+        "/api/gallery/unstarred",
+    } or path.startswith(("/api/grid/", "/api/prompt/", "/api/tags/", "/api/runs/")) or api_presets.depends_on_model(request.method, path)
+    selects_model = path == "/api/model/switch"
+    if not depends_on_model and not selects_model:
+        return await call_next(request)
+    if _switching or _switch_draining:
+        return JSONResponse(
+            {"detail": "the checkpoint is switching; wait for the switch to finish"},
+            status_code=409,
+        )
+    # The old name is read for a page loaded before the rename to AuraDream.
+    expected = (request.headers.get("x-auradream-model-revision")
+                or request.headers.get("x-local-diffusion-model-revision"))
+    if expected is not None:
+        try:
+            expected_revision = int(expected)
+        except ValueError:
+            return JSONResponse({"detail": "invalid model revision"}, status_code=422)
+        if expected_revision != model_selection.revision():
+            return JSONResponse(
+                {"detail": "the checkpoint changed; refresh its settings before trying again"},
+                status_code=409,
+            )
+    if selects_model:
+        # The switch performs its own exclusive admission. Counting it as a
+        # model reader would make it refuse itself forever.
+        return await call_next(request)
+    _model_requests += 1
+    _model_request_paths[path] = _model_request_paths.get(path, 0) + 1
+    try:
+        return await call_next(request)
+    finally:
+        _model_requests -= 1
+        if _model_request_paths[path] > 1:
+            _model_request_paths[path] -= 1
+        else:
+            del _model_request_paths[path]
+
+
+# The passcode's gate: None while it is not asked (unset, or a server only
+# this machine reaches), and then the layer passes everything through. Built
+# once, here; the fake and the tests install their own.
+_passcode_gate: passcode.Gate | None = passcode.gate_for(
+    settings.passcode, settings.host, settings.allowed_hosts, settings.port,
+)
+app.add_middleware(
+    passcode.PasscodeMiddleware,
+    get_gate=lambda: _passcode_gate,
+    page=settings.web_dir / "passcode.html",
+)
 
 
 # A refusal the page acts on: its stable `code` (and `ids`) beside `detail`.
@@ -572,69 +657,6 @@ async def block_cross_site_writes(request: Request, call_next):
         if origin is not None and not _origin_allowed(origin):
             return JSONResponse({"detail": "cross-origin request refused"}, status_code=403)
     return await call_next(request)
-
-
-@app.middleware("http")
-async def hold_model_for_request(request: Request, call_next):
-    """Keep one checkpoint throughout model-dependent request validation/work.
-
-    Pydantic fills sampling defaults before the route starts, and routes can
-    await gallery reads, tokenizer loads and adapter checks before submitting
-    a job. Counting at the HTTP boundary makes all of those one read of the
-    selected checkpoint: a switch refuses until they finish, and once a switch
-    starts no new reader can enter. This does not take the GPU gate, so cold
-    prompt checks continue to work beside generation.
-
-    A page may still have the previous checkpoint's controls between polls.
-    Its optional revision header refuses that stale submission before request
-    defaults or side effects are evaluated. Existing API clients without the
-    header continue to use the checkpoint currently selected by the server.
-    """
-    global _model_requests
-
-    path = request.url.path
-    depends_on_model = path in {
-        "/api/instruction-edit/preview", "/api/instruction-edit",
-        "/api/generate", "/api/grid", "/api/rerender", "/api/swap-tags", "/api/refine/batch", "/api/more-seeds",
-        "/api/loras", "/api/png/settings",
-        "/api/model/load", "/api/model/unload",
-        "/api/gallery/unstarred",
-    } or path.startswith(("/api/grid/", "/api/prompt/", "/api/tags/", "/api/runs/")) or api_presets.depends_on_model(request.method, path)
-    selects_model = path == "/api/model/switch"
-    if not depends_on_model and not selects_model:
-        return await call_next(request)
-    if _switching or _switch_draining:
-        return JSONResponse(
-            {"detail": "the checkpoint is switching; wait for the switch to finish"},
-            status_code=409,
-        )
-    # The old name is read for a page loaded before the rename to AuraDream.
-    expected = (request.headers.get("x-auradream-model-revision")
-                or request.headers.get("x-local-diffusion-model-revision"))
-    if expected is not None:
-        try:
-            expected_revision = int(expected)
-        except ValueError:
-            return JSONResponse({"detail": "invalid model revision"}, status_code=422)
-        if expected_revision != model_selection.revision():
-            return JSONResponse(
-                {"detail": "the checkpoint changed; refresh its settings before trying again"},
-                status_code=409,
-            )
-    if selects_model:
-        # The switch performs its own exclusive admission. Counting it as a
-        # model reader would make it refuse itself forever.
-        return await call_next(request)
-    _model_requests += 1
-    _model_request_paths[path] = _model_request_paths.get(path, 0) + 1
-    try:
-        return await call_next(request)
-    finally:
-        _model_requests -= 1
-        if _model_request_paths[path] > 1:
-            _model_request_paths[path] -= 1
-        else:
-            del _model_request_paths[path]
 
 
 # Last, so outermost of the app's own layers: the Host check's 400 and the
@@ -763,6 +785,7 @@ async def status() -> ModelStatus:
         prompt_critique_ready=prompt_critic.ready(),
         prompt_critic=prompt_critic.describe(),
         keep_awake=_keep_awake_status(),
+        passcode=_passcode_gate is not None,
     )
 
 
@@ -1365,7 +1388,16 @@ def run(*, open_browser: bool = False) -> None:
     when the holder is AuraDream itself (a second launch), it says so, opens
     the browser at it if `open_browser`, and exits 0; anything else exits 1
     naming the port and AURADREAM_PORT. `open_browser` (--open) otherwise
-    opens the page once the server is listening; never by default."""
+    opens the page once the server is listening; never by default.
+
+    An AURADREAM_PASSCODE under 8 characters (or past what the sign-in
+    takes) exits 1 before any of that, in words that never hold it."""
+    # Before anything binds or is asked: a passcode too short to be one is a
+    # mistake, said by the variable's name and never by its value.
+    problem = passcode.setting_problem(settings.passcode)
+    if problem is not None:
+        print(problem, file=sys.stderr, flush=True)
+        raise SystemExit(1)
     url = _page_url(settings.host, settings.port)
     # Port 0 asks the system for any free port: nothing to collide with.
     if settings.port and _port_busy(settings.host, settings.port):
@@ -1386,13 +1418,26 @@ def run(*, open_browser: bool = False) -> None:
     log_to_file = log_file.install(settings.db_path, settings.log_level)
     if log_to_file.handler is not None:
         log.info("log file: %s", log_to_file.path)
-    if not _is_loopback(settings.host):
-        # The API has no login: anyone who reaches it can read, delete and
-        # import galleries and make this machine download with the HF token.
+    if _passcode_gate is not None:
+        log.info(
+            "Asking for the passcode in %s. Over plain http the passcode, its cookie "
+            "and every prompt and image cross the network unencrypted: it keeps out "
+            "people who can merely reach this address, not anyone who can capture "
+            "the network's traffic.",
+            passcode.VARIABLE,
+        )
+    elif settings.passcode is not None:
+        log.info(
+            "%s is set but not asked: the server listens on this machine only.",
+            passcode.VARIABLE,
+        )
+    elif not _is_loopback(settings.host):
+        # No passcode: anyone who reaches the API can read, delete and import
+        # galleries and make this machine download with the HF token.
         log.warning(
-            "Serving on %s: the server has no login, so anyone who can reach "
-            "this address controls it. Expose it only on a trusted network.",
-            settings.host,
+            "Serving on %s with no passcode, so anyone who can reach this address "
+            "controls the server. Set %s, or expose it only on a trusted network.",
+            settings.host, passcode.VARIABLE,
         )
     log.info("AuraDream at commit %s", COMMIT or "unknown (not a Git checkout, or git was not found)")
     config = uvicorn.Config(

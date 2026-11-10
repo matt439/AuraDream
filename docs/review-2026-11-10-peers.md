@@ -247,6 +247,20 @@ someone keeps guessing, a right passcode without a cookie is refused too.
 `sw.js` and `offline.html` stay behind the passcode
 and need no change; only the manifest and its icons stay open.
 
+Matt read those flagged choices on 2026-11-10 and said go to all of them as
+written (asked behind a proxy too, no exemption for 127.0.0.1, the
+environment file's character limit, one whole-server limiter, the
+8-character floor and the 30-day stateless cookie). Stage 1, the gate, is
+built the same day: `backend/passcode.py`, the setting, the layer in
+`main.py` with the model hold moved inside the Host check and the write
+block, `web/passcode.html`, `passcode` in the status, and `main.run`'s
+refusal and log lines, with a test that walks the app's route table so a
+route added later is closed or the test fails. Still to build: the callers
+(the CLI, the probe, the doctor, the Linux scripts), then the page, the
+fake's knob, the smoke and the docs; until then the setting is not named in
+the README. What stage 1 settled is in the note under
+[Stage 1 as built](design-notes.md#stage-1-as-built).
+
 ### S3 an HTTPS route
 
 `DEV#33`. `main._origin_allowed` requires the Origin's port to equal
