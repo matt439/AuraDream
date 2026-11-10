@@ -193,3 +193,124 @@ def test_any_other_save_error_is_still_the_cells_failure(store, monkeypatch):
     assert job.status == "error" and job.stopped_by == "failures"
     assert job.failures == 3 and len(calls) == 3 and job.failed_indices == [0, 1, 2]
     assert not job.paused and job.pause_reason is None
+
+
+def _full_from(store, monkeypatch, nth):
+    """`save_image` refusing as a full disk from its `nth` call (1-based)
+    until `disk["full"]` is cleared."""
+    real = store.save_image
+    disk = {"full": True, "calls": 0, "refused": 0}
+
+    def save(*args, **kwargs):
+        disk["calls"] += 1
+        if disk["full"] and disk["calls"] >= nth:
+            disk["refused"] += 1
+            raise _enospc()
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(store, "save_image", save)
+    return disk
+
+
+def test_a_batch_keeps_what_it_saved_and_holds_the_rest(store, monkeypatch):
+    # The first image of a batch of two is on the disk when the second is
+    # refused: Resume saves the second under its own seed, the first once.
+    disk = _full_from(store, monkeypatch, 2)
+
+    async def scenario():
+        fake = FakeBackend()
+        manager = JobManager(fake)
+        job = await manager.submit(
+            GenerateRequest(prompt="x", width=256, height=256, steps=2, num_images=2, seed=40)
+        )
+        await _until(lambda: job.paused)
+        held = job.snapshot()
+        disk["full"] = False
+        manager.pause(job.id, False)
+        await _done(manager, job)
+        return job, held, fake
+
+    job, held, fake = asyncio.run(scenario())
+    assert held["pause_reason"] == jobs.DISK_FULL_PAUSE and held["image_count"] == 1
+    assert job.status == "done" and job.failures == 0 and len(fake.requests) == 1
+    assert [image["seed"] for image in job.images] == [40, 41]
+    assert [row.seed for row in sorted(store.list_images()[0], key=lambda row: row.id)] == [40, 41]
+    assert job.completed_indices == [0]
+
+
+def test_a_cancel_on_a_full_disk_keeps_the_batchs_saved_image(store, monkeypatch):
+    _full_from(store, monkeypatch, 2)
+
+    async def scenario():
+        manager = JobManager(FakeBackend())
+        job = await manager.submit(
+            GenerateRequest(prompt="x", width=256, height=256, steps=2, num_images=2, seed=40)
+        )
+        await _until(lambda: job.paused)
+        manager.cancel(job.id)
+        await _done(manager, job)
+        return job
+
+    job = asyncio.run(scenario())
+    assert job.status == "cancelled" and job.failures == 0
+    assert [image["seed"] for image in job.images] == [40]
+    assert [row.seed for row in store.list_images()[0]] == [40]
+
+
+def test_a_then_refine_pass_is_held_on_a_full_disk(store, monkeypatch):
+    # The base is saved; its pass's save is the one refused. The pass is
+    # held, not failed, and saved under the pass run at Resume.
+    from backend.schemas import ThenRefine
+
+    disk = _full_from(store, monkeypatch, 2)
+
+    async def scenario():
+        fake = FakeBackend()
+        manager = JobManager(fake)
+        job = await manager.submit(
+            GenerateRequest(prompt="x", width=256, height=256, steps=4, runs=2, seed=60),
+            then_refine=ThenRefine(scale=1.5, strength=0.5),
+        )
+        await _until(lambda: job.paused)
+        held = job.snapshot()
+        renders = len(fake.requests)
+        disk["full"] = False
+        manager.pause(job.id, False)
+        await _done(manager, job)
+        return job, held, renders, fake
+
+    job, held, renders, fake = asyncio.run(scenario())
+    assert held["pause_reason"] == jobs.DISK_FULL_PAUSE and held["stage"] == "pass"
+    assert held["failures"] == 0 and held["image_count"] == 1 and renders == 2
+    assert job.status == "done" and job.failures == 0 and job.failed_cells == []
+    # Two bases and a pass of each: four renders, none made twice.
+    assert len(fake.requests) == 4 and len(job.images) == 4
+    assert len(job.completed_passes) == 2
+    rows = sorted(store.list_images()[0], key=lambda row: row.id)
+    assert [row.refine is not None for row in rows] == [False, True, False, True]
+    assert {row.run_id for row in rows if row.refine is not None} == {job.pass_run_id}
+
+
+def test_sqlites_own_full_error_is_read_and_leaves_the_gallery_usable(store, monkeypatch):
+    # The real error, not a stand-in: a database capped at its present
+    # pages refuses the row as a full disk does.
+    request = GenerateRequest(prompt="x" * 4000, negative_prompt="y" * 2000, width=256, height=256, steps=1)
+    real = store._connect
+    capped = {"on": True}
+
+    def connect():
+        conn = real()
+        if capped["on"]:
+            pages = conn.execute("PRAGMA page_count").fetchone()[0]
+            conn.execute(f"PRAGMA max_page_count = {pages}")
+        return conn
+
+    monkeypatch.setattr(store, "_connect", connect)
+    with pytest.raises(sqlite3.Error) as refused:
+        store.save_image(Image.new("RGB", (64, 64)), request, seed=1, duration_ms=1, model_id="m")
+    assert jobs.disk_full(refused.value), refused.value
+    assert _parts(store) == []
+    assert [p for p in store.settings.outputs_dir.rglob("*") if p.is_file()] == []
+    capped["on"] = False
+    record = store.save_image(Image.new("RGB", (64, 64)), request, seed=1, duration_ms=1, model_id="m")
+    assert [row.id for row in store.list_images()[0]] == [record.id]

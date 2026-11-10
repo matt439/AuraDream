@@ -384,10 +384,14 @@ async function togglePause() {
 // a frame that contradicts this page's own press still on its way
 // (togglePause): the press set it, and the frame predates the request. One
 // that agrees with it - the worker's `paused` landing first - is taken.
+// So is the worker's own pause (`pause_reason`): a Resume pressed with the
+// disk still full is answered by a new pause the press never asked for, and
+// its frame can land before the press's reply; held as stale, the button
+// read Pause over a paused job until some later frame.
 function syncPause(job) {
   const unit = unitWord(job);
   const stale = pauseAsking?.jobId === job.job_id && watchedActionCurrent(pauseAsking)
-    && !!job.pause_requested !== pauseAsking.value;
+    && !!job.pause_requested !== pauseAsking.value && !(job.paused && job.pause_reason);
   if (!stale) {
     els.pause.textContent = job.paused ? 'Resume' : job.pause_requested ? 'Pausing…' : 'Pause';
   }

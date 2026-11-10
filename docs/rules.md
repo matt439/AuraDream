@@ -2471,8 +2471,12 @@ measured on the card and when.
   the pause withdrawn by any tab) saves that image again, pausing again
   while there is still no room; a cancel ends the job as cancelled, the
   held image lost. Nothing is counted in `failures`, and no cell is
-  rendered twice. `pause_reason` is None for a user's pause and cleared
-  with `paused`; the cell line says "Paused at image 2/5 · " and the
+  rendered twice. A batch keeps the images it saved before the refused
+  one, through a cancel too, and a Then refine pass's save is held the
+  same way, never a failed pass. `pause_reason` is None for a user's pause
+  and cleared with `paused`; a frame carrying it is never the stale one
+  `pauseAsking` holds back, since a Resume with the disk still full is
+  answered by a pause the press did not ask for; the cell line says "Paused at image 2/5 · " and the
   reason in place of "Paused after … · GPU handed back". Every other save
   error is the cell's failure, under the failure rule as before. A plain
   job's units are images, or batches where a repeat makes several

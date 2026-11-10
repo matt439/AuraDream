@@ -124,7 +124,11 @@ and pauses in `_hold` with `Job.pause_reason`, the render held and saved
 at Resume; a Resume with the disk still full pauses again, a cancel ends
 the job. Every other save error is still the cell's failure
 (`tests/test_jobs_disk_full.py`; `smoke-jobs`' last steps through the
-fake's `/api/fake/disk-full`). Not built: the CLI's own save loop
+fake's `/api/fake/disk-full`). The tests also cover a batch whose second
+image is refused, a Then refine pass's save, and SQLite's real error from
+a database capped at its pages. The page takes the worker's own pause over
+a Resume press still awaiting its reply (`syncPause`), or the button read
+Pause over a job paused again. Not built: the CLI's own save loop
 (`generate.py`), which still fails the cell, and the submit-time check
 that was cut. A real full disk has not been tried on the card's PC.
 
