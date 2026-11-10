@@ -768,8 +768,8 @@ before changing it.
   calls); `phone-viewer.js`, after it, the phone's viewer (`syncPhoneViewer`,
   which `syncPhoneHosts` calls, and `syncPhoneViewerImage`, which
   `renderLightbox` calls): the lightbox's bars over the picture, Edit's and
-  More's action sheets (`openViewerEdit`, `openViewerMore`), Share
-  (`sharePhoneImage`), the facts' sheet (`setPhoneFacts`) and a tap's bars
+  More's action sheets (`openViewerEdit`, `openViewerMore`), Share's
+  (`openViewerShare`: Picture only or With settings, `sharePhoneImage`), the facts' sheet (`setPhoneFacts`) and a tap's bars
   (`phoneViewerTap`, which `lbPointerUp` calls); its live-preview viewer
   (`openPhoneLivePreview`, `syncPhoneLivePreview`) follows only the opened
   job's frames and offers an explicit finished-image handoff; `phone-sheets.js`, after
@@ -7931,10 +7931,23 @@ measured on the card and when.
   portrait screen under a column of facts and three rows of buttons), and
   bars over it. The top bar (`#lbp-top`, 52 px under the notch's inset)
   holds the cross, moved in and drawn as a 44 px ‹, the place in the walk
-  (`#lb-count`, moved in) across its middle, and Share (`navigator.share`
-  with the PNG as a file in a secure context; elsewhere it reads Download
-  and downloads, as it does when the share is refused for want of the
-  press). The foot (`#lbp-foot`) holds the lightbox's line and F's said
+  (`#lb-count`, moved in) across its middle, and Share, which opens an
+  action sheet of two rows (`openViewerShare`): **Picture only** and
+  **With settings**. The stored PNG carries the prompt, the settings, the
+  checkpoint and LoRA names and an inpaint's mask in its text chunks, and
+  the button's title, which said so, is never shown on a touch screen, so
+  the rows say it. With settings sends the stored PNG under the
+  lightbox's file name. Picture only sends the picture drawn again on a
+  canvas and encoded in the page (`pictureOnlyBlob`): the same pixels, no
+  text chunk, named `auradream-<id>.png` (the stored file's name holds
+  the checkpoint and the seed). A picture it cannot redraw (over
+  16,777,216 pixels, iOS's canvas, or an encode that fails) is an error in
+  the lightbox's line, never the stored PNG in its place. Either row is
+  `navigator.share` with the file in a secure context; elsewhere the
+  button reads Download, its sheet is named so and the rows download
+  (`saveBlobAs`), as each does with its own file when the browser shares
+  no such file or refuses the share for want of the press. More's
+  Download is still the stored PNG. The foot (`#lbp-foot`) holds the lightbox's line and F's said
   line, moved in over a bar of five equal 44 px columns, each a glyph and
   one word: Star, Reuse and Refine (the lightbox's own buttons, moved in;
   Reuse reads "↻ Reuse", its whole name kept as its `aria-label`), Edit
@@ -9564,7 +9577,16 @@ centred, and Share (Download where the browser cannot share); the bar's
 five - Star, Reuse ("↻ Reuse", its name kept as its label), Refine, Edit
 and More - are inside the screen on one row, their own press at their
 centre and 44 px tall, More seeds…, Inpaint…, Outpaint…, Delete, Fit
-and Download not drawn; the audit clean with nothing excepted. The
+and Download not drawn; the audit clean with nothing excepted. Share,
+with `navigator.share` and `saveBlobAs` stood in for, opens its sheet
+(two entries, named "Share #id", Picture only and With settings, then
+Cancel): Picture only shares `auradream-<id>.png` with no text chunk and
+the stored PNG's own pixels and size, With settings the stored PNG byte
+for byte in length with its `auradream` chunk; a share refused with
+`NotAllowedError`, and one the browser cannot make of the file, each
+download the picture-only file and never the stored one; with no
+`navigator.share` the button reads Download, its sheet "Download #id",
+and With settings downloads the stored PNG. The
 facts' peek sits over the bar with the prompt's first line; its press
 raises the sheet (two entries) between the bars, each fact row 48 px
 and each ⌕ 44 px square, Compare with source in it with

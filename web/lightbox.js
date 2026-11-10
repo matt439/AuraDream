@@ -564,12 +564,24 @@ function lightboxCount(rec) {
 }
 
 // Keep the original PNG, including its settings chunks: never round-trip the
-// image through a canvas. Capture the record at the press, so walking while
-// its fetch is pending cannot give another image its filename.
+// image through a canvas (the phone's Share > Picture only is the one place
+// that does, to leave them out: phone-viewer.js). Capture the record at the
+// press, so walking while its fetch is pending cannot give another image
+// its filename.
 function lightboxFileName(rec) {
   const model = String(rec.model_id).split('/').pop().replace(/[^\w.-]+/g, '-')
     .replace(/^[.-]+|[.-]+$/g, '').slice(0, 100) || 'model';
   return `${rec.id}-${model}-${rec.seed}.png`;
+}
+
+// A blob as a download named `name` (Download here; the phone's Share where
+// the browser shares no file).
+function saveBlobAs(blob, name) {
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = name;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 10000);
 }
 
 async function downloadLightboxImage() {
@@ -583,11 +595,7 @@ async function downloadLightboxImage() {
       if (els.lbError.textContent === lbDownloadError.text) showError('', false, { slot: els.lbError, mirror: false });
       lbDownloadError = null;
     }
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = lightboxFileName(rec);
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(link.href), 10000);
+    saveBlobAs(blob, lightboxFileName(rec));
   } catch (err) {
     // A failed download stays in the lightbox: never navigate to a 404 page
     // or overwrite another image's note after the walk has moved on.

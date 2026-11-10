@@ -288,7 +288,8 @@ recycle bin is a screen of its own on the phone (a ‹ before its name, no
 card tools, only its own rows in the sheets). `phone-viewer.js`
 (`styles/phone-viewer.css`, after `phone-gallery.css`), after it, owns the phone's
 viewer: the lightbox's picture across the screen with a top bar (‹, the
-place, Share) and a bar of Star, Reuse, Refine (moved in), Edit and More
+place, Share: Picture only, a canvas re-encode without the PNG's text
+chunks, or With settings) and a bar of Star, Reuse, Refine (moved in), Edit and More
 over it, whose action sheets press the lightbox's other buttons; the
 facts a peek that a press or a swipe up raises as a sheet; a tap on the
 picture hides or shows the bars, never closes. `LB_STACKED_MEDIA`
