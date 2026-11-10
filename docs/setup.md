@@ -319,6 +319,16 @@ and whether a Hugging Face sign-in is present, with what to do under
 anything that is not a pass. It downloads and loads nothing and never
 contacts Hugging Face.
 
+The server also writes a log file, `auradream.log`, beside the gallery
+database (the project folder unless `AURADREAM_DB_PATH` moved it). It has
+what the console showed plus the full traceback of every failure, which the
+console prints only with `AURADREAM_LOG_LEVEL=DEBUG`, so a job that failed
+overnight can still be read after the console window has closed. At 5 MB
+it becomes `auradream.log.1` and a new file starts; three older files are
+kept. It contains your prompts and file paths: read it before sending it to
+anyone. It is not part of a gallery bundle or backup, and deleting it while
+the server is stopped loses nothing else.
+
 - **"is gated on Hugging Face and this sign-in has no access yet"**: accept
   the licence (or wait for approval) on the checkpoint's page, run
   `uv run hf auth login` with a read token, then load again.

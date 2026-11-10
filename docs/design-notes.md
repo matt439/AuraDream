@@ -13554,3 +13554,56 @@ register the worker there, so on the phone the offline page needs AuraDream
 behind HTTPS (a reverse proxy with a certificate the phone trusts, for
 example); `app.js` does not try elsewhere. The open page's topbar state
 works on every origin.
+
+## The log file
+
+Built 2026-11-10 (`DEV#35`, [the peer review's S5](review-2026-11-10-peers.md#s5-a-log-file)).
+Logging was `basicConfig` to stderr. The job, cell, pass, load and switch
+failures each log one ERROR line and their traceback at DEBUG, so that a
+gated repository's 403 or an out-of-memory cell is one readable line on the
+console. At the default INFO the traceback was therefore never written
+anywhere, and on Windows a job that failed overnight left nothing at all
+once the console window closed. uvicorn's level was a hard-coded `"info"`
+whatever `AURADREAM_LOG_LEVEL` said.
+
+`backend/log_file.py` adds `auradream.log` beside the database: a
+`RotatingFileHandler` of 5 MB with three older files, in the console's
+format. It receives what the configured level passes and, at every level,
+any record carrying `exc_info`. For those DEBUG records to exist the
+`auradream` and `backend` loggers are opened to DEBUG while the file is
+installed, and the console's handlers, which had no level of their own, are
+held at the configured one: the console prints what it printed before
+(`test_a_traceback_at_debug_reaches_the_file_and_not_the_console`). A
+library's DEBUG is not opened. `faulthandler` writes a fatal error's stacks
+(an access violation in a CUDA library, an abort) to the same file; one
+already enabled by `-X faulthandler` or `PYTHONFAULTHANDLER` is left
+pointing where its owner put it.
+
+Choices, and why:
+
+- Installed in `main.run`, after the port checks, and closed when the
+  server stops. At import it would have opened a file for every CLI, every
+  test that imports `main` and the fake server, and a second launch (which
+  only reports the running server and exits) would have held a second
+  handle on the first one's file.
+- One handle. On Windows a file cannot be renamed while any handle is open
+  on it, so `faulthandler`, which needs a file descriptor, is given the
+  handler's own stream, turned off across a rollover and on again on the
+  new file. If another program holds the file open the rename is refused;
+  the handler then reopens the same file and keeps appending, and the next
+  record tries again, rather than reporting a logging error per line.
+- uvicorn's `uvicorn` logger does not propagate to the root, and
+  `uvicorn.Config` replaces its handlers, so the file's handler is added to
+  it after the config is built. That is where an unhandled route's
+  traceback is logged. `uvicorn.access` is left out: the page's polls would
+  rotate the failures away within hours.
+- A file that cannot be opened (a read-only folder) is one warning on the
+  console and a server that starts without it.
+- It always takes the new name. `legacy_names` keeps old files in use where
+  they are; nothing wrote a log before the rename.
+- The file holds prompts and paths. Bundles, exports, backups and `clear`
+  work from the database's rows and the files they track, so none of them
+  reads, copies or removes it, and `.gitignore` lists it.
+
+Not built: a level for the file separate from the console's, a setting for
+its place or size, and a page that shows it.

@@ -212,6 +212,19 @@ configured level; the console unchanged. The file holds prompts and paths,
 so it is never bundled, exported or treated as gallery data, and is
 installed in `run`, not at import.
 
+Built 2026-11-10: `backend/log_file.py` writes `auradream.log` beside the
+database (5 MB, three older files), installed by `main.run` after the port
+checks and closed when the server stops. It receives the configured level's
+records and, at every level, any record with a traceback, which covers the
+job, cell, pass, load and switch sites unchanged; the `auradream` and
+`backend` loggers are opened to DEBUG for that and the console's handlers
+held at the configured level. `faulthandler` writes to the same file, kept
+on it across rollovers, unless it was already enabled. uvicorn takes
+`AURADREAM_LOG_LEVEL`, and its `uvicorn` logger (an unhandled route's
+traceback) is followed; `uvicorn.access` is not. Tests in
+`tests/test_log_file.py`; the reasons in `docs/design-notes.md` under "The
+log file".
+
 ### S6 the running commit
 
 `DEV#36`. The version is a static `0.1.0` and there are no tags.

@@ -113,8 +113,10 @@ class Settings:
 
     host: str = os.getenv("AURADREAM_HOST", "127.0.0.1")
     port: int = int(os.getenv("AURADREAM_PORT", "7860"))
-    # The server's log level. DEBUG is where the tracebacks and the dropped
-    # pipeline arguments go; INFO is enough to follow a night.
+    # The server's log level, uvicorn's too. On the console DEBUG is where
+    # the tracebacks and the dropped pipeline arguments go; INFO is enough to
+    # follow a night. The log file beside the database (`log_file.py`) gets
+    # the tracebacks at every level.
     log_level: str = os.getenv("AURADREAM_LOG_LEVEL", "INFO").upper()
 
     # Host headers the API answers to, and with the port appended, the origins

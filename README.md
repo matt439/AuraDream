@@ -340,7 +340,7 @@ set in a start-up warning.
 | `AURADREAM_HOST` | `127.0.0.1` | Bind address |
 | `AURADREAM_PORT` | `7860` | Server port |
 | `AURADREAM_ALLOWED_HOSTS` | `127.0.0.1,localhost` | Allowed hostnames/IPs; include the browser's destination when exposing the server on a LAN, keeping `127.0.0.1` and `localhost`; exact lowercase names, no wildcards |
-| `AURADREAM_LOG_LEVEL` | `INFO` | Server logging; `DEBUG` includes tracebacks |
+| `AURADREAM_LOG_LEVEL` | `INFO` | Server and uvicorn logging; on the console `DEBUG` includes tracebacks, which `auradream.log` beside the database receives at every level |
 | `AURADREAM_CRITIC` | `true` | Enable the optional local prompt critic |
 | `AURADREAM_CRITIC_SERVER` | unset | Use a local compatible `llama-server` binary |
 | `AURADREAM_CRITIC_MODEL` | unset | Use a local `.gguf` instead of downloading the pinned critic model |

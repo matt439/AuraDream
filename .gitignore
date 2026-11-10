@@ -24,6 +24,9 @@ bundles/
 /*.png
 server.log
 server.err
+# The server's rotating log: prompts and paths, never committed.
+auradream.log
+auradream.log.*
 auradream.settings.json
 .auradream.settings.*.tmp
 auradream.backup-policy-*.json
