@@ -1,5 +1,6 @@
 [
   {"navigate": "http://127.0.0.1:7874/"},
+  {"eval": "document.getElementById('analysis-details').querySelector('summary').click()"},
   {"wait": 1200},
   {"log": "'Swapping original and yours on the same seeds keeps each comparison in its own submission'"},
   {"eval": "els.prompt.value = 'a red fox'; els.negative.value = ''; els.steps.value = '2'; own('steps'); els.width.value = '256'; els.height.value = '256'; els.seed.value = '42'; els.compareSeeds.value = '4'; promptReplaced(); checkPrompt()"},
@@ -57,6 +58,7 @@
   {"log": "'At 2560x1305 the check is docked and scrolls inside itself: once the sheet is landed on, Run comparison is obscured by the topbar or the check\\'s clip - focus goes to the sheet\\'s first cell, and Tab does not move the page'"},
   {"viewport": [2560, 1305]},
   {"navigate": "http://127.0.0.1:7874/"},
+  {"eval": "document.getElementById('analysis-details').querySelector('summary').click()"},
   {"eval": "window.__until = async (fn, ms = 20000) => { const end = Date.now() + ms; while (Date.now() < end) { try { if (fn()) return true; } catch { /* not yet */ } await new Promise((r) => setTimeout(r, 50)); } return false; };"},
   {"expect": "__until(() => typeof startJob === 'function' && document.getElementById('status-dot')?.className.includes('ready'))"},
   {"eval": "els.prompt.value = 'a grey heron'; els.negative.value = ''; els.steps.value = '2'; own('steps'); els.width.value = '256'; els.height.value = '256'; els.seed.value = '7601520420449609'; promptReplaced(); void startJob('/api/generate', collect());"},

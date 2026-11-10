@@ -284,6 +284,11 @@ async function announceLastRun() {
     let status = null;
     try { status = await api('/api/status'); } catch { /* announced below */ }
     if (status?.state === 'error' && status.detail === last.error) return;
+    if (last.run_id) {
+      try { last.model_id = (await api(`/api/runs/${last.run_id}`)).model_id; }
+      catch { /* A missing retained definition cannot offer Finish either. */ }
+    }
+    if (status?.state === 'ready' && last.model_id && last.model_id !== status.model_id) return;
   }
   // A job of this page's own started while the listings were out: it hides
   // the banner (setBusy), which must not come up over it afterwards.
@@ -322,6 +327,8 @@ async function announceLastRun() {
   els.lastRun.classList.toggle('bad', last.status === 'error');
   els.lastRun.dataset.job = last.job_id;
   els.lastRun.dataset.run = last.run_id || '';
+  els.lastRun.dataset.loadFailedModel = last.status === 'error' && !last.started_at
+    ? last.model_id || '' : '';
   els.lastRunShow.hidden = !last.image_count || deleted === last.image_count;
   // A run that finished: more seeds of every cell of it, beside Show run.
   // The checkpoint and its batches are the server's to judge (`foreign`).
@@ -331,8 +338,8 @@ async function announceLastRun() {
   });
   // Availability is the server's, including Repeat, comparisons and jobs
   // with no surviving images. The composer is never a run definition.
-  els.lastRunResume.hidden = !last.run_id;
-  if (last.run_id) configureFinishRun(els.lastRunResume, last.run_id, { slot: els.error });
+  els.lastRunResume.hidden = !last.run_id || (last.status === 'error' && !last.started_at);
+  if (!els.lastRunResume.hidden) configureFinishRun(els.lastRunResume, last.run_id, { slot: els.error });
   syncLastRunFinish();
   els.lastRun.hidden = false;
 }

@@ -1,5 +1,6 @@
 [
   {"navigate": "http://127.0.0.1:7874/"},
+  {"eval": "document.getElementById('analysis-details').querySelector('summary').click()"},
   {"wait": 1200},
   {"log": "'Comparison Seeds keeps its total while its own Batch groups generation'"},
   {"expect": "[...els.compareSeeds.options].map((o) => o.value).join(',') === '4,8' && els.compareSeeds.value === '4' && [...els.compareBatch.options].map((o) => o.value).join(',') === '1,2,4' && els.compareBatch.value === '1'"},

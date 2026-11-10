@@ -207,6 +207,7 @@ def test_open_waits_until_the_server_is_listening(fake, monkeypatch, opened):
     monkeypatch.setattr(main.webbrowser, "open", record)
     main.run(open_browser=True)
     assert opened == [f"http://127.0.0.1:{port}/"] and seen_started == [True, True]
+    assert not servers[0].config.access_log
 
 
 def test_without_open_no_browser_is_asked_for(fake, monkeypatch, opened):

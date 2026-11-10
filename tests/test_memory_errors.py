@@ -109,6 +109,9 @@ def test_memory_classification_is_typed_and_cycle_bounded():
     error.__cause__.__context__ = error
     assert "RAM or paging-file" in generation_error(error, loading=True)
     assert generation_error(error) == short_error(error)
-    for unknown in [RuntimeError("CUDA out of memory"), OSError(errno.ENOSPC, "disk full"),
+    for unknown in [RuntimeError("CUDA out of memory"),
                     type("OutOfMemoryError", (Exception,), {})("other library")]:
         assert generation_error(unknown, loading=True) == short_error(unknown)
+    disk = OSError(errno.ENOSPC, "disk full")
+    assert "cache drive" in generation_error(disk, loading=True)
+    assert generation_error(disk) == short_error(disk)

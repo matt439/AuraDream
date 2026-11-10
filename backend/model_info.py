@@ -472,13 +472,22 @@ def _cached_state(model_id: str, cache_dir: str, converted_home: str, minute: in
         return "unknown", "Could not establish that every required model file is cached."
 
 
-def download_facts(model_id: str) -> dict[str, str]:
+def download_reference_bytes(model_id: str) -> int | None:
+    """Selected-file reference size, never an estimate of bytes still missing."""
     references = download_references()
     recipe = references["models"].get(model_id)
     known = recipe is not None and all(item["files"] is not None for item in recipe["sources"])
-    if known:
-        size = sum(references["sources"][item["source"]]["files"][name]
-                   for item in recipe["sources"] for name in item["files"])
+    if not known:
+        return None
+    return sum(references["sources"][item["source"]]["files"][name]
+               for item in recipe["sources"] for name in item["files"])
+
+
+def download_facts(model_id: str) -> dict[str, str]:
+    references = download_references()
+    recipe = references["models"].get(model_id)
+    size = download_reference_bytes(model_id)
+    if size is not None:
         amount = f"{size / 1_000_000_000:.1f}".rstrip("0").rstrip(".")
         download = f"~{amount} GB" if size >= 100_000_000 else "<0.1 GB"
         observed_at = recipe.get("observed_at", references["observed_at"])

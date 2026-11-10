@@ -9,6 +9,20 @@ before changing it.
 
 ## Layout
 
+- `backend/api_guide.py` renders only the checkout's usage guide at `/guide`
+  with the existing pinned Markdown parser, escaped HTML, tables and stable
+  heading ids; `web/guide.css` styles that separate read-only page.
+- `backend/api_model_storage.py` exposes the explicit read-only cache scan;
+  `backend/model_cache_storage.py` measures logical cached-file bytes and
+  shared catalogue references on a daemon thread, with no delete mechanism.
+- `backend/idle_unload.py` owns the default-off event-loop idle release timer;
+  it shares `keep_awake.py`'s activity clock and drains admitted cleanup.
+- `backend/server_transport.py` parses exact browser origins and validates
+  the optional direct-TLS file pair, stdlib only and import cold.
+- `backend/download_progress.py` samples only selected source files and
+  their repositories' partial blobs for approximate load progress; no Hub
+  call, full cache scan, model load or gallery read.
+
 - `backend/config.py` — settings, most overridable by `AURADREAM_*` env vars
 - `backend/legacy_names.py` — where files made under the old name (Local
   Diffusion) keep working: the default database, sidecars beside it and
@@ -1004,7 +1018,9 @@ before changing it.
   address, the repository is public), `AURADREAM_SERVER_DIR`,
   `AURADREAM_SERVER_PORT` and `AURADREAM_SERVER_WAKE` (an http(s) URL to
   POST or a MAC for a Wake-on-LAN broadcast), read by it and never by the
-  app. Before each command but `help` it tests the ssh port that `ssh -G`
+  app; `AURADREAM_SERVER_URL` optionally sets only `open`'s browser address,
+  an exact HTTP(S) base URL without credentials/query/fragment/path. Before
+  each command but `help` it tests the ssh port that `ssh -G`
   names and wakes and waits (three minutes, waking every 15 s); remote
   words are single-quoted for bash and a double quote is refused (Windows
   PowerShell 5.1 mangles it for `ssh.exe`); ssh runs with `BatchMode`,
@@ -1021,6 +1037,34 @@ before changing it.
   and per feature, and when
 
 ## Rules
+
+- Extra browser origins (`AURADREAM_ALLOWED_ORIGINS`) are exact HTTP(S)
+  origins, parsed as scheme/host/effective port. Reject credentials, paths,
+  query/fragment delimiters and wildcards; the hostname must still be in
+  `AURADREAM_ALLOWED_HOSTS`. They add no CORS policy or Host exemption.
+  Direct TLS requires the existing PEM certificate/key pair. Probes retain
+  certificate verification and callers use HTTPS when that pair is set;
+  scripts must not treat an unverified configured TLS listener as idle.
+  The proxy recipe keeps its backend on loopback. No certificate, trust,
+  service or firewall setup runs automatically.
+- `/api/models/storage` scans only on explicit request, on a daemon thread,
+  with one scan reservation lasting through its worker. Catalogue model
+  byte rows can overlap, unknown selected-file maps stay unknown, and
+  unreferenced bytes never imply safe deletion. `/api/status` uses only
+  `download_progress`'s targeted two-second samples under its revision retry
+  loop, never a whole-cache scan. Progress is an approximate local cache
+  tally, not network transfer speed. Unknown/drifted references have no
+  denominator. The load clock starts on admission, survives another waiter
+  and clears at every terminal transition.
+- A request-cancelled Unload keeps its owned cleanup task and selection
+  reservation until all threaded teardown finishes. The lifespan drains it.
+  Commit an idle-release explanation before reopening admission so a later
+  Load clears it. Idle tracking runs even when the power inhibitor is off.
+- A typed load disk-full/connection error gets plain retry/cache-reuse
+  advice through wrapper causes. Hub gate/sign-in errors retain precedence;
+  logs retain raw errors. Cache-space warnings are advice, never automatic
+  cache deletion or a new admission refusal. Console access lines are DEBUG
+  only; startup prints the URL and Ctrl-C instruction once.
 
 The reasoning behind each of these, and what went wrong before it existed, is
 in `docs/design-notes.md` under a heading of the same subject; read that
@@ -3167,6 +3211,14 @@ measured on the card and when.
   CLI: `tests/conftest.py` replaces `platform_inhibitor` with
   `NoInhibitor`. The one real call is `tests/test_keep_awake.py`'s, on
   Windows, released in the same test.
+- Idle model release is default off (`AURADREAM_IDLE_UNLOAD_MINUTES=0`).
+  `idle_unload.IdleUnload` runs one event-loop timer and shares KeepAwake's
+  real-request clock, even when its power inhibitor is off. Jobs, card
+  holders, loads, switches, bundles, counted workers and model requests hold
+  it; a busy interval gets a full idle grace afterwards. It calls ordinary
+  Unload, which reserves the selection through all helper cleanup. Stop and
+  drain the timer before shutdown tears down workers. Status exposes the
+  minutes and the last idle release; an explicit load clears that reason.
 - An instruction edit queues through `POST /api/instruction-edit`
   (`InstructionEditSubmission`) or More seeds (below). The submission is strict and refuses extra
   fields such as a negative prompt. It becomes one image and one run. Its
@@ -3648,6 +3700,46 @@ measured on the card and when.
   `CritiqueIssue.note`, under the issue and in its tooltip).
 
 ### Frontend and CLI
+
+- The lightbox's pending full PNG displays only that record's thumbnail.
+  Late native load/error events and probe promises must still own the
+  current request before changing visibility or feedback. Neighbour
+  preloads are bounded to one previous and one next after the current PNG
+  settles; close clears their owners. Keep the existing zoom/compare/touch
+  image element as the hit target. Large-gallery containment remains as
+  measured in the 5,000-row fake receipt; no speculative containment change.
+- Tier reconciliation reads the same coarse-pointer media predicates on
+  MQL changes and native resize. The resize fallback acts only on a changed
+  tier, with no same-tier keyboard-resize DOM writes; width alone never
+  selects the phone. Its regression withholds the MQL notifications and
+  requires normal node homing, preview close, history cleanup and focus.
+
+- First-visit automatic Models choices reveal only their own table row,
+  without moving focus or page scroll, and name the checkpoint on Switch &
+  load. Default-only Performance and Step cache are hidden; held nondefault
+  and invalid intent stay repairable. Late status replies cannot move the
+  table under a pointer. Empty galleries reserve image-action height while
+  retaining Import, saved searches and Bin access.
+- Check leads with Findings; native closed Details holds Encoders, Order
+  and Compare without clearing them. Only author-context example notes use
+  hint colour; template/reference warnings retain their warning meaning.
+  Expert tooltips keep sourced detail after their plain visible-effect lead.
+- Ordinary images offer instruction Edit when the editor is selected or
+  their record is an edit. The wide comparison area starts with Compare…
+  until there are neighbours or an explicit expansion. Never offer Finish
+  for an error before a job starts; retire its failed-load box when another
+  checkpoint becomes ready, using catalogue labels in retained-run advice.
+  A late neighbour for the same image opens the wide Compare disclosure,
+  deferred while that block is hovered or holds focus, then reconciled on
+  pointerleave/focusout. Expansion is sticky for that image; preserve the
+  narrow tier's existing row-availability policy and action-button position.
+- Dynamic byte tallies and clocks are aria-hidden beside stable live state,
+  and never replace focused viewer controls. On phones the model chip keeps
+  its checkpoint/state; Models' footer contains the full tally and clock.
+- Help's Guide opens `/guide` separately, preserving the composer. Only the
+  checkout-owned usage Markdown is read; raw HTML is escaped, tables and
+  stable anchors rendered, other repo documents linked to GitHub. Its own
+  stylesheet is outside the app's cascade; the passcode closes the route.
 
 - Help's `?` dialog starts with a short Getting started sequence (Models,
   Prompt, Generate, automatic Gallery saving and Cancel), then the existing
@@ -8365,6 +8457,23 @@ measured on the card and when.
   theirs (`smoke-passcode`; `smoke-offline`'s last steps).
 
 ## Tests
+
+Browser startup diagnostics do not treat an initial successful launcher exit
+as proof the browser is gone: Edge can hand off to its owned child before
+DevTools appears. Preserve the bounded readiness wait after exit 0; nonzero
+exits/signals still fail early, and an absent endpoint still times out.
+`tests/test_browser_startup_wait.py` covers delayed handoff, absent handoff
+and signal failure with cold fixtures; profile/a11y tests use the real
+browser and verify cleanup. The dialog-audit smoke manifest now contains
+24 rows, including download progress; each page is watched separately and
+checked immediately before navigation and at the end.
+
+`smoke-download-progress.json` uses a fresh FLUX fake on shared port 7959.
+It presents explicit retained status samples without loading: known and
+unknown totals, the load clock, cache-drive space warning, cached loading,
+viewer/topbar/Models consistency, silent visual counters and idle release.
+Its narrow view checks horizontal bounds; byte counters are approximate
+local cache tallies, never a network-speed or card measurement.
 
 `tests/test_startup_refusals.py` checks durable port/passcode refusals at
 INFO and CRITICAL, secret exclusion, closed handles, an unwritable log and

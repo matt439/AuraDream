@@ -70,11 +70,14 @@ fi
 # The service's settings, so the port probed is the one it uses.
 load_env_file || true
 port=$(server_port)
+scheme=$(server_scheme)
 running=
 if service_active; then
     stop "The AuraDream service is running. Installing packages under it could break the ones it is using." 'Stop it with: systemctl --user stop auradream, run setup again, then: systemctl --user start auradream'
-elif [ "$(auradream_state "$port")" = auradream ]; then
-    stop "AuraDream is running at http://127.0.0.1:$port/. Installing packages under it could break the ones it is using." 'Stop it first (Ctrl-C in its terminal), then run bash linux/setup.sh again.'
+elif state=$(auradream_state "$port") && [ "$state" = tls_unverified ]; then
+    stop "The configured HTTPS listener at $scheme://127.0.0.1:$port/ could not be verified." 'Use a trusted certificate including 127.0.0.1, or stop that listener before installing. Certificate verification stays on.'
+elif [ "$state" = auradream ]; then
+    stop "AuraDream is running at $scheme://127.0.0.1:$port/. Installing packages under it could break the ones it is using." 'Stop it first (Ctrl-C in its terminal), then run bash linux/setup.sh again.'
 elif running=$(venv_processes) && [ -n "$running" ]; then
     stop "A program from this folder's .venv is still running: $(paste -sd ',' <<<"$running" | sed 's/,/, /g'). It may be AuraDream on another port, or a command such as generate." 'Stop it (Ctrl-C in its terminal), then run bash linux/setup.sh again.'
 else

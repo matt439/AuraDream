@@ -66,6 +66,10 @@ server_port() {
     esac
 }
 
+server_scheme() {
+    if [ -n "${AURADREAM_SSL_CERTFILE:-}" ]; then printf 'https\n'; else printf 'http\n'; fi
+}
+
 # Whether AuraDream answers on loopback at $1: prints free, auradream or
 # other, as update.ps1's test and the server's own second-start check
 # (backend/server_probe.py) decide it - something listens, and its page has
@@ -74,10 +78,13 @@ server_port() {
 # no bytecode into the checkout), else curl. Never through a proxy, which
 # would answer for loopback instead.
 auradream_state() {
-    local port=$1 answer page code
+    local port=$1 answer page code scheme
+    scheme=$(server_scheme)
     if [ -x "$VENV/bin/python" ] && [ -f "$ROOT/backend/server_probe.py" ]; then
         if answer=$("$VENV/bin/python" -I -B - "$ROOT" "$port" 2>/dev/null <<'PY'
+import os
 import socket
+import ssl
 import sys
 
 sys.path.insert(0, sys.argv[1])
@@ -89,19 +96,30 @@ try:
 except OSError:
     print("free")
 else:
-    print("auradream" if auradream_at(f"http://127.0.0.1:{port}/") else "other")
+    scheme = "https" if os.environ.get("AURADREAM_SSL_CERTFILE") else "http"
+    if scheme == "https":
+        try:
+            with socket.create_connection(("127.0.0.1", port), timeout=2) as connection:
+                with ssl.create_default_context().wrap_socket(connection, server_hostname="127.0.0.1"):
+                    pass
+        except ssl.SSLError:
+            print("tls_unverified")
+            sys.exit(0)
+    print("auradream" if auradream_at(f"{scheme}://127.0.0.1:{port}/") else "other")
 PY
         ); then
             case "$answer" in
-                free | auradream | other) printf '%s\n' "$answer"; return 0 ;;
+                free | auradream | other | tls_unverified) printf '%s\n' "$answer"; return 0 ;;
             esac
         fi
     fi
     if command -v curl >/dev/null 2>&1; then
         code=0
-        page=$(curl --noproxy '*' --silent --max-time 2 "http://127.0.0.1:$port/" 2>/dev/null) || code=$?
+        page=$(curl --noproxy '*' --silent --max-time 2 "$scheme://127.0.0.1:$port/" 2>/dev/null) || code=$?
         if [ "$code" = 7 ]; then
             printf 'free\n'          # connection refused: nothing listens
+        elif [ "$scheme" = https ] && { [ "$code" = 60 ] || [ "$code" = 35 ]; }; then
+            printf 'tls_unverified\n'
         elif [[ "$page" == *"<title>AuraDream</title>"* ]]; then
             printf 'auradream\n'
         else
@@ -172,7 +190,8 @@ def ask(port, path, timeout):
     if passcode:
         handlers.append(_NoRedirect())
         headers["Authorization"] = "Bearer " + passcode
-    request = urllib.request.Request(f"http://127.0.0.1:{int(port)}{path}", headers=headers)
+    scheme = "https" if os.environ.get("AURADREAM_SSL_CERTFILE") else "http"
+    request = urllib.request.Request(f"{scheme}://127.0.0.1:{int(port)}{path}", headers=headers)
     try:
         with urllib.request.build_opener(*handlers).open(request, timeout=timeout) as response:
             return json.load(response)
@@ -300,13 +319,13 @@ env_file_passcode_plain() {
     local LC_ALL=C line value blank=$' \t'
     [ -f "$ENV_FILE" ] || return 0
     while IFS= read -r line || [ -n "$line" ]; do
-        line=${line#"${line%%[!$blank]*}"}
+        line=${line#"${line%%[!"$blank"]*}"}
         case "$line" in
             AURADREAM_PASSCODE=*) ;;
             *) continue ;;
         esac
         value=${line#AURADREAM_PASSCODE=}
-        value=${value%"${value##*[!$blank]}"}
+        value=${value%"${value##*[!"$blank"]}"}
         case "$value" in *[!A-Za-z0-9._+@%:,/-]*) return 1 ;; esac
     done <"$ENV_FILE"
     return 0

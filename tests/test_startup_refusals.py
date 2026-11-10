@@ -95,7 +95,8 @@ def test_an_unwritable_startup_log_does_not_hide_the_original_refusal(fake, monk
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows batch launcher")
 @pytest.mark.parametrize(("code", "pauses"), [(0, False), (1, True), (7, True), (130, False), (-1073741510, False)])
-def test_the_launcher_keeps_errors_visible_and_preserves_exit_and_arguments(tmp_path, code, pauses):
+@pytest.mark.parametrize("tool_location", ["path", "user", "winget"])
+def test_the_launcher_keeps_errors_visible_and_preserves_exit_and_arguments(tmp_path, code, pauses, tool_location):
     project = tmp_path / "AuraDream with spaces"
     (project / "bin").mkdir(parents=True)
     launcher = project / "bin" / "auradream.cmd"
@@ -104,7 +105,16 @@ def test_the_launcher_keeps_errors_visible_and_preserves_exit_and_arguments(tmp_
     stubs.mkdir()
     # An executable named uv runs the inert `run` file at the project root.
     # PYTHONHOME makes this copied interpreter use its real standard library.
-    shutil.copy2(sys._base_executable, stubs / "uv.exe")
+    user_home = tmp_path / "user home"
+    local_data = user_home / "Local"
+    if tool_location == "path":
+        tool_dir = stubs
+    elif tool_location == "user":
+        tool_dir = user_home / ".local" / "bin"
+    else:
+        tool_dir = local_data / "Microsoft" / "WinGet" / "Links"
+    tool_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(sys._base_executable, tool_dir / "uv.exe")
     (project / "run").write_text(
         "import json, os, sys\n"
         "from pathlib import Path\n"
@@ -124,6 +134,7 @@ def test_the_launcher_keeps_errors_visible_and_preserves_exit_and_arguments(tmp_
     environment.update({
         "PATH": os.pathsep.join([str(stubs), sys.base_prefix, str(Path(system_root) / "System32")]),
         "PYTHONHOME": sys.base_prefix,
+        "USERPROFILE": str(user_home), "LOCALAPPDATA": str(local_data),
         "STUB_LOG": str(calls), "STUB_EXIT": str(code),
     })
     result = subprocess.run(

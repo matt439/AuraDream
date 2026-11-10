@@ -197,8 +197,7 @@ def _server_holds_gpu(host: str, port: int, timeout: float = 2.0) -> str | None:
 
     from backend import server_probe
 
-    probe_host = "127.0.0.1" if host in ("0.0.0.0", "::") else host
-    url = f"http://{probe_host}:{port}/api/status"
+    url = server_probe.page_url(host, port, secure=bool(os.getenv("AURADREAM_SSL_CERTFILE", "").strip())) + "api/status"
     try:
         try:
             with urllib.request.urlopen(url, timeout=timeout) as resp:

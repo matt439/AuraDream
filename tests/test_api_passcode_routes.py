@@ -22,6 +22,15 @@ DOCUMENTATION = {"/docs", "/redoc", "/docs/oauth2-redirect", "/openapi.json"}
 MOUNTED = ["/static/app.js", "/static/offline.html", "/static/no-such-file.js", "/outputs/no-such-image.png"]
 
 
+@pytest.fixture(autouse=True)
+def scratch_cache_scan(monkeypatch, tmp_path):
+    # The table walk reaches storage inspection too: never inventory the
+    # developer's real cache just to establish whether the route is gated.
+    from backend import model_cache_storage
+
+    monkeypatch.setattr(model_cache_storage, "snapshot", lambda: {"cache_dir": str(tmp_path), "models": []})
+
+
 def _concrete(path: str) -> str:
     """A route's path with every parameter filled in."""
     return re.sub(r"\{[^}]+\}", "1", path)

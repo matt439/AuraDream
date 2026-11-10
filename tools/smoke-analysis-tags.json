@@ -1,5 +1,6 @@
 [
   {"navigate": "http://127.0.0.1:7887/"},
+  {"eval": "document.getElementById('analysis-details').querySelector('summary').click()"},
   {"wait": 1500},
   {"expect": "document.getElementById('status-dot').className.includes('ready') && tagVocabularyEnabled && !els.analysisCritic.hidden"},
 

@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Source this in a WSL 2 shell before any `uv` command for this project:
 #
 #     source wsl/env.sh

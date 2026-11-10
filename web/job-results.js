@@ -84,6 +84,7 @@ function finishJob(jobId, data, { submitted, sheet, foreign = false, staleBefore
   if (atLoad) {
     const notMade = document.createElement('span');
     notMade.className = 'not-made';
+    notMade.dataset.model = submitted?.model ?? data.model_id ?? loadedModel;
     notMade.dataset.lead = foreign ? `${ANOTHER_TABS_JOB} was not made` : 'Not made';
     notMade.textContent = notMadeText(notMade.dataset.lead, 'error');
     line.push(notMade);
@@ -154,7 +155,7 @@ function finishJob(jobId, data, { submitted, sheet, foreign = false, staleBefore
   // The server kept the complete run, including Repeat, comparisons and
   // cells this tab never saw. Missing counts and holds never come from the
   // current composer or from this tab's old request payload.
-  if (data.run_id && !foreign) line.push(finishRunButton(data.run_id, { className: 'ghost tiny', slot: els.error }));
+  if (data.run_id && !foreign && !atLoad) line.push(finishRunButton(data.run_id, { className: 'ghost tiny', slot: els.error }));
   const executionCaption = executionDiagnosticCaption(data.execution_diagnostics);
   if (executionCaption) line.push(` ${executionCaption.short}.`);
   // Another tab's job keeps out of this page's finish line: that line is

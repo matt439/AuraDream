@@ -297,22 +297,14 @@
                     aria-label="Close the prompt check" title="Close">✕</button>
           </div>
           <div class="analysis-body">
-            <div class="analysis-section">
-              <h3>Encoders</h3>
-              <div id="analysis-encoders"></div>
-            </div>
-            <div class="analysis-section">
-              <h3>Order</h3>
-              <div id="analysis-order"></div>
-            </div>
             <div class="analysis-section full">
               <h3>Findings</h3>
               <div id="analysis-findings"></div>
             </div>
             <div class="analysis-section full" id="analysis-critic" hidden>
-              <h3>Critic</h3>
+              <h3>Prompt improvements</h3>
               <div class="critic-ask">
-                <button type="button" class="ghost analysis-action" id="critic-ask">Ask the critic</button>
+                <button type="button" class="ghost analysis-action" id="critic-ask">Suggest improvements</button>
                 <!-- Says what a click will cost, then that it is running: the
                      answer takes seconds, the first one minutes. Only the
                      running half is a live region, since it answers the
@@ -336,48 +328,61 @@
               <div class="critic-result" id="critic-result" tabindex="-1" role="group"
                    aria-label="The critic's answer"></div>
             </div>
-            <div class="analysis-section full">
-              <h3>Compare on the same seeds</h3>
-              <div class="compare-options" id="compare-options"></div>
-              <!-- A version of the user's own: where Check has no reordered
-                   version (a sentence, or a checkpoint whose guide states no
-                   order) this is how an order is tested at all. -->
-              <div class="compare-own">
-                <div class="compare-own-head">
-                  <label for="compare-own">Your version</label>
-                  <button type="button" class="ghost tiny" id="compare-own-fill"
-                          title="Put the checked prompt here, to move its words about">Start from the prompt</button>
+            <details class="analysis-details full" id="analysis-details">
+              <summary>Details: encoders, order and comparison</summary>
+              <div class="analysis-details-body">
+                <div class="analysis-section">
+                  <h3>Encoders</h3>
+                  <div id="analysis-encoders"></div>
                 </div>
-                <!-- These comparison fields are not persisted; autocomplete=off
-                     also prevents the browser restoring them on reload. -->
-                <textarea id="compare-own" class="analysis-text" rows="2" spellcheck="true" autocomplete="off" data-version="yours"
-                          placeholder="The same words in another order, or any other wording - it runs on the same seeds as the original"></textarea>
-                <!-- Says where the text came from when a Use put it there. -->
-                <p class="analysis-note sub" id="compare-own-note" hidden></p>
+                <div class="analysis-section">
+                  <h3>Order</h3>
+                  <div id="analysis-order"></div>
+                </div>
+                <div class="analysis-section full">
+                  <h3>Compare on the same seeds</h3>
+                  <div class="compare-options" id="compare-options"></div>
+                  <!-- A version of the user's own: where Check has no reordered
+                       version (a sentence, or a checkpoint whose guide states no
+                       order) this is how an order is tested at all. -->
+                  <div class="compare-own">
+                    <div class="compare-own-head">
+                      <label for="compare-own">Your version</label>
+                      <button type="button" class="ghost tiny" id="compare-own-fill"
+                              title="Put the checked prompt here, to move its words about">Start from the prompt</button>
+                    </div>
+                    <!-- These comparison fields are not persisted; autocomplete=off
+                         also prevents the browser restoring them on reload. -->
+                    <textarea id="compare-own" class="analysis-text" rows="2" spellcheck="true" autocomplete="off" data-version="yours"
+                              placeholder="The same words in another order, or any other wording - it runs on the same seeds as the original"></textarea>
+                    <!-- Says where the text came from when a Use put it there. -->
+                    <p class="analysis-note sub" id="compare-own-note" hidden></p>
+                  </div>
+                  <div class="compare-seeds">
+                    <label>Seeds <select id="compare-seeds" autocomplete="off">
+                      <option value="4" selected>4</option>
+                      <option value="8">8</option>
+                    </select></label>
+                    <label>Batch <select id="compare-batch" autocomplete="off"
+                           title="Images generated together for each version; the total seed count stays the same">
+                      <option value="1" selected>1</option>
+                      <option value="2">2</option>
+                      <option value="4">4</option>
+                    </select></label>
+                    <!-- The mechanics, the same on every check, behind a badge;
+                         the caveat beside it is the decision aid and stays out. -->
+                    <span class="help" tabindex="0" role="note" aria-label="Comparison seeds and batch help" aria-describedby="compare-batch-tip">?<span
+                      class="tip" id="compare-batch-tip">Seeds is the total per version; Batch changes how many run together.
+                      Uses the main Seed field or a random start.
+                      The main Batch and Repeat settings do not apply.</span></span>
+                    <span class="compare-note">4 seeds is a first look - even a change on every seed could be chance; 8 can tell a consistent change from chance.</span>
+                  </div>
+                  <p class="hint" id="compare-preview"></p>
+                  <button type="button" class="ghost analysis-action" id="compare-run"
+                          title="One grid: each version of the prompt on the same seeds, then the sheet with a row per version">Run comparison</button>
+                </div>
               </div>
-              <div class="compare-seeds">
-                <label>Seeds <select id="compare-seeds" autocomplete="off">
-                  <option value="4" selected>4</option>
-                  <option value="8">8</option>
-                </select></label>
-                <label>Batch <select id="compare-batch" autocomplete="off"
-                       title="Images generated together for each version; the total seed count stays the same">
-                  <option value="1" selected>1</option>
-                  <option value="2">2</option>
-                  <option value="4">4</option>
-                </select></label>
-                <!-- The mechanics, the same on every check, behind a badge;
-                     the caveat beside it is the decision aid and stays out. -->
-                <span class="help" tabindex="0" role="note" aria-label="Comparison seeds and batch help" aria-describedby="compare-batch-tip">?<span
-                  class="tip" id="compare-batch-tip">Seeds is the total per version; Batch changes how many run together.
-                  Uses the main Seed field or a random start.
-                  The main Batch and Repeat settings do not apply.</span></span>
-                <span class="compare-note">4 seeds is a first look - even a change on every seed could be chance; 8 can tell a consistent change from chance.</span>
-              </div>
-              <p class="hint" id="compare-preview"></p>
-              <button type="button" class="ghost analysis-action" id="compare-run"
-                      title="One grid: each version of the prompt on the same seeds, then the sheet with a row per version">Run comparison</button>
-            </div>
+            </details>
           </div>
         </section>
       </div>
@@ -1403,6 +1408,7 @@
          first: the column is pinned to the bottom, and a line written there
          grows the box upward rather than moving a button under the pointer. -->
     <div class="lb-compare" id="lb-compare">
+      <button type="button" class="ghost" id="lb-compare-open" aria-expanded="false" aria-controls="lb-compare">Compare…</button>
       <p class="hint" id="lb-compare-note"></p>
       <button type="button" class="ghost" id="lb-compare-on" aria-pressed="false" aria-keyshortcuts="S" hidden>Compare with source</button>
       <div class="lb-modes lb-kinds" role="group" aria-label="Compare across">
@@ -2319,6 +2325,7 @@
 <dialog class="shortcuts-dialog" id="shortcuts-dialog" aria-labelledby="shortcuts-title" aria-describedby="shortcuts-intro">
   <div class="shortcuts-head dialog-head">
     <h2 id="shortcuts-title">Help and keyboard shortcuts</h2>
+    <a class="shortcuts-guide" href="/guide" target="_blank" rel="noopener">Guide <span class="sr-only">(opens in a new tab)</span></a>
     <button type="button" class="ghost" id="shortcuts-close" autofocus>Close</button>
   </div>
   <section class="getting-started" aria-labelledby="getting-started-title">

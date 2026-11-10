@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import ssl
 import subprocess
 import sys
 import threading
@@ -18,6 +19,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import pytest
+
+from tests.tls_helpers import loopback_certificate
 
 pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="Windows PowerShell scripts")
 
@@ -41,10 +44,14 @@ def _git(stubs: Path, pull_exit: int = 0, pull_output: str = "Already up to date
     _write_cmd(stubs / "git.cmd", [
         'echo git %*>>"%STUB_LOG%"',
         'if "%~1"=="--version" (echo git version 2.99.0.stub& exit /b 0)',
-        f'if "%~3"=="pull" (echo {pull_output}& exit /b {pull_exit})',
+        f'if "%~3"=="pull" (echo pulled>"%STUB_LOG%.pulled"& echo {pull_output}& exit /b {pull_exit})',
         'if "%~3"=="remote" (echo https://github.com/matt439/AuraDream.git& exit /b 0)',
         # The commit update.ps1 names the database copy by.
-        'if "%~4"=="--short" (echo %STUB_COMMIT%& exit /b 0)',
+        'if "%~4"=="--short" (',
+        '  if defined STUB_AFTER_COMMIT if exist "%STUB_LOG%.pulled" (echo %STUB_AFTER_COMMIT%& exit /b 0)',
+        '  echo %STUB_COMMIT%& exit /b 0',
+        ')',
+        'if "%~3"=="rev-list" (echo 3& exit /b 0)',
         'if "%~3"=="rev-parse" (echo main& exit /b 0)',
         "exit /b 0",
     ])
@@ -169,7 +176,7 @@ def test_install_dry_run_on_a_supported_checkout(sandbox):
     assert result.returncode == 0, out + result.stderr
     assert "its CUDA version could not be read" in out and "[warn]" in out
     assert "Compute capability 8.9 is supported" in out
-    assert "8 GB of video memory" in out and "Only a 16 GB card has been measured" in out
+    assert "8 GB of video memory" in out and "8 GB RTX 3070 under native Linux" in out
     assert "would install uv: winget install --id astral-sh.uv -e --accept-source-agreements" in out
     assert "is a Git checkout (branch main" in out
     assert "[stop]" not in out and "Dry run finished. Nothing was changed." in out
@@ -209,6 +216,35 @@ def test_install_dry_run_without_a_token_still_keeps_saved_choices(sandbox):
     assert "--model" not in out
 
 
+@pytest.mark.parametrize("token_file", [False, True])
+@pytest.mark.parametrize(("memory", "vram", "gated"), [(64, 16303, True), (32, 16303, False), (64, 8188, False)])
+def test_a_present_token_asks_for_the_first_checkpoint_with_a_memory_based_default(sandbox, token_file, memory, vram, gated):
+    _nvidia_smi(sandbox["stubs"], "NVIDIA-SMI CUDA Version: 13.0", f"NVIDIA RTX, 12.0, {vram}")
+    _git(sandbox["stubs"])
+    _uv(sandbox["stubs"])
+    (sandbox["root"] / ".git").mkdir()
+    if token_file:
+        path = sandbox["tmp"] / "token"
+        path.write_text("hf_never_read_this")
+        sandbox["env"]["HF_TOKEN_PATH"] = str(path)
+    else:
+        sandbox["env"]["HF_TOKEN"] = "hf_never_print_this"
+    script = str(REPO / "install.ps1").replace("'", "''")
+    result = subprocess.run(
+        ["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command",
+         "function Get-CimInstance { param($ClassName) if ($ClassName -eq 'Win32_ComputerSystem') { "
+         f"[pscustomobject]@{{TotalPhysicalMemory={memory}GB}} "
+         f"}} }}; & '{script}' -DryRun -Yes"],
+        env=sandbox["env"], capture_output=True, text=True, timeout=60,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "Start on FLUX.1 Krea [dev] instead of Animagine XL 4.0?" in result.stdout
+    assert "A token does not prove access" in result.stdout
+    assert ("--model cagliostrolab/animagine-xl-4.0 --open" in result.stdout) is not gated
+    assert "hf_never_read_this" not in result.stdout + result.stderr
+    assert "hf_never_print_this" not in result.stdout + result.stderr
+
+
 def test_install_refuses_while_auradream_is_running(sandbox, auradream_listening):
     _nvidia_smi(sandbox["stubs"], "NVIDIA-SMI 580.00   CUDA Version: 13.0", "NVIDIA GeForce RTX 5080, 12.0, 16303")
     _uv(sandbox["stubs"])
@@ -242,6 +278,70 @@ def test_wrapper_survives_being_replaced_while_it_runs(tmp_path, name):
     assert "script ran" in result.stdout
     assert "REPLACEMENT" not in result.stdout and not result.stderr.strip(), result.stdout + result.stderr
     assert result.returncode == 5
+
+
+def test_install_wrapper_explains_a_missing_companion_from_a_zip(tmp_path):
+    wrapper = tmp_path / "install.cmd"
+    wrapper.write_bytes((REPO / "install.cmd").read_bytes())
+    result = subprocess.run(["cmd.exe", "/d", "/c", str(wrapper)],
+                            env=dict(os.environ, AURADREAM_INSTALL_NO_PAUSE="1"),
+                            capture_output=True, text=True, timeout=30)
+    assert result.returncode == 1
+    assert "Extract the whole ZIP first" in result.stdout
+    assert "-File" not in result.stderr
+
+
+@pytest.mark.parametrize("script", ["install.ps1", "update.ps1"])
+def test_untrusted_https_is_refused_before_an_install_or_update(sandbox, script):
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):  # noqa: N802 - stdlib name
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"<title>AuraDream</title>")
+
+        def log_message(self, *args):
+            pass
+
+    certfile, keyfile = loopback_certificate(sandbox["tmp"])
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    context.load_cert_chain(certfile, keyfile)
+    server.socket = context.wrap_socket(server.socket, server_side=True)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    sandbox["env"].update(AURADREAM_SSL_CERTFILE=str(certfile), AURADREAM_SSL_KEYFILE=str(keyfile),
+                          AURADREAM_PORT=str(server.server_address[1]))
+    before = _snapshot(sandbox["root"])
+    try:
+        result = _run(sandbox, script, *(["-Yes"] if script == "install.ps1" else []))
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert f"HTTPS listener at https://127.0.0.1:{server.server_address[1]}/" in result.stdout
+    assert "could not be verified" in result.stdout and "Certificate verification stays on" in result.stdout
+    assert _snapshot(sandbox["root"]) == before and _calls(sandbox) == []
+
+
+def test_install_unblocks_only_its_named_powershell_scripts(sandbox):
+    _nvidia_smi(sandbox["stubs"], "NVIDIA-SMI CUDA Version: 13.0", "NVIDIA RTX, 12.0, 16303")
+    _git(sandbox["stubs"])
+    _uv(sandbox["stubs"])
+    (sandbox["root"] / ".git").mkdir()
+    own = sandbox["root"] / "bin" / "auradream.ps1"
+    personal = sandbox["root"] / "personal.ps1"
+    for file in (own, personal):
+        file.write_text("# inert file\n")
+        Path(str(file) + ":Zone.Identifier").write_text("[ZoneTransfer]\nZoneId=3\n")
+    dry = _run(sandbox, "install.ps1", "-DryRun", "-Yes")
+    assert dry.returncode == 0, dry.stdout + dry.stderr
+    assert "Unblock-File" in dry.stdout
+    assert Path(str(own) + ":Zone.Identifier").exists()
+    result = _run(sandbox, "install.ps1", "-Yes")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert not Path(str(own) + ":Zone.Identifier").exists()
+    assert Path(str(personal) + ":Zone.Identifier").exists()
 
 
 @pytest.fixture(params=["the page", "the sign-in page"])
@@ -322,6 +422,30 @@ def test_update_copies_the_gallery_then_pulls_and_syncs(sandbox):
     assert not stale.exists()                         # never applied to the new copy
     calls = _calls(sandbox)
     assert any(c.endswith("pull --ff-only") for c in calls) and "uv sync" in calls
+    assert "Already up to date (abc1234)." in result.stdout
+
+
+def test_update_reports_the_old_and_new_commits_and_count(sandbox):
+    _checkout_with_gallery(sandbox)
+    sandbox["env"]["STUB_AFTER_COMMIT"] = "def5678"
+    result = _run(sandbox, "update.ps1")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "Updated from abc1234 to def5678 (3 changes)." in result.stdout
+    assert (sandbox["root"] / "auradream-before-update-abc1234.db").read_bytes() == b"gallery"
+
+
+def test_update_names_a_blocking_process_command_line(sandbox):
+    executable = str(sandbox["root"] / ".venv" / "Scripts" / "python.exe").replace("'", "''")
+    script = str(REPO / "update.ps1").replace("'", "''")
+    result = subprocess.run(
+        ["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command",
+         "function Get-CimInstance { param($ClassName) [pscustomobject]@{Name='python.exe';ProcessId=123;"
+         f"ExecutablePath='{executable}';CommandLine='python -m backend.generate --seed 42'}} }}; & '{script}'"],
+        env=sandbox["env"], capture_output=True, text=True, timeout=30,
+    )
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "process 123): python -m backend.generate --seed 42" in result.stdout
+    assert _calls(sandbox) == []
 
 
 def test_update_keeps_the_copy_an_earlier_update_made(sandbox):

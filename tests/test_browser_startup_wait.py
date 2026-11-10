@@ -64,10 +64,28 @@ def test_unavailable_devtools_still_stops_after_150_polls_and_cleans_up(tmp_path
     assert ports["exitEmissions"] == 0
 
 
-def test_diagnostic_exit_still_refuses_without_waiting_for_the_poll_allowance(tmp_path):
-    ports = startup_ports(run_startup_cold(tmp_path, "early_exit"))
+@pytest.mark.parametrize("mode", ["early_exit", "early_signal"])
+def test_diagnostic_abnormal_exit_still_refuses_without_waiting_for_the_poll_allowance(tmp_path, mode):
+    ports = startup_ports(run_startup_cold(tmp_path, mode))
     assert ports["outcome"] == "early_exit"
     assert (ports["polls"], ports["sleeps"], ports["elapsed"]) == (1, 1, 200)
+    assert ports["fetches"] == ports["sockets"] == []
+    assert ports["exitEmissions"] == 1
+
+
+def test_successful_launcher_handoff_waits_for_the_owned_devtools_endpoint(tmp_path):
+    ports = startup_ports(run_startup_cold(tmp_path, "handoff_ready"))
+    assert ports["outcome"] == "reached_websocket"
+    assert (ports["polls"], ports["sleeps"], ports["elapsed"]) == (76, 75, 15000)
+    assert ports["exitEmissions"] == 1
+    assert ports["fetches"] == ["http://127.0.0.1:49876/json"]
+    assert ports["sockets"] == ["ws://127.0.0.1:49876/devtools/page/owned-blank"]
+
+
+def test_successful_launcher_exit_without_devtools_still_times_out_and_cleans_up(tmp_path):
+    ports = startup_ports(run_startup_cold(tmp_path, "handoff_unavailable"))
+    assert ports["outcome"] == "startup_timeout"
+    assert (ports["polls"], ports["sleeps"], ports["elapsed"]) == (150, 150, 30000)
     assert ports["fetches"] == ports["sockets"] == []
     assert ports["exitEmissions"] == 1
 

@@ -500,6 +500,15 @@ els.lightbox.addEventListener('close', () => { if (!els.lightbox.open) closeLigh
 // back, and a source that will not load ends the comparison.
 els.lbImg.onerror = () => { void lbImageFailed(); };
 els.lbImg.onload = lbImageLoaded;
+$('lb-compare-open').addEventListener('click', () => {
+  els.lbCompare.classList.remove('collapsed');
+  $('lb-compare-open').hidden = true;
+  $('lb-compare-open').setAttribute('aria-expanded', 'true');
+  els.lbCompareCfg.focus({ preventScroll: true });
+  layoutLightbox();
+});
+els.lbCompare.addEventListener('pointerleave', reconcileCompareDisclosure);
+els.lbCompare.addEventListener('focusout', () => queueMicrotask(reconcileCompareDisclosure));
 els.lbSrcImg.onerror = lbSourceFailed;
 // Zoom and pan: the wheel non-passive, or the page behind the dialog
 // scrolls; a press, a drag, a release and a double-click on the stage; an

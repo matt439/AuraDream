@@ -195,7 +195,7 @@
   {"wait": 300},
   {"eval": "els.analyze.click();"},
   {"wait": 1200},
-  {"wheel": [900, 500, 150]},
+  {"expect": "(() => { const finding = [...els.analysisFindings.querySelectorAll('li.selectable')].find((li) => li.textContent.includes('absence')); if (!finding) return false; const minimum = Math.ceil(els.prompt.getBoundingClientRect().top - __topbar() + 1), maximum = Math.floor(finding.getBoundingClientRect().top - __topbar() - 1); if (maximum < minimum) return false; userScrolls(); scrollBy(0, Math.round((minimum + maximum) / 2)); return true; })()"},
   {"wait": 500},
   {"eval": "window.__y = scrollY; const li = [...document.querySelectorAll('#analysis-findings li.selectable')].find((l) => l.textContent.includes('absence')); if (li) li.id = 'smoke-absence';"},
   {"expect": "document.getElementById('smoke-absence') && __inView(document.getElementById('smoke-absence')) && !__inView(els.prompt)"},

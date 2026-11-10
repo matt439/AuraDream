@@ -432,6 +432,9 @@
   #btn-models #status-text { display: flex; min-width: 0; overflow: hidden; white-space: nowrap; }
   #btn-models .status-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   #btn-models .status-state { flex: none; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: pre; }
+  /* The model and its state remain legible in the chip; the Models sheet's
+     footer carries the full byte tally and clock on the phone. */
+  #btn-models .status-progress { display: none; }
   #btn-models > .models-word {
     position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
     overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
@@ -527,6 +530,8 @@
   }
   .check-sheet .analysis-head .analysis-close::before { content: none; }
   .check-sheet .analysis-body { grid-template-columns: minmax(0, 1fr); gap: var(--sp-2); }
+  .check-sheet .analysis-details > summary { min-height: 48px; display: flex; align-items: center; }
+  .check-sheet .analysis-details-body { grid-template-columns: minmax(0, 1fr); }
   .check-sheet .analysis-section { gap: var(--sp-2); }
   .check-sheet .analysis-section h3 {
     font-size: var(--fs-label); text-transform: none; letter-spacing: 0; color: var(--text-readout);

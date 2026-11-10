@@ -201,8 +201,10 @@ function imageItems({ kind, rec, host }) {
       : buttonItem('✎ Inpaint…', lightbox ? els.lbInpaint : find('.inpaint-tool')),
     lightbox ? buttonItem('⬚ Outpaint…', els.lbOutpaint)
       : syncedItem('⬚ Outpaint…', syncOutpaintTool, () => outpaintFromCard(rec, host)),
-    // Live wherever the image is: the dialog says what holds the editor.
-    syncedItem('✎ Edit by instruction…', (b) => syncEditTool(b, rec), () => editFromCard(rec)),
+    // Show this specialist pass when the editor is selected or the image
+    // already belongs to its lineage; Reuse still opens any saved edit.
+    ...((rec.edit || modelRuntimeSettings?.model_id === 'black-forest-labs/FLUX.1-Kontext-dev')
+      ? [syncedItem('✎ Edit by instruction…', (b) => syncEditTool(b, rec), () => editFromCard(rec))] : []),
     syncedItem(at >= 0 ? `❐ Remove reference ${at + 1}` : '❐ Use as reference',
       (b) => syncReferenceTool(b, rec.id), () => toggleReference(host, rec)),
     shown ? {

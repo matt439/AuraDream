@@ -6,6 +6,47 @@ Standard library only, so the prompt analyser's leaves (`prompt_check`,
 from __future__ import annotations
 
 import errno
+import socket
+from urllib.error import HTTPError, URLError
+
+
+def download_failure(exc: BaseException) -> tuple[str, str] | None:
+    """Typed load I/O failures through wrappers, with no dependency imports."""
+    seen: set[int] = set()
+    current: BaseException | None = exc
+    network = False
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        if isinstance(current, OSError) and (
+            current.errno == errno.ENOSPC or getattr(current, "winerror", None) in {39, 112}
+        ):
+            return (
+                "The drive used for model downloads is full. Free space on the Hugging Face cache drive "
+                "(HF_HOME or HF_HUB_CACHE), then press Retry load. Files already downloaded are reused.",
+                "disk_full",
+            )
+        if (
+            isinstance(current, (ConnectionError, TimeoutError, socket.gaierror))
+            or isinstance(current, URLError) and not isinstance(current, HTTPError)
+            or isinstance(current, OSError) and (
+                current.errno in {errno.ENETDOWN, errno.ENETUNREACH, errno.EHOSTUNREACH, errno.ECONNABORTED, errno.ECONNRESET, errno.ECONNREFUSED, errno.ETIMEDOUT}
+                or getattr(current, "winerror", None) in {10050, 10051, 10053, 10054, 10060, 10061, 10065}
+            )
+            or any(
+                base.__module__ in {"httpx", "httpx._exceptions", "httpcore", "httpcore._exceptions", "requests.exceptions"}
+                and base.__name__ in {"NetworkError", "ConnectError", "ReadError", "WriteError", "CloseError", "TimeoutException", "Timeout", "ConnectTimeout", "ReadTimeout", "WriteTimeout", "PoolTimeout", "ConnectionError", "ChunkedEncodingError", "RemoteProtocolError"}
+                for base in type(current).__mro__
+            )
+        ):
+            network = True
+        current = current.__cause__ or current.__context__
+    if network:
+        return (
+            "The model download lost its connection or timed out. Check the internet connection, then press Retry load. "
+            "Files already downloaded are reused; an interrupted file can resume when the download server allows it.",
+            "connection",
+        )
+    return None
 
 
 def generation_error(exc: BaseException, *, loading: bool = False) -> str:
@@ -15,6 +56,8 @@ def generation_error(exc: BaseException, *, loading: bool = False) -> str:
     not arbitrary text mentioning memory; unrelated failures keep their words.
     The failure site still logs the original exception and its traceback.
     """
+    if loading and (failure := download_failure(exc)) is not None:
+        return failure[0]
     seen: set[int] = set()
     current: BaseException | None = exc
     ram = False

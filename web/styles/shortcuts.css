@@ -15,6 +15,7 @@
   gap: var(--sp-3); padding-block: var(--sp-2); background: var(--panel);
 }
 .shortcuts-head h2 { margin: 0; font-size: var(--fs-lg); }
+.shortcuts-guide { margin-left: auto; flex: none; padding: var(--sp-2); color: var(--accent-2); }
 .shortcuts-head button { flex: none; }
 .getting-started { margin-block: var(--sp-3) var(--sp-4); }
 .getting-started h3 { margin: 0 0 var(--sp-2); font-size: var(--fs-md); }

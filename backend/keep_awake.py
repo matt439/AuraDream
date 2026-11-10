@@ -524,9 +524,12 @@ class KeepAwake:
 
     # -- one check
 
-    def reasons(self) -> list[str]:
-        """Why to hold now, on the event loop: the providers', the counted
-        holds' and "in use" for the idle minutes after the last request."""
+    def idle_seconds(self) -> float:
+        """Age of the last real activity, on the shared monotonic clock."""
+        return max(0.0, self._monotonic() - self._last_activity)
+
+    def work_reasons(self) -> list[str]:
+        """Live providers and counted workers, excluding the idle grace."""
         found: list[str] = []
         for fn in list(self._providers):
             try:
@@ -541,7 +544,12 @@ class KeepAwake:
                 found.append(str(reason))
         with self._lock:
             found.extend(self._counted)
-        if self.idle_minutes > 0 and self._monotonic() - self._last_activity < self.idle_minutes * 60:
+        return list(dict.fromkeys(found))
+
+    def reasons(self) -> list[str]:
+        """Why to hold now: live work and the grace after a real request."""
+        found = self.work_reasons()
+        if self.idle_minutes > 0 and self.idle_seconds() < self.idle_minutes * 60:
             found.insert(0, f"in use (a request in the last {self.idle_minutes} minutes)")
         return list(dict.fromkeys(found))
 

@@ -361,5 +361,9 @@ function initTouchLayout() {
   syncTier();
   phoneQuery.addEventListener('change', syncTier);
   touchQuery.addEventListener('change', syncTier);
+  // Pointer and viewport updates can coalesce without delivering an MQL
+  // change, leaving phone hosts in a desktop layout. Reconcile from the
+  // live predicates on resize too; same-tier keyboard resizes move nothing.
+  addEventListener('resize', () => { if (pageTierNow() !== pageTier) syncTier(); });
   initBackLayers();
 }

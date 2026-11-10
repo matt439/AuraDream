@@ -1,0 +1,123 @@
+{
+  "date": "2026-11-11",
+  "item": "UI#41",
+  "scope": "CPU fake gallery and headless browser measurements only; no GPU, weights, real gallery, network performance or real phone acceptance.",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "browser": {
+    "product": "Microsoft Edge headless",
+    "version": "157.0.0.0",
+    "viewport_css_px": [
+      1400,
+      900
+    ],
+    "network_cache_disabled": true
+  },
+  "checkout": {
+    "head": "1b9138c4a3e83739ceadb27a25ddc97017639f56",
+    "included_uncommitted_changes": true,
+    "source_hashes_at_receipt_sha256": {
+      "web/gallery.js": "fcdea3220f0d24f4b7ca8a60548166d2a211c99d1b3b7695e2f184f0fea7108f",
+      "web/style.css": "947669ead0537c6cd3743d6e47d7189d86060570934bd0b38a3f7de45c08308f",
+      "web/styles/gallery.css": "522d584c6027f3828d37ff6158adabbe7b7072f82891ecbaf73363acac3363b2",
+      "web/lightbox.js": "2b5d39477c26c3e25eca6b93b9acbe64b02dffbd360710979ba8f3c3fedabf38",
+      "web/styles/lightbox.css": "40671b47ea7eeab68c5c4f392ee1528287b488e5da0cdd4694a96d32fbfe3a11",
+      "backend/storage.py": "ca63af5f3d019049ffd46aa920cc446745e7d162f49b29a0a87183f0760d531e",
+      "backend/api_gallery.py": "5bb0e7e3f8280fe14a1ccc331a2066a3f2e013fda6f5f595c8105f522ff62cd6",
+      "tools/fake_server.py": "321da0bf4f181d232b157cf1c903e48b43cb75faede174df419cb8faf23186c6",
+      "tools/browser.mjs": "93bb637427c3d020840cf5a51d2d5a42b9baabbdcd2d57d573cc2ba49398ffe9"
+    },
+    "provenance_note": "Measured the local working tree during the overnight batch. Hashes describe the relevant sources when this receipt was written; this was not an immutable committed-tree benchmark."
+  },
+  "fixture": {
+    "selected_model": "black-forest-labs/FLUX.1-Krea-dev",
+    "selected_model_rows": 5000,
+    "full_png_size_px": [
+      256,
+      256
+    ],
+    "thumbnail_size_px": [
+      256,
+      256
+    ],
+    "plant_seconds": 161.82,
+    "construction": "5,000 separate storage.save_image calls on normalized requests, unique seeds and generated flat RGB pictures; separate temporary database and outputs. The fake adds two other-model rows, excluded by the normal selected-model gallery filter."
+  },
+  "procedure": [
+    "Open the isolated fake with the standard browser harness at 1400x900. Keep ordinary gallery pagination, lazy image loading and all card containment unchanged.",
+    "Time resetGallery through one animation frame: exactly 48 initial cards. Call the real loadGallery until all 5,000 selected-model records and cards exist, with exact count assertions.",
+    "Record long tasks and 30 large jumps spanning the entire gallery height. These jumps leave lazy thumbnails pending and measure DOM/layout stress, rather than settled image scrolling.",
+    "In a second fresh browser session, load all 5,000 cards, move to the tail and wait for visible thumbnails to decode. Wait again at the start of a nearby 1,200px range, then sample 30 requestAnimationFrame intervals while moving 40px per frame. Assert 5,000 cards and decoded visible thumbnails; inspect the final screenshot."
+  ],
+  "append_all_phase": {
+    "initial_cards": 48,
+    "initial_page_ms": 21.5,
+    "additional_pages": 104,
+    "additional_page_limit": 48,
+    "append_remaining_ms": 19082.3,
+    "loaded_records": 5000,
+    "dom_cards": 5000,
+    "dom_nodes": 51676,
+    "browser_reported_js_heap_bytes": 17706846,
+    "long_task_count": 73,
+    "long_task_max_ms": 205,
+    "large_jump_scroll_frame_median_ms": 31.3,
+    "large_jump_scroll_frame_max_ms": 189.1,
+    "large_jump_note": "Pending lazy thumbnails after large jumps; not the settled-scroll result."
+  },
+  "settled_scroll_phase": {
+    "loaded_records": 5000,
+    "dom_cards": 5000,
+    "decoded_visible_thumbnails": 25,
+    "steps": 30,
+    "pixels_per_step": 40,
+    "distance_px": 1200,
+    "raf_interval_median_ms": 16.7,
+    "raf_interval_max_ms": 16.8,
+    "raf_intervals_ms": [
+      16.5,
+      16.8,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7
+    ]
+  },
+  "containment": {
+    "changed": false,
+    "computed_card_contain": "none",
+    "computed_card_content_visibility": "visible",
+    "conclusion": "The append-every-card and large-jump stress paths have long tasks, while the first page and nearby scrolling with decoded thumbnails remain fast in this fixture. This does not establish a card containment benefit; no containment change was made."
+  },
+  "checks": {
+    "initial_48_cards": true,
+    "exact_5000_records_and_cards": true,
+    "decoded_tail_thumbnails": true,
+    "browser_harness_exit_code": 0,
+    "screenshots_visually_checked": true,
+    "raw_local_artifacts_committed": false
+  }
+}

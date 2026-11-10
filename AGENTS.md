@@ -77,6 +77,14 @@ in `auradream.settings.json`; explicit environment/flags override them.
 
 Backend (`backend/`):
 
+- `idle_unload.py` owns default-off idle release on KeepAwake's activity clock;
+  `server_transport.py` exact extra origins and the optional PEM TLS pair;
+  `download_progress.py` approximate selected-cache samples for status;
+  `api_model_storage.py` / `model_cache_storage.py` the explicit read-only
+  cache inventory (unreferenced never means safe to delete);
+  `api_guide.py` renders only checkout-owned usage Markdown at `/guide`,
+  with `web/guide.css` outside the app's stylesheet cascade
+
 - `config.py` settings (`AURADREAM_*`) and cold external-attention warning;
   `legacy_names.py` where pre-rename (Local Diffusion) files keep working;
   `launch.py` start-up menu,
@@ -770,6 +778,7 @@ uses the driver's graceful close/cleanup. See the full Tests rules.
 | 7958 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-offline` |
 | 7958 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-passcode` |
 | 7959 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-catalogue-stale` |
+| 7959 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-download-progress` |
 | 7960 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-phone-dialogs` |
 | 7960 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-phone-gallery` |
 | 7960 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-phone-keyboard` |

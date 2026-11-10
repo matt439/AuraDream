@@ -7,16 +7,31 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-# shellcheck source=env.sh
+# shellcheck source=wsl/env.sh
 source wsl/env.sh
+
+# The same pinned installer as install.ps1 and linux/setup.sh.
+UV_VERSION=0.12.7
 
 if ! grep -qi microsoft /proc/version 2>/dev/null; then
     echo "warning: not a WSL kernel; this assumes the Windows NVIDIA driver is mapped in" >&2
 fi
-if ! command -v nvidia-smi >/dev/null 2>&1 || ! nvidia-smi >/dev/null 2>&1; then
+if ! command -v nvidia-smi >/dev/null 2>&1 || ! smi_header=$(nvidia-smi 2>&1); then
     echo "nvidia-smi does not work here. Update the Windows NVIDIA driver; do not install" >&2
     echo "a Linux driver inside WSL (docs.nvidia.com/cuda/wsl-user-guide)." >&2
     exit 1
+fi
+if [[ "$smi_header" =~ CUDA\ (UMD\ )?Version:\ *([0-9]+)\.([0-9]+) ]]; then
+    cuda_major=${BASH_REMATCH[2]}
+    cuda_minor=${BASH_REMATCH[3]}
+    if [ "$cuda_major" -lt 13 ]; then
+        echo "The Windows driver supports CUDA $cuda_major.$cuda_minor; AuraDream's PyTorch needs CUDA 13.0 or higher." >&2
+        echo 'Update the Windows NVIDIA driver and reboot. Do not install a Linux driver or the CUDA Toolkit inside WSL.' >&2
+        exit 1
+    fi
+    echo "Windows NVIDIA driver: CUDA $cuda_major.$cuda_minor (13.0 or higher is needed)."
+else
+    echo 'warning: the driver CUDA version could not be read; the PyTorch CUDA check below must pass.' >&2
 fi
 
 if ! command -v cc >/dev/null 2>&1 && ! command -v gcc >/dev/null 2>&1; then
@@ -26,7 +41,7 @@ fi
 
 installed_uv=0
 if ! command -v uv >/dev/null 2>&1; then
-    curl -LsSf https://astral.sh/uv/install.sh | sh
+    curl -LsSf "https://astral.sh/uv/$UV_VERSION/install.sh" | sh
     # For the rest of *this* script only: the export dies with it, and the
     # installer's rc-file edit reaches only future shells - so the shell that
     # ran setup.sh has to be told below, or the very next command it is
@@ -47,12 +62,19 @@ import torch
 
 ok = torch.cuda.is_available()
 print(f"python {sys.version.split()[0]}  torch {torch.__version__}  cuda {'ok' if ok else 'MISSING'}")
-if ok:
-    cap = torch.cuda.get_device_capability()
-    fp4 = "nvfp4 ok" if cap >= (10, 0) else "pre-Blackwell: use the int4 repos"
-    print(f"{torch.cuda.get_device_name(0)}  sm_{cap[0]}{cap[1]}  {fp4}")
+if not ok:
+    print("PyTorch cannot use CUDA. Update the Windows NVIDIA driver, reboot and run bash wsl/setup.sh again.", file=sys.stderr)
+    raise SystemExit(1)
+cap = torch.cuda.get_device_capability()
+fp4 = "nvfp4 ok" if cap >= (10, 0) else "pre-Blackwell: use the int4 repos"
+print(f"{torch.cuda.get_device_name(0)}  sm_{cap[0]}{cap[1]}  {fp4}")
+if cap < (10, 0):
+    print("Before sourcing wsl/env.sh in each new shell, run (or put this before its source line in ~/.bashrc):")
+    print("    export AURADREAM_NUNCHAKU_FORMAT=int4")
 print(f"kernels {version('kernels')}  bitsandbytes {version('bitsandbytes')}")
 PY
+
+uv run python -m backend.doctor
 
 # The prompt critic's pinned llama.cpp build (backend/critic.py) takes glibc
 # 2.38 or newer and three libraries from the system rather than its own tree;

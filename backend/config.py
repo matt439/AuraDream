@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .legacy_names import default_db_path
+from .server_transport import origin_key
 from .execution import ExecutionSpec, loader_execution_from_choices
 from .startup_preferences import LOADER_EXECUTION_ERROR, LOADER_EXECUTION_ERROR_VARIABLE
 from .model_defaults import (
@@ -133,6 +134,13 @@ class Settings:
         for part in os.getenv("AURADREAM_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",")
         if part.strip()
     )
+    # Exact external origins for a TLS proxy on another port. The Host check
+    # still requires each origin's hostname in allowed_hosts.
+    allowed_origins: tuple[str, ...] = tuple(
+        part.strip() for part in os.getenv("AURADREAM_ALLOWED_ORIGINS", "").split(",") if part.strip()
+    )
+    ssl_certfile: Path | None = _env_path("AURADREAM_SSL_CERTFILE")
+    ssl_keyfile: Path | None = field(default=_env_path("AURADREAM_SSL_KEYFILE"), repr=False)
 
     # The opt-in passcode (`passcode.py`), asked when the server can be
     # reached by a name that is not this machine's own (`passcode.asked`).
@@ -197,6 +205,8 @@ class Settings:
     # held; off here, nothing is even tried.
     keep_awake: bool = _env_bool("AURADREAM_KEEP_AWAKE", True)
     keep_awake_idle_minutes: int = int(os.getenv("AURADREAM_KEEP_AWAKE_IDLE_MINUTES", "20"))
+    # Default off. Uses the same real-request clock even if keep-awake is off.
+    idle_unload_minutes: int = int(os.getenv("AURADREAM_IDLE_UNLOAD_MINUTES", "0"))
 
 
 settings = Settings()
@@ -222,6 +232,9 @@ def _check_at_least(name: str, value: int, minimum: int) -> None:
 _check_vocabulary("AURADREAM_QUANT", settings.quantization, QUANT_MODES)
 _check_vocabulary("AURADREAM_OFFLOAD", settings.offload, OFFLOAD_MODES)
 _check_at_least("AURADREAM_KEEP_AWAKE_IDLE_MINUTES", settings.keep_awake_idle_minutes, 0)
+_check_at_least("AURADREAM_IDLE_UNLOAD_MINUTES", settings.idle_unload_minutes, 0)
+if any(origin_key(value) is None for value in settings.allowed_origins):
+    raise SystemExit("AURADREAM_ALLOWED_ORIGINS must contain exact http(s) origins, with no path, credentials or wildcard")
 
 # The outputs directory is created by `storage.ensure_outputs_dir()` - from
 # `init_db()`, the server's mount and the first write - not here: an import-time

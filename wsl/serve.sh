@@ -4,6 +4,6 @@
 # asking. --defaults keeps env.sh's defaults; --menu opens the optional picker.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-# shellcheck source=env.sh
+# shellcheck source=wsl/env.sh
 source wsl/env.sh
 exec uv run python -m backend.main "$@"

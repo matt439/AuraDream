@@ -307,7 +307,7 @@ def check_port(host: str | None = None, port: int | None = None,
                ours: Callable[[str], bool] = server_probe.auradream_at) -> list[Check]:
     host = settings.host if host is None else host
     port = settings.port if port is None else port
-    url = server_probe.page_url(host, port)
+    url = server_probe.page_url(host, port, secure=settings.ssl_certfile is not None)
     if not port or not busy(host, port):
         return [Check(PASS, "Port", f"{port} is free; the server will be at {url}")]
     if ours(url):
@@ -335,7 +335,7 @@ def check_commit(host: str | None = None, port: int | None = None,
     mine = f"this folder is at {here}" if here is not None else "this folder's own is unknown"
     # Asked only of a held port: a refused connection is slow on Windows.
     try:
-        there = running(server_probe.page_url(host, port), passcode) if port and busy(host, port) else None
+        there = running(server_probe.page_url(host, port, secure=settings.ssl_certfile is not None), passcode) if port and busy(host, port) else None
     except server_probe.PasscodeRefused as refused:
         detail = f"{mine}. The running server {refused.reason}, so its commit was not read."
         if refused.sent or refused.locked:

@@ -1,5 +1,6 @@
 [
   {"navigate": "http://127.0.0.1:7874/"},
+  {"eval": "document.getElementById('analysis-details').querySelector('summary').click()"},
   {"wait": 1200},
   {"log": "'A critic endpoint response shows its changes against the checked original'"},
   {"eval": "els.prompt.value = 'a red fox'; promptReplaced(); checkPrompt().then(() => askCritic());"},

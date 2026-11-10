@@ -640,10 +640,20 @@ function viewerWaiting(clock) {
     const time = document.createElement('span');
     time.className = 'clock';
     time.setAttribute('aria-hidden', 'true');
-    line.replaceChildren('Loading weights', time, ' - the first load of a session takes a few minutes.');
+    const label = document.createElement('span');
+    label.className = 'load-label';
+    const amount = document.createElement('span');
+    amount.className = 'load-amount';
+    amount.setAttribute('aria-hidden', 'true');
+    const note = document.createElement('span');
+    note.className = 'load-note';
+    line.replaceChildren(label, amount, time, note);
     line.classList.add('waiting');
   }
   line.querySelector('.clock').textContent = clock;
+  line.querySelector('.load-label').textContent = modelLoadingLabel();
+  line.querySelector('.load-amount').textContent = modelDownloadAmount() ? ` · ${modelDownloadAmount()}` : '';
+  line.querySelector('.load-note').textContent = ` - ${firstLoadNote()}`;
 }
 
 // A gallery with nothing in it at all - no image on any checkpoint, nothing

@@ -80,7 +80,7 @@ ask for administrator rights. The only user variables it may set are
 `HF_HOME` and `UV_CACHE_DIR`, and only to a folder you chose.
 
 To see what it would do without changing anything, run
-`install.cmd -DryRun` from a terminal in the folder; `-Yes` takes every
+`.\install.cmd -DryRun` from PowerShell in the folder; `-Yes` takes every
 default without asking. To update later, stop AuraDream and double-click
 **`update.cmd`** ([Updating](#updating)).
 
@@ -313,15 +313,136 @@ the **?** hints show the checkpoint's own prompting style and sizes; Steps,
 CFG and Mu start at its defaults. Images and the gallery database are saved
 in the project folder (`outputs/` and `auradream.db`).
 
-Stop the server with Ctrl-C. To start again, open PowerShell, go to the
-project folder and run the server:
+Stop the server with Ctrl-C in its window. To start again after the easy
+install, open **AuraDream** from the Start menu or its desktop shortcut;
+keep the server window open. It restores the checkpoint and settings you
+last saved in **Models**. For a manual install, open PowerShell in the
+project folder and run:
 
 ```powershell
-cd AuraDream
 uv run python -m backend.main
 ```
 
-It restores the checkpoint and settings you last saved in **Models**.
+### From a phone (Windows)
+
+The phone uses the PC's GPU, so leave the PC awake with AuraDream running.
+Use the same trusted home network on both devices; guest Wi-Fi may prevent
+them from reaching each other. Do not forward AuraDream's port on your router.
+
+1. Stop AuraDream. In PowerShell, run `ipconfig` and find **IPv4 Address**
+   under your active Wi-Fi or Ethernet adapter, for example `192.168.1.23`.
+   Ignore disconnected adapters, VPNs and WSL's virtual adapter. The PC's
+   address can change; a router's DHCP reservation keeps it stable.
+2. Set these user environment variables in PowerShell, replacing the example
+   address with that PC's address. User variables persist so the Start-menu
+   and desktop shortcuts see them too:
+
+   ```powershell
+   [Environment]::SetEnvironmentVariable('AURADREAM_HOST', '0.0.0.0', 'User')
+   [Environment]::SetEnvironmentVariable('AURADREAM_ALLOWED_HOSTS', '127.0.0.1,localhost,192.168.1.23', 'User')
+   ```
+
+   Add a passcode of at least eight characters through **Start > Edit
+   environment variables for your account > User variables > New**:
+   name `AURADREAM_PASSCODE`, value a passcode you use only here. This keeps
+   it out of PowerShell's command history. The variable stores it in plain
+   text, and anyone with access to your Windows account can read it.
+3. Close old terminals. Sign out of Windows and back in so every shortcut
+   inherits the new variables, then start AuraDream from its shortcut.
+   On Windows' Firewall prompt, allow the project's Python only on your
+   **Private** network. If you missed the prompt, use **Windows Security >
+   Firewall & network protection > Allow an app through firewall**, find
+   Python (the project's `.venv\Scripts\python.exe`) and allow **Private**.
+   Firewall changes can require administrator approval; keep the firewall on.
+4. On the phone open `http://192.168.1.23:7860` with your PC's address,
+   then enter the passcode. The PC's own browser signs in once too. If you
+   use another port, put that port in the address. **Invalid host header**
+   means the exact address or hostname you opened is missing from
+   `AURADREAM_ALLOWED_HOSTS`; add it and restart AuraDream. A timeout instead
+   points to the address, firewall, sleeping PC or Wi-Fi isolation.
+
+On plain http the passcode, its cookie, prompts and pictures travel
+unencrypted: the passcode keeps out household guests who can reach the
+address, but anyone capturing the network traffic can read them. Use only a
+trusted network, or an HTTPS/VPN route for privacy. Never reuse another
+password. **Sign out** is in Models; changing the passcode and restarting
+signs every device out. Phone sharing and the offline page need a secure
+context for their browser APIs; plain LAN http offers downloads instead.
+
+To return to this PC only, remove these three user variables in the same
+Windows dialog, sign out and back in, then restart AuraDream. It returns to
+`http://127.0.0.1:7860` with no passcode asked.
+
+### HTTPS for a phone
+
+HTTPS gives the browser a secure context for Share, Copy, notifications and
+the offline page. The certificate must be trusted on each device; proceeding
+past a certificate error is not a verified setup.
+
+One route is a local [Caddy proxy](https://caddyserver.com/docs/caddyfile/directives/reverse_proxy)
+on the same PC as AuraDream. Keep the backend on loopback and choose the
+PC's reserved LAN address (replace `192.168.1.20` throughout):
+
+```powershell
+$env:AURADREAM_HOST = '127.0.0.1'
+$env:AURADREAM_PORT = '7860'
+$env:AURADREAM_ALLOWED_HOSTS = '127.0.0.1,localhost,192.168.1.20'
+$env:AURADREAM_ALLOWED_ORIGINS = 'https://192.168.1.20'
+$env:AURADREAM_PASSCODE = Read-Host 'Choose a separate passcode (at least 8 characters)'
+uv run python -m backend.main
+```
+
+These variables belong to this terminal; for the Windows shortcut use the
+user-variable steps in [From a phone](#from-a-phone-windows), or put their
+values in the Linux service's environment file and restart it. Do not add
+the passcode to a command argument. Its plain environment-file storage and
+plain-HTTP limits still apply to any HTTP route you leave exposed.
+
+Create a `Caddyfile` outside the checkout:
+
+```caddyfile
+https://192.168.1.20 {
+    tls internal
+    reverse_proxy 127.0.0.1:7860
+}
+```
+
+Run `caddy run --config Caddyfile`. Allow its HTTPS port 443 through the
+PC's firewall on the trusted private network. The backend's 7860 stays on
+loopback. Caddy's [local HTTPS instructions](https://caddyserver.com/docs/automatic-https#local-https)
+explain where its local CA certificate lives and how to trust it. Install
+only that root certificate on each phone/PC you control, using its OS's CA
+trust settings, including full trust where the OS asks. Keep the CA's
+private key on the server. Open `https://192.168.1.20` and verify it opens
+without a certificate warning, asks for the passcode, and can load Models
+and save a choice. The certificate and trusted origin must name exactly
+the address you open; a different hostname needs its own configuration.
+
+The proxy preserves Host and forwards the scheme. AuraDream trusts proxy
+headers from loopback under uvicorn's default policy; this recipe keeps
+the proxy local. `AURADREAM_ALLOWED_ORIGINS` adds exact origins only (no
+wildcards, credentials or paths), and never bypasses `AURADREAM_ALLOWED_HOSTS`.
+The doctor, scripts and CLI on the server can continue to use loopback
+HTTP with their passcode. For `auradream-server open` on another PC, set
+its `AURADREAM_SERVER_URL` to the HTTPS address.
+
+Alternatively, with an existing trusted PEM certificate and private key,
+set both `AURADREAM_SSL_CERTFILE` and `AURADREAM_SSL_KEYFILE` to absolute
+paths, set `AURADREAM_HOST=0.0.0.0`, and keep loopback plus the browser's
+exact LAN name/address in `AURADREAM_ALLOWED_HOSTS`. The wildcard bind
+lets both LAN browsers and the scripts' loopback probes reach it; it is
+not a wildcard in the Host allowlist. AuraDream passes the files
+to [uvicorn's TLS support](https://uvicorn.dev/settings/#https); it creates
+and renews no certificates. Include `127.0.0.1` and any local probe name in
+the certificate's alternative names, and trust its issuer on the server
+as well as each client. `--open`, the doctor and local scripts then use
+HTTPS too. Keep both file variables in each local caller's environment;
+Python/curl clients may use `SSL_CERT_FILE`/`CURL_CA_BUNDLE` for a private
+CA. Do not disable certificate verification. The port remains
+`AURADREAM_PORT` (7860 by default); open `https://<address>:7860`.
+An unset pair keeps HTTP; a missing partner or missing file refuses startup.
+Store key material outside the checkout with access limited to the service
+user. No installer, firewall or trust-store change is automatic.
 
 ## If something goes wrong
 
@@ -391,7 +512,7 @@ leaves them where they are. Stop the server first, then double-click
 **`update.cmd`** in the project folder. It refuses while AuraDream is
 running, copies the gallery database as below, runs `git pull --ff-only`
 and `uv sync`, and explains a pull Git refuses without discarding anything
-(`update.cmd -DryRun` shows what it would do). By hand, from the project
+(`.\update.cmd -DryRun` in PowerShell shows what it would do). By hand, from the project
 folder:
 
 ```powershell
@@ -446,10 +567,68 @@ to a new folder, run `uv sync` there, and copy across from the old folder:
 `auradream.settings.json` and the other `auradream.*.json` files (saved
 setups, snippets, saved searches and backup settings).
 
+## Free disk space
+
+To remove one checkpoint, stop AuraDream and any other program using the
+same Hugging Face cache first. From PowerShell in the AuraDream folder:
+
+```powershell
+uv run hf cache ls
+uv run hf cache ls --revisions
+```
+
+Find the repository you no longer need, then preview and confirm its
+removal. For example, for Animagine XL 4.0:
+
+```powershell
+uv run hf cache rm model/cagliostrolab/animagine-xl-4.0 --dry-run
+uv run hf cache rm model/cagliostrolab/animagine-xl-4.0
+```
+
+The second command asks before deleting. This removes downloaded weights,
+not your generated pictures, and a later load downloads them again. Other
+apps can share these weights too. If `HF_HOME` is set, use that same value
+in the terminal so the commands inspect the cache AuraDream uses.
+
+By default the repositories live under
+`C:\Users\<you>\.cache\huggingface\hub\models--<author>--<name>`
+(under `HF_HOME\hub` when set). Use the cache commands instead of deleting
+individual snapshot files, which may share their underlying data.
+AuraDream's converted copies are separate under
+`<Hugging Face cache>\auradream\converted`; checkpoints such as Illustrious,
+WAI, RouWei and Anima have them. An older install can use
+`local-diffusion\converted` there instead. With the server stopped, remove only the subfolder for the
+checkpoint you no longer need; it will be rebuilt if you load it again.
+Keep the cache's token and unrelated repositories. Never clear the whole
+cache just to remove one checkpoint.
+
+## Getting help
+
+For a setup or app problem, open an
+[issue on GitHub](https://github.com/matt439/AuraDream/issues). Describe
+what you pressed, what you expected and what happened. Include your Windows
+or Linux version, GPU, checkpoint and the **Commit** shown by this command,
+run from the project folder:
+
+```powershell
+uv run python -m backend.doctor
+```
+
+Copy its output and the relevant lines from `auradream.log` beside the
+gallery database. **Read them before posting:** logs can contain prompts,
+paths, image names and other private details. Remove anything you do not
+want public, and never attach a passcode, Hugging Face token or settings
+file that contains one. The Commit row identifies the version even after
+an update. For a security problem, use the private reporting route in
+[SECURITY.md](../SECURITY.md#reporting-a-vulnerability).
+
 ## Uninstall
 
-1. Keep what you want first: copy `outputs\` and `auradream.db`, or save a
-   bundle (**Bundles…** under the gallery's search box).
+1. Keep what you want first: copy `outputs\` and `auradream.db` outside the
+   project folder, or save a bundle (**Bundles…** under the gallery's search
+   box) and **Download** it to a folder outside AuraDream. Saving a bundle
+   alone leaves it in `bundles\` beside the database, usually inside the
+   project folder; deleting that folder would delete the backup too.
 2. Delete the project folder. The gallery, settings, LoRAs and `.venv` are
    inside it, unless an `AURADREAM_*` path variable moved them.
 3. Delete the Hugging Face cache: `C:\Users\<you>\.cache\huggingface`, or
@@ -598,7 +777,7 @@ know what it is worth, since the service speaks plain http:
 - So the passcode keeps out people who can merely reach the address: the
   household, a guest on the Wi-Fi. It is not protection on a network that
   is not trusted, and never a reason to forward the port to the internet.
-- HTTPS is what makes it private, which AuraDream does not serve yet.
+- HTTPS encrypts the traffic; use [the phone recipe](#https-for-a-phone).
 - Do not reuse a password from anywhere else: it sits in plain text in the
   environment file and the process's environment.
 - There is one passcode and no accounts. Changing it and restarting signs

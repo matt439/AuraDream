@@ -33,9 +33,10 @@ function showExamples(open) {
   }
   // The example stays the authors' words; what it needs is said beside it.
   const unreferenced = referenceSupported && !referenceIds.length;
-  const needs = (words) => {
+  const needs = (words, context = false) => {
     const span = document.createElement('span');
     span.className = 'example-note';
+    span.classList.toggle('context', context);
     span.textContent = words;
     return span;
   };
@@ -48,7 +49,7 @@ function showExamples(open) {
     span.className = 'text';
     span.textContent = text;
     li.appendChild(span);
-    if (exampleNotes[text]) li.appendChild(needs(exampleNotes[text]));
+    if (exampleNotes[text]) li.appendChild(needs(exampleNotes[text].replace(/^Author sample:/, 'From the authors; context:'), true));
     if (unreferenced && EDIT_PROMPT.test(text)) li.appendChild(needs('needs a reference image'));
     const slots = [...new Set(templateSlots(text).map((slot) => slot.text))];
     if (slots.length) {

@@ -177,13 +177,26 @@ class ModelSwitchRequest(BaseModel):
     execution: ExecutionSpec | None = None
 
 
+class ModelDownloadStatus(BaseModel):
+    downloaded_bytes: int = 0
+    total_bytes: int | None = None
+    cache_state: Literal["complete", "partial", "absent", "unknown"] = "unknown"
+    cache_free_bytes: int | None = None
+    approximate: bool = True
+    note: str = ""
+
+
 class ModelStatus(BaseModel):
     state: Literal["unloaded", "loading", "ready", "error"]
     switching: bool = False
+    idle_unload_minutes: int = 0
+    idle_unloaded: bool = False
     model_revision: int = 0
     # Advances after every image-model load attempt, including failures that
     # downloaded only some files; lets an open picker refresh its cache facts.
     cache_revision: int = 0
+    model_download: ModelDownloadStatus | None = None
+    load_started_at: float | None = None
     # Numbers and flags, plus `instruction_edit_reason`: the held edit's words.
     defaults: dict[str, float | int | bool | str | None] = {}
     # Prose for the same profile, keyed by control name - what steps/CFG/mu mean
@@ -228,9 +241,9 @@ class ModelStatus(BaseModel):
     # running one still selected and loaded as it was; not a load failure.
     switch_error: str | None = None
     detail: str | None = None
-    # Beside a failed load's detail: its kind where it was one of the Hub's
-    # ("gated", "not_found", "offline") and the model page that fixes it, for
-    # the viewer's card to link - None for every other failure.
+    # Failed-load categories: gated/not_found/offline, disk_full/connection.
+    # A model-page URL accompanies actionable Hub errors only; other kinds
+    # retain their plain retry advice without a URL.
     detail_kind: str | None = None
     detail_url: str | None = None
     # When the server process started (Unix seconds, its clock). A page that
