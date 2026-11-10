@@ -137,6 +137,16 @@ def empty_weights() -> Iterator[None]:
             _weights_guard.notify_all()
 
 
+def prompt_expander_by_id(model_id: str) -> bool:
+    """Whether the checkpoint has a prompt expander, by its id alone: ERNIE's
+    rewriter or FLUX 3's upsampler. What the backend answers before a load
+    (the loaded pipeline's own methods answer after it) and what the Models
+    notes say cold (`model_info.capabilities_for`), so the two cannot differ."""
+    from . import flux3_loading
+
+    return "ernie-image" in model_id.lower().replace("_", "-") or flux3_loading.matches(model_id)
+
+
 def prompt_expander_cached(model_id: str) -> bool:
     """Whether the rewriter's weights are on disk already: in a local tree, or
     in the Hub cache. File checks only - no network - so the status poll can

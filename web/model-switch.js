@@ -305,9 +305,17 @@ function modelSpeedNote(info) {
   return [info.speed_note, modelGalleryTiming(info)].filter(Boolean).join(' ');
 }
 
+// What else the checkpoint does (`model_info`'s `capabilities_note`: inpaint,
+// outpaint, references, LoRA, negative prompt, live preview, Expand), said
+// after the Refine note: its cell's title and the radio's description, never
+// a column of its own.
+function modelRefineNote(info) {
+  return [info.refine_note, info.capabilities_note].filter(Boolean).join(' ');
+}
+
 function modelNotes(info) {
   return [['Access', info.access_note], ['Memory', info.fit_note], ['Download', info.download_note],
-    ['Cache', info.cache_note], ['Refine', info.refine_note], ['Edit', info.instruction_edit_note],
+    ['Cache', info.cache_note], ['Refine', modelRefineNote(info)], ['Edit', info.instruction_edit_note],
     ['Size', info.megapixels_note], ['Speed', modelSpeedNote(info)]]
     .filter(([, note]) => note).map(([label, note]) => `${label}: ${note}`).join(' ');
 }
@@ -361,7 +369,7 @@ function modelTableRow(entry, { favourite = false, index = 0 } = {}) {
     { muted: !['Fast', 'Medium', 'Slow'].includes(info.speed_label) });
   speed.dataset.fact = 'speed';
   // Refine's Yes/No carries a mark the column can be scanned by.
-  const refine = modelFactCell('Refine', info.refine, '', info.refine_note);
+  const refine = modelFactCell('Refine', info.refine, '', modelRefineNote(info));
   if (info.refine === 'Yes' || info.refine === 'No') refine.dataset.refine = info.refine.toLowerCase();
   choice.append(
     name,

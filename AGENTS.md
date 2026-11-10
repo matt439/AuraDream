@@ -87,7 +87,9 @@ Backend (`backend/`):
   `current_model_id(settings)` / `current_settings(settings)`;
   `startup_preferences.py` atomically saves loader/startup choices;
   `model_info.py` supplies cold catalogue details from existing sourced guides,
-  and a fit badge for a card smaller than a build's measured need (`card_fit`);
+  and a fit badge for a card smaller than a build's measured need (`card_fit`),
+  and each entry's capability flags as a Models note and docs/usage.md's
+  generated table (`capabilities_for`, `tools/capability_table.py --write`);
   `hub_access.py` asks the Hub whether a switch's checkpoint can download;
   `hf_sign_in.py` whether a Hugging Face token is present (existence only,
   shared by the doctor and the status that preselects an open checkpoint);

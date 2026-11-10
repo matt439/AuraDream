@@ -781,6 +781,31 @@ asks it either, and `POST /api/fake/model {access: "gated"|"not_found"}`
 refuses its switches for the page checks. Not checked on the real Hub from
 here: the wording against a real refusal on a machine without access.
 
+**Capability flags in the notes, and one table (2026-11-10, `GEN#56`).**
+The picker said Style, Refine, Size and Speed; whether a checkpoint
+inpaints, takes references or a LoRA, has a negative prompt, draws a live
+preview or expands a prompt was found by loading it, and no document held
+the catalogue side by side. The flags went into a note, not columns, as
+the review asked: seven more cells a row would not fit beside the four the
+table has. Each flag already has one place that decides it, so
+`model_info.capabilities_for` asks those places by id and adds no
+knowledge of its own. Two things had no cold answer. Expand's rule by id
+lived inside the backend's method, so it moved to
+`loading.prompt_expander_by_id` and the backend and the fake call it. The
+live preview is decided by the loaded VAE's class, so `_LATENTS` names each
+catalogue entry's latents in `latent_preview`'s own key and the flag is
+whether a map is fitted for it; an entry added without one fails a test.
+That table is from the loaders and docs/verified.md's records: frames were
+seen on the card for FLUX.1 Krea [dev], Z-Image Turbo, Z-Anime, the three
+Anima variants, NetaYume and NewBie, and their absence for SDXL, ERNIE and
+FLUX.2 [klein]; the other rows carry their family's answer, unlooked at.
+docs/usage.md's table is generated from the same function and a test
+holds the document to it. A change to usage.md alone runs no tests (it is
+documentation to `tools/ci_changes.py`), so a hand edit inside the markers
+is caught at the next code change, not in its own pull request;
+`tests/test_ci_changes.py` names that exception. Closing it means adding
+the file to `_TESTED_PROSE`, a CI-definition change left for Matt.
+
 That Qwen-Image fits this card only as its 4-bit Nunchaku build was said
 only in a code comment; on Windows its row offered FP8, INT8 and BF16 with
 the first-load sentence and nothing else, so a first try could start a

@@ -29,7 +29,9 @@ from backend.schemas import CriticStatus, GenerateRequest, PromptCritique, defau
 def expands(model_id: str) -> bool:
     """Whether the real backend offers Expand for `model_id` before a load:
     ERNIE's rewriter, or FLUX 3's prompt upsampler."""
-    return "ernie-image" in model_id.lower().replace("_", "-") or flux3_loading.matches(model_id)
+    from backend.backends.loading import prompt_expander_by_id
+
+    return prompt_expander_by_id(model_id)
 
 
 class FakeBackend(GenerationBackend):
