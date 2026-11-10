@@ -308,8 +308,12 @@ as JavaScript, and `StaticFiles` asks `mimetypes`, which on Windows reads
 the registry over its own table, where some programs register `.js` as
 `text/plain`. The module pins `.js` and `.css` so such a machine still gets
 a page. Starlette's own 500 for an unhandled error comes from a layer
-outside every one an app can add and carries neither header; its body is
-fixed text with nothing to press. A full `script-src` policy is a separate,
+outside every one an app can add, so it would carry neither header. The
+layer therefore answers an unhandled error itself, with the same status and
+the same "Internal Server Error" text, and raises the error again:
+Starlette's layer finds a response already begun, sends nothing and raises
+it on, so the server logs the traceback as before. An error after a
+response began is only raised on. A full `script-src` policy is a separate,
 larger item and was not opened.
 
 **The 8 GB card.** The measured Linux machine has an RTX 3070 (8 GB,

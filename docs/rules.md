@@ -481,7 +481,8 @@ before changing it.
   is appended beside one a response sets itself, never in its place) and
   `pin_page_types` (`.js` as `text/javascript`, `.css` as `text/css`
   whatever Windows' registry says, since nosniff refuses a script or a
-  stylesheet served as anything else). `main` adds it last, so it is the
+  stylesheet served as anything else). It answers an unhandled error's
+  500 itself and raises the error on. `main` adds it last, so it is the
   outermost of the app's layers (`tests/test_response_headers.py`)
 - `backend/api_prompt.py` — the tag helper and prompt routes (suggest,
   validate, Expand, Check, measure, the critic) and their refusal wording;
@@ -3438,9 +3439,11 @@ measured on the card and when.
   `'self'`, never `'none'`: the smokes open a second tab as an iframe of
   `/` (`smoke-jobs`, `smoke-queue-controls`, `smoke-analysis`). A new kind
   of file under `web/` that the page loads as a script or a stylesheet
-  must be served as one, or nosniff refuses it. The one response without
-  the headers is Starlette's own 500 for an unhandled error, whose layer
-  sits outside every layer an app can add. This is not a script policy:
+  must be served as one, or nosniff refuses it. Starlette's own 500 for
+  an unhandled error would be the one response without the headers (its
+  layer sits outside every layer an app can add), so the layer sends that
+  500 itself, same status and text, and raises the error again for the
+  server to log; never swallow it there. This is not a script policy:
   there is no `script-src`.
 - Saved gallery searches store only Name, Query, Starred and All models in a
   versioned database-scoped sidecar, never image ids or picks. Names are unique
@@ -9656,8 +9659,9 @@ API routes, `/docs`, files and misses under both mounts, a 404, a 405 and a
 one `frame-ancestors 'self'` and one `nosniff`; that the layer is the
 outermost of the app's own; that the page's scripts and stylesheets keep
 their types, a registry naming `.js` as text overruled; that a response's
-own policy is kept beside this one; and that Starlette's own 500 is the one
-response without them.
+own policy is kept beside this one; and that an unhandled error's 500
+carries them and is still raised, with no second start once a response
+began.
 
 `tests/test_linux_scripts.py` runs `linux/*.sh` for real under bash against
 stub `nvidia-smi`, `uv`, `git`, `systemctl`, `journalctl`,

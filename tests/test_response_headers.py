@@ -119,6 +119,10 @@ def small_app() -> FastAPI:
     async def boom() -> None:
         raise RuntimeError("boom")
 
+    @app.middleware("http")
+    async def a_layer_under_it(request, call_next):
+        return await call_next(request)
+
     app.add_middleware(ResponseHeadersMiddleware)
     return app
 
@@ -133,14 +137,37 @@ def test_a_response_with_a_policy_of_its_own_keeps_it_beside_this_one():
     assert carries_both(same)
 
 
-def test_an_unhandled_error_is_the_one_response_without_them():
+def test_an_unhandled_error_carries_both_headers_and_is_still_raised():
     # Starlette's own error layer sits outside every layer an app can add,
-    # so its bare "Internal Server Error" passes through none of them. Pinned
-    # so the gap is known: the body is fixed text with nothing to press.
+    # so the layer answers the error itself, in Starlette's words, and
+    # raises it on for the server to log.
     with TestClient(small_app(), raise_server_exceptions=False) as client:
         response = client.get("/boom")
     assert response.status_code == 500
-    assert "content-security-policy" not in response.headers
+    assert response.text == "Internal Server Error"
+    assert response.headers["content-type"].startswith("text/plain")
+    assert carries_both(response)
+    with TestClient(small_app()) as client, pytest.raises(RuntimeError, match="boom"):
+        client.get("/boom")
+
+
+def test_an_error_after_the_response_began_sends_no_second_start():
+    sent = []
+
+    async def inner(scope, receive, send):
+        await send({"type": "http.response.start", "status": 200, "headers": []})
+        raise RuntimeError("boom")
+
+    async def send(message):
+        sent.append(message)
+
+    async def receive():
+        return {"type": "http.request"}
+
+    with pytest.raises(RuntimeError, match="boom"):
+        asyncio.run(ResponseHeadersMiddleware(inner)({"type": "http"}, receive, send))
+    assert [m["type"] for m in sent] == ["http.response.start"]
+    assert sent[0]["status"] == 200
 
 
 def test_a_scope_that_is_not_http_passes_straight_through():

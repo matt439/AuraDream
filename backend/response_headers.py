@@ -20,6 +20,7 @@ import mimetypes
 from typing import Any
 
 from starlette.datastructures import MutableHeaders
+from starlette.responses import PlainTextResponse
 
 FRAME_POLICY = "frame-ancestors 'self'"
 HEADERS = {
@@ -55,6 +56,12 @@ class ResponseHeadersMiddleware:
 
     The policy is appended, never replaced: a response that sets a policy of
     its own keeps it, and a browser enforces every policy it is given.
+
+    An unhandled error is answered here, in the words Starlette's own error
+    layer uses, and raised again. That layer sits outside every layer an app
+    can add, so its 500 would pass through none of them; it finds a response
+    already begun, sends nothing more and raises the error on for the server
+    to log, as it always did.
     """
 
     def __init__(self, app: Any) -> None:
@@ -65,12 +72,22 @@ class ResponseHeadersMiddleware:
             await self.app(scope, receive, send)
             return
 
+        started = False
+
         async def send_with_headers(message: Any) -> None:
+            nonlocal started
             if message.get("type") == "http.response.start":
+                started = True
                 headers = MutableHeaders(scope=message)
                 if FRAME_POLICY not in headers.getlist("content-security-policy"):
                     headers.append("Content-Security-Policy", FRAME_POLICY)
                 headers["X-Content-Type-Options"] = HEADERS["X-Content-Type-Options"]
             await send(message)
 
-        await self.app(scope, receive, send_with_headers)
+        try:
+            await self.app(scope, receive, send_with_headers)
+        except Exception:
+            if not started:
+                failed = PlainTextResponse("Internal Server Error", status_code=500)
+                await failed(scope, receive, send_with_headers)
+            raise

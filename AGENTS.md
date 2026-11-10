@@ -514,7 +514,8 @@ Frontend:
 - `response_headers.ResponseHeadersMiddleware` stays the last
   `add_middleware` in `main` (outermost), and its source stays `'self'`:
   the smokes frame `/`. Under nosniff a script or stylesheet must be served
-  as one.
+  as one. It answers an unhandled error itself (Starlette's own 500 would
+  pass through no layer) and raises it on.
 
 CLI: `generate`, `clear`, `stats`, `reindex` reconfigure stdout to UTF-8 at
 the top of `main()`; `generate.py` applies `--model/--quant/--offload` to

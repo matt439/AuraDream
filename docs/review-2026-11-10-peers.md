@@ -173,8 +173,9 @@ Built 2026-11-10: `backend/response_headers.py`'s
 mounts, `/sw.js`, `/docs`, and the Host check's 400 and the cross-site 403
 under it. The module also pins `.js` and `.css` to their types, since
 nosniff refuses a script served as `text/plain` and Windows' registry can
-say that. Not covered: Starlette's own 500 for an unhandled error, whose
-layer is outside every one an app can add (pinned by a test). No
+say that. Starlette's own 500 for an unhandled error comes from a layer
+outside every one an app can add, so the layer answers such an error itself
+in the same words and raises it on for the server to log. No
 `X-Frame-Options` and no `script-src`. The three smokes that frame `/`
 still pass (`tests/test_response_headers.py`; rule in `docs/rules.md`
 under Frontend and CLI).
