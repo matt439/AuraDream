@@ -186,15 +186,28 @@ def _server_holds_gpu(host: str, port: int, timeout: float = 2.0) -> str | None:
     harmless state. Refuses only when the state is ready or loading; a timeout
     is a server too busy to answer, which is the case to refuse. Advisory:
     one-directional, and blind across the WSL/Windows boundary.
+
+    A server that asks for a passcode is asked again with this environment's
+    `AURADREAM_PASSCODE`; one whose gate still refuses raises
+    `server_probe.PasscodeRefused`, since what it holds could not be asked.
     """
     import json
     import urllib.error
     import urllib.request
 
+    from backend import server_probe
+
     probe_host = "127.0.0.1" if host in ("0.0.0.0", "::") else host
+    url = f"http://{probe_host}:{port}/api/status"
     try:
-        with urllib.request.urlopen(f"http://{probe_host}:{port}/api/status", timeout=timeout) as resp:
-            status = json.load(resp)
+        try:
+            with urllib.request.urlopen(url, timeout=timeout) as resp:
+                status = json.load(resp)
+        except urllib.error.HTTPError as exc:
+            if exc.code not in (401, 429):
+                raise
+            # The passcode's gate, or nothing of ours: `status_json` tells.
+            status = server_probe.status_json(url, server_probe.environment_passcode(), timeout)
     except urllib.error.URLError as exc:
         if isinstance(exc.reason, ConnectionRefusedError):
             return None  # no server at all
@@ -1128,7 +1141,18 @@ def _main(argv: list[str] | None, awake: contextlib.ExitStack) -> int:
     # After the dry run: a dry run promises to touch nothing, the network
     # included. Its own exit code, since the README pins the other four.
     if not args.ignore_server:
-        holder = _server_holds_gpu(p.settings.host, p.settings.port)
+        from backend.server_probe import PasscodeRefused
+
+        try:
+            holder = _server_holds_gpu(p.settings.host, p.settings.port)
+        except PasscodeRefused as refused:
+            # Its own words, never a server that is down or one that is idle.
+            print(
+                f"The server at {p.settings.host}:{p.settings.port} {refused.reason}, so whether it holds "
+                f"a checkpoint on the GPU could not be asked. {refused.fix} Or pass --ignore-server.",
+                file=sys.stderr,
+            )
+            return 4
         if holder is not None:
             print(
                 f"A server at {p.settings.host}:{p.settings.port} holds {holder} on the GPU; "

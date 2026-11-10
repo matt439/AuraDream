@@ -588,6 +588,56 @@ def test_the_probe_tells_no_server_from_a_busy_one(monkeypatch):
     assert generate._server_holds_gpu("127.0.0.1", 7860) == "m (loading)"
 
 
+def test_the_probe_asks_a_server_that_wants_a_passcode_with_this_environments(monkeypatch):
+    from backend import server_probe
+    from tests.passcode_stub import AskingServer
+
+    secret = "correct-horse-battery"
+    server = AskingServer(secret, {"/api/status": {"state": "ready", "model_id": "m"}})
+    try:
+        monkeypatch.delenv("AURADREAM_PASSCODE", raising=False)
+        with pytest.raises(server_probe.PasscodeRefused) as missing:
+            generate._server_holds_gpu("127.0.0.1", server.port)
+        assert (missing.value.status, missing.value.sent) == (401, False)
+        # Never a header to a server that has not asked for one.
+        assert all(not carried for _, _, carried in server.requests)
+
+        monkeypatch.setenv("AURADREAM_PASSCODE", secret)
+        assert generate._server_holds_gpu("0.0.0.0", server.port) == "m (ready)"
+        server.locked = True
+        with pytest.raises(server_probe.PasscodeRefused) as locked:
+            generate._server_holds_gpu("127.0.0.1", server.port)
+        assert locked.value.status == 429
+
+        server.passcode = None                       # a server that asks for nothing
+        del server.requests[:]
+        assert generate._server_holds_gpu("127.0.0.1", server.port) == "m (ready)"
+        assert server.requests == [("GET", "/api/status", False)]
+    finally:
+        server.close()
+
+
+def test_a_server_that_would_not_say_is_refused_in_its_own_words(cli, store, monkeypatch, capsys):
+    # Not a server that is down (which would load beside it), nor one that
+    # holds a checkpoint: what it holds could not be asked.
+    from backend import server_probe
+
+    secret = "correct-horse-battery"
+    monkeypatch.setenv("AURADREAM_PASSCODE", secret)
+
+    def refuses(host, port, timeout=2.0):
+        raise server_probe.PasscodeRefused(401, sent=True)
+
+    monkeypatch.setattr(generate, "_server_holds_gpu", refuses)
+    assert generate.main(["a fox", *SIZE, "--dry-run"]) == 0
+    assert generate.main(["a fox", *SIZE, "-q"]) == 4
+    said = capsys.readouterr()
+    assert "did not accept the passcode in AURADREAM_PASSCODE, so whether it holds a checkpoint" in said.err
+    assert "Or pass --ignore-server." in said.err and "holds a checkpoint on the GPU could not be asked" in said.err
+    assert secret not in said.err + said.out and cli.requests == []
+    assert generate.main(["a fox", *SIZE, "-q", "--ignore-server"]) == 0
+
+
 def test_a_budget_stops_the_cli_between_cells(cli, store, capsys):
     cli.step_seconds = 0.02
     code = generate.main(

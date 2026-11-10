@@ -13676,12 +13676,13 @@ then the order to build it in. Matt read the flagged choices on 2026-11-10
 and said go to all of them as written: the passcode is asked behind a proxy
 too, 127.0.0.1 has no exemption, the environment file's character limit,
 one limiter for the whole server, the 8-character floor and the 30-day
-stateless cookie. **Stage 1 (the gate) is built**, 2026-11-10; what it
-settled that the design left open is under
-[Stage 1 as built](#stage-1-as-built). Stages 2 to 4 are not: until stage
-2 the CLI and the server's scripts send no passcode, and until stage 3 the
-page has no signed-out notice or Sign out and the docs do not name the
-setting.
+stateless cookie. **Stages 1 (the gate) and 2 (the callers) are built**,
+2026-11-10; what each settled that the design left open is under
+[Stage 1 as built](#stage-1-as-built) and
+[Stage 2 as built](#stage-2-as-built). Stages 3 and 4 are not: until stage
+3 the page has no signed-out notice or Sign out, the fake has no knob for
+it, and the docs do not name the setting (the service's environment file
+does, in a commented line).
 
 The server has no authentication. `TrustedHostMiddleware` refuses a Host it
 does not list and `block_cross_site_writes` refuses a write that announces
@@ -13726,6 +13727,7 @@ or .NET with no credentials:
 | Caller | What it asks | From |
 |---|---|---|
 | `generate --via-server` (`generate_remote._server_json`) | `/api/status`, `/api/images/{id}`, outpaint presets, `POST /api/masks`, `/api/generate` or `/api/grid`, then `/api/jobs/{id}` polls and cancel | wherever the CLI runs, at `AURADREAM_HOST`:`AURADREAM_PORT` |
+| `generate` without `--via-server` (`generate._server_holds_gpu`; found building stage 2) | `GET /api/status`, for whether a server holds a checkpoint on the card | wherever the CLI runs, at `AURADREAM_HOST`:`AURADREAM_PORT` |
 | `server_probe.auradream_at` (`main.run`'s second-launch check, the doctor's Port row, `linux/common.sh`'s `auradream_state`) | `GET /`, looking for `<title>AuraDream</title>` | loopback |
 | `install.ps1`, `update.ps1` | `GET /` for the same title | loopback |
 | `linux/common.sh`'s curl fallback | `GET /` for the same title | loopback |
@@ -14117,6 +14119,90 @@ decided, and the few things the design had not said:
   outside ASCII must be sent as UTF-8 bytes. `urllib` given a `str` sends
   Latin-1 and raises on anything beyond it, and Latin-1 bytes that happen
   to be valid UTF-8 would be read as another passcode.
+
+### Stage 2 as built
+
+Built 2026-11-10: the header and the gate's refusal in
+`backend/server_probe.py` (`environment_passcode`, `passcode_headers`,
+`refusal`, `PasscodeRefused`, `no_redirect_opener`, `status_json`), which
+`generate_remote._server_json`, `running_commit` and the doctor share; the
+doctor's Commit row and its new **Passcode** row; `linux/common.sh`'s
+`ask` (the Python `server_busy` and `linux/control.sh`'s `server_answers`
+and `do_status` now run on) and its check of the environment file; the
+commented line in `install-service.sh`'s environment file. Tests:
+`tests/test_server_probe.py` (new), `tests/test_doctor.py`,
+`tests/test_cli_via_server.py` (where `--via-server`'s tests live since
+`test_cli.py` was split), `tests/test_cli.py`,
+`tests/test_linux_scripts.py`, `tests/test_install_scripts.py`, and a
+stand-in server that asks, `tests/passcode_stub.py`. With no passcode set
+and none asked, every request these callers make is the one it was. What
+the source decided, and what the design had not said:
+
+- **One more caller.** `generate` without `--via-server` asks
+  `/api/status` whether a server holds a checkpoint on the card
+  (`_server_holds_gpu`); the table above did not list it. Against a server
+  that asks, its 401 read as "a server that did not answer in time". It now
+  asks again with the environment's passcode, and a gate that still refuses
+  is said in its own words with the same exit status, 4: what the server
+  holds could not be asked, so nothing is loaded beside it without
+  `--ignore-server`.
+- **A redirect never carries the passcode.** `urllib` sends a request's
+  headers on to wherever a redirect points, so every request that carries
+  the passcode goes through an opener that follows none (the redirect is
+  the error it arrives as). The server sends none on these routes.
+- **The probes ask first without it.** `status_json` (the doctor's commit,
+  the CLI's card check) sends the passcode only after the gate's own coded
+  401, so a server that asks for none never sees it and another program
+  holding the port is not handed it. `--via-server` and the Linux scripts
+  send it on every request whenever the variable is set, as designed: they
+  are aimed at the server on purpose, and a second request per call would
+  double the queueing ones. A 401 without the gate's `code` is not the
+  gate's and is treated as it always was.
+- **A control character in the passcode** cannot travel in a header, and
+  `http.client`'s own error would quote the value. The callers refuse it
+  first in words that do not hold it (`--via-server`: exit 2 before any
+  request; the scripts: "could not ask it").
+- **The words.** A 401 with no passcode in the environment: the server
+  "asks for a passcode, and AURADREAM_PASSCODE is not set here"; with one:
+  it "did not accept the passcode in AURADREAM_PASSCODE"; a 429: it "is
+  refusing every passcode for now, after too many wrong ones (wait N s)",
+  N from `Retry-After`. The advice never says to run the command again,
+  since after a submission that would queue the work twice. The scripts'
+  own wording names the service's environment file instead of the shell.
+- **The doctor.** The Commit row is a PASS that says so when the server
+  asks and no passcode is set here; a passcode the server refuses, or the
+  lock, is a WARN (never a FAIL). The Passcode row reads `passcode.asked`
+  and `setting_problem`, the server's own two decisions: FAIL for a
+  passcode `main.run` would refuse to start with (under 8, or over 256),
+  wherever the server listens; WARN for none on a server reachable beyond
+  this machine; PASS "asked" or "not asked". The doctor imports
+  `backend.passcode`, so Starlette with it; still never diffusers.
+- **The scripts and a server that asks without them having the passcode.**
+  `server_busy` fails as designed. `control.sh status` says "It answers."
+  and then that its status could not be read, and still exits 0 for an
+  active service: the server is up. `start` and `restart` stop waiting at
+  the first such answer for the same reason, where they would have waited
+  out the minute and reported a page that never came. A passcode changed
+  in the environment file is the new one to the scripts and the old one to
+  the server until the restart, so that restart's busy check is refused:
+  `--force` is what applies a changed passcode, and the message says a
+  restart applies it. A wrong passcode from a script is a wrong attempt
+  like any other; each command spends at most two.
+- **The environment file's check** (`require_plain_env_passcode`) runs
+  before every read of the file: in `load_env_file`, and in
+  `install-service.sh`, which sources a kept file itself for the port and
+  names and so stops before it writes or starts anything. Each
+  `AURADREAM_PASSCODE=` line is checked (leading blanks allowed, as both
+  readers allow them; trailing spaces and tabs dropped, as both drop
+  them); a commented line is not a setting; an empty value is unset. A
+  file saved with Windows line ends is refused: bash would keep the
+  carriage return in the value and systemd would not. Under
+  `LC_ALL=C`, so "letters" means ASCII's.
+- The scripts' Python reads the passcode's bytes from `os.environb` and
+  sends them as they are, so nothing is decoded on the way.
+- `tests/test_linux_scripts.py` runs on Linux only. It was run under WSL
+  (Ubuntu, the project's own Linux virtualenv's Python, nothing
+  installed): 230 passed.
 
 Not designed, and not to be built under this row: accounts or more than one
 passcode, a passcode set or changed from the page, revoking one device,

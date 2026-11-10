@@ -574,7 +574,14 @@ before changing it.
   through `server_probe` (AuraDream already there passes); the commit
   (`check_commit`: this folder's from `build_info.read_commit`, and the
   running server's own, asked through `server_probe.running_commit` only
-  when the port is held; the two differing warns "restart", never fails);
+  when the port is held; the two differing warns "restart", never fails;
+  a server that asks for a passcode is sent this environment's
+  `AURADREAM_PASSCODE`, and without it the row passes and says so, while a
+  refused one or the lock warns); the passcode (`check_passcode`, by
+  `passcode.asked` and `setting_problem` as the server decides them: not
+  asked on a server only this machine reaches, asked, a WARN for none on a
+  server reachable beyond it, a FAIL for one `main.run` would not start
+  with; never the value);
   the card's
   memory against the default checkpoint's measured 12.0 GiB peak (under it
   warns; on Linux below compute capability 10.0 it names the int4 Nunchaku
@@ -591,7 +598,20 @@ before changing it.
   `page_url` and `is_loopback`; `main` imports them under its old private names;
   and `running_commit`, the `commit` of the `/api/status` at a page's
   address (None for no answer, another program, or a server that could not
-  tell), as direct and as short-lived as `auradream_at`
+  tell), as direct and as short-lived as `auradream_at`. It also holds what
+  every caller that is not a browser shares about the passcode (stage 2 of
+  `DEV#32`): `environment_passcode`, `passcode_headers` (`Authorization:
+  Bearer`, the passcode's UTF-8 bytes; a control character refused in words
+  without the value), `refusal`/`PasscodeRefused` (the gate's coded 401 or
+  its 429, in words that never hold a passcode and never say "run this
+  again"), `no_redirect_opener` (a request carrying the passcode follows no
+  redirect) and `status_json`, which asks first without the passcode and
+  sends it only after the gate's own 401; `running_commit` raises
+  `PasscodeRefused` rather than answering None for a gate that refuses.
+  `generate_remote._server_json` sends the header on every request when
+  the variable is set; `generate._server_holds_gpu` asks through
+  `status_json` (`tests/test_server_probe.py`,
+  `tests/test_cli_via_server.py`, `tests/test_cli.py`)
 - `backend/build_info.py` — `read_commit`, the checkout's short commit
   from `git rev-parse --short HEAD` in the project folder, stdlib only and
   without `config`: None when the folder itself has no `.git` (git is then
@@ -700,7 +720,20 @@ before changing it.
   on a failed unit, or a crashing one: `Restart=on-failure` shows it as
   SubState `auto-restart` or a grown `NRestarts`, not failed), `logs` (`journalctl`, `-n` 100 by default, `-f`) and
   `doctor` (with the env file); it reads only the page's polled GETs, which
-  keep awake does not count. Test seams:
+  keep awake does not count. Every such read is `common.sh`'s `ask`
+  (`ASK_SERVER_PY`, run by `ask_server_python`): with `AURADREAM_PASSCODE`
+  in the environment (the env file's, exported by `load_env_file`) it
+  carries `Authorization: Bearer`, read from the environment and never an
+  argument, and follows no redirect; the gate's 401 and 429 are `Refused`
+  in their own words, never a server that is down or idle (`server_busy`
+  fails, so stop, restart and `update.sh --restart` refuse without
+  `--force`; `status` says it answers and exits 0; the wait after a start
+  ends). `require_plain_env_passcode` runs before the env file is sourced
+  (`load_env_file`, and `install-service.sh`'s own read): an
+  `AURADREAM_PASSCODE` with anything but letters, digits and
+  `. _ - + @ % : , /` stops the script, the value never printed, since
+  bash and systemd read anything else differently; the new env file names
+  the setting in a commented line. Test seams:
   `AURADREAM_INSTALL_TEST_ROOT`, `AURADREAM_INSTALL_TEST_PROC_VERSION`,
   `AURADREAM_INSTALL_TEST_WAIT` (control.sh's wait)
   (`tests/test_linux_scripts.py`)

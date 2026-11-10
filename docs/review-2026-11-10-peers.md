@@ -255,11 +255,25 @@ built the same day: `backend/passcode.py`, the setting, the layer in
 `main.py` with the model hold moved inside the Host check and the write
 block, `web/passcode.html`, `passcode` in the status, and `main.run`'s
 refusal and log lines, with a test that walks the app's route table so a
-route added later is closed or the test fails. Still to build: the callers
-(the CLI, the probe, the doctor, the Linux scripts), then the page, the
-fake's knob, the smoke and the docs; until then the setting is not named in
-the README. What stage 1 settled is in the note under
-[Stage 1 as built](design-notes.md#stage-1-as-built).
+route added later is closed or the test fails. What stage 1 settled is in
+the note under [Stage 1 as built](design-notes.md#stage-1-as-built).
+
+Stage 2, the callers, is built the same day. Everything that is not a
+browser reads `AURADREAM_PASSCODE` from its own environment and sends it as
+`Authorization: Bearer`, never as an argument: `generate --via-server`, the
+CLI's check for a server holding the card (a caller the note's table had
+missed), the doctor's Commit row, and the Linux scripts' busy and status
+reads (`linux/common.sh`, `linux/control.sh`), which take it from the
+service's environment file. A 401 and a 429 are each said in their own
+words and never read as a server that is down or idle: stop, restart and
+`update.sh --restart` refuse without `--force`. The doctor gains a Passcode
+row. The scripts refuse an environment file whose passcode bash would read
+differently from systemd before they source it, and `install-service.sh`'s
+new file names the setting in a commented line. The title probes needed
+nothing. `tests/test_linux_scripts.py` was run under WSL. Still to build:
+the page (the signed-out notice, Sign out), the fake's knob, the smoke and
+the docs; until then the setting is not named in the README. What stage 2
+settled is under [Stage 2 as built](design-notes.md#stage-2-as-built).
 
 ### S3 an HTTPS route
 

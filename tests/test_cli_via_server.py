@@ -469,3 +469,138 @@ def test_via_server_refuses_a_port_out_of_range_before_any_call(via_server, monk
     assert stop.value.code == 2
     assert "AURADREAM_PORT must be a port from 1 to 65535" in capsys.readouterr().err
     assert via_server.calls == []
+
+
+# --------------------------------------------------- a server that asks (passcode)
+#
+# Over real HTTP against a loopback stand-in (tests/passcode_stub.py), so the
+# transport itself is what is checked: `_server_json` is not replaced here.
+
+PASSCODE = "pässcode-狐-horse"          # outside ASCII: sent as its UTF-8 bytes
+
+
+@pytest.fixture
+def asking(monkeypatch):
+    """A server that asks for `PASSCODE` and queues one job, `job-1`, whose
+    poll answers done with no images. `AURADREAM_PORT` points at it."""
+    import os
+
+    from tests.passcode_stub import AskingServer
+
+    def no_local_backend(*args):
+        pytest.fail("--via-server tried to construct/probe a local generation backend")
+
+    server = AskingServer(PASSCODE, {
+        "/api/status": {"model_id": "krea/Krea-2-Turbo", "quantization": "fp8", "offload": "model",
+                        "model_revision": 3, "execution": None, "switching": False},
+        "/api/generate": {"job_id": "job-1", "run_id": "run-1", "seed": 7},
+        "/api/jobs/job-1": {"status": "done", "images": []},
+    })
+    for name in ("AURADREAM_MODEL_ID", "AURADREAM_QUANT", "AURADREAM_OFFLOAD", "AURADREAM_PASSCODE"):
+        monkeypatch.setenv(name, os.environ.get(name, ""))
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("AURADREAM_HOST", "127.0.0.1")
+    monkeypatch.setenv("AURADREAM_PORT", str(server.port))
+    monkeypatch.setattr(generate_remote, "_SERVER_POLL_SECONDS", 0.01)
+    monkeypatch.setattr(generate, "_project", no_local_backend)
+    monkeypatch.setattr(generate, "_server_holds_gpu", no_local_backend)
+    yield server
+    server.close()
+
+
+def _said(capsys) -> str:
+    out = capsys.readouterr()
+    return out.out + out.err
+
+
+def test_via_server_sends_the_passcode_on_every_request(asking, monkeypatch, capsys):
+    monkeypatch.setenv("AURADREAM_PASSCODE", f"  {PASSCODE}\n")       # stripped as the server strips it
+    assert generate.main(["a fox", "--via-server", *SIZE]) == 0
+    assert asking.requests == [
+        ("GET", "/api/status", True), ("POST", "/api/generate", True), ("GET", "/api/jobs/job-1", True),
+    ]
+    said = _said(capsys)
+    assert "Queued job job-1" in said
+    assert PASSCODE not in said and "pässcode" not in said
+
+
+def test_via_server_without_a_passcode_sends_no_header_to_a_server_that_asks_for_none(asking, capsys):
+    asking.passcode = None
+    assert generate.main(["a fox", "--via-server", *SIZE, "-q"]) == 0
+    assert [carried for _, _, carried in asking.requests] == [False, False, False]
+
+
+def test_via_server_says_a_missing_passcode_in_its_own_words_and_queues_nothing(asking, capsys):
+    assert generate.main(["a fox", "--via-server", *SIZE, "-q"]) == 2
+    assert asking.requests == [("GET", "/api/status", False)]
+    said = _said(capsys)
+    assert f"The server at http://127.0.0.1:{asking.port} asks for a passcode" in said
+    assert "Set AURADREAM_PASSCODE in this shell to the server's passcode." in said
+    assert "no usable answer" not in said and "Reload the page" not in said
+
+
+def test_via_server_says_a_refused_passcode_without_printing_it(asking, monkeypatch, capsys):
+    monkeypatch.setenv("AURADREAM_PASSCODE", "not-the-right-one")
+    assert generate.main(["a fox", "--via-server", *SIZE, "-q"]) == 2
+    assert asking.requests == [("GET", "/api/status", True)]
+    said = _said(capsys)
+    assert "did not accept the passcode in AURADREAM_PASSCODE" in said
+    assert "not-the-right-one" not in said
+
+
+def test_via_server_says_to_wait_during_the_lock_and_queues_nothing(asking, monkeypatch, capsys):
+    monkeypatch.setenv("AURADREAM_PASSCODE", PASSCODE)                # the right one is refused too
+    asking.locked = True
+    assert generate.main(["a fox", "--via-server", *SIZE, "-q"]) == 2
+    assert asking.requests == [("GET", "/api/status", True)]
+    said = _said(capsys)
+    assert "is refusing every passcode for now, after too many wrong ones (wait 7 s)" in said
+    assert PASSCODE not in said
+
+
+@pytest.mark.parametrize(("locked", "words"), [
+    (True, "is refusing every passcode for now"),
+    (False, "did not accept the passcode in AURADREAM_PASSCODE"),
+])
+def test_via_server_a_refused_poll_ends_the_wait_and_never_submits_again(asking, monkeypatch, capsys, locked, words):
+    monkeypatch.setenv("AURADREAM_PASSCODE", PASSCODE)
+
+    def then_refuse(server):
+        # The submission is in; every later request is refused.
+        if locked:
+            server.locked = True
+        else:
+            server.passcode = "changed-under-the-job"
+        return {"job_id": "job-1", "run_id": "run-1", "seed": 7}
+
+    asking.routes["/api/generate"] = then_refuse
+    assert generate.main(["a fox", "--via-server", *SIZE, "-q"]) == 1
+    assert [request[:2] for request in asking.requests] == [
+        ("GET", "/api/status"), ("POST", "/api/generate"), ("GET", "/api/jobs/job-1"),
+    ]
+    said = _said(capsys)
+    assert words in said and "(job job-1; it may still be running)" in said
+    assert "run this again" not in said and PASSCODE not in said
+
+
+def test_via_server_refuses_a_passcode_no_header_can_carry_before_any_request(asking, monkeypatch, capsys):
+    monkeypatch.setenv("AURADREAM_PASSCODE", "wxyz\x0bqrst-horse")
+    assert generate.main(["a fox", "--via-server", *SIZE, "-q"]) == 2
+    assert asking.requests == []
+    said = _said(capsys)
+    assert "AURADREAM_PASSCODE holds a control character" in said
+    assert "wxyz" not in said and "qrst" not in said
+
+
+def test_server_json_with_a_passcode_follows_no_redirect(asking, monkeypatch):
+    from tests.passcode_stub import AskingServer
+
+    elsewhere = AskingServer(None, {"/api/status": {"stolen": True}})
+    try:
+        monkeypatch.setenv("AURADREAM_PASSCODE", PASSCODE)
+        asking.routes["/api/status"] = (307, {"Location": elsewhere.url + "api/status"})
+        with pytest.raises(generate_remote._ServerError, match="307") as error:
+            generate_remote._server_json(asking.url.rstrip("/"), "/api/status")
+        assert error.value.status == 307 and elsewhere.requests == []
+    finally:
+        elsewhere.close()
