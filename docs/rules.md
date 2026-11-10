@@ -6776,7 +6776,18 @@ measured on the card and when.
   `sheetShownRun()` is the record's run; a cell never gets the picks'
   items. Beyond the buttons: the lightbox's Pick #N / Unpick #N after Star
   (`pickFromLightbox`, held by `lightboxPickHeld`, `UI#33`; a card's pick
-  stays its click and Space), Use seed, More seeds of this batch…
+  stays its click and Space), Use seed, Use prompt after it (`GEN#53`:
+  `usePromptItem` running reuse.js's `usePrompt`, which writes the record's
+  prompt and negative prompt, and nothing else, through `rewriteBox` - the
+  negative first, a box that holds the text already left alone - so Ctrl+Z
+  in each box gives its text back; the seed, size and sampling stay. It
+  closes the lightbox first, as the lightbox's Reuse does, shows the Create
+  view on a phone and brings the prompt into the panel's sight, never the
+  page's. Where either box held other text the note under the prompt says
+  "The prompt of #N replaced yours." with an Undo for both, the negative
+  only while it still holds what the write left. Elsewhere the card says
+  "Prompt set". It is held on an instruction edit with `USE_PROMPT_EDIT`,
+  which `refuseInCard` says when chosen), More seeds of this batch…
   (the lightbox's `#lb-more-seeds` there, elsewhere `syncedItem` over
   `syncMoreSeedsFor` running `moreSeedsOfImage`), Show run as sheet
   (`showRecordRun`, the card's ⊞), on a live card Pick this run after it
@@ -9678,11 +9689,13 @@ image that is no pass, Compare CFG holds S with no `::after`; Edit's
 action sheet (two entries, Edit `aria-expanded`) is docked at the foot
 over the scrim, its head "Edit #N", its rows Inpaint…, Outpaint… and Edit
 by instruction…, 48 px, a Cancel row last, and its Inpaint… opens the
-dialog. More's sheet has Use seed, More seeds of this batch…, Download
+dialog. More's sheet has Use seed, Use prompt, More seeds of this batch…, Download
 and Copy prompt, none of the bar's or Edit's, the bin last in red, its
 head "#N"; a press of the scrim shuts it alone (the viewer open, its
 bars shown, one entry), and its More seeds… opens the dialog over the
-viewer (two entries), which Escape closes. At 360x780 the gallery
+viewer (two entries), which Escape closes; its Use prompt (`GEN#53`)
+closes the viewer and shows Create with the prompt in the box, no
+entry left, the note's Undo giving the replaced words back. At 360x780 the gallery
 head is still one line with the placeholder whole in the box and the
 first card within 200 px, the audit clean on the Gallery view and in ⋯;
 the cards three across, and with a card picked in Select the bar whole -
@@ -12326,6 +12339,11 @@ uv run python tools/fake_server.py --port 7907 --model cagliostrolab/animagine-x
 node tools/browser.mjs tools/smoke-outpaint.json
 ```
 
+`tests/test_use_prompt.py` runs reuse.js's actual `usePrompt` on inert
+boxes under Node: the write order, a box left alone where it holds the
+text, what the Undo gives back, the lightbox closed first, an instruction
+edit refused with nothing written, and the item's place after Use seed.
+
 `tests/test_copy_feedback_ownership.py` loads the actual menu/lightbox
 declarations and actual feedback functions on inert DOM and synthetic
 clipboard ports. Deferred completions cover navigation, same-record reopen,
@@ -12360,8 +12378,16 @@ beside the bin, a press on the picture beside the menu (a quarter of the way
 across, since the menu now reaches below the picture's middle) closing the
 menu and not the lightbox,
 Escape closing the menu only, Use seed saying so in the lightbox's line,
-and Show run as sheet closing the lightbox for the sheet; More seeds of this
-batch… after Use seed on a card (unheld, titled with its batch) and a
+and Show run as sheet closing the lightbox for the sheet; Use prompt after
+Use seed (`GEN#53`): into empty boxes with the seed and steps unchanged,
+focus in the prompt and "Prompt set" on the card; over the user's own
+prompt with the note and its Undo, a real Ctrl+Z giving the text back, the
+note's Undo giving back a negative the record lacks; held on a record
+given an `edit`, saying why and writing nothing; and from the lightbox,
+which it closes. (The fixture's `execCommand` stub lets `insertText` and
+`undo` through for those writes and still refuses every other command, a
+copy's among them.) More seeds of this
+batch… after Use prompt on a card (unheld, titled with its batch) and a
 result tile, and in the lightbox mirroring its More seeds… button, chosen
 there opening the dialog over the lightbox, which Escape leaves open. On
 that sheet (`UI#32`), a cell's menu by right-click and by Shift+F10: the

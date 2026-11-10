@@ -142,6 +142,23 @@ Recent prompts under Examples (no panel height), a model-free read of
 distinct recent pairs. A gallery-derived list cannot hold prompts whose jobs
 saved nothing.
 
+Built 2026-11-10, the first slice only. The finding held: the menu had Copy
+prompt and Reuse settings and nothing that put a prompt back by itself.
+**Use prompt** follows Use seed in the image's menu - a card, a result, a
+sheet's cell, the lightbox and the phone's More sheet, which is the same
+list. `usePrompt` (reuse.js) writes the record's prompt and negative
+prompt through `rewriteBox` and leaves the seed, size and sampling alone.
+A record with no negative empties the negative box, as Reuse does. Where
+either box held other text the note under the prompt offers an Undo for
+both, and Ctrl+Z works in each box. From the lightbox it closes the
+lightbox first, as Reuse does: a modal keeps the focus the write needs.
+It is held on an instruction edit, whose words are about its source
+(`tests/test_use_prompt.py`; `smoke-context-menu`, whose `execCommand`
+stub now lets a typing write through; `smoke-phone-gallery` chooses it in
+the phone's More sheet). Not built: Recent prompts under
+Examples, kept for when this falls short; a prompt whose job saved nothing
+is still not recalled.
+
 ### R8 a snippet target for grid variables
 
 `GEN#54`. Snippets target Prompt or Negative only
