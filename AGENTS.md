@@ -240,6 +240,9 @@ Backend (`backend/`):
   `main.run` and the doctor share; `build_info.py` the checkout's short
   commit (None without git), read once at import as `main.COMMIT` for the
   start-up log and `/api/status`'s `commit`, stdlib only
+- `log_file.py` the server's rotating `auradream.log` beside the database
+  (tracebacks at every level, `faulthandler`, uvicorn's level), stdlib only,
+  installed by `main.run` alone
 
 Frontend (`web/`, served from `/static`): `index.html` loads classic scripts
 in order, sharing one global scope; only `app.js`, the last, runs anything.
@@ -470,6 +473,10 @@ Jobs:
 - The preview callback never raises.
 - GPU work outside jobs (Expand, the critic) goes through
   `jobs.run_when_idle`; nothing holding the gate awaits the load lock.
+- A failure site logs one ERROR line and its traceback at DEBUG with
+  `exc_info`: the log file (`log_file.py`) takes every `exc_info` record,
+  the console only at DEBUG. The file is installed in `main.run`, never at
+  import, and is never bundled, exported or cleared as gallery data.
 - Keep-awake providers are read on the event loop only; work on a daemon
   thread holds through `keep_awake.busy`. A new timed poll joins
   `counts_as_activity`'s exclusions, or an idle tab holds the PC awake.

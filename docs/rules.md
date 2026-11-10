@@ -581,6 +581,15 @@ before changing it.
   `same_commit` compares two short commits of different lengths. `main`
   reads it once at import (`COMMIT`), never per request
   (`tests/test_build_info.py`)
+- `backend/log_file.py` — the server's rotating log file, stdlib only:
+  `auradream.log` beside the database (`path_for`; always the new name),
+  5 MB with three older files. `install` sends it the root logger's records
+  at the configured level and every record with a traceback, holds the
+  console's handlers at that level, opens the `auradream` and `backend`
+  loggers to DEBUG, and points `faulthandler` at the file unless it was
+  already enabled; `Installed.follow` adds uvicorn's logger, `close` undoes
+  all of it; `uvicorn_level` is uvicorn's name for the level. Only
+  `main.run` installs it (`tests/test_log_file.py`)
 - `install.cmd`, `install.ps1`, `update.cmd`, `update.ps1` (repository root)
   — the Windows installer and updater, plain text, Windows PowerShell 5.1
   and ASCII only (5.1 reads a BOM-less script in the ANSI code page), CRLF
@@ -3041,6 +3050,25 @@ measured on the card and when.
   since the submit fails that cell in words, with no backend call and no
   row. `planned_keys` skips edit cells while the gate is closed or the
   selection is outside the loader envelope.
+
+- A failure's traceback is logged at DEBUG beside its one ERROR line
+  (`log.debug("... traceback", exc_info=True)`): the console stays one line
+  at INFO, and the log file takes any record with `exc_info` at every level
+  (`log_file.py`). Keep that pair for a new failure site, on an `auradream`
+  or `backend.*` logger; the file is opened to DEBUG for those two trees
+  only. The file is installed in `main.run` after the port checks, never at
+  import, so the CLIs, the tests and the fake server write none and a second
+  launch leaves the running server's file alone. It holds prompts and paths
+  and is not gallery data: no bundle, export, backup or `clear` reads,
+  copies or removes it. Its handler's stream is the only handle on the file
+  (a second one makes the rollover's rename fail on Windows), so
+  `faulthandler` is given that stream and moved at each rollover; a rename
+  another program refuses keeps appending to the same file, and the live
+  file is moved first (to `auradream.log.0`), so a refused rollover moves no
+  older file. uvicorn's level
+  is `AURADREAM_LOG_LEVEL` (`log_file.uvicorn_level`), and its `uvicorn`
+  logger is followed only after `uvicorn.Config` has replaced that logger's
+  handlers; `uvicorn.access` is not followed.
 
 ### Prompt analyser
 

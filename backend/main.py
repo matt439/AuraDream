@@ -59,6 +59,7 @@ from .instruction_edit import (  # noqa: E402
     INSTRUCTION_EDIT_UNAVAILABLE, is_edit_only, option_refusals, require_model_available,
 )
 from . import api_instruction_edit  # noqa: E402
+from . import log_file  # noqa: E402
 from .model_defaults import DEFAULT_MODEL_ID, OPEN_DEFAULT_MODEL_ID, defaults_for, guide_for, hints_for  # noqa: E402
 from .schemas import (  # noqa: E402
     ExpanderDownload,
@@ -71,9 +72,7 @@ from .schemas import (  # noqa: E402
 from .translation import MODEL_BYTES as TRANSLATOR_BYTES  # noqa: E402
 from .translation import prompt_translator  # noqa: E402
 
-logging.basicConfig(
-    level=settings.log_level, format="%(asctime)s %(levelname)-7s %(name)s | %(message)s"
-)
+logging.basicConfig(level=settings.log_level, format=log_file.FORMAT)
 log = logging.getLogger("auradream")
 warn_legacy_env(log)  # a pre-rename variable left in a shell: named, not read
 
@@ -1375,6 +1374,11 @@ def run(*, open_browser: bool = False) -> None:
             file=sys.stderr, flush=True,
         )
         raise SystemExit(1)
+    # After the port checks: a second launch leaves the running server's file
+    # alone. Before the first line worth keeping.
+    log_to_file = log_file.install(settings.db_path, settings.log_level)
+    if log_to_file.handler is not None:
+        log.info("log file: %s", log_to_file.path)
     if not _is_loopback(settings.host):
         # The API has no login: anyone who reaches it can read, delete and
         # import galleries and make this machine download with the HF token.
@@ -1388,17 +1392,22 @@ def run(*, open_browser: bool = False) -> None:
         app,
         host=settings.host,
         port=settings.port,
-        log_level="info",
+        log_level=log_file.uvicorn_level(settings.log_level),
         # A client that stops reading its stream must not hold shutdown open.
         timeout_graceful_shutdown=30,
     )
-    server = Server(config)
-    if open_browser:
-        _open_when_listening(server, url)
+    # uvicorn.Config has just replaced its loggers' handlers; an unhandled
+    # route's traceback is logged there and nowhere else.
+    log_to_file.follow(logging.getLogger(log_file.UVICORN_LOGGER))
     try:
+        server = Server(config)
+        if open_browser:
+            _open_when_listening(server, url)
         server.run()
     except KeyboardInterrupt:
         raise SystemExit(130) from None
+    finally:
+        log_to_file.close()
 
 
 if __name__ == "__main__":
