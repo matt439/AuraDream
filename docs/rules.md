@@ -3023,7 +3023,8 @@ measured on the card and when.
   `DISK_FULL_POLL` (5 s, slept in quarter seconds so the first Ctrl-C is
   heard). That Ctrl-C ends the wait with "stopped with the disk full: ...
   was not saved; --resume continues it" and the run as a cancel (130),
-  never a failed cell; any other save error ends the run as before
+  never a failed cell (a Then refine pass's line says "refine that image to
+  make it" instead: `--resume` skips a cell whose base image is saved); any other save error ends the run as before
   (`tests/test_cli_disk_full.py`). `save_image` and `thumbnail_for` encode their
   `.part` files before taking the reservation and reserve only the row and
   the renames. Keep lock ordering consistent: gallery reservation before

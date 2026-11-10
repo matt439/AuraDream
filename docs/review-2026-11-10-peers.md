@@ -147,7 +147,9 @@ Ctrl-C ends the wait at once, saying "stopped with the disk full: run
 2/3's image was not saved; --resume continues it", and the run ends as any
 cancel does, exit 130 with the saved images kept; nothing is counted as a
 failed cell. Then refine's passes save through the same helper, which also
-gives them the busy-gallery wait they lacked. Every other save error ends
+gives them the busy-gallery wait they lacked; a pass stopped there says
+"the pass of #12 was not saved; refine that image to make it", since
+`--resume` skips a cell whose base image is saved. Every other save error ends
 the run as before (`tests/test_cli_disk_full.py`). The wait has no limit
 of its own and `--budget` does not end it (the budget only stops cells
 from starting), and `--via-server` is unchanged: the server's job pauses

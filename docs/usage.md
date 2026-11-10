@@ -1051,7 +1051,8 @@ gallery is free; a second Ctrl+C ends it. A full disk is held the same
 way: the CLI says once that the disk is full and the image is held in
 memory, then tries the save again every few seconds, so freeing space is
 enough to carry on. Ctrl+C stops instead, without that image (exit 130);
-`--resume` renders it again.
+`--resume` renders it again, except a Then refine pass whose base image
+was saved: refine that image yourself.
 
 Redirected CLI output is UTF-8. In Windows PowerShell, set
 `[Console]::OutputEncoding = [Text.Encoding]::UTF8` before using `>` or `|`

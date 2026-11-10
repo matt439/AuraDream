@@ -123,6 +123,39 @@ def test_a_then_refine_passes_save_is_held_the_same_way(cli, store, monkeypatch,
     assert capsys.readouterr().err.count(HELD) == 1
 
 
+def test_ctrl_c_in_a_passes_wait_does_not_promise_a_resume(cli, store, monkeypatch, capsys):
+    # --resume skips a cell whose base image is saved, so the pass it lost is
+    # not one a resume makes: the line must not say it is.
+    import signal
+
+    calls: list[int] = []
+    real_save = storage.save_image
+
+    def save(*args, **kwargs):
+        calls.append(len(calls) + 1)
+        if calls[-1] == 1:
+            return real_save(*args, **kwargs)
+        if calls[-1] == 3:
+            signal.getsignal(signal.SIGINT)(signal.SIGINT, None)
+        raise _enospc()
+
+    monkeypatch.setattr(storage, "save_image", save)
+    flags = ["--then-refine-scale", "1.5", "--then-refine-strength", "0.5"]
+    code = generate.main(["a fox", "--seed", "7", "--runs", "2", "--steps", "8", *SIZE, *flags, "-q"])
+    assert code == 130
+    # The base is kept, its pass is not, and the second cell never renders.
+    rows = store.list_images()[0]
+    assert [r.refine is not None for r in rows] == [False]
+    assert len(cli.requests) == 2
+    err = capsys.readouterr().err
+    assert f"stopped with the disk full: the pass of #{rows[0].id} was not saved; refine that image" in err
+    assert "--resume" not in err and "Forced stop" not in err
+    # And a resume indeed has nothing to do for that cell.
+    cli.requests.clear()
+    generate.main(["a fox", "--seed", "7", "--runs", "1", "--steps", "8", *SIZE, *flags, "-q", "--resume"])
+    assert cli.requests == []
+
+
 def test_any_other_save_error_still_ends_the_run(cli, store, monkeypatch, capsys):
     calls: list[int] = []
     _refusing(

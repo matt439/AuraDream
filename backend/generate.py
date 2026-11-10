@@ -214,8 +214,9 @@ def _save_held(p, should_cancel, what: str, image, ran, **fields):
     """`storage.save_image`'s record, the rendered image held in memory for
     as long as the gallery is busy in another process or the disk has no
     room (`jobs.disk_full`, the server worker's own reading). None when a Ctrl-C
-    ended a full disk's wait, said with the reason; `what` names the image
-    there. Any other error is the caller's, as before."""
+    ended a full disk's wait, said with the reason; `what` says there which
+    image was not saved and whether --resume makes it again. Any other error
+    is the caller's, as before."""
     busy = full = False
     while True:
         try:
@@ -250,7 +251,7 @@ def _save_held(p, should_cancel, what: str, image, ran, **fields):
                 waited += 0.25
             if should_cancel():
                 print(
-                    f"  stopped with the disk full: {what} was not saved; --resume continues it",
+                    f"  stopped with the disk full: {what}",
                     file=sys.stderr, flush=True,
                 )
                 return None
@@ -302,7 +303,10 @@ def _then_refine_passes(p, backend, records, spec, pass_run, job_id, on_progress
         peak = backend.last_peak()
         for image in images:
             saved = _save_held(
-                p, should_cancel, f"the pass of #{record.id}",
+                # --resume skips a cell whose base image is saved, so it is not
+                # promised here.
+                p, should_cancel,
+                f"the pass of #{record.id} was not saved; refine that image to make it",
                 image, ran, seed=cell.seed, duration_ms=elapsed_ms // max(len(images), 1),
                 model_id=p.settings.model_id, job_id=job_id, run_id=pass_run,
                 quantization=p.settings.quantization, variables=cell.variables, batch=1, peak=peak,
@@ -1367,7 +1371,7 @@ def _main(argv: list[str] | None, awake: contextlib.ExitStack) -> int:
                 record = _save_held(
                     p,
                     should_cancel,
-                    f"run {run_index}/{len(cells)}'s image",
+                    f"run {run_index}/{len(cells)}'s image was not saved; --resume continues it",
                     image,
                     ran,
                     seed=wrap_seed(run_seed + offset),
