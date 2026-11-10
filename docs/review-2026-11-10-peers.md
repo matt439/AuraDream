@@ -201,6 +201,24 @@ copy by the pre-pull short commit, leave an existing copy for the same
 commit alone, keep the newest three, and write the way back in
 `docs/setup.md`.
 
+Built 2026-11-10. Both scripts name the copy
+`<stem>-before-update-<commit>.db` from `git rev-parse --short HEAD` read
+before the pull, leave a copy already there for that commit as it is, and
+delete all but the newest three commit-named copies beside the database
+(by modification time, this update's never among the deleted, each with its
+`-wal`/`-shm`). The old fixed name is used only when git answers no commit,
+and an existing fixed-name copy is never counted or deleted. A dry run
+prints the copy, the copy it would leave and each delete. The claims held
+as written: both scripts copied with `-Force`/`cp -f` to the one name.
+`docs/setup.md` has "Going back after an update"; the rule is in
+`docs/rules.md` beside the installer's. Tests:
+`tests/test_install_scripts.py` and `tests/test_linux_scripts.py`, the
+second update keeping the first copy among them. One consequence of the
+rule as written: a copy left alone is not refreshed, so after an update
+that pulled nothing, the next update from that same commit keeps the
+earlier copy, without the images made in between (their PNGs remain, and
+`backend.reindex` reads them back).
+
 ### S5 a log file
 
 `DEV#35`. Logging is `basicConfig` to stderr; job, cell, load and switch

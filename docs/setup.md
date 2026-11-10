@@ -347,19 +347,48 @@ and `uv sync`, and explains a pull Git refuses without discarding anything
 folder:
 
 ```powershell
-Copy-Item auradream.db auradream-before-update.db
+Copy-Item auradream.db "auradream-before-update-$(git rev-parse --short HEAD).db"
 git pull --ff-only
 uv run python -m backend.main
 ```
 
 The copy matters: a new version can add to the gallery database on its
 first start, and an older version cannot undo that, so the copy is the way
-back. (A gallery from before the rename may be `local-diffusion.db`; copy
-that one instead, to `local-diffusion-before-update.db`.) Git ignores
-both copies. The next start installs any changed packages before it
+back. It is named by the commit the folder was on before the pull, for
+example `auradream-before-update-8b4fae3.db`, so the next update makes a
+copy of its own instead of replacing this one. `update.cmd` leaves a copy
+it already made at the same commit alone, keeps the newest three and
+deletes older ones. A copy named plain `auradream-before-update.db` is
+from an older `update.cmd`, which replaced it on every update; nothing
+deletes it. (A gallery from before the rename may be `local-diffusion.db`;
+its copies are `local-diffusion-before-update-<commit>.db`.) Git ignores
+all of them. The next start installs any changed packages before it
 runs, which can take a while when torch changes. If `git pull --ff-only`
 refuses, a file of the code was changed in your folder; `git status` names
 it.
+
+### Going back after an update
+
+If the new version misbehaves, the copy and its commit take the folder
+back to how it was before that update. Stop the server, then from the
+project folder, with the commit from the copy's name:
+
+```powershell
+Move-Item auradream.db auradream-after-update.db
+Copy-Item auradream-before-update-8b4fae3.db auradream.db
+git checkout 8b4fae3
+uv run python -m backend.main
+```
+
+If `auradream.db-wal` or `auradream.db-shm` is still there after the server
+has stopped, move it aside with the database; if the copy has a `-wal` file
+beside it, copy that to `auradream.db-wal` too. The first command keeps the
+newer database rather than deleting it. Images made since the copy are
+still in `outputs\` but not in the older database:
+`uv run python -m backend.reindex` adds them back from the PNGs' own
+metadata (without their stars). The folder then stays on that commit, and
+`update.cmd` cannot pull there; `git checkout main` returns to the branch
+that updates.
 
 A ZIP download cannot be updated in place. Running `install.cmd` again
 offers to turn the folder into a Git checkout ([Easy install](#easy-install)),
@@ -539,8 +568,10 @@ bash linux/update.sh --restart
 `--restart` stops the service only when it is idle (no job, load, switch or
 gallery bundle operation), updates, and starts it again even if the update
 fails; without it, `update.sh` refuses while AuraDream runs. It copies the
-gallery database to its before-update name (the way back, as in
-[Updating](#updating)), runs `git pull --ff-only` and `uv sync`, and never
+gallery database to its before-update name
+(`<name>-before-update-<commit>.db` beside the database, the newest three
+kept; the way back, as in
+[Going back after an update](#going-back-after-an-update)), runs `git pull --ff-only` and `uv sync`, and never
 resets, stashes or checks out a change of yours: a pull Git refuses is
 explained. It reads the service's environment file, so it copies the
 database the service uses. `install-service.sh` again rewrites the unit

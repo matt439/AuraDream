@@ -99,7 +99,9 @@ def _install_stubs(stubs: Path) -> None:
         'fi\n'
         # What control.sh status reads of a checkout.
         'case "$3" in\n'
-        '  rev-parse) [ "$5" = HEAD ] && printf "main\\n"; [ "$5" = --symbolic-full-name ] && printf "origin/main\\n"; exit 0 ;;\n'
+        # The commit update.sh names the database copy by.
+        '  rev-parse) [ "$4" = --short ] && { printf "%s\\n" "${STUB_COMMIT-abc1234}"; exit 0; }\n'
+        '    [ "$5" = HEAD ] && printf "main\\n"; [ "$5" = --symbolic-full-name ] && printf "origin/main\\n"; exit 0 ;;\n'
         '  log) printf "%s\\n" "abc1234 Keep awake (2 days ago)"; exit 0 ;;\n'
         '  fetch) [ -z "${STUB_FETCH_EXIT:-}" ] || { echo "fatal: unable to access the remote" >&2; exit "$STUB_FETCH_EXIT"; }; exit 0 ;;\n'
         '  rev-list) printf "%s\\n" "${STUB_AHEAD_BEHIND:-0 0}"; exit 0 ;;\n'
@@ -601,7 +603,7 @@ def test_update_dry_run_names_the_legacy_copy(sandbox):
     before = _snapshot(sandbox["root"])
     result = _run(sandbox, "update.sh", "--dry-run")
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "local-diffusion-before-update.db" in result.stdout
+    assert "local-diffusion-before-update-abc1234.db" in result.stdout
     assert "would run in" in result.stdout and "git pull --ff-only" in result.stdout
     assert _snapshot(sandbox["root"]) == before
     assert [c for c in _calls(sandbox) if " pull" in c or c.startswith("uv")] == []
@@ -611,16 +613,16 @@ def test_update_dry_run_names_the_legacy_copy(sandbox):
 def test_update_copies_the_gallery_then_pulls_and_syncs(sandbox):
     _checkout_with_gallery(sandbox)
     root = sandbox["root"]
-    stale = root / "auradream-before-update.db-wal"
+    stale = root / "auradream-before-update-abc1234.db-wal"
     stale.write_bytes(b"old journal")
-    (root / "auradream-before-update.db-shm").write_bytes(b"old index")
+    (root / "auradream-before-update-abc1234.db-shm").write_bytes(b"old index")
     (root / "auradream.db-wal").write_bytes(b"live journal")
     (root / "auradream.db-shm").write_bytes(b"live index")
     result = _run(sandbox, "update.sh")
     assert result.returncode == 0, result.stdout + result.stderr
-    assert (root / "auradream-before-update.db").read_bytes() == b"gallery"
-    assert (root / "auradream-before-update.db-wal").read_bytes() == b"live journal"
-    assert not (root / "auradream-before-update.db-shm").exists()   # never copied
+    assert (root / "auradream-before-update-abc1234.db").read_bytes() == b"gallery"
+    assert (root / "auradream-before-update-abc1234.db-wal").read_bytes() == b"live journal"
+    assert not (root / "auradream-before-update-abc1234.db-shm").exists()   # never copied
     calls = [c for c in _calls(sandbox) if c.startswith(("git", "uv"))]
     pulls = [i for i, c in enumerate(calls) if c.endswith("pull --ff-only")]
     assert pulls and calls.index("uv sync") > pulls[0]
@@ -632,12 +634,112 @@ def test_update_copies_the_gallery_then_pulls_and_syncs(sandbox):
 @on_linux
 def test_update_removes_a_stale_copy_journal_when_the_gallery_has_none(sandbox):
     _checkout_with_gallery(sandbox)
-    stale = sandbox["root"] / "auradream-before-update.db-wal"
+    stale = sandbox["root"] / "auradream-before-update-abc1234.db-wal"
     stale.write_bytes(b"old journal")
     (sandbox["root"] / "auradream.db-wal").write_bytes(b"")          # empty: not copied
     result = _run(sandbox, "update.sh")
     assert result.returncode == 0, result.stdout + result.stderr
     assert not stale.exists()
+
+
+@on_linux
+def test_update_keeps_the_copy_an_earlier_update_made(sandbox):
+    # The second update runs after the new version has changed the database:
+    # the copy from before the first pull is still the way back.
+    _checkout_with_gallery(sandbox)
+    root = sandbox["root"]
+    sandbox["env"]["STUB_COMMIT"] = "aaa1111"
+    assert _run(sandbox, "update.sh").returncode == 0
+    (root / "auradream.db").write_bytes(b"migrated")
+    sandbox["env"]["STUB_COMMIT"] = "bbb2222"
+    result = _run(sandbox, "update.sh")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (root / "auradream-before-update-aaa1111.db").read_bytes() == b"gallery"
+    assert (root / "auradream-before-update-bbb2222.db").read_bytes() == b"migrated"
+    assert not (root / "auradream-before-update.db").exists()
+
+
+@on_linux
+def test_update_leaves_a_copy_from_the_same_commit_alone(sandbox):
+    _checkout_with_gallery(sandbox)
+    root = sandbox["root"]
+    copy = root / "auradream-before-update-abc1234.db"
+    assert _run(sandbox, "update.sh").returncode == 0
+    (copy.parent / (copy.name + "-wal")).write_bytes(b"the copy's journal")
+    (root / "auradream.db").write_bytes(b"changed since")
+    dry = _run(sandbox, "update.sh", "--dry-run")
+    assert dry.returncode == 0, dry.stdout + dry.stderr
+    assert f"would leave {copy} as it is" in dry.stdout
+    result = _run(sandbox, "update.sh")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "left alone" in result.stdout
+    assert copy.read_bytes() == b"gallery"
+    assert (copy.parent / (copy.name + "-wal")).read_bytes() == b"the copy's journal"
+
+
+def _older_copies(root: Path) -> dict[str, Path]:
+    """Four named copies, a1 the oldest, and what never counts as one."""
+    copies = {}
+    for age, commit in enumerate(("a4a4a4a", "a3a3a3a", "a2a2a2a", "a1a1a1a"), start=1):
+        path = root / f"auradream-before-update-{commit}.db"
+        path.write_bytes(commit.encode())
+        os.utime(path, (1_700_000_000 - age * 3600, 1_700_000_000 - age * 3600))
+        copies[commit] = path
+    (root / "auradream-before-update-a1a1a1a.db-wal").write_bytes(b"journal")
+    (root / "auradream-before-update.db").write_bytes(b"the old fixed name")
+    (root / "auradream-before-update-notes.db").write_bytes(b"not a commit")
+    (root / "other-before-update-a0a0a0a.db").write_bytes(b"another database's")
+    return copies
+
+
+@on_linux
+def test_update_keeps_the_newest_three_copies(sandbox):
+    _checkout_with_gallery(sandbox)
+    root = sandbox["root"]
+    copies = _older_copies(root)
+    before = _snapshot(root)
+    dry = _run(sandbox, "update.sh", "--dry-run")
+    assert dry.returncode == 0, dry.stdout + dry.stderr
+    for commit in ("a2a2a2a", "a1a1a1a"):
+        assert f"would delete the older copy {copies[commit]}" in dry.stdout
+    assert "a3a3a3a" not in dry.stdout and "a4a4a4a" not in dry.stdout
+    assert _snapshot(root) == before
+    result = _run(sandbox, "update.sh")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (root / "auradream-before-update-abc1234.db").read_bytes() == b"gallery"
+    assert copies["a4a4a4a"].exists() and copies["a3a3a3a"].exists()
+    assert not copies["a2a2a2a"].exists() and not copies["a1a1a1a"].exists()
+    assert not (root / "auradream-before-update-a1a1a1a.db-wal").exists()
+    # Only this database's commit-named copies are counted or deleted.
+    assert (root / "auradream-before-update.db").read_bytes() == b"the old fixed name"
+    assert (root / "auradream-before-update-notes.db").exists()
+    assert (root / "other-before-update-a0a0a0a.db").exists()
+
+
+@on_linux
+def test_update_counts_a_copy_it_left_alone_among_the_three(sandbox):
+    _checkout_with_gallery(sandbox)
+    root = sandbox["root"]
+    copies = _older_copies(root)
+    sandbox["env"]["STUB_COMMIT"] = "a1a1a1a"         # the oldest copy is this commit's
+    result = _run(sandbox, "update.sh")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert copies["a1a1a1a"].read_bytes() == b"a1a1a1a"
+    assert copies["a4a4a4a"].exists() and copies["a3a3a3a"].exists()
+    assert not copies["a2a2a2a"].exists()
+
+
+@on_linux
+def test_update_without_a_commit_uses_the_fixed_name(sandbox):
+    # Git answers no commit (an unborn branch): the one name, replaced.
+    _checkout_with_gallery(sandbox)
+    root = sandbox["root"]
+    copies = _older_copies(root)
+    sandbox["env"]["STUB_COMMIT"] = ""
+    result = _run(sandbox, "update.sh")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (root / "auradream-before-update.db").read_bytes() == b"gallery"
+    assert all(path.exists() for path in copies.values())   # nothing counted, nothing deleted
 
 
 @on_linux
@@ -652,8 +754,8 @@ def test_update_reads_the_service_env_file(sandbox):
     env_file.write_text(f"# settings\nAURADREAM_DB_PATH={data / 'gallery.db'}\nAURADREAM_PORT=1\n")
     result = _run(sandbox, "update.sh", "--dry-run")
     assert result.returncode == 0, result.stdout + result.stderr
-    assert f"copy {data / 'gallery.db'} to {data / 'gallery-before-update.db'}" in result.stdout
-    assert "auradream-before-update.db" not in result.stdout
+    assert f"copy {data / 'gallery.db'} to {data / 'gallery-before-update-abc1234.db'}" in result.stdout
+    assert "auradream-before-update" not in result.stdout
 
 
 @on_linux
