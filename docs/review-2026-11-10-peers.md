@@ -213,6 +213,19 @@ makes it private.
 First step: a design note listing every unauthenticated surface before any
 code.
 
+Design note written 2026-11-10, no code yet:
+[A passcode beyond loopback](design-notes.md#a-passcode-beyond-loopback)
+lists the surfaces (88 API operations on 77 paths, the stream, both mounts,
+`/sw.js`, four documentation routes, and every script and tool that calls
+the server) and fixes the design and a four-stage build order. The code is
+next, from its stage 1. Reading the source confirmed the finding. Two
+points go past its wording and are Matt's to overrule before stage 1: the
+passcode is also asked on a loopback bind whose `AURADREAM_ALLOWED_HOSTS`
+lists another name (a proxy in front), and a request from 127.0.0.1 is not
+exempt while it is on, so the scripts on the server send the passcode from
+the environment file. `sw.js` and `offline.html` stay behind the passcode
+and need no change; only the manifest and its icons stay open.
+
 ### S3 an HTTPS route
 
 `DEV#33`. `main._origin_allowed` requires the Origin's port to equal
