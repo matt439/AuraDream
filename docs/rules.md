@@ -591,8 +591,15 @@ before changing it.
   in-process, and only for a non-default folder. `update.ps1` refuses while
   the port's page is AuraDream's or a process runs from the folder's
   `.venv`, copies the database `legacy_names` would pick (or
-  `AURADREAM_DB_PATH`) to `<name>-before-update.db` before
-  `git pull --ff-only`, and never resets, stashes or checks out. The test
+  `AURADREAM_DB_PATH`) to `<name>-before-update-<commit>.db` before
+  `git pull --ff-only`, and never resets, stashes or checks out. `<commit>`
+  is `git rev-parse --short HEAD` before the pull: a copy already there for
+  that commit is left alone (never refreshed), and of the copies so named
+  beside the database the newest three by modification time stay, this
+  update's always among them, the rest deleted with their `-wal`/`-shm`.
+  The plain `<name>-before-update.db` is the name only when git gives no
+  commit (replaced each time, as before `DEV#34`); it is never counted or
+  deleted. `linux/update.sh` follows the same rule. The test
   seam `AURADREAM_INSTALL_TEST_ROOT` names the project folder, ignores the
   user's saved variables and takes the desktop from `USERPROFILE`
   (`tests/test_install_scripts.py`, Windows only)

@@ -43,6 +43,8 @@ def _git(stubs: Path, pull_exit: int = 0, pull_output: str = "Already up to date
         'if "%~1"=="--version" (echo git version 2.99.0.stub& exit /b 0)',
         f'if "%~3"=="pull" (echo {pull_output}& exit /b {pull_exit})',
         'if "%~3"=="remote" (echo https://github.com/matt439/AuraDream.git& exit /b 0)',
+        # The commit update.ps1 names the database copy by.
+        'if "%~4"=="--short" (echo %STUB_COMMIT%& exit /b 0)',
         'if "%~3"=="rev-parse" (echo main& exit /b 0)',
         "exit /b 0",
     ])
@@ -88,6 +90,7 @@ def sandbox(tmp_path):
         "LOCALAPPDATA": str(home / "Local"),
         "AURADREAM_INSTALL_TEST_ROOT": str(root),
         "STUB_LOG": str(log),
+        "STUB_COMMIT": "abc1234",
         # Nothing listens on port 1: a server running on this machine's 7860
         # never answers for the sandbox. Tests that want one set their own.
         "AURADREAM_PORT": "1",
@@ -283,7 +286,7 @@ def test_update_dry_run_names_the_legacy_copy(sandbox):
     before = _snapshot(sandbox["root"])
     result = _run(sandbox, "update.ps1", "-DryRun")
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "local-diffusion-before-update.db" in result.stdout
+    assert "local-diffusion-before-update-abc1234.db" in result.stdout
     assert "would run in" in result.stdout and "git pull --ff-only" in result.stdout
     assert _snapshot(sandbox["root"]) == before
     assert [c for c in _calls(sandbox) if " pull" in c or c.startswith("uv")] == []
@@ -291,15 +294,132 @@ def test_update_dry_run_names_the_legacy_copy(sandbox):
 
 def test_update_copies_the_gallery_then_pulls_and_syncs(sandbox):
     _checkout_with_gallery(sandbox)
-    stale = sandbox["root"] / "auradream-before-update.db-wal"
+    stale = sandbox["root"] / "auradream-before-update-abc1234.db-wal"
     stale.write_bytes(b"old journal")
     sandbox["env"]["AURADREAM_PORT"] = "1"
     result = _run(sandbox, "update.ps1")
     assert result.returncode == 0, result.stdout + result.stderr
-    assert (sandbox["root"] / "auradream-before-update.db").read_bytes() == b"gallery"
+    assert (sandbox["root"] / "auradream-before-update-abc1234.db").read_bytes() == b"gallery"
     assert not stale.exists()                         # never applied to the new copy
     calls = _calls(sandbox)
     assert any(c.endswith("pull --ff-only") for c in calls) and "uv sync" in calls
+
+
+def test_update_keeps_the_copy_an_earlier_update_made(sandbox):
+    # The second update runs after the new version has changed the database:
+    # the copy from before the first pull is still the way back.
+    _checkout_with_gallery(sandbox)
+    root = sandbox["root"]
+    sandbox["env"]["STUB_COMMIT"] = "aaa1111"
+    assert _run(sandbox, "update.ps1").returncode == 0
+    (root / "auradream.db").write_bytes(b"migrated")
+    sandbox["env"]["STUB_COMMIT"] = "bbb2222"
+    result = _run(sandbox, "update.ps1")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (root / "auradream-before-update-aaa1111.db").read_bytes() == b"gallery"
+    assert (root / "auradream-before-update-bbb2222.db").read_bytes() == b"migrated"
+    assert not (root / "auradream-before-update.db").exists()
+
+
+def test_update_leaves_a_copy_from_the_same_commit_alone(sandbox):
+    _checkout_with_gallery(sandbox)
+    root = sandbox["root"]
+    copy = root / "auradream-before-update-abc1234.db"
+    assert _run(sandbox, "update.ps1").returncode == 0
+    (copy.parent / (copy.name + "-wal")).write_bytes(b"the copy's journal")
+    (root / "auradream.db").write_bytes(b"changed since")
+    dry = _run(sandbox, "update.ps1", "-DryRun")
+    assert dry.returncode == 0, dry.stdout + dry.stderr
+    assert f"would leave {copy} as it is" in dry.stdout
+    result = _run(sandbox, "update.ps1")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "left alone" in result.stdout
+    assert copy.read_bytes() == b"gallery"
+    assert (copy.parent / (copy.name + "-wal")).read_bytes() == b"the copy's journal"
+
+
+def _older_copies(root: Path) -> dict[str, Path]:
+    """Four named copies, a1 the oldest, and what never counts as one."""
+    copies = {}
+    for age, commit in enumerate(("a4a4a4a", "a3a3a3a", "a2a2a2a", "a1a1a1a"), start=1):
+        path = root / f"auradream-before-update-{commit}.db"
+        path.write_bytes(commit.encode())
+        os.utime(path, (1_700_000_000 - age * 3600, 1_700_000_000 - age * 3600))
+        copies[commit] = path
+    (root / "auradream-before-update-a1a1a1a.db-wal").write_bytes(b"journal")
+    (root / "auradream-before-update.db").write_bytes(b"the old fixed name")
+    (root / "auradream-before-update-notes.db").write_bytes(b"not a commit")
+    (root / "other-before-update-a0a0a0a.db").write_bytes(b"another database's")
+    return copies
+
+
+def test_update_keeps_the_newest_three_copies(sandbox):
+    _checkout_with_gallery(sandbox)
+    root = sandbox["root"]
+    copies = _older_copies(root)
+    before = _snapshot(root)
+    dry = _run(sandbox, "update.ps1", "-DryRun")
+    assert dry.returncode == 0, dry.stdout + dry.stderr
+    for commit in ("a2a2a2a", "a1a1a1a"):
+        assert f"would delete the older copy {copies[commit]}" in dry.stdout
+    assert "a3a3a3a" not in dry.stdout and "a4a4a4a" not in dry.stdout
+    assert _snapshot(root) == before
+    result = _run(sandbox, "update.ps1")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (root / "auradream-before-update-abc1234.db").read_bytes() == b"gallery"
+    assert copies["a4a4a4a"].exists() and copies["a3a3a3a"].exists()
+    assert not copies["a2a2a2a"].exists() and not copies["a1a1a1a"].exists()
+    assert not (root / "auradream-before-update-a1a1a1a.db-wal").exists()
+    # Only this database's commit-named copies are counted or deleted.
+    assert (root / "auradream-before-update.db").read_bytes() == b"the old fixed name"
+    assert (root / "auradream-before-update-notes.db").exists()
+    assert (root / "other-before-update-a0a0a0a.db").exists()
+
+
+def test_update_counts_a_copy_it_left_alone_among_the_three(sandbox):
+    _checkout_with_gallery(sandbox)
+    root = sandbox["root"]
+    copies = _older_copies(root)
+    sandbox["env"]["STUB_COMMIT"] = "a1a1a1a"         # the oldest copy is this commit's
+    result = _run(sandbox, "update.ps1")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert copies["a1a1a1a"].read_bytes() == b"a1a1a1a"
+    assert copies["a4a4a4a"].exists() and copies["a3a3a3a"].exists()
+    assert not copies["a2a2a2a"].exists()
+
+
+def test_update_orders_a_copy_by_when_it_was_made(sandbox):
+    # A gallery untouched for years: its copy is still the newest one, never
+    # the first deleted because it carries the database's own time.
+    _checkout_with_gallery(sandbox)
+    root = sandbox["root"]
+    os.utime(root / "auradream.db", (1_000_000_000, 1_000_000_000))
+    sandbox["env"]["STUB_COMMIT"] = "aaa1111"
+    assert _run(sandbox, "update.ps1").returncode == 0
+    planted = []
+    for age, commit in enumerate(("a2a2a2a", "a1a1a1a"), start=1):
+        path = root / f"auradream-before-update-{commit}.db"
+        path.write_bytes(commit.encode())
+        os.utime(path, (1_700_000_000 - age * 3600, 1_700_000_000 - age * 3600))
+        planted.append(path)
+    sandbox["env"]["STUB_COMMIT"] = "bbb2222"
+    result = _run(sandbox, "update.ps1")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (root / "auradream-before-update-aaa1111.db").read_bytes() == b"gallery"
+    assert (root / "auradream-before-update-bbb2222.db").exists()
+    assert planted[0].exists() and not planted[1].exists()
+
+
+def test_update_without_a_commit_uses_the_fixed_name(sandbox):
+    # Git answers no commit (an unborn branch): the one name, replaced.
+    _checkout_with_gallery(sandbox)
+    root = sandbox["root"]
+    copies = _older_copies(root)
+    sandbox["env"]["STUB_COMMIT"] = ""
+    result = _run(sandbox, "update.ps1")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (root / "auradream-before-update.db").read_bytes() == b"gallery"
+    assert all(path.exists() for path in copies.values())   # nothing counted, nothing deleted
 
 
 def test_update_explains_a_refused_pull_and_discards_nothing(sandbox):
