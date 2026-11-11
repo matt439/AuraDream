@@ -78,7 +78,19 @@ def test_nested_load_preflights_then_downloads_only_its_tree(monkeypatch, nested
     ))
     original_quantization = loading.quantization_config
     owned_configs = []
-    encoder = object()
+    # Unquantized embeddings/norms can remain views into the original BF16
+    # checkpoint even when the encoder's linear layers were quantized.
+    backing_path = tree.parent / "encoder-plain.bin"
+    backing_path.write_bytes(bytes(12 * 4))
+    backing = torch.from_file(str(backing_path), size=12, dtype=torch.float32)
+    backing.copy_(torch.arange(12, dtype=torch.float32))
+    encoder = torch.nn.Module()
+    encoder.register_parameter("weight", torch.nn.Parameter(backing[:8].reshape(2, 4)))
+    encoder.tied = torch.nn.Module()
+    encoder.tied.register_parameter("weight", encoder.weight)
+    encoder.register_buffer("positions", backing[8:])
+    weight, positions = encoder.weight, encoder.positions
+    expected_weight, expected_positions = weight.detach().clone(), positions.clone()
 
     def quantization(settings):
         assert Path(settings.model_id) == tree
@@ -116,6 +128,19 @@ def test_nested_load_preflights_then_downloads_only_its_tree(monkeypatch, nested
         assert "subfolder" not in kwargs
         assert ("quantization_config" in kwargs) == (quant != "none")
         assert kwargs["text_encoder"] is encoder
+        assert encoder.weight is encoder.tied.weight
+        assert torch.equal(encoder.weight, expected_weight)
+        assert torch.equal(encoder.positions, expected_positions)
+        if quant == "none":
+            assert encoder.weight is weight and encoder.positions is positions
+        else:
+            assert encoder.weight.data_ptr() != weight.data_ptr()
+            assert encoder.positions.data_ptr() != positions.data_ptr()
+            # The direct override must release these views before the next
+            # component loads, not only after publishing the whole pipeline.
+            backing.add_(100)
+            assert torch.equal(encoder.weight, expected_weight)
+            assert torch.equal(encoder.positions, expected_positions)
         return ZImagePipeline()
 
     monkeypatch.setattr(loading, "quantization_config", quantization)

@@ -1644,6 +1644,37 @@ requests, hashes, metrics, guard summary and script/log digests. Full PNGs,
 native inspection crops, scratch database, scripts and raw logs remain in
 `%TEMP%/auradream-card13-sdxl-20261111/`.
 
+**FLUX/Z-Anime follow-up stops, 2026-11-11.** Matt requested the remaining
+`CARD#13` checks and one accumulated PR. Both checkpoints were cached;
+the scratch harness prepared no downloads or live-gallery writes. The
+planned CPU source fixtures were Lanczos resizes of the owned SDXL source,
+explicitly indexed as `fixture/cpu-lanczos-resize` with unknown duration,
+not images generated at those sizes.
+
+Z-Anime's first offline FP8/model-offload load stopped at the supervisor's
+24 GiB working-set ceiling: 24.12 GiB sampled working set and 29.51 GiB
+private. It had not rendered or prepared source fixtures. The independent
+card guard observed at least 17.66 GiB free RAM and 22.46 GiB commit
+headroom, and no rise in shared GPU memory. The supervisor killed the
+owned process tree; the guard exited 0 after that tree exited. This is a
+controlled stop, not a passing card qualification. Its
+[receipt](measurements/card13-z-anime-load-stop-2026-11-11.json) retains the
+process limits, peaks, exit codes and log digests.
+
+FLUX was refused before worker admission or any model load. Its prior
+inpaint reservation, 12.83 GiB, plus the current 2,719 MiB desktop projects
+15,857 MiB, above the unchanged 15,500 MiB card guard. Reservation is not
+a simultaneous residency measurement, but the earlier actual card peaks
+also leave little margin here. The session therefore required desktop use
+at most 2,100 MiB; the guard's startup refusal exited 7. The
+[preflight receipt](measurements/card13-flux-preflight-2026-11-11.json)
+records that refusal; it is not evidence that the cropped pass fits or
+fails. Both process trees exited and the card returned to its 2,719 MiB
+idle baseline. `CARD#13` remains open. Raw evidence is in
+`%TEMP%/auradream-card13-followup-20261111/`, each attempt in its own
+directory. A larger Z-Anime RAM allowance needs a separately stated
+envelope; FLUX model offload needs a lower desktop baseline.
+
 ## Outpaint
 
 Measured 2026-10-17 in the same runs, the same way, from the same

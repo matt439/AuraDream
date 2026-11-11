@@ -1134,7 +1134,10 @@ measured on the card and when.
   Its bundled encoder has scaled FP8 tensors without quantization metadata.
   Skip those weights: `loading.component_overrides` loads the standard Qwen3
   encoder from pinned `Tongyi-MAI/Z-Image`, using the same Transformers-owned
-  config from `quant_mapping`. Never silently discard the bundled scales.
+  config from `quant_mapping`. Its direct quantized Transformers load calls
+  `own_tensors` before the denoiser loads: it bypasses Diffusers'
+  `load_sub_model` wrapper. A BF16 override retains its mapped weights.
+  Never silently discard the bundled scales.
 
 - `circlestone-labs/Anima` selects the pinned full Turbo v1.1 split file.
   `anima_loading` converts its denoiser and conditioner on CPU, uses the pinned

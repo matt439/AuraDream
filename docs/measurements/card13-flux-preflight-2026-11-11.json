@@ -1,0 +1,86 @@
+{
+  "date": "2026-11-11",
+  "scope": "CARD#13 FLUX load preflight refused",
+  "model": "black-forest-labs/FLUX.1-Krea-dev",
+  "projection": {
+    "prior_inpaint_reserved_gib": 12.83,
+    "desktop_mib": 2719.0,
+    "sum_mib": 15856.92,
+    "card_guard_mib": 15500,
+    "startup_ceiling_mib": 2100
+  },
+  "guard_baseline": {
+    "time": "2026-11-11T13:02:21.467",
+    "event": "baseline",
+    "limits": {
+      "card_mib": 15500.0,
+      "project_mib": 15200.0,
+      "refuse_at_peak_mib": 15000.0,
+      "adapter_shared_rise_mib": 1024.0,
+      "process_shared_rise_mib": 512.0,
+      "ram_floor_gib": 4.0,
+      "commit_floor_gib": 4.0,
+      "need_ram_gib": 34.0,
+      "busy_card_mib": 2100.0,
+      "card_unread_samples": 3.0,
+      "margin_mib": 500.0,
+      "margin_gib": 1.0
+    },
+    "watch_pid": 36312,
+    "pids": [
+      36312,
+      25820,
+      26420
+    ],
+    "period_s": 0.5,
+    "card_total_mib": 16303.0,
+    "card_mib": 2719.0,
+    "adapter_shared_mib": 42.5,
+    "adapter_rise_mib": 0.0,
+    "process_shared_mib": 0.0,
+    "process_rise_mib": 0.0,
+    "available_gib": 39.79,
+    "commit_headroom_gib": 51.17,
+    "tree_gib": 0.04
+  },
+  "guard_summary": {
+    "time": "2026-11-11T13:02:21.468",
+    "event": "summary",
+    "exit": 7,
+    "stopped": "busy",
+    "seconds": 0.0,
+    "min_available_gib": 39.79,
+    "min_commit_headroom_gib": 51.17,
+    "peaks": {
+      "card_mib": 2719.0,
+      "adapter_shared_mib": 42.5,
+      "process_shared_mib": 0.0,
+      "tree_gib": 0.04
+    },
+    "largest_shared_rise_mib": {
+      "adapter": 0.0,
+      "process": 0.0
+    },
+    "samples": 1
+  },
+  "supervisor": {
+    "worker_exit": 15,
+    "guard_exit": 7,
+    "reason": "guard exited early: 7",
+    "elapsed_seconds": 1.5838064000126906,
+    "peaks": {
+      "rss_gib": 0.037723541259765625,
+      "private_gib": 0.01782989501953125
+    }
+  },
+  "loads_started": 0,
+  "renders_completed": 0,
+  "status": "refused before worker admission because desktop exceeds conservative FLUX card baseline",
+  "evidence_directory": "%TEMP%/auradream-card13-followup-20261111/flux/",
+  "sha256": {
+    "qualify.py": "e4568058e7b529a699f2d5d5505dc4ea9d33741bc798f72c5f70562de08bede4",
+    "supervise.py": "f67b24617b0d4b74cb6bf90b16a276a669d0a39bf8ea9b9e0045981456ee9bbc",
+    "memory.jsonl": "709b3ac818353b84e2ec1c645873ae4d5649f72ae13211ca84be80c7ada9198d",
+    "guard.jsonl": "71e0f28b562e0cbc912b316d398b638c8eaeab426fc1463f85dea3cb7236f37d"
+  }
+}

@@ -106,6 +106,17 @@ GiB; int8 the same. On the card (2026-10-27) the FLUX.1 Krea dev fp8 load
 peaked at 27.9 GiB working set; the other checkpoints' loads are still the
 card's to say (`CARD#4`, `#6`, `#12` and the rows behind them).
 
+**The Z-Anime override, 2026-11-11.** A guarded `CARD#13` load stopped
+at 24.12 GiB working set before rendering. Its replacement Qwen3 encoder
+loads directly through Transformers, before the pipeline's
+`checkpoint_files_released` scope; Diffusers receives that encoder as an
+override and never calls `load_sub_model` for it. The usual component
+wrapper therefore cannot release its unquantized shard views. The direct
+quantized load now calls the same `own_tensors` helper before loading the
+denoiser. BF16 remains mapped; ties, values and quantized tensor subclasses
+retain the helper's existing contract. This fixes an ownership gap; its
+effect on the real load's peak needs a new guarded measurement.
+
 ## mu, sigmas and the shift that lands
 
 **`sigmas` is an input to the shift, not the shift's result.** `__call__`
