@@ -1,0 +1,817 @@
+{
+  "date": "2026-11-11",
+  "scope": "CARD#13 SDXL cropped outpaint only",
+  "driver_version": "616.92",
+  "environment": {
+    "event": "environment",
+    "time": 1794365013.7723143,
+    "commit": "7be054ae29505ff531bc3c041a9060c5c43b5309",
+    "model": "cagliostrolab/animagine-xl-4.0",
+    "versions": {
+      "torch": "2.13.0+cu130",
+      "diffusers": "0.42.1",
+      "torchao": "0.18.0",
+      "accelerate": "1.15.0",
+      "transformers": "5.16.1",
+      "Pillow": "13.0.0"
+    },
+    "device": "NVIDIA GeForce RTX 5080",
+    "offline": true,
+    "scratch": "C:\\Users\\matsi\\AppData\\Local\\Temp\\auradream-card13-sdxl-20261111"
+  },
+  "cached_model_snapshot": "2b7c1b397761bf5bd3cc42e5b39ec99314a75a96",
+  "method": {
+    "offline": true,
+    "loads": 1,
+    "quantization": "fp8",
+    "offload": "model",
+    "batch": 1,
+    "seed_source": 12345,
+    "seed_outpaint": 12346,
+    "source": "1024-square render then 2048-square refine at strength 0.3",
+    "outpaint_canvas": [
+      3648,
+      2048
+    ],
+    "outpaint_band": 32,
+    "steps": 28,
+    "cfg": 5,
+    "outpaint_strength": 0.9999,
+    "live_preview": false,
+    "timing": "synchronized backend.generate wall time, excludes load, save and CPU metrics",
+    "guard_sample_period_requested_s": 0.5,
+    "guard_sampling_note": "Actual serial Windows counter samples were roughly 1.8 seconds apart; sampled peaks can miss transients",
+    "process_sample_period_requested_s": 0.25,
+    "process_ceilings_gib": {
+      "working_set": 14,
+      "private": 16
+    },
+    "isolation": "scratch gallery and outputs; main.ensure_loaded followed by normal backend/applied/stamp/storage paths; no HTTP server"
+  },
+  "load_seconds": 21.39105790000758,
+  "guard_startup_evidence": {
+    "first_passed_sample": "2026-11-11T12:43:31.294",
+    "load_start_unix": 1794365013.772872,
+    "note": "As-run supervisor admitted on baseline; guard startup checks and first sample completed before this load. Reusable supervisor now waits for first sample and refuses stale evidence."
+  },
+  "guard_baseline": {
+    "time": "2026-11-11T12:43:29.475",
+    "event": "baseline",
+    "limits": {
+      "card_mib": 15500.0,
+      "project_mib": 15200.0,
+      "refuse_at_peak_mib": 15000.0,
+      "adapter_shared_rise_mib": 1024.0,
+      "process_shared_rise_mib": 512.0,
+      "ram_floor_gib": 4.0,
+      "commit_floor_gib": 4.0,
+      "need_ram_gib": 14.0,
+      "busy_card_mib": 3500.0,
+      "card_unread_samples": 3.0,
+      "margin_mib": 500.0,
+      "margin_gib": 1.0
+    },
+    "watch_pid": 43508,
+    "pids": [
+      43508,
+      48020,
+      56944
+    ],
+    "period_s": 0.5,
+    "card_total_mib": 16303.0,
+    "card_mib": 2719.0,
+    "adapter_shared_mib": 42.5,
+    "adapter_rise_mib": 0.0,
+    "process_shared_mib": 0.0,
+    "process_rise_mib": 0.0,
+    "available_gib": 36.87,
+    "commit_headroom_gib": 48.47,
+    "tree_gib": 0.04
+  },
+  "guard_summary": {
+    "time": "2026-11-11T12:48:11.297",
+    "event": "summary",
+    "exit": 0,
+    "stopped": "watched process exited",
+    "seconds": 281.8,
+    "min_available_gib": 29.85,
+    "min_commit_headroom_gib": 36.23,
+    "peaks": {
+      "card_mib": 10212.0,
+      "adapter_shared_mib": 124.5,
+      "process_shared_mib": 82.0,
+      "tree_gib": 6.97
+    },
+    "largest_shared_rise_mib": {
+      "adapter": 82.0,
+      "process": 82.0
+    },
+    "samples": 155
+  },
+  "supervisor": {
+    "worker_exit": 0,
+    "guard_exit": 0,
+    "reason": null,
+    "elapsed_seconds": 283.30991979999817,
+    "peaks": {
+      "rss_gib": 9.556827545166016,
+      "private_gib": 14.46600341796875
+    }
+  },
+  "renders": [
+    {
+      "name": "source1024",
+      "seconds": 9.377442700002575,
+      "seed": 12345,
+      "id": 1,
+      "filename": "20261111-024404-12345-4ab646.png",
+      "pixels_sha256": "c2d7303b9ba046b80a9807bad575009be4cedac548e5b64a24a54327826e62a5",
+      "png_sha256": "ac506a5a62e9f047ee655b5a198943c9e787096e953cbc9371638652719532b8",
+      "crop": null,
+      "request": {
+        "prompt": "scenery, no humans, winter forest, snow, pine trees, wooden cabin, warm glowing windows, wooden fence, river, stone bridge, mountain, detailed background, soft morning light, illustration, masterpiece, best quality",
+        "negative_prompt": "lowres, blurry, worst quality, low quality, text, watermark",
+        "width": 1024,
+        "height": 1024,
+        "steps": 28,
+        "guidance_scale": 5.0,
+        "true_cfg": 5.0,
+        "mu": null,
+        "reference": [],
+        "lora": null,
+        "lora_scale": 1.0,
+        "refine": null,
+        "strength": 0.4,
+        "crop_anchor": "center",
+        "upscaler": null,
+        "mask": null,
+        "outpaint": null,
+        "mask_crop": null,
+        "execution": null,
+        "edit": null,
+        "seed": null,
+        "num_images": 1,
+        "runs": 1
+      },
+      "steps_completed": [
+        28,
+        28
+      ],
+      "allocator_peak_gib": [
+        3.1200928688049316,
+        3.46875
+      ],
+      "card_peak_mib": 6576.0,
+      "process_peak_gib": {
+        "rss_gib": 5.702476501464844,
+        "private_gib": 10.850761413574219
+      }
+    },
+    {
+      "name": "source2048",
+      "seconds": 12.911275799997384,
+      "seed": 12345,
+      "id": 2,
+      "filename": "20261111-024417-12345-dc59a6.png",
+      "pixels_sha256": "720a6504bccc03ffbab663df54fb8637969da0abaed2b2bf30527fdee91b9345",
+      "png_sha256": "0f97f08cd4ead14bd9fc3a67dc1399bdb3507660647dc79233b2a2564f185112",
+      "crop": null,
+      "request": {
+        "prompt": "scenery, no humans, winter forest, snow, pine trees, wooden cabin, warm glowing windows, wooden fence, river, stone bridge, mountain, detailed background, soft morning light, illustration, masterpiece, best quality",
+        "negative_prompt": "lowres, blurry, worst quality, low quality, text, watermark",
+        "width": 2048,
+        "height": 2048,
+        "steps": 28,
+        "guidance_scale": 5.0,
+        "true_cfg": 5.0,
+        "mu": null,
+        "reference": [],
+        "lora": null,
+        "lora_scale": 1.0,
+        "refine": 1,
+        "strength": 0.3,
+        "crop_anchor": "center",
+        "upscaler": null,
+        "mask": null,
+        "outpaint": null,
+        "mask_crop": null,
+        "execution": null,
+        "edit": null,
+        "seed": null,
+        "num_images": 1,
+        "runs": 1
+      },
+      "steps_completed": [
+        8,
+        8
+      ],
+      "allocator_peak_gib": [
+        4.215497970581055,
+        5.2578125
+      ],
+      "card_peak_mib": 8408.0,
+      "process_peak_gib": {
+        "rss_gib": 5.674732208251953,
+        "private_gib": 12.536819458007812
+      }
+    },
+    {
+      "name": "sym-full",
+      "seconds": 75.73029830001178,
+      "seed": 12346,
+      "id": 3,
+      "filename": "20261111-024533-12346-85528a.png",
+      "pixels_sha256": "c242e92294d0c68ec134749be613d1575c03a30c3609a7ae6f7ed66467364966",
+      "png_sha256": "f31b9da0712b7b65452540214b82a704ad06a8e91c6abb096bf544e9f9bf2cb3",
+      "crop": null,
+      "request": {
+        "prompt": "scenery, no humans, winter forest, snow, pine trees, wooden cabin, warm glowing windows, wooden fence, river, stone bridge, mountain, detailed background, soft morning light, illustration, masterpiece, best quality",
+        "negative_prompt": "lowres, blurry, worst quality, low quality, text, watermark",
+        "width": 3648,
+        "height": 2048,
+        "steps": 28,
+        "guidance_scale": 5.0,
+        "true_cfg": 5.0,
+        "mu": null,
+        "reference": [],
+        "lora": null,
+        "lora_scale": 1.0,
+        "refine": 2,
+        "strength": 0.9999,
+        "crop_anchor": "center",
+        "upscaler": null,
+        "mask": "ff37f8494f81b160b18dac6f51944104bb8682fc453adf8fea111b7e5c19520f",
+        "outpaint": {
+          "fill": "edge-box3-r16",
+          "left": 800,
+          "top": 0,
+          "right": 800,
+          "bottom": 0,
+          "band": 32
+        },
+        "mask_crop": null,
+        "execution": null,
+        "edit": null,
+        "seed": null,
+        "num_images": 1,
+        "runs": 1
+      },
+      "steps_completed": [
+        27,
+        27
+      ],
+      "allocator_peak_gib": [
+        5.20014762878418,
+        7.017578125
+      ],
+      "card_peak_mib": 10210.0,
+      "process_peak_gib": {
+        "rss_gib": 6.693946838378906,
+        "private_gib": 14.46600341796875
+      },
+      "outside_mask_max": 0,
+      "seam": [
+        {
+          "step": 2.5591634114583335,
+          "soft_gradient": 5.195813907090054
+        },
+        {
+          "step": 2.677734375,
+          "soft_gradient": 7.423240087365591
+        }
+      ]
+    },
+    {
+      "name": "sym-crop32",
+      "seconds": 10.870860499999253,
+      "seed": 12346,
+      "id": 4,
+      "filename": "20261111-024549-12346-99fc04.png",
+      "pixels_sha256": "ba1e62a2fb5ad6db78ac932a32689f63690980dcc90856cb4c9d5906b93aac5c",
+      "png_sha256": "83d399b99c3ecf38d1604203cf83ec14ba1b05e03fbd5f78b23dc5c1c8960920",
+      "crop": {
+        "box": [
+          0,
+          0,
+          3648,
+          2048
+        ],
+        "working": [
+          1376,
+          784
+        ]
+      },
+      "request": {
+        "prompt": "scenery, no humans, winter forest, snow, pine trees, wooden cabin, warm glowing windows, wooden fence, river, stone bridge, mountain, detailed background, soft morning light, illustration, masterpiece, best quality",
+        "negative_prompt": "lowres, blurry, worst quality, low quality, text, watermark",
+        "width": 3648,
+        "height": 2048,
+        "steps": 28,
+        "guidance_scale": 5.0,
+        "true_cfg": 5.0,
+        "mu": null,
+        "reference": [],
+        "lora": null,
+        "lora_scale": 1.0,
+        "refine": 2,
+        "strength": 0.9999,
+        "crop_anchor": "center",
+        "upscaler": null,
+        "mask": "ff37f8494f81b160b18dac6f51944104bb8682fc453adf8fea111b7e5c19520f",
+        "outpaint": {
+          "fill": "edge-box3-r16",
+          "left": 800,
+          "top": 0,
+          "right": 800,
+          "bottom": 0,
+          "band": 32
+        },
+        "mask_crop": {
+          "rule": "bbox16",
+          "pad": 32,
+          "tier": 1
+        },
+        "execution": null,
+        "edit": null,
+        "seed": null,
+        "num_images": 1,
+        "runs": 1
+      },
+      "steps_completed": [
+        27,
+        27
+      ],
+      "allocator_peak_gib": [
+        3.2885398864746094,
+        3.65625
+      ],
+      "card_peak_mib": 6770.0,
+      "process_peak_gib": {
+        "rss_gib": 6.456066131591797,
+        "private_gib": 10.80385971069336
+      },
+      "outside_mask_max": 0,
+      "seam": [
+        {
+          "step": 2.5591634114583335,
+          "soft_gradient": 5.195813907090054
+        },
+        {
+          "step": 3.196533203125,
+          "soft_gradient": 5.034570837533602
+        }
+      ]
+    },
+    {
+      "name": "sym-crop32-repeat",
+      "seconds": 10.83049100000062,
+      "seed": 12346,
+      "id": 5,
+      "filename": "20261111-024603-12346-a5f4e6.png",
+      "pixels_sha256": "ba1e62a2fb5ad6db78ac932a32689f63690980dcc90856cb4c9d5906b93aac5c",
+      "png_sha256": "b039b95339fe99e1b99f0c996a4515e3db3a803c59da5c85c5ac5e22af402216",
+      "crop": {
+        "box": [
+          0,
+          0,
+          3648,
+          2048
+        ],
+        "working": [
+          1376,
+          784
+        ]
+      },
+      "request": {
+        "prompt": "scenery, no humans, winter forest, snow, pine trees, wooden cabin, warm glowing windows, wooden fence, river, stone bridge, mountain, detailed background, soft morning light, illustration, masterpiece, best quality",
+        "negative_prompt": "lowres, blurry, worst quality, low quality, text, watermark",
+        "width": 3648,
+        "height": 2048,
+        "steps": 28,
+        "guidance_scale": 5.0,
+        "true_cfg": 5.0,
+        "mu": null,
+        "reference": [],
+        "lora": null,
+        "lora_scale": 1.0,
+        "refine": 2,
+        "strength": 0.9999,
+        "crop_anchor": "center",
+        "upscaler": null,
+        "mask": "ff37f8494f81b160b18dac6f51944104bb8682fc453adf8fea111b7e5c19520f",
+        "outpaint": {
+          "fill": "edge-box3-r16",
+          "left": 800,
+          "top": 0,
+          "right": 800,
+          "bottom": 0,
+          "band": 32
+        },
+        "mask_crop": {
+          "rule": "bbox16",
+          "pad": 32,
+          "tier": 1
+        },
+        "execution": null,
+        "edit": null,
+        "seed": null,
+        "num_images": 1,
+        "runs": 1
+      },
+      "steps_completed": [
+        27,
+        27
+      ],
+      "allocator_peak_gib": [
+        3.2885398864746094,
+        3.65625
+      ],
+      "card_peak_mib": 6770.0,
+      "process_peak_gib": {
+        "rss_gib": 6.305362701416016,
+        "private_gib": 10.072093963623047
+      },
+      "outside_mask_max": 0,
+      "seam": [
+        {
+          "step": 2.5591634114583335,
+          "soft_gradient": 5.195813907090054
+        },
+        {
+          "step": 3.196533203125,
+          "soft_gradient": 5.034570837533602
+        }
+      ]
+    },
+    {
+      "name": "right-full",
+      "seconds": 75.63249030002044,
+      "seed": 12346,
+      "id": 6,
+      "filename": "20261111-024723-12346-7fe644.png",
+      "pixels_sha256": "3a76800908c705c2f004458e4dfc63dd05e0c707feb9c333bd856699fff3af80",
+      "png_sha256": "c3e97a36132442e41a62efc2d22b9c237556c7c823892a38821d40ba9ce618fc",
+      "crop": null,
+      "request": {
+        "prompt": "scenery, no humans, winter forest, snow, pine trees, wooden cabin, warm glowing windows, wooden fence, river, stone bridge, mountain, detailed background, soft morning light, illustration, masterpiece, best quality",
+        "negative_prompt": "lowres, blurry, worst quality, low quality, text, watermark",
+        "width": 3648,
+        "height": 2048,
+        "steps": 28,
+        "guidance_scale": 5.0,
+        "true_cfg": 5.0,
+        "mu": null,
+        "reference": [],
+        "lora": null,
+        "lora_scale": 1.0,
+        "refine": 2,
+        "strength": 0.9999,
+        "crop_anchor": "center",
+        "upscaler": null,
+        "mask": "f22380603176f56d33d803a1787e2658f47e84c693ded4444db776a1401b3198",
+        "outpaint": {
+          "fill": "edge-box3-r16",
+          "left": 0,
+          "top": 0,
+          "right": 1600,
+          "bottom": 0,
+          "band": 32
+        },
+        "mask_crop": null,
+        "execution": null,
+        "edit": null,
+        "seed": null,
+        "num_images": 1,
+        "runs": 1
+      },
+      "steps_completed": [
+        27,
+        27
+      ],
+      "allocator_peak_gib": [
+        5.20014762878418,
+        7.017578125
+      ],
+      "card_peak_mib": 10212.0,
+      "process_peak_gib": {
+        "rss_gib": 6.594516754150391,
+        "private_gib": 13.970142364501953
+      },
+      "outside_mask_max": 0,
+      "seam": [
+        {
+          "step": 1.5724283854166667,
+          "soft_gradient": 3.9641822076612905
+        },
+        {
+          "step": 1.74853515625,
+          "soft_gradient": 6.662534652217742
+        }
+      ]
+    },
+    {
+      "name": "right-crop0",
+      "seconds": 10.93067030000384,
+      "seed": 12346,
+      "id": 7,
+      "filename": "20261111-024737-12346-0ae5a6.png",
+      "pixels_sha256": "244d636ff7edb1246ef6154066b18569d1250308ee081fbbb85537383427b6eb",
+      "png_sha256": "8f17b3ccad79204cb888e4b5ebd41c81c82a517c009ebf7b129005690dda07b7",
+      "crop": {
+        "box": [
+          2016,
+          0,
+          3648,
+          2048
+        ],
+        "working": [
+          928,
+          1168
+        ]
+      },
+      "request": {
+        "prompt": "scenery, no humans, winter forest, snow, pine trees, wooden cabin, warm glowing windows, wooden fence, river, stone bridge, mountain, detailed background, soft morning light, illustration, masterpiece, best quality",
+        "negative_prompt": "lowres, blurry, worst quality, low quality, text, watermark",
+        "width": 3648,
+        "height": 2048,
+        "steps": 28,
+        "guidance_scale": 5.0,
+        "true_cfg": 5.0,
+        "mu": null,
+        "reference": [],
+        "lora": null,
+        "lora_scale": 1.0,
+        "refine": 2,
+        "strength": 0.9999,
+        "crop_anchor": "center",
+        "upscaler": null,
+        "mask": "f22380603176f56d33d803a1787e2658f47e84c693ded4444db776a1401b3198",
+        "outpaint": {
+          "fill": "edge-box3-r16",
+          "left": 0,
+          "top": 0,
+          "right": 1600,
+          "bottom": 0,
+          "band": 32
+        },
+        "mask_crop": {
+          "rule": "bbox16",
+          "pad": 0,
+          "tier": 1
+        },
+        "execution": null,
+        "edit": null,
+        "seed": null,
+        "num_images": 1,
+        "runs": 1
+      },
+      "steps_completed": [
+        27,
+        27
+      ],
+      "allocator_peak_gib": [
+        3.289426803588867,
+        3.658203125
+      ],
+      "card_peak_mib": 6772.0,
+      "process_peak_gib": {
+        "rss_gib": 6.341831207275391,
+        "private_gib": 10.961421966552734
+      },
+      "outside_mask_max": 0,
+      "seam": [
+        {
+          "step": 1.5724283854166667,
+          "soft_gradient": 3.9641822076612905
+        },
+        {
+          "step": 2.6292317708333335,
+          "soft_gradient": 4.711089759744624
+        }
+      ]
+    },
+    {
+      "name": "right-crop32",
+      "seconds": 10.316488299984485,
+      "seed": 12346,
+      "id": 8,
+      "filename": "20261111-024751-12346-dcaaa4.png",
+      "pixels_sha256": "c1c472059b367cc86330f1f778e3dd4ec424b2fe4a982ee5d0fa12ff7b9e766b",
+      "png_sha256": "d3e007f8150f43d443dc8a71cde7129f6c5ceaad331b36c6d65f287a2c72220b",
+      "crop": {
+        "box": [
+          1984,
+          0,
+          3648,
+          2048
+        ],
+        "working": [
+          928,
+          1152
+        ]
+      },
+      "request": {
+        "prompt": "scenery, no humans, winter forest, snow, pine trees, wooden cabin, warm glowing windows, wooden fence, river, stone bridge, mountain, detailed background, soft morning light, illustration, masterpiece, best quality",
+        "negative_prompt": "lowres, blurry, worst quality, low quality, text, watermark",
+        "width": 3648,
+        "height": 2048,
+        "steps": 28,
+        "guidance_scale": 5.0,
+        "true_cfg": 5.0,
+        "mu": null,
+        "reference": [],
+        "lora": null,
+        "lora_scale": 1.0,
+        "refine": 2,
+        "strength": 0.9999,
+        "crop_anchor": "center",
+        "upscaler": null,
+        "mask": "f22380603176f56d33d803a1787e2658f47e84c693ded4444db776a1401b3198",
+        "outpaint": {
+          "fill": "edge-box3-r16",
+          "left": 0,
+          "top": 0,
+          "right": 1600,
+          "bottom": 0,
+          "band": 32
+        },
+        "mask_crop": {
+          "rule": "bbox16",
+          "pad": 32,
+          "tier": 1
+        },
+        "execution": null,
+        "edit": null,
+        "seed": null,
+        "num_images": 1,
+        "runs": 1
+      },
+      "steps_completed": [
+        27,
+        27
+      ],
+      "allocator_peak_gib": [
+        3.2858023643493652,
+        3.673828125
+      ],
+      "card_peak_mib": 6788.0,
+      "process_peak_gib": {
+        "rss_gib": 6.423515319824219,
+        "private_gib": 9.913993835449219
+      },
+      "outside_mask_max": 0,
+      "seam": [
+        {
+          "step": 1.5724283854166667,
+          "soft_gradient": 3.9641822076612905
+        },
+        {
+          "step": 2.4054361979166665,
+          "soft_gradient": 5.02971690188172
+        }
+      ]
+    },
+    {
+      "name": "right-crop64",
+      "seconds": 10.840637800021796,
+      "seed": 12346,
+      "id": 9,
+      "filename": "20261111-024806-12346-300e96.png",
+      "pixels_sha256": "13c6b67d51e37336032553538ab6c51ba16ecef1535c35c3065052567d28d539",
+      "png_sha256": "b78f6ddf724c47fa519aeb3ec456553f2b335cabd66d430c64d6d0b4b9491ce2",
+      "crop": {
+        "box": [
+          1952,
+          0,
+          3648,
+          2048
+        ],
+        "working": [
+          944,
+          1136
+        ]
+      },
+      "request": {
+        "prompt": "scenery, no humans, winter forest, snow, pine trees, wooden cabin, warm glowing windows, wooden fence, river, stone bridge, mountain, detailed background, soft morning light, illustration, masterpiece, best quality",
+        "negative_prompt": "lowres, blurry, worst quality, low quality, text, watermark",
+        "width": 3648,
+        "height": 2048,
+        "steps": 28,
+        "guidance_scale": 5.0,
+        "true_cfg": 5.0,
+        "mu": null,
+        "reference": [],
+        "lora": null,
+        "lora_scale": 1.0,
+        "refine": 2,
+        "strength": 0.9999,
+        "crop_anchor": "center",
+        "upscaler": null,
+        "mask": "f22380603176f56d33d803a1787e2658f47e84c693ded4444db776a1401b3198",
+        "outpaint": {
+          "fill": "edge-box3-r16",
+          "left": 0,
+          "top": 0,
+          "right": 1600,
+          "bottom": 0,
+          "band": 32
+        },
+        "mask_crop": {
+          "rule": "bbox16",
+          "pad": 64,
+          "tier": 1
+        },
+        "execution": null,
+        "edit": null,
+        "seed": null,
+        "num_images": 1,
+        "runs": 1
+      },
+      "steps_completed": [
+        27,
+        27
+      ],
+      "allocator_peak_gib": [
+        3.2865676879882812,
+        3.673828125
+      ],
+      "card_peak_mib": 6788.0,
+      "process_peak_gib": {
+        "rss_gib": 6.265880584716797,
+        "private_gib": 10.807201385498047
+      },
+      "outside_mask_max": 0,
+      "seam": [
+        {
+          "step": 1.5724283854166667,
+          "soft_gradient": 3.9641822076612905
+        },
+        {
+          "step": 2.2692057291666665,
+          "soft_gradient": 5.987498949932796
+        }
+      ]
+    }
+  ],
+  "full_vs_crop_difference": {
+    "sym": {
+      "identical": false,
+      "mean": 18.838914346973798,
+      "max": 248,
+      "psnr": 16.496455201923915,
+      "threshold": 16,
+      "pct_over_threshold": 38.53268539696409,
+      "differing_pixels": 3406398,
+      "pixels": 7471104
+    },
+    "right": {
+      "identical": false,
+      "mean": 19.729925590648985,
+      "max": 254,
+      "psnr": 16.151159772026396,
+      "threshold": 16,
+      "pct_over_threshold": 39.26245706123218,
+      "differing_pixels": 3341872,
+      "pixels": 7471104
+    }
+  },
+  "passed": true,
+  "unloaded": {
+    "event": "unloaded",
+    "time": 1794365290.0237179,
+    "ready": false,
+    "allocated": 33554432,
+    "reserved": 33554432
+  },
+  "post_exit_storage_verification": {
+    "rows_and_pngs": 9,
+    "passed": true,
+    "checked": [
+      "size",
+      "pixel hash",
+      "prompt pair",
+      "steps",
+      "guidance",
+      "strength",
+      "source id",
+      "mask",
+      "seed",
+      "PNG model/quantization",
+      "allocator peaks"
+    ]
+  },
+  "evidence": {
+    "directory": "%TEMP%/auradream-card13-sdxl-20261111/",
+    "sha256": {
+      "qualify.py": "ae628cdb3ba73d62879ce84f9cd7ab44967a004299ac8a70ac17a7caf8a4ff11",
+      "supervise-as-run.py": "9c91782c7607bbcec097e057793002b1a0e57b4d5a345e8ed4a5845e4839cc5d",
+      "supervise.py": "d24a50eef2f6e7c46eb084c802b13ed098669513e30b8438a3b44660f705ed9f",
+      "events.jsonl": "5ffd466e0d3d4d67b21002676bed9251ae7d0511ac7382e991d4e8266ba947b0",
+      "guard.jsonl": "be3ee58ad9785b711fde517fd380ebb3962ebb918489b5d2e550f00ea5fe1875",
+      "memory.jsonl": "e093b4fd6469c53adf00d01d3196de45d8bce7e59d6f49d296b1d55adc22e297",
+      "results.json": "f9ad8e69af06bbcbcaba29c11211dbbf3b017b57bb2bf8c31137b01cf933d8fd",
+      "card_guard.py": "bb9138ada9c0f1bdb4716200d9d88b876790edccea2c861fd4e113b86e6a4164",
+      "image_compare.py": "77535fbd87d21d85fdcaba07516b87527ac67babd9421457649a8a753409bf11"
+    }
+  }
+}

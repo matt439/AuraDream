@@ -751,7 +751,9 @@ over the Nunchaku transformer runs at all; WSL only, as the checkpoint is.
 
 **Phase 6 - only the masked area (M). Built 2026-11-03 (was TODO
 `INP#9`), as the app's own crop, on FLUX.1, SDXL and Z-Image, for inpaints
-and outpaints; nothing of it is measured on the card (`CARD#13`).** Matt
+and outpaints. Its first card slice, SDXL cropped outpaint, was measured
+2026-11-11 ([results](verified.md#only-the-masked-area)); FLUX.1 and
+Z-Anime remain `CARD#13`.** Matt
 reopened it that day and chose the app crop over the class parameter. A
 box around the mask is denoised at about 1 MP and pasted back: the detail
 answer for a small region of a large picture, and the memory answer for a

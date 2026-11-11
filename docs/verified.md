@@ -1564,17 +1564,85 @@ Evidence: `card3-wsl/out/` in the cards directory (`zturbo/` and
 `kreadev/`: `results.jsonl`, `run.log`, PNGs, previews, the strips;
 `watch-*.csv`), and `~/ld-card3/` in WSL.
 
-### Only the masked area (built 2026-11-03, not measured)
+### Only the masked area
 
-The app's crop (`docs/plan-inpainting.md`, phase 6) was built and checked
-on the CPU and the fake only: the rule's boxes, its coverage proof and
-every unmasked pixel kept are tests, not card results. Not measured: any
-cropped pass on the card; FLUX.1 cropped on a 2.4-8.4 MP source, whose peak
-should stay near the 1 MP inpaint's 12.16 / 12.83 GiB allocated / reserved
-(FLUX.1 Krea dev, before enabling, above); the seam at the box's
-edge at padding 0, 32 and 64 (32 is the default, unmeasured); Z-Anime
-cropped at 4.2 MP; how soft an SDXL 7.5 MP outpaint run cropped looks; any
-Z-Image crop at all. TODO `CARD#13`.
+The app's crop (`docs/plan-inpainting.md`, phase 6) was built 2026-11-03.
+Its first card measurement is the SDXL outpaint slice below. Still not
+measured: FLUX.1 cropped on a 2.4-8.4 MP source, whose peak should stay near
+the 1 MP inpaint's 12.16 / 12.83 GiB allocated / reserved (FLUX.1 Krea dev,
+before enabling, above); its seam at crop padding 0, 32 and 64; Z-Anime
+cropped at 4.2 MP; any Z-Image crop at all. TODO `CARD#13` stays open.
+
+**SDXL cropped outpaint, 2026-11-11, with Matt's OK.** Animagine XL 4.0,
+cached snapshot `2b7c1b397761bf5bd3cc42e5b39ec99314a75a96`, Windows 11,
+RTX 5080 (16,303 MiB), driver 616.92, main at `7be054a`, Python 3.13,
+torch 2.13.0+cu130, diffusers 0.42.1, torchao 0.18.0, accelerate 1.15.0.
+One offline FP8/model-offload load through `main.ensure_loaded`, followed
+by the normal backend `applied`/`generate`, outpaint stamping and storage
+paths in a scratch gallery; no HTTP server or live-gallery writes.
+Load took 21.4 s. A winter-forest/cabin/river illustration was rendered at
+1024 square (seed 12345), then refined to 2048 square at strength 0.3.
+Every outpaint used that source, seed 12346, batch 1, CFG 5, 28 requested
+steps, the library's strength 0.9999 (27 steps run), and outpaint band 32.
+No live previews. Times are synchronized `generate()` wall time, including
+the app's fill/crop/composite, excluding load, PNG saving and CPU metrics.
+
+| Outpaint on a 3648x2048 canvas (7.47 MP) | Crop working size | Time | Allocated / reserved GiB | Whole-card MiB | Seam step, result |
+| --- | --- | --- | --- | --- | --- |
+| +800 left/right, full canvas | 3648x2048 | 75.73 s | 5.20 / 7.02 | 10,210 | 2.68 |
+| +800 left/right, crop pad 32 | 1376x784 | 10.87 s | 3.29 / 3.66 | 6,770 | 3.20 |
+| Same crop and seed, repeated | 1376x784 | 10.83 s | 3.29 / 3.66 | 6,770 | 3.20 |
+| +1600 right, full canvas | 3648x2048 | 75.63 s | 5.20 / 7.02 | 10,212 | 1.75 |
+| +1600 right, crop pad 0 | 928x1168 | 10.93 s | 3.29 / 3.66 | 6,772 | 2.63 |
+| +1600 right, crop pad 32 | 928x1152 | 10.32 s | 3.29 / 3.67 | 6,788 | 2.40 |
+| +1600 right, crop pad 64 | 944x1136 | 10.84 s | 3.29 / 3.67 | 6,788 | 2.27 |
+
+Symmetric padding paints both edges, so its bounding box is the whole
+canvas: cropping here means denoising that canvas at about 1 MP and
+resizing back. The one-sided boxes are `(2016,0,3648,2048)`,
+`(1984,0,3648,2048)` and `(1952,0,3648,2048)` for crop pads 0/32/64.
+The measured saving is about 7x in time and 48% in reserved VRAM for the
+symmetric pair. These are individual samples, not a throughput benchmark.
+
+Every output stayed 3648x2048, and the largest channel difference from the
+padded source wherever the painted mask was zero was **0** on all seven
+outpaints. Row and PNG assertions preserved source, mask, outpaint, crop
+spec, computed box/working size, allocator peaks and `mask_blend: overlay`.
+The repeated symmetric crop was pixel-identical, SHA-256
+`ba1e62a2fb5ad6db78ac932a32689f63690980dcc90856cb4c9d5906b93aac5c`.
+Seam step uses `tools/image_compare.py` at the mask's zero/positive edge;
+the padded-source values were 2.56 symmetric and 1.57 one-sided. No VAE
+round-trip comparison was made. These averages do not judge the join's
+content or softness.
+
+Visual inspection of whole images and native 1:1 join/detail crops: the
+symmetric cropped extension has visibly softer snow, branches and fence
+detail than the full pass. The one-sided crops change scene scale and
+objects at the join; pad 0 has a particularly abrupt cut, while 32 and 64
+also leave visible transitions. None establishes a clean join for this
+scene. The lower seam average at pad 64 does not establish better overall
+quality. The crop is a measured speed/memory trade-off here; the default
+padding, working tier and canvas guard stay unchanged.
+
+The independent `tools/card_guard.py` watcher kept its defaults: 15,500
+MiB card, shared rises at most 1,024/512 MiB adapter/process, and 4 GiB
+free RAM/commit floors; startup required 14 GiB free RAM and card use at
+most 3,500 MiB. The supervisor also stopped above 14 GiB working set or
+16 GiB private memory. Both exited 0; no trip or spill observed. Starting
+card use was 2,719 MiB; peak 10,212 MiB, shared rise 82 MiB on both
+counters, minimum free RAM 29.85 GiB and commit headroom 36.23 GiB.
+The 0.25 s process sampler peaked at 9.56 GiB working set / 14.47 private,
+including CPU image analysis. The card guard requested 0.5 s sampling,
+but serial Windows counters took about 1.8 s per sample, so its sampled
+peaks can miss transients. The nine-render session took 283.3 s and
+unloaded before exiting; card use returned to 2,719 MiB with no worker
+left. One scene and seed in one process do not qualify other checkpoints,
+cropped inpainting, cross-process reproduction, cancellation or the page.
+
+The [receipt](measurements/card13-sdxl-2026-11-11.json) retains exact
+requests, hashes, metrics, guard summary and script/log digests. Full PNGs,
+native inspection crops, scratch database, scripts and raw logs remain in
+`%TEMP%/auradream-card13-sdxl-20261111/`.
 
 ## Outpaint
 

@@ -3229,7 +3229,10 @@ goes under it instead of an empty box.
 
 **Only the masked area: the app crops, never the class.** Built
 2026-11-03 (plan phase 6, was `INP#9`), on FLUX.1, SDXL and Z-Image, for
-inpaints and outpaints, and unmeasured on the card (`CARD#13`). A tick
+inpaints and outpaints. SDXL cropped outpaint was measured 2026-11-11
+([results](verified.md#only-the-masked-area)): about 7x faster at 7.5 MP,
+with visibly softer detail and visible joins in the tested scene. FLUX.1
+and Z-Anime remain `CARD#13`. A tick
 asks for just a box around the mask - its extent plus a padding, 32 px by
 default - to be denoised at about 1 MP and pasted back, so a small region
 gets the checkpoint's full detail and a large picture stays within the
