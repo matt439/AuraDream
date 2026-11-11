@@ -7931,7 +7931,10 @@ measured on the card and when.
   the check is shown and shuts it while it is not - a Check's answer opens
   it, its ✕ (`closeAnalysis`), a model's change or Reset (`clearAnalysis`)
   shut it, and Escape or Back shutting the sheet shut the check as its ✕
-  does (`checkSheetClosed`), the focus on Check; under the prompt it was a
+  does (`checkSheetClosed`), the focus on Check. `closeAnalysis` settles the
+  hidden sheet through `syncPhoneCheck` before focusing outside the modal;
+  its later observer close could otherwise reject that focus and leave it
+  on the hidden ✕. Under the prompt it was a
   thousand pixels between the box and the rest of Create. The check's own
   head is the sheet's title row, sticky, "Prompt check" 18 px, the
   checkpoint's name stopping short of the 44 px ✕ in the corner, the
@@ -9637,8 +9640,11 @@ line under the toolbar. Back shuts it and the check, its entry gone, the
 focus on Check; the line drawn - "Check:" and a count of findings or
 "nothing flagged", named "Prompt check: … Show it again" - 44 px from
 gutter to gutter 8 px under the toolbar, More options 52 px lower and
-still above the bars. The line tapped opens the same check (an entry);
-its ✕ shuts it, the line drawn, the focus on Check. Opened again,
+still above the bars. The line focused and tapped opens the same check
+(an entry); its ✕ shuts it, the line drawn, the focus on Check. Each real
+Check focus call must see the sheet already nonmodal; the original
+closed/hidden/chip/history/focus assertion is retained, and the temporary
+focus recorder is restored. Opened again for a finding's Show,
 `selectAnalysed` on the prompt's first five characters shuts the sheet
 and the check, selects them in the focused prompt, and leaves the line
 and no entry. The prompt changed ends the line with " · prompt changed

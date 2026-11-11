@@ -14690,6 +14690,18 @@ Node and private font metrics, with no rerun.
 The remaining unblocked first-time and peer-review work is collected on
 `todo/overnight-first-run`; individual findings own their Built notes.
 
+PR #69's first hosted run exposed a separate Check-sheet focus race. A
+second opening from the retained Check chip could leave focus on the hidden
+✕ after closing: `closeAnalysis` tried to focus Check while its sheet was
+still modal, before the hidden-state observer called `close()`. A controlled
+250 ms tail around the native focus call retained that exact failed state.
+`closeAnalysis` now calls the existing `syncPhoneCheck` synchronously after
+hiding the answer, so the sheet closes before its existing focus handoff.
+The same control passes with native closing/focusing preserved. Finding
+Show still uses its separate dismiss-and-select path. The phone review's
+[focus-order receipt](maintainer/review-2026-11-05-phone.md#11-check-sheet-close-focus-order-2026-11-11)
+owns the bounded browser evidence.
+
 The installer's existing-token question distinguishes having a token from
 having a model licence or enough memory. Saved choices still govern the
 next start. Windows wording and ZIP/uv recovery, WSL's driver/CUDA/doctor

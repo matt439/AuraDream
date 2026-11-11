@@ -954,3 +954,56 @@ port 17961 closed. Raw evidence and synthetic scratch galleries are retained.
 
 Other phone forms have the supplied-viewport evidence in section 9, not
 native keyboard acceptance. No weights, GPU work or real gallery were used.
+
+## 11. Check-sheet close focus order (2026-11-11)
+
+PR #69's [first hosted run](https://github.com/matt439/AuraDream/actions/runs/42974741989)
+failed the phone Create smoke's combined closed-sheet/retained-check/history/
+Check-focus assertion after reopening the check from its chip and pressing
+✕. Its automatic rerun passed alone, so the first failure remained a race
+to repair. All CPU jobs and the other browser shards passed.
+
+A controlled native-method probe reproduced the failed focus handoff:
+`closeAnalysis` hid the answer, then tried to focus Check while its sheet
+was still modal. Focus stayed on `analysis-close`; the hidden-state
+MutationObserver closed the sheet only later, and the close handler's
+body/no-focus repair did not cover that hidden descendant. A 250 ms bounded
+tail around the actual Check focus call delayed observer delivery without
+replacing native dialog closing or focusing. The original complete assertion
+failed on the old source and passed after the change.
+
+`closeAnalysis` now calls `syncPhoneCheck` immediately after hiding the
+answer, before its existing Check-or-prompt focus handoff. No timer or new
+lifecycle state is needed. Finding Show keeps its separate dismiss-and-
+select path. The durable smoke explicitly focuses the chip before reopening
+and records whether the real Check focus call happens while the sheet is
+modal. It keeps the original full assertion and requires that recorded
+modal state to be false, then restores the native focus method.
+
+The strengthened Linux run then exposed a separate fixture race after the
+fake's step delay became zero: the batch-layout sections polled for a
+temporary `busy` state that could finish between polls. Those three native
+Generate presses now capture the prior viewer ids and wait for submission
+and rendering to finish with exactly 2, 4 or 8 fresh ids. A no-op with the
+same count cannot pass. Their original layout/tools assertions and the
+earlier timed live/queue/cancel coverage remain; no fake delay or polling
+timeout was increased.
+
+The separate `work/phone-batch-settle-probe/` control observed a native-tap
+step-zero job already complete before polling, then proved that a same-count
+no-op press fails the fresh-id condition. Actual Generate presses then
+passed for 2, 4 and 8 new image ids.
+
+The scratch probe, fixed trace and repeatable old-handler negative control
+are retained in `work/phone-check-close-probe/`. Three fresh fake-browser
+smokes (`smoke-phone-create`, `smoke-check-dismissal`, `smoke-phone-dialogs`)
+passed together at two workers on Windows (57 s) and on Linux (55 s).
+The Linux run used the CI versions, Chrome 156.0.8078.79 and Node 24.22.2,
+with the private font configuration. The fixed close screenshot was inspected. The root
+classic-script/module-map run passed 60 tests; the agent's classic-script,
+browser-input and step-container run passed 132 tests. No GPU, model load,
+real-gallery or physical-device acceptance is claimed.
+
+After the every-focus-attempt recorder and fresh-batch-id synchronization
+were final, the affected Linux phone Create smoke passed again (48 s browser,
+54 s total). Its receipt is under `work/ci-pr69-linux-final/`.

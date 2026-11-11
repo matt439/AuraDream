@@ -286,6 +286,9 @@ function syncWriteButton(button) {
 // and it would fall to <body>.
 function closeAnalysis() {
   dismissAnalysis();
+  // The phone's watcher closes its modal later; outside focus is refused
+  // until the sheet has actually closed, so finish that before the handoff.
+  syncPhoneCheck();
   (els.analyze.disabled ? els.prompt : els.analyze).focus();
 }
 
