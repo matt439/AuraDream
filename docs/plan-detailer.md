@@ -79,7 +79,9 @@ here. A face-only result can justify a face-only slice, leaving hands out.
 - An inpaint runs the whole canvas unless only the masked area is asked:
   built 2026-11-03 (was `INP#9`), the app's own crop at about 1 MP
   (`mask_crop`, never `padding_mask_crop`), on SDXL, FLUX.1 and Z-Image,
-  unmeasured on the card (`CARD#13`). First qualification must test
+  with small-region detailing still unmeasured on the card;
+  the 2026-11-11 [outpaint and large-source crop slices](verified.md#only-the-masked-area)
+  do not qualify small-region detailing. First qualification must test
   whether a whole-canvas SDXL pass helps small regions enough to be useful.
   If not, compare the masked-area crop before proceeding, after
   `CARD#13` has measured it.

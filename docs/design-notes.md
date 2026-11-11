@@ -106,6 +106,20 @@ GiB; int8 the same. On the card (2026-10-27) the FLUX.1 Krea dev fp8 load
 peaked at 27.9 GiB working set; the other checkpoints' loads are still the
 card's to say (`CARD#4`, `#6`, `#12` and the rows behind them).
 
+**The Z-Anime override, 2026-11-11.** A guarded `CARD#13` load stopped
+at 24.12 GiB working set before rendering. Its replacement Qwen3 encoder
+loads directly through Transformers, before the pipeline's
+`checkpoint_files_released` scope; Diffusers receives that encoder as an
+override and never calls `load_sub_model` for it. The usual component
+wrapper therefore cannot release its unquantized shard views. The direct
+quantized load now calls the same `own_tensors` helper before loading the
+denoiser. BF16 remains mapped; ties, values and quantized tensor subclasses
+retain the helper's existing contract. A fresh guarded load completed at
+20.34 GiB peak working set / 24.04 private under the same 24/32 GiB
+ceilings, then two cropped passes reproduced. The original load stopped
+before completion, so this is not a controlled peak comparison. See
+[CARD#13's receipts](verified.md#only-the-masked-area).
+
 ## mu, sigmas and the shift that lands
 
 **`sigmas` is an input to the shift, not the shift's result.** `__call__`
@@ -3229,7 +3243,14 @@ goes under it instead of an empty box.
 
 **Only the masked area: the app crops, never the class.** Built
 2026-11-03 (plan phase 6, was `INP#9`), on FLUX.1, SDXL and Z-Image, for
-inpaints and outpaints, and unmeasured on the card (`CARD#13`). A tick
+inpaints and outpaints. SDXL cropped outpaint was measured 2026-11-11
+([results](verified.md#only-the-masked-area)): about 7x faster at 7.5 MP,
+with visibly softer detail and visible joins in the tested scene.
+Z-Anime's 4.2 MP crop also fits and reproduces, but leaves a visible
+scene/perspective patch at strength 1.0. FLUX.1's sequential-offload crops
+on 2.4-8.4 MP fixtures fit at 2.12-2.16 / 2.25-2.29 GiB, reproduce and
+preserve unmasked pixels, but also leave visible scene/style patches.
+FLUX.1 at FP8/model offload remains `CARD#13`. A tick
 asks for just a box around the mask - its extent plus a padding, 32 px by
 default - to be denoised at about 1 MP and pasted back, so a small region
 gets the checkpoint's full detail and a large picture stays within the

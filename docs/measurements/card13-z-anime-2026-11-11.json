@@ -1,0 +1,324 @@
+{
+  "date": "2026-11-11",
+  "scope": "CARD#13 z-anime cropped inpainting",
+  "environment": {
+    "event": "environment",
+    "time": 1794366508.7102098,
+    "mode": "z-anime",
+    "model": "SeeSee21/Z-Anime",
+    "offload": "model",
+    "scratch": "C:\\Users\\matsi\\AppData\\Local\\Temp\\auradream-card13-followup-20261111\\z-anime-fixed",
+    "offline": true,
+    "commit": "b3d41fad8ab16c885b54d0830918548e0c295be5",
+    "versions": {
+      "torch": "2.13.0+cu130",
+      "diffusers": "0.42.1",
+      "torchao": "0.18.0",
+      "accelerate": "1.15.0",
+      "transformers": "5.16.1",
+      "Pillow": "13.0.0"
+    },
+    "device": "NVIDIA GeForce RTX 5080"
+  },
+  "driver_version": "616.92",
+  "cached_model_snapshot": "0f5fb51464638a2f7328a1d74590281e63e1fde2",
+  "method": {
+    "offline": true,
+    "loads": 1,
+    "quantization": "fp8",
+    "offload": "model",
+    "batch": 1,
+    "seed": 12346,
+    "steps": 40,
+    "cfg": 4,
+    "strength": 1.0,
+    "live_preview": false,
+    "source": "CPU Lanczos resizes of owned SDXL source2048; indexed as fixture/cpu-lanczos-resize with duration0, not generated at these sizes",
+    "source_sha256": "720a6504bccc03ffbab663df54fb8637969da0abaed2b2bf30527fdee91b9345",
+    "mask": "rectangle at normalized 0.18,0.32,0.85,0.82 then GaussianBlur radius12*side/2048; stored by normal hash",
+    "timing": "synchronized backend.generate wall time; excludes load, PNG save and CPU metrics",
+    "guard_sample_period_requested_s": 0.5,
+    "process_sample_period_requested_s": 0.25,
+    "sampling_note": "Serial Windows guard counters take about1.8s per sample; sampled peaks can miss transients",
+    "process_ceilings_gib": {
+      "working_set": 24,
+      "private": 32
+    },
+    "isolation": "scratch gallery; main.ensure_loaded and normal backend/applied/storage; no HTTP server"
+  },
+  "load_seconds": 19.210211500001606,
+  "load_process_peak_gib": {
+    "rss_gib": 20.34164810180664,
+    "private_gib": 24.04167938232422
+  },
+  "guard_baseline": {
+    "time": "2026-11-11T13:08:24.391",
+    "event": "baseline",
+    "limits": {
+      "card_mib": 15500.0,
+      "project_mib": 15200.0,
+      "refuse_at_peak_mib": 15000.0,
+      "adapter_shared_rise_mib": 1024.0,
+      "process_shared_rise_mib": 512.0,
+      "ram_floor_gib": 4.0,
+      "commit_floor_gib": 4.0,
+      "need_ram_gib": 28.0,
+      "busy_card_mib": 3500.0,
+      "card_unread_samples": 3.0,
+      "margin_mib": 500.0,
+      "margin_gib": 1.0
+    },
+    "watch_pid": 2460,
+    "pids": [
+      2460,
+      51480,
+      54408
+    ],
+    "period_s": 0.5,
+    "card_total_mib": 16303.0,
+    "card_mib": 2719.0,
+    "adapter_shared_mib": 42.5,
+    "adapter_rise_mib": 0.0,
+    "process_shared_mib": 0.0,
+    "process_rise_mib": 0.0,
+    "available_gib": 39.63,
+    "commit_headroom_gib": 51.18,
+    "tree_gib": 0.04
+  },
+  "guard_first_sample": {
+    "time": "2026-11-11T13:08:26.207",
+    "event": "sample",
+    "card_mib": 2719.0,
+    "adapter_shared_mib": 42.5,
+    "adapter_rise_mib": 0.0,
+    "process_shared_mib": 0.0,
+    "process_rise_mib": 0.0,
+    "available_gib": 39.64,
+    "commit_headroom_gib": 51.18,
+    "tree_gib": 0.04
+  },
+  "guard_summary": {
+    "time": "2026-11-11T13:11:26.277",
+    "event": "summary",
+    "exit": 0,
+    "stopped": "watched process exited",
+    "seconds": 181.9,
+    "min_available_gib": 20.8,
+    "min_commit_headroom_gib": 27.77,
+    "peaks": {
+      "card_mib": 11896.0,
+      "adapter_shared_mib": 124.5,
+      "process_shared_mib": 82.0,
+      "tree_gib": 18.97
+    },
+    "largest_shared_rise_mib": {
+      "adapter": 82.0,
+      "process": 82.0
+    },
+    "samples": 100
+  },
+  "supervisor": {
+    "worker_exit": 0,
+    "guard_exit": 0,
+    "reason": null,
+    "elapsed_seconds": 183.330912800011,
+    "peaks": {
+      "rss_gib": 20.34164810180664,
+      "private_gib": 25.65933609008789
+    }
+  },
+  "fixtures": [
+    {
+      "event": "fixture",
+      "time": 1794366528.4666789,
+      "side": 2048,
+      "id": 1,
+      "mask": "2e986b5f91f8be84f4e0a0941cad857338bc38a1a9cd636ddc99d899032c4a14",
+      "rectangle": [
+        369,
+        655,
+        1741,
+        1679
+      ],
+      "feather_radius": 12.0,
+      "pixels_sha256": "720a6504bccc03ffbab663df54fb8637969da0abaed2b2bf30527fdee91b9345"
+    }
+  ],
+  "renders": [
+    {
+      "name": "2048-pad32",
+      "seconds": 76.72212089999812,
+      "seed": 12346,
+      "id": 2,
+      "filename": "20261111-031005-12346-6b64e7.png",
+      "pixels_sha256": "0e071472cbebfbc787c5c9830ed59e70222dbf983898ad242be395c263009730",
+      "png_sha256": "879f00450aedefccab2f02fb6f4f4982f25236064713143d3a6e25e24617c73b",
+      "crop": {
+        "box": [
+          304,
+          592,
+          1808,
+          1744
+        ],
+        "working": [
+          1184,
+          912
+        ]
+      },
+      "request": {
+        "prompt": "A small blue wooden cabin with a snow covered roof and warm glowing windows, surrounded by snow covered pine trees beside a frozen river, a wooden fence and stone bridge, soft morning light, detailed winter landscape illustration.",
+        "negative_prompt": "blurry, jpeg artifacts, low quality, text, watermark",
+        "width": 2048,
+        "height": 2048,
+        "steps": 40,
+        "guidance_scale": 4.0,
+        "true_cfg": 4.0,
+        "mu": null,
+        "reference": [],
+        "lora": null,
+        "lora_scale": 1.0,
+        "refine": 1,
+        "strength": 1.0,
+        "crop_anchor": "center",
+        "upscaler": null,
+        "mask": "2e986b5f91f8be84f4e0a0941cad857338bc38a1a9cd636ddc99d899032c4a14",
+        "outpaint": null,
+        "mask_crop": {
+          "rule": "bbox16",
+          "pad": 32,
+          "tier": 1
+        },
+        "execution": null,
+        "edit": null,
+        "seed": null,
+        "num_images": 1,
+        "runs": 1
+      },
+      "outside_mask_max": 0,
+      "seam": [
+        {
+          "step": 3.7041369283637327,
+          "soft_gradient": 6.940735384878749
+        },
+        {
+          "step": 3.9300158604282314,
+          "soft_gradient": 8.148538825744778
+        }
+      ],
+      "allocator_peak_gib": [
+        6.967121124267578,
+        8.6640625
+      ],
+      "steps_completed": [
+        40,
+        40
+      ],
+      "card_peak_mib": 11896.0,
+      "process_peak_gib": {
+        "rss_gib": 13.867263793945312,
+        "private_gib": 25.65933609008789
+      }
+    },
+    {
+      "name": "2048-pad32-repeat",
+      "seconds": 75.69428910000715,
+      "seed": 12346,
+      "id": 3,
+      "filename": "20261111-031122-12346-25315c.png",
+      "pixels_sha256": "0e071472cbebfbc787c5c9830ed59e70222dbf983898ad242be395c263009730",
+      "png_sha256": "1c1fc1fb69272a6b114d13afca4d6debfc81a95b7200ea7243f407bb55c120ee",
+      "crop": {
+        "box": [
+          304,
+          592,
+          1808,
+          1744
+        ],
+        "working": [
+          1184,
+          912
+        ]
+      },
+      "request": {
+        "prompt": "A small blue wooden cabin with a snow covered roof and warm glowing windows, surrounded by snow covered pine trees beside a frozen river, a wooden fence and stone bridge, soft morning light, detailed winter landscape illustration.",
+        "negative_prompt": "blurry, jpeg artifacts, low quality, text, watermark",
+        "width": 2048,
+        "height": 2048,
+        "steps": 40,
+        "guidance_scale": 4.0,
+        "true_cfg": 4.0,
+        "mu": null,
+        "reference": [],
+        "lora": null,
+        "lora_scale": 1.0,
+        "refine": 1,
+        "strength": 1.0,
+        "crop_anchor": "center",
+        "upscaler": null,
+        "mask": "2e986b5f91f8be84f4e0a0941cad857338bc38a1a9cd636ddc99d899032c4a14",
+        "outpaint": null,
+        "mask_crop": {
+          "rule": "bbox16",
+          "pad": 32,
+          "tier": 1
+        },
+        "execution": null,
+        "edit": null,
+        "seed": null,
+        "num_images": 1,
+        "runs": 1
+      },
+      "outside_mask_max": 0,
+      "seam": [
+        {
+          "step": 3.7041369283637327,
+          "soft_gradient": 6.940735384878749
+        },
+        {
+          "step": 3.9300158604282314,
+          "soft_gradient": 8.148538825744778
+        }
+      ],
+      "allocator_peak_gib": [
+        6.967121124267578,
+        8.6640625
+      ],
+      "steps_completed": [
+        40,
+        40
+      ],
+      "card_peak_mib": 11896.0,
+      "process_peak_gib": {
+        "rss_gib": 12.904930114746094,
+        "private_gib": 24.472644805908203
+      }
+    }
+  ],
+  "passed": true,
+  "unloaded": {
+    "event": "unloaded",
+    "time": 1794366683.4507499,
+    "ready": false,
+    "allocated": 33554432,
+    "reserved": 33554432
+  },
+  "post_exit_storage_verification": {
+    "passed": true,
+    "rows_and_pngs": 2,
+    "source_fixtures": 1
+  },
+  "evidence": {
+    "directory": "%TEMP%/auradream-card13-followup-20261111/z-anime-fixed/",
+    "sha256": {
+      "qualify.py": "13644cc453343cc077fd09e4d1dde80e8c04e7db5dd8f953731f2cf47aad26d2",
+      "supervise.py": "95a00f8ea59193e84b41000b93ca50c5913880b3b30fee3380839bad0769edbe",
+      "analyze.py": "a622366bc372f0d40d4ff3bb83ff0015a4668715a2d49281672ca28ca640f596",
+      "events.jsonl": "f29cda19a21282c110aac9f6e11d15b52d59c315f0c4a93400c5ed5edec6106b",
+      "guard.jsonl": "abae90e42c7725335d2f4da7b09bb86752739644274f8d35c7c8472d43c65cf5",
+      "memory.jsonl": "9205dddf069a978153f371b1b9c3e086cbf61144a0512e1fcdcecd817a735f1c",
+      "results.json": "318be9be34d5cf8a7025b14381163f7afcf56560b42b60032322a5d7f15f4b6d",
+      "card_guard.py": "bb9138ada9c0f1bdb4716200d9d88b876790edccea2c861fd4e113b86e6a4164",
+      "image_compare.py": "77535fbd87d21d85fdcaba07516b87527ac67babd9421457649a8a753409bf11"
+    }
+  }
+}

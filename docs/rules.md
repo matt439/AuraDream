@@ -1134,7 +1134,10 @@ measured on the card and when.
   Its bundled encoder has scaled FP8 tensors without quantization metadata.
   Skip those weights: `loading.component_overrides` loads the standard Qwen3
   encoder from pinned `Tongyi-MAI/Z-Image`, using the same Transformers-owned
-  config from `quant_mapping`. Never silently discard the bundled scales.
+  config from `quant_mapping`. Its direct quantized Transformers load calls
+  `own_tensors` before the denoiser loads: it bypasses Diffusers'
+  `load_sub_model` wrapper. A BF16 override retains its mapped weights.
+  Never silently discard the bundled scales.
 
 - `circlestone-labs/Anima` selects the pinned full Turbo v1.1 split file.
   `anima_loading` converts its denoiser and conditioner on CPU, uses the pinned
@@ -1258,7 +1261,10 @@ measured on the card and when.
   mapping. `tests/test_quantized_load_ram.py` loads a sharded two-library
   pipeline and reads `/proc/self/maps`; it also asserts that an unreleased
   load still keeps its files, so a library that stops holding them is
-  noticed.
+  noticed. `tests/test_nested_models.py` checks that Z-Anime's direct
+  quantized encoder override owns file-backed plain CPU parameters and
+  buffers before the next component loads, preserving values/ties; its
+  BF16 path keeps the original views.
 - `torch.no_grad()`, never `torch.inference_mode()`, around the pipeline call:
   model offload moves components inside `forward()` and torchao's tensor
   subclasses trip torch 2.13's storage-aliasing guard under inference_mode

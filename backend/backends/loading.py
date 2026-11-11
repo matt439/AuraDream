@@ -321,7 +321,13 @@ def component_overrides(model_id: str, quant: Any, *, resolved_model_id: str | N
     if quant is not None:
         kwargs["quantization_config"] = quant.quant_mapping["text_encoder"]
     log.info("loading Z-Anime's standard Qwen3 encoder from its Z-Image parent")
-    return {"text_encoder": Qwen3ForCausalLM.from_pretrained(**Z_ANIME_TEXT_ENCODER, **kwargs)}
+    encoder = Qwen3ForCausalLM.from_pretrained(**Z_ANIME_TEXT_ENCODER, **kwargs)
+    if quant is not None:
+        # This direct Transformers load bypasses Diffusers' load_sub_model
+        # wrapper. Release its unquantized shard views before the denoiser
+        # loads, just as checkpoint_files_released does for ordinary encoders.
+        own_tensors(encoder)
+    return {"text_encoder": encoder}
 
 
 def importable(name: str) -> bool:
