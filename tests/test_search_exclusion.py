@@ -1,5 +1,5 @@
 """Search exclusion: `-word` drops what the index matches, `-key:value` is the
-complement of `key:value` (docs/plan-search-exclusion.md, GAL#21)."""
+complement of `key:value` (docs/maintainer/plan-search-exclusion.md, GAL#21)."""
 from __future__ import annotations
 
 import json

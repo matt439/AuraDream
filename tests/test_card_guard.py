@@ -1,6 +1,6 @@
 """The card guard (`tools/card_guard.py`) answers the recorded sessions' readings.
 
-docs/plan-card-harness.md, "Card guard": the decision on fixed samples copied
+docs/maintainer/plan-card-harness.md, "Card guard": the decision on fixed samples copied
 from the recorded rows (the 2026-10-25 RAM stops, the fixed loader's lowest
 free RAM, ERNIE's projection gates, the shared rises that never spilled), the
 limits' strict boundaries and overrides, and the watcher on a stub host with

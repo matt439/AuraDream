@@ -178,12 +178,12 @@ The kit was committed on 2026-10-18 (`9199031`); since then only the rename
 (`613ca30`) and a documentation alignment (`0604f5a`) touched
 `tools/trial_fixture.py`, `tools/trial_walkthrough.py` or this folder. The
 app has since gained keyboard routes and compact setup (`UI#17`-`UI#19`,
-[plan](../../plan-shortcut-workflow.md)), Then refine
-([plan](../../plan-then-refine.md)), named saved setups (`GEN#27`,
-[plan](../../plan-generation-presets.md)), saved gallery searches (`GAL#7`,
-[plan](../../plan-saved-searches.md)) and snippet/setup export and import
-(`UI#20`, [plan](../../plan-snippet-portability.md); `UI#25`,
-[plan](../../plan-setup-portability.md)). Matt rates
+[plan](../../maintainer/plan-shortcut-workflow.md)), Then refine
+([plan](../../maintainer/plan-then-refine.md)), named saved setups (`GEN#27`,
+[plan](../../maintainer/plan-generation-presets.md)), saved gallery searches (`GAL#7`,
+[plan](../../maintainer/plan-saved-searches.md)) and snippet/setup export and import
+(`UI#20`, [plan](../../maintainer/plan-snippet-portability.md); `UI#25`,
+[plan](../../maintainer/plan-setup-portability.md)). Matt rates
 keyboard shortcuts (`L6`) and Ctrl/Shift selection (`L8`) Often in
 [preferences](../preferences.md), as he does prompt-word search (`E5`),
 search from a setting (`E9`), refine at size (`H1`), enlarge by Refine
@@ -202,7 +202,7 @@ not run on this tree, so stage 1 may find more):
 | `trial_fixture.py:153-156` (`roles`) | `GEN#27`, `GAL#7`, Then refine | The fixture plants no saved setup, no saved search, no personal snippet and no Then refine job (a base and its pass in one job). The manifest has no alias for any of them. |
 | `trial_fixture.py:161-174` (`refusals`) | 2026-10-18 | Only the foreign Re-render and the binned refine source are recorded. The list above also names More seeds of another checkpoint, which is never recorded as a refusal. |
 | `trial_fixture.py:80`, `trial_walkthrough.py:226` | - | `fixture_version` 1. New roles need version 2, and the walkthrough must refuse a version 1 manifest rather than read it with roles missing. |
-| [Task cards](task-cards.md) task 5 | `GEN#27`, `GAL#7`, `UI#20` | Setups, saved searches and snippets have their own sidecars, outside bundles and gallery maintenance (`backend/api_bundles.py:248-253`; [setups plan](../../plan-generation-presets.md) "Saved contract"). The card does not ask for a prediction of what archive-and-clear leaves behind. |
+| [Task cards](task-cards.md) task 5 | `GEN#27`, `GAL#7`, `UI#20` | Setups, saved searches and snippets have their own sidecars, outside bundles and gallery maintenance (`backend/api_bundles.py:248-253`; [setups plan](../../maintainer/plan-generation-presets.md) "Saved contract"). The card does not ask for a prediction of what archive-and-clear leaves behind. |
 | [Task cards](task-cards.md):41 | All of the above | The "do not require" list predates Then refine, saved setups and searches, and portability, so it neither includes nor excludes them. |
 | [Observation record](observation-template.md) | `UI#17`-`UI#19` | Input method is recorded once per session. There is no per-task field for the route taken (pointer, keyboard shortcut, context menu). |
 | [Agent baseline](expert-baseline-2026-10-18.md) | 2026-10-18 | Pinned to commit `17c7ef0` and the version 1 fixture. It is historical evidence and stays unchanged. |

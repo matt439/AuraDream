@@ -372,7 +372,7 @@ def strict_scope(search: str | None) -> tuple[list[str], list]:
     index should not be confirmed blind: free text is refused, not matched,
     and so is an excluded word, which goes through the same index. A
     `-key:value` is exact SQL and is taken (Matt, 2026-10-29: option A of
-    docs/plan-search-exclusion.md).
+    docs/maintainer/plan-search-exclusion.md).
     """
     if not search or not search.strip():
         return [], []

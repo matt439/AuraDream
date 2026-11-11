@@ -1,6 +1,6 @@
 """The CARD#10 step packs (`tools/card/`) keep to their own rules.
 
-docs/plan-card-harness.md, "CARD#10 step packs": one `tools/browser.mjs`
+docs/maintainer/plan-card-harness.md, "CARD#10 step packs": one `tools/browser.mjs`
 step file per fix commit `CARD#10` lists, plus the idle Ctrl-C. Each is read
 here as text only - no browser, no server, no git (CI's checkouts are
 shallow): every step a kind `browser.mjs` runs, no fake-only knob, nothing

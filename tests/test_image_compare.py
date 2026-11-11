@@ -1,6 +1,6 @@
 """The card sessions' image metrics (`tools/image_compare.py`) give known answers.
 
-docs/plan-card-harness.md, "Image metrics": small synthetic PNGs made here,
+docs/maintainer/plan-card-harness.md, "Image metrics": small synthetic PNGs made here,
 each with an answer worked out by hand - the difference, the largest change
 outside a mask, the seam step and the soft gradient - plus the refusals and
 the hash held equal to the gallery's own.

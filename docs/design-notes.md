@@ -460,7 +460,7 @@ caches and console preference. Failed application containers are cleared before
 allocator release without replacing the primary error; library traceback frames
 can still retain their arguments. Synthetic weak-reference tests establish that
 bounded ownership result, not physical card memory release. The
-[compilation plan](plan-regional-compilation.md#backend-publication-and-teardown-ownership)
+[compilation plan](maintainer/plan-regional-compilation.md#backend-publication-and-teardown-ownership)
 records this preparation stage; no new loader choice or experimental render is
 enabled.
 
@@ -568,7 +568,7 @@ V2 startup preferences read v1 as Eager; omission preserves intent and an explic
 empty recipe chooses Eager/native. Separate per-render FBC lives in composer
 settings with Reset/Reuse/Undo. All nonempty load/render admission remains closed,
 including legacy clients omitting execution and already-ready Eager weights.
-The [configuration owner](plan-regional-compilation.md#unavailable-performance-configuration)
+The [configuration owner](maintainer/plan-regional-compilation.md#unavailable-performance-configuration)
 records these source changes and their validation limits; this changes no global
 attention setting or measured model capability.
 
@@ -666,7 +666,7 @@ The Speed fact is the retained card samples' alone. `GEN#38` (2026-10-29)
 owns adding this gallery's own median timing to the Speed note, labelled
 as history and never setting the category; rows record neither offload nor
 a process's first image, so the note says so rather than filtering
-([review-2026-10-29-backlog.md](review-2026-10-29-backlog.md#gen38-gallery-timing-in-the-model-picker)).
+([review-2026-10-29-backlog.md](maintainer/review-2026-10-29-backlog.md#gen38-gallery-timing-in-the-model-picker)).
 
 The checkpoint is chosen from a table that shows every model's facts at once
 (2026-10-08). With a dropdown and one facts block, comparing meant choosing
@@ -1863,9 +1863,9 @@ SQL/PNG, replay/refusal, source lifetime, bundles and reindex. A cold source
 preview binds full original RGB proof and exact geometry. Stage 2 (below)
 adds the call, the queueing route and the dialog behind a gate that the real
 server keeps closed. The
-[feature plan](plan-instruction-editing.md#first-frozen-contract-2026-10-27)
-owns the frozen recipe and sizes; the [carry inventory](instruction-edit-carry.md)
-and [bundle contract](instruction-edit-bundles.md) own integration acceptance.
+[feature plan](maintainer/plan-instruction-editing.md#first-frozen-contract-2026-10-27)
+owns the frozen recipe and sizes; the [carry inventory](maintainer/instruction-edit-carry.md)
+and [bundle contract](maintainer/instruction-edit-bundles.md) own integration acceptance.
 
 **Current status, 2026-11-03:** stage 3's approved [first card trial and bounded
 pair](verified.md#instruction-edit) ran on 2026-10-27 at 512x512, fp8 and model
@@ -1874,7 +1874,7 @@ instruction. Matt reviewed those results and approved stage 4 on 2026-10-29.
 Stage 4's ten slices are on main (PR #17, 2026-10-30): its release (slice 7)
 opens the real server's gate inside the measured envelope, which holds
 everything the card did not measure. Only the plan's
-[card acceptance step](plan-instruction-editing.md#card-acceptance-step)
+[card acceptance step](maintainer/plan-instruction-editing.md#card-acceptance-step)
 remains, for the real server's route and page. Other sizes and
 configurations remain unqualified.
 
@@ -1968,7 +1968,7 @@ never `assert`ed, so `python -O` cannot skip them.
 
 *The entry point on the real server.* "Edit by instruction…" is shown
 everywhere, rather than hidden until an editor can run, as the
-[plan's lifecycle](plan-instruction-editing.md#lifecycle-and-interaction) asks.
+[plan's lifecycle](maintainer/plan-instruction-editing.md#lifecycle-and-interaction) asks.
 The dialog says why it is held and offers Open Models…, which since stage 4's
 slice 9 opens the picker on the editor's row without switching. Reuse on a
 resolved edit opens the dialog, never Generate, because the instruction only
@@ -1977,7 +1977,7 @@ which keeps `smoke-wide` untouched; the context menu reaches the dialog at
 every width.
 
 **Stage 4 (2026-10-29/30): released inside the measured envelope, on main
-since PR #17; the card step remains.** The [plan](plan-instruction-editing.md#stage-4-the-qualified-first-slice-2026-10-29)
+since PR #17; the card step remains.** The [plan](maintainer/plan-instruction-editing.md#stage-4-the-qualified-first-slice-2026-10-29)
 records the ten slices; the reasons that are not obvious from the code:
 
 *Why an envelope, not wider defaults.* Stage 3 measured one configuration.
@@ -2772,9 +2772,9 @@ at 48 px. It then restores portrait and checks that the compact marker
 and head reset.
 This is a mechanism check. Native control rectangles, software-keyboard
 rectangles and screenshots remain the Simulator acceptance evidence in
-the [phone review](review-2026-11-05-phone.md#7-refine-keyboard-correction-2026-11-07);
+the [phone review](maintainer/review-2026-11-05-phone.md#7-refine-keyboard-correction-2026-11-07);
 the other image-pass dialogs' scoped native checks are recorded in the
-[follow-up](review-2026-11-05-phone.md#10-edit-dialog-keyboard-acceptance-2026-11-07).
+[follow-up](maintainer/review-2026-11-05-phone.md#10-edit-dialog-keyboard-acceptance-2026-11-07).
 Physical-device acceptance remains separate. The supplied-viewport checks cover all four
 image-pass dialogs, including a 678 px Split View emulation.
 
@@ -2935,7 +2935,7 @@ the honest per-checkpoint answer.
 ## Inpainting
 
 **An inpaint is a refine pass with a mask.** F6 of the 2026-10-12 review;
-the design is `docs/plan-inpainting.md`, which also holds what the installed
+the design is `docs/maintainer/plan-inpainting.md`, which also holds what the installed
 classes do with a mask and what the authors say about it (nothing, for any
 catalogue checkpoint's base weights). diffusers ships an inpaint class beside
 the text-to-image one under the same naming `refine.sibling` already relied
@@ -3299,7 +3299,7 @@ undistilled Z-Image and the other SDXL profiles were not measured.
 ## Outpainting
 
 **An outpaint is an inpaint over a padded copy of its source.** The design
-is `docs/plan-outpainting.md` (binding, with its review of 2026-10-13). The
+is `docs/maintainer/plan-outpainting.md` (binding, with its review of 2026-10-13). The
 user decided the controls (a pixel box per side on the 16-px grid, presets,
 a frame showing where the original lands), the fill (the source's edge
 pixels stretched and blurred, by the server), the mask (the new border plus
@@ -3576,7 +3576,7 @@ sync. Obsolete success, missing-source fallback and errors do not overwrite the
 newer work. A still-current missing source retains the existing panel fallback,
 including its Undo and unchanged size. The request releases its own token before
 the deliberate open/fallback, so normal actions do not cancel themselves.
-[The dated review](review-2026-10-28-reuse-pass-opening.md) owns qualification.
+[The dated review](maintainer/review-2026-10-28-reuse-pass-opening.md) owns qualification.
 
 **Reuse can be taken back.** It replaces the prompt, the negative, the seed,
 the size, steps/CFG/mu and the references and adapter in one click, and it
@@ -3988,7 +3988,7 @@ and `/api/jobs` send: the per-cell event used to carry every record so far,
 
 **Skipped-cell recovery before phase 2** - the finish line's Retry and
 Resume, which resent the page's own payload - is recorded in
-[`plan-continue-run.md`](plan-continue-run.md#phase-1-as-built-superseded-by-phase-2);
+[`plan-continue-run.md`](maintainer/plan-continue-run.md#phase-1-as-built-superseded-by-phase-2);
 Finish run took their place. What that work built still holds: `Job.failed_cells` (label, seed and
 error, on the full snapshot only), the failure rule's `stopped_by`
 "failures" and its "Stopped at cell 4 of 5 after 3 cells failed" lead,
@@ -4152,7 +4152,7 @@ empty alt text, since `setBusy` rewrites their labels as text.
 
 ## Random-choice prompt variables
 
-The [random-choice plan](plan-random-prompt-variables.md) adds `GEN#17`'s
+The [random-choice plan](maintainer/plan-random-prompt-variables.md) adds `GEN#17`'s
 alternative to crossing every variable value. `prompt_mode="random"` draws
 each variable from an image seed and the variable's name using a versioned
 SHA-256 recipe. Reordering variable lines or sampling axes cannot change a
@@ -4172,7 +4172,7 @@ and the default mode stay unchanged.
 ## Prompt labels on the sheet
 
 Mixed-size grids and crop anchors are specified in the
-[size/crop plan](plan-size-axis-crop-anchor.md). Sizes are explicit pairs
+[size/crop plan](maintainer/plan-size-axis-crop-anchor.md). Sizes are explicit pairs
 crossed inside each seed and prompt, with per-size Resume and history. One
 shape key extension carries size and crop together; the legacy hash path
 remains for uniform centered runs. An anchor is a setting of an ordinary
@@ -4304,7 +4304,7 @@ advances the preview epoch before returning, so an older success cannot
 restore the grid-only negative affordance and an older error cannot replace
 preview text. A reopened grid owns its new request. The existing payload,
 debounce and rendering paths stay intact; this fixes presentation ownership,
-not model output. [The dated review](review-2026-10-28-grid-preview-close.md)
+not model output. [The dated review](maintainer/review-2026-10-28-grid-preview-close.md)
 records source evidence, controls and separate browser qualification.
 
 **The resolved prompts are a box of their own** (2026-10-05), between the axes
@@ -5004,7 +5004,7 @@ as its label, because a figure arriving later would move a row under the
 pointer. `#queue-text` gives a total only when every row is priced: "all
 done in" with the live ETA, "of queued work" while there is none (a pause
 holds the gate). History stands in for the cell line's own-pace figure only
-until that figure exists. [Plan](plan-queue-estimates.md).
+until that figure exists. [Plan](maintainer/plan-queue-estimates.md).
 
 **An accepted job still owes its outcome (2026-10-26, `GEN#25`).** An actual
 browser review queued a successful image and an immediately failing image
@@ -5027,10 +5027,10 @@ reply leaves its accepted request tracked for the same once-only outcome
 recovery, with no automatic cancellation retry. Pending rows survive listing
 changes without becoming the watched job's own row. Listing/history replies and Move queue-order snapshots predating a
 cancellation transition cannot settle the newer queue state.
-[The cancellation recovery review](review-2026-10-28-queued-cancel-recovery.md)
+[The cancellation recovery review](maintainer/review-2026-10-28-queued-cancel-recovery.md)
 records the source repair and its separately qualified checks.
 
-The [queue controls plan](plan-queue-controls.md) implements `GEN#18`.
+The [queue controls plan](maintainer/plan-queue-controls.md) implements `GEN#18`.
 The manager now owns an explicit admission list, rather than relying on the
 gate lock's waiter order. Move to front puts queued work next without
 interrupting a running job, a pause or an editor operation. Loading stays
@@ -5564,7 +5564,7 @@ late replies, while manual creation/import passwords and the clear count stay
 separate. In that initial v2 slice, automatic cleanup was not implemented: the
 disclosure said every copy was kept and N was not enforced. OS credentials,
 shared-mode installation and deletion remain separate stages in the
-[backup plan](plan-automatic-backups.md).
+[backup plan](maintainer/plan-automatic-backups.md).
 
 **Shared download cutover (2026-10-26, `GAL#6`).** Per-gallery maintenance cannot
 prove that another process has no archive response, so installing native leases
@@ -5610,7 +5610,7 @@ entire-close outcomes can restore/retire evidence. Cleanup warnings and counters
 remain separate from verified backup state/time, and pending/unknown state stays
 visible when disabled. Save executes no export/deletion, and no installer or OS
 provider UI was added. Native lifecycle checks use owned Windows scratch galleries;
-no real gallery was activated. The [backup plan](plan-automatic-backups.md#explicit-v3-retention-and-durable-uncertainty)
+no real gallery was activated. The [backup plan](maintainer/plan-automatic-backups.md#explicit-v3-retention-and-durable-uncertainty)
 records the current contract, evidence and remaining qualifications.
 
 **The section hidden by default (2026-11-03, `R-01`).** Matt declined
@@ -6081,7 +6081,7 @@ not enter settings/receipts/status or process-lifetime quarantine tracebacks;
 terminal crypto refs are cleared without promising Python zeroing. Source/stub
 and owned encrypted-restore/browser checks pass, but no real vault entry/API/setup
 was used. Intended-user store/session and independent recovery qualification
-remain. The [backup plan](plan-automatic-backups.md#v4-windows-credential-source-and-recovery)
+remain. The [backup plan](maintainer/plan-automatic-backups.md#v4-windows-credential-source-and-recovery)
 owns the exact contract, operator commands and limitations.
 
 ## The CLI reads PNGs and probes the server
@@ -6370,7 +6370,7 @@ the UTC date, which is the wrong one for anything made in the evening.
 The explicit range covers several nights with one term; two single-day terms
 still intersect. It adds no open end, relative range or new date comparator.
 Gallery reads, strict scopes and saved-query validation share this parser.
-[The range plan](plan-gallery-date-ranges.md) records the rationale and checks.
+[The range plan](maintainer/plan-gallery-date-ranges.md) records the rationale and checks.
 
 **Phone day headings and the place pill (2026-11-07).** The phone now names
 the newest Today group as well as the older groups. Without that heading,
@@ -6523,7 +6523,7 @@ press asks first: the server's preview is the question ("1 at 1440×1440, 1
 at 1776×1184 - 2 jobs, one per size"), and OK sends the ids it showed as
 `expected`, so a selection changed meanwhile is refused rather than queued
 unseen. It is a menu item, not a head control: the head holds still
-([review-2026-10-29-backlog.md](review-2026-10-29-backlog.md#gen33-re-render-at-a-tier)).
+([review-2026-10-29-backlog.md](maintainer/review-2026-10-29-backlog.md#gen33-re-render-at-a-tier)).
 
 ## Swap tags
 
@@ -6676,7 +6676,7 @@ every row still reads the original at once. In the dialog the Add row's
 at end / at start toggle takes the arrow's slot, one fixed width
 (`--narrow-w`), so neither box nor the row's height moves as Find empties
 or fills, and Queue keeps its place
-([review-2026-10-29-backlog.md](review-2026-10-29-backlog.md#gen34-swap-tags-add-rows)).
+([review-2026-10-29-backlog.md](maintainer/review-2026-10-29-backlog.md#gen34-swap-tags-add-rows)).
 
 ## Mass refine
 
@@ -6824,7 +6824,7 @@ dialog's hold words it.
 **Open: versions** (2026-10-29). The single dialog's Versions has no batch
 counterpart. `GEN#36` owns `versions` as one cell per version at `seed + i`,
 so pruning stays per image and `versions=1` keeps every key
-([review-2026-10-29-backlog.md](review-2026-10-29-backlog.md#gen36-mass-refine-versions)).
+([review-2026-10-29-backlog.md](maintainer/review-2026-10-29-backlog.md#gen36-mass-refine-versions)).
 
 ## More seeds
 
@@ -6920,7 +6920,7 @@ it, the box marked, and the next count that fits lists the batches.
 
 **"Continue a run that completes"** (2026-10-18) meant two things the
 server already ran: more of a batch, or more seeds of a finished grid
-(M1, M2 in `docs/plan-continue-run.md`), and finishing a grid a budget
+(M1, M2 in `docs/maintainer/plan-continue-run.md`), and finishing a grid a budget
 stopped. Both were reachable only from the footer, through a search or
 picks, and the footer's Starred and its filter's 1,024-image cap stood
 between a night's grid and its next seeds. Of three designs - put the two
@@ -6933,7 +6933,7 @@ recommended answer to the plan's questions the same day.
 
 **Phase 1's Resume details** - the budget stop's Resume and the run bar's
 Resume this run - are recorded in
-[`plan-continue-run.md`](plan-continue-run.md#phase-1-as-built-superseded-by-phase-2);
+[`plan-continue-run.md`](maintainer/plan-continue-run.md#phase-1-as-built-superseded-by-phase-2);
 phase 2, below, replaced them with Finish run. The More seeds design that
 follows is phase 1's and current; the queued-rerun gap at its end was
 closed by `GEN#12` below.
@@ -6963,7 +6963,7 @@ writes the dialog's first words for a run: "2 more of each of 6 cells = 12
 images · seeds 8–9 · Starred ignored" (`run_headline`). The seed span is
 the numeric minimum through maximum of every new seed in the queued cells,
 including a batch that wraps through zero; different top seeds show the
-wider span. [GEN30's review](review-2026-10-28-more-seeds-headline.md) records
+wider span. [GEN30's review](maintainer/review-2026-10-28-more-seeds-headline.md) records
 the endpoint-only defect and its source/API qualification.
 
 **The count opens at the batch's own Batch** from a run surface (Q3): the
@@ -7021,7 +7021,7 @@ panel's hand-built Resume remains; legacy/imported runs without retained
 cells say why Finish is unavailable. Bundles exclude the private recovery
 definitions, and clear removes them. More seeds continues to extend runs;
 Widen and Load into panel remain deferred. Tests and bounded browser evidence
-are recorded in docs/plan-continue-run.md.
+are recorded in docs/maintainer/plan-continue-run.md.
 
 ### Reruns already in the queue
 
@@ -7403,7 +7403,7 @@ made no image. Banner and sheet recovery use server-backed Finish run,
 including comparisons and Repeat, without changing the composer; see
 [More seeds where the run ends](#more-seeds-where-the-run-ends). The
 panel-driven Resume it replaced is recorded in
-[`plan-continue-run.md`](plan-continue-run.md#phase-1-as-built-superseded-by-phase-2).
+[`plan-continue-run.md`](maintainer/plan-continue-run.md#phase-1-as-built-superseded-by-phase-2).
 
 **The morning after has two sources.** `GET /api/runs` groups the gallery
 by `run_id` (`gallery_reports.runs`: images, favourites, distinct prompts, jobs,
@@ -7472,7 +7472,7 @@ before `clip` (The browser's queue).
 in-picker retry. New model/revision/All-models/known-server contexts remove
 old options and keyboard candidates before waiting; same-context useful
 options survive refresh failure. Retry is a marked Option, not a run-id
-sentinel. [The scope-recovery review](review-2026-10-28-runs-scope-recovery.md)
+sentinel. [The scope-recovery review](maintainer/review-2026-10-28-runs-scope-recovery.md)
 owns the lifecycle contract and separate VM/native qualification.
 
 **Browsing the closed picker opens nothing** (2026-10-05). On Windows the
@@ -7561,7 +7561,7 @@ browser's anchor is the last record it holds, so a delete moves nothing.
 the binding operation as OverflowError rather than the routes' named
 validation path. The existing search integer constant supplies the engine
 limit; defaults, lower bounds, MAX itself and paging/scope semantics stay
-unchanged. [The page-bounds review](review-2026-10-29-gallery-page-bounds.md)
+unchanged. [The page-bounds review](maintainer/review-2026-10-29-gallery-page-bounds.md)
 owns the cold HTTP/SQLite checks; ordinary browser-generated IDs already fit.
 
 The grid pages itself: an `IntersectionObserver` on the "Load more" button
@@ -7753,7 +7753,7 @@ both captured values then showed a starred image whose row was unstarred.
 Individual and picked stars now share a synchronous per-id in-flight hold,
 through confirmed propagation. Disjoint images and non-star Picked actions
 remain available. Hold-only changes do not rebuild the lightbox. The
-[dated review](review-2026-10-28-favorite-write-order.md) records controlled
+[dated review](maintainer/review-2026-10-28-favorite-write-order.md) records controlled
 write/reply evidence, cache/control coverage and the explicit unknown-outcome
 and cross-tab limits. A latest-issued response token would not prove server
 commit order.
@@ -7766,7 +7766,7 @@ including already/partial bulk results. `markFavorite` stays network-free,
 and pending or ordinary failed writes add no read. A slow Runs read does not extend
 the favorite hold. The existing Runs context/epoch owner preserves current
 choices and rejects obsolete replies; no local count arithmetic or broader
-favorite-ordering claim is added. [The count review](review-2026-10-29-runs-favorite-counts.md)
+favorite-ordering claim is added. [The count review](maintainer/review-2026-10-29-runs-favorite-counts.md)
 separates actual-module checks from native owned-fake qualification.
 
 **A card is a group named by its id** (2026-10-05 area review). The card was
@@ -7976,7 +7976,7 @@ while Bin sets that selection aside. `recordsWithId` now includes both maps,
 so a confirmed individual/batch star updates these fallback records as well
 as gallery/viewer/session/lightbox copies. Otherwise Compare picked showed an
 unstarred keeper even after the server confirmed Star picked. Selection ids,
-order and anchors stay unchanged. The [dated review](review-2026-10-28-picked-favorites.md)
+order and anchors stay unchanged. The [dated review](maintainer/review-2026-10-28-picked-favorites.md)
 records the actual before/after, isolated fake browser regression and limits.
 
 **Where it sits, and what it must not move.** The head's control rows are
@@ -8082,21 +8082,21 @@ caught, and the gallery said "Internal Server Error".
 `GAL#16` reads a whole floating scalar before dash-range parsing, so a
 Sampling facts term such as `cfg:1e-7` or `mu:1e-7` keeps its exponent sign.
 Integer, NULL, comparison and existing range/error behavior stay unchanged.
-[The scalar-search review](review-2026-10-28-numeric-search-scalars.md) owns
+[The scalar-search review](maintainer/review-2026-10-28-numeric-search-scalars.md) owns
 the source evidence and CPU/storage/HTTP qualification.
 
 `GAL#15` adds `size:portrait`, `size:landscape` and `size:square` across
 resolution tiers through direct stored width/height comparisons. The existing
 `size:` key keeps frontend classification and facts merging unchanged; facts
 still supply exact dimensions, and saved queries retain their raw spelling.
-[The orientation plan](plan-gallery-orientation.md) records the use evidence,
+[The orientation plan](maintainer/plan-gallery-orientation.md) records the use evidence,
 official comparison source, shared strict-scope contract and qualification.
 
 `GAL#17` adds comparison-only actual-area queries such as `size:>=1.5mp`.
 The unit follows the existing Size calculation: 1,000,000 pixels per MP,
 independent of nominal preset tiers and rounded labels. Exact Decimal
 boundaries and integer division preserve inclusive/exclusive pixel limits
-without overflowing stored width/height products. [The area-search plan](plan-gallery-area-search.md)
+without overflowing stored width/height products. [The area-search plan](maintainer/plan-gallery-area-search.md)
 owns the contract, context isolation, guarded legacy types and qualification.
 
 `GAL#21` (2026-10-30) adds exclusion. Before it, `-blonde` reached FTS as the
@@ -8110,12 +8110,12 @@ fallback swaps both text predicates together. Strict scopes take
 `-key:value`, exact SQL, and refuse `-word` (Matt's option A, 2026-10-29).
 A saved query read back from its sidecar skips the grammar check, so one
 saved before exclusions (`-seed:abc`) does not lock out the rest; its Apply
-answers the gallery's 422. [The exclusion plan](plan-search-exclusion.md)
+answers the gallery's 422. [The exclusion plan](maintainer/plan-search-exclusion.md)
 owns the contract and its tests.
 
 ## Named gallery searches
 
-`GAL#7`'s [plan](plan-saved-searches.md) keeps saved filters separate from
+`GAL#7`'s [plan](maintainer/plan-saved-searches.md) keeps saved filters separate from
 gallery rows: each definition has a name, the exact query text, Starred and
 All models, plus a server id and optimistic revision. The database filename
 is part of its new AuraDream sidecar name so two galleries in one directory
@@ -8399,7 +8399,7 @@ value still wins.
 
 **Historical sheet recovery, before phase 2.** The sheet's Resume this run,
 which filled the panel, is recorded in
-[`plan-continue-run.md`](plan-continue-run.md#phase-1-as-built-superseded-by-phase-2);
+[`plan-continue-run.md`](maintainer/plan-continue-run.md#phase-1-as-built-superseded-by-phase-2);
 Finish run on the run bar replaced it - see [More seeds where the run ends](#more-seeds-where-the-run-ends).
 
 ## The CLI's loop, and jobs.submit's
@@ -8890,7 +8890,7 @@ Delete wraps to a second row at 2048x1040 at 125% with or without Gallery beside
 
 ## Named generation and grid setups
 
-`GEN#27`'s [plan](plan-generation-presets.md) has cold storage/API and explicit
+`GEN#27`'s [plan](maintainer/plan-generation-presets.md) has cold storage/API and explicit
 composer integration built and locally browser-qualified (2026-10-28).
 A setup is a raw checkpoint-scoped draft, kept in a bounded atomic
 sidecar beside the database, outside gallery rows and bundles. Sampling nulls
@@ -8943,7 +8943,7 @@ acceptance against the fake, with no card fit, image-quality or speed claim.
 
 ## Personal prompt snippets
 
-The [snippet plan](plan-prompt-snippets.md) implements `UI#11`. **Examples >
+The [snippet plan](maintainer/plan-prompt-snippets.md) implements `UI#11`. **Examples >
 Personal snippets…** follows the authors' prompts, and is available when no
 author examples exist. A separate caption button grew the Tags and Expand
 captions from 20 to 39 px at 1400x900; the menu entry adds no width or height
@@ -8971,7 +8971,7 @@ the browser harness sends Ctrl+Z's physical key code to exercise that native
 history rather than an application key handler.
 
 A third target, Grid variables, came from the 2026-11-10 review (`GEN#54`,
-[R8](review-2026-11-10-peers.md#r8-a-snippet-target-for-grid-variables)): a
+[R8](maintainer/review-2026-11-10-peers.md#r8-a-snippet-target-for-grid-variables)): a
 `name = a | b` block was kept only inside a saved setup, whose Restore
 replaces the whole composer. The snippet is text typed for you and nothing
 more. It is stored verbatim, never parsed, and joined to the box with the
@@ -8994,7 +8994,7 @@ and commit recomputes the selected file-index choices under the existing
 snippet lock before one atomic write. Imports keep prompt boxes and dirty
 editor drafts intact; changed editor revisions need explicit reselection.
 Uncertain responses reload for a new preview and require renewed Copy intent
-instead of silently resending. The [portability owner](plan-snippet-portability.md#stage-3-implementation-and-browser-evidence-2026-10-28)
+instead of silently resending. The [portability owner](maintainer/plan-snippet-portability.md#stage-3-implementation-and-browser-evidence-2026-10-28)
 records passing CPU/browser checks and the final screenshot-read limitation.
 
 ## Keyboard shortcut help
@@ -9020,7 +9020,7 @@ pending choice and retaining it in Undo snapshots restores documented behavior.
 Comparison grouping and C were left out of this bounded slice; existing S and
 visible comparison controls remain.
 
-**Ownership review (2026-10-26).** The [approved follow-up](plan-shortcut-workflow.md)
+**Ownership review (2026-10-26).** The [approved follow-up](maintainer/plan-shortcut-workflow.md)
 fixes actual browser conflicts: Ctrl+Enter generated behind Then refine settings,
 Picked activated and generated in one event, lightbox Alt+Arrow intercepted
 browser history, and F in its Against select starred an image. Shared event
@@ -9031,7 +9031,7 @@ numeric stepping retain repeat. Pending More seeds opening leaves Escape to
 help above it. These are synthetic-browser guarantees, not physical-device
 or IME acceptance.
 
-The [shortcut overlay plan](plan-shortcuts.md) implements `UI#12` from the
+The [shortcut overlay plan](maintainer/plan-shortcuts.md) implements `UI#12` from the
 2026-10-24 review. `?` and the named top-bar button open native modal help,
 with no extra line in the settings panel. The grouped list covers the
 existing handlers as well as the controls' `aria-keyshortcuts`: reading only
@@ -9688,7 +9688,7 @@ input limit are distinct, so EOS no longer replaces the last source token
 of a full chunk. CPU regression tests and the cached offline Marian
 tokenizer preserve every input token at the boundary; no model inference
 or translation-quality qualification was performed
-([evidence](review-2026-10-26-todo.md#gen26-marian-truncates-a-full-sentence-chunk)).
+([evidence](maintainer/review-2026-10-26-todo.md#gen26-marian-truncates-a-full-sentence-chunk)).
 Translation failure is
 returned separately so a useful multi-GB expansion is not thrown away. The
 index read is a try/except that yields nothing on failure - an optimisation,
@@ -9987,7 +9987,7 @@ the Refine dialog's prompt's does, asked with `field=negative`, where the
 server demotes nothing (and promotes nothing: no author sentence asks for
 it); no Find tag row, since the finder writes into the prompt, and none
 while the box is greyed
-([review-2026-10-29-backlog.md](review-2026-10-29-backlog.md#pa12-tag-suggestions-in-the-negative-prompt)).
+([review-2026-10-29-backlog.md](maintainer/review-2026-10-29-backlog.md#pa12-tag-suggestions-in-the-negative-prompt)).
 **Find tag** (2026-10-22, user request): a cowlick on top of the head is
 `ahoge`, which no completion of "cowlick" reaches. Danbooru's wiki says
 what each tag shows, so the server searches page text (`body_matches`),
@@ -12912,7 +12912,7 @@ still updates the retained result and normal stale/button/critic state.
 The critic pre-check continues to its existing inert/real route ownership,
 including errors in `#error` while the block is hidden. A later explicit
 Check reopens the panel, including the same prompt; Reset/model/supersession
-still retire computations as before. [The dismissal review](review-2026-10-29-check-dismissal.md)
+still retire computations as before. [The dismissal review](maintainer/review-2026-10-29-check-dismissal.md)
 owns the source/fake qualification and its no-service boundary.
 
 Apply is offered on rule findings only - a rule's
@@ -13524,11 +13524,11 @@ scope so they read current dependencies rather than capturing a second copy.
 The generated OpenAPI contract is unchanged. Test modules were split by
 responsibility too, retaining their test bodies and parameter cases. The full
 inventory, reasons for keeping other long files together and verification are
-in [the source audit](source-audit.md).
+in [the source audit](maintainer/source-audit.md).
 
 ## Generate, then refine
 
-**Built 2026-10-24 (`GEN#16`, `docs/plan-then-refine.md`).** The SDXL anime
+**Built 2026-10-24 (`GEN#16`, `docs/maintainer/plan-then-refine.md`).** The SDXL anime
 authors' recipe is a render then a hires pass; Matt rates Refine, enlarging
 with it, several strengths and Mass refine all Often. Then refine runs a
 pass of every image right after its cell, in the same job.
@@ -13600,7 +13600,7 @@ pass of every image right after its cell, in the same job.
 
 ## Peak memory per image
 
-**Built 2026-10-24 (`GEN#15`, `docs/plan-peak-vram.md`).** Each image
+**Built 2026-10-24 (`GEN#15`, `docs/maintainer/plan-peak-vram.md`).** Each image
 records the most GPU memory PyTorch's caching allocator held during the
 `generate()` call that made it, allocated and reserved, in bytes, on the
 row and in the chunk; the lightbox's Created row shows the allocated
@@ -13698,7 +13698,7 @@ entries and Windows torchvision 0.28.0+cu130 entry have no `hash` field.
 The two Linux torchvision entries do have hashes. No artifact was downloaded
 or rehashed to reconstruct the missing values. Preserve the current lock and
 resolve that discrepancy during the [optional compiler proposal's isolated
-lock review](plan-regional-compilation.md#dependency-proposal-and-remaining-artifact-check-2026-10-28);
+lock review](maintainer/plan-regional-compilation.md#dependency-proposal-and-remaining-artifact-check-2026-10-28);
 the historical measurement is not proof that the present lock retains it.
 
 ## Opening AuraDream while the PC is silent
@@ -13750,7 +13750,7 @@ works on every origin.
 
 ## The log file
 
-Built 2026-11-10 (`DEV#35`, [the peer review's S5](review-2026-11-10-peers.md#s5-a-log-file)).
+Built 2026-11-10 (`DEV#35`, [the peer review's S5](maintainer/review-2026-11-10-peers.md#s5-a-log-file)).
 Logging was `basicConfig` to stderr. The job, cell, pass, load and switch
 failures each log one ERROR line and their traceback at DEBUG, so that a
 gated repository's 403 or an out-of-memory cell is one readable line on the
@@ -13813,7 +13813,7 @@ its place or size, and a page that shows it.
 
 ## A passcode beyond loopback
 
-Designed 2026-11-10 (`DEV#32`, [the peer review's S2](review-2026-11-10-peers.md#s2-passcode-beyond-loopback),
+Designed 2026-11-10 (`DEV#32`, [the peer review's S2](maintainer/review-2026-11-10-peers.md#s2-passcode-beyond-loopback),
 Matt's yes the same day). This section is the first step the finding asks
 for: every surface that answers without credentials today, then the design,
 then the order to build it in. Matt read the flagged choices on 2026-11-10
@@ -14145,7 +14145,7 @@ line, in these terms:
 - So the passcode keeps out people who can merely reach the address: the
   household, a guest on the Wi-Fi. It is not protection on a network that
   is not trusted, and never a reason to forward the port to the internet.
-- HTTPS is what makes it private ([S3](review-2026-11-10-peers.md#s3-an-https-route),
+- HTTPS is what makes it private ([S3](maintainer/review-2026-11-10-peers.md#s3-an-https-route),
   `DEV#33`).
 - Do not reuse a password from anywhere else. It sits in plain text in the
   environment file and the process's environment.
@@ -14443,7 +14443,7 @@ declared, whatever the bind, and the cookie is `Secure` there.
 
 ## Refusal codes the page reads
 
-Built 2026-11-10 (`DEV#37`, [the peer review's S7](review-2026-11-10-peers.md#s7-error-codes-the-page-reads)).
+Built 2026-11-10 (`DEV#37`, [the peer review's S7](maintainer/review-2026-11-10-peers.md#s7-error-codes-the-page-reads)).
 The page decided what to do about a refusal by testing the server's English
 in `err.message`: `/unknown image/` to forget an image, `/recycle bin/` to
 call it binned rather than deleted, `/^\d+ batch/` to mark More seeds'
@@ -14489,7 +14489,7 @@ and gives `image_binned` or `image_unknown` under the same sentence.
 
 ## The smoke driver hears page errors
 
-Built 2026-11-10 (`DEV#38`, [the peer review's T1](review-2026-11-10-peers.md#t1-the-smoke-driver-hears-page-errors)).
+Built 2026-11-10 (`DEV#38`, [the peer review's T1](maintainer/review-2026-11-10-peers.md#t1-the-smoke-driver-hears-page-errors)).
 `tools/browser.mjs` enabled the `Runtime` domain and read only the answers
 to its own calls. An exception nothing caught in the page (a handler that
 threw on a press, a rejected fetch with no `catch`) was written to a
@@ -14567,7 +14567,7 @@ log.
 
 ## An injected accessibility audit
 
-Built 2026-11-10 (`DEV#40`, [the peer review's T3](review-2026-11-10-peers.md#t3-an-injected-accessibility-audit)).
+Built 2026-11-10 (`DEV#40`, [the peer review's T3](maintainer/review-2026-11-10-peers.md#t3-an-injected-accessibility-audit)).
 `phone_audit.js` measures boxes; nothing checked what the markup says. The
 held-button convention (a control held for a reason is `aria-disabled` with
 the reason as its title) was kept by review and by the expectations each
@@ -14690,6 +14690,18 @@ Node and private font metrics, with no rerun.
 The remaining unblocked first-time and peer-review work is collected on
 `todo/overnight-first-run`; individual findings own their Built notes.
 
+PR #69's first hosted run exposed a separate Check-sheet focus race. A
+second opening from the retained Check chip could leave focus on the hidden
+✕ after closing: `closeAnalysis` tried to focus Check while its sheet was
+still modal, before the hidden-state observer called `close()`. A controlled
+250 ms tail around the native focus call retained that exact failed state.
+`closeAnalysis` now calls the existing `syncPhoneCheck` synchronously after
+hiding the answer, so the sheet closes before its existing focus handoff.
+The same control passes with native closing/focusing preserved. Finding
+Show still uses its separate dismiss-and-select path. The phone review's
+[focus-order receipt](maintainer/review-2026-11-05-phone.md#11-check-sheet-close-focus-order-2026-11-11)
+owns the bounded browser evidence.
+
 The installer's existing-token question distinguishes having a token from
 having a model licence or enough memory. Saved choices still govern the
 next start. Windows wording and ZIP/uv recovery, WSL's driver/CUDA/doctor
@@ -14782,7 +14794,7 @@ enable the default-off setting.
 
 ## Use prompt
 
-Built 2026-11-10 (`GEN#53`, [the peer review's R7](review-2026-11-10-peers.md#r7-prompt-recall)).
+Built 2026-11-10 (`GEN#53`, [the peer review's R7](maintainer/review-2026-11-10-peers.md#r7-prompt-recall)).
 A prompt came back only with everything else (Reuse settings, which also
 takes the seed, the size and the sampling) or through the clipboard (Copy
 prompt, then a paste into each box). Use prompt, after Use seed in the

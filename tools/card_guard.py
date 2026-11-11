@@ -3,7 +3,7 @@
     uv run python tools/card_guard.py watch --watch-pid PID [--out rows.jsonl] [--need-ram-gib N]
     uv run python tools/card_guard.py plan --points "[[1.05, 9815], [2.07, 10247]]" --size 2048x2048
 
-docs/plan-card-harness.md, "Card guard". Two halves:
+docs/maintainer/plan-card-harness.md, "Card guard". Two halves:
 
 - **The decision** (`decide`, `plan_rung`) is pure: no I/O, no clock, no
   subprocess, nothing from `backend`, torch or diffusers. An in-process

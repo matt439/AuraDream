@@ -4,8 +4,8 @@
 including its Windows and WSL environments. These requirements describe his
 whole working cycle; they do not propose a public service, accounts or a new audience.
 
-Read [research](./research.md), [workbench](./workbench.md) and
-[validation](./validation.md) alongside this catalogue. The
+Read [research](research.md), [workbench](workbench.md) and
+[validation](validation.md) alongside this catalogue. The
 [usage guide](../usage.md) describes today's app; existing plans and
 [TODO](../../TODO.md) retain ownership of implementation and its ordering.
 
@@ -72,7 +72,7 @@ answers and exceptions.
 - **Story:** when I am generating, I can edit my prompt and negative, choose aspect/resolution, set a fixed seed and Batch/Repeat, or Reset without opening secondary controls.
 - **Acceptance:** the next composer study shows separate aspect/resolution selectors, a readable fixed Seed, distinct Batch and Repeat with their total, and a direct undoable Reset. Specific values remain owned or illustrative, never inferred from frequency.
 - **Acceptance:** Steps/CFG/Mu are one disclosure away with effective values visible; unused custom dimensions/orientation, True CFG and random-seed actions remain accessible secondarily. No unreported feature is hidden on the basis of these answers.
-- **Trace:** [placement](workbench.md#reported-generation-control-priorities), [validation](validation.md#reported-control-use-follow-up), `DEV#1`. Compact setup (`UI#19`, [plan](../plan-shortcut-workflow.md), [usage](../usage.md#compact-setup)) is built: Custom dimensions/Orientation sit in a disclosure whose summary shows the dimensions. Still candidate: the Steps/CFG/Mu disclosure, and True CFG and the dice as secondary. Matt confirmed today's Reset behavior: clear Seed, retain existing reset scope and Undo, then let him enter another seed. No automatic replacement or new empty-seed submission guard.
+- **Trace:** [placement](workbench.md#reported-generation-control-priorities), [validation](validation.md#reported-control-use-follow-up), `DEV#1`. Compact setup (`UI#19`, [plan](../maintainer/plan-shortcut-workflow.md), [usage](../usage.md#compact-setup)) is built: Custom dimensions/Orientation sit in a disclosure whose summary shows the dimensions. Still candidate: the Steps/CFG/Mu disclosure, and True CFG and the dice as secondary. Matt confirmed today's Reset behavior: clear Seed, retain existing reset scope and Undo, then let him enter another seed. No automatic replacement or new empty-seed submission guard.
 - **Dependency:** model applicability and existing persistence/undo; no application implementation is implied by this design requirement.
 
 ### UX#1 — Find the next useful action · P1 · Proposed
@@ -81,7 +81,7 @@ answers and exceptions.
 - **Story:** when I return to my workstation, I can tell what is ready, what is running and where to resume judging or creating.
 - **Acceptance:** the workbench concept identifies the running checkpoint, active/queued work, watched job, earlier session results and selected-image scope without opening unrelated dialogs. A paused state remains legible when present without giving Pause primary space.
 - **Acceptance:** from cold, busy and returning-session fixtures, Matt can name the next action for his task before pressing it; record confusion rather than assuming a new navigation scheme is needed.
-- **Trace:** [usage: jobs](../usage.md#generate-and-manage-jobs), [existing modes](../plan-continue-run.md#personas); no existing TODO item claims this full-app orientation outcome.
+- **Trace:** [usage: jobs](../usage.md#generate-and-manage-jobs), [existing modes](../maintainer/plan-continue-run.md#personas); no existing TODO item claims this full-app orientation outcome.
 - **Dependency:** research's task priorities; preserve the existing no-build-step workstation architecture.
 
 ### UX#2 — Know which model is selected and usable · P0 · Current
@@ -91,7 +91,7 @@ answers and exceptions.
 - **Acceptance:** cold start, save without load, successful load, failed load and another-tab switch each show the effective checkpoint/options and an available next action.
 - **Acceptance:** checkpoint changes update supported controls and defaults; a stale dialog or submission cannot silently use the previous model's assumptions.
 - **Acceptance:** model guidance, favourite status and Load automatically on startup are direct within Models; quantization, offload, save-without-loading and manual load/unload remain accessible secondarily. Failures still expose an intelligible recovery action even though manual loading is not a routine task.
-- **Trace:** [usage: models](../usage.md#load-and-switch-models), [switching owner](../design-notes.md#switching-checkpoints-while-the-server-stays-open); `GEN#1`'s offline cache/download facts are built, recorded in [F7](../review-2026-10-12.md#f7-show-each-checkpoints-download-size-and-whether-it-is-already-in-the-hf-cache).
+- **Trace:** [usage: models](../usage.md#load-and-switch-models), [switching owner](../design-notes.md#switching-checkpoints-while-the-server-stays-open); `GEN#1`'s offline cache/download facts are built, recorded in [F7](../maintainer/review-2026-10-12.md#f7-show-each-checkpoints-download-size-and-whether-it-is-already-in-the-hf-cache).
 - **Dependency:** current model revision and load lifecycle rules remain authoritative.
 
 ### UX#3 — Judge preparation cost before committing time · P1 · Proposed
@@ -131,7 +131,7 @@ answers and exceptions.
 - **Acceptance:** batch and run entry points identify their target, images per cell, total work and seed policy before Queue; repeated submissions skip already planned seeds.
 - **Acceptance:** lightbox/dialog Escape and return focus preserve the inspected image; narrow-width access remains available through the existing image menu.
 - **Acceptance:** Reuse settings, take Seed, copy prompt/seed and More seeds are directly reachable from inspection or the image menu. Recorded-reference reuse (G3 Sometimes) remains available contextually; its use does not imply manual reference management (I3–I4 Never).
-- **Trace:** [usage: continue](../usage.md#continue-a-run), [accepted continuation design](../plan-continue-run.md#the-recommended-design); phases 1 and 2, including `GEN#11`'s persisted Finish run, are built.
+- **Trace:** [usage: continue](../usage.md#continue-a-run), [accepted continuation design](../maintainer/plan-continue-run.md#the-recommended-design); phases 1 and 2, including `GEN#11`'s persisted Finish run, are built.
 - **Dependency:** preserve batch settings and joining the original run; a new continuation shortcut is not required.
 
 ### UX#7 — Understand work while it runs or waits · P0 · Current
@@ -172,7 +172,7 @@ answers and exceptions.
 - **Story:** the morning after a restart, I can finish a stored run without reconstructing its axes or base seed.
 - **Acceptance:** Finish is held while that run has queued work, naming the job that holds the rest. Otherwise it previews and queues only missing, unplanned cells from stored jobs under the original run identity; binned cells are not redrawn.
 - **Acceptance:** legacy/imported runs, changed model/quantizer, missing sources/adapters/masks, deleted results and storage failures follow the accepted phase-2 refusals and disclosures.
-- **Trace:** [phase-2 owner](../plan-continue-run.md#phase-2-runs-keep-their-cells), [accepted answers](../plan-continue-run.md#open-questions-for-the-user); `GEN#11` is complete, independently of whole-app layout validation.
+- **Trace:** [phase-2 owner](../maintainer/plan-continue-run.md#phase-2-runs-keep-their-cells), [accepted answers](../maintainer/plan-continue-run.md#open-questions-for-the-user); `GEN#11` is complete, independently of whole-app layout validation.
 - **Dependency:** preserve persisted job definitions/outcomes and ordinary submission checks; legacy/imported runs without retained definitions remain explicitly unavailable for Finish.
 
 ### UX#11 — Predict the scope of every image action · P0 · Current
@@ -186,12 +186,12 @@ answers and exceptions.
 
 ### UX#12 — Curate a set across searches without losing it · P1 · Proposed
 
-- **Basis:** E1–E5, E9–E10, E12 and G9 Often supports browsing, Stars, All models, Runs, prompt/from-setting search, card sizing/Fit/Crop, retained picks and bulk starring. Persistent picks/hidden counts and Ctrl+A are built (`UI#6`), and Pick this run on a card's menu since 2026-10-30 (`UI#37`, [F19 follow-up](../review-2026-10-12.md#f19-follow-up-pick-this-run-ui37)). Saved searches (`GAL#7`) are built and rated Sometimes (2026-11-03). Their placement and clarity remain part of task trials.
+- **Basis:** E1–E5, E9–E10, E12 and G9 Often supports browsing, Stars, All models, Runs, prompt/from-setting search, card sizing/Fit/Crop, retained picks and bulk starring. Persistent picks/hidden counts and Ctrl+A are built (`UI#6`), and Pick this run on a card's menu since 2026-10-30 (`UI#37`, [F19 follow-up](../maintainer/review-2026-10-12.md#f19-follow-up-pick-this-run-ui37)). Saved searches (`GAL#7`) are built and rated Sometimes (2026-11-03). Their placement and clarity remain part of task trials.
 - **Story:** I can gather keepers across my runs, inspect them and apply an action to exactly that set.
 - **Acceptance:** design trials retain picks and anchor across search/paging and a bin visit; hidden-pick counts remain understandable and Clear is deliberate.
 - **Acceptance:** existing pick-all/run controls state their loaded/run scope and cap before action; they do not quietly select an unlimited gallery.
 - **Acceptance:** browse/older images, prompt search, Stars, All models, Runs, density/Fit/Crop and picked-star actions are directly available in gallery review; searches from an image's prompt/settings preserve the relevant route back. Technical search syntax remains available, while LoRA/source/mask/edit-type search (E8 Never) is secondary.
-- **Trace:** [usage: gallery](../usage.md#browse-compare-and-keep-results), [selection owner](../design-notes.md#the-gallery-selection); `UI#6`, saved searches (`GAL#7`, [plan](../plan-saved-searches.md#browser-acceptance)) and Pick this run (`UI#37`) are built. A sheet of the picks is deliberately not built ([No sheet of the picks](../design-notes.md#the-gallery-selection)); a run's sheet is its `run:` or `job:` search. This requirement evaluates the curation journey rather than creating another implementation row.
+- **Trace:** [usage: gallery](../usage.md#browse-compare-and-keep-results), [selection owner](../design-notes.md#the-gallery-selection); `UI#6`, saved searches (`GAL#7`, [plan](../maintainer/plan-saved-searches.md#browser-acceptance)) and Pick this run (`UI#37`) are built. A sheet of the picks is deliberately not built ([No sheet of the picks](../design-notes.md#the-gallery-selection)); a run's sheet is its `run:` or `job:` search. This requirement evaluates the curation journey rather than creating another implementation row.
 - **Dependency:** UX#11; keep current per-card star behavior and the separate temporary bin selection.
 
 ### UX#13 — Compare two chosen candidates · P1 · Current
@@ -212,7 +212,7 @@ answers and exceptions.
 - **Acceptance:** representative edit dialogs identify their source, output size, strength, versions, supported checkpoint and relevant measured/unmeasured guidance before running.
 - **Acceptance:** Inpaint previews its painted mask and Outpaint its padding/band; held capabilities explain why and preserve keyboard access to that explanation.
 - **Acceptance:** frequent Refine/enlarge and strength/version controls are direct in the image action flow; Mass refine, Re-render and Swap tags are directly available at the picked/filter scope point. Inpaint/outpaint remain easy to open as contextual tools; cross-model/existing-pass inclusion remains secondary without changing defaults or eligibility.
-- **Trace:** [Refine](../usage.md#refine-an-existing-image), [Inpaint](../usage.md#inpaint-part-of-an-image), [Outpaint](../usage.md#outpaint-an-image), [edit plans](../plan-inpainting.md), [outpaint plan](../plan-outpainting.md); `INP#5`–`INP#10` retain their own status (FLUX.1 inpaint, `INP#3`, was enabled 2026-10-19). Since then: Only the masked area (`INP#9`, built 2026-11-03; card step `CARD#13`) and [Edit by instruction](../usage.md#edit-by-instruction) (`INP#11`, on main 2026-10-30; FLUX.1 Kontext [dev] inside its measured envelope; its card acceptance step is not run). Both are rated Sometimes (2026-11-03).
+- **Trace:** [Refine](../usage.md#refine-an-existing-image), [Inpaint](../usage.md#inpaint-part-of-an-image), [Outpaint](../usage.md#outpaint-an-image), [edit plans](../maintainer/plan-inpainting.md), [outpaint plan](../maintainer/plan-outpainting.md); `INP#5`–`INP#10` retain their own status (FLUX.1 inpaint, `INP#3`, was enabled 2026-10-19). Since then: Only the masked area (`INP#9`, built 2026-11-03; card step `CARD#13`) and [Edit by instruction](../usage.md#edit-by-instruction) (`INP#11`, on main 2026-10-30; FLUX.1 Kontext [dev] inside its measured envelope; its card acceptance step is not run). Both are rated Sometimes (2026-11-03).
 - **Dependency:** current size guards and measured families; personal-file references `GEN#8` remain deferred until Matt raises them.
 
 ### UX#15 — Retain an edit's lineage and reproduce its intent · P0 · Current
@@ -221,7 +221,7 @@ answers and exceptions.
 - **Story:** I can trace a result back to its inputs and recognize when a rerun can no longer reproduce the original operation.
 - **Acceptance:** facts, Reuse and rerun previews identify source and mask/spec; a binned source offers the documented recovery and a permanently missing one is not silently replaced.
 - **Acceptance:** inpaint reruns preserve source size/mask, outpaint reruns preserve padding/fill/band, and an action that drops a mask states that resulting operation.
-- **Trace:** [usage: edits](../usage.md#inpaint-part-of-an-image), [inpaint reproduction](../plan-inpainting.md#the-reproduction-set), [outpaint lineage](../plan-outpainting.md#lineage-and-gallery-actions); related measurement rows `CARD#1`–`CARD#3` remain open. An instruction edit retains its source proof through rows, PNGs and reruns, and Re-render refuses an edit ([plan](../plan-instruction-editing.md)). Only the masked area's crop box and working size are results, never keyed; its key rides `mask_key` as `+bbox16:32@1`. Swap tags, Mass refine and More seeds previews name an inpaint, outpaint, masked-area or edit row (Swap tags leaves an edit out), and Mass refine notes that it refines such a row whole, its mask not used (2026-11-03).
+- **Trace:** [usage: edits](../usage.md#inpaint-part-of-an-image), [inpaint reproduction](../maintainer/plan-inpainting.md#the-reproduction-set), [outpaint lineage](../maintainer/plan-outpainting.md#lineage-and-gallery-actions); related measurement rows `CARD#1`–`CARD#3` remain open. An instruction edit retains its source proof through rows, PNGs and reruns, and Re-render refuses an edit ([plan](../maintainer/plan-instruction-editing.md)). Only the masked area's crop box and working size are results, never keyed; its key rides `mask_key` as `+bbox16:32@1`. Swap tags, Mass refine and More seeds previews name an inpaint, outpaint, masked-area or edit row (Swap tags leaves an edit out), and Mass refine notes that it refines such a row whole, its mask not used (2026-11-03).
 - **Dependency:** UX#14 and stored reproduction invariants; browser checks cannot establish pixel quality or GPU fit.
 
 ### UX#16 — Back up, archive and clear the intended gallery · P0 · Current
@@ -231,7 +231,7 @@ answers and exceptions.
 - **Acceptance:** whole-gallery backup, subset backup and bundle-and-clear distinguish retained/deleted contents, scope, omitted links and encryption behavior before action.
 - **Acceptance:** only verified export permits clear; failures retain a reviewable result, and archive progress remains recoverable after closing the browser.
 - **Acceptance:** whole-gallery backup, password entry, bundle-and-clear, saved download and import are direct within the archive flow. Its whole-gallery scope remains apparent even with picks, Starred or a model filter active; unused subset export remains secondary and is never silently selected.
-- **Trace:** [usage: bundles](../usage.md#gallery-bundles), [bundle owner](../design-notes.md#gallery-bundles-verify-before-clearing-stage-before-merging); `GAL#3`'s bounded CPU scale/interruption checks are complete in the [storage review](../review-2026-10-12.md#storage-scale-and-interruption-checks).
+- **Trace:** [usage: bundles](../usage.md#gallery-bundles), [bundle owner](../design-notes.md#gallery-bundles-verify-before-clearing-stage-before-merging); `GAL#3`'s bounded CPU scale/interruption checks are complete in the [storage review](../maintainer/review-2026-10-12.md#storage-scale-and-interruption-checks).
 - **Dependency:** gallery maintenance admission and existing verification/staging; no automatic inclusion of unchosen images.
 
 ### UX#17 — Find and understand restored work · P1 · Current
@@ -269,8 +269,8 @@ answers and exceptions.
 - **Story:** I can navigate, judge, select, edit and recover work without relying on a mouse, colour alone or visual status alone.
 - **Acceptance:** validate complete tasks with an actual screen reader and keyboard; held-action reasons, status updates, modal focus/return and mask controls are understandable in use.
 - **Acceptance:** forced colours, reduced motion and touch are exercised; sheet navigation is evaluated against `UI#4`, and arbitrary feature shortcuts are not presumed necessary.
-- **Trace:** [usage: keyboard](../usage.md#keyboard-and-lightbox), [landmarks owner](../design-notes.md#headings-and-landmarks), [review limits](../review-2026-10-12.md#review--2026-10-12), `UI#4`, `UI#5`, `UI#7`, `UI#9`.
-- **Dependency:** [validation](./validation.md) records observed outcomes; accessibility-tree inspection and fake-server success alone do not establish this outcome.
+- **Trace:** [usage: keyboard](../usage.md#keyboard-and-lightbox), [landmarks owner](../design-notes.md#headings-and-landmarks), [review limits](../maintainer/review-2026-10-12.md#review--2026-10-12), `UI#4`, `UI#5`, `UI#7`, `UI#9`.
+- **Dependency:** [validation](validation.md) records observed outcomes; accessibility-tree inspection and fake-server success alone do not establish this outcome.
 
 ## Candidate delivery stages and dependencies
 

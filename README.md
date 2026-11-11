@@ -88,12 +88,15 @@ uv run python -m backend.main
 ```
 
 The server starts without terminal questions and restores your saved choices.
+On a fresh visit without a saved or explicit checkpoint and without a Hugging
+Face sign-in, Models suggests the open **Animagine XL 4.0**, matching the installer.
 Open **<http://127.0.0.1:7860>**, choose a checkpoint and loading settings under
 **Models** and press **Switch & load**, which also saves the choice for the
 next start, then enter a prompt, choose a size and press **Generate**. Steps, CFG and Mu start at the selected checkpoint's defaults.
-The first generation downloads and loads the weights: the default's 32 GiB
-takes about 45 minutes at 100 Mbit/s; later loads reuse the cache. Starting
-the server alone does not load the model unless preload is enabled. To
+The first generation downloads and loads the weights: Animagine is about
+6.5 GB; FLUX.1 Krea [dev]'s 32 GiB takes about 45 minutes at 100 Mbit/s.
+Later loads reuse the cache. Starting the server alone does not load the
+model unless preload is enabled. To
 update or remove AuraDream, see [Updating](docs/setup.md#updating) and
 [Uninstall](docs/setup.md#uninstall).
 
@@ -462,8 +465,9 @@ Static frontend edits need no server restart; backend edits do.
 - [GPU verification](docs/verified.md): measured behaviour and remaining gaps.
 - [Design notes](docs/design-notes.md): implementation decisions and model sources.
 - [Module map](docs/rules.md#layout): what every source file is responsible for.
-- [Refactor audit](docs/source-audit.md): the file splits and why the long files stay whole.
-- [Everything in docs/](docs/README.md), including which files are maintainer records.
+- [Refactor audit](docs/maintainer/source-audit.md): the file splits and why the long files stay whole.
+- [Maintainer records](docs/maintainer/README.md): plans, reviews, checklists and testing runbooks.
+- [Documentation index](docs/README.md).
 
 ## Contributing and security
 

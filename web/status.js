@@ -613,7 +613,7 @@ function syncLoadFailureAlternative(card, s) {
   }
   button.dataset.modelId = id;
   const label = modelLabel(id);
-  const name = label !== id ? label : id === 'Tongyi-MAI/Z-Image-Turbo' ? 'Z-Image Turbo' : checkpointName(id);
+  const name = label !== id ? label : id === 'cagliostrolab/animagine-xl-4.0' ? 'Animagine XL 4.0 Opt' : checkpointName(id);
   const text = `Use ${name} instead`;
   if (button.textContent !== text) button.textContent = text;
   button.title = `Choose ${name} in Models, then press Switch & load`;

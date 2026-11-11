@@ -51,7 +51,7 @@ its 2026-10-18 line references; no new task observation was made. Questions 3, 6
 - Both phases of Continue a run are built. Its old persona frustration
   paragraphs describe an earlier state and must not be reported as current
   defects.
-- The [2026-11-01 first-run review](../review-2026-11-01-first-run.md)
+- The [2026-11-01 first-run review](../maintainer/review-2026-11-01-first-run.md)
   (installer, doctor, first-visit panel, plain-words failures, `GEN#41`) was
   requested by Matt for a first-time user who is not confident with git, and
   serves the public repository. It sits outside these modes and is owned by
@@ -68,8 +68,8 @@ evidence, and `H` a hypothesis that still needs a personal task check.
 | ID | Kind | Evidence and exact repository source | What it supports |
 |---|---|---|---|
 | E01 | D | This session, 2026-10-18: full-scale design; personal workstation only; "i want to be able to do common tasks quickly" | Whole-cycle scope; one owner; common-task speed leads |
-| E02 | R | [Continue a run: evidence and personas](../plan-continue-run.md#evidence-and-its-limits), lines 47-126 | One user; three modes; no interview or usage-frequency evidence |
-| E03 | R | [Accepted continuation answers](../plan-continue-run.md#open-questions-for-the-user), lines 652-692 | Batch-based count; preview dialog; joining runs; phase-2 Finish; deferred widening |
+| E02 | R | [Continue a run: evidence and personas](../maintainer/plan-continue-run.md#evidence-and-its-limits), lines 47-126 | One user; three modes; no interview or usage-frequency evidence |
+| E03 | R | [Accepted continuation answers](../maintainer/plan-continue-run.md#open-questions-for-the-user), lines 652-692 | Batch-based count; preview dialog; joining runs; phase-2 Finish; deferred widening |
 | E04 | B | [Load and switch](../usage.md#load-and-switch-models), lines 9-124; [startup offer](../../web/model-switch.js#L741), lines 741-747 | Cold start, model choice, load costs, persistence and access failure |
 | E05 | B | [Generate and manage jobs](../usage.md#generate-and-manage-jobs), lines 128-154 | Batch/Repeat, queue, pause/cancel, reload and per-model settings |
 | E06 | B | [Write and check prompts](../usage.md#write-and-check-prompts), lines 184-249 | Examples, tags, Check, critic, comparisons and Expand |
@@ -183,7 +183,7 @@ into candidate structure; the validation plan checks them with Matt.
 | Recover | Browser reload reattaches; server restart ends jobs; saved images remain; Finish run checks stored missing cells after a reload or restart; the Resume tick only for older/imported runs | Recognise completed, missing and queued work; finish an interrupted run or request more seeds with explicit totals | E03, E07, E08, E14 |
 | Curate | Narrow model/run/job/filter or apply a saved search; inspect sheet/lightbox; star, pick or Pick this run; Compare picked; selected images survive view changes | Preserve comparison context and understand exactly which image, picked set, filter or run an action will use | E08, E09 |
 | Edit | Open Refine, Inpaint or Outpaint on a source, optionally Only the masked area; or Edit by instruction (FLUX.1 Kontext [dev], edit-only, inside its measured envelope; card acceptance `INP#11` pending); set prompt/strength/versions; inspect output and source comparison | Choose the operation by intended change, retain the source and recognise capability or reproduction limits | E10 |
-| Archive | Choose whole/picked/starred backup or whole-gallery Bundle & clear; read verified result; import to recover. A default-off Automatic startup backup section exists; Matt declined unattended backups 2026-10-29 ([plan](../plan-automatic-backups.md#matts-choices-for-unattended-backups)) | Know archive scope and omitted dependencies before acting; finish with a comprehensible verified outcome | E11 |
+| Archive | Choose whole/picked/starred backup or whole-gallery Bundle & clear; read verified result; import to recover. A default-off Automatic startup backup section exists; Matt declined unattended backups 2026-10-29 ([plan](../maintainer/plan-automatic-backups.md#matts-choices-for-unattended-backups)) | Know archive scope and omitted dependencies before acting; finish with a comprehensible verified outcome | E11 |
 
 The current More seeds entry points are assets to retain, not new proposals.
 The recovery target incorporates the already accepted phase-2 direction; it
@@ -233,7 +233,7 @@ design decision or task trial needs them. Do not send the entire list again.
 7. **Archive:** what tells you a session is ready to bundle, and what do you
    need to recognise when bringing an old bundle back?
    *Partly answered:* no unattended backups, 2026-10-29
-   ([plan](../plan-automatic-backups.md#matts-choices-for-unattended-backups)).
+   ([plan](../maintainer/plan-automatic-backups.md#matts-choices-for-unattended-backups)).
    The bundle and return cues remain open.
 
 ## Personal task validation

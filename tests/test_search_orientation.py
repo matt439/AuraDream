@@ -126,7 +126,7 @@ def test_unknown_or_prefixed_keys_still_remain_prompt_text(query):
 
 def test_an_excluded_orientation_is_the_complement_in_strict_scopes_too():
     # Until GAL#21, `-size:portrait` was unknown-key prompt text; it is now the
-    # orientation filter negated (docs/plan-search-exclusion.md).
+    # orientation filter negated (docs/maintainer/plan-search-exclusion.md).
     assert search.strict_scope("-size:portrait") == (["COALESCE((width < height), 0) = 0"], [])
 
 

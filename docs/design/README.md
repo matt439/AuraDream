@@ -1,7 +1,7 @@
 # AuraDream: full-app design
 
 **2026-10-18 · candidate design · personal workstation only.** This expands
-the feature-level [Continue a run design](../plan-continue-run.md) into an
+the feature-level [Continue a run design](../maintainer/plan-continue-run.md) into an
 end-to-end design for Matt's workstation. It is a product and interaction
 design baseline, with an executable concept for review. It does not mark
 the proposed interface as built or usability-tested.
@@ -84,7 +84,7 @@ justified by the evidence currently available.
 | Existing safeguards | Undoable prompt writes; stable controls; no automatic page scrolling; explicit held-action reasons; authoritative server previews |
 | Proposed here | Results/Runs/Gallery views with shared context; consistent scope presentation; inspector hierarchy; consolidated recovery and review journeys |
 | Open research | Actual task sequences/timings; image space versus adjacent detail; whether view changes improve the normal loop |
-| Decided 2026-11-03 | No first-run or reinstall persona/mode: the [2026-11-01 first-run review](../review-2026-11-01-first-run.md)'s work stays outside the design programme, owned by that review ([research scope](research.md#scope-and-evidence-limits)) |
+| Decided 2026-11-03 | No first-run or reinstall persona/mode: the [2026-11-01 first-run review](../maintainer/review-2026-11-01-first-run.md)'s work stays outside the design programme, owned by that review ([research scope](research.md#scope-and-evidence-limits)) |
 | Still deferred | External photo/sketch references, Widen, Load into panel, and other explicitly deferred features in TODO |
 
 The fuller answers make the next layout concrete: keep the primary composer,

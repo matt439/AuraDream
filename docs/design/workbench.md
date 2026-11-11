@@ -64,7 +64,7 @@ task evaluation.
 
 Do not change run IDs, reproduction metadata or persistence ownership to
 implement this presentation. Persistent run-cell recovery remains the
-[accepted phase-2 plan](../plan-continue-run.md#phases).
+[accepted phase-2 plan](../maintainer/plan-continue-run.md#phases).
 
 ## Information architecture
 

@@ -5,7 +5,7 @@
     uv run python tools/image_compare.py --seam --mask m.png source.png [roundtrip.png] result.png [--row]
 
 The definitions are the ones verified.md's tables were made with
-(docs/plan-card-harness.md, "Image metrics"): the hash is the gallery's own
+(docs/maintainer/plan-card-harness.md, "Image metrics"): the hash is the gallery's own
 (`storage.content_hash`), the difference is the quantization tables' (mean
 absolute difference in 8-bit levels / PSNR in dB / % of pixels off by more
 than the threshold), the largest difference where the mask is 0 is the

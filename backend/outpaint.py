@@ -2,7 +2,7 @@
 
 An outpaint extends a gallery image's canvas and paints the new area. In
 this app it is an inpaint over a padded copy of the source
-(`docs/plan-outpainting.md`): the picture handed to the inpaint class is
+(`docs/maintainer/plan-outpainting.md`): the picture handed to the inpaint class is
 the source placed on a larger canvas whose new area holds a fill derived
 from the source's own edge (`padded`), and the mask is built here from the
 canvas size, the padding and the band (`mask`) rather than painted.
