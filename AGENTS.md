@@ -5,7 +5,10 @@ frontend, no build step. The default checkpoint is **FLUX.1 Krea [dev]**
 (`black-forest-labs/FLUX.1-Krea-dev`), which is click-through gated; **Krea 2
 Turbo** (`krea/Krea-2-Turbo`) needs manual approval on HuggingFace and is what
 the sizing notes in `docs/design-notes.md` are written around. The catalogue
-in `backend/launch.py` lists the rest; any text-to-image one runs unchanged -
+in `backend/launch.py` lists the rest. With no saved or explicit checkpoint
+and no Hugging Face sign-in, a fresh visit suggests the open **Animagine
+XL 4.0**, matching the installer.
+Any text-to-image one runs unchanged -
 set `AURADREAM_MODEL_ID`, or choose in the browser's Models panel. The last,
 FLUX.1 Kontext [dev], only edits, and its loads are held (the edit gate below).
 
@@ -267,7 +270,7 @@ Backend (`backend/`):
 Frontend (`web/`, served from `/static`): `index.html` loads classic scripts
 in order, sharing one global scope; only `app.js`, the last, runs anything.
 `style.css` (tokens, base) then `styles/*.css` in link order - keep that
-cascade. `docs/rules.md`'s Layout maps every file; `docs/source-audit.md`
+cascade. `docs/rules.md`'s Layout maps every file; `docs/maintainer/source-audit.md`
 records the split audits.
 `execution.js` owns inspectable performance controls and unavailable-recipe
 holds; configuring a recipe never enables its loading or rendering.

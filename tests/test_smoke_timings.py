@@ -1,7 +1,7 @@
 """`tools/smoke_timings.py` reads a run's summary.json and writes nothing
 but, asked, `tools/run_smoke_costs.json`.
 
-docs/plan-tooling.md, "Suite and smoke timings": synthetic summaries shaped
+docs/maintainer/plan-tooling.md, "Suite and smoke timings": synthetic summaries shaped
 like `run_smoke.py`'s, checked for the slowest-first order, `--top`, each
 row's total (two rows on one port kept apart) and the refusals of a
 missing, malformed or ambiguous summary.

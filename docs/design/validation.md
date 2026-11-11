@@ -86,7 +86,7 @@ against the shared view on the same short tasks. Do not build three products.
   primary layout space. Recorded reference reuse (G3 Sometimes) remains
   a separate contextual action.
 
-The [continuation plan](../plan-continue-run.md) remains the owner of
+The [continuation plan](../maintainer/plan-continue-run.md) remains the owner of
 `GEN#11`. Check retained cells and Finish run against the exact current-app
 build in the [trial kit](trials/README.md); phase 2 was built and verified
 independently of this design. The concept's visibly labelled simulated Finish

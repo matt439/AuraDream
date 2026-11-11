@@ -936,7 +936,7 @@ before changing it.
   `touch.css`'s tokens (all under
   "Phones and tablets");
   preserve that cascade (`tests/test_docs_maps.py` holds this list to
-  `index.html`'s links, in order). `docs/source-audit.md` records the
+  `index.html`'s links, in order). `docs/maintainer/source-audit.md` records the
   split audits and why each long file it kept stays whole.
 - `tools/` — `fake_server.py` (the app on the tests' fake backend, port 7861)
   and `browser.mjs` (portable screenshot paths in `browser-output.mjs`) +
@@ -952,16 +952,16 @@ before changing it.
   locally bundled Pyright checker over the configured scope;
   `perf_cases.py` holds the fixed speed comparison cases the card runs
   share and prints their `backend.generate` lines, running none
-  (`docs/plan-step-caching.md`, Fixed comparison cases);
+  (`docs/maintainer/plan-step-caching.md`, Fixed comparison cases);
   `image_compare.py` measures PNGs a card session already made (the
   gallery hash, the difference, outside-mask and seam numbers verified.md
   reports), CPU only and importing nothing from `backend`
-  (`docs/plan-card-harness.md`, Image metrics);
+  (`docs/maintainer/plan-card-harness.md`, Image metrics);
   `card_guard.py` is the card session's guard: a pure decision (whole card,
   shared GPU memory, free RAM, commit headroom, a rung's projection) beside
   a watcher that reads nvidia-smi, `typeperf`, psutil and
   `GetPerformanceInfo`, writes JSONL rows and on a trip kills the watched
-  process tree, never calling the app's API (`docs/plan-card-harness.md`,
+  process tree, never calling the app's API (`docs/maintainer/plan-card-harness.md`,
   Card guard);
   `card/card10-*.json` the `CARD#10` step packs, one `browser.mjs` step
   file per fix commit plus `card10-ctrl-c-idle.json`, for the real server
@@ -970,12 +970,12 @@ before changing it.
   Ctrl-C left to a person; the two that press Empty bin stop first unless
   the page opened on a scratch gallery and, before the press, unless the
   bin holds their own source alone; `tests/test_card_packs.py` holds them
-  to their rules (`docs/plan-card-harness.md`, CARD#10 step packs);
+  to their rules (`docs/maintainer/plan-card-harness.md`, CARD#10 step packs);
   `smoke_timings.py` reads a run's `summary.json` and prints the slowest
   smokes, each row's total and the wall clock, writing nothing unless
   `--write-costs` merges the passed times into `run_smoke_costs.json`, the
   seconds per smoke `run_smoke.py` starts longest-first and splits
-  `--shard K/N` by (`docs/plan-tooling.md`, Suite and smoke timings);
+  `--shard K/N` by (`docs/maintainer/plan-tooling.md`, Suite and smoke timings);
   `trial_fixture.py` prepares the formative-trial kit's disposable fake
   gallery and sidecars through the fake's own routes, and
   `trial_walkthrough.py` writes the agent walkthrough's real-input steps
@@ -1512,7 +1512,7 @@ measured on the card and when.
   nothing, while unloaded or failed and nothing else leads (a failed load's
   detail does). With no Hugging Face sign-in on a gated default nothing
   chose, the status names an open checkpoint (`open_model_suggestion`,
-  `model_defaults.OPEN_DEFAULT_MODEL_ID`, Z-Image Turbo; `GEN#41`): only
+  `model_defaults.OPEN_DEFAULT_MODEL_ID`, Animagine XL 4.0; `GEN#41`/`GEN#59`): only
   that opening's first catalogue reply (`suggestOpenModel`, once a page)
   chooses its row as a click would - unsaved, with Revert, never focused or
   scrolled to, nothing if the row is not listed or a row was already picked -
@@ -2458,7 +2458,7 @@ measured on the card and when.
   refusal where `--strength`, `--scale` or `--mask` asked for the pass).
   Search: `mask:<hex>`, `mask:none`, `inpaint:yes|no`; stats
   `--by mask`.
-- An outpaint (`docs/plan-outpainting.md`, phases 1 and 2 built) is an inpaint
+- An outpaint (`docs/maintainer/plan-outpainting.md`, phases 1 and 2 built) is an inpaint
   over a padded copy of its source. Two types: `OutpaintSpec` is the stored
   one (`ImageRecord.outpaint`, the `_migrate` column `images.outpaint`
   holding `OutpaintSpec.key()`, `fill:L,T,R,B@band`), plain ints with grid
@@ -2509,7 +2509,7 @@ measured on the card and when.
   server's (`GET /api/images/{id}/outpaint-presets`, `outpaint.presets`).
   Search `outpaint:yes|no`; stats `--by outpaint`. The page is the Outpaint
   dialog (phase 2, below under the frontend rules).
-- Only the masked area (`docs/plan-inpainting.md` phase 6, built
+- Only the masked area (`docs/maintainer/plan-inpainting.md` phase 6, built
   2026-11-03) is the app's crop, **never the class's `padding_mask_crop`**,
   on every inpaint family (FLUX.1, SDXL, Z-Image), inpaint and outpaint.
   `GenerateRequest.mask_crop` (`MaskCropSpec`: `rule` `bbox16`, `pad` 0-256
@@ -4687,7 +4687,7 @@ measured on the card and when.
   synchronous CFG-reach clear and return, so older success/error replies
   cannot restore a grid-only negative caption or obsolete preview text.
   Reopening takes its own epoch; payloads and the input debounce are unchanged.
-  [The close-ownership review](review-2026-10-28-grid-preview-close.md) owns
+  [The close-ownership review](maintainer/review-2026-10-28-grid-preview-close.md) owns
   the source evidence and separate CPU/native-browser qualification. It trims factors of one other than the seeds
   from the totals and writes ×, since `grid.describe` keeps its ASCII x and
   its ones for the CLI's log. It lists the resolved prompt whenever the
@@ -5928,7 +5928,7 @@ measured on the card and when.
   already/partial results; never once per `markFavorite` id. Held or
   ordinary failed writes add no read, and an aggregate read does not
   extend the favorite hold. Runs publication/retry keeps its current
-  context owner. [The count review](review-2026-10-29-runs-favorite-counts.md)
+  context owner. [The count review](maintainer/review-2026-10-29-runs-favorite-counts.md)
   owns the caller and actual-fake qualification. F passes `{ say: true }` (`galleryKey`,
   `sheetKey` through `starCell`, and the lightbox's keydown in app.js):
   where focus is not on a `.star` or `#lb-fav`, `sayStar` writes "Starred
@@ -6299,7 +6299,7 @@ measured on the card and when.
   made or queued" inside the brackets where the gallery or a live job
   holds some (`rbQueuedWords`), Refine says "Refine N passes" and the
   title still the images; at 1 every wording is the one before Versions.
-- Then refine (`docs/plan-then-refine.md`; `then_refine.py`,
+- Then refine (`docs/maintainer/plan-then-refine.md`; `then_refine.py`,
   `JobManager._passes`, `then-refine.js`) is a submission field, never a
   request field: `GenerateSubmission.then_refine` (`/api/generate`) and
   `GridRequest`'s, `ThenRefine` (scale 1-2, strength None for the
@@ -6499,7 +6499,7 @@ measured on the card and when.
   queue before a deliberate new request. Closing can abandon an uncertain
   reply, as the dialog says. Legacy callers without a token still request a
   deliberate new extension on every POST.
-- More seeds where a run ends (`docs/plan-continue-run.md`, phase 1) is the
+- More seeds where a run ends (`docs/maintainer/plan-continue-run.md`, phase 1) is the
   same dialog on a ready target, `openMoreSeeds(target, {count, opener, host})`
   with `target` `{scope, line}`: an image's batch (`{ids: [id]}`,
   `moreSeedsImageTarget`, "From #N's batch.") from the lightbox's
@@ -6847,7 +6847,7 @@ measured on the card and when.
   Same-context useful options survive a failed refresh. Retry commits only
   through deliberate selection/Enter/blur, never focus or an automatic loop;
   bin holds and latest-response guards apply to both run and retry choices.
-  [The Runs recovery review](review-2026-10-28-runs-scope-recovery.md) owns
+  [The Runs recovery review](maintainer/review-2026-10-28-runs-scope-recovery.md) owns
   actual-handler and fresh native qualification. A label's
   prompt is `promptGist`'s, one line with an XML prompt's tags dropped,
   before `clip`.
@@ -6862,7 +6862,7 @@ measured on the card and when.
   a whole float is read before the existing dash-range grammar. Integer,
   NULL, comparison and malformed-range operand behavior stay unchanged.
   `tests/test_search_numeric_scalars.py` couples real Sampling facts to scratch
-  SQL/HTTP reads; [its review](review-2026-10-28-numeric-search-scalars.md)
+  SQL/HTTP reads; [its review](maintainer/review-2026-10-28-numeric-search-scalars.md)
   owns the qualification, without a frontend or browser change.
   `mu:none` is `IS NULL`, `size:1024x768` (or `×`) is the width and the
   height exactly. `size:portrait`, `size:landscape` and `size:square` compare
@@ -8520,7 +8520,7 @@ harness test that patches `child_process` (`test_browser_capabilities`,
 its own `tests/browser_*_fixture.mjs` as `node <file> <json>`; a new one does
 the same. The publication repair and
 its original/positive evidence are owned by
-`docs/review-2026-10-29-ci-browser-startup.md`.
+`docs/maintainer/review-2026-10-29-ci-browser-startup.md`.
 
 `tests/test_check_dismissal.py` exercises actual Check/Close/Escape/render,
 stale-write, clear/supersession and critic-precheck handlers on inert DOM/API
@@ -8953,7 +8953,7 @@ Falsy results, throws and rejected awaited promises fail/count and stop later
 steps through the ordinary graceful close/cleanup path. Async setup expressions
 must explicitly return true. Successful fatal and ordinary nonfatal steps keep
 their normal continuation; eval remains diagnostic-only. Edge selection,
-launch flags and profiles are unchanged. The [dated tooling review](review-2026-10-28-fatal-prerequisites.md)
+launch flags and profiles are unchanged. The [dated tooling review](maintainer/review-2026-10-28-fatal-prerequisites.md)
 owns ordinary-driver probes and the three bounded scratch setup conversions.
 
 `browser.mjs` fails a run in which the page threw. It listens for
@@ -9218,7 +9218,7 @@ public cold codec and planner; separate UUID/store sentinels prove planning
 does not allocate or persist. UTF-16/32 scratch sidecar read/edit and malformed
 file preservation remain compatible because existing readers are unchanged.
 This foundation activates no browser action or model capability;
-`docs/plan-setup-portability.md` owns the remaining stage.
+`docs/maintainer/plan-setup-portability.md` owns the remaining stage.
 `tests/test_api_preset_portability.py` adds the stage-2 transfer routes:
 attachment/no-store export of every checkpoint from one snapshot, route order
 before `/{item_id}`, cold missing-file preview, scratch atomic import through
@@ -9274,8 +9274,8 @@ be reported in Snippets. The steps also check that a previewed Add-as-copy
 row keeps its saved match and Replace, and that a refreshing Preview holds
 its rows and never overwrites a changed choice. The 245-step Windows
 workflow passes. Exact evidence and limits live in
-`docs/plan-snippet-portability.md` and
-`docs/review-2026-10-29-close-watcher.md`.
+`docs/maintainer/plan-snippet-portability.md` and
+`docs/maintainer/review-2026-10-29-close-watcher.md`.
 
 `smoke-setup-portability.json` uses a fresh FLUX.1 Krea [dev] fake on 7953
 for saved-setup export/merge. It seeds owned mixed-checkpoint Generate/Grid
@@ -9287,7 +9287,7 @@ uncertain commits (no resend, Replace review, Copy reconfirmation, held
 ordinary writes), held-read/New/close races, export session lifetime, an
 unchanged composer and Undo, no model/queue/generate calls, modal keys/focus
 and wide/narrow/short containment. Evidence lives in
-`docs/plan-setup-portability.md`.
+`docs/maintainer/plan-setup-portability.md`.
 
 `smoke-library-write-recovery.json` uses a fresh FLUX.1 Krea [dev] fake on
 7935. Its 221-step Windows pass exercises actual committed snippet/setup
@@ -9295,13 +9295,13 @@ writes with lost replies,
 held retries, fresh-read/explicit-choice recovery, retained drafts, known
 validation/stale refusals, New during delayed snippet reads, pending close,
 modal keys and standard/narrow/short containment. The dated review owner
-`docs/review-2026-10-28-library-recovery.md` records actual acceptance. Its
+`docs/maintainer/review-2026-10-28-library-recovery.md` records actual acceptance. Its
 close-watcher steps (`UI#35`, 288 steps in all) force-close Snippets and
 Saved setups during a gated Create with a repeated Escape. The reopened
 dialog must keep Save held, and the server must end with exactly one new
 item. A Save current reply that lands while Saved setups is closed must not
 validate, and Reload must work after the reopen
-(`docs/review-2026-10-29-close-watcher.md`).
+(`docs/maintainer/review-2026-10-29-close-watcher.md`).
 
 `smoke-saved-name-unicode.json` uses a fresh FLUX.1 Krea [dev] fake on 7936
 for saved-name parity. Native text insertion creates/edits 80 astral-code-point
@@ -9938,7 +9938,7 @@ Two count-confirmation states at 48 px use the real `countDialog` and Cancel
 only. The total is 88 field/late-content states. Rendered-height prerequisites
 prevent stale geometry from passing; raw drafts, node identity, holds, page
 scroll, sticky restoration and Cancel's null answer are checked too.
-The [native image-pass follow-up](review-2026-11-05-phone.md#10-edit-dialog-keyboard-acceptance-2026-11-07)
+The [native image-pass follow-up](maintainer/review-2026-11-05-phone.md#10-edit-dialog-keyboard-acceptance-2026-11-07)
 records 23 accepted field cases with per-run source provenance. It does not
 qualify the additional phone-form fallback, physical devices or Split View.
 
@@ -11099,7 +11099,7 @@ caller chosen, including any saved backup settings; use genuinely new scratch
 data for credential-cold browser runs. The smoke runner already creates each
 row's new directory and passes only `--data`. `tests/test_fake_server.py`
 checks these argument/data contracts without starting the application; see
-[the fresh-data review](review-2026-10-28-fake-fresh.md).
+[the fresh-data review](maintainer/review-2026-10-28-fake-fresh.md).
 
 The standalone fake installs a fixed refusal at the backup credential factory
 before importing `backend.main`, and retains it through all later workers.
@@ -11508,7 +11508,7 @@ suppression when ready/loading/busy, no reopening after dismissal or later
 Unload, and focus/caret preservation. Through `POST /api/fake/sign-in`
 (`token`, `unsourced`; the fake starts signed in and sourced, never reading
 this machine's token) it checks `GEN#41`: no token on an unsourced FLUX.1
-Krea [dev] preselects Z-Image Turbo unsaved, the note saying why after the
+Krea [dev] preselects Animagine XL 4.0 unsaved, the note saying why after the
 recommendation, the server's selection unchanged (screenshot
 `model-startup-open-suggestion.png`), a token appearing mid-session taking
 the reason away (and its return bringing it back), Revert putting the
@@ -12074,7 +12074,7 @@ page's listing has adopted the split's extra job B. B must stay the watched
 current job and never become its own "Next:" row; the terminal primary A may.
 It uses real owned jobs, a paused predecessor and a held, unmodified receipt.
 It fails at the defect check without `startJob`'s `watchedJobs` filter
-([`GEN#31`](review-2026-10-29-split-extra-queue.md)).
+([`GEN#31`](maintainer/review-2026-10-29-split-extra-queue.md)).
 
 `smoke-jobs.json` runs against the default Turbo fake on 7882 at
 `--step 0.3` (it passes at `--step 0.15` too): the tab title and topbar mirror; the one-line Now row, count

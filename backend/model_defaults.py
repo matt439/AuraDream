@@ -73,7 +73,7 @@ diffusers ships beside its pipeline (`refine.sibling(..., "Inpaint")`). It is
 a decision as well as a guess: diffusers 0.42 ships one for FLUX.1, SDXL,
 Z-Image, Qwen-Image and FLUX.2 [klein], and SDXL, Z-Image and FLUX.1 are
 enabled (FLUX.1's history: docs/design-notes.md, Inpainting, "FLUX.1
-enabled"). The rest are deferred (`INPAINT_DEFERRED`, docs/plan-inpainting.md's
+enabled"). The rest are deferred (`INPAINT_DEFERRED`, docs/maintainer/plan-inpainting.md's
 phases) and answer False even loaded, so a False here is final;
 `tests/test_inpaint.py` holds every True to an installed class and every
 class left off to that list. Their profiles also carry `inpaint_deferred`,
@@ -150,10 +150,10 @@ DEFAULT_QUANT = "fp8"
 DEFAULT_OFFLOAD = "model"
 # The open checkpoint a fresh browser visit preselects in the Models picker
 # when the server runs the built-in default above (which is gated) chosen by
-# nothing and no Hugging Face sign-in is present (GEN#41). A preselection
+# nothing and no Hugging Face sign-in is present (GEN#41/GEN#59). A preselection
 # only: the server's default, the CLI and saved choices are unchanged.
-# General-purpose like the default; measured at fp8 on Windows (verified.md).
-OPEN_DEFAULT_MODEL_ID = "Tongyi-MAI/Z-Image-Turbo"
+# Matt chose the installer's lighter Animagine first start everywhere, 2026-11-11.
+OPEN_DEFAULT_MODEL_ID = "cagliostrolab/animagine-xl-4.0"
 
 # The vocabularies config.py validates AURADREAM_QUANT and AURADREAM_OFFLOAD against, and
 # launch.py builds its menus from. An unknown value used to select the heaviest
@@ -1275,7 +1275,7 @@ _OWN_PIPELINES = frozenset({
 # are deliberately left without inpainting for now: FLUX.2 [klein] for the
 # one reference its class takes beside the source, Qwen-Image for the
 # Nunchaku transformer it needs here. Each is a later phase of
-# docs/plan-inpainting.md. Their profiles say `inpaint_supported: False`, and
+# docs/maintainer/plan-inpainting.md. Their profiles say `inpaint_supported: False`, and
 # the backend refuses an inpaint on them whatever the class says. How FLUX.1
 # left the list: docs/design-notes.md, Inpainting, "FLUX.1 enabled".
 INPAINT_DEFERRED = frozenset({"Flux2KleinPipeline", "QwenImagePipeline"})

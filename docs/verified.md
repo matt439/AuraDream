@@ -857,7 +857,7 @@ words (b396e2e) and the page's sizes labelled in binary units, "about 4.5 GiB"
 2b89ed5 (above) on the real server with FLUX.1 Krea [dev] stopped at the RAM guard during its one
 load (Checkpoints, "RAM at the load"), so they are still unchecked on the
 card; 81781bf's sentence was checked there (the load failures row above).
-The step files for that recheck are planned as checked-in packs (`DEV#23`, [CARD#10 step packs](plan-card-harness.md#card10-step-packs)).
+The step files for that recheck are planned as checked-in packs (`DEV#23`, [CARD#10 step packs](maintainer/plan-card-harness.md#card10-step-packs)).
 
 Not verified: `AURADREAM_DEVICE=cuda:1` (one card here); ERNIE-Image
 Turbo's fp8 reproduction across two processes, and its 4 MP batch of two
@@ -1566,7 +1566,7 @@ Evidence: `card3-wsl/out/` in the cards directory (`zturbo/` and
 
 ### Only the masked area
 
-The app's crop (`docs/plan-inpainting.md`, phase 6) was built 2026-11-03.
+The app's crop (`docs/maintainer/plan-inpainting.md`, phase 6) was built 2026-11-03.
 Its first card measurements are the SDXL outpaint, Z-Anime and FLUX
 sequential-offload slices below. Still not measured: FLUX.1 under
 FP8/model offload cropped on a 2.4-8.4 MP source, whose peak should stay near
@@ -1909,7 +1909,7 @@ Not measured: any other size or aspect, a batch, int8, sequential or no
 offload, a real photograph as the source, replay across two processes, the
 real server's route and page (held by the gate at the time; stage 4 opens
 them inside this run's configuration, on a local branch, and its
-[card acceptance step](plan-instruction-editing.md#card-acceptance-step) is
+[card acceptance step](maintainer/plan-instruction-editing.md#card-acceptance-step) is
 what would measure them), and WSL. Evidence:
 `events.jsonl`, `samples.jsonl`, the PNGs, `sheet.png` (source and the four
 edits) and the scratch gallery in `%TEMP%/auradream-inp11-stage3/`.
@@ -1951,7 +1951,7 @@ FLUX.1 Krea [dev] pair, run in the opposite order, shows the same.
 
 Not measured: everything stage 3 left unmeasured (above), and the real
 server's route and page (the
-[card acceptance step](plan-instruction-editing.md#card-acceptance-step)).
+[card acceptance step](maintainer/plan-instruction-editing.md#card-acceptance-step)).
 Evidence (events, guard samples, PNGs, the scratch gallery) is kept in a
 local scratch directory, not committed.
 

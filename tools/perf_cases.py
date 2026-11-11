@@ -7,7 +7,7 @@
 (attention) and `PERF#4` (step caching) compare two arms on these cases and
 change only their recipe or quantization. The cases are fixed before any
 card run, so no prompt or seed is picked after a bad pair is seen; why each
-value is what it is lives in docs/plan-step-caching.md, "Fixed comparison
+value is what it is lives in docs/maintainer/plan-step-caching.md, "Fixed comparison
 cases". A change here is its own commit, named before the card run.
 
 Pure data and argument lists: this imports nothing heavy, loads nothing and

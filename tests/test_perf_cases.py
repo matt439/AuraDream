@@ -1,6 +1,6 @@
 """The fixed speed comparison cases (`tools/perf_cases.py`) stay what the plans say.
 
-docs/plan-step-caching.md, "Fixed comparison cases": every case comes out of
+docs/maintainer/plan-step-caching.md, "Fixed comparison cases": every case comes out of
 `applied()` unchanged, the two arms of a recipe differ only in the execution
 extension, the prompts stay their authors' words, and a dry run counts six
 images per shape while a nonempty recipe is still refused before any work.

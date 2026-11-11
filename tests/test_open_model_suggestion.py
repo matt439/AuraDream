@@ -87,6 +87,8 @@ def test_doctor_uses_the_shared_predicate(tmp_path, monkeypatch):
 
 
 def test_open_default_is_an_open_catalogue_checkpoint():
+    # GEN#59: one lighter first open checkpoint, matching the installer.
+    assert OPEN_DEFAULT_MODEL_ID == ANIMAGINE
     entry = next(c for c in CHECKPOINTS if c.repo == OPEN_DEFAULT_MODEL_ID)
     assert entry.gate == "open" and OPEN_DEFAULT_MODEL_ID != DEFAULT_MODEL_ID
     gated = next(c for c in CHECKPOINTS if c.repo == DEFAULT_MODEL_ID)

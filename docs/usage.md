@@ -756,7 +756,7 @@ More seeds or Reuse), Swap tags leaves it out, Finish run is held, and Mass
 refine leaves it out as a pass unless **Skip refine passes** is unticked.
 Search `edit:yes` for edits, `edit:no` for everything else.
 
-Its [card acceptance step](plan-instruction-editing.md#card-acceptance-step)
+Its [card acceptance step](maintainer/plan-instruction-editing.md#card-acceptance-step)
 (`INP#11`, one load through this page) has not been run; the bounded first
 trial is in [verified.md](verified.md#instruction-edit).
 
@@ -1464,7 +1464,7 @@ a Linux service takes it in its environment file
 
 Automatic backups are off by default and stay so: Matt declined unattended
 backups on 2026-10-29
-([plan](plan-automatic-backups.md#matts-choices-for-unattended-backups)).
+([plan](maintainer/plan-automatic-backups.md#matts-choices-for-unattended-backups)).
 Manual and password-protected bundles are unchanged. The dialog therefore
 does not show the **Automatic startup backup** section unless this gallery
 already has something saved for it: a settings file (enabled, off again
