@@ -1567,11 +1567,12 @@ Evidence: `card3-wsl/out/` in the cards directory (`zturbo/` and
 ### Only the masked area
 
 The app's crop (`docs/plan-inpainting.md`, phase 6) was built 2026-11-03.
-Its first card measurement is the SDXL outpaint slice below. Still not
-measured: FLUX.1 cropped on a 2.4-8.4 MP source, whose peak should stay near
+Its first card measurements are the SDXL outpaint, Z-Anime and FLUX
+sequential-offload slices below. Still not measured: FLUX.1 under
+FP8/model offload cropped on a 2.4-8.4 MP source, whose peak should stay near
 the 1 MP inpaint's 12.16 / 12.83 GiB allocated / reserved (FLUX.1 Krea dev,
-before enabling, above); its seam at crop padding 0, 32 and 64; Z-Anime
-cropped at 4.2 MP; any Z-Image crop at all. TODO `CARD#13` stays open.
+before enabling, above); its seam at crop padding 0, 32 and 64 under model
+offload; other Z-Image crop checkpoints. TODO `CARD#13` stays open.
 
 **SDXL cropped outpaint, 2026-11-11, with Matt's OK.** Animagine XL 4.0,
 cached snapshot `2b7c1b397761bf5bd3cc42e5b39ec99314a75a96`, Windows 11,
@@ -1674,6 +1675,91 @@ idle baseline. `CARD#13` remains open. Raw evidence is in
 `%TEMP%/auradream-card13-followup-20261111/`, each attempt in its own
 directory. A larger Z-Anime RAM allowance needs a separately stated
 envelope; FLUX model offload needs a lower desktop baseline.
+
+**Z-Anime after the encoder ownership fix, 2026-11-11.** The same
+quantized direct encoder load now releases plain CPU shard views with
+`own_tensors` before loading the denoiser (commit `b3d41fa`). The fresh
+offline load completed in 19.21 s under the original 24 GiB working-set /
+32 GiB private ceilings. Its load peaks were 20.34 / 24.04 GiB, and the
+whole session peaked at 20.34 / 25.66 GiB including CPU pixel analysis.
+The earlier load stopped before completing, so this is a successful
+bounded retry, not a controlled before/after peak benchmark. No larger
+RAM envelope was used.
+
+Z-Anime Base (`SeeSee21/Z-Anime`, cached snapshot `0f5fb514`), FP8/model
+offload, diffusers 0.42.1, 40 steps/CFG 4, default inpaint strength 1.0,
+batch 1, seed 12346, no previews: a 2048-square (4.19 MP) source with the
+feathered cabin-region mask ran at crop pad 32. Its box was
+`(304,592,1808,1744)`, working size 1184x912. Times were 76.72 s and
+75.69 s for the exact repeat, each at 6.97 / 8.66 GiB allocated/reserved
+and 11,896 MiB whole-card. The maximum difference outside the mask was
+0, row/PNG metadata checks passed, and both output pixel hashes were
+identical (the full hash is in the [receipt](measurements/card13-z-anime-2026-11-11.json)).
+Seam step was 3.70 on the source / 3.93 on the result; no VAE round-trip
+comparison. Visually the painted region contains the requested blue
+cabin, but the changed perspective, background and scene scale form a
+visible rectangular patch against the original. This proves crop
+execution and preservation, not a clean join or a quality recommendation.
+
+The default card/shared/RAM/commit guard limits held; minimum free RAM
+20.80 GiB, commit headroom 27.77 GiB, shared rise 82 MiB adapter/process.
+The supervisor and independent card guard both exited 0. One load,
+two renders, 183.3 s total; unloaded and process tree exited. Method,
+software, source/mask geometry and script/log digests are in the receipt;
+raw evidence and the native comparison board are in
+`%TEMP%/auradream-card13-followup-20261111/z-anime-fixed/`.
+
+**FLUX.1 Krea dev with sequential offload, 2026-11-11.** Model offload's
+preflight remained held above. The already supported Eager FP8/sequential
+path was measured instead, with the same 32 GiB working-set / 42 GiB
+private envelope planned for the FLUX load, 4 GiB system floors and the
+unchanged card/shared limits. Startup required 34 GiB free RAM and at
+most 3,500 MiB desktop use for this lower-VRAM path. One offline load of
+`black-forest-labs/FLUX.1-Krea-dev` (cached snapshot `8162a9c7`) through
+`main.ensure_loaded`, commit `b3d41fa`, diffusers 0.42.1; then six cropped
+inpaints through the normal backend/storage paths. Load took 39.43 s;
+process peaks were 28.09 GiB working set / 35.04 private over the session.
+
+The fixtures and feathered mask used the same owned SDXL source as the
+Z-Anime run. These are CPU resizes, not FLUX renders at those source
+sizes. Every cell used seed 12346, 28 steps/CFG 3.5, the measured FLUX
+inpaint strength 0.95 (27 steps run), batch 1 and no live previews. Normal
+`applied()` omitted the negative because default True CFG did not activate it.
+
+| Source / crop padding | Working size | Time | Allocated / reserved GiB | Sampled whole-card MiB | Seam step, result |
+| --- | --- | --- | --- | --- | --- |
+| 1536 square (2.36 MP), 32 | 1184x912 | 102.14 s | 2.16 / 2.29 | 3,988 | 4.27 |
+| 2048 square (4.19 MP), 32 | 1184x912 | 100.60 s | 2.16 / 2.29 | 3,992 | 3.86 |
+| 2048 square, 0 | 1200x896 | 101.55 s | 2.12 / 2.25 | 3,988 | 3.90 |
+| 2048 square, 64 | 1184x912 | 100.18 s | 2.16 / 2.29 | 4,252 | 3.87 |
+| 2048 square, 32 repeated | 1184x912 | 101.02 s | 2.16 / 2.29 | 3,989 | 3.86 |
+| 2896 square (8.39 MP), 32 | 1184x912 | 100.61 s | 2.16 / 2.29 | 3,989 | 3.02 |
+
+All output dimensions matched their full-sized sources; largest difference
+where the painted mask was zero was 0 on every cell. Crop geometry,
+source/mask/spec, row/PNG reproduction fields and peak pairs passed their
+assertions. The 4.19 MP pad-32 repeat was pixel-identical. Exact boxes,
+requests, hashes and metrics are in the
+[receipt](measurements/card13-flux-sequential-2026-11-11.json).
+Source seam steps were 4.12 / 3.70 / 2.85 at the three source sizes; these
+are the mask-edge averages, not a perceptual score or a VAE round-trip
+comparison. Inspected overviews and native join crops of all three
+paddings draw the requested blue cabin, but the repaint changes the
+background, style and scene scale within a visible patch. No clean-join
+acceptance or preferred padding follows from this one cross-checkpoint
+fixture/prompt/seed. This is not a same-model-source quality comparison.
+
+Both watchers exited 0: no trip or spill observed. Minimum free RAM was
+13.31 GiB, commit headroom 17.82 GiB; shared rise 87.9 MiB adapter and
+82 MiB process. The card guard sampled a 4,252 MiB session peak and a
+28.32 GiB process-tree working-set peak; its roughly 1.8 s cadence can
+miss transients, as in the SDXL session. The six-render session took
+662.1 s, unloaded, exited and returned the card to about 2,720 MiB. The
+normal model-offload memory/fit measurement stays `CARD#13`; these
+sequential numbers cannot stand in for it. Defaults, crop rule/tier,
+size guards and public performance-recipe holds are unchanged. Raw
+evidence and the native comparison board remain in
+`%TEMP%/auradream-card13-followup-20261111/flux-sequential/`.
 
 ## Outpaint
 

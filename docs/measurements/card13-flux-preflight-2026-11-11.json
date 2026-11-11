@@ -78,9 +78,9 @@
   "status": "refused before worker admission because desktop exceeds conservative FLUX card baseline",
   "evidence_directory": "%TEMP%/auradream-card13-followup-20261111/flux/",
   "sha256": {
-    "qualify.py": "e4568058e7b529a699f2d5d5505dc4ea9d33741bc798f72c5f70562de08bede4",
-    "supervise.py": "f67b24617b0d4b74cb6bf90b16a276a669d0a39bf8ea9b9e0045981456ee9bbc",
     "memory.jsonl": "709b3ac818353b84e2ec1c645873ae4d5649f72ae13211ca84be80c7ada9198d",
-    "guard.jsonl": "71e0f28b562e0cbc912b316d398b638c8eaeab426fc1463f85dea3cb7236f37d"
+    "guard.jsonl": "71e0f28b562e0cbc912b316d398b638c8eaeab426fc1463f85dea3cb7236f37d",
+    "qualify-first.py": "e4568058e7b529a699f2d5d5505dc4ea9d33741bc798f72c5f70562de08bede4",
+    "supervise-first.py": "f67b24617b0d4b74cb6bf90b16a276a669d0a39bf8ea9b9e0045981456ee9bbc"
   }
 }

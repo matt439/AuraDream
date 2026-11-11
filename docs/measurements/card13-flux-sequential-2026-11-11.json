@@ -1,0 +1,650 @@
+{
+  "date": "2026-11-11",
+  "scope": "CARD#13 flux cropped inpainting",
+  "environment": {
+    "event": "environment",
+    "time": 1794366705.213583,
+    "mode": "flux",
+    "model": "black-forest-labs/FLUX.1-Krea-dev",
+    "offload": "sequential",
+    "scratch": "C:\\Users\\matsi\\AppData\\Local\\Temp\\auradream-card13-followup-20261111\\flux-sequential",
+    "offline": true,
+    "commit": "b3d41fad8ab16c885b54d0830918548e0c295be5",
+    "versions": {
+      "torch": "2.13.0+cu130",
+      "diffusers": "0.42.1",
+      "torchao": "0.18.0",
+      "accelerate": "1.15.0",
+      "transformers": "5.16.1",
+      "Pillow": "13.0.0"
+    },
+    "device": "NVIDIA GeForce RTX 5080"
+  },
+  "driver_version": "616.92",
+  "cached_model_snapshot": "8162a9c7b05a641be098422bf2fcf335615c2f28",
+  "method": {
+    "offline": true,
+    "loads": 1,
+    "quantization": "fp8",
+    "offload": "sequential",
+    "batch": 1,
+    "seed": 12346,
+    "steps": 28,
+    "cfg": 3.5,
+    "strength": 0.95,
+    "live_preview": false,
+    "source": "CPU Lanczos resizes of owned SDXL source2048; indexed as fixture/cpu-lanczos-resize with duration0, not generated at these sizes",
+    "source_sha256": "720a6504bccc03ffbab663df54fb8637969da0abaed2b2bf30527fdee91b9345",
+    "mask": "rectangle at normalized 0.18,0.32,0.85,0.82 then GaussianBlur radius12*side/2048; stored by normal hash",
+    "timing": "synchronized backend.generate wall time; excludes load, PNG save and CPU metrics",
+    "guard_sample_period_requested_s": 0.5,
+    "process_sample_period_requested_s": 0.25,
+    "sampling_note": "Serial Windows guard counters take about1.8s per sample; sampled peaks can miss transients",
+    "process_ceilings_gib": {
+      "working_set": 32,
+      "private": 42
+    },
+    "isolation": "scratch gallery; main.ensure_loaded and normal backend/applied/storage; no HTTP server"
+  },
+  "load_seconds": 39.429917000001296,
+  "load_process_peak_gib": {
+    "rss_gib": 28.090614318847656,
+    "private_gib": 35.035621643066406
+  },
+  "guard_baseline": {
+    "time": "2026-11-11T13:11:40.963",
+    "event": "baseline",
+    "limits": {
+      "card_mib": 15500.0,
+      "project_mib": 15200.0,
+      "refuse_at_peak_mib": 15000.0,
+      "adapter_shared_rise_mib": 1024.0,
+      "process_shared_rise_mib": 512.0,
+      "ram_floor_gib": 4.0,
+      "commit_floor_gib": 4.0,
+      "need_ram_gib": 34.0,
+      "busy_card_mib": 3500.0,
+      "card_unread_samples": 3.0,
+      "margin_mib": 500.0,
+      "margin_gib": 1.0
+    },
+    "watch_pid": 25836,
+    "pids": [
+      25836,
+      43864,
+      42708
+    ],
+    "period_s": 0.5,
+    "card_total_mib": 16303.0,
+    "card_mib": 2719.0,
+    "adapter_shared_mib": 42.5,
+    "adapter_rise_mib": 0.0,
+    "process_shared_mib": 0.0,
+    "process_rise_mib": 0.0,
+    "available_gib": 40.91,
+    "commit_headroom_gib": 52.28,
+    "tree_gib": 0.04
+  },
+  "guard_first_sample": {
+    "time": "2026-11-11T13:11:42.795",
+    "event": "sample",
+    "card_mib": 2719.0,
+    "adapter_shared_mib": 42.5,
+    "adapter_rise_mib": 0.0,
+    "process_shared_mib": 0.0,
+    "process_rise_mib": 0.0,
+    "available_gib": 40.91,
+    "commit_headroom_gib": 52.3,
+    "tree_gib": 0.04
+  },
+  "guard_summary": {
+    "time": "2026-11-11T13:22:41.581",
+    "event": "summary",
+    "exit": 0,
+    "stopped": "watched process exited",
+    "seconds": 660.6,
+    "min_available_gib": 13.31,
+    "min_commit_headroom_gib": 17.82,
+    "peaks": {
+      "card_mib": 4252.0,
+      "adapter_shared_mib": 130.3,
+      "process_shared_mib": 82.0,
+      "tree_gib": 28.32
+    },
+    "largest_shared_rise_mib": {
+      "adapter": 87.9,
+      "process": 82.0
+    },
+    "samples": 361
+  },
+  "supervisor": {
+    "worker_exit": 0,
+    "guard_exit": 0,
+    "reason": null,
+    "elapsed_seconds": 662.0953778999974,
+    "peaks": {
+      "rss_gib": 28.090614318847656,
+      "private_gib": 35.035621643066406
+    }
+  },
+  "fixtures": [
+    {
+      "event": "fixture",
+      "time": 1794366745.1130562,
+      "side": 1536,
+      "id": 1,
+      "mask": "f3721df4b76f42e4a46c49017cffc49fc591061a1ca47e17045f672bfa43115d",
+      "rectangle": [
+        276,
+        492,
+        1306,
+        1260
+      ],
+      "feather_radius": 9.0,
+      "pixels_sha256": "675711d097dab2a573f353e116c67dfbc97274ad81e3ee63219434ed74625d4f"
+    },
+    {
+      "event": "fixture",
+      "time": 1794366848.5582566,
+      "side": 2048,
+      "id": 3,
+      "mask": "2e986b5f91f8be84f4e0a0941cad857338bc38a1a9cd636ddc99d899032c4a14",
+      "rectangle": [
+        369,
+        655,
+        1741,
+        1679
+      ],
+      "feather_radius": 12.0,
+      "pixels_sha256": "720a6504bccc03ffbab663df54fb8637969da0abaed2b2bf30527fdee91b9345"
+    },
+    {
+      "event": "fixture",
+      "time": 1794367256.6839788,
+      "side": 2896,
+      "id": 8,
+      "mask": "945bfa4c2839deb94eef2f115dec4d61b5655b70f042f521496262f718cfa6ca",
+      "rectangle": [
+        521,
+        927,
+        2462,
+        2375
+      ],
+      "feather_radius": 16.96875,
+      "pixels_sha256": "f68848675699588a8ec4c5784c7475caa62095091ca31ba18a67b5540adc1f83"
+    }
+  ],
+  "renders": [
+    {
+      "name": "1536-pad32",
+      "seconds": 102.14123620002647,
+      "seed": 12346,
+      "id": 2,
+      "filename": "20261111-031407-12346-0bc825.png",
+      "pixels_sha256": "59270a67be0f1e5164865dab2f3d7ca601bfeddd772aff89451cf4d9b7084975",
+      "png_sha256": "c294a64d7635c8c353b776150fb44d769008a2172c52c95373bba5f9e3554421",
+      "crop": {
+        "box": [
+          208,
+          432,
+          1376,
+          1328
+        ],
+        "working": [
+          1184,
+          912
+        ]
+      },
+      "request": {
+        "prompt": "A small blue wooden cabin with a snow covered roof and warm glowing windows, surrounded by snow covered pine trees beside a frozen river, a wooden fence and stone bridge, soft morning light, detailed winter landscape illustration.",
+        "negative_prompt": null,
+        "width": 1536,
+        "height": 1536,
+        "steps": 28,
+        "guidance_scale": 3.5,
+        "true_cfg": null,
+        "mu": null,
+        "reference": [],
+        "lora": null,
+        "lora_scale": 1.0,
+        "refine": 1,
+        "strength": 0.95,
+        "crop_anchor": "center",
+        "upscaler": null,
+        "mask": "f3721df4b76f42e4a46c49017cffc49fc591061a1ca47e17045f672bfa43115d",
+        "outpaint": null,
+        "mask_crop": {
+          "rule": "bbox16",
+          "pad": 32,
+          "tier": 1
+        },
+        "execution": null,
+        "edit": null,
+        "seed": null,
+        "num_images": 1,
+        "runs": 1
+      },
+      "outside_mask_max": 0,
+      "seam": [
+        {
+          "step": 4.122973925299506,
+          "soft_gradient": 8.723766143445175
+        },
+        {
+          "step": 4.27307963354475,
+          "soft_gradient": 10.822551493243408
+        }
+      ],
+      "allocator_peak_gib": [
+        2.1564927101135254,
+        2.287109375
+      ],
+      "steps_completed": [
+        27,
+        27
+      ],
+      "card_peak_mib": 3988.0,
+      "process_peak_gib": {
+        "rss_gib": 21.019771575927734,
+        "private_gib": 29.29183578491211
+      }
+    },
+    {
+      "name": "2048-pad32",
+      "seconds": 100.60100090000196,
+      "seed": 12346,
+      "id": 4,
+      "filename": "20261111-031549-12346-6da12c.png",
+      "pixels_sha256": "2db0cad3fd1b8fd3c5fd51535a1d54716297ae9cfea2028d79b3394a76b3b757",
+      "png_sha256": "d2704889bc8afc1179fb2b130b2586e11ea9e456c02e1534cbf40849967202a3",
+      "crop": {
+        "box": [
+          304,
+          592,
+          1808,
+          1744
+        ],
+        "working": [
+          1184,
+          912
+        ]
+      },
+      "request": {
+        "prompt": "A small blue wooden cabin with a snow covered roof and warm glowing windows, surrounded by snow covered pine trees beside a frozen river, a wooden fence and stone bridge, soft morning light, detailed winter landscape illustration.",
+        "negative_prompt": null,
+        "width": 2048,
+        "height": 2048,
+        "steps": 28,
+        "guidance_scale": 3.5,
+        "true_cfg": null,
+        "mu": null,
+        "reference": [],
+        "lora": null,
+        "lora_scale": 1.0,
+        "refine": 3,
+        "strength": 0.95,
+        "crop_anchor": "center",
+        "upscaler": null,
+        "mask": "2e986b5f91f8be84f4e0a0941cad857338bc38a1a9cd636ddc99d899032c4a14",
+        "outpaint": null,
+        "mask_crop": {
+          "rule": "bbox16",
+          "pad": 32,
+          "tier": 1
+        },
+        "execution": null,
+        "edit": null,
+        "seed": null,
+        "num_images": 1,
+        "runs": 1
+      },
+      "outside_mask_max": 0,
+      "seam": [
+        {
+          "step": 3.7041369283637327,
+          "soft_gradient": 6.940735384878749
+        },
+        {
+          "step": 3.862609040444092,
+          "soft_gradient": 8.519646002549791
+        }
+      ],
+      "allocator_peak_gib": [
+        2.1564927101135254,
+        2.287109375
+      ],
+      "steps_completed": [
+        27,
+        27
+      ],
+      "card_peak_mib": 3992.0,
+      "process_peak_gib": {
+        "rss_gib": 21.154216766357422,
+        "private_gib": 29.049671173095703
+      }
+    },
+    {
+      "name": "2048-pad0",
+      "seconds": 101.54749269998865,
+      "seed": 12346,
+      "id": 5,
+      "filename": "20261111-031731-12346-e52d8a.png",
+      "pixels_sha256": "d862786773942ce4c8a434d6fd1e70e2f925d4c266c33e5f29b26ae34480cdfb",
+      "png_sha256": "42884d394c4c01e74b0ec56e4ef581b23e56f33206ed07ca2ac11e6d8d7a7f96",
+      "crop": {
+        "box": [
+          336,
+          624,
+          1776,
+          1712
+        ],
+        "working": [
+          1200,
+          896
+        ]
+      },
+      "request": {
+        "prompt": "A small blue wooden cabin with a snow covered roof and warm glowing windows, surrounded by snow covered pine trees beside a frozen river, a wooden fence and stone bridge, soft morning light, detailed winter landscape illustration.",
+        "negative_prompt": null,
+        "width": 2048,
+        "height": 2048,
+        "steps": 28,
+        "guidance_scale": 3.5,
+        "true_cfg": null,
+        "mu": null,
+        "reference": [],
+        "lora": null,
+        "lora_scale": 1.0,
+        "refine": 3,
+        "strength": 0.95,
+        "crop_anchor": "center",
+        "upscaler": null,
+        "mask": "2e986b5f91f8be84f4e0a0941cad857338bc38a1a9cd636ddc99d899032c4a14",
+        "outpaint": null,
+        "mask_crop": {
+          "rule": "bbox16",
+          "pad": 0,
+          "tier": 1
+        },
+        "execution": null,
+        "edit": null,
+        "seed": null,
+        "num_images": 1,
+        "runs": 1
+      },
+      "outside_mask_max": 0,
+      "seam": [
+        {
+          "step": 3.7041369283637327,
+          "soft_gradient": 6.940735384878749
+        },
+        {
+          "step": 3.895585514142215,
+          "soft_gradient": 9.88934313606242
+        }
+      ],
+      "allocator_peak_gib": [
+        2.1193690299987793,
+        2.248046875
+      ],
+      "steps_completed": [
+        27,
+        27
+      ],
+      "card_peak_mib": 3988.0,
+      "process_peak_gib": {
+        "rss_gib": 21.233203887939453,
+        "private_gib": 29.43416976928711
+      }
+    },
+    {
+      "name": "2048-pad64",
+      "seconds": 100.18220760000986,
+      "seed": 12346,
+      "id": 6,
+      "filename": "20261111-031912-12346-ada51b.png",
+      "pixels_sha256": "88db32700e664a4fc2cf4f0709801b1f1fd75c328cc0285b5af4daf82ebf4390",
+      "png_sha256": "17dcbc359fa69a003b19366467209f64fa90b271bae9552b92b7693c1a7c09fa",
+      "crop": {
+        "box": [
+          272,
+          560,
+          1840,
+          1776
+        ],
+        "working": [
+          1184,
+          912
+        ]
+      },
+      "request": {
+        "prompt": "A small blue wooden cabin with a snow covered roof and warm glowing windows, surrounded by snow covered pine trees beside a frozen river, a wooden fence and stone bridge, soft morning light, detailed winter landscape illustration.",
+        "negative_prompt": null,
+        "width": 2048,
+        "height": 2048,
+        "steps": 28,
+        "guidance_scale": 3.5,
+        "true_cfg": null,
+        "mu": null,
+        "reference": [],
+        "lora": null,
+        "lora_scale": 1.0,
+        "refine": 3,
+        "strength": 0.95,
+        "crop_anchor": "center",
+        "upscaler": null,
+        "mask": "2e986b5f91f8be84f4e0a0941cad857338bc38a1a9cd636ddc99d899032c4a14",
+        "outpaint": null,
+        "mask_crop": {
+          "rule": "bbox16",
+          "pad": 64,
+          "tier": 1
+        },
+        "execution": null,
+        "edit": null,
+        "seed": null,
+        "num_images": 1,
+        "runs": 1
+      },
+      "outside_mask_max": 0,
+      "seam": [
+        {
+          "step": 3.7041369283637327,
+          "soft_gradient": 6.940735384878749
+        },
+        {
+          "step": 3.8696801480306635,
+          "soft_gradient": 8.351185247253119
+        }
+      ],
+      "allocator_peak_gib": [
+        2.1564927101135254,
+        2.287109375
+      ],
+      "steps_completed": [
+        27,
+        27
+      ],
+      "card_peak_mib": 4252.0,
+      "process_peak_gib": {
+        "rss_gib": 21.237125396728516,
+        "private_gib": 29.031108856201172
+      }
+    },
+    {
+      "name": "2048-pad32-repeat",
+      "seconds": 101.0151963000244,
+      "seed": 12346,
+      "id": 7,
+      "filename": "20261111-032054-12346-0a1219.png",
+      "pixels_sha256": "2db0cad3fd1b8fd3c5fd51535a1d54716297ae9cfea2028d79b3394a76b3b757",
+      "png_sha256": "f2257303964b33c16251cb8d07afb64f22169255c048bb2bb7deb76c9644433d",
+      "crop": {
+        "box": [
+          304,
+          592,
+          1808,
+          1744
+        ],
+        "working": [
+          1184,
+          912
+        ]
+      },
+      "request": {
+        "prompt": "A small blue wooden cabin with a snow covered roof and warm glowing windows, surrounded by snow covered pine trees beside a frozen river, a wooden fence and stone bridge, soft morning light, detailed winter landscape illustration.",
+        "negative_prompt": null,
+        "width": 2048,
+        "height": 2048,
+        "steps": 28,
+        "guidance_scale": 3.5,
+        "true_cfg": null,
+        "mu": null,
+        "reference": [],
+        "lora": null,
+        "lora_scale": 1.0,
+        "refine": 3,
+        "strength": 0.95,
+        "crop_anchor": "center",
+        "upscaler": null,
+        "mask": "2e986b5f91f8be84f4e0a0941cad857338bc38a1a9cd636ddc99d899032c4a14",
+        "outpaint": null,
+        "mask_crop": {
+          "rule": "bbox16",
+          "pad": 32,
+          "tier": 1
+        },
+        "execution": null,
+        "edit": null,
+        "seed": null,
+        "num_images": 1,
+        "runs": 1
+      },
+      "outside_mask_max": 0,
+      "seam": [
+        {
+          "step": 3.7041369283637327,
+          "soft_gradient": 6.940735384878749
+        },
+        {
+          "step": 3.862609040444092,
+          "soft_gradient": 8.519646002549791
+        }
+      ],
+      "allocator_peak_gib": [
+        2.1564927101135254,
+        2.287109375
+      ],
+      "steps_completed": [
+        27,
+        27
+      ],
+      "card_peak_mib": 3989.0,
+      "process_peak_gib": {
+        "rss_gib": 21.181255340576172,
+        "private_gib": 29.248329162597656
+      }
+    },
+    {
+      "name": "2896-pad32",
+      "seconds": 100.60905460000504,
+      "seed": 12346,
+      "id": 9,
+      "filename": "20261111-032237-12346-a44533.png",
+      "pixels_sha256": "d538781deef5332b6a44069fc2b161dce33d144c5c3c8ec0e4b8a53256f19615",
+      "png_sha256": "1896268d758ad33425754173cea81eaf8f950e1aaee738493d3ae3052bc676bc",
+      "crop": {
+        "box": [
+          432,
+          848,
+          2544,
+          2464
+        ],
+        "working": [
+          1184,
+          912
+        ]
+      },
+      "request": {
+        "prompt": "A small blue wooden cabin with a snow covered roof and warm glowing windows, surrounded by snow covered pine trees beside a frozen river, a wooden fence and stone bridge, soft morning light, detailed winter landscape illustration.",
+        "negative_prompt": null,
+        "width": 2896,
+        "height": 2896,
+        "steps": 28,
+        "guidance_scale": 3.5,
+        "true_cfg": null,
+        "mu": null,
+        "reference": [],
+        "lora": null,
+        "lora_scale": 1.0,
+        "refine": 8,
+        "strength": 0.95,
+        "crop_anchor": "center",
+        "upscaler": null,
+        "mask": "945bfa4c2839deb94eef2f115dec4d61b5655b70f042f521496262f718cfa6ca",
+        "outpaint": null,
+        "mask_crop": {
+          "rule": "bbox16",
+          "pad": 32,
+          "tier": 1
+        },
+        "execution": null,
+        "edit": null,
+        "seed": null,
+        "num_images": 1,
+        "runs": 1
+      },
+      "outside_mask_max": 0,
+      "seam": [
+        {
+          "step": 2.8534006923004958,
+          "soft_gradient": 5.03871590776074
+        },
+        {
+          "step": 3.0247918420806434,
+          "soft_gradient": 6.223715437245951
+        }
+      ],
+      "allocator_peak_gib": [
+        2.1564927101135254,
+        2.287109375
+      ],
+      "steps_completed": [
+        27,
+        27
+      ],
+      "card_peak_mib": 3989.0,
+      "process_peak_gib": {
+        "rss_gib": 21.745807647705078,
+        "private_gib": 29.317752838134766
+      }
+    }
+  ],
+  "passed": true,
+  "unloaded": {
+    "event": "unloaded",
+    "time": 1794367359.8327398,
+    "ready": false,
+    "allocated": 33554432,
+    "reserved": 33554432
+  },
+  "post_exit_storage_verification": {
+    "passed": true,
+    "rows_and_pngs": 6,
+    "source_fixtures": 3
+  },
+  "evidence": {
+    "directory": "%TEMP%/auradream-card13-followup-20261111/flux-sequential/",
+    "sha256": {
+      "qualify.py": "13644cc453343cc077fd09e4d1dde80e8c04e7db5dd8f953731f2cf47aad26d2",
+      "supervise.py": "95a00f8ea59193e84b41000b93ca50c5913880b3b30fee3380839bad0769edbe",
+      "analyze.py": "a622366bc372f0d40d4ff3bb83ff0015a4668715a2d49281672ca28ca640f596",
+      "events.jsonl": "759141243344d0af259aa7f4e4752caa2be85b25b211439b0251b7549a25697d",
+      "guard.jsonl": "b327d6b216a072dd32ff5eab0c30352b294c957cbc19eaf56ec99300321a4cc5",
+      "memory.jsonl": "6c4825f715422d2812356e5447357916c0c218ca1b4abf4048bb8b936df9c02c",
+      "results.json": "8a16d2691cafcb3a1fdb73ceaf5d95e96c3c829151be8ad57cb71e8ca4f98f5a",
+      "card_guard.py": "bb9138ada9c0f1bdb4716200d9d88b876790edccea2c861fd4e113b86e6a4164",
+      "image_compare.py": "77535fbd87d21d85fdcaba07516b87527ac67babd9421457649a8a753409bf11"
+    }
+  }
+}

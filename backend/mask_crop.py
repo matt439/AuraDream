@@ -42,8 +42,8 @@ RULE = "bbox16"
 RULES = (RULE,)
 
 # The padding's default, step and bound, in source (or canvas) pixels. No
-# general padding choice is qualified: SDXL outpaint pads 0/32/64 were
-# measured 2026-11-11 with visible joins (verified.md); 32 stays the default.
+# general padding choice is qualified: the 2026-11-11 SDXL outpaint and
+# FLUX/Z-Anime crop samples have visible joins (verified.md); 32 stays the default.
 PAD = 32
 PAD_GRID = 8
 MAX_PAD = 256
