@@ -1007,3 +1007,12 @@ real-gallery or physical-device acceptance is claimed.
 After the every-focus-attempt recorder and fresh-batch-id synchronization
 were final, the affected Linux phone Create smoke passed again (48 s browser,
 54 s total). Its receipt is under `work/ci-pr69-linux-final/`.
+
+The next hosted run passed all five browser shards. Its CPU failures were
+confined to the isolated `test_check_dismissal.py` VM, which loads the
+analysis and critic scripts without the phone module and lacked the new
+`syncPhoneCheck` presentation port. That inert port was added beside the
+fixture's existing presentation dependencies. All 17 dismissal scenarios
+and the classic-script/module-map checks then passed together (77 tests);
+Ruff and the whitespace check passed. No production guard was added for
+the isolated harness.
