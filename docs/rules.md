@@ -4116,7 +4116,9 @@ measured on the card and when.
   effective values: a blank Steps or CFG box as the profile's (`lastDefaults`),
   CFG named plainly (the row's label says "(distilled)") with "(unused)" where
   `cfg_ignored`, a blank Mu as `muPlaceholder()` ("auto" or the fixed shift),
-  no Mu where `muSupported` is false, True CFG only where supported and typed,
+  no Mu where `muSupported` is false, True CFG only where supported and typed
+  (with "(unused)" when `negativeSent` sends no negative, so `applied()`
+  drops it),
   and "check …" in `.warn` for a box whose number cannot be read. In the
   panel it is one line (`white-space: nowrap`, an ellipsis past
   `calc(100% - 6.5em)`, the whole text its `title`): a wrap moved Seed and
@@ -4125,12 +4127,15 @@ measured on the card and when.
   shutting the fold. Unlike the two above, its open state is remembered per
   browser (`auradream.sampling-open`, `'1'`/`'0'`, try/catch; shut when
   absent or unreadable), restored by `initSamplingFold` before the first
-  paint; not the panel's, so Reset leaves it. Status, Reuse, Reset, setups and
+  paint; not the panel's, so Reset leaves it. Only a press on the summary
+  writes it (its click, read on the next task); a reveal is never stored. Status, Reuse, Reset, setups and
   Load settings from PNG write its boxes shut and leave it shut; only a
   press that focuses a box inside (an incomplete number at Generate,
   `revealSetupField`; Set CFG/True CFG, `focusNegativeKnob`) opens it. Set
-  CFG sits above it, so nothing moves under that press; Generate's refusal
-  moves focus to the box as Custom dimensions' does. Shut, it saves the
+  CFG sits above it, so nothing moves under that press. The refusal of an
+  incomplete number by Generate, Run grid or Run comparison (`refuseBadNumber`)
+  opens it above the pressed button, which moves down; it is the accepted
+  exception, as Custom dimensions' is, and focus goes to the box. Shut, it saves the
   row's height (Generate about 60 px higher at 1400x900); open, it is no
   taller than the caption and row were (with a fine pointer: no padding of
   its own, and in the panel `margin-top: -4px`, fields.css; a touch screen
@@ -10293,7 +10298,9 @@ unreadable boxes and on Z-Anime (fixed shift), Animagine (no Mu) and klein
 (unused CFG) after switches, a summary press opening in place with nothing
 above it moving, the open state across a status poll and two reloads, Reuse
 and Reset leaving it shut, Generate's incomplete-number refusal and Set True
-CFG opening it to focus a box, and a storage that refuses writes.
+CFG opening it to focus a box without storing the opening, True CFG marked
+"(unused)" while no negative prompt is sent, and a storage that refuses
+writes.
 
 `smoke-shortcut-dispatch.json` uses a fresh fake on 7924. It checks modal and
 menu ownership, exact modifiers, handled/composing/repeated events, native

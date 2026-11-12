@@ -157,8 +157,11 @@ function samplingSummaryText() {
   const cfg = bad(els.cfg) ? 'check CFG'
     : `CFG ${val(els.cfg) || (d ? d.guidance_scale : '?')}${d?.cfg_ignored ? ' (unused)' : ''}`;
   const mu = !muSupported ? '' : bad(els.mu) ? 'check Mu' : `Mu ${val(els.mu) || muPlaceholder()}`;
+  // A True CFG runs only with a negative prompt sent (negativeSent: a greyed
+  // box at or under the threshold sends none, as an empty live one does);
+  // without one applied() records none, so the summary says it is unused.
   const trueCfg = !trueCfgSupported ? '' : bad(els.trueCfg) ? 'check True CFG'
-    : val(els.trueCfg) ? `True CFG ${val(els.trueCfg)}` : '';
+    : val(els.trueCfg) ? `True CFG ${val(els.trueCfg)}${negativeSent(els.negative) === null ? ' (unused)' : ''}` : '';
   return { text: [steps, cfg, mu, trueCfg].filter(Boolean).join(' · '),
     warn: [els.steps, els.cfg, els.mu, els.trueCfg].some(bad) };
 }
@@ -183,10 +186,16 @@ function initSamplingFold() {
   let open = false;
   try { open = localStorage.getItem(SAMPLING_OPEN_KEY) === '1'; } catch { /* shut */ }
   els.samplingSection.open = open;
-  els.samplingSection.addEventListener('toggle', () => {
-    try {
-      localStorage.setItem(SAMPLING_OPEN_KEY, els.samplingSection.open ? '1' : '0');
-    } catch { /* not remembered: this page keeps it as it is */ }
+  // Only the summary's own press is remembered: a reveal (revealSetupField,
+  // focusNegativeKnob) opens it for one box, never as how it was left. The
+  // press's toggle runs after its click listeners, so the state is read on
+  // the next task. Enter and Space on the summary are clicks too.
+  els.samplingCaption.addEventListener('click', () => {
+    setTimeout(() => {
+      try {
+        localStorage.setItem(SAMPLING_OPEN_KEY, els.samplingSection.open ? '1' : '0');
+      } catch { /* not remembered: this page keeps it as it is */ }
+    }, 0);
   });
   for (const type of ['input', 'change']) els.samplingSection.addEventListener(type, syncSamplingSummary);
   syncSamplingSummary();

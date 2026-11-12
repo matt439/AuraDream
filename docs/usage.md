@@ -1083,13 +1083,16 @@ a group keeps every setting. Status updates preserve your chosen open state.
 **Sampling** holds Steps, CFG, Mu and True CFG. Its summary always shows the
 values a Generate will use, such as `28 steps · CFG 3.5 · Mu auto`:
 a blank box shows the checkpoint's default, Mu shows `auto` or the
-checkpoint's fixed shift, True CFG appears once you set it, and a number
+checkpoint's fixed shift, True CFG appears once you set it (marked
+`(unused)` until a negative prompt is there for it to run), and a number
 the box cannot read shows as `check steps` (or the field's name). This
-browser remembers whether you left it open or shut, and it starts shut.
+browser remembers whether you last opened or shut it from its summary, and
+it starts shut.
 Reuse, Reset, Saved setups and Load settings from PNG change the values
 without opening it. Only a press that needs one of its boxes opens it: an
-unfinished number at Generate, or **Set CFG** / **Set True CFG** under a
-greyed negative prompt. On a phone it is the first row of **More options**.
+unfinished number at Generate, Run grid or Run comparison, or **Set CFG** /
+**Set True CFG** under a greyed negative prompt; that opening is not
+remembered. On a phone it is the first row of **More options**.
 
 ### Keyboard and lightbox
 

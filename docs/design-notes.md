@@ -9039,10 +9039,14 @@ while Custom dimensions keeps its no-persistence decision. Third, nothing
 reveals it on Reuse or restore. Its summary already shows the restored values,
 and opening it there would push Seed and Generate down under a pointer. Only
 a press that needs a box inside opens it. Set CFG sits above the fold, so
-nothing under it moves. Generate's refusal of an incomplete number is the one
-exception, as it is for Custom dimensions: it can happen only after someone
-typed the bad number and then shut the fold, and the refusal moves focus to
-the box anyway.
+nothing under it moves. The refusal of an incomplete number (by Generate, Run
+grid or Run comparison, all below the fold) is the one exception, as it is for
+Custom dimensions: it can happen only after someone typed the bad number and
+then shut the fold, and the refusal moves focus to the box anyway. Such a
+reveal is not remembered: only a press on the summary is stored, so one Set
+True CFG does not leave the fold open on every later visit. True CFG's value
+is marked "(unused)" while no negative prompt is sent, since `applied()`
+then records none.
 True CFG went inside rather than staying direct: alone it would cost a row,
 and its summary names it once set. The `DEV#1` trials may still judge the
 placement.
