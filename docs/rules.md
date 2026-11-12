@@ -10494,8 +10494,10 @@ chosen bundle refused as busy before its selection is read.
 (the Automatic startup backup section hidden with no saved settings),
 all-model scope, typed confirmation, a bundle name stamped in local time,
 each saved bundle's file date beside its size and the server's newest-first
-order kept for names that sort the other way (GAL#27, a stubbed listing,
-no row taller), preserved favourites and metadata,
+order kept for names that sort the other way (GAL#27, a stubbed listing;
+each row, a protected one too, measured with and without its date, which may
+add no height, as `smoke-phone-dialogs` measures on the 393 px sheet, where a
+plain row's size and date wrap beside Import), preserved favourites and metadata,
 saved-bundle and uploaded-file imports, repeated import, damaged ZIP refusal,
 password export (mismatch refused, fields cleared, Protected tag), wrong
 password refused before upload (the unlock field kept), protected import

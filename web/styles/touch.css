@@ -797,6 +797,13 @@
      the sheet's edge. */
   :is(.swap-field, .bundle-scope) { column-gap: var(--sp-4); row-gap: 0; }
   :is(.swap-field, .bundle-scope) label { gap: var(--sp-2); }
+  /* A saved bundle's size and date (GAL#27) take the room its Download and
+     Import leave, wrapping inside it at the date (two small lines beside a
+     44 px button), rather than pushing Import to a line of its own: the
+     date adds no line to a row. A protected row's already wrap onto a line
+     with Protected and no button, where two lines would add height: there
+     the size keeps its width and Download moves down beside the buttons. */
+  .bundle-row:not(:has(.bundle-import-password)) .bundle-size { flex: 1 1 10rem; min-width: 0; }
   /* A sheet's scale buttons (Then refine's, Mass refine's, Refine's 1x to
      2x) 8 px apart, as a finger's neighbours are, not 6. */
   dialog .presets { gap: var(--sp-2); }

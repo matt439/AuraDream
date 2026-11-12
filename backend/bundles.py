@@ -86,9 +86,9 @@ def list_bundles() -> list[dict]:
                 continue
             found.append({"name": p.name, "bytes": info.st_size, "created_at": info.st_mtime,
                           "encrypted": encrypted})
-    # Newest first by the file's time (its creation for an archive this app
-    # wrote, or a copy's arrival), the name breaking a tie: a renamed or
-    # copied-in archive's name says nothing about its age.
+    # Newest first by the file's last-modified time (an export's write; a
+    # copied-in file usually keeps its source's), the name breaking a tie: a
+    # renamed or copied-in archive's name says nothing about its age.
     return sorted(found, key=lambda b: (b["created_at"], b["name"]), reverse=True)
 
 
