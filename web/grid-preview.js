@@ -42,6 +42,43 @@ function gridNumberInputs() {
   ].filter(([el]) => !overridden.has(el));
 }
 
+// + panel size (GEN#64): the panel's own width x height appended to Sizes,
+// as typing it would (Ctrl+Z takes it back) - the box is still the one the
+// server parses (grid.parse_sizes), so nothing new reaches it. A size the box
+// lists already, or a panel size that is not two whole numbers, is said in
+// the box's hint rather than written.
+let gridSizeHint = null;
+let gridSizeHintTimer;
+function sayGridSize(text) {
+  const hint = document.getElementById('grid-size-hint');
+  if (gridSizeHint === null) gridSizeHint = hint.textContent;
+  hint.textContent = text;
+  clearTimeout(gridSizeHintTimer);
+  gridSizeHintTimer = setTimeout(() => { hint.textContent = gridSizeHint; }, 4000);
+}
+function addPanelSize() {
+  const width = els.width.value.trim();
+  const height = els.height.value.trim();
+  if (!/^\d+$/.test(width) || !/^\d+$/.test(height)) {
+    sayGridSize("The panel's width and height are not whole numbers yet: set them first.");
+    return;
+  }
+  const size = `${+width}x${+height}`;
+  const listed = els.gridSize.value.split(',').map((pair) => pair.replace(/\s+/g, '').toLowerCase());
+  if (listed.includes(size)) {
+    sayGridSize(`${size} is listed already.`);
+    return;
+  }
+  const kept = els.gridSize.value.trim().replace(/,\s*$/, '');
+  let typed = false;
+  const heard = () => { typed = true; };
+  els.gridSize.addEventListener('input', heard, { once: true });
+  replaceBoxText(els.gridSize, kept ? `${kept}, ${size}` : size);
+  els.gridSize.removeEventListener('input', heard);
+  // Where the browser would not type it, the write was the value's alone.
+  if (!typed) els.gridSize.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
 function runGrid() {
   if (refuseComposerExecution()) return undefined;
   if (refuseBadNumber(gridNumberInputs())) return undefined;

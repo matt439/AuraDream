@@ -2071,7 +2071,10 @@ measured on the card and when.
   the page labels those prompts as examples and says Batch images run
   separately. The CLI uses `--grid-prompt-mode random`.
 - Grid sizes are paired `WIDTHxHEIGHT` values in `size_axis`, never independent
-  width/height products. Each concrete cell keeps its image seed and random
+  width/height products. **+ panel size** (`addPanelSize`, GEN#64), client
+  only, appends the panel's `WxH` as typing would,
+  on the Sizes label's line (no added height at 1400x900); `parse_sizes` is
+  unchanged. Each concrete cell keeps its image seed and random
   assignment across sizes, passes the existing guards and contributes to the
   grid ceiling. Resume/planned work and estimates use each actual size. A
   mixed run reports all sizes, and Then refine reports all `pass_sizes`, with

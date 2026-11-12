@@ -155,6 +155,18 @@
   {"expect": "__until(() => els.gridSection.open && els.gridPreview.textContent.includes('{fur} has no values') && els.gridRun.getBoundingClientRect().bottom <= innerHeight)"},
   {"eval": "els.gridPrompt.value = 'fur = red | white | none'; els.gridPrompt.dispatchEvent(new Event('input', {bubbles: true}));"},
   {"expect": "__until(() => { const box = els.gridPreview.querySelector('.prompts'); return !!box && box.textContent.startsWith('prompts, line 4 of 30:') && els.gridRun.getBoundingClientRect().bottom - innerHeight <= box.getBoundingClientRect().height + parseFloat(getComputedStyle(els.gridPreview).lineHeight) + 1; })"},
+  {"log": "'GEN#64: + panel size appends the panel\\'s own WxH to Sizes, once, on the Sizes label\\'s line, which it makes no taller; a size listed already is said in the hint, not written twice'"},
+  {"eval": "els.gridSection.open = true; els.prompt.value = 'a red fox'; els.gridPrompt.value = ''; els.gridSize.value = '1024x1024'; els.width.value = '768'; els.height.value = '1024'; els.width.dispatchEvent(new Event('input', {bubbles: true}));"},
+  {"expect": "(() => { const line = els.gridSizeAdd.parentElement; const label = line.querySelector('label'); return els.gridSizeAdd.textContent === '+ panel size' && line.getBoundingClientRect().height <= label.getBoundingClientRect().height + 0.5 && els.gridSizeAdd.getBoundingClientRect().right <= els.gridSize.getBoundingClientRect().right + 0.5; })()"},
+  {"click": "#grid-size-add"},
+  {"expect": "__until(() => els.gridSize.value === '1024x1024, 768x1024' && els.gridPreview.textContent.includes('size 1024x1024, 768x1024'))"},
+  {"shot": "grid-size-add.png"},
+  {"click": "#grid-size-add"},
+  {"expect": "els.gridSize.value === '1024x1024, 768x1024' && document.getElementById('grid-size-hint').textContent === '768x1024 is listed already.'"},
+  {"eval": "els.gridSize.value = ''; els.width.value = '1024'; els.height.value = '1024';"},
+  {"click": "#grid-size-add"},
+  {"expect": "__until(() => els.gridSize.value === '1024x1024' && els.gridPreview.textContent.includes('size 1024x1024'))"},
+  {"eval": "els.gridSize.value = '';"},
   {"viewport": [1400, 900]},
   {"eval": "api = window.__api; els.prompt.value = ''; els.gridPrompt.value = ''; els.gridSteps.value = ''; els.gridCfg.value = ''; els.gridBudget.value = ''; els.seed.value = ''; els.gridSection.open = false; persistPanel();"}
 ]
