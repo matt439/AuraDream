@@ -339,6 +339,8 @@
   {"expect": "!document.getElementById('bundle-show-imported') && !document.getElementById('bundle-show-imported-bin') && !els.bundleStatus.classList.contains('failed')"},
   {"log": "'With nothing starred or picked the press says why; the dialog fits a narrow and a wide window.'"},
   {"key": "Escape"},
+  {"log": "'the pointer off the gallery before the picks change: left where the closed dialog was, it can rest on the gallery head, which keeps a row waiting until the pointer leaves - and the footer moves down under the next press'"},
+  {"hover": "#prompt"},
   {"eval": "(async () => { leaveBin(); await resetGallery(); for (const r of (await api('/api/gallery?limit=100&all_models=true&favorites=true')).items) await setFavorite(r, false); clearSelection(); })()"},
   {"expect": "__until(() => !binMode && !galleryPending && selectedIds().length === 0 && total === 3)"},
   {"eval": "document.querySelector(\"#btn-bundles\").scrollIntoView({block:'nearest'});"},
