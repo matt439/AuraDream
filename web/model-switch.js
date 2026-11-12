@@ -1321,6 +1321,8 @@ function checkpointChanged(previousModel, nextModel = loadedModel) {
   ++tagEditorSuggestionEpoch;
   hideTagSuggestions();
   hideNegativeSuggestions();
+  hideGridSuggestions();
+  hideSwapSuggestions();
   ++refineEpoch;
   ++refineCheckEpoch;
   ++refineTagEpoch;

@@ -1,5 +1,6 @@
 // AuraDream's page script: the editors' suggestion lists (the chip editor's
-// and the Refine dialog's boxes) and the negative box's suggestions.
+// and the Refine dialog's boxes), the negative box's and the Grid's Prompt
+// variables box's suggestions (Swap tags' boxes are tag-swap.js's).
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
 
@@ -193,4 +194,89 @@ function applyNegativeSuggestion(suggestion) {
 
 function negativeCaret(event) {
   if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) suggestNegativeTags(event);
+}
+
+// ------------------------------------------- the Grid's values' suggestions
+
+// On a tag checkpoint the Grid's Prompt variables box suggests tags for the
+// value at the caret, as the negative box does for its comma item: the
+// editor list under the box, its own (#grid-tag-suggestions, floating over
+// the fields below), the first item selected only from three typed
+// characters it starts with (`preselects`). A value is what lies between the
+// line's `=` and the caret's `|` or comma (gridValueRange): a value may hold
+// several comma items, each a tag of the prompt it fills. Nothing is asked
+// for the name before the `=`, or for `none`, the grid's own word for no
+// value. Its unknown values are the tag tray's to mark already
+// (gridVariableTip), so the box has no verdict line of its own. Asked on
+// typing, a click and the caret keys; a list already up stays while it asks
+// (`keep`), and a click or caret key that stays in its value asks nothing.
+function gridValueRange(el = els.gridPrompt) {
+  const text = el.value;
+  const caret = el.selectionStart ?? text.length;
+  const lineStart = caret ? text.lastIndexOf('\n', caret - 1) + 1 : 0;
+  let lineEnd = text.indexOf('\n', caret);
+  if (lineEnd < 0) lineEnd = text.length;
+  const equals = text.indexOf('=', lineStart);
+  // grid.parse_variables' line: a name, then `=`; the caret past it.
+  if (equals < 0 || equals >= caret || !/^\s*[A-Za-z_]\w*\s*$/.test(text.slice(lineStart, equals))) return null;
+  let start = caret;
+  while (start > equals + 1 && !'|,'.includes(text[start - 1])) start -= 1;
+  let end = caret;
+  while (end < lineEnd && !'|,'.includes(text[end])) end += 1;
+  while (start < end && /\s/.test(text[start])) start += 1;
+  while (end > start && /\s/.test(text[end - 1])) end -= 1;
+  return { start, end, query: text.slice(start, end) };
+}
+
+function suggestGridValues(event) {
+  const el = els.gridPrompt;
+  const menu = els.gridTagSuggestions;
+  const range = tagVocabularyEnabled && !replacingBox && document.activeElement === el ? gridValueRange(el) : null;
+  if (!range || !range.query || range.query.toLowerCase() === 'none') {
+    hideGridSuggestions();
+    return;
+  }
+  const { query } = range;
+  const text = el.value;
+  const model = loadedModel;
+  if (event?.type !== 'input' && !menu.hidden && menu._query === query) return;
+  scheduleEditorSuggestions(el, menu, {
+    query,
+    pick: applyGridSuggestion,
+    keep: true,
+    current: () => {
+      const now = gridValueRange(el);
+      return loadedModel === model && tagVocabularyEnabled && document.activeElement === el && el.value === text
+        && now?.start === range.start && now?.end === range.end;
+    },
+  });
+}
+
+// Only a list that is up, as the negative box's (the lookup is shared).
+function hideGridSuggestions() {
+  const menu = els.gridTagSuggestions;
+  if (menu.hidden) return;
+  clearTimeout(tagEditorSuggestionTimer);
+  tagEditorSuggestionEpoch += 1;
+  renderEditorSuggestions(els.gridPrompt, menu, [], { pick: applyGridSuggestion });
+}
+
+// The value at the caret replaced by an insert, as typing replaces a
+// selection: one Ctrl+Z takes the suggestion back. Its `input` is the box's
+// own - the grid's preview and the tag tray read it again.
+function applyGridSuggestion(suggestion) {
+  const el = els.gridPrompt;
+  const range = gridValueRange(el);
+  if (!range) { hideGridSuggestions(); return; }
+  el.focus();
+  el.setSelectionRange(range.start, range.end);
+  if (!document.execCommand('insertText', false, suggestion.text)) {
+    el.setRangeText(suggestion.text, range.start, range.end, 'end');
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+  hideGridSuggestions();
+}
+
+function gridValuesCaret(event) {
+  if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) suggestGridValues(event);
 }

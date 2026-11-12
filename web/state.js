@@ -145,7 +145,8 @@ const els = {
   thenRefine: $('then-refine'), thenRefineLabel: $('then-refine-label'),
   thenRefineStrength: $('then-refine-strength'), thenRefineScales: $('then-refine-scales'),
   thenRefineSteps: $('then-refine-steps'), thenRefineHint: $('then-refine-hint'),
-  gridSection: $('grid-section'), gridPrompt: $('grid-prompt'), gridPromptMode: $('grid-prompt-mode'), gridSize: $('grid-size'),
+  gridSection: $('grid-section'), gridPrompt: $('grid-prompt'), gridTagSuggestions: $('grid-tag-suggestions'),
+  gridPromptMode: $('grid-prompt-mode'), gridSize: $('grid-size'),
   gridSteps: $('grid-steps'), gridCfg: $('grid-cfg'),
   gridMu: $('grid-mu'), gridMuField: $('grid-mu-field'), gridMuTip: $('grid-mu-tip'),
   gridSeeds: $('grid-seeds'), gridSeedList: $('grid-seed-list'),
@@ -168,6 +169,7 @@ const els = {
   picked: $('picked'), pickedBtn: $('btn-picked'), pickedMenu: $('picked-menu'),
   contextMenu: $('context-menu'),
   swap: $('btn-swap'), swapDialog: $('swap-dialog'), swapScope: $('swap-scope'), swapRows: $('swap-rows'),
+  swapTagSuggestions: $('swap-tag-suggestions'), swapTags: $('swap-tags'),
   swapAdd: $('swap-add'), swapNegative: $('swap-negative-label'), swapCount: $('swap-count'),
   swapResults: $('swap-results'), swapError: $('swap-error'), swapCancel: $('swap-cancel'), swapQueue: $('swap-queue'),
   refineBatch: $('btn-refine-batch'), refineBatchDialog: $('refine-batch-dialog'),
@@ -643,7 +645,8 @@ let draggedTagIndex = null;
 let tagInsertAt = null;
 let tagEditAt = null;
 // The pending lookup of the editor's suggestion list - the chip editor's, the
-// Refine dialog's prompt's or the panel's negative box's, which share it
+// Refine dialog's prompt's, the panel's negative box's, the Grid's Prompt
+// variables box's or Swap tags' Find and Replace boxes', which share it
 // (tag-lists.js, scheduleEditorSuggestions): never two at once, each asking only
 // for the box with the focus, and the dialog being modal.
 let tagEditorSuggestionTimer = null;

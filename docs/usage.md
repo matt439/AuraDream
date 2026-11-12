@@ -792,7 +792,8 @@ ground = grass | dirt
 ```
 
 This makes six prompts. `none` removes that fragment; commas remain part of
-a value. Unused variables and placeholders without values are refused.
+a value. On a Danbooru-tag checkpoint the box suggests tags for the value
+you are typing, as the prompt box does. Unused variables and placeholders without values are refused.
 To keep a block of variables for another day, save it as a Grid variables
 snippet under **Examples > Personal snippets…**.
 The default **Cross all values** tries every combination. **One choice per
@@ -997,6 +998,10 @@ already rendered, already queued, a deleted source or LoRA, the same as another 
 Each image keeps its own seed, size and settings; one job is queued per
 size. A listed row notes when it is an inpaint or outpaint, and when only
 its masked area runs; an instruction edit is left out with its reason.
+On a Danbooru-tag checkpoint the Find and Replace boxes suggest tags as the
+prompt box does, and a replacement or added tag the index does not know is
+named under the rows and outlined in amber once you move on from it - a
+warning only: **Queue** still puts it in.
 
 **Refine…** (beside **Swap tags…**) runs a refine pass of each selected
 image - or, with nothing selected, of what the filter matches - from its

@@ -731,8 +731,12 @@
               not saying it.<br>
               Blank runs the prompt exactly as written — and is refused if the prompt
               still has <b>{placeholders}</b> in it, rather than rendering the braces.</span></span></i>
-          <textarea id="grid-prompt" rows="2" spellcheck="false" aria-describedby="grid-prompt-tip"
-            placeholder="size = big | small | none"></textarea>
+          <div class="grid-prompt-editor">
+            <textarea id="grid-prompt" rows="2" spellcheck="false" aria-describedby="grid-prompt-tip"
+              placeholder="size = big | small | none" aria-autocomplete="list"
+              aria-controls="grid-tag-suggestions" aria-expanded="false"></textarea>
+            <ul class="tag-suggestions" id="grid-tag-suggestions" role="listbox" aria-label="Grid value tag suggestions" hidden></ul>
+          </div>
           <label for="grid-prompt-mode">Variable mode</label>
           <select id="grid-prompt-mode" aria-describedby="grid-prompt-mode-hint">
             <option value="cross">Cross all values</option>
@@ -2040,6 +2044,10 @@
     <button type="button" class="close sheet-close" data-sheet-close aria-label="Close (Escape)">✕</button>
   </header>
   <div class="swap-rows" id="swap-rows"></div>
+  <!-- One list for every Find and Replace box, placed under the box with the
+       focus (tag-swap.js, placeSwapSuggestions): the rows scroll, and a list
+       inside a row was cut off at their edge. -->
+  <ul class="tag-suggestions swap-tag-suggestions" id="swap-tag-suggestions" role="listbox" aria-label="Swap tags tag suggestions" hidden></ul>
   <div class="swap-options">
     <button type="button" class="ghost small" id="swap-add">+ Add row</button>
     <fieldset class="swap-field">
@@ -2048,6 +2056,7 @@
       <label id="swap-negative-label"><input type="radio" name="swap-field" value="negative_prompt"> Negative prompt</label>
     </fieldset>
   </div>
+  <p class="swap-tags hint warn" id="swap-tags" role="status"></p>
   <p class="swap-hint" id="swap-hint">Whole comma items match, whatever their case, spacing or underscores; a weight round
     the whole item is kept, and one typed in Find is ignored. Inside prose a single tag also matches as a phrase. Every row has to find all
     of its tags or the image is left out. An empty Find adds its tags at the start or the end, in the prompt's own

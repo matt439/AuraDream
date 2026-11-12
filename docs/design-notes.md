@@ -9990,6 +9990,21 @@ server demotes nothing (and promotes nothing: no author sentence asks for
 it); no Find tag row, since the finder writes into the prompt, and none
 while the box is greyed
 ([review-2026-10-29-backlog.md](maintainer/review-2026-10-29-backlog.md#pa12-tag-suggestions-in-the-negative-prompt)).
+The Grid's Prompt variables box and Swap tags' Find and Replace boxes had
+none either (`PA#16`, 2026-11-12): on Animagine, `red hair -> silver_hiar`
+over 40 picked images queued 40 rerenders of a misspelt tag. Both now take
+the editor list. The grid box asks about the value at the caret, bounded
+by `|` and commas, since a value may hold several comma items; the name and
+`none` are the grid's own words. Swap tags has one list for the dialog,
+fixed to the window under the focused box, because the rows are a
+scrolling box that clipped a list inside a row. Each Replace box also gets
+an advisory verdict (one `/api/tags/validate` for every row, the texts
+joined as one prompt so contextual prose is not called a bad tag), on the
+box and in one line kept while empty so nothing moves; the item still
+being typed waits for the box to lose the focus, as the chips' does.
+It never holds Queue: a tag the index lacks may be a new or private one,
+and the chips never block Generate either
+([review-2026-11-12-todo.md](maintainer/review-2026-11-12-todo.md#pa16-tag-help-in-grid-values-and-swap-tags-fields)).
 **Find tag** (2026-10-22, user request): a cowlick on top of the head is
 `ahoge`, which no completion of "cowlick" reaches. Danbooru's wiki says
 what each tag shows, so the server searches page text (`body_matches`),

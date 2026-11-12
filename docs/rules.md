@@ -4480,10 +4480,32 @@ measured on the card and when.
   Find tag row, chips, typing state or prose guard; never while the box is
   greyed (`disabled`: `syncCfg` closes a list up as it greys), on a
   whole-box write (`replacingBox`; `writeBox` closes it) or off a Danbooru
-  checkpoint. The chip editor, the dialog and the negative box share
+  checkpoint. The Grid's Prompt variables box (`PA#16`) takes it too, its
+  own `#grid-tag-suggestions` floating under the box (`.grid-prompt-editor`;
+  nothing moves), for the value at the caret: between the line's `=` and a
+  `|` or comma (`gridValueRange`), never the name before the `=`, `none`
+  or a line with no `=` (`suggestGridValues`, `applyGridSuggestion`); its
+  unknown values stay the tag tray's (`gridVariableTip`). Swap tags' Find
+  and Replace boxes take it as one list for the dialog,
+  `#swap-tag-suggestions`, `position: fixed` under the focused box
+  (`placeSwapSuggestions`: the rows scroll and clipped a list inside one),
+  closed as anything in the dialog scrolls or the window resizes, asked with
+  `field: 'negative'` while the swap is in the negative prompt
+  (`suggestSwapTags`, `applySwapSuggestion`); Enter on a selected item is
+  prevented, so Queue's Enter (which skips a prevented key) never sees it.
+  Each Replace box (an Add row's too) gets an advisory verdict:
+  `scheduleSwapTagCheck` asks `POST /api/tags/validate` once for every row,
+  the Replace texts joined as one prompt so contextual prose is told from a
+  tag, and `markSwapTags` puts unknown tags on their box (`.swap-unknown`,
+  amber, the reasons as its title) and in `#swap-tags`, one line kept while
+  empty. The item at the caret of the focused box is not called unknown
+  until the box loses the focus, as the chips' typing item; an unavailable
+  index or a failed request is silent; Queue is never held for it. The chip
+  editor, the dialog, the negative box, the grid box and Swap tags share
   `tagEditorSuggestionTimer` and `tagEditorSuggestionEpoch`, which is safe
-  only because each asks for the focused box alone and the dialog is modal;
-  `hideNegativeSuggestions` touches them only while its list is up. Find tag: from three typed characters the prompt box's list (not
+  only because each asks for the focused box alone and the dialogs are modal;
+  `hideNegativeSuggestions`, `hideGridSuggestions` and `hideSwapSuggestions`
+  touch them only while their list is up. Find tag: from three typed characters the prompt box's list (not
   a chip editor's or the dialog's) ends with a `find` row, "Tags described
   as “…”…", there too when no name matches and never preselected
   (`renderTagSuggestions`, `TAG_FIND_MIN`). Choosing it
@@ -11300,7 +11322,12 @@ verdict cache, typing state and live summary, an accepted suggestion's undo,
 the negative box's own list (`field=negative`, the prompt's list closed, no
 Find tag row, Tab on the preselected item one Ctrl+Z from what was typed,
 Escape closing the list alone, closed and unfocusable while CFG greys the
-box, the field and Generate unmoved with it open),
+box, the field and Generate unmoved with it open), the Grid's Prompt
+variables box's own list (under the box, the value after `|` asked about,
+Enter on the preselected item replacing the value and one Ctrl+Z from what
+was typed, a value's second comma item, Escape closing the list alone,
+nothing asked for the name, `none` or a line with no `=`, a blur closing
+it with the box unmoved),
 a qualified suggestion written with bare parentheses (an escaped copy typed
 by hand valid with no "canonical:" note, an underscored one noted and
 marked repeated),
@@ -12537,7 +12564,17 @@ the swaps…"; and an Add row over two picked images (comma and `,\n`
 layouts): the empty Find's at end / at start toggle in the arrow's slot,
 the server's placed tag marked at the end and then the start, a second
 row's Find bringing the arrow back with no box, row height or Queue edge
-moving, and one job named "+ night (start); add smoke → add test":
+moving, and one job named "+ night (start); add smoke → add test";
+the Replace boxes' unknown-tag line ("Not a known tag: silver hair - Queue
+still puts it in.", not while the caret is in the item, the box marked and
+titled, Queue free and unmoved; two Add rows named by row); and tag help:
+one list under the focused Find or Replace box, Enter taking a preselected
+`1girl` in Find without queueing, Escape closing the list alone, a click
+taking `green hair`, a known tag unmarked and a misspelt one added after it
+named with Queue free, and the list closing as the rows scroll. Steps that
+change the picks first move the pointer to the prompt box: left where the
+closed dialog's Queue was, it rests on the gallery head, which then keeps
+Delete unstarred waiting and moved the footer under the next press:
 
 ```powershell
 uv run python tools/fake_server.py --port 7900 --model cagliostrolab/animagine-xl-4.0 --data <new-scratch-directory>
