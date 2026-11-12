@@ -474,7 +474,16 @@ async function refreshBundleList() {
         name.textContent = bundle.name;
         const size = document.createElement('span');
         size.className = 'bundle-size';
-        size.textContent = humanBytes(bundle.bytes);
+        // The file's time, which the list is sorted by (newest first), so
+        // the order a renamed or copied-in archive lands in reads as such.
+        const made = new Date(bundle.created_at * 1000);
+        const date = document.createElement('time');
+        date.className = 'bundle-date';
+        date.dateTime = made.toISOString();
+        date.textContent = made.toLocaleString([], {
+          year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+        });
+        size.append(humanBytes(bundle.bytes), ' · ', date);
         const tag = document.createElement('span');
         tag.className = 'bundle-tag';
         tag.textContent = 'Protected';

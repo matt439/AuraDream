@@ -106,7 +106,10 @@ def list_bundles() -> list[dict]:
             hold = unreadable or (_MANAGED_COPY if p.name.casefold() in managed else None)
             found.append({"name": p.name, "bytes": info.st_size, "created_at": info.st_mtime,
                           "encrypted": encrypted, "delete_hold": sentence(hold) if hold else None})
-    return sorted(found, key=lambda b: b["name"], reverse=True)
+    # Newest first by the file's last-modified time (an export's write; a
+    # copied-in file usually keeps its source's), the name breaking a tie: a
+    # renamed or copied-in archive's name says nothing about its age.
+    return sorted(found, key=lambda b: (b["created_at"], b["name"]), reverse=True)
 
 
 class ManagedBundle(BundleError):

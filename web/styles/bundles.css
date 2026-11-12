@@ -110,6 +110,8 @@
 .bundle-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); border: 1px solid var(--line); border-radius: var(--r-sm); padding: var(--sp-2); }
 .bundle-name { flex: 1 1 100%; overflow-wrap: anywhere; font-size: var(--fs-body-sm); }
 .bundle-size { color: var(--muted); margin-right: auto; font-size: var(--fs-label); }
+/* A saved bundle's date (the order the list follows) wraps whole, after the size's dot. */
+.bundle-date { white-space: nowrap; }
 .bundle-import-password { font-size: var(--fs-label); }
 .bundles-dialog button[aria-disabled="true"] { opacity: 0.5; cursor: not-allowed; }
 @media (min-width: 1800px) {
