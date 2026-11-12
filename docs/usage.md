@@ -1081,7 +1081,7 @@ setup, and an incomplete number reveals its field before focusing it. Closing
 a group keeps every setting. Status updates preserve your chosen open state.
 
 **Sampling** holds Steps, CFG, Mu and True CFG. Its summary always shows the
-values a Generate will use, such as `28 steps · CFG (distilled) 3.5 · Mu auto`:
+values a Generate will use, such as `28 steps · CFG 3.5 · Mu auto`:
 a blank box shows the checkpoint's default, Mu shows `auto` or the
 checkpoint's fixed shift, True CFG appears once you set it, and a number
 the box cannot read shows as `check steps` (or the field's name). This

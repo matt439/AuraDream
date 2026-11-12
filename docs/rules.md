@@ -4114,10 +4114,13 @@ measured on the card and when.
   `#sampling-caption`, UI#51): Steps, CFG, Mu and True CFG. Its summary
   (`#sampling-value`, `syncSamplingSummary`, sizes.js) always gives the
   effective values: a blank Steps or CFG box as the profile's (`lastDefaults`),
-  the CFG box under its own name ("CFG (distilled)") and "(unused)" where
+  CFG named plainly (the row's label says "(distilled)") with "(unused)" where
   `cfg_ignored`, a blank Mu as `muPlaceholder()` ("auto" or the fixed shift),
   no Mu where `muSupported` is false, True CFG only where supported and typed,
-  and "check …" in `.warn` for a box whose number cannot be read. It follows
+  and "check …" in `.warn` for a box whose number cannot be read. In the
+  panel it is one line (`white-space: nowrap`, an ellipsis past
+  `calc(100% - 6.5em)`, the whole text its `title`): a wrap moved Seed and
+  Generate as True CFG was typed. It follows
   the boxes' input, `syncCfg`, `syncMu` and `syncMuWords`, never opening or
   shutting the fold. Unlike the two above, its open state is remembered per
   browser (`auradream.sampling-open`, `'1'`/`'0'`, try/catch; shut when

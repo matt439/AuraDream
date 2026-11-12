@@ -141,7 +141,11 @@ function syncConditioningSummary() {
 // none and the server fills it), a blank Mu is the pipeline's own shift -
 // "auto", or the fixed one muPlaceholder names - and a Mu or True CFG this
 // checkpoint has not got is left out, as collect() leaves it out. A number
-// the box cannot read says so instead of a value it would not send.
+// the box cannot read says so instead of a value it would not send. CFG is
+// named plainly, never FLUX.1's "CFG (distilled)": the row's label says that,
+// and the summary is one line at 1400 px (a True CFG beside it wrapped it,
+// moving everything under it as the box was typed in; styles/fields.css
+// cuts a value too long for the line, which its title then gives whole).
 const SAMPLING_OPEN_KEY = 'auradream.sampling-open';
 
 function samplingSummaryText() {
@@ -150,9 +154,8 @@ function samplingSummaryText() {
   const bad = (el) => !el.disabled && el.validity.badInput;
   const steps = bad(els.steps) ? 'check steps'
     : `${val(els.steps) || (d ? d.steps : '?')} steps`;
-  const cfgName = els.cfgLabel.textContent.trim() || 'CFG';
-  const cfg = bad(els.cfg) ? `check ${cfgName}`
-    : `${cfgName} ${val(els.cfg) || (d ? d.guidance_scale : '?')}${d?.cfg_ignored ? ' (unused)' : ''}`;
+  const cfg = bad(els.cfg) ? 'check CFG'
+    : `CFG ${val(els.cfg) || (d ? d.guidance_scale : '?')}${d?.cfg_ignored ? ' (unused)' : ''}`;
   const mu = !muSupported ? '' : bad(els.mu) ? 'check Mu' : `Mu ${val(els.mu) || muPlaceholder()}`;
   const trueCfg = !trueCfgSupported ? '' : bad(els.trueCfg) ? 'check True CFG'
     : val(els.trueCfg) ? `True CFG ${val(els.trueCfg)}` : '';
@@ -162,10 +165,13 @@ function samplingSummaryText() {
 
 // Words only, as the other summaries' syncs: never opens or shuts the fold.
 // From the boxes' own input, syncCfg (a status's defaults, Reuse, Reset, a
-// restore, a setup) and syncMu, and the CFG box's name (applyHints).
+// restore, a setup), syncMu and syncMuWords.
 function syncSamplingSummary() {
   const { text, warn } = samplingSummaryText();
-  if (els.samplingValue.textContent !== text) els.samplingValue.textContent = text;
+  if (els.samplingValue.textContent !== text) {
+    els.samplingValue.textContent = text;
+    els.samplingValue.title = text;
+  }
   els.samplingValue.classList.toggle('warn', warn);
 }
 
