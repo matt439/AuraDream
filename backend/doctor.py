@@ -16,7 +16,8 @@ power setting is read or changed); the Hugging Face sign-in is the token file's 
 trial bind and loopback probe (`server_probe`); the commit is `git rev-parse`
 in this folder, and the running server's own from its status on loopback
 (with `AURADREAM_PASSCODE` from this environment where that server asks for
-one; the passcode is never printed).
+one; the passcode is never printed); a direct-TLS pair is loaded as the
+server loads it, read and never changed.
 The figures it compares against are the measured ones in docs/setup.md's
 Before you start and docs/verified.md, never a promise for another machine.
 """
@@ -38,7 +39,7 @@ from typing import Any
 # config is the first project import, before anything that could import
 # diffusers (AGENTS.md); nothing here does, but the rule holds everywhere.
 from .config import settings
-from . import build_info, hf_sign_in, keep_awake, server_probe
+from . import build_info, hf_sign_in, keep_awake, server_probe, server_transport
 from .loader_choices import default_format
 from .passcode import MIN_LENGTH as PASSCODE_MIN_LENGTH, asked as passcode_asked, setting_problem as passcode_problem
 
@@ -427,6 +428,20 @@ def check_passcode(host: str | None = None, allowed: Iterable[str] | None = None
                   "can merely reach the address, and is no protection on a network that is not trusted.")]
 
 
+def check_tls(pair: tuple[Path | None, Path | None] | None = None) -> list[Check]:
+    """The direct-TLS pair as `main.run` loads it (`server_transport.setting_problem`):
+    no row without one, a FAIL for a pair the server would refuse to start with.
+    The files are read, never changed; a key's password is never asked for."""
+    certfile, keyfile = (settings.ssl_certfile, settings.ssl_keyfile) if pair is None else pair
+    if certfile is None and keyfile is None:
+        return []
+    problem = server_transport.setting_problem(certfile, keyfile)
+    if problem is not None:
+        said, _, fix = problem.partition(". ")
+        return [Check(FAIL, "TLS", f"{said.rstrip('.')}, so the server will not start.", fix or said)]
+    return [Check(PASS, "TLS", "the certificate and its key load: the server serves https.")]
+
+
 # --- Keeping the PC awake -----------------------------------------------------
 
 def polkit_rule(user: str) -> str:
@@ -528,6 +543,7 @@ def check_hf_login(token_path: Path | None = None, environ: dict[str, str] | Non
 CHECKS: tuple[Callable[[], list[Check]], ...] = (
     check_driver, check_gpu, check_vram, check_ram, check_disk, check_port, check_commit, check_lan,
     check_passcode,
+    check_tls,
     check_keep_awake,
     check_hf_login,
 )

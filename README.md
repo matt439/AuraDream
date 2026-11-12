@@ -394,7 +394,9 @@ browser on the PC itself signs in once too. Know what it is and is not:
 - There is one passcode and no accounts. Changing it and restarting signs
   every device out; nothing else does. **Sign out** in the Models panel
   signs out the browser it is pressed in. A browser stays signed in for
-  thirty days after its last visit, across restarts and updates.
+  thirty days after it was last used (a page load, or anything done on an
+  open page; the page's own timed checks do not count), across restarts
+  and updates.
 
 Set it in the environment only (never a flag or the saved settings); the
 server will not start with fewer than 8 characters. After five wrong

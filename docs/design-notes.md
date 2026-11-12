@@ -14010,6 +14010,30 @@ it has exactly those three parts, the MAC matches (`compare_digest`) and
 than a day old sets a fresh one, so a device used within the month stays
 signed in.
 
+Since `DEV#56` (2026-11-12) a request someone makes on an open page renews
+too: any request `keep_awake.counts_as_activity` counts, with a valid
+cookie more than a day old, gets a fresh one on whatever it answers. The
+page alone left a tab or installed PWA that stays open and is used daily,
+and so never loads `/` again, signed out at day thirty. The page's timed
+polls (`/api/status` and the rest of activity's exclusions), the job
+streams and its files still never renew, so a tab left open and unused
+still ends with its month, as an idle tab does not hold the PC awake. One
+rule decides both, so a poll later excluded from activity is excluded from
+renewal with it. A request signed in by `Authorization: Bearer` gets no
+cookie, renewed or not.
+
+Renewing on any counted request opened a race the page alone did not have:
+the gate stores no sessions, so Sign out only clears the cookie on the
+device, and a slow counted request already running (Expand waiting behind a
+render, a critic Check, an import's upload) would answer after it with a
+fresh thirty-day cookie, signing the device back in. The gate therefore
+counts sign-outs sent with a valid cookie (`Gate.sign_outs`, in memory, on
+the event loop), and a request renews only if none was answered while it
+ran. It is for the whole server, not per device, since no device is told
+apart: another device's sign-out costs an overlapping request its renewal,
+which its next request makes up. A sign-out with no valid cookie counts for
+nothing, so a caller who is not signed in cannot hold anyone's renewal back.
+
 - Nothing is stored, so a restart or an update signs nobody out, which
   matters on the Windows PC that is started by hand each day.
 - Changing the passcode changes the key and signs every device out. That is
@@ -14768,6 +14792,24 @@ bind with exact allowed hosts so local scripts can still probe loopback.
 The loopback certificate SAN and client CA trust are explicit prerequisites.
 Tests create a temporary certificate and trust it only in their process;
 no service, firewall, CA store or live LAN installation was changed.
+
+**A pair that cannot serve (`DEV#55`, 2026-11-12).** Checking only that
+both files existed let a non-PEM, mismatched or password-protected pair
+reach uvicorn, which failed with an opaque `[SSL] PEM lib` traceback; under
+the systemd user service that was three restarts and then a failed unit.
+`server_transport.setting_problem` now loads the pair as uvicorn will
+(`ssl.SSLContext.load_cert_chain`, after the certificate alone through
+`load_verify_locations` so the words can name the file at fault), with a
+password callback that raises: AuraDream never asks for or stores a key's
+password, so an encrypted key is refused in words naming `openssl pkey`.
+The refusal is the passcode's start-up path (stderr and the log file
+before anything binds). Both settings refusals now exit 78
+(`main.SETTINGS_REFUSED_STATUS`, sysexits' EX_CONFIG), and the service's
+unit lists it in `RestartPreventExitStatus`, so the unit fails at once and
+`control.sh` says "failed while starting" instead of waiting through
+restarts that cannot help; a held port stays exit 1 and is still restarted,
+since that can clear. The doctor's TLS row (no row without a pair) runs the
+same function, so it fails exactly where the server would refuse to start.
 
 ## Releasing the model after idle minutes
 
