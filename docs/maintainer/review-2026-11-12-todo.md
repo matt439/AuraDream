@@ -325,6 +325,34 @@ Matt accepted every recommended answer above. As a result:
 - Kept: `GEN#15` stays `CARD` for a model-offload text-to-image render.
   The 2026-11-11 sequential inpaint does not close it.
 
+## Added at Matt's request (2026-11-12)
+
+Matt added two items after the answers above. Both were checked against
+the code on main (e06ae8d); neither is built.
+
+### GAL#27 Saved bundles listed by date
+
+`bundles.list_bundles` (`backend/bundles.py:71-89`) sorts by file name,
+descending. An app-named export happens to sort newest first. An uploaded
+or renamed archive sorts by its name, though, so it lands wherever its
+letters put it, whatever its date. Each entry already carries
+`created_at` (the file's mtime). First step: sort by `created_at`, newest
+first, with the name as the tie-break. Then check that the Bundles
+dialog's list (and its phone sheet) shows the date the order follows.
+Add a test with names whose order disagrees with their dates. Size S.
+
+### UI#53 Models is blank while a bundle operation runs
+
+`GalleryAdmission` (`backend/bundle_manager.py:192-207`) answers every
+counted `/api/` path, `/api/models` included, with a 409 that has a
+sentence and no `code` while a bundle import, export or clear runs. The
+Models panel then opens empty, with no word on why. First step: give that
+409 a refusal code (`refusal_codes.py`). Models then shows the reason in
+place of the list, and reads again when the operation ends (through the
+status poll that already reports bundle maintenance, not a new timed
+poll). Check the other panels that read a counted route while one runs,
+too. Add a smoke on the fake with a held import. Size S-M.
+
 ## Not added
 
 None of the 26 was refuted. Some were folded in rather than given rows of
