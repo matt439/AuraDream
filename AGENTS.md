@@ -373,7 +373,7 @@ file keeps its own state, preview, commit and uncertain-import flow.
 Also: `tools/` (fake server, headless-browser smokes), `tests/`, `wsl/`,
 `linux/` (native Linux `setup.sh`, `install-service.sh` for the systemd
 user service and its env file, `update.sh`, sharing `common.sh`; bash,
-ASCII, LF, no sudo; `tests/test_linux_scripts.py`), `docs/`. At the root, `install.cmd`/`install.ps1` (the Windows installer:
+ASCII, LF, no sudo; `tests/test_linux_*.py`), `docs/`. At the root, `install.cmd`/`install.ps1` (the Windows installer:
 checks, uv/Git if missing, `HF_HOME` before any download, `uv sync`, the
 doctor, shortcuts to `bin\auradream.cmd --open`; `-DryRun`, `-Yes`) and
 `update.cmd`/`update.ps1` (refuses while AuraDream runs, copies the

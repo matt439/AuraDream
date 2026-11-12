@@ -820,7 +820,7 @@ before changing it.
   the setting in a commented line. Test seams:
   `AURADREAM_INSTALL_TEST_ROOT`, `AURADREAM_INSTALL_TEST_PROC_VERSION`,
   `AURADREAM_INSTALL_TEST_WAIT` (control.sh's wait)
-  (`tests/test_linux_scripts.py`)
+  (`tests/linux_script_helpers.py`, `tests/test_linux_*.py`)
 - `web/` - served as-is from `/static`; `index.html` loads 78 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `page-helpers.js`, right
@@ -10557,7 +10557,10 @@ own policy is kept beside this one; and that an unhandled error's 500
 carries them and is still raised, with no second start once a response
 began.
 
-`tests/test_linux_scripts.py` runs `linux/*.sh` for real under bash against
+`tests/test_linux_scripts.py` (setup, install-service and update),
+`tests/test_linux_control.py` (`control.sh`) and `tests/test_linux_passcode.py`
+(the scripts' passcode), over the sandbox in `tests/linux_script_helpers.py`,
+run `linux/*.sh` for real under bash against
 stub `nvidia-smi`, `uv`, `git`, `systemctl`, `journalctl`,
 `systemd-inhibit`, `loginctl`, `hostname` and `id` on PATH, a temporary
 HOME and project folder (the test seams) and a loopback stand-in server
