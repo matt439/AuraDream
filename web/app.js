@@ -249,10 +249,14 @@ els.gridSeedList.addEventListener('input', () => {
   els.gridSeeds.disabled = els.gridSeedList.value.trim() !== '';
 });
 els.load.onclick = loadModel;
-restoreModelFavourites();
+// The gallery's stars, read once at the start and again as Models opens.
+void refreshModelFavourites();
 restoreModelGrouping();
 els.modelGroupByType.onchange = () => setModelGrouping(els.modelGroupByType.checked);
-window.addEventListener('storage', receiveModelFavourites);
+els.btnModelFavouritesImport.onclick = () => void importModelFavourites();
+els.btnModelFavouritesDismiss.onclick = dismissModelFavouriteOffer;
+els.modelStorage.addEventListener('toggle', () => { if (els.modelStorage.open) void loadModelStorage(); });
+els.btnModelStorageRefresh.onclick = () => void loadModelStorage({ fresh: true });
 els.models.onclick = () => showModelPicker(els.modelPicker.hidden);
 els.modelTable.addEventListener('change', (event) => {
   if (event.target.name === 'model-choice') modelPickerEdited('model_id');

@@ -180,6 +180,12 @@
     "key": "Tab"
   },
   {
+    "expect": "document.activeElement === els.modelStorage.querySelector('summary')"
+  },
+  {
+    "key": "Tab"
+  },
+  {
     "expect": "document.activeElement === els.modelShotsAll"
   },
   {

@@ -91,9 +91,16 @@ Reopen an existing Refine dialog after a switch to use the new schedule. Finish 
 Other open tabs follow the server's selection too.
 
 Press the star beside a model to add or remove it from **Favourites** at the
-top of the list. This is saved immediately in this browser and survives page
-reloads and server restarts; it does not change or load the selected model.
-The ordinary and Nunchaku versions of a checkpoint share its star.
+top of the list. It is saved immediately on the server, beside the gallery
+database, so every browser, address and device that reaches this server sees
+the same stars; it does not change or load the selected model. The ordinary
+and Nunchaku versions of a checkpoint share its star. A star pressed while
+Models is open changes in place; the list regroups the next time it opens.
+
+Favourites used to be kept in each browser. If this browser still has such a
+set, Models offers once, as it opens, to import it into the gallery's
+favourites: **Import** adds the stars the gallery lacks and removes none,
+**Don't import** leaves them out. Either way that browser does not ask again.
 
 **Made with** shows the newest images the chosen checkpoint has made in this
 gallery and how many there are, so its style can be judged from its own
@@ -280,9 +287,15 @@ test fails while it differs from the catalogue.
 
 ### Inspect model storage
 
-While signed in, open `/api/models/storage` on the same server for a
-read-only JSON inventory. It runs only when requested, off the server's
-request loop, and never deletes anything. It lists measured cached bytes
+Open **On disk** at the foot of the Models panel (collapsed by default) to
+see what the model cache holds. It reads the cache only when you open it, or
+press its **Refresh**, never on a timer, and it has no delete control: it
+shows the Hub cache total, free space on its drive, converted copies,
+incomplete downloads, the bytes no catalogue download names, each catalogue
+checkpoint with files in the cache, and other repositories there. The same
+inventory is the read-only JSON at `/api/models/storage` on the same server
+(signed in, when a passcode is asked). It runs only when requested, off the
+server's request loop, and never deletes anything. It lists measured cached bytes
 for each catalogue selection, converted copies, shared bytes, the Hub cache
 total, incomplete downloads and free space on the cache drive. Model rows
 can share the same files, so adding their totals double-counts them.

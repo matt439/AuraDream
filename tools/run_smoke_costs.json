@@ -113,6 +113,7 @@
     "smoke-z-anime": 5,
     "smoke-offline": 34,
     "smoke-passcode": 30,
-    "smoke-catalogue-stale": 8
+    "smoke-catalogue-stale": 8,
+    "smoke-model-storage": 12
   }
 }
