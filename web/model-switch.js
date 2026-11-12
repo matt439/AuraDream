@@ -152,13 +152,14 @@ function receiveModelFavouriteSet(body) {
 }
 
 // Read at the page's start and as Models opens, never on a timer. The
-// stars change in place; the grouping waits for the next opening, unless
-// this is the page's first set and the pointer is not on the table.
+// stars change in place; the grouping waits for the next opening, even for
+// the page's first set while Models is open (a finger, the focus or an open
+// list may be on a row that regrouping would move).
 async function refreshModelFavourites() {
   try {
     const first = receiveModelFavouriteSet(await api('/api/models/favourites'));
     if (!modelFavouriteChanges.size) modelFavouriteMessage = null;
-    if (first && modelCatalogueLoaded && (els.modelPicker.hidden || !els.modelPickerBody.matches(':hover'))) {
+    if (first && modelCatalogueLoaded && els.modelPicker.hidden) {
       modelTableGrouping = new Set(modelFavourites);
       renderModelOptions(modelChoice());
     } else syncModelStars();
@@ -650,8 +651,12 @@ function renderModelOptions(wanted) {
 
 // A press stars or unstars at once, in place; the server answers the whole
 // set at its new revision. Each press sends only its own star (a set
-// operation), so it never undoes another device's. A refused write keeps
-// the press for this page and says why in the note.
+// operation), so it never undoes another device's. One star's writes go one
+// at a time: a press while its star's write is on its way only records the
+// wish, and that write's answer sends the newest wish if it differs, so the
+// server never takes two presses of one star out of order. A refused write
+// keeps the press for this page and says why in the note.
+const modelFavouriteSending = new Set();
 async function toggleModelFavourite(modelId) {
   const id = modelFavouriteId(modelId);
   const on = !modelFavourites.has(id);
@@ -661,17 +666,28 @@ async function toggleModelFavourite(modelId) {
   // The star changes in place; the choice and pending loading settings stay.
   syncModelStars();
   syncModelSwitch();
+  if (modelFavouriteSending.has(id)) return;
+  modelFavouriteSending.add(id);
   try {
-    const body = await api('/api/models/favourites', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model_id: id, favourite: on }),
-    });
-    // A later press of the same star may still be on its way.
-    if (modelFavouriteChanges.get(id) === on) modelFavouriteChanges.delete(id);
-    receiveModelFavouriteSet(body);
-    if (!modelFavouriteChanges.size) modelFavouriteMessage = null;
-  } catch (err) {
-    modelFavouriteMessage = `Favourites changed for this page, but the server could not save them: ${err.message}`;
+    while (modelFavouriteChanges.has(id)) {
+      const wanted = modelFavouriteChanges.get(id);
+      let body;
+      try {
+        body = await api('/api/models/favourites', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model_id: id, favourite: wanted }),
+        });
+      } catch (err) {
+        modelFavouriteMessage = `Favourites changed for this page, but the server could not save them: ${err.message}`;
+        break;
+      }
+      // A later press of the same star sends next, from this loop.
+      if (modelFavouriteChanges.get(id) === wanted) modelFavouriteChanges.delete(id);
+      receiveModelFavouriteSet(body);
+      if (!modelFavouriteChanges.size) modelFavouriteMessage = null;
+    }
+  } finally {
+    modelFavouriteSending.delete(id);
   }
   syncModelStars();
   syncModelSwitch();

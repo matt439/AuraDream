@@ -768,7 +768,7 @@ keep this treatment.)
 
 An in-page list moves under the pointer (and loses its focus) if its options
 are rebuilt while open, so while any picker list matches `:open` catalogue
-replies, other tabs' favourites and a status write to that list wait for it
+replies and a status write to that list wait for it
 to close, then land. The other controls take a server change at once, so a
 checkpoint picked from the open list still sits on the new loading options.
 Its keys now reach the page, which leaves them all to the list: Escape closes
@@ -942,7 +942,10 @@ does not load weights, and keeps button focus. A table rebuilt for new loading
 options returns focus to the same model's control, since losing it would close
 the picker. A refused write keeps the press for this page and says so in the
 note. Another device's stars arrive at the next read (the page's start and
-each opening), changing stars in place and the grouping at the next opening.
+each opening), changing stars in place and the grouping at the next opening;
+the page's first set, when a slow or refused start read leaves it to an
+opening, is no exception, since a finger, the focus or an open list may be
+on a row (`:hover` follows none of them).
 
 Favourites moved from per-origin localStorage to the server on 2026-11-12
 (`UI#52`): the LAN address, the HTTPS route and the phone each had their own
@@ -955,7 +958,11 @@ every route. A press sends only its own star (`{model_id, favourite}`), a set
 operation, so it never undoes another device's star and needs no expected
 revision; the set's revision moves only when the set changes, and the page
 takes an answer only when it is not older than one it has read, so a late
-reply never undoes a newer one. The old localStorage set is only read now,
+reply never undoes a newer one. One star's writes go one at a time: a press
+while that star's write is on its way only records the wish, sent when the
+answer comes if it still differs, since two quick presses sent together
+could reach the server's threads in either order and leave the star against
+the last press. The old localStorage set is only read now,
 for a one-time offer (explicit, dismissible, never automatic) to merge it in;
 its answer is remembered in `auradream.model-favourites-import.v1`. The offer
 is decided as the picker opens, never while it stays open, and a press keeps

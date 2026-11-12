@@ -1428,7 +1428,11 @@ measured on the card and when.
   (`/api/models/favourites`, `backend/model_favourites.py`), canonical across Nunchaku
   weight formats, and never mutate the selected model or loader settings.
   The page reads them at its start and as Models opens, never on a timer;
-  the earlier localStorage set is only read for the one-time import offer.
+  a set read while Models is open (the page's first too) changes the stars
+  in place and groups only at the next opening. One star's writes go one at
+  a time, the newest press sent after the answer, so the server never takes
+  two presses out of order. The earlier localStorage set is only read for
+  the one-time import offer.
   Group by type (`auradream.model-grouping.v1`) is one too: after the
   Favourites group, the other rows sit under their Style, groups in the
   catalogue order of each Style's first row. It sits beside the Checkpoint
@@ -1561,7 +1565,7 @@ measured on the card and when.
   re-anchors under a still pointer. While any picker list is open
   (`modelListOpen()`, `:open`), the page's key handler leaves every key to it
   (Escape closes only the list), its own value and option rebuilds (catalogue
-  replies, other tabs' favourites) wait for it to close
+  replies) wait for it to close
   (`whenModelListsClosed`), and the closed controls still take a server
   change at once. Options are replaced only when they differ
   (`setModelOptions`); polls write only fields changed since the last applied
@@ -11492,7 +11496,9 @@ and basis) without choosing any, focus on the chosen radio at the first
 opening and through rebuilds, choosing by radio and by a fact cell, stars that
 toggle in place and group at the next opening, server favourites (a
 refused write kept for the page, another device's star at the next read, an
-older answer ignored, a failed read said; the one-time import offer's Import
+older answer ignored, a failed read said, two quick presses of one star
+reaching the server in order behind a delayed first write, the page's first
+set read with Models open leaving the grouping for the next opening; the one-time import offer's Import
 and Don't import, each asked once and keeping the line's height; no stars
 left on the server at its end) and speed references that follow
 draft quantization/offload choices. It also checks the server row's
