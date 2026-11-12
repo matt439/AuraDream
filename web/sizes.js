@@ -135,8 +135,59 @@ function syncConditioningSummary() {
   syncMoreOptions();
 }
 
+// Sampling (#sampling-section, UI#51): Steps, CFG, Mu and True CFG behind one
+// fold, its summary saying what a Generate runs with whichever way it is
+// left. A blank Steps or CFG box is the profile's value (collect() sends
+// none and the server fills it), a blank Mu is the pipeline's own shift -
+// "auto", or the fixed one muPlaceholder names - and a Mu or True CFG this
+// checkpoint has not got is left out, as collect() leaves it out. A number
+// the box cannot read says so instead of a value it would not send.
+const SAMPLING_OPEN_KEY = 'auradream.sampling-open';
+
+function samplingSummaryText() {
+  const d = lastDefaults;
+  const val = (el) => el.value.trim();
+  const bad = (el) => !el.disabled && el.validity.badInput;
+  const steps = bad(els.steps) ? 'check steps'
+    : `${val(els.steps) || (d ? d.steps : '?')} steps`;
+  const cfgName = els.cfgLabel.textContent.trim() || 'CFG';
+  const cfg = bad(els.cfg) ? `check ${cfgName}`
+    : `${cfgName} ${val(els.cfg) || (d ? d.guidance_scale : '?')}${d?.cfg_ignored ? ' (unused)' : ''}`;
+  const mu = !muSupported ? '' : bad(els.mu) ? 'check Mu' : `Mu ${val(els.mu) || muPlaceholder()}`;
+  const trueCfg = !trueCfgSupported ? '' : bad(els.trueCfg) ? 'check True CFG'
+    : val(els.trueCfg) ? `True CFG ${val(els.trueCfg)}` : '';
+  return { text: [steps, cfg, mu, trueCfg].filter(Boolean).join(' · '),
+    warn: [els.steps, els.cfg, els.mu, els.trueCfg].some(bad) };
+}
+
+// Words only, as the other summaries' syncs: never opens or shuts the fold.
+// From the boxes' own input, syncCfg (a status's defaults, Reuse, Reset, a
+// restore, a setup) and syncMu, and the CFG box's name (applyHints).
+function syncSamplingSummary() {
+  const { text, warn } = samplingSummaryText();
+  if (els.samplingValue.textContent !== text) els.samplingValue.textContent = text;
+  els.samplingValue.classList.toggle('warn', warn);
+}
+
+// The fold opens as it was last left in this browser, shut the first time,
+// before the page's first paint (app.js), so nothing under it moves later.
+// Reset leaves it, as it leaves the gallery's view: it is how the panel is
+// laid out, not a setting of the picture.
+function initSamplingFold() {
+  let open = false;
+  try { open = localStorage.getItem(SAMPLING_OPEN_KEY) === '1'; } catch { /* shut */ }
+  els.samplingSection.open = open;
+  els.samplingSection.addEventListener('toggle', () => {
+    try {
+      localStorage.setItem(SAMPLING_OPEN_KEY, els.samplingSection.open ? '1' : '0');
+    } catch { /* not remembered: this page keeps it as it is */ }
+  });
+  for (const type of ['input', 'change']) els.samplingSection.addEventListener(type, syncSamplingSummary);
+  syncSamplingSummary();
+}
+
 function revealSetupField(input) {
-  const group = input?.closest?.('#custom-size, #conditioning-section');
+  const group = input?.closest?.('#custom-size, #conditioning-section, #sampling-section');
   if (group) group.open = true;
 }
 
@@ -371,6 +422,7 @@ function syncCfg() {
   // On a phone it is under the prompt only while it runs, and More options'
   // row says the sampling values (phone.js).
   placePhoneNegative();
+  syncSamplingSummary();
   syncMoreOptions();
 }
 
@@ -393,6 +445,9 @@ function negativeSent(box) {
 function focusNegativeKnob() {
   if (!negativeSupported || !els.negative.disabled) return;
   const knob = trueCfgSupported ? els.trueCfg : els.cfg;
+  // The box is in the Sampling fold, below the press: opened, nothing over
+  // the button moves.
+  revealSetupField(knob);
   knob.focus();
   // The press was in the panel, so its focusin moved nothing; the box it
   // focused is elsewhere in the panel, and is brought into view the way a

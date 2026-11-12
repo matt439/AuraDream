@@ -931,6 +931,8 @@ buildPresets();
 // Before the sync functions, which light the presets, the CFG note and the
 // runs hint up from whatever is in the boxes.
 restorePanel();
+// The Sampling fold as this browser left it, before the first paint.
+initSamplingFold();
 restoreExecutionDraft();
 syncExecutionControls();
 syncSubmitButtons();

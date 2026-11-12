@@ -464,49 +464,57 @@
          The badge sits outside the <label> on purpose - inside it, a tap would
          be forwarded to the input, taking focus off the badge and closing the
          tooltip in the same gesture that opened it. The caption is the row's:
-         without one, the row read as part of Size above it. -->
-    <div class="field" role="group" aria-labelledby="sampling-caption">
-      <span id="sampling-caption">Sampling</span>
-      <div class="row sampling-row">
-        <div class="sub grow">
-          <i><label for="steps">Steps</label>
-            <span class="help" tabindex="0" role="note" aria-label="Steps help" aria-describedby="steps-tip">?<span
-              class="tip" id="steps-tip">Denoising steps. 28 is a safe starting point for an
-              unrecognised checkpoint; more steps cost proportionally more time.</span></span></i>
-          <input type="number" id="steps" inputmode="numeric" enterkeyhint="done" value="28" min="1" max="100" aria-describedby="steps-tip">
-        </div>
-        <div class="sub grow">
-          <i><label for="cfg" id="cfg-label">CFG</label>
-            <span class="help" tabindex="0" role="note" aria-label="CFG help" aria-describedby="cfg-tip">?<span
-              class="tip" id="cfg-tip">Classifier-free guidance, 3.5 to start. Above 1 the
-              negative prompt applies, at roughly 2x the time per step.</span></span></i>
-          <input type="number" id="cfg" inputmode="decimal" enterkeyhint="done" value="3.5" min="0" max="20" step="0.1" aria-describedby="cfg-tip">
-        </div>
-        <div class="sub grow" id="mu-field">
-          <i><label for="mu">Mu</label>
-            <span class="help" tabindex="0" role="note" aria-label="Mu help" aria-describedby="mu-tip">?<span
-              class="tip" id="mu-tip">Flow-matching timestep shift. Leave blank unless the
-              checkpoint is known to want a fixed one - otherwise the pipeline derives its
-              own.</span></span></i>
-          <!-- Blank is the pipeline's own shift, which its tip explains:
-               "auto" says so where the box would otherwise be an empty patch,
-               and where that shift is fixed the box shows its mu instead
-               (status.js, muPlaceholder). -->
-          <input type="number" id="mu" inputmode="decimal" enterkeyhint="done" min="0" max="10" step="0.05" placeholder="auto" aria-describedby="mu-tip">
-        </div>
-        <!-- Real CFG kept apart from the guidance value, on the one family where
-             they are two knobs (FLUX.1). Greyed out - not hidden, so the panel
-             keeps its shape - wherever the CFG box is real CFG already. -->
-        <div class="sub grow" id="true-cfg-field">
-          <i><label for="true-cfg">True CFG</label>
-            <span class="help end" tabindex="0" role="note" aria-label="True CFG help" aria-describedby="true-cfg-tip">?<span
-              class="tip" id="true-cfg-tip">Not a separate knob on this checkpoint: its CFG
-              box is real classifier-free guidance already, and the negative prompt follows
-              that.</span></span></i>
-          <input type="number" id="true-cfg" inputmode="decimal" enterkeyhint="done" min="1" max="20" step="0.1" placeholder="off" aria-describedby="true-cfg-tip">
+         without one, the row read as part of Size above it.
+         The four sit behind one native fold, as Custom dimensions does (UI#51):
+         its summary always says what a Generate runs with - a blank box's
+         profile value, Mu's "auto" or fixed shift, a typed True CFG - and
+         its open or shut state is remembered per browser (sizes.js,
+         initSamplingFold). Nothing opens it by itself but a press that
+         focuses a box inside it (an incomplete number, Set CFG). -->
+    <details class="setup-disclosure" id="sampling-section">
+      <summary id="sampling-caption">Sampling <span id="sampling-value">28 steps · CFG 3.5 · Mu auto</span></summary>
+      <div class="setup-body">
+        <div class="row sampling-row" role="group" aria-label="Sampling">
+          <div class="sub grow">
+            <i><label for="steps">Steps</label>
+              <span class="help" tabindex="0" role="note" aria-label="Steps help" aria-describedby="steps-tip">?<span
+                class="tip" id="steps-tip">Denoising steps. 28 is a safe starting point for an
+                unrecognised checkpoint; more steps cost proportionally more time.</span></span></i>
+            <input type="number" id="steps" inputmode="numeric" enterkeyhint="done" value="28" min="1" max="100" aria-describedby="steps-tip">
+          </div>
+          <div class="sub grow">
+            <i><label for="cfg" id="cfg-label">CFG</label>
+              <span class="help" tabindex="0" role="note" aria-label="CFG help" aria-describedby="cfg-tip">?<span
+                class="tip" id="cfg-tip">Classifier-free guidance, 3.5 to start. Above 1 the
+                negative prompt applies, at roughly 2x the time per step.</span></span></i>
+            <input type="number" id="cfg" inputmode="decimal" enterkeyhint="done" value="3.5" min="0" max="20" step="0.1" aria-describedby="cfg-tip">
+          </div>
+          <div class="sub grow" id="mu-field">
+            <i><label for="mu">Mu</label>
+              <span class="help" tabindex="0" role="note" aria-label="Mu help" aria-describedby="mu-tip">?<span
+                class="tip" id="mu-tip">Flow-matching timestep shift. Leave blank unless the
+                checkpoint is known to want a fixed one - otherwise the pipeline derives its
+                own.</span></span></i>
+            <!-- Blank is the pipeline's own shift, which its tip explains:
+                 "auto" says so where the box would otherwise be an empty patch,
+                 and where that shift is fixed the box shows its mu instead
+                 (status.js, muPlaceholder). -->
+            <input type="number" id="mu" inputmode="decimal" enterkeyhint="done" min="0" max="10" step="0.05" placeholder="auto" aria-describedby="mu-tip">
+          </div>
+          <!-- Real CFG kept apart from the guidance value, on the one family where
+               they are two knobs (FLUX.1). Greyed out - not hidden, so the panel
+               keeps its shape - wherever the CFG box is real CFG already. -->
+          <div class="sub grow" id="true-cfg-field">
+            <i><label for="true-cfg">True CFG</label>
+              <span class="help end" tabindex="0" role="note" aria-label="True CFG help" aria-describedby="true-cfg-tip">?<span
+                class="tip" id="true-cfg-tip">Not a separate knob on this checkpoint: its CFG
+                box is real classifier-free guidance already, and the negative prompt follows
+                that.</span></span></i>
+            <input type="number" id="true-cfg" inputmode="decimal" enterkeyhint="done" min="1" max="20" step="0.1" placeholder="off" aria-describedby="true-cfg-tip">
+          </div>
         </div>
       </div>
-    </div>
+    </details>
 
     <!-- What a press makes, under a caption of its own as Sampling's (shown
          in one column and from 1800 px on a window taller than 1150 px;

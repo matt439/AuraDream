@@ -121,7 +121,8 @@ function syncMuWords() {
     // one is what degrades FLUX, so there is no example to give.
     : d?.mu != null ? `none,${d.mu}` : '';
   els.gridMuField.title = why;
-  els.gridMuTip.replaceChildren(...(why ? [why] : gridMuTipDefault));
+  els.gridMuTip.replaceChildren(...(why ? [why] : gridMuTipDefault));  // The Sampling fold's summary names the CFG box and Mu's blank as these do.
+  syncSamplingSummary();
 }
 
 // What steps/CFG/mu mean depends on the checkpoint - 8 steps at CFG 0 is right
@@ -226,7 +227,7 @@ function syncMu() {
   if (!muSupported) {
     els.mu.value = '';
     els.gridMu.value = '';
-  }
+  }  syncSamplingSummary();
 }
 
 // The editor's two actions on the card - ERNIE's rewriter and the prompt

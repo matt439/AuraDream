@@ -38,7 +38,7 @@
   {"eval": "els.conditioningSection.open = false;"},
   {"wait": 300},
   {"log": "'2560x1305, a window taller than 1150 px: Seed, Batch and Repeat under an Output caption, the Sampling caption\\'s twin, over the dice'"},
-  {"expect": "(() => { const cap = document.getElementById('output-caption'), style = (id) => getComputedStyle(document.getElementById(id)); return cap.getBoundingClientRect().height > 10 && cap.getBoundingClientRect().bottom <= els.dice.getBoundingClientRect().top && ['fontSize', 'fontWeight', 'textTransform', 'letterSpacing', 'color', 'position'].every((p) => style('output-caption')[p] === style('sampling-caption')[p]); })()"},
+  {"expect": "(() => { const cap = document.getElementById('output-caption'), mine = getComputedStyle(cap), size = getComputedStyle(els.presets.closest('.field').querySelector(':scope > span')); return cap.getBoundingClientRect().height > 10 && cap.getBoundingClientRect().bottom <= els.dice.getBoundingClientRect().top && ['fontSize', 'fontWeight', 'textTransform', 'letterSpacing', 'color', 'position'].every((p) => mine[p] === size[p]); })()"},
   {"log": "'a whole 16-digit seed fits its box'"},
   {"eval": "els.seed.value = '5720723289104536';"},
   {"expect": "els.seed.scrollWidth <= els.seed.clientWidth"},
