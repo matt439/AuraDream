@@ -65,7 +65,7 @@ def hub(monkeypatch, uncached):
     return answers, asked
 
 
-def test_sources_follow_the_download_recipe_with_its_revisions_and_files():
+def test_sources_follow_the_download_recipe_with_its_revisions_and_files(monkeypatch):
     [krea] = hub_access.sources(KREA_DEV)
     assert (krea.repo_id, krea.revision) == (KREA_DEV, "main")
     assert krea.filename.endswith(".json")
@@ -78,8 +78,13 @@ def test_sources_follow_the_download_recipe_with_its_revisions_and_files():
     assert found[0].filename in pinned[0]["files"]
     assert all(len(s.revision) == 40 for s in found)
     # A recipe without a file list is asked through the repository's auth check.
-    [dev] = hub_access.sources("black-forest-labs/FLUX.1-dev")
-    assert dev.filename is None
+    # Every catalogue recipe has one since 2026-11-12 (`tools/model_downloads.py`),
+    # so the unknown one is planted.
+    unknown = {"models": {"example/unknown": {"kind": "pipeline", "unknown": "not readable",
+                                              "sources": [{"source": "example/unknown@main", "files": None}]}},
+               "sources": {"example/unknown@main": {"repo_id": "example/unknown", "revision": "main"}}}
+    monkeypatch.setattr(hub_access, "download_references", lambda: unknown)
+    assert hub_access.sources("example/unknown") == [hub_access.Source("example/unknown", "main", None)]
     # Off the recipe: the id itself, unless it is a local path.
     assert hub_access.sources("someone/custom") == [hub_access.Source("someone/custom", None, None)]
 

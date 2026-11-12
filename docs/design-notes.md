@@ -1240,6 +1240,49 @@ old ids for now, since they are saved in settings and PNG metadata; moving
 to the new names, with the old ones still read from saved settings and
 metadata, is deferred (`GEN#47`).
 
+**The new names are read-only aliases (2026-11-12, `GEN#47`).** Of the two
+ways the audit offered, Matt chose to keep writing the old ids and to read
+the new names as the same entry and recipe, rather than move the catalogue:
+moving it would have made every saved setting, PNG, `CellKey` and run id an
+id the app no longer writes, for no gain while the 307 holds. All 18 lite
+ids were checked against the Hub that day; each renames by one rule
+(`_r32-bnb4-text-encoder` becomes `-r32`, ERNIE's `-bnb4-text-encoder` goes),
+so `Checkpoint.lite_alias` derives the new name rather than listing it.
+`launch.written_id` turns a new name into the old one where an id enters:
+`AURADREAM_MODEL_ID` as `config` reads it (and so `--model`, the menu and the
+CLI), a switch (`model_selection.validate`), and the recipe readers
+(`model_info`, `download_progress`, `hub_access.sources`). The exact-id
+sites that already matched lite ids (`launch._match`, `api_runs._model_name`,
+`model_benchmarks.speed_for`, `model_info`'s entry and format,
+`model_selection`'s format, `loading`'s known ids) go through
+`catalogue_entry`/`Checkpoint.lite_format`, which know both. A download
+asks for the old id, follows the 307 inside huggingface_hub (its client
+follows redirects; a file HEAD follows a same-host one itself) and lands in
+the cache under the old id's folder, where the cache check looks.
+`tests/test_lite_aliases.py` answers the 307s with an httpx `MockTransport`
+under huggingface_hub's own client: the access check's HEAD and auth check,
+a refusal behind the redirect, and a download whose snapshot the cache
+check then reads as complete. Should lite-infer ever drop the redirect, the
+old ids stop downloading, and moving the catalogue becomes the fix.
+
+**The download recipe refreshed (2026-11-12, `GEN#65`).** Seven recipes had
+no selection (FLUX.1 dev and schnell, FLUX.2 [klein] 9B and base 9B and
+Krea 2 Raw, then unreadable without a sign-in, and both FLUX 3 entries,
+whose shard maps were unreadable before the licences were accepted), so
+Models showed their download size as Unknown (first-time F27).
+`tools/model_downloads.py` now checks the file offline and refreshes it from
+the Hub's metadata with the local sign-in; the local account read all seven.
+An unknown selection is derived rather than written by hand: an ordinary
+pipeline's by diffusers 0.42.1's own `DiffusionPipeline.download` allowlist
+(its helpers called over the listing and `model_index.json`; this reproduces
+every plain recorded selection, and differs only where a loader passes or
+omits components, Z-Anime and ERNIE's `pe`), FLUX 3's by `flux3_loading`'s
+two snapshot patterns. A recorded selection is never rewritten. The lite
+sources had moved on at `main` (only their READMEs changed), so their
+commits were re-recorded with `moved_to` naming the new repository; a cache
+holding the earlier commit now reads Unknown, as one at the newer commit
+did before.
+
 ## FLUX 3 [Klein]: an app-owned pipeline over pinned folders
 
 **What was read (2026-11-09).** Both repositories are gated "auto" (a
