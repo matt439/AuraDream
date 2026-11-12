@@ -604,3 +604,21 @@ def test_server_json_with_a_passcode_follows_no_redirect(asking, monkeypatch):
         assert error.value.status == 307 and elsewhere.requests == []
     finally:
         elsewhere.close()
+
+
+def test_via_server_reads_a_renamed_lite_id_as_the_servers_written_id(via_server, monkeypatch, capsys):
+    # GEN#47: the server reports the id it writes; lite-infer's new name for
+    # it is the same checkpoint, as it is to the local CLI.
+    from backend.launch import CHECKPOINTS
+
+    entry = next(entry for entry in CHECKPOINTS if entry.lite)
+    old, new = entry.lite_repo("int4"), entry.lite_alias("int4")
+
+    def status_names_the_old_id(base, path, **kwargs):
+        answer = via_server.request(base, path, **kwargs)
+        return {**answer, "model_id": old} if path == "/api/status" else answer
+
+    monkeypatch.setattr(generate_remote, "_server_json", status_names_the_old_id)
+    assert generate.main(["a fox", "--via-server", *SIZE, "--model", new, "-q"]) == 0
+    assert "--model asks for" not in capsys.readouterr().err
+    assert any(call[1] != "/api/status" for call in via_server.calls)

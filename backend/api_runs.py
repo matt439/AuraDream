@@ -13,7 +13,7 @@ from .more_seeds_planner import more_seeds_plan
 from .app_context import AppServices
 from .execution import require_configured_loader_available, resolve_execution
 from .model_selection import current_settings
-from .launch import CHECKPOINTS, FORMATS
+from .launch import catalogue_entry
 from .schemas import MoreSeedsRequest, ThenRefine, error_detail
 from .schemas_rerun import (
     FinishRunAccepted, FinishRunPreview, FinishRunRequest, RunAction, RunDetails,
@@ -35,8 +35,8 @@ class FinishPlan:
 
 
 def _model_name(model_id: str) -> str:
-    return next((entry.name for entry in CHECKPOINTS if model_id == entry.repo
-                 or any(model_id == entry.lite_repo(fmt) for fmt, _ in FORMATS)), model_id)
+    entry = catalogue_entry(model_id)
+    return entry.name if entry else model_id
 
 
 def _finish_key(services: AppServices, cell: grid.Cell) -> tuple:

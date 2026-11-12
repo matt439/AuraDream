@@ -24,7 +24,7 @@ import os
 from dataclasses import dataclass
 
 from . import hf_sign_in
-from .launch import CHECKPOINTS
+from .launch import CHECKPOINTS, written_id
 from .model_info import download_facts, download_references
 
 log = logging.getLogger("auradream")
@@ -70,7 +70,8 @@ class Source:
 def sources(model_id: str) -> list[Source]:
     """The Hub repositories a checkpoint's first load reads, from its download
     recipe; the id itself, unpinned, off the recipe; none for a local path."""
-    recipe = download_references()["models"].get(model_id)
+    # A renamed lite-infer id asks its entry's recipe (`launch.written_id`).
+    recipe = download_references()["models"].get(written_id(model_id))
     if recipe is None:
         if os.path.exists(model_id):
             return []

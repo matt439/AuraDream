@@ -31,7 +31,8 @@ before changing it.
 - `backend/launch.py` — the start-up menu and the `--model/--quant/--offload`
   flags, run before `config` is imported; the checkpoint catalogue lives here,
   ending on FLUX.1 Kontext [dev], the edit-only entry (its menu summary says
-  "edit only");
+  "edit only"); `written_id` reads lite-infer's renamed repositories as the
+  old ids the app writes, `catalogue_entry` the entry an exact id names;
   `warn_legacy_env` names any `LOCAL_DIFFUSION_*` still set, which is not read
 - `backend/loader_choices.py` — quantization, offload and Nunchaku format
   choices, worded once for the `--menu` and the browser picker;
@@ -1013,6 +1014,15 @@ before changing it.
   `capability_table.py` prints `model_info.capability_table()`, and with
   `--write` replaces it between docs/usage.md's two marker lines
   (`tests/test_capabilities.py` holds the document to it);
+  `model_downloads.py` checks `backend/model-downloads.json` with no network
+  (`--check`: every catalogue id's recipe, sized selections, whole shard
+  maps, an `unknown` note on an unknown selection) and refreshes it from the
+  Hub's metadata with the local sign-in, never printed (a dry run;
+  `--write` saves): listings at each source's revision, descriptors of at
+  most 2 MB and never a weight, an unknown selection derived by diffusers'
+  own download allowlist (FLUX 3's by `flux3_loading`'s patterns), a moved
+  repository recorded as `moved_to` under the id the app asks for
+  (`tests/test_model_downloads_tool.py`, offline);
   `storage_interrupt.py` and `storage_scale.py` the storage interruption
   and bundle/bin scale checks `tests/test_storage_interruptions.py` and
   `tests/test_storage_scale.py` run in a disposable process;
@@ -1829,10 +1839,16 @@ measured on the card and when.
   (WSL 2 on the 5080; native Linux too, with the int4 repos below compute
   capability 10.0, unmeasured on the 3070), and no quantization config; `loading.nunchaku_preflight` and `loading.refuse_prequantized` refuse the other pairings before any download. Under
   WSL, `source wsl/env.sh` before `uv`. The catalogue's lite-infer ids
-  (`launch._LITE`, ERNIE's) are the pre-rename names, which the Hub now
-  answers with a 307 to names without the encoder suffix; keep them (saved
-  settings and PNGs name them) until `GEN#47` moves the catalogue with the
-  old ids still read. FLUX 3 has no Nunchaku build (`CARD#21`).
+  (`launch._LITE`, ERNIE's) are the pre-rename names, which the Hub answers
+  with a 307 to names without the encoder suffix (`Checkpoint.lite_alias`).
+  The app keeps writing the old ids (settings, PNGs, `CellKey`, run ids,
+  `model-downloads.json`'s keys). A new name is a read-only alias:
+  `launch.written_id` turns it into the old id where an id enters
+  (`config`'s `AURADREAM_MODEL_ID`, `model_selection.validate`, the saved
+  startup choice's comparison, `--via-server`'s model check, recipe reads), and every exact-id match (`launch._match`, `catalogue_entry`,
+  `Checkpoint.lite_format`) knows both. Never add an alias as a recipe key or
+  write one (`tests/test_lite_aliases.py`, with the 307s answered by an httpx
+  `MockTransport`). FLUX 3 has no Nunchaku build (`CARD#21`).
 - `config.py` sets `DIFFUSERS_TRUST_REMOTE_KERNELS` and must be imported
   before diffusers everywhere, the CLI included. The offload hooks are handed
   `AURADREAM_DEVICE` explicitly; given nothing, diffusers takes GPU 0.
@@ -11451,8 +11467,8 @@ node tools/browser.mjs tools/smoke-anima-preview.json
 ```
 
 `smoke-flux3.json` checks FLUX 3 [Klein]'s name and public identity, its and
-Klein Base's picker rows (example size, licence click-through, unknown
-download, the note that only 1024×1024 is measured), the distilled 16-step/CFG-1 defaults with the Mu
+Klein Base's picker rows (example size, licence click-through, a ~20.3 GB
+download reference, the note that only 1024×1024 is measured), the distilled 16-step/CFG-1 defaults with the Mu
 placeholder at the fixed shift (1.94), the ignored-CFG, steps and Mu tips,
 references on and negative prompt, True CFG, Refine and LoRAs off, the
 shared guide's caption advice and example-size line, its one Qwen3-VL budget

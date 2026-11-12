@@ -13,7 +13,7 @@ from dataclasses import replace
 from sys import modules as imported_modules
 from typing import Any
 
-from .launch import CHECKPOINTS, FORMATS
+from .launch import CHECKPOINTS, FORMATS, catalogue_entry, written_id
 from .execution import (
     INVALID_LOADER_CONFIGURATION, canonical_loader_execution, loader_configuration_reason,
     loader_unavailable_reason, require_loader_available, step_cache_configuration_reason,
@@ -159,10 +159,8 @@ def _device(settings) -> str:
 def format_for(settings) -> str:
     """The selected Nunchaku weight format, or the card's (`card_format`)."""
     model_id = current_model_id(settings)
-    return next((
-        name for name, _ in FORMATS
-        if any(c.lite_repo(name) == model_id for c in CHECKPOINTS)
-    ), None) or card_format(settings)
+    entry = catalogue_entry(model_id)
+    return (entry.lite_format(model_id) if entry else None) or card_format(settings)
 
 
 def options(settings) -> dict[str, list[dict[str, str]]]:
@@ -231,6 +229,9 @@ def validate(
     edit-only target (``instruction_edit.require_model_available``); without
     one the gate counts as closed.
     """
+    # A renamed lite-infer repository selects its entry under the id the app
+    # writes, so the saved settings and every later PNG keep the old id.
+    model_id = written_id(model_id)
     # Explicit unsupported load attempts stop before even resolving options.
     # An omitted recipe preserves the selected intent, including a diagnostic.
     checked = canonical_loader_execution(execution) if execution is not UNSET_EXECUTION else UNSET_EXECUTION
@@ -291,10 +292,8 @@ def validate(
                 "Nunchaku remote kernels were disabled when Diffusers was imported; "
                 "restart with DIFFUSERS_TRUST_REMOTE_KERNELS=true or python -m backend.main."
             )
-    target_format = next((
-        name for name, _ in FORMATS
-        if any(c.lite_repo(name) == model_id for c in CHECKPOINTS)
-    ), None)
+    entry = catalogue_entry(model_id)
+    target_format = entry.lite_format(model_id) if entry else None
     if model_id not in {item["model_id"] for item in available(settings, quantization, format or target_format)}:
         raise ValueError("Choose a checkpoint from the catalogue for this quantization.")
     return replace(selected, model_id=model_id, quantization=quantization, offload=offload,

@@ -91,7 +91,8 @@ Backend (`backend/`):
 - `config.py` settings (`AURADREAM_*`) and cold external-attention warning;
   `legacy_names.py` where pre-rename (Local Diffusion) files keep working;
   `launch.py` start-up menu,
-  `--model/--quant/--offload`, the checkpoint catalogue;
+  `--model/--quant/--offload`, the checkpoint catalogue (lite-infer's renamed
+  repos read as the old ids it writes, `written_id`);
   `loader_choices.py` the quantization/offload wording the menu and picker share
 - `model_selection.py` current server checkpoint/loading options/revision,
   separate from frozen startup settings; runtime readers use
@@ -100,7 +101,9 @@ Backend (`backend/`):
   `model_info.py` supplies cold catalogue details from existing sourced guides,
   and a fit badge for a card smaller than a build's measured need (`card_fit`),
   and each entry's capability flags as a Models note and docs/usage.md's
-  generated table (`capabilities_for`, `tools/capability_table.py --write`);
+  generated table (`capabilities_for`, `tools/capability_table.py --write`),
+  and download sizes from `model-downloads.json`
+  (`tools/model_downloads.py`: `--check` offline, a Hub metadata refresh);
   `hub_access.py` asks the Hub whether a switch's checkpoint can download;
   `hf_sign_in.py` whether a Hugging Face token is present (existence only,
   shared by the doctor and the status that preselects an open checkpoint);
