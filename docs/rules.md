@@ -456,7 +456,8 @@ before changing it.
   bundle errors, progress type and read-only database reads every layer
   shares; `bundle_crypto.py` the optional password layer
   (streamed chunked AES-256-GCM, scrypt); `api_bundles.py` owns browser routes
-  (the export's scope resolved through `submission.resolve_selection`);
+  (the export's scope resolved through `submission.resolve_selection`; a
+  saved file's confirmed delete, `bundles.delete_saved_bundle`);
   `bundle_manager.py` exclusive maintenance admission through background
   completion (`BundleManager`, the ASGI `GalleryAdmission`, the bundle and
   backup route prefixes), which the automatic backup imports instead of a
@@ -670,7 +671,8 @@ before changing it.
 - `backend/refusal_codes.py` — the stable codes of the refusals the page
   acts on (`CODES`: `image_unknown`, `image_binned`, `more_seeds_cap`,
   `more_seeds_receipt`, `lora_missing`, `lora_mismatch`,
-  `selection_changed`, `mask_missing`) and the errors that carry one out of
+  `selection_changed`, `mask_missing`, `bundle_in_use`, `bundle_gone`) and
+  the errors that carry one out of
   the modules under the HTTP layer: `CodedError`, a `ValueError` with a
   `code` and the gallery `ids` it names, and `CodedLookupError`. Stdlib
   only: `storage.reference_paths`, `storage.mask_path`/`touch_mask`,
@@ -3114,6 +3116,24 @@ measured on the card and when.
   altered chunk is refused when it is read, before anything is installed, and
   the staging directory is discarded. Never add an up-front pass to
   authenticate every chunk.
+- A saved bundle's **Delete** (GAL#26) removes one named file
+  (`DELETE /api/gallery/bundles/files/{name}`, `bundles.delete_saved_bundle`)
+  after the page's own question (`askConfirm`, "Delete bundle"), the one
+  confirmed delete beside Empty bin and Delete permanently. Never automatic
+  or bulk (`GAL#22`'s decline). The route sits on `GalleryAdmission`'s
+  uncounted `/files/` control path so a running operation reaches it and is
+  refused as `bundle_in_use`; the file is then taken under
+  `bundle_leases.downloads.exclusive`, which refuses while any download or
+  import reader holds it (`bundle_in_use` too, as is a Windows
+  `PermissionError` from another process), and a missing file is
+  `bundle_gone`. An archive the automatic backup's journal counts as live
+  or pending (`backup_receipts.counts_archive`) is refused uncoded, as is
+  any delete while that journal cannot be read: retention owns a managed
+  copy, and one gone by hand would still be counted. `bundle_delete.py`'s
+  handle-bound mechanism is not used: it needs a receipt and an installed
+  shared mode, which an ordinary saved bundle has neither of. The row's
+  button is `aria-disabled` with its reason while an operation runs or
+  another delete is out.
 - The dialog separates **Create a bundle** from **Import a bundle**.
   New password/Repeat apply to either creation action. Back up is the primary
   creation action and requires no typed count; the separate clear group names
@@ -3789,7 +3809,11 @@ measured on the card and when.
   mask that has gone, at submit and between the check and the hold
   (`MaskGone`). `more_seeds_cap` on More seeds' batches times count past
   one press, and `more_seeds_receipt` on its receipt's own 409.
-  `selection_changed` on Delete unstarred's stale count. A refusal the
+  `selection_changed` on Delete unstarred's stale count. `bundle_in_use`
+  and `bundle_gone` on a saved bundle's delete
+  (`DELETE /api/gallery/bundles/files/{name}`, `bundles.delete_saved_bundle`):
+  in use while a bundle operation runs or the file is leased for a
+  download or an import, gone when it is not there. A refusal the
   page only shows carries no code. A new behaviour that depends on a
   refusal adds a code to `refusal_codes.py` and raises `Refused` (or a
   `CodedError` under the HTTP layer); it never tests `err.message`.
@@ -10512,7 +10536,10 @@ bin is shown with one binned from another tab left out, an import's
 missing-source count said as a fact, a gallery read refused mid-backup
 (stubbed 409) repaired when the backup ends with the typed count kept, the
 holds with nothing picked or
-starred, and the layout at 600x900 and 2560x1305.
+starred, the layout at 600x900 and 2560x1305, and a saved bundle's Delete
+(GAL#26: Cancel keeps it, a held press says its reason, a stubbed
+`bundle_in_use` keeps the row, a confirmed press removes exactly that file
+from the list and the server).
 
 Its sizing/Bundles review cases also cover explicit password association and
 keyboard navigation, the clear safety explanation and enablement, blank/wrong

@@ -557,7 +557,8 @@ Frontend:
   `rewriteBox` / `replaceBoxText`, never `.value`, so Ctrl+Z works.
 - `setReferences` is the one writer of references; `forgetImages` is the one
   place the page drops deleted or binned ids; `setQueue` the queue rows'.
-- The per-image delete never confirms; Empty bin and Delete permanently do.
+- The per-image delete never confirms; Empty bin, Delete permanently and a
+  saved bundle's Delete do.
 - `localStorage`/`sessionStorage` access is always in try/catch.
 - The page never scrolls by itself and never moves a control under the
   pointer; never `overflow-y: auto` on the panel.

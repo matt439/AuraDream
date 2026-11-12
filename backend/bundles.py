@@ -24,6 +24,7 @@ from PIL import Image
 
 from . import backup_receipts, bundle_capacity, bundle_crypto, bundle_images, bundle_leases, gallery_lock, png_settings, storage
 from . import mask_crop as mask_crop_rule
+from . import refusal_codes
 from .bundle_archive import _DATABASE, _FORMAT, _MANIFEST, _READ_AHEAD_MAX, _check_space, _verify_archive
 from .bundle_common import (
     _CHUNK,
@@ -87,6 +88,57 @@ def list_bundles() -> list[dict]:
             found.append({"name": p.name, "bytes": info.st_size, "created_at": info.st_mtime,
                           "encrypted": encrypted})
     return sorted(found, key=lambda b: b["name"], reverse=True)
+
+
+class ManagedBundle(BundleError):
+    """A saved bundle the automatic backup's journal still counts."""
+
+
+def delete_saved_bundle(name: str) -> dict:
+    """Remove one saved bundle the person chose and confirmed (GAL#26).
+
+    Never automatic or bulk: one named file a press asked for. Refused, with
+    `bundle_in_use`, while a download or an import reads it (the archive's
+    exclusive lease, which waits for no reader) or while another process
+    holds it open; with `bundle_gone` when it is not there. An archive the
+    automatic backup's journal counts as a copy is refused: its retention
+    owns it, and a copy gone by hand would still be counted as a backup.
+    The caller refuses while a bundle operation holds the gallery.
+    """
+    path = bundle_path(name)
+    gone = refusal_codes.CodedLookupError(
+        f"{name} is no longer among the saved bundles; nothing was deleted.", refusal_codes.BUNDLE_GONE)
+    busy = refusal_codes.CodedError(
+        f"{name} is being downloaded or imported; nothing was deleted. Try again when it has finished.",
+        refusal_codes.BUNDLE_IN_USE)
+    if not path.is_file():
+        raise gone
+    try:
+        managed = backup_receipts.counts_archive(_settings().db_path, path.parent, path.name)
+    except backup_receipts.ReceiptError:
+        raise ManagedBundle("the automatic backup's receipts could not be read, so no saved bundle "
+                            "is deleted by hand; nothing was deleted") from None
+    if managed:
+        raise ManagedBundle(f"{name} is a copy the automatic backup keeps; its retention removes it, "
+                            "not a delete by hand. Nothing was deleted")
+    try:
+        lease = bundle_leases.downloads.exclusive(path)
+    except bundle_leases.LeaseBusy:
+        raise busy from None
+    with lease:
+        try:
+            size = path.lstat().st_size
+            if _is_link(path) or not path.is_file():
+                raise gone
+            path.unlink()
+        except FileNotFoundError:
+            raise gone from None
+        except PermissionError:
+            # Windows: another process (an Explorer copy, another server)
+            # has the file open without sharing its delete.
+            raise busy from None
+    log.info("deleted saved bundle %s (%d bytes)", path.name, size)
+    return {"name": path.name, "bytes": size}
 
 
 class MissingImage(BundleError):

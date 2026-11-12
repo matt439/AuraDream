@@ -16,7 +16,7 @@ from fastapi.responses import JSONResponse
 from pydantic import SecretStr
 from starlette.requests import ClientDisconnect
 
-from . import bundle_crypto, bundles, storage, submission
+from . import bundle_crypto, bundles, refusal_codes, storage, submission
 from .app_context import AppServices
 from .bundle_common import sentence
 from .bundle_leases import LeasedFileResponse
@@ -29,6 +29,7 @@ from .bundle_manager import (
     GalleryAdmission as GalleryAdmission,
 )
 from .config import settings
+from .refusals import Refused, refusal
 from .schemas_bundles import (
     ExportRequest as ExportRequest,
     ImportRequest as ImportRequest,
@@ -236,5 +237,22 @@ def create_router(get_manager: Callable[[], BundleManager], services: AppService
             raise HTTPException(404, "Bundle file not found.")
         media = "application/zip" if path.suffix.lower() == ".zip" else "application/octet-stream"
         return LeasedFileResponse(path, media_type=media, filename=path.name)
+
+    @router.delete(PREFIX + "/files/{name}")
+    async def delete_saved(name: str):
+        # One saved file, confirmed in the page (GAL#26). Outside the
+        # gallery's admission count (`GalleryAdmission`'s control paths), so
+        # a running operation reaches this and is refused in its own code.
+        if get_manager().running:
+            raise Refused(409, "Wait for the gallery bundle operation to finish; nothing was deleted.",
+                          refusal_codes.BUNDLE_IN_USE)
+        try:
+            return await asyncio.to_thread(bundles.delete_saved_bundle, name)
+        except bundles.ManagedBundle as exc:
+            raise HTTPException(409, sentence(str(exc))) from None
+        except refusal_codes.CodedLookupError as exc:
+            raise refusal(404, str(exc), exc) from None
+        except refusal_codes.CodedError as exc:
+            raise refusal(409, str(exc), exc) from None
 
     return router

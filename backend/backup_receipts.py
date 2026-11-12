@@ -432,6 +432,32 @@ def load_state(db_path: Path, gallery_id: str) -> Journal:
         raise ReceiptError(_ERROR) from None
 
 
+def counts_archive(db_path: Path, directory: Path, name: str) -> bool:
+    """Whether the journal counts `directory/name` as a live managed copy,
+    or one whose deletion is pending (GAL#26's hand delete refuses both).
+
+    The journal's own gallery id is the one it is read under: this answers
+    what the journal says, not whether it is this gallery's. A missing
+    journal counts nothing; an unreadable one raises `ReceiptError`, never
+    a guess, since a copy deleted by hand would still be counted as a backup.
+    """
+    path = path_for(db_path)
+    try:
+        if not path.exists() and not path.is_symlink():
+            return False
+        with path.open("rb") as stream:
+            data = stream.read(_MAX_BYTES + 1)
+        gallery_id = json.loads(data.decode("utf-8")).get("gallery_id")
+    except (OSError, ValueError, AttributeError, RecursionError):
+        raise ReceiptError(_ERROR) from None
+    if not isinstance(gallery_id, str):
+        raise ReceiptError(_ERROR)
+    journal = load_state(db_path, gallery_id)
+    where = os.path.normcase(str(directory))
+    live = journal.receipts + ((journal.pending.receipt,) if journal.pending is not None else ())
+    return any(os.path.normcase(item.directory) == where and item.name.casefold() == name.casefold() for item in live)
+
+
 def load(db_path: Path, gallery_id: str) -> tuple[Receipt, ...]:
     """Active copies only; pending/retired evidence cannot cover age or N."""
     return load_state(db_path, gallery_id).receipts

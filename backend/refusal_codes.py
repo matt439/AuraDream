@@ -29,10 +29,16 @@ LORA_MISMATCH = "lora_mismatch"
 SELECTION_CHANGED = "selection_changed"
 # The request's stored mask has gone: swept, or its file lost.
 MASK_MISSING = "mask_missing"
+# A saved bundle's delete waits: the file is being downloaded or imported,
+# or a bundle operation holds the gallery. The row stays; try again later.
+BUNDLE_IN_USE = "bundle_in_use"
+# The saved bundle a delete named is no longer in the bundles directory.
+BUNDLE_GONE = "bundle_gone"
 
 CODES = frozenset({
     IMAGE_UNKNOWN, IMAGE_BINNED, MORE_SEEDS_CAP, MORE_SEEDS_RECEIPT,
     LORA_MISSING, LORA_MISMATCH, SELECTION_CHANGED, MASK_MISSING,
+    BUNDLE_IN_USE, BUNDLE_GONE,
 })
 
 

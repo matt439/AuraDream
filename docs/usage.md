@@ -1414,6 +1414,16 @@ same picture. Different files using the same name
 are refused before changing the gallery. Source images the bundle does not
 hold cannot be linked; the result counts those links, which are left empty.
 
+**Delete** on a saved bundle's row removes that one file from the server
+after a question naming it and its size, like Empty bin: it cannot be
+undone, and a bundle the gallery was cleared into may be the only copy of
+those images. The gallery itself is not changed. Each file is deleted on
+its own; nothing deletes saved bundles automatically or several at once.
+The delete waits, with the row kept and the reason in the status line,
+while that file is being downloaded or imported, while another program
+holds it open, or while a bundle operation is running. A copy the
+automatic startup backup still counts is left to its own retention.
+
 After import, **Show new gallery images** opens the newly added live rows;
 **Show new images in bin** opens additions that were binned when bundled.
 These actions clear old search, Starred and model filters. No new rows means
