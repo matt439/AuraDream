@@ -156,6 +156,14 @@ async function findTags(text) {
   try {
     body = await api(`/api/tags/describe?q=${encodeURIComponent(query)}`);
   } catch (err) {
+    // A bundle operation's refusal is this server's, never Danbooru unreachable.
+    if (galleryMaintenance(err)) {
+      if (epoch !== tagFinderEpoch) return;
+      state.results = [];
+      state.status = `${GALLERY_MAINTENANCE_WORDS}; search again when it ends.`;
+      renderTagFinder();
+      return;
+    }
     body = { available: false, results: [], detail: err.message };
   }
   if (epoch !== tagFinderEpoch) return;

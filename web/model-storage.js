@@ -124,7 +124,9 @@ function holdModelStorageRefresh(on) {
 }
 
 // `fresh`: Refresh's press; otherwise the fold's first opening this page.
-async function loadModelStorage({ fresh = false } = {}) {
+// `polled`: asked again by the bundle status poll after a gallery bundle
+// operation refused the read (afterGalleryMaintenance), never by a person.
+async function loadModelStorage({ fresh = false, polled = false } = {}) {
   if (modelStorageLoading) {
     if (fresh) els.modelStorageStatus.textContent = 'Still reading the model cache; wait for it to finish.';
     return;
@@ -135,14 +137,18 @@ async function loadModelStorage({ fresh = false } = {}) {
   holdModelStorageRefresh(true);
   els.modelStorageStatus.textContent = 'Reading the model cache… a large cache can take a while.';
   try {
-    const body = await api('/api/models/storage');
+    const body = await api('/api/models/storage', polled ? polledRead() : undefined);
     if (epoch !== modelStorageEpoch) return;
     renderModelStorage(body);
     modelStorageRead = true;
     els.modelStorageStatus.textContent = `Read at ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`;
   } catch (err) {
     if (epoch !== modelStorageEpoch) return;
-    els.modelStorageStatus.textContent = `The model cache could not be read: ${err.message}`;
+    if (galleryMaintenance(err)) {
+      els.modelStorageStatus.textContent = `${GALLERY_MAINTENANCE_WORDS}, so the model cache cannot be read now. It is read again when the operation ends.`;
+      // Only while the fold is open; a closed one reads at its next opening.
+      afterGalleryMaintenance('model-storage', () => (els.modelStorage.open ? loadModelStorage({ polled: true }) : null));
+    } else els.modelStorageStatus.textContent = `The model cache could not be read: ${err.message}`;
   } finally {
     if (epoch === modelStorageEpoch) {
       modelStorageLoading = false;

@@ -67,6 +67,10 @@ let modelPickerAppliedSettings = null;
 let modelPickerDeferredReset = null;
 let modelCatalogueRequested = null;
 let modelCatalogueFailedAt = 0;
+// The last catalogue read was refused because a gallery bundle operation runs
+// (galleryMaintenance): the table gives way to the reason, and bundles.js's
+// status poll asks again once it ends (afterGalleryMaintenance).
+let modelCatalogueMaintenance = false;
 const modelOptionKeys = new WeakMap();
 // The stars are the gallery's, on the server (`/api/models/favourites`,
 // backend/model_favourites.py): one revisioned set every browser, address
@@ -794,7 +798,8 @@ function modelSwitchHold({ load = true } = {}) {
   return serverOffline ? 'The server is not answering'
     : modelWorkHold()
     || (modelState === 'loading' ? 'The weights are still loading' : '')
-    || (modelCatalogueFailed() ? 'The checkpoint list could not be loaded; retrying' : '')
+    || (modelCatalogueFailed() ? (modelCatalogueMaintenance ? 'Wait for the gallery bundle operation to finish'
+      : 'The checkpoint list could not be loaded; retrying') : '')
     || (!modelCatalogueLoaded || modelCataloguePending ? 'The checkpoint list is still loading' : '')
     || (!modelChoice() ? 'Choose a checkpoint compatible with these settings' : '')
     || modelOptionHold()
@@ -949,6 +954,23 @@ function syncModelSwitch() {
   const stale = modelCatalogueFailed();
   if (els.modelTable.classList.contains('model-table-stale') !== stale) els.modelTable.classList.toggle('model-table-stale', stale);
   setModelAttribute(els.modelTable, 'aria-busy', String(stale));
+  // Refused by a gallery bundle operation: its reason in the table's place,
+  // never an empty or dimmed list with no word on why (UI#53).
+  const held = stale && modelCatalogueMaintenance;
+  const heldText = held
+    ? `${GALLERY_MAINTENANCE_WORDS}, so the checkpoint list cannot be read now. It is read again when the operation ends.` : '';
+  if (held && !els.modelTable.hidden) {
+    // The reason keeps the shown table's height, so nothing below it (the On
+    // disk fold) moves under the pointer as the hold begins, or as the same
+    // list comes back when it ends; and a focused row hands its focus to the
+    // picker's body rather than dropping it to the page.
+    const height = els.modelTable.offsetHeight;
+    els.modelTableHeld.style.minHeight = height ? `${height}px` : '';
+    if (els.modelTable.contains(document.activeElement)) els.modelPickerBody.focus({ preventScroll: true });
+  } else if (!held && els.modelTableHeld.style.minHeight) els.modelTableHeld.style.minHeight = '';
+  if (els.modelTableHeld.textContent !== heldText) els.modelTableHeld.textContent = heldText;
+  if (els.modelTableHeld.hidden !== !held) els.modelTableHeld.hidden = !held;
+  if (els.modelTable.hidden !== held) els.modelTable.hidden = held;
   const formatHidden = els.modelQuantization.value !== 'nunchaku';
   if (els.modelFormatField.hidden !== formatHidden) els.modelFormatField.hidden = formatHidden;
   syncModelOptionHolds();
@@ -1079,7 +1101,7 @@ function receiveModelSettings(status, { reset = false } = {}) {
     }
     modelOwnSwitch = null;
   }
-  if (!modelCatalogueLoaded && !modelCataloguePending && !els.modelPicker.hidden
+  if (!modelCatalogueLoaded && !modelCataloguePending && !els.modelPicker.hidden && !modelCatalogueMaintenance
       && Date.now() - modelCatalogueFailedAt > 10000) {
     // A failed list retries while the picker is open: a timed read, never use.
     void refreshModelCatalogue({ polled: true });
@@ -1352,6 +1374,7 @@ async function refreshModelCatalogue({ current = false, polled = false } = {}) {
     modelCatalogueKind = modelCatalogueKey(modelPickerSettings());
     modelCatalogueRequested = `${modelCatalogueKind}|${wantedModel}`;
     modelCatalogueLoaded = true;
+    modelCatalogueMaintenance = false;
     modelSwitchError = null;
     if (modelPerformanceOpening) {
       modelPerformanceOpening = false;
@@ -1360,7 +1383,10 @@ async function refreshModelCatalogue({ current = false, polled = false } = {}) {
     }
   } catch (err) {
     if (epoch !== modelCatalogueEpoch) return;
-    modelSwitchError = err.message;
+    // A bundle operation's refusal is said in the table's place, not the note.
+    modelCatalogueMaintenance = galleryMaintenance(err);
+    modelSwitchError = modelCatalogueMaintenance ? null : err.message;
+    if (modelCatalogueMaintenance) afterGalleryMaintenance('model-catalogue', () => refreshModelCatalogue({ polled: true }));
     modelCatalogueLoaded = false;
     // The opening's catalogue did not answer: a later retry never moves the
     // choice, or the picker's body, by itself (nor opens the disclosure).

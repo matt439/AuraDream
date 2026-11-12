@@ -32,6 +32,7 @@ WATCHED = {
     "smoke-phone-gallery", "smoke-refine", "smoke-refine-batch", "smoke-saved-searches",
     "smoke-setup-portability", "smoke-shortcuts", "smoke-snippet-portability", "smoke-snippets",
     "smoke-swap", "smoke-then-refine", "smoke-download-progress", "smoke-idle-activity",
+    "smoke-gallery-maintenance",
 }
 
 

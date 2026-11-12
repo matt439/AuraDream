@@ -57,6 +57,11 @@
    display: contents, so its cells are the row's grid items and a press on
    any of them chooses the row. Below 700 px the facts take a second line. */
 .model-table { display: grid; border: 1px solid var(--line); border-radius: var(--r-sm); }
+/* The table's place while a gallery bundle operation refuses its read. */
+.model-table-held {
+  margin: 0; padding: var(--sp-3); border: 1px solid var(--line); border-radius: var(--r-sm);
+  color: var(--muted); overflow-wrap: anywhere;
+}
 .model-row {
   display: grid; align-items: center; column-gap: var(--sp-2);
   grid-template-columns: var(--h-sm) minmax(0, 1.7fr) minmax(0, 1fr) minmax(0, .55fr) minmax(0, 1fr) minmax(0, 1.3fr) var(--h-xs);

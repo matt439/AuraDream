@@ -6238,6 +6238,27 @@ debounced 250 ms preview (grid, refine, inpaint, outpaint) is only
 scheduled at that point, so a press in that window with one of those
 panels open can still meet the same refusal.
 
+A refused read used to leave a panel saying nothing (2026-11-12, `UI#53`).
+`GalleryAdmission`'s 409 had a sentence and no code, and Models opened with
+an empty table and no word on why; the tag finder called it "Danbooru
+unreachable". The refusal now carries `gallery_maintenance`. Models shows
+`GALLERY_MAINTENANCE_WORDS` in the table's place (desktop and phone sheet)
+and holds Switch with "Wait for the gallery bundle operation to finish";
+On disk, Check and the tag finder say the same words in their own places
+(backup is named too: an automatic backup and a backup-settings save hold
+the same admission). The reason keeps the height of a table already shown,
+so the On disk fold below never moves under the pointer as the poll brings
+the same list back, and a focused row hands its focus to the picker's body
+as it hides. A refused read can leave itself with `afterGalleryMaintenance` (the Models
+catalogue, an open On disk fold). The bundle status poll, which already
+watches every bundle operation, runs them once it sees none running. No
+new timer was added, and each of those reads carries the poll header, so
+none counts as someone using AuraDream. The catalogue's own ten-second
+retry stands down meanwhile. The rest still show the server's sentence or
+nothing, and recover on the next press or the settle's re-reads: Finish
+run's hold title, Expand, the critic, the tag helper's suggestions and
+validation, and the previews.
+
 **Windows credential source (2026-10-26, `GAL#6`).** V4 now stores only an opaque
 scoped credential reference and inactive pending/ready state. Explicit hidden-input
 setup writes pending metadata before a new generic WinCred target; uncertain

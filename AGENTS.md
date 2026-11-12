@@ -791,6 +791,7 @@ uses the driver's graceful close/cleanup. See the full Tests rules.
 | 7953 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-setup-portability` |
 | 7954 | FLUX.1-Krea-dev, fresh scratch `--data`, `--step 0.3` | `smoke-queue-estimates` |
 | 7955 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-gallery-top` |
+| 7955 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-gallery-maintenance` |
 | 7956 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-phone` |
 | 7956 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-phone-create` |
 | 7957 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-tablet` |
@@ -844,7 +845,9 @@ Gotchas:
   `/api/fake/instruction-edit` (the edit gate, open by default only on a
   Kontext fake), `/api/fake/unreachable` (`on`: every other request held
   unanswered, a PC asleep), `/api/fake/disk-full` (`on`: every image save
-  refused as a full disk), `/api/fake/passcode` (`passcode`: a string
+  refused as a full disk), `/api/fake/bundle` (`hold`: each bundle
+  export or import waits, so the gallery's admission refuses counted
+  routes; the knobs pass it), `/api/fake/passcode` (`passcode`: a string
   turns the passcode's gate on, null off; `reset`: clears the limiter; a
   fake starts with none), `/api/fake/activity` (every request since the
   last `reset` and those keep-awake's rule counts as use, the fake's own

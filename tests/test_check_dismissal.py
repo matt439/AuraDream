@@ -74,6 +74,7 @@ function fixture() {
     replaceBoxText:poison('editor write'),persistPanel:poison('persist'),focusReference:poison('reference focus'),
     setTimeout:()=>1,clearTimeout:()=>{},setInterval:()=>1,clearInterval:()=>{},performance:{now:()=>0},
     OFFLINE_MESSAGE:'offline',KEEPS_PROMPT:'',INLINE_CITE:100,
+    galleryMaintenance:err=>err?.code==='gallery_maintenance',GALLERY_MAINTENANCE_WORDS:'A gallery bundle operation is running',
   });
   for (const name of ['page-helpers.js','analysis.js','analysis-critic.js']) {
     new vm.Script(fs.readFileSync(path.join(root,'web',name),'utf8'),{filename:name}).runInContext(sandbox);
