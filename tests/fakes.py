@@ -94,6 +94,15 @@ class FakeBackend(GenerationBackend):
         self._last_mask_crop = None
         self.working_sizes: list[tuple[int, int]] = []
         self.after_generate = None
+        # A hold on an event rather than on a clock: while `hold` is an unset
+        # Event, each call `hold_when` accepts (every call when it is None)
+        # waits after its first step until the event is set, polling the
+        # cancel between short waits as the real steps do. `holding` is set
+        # once a call is waiting, so a test can act on a call it knows is
+        # running however slow the runner (AGENTS.md, Tests).
+        self.hold: threading.Event | None = None
+        self.hold_when = None
+        self.holding = threading.Event()
         # The instruction-edit gate, closed by default (the real backend's
         # is open since its release). Only the literal True opens it
         # (`instruction_edit_qualified`).
@@ -299,6 +308,8 @@ class FakeBackend(GenerationBackend):
             # The contract every backend signs up to: poll between steps.
             if should_cancel is not None and should_cancel():
                 raise Cancelled
+            if step == 0:
+                self._wait_for_hold(request, should_cancel)
         if self.after_generate is not None:
             self.after_generate()
         self._last_peak = self.peak
@@ -310,6 +321,19 @@ class FakeBackend(GenerationBackend):
         return [
             Image.new("RGB", (request.width, request.height)) for _ in range(request.num_images)
         ]
+
+    def _wait_for_hold(self, request, should_cancel) -> None:
+        from backend.backends import Cancelled
+
+        hold = self.hold
+        if hold is None or (self.hold_when is not None and not self.hold_when(request)):
+            return
+        # Polled, never a bare Event.wait(): a cancel or skip lands within it.
+        while not hold.is_set():
+            self.holding.set()
+            if should_cancel is not None and should_cancel():
+                raise Cancelled
+            hold.wait(0.01)
 
     def last_peak(self):
         return self._last_peak
