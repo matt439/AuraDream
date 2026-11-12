@@ -11167,7 +11167,22 @@ one pending, printing the step it was on, and 2 on a script it refuses
 before starting - among them an
 `expect` joining an async helper (`__until`, or a `window.__x = async` the
 file defines) to more with && or ||, which is never awaited: the whole
-condition goes inside the predicate. Each run's browser profile, under the
+condition goes inside the predicate. A smoke waits for what its next
+`expect` needs rather than sleeping a fixed time before it (`DEV#58`):
+`smoke`, `smoke-analysis`, `smoke-animagine`, `smoke-lightbox` and
+`smoke-wide` define `window.__when(fn, ms = 10000)` after each `navigate`,
+which polls `fn` every 50 ms (an exception, such as a chip not drawn yet,
+reads as not yet) and once more at its end, so a condition that never holds
+still says why. A check that a request settled names how it ends, not only
+what it shows: Check's `aria-busy` is gone, the critic is no longer
+`critiquing`, the gallery has no `galleryPending`, the chips' `tagSlots`
+are this prompt's, the page has stopped scrolling. Otherwise a check could
+pass on the answer before. A fixed `wait` stays only where the check is of
+an absence or a timer: nothing happened in that time, like a double-click's
+second press that neither zooms nor closes, or a Batch that leaves the
+comparison's count alone. Such a step carries a `why` saying so (the driver
+reads only `wait`). The remaining smokes are later phases of `DEV#58`. Each
+run's browser profile, under the
 system temp directory, is removed on every way out - the steps' end, a
 failure, a throw, Ctrl-C or SIGTERM - once the browser's whole process tree
 has stopped. The browser gets 10 s to close itself before its tree is killed,

@@ -3,16 +3,17 @@
     "Seconds each smoke took on CI's hosted Linux runner (run 41740462658, three at a time).",
     "run_smoke.py uses them only to start the longest rows first and to balance --shard; a smoke missing here counts as DEFAULT_COST.",
     "Refresh from each shard's summary.json: uv run python tools/smoke_timings.py <artifacts> --write-costs",
-    "Not CI's: smoke-flux3, smoke-download-progress, smoke-phone-landscape and smoke-phone-keyboard are one Windows run each (2026-11-12, --jobs 1) scaled by 0.87, the hosted/local ratio of four smokes timed in the same run (DEV#62)."
+    "Not CI's: smoke-flux3, smoke-download-progress, smoke-phone-landscape and smoke-phone-keyboard are one Windows run each (2026-11-12, --jobs 1) scaled by 0.87, the hosted/local ratio of four smokes timed in the same run (DEV#62).",
+    "Not CI's either: smoke, smoke-analysis, smoke-animagine, smoke-lightbox and smoke-wide are their hosted times scaled by the local after/before ratio (median of Windows --jobs 1 runs) once their fixed waits became conditions (2026-11-12, DEV#58)."
   ],
   "seconds": {
-    "smoke": 47,
-    "smoke-analysis": 86,
+    "smoke": 42,
+    "smoke-analysis": 59,
     "smoke-analysis-tags": 17,
     "smoke-anima": 4,
     "smoke-anima-aesthetic": 2,
     "smoke-anima-preview": 2,
-    "smoke-animagine": 38,
+    "smoke-animagine": 23,
     "smoke-automatic-backup": 7,
     "smoke-batch-mates": 4,
     "smoke-bin": 15,
@@ -52,7 +53,7 @@
     "smoke-jobs": 219,
     "smoke-kohaku": 7,
     "smoke-library-write-recovery": 21,
-    "smoke-lightbox": 66,
+    "smoke-lightbox": 43,
     "smoke-mixed-prompts": 4,
     "smoke-model-gallery": 14,
     "smoke-model-hover": 10,
@@ -117,7 +118,7 @@
     "smoke-then-refine": 29,
     "smoke-wai": 7,
     "smoke-watched-action-replies": 14,
-    "smoke-wide": 57,
+    "smoke-wide": 54,
     "smoke-z-anime": 5
   }
 }
