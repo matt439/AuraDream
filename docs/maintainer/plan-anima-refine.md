@@ -158,7 +158,9 @@ Built on CPU only, with no weights, downloads or GPU:
 - `start_sigma(steps, strength)` runs the installed
   `AnimaImg2ImgSetTimestepsStep` on a scheduler built from the loaded one's
   config with its static shift and reads the sigma at the begin index; the
-  live scheduler is not touched. Stage 3 connects it to the backend's
+  live scheduler is not touched. It refuses, with the call's own
+  `ValueError` (`refuse_empty`), every strength the call refuses, so it
+  never names the trailing 0.0 of an empty slice. Stage 3 connects it to the backend's
   `start_sigma` (Anima has no `START_RECIPES` entry and must not get Mu).
 - Nothing imports the module outside its tests; `refine.sibling` still
   answers None for all three text classes and their image-to-image classes.
@@ -171,10 +173,13 @@ the resolver and the three profiles still refuse; the call takes `REQUIRED`
 and every `CARRIED` parameter its text class takes, with Turbo's 8/CFG 1 and
 Aesthetic/Preview's 30/CFG 4 defaults; the stage 0 probe table against the
 installed block; `start_index`/`steps_run` against the block for ten step
-counts by 108 strengths (fractional boundaries included), and that the SDXL
-branch would answer three of eight where Anima runs four; the start sigma
-equals the first callback's begin-index sigma and timestep, with the live
-scheduler's timesteps, sigmas, begin index and shift unchanged; the first
+counts by 108 strengths (fractional boundaries included), and that
+`refine.start_index`'s non-Mu branch, called for Animagine, answers three of
+eight where Anima runs four; the start sigma equals the first callback's
+begin-index sigma and timestep, with the live scheduler's timesteps, sigmas,
+begin index and shift unchanged, a runtime `set_shift(5.0)` on the live
+scheduler reaches the copy (the pass and the reading agree on shift 5's
+sigma), and strengths the call refuses are refused by the reading too; the first
 denoiser input is exactly `sigma * noise + (1 - sigma) * normalised mode`,
 the noise the generator's first draw; two sources give different pictures;
 one image per call reproduces its seed (scalar or one-element list) and

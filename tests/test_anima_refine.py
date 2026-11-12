@@ -35,6 +35,7 @@ from tests.test_anima_pipeline import _Conditioner, _TextEncoder, _Tokenizer, _T
 ANIMA_IDS = ("circlestone-labs/Anima", "circlestone-labs/Anima@aesthetic-v1.1", "Gazingstars123/Anima-2.9B")
 MEAN = [0.25, -0.5, 0.125]
 STD = [2.0, 0.5, 4.0]
+SDXL_ID = "cagliostrolab/animagine-xl-4.0"  # refine's non-mu (SDXL) rounding
 
 
 class _Posterior:
@@ -172,7 +173,8 @@ def test_anima_rounds_as_flow_not_as_its_mu_flag_says():
     # `refine.start_index` keys the rounding on `mu_supported`, which Anima's
     # fixed shift leaves false; SDXL's branch would run three steps of eight.
     assert steps_run(8, 0.4) == 4
-    assert 8 - max(8 - min(int(8 * 0.4), 8), 0) == 3
+    assert defaults_for(SDXL_ID)["mu_supported"] is False
+    assert 8 - refine.start_index(8, 0.4, SDXL_ID) == 3
 
 
 def test_start_sigma_reads_a_copy_and_matches_the_first_noised_step(pipes):
@@ -197,6 +199,38 @@ def test_start_sigma_reads_a_copy_and_matches_the_first_noised_step(pipes):
     _refine(runner, num_inference_steps=8, strength=0.4, callback_on_step_end=record)
     assert seen[0] == pytest.approx(expected)
     assert seen[1] == pytest.approx(expected)
+
+
+def test_start_sigma_keeps_a_runtime_shift_set_on_the_live_scheduler(pipes):
+    # Every fixture's config says shift 3; a live `set_shift` must still reach
+    # the copy, or the preview names shift 3's sigma for a shift-5 pass.
+    _, runner = pipes
+    runner.scheduler.set_shift(5.0)
+    expected = runner.start_sigma(8, 0.4)
+    assert expected == pytest.approx(5 * 0.5 / (1 + 4 * 0.5))
+    assert runner.scheduler.shift == 5.0
+
+    seen = []
+
+    def record(pipeline, step, timestep, values):
+        if step == 0:
+            scheduler = pipeline.scheduler
+            seen.append(float(scheduler.sigmas[scheduler.begin_index]))
+        return values
+
+    _refine(runner, num_inference_steps=8, strength=0.4, callback_on_step_end=record)
+    assert seen == [pytest.approx(expected)]
+
+
+def test_start_sigma_refuses_what_the_call_refuses(pipes):
+    _, runner = pipes
+    live = runner.scheduler
+    live.set_timesteps(5)
+    before = live.sigmas.clone()
+    for strength in (0.0, -0.25, 1.5, 1e-20):
+        with pytest.raises(ValueError):
+            runner.start_sigma(8, strength)
+    assert torch.equal(live.sigmas, before)
 
 
 def test_strength_that_leaves_no_step_is_refused_before_any_component(pipes):

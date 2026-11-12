@@ -63,6 +63,19 @@ def steps_run(steps: int, strength: float) -> int:
     return steps - start_index(steps, strength)
 
 
+def refuse_empty(steps: int, strength: float) -> None:
+    """Raise ValueError for a strength the pass cannot run.
+
+    Outside (0, 1], or a slice the flooring leaves empty (strength 0 would
+    leave only the schedule's trailing 0.0). The call and `start_sigma`
+    share it, so a preview never names a sigma for a refused pass.
+    """
+    if not 0 < strength <= 1:
+        raise ValueError(f"strength must be in (0, 1], got {strength}")
+    if steps_run(steps, strength) < 1:
+        raise ValueError(f"strength {strength} leaves no denoising step of {steps}")
+
+
 class AnimaTurboImg2ImgPipeline(AnimaTurboPipeline):
     """Anima's image-to-image blocks with the app's callback contract.
 
@@ -105,8 +118,10 @@ class AnimaTurboImg2ImgPipeline(AnimaTurboPipeline):
         The installed timestep block is run against a scheduler built from
         the loaded one's config and given its static shift, so the answer is
         the block's own schedule and slice; the live scheduler, which a job
-        may be using, is never touched.
+        may be using, is never touched. A strength the call would refuse
+        raises the call's ValueError rather than reading a sigma.
         """
+        refuse_empty(num_inference_steps, strength)
         live = self.scheduler
         copy = type(live).from_config(live.config)
         if callable(getattr(copy, "set_shift", None)):
@@ -137,12 +152,7 @@ class AnimaTurboImg2ImgPipeline(AnimaTurboPipeline):
     ) -> ImagePipelineOutput:
         # Refused before any component runs: strength 0 slices the schedule
         # empty and the upstream noise step would fail on it.
-        if not 0 < strength <= 1:
-            raise ValueError(f"strength must be in (0, 1], got {strength}")
-        if steps_run(num_inference_steps, strength) < 1:
-            raise ValueError(
-                f"strength {strength} leaves no denoising step of {num_inference_steps}"
-            )
+        refuse_empty(num_inference_steps, strength)
         self.guider = ClassifierFreeGuidance(
             guidance_scale=guidance_scale, enabled=guidance_scale > 1.0,
         )
