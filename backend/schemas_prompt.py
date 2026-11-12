@@ -9,6 +9,7 @@ from typing import Literal
 from pydantic import BaseModel, Field, computed_field, field_validator, model_validator
 
 from .config import settings
+from .schemas_encoder import EncoderReport
 from .schemas_generate import GenerateRequest
 
 class PromptExpansionRequest(BaseModel):
@@ -69,31 +70,6 @@ class PromptFinding(BaseModel):
     cite: str | None = None
     url: str | None = None
     suggestion: str | None = None
-
-
-class EncoderReport(BaseModel):
-    """How much of one field one text encoder reads.
-
-    `tokens` counts the text's own tokens, the pipeline's template excluded;
-    `budget` is how many of them survive the pipeline's truncation. `cut` is
-    the character offset where reading stops - None when everything fits -
-    because every pipeline here cuts from the right in silence.
-    """
-
-    name: str
-    field: Literal["prompt", "negative_prompt"] = "prompt"
-    tokens: int
-    budget: int
-    cut: int | None = None
-    # What the encoder contributes, where that changes what the count means -
-    # FLUX.1's CLIP-L feeds one pooled vector, not the token sequence.
-    role: str | None = None
-    # A cut here is advice, not lost text: this encoder feeds one pooled vector
-    # while another reads the words on (FLUX.1's CLIP-L). Its `encoder.cut` is
-    # info rather than a warning; every other role's cut is a real loss.
-    pooled_only: bool = False
-    # The tokenizer the count came from, repo and subfolder, for the tooltip.
-    source: str | None = None
 
 
 class PromptMeasureRequest(BaseModel):

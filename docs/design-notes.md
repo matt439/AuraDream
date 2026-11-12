@@ -4150,7 +4150,12 @@ than found in the morning: a variable no placeholder mentions multiplies the
 night by a value that changes nothing, and a placeholder with no variable
 renders the literal `{ground}` into every image of the run - **including
 when the variables box is empty**, which used to short-circuit past both
-checks (a plain prompt with no placeholders still expands to itself). The
+checks (a plain prompt with no placeholders still expands to itself). A
+value that names a declared variable (`a = {b} hat`) is refused the same
+way (GEN#63, 2026-11-12): `substitute()` makes one pass, so it resolved to
+`{b} hat, red` with the braces at the encoder. Refusing beat a second pass
+with cycle detection: no substitution order to define, and `CellKey` and
+run ids untouched. The refusal carries no code - the page only shows it. The
 product of the variables is **counted before it is built**
 (`math.prod` against `max_grid_images`): `MAX_AXIS_VALUES` caps values per
 variable, nothing capped the variables, and eighteen binary lines built
@@ -4160,6 +4165,34 @@ so `{size} dog` is `dog` rather than ` dog`, and nothing else. The prompt loop
 sits just inside the seed loop, for the reason seeds are outermost: a night
 that ends early has swept every setting for the prompts it reached, which is a
 comparison.
+
+**The preview measures each resolved prompt** (PA#15, 2026-11-12). Check
+reads the prompt box, so on a grid it counted the `{name}` template, and one
+value could carry its prompt past T5's or CLIP's budget, where the pipeline
+cuts in silence. `/api/grid/preview` now answers `budgets`
+(`grid_budgets.measure_cells`): `prompt_encoding.measure` over each distinct
+resolved (prompt, negative-as-`applied()`) pair, so the same exact strings
+Check measures. Only where something is substituted (a grid with no
+variables is the prompt Check already counts). Cold as Check is - the CPU
+tokenizers on a daemon thread, never the model or the gate - and bounded,
+because the preview runs at every pause in typing and can resolve to a
+thousand prompts: the first `MAX_MEASURED` (128) distinct pairs, and one
+`WAIT` (5 s) for a cold tokenizer across the whole preview rather than
+Check's 30 s per call, after which `detail` says the counts are unknown.
+A tokenizer that cannot be read (gated, offline, still loading) stops the
+measuring at the first prompt it misses: `prompt_encoding` caches only a
+load that succeeded, so each later prompt would start the load again and
+wait its share - a review found an unaccepted gate costing every preview
+its full 5 s in tens of failed Hub requests. One try per preview, as
+Check makes one per check; the page then says the reason, not the cap.
+The server decides what is lost (a pooled-only encoder's cut, FLUX.1's
+CLIP-L, is not) and which values tip a prompt over: a value whose every
+measured prompt is cut while some other prompt is not. With every prompt cut
+the template is long and no value is named. The page puts the per-encoder
+range as the listing box's last row, so the preview grows no further toward
+Run grid (the box scrolls inside itself), and the cut as a warning note.
+`EncoderReport` moved to the leaf `schemas_encoder.py` so `GridPreview`
+can carry it: `schemas_prompt` imports `schemas_generate`.
 
 **`none` closes only its own hole** (2026-10-05). One space goes with the
 word (`grid._close_hole`): the one after it where the word followed a space or

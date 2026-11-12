@@ -184,6 +184,10 @@ before changing it.
   leaf over `mask_crop`'s constants, no settings
 - `backend/schemas_prompt.py` — Expand, Check (analysis, findings, orders),
   the chip count, the critic's critique, Danbooru tag suggestion/validation
+- `backend/schemas_encoder.py` — `EncoderReport` (re-exported by
+  `schemas_prompt`) and the grid preview's `GridPromptBudget(s)`; a leaf, so
+  `schemas_generate.GridPreview` can carry them without importing
+  `schemas_prompt`
 - `backend/schemas_gallery.py` — `ImageRecord`, run summaries, gallery pages,
   Delete unstarred's preview, the recycle bin's bodies and answers, the
   picked cards' stars (`FavoritesBody`, `FavoritesResult`)
@@ -384,6 +388,11 @@ before changing it.
 - `backend/grid.py` — axis specs (`6-12x2`), prompt variables and prompt
   variants, and the cell expansion, shared; `cell_from_record` /
   `cells_from_records`, a gallery record as a cell
+- `backend/grid_budgets.py` — the grid preview's encoder budget of each
+  distinct resolved prompt (`measure_cells`: `prompt_encoding.measure` per
+  pair, the negative as `applied()` runs it, at most `MAX_MEASURED`, one
+  bounded tokenizer wait), which prompts lose text and the values that tip
+  them over; cold, on the route's daemon thread
 - `backend/tag_swap.py` — Swap tags' rewrite of a record's prompt or
   negative prompt (pure; the routes are `api_swap.py`'s)
 - `backend/refine_batch.py` — Mass refine's plan of one record: the pass
@@ -2110,7 +2119,10 @@ measured on the card and when.
   the page labels those prompts as examples and says Batch images run
   separately. The CLI uses `--grid-prompt-mode random`.
 - Grid sizes are paired `WIDTHxHEIGHT` values in `size_axis`, never independent
-  width/height products. Each concrete cell keeps its image seed and random
+  width/height products. **+ panel size** (`addPanelSize`, GEN#64), client
+  only, appends the panel's `WxH` as typing would,
+  on the Sizes label's line (no added height at 1400x900); `parse_sizes` is
+  unchanged. Each concrete cell keeps its image seed and random
   assignment across sizes, passes the existing guards and contributes to the
   grid ceiling. Resume/planned work and estimates use each actual size. A
   mixed run reports all sizes, and Then refine reports all `pass_sizes`, with
@@ -12041,10 +12053,16 @@ a real click on the fold's summary once the preview has landed; a 30-line
 prompt whose variable is listed by its line, with the preview's top and Run
 grid in the window together; the one-value case; a long one-line prompt's
 listing capped at eight lines and scrolling inside itself (both previews
-awaited, not debounced, and the box logged); and with the fold opened by
-hand before the variables are typed, Run grid no further under the window
-than the listing box and one line (the panel holds still under the
-pointer):
+awaited, not debounced, and the box logged), its last row the resolved
+prompts' token counts per encoder (PA#15: CLIP-L's pooled-only cut said as
+advice); a value carrying its prompt past T5-XXL's 511 named in the
+warning colour ("tips them over"), and gone with that value; with the
+fold opened by hand before the variables are typed, Run grid no further
+under the window than the listing box and one line (the panel holds still
+under the pointer); and + panel size (GEN#64) leaving the Sizes label line
+as tall as the label at 2560x1305 and again at 1400x900, where it appends
+the panel's WxH (the preview's size line follows), says a size listed
+already in the hint without writing it twice, and fills an empty box:
 
 ```powershell
 uv run python tools/fake_server.py --port 7879 --model black-forest-labs/FLUX.1-Krea-dev

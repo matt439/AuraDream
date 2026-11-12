@@ -32,6 +32,7 @@ from .execution import (
 from .model_defaults import defaults_for, inpaint_family, inpaint_start
 from . import refine
 from .refine import DEFAULT_STRENGTH, Upscaler, leaves_a_step, upscaler_supported
+from .schemas_encoder import GridPromptBudgets
 from .schemas_mask_crop import MASK_CROP_NEEDS_A_MASK, MASK_CROP_WITH_EDIT, MaskCropArea, MaskCropSpec
 from .schemas_outpaint import Outpaint
 from .seeds import MAX_BATCH, MAX_GRID_SEEDS, MAX_RUNS, MAX_SEED
@@ -893,6 +894,11 @@ class GridPreview(BaseModel):
     # Only the masked area: the region every cell's pass denoises
     # (`mask_crop.region`), where they share one; null without a crop.
     mask_crop: MaskCropArea | None = None
+    # Each distinct resolved prompt's encoder budget (PA#15): Check counts
+    # the `{name}` template, so a value could carry one prompt past an
+    # encoder's budget unseen. Null where nothing is substituted or the
+    # encoder table has no entry for the checkpoint.
+    budgets: GridPromptBudgets | None = None
 
 
 class JobAccepted(BaseModel):

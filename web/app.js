@@ -224,6 +224,7 @@ window.addEventListener('resize', syncGalleryTop);
 // intersects. `loadGallery` serialises a click racing this.
 if (!moreWatcher) armMore();
 els.gridRun.onclick = runGrid;
+els.gridSizeAdd.onclick = addPanelSize;
 // The preview reflects the panel as much as the axes: a blank axis is the
 // control's own value, and both the size and the batch move the totals.
 // The negative prompt is in the list because a `{name}` placeholder may live

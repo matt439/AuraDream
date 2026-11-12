@@ -793,7 +793,13 @@ ground = grass | dirt
 ```
 
 This makes six prompts. `none` removes that fragment; commas remain part of
-a value. Unused variables and placeholders without values are refused.
+a value. Unused variables and placeholders without values are refused,
+as is a value naming another variable (`hat = {size} hat`): values are
+filled in once, so its braces would reach the model.
+The preview counts each resolved prompt's tokens per text encoder, as Check
+counts the prompt box, on the listing's last line. Where a value carries a
+prompt past what an encoder reads, a warning names the encoder and the value
+(or the prompts) that lose their end.
 To keep a block of variables for another day, save it as a Grid variables
 snippet under **Examples > Personal snippets…**.
 The default **Cross all values** tries every combination. **One choice per
@@ -814,7 +820,9 @@ including matching images from other jobs and live queued work. An entirely
 completed grid is refused. A hand-built Resume still needs the original
 prompt, axes and base seed in the panel.
 
-Sizes cross with the other axes and keep each image's seed. Each size must
+Sizes cross with the other axes and keep each image's seed. **+ panel size**
+beside the Sizes label adds the panel's current width x height to the box
+(once: a size already listed is not added twice). Each size must
 meet the usual bounds; a larger canvas never borrows another size's timing
 estimate. The run and contact sheet show its distinct sizes.
 

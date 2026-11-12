@@ -361,6 +361,20 @@ def test_a_prompt_axis_that_does_not_line_up_is_a_422(client):
     assert plain.json()["values"]["prompt"] == ["a dog"]
 
 
+def test_a_value_naming_another_variable_is_a_422_before_anything_queues(client, fake):
+    # GEN#63: it used to resolve to `{b} hat, red`, braces and all.
+    body = {
+        "prompt": "{a}, {b}", "width": 256, "height": 256,
+        "prompt_axis": "a = {b} hat | none\nb = red | blue",
+    }
+    preview = client.post("/api/grid/preview", json=body)
+    assert preview.status_code == 422
+    assert "names {b}" in preview.json()["detail"]
+    assert "code" not in preview.json()  # only shown: the page acts on nothing
+    assert client.post("/api/grid", json=body).status_code == 422
+    assert fake.requests == []
+
+
 def test_status_reports_free_disk_and_the_preview_prices_the_pngs(client, store):
     status = client.get("/api/status").json()
     assert isinstance(status["disk_free_mb"], int) and status["disk_free_mb"] > 0

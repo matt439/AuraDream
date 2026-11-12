@@ -42,6 +42,43 @@ function gridNumberInputs() {
   ].filter(([el]) => !overridden.has(el));
 }
 
+// + panel size (GEN#64): the panel's own width x height appended to Sizes,
+// as typing it would (Ctrl+Z takes it back) - the box is still the one the
+// server parses (grid.parse_sizes), so nothing new reaches it. A size the box
+// lists already, or a panel size that is not two whole numbers, is said in
+// the box's hint rather than written.
+let gridSizeHint = null;
+let gridSizeHintTimer;
+function sayGridSize(text) {
+  const hint = document.getElementById('grid-size-hint');
+  if (gridSizeHint === null) gridSizeHint = hint.textContent;
+  hint.textContent = text;
+  clearTimeout(gridSizeHintTimer);
+  gridSizeHintTimer = setTimeout(() => { hint.textContent = gridSizeHint; }, 4000);
+}
+function addPanelSize() {
+  const width = els.width.value.trim();
+  const height = els.height.value.trim();
+  if (!/^\d+$/.test(width) || !/^\d+$/.test(height)) {
+    sayGridSize("The panel's width and height are not whole numbers yet: set them first.");
+    return;
+  }
+  const size = `${+width}x${+height}`;
+  const listed = els.gridSize.value.split(',').map((pair) => pair.replace(/\s+/g, '').toLowerCase());
+  if (listed.includes(size)) {
+    sayGridSize(`${size} is listed already.`);
+    return;
+  }
+  const kept = els.gridSize.value.trim().replace(/,\s*$/, '');
+  let typed = false;
+  const heard = () => { typed = true; };
+  els.gridSize.addEventListener('input', heard, { once: true });
+  replaceBoxText(els.gridSize, kept ? `${kept}, ${size}` : size);
+  els.gridSize.removeEventListener('input', heard);
+  // Where the browser would not type it, the write was the value's alone.
+  if (!typed) els.gridSize.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
 function runGrid() {
   if (refuseComposerExecution()) return undefined;
   if (refuseBadNumber(gridNumberInputs())) return undefined;
@@ -84,7 +121,7 @@ function gridFactors(summary) {
 // (styles/generation.css): a nested scroller, never the panel, whose menus and tips hang
 // out past its edge.
 const PREVIEW_PROMPTS = 3;
-function promptListing(prompts, template, name = 'prompt') {
+function promptListing(prompts, template, name = 'prompt', after = []) {
   if (!prompts || !prompts.length) return null;
   const shown = prompts.slice(0, PREVIEW_PROMPTS);
   const lines = template.split('\n');
@@ -105,6 +142,7 @@ function promptListing(prompts, template, name = 'prompt') {
     if (prompts.length > 1 && name !== 'prompt') rows.unshift(`${name}s:`);
   }
   if (prompts.length > PREVIEW_PROMPTS) rows.push(`· … and ${prompts.length - PREVIEW_PROMPTS} more`);
+  rows.push(...after);
   const box = document.createElement('span');
   box.className = 'prompts';
   box.textContent = rows.join('\n');
@@ -146,6 +184,55 @@ function declaredGridVariables() {
     }
   }
   return declared;
+}
+
+// Each resolved prompt's encoder budget, the server's (backend/grid_budgets.py,
+// PA#15): Check counts the {name} template, so a value can carry one prompt
+// past an encoder's budget unseen. The server measures and decides which
+// prompts lose text and which values tip them over; this only words it - a
+// range of counts per encoder, then the losing prompts or values. A pooled-
+// only encoder's cut (FLUX.1's CLIP-L) is advice, never a warning. The
+// counts are the listing box's last row (it scrolls inside itself, so the
+// preview grows no further toward Run grid); a cut and anything unmeasured
+// are notes, in the warning colour where text is lost.
+const BUDGET_VALUE_CHARS = 40;
+const budgetValue = (text) => (text.length > BUDGET_VALUE_CHARS ? `${text.slice(0, BUDGET_VALUE_CHARS - 1)}…` : text);
+function budgetLines(budgets) {
+  if (!budgets) return { counts: null, lines: [], cut: false };
+  const prompts = budgets.prompts || [];
+  const lines = [];
+  const ranges = new Map();
+  for (const prompt of prompts) {
+    for (const e of prompt.encoders) {
+      const key = `${e.name}${e.field === 'negative_prompt' ? ' (negative)' : ''}`;
+      const r = ranges.get(key) || { min: Infinity, max: -Infinity, budget: 0, pooled: e.pooled_only, cuts: 0 };
+      r.min = Math.min(r.min, e.tokens);
+      r.max = Math.max(r.max, e.tokens);
+      r.budget = Math.max(r.budget, e.budget);
+      if (e.cut !== null && e.cut !== undefined) r.cuts += 1;
+      ranges.set(key, r);
+    }
+  }
+  const counts = ranges.size ? `tokens: ${[...ranges].map(([name, r]) =>
+    `${name} ${r.min === r.max ? r.min : `${r.min}–${r.max}`} of ${r.budget}` +
+      (r.pooled && r.cuts ? ' (pooled only: the rest read on)' : '')).join('  ·  ')}` : null;
+  const cut = prompts.filter((p) => p.cut);
+  if (cut.length) {
+    const cutters = [...ranges].filter(([, r]) => r.cuts && !r.pooled).map(([name]) => name);
+    const named = Object.entries(budgets.cutting_values || {})
+      .flatMap(([name, values]) => values.map((v) => `${name}=${budgetValue(v || 'none')}`));
+    const which = named.length
+      ? ` - ${named.join(', ')} ${named.length === 1 ? 'tips them' : 'tip them'} over`
+      : `: ${cut.slice(0, 3).map((p) => budgetValue(p.label || 'the prompt')).join('; ')}${cut.length > 3 ? '; …' : ''}`;
+    lines.push(`${cutters.join(', ')} cut${cutters.length === 1 ? 's' : ''} the end off ${cut.length} of ${prompts.length} prompt${prompts.length === 1 ? '' : 's'}${which}`);
+  }
+  // A tokenizer that went unread stops the measuring (the server tries it
+  // once per preview); then the detail is the reason, not the cap.
+  if (budgets.distinct > prompts.length && !budgets.detail) {
+    lines.push(`token counts: the first ${prompts.length} of ${budgets.distinct} prompts measured`);
+  }
+  if (budgets.detail) lines.push(`${ranges.size ? 'some token counts unknown' : 'token counts unknown'}: ${budgets.detail}`);
+  return { counts, lines, cut: cut.length > 0 };
 }
 
 // The preview is the server's own expansion rather than a count worked out in
@@ -221,6 +308,12 @@ async function previewGrid() {
       const n = p.in_gallery * (body.prompt_mode === 'random' ? 1 : body.num_images);
       notes.push(`${n} of these ${n === 1 ? 'is' : 'are'} already in the gallery - tick Resume to skip them`);
     }
+    // The token counts ride in the prompts' listing where there is one
+    // (prompt variants have none: theirs is a note).
+    const budget = budgetLines(p.budgets);
+    const listed = Boolean(body.prompt_axis && p.values.prompt?.length);
+    if (budget.counts && !listed) notes.push(budget.counts);
+    notes.push(...budget.lines);
     const single = body.prompt_axis ? singleValueLines(body.prompt_axis) : [];
     notes.push(...single);
     // The seeds the budget completes, the server's count by the job's own
@@ -249,7 +342,7 @@ async function previewGrid() {
     if (+els.runs.value > 1) notes.push(`Repeat (${+els.runs.value}) does not apply to a grid: Seeds is its count`);
     // Cells that would come out identical - an axis this checkpoint ignores -
     // are the other reason to fix the grid before the night rather than after.
-    if (short || p.duplicates || p.in_gallery || single.length || budgetShort) {
+    if (short || p.duplicates || p.in_gallery || single.length || budgetShort || budget.cut) {
       els.gridPreview.classList.add('warn');
     }
     const totals = document.createElement('span');
@@ -267,7 +360,9 @@ async function previewGrid() {
         (p.bytes ? ` · ~${humanBytes(p.bytes)}${short ? ` — more than the ${humanBytes(diskFreeMb * 1024 * 1024)} free` : ''}` : '');
     // .hint.pre renders the breaks. The prompts are a box of their own
     // between the axes and the notes (promptListing), on its own line.
-    const listing = body.prompt_axis ? promptListing(p.values.prompt, body.prompt) : null;
+    const listing = listed
+      ? promptListing(p.values.prompt, body.prompt, 'prompt', budget.counts ? [budget.counts] : [])
+      : null;
     // Random draws can vary only the negative, or both boxes together. Show
     // that resolved text too; it otherwise disappears behind a constant prompt.
     const negatives = body.prompt_mode === 'random' && GRID_PLACEHOLDER.test(body.negative_prompt ?? '')
