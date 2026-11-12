@@ -116,7 +116,8 @@ Backend (`backend/`):
 - `schemas.py` re-exports the request/response models, each defined in
   `schemas_generate.py` (the generation request and `applied()`, grids, job
   answers, Load settings from PNG's), `schemas_outpaint.py` (an outpaint's
-  spec, the mask and preset answers), `schemas_prompt.py` (Expand, Check, critic, tag lookup),
+  spec, the mask and preset answers), `schemas_prompt.py` (Expand, Check, critic, tag lookup), `schemas_encoder.py`
+  (`EncoderReport`, the grid preview's prompt budgets),
   `schemas_gallery.py` (records, runs, bin), `schemas_rerun.py` (Re-render,
   Swap tags, Mass refine, More seeds), `schemas_model.py` (model status,
   guide, switch) or `schemas_snippets.py` (personal prompt snippets), with
@@ -213,7 +214,8 @@ Backend (`backend/`):
   scoped delete, recycle bin, clear; `run_jobs.py` retained run jobs (Finish
   run's cells and outcomes, reached as `storage.<name>`);
   `search.py` search grammar; `grid.py` axes, variables, variants, cells,
-  records as cells (`cell_from_record`); `tag_swap.py` Swap tags' rewrite;
+  records as cells (`cell_from_record`); `grid_budgets.py` the grid
+  preview's encoder budget per resolved prompt (cold, bounded); `tag_swap.py` Swap tags' rewrite;
   `refine_batch.py` Mass refine's per-image plan; `then_refine.py` Then
   refine's stand-in pass, refusals and pass run id; `more_seeds.py` More
   seeds' batches and their next seeds; `more_seeds_intents.py` bounded

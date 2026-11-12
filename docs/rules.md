@@ -183,6 +183,10 @@ before changing it.
   leaf over `mask_crop`'s constants, no settings
 - `backend/schemas_prompt.py` — Expand, Check (analysis, findings, orders),
   the chip count, the critic's critique, Danbooru tag suggestion/validation
+- `backend/schemas_encoder.py` — `EncoderReport` (re-exported by
+  `schemas_prompt`) and the grid preview's `GridPromptBudget(s)`; a leaf, so
+  `schemas_generate.GridPreview` can carry them without importing
+  `schemas_prompt`
 - `backend/schemas_gallery.py` — `ImageRecord`, run summaries, gallery pages,
   Delete unstarred's preview, the recycle bin's bodies and answers, the
   picked cards' stars (`FavoritesBody`, `FavoritesResult`)
@@ -377,6 +381,11 @@ before changing it.
 - `backend/grid.py` — axis specs (`6-12x2`), prompt variables and prompt
   variants, and the cell expansion, shared; `cell_from_record` /
   `cells_from_records`, a gallery record as a cell
+- `backend/grid_budgets.py` — the grid preview's encoder budget of each
+  distinct resolved prompt (`measure_cells`: `prompt_encoding.measure` per
+  pair, the negative as `applied()` runs it, at most `MAX_MEASURED`, one
+  bounded tokenizer wait), which prompts lose text and the values that tip
+  them over; cold, on the route's daemon thread
 - `backend/tag_swap.py` — Swap tags' rewrite of a record's prompt or
   negative prompt (pure; the routes are `api_swap.py`'s)
 - `backend/refine_batch.py` — Mass refine's plan of one record: the pass

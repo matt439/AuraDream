@@ -259,15 +259,17 @@ def _start(source: TokenizerSource) -> _Loaded | _Pending:
         return pending
 
 
-def _wait(state: _Loaded | _Pending, deadline: float) -> _Loaded:
+def _wait(state: _Loaded | _Pending, deadline: float, seconds: float | None = None) -> _Loaded:
     """The tokenizer, once its load lands, waiting until `deadline`
-    (monotonic) at most; raises what the load raised."""
+    (monotonic) at most; raises what the load raised. `seconds` is the wait
+    the caller gave, for the log line."""
     if isinstance(state, _Loaded):
         return state
     if not state.done.wait(max(0.0, deadline - time.monotonic())):
         # For the log; the page's words key on the class (`_HUB_REASONS`).
         raise StillLoading(
-            f"{state.source.label} still loading when the check's {LOAD_WAIT:g} s wait ran out"
+            f"{state.source.label} still loading when the check's "
+            f"{LOAD_WAIT if seconds is None else seconds:g} s wait ran out"
         )
     if state.loaded is None:
         raise state.error or FileNotFoundError(state.source.label)
@@ -651,13 +653,15 @@ def _one_line(lines: list[str | None]) -> str | None:
 
 
 def measure(
-    model_id: str, prompt: str, negative_prompt: str | None
+    model_id: str, prompt: str, negative_prompt: str | None, *, wait: float | None = None,
 ) -> tuple[list[EncoderReport], list[PromptFinding], str | None]:
     """Token counts, cut points and encoder findings for one request.
 
     `negative_prompt` is passed only when it will run - the caller decides
     through `applied()`. Returns the per-encoder reports, the `encoder.*`
     findings and a one-line reason for anything left unchecked. Never raises.
+    `wait` bounds a first load's wait below `LOAD_WAIT` (the grid preview's
+    budgets, asked at every pause in typing, never hold its totals that long).
     """
     specs = encoders_for(model_id) or []
     statement = prompt_weighting.STATEMENT
@@ -686,7 +690,8 @@ def measure(
     failures: list[tuple[str, Exception]] = []
     # Every first load starts before any is waited for, so they download side
     # by side within the one bound, and both fields read what one load gave.
-    deadline = time.monotonic() + LOAD_WAIT
+    seconds = LOAD_WAIT if wait is None else wait
+    deadline = time.monotonic() + seconds
     started = {spec.source: _start(spec.source) for spec in specs}
     for field, text in fields:
         for spec in specs:
@@ -695,7 +700,7 @@ def measure(
             if any(name == spec.name for name, _ in failures):
                 continue
             try:
-                loaded = _wait(started[spec.source], deadline)
+                loaded = _wait(started[spec.source], deadline, seconds)
                 readings.append(_read(spec, loaded, field, text))
             except Exception as exc:  # noqa: BLE001 - unchecked, never an error
                 log.info("prompt analysis: %s unchecked: %s", spec.name, exc)

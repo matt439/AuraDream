@@ -4121,6 +4121,28 @@ sits just inside the seed loop, for the reason seeds are outermost: a night
 that ends early has swept every setting for the prompts it reached, which is a
 comparison.
 
+**The preview measures each resolved prompt** (PA#15, 2026-11-12). Check
+reads the prompt box, so on a grid it counted the `{name}` template, and one
+value could carry its prompt past T5's or CLIP's budget, where the pipeline
+cuts in silence. `/api/grid/preview` now answers `budgets`
+(`grid_budgets.measure_cells`): `prompt_encoding.measure` over each distinct
+resolved (prompt, negative-as-`applied()`) pair, so the same exact strings
+Check measures. Only where something is substituted (a grid with no
+variables is the prompt Check already counts). Cold as Check is - the CPU
+tokenizers on a daemon thread, never the model or the gate - and bounded,
+because the preview runs at every pause in typing and can resolve to a
+thousand prompts: the first `MAX_MEASURED` (128) distinct pairs, and one
+`WAIT` (5 s) for a cold tokenizer across the whole preview rather than
+Check's 30 s per call, after which `detail` says the counts are unknown.
+The server decides what is lost (a pooled-only encoder's cut, FLUX.1's
+CLIP-L, is not) and which values tip a prompt over: a value whose every
+measured prompt is cut while some other prompt is not. With every prompt cut
+the template is long and no value is named. The page puts the per-encoder
+range as the listing box's last row, so the preview grows no further toward
+Run grid (the box scrolls inside itself), and the cut as a warning note.
+`EncoderReport` moved to the leaf `schemas_encoder.py` so `GridPreview`
+can carry it: `schemas_prompt` imports `schemas_generate`.
+
 **`none` closes only its own hole** (2026-10-05). One space goes with the
 word (`grid._close_hole`): the one after it where the word followed a space or
 opened a line, a bracket or an XML element (`<appearance>{hair} long_hair`),

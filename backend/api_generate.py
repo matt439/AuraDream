@@ -7,8 +7,9 @@ from types import SimpleNamespace
 
 from fastapi import APIRouter, HTTPException
 
-from . import gallery_reports, grid, mask_crop, submission, then_refine
+from . import gallery_reports, grid, grid_budgets, mask_crop, submission, then_refine
 from .app_context import AppServices
+from .detached import detached
 from .execution import require_configured_loader_available
 from .model_selection import current_settings
 from .schemas import (
@@ -250,6 +251,13 @@ def create_router(services: AppServices) -> APIRouter:
             except (OSError, ValueError):
                 crop = None
             area = MaskCropArea.of(crop) if crop is not None else None
+        # Each resolved prompt's encoder budget, cold as Check is: the CPU
+        # tokenizers on a daemon thread, never the model or the gate.
+        model_id = services.model_id()
+        budgets = await detached(
+            lambda: grid_budgets.measure_cells(model_id, cells, services.backend().applied),
+            "grid-budgets",
+        )
         return GridPreview(
             values=values,
             prompt_sample=(
@@ -279,6 +287,7 @@ def create_router(services: AppServices) -> APIRouter:
             pass_height=pass_sizes[0][1] if len(pass_sizes) == 1 else None,
             pass_sizes=pass_sizes,
             mask_crop=area,
+            budgets=budgets,
         )
 
     return router
