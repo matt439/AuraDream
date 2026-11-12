@@ -485,9 +485,10 @@ downloaded. Plans with their own owners record their results there:
 - **`GAL#27`** (done). `bundles.list_bundles` sorts by the file's
   last-modified time, newest first, and breaks a tie by name. The dialog
   shows that date inside the size span, so no row gets taller on the
-  desktop or at 393 px (a touch rule lets the size wrap beside Import).
-  smoke-bundles and smoke-phone-dialogs measure each row with and without
-  its date.
+  desktop or at 393 px (a touch rule lets the size wrap beside Import),
+  except a protected row on the phone: beside `GAL#26`'s Delete it takes
+  one more line (+51 px), which smoke-phone-dialogs allows. smoke-bundles
+  and smoke-phone-dialogs measure each row with and without its date.
 - **`UI#53`** (done). `GalleryAdmission`'s 409 is coded
   `gallery_maintenance`. While an import, export, backup or clear runs,
   Models shows the reason in place of the table, holds Switch, and keeps
@@ -498,6 +499,24 @@ downloaded. Plans with their own owners record their results there:
   smoke-gallery-maintenance covers the hold. Places still showing the
   server's sentence (Finish run's hold title, Expand, the critic, the tag
   helper's suggestions, previews) are listed in the design notes.
+- **`DEV#61`** (done). The fifth pass of
+  [source-audit.md](source-audit.md) made five splits: the confirm
+  questions into `web/ask-dialog.js`, the server-held model stars into
+  `web/model-favourites.js`, Expand's state and the translation writers
+  into `web/prompt-expand.js` (the page loads 78 scripts), and
+  `tests/test_linux_scripts.py` and `tests/test_keep_awake.py` into helpers
+  plus separate files, with the same test ids. Nineteen long files are kept
+  whole, each with a dated reason and a trigger; `main.py`'s fired
+  `/api/models` trigger was re-screened and its seam kept.
+- **`DEV#60`** (done). `docs/rules.md`'s Frontend and CLI, Tests and Layout
+  sections have headings by area (Phones and tablets one of them, with its
+  own parts), moved, never reworded. `tests/test_rules_sections.py` caps a
+  section at 350 non-blank lines outside fenced code; four Rules sections
+  are held at their current lengths, and their numbers fall with them.
+- **`DEV#63`** (done). AGENTS.md's Layout is nine lines, each linking to
+  its part of rules.md's Layout (55,797 to 36,593 bytes). Five facts found
+  only in AGENTS.md moved to rules.md first. `tests/test_docs_maps.py`
+  keeps the short Layout linked to every part and under 2,500 characters.
 - **`GEN#48`** (stage 1 done). Private Img2Img passes for Turbo, Aesthetic
   and Preview are in `backend/backends/anima_refine.py`, with CPU tests.
   Nothing is wired in, and every Anima profile still refuses Refine. Next
