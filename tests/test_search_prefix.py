@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from backend import search
 from tests.test_search_exclusion import ids, keep
 
 
@@ -53,11 +54,41 @@ def test_punctuation_alone_matches_nothing_and_raises_nothing(store, rows):
     assert ids(store, "( ^") == []
 
 
-def test_the_like_fallback_matches_prefixes_too(store, rows):
+def test_the_quote_fallback_keeps_prefixes_and_exact_exclusions(store, rows):
     quoted = keep(store, 'a 26" dragon statue', seed=8)
-    keep(store, 'a 26" lion statue', seed=9)
-    # The odd quote breaks MATCH; every word then becomes a LIKE substring,
-    # which still finds a word from its first letters.
-    assert ids(store, '26" drag') == [quoted.id]
-    assert ids(store, '26" -lio') == [quoted.id]
-    assert ids(store, 'dra 26"') == [quoted.id]
+    lion = keep(store, 'a 26" lion statue', seed=9)
+    drag = keep(store, 'a 26" drag racer', seed=10)
+    # The odd quote breaks MATCH; each word is then matched literally, the
+    # quote included, but from where a word starts: a free word from its
+    # first letters, never the middle of a word.
+    assert ids(store, '26" drag') == sorted([quoted.id, drag.id])
+    assert ids(store, '26" rag') == []
+    assert ids(store, 'dra 26"') == sorted([quoted.id, drag.id])
+    # An exclusion stays exact: `-drag` leaves out the drag racer, not the
+    # dragon, and a part of a word leaves out nothing.
+    assert ids(store, '26" -drag') == sorted([quoted.id, lion.id])
+    assert ids(store, '26" -lio') == sorted([quoted.id, lion.id, drag.id])
+    assert ids(store, '26" -lion') == sorted([quoted.id, drag.id])
+
+
+@pytest.mark.parametrize("prompt,word,prefix,expected", [
+    ("a red dragon", "drag", 1, 1),
+    ("a red dragon", "drag", 0, 0),
+    ("a red dragon", "dragon", 0, 1),
+    ("A Red DRAGON", "dragon", 0, 1),
+    ("a snapdragon", "drag", 1, 0),
+    ("a snapdragon and a dragon", "drag", 1, 1),
+    ("blue-eyes white", "blue-ey", 1, 1),
+    ("blue-eyes white", "blue-eyes", 0, 1),
+    ("blue white eyes", "blue-eyes", 0, 0),
+    ('a 26" monitor', '26"', 0, 1),
+    ('a 26" monitor', '6"', 0, 0),
+    ("a 26 monitor", '26"', 0, 0),
+    ('a 26"monitor', '26"', 0, 1),
+    ("snake_case word", "case", 0, 1),
+    ("anything", '"', 1, 0),
+    (None, "x", 1, 0),
+    ("anything", "", 1, 0),
+])
+def test_word_match_is_literal_and_word_bounded(prompt, word, prefix, expected):
+    assert search.word_match(prompt, word, prefix) == expected
