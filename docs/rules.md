@@ -11947,10 +11947,16 @@ a real click on the fold's summary once the preview has landed; a 30-line
 prompt whose variable is listed by its line, with the preview's top and Run
 grid in the window together; the one-value case; a long one-line prompt's
 listing capped at eight lines and scrolling inside itself (both previews
-awaited, not debounced, and the box logged); and with the fold opened by
-hand before the variables are typed, Run grid no further under the window
-than the listing box and one line (the panel holds still under the
-pointer):
+awaited, not debounced, and the box logged), its last row the resolved
+prompts' token counts per encoder (PA#15: CLIP-L's pooled-only cut said as
+advice); a value carrying its prompt past T5-XXL's 511 named in the
+warning colour ("tips them over"), and gone with that value; with the
+fold opened by hand before the variables are typed, Run grid no further
+under the window than the listing box and one line (the panel holds still
+under the pointer); and + panel size (GEN#64) leaving the Sizes label line
+as tall as the label at 2560x1305 and again at 1400x900, where it appends
+the panel's WxH (the preview's size line follows), says a size listed
+already in the hint without writing it twice, and fills an empty box:
 
 ```powershell
 uv run python tools/fake_server.py --port 7879 --model black-forest-labs/FLUX.1-Krea-dev

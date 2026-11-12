@@ -226,7 +226,9 @@ function budgetLines(budgets) {
       : `: ${cut.slice(0, 3).map((p) => budgetValue(p.label || 'the prompt')).join('; ')}${cut.length > 3 ? '; …' : ''}`;
     lines.push(`${cutters.join(', ')} cut${cutters.length === 1 ? 's' : ''} the end off ${cut.length} of ${prompts.length} prompt${prompts.length === 1 ? '' : 's'}${which}`);
   }
-  if (budgets.distinct > prompts.length) {
+  // A tokenizer that went unread stops the measuring (the server tries it
+  // once per preview); then the detail is the reason, not the cap.
+  if (budgets.distinct > prompts.length && !budgets.detail) {
     lines.push(`token counts: the first ${prompts.length} of ${budgets.distinct} prompts measured`);
   }
   if (budgets.detail) lines.push(`${ranges.size ? 'some token counts unknown' : 'token counts unknown'}: ${budgets.detail}`);

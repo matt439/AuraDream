@@ -12,7 +12,10 @@ Cold, as Check is: the CPU tokenizers on a daemon thread (the route's
 `detached`), never the image model, never the gate. Bounded: the distinct
 pairs are measured in render order up to `MAX_MEASURED`, and a first
 tokenizer load is waited for `WAIT` seconds at most, after which `detail`
-says the counts are unknown rather than that nothing is cut.
+says the counts are unknown rather than that nothing is cut. A tokenizer
+that cannot be read (gated, offline, still loading) stops the measuring at
+the first prompt it misses: `prompt_encoding` caches only a load that
+succeeded, so each further prompt would start another load and wait again.
 """
 from __future__ import annotations
 
@@ -81,8 +84,10 @@ def measure_cells(
     """
     if not any(cell.variables for cell in cells):
         return None
-    if prompt_encoding.encoders_for(model_id) is None:
+    specs = prompt_encoding.encoders_for(model_id)
+    if specs is None:
         return None
+    expected = {spec.name for spec in specs}
     pairs: dict[tuple[str, str | None], dict[str, str] | None] = {}
     for cell in cells:
         run = applied(cell.request)
@@ -100,6 +105,10 @@ def measure_cells(
         budget = GridPromptBudget(label=_label(variables), variables=variables, encoders=reports)
         budget.cut = _loses_text(budget)
         budgets.append(budget)
+        if expected - {report.name for report in reports if report.field == "prompt"}:
+            # An encoder went unread: its load failed or ran out of the
+            # wait. One try per preview, as Check makes one per check.
+            break
     return GridPromptBudgets(
         prompts=budgets,
         distinct=len(pairs),

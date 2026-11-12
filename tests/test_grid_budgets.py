@@ -6,7 +6,7 @@ from __future__ import annotations
 import time
 
 from backend import grid, grid_budgets, prompt_encoding
-from backend.schemas import GenerateRequest
+from backend.schemas import EncoderReport, GenerateRequest
 
 from tests.api_analysis_helpers import ANIMAGINE, FLUX, claim
 
@@ -87,6 +87,13 @@ def test_random_mode_and_variants_are_measured_by_their_resolved_text(client, fa
     assert variants["cutting_values"] == {}
 
 
+# Every FLUX.1 encoder read, as a measure whose tokenizers loaded answers.
+READ = [
+    EncoderReport(name=spec.name, tokens=2, budget=75)
+    for spec in prompt_encoding.encoders_for(FLUX) or []
+]
+
+
 def _cells(block: str, negative: str | None = None) -> list[grid.Cell]:
     request = GenerateRequest(prompt="{size} dog", negative_prompt=negative, width=256, height=256, seed=1)
     return grid.expand(request, prompt=block, steps="4,8")
@@ -97,7 +104,7 @@ def test_distinct_prompts_are_measured_once_and_bounded(monkeypatch):
 
     def measure(model_id, prompt, negative, *, wait=None):
         seen.append((prompt, negative))
-        return [], [], None
+        return READ, [], None
 
     monkeypatch.setattr(prompt_encoding, "measure", measure)
     cells = _cells("size = a | b | c")  # three prompts, two steps each
@@ -111,7 +118,7 @@ def test_the_negative_is_measured_as_applied(monkeypatch):
 
     def measure(model_id, prompt, negative, *, wait=None):
         seen.append(negative)
-        return [], [], None
+        return READ, [], None
 
     monkeypatch.setattr(prompt_encoding, "measure", measure)
     cells = _cells("size = a | b", negative="blurry")
@@ -123,18 +130,41 @@ def test_the_negative_is_measured_as_applied(monkeypatch):
 
 
 def test_one_wait_bounds_the_whole_preview(monkeypatch):
-    # A stalled tokenizer costs the preview its counts once, not per prompt.
+    # Slow tokenizers that do read: the preview's one wait is shared out,
+    # never handed whole to each prompt.
     waits = []
 
     def measure(model_id, prompt, negative, *, wait=None):
         waits.append(wait)
         time.sleep(0.05)
-        return [], [], "T5-XXL still loading"
+        return READ, [], None
 
     monkeypatch.setattr(prompt_encoding, "measure", measure)
     budgets = grid_budgets.measure_cells(FLUX, _cells("size = a | b | c"), lambda r: r, wait=0.08)
+    assert len(waits) == 3 and len(budgets.prompts) == 3
     assert waits[0] <= 0.08 and waits[-1] < 0.05 and all(w >= 0 for w in waits)
-    assert budgets.detail == "T5-XXL still loading"
+
+
+def test_an_unread_tokenizer_is_tried_once_per_preview(monkeypatch):
+    # A gated or offline tokenizer is never cached, so each measure would
+    # start its load again: the preview stops at the first prompt it misses,
+    # as Check tries once per check, and says the counts are unknown.
+    loads = []
+
+    def gated(source):
+        loads.append(source)
+        raise OSError("gated repo: accept its conditions first")
+
+    monkeypatch.setattr(prompt_encoding, "_load_tokenizer", gated)
+    prompt_encoding.unload()
+    cells = _cells("size = a | b | c | d | e")
+    started = time.monotonic()
+    budgets = grid_budgets.measure_cells(FLUX, cells, lambda r: r, wait=5.0)
+    assert time.monotonic() - started < 4.0
+    sources = {spec.source for spec in prompt_encoding.encoders_for(FLUX) or []}
+    assert sorted(map(str, loads)) == sorted(map(str, sources))
+    assert budgets.distinct == 5 and len(budgets.prompts) == 1
+    assert budgets.detail and "CLIP-L" in budgets.detail
 
 
 def test_a_checkpoint_without_an_encoder_table_entry_has_no_budgets():

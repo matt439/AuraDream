@@ -4134,6 +4134,12 @@ because the preview runs at every pause in typing and can resolve to a
 thousand prompts: the first `MAX_MEASURED` (128) distinct pairs, and one
 `WAIT` (5 s) for a cold tokenizer across the whole preview rather than
 Check's 30 s per call, after which `detail` says the counts are unknown.
+A tokenizer that cannot be read (gated, offline, still loading) stops the
+measuring at the first prompt it misses: `prompt_encoding` caches only a
+load that succeeded, so each later prompt would start the load again and
+wait its share - a review found an unaccepted gate costing every preview
+its full 5 s in tens of failed Hub requests. One try per preview, as
+Check makes one per check; the page then says the reason, not the cap.
 The server decides what is lost (a pooled-only encoder's cut, FLUX.1's
 CLIP-L, is not) and which values tip a prompt over: a value whose every
 measured prompt is cut while some other prompt is not. With every prompt cut
