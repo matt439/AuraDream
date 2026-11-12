@@ -70,15 +70,33 @@ def test_a_running_bundle_operation_refuses_the_delete(client, store, saved, mon
     assert (store.bundle_directory() / saved).exists()
 
 
+def _refused_unlink(monkeypatch, path, **attrs):
+    def refused(self, *args, **kwargs):
+        error = PermissionError(13, "Permission denied")
+        for key, value in attrs.items():
+            setattr(error, key, value)
+        raise error
+
+    monkeypatch.setattr(type(path), "unlink", refused)
+
+
 def test_a_file_another_process_holds_is_refused_in_use(client, store, saved, monkeypatch):
-    path = store.bundle_directory() / saved
-
-    def held(self, *args, **kwargs):
-        raise PermissionError("in use")
-
-    monkeypatch.setattr(type(path), "unlink", held)
+    # Windows' sharing violation: another program has it open; waiting helps.
+    _refused_unlink(monkeypatch, store.bundle_directory() / saved, winerror=32)
     refused = client.delete(URL.format(saved))
     assert refused.status_code == 409 and refused.json()["code"] == "bundle_in_use"
+
+
+def test_a_permission_the_server_lacks_is_said_in_its_own_words(client, store, saved, monkeypatch):
+    # Linux never refuses an unlink for an open file: EACCES or EPERM is a
+    # permission no wait changes, never "being downloaded or imported".
+    _refused_unlink(monkeypatch, store.bundle_directory() / saved)
+    refused = client.delete(URL.format(saved))
+    body = refused.json()
+    assert refused.status_code == 409 and "code" not in body
+    assert body["detail"].startswith(f"The server cannot delete {saved} (Permission denied)")
+    assert "downloaded or imported" not in body["detail"]
+    assert (store.bundle_directory() / saved).exists()
 
 
 def test_a_copy_the_automatic_backup_counts_is_refused(client, store):
@@ -86,6 +104,10 @@ def test_a_copy_the_automatic_backup_counts_is_refused(client, store):
     identity = receipts.ManagedIdentity(str(uuid4()), str(uuid4()), str(uuid4()))
     managed = bundles.export_bundle(keep_gallery=True, managed=identity)["name"]
     plain = bundles.export_bundle(keep_gallery=True)["name"]
+    # The list holds that row's Delete with the reason before any question.
+    holds = {item["name"]: item["delete_hold"] for item in client.get("/api/gallery/bundles").json()["bundles"]}
+    assert "automatic backup keeps" in holds[managed] and holds[managed].endswith(".")
+    assert holds[plain] is None
     refused = client.delete(URL.format(managed))
     assert refused.status_code == 409 and "code" not in refused.json()
     assert "automatic backup" in refused.json()["detail"]
@@ -96,6 +118,9 @@ def test_a_copy_the_automatic_backup_counts_is_refused(client, store):
 
 def test_an_unreadable_journal_refuses_rather_than_guesses(client, store, saved):
     receipts.path_for(store.settings.db_path).write_text("{not json", encoding="utf-8")
+    # The list still answers, every Delete held with the reason.
+    listed = client.get("/api/gallery/bundles").json()["bundles"]
+    assert listed and all("receipts could not be read" in item["delete_hold"] for item in listed)
     refused = client.delete(URL.format(saved))
     assert refused.status_code == 409 and "receipts could not be read" in refused.json()["detail"]
     assert (store.bundle_directory() / saved).exists()
@@ -112,3 +137,4 @@ def test_the_journal_names_only_live_and_pending_copies(store):
     assert receipts.counts_archive(db, directory, name.upper()) is True
     assert receipts.counts_archive(db, directory / "elsewhere", name) is False
     assert receipts.counts_archive(db, directory, "other.zip") is False
+    assert receipts.counted_archives(db, directory) == {name.casefold()}

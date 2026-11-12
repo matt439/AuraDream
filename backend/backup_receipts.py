@@ -432,9 +432,10 @@ def load_state(db_path: Path, gallery_id: str) -> Journal:
         raise ReceiptError(_ERROR) from None
 
 
-def counts_archive(db_path: Path, directory: Path, name: str) -> bool:
-    """Whether the journal counts `directory/name` as a live managed copy,
-    or one whose deletion is pending (GAL#26's hand delete refuses both).
+def counted_archives(db_path: Path, directory: Path) -> frozenset[str]:
+    """The casefolded names the journal counts in `directory` as live
+    managed copies, or ones whose deletion is pending (GAL#26's hand delete
+    refuses both, and the Bundles list holds their Delete).
 
     The journal's own gallery id is the one it is read under: this answers
     what the journal says, not whether it is this gallery's. A missing
@@ -444,7 +445,7 @@ def counts_archive(db_path: Path, directory: Path, name: str) -> bool:
     path = path_for(db_path)
     try:
         if not path.exists() and not path.is_symlink():
-            return False
+            return frozenset()
         with path.open("rb") as stream:
             data = stream.read(_MAX_BYTES + 1)
         gallery_id = json.loads(data.decode("utf-8")).get("gallery_id")
@@ -455,7 +456,12 @@ def counts_archive(db_path: Path, directory: Path, name: str) -> bool:
     journal = load_state(db_path, gallery_id)
     where = os.path.normcase(str(directory))
     live = journal.receipts + ((journal.pending.receipt,) if journal.pending is not None else ())
-    return any(os.path.normcase(item.directory) == where and item.name.casefold() == name.casefold() for item in live)
+    return frozenset(item.name.casefold() for item in live if os.path.normcase(item.directory) == where)
+
+
+def counts_archive(db_path: Path, directory: Path, name: str) -> bool:
+    """Whether the journal counts `directory/name` (see `counted_archives`)."""
+    return name.casefold() in counted_archives(db_path, directory)
 
 
 def load(db_path: Path, gallery_id: str) -> tuple[Receipt, ...]:

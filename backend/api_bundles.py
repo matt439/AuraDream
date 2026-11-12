@@ -248,7 +248,7 @@ def create_router(get_manager: Callable[[], BundleManager], services: AppService
                           refusal_codes.BUNDLE_IN_USE)
         try:
             return await asyncio.to_thread(bundles.delete_saved_bundle, name)
-        except bundles.ManagedBundle as exc:
+        except (bundles.ManagedBundle, bundles.CannotDelete) as exc:
             raise HTTPException(409, sentence(str(exc))) from None
         except refusal_codes.CodedLookupError as exc:
             raise refusal(404, str(exc), exc) from None

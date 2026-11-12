@@ -472,7 +472,9 @@ before changing it.
   text), the LIKE escape, `strict_scope` (`key:value` terms and their
   exclusions; free text and `-word` refused). `storage.list_images` sends
   each free word to FTS5 as a quoted prefix (`"drag"*`) and each excluded
-  word exact (GAL#25); its LIKE fallback is a substring either way
+  word exact (GAL#25); its fallback (an odd double quote breaks the
+  MATCH) keeps both through `search.word_match`, a literal match bounded
+  where a word starts (and, excluded, ends), registered on the connection
 - `backend/main.py` — app lifecycle and model ownership: load state and
   lock, `ensure_loaded`, the load-failure wording, model switching, status,
   the model and adapter routes, the middlewares, and the `services`
@@ -2175,8 +2177,8 @@ measured on the card and when.
   image is gone for every live-facing read and present for every read about
   what exists or was made. `storage._LIVE` (`binned_at IS NULL`) is added by
   `list_images` (before the text predicates - the words' MATCH and the
-  excluded words' NOT IN - which the LIKE fallback swaps together as the
-  last, to `prompt LIKE` and `prompt NOT LIKE`; `binned=True` lists the bin alone), `get_image`/`get_images`
+  excluded words' NOT IN - which the fallback swaps together as the
+  last, to `search.word_match` as a prefix and as an exact word; `binned=True` lists the bin alone), `get_image`/`get_images`
   (unless `include_binned`), `reference_paths` (a binned id is refused,
   "is in the recycle bin; restore it to use it", before the file check - so a
   submission, a queued cell and `generate.py` alike), `set_favorite` (404
@@ -3124,16 +3126,22 @@ measured on the card and when.
   uncounted `/files/` control path so a running operation reaches it and is
   refused as `bundle_in_use`; the file is then taken under
   `bundle_leases.downloads.exclusive`, which refuses while any download or
-  import reader holds it (`bundle_in_use` too, as is a Windows
-  `PermissionError` from another process), and a missing file is
+  import reader holds it (`bundle_in_use` too, as is Windows' sharing
+  violation, `winerror` 32, from another process; any other
+  `PermissionError` - Linux never refuses an unlink for an open file - is
+  refused uncoded in its own words, `CannotDelete`), and a missing file is
   `bundle_gone`. An archive the automatic backup's journal counts as live
-  or pending (`backup_receipts.counts_archive`) is refused uncoded, as is
+  or pending (`backup_receipts.counted_archives`) is refused uncoded, as is
   any delete while that journal cannot be read: retention owns a managed
-  copy, and one gone by hand would still be counted. `bundle_delete.py`'s
+  copy, and one gone by hand would still be counted. The list says so
+  first: each saved bundle's `delete_hold` is that reason (or None), and
+  the row's Delete is held with it before any question. `bundle_delete.py`'s
   handle-bound mechanism is not used: it needs a receipt and an installed
   shared mode, which an ordinary saved bundle has neither of. The row's
   button is `aria-disabled` with its reason while an operation runs or
-  another delete is out.
+  another delete is out, and a delete in flight holds every Import and
+  creation action (`bundleActionHold`) as an Import being sent holds every
+  Delete. The rebuilt list keeps the focus in it (`refocusBundleRow`).
 - The dialog separates **Create a bundle** from **Import a bundle**.
   New password/Repeat apply to either creation action. Back up is the primary
   creation action and requires no typed count; the separate clear group names
@@ -10537,9 +10545,10 @@ missing-source count said as a fact, a gallery read refused mid-backup
 (stubbed 409) repaired when the backup ends with the typed count kept, the
 holds with nothing picked or
 starred, the layout at 600x900 and 2560x1305, and a saved bundle's Delete
-(GAL#26: Cancel keeps it, a held press says its reason, a stubbed
-`bundle_in_use` keeps the row, a confirmed press removes exactly that file
-from the list and the server).
+(GAL#26: Cancel keeps it, a held press says its reason, a delete out holds
+every Import, a stubbed `delete_hold` holds that row alone and asks nothing,
+a stubbed `bundle_in_use` keeps the row, a confirmed press removes exactly
+that file from the list and the server and leaves the focus in the list).
 
 Its sizing/Bundles review cases also cover explicit password association and
 keyboard navigation, the clear safety explanation and enablement, blank/wrong

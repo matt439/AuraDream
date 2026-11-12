@@ -267,7 +267,8 @@ function bundleHold() {
 }
 
 function bundleActionHold() {
-  return bundleClearHold() || bundleHold() || (bundleSettling ? 'Refreshing the gallery after the bundle operation' : '')
+  return bundleClearHold() || bundleHold() || (bundleDeleting ? `Wait for ${bundleDeleting} to be deleted` : '')
+    || (bundleSettling ? 'Refreshing the gallery after the bundle operation' : '')
     || (bundleReading ? 'Wait for the gallery counts' : '') || (serverOffline ? 'The server is not answering' : '')
     || (busy || queuedIds.length || elsewhereBusy || submitting ? 'Wait for all generation jobs to finish' : '')
     || (expandingPrompt || critiquing ? 'Wait for prompt expansion or the critic to finish' : '')
@@ -335,7 +336,9 @@ function syncBundleControls() {
     hold(button, why || ('bundleEncrypted' in button.dataset ? locked : ''), 'Merge this saved bundle into the gallery');
   }
   for (const button of els.bundleList.querySelectorAll('[data-bundle-delete]')) {
-    hold(button, bundleDeleteHold(), 'Delete this saved bundle file from the server, after a confirmation');
+    // The server's own hold first: a copy the automatic backup counts.
+    hold(button, button.dataset.bundleDeleteHold || bundleDeleteHold(),
+      'Delete this saved bundle file from the server, after a confirmation');
   }
   syncAutomaticBackupControls();
 }
@@ -504,6 +507,7 @@ async function refreshBundleList() {
         remove.dataset.bundleDelete = bundle.name; remove.dataset.bundleBytes = String(bundle.bytes);
         remove.textContent = 'Delete';
         remove.setAttribute('aria-label', `Delete ${bundle.name}`);
+        if (bundle.delete_hold) remove.dataset.bundleDeleteHold = bundle.delete_hold.replace(/\.$/, '');
         row.append(button, remove);
         return row;
       });
@@ -512,10 +516,27 @@ async function refreshBundleList() {
         empty.textContent = 'No bundles saved yet.';
         rows.push(empty);
       }
+      // A rebuilt list drops the focused row's button (a delete's own,
+      // after its question): focus goes to the same row's button by name,
+      // else the next row's, else the list, never <body> (GAL#26).
+      const focused = els.bundleList.contains(document.activeElement) ? document.activeElement : null;
+      const at = focused ? [...els.bundleList.children].findIndex((li) => li.contains(focused)) : -1;
       els.bundleList.replaceChildren(...rows);
+      if (focused && !focused.isConnected) refocusBundleRow(focused, at);
     }
     syncBundleControls();
   } catch (err) { bundleSay(err.message, true); }
+}
+
+function refocusBundleRow(was, index) {
+  const attrs = ['bundleDelete', 'bundleImport'];
+  const same = [...els.bundleList.querySelectorAll('button')].find((b) =>
+    attrs.some((a) => a in was.dataset && b.dataset[a] === was.dataset[a]));
+  const row = els.bundleList.children[Math.min(index, els.bundleList.children.length - 1)];
+  const target = same || row?.querySelector('[data-bundle-delete], [data-bundle-import]');
+  if (target) { target.focus({ preventScroll: true }); return; }
+  if (!els.bundleList.hasAttribute('tabindex')) els.bundleList.tabIndex = -1;
+  els.bundleList.focus({ preventScroll: true });
 }
 
 // One saved file, after the page's own question: permanent, like Empty bin.
