@@ -855,8 +855,9 @@ async function runRefine() {
   // line with the dialog and its edits gone. It stays open now, the refusal
   // in its own line. Until the pass's first frame, the viewer shows its
   // source standing in for it (startJob's `placeholder`), captioned with
-  // where the pass is: on SDXL, which sends no frames, it showed whatever
-  // image was there before for the whole pass. The full image - the wide
+  // where the pass is: on a checkpoint that sends no frames (no preview map;
+  // SDXL before 2026-11-12), it showed whatever image was there before for
+  // the whole pass. The full image - the wide
   // dialog's source pane has it already - since the thumbnail, stretched to
   // the viewer, was a fourfold upscale at QHD.
   const source = refineSource;

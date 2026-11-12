@@ -6317,7 +6317,8 @@ weights · m:ss - the first load of a session takes a few minutes.", the clock
 aria-hidden, one line. After Generate the eye is on the viewer, where "Nothing
 generated this session" had stood for the minutes a first load takes. The
 line's own nodes are kept and put back when the ticker stops - at the first
-progress event after the load, not at the first frame: SDXL sends no frames,
+progress event after the load, not at the first frame: a checkpoint with no
+preview map sends no frames (SDXL too, before 2026-11-12),
 and the clock would have frozen there.
 
 **What a queued job is behind** (2026-10-05). A paused job keeps the gate, so
@@ -9596,7 +9597,8 @@ judge the translation by each scheduler's own `add_noise`. Not done here:
 FLUX.2's map (`AutoencoderKLFlux2/32`, klein, ERNIE and FLUX 3) stays
 deferred, and SDXL's frames have not been looked at on the card.
 
-A refine pass has a stand-in until its first frame: SDXL sends none, and the
+A refine pass has a stand-in until its first frame: SDXL sent none then (it
+has a map since 2026-11-12, above; FLUX.2's family still sends none), and the
 viewer showed whatever image was there before for the whole pass, with nothing
 naming the source. `runRefine` hands `startJob` a `placeholder` (the source's
 full image - the thumbnail was a fourfold upscale at QHD - the result's size,

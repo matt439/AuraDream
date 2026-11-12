@@ -100,9 +100,10 @@
 /* The live preview is a 256 px JPEG of the latents, shown larger than it is
    and marked as provisional; the real image replaces it in the same box. */
 .viewer .live img { opacity: 0.85; border: 1px dashed var(--line); cursor: default; }
-/* A pass that has sent no frame yet - SDXL sends none - stands in the strip
-   as its source, dimmed and softened at the result's shape, captioned with
-   where it is, until a frame or the result takes its place. */
+/* A pass that has sent no frame yet - or never will, with no preview map -
+   stands in the strip as its source, dimmed and softened at the result's
+   shape, captioned with where it is, until a frame or the result takes its
+   place. */
 .viewer .pending img { object-fit: cover; opacity: 0.45; filter: blur(1px); cursor: default; }
 /* A starred result: the star's amber round the picture, as a card's. */
 .viewer .result.fav .tile > img { box-shadow: 0 0 0 2px var(--star); }

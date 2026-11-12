@@ -25,6 +25,7 @@ from diffusers import (
 from PIL import Image
 
 from backend import latent_preview
+from backend.backends import loading
 from backend.backends.diffusers_backend import DiffusersBackend
 from backend.schemas import GenerateRequest
 
@@ -79,18 +80,29 @@ def test_a_non_flow_latent_becomes_the_flow_form(scheduler_type):
         assert view == pytest.approx((1 - s) * x0 + s * eps, abs=1e-4)
 
 
-def test_the_flow_threshold_is_sigma_nine():
+def test_the_flow_threshold_is_sigma_nine(monkeypatch):
     """Flow's 0.9 is sigma 9: the zero-terminal-SNR schedule NoobAI runs
     draws nothing for its first steps, and the terminal 0 is the plain latent."""
     for sigma, drawn in ((9.5, False), (8.9, True), (4096.0, False), (0.5, True)):
         s = latent_preview.flow_view(EulerDiscreteScheduler(**_SDXL), torch.zeros(1), sigma)[1]
         assert (s <= latent_preview.MAX_SIGMA) is drawn, sigma
-    scheduler = EulerDiscreteScheduler(**_SDXL, prediction_type="v_prediction",
-                                       rescale_betas_zero_snr=True)
+    # NoobAI's scheduler as `loading.component_overrides` builds it (its
+    # shipped config with the loader's overrides: trailing spacing, so the
+    # schedule starts at sigma 4096). A frame is the latent after a step, at
+    # `sigmas[step + 1]`: 58, 27, 17 and 12 draw nothing, and every frame
+    # from the fifth (8.6) on is drawn.
+    monkeypatch.setattr(EulerDiscreteScheduler, "from_pretrained", classmethod(
+        lambda cls, source, subfolder, local_files_only, **overrides: cls(**{**_SDXL, **overrides})))
+    scheduler = loading.component_overrides(loading.NOOB_MODEL_ID, None,
+                                            resolved_model_id="unused")["scheduler"]
+    assert scheduler.config.timestep_spacing == "trailing"
     scheduler.set_timesteps(STEPS)
-    drawn = [latent_preview.flow_view(scheduler, torch.zeros(1), float(s))[1] <= latent_preview.MAX_SIGMA
-             for s in scheduler.sigmas]
-    assert drawn[:4] == [False] * 4 and all(drawn[6:])
+    assert float(scheduler.sigmas[0]) == pytest.approx(4096.0)
+    frames = [float(s) for s in scheduler.sigmas[1:]]
+    assert [round(s) for s in frames[:5]] == [58, 27, 17, 12, 9]
+    drawn = [latent_preview.flow_view(scheduler, torch.zeros(1), s)[1] <= latent_preview.MAX_SIGMA
+             for s in frames]
+    assert drawn == [False] * 4 + [True] * (STEPS - 4)
     scheduler = EulerDiscreteScheduler(**_SDXL)
     latent = torch.ones(1)
     out, s = latent_preview.flow_view(scheduler, latent, 0.0)
