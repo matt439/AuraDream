@@ -168,7 +168,7 @@
 .model-performance-label { font-weight: 600; }
 .model-performance-note { color: var(--text-readout); font-size: var(--fs-body-sm); }
 .model-performance[open] > .model-loader-options { margin-top: var(--sp-2); }
-/* The one-time offer to import this browser's earlier stars (model-switch.js,
+/* The one-time offer to import this browser's earlier stars (model-favourites.js,
    syncModelFavouriteOffer): one line of words with its two buttons after
    them, above the heading row. A press keeps its height (an inline
    min-height) until the next opening. */

@@ -821,7 +821,7 @@ before changing it.
   `AURADREAM_INSTALL_TEST_ROOT`, `AURADREAM_INSTALL_TEST_PROC_VERSION`,
   `AURADREAM_INSTALL_TEST_WAIT` (control.sh's wait)
   (`tests/test_linux_scripts.py`)
-- `web/` - served as-is from `/static`; `index.html` loads 76 classic
+- `web/` - served as-is from `/static`; `index.html` loads 78 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `page-helpers.js`, right
   after it, the page-wide pure helpers (`plural`, `excerpt`, `units`,
@@ -833,7 +833,9 @@ before changing it.
   mirrors and Pause, and `job-queue.js` the queue and which job the page
   watches; `panel.js`, `runs.js` and `viewer.js` the settings,
   run history and results; `gallery.js`, `gallery-actions.js` and `reuse.js`
-  the cards and their actions, `gallery-head.js` the gallery head's
+  the cards and their actions, `ask-dialog.js` (right before
+  `gallery-actions.js`) the page's own confirm and count questions
+  (`askConfirm`, `askCount`), `gallery-head.js` the gallery head's
   pointer-stable layout (`pointHead`, `showInHead`, `syncHeadForPicks`); `png-settings.js` Load settings from PNG
   (a dropped or picked PNG's text chunks read, sent and filled in through
   Reuse); `gallery-search.js` the lightbox's search
@@ -850,13 +852,17 @@ before changing it.
   dialog's preview, submit, close and Reuse, and an edit's lineage; `styles/instruction-edit.css`);
   `prompt-note.js` the note under the prompt and its Undo (`showPromptNote`, `promptUndo`); `tags.js`, `tag-tokens.js` and `tag-chips.js` the prompt helper, `tag-lists.js` the editors' suggestion lists and the negative box's, `tag-helper.js` its Tags menu (the toggles, Start with, Finish with and the caret line), `tag-finder.js` its Find
   tag dropdown; `prompt-examples.js` the
-  Examples menu, `prompt-expand.js` Expand (ERNIE's rewriter, FLUX 3's upsampler); `analysis.js`,
+  Examples menu, `prompt-expand.js` Expand (ERNIE's rewriter, FLUX 3's upsampler; its button's
+  state, `syncExpandButton`, and the English under the prompt, `placeTranslation`,
+  `promptReplaced`); `analysis.js`,
   `analysis-critic.js` and `comparison.js` the check and critic. `sizes.js`
   and `status.js` retain their control/profile roles; `model-switch.js` owns
   checkpoint selection and retiring state prepared under the old model;
   `execution.js` owns inspectable unavailable performance choices, composer
   cache intent and shared execution holds;
   `model-shots.js` the picker's strip of the chosen checkpoint's images;
+  `model-favourites.js` the table's stars (the server's set, this page's
+  unconfirmed presses and the one-time import offer);
   `model-storage.js` the picker's read-only On disk fold (the cache
   inventory, read when the fold opens or on Refresh, never on a timer);
   `bundles.js` owns the gallery bundle dialog (Back up and its scope

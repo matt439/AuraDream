@@ -98,7 +98,7 @@
            also joining its name. -->
       <div class="model-format" id="model-format-field" hidden><label for="model-format">Nunchaku format</label><select id="model-format" autocomplete="off" aria-describedby="model-format-help"></select><span class="model-format-help" id="model-format-help"></span></div>
       <!-- The one-time offer to import the stars this browser kept before
-           the server held them (model-switch.js, syncModelFavouriteOffer):
+           the server held them (model-favourites.js, syncModelFavouriteOffer):
            decided as the picker opens, never while it stays open. tabindex
            -1: a press's outcome takes the focus from the button it hides. -->
       <p class="model-favourites-offer" id="model-favourites-offer" tabindex="-1" hidden><span id="model-favourites-offer-text"></span><button class="ghost tiny" id="btn-model-favourites-import" type="button" title="Add this browser's earlier favourites to this gallery's">Import</button><button class="ghost tiny" id="btn-model-favourites-dismiss" type="button" title="Keep this gallery's favourites as they are; this browser won't ask again">Don't import</button></p>
@@ -231,7 +231,7 @@
         <button type="button" class="ghost tiny" id="btn-analyze" aria-controls="prompt-analysis"
                 title="Check this prompt against the checkpoint's guide and what its text encoders read - instant, on this machine">Check</button>
         <!-- Held with aria-disabled and the reason as its title, never
-             disabled (status.js, syncExpandButton): a first use can take
+             disabled (prompt-expand.js, syncExpandButton): a first use can take
              minutes, and a disabled button dropped a keyboard user's focus. -->
         <button type="button" class="ghost tiny" id="btn-expand" hidden
                 title="Use ERNIE's prompt rewriter once, put its result here, then review it before generating">Expand</button>
@@ -2045,7 +2045,7 @@
   </div>
 </dialog>
 
-<!-- The questions a delete asks (gallery-actions.js: confirmDialog,
+<!-- The questions a delete asks (ask-dialog.js: confirmDialog,
      countDialog) - Delete unstarred's count, and in the recycle bin Delete
      permanently and Empty recycle bin - in the page's own dialog beside what
      was pressed rather than the browser's light box at the top of the
@@ -2520,6 +2520,7 @@
 <script src="/static/model-switch.js"></script>
 <script src="/static/model-shots.js"></script>
 <script src="/static/model-storage.js"></script>
+<script src="/static/model-favourites.js"></script>
 <script src="/static/generation.js"></script>
 <script src="/static/job-progress.js"></script>
 <script src="/static/job-queue.js"></script>
@@ -2530,6 +2531,7 @@
 <script src="/static/runs.js"></script>
 <script src="/static/viewer.js"></script>
 <script src="/static/gallery.js"></script>
+<script src="/static/ask-dialog.js"></script>
 <script src="/static/gallery-actions.js"></script>
 <script src="/static/gallery-head.js"></script>
 <script src="/static/gallery-select.js"></script>

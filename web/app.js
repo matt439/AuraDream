@@ -688,7 +688,7 @@ for (const el of [els.editInstruction, els.editSeed, els.editSteps, els.editGuid
   el.addEventListener('input', editChanged);
 }
 
-// A delete's question (gallery-actions.js): Delete, Cancel, Enter in the count's box,
+// A delete's question (ask-dialog.js): Delete, Cancel, Enter in the count's box,
 // a press outside it. Escape is the dialog's own cancel, answered as Cancel.
 els.confirmOk.onclick = () => els.confirmDialog.close('ok');
 els.confirmCancel.onclick = () => els.confirmDialog.close('');

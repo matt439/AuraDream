@@ -80,7 +80,7 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
 }
 .translation textarea:focus { border-color: var(--accent-2); box-shadow: 0 0 0 1px var(--accent-2); }
 /* From 1800 px ERNIE's English is at the head of the results, not in the
-   panel (status.js, placeTranslation): a box of its own, as the results'
+   panel (prompt-expand.js, placeTranslation): a box of its own, as the results'
    other boxes are, and as tall as the text up to two fifths of the window -
    in the panel its four rows showed a fifth of a long expansion, and the
    field pushed Generate below the window at 125%. The viewer and the gallery
@@ -308,7 +308,7 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
     font-size: var(--fs-sm);
   }
 }
-/* Running, Expand keeps its idle width (status.js, syncExpandButton, locks
+/* Running, Expand keeps its idle width (prompt-expand.js, syncExpandButton, locks
    it) and "Expand…" uses the side padding for its ellipsis, so the full
    caption row does not wrap Reset under the pointer. */
 #btn-expand.running { padding-inline: 0; white-space: nowrap; }
