@@ -359,3 +359,20 @@ def test_a_locked_database_stops_the_clear_before_any_file_is_removed(store, mon
     assert Path(archive["path"]).is_file()
     assert bundle_snapshot(store) == snapshot
     assert store.get_image(first.id) and store.get_image(second.id)
+
+
+def test_saved_bundles_list_newest_first_by_time_with_the_name_breaking_a_tie(store):
+    # GAL#27: the names' order disagrees with their times, as a renamed or
+    # copied-in archive's does, so a name sort would put them backwards.
+    directory = bundles._directory()
+    directory.mkdir(parents=True, exist_ok=True)
+    times = {"zz-oldest.zip": 1_700_000_000, "aa-newest.zip": 1_800_000_000,
+             "mm-middle.ldbundle": 1_750_000_000, "bb-tied.zip": 1_750_000_000}
+    for name, when in times.items():
+        path = directory / name
+        path.write_bytes(b"not read as an archive")
+        os.utime(path, (when, when))
+    listing = bundles.list_bundles()
+    assert [entry["name"] for entry in listing] == [
+        "aa-newest.zip", "mm-middle.ldbundle", "bb-tied.zip", "zz-oldest.zip"]
+    assert [entry["created_at"] for entry in listing] == [1_800_000_000, 1_750_000_000, 1_750_000_000, 1_700_000_000]

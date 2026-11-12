@@ -86,7 +86,10 @@ def list_bundles() -> list[dict]:
                 continue
             found.append({"name": p.name, "bytes": info.st_size, "created_at": info.st_mtime,
                           "encrypted": encrypted})
-    return sorted(found, key=lambda b: b["name"], reverse=True)
+    # Newest first by the file's time (its creation for an archive this app
+    # wrote, or a copy's arrival), the name breaking a tie: a renamed or
+    # copied-in archive's name says nothing about its age.
+    return sorted(found, key=lambda b: (b["created_at"], b["name"]), reverse=True)
 
 
 class MissingImage(BundleError):

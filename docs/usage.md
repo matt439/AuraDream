@@ -1395,7 +1395,8 @@ deleted along with the app.
 Model weights, LoRAs and browser preferences are not part of a gallery
 bundle.
 
-The dialog lists saved bundles with **Download** and **Import** controls.
+The dialog lists saved bundles newest first by the file's date, which each
+row shows beside its size, with **Download** and **Import** controls.
 You can also choose a bundle file from your computer and import it. Saved
 bundles marked **Protected**, and selected `.ldbundle` files, need the
 password under **Import password**; a wrong password is
