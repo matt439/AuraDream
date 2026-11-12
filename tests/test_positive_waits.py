@@ -6,9 +6,12 @@ answer, a thread expected to end, a poll expected to see its condition -
 that allows 2 s fails there for no fault of the code. A positive wait
 costs its timeout only when the test is already failing, so it allows 30 s
 (docs/rules.md, Tests). A negative wait - one that proves something does
-*not* happen yet - stays short, and says so: inside `assert not ...` or
-`pytest.raises(...)`, which this scan reads as negative by itself, or named
-in `NEGATIVE` below with the reason it is short.
+*not* happen yet - stays short, and says so: directly under `assert not ...`, or
+under a `pytest.raises(...)` that expects only a timeout (`TimeoutError`,
+`TimeoutExpired`, `queue.Empty`), which this scan reads as negative by
+itself, or named in `NEGATIVE` below with the reason it is short. A wait
+under `if not` or `while not`, or under a `pytest.raises` of any other
+error, is a wait for an outcome and is flagged.
 
 The scan reads every Python file under tests/ and flags a literal timeout
 under `FLOOR` seconds in:
@@ -21,10 +24,16 @@ under `FLOOR` seconds in:
 - a deadline, `time.monotonic()` (or `perf_counter()`, `time()`) plus a
   literal;
 - a `for _ in range(N)` loop around `sleep(s)`, whose poll lasts N x s.
+
+It reads the same forms in a string that parses as a Python script with a
+wait in it: a script a test runs in a child interpreter waits on the same
+slow runner.
 """
 from __future__ import annotations
 
 import ast
+import textwrap
+import warnings
 from pathlib import Path
 
 TESTS = Path(__file__).resolve().parent
@@ -48,12 +57,31 @@ NEGATIVE: dict[tuple[str, str, str], str] = {
     ("test_critic_process.py", "_listening",
      "socket.create_connection(('127.0.0.1', port), timeout=0.5)"):
         "a probe that may be refused: Windows retries a refused loopback connect for 2 s",
+    ("test_critic_process.py", "<script>",
+     "socket.create_connection(('127.0.0.1', port), timeout=0.5)"):
+        "the launcher's probe, refused until the stand-in listens, inside a 30 s deadline",
     ("test_cli.py", "test_a_server_that_would_not_say_is_refused_in_its_own_words", "2.0"):
         "a stand-in's signature mirroring the probe it replaces; it never waits",
 }
 
 _POSITIONAL = {"wait": 0, "join": 0, "result": 0, "exception": 0}
 _CLOCKS = {"monotonic", "perf_counter", "time"}
+
+
+_TIMEOUTS = {"TimeoutExpired", "TimeoutError", "Empty"}
+
+
+def _expects_timeout(raises: ast.Call) -> bool:
+    """Whether a `pytest.raises(...)` expects only a wait running out."""
+    if not raises.args:
+        return False
+    expected = raises.args[0]
+    names = expected.elts if isinstance(expected, ast.Tuple) else [expected]
+    return all(
+        isinstance(name, (ast.Name, ast.Attribute))
+        and ast.unparse(name).rpartition(".")[2] in _TIMEOUTS
+        for name in names
+    )
 
 
 def _seconds(node: ast.AST | None) -> float | None:
@@ -113,16 +141,27 @@ class _Scan(ast.NodeVisitor):
         self.generic_visit(node)
         self.scope.pop()
 
-    def visit_UnaryOp(self, node):
-        negated = isinstance(node.op, ast.Not)
-        self.negative += negated
-        self.generic_visit(node)
-        self.negative -= negated
+    def visit_Assert(self, node):
+        # Only `assert not <wait>` proves a negative: an `if not event.wait(2)`
+        # or `while not ...` is a wait expected to succeed.
+        test = node.test
+        if isinstance(test, ast.UnaryOp) and isinstance(test.op, ast.Not):
+            self.negative += 1
+            self.visit(test.operand)
+            self.negative -= 1
+        else:
+            self.visit(test)
+        if node.msg is not None:
+            self.visit(node.msg)
 
     def visit_With(self, node):
+        # A wait under `pytest.raises` is negative only when what it expects
+        # is the wait running out; one expected to end by raising something
+        # else is still a wait for an outcome.
         raises = any(
             isinstance(item.context_expr, ast.Call)
             and ast.unparse(item.context_expr.func).rpartition(".")[2] == "raises"
+            and _expects_timeout(item.context_expr)
             for item in node.items
         )
         self.negative += raises
@@ -183,10 +222,38 @@ def short_waits(root: Path = TESTS) -> list[tuple[str, int, str, str, float]]:
     helpers = _helpers(trees)
     found = []
     for path, tree in trees.items():
-        scan = _Scan(path.relative_to(root).as_posix(), helpers)
+        name = path.relative_to(root).as_posix()
+        scan = _Scan(name, helpers)
         scan.visit(tree)
         found.extend(scan.found)
+        if path.name == Path(__file__).name:
+            continue  # its own self-test samples are short on purpose
+        for script, line in _scripts(tree):
+            inner = _Scan(name, helpers)
+            inner.scope.append("<script>")
+            inner.visit(script)
+            found.extend(
+                (where, line + lineno - 1, scope, source, seconds)
+                for where, lineno, scope, source, seconds in inner.found
+            )
     return found
+
+
+def _scripts(tree: ast.Module):
+    """Each string in a file that is Python with a wait in it: the script a
+    test runs in a child interpreter waits on the same slow runner."""
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.Constant) and isinstance(node.value, str)):
+            continue
+        if "\n" not in node.value or not ("wait" in node.value or "timeout" in node.value):
+            continue
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", SyntaxWarning)
+                script = ast.parse(textwrap.dedent(node.value))
+        except SyntaxError:
+            continue
+        yield script, node.lineno
 
 
 def test_every_positive_wait_has_seconds_of_margin():
@@ -222,12 +289,24 @@ def test_the_scan_reads_each_form_and_its_negatives(tmp_path):
         "        time.sleep(0.02)\n"
         "    event.wait(30)\n"
         "    assert not event.wait(0.1)\n"
-        "    event.wait(0)\n",
+        "    event.wait(0)\n"
+        "    with pytest.raises(subprocess.TimeoutExpired):\n"
+        "        process.wait(timeout=1)\n"
+        "    with pytest.raises((TimeoutError, queue.Empty)):\n"
+        "        queue.get(timeout=0.2)\n"
+        "    with pytest.raises(ValueError):\n"
+        "        asyncio.wait_for(future, 5)\n"
+        "    if not event.wait(2.5):\n"
+        "        pytest.fail('never set')\n"
+        "    while not event.wait(1.5):\n"
+        "        pass\n"
+        "SCRIPT = 'import asyncio\\nasyncio.wait_for(job, timeout=6)\\n'\n",
         encoding="utf-8",
     )
     sources = [source for _, _, _, source, _ in short_waits(tmp_path)]
     assert sources == [
         "5.0", "event.wait(2)", "future.result(timeout=3)", "thread.join(1)",
         "queue.get(timeout=0.5)", "asyncio.wait_for(future, 2)", "until(lambda: True, 4)",
-        "time.monotonic() + 3", "range(100)",
+        "time.monotonic() + 3", "range(100)", "asyncio.wait_for(future, 5)",
+        "event.wait(2.5)", "event.wait(1.5)", "asyncio.wait_for(job, timeout=6)",
     ]

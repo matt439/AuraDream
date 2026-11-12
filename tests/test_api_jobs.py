@@ -3,6 +3,7 @@ stream terminated, cancel and pause landing where they should."""
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import threading
 import time
 
@@ -363,13 +364,22 @@ def test_cancelling_a_queued_job_ends_it_at_once(client, fake):
     queued = client.post(
         "/api/generate", json={"prompt": "y", "width": 256, "height": 256}
     ).json()["job_id"]
-    assert client.post(f"/api/jobs/{queued}/cancel").json()["status"] == "cancelled"
-    events = stream_job(client, queued)
-    # One terminal event, delivered without waiting for the job ahead, which
-    # is still held running: an event, not a stopwatch, says it did not wait.
+
+    def cancel_and_stream():
+        status = client.post(f"/api/jobs/{queued}/cancel").json()["status"]
+        return status, stream_job(client, queued)
+
+    # The job ahead stays held until the cancel and its terminal event have
+    # both answered: one that waited for it would never answer, so the
+    # future's timeout fails the test instead of hanging it.
+    with concurrent.futures.ThreadPoolExecutor(1) as pool:
+        try:
+            status, events = pool.submit(cancel_and_stream).result(timeout=30)
+        finally:
+            release.set()
+    assert status == "cancelled"
+    # One terminal event, delivered while the job ahead was still held.
     assert [e["type"] for e in events] == ["done"]
-    assert client.get(f"/api/jobs/{ahead}").json()["status"] == "running"
-    release.set()
     stream_job(client, ahead)
     assert [r.prompt for r in fake.requests] == ["x"]
 

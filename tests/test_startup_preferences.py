@@ -300,7 +300,7 @@ async def probe():
             async def loaded():
                 while main._load_state["state"] != "ready":
                     await asyncio.sleep(0.005)
-            await asyncio.wait_for(loaded(), timeout=5)
+            await asyncio.wait_for(loaded(), timeout=30)
         else:
             await asyncio.sleep(0)
         result = {

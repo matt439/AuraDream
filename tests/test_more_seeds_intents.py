@@ -279,7 +279,7 @@ def test_cancelling_one_caller_waits_for_settlement_without_cancelling_the_inten
             assert calls == 1
             release.set()
             with pytest.raises(asyncio.CancelledError):
-                await asyncio.wait_for(caller, timeout=2)
+                await asyncio.wait_for(caller, timeout=30)
             assert await asyncio.wait_for(retry, timeout=30) == {"job_id": "accepted-once"}
             assert await ledger.execute(token, PAYLOAD, CONTEXT, operation) == {"job_id": "accepted-once"}
             assert calls == 1 and not ledger.pending

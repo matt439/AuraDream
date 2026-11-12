@@ -187,7 +187,7 @@ def test_response_releases_on_cancellation_and_original_errors(tmp_path, failure
                 await task
         else:
             with pytest.raises(RuntimeError if failure == "missing" else ValueError):
-                await asyncio.wait_for(task, 5)
+                await asyncio.wait_for(task, 30)
         assert not registry.leased(path)
         assert background == ([True] if failure == "background" else [])
 

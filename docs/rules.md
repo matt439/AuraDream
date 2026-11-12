@@ -10871,12 +10871,16 @@ succeed (an event set, a future answered, a thread ended, a deadline poll
 seeing its condition), allows 30 s: it costs that only when the test is
 already failing, and a Windows runner once took 13 s over a setup. A
 negative wait, one proving something has *not* happened yet, stays short and
-says so: inside `assert not ...` or `pytest.raises(...)`, or named with its
-reason in `NEGATIVE` in `tests/test_positive_waits.py`, which scans every
-file under `tests/` (a `timeout=` keyword, `.wait/.join/.result()`'s first
-argument, `asyncio.wait_for`'s second, a tests helper's timeout and its
-default, a clock-plus-literal deadline, a `range(N)` loop around a sleep)
-and fails on any other literal under 10 s. The `api_helpers` polls
+says so: directly under `assert not ...`, under a `pytest.raises(...)` that
+expects only a timeout (`TimeoutError`, `TimeoutExpired`, `queue.Empty`), or
+named with its reason in `NEGATIVE` in `tests/test_positive_waits.py`. A
+wait under `if not`/`while not`, or one expected to end by raising another
+error, is positive. The scan reads every file under `tests/`, and each
+string in one that parses as a script with a wait (a child interpreter's),
+for a `timeout=` keyword, `.wait/.join/.result()`'s first argument,
+`asyncio.wait_for`'s second, a tests helper's timeout and its default, a
+clock-plus-literal deadline and a `range(N)` loop around a sleep, and fails
+on any other literal under 10 s. The `api_helpers` polls
 (`until`, `wait_for`, `wait_for_status`) default to 30 s. A test that must
 act while a fake job is running holds it on an event, never on
 `step_seconds`: `FakeBackend.hold` (an unset `threading.Event`) holds each
