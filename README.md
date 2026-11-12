@@ -122,7 +122,8 @@ the idle server needs a model loaded. Compact facts show style, Refine support,
 recorded speed and
 upper MP guidance, labelled as a recommendation, documented/native maximum or
 example size. Star models to keep favourites at the top of the
-list; favourites are remembered in this browser. Loading options have visible
+list; favourites are kept with the gallery on the server, so every
+browser and device reaching it shares them. Loading options have visible
 explanations. Speed categories use earlier RTX 5080 samples and label different
 setups as references. Finish
 or cancel queued/running jobs first, and wait for any load, prompt check, critic

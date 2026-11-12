@@ -566,24 +566,24 @@
      a dialog's) and the summary was an 18 px line reaching 36 by a
      pseudo-element. Two lines of 15 px at 1.25 and its padding are its 48,
      so a summary rewritten from one line to two moves nothing under it. */
-  details:is(.setup-disclosure, .section, .ms-technical, .bundle-automatic, .model-performance) {
+  details:is(.setup-disclosure, .section, .ms-technical, .bundle-automatic, .model-performance, .model-storage) {
     border-top: 1px solid var(--line); padding-block: 0;
   }
-  details:is(.setup-disclosure, .section, .ms-technical, .bundle-automatic, .model-performance) > summary {
+  details:is(.setup-disclosure, .section, .ms-technical, .bundle-automatic, .model-performance, .model-storage) > summary {
     position: relative; display: flex; align-items: center; gap: var(--sp-3);
     min-height: 48px; height: auto; margin: 0; padding: var(--sp-1) 28px var(--sp-1) 0;
     list-style: none; cursor: pointer; white-space: normal; overflow: visible;
     font-size: var(--fs-md); font-weight: 600; line-height: var(--lh-tight); color: var(--text);
   }
-  details:is(.setup-disclosure, .section, .ms-technical, .bundle-automatic, .model-performance) > summary::-webkit-details-marker { display: none; }
-  details:is(.setup-disclosure, .section, .ms-technical, .bundle-automatic, .model-performance) > summary::before,
+  details:is(.setup-disclosure, .section, .ms-technical, .bundle-automatic, .model-performance, .model-storage) > summary::-webkit-details-marker { display: none; }
+  details:is(.setup-disclosure, .section, .ms-technical, .bundle-automatic, .model-performance, .model-storage) > summary::before,
   details[open].section > summary::before { content: none; }
-  details:is(.setup-disclosure, .section, .ms-technical, .bundle-automatic, .model-performance) > summary::after {
+  details:is(.setup-disclosure, .section, .ms-technical, .bundle-automatic, .model-performance, .model-storage) > summary::after {
     content: ""; position: absolute; inset: 50% 6px auto auto;
     width: 9px; height: 9px; margin-top: -7px;
     border: solid var(--muted); border-width: 0 2px 2px 0; rotate: 45deg;
   }
-  details[open]:is(.setup-disclosure, .section, .ms-technical, .bundle-automatic, .model-performance) > summary::after {
+  details[open]:is(.setup-disclosure, .section, .ms-technical, .bundle-automatic, .model-performance, .model-storage) > summary::after {
     margin-top: -2px; rotate: -135deg;
   }
   details:is(.setup-disclosure, .section) > summary > :is(span, em) {
@@ -595,6 +595,12 @@
      name, its choices, its note), two lines at most. */
   .model-performance > summary { display: block; padding-block: 13px 5px; }
   .model-performance > summary > span { font-size: var(--fs-body-sm); }
+  /* On disk is a fold row like the rest, across the sheet; the earlier
+     stars' offer wraps its words over its two buttons. */
+  .model-storage > summary { width: auto; }
+  .model-favourites-offer { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+  .model-favourites-offer > span { flex: 1 1 100%; }
+  .model-favourites-offer > button { margin-left: 0; }
   .section { padding-top: 0; gap: var(--sp-3); }
   /* Shut, a fold is its 48 px row: the flex gap still stood between the
      summary and its hidden contents, 12 px more under Grid search than

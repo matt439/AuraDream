@@ -97,6 +97,11 @@
       <!-- The help sits outside the label, so it describes the select without
            also joining its name. -->
       <div class="model-format" id="model-format-field" hidden><label for="model-format">Nunchaku format</label><select id="model-format" autocomplete="off" aria-describedby="model-format-help"></select><span class="model-format-help" id="model-format-help"></span></div>
+      <!-- The one-time offer to import the stars this browser kept before
+           the server held them (model-switch.js, syncModelFavouriteOffer):
+           decided as the picker opens, never while it stays open. tabindex
+           -1: a press's outcome takes the focus from the button it hides. -->
+      <p class="model-favourites-offer" id="model-favourites-offer" tabindex="-1" hidden><span id="model-favourites-offer-text"></span><button class="ghost tiny" id="btn-model-favourites-import" type="button" title="Add this browser's earlier favourites to this gallery's">Import</button><button class="ghost tiny" id="btn-model-favourites-dismiss" type="button" title="Keep this gallery's favourites as they are; this browser won't ask again">Don't import</button></p>
       <!-- The grouping choice sits on the heading's line, outside the label
            that names the radio group. -->
       <div class="model-picker-heading-row">
@@ -117,6 +122,19 @@
       <!-- What each action does with this choice (syncModelSwitch): read with
            the table, not a live region, so an opening announces nothing. -->
       <p class="sr-only" id="model-picker-help">Apply &amp; save saves these settings without loading them; Switch &amp; load loads them now.</p>
+      <!-- What the model cache holds (GET /api/models/storage), read only
+           when this fold opens or Refresh is pressed: never on a timer, never
+           at the picker's opening. Read-only: nothing here deletes
+           (model-storage.js). Last in the body, so opening it moves nothing
+           above it. -->
+      <details class="model-storage" id="model-storage">
+        <summary>On disk</summary>
+        <div class="model-storage-head">
+          <p class="model-storage-status" id="model-storage-status" role="status"></p>
+          <button class="ghost tiny" id="btn-model-storage-refresh" type="button" title="Read the model cache again">Refresh</button>
+        </div>
+        <div class="model-storage-body" id="model-storage-body"></div>
+      </details>
     </div>
     <!-- The checkbox sits by the actions it is saved with. The note is the
          outcomes and the server's state in a reserved height; Revert (unsaved
@@ -2490,6 +2508,7 @@
 <script src="/static/status.js"></script>
 <script src="/static/model-switch.js"></script>
 <script src="/static/model-shots.js"></script>
+<script src="/static/model-storage.js"></script>
 <script src="/static/generation.js"></script>
 <script src="/static/job-progress.js"></script>
 <script src="/static/job-queue.js"></script>

@@ -198,6 +198,12 @@ Backend (`backend/`):
   `api_saved_searches.py` model-free CRUD independent of gallery maintenance;
   `web/saved-searches.js` owns their explicit dialog; its Apply is
   `web/gallery.js`'s one filter transition (`applyGalleryFilter`)
+- `model_favourites.py` the Models panel's stars: one bounded, atomic,
+  revisioned set of canonical ids per gallery database under its own
+  reservation (like saved searches), `schemas_model_favourites.py` its strict
+  models, `api_model_favourites.py` its model-free routes; `web/model-switch.js`
+  reads it at the page's start and as Models opens, and offers once to import
+  a browser's earlier localStorage set
 - `bundle_leases.py` archive reader/exclusive leases, complete download/import
   lifetimes and uncertain-input quarantine, with opt-in shared companion locks in
   `bundle_file_lock.py`; `bundle_mode.py` explicit Windows/NTFS mode installation
@@ -278,6 +284,9 @@ in order, sharing one global scope; only `app.js`, the last, runs anything.
 `style.css` (tokens, base) then `styles/*.css` in link order - keep that
 cascade. `docs/rules.md`'s Layout maps every file; `docs/maintainer/source-audit.md`
 records the split audits.
+`model-storage.js` owns Models > On disk, the read-only cache inventory
+(`GET /api/models/storage`), read when the fold opens or on Refresh, never
+on a timer; it has no delete control.
 `execution.js` owns inspectable performance controls and unavailable-recipe
 holds; configuring a recipe never enables its loading or rendering.
 `generation-presets.js` (`styles/setups.css`) owns Examples > Saved setups,
@@ -790,6 +799,7 @@ uses the driver's graceful close/cleanup. See the full Tests rules.
 | 7958 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-idle-activity` |
 | 7959 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-catalogue-stale` |
 | 7959 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-download-progress` |
+| 7959 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-model-storage` |
 | 7960 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-phone-dialogs` |
 | 7960 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-phone-gallery` |
 | 7960 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-phone-keyboard` |

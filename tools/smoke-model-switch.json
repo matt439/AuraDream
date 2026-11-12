@@ -61,13 +61,15 @@
   },
   {"log": "'The Nunchaku formats say which card each is for; the loaded checkpoint wears a badge, every row names its access, each radio is described by its notes, a timing from another setup is muted, and the header names Size with titles'"},
   {"expect": "(() => { const live = [...els.modelTable.querySelectorAll('.model-row[data-state]')]; const desc = (id) => document.getElementById(__radio(id).getAttribute('aria-describedby') ?? '')?.textContent ?? ''; const head = [...els.modelTableHead.children]; return live.length === 1 && live[0] === __row(__flux) && live[0].dataset.state === 'ready' && live[0].querySelector('.model-state-word').textContent === 'Loaded' && __shown(live[0].querySelector('.model-state')) && !__shown(__row(__anime).querySelector('.model-state')) && __row(__flux).querySelector('.model-title').getBoundingClientRect().height === __row(__anime).querySelector('.model-title').getBoundingClientRect().height && __row(__flux).querySelector('.model-access').textContent === 'Accept licence' && modelCatalogueEntries.every((e) => { const d = modelCatalogueDetails[e.model_id]; const access = __row(e.model_id).querySelector('.model-access'); const speed = __cells(e.model_id)[3]; return access?.textContent === d.access && access.title === d.access_note && desc(e.model_id).includes(d.access_note) && (!d.speed_note || desc(e.model_id).includes(d.speed_note)) && (!d.megapixels_note || desc(e.model_id).includes(d.megapixels_note)) && speed.classList.contains('model-fact-muted') === !['Fast', 'Medium', 'Slow'].includes(d.speed_label); }) && els.modelPicker.getAttribute('aria-label') === 'Models' && els.modelTable.getAttribute('aria-labelledby') === 'model-picker-label' && head.map((span) => span.textContent).join('|') === '|Model|Style|Refine|Size|Speed|' && head.slice(3, 6).every((span) => !!span.title) && !els.modelTable.querySelector('.model-title .sr-only') && els.modelFormat.getAttribute('aria-describedby') === 'model-format-help' && els.modelFormatHelp.textContent === 'NVFP4: RTX 50 (Blackwell); INT4: RTX 20 to 40'; })()"},
-  {"log": "'One row at a time puts its star and model page in the tab order: Tab from the chosen radio reaches its page link, then the startup checkbox'"},
+  {"log": "'One row at a time puts its star and model page in the tab order: Tab from the chosen radio reaches its page link, then the On disk fold, then the startup checkbox'"},
   {"expect": "(() => { const stops = [...els.modelTable.querySelectorAll('.model-star, .model-link')].filter((e) => e.tabIndex === 0); return stops.length === 2 && stops.every((e) => e.closest('.model-row') === __row(__flux)) && __star(__anime).tabIndex === -1; })()"},
   {"log": "'The strip under the table has nothing of FLUX s on this fresh gallery, so it adds no tab stop here (smoke-model-gallery covers its stops)'"},
   {"expect": "__until(() => modelShots.id === __flux && modelShots.state === 'ready' && modelShots.total === 0 && els.modelShotsAll.hidden && !els.modelShotsList.children.length)"},
   {"eval": "__radio(__flux).focus()"},
   {"key": "Tab"},
   {"expect": "document.activeElement === __row(__flux).querySelector('.model-link')"},
+  {"key": "Tab"},
+  {"expect": "document.activeElement === els.modelStorage.querySelector('summary') && !els.modelStorage.open"},
   {"key": "Tab"},
   {"expect": "document.activeElement === els.modelLoadOnStartup && !els.modelPicker.hidden"},
   {"eval": "__radio(__flux).focus()"},
@@ -589,51 +591,59 @@
   {
     "expect": "__until(() => !modelSwitchSending && modelState === 'ready' && modelRuntimeSettings.quantization === __originalLoader.quantization && modelRuntimeSettings.offload === __originalLoader.offload && !modelRuntimeSettings.load_on_startup)"
   },
-  {
-    "log": "'Favourite persistence tolerates corrupt data, merges another tab and reports a blocked write without losing the choice; open stars change in place'"
-  },
-  {
-    "eval": "window.__rowOrder = __order(); try { localStorage.setItem(MODEL_FAVOURITES_KEY, '{broken'); } catch {} restoreModelFavourites(); renderModelOptions(modelChoice());"
-  },
-  {
-    "expect": "modelFavourites.size === 0 && __rows().every((r) => r.querySelector('.model-star').getAttribute('aria-pressed') === 'false') && modelChoice() === __flux && __order() === __rowOrder"
-  },
-  {
-    "eval": "try { localStorage.setItem(MODEL_FAVOURITES_KEY, JSON.stringify(['cagliostrolab/animagine-xl-4.0', null, 7, ''])); } catch {} __star(__flux).scrollIntoView({block: 'nearest'});"
-  },
-  {
-    "click": "[data-model=\"black-forest-labs/FLUX.1-Krea-dev\"] .model-star"
-  },
-  {
-    "expect": "modelFavourites.size === 2 && modelFavourites.has('cagliostrolab/animagine-xl-4.0') && modelFavourites.has('black-forest-labs/FLUX.1-Krea-dev') && __star(__flux).getAttribute('aria-pressed') === 'true' && __star(__anime).getAttribute('aria-pressed') === 'true' && __rows().filter((r) => r.querySelector('.model-star').getAttribute('aria-pressed') === 'true').length === 2 && __order() === __rowOrder && modelChoice() === __flux"
-  },
-  {
-    "eval": "window.__storageSetItem = Storage.prototype.setItem; Storage.prototype.setItem = function (key, value) { if (key === MODEL_FAVOURITES_KEY) throw new Error('Storage unavailable'); return __storageSetItem.call(this, key, value); };"
-  },
-  {
-    "click": "[data-model=\"black-forest-labs/FLUX.1-Krea-dev\"] .model-star"
-  },
-  {
-    "expect": "__star(__flux).getAttribute('aria-pressed') === 'false' && els.modelPickerNote.textContent.includes('could not save') && modelChoice() === 'black-forest-labs/FLUX.1-Krea-dev' && modelFavourites.has('cagliostrolab/animagine-xl-4.0') && els.modelSave.getAttribute('aria-disabled') === 'false'"
-  },
-  {
-    "eval": "Storage.prototype.setItem = __storageSetItem; try { const saved = JSON.stringify(['cagliostrolab/animagine-xl-4.0', 'black-forest-labs/FLUX.1-Krea-dev', 'SeeSee21/Z-Anime']); localStorage.setItem(MODEL_FAVOURITES_KEY, saved); window.dispatchEvent(new StorageEvent('storage', {key: MODEL_FAVOURITES_KEY, newValue: saved, storageArea: localStorage})); } catch {}"
-  },
-  {
-    "expect": "modelFavourites.has('SeeSee21/Z-Anime') && !modelFavourites.has('black-forest-labs/FLUX.1-Krea-dev') && __star(__flux).getAttribute('aria-pressed') === 'false' && __star('SeeSee21/Z-Anime').getAttribute('aria-pressed') === 'true' && els.modelPickerNote.textContent.includes('could not save') && __order() === __rowOrder"
-  },
-  {
-    "click": "[data-model=\"black-forest-labs/FLUX.1-Krea-dev\"] .model-star"
-  },
-  {
-    "expect": "__star(__flux).getAttribute('aria-pressed') === 'true' && !els.modelPickerNote.textContent.includes('could not save') && modelFavourites.size === 3"
-  },
-  {
-    "eval": "try { window.dispatchEvent(new StorageEvent('storage', {key: MODEL_FAVOURITES_KEY, newValue: '[]', storageArea: localStorage})); } catch {}"
-  },
-  {
-    "expect": "modelFavourites.size === 3 && __star(__flux).getAttribute('aria-pressed') === 'true' && modelFavourites.has('SeeSee21/Z-Anime') && __rows().filter((r) => r.querySelector('.model-star').getAttribute('aria-pressed') === 'true').length === 3 && __order() === __rowOrder"
-  },
+  {"log": "'Favourites live on the server: a star is saved there, a refused write keeps the press for this page and says so, another device’s star shows at the next read, an older answer never undoes a newer one, and a failed read says so; open stars change in place'"},
+  {"eval": "window.__rowOrder = __order(); window.__realApi = api; window.__serverStars = async () => (await __realApi('/api/models/favourites')).items; window.__starOn = (id, on) => __realApi('/api/models/favourites', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({model_id: id, favourite: on})}); __star(__flux).scrollIntoView({block: 'nearest'});"},
+  {"expect": "__until(async () => JSON.stringify(await __serverStars()) === JSON.stringify([__anime]) && modelFavourites.size === 1)"},
+  {"click": "[data-model=\"black-forest-labs/FLUX.1-Krea-dev\"] .model-star"},
+  {"expect": "modelFavourites.size === 2 && modelFavourites.has(__anime) && modelFavourites.has(__flux) && __star(__flux).getAttribute('aria-pressed') === 'true' && __star(__anime).getAttribute('aria-pressed') === 'true' && __rows().filter((r) => r.querySelector('.model-star').getAttribute('aria-pressed') === 'true').length === 2 && __order() === __rowOrder && modelChoice() === __flux"},
+  {"expect": "__until(async () => !modelFavouriteChanges.size && (await __serverStars()).includes(__flux) && modelFavouritesRevision >= 1)"},
+  {"eval": "window.api = async (path, ...rest) => { if (path === '/api/models/favourites' && rest[0]?.method === 'POST') throw Object.assign(new Error('The model favourites could not be saved. The previous set has been kept.'), {status: 503}); return __realApi(path, ...rest); };"},
+  {"click": "[data-model=\"black-forest-labs/FLUX.1-Krea-dev\"] .model-star"},
+  {"expect": "__until(() => __star(__flux).getAttribute('aria-pressed') === 'false' && els.modelPickerNote.textContent.includes('could not save') && modelChoice() === __flux && modelFavourites.has(__anime) && els.modelSave.getAttribute('aria-disabled') === 'false')"},
+  {"expect": "(async () => (await __serverStars()).includes(__flux))()"},
+  {"eval": "(async () => { await __starOn('SeeSee21/Z-Anime', true); await refreshModelFavourites(); })()"},
+  {"expect": "__until(() => modelFavourites.has('SeeSee21/Z-Anime') && !modelFavourites.has(__flux) && __star(__flux).getAttribute('aria-pressed') === 'false' && __star('SeeSee21/Z-Anime').getAttribute('aria-pressed') === 'true' && els.modelPickerNote.textContent.includes('could not save') && __order() === __rowOrder)"},
+  {"eval": "window.api = __realApi"},
+  {"click": "[data-model=\"black-forest-labs/FLUX.1-Krea-dev\"] .model-star"},
+  {"expect": "__until(() => __star(__flux).getAttribute('aria-pressed') === 'true' && !els.modelPickerNote.textContent.includes('could not save') && modelFavourites.size === 3 && !modelFavouriteChanges.size)"},
+  {"log": "'Two quick presses of one star reach the server in order: the second waits for the first write’s answer, so a delayed first write never lands last'"},
+  {"eval": "window.__favPosts = []; window.__favDone = 0; window.api = async (path, ...rest) => { const post = path === '/api/models/favourites' && rest[0]?.method === 'POST'; if (post && __favPosts.push(JSON.parse(rest[0].body).favourite) === 1) await new Promise((r) => setTimeout(r, 600)); try { return await __realApi(path, ...rest); } finally { if (post) __favDone += 1; } }; __star(__flux).click(); __star(__flux).click();"},
+  {"expect": "__until(async () => __favDone === 2 && !modelFavouriteSending.size && !modelFavouriteChanges.size && JSON.stringify(__favPosts) === '[false,true]' && (await __serverStars()).includes(__flux) && modelFavourites.has(__flux) && __star(__flux).getAttribute('aria-pressed') === 'true' && modelFavourites.size === 3)"},
+  {"eval": "window.api = __realApi"},
+  {"log": "'The page’s first set read while Models is open (a slow or refused start read) changes the stars in place and leaves the grouping to the next opening, even with the pointer off the table'"},
+  {"hover": "#btn-models"},
+  {"expect": "!els.modelPickerBody.matches(':hover') && __order() === __rowOrder"},
+  {"eval": "(async () => { modelFavouritesRevision = -1; await refreshModelFavourites(); })()"},
+  {"expect": "__until(() => modelFavouritesRevision >= 0 && modelFavourites.size === 3)"},
+  {"expect": "__order() === __rowOrder && __star(__flux).getAttribute('aria-pressed') === 'true'"},
+  {"eval": "receiveModelFavouriteSet({items: [], revision: 0}); syncModelStars();"},
+  {"expect": "modelFavourites.size === 3 && __star(__flux).getAttribute('aria-pressed') === 'true' && modelFavourites.has('SeeSee21/Z-Anime') && __rows().filter((r) => r.querySelector('.model-star').getAttribute('aria-pressed') === 'true').length === 3 && __order() === __rowOrder"},
+  {"eval": "(async () => { window.api = async (path, ...rest) => { if (path === '/api/models/favourites') throw Object.assign(new Error('Model favourites could not be read.'), {status: 503}); return __realApi(path, ...rest); }; await refreshModelFavourites(); window.api = __realApi; })()"},
+  {"expect": "__until(() => els.modelPickerNote.textContent.includes('The favourites could not be read') && modelFavourites.size === 3)"},
+  {"eval": "refreshModelFavourites()"},
+  {"expect": "__until(() => !els.modelPickerNote.textContent.includes('could not be read') && modelFavourites.size === 3)"},
+  {"log": "'The earlier per-browser set is offered once, as the picker opens and never while it stays open: Import adds what the gallery lacks and the line keeps its height; Don’t import adds nothing; neither asks again'"},
+  {"eval": "try { localStorage.setItem(MODEL_FAVOURITES_KEY, JSON.stringify(['SeeSee21/Z-Anime', 'KBlueLeaf/Kohaku-XL-Zeta', null, 7, '', 'bad\\u0007id'])); localStorage.removeItem(MODEL_FAVOURITES_IMPORT_KEY); } catch {}"},
+  {"expect": "els.modelFavouritesOffer.hidden"},
+  {"eval": "showModelPicker(false); showModelPicker(true)"},
+  {"expect": "__until(() => !modelCataloguePending && !els.modelFavouritesOffer.hidden && els.modelFavouritesOfferText.textContent.startsWith('This browser kept one model favourite') && !els.btnModelFavouritesImport.hidden && !els.btnModelFavouritesDismiss.hidden)"},
+  {"elshot": ["#model-picker", "model-favourites-offer.png"]},
+  {"eval": "window.__offerHeight = els.modelFavouritesOffer.offsetHeight; window.__rowOrder = __order(); window.__tableTop = Math.round(els.modelTable.getBoundingClientRect().top);"},
+  {"click": "#btn-model-favourites-import"},
+  {"expect": "__until(() => els.modelFavouritesOfferText.textContent === 'Imported one favourite. It is listed first the next time Models opens.')"},
+  {"expect": "els.btnModelFavouritesImport.hidden && els.btnModelFavouritesDismiss.hidden && document.activeElement === els.modelFavouritesOffer && els.modelFavouritesOffer.offsetHeight === __offerHeight && Math.round(els.modelTable.getBoundingClientRect().top) === __tableTop && __star('KBlueLeaf/Kohaku-XL-Zeta').getAttribute('aria-pressed') === 'true' && __order() === __rowOrder && localStorage.getItem(MODEL_FAVOURITES_IMPORT_KEY) === 'imported'"},
+  {"expect": "(async () => { const stars = await __serverStars(); return stars.length === 4 && stars.includes('KBlueLeaf/Kohaku-XL-Zeta') && !stars.includes('bad\\u0007id'); })()"},
+  {"eval": "showModelPicker(false); showModelPicker(true)"},
+  {"expect": "__until(() => !modelCataloguePending && els.modelFavouritesOffer.hidden)"},
+  {"eval": "try { localStorage.setItem(MODEL_FAVOURITES_KEY, JSON.stringify(['Minthy/RouWei-0.8'])); localStorage.removeItem(MODEL_FAVOURITES_IMPORT_KEY); } catch {} modelFavouriteOfferAnswered = false; showModelPicker(false); showModelPicker(true)"},
+  {"expect": "__until(() => !modelCataloguePending && !els.modelFavouritesOffer.hidden && els.modelFavouritesOfferText.textContent.startsWith('This browser kept one model favourite'))"},
+  {"click": "#btn-model-favourites-dismiss"},
+  {"expect": "els.modelFavouritesOfferText.textContent === \"Not imported. This browser won't ask again.\" && els.btnModelFavouritesImport.hidden && localStorage.getItem(MODEL_FAVOURITES_IMPORT_KEY) === 'declined' && !modelFavourites.has('Minthy/RouWei-0.8')"},
+  {"expect": "(async () => !(await __serverStars()).includes('Minthy/RouWei-0.8'))()"},
+  {"eval": "showModelPicker(false); showModelPicker(true)"},
+  {"expect": "__until(() => !modelCataloguePending && els.modelFavouritesOffer.hidden)"},
+  {"eval": "(async () => { await __starOn('KBlueLeaf/Kohaku-XL-Zeta', false); await refreshModelFavourites(); try { localStorage.removeItem(MODEL_FAVOURITES_KEY); } catch {} })()"},
+  {"expect": "__until(() => modelFavourites.size === 3 && __star('KBlueLeaf/Kohaku-XL-Zeta').getAttribute('aria-pressed') === 'false')"},
   {"expect": "__a11yCheck()"},
   {
     "navigate": "http://127.0.0.1:7896/"
@@ -865,5 +875,7 @@
   {"log": "'Animagine loaded again, as the smokes that follow on this fake expect'"},
   {"eval": "void fetch('/api/model/switch', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({model_id: __anime, load: true})});"},
   {"expect": "__until(async () => { await refreshStatus(); return loadedModel === __anime && modelState === 'ready' && !modelSwitching && !modelSwitchSending; }, 20000)"},
+  {"log": "'No stars left on the server for the smokes that follow on this fake'"},
+  {"expect": "(async () => { for (const id of (await api('/api/models/favourites')).items) await api('/api/models/favourites', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({model_id: id, favourite: false})}); return (await api('/api/models/favourites')).items.length === 0; })()"},
   {"expect": "__a11yCheck()"}
 ]

@@ -97,6 +97,12 @@ before changing it.
   owns CRUD models and `SnippetTarget`, the one list of destinations
   (`prompt`, `negative`, `variables`) the saved, portable and CRUD models
   share; portability request/response models live beside the codec
+- `backend/model_favourites.py` - the Models panel's stars: one bounded,
+  atomic, revisioned set of canonical checkpoint ids per gallery database
+  under its own reservation, independent of maintenance, model admission and
+  the GPU gate; `backend/schemas_model_favourites.py` owns the strict star,
+  import and answer models and `backend/api_model_favourites.py` the
+  model-free routes (`GET`/`POST /api/models/favourites`, `POST .../import`)
 - `backend/saved_searches.py` - bounded atomic database-scoped gallery filter
   definitions, unique normalized names and optimistic item revisions under an
   independent lock; `backend/schemas_saved_searches.py` owns strict fields and
@@ -813,7 +819,7 @@ before changing it.
   `AURADREAM_INSTALL_TEST_ROOT`, `AURADREAM_INSTALL_TEST_PROC_VERSION`,
   `AURADREAM_INSTALL_TEST_WAIT` (control.sh's wait)
   (`tests/test_linux_scripts.py`)
-- `web/` - served as-is from `/static`; `index.html` loads 75 classic
+- `web/` - served as-is from `/static`; `index.html` loads 76 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `page-helpers.js`, right
   after it, the page-wide pure helpers (`plural`, `excerpt`, `units`,
@@ -849,6 +855,8 @@ before changing it.
   `execution.js` owns inspectable unavailable performance choices, composer
   cache intent and shared execution holds;
   `model-shots.js` the picker's strip of the chosen checkpoint's images;
+  `model-storage.js` the picker's read-only On disk fold (the cache
+  inventory, read when the fold opens or on Refresh, never on a timer);
   `bundles.js` owns the gallery bundle dialog (Back up and its scope
   included) and background-operation polling, and `automatic-backup.js`
   its automatic startup backup settings (protection, consent, retention
@@ -1111,7 +1119,9 @@ before changing it.
 - `/api/models/storage` scans only on explicit request, on a daemon thread,
   with one scan reservation lasting through its worker. Catalogue model
   byte rows can overlap, unknown selected-file maps stay unknown, and
-  unreferenced bytes never imply safe deletion. `/api/status` uses only
+  unreferenced bytes never imply safe deletion. The page asks for it only
+  from Models > On disk, on the fold's opening or Refresh; it holds no
+  delete control. `/api/status` uses only
   `download_progress`'s targeted two-second samples under its revision retry
   loop, never a whole-cache scan. Progress is an approximate local cache
   tally, not network transfer speed. Unknown/drifted references have no
@@ -1475,8 +1485,15 @@ measured on the card and when.
   compact model facts reuse sourced guides, catalogue data and recorded local
   evidence. The size fact shows upper guidance and labels recommendations,
   native/documented maxima and examples distinctly; an example never becomes
-  a guaranteed maximum. Model favourites are browser preferences, canonical across Nunchaku
+  a guaranteed maximum. Model favourites are the gallery's, on the server
+  (`/api/models/favourites`, `backend/model_favourites.py`), canonical across Nunchaku
   weight formats, and never mutate the selected model or loader settings.
+  The page reads them at its start and as Models opens, never on a timer;
+  a set read while Models is open (the page's first too) changes the stars
+  in place and groups only at the next opening. One star's writes go one at
+  a time, the newest press sent after the answer, so the server never takes
+  two presses out of order. The earlier localStorage set is only read for
+  the one-time import offer.
   Group by type (`auradream.model-grouping.v1`) is one too: after the
   Favourites group, the other rows sit under their Style, groups in the
   catalogue order of each Style's first row. It sits beside the Checkpoint
@@ -1609,7 +1626,7 @@ measured on the card and when.
   re-anchors under a still pointer. While any picker list is open
   (`modelListOpen()`, `:open`), the page's key handler leaves every key to it
   (Escape closes only the list), its own value and option rebuilds (catalogue
-  replies, other tabs' favourites) wait for it to close
+  replies) wait for it to close
   (`whenModelListsClosed`), and the closed controls still take a server
   change at once. Options are replaced only when they differ
   (`setModelOptions`); polls write only fields changed since the last applied
@@ -8632,6 +8649,19 @@ viewer/topbar/Models consistency, silent visual counters and idle release.
 Its narrow view checks horizontal bounds; byte counters are approximate
 local cache tallies, never a network-speed or card measurement.
 
+`smoke-model-storage.json` uses its own fresh FLUX fake on shared port 7959,
+whose inventory reads the scratch Hub cache `tools/fake_server.py` plants
+under its data (a few bytes of Animagine XL 4.0's selected files, an
+unlisted repository, a partial download), never the machine's. It checks
+that Models > On disk is shut and empty with no read at the page's start or
+the picker's opening, reads once as it opens with nothing above it moving,
+names the catalogue row, the other repository, the partial download and the
+read-only/unreferenced words, holds no control but Refresh (no delete),
+reads nothing on a second opening or a picker reopening, reads again on
+Refresh, says a refused read's words, and on an iPhone-sized touch screen is
+a 48 px fold row whose open contents fit the sheet with no control under
+44 px (`__phoneAudit`).
+
 `tests/test_startup_refusals.py` checks durable port/passcode refusals at
 INFO and CRITICAL, secret exclusion, closed handles, an unwritable log and
 duplicate launches leaving existing files untouched. On Windows it runs the
@@ -11661,8 +11691,13 @@ For the checkpoint table it checks every catalogue model's row and facts
 (style, refine with its note, size with its label, speed with its sample
 and basis) without choosing any, focus on the chosen radio at the first
 opening and through rebuilds, choosing by radio and by a fact cell, stars that
-toggle in place and group at the next opening, persistent favourites
-(corrupt data, blocked writes, other tabs) and speed references that follow
+toggle in place and group at the next opening, server favourites (a
+refused write kept for the page, another device's star at the next read, an
+older answer ignored, a failed read said, two quick presses of one star
+reaching the server in order behind a delayed first write, the page's first
+set read with Models open leaving the grouping for the next opening; the one-time import offer's Import
+and Don't import, each asked once and keeping the line's height; no stars
+left on the server at its end) and speed references that follow
 draft quantization/offload choices. It also checks the server row's
 Loaded/Loading…/Load failed badge without a row resizing, each row's access
 label and note, radio descriptions holding the notes, muted timings from
@@ -11690,7 +11725,7 @@ images as fit whole (four rows of two 150 px pictures, and no fifth would)
 newest first with the whole count, a press on the column's blank space
 leaving the picker open with the focus on its footer, the footer's boxes
 unchanged
-through every state, Tab order (link, See all, one picture stop, checkbox)
+through every state, Tab order (link, On disk, See all, one picture stop, checkbox)
 and arrow keys, the lightbox over the picker from a key and a click with
 focus back on the picture, Reuse closing both, a delete re-counted, See all
 closing the picker into an All models `model:=` gallery, the strip under
@@ -11730,7 +11765,7 @@ default, and the real link: `launch.configure` over a saved default choice,
 False, nothing saved True, and `main` computes it after its launcher runs.
 `smoke-model-hover.json` hovers a table row and checks that its hover, every
 row's position and the focus survive status polls, a catalogue reply and
-another tab's favourites, with only the star's glyph (and, for a server
+another device's favourites (read from the server), with only the star's glyph (and, for a server
 change, the current row's badge word) changing. Images made on the loaded
 checkpoint add the gallery timing line to its Speed note and description in
 place, with the hovered row, every row's position and the cell's words

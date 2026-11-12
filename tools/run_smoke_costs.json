@@ -114,6 +114,7 @@
     "smoke-offline": 34,
     "smoke-passcode": 30,
     "smoke-catalogue-stale": 8,
-    "smoke-idle-activity": 52
+    "smoke-idle-activity": 52,
+    "smoke-model-storage": 12
   }
 }

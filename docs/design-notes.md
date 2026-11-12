@@ -830,7 +830,7 @@ keep this treatment.)
 
 An in-page list moves under the pointer (and loses its focus) if its options
 are rebuilt while open, so while any picker list matches `:open` catalogue
-replies, other tabs' favourites and a status write to that list wait for it
+replies and a status write to that list wait for it
 to close, then land. The other controls take a server change at once, so a
 checkpoint picked from the open list still sits on the new loading options.
 Its keys now reach the page, which leaves them all to the list: Escape closes
@@ -992,7 +992,8 @@ need the most VRAM (24 GB+ for FLUX-size models), with no per-model figures.
 Changing draft offload settings refreshes these facts as changing quantization
 does, without applying either setting or loading a model.
 
-Each row's star saves a browser-local favourite immediately. The table groups
+Each row's star saves a favourite on the server immediately (`UI#52`,
+2026-11-12; below). The table groups
 Favourites first and Other models after, without duplicating rows, but only when
 it is drawn for an opening (or while the picker is closed): a star pressed in
 an open picker changes in place, because regrouping then would move the row,
@@ -1001,9 +1002,33 @@ ordinary and Nunchaku formats share it; Anima Turbo and Aesthetic retain their
 distinct identities. Starring preserves the choice and unsaved loader edits,
 does not load weights, and keeps button focus. A table rebuilt for new loading
 options returns focus to the same model's control, since losing it would close
-the picker. Browser storage is guarded; when unavailable the session can keep
-stars while the page reports that they could not be saved. Other tabs' storage
-changes update the stars, and the grouping at the next opening.
+the picker. A refused write keeps the press for this page and says so in the
+note. Another device's stars arrive at the next read (the page's start and
+each opening), changing stars in place and the grouping at the next opening;
+the page's first set, when a slow or refused start read leaves it to an
+opening, is no exception, since a finger, the focus or an open list may be
+on a row (`:hover` follows none of them).
+
+Favourites moved from per-origin localStorage to the server on 2026-11-12
+(`UI#52`): the LAN address, the HTTPS route and the phone each had their own
+set. `backend/model_favourites.py` keeps one set of canonical ids per gallery
+database, in `auradream.model-favourites-<db>.json` beside it, as saved
+searches keep theirs: bounded (200 ids of at most 512 characters), atomic
+replace, its own cross-process reservation, independent of gallery
+maintenance, model admission and the GPU gate, and behind the passcode like
+every route. A press sends only its own star (`{model_id, favourite}`), a set
+operation, so it never undoes another device's star and needs no expected
+revision; the set's revision moves only when the set changes, and the page
+takes an answer only when it is not older than one it has read, so a late
+reply never undoes a newer one. One star's writes go one at a time: a press
+while that star's write is on its way only records the wish, sent when the
+answer comes if it still differs, since two quick presses sent together
+could reach the server's threads in either order and leave the star against
+the last press. The old localStorage set is only read now,
+for a one-time offer (explicit, dismissible, never automatic) to merge it in;
+its answer is remembered in `auradream.model-favourites-import.v1`. The offer
+is decided as the picker opens, never while it stays open, and a press keeps
+its line's height until the next opening, so nothing moves under the pointer.
 
 Group by type (2026-10-31) lists the non-favourite rows under their Style
 column's word (Photorealism, General, Anime, Stylised anime…) instead of
@@ -14050,6 +14075,8 @@ What the server answers:
 | `/outputs/…` | `StaticFiles` mount on `settings.outputs_dir` | every PNG by its file name, binned ones too; the gallery routes give the names |
 | `/docs`, `/redoc`, `/docs/oauth2-redirect`, `/openapi.json` | FastAPI's defaults (`FastAPI(title=…)` sets no `docs_url`) | the whole API, described, with a form to call it |
 | `/api/status`, `/api/loras`, `/api/models`, `/api/model/load`, `/api/model/switch`, `/api/model/unload` | `main.py` | paths, the card, the running commit; loading, switching (a download with the machine's Hugging Face token) and unloading |
+| `/api/models/favourites`, `/api/models/favourites/import` | `api_model_favourites.py` | the gallery's model stars and the one-time import of a browser's earlier set |
+| `/api/models/storage` | `api_model_storage.py` | the read-only model-cache inventory (Models > On disk) |
 | `/api/generate`, `/api/grid`, `/api/grid/preview` | `api_generate.py` | queueing work |
 | `/api/rerender`, `/api/swap-tags`, `/api/refine/batch`, `/api/more-seeds`, `/api/instruction-edit` and their previews | `api_rerender.py`, `api_swap.py`, `api_refine_batch.py`, `api_more_seeds.py`, `api_instruction_edit.py` | queueing work from gallery rows |
 | `/api/runs/{id}` and Finish run | `api_runs.py` | run details, queueing the rest |
@@ -14955,6 +14982,15 @@ tests validate links into the repository's other Markdown documents.
 logical file bytes, shared catalogue ownership, converted trees and unknown
 references reported honestly. Unreferenced does not mean unused or safe to
 delete. No cache delete is designed into this slice.
+
+Models > On disk (`GEN#68`, 2026-11-12, `web/model-storage.js`) shows that
+inventory read-only: a fold collapsed by default, last in the picker's body
+so opening it moves nothing above it, read on its first opening in a page
+and on Refresh only, never on a timer or as the picker opens (a scan reads
+every cached file's size). Model rows are labelled by catalogue name, an
+unknown selection shows its known bytes with "+", and the fold says that rows
+overlap and that "not referenced" is not "unused". It has no delete control;
+the guarded delete is designed only after Matt has seen this fold.
 
 Status takes a different path: required-file stats plus selected-source
 partial blobs, off-loop under the existing revision retry, sampled at most
