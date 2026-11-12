@@ -233,12 +233,12 @@ and Expand. The table below holds the same words for the whole catalogue.
 | FLUX.1 Krea [dev] | Yes | Yes | Yes | No | Yes | Yes | Yes | No |
 | Krea 2 Turbo | No | No | No | No | Yes | Yes | Yes | No |
 | Krea 2 Raw | No | No | No | No | Yes | Yes | Yes | No |
-| Animagine XL 4.0 Opt | Yes | Yes | Yes | No | Yes | Yes | No | No |
-| Kohaku XL Zeta | Yes | Yes | Yes | No | Yes | Yes | No | No |
-| Illustrious XL v2.0-STABLE | Yes | Yes | Yes | No | Yes | Yes | No | No |
-| WAI Illustrious v17 | Yes | Yes | Yes | No | Yes | Yes | No | No |
-| RouWei 0.8 epsilon | Yes | Yes | Yes | No | Yes | Yes | No | No |
-| NoobAI-XL V-pred 1.0 | Yes | Yes | Yes | No | Yes | Yes | No | No |
+| Animagine XL 4.0 Opt | Yes | Yes | Yes | No | Yes | Yes | Yes | No |
+| Kohaku XL Zeta | Yes | Yes | Yes | No | Yes | Yes | Yes | No |
+| Illustrious XL v2.0-STABLE | Yes | Yes | Yes | No | Yes | Yes | Yes | No |
+| WAI Illustrious v17 | Yes | Yes | Yes | No | Yes | Yes | Yes | No |
+| RouWei 0.8 epsilon | Yes | Yes | Yes | No | Yes | Yes | Yes | No |
+| NoobAI-XL V-pred 1.0 | Yes | Yes | Yes | No | Yes | Yes | Yes | No |
 | Z-Anime Base | Yes | Yes | Yes | No | Yes | Yes | Yes | No |
 | Anima Turbo v1.1 | No | No | No | No | No | Yes | Yes | No |
 | Anima Aesthetic v1.1 | No | No | No | No | No | Yes | Yes | No |
@@ -267,8 +267,9 @@ loaded, not measurements; `docs/verified.md` lists what has run on the card.
 - **LoRA** is for the official repository at FP8, INT8 or BF16. No Nunchaku
   4-bit build takes an adapter, and peft must be installed.
 - **Live preview** is Yes where a latent-to-RGB map is fitted for the
-  checkpoint's VAE. The four-channel SDXL VAE and FLUX.2's have none, so
-  those renders show progress without a picture.
+  checkpoint's VAE. FLUX.2's VAE (FLUX.2 [klein], ERNIE, FLUX 3) has none,
+  so those renders show progress without a picture. SDXL's picture is softer
+  than FLUX's: its VAE has four channels to draw from.
 - **Expand** downloads its own weights on first use (ERNIE's rewriter, FLUX
   3's upsampler).
 - FLUX.1 Kontext [dev] only edits: see [Edit by instruction](#edit-by-instruction).

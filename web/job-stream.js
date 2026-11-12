@@ -97,8 +97,9 @@ function streamJob(jobId, { reattached = 0 } = {}) {
     // a record. Or, for a pass, its stand-in (startJob's `placeholder`): the
     // source, dimmed, at the result's shape, captioned with the pass and its
     // step, from the job's first step until a frame or the result replaces
-    // it - SDXL sends no frames, and the viewer showed an unrelated earlier
-    // image for the whole of a pass.
+    // it - a checkpoint with no preview map (FLUX.2, ERNIE, FLUX 3) sends no
+    // frames, and SDXL sent none before 2026-11-12; the viewer showed an
+    // unrelated earlier image for the whole of such a pass.
     let previewEl = null;
     let caption = null;
     // Read again at each step until it is there: a listing can make a

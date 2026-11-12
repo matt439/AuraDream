@@ -532,8 +532,9 @@ def _instruction_edit_facts(model_id: str, *, catalogued: bool, reason: str | No
 # only where one is fitted (`latent_preview.FACTORS`). From the loaders and
 # docs/verified.md: FLUX.1, Z-Image, Lumina and NewBie decode through the
 # 16-channel `AutoencoderKL`, Krea 2, Qwen-Image and Anima through
-# `AutoencoderKLQwenImage`; SDXL's VAE has four channels, and FLUX.2 [klein],
-# ERNIE and FLUX 3 use FLUX.2's (`GEN#6` owns those two maps).
+# `AutoencoderKLQwenImage`; SDXL's VAE has four channels (its map fitted on
+# the CPU, 2026-11-12), and FLUX.2 [klein], ERNIE and FLUX 3 use FLUX.2's,
+# which has none yet.
 _FLUX_LATENTS = "AutoencoderKL/16"
 _QWEN_LATENTS = "AutoencoderKLQwenImage/16"
 _SDXL_LATENTS = "AutoencoderKL/4"

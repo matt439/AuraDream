@@ -401,7 +401,10 @@ before changing it.
 - `backend/more_seeds_intents.py` - bounded preview-issued More seeds tokens,
   one owned admission per intent, replay receipts, expiry and shutdown drain
 - `backend/latent_preview.py` — the latent-to-RGB maps the live preview
-  draws with, one per VAE, fitted on the card
+  draws with, one per VAE (FLUX's and Qwen-Image's fitted on the card, SDXL's
+  on the CPU by `tools/fit_latent_preview.py`), and `flow_view`, the non-flow
+  rule that hands `render` an Euler or DDIM-style scheduler's latent and sigma
+  in flow matching's form
 - `backend/jobs.py` — single-worker queue, SSE progress
 - `backend/job_state.py` — a queued job's state: the `Job` dataclass (its
   fields, call/skip tokens, execution-diagnostics binding and `snapshot`) and
@@ -969,6 +972,10 @@ before changing it.
   gallery hash, the difference, outside-mask and seam numbers verified.md
   reports), CPU only and importing nothing from `backend`
   (`docs/maintainer/plan-card-harness.md`, Image metrics);
+  `fit_latent_preview.py` fits (or with `--check` scores) a live-preview map
+  for one cached VAE on the CPU, never downloading, by the recipe
+  `latent_preview` records (docs/design-notes.md, "SDXL's map and the
+  non-flow rule");
   `card_guard.py` is the card session's guard: a pure decision (whole card,
   shared GPU memory, free RAM, commit headroom, a rung's projection) beside
   a watcher that reads one `nvidia-smi --loop-ms` stream, one held PDH
