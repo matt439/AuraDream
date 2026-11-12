@@ -792,7 +792,9 @@ ground = grass | dirt
 ```
 
 This makes six prompts. `none` removes that fragment; commas remain part of
-a value. Unused variables and placeholders without values are refused.
+a value. Unused variables and placeholders without values are refused,
+as is a value naming another variable (`hat = {size} hat`): values are
+filled in once, so its braces would reach the model.
 To keep a block of variables for another day, save it as a Grid variables
 snippet under **Examples > Personal snippets…**.
 The default **Cross all values** tries every combination. **One choice per

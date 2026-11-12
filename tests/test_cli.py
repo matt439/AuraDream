@@ -140,6 +140,16 @@ def test_random_prompt_cli_draws_per_image_and_saves_the_same_choices_as_grid(cl
     assert len(cli.requests) == 8
 
 
+def test_a_value_naming_another_variable_is_refused_in_the_cli(cli, capsys):
+    # GEN#63's refusal is grid.expand's, so the terminal gets the browser's line.
+    code = generate.main([
+        "{a}, {b}", "--grid-prompt", "a = {b} hat | none\nb = red | blue", "--dry-run", *SIZE,
+    ])
+    assert code == 2
+    assert "names {b}; a value is filled in once" in capsys.readouterr().err
+    assert cli.requests == []
+
+
 def test_random_prompt_mode_requires_a_variable_block_in_the_cli(cli, capsys):
     # Refused with the flags, as --via-server refuses it (`_grid_flags`).
     with pytest.raises(SystemExit) as stopped:

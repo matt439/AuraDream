@@ -4105,7 +4105,12 @@ than found in the morning: a variable no placeholder mentions multiplies the
 night by a value that changes nothing, and a placeholder with no variable
 renders the literal `{ground}` into every image of the run - **including
 when the variables box is empty**, which used to short-circuit past both
-checks (a plain prompt with no placeholders still expands to itself). The
+checks (a plain prompt with no placeholders still expands to itself). A
+value that names a declared variable (`a = {b} hat`) is refused the same
+way (GEN#63, 2026-11-12): `substitute()` makes one pass, so it resolved to
+`{b} hat, red` with the braces at the encoder. Refusing beat a second pass
+with cycle detection: no substitution order to define, and `CellKey` and
+run ids untouched. The refusal carries no code - the page only shows it. The
 product of the variables is **counted before it is built**
 (`math.prod` against `max_grid_images`): `MAX_AXIS_VALUES` caps values per
 variable, nothing capped the variables, and eighteen binary lines built

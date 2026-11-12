@@ -412,13 +412,28 @@ def _close_hole(out: str, text: str, pos: int) -> tuple[str, int]:
 
 
 def _check_variables(request: GenerateRequest, variables: dict[str, list[str]]) -> None:
-    """Both variable modes reject missing and unused placeholders alike."""
+    """Both variable modes reject missing and unused placeholders alike.
+
+    A value naming a declared variable is refused too (GEN#63): `substitute`
+    makes one pass over the prompt, so `a = {b} hat` put the literal `{b}`
+    into the encoder. Refused rather than filled a second time, which would
+    need cycle detection and an order the run id and `CellKey` never knew.
+    """
     used = _placeholders(request)
     for name in variables:
         if name not in used:
             raise ValueError(f"prompt: nothing in the prompt says {{{name}}}")
     for name in sorted(used - set(variables)):
         raise ValueError(f"prompt: {{{name}}} has no values")
+    for name, values in variables.items():
+        for value in values:
+            for inner in PLACEHOLDER.findall(value):
+                if inner in variables:
+                    raise ValueError(
+                        f"prompt: {name}'s value {value!r} names {{{inner}}}; a value is "
+                        "filled in once and its braces would reach the encoder - write the "
+                        "words, or give the prompt its own {" + inner + "}"
+                    )
 
 
 def random_assignment(variables: dict[str, list[str]], seed: int) -> dict[str, str]:
