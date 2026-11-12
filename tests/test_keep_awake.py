@@ -227,7 +227,7 @@ class Answer:
     def readline(self) -> bytes:
         if self.line is not None:
             return self.line
-        self.proc.ended.wait(5)
+        self.proc.ended.wait(30)
         return b""
 
     def close(self) -> None:
