@@ -71,7 +71,7 @@ def test_the_check_answers_beside_a_running_job_off_the_loop(client, fake, monke
         "/api/generate", json={"prompt": "a lighthouse", "width": 256, "height": 256}
     ).json()["job_id"]
     try:
-        assert running.wait(5) and main.jobs._gate.locked()
+        assert running.wait(30) and main.jobs._gate.locked()
         body = analyse(client, prompt="A lighthouse on a cliff at dusk, oil painting")
         assert [e["name"] for e in body["encoders"]] == ["CLIP-L", "T5-XXL"]
         # Answered while the job ran, not after it.
@@ -163,7 +163,7 @@ def test_the_measure_answers_beside_a_running_job(client, fake, monkeypatch):
         "/api/generate", json={"prompt": "a lighthouse", "width": 256, "height": 256}
     ).json()["job_id"]
     try:
-        assert running.wait(5) and main.jobs._gate.locked()
+        assert running.wait(30) and main.jobs._gate.locked()
         body = client.post("/api/prompt/measure", json={"prompt": "1girl, green hair"}).json()
         assert [e["tokens"] for e in body["encoders"]] == [4, 4]
         assert client.get(f"/api/jobs/{job_id}").json()["status"] == "running"

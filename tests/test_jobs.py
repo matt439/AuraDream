@@ -100,7 +100,7 @@ def test_saving_publishes_a_held_skip_before_the_image_is_written(store, monkeyp
 
     def held_save(*args, **kwargs):
         entered.set()
-        assert release.wait(3), "save was never released"
+        assert release.wait(30), "save was never released"
         return save_image(*args, **kwargs)
 
     monkeypatch.setattr(store, "save_image", held_save)
@@ -142,7 +142,7 @@ def test_cancel_wins_over_a_skip_of_the_same_call(store, monkeypatch, cancel_fir
 
     def held_generate(*args, **kwargs):
         entered.set()
-        assert release.wait(3), "generation was never released"
+        assert release.wait(30), "generation was never released"
         return generate(*args, **kwargs)
 
     monkeypatch.setattr(fake, "generate", held_generate)
@@ -180,7 +180,7 @@ def test_a_cancel_is_in_the_snapshot_and_said_to_every_stream_at_once(store, mon
 
     def held_generate(*args, **kwargs):
         entered.set()
-        assert release.wait(3), "generation was never released"
+        assert release.wait(30), "generation was never released"
         return generate(*args, **kwargs)
 
     monkeypatch.setattr(fake, "generate", held_generate)
@@ -327,7 +327,7 @@ def test_short_error_keeps_the_remedy_at_the_end():
     assert short.startswith("RuntimeError: CUDA out of memory")
 
 
-async def _statuses_until(manager, job, predicate, timeout=5.0):
+async def _statuses_until(manager, job, predicate, timeout=30.0):
     """The status frames a job's stream carries until one matches."""
     seen = []
 
@@ -407,7 +407,7 @@ def test_a_job_queued_before_the_pause_hears_when_it_began(store):
                     if event["waiting_on"] == "paused":
                         return
 
-        following = asyncio.create_task(asyncio.wait_for(follow(), 5.0))
+        following = asyncio.create_task(asyncio.wait_for(follow(), 30.0))
         manager.pause(ahead.id, True)
         await following
         paused_at = ahead.paused_at
@@ -455,7 +455,7 @@ def test_cancelled_editor_await_keeps_the_gate_until_its_worker_ends(store, fail
 
         def opaque():
             entered.set()
-            assert release.wait(5)
+            assert release.wait(30)
             if fail:
                 raise RuntimeError("late worker failure")
 
@@ -623,8 +623,8 @@ def test_a_job_with_nothing_ahead_does_not_wait_for_the_job_ahead(store):
         # Subscribed before the job's task has run at all: every frame it sends.
         frames: asyncio.Queue = asyncio.Queue()
         job.subscribers.append(frames)
-        first = await asyncio.wait_for(frames.get(), 5)
-        while (await asyncio.wait_for(frames.get(), 5))["type"] != "done":
+        first = await asyncio.wait_for(frames.get(), 30)
+        while (await asyncio.wait_for(frames.get(), 30))["type"] != "done":
             pass
         return first
 

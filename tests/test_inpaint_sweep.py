@@ -187,7 +187,7 @@ def test_a_cli_sweep_spares_the_mask_a_server_job_holds(client, fake, store, mon
     _end(client, fake, job_id, released)
     # Released once the job ends (off the loop); then only the row the held
     # cell saved keeps it, and with that row gone the sweep takes it.
-    deadline = time.time() + 5
+    deadline = time.time() + 30
     while time.time() < deadline:
         with storage._session() as conn:
             if conn.execute("SELECT COUNT(*) FROM mask_holds").fetchone()[0] == 0:

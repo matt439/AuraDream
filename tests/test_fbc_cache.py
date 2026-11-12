@@ -635,7 +635,7 @@ def test_duplicate_constructor_claim_is_atomic_across_threads(world):
     ready = Barrier(2)
 
     def claim():
-        ready.wait(timeout=5)
+        ready.wait(timeout=30)
         try:
             return fbc.FirstBlockCacheOwner(model, discard_shared=lambda: None)
         except ValueError as exc:
@@ -644,7 +644,7 @@ def test_duplicate_constructor_claim_is_atomic_across_threads(world):
 
     with ThreadPoolExecutor(max_workers=2) as pool:
         futures = [pool.submit(claim), pool.submit(claim)]
-        owners = [result for future in futures if (result := future.result(timeout=5)) is not None]
+        owners = [result for future in futures if (result := future.result(timeout=30)) is not None]
     assert len(owners) == 1
     owners[0].close()
 

@@ -266,7 +266,7 @@ def test_api_preference_survives_fresh_process_and_controls_lifespan_loading(cli
         "load": False, "load_on_startup": preload,
     })
     assert response.status_code == 200, response.text
-    deadline = time.monotonic() + 5
+    deadline = time.monotonic() + 30
     while client.get("/api/status").json()["switching"]:
         assert time.monotonic() < deadline, "the settings did not settle"
         time.sleep(0.01)

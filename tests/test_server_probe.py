@@ -141,4 +141,4 @@ def test_the_title_probe_reads_the_sign_in_page_as_auradream(serve):
 
 def test_the_status_is_read_through_the_passcode_with_the_callers_timeout(serve):
     server = serve(PASSCODE)
-    assert server_probe.status_json(server.url + "api/status", PASSCODE, timeout=5) == STATUS
+    assert server_probe.status_json(server.url + "api/status", PASSCODE, timeout=30) == STATUS

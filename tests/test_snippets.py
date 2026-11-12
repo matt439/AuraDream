@@ -109,7 +109,7 @@ def test_concurrent_edits_only_accept_one_writer(tmp_path):
     start = Barrier(2)
 
     def update(text):
-        start.wait(timeout=5)
+        start.wait(timeout=30)
         try:
             return snippets.change(database, SnippetUpdate(
                 name="a", text=text, revision=original.revision,

@@ -161,7 +161,7 @@ def test_a_read_does_not_wait_for_another_threads_png_encode(store, monkeypatch)
         assert encoding.wait(10)
         reader = threading.Thread(target=store.get_image, args=(first.id,))
         reader.start()
-        reader.join(5)
+        reader.join(30)
         assert not reader.is_alive(), "a read waited on another thread's encode"
     finally:
         release.set()

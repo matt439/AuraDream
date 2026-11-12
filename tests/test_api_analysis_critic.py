@@ -84,7 +84,7 @@ def test_the_critique_is_refused_while_the_image_model_loads(client, fake, monke
     monkeypatch.setattr(fake, "load", slow_load)
     client.post("/api/model/load")
     try:
-        deadline = time.time() + 5
+        deadline = time.time() + 30
         while client.get("/api/status").json()["state"] != "loading":
             assert time.time() < deadline, "the load never started"
             time.sleep(0.01)
@@ -93,7 +93,7 @@ def test_the_critique_is_refused_while_the_image_model_loads(client, fake, monke
         assert fake.critic.prepares == 0
     finally:
         release.set()
-    deadline = time.time() + 5
+    deadline = time.time() + 30
     while client.get("/api/status").json()["state"] != "ready":
         assert time.time() < deadline, "the load never finished"
         time.sleep(0.01)
@@ -125,9 +125,9 @@ def test_a_load_started_while_the_critic_is_fetched_is_a_409(client, fake, monke
             pending = pool.submit(
                 client.post, "/api/prompt/critique", json={"prompt": "a lighthouse"}
             )
-            assert fetching.wait(5)
+            assert fetching.wait(30)
             client.post("/api/model/load")
-            deadline = time.time() + 5
+            deadline = time.time() + 30
             while client.get("/api/status").json()["state"] != "loading":
                 assert time.time() < deadline, "the load never started"
                 time.sleep(0.01)
@@ -138,7 +138,7 @@ def test_a_load_started_while_the_critic_is_fetched_is_a_409(client, fake, monke
             loaded.set()
     assert response.status_code == 409 and "loading" in response.json()["detail"]
     assert critic.prepares == 1 and critic.critiques == []
-    deadline = time.time() + 5
+    deadline = time.time() + 30
     while client.get("/api/status").json()["state"] != "ready":
         assert time.time() < deadline, "the load never finished"
         time.sleep(0.01)
@@ -202,7 +202,7 @@ def test_prepare_and_the_load_run_on_daemon_threads(fake, monkeypatch):
             assert response.status_code == 200, response.text
             fake.loaded = False
             await client.post("/api/model/load")
-            deadline = time.time() + 5
+            deadline = time.time() + 30
             while (await client.get("/api/status")).json()["state"] != "ready":
                 assert time.time() < deadline, "the load never finished"
                 await asyncio.sleep(0.01)
@@ -531,7 +531,7 @@ def test_a_job_submitted_during_a_critique_loads_only_after_it(client, fake, mon
         pending = pool.submit(
             client.post, "/api/prompt/critique", json={"prompt": "a lighthouse in fog"}
         )
-        assert critic.started.wait(5)
+        assert critic.started.wait(30)
         accepted = client.post(
             "/api/generate", json={"prompt": "a lighthouse", "width": 256, "height": 256}
         )

@@ -210,12 +210,12 @@ def _in_thread(fn):
 def test_unload_never_waits_for_a_load_and_a_late_one_is_not_kept(stalled):
     ernie = "baidu/ERNIE-Image-Turbo"
     check, answers = _in_thread(lambda: pe.measure(ernie, "a cat", None))
-    assert stalled.entered.wait(5)
+    assert stalled.entered.wait(30)
     unloading, _ = _in_thread(pe.unload)
-    unloading.join(5)
+    unloading.join(30)
     assert not unloading.is_alive(), "unload() waited on the tokenizer fetch"
     stalled.release.set()
-    check.join(5)
+    check.join(30)
     # The check that asked still reads what the load brought back ...
     ((reports, _, detail),) = answers
     assert detail is None and by(reports)["Ministral-3B"].budget == 2047

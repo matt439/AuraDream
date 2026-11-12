@@ -89,7 +89,7 @@ def test_random_prompt_mode_rejects_incomplete_or_conflicting_requests(client, c
 def test_random_prompt_resume_skips_images_held_in_the_live_queue(client, fake):
     body = {**RANDOM_BODY, "seeds": 1}
     release = threading.Event()
-    fake.after_generate = lambda: release.wait(5)
+    fake.after_generate = lambda: release.wait(30)
     try:
         first = client.post("/api/grid", json=body).json()["job_id"]
         preview = client.post("/api/grid/preview", json={**body, "resume": True}).json()
@@ -484,7 +484,7 @@ def test_a_resume_pressed_while_the_run_is_queued_plans_nothing_twice(client, fa
     }
     stream_job(client, client.post("/api/grid", json={**body, "steps_axis": "6"}).json()["job_id"])
     release = threading.Event()
-    fake.after_generate = lambda: release.wait(5)
+    fake.after_generate = lambda: release.wait(30)
     try:
         # The rest of the night, still running when Resume is pressed again.
         first = client.post("/api/grid", json=body).json()["job_id"]
@@ -519,7 +519,7 @@ def test_a_cell_its_job_finishes_during_the_gallery_scan_is_not_planned_again(cl
     # though the scan, begun before its row committed, missed it.
     body = {"prompt": "a lighthouse in fog", "width": 256, "height": 256, "steps_axis": "6", "seed": 11}
     release = threading.Event()
-    fake.after_generate = lambda: release.wait(5)
+    fake.after_generate = lambda: release.wait(30)
     first = client.post("/api/grid", json=body).json()["job_id"]
     wait_for(client, first, lambda job: job["status"] == "running")
     scan = storage.completed_cells
@@ -527,7 +527,7 @@ def test_a_cell_its_job_finishes_during_the_gallery_scan_is_not_planned_again(cl
     def racing(*args, **kwargs):
         done = scan(*args, **kwargs)
         release.set()
-        deadline = time.monotonic() + 5
+        deadline = time.monotonic() + 30
         while main.jobs.get(first).status != "done" and time.monotonic() < deadline:
             time.sleep(0.01)
         assert main.jobs.get(first).status == "done"

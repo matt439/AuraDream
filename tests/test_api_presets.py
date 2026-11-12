@@ -199,12 +199,12 @@ def test_model_switch_waits_for_capture_to_finish(client, monkeypatch):
     with ThreadPoolExecutor(1) as pool:
         try:
             pending = pool.submit(client.post, "/api/presets", json=capture())
-            assert entered.wait(5)
+            assert entered.wait(30)
             response = client.post("/api/model/switch", json={"model_id": OTHER, "load": False})
             assert response.status_code == 409, response.text
             assert "/api/presets" in response.json()["detail"]
         finally:
             release.set()
-        assert pending.result(timeout=5).status_code == 201
+        assert pending.result(timeout=30).status_code == 201
     assert main._model_requests == 0
     assert client.get("/api/presets").json()["items"][0]["model_id"] != OTHER

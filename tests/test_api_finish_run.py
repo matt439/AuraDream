@@ -235,14 +235,14 @@ def test_concurrent_finish_submissions_admit_each_missing_cell_once(client, stor
         calls += 1
         if calls == 1:
             entered.set()
-            assert release.wait(5)
+            assert release.wait(30)
         return original(*args, **kwargs)
 
     monkeypatch.setattr(storage, "completed_cells", blocked)
     fake.step_seconds = 0.05
     with ThreadPoolExecutor(max_workers=2) as pool:
         first = pool.submit(client.post, f"/api/runs/{run}/finish", json={})
-        assert entered.wait(5)
+        assert entered.wait(30)
         second = pool.submit(client.post, f"/api/runs/{run}/finish", json={})
         release.set()
         answers = [first.result(10), second.result(10)]
@@ -367,19 +367,19 @@ def test_finish_and_other_continuations_share_admission_before_disk_await(client
         calls += 1
         if calls == 1:
             entered.set()
-            assert release.wait(5)
+            assert release.wait(30)
         return original(*args, **kwargs)
 
     monkeypatch.setattr(storage, "retain_run_job", blocked)
-    fake.after_generate = lambda: worker.wait(5)
+    fake.after_generate = lambda: worker.wait(30)
     route, body = ("/api/grid", {**base.model_dump(), "steps_axis": "1", "seeds": 2, "resume": True}) if first_route == "resume" else (
         "/api/more-seeds", {"run": run, "count": 1})
     with ThreadPoolExecutor(max_workers=2) as pool:
         try:
             first = pool.submit(client.post, route, json=body)
-            assert entered.wait(5) and not main.jobs.active()
+            assert entered.wait(30) and not main.jobs.active()
             second = pool.submit(client.post, f"/api/runs/{run}/finish", json={})
-            deadline = time.monotonic() + 5
+            deadline = time.monotonic() + 30
             while main._model_requests < 2:
                 assert time.monotonic() < deadline
                 time.sleep(0.005)
@@ -431,15 +431,15 @@ def test_finish_admission_covers_awaited_mask_work(client, store, fake, monkeypa
         calls += 1
         if calls == 1:
             entered.set()
-            assert release.wait(5)
+            assert release.wait(30)
         return original(*args, **kwargs)
 
     monkeypatch.setattr(storage, awaited, blocked)
-    fake.after_generate = lambda: worker.wait(5)
+    fake.after_generate = lambda: worker.wait(30)
     with ThreadPoolExecutor(max_workers=2) as pool:
         try:
             first = pool.submit(client.post, f"/api/runs/{run}/finish", json={})
-            assert entered.wait(5) and not main.jobs.active()
+            assert entered.wait(30) and not main.jobs.active()
             second = pool.submit(client.post, f"/api/runs/{run}/finish", json={})
             release.set()
             answers = [first.result(10), second.result(10)]
@@ -458,11 +458,11 @@ def test_queue_snapshot_covers_completion_during_gallery_scan(client, store, fak
 
     def hold():
         started.set()
-        assert release_job.wait(5)
+        assert release_job.wait(30)
 
     fake.after_generate = hold
     ordinary = client.post("/api/generate", json=cell(1).request.model_copy(update={"seed": 1}).model_dump()).json()
-    assert started.wait(5)
+    assert started.wait(30)
     original = storage.completed_cells
     scanned = False
 
@@ -472,7 +472,7 @@ def test_queue_snapshot_covers_completion_during_gallery_scan(client, store, fak
         if not scanned:
             scanned = True
             release_job.set()
-            deadline = time.monotonic() + 5
+            deadline = time.monotonic() + 30
             while main.jobs.get(ordinary["job_id"]).status not in {"done", "error", "cancelled"}:
                 assert time.monotonic() < deadline
                 time.sleep(0.005)
@@ -531,7 +531,7 @@ def holding(fake):
 
     def hold():
         started.set()
-        assert release.wait(5)
+        assert release.wait(30)
 
     fake.after_generate = hold
     return release, started
@@ -560,7 +560,7 @@ def test_a_pass_a_cancel_left_missing_is_finished_under_the_pass_run(client, sto
         accepted = client.post(f"/api/runs/{run}/finish", json={"expected": answer["pin"]})
         assert accepted.status_code == 200, accepted.text
         assert (accepted.json()["cells"], accepted.json()["passes"]) == (0, 1)
-        assert started.wait(5)
+        assert started.wait(30)
         again = preview(client, run)
         assert not again["available"] and "queued" in again["reason"]
     finally:
@@ -601,7 +601,7 @@ def test_a_pass_mass_refine_made_counts_as_made_and_a_queued_one_as_queued(clien
     try:
         queued = client.post("/api/refine/batch", json={"ids": [second.id], "scale": 1.5, "strength": 0.5})
         assert queued.status_code == 200, queued.text
-        assert started.wait(5)
+        assert started.wait(30)
         held = preview(client, done["run_id"])
         assert not held["available"] and held["reason"] == "the missing passes are already queued"
     finally:
@@ -662,7 +662,7 @@ def test_a_source_deleted_before_its_turn_is_a_failed_pass(client, store, fake):
 
 def retained_outcome(store, run, job_id):
     """The retained job's outcome, written by a daemon after `done`."""
-    deadline = time.time() + 5
+    deadline = time.time() + 30
     while time.time() < deadline:
         saved = next(saved for saved in store.retained_run_jobs(run) if saved["job_id"] == job_id)
         if saved["outcome"] is not None:

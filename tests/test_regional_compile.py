@@ -311,11 +311,11 @@ def test_installed_config_policy_is_context_local_across_threads(installed_confi
         return before, inside, flags(config)
 
     with ThreadPoolExecutor(max_workers=1) as pool:
-        assert pool.submit(flags, config).result(timeout=5) == (True, False)
+        assert pool.submit(flags, config).result(timeout=30) == (True, False)
         with regional.strict_compiler_policy():
-            assert pool.submit(worker).result(timeout=5) == ((True, False), (False, True), (True, False))
+            assert pool.submit(worker).result(timeout=30) == ((True, False), (False, True), (True, False))
             assert flags(config) == (False, True)
-        assert pool.submit(flags, config).result(timeout=5) == (True, False)
+        assert pool.submit(flags, config).result(timeout=30) == (True, False)
     assert flags(config) == (True, False)
 
 

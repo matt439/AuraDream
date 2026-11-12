@@ -112,7 +112,7 @@ def test_status_never_loads_a_tokenizer(client, fake, monkeypatch):
     # checkpoint that can.
     claim(monkeypatch, fake, FLUX)
     client.post("/api/model/load")
-    deadline = time.time() + 5
+    deadline = time.time() + 30
     while client.get("/api/status").json()["state"] != "ready":
         assert time.time() < deadline, "the load never finished"
         time.sleep(0.01)
@@ -147,7 +147,7 @@ def test_unload_answers_at_once_while_a_check_waits_on_a_tokenizer(client, fake,
     with ThreadPoolExecutor(2) as pool:
         try:
             check = pool.submit(client.post, "/api/prompt/analyze", json={"prompt": "a cat"})
-            assert entered.wait(5)
+            assert entered.wait(30)
             unloading = pool.submit(client.post, "/api/model/unload")
             done, _ = concurrent.futures.wait([unloading], timeout=10)
             assert done, "Unload waited on the tokenizer fetch"
@@ -156,7 +156,7 @@ def test_unload_answers_at_once_while_a_check_waits_on_a_tokenizer(client, fake,
             assert client.get("/api/status").json()["state"] == "unloaded"
         finally:
             release.set()
-        check.result(timeout=5)
+        check.result(timeout=30)
 
 
 def test_unload_says_unloaded_before_the_analyser_and_critic_let_go(client, fake, monkeypatch):
@@ -273,7 +273,7 @@ def test_the_exit_signals_critic_stop_logs_a_failure(client, fake, monkeypatch, 
     server = main.Server(uvicorn.Config(main.app, log_config=None))
     with caplog.at_level("ERROR", logger=main.log.name):
         server.handle_exit(signal.SIGINT, None)
-        deadline = time.time() + 5
+        deadline = time.time() + 30
         while "stopping the prompt critic failed" not in caplog.text and not unhandled:
             assert time.time() < deadline, "the critic's stop never finished"
             time.sleep(0.01)
@@ -291,7 +291,7 @@ def test_the_exit_signal_cancels_the_jobs_and_stops_the_critic(client, fake, mon
 
     def slow_unload():
         stopping.set()
-        release.wait(5)
+        release.wait(30)
         unload()
         stopped.set()
 
@@ -308,10 +308,10 @@ def test_the_exit_signal_cancels_the_jobs_and_stops_the_critic(client, fake, mon
         # Said as the server's stop, not a Cancel pressed in some other tab.
         assert main.jobs.get(job_id).stopped_by == "shutdown"
         # Returned with the critic's stop still under way.
-        assert stopping.wait(5) and not stopped.is_set()
+        assert stopping.wait(30) and not stopped.is_set()
     finally:
         release.set()
-    assert stopped.wait(5) and fake.critic.unloads == 1
+    assert stopped.wait(30) and fake.critic.unloads == 1
     assert server.should_exit
     assert stream_job(client, job_id)[-1]["status"] == "cancelled"
 

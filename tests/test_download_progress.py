@@ -11,6 +11,7 @@ import pytest
 
 from backend import download_progress, main, model_info
 from backend.error_text import download_failure, generation_error
+from tests.api_helpers import wait_for_status
 from tests.test_model_downloads import cache_factory, OTHER_COMMIT
 
 
@@ -104,20 +105,12 @@ def test_api_load_refusal_status_and_retry_agree(client, fake, monkeypatch):
     monkeypatch.setattr(fake, "load", full_disk)
     response = client.post("/api/model/load", headers=headers)
     assert response.status_code == 200
-    for _ in range(100):
-        answer = client.get("/api/status").json()
-        if answer["state"] == "error":
-            break
-        time.sleep(0.02)
+    answer = wait_for_status(client, state="error")
     assert answer["state"] == "error" and answer["detail_kind"] == "disk_full"
     assert "secret" not in answer["detail"] and "cache drive" in answer["detail"]
     monkeypatch.setattr(fake, "load", original_load)
     assert client.post("/api/model/load", headers=headers).status_code == 200
-    for _ in range(100):
-        answer = client.get("/api/status").json()
-        if answer["state"] == "ready":
-            break
-        time.sleep(0.02)
+    answer = wait_for_status(client, state="ready")
     assert answer["state"] == "ready" and answer["detail"] is None and answer["detail_kind"] is None
 
 
