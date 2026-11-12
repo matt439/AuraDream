@@ -12,7 +12,8 @@ cells of a grid can be told apart on a sheet. A cell whose prompt holds
 `[fail]` raises, as an out-of-memory cell would, so a grid's skipped cells
 and the failure rule can be driven from the page. The fake's own test-only
 knobs, never on the real server, are POSTs under `/api/fake/`: load, step,
-expand, model, lora, bin-age, peak, refine, instruction-edit, disk-full and
+expand, model, lora, bin-age, peak, refine, instruction-edit, disk-full,
+activity and
 passcode; the comment
 above each route states its body and its answer. The instruction-edit gate
 is open on a fake claiming FLUX.1 Kontext [dev] alone - there an edit is
@@ -29,7 +30,9 @@ supplied directory, including its saved settings; use genuinely new scratch
 data for isolated runs. Before importing the application, the fake installs
 a fixed refusal for Windows backup credential access. Cached credential
 metadata and platform facts remain unchanged; this does not isolate reused
-data from other filesystem or backup operations.
+data from other filesystem or backup operations. The model-cache inventory
+(Models > On disk) reads a scratch Hub cache planted under the data
+directory, never this machine's.
 Everything else - the job queue, SSE, resume, the runs summary, pause, the
 budget, the analyser's rules - is the real code, which is the point:
 `tools/browser.mjs` drives a headless browser against this to check the UI.
@@ -116,6 +119,39 @@ def _install_credential_refusal() -> None:
     from backend import backup_credentials
 
     backup_credentials._credential_api = _refuse_credential_api
+
+
+def _plant_model_cache(data: Path) -> None:
+    """Point the On disk inventory (`GET /api/models/storage`) at a scratch
+    Hub cache and conversion home under the fake's data, never this
+    machine's own: a few bytes of one catalogue checkpoint's selected files,
+    a repository no entry names and a partial download. Same answers on
+    every machine; the real scan reads them."""
+    from backend import model_cache_storage, model_info
+
+    hub = data / "model-cache" / "hub"
+    converted = data / "model-cache" / "converted"
+    converted.mkdir(parents=True, exist_ok=True)
+    references = model_info.download_references()
+    recipe = references["models"]["cagliostrolab/animagine-xl-4.0"]["sources"][0]
+    source = references["sources"][recipe["source"]]
+    commit = source.get("commit") or source["revision"]
+    planted = {
+        f"models--cagliostrolab--animagine-xl-4.0/snapshots/{commit}/model_index.json": 671,
+        f"models--cagliostrolab--animagine-xl-4.0/snapshots/{commit}/unet/config.json": 1830,
+        "models--cagliostrolab--animagine-xl-4.0/refs/main": None,
+        f"models--someone--unlisted-model/snapshots/{'4' * 40}/weights.safetensors": 6000,
+        "models--someone--unlisted-model/blobs/partial.incomplete": 2048,
+    }
+    for name, size in planted.items():
+        path = hub / name
+        if path.exists():
+            continue
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(commit.encode() if size is None else b"x" * size)
+    scan = model_cache_storage.snapshot
+    model_cache_storage.snapshot = lambda cache_dir=None: scan(cache_dir or hub)
+    model_cache_storage.hf_home_dir = lambda name: converted
 
 
 def main() -> int:
@@ -561,6 +597,8 @@ def main() -> int:
                     model_id=other, job_id="planted-edit", run_id="planted-edit",
                 )
 
+    _plant_model_cache(data)
+
     # The fake's own knob for the load, which no flag can reach once the
     # smokes' runner has started the server: how long the loads after it take,
     # and whether they fail as a gated repo does, or are held until the next
@@ -772,6 +810,38 @@ def main() -> int:
         silent["on"] = on
         return {"on": on}
 
+    # What would count as someone using AuraDream, which the fake cannot
+    # show by itself: it runs with keep-awake off, so no controller notes
+    # anything. Every request but these knobs is recorded as `METHOD path`
+    # with whether `keep_awake.scope_counts_as_activity` - the real
+    # middleware's own rule, its poll marker read - counts it (the last
+    # RECORD_LIMIT). Answers the record since the last `reset` (true clears
+    # it after answering).
+    from backend import keep_awake as keep_awake_rules
+
+    record_limit = 5000
+    activity: list[dict] = []
+
+    class RecordActivity:
+        def __init__(self, app: Any) -> None:
+            self.app = app
+
+        async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+            if scope.get("type") == "http" and not scope.get("path", "").startswith("/api/fake/"):
+                activity.append({"request": f"{scope.get('method', '')} {scope.get('path', '')}",
+                                 "counted": keep_awake_rules.scope_counts_as_activity(scope)})
+                del activity[:-record_limit]
+            await self.app(scope, receive, send)
+
+    app_main.app.add_middleware(RecordActivity)
+
+    @app_main.app.post("/api/fake/activity", include_in_schema=False)
+    async def fake_activity(reset: bool = Body(False, embed=True)) -> dict:
+        seen = list(activity)
+        if reset:
+            activity.clear()
+        return {"requests": seen, "counted": [entry["request"] for entry in seen if entry["counted"]]}
+
     # The passcode's gate (backend/passcode.py), which a fake never has by
     # itself: it binds 127.0.0.1, and starts with none whatever this
     # machine's environment holds. `passcode`: a string turns the gate on
@@ -819,6 +889,48 @@ def main() -> int:
     async def fake_disk_full(on: bool = Body(..., embed=True)) -> dict:
         full["on"] = on
         return {"on": on}
+
+    # A gallery bundle operation that outlasts a smoke's steps: while `hold`
+    # is on, each export, backup or import worker waits (HOLD_LIMIT at most)
+    # before it starts its real work, so `GalleryAdmission` refuses every
+    # counted route meanwhile, as a long import does. These knobs pass that
+    # admission (they are not gallery reads), so a call with `hold: false`
+    # lets the held operation finish. Answers the state.
+    from starlette.middleware import Middleware
+
+    from backend import api_bundles, bundles
+
+    bundle_gate = threading.Event()
+    bundle_gate.set()
+
+    def held_bundle(real: Any) -> Any:
+        def run(*run_args: Any, **run_kwargs: Any) -> Any:
+            bundle_gate.wait(hold_limit)
+            return real(*run_args, **run_kwargs)
+        return run
+
+    for name in ("export_bundle", "import_bundle", "_import_uploaded_bundle"):
+        setattr(bundles, name, held_bundle(getattr(bundles, name)))
+
+    class FakeKnobsPastAdmission(api_bundles.GalleryAdmission):
+        async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+            if scope.get("type") == "http" and scope.get("path", "").startswith("/api/fake/"):
+                return await self.app(scope, receive, send)
+            return await super().__call__(scope, receive, send)
+
+    app_main.app.user_middleware = [
+        Middleware(FakeKnobsPastAdmission, get_manager=lambda: app_main.bundle_manager)
+        if entry.cls is api_bundles.GalleryAdmission else entry
+        for entry in app_main.app.user_middleware
+    ]
+
+    @app_main.app.post("/api/fake/bundle", include_in_schema=False)
+    async def fake_bundle(hold: bool = Body(..., embed=True)) -> dict:
+        if hold:
+            bundle_gate.clear()
+        else:
+            bundle_gate.set()
+        return {"hold": hold}
 
     import uvicorn
 

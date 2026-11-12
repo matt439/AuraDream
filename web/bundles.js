@@ -29,6 +29,8 @@ let bundleFileEpoch = 0;
 // The AbortController of an upload whose body (or password check) is still
 // being sent; null otherwise. Once the server answers 202 the import is its own.
 let bundleUploadAbort = null;
+// The saved bundle whose delete is on its way to the server; null otherwise.
+let bundleDeleting = null;
 
 // The clear has its own lifetime: POST completion is not terminal cleanup.
 // Never correlate an unanswered local POST with an arbitrary later GET id.
@@ -265,11 +267,19 @@ function bundleHold() {
 }
 
 function bundleActionHold() {
-  return bundleClearHold() || bundleHold() || (bundleSettling ? 'Refreshing the gallery after the bundle operation' : '')
+  return bundleClearHold() || bundleHold() || (bundleDeleting ? `Wait for ${bundleDeleting} to be deleted` : '')
+    || (bundleSettling ? 'Refreshing the gallery after the bundle operation' : '')
     || (bundleReading ? 'Wait for the gallery counts' : '') || (serverOffline ? 'The server is not answering' : '')
     || (busy || queuedIds.length || elsewhereBusy || submitting ? 'Wait for all generation jobs to finish' : '')
     || (expandingPrompt || critiquing ? 'Wait for prompt expansion or the critic to finish' : '')
     || modelChangeHold();
+}
+
+// A saved bundle's Delete (GAL#26): one file at a time, held while a bundle
+// operation runs (the server refuses it then too) or another delete is out.
+function bundleDeleteHold() {
+  return bundleClearHold() || bundleHold() || (bundleDeleting ? `Wait for ${bundleDeleting} to be deleted` : '')
+    || (serverOffline ? 'The server is not answering' : '');
 }
 
 function bundleSay(message, failed = false) {
@@ -324,6 +334,11 @@ function syncBundleControls() {
     'Stop sending the selected file; nothing is imported');
   for (const button of els.bundleList.querySelectorAll('[data-bundle-import]')) {
     hold(button, why || ('bundleEncrypted' in button.dataset ? locked : ''), 'Merge this saved bundle into the gallery');
+  }
+  for (const button of els.bundleList.querySelectorAll('[data-bundle-delete]')) {
+    // The server's own hold first: a copy the automatic backup counts.
+    hold(button, button.dataset.bundleDeleteHold || bundleDeleteHold(),
+      'Delete this saved bundle file from the server, after a confirmation');
   }
   syncAutomaticBackupControls();
 }
@@ -459,7 +474,16 @@ async function refreshBundleList() {
         name.textContent = bundle.name;
         const size = document.createElement('span');
         size.className = 'bundle-size';
-        size.textContent = humanBytes(bundle.bytes);
+        // The file's time, which the list is sorted by (newest first), so
+        // the order a renamed or copied-in archive lands in reads as such.
+        const made = new Date(bundle.created_at * 1000);
+        const date = document.createElement('time');
+        date.className = 'bundle-date';
+        date.dateTime = made.toISOString();
+        date.textContent = made.toLocaleString([], {
+          year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+        });
+        size.append(humanBytes(bundle.bytes), ' · ', date);
         const tag = document.createElement('span');
         tag.className = 'bundle-tag';
         tag.textContent = 'Protected';
@@ -487,7 +511,13 @@ async function refreshBundleList() {
           unlock.setAttribute('aria-label', `Go to Import password for ${bundle.name}`);
           row.append(unlock);
         }
-        row.append(button);
+        const remove = document.createElement('button');
+        remove.type = 'button'; remove.className = 'ghost small danger';
+        remove.dataset.bundleDelete = bundle.name; remove.dataset.bundleBytes = String(bundle.bytes);
+        remove.textContent = 'Delete';
+        remove.setAttribute('aria-label', `Delete ${bundle.name}`);
+        if (bundle.delete_hold) remove.dataset.bundleDeleteHold = bundle.delete_hold.replace(/\.$/, '');
+        row.append(button, remove);
         return row;
       });
       if (!rows.length) {
@@ -495,10 +525,59 @@ async function refreshBundleList() {
         empty.textContent = 'No bundles saved yet.';
         rows.push(empty);
       }
+      // A rebuilt list drops the focused row's button (a delete's own,
+      // after its question): focus goes to the same row's button by name,
+      // else the next row's, else the list, never <body> (GAL#26).
+      const focused = els.bundleList.contains(document.activeElement) ? document.activeElement : null;
+      const at = focused ? [...els.bundleList.children].findIndex((li) => li.contains(focused)) : -1;
       els.bundleList.replaceChildren(...rows);
+      if (focused && !focused.isConnected) refocusBundleRow(focused, at);
     }
     syncBundleControls();
   } catch (err) { bundleSay(err.message, true); }
+}
+
+function refocusBundleRow(was, index) {
+  const attrs = ['bundleDelete', 'bundleImport'];
+  const same = [...els.bundleList.querySelectorAll('button')].find((b) =>
+    attrs.some((a) => a in was.dataset && b.dataset[a] === was.dataset[a]));
+  const row = els.bundleList.children[Math.min(index, els.bundleList.children.length - 1)];
+  const target = same || row?.querySelector('[data-bundle-delete], [data-bundle-import]');
+  if (target) { target.focus({ preventScroll: true }); return; }
+  if (!els.bundleList.hasAttribute('tabindex')) els.bundleList.tabIndex = -1;
+  els.bundleList.focus({ preventScroll: true });
+}
+
+// One saved file, after the page's own question: permanent, like Empty bin.
+// A bundle the gallery was cleared into may be the images' only copy.
+async function deleteSavedBundle(button) {
+  const name = button.dataset.bundleDelete;
+  const message = [
+    `Permanently delete the saved bundle ${name} (${humanBytes(Number(button.dataset.bundleBytes))})?`,
+    'Only this file on the server is removed; the gallery is not changed.',
+    'If the gallery was cleared into this bundle, its images are lost with it.',
+    'This cannot be undone.',
+  ].join('\n');
+  if (!await askConfirm(message, { okLabel: 'Delete bundle' })) return;
+  // Anything that started while the question was up holds it now.
+  if (bundleRefused(button)) return;
+  bundleDeleting = name;
+  syncBundleControls();
+  try {
+    const result = await api(bundleFileURL(name), { method: 'DELETE' });
+    if (els.bundleDownload.download === result.name) els.bundleDownload.hidden = true;
+    bundleSay(`Deleted ${result.name} (${humanBytes(result.bytes)}).`);
+    await refreshBundleList();
+  } catch (err) {
+    bundleSay(err.message, true);
+    // Gone already: the list catches up. In use: the row stays, and the
+    // status says which operation holds it.
+    if (err.code === 'bundle_gone') await refreshBundleList();
+    else if (err.code === 'bundle_in_use') await pollBundleStatus();
+  } finally {
+    bundleDeleting = null;
+    syncBundleControls();
+  }
 }
 
 // `past` labels a result that ended before this page loaded, or one shown
@@ -631,6 +710,9 @@ async function pollBundleStatus() {
   const epoch = bundleRequestEpoch;
   try {
     const status = await api('/api/gallery/bundles/status');
+    // Reads a running operation refused (the Models list, its On disk fold)
+    // are asked again once none runs, whoever's operation it was.
+    if (status.state !== 'running') galleryMaintenanceEnded();
     // A poll begun before this page's POST must not replace its pending state;
     // an upload's own progress is still shown while its body is sent.
     if (!bundleSending && epoch === bundleRequestEpoch) await receiveBundleStatus(status);
@@ -854,6 +936,11 @@ function initBundles() {
   els.bundleRefresh.onclick = () => { if (!bundleRefused(els.bundleRefresh)) void refreshBundlePreview(); };
   els.bundleList.onclick = (event) => {
     if (event.target.closest('[data-bundle-unlock]')) { focusBundleUnlock(); return; }
+    const remove = event.target.closest('[data-bundle-delete]');
+    if (remove) {
+      if (!bundleRefused(remove)) void deleteSavedBundle(remove);
+      return;
+    }
     const button = event.target.closest('[data-bundle-import]');
     if (!button || bundleRefused(button)) return;
     const password = 'bundleEncrypted' in button.dataset ? els.bundleUnlock.value : '';

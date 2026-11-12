@@ -502,6 +502,28 @@ def test_a_prompt_that_does_not_line_up_is_refused(spec, message):
         grid.expand(dog(seed=1), prompt=spec)
 
 
+@pytest.mark.parametrize("mode", ["cross", "random"])
+@pytest.mark.parametrize(
+    "block",
+    [
+        "a = {b} hat | none\nb = red | blue",  # the audit's reproduction
+        "b = red | blue\na = {b} hat | none",  # declared after it, too
+        "a = {a} again | once\nb = red",  # itself
+    ],
+)
+def test_a_value_naming_a_declared_variable_is_refused(mode, block):
+    # GEN#63: one substitution pass left `{b} hat, red` - literal braces at
+    # the encoder. Refused in words, both variable modes alike.
+    with pytest.raises(ValueError, match=r"names \{[ab]\}; a value is filled in once"):
+        grid.expand(dog(seed=1, prompt="{a}, {b}"), prompt=block, prompt_mode=mode)
+
+
+def test_a_value_with_braces_that_name_no_variable_is_text():
+    # Only a declared name is a variable; other braces are the prompt's own.
+    cells = grid.expand(dog(seed=1, prompt="{a}"), prompt="a = {json} | plain")
+    assert [c.request.prompt for c in cells] == ["{json}", "plain"]
+
+
 def test_a_prompt_grid_counts_towards_the_ceiling():
     values = " | ".join(str(n) for n in range(40))
     with pytest.raises(ValueError, match="past the"):

@@ -52,9 +52,10 @@ function modelShotsSearch(id) {
 
 // Ask again for the chosen row: on a new choice (after a pause, the old
 // pictures dimmed meanwhile), or at once and in place (`fresh`: an opening,
-// a delete, a retry). A no-op while the picker is closed or the choice is
-// what the strip already shows.
-function syncModelShots({ fresh = false } = {}) {
+// a delete, a retry; `polled` marks the retry as the page's own timer). A
+// no-op while the picker is closed or the choice is what the strip already
+// shows.
+function syncModelShots({ fresh = false, polled = false } = {}) {
   if (els.modelPicker.hidden) return;
   const id = modelChoice();
   if (!fresh && id === modelShots.id) return;
@@ -74,7 +75,7 @@ function syncModelShots({ fresh = false } = {}) {
   drawModelShots();
   // A move from one row to another waits for the choice to settle.
   const wait = changed && previous && !fresh ? MODEL_SHOTS_WAIT : 0;
-  if (id) modelShotsTimer = setTimeout(() => { void fetchModelShots(id, epoch); }, wait);
+  if (id) modelShotsTimer = setTimeout(() => { void fetchModelShots(id, epoch, polled); }, wait);
 }
 
 // A closed picker asks for nothing; the next opening asks afresh.
@@ -87,12 +88,12 @@ function stopModelShots() {
   if (modelShots.state === 'pending' && modelShots.id) modelShots.id = null;
 }
 
-async function fetchModelShots(id, epoch) {
+async function fetchModelShots(id, epoch, polled = false) {
   const abort = new AbortController();
   modelShotsAbort = abort;
   const query = new URLSearchParams({ model: id, limit: String(modelShotsFit()) });
   try {
-    const page = await api(`/api/gallery?${query}`, { signal: abort.signal });
+    const page = await api(`/api/gallery?${query}`, polled ? polledRead({ signal: abort.signal }) : { signal: abort.signal });
     if (epoch !== modelShotsEpoch) return;
     modelShotsFailedAt = 0;
     // A delete this page made may not have reached the reply's read.
@@ -114,10 +115,10 @@ async function fetchModelShots(id, epoch) {
 }
 
 // A failed strip asks again while the picker is open, from the status polls,
-// every few seconds at most.
+// every few seconds at most: a timed read, never use (POLL_HEADER).
 function retryModelShots() {
   if (modelShots.state === 'failed' && !els.modelPicker.hidden && Date.now() - modelShotsFailedAt > 5000) {
-    syncModelShots({ fresh: true });
+    syncModelShots({ fresh: true, polled: true });
   }
 }
 

@@ -38,7 +38,7 @@ def run_one(client, **payload):
     return job_id, stream_job(client, job_id)
 
 
-def until(predicate, timeout=5.0, *, interval=0.01, message="timed out"):
+def until(predicate, timeout=30.0, *, interval=0.01, message="timed out"):
     """Poll `predicate` until it answers something truthy, and return that.
 
     The timeout is in seconds, not milliseconds: CI's runners are slow, and a
@@ -54,7 +54,7 @@ def until(predicate, timeout=5.0, *, interval=0.01, message="timed out"):
         time.sleep(interval)
 
 
-def wait_for(client, job_id, predicate, timeout=5.0):
+def wait_for(client, job_id, predicate, timeout=30.0):
     def matched():
         snapshot = client.get(f"/api/jobs/{job_id}").json()
         return snapshot if predicate(snapshot) else None
@@ -62,7 +62,7 @@ def wait_for(client, job_id, predicate, timeout=5.0):
     return until(matched, timeout, message="timed out waiting for the job")
 
 
-def wait_for_status(client, timeout=5.0, **expected):
+def wait_for_status(client, timeout=30.0, **expected):
     """Poll /api/status until every given field has its value; return the body."""
     def matched():
         body = client.get("/api/status").json()

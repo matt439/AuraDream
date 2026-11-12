@@ -88,6 +88,8 @@ const els = {
   width: $('width'), height: $('height'), steps: $('steps'), cfg: $('cfg'),
   customSize: $('custom-size'), customSizeSummary: $('custom-size-summary'), customSizeValue: $('custom-size-value'),
   conditioningSection: $('conditioning-section'), conditioningSummary: $('conditioning-summary'),
+  samplingSection: $('sampling-section'), samplingCaption: $('sampling-caption'),
+  samplingValue: $('sampling-value'),
   mu: $('mu'), muField: $('mu-field'), seed: $('seed'), batch: $('batch'), runs: $('runs'),
   trueCfg: $('true-cfg'), trueCfgField: $('true-cfg-field'), trueCfgTip: $('true-cfg-tip'),
   stepsTip: $('steps-tip'), cfgTip: $('cfg-tip'), muTip: $('mu-tip'),
@@ -117,7 +119,7 @@ const els = {
   setupsUpdate: $('setups-update'), setupsRename: $('setups-rename'), setupsDelete: $('setups-delete'),
   setupsRestore: $('setups-restore'), setupsReload: $('setups-reload'), setupsAll: $('setups-all'),
   setupsModels: $('setups-models'), setupsSummary: $('setups-summary'), setupsStatus: $('setups-status'),
-  modelTable: $('model-table'), modelTableHead: $('model-table-head'),
+  modelTable: $('model-table'), modelTableHead: $('model-table-head'), modelTableHeld: $('model-table-held'),
   modelSwitch: $('btn-model-switch'), modelSave: $('btn-model-save'), modelPickerNote: $('model-picker-note'),
   modelPickerNoteText: $('model-picker-note-text'), modelRevert: $('btn-model-revert'), modelPickerHelp: $('model-picker-help'),
   modelQuantization: $('model-quantization'), modelOffload: $('model-offload'),
@@ -129,6 +131,10 @@ const els = {
   modelFormat: $('model-format'), modelFormatField: $('model-format-field'), modelFormatHelp: $('model-format-help'),
   modelLoadOnStartup: $('model-load-on-startup'), modelGroupByType: $('model-group-by-type'),
   modelPickerBody: $('model-picker-body'),
+  modelFavouritesOffer: $('model-favourites-offer'), modelFavouritesOfferText: $('model-favourites-offer-text'),
+  btnModelFavouritesImport: $('btn-model-favourites-import'), btnModelFavouritesDismiss: $('btn-model-favourites-dismiss'),
+  modelStorage: $('model-storage'), modelStorageBody: $('model-storage-body'),
+  modelStorageStatus: $('model-storage-status'), btnModelStorageRefresh: $('btn-model-storage-refresh'),
   modelShots: $('model-shots'), modelShotsLabel: $('model-shots-label'), modelShotsAll: $('btn-model-shots-all'),
   modelShotsList: $('model-shots-list'), modelShotsEmpty: $('model-shots-empty'),
   reset: $('btn-reset'), pngButton: $('btn-png'), pngFile: $('png-file'),
@@ -145,7 +151,8 @@ const els = {
   thenRefine: $('then-refine'), thenRefineLabel: $('then-refine-label'),
   thenRefineStrength: $('then-refine-strength'), thenRefineScales: $('then-refine-scales'),
   thenRefineSteps: $('then-refine-steps'), thenRefineHint: $('then-refine-hint'),
-  gridSection: $('grid-section'), gridPrompt: $('grid-prompt'), gridPromptMode: $('grid-prompt-mode'), gridSize: $('grid-size'),
+  gridSection: $('grid-section'), gridPrompt: $('grid-prompt'), gridTagSuggestions: $('grid-tag-suggestions'),
+  gridPromptMode: $('grid-prompt-mode'), gridSize: $('grid-size'), gridSizeAdd: $('grid-size-add'),
   gridSteps: $('grid-steps'), gridCfg: $('grid-cfg'),
   gridMu: $('grid-mu'), gridMuField: $('grid-mu-field'), gridMuTip: $('grid-mu-tip'),
   gridSeeds: $('grid-seeds'), gridSeedList: $('grid-seed-list'),
@@ -168,6 +175,7 @@ const els = {
   picked: $('picked'), pickedBtn: $('btn-picked'), pickedMenu: $('picked-menu'),
   contextMenu: $('context-menu'),
   swap: $('btn-swap'), swapDialog: $('swap-dialog'), swapScope: $('swap-scope'), swapRows: $('swap-rows'),
+  swapTagSuggestions: $('swap-tag-suggestions'), swapTags: $('swap-tags'),
   swapAdd: $('swap-add'), swapNegative: $('swap-negative-label'), swapCount: $('swap-count'),
   swapResults: $('swap-results'), swapError: $('swap-error'), swapCancel: $('swap-cancel'), swapQueue: $('swap-queue'),
   refineBatch: $('btn-refine-batch'), refineBatchDialog: $('refine-batch-dialog'),
@@ -643,7 +651,8 @@ let draggedTagIndex = null;
 let tagInsertAt = null;
 let tagEditAt = null;
 // The pending lookup of the editor's suggestion list - the chip editor's, the
-// Refine dialog's prompt's or the panel's negative box's, which share it
+// Refine dialog's prompt's, the panel's negative box's, the Grid's Prompt
+// variables box's or Swap tags' Find and Replace boxes', which share it
 // (tag-lists.js, scheduleEditorSuggestions): never two at once, each asking only
 // for the box with the focus, and the dialog being modal.
 let tagEditorSuggestionTimer = null;
@@ -700,6 +709,39 @@ const LOST_PHRASE = 'server not answering — retrying';
 // The topbar's words, in the same place, for a server that asks for its
 // passcode again (status.js, goSignedOut); Sign in is the button beside it.
 const SIGNED_OUT_PHRASE = 'signed out';
+
+// A read the page sends by itself on a timer - a retry after a failure, or
+// a refresh a status poll asked for - carries this header, so the server
+// never counts it as someone using AuraDream (backend/keep_awake.py's
+// POLL_HEADER): an idle tab must not hold the PC awake or the model loaded.
+// A read a press starts goes without it.
+const POLL_HEADER = 'X-AuraDream-Poll';
+function polledRead(options = {}) {
+  const headers = new Headers(options.headers);
+  headers.set(POLL_HEADER, '1');
+  return { ...options, headers };
+}
+
+// The debounced previews (grid, comparison, Refine, Inpaint, Outpaint) are
+// also asked again when a status poll sees the model load or unload - idle
+// release's unload among them - and that POST /api/grid/preview is the
+// page's own timer too. Each keeps a mark: a schedule a poll made sets it
+// only while nothing else is pending, any other schedule clears it, and the
+// send takes it (`polledIf`), so a preview someone's edit asked for always
+// counts. The server accepts the header on that one advisory POST alone.
+// A mark is a plain `{ pending: false, polled: false }` in its own script.
+function markPreview(mark, polled) {
+  if (!polled) mark.polled = false;
+  else if (!mark.pending) mark.polled = true;
+  mark.pending = true;
+}
+function takePreviewMark(mark) {
+  const polled = mark.polled;
+  mark.pending = false;
+  mark.polled = false;
+  return polled;
+}
+function polledIf(polled, options) { return polled ? polledRead(options) : options; }
 
 // Every /api/ request carries the checkpoint revision the page last saw; the
 // server alone decides which routes refuse a stale one, so a model-dependent
@@ -765,6 +807,28 @@ function refusedIds(err) {
 // The request's adapter was refused: no such file, or not this checkpoint's.
 function loraRefused(err) {
   return err?.code === 'lora_missing' || err?.code === 'lora_mismatch';
+}
+
+// A gallery bundle import, export, clear or backup holds every counted route
+// while it runs (backend/bundle_manager.py's GalleryAdmission). A panel whose
+// read was refused so says these words in place of its contents, and may
+// leave a read with `afterGalleryMaintenance` for when the operation ends.
+const GALLERY_MAINTENANCE_WORDS = 'A gallery bundle import, export, backup or clear is running';
+function galleryMaintenance(err) {
+  return err?.code === 'gallery_maintenance';
+}
+// The reads refused that way, by key, each asked once when bundles.js's
+// status poll - the one that already watches bundle operations, never a new
+// timer - sees none running. Each read is the page's own timer: it carries
+// POLL_HEADER, so it never counts as someone using AuraDream.
+const galleryMaintenanceReads = new Map();
+function afterGalleryMaintenance(key, read) {
+  galleryMaintenanceReads.set(key, read);
+}
+function galleryMaintenanceEnded() {
+  const reads = [...galleryMaintenanceReads.values()];
+  galleryMaintenanceReads.clear();
+  for (const read of reads) void read();
 }
 
 // FastAPI's own 422s carry a list of {loc, msg, ctx, input} objects, which as

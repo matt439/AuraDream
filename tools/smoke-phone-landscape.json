@@ -21,7 +21,7 @@
   {"wait": 300},
   {"tap": "#more-options"},
   {"expect": "__until(() => document.getElementById('more-sheet').open && backDepth === 1 && !backGoing)", "fatal": true},
-  {"expect": "(() => { const sheet = document.getElementById('more-sheet'), head = __box(sheet.querySelector(':scope > .dialog-head')), cs = getComputedStyle(sheet), steps = __box(els.steps.closest('.sampling-row') || els.steps); return Math.abs(head.left) < 0.5 && Math.abs(head.right - innerWidth) < 0.5 && parseFloat(cs.paddingLeft) >= (innerWidth - 640) / 2 - 0.5 && steps.left >= (innerWidth - 640) / 2 - 0.5 && steps.right <= (innerWidth + 640) / 2 + 0.5; })()"},
+  {"expect": "(() => { const sheet = document.getElementById('more-sheet'), head = __box(sheet.querySelector(':scope > .dialog-head')), cs = getComputedStyle(sheet), steps = __box(els.samplingSection); return Math.abs(head.left) < 0.5 && Math.abs(head.right - innerWidth) < 0.5 && parseFloat(cs.paddingLeft) >= (innerWidth - 640) / 2 - 0.5 && steps.left >= (innerWidth - 640) / 2 - 0.5 && steps.right <= (innerWidth + 640) / 2 + 0.5; })()"},
   {"expect": "__phoneAudit().ok"},
   {"tap": "#more-sheet-done"},
   {"expect": "__until(() => !document.getElementById('more-sheet').open && backDepth === 0 && !backGoing)"},

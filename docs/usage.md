@@ -91,9 +91,16 @@ Reopen an existing Refine dialog after a switch to use the new schedule. Finish 
 Other open tabs follow the server's selection too.
 
 Press the star beside a model to add or remove it from **Favourites** at the
-top of the list. This is saved immediately in this browser and survives page
-reloads and server restarts; it does not change or load the selected model.
-The ordinary and Nunchaku versions of a checkpoint share its star.
+top of the list. It is saved immediately on the server, beside the gallery
+database, so every browser, address and device that reaches this server sees
+the same stars; it does not change or load the selected model. The ordinary
+and Nunchaku versions of a checkpoint share its star. A star pressed while
+Models is open changes in place; the list regroups the next time it opens.
+
+Favourites used to be kept in each browser. If this browser still has such a
+set, Models offers once, as it opens, to import it into the gallery's
+favourites: **Import** adds the stars the gallery lacks and removes none,
+**Don't import** leaves them out. Either way that browser does not ask again.
 
 **Made with** shows the newest images the chosen checkpoint has made in this
 gallery and how many there are, so its style can be judged from its own
@@ -233,12 +240,12 @@ and Expand. The table below holds the same words for the whole catalogue.
 | FLUX.1 Krea [dev] | Yes | Yes | Yes | No | Yes | Yes | Yes | No |
 | Krea 2 Turbo | No | No | No | No | Yes | Yes | Yes | No |
 | Krea 2 Raw | No | No | No | No | Yes | Yes | Yes | No |
-| Animagine XL 4.0 Opt | Yes | Yes | Yes | No | Yes | Yes | No | No |
-| Kohaku XL Zeta | Yes | Yes | Yes | No | Yes | Yes | No | No |
-| Illustrious XL v2.0-STABLE | Yes | Yes | Yes | No | Yes | Yes | No | No |
-| WAI Illustrious v17 | Yes | Yes | Yes | No | Yes | Yes | No | No |
-| RouWei 0.8 epsilon | Yes | Yes | Yes | No | Yes | Yes | No | No |
-| NoobAI-XL V-pred 1.0 | Yes | Yes | Yes | No | Yes | Yes | No | No |
+| Animagine XL 4.0 Opt | Yes | Yes | Yes | No | Yes | Yes | Yes | No |
+| Kohaku XL Zeta | Yes | Yes | Yes | No | Yes | Yes | Yes | No |
+| Illustrious XL v2.0-STABLE | Yes | Yes | Yes | No | Yes | Yes | Yes | No |
+| WAI Illustrious v17 | Yes | Yes | Yes | No | Yes | Yes | Yes | No |
+| RouWei 0.8 epsilon | Yes | Yes | Yes | No | Yes | Yes | Yes | No |
+| NoobAI-XL V-pred 1.0 | Yes | Yes | Yes | No | Yes | Yes | Yes | No |
 | Z-Anime Base | Yes | Yes | Yes | No | Yes | Yes | Yes | No |
 | Anima Turbo v1.1 | No | No | No | No | No | Yes | Yes | No |
 | Anima Aesthetic v1.1 | No | No | No | No | No | Yes | Yes | No |
@@ -267,8 +274,9 @@ loaded, not measurements; `docs/verified.md` lists what has run on the card.
 - **LoRA** is for the official repository at FP8, INT8 or BF16. No Nunchaku
   4-bit build takes an adapter, and peft must be installed.
 - **Live preview** is Yes where a latent-to-RGB map is fitted for the
-  checkpoint's VAE. The four-channel SDXL VAE and FLUX.2's have none, so
-  those renders show progress without a picture.
+  checkpoint's VAE. FLUX.2's VAE (FLUX.2 [klein], ERNIE, FLUX 3) has none,
+  so those renders show progress without a picture. SDXL's picture is softer
+  than FLUX's: its VAE has four channels to draw from.
 - **Expand** downloads its own weights on first use (ERNIE's rewriter, FLUX
   3's upsampler).
 - FLUX.1 Kontext [dev] only edits: see [Edit by instruction](#edit-by-instruction).
@@ -280,9 +288,15 @@ test fails while it differs from the catalogue.
 
 ### Inspect model storage
 
-While signed in, open `/api/models/storage` on the same server for a
-read-only JSON inventory. It runs only when requested, off the server's
-request loop, and never deletes anything. It lists measured cached bytes
+Open **On disk** at the foot of the Models panel (collapsed by default) to
+see what the model cache holds. It reads the cache only when you open it, or
+press its **Refresh**, never on a timer, and it has no delete control: it
+shows the Hub cache total, free space on its drive, converted copies,
+incomplete downloads, the bytes no catalogue download names, each catalogue
+checkpoint with files in the cache, and other repositories there. The same
+inventory is the read-only JSON at `/api/models/storage` on the same server
+(signed in, when a passcode is asked). It runs only when requested, off the
+server's request loop, and never deletes anything. It lists measured cached bytes
 for each catalogue selection, converted copies, shared bytes, the Hub cache
 total, incomplete downloads and free space on the cache drive. Model rows
 can share the same files, so adding their totals double-counts them.
@@ -301,7 +315,8 @@ can change during a download. For manual cleanup while stopped, follow
 ## Generate and manage jobs
 
 Enter a prompt, choose a size and press **Generate**. The checkpoint supplies
-its starting Steps, CFG and Mu. The **?** badges explain each control and
+its starting Steps, CFG and Mu, which the **Sampling** fold's summary shows
+(see [Compact setup](#compact-setup)). The **?** badges explain each control and
 which settings the model uses. A blank Seed draws a new seed; a fixed Seed
 lets you compare settings. Reproduction also depends on the checkpoint,
 quantizer, size and other inputs. Nunchaku is not bitwise reproducible.
@@ -792,7 +807,15 @@ ground = grass | dirt
 ```
 
 This makes six prompts. `none` removes that fragment; commas remain part of
-a value. Unused variables and placeholders without values are refused.
+a value. On a Danbooru-tag checkpoint the box suggests tags for the value
+you are typing, as the prompt box does. Unused variables and placeholders
+without values are refused, as is a value naming another variable
+(`hat = {size} hat`): values are filled in once, so its braces would reach
+the model.
+The preview counts each resolved prompt's tokens per text encoder, as Check
+counts the prompt box, on the listing's last line. Where a value carries a
+prompt past what an encoder reads, a warning names the encoder and the value
+(or the prompts) that lose their end.
 To keep a block of variables for another day, save it as a Grid variables
 snippet under **Examples > Personal snippets…**.
 The default **Cross all values** tries every combination. **One choice per
@@ -813,7 +836,9 @@ including matching images from other jobs and live queued work. An entirely
 completed grid is refused. A hand-built Resume still needs the original
 prompt, axes and base seed in the panel.
 
-Sizes cross with the other axes and keep each image's seed. Each size must
+Sizes cross with the other axes and keep each image's seed. **+ panel size**
+beside the Sizes label adds the panel's current width x height to the box
+(once: a size already listed is not added twice). Each size must
 meet the usual bounds; a larger canvas never borrows another size's timing
 estimate. The run and contact sheet show its distinct sizes.
 
@@ -868,6 +893,13 @@ Search combines these terms with free text matching the prompt:
 
 Orientation values compare the stored width and height. Combine them with
 prompt words or other filters, such as `size:portrait seed:42`.
+
+A prompt word matches the start of a word, so the gallery narrows as you
+type: `drag` finds "dragon" and "drag race" but not "snapdragon". Every
+word must match, in any order. An excluded word is exact: `dra -drag`
+keeps the dragons and leaves out "drag race". Words like AND, OR and NOT
+are searched as words, and a search holding an odd double quote (`26"`)
+matches the same way.
 
 A leading `-` leaves images out: `fox -blonde` is the foxes whose prompt does
 not have "blonde", and `seed:>10 -seed:12` every seed above 10 but 12. A lone
@@ -997,6 +1029,10 @@ already rendered, already queued, a deleted source or LoRA, the same as another 
 Each image keeps its own seed, size and settings; one job is queued per
 size. A listed row notes when it is an inpaint or outpaint, and when only
 its masked area runs; an instruction edit is left out with its reason.
+On a Danbooru-tag checkpoint the Find and Replace boxes suggest tags as the
+prompt box does, and a replacement or added tag the index does not know is
+named under the rows and outlined in amber once you move on from it - a
+warning only: **Queue** still puts it in.
 
 **Refine…** (beside **Swap tags…**) runs a refine pass of each selected
 image - or, with nothing selected, of what the filter matches - from its
@@ -1078,6 +1114,20 @@ below it. **LoRA & references** contains adapter/weight and reference controls;
 its summary names active or retained inputs. Restore and Reuse reveal relevant
 setup, and an incomplete number reveals its field before focusing it. Closing
 a group keeps every setting. Status updates preserve your chosen open state.
+
+**Sampling** holds Steps, CFG, Mu and True CFG. Its summary always shows the
+values a Generate will use, such as `28 steps · CFG 3.5 · Mu auto`:
+a blank box shows the checkpoint's default, Mu shows `auto` or the
+checkpoint's fixed shift, True CFG appears once you set it (marked
+`(unused)` until a negative prompt is there for it to run), and a number
+the box cannot read shows as `check steps` (or the field's name). This
+browser remembers whether you last opened or shut it from its summary, and
+it starts shut.
+Reuse, Reset, Saved setups and Load settings from PNG change the values
+without opening it. Only a press that needs one of its boxes opens it: an
+unfinished number at Generate, Run grid or Run comparison, or **Set CFG** /
+**Set True CFG** under a greyed negative prompt; that opening is not
+remembered. On a phone it is the first row of **More options**.
 
 ### Keyboard and lightbox
 
@@ -1231,8 +1281,9 @@ route, image and stream answers 401 until the browser has signed in. It is
 asked whenever `AURADREAM_HOST` or a name in `AURADREAM_ALLOWED_HOSTS` is
 not loopback, of every caller, the PC's own browser and a proxy on the same
 machine included; on a server only this machine reaches it is not asked.
-A browser stays signed in for thirty days after its last visit, across
-restarts; **Sign out** is in the Models panel. If the session ends under an
+A browser stays signed in for thirty days after it was last used (a page
+load, or anything done on an open page; the page's own timed checks do not
+count), across restarts; **Sign out** is in the Models panel. If the session ends under an
 open page, the top bar says "signed out" with a **Sign in** button, and
 nothing typed is lost. Anything that is not a browser sends
 `Authorization: Bearer <passcode>`: `generate --via-server`, the doctor and
@@ -1287,23 +1338,34 @@ outlives a cancelled request, and holds until it ends). It also holds for
 `AURADREAM_KEEP_AWAKE_IDLE_MINUTES` (default 20) after the last request
 someone made: a page load or an API call. The page's own timed requests are
 not one - the status poll, the bundle dialog's and automatic backup's status
-reads, the job streams and listings, an inpaint's mask keep-alive and its
-files and thumbnails - so a tab left open on an idle server lets the PC
+reads, the job streams and listings, an inpaint's mask keep-alive, the
+Models panel's own retries after a failed read, and its files and
+thumbnails - so a tab left open on an idle server lets the PC
 sleep after the idle minutes. `0` holds only while busy;
 `AURADREAM_KEEP_AWAKE=false` holds nothing. On Linux without
 `systemd-inhibit`, or on any other system, nothing is held.
 
+Under WSL (`wsl/serve.sh`) the PC that sleeps is Windows, and
+`systemd-inhibit` would hold only the Linux VM, so it is never used there:
+the server asks Windows for the same power request through WSL interop, by
+running Windows' own `powershell.exe`, which holds it until the server lets
+go or stops (`powercfg /requests` lists it under SYSTEM). With interop
+turned off, nothing can reach Windows: nothing is held, the status says so
+in `detail`, and the doctor warns.
+
 `GET /api/status` reports it as `keep_awake`, from the last check (the poll
 starts no process): `kind` (`systemd-inhibit`, `power-request` on Windows,
-`none` where nothing can be held, or `off`), `holding`, `wanted` (there is a
+`wsl-power-request` under WSL, `none` where nothing can be held, or `off`),
+`holding`, `wanted` (there is a
 reason to hold), `reasons` (such as `in use (a request in the last 20
 minutes)` or the job's), `detail` (why the last hold was refused, until one
-works) and `idle_minutes`. A hold that polkit or Windows refuses is `wanted`
+works, or why nothing can be held under WSL) and `idle_minutes`. A hold that polkit or Windows refuses is `wanted`
 but not `holding`, is logged once and is tried again every five minutes. The
 doctor's **Keep awake** row tries the same hold and lets go at once: on
-Linux it prints a polkit rule that allows a refused one, on Windows it gives
-Windows' own words. Waking a suspended PC from the network is outside
-AuraDream.
+Linux it prints a polkit rule that allows a refused one, on Windows and
+under WSL it gives Windows' own words, and under WSL without interop it
+warns that nothing can keep the PC awake. Waking a suspended PC from the
+network is outside AuraDream.
 
 To release the image model automatically after use, set
 `AURADREAM_IDLE_UNLOAD_MINUTES` to a whole number of minutes and restart
@@ -1316,7 +1378,9 @@ returns to its startup size.
 
 The Windows hold has been tried only as a call that Windows accepted and
 released (2026-11-10); that the PC then stays awake past its sleep timer
-has not been measured.
+has not been measured. The WSL hold has been tried the same way from WSL 2
+(2026-11-12): accepted, then let go when released and when its WSL process
+was killed; `powercfg /requests` has not yet been read while it holds.
 
 A page opened by a LAN address over plain `http` is not a secure context, so
 the context menu's copy items and **Notify when done** are held there with
@@ -1395,7 +1459,8 @@ deleted along with the app.
 Model weights, LoRAs and browser preferences are not part of a gallery
 bundle.
 
-The dialog lists saved bundles with **Download** and **Import** controls.
+The dialog lists saved bundles newest first by the file's date, which each
+row shows beside its size, with **Download** and **Import** controls.
 You can also choose a bundle file from your computer and import it. Saved
 bundles marked **Protected**, and selected `.ldbundle` files, need the
 password under **Import password**; a wrong password is
@@ -1407,6 +1472,19 @@ but whose file is gone is restored from the bundle when the bundle holds that
 same picture. Different files using the same name
 are refused before changing the gallery. Source images the bundle does not
 hold cannot be linked; the result counts those links, which are left empty.
+
+**Delete** on a saved bundle's row removes that one file from the server
+after a question naming it and its size, like Empty bin: it cannot be
+undone, and a bundle the gallery was cleared into may be the only copy of
+those images. The gallery itself is not changed. Each file is deleted on
+its own; nothing deletes saved bundles automatically or several at once.
+The delete waits, with the row kept and the reason in the status line,
+while that file is being downloaded or imported, while a bundle
+operation is running, or, on Windows, while another program holds it
+open. A copy the automatic startup backup still counts is left to its own
+retention: that row's Delete is held and says so, and every row's is held
+while the backup's receipts cannot be read. A file the server has no
+permission to delete is refused in those words.
 
 After import, **Show new gallery images** opens the newly added live rows;
 **Show new images in bin** opens additions that were binned when bundled.

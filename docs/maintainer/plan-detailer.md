@@ -2,10 +2,17 @@
 
 **Status, 2026-10-27:** Matt requested a plan for `INP#12`. This document
 commissions no implementation, dependency installation, detector download,
-gallery scan or card run. Detector selection and qualification are open.
+gallery scan or card run. Detector selection and qualification are open
+(the 2026-11-12 status below records the desk half since).
 The proposal follows [R10](review-2026-10-25.md#r10-a-face-and-hand-detailer);
 the existing machinery is described in [Inpainting](../design-notes.md#inpainting)
 and [Generate, then refine](plan-then-refine.md).
+
+**Status, 2026-11-12:** Matt commissioned Stage 1's desk half only. Its
+results are [below](#stage-1-desk-results-2026-11-12): one photographic
+face detector and one photographic hand detector pass the desk check; both
+anime-trained candidates stop on their terms. The CPU detection trial is
+not scheduled and needs a later decision.
 
 ## Outcome and proposed first slice
 
@@ -32,6 +39,10 @@ or a permanent detector resident on the GPU. Picked-image batches and a
 Then detail pass come after the single-image path has useful evidence.
 
 ## Detector feasibility comes first
+
+*Written on 2026-10-27; for the four assets it names, the
+[2026-11-12 desk results](#stage-1-desk-results-2026-11-12) supersede the
+open questions below, including the Ultralytics row's review.*
 
 Primary sources checked on **2026-10-27** establish candidates, not a winner:
 
@@ -63,6 +74,91 @@ Label intended boxes before tuning; retain a holdout. Record missed regions,
 false positives, box coverage, latency and process RAM, including failures.
 Agree usefulness targets before selecting thresholds; no score is claimed
 here. A face-only result can justify a face-only slice, leaving hands out.
+
+## Stage 1 desk results, 2026-11-12
+
+Commissioned on 2026-11-12 ([Matt's answers](review-2026-11-12-todo.md#matts-answers-2026-11-12))
+as the desk half only. Everything below is metadata read on the web that
+day: PyPI's JSON API, Hugging Face's model API (file sizes and LFS SHA-256),
+GitHub's contents API (Git LFS pointer files), model cards, licence files,
+and `HEAD` requests to Google's model bucket (size, MD5, CRC32C). Nothing
+was installed, imported or downloaded: no package and no weight bytes. The
+pinned environment is unchanged. The bound held: two face and two hand
+assets were inspected; a third face asset, BlazeFace, was screened out
+from its model card alone.
+
+**Screened out first.** The MediaPipe BlazeFace (short range) card scopes
+the model to camera images and says "Face bounding box sides should be at
+least 20% of the corresponding image sides" ([card](https://storage.googleapis.com/mediapipe-assets/MediaPipe%20BlazeFace%20Model%20Card%20(Short%20Range).pdf),
+Apache-2.0, June 2021). A detailer is for the small faces this excludes,
+so BlazeFace was not one of the two face assets inspected.
+
+| Asset | Terms (code / weights) | Provenance and domain | Exact bytes | Desk verdict |
+|---|---|---|---|---|
+| Face: YuNet, `face_detection_yunet_2026may.onnx` ([OpenCV Zoo](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet), added in commit `26cc381e4d25` on 2026-05-22) | The model directory's [LICENSE](https://huggingface.co/opencv/face_detection_yunet/blob/main/LICENSE) is MIT (Copyright 2020 Shiqi Yu); the zoo repository is Apache-2.0; the training code, [libfacedetection.train](https://github.com/ShiqiYu/libfacedetection.train), is BSD-3-Clause. | Trained on WIDER Face (photographs). The README says it detects "faces of pixels between around 10x10 to 300x300". The 2026may file is the 2023mar export with dynamic height/width for OpenCV 5's ONNX Runtime engine; 2023mar has a fixed shape. WIDER Face's own terms are unresolved: its primary page was unreachable (certificate mismatch), and the [Hugging Face dataset card](https://huggingface.co/datasets/CUHK-CSE/wider_face) lists CC BY-NC-ND 4.0. | 2026may: 229,738 bytes, SHA-256 `ebafce4e3c118d6554634be5c27ab333b4c047a9a8c3faf1d7cf93101c22f0f0` (LFS pointer). 2023mar: 232,589 bytes, SHA-256 `8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4` (the zoo pointer and the [Hugging Face mirror](https://huggingface.co/opencv/face_detection_yunet) at `3cc26e7f` agree). | **Passes** for photographic faces. Anime faces are untested. |
+| Face: [deepghs/anime_face_detection](https://huggingface.co/deepghs/anime_face_detection), `face_detect_v1.4_s/model.onnx` (repository commit `784dc4c0`) | Tagged MIT; none of its 123 files is a licence file. Its `model_artifacts.json` records `"ultralytics_version": "8.0.20", "model_type": "yolov8"`. [Ultralytics](https://www.ultralytics.com/license) says "All Ultralytics YOLO trained models fall under the AGPL-3.0 License by default." | Trained on anime images (its dataset, `deepghs/anime_face_detection`, is tagged MIT; the card describes no sources). The card gives F1 0.95 for v1.4_s at threshold 0.307. | v1.4_s: 44,583,229 bytes, SHA-256 `403b5bc93b6ff789b7d183418df4a1364049bac00c24acd927604a7ff6891483`. v1.4_n: 12,102,558 bytes, SHA-256 `fd860b650a4377046842c3cd80d01b0b408bdfbdb4acee5759630f82c6ef04a9`. | **Stopped.** The MIT tag conflicts with the vendor's AGPL-3.0 claim on trained models, so the weight terms are ambiguous. |
+| Hand: MediaPipe Hand Landmarker, `hand_landmarker.task` float16 ([task page](https://developers.google.com/edge/mediapipe/solutions/vision/hand_landmarker)) | Code: [Apache-2.0](https://github.com/google-ai-edge/mediapipe/blob/master/LICENSE). Weights: the [model card](https://storage.googleapis.com/mediapipe-assets/Model%20Card%20Hand%20Tracking%20(Lite_Full)%20with%20Fairness%20Oct%202021.pdf) (October 2021) says "LICENSED UNDER Apache License, Version 2.0". | A 192x192 palm detector plus a 224x224 landmark model, trained on consented smartphone AR images. The card puts these out of scope: gloves, occlusion, a "hand is holding objects", and decoration such as jewellery or tattoos. It also says the model "has been trained on limited datasets and is meant for experimental usage." | 7,819,105 bytes, MD5 `15318430ea3851670fe9914116a9cfad`, last modified 2023-04-26. The versioned path `float16/1/` and `latest` have the same size and MD5. Google publishes no SHA-256. | **Passes** for photographic hands. Getting a box from landmarks stays app policy. |
+| Hand: [deepghs/anime_hand_detection](https://huggingface.co/deepghs/anime_hand_detection), `hand_detect_v1.0_s/model.onnx` (repository commit `dba2c5be`) | Tagged `openrail`, which names no OpenRAIL variant, and the repository has no licence file. `model_artifacts.json` records Ultralytics 8.0.20 / YOLOv8, as for the face model. | Trained on anime images; the card describes no training sources. Published F1 is 0.79 for v1.0_s (the best is 0.799, for v0.6_s). | 44,583,229 bytes, SHA-256 `408750ad39645fcdc0c5e774aa45a73941b2e785fc5611fb7d3d9790a41899c0`. | **Stopped**, as for the face model, and the `openrail` tag names no terms. |
+
+**Runtimes and wheels.** Each entry below is the version current on PyPI
+on 2026-11-12. The dependency delta is measured against `uv.lock`.
+
+- [`mediapipe`](https://pypi.org/project/mediapipe/) 1.2.3, released
+  2026-11-11 under Apache 2.0. It ships one `py3-none-win_amd64` wheel
+  (25,678,743 bytes, SHA-256
+  `2e2ebc8ae2c11ae032753bc3cafad5142ef0b755448509122bc6c1442bd19676`) and
+  lists Python 3.13 in its classifiers. It requires `absl-py`,
+  `certifi`, `numpy`, `flatbuffers`, `sounddevice`,
+  `opencv-contrib-python` and `matplotlib` (which pulls in `contourpy`,
+  `cycler`, `fonttools`, `kiwisolver`, `pyparsing` and
+  `python-dateutil`). The lock already has `certifi`, `numpy`, `pillow`,
+  `packaging` and `cffi`; the delta is the rest. PyPI lists
+  seven 1.x releases, from 1.0.0 on 2026-07-27 to 1.2.3, so a trial pins
+  one exactly.
+- [`opencv-python`](https://pypi.org/project/opencv-python/) 5.0.0.93
+  (Apache 2.0) holds YuNet's runtime, `cv::FaceDetectorYN`. Its
+  `cp37-abi3-win_amd64` wheel is 44,000,345 bytes, SHA-256
+  `f90ba04b8f73bc5c3814037699739f0156f597338a98f05956c684e7c3ca10d2`, and
+  it requires `numpy>=2` (the lock has 2.5.2). It must not be installed
+  beside `opencv-contrib-python`, which MediaPipe requires: both provide
+  `cv2`. With both detectors, `opencv-contrib-python` 5.0.0.93 (53,822,579
+  bytes, also abi3) serves both.
+- The anime candidates' library,
+  [`dghs-imgutils`](https://pypi.org/project/dghs-imgutils/) 0.19.0 (MIT),
+  requires `numpy<2`, which conflicts with the pinned environment. Running
+  their ONNX files directly would need
+  [`onnxruntime`](https://pypi.org/project/onnxruntime/) 1.31.1 (MIT;
+  `cp313-cp313-win_amd64`, 14,888,304 bytes) and the app's own YOLO
+  decoding. This is recorded only because both candidates stopped on
+  their terms first.
+
+**What the desk half establishes.** It does not establish detection on
+the gallery's images. The default open checkpoint is Animagine XL 4.0, so
+most images are illustrations, and neither passing detector was trained on
+them. A face-only result, a hands-only result or no capability are all
+plausible outcomes of the trial. No anime-trained candidate has clear
+terms. Finding one would be a new bounded search (non-Ultralytics
+provenance and a stated weight licence), which needs Matt's decision; it
+does not follow automatically.
+
+**What the CPU trial would need, if commissioned.** The trial is not
+scheduled.
+
+1. Matt's approval to download two assets: YuNet (pin the SHA-256 above
+   and choose 2026may or 2023mar for the installed OpenCV engine) and
+   `hand_landmarker.task` from its versioned `float16/1/` path (pin its
+   size and MD5, and record the SHA-256 at the first download).
+2. Matt's approval to install `mediapipe` 1.2.3 and `opencv-contrib-python`
+   5.0.0.93 into a throwaway virtual environment, never the project's.
+   A dependency change to `pyproject.toml` waits for Stage 2's
+   commissioning.
+3. The frozen, permission-cleared test set described above, with
+   illustrated faces and hands weighted to match the gallery, labelled
+   boxes and a holdout. Agree the usefulness targets before any threshold
+   is tuned.
+4. CPU only. Record misses, false positives, box coverage, latency and
+   process RAM per detector, then make the explicit face/hand capability
+   decision that ends Stage 1.
 
 ## Current implementation seams and the crop boundary
 

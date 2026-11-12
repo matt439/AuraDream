@@ -2,12 +2,22 @@
 
 The complete rule set, moved here from `AGENTS.md` on 2026-10-08 so it stays
 short (`CLAUDE.md` only imports it). `AGENTS.md` keeps the rules that break things
-silently; this file keeps every rule with its identifiers and exact wording,
+silently and, as its Layout, one line per area linking to this Layout's
+parts (`DEV#63`); this file keeps every rule with its identifiers and exact wording,
 the full module map, and what each smoke covers. `docs/design-notes.md` keeps
 the reasoning, under headings of the same subject. Read the part for an area
-before changing it.
+before changing it: the Layout is headed by part of the tree, Frontend and
+CLI by component and Tests by test and smoke area (`grep -nE "^##+ "
+docs/rules.md` lists the headings, the title and fenced shell comments
+aside). A section stays under `tests/test_rules_sections.py`'s length,
+or for the four Rules sections it names (Model and loader, Reproduction, Jobs,
+Prompt analyser) under the length each had when the limit was set; one that
+outgrows it is split under headings of its own, moving whole bullets or
+paragraphs, never rewording.
 
 ## Layout
+
+### Backend: settings, libraries and model facts
 
 - `backend/api_guide.py` renders only the checkout's usage guide at `/guide`
   with the existing pinned Markdown parser, escaped HTML, tables and stable
@@ -31,7 +41,8 @@ before changing it.
 - `backend/launch.py` — the start-up menu and the `--model/--quant/--offload`
   flags, run before `config` is imported; the checkpoint catalogue lives here,
   ending on FLUX.1 Kontext [dev], the edit-only entry (its menu summary says
-  "edit only");
+  "edit only"); `written_id` reads lite-infer's renamed repositories as the
+  old ids the app writes, `catalogue_entry` the entry an exact id names;
   `warn_legacy_env` names any `LOCAL_DIFFUSION_*` still set, which is not read
 - `backend/loader_choices.py` — quantization, offload and Nunchaku format
   choices, worded once for the `--menu` and the browser picker;
@@ -76,7 +87,9 @@ before changing it.
 - `backend/api_backup.py` - explicit backup configuration and cached status
   routes; `backend/schemas_backup.py` owns their validated models
 - `backend/bundle_leases.py` - per-process archive reader/exclusive claims and
-  leased FileResponse lifetime; shared process state and explicit native-lock mode
+  leased FileResponse lifetime (a complete download's or import's); shared
+  process state and explicit native-lock mode; an uncertain input's claim
+  stays quarantined until restart
 - `backend/bundle_file_lock.py` - opt-in nonblocking shared/exclusive native
   locks on persistent archive companions, with identity and cleanup ownership checks
 - `backend/bundle_mode.py` - explicit Windows/NTFS shared-download installation,
@@ -96,6 +109,12 @@ before changing it.
   owns CRUD models and `SnippetTarget`, the one list of destinations
   (`prompt`, `negative`, `variables`) the saved, portable and CRUD models
   share; portability request/response models live beside the codec
+- `backend/model_favourites.py` - the Models panel's stars: one bounded,
+  atomic, revisioned set of canonical checkpoint ids per gallery database
+  under its own reservation, independent of maintenance, model admission and
+  the GPU gate; `backend/schemas_model_favourites.py` owns the strict star,
+  import and answer models and `backend/api_model_favourites.py` the
+  model-free routes (`GET`/`POST /api/models/favourites`, `POST .../import`)
 - `backend/saved_searches.py` - bounded atomic database-scoped gallery filter
   definitions, unique normalized names and optimistic item revisions under an
   independent lock; `backend/schemas_saved_searches.py` owns strict fields and
@@ -138,7 +157,8 @@ before changing it.
   the fit badge (`card_fit`); `capabilities_for` answers the seven flags
   beside Refine (inpaint, outpaint, references, LoRA, negative prompt, live
   preview, Expand) as `details_for`'s `capabilities_note`, and
-  `capability_table` is docs/usage.md's table of them
+  `capability_table` is docs/usage.md's table of them; download sizes come
+  from `model-downloads.json` (`tools/model_downloads.py`)
 - `backend/hub_access.py` — the Hugging Face access check a switch asks before
   it releases the working checkpoint: cache first, then one HEAD per recipe
   source at its revision (or the repo's auth check); a `Refusal` only when the
@@ -163,6 +183,9 @@ before changing it.
   None (the fake's until `POST /api/fake/card` claims one); a test that wants a card patches `card`
 - `backend/model_benchmarks.py` — retained RTX 5080 timing references, exact
   checkpoint/loading-option matching and coarse speed categories; no live benchmark
+
+### Backend: schemas, guides and the prompt analyser
+
 - `backend/schemas.py` — re-exports the pydantic request/response models;
   `settings` there is a binding for readers, so runtime patches target
   `schemas_generate`
@@ -183,6 +206,10 @@ before changing it.
   leaf over `mask_crop`'s constants, no settings
 - `backend/schemas_prompt.py` — Expand, Check (analysis, findings, orders),
   the chip count, the critic's critique, Danbooru tag suggestion/validation
+- `backend/schemas_encoder.py` — `EncoderReport` (re-exported by
+  `schemas_prompt`) and the grid preview's `GridPromptBudget(s)`; a leaf, so
+  `schemas_generate.GridPreview` can carry them without importing
+  `schemas_prompt`
 - `backend/schemas_gallery.py` — `ImageRecord`, run summaries, gallery pages,
   Delete unstarred's preview, the recycle bin's bodies and answers, the
   picked cards' stars (`FavoritesBody`, `FavoritesResult`)
@@ -258,6 +285,9 @@ before changing it.
   means unchecked, never invalid - except an item longer than any tag
   (`TAG_NAME_MAX`, 200), answered unknown without the index, reachable or
   not
+
+### Backend: passes, backends and the grid
+
 - `backend/seeds.py` — the seed range and the wrap, shared by server and CLI
 - `backend/loras.py` — the adapter directory: what is in it, and the file
   behind a name (the only place a request's name becomes a path)
@@ -344,6 +374,12 @@ before changing it.
   and separate cached trees
 - `backend/backends/anima_pipeline.py` — upstream Anima modular blocks behind
   the standard pipeline interface, with per-step progress and cancellation
+- `backend/backends/anima_refine.py` — private, unregistered Anima
+  image-to-image classes over the upstream encoder, image-to-image core and
+  decoder (`GEN#48` stage 1): the text pipeline's callback, `num_timesteps`
+  as the sliced count before the first step, flow rounding (`start_index`)
+  and a start sigma read on a scheduler copy; `refine.sibling` still answers
+  None and the Anima profiles keep Refine unsupported until the card
 - `backend/backends/flux3_loading.py` — FLUX 3 [Klein] and Klein Base: the
   pinned snapshot's configs (preflight: the modular index's classes, the
   transformer's `flow_map`) then only its `transformer/`, `text_encoder/` and
@@ -377,6 +413,11 @@ before changing it.
 - `backend/grid.py` — axis specs (`6-12x2`), prompt variables and prompt
   variants, and the cell expansion, shared; `cell_from_record` /
   `cells_from_records`, a gallery record as a cell
+- `backend/grid_budgets.py` — the grid preview's encoder budget of each
+  distinct resolved prompt (`measure_cells`: `prompt_encoding.measure` per
+  pair, the negative as `applied()` runs it, at most `MAX_MEASURED`, one
+  bounded tokenizer wait), which prompts lose text and the values that tip
+  them over; cold, on the route's daemon thread
 - `backend/tag_swap.py` — Swap tags' rewrite of a record's prompt or
   negative prompt (pure; the routes are `api_swap.py`'s)
 - `backend/refine_batch.py` — Mass refine's plan of one record: the pass
@@ -395,7 +436,13 @@ before changing it.
 - `backend/more_seeds_intents.py` - bounded preview-issued More seeds tokens,
   one owned admission per intent, replay receipts, expiry and shutdown drain
 - `backend/latent_preview.py` — the latent-to-RGB maps the live preview
-  draws with, one per VAE, fitted on the card
+  draws with, one per VAE (FLUX's and Qwen-Image's fitted on the card, SDXL's
+  on the CPU by `tools/fit_latent_preview.py`), and `flow_view`, the non-flow
+  rule that hands `render` an Euler or DDIM-style scheduler's latent and sigma
+  in flow matching's form
+
+### Backend: jobs, storage and bundles
+
 - `backend/jobs.py` — single-worker queue, SSE progress
 - `backend/job_state.py` — a queued job's state: the `Job` dataclass (its
   fields, call/skip tokens, execution-diagnostics binding and `snapshot`) and
@@ -414,7 +461,9 @@ before changing it.
   and rebuilt mask; no settings, session or lock.
   storage imports every name back, so `storage.<name>` still answers; the
   mask writers, holds and `mask_path` stay in storage, where tests patch them
-- `backend/metadata.py` — the PNG chunk's key (`auradream`) and
+- `backend/metadata.py` — `require_header_metadata`, the guard refusing
+  app text placed after IDAT (which header-only readers cannot see); the
+  PNG chunk's key (`auradream`) and
   `embedded_metadata`, which still reads the legacy `local-diffusion` and
   `krea` keys (and `auradream-mask`'s legacy `local-diffusion-mask`); the
   PNG chunk codec (`PNG_SIGNATURE`, `text_keyword`, `metadata_chunk`) and
@@ -456,7 +505,8 @@ before changing it.
   bundle errors, progress type and read-only database reads every layer
   shares; `bundle_crypto.py` the optional password layer
   (streamed chunked AES-256-GCM, scrypt); `api_bundles.py` owns browser routes
-  (the export's scope resolved through `submission.resolve_selection`);
+  (the export's scope resolved through `submission.resolve_selection`; a
+  saved file's confirmed delete, `bundles.delete_saved_bundle`);
   `bundle_manager.py` exclusive maintenance admission through background
   completion (`BundleManager`, the ASGI `GalleryAdmission`, the bundle and
   backup route prefixes), which the automatic backup imports instead of a
@@ -469,7 +519,14 @@ before changing it.
   the complement `COALESCE((clause), 0) = 0`, keeping NULL rows; any other
   `-word` an excluded word; a lone `-`, `--x` and a quoted token stay free
   text), the LIKE escape, `strict_scope` (`key:value` terms and their
-  exclusions; free text and `-word` refused)
+  exclusions; free text and `-word` refused). `storage.list_images` sends
+  each free word to FTS5 as a quoted prefix (`"drag"*`) and each excluded
+  word exact (GAL#25); its fallback (an odd double quote breaks the
+  MATCH) keeps both through `search.word_match`, a literal match bounded
+  where a word starts (and, excluded, ends), registered on the connection
+
+### Backend: the app and its routes
+
 - `backend/main.py` — app lifecycle and model ownership: load state and
   lock, `ensure_loaded`, the load-failure wording, model switching, status,
   the model and adapter routes, the middlewares, and the `services`
@@ -491,9 +548,17 @@ before changing it.
   `PowerCreateRequest` handle with `PowerRequestSystemRequired` set, cleared
   and closed on release, its four calls behind `PowerApi` and bound to
   kernel32 by `Kernel32Power` only at the first call; never the display,
-  `SetThreadExecutionState` or a power setting), `NoInhibitor` elsewhere or
-  on Linux without systemd-inhibit, `platform_inhibitor` choosing among the
-  three, `KeepAwake` (an asyncio task holding while `main`'s providers name a
+  `SetThreadExecutionState` or a power setting), `WslPowerRequest` under
+  WSL (kind `wsl-power-request`: `under_wsl` by the interop entry or
+  `microsoft` in the kernel release; Windows' `powershell.exe`, found by
+  `windows_powershell` only with interop on, runs `wsl_hold_script` by
+  `-EncodedCommand`, answers `held <pid>` or `refused: <Windows' words>`
+  within `START_WAIT`, and holds the same system-required request until
+  its stdin, a pipe only the server holds, ends; release closes it, then
+  terminate, then kill; never systemd-inhibit there, which holds only the
+  VM), `NoInhibitor` elsewhere, on Linux without systemd-inhibit or under
+  WSL without interop (its `detail`, `WSL_NO_HOLD`, in the status),
+  `platform_inhibitor` choosing among the four, `KeepAwake` (an asyncio task holding while `main`'s providers name a
   reason, a counted `busy(reason)` is open, or for
   `AURADREAM_KEEP_AWAKE_IDLE_MINUTES` after a request `counts_as_activity`
   passes; `wake` checks again at once from any thread; a cached `status()`
@@ -502,7 +567,7 @@ before changing it.
   use; `@app.middleware("http")` wrapped every response, the job streams
   included, in another task and delayed a stream's attach), module `busy`
   (nothing when none is installed) and `hold_while` for the CLI
-  (`tests/test_keep_awake.py`)
+  (`tests/test_keep_awake.py`, the holders `tests/test_keep_awake_holders.py`)
 - `backend/response_headers.py` — the two headers every response carries,
   stdlib and Starlette only: `ResponseHeadersMiddleware` (a plain ASGI
   layer adding `Content-Security-Policy: frame-ancestors 'self'` and
@@ -519,7 +584,10 @@ before changing it.
   docs/design-notes.md, "A passcode beyond loopback"): `asked`/`gate_for` (on when `AURADREAM_PASSCODE` is set and
   the bind or an allowed host is not loopback), `Gate` (the comparison, the
   scrypt-derived session key and the `v1.<expires>.<mac>` cookie; it keeps
-  a digest, never the passcode), `Limiter` (wrong passcodes for the whole
+  a digest, never the passcode; a cookie more than a day old is renewed on
+  `/` and on any request `keep_awake.counts_as_activity` counts, never on a
+  timed poll, a job stream, a file or a Bearer request, nor on an answer
+  that a signed-in sign-out overtook, `Gate.sign_outs`), `Limiter` (wrong passcodes for the whole
   server, on the event loop only) and `PasscodeMiddleware`, a plain ASGI
   layer always installed that passes everything through while `main`'s
   gate is None. Its place in `main` is inside the response headers, the
@@ -573,6 +641,9 @@ before changing it.
   card only while the default is the width it judged) and bound and
   `min_kept`; a binned source a 404 that says it is in the recycle bin);
   model-free
+
+### Backend: CLIs, the doctor and support modules
+
 - `backend/generate.py` — headless CLI; drives the backend directly, no
   server, unless `--via-server` hands the run to `generate_remote`
 - `backend/generate_args.py` — the CLI's parser, a `--from-image` PNG's
@@ -612,15 +683,19 @@ before changing it.
   `passcode.asked` and `setting_problem` as the server decides them: not
   asked on a server only this machine reaches, asked, a WARN for none on a
   server reachable beyond it, a FAIL for one `main.run` would not start
-  with; never the value);
+  with; never the value); the TLS pair (`check_tls`, only when one is set:
+  `server_transport.setting_problem` as the server runs it, a FAIL for a
+  pair it would refuse);
   the card's
   memory against the default checkpoint's measured 12.0 GiB peak (under it
   warns; on Linux below compute capability 10.0 it names the int4 Nunchaku
   repos); with a non-loopback `AURADREAM_HOST`, `AURADREAM_ALLOWED_HOSTS`
   without 127.0.0.1 or with a wildcard (each warns); on Linux a trial
   `systemd-inhibit ... true` block hold (refused warns, with a polkit rule),
-  and on Windows a trial `keep_awake.PowerRequest` let go at once (refused
-  warns in Windows' words);
+  under WSL instead a trial `keep_awake.WslPowerRequest` let go at once
+  (refused warns in Windows' words; interop off warns that nothing can
+  hold Windows), and on Windows a trial `keep_awake.PowerRequest` let go at
+  once (refused warns in Windows' words);
   a Hugging Face
   token as `HF_TOKEN` (or `HUGGING_FACE_HUB_TOKEN`) or the token file's existence (`hf_sign_in`), never read or sent.
   Imports `config` first and torch inside the GPU check; never diffusers,
@@ -668,7 +743,10 @@ before changing it.
 - `backend/refusal_codes.py` — the stable codes of the refusals the page
   acts on (`CODES`: `image_unknown`, `image_binned`, `more_seeds_cap`,
   `more_seeds_receipt`, `lora_missing`, `lora_mismatch`,
-  `selection_changed`, `mask_missing`) and the errors that carry one out of
+  `selection_changed`, `mask_missing`, `bundle_in_use`, `bundle_gone`,
+  `gallery_maintenance`: `GalleryAdmission`'s refusal while a bundle
+  operation runs, which the page's `galleryMaintenance` reads) and
+  the errors that carry one out of
   the modules under the HTTP layer: `CodedError`, a `ValueError` with a
   `code` and the gallery `ids` it names, and `CodedLookupError`. Stdlib
   only: `storage.reference_paths`, `storage.mask_path`/`touch_mask`,
@@ -680,13 +758,22 @@ before changing it.
   detail, source)` is coded where `source` (an error, or
   `submission.Unusable`) carries a code and a plain `HTTPException`
   otherwise (`tests/test_refusal_codes.py`)
+
+### Install and update scripts
+
 - `install.cmd`, `install.ps1`, `update.cmd`, `update.ps1` (repository root)
   — the Windows installer and updater, plain text, Windows PowerShell 5.1
   and ASCII only (5.1 reads a BOM-less script in the ANSI code page), CRLF
   by `.gitattributes`. Each `.cmd` runs its `.ps1` with
   `-NoProfile -ExecutionPolicy Bypass -File`, passes its arguments through,
   pauses unless `AURADREAM_INSTALL_NO_PAUSE` is set and returns the exit
-  code. Native calls run under `ErrorActionPreference = 'Continue'` and are
+  code. `install.ps1` checks the machine, installs uv and Git only if
+  missing, sets `HF_HOME` before anything could download, runs `uv sync`
+  and the doctor, and makes shortcuts to `bin\auradream.cmd --open`;
+  `update.ps1` copies the database and runs `git pull --ff-only` and
+  `uv sync`. Neither downloads weights, writes `auradream.settings.json`,
+  moves the gallery, sets `AURADREAM_*` for the user or touches WSL.
+  Native calls run under `ErrorActionPreference = 'Continue'` and are
   judged by exit code (5.1 turns their stderr into errors). `install.ps1
   -DryRun` changes nothing, still runs the read-only checks, carries on past
   a stop and exits 1 if a real run would have stopped; `-Yes`, or no
@@ -732,7 +819,8 @@ before changing it.
   then `uv python install 3.13`, `uv sync`, a CUDA check and the doctor.
   `install-service.sh` writes `auradream.service` under
   `$XDG_CONFIG_HOME/systemd/user` (`uv run --no-sync python -m backend.main`,
-  `Restart=on-failure`, `TimeoutStopSec=120`, no `systemd-inhibit` wrapper:
+  `Restart=on-failure`, `RestartPreventExitStatus=78` (a passcode or TLS
+  pair the server refused: restarting cannot help), `TimeoutStopSec=120`, no `systemd-inhibit` wrapper:
   the server holds the PC itself) and, only when there is none, the env
   file `auradream/auradream.env` (0600, never rewritten): `AURADREAM_HOST=0.0.0.0`,
   `AURADREAM_ALLOWED_HOSTS` as loopback plus the host name, its `.local`
@@ -771,8 +859,11 @@ before changing it.
   the setting in a commented line. Test seams:
   `AURADREAM_INSTALL_TEST_ROOT`, `AURADREAM_INSTALL_TEST_PROC_VERSION`,
   `AURADREAM_INSTALL_TEST_WAIT` (control.sh's wait)
-  (`tests/test_linux_scripts.py`)
-- `web/` - served as-is from `/static`; `index.html` loads 75 classic
+  (`tests/linux_script_helpers.py`, `tests/test_linux_*.py`)
+
+### The page (`web/`)
+
+- `web/` - served as-is from `/static`; `index.html` loads 78 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `page-helpers.js`, right
   after it, the page-wide pure helpers (`plural`, `excerpt`, `units`,
@@ -784,7 +875,9 @@ before changing it.
   mirrors and Pause, and `job-queue.js` the queue and which job the page
   watches; `panel.js`, `runs.js` and `viewer.js` the settings,
   run history and results; `gallery.js`, `gallery-actions.js` and `reuse.js`
-  the cards and their actions, `gallery-head.js` the gallery head's
+  the cards and their actions, `ask-dialog.js` (right before
+  `gallery-actions.js`) the page's own confirm and count questions
+  (`askConfirm`, `askCount`), `gallery-head.js` the gallery head's
   pointer-stable layout (`pointHead`, `showInHead`, `syncHeadForPicks`); `png-settings.js` Load settings from PNG
   (a dropped or picked PNG's text chunks read, sent and filled in through
   Reuse); `gallery-search.js` the lightbox's search
@@ -801,13 +894,19 @@ before changing it.
   dialog's preview, submit, close and Reuse, and an edit's lineage; `styles/instruction-edit.css`);
   `prompt-note.js` the note under the prompt and its Undo (`showPromptNote`, `promptUndo`); `tags.js`, `tag-tokens.js` and `tag-chips.js` the prompt helper, `tag-lists.js` the editors' suggestion lists and the negative box's, `tag-helper.js` its Tags menu (the toggles, Start with, Finish with and the caret line), `tag-finder.js` its Find
   tag dropdown; `prompt-examples.js` the
-  Examples menu, `prompt-expand.js` Expand (ERNIE's rewriter, FLUX 3's upsampler); `analysis.js`,
+  Examples menu, `prompt-expand.js` Expand (ERNIE's rewriter, FLUX 3's upsampler; its button's
+  state, `syncExpandButton`, and the English under the prompt, `placeTranslation`,
+  `promptReplaced`); `analysis.js`,
   `analysis-critic.js` and `comparison.js` the check and critic. `sizes.js`
   and `status.js` retain their control/profile roles; `model-switch.js` owns
   checkpoint selection and retiring state prepared under the old model;
   `execution.js` owns inspectable unavailable performance choices, composer
   cache intent and shared execution holds;
   `model-shots.js` the picker's strip of the chosen checkpoint's images;
+  `model-favourites.js` the table's stars (the server's set, this page's
+  unconfirmed presses and the one-time import offer);
+  `model-storage.js` the picker's read-only On disk fold (the cache
+  inventory, read when the fold opens or on Refresh, never on a timer);
   `bundles.js` owns the gallery bundle dialog (Back up and its scope
   included) and background-operation polling, and `automatic-backup.js`
   its automatic startup backup settings (protection, consent, retention
@@ -827,7 +926,10 @@ before changing it.
   `generation-presets.js` the named generation/grid setup dialog, raw capture,
   explicit validated Restore and whole-draft Undo;
   `setup-import.js` saved-setup Export…/Import… and the separate
-  file-index merge dialog (styles in `setups.css`); `import-merge.js`, loaded
+  file-index merge dialog (styles in `setups.css`), which never calls
+  `setupSummary` (it writes the editor's summary and reads the composer),
+  keeps the editor, composer and Undo, and never resends an uncertain
+  import; `import-merge.js`, loaded
   before both, what the two merge dialogs share - the file read, the
   envelope, the choice reasons and holds and the rows drawn from a preview
   (`renderImportRows`) - stateless, each file keeping its own state,
@@ -938,6 +1040,9 @@ before changing it.
   preserve that cascade (`tests/test_docs_maps.py` holds this list to
   `index.html`'s links, in order). `docs/maintainer/source-audit.md` records the
   split audits and why each long file it kept stays whole.
+
+### Tools, tests, bin, WSL and docs
+
 - `tools/` — `fake_server.py` (the app on the tests' fake backend, port 7861)
   and `browser.mjs` (portable screenshot paths in `browser-output.mjs`) +
   `smoke.json` and a `smoke-*.json` per checkpoint or
@@ -957,10 +1062,16 @@ before changing it.
   gallery hash, the difference, outside-mask and seam numbers verified.md
   reports), CPU only and importing nothing from `backend`
   (`docs/maintainer/plan-card-harness.md`, Image metrics);
+  `fit_latent_preview.py` fits (or with `--check` scores) a live-preview map
+  for one cached VAE on the CPU, never downloading, by the recipe
+  `latent_preview` records (docs/design-notes.md, "SDXL's map and the
+  non-flow rule");
   `card_guard.py` is the card session's guard: a pure decision (whole card,
   shared GPU memory, free RAM, commit headroom, a rung's projection) beside
-  a watcher that reads nvidia-smi, `typeperf`, psutil and
-  `GetPerformanceInfo`, writes JSONL rows and on a trip kills the watched
+  a watcher that reads one `nvidia-smi --loop-ms` stream, one held PDH
+  query (`typeperf` only as its fallback), psutil and `GetPerformanceInfo`
+  on a fixed schedule, writes JSONL rows (the summary with the period
+  achieved) and on a trip kills the watched
   process tree, never calling the app's API (`docs/maintainer/plan-card-harness.md`,
   Card guard);
   `card/card10-*.json` the `CARD#10` step packs, one `browser.mjs` step
@@ -992,6 +1103,15 @@ before changing it.
   `capability_table.py` prints `model_info.capability_table()`, and with
   `--write` replaces it between docs/usage.md's two marker lines
   (`tests/test_capabilities.py` holds the document to it);
+  `model_downloads.py` checks `backend/model-downloads.json` with no network
+  (`--check`: every catalogue id's recipe, sized selections, whole shard
+  maps, an `unknown` note on an unknown selection) and refreshes it from the
+  Hub's metadata with the local sign-in, never printed (a dry run;
+  `--write` saves): listings at each source's revision, descriptors of at
+  most 2 MB and never a weight, an unknown selection derived by diffusers'
+  own download allowlist (FLUX 3's by `flux3_loading`'s patterns), a moved
+  repository recorded as `moved_to` under the id the app asks for
+  (`tests/test_model_downloads_tool.py`, offline);
   `storage_interrupt.py` and `storage_scale.py` the storage interruption
   and bundle/bin scale checks `tests/test_storage_interruptions.py` and
   `tests/test_storage_scale.py` run in a disposable process;
@@ -1042,7 +1162,12 @@ before changing it.
   origins, parsed as scheme/host/effective port. Reject credentials, paths,
   query/fragment delimiters and wildcards; the hostname must still be in
   `AURADREAM_ALLOWED_HOSTS`. They add no CORS policy or Host exemption.
-  Direct TLS requires the existing PEM certificate/key pair. Probes retain
+  Direct TLS requires the existing PEM certificate/key pair, loaded at
+  start-up by `server_transport.setting_problem` as uvicorn will load it
+  (a password callback that raises: no key password is ever asked for or
+  kept); a pair that cannot serve is refused in words before anything
+  binds, exit 78 (`main.SETTINGS_REFUSED_STATUS`, the passcode's too), never
+  as uvicorn's `PEM lib` traceback. Probes retain
   certificate verification and callers use HTTPS when that pair is set;
   scripts must not treat an unverified configured TLS listener as idle.
   The proxy recipe keeps its backend on loopback. No certificate, trust,
@@ -1050,7 +1175,9 @@ before changing it.
 - `/api/models/storage` scans only on explicit request, on a daemon thread,
   with one scan reservation lasting through its worker. Catalogue model
   byte rows can overlap, unknown selected-file maps stay unknown, and
-  unreferenced bytes never imply safe deletion. `/api/status` uses only
+  unreferenced bytes never imply safe deletion. The page asks for it only
+  from Models > On disk, on the fold's opening or Refresh; it holds no
+  delete control. `/api/status` uses only
   `download_progress`'s targeted two-second samples under its revision retry
   loop, never a whole-cache scan. Progress is an approximate local cache
   tally, not network transfer speed. Unknown/drifted references have no
@@ -1414,8 +1541,15 @@ measured on the card and when.
   compact model facts reuse sourced guides, catalogue data and recorded local
   evidence. The size fact shows upper guidance and labels recommendations,
   native/documented maxima and examples distinctly; an example never becomes
-  a guaranteed maximum. Model favourites are browser preferences, canonical across Nunchaku
+  a guaranteed maximum. Model favourites are the gallery's, on the server
+  (`/api/models/favourites`, `backend/model_favourites.py`), canonical across Nunchaku
   weight formats, and never mutate the selected model or loader settings.
+  The page reads them at its start and as Models opens, never on a timer;
+  a set read while Models is open (the page's first too) changes the stars
+  in place and groups only at the next opening. One star's writes go one at
+  a time, the newest press sent after the answer, so the server never takes
+  two presses out of order. The earlier localStorage set is only read for
+  the one-time import offer.
   Group by type (`auradream.model-grouping.v1`) is one too: after the
   Favourites group, the other rows sit under their Style, groups in the
   catalogue order of each Style's first row. It sits beside the Checkpoint
@@ -1548,7 +1682,7 @@ measured on the card and when.
   re-anchors under a still pointer. While any picker list is open
   (`modelListOpen()`, `:open`), the page's key handler leaves every key to it
   (Escape closes only the list), its own value and option rebuilds (catalogue
-  replies, other tabs' favourites) wait for it to close
+  replies) wait for it to close
   (`whenModelListsClosed`), and the closed controls still take a server
   change at once. Options are replaced only when they differ
   (`setModelOptions`); polls write only fields changed since the last applied
@@ -1803,10 +1937,16 @@ measured on the card and when.
   (WSL 2 on the 5080; native Linux too, with the int4 repos below compute
   capability 10.0, unmeasured on the 3070), and no quantization config; `loading.nunchaku_preflight` and `loading.refuse_prequantized` refuse the other pairings before any download. Under
   WSL, `source wsl/env.sh` before `uv`. The catalogue's lite-infer ids
-  (`launch._LITE`, ERNIE's) are the pre-rename names, which the Hub now
-  answers with a 307 to names without the encoder suffix; keep them (saved
-  settings and PNGs name them) until `GEN#47` moves the catalogue with the
-  old ids still read. FLUX 3 has no Nunchaku build (`CARD#21`).
+  (`launch._LITE`, ERNIE's) are the pre-rename names, which the Hub answers
+  with a 307 to names without the encoder suffix (`Checkpoint.lite_alias`).
+  The app keeps writing the old ids (settings, PNGs, `CellKey`, run ids,
+  `model-downloads.json`'s keys). A new name is a read-only alias:
+  `launch.written_id` turns it into the old id where an id enters
+  (`config`'s `AURADREAM_MODEL_ID`, `model_selection.validate`, the saved
+  startup choice's comparison, `--via-server`'s model check, recipe reads), and every exact-id match (`launch._match`, `catalogue_entry`,
+  `Checkpoint.lite_format`) knows both. Never add an alias as a recipe key or
+  write one (`tests/test_lite_aliases.py`, with the 307s answered by an httpx
+  `MockTransport`). FLUX 3 has no Nunchaku build (`CARD#21`).
 - `config.py` sets `DIFFUSERS_TRUST_REMOTE_KERNELS` and must be imported
   before diffusers everywhere, the CLI included. The offload hooks are handed
   `AURADREAM_DEVICE` explicitly; given nothing, diffusers takes GPU 0.
@@ -2062,7 +2202,10 @@ measured on the card and when.
   the page labels those prompts as examples and says Batch images run
   separately. The CLI uses `--grid-prompt-mode random`.
 - Grid sizes are paired `WIDTHxHEIGHT` values in `size_axis`, never independent
-  width/height products. Each concrete cell keeps its image seed and random
+  width/height products. **+ panel size** (`addPanelSize`, GEN#64), client
+  only, appends the panel's `WxH` as typing would,
+  on the Sizes label's line (no added height at 1400x900); `parse_sizes` is
+  unchanged. Each concrete cell keeps its image seed and random
   assignment across sizes, passes the existing guards and contributes to the
   grid ceiling. Resume/planned work and estimates use each actual size. A
   mixed run reports all sizes, and Then refine reports all `pass_sizes`, with
@@ -2171,8 +2314,8 @@ measured on the card and when.
   image is gone for every live-facing read and present for every read about
   what exists or was made. `storage._LIVE` (`binned_at IS NULL`) is added by
   `list_images` (before the text predicates - the words' MATCH and the
-  excluded words' NOT IN - which the LIKE fallback swaps together as the
-  last, to `prompt LIKE` and `prompt NOT LIKE`; `binned=True` lists the bin alone), `get_image`/`get_images`
+  excluded words' NOT IN - which the fallback swaps together as the
+  last, to `search.word_match` as a prefix and as an exact word; `binned=True` lists the bin alone), `get_image`/`get_images`
   (unless `include_binned`), `reference_paths` (a binned id is refused,
   "is in the recycle bin; restore it to use it", before the file check - so a
   submission, a queued cell and `generate.py` alike), `set_favorite` (404
@@ -3112,6 +3255,30 @@ measured on the card and when.
   altered chunk is refused when it is read, before anything is installed, and
   the staging directory is discarded. Never add an up-front pass to
   authenticate every chunk.
+- A saved bundle's **Delete** (GAL#26) removes one named file
+  (`DELETE /api/gallery/bundles/files/{name}`, `bundles.delete_saved_bundle`)
+  after the page's own question (`askConfirm`, "Delete bundle"), the one
+  confirmed delete beside Empty bin and Delete permanently. Never automatic
+  or bulk (`GAL#22`'s decline). The route sits on `GalleryAdmission`'s
+  uncounted `/files/` control path so a running operation reaches it and is
+  refused as `bundle_in_use`; the file is then taken under
+  `bundle_leases.downloads.exclusive`, which refuses while any download or
+  import reader holds it (`bundle_in_use` too, as is Windows' sharing
+  violation, `winerror` 32, from another process; any other
+  `PermissionError` - Linux never refuses an unlink for an open file - is
+  refused uncoded in its own words, `CannotDelete`), and a missing file is
+  `bundle_gone`. An archive the automatic backup's journal counts as live
+  or pending (`backup_receipts.counted_archives`) is refused uncoded, as is
+  any delete while that journal cannot be read: retention owns a managed
+  copy, and one gone by hand would still be counted. The list says so
+  first: each saved bundle's `delete_hold` is that reason (or None), and
+  the row's Delete is held with it before any question. `bundle_delete.py`'s
+  handle-bound mechanism is not used: it needs a receipt and an installed
+  shared mode, which an ordinary saved bundle has neither of. The row's
+  button is `aria-disabled` with its reason while an operation runs or
+  another delete is out, and a delete in flight holds every Import and
+  creation action (`bundleActionHold`) as an Import being sent holds every
+  Delete. The rebuilt list keeps the focus in it (`refocusBundleRow`).
 - The dialog separates **Create a bundle** from **Import a bundle**.
   New password/Repeat apply to either creation action. Back up is the primary
   creation action and requires no typed count; the separate clear group names
@@ -3205,18 +3372,32 @@ measured on the card and when.
   and the critic's downloads) holds through the counted `keep_awake.busy`,
   never a provider. `counts_as_activity` excludes the page's timed requests
   (`/api/status`, the bundle and automatic-backup status reads, `GET
-  /api/jobs*`, the mask keep-alive, `/static/` and `/outputs/`); a new timed
-  poll joins that list, or an idle open tab holds the PC awake for ever.
+  /api/jobs*`, the mask keep-alive, `/static/` and `/outputs/`, and any GET
+  carrying `X-AuraDream-Poll`, which the page's `polledRead` adds to the
+  reads it repeats on a timer of a route a person also reads: the Models
+  catalogue's retry after a failure, its cache facts and the pictures
+  strip's retry); a new timed poll joins that list or sends the marker, or
+  an idle open tab holds the PC awake for ever (`smoke-idle-activity`).
+  A write never counts as a poll, marker or not, but for `POST
+  /api/grid/preview`, which writes nothing: the previews a status poll
+  asks again when it sees the model load or unload (idle release's unload
+  among them) carry the marker through `markPreview`/`takePreviewMark`
+  (`state.js`), and an edit's preview, pending or sent, goes without it.
   Nothing in it raises into its callers, and the status poll reads the
   last check's cached answer, never a subprocess. A holder's `hold` and
   `release` run on different threads (`asyncio.to_thread`), so a holder
   keeps nothing per thread: Windows' is a power request handle, never
   `SetThreadExecutionState`. It asks for the system only
   (`PowerRequestSystemRequired`), never the display, and reads or changes
-  no power setting. Tests never take a real hold through the server or the
-  CLI: `tests/conftest.py` replaces `platform_inhibitor` with
-  `NoInhibitor`. The one real call is `tests/test_keep_awake.py`'s, on
-  Windows, released in the same test.
+  no power setting. Under WSL it never takes `systemd-inhibit`, which
+  holds only the VM: Windows' request goes through `powershell.exe` by
+  interop (`WslPowerRequest`), or nothing is held and the status's
+  `detail` says why; never a claimed hold. Tests never take a real hold
+  through the server or the CLI: `tests/conftest.py` replaces
+  `platform_inhibitor` with `NoInhibitor`. The real calls are
+  `tests/test_keep_awake_holders.py`'s two, on Windows (the power request, and
+  the WSL script run by Windows' own `powershell.exe`), each released in
+  the same test.
 - Idle model release is default off (`AURADREAM_IDLE_UNLOAD_MINUTES=0`).
   `idle_unload.IdleUnload` runs one event-loop timer and shares KeepAwake's
   real-request clock, even when its power inhibitor is off. Jobs, card
@@ -3707,64 +3888,23 @@ measured on the card and when.
 
 ### Frontend and CLI
 
-- The lightbox's pending full PNG displays only that record's thumbnail.
-  Late native load/error events and probe promises must still own the
-  current request before changing visibility or feedback. Neighbour
-  preloads are bounded to one previous and one next after the current PNG
-  settles; close clears their owners. Keep the existing zoom/compare/touch
-  image element as the hit target. Large-gallery containment remains as
-  measured in the 5,000-row fake receipt; no speculative containment change.
-- Tier reconciliation reads the same coarse-pointer media predicates on
-  MQL changes and native resize. The resize fallback acts only on a changed
-  tier, with no same-tier keyboard-resize DOM writes; width alone never
-  selects the phone. Its regression withholds the MQL notifications and
-  requires normal node homing, preview close, history cleanup and focus.
-- A requested sheet landing counts stationary scroll frames only after
-  its head reaches the requested position, clamped to the current page end.
-  Quiet frames before native smooth scrolling starts do not finish that
-  landing. Preserve the 1.5-second bound, epoch guard and the rule that
-  focus moved elsewhere during rendering stays there.
+#### Page scripts, errors, refusals and headers
 
-- First-visit automatic Models choices reveal only their own table row,
-  without moving focus or page scroll, and name the checkpoint on Switch &
-  load. Default-only Performance and Step cache are hidden; held nondefault
-  and invalid intent stay repairable. Late status replies cannot move the
-  table under a pointer. Empty galleries reserve image-action height while
-  retaining Import, saved searches and Bin access.
-- Check leads with Findings; native closed Details holds Encoders, Order
-  and Compare without clearing them. Only author-context example notes use
-  hint colour; template/reference warnings retain their warning meaning.
-  Expert tooltips keep sourced detail after their plain visible-effect lead.
-- Ordinary images offer instruction Edit when the editor is selected or
-  their record is an edit. The wide comparison area starts with Compare…
-  until there are neighbours or an explicit expansion. Never offer Finish
-  for an error before a job starts; retire its failed-load box when another
-  checkpoint becomes ready, using catalogue labels in retained-run advice.
-  A late neighbour for the same image opens the wide Compare disclosure,
-  deferred while that block is hovered or holds focus, then reconciled on
-  pointerleave/focusout. Expansion is sticky for that image; preserve the
-  narrow tier's existing row-availability policy and action-button position.
-- Dynamic byte tallies and clocks are aria-hidden beside stable live state,
-  and never replace focused viewer controls. On phones the model chip keeps
-  its checkpoint/state; Models' footer contains the full tally and clock.
-- Help's Guide opens `/guide` separately, preserving the composer. Only the
-  checkout-owned usage Markdown is read; raw HTML is escaped, tables and
-  stable anchors rendered, other repo documents linked to GitHub. Its own
-  stylesheet is outside the app's cascade; the passcode closes the route.
-
-- Help's `?` dialog starts with a short Getting started sequence (Models,
-  Prompt, Generate, automatic Gallery saving and Cancel), then the existing
-  keyboard inventory. Reading it queues nothing and changes no settings.
-- A gated load's empty-viewer card offers the server's existing
-  `open_model_suggestion` only when `hf_token_present` is explicitly false.
-  The press opens that unsaved choice in Models; Switch & load is still a
-  separate press. A token appearing retires the offer without replacing the
-  failure card, and its focused button hands focus to Retry load.
-- FLUX 3's Expand cost, before the upsampler is loaded, includes the retained
-  first-use measurement of about 41 GiB of process RAM with Klein loaded on
-  the measured PC. It is a measured reference, not a fit guarantee for Base
-  or another PC, and disappears once the upsampler is already loaded.
-
+- `web/` has no build step and no test suite; check it in a real browser with
+  `tools/fake_server.py` and `tools/browser.mjs` (see Tests). The page script
+  is classic scripts sharing one global scope, loaded in the order
+  `index.html` lists them; their top-level bindings stay top-level, and only
+  `app.js`, the last, runs anything at load.
+- An error nothing caught is said on the page: `app.js` adds `sayPageError`
+  (`state.js`) for `error` and `unhandledrejection` before any other wiring.
+  It writes one line, `Page error: <message> (<file>:<line>). Reload the page
+  if something has stopped working.`, to `#error` through `showError` - on
+  the phone over the bars in Create (`sayAtGenerate`) and in the gallery's
+  slot in the Gallery view - and writes the same line once only. It never
+  throws, never calls `preventDefault` (the console and the smoke driver
+  still hear the error) and ignores an `error` event with no error object.
+  It is a last resort, not a way to report: code that can fail catches and
+  says so in its own words, and a smoke that sees this line has failed.
 - What the page does about a refusal is decided by its `code`, never by
   its sentence. A refusal the page acts on answers
   `{"detail": ..., "code": ...}`, with `"ids"` where it names gallery
@@ -3787,7 +3927,11 @@ measured on the card and when.
   mask that has gone, at submit and between the check and the hold
   (`MaskGone`). `more_seeds_cap` on More seeds' batches times count past
   one press, and `more_seeds_receipt` on its receipt's own 409.
-  `selection_changed` on Delete unstarred's stale count. A refusal the
+  `selection_changed` on Delete unstarred's stale count. `bundle_in_use`
+  and `bundle_gone` on a saved bundle's delete
+  (`DELETE /api/gallery/bundles/files/{name}`, `bundles.delete_saved_bundle`):
+  in use while a bundle operation runs or the file is leased for a
+  download or an import, gone when it is not there. A refusal the
   page only shows carries no code. A new behaviour that depends on a
   refusal adds a code to `refusal_codes.py` and raises `Refused` (or a
   `CodedError` under the HTTP layer); it never tests `err.message`.
@@ -3815,113 +3959,9 @@ measured on the card and when.
   500 itself, same status and text, and raises the error again for the
   server to log; never swallow it there. This is not a script policy:
   there is no `script-src`.
-- Saved gallery searches store only Name, Query, Starred and All models in a
-  versioned database-scoped sidecar, never image ids or picks. Names are unique
-  after NFC normalization and case folding; duplicate-name replacement is
-  explicit and revisioned. Reads are cold and first occur on opening the native
-  dialog, not startup. CRUD bypasses gallery maintenance and model work. Select
-  only fills the editor; Apply leaves the bin and sheet, cancels a pending
-  debounce, writes all three filters and reloads gallery/Runs once. Old gallery
-  epochs and sheet return filters cannot replace it. Picks remain selected and
-  visibly counted, and Apply queues no generation or image mutation. Current
-  checkpoint and relative dates are evaluated when applied. Unknown write
-  results preserve the editor, report uncertainty and hold Save/Delete/Update
-  until a fresh read and explicit selection/New. Reopening or applying the
-  valid editor filter never acknowledges that result. Known validation and
-  duplicate-name replacement keep their existing flow. Errors, conflicts
-  and late list replies preserve unsaved edits; modal keys and focus stay in
-  the dialog, with connected-opener restoration using `preventScroll`.
-- Native numeric inputs can display unfinished text such as `1e` while their
-  DOM value is empty. `refuseBadNumber` checks `validity.badInput` at Generate,
-  Run grid and comparison submission, names the field and focuses it without
-  submitting. Intentional blanks retain profile defaults/random seeds;
-  disabled inputs, sampling/seed values replaced by grid axes, and comparison's
-  own Batch/Repeat values are ignored. Both the Run grid button and its keyboard
-  path use `runGrid`.
-  Stored reruns and More seeds do not validate unrelated composer inputs.
-- Personal snippets are the final item of Examples, after the authors' prompts,
-  and remain available with no author examples. They open a native dialog,
-  with declarations in `prompt-snippets.js` and `initSnippets()` called by
-  `app.js`. Writes go through `rewriteBox`/`writeBox`, keeping page scroll,
-  with Append/Prepend and undo; a
-  greyed negative refuses insertion. A third target, Grid variables
-  (`variables`), writes a saved `name = a | b` block into Grid search's
-  Prompt variables box the same way: the fold is opened first
-  (`openMoreOptionsFor` on the phone, where the box is in More options),
-  since a shut fold's box takes no focus and the write would not be
-  typing's. The text is never parsed by the page or the server; the grid's
-  preview reads the box afterwards. `snippetBox` and `snippetTargetWord`
-  are the one map from a target to its box and its word. The modal owns
-  its keys, with no
-  Ctrl/Cmd+Enter submission underneath it. CRUD uses a bounded atomic
-  `auradream.snippets.json` sidecar, optimistic item revisions and an
-  independent lock; unreadable files are never replaced by an empty list.
-  Snippets remain available during gallery bundle maintenance. The sidecar
-  and temporary files are ignored by Git. No read is made at page startup.
-- Named generation/grid setups open from Examples, before Personal snippets,
-  in a native dialog (`generation-presets.js`, wired only by `app.js`). Their
-  versioned payload retains raw fields and nullable
-  profile overrides; never store `panelState`, expanded cells, conditioning or
-  execution intent. Capture/validation requires the exact model revision and
-  valid Eager/native loader intent with Step cache Off; GET/DELETE remains
-  checkpoint-independent. Item revisions protect edits/deletes and validation
-  rechecks after calculating. No route submits or restores, and no startup
-  read occurs. Opening/selecting never writes the composer. Save current makes
-  a new setup, Update from current replaces the selected payload, and Rename
-  keeps it. Unsaved names survive failures and list reloads; selecting the
-  refreshed item explicitly adopts its latest revision. Collection reads hold
-  list selection without blocking name edits; successful Reload clears only
-  visible selection, preserving the editor until deliberate selection. View
-  toggles retain that visible selection or deliberate blank. Selection during
-  validation still cancels the older check. Save names omitted
-  active LoRA/reference/Then refine inputs as a hold. Restore requires the
-  exact checkpoint, offers Models on a mismatch, and validates afresh before
-  writing. Its reply must still match item/model revisions, the entire draft,
-  performance intent and the edit epoch; otherwise a new press is needed.
-  It closes the modal before undo-aware writes, uses `setReferences`, clears
-  conditioning and Then refine, and keeps raw inactive text/overrides. Its
-  summary shows saved/effective settings and what will clear. Grid restores
-  Resume off and retains its ordinary seed-axis and request Repeat=1 rules.
-  The one whole-draft Undo keeps raw sampling/ownership, grid, conditioning,
-  Then refine and translation; first later edits retire it through panel and
-  Then refine handlers. It shares the stable prompt-note overlay and retirement
-  rules with Reset/Reuse; deleted/binned references leave its snapshot too.
-  Restore/Undo do not scroll; native Ctrl+Z retains prompt history. Held actions
-  explain their title reason in the dialog, and modal keys cannot submit work
-  underneath it. Held/invalid performance intent is never cleared by refusal.
-- Keyboard help (`shortcuts.js`) opens with `?` or the top bar's named
-  button, never while typing in an input, textarea, select or editable
-  content, during composition, on a repeat or with Ctrl/Meta/Alt. Its native
-  dialog may sit above another dialog; while open, the page's global
-  shortcut dispatcher returns before Ctrl/Cmd+Enter or Escape can act
-  underneath it. Tab stays on help's sole Close control. Close, native Escape
-  and an actual backdrop press restore the connected opener with
-  `preventScroll`. The complete, grouped list is
-  available even when the gallery is empty or a comparison is inactive.
-  Opening snapshots the current context before a menu loses focus. Relevant
-  groups lead, followed by the complete inventory; there are no hidden shortcut
-  groups or extra help controls. Queue/Bundles help names native button/field
-  navigation and explicitly promises no dedicated submit/queue accelerator.
-  A menu item's hidden-but-connected node is not a valid return target: use its
-  visible opener fallback, without reopening the menu or scrolling. Context-menu
-  help owns `?` before the menu's propagation stop. Image shortcut hints apply
-  after closing that menu; Enter/Space chooses within it. Sheet images retain
-  their own documented keys, without promising the image actions menu.
-- `web/` has no build step and no test suite; check it in a real browser with
-  `tools/fake_server.py` and `tools/browser.mjs` (see Tests). The page script
-  is classic scripts sharing one global scope, loaded in the order
-  `index.html` lists them; their top-level bindings stay top-level, and only
-  `app.js`, the last, runs anything at load.
-- An error nothing caught is said on the page: `app.js` adds `sayPageError`
-  (`state.js`) for `error` and `unhandledrejection` before any other wiring.
-  It writes one line, `Page error: <message> (<file>:<line>). Reload the page
-  if something has stopped working.`, to `#error` through `showError` - on
-  the phone over the bars in Create (`sayAtGenerate`) and in the gallery's
-  slot in the Gallery view - and writes the same line once only. It never
-  throws, never calls `preventDefault` (the console and the smoke driver
-  still hear the error) and ignores an `error` event with no error object.
-  It is a last resort, not a way to report: code that can fail catches and
-  says so in its own words, and a smoke that sees this line has failed.
+
+#### Styles, tokens and tips
+
 - `web/style.css` takes its type, greys, spacing, control heights, radii and
   layout widths from the tokens on `:root`, whose table says what each is
   for; a size the page shares is a token, a one-off stays a literal, and a
@@ -4051,6 +4091,9 @@ measured on the card and when.
   intact. These target-size changes apply in every held/selected/hover state,
   so a state change cannot move a control under the pointer. Narrow footer
   wrapping and the error line's reserved slot remain unchanged.
+
+#### The panel's controls
+
 - Each of the panel's size strips (`#presets`, `#tiers`) is a `role="group"`
   with one tab stop (the chosen preset, else the first) and `aria-pressed`;
   Left and Right, Home and End move focus
@@ -4110,12 +4153,43 @@ measured on the card and when.
   no automatic close or poll-driven reopen, and no new persistence key.
   Pending restored LoRA names survive snapshots/Undo, but Reset or a replacement
   Reuse clears them so a late catalogue cannot restore stale conditioning.
+- Sampling is a native fold too (`#sampling-section`, summary
+  `#sampling-caption`, UI#51): Steps, CFG, Mu and True CFG. Its summary
+  (`#sampling-value`, `syncSamplingSummary`, sizes.js) always gives the
+  effective values: a blank Steps or CFG box as the profile's (`lastDefaults`),
+  CFG named plainly (the row's label says "(distilled)") with "(unused)" where
+  `cfg_ignored`, a blank Mu as `muPlaceholder()` ("auto" or the fixed shift),
+  no Mu where `muSupported` is false, True CFG only where supported and typed
+  (with "(unused)" when `negativeSent` sends no negative, so `applied()`
+  drops it),
+  and "check …" in `.warn` for a box whose number cannot be read. In the
+  panel it is one line (`white-space: nowrap`, an ellipsis past
+  `calc(100% - 6.5em)`, the whole text its `title`): a wrap moved Seed and
+  Generate as True CFG was typed. It follows
+  the boxes' input, `syncCfg`, `syncMu` and `syncMuWords`, never opening or
+  shutting the fold. Unlike the two above, its open state is remembered per
+  browser (`auradream.sampling-open`, `'1'`/`'0'`, try/catch; shut when
+  absent or unreadable), restored by `initSamplingFold` before the first
+  paint; not the panel's, so Reset leaves it. Only a press on the summary
+  writes it (its click, read on the next task); a reveal is never stored. Status, Reuse, Reset, setups and
+  Load settings from PNG write its boxes shut and leave it shut; only a
+  press that focuses a box inside (an incomplete number at Generate,
+  `revealSetupField`; Set CFG/True CFG, `focusNegativeKnob`) opens it. Set
+  CFG sits above it, so nothing moves under that press. The refusal of an
+  incomplete number by Generate, Run grid or Run comparison (`refuseBadNumber`)
+  opens it above the pressed button, which moves down; it is the accepted
+  exception, as Custom dimensions' is, and focus goes to the box. Shut, it saves the
+  row's height (Generate about 60 px higher at 1400x900); open, it is no
+  taller than the caption and row were (with a fine pointer: no padding of
+  its own, and in the panel `margin-top: -4px`, fields.css; a touch screen
+  keeps the usual spacing, which its ? badges' upward reach needs). On the
+  phone it moves whole into More options' sheet, first.
 - The sampling row (`.sampling-row`) keeps each name on one line, with
   `white-space: nowrap` on the `<label>` alone - never on the label line,
   which also holds the ? badge and its tip. No box is narrower than its name
   (`min-width: min-content`), and its boxes take the counters' padding.
-  Seed, Batch and Repeat form the Output group (`#output-caption`, the
-  Sampling caption's twin, role=group), one line at every width.
+  Seed, Batch and Repeat form the Output group (`#output-caption`,
+  role=group), one line at every width.
   `#run-hint`, what Batch and Repeat add up to (Batch and Repeat are
   described by it), sits under Generate after `#progress`, not in the group:
   above Generate its two lines moved Generate as Batch or Repeat passed 1
@@ -4217,6 +4291,97 @@ measured on the card and when.
   itself) has a note naming the gap ("Author sample: under 30-80 words"),
   held by `test_the_authors_examples_draw_no_finding_unnoted`; never edit
   the example to pass.
+
+#### Models, Help and load status
+
+- First-visit automatic Models choices reveal only their own table row,
+  without moving focus or page scroll, and name the checkpoint on Switch &
+  load. Default-only Performance and Step cache are hidden; held nondefault
+  and invalid intent stay repairable. Late status replies cannot move the
+  table under a pointer. Empty galleries reserve image-action height while
+  retaining Import, saved searches and Bin access.
+- Dynamic byte tallies and clocks are aria-hidden beside stable live state,
+  and never replace focused viewer controls. On phones the model chip keeps
+  its checkpoint/state; Models' footer contains the full tally and clock.
+- A gated load's empty-viewer card offers the server's existing
+  `open_model_suggestion` only when `hf_token_present` is explicitly false.
+  The press opens that unsaved choice in Models; Switch & load is still a
+  separate press. A token appearing retires the offer without replacing the
+  failure card, and its focused button hands focus to Retry load.
+- Help's Guide opens `/guide` separately, preserving the composer. Only the
+  checkout-owned usage Markdown is read; raw HTML is escaped, tables and
+  stable anchors rendered, other repo documents linked to GitHub. Its own
+  stylesheet is outside the app's cascade; the passcode closes the route.
+- Help's `?` dialog starts with a short Getting started sequence (Models,
+  Prompt, Generate, automatic Gallery saving and Cancel), then the existing
+  keyboard inventory. Reading it queues nothing and changes no settings.
+
+#### Keyboard
+
+- Keyboard help (`shortcuts.js`) opens with `?` or the top bar's named
+  button, never while typing in an input, textarea, select or editable
+  content, during composition, on a repeat or with Ctrl/Meta/Alt. Its native
+  dialog may sit above another dialog; while open, the page's global
+  shortcut dispatcher returns before Ctrl/Cmd+Enter or Escape can act
+  underneath it. Tab stays on help's sole Close control. Close, native Escape
+  and an actual backdrop press restore the connected opener with
+  `preventScroll`. The complete, grouped list is
+  available even when the gallery is empty or a comparison is inactive.
+  Opening snapshots the current context before a menu loses focus. Relevant
+  groups lead, followed by the complete inventory; there are no hidden shortcut
+  groups or extra help controls. Queue/Bundles help names native button/field
+  navigation and explicitly promises no dedicated submit/queue accelerator.
+  A menu item's hidden-but-connected node is not a valid return target: use its
+  visible opener fallback, without reopening the menu or scrolling. Context-menu
+  help owns `?` before the menu's propagation stop. Image shortcut hints apply
+  after closing that menu; Enter/Space chooses within it. Sheet images retain
+  their own documented keys, without promising the image actions menu.
+- Keyboard events already prevented, composing (including keyCode 229), or
+  carrying unsupported extra modifiers never become a second page command.
+  Discrete activation does not repeat; navigation, zoom, numeric stepping and
+  the mask's held stroke retain repeat. Native repeated Enter/Space activation
+  is held for discrete buttons too. A focused input, select or editable owns
+  its text/navigation keys. The event's native modal owns dispatch; settings,
+  help, Bundles, menus and the lightbox cannot generate behind themselves.
+- Ctrl/Cmd+Enter (exactly one primary modifier, no Alt/Shift) is routed by focus (app.js's keydown): in the Refine dialog it
+  runs the pass, and so does a plain Enter in the dialog's one-line boxes
+  (`refineKeydown`); in Mass refine's dialog it runs that
+  (`runRefineBatch`) and in Swap tags' it queues (`queueSwap`); from a box
+  of the open grid fold it clicks Run grid;
+  on the main workspace, a focused image included, it generates - `thumb()`'s Enter
+  and Space open the lightbox only without Ctrl, Meta or Alt. Generate
+  itself refuses in the page alone (never the server, where braces can be
+  text or {tag} emphasis) while the fold is open, its variables box has text
+  and either prompt holds a `{name}`. Generate, Run grid and Refine show the
+  hint through one `::after` rule (empty alt text, smaller and lighter, never
+  opacity, since `setBusy` rewrites the buttons' text) plus
+  `aria-keyshortcuts`; the lightbox's Compare with source shares that rule,
+  its content S (styles/lightbox.css).
+- `/` focuses and selects gallery search on the workspace, preserving its
+  query, filters, bin/run and picks. A literal slash may carry Shift on a
+  localized keyboard. Fields, menus, popups and modals own their keys;
+  Ctrl/Meta/Alt, composition, handled events and repeats never take this route.
+  Explicit navigation reveals a clipped search, without moving a visible one.
+  Unshifted P (either case) under the same guards, outside any modal,
+  focuses `#prompt` with the caret at the end (`focusPromptBox`): no text,
+  Undo, Check, suggestion, pick, search or sheet change, and the same one
+  reveal as `/` only where the narrow layout left the box off screen.
+  Unshifted M opens More seeds for the focused gallery/result/sheet/session
+  image or unobstructed lightbox image, using its one id and the existing holds
+  and preview. It never queues or widens to hidden picks. Its actual visible
+  opener owns focus and pending-preview validity, including narrow lightboxes.
+  Visible M hints stay in image context and help; the More seeds entry points
+  remain. A narrow lightbox menu uses its visible launcher instead of the hidden
+  button for pending-preview validity. Lightbox redraws preserve valid focus;
+  when their owned control disappears or becomes hidden/disabled, Close receives
+  focus without scrolling, unless another dialog is open. Comparison controls and S retain their existing behavior.
+
+#### Prompt expansion and the prompt check
+
+- FLUX 3's Expand cost, before the upsampler is loaded, includes the retained
+  first-use measurement of about 41 GiB of process RAM with Klein loaded on
+  the measured PC. It is a measured reference, not a fit guarantee for Base
+  or another PC, and disappears once the upsampler is already loaded.
 - Prompt expansion is explicit, and ERNIE's or FLUX 3's alone (the page
   names it from `prompt_expander.name`, `expanderName()`, and leaves out the
   translation where `translates` is false). `syncExpandButton` is
@@ -4335,6 +4500,10 @@ measured on the card and when.
   a dismissed panel; a later explicit Check can reopen it (`UI#31`, dated
   Check-dismissal review). Reset/model/supersession still use computation
   epochs, not this dismissal counter.
+- Check leads with Findings; native closed Details holds Encoders, Order
+  and Compare without clearing them. Only author-context example notes use
+  hint colour; template/reference warnings retain their warning meaning.
+  Expert tooltips keep sourced detail after their plain visible-effect lead.
 - The prompt check describes one text: the prompt and negative prompt as
   `collect()` sent them, whether CFG or True CFG applies that negative, and
   the reference images it counted
@@ -4418,6 +4587,9 @@ measured on the card and when.
   to it (`showSheetScope`); its Your version box (`yours`) is the one way to
   test order on prose. A negative-prompt Apply is dead while the negative box
   is greyed.
+
+#### Tags and validation chips
+
 - Tag autocomplete and comma-item validation use the fixed Danbooru
   tag API through `backend/tags.py`, filtered when a checkpoint documents a
   knowledge cutoff. WAI v17 publishes none: keep its cutoff `None` and the
@@ -4480,10 +4652,34 @@ measured on the card and when.
   Find tag row, chips, typing state or prose guard; never while the box is
   greyed (`disabled`: `syncCfg` closes a list up as it greys), on a
   whole-box write (`replacingBox`; `writeBox` closes it) or off a Danbooru
-  checkpoint. The chip editor, the dialog and the negative box share
+  checkpoint. The Grid's Prompt variables box (`PA#16`) takes it too, its
+  own `#grid-tag-suggestions` floating under the box (`.grid-prompt-editor`;
+  nothing moves), for the value at the caret: between the line's `=` and a
+  `|` or comma (`gridValueRange`), never the name before the `=`, a
+  `NONE_VALUES` word (`none`, `off`, `-`...: `grid.NONE_TOKENS`, which a
+  preselected `off shoulder` would otherwise fill) or a line with no `=`
+  (`suggestGridValues`, `applyGridSuggestion`); its
+  unknown values stay the tag tray's (`gridVariableTip`). Swap tags' Find
+  and Replace boxes take it as one list for the dialog,
+  `#swap-tag-suggestions`, `position: fixed` under the focused box
+  (`placeSwapSuggestions`: the rows scroll and clipped a list inside one),
+  closed as anything in the dialog scrolls or the window resizes, asked with
+  `field: 'negative'` while the swap is in the negative prompt
+  (`suggestSwapTags`, `applySwapSuggestion`); Enter on a selected item is
+  prevented, so Queue's Enter (which skips a prevented key) never sees it.
+  Each Replace box (an Add row's too) gets an advisory verdict:
+  `scheduleSwapTagCheck` asks `POST /api/tags/validate` once for every row,
+  the Replace texts joined as one prompt so contextual prose is told from a
+  tag, and `markSwapTags` puts unknown tags on their box (`.swap-unknown`,
+  amber, the reasons as its title) and in `#swap-tags`, one line kept while
+  empty. The item at the caret of the focused box is not called unknown
+  until the box loses the focus, as the chips' typing item; an unavailable
+  index or a failed request is silent; Queue is never held for it. The chip
+  editor, the dialog, the negative box, the grid box and Swap tags share
   `tagEditorSuggestionTimer` and `tagEditorSuggestionEpoch`, which is safe
-  only because each asks for the focused box alone and the dialog is modal;
-  `hideNegativeSuggestions` touches them only while its list is up. Find tag: from three typed characters the prompt box's list (not
+  only because each asks for the focused box alone and the dialogs are modal;
+  `hideNegativeSuggestions`, `hideGridSuggestions` and `hideSwapSuggestions`
+  touch them only while their list is up. Find tag: from three typed characters the prompt box's list (not
   a chip editor's or the dialog's) ends with a `find` row, "Tags described
   as “…”…", there too when no name matches and never preselected
   (`renderTagSuggestions`, `TAG_FIND_MIN`). Choosing it
@@ -4643,93 +4839,396 @@ measured on the card and when.
   open prompt check. In the Refine dialog the list's Escape is prevented on
   the box's keydown, which keeps the modal dialog's cancel from firing: it
   closes the list, and the next one closes the dialog.
-- Keyboard events already prevented, composing (including keyCode 229), or
-  carrying unsupported extra modifiers never become a second page command.
-  Discrete activation does not repeat; navigation, zoom, numeric stepping and
-  the mask's held stroke retain repeat. Native repeated Enter/Space activation
-  is held for discrete buttons too. A focused input, select or editable owns
-  its text/navigation keys. The event's native modal owns dispatch; settings,
-  help, Bundles, menus and the lightbox cannot generate behind themselves.
-- Ctrl/Cmd+Enter (exactly one primary modifier, no Alt/Shift) is routed by focus (app.js's keydown): in the Refine dialog it
-  runs the pass, and so does a plain Enter in the dialog's one-line boxes
-  (`refineKeydown`); in Mass refine's dialog it runs that
-  (`runRefineBatch`) and in Swap tags' it queues (`queueSwap`); from a box
-  of the open grid fold it clicks Run grid;
-  on the main workspace, a focused image included, it generates - `thumb()`'s Enter
-  and Space open the lightbox only without Ctrl, Meta or Alt. Generate
-  itself refuses in the page alone (never the server, where braces can be
-  text or {tag} emphasis) while the fold is open, its variables box has text
-  and either prompt holds a `{name}`. Generate, Run grid and Refine show the
-  hint through one `::after` rule (empty alt text, smaller and lighter, never
-  opacity, since `setBusy` rewrites the buttons' text) plus
-  `aria-keyshortcuts`; the lightbox's Compare with source shares that rule,
-  its content S (styles/lightbox.css).
-- `/` focuses and selects gallery search on the workspace, preserving its
-  query, filters, bin/run and picks. A literal slash may carry Shift on a
-  localized keyboard. Fields, menus, popups and modals own their keys;
-  Ctrl/Meta/Alt, composition, handled events and repeats never take this route.
-  Explicit navigation reveals a clipped search, without moving a visible one.
-  Unshifted P (either case) under the same guards, outside any modal,
-  focuses `#prompt` with the caret at the end (`focusPromptBox`): no text,
-  Undo, Check, suggestion, pick, search or sheet change, and the same one
-  reveal as `/` only where the narrow layout left the box off screen.
-  Unshifted M opens More seeds for the focused gallery/result/sheet/session
-  image or unobstructed lightbox image, using its one id and the existing holds
-  and preview. It never queues or widens to hidden picks. Its actual visible
-  opener owns focus and pending-preview validity, including narrow lightboxes.
-  Visible M hints stay in image context and help; the More seeds entry points
-  remain. A narrow lightbox menu uses its visible launcher instead of the hidden
-  button for pending-preview validity. Lightbox redraws preserve valid focus;
-  when their owned control disappears or becomes hidden/disabled, Close receives
-  focus without scrolling, unless another dialog is open. Comparison controls and S retain their existing behavior.
-- The grid preview is the server's expansion; the page adds only
-  presentation and advice. Closing Grid advances `previewEpoch` before its
-  synchronous CFG-reach clear and return, so older success/error replies
-  cannot restore a grid-only negative caption or obsolete preview text.
-  Reopening takes its own epoch; payloads and the input debounce are unchanged.
-  [The close-ownership review](maintainer/review-2026-10-28-grid-preview-close.md) owns
-  the source evidence and separate CPU/native-browser qualification. It trims factors of one other than the seeds
-  from the totals and writes ×, since `grid.describe` keeps its ASCII x and
-  its ones for the CLI's log. It lists the resolved prompt whenever the
-  variables box has text, one included, in a `.prompts` box of its own
-  after the axes line, at most eight lines tall and scrolling inside itself
-  (a nested scroller, never the panel's overflow). A prompt written over
-  lines is listed by the lines a `{variable}` is on, whole and numbered
-  (`promptListing`: "prompts, line 4 of 29:"), which rests on
-  `grid.substitute` keeping every line in place. Its client-side warning lines (a
-  variable of one value, a budget that completes no seed, the panel's
-  Repeat above one, cells already in the gallery) never refuse anything, and
-  are appended to `#grid-preview` as nodes, never by rewriting `textContent`,
-  since `.totals` is its first child. The budget line's count is the
-  server's (`GridPreview.budget_seeds`, `gallery_reports.seeds_within_budget`: the
-  job's stop rule, a cell starting until the deadline has passed, so a seed
-  whose last cell starts in time completes); it needs the preview's
-  estimate, is left out under Resume, and names what else spends a budget
-  that runs from submission: the load while the topbar's dot is not ready,
-  the jobs ahead while the page watches one. The preview is asked again by
-  `setBusy` (a job's start and end) and by `refreshStatus` when the model
-  becomes ready or stops being so, not only by the boxes; and the first
-  preview after the fold is opened by hand reveals Run grid again
-  (`gridRevealPending`, set by the summary's click), since its reply lands
-  under the pointer where the panel holds still. Axis messages lead with the
-  box's name (`Steps`, `CFG`, `Mu`, `LoRA weight`, `Strength`, `Seed list`),
-  a value past the request's own bounds included (`grid._within`, read off
-  `GenerateRequest`: "CFG: 25 is above 20, the most it takes");
-  `parse_axis` closes up a spaced range between two numbers, leaving a lone
-  `-` as Mu's none, and refuses a stepless range that would stop at its
-  first value (`0.8-1.2` needs a step). The grid's Steps and CFG
-  placeholders are the profile's (`gridExamples`, from `applyDefaults`):
-  Steps round(.75s), s, round(1.25s), clamped to the Steps box; CFG c-1, c,
-  c+1, or c, c+1, c+2 where the profile's CFG is at or below a threshold
-  that is CFG's own, not True CFG's (guidance off: Anima Turbo and ERNIE
-  Turbo give 1,2,3), 0,0.5,1 for a CFG-0 profile, and nothing where
-  `cfg_ignored`; Mu `none,<profile mu>` where the profile has one. The tips
-  stay syntax help. A grid axis dead for the checkpoint or the installation
-  reads "unavailable", and its reason is its tip and its wrapper's title -
-  for Mu `hints.mu` (`syncMuWords`), for the LoRA weight `/api/loras`'
-  detail once that list answers (`loraRefusal`, `syncConditioning`); the
-  syntax help is kept as nodes (`gridMuTipDefault`, `gridLoraTipDefault`)
-  and comes back where the axis applies.
+
+#### Examples: snippets and saved setups
+
+- Personal snippets are the final item of Examples, after the authors' prompts,
+  and remain available with no author examples. They open a native dialog,
+  with declarations in `prompt-snippets.js` and `initSnippets()` called by
+  `app.js`. Writes go through `rewriteBox`/`writeBox`, keeping page scroll,
+  with Append/Prepend and undo; a
+  greyed negative refuses insertion. A third target, Grid variables
+  (`variables`), writes a saved `name = a | b` block into Grid search's
+  Prompt variables box the same way: the fold is opened first
+  (`openMoreOptionsFor` on the phone, where the box is in More options),
+  since a shut fold's box takes no focus and the write would not be
+  typing's. The text is never parsed by the page or the server; the grid's
+  preview reads the box afterwards. `snippetBox` and `snippetTargetWord`
+  are the one map from a target to its box and its word. The modal owns
+  its keys, with no
+  Ctrl/Cmd+Enter submission underneath it. CRUD uses a bounded atomic
+  `auradream.snippets.json` sidecar, optimistic item revisions and an
+  independent lock; unreadable files are never replaced by an empty list.
+  Snippets remain available during gallery bundle maintenance. The sidecar
+  and temporary files are ignored by Git. No read is made at page startup.
+- Named generation/grid setups open from Examples, before Personal snippets,
+  in a native dialog (`generation-presets.js`, wired only by `app.js`). Their
+  versioned payload retains raw fields and nullable
+  profile overrides; never store `panelState`, expanded cells, conditioning or
+  execution intent. Capture/validation requires the exact model revision and
+  valid Eager/native loader intent with Step cache Off; GET/DELETE remains
+  checkpoint-independent. Item revisions protect edits/deletes and validation
+  rechecks after calculating. No route submits or restores, and no startup
+  read occurs. Opening/selecting never writes the composer. Save current makes
+  a new setup, Update from current replaces the selected payload, and Rename
+  keeps it. Unsaved names survive failures and list reloads; selecting the
+  refreshed item explicitly adopts its latest revision. Collection reads hold
+  list selection without blocking name edits; successful Reload clears only
+  visible selection, preserving the editor until deliberate selection. View
+  toggles retain that visible selection or deliberate blank. Selection during
+  validation still cancels the older check. Save names omitted
+  active LoRA/reference/Then refine inputs as a hold. Restore requires the
+  exact checkpoint, offers Models on a mismatch, and validates afresh before
+  writing. Its reply must still match item/model revisions, the entire draft,
+  performance intent and the edit epoch; otherwise a new press is needed.
+  It closes the modal before undo-aware writes, uses `setReferences`, clears
+  conditioning and Then refine, and keeps raw inactive text/overrides. Its
+  summary shows saved/effective settings and what will clear. Grid restores
+  Resume off and retains its ordinary seed-axis and request Repeat=1 rules.
+  The one whole-draft Undo keeps raw sampling/ownership, grid, conditioning,
+  Then refine and translation; first later edits retire it through panel and
+  Then refine handlers. It shares the stable prompt-note overlay and retirement
+  rules with Reset/Reuse; deleted/binned references leave its snapshot too.
+  Restore/Undo do not scroll; native Ctrl+Z retains prompt history. Held actions
+  explain their title reason in the dialog, and modal keys cannot submit work
+  underneath it. Held/invalid performance intent is never cleared by refusal.
+
+#### Starting jobs
+
+- Native numeric inputs can display unfinished text such as `1e` while their
+  DOM value is empty. `refuseBadNumber` checks `validity.badInput` at Generate,
+  Run grid and comparison submission, names the field and focuses it without
+  submitting. Intentional blanks retain profile defaults/random seeds;
+  disabled inputs, sampling/seed values replaced by grid axes, and comparison's
+  own Batch/Repeat values are ignored. Both the Run grid button and its keyboard
+  path use `runGrid`.
+  Stored reruns and More seeds do not validate unrelated composer inputs.
+- `startJob(path, body, { sheet, panel, slot, placeholder, onAccepted,
+  onRefused })`: `slot` (default `els.error`) is where its refusals go.
+  `onAccepted(jobId)` runs once the server has taken the job, before
+  startJob watches it, though a listing between jobs (`jobListing`) may
+  already be streaming it; a refusal never calls it, and calls
+  `onRefused(err)` once said in `slot`, for the caller's own words. `placeholder` ({src, width, height, label}) is
+  keyed to the job (`jobPlaceholders`); the stream reads it again at each
+  progress event until it is there, and shows it from the first such event
+  with no frame as the viewer's `figure.pending` (the source dimmed and
+  blurred, in the result's own tile, its caption the tile's `p.foot`) until
+  a frame or the result replaces it. startJob resolves on a refusal, once
+  the job has ended, or, for a job queued behind the watched one, once the
+  server has taken it. A submission queues, with no `setBusy`, while the
+  page watches a job or while `jobListing` is out. `jobListing` is the
+  request a page between jobs makes to pick its next job (`adoptListedJob`,
+  behind `watchNext` and `resumeActiveJob`); it checks `busy` again once it
+  answers and opens the adopted job's stream itself. After its POST, a
+  queued submission waits for that listing, then: a job the listing made
+  the watched one is awaited through its stream (`jobStreams`), or
+  forgotten (`forgetJob`) if that stream has already ended; otherwise it
+  takes the page if nothing is watched, and else queues an id that is not
+  queued already. So no job is streamed twice (`watchedJobs`, every id a
+  stream was opened for) or listed as its own Next: row. An accepted in-memory
+  receipt not yet watched (`unwatchedSubmission`) also owes an outcome if its
+  job finished between watches. The adopter queries finished history only
+  while such a receipt is absent from the active list, then replays terminal
+  snapshots one at a time through the ordinary stream/finish path in receipt
+  order. Queue resync preserves those unseen receipts, and idle polling retries
+  transient listing failures. `ownJobs` alone never authorizes historical
+  replay after reload; foreign jobs and explicitly cancelled/forgotten rows
+  are excluded. A receipt missing from server history is forgotten.
+  A stream that gives up probes
+  `GET /api/jobs/<id>`: alive, it streams again (three times at most); no
+  answer, an offline message counting the saved images; a 404, "The server
+  restarted, and this job ended with it after N of M images". The stale
+  preview is dropped, and where nothing of the job reached the strip the
+  viewer holds `showLostRun`'s card (the sentence, Run it again where this
+  page sent it, `lostRunBack` rewording it once the server answers). While
+  it reconnects the job line reads `LOST_PHRASE` (the topbar's "server not
+  answering — retrying") with the count, no steps or time left, no topbar
+  mirror (`streamLost`), the title and the strip's note the same phrase. The
+  progress block is a one-line Now row
+  (`#progress-now`, count · size · what - "Now: 3 images · 1024×1024 · a fox
+  in the snow" (`describeJob`), the prompt last so the ellipsis takes it,
+  whole in its title; an XML prompt is named by its words, its
+  `<name>`/`</name>` tags dropped (`promptGist`), here, in the queue rows,
+  in Cancel's title and in the Runs picker's labels, the title keeping it as
+  written) with Pause and Cancel at its end, the bars at the
+  panel's width, and under them one line holding the counters
+  (`#progress-text`, then `#step-text` after a dot) and the live cell line
+  (`#cell-note`), all inside `#progress` - the rows are `display: contents`
+  and `.progress` a wrapping flex line, so a long cell line wraps whole to a
+  line of its own; a counter beside each bar put the time on a fourth line
+  past the foot of a 900 px window at scroll 0. Never a counter back beside
+  its bar, nor anything between the bars and Generate but the Now line;
+  queue rows read the same, and a single queued job is one "Next:" row. A
+  finished job's outcome and actions (Use seed, More seeds…, Show sheet,
+  More seeds of this run…, Finish run) are the finish line, `#finish-note`, outside `#progress` (`setFinish`): only
+  the next job's end replaces it, never a queued job's start; it is led by
+  "Previous job:" while another runs or after a lost stream (`finishStale`).
+  Its sentence, without buttons, is said once on the visually hidden polite
+  `#job-said` (`sayJob`) unless `#error` says the job's outcome (a cancel,
+  an error, skipped cells, a load's detail where the viewer holds images),
+  and so is "Queued: <job>" when a press queues one behind the watched job.
+  A job's outcome in `#error` - cancelled, its budget, an error, skipped
+  cells (`showOutcome`, `jobOutcome`) - lasts as the finish line does: led by
+  "Previous job: " while another runs (`#error.previous`, a generated
+  `::before`; `showError` drops the class) and cleared when the next job's
+  end is drawn (`finishJob`). A press on a held Pause, Unload, Expand or Ask
+  the critic says why until the job ends (`showJobNote`, cleared by
+  `setBusy(false)`; Expand's goes through `expandSay`). Every held press
+  says its reason as a sentence with a closing stop; Pause's, Unload's and
+  Expand's titles are the same reason without it (the critic's titles are
+  whole sentences already). A job that
+  ends with focus in `#progress` or `#queue-note` hands it to Generate and
+  the finish line takes it on to its first button (`finishTakesFocus`);
+  replaced with focus inside it, the finish line hands focus to its new first
+  button, else Generate. A finished job's images are prepended to the
+  gallery (`prependFinished`: same filters, `made` + PAGE, chained after
+  `galleryPending`, dropped on an epoch change, reset where it does not join
+  up or the gallery is empty, never in sheet mode; the head's count,
+  `other_models`, Re-render, Delete unstarred and a gallery lightbox's
+  counter are drawn as the page lands, and `prependFinished` answers the
+  page's ids, so `noteOutsideView(images, coming)` says its line at once.
+  The cards go in through `joinFinished`: only where some cards are new,
+  it first waits until the pointer is off the gallery's cards, in one
+  column as beside the viewer (`galleryPointerGone`: the `galleryPointer`
+  flag from `#library-scroll`'s pointerenter/pointerleave, which fire under
+  the viewer too, where it is `display: contents`; as `panelPos.pointer`,
+  never `:hover`, which a tap leaves behind; beside the viewer that means
+  the column's cards, gaps, scrollbar and Load more), not while `#gallery`
+  is not shown (the column hidden under the check), released by
+  `galleryPointerLeft` or by `syncBeside` changing columns, then checks again that the page
+  joins up; a column scrolled down keeps its view (`holdGalleryView`: the
+  first child in its view, measured across the insert); `now` skips the
+  wait), never `resetGallery`,
+  drawing the day's lines as `loadGallery` does - over the first new card
+  where its day is not today's, between two new cards, and between the last
+  of them and the old head read off the grid's first card (`data-made`, a
+  tombstone's too; none where the grid opens with a line) - and giving the
+  grid's tab stop to the newest image where it was the default
+  (`galleryChosen` false: set by focus arriving, cleared by `resetGallery`)
+  or the old head with focus outside the grid, else `keepCurrentCard()`, as
+  anything adding cards must. "New image ↑" or "↓" (`#btn-new-image`)
+  appears when a job's first image or frame lands while the viewer is out of
+  sight, above or below the window: `viewerOutOfSight` answers above or
+  below at any width, and `syncNewImage` writes the arrow and its
+  aria-label and follows a scroll that jumps past the viewer. Under 901 px
+  it is a pill fixed and centred under the sticky topbar, never in the
+  window's foot, where it covered Generate's right end and took a press
+  meant for Generate; a phone offers none (`offerNewImage`): its action
+  bar's picture is the new image, always in sight ("Phones and tablets").
+  Its press scrolls the viewer into view and focuses the
+  newest image; before one has landed, the live preview's tile (or a pass's
+  stand-in), which `streamJob` hands on to the image that replaces it, or to
+  Generate where nothing does; with nothing in the viewer, the viewer itself
+  (tabindex -1, let go on blur) or its held line. It goes
+  (`withdrawNewImage`, with focus on it handed on, never to `<body>`) once
+  the viewer is in view, when a job's first frame or stand-in clears the
+  strip (`landed`, never at `setBusy(true)`: a job that never reaches the
+  strip, such as another tab's job picked up over this page's results,
+  leaves it pointing at this page's image), when a job whose first frame
+  cleared the strip ends or gives up with nothing of it in the strip,
+  and - the pill only, once the job has ended - at the
+  user's own press in the panel or typing in one of its boxes
+  (`newImageBackToPanel`), since it lies over whatever has scrolled under
+  the topbar; never at a focus arriving, which the finish line makes
+  itself. The page never scrolls by itself. `setBusy(true)` hides the
+  last-run banner without `remember()`, and `announceLastRun` checks `busy`
+  again after its requests, so the banner never comes up over a job
+  started while they were out; the done branch remembers the job. The tab's title
+  and the aria-hidden topbar line (`#job-mirror`, `#topbar-line`) mirror the
+  job, and the finished title is held until the tab is looked at again.
+
+#### Errors, profile defaults and Reuse
+
+- `api()` turns fetch's own TypeError (never an HTTP error or an abort) into
+  an Error with `offline: true` and `OFFLINE_MESSAGE`; HTTP errors carry
+  `.status`. `showError(message, note, { slot, mirror, offline })` records
+  the slots holding such a message (`offline` defaults to whether the text
+  contains `OFFLINE_MESSAGE`), and `clearOffline()` empties them on the first
+  answered status poll. A poll that gets an offline error calls `goOffline`:
+  dot error, "server not answering — retrying", Load hidden, Generate and Run
+  grid aria-disabled with the reason (`syncSubmitButtons`, their one writer,
+  its reasons from `submitHold()` - no server, Expand, the critic; the
+  POST's own moment keeps the plain title - which has the Refine dialog's
+  Refine follow through `syncRefineRun`, ahead of its own reasons, a press
+  saying it in the dialog as a sentence, and the comparison's Run through
+  `syncCompareRun`), Unload, Expand and Ask the critic held. A changed `started_at` writes the restart note into an empty
+  `#error`. The lightbox's picture is one such slot: `els.lbImg.onerror` asks
+  for the record and, where the server is not answering, writes
+  `OFFLINE_MESSAGE` into `#lb-error` as an offline message, which the poll
+  that answers clears before asking for the picture again
+  (`retryLightboxImage`); otherwise "#N is no longer in the gallery." (an
+  unknown image), "The file of #N could not be loaded." (the record exists)
+  or "This image could not be loaded." (any other refusal), cleared by the
+  next picture that loads. `syncUnload` is Unload's one writer (busy,
+  another tab's job (`elsewhereBusy`), Expand, the critic, a load, offline):
+  `aria-disabled` with the reason as its title,
+  never `disabled`, and a press says why. A press held by this page's own
+  reason (a load, Expand, the critic, a model change: `unloadHeldNote`) is
+  taken back from `#error` once `syncUnload` finds that reason gone, as the
+  job's and another tab's are. A press a model change holds (Generate and
+  every `startJob`, Load, Check, the critic) says so as a note through
+  `sayModelChangeHold(slot)`, which `syncSubmitButtons` takes back
+  (`clearModelChangeHolds`) once `modelChangeHold()` is empty. Unload is hidden while Load is
+  shown, and the press that hides one of the two hands focus to the other. A
+  failed load is a card in the viewer's empty state (`syncLoadFailure`:
+  heading, detail, model page link, a primary Retry load calling
+  `loadModel`; `loadFailureInViewer()` is whether it is shown). `loadModel`
+  takes back only what was said about the load - in the panel's line its
+  own refusal, Expand's pointer (`loadLine`) or the status's sentence
+  (`shownLoadDetail`), and under the prompt Expand's words about the load
+  (`aboutLoad`) - never the line's other messages; a card that goes with
+  focus in it hands focus to the new card's Retry load where one replaces
+  it, else to Generate.
+  Where the viewer holds images the detail goes to `#error`, once per
+  detail, with `mirror: false`, and again after a job that ended at the load
+  (`finishJob` forgets `shownLoadDetail`, since the press that queued it
+  cleared the line); that job's finish line says "Not made: the model could
+  not load" and where the reason is, in a `.not-made` span (`notMadeText`),
+  said once on `#job-said` where the viewer's card holds the reason (the
+  card is no live region; where the viewer holds images `#error` says it).
+  Once the state leaves error, in every tab, `syncLoadFailure` rewords it
+  ("…could not load then; it is loading now" / "it has loaded since" / "it
+  is not loaded now") and takes back the detail it posted to `#error`
+  (`loadDetailInError`). The card is centred in the viewer. The topbar's
+  Load reads Retry load meanwhile, and the status text keeps the
+  checkpoint's name in every state. That name is the start-up catalogue's
+  (`ModelStatus.model_label`, by exact id, through `checkpointName`, which
+  the prompt check's head, the facts' Model row, the load card, a Reuse's
+  note and its ⚠ title, Expand's running line and the Refine dialog's lines
+  share), or the id's last part off the catalogue, with the id in their
+  titles; another checkpoint's records are named by their id's last part. The
+  status text is a live region, so it is written only when it changes. At
+  700 px and below, while `#job-mirror` is shown, the free-space reading
+  (`.vram`) is hidden so the mirror and its load clock fit; the mirror's
+  `margin-right: auto` keeps Load and Unload at the bar's end; wider, the
+  free-space reading stays. While a job waits on the load, a client ticker
+  writes "loading weights" with an `aria-hidden` clock span ("· m:ss") in
+  `#progress-text` over an indeterminate bar; while the strip is empty (its
+  idle or held `.placeholder`), `viewerWaiting` (panel.js) also puts
+  "Loading weights · m:ss - the first load of a session takes a few
+  minutes." in that line - the clock aria-hidden, one line, `.waiting` -
+  and the line gets its own nodes back when the ticker stops. The stream's
+  error handler stops the ticker. `#progress-text` is otherwise written
+  through `setProgressText`, only when its spoken text changes (`tick`
+  writes the ticker's words and clock itself); a single image's step count
+  is an aria-hidden shown half (`.seen`) beside a visually hidden
+  "denoising…" (`.said`), and the mirrors and the title read
+  `progressShown()`.
+- `showError(message, note, { slot, mirror, offline })` says each message in
+  one slot (both are role=alert). What a gallery control did - Delete
+  unstarred, a failed gallery page, Re-render's submit errors, a card's ❐,
+  ⊞ and ⤢ refusals and a pass's Compare with source refusal, deletes and
+  the recycle bin's note with its Restore (`noteBinned`), Empty recycle bin, a
+  star's failure (a card's, a viewer result's, a sheet cell's or the
+  lightbox's), the sheet's Finish run refusals, Fill width pressed on
+  a wrapped row, an export pressed while one runs, Export all's outcome and
+  refusals, and its export failure - is said in `#gallery-error` (`els.galleryError`), which
+  `resetGallery` clears; Reuse's notes stay in the panel's `#error`.
+  `#gallery-error` is the first item of the gallery head's last row
+  (`.gallery-footer`, a full-width flex item inside `.gallery-head`, styled
+  in gallery.css with the footer's buttons; bundles.css holds only
+  Bundles…), taking what the buttons leave, and its line is kept while it
+  is empty (`#gallery-error[hidden]` is `visibility: hidden`, not
+  `display: none`), so a message never moves the grid under the pointer.
+  It is one line whatever the message (`white-space: nowrap` with an
+  ellipsis): a long one is cut, and `showError` makes the whole text the
+  title of a `.one-line` slot.
+  Nothing in the footer row it shares may let it wrap.
+- Profile defaults apply per control (`owned`); an empty Steps or CFG box is
+  sent absent and 0 is a valid CFG. The panel persists to `localStorage`
+  with every access in try/catch. A write is a merge (`writePanel`): only
+  the keys this page changed since it last read or wrote the store
+  (`panelBase`, seeded from the store by `restorePanel`) go onto what the
+  store holds now - each field, the fold, the references, the translation
+  and each sampling value - and an empty store takes the whole panel.
+  Nothing listens to `storage`. `resetPanel` is the one thing that forgets
+  it, since clearing the gallery never reaches the browser. The cards' S/M
+  and Fit/Crop (`cardView`, gallery.js) belong to the gallery: they are
+  stored under `auradream.gallery.v1`, every access in try/catch,
+  read back at load (`restoreCardView`), and Reset leaves them; so does
+  the phone's card size (`phoneCardSize`, `phone-gallery.js`), stored
+  apart under `auradream.gallery.phone.v1` ('s' or 'l'). Reset first
+  keeps an in-memory snapshot read off the page (`panelState()`, the raw
+  sampling values, `owned`, the size preset, `REFINE_KEY`'s value and
+  `unsentRefine`). It empties the prompt and negative through `rewriteBox`,
+  so Ctrl+Z in the prompt brings the text back, forgets the store after
+  those writes and keeps it forgotten until the panel changes (`resetLeft`:
+  a write of the panel as Reset left it, such as the prompt's later blur,
+  is skipped). It says "Panel reset." with an Undo in the top right of the
+  prompt box it has just emptied, under Reset (`#prompt-note`, kind
+  'reset', `offerResetUndo`, `showPromptNote`'s `at: 'box'`,
+  `data-at="box"`). This holds at every width, never in the panel's flow:
+  in the flow (one column, a greyed negative) it moved Generate down a
+  line, and back up under the pointer when its 20 s ran out. The box is
+  empty while the note shows, since the first panel change takes it, and
+  its placeholder is transparent under it. It is retired by that first
+  change (`syncResetUndo` from `persistPanel`) or after 20 s. The Undo
+  writes the boxes through `rewriteBox`, restores the rest (the English
+  included where the prompt is its source), runs the sync functions again
+  and says "Reset undone: the panel is as it was." in the same place for
+  6 s (`RESET_UNDONE_MS`): an 'info' note with no button and
+  `pointer-events: none` over the text it put back, which typing takes.
+  Nothing either note does moves Generate. Resume is never restored, and
+  nothing of it survives a reload. Before it fills, Reuse keeps
+  `panelState()` (what `persistPanel` stores), the raw steps/CFG/mu/true-CFG
+  values and `owned`. `fillPanel` writes a record's Mu only where
+  `muSupported`, as it writes True CFG only where that is a knob; the note
+  for another checkpoint's record names "steps and CFG" alone where Mu is
+  greyed, and `collect()` sends no mu from a greyed box, nor `gridPayload` a
+  `mu_axis` from a greyed axis, as with the LoRA weight. Its note in the
+  panel's `#error` opens "Settings from
+  #N loaded" (" - your prompt was replaced" where it was) with an Undo right
+  after that sentence, which restores them; the rest follows: the checkpoint
+  mismatch, references on a checkpoint that takes none, an adapter with
+  `/api/loras`' reason. The Undo is offered only while the panel holds what
+  the Reuse left (`reuseNote.after`; `syncReuseUndo` from `persistPanel` and
+  `resetPanel`): the first change removes the button and keeps the text, and
+  a reference dropped from what it left (deleted, or "unknown image") is no
+  change. A Reset takes the words too, while they are still what the line
+  says (`clearReuseNote`, `reuseSaid`): "Settings from #N loaded - your
+  prompt was replaced" had stood over the emptied panel. It drops a
+  restored reference only on the server's "unknown
+  image". Where the page goes is `revealReused`'s: the panel is placed and
+  moved (`placePanel`, `revealInPanel`), and the page scrolls only where the
+  panel cannot move (one column, the page's end), and only as far as the
+  panel's resting place. A stuck panel is then lifted to bring the Undo into
+  the window only as far as the prompt's field stays clear of the topbar
+  (`showUndo`); at 1400x900 the prompt wins. The lightbox's Reuse closes the
+  lightbox first. `syncReuseButton(button, rec, compact)` takes the record
+  and keeps its checkpoint, refine source, references and adapter in data
+  attributes for `syncReuseButtons`. A refined record's button reads "Reuse
+  pass…" (the card keeps ↻/⚠), named "Reuse pass in the Refine dialog" (the
+  visible words first, for voice control; a warning suffix after) and titled
+  "Open the Refine dialog on #N with this pass's size, strength and seed"; a
+  pass whose source is gone
+  (`refine_missing`, kept in `data-reuse-pass-gone`) reads "Reuse settings",
+  titled why the pass cannot be made again, since `reusePass` fills the panel
+  naming the source "#N". A ⚠ on another checkpoint's record adds which
+  references or adapter will not carry over (`notCarried`, `fillPanel`'s own
+  test). That verdict reads the status, so status.js runs
+  `syncReuseButtons` where the checkpoint changes, where
+  `reference_supported` or `lora_supported` flips, and at the end of
+  `refreshLoras`.
+- Reuse refuses every nonempty recorded execution recipe before writing
+  the composer or looking up pass sources. Its button is `aria-disabled`
+  with the reason as title; a press says it in the gallery error slot and
+  mirrors it into an open lightbox without closing it. The composer's prior
+  Reuse note and Undo stay intact. `syncReuseButtons` preserves the recipe
+  in its dataset so a capability refresh cannot clear this hold.
+  An instruction-edit record never populates ordinary Generate:
+  `reuseIntoPanel` refuses every edit. A resolved edit's Reuse
+  ("Reuse instruction edit…", no checkpoint ⚠) opens the Edit by instruction
+  dialog on its source instead (`reuseEdit`, which looks the source up with
+  `?binned=true`). It writes the recorded instruction with `replaceBoxText`
+  and the recorded seed, steps and guidance, and the composer's draft, Undo
+  and references stay untouched. An unresolved (`source: null`), deleted (`edit_missing`) or
+  binned (`edit_binned`) source holds the button with the reason
+  (`editReuseReason`, through `executionReuseReason`). Edit presence is kept in the dataset across
+  capability refreshes, and binning, deleting or restoring the source updates
+  the edits' records, titles and buttons.
+
+#### Image passes: Refine, Inpaint and Outpaint
+
 - A refine pass is the Refine dialog's (`web/refine.js`), never the
   panel's: `collect()` sends `refine: null`, so Generate, Batch, Repeat, the
   grid and the comparison always render from the prompt, and the grid has no
@@ -5005,326 +5504,9 @@ measured on the card and when.
   (`#outpaint-crop-box`) dotted since the band's edge is dashed; the two
   dialogs share `maskCropAsked`. Cropped and never priced, the preview says
   "no estimate: no masked-area pass has run here yet".
-- `startJob(path, body, { sheet, panel, slot, placeholder, onAccepted,
-  onRefused })`: `slot` (default `els.error`) is where its refusals go.
-  `onAccepted(jobId)` runs once the server has taken the job, before
-  startJob watches it, though a listing between jobs (`jobListing`) may
-  already be streaming it; a refusal never calls it, and calls
-  `onRefused(err)` once said in `slot`, for the caller's own words. `placeholder` ({src, width, height, label}) is
-  keyed to the job (`jobPlaceholders`); the stream reads it again at each
-  progress event until it is there, and shows it from the first such event
-  with no frame as the viewer's `figure.pending` (the source dimmed and
-  blurred, in the result's own tile, its caption the tile's `p.foot`) until
-  a frame or the result replaces it. startJob resolves on a refusal, once
-  the job has ended, or, for a job queued behind the watched one, once the
-  server has taken it. A submission queues, with no `setBusy`, while the
-  page watches a job or while `jobListing` is out. `jobListing` is the
-  request a page between jobs makes to pick its next job (`adoptListedJob`,
-  behind `watchNext` and `resumeActiveJob`); it checks `busy` again once it
-  answers and opens the adopted job's stream itself. After its POST, a
-  queued submission waits for that listing, then: a job the listing made
-  the watched one is awaited through its stream (`jobStreams`), or
-  forgotten (`forgetJob`) if that stream has already ended; otherwise it
-  takes the page if nothing is watched, and else queues an id that is not
-  queued already. So no job is streamed twice (`watchedJobs`, every id a
-  stream was opened for) or listed as its own Next: row. An accepted in-memory
-  receipt not yet watched (`unwatchedSubmission`) also owes an outcome if its
-  job finished between watches. The adopter queries finished history only
-  while such a receipt is absent from the active list, then replays terminal
-  snapshots one at a time through the ordinary stream/finish path in receipt
-  order. Queue resync preserves those unseen receipts, and idle polling retries
-  transient listing failures. `ownJobs` alone never authorizes historical
-  replay after reload; foreign jobs and explicitly cancelled/forgotten rows
-  are excluded. A receipt missing from server history is forgotten.
-  A stream that gives up probes
-  `GET /api/jobs/<id>`: alive, it streams again (three times at most); no
-  answer, an offline message counting the saved images; a 404, "The server
-  restarted, and this job ended with it after N of M images". The stale
-  preview is dropped, and where nothing of the job reached the strip the
-  viewer holds `showLostRun`'s card (the sentence, Run it again where this
-  page sent it, `lostRunBack` rewording it once the server answers). While
-  it reconnects the job line reads `LOST_PHRASE` (the topbar's "server not
-  answering — retrying") with the count, no steps or time left, no topbar
-  mirror (`streamLost`), the title and the strip's note the same phrase. The
-  progress block is a one-line Now row
-  (`#progress-now`, count · size · what - "Now: 3 images · 1024×1024 · a fox
-  in the snow" (`describeJob`), the prompt last so the ellipsis takes it,
-  whole in its title; an XML prompt is named by its words, its
-  `<name>`/`</name>` tags dropped (`promptGist`), here, in the queue rows,
-  in Cancel's title and in the Runs picker's labels, the title keeping it as
-  written) with Pause and Cancel at its end, the bars at the
-  panel's width, and under them one line holding the counters
-  (`#progress-text`, then `#step-text` after a dot) and the live cell line
-  (`#cell-note`), all inside `#progress` - the rows are `display: contents`
-  and `.progress` a wrapping flex line, so a long cell line wraps whole to a
-  line of its own; a counter beside each bar put the time on a fourth line
-  past the foot of a 900 px window at scroll 0. Never a counter back beside
-  its bar, nor anything between the bars and Generate but the Now line;
-  queue rows read the same, and a single queued job is one "Next:" row. A
-  finished job's outcome and actions (Use seed, More seeds…, Show sheet,
-  More seeds of this run…, Finish run) are the finish line, `#finish-note`, outside `#progress` (`setFinish`): only
-  the next job's end replaces it, never a queued job's start; it is led by
-  "Previous job:" while another runs or after a lost stream (`finishStale`).
-  Its sentence, without buttons, is said once on the visually hidden polite
-  `#job-said` (`sayJob`) unless `#error` says the job's outcome (a cancel,
-  an error, skipped cells, a load's detail where the viewer holds images),
-  and so is "Queued: <job>" when a press queues one behind the watched job.
-  A job's outcome in `#error` - cancelled, its budget, an error, skipped
-  cells (`showOutcome`, `jobOutcome`) - lasts as the finish line does: led by
-  "Previous job: " while another runs (`#error.previous`, a generated
-  `::before`; `showError` drops the class) and cleared when the next job's
-  end is drawn (`finishJob`). A press on a held Pause, Unload, Expand or Ask
-  the critic says why until the job ends (`showJobNote`, cleared by
-  `setBusy(false)`; Expand's goes through `expandSay`). Every held press
-  says its reason as a sentence with a closing stop; Pause's, Unload's and
-  Expand's titles are the same reason without it (the critic's titles are
-  whole sentences already). A job that
-  ends with focus in `#progress` or `#queue-note` hands it to Generate and
-  the finish line takes it on to its first button (`finishTakesFocus`);
-  replaced with focus inside it, the finish line hands focus to its new first
-  button, else Generate. A finished job's images are prepended to the
-  gallery (`prependFinished`: same filters, `made` + PAGE, chained after
-  `galleryPending`, dropped on an epoch change, reset where it does not join
-  up or the gallery is empty, never in sheet mode; the head's count,
-  `other_models`, Re-render, Delete unstarred and a gallery lightbox's
-  counter are drawn as the page lands, and `prependFinished` answers the
-  page's ids, so `noteOutsideView(images, coming)` says its line at once.
-  The cards go in through `joinFinished`: only where some cards are new,
-  it first waits until the pointer is off the gallery's cards, in one
-  column as beside the viewer (`galleryPointerGone`: the `galleryPointer`
-  flag from `#library-scroll`'s pointerenter/pointerleave, which fire under
-  the viewer too, where it is `display: contents`; as `panelPos.pointer`,
-  never `:hover`, which a tap leaves behind; beside the viewer that means
-  the column's cards, gaps, scrollbar and Load more), not while `#gallery`
-  is not shown (the column hidden under the check), released by
-  `galleryPointerLeft` or by `syncBeside` changing columns, then checks again that the page
-  joins up; a column scrolled down keeps its view (`holdGalleryView`: the
-  first child in its view, measured across the insert); `now` skips the
-  wait), never `resetGallery`,
-  drawing the day's lines as `loadGallery` does - over the first new card
-  where its day is not today's, between two new cards, and between the last
-  of them and the old head read off the grid's first card (`data-made`, a
-  tombstone's too; none where the grid opens with a line) - and giving the
-  grid's tab stop to the newest image where it was the default
-  (`galleryChosen` false: set by focus arriving, cleared by `resetGallery`)
-  or the old head with focus outside the grid, else `keepCurrentCard()`, as
-  anything adding cards must. "New image ↑" or "↓" (`#btn-new-image`)
-  appears when a job's first image or frame lands while the viewer is out of
-  sight, above or below the window: `viewerOutOfSight` answers above or
-  below at any width, and `syncNewImage` writes the arrow and its
-  aria-label and follows a scroll that jumps past the viewer. Under 901 px
-  it is a pill fixed and centred under the sticky topbar, never in the
-  window's foot, where it covered Generate's right end and took a press
-  meant for Generate; a phone offers none (`offerNewImage`): its action
-  bar's picture is the new image, always in sight ("Phones and tablets").
-  Its press scrolls the viewer into view and focuses the
-  newest image; before one has landed, the live preview's tile (or a pass's
-  stand-in), which `streamJob` hands on to the image that replaces it, or to
-  Generate where nothing does; with nothing in the viewer, the viewer itself
-  (tabindex -1, let go on blur) or its held line. It goes
-  (`withdrawNewImage`, with focus on it handed on, never to `<body>`) once
-  the viewer is in view, when a job's first frame or stand-in clears the
-  strip (`landed`, never at `setBusy(true)`: a job that never reaches the
-  strip, such as another tab's job picked up over this page's results,
-  leaves it pointing at this page's image), when a job whose first frame
-  cleared the strip ends or gives up with nothing of it in the strip,
-  and - the pill only, once the job has ended - at the
-  user's own press in the panel or typing in one of its boxes
-  (`newImageBackToPanel`), since it lies over whatever has scrolled under
-  the topbar; never at a focus arriving, which the finish line makes
-  itself. The page never scrolls by itself. `setBusy(true)` hides the
-  last-run banner without `remember()`, and `announceLastRun` checks `busy`
-  again after its requests, so the banner never comes up over a job
-  started while they were out; the done branch remembers the job. The tab's title
-  and the aria-hidden topbar line (`#job-mirror`, `#topbar-line`) mirror the
-  job, and the finished title is held until the tab is looked at again.
-- `api()` turns fetch's own TypeError (never an HTTP error or an abort) into
-  an Error with `offline: true` and `OFFLINE_MESSAGE`; HTTP errors carry
-  `.status`. `showError(message, note, { slot, mirror, offline })` records
-  the slots holding such a message (`offline` defaults to whether the text
-  contains `OFFLINE_MESSAGE`), and `clearOffline()` empties them on the first
-  answered status poll. A poll that gets an offline error calls `goOffline`:
-  dot error, "server not answering — retrying", Load hidden, Generate and Run
-  grid aria-disabled with the reason (`syncSubmitButtons`, their one writer,
-  its reasons from `submitHold()` - no server, Expand, the critic; the
-  POST's own moment keeps the plain title - which has the Refine dialog's
-  Refine follow through `syncRefineRun`, ahead of its own reasons, a press
-  saying it in the dialog as a sentence, and the comparison's Run through
-  `syncCompareRun`), Unload, Expand and Ask the critic held. A changed `started_at` writes the restart note into an empty
-  `#error`. The lightbox's picture is one such slot: `els.lbImg.onerror` asks
-  for the record and, where the server is not answering, writes
-  `OFFLINE_MESSAGE` into `#lb-error` as an offline message, which the poll
-  that answers clears before asking for the picture again
-  (`retryLightboxImage`); otherwise "#N is no longer in the gallery." (an
-  unknown image), "The file of #N could not be loaded." (the record exists)
-  or "This image could not be loaded." (any other refusal), cleared by the
-  next picture that loads. `syncUnload` is Unload's one writer (busy,
-  another tab's job (`elsewhereBusy`), Expand, the critic, a load, offline):
-  `aria-disabled` with the reason as its title,
-  never `disabled`, and a press says why. A press held by this page's own
-  reason (a load, Expand, the critic, a model change: `unloadHeldNote`) is
-  taken back from `#error` once `syncUnload` finds that reason gone, as the
-  job's and another tab's are. A press a model change holds (Generate and
-  every `startJob`, Load, Check, the critic) says so as a note through
-  `sayModelChangeHold(slot)`, which `syncSubmitButtons` takes back
-  (`clearModelChangeHolds`) once `modelChangeHold()` is empty. Unload is hidden while Load is
-  shown, and the press that hides one of the two hands focus to the other. A
-  failed load is a card in the viewer's empty state (`syncLoadFailure`:
-  heading, detail, model page link, a primary Retry load calling
-  `loadModel`; `loadFailureInViewer()` is whether it is shown). `loadModel`
-  takes back only what was said about the load - in the panel's line its
-  own refusal, Expand's pointer (`loadLine`) or the status's sentence
-  (`shownLoadDetail`), and under the prompt Expand's words about the load
-  (`aboutLoad`) - never the line's other messages; a card that goes with
-  focus in it hands focus to the new card's Retry load where one replaces
-  it, else to Generate.
-  Where the viewer holds images the detail goes to `#error`, once per
-  detail, with `mirror: false`, and again after a job that ended at the load
-  (`finishJob` forgets `shownLoadDetail`, since the press that queued it
-  cleared the line); that job's finish line says "Not made: the model could
-  not load" and where the reason is, in a `.not-made` span (`notMadeText`),
-  said once on `#job-said` where the viewer's card holds the reason (the
-  card is no live region; where the viewer holds images `#error` says it).
-  Once the state leaves error, in every tab, `syncLoadFailure` rewords it
-  ("…could not load then; it is loading now" / "it has loaded since" / "it
-  is not loaded now") and takes back the detail it posted to `#error`
-  (`loadDetailInError`). The card is centred in the viewer. The topbar's
-  Load reads Retry load meanwhile, and the status text keeps the
-  checkpoint's name in every state. That name is the start-up catalogue's
-  (`ModelStatus.model_label`, by exact id, through `checkpointName`, which
-  the prompt check's head, the facts' Model row, the load card, a Reuse's
-  note and its ⚠ title, Expand's running line and the Refine dialog's lines
-  share), or the id's last part off the catalogue, with the id in their
-  titles; another checkpoint's records are named by their id's last part. The
-  status text is a live region, so it is written only when it changes. At
-  700 px and below, while `#job-mirror` is shown, the free-space reading
-  (`.vram`) is hidden so the mirror and its load clock fit; the mirror's
-  `margin-right: auto` keeps Load and Unload at the bar's end; wider, the
-  free-space reading stays. While a job waits on the load, a client ticker
-  writes "loading weights" with an `aria-hidden` clock span ("· m:ss") in
-  `#progress-text` over an indeterminate bar; while the strip is empty (its
-  idle or held `.placeholder`), `viewerWaiting` (panel.js) also puts
-  "Loading weights · m:ss - the first load of a session takes a few
-  minutes." in that line - the clock aria-hidden, one line, `.waiting` -
-  and the line gets its own nodes back when the ticker stops. The stream's
-  error handler stops the ticker. `#progress-text` is otherwise written
-  through `setProgressText`, only when its spoken text changes (`tick`
-  writes the ticker's words and clock itself); a single image's step count
-  is an aria-hidden shown half (`.seen`) beside a visually hidden
-  "denoising…" (`.said`), and the mirrors and the title read
-  `progressShown()`.
-- `showError(message, note, { slot, mirror, offline })` says each message in
-  one slot (both are role=alert). What a gallery control did - Delete
-  unstarred, a failed gallery page, Re-render's submit errors, a card's ❐,
-  ⊞ and ⤢ refusals and a pass's Compare with source refusal, deletes and
-  the recycle bin's note with its Restore (`noteBinned`), Empty recycle bin, a
-  star's failure (a card's, a viewer result's, a sheet cell's or the
-  lightbox's), the sheet's Finish run refusals, Fill width pressed on
-  a wrapped row, an export pressed while one runs, Export all's outcome and
-  refusals, and its export failure - is said in `#gallery-error` (`els.galleryError`), which
-  `resetGallery` clears; Reuse's notes stay in the panel's `#error`.
-  `#gallery-error` is the first item of the gallery head's last row
-  (`.gallery-footer`, a full-width flex item inside `.gallery-head`, styled
-  in gallery.css with the footer's buttons; bundles.css holds only
-  Bundles…), taking what the buttons leave, and its line is kept while it
-  is empty (`#gallery-error[hidden]` is `visibility: hidden`, not
-  `display: none`), so a message never moves the grid under the pointer.
-  It is one line whatever the message (`white-space: nowrap` with an
-  ellipsis): a long one is cut, and `showError` makes the whole text the
-  title of a `.one-line` slot.
-  Nothing in the footer row it shares may let it wrap.
-- Profile defaults apply per control (`owned`); an empty Steps or CFG box is
-  sent absent and 0 is a valid CFG. The panel persists to `localStorage`
-  with every access in try/catch. A write is a merge (`writePanel`): only
-  the keys this page changed since it last read or wrote the store
-  (`panelBase`, seeded from the store by `restorePanel`) go onto what the
-  store holds now - each field, the fold, the references, the translation
-  and each sampling value - and an empty store takes the whole panel.
-  Nothing listens to `storage`. `resetPanel` is the one thing that forgets
-  it, since clearing the gallery never reaches the browser. The cards' S/M
-  and Fit/Crop (`cardView`, gallery.js) belong to the gallery: they are
-  stored under `auradream.gallery.v1`, every access in try/catch,
-  read back at load (`restoreCardView`), and Reset leaves them; so does
-  the phone's card size (`phoneCardSize`, `phone-gallery.js`), stored
-  apart under `auradream.gallery.phone.v1` ('s' or 'l'). Reset first
-  keeps an in-memory snapshot read off the page (`panelState()`, the raw
-  sampling values, `owned`, the size preset, `REFINE_KEY`'s value and
-  `unsentRefine`). It empties the prompt and negative through `rewriteBox`,
-  so Ctrl+Z in the prompt brings the text back, forgets the store after
-  those writes and keeps it forgotten until the panel changes (`resetLeft`:
-  a write of the panel as Reset left it, such as the prompt's later blur,
-  is skipped). It says "Panel reset." with an Undo in the top right of the
-  prompt box it has just emptied, under Reset (`#prompt-note`, kind
-  'reset', `offerResetUndo`, `showPromptNote`'s `at: 'box'`,
-  `data-at="box"`). This holds at every width, never in the panel's flow:
-  in the flow (one column, a greyed negative) it moved Generate down a
-  line, and back up under the pointer when its 20 s ran out. The box is
-  empty while the note shows, since the first panel change takes it, and
-  its placeholder is transparent under it. It is retired by that first
-  change (`syncResetUndo` from `persistPanel`) or after 20 s. The Undo
-  writes the boxes through `rewriteBox`, restores the rest (the English
-  included where the prompt is its source), runs the sync functions again
-  and says "Reset undone: the panel is as it was." in the same place for
-  6 s (`RESET_UNDONE_MS`): an 'info' note with no button and
-  `pointer-events: none` over the text it put back, which typing takes.
-  Nothing either note does moves Generate. Resume is never restored, and
-  nothing of it survives a reload. Before it fills, Reuse keeps
-  `panelState()` (what `persistPanel` stores), the raw steps/CFG/mu/true-CFG
-  values and `owned`. `fillPanel` writes a record's Mu only where
-  `muSupported`, as it writes True CFG only where that is a knob; the note
-  for another checkpoint's record names "steps and CFG" alone where Mu is
-  greyed, and `collect()` sends no mu from a greyed box, nor `gridPayload` a
-  `mu_axis` from a greyed axis, as with the LoRA weight. Its note in the
-  panel's `#error` opens "Settings from
-  #N loaded" (" - your prompt was replaced" where it was) with an Undo right
-  after that sentence, which restores them; the rest follows: the checkpoint
-  mismatch, references on a checkpoint that takes none, an adapter with
-  `/api/loras`' reason. The Undo is offered only while the panel holds what
-  the Reuse left (`reuseNote.after`; `syncReuseUndo` from `persistPanel` and
-  `resetPanel`): the first change removes the button and keeps the text, and
-  a reference dropped from what it left (deleted, or "unknown image") is no
-  change. A Reset takes the words too, while they are still what the line
-  says (`clearReuseNote`, `reuseSaid`): "Settings from #N loaded - your
-  prompt was replaced" had stood over the emptied panel. It drops a
-  restored reference only on the server's "unknown
-  image". Where the page goes is `revealReused`'s: the panel is placed and
-  moved (`placePanel`, `revealInPanel`), and the page scrolls only where the
-  panel cannot move (one column, the page's end), and only as far as the
-  panel's resting place. A stuck panel is then lifted to bring the Undo into
-  the window only as far as the prompt's field stays clear of the topbar
-  (`showUndo`); at 1400x900 the prompt wins. The lightbox's Reuse closes the
-  lightbox first. `syncReuseButton(button, rec, compact)` takes the record
-  and keeps its checkpoint, refine source, references and adapter in data
-  attributes for `syncReuseButtons`. A refined record's button reads "Reuse
-  pass…" (the card keeps ↻/⚠), named "Reuse pass in the Refine dialog" (the
-  visible words first, for voice control; a warning suffix after) and titled
-  "Open the Refine dialog on #N with this pass's size, strength and seed"; a
-  pass whose source is gone
-  (`refine_missing`, kept in `data-reuse-pass-gone`) reads "Reuse settings",
-  titled why the pass cannot be made again, since `reusePass` fills the panel
-  naming the source "#N". A ⚠ on another checkpoint's record adds which
-  references or adapter will not carry over (`notCarried`, `fillPanel`'s own
-  test). That verdict reads the status, so status.js runs
-  `syncReuseButtons` where the checkpoint changes, where
-  `reference_supported` or `lora_supported` flips, and at the end of
-  `refreshLoras`.
-- Reuse refuses every nonempty recorded execution recipe before writing
-  the composer or looking up pass sources. Its button is `aria-disabled`
-  with the reason as title; a press says it in the gallery error slot and
-  mirrors it into an open lightbox without closing it. The composer's prior
-  Reuse note and Undo stay intact. `syncReuseButtons` preserves the recipe
-  in its dataset so a capability refresh cannot clear this hold.
-  An instruction-edit record never populates ordinary Generate:
-  `reuseIntoPanel` refuses every edit. A resolved edit's Reuse
-  ("Reuse instruction edit…", no checkpoint ⚠) opens the Edit by instruction
-  dialog on its source instead (`reuseEdit`, which looks the source up with
-  `?binned=true`). It writes the recorded instruction with `replaceBoxText`
-  and the recorded seed, steps and guidance, and the composer's draft, Undo
-  and references stay untouched. An unresolved (`source: null`), deleted (`edit_missing`) or
-  binned (`edit_binned`) source holds the button with the reason
-  (`editReuseReason`, through `executionReuseReason`). Edit presence is kept in the dataset across
-  capability refreshes, and binning, deleting or restoring the source updates
-  the edits' records, titles and buttons.
+
+#### Edit by instruction and Load settings from PNG
+
 - Edit by instruction… (`instruction-edit.js`, `styles/instruction-edit.css`;
   `smoke-instruction-edit.json`, `tests/test_instruction_edit_ui.py`):
   - **Entry.** It is a right-click menu item after Outpaint… on a card, a
@@ -5441,6 +5623,25 @@ measured on the card and when.
   so the note reads "Settings from <file> loaded", its Undo "Reuse of
   <file> undone", Ctrl+Z walks back the boxes, and the other-checkpoint
   sentence is Reuse's own - only where the record names a checkpoint.
+
+#### Results viewer, Gallery beside and the lightbox
+
+- The lightbox's pending full PNG displays only that record's thumbnail.
+  Late native load/error events and probe promises must still own the
+  current request before changing visibility or feedback. Neighbour
+  preloads are bounded to one previous and one next after the current PNG
+  settles; close clears their owners. Keep the existing zoom/compare/touch
+  image element as the hit target. Large-gallery containment remains as
+  measured in the 5,000-row fake receipt; no speculative containment change.
+- Ordinary images offer instruction Edit when the editor is selected or
+  their record is an edit. The wide comparison area starts with Compare…
+  until there are neighbours or an explicit expansion. Never offer Finish
+  for an error before a job starts; retire its failed-load box when another
+  checkpoint becomes ready, using catalogue labels in retained-run advice.
+  A late neighbour for the same image opens the wide Compare disclosure,
+  deferred while that block is hovered or holds focus, then reconciled on
+  pointerleave/focusout. Expansion is sticky for that image; preserve the
+  narrow tier's existing row-availability policy and action-button position.
 - The results viewer (panel.js). `clearResults(job)` runs at a job's first
   frame or image: it moves what the strip held into `sessionRecords` (newest
   first, not the same job's) and sets the tier from the job's
@@ -5657,6 +5858,9 @@ measured on the card and when.
   leaves the controls aria-disabled with the reason ("source #N deleted"). S
   pressed on the focused divider hands the focus to the toggle of the kind
   that was on.
+
+#### Comparisons across CFG and steps
+
 - The comparison across CFG (`web/lightbox-cfg.js`; across steps, the same
   machinery, after this item). `lbCompare.kind` is `'source'` (a pass and
   its source, above), `'cfg'` or `'steps'`; `lbCompare.source` is the
@@ -5881,6 +6085,265 @@ measured on the card and when.
   `stepPass`, `toggleCompare`) and lightbox-cfg.js's (`pressLadderStep`, `pickAgainst`, Compare CFG's
   `toggleCompare(null, 'cfg')` and Compare steps' `toggleCompare(null,
   'steps')`), which declares only too.
+
+#### Grid preview and sheets
+
+- The grid preview is the server's expansion; the page adds only
+  presentation and advice. Closing Grid advances `previewEpoch` before its
+  synchronous CFG-reach clear and return, so older success/error replies
+  cannot restore a grid-only negative caption or obsolete preview text.
+  Reopening takes its own epoch; payloads and the input debounce are unchanged.
+  [The close-ownership review](maintainer/review-2026-10-28-grid-preview-close.md) owns
+  the source evidence and separate CPU/native-browser qualification. It trims factors of one other than the seeds
+  from the totals and writes ×, since `grid.describe` keeps its ASCII x and
+  its ones for the CLI's log. It lists the resolved prompt whenever the
+  variables box has text, one included, in a `.prompts` box of its own
+  after the axes line, at most eight lines tall and scrolling inside itself
+  (a nested scroller, never the panel's overflow). A prompt written over
+  lines is listed by the lines a `{variable}` is on, whole and numbered
+  (`promptListing`: "prompts, line 4 of 29:"), which rests on
+  `grid.substitute` keeping every line in place. Its client-side warning lines (a
+  variable of one value, a budget that completes no seed, the panel's
+  Repeat above one, cells already in the gallery) never refuse anything, and
+  are appended to `#grid-preview` as nodes, never by rewriting `textContent`,
+  since `.totals` is its first child. The budget line's count is the
+  server's (`GridPreview.budget_seeds`, `gallery_reports.seeds_within_budget`: the
+  job's stop rule, a cell starting until the deadline has passed, so a seed
+  whose last cell starts in time completes); it needs the preview's
+  estimate, is left out under Resume, and names what else spends a budget
+  that runs from submission: the load while the topbar's dot is not ready,
+  the jobs ahead while the page watches one. The preview is asked again by
+  `setBusy` (a job's start and end) and by `refreshStatus` when the model
+  becomes ready or stops being so, not only by the boxes; and the first
+  preview after the fold is opened by hand reveals Run grid again
+  (`gridRevealPending`, set by the summary's click), since its reply lands
+  under the pointer where the panel holds still. Axis messages lead with the
+  box's name (`Steps`, `CFG`, `Mu`, `LoRA weight`, `Strength`, `Seed list`),
+  a value past the request's own bounds included (`grid._within`, read off
+  `GenerateRequest`: "CFG: 25 is above 20, the most it takes");
+  `parse_axis` closes up a spaced range between two numbers, leaving a lone
+  `-` as Mu's none, and refuses a stepless range that would stop at its
+  first value (`0.8-1.2` needs a step). The grid's Steps and CFG
+  placeholders are the profile's (`gridExamples`, from `applyDefaults`):
+  Steps round(.75s), s, round(1.25s), clamped to the Steps box; CFG c-1, c,
+  c+1, or c, c+1, c+2 where the profile's CFG is at or below a threshold
+  that is CFG's own, not True CFG's (guidance off: Anima Turbo and ERNIE
+  Turbo give 1,2,3), 0,0.5,1 for a CFG-0 profile, and nothing where
+  `cfg_ignored`; Mu `none,<profile mu>` where the profile has one. The tips
+  stay syntax help. A grid axis dead for the checkpoint or the installation
+  reads "unavailable", and its reason is its tip and its wrapper's title -
+  for Mu `hints.mu` (`syncMuWords`), for the LoRA weight `/api/loras`'
+  detail once that list answers (`loraRefusal`, `syncConditioning`); the
+  syntax help is kept as nodes (`gridMuTipDefault`, `gridLoraTipDefault`)
+  and comes back where the axis applies.
+- A requested sheet landing counts stationary scroll frames only after
+  its head reaches the requested position, clamped to the current page end.
+  Quiet frames before native smooth scrolling starts do not finish that
+  landing. Preserve the 1.5-second bound, epoch guard and the rule that
+  focus moved elsewhere during rendering stays there.
+- The sheet's layout contract - axes, prompt labels, pins, variables - lives in
+  the client, and the export is client-side, not a route. Export PNG draws
+  the slice on screen. Export all, shown only where something is pinned,
+  draws every pinned slice that has images (`sliceCells`): it stacks them in
+  one PNG, each titled by its pins, at a cell width that keeps the stack
+  within `EXPORT_MAX_EDGE` and never below 96 px, named
+  `sheet-<run>-every-<axes>.png`; past that edge it saves one image per
+  slice, named by its pins with -2, -3 where two come out alike, at most
+  `EXPORT_FILES_MAX` (24), and says so in `#gallery-error`. A fitted sheet
+  exports thumbnails, cells up to 384 px; a filled one exports at the larger
+  of its cells' device pixels on screen (`exportLayout()`'s `shown` × `dpr`)
+  and the thumbnail's width, so never smaller than the fitted export, from
+  the PNG where that is wider than the thumbnail. Every export draws from
+  `exportLayout()`'s snapshot (the layout, its axes and `sheetWords()`: the
+  prompt labels, the adapter and the fixed Mu), never the live
+  `sheetAxesList`/`promptShort`/`sheetAdapter`/`sheetMuStatic`, so a sheet redrawn while
+  Export all writes its files changes none of them. Both export buttons are
+  aria-disabled with the reason while one runs. A failure is said in
+  `#gallery-error` ("The sheet could not be exported: …"), and the smokes
+  stand in for `saveCanvas`. `sheetFileName` drops a hyphen that a value's
+  closing mark ("none (1.79)", a clipped label's "…") left before the next
+  pin or `.png` (`sheet-<run>-mu-none-1.79.png`). Swipe CFG
+  (`sheetSwipeButton('cfg')`, sheet-render.js) is drawn after the exports only where
+  CFG is a laid-out axis (Columns or Rows), never where it is pinned or
+  does not vary; it is `aria-disabled` with "No two cells here differ in CFG
+  alone" where no shown cell has a ladder of two (`syncSheetSwipes`: the
+  cells grouped by `ladderGroupKey`, then the press's own `ladderOf` within
+  each group with more than one CFG value - the key leaves True CFG out, and
+  a CFG x True CFG grid with cells missing grouped two values no ladder
+  held), its press saying so in the page's line, and saying the hold's
+  reason, never the pressable title, where the cells changed under it. A press opens the lightbox on the
+  cell the keyboard was last on in the sheet (`sheetSwipeFrom`, a focusin in
+  app.js) where it has a CFG neighbour, else the first shown cell in
+  reading order with a lower CFG beside it, walking that cell's own ladder
+  from the shown cells (`ladderOf(axis, rec, sheetLayout.cells)`, ascending -
+  its row or column, never the pinned-out cells), with the CFG comparison
+  on in swipe (`toggleCompare('swipe', 'cfg')` after the open). Swipe
+  steps (`sheetSwipeButton('steps')`, `SHEET_SWIPES`) is the same along
+  Steps, drawn after Swipe CFG where Steps is laid out: held with "No two
+  cells here differ in steps alone", the group key skipping Steps alone,
+  opening the cell's own steps ladder from the shown cells with the steps
+  comparison on (`toggleCompare('swipe', 'steps')`). The sheet asks for
+  the whole run in one page. A variable axis, and the Prompt axis, list their
+  values by first appearance, not alphabetically: the oldest image carrying
+  each value. Under Starred or a search narrower than the run, that is the
+  oldest in the whole run, which `learnSheetOrder` asks for once. A skipped
+  first cell, a late resume or rows Delete unstarred removed can still move a
+  value down. A varying `var:variant` axis takes the rows whenever anything
+  else varies, however few of its images are loaded (placed from every
+  varying axis, so the listlike rule drops neither it nor the axis across it;
+  `VARIANT_AXIS`, held to `grid.VARIANT` by `tests/test_grid.py`), so a
+  comparison reads Original, Reordered, Rewrite, Your version, top to bottom:
+  display names (`VERSION_NAMES`, under the axis label Version) on the sheet
+  and in its export, with the stored labels, the `var:variant` key and
+  `stats --by variant` unchanged. A shared run
+  or mixed search can give one version label different prompt texts: retain
+  Prompt as an axis when the complete variable assignment is ambiguous.
+  `stats --job <id> --by variant` reads one comparison; a broader grouping
+  with conflicting texts for one assignment is refused with advice to group
+  by prompt too. Ordinary multi-variable grids and explicit grouping fields
+  still aggregate as requested. An empty sheet draws no grid, only its note.
+  Laid out again (`renderSheet`: a page landing, a delete, a pin, an axis, a
+  wrap that flips), the sheet keeps the keyboard where it was.
+  `sheetFocusPlace` records the place before anything is removed
+  (`forgetImages` takes it before it drops the cells), and
+  `restoreSheetFocus` returns to it, with `preventScroll`, unless focus was
+  kept or moved on purpose meanwhile: the same cell's image or star by id;
+  else the image now at its place in reading order, else the last; a
+  control by its name (a select by its label, a button by its words), else
+  the control at its index; the search box where nothing is left. F on a
+  cell another tab had deleted, and an ArrowDown on Columns, used to drop
+  focus to `<body>`.
+- Every sheet the page opens (a comparison, a refine sweep, Runs, a card's ⊞,
+  both branches of Show run) goes through `showSheetScope`. It keeps the
+  search it replaced (`sheetReturn`), which Sheet off restores while the box
+  still holds what the page wrote. It asks `setSheet(true, { land, asker })`,
+  which, once the sheet is drawn and only if it is still the one shown,
+  scrolls the gallery head under the topbar (`landOnSheet`),
+  reserving the room under the sheet its head needs to reach the topbar
+  (`reserveSheetRoom`: a margin outside the box `fitSheet` measures, from
+  where `main` ends - never the document's scroll height, which is at least
+  the window - cleared by `setSheet`). Once that scroll settles
+  (`scrollSettled`: three frames at one scrollY, 1.5 s at most),
+  `focusSheet` moves focus with `preventScroll` to the sheet's first cell,
+  else the search box, in two cases: focus is still on the control that
+  asked and that control is not wholly in sight (`wholeInSight`: inside the
+  window under the topbar and inside every ancestor that clips its
+  overflow, such as the docked check's scroller at 2560), or focus has
+  fallen out of the page (`<body>`, or hidden: a card's ⊞ under the sheet).
+  `asker` is the element focused at the call; a job's sheet is given the
+  element pressed at submission, kept in `submissions`. Where the page
+  itself moves focus off a job's asker (the Refine dialog closing on its
+  run, `refineClosed`, the strip a job's first frame empties), it does so
+  through `handJobFocus`, which passes that submission's asker on to the new
+  target. Focus anywhere else is never moved. Every sheet `setSheet(true)`
+  opens is said in `#sheet-said` (polite, outside `#sheet`: "Sheet: 6
+  images, Steps × Seed", via `saySheet`), written on the next frame after an
+  empty line. A refine sweep's source cell is
+  cropped to the passes' shape (`object-fit: cover`, `refine.fitted`'s
+  centre crop), captioned "cropped as the passes were" where the shapes
+  differ. The Sheet button does not scroll - except where the sheet takes
+  the page out of Gallery beside, which `setSheet` lands on; over an empty
+  search with several runs it opens the newest run, with a `sheetNotice`,
+  and a typed search is never redirected. A matrix's cells are capped to
+  the window's height (`--cell-max` from `fitSheet`'s measured
+  `--sheet-chrome`) with a 96 px floor. With Fill width pressed they take
+  the width instead: `.sheet.fill-width` sets the template's `--cell-w` to
+  `1fr`, never through the class `.fill`, which is the progress bar's. The
+  toggle keeps one name, with its state in `aria-pressed` and its title; it
+  is remembered under `auradream.sheet.v1` through
+  `remembered`/`remember`, is not forgotten by Reset, and is aria-disabled
+  with its reason on a wrapped row. A matrix zooms (sheet-zoom.js:
+  `sheetZoom` times `sheetZoomBase`, the cells' width at zoom 1 that
+  `fitSheet` measures with the zoom off, set on the grid as `--cell-min`
+  and `--cell-w`, the box's scroll restored), from 1 to `SHEET_ZOOM_MAX`
+  screen pixels per image pixel (400%), by Ctrl+wheel about the pointer (anchored
+  to the nearest cell), `+`/`−`/`0`/`1` on a focused cell, and the `−` `+`
+  `1:1` buttons with a readout that goes back to zoom 1 when pressed; the
+  buttons are held with a reason where they would do nothing, a wrapped row
+  included. Zoomed, every cell's image is its PNG (`data-full`, the srcset
+  dropped), never the thumbnail. A left-button drag (not a touch, a button
+  or a select) pans `.sheet-scroll` wherever it overflows; under 4 px it
+  is a click, and a pan's release never opens the lightbox. Every sheet
+  opens at zoom 1; a redraw keeps the zoom and the box's pan
+  (`sheetScrolled`, taken by drawSheet before it empties the grid), and a
+  new base (Fill width, a resize) keeps the cells' drawn width; the zoom is said in
+  `#sheet-zoom-said`, a wheel's once its burst ends; the export ignores
+  it. Its heads stick inside `.sheet-scroll`, whose scroll
+  padding is the measured head row and row-head column (`--sheet-head`,
+  `--sheet-rowhead` on `.sheet`) so a keyboard-focused cell is never under
+  them. `refitSheet` (debounced, on the window's resize) measures again and
+  re-lays out when the wrap test (`sheetWraps`) flips. A row-less sheet wider
+  than fits wraps with captions, and so does its export. Head labels are
+  whole on screen (span.label, clamped, title = full value). A number of
+  five digits or more goes to a line of its own whole (`numberLabel`: an
+  inline-block `.number`); it breaks only where it alone is wider than its
+  column, and then only between groups of four digits counted from its end
+  (a `<wbr>` between them), in balanced lines (`text-wrap: balance`); the
+  text is still the whole number. `clip` is for pins, the note and the
+  canvas. A matrix is a role=table named by `sheetSummary`; its rows are
+  `.sheet-row` with role=row and `display: contents`, so heads and cells
+  stay the grid's items and the heads stick; its heads are columnheader and
+  rowheader (the corner is a cell), and its cells role=cell (the source
+  with `aria-rowspan`). A wrapped row is a role=list of listitems. Prompt
+  labels that repeat or exceed
+  `LABEL_CHARS` fall back to `promptEdit` against the oldest prompt, up to
+  `EDIT_LABELS_MAX` prompts, memoised per prompt list. A version that only
+  puts the original's top-level XML blocks in another order, with nothing
+  in or between them changed (the loose text compared gap by gap), reads
+  "same blocks, moved: `<general_tags>` first" (`blockMove`, over
+  `xmlBlocks`); its `XML_BLOCK` is `critic_reorder._XML_BLOCK` with Python's Unicode
+  `\w` written out, held equal by `tests/test_critic_reorder.py`. One block's move
+  reads "first", "last", or "before"/"after" another; anything else reads
+  "in the order …", cut between two tags within 80 characters (`tagLine`,
+  `EDIT_CHARS`). The edit fallback labels such a prompt by its move too,
+  and the oldest as "blocks `<a> <b> <c>`" where every other prompt is a
+  move. A version that only reorders the original's words reads "same
+  words, moved: …" (`versionEdit`). A refine sweep's shared source is a leading column
+  fetched by id (`sheetSources`) and never a sheet record, axis value or
+  count; `forgetImages` nulls it. Records that pass the pins but find their
+  cell taken are counted in the note, repeats of the cell's image
+  (`sameSettings`: every axis, size, checkpoint, quantization, refined
+  source; `sameExcept` with no axes skipped) apart from images that differ in something the sheet does not lay
+  out; the note reads "N of M loaded" only when none collide. Where the
+  Prompt axis varies and every image has a seed of its own (`ownSeeds`),
+  the note adds `OWN_SEEDS` ("each image has its own seed: Check's Compare
+  on the same seeds puts versions side by side") ahead of a `sheetNotice`.
+  The shared settings go in `#sheet-fixed`, never the note. The starred
+  cell uses the card's own `.fav` and `.fav-badge` rules (`.card.fav,
+  .sheet-cell.fav`, `.sheet-cell .fav-badge`). Every cell has the card's
+  star button: tabindex -1, so no tab stop; shown on hover, focus-within
+  and a coarse pointer, and always when starred; drawn by `syncStar`. That
+  button and F on a focused cell both star through `starCell` →
+  `setFavorite` (F said in `#star-said`). A `.sheet-cell` is `isolation:
+  isolate`, so its badges stay under the stuck heads. Finish run is one
+  retained-run action wherever a run ends (`web/runs.js`): the finish line,
+  the lost-run card, the sheet's run bar and the last-run banner
+  (`#last-run-resume`, `configureFinishRun`; `resumeLastRun` →
+  `pressFinishRun`). Its availability, counts and holds are the server's
+  (`GET /api/runs/{id}`'s `actions.finish`, then
+  `/api/runs/{id}/finish/preview`), each answer kept to the server,
+  checkpoint and revision it was asked under (`finishContext`), and it never
+  reads or writes the composer: a hand-built grid and its Resume tick stay
+  as they were. A run made before runs kept their cells is held with "use
+  the panel's Resume tick". The last-run banner appends ", N since deleted"
+  or ", all since deleted" from `deleted_count`, hiding Show run when all
+  are gone, and shows Finish run for any job with a run id, a comparison's
+  and Repeat's too, held with the server's reason where nothing is missing.
+  For a `done` job with a run id and an image left it shows More seeds…
+  (`#last-run-more`, `moreSeedsLastRun`) beside Show run, on the run scope.
+  The sheet's status line adds the preview's missing cells and passes
+  ("· N missing cells", "; N deleted to redraw") after the run's own words.
+  The banner says the same counts (`finishRunCounts`, shared with that
+  line) as text on `#last-run-finish`, a role-free span between
+  `#last-run-text` and the buttons ("Finish run: N missing cells", or the
+  server's reason): shown with Finish run from the banner's first display,
+  "Checking Finish run…" while the answer is out, hidden with no run id;
+  one line (`nowrap`, ellipsis, the whole text its title), so the answer
+  landing never moves a button, and `syncLastRunFinish` writes it only when
+  the words change, so the polite banner is not read again on every poll.
+
+#### Gallery cards, batches, selection and Picked
+
 - The gallery's cards. Each card is `role=group` named "#N" (`card()`; a
   viewer `.result` too, `resultFigure`), so its star and tools are heard as
   that image's; `tombstone` drops both attributes. Never a list or grid
@@ -6095,6 +6558,9 @@ measured on the card and when.
   `more`, with `unmatched` beside them (`startJob` registers `more`). All
   unmatched is a 422 naming each. Tier mode takes picks only (`ids`); a
   request without `tier` is the one-size Re-render, its run id unchanged.
+
+#### Swap tags and Mass refine
+
 - Swap tags (`POST /api/swap-tags/preview`, `POST /api/swap-tags`,
   `tag_swap.py`, `tag-swap.js`, `styles/swap.css`) is the fourth producer of
   cells. The server rewrites, the page shows: rows of `find` (comma items)
@@ -6299,6 +6765,9 @@ measured on the card and when.
   made or queued" inside the brackets where the gallery or a live job
   holds some (`rbQueuedWords`), Refine says "Refine N passes" and the
   title still the images; at 1 every wording is the one before Versions.
+
+#### Then refine and More seeds
+
 - Then refine (`docs/maintainer/plan-then-refine.md`; `then_refine.py`,
   `JobManager._passes`, `then-refine.js`) is a submission field, never a
   request field: `GenerateSubmission.then_refine` (`/api/generate`) and
@@ -6546,223 +7015,9 @@ measured on the card and when.
   "starred images" under Starred) last, on a row of its own
   (`.sheet-run-status`), since its count changes while a job writes to the
   run and text before the buttons would move them under the pointer.
-- The sheet's layout contract - axes, prompt labels, pins, variables - lives in
-  the client, and the export is client-side, not a route. Export PNG draws
-  the slice on screen. Export all, shown only where something is pinned,
-  draws every pinned slice that has images (`sliceCells`): it stacks them in
-  one PNG, each titled by its pins, at a cell width that keeps the stack
-  within `EXPORT_MAX_EDGE` and never below 96 px, named
-  `sheet-<run>-every-<axes>.png`; past that edge it saves one image per
-  slice, named by its pins with -2, -3 where two come out alike, at most
-  `EXPORT_FILES_MAX` (24), and says so in `#gallery-error`. A fitted sheet
-  exports thumbnails, cells up to 384 px; a filled one exports at the larger
-  of its cells' device pixels on screen (`exportLayout()`'s `shown` × `dpr`)
-  and the thumbnail's width, so never smaller than the fitted export, from
-  the PNG where that is wider than the thumbnail. Every export draws from
-  `exportLayout()`'s snapshot (the layout, its axes and `sheetWords()`: the
-  prompt labels, the adapter and the fixed Mu), never the live
-  `sheetAxesList`/`promptShort`/`sheetAdapter`/`sheetMuStatic`, so a sheet redrawn while
-  Export all writes its files changes none of them. Both export buttons are
-  aria-disabled with the reason while one runs. A failure is said in
-  `#gallery-error` ("The sheet could not be exported: …"), and the smokes
-  stand in for `saveCanvas`. `sheetFileName` drops a hyphen that a value's
-  closing mark ("none (1.79)", a clipped label's "…") left before the next
-  pin or `.png` (`sheet-<run>-mu-none-1.79.png`). Swipe CFG
-  (`sheetSwipeButton('cfg')`, sheet-render.js) is drawn after the exports only where
-  CFG is a laid-out axis (Columns or Rows), never where it is pinned or
-  does not vary; it is `aria-disabled` with "No two cells here differ in CFG
-  alone" where no shown cell has a ladder of two (`syncSheetSwipes`: the
-  cells grouped by `ladderGroupKey`, then the press's own `ladderOf` within
-  each group with more than one CFG value - the key leaves True CFG out, and
-  a CFG x True CFG grid with cells missing grouped two values no ladder
-  held), its press saying so in the page's line, and saying the hold's
-  reason, never the pressable title, where the cells changed under it. A press opens the lightbox on the
-  cell the keyboard was last on in the sheet (`sheetSwipeFrom`, a focusin in
-  app.js) where it has a CFG neighbour, else the first shown cell in
-  reading order with a lower CFG beside it, walking that cell's own ladder
-  from the shown cells (`ladderOf(axis, rec, sheetLayout.cells)`, ascending -
-  its row or column, never the pinned-out cells), with the CFG comparison
-  on in swipe (`toggleCompare('swipe', 'cfg')` after the open). Swipe
-  steps (`sheetSwipeButton('steps')`, `SHEET_SWIPES`) is the same along
-  Steps, drawn after Swipe CFG where Steps is laid out: held with "No two
-  cells here differ in steps alone", the group key skipping Steps alone,
-  opening the cell's own steps ladder from the shown cells with the steps
-  comparison on (`toggleCompare('swipe', 'steps')`). The sheet asks for
-  the whole run in one page. A variable axis, and the Prompt axis, list their
-  values by first appearance, not alphabetically: the oldest image carrying
-  each value. Under Starred or a search narrower than the run, that is the
-  oldest in the whole run, which `learnSheetOrder` asks for once. A skipped
-  first cell, a late resume or rows Delete unstarred removed can still move a
-  value down. A varying `var:variant` axis takes the rows whenever anything
-  else varies, however few of its images are loaded (placed from every
-  varying axis, so the listlike rule drops neither it nor the axis across it;
-  `VARIANT_AXIS`, held to `grid.VARIANT` by `tests/test_grid.py`), so a
-  comparison reads Original, Reordered, Rewrite, Your version, top to bottom:
-  display names (`VERSION_NAMES`, under the axis label Version) on the sheet
-  and in its export, with the stored labels, the `var:variant` key and
-  `stats --by variant` unchanged. A shared run
-  or mixed search can give one version label different prompt texts: retain
-  Prompt as an axis when the complete variable assignment is ambiguous.
-  `stats --job <id> --by variant` reads one comparison; a broader grouping
-  with conflicting texts for one assignment is refused with advice to group
-  by prompt too. Ordinary multi-variable grids and explicit grouping fields
-  still aggregate as requested. An empty sheet draws no grid, only its note.
-  Laid out again (`renderSheet`: a page landing, a delete, a pin, an axis, a
-  wrap that flips), the sheet keeps the keyboard where it was.
-  `sheetFocusPlace` records the place before anything is removed
-  (`forgetImages` takes it before it drops the cells), and
-  `restoreSheetFocus` returns to it, with `preventScroll`, unless focus was
-  kept or moved on purpose meanwhile: the same cell's image or star by id;
-  else the image now at its place in reading order, else the last; a
-  control by its name (a select by its label, a button by its words), else
-  the control at its index; the search box where nothing is left. F on a
-  cell another tab had deleted, and an ArrowDown on Columns, used to drop
-  focus to `<body>`.
-- Every sheet the page opens (a comparison, a refine sweep, Runs, a card's ⊞,
-  both branches of Show run) goes through `showSheetScope`. It keeps the
-  search it replaced (`sheetReturn`), which Sheet off restores while the box
-  still holds what the page wrote. It asks `setSheet(true, { land, asker })`,
-  which, once the sheet is drawn and only if it is still the one shown,
-  scrolls the gallery head under the topbar (`landOnSheet`),
-  reserving the room under the sheet its head needs to reach the topbar
-  (`reserveSheetRoom`: a margin outside the box `fitSheet` measures, from
-  where `main` ends - never the document's scroll height, which is at least
-  the window - cleared by `setSheet`). Once that scroll settles
-  (`scrollSettled`: three frames at one scrollY, 1.5 s at most),
-  `focusSheet` moves focus with `preventScroll` to the sheet's first cell,
-  else the search box, in two cases: focus is still on the control that
-  asked and that control is not wholly in sight (`wholeInSight`: inside the
-  window under the topbar and inside every ancestor that clips its
-  overflow, such as the docked check's scroller at 2560), or focus has
-  fallen out of the page (`<body>`, or hidden: a card's ⊞ under the sheet).
-  `asker` is the element focused at the call; a job's sheet is given the
-  element pressed at submission, kept in `submissions`. Where the page
-  itself moves focus off a job's asker (the Refine dialog closing on its
-  run, `refineClosed`, the strip a job's first frame empties), it does so
-  through `handJobFocus`, which passes that submission's asker on to the new
-  target. Focus anywhere else is never moved. Every sheet `setSheet(true)`
-  opens is said in `#sheet-said` (polite, outside `#sheet`: "Sheet: 6
-  images, Steps × Seed", via `saySheet`), written on the next frame after an
-  empty line. A refine sweep's source cell is
-  cropped to the passes' shape (`object-fit: cover`, `refine.fitted`'s
-  centre crop), captioned "cropped as the passes were" where the shapes
-  differ. The Sheet button does not scroll - except where the sheet takes
-  the page out of Gallery beside, which `setSheet` lands on; over an empty
-  search with several runs it opens the newest run, with a `sheetNotice`,
-  and a typed search is never redirected. A matrix's cells are capped to
-  the window's height (`--cell-max` from `fitSheet`'s measured
-  `--sheet-chrome`) with a 96 px floor. With Fill width pressed they take
-  the width instead: `.sheet.fill-width` sets the template's `--cell-w` to
-  `1fr`, never through the class `.fill`, which is the progress bar's. The
-  toggle keeps one name, with its state in `aria-pressed` and its title; it
-  is remembered under `auradream.sheet.v1` through
-  `remembered`/`remember`, is not forgotten by Reset, and is aria-disabled
-  with its reason on a wrapped row. A matrix zooms (sheet-zoom.js:
-  `sheetZoom` times `sheetZoomBase`, the cells' width at zoom 1 that
-  `fitSheet` measures with the zoom off, set on the grid as `--cell-min`
-  and `--cell-w`, the box's scroll restored), from 1 to `SHEET_ZOOM_MAX`
-  screen pixels per image pixel (400%), by Ctrl+wheel about the pointer (anchored
-  to the nearest cell), `+`/`−`/`0`/`1` on a focused cell, and the `−` `+`
-  `1:1` buttons with a readout that goes back to zoom 1 when pressed; the
-  buttons are held with a reason where they would do nothing, a wrapped row
-  included. Zoomed, every cell's image is its PNG (`data-full`, the srcset
-  dropped), never the thumbnail. A left-button drag (not a touch, a button
-  or a select) pans `.sheet-scroll` wherever it overflows; under 4 px it
-  is a click, and a pan's release never opens the lightbox. Every sheet
-  opens at zoom 1; a redraw keeps the zoom and the box's pan
-  (`sheetScrolled`, taken by drawSheet before it empties the grid), and a
-  new base (Fill width, a resize) keeps the cells' drawn width; the zoom is said in
-  `#sheet-zoom-said`, a wheel's once its burst ends; the export ignores
-  it. Its heads stick inside `.sheet-scroll`, whose scroll
-  padding is the measured head row and row-head column (`--sheet-head`,
-  `--sheet-rowhead` on `.sheet`) so a keyboard-focused cell is never under
-  them. `refitSheet` (debounced, on the window's resize) measures again and
-  re-lays out when the wrap test (`sheetWraps`) flips. A row-less sheet wider
-  than fits wraps with captions, and so does its export. Head labels are
-  whole on screen (span.label, clamped, title = full value). A number of
-  five digits or more goes to a line of its own whole (`numberLabel`: an
-  inline-block `.number`); it breaks only where it alone is wider than its
-  column, and then only between groups of four digits counted from its end
-  (a `<wbr>` between them), in balanced lines (`text-wrap: balance`); the
-  text is still the whole number. `clip` is for pins, the note and the
-  canvas. A matrix is a role=table named by `sheetSummary`; its rows are
-  `.sheet-row` with role=row and `display: contents`, so heads and cells
-  stay the grid's items and the heads stick; its heads are columnheader and
-  rowheader (the corner is a cell), and its cells role=cell (the source
-  with `aria-rowspan`). A wrapped row is a role=list of listitems. Prompt
-  labels that repeat or exceed
-  `LABEL_CHARS` fall back to `promptEdit` against the oldest prompt, up to
-  `EDIT_LABELS_MAX` prompts, memoised per prompt list. A version that only
-  puts the original's top-level XML blocks in another order, with nothing
-  in or between them changed (the loose text compared gap by gap), reads
-  "same blocks, moved: `<general_tags>` first" (`blockMove`, over
-  `xmlBlocks`); its `XML_BLOCK` is `critic_reorder._XML_BLOCK` with Python's Unicode
-  `\w` written out, held equal by `tests/test_critic_reorder.py`. One block's move
-  reads "first", "last", or "before"/"after" another; anything else reads
-  "in the order …", cut between two tags within 80 characters (`tagLine`,
-  `EDIT_CHARS`). The edit fallback labels such a prompt by its move too,
-  and the oldest as "blocks `<a> <b> <c>`" where every other prompt is a
-  move. A version that only reorders the original's words reads "same
-  words, moved: …" (`versionEdit`). A refine sweep's shared source is a leading column
-  fetched by id (`sheetSources`) and never a sheet record, axis value or
-  count; `forgetImages` nulls it. Records that pass the pins but find their
-  cell taken are counted in the note, repeats of the cell's image
-  (`sameSettings`: every axis, size, checkpoint, quantization, refined
-  source; `sameExcept` with no axes skipped) apart from images that differ in something the sheet does not lay
-  out; the note reads "N of M loaded" only when none collide. Where the
-  Prompt axis varies and every image has a seed of its own (`ownSeeds`),
-  the note adds `OWN_SEEDS` ("each image has its own seed: Check's Compare
-  on the same seeds puts versions side by side") ahead of a `sheetNotice`.
-  The shared settings go in `#sheet-fixed`, never the note. The starred
-  cell uses the card's own `.fav` and `.fav-badge` rules (`.card.fav,
-  .sheet-cell.fav`, `.sheet-cell .fav-badge`). Every cell has the card's
-  star button: tabindex -1, so no tab stop; shown on hover, focus-within
-  and a coarse pointer, and always when starred; drawn by `syncStar`. That
-  button and F on a focused cell both star through `starCell` →
-  `setFavorite` (F said in `#star-said`). A `.sheet-cell` is `isolation:
-  isolate`, so its badges stay under the stuck heads. Finish run is one
-  retained-run action wherever a run ends (`web/runs.js`): the finish line,
-  the lost-run card, the sheet's run bar and the last-run banner
-  (`#last-run-resume`, `configureFinishRun`; `resumeLastRun` →
-  `pressFinishRun`). Its availability, counts and holds are the server's
-  (`GET /api/runs/{id}`'s `actions.finish`, then
-  `/api/runs/{id}/finish/preview`), each answer kept to the server,
-  checkpoint and revision it was asked under (`finishContext`), and it never
-  reads or writes the composer: a hand-built grid and its Resume tick stay
-  as they were. A run made before runs kept their cells is held with "use
-  the panel's Resume tick". The last-run banner appends ", N since deleted"
-  or ", all since deleted" from `deleted_count`, hiding Show run when all
-  are gone, and shows Finish run for any job with a run id, a comparison's
-  and Repeat's too, held with the server's reason where nothing is missing.
-  For a `done` job with a run id and an image left it shows More seeds…
-  (`#last-run-more`, `moreSeedsLastRun`) beside Show run, on the run scope.
-  The sheet's status line adds the preview's missing cells and passes
-  ("· N missing cells", "; N deleted to redraw") after the run's own words.
-  The banner says the same counts (`finishRunCounts`, shared with that
-  line) as text on `#last-run-finish`, a role-free span between
-  `#last-run-text` and the buttons ("Finish run: N missing cells", or the
-  server's reason): shown with Finish run from the banner's first display,
-  "Checking Finish run…" while the answer is out, hidden with no run id;
-  one line (`nowrap`, ellipsis, the whole text its title), so the answer
-  landing never moves a button, and `syncLastRunFinish` writes it only when
-  the words change, so the polite banner is not read again on every poll.
-- `generate`, `clear`, `stats` and `reindex` reconfigure stdout to UTF-8 at
-  the top of `main()`: on Windows always, elsewhere when it is not a
-  terminal, and never on a stream without `reconfigure` (a StringIO,
-  pythonw's None). On Windows a redirect, a pipe or `> NUL` otherwise uses
-  the locale's code page, and a CJK or emoji prompt is a UnicodeEncodeError;
-  the console is UTF-8 already. A new CLI does the same; `tests/test_cli.py`
-  holds them to one setup.
-- `generate.py` duplicates `jobs._generate`'s loop deliberately. It applies
-  `--model/--quant/--offload` to `os.environ` before importing
-  `backend.config`, as `launch.configure()` does for the server; both take the
-  flags from `launch.add_model_arguments` (the CLI's parser is
-  `generate_args._build_parser`).
-- `generate.py`'s header shows what `applied()` will run: a negative
-  prompt, `--true-cfg` or Mu the checkpoint drops is printed with
-  `[ignored: ...]` (a `--grid-mu` axis too), and the duplicate warning names
-  a Mu where it takes none
-  (`test_a_mu_the_checkpoint_cannot_take_is_reported_as_ignored`).
+
+#### Gallery scope, Re-render, search and paging
+
 - The gallery is the running checkpoint's: `GET /api/gallery`, `/api/runs`,
   `GET`/`DELETE /api/gallery/unstarred`, `POST /api/rerender[/preview]` and
   `POST /api/swap-tags[/preview]`, `POST /api/refine/batch[/preview]` and
@@ -7012,6 +7267,60 @@ measured on the card and when.
   writes under `storage._write_lock`, so a second bin answers `already`, and
   `gallery_delete.delete_image` does the same, so a second permanent delete is
   "unknown image".
+- Saved gallery searches store only Name, Query, Starred and All models in a
+  versioned database-scoped sidecar, never image ids or picks. Names are unique
+  after NFC normalization and case folding; duplicate-name replacement is
+  explicit and revisioned. Reads are cold and first occur on opening the native
+  dialog, not startup. CRUD bypasses gallery maintenance and model work. Select
+  only fills the editor; Apply leaves the bin and sheet, cancels a pending
+  debounce, writes all three filters and reloads gallery/Runs once. Old gallery
+  epochs and sheet return filters cannot replace it. Picks remain selected and
+  visibly counted, and Apply queues no generation or image mutation. Current
+  checkpoint and relative dates are evaluated when applied. Unknown write
+  results preserve the editor, report uncertainty and hold Save/Delete/Update
+  until a fresh read and explicit selection/New. Reopening or applying the
+  valid editor filter never acknowledges that result. Known validation and
+  duplicate-name replacement keep their existing flow. Errors, conflicts
+  and late list replies preserve unsaved edits; modal keys and focus stay in
+  the dialog, with connected-opener restoration using `preventScroll`.
+- The gallery pages by id, never by offset,
+  and pages itself as "Load more" scrolls near the viewport, or near the
+  foot of the gallery's own column with Gallery beside (`moreWatcher`, made
+  by `armMore` with its root where the gallery scrolls - the window or
+  `#library-scroll` - and made again when that changes; re-armed by
+  `watchMore` after each page that lands, never after one that failed - the
+  button is the retry - and `moreArmed` keeps a trigger made again
+  meanwhile from fetching). The live/bin HTTP paging queries bound `offset`
+  to 0..SQLite signed-64-bit MAX and `before` to 1..MAX, reusing
+  `search.SQLITE_INT`; an oversized value is 422 before gallery storage.
+  MAX itself remains valid (`GAL#20`; dated gallery-page-bounds review).
+- "↑ Top" (`#btn-gallery-top`, `syncGalleryTop`/`goToGalleryTop` in
+  gallery.js) is offered once the gallery's head is a window's height above
+  the view, or with Gallery beside once `#library-scroll` is scrolled down
+  its own height, and goes again nearer the top however the page got there
+  (asked on the page's and the column's scroll, a resize and `syncBeside`).
+  A pill fixed at the window's bottom right, z-index 15; beside the viewer,
+  absolute in the fixed `#library` at its corner, left of the column's
+  scrollbar (`--column-bar`, measured as it shows), and hidden with the
+  column under the prompt check. It sits in `#library` after
+  `#library-scroll`, so the pointer on it is off the cards
+  (`galleryPointerGone`). Only its press scrolls: the head into view
+  (`scrollIntoView`, as the search's reveal) or the column to 0, smooth
+  unless reduced motion. Focus moves first, with `preventScroll`, to the
+  grid's first card's image (as Home), else the search. A focused button is
+  never hidden by a scroll: it stays until its blur, then asks again (a
+  key scroll from it moved focus into a field off screen). It is not hidden
+  for the gallery being hidden - it is hidden with `#library` - so a check
+  made under the prompt check or the model picker holds once they close.
+  On a phone, whose head is sticky and never above the view, it is
+  offered three screens down the page (`scrollY` past three window
+  heights) and its press takes the page to 0; there it is a 44 px round ↑
+  at the screen's foot on the left over the bars ("Phones and tablets").
+  Beside the viewer a wheel over it scrolls the column (`galleryTopWheel`),
+  not the page.
+
+#### Right-click menu and recycle bin
+
 - The right-click menu on an image (`context-menu.js`,
   `styles/context-menu.css`; `smoke-context-menu.json`): a live gallery
   card, a viewer result's tile, a contact sheet's populated cell and the
@@ -7145,41 +7454,11 @@ measured on the card and when.
   of a gone image (`imageGone`) still reads it as gone. The bundles dialog's preview line adds "(N in the
   recycle bin)", and after an export-clear `syncBin()` follows
   `forgetImages`.
-- The gallery pages by id, never by offset,
-  and pages itself as "Load more" scrolls near the viewport, or near the
-  foot of the gallery's own column with Gallery beside (`moreWatcher`, made
-  by `armMore` with its root where the gallery scrolls - the window or
-  `#library-scroll` - and made again when that changes; re-armed by
-  `watchMore` after each page that lands, never after one that failed - the
-  button is the retry - and `moreArmed` keeps a trigger made again
-  meanwhile from fetching). The live/bin HTTP paging queries bound `offset`
-  to 0..SQLite signed-64-bit MAX and `before` to 1..MAX, reusing
-  `search.SQLITE_INT`; an oversized value is 422 before gallery storage.
-  MAX itself remains valid (`GAL#20`; dated gallery-page-bounds review).
-- "↑ Top" (`#btn-gallery-top`, `syncGalleryTop`/`goToGalleryTop` in
-  gallery.js) is offered once the gallery's head is a window's height above
-  the view, or with Gallery beside once `#library-scroll` is scrolled down
-  its own height, and goes again nearer the top however the page got there
-  (asked on the page's and the column's scroll, a resize and `syncBeside`).
-  A pill fixed at the window's bottom right, z-index 15; beside the viewer,
-  absolute in the fixed `#library` at its corner, left of the column's
-  scrollbar (`--column-bar`, measured as it shows), and hidden with the
-  column under the prompt check. It sits in `#library` after
-  `#library-scroll`, so the pointer on it is off the cards
-  (`galleryPointerGone`). Only its press scrolls: the head into view
-  (`scrollIntoView`, as the search's reveal) or the column to 0, smooth
-  unless reduced motion. Focus moves first, with `preventScroll`, to the
-  grid's first card's image (as Home), else the search. A focused button is
-  never hidden by a scroll: it stays until its blur, then asks again (a
-  key scroll from it moved focus into a field off screen). It is not hidden
-  for the gallery being hidden - it is hidden with `#library` - so a check
-  made under the prompt check or the model picker holds once they close.
-  On a phone, whose head is sticky and never above the view, it is
-  offered three screens down the page (`scrollY` past three window
-  heights) and its press takes the page to 0; there it is a 44 px round ↑
-  at the screen's foot on the left over the bars ("Phones and tablets").
-  Beside the viewer a wheel over it scrolls the column (`galleryTopWheel`),
-  not the page.
+
+#### Phones and tablets
+
+##### Tiers, press sizes and ticks
+
 - Phones and tablets (`styles/touch.css`, `styles/phone.css`,
   `styles/phone-gallery.css`, `styles/phone-viewer.css` and
   `styles/phone-sheets.css`, linked last, `touch.js`, `phone.js`,
@@ -7279,7 +7558,15 @@ measured on the card and when.
   is a 44 px box of its own with 8 px each side of its words, which keep
   their place (the box runs 8 px into the gutter); the row was 44 already,
   so nothing moves.
-  The phone's buttons have tiers. Generate is the one solid accent on
+- Tier reconciliation reads the same coarse-pointer media predicates on
+  MQL changes and native resize. The resize fallback acts only on a changed
+  tier, with no same-tier keyboard-resize DOM writes; width alone never
+  selects the phone. Its regression withholds the MQL notifications and
+  requires normal node homing, preview close, history cleanup and focus.
+
+##### Button tiers, type, folds and tier changes
+
+- The phone's buttons have tiers. Generate is the one solid accent on
   Create, and a sheet's primary the one in its sheet. A chosen pill or
   toggle - a size and its megapixels, a sheet's scale, Compare scales, a
   result used as a reference, Select, Sheet and Bin pressed
@@ -7330,7 +7617,7 @@ measured on the card and when.
   refusal beside it (`#error.at-generate`) take the page's colour
   (`--bg`) for it, the held Generate's mix too.
   Every fold (`details` of `.setup-disclosure`, `.section`,
-  `.ms-technical`, `.bundle-automatic`, `.model-performance`: Custom
+  `.ms-technical`, `.bundle-automatic`, `.model-performance`: Sampling, Custom
   dimensions, Grid search, LoRA & references, a dialog's Prompt and
   sampling, More seeds' and Bundles' folds, the Models sheet's
   Performance) is one row on the phone: 48 px under a 1 px rule, no
@@ -7408,7 +7695,10 @@ measured on the card and when.
   (a ResizeObserver on `body`), for a second at most or until a finger
   touches the page, noting no scroll meanwhile. Leaving the
   phone moves nothing else, and the view chosen there stays chosen.
-  The phone's own hosts (`phone.js`, `styles/phone.css`) are filled and
+
+##### The phone's hosts, long press and the keyboard
+
+- The phone's own hosts (`phone.js`, `styles/phone.css`) are filled and
   emptied there too (`syncPhoneHosts`, from `syncTier` at boot and on each
   change): on the phone Generate, the viewer, its note and `#recent` are
   moved - whole, with `moveBefore` where the browser has it (which keeps a
@@ -7554,7 +7844,10 @@ measured on the card and when.
   56 px rows from their options (`drawPhoneList`; the option of no value
   is the list's line, inert) - the select hidden, what a row's press sets
   with its `change`, and redrawn when its options or the dialog change.
-  The Models sheet is one scroller: the options, the checkpoints (each a
+
+##### Sheets, menus and Back
+
+- The Models sheet is one scroller: the options, the checkpoints (each a
   card, the head row not drawn, its ↗ 44 px, the chosen card's notes in
   words under it), the pictures and Load automatically, with a sticky foot
   (`#models-foot`) holding the note, Apply & save, Switch & load and the
@@ -7659,7 +7952,10 @@ measured on the card and when.
   way, so their going and coming moves nothing. Once the keyboard's inset
   is read (the review's P44) the action bar can ride above the keyboard
   instead.
-  On the phone the Create view has an action bar (`#phone-actions`,
+
+##### Create's action bar
+
+- On the phone the Create view has an action bar (`#phone-actions`,
   `styles/phone.css`) docked over the tab bar in the thumb's reach: at the
   page's top Generate was about 870 px down, below the window, and the
   image it made 1300 px down, under every fold of the panel. The bar is
@@ -7763,7 +8059,10 @@ measured on the card and when.
   drawn there): the bar's picture is the new image, always in sight, and
   the pill lay over the page wherever it went - under the topbar over
   Examples and Check, then over the Sampling labels at the foot.
-  The results on the phone are under the settings that make them: the
+
+##### Results and Create's first screen
+
+- The results on the phone are under the settings that make them: the
   viewer, its note and `#recent` are moved from the stage into
   `#phone-results`, in Generate's place in the panel - after Output,
   ahead of the job's progress, whose coming and going then never moves
@@ -7871,7 +8170,10 @@ measured on the card and when.
   Picked's seeds to grid, in the Gallery view, cannot focus the seed list
   in Create's sheet, so its words say where the list is ("… in picked
   order (Create > More options > Grid search).").
-  The phone's compose controls (`phone-compose.js`, `styles/phone.css`;
+
+##### Compose controls
+
+- The phone's compose controls (`phone-compose.js`, `styles/phone.css`;
   the review's P5, P9, P10, P12), each over the page's own nodes, moved
   whole by `syncPhoneCompose` (from `syncPhoneHosts`) with `phoneMove` and
   home before the comment `initPhoneCompose` left, or drawn for the phone
@@ -7986,7 +8288,10 @@ measured on the card and when.
   drawn on the phone only while it warns (a side off the grid, an aspect
   or size the guide does not recommend, a tight size), under Shape; its
   plain megapixels are the chip's.
-  The phone's gallery head (`phone-gallery.js`, `styles/phone-gallery.css`;
+
+##### Gallery head, cards and Select
+
+- The phone's gallery head (`phone-gallery.js`, `styles/phone-gallery.css`;
   the review's P16, P25 and P26) is one row, sticky under the topbar (at
   the screen's top on its side, once the topbar has scrolled away), opaque
   across the screen with a hairline under it, never hidden on a scroll: the
@@ -8160,7 +8465,10 @@ measured on the card and when.
   their order (`placeInGallerySheet`) as it goes; nothing moves while a
   gallery sheet is open. Skipped: a "Download" of the picks (there is
   none; Bundles… backs up the picked images) and drag-select.
-  Runs on the phone (the review's P20; `phone-runs.js`) are a sheet of
+
+##### Runs and the recycle bin
+
+- Runs on the phone (the review's P20; `phone-runs.js`) are a sheet of
   rows, where the picker was a native select whose one line was cut to
   "5 Nov, 01:35 pm · 4 …". Filters holds Runs, a 56 px row (its line the
   run shown, else "Lay one run out by its settings", else the picker's
@@ -8242,7 +8550,10 @@ measured on the card and when.
   are the gallery's, not drawn on the bin's screen, as the PC's head
   draws Delete unstarred only outside it. A held reason that says to
   leave the bin says the ‹ beside its name (`phoneWords`).
-  The phone's page does not pull to refresh: `html` and `body` have
+
+##### Refresh, share and the viewer
+
+- The phone's page does not pull to refresh: `html` and `body` have
   `overscroll-behavior-y: contain`, so a pull at the page's top no longer
   reloads it (the prompt's Undo, a Check, a selection and each view's
   place went with it). The prompt and the rest of the panel already
@@ -8335,7 +8646,10 @@ measured on the card and when.
   centred 640 px column (`--sheet-l`/`--sheet-r`) under a title row and
   an action row still across the screen, the delete question at most
   560 px at the foot's middle, and the Models sheet in the same column.
-  A phone on its side is one column at any width: style.css's one-column
+
+##### Landscape, accessibility and the icon
+
+- A phone on its side is one column at any width: style.css's one-column
   query, fields.css's and generation.css's one-column rules and
   `TWO_COLUMNS_MEDIA` (state.js, its complement) take in
   `(pointer: coarse) and (max-height: 500px)`, and the short two-column
@@ -8433,6 +8747,9 @@ measured on the card and when.
   are it rendered at those sizes, opaque, and are rendered again after any
   change to it. `web/manifest.webmanifest` keeps `display: "browser"` for
   the same reason as above (`tests/test_app_icon.py`).
+
+#### Offline and passcode
+
 - Offline (`web/sw.js`, `web/offline.html`): opening AuraDream while the
   server is silent shows the offline page, never the browser's error, where
   a service worker is allowed; an open page keeps the topbar's "server not
@@ -8470,7 +8787,709 @@ measured on the card and when.
   opens `/`, the sign-in page: the user's own press, so the reload is
   theirs (`smoke-passcode`; `smoke-offline`'s last steps).
 
+#### The CLI
+
+- `generate`, `clear`, `stats` and `reindex` reconfigure stdout to UTF-8 at
+  the top of `main()`: on Windows always, elsewhere when it is not a
+  terminal, and never on a stream without `reconfigure` (a StringIO,
+  pythonw's None). On Windows a redirect, a pipe or `> NUL` otherwise uses
+  the locale's code page, and a CJK or emoji prompt is a UnicodeEncodeError;
+  the console is UTF-8 already. A new CLI does the same; `tests/test_cli.py`
+  holds them to one setup.
+- `generate.py` duplicates `jobs._generate`'s loop deliberately. It applies
+  `--model/--quant/--offload` to `os.environ` before importing
+  `backend.config`, as `launch.configure()` does for the server; both take the
+  flags from `launch.add_model_arguments` (the CLI's parser is
+  `generate_args._build_parser`).
+- `generate.py`'s header shows what `applied()` will run: a negative
+  prompt, `--true-cfg` or Mu the checkpoint drops is printed with
+  `[ignored: ...]` (a `--grid-mu` axis too), and the duplicate warning names
+  a Mu where it takes none
+  (`test_a_mu_the_checkpoint_cannot_take_is_reported_as_ignored`).
+
 ## Tests
+
+### The pytest suite
+
+`uv run --group dev pytest`. They stub the pipeline (`tests/fakes.py`'s
+`FakeBackend`, wired by the `fake` and `client` fixtures in `tests/conftest.py`
+and driven through `tests/api_helpers.py`; the HTTP tests are `tests/test_api*.py`,
+one file per area) and the scheduler (`tests/test_schedule.py`'s `StubPipeline`), so
+nothing downloads weights or touches the GPU, and they run against a throwaway
+database and outputs directory (`tests/conftest.py`). They run on `config.py`'s
+defaults: `tests/conftest.py` drops every `AURADREAM_*` but the gallery
+and adapter paths before anything imports `backend`, so a sourced
+`wsl/env.sh` changes nothing. They cover the invariants
+that are expensive to get wrong: the schedule the scheduler ends up with, seeds
+surviving a JSON round trip, the search fallback keeping its filters, and the
+HTTP guards. `tests/test_docs_maps.py` holds `CLAUDE.md` to the one
+`@AGENTS.md` import; every backend module, `web/*.js` and `web/styles/*.css`
+named in the Layout above (the stylesheets in `index.html`'s link order, and
+its count of classic scripts); `AGENTS.md`'s short Layout to a link to every
+`###` part of the Layout above (a new part gets its line there) and to its
+bounded length in lines and bytes; and every `tools/smoke*.json` in `AGENTS.md`'s
+port table, on the row whose port its first `navigate` uses, and named
+below; and every `/api/fake/...` route and command-line flag
+`tools/fake_server.py` registers (read as text, never imported), named in
+both `AGENTS.md` and this file - so a new file, knob or flag is added to the
+maps with it.
+
+The command-line tests are three files sharing `tests/cli_helpers.py` (the
+local `cli` fixture, its autouse execution-environment isolation and the
+passes' sources and masks): `tests/test_cli.py` (seeds and the loop equality,
+resume, budgets, `--from-image`, conditioning, Then refine),
+`tests/test_cli_passes.py` (refine, inpaint, outpaint and the GAN upscaler,
+run locally), `tests/test_cli_disk_full.py` (a full disk under the save:
+the image held and saved once there is room, a batch and a Then refine
+pass too, Ctrl-C ending the wait as a cancel, other errors unchanged) and `tests/test_cli_via_server.py` (`--via-server` through the
+test client's routes, and `_server_json`'s transport).
+
+Helpers shared across test files live in `tests/*_helpers.py` and are
+imported by name, fixtures too (with `# noqa: F401  (fixtures by name)`);
+names imported elsewhere carry no leading underscore. Besides the per-area
+ones (bundle, backup, critic, CLI, prompt encoding and rules, instruction
+edit): `api_helpers.py` drives the app (`stream_job`, `run_one`,
+`run_grid`, `wait_for`, `wait_for_status` and the generic `until`, whose
+timeouts are seconds; the prompt-variant `VARIANTS`),
+`backend_helpers.py` gives `catalogue_repos()` and a weightless
+`loaded_backend(pipe)` (diffusers imported only when called),
+`gallery_helpers.py` the `cold_queries_only` guard and the
+`gallery_state` row-and-PNG snapshot, `model_switch_helpers.py` the
+switch and catalogue tests' autouse `fresh_selection`, and
+`browser_helpers.py` the browser preflight tests' `run_harness_cold`
+(each keeps its own `.mjs` fixture). The anima, NetaYume and NewBie
+converter caches are held to one contract in
+`tests/test_converter_cache.py`, parametrized over the three loaders; each
+loader's own tests stay in its `test_<name>_loading.py`. The model
+catalogue's routes are `tests/test_api_model_catalogue.py`, switching
+`tests/test_api_model_switch.py`.
+
+`tests/test_startup_refusals.py` checks durable port/passcode refusals at
+INFO and CRITICAL, secret exclusion, closed handles, an unwritable log and
+duplicate launches leaving existing files untouched. On Windows it runs the
+real batch launcher with an inert uv stand-in, including spaced paths,
+argument/exit preservation, ordinary errors and Ctrl-C exit statuses.
+`tests/test_hf_login_instructions.py` stubs the installed Hub CLI's menu and
+token-save boundary to pin browser/paste wording, `--force`, server-supplied
+expiry and refresh notes offline. It never signs in or reads credentials.
+
+`tests/test_memory_errors.py` constructs memory exceptions on the CPU and
+checks actual load status, load-ended jobs, retries, raw traceback retention,
+and skipped-cell/failure-stop streams. It covers wrapper chains, subclasses,
+cycle bounds and unrelated errors without inducing real memory pressure.
+
+`tests/test_keep_awake_holders.py` checks the `systemd-inhibit` child with a fake
+popen and clock (its argv, a refusal within `START_WAIT` or `SHORT_LIFE`,
+the retry after `RETRY_AFTER`, release by closing the pipe), Windows'
+`PowerRequest` with its four calls faked (create with the reason, set once,
+clear then close; a refused create or set holds nothing, closes the handle
+it was given and waits `RETRY_AFTER`; a refused clear still closes; the
+`REASON_CONTEXT` layout; `Kernel32Power` over a fake kernel32: the system
+asked for, never the display, and a null or invalid handle or a zero
+return a refusal naming the call; one real request on Windows, let go at
+once), WSL's detection and its `powershell.exe` holder with a fake popen
+(the script's reason, the system asked for and never the display, `held`,
+a refusal in Windows' words and its retry, silence, an early end, a child
+ignoring the end of its input, no interop holding nothing with its
+`detail`; the script run for real by Windows' `powershell.exe`, let go at
+once); `tests/test_keep_awake.py` the controller
+through its asyncio task (providers, counted holds from threads, the idle
+minutes, `wake`), `counts_as_activity` against the page's polls, the
+activity middleware and `/api/status`'s `keep_awake`, the CLI's
+`hold_while`, the doctor's VRAM, LAN and Keep awake rows (Linux's and
+Windows' and WSL's), and the two settings. No real systemd is used. The
+fakes both share are `tests/keep_awake_helpers.py`'s.
+
+`tests/test_response_headers.py` asks the real app for the page, `/sw.js`,
+API routes, `/docs`, files and misses under both mounts, a 404, a 405 and a
+422, and the Host check's 400 and the cross-site 403, each carrying exactly
+one `frame-ancestors 'self'` and one `nosniff`; that the layer is the
+outermost of the app's own; that the page's scripts and stylesheets keep
+their types, a registry naming `.js` as text overruled; that a response's
+own policy is kept beside this one; and that an unhandled error's 500
+carries them and is still raised, with no second start once a response
+began.
+
+`tests/test_linux_scripts.py` (setup, install-service and update),
+`tests/test_linux_control.py` (`control.sh`) and `tests/test_linux_passcode.py`
+(the scripts' passcode), over the sandbox in `tests/linux_script_helpers.py`,
+run `linux/*.sh` for real under bash against
+stub `nvidia-smi`, `uv`, `git`, `systemctl`, `journalctl`,
+`systemd-inhibit`, `loginctl`, `hostname` and `id` on PATH, a temporary
+HOME and project folder (the test seams) and a loopback stand-in server
+that answers only while the stub service is active; no real systemctl, git
+or uv runs and nothing touches the network. `control.sh`'s tests cover
+status of an answering and a stopped service and the running commit beside
+the checkout's, stop and restart refusing a
+busy server (no `systemctl` change) and `--force`, the wait for the page
+(a delayed stub start) and its limit, a failed unit, an auto-restarting
+one and a grown `NRestarts`, `logs`' `-n`/`-f`,
+`doctor` with the env file, unknown commands (exit 2) and root. Those tests
+are Linux only (skipped on Windows and where bash is missing); the static
+checks (the script set, ASCII, LF, the shebang and `set -euo pipefail`) run
+everywhere.
+
+`tests/test_auradream_server.py` runs `bin/auradream-server.ps1` under
+Windows PowerShell against a stub `ssh.cmd` that logs its argv through
+Python (as `ssh.exe` would receive it) and answers `ssh -G` with loopback
+and a test's port: a listener there is an awake server, a closed port a
+sleeping one, and a loopback wake gate starts the listener on its POST. It
+covers the missing and malformed settings (exit 2), each command's ssh
+line (folder default and override quoted for bash, `-Force`, `-Lines`,
+`-Follow` with `-t`, `-f`/`-n`, `update` and `-DryRun` (`--restart
+--dry-run`), `connect`), `-h`/`--help`, refused double quotes and trailing
+backslashes, the remote exit code and the 255 and 127 hints (`connect`'s
+without the `BatchMode` sentence),
+waking by URL, `open`, and the 102-byte magic packet through a dot-source.
+Windows only; its static checks (every `bin\` and root `.ps1`/`.cmd` ASCII
+and CRLF, no address but the placeholders) run everywhere.
+
+### Storage, search and gallery tests
+
+`tests/test_search_area.py` checks comparison-only actual MP filters through
+actual SQLite: inclusive/exclusive and one-pixel boundaries, zero/tiny values,
+adjacent integer limits and products beyond SQLite's integer range. Fractional
+thresholds remain exact under low/high Decimal precision, with caller flags
+and traps preserved on success/refusal. Nonpositive, NULL, REAL and text
+dimensions are excluded by the new branch. Scratch API/saved-query/strict
+preview checks retain model/favorite/bin scopes, raw definitions and PNGs,
+with model/queue work poisoned. No live gallery or browser is exercised.
+
+`tests/test_search_orientation.py` checks portrait/landscape/square values on
+the existing size key through actual SQLite, including adjacent large integer
+dimensions, composition and legacy spelling/refusals. A Node VM checks the
+existing key/merge helpers without DOM or app boot. Scratch HTTP checks cover
+gallery/model/favorite/bin scopes, paging, LIKE fallback, strict previews,
+saved raw queries and keeper rates with model/queue entry points poisoned.
+An owned-gallery DELETE checks expected counts, star/source retention and
+PNG-preserving binning. No live gallery, browser or GPU qualification follows.
+
+`tests/test_search_dates.py` covers local-day UTC bounds, clock changes and
+unrepresentable dates. `tests/test_search_date_ranges.py` adds explicit inclusive
+calendar ranges, same-day equivalence, year/leap rollover, short/long days,
+malformed-range refusal and strict-scope SQLite intersections. Scratch HTTP
+checks cover gallery/bin filtering, unstarred previews and saved-query text/tick
+preservation with model/queue entry points poisoned. One owned-gallery DELETE
+checks count conflicts, star/source retention and PNG-preserving binning. No
+real gallery, browser or host-timezone qualification is involved.
+
+The recycle bin is covered where each read lives: `tests/test_storage.py`
+(the migration, `list_images` live and `binned=True` with total, page and
+`others` agreeing through the LIKE fallback, `runs`/`keep_rates` leaving the
+bin out and `completed_cells`/`lineage_images` keeping it, a binned star
+unkept, `reference_paths` refusing, `refine_binned`), `tests/test_gallery.py`
+(a double bin answered once, restore, `empty_bin` with its files and its
+`SelectionChanged`, the orphan sweep sparing binned PNGs),
+`tests/test_api_gallery.py` (every bin route, the 404s without
+`?binned=true`, the favourite's 404, the picked cards' stars answered per
+id - a binned one `binned`, its flag kept - Delete unstarred binning, Empty
+recycle bin's count and its pin),
+`tests/test_api_jobs.py` (the replay and `deleted_count` through a bin and a
+restore), the refine, grid, Swap, Mass refine and More seeds files (a binned
+source refused, a binned cell not remade until Empty, a picked-then-binned
+id reported "in the recycle bin", seeds past a binned one),
+`tests/test_bundles_repeat.py` (the state through a round trip, a repeat
+import keeping the local state), `tests/test_bundles_merge.py` (an old
+bundle live), `tests/test_api_bundles.py` (`binned` in the preview),
+`tests/test_clear.py` (`--bin` and its pin, the whole clear
+and `--where` reaching the bin, `--where` pinned to its count) and `tests/test_reindex.py` (in place and
+`--database` keeping the state, PNG-only bringing it back live).
+
+`tests/test_gallery_page_bounds.py` checks actual live/bin HTTP query
+validation before storage for SQLite-overflow and existing lower bounds,
+actual-SQL MAX acceptance and ordinary cursor/offset/scope behavior. Owned
+scratch rows/PNG bytes stay unchanged, with model/queue entry points poisoned.
+No browser, real-gallery or runtime activation is qualified.
+
+`tests/test_reindex_provenance.py` covers foreign PNG conditioning ids, lost
+databases, missing or mismatched source identities and safe in-place metadata
+remapping. API tests hold a fake before its first callback to check initial
+per-cell progress totals, and API/CLI tests cover axis replacements and the
+capability refusal both before and after loading. The job snapshot's
+`comparison` is asserted true for a prompt-variants grid (`test_api_grid_variants`)
+and false for plain and variable grids (`test_api_jobs`). Swap tags is
+`tests/test_tag_swap.py` (the rewrite as text: matching, weights and
+underscores, strictness, rows at once, phrases and lettering, Han, XML,
+variables) and `tests/test_api_swap.py` (every per-image status, one job
+per size keeping seeds, sizes and settings, `expected`, `pruned`, the
+filter scope, the negative field, the revision header, the resolver, and
+Re-render over mixed sizes through `cells_from_records`); Re-render's
+picked cards are `tests/test_api_rerender.py` (exactly the picks whatever the
+filter, oldest first, a binned and a deleted pick named in `deleted`, all
+gone a 404 naming each, `ids` validated, and another checkpoint's picks
+refused with or without All models, named to unpick). Mass refine
+is `tests/test_refine_batch.py` (the per-record plan's order, the cell it
+builds, the profile a foreign record takes, `cell_from_record`'s named
+changes) and `tests/test_api_refine_batch.py` (every per-image status, one
+job per size keeping each image's prompt pair, seed, CFG, mu and variables,
+references dropped, the PNG chunk's `refine`, Steps, Skip refine passes,
+Include other checkpoints, the whole refusal without a pass, a live
+capability drop failing the job before any image, a source deleted mid-run
+failing its own cell only, `expected`, `pruned`, the filter scope, the
+start-sigma range and its cap, the per-size price, and the revision
+header). More seeds is `tests/test_more_seeds.py` (batches by run, job or
+image, the Batch as the largest recorded, the budget's cap, seeds stepping
+over and wrapping, calls of consecutive seeds) and
+`tests/test_api_more_seeds.py` (a picked image taking its whole batch, two
+of one batch as one, the batch's own Batch and run, a second press past
+the first, seeds the gallery or a live job holds stepped over, the panel's
+Batch for an unrecorded batch and the budget's cap, a grid's cells as
+batches of one job, one job per run, every per-batch status, `expected`,
+the whole refusals, the filter scope, `batch` through a reindex, and the
+`run` scope: the run's live images whatever Starred, a binned cell no
+batch and a binned top seed still held, its refusals beside `ids` or
+`search`, 404 unknown or wholly binned, 409 `expected`, per-batch
+`foreign`, `count_default` agreeing or not, the headline, and a run past
+`max_grid_images` images queued in few batches; and Then refine carried:
+bases and their passes under the original pass run with the passes priced
+at their size, `then_refine: false` making bases only and a later press
+from that bases-only template still carrying it, a plain run and a pass
+batch unchanged, no pass on the checkpoint held with bases only, mates of
+two specs refused in words, a batch past the guard refused while the rest
+queue, and two specs in one press making two jobs);
+`tests/test_more_seeds_intents.py` also holds that a replayed intent keeps
+the `then_refine` choice.
+Load settings from PNG is `tests/test_api_png.py` (a gallery PNG's whole
+record back, an explicit null Mu, the legacy key, a reference carried only
+where this gallery holds the same picture, one on a checkpoint that takes
+none, a refine pass at the panel's size, an adapter the installation
+cannot load, a negative `applied()` leaves out kept for the box, an A1111
+block's negative judged at the panel's CFG rather than the profile's, an A1111
+block's prompt, negative and size with its not-carried and not-read
+notes, the record winning over its own 'parameters' line, sizes a direct
+render does not take, every refusal's words, the 1 MiB and keyword caps,
+a stale revision, and `parse_parameters` against A1111's reading) and
+`tests/test_cli.py::test_from_image_refuses_a_record_that_is_not_one`
+(`--from-image` through the shared `png_settings`). What holds the
+card, and whose expansion it is, is
+`tests/test_jobs.py::test_the_card_names_its_holder_and_an_editor_actions_ticket`
+and, through the status,
+`tests/test_api.py::test_status_names_what_holds_the_card_and_whose_expansion`.
+
+`tests/test_peak.py` covers the peak pair: the row and the chunk, an older
+database, a PNG-only reindex and a malformed chunk value, no change to a
+cell's key, run id or Resume, a batch sharing its call's peak and a raised
+call leaving none, a bundle carrying it (and dropping a bad one) into
+INTEGER columns, Load settings from PNG ignoring it, and the real
+backend's reset/read order over a stubbed `torch.cuda`, a failed read and
+no CUDA device; `tests/test_cli.py` the CLI saving it.
+`tests/test_run_smoke.py` holds every smoke to one parsed row with a full
+checkpoint id. Under load from parallel rows a timing-sensitive smoke can
+run slower than alone; a failure seen only under `--jobs` is rerun alone
+before it is believed. `run_smoke.py --rerun-failed-alone` does that after
+the planned run: each smoke whose exit was 1 runs again, serially at the
+run's `--offset`, each on a fresh fake of its own below `rerun/` in the
+same run root (exit 2 is never rerun). `--from-summary PATH` reruns an
+earlier `summary.json`'s exit-1 receipts the same way in a new run root,
+refusing with exit 2 before any start a missing or malformed file, a smoke
+no longer in the table, or smoke names/`--all` beside it. `summary.json`
+records `jobs` and `offset`, and after a rerun `rerun` (receipts shaped
+like `results`) and `verdicts` (`passed-alone` or `failed-alone`); the
+console prints the verdicts after `failed:`. The first pass's summary is
+written before any rerun, so an interrupted rerun keeps it; `results` and
+`duration_seconds` stay the first pass's, and
+the exit stays the first pass's: a smoke that passes alone is reported,
+not believed.
+
+`tests/test_more_seeds_headline.py` checks full server-owned seed headlines
+for wrapped/mixed batches, ordinary gaps/singletons and no eligible batches.
+Owned Python TestClient previews cover wrap allocation, foreign exclusion
+and unrecorded Batch fallback while preserving rows/PNG hashes and poisoning
+model/generation/queue entry points. Counts, first/last/skipped and receipt
+issuance retain their existing behavior. No browser MAX_SEED entry or real
+model/pixel qualification follows.
+
+`tests/test_more_seeds_intents.py` and `tests/test_api_more_seeds_intents.py`
+cover receipt replay, conflicting choices, concurrent tokens and waiters,
+cancelled HTTP waiters, bounded retention/expiry, shutdown and partial
+multi-job admission. The extended `smoke-more-seeds.json` checks active
+Batch x Repeat, delayed/repeated presses, two deliberate extensions, lost
+replies through 503 and generic 409 responses, terminal receipts, partial
+warnings, stale opening contexts and narrow/normal/wide result reachability.
+`smoke-more-seeds-tabs.json` uses a fresh FLUX fake on 7919 with two actual
+tabs, separate owned-job/viewer/composer state, simultaneous stale previews,
+distinct seed allocations, lost-response replay and queue transitions.
+
+`tests/test_size_crop.py` and `tests/test_crop_anchor_storage.py` cover paired
+size parsing, limits, shape identity and legacy hashes, crop pixels and the
+GAN path, actual-size Resume/Finish/estimates, persistence and source-loss
+cleanup. `smoke-size-crop.json` uses a fresh FLUX.1 Krea [dev] fake on 7917
+for sizes, Resume/sheet axes, crop frames, metadata, Reuse and source views.
+
+### Lint, CI and the type gate
+
+`uv run --group dev ruff check .` lints with `pyproject.toml`'s
+`[tool.ruff]`: correctness rules only (`E4`, `E7`, `E9`, `F`, `B`), with
+FastAPI's `Body()` defaults, unchecked `zip` lengths, the base backend's
+optional no-op hooks and the fixtures `tests/` imports from helper modules
+allowed; style is the code's own and no formatter runs.
+`.github/workflows/ci.yml` always runs a Linux lint job (Python 3.13,
+`uv sync --locked --only-group dev`, then `uv run --no-sync ruff check .`).
+It installs only development tools, not torch or the application. For a
+documentation-only push or PR, this is the only job that runs: no tokenizer
+downloads or test matrix. `tools/ci_changes.py` compares the entire push's
+before/after range or the PR's merge-base/head range with a local Git diff.
+Root and `docs/` Markdown/reStructuredText, plus images/PDFs under `docs/`,
+are documentation, except the prose the tests read (`AGENTS.md`'s port
+table and module map, `CLAUDE.md`, `README.md`, `docs/rules.md`,
+`docs/verified.md`; `test_prose_the_tests_open_runs_the_tests` keeps the list
+to what tests and tools open); executable files and JSON under `docs/` still
+get full tests, as do workflows, dependencies and any other paths. Renames check
+both the old and new paths. New branches without a previous SHA, missing
+history, unknown/empty comparisons, manual dispatch and the weekly run
+(Monday 03:17 UTC on main: the full gate against the runners' current images
+and Chrome, and main's dependency caches kept warm, since a merge push skips
+its tests and saves none) keep the full gate.
+A docs-only tip on a code-changing PR does not bypass its tests.
+
+Other changes and manual runs get the CPU suite on Ubuntu
+(`uv sync --locked --group dev`, the pinned type gate, `pytest -n auto
+--durations=25`, listing the 25 slowest tests across workers); for main
+(pull requests into it, pushes, by hand and weekly) it runs on Windows too,
+about five times slower (about 25 minutes on one runner), so there in five
+parts on five runners: `pytest --shard K/N` (`tests/shard.py`, a CRC of each node
+id, so every runner and xdist worker splits alike), jobs named
+`test (windows-latest, K/5)`, the type gate on the first part only. Every
+test job runs `--timeout=600` (pytest-timeout): a hung test fails by name
+inside the job's 20 minutes, and `test_storage_interruptions.py` bounds its
+own child at 300 seconds, so the two never race. Every test and browser job
+installs Node 24 (`actions/setup-node`), the major the PCs run, since the
+runner images' own differ (22 on Windows, 24 on Linux); a weekly and manual
+`node-latest` job runs the Linux suite on the newest Node, informational,
+so a change like Node 26's (ea44414) shows before it reaches a PC. A
+separate `browser` job (same condition, never holding up `test`) runs the
+whole smoke table on the runner's Linux Chrome in five parts, `browser
+(K/5)`, each on its own runner (`run_smoke.py --all --shard K/5 --jobs 2
+--rerun-failed-alone`: the rows split by `tools/run_smoke_costs.json`,
+longest first; one runner at three at once took about 15 minutes, and four
+at once on four cores failed smokes that pass alone; more than five parts
+gains little, since `smoke-jobs`'s row alone takes nearly four minutes). A
+smoke that fails is rerun alone after its part for the diagnosis only: the
+exit stays the first pass's, so one that passes alone still fails the job.
+Then, passed or failed, `tools/smoke_timings.py --annotate` reads its
+part's `summary.json` (the slowest 25 smokes, each row's total, smoke time
+beside wall clock, and each rerun verdict as an annotation on the run's
+page: an error for one that failed again alone, a warning for one that
+passed alone, a race to fix), and uploads each smoke's result, browser log,
+screenshots and failed fake's log as `smoke-artifacts-<index>` when it
+fails. A smoke `run_smoke_costs.json` lacks counts as twelve seconds, but
+`tests/test_run_smoke.py` requires the file to name exactly the table's
+smokes: a new row adds its entry, a hand estimate or a local time scaled
+to the hosted ones until the next refresh (`DEV#62`). Refresh it
+with `smoke_timings.py <part's artifacts> --write-costs` per part after the
+table changes much. uv's cache is the lint job's own (`cache-suffix: lint`,
+dev tools only) apart from the test jobs' (`app`, saved by the first part
+on each system and restored by the rest and the browser parts): sharing
+one key, a skipped lint once saved an empty cache every run then restored,
+and the Linux jobs downloaded the CUDA wheels each time. `tests/test_smoke_timings.py` holds the
+timing tool's order, `--top`, row totals (a row is the port table's, so two
+rows on one port stay apart), `--annotate`'s verdict lines and its exit-2
+refusals of a missing, malformed or ambiguous summary. Before it, `tools/smoke_fonts.py`
+installs Selawik as Segoe UI with Windows line metrics, beside copies of
+DejaVu Sans and Noto Color Emoji for the symbols Segoe UI lacks, hiding
+Inter and the system's own copies of those two (`FONTCONFIG_FILE`); other
+system fonts stay, since Google Chrome aborts on a character no font has. Every copy carries the advance
+widths Windows measured (`tools/segoe-widths.json`), so text is laid out as
+on Windows; `tools/font-widths.json` logs every page character's advance
+width, the run that table came from. A character the page newly draws gets
+a Windows run of it and a new table:
+`test_every_character_the_page_draws_has_its_windows_width` fails on a
+non-ASCII character in `web/`'s scripts, page or styles (written, or as a JS,
+CSS or HTML escape) that `__chars` lacks, format and combining characters
+aside, and `test_the_width_table_holds_exactly_the_measured_characters` holds
+each weight's table to `__chars`. Text the server sends (guides, cites,
+prompts) is not covered, and Linux Chrome's shaping and kerning still differ
+from Edge's. Windows stays where the smokes are written. `tests/conftest.py` makes
+`torch.cuda.is_current_stream_capturing` answer False on a driverless Windows
+machine, where torch's native call crashes the worker. It runs the suite with
+`pytest -n auto` (pytest-xdist, one worker per core). Before it,
+`tools/fetch_tokenizers.py` caches the tokenizer files (never weights) that
+the real-tokenizer tests in `test_prompt_encoding.py` and
+`test_critic_tokens.py` read, so those tests run instead of skipping. The
+`HF_TOKEN` repository secret covers the gated FLUX.1-Krea-dev and Krea 2
+Turbo. Each tokenizer is tried three times; with `HF_TOKEN` set, one that
+still will not come down fails the step (`::error::`), so a revoked token or a
+Hub outage never shows as a green run with those tests skipped, and the
+tokenizer cache, saved only after a passing job, never keeps a partial set.
+Without it, as on forks' pull requests, those warn and skip
+(`tests/test_fetch_tokenizers.py`).
+
+A test's wait has seconds of margin. A positive wait, one expected to
+succeed (an event set, a future answered, a thread ended, a deadline poll
+seeing its condition), allows 30 s: it costs that only when the test is
+already failing, and a Windows runner once took 13 s over a setup. A
+negative wait, one proving something has *not* happened yet, stays short and
+says so: directly under `assert not ...`, under a `pytest.raises(...)` that
+expects only a timeout (`TimeoutError`, `TimeoutExpired`, `queue.Empty`), or
+named with its reason in `NEGATIVE` in `tests/test_positive_waits.py`. A
+wait under `if not`/`while not`, or one expected to end by raising another
+error, is positive. The scan reads every file under `tests/`, and each
+string in one that parses as a script with a wait (a child interpreter's),
+for a `timeout=` keyword, `.wait/.join/.result()`'s first argument,
+`asyncio.wait_for`'s second, a tests helper's timeout and its default, a
+clock-plus-literal deadline and a `range(N)` loop around a sleep, and fails
+on any other literal under 10 s. The `api_helpers` polls
+(`until`, `wait_for`, `wait_for_status`) default to 30 s. A test that must
+act while a fake job is running holds it on an event, never on
+`step_seconds`: `FakeBackend.hold` (an unset `threading.Event`) holds each
+call `hold_when` accepts after its first step, polling the cancel and skip
+as a step would, and `holding` says one is waiting
+(`tests/test_api_jobs.py`'s `_hold`).
+
+A commit runs once. Before installing anything, the lint job asks the
+GitHub API (`tools/ci_duplicates.py`, standard library, the read-only token
+with `pull-requests`/`actions` read) whether another run covers this one, and
+if so skips lint and every later job, naming the covering run in a notice.
+A push to a branch leaves the commit to an open pull request's run only
+once that pull request shows the pushed commit as its head and answers
+`mergeable: true` (five polls three seconds apart); a conflicted one runs no
+workflow, and a stale head or unknown mergeability runs the push. A push
+that finds no open pull request looks once more after 45 seconds, since a
+pull request is often opened just after its branch's first push, which then
+ran in full beside it. A push to
+main skips when a pull request associated with the commit has a head with
+the same tree that contains main's previous commit (the compare API answers
+`ahead` or `identical`), and a passed `pull_request` run of this workflow
+for that head, branch and this repository (not a fork's, which had no
+secrets; a merged pull request's runs list no pull requests) whose jobs
+passed: `lint`, `browser` and both `test` systems, every part of a split
+job (`browser (1/5)` to `(5/5)`), or `lint` alone when this push is
+documentation-only. Pull requests, manual runs, tags, direct pushes
+to main without such a run, and any failure of the check run; the step has
+`continue-on-error`, and a crash leaves its output unset, which runs.
+`tests/test_ci_duplicates.py` holds those answers against canned API replies.
+
+Merging is gated. main's ruleset ("Protect main") requires a pull request,
+the status checks `gate` and `ci-definition` (both pinned to the GitHub
+Actions app), and branches up to date with main before
+merging (besides refusing deletion and force-pushes, which
+`ci_duplicates.py`'s main skip relies on); there are no bypass actors, so
+sessions acting with Matt's credentials are held as well. The `gate` job
+needs `lint`, `test` and `browser` and passes only when `lint` passed and,
+where the run owed full tests (`full_tests` and not a duplicate), every part
+of `test` and `browser` passed. The matrix jobs are never required by name:
+skipped, they report an unexpanded name, and GitHub counts a skipped
+required check as passed. Only a `pull_request` run into main reports
+`gate`; other runs report `gate (push)`, `gate (pull_request into dev)` and
+the like, since GitHub matches a required check by its name on the head
+commit, whatever run reported it: a branch push's duplicate run finishes
+minutes before the pull request's own, and a pull request opened against
+another branch had a Linux-only run, and neither may answer for main. A pull request's gate runs however its jobs ended (`always()`), so a
+cancelled run fails; elsewhere `!cancelled()` leaves a superseded run
+cancelled rather than red, while a job that timed out still turns the gate
+red. Up to date means GitHub tested the merge with main as it is, so the
+merge push's tree is the tested one and its run skips as a duplicate. A
+pull request behind main is updated (`gh pr update-branch`) and runs again.
+Repository settings allow auto-merge and the update-branch button. GitHub
+never updates a branch itself: a pull request waiting on auto-merge that
+falls behind when another merges first waits until it is updated again. A
+pull request retargeted onto main starts no run (`pull_request` fires on
+`opened`, `synchronize` and `reopened`) and has no `gate` until it gets a
+new commit or is closed and reopened, so a pull request targets main from
+the start.
+
+A pull request's own `gate` cannot judge a change to CI: `ci.yml` runs as
+the pull request defines it, so one that edited it, added a workflow with a
+job named `gate`, or taught `tools/ci_changes.py` that everything is
+documentation would pass. `ci-definition` (`.github/workflows/ci-guard.yml`)
+is run by `pull_request_target`, which always uses main's copy of the
+workflow; it never checks out or runs the pull request's code (so a fork's
+run is safe without approval), reads the changed paths from the files API
+(a rename's old name too; more than the API's 3000 fails) and fails on any
+under `.github/` or `tools/ci_changes.py`/`tools/ci_duplicates.py`. A job
+the pull request adds under the same name is its own check suite and does
+not replace the guard's failure. What the tests themselves check, and
+their configuration, stay the change's own, as for any code.
+
+So a CI change never merges on its own say: Matt removes `ci-definition`
+from the ruleset's required checks for that one pull request, merges it on
+a green `gate`, and puts the check back at once. GitHub cannot lock the
+ruleset against the repository's owner; the edit is recorded in the
+ruleset's history (Settings > Rules > Rulesets > Protect main > History).
+The guard added by a pull request runs only once it is on main, so a change
+to `ci-guard.yml` takes effect from the next pull request.
+
+`tests/test_ci_changes.py` exercises the path policy and real temporary
+Git histories: full pushed ranges, PR merge bases, deletions/renames and
+the full-test fallback when classification cannot be established. The
+design notes' [CI range policy](design-notes.md#ci-compares-the-whole-change-range)
+explains why the workflow itself is never path-filtered away.
+
+`uv run --group dev python tools/typecheck.py` checks Pyright's standard
+mode over all Python in `backend/` and `tools/` (raised from basic on
+2026-11-04: a possibly unbound name and an incompatible override are now
+errors; the three model-port overrides that mirror their authors' calls
+carry a commented `reportIncompatibleMethodOverride` ignore), using
+`pyrightconfig.json` and the
+locked `pyright==1.1.407` Python package. Node must already be installed.
+The gate verifies the package and bundled JavaScript version, constrains
+the wrapper to that bundle/global Node and disables its update/provision
+paths. Missing tools, absent/empty includes, malformed output and zero
+analyzed files fail; checker diagnostics and nonzero status are preserved.
+`tests/test_typecheck.py` covers these refusal and success paths. The CPU
+CI job runs this same command after installation, before tokenizer fetches;
+documentation-only changes retain the lightweight lint-only path.
+
+The card guard's limits live in one block, the frozen `Limits` dataclass
+(`LIMITS`) at the top of `tools/card_guard.py`: change a default there and
+nowhere else, each commented with the verified.md section it came from; a
+session overrides one with a flag or `--limits FILE.json`, and every flag
+defaults to None. `tests/test_card_guard.py` holds the decision to the
+recorded readings (the 2026-10-25 RAM stops, the fixed loader's lowest free
+RAM, ERNIE's projection gates, the shared rises that never spilled, the
+card's strict 15,500 boundary), that block as the only source of the
+defaults, and the watcher on a stub host with an injected sleep and clock,
+so no test reads a counter or races one (its trip after
+`card_unread_samples` samples in a row without a whole-card reading
+among them, and its schedule taking a sample's cost out of the next sleep
+and reporting the period achieved); the stream and the PDH query are
+stubbed too, the query's ctypes records written by a fake `pdh` (a
+fill that grows mid-read is probed again), and on Windows a real child
+dies with the guard's kill-on-close job.
+
+### Running smokes and the fake server
+
+`uv run python tools/run_smoke.py <smoke> [<smoke> ...]` runs smokes without
+a second terminal: it reads `AGENTS.md`'s port table (the port, the
+`--model`, short names resolved through the line under the table, and
+`--step`), starts the row's fake on a gallery of its own in a new temporary
+directory, runs the named smokes on it in the row's order, stops it, and
+keeps the fake's log (named on a failure) only when a smoke failed. So
+every fake it starts is a fresh one, which meets every row's "fresh scratch
+`--data`" and keeps `smoke.json`'s planted count its own. A smoke named
+alone runs alone, on a fake of its own; `--all` runs every row, a row's
+smokes on one fake in order, as the commands below run them by hand.
+`--offset N` adds N to every port, the fake's and the smoke's (through
+`AURADREAM_PORT_OFFSET`), and refuses a port already in use;
+`--jobs N` runs N rows at once, each worker 100 ports further on, the
+smokes' output kept until each finishes; `--list` prints the table as read.
+It exits 0 when every smoke passed, 1 on a failure, 2 on a refusal.
+Screenshot destinations (`shot`, `fullshot` and the second `elshot` value)
+are portable relative filenames: forward slashes for subdirectories, no
+absolute or drive-relative paths, `..`, backslashes or Windows-invalid
+characters, device names or components ending in a dot or space.
+`browser-output.mjs` applies one policy to all three forms and
+creates their parent directories. `AURADREAM_SCREENSHOT_DIR` selects
+the output root; a direct `browser.mjs` call without it creates and reports
+a fresh system-temp directory. `run_smoke.py --artifacts PATH` creates a
+unique run directory below PATH (system temp when omitted), then a unique
+directory for each smoke and reports it. Screenshots survive successes and
+failures, independently of the fake's disposable gallery; parallel runs
+cannot overwrite one another's files. `tests/test_browser_output.py` checks
+all repository screenshot fields and deliberately invalid destinations;
+`tests/test_run_smoke.py` checks isolated output and failure retention.
+Each smoke retains `result.json` and combined `browser.log`, with exact
+exit status, phase and duration; failures copy `fake-server.log` after the
+owned fake stops. A completed run writes `summary.json` at the run root.
+Browser output is printed after each smoke finishes. An interrupted smoke
+retains its full partial output and result, without a final run summary.
+The runner grants the Node harness cleanup time before its owned-process
+fallback; focused tests cover startup failures, interruption and cleanup.
+`tests/test_then_refine.py` covers Then refine: each image's pass after
+its cell (a batch's bases then their passes, runs alternating), the pass
+equal to Mass refine's and reported `rendered`, the base rows a plain
+Generate's, every refusal in words, a failed pass kept off
+`failed_indices`, three in a row ending the job, a cancel inside a pass
+keeping the base, a grid's passes and retained spec, a pass run's Finish
+naming its base, Finish carrying the spec, the preview's passes, and
+Finish run's missing passes as units under pause, the budget, cancel and
+the failure streak, planned from submit; `tests/test_api_finish_run.py`
+the missing passes themselves (a cancel on a pass finished under the pass
+run with Mass refine's key, a binned base skipped, a pass Mass refine made
+or has queued counted, two specs refused in words, the pin moving when a
+pass lands, a base deleted before its turn a failed pass, a permanently
+deleted pass counted in `redrawn_passes` and a stop's not, a plain first
+job not hiding a later job's spec);
+`tests/test_cli.py` the CLI's passes equal to the server's and its flag
+refusals. `smoke-then-refine.json` uses a fresh FLUX.1 Krea [dev] fake on
+7912 with `--step 0.3`: the opener ending the Notify row at its height,
+off, the dialog and its focus, the tick, the opener's and both buttons'
+words and titles, the hint's pass size, Generate and the grid fold not
+moving, Escape closing it, a batch of two making its bases then their passes with the pass
+in the cell line, the pass rows' size, strength, seeds and run, the grid
+preview's passes, the tick off after a reload with the strength
+remembered, the tick held with `REFINE_NONE` on a status stubbed to no
+pass, and a Generate cancelled on its pass whose finish line's Finish run
+says "Finish 1 missing pass of run …" and, pressed, puts the pass in the
+strip and the pass run, then that pass permanently deleted and the words
+adding "1 permanently deleted pass will be redrawn"; then More seeds of the
+batch of two with the tick shown beside the count and on, the row's note
+"each then refined at 1.5× at 0.4", "+ 2 refine passes" in the count line
+and Queue, unticking dropping them with nothing in the dialog moving, and
+the queued job putting each new base and then its pass in the strip, the
+passes in the run's own pass run; then a press held on its POST (`api`
+wrapped), during which Refine each new image is `aria-disabled` (never
+`disabled`), "This request has been sent with its choice; close More
+seeds to make another" its title and, pressed, in the dialog's error line
+with the tick left on, the base and its pass landing once released; and,
+with the pass taken away by `POST /api/fake/refine` (`supported` false,
+given back after), More seeds of the same batch showing the tick held and
+off with the server's `then_refine_hold` as its title, the row's note
+"bases only: this checkpoint has no refine pass" kept after the page's
+unticked re-check, no pass in the count line or Queue, and a press saying
+the reason in the error line (kept by later Queue syncs) with nothing in
+the dialog moving:
+
+```powershell
+uv run python tools/fake_server.py --port 7912 --model black-forest-labs/FLUX.1-Krea-dev --step 0.3 --data <new-scratch-directory>
+node tools/browser.mjs tools/smoke-then-refine.json
+```
+
+`tools/check_run_continue.py` is a by-hand check of Finish run outside the
+smoke table, not run by CI: it starts its own FLUX.1 Krea [dev] fake on a
+new scratch gallery (`--port`, default 7999, off the table's ports; it
+refuses a port already in use), stops a budgeted grid and a repeat, presses
+Finish run in fresh browser pages, then kills and restarts that fake and
+finishes the interrupted runs, printing where it left its steps and logs:
+
+```powershell
+uv run python tools/check_run_continue.py
+```
+
+Manual `tools/fake_server.py --fresh` creates a new temporary gallery, prints
+its path before application imports, and retains it after shutdown. It never
+removes a previous directory. `--fresh` and explicit `--data` are mutually
+exclusive and refuse together before filesystem/environment startup work.
+Without `--fresh`, the shared `<temp>/auradream-fake` default and explicit
+`--data` paths retain their existing behavior. Explicit/reused data remains
+caller chosen, including any saved backup settings; use genuinely new scratch
+data for credential-cold browser runs. The smoke runner already creates each
+row's new directory and passes only `--data`. `tests/test_fake_server.py`
+checks these argument/data contracts without starting the application; see
+[the fresh-data review](maintainer/review-2026-10-28-fake-fresh.md).
+
+The standalone fake installs a fixed refusal at the backup credential factory
+before importing `backend.main`, and retains it through all later workers.
+It never calls the original factory or its cache and provides no real-vault
+opt-out. This uses the same factory boundary as the tests' automatic guard;
+production credential behavior is unchanged. Cached credential status and
+platform metadata remain real cached facts, not a successful provider check.
+A due encrypted backup fails through its existing credential error path.
+Plaintext backups and manual bundles with a supplied password retain their
+behavior. Explicit/reused data remains caller chosen and can still perform
+other filesystem/backup operations; use genuinely new scratch data for
+isolated browser runs. `tests/test_fake_server.py` checks installation order
+and real adapter read/setup refusal with synthetic references and poisoned
+provider boundaries; it does not qualify a Windows user credential session.
+
+GPU generation, repeat-seed pixels, cancellation and any preview evidence
+are recorded per checkpoint in `docs/verified.md`, and the real critic's runs
+under its "Prompt analyser" section; CPU and browser checks alone do not
+establish runtime quality or performance. WAI's conditioning
+regression is `tests/test_wai_conditioning.py`: both positive and negative
+SDXL conditioning must remain finite with its unused final CLIP-L NaNs
+under none, FP8 and int8 quantization.
+
+Static files are served from disk, so a `web/` edit needs no server restart;
+a `backend/` edit does. The app's top-level bindings (`els`, `lbView`,
+`sheetRecords`) are reachable from a step's `eval` because the page's scripts
+are classic scripts sharing one global scope - which is also why they stay
+top-level. `browser.mjs` gives
+each run its own profile directory: a shared one stays locked by an Edge a
+crashed run left behind, and every later launch then hands its command line
+to that instance and reports "the browser did not come up".
+
+### The browser harness and its audits
 
 Browser startup diagnostics do not treat an initial successful launcher exit
 as proof the browser is gone: Edge can hand off to its owned child before
@@ -8489,27 +9508,6 @@ new neighbours; fixture array edits are not a durable scope. Keep real
 background-read coverage and fatal focused/hovered-control prerequisites
 while the specific ladder replies are held.
 
-`smoke-download-progress.json` uses a fresh FLUX fake on shared port 7959.
-It presents explicit retained status samples without loading: known and
-unknown totals, the load clock, cache-drive space warning, cached loading,
-viewer/topbar/Models consistency, silent visual counters and idle release.
-Its narrow view checks horizontal bounds; byte counters are approximate
-local cache tallies, never a network-speed or card measurement.
-
-`tests/test_startup_refusals.py` checks durable port/passcode refusals at
-INFO and CRITICAL, secret exclusion, closed handles, an unwritable log and
-duplicate launches leaving existing files untouched. On Windows it runs the
-real batch launcher with an inert uv stand-in, including spaced paths,
-argument/exit preservation, ordinary errors and Ctrl-C exit statuses.
-`tests/test_hf_login_instructions.py` stubs the installed Hub CLI's menu and
-token-save boundary to pin browser/paste wording, `--force`, server-supplied
-expiry and refresh notes offline. It never signs in or reads credentials.
-
-`tests/test_memory_errors.py` constructs memory exceptions on the CPU and
-checks actual load status, load-ended jobs, retries, raw traceback retention,
-and skipped-cell/failure-stop streams. It covers wrapper chains, subclasses,
-cycle bounds and unrelated errors without inducing real memory pressure.
-
 `tests/test_browser_startup_wait.py` drives actual harness startup with inert
 filesystem/process ports and virtual sleeps: delayed readiness, bounded
 absence and diagnostic early exit, including actual cleanup. Profile tests
@@ -8525,397 +9523,9 @@ the same. The publication repair and
 its original/positive evidence are owned by
 `docs/maintainer/review-2026-10-29-ci-browser-startup.md`.
 
-`tests/test_check_dismissal.py` exercises actual Check/Close/Escape/render,
-stale-write, clear/supersession and critic-precheck handlers on inert DOM/API
-ports. Accepted results remain cached while dismissed, with existing button
-cleanup/error routing and deliberate reopening. `smoke-check-dismissal.json`
-uses fresh FLUX fake 7952, its installed fake tokenizer and actual forwarded
-CPU analyze responses held after receipt. Four exact trusted-edit typing
-measurements pass through the fake tokenizer once and settle before the final
-guards; unrelated writes remain refused. Physical prompt edits, Check/Check
-again, Close/Escape and later reopening are qualified without critic calls:
-the fixture refuses every critique request before dispatch. No real tokenizer,
-critic service/model/card or real-gallery acceptance follows.
-
-`tests/test_gallery_page_bounds.py` checks actual live/bin HTTP query
-validation before storage for SQLite-overflow and existing lower bounds,
-actual-SQL MAX acceptance and ordinary cursor/offset/scope behavior. Owned
-scratch rows/PNG bytes stay unchanged, with model/queue entry points poisoned.
-No browser, real-gallery or runtime activation is qualified.
-
-`tests/test_instruction_edit.py` checks the standalone frozen Kontext recipe,
-strict request/stored source types, full original-RGB provenance, unresolved
-source refusal and exact-aspect preprocessing. Installed-pipeline assumptions
-are read from source without importing Diffusers. These are pure CPU/source
-checks; they do not qualify persistence, HTTP admission, bundles, a browser,
-model loading, rendering or the card.
-
-`tests/test_instruction_edit_identity.py`, `test_instruction_edit_storage.py`,
-`test_instruction_edit_bundles.py`, `test_instruction_edit_reindex.py`,
-`test_instruction_edit_admission.py` and `test_instruction_edit_lifetime.py`
-check strict copied-request admission, bound source keys/legacy run ids,
-SQL/PNG migration/carry/conflicts, v2/v1 bundle compatibility, full-RGB remapping,
-unresolved recovery and cleanup/source availability on scratch galleries.
-`test_instruction_edit_loader.py` checks known-editor and unreadable custom-id
-class refusal before weights. `test_instruction_edit_ui.py` uses Node VM and
-an inert DOM. It checks that Reuse on a resolved edit routes to `reuseEdit`
-and leaves the composer untouched. It checks that unresolved, deleted and
-binned sources are held with words, and it covers the facts and viewer
-lineage branches. Stage 4 slice 9 adds the dialog alone
-(`test_instruction_survives_switch_to_the_editor`: Open Models… points the
-picker at the editor; a switch to it carries the instruction and seed, not
-the numbers; a switch away, or a draft of numbers only, keeps nothing), the
-held aspect said as the source's and never in the Models note, and the drift
-line equal to the guide's sentence. `test_instruction_edit_envelope.py`
-holds `option_refusals`, `test_api_model_catalogue.py` the editor row's
-`loader_holds` (every gate and draft; `{}` elsewhere), and
-`test_instruction_edit_queue.py` the preview's `source_reason`.
-
-Three files cover stage 2:
-
-- `test_instruction_edit_gate.py` checks the gate. The base answers False
-  and the real backend True, either way with every `AURADREAM_*` set to
-  true or to false, and a source scan holds every `instruction_edit_qualified`
-  under `backend/` to one literal return: True for `DiffusersBackend`, False
-  for every other. `qualified=1` stays closed. It also checks the wording constants,
-  `_merged_defaults` and the config pin: synthetic configs fail
-  `require_pinned`, pass with a monkeypatched pin, and fail again with one
-  path changed.
-- `test_instruction_edit_call.py` drives `_edit_images` against a
-  Kontext-shaped stub whose call reports the installed signature. It checks
-  the exact kwargs, the one seeded generator, grad and inference mode off,
-  progress, the preview, cancel and failure cleanup (hooks freed and the
-  source closed), and the refusals. It also checks that a closed gate and
-  the real class on an unmeasured host (Linux, another diffusers) refuse
-  before any call or load.
-- `test_instruction_edit_release.py` (stage 4 slice 7) drives the real
-  `DiffusersBackend` class, only its host (or, for the synthetic CPU load,
-  its loader facts) reported as the card's: the pinned editor loads on fp8
-  with model offload; int8, BF16 and sequential offload are refused before
-  `resolve_model`; a 3:2 preview is held in the aspect's words (and its
-  submit refused with no job) while a 1:1 one is available; a 1:1 edit's
-  `applied()` keys as the pinned fixture (run id `a83cde9e6cb2`) and runs at
-  512x512; plain Generate and refine on the loaded editor raise before the
-  pipe; `describe()` offers edits and no refine, inpaint or references, and
-  holds them off the measured host; Qwen-Image-Edit stays refused.
-- `test_instruction_edit_queue.py` checks the route's admission order and
-  refusals, a saved edit row and PNG, the per-cell recheck, cancel,
-  `planned_keys`, and the replay producers: More seeds of an edit queues
-  new seeds of its original source in its run, and refuses a changed or
-  binned source, another checkpoint, a non-square edit, a closed gate or an
-  unmeasured loader in words with no job; Re-render is refused naming the
-  ids (a mixed selection whole); Generate and Finish stay held on both gate
-  states (`test_api_more_seeds.py` replays an edit batch's intent receipt
-  without fresh seeds). Its envelope
-  tests hold an unmeasured aspect at the preview and the submit (and
-  `submit_cells`) with no job, an unmeasured loader before any source is
-  read, the fake host's platform and diffusers answers, the recheck of a
-  cell whose selection left the envelope, and a queued job erroring with
-  the loader's reason.
-
-None of these enables the real server's editor or qualifies a model or the card.
-
-`tests/test_instruction_edit_envelope.py` checks stage 4's measured envelope
-as pure data: the loader refusal matrix (each unmeasured quantization, offload,
-device, platform, loader recipe, diffusers version and inexact id named in
-words), only 1:1 geometry unrefused, the unchanged frozen geometry table, the
-pinned edit `CellKey` and run ids, and a cold import. The edit routes and
-jobs consult it (`test_instruction_edit_queue.py`,
-`test_unavailable_reason_gives_its_five_answers` in
-`test_instruction_edit_gate.py`); it qualifies nothing.
-
-`tests/test_instruction_edit_preflight.py` checks the supplied-config refusal
-boundary with synthetic JSON and the installed complete PIL-to-normalized-CPU-
-tensor preprocessing path using source-extracted methods in the fresh
-`tests/fixtures/instruction_edit_processor_cpu.py` child. The child forbids
-pytest/conftest, model and application imports, poisons CUDA initialization
-and verifies no initialization attempt before or after preprocessing. The six
-pinned gated configs were fetched at the revision and qualified on 2026-10-27,
-outside the repository and not committed; their hashes are
-`QUALIFIED_CONFIG_HASHES`. A passing preflight never permits execution.
-
-`tests/test_instruction_edit_loader.py` checks strict custom/local class
-inspection, unreadable/malformed/editor aliases, case-insensitive named-editor
-refusal and unchanged catalogue/Nunchaku paths. Synthetic backend loads prove
-that refused aliases never reach weight overrides, `from_pretrained` or
-placement; no Hub/network or actual weights are used. Its
-`test_every_require_model_available_caller_passes_qualified_and_selection`
-scans every call for both `qualified` and `loader`. Slice 3's load-entry
-refusals are also checked in `test_api_model_switch.py` (a gated, an
-unmeasured and an envelope Kontext switch: the Hub unasked, or asked and
-refusing, with the saved file byte-identical and the current model still
-ready), `test_loader_startup.py` (explicit flags refused in the load's
-words; a saved unmeasured choice restored as it is and failing as a load),
-`test_instruction_edit_call.py`
-(`test_edit_only_checkpoint_refuses_plain_generate_at_the_backend`) and
-`test_cli.py` (`test_cli_refuses_kontext_before_backend_import`).
-Slice 4's pinned loader is checked there too, with `snapshot_download`,
-`FluxKontextPipeline.download` and `from_pretrained` stubbed and the pin
-monkeypatched to synthetic configs: configs before weights, both at the
-revision; a changed config in either pass refused by its path before
-`from_pretrained`; an unreadable, oversized or non-JSON config; an
-unmeasured loader before any download; the loaded class, VAE scale factor
-and edit names required (the candidate released); a closed gate, an alias
-id, a case variant and Qwen still refused; and an offline Hub reaching
-`_load_failure`'s offline answer. `test_instruction_edit_call.py`'s
-`test_a_qualified_backend_loads_only_the_pinned_kontext` loads the explicit
-class inside the envelope and keeps the real backend refusing.
-
-`tests/test_instruction_edit_catalogue.py` checks the entry (slice 6: last,
-its menu summary "edit only", no Lite re-upload) and slice 5's by-id catalogue
-data: the exact profile (not `_FALLBACK`,
-every generation flag False, hints without "unavailable"), the status words
-following a passed `edit_reason`, the guide against the catalogue's guide
-checks with BFL's verbatim edit instructions drawing no finding and the
-critic never given the measured drift, the pinned `FluxKontextPipeline`
-encoder rows, `details_for`'s strings and live Held/Yes answer, the
-retained timing, and the download
-reference's commit equal to `KONTEXT_V1.revision` without the root single
-file. `test_api_model_catalogue.py`'s
-`test_the_editors_row_carries_the_backends_answer_for_the_draft_loader`
-holds `main`'s listing to the instance's answer, and `test_api_model_switch.py`'s
-`test_switch_to_kontext_refused_while_gated_before_hub_save_or_unload`
-finds the editor listed last; `test_instruction_edit_loader.py`'s
-`test_exact_id_refusal_runs_before_custom_class_check_on_every_entry` holds
-an upper- and a lower-case variant to the exact-id words at the load, the
-prepared load, both switches and startup, with the custom-class check never
-asked; `test_prompt_encoding.py`
-holds the rows to the installed `pipeline_flux_kontext.py` and, where the
-pinned tokenizers are cached, to their real budgets.
-
-`tests/test_backup_credentials.py` and `tests/test_backup_credential_integration.py`
-check WinCred ABI declarations through API stubs, exact opaque references, bounds,
-redaction/free/cleanup, inactive pending provisioning, no uncertain retry, hidden
-input, independent-password recovery and worker-only lookup after due/nonempty
-admission. A fake provider exports/restores an actual owned encrypted gallery
-without another verifying pass. `tests/conftest.py` blocks the real credential
-factory for every test; only explicit fake overrides may pass. No Windows vault
-entry is read/written/listed/deleted and no OS credential qualification follows.
-
-`smoke-credential.json` uses a fresh FLUX.1 Krea [dev] fake on 7929. Backup API
-responses/saves are intercepted fixtures: explicit protection selection, absent/
-pending/ready credential profiles, fresh encrypted/recovery acknowledgement,
-generation/dirty-draft guards, plaintext transition, disabling and layout. It
-enters no password and reads/writes no real Windows vault entry. OS-API evidence
-comes from stub tests, not this browser fixture.
-
-`tests/test_execution.py` checks frozen/strict named recipes, internal-copy
-validation, canonical empty/key spelling, cold distribution facts and the
-first regional candidate matrix. A matching candidate remains unavailable.
-HTTP, queue and direct backend/fake checks refuse nonempty recipes before
-mask stamping, retained work or model work; explicit run ids do not bypass
-queue admission. Empty execution retains legacy keys/PNG metadata and normalizes only
-through `applied()`, without revalidating a stamped outpaint. These are CPU
-contract checks, not compiler or GPU qualification.
-
-`tests/test_execution_resolver.py` checks composer inheritance versus complete
-replay, explicit Off/channel conflicts, resolution before run/planned identities,
-legacy retained runs, source PNG/CLI intent and stamped-mask-safe narrowing.
-Direct submission subtypes must consume or refuse cache intent before device,
-source, queue or backend effects. These synthetic checks grant no availability.
-
-`tests/test_regional_diagnostics.py` checks immutable per-load observations,
-single first-call tokens, terminal freezing, retirement, competing callers,
-stale updates, model collection and import-cold readers. Pending means no forward
-attempt; returned is not a warm-kernel, cache-hit or qualification result.
-
-`tests/test_api_execution_diagnostics.py` checks fixed diagnostic serialization,
-default/unpublished/retired absence, a fresh read after awaited descriptions,
-catalogue selection changes and same-checkpoint reloads. Draft catalogue options
-never label a per-model detail with the active load's observation; routes start
-no model load.
-
-`tests/test_job_execution_diagnostics.py` checks active first-call observations,
-terminal snapshot freezing, reader retirement/replacement and weight-free
-lifetimes. Diagnostic observations stay outside retained job definitions and
-reproduction identities; optional readers never change generation outcomes.
-
-`tests/test_execution_diagnostics_ui.py` exercises the page's fixed scalar
-captions and load/job lifecycle using Node VM with inert DOM/EventSource stubs.
-It checks progress counters, terminal observations and stale-detail clearing.
-These source contracts do not boot a page or qualify browser layout/accessibility;
-the actual browser denial and incomplete UI validation remain in the tooling plan.
-
-`tests/test_execution_candidates.py` checks the initial cuDNN/FBC candidate
-matrices, combinations, copied-spec validation, external override refusals and
-FBC guidance/cache exclusions. An isolated subprocess forbids framework/config
-imports and metadata/environment reads by the validators, proves the environment
-unchanged and confirms matching recipes remain unavailable to execute.
-
-`tests/test_execution_storage.py`, `tests/test_execution_bundles.py` and
-`tests/test_execution_replay.py` cover the nullable recipe migration and
-canonical codecs, legacy hash fixtures including mixed-size/crop/comparison
-runs, distinct recipe keys, stored/PNG/bundle/reindex carry and unavailable
-rerun/PNG/CLI/retained recovery. Known recorded recipes confer no permission
-to execute; invalid or contradictory metadata is refused rather than dropped.
-`tests/test_regional_compile.py` checks discovery, exact arguments, failed
-candidate disposal, precompiled root/region refusal and idempotent reference
-cleanup with stubs. Installed `ConfigModule.patch` over synthetic flags
-checks nested/thread restoration. Real Flux/Dynamo imports, compiler calls,
-fallback and device behavior remain unexecuted.
-`tests/test_pipeline_ownership.py` exercises the actual eager loader over strict
-synthetic runtime modules, unpublished override/pipeline failure at context entry
-and exit, publication order, registration transfer and shared unload behavior.
-Weak-reference assertions outside exception handling prove application containers
-drop ownership before release; arbitrary library traceback references and actual
-GPU reclamation are separate. An isolated subprocess forbids framework imports
-while checking private loaded-recipe refusal before work.
-`tests/test_regional_backend.py` exercises the actual private preparation and
-invocation paths with synthetic runtime modules, pipeline and regions. It checks
-cold preflight before weights/imports, registration/publication failure ownership,
-strict-policy restoration for success/error/cancellation, fixed handle/facts and
-unchanged eager direct/refine semantics. Public nonempty execution stays refused;
-no real compiler, model, device or toolchain qualification follows.
-`tests/test_compiler_cache.py` checks pure runtime/gallery namespacing, the owned
-startup window, environment and path ownership, handle-owned scratch probes,
-partial/uncertain initialization and later binding drift. It imports no real
-compiler or model; directory usability is not toolchain or performance evidence.
-`tests/test_model_switch_execution.py` checks typed switch recipes, direct/copied
-internal bypasses and fixed refusal before Hub, save, unload, selection or preload
-effects. Empty/legacy Eager switches and stale revision guards remain covered.
-`tests/test_api_model_readiness.py` checks truthful ready/unloaded presentation,
-read-only GET, explicit and same-checkpoint reload without a preceding poll,
-concurrent load coalescing, held loading and preserved error/retry behavior with
-fake pipelines. This does not establish public FBC reachability or card behavior.
-`tests/test_execution_selection_admission.py` checks pure configuration limits,
-invalid/selected startup intent, omitted versus explicit Eager requests and closed
-queue/backend/HTTP admission before side effects. Portable normalization/codecs
-remain independent of current selection. CLI cases additionally refuse unavailable
-flags/environment before source or project reads and preserve explicit Eager intent.
-`tests/test_model_selection_performance.py` and `tests/test_loader_startup.py`
-check unavailable configuration saves, structural refusals, omission/clear,
-execution-only revisions, exact invalid-file rollback, frozen descriptor snapshots,
-v1/v2 startup compatibility/precedence and fail-closed invalid intent. None grants
-runtime permission; saved preload cannot bypass the load guard.
-
 `tests/test_browser_diagnostics.py` uses a synthetic no-pid child stream to verify
 opt-in failure-only stderr diagnostics and a bounded tail. It opens no browser,
 socket or native cleanup process. Real browser/profile checks are separate.
-
-`smoke-execution-selector.json` uses a fresh FLUX.1 Krea [dev] fake on 7930.
-It checks inspectable configuration, honest unavailable status and held Load/render
-actions, structural conflicts, saved and unsaved recipes across polling/reload,
-explicit Eager recovery and per-render cache persistence/Reuse/Reset/Undo. The
-Performance disclosure is collapsed at Eager/Native, opens for a saved, invalid
-or (stubbed) admitted choice while hidden or as the picker opens, and a refresh
-with the picker open neither opens it nor moves the table; a failed opening
-catalogue ends the opening, so its later retry cannot open it. Nonempty
-record Reuse stays refused. Only an ordinary Eager fixture may generate; no compiler,
-model download, non-Eager execution or performance/quality acceptance is established.
-`tests/test_attention_selection.py` checks coverage, transactional failures,
-shared ownership, later replacements and idempotent restoration with stubs.
-It also executes source-extracted installed public context/setter bodies.
-Its focused run uses `--noconftest`, with no actual Diffusers import, tensor,
-forward or device probe; real runtime/card qualification remains separate.
-`tests/test_attention_environment.py` retains the cold warning/source checks:
-exact startup snapshots, fixed redaction, CLI logging, unchanged selection and
-status reads that do not reread environment or import a framework.
-`tests/test_attention_policy.py` checks the experimental Native baseline using
-synthetic modules: startup/current/frozen observations, exact registry function,
-redaction, drift refusal and policy-independent restoration/cleanup. It proves
-no Native/cuDNN kernel, device fit, pixels, speed or repeatability.
-`tests/test_attention_backend.py` checks actual private preparation/publication/
-unload/invocation with synthetic runtime modules, exact ownership and closed
-public guards. It covers primary error/cancellation plus post-forward ownership
-failure, cleanup outside locks, terminal weak exclusions, GC/identity-reuse
-safety and fresh-root recovery. No real dispatcher or card behavior is established.
-`tests/test_fbc_backend.py` checks private preparation, one-forward ownership and
-deferred disposal with synthetic dependencies: hook-free load, effective Native,
-partial cleanup/foreign hooks, primary errors/cancel, scope/lock order, pending
-not-ready state, stale callbacks and public refusals. No real model/GPU runs.
-`tests/test_fbc_request.py` checks request-driven On/Off/On over one synthetic
-Eager load, fresh ownership, explicit Off versus legacy private omission, loader
-equality, unsupported request/call refusals and deferred unsafe disposal. It
-preserves generator/callback/sigma scope behavior and every public admission guard;
-it does not qualify FBC arithmetic, model/device behavior, quality or performance.
-File-based readers use `metadata.require_header_metadata` to refuse app-owned
-text after PNG pixel data, which Pillow's header-only `info` would miss.
-The scan skips payloads, reads at most 80 bytes per text keyword and restores
-the stream position; it adds no pixel decode. Browser-provided text chunks
-already include the complete parsed record and need no file-position scan.
-
-`tests/test_backup_policy.py` checks pure default-off backup decisions with
-explicit age, retention and protection. It covers UTC age boundaries and
-repeated-hour ordering, unavailable or untrusted copies, exact scope,
-conflicting identities, new-success retention and download leases. These
-checks perform no archive I/O and confer no deletion or activation authority.
-`tests/test_backup_preferences.py` checks the sidecar's name: one per
-database name in a directory, and a pre-rename file used in place. The shared
-10,000-copy validation ceiling is an engineering limit, not a selected
-retention policy; the policy module is not connected to startup.
-`tests/test_backup_activation_settings.py` and `tests/test_api_automatic_backup.py`
-cover explicit v2 activation, inactive legacy
-policies, stable gallery/destination namespaces and scratch startup/configuration
-integration. Status stays available during maintenance, configuration reserves
-before writing, and preload waits for the admitted attempt. No OS credentials or
-retention deletion are exercised.
-`tests/test_backup_receipts.py` and `tests/test_bundles_managed.py` check
-strict bounded ownership journals, portable names, exact outer-byte proofs,
-plain/encrypted scratch restore and single verifying reads. They inject
-publication/journal failures and partial replacements before verification
-and after claim, preserving unowned files and prior successful copies.
-No real gallery, credential store, startup or pruning is exercised.
-`tests/test_bundle_leases.py` checks canonical path sharing, reader/exclusive
-exclusion and complete FileResponse lifetime, including range/HEAD/error/
-cancel/background behavior and disabled pathsend without scope mutation.
-
-`tests/test_bundle_mode.py` and `tests/test_api_bundle_mode.py` cover explicit
-destination-mode installation and discovery, default non-writing downloads,
-installed-mode failures and ASGI response admission across local cutover. Native
-checks use owned Windows scratch processes, never unknown server inventory.
-`tools/install_bundle_mode.py` is the explicit offline installation entry point;
-other-server quiescence is operator-attested, not machine-verified. Neither the
-marker nor the tool enables retention or turns a v2 saved N into deletion consent.
-
-`tests/test_bundle_consumers_leases.py` covers public encrypted-reader/header
-lifetime, saved-import reservation order and complete merge lifetime, listings,
-receipt hashes, wrong scopes and separate private upload/export partials. Owned
-Windows child processes exercise native exclusion across databases; injected
-uncertain file closes preserve primary failures and the original reader claim
-even after pathname retargeting. These are scratch tests, not retention acceptance.
-
-`tests/test_bundle_delete.py` exercises the Windows same-handle
-deletion mechanism on owned scratch files, required installed-mode exclusion,
-receipt scope/identity/raw-byte refusals and single-use mutation. Injected
-mark/close failures check original-key quarantine and honest post-mark outcomes.
-No test operates on a real gallery destination.
-
-`tests/test_backup_retention.py` and `tests/test_backup_retention_journal.py`
-exercise v3 consent, unchanged v2 behavior, pending/retired transitions, current-N
-protection, leased excess, retired-operation retry and caps. Owned Windows scratch
-lifecycle cases actually export, mark/close and retire copies with unchanged gallery
-bytes. Injected failures check pending/unknown state, complete-close restoration,
-no pruning after failed/empty/skipped/unmanaged exports and preserved success/time.
-
-`smoke-execution-reuse.json` uses a fresh FLUX.1 Krea [dev] fake on 7926.
-Browser fixtures add execution recipes to a synthetic eager record, checking
-held Reuse buttons, status refresh, lightbox reason without dismissal,
-direct panel/pass/inpaint/outpaint refusal before source reads and unchanged
-composer/scroll. Legacy empty recipes retain Reuse and Undo. It runs no
-non-default recipe and establishes no compiler or GPU behavior.
-
-`smoke-automatic-backup.json` uses a fresh FLUX.1 Krea [dev] fake on 7927.
-It checks the section hidden by default (one cached-status read per opening,
-none on polls), shown by `?automatic-backup` and, once settings are saved,
-without it; then explicit plaintext consent and settings validation, stale revisions,
-dirty edits and reload, fixed startup-outcome presentation, manual-field
-preservation, disabling and narrow layout. It configures scratch settings only:
-no server restart, automatic export, real gallery or credential store is used.
-
-`smoke-retention.json` uses a fresh FLUX.1 Krea [dev] fake on 7928. All backup
-API responses/saves are intercepted synthetic data: inert old N, missing/stale
-mode, fresh separate deletion consent, dirty drafts, marked/unknown wording,
-pending while off and disabling without destination access. Desktop/narrow
-screenshots check containment and stationary Save. No policy, shared-mode install,
-restart, export or deletion is executed; native lifecycle evidence is CPU scratch.
-
-`tests/test_grid_preview_close.py` loads the actual declaration-only
-`sizes.js` and `grid-preview.js` in a Node VM and captures the exact boot
-toggle registration without page boot. Deferred API responses exercise close,
-repeated close, reopen/current ownership, existing model/blank-prompt holds
-and real CFG/negative presentation on inert DOM ports. It does not qualify
-native events, focus, layout or actual requests. The separate focused smoke
-supplies specific UI and fake-request evidence; neither qualifies model pixels.
 
 `tests/test_classic_scripts.py` invokes `tools/check_classic_scripts.py`
 and its Node helper to parse every local classic script in HTML order,
@@ -9123,12 +9733,647 @@ dialog takes the three steps and joins `WATCHED`. The audit reads markup
 only: it is a regression guard, and passing it is no part of `UI#7`'s
 hands-on screen-reader checks.
 
-`tests/test_fbc_runtime.py` exercises installed FBC hooks and arithmetic on tiny
-CPU blocks in an isolated worker. Only the unrelated optional bitsandbytes backend
-is modeled as absent; a discoverable poison package verifies that boundary.
-Compiler, device and network counters stay zero across imports and all arithmetic,
-context, freshness, cancellation and cleanup cases. This is no real-model or card
-qualification.
+### Browser checks, the fake server's knobs and the first checkpoint smokes
+
+There is no JavaScript test suite. `web/` is checked in a real browser
+instead: `uv run python tools/fake_server.py` serves the app on 7861 on the
+tests' fake backend (gradient images stamped with seed and steps, a throwaway
+gallery under the system temp dir, `--step 0.3` to make pause and queueing
+observable; a cell whose prompt holds `[fail]` fails,
+`POST /api/fake/load` (`{seconds, fail: "gated", hold}`) makes the loads after it
+slow, held after their seconds until the next call (30 s at most) or gated, `POST /api/fake/step` (`{seconds}`, answering the pace it
+replaced) slows the jobs after it, for a step that needs a job to outlast its
+own round trips - a cancel, a stream attaching - and `POST /api/fake/expand`
+(`{seconds, fail, hold, fresh}`) does one of four things to ERNIE's Expand
+on the server: slows it, holds it until the next call (30 s at most), makes
+it fail with a RuntimeError of that message, or puts the rewriter and
+translator back off disk so a first use shows again on a server already
+used; `POST /api/fake/lora` (`{name, present}`) moves an adapter out of the
+fake's directory and back, as a rename by hand would; `POST
+/api/fake/bin-age` (`{ids, days}`) backdates binned rows' `binned_at` by
+`days` for Empty's age scope, leaving live rows live; `POST
+/api/fake/refine` (`{supported}`, answering what it replaced) takes the
+claimed checkpoint's refine pass away and gives it back, as a loaded
+pipeline with no image-to-image sibling answers; `POST /api/fake/unreachable`
+(`{on}`) holds every request but the knobs unanswered while on (two
+minutes at most, released when it goes off), as a PC asleep on Wi-Fi; `POST
+/api/fake/disk-full` (`{on}`) makes every image save raise `ENOSPC` while
+on, as a disk with no room; `POST /api/fake/bundle` (`{hold}`) makes each
+bundle export, backup or import worker wait while on (two minutes at
+most) before its real work, so `GalleryAdmission` refuses every counted
+route meanwhile; the `/api/fake/` knobs pass that admission, so `{hold:
+false}` lets the operation finish (`smoke-gallery-maintenance`); `POST /api/fake/passcode` (`{passcode}`: a
+string turns the passcode's gate on with it, a new one ending every
+session, null turns it off; `{reset: true}` clears the limiter; it
+answers `{on}`, never the value, and a fake starts with no gate whatever
+the environment holds); `POST /api/fake/activity` (`{reset}`) answers every
+request but the knobs since the last reset as `{requests: [{request,
+counted}], counted}`, `counted` by `keep_awake.scope_counts_as_activity`,
+the real middleware's rule with its poll marker read, since the fake runs
+with keep-awake off (`smoke-idle-activity`); the fake's rewriter and translator count as downloaded from their
+first use), and `node tools/browser.mjs tools/smoke.json` drives headless
+Edge or Chrome over the DevTools protocol with Node's own WebSocket - no npm
+install - through the lightbox zoom and the focus its close leaves on the
+walked-to card, the sheet, the export, the sheet's declared variable order
+(under Starred too), a sparse comparison's rows, the re-render button, the
+panel's persistence (a write merged over another tab's, an empty store
+taking the whole panel) and the duplicate/distinct counts, plain CFG labels
+on Turbo, and Turbo's woken negative caption and its grid examples (6,8,10
+/ 0,0.5,1, Mu none,1.15), exiting 1 on a failed `expect` - one that
+throws, or whose promise rejects, included - or on a DevTools call the
+browser leaves unanswered for five minutes, or a connection it closes with
+one pending, printing the step it was on, and 2 on a script it refuses
+before starting - among them an
+`expect` joining an async helper (`__until`, or a `window.__x = async` the
+file defines) to more with && or ||, which is never awaited: the whole
+condition goes inside the predicate. A smoke waits for what its next
+`expect` needs rather than sleeping a fixed time before it (`DEV#58`):
+`smoke`, `smoke-analysis`, `smoke-animagine`, `smoke-lightbox` and
+`smoke-wide` define `window.__when(fn, ms = 10000)` after each `navigate`,
+which polls `fn` every 50 ms (an exception, such as a chip not drawn yet,
+reads as not yet) and once more at its end, so a condition that never holds
+still says why. A check that a request settled names how it ends, not only
+what it shows: Check's `aria-busy` is gone, the critic is no longer
+`critiquing`, the gallery has no `galleryPending`, the chips' `tagSlots`
+are this prompt's, the page has stopped scrolling. Otherwise a check could
+pass on the answer before. A timer is waited out on its own clock, as
+`performance.now() - lbArrowPress > 600` is for the lightbox's 500 ms
+`lbAfterArrow`. Before an `expect`, a fixed `wait` stays only where the
+check is of an absence: nothing happened in that time, like a double-click's
+second press that neither zooms nor closes, or a Batch that leaves the
+comparison's count alone. Such a step carries a `why` saying so (the driver
+reads only `wait`), and
+`test_converted_smokes_poll_their_expects_instead_of_sleeping`
+(`tests/test_run_smoke.py`) holds these files to it. Waits before an action
+(a click, a key) and the remaining smokes are later phases of `DEV#58`. Each
+run's browser profile, under the
+system temp directory, is removed on every way out - the steps' end, a
+failure, a throw, Ctrl-C or SIGTERM - once the browser's whole process tree
+has stopped. The browser gets 10 s to close itself before its tree is killed,
+and removal retries against a deadline of its own (Node's `rmSync` retries
+skip Windows' EPERM). On Windows, where with every core busy dying
+low-priority children held files for over a minute, a failed first removal
+waits up to a minute for every process whose command line names this run's
+own profile - never another browser - raising each to High priority and
+stopping it, then retries for 10 s. One a killed run left behind is swept by
+a later run after six hours (`tests/test_browser_profile.py`, skipped
+without Node and a browser).
+A `hover`, `click` or `dblclick` step takes a
+CSS selector in place of a point, aiming at the middle of that element's box
+as it is then. It opens the page at 1400x900,
+where the smokes are written: `AURADREAM_VIEWPORT=2560x1305` (a
+maximized QHD browser) and `AURADREAM_DPR=1.25` (with 2048x1040, the
+same screen at 125% scaling) move it, a `viewport` step resizes it mid-run,
+a `media` step emulates media features (`{"media":
+{"prefers-reduced-motion": "reduce"}}`; "" drops one's override), and
+`AURADREAM_PORT_OFFSET=N` adds N to every `127.0.0.1:<port>` in
+the steps, so a second checkout can run the same smokes against fake
+servers of its own. `smoke-conditioning.json` runs
+against a klein-claiming fake on 7864 for the negative field as its caption
+alone, the viewer result's ❐ (live, pressed once its image is a reference),
+the reference chips (numbered and
+named by gallery id, reordered by Alt+Arrow and by a drag, dropped by Delete
+with focus kept in the field, the last one's × clicked leaving the emptied
+row focused and the tip closed, a deleted image's chip marked), a deleted
+reference leaving the chips (and named in the note after the bin), Reuse dropping a
+reference the server no longer has, a reference deleted while a Reuse can be
+undone staying out after the Undo, a reference deleted or binned in another
+tab and an adapter moved out of the directory (`/api/fake/lora`) each
+taken out by the Generate they refuse, in the page's words, the next one
+running without it, a fifth reference refused under the
+gallery (the other cards' ❐ aria-disabled at four, the card note's gist
+"Four is the most"), the card's ❐ as a toggle named "Reference image" with
+its number in `aria-description` (the card ringed, numbered and pressed, its
+"Added as image 1" / "Removed" status, a sheet cell marked as a reference),
+the card's and the viewer result's ⤢ aria-disabled with the reason, their
+refusal in `#gallery-error` and over the tile, nothing opened, the
+lightbox's description reading `ref #N` and its References row (numbered as
+the panel's chip, opening it with the result after it, and Use these
+references, which leaves a binned reference out with a note - its slot
+reading "in the bin" - and goes dead with the reason on a checkpoint without references), the adapter select and
+its tip, a weight sweep (its preview naming the adapter), the prompt
+check going stale when the references change (chips, a reorder, Reuse),
+the references finding's "image N" links focusing and flashing that chip
+("not attached" past the last, taken back by a press that finds its chip,
+another sentence in the slot left alone), a gone chip kept while the server
+does not answer and dropped on its "unknown image", a reference deleted in
+another tab dropped by the Generate it refuses, and one remembered across a
+reload, and the distilled klein's grid examples (steps 3,4,5, no CFG sweep);
+`smoke-flux.json` runs against a second fake server
+claiming FLUX.1 (`--port 7862 --model black-forest-labs/FLUX.1-Krea-dev`)
+for the True CFG box, the "CFG (distilled)" labels, with the sampling row's
+names whole, Mu's auto unclipped and each of the row's ? tips wrapping
+inside its box and the window, the lightbox's Sampling ("True CFG 1.5 · no
+Mu") and Negative rows, an Example's Undo note in the panel's flow while
+the negative is greyed and over its caption while it is live, the size
+line's exact 1.64 MP bound, a typed side off the 16 grid named there with
+its neighbours and refused at Generate in the same words, the hello-world
+Example's note, a Seed past 2^53 - 1 refused with no request sent, and a
+whitespace-only negative under a live True CFG box sent as `" "` (the
+request spied, the row's True CFG 1.5, the lightbox's Negative "a single
+space", the caption "(~2× slower; one space counts)" on one line),
+while an empty or greyed box sends none, and
+`smoke-preview.json` against one slowed to `--step 0.3` on 7863 for the live
+preview, the tab's title and the topbar line during the job, and the
+finished title and the finish line's seed after it. `smoke-ernie.json` runs
+against an ERNIE-claiming fake on 7865 for the explicit prompt expansion
+flow: Expand aria-disabled with its reason and focus kept, "Expand…"
+keeping the caption on one line, and a press while it runs saying what the
+result will do (written in, held, dropped); the first-use download and the
+model's load named under the prompt with a clock, and the page's own status
+requests (250 ms after the press, and at the end) counted by a spy; the
+note's Undo and Ctrl+Z, and an Example over typed text; an expansion typed
+over held (Use it, Discard), with the running line and the held note in the
+panel's flow above a live negative; a Reset and a Reuse during one keeping
+their Undo; a failure said as Expand's with the English kept, and said
+under the prompt beside a Reuse's Undo, an Example's Undo or a held
+expansion the running line took offered again; a size, and a prompt past
+4000 characters, refused at its box; a gated load's pointer to the card,
+and its sentence once beside images; the hold during a job, and Generate's
+and Run grid's titles while Expand holds them (the request held on a
+promise the smoke releases); Expand held aria-disabled with the reason by
+another tab's paused job, keeping focus, a press saying why until the job
+ends; the English in the panel at 1400x900, at the head of the results with
+its note and Generate in the window at 2048x1040@1.25, and beside the
+docked check at 2560x1305; Baidu's seven sizes (the seven framings marked,
+12:5 named, a typed 768x1376 recognised, 1008x1008 not one of the sizes,
+and 1400x800 and 784x1360 read by the nearest framing, 7:4 and 4:7, the
+1400 also named off the 16 grid); and
+the check's character counts and tag-list note on a fullwidth-comma and a
+one-per-line list; Expand pressed during this page's job under a Reuse's
+Undo, said under the prompt with the Undo kept, and the critic's press then
+a muted note gone at the job's end; and an Expand waiting behind another
+tab's (a request held on the server, `card_holder` "expand") leading its
+running line with the wait for the card. The fake takes the claimed profile's threshold, true-CFG
+flag and `mu_supported` (a Mu dropped from the row where the schedule takes
+none), its model id's prompt-expansion capability, and
+`loading.lora_refusal` for the id (Anima Turbo/Aesthetic and NewBie refuse adapters,
+422 at submit), so it behaves as the real one would.
+`smoke-animagine.json` runs against an Animagine-claiming fake on 7866 for its
+tag guide, deterministic autocomplete/validation, CFG 5 default, recommended
+aspects, orientation switch and disabled non-flow Mu controls, the chips past
+the CLIP cut, the token count and "cut unknown", the offline state, Tab under
+three characters, keyboard focus after Alt+Arrow and Delete, the 64-item
+lookup cap, and the prompt
+check on a tag checkpoint: a tag out of the documented order, Use reordered,
+the critic's reorder set aside where Check placed every tag and found
+nothing to move, the critic's reorder kept, and titled, as Check's own order
+where it is one (`reordered_kind` "check"), a 70-tag prompt's order shown as
+partly checked (the 64-tag lookup cap) with the critic's reorder kept where
+the order rule finds nothing wrong with it (`reordered_kind` "allowed") and
+set aside, in the rule's words, where it flags one, a tag the fake index
+does not know (`zzkx oc`) after a general tag and a prose prompt shown as
+partly checked with the items named (the first with the critic's reorder
+kept as "allowed"), the same tag ahead of the general tag, alone, and a
+one-clause prose prompt shown as checked (the first with the critic's
+reorder set aside), "Partly checked" following `order_detail` and never `categories_detail`
+alone, Anima's artist-check notes (no tag checked, not every tag), the
+chips' order steps matching Check's order finding and Use reordered, a
+guide tag past the 64 keeping its step, the recommended-negative Apply going
+dead once the negative box is edited, a negative-prompt finding's Show,
+held with the reason while CFG greys the box, saying why when pressed, and
+waking with it, the order finding's Show beside "Same as Use reordered
+above." with no Apply, a typed 1232x832 not one of the recommended sizes,
+the 0.98 MP floor as written, the live negative's caption, the dead grid Mu
+axis quoting the Mu tip beside the live LoRA weight axis, and the grid
+examples 21,28,35 / 4,5,6.
+`smoke-tags.json` uses an Animagine-claiming fake on 7878 for the chips'
+verdict cache, typing state and live summary, an accepted suggestion's undo,
+the negative box's own list (`field=negative`, the prompt's list closed, no
+Find tag row, Tab on the preselected item one Ctrl+Z from what was typed,
+Escape closing the list alone, closed and unfocusable while CFG greys the
+box, the field and Generate unmoved with it open), the Grid's Prompt
+variables box's own list (under the box, the value after `|` asked about,
+Enter on the preselected item replacing the value and one Ctrl+Z from what
+was typed, a value's second comma item, Escape closing the list alone,
+nothing asked for the name, `none` or a line with no `=`, a blur closing
+it with the box unmoved),
+a qualified suggestion written with bare parentheses (an escaped copy typed
+by hand valid with no "canonical:" note, an underscored one noted and
+marked repeated),
+category edges, repeats and the focus ring on one, the shared tip and the
+after-cutoff mark, + tag, gap hover (waited for, as a late tray render
+redraws it) and click (none on the label or hint),
+the Tags helper under the prompt and whole, its order line (the server's
+steps, the cite as title), the caret line naming the steps that fit from
+the chip slots and their marks, a lone tag's step (1girl clicked into an
+empty prompt: "Person count through Quality"), the no-placement lines for
+an unknown tag and a line-broken list, the group headings' steps, Escape closing the suggestions
+before the helper, and the open prompt check after both, the Examples
+menu's keyboard (ArrowDown, Enter), its Undo note (on its own line at
+800 px), the needs-a-reference note, the file-drop guard, the singular
+summary ("1 prompt tag", checked and offline), a chip editor's
+aria-activedescendant and option ids, the suggestion lists' and the
+Examples menu's names, a held panel not moving for chip edits at
+1400x900, Escape in a lightbox opened from the keyboard over a Tags helper
+left open going to the lightbox (focus on the walked-to card, the helper
+kept until the next Escape), and each chip's order step from the server:
+caption, title, label and the tray's legend; none for an unknown tag, an @
+name or lettering; kept on its tag across a move while the answer is held;
+none where a line break stands the order down; every chip one line at
+1400x900; and a grid `{hair}` drawn as the grid's chip (no verdict, no
+step, "1 grid variable" in the summary, not among its prompt tags), its
+declared values asked beside the chips and named in its tip with their
+verdicts, and the tip saying
+nothing fills it once the fold is shut.
+`smoke-illustrious.json` uses an Illustrious-claiming fake on 7867 for hybrid
+prompting, the native 1-2.25 MP size range, 4 MP warning against the 2.25
+MP bound and disabled Mu.
+`smoke-z-anime.json` uses a Z-Anime-claiming fake on 7868 for Base defaults,
+natural-language prompting, negative guidance, enabled Mu, the documented
+4 MP ceiling, the complete scene example and two templates' fill-in notes and slot selection,
+the missing-negative note and a whole-item slot reported once; the fixed
+shift's 1.79 in the Mu box, the grid preview and a Mu sweep's sheet (none
+sorted between 1 and 2.5, just ahead of an explicit 1.79, in the Fixed line
+and the export's file name), the profile's grid examples, the negative's
+live, greyed and grid captions each on one line, and the 0.26 MP floor;
+and the Refine dialog: the author's 1024x1536 opening at 1x with why, the
+0.1,0.15,0.25 sweep and no sideways scroll.
+`smoke-paging.json` uses a fresh Krea-claiming fake on 7867 for the gallery
+paging itself on scroll (it builds a 60-image grid, so it holds once per
+gallery). Run it separately from the Illustrious smoke on the same port:
+
+```powershell
+uv run python tools/fake_server.py --port 7867 --fresh
+node tools/browser.mjs tools/smoke-paging.json
+```
+
+### Model switching, status and download smokes
+
+`smoke-model-switch.json` runs a FLUX.1-claiming fake on port 7896, on a
+fresh `--data` (its Tab from the chosen row's link to the startup checkbox
+holds only while FLUX has made no images, so a gallery other smokes or an
+earlier run wrote FLUX images into fails there, saying so), to check
+the Models picker, Escape/focus and held-button reasons, FLUX to Animagine
+and back without a server restart, preserved prompts, per-checkpoint sampling
+through a reload, guide/tag/capability refresh, old analysis retirement,
+gallery scope and saved model metadata. Delayed LoRA and run-list replies
+cannot replace the new checkpoint's data; saved requests are held under a
+different checkpoint and work again after switching back. It also checks a
+switch held during a job, failed target loading and Retry load recovery, and
+topbar/picker fit on narrow, laptop and QHD windows. It also checks cold
+Apply & save, quantization/offload changes, the saved startup checkbox,
+save errors and stable action placement across choices and short viewports.
+For the note it checks the loaded line with nothing boilerplate on opening,
+the checkbox in the footer above the actions, a refusal that goes when its
+reason does, Apply & save's unload title, the unsaved line with Revert
+(through a reopening), an Apply & save outcome kept through its revision,
+load progress, the `startup_overrides` sentence, a failed load and a failed
+switch in place of the outcome, a switch the Hub refuses (gated, then not
+found) saying what to do in the note and the error line with the running
+model still loaded and its revision unchanged, a failed list kept dimmed, and a refused
+switch whose words leave the error line once a later press switches.
+Through a switch's load Generate is not held and Check answers, and a
+Generate pressed while the switch is being sent says so as a note that goes
+once the change ends; another tab's switch names the unsaved choice it
+dropped; Qwen-Image's row and note say its torchao builds are larger than
+the card, and no other row does (the editor's names its one qualified size,
+512×512 only); with an 8 GB card claimed (`POST /api/fake/card`), FLUX.1
+Krea [dev]'s and the editor's rows say "Over 8 GB" on one line, the chosen
+row's note says why, Animagine's says nothing, and with no card again every
+row is as before. The listed editor's row (last, "Instruction editor", Held)
+answers Switch & load with the closed gate's words in the note and the error
+line, FLUX still loaded and selected at the same revision. Chosen, its
+unmeasured quantization and offload options are `aria-disabled` with the
+server's `loader_holds` words as their titles; sequential offload chosen
+holds both actions with those words and a press says them and sends no
+switch; FLUX's row has no holds. `showModelPickerAt` reopens the picker on
+the editor's row, chosen unsaved, focused and in view, switching nothing,
+and Revert puts FLUX back. It ends with
+Animagine loaded, as smoke-model-startup expects.
+For the checkpoint table it checks every catalogue model's row and facts
+(style, refine with its note, size with its label, speed with its sample
+and basis) without choosing any, focus on the chosen radio at the first
+opening and through rebuilds, choosing by radio and by a fact cell, stars that
+toggle in place and group at the next opening, server favourites (a
+refused write kept for the page, another device's star at the next read, an
+older answer ignored, a failed read said, two quick presses of one star
+reaching the server in order behind a delayed first write, the page's first
+set read with Models open leaving the grouping for the next opening; the one-time import offer's Import
+and Don't import, each asked once and keeping the line's height; no stars
+left on the server at its end) and speed references that follow
+draft quantization/offload choices. It also checks the server row's
+Loaded/Loading…/Load failed badge without a row resizing, each row's access
+label and note, radio descriptions holding the notes, muted timings from
+another setup, the Size header and its titles, the Models section name, the
+new-tab link label, the Favourite prefix following the grouping, one row's
+star and link as tab stops (Tab from the radio reaches its link, then the
+startup checkbox) and the sticky heading row, with a focused row scrolled
+in below it. With the bottom loadable row's model loaded (the editor, below
+it, cannot load) it checks that the first and a
+later opening focus its checked radio inside the picker body, the page
+unscrolled; that an unsubmitted offload edit survives another tab's
+checkbox-only save, which still lands; and that a list lacking the chosen
+checkpoint chooses none, then the same one, or its other build, again.
+`smoke-model-gallery.json` uses a fake like it, but one of its own on a
+fresh `--data`, run apart from the other three (smoke-model-switch
+leaves FLUX and Animagine images behind, and it counts exactly: FLUX and
+Animagine empty, the planted pair, then fourteen), for the strip
+of the chosen checkpoint's images: shown while the weights load, FLUX's
+empty line, the planted Krea 2 Turbo pair with count, alt text and
+thumbnails on choosing its row, Animagine's empty line, one request for a
+quick run of choices, a delayed reply that cannot overwrite a newer choice,
+a refused read said in place and retried from a poll, the column beside
+the 898 px table side at 1400x900 at the picker's height, as many of 14
+images as fit whole (four rows of two 150 px pictures, and no fifth would)
+newest first with the whole count, a press on the column's blank space
+leaving the picker open with the focus on its footer, the footer's boxes
+unchanged
+through every state, Tab order (link, On disk, See all, one picture stop, checkbox)
+and arrow keys, the lightbox over the picker from a key and a click with
+focus back on the picture, Reuse closing both, a delete re-counted, See all
+closing the picker into an All models `model:=` gallery, the strip under
+the table at 390x600 (40 px), and at 2560x1305 the column three across at
+the S cards' 6.5vw beside a 1,198 px table side in whole rows, no sideways
+page; then, still open, a resize to 1400x900 dropping the oldest pictures
+without asking and to 1100x800 asking again for the strip's row, and the
+column at 1280x800 (gutter kept) but the strip at 1279. `test_api_gallery.py` covers `?model=` (exact,
+during a switch, under a stale revision, refused during bundle maintenance)
+and `model:=`.
+`smoke-model-startup.json` uses the same fake to check one-time automatic opening
+for an idle unloaded/error server, with the not-loaded or failed-load note
+(led, when unloaded, by the recommendation that Switch & load saves and
+closing does not, gone after an accepted save and from a hand opening; a
+failed load's detail leads in its place; an
+element and a 1400x900 screenshot) and every model's row and facts shown,
+suppression when ready/loading/busy, no reopening after dismissal or later
+Unload, and focus/caret preservation. Through `POST /api/fake/sign-in`
+(`token`, `unsourced`; the fake starts signed in and sourced, never reading
+this machine's token) it checks `GEN#41`: no token on an unsourced FLUX.1
+Krea [dev] preselects Animagine XL 4.0 unsaved, the note saying why after the
+recommendation, the server's selection unchanged (screenshot
+`model-startup-open-suggestion.png`), a token appearing mid-session taking
+the reason away (and its return bringing it back), Revert putting the
+default back, and a later hand click on that row given no reason; a token,
+a sourced start or a save since the start keep the default row. It also
+checks the dismissed first visit followed by a gated Generate: the no-token
+open alternative opens Models unsaved, leaving the server selection, prompt
+and page scroll alone. A token appearing retires its button and returns focus
+to Retry; unrelated failures or an absent suggestion offer no alternative.
+`test_open_model_suggestion.py` covers the shared predicate (presence only,
+the file never opened), the doctor using it, the status field by
+`HF_TOKEN`, `HUGGING_FACE_HUB_TOKEN` (held to huggingface_hub's own
+environment rule) and a temporary token path, every source that keeps the
+default, and the real link: `launch.configure` over a saved default choice,
+`AURADREAM_MODEL_ID` or `--model` makes `main._compute_model_unsourced`
+False, nothing saved True, and `main` computes it after its launcher runs.
+`smoke-model-hover.json` hovers a table row and checks that its hover, every
+row's position and the focus survive status polls, a catalogue reply and
+another device's favourites (read from the server), with only the star's glyph (and, for a server
+change, the current row's badge word) changing. Images made on the loaded
+checkpoint add the gallery timing line to its Speed note and description in
+place, with the hovered row, every row's position and the cell's words
+unchanged. For the
+base-select loader lists it checks that a revision or checkbox-only change
+waits for an open list to close, that keys in an open list leave the prompt
+check open and start no job, and that Escape closes only the list. It covers
+arrow-key drafts, a loader change elsewhere while a radio has the focus, a
+checkpoint changed elsewhere, recovery from an outdated catalogue reply and
+an off-catalogue runtime id requested once with no row chosen. Group by type
+puts the rows under their Style in catalogue order after the favourites,
+without moving the checkbox, the choice or the focus; it is saved, survives
+the next opening, and another tab's change waits for that opening. CPU tests in
+`test_startup_preferences.py`, `test_launch.py`, `test_runtime_settings.py`
+and `test_api_model_switch.py` cover persistence, explicit overrides and the
+saved choice set aside for another model, per-process revisions, loader
+snapshots, metadata, refusal before releasing working weights, a failed
+teardown keeping the running model and saved file, and Switch & load retrying
+the selected model; `test_hub_access.py` covers the access check's sources,
+revisions, refusals and inconclusive answers and the route keeping the
+running model, and the refused sign-in's sentence it shares with a failed
+load (`test_api.py`); `test_server_start.py` covers the busy port (AuraDream
+already there, another program, a listener that never answers) and `--open`
+waiting for the bind on an ephemeral port, with `webbrowser.open` replaced;
+`POST /api/fake/model` sets the fake's `overrides`, a
+`stuck_critic` and an `access` refusal ("gated"/"not_found") for page checks,
+`POST /api/fake/sign-in` a fresh visit's `token` and `unsourced` start, and
+`POST /api/fake/card` (`{total_memory, capability}`, empty for none) the card
+`card_facts` answers, unknown until a smoke claims one;
+`test_model_benchmarks.py` covers speed categories, exact sample matching and
+no category for an unmatched setup or a first run on a busy PC;
+`test_gallery_timing.py` covers the picker's gallery timing (refine, edit,
+non-Eager and other-quantization rows left out, the most-used size then step
+count, the median and its count, the latest rows only, nothing for an empty
+history or a missing database, a reserved gallery refused after the short
+wait) and `test_api_model_catalogue.py` the field per model with the speed facts
+unchanged and a reserved gallery leaving it out without stalling the reply; `test_model_info.py` covers compact facts
+for every catalogue entry (`test_capabilities.py` the capability flags: each held to its own source over the
+catalogue, a Nunchaku build differing only in LoRA, the note's words, and docs/usage.md's generated table and
+its tool; `smoke-model-hover` and `smoke-model-switch` the note in the Refine cell's title and the radio's
+description; a usage.md-only change does not run it, `test_ci_changes.py`'s one named exception until
+`_TESTED_PROSE` names the file), favourite ids shared by Lite/Nunchaku variants,
+access, Qwen-Image's fit (`test_card_fit.py` the card-sized badge), size labels that never claim an unsourced maximum and the shared
+loader descriptions:
+
+```powershell
+uv run python tools/fake_server.py --port 7896 --model black-forest-labs/FLUX.1-Krea-dev --data <new-scratch-directory>
+node tools/browser.mjs tools/smoke-model-switch.json
+node tools/browser.mjs tools/smoke-model-startup.json
+node tools/browser.mjs tools/smoke-model-hover.json
+# stop that fake; smoke-model-gallery needs one of its own on another new directory
+uv run python tools/fake_server.py --port 7896 --model black-forest-labs/FLUX.1-Krea-dev --data <new-scratch-directory>
+node tools/browser.mjs tools/smoke-model-gallery.json
+```
+
+`smoke-download-progress.json` uses a fresh FLUX fake on shared port 7959.
+It presents explicit retained status samples without loading: known and
+unknown totals, the load clock, cache-drive space warning, cached loading,
+viewer/topbar/Models consistency, silent visual counters and idle release.
+Its narrow view checks horizontal bounds; byte counters are approximate
+local cache tallies, never a network-speed or card measurement.
+
+`smoke-model-storage.json` uses its own fresh FLUX fake on shared port 7959,
+whose inventory reads the scratch Hub cache `tools/fake_server.py` plants
+under its data (a few bytes of Animagine XL 4.0's selected files, an
+unlisted repository, a partial download), never the machine's. It checks
+that Models > On disk is shut and empty with no read at the page's start or
+the picker's opening, reads once as it opens with nothing above it moving,
+names the catalogue row, the other repository, the partial download and the
+read-only/unreferenced words, holds no control but Refresh (no delete),
+reads nothing on a second opening or a picker reopening, reads again on
+Refresh, says a refused read's words, and on an iPhone-sized touch screen is
+a 48 px fold row whose open contents fit the sheet with no control under
+44 px (`__phoneAudit`).
+
+`smoke-catalogue-stale.json` uses a fresh FLUX.1 Krea [dev] fake on 7959:
+a Models catalogue reply asked for the runtime loader is held while the
+server saves the edited one and a status brings it (the catalogue already
+of that kind, so the status asks for none). Landing, the reply is dropped
+and the runtime asked for again (`refreshModelCatalogue`'s
+`modelRuntimeIdentity` check): the picker stays pending, so Switch stays
+held, and never shows the old loader. Before, it put the old one back and
+a Switch & load pressed before the next poll loaded it. A second case holds
+a performance draft's request (`current: false`, its unedited loader the
+runtime's) while the server saves away and back: dropped the same way.
+
+`smoke-idle-activity.json` uses its own fresh FLUX.1 Krea [dev] fake on
+7958, a row beside `smoke-offline`'s and `smoke-passcode`'s, and reads
+`/api/fake/activity`: the page load and its first reads are counted as
+use, then an idle page keeps each polling surface open in turn with
+nothing pressed and none of its requests counted - the bundles dialog
+with automatic backup shown (7 s), Models with its pictures strip and its
+cache facts failing after the server answered (12 s, each asking again on
+the status poll), and Models with its catalogue failing (15 s, the 10 s
+retry) - each window's record holding the timed reads it names. The
+catalogue asked again by hand is counted. Then, with the Grid section
+open and a prompt, an Unload stands in for idle release's: the status
+poll's grid preview is sent and only the Unload is counted, while an
+edit's preview after it is. Without the poll marker the strip, facts and
+catalogue retries and the unload's preview are counted (`GEN#67`, checked
+by reverting it). The real keep-awake controller and idle release are the
+unit tests'; the fake runs with keep-awake off.
+
+### More checkpoint smokes
+
+`smoke-anima.json` checks Anima Turbo defaults, its documented size range,
+disabled Mu, applied saved settings, the artist check on the card's
+tags-then-sentences shape (Apply, and two artists named together; the fake
+index knows kantoku and wlop as artists) and the rewrite's artist check, the
+card's tag order (the finding in the card's steps, Use reordered moving
+tags round a sentence that keeps its place, the @ name's Artist chip slot),
+the Tags menu (its order line and sections, Start with written ahead of a
+prose prompt, held once complete with its reason said on a press, undone
+by Ctrl+Z, no `safe` beside `nsfw`, the empty prompt's caret line), a
+FLUX.1 pass reused there (the final no-pass line, its strength said as
+FLUX.1's and 0.4 as the general starting strength), the refused adapter
+(greyed select with the reason, a 422 at submit, no LoRA on the row), the
+grid's dead Mu and LoRA weight axes with their reasons and their syntax
+back when they apply, a Reuse writing no Mu into the dead box nor sending
+one, a Mu dropped from the row, the two-sentence Example passing Check, the
+1, 1.5 and 2 MP tiers marked, the 0.26-2.36 MP bounds as written, and the
+grid's 1,2,3 CFG example, on port 7869:
+
+```powershell
+uv run python tools/fake_server.py --port 7869 --model circlestone-labs/Anima
+node tools/browser.mjs tools/smoke-anima.json
+```
+
+`smoke-anima-aesthetic.json` checks Aesthetic's label, 30-step/CFG-4 defaults,
+its own prompt advice and Example, its Tags menu (the family's order, no
+score tags, no Start with) and the card's order checked with a score tag
+placed though not offered, active negative prompt, unsupported
+controls, saved variant identity and final no-Refine answer on port 7895:
+
+```powershell
+uv run python tools/fake_server.py --port 7895 --model circlestone-labs/Anima@aesthetic-v1.1
+node tools/browser.mjs tools/smoke-anima-aesthetic.json
+```
+
+`smoke-anima-preview.json` checks Preview v1's name and public identity,
+30-step/CFG-4 defaults, picker row and source/download/size facts, preview
+guide and size caveat, score-free Tags menu with inherited parent order as
+information,
+its two encoder budgets, unchecked tag order, negative-prompt activation,
+unsupported-input refusals and applied saved settings on port 7911, using a
+fresh scratch gallery:
+
+```powershell
+uv run python tools/fake_server.py --port 7911 --model Gazingstars123/Anima-2.9B --data <scratch-directory>
+node tools/browser.mjs tools/smoke-anima-preview.json
+```
+
+`smoke-flux3.json` checks FLUX 3 [Klein]'s name and public identity, its and
+Klein Base's picker rows (example size, licence click-through, a ~20.3 GB
+download reference, the note that only 1024×1024 is measured), the distilled 16-step/CFG-1 defaults with the Mu
+placeholder at the fixed shift (1.94), the ignored-CFG, steps and Mu tips,
+references on and negative prompt, True CFG, Refine and LoRAs off, the
+shared guide's caption advice and example-size line, its one Qwen3-VL budget
+(8189), Expand as FLUX 3's prompt upsampler (its name and 17.5 GiB first-use
+download in the title, measured 41 GiB process-RAM wording while cold or
+cached but unloaded, omitted while warm, no translator, a page-side held status shown
+aria-disabled with its held text as the title (the server's own refusal
+sentence and its 422 are pytest's, `tests/test_api.py`), the running line's download/load/expanding steps, the
+caption written into the box with an Undo and Ctrl+Z, no translation), the
+LoRA and Refine refusals, and a saved cell recording the public id, the
+upsampled prompt, 16 steps, Mu and no negative prompt, on port 7911 with its own fresh
+scratch gallery (it shares the port with `smoke-anima-preview`):
+
+```powershell
+uv run python tools/fake_server.py --port 7911 --model black-forest-labs/flux-3-image-klein --data <scratch-directory>
+node tools/browser.mjs tools/smoke-flux3.json
+```
+
+`smoke-kohaku.json` checks Kohaku's hybrid tag guide, defaults, size guidance
+(the exact 1.05 MP bound), saved settings, and a hybrid prompt's
+213-character sentence displayed as prose beside the checked guide tags
+(the tray never "Danbooru unreachable") and their order slots, on port 7870:
+
+```powershell
+uv run python tools/fake_server.py --port 7870 --model KBlueLeaf/Kohaku-XL-Zeta
+node tools/browser.mjs tools/smoke-kohaku.json
+```
+
+`smoke-netayume.json` checks NetaYume v4 defaults, the qualified size guide,
+the hybrid Tags helper (the inherited order, person counts and quality tags,
+no recommended negative), author example, a retyped and a foreign system instruction cut by Apply,
+enabled Mu, applied saved settings, the catalogue's name in the topbar, the
+facts and the prompt check, the example-size wording (1.57 and 1.05 MP of
+the authors' example sizes, in the line and the tier titles), Mu's 1.79,
+the live negative's caption, the grid examples, and another checkpoint's
+record reused, the note and the ⚠ title naming NetaYume Lumina v4, on port
+7871:
+
+```powershell
+uv run python tools/fake_server.py --port 7871 --model duongve/NetaYume-Lumina-Image-2.0
+node tools/browser.mjs tools/smoke-netayume.json
+```
+
+`smoke-newbie.json` checks NewBie defaults, the qualified size guide (the
+author's example wording), XML example selection with its valid anonymous
+character identifiers and no fill-in warning, the critic's XML reorders set
+aside (words moved between blocks; `<general_tags>` ahead of a character)
+and persistence, applied saved settings, the live negative's caption, the
+grid examples, the refused adapter and its dead LoRA weight axis, Mu kept
+live, the XML prompt's line breaks capped at twelve lines in the result
+column (a Tab stop) and the lightbox (four under 901 px), and a
+comparison's block reorder named by tag (loose text moved, a non-ASCII tag
+and a long order cut between tags included). It checks the token line
+under the prompt where there are no chips, from the authors' first example
+at 1400x900: hidden under three quarters of Gemma's 511 tokens; the count
+from there; amber past the limit, naming where Check says reading stops;
+said once in the summary line and cleared under it; the Example's Undo note
+hanging under it; "cut unknown" while the server does not answer, then
+counted again without a keystroke once it does; hidden where the measure
+says no encoder is known; and its change held while the mouse is on
+Generate or the negative box, released by leaving it and by a key. It also
+runs three XML jobs that differ in one attribute, two of them queued
+(slowed by `POST /api/fake/step`; the first runs 40 steps), which must be
+told apart by their words in the Now line, Cancel's title, the queue rows
+and the Runs picker, the Now line's title keeping the markup. On port 7872:
+
+```powershell
+uv run python tools/fake_server.py --port 7872 --model NewBie-AI/NewBie-image-Exp0.1
+node tools/browser.mjs tools/smoke-newbie.json
+```
+
+`smoke-wai.json` checks WAI v17 defaults, author tag recipes, the author's
+reference sizes in the size line (1.38 and 1.05 MP) and in the tier titles,
+disabled Mu and saved settings on port 7873:
+
+```powershell
+uv run python tools/fake_server.py --port 7873 --model LyliaEngine/waiIllustriousSDXL_v170
+node tools/browser.mjs tools/smoke-wai.json
+```
+
+`smoke-rouwei.json` checks RouWei 0.8 epsilon's defaults, hybrid prompt
+help, artist-last fallback and recommended size range on the fake backend:
+
+```powershell
+uv run python tools/fake_server.py --port 7890 --model Minthy/RouWei-0.8
+node tools/browser.mjs tools/smoke-rouwei.json
+```
+
+`smoke-noobai.json` checks NoobAI V-pred's defaults, author prefix and negative,
+tag helper (no checked order: the authors' caption template as Check shows
+it, never an empty "Recommended order:", one Date and one Year heading,
+Check's no-order note without "its guide states none"), CLIP budget, saved identity and SDXL Refine pass on a fake backend:
+
+```powershell
+uv run python tools/fake_server.py --port 7891 --model Laxhar/noobai-XL-Vpred-1.0
+node tools/browser.mjs tools/smoke-noobai.json
+```
+
+### Composer smokes
 
 `smoke-control-sizing.json` uses a fresh FLUX.1 Krea [dev] fake on 7923.
 It measures prompt/footer targets and primary emphasis at 1400x900, 600x900,
@@ -9143,6 +10388,52 @@ Native typing checks incomplete Steps/CFG/Seed/size/True CFG before a POST,
 button and keyboard paths, intentional blanks, queuing, independent More
 seeds settings, grid Seeds/Budget and sampling overrides, and comparison
 controls that replace unrelated panel values.
+
+`smoke-button-states.json` uses a fresh Animagine fake on 7918 to check
+secondary/primary and selected text contrast, held hover and reason-on-press,
+focus rings, unchanged state-transition geometry, and footer widths at
+600/1400/2560/2048 pixels (the last at DPR 1.25).
+
+`smoke-random-prompts.json` uses a fresh FLUX.1 Krea [dev] fake on 7916.
+It checks random/cross selection, saved mode and Reset, deterministic choices
+across numeric axes and per-image batch seeds, preview counts and unseeded
+sample wording, saved choices, Resume, and unchanged Cartesian behavior.
+
+`smoke-compact-setup.json` uses a fresh fake on 7925. It checks inactive and
+active disclosures, value preservation and actual status-poll non-reopening,
+restore/Reuse/Undo and pending LoRA catalogue behavior, numeric-focus reveal,
+reference activation/order/capability state, native expansion, scoped `/` and M,
+hidden-pick independence, no immediate queue, modal/editing/modifier/IME/repeat
+protection and responsive screenshots at 390/600/1400/2048 px.
+
+`smoke-sampling-fold.json` uses its own fresh FLUX.1 Krea [dev] fake on 7925.
+It checks the Sampling fold (UI#51): shut the first time and one summary line
+at 1400x900, the summary's effective values with blank, typed, True CFG and
+unreadable boxes and on Z-Anime (fixed shift), Animagine (no Mu) and klein
+(unused CFG) after switches, a summary press opening in place with nothing
+above it moving, the open state across a status poll and two reloads, Reuse
+and Reset leaving it shut, Generate's incomplete-number refusal and Set True
+CFG opening it to focus a box without storing the opening, True CFG marked
+"(unused)" while no negative prompt is sent, and a storage that refuses
+writes.
+
+`smoke-shortcut-dispatch.json` uses a fresh fake on 7924. It checks modal and
+menu ownership, exact modifiers, handled/composing/repeated events, native
+button repeat, lightbox editing/select/browser navigation, ordinary Generate
+and Grid, delayed More seeds/help Escape precedence, and P back to the prompt
+from a card, a sheet cell and the card the lightbox returns to (never from
+fields, menus, the model picker, help, a settings dialog or the lightbox).
+
+`smoke-shortcuts.json` uses a fresh fake on 7913. It checks the complete
+shortcut list and read-only Getting started block before any images exist,
+the top-bar and `?` openers, typing,
+composition/modifier/repeat guards, help above a lightbox and a Refine draft,
+no underlying submission or image action, native Escape, Close and actual
+backdrop focus restoration, context ordering with the full inventory, menu-opener
+fallbacks, accurate menu hints, the Prompts group's P row with `#prompt`'s
+`aria-keyshortcuts="P"`, and a 390 px layout without horizontal overflow.
+
+### Queue, jobs and results smokes
 
 `smoke-queue-outcomes.json` uses a fresh FLUX.1 Krea [dev] fake on 7922.
 Gated listings reproduce fast queued completion/failure, once-only outcomes
@@ -9164,6 +10455,234 @@ owned jobs; it never deletes or clears gallery data. Wide/narrow screenshots
 require inspection. No real model, GPU, credentials, user gallery or older
 interrupted run is exercised.
 
+`smoke-queue-estimates.json` uses a fresh FLUX.1 Krea [dev] fake on 7954
+with 0.3 s steps. One render gives 256×256 history. Jobs queued behind a
+running one check each priced row's `~N` against `GET /api/jobs`, the
+unpriced (320×256) row's missing figure and title, and the "no estimate"
+total. After that row is cancelled, it checks the "of queued work" total
+while paused and "all done in" after Resume. The total stays one line (the
+longest figure too), and no row moves within the queue note. It also checks
+`#job-said` for a priced and an unpriced press, and the cell line's
+`~N expected` before the own-pace `~N left`, which it never follows.
+
+`smoke-queue-controls.json` uses a fresh FLUX.1 Krea [dev] fake on 7914 with
+0.3 s steps. It checks authoritative Move order and focus through reload,
+delayed-response/new-submission races, a watched queued job's Move control,
+one-call Skip and Finish recovery, and held paused/Then refine reasons.
+
+`smoke-watched-action-replies.json` uses a fresh FLUX.1 Krea [dev] fake on
+7945 with 0.3 s steps. Three actual owned two-image jobs check late watched
+Cancel success/error and Pause error replies across real successor adoption,
+plus a newer same-job Pause owner. Original async button handlers are observed
+without changing their logic. A declared owned pre-start Pause POST stabilizes
+the final successor; held HTTP500 replies are unforwarded controlled errors.
+Exact same-origin one-use grants and per-job request/stream/outcome counts,
+cold backup checks and a pass-only zero active-job/control/response gate bound
+the fixture. Cleanup uses only owned Cancel; planted gallery facts/composer
+stay unchanged. New wide/narrow screenshots require inspection. No restart,
+real model, GPU, user gallery, credentials or old interrupted run is exercised.
+
+`smoke-split-extra-queue.json` runs on a fresh owned FLUX fake on 7951 at
+`--step 0.3`. It covers a delayed mixed-size Swap receipt that lands after the
+page's listing has adopted the split's extra job B. B must stay the watched
+current job and never become its own "Next:" row; the terminal primary A may.
+It uses real owned jobs, a paused predecessor and a held, unmodified receipt.
+It fails at the defect check without `startJob`'s `watchedJobs` filter
+([`GEN#31`](maintainer/review-2026-10-29-split-extra-queue.md)).
+
+`smoke-jobs.json` runs against the default Turbo fake on 7882 at
+`--step 0.3` (it passes at `--step 0.15` too): the tab title and topbar mirror; the one-line Now row, count
+first, with Pause and Cancel and its title; the queue's named rows, a
+per-row cancel and the single "Next:" row; Unload held with its reason,
+and a press held by a load with no job said as a note that goes once the
+load lands;
+Pause answered at once with no aria-pressed and held on a one-image job,
+its clock ("for 2 min" in the cell line, "⏸ Paused 2 min" in the title, its
+`paused_at` set back past a minute, at the next poll),
+its note gone with its job; the finish line's seed with Use seed and the
+fixed-seed hint; a grid named by its own prompt, skipping a `[fail]` cell
+live, with Show sheet and Finish run sending only its `expected` pin, once,
+with the composer changed since left alone, "Finish sent" keeping focus as
+the previous job's; the failure rule's "Stopped at cell" and Finish run,
+kept as the previous job's while a queued job runs; a plain job
+whose every image failed, said in images ("1 of 1 image was skipped",
+"Stopped at image 3 of 3") and titled "Nothing made"; a cancelled
+job's outcome led by "Previous job:" while the next runs and gone at its
+end; focus after Cancel (Generate) and after Pause held to the end (Use
+seed); a time budget's held ETA and count, "Time budget reached after
+N/20 cells … Finish run checks the rest.", and its finish line's Finish run
+(its title counting the missing cells from the cells the budget reached and
+naming the "original 0.06-minute budget") sent once, then "Finish sent"; the finish line's Use seed then More seeds…, and
+a done grid's Show sheet then More seeds of this run…; the gallery kept where it was
+scrolled with New image; the offline state through a stubbed fetch and a
+restart through a changed start time; the load's ticker with its
+aria-hidden clock and indeterminate bar, also shown in the empty viewer's
+one line, whose own words come back after a cancel; a second job queued
+during the load keeping the load's note under the bars through the queue's
+redraw; a cancel during the load; a cancel asked elsewhere
+(`cancel_requested`) and seen again after a reload: Cancel "Stopping…" where
+it stood, held with "This job is stopping after the current step", which a
+press says, and Cancel again at the job's end; a full disk
+(`/api/fake/disk-full`, the smoke's last steps): the job paused at image
+1/2 with the reason in the cell line, no failure and no image, held again
+by a Resume with the disk still full, then both images once there is
+room; a gated
+load's detail said in the panel line after every Generate while the viewer
+holds images; a gated load's card said once and not re-announced by the
+banner, its Retry load handing focus to Generate; Load and Unload handing
+focus to each other; the banner hidden by a new job and not repeated
+after a watched one; a gated load's finish line "Not made: the model could
+not load"; and a watched job whose server goes (a stand-in EventSource and
+fetch): the job line in the topbar's phrase with the count, no steps, time
+left or topbar mirror, the tab's title and the strip's note the same, then
+`showLostRun`'s card, reworded once the server answers, its Run it again
+running the request with focus going to Generate; each job watched once
+while the page is between jobs - gated fetches hold each ordering open, with
+its preconditions asserted: a Generate during watchNext's listing and
+during resumeActiveJob's; a queued POST answered after the listing found
+nothing; one answered after the listing had made its job the watched one;
+and one whose job the listing watched to its end first. Each gives one
+stream, one tile and no queue row; the first four also give a finish line
+and `startJob` resolving at the job's end, and the last gives `startJob`
+resolving on its POST's answer, after the job has ended, keeping nothing of
+it; live regions (the topbar's name not rewritten by a poll nor by another
+tab's job, a single image's step count shown and not said, each run
+counter said once, `#job-said` at a job's end and for a queued job, nothing
+there for a cancel or a load failure the panel line says); and a second
+tab, an iframe of the page: its job (held paused) holding Unload and the
+critic here with the reason and the topbar's aside, its images joining this
+gallery at its end, and taken in after this page's own job, queued behind
+it, is cancelled at its first step (that job of B's held paused until this
+page's poll has seen it, which a two-image job at `--step 0.15` outran);
+its queued job picked up here as
+another tab's (viewer kept, this page's New image and its own finish line,
+Use seed and all, kept through it, its end said on `#job-said` only, this
+tab's own finished title given back until a key), the estimate leaving the
+first step out once a second has landed (none at step 1, a one-step job
+none, a sweep of one-step cells from its second),
+a cancel and a queued row's cancel from that tab, a pause here with its job
+behind ("waiting: job ahead paused" there, "has been paused for 3 min" once
+its `ahead_paused_at` is set back past a minute, where Pause on that queued job
+says it will hold before its first image and a second press withdraws it;
+its row marked as another tab's here, Cancel queued's title, the count), Cancel queued here said there as a
+cancel from elsewhere, a job that ended at the load reworded once that
+tab's Load lands, with the panel line's reason taken back, and, on a page
+opened afresh, one that ended at the load over the card said on
+`#job-said`, reworded by the card's Retry load and again by an unload; the
+scrolled gallery's step moves the pointer off the cards first, which would
+otherwise hold the new card; and at 2560x1305, with the pointer resting on
+the Grid search summary under this page's running job, another tab's
+queued job waiting (`queueWaiting`, the summary unmoved, no row) until the
+pointer leaves, then listed, and one queued and cancelled there while the
+pointer rests dropped from `queueWaiting`, no row as it leaves:
+
+```powershell
+uv run python tools/fake_server.py --port 7882 --step 0.3
+node tools/browser.mjs tools/smoke-jobs.json
+```
+
+`smoke-results.json` checks the results viewer on a FLUX.1 Krea [dev] fake
+on 7883 (written at `--step 0.3`; it passes at the default step too): every
+? badge named and described, and Resume's badge leaving Resume unticked; the
+one-line idle viewer, the empty-install box and its Examples; the empty
+gallery's line and its Examples; the idle viewer staying one line beside a
+docked, content-sized check with the gallery beside it; a result's
+figure (a group named #N), label, title, facts-only description and card
+tools at 1400x900 (❐ hidden on FLUX), with `this-run`, the star and ⤢; the
+note under it, "#N · W×H · seed N · Use seed", with the gallery head
+unmoved as a single image lands at 1400, and hidden at QHD; at 2560x1305 the
+column with Delete in words (Star, Refine…, Inpaint…, Outpaint…, Reuse,
+Use seed, More seeds…, Delete; the row under the picture with a docked check
+leaving More seeds… out) and
+the row under the picture empty at `--h-tool`; the live preview
+keeping the result's box; `#recent` level with the viewer, the wheel over
+it with nothing to scroll scrolling the page, and staying
+beside it with the check docked while the image and the gallery head stay
+put, the column's actions and `.result-brief` then the row under the
+picture; the fit at 2048@1.25; the lightbox walk from the single image; a batch
+of four best-fit; a pass's note and lineage and its Compare with source
+(the lightbox on the pass, compared; Escape back on the strip's image; no
+Use seed in its facts), then its source deleted ("#N (deleted)", no
+buttons, the title, a facts-only description, Compare with source
+aria-disabled with the reason and refused over the tile); a portrait pass
+with the check docked, its row under the picture whole at 2048x1040@1.25
+and 2560x1305, Compare with source left to the column; a 5:12 direct image
+and its pass at 2048x1040@1.25 with the check docked, the row under the
+picture wider than it, centred, inside the strip, every word whole, the
+picture and the gallery head unmoved; four landscape images two by two with
+the gallery head unmoved from the first frame; a deleted result held at its
+height with focus on its line (the column's Delete); a 28-seed run at
+2048@1.25 ending scrolled to its newest row, the wheel over it scrolling
+the page at its end (down at its end, up at its top) and the strip while it
+can scroll; 28 at QHD with no padding-only
+scrollbar and the gallery head unmoved from its first frame (`reserveStrip`),
+the wheel over it scrolling the page; the banner's
+"2 since deleted" / "all since deleted"; the banner's Finish run on a
+cancelled grid that was itself a Resume, finishing the stored run with an
+unrelated composer left as it was, its counts line reading "Checking Finish
+run…" while the preview is held and "Finish run: N missing cells" after,
+with Show run, Finish run and ✕ at the same rects either side; Finish run offered on a cancelled
+comparison; a batch of four at QHD followed from its first
+frame to its end - the preview in the first image's column, no tile moving
+within the strip, the tile size and the gallery head where the first frame
+put them - and the strip fitted alike with the page's scrollbar forced on
+and off; Reset with its Undo in the prompt box it
+emptied - inside the window at 1400x900 and at 800x900 - Ctrl+Z after it
+giving the prompt back, and the store kept forgotten past the prompt's
+blur; Reset taking a Reuse's note from the panel line, with its Undo
+on offer or already retired; and, in one column at 1400x900, another tab's
+image held while the pointer rests on a card (the count new at once, the
+card under the pointer and its box unmoved) and joined once it leaves:
+
+```powershell
+uv run python tools/fake_server.py --port 7883 --model black-forest-labs/FLUX.1-Krea-dev --step 0.3
+node tools/browser.mjs tools/smoke-results.json
+```
+
+### Prompt analyser tests and smokes
+
+The prompt analyser is tested the same way, with no network and no GPU:
+`test_prompt_encoding*.py` (`test_prompt_encoding.py` the encoder table,
+templates held to the installed diffusers source and the real tokenizers,
+whose cases skip when nothing is cached; `_budgets` the budgets, cuts and
+control tokens; `_syntax` the weighting syntax; `_loading` the load, cache
+and lock lifecycle; their shared fakes in `prompt_encoding_helpers.py`),
+`test_prompt_rules*.py` (the `analysis` data against the prose, the
+authors' examples raising no warning, the chips' order slots against
+`reorder_tags` and the order finding's step labels, and `reads_order`
+wherever the slots are None), `test_critic*.py` (pins, install,
+server command and stop, the server's count and the fit checks, answer
+validation, grounding, and `web/sheet.js`'s copy of `_XML_BLOCK`) and
+`test_api_analysis*.py` for the routes, the chips' order slots on
+`/api/tags/validate` (offline, past the 64, a prompt past Check's limit, no
+category lookup where no order is read, a fault in them leaving the
+verdicts), an item longer than any tag answered unknown without asking
+the index (`test_an_item_longer_than_any_tag_is_unknown_without_asking`),
+the page's `PROMPT_MAX_CHARS` held to every request's `max_length`
+(`test_the_pages_measured_length_is_every_requests`), the gate
+(Check beside a running job, off the loop; the critique's re-check after
+`prepare()`), the status flags (status never loads a tokenizer) and
+shutdown (the lifespan's order, `main.Server.handle_exit`, which ends a job
+waiting on a load at once). Where the point
+is the real thing, `test_critic_process.py` and `test_critic_server.py`
+start Python children and loopback servers: a wrapped stand-in llama-server's process tree, its listener and
+its counts, and the proxy bypass. The job-object cases run on Windows only;
+the wildcard-listener and half-exited-process cases run on Linux only. Its
+real-tokenizer case in `test_critic_tokens.py`,
+`test_measured_counts_and_pieces_are_the_tokenizers`, skips when klein's tokenizer is not cached. The `fake` fixture installs
+`FakeCritic` as `main.prompt_critic` - its six methods held to
+`PromptCritic`'s signatures by a test, its question sized by the real
+`critic.check_fits` on the unscaled estimate, standing in for the server's
+count (a prompt too long for the window is a 502 here too, though near the
+window's edge the two can disagree) and
+its answer raw JSON put through the real `critic.validate`, so nothing it
+returns is something the real pipeline could not - and
+`fakes.fake_tokenizer` as `prompt_encoding._load_tokenizer`: a token per word
+or mark (on Qwen also per run of newlines, which its BPE merges into one
+token), with real offsets, at each encoder's real budget.
+`test_the_fake_tokenizers_budgets_are_the_real_ones` holds them to the
+`REAL` table.
+
 `tests/test_prompt_parts.py` covers the reported mixed example, pure tags
 and prose, a prose passage in a majority-tag prompt, known titles and
 concrete validation findings, explicit prefixes and grid variables,
@@ -9182,35 +10701,2042 @@ warnings. The browser checks use synthetic images and no real model.
 uv run python tools/run_smoke.py smoke-mixed-prompts
 ```
 
-`smoke-button-states.json` uses a fresh Animagine fake on 7918 to check
-secondary/primary and selected text contrast, held hover and reason-on-press,
-focus rings, unchanged state-transition geometry, and footer widths at
-600/1400/2560/2048 pixels (the last at DPR 1.25).
+`tests/test_check_dismissal.py` exercises actual Check/Close/Escape/render,
+stale-write, clear/supersession and critic-precheck handlers on inert DOM/API
+ports. Accepted results remain cached while dismissed, with existing button
+cleanup/error routing and deliberate reopening. `smoke-check-dismissal.json`
+uses fresh FLUX fake 7952, its installed fake tokenizer and actual forwarded
+CPU analyze responses held after receipt. Four exact trusted-edit typing
+measurements pass through the fake tokenizer once and settle before the final
+guards; unrelated writes remain refused. Physical prompt edits, Check/Check
+again, Close/Escape and later reopening are qualified without critic calls:
+the fixture refuses every critique request before dispatch. No real tokenizer,
+critic service/model/card or real-gallery acceptance follows.
 
-`tests/test_more_seeds_headline.py` checks full server-owned seed headlines
-for wrapped/mixed batches, ordinary gaps/singletons and no eligible batches.
-Owned Python TestClient previews cover wrap allocation, foreign exclusion
-and unrecorded Batch fallback while preserving rows/PNG hashes and poisoning
-model/generation/queue entry points. Counts, first/last/skipped and receipt
-issuance retain their existing behavior. No browser MAX_SEED entry or real
-model/pixel qualification follows.
+`smoke-tag-finder.json` checks Find tag on an Animagine-claiming fake on
+7909 (the fake's `describe` searches a three-page wiki's text and the name
+typed, as the real one does; "fake offline" is the index unreachable): no
+button and a one-line caption, no finder in the helper, the list's find
+row only from three characters, last, unselected, and alone where no name
+matches, ArrowDown and Enter on it opening the finder under the prompt
+searched with the words in its box, `ahoge` for "stupid hair" with its
+sentence and count, Enter on it (`"native": true`, which also runs a
+form's own submit) replacing the description with focus kept and Enter
+again taking it out, a later press inserting at the caret, a description
+changed meanwhile left whole, an empty search's line, results by count and
+a page with no sentence, the exact name first, nothing found and offline
+each clearing old results, a click in the prompt keeping it open, Escape
+with focus back in the prompt, the row's mouse click opening it, and the
+helper, Examples and a click elsewhere closing it:
 
-`tests/test_more_seeds_intents.py` and `tests/test_api_more_seeds_intents.py`
-cover receipt replay, conflicting choices, concurrent tokens and waiters,
-cancelled HTTP waiters, bounded retention/expiry, shutdown and partial
-multi-job admission. The extended `smoke-more-seeds.json` checks active
-Batch x Repeat, delayed/repeated presses, two deliberate extensions, lost
-replies through 503 and generic 409 responses, terminal receipts, partial
-warnings, stale opening contexts and narrow/normal/wide result reachability.
-`smoke-more-seeds-tabs.json` uses a fresh FLUX fake on 7919 with two actual
-tabs, separate owned-job/viewer/composer state, simultaneous stale previews,
-distinct seed allocations, lost-response replay and queue transitions.
+```powershell
+uv run python tools/fake_server.py --port 7909 --model cagliostrolab/animagine-xl-4.0
+node tools/browser.mjs tools/smoke-tag-finder.json
+```
 
-`tests/test_size_crop.py` and `tests/test_crop_anchor_storage.py` cover paired
-size parsing, limits, shape identity and legacy hashes, crop pixels and the
-GAN path, actual-size Resume/Finish/estimates, persistence and source-loss
-cleanup. `smoke-size-crop.json` uses a fresh FLUX.1 Krea [dev] fake on 7917
-for sizes, Resume/sheet axes, crop frames, metadata, Reuse and source views.
+`smoke-analysis.json` checks the prompt check on a FLUX.1 Krea [dev] fake on
+7874: the CLIP cut, the negation and quote findings with their sources, span
+and cut selection (an emoji ahead of them included) with the selection
+scrolled into its box, the stale rule for both prompt boxes with the status
+slot undimmed while stale, Apply, the critic's first-use and timing lines -
+built from `ModelStatus.prompt_critic`: its label, the downloads a first use
+makes, neutral wording under an override - and its clock, its hold on
+Generate, inline cites, a cite's whose-words note and the General label, Use
+rewrite with undo and a reload and filling Your version, an edit while the
+critic thinks, a failed critique's row in one slot (`#error` only after
+Close), a two-version comparison opening its sheet with a blank Seed left
+blank, a Generate under that sheet's `job:` scope counted in the gallery's
+line with Show all opening the whole gallery, another opening all its
+cells with Starred ticked (the tick's notice gone once the run is
+reopened), the chips and the check moving from the wide host back under the
+prompt with focus and selection kept, a prose prompt's order shown as not
+checked, a one-clause prompt the critic cannot reorder, a comparison against
+Your version, the cut excerpt in code points, focus after Check
+(two-column), after Check again, after Close during the critic's check and
+after the critic's answer, the critic's hold through its pre-check (a
+replaced one saying so, a cleared one silent, a throwing one giving Check
+back), the stale badge left alone while typing, the Seeds select read at run
+time, by injecting the server's `reordered_kind`, the Use reordered title
+following what the server says it kept, not the page's own last check, with
+Compare offering the critic's reordering the server kept, and the docked
+check at 2560x1305 and 2048x1040@1.25 (the image just made wholly in view
+and unmoved after Check, the critic's answer and Ctrl+Enter; the column not
+setting the rows' height; its head stuck after the answer, showing the stale
+badge; Check again resetting its scroll; the gallery's controls clear after a
+400 px page scroll; Close on the head's first line at 125%), the critic's two versions stacked there and side by
+side full width at 1400 px, and the stacking at 1400x900; the 600 ms outline
+on the box a finding selects in, and none under an emulated reduced motion,
+Apply keeping the replaced prompt in Your version, the check capped at 55vh
+above the results at 1400x900 with its head stuck, Escape closing the check
+(focus to Check from inside it; the Examples menu, a search box with text
+and the lightbox first; the caret kept from the prompt); the critic's
+line's live half only, its ready line at once after an answer, and
+Generate's, Run grid's and Run comparison's titles while the critic holds
+them; the page's h1, the Settings region, the viewer as a region named
+Results with no unseen heading in the stage, the greyed negative's
+description, each finding's and critic issue's Show with no item a tab
+stop, the always-run Original's description; and, docked at 2560x1305, Tab
+from the panel to the image just made, its note (a stand-in stop),
+`#recent` where it sits between, the check, then the gallery, with nothing
+in the docked stage out of its flow; the comparison's Batch tip hung from
+the window, whole and on top with its row under the sticky head at
+1400x600, following its badge as the check scrolls, hidden with the badge
+scrolled out, and docked at 2560x1305; the Refine dialog's Refine held,
+and said in the dialog, while the critic thinks; the critic held offline
+(its title, the cost line, and the press's offline words taken back by the
+answer) and during a load (its note gone with the load), and a critique
+the server never answered said as the server's (no "?." after its
+question) and taken back; a 900-word prompt's line over 4000
+characters, its cut and its summary; and, docked at QHD, the first use's
+download sentence and the clock as one run of text, the clock on its last
+line.
+`smoke-animagine.json` covers the tag-order check, the critic's reorder
+under full and partial tag placement end to end (set aside, kept as Check's
+own, kept as allowed, flagged, each with the kind the server says it kept),
+the partly-checked order (past 64 tags, without the tag index, a tag the
+index does not know, a prose prompt) and the checked one where no missing
+category decides it (that tag ahead of a general tag, alone, one prose
+clause), and the negative prompt's Apply, dead while the box is greyed,
+and its Show, held with the reason. The fake server
+serves the tests' `FakeCritic` and word tokenizers: `--critic-delay` (seconds
+a critique takes, default 0.4, so its in-flight state can be seen; a prompt
+too long for the critic's window is refused at once, a 502, on the
+unscaled estimate - the real critic refuses at once only what cannot fit
+however it tokenizes, and the rest on its server's count) and
+`--no-critic` (a platform with no build: the page hides the critic). The fake
+critic counts as downloaded from its first critique on, so the first-use line
+shows only on a newly started server; the smoke accepts either line:
+
+```powershell
+uv run python tools/fake_server.py --port 7874 --model black-forest-labs/FLUX.1-Krea-dev
+node tools/browser.mjs tools/smoke-analysis.json
+```
+
+`smoke-rewrite.json` uses the same fake on 7874 for the visible rewrite diff,
+the change's grouped gist, escape-only edits, Unicode, markup rendered as
+text, unchanged/absent rewrite states, and the rewrite findings' "also in
+your prompt" / "new" / "No longer flagged" / "Not flagged … asks the tag
+index nothing of its own" marks.
+`smoke-comparison.json` uses the same FLUX-shaped fake on 7874 to run
+two comparisons with original and yours reversed on fixed seeds. Each
+opens its own job, while opening their shared run exposes Prompt as an
+axis. Run comparison clicked at 800x900, and at 2560x1305 under the docked
+check, hands focus to the sheet's first cell (named by seed and version)
+without moving the page, and focus moved to the prompt while the
+comparison renders stays there; and with the grid open declaring `{size}`, a
+version holding it refused in the preview and at the press with nothing
+sent, an undeclared name or the fold shut previewing as usual. `smoke-comparison-batch.json` uses the same
+fake for all six Seeds/Batch
+pairings, their preview and request counts, select values changed without
+events, paired output seeds, sheets and stale-run disabling. API tests cover
+paired saved seeds, batch grouping and preview counts for all six pairings.
+The analysis and Animagine smokes cover CFG/True CFG activation
+changes while a grid keeps the negative editor enabled, inactive raw
+edits, and settings changes while a check or critique is in flight.
+
+`smoke-analysis-tags.json` uses an Animagine-claiming fake on 7887 for the
+prompt check on a tag checkpoint at QHD: a Series-before-Character order
+finding the rewrite keeps, listed as possibly still applying ("whose check
+asks the tag index nothing of its own") rather than fixed, and the docked
+check with the chips across both columns at 2560x1305 and 2048x1040@1.25,
+where the image does not move and stays in view (6, 32 and 40 tags at
+each), and Tab docked with chips going chips, image, its note or
+`#recent`, check; beside an idle viewer the check's bottom in the window
+with the critic's answer in it; with Gallery beside, the check in the
+gallery's column over an idle viewer with the critic's answer (scrolling,
+head stuck, Close under the pointer, the chips still, the page unscrolled)
+and beside the image just made (the image, the chips and Generate
+unmoved); at 1400x900 with 40 tags and the answer the check capped under
+the chips, its head stuck and the image starting in the window's top three
+quarters; at 1280x720 with 40 tags and the answer the cap 55% of the
+window less the chips, the check at least 8rem and the image starting in
+the window's top three quarters; and at 1280x600 the floor itself, the
+check 8rem tall with its head stuck and Close under the pointer, the image
+in the window's top 85%:
+
+```powershell
+uv run python tools/fake_server.py --port 7887 --model cagliostrolab/animagine-xl-4.0
+node tools/browser.mjs tools/smoke-analysis-tags.json
+```
+
+### Image pass tests
+
+The refine pass is covered the same way: `tests/test_refine.py` (each
+profile's `refine_supported` and each sibling's call held to the installed
+diffusers, Anima's and NewBie's answer final before a load
+(`_OWN_PIPELINES`), `CARRIED` held to `generate()`'s own kwargs, a stub
+sibling built over a stub pipeline's components and called once per image
+with that image's generator, the cancel paths, mu through the shared
+scheduler, the row, the PNG, the key, the migration, the reindex and the
+merge), `tests/test_refine_schedules.py` (each profile's start index
+against its sibling's real `get_timesteps`, the duplicate advisory, and the
+start sigma: each `START_RECIPES` entry, `SHIFT_CALL`, the default schedule
+and the VAE scale held to the installed source, verified.md's FLUX.1
+sigmas reproduced on a real `FlowMatchEulerDiscreteScheduler` with and
+without Mu, a static shift with and without a requested mu, the loaded
+scheduler left untouched, None where it would be a guess),
+`tests/test_api_refine.py` (the status flag, whether it is final
+(`refine_settled`) and whose the strength is (`refine_strength_profiled`),
+the submit refusals, the strength axis with resume, the pass's own size
+guard and its lack of a batch budget, `GET /api/images/{id}`, Re-render,
+and the preview's `start_sigma`, asked with the applied pass, not for a
+sweep or a direct render, end to end over a real FLUX.1 schedule) and the
+CLI's flags in `tests/test_cli_passes.py`. What a pass does to pixels, its time and its
+memory are the card's to say, in `docs/verified.md`.
+
+The inpaint is covered by `tests/test_inpaint.py` (the inpaint class per
+catalogue pipeline against the installed diffusers; every profile's
+`inpaint_supported` True an installed class outside `INPAINT_DEFERRED`,
+every class left off in it, every catalogue repo one of the cases; `build`
+over stand-in components for all five classes; the strength default read,
+not copied; the composite keeping the source where the mask is 0 and taking
+the result where it is 255; `pipeline_mask` repainting a thin stroke off
+the cell corners and covering every pixel a feather weighs, the class handed
+it and the composite the painted mask; `inpaint_family` and the strength an
+inpaint without one starts at; the `applied()` rules and the hash pattern
+refusing paths; one call per image, cancel, the size refusal, a deferred
+family refused with its class installed, the loaded answer, unload; the
+status fields and the fake; the live preview drawn off the inpaint class,
+and Z-Image's class blending before its callback), `tests/test_refine_schedules.py`
+(`start_index` and `steps_run` with `inpaint=True` against each enabled
+class's `get_timesteps`, None for the deferred; every flow inpaint profile's
+class in `START_RECIPES`, Z-Image's inpaint class starting where its
+image-to-image one does, the backend asking the inpaint class and SDXL's
+answering none), `tests/test_inpaint_storage.py`
+(the hash over size and levels, `mask_path`'s two refusals, `_migrate` and
+the `masks` table on a replaced file, the mask partial finished, one cut
+short or of other pixels discarded, an upload into a directory a clear
+removed meanwhile, the chunk
+keys and the embed, an image saved though its mask cannot be embedded,
+`index_file`, `completed_cells`, the cost split), `tests/test_api_inpaint.py`
+(the upload's refusals and its hash, `GET`, the submit refusals, a strength
+grid over one mask, the preview's `start_sigma` asked with the inpaint and
+not for a sweep, a mask gone between cells, cancel mid-inpaint, the
+duplicate count with two masks, More seeds and Swap tags over the same mask
+and naming a missing one by its image, Mass refine dropping it, Re-render
+naming a missing mask and an inpaint at another size, the snapshot naming
+a source only where every cell shares it, `/keep`, an RGBA or 16-bit
+upload, Load settings from an inpaint's PNG, search and stats),
+`tests/test_inpaint_bundles.py` (export, selection, password and merge by
+hash; a renamed, altered, resized or path-named mask refused; a lost mask
+restored from its result's PNG, `masks_missing` where that has none too;
+stray files in `masks/` left out of a whole-gallery export; text chunks
+outside the identity; PNG-only reindex from
+files and from the embedded copy; `--database`), `tests/test_inpaint_sweep.py`
+(the sweep's three sparing conditions, a re-upload restarting the window, the
+whole `clear`, Keep starred, the orphan sweep, `clear --where`, a delete
+and a CLI `clear --bin` sparing the mask of a cell held before it saves,
+holds dropped at a server's start, a mask swept between the check and the
+hold refused), `tests/test_inpaint_ui.py` (`inpaint_deferred`
+held to the list; the dialog's scripts and stylesheet in page order), the run
+id pins in `tests/test_conditioning.py`, the inpaint classes' prompt
+building held to their text-to-image classes' in
+`tests/test_prompt_encoding.py`, and the `--mask` (an RGBA, 16-bit or CMYK
+file; no strength) and `--from-image` (a source that is another picture
+here) cases in `tests/test_cli_passes.py`.
+
+The outpaint is covered by `tests/test_outpaint.py` (both types' grid and
+bound checks, the fill name, the key round trip, the validator's refusals,
+`applied()` dropping it with its source; every preset's integer arithmetic,
+the odd 16, each aspect held at its own tiers, within 16 px, past the guard
+and off the grid; the mask's levels, corners and hard edge, its pipeline
+mask; the kept rectangle and `band_too_wide`'s axis and sides; the fill
+keeping every source pixel and stretching the edge; an unknown fill; the
+fill's and the mask's pinned SHA-256; the composite over the padded
+canvas), `tests/test_api_outpaint.py` (a run over the padded source and its
+record; the stamp before the job, a worded 503, a lost mask file healed and
+one gone mid-run; every submit refusal, the one-sided band among them; the
+refine budget, a binned source, a checkpoint without the class, an off-grid
+source; the presets route, `min_kept` and a binned source's 404; a strength
+sweep resumed by its spec; the preview's `start_sigma` asked at the
+canvas's size; Re-render carrying the outpaint, refusing another
+size, checking each fill apart under one mask, refusing a row whose spec
+does not build its mask (with Swap tags' and More seeds' `outpaint` status)
+and answering a row no request could make with a worded 422; Swap tags and
+More seeds checking it apart from a refine; Mass refine dropping it; Load
+settings from its PNG; the status types), `tests/test_outpaint_storage.py`
+(the `_migrate` column, the row, chunk and A1111 line; `index_file`'s
+invariant; reindex from PNGs, an unknown fill kept, a malformed spec left off
+and counted, a lost mask built again, a stripped spec recovered only where the
+mask hashes; `wellformed()` and a merge leaving off a spec no request could
+make; a database merge carrying and dropping it; bundles carrying it, a
+broken row refused (a band past the bound among them), a lost mask built
+again or counted missing, the key stored in its one spelling, a leading-zero
+key keyed as its re-render), `tests/test_inpaint.py` (the real backend's
+outpaint branch: the padded canvas at the outpaint's size, the built mask's
+pipeline mask, the kept rectangle composited exactly; `outpaint_source`'s
+size refusal; an unstamped outpaint refused by `check_refine_supported` in
+the inpaint's words; an outpaint without a strength at the class's default),
+the outpaint key and run-id cases in `tests/test_conditioning.py`, the
+dialog's statuses in `tests/test_inpaint_ui.py`, and the `--outpaint`,
+`--band` and `--from-image` cases in `tests/test_cli_passes.py` (a `--band` of its
+own beside a carried outpaint running, a rewritten mask hash refused).
+
+Only the masked area is covered by `tests/test_mask_crop.py` (the spec and
+its key round trip; golden boxes and working sizes, both aspect clamps,
+edges and pad 0; the rule's SHA-256 pin over a sweep with its invariants;
+`widened` against PIL's `MaxFilter` and the radius's values; the coverage
+proof that every painted pixel's paste-back reach lies inside the widened
+mask, from 0.34x to 65x; `paste_back` then `composite` keeping every
+unmasked pixel), `tests/test_conditioning.py` (no crop leaves the key
+element and the pinned run ids unchanged; a cropped run id pinned; two
+paddings two pictures; the refusals and `applied()`; `denoise_size`; a
+saved cropped row's `completed_cells`, `settings_key` and
+`cell_from_record` agreeing), `tests/test_inpaint.py` (the class at the
+working size with `crop_inputs`' image and mask and no
+`padding_mask_crop`; the output at the source's size, every unmasked pixel
+and everything outside the box the source's; a cropped outpaint; the start
+sigma and the preview at the working size; Z-Image's preprocess at the
+working size; `last_mask_crop()`; the fake cropping by the real rule),
+`tests/test_mask_crop_storage.py` (the column, row, chunk and A1111 line;
+both codecs; `index_file`; both reindex paths: recomputed, proved,
+mismatched, malformed, recovered; bundles: carried as v1, refusals, a
+mismatch refused, recomputed, recovered; the reruns' carries and drops;
+search, keep rates and tier pricing; the job recording the backend's
+region) and `tests/test_mask_crop_refusals.py` (the refusals' exact words
+and status; the preview's region; a mismatched recorded region refused by
+Re-render, Swap tags and More seeds; the CLI's `--mask-crop`, its
+`--from-image` carry and mismatch, and `--via-server`).
+
+### Image pass smokes
+
+`smoke-refine.json` checks the Refine dialog on a FLUX.1 Krea [dev] fake on
+7875, whose refine cells are the source image under a stamp: no refine
+control in the panel, the card's and the lightbox's Refine opening the
+dialog with the image's prompt and seed and the panel untouched, the
+titles in "#N" form, focus on Strength with its value selected, the
+profile's strength, the shortcut hint by the shared rule, the anchored top
+across a fold toggle at 1400x900 (scrolling short of the window's bottom),
+the scale buttons and the size line - naming the measured run, FLUX.1's note
+under Strength, the opening size capped below it with the skipped scale
+named on its button and a run at the capped size not remembered as the
+scale, the crop's kept percentage and Keep shape - Versions and their
+seeds, the rows and the lightbox's settings line (`refine of #N`), the
+facts' Refined from link and S comparing a pass with its source, a pass past
+4 MP and one past the guard refused in place, the measured line said as the
+16 GB card's with an 8 GB card claimed (`POST /api/fake/card`) and as before
+without one, Refine held while a submit
+is in flight and a press saying so, Escape on a dialog opened from
+the lightbox giving the lightbox back on the same image, a strength sweep's
+preview, its sheet axis and `refine:` in the search box, the passes strip
+opening the lightbox beside the source, compared, a sweep that leaves no step refused
+in the preview and a refusal moved to the error line at Strength or W with
+Refine not moving, a strength typed and entered at once refused in the
+dialog, a strength past 1 refused as a fraction, Compare 3 (held with the
+Steps that would give a sweep at 2 steps, writing nothing), Compare 2 at
+12 steps, Compare scales (its title naming 2x left out past the measured
+line, the Size field and dialog the same height with the button hidden, a
+press writing no box, the size line and the server's sizes in the preview,
+a strength list crossed with it, the run's sheet with a Size axis, a
+remembered 1.25x that differs from the boxes' 1.5x left standing by the
+run and the next open at it, a scale button, a typed W and a second press
+leaving it, Reuse of a compared cell at its own size, and held with both
+factors named on a 1.5 MP source, a press saying so with focus kept), Mu's "auto", the preview's "starts at N% noise" from an injected
+`start_sigma` (the fake reads none), none for a sweep, and the reading
+taken away by an unload and put back by a load with the dialog open and no
+box touched, Refine held while the server does not answer, arrow-key
+stepping and the dice, Ctrl+Enter and Enter running the pass, the
+remembered strength and Reset forgetting it, the unsent draft and Start
+over, Reuse opening a pass (its title and reused line, and another
+checkpoint's, with this one's sampling), a pass whose source has gone, after
+a viewport step to 2560x1305 the two panes with the kept-region frame and a
+top 8vh down that does not move as the fold opens, the source standing in
+for a pass whose frames are dropped - full size, in the result's own box,
+captioned in the tile's `.foot` "Refining #N → W×H · strength s · step 1/…" -
+focus off `<body>` after that pass, opened from script, ran - a source
+deleted while the dialog is open refused in the dialog's own line, in the
+page's words with the source line marked, with the dialog kept open, and
+one binned the same way in bin.js's words, the carried adapter moved out
+of the directory (`/api/fake/lora`) taken out of the pass at a refused
+Refine and at a preview a press waited on, said, with nothing run until the
+next press, which runs without it, the
+dialog with no sideways scroll at 1400x900 and 2560x1305, the scale
+buttons' aria-pressed, a first open passing over the usual 1.5x (its title
+and the size line's why), a foreign pass's reused line naming FLUX.1 Krea
+[dev] by its catalogue name, and the dialog's CFG named "CFG (distilled)"
+as the panel's, with the greyed negative's caption "(needs True CFG > 1 —
+~2× slower)"; a pass whose source is deleted while it runs (`/api/fake/step`
+slowing it) landing with "(deleted)" in its title and the note and its
+Reuse saying so, `markGoneSource` marking an arriving pass, and a sweep
+stopped by failures when its source went: Finish run held with the
+server's reason ("no gallery image with id N") as its title and said at
+every press, focus kept and nothing sent, and the server refusing the POST
+in the same words.
+`smoke-conditioning.json` has the other side
+on its klein fake: the card's, the viewer's and the lightbox's Refine
+answering with the reason and opening nothing.
+
+```powershell
+uv run python tools/fake_server.py --port 7875 --model black-forest-labs/FLUX.1-Krea-dev
+node tools/browser.mjs tools/smoke-refine.json
+```
+
+On the same FLUX fake at 7875, `smoke-refine-unavailable.json` checks an
+unloaded off-catalogue capability guess: ⤢ opening nothing, a refined
+record's Reuse keeping the pass in the dialog with Refine dead and nothing
+submitted, the dialog waking when status says the pipeline has a pass,
+Generate meanwhile rendering directly, a final answer's wording
+(`refine_settled`) and the guess's back, and a foreign pass's general
+starting strength (`refine_strength_profiled` false); and Mass refine's
+Refine… held with the hedge, then `REFINE_NONE`, even under a search that
+gives it images, a press opening nothing, and live once the status says
+the pipeline has a pass. `browser.mjs` sends Escape with its
+key code, so a modal dialog closes on it as on a real press. A click, right click, double click, hover or wheel on a
+selector waits until the element's centre holds still across two reads
+50 ms apart (2 s at most), so a press made during a smooth scroll lands
+on its target: `smoke-bundles` missed the Bundles button now and then
+after Show new gallery images scrolled to the gallery's head. Its
+`__bundlePress` presses again, for up to about 25 s, on exactly the server's
+"still finishing" refusal, which an open thumbnail stream can cause, and
+logs every press's refusals before the page reloads; `__bundlePressOnce` is
+the single click the mid-send Cancel needs. Fake servers
+share one throwaway gallery unless `--data` gives each its own, and
+`smoke.json` counts the images planted under another checkpoint: run it on
+a fake of its own while others are up.
+
+`smoke-refine-sdxl.json` checks the Refine dialog on an Animagine fake on
+7877: Animagine's measured tight line (2896x2896, 2x inside it unwarned) and,
+on a status stubbed to an unmeasured profile, the generic one, Compare scales
+taking all three of 1x, 1.5x and 2x inside that line (and held on the generic
+line, both factors named), SDXL's strength
+sweep, the pass prompt's own check (the 77-token cut outside the fold, Show,
+the checking line during a slow first use, Apply into the dialog's box with
+Ctrl+Z, dead while stale and dimmed by the shared 0.8 / `--text-3` rule, the
+negative-prompt Apply dead while CFG greys the negative box, the hidden line
+that announces the check only when its text changes), the unknown-tag line
+(a repeated tag named once) and its silence on a failed lookup, a capped
+opening on the generic line, From panel (held with its reason, a press
+saying so on the line under it in the dialog's view; the copy and its two
+Ctrl+Z steps; a greyed negative left as it was while the prompt is copied
+and undone, held while only that negative differs, and copied once CFG
+wakes it; an empty panel prompt), the prompt's tag suggestions (nothing
+selected under three characters with Tab moving on; the preselect from
+three; Escape closing the list and not the dialog; Enter and Tab taking a
+suggestion; Ctrl+Z; a list kept up and unselected while the next key asks;
+a click in the listed item asking nothing; the list over the box at
+1400x620 where there is no room below; the panel's list untouched), the
+dialog's CFG named plain CFG and its negative caption in both states
+("(needs CFG > 1 — ~2× slower)" greyed, "(runs at CFG > 1, no extra
+cost)" live), and nothing reaching the panel:
+
+```powershell
+uv run python tools/fake_server.py --port 7877 --model cagliostrolab/animagine-xl-4.0
+node tools/browser.mjs tools/smoke-refine-sdxl.json
+```
+
+`smoke-inpaint.json` checks the Inpaint dialog (`inpaint.js`,
+`inpaint-mask.js`, `styles/inpaint.css`) on an Animagine fake on 7905 with a
+fresh `--data`: the card's ✎ live and last before Delete; opened from the
+lightbox's Inpaint…, the lightbox closed, focus on the canvas named "Mask
+over #N" with a bitmap of the source's size; Strength at the inpaint class's
+own default, said as the library's number and as measured on Animagine XL
+4.0 (`hints.inpaint_strength`); a stubbed `start_sigma` adding "starts at
+51% noise" to the preview, the SDXL fake's none adding nothing; Inpaint
+held with "Paint the part
+of #N to repaint first" and a press saying it, and held while a submit is
+in flight, a press saying that too; a brush drag, the eraser (E),
+[ and ], a plain wheel scrolling and Alt+wheel sizing, the feather giving
+another hash and 0 the same one again (`created: false`), Invert (I), Ctrl+Z,
+Ctrl+Y and Ctrl+Shift+Z, I in the Seed box painting nothing, the keyboard
+brush (arrows and Space); the tools row's boxes and the dialog's scrollTop
+unchanged through painting and a preview refusal, Inpaint not moving under
+the pointer; the result an inpaint of #N @ 0.6 on the card, its title and
+the settings line; the lightbox's Mask row, the outline drawn over the
+source's thumbnail in an 82 px box (80 and its border), its tint's share
+within 0.12 of the mask's, the hash's first 16 digits, a binned source's
+thumbnail asked for with `?binned=true`, and a deleted source leaving the record's own picture under it; every pixel the mask
+keeps the source's exactly; Reuse reopening on the source with the stored
+mask, no upload of the picture and one `/keep` of the stored mask (the page's POSTs counted); a strength list
+opening a sheet over one mask; a close that ran nothing giving the lightbox
+back and its strokes on the next open, and Start over. Only the masked
+area: the dialog opening unticked at 32 with the padding greyed and the
+tip's words, ticking moving nothing; a small stroke's preview adding the
+area words and the dashed box at the server's box; pad 0 asking again and
+pad 12 refused, holding Inpaint; an inverted mask refused in the server's
+no-gain words and Ctrl+Z bringing the small mask back; the run at 512 x 512
+recording the spec, box and working size, every unmasked pixel the
+source's; the facts' "Masked area only" row after Mask; Reuse's title,
+re-tick, padding and box; unticking hiding the box. `smoke-inpaint-
+unavailable.json`, on the default Krea 2 Turbo fake on 7906: the card's, the
+result's and the lightbox's entry points `aria-disabled` with "Krea 2 Turbo
+has no inpaint pipeline in the installed diffusers", a press saying it and
+opening nothing; a stubbed `inpaint_deferred` status saying "not enabled yet"
+in the titles; Reuse of an inpaint opening the dialog held, saying why;
+Reuse of a cropped inpaint (padding 48) opening ticked at 48, the tick
+`aria-disabled` with the reason and a press leaving it ticked and saying why:
+
+```powershell
+uv run python tools/fake_server.py --port 7905 --model cagliostrolab/animagine-xl-4.0 --data <new-scratch-directory>
+node tools/browser.mjs tools/smoke-inpaint.json
+uv run python tools/fake_server.py --port 7906
+node tools/browser.mjs tools/smoke-inpaint-unavailable.json
+```
+
+`smoke-inpaint-unavailable.json` also holds the lightbox's Outpaint… and
+the result column's ⬚ Outpaint… with "..., which an outpaint runs through",
+the deferred wording, Reuse of an outpaint opening the dialog held, and
+`openOutpaint` refusing. `smoke-outpaint.json` checks the Outpaint dialog on
+an Animagine fake on 7907 with a fresh `--data`: the lightbox's row of three
+not wrapping or cutting a word; opened from it with Strength at the class's
+default and the note naming Animagine XL 4.0 as measured, the band at 32
+and its note saying 32 joined best of 0, 32, 64 and 128; a stubbed
+`start_sigma` adding "starts at 60% noise" to the preview, and the SDXL
+fake's none adding nothing; Outpaint held with "Extend at least one side" and a press saying
+it; a typed 50 committed as 48 on Enter with "left 50 → 48, a multiple of
+16"; the server's presets over 1024 x 1024 (+128 all round, +400/+0/+400/+0,
++0/+256/+0/+256), the To shape… list, held presets on the 16:9 preset image
+and on 1376 x 768 (within 16 px), a stubbed off-grid answer; the frame's
+source and band placement; holds past the side budget, a preview refusal, a
+band leaving nothing kept, a one-sided band leaving 8 px (held at
+`min_kept`, naming the left side alone, as the server's preview refusal
+does) and a band past 256; To shape… moved by real arrow presses without
+applying, Apply held and applying; a side typed after a preset clearing its
+words; every box's rect and the
+scrollTop unchanged; Escape closing only the dialog over the model picker;
+Ctrl+Enter in a side box running the outpaint, not the panel; the result
+an outpaint of #N +400/+0/+400/+0 whose kept pixels are the source's at
+its offset and whose border is wholly masked; the card's badge, title and
+Reuse outpaint… after `syncReuseButtons`; the facts rows, and the Mask
+row's thumbnail at the source's offset in a box of the canvas's shape, its
+line only on the band's kept side; Against source
+at the offset; Reuse reopening with the sides, band, strength and seed; a
+strength list opening a sheet; an unknown fill refused by name; Start
+over; `outpaint:yes`; the source binned with the dialog open (Outpaint
+held with the recycle-bin words, a press saying it) and restored; a submit
+in flight holding Outpaint with its reason and a press saying it, and the
+job line's "the outpaint of #N"; a late presets answer opening nothing after
+the lightbox closed or over the Inpaint dialog; a presets 404 for a source
+binned elsewhere saying recycle bin; the lightbox's Outpaint… kept, uncut,
+at 800 px. Only the masked area: unticked at 32 and greyed, the tip's
+words, the field within the band row's height, ticking moving nothing and
+scrolling nothing; a left 256 on 1024 x 1024 previewing "…432×1024, at
+672×1600 (1.6× up), pasted back" with the no-estimate words and the dotted
+box at the server's box; pad 12 refused and holding Outpaint; the run at
+1280 x 1024 recording `bbox16:32@1`, its box and working size, the kept
+pixels the source's and the border wholly masked; the facts row and
+Reuse outpaint…'s title before and after `syncReuseButtons`; Reuse
+reopening ticked with its box; the no-gain refusal on a small canvas in the
+server's words; a close keeping the tick and Start over clearing it.
+`browser.mjs`'s `{"key": "ArrowDown", "native": true}` sends the
+key code, so a focused select moves as on a real press:
+
+```powershell
+uv run python tools/fake_server.py --port 7907 --model cagliostrolab/animagine-xl-4.0 --data <new-scratch-directory>
+node tools/browser.mjs tools/smoke-outpaint.json
+```
+
+`smoke-reuse-pass-opening.json` uses a fresh FLUX.1 Krea [dev] fake on
+7946 with 0.3 s steps. Three actual owned jobs create two source/pass pairs.
+Held unmodified source GETs and declared unforwarded 404/500 replies check
+newer Refine drafts/focus, composer typing/Reset, newer Reuse ordering and
+current fallback/error/retry behavior. Only the first declared late-success
+source-read gate ignores its AbortSignal to exercise stale-owner guards. Raw draft snapshots,
+one-use same-origin mutation grants, cold backup state and final zero active
+jobs/pending reads/unused grants/JavaScript errors bound the fixture. No image
+is deleted or cleared; planted facts stay unchanged. The page's advisory
+`/api/prompt/measure` and `/api/prompt/analyze` POSTs pass through
+unguarded. No real model, GPU, credentials or user gallery is exercised.
+
+### Layout, grid and sheet smokes
+
+`smoke-wide.json` checks the page at the sizes it is used at, switching
+with `viewport` steps between 2560x1305, 2048x1040 at 125%, 1920x947 and 1400x900 on a
+FLUX.1 Krea [dev] fake on 7876: the wide tier's scale (the panel's 461 px at
+2560 and 400 px at 2048, a 15.5 px body and 13.5 px captions at 2560 and a
+third of the way there at 2048, eight and seven gallery columns) and the
+unchanged one at 1400x900 (330 px, 14 px, 12 px, five columns), Generate on
+screen, the page's own focus ring on a checkbox and a button and the LoRA
+select drawn dark at both wide sizes, the caption buttons 30 px at 13.5 px
+and the tick boxes 18 px at 2560, a 16-digit seed fitting its box on the
+Output row's one line at every size, its dice in the Seed name's line with
+a target that stops at the box - and the Refine dialog's at 125%, its row
+and the dialog with no sideways scroll - the Output caption styled as
+Sampling's at 2560x1305 and in one column, and the group's hidden name,
+with Generate whole at scroll 0, at 1920x947 and 2048x1040@1.25; at
+1400x900 scroll 0 the caption the group's hidden name, the group its row's
+height and Generate's top at least 16 px inside the window; a
+size strip's one tab stop with aria-pressed and the arrows moving focus
+without choosing, the greyed negative's Set True CFG button above the box
+(never over its text, the box still under the pointer) focusing True CFG and
+writing nothing, the prompt box growing to twelve lines (eight on the short
+window) with a dragged height winning over the cap, and with the grid fold
+open - by a click on its summary, which brings Run grid into view - Run grid
+on screen after a wheel over the stage and at the end of a 160-image
+gallery, the panel holding its bottom a gutter above the window's (the
+gutter and the resting top read off the page; at 1400x900, where References
+and LoRA run on under the fold, stuck with Run grid in view), the panel's
+order - the run hint under `#progress`, the Step cache row after the grid
+fold, References and LoRA last, after it - and a hand-drawn running
+batch's Now line, both bars and elapsed line in the window at scroll 0 at
+2048x1040@1.25, the panel coming back down
+as far as a wheel scrolls up, the prompt and Examples focused from deep in
+the gallery and by Shift+Tab (past the negative's button) brought into view
+with the page left where it was, a finding clicked in the prompt check
+selecting its words in view without the check moving, Generate pressed with
+the panel held staying under the pointer through its run and the panel
+holding its bottom again once the pointer leaves, Resume's tip opening
+upwards inside the window, a fold restored at load scrolling nothing, the
+panel static in one column below 901 px, and in one column Batch's tip
+inside the window and the comparison's always-run original box undimmed:
+
+```powershell
+uv run python tools/fake_server.py --port 7876 --model black-forest-labs/FLUX.1-Krea-dev
+node tools/browser.mjs tools/smoke-wide.json
+```
+
+`smoke-narrow.json` checks one column and narrow windows on a FLUX.1 Krea
+[dev] fake on 7889 at `--step 0.3`: Reset's note in the box it emptied at
+1400x900 (greyed negative) and at 600x900, Generate unmoved as it and its
+Undo's note come and go, and the presses on Generate below landing with
+the note still up; a running job with a long prompt
+keeping the page its width at 600 px, the Now line ellipsized and Cancel in
+the window; at 600x900, 800x900 and 900x700, New image as a pill centred
+under the topbar and clear of Generate, for a viewer below the window, and
+for one above it (scrolled to the gallery's end during a load), its arrow
+following a jump to the page's top and the page never scrolling by itself;
+its press focusing the live preview's tile, handed on to the image that
+replaces it; a real press on Generate's right end with the pill up starting
+a job (fixed points, each guarded by an `elementFromPoint` check); a
+job cancelled after its first frame withdrawing the pill, its focus going
+to Generate; a press with nothing in the viewer focusing the viewer, which
+lets its tabindex go on blur; after a job, focus arriving in the panel
+keeping the pill, and a typed character or a real press on the prompt
+withdrawing it; the topbar's mirror whole with its load clock at 600 px,
+the status on one line and Unload at the bar's end, with the free space
+back at 1400; the Search tip inside the window at 600 and 700 px (risen
+by `placeTip` where it fits neither under nor over its badge) and
+unshifted sideways at 1400; the grid's LoRA weight tip clear of the left edge at
+1400 and 2560x1305; a fitting `.end` tip unshifted; and in two columns New
+image offered for a viewer scrolled above the window, static in the panel
+after the finish line and kept past the job's end; and, at scroll 0, Batch
+4 and Repeat 3 leaving Generate where it was with the run hint under it,
+then that batch running with its Now line, Pause, Cancel, both bars, the
+counters and the elapsed line (one line) in the window and the run hint
+under them, at 1400x900, 1920x947, 2048x1040@1.25 and 1536x864@1.25 (the
+panel's gap 10 px there, 14 px back at 1400x900); and at 600x900 P from
+a card 1,000 px down bringing the prompt box into view with one
+`scrollIntoView`, the page its width, and moving nothing when the box is
+already on screen:
+
+```powershell
+uv run python tools/fake_server.py --port 7889 --model black-forest-labs/FLUX.1-Krea-dev --step 0.3
+node tools/browser.mjs tools/smoke-narrow.json
+```
+
+`smoke-grid-preview-close.json` uses a fresh default Krea 2 Turbo fake
+on 7948, with only GET/HEAD and existing read-only preview/analysis POSTs.
+Native summary clicks and a transparent observer of the original toggle
+handler hold an actual preview success through close, then require the
+closed negative state/caption/draft to remain intact. Reopening uses real
+current counts/variables; a separately declared, nonforwarded HTTP500 checks
+late error suppression. Planted rows, empty jobs/bin, fixed draft/geometry
+and new wide/narrow screenshots bound the check. No generation, model load,
+real gallery mutation, old artifact read or hardware qualification occurs.
+
+`tests/test_grid_preview_close.py` loads the actual declaration-only
+`sizes.js` and `grid-preview.js` in a Node VM and captures the exact boot
+toggle registration without page boot. Deferred API responses exercise close,
+repeated close, reopen/current ownership, existing model/blank-prompt holds
+and real CFG/negative presentation on inert DOM ports. It does not qualify
+native events, focus, layout or actual requests. The separate focused smoke
+supplies specific UI and fake-request evidence; neither qualifies model pixels.
+
+`smoke-grid.json` checks the grid fold on a FLUX.1 Krea [dev] fake on 7879:
+two direct renders back to back, each awaited to its end with one stream and
+one tile; the resolved prompt and the one-value warning (commas named); Run grid as
+wide as Generate; the totals at body size with factors of one trimmed; a
+spaced range, `6..12` and an axis message naming its box, a value past the
+schema's bounds included (CFG 25, Steps 150); Resume's refusal
+without pydantic's prefix; Repeat above one; the budget line, including 0
+seeds, the jobs ahead, and the load note following a real unload and load
+with no box touched; the cells already in the gallery once a grid ends,
+without Resume; Ctrl+Enter running the grid from a grid box, refusing from
+the prompt while the grid holds its placeholders, and generating on a plain
+prompt; FLUX.1's grid examples (21,28,35 / 2.5,3.5,4.5), no Mu example, Mu
+"auto" and no fixed shift; and, at 2560x1305: Run grid in the window after
+a real click on the fold's summary once the preview has landed; a 30-line
+prompt whose variable is listed by its line, with the preview's top and Run
+grid in the window together; the one-value case; a long one-line prompt's
+listing capped at eight lines and scrolling inside itself (both previews
+awaited, not debounced, and the box logged), its last row the resolved
+prompts' token counts per encoder (PA#15: CLIP-L's pooled-only cut said as
+advice); a value carrying its prompt past T5-XXL's 511 named in the
+warning colour ("tips them over"), and gone with that value; with the
+fold opened by hand before the variables are typed, Run grid no further
+under the window than the listing box and one line (the panel holds still
+under the pointer); and + panel size (GEN#64) leaving the Sizes label line
+as tall as the label at 2560x1305 and again at 1400x900, where it appends
+the panel's WxH (the preview's size line follows), says a size listed
+already in the hint without writing it twice, and fills an empty box:
+
+```powershell
+uv run python tools/fake_server.py --port 7879 --model black-forest-labs/FLUX.1-Krea-dev
+node tools/browser.mjs tools/smoke-grid.json
+```
+
+`smoke-sheet.json` checks the contact sheet at 2560x1305 on a FLUX.1 Krea
+[dev] fake on 7880: the page landing on a sheet it opens (Runs, a
+comparison, a sweep), a 4 x 3 on one screen with heads at the page's
+`--fs-body-sm` and srcset sizes, heads sticking in the sheet's own scroll
+box and a keyboard-focused cell scrolled clear of them, the fit and the wrap
+following a resize, a twice-run grid's repeats in the note, a seeds-only run
+wrapped (and its export), edit labels for prompt iterations, the restored
+search on Sheet off, the Sheet button's newest run, pins taking the
+commonest value, F starring a focused cell (said in `#star-said`), the lightbox opened from the
+sheet starring the cell (its star "★ Star", `aria-label` Star, its title
+and `aria-pressed`) and F on the cell it hands focus back to, the Fixed line
+under Starred, the run bar (Finish run, More seeds of this run… right
+after it, the run's line "Run … · N images · checkpoint quantization" last,
+on a row of its own under the buttons), Finish run held with "nothing in
+this run is missing" on a complete run, a press saying it in
+`#gallery-error` and leaving an unrelated composer (its grid, size, seed
+and Resume tick) as it was, offered on a seeds-only run too, and held with
+the server's reason on another checkpoint's run, whose More seeds of
+this run… stays, held with "Made on …", and says it under the gallery's head, the version rows with their edits and titles (a
+reorder as "same words, moved"), a strength sweep's source column and
+lightbox walk, the refined badge, two passes alike on every axis but
+their source counted in the note as sharing a cell, pins in the export's
+file name, an
+empty sheet drawing only its note; the cell star (hidden until hover or
+focus, out of the tab order, a click starring without opening the lightbox,
+under the stuck heads when the box scrolls); iterations on random seeds (a
+diagonal, then the seed pinned) with the note's Compare pointer, and none on
+one fixed seed; Fill width (aria-pressed, the cells filling the width at
+2560, 2048x1040@1.25 and 1400 with `sizes` following, the export at the
+on-screen width from the PNGs at 2560, at the cells' device pixels at 125%,
+and no smaller than Fit's at 1400, Fit's export from thumbnails, held on a
+wrapped row, remembered across a reload and working with storage
+throwing); Export all (beside Export PNG only with a pin, both buttons held
+while it runs, one stack named `-every-cfg`, five slices past the edge
+saved as one image each with distinct names, the same five files written
+when the sheet is redrawn on another run mid-export, and a failing export
+said under the gallery head); the matrix as a table (rows `display:
+contents`, header and cell roles) with cells named by their axis values and
+described by the facts the name leaves out, its opening said, a wrapped
+sheet as a list; a 2 × 8 comparison's 16-digit seed heads whole under Seed
+at 1500x900, and at 1400x900 breaking between groups of four into balanced
+lines; and at 800x900 the finish line's Show sheet and a strength sweep run
+from the viewer's ⤢ each handing focus to the first cell, with Tab then not
+moving the page; and at 1400x900 the sheet's focus kept through F on a
+cell another tab deleted (onto the cell now in its place), a changed
+Columns select, and another tab's job ending under it, the sheet left as
+it was; and Delete on a focused cell (`UI#32`) binning it with Restore in
+the note, focus on the cell now in its place or on the last, Restore
+bringing both back, a held key binning one image, and the help's Contact
+sheet group listing the key. `smoke-sheet-klein.json` uses a FLUX.2
+[klein] fake on 7886 for the References axis, the Size row and its pin, and the
+adapter named in LoRA heads, the Fixed line and the export:
+
+```powershell
+uv run python tools/fake_server.py --port 7880 --model black-forest-labs/FLUX.1-Krea-dev
+node tools/browser.mjs tools/smoke-sheet.json
+uv run python tools/fake_server.py --port 7886 --model black-forest-labs/FLUX.2-klein-4B
+node tools/browser.mjs tools/smoke-sheet-klein.json
+```
+
+`smoke-sheet-zoom.json` checks the sheet's zoom and pan at 1400x900 on a
+FLUX.1 Krea [dev] fake on 7910 with a fresh scratch `--data` of its own: a
+1024 px steps x CFG 4 x 3, the zoom group after Fill width (− + 1:1 and the
+readout, − and the readout held at zoom 1 with the reason, a press saying it
+under the gallery head), + growing the cells by `ZOOM_STEP` with the box
+scrolling and the button not moving, every zoomed cell in the box's view
+showing its full PNG (`src` the record's `url`, no `srcset`, the decoded
+bitmap 1024 px - `naturalWidth` is no measure, Chrome keeping the density
+of the srcset pick the swap replaced) and keeping it zoomed back out, the
+heads stuck, Ctrl+wheel zooming about the pointer (the point under it kept
+within 3 px) and a plain wheel not, a real mouse drag panning the box by
+the drag with no lightbox while a click and a press moving under 4 px open
+it, the keys 1 + - 0 on a focused cell and a held key saying why, the zoom
+kept across `renderSheet()` and back to 1 on Sheet off and on, Fill width
+as the zoom's base with the export at the unzoomed width, a wrapped
+seeds-only row holding every zoom button with its reason; and at 2560x1305
+1:1 drawing each image at its own pixels and the zoom stopping at 400%:
+
+```powershell
+uv run python tools/fake_server.py --port 7910 --model black-forest-labs/FLUX.1-Krea-dev --data <fresh scratch dir>
+node tools/browser.mjs tools/smoke-sheet-zoom.json
+```
+
+`smoke-stage.json` checks Gallery beside on a FLUX.1 Krea [dev] fake on
+7888. It opens at 1400x900 (no tick, no column), then at 2560x1305 checks
+the tick off by default; ticked, a fixed column level with the viewer and
+inside the window, the page not scrolling, three cards across with their
+tools whole, the search on its own row, the paging trigger rooted on the
+column, the tick remembered; the column paging by the wheel with the window
+still; the arrow keys walking its rows, End bringing the last card into the
+column's view, and Right past the last card paging in; with nothing made
+yet (the viewer idle), the check and the critic's answer in the column's
+box, scrolling inside it with its head stuck and Close under the pointer,
+the page still (its grid, posted by fetch and so another tab's job to the
+page, waited out first, since that job holds the critic); a job landing
+with the pointer resting on a card (hovered by selector) changing nothing
+in the column, with the count already new, until the pointer leaves, and
+then first at the column's top; the image just made at its own size beside
+the column; a batch landing above a scrolled column keeping its view;
+`#recent` as a row under the image; the prompt check taking the column's
+box, with the column hidden and the image, its column of words and
+`#recent` unmoved and nothing cut; Tab reaching the check in the column
+after the image just made, its note and `#recent` (`reading-flow:
+flex-visual`); the lightbox's Escape from an image only the hidden column
+holds focusing the viewer's image; Close giving the column back at the same
+scroll; a job landing under the check, not held; the Sheet button and a
+card's ⊞ opening a sheet across the stage's width, landed on, with the
+tick's title saying when it counts and the column back on Sheet off; Reset
+leaving the tick, a reload restoring it, and the window crossing 2000 px
+both ways; at 2048x1040 at 125%, two cards across beside the image in
+view, the check and the critic's answer in the column's box over an idle
+viewer after the reload, and the check taking the column with the image
+unmoved and nothing cut; and, unticked, the gallery back under the viewer,
+with focus on the tick and the key forgotten:
+
+```powershell
+uv run python tools/fake_server.py --port 7888 --model black-forest-labs/FLUX.1-Krea-dev
+node tools/browser.mjs tools/smoke-stage.json
+```
+
+### Gallery smokes
+
+`smoke-gallery-maintenance.json` uses its own fresh FLUX.1 Krea [dev] fake
+on shared port 7955 (`UI#53`). It saves a one-image backup, then holds an
+import of it with `/api/fake/bundle`. While the import runs, `/api/models`
+answers 409 `gallery_maintenance` and the model favourites still answer.
+Models opens with `GALLERY_MAINTENANCE_WORDS` in the table's place, Switch
+is held in the bundle's words and the note has no raw sentence. On disk,
+Check and the tag finder say the same words. Once the hold is released,
+the bundle status poll brings back the catalogue and the open fold, and
+`/api/fake/activity` counts neither read. A second held import then
+refuses a re-read of the list already shown, with a row focused: the
+reason keeps the table's height, so the On disk fold's summary stays put
+as the hold begins and ends, and the focus moves to the picker's body
+(hiding the row with it used to drop the focus and close Models). On the
+phone (393x852, touch),
+the Models sheet shows the words inside the screen with no sideways
+overflow, then recovers.
+
+`smoke-gallery-top.json` uses a fresh FLUX.1 Krea [dev] fake on 7955 and
+a 60-image grid. At 1400x900 "↑ Top" stays hidden at the top and 300 px
+past the head, shows a long way down at the window's bottom right (hit by
+`elementFromPoint`, the page not moved by it), and its real press lands the
+head under the topbar with focus on the first card's image and the button
+gone. At 2560x1305 with Gallery beside it shows once the column is scrolled
+its own height, inside the column left of its scrollbar, and its press
+scrolls the column to 0, never the page; a wheel over it scrolls the
+column, not the page; unticking re-asks of the page. Focused and scrolled
+near the top it stays until its blur. Its last steps are the page's error
+line (`sayPageError`), by hand-made events: an `error` writes
+`Page error: ... (gallery.js:12). Reload the page if something has stopped
+working.` in `#error`, red; the same error again leaves another message
+alone; an `unhandledrejection` with a plain reason is said without a
+place; an `error` with no error object (the browser's ResizeObserver
+notice) writes nothing. `smoke-phone.json` ends with the same on the phone:
+over the bars in Create (`at-generate`, the element at its own centre),
+under the gallery's head in Gallery, the panel's line left as it was.
+
+`smoke-runs-scope-recovery.json` uses a fresh FLUX.1 Krea [dev] fake on
+7947 and its two actual other-model planted images. GET-only actual Runs
+responses, held success and declared HTTP500 refusals check scope waiting,
+deliberate native retry, keyboard candidates, obsolete responses and bin
+holds. It creates no jobs or model/data mutations; new wide/narrow shots
+need inspection. `tests/test_runs_scope_recovery.py` checks actual Runs
+handlers with inert presentation/deferred-read ports. The dated review owns
+the exact evidence boundary and clearly labeled programmatic supplements.
+
+`smoke-runs-favorite-counts.json` uses a fresh FLUX.1 Krea [dev] fake
+on 7949 and its two actual other-model planted rows. Native single and
+picked stars, held successful replies and an explicitly nonforwarded
+disjoint failure check one actual Runs read after each confirmed action,
+the server's favorite totals, and retained select focus/pending run id.
+Only exact owned favorite POSTs are admitted; no jobs or model activation.
+`tests/test_runs_favorite_counts.py` observes the complete actual favorite
+module's caller counts, admission, propagation and cleanup using inert
+API/presentation ports. The dated count review owns actual results and limits.
+
+`smoke-delete.json` checks deletes taken to completion on a FLUX.1 Krea
+[dev] fake on 7881 (a checkpoint with a refine pass, so a starred pass can
+keep its source): the per-image delete moving to the recycle bin with no
+dialog, and its wording; the page's own dialog for the bin view's Delete
+permanently, beside the card's ⌦ and over the lightbox's, Escape as Cancel,
+in the danger colour, and its count box for
+Delete unstarred, with its "They move to the recycle bin" line and outcome,
+a lightbox of one image deleted (reopened at once after a
+close, the check waiting for the delete itself and
+`closeLightboxAfterDelete`'s focus), Delete unstarred keeping a starred
+pass's source with the typed count, a landed image's 409; images another
+tab made since the grid loaded, put on it before the count is asked and
+counted in the dialog by the server's `newer`; the All models/running-job
+dialog and the 409's running-job sentence for a job another tab started
+(the server's `job_active`, not the page's `busy`); the dialog kept inside
+the scrollbar, by real presses, for a row's last card and for the
+lightbox's Delete permanently; a pass whose source has gone - marked at once on
+the page that deleted it (record, card title, Reuse) - tombstones
+("Deleted · #N"), focus and the emptied viewer's placeholder, an image already deleted,
+a tile deleted elsewhere (once the viewer's PNGs have loaded: on Windows the
+server keeps a file it is still streaming) and the job's replay, the
+lightbox paging in behind a delete (its counter reading the gallery's total
+and the id), a double-clicked delete binned once, and Reuse: Ctrl+Z and its Undo, the
+Undo retired by a change (Ctrl+Z, a seed, an Example) and a Reuse taking an
+Example's Undo, the page unmoved mid-gallery with the prompt in sight, the
+page's end, one column at 800x900, the Undo in the window at 2048x1040
+@1.25, every image in scope deleted by another tab (a real press says no
+image is left, focus on the search box), and a real sweep that takes every
+image handing focus to the search box, then a catch-up landing after that
+sweep's own reset read past its images (`newestImageSeen` lowered, the
+status received): no reset and the "Moved 2 images" line kept
+(`prependFinished`'s `galleryReadHead` skip); and the head holding still
+under real clicks: Starred ticked with Delete unstarred's box kept, a
+point it was clicked at still Starred's, a second click unticking it
+rather than focusing the search, a search typed with the pointer on the box
+keeping Re-render (and All models' count) back, the pointer leaving putting
+them right, and with both buttons shown another job's twelve images landing
+under the pointer: the count and Re-render's label written, Starred, All
+models and Delete unstarred unmoved, the search narrower (`.held`). Every wait in it is a condition
+(`__until`, `__settled`), none a sleep:
+
+```powershell
+uv run python tools/fake_server.py --port 7881 --model black-forest-labs/FLUX.1-Krea-dev
+node tools/browser.mjs tools/smoke-delete.json
+```
+
+`smoke-gallery.json` checks the gallery on a default (Krea 2 Turbo) fake on
+7885, a checkpoint with no pass and no references: the Runs picker's groups,
+labels (what each run varied: "steps ×8 · 5 seeds", "2 seeds") and sync with
+the search box (a pick, a card's ⊞, typing, Sheet off), the picker browsed
+from the keyboard (no fetch while arrowing, Escape, Enter, leaving it),
+at its own width with the search box whole and the picked run in its title;
+`id:` and the search tip (with `mu:none` as the pipeline's own shift); the Starred tick and Re-render's label; each card
+a group named #N; the five tools and their names on hover and focus inside
+the card, with Delete's over Delete, and the image's facts-only
+description; the card's #N · W×H · seed caption on hover and focus, hidden
+under a tool's name and dropped under a card note; Refine and Reference
+aria-disabled, their refusals in `#gallery-error` and a one-line card note,
+with the card and grid unmoved, a second press landing on the same tool,
+and the row's names held down while the note is up; the star button (named
+Star in both states, hidden until hover, a click starring without opening
+the lightbox, F from the star saying nothing more, F from a tool and from
+the image said in `#star-said`, the lightbox's F reaching the card and said
+in `#lb-star-said` - each read from `__said`, a record of the two lines'
+writes - the lightbox star's title and `aria-pressed` matching the card's,
+and a star on an image deleted elsewhere tombstoning it with "#N was
+already deleted." in the gallery's line and the Runs picker asked again);
+a refined record's badge and Reuse labels (planted into the page's gallery
+replies; its name led by "Reuse pass"); the ⚠ carry-over warning,
+said again when references flip and when the adapter list lands; the day
+line across pages, a line over the first card when the newest images are
+not today's, and a deleted head's tombstone across a day line drawing no
+second line; the roving tab stop, arrows across a short row and the day
+line, Home/End, Down paging in, F, a delete handing the stop on, the
+lightbox's user close handing the stop to the card it ended on, and a job's
+newest image taking the stop where none was chosen, prepended under an old
+head made two days older with the day's line between them; the head's
+S/M and Fit/Crop from 1800 px (eleven and nine a row at S with the tools
+fitting, Crop's cover, one tab stop per pair, remembered across a reload,
+hidden on a sheet, kept by Reset, not applied at 1400); S four across in
+Gallery beside's column at QHD, M three; the tools fitting at
+2560x1305 and 2048x1040@1.25; and a job a script sends at the fake's full
+speed just after a status poll, ended before the next and never in
+`active_jobs` (`elsewhereBusy` never set, the page watching none of it),
+taken in by the status's `newest_image_id` (`followGalleryHead`) within a
+poll or two - once, at the head, one more card and one more in the count,
+and two more polls (counted, not waited out) adding nothing; another tab's
+two jobs in a row, the first one's image in while the second still runs;
+and sixty images between two polls (the page's statuses held meanwhile),
+more than one page reaches back over, joining the head with the old head's
+card the same node and the paged-in tail kept, no reset; and last, as it
+plants two blonde foxes, an exclusion: `fox -blonde` loading only fox cards
+without "blonde", its total the server's, the tip's `-word` line, Delete
+unstarred's count dialog for `seed:>=100 -seed:100` and its refusal of
+`-blonde` in `#gallery-error`, with no panel control's rectangle moved; and
+after it a mistyped key (GAL#23): `sed:42` adding "sed:42 was searched as
+prompt words; did you mean seed:42?" and its Search seed:42 button to the
+empty line, the head's height that of a plain empty search, the press
+searching `seed:42` with the box focused and the page unscrolled,
+`masterpiece:1.2` and a quoted `"sed:42"` the plain line with no button,
+and the bin's empty line the same hint and press:
+
+```powershell
+uv run python tools/fake_server.py --port 7885
+node tools/browser.mjs tools/smoke-gallery.json
+```
+
+`smoke-batch-mates.json` checks a card's batch outlined on hover on a
+default fake on 7892 with a fresh `--data`: a Batch 3 x Repeat 2's other
+five cards outlined (1 px, solid) and not the hovered one, no card moving;
+a steps grid's cell at Batch 2 a set of two; a single image marking
+nothing; a press keeping the marks and the pointer leaving taking them down:
+
+```powershell
+uv run python tools/fake_server.py --port 7892 --data <new-scratch-directory>
+node tools/browser.mjs tools/smoke-batch-mates.json
+```
+
+`smoke-select.json` checks the gallery selection on a default fake on 7898
+with a fresh `--data` (it builds a 60-image grid): Ctrl+A (Cmd+A) on a
+focused card or on Select, with Select off as well as in it, adding just the
+loaded cards (no gallery fetch, saying unloaded images were not picked),
+with picks from another search kept and the cap applied, and leaving native
+text selection in the search and the prompt; in the recycle bin adding only
+the bin's cards, the gallery's picks set aside and back unchanged; Select in
+the footer row before Swap tags…, Refine…, More seeds… and Bundles…, at
+Bundles…'s height; with Select off, plain click opening a card while keeping
+the selection (including hidden picks) and range anchor, Ctrl+click
+(Cmd+click) toggling a pick and moving the anchor, Shift+click replacing the
+picks with the range and Ctrl/Cmd+Shift+click adding it; duplicate click
+details and non-left clicks opening or picking nothing; Space toggling and
+Enter opening with picks left alone; image names Open outside Select and
+Select with aria-pressed inside it, Enter first among the keys; a card's star starring it with the picks
+kept; a click on blank grid space clearing the selection with Select off but
+not in Select mode; Select pressed with neither it nor the grid moving as
+the count appears, its hint the row's gap from Select and the count 4 px
+from a shown Clear; in Select mode a quick double click toggling twice and
+opening nothing, a click, Space, Shift+click and Shift+Space (a range from
+the anchor out, backwards too) picking, a second click unpicking, the
+image's `aria-pressed` and name and the group's "(selected)"; Enter still
+opening the lightbox and F still starring; a search showing one of eight
+counted as "7 not shown", and back; the next page's cards marked and a range
+across the page boundary; a picked image deleted by its ⌦ leaving the
+selection; the cap (a range picking what fits, a single pick refused, both
+said); Escape clearing, then leaving select mode (the image becomes an
+"Open #N" button), then left to the page; Select off keeping a selection that
+a plain click does not change; Clear handing focus to
+Select; on a sheet Select held with its reason, not pressed and with no
+hint, and the selection kept and counted; a refused pick leaving the anchor;
+`selectedRecords()` giving the loaded page's records after a search; the
+gallery line as the footer's `1 1000 auto` item with no margin of its own,
+the footer full width at -8 px (a layout pin: it passes on the CSS from
+before the footer moved to gallery.css too); a rejected search counting
+the whole selection as not shown; and a long
+message in the gallery's line beside a long count staying one line - the
+footer, Select and the grid unmoved, the text the title - at 1400, at 600
+and beside the viewer at 2560, the count's number whole each time, its
+words whole at 1400, " selected" a ✓ at 600 and beside the viewer, where
+"✓ 2 · 1 not shown" fits whole, Picked a ▾ and Clear a ✕ there, 4 px apart
+and the row inside the column. Then the Picked menu between Clear and
+Select, held with its reason and said when pressed; a first pick with no
+filter showing "Re-render 1 selected at WxH" while Delete unstarred gives
+way, the head's height, the grid and Select unmoved, and Clear putting it
+back; on a filter whose own Re-render shows, a pick keeping the head's
+height and taking the label; picks made with no filter, then a filter
+typed, then Clear pressed under the pointer keeping the head, the grid
+and Select where they were with Delete unstarred still given way, and
+back once the pointer is on the top bar; the menu opening over the grid without moving
+it, inside the window, its Escape, ArrowDown, ArrowUp and Enter; Star picked
+(both cards marked, the server's favourites, the picks kept), again
+("already starred"), Unstar picked, and F starring only the focused card;
+Re-render of two picks one of which another tab binned (said, dropped,
+the other rendered again); Bin picked (tombstones, the note's Restore, the
+bin's records, the head unmoved) and Restore; the menu opening over its
+button low in the window; and Picked held with the bin's reason in it.
+Then the lightbox's X (`UI#33`): the cap refused in the lightbox's line,
+the gallery's untouched; Compare picked, then X on its shown member ending
+the pair and its comparison with the image kept; over a sheet whose cell
+opened it, X said and the menu item held with `SELECT_ON_SHEET`; in the
+bin, with `BIN_HELD`; and the help's Lightbox group listing X. Last,
+Re-render picked at N MP… (`GEN#33`): its label the panel tier, held with
+its reason on a custom size there and on a picked card's menu, the question
+listing each size and the unmatched pick with a non-red Re-render OK, OK
+queueing one job per size, and Delete permanently's OK red again after it.
+Then Pick this run (`UI#37`): one `run:` read across checkpoints at the cap,
+the run added in the server's order beside a pick from another search, the
+run's cards outside the search counted as not shown, Select and the anchor
+unchanged; the cap's refusal in `refuseOverCap`'s words and a run past the
+cap said to be partly picked; a reply after entering the bin or a Clear
+dropped (the stashed pick back unchanged), an id forgotten meanwhile left
+out, and a failure said with nothing picked:
+
+```powershell
+uv run python tools/fake_server.py --port 7898 --data <new-scratch-directory>
+node tools/browser.mjs tools/smoke-select.json
+```
+
+`smoke-favorite-write-order.json` uses a fresh FLUX.1 Krea [dev] fake on
+7940 for overlapping same-page favorite actions. Its controlled baseline
+establishes actual stored/write/reply order before implementation; the final
+regression checks shared per-id holds, disjoint progress, explicit subsequent
+actions and current/new star controls. The dated favorite-write-order review
+separates diagnostic defect evidence from final repair acceptance and limits.
+
+`smoke-bin-restore-order.json` uses a fresh FLUX.1 Krea [dev] fake on
+7941 for targeted lifecycle reply ordering. Its final regression holds actual
+replies, checks whole-overlap refusal/disjoint progress and native/new controls,
+and preserves Restore note identity/focus/geometry with polite wait feedback.
+Only six owned fake PNGs are created; single permanent deletion and picked
+purge require native confirmations and exact one-use id guards. Broad deletes
+are blocked. Viewer/lineage constructor checks are labeled, not runtime model
+qualification. The dated Bin/Restore review records the earlier 74-step
+reversible defect proof, final acceptance and broad/unknown/cross-tab limits.
+
+`smoke-broad-bin-order.json` uses a fresh FLUX.1 Krea [dev] fake on
+7942 for hidden exact-owner admission and broad preview/confirmation/reply/
+critical-reset exclusion. Its 352-step regression uses fresh epoch/id gates,
+native Cancel/count/Empty questions, known predispatch409 probes and actual
+stored state. Six owned rows span two strict run scopes; the planted pair is
+preserved and only a one-use exact-owned Empty may permanently remove E/F.
+API POST/DELETE guards allow only exact read-only measure and owned Finish
+previews beyond the tested lifecycle requests; actual Finish remains blocked.
+Composer, picks/stashes and notes stay intact. The dated broad-bin review
+records the earlier reversible diagnostic proof and remaining Bundle/unknown/
+cross-client boundaries.
+
+`smoke-bundle-clear-order.json` uses a NEW fresh FLUX.1 Krea [dev] fake on
+7943 for the Bundle & clear source slice. The earlier 63-step diagnostic owns
+the complete four-row scratch gallery, holds an actual committed Restore reply
+and compares a completed native clear's 404/deleted-id receipts with late page
+bookkeeping. The reviewed 465-step final fixture instead targets action
+admission, known/unknown receipts, raw-owner draining, worker/terminal-refresh
+lifetime and duplicate receivers across eight page lifetimes. It distinguishes
+two actual owned clears from controlled metadata/transport probes. API/fetch
+same-origin one-use guards refuse unrelated writes and fatal zero-counter
+checks precede navigation. Three steps inject another operation's poll while a
+received clear result drains; the result must stay draining, not unresolved.
+An `eval` must not end on a gated promise, because the driver awaits it. Default-disabled automatic-backup status is a source-audited cold
+cached read; settings writes/activation and credential APIs stay outside it.
+Diagnostic success means reproduced defect, not repair acceptance. The dated
+Bundle-clear review owns final qualification and remaining protocol limits.
+
+### Lightbox and comparison smokes
+
+`smoke-lightbox.json` checks the lightbox on a FLUX.1 Krea [dev] fake on
+7884: the facts list and its rows, the Created row's peak (made through
+`POST /api/fake/peak`: its words, the reserved figure and caveat in its
+title, "of its batch" on a batch of two, nothing without one, and the head
+still fitting), the Seed row's Use seed (said in the
+lightbox's line, the panel's kept, taken back by a step to another image);
+the keys line, naming S on every image with each key bound to its action
+("Del bin"),
+and the toggle's S by Generate's hint rule; the star ("★ Star",
+`aria-label` Star; F said in `#lb-star-said` away from Star, not on it); a
+pass's Reuse pass… name; a pass compared with its source (S, the button, a
+dragged and keyed divider, ← → swapping to the other pass of the source
+with the comparison, divider and focus kept and wrapping round past the
+source, Shift+arrows and PageDown moving the divider on it and Shift+arrows
+off it, the keys line and the divider's `aria-keyshortcuts` saying so, a
+pass with no other pass in the strip keeping the old keys and Shift+arrows
+the same 2% on the divider and off it, S on the focused
+divider handing focus to the toggle, swipe and side by side keeping 1:1 and fit, side by side at fit
+clear of the arrows' circles, a pass reshaped to 3:2
+compared with the part it kept, a deleted source's dead controls); the
+source link with the view carried; the passes link; the facts' ⌕ search
+buttons (which rows have one, their titles, a seed replacing the box's seed,
+a repeated press adding nothing, size, the prompt's words, the sampling row
+with True CFG and `mu:none`, model and the local day, each narrowing the
+gallery as the server reads it); a pass whose source has
+gone (its Reuse and its card's title); the arrow strips (a press 60 px off
+the circle steps, the backdrop below still closes, the wheel over a strip
+zooms, the first image's disabled arrow a circle with the backdrop beside it
+closing, a double-click whose step takes the strip away stepping once,
+circles again when zoomed); a close followed at once by an open keeping the
+new lightbox; focus after Escape on the walked-to card, with the Examples
+menu left open under it too (the menu kept, the next Escape closing it),
+and Ctrl+Enter there generating and opening nothing; Escape on an image no strip
+holds focusing the search box; Cancel on a Refine opened from it, a side by
+side 1:1 included, and no reopening after a run; an Escape and a Cancel held
+while the pass is being sent ("Sending…"), with the pass run and focus on
+the source's card; F on an image another tab deleted (the note, the next
+image, nothing in the panel's line); an image that will not load (deleted,
+and with the server not answering: the offline sentence as an offline
+message, taken back by the status poll that answers, which asks for the
+picture again); at 2560x1305, 1:1 on a 1 MP image by key, button, wheel
+and double-click, the 52 px circles clear of the picture and side by
+side's halves inside them, circles below fit with the double-click beside
+the picture giving fit back, and a double-click beside a below-fit image
+giving fit back; at 800x900 no keys line; a wheel burst said once from the
+hidden `#lb-zoom-said`, a keyed zoom at once, and F rewriting neither the
+zoom nor the counter; at 600x900 the counter ending a gap before Close,
+clear of its focus ring, and the facts taking a square picture's
+letterbox (every row in view) while a portrait picture keeps the six-line
+scroller, and is fitted again, whole, once Use seed's line takes a row
+from the stage; Side by side titled stacked before the press; side by
+side stacked at 600x900 for a square pass (a wheel
+zooming about a point in the lower half) and a 7:4 pass (halves over 400
+px with the facts' room, opened again stacked again), and left and right
+for a portrait pass; and at 800x900 a square pass left and right with its
+facts in view; Reuse and More seeds… sharing one `.lb-pair` row, a half each
+and uncut, More seeds… titled with the image's batch on every image, and
+neither button, Refine nor Delete moving from a pass (Reuse pass…) to its
+source (Reuse settings) and an orphaned pass; and X and the menu's Pick #N /
+Unpick #N (its X hint and title) toggling the shown image's pick, said in
+the lightbox's line, a held X repeating nothing, X typed in a field picking
+nothing, and the card `.selected` with the count right after the close:
+
+```powershell
+uv run python tools/fake_server.py --port 7884 --model black-forest-labs/FLUX.1-Krea-dev
+node tools/browser.mjs tools/smoke-lightbox.json
+```
+
+`smoke-compare-cfg.json` checks the comparison across CFG on a FLUX.1 Krea
+[dev] fake on 7899 with a fresh `--data` of its own (another smoke's images
+at seed 78 would join its ladders): a CFG x steps grid, separate Generates
+at one seed, a refine pass and a grid with no CFG axis. On a sweep's image
+the box is there before the gallery answers, Compare CFG holding S, Compare
+with source absent, S on the keys line, Against listing the other CFG
+values at these steps only; S on against the value below (tags, the
+divider's `aria-label` and `aria-valuetext`, the note, the partner's alt,
+Compare CFG and Star where they were); → stepping with divider, mode and
+1:1 kept; at the top the arrow and the held Higher CFG saying why; Against
+swapping the partner, drawn at the small buttons' height, type and border,
+and ← → on it changing the partner with the image and focus kept; Lower
+CFG; side by side with the lower CFG left; Shift+→ on the divider; S on
+the divider handing focus to Compare CFG; the
+lowest value in view on the left, its partner cut to the right of the
+divider and in the right half; two separate Generates pairing and a 20-step
+one left out; an image with no other value held with the reason (S and a
+mode press saying it, Swipe and Side by side titled with the reason, a
+step taking it back), a late catch-up for images that ladder read already
+(`newestImageSeen` lowered, the status received) keeping it, the swipe
+still saying there is none rather than "Looking for…" (`noteUnseenImages`'s
+`head >= newest`), and their own titles back on an image with a
+neighbour; the held reason "in the newest 1" for an answer cut short; a job
+landing a new CFG value for the image in view (the script's, at the fake's
+own pace: it ends between two status polls, never in `active_jobs`, and
+the status's `newest_image_id` moving takes it in), and again with Starred
+on, the new image in no strip the view holds and the ladder asked again
+all the same (`noteUnseenImages`); "may be incomplete" on a
+full page; an image opened alone held while asked ("Looking for…"), the
+request's terms (CFG's with `steps:`, steps' with `cfg:`, two requests),
+then a partner the arrows do not step to, Fewer steps' held title saying to
+turn on Compare steps; the CFG ladder read past a full page by `before=`
+(one-row pages); an answer held in flight
+while the walk moves on and a job lands a value it would have held, not
+kept, and asked again on the way back; a pass's S still the source's with
+Compare CFG held; a partner deleted by the page ending the comparison with
+its note; at 600x900 no box for an image with no neighbour and one for a
+sweep's image; and the sheet's Swipe CFG (laid-out CFG only, the first cell
+with a lower value, the keyboard's cell and its row, held for two cells at
+different True CFG and saying why on a press, gone when CFG is pinned or on
+a run with none). Then across steps: Compare steps beside Compare CFG on
+one row, its title and Fewer / More steps' titles and holds; turned on, the
+tags, the divider's name and value, the note ("2 of 2 step counts"),
+Against's step counts, the keys line "← → steps" and Swipe's words; ← to
+the fewer steps, kept on the left at 1:1, the end saying "20 steps is the
+fewest of these" on the arrow and on Fewer steps; Higher CFG from a steps
+comparison turning it to CFG, and Compare steps turning it back in side by
+side; More steps; S on the divider handing focus to Compare steps; More
+steps turning it on from off; the fox (CFG and steps both differ) holding
+Compare steps with its reason; at 600x900 only CFG's part for the fox,
+only steps' for the teapot's other cell (Against hidden until Compare steps
+is on, then listing step counts), and both for a grid image; and the sheet's Swipe steps (the keyboard's cell and
+its column at one CFG, held and saying why for cells that differ in CFG
+too, and on the teapot's steps-only run, where Swipe CFG is absent):
+
+```powershell
+uv run python tools/fake_server.py --port 7899 --model black-forest-labs/FLUX.1-Krea-dev --data <new-scratch-directory>
+node tools/browser.mjs tools/smoke-compare-cfg.json
+```
+
+### Gallery action smokes
+
+`smoke-swap.json` checks Swap tags on an Animagine XL 4.0 fake on 7900 with a
+fresh `--data` (a `{hair}` grid at 832x1216 and one 1024x1024 image): the
+button between Select and Refine… (then More seeds… and Bundles…) at their height, held with its reason
+and saying it, titled by a search and then by picked cards, not moving as
+cards are picked; the dialog's scope line, focus, both fields, Queue held
+("Add a tag to find", "Checking the swaps…" while typing) and saying it;
+the server's statuses, counts and marks (a weight and underscores kept, the
+missing cells' text unmarked, what each queued image's swap took out
+struck through as written), Queue and Cancel unmoved; a second row's
+duplicate find refused in the count line; rows added moving neither + Add
+row nor Queue, four scrolling in the rows box; two clicks on one row's ×
+removing that row only, its slot kept until the pointer leaves; an image
+deleted while open shown as deleted; one deleted on the server only, with
+Queue's 409 kept in `#swap-error` after the check frees Queue; Queue
+watching the first of two jobs (one per size) and listing the second as its
+own, both named "swap · …", the last one's finish line "Job 2 of 2 of this
+swap, at 1024×1024."; the new images' prompts, seeds, sizes and rewritten
+variables; the same swap again all already rendered, held with "No image
+would change"; the negative prompt field; + Add row held at sixteen rows;
+Escape; the page never scrolled; then a search for one image, and a second
+matching image landing while the dialog is open, checked again on its own
+with Queue and the scope line saying two; and Enter pressed straight after
+typing a row, before its check, queueing it without ever saying "Checking
+the swaps…"; and an Add row over two picked images (comma and `,\n`
+layouts): the empty Find's at end / at start toggle in the arrow's slot,
+the server's placed tag marked at the end and then the start, a second
+row's Find bringing the arrow back with no box, row height or Queue edge
+moving, and one job named "+ night (start); add smoke → add test";
+the Replace boxes' unknown-tag line ("Not a known tag: silver hair - Queue
+still puts it in.", not while the caret is in the item, the box marked and
+titled, Queue free and unmoved; two Add rows named by row); and tag help:
+one list under the focused Find or Replace box, Enter taking a preselected
+`1girl` in Find without queueing, Escape closing the list alone, a click
+taking `green hair`, a known tag unmarked and a misspelt one added after it
+named with Queue free, and the list closing as the rows scroll. Steps that
+change the picks first move the pointer to the prompt box: left where the
+closed dialog's Queue was, it rests on the gallery head, which then keeps
+Delete unstarred waiting and moved the footer under the next press:
+
+```powershell
+uv run python tools/fake_server.py --port 7900 --model cagliostrolab/animagine-xl-4.0 --data <new-scratch-directory>
+node tools/browser.mjs tools/smoke-swap.json
+```
+
+`smoke-refine-batch.json` checks Mass refine on a FLUX.1 Krea [dev] fake on
+7901 with a fresh `--data` (four images, three starred, and the fake's two
+of another checkpoint): Refine… after Swap tags… and before More seeds… at
+their height, held with its reason and saying it, then titled by Starred,
+nothing in the footer or the grid moving; the dialog opening on the
+server's answer - its title's count, the scope line, Strength focused and
+selected, 1.5× pressed and titled with the largest image's pass, every
+image listed with the pass's size, the count line with the start-sigma
+range (stood in for, the fake reads none) and "no estimate: 2 sizes…";
+a list in Strength refused on the page and a press saying it at Strength,
+Refine and Cancel unmoved; "Checking the images…" while typing, ↑ stepping
+0.05; Steps 500 refused; 2× checked again; the POST held as "Sending…"
+with Escape waiting; the Now line and the queued row named "refine ×1.5
+at strength 0.3", Cancel's "Stop this batch refine", the last finish line
+"Job 2 of 2 of this batch refine, at 768×384."; each pass of its own
+image with its own seed and prompt; the scale and strength remembered;
+the same again all already refined, Ctrl+Enter saying the hold; All
+models offering Include other checkpoints and its row's note; picked
+cards over the filter, the opening scale capped by a 1024x1024 image with
+2× saying it was last run there; an image deleted while open listed as
+deleted; Steps "1e" refused rather than read as blank; Refine held with
+"The server is not answering" as soon as the page goes offline, and freed
+when it answers; a starred image landing while open checked again on its
+own, title, scope line and Refine saying four, then three; with the model
+picker opened under the dialog, Escape closing the dialog and not the
+picker; the page never scrolled; Versions 2 doubling the count ("6
+passes will be refined (3 images × 2 versions)", "Refine 6 passes (2
+jobs)") on the controls' one row at the boxes' height, Refine and Cancel
+unmoved, and 1 again the images; a picked image queued at Versions 2,
+its passes at its seed and the next, opened again at 1 and held as
+already refined at 2, and 4 queuing only the two it lacks with its row's
+note:
+
+```powershell
+uv run python tools/fake_server.py --port 7901 --model black-forest-labs/FLUX.1-Krea-dev --data <new-scratch-directory>
+node tools/browser.mjs tools/smoke-refine-batch.json
+```
+
+`smoke-more-seeds.json` checks More seeds on a FLUX.1 Krea [dev] fake on
+7902 with a fresh `--data` (a Batch 2 x Repeat 2 at seed 100, a single
+256x384 image at seed 7, a single one at seed 50): More seeds… after
+Refine… and before Bundles… at their height, held with its reason and
+saying it, titled by a search and then by picked cards, the footer and the
+grid unmoved once the search is cleared; the dialog opening on the
+server's answer - "8 more images", the scope line, the count at 4 focused
+and selected, one picked image of the four taking all four ("4 images,
+seeds 100–103 → seeds 104–107 · Batch 2") beside the single one, the
+count line, Queue's label and title; a count of 0 refused on the page, a
+press saying it and marking the box, Queue's right edge, Cancel and the
+list unmoved; "Checking the settings groups…" while typing, ↑ and ↓ stepping it;
+Ctrl+Enter queueing one job per run, the Now line "more seeds · …",
+Cancel's "Stop these more seeds", the last finish line "seeds 8–10. Job 2
+of 2 of these more seeds, at 256×384."; the new images in the run they
+extend, each recording its call's Batch (2, 2, then 1); the four's run
+seven images, seeds 100–106; asked again from an image of the
+extension, the seven carried on at Batch 2 (seeds 107–109); the single
+image deleted while listed shown as deleted, the count line and Queue
+saying what is left; Escape closing it with focus on More seeds…; a
+remembered count of 600 over two picked batches opening the dialog on the
+server's refusal by count, said in the count line and `#more-seeds-error`
+with the box marked and Queue held, and a count of 2 freeing it; then where
+a run ends: a plain Batch 2 job's finish line with More seeds… after Use
+seed, opening on "From the 2 images this job made." at their Batch 2 rather
+than the remembered count, Escape giving focus back to it; More seeds of
+this batch… after Use seed in an unpicked card's menu and a result tile's,
+each opening on that batch alone at its own Batch; the lightbox's More
+seeds… beside Reuse (one row, a half each, uncut, nothing moving as it
+steps), the dialog over the lightbox and Escape closing the dialog alone
+with focus back on the button; another checkpoint's image held with "Made
+on …; the server is running …", a press saying it in `#lb-error` and
+nothing in the gallery's line; the sheet's run bar under Starred (More seeds
+of this run… after the buttons, the run's line "Run … · 1 starred image ·
+…" last on a row of its own), its dialog on every image of the run with
+the server's headline "N more of its one cell = … · Starred ignored", and
+its Queue adding that many images to the run; and the banner's More seeds…
+beside Show run, opening on the run:
+
+```powershell
+uv run python tools/fake_server.py --port 7902 --model black-forest-labs/FLUX.1-Krea-dev --data <new-scratch-directory>
+node tools/browser.mjs tools/smoke-more-seeds.json
+```
+
+`smoke-bin.json` checks the recycle bin on a fake of the default checkpoint
+on 7903 with a fresh `--data`: ⌦ binning with no dialog (nothing asked),
+the tombstone "In the recycle bin · #N" and the note's Restore putting the
+card back in its own box; the lightbox's Del binning one image, a held key
+binning no more, and the note's Restore surviving its own press; its
+Delete pressed twice with the mouse gathering one note, and a held Enter's
+repeat on it prevented; the bin view - Bin's count and title, the head's
+"Recycle bin" and its "(N)", the held
+controls and their titles, a card's Restore, Delete permanently with its
+confirm, and Empty recycle bin with the count, its "Empty bin" label, the
+danger colour, Cancel, a 409 when the bin changed (its count, and the same
+count of other images: the pin) and the empty state
+"The recycle bin is empty."; leaving the bin by a second press of Bin, by
+a search from an image (`showGallerySearch`) and by a run opened as a sheet
+(`showRun`); three gallery picks set aside while the bin is shown (its own
+pick in their place) and back on leaving it, less one of them binned
+meanwhile and one binned behind the page's back that the bin's view listed,
+the bin's pick not brought along; the bundles dialog's preview
+line counting the bin; a Delete
+and its Restore in a lightbox walking the viewer's strip keeping the image
+in view; and a viewer tile's "In the recycle bin" tombstone becoming
+"Deleted · #N" once the bin is emptied, from another tab (a Restore then
+answering "already deleted") and from the page; Restore picked over more
+than six images saying "Restored N images." and a Restore of seven no longer
+in the bin "7 images were not in the recycle bin."; Delete picked
+permanently; and Empty's age scope (`#bin-age`, rows backdated through
+`POST /api/fake/bin-age`): All by default, Older than 30 days counting one
+image with "N images binned since stay" and its OK "Delete older", an image
+backdated past the fixed cutoff while asked refusing it (409), Older than 7
+days deleting only the two old ones as "Deleted" tombstones, and nothing
+old enough said without a question; and a bin card's age (`GAL#24`):
+one backdated 8 days and one not reading "binned 8 days ago" and "binned
+today" in caption and name, the Older than 7 days summary counting one,
+and the cards and their tools in the same places with and without the
+words, at 1400 and 600 px. Re-run
+`smoke-select.json` at 600 and 1400 px wide after a footer change, so the
+row with Bin does not wrap:
+
+```powershell
+uv run python tools/fake_server.py --port 7903 --data <new-scratch-directory>
+node tools/browser.mjs tools/smoke-bin.json
+```
+
+`smoke-png-settings.json` checks Load settings from PNG on a fake of the
+default checkpoint on 7904 with a fresh `--data`, with PNGs built in the
+page - signature, IHDR, hand-written tEXt, zTXt and iTXt chunks with their
+CRCs, one IDAT pixel, IEND - and one the fake rendered (Pillow writes its
+CJK 'parameters' line as iTXt): that PNG dropped over a half-written prompt
+filling every setting with Reuse's note, its Undo and Ctrl+Z, the page
+unmoved, and the posted body only `{name, chunks, panel}`, the panel's
+sampling; another checkpoint's
+hand-written record bringing Reuse's other-checkpoint sentence; an A1111
+block in tEXt filling the prompt, negative and size while steps, CFG and
+the seed stay the panel's, its note naming what does not carry over and
+what is not read and saying nothing of the negative at the panel's CFG
+1.5, an XMP packet beside it sent by its name alone, and at the panel's
+CFG 0 the negative greyed with the note saying so; the same read from
+zTXt and a CJK iTXt; a JPEG, a PNG with no text, a ComfyUI workflow and
+two files refused in words with the panel untouched; a gallery card's
+image dragged with the mouse onto the prompt box bringing no outline, no
+request and no words, and a file dropped after it read; Load settings
+from PNG… after Generate and directly over `#error`, opening the picker,
+a picked file loading and the same file picked again reloading; the drag
+outline and its words, gone on leaving the window, and none and no drop
+over a modal dialog; the gallery's count unchanged; the button with its
+hint on one line in the panel below Generate, no sideways scroll, at
+1400, 2560x1305 and 600 px; and at 2560x1305 a picked A1111 PNG's note
+written under the button, which stays where it was:
+
+```powershell
+uv run python tools/fake_server.py --port 7904 --data <new-scratch-directory>
+node tools/browser.mjs tools/smoke-png-settings.json
+```
+
+`tests/test_use_prompt.py` runs reuse.js's actual `usePrompt` on inert
+boxes under Node: the write order, a box left alone where it holds the
+text, what the Undo gives back, the lightbox closed first, an instruction
+edit refused with nothing written, and the item's place after Use seed.
+
+`tests/test_copy_feedback_ownership.py` loads the actual menu/lightbox
+declarations and actual feedback functions on inert DOM and synthetic
+clipboard ports. Deferred completions cover navigation, same-record reopen,
+latest-copy ordering, local card errors, owned-text-node cleanup and unchanged
+once-per-press payload invocation; no OS clipboard or browser is involved.
+`smoke-copy-feedback-ownership.json` uses fresh FLUX fake 7950 with the two
+actual planted other-model rows, GET-only admission and a verified synthetic
+clipboard installed before every copy action. Physical menu choices and
+lightbox controls exercise those ownership boundaries. Programmatic setup,
+message sentinels and controlled promise replies are labeled explicitly.
+Rows/PNG bytes, jobs and composer stay unchanged. Native clipboard permissions
+and integration remain outside this evidence; see the dated UI#30 owner.
+
+`smoke-context-menu.json` checks the right-click menu on a FLUX.1 Krea
+[dev] fake on 7908 with a fresh `--data`: a card's menu at the pointer, its
+items and groups, Refine, Inpaint and Outpaint live and Use as reference
+held with the card button's title. Edit by instruction… follows Outpaint…,
+live on a server whose editor is held and titled with
+`instruction_edit_reason`. Chosen, it opens its dialog with that reason and
+Edit held in those words. F sits beside Star; ArrowDown and Escape with
+focus back on the image; Star starring the card; Use seed; the copy items
+and Open PNG (the clipboard and `window.open` stubbed); a held Use as
+reference saying why; FLUX.1's inpaint (enabled 2026-10-19): Inpaint…
+opening the dialog at the profile's 0.95 with its note in the server's
+words, a stroke and a run giving an inpaint at 0.95, and Outpaint opening
+at the same 0.95 and note; Shift and
+the prompt box keeping the browser's menu; the Menu key on a focused card
+opening on its first item; a picked card's picks menu starring both picks
+and an unpicked card's own menu; a press outside closing it; a result
+tile's menu; and in the lightbox the menu inside the dialog, no Open, Del
+beside the bin, a press on the picture beside the menu (a quarter of the way
+across, since the menu now reaches below the picture's middle) closing the
+menu and not the lightbox,
+Escape closing the menu only, Use seed saying so in the lightbox's line,
+and Show run as sheet closing the lightbox for the sheet; Use prompt after
+Use seed (`GEN#53`): into empty boxes with the seed and steps unchanged,
+focus in the prompt and "Prompt set" on the card; over the user's own
+prompt with the note and its Undo, a real Ctrl+Z giving the text back, the
+note's Undo giving back a negative the record lacks; held on a record
+given an `edit`, saying why and writing nothing; and from the lightbox,
+which it closes. (The fixture's `execCommand` stub lets `insertText` and
+`undo` through for those writes and still refuses every other command, a
+copy's among them.) More seeds of this
+batch… after Use prompt on a card (unheld, titled with its batch) and a
+result tile, and in the lightbox mirroring its More seeds… button, chosen
+there opening the dialog over the lightbox, which Escape leaves open. On
+that sheet (`UI#32`), a cell's menu by right-click and by Shift+F10: the
+card's single-image items in order with F and Del, the holds as the card's
+buttons would have them, Show run as sheet held and saying why, Copy seed
+reported on the cell, Open walking the sheet, Move to recycle bin and the
+note's Restore, and a hole keeping the browser's menu. Pick this run
+(`UI#37`) follows Show run as sheet on a live card with no count, held
+with its reason on a row of no run or job (saying it when chosen, picking
+nothing), and absent from a result tile, the lightbox, a sheet cell and a
+binned card (no menu there). `browser.mjs`'s
+`{"rightclick": ...}` presses the right button (`"shift": true` holds
+Shift):
+
+```powershell
+uv run python tools/fake_server.py --port 7908 --model black-forest-labs/FLUX.1-Krea-dev --data <new-scratch-directory>
+node tools/browser.mjs tools/smoke-context-menu.json
+```
+
+### Execution and performance tests
+
+`tests/test_execution.py` checks frozen/strict named recipes, internal-copy
+validation, canonical empty/key spelling, cold distribution facts and the
+first regional candidate matrix. A matching candidate remains unavailable.
+HTTP, queue and direct backend/fake checks refuse nonempty recipes before
+mask stamping, retained work or model work; explicit run ids do not bypass
+queue admission. Empty execution retains legacy keys/PNG metadata and normalizes only
+through `applied()`, without revalidating a stamped outpaint. These are CPU
+contract checks, not compiler or GPU qualification.
+
+`tests/test_execution_resolver.py` checks composer inheritance versus complete
+replay, explicit Off/channel conflicts, resolution before run/planned identities,
+legacy retained runs, source PNG/CLI intent and stamped-mask-safe narrowing.
+Direct submission subtypes must consume or refuse cache intent before device,
+source, queue or backend effects. These synthetic checks grant no availability.
+
+`tests/test_regional_diagnostics.py` checks immutable per-load observations,
+single first-call tokens, terminal freezing, retirement, competing callers,
+stale updates, model collection and import-cold readers. Pending means no forward
+attempt; returned is not a warm-kernel, cache-hit or qualification result.
+
+`tests/test_api_execution_diagnostics.py` checks fixed diagnostic serialization,
+default/unpublished/retired absence, a fresh read after awaited descriptions,
+catalogue selection changes and same-checkpoint reloads. Draft catalogue options
+never label a per-model detail with the active load's observation; routes start
+no model load.
+
+`tests/test_job_execution_diagnostics.py` checks active first-call observations,
+terminal snapshot freezing, reader retirement/replacement and weight-free
+lifetimes. Diagnostic observations stay outside retained job definitions and
+reproduction identities; optional readers never change generation outcomes.
+
+`tests/test_execution_diagnostics_ui.py` exercises the page's fixed scalar
+captions and load/job lifecycle using Node VM with inert DOM/EventSource stubs.
+It checks progress counters, terminal observations and stale-detail clearing.
+These source contracts do not boot a page or qualify browser layout/accessibility;
+the actual browser denial and incomplete UI validation remain in the tooling plan.
+
+`tests/test_execution_candidates.py` checks the initial cuDNN/FBC candidate
+matrices, combinations, copied-spec validation, external override refusals and
+FBC guidance/cache exclusions. An isolated subprocess forbids framework/config
+imports and metadata/environment reads by the validators, proves the environment
+unchanged and confirms matching recipes remain unavailable to execute.
+
+`tests/test_execution_storage.py`, `tests/test_execution_bundles.py` and
+`tests/test_execution_replay.py` cover the nullable recipe migration and
+canonical codecs, legacy hash fixtures including mixed-size/crop/comparison
+runs, distinct recipe keys, stored/PNG/bundle/reindex carry and unavailable
+rerun/PNG/CLI/retained recovery. Known recorded recipes confer no permission
+to execute; invalid or contradictory metadata is refused rather than dropped.
+`tests/test_regional_compile.py` checks discovery, exact arguments, failed
+candidate disposal, precompiled root/region refusal and idempotent reference
+cleanup with stubs. Installed `ConfigModule.patch` over synthetic flags
+checks nested/thread restoration. Real Flux/Dynamo imports, compiler calls,
+fallback and device behavior remain unexecuted.
+`tests/test_pipeline_ownership.py` exercises the actual eager loader over strict
+synthetic runtime modules, unpublished override/pipeline failure at context entry
+and exit, publication order, registration transfer and shared unload behavior.
+Weak-reference assertions outside exception handling prove application containers
+drop ownership before release; arbitrary library traceback references and actual
+GPU reclamation are separate. An isolated subprocess forbids framework imports
+while checking private loaded-recipe refusal before work.
+`tests/test_regional_backend.py` exercises the actual private preparation and
+invocation paths with synthetic runtime modules, pipeline and regions. It checks
+cold preflight before weights/imports, registration/publication failure ownership,
+strict-policy restoration for success/error/cancellation, fixed handle/facts and
+unchanged eager direct/refine semantics. Public nonempty execution stays refused;
+no real compiler, model, device or toolchain qualification follows.
+`tests/test_compiler_cache.py` checks pure runtime/gallery namespacing, the owned
+startup window, environment and path ownership, handle-owned scratch probes,
+partial/uncertain initialization and later binding drift. It imports no real
+compiler or model; directory usability is not toolchain or performance evidence.
+`tests/test_model_switch_execution.py` checks typed switch recipes, direct/copied
+internal bypasses and fixed refusal before Hub, save, unload, selection or preload
+effects. Empty/legacy Eager switches and stale revision guards remain covered.
+`tests/test_api_model_readiness.py` checks truthful ready/unloaded presentation,
+read-only GET, explicit and same-checkpoint reload without a preceding poll,
+concurrent load coalescing, held loading and preserved error/retry behavior with
+fake pipelines. This does not establish public FBC reachability or card behavior.
+`tests/test_execution_selection_admission.py` checks pure configuration limits,
+invalid/selected startup intent, omitted versus explicit Eager requests and closed
+queue/backend/HTTP admission before side effects. Portable normalization/codecs
+remain independent of current selection. CLI cases additionally refuse unavailable
+flags/environment before source or project reads and preserve explicit Eager intent.
+`tests/test_model_selection_performance.py` and `tests/test_loader_startup.py`
+check unavailable configuration saves, structural refusals, omission/clear,
+execution-only revisions, exact invalid-file rollback, frozen descriptor snapshots,
+v1/v2 startup compatibility/precedence and fail-closed invalid intent. None grants
+runtime permission; saved preload cannot bypass the load guard.
+
+`smoke-execution-selector.json` uses a fresh FLUX.1 Krea [dev] fake on 7930.
+It checks inspectable configuration, honest unavailable status and held Load/render
+actions, structural conflicts, saved and unsaved recipes across polling/reload,
+explicit Eager recovery and per-render cache persistence/Reuse/Reset/Undo. The
+Performance disclosure is collapsed at Eager/Native, opens for a saved, invalid
+or (stubbed) admitted choice while hidden or as the picker opens, and a refresh
+with the picker open neither opens it nor moves the table; a failed opening
+catalogue ends the opening, so its later retry cannot open it. Nonempty
+record Reuse stays refused. Only an ordinary Eager fixture may generate; no compiler,
+model download, non-Eager execution or performance/quality acceptance is established.
+`tests/test_attention_selection.py` checks coverage, transactional failures,
+shared ownership, later replacements and idempotent restoration with stubs.
+It also executes source-extracted installed public context/setter bodies.
+Its focused run uses `--noconftest`, with no actual Diffusers import, tensor,
+forward or device probe; real runtime/card qualification remains separate.
+`tests/test_attention_environment.py` retains the cold warning/source checks:
+exact startup snapshots, fixed redaction, CLI logging, unchanged selection and
+status reads that do not reread environment or import a framework.
+`tests/test_attention_policy.py` checks the experimental Native baseline using
+synthetic modules: startup/current/frozen observations, exact registry function,
+redaction, drift refusal and policy-independent restoration/cleanup. It proves
+no Native/cuDNN kernel, device fit, pixels, speed or repeatability.
+`tests/test_attention_backend.py` checks actual private preparation/publication/
+unload/invocation with synthetic runtime modules, exact ownership and closed
+public guards. It covers primary error/cancellation plus post-forward ownership
+failure, cleanup outside locks, terminal weak exclusions, GC/identity-reuse
+safety and fresh-root recovery. No real dispatcher or card behavior is established.
+`tests/test_fbc_backend.py` checks private preparation, one-forward ownership and
+deferred disposal with synthetic dependencies: hook-free load, effective Native,
+partial cleanup/foreign hooks, primary errors/cancel, scope/lock order, pending
+not-ready state, stale callbacks and public refusals. No real model/GPU runs.
+`tests/test_fbc_request.py` checks request-driven On/Off/On over one synthetic
+Eager load, fresh ownership, explicit Off versus legacy private omission, loader
+equality, unsupported request/call refusals and deferred unsafe disposal. It
+preserves generator/callback/sigma scope behavior and every public admission guard;
+it does not qualify FBC arithmetic, model/device behavior, quality or performance.
+File-based readers use `metadata.require_header_metadata` to refuse app-owned
+text after PNG pixel data, which Pillow's header-only `info` would miss.
+The scan skips payloads, reads at most 80 bytes per text keyword and restores
+the stream position; it adds no pixel decode. Browser-provided text chunks
+already include the complete parsed record and need no file-position scan.
+
+`smoke-execution-reuse.json` uses a fresh FLUX.1 Krea [dev] fake on 7926.
+Browser fixtures add execution recipes to a synthetic eager record, checking
+held Reuse buttons, status refresh, lightbox reason without dismissal,
+direct panel/pass/inpaint/outpaint refusal before source reads and unchanged
+composer/scroll. Legacy empty recipes retain Reuse and Undo. It runs no
+non-default recipe and establishes no compiler or GPU behavior.
+
+`tests/test_fbc_runtime.py` exercises installed FBC hooks and arithmetic on tiny
+CPU blocks in an isolated worker. Only the unrelated optional bitsandbytes backend
+is modeled as absent; a discoverable poison package verifies that boundary.
+Compiler, device and network counters stay zero across imports and all arithmetic,
+context, freshness, cancellation and cleanup cases. This is no real-model or card
+qualification.
+
+### Instruction edit tests and smoke
+
+`tests/test_instruction_edit.py` checks the standalone frozen Kontext recipe,
+strict request/stored source types, full original-RGB provenance, unresolved
+source refusal and exact-aspect preprocessing. Installed-pipeline assumptions
+are read from source without importing Diffusers. These are pure CPU/source
+checks; they do not qualify persistence, HTTP admission, bundles, a browser,
+model loading, rendering or the card.
+
+`tests/test_instruction_edit_identity.py`, `test_instruction_edit_storage.py`,
+`test_instruction_edit_bundles.py`, `test_instruction_edit_reindex.py`,
+`test_instruction_edit_admission.py` and `test_instruction_edit_lifetime.py`
+check strict copied-request admission, bound source keys/legacy run ids,
+SQL/PNG migration/carry/conflicts, v2/v1 bundle compatibility, full-RGB remapping,
+unresolved recovery and cleanup/source availability on scratch galleries.
+`test_instruction_edit_loader.py` checks known-editor and unreadable custom-id
+class refusal before weights. `test_instruction_edit_ui.py` uses Node VM and
+an inert DOM. It checks that Reuse on a resolved edit routes to `reuseEdit`
+and leaves the composer untouched. It checks that unresolved, deleted and
+binned sources are held with words, and it covers the facts and viewer
+lineage branches. Stage 4 slice 9 adds the dialog alone
+(`test_instruction_survives_switch_to_the_editor`: Open Models… points the
+picker at the editor; a switch to it carries the instruction and seed, not
+the numbers; a switch away, or a draft of numbers only, keeps nothing), the
+held aspect said as the source's and never in the Models note, and the drift
+line equal to the guide's sentence. `test_instruction_edit_envelope.py`
+holds `option_refusals`, `test_api_model_catalogue.py` the editor row's
+`loader_holds` (every gate and draft; `{}` elsewhere), and
+`test_instruction_edit_queue.py` the preview's `source_reason`.
+
+Three files cover stage 2:
+
+- `test_instruction_edit_gate.py` checks the gate. The base answers False
+  and the real backend True, either way with every `AURADREAM_*` set to
+  true or to false, and a source scan holds every `instruction_edit_qualified`
+  under `backend/` to one literal return: True for `DiffusersBackend`, False
+  for every other. `qualified=1` stays closed. It also checks the wording constants,
+  `_merged_defaults` and the config pin: synthetic configs fail
+  `require_pinned`, pass with a monkeypatched pin, and fail again with one
+  path changed.
+- `test_instruction_edit_call.py` drives `_edit_images` against a
+  Kontext-shaped stub whose call reports the installed signature. It checks
+  the exact kwargs, the one seeded generator, grad and inference mode off,
+  progress, the preview, cancel and failure cleanup (hooks freed and the
+  source closed), and the refusals. It also checks that a closed gate and
+  the real class on an unmeasured host (Linux, another diffusers) refuse
+  before any call or load.
+- `test_instruction_edit_release.py` (stage 4 slice 7) drives the real
+  `DiffusersBackend` class, only its host (or, for the synthetic CPU load,
+  its loader facts) reported as the card's: the pinned editor loads on fp8
+  with model offload; int8, BF16 and sequential offload are refused before
+  `resolve_model`; a 3:2 preview is held in the aspect's words (and its
+  submit refused with no job) while a 1:1 one is available; a 1:1 edit's
+  `applied()` keys as the pinned fixture (run id `a83cde9e6cb2`) and runs at
+  512x512; plain Generate and refine on the loaded editor raise before the
+  pipe; `describe()` offers edits and no refine, inpaint or references, and
+  holds them off the measured host; Qwen-Image-Edit stays refused.
+- `test_instruction_edit_queue.py` checks the route's admission order and
+  refusals, a saved edit row and PNG, the per-cell recheck, cancel,
+  `planned_keys`, and the replay producers: More seeds of an edit queues
+  new seeds of its original source in its run, and refuses a changed or
+  binned source, another checkpoint, a non-square edit, a closed gate or an
+  unmeasured loader in words with no job; Re-render is refused naming the
+  ids (a mixed selection whole); Generate and Finish stay held on both gate
+  states (`test_api_more_seeds.py` replays an edit batch's intent receipt
+  without fresh seeds). Its envelope
+  tests hold an unmeasured aspect at the preview and the submit (and
+  `submit_cells`) with no job, an unmeasured loader before any source is
+  read, the fake host's platform and diffusers answers, the recheck of a
+  cell whose selection left the envelope, and a queued job erroring with
+  the loader's reason.
+
+None of these enables the real server's editor or qualifies a model or the card.
+
+`tests/test_instruction_edit_envelope.py` checks stage 4's measured envelope
+as pure data: the loader refusal matrix (each unmeasured quantization, offload,
+device, platform, loader recipe, diffusers version and inexact id named in
+words), only 1:1 geometry unrefused, the unchanged frozen geometry table, the
+pinned edit `CellKey` and run ids, and a cold import. The edit routes and
+jobs consult it (`test_instruction_edit_queue.py`,
+`test_unavailable_reason_gives_its_five_answers` in
+`test_instruction_edit_gate.py`); it qualifies nothing.
+
+`tests/test_instruction_edit_preflight.py` checks the supplied-config refusal
+boundary with synthetic JSON and the installed complete PIL-to-normalized-CPU-
+tensor preprocessing path using source-extracted methods in the fresh
+`tests/fixtures/instruction_edit_processor_cpu.py` child. The child forbids
+pytest/conftest, model and application imports, poisons CUDA initialization
+and verifies no initialization attempt before or after preprocessing. The six
+pinned gated configs were fetched at the revision and qualified on 2026-10-27,
+outside the repository and not committed; their hashes are
+`QUALIFIED_CONFIG_HASHES`. A passing preflight never permits execution.
+
+`tests/test_instruction_edit_loader.py` checks strict custom/local class
+inspection, unreadable/malformed/editor aliases, case-insensitive named-editor
+refusal and unchanged catalogue/Nunchaku paths. Synthetic backend loads prove
+that refused aliases never reach weight overrides, `from_pretrained` or
+placement; no Hub/network or actual weights are used. Its
+`test_every_require_model_available_caller_passes_qualified_and_selection`
+scans every call for both `qualified` and `loader`. Slice 3's load-entry
+refusals are also checked in `test_api_model_switch.py` (a gated, an
+unmeasured and an envelope Kontext switch: the Hub unasked, or asked and
+refusing, with the saved file byte-identical and the current model still
+ready), `test_loader_startup.py` (explicit flags refused in the load's
+words; a saved unmeasured choice restored as it is and failing as a load),
+`test_instruction_edit_call.py`
+(`test_edit_only_checkpoint_refuses_plain_generate_at_the_backend`) and
+`test_cli.py` (`test_cli_refuses_kontext_before_backend_import`).
+Slice 4's pinned loader is checked there too, with `snapshot_download`,
+`FluxKontextPipeline.download` and `from_pretrained` stubbed and the pin
+monkeypatched to synthetic configs: configs before weights, both at the
+revision; a changed config in either pass refused by its path before
+`from_pretrained`; an unreadable, oversized or non-JSON config; an
+unmeasured loader before any download; the loaded class, VAE scale factor
+and edit names required (the candidate released); a closed gate, an alias
+id, a case variant and Qwen still refused; and an offline Hub reaching
+`_load_failure`'s offline answer. `test_instruction_edit_call.py`'s
+`test_a_qualified_backend_loads_only_the_pinned_kontext` loads the explicit
+class inside the envelope and keeps the real backend refusing.
+
+`tests/test_instruction_edit_catalogue.py` checks the entry (slice 6: last,
+its menu summary "edit only", no Lite re-upload) and slice 5's by-id catalogue
+data: the exact profile (not `_FALLBACK`,
+every generation flag False, hints without "unavailable"), the status words
+following a passed `edit_reason`, the guide against the catalogue's guide
+checks with BFL's verbatim edit instructions drawing no finding and the
+critic never given the measured drift, the pinned `FluxKontextPipeline`
+encoder rows, `details_for`'s strings and live Held/Yes answer, the
+retained timing, and the download
+reference's commit equal to `KONTEXT_V1.revision` without the root single
+file. `test_api_model_catalogue.py`'s
+`test_the_editors_row_carries_the_backends_answer_for_the_draft_loader`
+holds `main`'s listing to the instance's answer, and `test_api_model_switch.py`'s
+`test_switch_to_kontext_refused_while_gated_before_hub_save_or_unload`
+finds the editor listed last; `test_instruction_edit_loader.py`'s
+`test_exact_id_refusal_runs_before_custom_class_check_on_every_entry` holds
+an upper- and a lower-case variant to the exact-id words at the load, the
+prepared load, both switches and startup, with the custom-class check never
+asked; `test_prompt_encoding.py`
+holds the rows to the installed `pipeline_flux_kontext.py` and, where the
+pinned tokenizers are cached, to their real budgets.
+
+`smoke-instruction-edit.json` checks Edit by instruction… on a fake claiming
+FLUX.1 Kontext [dev] on 7931 with a fresh `--data`. Only a Kontext fake
+starts with its gate open, and `POST /api/fake/instruction-edit
+{"available": bool}` flips it. The fake plants a 3:2 and a 2:1 source beside
+the 1:1 pair; the 3:2 one is held by the measured envelope (only 1:1 is
+qualified), so every run and stale-preview step uses #1 or #2. The smoke
+checks:
+
+- **Generate on the editor:** held with `text_to_image_reason`; a press says
+  it and sends nothing, and the composer is unchanged.
+- **Gate closed:** the menu item stays live and opens the dialog, which shows
+  the reason with Edit held in those words. A press writes it in place and
+  queues nothing. Open Models… opens the picker on the editor's row, chosen
+  and focused, and switches nothing.
+- **Gate open:**
+  - opened from the lightbox, which closes, with focus in the instruction;
+  - the recipe's 512×512, 28 steps and guidance 2.5, with no strength;
+  - the draft from the closed gate kept;
+  - an empty instruction holding Edit with its words, and Ctrl+Z taking
+    typing back;
+  - Escape giving the lightbox back;
+  - the 2:1 source's aspect refusal shown in place;
+  - the 3:2 source held as unmeasured: its 576x384 said, the envelope's
+    reason in the preview's place (`source_reason`; no Models note) and on
+    Edit, a press saying it, and a raw submit answering 422 with no job;
+  - the fixed drift line, one line;
+  - a stale revision getting 409;
+  - a stale preview (the gate closed behind the page) asked again when Edit
+    is pressed, its refusal said in place and no edit sent;
+  - the dice clearing the seed with the kept draft's note still shown and
+    the dice, instruction and Edit unmoved.
+- **A run:** Ctrl+Enter queues it, and the progress line and queue row read
+  "instruction edit of #1". A second edit queued behind it is cancelled from
+  the queue. The saved record is an edit of #1 with its 64-hex proof, the
+  Kontext id, 512×512, batch 1, and no refine, mask or negative. The viewer
+  lineage, the "Edited from" fact and the `edited` badge show, and the
+  pixels differ from the source. A cancel mid-run saves nothing.
+- **More seeds and Re-render of the edit (stage 4 slice 8):** More seeds x2
+  from the edit queues seeds 8 and 9, which save as two more edits of #1 in
+  its run, one image per call, with the same source proof; the source is
+  unchanged. Re-render of the picked edit says, in the gallery line, that
+  it renders at its source's frozen size (naming it) and queues nothing.
+- **Binning the source:** the edit's Reuse is held, and the facts say "in the
+  recycle bin" with Restore. The source's own menu item is held with
+  "restore it first", and Restore frees both.
+- **Reuse:** reopens the dialog on the source with the instruction and seed,
+  and the composer is untouched.
+- **The draft across the switch (stage 4 slice 9):** a draft written with
+  FLUX.1 Krea [dev] selected and closed comes back after FLUX.1 Kontext
+  [dev] is selected again with its instruction and seed, the recipe's 28
+  steps and guidance 2.5 in place of the typed ones, and the "carried" line.
+- **Layout:** the page neither scrolls nor moves. At 800x900, 1400x700 and
+  1900x1000 the dialog fits with Edit in view (1400x700 on the 1:1 source
+  and the held 3:2 one, whose words take the preview's line; with the
+  server's held note the dialog scrolls its own content there). No page
+  errors.
+
+```powershell
+uv run python tools/fake_server.py --port 7931 --model black-forest-labs/FLUX.1-Kontext-dev --data <new-scratch-directory>
+node tools/browser.mjs tools/smoke-instruction-edit.json
+```
+
+### Backups, bundles and credentials
+
+`tests/test_backup_credentials.py` and `tests/test_backup_credential_integration.py`
+check WinCred ABI declarations through API stubs, exact opaque references, bounds,
+redaction/free/cleanup, inactive pending provisioning, no uncertain retry, hidden
+input, independent-password recovery and worker-only lookup after due/nonempty
+admission. A fake provider exports/restores an actual owned encrypted gallery
+without another verifying pass. `tests/conftest.py` blocks the real credential
+factory for every test; only explicit fake overrides may pass. No Windows vault
+entry is read/written/listed/deleted and no OS credential qualification follows.
+
+`smoke-credential.json` uses a fresh FLUX.1 Krea [dev] fake on 7929. Backup API
+responses/saves are intercepted fixtures: explicit protection selection, absent/
+pending/ready credential profiles, fresh encrypted/recovery acknowledgement,
+generation/dirty-draft guards, plaintext transition, disabling and layout. It
+enters no password and reads/writes no real Windows vault entry. OS-API evidence
+comes from stub tests, not this browser fixture.
+
+`tests/test_backup_policy.py` checks pure default-off backup decisions with
+explicit age, retention and protection. It covers UTC age boundaries and
+repeated-hour ordering, unavailable or untrusted copies, exact scope,
+conflicting identities, new-success retention and download leases. These
+checks perform no archive I/O and confer no deletion or activation authority.
+`tests/test_backup_preferences.py` checks the sidecar's name: one per
+database name in a directory, and a pre-rename file used in place. The shared
+10,000-copy validation ceiling is an engineering limit, not a selected
+retention policy; the policy module is not connected to startup.
+`tests/test_backup_activation_settings.py` and `tests/test_api_automatic_backup.py`
+cover explicit v2 activation, inactive legacy
+policies, stable gallery/destination namespaces and scratch startup/configuration
+integration. Status stays available during maintenance, configuration reserves
+before writing, and preload waits for the admitted attempt. No OS credentials or
+retention deletion are exercised.
+`tests/test_backup_receipts.py` and `tests/test_bundles_managed.py` check
+strict bounded ownership journals, portable names, exact outer-byte proofs,
+plain/encrypted scratch restore and single verifying reads. They inject
+publication/journal failures and partial replacements before verification
+and after claim, preserving unowned files and prior successful copies.
+No real gallery, credential store, startup or pruning is exercised.
+`tests/test_bundle_leases.py` checks canonical path sharing, reader/exclusive
+exclusion and complete FileResponse lifetime, including range/HEAD/error/
+cancel/background behavior and disabled pathsend without scope mutation.
+
+`tests/test_bundle_mode.py` and `tests/test_api_bundle_mode.py` cover explicit
+destination-mode installation and discovery, default non-writing downloads,
+installed-mode failures and ASGI response admission across local cutover. Native
+checks use owned Windows scratch processes, never unknown server inventory.
+`tools/install_bundle_mode.py` is the explicit offline installation entry point;
+other-server quiescence is operator-attested, not machine-verified. Neither the
+marker nor the tool enables retention or turns a v2 saved N into deletion consent.
+
+`tests/test_bundle_consumers_leases.py` covers public encrypted-reader/header
+lifetime, saved-import reservation order and complete merge lifetime, listings,
+receipt hashes, wrong scopes and separate private upload/export partials. Owned
+Windows child processes exercise native exclusion across databases; injected
+uncertain file closes preserve primary failures and the original reader claim
+even after pathname retargeting. These are scratch tests, not retention acceptance.
+
+`tests/test_bundle_delete.py` exercises the Windows same-handle
+deletion mechanism on owned scratch files, required installed-mode exclusion,
+receipt scope/identity/raw-byte refusals and single-use mutation. Injected
+mark/close failures check original-key quarantine and honest post-mark outcomes.
+No test operates on a real gallery destination.
+
+`tests/test_backup_retention.py` and `tests/test_backup_retention_journal.py`
+exercise v3 consent, unchanged v2 behavior, pending/retired transitions, current-N
+protection, leased excess, retired-operation retry and caps. Owned Windows scratch
+lifecycle cases actually export, mark/close and retire copies with unchanged gallery
+bytes. Injected failures check pending/unknown state, complete-close restoration,
+no pruning after failed/empty/skipped/unmanaged exports and preserved success/time.
+
+`smoke-automatic-backup.json` uses a fresh FLUX.1 Krea [dev] fake on 7927.
+It checks the section hidden by default (one cached-status read per opening,
+none on polls), shown by `?automatic-backup` and, once settings are saved,
+without it; then explicit plaintext consent and settings validation, stale revisions,
+dirty edits and reload, fixed startup-outcome presentation, manual-field
+preservation, disabling and narrow layout. It configures scratch settings only:
+no server restart, automatic export, real gallery or credential store is used.
+
+`smoke-retention.json` uses a fresh FLUX.1 Krea [dev] fake on 7928. All backup
+API responses/saves are intercepted synthetic data: inert old N, missing/stale
+mode, fresh separate deletion consent, dirty drafts, marked/unknown wording,
+pending while off and disabling without destination access. Desktop/narrow
+screenshots check containment and stationary Save. No policy, shared-mode install,
+restart, export or deletion is executed; native lifecycle evidence is CPU scratch.
+
+The bundle tests share helpers from `tests/bundle_helpers.py`.
+`tests/test_bundles.py` covers export and cleanup: archive/merge round trips,
+preserved favourites and timings, remapped image links, WAL snapshots,
+monotonic ids, changed source files (a same-size, same-mtime edit included,
+so only the pre-cleanup hash catches it), partial cleanup (a database
+replacement refused after files went still reports `deleted_ids`) and a
+locked database stopping the clear before any file goes.
+`tests/test_bundles_merge.py` covers corrupt or unsafe archives, conflicts,
+rollback (including a database replacement refused after every file is
+installed), the cross-volume copy and oversized or padded members.
+`tests/test_bundles_repeat.py` covers restoring a lost file of a known row,
+palette/mode identity and regenerated thumbnails.
+`tests/test_bundles_staging.py` covers staging and free space per volume and
+the leftover sweep, and `tests/test_gallery_lock.py` process/thread
+reservations. `tests/test_bundles_directory.py` covers independent archive
+storage, default fallback, containment and link refusals, and the fake
+server overriding an inherited production archive path.
+`tests/test_api_bundles.py` covers browser
+export/download/upload/import, admission during jobs, the card's editor
+work, a model switch or load lock and maintenance, another process's
+reservation failing the operation readably, origins,
+image-stream lifetime, cancellation of the supervising task, progress, and
+password export/check/upload/import, a password with no UTF-8 form refused
+with one 422 on every route, and an upload disconnected mid-body (driven as
+raw ASGI, since TestClient sends whole bodies) failing readably with no staging
+left. `tests/test_bundle_crypto.py` covers the
+cipher: round trips and seeks, Unicode normalisation, wrong passwords,
+flipped, truncated, extended and reordered chunks, a short header or no body,
+unbounded parameters, the shipped scrypt parameters (17/8/1, 1 MiB chunks;
+`conftest` otherwise writes the cheapest cost) staying within the reader's
+bounds, and an unfinished writer. Password bundles, altered ciphertext (in a
+later chunk too, after members were staged), a failed encrypted
+read-back that clears nothing and one scrypt run per password export are in
+`tests/test_bundles_password.py`. Re-encoded existing images on repeat
+import are in `tests/test_bundles_repeat.py`, with the speed paths'
+guarantees: `bundle_images._raw_digest` equal to `tobytes()` and a repeat
+import that decodes and unpacks nothing present but still validates its
+rows; `tests/test_bundles_merge.py` holds a declined member that vanished
+and a failed parallel metadata rewrite.
+`test_bundle_crypto.py` also covers writes of any size and the writer's key
+opening only its own header; `test_api_bundles.py` an upload in many batches.
+
+`tests/test_bundles_backup.py` covers the backup and the chosen bundle: a
+backup leaving every file and row byte for byte and importing like any
+bundle, no count gate but the read-back kept (a failed one publishes
+nothing), only the chosen rows, PNGs and thumbnails archived with no other
+prompt in the database bytes, `left_out` and `links_outside`, the import's
+`unresolved_references`, a binned chosen row carried, a selection never a
+clear, a missing file refusing only when chosen, and too little free space
+(a chosen bundle's database counted with its log and twice)
+refused before anything is written. `tests/test_api_bundles.py` covers the
+routes: a backup keeping the gallery and its jobs' images, picked (a binned
+and an unknown id left out) and starred (the bin's star not counted; none
+starred a 404), the preview's `starred`, every out-of-shape request
+refused before any work (a selection with a typed count included), and a
+chosen bundle refused as busy before its selection is read.
+
+`smoke-bundles.json` uses a fresh fake on 7897 and checks the browser dialog
+(the Automatic startup backup section hidden with no saved settings),
+all-model scope, typed confirmation, a bundle name stamped in local time,
+each saved bundle's file date beside its size and the server's newest-first
+order kept for names that sort the other way (GAL#27, a stubbed listing;
+each row, a protected one too, measured with and without its date, which may
+add no height; on the 393 px sheet `smoke-phone-dialogs` holds a plain row,
+whose size and date wrap beside Import, to no added height, and a protected
+row, whose Download then wraps onto the controls' line, to one control line
+at most), preserved favourites and metadata,
+saved-bundle and uploaded-file imports, repeated import, damaged ZIP refusal,
+password export (mismatch refused, fields cleared, Protected tag), wrong
+password refused before upload (the unlock field kept), protected import
+(the unlock field cleared), Cancel upload (refused with its reason while idle;
+mid-send it aborts, with a stubbed upload fetch), progress counts outside
+the live region, a reopened dialog's result labelled as past, narrow layout,
+an export replayed to a reloaded page shown as past without forgetting
+ids, a missing file's preview (stubbed with `MissingImage`'s 422) whose
+inline Show #N finds the row in the gallery and, binned, in the bin, and
+Back up: the entire gallery with no typed count and a result that is no
+failure, Picked and Starred with their counts, Bundle & clear held for a
+selection, the scope moving no control, the gallery's picks used while the
+bin is shown with one binned from another tab left out, an import's
+missing-source count said as a fact, a gallery read refused mid-backup
+(stubbed 409) repaired when the backup ends with the typed count kept, the
+holds with nothing picked or
+starred, the layout at 600x900 and 2560x1305, and a saved bundle's Delete
+(GAL#26: Cancel keeps it, a held press says its reason, a delete out holds
+every Import, a stubbed `delete_hold` holds that row alone and asks nothing,
+a stubbed `bundle_in_use` keeps the row, a confirmed press removes exactly
+that file from the list and the server and leaves the focus in the list).
+
+Its sizing/Bundles review cases also cover explicit password association and
+keyboard navigation, the clear safety explanation and enablement, blank/wrong
+and leading-zero count entries, a synthetic preview whose record/file/bin
+counts differ, unchanged creation/import password lifetimes, and 360/390 px
+layouts plus forced colours. Scope changes compare dialog-content positions,
+so explicit test scrolling does not masquerade as a moving control. The
+password fields' Caps Lock notice (UI#38) is checked at 1400x900, 560,
+600 and 360x800: a synthetic key event's true state shows the polite line
+beside the inputs on one line inside its grid, a false state and blur hide
+it, focus repeats the last state, and no input or Back up moves and nothing
+is stored.
+
+```powershell
+uv run python tools/fake_server.py --port 7897 --data <new-scratch-directory>
+node tools/browser.mjs tools/smoke-bundles.json
+```
+
+### Snippets, setups and saved searches
 
 `tests/test_preset_portability.py` and `test_strict_json.py` check strict native
 setup documents, raw Generate/Grid preservation, checkpoint-scoped conflict
@@ -9328,53 +12854,6 @@ and revisions, failed reads, Apply/Use current with retained picks, reopening,
 known validation and duplicate-name replacement. The dated saved-search
 recovery review records actual reproduction and final acceptance separately.
 
-`smoke-favorite-write-order.json` uses a fresh FLUX.1 Krea [dev] fake on
-7940 for overlapping same-page favorite actions. Its controlled baseline
-establishes actual stored/write/reply order before implementation; the final
-regression checks shared per-id holds, disjoint progress, explicit subsequent
-actions and current/new star controls. The dated favorite-write-order review
-separates diagnostic defect evidence from final repair acceptance and limits.
-
-`smoke-bin-restore-order.json` uses a fresh FLUX.1 Krea [dev] fake on
-7941 for targeted lifecycle reply ordering. Its final regression holds actual
-replies, checks whole-overlap refusal/disjoint progress and native/new controls,
-and preserves Restore note identity/focus/geometry with polite wait feedback.
-Only six owned fake PNGs are created; single permanent deletion and picked
-purge require native confirmations and exact one-use id guards. Broad deletes
-are blocked. Viewer/lineage constructor checks are labeled, not runtime model
-qualification. The dated Bin/Restore review records the earlier 74-step
-reversible defect proof, final acceptance and broad/unknown/cross-tab limits.
-
-`smoke-broad-bin-order.json` uses a fresh FLUX.1 Krea [dev] fake on
-7942 for hidden exact-owner admission and broad preview/confirmation/reply/
-critical-reset exclusion. Its 352-step regression uses fresh epoch/id gates,
-native Cancel/count/Empty questions, known predispatch409 probes and actual
-stored state. Six owned rows span two strict run scopes; the planted pair is
-preserved and only a one-use exact-owned Empty may permanently remove E/F.
-API POST/DELETE guards allow only exact read-only measure and owned Finish
-previews beyond the tested lifecycle requests; actual Finish remains blocked.
-Composer, picks/stashes and notes stay intact. The dated broad-bin review
-records the earlier reversible diagnostic proof and remaining Bundle/unknown/
-cross-client boundaries.
-
-`smoke-bundle-clear-order.json` uses a NEW fresh FLUX.1 Krea [dev] fake on
-7943 for the Bundle & clear source slice. The earlier 63-step diagnostic owns
-the complete four-row scratch gallery, holds an actual committed Restore reply
-and compares a completed native clear's 404/deleted-id receipts with late page
-bookkeeping. The reviewed 465-step final fixture instead targets action
-admission, known/unknown receipts, raw-owner draining, worker/terminal-refresh
-lifetime and duplicate receivers across eight page lifetimes. It distinguishes
-two actual owned clears from controlled metadata/transport probes. API/fetch
-same-origin one-use guards refuse unrelated writes and fatal zero-counter
-checks precede navigation. Three steps inject another operation's poll while a
-received clear result drains; the result must stay draining, not unresolved.
-An `eval` must not end on a gated promise, because the driver awaits it. Default-disabled automatic-backup status is a source-audited cold
-cached read; settings writes/activation and credential APIs stay outside it.
-Diagnostic success means reproduced defect, not repair acceptance. The dated
-Bundle-clear review owns final qualification and remaining protocol limits.
-
-
-
 `tests/test_snippets.py` covers CRUD, exact text, bounds, malformed-file
 preservation, independent locking, stale/concurrent edits and admission
 during bundle maintenance. `smoke-snippets.json` uses a fresh FLUX.1 Krea
@@ -9399,34 +12878,7 @@ CRUD. `smoke-saved-searches.json` uses a fresh FLUX.1 Krea [dev] fake on 7933
 for the dialog, explicit filter application, saved scope, retained picks,
 stale/late replies, modal keys/focus and responsive footer/dialog geometry.
 
-`smoke-queue-estimates.json` uses a fresh FLUX.1 Krea [dev] fake on 7954
-with 0.3 s steps. One render gives 256×256 history. Jobs queued behind a
-running one check each priced row's `~N` against `GET /api/jobs`, the
-unpriced (320×256) row's missing figure and title, and the "no estimate"
-total. After that row is cancelled, it checks the "of queued work" total
-while paused and "all done in" after Resume. The total stays one line (the
-longest figure too), and no row moves within the queue note. It also checks
-`#job-said` for a priced and an unpriced press, and the cell line's
-`~N expected` before the own-pace `~N left`, which it never follows.
-
-`smoke-gallery-top.json` uses a fresh FLUX.1 Krea [dev] fake on 7955 and
-a 60-image grid. At 1400x900 "↑ Top" stays hidden at the top and 300 px
-past the head, shows a long way down at the window's bottom right (hit by
-`elementFromPoint`, the page not moved by it), and its real press lands the
-head under the topbar with focus on the first card's image and the button
-gone. At 2560x1305 with Gallery beside it shows once the column is scrolled
-its own height, inside the column left of its scrollbar, and its press
-scrolls the column to 0, never the page; a wheel over it scrolls the
-column, not the page; unticking re-asks of the page. Focused and scrolled
-near the top it stays until its blur. Its last steps are the page's error
-line (`sayPageError`), by hand-made events: an `error` writes
-`Page error: ... (gallery.js:12). Reload the page if something has stopped
-working.` in `#error`, red; the same error again leaves another message
-alone; an `unhandledrejection` with a plain reason is said without a
-place; an `error` with no error object (the browser's ResizeObserver
-notice) writes nothing. `smoke-phone.json` ends with the same on the phone:
-over the bars in Create (`at-generate`, the element at its own centre),
-under the gallery's head in Gallery, the panel's line left as it was.
+### Phone smokes: the phone
 
 `smoke-phone.json` uses a fresh FLUX.1 Krea [dev] fake on 7956 with touch
 emulated (`{"touch": true}`) at 393x852@3 with `"mobile": true` (as are
@@ -9576,6 +13028,8 @@ Examples, Check and Reset drawn in the prompt's caption with the toolbar
 empty and not drawn, no Shape or Size chip in the page, the strips and
 the size line drawn and no check line, and the lightbox and the Models
 picker opened by the mouse adding no history entry.
+
+### Phone smokes: Create
 
 `smoke-phone-create.json` uses a fresh FLUX.1 Krea [dev] fake of its own
 on 7956, a row beside `smoke-phone`'s (the table's ports are full at
@@ -9777,6 +13231,8 @@ Seed's caption, Seed and Repeat on one row, Run grid in its fold, and
 Steps, Seed, Repeat, the negative, Step cache and Then refine's opener
 drawn.
 
+### Phone smokes: landscape, tablet, dialogs and keyboard
+
 `smoke-phone-landscape.json` uses a FLUX.1 Krea [dev] fake of its own on
 7957 (its own fresh scratch `--data`) with touch at 852x393@3, `"mobile":
 true`, and three planted images (P65). Create's panel is at most 600 px
@@ -9962,6 +13418,8 @@ including redraws and mouse roundtrips without replacing content nodes.
 intentional empty cover and sheet wording, filter misses, and the distinct
 44 px Gallery actions list icon at 320 and 360 px. The app topbar retains
 its overflow control; the gallery's list icon keeps its existing actions.
+
+### Phone smokes: the gallery
 
 `smoke-phone-gallery.json` uses a fresh FLUX.1 Krea [dev] fake of its own
 on 7960, a row beside `smoke-phone-dialogs`'s (the table's ports are full
@@ -10173,6 +13631,8 @@ their boxes intersect while the pill is immediately hidden, then the pill
 returns with Yesterday's place. Screenshots retain the gallery, the crossing
 and the bin. These are presentation checks on fake data, not device acceptance.
 
+### Offline and passcode smokes
+
 `smoke-offline.json` uses a fresh FLUX.1 Krea [dev] fake on 7958: the
 page at 127.0.0.1 registers `sw.js`, which controls the next load; with
 `/api/fake/unreachable` on, opening `/` again shows `offline.html` after the
@@ -10219,2915 +13679,3 @@ the sticky foot, and pressing it leaves the sign-in page with the status
 and `/outputs/` 401 again. Turned off, the address is the app. The real
 machines (Safari's autofill, the home-screen icon, a session across a
 restart, the scripts) are not a smoke's to say.
-
-`smoke-catalogue-stale.json` uses a fresh FLUX.1 Krea [dev] fake on 7959:
-a Models catalogue reply asked for the runtime loader is held while the
-server saves the edited one and a status brings it (the catalogue already
-of that kind, so the status asks for none). Landing, the reply is dropped
-and the runtime asked for again (`refreshModelCatalogue`'s
-`modelRuntimeIdentity` check): the picker stays pending, so Switch stays
-held, and never shows the old loader. Before, it put the old one back and
-a Switch & load pressed before the next poll loaded it. A second case holds
-a performance draft's request (`current: false`, its unedited loader the
-runtime's) while the server saves away and back: dropped the same way.
-
-`smoke-queue-controls.json` uses a fresh FLUX.1 Krea [dev] fake on 7914 with
-0.3 s steps. It checks authoritative Move order and focus through reload,
-delayed-response/new-submission races, a watched queued job's Move control,
-one-call Skip and Finish recovery, and held paused/Then refine reasons.
-
-`smoke-watched-action-replies.json` uses a fresh FLUX.1 Krea [dev] fake on
-7945 with 0.3 s steps. Three actual owned two-image jobs check late watched
-Cancel success/error and Pause error replies across real successor adoption,
-plus a newer same-job Pause owner. Original async button handlers are observed
-without changing their logic. A declared owned pre-start Pause POST stabilizes
-the final successor; held HTTP500 replies are unforwarded controlled errors.
-Exact same-origin one-use grants and per-job request/stream/outcome counts,
-cold backup checks and a pass-only zero active-job/control/response gate bound
-the fixture. Cleanup uses only owned Cancel; planted gallery facts/composer
-stay unchanged. New wide/narrow screenshots require inspection. No restart,
-real model, GPU, user gallery, credentials or old interrupted run is exercised.
-
-`smoke-random-prompts.json` uses a fresh FLUX.1 Krea [dev] fake on 7916.
-It checks random/cross selection, saved mode and Reset, deterministic choices
-across numeric axes and per-image batch seeds, preview counts and unseeded
-sample wording, saved choices, Resume, and unchanged Cartesian behavior.
-
-`smoke-compact-setup.json` uses a fresh fake on 7925. It checks inactive and
-active disclosures, value preservation and actual status-poll non-reopening,
-restore/Reuse/Undo and pending LoRA catalogue behavior, numeric-focus reveal,
-reference activation/order/capability state, native expansion, scoped `/` and M,
-hidden-pick independence, no immediate queue, modal/editing/modifier/IME/repeat
-protection and responsive screenshots at 390/600/1400/2048 px.
-
-`smoke-shortcut-dispatch.json` uses a fresh fake on 7924. It checks modal and
-menu ownership, exact modifiers, handled/composing/repeated events, native
-button repeat, lightbox editing/select/browser navigation, ordinary Generate
-and Grid, delayed More seeds/help Escape precedence, and P back to the prompt
-from a card, a sheet cell and the card the lightbox returns to (never from
-fields, menus, the model picker, help, a settings dialog or the lightbox).
-
-`smoke-shortcuts.json` uses a fresh fake on 7913. It checks the complete
-shortcut list and read-only Getting started block before any images exist,
-the top-bar and `?` openers, typing,
-composition/modifier/repeat guards, help above a lightbox and a Refine draft,
-no underlying submission or image action, native Escape, Close and actual
-backdrop focus restoration, context ordering with the full inventory, menu-opener
-fallbacks, accurate menu hints, the Prompts group's P row with `#prompt`'s
-`aria-keyshortcuts="P"`, and a 390 px layout without horizontal overflow.
-
-`tests/test_keep_awake.py` checks the `systemd-inhibit` child with a fake
-popen and clock (its argv, a refusal within `START_WAIT` or `SHORT_LIFE`,
-the retry after `RETRY_AFTER`, release by closing the pipe), Windows'
-`PowerRequest` with its four calls faked (create with the reason, set once,
-clear then close; a refused create or set holds nothing, closes the handle
-it was given and waits `RETRY_AFTER`; a refused clear still closes; the
-`REASON_CONTEXT` layout; `Kernel32Power` over a fake kernel32: the system
-asked for, never the display, and a null or invalid handle or a zero
-return a refusal naming the call; one real request on Windows, let go at
-once), the controller
-through its asyncio task (providers, counted holds from threads, the idle
-minutes, `wake`), `counts_as_activity` against the page's polls, the
-activity middleware and `/api/status`'s `keep_awake`, the CLI's
-`hold_while`, the doctor's VRAM, LAN and Keep awake rows (Linux's and
-Windows'), and the two settings. No real systemd is used.
-
-`tests/test_response_headers.py` asks the real app for the page, `/sw.js`,
-API routes, `/docs`, files and misses under both mounts, a 404, a 405 and a
-422, and the Host check's 400 and the cross-site 403, each carrying exactly
-one `frame-ancestors 'self'` and one `nosniff`; that the layer is the
-outermost of the app's own; that the page's scripts and stylesheets keep
-their types, a registry naming `.js` as text overruled; that a response's
-own policy is kept beside this one; and that an unhandled error's 500
-carries them and is still raised, with no second start once a response
-began.
-
-`tests/test_linux_scripts.py` runs `linux/*.sh` for real under bash against
-stub `nvidia-smi`, `uv`, `git`, `systemctl`, `journalctl`,
-`systemd-inhibit`, `loginctl`, `hostname` and `id` on PATH, a temporary
-HOME and project folder (the test seams) and a loopback stand-in server
-that answers only while the stub service is active; no real systemctl, git
-or uv runs and nothing touches the network. `control.sh`'s tests cover
-status of an answering and a stopped service and the running commit beside
-the checkout's, stop and restart refusing a
-busy server (no `systemctl` change) and `--force`, the wait for the page
-(a delayed stub start) and its limit, a failed unit, an auto-restarting
-one and a grown `NRestarts`, `logs`' `-n`/`-f`,
-`doctor` with the env file, unknown commands (exit 2) and root. Those tests
-are Linux only (skipped on Windows and where bash is missing); the static
-checks (the script set, ASCII, LF, the shebang and `set -euo pipefail`) run
-everywhere.
-
-`tests/test_auradream_server.py` runs `bin/auradream-server.ps1` under
-Windows PowerShell against a stub `ssh.cmd` that logs its argv through
-Python (as `ssh.exe` would receive it) and answers `ssh -G` with loopback
-and a test's port: a listener there is an awake server, a closed port a
-sleeping one, and a loopback wake gate starts the listener on its POST. It
-covers the missing and malformed settings (exit 2), each command's ssh
-line (folder default and override quoted for bash, `-Force`, `-Lines`,
-`-Follow` with `-t`, `-f`/`-n`, `update` and `-DryRun` (`--restart
---dry-run`), `connect`), `-h`/`--help`, refused double quotes and trailing
-backslashes, the remote exit code and the 255 and 127 hints (`connect`'s
-without the `BatchMode` sentence),
-waking by URL, `open`, and the 102-byte magic packet through a dot-source.
-Windows only; its static checks (every `bin\` and root `.ps1`/`.cmd` ASCII
-and CRLF, no address but the placeholders) run everywhere.
-
-`uv run --group dev pytest`. They stub the pipeline (`tests/fakes.py`'s
-`FakeBackend`, wired by the `fake` and `client` fixtures in `tests/conftest.py`
-and driven through `tests/api_helpers.py`; the HTTP tests are `tests/test_api*.py`,
-one file per area) and the scheduler (`tests/test_schedule.py`'s `StubPipeline`), so
-nothing downloads weights or touches the GPU, and they run against a throwaway
-database and outputs directory (`tests/conftest.py`). They run on `config.py`'s
-defaults: `tests/conftest.py` drops every `AURADREAM_*` but the gallery
-and adapter paths before anything imports `backend`, so a sourced
-`wsl/env.sh` changes nothing. They cover the invariants
-that are expensive to get wrong: the schedule the scheduler ends up with, seeds
-surviving a JSON round trip, the search fallback keeping its filters, and the
-HTTP guards. `tests/test_docs_maps.py` holds `CLAUDE.md` to the one
-`@AGENTS.md` import; every backend module, `web/*.js` and `web/styles/*.css`
-named in the Layout above (the stylesheets in `index.html`'s link order, and
-its count of classic scripts); and every `tools/smoke*.json` in `AGENTS.md`'s
-port table, on the row whose port its first `navigate` uses, and named
-below; and every `/api/fake/...` route and command-line flag
-`tools/fake_server.py` registers (read as text, never imported), named in
-both `AGENTS.md` and this file - so a new file, knob or flag is added to the
-maps with it.
-
-`tests/test_search_area.py` checks comparison-only actual MP filters through
-actual SQLite: inclusive/exclusive and one-pixel boundaries, zero/tiny values,
-adjacent integer limits and products beyond SQLite's integer range. Fractional
-thresholds remain exact under low/high Decimal precision, with caller flags
-and traps preserved on success/refusal. Nonpositive, NULL, REAL and text
-dimensions are excluded by the new branch. Scratch API/saved-query/strict
-preview checks retain model/favorite/bin scopes, raw definitions and PNGs,
-with model/queue work poisoned. No live gallery or browser is exercised.
-
-`tests/test_search_orientation.py` checks portrait/landscape/square values on
-the existing size key through actual SQLite, including adjacent large integer
-dimensions, composition and legacy spelling/refusals. A Node VM checks the
-existing key/merge helpers without DOM or app boot. Scratch HTTP checks cover
-gallery/model/favorite/bin scopes, paging, LIKE fallback, strict previews,
-saved raw queries and keeper rates with model/queue entry points poisoned.
-An owned-gallery DELETE checks expected counts, star/source retention and
-PNG-preserving binning. No live gallery, browser or GPU qualification follows.
-
-`tests/test_search_dates.py` covers local-day UTC bounds, clock changes and
-unrepresentable dates. `tests/test_search_date_ranges.py` adds explicit inclusive
-calendar ranges, same-day equivalence, year/leap rollover, short/long days,
-malformed-range refusal and strict-scope SQLite intersections. Scratch HTTP
-checks cover gallery/bin filtering, unstarred previews and saved-query text/tick
-preservation with model/queue entry points poisoned. One owned-gallery DELETE
-checks count conflicts, star/source retention and PNG-preserving binning. No
-real gallery, browser or host-timezone qualification is involved.
-
-The recycle bin is covered where each read lives: `tests/test_storage.py`
-(the migration, `list_images` live and `binned=True` with total, page and
-`others` agreeing through the LIKE fallback, `runs`/`keep_rates` leaving the
-bin out and `completed_cells`/`lineage_images` keeping it, a binned star
-unkept, `reference_paths` refusing, `refine_binned`), `tests/test_gallery.py`
-(a double bin answered once, restore, `empty_bin` with its files and its
-`SelectionChanged`, the orphan sweep sparing binned PNGs),
-`tests/test_api_gallery.py` (every bin route, the 404s without
-`?binned=true`, the favourite's 404, the picked cards' stars answered per
-id - a binned one `binned`, its flag kept - Delete unstarred binning, Empty
-recycle bin's count and its pin),
-`tests/test_api_jobs.py` (the replay and `deleted_count` through a bin and a
-restore), the refine, grid, Swap, Mass refine and More seeds files (a binned
-source refused, a binned cell not remade until Empty, a picked-then-binned
-id reported "in the recycle bin", seeds past a binned one),
-`tests/test_bundles_repeat.py` (the state through a round trip, a repeat
-import keeping the local state), `tests/test_bundles_merge.py` (an old
-bundle live), `tests/test_api_bundles.py` (`binned` in the preview),
-`tests/test_clear.py` (`--bin` and its pin, the whole clear
-and `--where` reaching the bin, `--where` pinned to its count) and `tests/test_reindex.py` (in place and
-`--database` keeping the state, PNG-only bringing it back live).
-
-The command-line tests are three files sharing `tests/cli_helpers.py` (the
-local `cli` fixture, its autouse execution-environment isolation and the
-passes' sources and masks): `tests/test_cli.py` (seeds and the loop equality,
-resume, budgets, `--from-image`, conditioning, Then refine),
-`tests/test_cli_passes.py` (refine, inpaint, outpaint and the GAN upscaler,
-run locally), `tests/test_cli_disk_full.py` (a full disk under the save:
-the image held and saved once there is room, a batch and a Then refine
-pass too, Ctrl-C ending the wait as a cancel, other errors unchanged) and `tests/test_cli_via_server.py` (`--via-server` through the
-test client's routes, and `_server_json`'s transport).
-
-Helpers shared across test files live in `tests/*_helpers.py` and are
-imported by name, fixtures too (with `# noqa: F401  (fixtures by name)`);
-names imported elsewhere carry no leading underscore. Besides the per-area
-ones (bundle, backup, critic, CLI, prompt encoding and rules, instruction
-edit): `api_helpers.py` drives the app (`stream_job`, `run_one`,
-`run_grid`, `wait_for`, `wait_for_status` and the generic `until`, whose
-timeouts are seconds; the prompt-variant `VARIANTS`),
-`backend_helpers.py` gives `catalogue_repos()` and a weightless
-`loaded_backend(pipe)` (diffusers imported only when called),
-`gallery_helpers.py` the `cold_queries_only` guard and the
-`gallery_state` row-and-PNG snapshot, `model_switch_helpers.py` the
-switch and catalogue tests' autouse `fresh_selection`, and
-`browser_helpers.py` the browser preflight tests' `run_harness_cold`
-(each keeps its own `.mjs` fixture). The anima, NetaYume and NewBie
-converter caches are held to one contract in
-`tests/test_converter_cache.py`, parametrized over the three loaders; each
-loader's own tests stay in its `test_<name>_loading.py`. The model
-catalogue's routes are `tests/test_api_model_catalogue.py`, switching
-`tests/test_api_model_switch.py`.
-
-The bundle tests share helpers from `tests/bundle_helpers.py`.
-`tests/test_bundles.py` covers export and cleanup: archive/merge round trips,
-preserved favourites and timings, remapped image links, WAL snapshots,
-monotonic ids, changed source files (a same-size, same-mtime edit included,
-so only the pre-cleanup hash catches it), partial cleanup (a database
-replacement refused after files went still reports `deleted_ids`) and a
-locked database stopping the clear before any file goes.
-`tests/test_bundles_merge.py` covers corrupt or unsafe archives, conflicts,
-rollback (including a database replacement refused after every file is
-installed), the cross-volume copy and oversized or padded members.
-`tests/test_bundles_repeat.py` covers restoring a lost file of a known row,
-palette/mode identity and regenerated thumbnails.
-`tests/test_bundles_staging.py` covers staging and free space per volume and
-the leftover sweep, and `tests/test_gallery_lock.py` process/thread
-reservations. `tests/test_bundles_directory.py` covers independent archive
-storage, default fallback, containment and link refusals, and the fake
-server overriding an inherited production archive path.
-`tests/test_api_bundles.py` covers browser
-export/download/upload/import, admission during jobs, the card's editor
-work, a model switch or load lock and maintenance, another process's
-reservation failing the operation readably, origins,
-image-stream lifetime, cancellation of the supervising task, progress, and
-password export/check/upload/import, a password with no UTF-8 form refused
-with one 422 on every route, and an upload disconnected mid-body (driven as
-raw ASGI, since TestClient sends whole bodies) failing readably with no staging
-left. `tests/test_bundle_crypto.py` covers the
-cipher: round trips and seeks, Unicode normalisation, wrong passwords,
-flipped, truncated, extended and reordered chunks, a short header or no body,
-unbounded parameters, the shipped scrypt parameters (17/8/1, 1 MiB chunks;
-`conftest` otherwise writes the cheapest cost) staying within the reader's
-bounds, and an unfinished writer. Password bundles, altered ciphertext (in a
-later chunk too, after members were staged), a failed encrypted
-read-back that clears nothing and one scrypt run per password export are in
-`tests/test_bundles_password.py`. Re-encoded existing images on repeat
-import are in `tests/test_bundles_repeat.py`, with the speed paths'
-guarantees: `bundle_images._raw_digest` equal to `tobytes()` and a repeat
-import that decodes and unpacks nothing present but still validates its
-rows; `tests/test_bundles_merge.py` holds a declined member that vanished
-and a failed parallel metadata rewrite.
-`test_bundle_crypto.py` also covers writes of any size and the writer's key
-opening only its own header; `test_api_bundles.py` an upload in many batches.
-
-`tests/test_bundles_backup.py` covers the backup and the chosen bundle: a
-backup leaving every file and row byte for byte and importing like any
-bundle, no count gate but the read-back kept (a failed one publishes
-nothing), only the chosen rows, PNGs and thumbnails archived with no other
-prompt in the database bytes, `left_out` and `links_outside`, the import's
-`unresolved_references`, a binned chosen row carried, a selection never a
-clear, a missing file refusing only when chosen, and too little free space
-(a chosen bundle's database counted with its log and twice)
-refused before anything is written. `tests/test_api_bundles.py` covers the
-routes: a backup keeping the gallery and its jobs' images, picked (a binned
-and an unknown id left out) and starred (the bin's star not counted; none
-starred a 404), the preview's `starred`, every out-of-shape request
-refused before any work (a selection with a typed count included), and a
-chosen bundle refused as busy before its selection is read.
-
-`smoke-bundles.json` uses a fresh fake on 7897 and checks the browser dialog
-(the Automatic startup backup section hidden with no saved settings),
-all-model scope, typed confirmation, a bundle name stamped in local time,
-preserved favourites and metadata,
-saved-bundle and uploaded-file imports, repeated import, damaged ZIP refusal,
-password export (mismatch refused, fields cleared, Protected tag), wrong
-password refused before upload (the unlock field kept), protected import
-(the unlock field cleared), Cancel upload (refused with its reason while idle;
-mid-send it aborts, with a stubbed upload fetch), progress counts outside
-the live region, a reopened dialog's result labelled as past, narrow layout,
-an export replayed to a reloaded page shown as past without forgetting
-ids, a missing file's preview (stubbed with `MissingImage`'s 422) whose
-inline Show #N finds the row in the gallery and, binned, in the bin, and
-Back up: the entire gallery with no typed count and a result that is no
-failure, Picked and Starred with their counts, Bundle & clear held for a
-selection, the scope moving no control, the gallery's picks used while the
-bin is shown with one binned from another tab left out, an import's
-missing-source count said as a fact, a gallery read refused mid-backup
-(stubbed 409) repaired when the backup ends with the typed count kept, the
-holds with nothing picked or
-starred, and the layout at 600x900 and 2560x1305.
-
-Its sizing/Bundles review cases also cover explicit password association and
-keyboard navigation, the clear safety explanation and enablement, blank/wrong
-and leading-zero count entries, a synthetic preview whose record/file/bin
-counts differ, unchanged creation/import password lifetimes, and 360/390 px
-layouts plus forced colours. Scope changes compare dialog-content positions,
-so explicit test scrolling does not masquerade as a moving control. The
-password fields' Caps Lock notice (UI#38) is checked at 1400x900, 560,
-600 and 360x800: a synthetic key event's true state shows the polite line
-beside the inputs on one line inside its grid, a false state and blur hide
-it, focus repeats the last state, and no input or Back up moves and nothing
-is stored.
-
-```powershell
-uv run python tools/fake_server.py --port 7897 --data <new-scratch-directory>
-node tools/browser.mjs tools/smoke-bundles.json
-```
-
-The refine pass is covered the same way: `tests/test_refine.py` (each
-profile's `refine_supported` and each sibling's call held to the installed
-diffusers, Anima's and NewBie's answer final before a load
-(`_OWN_PIPELINES`), `CARRIED` held to `generate()`'s own kwargs, a stub
-sibling built over a stub pipeline's components and called once per image
-with that image's generator, the cancel paths, mu through the shared
-scheduler, the row, the PNG, the key, the migration, the reindex and the
-merge), `tests/test_refine_schedules.py` (each profile's start index
-against its sibling's real `get_timesteps`, the duplicate advisory, and the
-start sigma: each `START_RECIPES` entry, `SHIFT_CALL`, the default schedule
-and the VAE scale held to the installed source, verified.md's FLUX.1
-sigmas reproduced on a real `FlowMatchEulerDiscreteScheduler` with and
-without Mu, a static shift with and without a requested mu, the loaded
-scheduler left untouched, None where it would be a guess),
-`tests/test_api_refine.py` (the status flag, whether it is final
-(`refine_settled`) and whose the strength is (`refine_strength_profiled`),
-the submit refusals, the strength axis with resume, the pass's own size
-guard and its lack of a batch budget, `GET /api/images/{id}`, Re-render,
-and the preview's `start_sigma`, asked with the applied pass, not for a
-sweep or a direct render, end to end over a real FLUX.1 schedule) and the
-CLI's flags in `tests/test_cli_passes.py`. What a pass does to pixels, its time and its
-memory are the card's to say, in `docs/verified.md`.
-
-The inpaint is covered by `tests/test_inpaint.py` (the inpaint class per
-catalogue pipeline against the installed diffusers; every profile's
-`inpaint_supported` True an installed class outside `INPAINT_DEFERRED`,
-every class left off in it, every catalogue repo one of the cases; `build`
-over stand-in components for all five classes; the strength default read,
-not copied; the composite keeping the source where the mask is 0 and taking
-the result where it is 255; `pipeline_mask` repainting a thin stroke off
-the cell corners and covering every pixel a feather weighs, the class handed
-it and the composite the painted mask; `inpaint_family` and the strength an
-inpaint without one starts at; the `applied()` rules and the hash pattern
-refusing paths; one call per image, cancel, the size refusal, a deferred
-family refused with its class installed, the loaded answer, unload; the
-status fields and the fake; the live preview drawn off the inpaint class,
-and Z-Image's class blending before its callback), `tests/test_refine_schedules.py`
-(`start_index` and `steps_run` with `inpaint=True` against each enabled
-class's `get_timesteps`, None for the deferred; every flow inpaint profile's
-class in `START_RECIPES`, Z-Image's inpaint class starting where its
-image-to-image one does, the backend asking the inpaint class and SDXL's
-answering none), `tests/test_inpaint_storage.py`
-(the hash over size and levels, `mask_path`'s two refusals, `_migrate` and
-the `masks` table on a replaced file, the mask partial finished, one cut
-short or of other pixels discarded, an upload into a directory a clear
-removed meanwhile, the chunk
-keys and the embed, an image saved though its mask cannot be embedded,
-`index_file`, `completed_cells`, the cost split), `tests/test_api_inpaint.py`
-(the upload's refusals and its hash, `GET`, the submit refusals, a strength
-grid over one mask, the preview's `start_sigma` asked with the inpaint and
-not for a sweep, a mask gone between cells, cancel mid-inpaint, the
-duplicate count with two masks, More seeds and Swap tags over the same mask
-and naming a missing one by its image, Mass refine dropping it, Re-render
-naming a missing mask and an inpaint at another size, the snapshot naming
-a source only where every cell shares it, `/keep`, an RGBA or 16-bit
-upload, Load settings from an inpaint's PNG, search and stats),
-`tests/test_inpaint_bundles.py` (export, selection, password and merge by
-hash; a renamed, altered, resized or path-named mask refused; a lost mask
-restored from its result's PNG, `masks_missing` where that has none too;
-stray files in `masks/` left out of a whole-gallery export; text chunks
-outside the identity; PNG-only reindex from
-files and from the embedded copy; `--database`), `tests/test_inpaint_sweep.py`
-(the sweep's three sparing conditions, a re-upload restarting the window, the
-whole `clear`, Keep starred, the orphan sweep, `clear --where`, a delete
-and a CLI `clear --bin` sparing the mask of a cell held before it saves,
-holds dropped at a server's start, a mask swept between the check and the
-hold refused), `tests/test_inpaint_ui.py` (`inpaint_deferred`
-held to the list; the dialog's scripts and stylesheet in page order), the run
-id pins in `tests/test_conditioning.py`, the inpaint classes' prompt
-building held to their text-to-image classes' in
-`tests/test_prompt_encoding.py`, and the `--mask` (an RGBA, 16-bit or CMYK
-file; no strength) and `--from-image` (a source that is another picture
-here) cases in `tests/test_cli_passes.py`.
-
-The outpaint is covered by `tests/test_outpaint.py` (both types' grid and
-bound checks, the fill name, the key round trip, the validator's refusals,
-`applied()` dropping it with its source; every preset's integer arithmetic,
-the odd 16, each aspect held at its own tiers, within 16 px, past the guard
-and off the grid; the mask's levels, corners and hard edge, its pipeline
-mask; the kept rectangle and `band_too_wide`'s axis and sides; the fill
-keeping every source pixel and stretching the edge; an unknown fill; the
-fill's and the mask's pinned SHA-256; the composite over the padded
-canvas), `tests/test_api_outpaint.py` (a run over the padded source and its
-record; the stamp before the job, a worded 503, a lost mask file healed and
-one gone mid-run; every submit refusal, the one-sided band among them; the
-refine budget, a binned source, a checkpoint without the class, an off-grid
-source; the presets route, `min_kept` and a binned source's 404; a strength
-sweep resumed by its spec; the preview's `start_sigma` asked at the
-canvas's size; Re-render carrying the outpaint, refusing another
-size, checking each fill apart under one mask, refusing a row whose spec
-does not build its mask (with Swap tags' and More seeds' `outpaint` status)
-and answering a row no request could make with a worded 422; Swap tags and
-More seeds checking it apart from a refine; Mass refine dropping it; Load
-settings from its PNG; the status types), `tests/test_outpaint_storage.py`
-(the `_migrate` column, the row, chunk and A1111 line; `index_file`'s
-invariant; reindex from PNGs, an unknown fill kept, a malformed spec left off
-and counted, a lost mask built again, a stripped spec recovered only where the
-mask hashes; `wellformed()` and a merge leaving off a spec no request could
-make; a database merge carrying and dropping it; bundles carrying it, a
-broken row refused (a band past the bound among them), a lost mask built
-again or counted missing, the key stored in its one spelling, a leading-zero
-key keyed as its re-render), `tests/test_inpaint.py` (the real backend's
-outpaint branch: the padded canvas at the outpaint's size, the built mask's
-pipeline mask, the kept rectangle composited exactly; `outpaint_source`'s
-size refusal; an unstamped outpaint refused by `check_refine_supported` in
-the inpaint's words; an outpaint without a strength at the class's default),
-the outpaint key and run-id cases in `tests/test_conditioning.py`, the
-dialog's statuses in `tests/test_inpaint_ui.py`, and the `--outpaint`,
-`--band` and `--from-image` cases in `tests/test_cli_passes.py` (a `--band` of its
-own beside a carried outpaint running, a rewritten mask hash refused).
-
-Only the masked area is covered by `tests/test_mask_crop.py` (the spec and
-its key round trip; golden boxes and working sizes, both aspect clamps,
-edges and pad 0; the rule's SHA-256 pin over a sweep with its invariants;
-`widened` against PIL's `MaxFilter` and the radius's values; the coverage
-proof that every painted pixel's paste-back reach lies inside the widened
-mask, from 0.34x to 65x; `paste_back` then `composite` keeping every
-unmasked pixel), `tests/test_conditioning.py` (no crop leaves the key
-element and the pinned run ids unchanged; a cropped run id pinned; two
-paddings two pictures; the refusals and `applied()`; `denoise_size`; a
-saved cropped row's `completed_cells`, `settings_key` and
-`cell_from_record` agreeing), `tests/test_inpaint.py` (the class at the
-working size with `crop_inputs`' image and mask and no
-`padding_mask_crop`; the output at the source's size, every unmasked pixel
-and everything outside the box the source's; a cropped outpaint; the start
-sigma and the preview at the working size; Z-Image's preprocess at the
-working size; `last_mask_crop()`; the fake cropping by the real rule),
-`tests/test_mask_crop_storage.py` (the column, row, chunk and A1111 line;
-both codecs; `index_file`; both reindex paths: recomputed, proved,
-mismatched, malformed, recovered; bundles: carried as v1, refusals, a
-mismatch refused, recomputed, recovered; the reruns' carries and drops;
-search, keep rates and tier pricing; the job recording the backend's
-region) and `tests/test_mask_crop_refusals.py` (the refusals' exact words
-and status; the preview's region; a mismatched recorded region refused by
-Re-render, Swap tags and More seeds; the CLI's `--mask-crop`, its
-`--from-image` carry and mismatch, and `--via-server`).
-
-`tests/test_reindex_provenance.py` covers foreign PNG conditioning ids, lost
-databases, missing or mismatched source identities and safe in-place metadata
-remapping. API tests hold a fake before its first callback to check initial
-per-cell progress totals, and API/CLI tests cover axis replacements and the
-capability refusal both before and after loading. The job snapshot's
-`comparison` is asserted true for a prompt-variants grid (`test_api_grid_variants`)
-and false for plain and variable grids (`test_api_jobs`). Swap tags is
-`tests/test_tag_swap.py` (the rewrite as text: matching, weights and
-underscores, strictness, rows at once, phrases and lettering, Han, XML,
-variables) and `tests/test_api_swap.py` (every per-image status, one job
-per size keeping seeds, sizes and settings, `expected`, `pruned`, the
-filter scope, the negative field, the revision header, the resolver, and
-Re-render over mixed sizes through `cells_from_records`); Re-render's
-picked cards are `tests/test_api_rerender.py` (exactly the picks whatever the
-filter, oldest first, a binned and a deleted pick named in `deleted`, all
-gone a 404 naming each, `ids` validated, and another checkpoint's picks
-refused with or without All models, named to unpick). Mass refine
-is `tests/test_refine_batch.py` (the per-record plan's order, the cell it
-builds, the profile a foreign record takes, `cell_from_record`'s named
-changes) and `tests/test_api_refine_batch.py` (every per-image status, one
-job per size keeping each image's prompt pair, seed, CFG, mu and variables,
-references dropped, the PNG chunk's `refine`, Steps, Skip refine passes,
-Include other checkpoints, the whole refusal without a pass, a live
-capability drop failing the job before any image, a source deleted mid-run
-failing its own cell only, `expected`, `pruned`, the filter scope, the
-start-sigma range and its cap, the per-size price, and the revision
-header). More seeds is `tests/test_more_seeds.py` (batches by run, job or
-image, the Batch as the largest recorded, the budget's cap, seeds stepping
-over and wrapping, calls of consecutive seeds) and
-`tests/test_api_more_seeds.py` (a picked image taking its whole batch, two
-of one batch as one, the batch's own Batch and run, a second press past
-the first, seeds the gallery or a live job holds stepped over, the panel's
-Batch for an unrecorded batch and the budget's cap, a grid's cells as
-batches of one job, one job per run, every per-batch status, `expected`,
-the whole refusals, the filter scope, `batch` through a reindex, and the
-`run` scope: the run's live images whatever Starred, a binned cell no
-batch and a binned top seed still held, its refusals beside `ids` or
-`search`, 404 unknown or wholly binned, 409 `expected`, per-batch
-`foreign`, `count_default` agreeing or not, the headline, and a run past
-`max_grid_images` images queued in few batches; and Then refine carried:
-bases and their passes under the original pass run with the passes priced
-at their size, `then_refine: false` making bases only and a later press
-from that bases-only template still carrying it, a plain run and a pass
-batch unchanged, no pass on the checkpoint held with bases only, mates of
-two specs refused in words, a batch past the guard refused while the rest
-queue, and two specs in one press making two jobs);
-`tests/test_more_seeds_intents.py` also holds that a replayed intent keeps
-the `then_refine` choice.
-Load settings from PNG is `tests/test_api_png.py` (a gallery PNG's whole
-record back, an explicit null Mu, the legacy key, a reference carried only
-where this gallery holds the same picture, one on a checkpoint that takes
-none, a refine pass at the panel's size, an adapter the installation
-cannot load, a negative `applied()` leaves out kept for the box, an A1111
-block's negative judged at the panel's CFG rather than the profile's, an A1111
-block's prompt, negative and size with its not-carried and not-read
-notes, the record winning over its own 'parameters' line, sizes a direct
-render does not take, every refusal's words, the 1 MiB and keyword caps,
-a stale revision, and `parse_parameters` against A1111's reading) and
-`tests/test_cli.py::test_from_image_refuses_a_record_that_is_not_one`
-(`--from-image` through the shared `png_settings`). What holds the
-card, and whose expansion it is, is
-`tests/test_jobs.py::test_the_card_names_its_holder_and_an_editor_actions_ticket`
-and, through the status,
-`tests/test_api.py::test_status_names_what_holds_the_card_and_whose_expansion`.
-
-The prompt analyser is tested the same way, with no network and no GPU:
-`test_prompt_encoding*.py` (`test_prompt_encoding.py` the encoder table,
-templates held to the installed diffusers source and the real tokenizers,
-whose cases skip when nothing is cached; `_budgets` the budgets, cuts and
-control tokens; `_syntax` the weighting syntax; `_loading` the load, cache
-and lock lifecycle; their shared fakes in `prompt_encoding_helpers.py`),
-`test_prompt_rules*.py` (the `analysis` data against the prose, the
-authors' examples raising no warning, the chips' order slots against
-`reorder_tags` and the order finding's step labels, and `reads_order`
-wherever the slots are None), `test_critic*.py` (pins, install,
-server command and stop, the server's count and the fit checks, answer
-validation, grounding, and `web/sheet.js`'s copy of `_XML_BLOCK`) and
-`test_api_analysis*.py` for the routes, the chips' order slots on
-`/api/tags/validate` (offline, past the 64, a prompt past Check's limit, no
-category lookup where no order is read, a fault in them leaving the
-verdicts), an item longer than any tag answered unknown without asking
-the index (`test_an_item_longer_than_any_tag_is_unknown_without_asking`),
-the page's `PROMPT_MAX_CHARS` held to every request's `max_length`
-(`test_the_pages_measured_length_is_every_requests`), the gate
-(Check beside a running job, off the loop; the critique's re-check after
-`prepare()`), the status flags (status never loads a tokenizer) and
-shutdown (the lifespan's order, `main.Server.handle_exit`, which ends a job
-waiting on a load at once). Where the point
-is the real thing, `test_critic_process.py` and `test_critic_server.py`
-start Python children and loopback servers: a wrapped stand-in llama-server's process tree, its listener and
-its counts, and the proxy bypass. The job-object cases run on Windows only;
-the wildcard-listener and half-exited-process cases run on Linux only. Its
-real-tokenizer case in `test_critic_tokens.py`,
-`test_measured_counts_and_pieces_are_the_tokenizers`, skips when klein's tokenizer is not cached. The `fake` fixture installs
-`FakeCritic` as `main.prompt_critic` - its six methods held to
-`PromptCritic`'s signatures by a test, its question sized by the real
-`critic.check_fits` on the unscaled estimate, standing in for the server's
-count (a prompt too long for the window is a 502 here too, though near the
-window's edge the two can disagree) and
-its answer raw JSON put through the real `critic.validate`, so nothing it
-returns is something the real pipeline could not - and
-`fakes.fake_tokenizer` as `prompt_encoding._load_tokenizer`: a token per word
-or mark (on Qwen also per run of newlines, which its BPE merges into one
-token), with real offsets, at each encoder's real budget.
-`test_the_fake_tokenizers_budgets_are_the_real_ones` holds them to the
-`REAL` table.
-
-`uv run --group dev ruff check .` lints with `pyproject.toml`'s
-`[tool.ruff]`: correctness rules only (`E4`, `E7`, `E9`, `F`, `B`), with
-FastAPI's `Body()` defaults, unchecked `zip` lengths, the base backend's
-optional no-op hooks and the fixtures `tests/` imports from helper modules
-allowed; style is the code's own and no formatter runs.
-`.github/workflows/ci.yml` always runs a Linux lint job (Python 3.13,
-`uv sync --locked --only-group dev`, then `uv run --no-sync ruff check .`).
-It installs only development tools, not torch or the application. For a
-documentation-only push or PR, this is the only job that runs: no tokenizer
-downloads or test matrix. `tools/ci_changes.py` compares the entire push's
-before/after range or the PR's merge-base/head range with a local Git diff.
-Root and `docs/` Markdown/reStructuredText, plus images/PDFs under `docs/`,
-are documentation, except the prose the tests read (`AGENTS.md`'s port
-table and module map, `CLAUDE.md`, `README.md`, `docs/rules.md`,
-`docs/verified.md`; `test_prose_the_tests_open_runs_the_tests` keeps the list
-to what tests and tools open); executable files and JSON under `docs/` still
-get full tests, as do workflows, dependencies and any other paths. Renames check
-both the old and new paths. New branches without a previous SHA, missing
-history, unknown/empty comparisons, manual dispatch and the weekly run
-(Monday 03:17 UTC on main: the full gate against the runners' current images
-and Chrome, and main's dependency caches kept warm, since a merge push skips
-its tests and saves none) keep the full gate.
-A docs-only tip on a code-changing PR does not bypass its tests.
-
-Other changes and manual runs get the CPU suite on Ubuntu
-(`uv sync --locked --group dev`, the pinned type gate, `pytest -n auto
---durations=25`, listing the 25 slowest tests across workers); for main
-(pull requests into it, pushes, by hand and weekly) it runs on Windows too,
-about five times slower (about 25 minutes on one runner), so there in five
-parts on five runners: `pytest --shard K/N` (`tests/shard.py`, a CRC of each node
-id, so every runner and xdist worker splits alike), jobs named
-`test (windows-latest, K/5)`, the type gate on the first part only. Every
-test job runs `--timeout=600` (pytest-timeout): a hung test fails by name
-inside the job's 20 minutes, and `test_storage_interruptions.py` bounds its
-own child at 300 seconds, so the two never race. Every test and browser job
-installs Node 24 (`actions/setup-node`), the major the PCs run, since the
-runner images' own differ (22 on Windows, 24 on Linux); a weekly and manual
-`node-latest` job runs the Linux suite on the newest Node, informational,
-so a change like Node 26's (ea44414) shows before it reaches a PC. A
-separate `browser` job (same condition, never holding up `test`) runs the
-whole smoke table on the runner's Linux Chrome in five parts, `browser
-(K/5)`, each on its own runner (`run_smoke.py --all --shard K/5 --jobs 2
---rerun-failed-alone`: the rows split by `tools/run_smoke_costs.json`,
-longest first; one runner at three at once took about 15 minutes, and four
-at once on four cores failed smokes that pass alone; more than five parts
-gains little, since `smoke-jobs`'s row alone takes nearly four minutes). A
-smoke that fails is rerun alone after its part for the diagnosis only: the
-exit stays the first pass's, so one that passes alone still fails the job.
-Then, passed or failed, `tools/smoke_timings.py --annotate` reads its
-part's `summary.json` (the slowest 25 smokes, each row's total, smoke time
-beside wall clock, and each rerun verdict as an annotation on the run's
-page: an error for one that failed again alone, a warning for one that
-passed alone, a race to fix), and uploads each smoke's result, browser log,
-screenshots and failed fake's log as `smoke-artifacts-<index>` when it
-fails. A smoke `run_smoke_costs.json` lacks counts as twelve seconds; refresh it
-with `smoke_timings.py <part's artifacts> --write-costs` per part after the
-table changes much. uv's cache is the lint job's own (`cache-suffix: lint`,
-dev tools only) apart from the test jobs' (`app`, saved by the first part
-on each system and restored by the rest and the browser parts): sharing
-one key, a skipped lint once saved an empty cache every run then restored,
-and the Linux jobs downloaded the CUDA wheels each time. `tests/test_smoke_timings.py` holds the
-timing tool's order, `--top`, row totals (a row is the port table's, so two
-rows on one port stay apart), `--annotate`'s verdict lines and its exit-2
-refusals of a missing, malformed or ambiguous summary. Before it, `tools/smoke_fonts.py`
-installs Selawik as Segoe UI with Windows line metrics, beside copies of
-DejaVu Sans and Noto Color Emoji for the symbols Segoe UI lacks, hiding
-Inter and the system's own copies of those two (`FONTCONFIG_FILE`); other
-system fonts stay, since Google Chrome aborts on a character no font has. Every copy carries the advance
-widths Windows measured (`tools/segoe-widths.json`), so text is laid out as
-on Windows; `tools/font-widths.json` logs every page character's advance
-width, the run that table came from. A character the page newly draws gets
-a Windows run of it and a new table:
-`test_every_character_the_page_draws_has_its_windows_width` fails on a
-non-ASCII character in `web/`'s scripts, page or styles (written, or as a JS,
-CSS or HTML escape) that `__chars` lacks, format and combining characters
-aside, and `test_the_width_table_holds_exactly_the_measured_characters` holds
-each weight's table to `__chars`. Text the server sends (guides, cites,
-prompts) is not covered, and Linux Chrome's shaping and kerning still differ
-from Edge's. Windows stays where the smokes are written. `tests/conftest.py` makes
-`torch.cuda.is_current_stream_capturing` answer False on a driverless Windows
-machine, where torch's native call crashes the worker. It runs the suite with
-`pytest -n auto` (pytest-xdist, one worker per core). Before it,
-`tools/fetch_tokenizers.py` caches the tokenizer files (never weights) that
-the real-tokenizer tests in `test_prompt_encoding.py` and
-`test_critic_tokens.py` read, so those tests run instead of skipping. The
-`HF_TOKEN` repository secret covers the gated FLUX.1-Krea-dev and Krea 2
-Turbo. Each tokenizer is tried three times; with `HF_TOKEN` set, one that
-still will not come down fails the step (`::error::`), so a revoked token or a
-Hub outage never shows as a green run with those tests skipped, and the
-tokenizer cache, saved only after a passing job, never keeps a partial set.
-Without it, as on forks' pull requests, those warn and skip
-(`tests/test_fetch_tokenizers.py`).
-
-A commit runs once. Before installing anything, the lint job asks the
-GitHub API (`tools/ci_duplicates.py`, standard library, the read-only token
-with `pull-requests`/`actions` read) whether another run covers this one, and
-if so skips lint and every later job, naming the covering run in a notice.
-A push to a branch leaves the commit to an open pull request's run only
-once that pull request shows the pushed commit as its head and answers
-`mergeable: true` (five polls three seconds apart); a conflicted one runs no
-workflow, and a stale head or unknown mergeability runs the push. A push
-that finds no open pull request looks once more after 45 seconds, since a
-pull request is often opened just after its branch's first push, which then
-ran in full beside it. A push to
-main skips when a pull request associated with the commit has a head with
-the same tree that contains main's previous commit (the compare API answers
-`ahead` or `identical`), and a passed `pull_request` run of this workflow
-for that head, branch and this repository (not a fork's, which had no
-secrets; a merged pull request's runs list no pull requests) whose jobs
-passed: `lint`, `browser` and both `test` systems, every part of a split
-job (`browser (1/5)` to `(5/5)`), or `lint` alone when this push is
-documentation-only. Pull requests, manual runs, tags, direct pushes
-to main without such a run, and any failure of the check run; the step has
-`continue-on-error`, and a crash leaves its output unset, which runs.
-`tests/test_ci_duplicates.py` holds those answers against canned API replies.
-
-Merging is gated. main's ruleset ("Protect main") requires a pull request,
-the status checks `gate` and `ci-definition` (both pinned to the GitHub
-Actions app), and branches up to date with main before
-merging (besides refusing deletion and force-pushes, which
-`ci_duplicates.py`'s main skip relies on); there are no bypass actors, so
-sessions acting with Matt's credentials are held as well. The `gate` job
-needs `lint`, `test` and `browser` and passes only when `lint` passed and,
-where the run owed full tests (`full_tests` and not a duplicate), every part
-of `test` and `browser` passed. The matrix jobs are never required by name:
-skipped, they report an unexpanded name, and GitHub counts a skipped
-required check as passed. Only a `pull_request` run into main reports
-`gate`; other runs report `gate (push)`, `gate (pull_request into dev)` and
-the like, since GitHub matches a required check by its name on the head
-commit, whatever run reported it: a branch push's duplicate run finishes
-minutes before the pull request's own, and a pull request opened against
-another branch had a Linux-only run, and neither may answer for main. A pull request's gate runs however its jobs ended (`always()`), so a
-cancelled run fails; elsewhere `!cancelled()` leaves a superseded run
-cancelled rather than red, while a job that timed out still turns the gate
-red. Up to date means GitHub tested the merge with main as it is, so the
-merge push's tree is the tested one and its run skips as a duplicate. A
-pull request behind main is updated (`gh pr update-branch`) and runs again.
-Repository settings allow auto-merge and the update-branch button. GitHub
-never updates a branch itself: a pull request waiting on auto-merge that
-falls behind when another merges first waits until it is updated again. A
-pull request retargeted onto main starts no run (`pull_request` fires on
-`opened`, `synchronize` and `reopened`) and has no `gate` until it gets a
-new commit or is closed and reopened, so a pull request targets main from
-the start.
-
-A pull request's own `gate` cannot judge a change to CI: `ci.yml` runs as
-the pull request defines it, so one that edited it, added a workflow with a
-job named `gate`, or taught `tools/ci_changes.py` that everything is
-documentation would pass. `ci-definition` (`.github/workflows/ci-guard.yml`)
-is run by `pull_request_target`, which always uses main's copy of the
-workflow; it never checks out or runs the pull request's code (so a fork's
-run is safe without approval), reads the changed paths from the files API
-(a rename's old name too; more than the API's 3000 fails) and fails on any
-under `.github/` or `tools/ci_changes.py`/`tools/ci_duplicates.py`. A job
-the pull request adds under the same name is its own check suite and does
-not replace the guard's failure. What the tests themselves check, and
-their configuration, stay the change's own, as for any code.
-
-So a CI change never merges on its own say: Matt removes `ci-definition`
-from the ruleset's required checks for that one pull request, merges it on
-a green `gate`, and puts the check back at once. GitHub cannot lock the
-ruleset against the repository's owner; the edit is recorded in the
-ruleset's history (Settings > Rules > Rulesets > Protect main > History).
-The guard added by a pull request runs only once it is on main, so a change
-to `ci-guard.yml` takes effect from the next pull request.
-
-`tests/test_ci_changes.py` exercises the path policy and real temporary
-Git histories: full pushed ranges, PR merge bases, deletions/renames and
-the full-test fallback when classification cannot be established. The
-design notes' [CI range policy](design-notes.md#ci-compares-the-whole-change-range)
-explains why the workflow itself is never path-filtered away.
-
-`uv run --group dev python tools/typecheck.py` checks Pyright's standard
-mode over all Python in `backend/` and `tools/` (raised from basic on
-2026-11-04: a possibly unbound name and an incompatible override are now
-errors; the three model-port overrides that mirror their authors' calls
-carry a commented `reportIncompatibleMethodOverride` ignore), using
-`pyrightconfig.json` and the
-locked `pyright==1.1.407` Python package. Node must already be installed.
-The gate verifies the package and bundled JavaScript version, constrains
-the wrapper to that bundle/global Node and disables its update/provision
-paths. Missing tools, absent/empty includes, malformed output and zero
-analyzed files fail; checker diagnostics and nonzero status are preserved.
-`tests/test_typecheck.py` covers these refusal and success paths. The CPU
-CI job runs this same command after installation, before tokenizer fetches;
-documentation-only changes retain the lightweight lint-only path.
-
-The card guard's limits live in one block, the frozen `Limits` dataclass
-(`LIMITS`) at the top of `tools/card_guard.py`: change a default there and
-nowhere else, each commented with the verified.md section it came from; a
-session overrides one with a flag or `--limits FILE.json`, and every flag
-defaults to None. `tests/test_card_guard.py` holds the decision to the
-recorded readings (the 2026-10-25 RAM stops, the fixed loader's lowest free
-RAM, ERNIE's projection gates, the shared rises that never spilled, the
-card's strict 15,500 boundary), that block as the only source of the
-defaults, and the watcher on a stub host with an injected sleep and clock,
-so no test reads a counter or races one (its trip after
-`card_unread_samples` samples in a row without a whole-card reading
-among them).
-
-`uv run python tools/run_smoke.py <smoke> [<smoke> ...]` runs smokes without
-a second terminal: it reads `AGENTS.md`'s port table (the port, the
-`--model`, short names resolved through the line under the table, and
-`--step`), starts the row's fake on a gallery of its own in a new temporary
-directory, runs the named smokes on it in the row's order, stops it, and
-keeps the fake's log (named on a failure) only when a smoke failed. So
-every fake it starts is a fresh one, which meets every row's "fresh scratch
-`--data`" and keeps `smoke.json`'s planted count its own. A smoke named
-alone runs alone, on a fake of its own; `--all` runs every row, a row's
-smokes on one fake in order, as the commands below run them by hand.
-`--offset N` adds N to every port, the fake's and the smoke's (through
-`AURADREAM_PORT_OFFSET`), and refuses a port already in use;
-`--jobs N` runs N rows at once, each worker 100 ports further on, the
-smokes' output kept until each finishes; `--list` prints the table as read.
-It exits 0 when every smoke passed, 1 on a failure, 2 on a refusal.
-Screenshot destinations (`shot`, `fullshot` and the second `elshot` value)
-are portable relative filenames: forward slashes for subdirectories, no
-absolute or drive-relative paths, `..`, backslashes or Windows-invalid
-characters, device names or components ending in a dot or space.
-`browser-output.mjs` applies one policy to all three forms and
-creates their parent directories. `AURADREAM_SCREENSHOT_DIR` selects
-the output root; a direct `browser.mjs` call without it creates and reports
-a fresh system-temp directory. `run_smoke.py --artifacts PATH` creates a
-unique run directory below PATH (system temp when omitted), then a unique
-directory for each smoke and reports it. Screenshots survive successes and
-failures, independently of the fake's disposable gallery; parallel runs
-cannot overwrite one another's files. `tests/test_browser_output.py` checks
-all repository screenshot fields and deliberately invalid destinations;
-`tests/test_run_smoke.py` checks isolated output and failure retention.
-Each smoke retains `result.json` and combined `browser.log`, with exact
-exit status, phase and duration; failures copy `fake-server.log` after the
-owned fake stops. A completed run writes `summary.json` at the run root.
-Browser output is printed after each smoke finishes. An interrupted smoke
-retains its full partial output and result, without a final run summary.
-The runner grants the Node harness cleanup time before its owned-process
-fallback; focused tests cover startup failures, interruption and cleanup.
-`tests/test_then_refine.py` covers Then refine: each image's pass after
-its cell (a batch's bases then their passes, runs alternating), the pass
-equal to Mass refine's and reported `rendered`, the base rows a plain
-Generate's, every refusal in words, a failed pass kept off
-`failed_indices`, three in a row ending the job, a cancel inside a pass
-keeping the base, a grid's passes and retained spec, a pass run's Finish
-naming its base, Finish carrying the spec, the preview's passes, and
-Finish run's missing passes as units under pause, the budget, cancel and
-the failure streak, planned from submit; `tests/test_api_finish_run.py`
-the missing passes themselves (a cancel on a pass finished under the pass
-run with Mass refine's key, a binned base skipped, a pass Mass refine made
-or has queued counted, two specs refused in words, the pin moving when a
-pass lands, a base deleted before its turn a failed pass, a permanently
-deleted pass counted in `redrawn_passes` and a stop's not, a plain first
-job not hiding a later job's spec);
-`tests/test_cli.py` the CLI's passes equal to the server's and its flag
-refusals. `smoke-then-refine.json` uses a fresh FLUX.1 Krea [dev] fake on
-7912 with `--step 0.3`: the opener ending the Notify row at its height,
-off, the dialog and its focus, the tick, the opener's and both buttons'
-words and titles, the hint's pass size, Generate and the grid fold not
-moving, Escape closing it, a batch of two making its bases then their passes with the pass
-in the cell line, the pass rows' size, strength, seeds and run, the grid
-preview's passes, the tick off after a reload with the strength
-remembered, the tick held with `REFINE_NONE` on a status stubbed to no
-pass, and a Generate cancelled on its pass whose finish line's Finish run
-says "Finish 1 missing pass of run …" and, pressed, puts the pass in the
-strip and the pass run, then that pass permanently deleted and the words
-adding "1 permanently deleted pass will be redrawn"; then More seeds of the
-batch of two with the tick shown beside the count and on, the row's note
-"each then refined at 1.5× at 0.4", "+ 2 refine passes" in the count line
-and Queue, unticking dropping them with nothing in the dialog moving, and
-the queued job putting each new base and then its pass in the strip, the
-passes in the run's own pass run; then a press held on its POST (`api`
-wrapped), during which Refine each new image is `aria-disabled` (never
-`disabled`), "This request has been sent with its choice; close More
-seeds to make another" its title and, pressed, in the dialog's error line
-with the tick left on, the base and its pass landing once released; and,
-with the pass taken away by `POST /api/fake/refine` (`supported` false,
-given back after), More seeds of the same batch showing the tick held and
-off with the server's `then_refine_hold` as its title, the row's note
-"bases only: this checkpoint has no refine pass" kept after the page's
-unticked re-check, no pass in the count line or Queue, and a press saying
-the reason in the error line (kept by later Queue syncs) with nothing in
-the dialog moving:
-
-```powershell
-uv run python tools/fake_server.py --port 7912 --model black-forest-labs/FLUX.1-Krea-dev --step 0.3 --data <new-scratch-directory>
-node tools/browser.mjs tools/smoke-then-refine.json
-```
-
-`tools/check_run_continue.py` is a by-hand check of Finish run outside the
-smoke table, not run by CI: it starts its own FLUX.1 Krea [dev] fake on a
-new scratch gallery (`--port`, default 7999, off the table's ports; it
-refuses a port already in use), stops a budgeted grid and a repeat, presses
-Finish run in fresh browser pages, then kills and restarts that fake and
-finishes the interrupted runs, printing where it left its steps and logs:
-
-```powershell
-uv run python tools/check_run_continue.py
-```
-
-`tests/test_peak.py` covers the peak pair: the row and the chunk, an older
-database, a PNG-only reindex and a malformed chunk value, no change to a
-cell's key, run id or Resume, a batch sharing its call's peak and a raised
-call leaving none, a bundle carrying it (and dropping a bad one) into
-INTEGER columns, Load settings from PNG ignoring it, and the real
-backend's reset/read order over a stubbed `torch.cuda`, a failed read and
-no CUDA device; `tests/test_cli.py` the CLI saving it.
-`tests/test_run_smoke.py` holds every smoke to one parsed row with a full
-checkpoint id. Under load from parallel rows a timing-sensitive smoke can
-run slower than alone; a failure seen only under `--jobs` is rerun alone
-before it is believed. `run_smoke.py --rerun-failed-alone` does that after
-the planned run: each smoke whose exit was 1 runs again, serially at the
-run's `--offset`, each on a fresh fake of its own below `rerun/` in the
-same run root (exit 2 is never rerun). `--from-summary PATH` reruns an
-earlier `summary.json`'s exit-1 receipts the same way in a new run root,
-refusing with exit 2 before any start a missing or malformed file, a smoke
-no longer in the table, or smoke names/`--all` beside it. `summary.json`
-records `jobs` and `offset`, and after a rerun `rerun` (receipts shaped
-like `results`) and `verdicts` (`passed-alone` or `failed-alone`); the
-console prints the verdicts after `failed:`. The first pass's summary is
-written before any rerun, so an interrupted rerun keeps it; `results` and
-`duration_seconds` stay the first pass's, and
-the exit stays the first pass's: a smoke that passes alone is reported,
-not believed.
-
-Manual `tools/fake_server.py --fresh` creates a new temporary gallery, prints
-its path before application imports, and retains it after shutdown. It never
-removes a previous directory. `--fresh` and explicit `--data` are mutually
-exclusive and refuse together before filesystem/environment startup work.
-Without `--fresh`, the shared `<temp>/auradream-fake` default and explicit
-`--data` paths retain their existing behavior. Explicit/reused data remains
-caller chosen, including any saved backup settings; use genuinely new scratch
-data for credential-cold browser runs. The smoke runner already creates each
-row's new directory and passes only `--data`. `tests/test_fake_server.py`
-checks these argument/data contracts without starting the application; see
-[the fresh-data review](maintainer/review-2026-10-28-fake-fresh.md).
-
-The standalone fake installs a fixed refusal at the backup credential factory
-before importing `backend.main`, and retains it through all later workers.
-It never calls the original factory or its cache and provides no real-vault
-opt-out. This uses the same factory boundary as the tests' automatic guard;
-production credential behavior is unchanged. Cached credential status and
-platform metadata remain real cached facts, not a successful provider check.
-A due encrypted backup fails through its existing credential error path.
-Plaintext backups and manual bundles with a supplied password retain their
-behavior. Explicit/reused data remains caller chosen and can still perform
-other filesystem/backup operations; use genuinely new scratch data for
-isolated browser runs. `tests/test_fake_server.py` checks installation order
-and real adapter read/setup refusal with synthetic references and poisoned
-provider boundaries; it does not qualify a Windows user credential session.
-
-There is no JavaScript test suite. `web/` is checked in a real browser
-instead: `uv run python tools/fake_server.py` serves the app on 7861 on the
-tests' fake backend (gradient images stamped with seed and steps, a throwaway
-gallery under the system temp dir, `--step 0.3` to make pause and queueing
-observable; a cell whose prompt holds `[fail]` fails,
-`POST /api/fake/load` (`{seconds, fail: "gated", hold}`) makes the loads after it
-slow, held after their seconds until the next call (30 s at most) or gated, `POST /api/fake/step` (`{seconds}`, answering the pace it
-replaced) slows the jobs after it, for a step that needs a job to outlast its
-own round trips - a cancel, a stream attaching - and `POST /api/fake/expand`
-(`{seconds, fail, hold, fresh}`) does one of four things to ERNIE's Expand
-on the server: slows it, holds it until the next call (30 s at most), makes
-it fail with a RuntimeError of that message, or puts the rewriter and
-translator back off disk so a first use shows again on a server already
-used; `POST /api/fake/lora` (`{name, present}`) moves an adapter out of the
-fake's directory and back, as a rename by hand would; `POST
-/api/fake/bin-age` (`{ids, days}`) backdates binned rows' `binned_at` by
-`days` for Empty's age scope, leaving live rows live; `POST
-/api/fake/refine` (`{supported}`, answering what it replaced) takes the
-claimed checkpoint's refine pass away and gives it back, as a loaded
-pipeline with no image-to-image sibling answers; `POST /api/fake/unreachable`
-(`{on}`) holds every request but the knobs unanswered while on (two
-minutes at most, released when it goes off), as a PC asleep on Wi-Fi; `POST
-/api/fake/disk-full` (`{on}`) makes every image save raise `ENOSPC` while
-on, as a disk with no room; `POST /api/fake/passcode` (`{passcode}`: a
-string turns the passcode's gate on with it, a new one ending every
-session, null turns it off; `{reset: true}` clears the limiter; it
-answers `{on}`, never the value, and a fake starts with no gate whatever
-the environment holds); the fake's rewriter and translator count as downloaded from their
-first use), and `node tools/browser.mjs tools/smoke.json` drives headless
-Edge or Chrome over the DevTools protocol with Node's own WebSocket - no npm
-install - through the lightbox zoom and the focus its close leaves on the
-walked-to card, the sheet, the export, the sheet's declared variable order
-(under Starred too), a sparse comparison's rows, the re-render button, the
-panel's persistence (a write merged over another tab's, an empty store
-taking the whole panel) and the duplicate/distinct counts, plain CFG labels
-on Turbo, and Turbo's woken negative caption and its grid examples (6,8,10
-/ 0,0.5,1, Mu none,1.15), exiting 1 on a failed `expect` - one that
-throws, or whose promise rejects, included - or on a DevTools call the
-browser leaves unanswered for five minutes, or a connection it closes with
-one pending, printing the step it was on, and 2 on a script it refuses
-before starting - among them an
-`expect` joining an async helper (`__until`, or a `window.__x = async` the
-file defines) to more with && or ||, which is never awaited: the whole
-condition goes inside the predicate. Each run's browser profile, under the
-system temp directory, is removed on every way out - the steps' end, a
-failure, a throw, Ctrl-C or SIGTERM - once the browser's whole process tree
-has stopped. The browser gets 10 s to close itself before its tree is killed,
-and removal retries against a deadline of its own (Node's `rmSync` retries
-skip Windows' EPERM). On Windows, where with every core busy dying
-low-priority children held files for over a minute, a failed first removal
-waits up to a minute for every process whose command line names this run's
-own profile - never another browser - raising each to High priority and
-stopping it, then retries for 10 s. One a killed run left behind is swept by
-a later run after six hours (`tests/test_browser_profile.py`, skipped
-without Node and a browser).
-A `hover`, `click` or `dblclick` step takes a
-CSS selector in place of a point, aiming at the middle of that element's box
-as it is then. It opens the page at 1400x900,
-where the smokes are written: `AURADREAM_VIEWPORT=2560x1305` (a
-maximized QHD browser) and `AURADREAM_DPR=1.25` (with 2048x1040, the
-same screen at 125% scaling) move it, a `viewport` step resizes it mid-run,
-a `media` step emulates media features (`{"media":
-{"prefers-reduced-motion": "reduce"}}`; "" drops one's override), and
-`AURADREAM_PORT_OFFSET=N` adds N to every `127.0.0.1:<port>` in
-the steps, so a second checkout can run the same smokes against fake
-servers of its own. `smoke-conditioning.json` runs
-against a klein-claiming fake on 7864 for the negative field as its caption
-alone, the viewer result's ❐ (live, pressed once its image is a reference),
-the reference chips (numbered and
-named by gallery id, reordered by Alt+Arrow and by a drag, dropped by Delete
-with focus kept in the field, the last one's × clicked leaving the emptied
-row focused and the tip closed, a deleted image's chip marked), a deleted
-reference leaving the chips (and named in the note after the bin), Reuse dropping a
-reference the server no longer has, a reference deleted while a Reuse can be
-undone staying out after the Undo, a reference deleted or binned in another
-tab and an adapter moved out of the directory (`/api/fake/lora`) each
-taken out by the Generate they refuse, in the page's words, the next one
-running without it, a fifth reference refused under the
-gallery (the other cards' ❐ aria-disabled at four, the card note's gist
-"Four is the most"), the card's ❐ as a toggle named "Reference image" with
-its number in `aria-description` (the card ringed, numbered and pressed, its
-"Added as image 1" / "Removed" status, a sheet cell marked as a reference),
-the card's and the viewer result's ⤢ aria-disabled with the reason, their
-refusal in `#gallery-error` and over the tile, nothing opened, the
-lightbox's description reading `ref #N` and its References row (numbered as
-the panel's chip, opening it with the result after it, and Use these
-references, which leaves a binned reference out with a note - its slot
-reading "in the bin" - and goes dead with the reason on a checkpoint without references), the adapter select and
-its tip, a weight sweep (its preview naming the adapter), the prompt
-check going stale when the references change (chips, a reorder, Reuse),
-the references finding's "image N" links focusing and flashing that chip
-("not attached" past the last, taken back by a press that finds its chip,
-another sentence in the slot left alone), a gone chip kept while the server
-does not answer and dropped on its "unknown image", a reference deleted in
-another tab dropped by the Generate it refuses, and one remembered across a
-reload, and the distilled klein's grid examples (steps 3,4,5, no CFG sweep);
-`smoke-flux.json` runs against a second fake server
-claiming FLUX.1 (`--port 7862 --model black-forest-labs/FLUX.1-Krea-dev`)
-for the True CFG box, the "CFG (distilled)" labels, with the sampling row's
-names whole, Mu's auto unclipped and each of the row's ? tips wrapping
-inside its box and the window, the lightbox's Sampling ("True CFG 1.5 · no
-Mu") and Negative rows, an Example's Undo note in the panel's flow while
-the negative is greyed and over its caption while it is live, the size
-line's exact 1.64 MP bound, a typed side off the 16 grid named there with
-its neighbours and refused at Generate in the same words, the hello-world
-Example's note, a Seed past 2^53 - 1 refused with no request sent, and a
-whitespace-only negative under a live True CFG box sent as `" "` (the
-request spied, the row's True CFG 1.5, the lightbox's Negative "a single
-space", the caption "(~2× slower; one space counts)" on one line),
-while an empty or greyed box sends none, and
-`smoke-preview.json` against one slowed to `--step 0.3` on 7863 for the live
-preview, the tab's title and the topbar line during the job, and the
-finished title and the finish line's seed after it. `smoke-ernie.json` runs
-against an ERNIE-claiming fake on 7865 for the explicit prompt expansion
-flow: Expand aria-disabled with its reason and focus kept, "Expand…"
-keeping the caption on one line, and a press while it runs saying what the
-result will do (written in, held, dropped); the first-use download and the
-model's load named under the prompt with a clock, and the page's own status
-requests (250 ms after the press, and at the end) counted by a spy; the
-note's Undo and Ctrl+Z, and an Example over typed text; an expansion typed
-over held (Use it, Discard), with the running line and the held note in the
-panel's flow above a live negative; a Reset and a Reuse during one keeping
-their Undo; a failure said as Expand's with the English kept, and said
-under the prompt beside a Reuse's Undo, an Example's Undo or a held
-expansion the running line took offered again; a size, and a prompt past
-4000 characters, refused at its box; a gated load's pointer to the card,
-and its sentence once beside images; the hold during a job, and Generate's
-and Run grid's titles while Expand holds them (the request held on a
-promise the smoke releases); Expand held aria-disabled with the reason by
-another tab's paused job, keeping focus, a press saying why until the job
-ends; the English in the panel at 1400x900, at the head of the results with
-its note and Generate in the window at 2048x1040@1.25, and beside the
-docked check at 2560x1305; Baidu's seven sizes (the seven framings marked,
-12:5 named, a typed 768x1376 recognised, 1008x1008 not one of the sizes,
-and 1400x800 and 784x1360 read by the nearest framing, 7:4 and 4:7, the
-1400 also named off the 16 grid); and
-the check's character counts and tag-list note on a fullwidth-comma and a
-one-per-line list; Expand pressed during this page's job under a Reuse's
-Undo, said under the prompt with the Undo kept, and the critic's press then
-a muted note gone at the job's end; and an Expand waiting behind another
-tab's (a request held on the server, `card_holder` "expand") leading its
-running line with the wait for the card. The fake takes the claimed profile's threshold, true-CFG
-flag and `mu_supported` (a Mu dropped from the row where the schedule takes
-none), its model id's prompt-expansion capability, and
-`loading.lora_refusal` for the id (Anima Turbo/Aesthetic and NewBie refuse adapters,
-422 at submit), so it behaves as the real one would.
-`smoke-animagine.json` runs against an Animagine-claiming fake on 7866 for its
-tag guide, deterministic autocomplete/validation, CFG 5 default, recommended
-aspects, orientation switch and disabled non-flow Mu controls, the chips past
-the CLIP cut, the token count and "cut unknown", the offline state, Tab under
-three characters, keyboard focus after Alt+Arrow and Delete, the 64-item
-lookup cap, and the prompt
-check on a tag checkpoint: a tag out of the documented order, Use reordered,
-the critic's reorder set aside where Check placed every tag and found
-nothing to move, the critic's reorder kept, and titled, as Check's own order
-where it is one (`reordered_kind` "check"), a 70-tag prompt's order shown as
-partly checked (the 64-tag lookup cap) with the critic's reorder kept where
-the order rule finds nothing wrong with it (`reordered_kind` "allowed") and
-set aside, in the rule's words, where it flags one, a tag the fake index
-does not know (`zzkx oc`) after a general tag and a prose prompt shown as
-partly checked with the items named (the first with the critic's reorder
-kept as "allowed"), the same tag ahead of the general tag, alone, and a
-one-clause prose prompt shown as checked (the first with the critic's
-reorder set aside), "Partly checked" following `order_detail` and never `categories_detail`
-alone, Anima's artist-check notes (no tag checked, not every tag), the
-chips' order steps matching Check's order finding and Use reordered, a
-guide tag past the 64 keeping its step, the recommended-negative Apply going
-dead once the negative box is edited, a negative-prompt finding's Show,
-held with the reason while CFG greys the box, saying why when pressed, and
-waking with it, the order finding's Show beside "Same as Use reordered
-above." with no Apply, a typed 1232x832 not one of the recommended sizes,
-the 0.98 MP floor as written, the live negative's caption, the dead grid Mu
-axis quoting the Mu tip beside the live LoRA weight axis, and the grid
-examples 21,28,35 / 4,5,6.
-`smoke-tags.json` uses an Animagine-claiming fake on 7878 for the chips'
-verdict cache, typing state and live summary, an accepted suggestion's undo,
-the negative box's own list (`field=negative`, the prompt's list closed, no
-Find tag row, Tab on the preselected item one Ctrl+Z from what was typed,
-Escape closing the list alone, closed and unfocusable while CFG greys the
-box, the field and Generate unmoved with it open),
-a qualified suggestion written with bare parentheses (an escaped copy typed
-by hand valid with no "canonical:" note, an underscored one noted and
-marked repeated),
-category edges, repeats and the focus ring on one, the shared tip and the
-after-cutoff mark, + tag, gap hover (waited for, as a late tray render
-redraws it) and click (none on the label or hint),
-the Tags helper under the prompt and whole, its order line (the server's
-steps, the cite as title), the caret line naming the steps that fit from
-the chip slots and their marks, a lone tag's step (1girl clicked into an
-empty prompt: "Person count through Quality"), the no-placement lines for
-an unknown tag and a line-broken list, the group headings' steps, Escape closing the suggestions
-before the helper, and the open prompt check after both, the Examples
-menu's keyboard (ArrowDown, Enter), its Undo note (on its own line at
-800 px), the needs-a-reference note, the file-drop guard, the singular
-summary ("1 prompt tag", checked and offline), a chip editor's
-aria-activedescendant and option ids, the suggestion lists' and the
-Examples menu's names, a held panel not moving for chip edits at
-1400x900, Escape in a lightbox opened from the keyboard over a Tags helper
-left open going to the lightbox (focus on the walked-to card, the helper
-kept until the next Escape), and each chip's order step from the server:
-caption, title, label and the tray's legend; none for an unknown tag, an @
-name or lettering; kept on its tag across a move while the answer is held;
-none where a line break stands the order down; every chip one line at
-1400x900; and a grid `{hair}` drawn as the grid's chip (no verdict, no
-step, "1 grid variable" in the summary, not among its prompt tags), its
-declared values asked beside the chips and named in its tip with their
-verdicts, and the tip saying
-nothing fills it once the fold is shut.
-`smoke-illustrious.json` uses an Illustrious-claiming fake on 7867 for hybrid
-prompting, the native 1-2.25 MP size range, 4 MP warning against the 2.25
-MP bound and disabled Mu.
-`smoke-z-anime.json` uses a Z-Anime-claiming fake on 7868 for Base defaults,
-natural-language prompting, negative guidance, enabled Mu, the documented
-4 MP ceiling, the complete scene example and two templates' fill-in notes and slot selection,
-the missing-negative note and a whole-item slot reported once; the fixed
-shift's 1.79 in the Mu box, the grid preview and a Mu sweep's sheet (none
-sorted between 1 and 2.5, just ahead of an explicit 1.79, in the Fixed line
-and the export's file name), the profile's grid examples, the negative's
-live, greyed and grid captions each on one line, and the 0.26 MP floor;
-and the Refine dialog: the author's 1024x1536 opening at 1x with why, the
-0.1,0.15,0.25 sweep and no sideways scroll.
-`smoke-paging.json` uses a fresh Krea-claiming fake on 7867 for the gallery
-paging itself on scroll (it builds a 60-image grid, so it holds once per
-gallery). Run it separately from the Illustrious smoke on the same port:
-
-```powershell
-uv run python tools/fake_server.py --port 7867 --fresh
-node tools/browser.mjs tools/smoke-paging.json
-```
-
-`smoke-anima.json` checks Anima Turbo defaults, its documented size range,
-disabled Mu, applied saved settings, the artist check on the card's
-tags-then-sentences shape (Apply, and two artists named together; the fake
-index knows kantoku and wlop as artists) and the rewrite's artist check, the
-card's tag order (the finding in the card's steps, Use reordered moving
-tags round a sentence that keeps its place, the @ name's Artist chip slot),
-the Tags menu (its order line and sections, Start with written ahead of a
-prose prompt, held once complete with its reason said on a press, undone
-by Ctrl+Z, no `safe` beside `nsfw`, the empty prompt's caret line), a
-FLUX.1 pass reused there (the final no-pass line, its strength said as
-FLUX.1's and 0.4 as the general starting strength), the refused adapter
-(greyed select with the reason, a 422 at submit, no LoRA on the row), the
-grid's dead Mu and LoRA weight axes with their reasons and their syntax
-back when they apply, a Reuse writing no Mu into the dead box nor sending
-one, a Mu dropped from the row, the two-sentence Example passing Check, the
-1, 1.5 and 2 MP tiers marked, the 0.26-2.36 MP bounds as written, and the
-grid's 1,2,3 CFG example, on port 7869:
-
-```powershell
-uv run python tools/fake_server.py --port 7869 --model circlestone-labs/Anima
-node tools/browser.mjs tools/smoke-anima.json
-```
-
-`smoke-anima-aesthetic.json` checks Aesthetic's label, 30-step/CFG-4 defaults,
-its own prompt advice and Example, its Tags menu (the family's order, no
-score tags, no Start with) and the card's order checked with a score tag
-placed though not offered, active negative prompt, unsupported
-controls, saved variant identity and final no-Refine answer on port 7895:
-
-```powershell
-uv run python tools/fake_server.py --port 7895 --model circlestone-labs/Anima@aesthetic-v1.1
-node tools/browser.mjs tools/smoke-anima-aesthetic.json
-```
-
-`smoke-anima-preview.json` checks Preview v1's name and public identity,
-30-step/CFG-4 defaults, picker row and source/download/size facts, preview
-guide and size caveat, score-free Tags menu with inherited parent order as
-information,
-its two encoder budgets, unchecked tag order, negative-prompt activation,
-unsupported-input refusals and applied saved settings on port 7911, using a
-fresh scratch gallery:
-
-```powershell
-uv run python tools/fake_server.py --port 7911 --model Gazingstars123/Anima-2.9B --data <scratch-directory>
-node tools/browser.mjs tools/smoke-anima-preview.json
-```
-
-`smoke-flux3.json` checks FLUX 3 [Klein]'s name and public identity, its and
-Klein Base's picker rows (example size, licence click-through, unknown
-download, the note that only 1024×1024 is measured), the distilled 16-step/CFG-1 defaults with the Mu
-placeholder at the fixed shift (1.94), the ignored-CFG, steps and Mu tips,
-references on and negative prompt, True CFG, Refine and LoRAs off, the
-shared guide's caption advice and example-size line, its one Qwen3-VL budget
-(8189), Expand as FLUX 3's prompt upsampler (its name and 17.5 GiB first-use
-download in the title, measured 41 GiB process-RAM wording while cold or
-cached but unloaded, omitted while warm, no translator, a page-side held status shown
-aria-disabled with its held text as the title (the server's own refusal
-sentence and its 422 are pytest's, `tests/test_api.py`), the running line's download/load/expanding steps, the
-caption written into the box with an Undo and Ctrl+Z, no translation), the
-LoRA and Refine refusals, and a saved cell recording the public id, the
-upsampled prompt, 16 steps, Mu and no negative prompt, on port 7911 with its own fresh
-scratch gallery (it shares the port with `smoke-anima-preview`):
-
-```powershell
-uv run python tools/fake_server.py --port 7911 --model black-forest-labs/flux-3-image-klein --data <scratch-directory>
-node tools/browser.mjs tools/smoke-flux3.json
-```
-
-`smoke-model-switch.json` runs a FLUX.1-claiming fake on port 7896, on a
-fresh `--data` (its Tab from the chosen row's link to the startup checkbox
-holds only while FLUX has made no images, so a gallery other smokes or an
-earlier run wrote FLUX images into fails there, saying so), to check
-the Models picker, Escape/focus and held-button reasons, FLUX to Animagine
-and back without a server restart, preserved prompts, per-checkpoint sampling
-through a reload, guide/tag/capability refresh, old analysis retirement,
-gallery scope and saved model metadata. Delayed LoRA and run-list replies
-cannot replace the new checkpoint's data; saved requests are held under a
-different checkpoint and work again after switching back. It also checks a
-switch held during a job, failed target loading and Retry load recovery, and
-topbar/picker fit on narrow, laptop and QHD windows. It also checks cold
-Apply & save, quantization/offload changes, the saved startup checkbox,
-save errors and stable action placement across choices and short viewports.
-For the note it checks the loaded line with nothing boilerplate on opening,
-the checkbox in the footer above the actions, a refusal that goes when its
-reason does, Apply & save's unload title, the unsaved line with Revert
-(through a reopening), an Apply & save outcome kept through its revision,
-load progress, the `startup_overrides` sentence, a failed load and a failed
-switch in place of the outcome, a switch the Hub refuses (gated, then not
-found) saying what to do in the note and the error line with the running
-model still loaded and its revision unchanged, a failed list kept dimmed, and a refused
-switch whose words leave the error line once a later press switches.
-Through a switch's load Generate is not held and Check answers, and a
-Generate pressed while the switch is being sent says so as a note that goes
-once the change ends; another tab's switch names the unsaved choice it
-dropped; Qwen-Image's row and note say its torchao builds are larger than
-the card, and no other row does (the editor's names its one qualified size,
-512×512 only); with an 8 GB card claimed (`POST /api/fake/card`), FLUX.1
-Krea [dev]'s and the editor's rows say "Over 8 GB" on one line, the chosen
-row's note says why, Animagine's says nothing, and with no card again every
-row is as before. The listed editor's row (last, "Instruction editor", Held)
-answers Switch & load with the closed gate's words in the note and the error
-line, FLUX still loaded and selected at the same revision. Chosen, its
-unmeasured quantization and offload options are `aria-disabled` with the
-server's `loader_holds` words as their titles; sequential offload chosen
-holds both actions with those words and a press says them and sends no
-switch; FLUX's row has no holds. `showModelPickerAt` reopens the picker on
-the editor's row, chosen unsaved, focused and in view, switching nothing,
-and Revert puts FLUX back. It ends with
-Animagine loaded, as smoke-model-startup expects.
-For the checkpoint table it checks every catalogue model's row and facts
-(style, refine with its note, size with its label, speed with its sample
-and basis) without choosing any, focus on the chosen radio at the first
-opening and through rebuilds, choosing by radio and by a fact cell, stars that
-toggle in place and group at the next opening, persistent favourites
-(corrupt data, blocked writes, other tabs) and speed references that follow
-draft quantization/offload choices. It also checks the server row's
-Loaded/Loading…/Load failed badge without a row resizing, each row's access
-label and note, radio descriptions holding the notes, muted timings from
-another setup, the Size header and its titles, the Models section name, the
-new-tab link label, the Favourite prefix following the grouping, one row's
-star and link as tab stops (Tab from the radio reaches its link, then the
-startup checkbox) and the sticky heading row, with a focused row scrolled
-in below it. With the bottom loadable row's model loaded (the editor, below
-it, cannot load) it checks that the first and a
-later opening focus its checked radio inside the picker body, the page
-unscrolled; that an unsubmitted offload edit survives another tab's
-checkbox-only save, which still lands; and that a list lacking the chosen
-checkpoint chooses none, then the same one, or its other build, again.
-`smoke-model-gallery.json` uses a fake like it, but one of its own on a
-fresh `--data`, run apart from the other three (smoke-model-switch
-leaves FLUX and Animagine images behind, and it counts exactly: FLUX and
-Animagine empty, the planted pair, then fourteen), for the strip
-of the chosen checkpoint's images: shown while the weights load, FLUX's
-empty line, the planted Krea 2 Turbo pair with count, alt text and
-thumbnails on choosing its row, Animagine's empty line, one request for a
-quick run of choices, a delayed reply that cannot overwrite a newer choice,
-a refused read said in place and retried from a poll, the column beside
-the 898 px table side at 1400x900 at the picker's height, as many of 14
-images as fit whole (four rows of two 150 px pictures, and no fifth would)
-newest first with the whole count, a press on the column's blank space
-leaving the picker open with the focus on its footer, the footer's boxes
-unchanged
-through every state, Tab order (link, See all, one picture stop, checkbox)
-and arrow keys, the lightbox over the picker from a key and a click with
-focus back on the picture, Reuse closing both, a delete re-counted, See all
-closing the picker into an All models `model:=` gallery, the strip under
-the table at 390x600 (40 px), and at 2560x1305 the column three across at
-the S cards' 6.5vw beside a 1,198 px table side in whole rows, no sideways
-page; then, still open, a resize to 1400x900 dropping the oldest pictures
-without asking and to 1100x800 asking again for the strip's row, and the
-column at 1280x800 (gutter kept) but the strip at 1279. `test_api_gallery.py` covers `?model=` (exact,
-during a switch, under a stale revision, refused during bundle maintenance)
-and `model:=`.
-`smoke-model-startup.json` uses the same fake to check one-time automatic opening
-for an idle unloaded/error server, with the not-loaded or failed-load note
-(led, when unloaded, by the recommendation that Switch & load saves and
-closing does not, gone after an accepted save and from a hand opening; a
-failed load's detail leads in its place; an
-element and a 1400x900 screenshot) and every model's row and facts shown,
-suppression when ready/loading/busy, no reopening after dismissal or later
-Unload, and focus/caret preservation. Through `POST /api/fake/sign-in`
-(`token`, `unsourced`; the fake starts signed in and sourced, never reading
-this machine's token) it checks `GEN#41`: no token on an unsourced FLUX.1
-Krea [dev] preselects Animagine XL 4.0 unsaved, the note saying why after the
-recommendation, the server's selection unchanged (screenshot
-`model-startup-open-suggestion.png`), a token appearing mid-session taking
-the reason away (and its return bringing it back), Revert putting the
-default back, and a later hand click on that row given no reason; a token,
-a sourced start or a save since the start keep the default row. It also
-checks the dismissed first visit followed by a gated Generate: the no-token
-open alternative opens Models unsaved, leaving the server selection, prompt
-and page scroll alone. A token appearing retires its button and returns focus
-to Retry; unrelated failures or an absent suggestion offer no alternative.
-`test_open_model_suggestion.py` covers the shared predicate (presence only,
-the file never opened), the doctor using it, the status field by
-`HF_TOKEN`, `HUGGING_FACE_HUB_TOKEN` (held to huggingface_hub's own
-environment rule) and a temporary token path, every source that keeps the
-default, and the real link: `launch.configure` over a saved default choice,
-`AURADREAM_MODEL_ID` or `--model` makes `main._compute_model_unsourced`
-False, nothing saved True, and `main` computes it after its launcher runs.
-`smoke-model-hover.json` hovers a table row and checks that its hover, every
-row's position and the focus survive status polls, a catalogue reply and
-another tab's favourites, with only the star's glyph (and, for a server
-change, the current row's badge word) changing. Images made on the loaded
-checkpoint add the gallery timing line to its Speed note and description in
-place, with the hovered row, every row's position and the cell's words
-unchanged. For the
-base-select loader lists it checks that a revision or checkbox-only change
-waits for an open list to close, that keys in an open list leave the prompt
-check open and start no job, and that Escape closes only the list. It covers
-arrow-key drafts, a loader change elsewhere while a radio has the focus, a
-checkpoint changed elsewhere, recovery from an outdated catalogue reply and
-an off-catalogue runtime id requested once with no row chosen. Group by type
-puts the rows under their Style in catalogue order after the favourites,
-without moving the checkbox, the choice or the focus; it is saved, survives
-the next opening, and another tab's change waits for that opening. CPU tests in
-`test_startup_preferences.py`, `test_launch.py`, `test_runtime_settings.py`
-and `test_api_model_switch.py` cover persistence, explicit overrides and the
-saved choice set aside for another model, per-process revisions, loader
-snapshots, metadata, refusal before releasing working weights, a failed
-teardown keeping the running model and saved file, and Switch & load retrying
-the selected model; `test_hub_access.py` covers the access check's sources,
-revisions, refusals and inconclusive answers and the route keeping the
-running model, and the refused sign-in's sentence it shares with a failed
-load (`test_api.py`); `test_server_start.py` covers the busy port (AuraDream
-already there, another program, a listener that never answers) and `--open`
-waiting for the bind on an ephemeral port, with `webbrowser.open` replaced;
-`POST /api/fake/model` sets the fake's `overrides`, a
-`stuck_critic` and an `access` refusal ("gated"/"not_found") for page checks,
-`POST /api/fake/sign-in` a fresh visit's `token` and `unsourced` start, and
-`POST /api/fake/card` (`{total_memory, capability}`, empty for none) the card
-`card_facts` answers, unknown until a smoke claims one;
-`test_model_benchmarks.py` covers speed categories, exact sample matching and
-no category for an unmatched setup or a first run on a busy PC;
-`test_gallery_timing.py` covers the picker's gallery timing (refine, edit,
-non-Eager and other-quantization rows left out, the most-used size then step
-count, the median and its count, the latest rows only, nothing for an empty
-history or a missing database, a reserved gallery refused after the short
-wait) and `test_api_model_catalogue.py` the field per model with the speed facts
-unchanged and a reserved gallery leaving it out without stalling the reply; `test_model_info.py` covers compact facts
-for every catalogue entry (`test_capabilities.py` the capability flags: each held to its own source over the
-catalogue, a Nunchaku build differing only in LoRA, the note's words, and docs/usage.md's generated table and
-its tool; `smoke-model-hover` and `smoke-model-switch` the note in the Refine cell's title and the radio's
-description; a usage.md-only change does not run it, `test_ci_changes.py`'s one named exception until
-`_TESTED_PROSE` names the file), favourite ids shared by Lite/Nunchaku variants,
-access, Qwen-Image's fit (`test_card_fit.py` the card-sized badge), size labels that never claim an unsourced maximum and the shared
-loader descriptions:
-
-```powershell
-uv run python tools/fake_server.py --port 7896 --model black-forest-labs/FLUX.1-Krea-dev --data <new-scratch-directory>
-node tools/browser.mjs tools/smoke-model-switch.json
-node tools/browser.mjs tools/smoke-model-startup.json
-node tools/browser.mjs tools/smoke-model-hover.json
-# stop that fake; smoke-model-gallery needs one of its own on another new directory
-uv run python tools/fake_server.py --port 7896 --model black-forest-labs/FLUX.1-Krea-dev --data <new-scratch-directory>
-node tools/browser.mjs tools/smoke-model-gallery.json
-```
-
-`smoke-kohaku.json` checks Kohaku's hybrid tag guide, defaults, size guidance
-(the exact 1.05 MP bound), saved settings, and a hybrid prompt's
-213-character sentence displayed as prose beside the checked guide tags
-(the tray never "Danbooru unreachable") and their order slots, on port 7870:
-
-```powershell
-uv run python tools/fake_server.py --port 7870 --model KBlueLeaf/Kohaku-XL-Zeta
-node tools/browser.mjs tools/smoke-kohaku.json
-```
-
-`smoke-netayume.json` checks NetaYume v4 defaults, the qualified size guide,
-the hybrid Tags helper (the inherited order, person counts and quality tags,
-no recommended negative), author example, a retyped and a foreign system instruction cut by Apply,
-enabled Mu, applied saved settings, the catalogue's name in the topbar, the
-facts and the prompt check, the example-size wording (1.57 and 1.05 MP of
-the authors' example sizes, in the line and the tier titles), Mu's 1.79,
-the live negative's caption, the grid examples, and another checkpoint's
-record reused, the note and the ⚠ title naming NetaYume Lumina v4, on port
-7871:
-
-```powershell
-uv run python tools/fake_server.py --port 7871 --model duongve/NetaYume-Lumina-Image-2.0
-node tools/browser.mjs tools/smoke-netayume.json
-```
-
-`smoke-newbie.json` checks NewBie defaults, the qualified size guide (the
-author's example wording), XML example selection with its valid anonymous
-character identifiers and no fill-in warning, the critic's XML reorders set
-aside (words moved between blocks; `<general_tags>` ahead of a character)
-and persistence, applied saved settings, the live negative's caption, the
-grid examples, the refused adapter and its dead LoRA weight axis, Mu kept
-live, the XML prompt's line breaks capped at twelve lines in the result
-column (a Tab stop) and the lightbox (four under 901 px), and a
-comparison's block reorder named by tag (loose text moved, a non-ASCII tag
-and a long order cut between tags included). It checks the token line
-under the prompt where there are no chips, from the authors' first example
-at 1400x900: hidden under three quarters of Gemma's 511 tokens; the count
-from there; amber past the limit, naming where Check says reading stops;
-said once in the summary line and cleared under it; the Example's Undo note
-hanging under it; "cut unknown" while the server does not answer, then
-counted again without a keystroke once it does; hidden where the measure
-says no encoder is known; and its change held while the mouse is on
-Generate or the negative box, released by leaving it and by a key. It also
-runs three XML jobs that differ in one attribute, two of them queued
-(slowed by `POST /api/fake/step`; the first runs 40 steps), which must be
-told apart by their words in the Now line, Cancel's title, the queue rows
-and the Runs picker, the Now line's title keeping the markup. On port 7872:
-
-```powershell
-uv run python tools/fake_server.py --port 7872 --model NewBie-AI/NewBie-image-Exp0.1
-node tools/browser.mjs tools/smoke-newbie.json
-```
-
-`smoke-wai.json` checks WAI v17 defaults, author tag recipes, the author's
-reference sizes in the size line (1.38 and 1.05 MP) and in the tier titles,
-disabled Mu and saved settings on port 7873:
-
-```powershell
-uv run python tools/fake_server.py --port 7873 --model LyliaEngine/waiIllustriousSDXL_v170
-node tools/browser.mjs tools/smoke-wai.json
-```
-
-`smoke-rouwei.json` checks RouWei 0.8 epsilon's defaults, hybrid prompt
-help, artist-last fallback and recommended size range on the fake backend:
-
-```powershell
-uv run python tools/fake_server.py --port 7890 --model Minthy/RouWei-0.8
-node tools/browser.mjs tools/smoke-rouwei.json
-```
-
-`smoke-noobai.json` checks NoobAI V-pred's defaults, author prefix and negative,
-tag helper (no checked order: the authors' caption template as Check shows
-it, never an empty "Recommended order:", one Date and one Year heading,
-Check's no-order note without "its guide states none"), CLIP budget, saved identity and SDXL Refine pass on a fake backend:
-
-```powershell
-uv run python tools/fake_server.py --port 7891 --model Laxhar/noobai-XL-Vpred-1.0
-node tools/browser.mjs tools/smoke-noobai.json
-```
-
-`smoke-runs-scope-recovery.json` uses a fresh FLUX.1 Krea [dev] fake on
-7947 and its two actual other-model planted images. GET-only actual Runs
-responses, held success and declared HTTP500 refusals check scope waiting,
-deliberate native retry, keyboard candidates, obsolete responses and bin
-holds. It creates no jobs or model/data mutations; new wide/narrow shots
-need inspection. `tests/test_runs_scope_recovery.py` checks actual Runs
-handlers with inert presentation/deferred-read ports. The dated review owns
-the exact evidence boundary and clearly labeled programmatic supplements.
-
-`smoke-runs-favorite-counts.json` uses a fresh FLUX.1 Krea [dev] fake
-on 7949 and its two actual other-model planted rows. Native single and
-picked stars, held successful replies and an explicitly nonforwarded
-disjoint failure check one actual Runs read after each confirmed action,
-the server's favorite totals, and retained select focus/pending run id.
-Only exact owned favorite POSTs are admitted; no jobs or model activation.
-`tests/test_runs_favorite_counts.py` observes the complete actual favorite
-module's caller counts, admission, propagation and cleanup using inert
-API/presentation ports. The dated count review owns actual results and limits.
-
-`smoke-reuse-pass-opening.json` uses a fresh FLUX.1 Krea [dev] fake on
-7946 with 0.3 s steps. Three actual owned jobs create two source/pass pairs.
-Held unmodified source GETs and declared unforwarded 404/500 replies check
-newer Refine drafts/focus, composer typing/Reset, newer Reuse ordering and
-current fallback/error/retry behavior. Only the first declared late-success
-source-read gate ignores its AbortSignal to exercise stale-owner guards. Raw draft snapshots,
-one-use same-origin mutation grants, cold backup state and final zero active
-jobs/pending reads/unused grants/JavaScript errors bound the fixture. No image
-is deleted or cleared; planted facts stay unchanged. The page's advisory
-`/api/prompt/measure` and `/api/prompt/analyze` POSTs pass through
-unguarded. No real model, GPU, credentials or user gallery is exercised.
-
-`smoke-refine.json` checks the Refine dialog on a FLUX.1 Krea [dev] fake on
-7875, whose refine cells are the source image under a stamp: no refine
-control in the panel, the card's and the lightbox's Refine opening the
-dialog with the image's prompt and seed and the panel untouched, the
-titles in "#N" form, focus on Strength with its value selected, the
-profile's strength, the shortcut hint by the shared rule, the anchored top
-across a fold toggle at 1400x900 (scrolling short of the window's bottom),
-the scale buttons and the size line - naming the measured run, FLUX.1's note
-under Strength, the opening size capped below it with the skipped scale
-named on its button and a run at the capped size not remembered as the
-scale, the crop's kept percentage and Keep shape - Versions and their
-seeds, the rows and the lightbox's settings line (`refine of #N`), the
-facts' Refined from link and S comparing a pass with its source, a pass past
-4 MP and one past the guard refused in place, the measured line said as the
-16 GB card's with an 8 GB card claimed (`POST /api/fake/card`) and as before
-without one, Refine held while a submit
-is in flight and a press saying so, Escape on a dialog opened from
-the lightbox giving the lightbox back on the same image, a strength sweep's
-preview, its sheet axis and `refine:` in the search box, the passes strip
-opening the lightbox beside the source, compared, a sweep that leaves no step refused
-in the preview and a refusal moved to the error line at Strength or W with
-Refine not moving, a strength typed and entered at once refused in the
-dialog, a strength past 1 refused as a fraction, Compare 3 (held with the
-Steps that would give a sweep at 2 steps, writing nothing), Compare 2 at
-12 steps, Compare scales (its title naming 2x left out past the measured
-line, the Size field and dialog the same height with the button hidden, a
-press writing no box, the size line and the server's sizes in the preview,
-a strength list crossed with it, the run's sheet with a Size axis, a
-remembered 1.25x that differs from the boxes' 1.5x left standing by the
-run and the next open at it, a scale button, a typed W and a second press
-leaving it, Reuse of a compared cell at its own size, and held with both
-factors named on a 1.5 MP source, a press saying so with focus kept), Mu's "auto", the preview's "starts at N% noise" from an injected
-`start_sigma` (the fake reads none), none for a sweep, and the reading
-taken away by an unload and put back by a load with the dialog open and no
-box touched, Refine held while the server does not answer, arrow-key
-stepping and the dice, Ctrl+Enter and Enter running the pass, the
-remembered strength and Reset forgetting it, the unsent draft and Start
-over, Reuse opening a pass (its title and reused line, and another
-checkpoint's, with this one's sampling), a pass whose source has gone, after
-a viewport step to 2560x1305 the two panes with the kept-region frame and a
-top 8vh down that does not move as the fold opens, the source standing in
-for a pass whose frames are dropped - full size, in the result's own box,
-captioned in the tile's `.foot` "Refining #N → W×H · strength s · step 1/…" -
-focus off `<body>` after that pass, opened from script, ran - a source
-deleted while the dialog is open refused in the dialog's own line, in the
-page's words with the source line marked, with the dialog kept open, and
-one binned the same way in bin.js's words, the carried adapter moved out
-of the directory (`/api/fake/lora`) taken out of the pass at a refused
-Refine and at a preview a press waited on, said, with nothing run until the
-next press, which runs without it, the
-dialog with no sideways scroll at 1400x900 and 2560x1305, the scale
-buttons' aria-pressed, a first open passing over the usual 1.5x (its title
-and the size line's why), a foreign pass's reused line naming FLUX.1 Krea
-[dev] by its catalogue name, and the dialog's CFG named "CFG (distilled)"
-as the panel's, with the greyed negative's caption "(needs True CFG > 1 —
-~2× slower)"; a pass whose source is deleted while it runs (`/api/fake/step`
-slowing it) landing with "(deleted)" in its title and the note and its
-Reuse saying so, `markGoneSource` marking an arriving pass, and a sweep
-stopped by failures when its source went: Finish run held with the
-server's reason ("no gallery image with id N") as its title and said at
-every press, focus kept and nothing sent, and the server refusing the POST
-in the same words.
-`smoke-conditioning.json` has the other side
-on its klein fake: the card's, the viewer's and the lightbox's Refine
-answering with the reason and opening nothing.
-
-```powershell
-uv run python tools/fake_server.py --port 7875 --model black-forest-labs/FLUX.1-Krea-dev
-node tools/browser.mjs tools/smoke-refine.json
-```
-
-On the same FLUX fake at 7875, `smoke-refine-unavailable.json` checks an
-unloaded off-catalogue capability guess: ⤢ opening nothing, a refined
-record's Reuse keeping the pass in the dialog with Refine dead and nothing
-submitted, the dialog waking when status says the pipeline has a pass,
-Generate meanwhile rendering directly, a final answer's wording
-(`refine_settled`) and the guess's back, and a foreign pass's general
-starting strength (`refine_strength_profiled` false); and Mass refine's
-Refine… held with the hedge, then `REFINE_NONE`, even under a search that
-gives it images, a press opening nothing, and live once the status says
-the pipeline has a pass. `browser.mjs` sends Escape with its
-key code, so a modal dialog closes on it as on a real press. A click, right click, double click, hover or wheel on a
-selector waits until the element's centre holds still across two reads
-50 ms apart (2 s at most), so a press made during a smooth scroll lands
-on its target: `smoke-bundles` missed the Bundles button now and then
-after Show new gallery images scrolled to the gallery's head. Its
-`__bundlePress` presses again, for up to about 25 s, on exactly the server's
-"still finishing" refusal, which an open thumbnail stream can cause, and
-logs every press's refusals before the page reloads; `__bundlePressOnce` is
-the single click the mid-send Cancel needs. Fake servers
-share one throwaway gallery unless `--data` gives each its own, and
-`smoke.json` counts the images planted under another checkpoint: run it on
-a fake of its own while others are up.
-
-`smoke-refine-sdxl.json` checks the Refine dialog on an Animagine fake on
-7877: Animagine's measured tight line (2896x2896, 2x inside it unwarned) and,
-on a status stubbed to an unmeasured profile, the generic one, Compare scales
-taking all three of 1x, 1.5x and 2x inside that line (and held on the generic
-line, both factors named), SDXL's strength
-sweep, the pass prompt's own check (the 77-token cut outside the fold, Show,
-the checking line during a slow first use, Apply into the dialog's box with
-Ctrl+Z, dead while stale and dimmed by the shared 0.8 / `--text-3` rule, the
-negative-prompt Apply dead while CFG greys the negative box, the hidden line
-that announces the check only when its text changes), the unknown-tag line
-(a repeated tag named once) and its silence on a failed lookup, a capped
-opening on the generic line, From panel (held with its reason, a press
-saying so on the line under it in the dialog's view; the copy and its two
-Ctrl+Z steps; a greyed negative left as it was while the prompt is copied
-and undone, held while only that negative differs, and copied once CFG
-wakes it; an empty panel prompt), the prompt's tag suggestions (nothing
-selected under three characters with Tab moving on; the preselect from
-three; Escape closing the list and not the dialog; Enter and Tab taking a
-suggestion; Ctrl+Z; a list kept up and unselected while the next key asks;
-a click in the listed item asking nothing; the list over the box at
-1400x620 where there is no room below; the panel's list untouched), the
-dialog's CFG named plain CFG and its negative caption in both states
-("(needs CFG > 1 — ~2× slower)" greyed, "(runs at CFG > 1, no extra
-cost)" live), and nothing reaching the panel:
-
-```powershell
-uv run python tools/fake_server.py --port 7877 --model cagliostrolab/animagine-xl-4.0
-node tools/browser.mjs tools/smoke-refine-sdxl.json
-```
-
-`smoke-wide.json` checks the page at the sizes it is used at, switching
-with `viewport` steps between 2560x1305, 2048x1040 at 125%, 1920x947 and 1400x900 on a
-FLUX.1 Krea [dev] fake on 7876: the wide tier's scale (the panel's 461 px at
-2560 and 400 px at 2048, a 15.5 px body and 13.5 px captions at 2560 and a
-third of the way there at 2048, eight and seven gallery columns) and the
-unchanged one at 1400x900 (330 px, 14 px, 12 px, five columns), Generate on
-screen, the page's own focus ring on a checkbox and a button and the LoRA
-select drawn dark at both wide sizes, the caption buttons 30 px at 13.5 px
-and the tick boxes 18 px at 2560, a 16-digit seed fitting its box on the
-Output row's one line at every size, its dice in the Seed name's line with
-a target that stops at the box - and the Refine dialog's at 125%, its row
-and the dialog with no sideways scroll - the Output caption styled as
-Sampling's at 2560x1305 and in one column, and the group's hidden name,
-with Generate whole at scroll 0, at 1920x947 and 2048x1040@1.25; at
-1400x900 scroll 0 the caption the group's hidden name, the group its row's
-height and Generate's top at least 16 px inside the window; a
-size strip's one tab stop with aria-pressed and the arrows moving focus
-without choosing, the greyed negative's Set True CFG button above the box
-(never over its text, the box still under the pointer) focusing True CFG and
-writing nothing, the prompt box growing to twelve lines (eight on the short
-window) with a dragged height winning over the cap, and with the grid fold
-open - by a click on its summary, which brings Run grid into view - Run grid
-on screen after a wheel over the stage and at the end of a 160-image
-gallery, the panel holding its bottom a gutter above the window's (the
-gutter and the resting top read off the page; at 1400x900, where References
-and LoRA run on under the fold, stuck with Run grid in view), the panel's
-order - the run hint under `#progress`, the Step cache row after the grid
-fold, References and LoRA last, after it - and a hand-drawn running
-batch's Now line, both bars and elapsed line in the window at scroll 0 at
-2048x1040@1.25, the panel coming back down
-as far as a wheel scrolls up, the prompt and Examples focused from deep in
-the gallery and by Shift+Tab (past the negative's button) brought into view
-with the page left where it was, a finding clicked in the prompt check
-selecting its words in view without the check moving, Generate pressed with
-the panel held staying under the pointer through its run and the panel
-holding its bottom again once the pointer leaves, Resume's tip opening
-upwards inside the window, a fold restored at load scrolling nothing, the
-panel static in one column below 901 px, and in one column Batch's tip
-inside the window and the comparison's always-run original box undimmed:
-
-```powershell
-uv run python tools/fake_server.py --port 7876 --model black-forest-labs/FLUX.1-Krea-dev
-node tools/browser.mjs tools/smoke-wide.json
-```
-
-`smoke-narrow.json` checks one column and narrow windows on a FLUX.1 Krea
-[dev] fake on 7889 at `--step 0.3`: Reset's note in the box it emptied at
-1400x900 (greyed negative) and at 600x900, Generate unmoved as it and its
-Undo's note come and go, and the presses on Generate below landing with
-the note still up; a running job with a long prompt
-keeping the page its width at 600 px, the Now line ellipsized and Cancel in
-the window; at 600x900, 800x900 and 900x700, New image as a pill centred
-under the topbar and clear of Generate, for a viewer below the window, and
-for one above it (scrolled to the gallery's end during a load), its arrow
-following a jump to the page's top and the page never scrolling by itself;
-its press focusing the live preview's tile, handed on to the image that
-replaces it; a real press on Generate's right end with the pill up starting
-a job (fixed points, each guarded by an `elementFromPoint` check); a
-job cancelled after its first frame withdrawing the pill, its focus going
-to Generate; a press with nothing in the viewer focusing the viewer, which
-lets its tabindex go on blur; after a job, focus arriving in the panel
-keeping the pill, and a typed character or a real press on the prompt
-withdrawing it; the topbar's mirror whole with its load clock at 600 px,
-the status on one line and Unload at the bar's end, with the free space
-back at 1400; the Search tip inside the window at 600 and 700 px (risen
-by `placeTip` where it fits neither under nor over its badge) and
-unshifted sideways at 1400; the grid's LoRA weight tip clear of the left edge at
-1400 and 2560x1305; a fitting `.end` tip unshifted; and in two columns New
-image offered for a viewer scrolled above the window, static in the panel
-after the finish line and kept past the job's end; and, at scroll 0, Batch
-4 and Repeat 3 leaving Generate where it was with the run hint under it,
-then that batch running with its Now line, Pause, Cancel, both bars, the
-counters and the elapsed line (one line) in the window and the run hint
-under them, at 1400x900, 1920x947, 2048x1040@1.25 and 1536x864@1.25 (the
-panel's gap 10 px there, 14 px back at 1400x900); and at 600x900 P from
-a card 1,000 px down bringing the prompt box into view with one
-`scrollIntoView`, the page its width, and moving nothing when the box is
-already on screen:
-
-```powershell
-uv run python tools/fake_server.py --port 7889 --model black-forest-labs/FLUX.1-Krea-dev --step 0.3
-node tools/browser.mjs tools/smoke-narrow.json
-```
-
-`smoke-grid-preview-close.json` uses a fresh default Krea 2 Turbo fake
-on 7948, with only GET/HEAD and existing read-only preview/analysis POSTs.
-Native summary clicks and a transparent observer of the original toggle
-handler hold an actual preview success through close, then require the
-closed negative state/caption/draft to remain intact. Reopening uses real
-current counts/variables; a separately declared, nonforwarded HTTP500 checks
-late error suppression. Planted rows, empty jobs/bin, fixed draft/geometry
-and new wide/narrow screenshots bound the check. No generation, model load,
-real gallery mutation, old artifact read or hardware qualification occurs.
-
-`smoke-grid.json` checks the grid fold on a FLUX.1 Krea [dev] fake on 7879:
-two direct renders back to back, each awaited to its end with one stream and
-one tile; the resolved prompt and the one-value warning (commas named); Run grid as
-wide as Generate; the totals at body size with factors of one trimmed; a
-spaced range, `6..12` and an axis message naming its box, a value past the
-schema's bounds included (CFG 25, Steps 150); Resume's refusal
-without pydantic's prefix; Repeat above one; the budget line, including 0
-seeds, the jobs ahead, and the load note following a real unload and load
-with no box touched; the cells already in the gallery once a grid ends,
-without Resume; Ctrl+Enter running the grid from a grid box, refusing from
-the prompt while the grid holds its placeholders, and generating on a plain
-prompt; FLUX.1's grid examples (21,28,35 / 2.5,3.5,4.5), no Mu example, Mu
-"auto" and no fixed shift; and, at 2560x1305: Run grid in the window after
-a real click on the fold's summary once the preview has landed; a 30-line
-prompt whose variable is listed by its line, with the preview's top and Run
-grid in the window together; the one-value case; a long one-line prompt's
-listing capped at eight lines and scrolling inside itself (both previews
-awaited, not debounced, and the box logged); and with the fold opened by
-hand before the variables are typed, Run grid no further under the window
-than the listing box and one line (the panel holds still under the
-pointer):
-
-```powershell
-uv run python tools/fake_server.py --port 7879 --model black-forest-labs/FLUX.1-Krea-dev
-node tools/browser.mjs tools/smoke-grid.json
-```
-
-`smoke-sheet.json` checks the contact sheet at 2560x1305 on a FLUX.1 Krea
-[dev] fake on 7880: the page landing on a sheet it opens (Runs, a
-comparison, a sweep), a 4 x 3 on one screen with heads at the page's
-`--fs-body-sm` and srcset sizes, heads sticking in the sheet's own scroll
-box and a keyboard-focused cell scrolled clear of them, the fit and the wrap
-following a resize, a twice-run grid's repeats in the note, a seeds-only run
-wrapped (and its export), edit labels for prompt iterations, the restored
-search on Sheet off, the Sheet button's newest run, pins taking the
-commonest value, F starring a focused cell (said in `#star-said`), the lightbox opened from the
-sheet starring the cell (its star "★ Star", `aria-label` Star, its title
-and `aria-pressed`) and F on the cell it hands focus back to, the Fixed line
-under Starred, the run bar (Finish run, More seeds of this run… right
-after it, the run's line "Run … · N images · checkpoint quantization" last,
-on a row of its own under the buttons), Finish run held with "nothing in
-this run is missing" on a complete run, a press saying it in
-`#gallery-error` and leaving an unrelated composer (its grid, size, seed
-and Resume tick) as it was, offered on a seeds-only run too, and held with
-the server's reason on another checkpoint's run, whose More seeds of
-this run… stays, held with "Made on …", and says it under the gallery's head, the version rows with their edits and titles (a
-reorder as "same words, moved"), a strength sweep's source column and
-lightbox walk, the refined badge, two passes alike on every axis but
-their source counted in the note as sharing a cell, pins in the export's
-file name, an
-empty sheet drawing only its note; the cell star (hidden until hover or
-focus, out of the tab order, a click starring without opening the lightbox,
-under the stuck heads when the box scrolls); iterations on random seeds (a
-diagonal, then the seed pinned) with the note's Compare pointer, and none on
-one fixed seed; Fill width (aria-pressed, the cells filling the width at
-2560, 2048x1040@1.25 and 1400 with `sizes` following, the export at the
-on-screen width from the PNGs at 2560, at the cells' device pixels at 125%,
-and no smaller than Fit's at 1400, Fit's export from thumbnails, held on a
-wrapped row, remembered across a reload and working with storage
-throwing); Export all (beside Export PNG only with a pin, both buttons held
-while it runs, one stack named `-every-cfg`, five slices past the edge
-saved as one image each with distinct names, the same five files written
-when the sheet is redrawn on another run mid-export, and a failing export
-said under the gallery head); the matrix as a table (rows `display:
-contents`, header and cell roles) with cells named by their axis values and
-described by the facts the name leaves out, its opening said, a wrapped
-sheet as a list; a 2 × 8 comparison's 16-digit seed heads whole under Seed
-at 1500x900, and at 1400x900 breaking between groups of four into balanced
-lines; and at 800x900 the finish line's Show sheet and a strength sweep run
-from the viewer's ⤢ each handing focus to the first cell, with Tab then not
-moving the page; and at 1400x900 the sheet's focus kept through F on a
-cell another tab deleted (onto the cell now in its place), a changed
-Columns select, and another tab's job ending under it, the sheet left as
-it was; and Delete on a focused cell (`UI#32`) binning it with Restore in
-the note, focus on the cell now in its place or on the last, Restore
-bringing both back, a held key binning one image, and the help's Contact
-sheet group listing the key. `smoke-sheet-klein.json` uses a FLUX.2
-[klein] fake on 7886 for the References axis, the Size row and its pin, and the
-adapter named in LoRA heads, the Fixed line and the export:
-
-```powershell
-uv run python tools/fake_server.py --port 7880 --model black-forest-labs/FLUX.1-Krea-dev
-node tools/browser.mjs tools/smoke-sheet.json
-uv run python tools/fake_server.py --port 7886 --model black-forest-labs/FLUX.2-klein-4B
-node tools/browser.mjs tools/smoke-sheet-klein.json
-```
-
-`smoke-sheet-zoom.json` checks the sheet's zoom and pan at 1400x900 on a
-FLUX.1 Krea [dev] fake on 7910 with a fresh scratch `--data` of its own: a
-1024 px steps x CFG 4 x 3, the zoom group after Fill width (− + 1:1 and the
-readout, − and the readout held at zoom 1 with the reason, a press saying it
-under the gallery head), + growing the cells by `ZOOM_STEP` with the box
-scrolling and the button not moving, every zoomed cell in the box's view
-showing its full PNG (`src` the record's `url`, no `srcset`, the decoded
-bitmap 1024 px - `naturalWidth` is no measure, Chrome keeping the density
-of the srcset pick the swap replaced) and keeping it zoomed back out, the
-heads stuck, Ctrl+wheel zooming about the pointer (the point under it kept
-within 3 px) and a plain wheel not, a real mouse drag panning the box by
-the drag with no lightbox while a click and a press moving under 4 px open
-it, the keys 1 + - 0 on a focused cell and a held key saying why, the zoom
-kept across `renderSheet()` and back to 1 on Sheet off and on, Fill width
-as the zoom's base with the export at the unzoomed width, a wrapped
-seeds-only row holding every zoom button with its reason; and at 2560x1305
-1:1 drawing each image at its own pixels and the zoom stopping at 400%:
-
-```powershell
-uv run python tools/fake_server.py --port 7910 --model black-forest-labs/FLUX.1-Krea-dev --data <fresh scratch dir>
-node tools/browser.mjs tools/smoke-sheet-zoom.json
-```
-
-`smoke-delete.json` checks deletes taken to completion on a FLUX.1 Krea
-[dev] fake on 7881 (a checkpoint with a refine pass, so a starred pass can
-keep its source): the per-image delete moving to the recycle bin with no
-dialog, and its wording; the page's own dialog for the bin view's Delete
-permanently, beside the card's ⌦ and over the lightbox's, Escape as Cancel,
-in the danger colour, and its count box for
-Delete unstarred, with its "They move to the recycle bin" line and outcome,
-a lightbox of one image deleted (reopened at once after a
-close, the check waiting for the delete itself and
-`closeLightboxAfterDelete`'s focus), Delete unstarred keeping a starred
-pass's source with the typed count, a landed image's 409; images another
-tab made since the grid loaded, put on it before the count is asked and
-counted in the dialog by the server's `newer`; the All models/running-job
-dialog and the 409's running-job sentence for a job another tab started
-(the server's `job_active`, not the page's `busy`); the dialog kept inside
-the scrollbar, by real presses, for a row's last card and for the
-lightbox's Delete permanently; a pass whose source has gone - marked at once on
-the page that deleted it (record, card title, Reuse) - tombstones
-("Deleted · #N"), focus and the emptied viewer's placeholder, an image already deleted,
-a tile deleted elsewhere (once the viewer's PNGs have loaded: on Windows the
-server keeps a file it is still streaming) and the job's replay, the
-lightbox paging in behind a delete (its counter reading the gallery's total
-and the id), a double-clicked delete binned once, and Reuse: Ctrl+Z and its Undo, the
-Undo retired by a change (Ctrl+Z, a seed, an Example) and a Reuse taking an
-Example's Undo, the page unmoved mid-gallery with the prompt in sight, the
-page's end, one column at 800x900, the Undo in the window at 2048x1040
-@1.25, every image in scope deleted by another tab (a real press says no
-image is left, focus on the search box), and a real sweep that takes every
-image handing focus to the search box, then a catch-up landing after that
-sweep's own reset read past its images (`newestImageSeen` lowered, the
-status received): no reset and the "Moved 2 images" line kept
-(`prependFinished`'s `galleryReadHead` skip); and the head holding still
-under real clicks: Starred ticked with Delete unstarred's box kept, a
-point it was clicked at still Starred's, a second click unticking it
-rather than focusing the search, a search typed with the pointer on the box
-keeping Re-render (and All models' count) back, the pointer leaving putting
-them right, and with both buttons shown another job's twelve images landing
-under the pointer: the count and Re-render's label written, Starred, All
-models and Delete unstarred unmoved, the search narrower (`.held`). Every wait in it is a condition
-(`__until`, `__settled`), none a sleep:
-
-```powershell
-uv run python tools/fake_server.py --port 7881 --model black-forest-labs/FLUX.1-Krea-dev
-node tools/browser.mjs tools/smoke-delete.json
-```
-
-`smoke-split-extra-queue.json` runs on a fresh owned FLUX fake on 7951 at
-`--step 0.3`. It covers a delayed mixed-size Swap receipt that lands after the
-page's listing has adopted the split's extra job B. B must stay the watched
-current job and never become its own "Next:" row; the terminal primary A may.
-It uses real owned jobs, a paused predecessor and a held, unmodified receipt.
-It fails at the defect check without `startJob`'s `watchedJobs` filter
-([`GEN#31`](maintainer/review-2026-10-29-split-extra-queue.md)).
-
-`smoke-jobs.json` runs against the default Turbo fake on 7882 at
-`--step 0.3` (it passes at `--step 0.15` too): the tab title and topbar mirror; the one-line Now row, count
-first, with Pause and Cancel and its title; the queue's named rows, a
-per-row cancel and the single "Next:" row; Unload held with its reason,
-and a press held by a load with no job said as a note that goes once the
-load lands;
-Pause answered at once with no aria-pressed and held on a one-image job,
-its clock ("for 2 min" in the cell line, "⏸ Paused 2 min" in the title, its
-`paused_at` set back past a minute, at the next poll),
-its note gone with its job; the finish line's seed with Use seed and the
-fixed-seed hint; a grid named by its own prompt, skipping a `[fail]` cell
-live, with Show sheet and Finish run sending only its `expected` pin, once,
-with the composer changed since left alone, "Finish sent" keeping focus as
-the previous job's; the failure rule's "Stopped at cell" and Finish run,
-kept as the previous job's while a queued job runs; a plain job
-whose every image failed, said in images ("1 of 1 image was skipped",
-"Stopped at image 3 of 3") and titled "Nothing made"; a cancelled
-job's outcome led by "Previous job:" while the next runs and gone at its
-end; focus after Cancel (Generate) and after Pause held to the end (Use
-seed); a time budget's held ETA and count, "Time budget reached after
-N/20 cells … Finish run checks the rest.", and its finish line's Finish run
-(its title counting the missing cells from the cells the budget reached and
-naming the "original 0.06-minute budget") sent once, then "Finish sent"; the finish line's Use seed then More seeds…, and
-a done grid's Show sheet then More seeds of this run…; the gallery kept where it was
-scrolled with New image; the offline state through a stubbed fetch and a
-restart through a changed start time; the load's ticker with its
-aria-hidden clock and indeterminate bar, also shown in the empty viewer's
-one line, whose own words come back after a cancel; a second job queued
-during the load keeping the load's note under the bars through the queue's
-redraw; a cancel during the load; a cancel asked elsewhere
-(`cancel_requested`) and seen again after a reload: Cancel "Stopping…" where
-it stood, held with "This job is stopping after the current step", which a
-press says, and Cancel again at the job's end; a full disk
-(`/api/fake/disk-full`, the smoke's last steps): the job paused at image
-1/2 with the reason in the cell line, no failure and no image, held again
-by a Resume with the disk still full, then both images once there is
-room; a gated
-load's detail said in the panel line after every Generate while the viewer
-holds images; a gated load's card said once and not re-announced by the
-banner, its Retry load handing focus to Generate; Load and Unload handing
-focus to each other; the banner hidden by a new job and not repeated
-after a watched one; a gated load's finish line "Not made: the model could
-not load"; and a watched job whose server goes (a stand-in EventSource and
-fetch): the job line in the topbar's phrase with the count, no steps, time
-left or topbar mirror, the tab's title and the strip's note the same, then
-`showLostRun`'s card, reworded once the server answers, its Run it again
-running the request with focus going to Generate; each job watched once
-while the page is between jobs - gated fetches hold each ordering open, with
-its preconditions asserted: a Generate during watchNext's listing and
-during resumeActiveJob's; a queued POST answered after the listing found
-nothing; one answered after the listing had made its job the watched one;
-and one whose job the listing watched to its end first. Each gives one
-stream, one tile and no queue row; the first four also give a finish line
-and `startJob` resolving at the job's end, and the last gives `startJob`
-resolving on its POST's answer, after the job has ended, keeping nothing of
-it; live regions (the topbar's name not rewritten by a poll nor by another
-tab's job, a single image's step count shown and not said, each run
-counter said once, `#job-said` at a job's end and for a queued job, nothing
-there for a cancel or a load failure the panel line says); and a second
-tab, an iframe of the page: its job (held paused) holding Unload and the
-critic here with the reason and the topbar's aside, its images joining this
-gallery at its end, and taken in after this page's own job, queued behind
-it, is cancelled at its first step (that job of B's held paused until this
-page's poll has seen it, which a two-image job at `--step 0.15` outran);
-its queued job picked up here as
-another tab's (viewer kept, this page's New image and its own finish line,
-Use seed and all, kept through it, its end said on `#job-said` only, this
-tab's own finished title given back until a key), the estimate leaving the
-first step out once a second has landed (none at step 1, a one-step job
-none, a sweep of one-step cells from its second),
-a cancel and a queued row's cancel from that tab, a pause here with its job
-behind ("waiting: job ahead paused" there, "has been paused for 3 min" once
-its `ahead_paused_at` is set back past a minute, where Pause on that queued job
-says it will hold before its first image and a second press withdraws it;
-its row marked as another tab's here, Cancel queued's title, the count), Cancel queued here said there as a
-cancel from elsewhere, a job that ended at the load reworded once that
-tab's Load lands, with the panel line's reason taken back, and, on a page
-opened afresh, one that ended at the load over the card said on
-`#job-said`, reworded by the card's Retry load and again by an unload; the
-scrolled gallery's step moves the pointer off the cards first, which would
-otherwise hold the new card; and at 2560x1305, with the pointer resting on
-the Grid search summary under this page's running job, another tab's
-queued job waiting (`queueWaiting`, the summary unmoved, no row) until the
-pointer leaves, then listed, and one queued and cancelled there while the
-pointer rests dropped from `queueWaiting`, no row as it leaves:
-
-```powershell
-uv run python tools/fake_server.py --port 7882 --step 0.3
-node tools/browser.mjs tools/smoke-jobs.json
-```
-
-`smoke-results.json` checks the results viewer on a FLUX.1 Krea [dev] fake
-on 7883 (written at `--step 0.3`; it passes at the default step too): every
-? badge named and described, and Resume's badge leaving Resume unticked; the
-one-line idle viewer, the empty-install box and its Examples; the empty
-gallery's line and its Examples; the idle viewer staying one line beside a
-docked, content-sized check with the gallery beside it; a result's
-figure (a group named #N), label, title, facts-only description and card
-tools at 1400x900 (❐ hidden on FLUX), with `this-run`, the star and ⤢; the
-note under it, "#N · W×H · seed N · Use seed", with the gallery head
-unmoved as a single image lands at 1400, and hidden at QHD; at 2560x1305 the
-column with Delete in words (Star, Refine…, Inpaint…, Outpaint…, Reuse,
-Use seed, More seeds…, Delete; the row under the picture with a docked check
-leaving More seeds… out) and
-the row under the picture empty at `--h-tool`; the live preview
-keeping the result's box; `#recent` level with the viewer, the wheel over
-it with nothing to scroll scrolling the page, and staying
-beside it with the check docked while the image and the gallery head stay
-put, the column's actions and `.result-brief` then the row under the
-picture; the fit at 2048@1.25; the lightbox walk from the single image; a batch
-of four best-fit; a pass's note and lineage and its Compare with source
-(the lightbox on the pass, compared; Escape back on the strip's image; no
-Use seed in its facts), then its source deleted ("#N (deleted)", no
-buttons, the title, a facts-only description, Compare with source
-aria-disabled with the reason and refused over the tile); a portrait pass
-with the check docked, its row under the picture whole at 2048x1040@1.25
-and 2560x1305, Compare with source left to the column; a 5:12 direct image
-and its pass at 2048x1040@1.25 with the check docked, the row under the
-picture wider than it, centred, inside the strip, every word whole, the
-picture and the gallery head unmoved; four landscape images two by two with
-the gallery head unmoved from the first frame; a deleted result held at its
-height with focus on its line (the column's Delete); a 28-seed run at
-2048@1.25 ending scrolled to its newest row, the wheel over it scrolling
-the page at its end (down at its end, up at its top) and the strip while it
-can scroll; 28 at QHD with no padding-only
-scrollbar and the gallery head unmoved from its first frame (`reserveStrip`),
-the wheel over it scrolling the page; the banner's
-"2 since deleted" / "all since deleted"; the banner's Finish run on a
-cancelled grid that was itself a Resume, finishing the stored run with an
-unrelated composer left as it was, its counts line reading "Checking Finish
-run…" while the preview is held and "Finish run: N missing cells" after,
-with Show run, Finish run and ✕ at the same rects either side; Finish run offered on a cancelled
-comparison; a batch of four at QHD followed from its first
-frame to its end - the preview in the first image's column, no tile moving
-within the strip, the tile size and the gallery head where the first frame
-put them - and the strip fitted alike with the page's scrollbar forced on
-and off; Reset with its Undo in the prompt box it
-emptied - inside the window at 1400x900 and at 800x900 - Ctrl+Z after it
-giving the prompt back, and the store kept forgotten past the prompt's
-blur; Reset taking a Reuse's note from the panel line, with its Undo
-on offer or already retired; and, in one column at 1400x900, another tab's
-image held while the pointer rests on a card (the count new at once, the
-card under the pointer and its box unmoved) and joined once it leaves:
-
-```powershell
-uv run python tools/fake_server.py --port 7883 --model black-forest-labs/FLUX.1-Krea-dev --step 0.3
-node tools/browser.mjs tools/smoke-results.json
-```
-
-`smoke-lightbox.json` checks the lightbox on a FLUX.1 Krea [dev] fake on
-7884: the facts list and its rows, the Created row's peak (made through
-`POST /api/fake/peak`: its words, the reserved figure and caveat in its
-title, "of its batch" on a batch of two, nothing without one, and the head
-still fitting), the Seed row's Use seed (said in the
-lightbox's line, the panel's kept, taken back by a step to another image);
-the keys line, naming S on every image with each key bound to its action
-("Del bin"),
-and the toggle's S by Generate's hint rule; the star ("★ Star",
-`aria-label` Star; F said in `#lb-star-said` away from Star, not on it); a
-pass's Reuse pass… name; a pass compared with its source (S, the button, a
-dragged and keyed divider, ← → swapping to the other pass of the source
-with the comparison, divider and focus kept and wrapping round past the
-source, Shift+arrows and PageDown moving the divider on it and Shift+arrows
-off it, the keys line and the divider's `aria-keyshortcuts` saying so, a
-pass with no other pass in the strip keeping the old keys and Shift+arrows
-the same 2% on the divider and off it, S on the focused
-divider handing focus to the toggle, swipe and side by side keeping 1:1 and fit, side by side at fit
-clear of the arrows' circles, a pass reshaped to 3:2
-compared with the part it kept, a deleted source's dead controls); the
-source link with the view carried; the passes link; the facts' ⌕ search
-buttons (which rows have one, their titles, a seed replacing the box's seed,
-a repeated press adding nothing, size, the prompt's words, the sampling row
-with True CFG and `mu:none`, model and the local day, each narrowing the
-gallery as the server reads it); a pass whose source has
-gone (its Reuse and its card's title); the arrow strips (a press 60 px off
-the circle steps, the backdrop below still closes, the wheel over a strip
-zooms, the first image's disabled arrow a circle with the backdrop beside it
-closing, a double-click whose step takes the strip away stepping once,
-circles again when zoomed); a close followed at once by an open keeping the
-new lightbox; focus after Escape on the walked-to card, with the Examples
-menu left open under it too (the menu kept, the next Escape closing it),
-and Ctrl+Enter there generating and opening nothing; Escape on an image no strip
-holds focusing the search box; Cancel on a Refine opened from it, a side by
-side 1:1 included, and no reopening after a run; an Escape and a Cancel held
-while the pass is being sent ("Sending…"), with the pass run and focus on
-the source's card; F on an image another tab deleted (the note, the next
-image, nothing in the panel's line); an image that will not load (deleted,
-and with the server not answering: the offline sentence as an offline
-message, taken back by the status poll that answers, which asks for the
-picture again); at 2560x1305, 1:1 on a 1 MP image by key, button, wheel
-and double-click, the 52 px circles clear of the picture and side by
-side's halves inside them, circles below fit with the double-click beside
-the picture giving fit back, and a double-click beside a below-fit image
-giving fit back; at 800x900 no keys line; a wheel burst said once from the
-hidden `#lb-zoom-said`, a keyed zoom at once, and F rewriting neither the
-zoom nor the counter; at 600x900 the counter ending a gap before Close,
-clear of its focus ring, and the facts taking a square picture's
-letterbox (every row in view) while a portrait picture keeps the six-line
-scroller, and is fitted again, whole, once Use seed's line takes a row
-from the stage; Side by side titled stacked before the press; side by
-side stacked at 600x900 for a square pass (a wheel
-zooming about a point in the lower half) and a 7:4 pass (halves over 400
-px with the facts' room, opened again stacked again), and left and right
-for a portrait pass; and at 800x900 a square pass left and right with its
-facts in view; Reuse and More seeds… sharing one `.lb-pair` row, a half each
-and uncut, More seeds… titled with the image's batch on every image, and
-neither button, Refine nor Delete moving from a pass (Reuse pass…) to its
-source (Reuse settings) and an orphaned pass; and X and the menu's Pick #N /
-Unpick #N (its X hint and title) toggling the shown image's pick, said in
-the lightbox's line, a held X repeating nothing, X typed in a field picking
-nothing, and the card `.selected` with the count right after the close:
-
-```powershell
-uv run python tools/fake_server.py --port 7884 --model black-forest-labs/FLUX.1-Krea-dev
-node tools/browser.mjs tools/smoke-lightbox.json
-```
-
-`smoke-compare-cfg.json` checks the comparison across CFG on a FLUX.1 Krea
-[dev] fake on 7899 with a fresh `--data` of its own (another smoke's images
-at seed 78 would join its ladders): a CFG x steps grid, separate Generates
-at one seed, a refine pass and a grid with no CFG axis. On a sweep's image
-the box is there before the gallery answers, Compare CFG holding S, Compare
-with source absent, S on the keys line, Against listing the other CFG
-values at these steps only; S on against the value below (tags, the
-divider's `aria-label` and `aria-valuetext`, the note, the partner's alt,
-Compare CFG and Star where they were); → stepping with divider, mode and
-1:1 kept; at the top the arrow and the held Higher CFG saying why; Against
-swapping the partner, drawn at the small buttons' height, type and border,
-and ← → on it changing the partner with the image and focus kept; Lower
-CFG; side by side with the lower CFG left; Shift+→ on the divider; S on
-the divider handing focus to Compare CFG; the
-lowest value in view on the left, its partner cut to the right of the
-divider and in the right half; two separate Generates pairing and a 20-step
-one left out; an image with no other value held with the reason (S and a
-mode press saying it, Swipe and Side by side titled with the reason, a
-step taking it back), a late catch-up for images that ladder read already
-(`newestImageSeen` lowered, the status received) keeping it, the swipe
-still saying there is none rather than "Looking for…" (`noteUnseenImages`'s
-`head >= newest`), and their own titles back on an image with a
-neighbour; the held reason "in the newest 1" for an answer cut short; a job
-landing a new CFG value for the image in view (the script's, at the fake's
-own pace: it ends between two status polls, never in `active_jobs`, and
-the status's `newest_image_id` moving takes it in), and again with Starred
-on, the new image in no strip the view holds and the ladder asked again
-all the same (`noteUnseenImages`); "may be incomplete" on a
-full page; an image opened alone held while asked ("Looking for…"), the
-request's terms (CFG's with `steps:`, steps' with `cfg:`, two requests),
-then a partner the arrows do not step to, Fewer steps' held title saying to
-turn on Compare steps; the CFG ladder read past a full page by `before=`
-(one-row pages); an answer held in flight
-while the walk moves on and a job lands a value it would have held, not
-kept, and asked again on the way back; a pass's S still the source's with
-Compare CFG held; a partner deleted by the page ending the comparison with
-its note; at 600x900 no box for an image with no neighbour and one for a
-sweep's image; and the sheet's Swipe CFG (laid-out CFG only, the first cell
-with a lower value, the keyboard's cell and its row, held for two cells at
-different True CFG and saying why on a press, gone when CFG is pinned or on
-a run with none). Then across steps: Compare steps beside Compare CFG on
-one row, its title and Fewer / More steps' titles and holds; turned on, the
-tags, the divider's name and value, the note ("2 of 2 step counts"),
-Against's step counts, the keys line "← → steps" and Swipe's words; ← to
-the fewer steps, kept on the left at 1:1, the end saying "20 steps is the
-fewest of these" on the arrow and on Fewer steps; Higher CFG from a steps
-comparison turning it to CFG, and Compare steps turning it back in side by
-side; More steps; S on the divider handing focus to Compare steps; More
-steps turning it on from off; the fox (CFG and steps both differ) holding
-Compare steps with its reason; at 600x900 only CFG's part for the fox,
-only steps' for the teapot's other cell (Against hidden until Compare steps
-is on, then listing step counts), and both for a grid image; and the sheet's Swipe steps (the keyboard's cell and
-its column at one CFG, held and saying why for cells that differ in CFG
-too, and on the teapot's steps-only run, where Swipe CFG is absent):
-
-```powershell
-uv run python tools/fake_server.py --port 7899 --model black-forest-labs/FLUX.1-Krea-dev --data <new-scratch-directory>
-node tools/browser.mjs tools/smoke-compare-cfg.json
-```
-
-`smoke-gallery.json` checks the gallery on a default (Krea 2 Turbo) fake on
-7885, a checkpoint with no pass and no references: the Runs picker's groups,
-labels (what each run varied: "steps ×8 · 5 seeds", "2 seeds") and sync with
-the search box (a pick, a card's ⊞, typing, Sheet off), the picker browsed
-from the keyboard (no fetch while arrowing, Escape, Enter, leaving it),
-at its own width with the search box whole and the picked run in its title;
-`id:` and the search tip (with `mu:none` as the pipeline's own shift); the Starred tick and Re-render's label; each card
-a group named #N; the five tools and their names on hover and focus inside
-the card, with Delete's over Delete, and the image's facts-only
-description; the card's #N · W×H · seed caption on hover and focus, hidden
-under a tool's name and dropped under a card note; Refine and Reference
-aria-disabled, their refusals in `#gallery-error` and a one-line card note,
-with the card and grid unmoved, a second press landing on the same tool,
-and the row's names held down while the note is up; the star button (named
-Star in both states, hidden until hover, a click starring without opening
-the lightbox, F from the star saying nothing more, F from a tool and from
-the image said in `#star-said`, the lightbox's F reaching the card and said
-in `#lb-star-said` - each read from `__said`, a record of the two lines'
-writes - the lightbox star's title and `aria-pressed` matching the card's,
-and a star on an image deleted elsewhere tombstoning it with "#N was
-already deleted." in the gallery's line and the Runs picker asked again);
-a refined record's badge and Reuse labels (planted into the page's gallery
-replies; its name led by "Reuse pass"); the ⚠ carry-over warning,
-said again when references flip and when the adapter list lands; the day
-line across pages, a line over the first card when the newest images are
-not today's, and a deleted head's tombstone across a day line drawing no
-second line; the roving tab stop, arrows across a short row and the day
-line, Home/End, Down paging in, F, a delete handing the stop on, the
-lightbox's user close handing the stop to the card it ended on, and a job's
-newest image taking the stop where none was chosen, prepended under an old
-head made two days older with the day's line between them; the head's
-S/M and Fit/Crop from 1800 px (eleven and nine a row at S with the tools
-fitting, Crop's cover, one tab stop per pair, remembered across a reload,
-hidden on a sheet, kept by Reset, not applied at 1400); S four across in
-Gallery beside's column at QHD, M three; the tools fitting at
-2560x1305 and 2048x1040@1.25; and a job a script sends at the fake's full
-speed just after a status poll, ended before the next and never in
-`active_jobs` (`elsewhereBusy` never set, the page watching none of it),
-taken in by the status's `newest_image_id` (`followGalleryHead`) within a
-poll or two - once, at the head, one more card and one more in the count,
-and two more polls (counted, not waited out) adding nothing; another tab's
-two jobs in a row, the first one's image in while the second still runs;
-and sixty images between two polls (the page's statuses held meanwhile),
-more than one page reaches back over, joining the head with the old head's
-card the same node and the paged-in tail kept, no reset; and last, as it
-plants two blonde foxes, an exclusion: `fox -blonde` loading only fox cards
-without "blonde", its total the server's, the tip's `-word` line, Delete
-unstarred's count dialog for `seed:>=100 -seed:100` and its refusal of
-`-blonde` in `#gallery-error`, with no panel control's rectangle moved; and
-after it a mistyped key (GAL#23): `sed:42` adding "sed:42 was searched as
-prompt words; did you mean seed:42?" and its Search seed:42 button to the
-empty line, the head's height that of a plain empty search, the press
-searching `seed:42` with the box focused and the page unscrolled,
-`masterpiece:1.2` and a quoted `"sed:42"` the plain line with no button,
-and the bin's empty line the same hint and press:
-
-```powershell
-uv run python tools/fake_server.py --port 7885
-node tools/browser.mjs tools/smoke-gallery.json
-```
-
-`smoke-batch-mates.json` checks a card's batch outlined on hover on a
-default fake on 7892 with a fresh `--data`: a Batch 3 x Repeat 2's other
-five cards outlined (1 px, solid) and not the hovered one, no card moving;
-a steps grid's cell at Batch 2 a set of two; a single image marking
-nothing; a press keeping the marks and the pointer leaving taking them down:
-
-```powershell
-uv run python tools/fake_server.py --port 7892 --data <new-scratch-directory>
-node tools/browser.mjs tools/smoke-batch-mates.json
-```
-
-`smoke-select.json` checks the gallery selection on a default fake on 7898
-with a fresh `--data` (it builds a 60-image grid): Ctrl+A (Cmd+A) on a
-focused card or on Select, with Select off as well as in it, adding just the
-loaded cards (no gallery fetch, saying unloaded images were not picked),
-with picks from another search kept and the cap applied, and leaving native
-text selection in the search and the prompt; in the recycle bin adding only
-the bin's cards, the gallery's picks set aside and back unchanged; Select in
-the footer row before Swap tags…, Refine…, More seeds… and Bundles…, at
-Bundles…'s height; with Select off, plain click opening a card while keeping
-the selection (including hidden picks) and range anchor, Ctrl+click
-(Cmd+click) toggling a pick and moving the anchor, Shift+click replacing the
-picks with the range and Ctrl/Cmd+Shift+click adding it; duplicate click
-details and non-left clicks opening or picking nothing; Space toggling and
-Enter opening with picks left alone; image names Open outside Select and
-Select with aria-pressed inside it, Enter first among the keys; a card's star starring it with the picks
-kept; a click on blank grid space clearing the selection with Select off but
-not in Select mode; Select pressed with neither it nor the grid moving as
-the count appears, its hint the row's gap from Select and the count 4 px
-from a shown Clear; in Select mode a quick double click toggling twice and
-opening nothing, a click, Space, Shift+click and Shift+Space (a range from
-the anchor out, backwards too) picking, a second click unpicking, the
-image's `aria-pressed` and name and the group's "(selected)"; Enter still
-opening the lightbox and F still starring; a search showing one of eight
-counted as "7 not shown", and back; the next page's cards marked and a range
-across the page boundary; a picked image deleted by its ⌦ leaving the
-selection; the cap (a range picking what fits, a single pick refused, both
-said); Escape clearing, then leaving select mode (the image becomes an
-"Open #N" button), then left to the page; Select off keeping a selection that
-a plain click does not change; Clear handing focus to
-Select; on a sheet Select held with its reason, not pressed and with no
-hint, and the selection kept and counted; a refused pick leaving the anchor;
-`selectedRecords()` giving the loaded page's records after a search; the
-gallery line as the footer's `1 1000 auto` item with no margin of its own,
-the footer full width at -8 px (a layout pin: it passes on the CSS from
-before the footer moved to gallery.css too); a rejected search counting
-the whole selection as not shown; and a long
-message in the gallery's line beside a long count staying one line - the
-footer, Select and the grid unmoved, the text the title - at 1400, at 600
-and beside the viewer at 2560, the count's number whole each time, its
-words whole at 1400, " selected" a ✓ at 600 and beside the viewer, where
-"✓ 2 · 1 not shown" fits whole, Picked a ▾ and Clear a ✕ there, 4 px apart
-and the row inside the column. Then the Picked menu between Clear and
-Select, held with its reason and said when pressed; a first pick with no
-filter showing "Re-render 1 selected at WxH" while Delete unstarred gives
-way, the head's height, the grid and Select unmoved, and Clear putting it
-back; on a filter whose own Re-render shows, a pick keeping the head's
-height and taking the label; picks made with no filter, then a filter
-typed, then Clear pressed under the pointer keeping the head, the grid
-and Select where they were with Delete unstarred still given way, and
-back once the pointer is on the top bar; the menu opening over the grid without moving
-it, inside the window, its Escape, ArrowDown, ArrowUp and Enter; Star picked
-(both cards marked, the server's favourites, the picks kept), again
-("already starred"), Unstar picked, and F starring only the focused card;
-Re-render of two picks one of which another tab binned (said, dropped,
-the other rendered again); Bin picked (tombstones, the note's Restore, the
-bin's records, the head unmoved) and Restore; the menu opening over its
-button low in the window; and Picked held with the bin's reason in it.
-Then the lightbox's X (`UI#33`): the cap refused in the lightbox's line,
-the gallery's untouched; Compare picked, then X on its shown member ending
-the pair and its comparison with the image kept; over a sheet whose cell
-opened it, X said and the menu item held with `SELECT_ON_SHEET`; in the
-bin, with `BIN_HELD`; and the help's Lightbox group listing X. Last,
-Re-render picked at N MP… (`GEN#33`): its label the panel tier, held with
-its reason on a custom size there and on a picked card's menu, the question
-listing each size and the unmatched pick with a non-red Re-render OK, OK
-queueing one job per size, and Delete permanently's OK red again after it.
-Then Pick this run (`UI#37`): one `run:` read across checkpoints at the cap,
-the run added in the server's order beside a pick from another search, the
-run's cards outside the search counted as not shown, Select and the anchor
-unchanged; the cap's refusal in `refuseOverCap`'s words and a run past the
-cap said to be partly picked; a reply after entering the bin or a Clear
-dropped (the stashed pick back unchanged), an id forgotten meanwhile left
-out, and a failure said with nothing picked:
-
-```powershell
-uv run python tools/fake_server.py --port 7898 --data <new-scratch-directory>
-node tools/browser.mjs tools/smoke-select.json
-```
-
-`smoke-swap.json` checks Swap tags on an Animagine XL 4.0 fake on 7900 with a
-fresh `--data` (a `{hair}` grid at 832x1216 and one 1024x1024 image): the
-button between Select and Refine… (then More seeds… and Bundles…) at their height, held with its reason
-and saying it, titled by a search and then by picked cards, not moving as
-cards are picked; the dialog's scope line, focus, both fields, Queue held
-("Add a tag to find", "Checking the swaps…" while typing) and saying it;
-the server's statuses, counts and marks (a weight and underscores kept, the
-missing cells' text unmarked, what each queued image's swap took out
-struck through as written), Queue and Cancel unmoved; a second row's
-duplicate find refused in the count line; rows added moving neither + Add
-row nor Queue, four scrolling in the rows box; two clicks on one row's ×
-removing that row only, its slot kept until the pointer leaves; an image
-deleted while open shown as deleted; one deleted on the server only, with
-Queue's 409 kept in `#swap-error` after the check frees Queue; Queue
-watching the first of two jobs (one per size) and listing the second as its
-own, both named "swap · …", the last one's finish line "Job 2 of 2 of this
-swap, at 1024×1024."; the new images' prompts, seeds, sizes and rewritten
-variables; the same swap again all already rendered, held with "No image
-would change"; the negative prompt field; + Add row held at sixteen rows;
-Escape; the page never scrolled; then a search for one image, and a second
-matching image landing while the dialog is open, checked again on its own
-with Queue and the scope line saying two; and Enter pressed straight after
-typing a row, before its check, queueing it without ever saying "Checking
-the swaps…"; and an Add row over two picked images (comma and `,\n`
-layouts): the empty Find's at end / at start toggle in the arrow's slot,
-the server's placed tag marked at the end and then the start, a second
-row's Find bringing the arrow back with no box, row height or Queue edge
-moving, and one job named "+ night (start); add smoke → add test":
-
-```powershell
-uv run python tools/fake_server.py --port 7900 --model cagliostrolab/animagine-xl-4.0 --data <new-scratch-directory>
-node tools/browser.mjs tools/smoke-swap.json
-```
-
-`smoke-refine-batch.json` checks Mass refine on a FLUX.1 Krea [dev] fake on
-7901 with a fresh `--data` (four images, three starred, and the fake's two
-of another checkpoint): Refine… after Swap tags… and before More seeds… at
-their height, held with its reason and saying it, then titled by Starred,
-nothing in the footer or the grid moving; the dialog opening on the
-server's answer - its title's count, the scope line, Strength focused and
-selected, 1.5× pressed and titled with the largest image's pass, every
-image listed with the pass's size, the count line with the start-sigma
-range (stood in for, the fake reads none) and "no estimate: 2 sizes…";
-a list in Strength refused on the page and a press saying it at Strength,
-Refine and Cancel unmoved; "Checking the images…" while typing, ↑ stepping
-0.05; Steps 500 refused; 2× checked again; the POST held as "Sending…"
-with Escape waiting; the Now line and the queued row named "refine ×1.5
-at strength 0.3", Cancel's "Stop this batch refine", the last finish line
-"Job 2 of 2 of this batch refine, at 768×384."; each pass of its own
-image with its own seed and prompt; the scale and strength remembered;
-the same again all already refined, Ctrl+Enter saying the hold; All
-models offering Include other checkpoints and its row's note; picked
-cards over the filter, the opening scale capped by a 1024x1024 image with
-2× saying it was last run there; an image deleted while open listed as
-deleted; Steps "1e" refused rather than read as blank; Refine held with
-"The server is not answering" as soon as the page goes offline, and freed
-when it answers; a starred image landing while open checked again on its
-own, title, scope line and Refine saying four, then three; with the model
-picker opened under the dialog, Escape closing the dialog and not the
-picker; the page never scrolled; Versions 2 doubling the count ("6
-passes will be refined (3 images × 2 versions)", "Refine 6 passes (2
-jobs)") on the controls' one row at the boxes' height, Refine and Cancel
-unmoved, and 1 again the images; a picked image queued at Versions 2,
-its passes at its seed and the next, opened again at 1 and held as
-already refined at 2, and 4 queuing only the two it lacks with its row's
-note:
-
-```powershell
-uv run python tools/fake_server.py --port 7901 --model black-forest-labs/FLUX.1-Krea-dev --data <new-scratch-directory>
-node tools/browser.mjs tools/smoke-refine-batch.json
-```
-
-`smoke-more-seeds.json` checks More seeds on a FLUX.1 Krea [dev] fake on
-7902 with a fresh `--data` (a Batch 2 x Repeat 2 at seed 100, a single
-256x384 image at seed 7, a single one at seed 50): More seeds… after
-Refine… and before Bundles… at their height, held with its reason and
-saying it, titled by a search and then by picked cards, the footer and the
-grid unmoved once the search is cleared; the dialog opening on the
-server's answer - "8 more images", the scope line, the count at 4 focused
-and selected, one picked image of the four taking all four ("4 images,
-seeds 100–103 → seeds 104–107 · Batch 2") beside the single one, the
-count line, Queue's label and title; a count of 0 refused on the page, a
-press saying it and marking the box, Queue's right edge, Cancel and the
-list unmoved; "Checking the settings groups…" while typing, ↑ and ↓ stepping it;
-Ctrl+Enter queueing one job per run, the Now line "more seeds · …",
-Cancel's "Stop these more seeds", the last finish line "seeds 8–10. Job 2
-of 2 of these more seeds, at 256×384."; the new images in the run they
-extend, each recording its call's Batch (2, 2, then 1); the four's run
-seven images, seeds 100–106; asked again from an image of the
-extension, the seven carried on at Batch 2 (seeds 107–109); the single
-image deleted while listed shown as deleted, the count line and Queue
-saying what is left; Escape closing it with focus on More seeds…; a
-remembered count of 600 over two picked batches opening the dialog on the
-server's refusal by count, said in the count line and `#more-seeds-error`
-with the box marked and Queue held, and a count of 2 freeing it; then where
-a run ends: a plain Batch 2 job's finish line with More seeds… after Use
-seed, opening on "From the 2 images this job made." at their Batch 2 rather
-than the remembered count, Escape giving focus back to it; More seeds of
-this batch… after Use seed in an unpicked card's menu and a result tile's,
-each opening on that batch alone at its own Batch; the lightbox's More
-seeds… beside Reuse (one row, a half each, uncut, nothing moving as it
-steps), the dialog over the lightbox and Escape closing the dialog alone
-with focus back on the button; another checkpoint's image held with "Made
-on …; the server is running …", a press saying it in `#lb-error` and
-nothing in the gallery's line; the sheet's run bar under Starred (More seeds
-of this run… after the buttons, the run's line "Run … · 1 starred image ·
-…" last on a row of its own), its dialog on every image of the run with
-the server's headline "N more of its one cell = … · Starred ignored", and
-its Queue adding that many images to the run; and the banner's More seeds…
-beside Show run, opening on the run:
-
-```powershell
-uv run python tools/fake_server.py --port 7902 --model black-forest-labs/FLUX.1-Krea-dev --data <new-scratch-directory>
-node tools/browser.mjs tools/smoke-more-seeds.json
-```
-
-`smoke-bin.json` checks the recycle bin on a fake of the default checkpoint
-on 7903 with a fresh `--data`: ⌦ binning with no dialog (nothing asked),
-the tombstone "In the recycle bin · #N" and the note's Restore putting the
-card back in its own box; the lightbox's Del binning one image, a held key
-binning no more, and the note's Restore surviving its own press; its
-Delete pressed twice with the mouse gathering one note, and a held Enter's
-repeat on it prevented; the bin view - Bin's count and title, the head's
-"Recycle bin" and its "(N)", the held
-controls and their titles, a card's Restore, Delete permanently with its
-confirm, and Empty recycle bin with the count, its "Empty bin" label, the
-danger colour, Cancel, a 409 when the bin changed (its count, and the same
-count of other images: the pin) and the empty state
-"The recycle bin is empty."; leaving the bin by a second press of Bin, by
-a search from an image (`showGallerySearch`) and by a run opened as a sheet
-(`showRun`); three gallery picks set aside while the bin is shown (its own
-pick in their place) and back on leaving it, less one of them binned
-meanwhile and one binned behind the page's back that the bin's view listed,
-the bin's pick not brought along; the bundles dialog's preview
-line counting the bin; a Delete
-and its Restore in a lightbox walking the viewer's strip keeping the image
-in view; and a viewer tile's "In the recycle bin" tombstone becoming
-"Deleted · #N" once the bin is emptied, from another tab (a Restore then
-answering "already deleted") and from the page; Restore picked over more
-than six images saying "Restored N images." and a Restore of seven no longer
-in the bin "7 images were not in the recycle bin."; Delete picked
-permanently; and Empty's age scope (`#bin-age`, rows backdated through
-`POST /api/fake/bin-age`): All by default, Older than 30 days counting one
-image with "N images binned since stay" and its OK "Delete older", an image
-backdated past the fixed cutoff while asked refusing it (409), Older than 7
-days deleting only the two old ones as "Deleted" tombstones, and nothing
-old enough said without a question; and a bin card's age (`GAL#24`):
-one backdated 8 days and one not reading "binned 8 days ago" and "binned
-today" in caption and name, the Older than 7 days summary counting one,
-and the cards and their tools in the same places with and without the
-words, at 1400 and 600 px. Re-run
-`smoke-select.json` at 600 and 1400 px wide after a footer change, so the
-row with Bin does not wrap:
-
-```powershell
-uv run python tools/fake_server.py --port 7903 --data <new-scratch-directory>
-node tools/browser.mjs tools/smoke-bin.json
-```
-
-`smoke-png-settings.json` checks Load settings from PNG on a fake of the
-default checkpoint on 7904 with a fresh `--data`, with PNGs built in the
-page - signature, IHDR, hand-written tEXt, zTXt and iTXt chunks with their
-CRCs, one IDAT pixel, IEND - and one the fake rendered (Pillow writes its
-CJK 'parameters' line as iTXt): that PNG dropped over a half-written prompt
-filling every setting with Reuse's note, its Undo and Ctrl+Z, the page
-unmoved, and the posted body only `{name, chunks, panel}`, the panel's
-sampling; another checkpoint's
-hand-written record bringing Reuse's other-checkpoint sentence; an A1111
-block in tEXt filling the prompt, negative and size while steps, CFG and
-the seed stay the panel's, its note naming what does not carry over and
-what is not read and saying nothing of the negative at the panel's CFG
-1.5, an XMP packet beside it sent by its name alone, and at the panel's
-CFG 0 the negative greyed with the note saying so; the same read from
-zTXt and a CJK iTXt; a JPEG, a PNG with no text, a ComfyUI workflow and
-two files refused in words with the panel untouched; a gallery card's
-image dragged with the mouse onto the prompt box bringing no outline, no
-request and no words, and a file dropped after it read; Load settings
-from PNG… after Generate and directly over `#error`, opening the picker,
-a picked file loading and the same file picked again reloading; the drag
-outline and its words, gone on leaving the window, and none and no drop
-over a modal dialog; the gallery's count unchanged; the button with its
-hint on one line in the panel below Generate, no sideways scroll, at
-1400, 2560x1305 and 600 px; and at 2560x1305 a picked A1111 PNG's note
-written under the button, which stays where it was:
-
-```powershell
-uv run python tools/fake_server.py --port 7904 --data <new-scratch-directory>
-node tools/browser.mjs tools/smoke-png-settings.json
-```
-
-`smoke-inpaint.json` checks the Inpaint dialog (`inpaint.js`,
-`inpaint-mask.js`, `styles/inpaint.css`) on an Animagine fake on 7905 with a
-fresh `--data`: the card's ✎ live and last before Delete; opened from the
-lightbox's Inpaint…, the lightbox closed, focus on the canvas named "Mask
-over #N" with a bitmap of the source's size; Strength at the inpaint class's
-own default, said as the library's number and as measured on Animagine XL
-4.0 (`hints.inpaint_strength`); a stubbed `start_sigma` adding "starts at
-51% noise" to the preview, the SDXL fake's none adding nothing; Inpaint
-held with "Paint the part
-of #N to repaint first" and a press saying it, and held while a submit is
-in flight, a press saying that too; a brush drag, the eraser (E),
-[ and ], a plain wheel scrolling and Alt+wheel sizing, the feather giving
-another hash and 0 the same one again (`created: false`), Invert (I), Ctrl+Z,
-Ctrl+Y and Ctrl+Shift+Z, I in the Seed box painting nothing, the keyboard
-brush (arrows and Space); the tools row's boxes and the dialog's scrollTop
-unchanged through painting and a preview refusal, Inpaint not moving under
-the pointer; the result an inpaint of #N @ 0.6 on the card, its title and
-the settings line; the lightbox's Mask row, the outline drawn over the
-source's thumbnail in an 82 px box (80 and its border), its tint's share
-within 0.12 of the mask's, the hash's first 16 digits, a binned source's
-thumbnail asked for with `?binned=true`, and a deleted source leaving the record's own picture under it; every pixel the mask
-keeps the source's exactly; Reuse reopening on the source with the stored
-mask, no upload of the picture and one `/keep` of the stored mask (the page's POSTs counted); a strength list
-opening a sheet over one mask; a close that ran nothing giving the lightbox
-back and its strokes on the next open, and Start over. Only the masked
-area: the dialog opening unticked at 32 with the padding greyed and the
-tip's words, ticking moving nothing; a small stroke's preview adding the
-area words and the dashed box at the server's box; pad 0 asking again and
-pad 12 refused, holding Inpaint; an inverted mask refused in the server's
-no-gain words and Ctrl+Z bringing the small mask back; the run at 512 x 512
-recording the spec, box and working size, every unmasked pixel the
-source's; the facts' "Masked area only" row after Mask; Reuse's title,
-re-tick, padding and box; unticking hiding the box. `smoke-inpaint-
-unavailable.json`, on the default Krea 2 Turbo fake on 7906: the card's, the
-result's and the lightbox's entry points `aria-disabled` with "Krea 2 Turbo
-has no inpaint pipeline in the installed diffusers", a press saying it and
-opening nothing; a stubbed `inpaint_deferred` status saying "not enabled yet"
-in the titles; Reuse of an inpaint opening the dialog held, saying why;
-Reuse of a cropped inpaint (padding 48) opening ticked at 48, the tick
-`aria-disabled` with the reason and a press leaving it ticked and saying why:
-
-```powershell
-uv run python tools/fake_server.py --port 7905 --model cagliostrolab/animagine-xl-4.0 --data <new-scratch-directory>
-node tools/browser.mjs tools/smoke-inpaint.json
-uv run python tools/fake_server.py --port 7906
-node tools/browser.mjs tools/smoke-inpaint-unavailable.json
-```
-
-`smoke-inpaint-unavailable.json` also holds the lightbox's Outpaint… and
-the result column's ⬚ Outpaint… with "..., which an outpaint runs through",
-the deferred wording, Reuse of an outpaint opening the dialog held, and
-`openOutpaint` refusing. `smoke-outpaint.json` checks the Outpaint dialog on
-an Animagine fake on 7907 with a fresh `--data`: the lightbox's row of three
-not wrapping or cutting a word; opened from it with Strength at the class's
-default and the note naming Animagine XL 4.0 as measured, the band at 32
-and its note saying 32 joined best of 0, 32, 64 and 128; a stubbed
-`start_sigma` adding "starts at 60% noise" to the preview, and the SDXL
-fake's none adding nothing; Outpaint held with "Extend at least one side" and a press saying
-it; a typed 50 committed as 48 on Enter with "left 50 → 48, a multiple of
-16"; the server's presets over 1024 x 1024 (+128 all round, +400/+0/+400/+0,
-+0/+256/+0/+256), the To shape… list, held presets on the 16:9 preset image
-and on 1376 x 768 (within 16 px), a stubbed off-grid answer; the frame's
-source and band placement; holds past the side budget, a preview refusal, a
-band leaving nothing kept, a one-sided band leaving 8 px (held at
-`min_kept`, naming the left side alone, as the server's preview refusal
-does) and a band past 256; To shape… moved by real arrow presses without
-applying, Apply held and applying; a side typed after a preset clearing its
-words; every box's rect and the
-scrollTop unchanged; Escape closing only the dialog over the model picker;
-Ctrl+Enter in a side box running the outpaint, not the panel; the result
-an outpaint of #N +400/+0/+400/+0 whose kept pixels are the source's at
-its offset and whose border is wholly masked; the card's badge, title and
-Reuse outpaint… after `syncReuseButtons`; the facts rows, and the Mask
-row's thumbnail at the source's offset in a box of the canvas's shape, its
-line only on the band's kept side; Against source
-at the offset; Reuse reopening with the sides, band, strength and seed; a
-strength list opening a sheet; an unknown fill refused by name; Start
-over; `outpaint:yes`; the source binned with the dialog open (Outpaint
-held with the recycle-bin words, a press saying it) and restored; a submit
-in flight holding Outpaint with its reason and a press saying it, and the
-job line's "the outpaint of #N"; a late presets answer opening nothing after
-the lightbox closed or over the Inpaint dialog; a presets 404 for a source
-binned elsewhere saying recycle bin; the lightbox's Outpaint… kept, uncut,
-at 800 px. Only the masked area: unticked at 32 and greyed, the tip's
-words, the field within the band row's height, ticking moving nothing and
-scrolling nothing; a left 256 on 1024 x 1024 previewing "…432×1024, at
-672×1600 (1.6× up), pasted back" with the no-estimate words and the dotted
-box at the server's box; pad 12 refused and holding Outpaint; the run at
-1280 x 1024 recording `bbox16:32@1`, its box and working size, the kept
-pixels the source's and the border wholly masked; the facts row and
-Reuse outpaint…'s title before and after `syncReuseButtons`; Reuse
-reopening ticked with its box; the no-gain refusal on a small canvas in the
-server's words; a close keeping the tick and Start over clearing it.
-`browser.mjs`'s `{"key": "ArrowDown", "native": true}` sends the
-key code, so a focused select moves as on a real press:
-
-```powershell
-uv run python tools/fake_server.py --port 7907 --model cagliostrolab/animagine-xl-4.0 --data <new-scratch-directory>
-node tools/browser.mjs tools/smoke-outpaint.json
-```
-
-`tests/test_use_prompt.py` runs reuse.js's actual `usePrompt` on inert
-boxes under Node: the write order, a box left alone where it holds the
-text, what the Undo gives back, the lightbox closed first, an instruction
-edit refused with nothing written, and the item's place after Use seed.
-
-`tests/test_copy_feedback_ownership.py` loads the actual menu/lightbox
-declarations and actual feedback functions on inert DOM and synthetic
-clipboard ports. Deferred completions cover navigation, same-record reopen,
-latest-copy ordering, local card errors, owned-text-node cleanup and unchanged
-once-per-press payload invocation; no OS clipboard or browser is involved.
-`smoke-copy-feedback-ownership.json` uses fresh FLUX fake 7950 with the two
-actual planted other-model rows, GET-only admission and a verified synthetic
-clipboard installed before every copy action. Physical menu choices and
-lightbox controls exercise those ownership boundaries. Programmatic setup,
-message sentinels and controlled promise replies are labeled explicitly.
-Rows/PNG bytes, jobs and composer stay unchanged. Native clipboard permissions
-and integration remain outside this evidence; see the dated UI#30 owner.
-
-`smoke-context-menu.json` checks the right-click menu on a FLUX.1 Krea
-[dev] fake on 7908 with a fresh `--data`: a card's menu at the pointer, its
-items and groups, Refine, Inpaint and Outpaint live and Use as reference
-held with the card button's title. Edit by instruction… follows Outpaint…,
-live on a server whose editor is held and titled with
-`instruction_edit_reason`. Chosen, it opens its dialog with that reason and
-Edit held in those words. F sits beside Star; ArrowDown and Escape with
-focus back on the image; Star starring the card; Use seed; the copy items
-and Open PNG (the clipboard and `window.open` stubbed); a held Use as
-reference saying why; FLUX.1's inpaint (enabled 2026-10-19): Inpaint…
-opening the dialog at the profile's 0.95 with its note in the server's
-words, a stroke and a run giving an inpaint at 0.95, and Outpaint opening
-at the same 0.95 and note; Shift and
-the prompt box keeping the browser's menu; the Menu key on a focused card
-opening on its first item; a picked card's picks menu starring both picks
-and an unpicked card's own menu; a press outside closing it; a result
-tile's menu; and in the lightbox the menu inside the dialog, no Open, Del
-beside the bin, a press on the picture beside the menu (a quarter of the way
-across, since the menu now reaches below the picture's middle) closing the
-menu and not the lightbox,
-Escape closing the menu only, Use seed saying so in the lightbox's line,
-and Show run as sheet closing the lightbox for the sheet; Use prompt after
-Use seed (`GEN#53`): into empty boxes with the seed and steps unchanged,
-focus in the prompt and "Prompt set" on the card; over the user's own
-prompt with the note and its Undo, a real Ctrl+Z giving the text back, the
-note's Undo giving back a negative the record lacks; held on a record
-given an `edit`, saying why and writing nothing; and from the lightbox,
-which it closes. (The fixture's `execCommand` stub lets `insertText` and
-`undo` through for those writes and still refuses every other command, a
-copy's among them.) More seeds of this
-batch… after Use prompt on a card (unheld, titled with its batch) and a
-result tile, and in the lightbox mirroring its More seeds… button, chosen
-there opening the dialog over the lightbox, which Escape leaves open. On
-that sheet (`UI#32`), a cell's menu by right-click and by Shift+F10: the
-card's single-image items in order with F and Del, the holds as the card's
-buttons would have them, Show run as sheet held and saying why, Copy seed
-reported on the cell, Open walking the sheet, Move to recycle bin and the
-note's Restore, and a hole keeping the browser's menu. Pick this run
-(`UI#37`) follows Show run as sheet on a live card with no count, held
-with its reason on a row of no run or job (saying it when chosen, picking
-nothing), and absent from a result tile, the lightbox, a sheet cell and a
-binned card (no menu there). `browser.mjs`'s
-`{"rightclick": ...}` presses the right button (`"shift": true` holds
-Shift):
-
-```powershell
-uv run python tools/fake_server.py --port 7908 --model black-forest-labs/FLUX.1-Krea-dev --data <new-scratch-directory>
-node tools/browser.mjs tools/smoke-context-menu.json
-```
-
-`smoke-instruction-edit.json` checks Edit by instruction… on a fake claiming
-FLUX.1 Kontext [dev] on 7931 with a fresh `--data`. Only a Kontext fake
-starts with its gate open, and `POST /api/fake/instruction-edit
-{"available": bool}` flips it. The fake plants a 3:2 and a 2:1 source beside
-the 1:1 pair; the 3:2 one is held by the measured envelope (only 1:1 is
-qualified), so every run and stale-preview step uses #1 or #2. The smoke
-checks:
-
-- **Generate on the editor:** held with `text_to_image_reason`; a press says
-  it and sends nothing, and the composer is unchanged.
-- **Gate closed:** the menu item stays live and opens the dialog, which shows
-  the reason with Edit held in those words. A press writes it in place and
-  queues nothing. Open Models… opens the picker on the editor's row, chosen
-  and focused, and switches nothing.
-- **Gate open:**
-  - opened from the lightbox, which closes, with focus in the instruction;
-  - the recipe's 512×512, 28 steps and guidance 2.5, with no strength;
-  - the draft from the closed gate kept;
-  - an empty instruction holding Edit with its words, and Ctrl+Z taking
-    typing back;
-  - Escape giving the lightbox back;
-  - the 2:1 source's aspect refusal shown in place;
-  - the 3:2 source held as unmeasured: its 576x384 said, the envelope's
-    reason in the preview's place (`source_reason`; no Models note) and on
-    Edit, a press saying it, and a raw submit answering 422 with no job;
-  - the fixed drift line, one line;
-  - a stale revision getting 409;
-  - a stale preview (the gate closed behind the page) asked again when Edit
-    is pressed, its refusal said in place and no edit sent;
-  - the dice clearing the seed with the kept draft's note still shown and
-    the dice, instruction and Edit unmoved.
-- **A run:** Ctrl+Enter queues it, and the progress line and queue row read
-  "instruction edit of #1". A second edit queued behind it is cancelled from
-  the queue. The saved record is an edit of #1 with its 64-hex proof, the
-  Kontext id, 512×512, batch 1, and no refine, mask or negative. The viewer
-  lineage, the "Edited from" fact and the `edited` badge show, and the
-  pixels differ from the source. A cancel mid-run saves nothing.
-- **More seeds and Re-render of the edit (stage 4 slice 8):** More seeds x2
-  from the edit queues seeds 8 and 9, which save as two more edits of #1 in
-  its run, one image per call, with the same source proof; the source is
-  unchanged. Re-render of the picked edit says, in the gallery line, that
-  it renders at its source's frozen size (naming it) and queues nothing.
-- **Binning the source:** the edit's Reuse is held, and the facts say "in the
-  recycle bin" with Restore. The source's own menu item is held with
-  "restore it first", and Restore frees both.
-- **Reuse:** reopens the dialog on the source with the instruction and seed,
-  and the composer is untouched.
-- **The draft across the switch (stage 4 slice 9):** a draft written with
-  FLUX.1 Krea [dev] selected and closed comes back after FLUX.1 Kontext
-  [dev] is selected again with its instruction and seed, the recipe's 28
-  steps and guidance 2.5 in place of the typed ones, and the "carried" line.
-- **Layout:** the page neither scrolls nor moves. At 800x900, 1400x700 and
-  1900x1000 the dialog fits with Edit in view (1400x700 on the 1:1 source
-  and the held 3:2 one, whose words take the preview's line; with the
-  server's held note the dialog scrolls its own content there). No page
-  errors.
-
-```powershell
-uv run python tools/fake_server.py --port 7931 --model black-forest-labs/FLUX.1-Kontext-dev --data <new-scratch-directory>
-node tools/browser.mjs tools/smoke-instruction-edit.json
-```
-
-`smoke-tag-finder.json` checks Find tag on an Animagine-claiming fake on
-7909 (the fake's `describe` searches a three-page wiki's text and the name
-typed, as the real one does; "fake offline" is the index unreachable): no
-button and a one-line caption, no finder in the helper, the list's find
-row only from three characters, last, unselected, and alone where no name
-matches, ArrowDown and Enter on it opening the finder under the prompt
-searched with the words in its box, `ahoge` for "stupid hair" with its
-sentence and count, Enter on it (`"native": true`, which also runs a
-form's own submit) replacing the description with focus kept and Enter
-again taking it out, a later press inserting at the caret, a description
-changed meanwhile left whole, an empty search's line, results by count and
-a page with no sentence, the exact name first, nothing found and offline
-each clearing old results, a click in the prompt keeping it open, Escape
-with focus back in the prompt, the row's mouse click opening it, and the
-helper, Examples and a click elsewhere closing it:
-
-```powershell
-uv run python tools/fake_server.py --port 7909 --model cagliostrolab/animagine-xl-4.0
-node tools/browser.mjs tools/smoke-tag-finder.json
-```
-
-`smoke-analysis.json` checks the prompt check on a FLUX.1 Krea [dev] fake on
-7874: the CLIP cut, the negation and quote findings with their sources, span
-and cut selection (an emoji ahead of them included) with the selection
-scrolled into its box, the stale rule for both prompt boxes with the status
-slot undimmed while stale, Apply, the critic's first-use and timing lines -
-built from `ModelStatus.prompt_critic`: its label, the downloads a first use
-makes, neutral wording under an override - and its clock, its hold on
-Generate, inline cites, a cite's whose-words note and the General label, Use
-rewrite with undo and a reload and filling Your version, an edit while the
-critic thinks, a failed critique's row in one slot (`#error` only after
-Close), a two-version comparison opening its sheet with a blank Seed left
-blank, a Generate under that sheet's `job:` scope counted in the gallery's
-line with Show all opening the whole gallery, another opening all its
-cells with Starred ticked (the tick's notice gone once the run is
-reopened), the chips and the check moving from the wide host back under the
-prompt with focus and selection kept, a prose prompt's order shown as not
-checked, a one-clause prompt the critic cannot reorder, a comparison against
-Your version, the cut excerpt in code points, focus after Check
-(two-column), after Check again, after Close during the critic's check and
-after the critic's answer, the critic's hold through its pre-check (a
-replaced one saying so, a cleared one silent, a throwing one giving Check
-back), the stale badge left alone while typing, the Seeds select read at run
-time, by injecting the server's `reordered_kind`, the Use reordered title
-following what the server says it kept, not the page's own last check, with
-Compare offering the critic's reordering the server kept, and the docked
-check at 2560x1305 and 2048x1040@1.25 (the image just made wholly in view
-and unmoved after Check, the critic's answer and Ctrl+Enter; the column not
-setting the rows' height; its head stuck after the answer, showing the stale
-badge; Check again resetting its scroll; the gallery's controls clear after a
-400 px page scroll; Close on the head's first line at 125%), the critic's two versions stacked there and side by
-side full width at 1400 px, and the stacking at 1400x900; the 600 ms outline
-on the box a finding selects in, and none under an emulated reduced motion,
-Apply keeping the replaced prompt in Your version, the check capped at 55vh
-above the results at 1400x900 with its head stuck, Escape closing the check
-(focus to Check from inside it; the Examples menu, a search box with text
-and the lightbox first; the caret kept from the prompt); the critic's
-line's live half only, its ready line at once after an answer, and
-Generate's, Run grid's and Run comparison's titles while the critic holds
-them; the page's h1, the Settings region, the viewer as a region named
-Results with no unseen heading in the stage, the greyed negative's
-description, each finding's and critic issue's Show with no item a tab
-stop, the always-run Original's description; and, docked at 2560x1305, Tab
-from the panel to the image just made, its note (a stand-in stop),
-`#recent` where it sits between, the check, then the gallery, with nothing
-in the docked stage out of its flow; the comparison's Batch tip hung from
-the window, whole and on top with its row under the sticky head at
-1400x600, following its badge as the check scrolls, hidden with the badge
-scrolled out, and docked at 2560x1305; the Refine dialog's Refine held,
-and said in the dialog, while the critic thinks; the critic held offline
-(its title, the cost line, and the press's offline words taken back by the
-answer) and during a load (its note gone with the load), and a critique
-the server never answered said as the server's (no "?." after its
-question) and taken back; a 900-word prompt's line over 4000
-characters, its cut and its summary; and, docked at QHD, the first use's
-download sentence and the clock as one run of text, the clock on its last
-line.
-`smoke-animagine.json` covers the tag-order check, the critic's reorder
-under full and partial tag placement end to end (set aside, kept as Check's
-own, kept as allowed, flagged, each with the kind the server says it kept),
-the partly-checked order (past 64 tags, without the tag index, a tag the
-index does not know, a prose prompt) and the checked one where no missing
-category decides it (that tag ahead of a general tag, alone, one prose
-clause), and the negative prompt's Apply, dead while the box is greyed,
-and its Show, held with the reason. The fake server
-serves the tests' `FakeCritic` and word tokenizers: `--critic-delay` (seconds
-a critique takes, default 0.4, so its in-flight state can be seen; a prompt
-too long for the critic's window is refused at once, a 502, on the
-unscaled estimate - the real critic refuses at once only what cannot fit
-however it tokenizes, and the rest on its server's count) and
-`--no-critic` (a platform with no build: the page hides the critic). The fake
-critic counts as downloaded from its first critique on, so the first-use line
-shows only on a newly started server; the smoke accepts either line:
-
-```powershell
-uv run python tools/fake_server.py --port 7874 --model black-forest-labs/FLUX.1-Krea-dev
-node tools/browser.mjs tools/smoke-analysis.json
-```
-
-`smoke-rewrite.json` uses the same fake on 7874 for the visible rewrite diff,
-the change's grouped gist, escape-only edits, Unicode, markup rendered as
-text, unchanged/absent rewrite states, and the rewrite findings' "also in
-your prompt" / "new" / "No longer flagged" / "Not flagged … asks the tag
-index nothing of its own" marks.
-`smoke-comparison.json` uses the same FLUX-shaped fake on 7874 to run
-two comparisons with original and yours reversed on fixed seeds. Each
-opens its own job, while opening their shared run exposes Prompt as an
-axis. Run comparison clicked at 800x900, and at 2560x1305 under the docked
-check, hands focus to the sheet's first cell (named by seed and version)
-without moving the page, and focus moved to the prompt while the
-comparison renders stays there; and with the grid open declaring `{size}`, a
-version holding it refused in the preview and at the press with nothing
-sent, an undeclared name or the fold shut previewing as usual. `smoke-comparison-batch.json` uses the same
-fake for all six Seeds/Batch
-pairings, their preview and request counts, select values changed without
-events, paired output seeds, sheets and stale-run disabling. API tests cover
-paired saved seeds, batch grouping and preview counts for all six pairings.
-The analysis and Animagine smokes cover CFG/True CFG activation
-changes while a grid keeps the negative editor enabled, inactive raw
-edits, and settings changes while a check or critique is in flight.
-
-`smoke-analysis-tags.json` uses an Animagine-claiming fake on 7887 for the
-prompt check on a tag checkpoint at QHD: a Series-before-Character order
-finding the rewrite keeps, listed as possibly still applying ("whose check
-asks the tag index nothing of its own") rather than fixed, and the docked
-check with the chips across both columns at 2560x1305 and 2048x1040@1.25,
-where the image does not move and stays in view (6, 32 and 40 tags at
-each), and Tab docked with chips going chips, image, its note or
-`#recent`, check; beside an idle viewer the check's bottom in the window
-with the critic's answer in it; with Gallery beside, the check in the
-gallery's column over an idle viewer with the critic's answer (scrolling,
-head stuck, Close under the pointer, the chips still, the page unscrolled)
-and beside the image just made (the image, the chips and Generate
-unmoved); at 1400x900 with 40 tags and the answer the check capped under
-the chips, its head stuck and the image starting in the window's top three
-quarters; at 1280x720 with 40 tags and the answer the cap 55% of the
-window less the chips, the check at least 8rem and the image starting in
-the window's top three quarters; and at 1280x600 the floor itself, the
-check 8rem tall with its head stuck and Close under the pointer, the image
-in the window's top 85%:
-
-```powershell
-uv run python tools/fake_server.py --port 7887 --model cagliostrolab/animagine-xl-4.0
-node tools/browser.mjs tools/smoke-analysis-tags.json
-```
-
-`smoke-stage.json` checks Gallery beside on a FLUX.1 Krea [dev] fake on
-7888. It opens at 1400x900 (no tick, no column), then at 2560x1305 checks
-the tick off by default; ticked, a fixed column level with the viewer and
-inside the window, the page not scrolling, three cards across with their
-tools whole, the search on its own row, the paging trigger rooted on the
-column, the tick remembered; the column paging by the wheel with the window
-still; the arrow keys walking its rows, End bringing the last card into the
-column's view, and Right past the last card paging in; with nothing made
-yet (the viewer idle), the check and the critic's answer in the column's
-box, scrolling inside it with its head stuck and Close under the pointer,
-the page still (its grid, posted by fetch and so another tab's job to the
-page, waited out first, since that job holds the critic); a job landing
-with the pointer resting on a card (hovered by selector) changing nothing
-in the column, with the count already new, until the pointer leaves, and
-then first at the column's top; the image just made at its own size beside
-the column; a batch landing above a scrolled column keeping its view;
-`#recent` as a row under the image; the prompt check taking the column's
-box, with the column hidden and the image, its column of words and
-`#recent` unmoved and nothing cut; Tab reaching the check in the column
-after the image just made, its note and `#recent` (`reading-flow:
-flex-visual`); the lightbox's Escape from an image only the hidden column
-holds focusing the viewer's image; Close giving the column back at the same
-scroll; a job landing under the check, not held; the Sheet button and a
-card's ⊞ opening a sheet across the stage's width, landed on, with the
-tick's title saying when it counts and the column back on Sheet off; Reset
-leaving the tick, a reload restoring it, and the window crossing 2000 px
-both ways; at 2048x1040 at 125%, two cards across beside the image in
-view, the check and the critic's answer in the column's box over an idle
-viewer after the reload, and the check taking the column with the image
-unmoved and nothing cut; and, unticked, the gallery back under the viewer,
-with focus on the tick and the key forgotten:
-
-```powershell
-uv run python tools/fake_server.py --port 7888 --model black-forest-labs/FLUX.1-Krea-dev
-node tools/browser.mjs tools/smoke-stage.json
-```
-
-GPU generation, repeat-seed pixels, cancellation and any preview evidence
-are recorded per checkpoint in `docs/verified.md`, and the real critic's runs
-under its "Prompt analyser" section; CPU and browser checks alone do not
-establish runtime quality or performance. WAI's conditioning
-regression is `tests/test_wai_conditioning.py`: both positive and negative
-SDXL conditioning must remain finite with its unused final CLIP-L NaNs
-under none, FP8 and int8 quantization.
-
-
-Static files are served from disk, so a `web/` edit needs no server restart;
-a `backend/` edit does. The app's top-level bindings (`els`, `lbView`,
-`sheetRecords`) are reachable from a step's `eval` because the page's scripts
-are classic scripts sharing one global scope - which is also why they stay
-top-level. `browser.mjs` gives
-each run its own profile directory: a shared one stays locked by an Edge a
-crashed run left behind, and every later launch then hands its command line
-to that instance and reports "the browser did not come up".

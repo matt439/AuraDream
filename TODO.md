@@ -8,21 +8,20 @@ The maintainer's working backlog for this personal project: it records what is p
 
 **Aim (2026-10-29):** keep useful work ready for Matt's common workstation tasks. [Reported use](docs/design/preferences.md) guides priority; it does not approve the candidate redesign.
 
-**Ready backlog (updated 2026-11-12):** 26 `OPEN` rows. Of these, 25 come from the [2026-11-12 TODO audit](docs/maintainer/review-2026-11-12-todo.md) and Matt's answers to it the same day, verified defects first: `GEN#63` (a nested grid variable's braces), `GEN#67` (failed-poll retries counted as activity), `GEN#66` (keep-awake under WSL), `DEV#55` (a bad TLS pair), `DEV#54` and `DEV#59` (test clock races), and `GEN#65` (unknown download sizes). Then come the Often-feature work `GAL#25` (prefix search), `PA#15`, `PA#16`, `UI#52` (favourites on the server) and `UI#51` (the Steps/CFG/Mu fold), and then `GEN#47`, `GEN#68`, `GAL#26`, `DEV#56`, `GEN#64`, `GEN#6` (SDXL preview map, CPU part), `INP#12` (stage 1 desk) and tooling (`DEV#20`, `DEV#58`, `DEV#60`, `DEV#61`, `DEV#62`, `DEV#63`). The 26th is `GEN#48`, the private Anima Refine. Local CPU, stub-script and fake-browser checks do not establish card, clean-machine or real-device acceptance.
+**Ready backlog (updated 2026-11-13):** one `OPEN` row, `DEV#58` (conditions for the smokes' fixed sleeps, phases 2 on). The [2026-11-12 TODO audit](docs/maintainer/review-2026-11-12-todo.md#results-2026-11-12)'s rows, with `GAL#27` and `UI#53` added at Matt's request, were built 2026-11-12 and 13: those finished were removed, and the rest wait on Matt (`GEN#66` and `GEN#68`, `USER`), on the card (`GEN#6`, `GEN#48`'s stage 2) or on his call (`INP#12`, deferred). Local CPU, stub-script and fake-browser checks do not establish card, clean-machine or real-device acceptance.
 
 **Decisions:** no unanswered `DECISION` rows. On 2026-11-12 Matt accepted every recommended answer of the [2026-11-12 audit](docs/maintainer/review-2026-11-12-todo.md#matts-answers-2026-11-12): 11 rows became `OPEN`, `CARD#4`, `CARD#6` and `CARD#12` were retired under the K4/K5 Never ratings, and `GEN#15` stays a model-offload card render. Decisions in force that limit work: `GEN#39` and unattended backups (`GAL#22`, `GAL#6`) declined; `GEN#8`, `GEN#20` and `INP#10` deferred by Matt; `PERF#7`'s answers (cache beside the gallery, static shapes, shipping after `PERF#1`); `DEV#20`'s 4 GiB commit floor (a card session runs on a quiet machine); `GEN#45`'s FLUX 3 scope (Klein and Klein Base, the upsampler opt-in only); the passcode's flagged choices as written (2026-11-10); Animagine XL 4.0 as the first open checkpoint (`GEN#59`) and Anima for the first app-owned Refine (`GEN#48`), both 2026-11-11. The history is in the owners and in Review coverage below.
 
-**Needs Matt's hands or card:** `DEV#39`'s deliberate ruleset edit before a hosted installer CI job can be added; `DEV#32`'s stage 4, the passcode on the real machines; `GEN#46`, accepting the FLUX 3 [Klein] licences on CI's Hugging Face account (his own accepted 2026-11-10); `UI#40`'s phone/platform acceptance, workbench task trials (`DEV#1`, kit refreshed 2026-10-30), the typed Ctrl-C on the fake for `DEV#23`, `GEN#66`'s `powercfg /requests` check, hands-on accessibility/desktop checks (`UI#7`), and every `CARD` row, including the speed qualifications `PERF#1`, `PERF#3` and `PERF#4`, and `INP#11`'s acceptance step (one load). `PERF#2`'s card measurement waits on `PERF#1`'s.
+**Needs Matt's hands or card:** `DEV#39`'s deliberate ruleset edit before a hosted installer CI job can be added; `DEV#32`'s stage 4, the passcode on the real machines; `GEN#46`, accepting the FLUX 3 [Klein] licences on CI's Hugging Face account (his own accepted 2026-11-10); `UI#40`'s phone/platform acceptance, workbench task trials (`DEV#1`, kit refreshed 2026-10-30), the typed Ctrl-C on the fake for `DEV#23`, `GEN#66`'s `powercfg /requests` check, `GEN#68`'s look at Models > On disk over the real cache, hands-on accessibility/desktop checks (`UI#7`), and every `CARD` row, including the speed qualifications `PERF#1`, `PERF#3` and `PERF#4`, and `INP#11`'s acceptance step (one load). `PERF#2`'s card measurement waits on `PERF#1`'s.
 
 **GPU runs are Matt's to run or OK, never past the card's memory** (16 GB on the 5080, 8 GB on the 3070; every `CARD` row). Check the checkpoint's measured peaks in `docs/verified.md` first; a run that spills into shared memory proves only that it doesn't fit.
 
 ## Product design
 
-**Owner:** [docs/design/README.md](docs/design/README.md); [validation](docs/design/validation.md) owns the remaining task trials and evidence. Tooling rows (`DEV#20`, `DEV#23`): the [card harness](docs/maintainer/plan-card-harness.md).
+**Owner:** [docs/design/README.md](docs/design/README.md); [validation](docs/design/validation.md) owns the remaining task trials and evidence. Tooling row `DEV#23`: the [card harness](docs/maintainer/plan-card-harness.md).
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `DEV#20` | OPEN | LOW | S | Stages 1-2 done (stage 2 in the 2026-11-11 SDXL session). Left: hold the requested `--period` on Windows (achieved ~1.8 s for 0.5 s): one `typeperf -si` stream and `nvidia-smi --loop-ms`, achieved period in `summary`. [Audit](docs/maintainer/review-2026-11-12-todo.md#dev20-the-card-guard-keeps-its-sampling-period-on-windows); [card guard](docs/maintainer/plan-card-harness.md#card-guard). |
 | `DEV#23` | USER | LOW | S+card | The eight `tools/card/card10-*.json` packs and their test are built 2026-10-30; the six page packs pass on the fake. Left: Matt types Ctrl-C on the fake for the two Ctrl-C packs, then stage 2 on the card. [CARD#10 step packs](docs/maintainer/plan-card-harness.md#card10-step-packs). |
 | `DEV#1` | USER | LOW | M | Run common-task trials with Matt, comparing the current app and candidate layouts before choosing redesign slices. [Protocol](docs/design/validation.md#one-user-formative-protocol). |
 
@@ -42,8 +41,6 @@ The maintainer's working backlog for this personal project: it records what is p
 |---|---|---|---|---|
 | `DEV#32` | USER | MED | S | The opt-in passcode (`AURADREAM_PASSCODE`) is built through stage 3, 2026-11-10. Left: stage 4 on the machines, Matt's: the Linux service from a phone and another PC, Safari's autofill, a session across a restart and an update, the scripts through the passcode, a wrong passcode's lock. [Build order](docs/design-notes.md#build-order); [S2](docs/maintainer/review-2026-11-10-peers.md#s2-passcode-beyond-loopback). |
 | `DEV#39` | USER | LOW | M | Local shellcheck/PSScriptAnalyzer audit is built. Left: Matt's deliberate CI ruleset edit, then a hosted installer job up to the GPU check. [T2](docs/maintainer/review-2026-11-10-peers.md#t2-the-scripts-in-ci). |
-| `DEV#55` | OPEN | LOW | S | A non-PEM, mismatched or encrypted TLS pair fails start-up with an opaque `PEM lib` traceback (a restart loop under systemd). Load it in `setting_problem` and refuse in words. [Audit](docs/maintainer/review-2026-11-12-todo.md#dev55-a-bad-tls-pair-fails-start-up-with-pem-lib). |
-| `DEV#56` | OPEN | LOW | S | Renew the passcode cookie on a counted API request from a session older than a day, not only on `GET /`; change `tests/test_api_passcode.py`'s page-only assertion deliberately. [Answer](docs/maintainer/review-2026-11-12-todo.md#matts-answers-2026-11-12); [S2](docs/maintainer/review-2026-11-10-peers.md#s2-passcode-beyond-loopback). |
 
 ## Measurements on the card
 
@@ -74,7 +71,7 @@ The maintainer's working backlog for this personal project: it records what is p
 | `INP#5` | DEFERRED | LOW | M+card | Phase 4, klein: one reference beside the source, its mu recipe, memory with the sequence doubled, `smoke-inpaint-klein`. Matt doesn't run klein. |
 | `INP#6` | DEFERRED | LOW | M+card | Phase 5, Qwen-Image under Nunchaku (WSL), only if the inpaint class runs over the Nunchaku transformer at all. |
 | `INP#10` | DEFERRED | LOW | M | Outpaint, later if wanted: the server's fill shown in the frame (kept for later, 2026-10-17), an outpaint over a painted mask, a second fill. |
-| `INP#12` | OPEN | LOW | S | Stage 1's desk half only (commissioned 2026-11-12): licences, provenance and Windows/Python 3.13 wheels for at most two face and two hand detectors, metadata only, no installs. The CPU detection trial and the rest stay unscheduled. [Answer](docs/maintainer/review-2026-11-12-todo.md#matts-answers-2026-11-12); [plan](docs/maintainer/plan-detailer.md#stages-and-completion-criteria). |
+| `INP#12` | DEFERRED | LOW | M | Stage 1's desk half done 2026-11-12: YuNet and MediaPipe Hands pass, both photo-trained; the anime detectors stop at AGPL provenance. A CPU trial needs Matt's call: photo-trained detectors, or a new bounded search. [Desk results](docs/maintainer/plan-detailer.md). |
 | `INP#13` | BLOCKED | LOW | L+card | After `INP#11`'s card acceptance: open the plan's frozen aspects under the 512² area, and a second frozen recipe at 1024x1024 1:1 with its own one-load card protocol. [R3](docs/maintainer/review-2026-11-10-peers.md#r3-a-wider-instruction-edit-envelope). |
 
 ## Generation, jobs and models
@@ -85,19 +82,14 @@ The maintainer's working backlog for this personal project: it records what is p
 |---|---|---|---|---|
 | `GEN#15` | CARD | LOW | S+card | Peak memory per image, phase 3: a FLUX.1 Krea [dev] model-offload text-to-image render, its recorded peak pair beside `nvidia-smi` and shared memory (the 2026-11-11 sequential inpaint does not count, 2026-11-12). [Plan](docs/maintainer/plan-peak-vram.md). |
 | `GEN#16` | CARD | LOW | S+card | Generate then refine: phase 3's FLUX.1 Krea dev night at 1.5x, peak of the alternation and the pair's time. [Plan](docs/maintainer/plan-then-refine.md). |
-| `GEN#6` | OPEN | LOW | M+card | SDXL half only: fit the `AutoencoderKL/4` preview map on CPU and add the non-flow sigma rule, with tests; then one card glance at Matt's OK. FLUX.2's map stays deferred. [Answer](docs/maintainer/review-2026-11-12-todo.md#matts-answers-2026-11-12); [Behaviour](docs/verified.md#behaviour). |
+| `GEN#6` | CARD | LOW | S+card | SDXL map and the non-flow rule built on CPU 2026-11-12 (R² 0.909 held out). Left, at Matt's OK: one card glance at an Animagine render's live-preview frames (colour; is the noisy first frame acceptable). FLUX.2's map stays deferred. [Results](docs/maintainer/review-2026-11-12-todo.md#results-2026-11-12). |
 | `GEN#8` | DEFERRED | LOW | L | U61 part B: one's own photo or sketch as a reference (import route, a source marker through storage, reindex and reruns; add, drop and paste). Matt deferred it 2026-10-05; only when he raises it. [References](docs/design-notes.md#reference-images-by-gallery-id). |
 | `GEN#20` | DEFERRED | LOW | L+card | Opt-in A1111 weighting and 77-token chunking on SDXL, deferred by Matt 2026-10-27 because he does not write weighted prompts; revisit on request. [10-24 G10](docs/maintainer/review-2026-10-24.md#g10-a1111-style-weighting-and-long-prompts-on-sdxl). |
-| `GEN#46` | USER | LOW | S | Accept both FLUX 3 [Klein] licences on CI's `HF_TOKEN` account (the local account reads both since 2026-11-10). Then move FLUX 3 to `REAL` in `tests/test_prompt_encoding.py` and the CI tokenizer fetch. Its shard maps moved to `GEN#65`. [FLUX 3](docs/design-notes.md#flux-3-klein-an-app-owned-pipeline-over-pinned-folders). |
-| `GEN#47` | OPEN | LOW | S | Keep writing the old lite-infer ids; accept the renamed repos as read-only aliases of the same entry and recipe (`launch._match`, `api_runs._model_name`). Offline 307 tests (httpx `MockTransport`) of `hub_access` and downloads; old ids in PNGs and keys unchanged. [Answer](docs/maintainer/review-2026-11-12-todo.md#matts-answers-2026-11-12); [renames](docs/design-notes.md#newer-checkpoints-and-the-diffusers-042-bump). |
-| `GEN#48` | OPEN | MED | L+card | Anima selected 2026-11-11; CPU feasibility found reusable upstream image-to-image blocks. Next: private callback wrapper and source/rounding/cleanup tests; public Refine stays held pending the card. [Plan](docs/maintainer/plan-anima-refine.md). |
+| `GEN#46` | USER | LOW | S | Accept both FLUX 3 [Klein] licences on CI's `HF_TOKEN` account (the local account reads both since 2026-11-10). Then move FLUX 3 to `REAL` in `tests/test_prompt_encoding.py` and the CI tokenizer fetch. FLUX 3's shard maps were recorded 2026-11-12 (`GEN#65`). [FLUX 3](docs/design-notes.md#flux-3-klein-an-app-owned-pipeline-over-pinned-folders). |
+| `GEN#48` | CARD | MED | L+card | Stage 1 built 2026-11-12: private Anima Img2Img passes with CPU tests, wired to nothing. Next: stage 2, Matt's authorized card qualification of Turbo (then Aesthetic, Preview; one load each); stage 3 wires it into Refine. [Plan](docs/maintainer/plan-anima-refine.md). |
 | `GEN#49` | CARD | LOW | L+card | Tiled refine past the one-pass size guards. First a throwaway card look, with Matt's OK: one 2x source as four overlapping masked-area regions at strength 0.3-0.4; a plan only if the seams pass. [R2](docs/maintainer/review-2026-11-10-peers.md#r2-tiled-refine). |
-| `GEN#63` | OPEN | LOW | S | A grid variable value naming another declared `{name}` keeps its braces in the resolved prompt (reproduced). Refuse it, worded and coded, or substitute once with cycle detection. [Audit](docs/maintainer/review-2026-11-12-todo.md#gen63-a-variable-value-naming-another-variable-keeps-its-braces). |
-| `GEN#65` | OPEN | MED | M | Seven recipes in `model-downloads.json` have no files (five FLUX/Krea, two FLUX 3), so Models shows unknown sizes. Add a rebuild/`--check` tool, fill them (FLUX 3's shard maps from `GEN#46`) and re-record moved lite sources. [Audit](docs/maintainer/review-2026-11-12-todo.md#gen65-refresh-model-downloadsjson-and-check-it-with-a-tool). |
-| `GEN#66` | OPEN | MED | S | Under WSL, keep-awake takes `systemd-inhibit`, which never holds the Windows host, while status and doctor can say it holds. (a) Detect WSL and say so; (b) a Windows power request through interop. [Audit](docs/maintainer/review-2026-11-12-todo.md#gen66-keep-awake-under-wsl-says-it-holds-when-it-holds-nothing). |
-| `GEN#67` | OPEN | LOW | M | `model-switch.js`'s 10 s `/api/models` retries after a failure count as activity (keep-awake, idle release). Exclude them or back off, and add an idle-page activity smoke on a recording fake. [Audit](docs/maintainer/review-2026-11-12-todo.md#gen67-a-failed-polls-retries-count-as-activity). |
-| `GEN#68` | OPEN | LOW | S | Show `GET /api/models/storage` as a read-only On disk fold, collapsed inside Models. No delete; the guarded delete is designed only after Matt has seen the fold. [Answer](docs/maintainer/review-2026-11-12-todo.md#matts-answers-2026-11-12); [R9](docs/maintainer/review-2026-11-10-peers.md#r9-storage-view). |
-| `GEN#64` | OPEN | LOW | S | A '+ panel size' button beside Grid's Sizes box that appends the panel's current `WxH`; client-only, `grid.parse_sizes` unchanged. [Answer](docs/maintainer/review-2026-11-12-todo.md#matts-answers-2026-11-12). |
+| `GEN#66` | USER | MED | S | Built 2026-11-12: under WSL a Windows power request through interop, or an honest "nothing held". Left: Matt runs `powercfg /requests` (elevated) with a busy WSL server, sees "AuraDream is in use", and that it is gone once idle or stopped. [Results](docs/maintainer/review-2026-11-12-todo.md#results-2026-11-12). |
+| `GEN#68` | USER | LOW | S | Models > On disk is built, read-only (2026-11-12). Left: Matt looks at it over his real cache; only then is the guarded delete designed, as a new row. [Results](docs/maintainer/review-2026-11-12-todo.md#results-2026-11-12); [R9](docs/maintainer/review-2026-11-10-peers.md#r9-storage-view). |
 
 ## Speed
 
@@ -111,15 +103,6 @@ The maintainer's working backlog for this personal project: it records what is p
 | `PERF#2` | BLOCKED | LOW | M+card | The card measurement of a quantization choice with fp8 activations (torchao `Float8DynamicActivationFloat8WeightConfig`); waits on `PERF#1`'s card qualification. Its CPU plan is done (`fp8-dynamic`, PerTensor, compared against fp8 only); the CPU source slice and card run are its stages 2-3. [Plan](docs/maintainer/plan-fp8-activations.md); [10-25 R2](docs/maintainer/review-2026-10-25.md#r2-fp8-with-fp8-activations). |
 | `PERF#7` | BLOCKED | LOW | — | Whether the compiled mode ships waits on `PERF#1`'s card table; Matt leans to an opt-in Models choice with Eager the default if it pays off. Cache location, size policy and static shapes are decided. [Questions](docs/maintainer/plan-regional-compilation.md#matts-questions). |
 
-## Gallery and storage
-
-**Owner:** [the 2026-11-12 TODO audit](docs/maintainer/review-2026-11-12-todo.md#matts-answers-2026-11-12).
-
-| id | status | sev | size | item |
-|---|---|---|---|---|
-| `GAL#25` | OPEN | MED | S | Gallery search matches every free word as a prefix (`drag` finds dragon); `-word` exclusions stay exact. Tests across FTS5 and the LIKE fallback. [Answer](docs/maintainer/review-2026-11-12-todo.md#matts-answers-2026-11-12). |
-| `GAL#26` | OPEN | LOW | M | Delete one saved bundle from Bundles behind a confirmation, refused while it is leased for download or import. Never automatic or bulk (`GAL#22`'s decline stands). [Answer](docs/maintainer/review-2026-11-12-todo.md#matts-answers-2026-11-12). |
-
 ## Prompt analyser
 
 **Owner:** the design notes' [prompt analyser](docs/design-notes.md#the-prompt-analyser) for the deferred item; its [open questions](docs/design-notes.md#open-questions-from-the-analyser) for decisions.
@@ -127,8 +110,6 @@ The maintainer's working backlog for this personal project: it records what is p
 | id | status | sev | size | item |
 |---|---|---|---|---|
 | `PA#9` | DEFERRED | LOW | L | Scoring comparison images automatically with a VLM (does each element appear); accuracy unmeasured. [Prompt analyser](docs/design-notes.md#the-prompt-analyser). |
-| `PA#15` | OPEN | MED | M | Check measures a grid's `{name}` template, not its resolved prompts, so one value can truncate unseen. Add each resolved prompt's encoder budget to the grid preview. [Audit](docs/maintainer/review-2026-11-12-todo.md#pa15-check-measures-a-grids-resolved-prompts). |
-| `PA#16` | OPEN | LOW | M | Tag autocomplete, plus an advisory unknown-tag verdict, in Grid's Prompt variables and in Swap tags' Find/Replace/Add fields. [Audit](docs/maintainer/review-2026-11-12-todo.md#pa16-tag-help-in-grid-values-and-swap-tags-fields). |
 
 ## The page
 
@@ -138,8 +119,6 @@ The maintainer's working backlog for this personal project: it records what is p
 |---|---|---|---|---|
 | `UI#40` | USER | MED | M | Phone acceptance: physical iPhone keyboard/sharing/gestures, Android/system and native iOS edge Back, landscape instruction caret and actual iPad Split View. [Phone review](docs/maintainer/review-2026-11-05-phone.md#10-edit-dialog-keyboard-acceptance-2026-11-07). |
 | `UI#7` | USER | LOW | M | Hands-on NVDA/Narrator, touch, native notification delivery and actual Windows scaling checks; browser emulation and accessibility-tree inspection do not complete them. [Manual checks](docs/design/validation.md#accessibility-and-desktop-checks). |
-| `UI#51` | OPEN | LOW | M | Steps/CFG/Mu in one reversible disclosure like Custom dimensions, with their effective values always in its summary (UX#21's last candidate); the `DEV#1` trials may still judge it. [Answer](docs/maintainer/review-2026-11-12-todo.md#matts-answers-2026-11-12); [requirements](docs/design/requirements.md). |
-| `UI#52` | OPEN | MED | M | Model favourites as a revisioned per-gallery sidecar like saved searches (canonical ids), with a one-time offer to import this browser's localStorage set. [Answer](docs/maintainer/review-2026-11-12-todo.md#matts-answers-2026-11-12). |
 
 ## Tests, docs and tooling
 
@@ -147,13 +126,7 @@ The maintainer's working backlog for this personal project: it records what is p
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `DEV#54` | OPEN | MED | S | `test_move_front_lists_the_authoritative_order_and_never_preempts` failed once under `-n auto` (passes alone): its first job runs ~0.35 s. Hold it on an event; audit the file's other timed tests. [Audit](docs/maintainer/review-2026-11-12-todo.md#dev54-job-api-tests-race-the-fakes-clock-under--n-auto). |
-| `DEV#59` | OPEN | LOW | S | Positive test waits are still 2-3 s (bundles, Expand stop, jobs, download progress): raise them to 30 s, keep negative waits short, and add a test against new short positive waits. [Audit](docs/maintainer/review-2026-11-12-todo.md#dev59-seconds-of-margin-for-the-tests-positive-waits). |
-| `DEV#58` | OPEN | MED | M | 847 fixed `wait` steps, 546 s (~22% of smoke time): replace them with conditions file by file, starting with the five worst; keep the ones that test timers or absence. [Audit](docs/maintainer/review-2026-11-12-todo.md#dev58-conditions-instead-of-fixed-sleeps-in-the-smokes). |
-| `DEV#60` | OPEN | MED | M | `docs/rules.md`'s Frontend and Tests sections run about 4,700 lines each under one heading: add sub-headings, and a length test that skips fenced code. [Audit](docs/maintainer/review-2026-11-12-todo.md#dev60-docsrulesmd-sub-headings). |
-| `DEV#61` | OPEN | LOW | M | Fifth source-audit pass: `status.js` is past 1,000 lines untriaged, and `main.py`, `lightbox.js` and `test_linux_scripts.py` grew. [Audit](docs/maintainer/review-2026-11-12-todo.md#dev61-fifth-source-audit-pass). |
-| `DEV#62` | OPEN | LOW | S | Four smokes have no `run_smoke_costs.json` entry (balanced at 12 s): add them and require an entry for every row. [Audit](docs/maintainer/review-2026-11-12-todo.md#dev62-a-cost-for-every-smoke-in-run_smoke_costsjson). |
-| `DEV#63` | OPEN | LOW | S | Shrink AGENTS.md's Layout to one line per area pointing at rules.md's Layout; keep the commands, the silent-breakage rules, the smoke/port table and the fake-knob line. Diff that every cut line is already in rules.md. [Answer](docs/maintainer/review-2026-11-12-todo.md#matts-answers-2026-11-12). |
+| `DEV#58` | OPEN | MED | M | Phase 1 done 2026-11-12 (five files, 196.7 s of sleeps to 34.4 s, enforced by test). Next phases, worst first: smoke-phone-gallery, smoke-sheet, smoke-refine, smoke-jobs, smoke-refine-sdxl; add each to `CONDITION_WAIT_SMOKES`. [Results](docs/maintainer/review-2026-11-12-todo.md#results-2026-11-12). |
 
 ## Review coverage
 
@@ -199,7 +172,7 @@ Each review's remaining work is indexed above; closed findings stay in their own
 | 2026-11-10 peers | [The app against comparable projects](docs/maintainer/review-2026-11-10-peers.md): 48 candidates checked against the code and earlier decisions, 23 kept (`GEN#48`-`GEN#56`, `INP#13`, `DEV#31`-`DEV#40`, `UI#41`-`UI#43`), the rest recorded as not taken; `DEV#31`, `DEV#32` (through stage 3), `DEV#34`-`DEV#38`, `DEV#40`, `GEN#51`-`GEN#54`, `GEN#56`, `UI#42` and `GEN#57` (opened and built the same day) built 2026-11-10; `GEN#50`, `GEN#55`'s first slice, `DEV#33`, `UI#41`, `UI#43` and `DEV#39`'s local audit built 2026-11-11; `GEN#48`, `GEN#49`, `INP#13`, `DEV#32` stage 4 and `DEV#39`'s hosted job indexed above. |
 | 2026-11-10 first time | [A first-time user, after the installer](docs/maintainer/review-2026-11-10-first-time.md): 56 findings checked by skeptics, one refuted; merged to 28, 27 as rows (`DEV#41`-`DEV#53`, `GEN#58`-`GEN#62`, `UI#44`-`UI#50`, `PA#13`, `PA#14`), all built 2026-11-10/11; F27 is now under `GEN#65`. |
 
-| 2026-11-12 TODO audit | [Reconciliation and new work](docs/maintainer/review-2026-11-12-todo.md): stale NOW and coverage text fixed, `DEV#20` stage 2 recorded; 26 verified proposals added as 14 `OPEN` rows and 13 `DECISION` rows; Matt accepted every recommendation the same day (11 more `OPEN`, `CARD#4`/`CARD#6`/`CARD#12` retired). |
+| 2026-11-12 TODO audit | [Reconciliation and new work](docs/maintainer/review-2026-11-12-todo.md): stale NOW and coverage text fixed, `DEV#20` stage 2 recorded; 26 verified proposals added as 14 `OPEN` rows and 13 `DECISION` rows; Matt accepted every recommendation the same day (11 more `OPEN`, `CARD#4`/`CARD#6`/`CARD#12` retired).; built 2026-11-12/13 with `GAL#27` and `UI#53` ([results](docs/maintainer/review-2026-11-12-todo.md#results-2026-11-12)), `DEV#58` left open. |
 ---
 
 ## How to read this file

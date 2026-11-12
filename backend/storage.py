@@ -48,7 +48,7 @@ from .record_fields import (  # noqa: F401 - re-exported for storage.<name>
     rebuilt_outpaint_mask, recovered_mask_crop, recovered_outpaint, stored_mask_crop, stored_mask_crop_box,
     without_mask_crop_parameters,
 )
-from .search import like_escape, parse_search
+from .search import parse_search, word_match
 from .schemas import ImageRecord, OutpaintSpec, effective_true_cfg
 from .schemas_mask_crop import MaskCropSpec
 
@@ -927,11 +927,17 @@ def list_images(
     # matched two different ways.
     text_at, text_params_at = len(where), len(params)
     if words:
+        # Each free word is a quoted phrase with FTS5's prefix star (GAL#25):
+        # the box searches as you type, and `drag` finds dragon before the
+        # word is finished. The quotes keep AND, OR, NOT and NEAR words and
+        # `*`, `(` or `^` inside one literal; a word the tokenizer splits
+        # (`blue-ey`) is a phrase whose last token is the prefix.
         where.append("id IN (SELECT rowid FROM images_fts WHERE images_fts MATCH ?)")
-        params.append(" ".join(f'"{t}"' for t in words))
+        params.append(" ".join(f'"{t}"*' for t in words))
     if excluded:
         # One NOT IN for every excluded word: `prompt` is NOT NULL, so no row
         # is lost to a NULL here, and an exclusion-only search needs no MATCH.
+        # No star: `-blonde` leaves out the word, never every word it starts.
         where.append("id NOT IN (SELECT rowid FROM images_fts WHERE images_fts MATCH ?)")
         params.append(" OR ".join(f'"{t}"' for t in excluded))
 
@@ -950,13 +956,17 @@ def list_images(
             # A token carrying an odd number of double quotes - 26", a 6" figure
             # - quotes into a malformed MATCH. Swap *only* the text predicates
             # so favorites and anything added later still applies, and AND one
-            # LIKE per word: FTS matches tokens in any order, where a single
-            # LIKE over the raw string would demand them contiguous.
+            # match per word, any order, as FTS does. `search.word_match` is
+            # literal, so the quote still counts, but bounded where a word
+            # starts (and, for an exclusion, ends): a free word is still a
+            # prefix and an exclusion still exact (GAL#25), where a LIKE
+            # substring let `-drag` leave out every dragon too.
+            conn.create_function("auradream_word", 3, word_match, deterministic=True)
             where[text_at:] = (
-                [r"prompt LIKE ? ESCAPE '\'"] * len(words)
-                + [r"prompt NOT LIKE ? ESCAPE '\'"] * len(excluded)
+                ["auradream_word(prompt, ?, 1)"] * len(words)
+                + ["auradream_word(prompt, ?, 0) = 0"] * len(excluded)
             )
-            params[text_params_at:] = [f"%{like_escape(t)}%" for t in (*words, *excluded)]
+            params[text_params_at:] = [*words, *excluded]
             total, rows = _page(conn, *clause_for(scope), limit, offset, before)
         others = 0
         if model_id:

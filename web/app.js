@@ -130,7 +130,7 @@ els.prompt.addEventListener('input', (event) => {
 // The check read the negative prompt too; editing it dims the check as well.
 // On a tag checkpoint it has its own suggestion list (tag-lists.js), asked as the
 // Refine dialog's prompt asks, and gone when the box loses focus.
-els.negative.addEventListener('input', (event) => { syncAnalysisStale(); suggestNegativeTags(event); });
+els.negative.addEventListener('input', (event) => { syncAnalysisStale(); syncSamplingSummary(); suggestNegativeTags(event); });
 els.negative.addEventListener('click', suggestNegativeTags);
 els.negative.addEventListener('keyup', negativeCaret);
 els.negative.addEventListener('keydown', (event) => editorListKeydown(event, els.negativeTagSuggestions, hideNegativeSuggestions));
@@ -224,6 +224,7 @@ window.addEventListener('resize', syncGalleryTop);
 // intersects. `loadGallery` serialises a click racing this.
 if (!moreWatcher) armMore();
 els.gridRun.onclick = runGrid;
+els.gridSizeAdd.onclick = addPanelSize;
 // The preview reflects the panel as much as the axes: a blank axis is the
 // control's own value, and both the size and the batch move the totals.
 // The negative prompt is in the list because a `{name}` placeholder may live
@@ -243,16 +244,27 @@ els.gridSection.addEventListener('toggle', () => scheduleComparePreview(0));
 // A grid variable's chip names the values the fold declares, and asks about
 // them (gridVariableTip): the tray reads the box again as it changes.
 els.gridPrompt.addEventListener('input', () => { if (gridVariableChips()) scheduleTagValidation(); });
+// On a tag checkpoint the box suggests tags for the value at the caret
+// (tag-lists.js, suggestGridValues).
+els.gridPrompt.addEventListener('input', suggestGridValues);
+els.gridPrompt.addEventListener('click', suggestGridValues);
+els.gridPrompt.addEventListener('keyup', gridValuesCaret);
+els.gridPrompt.addEventListener('keydown', (event) => editorListKeydown(event, els.gridTagSuggestions, hideGridSuggestions));
+els.gridPrompt.addEventListener('blur', hideGridSuggestions);
 els.gridSection.addEventListener('toggle', () => { if (gridVariableChips()) scheduleTagValidation(0); });
 // A listed seed axis makes the count and the base seed moot; say so in place.
 els.gridSeedList.addEventListener('input', () => {
   els.gridSeeds.disabled = els.gridSeedList.value.trim() !== '';
 });
 els.load.onclick = loadModel;
-restoreModelFavourites();
+// The gallery's stars, read once at the start and again as Models opens.
+void refreshModelFavourites();
 restoreModelGrouping();
 els.modelGroupByType.onchange = () => setModelGrouping(els.modelGroupByType.checked);
-window.addEventListener('storage', receiveModelFavourites);
+els.btnModelFavouritesImport.onclick = () => void importModelFavourites();
+els.btnModelFavouritesDismiss.onclick = dismissModelFavouriteOffer;
+els.modelStorage.addEventListener('toggle', () => { if (els.modelStorage.open) void loadModelStorage(); });
+els.btnModelStorageRefresh.onclick = () => void loadModelStorage({ fresh: true });
 els.models.onclick = () => showModelPicker(els.modelPicker.hidden);
 els.modelTable.addEventListener('change', (event) => {
   if (event.target.name === 'model-choice') modelPickerEdited('model_id');
@@ -676,7 +688,7 @@ for (const el of [els.editInstruction, els.editSeed, els.editSteps, els.editGuid
   el.addEventListener('input', editChanged);
 }
 
-// A delete's question (gallery-actions.js): Delete, Cancel, Enter in the count's box,
+// A delete's question (ask-dialog.js): Delete, Cancel, Enter in the count's box,
 // a press outside it. Escape is the dialog's own cancel, answered as Cancel.
 els.confirmOk.onclick = () => els.confirmDialog.close('ok');
 els.confirmCancel.onclick = () => els.confirmDialog.close('');
@@ -931,6 +943,8 @@ buildPresets();
 // Before the sync functions, which light the presets, the CFG note and the
 // runs hint up from whatever is in the boxes.
 restorePanel();
+// The Sampling fold as this browser left it, before the first paint.
+initSamplingFold();
 restoreExecutionDraft();
 syncExecutionControls();
 syncSubmitButtons();

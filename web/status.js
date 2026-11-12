@@ -122,6 +122,8 @@ function syncMuWords() {
     : d?.mu != null ? `none,${d.mu}` : '';
   els.gridMuField.title = why;
   els.gridMuTip.replaceChildren(...(why ? [why] : gridMuTipDefault));
+  // The Sampling fold's summary says Mu's blank as the placeholder does.
+  syncSamplingSummary();
 }
 
 // What steps/CFG/mu mean depends on the checkpoint - 8 steps at CFG 0 is right
@@ -227,6 +229,7 @@ function syncMu() {
     els.mu.value = '';
     els.gridMu.value = '';
   }
+  syncSamplingSummary();
 }
 
 // The editor's two actions on the card - ERNIE's rewriter and the prompt
@@ -244,76 +247,6 @@ function syncPromptExpansion() {
   syncUnload();
   syncSubmitButtons();
   syncCritic();
-}
-
-// Expand's one writer. Held - while it runs, a job is queued or running (this
-// page's, or another tab's: elsewhereBusy), the critic thinks or the server
-// does not answer - with aria-disabled and the
-// reason as its title, never disabled: a first use runs for minutes, and the
-// disabled button had dropped a keyboard user's focus to <body> for all of
-// them, and after a failure too; a press says why (expandPrompt). Running,
-// it reads "Expand…": "Expanding…" was 23 px wider, and at 1400 px wrapped
-// Reset onto a line of its own, moving the prompt box down under the pointer
-// for the length of the request. Its title names the expander and what a
-// first use costs; the settings' hold (FLUX 3's upsampler without offload,
-// `prompt_expander.held`) is the server's sentence.
-function syncExpandButton() {
-  els.expandPrompt.hidden = !promptExpansionSupported;
-  const why = expandingPrompt ? 'Expanding…'
-    : serverOffline ? 'The server is not answering'
-    : modelChangeHold() ? modelChangeHold()
-    : expanderStatus?.held ? expanderStatus.held
-    : busy ? 'A job is queued or running: Expand waits for the image queue to finish'
-    : elsewhereBusy ? EXPAND_ELSEWHERE
-    : critiquing ? 'Wait for the critic to finish'
-    : '';
-  const cost = expandCost();
-  const title = expandTitle();
-  els.expandPrompt.setAttribute('aria-disabled', String(!!why));
-  els.expandPrompt.title = why || (cost ? `${title}. ${cost}` : title);
-  // Running, it keeps the width it had idle, locked as the label changes, and
-  // the "…" takes its side padding (.running, fields.css): below 1800 px the
-  // caption row is exactly full at 1400 px, and the 9 px "Expand…" adds would
-  // wrap Reset onto a line of its own again. A locked width holds whatever
-  // the font or DPR; a trimmed padding would hold only while the ellipsis
-  // measured what it did.
-  const button = els.expandPrompt;
-  if (expandingPrompt && !button.classList.contains('running')) {
-    const width = button.getBoundingClientRect().width;
-    if (width) button.style.width = `${width}px`;
-  } else if (!expandingPrompt) {
-    button.style.removeProperty('width');
-  }
-  button.classList.toggle('running', expandingPrompt);
-  button.textContent = expandingPrompt ? 'Expand…' : 'Expand';
-}
-
-// The expander as the status names it: ERNIE's rewriter, or FLUX 3's
-// prompt upsampler (`prompt_expander.name`); ERNIE's before a status says.
-function expanderName() {
-  return expanderStatus?.name || "ERNIE's prompt rewriter";
-}
-
-// Expand's own title, index.html's for ERNIE.
-function expandTitle() {
-  return `Use ${expanderName()} once, put its result here, then review it before generating`;
-}
-
-// What a first Expand costs before it does anything, from the status: the
-// downloads a first use makes, else the expander's load into memory once a
-// session - as the critic's line names its own first download.
-function expandCost() {
-  const s = expanderStatus;
-  if (!s) return '';
-  const load = s.fetch?.length
-    ? `First use downloads ${s.fetch.map((f) => f.name).join(' and ')} (about ${humanBytes(s.fetch_bytes)}) once.`
-    : s.loaded ? '' : `Its first use this session loads ${expanderName()} into memory first.`;
-  // The retained first-use measurement is Klein's, including its loaded image
-  // model (docs/verified.md, 2026-11-10), not the upsampler's weights alone.
-  const flux3 = ['black-forest-labs/flux-3-image-klein', 'black-forest-labs/flux-3-image-klein-base'].includes(loadedModel);
-  const memory = flux3 && !s.loaded
-    ? 'First use needed about 41 GiB of process RAM with FLUX 3 [Klein] loaded on the measured PC.' : '';
-  return [load, memory].filter(Boolean).join(' ');
 }
 
 // Unload's one writer. setBusy, Expand and the critic each used to set it,
@@ -653,56 +586,6 @@ function loadFailureCard(s) {
   return card;
 }
 
-function clearPromptTranslation() {
-  translatedSource = null;
-  els.promptTranslation.value = '';
-  els.promptTranslationField.hidden = true;
-}
-
-// Every programmatic write to the prompt box - an example, Reuse, Reset, a tag
-// chip, an accepted suggestion, Expand - may fire no `input` event, so what
-// describes the old text is told here instead: its translation goes, and the
-// prompt check marks itself stale. Expand shows the translation it brings
-// after this.
-function promptReplaced() {
-  clearPromptTranslation();
-  syncAnalysisStale();
-}
-
-function showPromptTranslation(source, translation) {
-  translatedSource = source;
-  els.promptTranslation.value = translation;
-  els.promptTranslationField.hidden = false;
-}
-
-// The translation's place. Under the prompt in the panel below 1800 px; from
-// 1800 px at the head of the results instead, where it has the column's
-// width and its own height (styles/analysis.css): in the panel's sticky column its
-// four rows showed a fifth of a long expansion's English, and the field
-// pushed Generate below the window at 2048x1040 at 125% while the results
-// column stood idle. Moved whole, with focus and a selection in it kept, as
-// placeTagValidation keeps them.
-const TRANSLATION_WIDE = matchMedia('(min-width: 1800px)');
-function placeTranslation() {
-  const field = els.promptTranslationField;
-  // Under the prompt: before the negative, or before Size where a phone has
-  // put the negative in More options' sheet (phone.js), which is no place
-  // for the English.
-  const panel = els.prompt.closest('.panel');
-  const [host, before] = TRANSLATION_WIDE.matches ? [els.stage, els.viewer]
-    : [panel, els.negField.parentElement === panel ? els.negField : els.presets.closest('.field')];
-  if (field.parentElement === host && field.nextElementSibling === before) return;
-  const focused = document.activeElement;
-  const inside = field.contains(focused);
-  const range = inside && typeof focused.selectionStart === 'number'
-    ? [focused.selectionStart, focused.selectionEnd, focused.selectionDirection] : null;
-  if (typeof host.moveBefore === 'function') host.moveBefore(field, before);
-  else host.insertBefore(field, before);
-  if (!inside || focused === document.activeElement) return;
-  focused.focus({ preventScroll: true });
-  if (range) focused.setSelectionRange(...range);
-}
-
 // A translation the panel remembered (panel.js, restorePanel), shown once the
 // first status says the checkpoint expands prompts, and only while the box
 // still holds the prompt it translates.
@@ -896,10 +779,12 @@ function receiveStatus(s, asked = Date.now()) {
     // the loaded schedule answers (`start_sigma`): a load that lands with the
     // dialog open adds the line, an unload takes it away.
     if (els.dot.classList.contains('ready') !== (s.state === 'ready')) {
-      schedulePreview();
-      if (refineSource) scheduleRefinePreview();
-      if (inpaintSource) scheduleInpaintPreview();
-      if (outpaintSource) scheduleOutpaintPreview();
+      // Asked by the poll, not by anyone - idle release's unload is one -
+      // so these previews never count as use (POLL_HEADER, markPreview).
+      schedulePreview({ polled: true });
+      if (refineSource) scheduleRefinePreview(250, { polled: true });
+      if (inpaintSource) scheduleInpaintPreview(250, { polled: true });
+      if (outpaintSource) scheduleOutpaintPreview(250, { polled: true });
     }
     els.dot.className = `dot ${s.state}`;
     const was = modelState;

@@ -107,7 +107,7 @@ def test_seeds_the_gallery_or_a_live_job_has_are_stepped_over(client, fake, stor
     assert (row["first"], row["last"], row["skipped"]) == (203, 204, 1)
     # A first press still running holds its seeds: a second continues past.
     release = threading.Event()
-    fake.after_generate = lambda: release.wait(5)
+    fake.after_generate = lambda: release.wait(30)
     try:
         first = queue(client, ids=[images[0]["id"]], count=2)
         second = preview(client, ids=[images[0]["id"]], count=2)["results"][0]

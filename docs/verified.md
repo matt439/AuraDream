@@ -807,6 +807,7 @@ Evidence: `samples.jsonl`, `events.jsonl` and the PNG in
 | Animagine XL 4.0, Batch 8 at 1 MP | 9.6 GB of the 16 as read off the card, which is what raised the Batch cap to 12; Batch 12 read 11.3 GB on 2026-10-21 (Checkpoints, "Size and batch gaps") | 2026-09-12 |
 | Reference images on klein | The referenced scene reappears in the asked-for pose, same hash twice; no 2-3x cost (see the table) | 2026-09-08 |
 | Live preview | Matrices fitted on the card, R-squared 0.964 (FLUX VAE) and 0.950 (Qwen-Image VAE); frames looked at; Z-Image frames at steps 2/4/6 of 8 in the right colours | 2026-09-08 |
+| SDXL's live-preview map (`AutoencoderKL/4`), fitted on the CPU, not the card (`tools/fit_latent_preview.py`, float32, no download; Windows 11's 26 stock wallpapers and lock-screen photos, two 512 px crops each, every fifth image held out) | The recipe first refitted FLUX.1 Krea [dev]'s VAE: 0.966 held out, against the card fit's 0.964 (the shipped FLUX matrix scores 0.898 on these images and is unchanged). SDXL from Animagine XL 4.0's VAE (`sdxl-vae-fp16-fix`, latents `z * 0.13025`): R-squared 0.904 fitted, 0.909 held out; the same map scores 0.905 on Kohaku XL Zeta's and NoobAI's VAEs. Frames on the card not yet looked at | 2026-11-12 |
 | Ctrl-C during a load | SIGINT 12 s into a load exits in 3 s with the lifespan run | 2026-09-08 |
 | Ctrl-C mid-sweep with a stream attached | `done` (cancelled) reaches the stream 0.2 s after the signal; the process is gone 3 s later | 2026-09-08 |
 | Pause | Acknowledged at the cell boundary, where a paused 512x512 grid held 2,046 MiB of the card (whole-card `nvidia-smi`, desktop included); a 1 MP fp8 denoise reads 14,950 MiB | 2026-09-08 |
@@ -875,9 +876,10 @@ Turbo's fp8 reproduction across two processes, and its 4 MP batch of two
 on fp8 (refused by the harness's projection, not run); the page's Expand
 line and clock over the rewriter's real download; a live-preview map for
 FLUX.2's VAE (ERNIE, klein);
-Animagine XL 4.0's four-channel SDXL VAE preview fit (its LoRA row is above; its fp8
-speed and memory are the October 5 row above; the quantization and offload
-settings of its earlier successful user run were not recorded). Illustrious XL
+SDXL's live-preview frames on the card (the map's CPU fit is a Behaviour
+row; Animagine XL 4.0's LoRA row is above, its fp8 speed and memory are the
+October 5 row above, and the quantization and offload settings of its
+earlier successful user run were not recorded). Illustrious XL
 v2.0-STABLE LoRA behavior and batch scaling are also unmeasured; its fp8 peak
 is the October 5 row, and its int8, full-bfloat16 and sequential-offload
 runs, each repeating its own pixels, are in "Quantization and offload".

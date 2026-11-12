@@ -2,7 +2,7 @@
 # linux/control.sh; sourced, never run on its own. Plain bash, ASCII only,
 # no sudo.
 #
-# Test seams (tests/test_linux_scripts.py), as in install.ps1:
+# Test seams (tests/linux_script_helpers.py), as in install.ps1:
 #   AURADREAM_INSTALL_TEST_ROOT        the project folder, instead of this
 #                                      script's own checkout
 #   AURADREAM_INSTALL_TEST_PROC_VERSION a file read instead of /proc/version

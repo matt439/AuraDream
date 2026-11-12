@@ -11,14 +11,14 @@ def test_load_clock_is_shared_by_waiters_and_clears_on_completion(client, fake, 
 
     def load():
         entered.set()
-        assert release.wait(5)
+        assert release.wait(30)
         original()
 
     monkeypatch.setattr(fake, "load", load)
     assert client.post("/api/model/unload", headers={"Origin": ORIGIN}).status_code == 200
     try:
         first = client.post("/api/model/load", headers={"Origin": ORIGIN})
-        assert entered.wait(5)
+        assert entered.wait(30)
         assert first.status_code == 200 and first.json()["state"] == "loading"
         started = first.json()["load_started_at"]
         assert isinstance(started, float)

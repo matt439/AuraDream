@@ -2011,6 +2011,9 @@ class DiffusersBackend(GenerationBackend):
             sigma = float(pipe.scheduler.sigmas[begin + step + 1])
         except Exception:  # noqa: BLE001 - a scheduler without sigmas: draw it plain
             sigma = 0.0
+        # SDXL's Euler sigmas are not flow matching's: put the latent in the
+        # flow form `render` reads (a flow scheduler's passes unchanged).
+        latent, sigma = latent_preview.flow_view(getattr(pipe, "scheduler", None), latent, sigma)
         return latent_preview.render(latent, factors, sigma)
 
     # ----------------------------------------------------------------- status

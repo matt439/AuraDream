@@ -26,7 +26,7 @@ from tests.model_switch_helpers import (  # noqa: F401  (fixtures by name)
 
 
 def _settled(client, model_id, state="ready"):
-    deadline = time.monotonic() + 5
+    deadline = time.monotonic() + 30
     while time.monotonic() < deadline:
         body = client.get("/api/status").json()
         if body["model_id"] == model_id and body["state"] == state and not body["switching"]:
@@ -225,7 +225,7 @@ def test_switch_refuses_an_existing_load(client, fake, monkeypatch):
     monkeypatch.setattr(fake, "load", waiting_load)
     try:
         assert client.post("/api/model/load").status_code == 200
-        assert started.wait(5)
+        assert started.wait(30)
         reply = client.post("/api/model/switch", json={"model_id": ANIMAGINE})
         assert reply.status_code == 409, reply.text
         assert client.get("/api/status").json()["model_id"] == initial["model_id"]
@@ -262,7 +262,7 @@ def test_switch_refuses_an_editor_action_holding_the_card(client, fake, monkeypa
     with ThreadPoolExecutor(1) as pool:
         try:
             pending = pool.submit(client.post, route, json=PAYLOAD)
-            assert started.wait(5)
+            assert started.wait(30)
             assert client.get("/api/status").json()["card_holder"] == holder
             reply = client.post("/api/model/switch", json={"model_id": ANIMAGINE})
             assert reply.status_code == 409, reply.text
@@ -270,7 +270,7 @@ def test_switch_refuses_an_editor_action_holding_the_card(client, fake, monkeypa
             assert fake.loaded
         finally:
             release.set()
-        assert pending.result(timeout=5).status_code == 200
+        assert pending.result(timeout=30).status_code == 200
 
 
 def test_switch_load_failure_can_be_retried_and_another_model_selected(client, fake, monkeypatch):
@@ -395,7 +395,7 @@ def test_switch_reserves_teardown_and_loading_against_new_model_work(client, fak
     try:
         reply = client.post("/api/model/switch", json={"model_id": ANIMAGINE})
         assert reply.status_code == 200, reply.text
-        assert unloading.wait(5)
+        assert unloading.wait(30)
         status = client.get("/api/status").json()
         assert status["switching"] and status["model_id"] == initial["model_id"]
         for route in (
@@ -409,7 +409,7 @@ def test_switch_reserves_teardown_and_loading_against_new_model_work(client, fak
         assert client.post("/api/model/switch", json={"model_id": TURBO}).status_code == 409
         assert not fake.requests and fake.loaded
         release_unload.set()
-        assert loading.wait(5)
+        assert loading.wait(30)
         # Selected: the rest is an ordinary load, as after Apply & save then
         # Load. Cold work answers and a Generate queues behind the weights;
         # another switch and an unload are still refused.
@@ -450,14 +450,14 @@ def test_switch_refuses_a_request_between_validation_and_job_submission(client, 
     with ThreadPoolExecutor(1) as pool:
         try:
             pending = pool.submit(client.post, "/api/generate", json=PAYLOAD)
-            assert validating.wait(5)
+            assert validating.wait(30)
             assert not main.jobs.active()  # Admission, before any queue entry.
             refused = client.post("/api/model/switch", json={"model_id": ANIMAGINE})
             assert refused.status_code == 409, refused.text
             assert client.get("/api/status").json()["model_id"] == initial["model_id"]
         finally:
             release.set()
-        accepted = pending.result(timeout=5)
+        accepted = pending.result(timeout=30)
     assert accepted.status_code == 200, accepted.text
     done = stream_job(client, accepted.json()["job_id"])[-1]
     assert done["images"][0]["model_id"] == initial["model_id"]
@@ -484,7 +484,7 @@ def test_switch_waits_out_a_model_request_already_in_flight(client, fake, monkey
     with ThreadPoolExecutor(2) as pool:
         try:
             pending = pool.submit(client.post, "/api/prompt/measure", json={"prompt": "a lighthouse"})
-            assert measuring.wait(5)
+            assert measuring.wait(30)
             switching = pool.submit(client.post, "/api/model/switch", json={"model_id": ANIMAGINE})
             until(lambda: main._switch_draining)
             # New readers are refused meanwhile, so the wait ends.
@@ -493,8 +493,8 @@ def test_switch_waits_out_a_model_request_already_in_flight(client, fake, monkey
             assert client.post("/api/model/switch", json={"model_id": TURBO}).status_code == 409
         finally:
             release.set()
-        assert pending.result(timeout=5).status_code == 200
-        reply = switching.result(timeout=5)
+        assert pending.result(timeout=30).status_code == 200
+        reply = switching.result(timeout=30)
     assert reply.status_code == 200, reply.text
     _settled(client, ANIMAGINE)
     assert not main._switch_draining and main._model_requests == 0
@@ -506,7 +506,7 @@ def test_switch_names_a_model_request_that_outlasts_its_wait(client, fake, monke
     with ThreadPoolExecutor(1) as pool:
         try:
             pending = pool.submit(client.post, "/api/prompt/measure", json={"prompt": "a lighthouse"})
-            assert measuring.wait(5)
+            assert measuring.wait(30)
             refused = client.post("/api/model/switch", json={"model_id": ANIMAGINE})
             assert refused.status_code == 409, refused.text
             assert "/api/prompt/measure" in refused.json()["detail"]
@@ -516,7 +516,7 @@ def test_switch_names_a_model_request_that_outlasts_its_wait(client, fake, monke
             assert client.get("/api/loras").status_code == 200
         finally:
             release.set()
-        assert pending.result(timeout=5).status_code == 200
+        assert pending.result(timeout=30).status_code == 200
     _switch(client, ANIMAGINE)
 
 
@@ -576,11 +576,11 @@ def test_status_retries_a_description_that_crossed_a_switch(client, fake, monkey
     with ThreadPoolExecutor(1) as pool:
         try:
             pending = pool.submit(client.get, "/api/status")
-            assert describing.wait(5)
+            assert describing.wait(30)
             changed = _switch(client, ANIMAGINE)
         finally:
             release.set()
-        status = pending.result(timeout=5).json()
+        status = pending.result(timeout=30).json()
     assert status["model_id"] == ANIMAGINE
     assert status["model_revision"] == changed["model_revision"] == initial["model_revision"] + 1
     assert status["defaults"]["steps"] == defaults_for(ANIMAGINE)["steps"]
@@ -610,11 +610,11 @@ def test_status_retries_a_newest_id_read_that_crossed_a_switch(client, fake, mon
     with ThreadPoolExecutor(1) as pool:
         try:
             pending = pool.submit(client.get, "/api/status")
-            assert reading.wait(5)
+            assert reading.wait(30)
             changed = _switch(client, ANIMAGINE)
         finally:
             release.set()
-        status = pending.result(timeout=5).json()
+        status = pending.result(timeout=30).json()
     assert status["model_id"] == ANIMAGINE
     assert status["model_revision"] == changed["model_revision"] == initial["model_revision"] + 1
     assert status["defaults"]["steps"] == defaults_for(ANIMAGINE)["steps"]
@@ -688,10 +688,10 @@ def test_switch_rechecks_revision_after_a_slow_request_body(fake):
                 },
             ))
             try:
-                await asyncio.wait_for(body_started.wait(), timeout=5)
+                await asyncio.wait_for(body_started.wait(), timeout=30)
                 reply = await client.post("/api/model/switch", json={"model_id": ANIMAGINE})
                 assert reply.status_code == 200, reply.text
-                deadline = time.monotonic() + 5
+                deadline = time.monotonic() + 30
                 while True:
                     changed = (await client.get("/api/status")).json()
                     if changed["model_id"] == ANIMAGINE and not changed["switching"]:
@@ -702,7 +702,7 @@ def test_switch_rechecks_revision_after_a_slow_request_body(fake):
                 assert changed["model_revision"] == initial["model_revision"] + 1
             finally:
                 release_body.set()
-            refused = await asyncio.wait_for(pending, timeout=5)
+            refused = await asyncio.wait_for(pending, timeout=30)
             assert refused.status_code == 409, refused.text
             current = (await client.get("/api/status")).json()
             assert (current["model_id"], current["model_revision"], current["switching"]) == (

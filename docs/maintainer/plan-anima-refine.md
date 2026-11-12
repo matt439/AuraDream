@@ -1,6 +1,7 @@
 # Anima Refine
 
-**Status: stage 0 done, 2026-11-11; implementation and card qualification remain.**
+**Status: stages 0 and 1 done (2026-11-11, 2026-11-12); card qualification
+(stage 2) and release (stage 3) remain.** The public Refine is still held.
 Matt selected Anima as the first family for `GEN#48` on 2026-11-11.
 This closes the family choice in the [peer review](review-2026-11-10-peers.md#r1-refine-on-the-families-that-have-none).
 It does not qualify a Refine pass or authorize a GPU run. No capability,
@@ -129,6 +130,79 @@ Inpaint, outpaint, references, user LoRAs and Nunchaku stay outside this slice.
 Completion: focused Anima/refine/schedule/backend tests and applicable
 lint/type checks pass, with public Refine still held. Record the commands
 and results here. No new `refine_measured` result is invented.
+
+#### Stage 1 result, 2026-11-12
+
+Built on CPU only, with no weights, downloads or GPU:
+
+- [`backend/backends/anima_refine.py`](../../backend/backends/anima_refine.py)
+  holds `AnimaTurboImg2ImgPipeline`, `AnimaAestheticImg2ImgPipeline` and
+  `AnimaPreviewImg2ImgPipeline` (the `IMG2IMG` map from each local text
+  class). Each subclasses its family's text pipeline, keeps its exact
+  `__init__` signature so `refine.build` hands over the loaded components,
+  and runs the upstream `AnimaTextEncoderStep`, `AnimaImg2ImgVaeEncoderStep`,
+  `AnimaImg2ImgCoreDenoiseStep` (its denoise sub-block replaced by the text
+  pipeline's callback step) and `AnimaDecodeStep` directly, in the text
+  call's `try`/`finally` (fresh guider enabled only above CFG 1, callback
+  cleared, `maybe_free_model_hooks`). `num_timesteps` is the sliced count,
+  set right after the `set_timesteps` block and so before the first
+  callback. `strength` has no default; a strength outside (0, 1] or one
+  whose slice is empty is refused before any component runs.
+- Flow rounding is `anima_refine.start_index`/`steps_run`, the installed
+  `get_timesteps` arithmetic in its own order. It is deliberately not yet
+  wired into `refine.start_index`, which still answers None for Anima
+  because the profiles keep `refine_supported` false; stage 3 carries it
+  into that function (a rounding policy separate from `mu_supported`),
+  progress, estimates and the duplicate advisory, leaving every existing
+  family's count unchanged.
+- `start_sigma(steps, strength)` runs the installed
+  `AnimaImg2ImgSetTimestepsStep` on a scheduler built from the loaded one's
+  config with its static shift and reads the sigma at the begin index; the
+  live scheduler is not touched. It refuses, with the call's own
+  `ValueError` (`refuse_empty`), every strength the call refuses, so it
+  never names the trailing 0.0 of an empty slice. Stage 3 connects it to the backend's
+  `start_sigma` (Anima has no `START_RECIPES` entry and must not get Mu).
+- Nothing imports the module outside its tests; `refine.sibling` still
+  answers None for all three text classes and their image-to-image classes.
+
+[`tests/test_anima_refine.py`](../../tests/test_anima_refine.py) extends the
+existing Anima CPU fixtures with a VAE whose posterior sample differs from
+its mode and whose latents mean/std are not the identity, and runs every
+pass test against all three classes built through `refine.build`. It checks:
+the resolver and the three profiles still refuse; the call takes `REQUIRED`
+and every `CARRIED` parameter its text class takes, with Turbo's 8/CFG 1 and
+Aesthetic/Preview's 30/CFG 4 defaults; the stage 0 probe table against the
+installed block; `start_index`/`steps_run` against the block for ten step
+counts by 108 strengths (fractional boundaries included), and that
+`refine.start_index`'s non-Mu branch, called for Animagine, answers three of
+eight where Anima runs four; the start sigma equals the first callback's
+begin-index sigma and timestep, with the live scheduler's timesteps, sigmas,
+begin index and shift unchanged, a runtime `set_shift(5.0)` on the live
+scheduler reaches the copy (the pass and the reading agree on shift 5's
+sigma), and strengths the call refuses are refused by the reading too; the first
+denoiser input is exactly `sigma * noise + (1 - sigma) * normalised mode`,
+the noise the generator's first draw; two sources give different pictures;
+one image per call reproduces its seed (scalar or one-element list) and
+another seed differs; the negative prompt is encoded and applied only above
+CFG 1 (CFG 0, 1 and 4, against the first Euler step's arithmetic); every
+component is the loaded pipeline's object, with no module or pipeline
+`.to`, Hub download, dtype or device change; a direct text render keeps its
+pixels and noise stream after a pass; the callback sees the sliced count,
+scheduler step index and timesteps; cleanup after success, an exception and
+a cancel (no decode, no "Error in block" log, callback cleared, the owner's
+real CPU offload hooks rebuilt), and a clean pass after the cancel.
+
+Commands and results, 2026-11-12 (CPU, `CUDA_VISIBLE_DEVICES` empty):
+`uv run --group dev pytest tests/test_anima_refine.py tests/test_anima_pipeline.py`
+78 passed; `uv run --group dev ruff check .` clean;
+`uv run --group dev python tools/typecheck.py` 0 errors; the full suite
+`uv run --group dev pytest -n 6` 9367 passed, 254 skipped. No smoke covers
+this: nothing in the page or the HTTP answers changed.
+
+Not done here and not claimed: a real VAE or quantized denoiser, image
+quality, memory, speed, the backend's `_refine` loop over these classes,
+inpaint, outpaint, references, user LoRAs and Nunchaku. The next step is
+stage 2 on the card, separately authorized.
 
 ### 2. Card qualification, separately authorized
 

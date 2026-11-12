@@ -53,6 +53,7 @@ let outpaintOpenEpoch = 0;
 let outpaintLoraDrops = 0;
 let outpaintTimer;
 let outpaintEpoch = 0;
+const outpaintPreviewMark = { pending: false, polled: false };  // markPreview (state.js)
 let outpaintProblem = null;
 let outpaintPreviewed = null;
 let outpaintCheckTimer;
@@ -757,8 +758,9 @@ function outpaintRequest() {
   return { path: '/api/grid', body, preview: body, sweep: true };
 }
 
-function scheduleOutpaintPreview(delay = 250) {
+function scheduleOutpaintPreview(delay = 250, { polled = false } = {}) {
   clearTimeout(outpaintTimer);
+  markPreview(outpaintPreviewMark, polled);
   outpaintTimer = setTimeout(previewOutpaint, delay);
 }
 
@@ -769,6 +771,7 @@ function scheduleOutpaintPreview(delay = 250) {
 // padding, a band too wide, a fill this build has not, a source gone. Nothing
 // is asked while the sides themselves hold Outpaint: it says why.
 async function previewOutpaint() {
+  const polled = takePreviewMark(outpaintPreviewMark);
   if (!outpaintSource || !els.outpaintDialog.open) return;
   const epoch = ++outpaintEpoch;
   const { preview, sweep } = outpaintRequest();
@@ -791,11 +794,11 @@ async function previewOutpaint() {
     return;
   }
   try {
-    const p = await api('/api/grid/preview', {
+    const p = await api('/api/grid/preview', polledIf(polled, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(preview),
-    });
+    }));
     if (epoch !== outpaintEpoch) return;
     const strengths = p.values.strength ?? [];
     const steps = p.values.steps?.[0];

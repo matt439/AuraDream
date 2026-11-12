@@ -334,6 +334,30 @@ def test_passcode_row_reads_the_settings_and_is_one_of_the_checks(monkeypatch):
     assert doctor.report([short])[1] == 1
 
 
+def test_tls_row_loads_the_pair_as_the_server_does(monkeypatch, tmp_path):
+    import dataclasses
+
+    from tests.tls_helpers import loopback_certificate
+
+    assert doctor.check_tls in doctor.CHECKS
+    assert doctor.check_tls() == []                 # the suite's defaults: plain http, no row
+    (tmp_path / "a").mkdir()
+    (tmp_path / "b").mkdir()
+    certfile, keyfile = loopback_certificate(tmp_path / "a")
+    _, other_key = loopback_certificate(tmp_path / "b")
+    [good] = doctor.check_tls((certfile, keyfile))
+    assert good.status == PASS and good.title == "TLS" and not good.fix
+    [mismatched] = doctor.check_tls((certfile, other_key))
+    assert mismatched.status == FAIL and "is not the private key" in mismatched.detail
+    assert mismatched.detail.endswith("so the server will not start.") and mismatched.fix
+    [half] = doctor.check_tls((certfile, None))
+    assert half.status == FAIL and half.fix and "., so" not in half.detail
+    monkeypatch.setattr(doctor, "settings", dataclasses.replace(
+        doctor.settings, ssl_certfile=certfile, ssl_keyfile=other_key))
+    [read] = doctor.check_tls()
+    assert read.status == FAIL and doctor.report([read])[1] == 1
+
+
 def test_hf_login_is_the_token_file_only(tmp_path):
     token = tmp_path / "token"
     [missing] = doctor.check_hf_login(token, environ={})

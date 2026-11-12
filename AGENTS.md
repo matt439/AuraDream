@@ -14,7 +14,7 @@ FLUX.1 Kontext [dev], only edits, and its loads are held (the edit gate below).
 
 This file is the short version. Before changing an area, read its part of
 **`docs/rules.md`** (every rule in full, the module map, what each smoke
-covers) and its section of **`docs/design-notes.md`** (why, and what went
+covers; its headings name the areas, `grep -nE "^##+ " docs/rules.md`) and its section of **`docs/design-notes.md`** (why, and what went
 wrong before). `docs/verified.md` lists what has been measured on the card.
 **`TODO.md`** indexes open work, one row per item pointing to its owner; a
 fresh thread starts at its NOW.
@@ -78,294 +78,17 @@ in `auradream.settings.json`; explicit environment/flags override them.
 
 ## Layout
 
-Backend (`backend/`):
+Every file is mapped in [`docs/rules.md`'s Layout](docs/rules.md#layout); read the area's part before changing it. One line per area:
 
-- `idle_unload.py` owns default-off idle release on KeepAwake's activity clock;
-  `server_transport.py` exact extra origins and the optional PEM TLS pair;
-  `download_progress.py` approximate selected-cache samples for status;
-  `api_model_storage.py` / `model_cache_storage.py` the explicit read-only
-  cache inventory (unreferenced never means safe to delete);
-  `api_guide.py` renders only checkout-owned usage Markdown at `/guide`,
-  with `web/guide.css` outside the app's stylesheet cascade
-
-- `config.py` settings (`AURADREAM_*`) and cold external-attention warning;
-  `legacy_names.py` where pre-rename (Local Diffusion) files keep working;
-  `launch.py` start-up menu,
-  `--model/--quant/--offload`, the checkpoint catalogue;
-  `loader_choices.py` the quantization/offload wording the menu and picker share
-- `model_selection.py` current server checkpoint/loading options/revision,
-  separate from frozen startup settings; runtime readers use
-  `current_model_id(settings)` / `current_settings(settings)`;
-  `startup_preferences.py` atomically saves loader/startup choices;
-  `model_info.py` supplies cold catalogue details from existing sourced guides,
-  and a fit badge for a card smaller than a build's measured need (`card_fit`),
-  and each entry's capability flags as a Models note and docs/usage.md's
-  generated table (`capabilities_for`, `tools/capability_table.py --write`);
-  `hub_access.py` asks the Hub whether a switch's checkpoint can download;
-  `hf_sign_in.py` whether a Hugging Face token is present (existence only,
-  shared by the doctor and the status that preselects an open checkpoint);
-  `card_facts.py` the server's CUDA card (total memory, compute capability;
-  None when unknown), read once and off the event loop; on a card of
-  another size the status's measured refine/inpaint words say they are the
-  16 GB card's (`model_defaults.card_words`);
-  `model_benchmarks.py` supplies retained timing references and speed categories
-- `execution.py` frozen execution recipes, composer/replay resolution, cold candidate checks and shared
-  SQL/PNG codecs; nonempty recipes remain unavailable until runtime support
-- `compiler_cache.py` private one-use startup binding for compiler artifact
-  directories; Eager stays cold and no public recipe is activated
-- `schemas.py` re-exports the request/response models, each defined in
-  `schemas_generate.py` (the generation request and `applied()`, grids, job
-  answers, Load settings from PNG's), `schemas_outpaint.py` (an outpaint's
-  spec, the mask and preset answers), `schemas_prompt.py` (Expand, Check, critic, tag lookup),
-  `schemas_gallery.py` (records, runs, bin), `schemas_rerun.py` (Re-render,
-  Swap tags, Mass refine, More seeds), `schemas_model.py` (model status,
-  guide, switch) or `schemas_snippets.py` (personal prompt snippets), with
-  the instruction edit's spec from `instruction_edit.py`; `model_defaults.py` per-checkpoint profiles; `guides.py` each checkpoint's sourced prompting guide and its
-  `analysis` data
-- `main.py` lifecycle, model state, switching and the model routes;
-  `app_context.py` the `AppServices` getters routers read main through;
-  `detached.py` daemon-thread calls; `keep_awake.py` the Linux
-  `systemd-inhibit` hold, and Windows' power request (`PowerRequest`),
-  while busy and for the idle minutes after a request
-  (`ActivityMiddleware`, never the page's timed polls), stdlib only, the
-  CLI's `hold_while` too; `response_headers.py` the ASGI layer putting
-  `frame-ancestors 'self'` and `nosniff` on every response, added last in
-  `main` so it is outermost; `passcode.py` the opt-in passcode
-  (`AURADREAM_PASSCODE`) for a server reachable beyond this machine: the
-  gate, the session cookie, the limiter on wrong passcodes and the ASGI
-  layer with its sign-in and sign-out routes, stdlib and Starlette only;
-  `api_prompt.py` tag helper and prompt
-  routes, `prompt_check.py` Check's layer 1, `tag_lookup.py` the Danbooru
-  lookup (`tag_vocabulary`); `submission.py` submit checks and the gallery
-  selection, its service-free checks and wording in `submission_rules.py`
-  (what the CLI imports); `api_generate.py` generate and grid,
-  `api_rerender.py` Re-render, `api_runs.py` run details and Finish run,
-  `api_swap.py`,
-  `api_refine_batch.py`, `api_more_seeds.py` the gallery actions' routes
-  (More seeds' plan in `more_seeds_planner.py`, which run details share);
-  `api_png.py` Load settings from PNG (a PNG's text chunks as the panel's
-  settings, after `applied()`); `api_masks.py` an inpaint's mask stored
-  and served by its hash, and an outpaint's presets
-  (`GET /api/images/{id}/outpaint-presets`); `outpaint.py` an outpaint's
-  pure parts (the padded source and its fills, the built mask, the presets);
-  `api_gallery.py`, `api_jobs.py` the gallery and job routes; `api_bundles.py` browser bundle
-  routes, re-exporting `bundle_manager.py` (maintenance admission,
-  `BundleManager`/`GalleryAdmission`) and `schemas_bundles.py` (its bodies); `bundles.py` verified export/merge,
-  `bundle_archive.py` the archive format and its verifying read,
-  `bundle_images.py` a tracked PNG's identity, row checks and metadata
-  rewrite, `bundle_recovery.py` what an import gives back to new rows
-  (masks, outpaint specs, masked areas), `bundle_common.py` their errors and
-  database reads,
-  `bundle_crypto.py` its optional password layer;
-  `backup_policy.py` pure default-off backup age and retention planning;
-  `backup_preferences.py` the backup settings sidecar's path (its v1 format legacy);
-  `backup_settings.py` explicit versioned activation and durable backup scope;
-  `backup_credentials.py` cold Windows credential references, explicit setup and
-  admitted-worker secret lookup; `failure_state.py` traceback-free quarantine snapshots;
-  `backup_receipts.py` internal managed-export identity, byte proof and atomic journal;
-  `backup_coordinator.py` one-attempt due/export worker using bundle admission;
-  `backup_retention.py` separately consented post-success cleanup and pending-intent stops;
-  `backup_service.py` default-off startup/configuration/status lifecycle;
-  `api_backup.py` explicit backup configuration and cached status routes,
-  with models in `schemas_backup.py`;
-  `gallery_lock.py` reservations across storage threads and processes
-- `presets.py` bounded atomic named generation/grid drafts, with strict raw
-  types in `schemas_presets.py`; `preset_validation.py` cold effective
-  summaries and `api_presets.py` revisioned CRUD/validation, independent of
-  gallery maintenance; `web/generation-presets.js` owns explicit composer
-  Restore, its whole-draft Undo and the Saved setups dialog
-- `preset_portability.py` - cold raw setup export/digests and explicit file-index
-  merge plans; `schemas_preset_portability.py` owns the native document and
-  choice/preview models; `strict_json.py` bounds only the new UTF-8 document
-  syntax, without changing existing sidecar or snippet readers; `api_presets.py`
-  exposes bounded export/preview/import, with atomic commit under `presets.py`'s
-  reservation (raw drafts only: no capture validation, model, queue or Hub)
-- `snippets.py` bounded atomic personal prompt snippets beside the startup
-  preferences, under their own cross-process reservation
-- `snippet_portability.py` - cold portable snippet codec, collection/input
-  digests and pure merge plans; `schemas_snippet_portability.py` owns strict
-  portable documents and file-index choices; `api_snippets.py` exposes bounded
-  export/preview/import, with atomic commit under `snippets.py`'s reservation;
-  `bounded_route.py` the route class both import routers read their bounded
-  bodies through, each keeping its own words and error mapping
-- `saved_searches.py` bounded atomic database-scoped gallery filters,
-  `schemas_saved_searches.py` their strict fields and revisions, and
-  `api_saved_searches.py` model-free CRUD independent of gallery maintenance;
-  `web/saved-searches.js` owns their explicit dialog; its Apply is
-  `web/gallery.js`'s one filter transition (`applyGalleryFilter`)
-- `bundle_leases.py` archive reader/exclusive leases, complete download/import
-  lifetimes and uncertain-input quarantine, with opt-in shared companion locks in
-  `bundle_file_lock.py`; `bundle_mode.py` explicit Windows/NTFS mode installation
-  and destination discovery; `bundle_delete.py` same-handle managed
-  deletion mechanism; `bundle_capacity.py` managed-export logical-byte budgets
-- `jobs.py` single-worker queue and SSE; `job_state.py` the `Job` record and
-  its status snapshot (`jobs` re-exports it); `error_text.py` `short_error`,
-  stdlib only (`jobs` re-exports it), and `generation_error` the plain
-  memory-failure advice for loads and cells; `storage.py` SQLite + PNGs;
-  `gallery_partials.py` the bundles/staging directories and settling stale
-  partials (as `storage.<name>`);
-  `metadata.py` the PNG chunk's key and codec, legacy `krea` reader and file-placement guard;
-  `record_fields.py` the pure row/chunk field codecs (mask hash and decode,
-  outpaint chunk, peaks), imported back into storage by name;
-  `png_settings.py` a PNG's record and A1111 'parameters' block read back
-  (`--from-image` and `api_png.py` share it);
-  `gallery_reports.py` estimates, keep rates, runs; `gallery_delete.py`
-  scoped delete, recycle bin, clear; `run_jobs.py` retained run jobs (Finish
-  run's cells and outcomes, reached as `storage.<name>`);
-  `search.py` search grammar; `grid.py` axes, variables, variants, cells,
-  records as cells (`cell_from_record`); `tag_swap.py` Swap tags' rewrite;
-  `refine_batch.py` Mass refine's per-image plan; `then_refine.py` Then
-  refine's stand-in pass, refusals and pass run id; `more_seeds.py` More
-  seeds' batches and their next seeds; `more_seeds_intents.py` bounded
-  preview-issued submission receipts and safe retries;
-  `seeds.py`; `sizes.py` presets, size guards and tier mapping; `loras.py` adapter names to
-  paths; `instruction_edit.py` the frozen Kontext recipe, strict source types,
-  geometry, bound keys and held reasons; `instruction_edit_preflight.py` cold
-  supplied-config checks and the qualified config pin (`require_pinned`);
-  `instruction_edit_admission.py` gallery-source proof (`load_bound_source`
-  for the call); `api_instruction_edit.py` the preview and
-  `POST /api/instruction-edit`, queueing only behind the backend's
-  `instruction_edit_qualified()`;
-  `refine.py` the image-to-image pass and the inpaint (`sibling(kind)`,
-  `composite`); `latent_preview.py`
-- Prompt analyser: `prompt_encoding.py` (tokenizers), `encoder_table.py`
-  (each checkpoint's encoders and copied pipeline templates),
-  `prompt_weighting.py` (literal weighting syntax), `prompt_text.py`,
-  `prompt_parts.py` (a hybrid prompt's tag and prose passages, read in
-  context), `prompt_order.py`, `prompt_rules.py` (rule checks), `prompt_sources.py`
-  (what the critic may cite), `critic.py` + `critic_runtime.py`,
-  `critic_server.py`, `critic_context.py`, `critic_reorder.py`,
-  `critic_validation.py`, `critic_issues.py` (what an issue restates or
-  wants of the order); `tags.py` Danbooru lookup; `translation.py`
-  ERNIE's Marian translation
-- `backends/`: `base.py` (the ABC), `diffusers_backend.py`, `loading.py`
-  (everything decided before the weights move), `schedule.py` (mu, sigmas,
-  refine start), `regional_compile.py` (private regional preparation, scoped
-  call policy and bounded first-call observations; public execution stays unavailable), `attention_selection.py`
-  (private processor ownership, restoration, terminal discard and Native policy), `fbc_cache.py`
-  (private per-call cache ownership, cleanup and deferred disposal),
-  per-checkpoint converters and pipelines (`single_file`,
-  `anima_*`, `netayume_loading`, `newbie_*`; `flux3_*`, FLUX 3 [Klein]'s pinned
-  folders under its own pipeline, no `model_index.json`, and
-  `flux3_upsampler` its prompt upsampler as Expand)
-- CLIs: `generate.py` (its arguments and the checks that need only the
-  flags in `generate_args.py`, the `--via-server` client in
-  `generate_remote.py`), `clear.py`, `stats.py`, `reindex.py`;
-  `doctor.py` the read-only machine check (`python -m backend.doctor`:
-  PASS/WARN/FAIL for torch's GPU, the driver's CUDA, RAM, free disk, the
-  port, the commit, the token file's existence; torch but never diffusers,
-  no Hub) that `install.ps1` runs; `server_probe.py` the port's trial bind,
-  AuraDream-title probe and the running server's commit, stdlib only, which
-  `main.run` and the doctor share, with the passcode's header and the
-  gate's refusal in words for every caller that is not a browser; `build_info.py` the checkout's short
-  commit (None without git), read once at import as `main.COMMIT` for the
-  start-up log and `/api/status`'s `commit`, stdlib only
-- `log_file.py` the server's rotating `auradream.log` beside the database
-  (tracebacks at every level, `faulthandler`, uvicorn's level), stdlib only,
-  installed by `main.run` alone
-- `refusal_codes.py` the stable codes of the refusals the page acts on and
-  the coded errors `storage` and `loras` raise, stdlib only; `refusals.py`
-  `Refused`, the HTTP refusal answering `code` (and `ids`) beside `detail`
-
-Frontend (`web/`, served from `/static`): `index.html` loads classic scripts
-in order, sharing one global scope; only `app.js`, the last, runs anything.
-`style.css` (tokens, base) then `styles/*.css` in link order - keep that
-cascade. `docs/rules.md`'s Layout maps every file; `docs/maintainer/source-audit.md`
-records the split audits.
-`execution.js` owns inspectable performance controls and unavailable-recipe
-holds; configuring a recipe never enables its loading or rendering.
-`generation-presets.js` (`styles/setups.css`) owns Examples > Saved setups,
-raw composer capture, validated Restore and whole-draft Undo; it queues no work.
-`instruction-edit.js` (`styles/instruction-edit.css`) owns Edit by
-instruction… (the menu item, the dialog, Reuse of an edit and its lineage);
-it never writes the composer's prompt, negative or references.
-
-`touch.js` (`styles/touch.css`, linked before the phone's own sheets) owns the phone's Create and
-Gallery views and its tab bar; the phone and tablet tier keys on a coarse
-primary pointer (iPhone 15 Pro, iPad Air 11), never width alone, so a PC's
-mouse and the smokes never match it. On touch a long press is the image's
-right-click menu (`context-menu.js`): iOS sends no `contextmenu`.
-`phone.js` (`styles/phone.css`, after `touch.css`) owns the phone's own
-hosts: Generate in the Create view's action bar over the tab bar, beside
-the newest result's picture and the queue's count, the results moved
-under the settings, and the queue's sheet (the job, its buttons and the
-queue, each queued row's ⋯ a menu); a result's row and a queued row's ⋯
-are drawn on the phone alone. `phone-compose.js`, after it, owns the
-phone's compose controls: the topbar's model chip (the status moved into
-Models) and its ⋯ menu, the prompt's toolbar under the box, the check's
-sheet and its line, and the size as Shape and a Size chip over the
-undrawn strips. `phone-gallery.js` (`styles/phone-gallery.css`, linked
-after `phone.css`), after it, owns the phone's gallery head: one sticky row (search,
-Filters, Select, ⋯) and the Filters and ⋯ sheets holding the head's and
-footer's own buttons, each bulk action's line saying what it takes or
-why it is held, and the cards' size (three or two across).
-`phone-select.js`, after it, owns the phone's selection bar: in the tab
-bar's place while Select is on, the picks' count and actions (Star, Bin,
-Refine…, More seeds…, Swap tags…; the bin's Restore and Delete) moved
-in, Back leaving Select. `phone-runs.js`, after it, owns the phone's runs:
-Filters' Runs row opening a sheet of run rows built from the Runs
-picker's own options (the select kept, not drawn), the run shown as a
-chip in the search's place, and a run sheet's foot (Finish run and More
-seeds… moved in, a ⋯ pressing its swipes, Fill width and exports). The
-recycle bin is a screen of its own on the phone (a ‹ before its name, no
-card tools, only its own rows in the sheets). `phone-viewer.js`
-(`styles/phone-viewer.css`, after `phone-gallery.css`), after it, owns the phone's
-viewer: the lightbox's picture across the screen with a top bar (‹, the
-place, Share: Picture only, a canvas re-encode without the PNG's text
-chunks, or With settings) and a bar of Star, Reuse, Refine (moved in), Edit and More
-over it, whose action sheets press the lightbox's other buttons; the
-facts a peek that a press or a swipe up raises as a sheet; a tap on the
-picture hides or shows the bars, never closes. `LB_STACKED_MEDIA`
-leaves the phone out. `phone-sheets.js` (`styles/phone-sheets.css`,
-linked after it), after it, owns what the dialogs do as phone sheets: no
-text box focused as one opens (the head's ✕ instead; a refusal's box is
-kept), a ✕ in every head, sheets fitted to `visualViewport` (the image-pass
-dialogs' height and sticky actions on the tablet too), long explanations in shut folds, the setups',
-searches' and snippets' list boxes drawn as rows (the select kept, hidden),
-and the Models sheet as one scroller with a sticky foot (Apply & save,
-Switch & load, Load and Unload moved in). Nodes are moved whole under
-`PHONE_MEDIA` (`moveBefore`) and home again on the tier's change, never
-copied or reordered with CSS. On touch
-each open overlay (lightbox, the viewer's raised facts, dialog, Models,
-context menu, run sheet, recycle bin) holds
-one history entry, so Back closes the top one (`touch.js`); a mouse adds none.
-On the phone every dialog is a sheet across the screen whose `.dialog-head`
-and `.dialog-actions` (`index.html`) stay at its top and foot, and the
-menus sit inside the screen, the right-click one an action sheet docked
-at its foot over a scrim, named at its head with a Cancel row last.
-
-`sw.js`, served at `/sw.js` and registered by `app.js` only in a secure
-context (never plain http to a LAN address), answers a silent server's
-`/` with `offline.html`, which retries and reopens the page; it caches
-nothing else, and the network always goes first.
-
-`passcode.html` is what the server answers for `/` while it asks for a
-passcode and the browser is not signed in (`backend/passcode.py`):
-self-contained as `offline.html` is, its title exactly the page's. In the
-page, `api()` (`state.js`) reads a 401 coded `passcode_required` as signed
-out (`status.js`, `goSignedOut`: "signed out" in the topbar's status line
-with a Sign in button that reloads), and Sign out sits in the Models panel
-while the status says a passcode is asked.
-
-`snippet-import.js` owns explicit personal-snippet export and the native
-merge dialog; it preserves the editor and prompt boxes, with no automatic retry.
-`setup-import.js` owns Saved setups Export…/Import… and its separate merge
-dialog; it never calls `setupSummary`, keeps the editor, composer and Undo,
-and never resends an uncertain import. `import-merge.js` holds what the two
-merge dialogs share (the rows, choice reasons and holds), stateless; each
-file keeps its own state, preview, commit and uncertain-import flow.
-
-Also: `tools/` (fake server, headless-browser smokes), `tests/`, `wsl/`,
-`linux/` (native Linux `setup.sh`, `install-service.sh` for the systemd
-user service and its env file, `update.sh`, sharing `common.sh`; bash,
-ASCII, LF, no sudo; `tests/test_linux_scripts.py`), `docs/`. At the root, `install.cmd`/`install.ps1` (the Windows installer:
-checks, uv/Git if missing, `HF_HOME` before any download, `uv sync`, the
-doctor, shortcuts to `bin\auradream.cmd --open`; `-DryRun`, `-Yes`) and
-`update.cmd`/`update.ps1` (refuses while AuraDream runs, copies the
-database to its before-update name, `git pull --ff-only`, `uv sync`); Windows
-PowerShell 5.1 and ASCII only, CRLF by `.gitattributes`; they never download
-weights, write `auradream.settings.json`, move the gallery, set
-`AURADREAM_*` user-wide or touch WSL (`tests/test_install_scripts.py`).
+- Backend core - settings, launch and the catalogue, model selection and facts, backups, setups, snippets, saved searches, favourites: [settings, libraries and model facts](docs/rules.md#backend-settings-libraries-and-model-facts)
+- Schemas, profiles, guides and the prompt analyser (`prompt_*`, `critic*`, `tags`, `translation`): [schemas, guides and the prompt analyser](docs/rules.md#backend-schemas-guides-and-the-prompt-analyser)
+- Generation passes, `backends/`, the grid and the gallery actions' plans (refine, inpaint/outpaint, instruction edit, More seeds): [passes, backends and the grid](docs/rules.md#backend-passes-backends-and-the-grid)
+- Jobs, storage, PNG metadata, gallery reports/delete and bundles: [jobs, storage and bundles](docs/rules.md#backend-jobs-storage-and-bundles)
+- The app and its routes (`main`, `app_context`, keep-awake, response headers, passcode, `api_*`): [the app and its routes](docs/rules.md#backend-the-app-and-its-routes)
+- CLIs, the doctor, the server probe, build info, the log file and refusal codes: [CLIs, the doctor and support modules](docs/rules.md#backend-clis-the-doctor-and-support-modules)
+- Windows installer/updater and `linux/` scripts: [install and update scripts](docs/rules.md#install-and-update-scripts)
+- The page (`web/`, classic scripts in `index.html`'s order, one global scope, only `app.js` runs; `style.css` then `styles/*.css` in link order), its phone/touch hosts (`touch.js`, `phone*.js`), `sw.js`, `offline.html` and `passcode.html`: [the page](docs/rules.md#the-page-web), with the phone's rules under [Phones and tablets](docs/rules.md#phones-and-tablets)
+- `tools/`, `tests/`, `bin/`, `wsl/` and `docs/`: [tools, tests, bin, WSL and docs](docs/rules.md#tools-tests-bin-wsl-and-docs)
 
 ## Rules that break things silently
 
@@ -557,7 +280,8 @@ Frontend:
   `rewriteBox` / `replaceBoxText`, never `.value`, so Ctrl+Z works.
 - `setReferences` is the one writer of references; `forgetImages` is the one
   place the page drops deleted or binned ids; `setQueue` the queue rows'.
-- The per-image delete never confirms; Empty bin and Delete permanently do.
+- The per-image delete never confirms; Empty bin, Delete permanently and a
+  saved bundle's Delete do.
 - `localStorage`/`sessionStorage` access is always in try/catch.
 - The page never scrolls by itself and never moves a control under the
   pointer; never `overflow-y: auto` on the panel.
@@ -744,6 +468,7 @@ uses the driver's graceful close/cleanup. See the full Tests rules.
 | 7923 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-control-sizing` |
 | 7924 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-shortcut-dispatch` |
 | 7925 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-compact-setup` |
+| 7925 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-sampling-fold` |
 | 7926 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-execution-reuse` |
 | 7927 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-automatic-backup` |
 | 7928 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-retention` |
@@ -774,14 +499,17 @@ uses the driver's graceful close/cleanup. See the full Tests rules.
 | 7953 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-setup-portability` |
 | 7954 | FLUX.1-Krea-dev, fresh scratch `--data`, `--step 0.3` | `smoke-queue-estimates` |
 | 7955 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-gallery-top` |
+| 7955 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-gallery-maintenance` |
 | 7956 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-phone` |
 | 7956 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-phone-create` |
 | 7957 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-tablet` |
 | 7957 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-phone-landscape` |
 | 7958 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-offline` |
 | 7958 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-passcode` |
+| 7958 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-idle-activity` |
 | 7959 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-catalogue-stale` |
 | 7959 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-download-progress` |
+| 7959 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-model-storage` |
 | 7960 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-phone-dialogs` |
 | 7960 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-phone-gallery` |
 | 7960 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-phone-keyboard` |
@@ -825,9 +553,13 @@ Gotchas:
   `/api/fake/instruction-edit` (the edit gate, open by default only on a
   Kontext fake), `/api/fake/unreachable` (`on`: every other request held
   unanswered, a PC asleep), `/api/fake/disk-full` (`on`: every image save
-  refused as a full disk), `/api/fake/passcode` (`passcode`: a string
+  refused as a full disk), `/api/fake/bundle` (`hold`: each bundle
+  export or import waits, so the gallery's admission refuses counted
+  routes; the knobs pass it), `/api/fake/passcode` (`passcode`: a string
   turns the passcode's gate on, null off; `reset`: clears the limiter; a
-  fake starts with none); a prompt containing `[fail]` fails its cell;
+  fake starts with none), `/api/fake/activity` (every request since the
+  last `reset` and those keep-awake's rule counts as use, the fake's own
+  keep-awake being off); a prompt containing `[fail]` fails its cell;
   `--critic-delay`, `--no-critic`.
 
 GPU behaviour, pixels, timing and memory are the card's to say, recorded in

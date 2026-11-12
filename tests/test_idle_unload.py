@@ -77,12 +77,12 @@ def test_stop_drains_an_admitted_unload_without_cancelling_it():
         await timer.check()
         clock.now = 61
         timer.start()
-        await asyncio.wait_for(entered.wait(), 5)
+        await asyncio.wait_for(entered.wait(), 30)
         stopped = asyncio.create_task(timer.stop())
         await asyncio.sleep(0)
         assert not stopped.done()
         release.set()
-        await asyncio.wait_for(stopped, 5)
+        await asyncio.wait_for(stopped, 30)
         assert not await timer.check()
     asyncio.run(scenario())
 
@@ -151,18 +151,18 @@ def test_unload_reserves_cleanup_before_a_new_load_can_enter(client, fake, monke
 
     def cleanup():
         entered.set()
-        assert release.wait(5)
+        assert release.wait(30)
 
     monkeypatch.setattr(main.prompt_translator, "unload", cleanup)
     with ThreadPoolExecutor() as pool:
         future = pool.submit(client.post, "/api/model/unload", headers={"Origin": ORIGIN})
         try:
-            assert entered.wait(5)
+            assert entered.wait(30)
             assert client.post("/api/model/load", headers={"Origin": ORIGIN}).status_code == 409
             assert client.post("/api/generate", json={"prompt": "wait"}, headers={"Origin": ORIGIN}).status_code == 409
         finally:
             release.set()
-        assert future.result(timeout=5).status_code == 200
+        assert future.result(timeout=30).status_code == 200
 
 
 def test_a_cancelled_unload_waiter_leaves_cleanup_reserved_until_its_worker_ends(client, fake, monkeypatch):
@@ -171,7 +171,7 @@ def test_a_cancelled_unload_waiter_leaves_cleanup_reserved_until_its_worker_ends
 
     def cleanup():
         entered.set()
-        assert release.wait(5)
+        assert release.wait(30)
 
     monkeypatch.setattr(main.prompt_translator, "unload", cleanup)
 
@@ -188,7 +188,7 @@ def test_a_cancelled_unload_waiter_leaves_cleanup_reserved_until_its_worker_ends
             assert response.status_code == 409
         finally:
             release.set()
-        await asyncio.wait_for(owner, 5)
+        await asyncio.wait_for(owner, 30)
         assert not main._switching and main._idle_unloaded
         # The idle flag is set before admission reopens, so a later load wins.
         response = await asyncio.to_thread(client.post, "/api/model/load", headers={"Origin": ORIGIN})

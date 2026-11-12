@@ -14,7 +14,7 @@ from tests.api_helpers import stream_job
 
 
 def until(predicate):
-    deadline = time.monotonic() + 5
+    deadline = time.monotonic() + 30
     while time.monotonic() < deadline:
         if predicate():
             return
@@ -34,7 +34,7 @@ def test_stop_returns_at_once_and_discards_each_stage_and_its_late_failure(
 
     def pause():
         entered.set()
-        assert release.wait(5)
+        assert release.wait(30)
         if fail:
             raise RuntimeError("opaque stage failed after Stop")
 
@@ -58,11 +58,11 @@ def test_stop_returns_at_once_and_discards_each_stage_and_its_late_failure(
     with ThreadPoolExecutor(1) as pool:
         pending = pool.submit(client.post, "/api/prompt/expand", json={"prompt": "first", "ticket": ticket})
         try:
-            assert entered.wait(5)
+            assert entered.wait(30)
             duplicate = client.post("/api/prompt/expand", json={"prompt": "duplicate", "ticket": ticket})
             assert duplicate.status_code == 409 and "already running" in duplicate.json()["detail"]
             assert client.post(f"/api/prompt/expand/{ticket}/stop").json() == {"stopped": True, "running": True}
-            response = pending.result(timeout=2)
+            response = pending.result(timeout=30)
             assert response.status_code == 409 and response.json()["detail"] == "prompt expansion stopped"
             # The HTTP answer is gone already. The actual opaque GPU stage
             # still holds its ticket and a generation must wait behind it.
@@ -90,22 +90,22 @@ def test_stop_while_waiting_never_starts_that_rewrite(client, fake, monkeypatch)
     def rewriting(prompt, width, height, should_cancel):
         if prompt == "first":
             entered.set()
-            assert release.wait(5)
+            assert release.wait(30)
         return original(prompt, width, height, should_cancel)
 
     monkeypatch.setattr(fake, "expand_prompt", rewriting)
     with ThreadPoolExecutor(2) as pool:
         first = pool.submit(client.post, "/api/prompt/expand", json={"prompt": "first", "ticket": "holder"})
-        assert entered.wait(5)
+        assert entered.wait(30)
         second = pool.submit(client.post, "/api/prompt/expand", json={"prompt": "waiting", "ticket": "waiter"})
         try:
             until(lambda: main._model_request_paths.get("/api/prompt/expand", 0) == 2)
             assert client.post("/api/prompt/expand/waiter/stop").status_code == 200
-            assert second.result(timeout=2).status_code == 409
+            assert second.result(timeout=30).status_code == 409
             assert main.jobs.card() == ("expand", "holder")
         finally:
             release.set()
-        assert first.result(timeout=5).status_code == 200
+        assert first.result(timeout=30).status_code == 200
     assert [call[0] for call in fake.expansions] == ["first"]
 
 
@@ -126,16 +126,16 @@ def test_stop_during_the_model_load_keeps_the_load_lock(client, fake, monkeypatc
 
     def load():
         entered.set()
-        assert release.wait(5)
+        assert release.wait(30)
         original()
 
     monkeypatch.setattr(fake, "load", load)
     with ThreadPoolExecutor(1) as pool:
         pending = pool.submit(client.post, "/api/prompt/expand", json={"prompt": "load", "ticket": "loading"})
         try:
-            assert entered.wait(5)
+            assert entered.wait(30)
             assert client.post("/api/prompt/expand/loading/stop").status_code == 200
-            assert pending.result(timeout=2).status_code == 409
+            assert pending.result(timeout=30).status_code == 409
             assert main._load_lock.locked()
             assert client.get("/api/status").json()["state"] == "loading"
         finally:
@@ -151,7 +151,7 @@ def test_a_cancelled_request_keeps_its_detached_gpu_worker(fake):
 
     def rewriting(prompt, width, height, should_cancel):
         entered.set()
-        assert release.wait(5)
+        assert release.wait(30)
         return original(prompt, width, height, should_cancel)
 
     fake.expand_prompt = rewriting

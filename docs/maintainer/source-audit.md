@@ -13,7 +13,9 @@ third, on 2026-10-31, is [its own section](#third-pass-2026-10-31) after
 this one's verification; its splits are the 2026-10-31 rows of the
 boundaries table, and its retained files have a table of their own. The
 fourth, on 2026-11-05, is [its own section](#fourth-pass-2026-11-05) after
-the third's, in the same form: its splits are the 2026-11-05 rows.
+the third's, in the same form: its splits are the 2026-11-05 rows. The
+fifth, on 2026-11-13, is [its own section](#fifth-pass-2026-11-13) after
+the fourth's: its splits are the 2026-11-13 rows.
 
 After the second pass 8 files were above 1,000 lines; the table of retained
 files says why each stayed whole. Its figures are as audited then.
@@ -31,6 +33,11 @@ init function follows.
 
 | Pass | Original file | Lines before | Responsibilities after the split |
 | --- | --- | ---: | --- |
+| 2026-11-13 | `web/gallery-actions.js` | 1,037 | Starring, Bin picked, single delete, Delete unstarred and `forgetImages` (932). `ask-dialog.js` (114, loaded right before it) the page's own questions, `askAnswer` through `askBackdrop`, moved verbatim: the fourth pass's trigger fired when `bundles.js` began to ask (a saved bundle's delete, `a78cbd5`), beside `bin.js` and `generation.js`. `askConfirm` and `askCount` stay the top-level `let`s the smokes reassign; `confirmDelete` and `imageNames` stay, on the gallery's records. `app.js` still wires `askClosed` and `askBackdrop`. `test_runs_favorite_counts.py` still evaluates `gallery-actions.js` alone, whose favourite code never asks. |
+| 2026-11-13 | `web/model-switch.js` | 1,528 | The Models table, its grouping, the selection and the switch (1,306). `model-favourites.js` (233, loaded after `model-storage.js`) the stars as the server keeps them since `0c1c335` (the set and its revision, this page's unconfirmed presses, one write per star in order, `syncModelStars`) and the one-time offer to import a browser's earlier set: the growth that passed the 1,400-line trigger, with state of its own. It reaches the table only at call time (`renderModelOptions`, `syncModelSwitch`, `modelLabel`, `setModelAttribute`), and the table reads `modelFavourites` and `modelFavouriteId`. The grouping (`modelTableGrouping`, `modelGroupByType`) stays with the table it orders. |
+| 2026-11-13 | `web/status.js` | 1,072 | `/api/status` and what it drives (952). Not a new file: Expand's button state and title (`syncExpandButton`, `expanderName`, `expandTitle`, `expandCost`) and the translation's writers and place (`clearPromptTranslation`, `promptReplaced`, `showPromptTranslation`, `TRANSLATION_WIDE`, `placeTranslation`) moved verbatim to the end of `prompt-expand.js` (414 to 540), whose header already called the button state another file's and whose results they show. Their state is `state.js`'s; `EXPAND_ELSEWHERE`, `syncPromptExpansion` (Expand, the critic, Unload and the submit buttons together) and `pendingTranslation`, which `receiveStatus` reads, stay. Every call is at run time, from `app.js` and the eight files that write the prompt box. |
+| 2026-11-13 | `tests/test_linux_scripts.py` | 1,538 | The static checks, `setup.sh`, `install-service.sh` and `update.sh` (749). The fourth pass's trigger (about 1,200 lines) fired with the passcode's tests. `tests/linux_script_helpers.py` (325) the stub sandbox and the loopback AuraDream (`_stub` .. `_systemctl`, `_unit`, `_env_file`, `_checkout_with_gallery`, `_no_git_or_uv`, `auradream_listening`, `_changes`, `SECRET`, `_passcode_file`, `_asking`), its docstring now naming `control.sh`, `journalctl` and `systemd-inhibit`; `test_linux_control.py` (254) the `control.sh` section; `test_linux_passcode.py` (301) the passcode's. Fixtures imported by name. 248 node ids before and after. |
+| 2026-11-13 | `tests/test_keep_awake.py` | 1,284 | The controller, what counts as use, the server, the CLI's hold, the doctor's rows and the settings (630). `test_keep_awake_holders.py` (499) the three platform holders' tests (systemd-inhibit, WSL's `powershell.exe` holder, Windows' power request) with their own fakes (`_script`, `FakeKernel32`, `_kernel32_power`); `tests/keep_awake_helpers.py` (215) what both use (`Clock` .. `Popen`, `INTEROP`, `_exists`, `Answer`, `WslProc`, `_wsl`, `FakePower`, `Recorder`, `_until`, `_run`, `ROOT`) and the real `platform_inhibitor`, taken at import before conftest's autouse stub. 95 node ids before and after. |
 | 2026-11-05 | `backend/storage.py` | 1,889 | Schema, migrations, connections, record conversion, the writers and thumbnails, the masks table and its holds, and live reads (1,717). `gallery_partials.py` (207, of which 178 are the moved code) the bundles and staging directories and the settling of stale partials and bundle leftovers (`BUNDLE_STAGING` .. `settle_partials`), reached as `storage.<name>` through `_MOVED`. Its callers are `bundles`, `api_bundles`, `backup_service`, `backup_coordinator`, `gallery_delete`, `main` and `tools/storage_interrupt.py`; storage never calls in, so this is consistent with the 2026-10-11 note: what `save_image`, `_row_to_record` and `init_db` call stays. It reads `storage.settings` and seven helpers at call time (`ensure_outputs_dir`, `PARTIAL_SETTLE_SECONDS`, `masks_dir`, `_unlink`, `_tracked_files`, `_tracked_masks`, `_rename_with_retry`), as `gallery_delete` does. The two `bundle_directory` patches in `test_api_automatic_backup.py` still reach `backup_service` and `backup_coordinator`, which call `storage.bundle_directory()`; they no longer reach `_bundle_leftovers`' own call, which no test relies on. The growth since the last row was the masked-area-only columns, in the core. |
 | 2026-11-05 | `backend/bundles.py` | 1,266 | Export and import, with every name tests patch (1,147). The 2026-10-31 trigger, import growing again, fired with the masked-area recovery. `bundle_recovery.py` (128) the six helpers that give an import's new rows back what their staged PNGs and masks hold (`_rebuilt_member`, `_recovered_outpaint`, `_staged_parameters`, `_mask_picture`, `_mask_crop`, `_embedded_member`; the last row said five), moved verbatim in that order, called only from `_import_bundle` and patched by no test; `bundles` imports back the four it calls. `_merge_masks` stays, as the database merge that reads `_settings()` and `datetime`. |
 | 2026-11-05 | `backend/reindex.py` | 1,241 | Not a length split: `060c5ba` gave the bundle layer a second lazy import of the CLI (`_open_mask` beside `_embedded_mask`), the kind of edge the 2026-10-31 row removed. The two mask decoders moved to `record_fields.py` (390 to 425) as `open_mask` and `embedded_mask_picture` (`embedded_mask` is metadata's text reader) and are re-exported as `storage.<name>`, as every `record_fields` name is; `bundle_recovery.py` calls them there, so no bundle module imports the CLI. `reindex` (1,213) keeps `_open_mask`/`_embedded_mask` as aliases for `_Masks` and `test_reindex.py`. |
@@ -474,5 +481,123 @@ pytest`. The nine smokes over what the pass touched (`smoke-inpaint`,
 `gallery_partials.py` and `bundle_recovery.py`; every relative link and
 anchor in the tracked Markdown resolves (775 links in 115 files), and `git
 diff --check` is clean. As before, these establish equivalence at the
+source, API and fake-backend levels, and add no GPU measurement to
+`docs/verified.md`.
+
+## Fifth pass, 2026-11-13
+
+Screened the 659 tracked Python, JavaScript, CSS and HTML files in
+`backend/`, `web/`, `tests/` and `tools/` at `b270e98` (the
+`todo/nov12-rows` branch, 237 commits after the fourth pass's base
+`0351278`), then worked on the `todo/source-audit-5` branch. 23 files were
+over 1,000 lines (20 application, 3 test), up from 20. Three were new over
+the screen: `web/status.js` (871 to 1,072), and from 2026-11-12's merged
+work `tests/test_keep_awake.py` (669 to 1,284) and `tools/card_guard.py`
+(656 to 1,067); every retained file but two grew.
+`tests/test_linux_scripts.py` (1,010 to 1,538) and `web/model-switch.js`
+(1,311 to 1,528) had passed their recorded triggers, and
+`web/gallery-actions.js`'s trigger (a fourth file asking) had fired at
+1,037 lines. The method is the second pass's: map each file by role, read
+its growth since the last row commit by commit, and split only a role other
+files call or one that shares no state with the rest, moving code verbatim.
+Beside them, files the merged work had grown near a trigger were screened:
+`backend/keep_awake.py` (476 to 956), `web/bundles.js` (866 to 953),
+`web/tag-lists.js` (196 to 284) and `web/app.js` (939 to 975).
+
+After the pass 19 files are over 1,000 lines: 18 application files and
+`tests/test_profiles.py`. Each has a row in the table below. Figures are
+`wc -l` after the pass.
+
+What the pass did (each change is a 2026-11-13 row in
+[Implemented boundaries](#implemented-boundaries)), moving code verbatim:
+
+- **The page.** `ask-dialog.js` (114) takes the page's own questions from
+  `gallery-actions.js` (1,037 to 932), and `model-favourites.js` (233) the
+  server-held model stars and their import offer from `model-switch.js`
+  (1,528 to 1,306). Expand's button state and the translation's writers
+  moved from `status.js` (1,072 to 952) to `prompt-expand.js` (414 to 540),
+  the file that already named itself their owner's caller. The page loads
+  78 classic scripts, up from 76 at `b270e98`.
+- **Tests.** `test_linux_scripts.py` (1,538 to 749) gave its sandbox to
+  `tests/linux_script_helpers.py` (325) and its `control.sh` and passcode
+  sections to `test_linux_control.py` (254) and `test_linux_passcode.py`
+  (301); `test_keep_awake.py` (1,284 to 630) its platform holders to
+  `test_keep_awake_holders.py` (499) and its shared fakes to
+  `tests/keep_awake_helpers.py` (215). The node ids are the same before
+  and after (248 and 95).
+
+`docs/rules.md` names each new file in its Layout and Tests sections, and
+`AGENTS.md` and `linux/common.sh`'s seam comment name the Linux test files;
+comments in `index.html`, `app.js` and the stylesheets that named a moved
+function's old owner name the new one. Historical plans and reviews are
+left as written.
+
+### Long files retained, 2026-11-13
+
+| File | Lines (last row or base, then now) | Audit decision |
+| --- | ---: | --- |
+| `web/index.html` | 2,223; 2,594 | The page's static DOM, still no code: no inline script, 25 `<dialog>`s (18 at the last row; the seven new ones are the phone's sheets: Check, Filters, the gallery's ⋯, More options, the preview viewer, the queue and the runs), 78 scripts. The 371 lines are the phone tier's hosts and sheets, the Sampling disclosure, Models' On disk fold and favourites offer, Sign in and Sign out, and the two scripts this pass added, each beside its trigger or in its own dialog. The reason stands: `state.js` builds `els` at parse time, so a split needs a build step, a server template or fetches that race `app.js`. Revisit only if the page gains a way to deliver DOM fragments before the scripts run. |
+| `backend/backends/diffusers_backend.py` | 2,036; 2,097 | Unchanged in kind. Growth is FLUX 3 [Klein]'s app-owned pipeline and its upsampler as Expand (`10ec507`, `2923b21`, `773c2ed`), the capability flags (`0136d5b`) and SDXL's live-preview map (`4e23ed5`). The ownership protocol still has its three classes, and `_generate_images_prepared` gained no pass kind, so neither recorded trigger fired; the 2026-11-05 seam (`backends/pipeline_ownership.py`) stands. |
+| `backend/guides.py` | 1,766; 1,825 | Still one role: sourced guide dicts and the two Anima builders, no mutable state. Growth is FLUX 3 [Klein]'s guides. No guide gained a non-data role and no family is near 1,000 lines; the 2026-10-31 facade requirements stand. |
+| `backend/storage.py` | 1,717; 1,729 | 12 lines: prefix matching in gallery search (`8f87f9f`, `6414e17`) and the stable refusal codes (`10235fa`), both in the core. The 2026-11-05 reasons stand. |
+| `backend/model_defaults.py` | 1,560; 1,668 | Growth is FLUX 3 [Klein]'s profiles, the open default's change to Animagine (`f2790dd`) and the 16 GB card's measured words (`9a72920`: `MEASURED_CARD_GB`, `card_words`, a `card` argument to `_inpaint_strength_hint`), views over data. No profile holds a callable (no `lambda` in the file), so the 2026-10-11 trigger has not fired. |
+| `backend/main.py` | 1,368; 1,578 | Still the app's composition and the model's lifecycle state. Growth: the passcode gate and the middleware order it fixed (`hold_model_for_request` moved above it, with the layer comment), idle release (`_idle_unload_busy`, `_unload_for_idle`, `_release_owned`), the status's passcode, card and download fields, the card's fit badge in `/api/models` (4 lines through `card_facts`) and `run`'s TLS and passcode handling. Each reads globals tests rebind on `main` (`settings` 43 times, `_switching` 18, `Server` 18, `_passcode_gate` 6). The keep-awake providers are still five, and the load-failure wording still has one user, so those two triggers have not fired. The third, `/api/models` growing, did fire (the card read), so the fourth pass's `_HUB_FAILURES`/`_hub_failure` seam was re-screened: both are unchanged since `0351278` (about 45 lines, no state), `_load_failure` is still their only caller, and `tests/test_api.py` calls `main._hub_failure` directly, so a move to `hub_access.py` would need a re-export for a cut of about 3% with no second user; not taken. The card read is unrelated to the Hub wording that trigger guarded. The `model_views.py` seam (about 130 lines, as recorded) stays not taken: `_expander_status`, `_merged_defaults` and `_listed_loras` read `main.backend`, which the fake fixture replaces, and `_disk_free_mb` reads `main.settings`. Revisit if a provider is added, a second module needs `_load_failure`'s words, or the model views pass about 250 lines. |
+| `backend/prompt_sources.py` | 1,485; 1,535 | Growth is FLUX 3 [Klein]'s groundings; the resolver gained no logic. The 2026-11-05 reasons and trigger stand. |
+| `backend/generate.py` | 1,375; 1,453 | Growth is the full-disk hold (`_save_held`, `8f9d83c`, `e7a3adb`) and the passcode's bearer header (`ee93660`). `_main` is 1,004 lines, under its 1,100 trigger, and no flag family added flag-only checks inside it. The 2026-11-05 reasons stand. |
+| `backend/jobs.py` | 1,336; 1,386 | Growth is the full-disk pause (`cbeab4e`: `_hold` holding the render, `pause_reason`) and first-run recovery (`1b9138c`). Then refine's stage (`_units` through `_passes`) is about 120 lines, under its 250 trigger, and no second post-generation stage joined it. |
+| `web/model-switch.js` | 1,311; 1,306 | Split this pass (from 1,528). The table, its grouping, the selection and the switch remain, on the lets the 2026-10-31 row named. The `checkpoint-change.js` seam (`checkpointChanged`, `submissionModelHold`, about 60 lines) is unchanged and still not taken. Revisit if that role passes about 150 lines or the file about 1,400 again. |
+| `backend/bundles.py` | 1,147; 1,232 | Growth is the saved archives' list and delete (`a78cbd5`, `709283a`, `4660955`: `_delete_holds`, `ManagedBundle`, `CannotDelete`, `delete_saved_bundle`, the newest-first list), about 90 lines beside `bundle_path` and `_directory`, which tests patch on `bundles` and export reads too. Seam recorded, not taken: the saved-archive directory (`_directory` through `delete_saved_bundle`, about 115 lines) as a `bundle_files.py`, which would need `bundle_path` and `_directory` imported back so their patches still reach export. Revisit if that role gains another operation or the file passes about 1,300. |
+| `backend/reindex.py` | 1,213; 1,213 | Unchanged since the fourth pass. |
+| `web/lightbox.js` | 1,037; 1,166 | One state machine. Growth is the phone viewer's hosts (`4d7169e`, `3b2509c`, `e0864e7`), the stable refusal codes and Share's Picture only (`a0eceb7`), all on the view's lets. The gesture section (`lbWheel` to the end) is about 200 lines, under its 300 trigger, and the file is under 1,200, so the `lightbox-gestures.js` seam stays not taken. |
+| `backend/grid.py` | 1,119; 1,134 | The 2026-11-05 trigger, prompt variables growing, fired by 15 lines: a value naming another declared variable is refused (`2179925`). Revisited: the `grid_prompts.py` seam still reads `settings.max_grid_images`, which `test_grid.py` patches as `grid.settings` for random choices' bounds, and `random_seed`, which `test_api_grid.py` and `test_preset_validation.py` patch on `grid`; moving it would stop both patches reaching it. Not taken. Revisit if the variable code (`parse_variables` through `resolve_prompts`, about 230 lines) passes about 300. |
+| `tests/test_profiles.py` | 1,094; 1,098 | Four lines; the 2026-10-31 seam's triggers (about 1,200 lines, or another size-table check) have not fired. |
+| `web/refine.js` | 1,080; 1,087 | Seven lines: the preview's poll mark (`6a7b1da`, `0c6c13b`), the stable refusal codes (`10235fa`) and the card's words (`9a72920`). The Compare seam's triggers have not fired. |
+| `tools/card_guard.py` | new since `0351278`; 1,067 | The card session's guard, 7% over the screen. Its docstring names its two halves: the pure decision (`Limits` through `plan_rung`, about 180 lines), which an in-process harness imports, and the samplers and watcher, which the 2026-11-12 work grew by 411 lines (`ce1b0da`, `ab25910`: the held PDH query, the kill-on-close job object, the paced loop). Seam recorded, not taken: the counter readers (`parse_nvidia_smi` through `nvidia_smi_stream`, about 400 lines) as a `tools/card_counters.py`. The tool runs as `python tools/card_guard.py`, so a sibling module needs the `sys.path` entry `tools/fake_server.py` makes, and `test_card_guard.py` reaches ten of those names through `card_guard` (`parse_typeperf`, `PdhCounters`, `LineStream`, `KillOnCloseJob` and its patch of `commit_headroom_gib`), which would all need importing back. Revisit if the readers gain a third platform or the file passes about 1,200. |
+| `backend/prompt_rules.py` | 1,067; 1,067 | Unchanged since the fourth pass. |
+| `web/outpaint.js` | 1,050; 1,057 | Seven lines: the preview's poll mark, the accessibility audit's names (`4b68ad2`) and the stable refusal codes. The spec codecs' readers are the four files the last row named, and `app.js`'s loop over `OUTPAINT_SIDES` that wires the side boxes (there before the last row, which left it out); no new reader, so the seam's trigger has not fired. |
+
+The 2026-11-05 rows for `test_linux_scripts.py` and `gallery-actions.js`
+are superseded by this pass's boundary rows; `status.js` and
+`test_keep_awake.py`, under the screen again, have no retained row.
+Screened and retained under 1,000 lines, without a row of their own:
+`backend/schemas_generate.py` 981 (6 lines since the last pass; revisit
+past 1,100), `web/app.js` 975 (wiring and boot; the keydown-router seam
+stays optional, revisit at 1,000), `web/inpaint.js` 973 (the refusal
+codes), `backend/keep_awake.py` 956 (one role, the holders and the
+controller; the WSL power request, 2026-11-12, is a third holder beside
+`Inhibitor` and `PowerRequest`, on the same `Holder` protocol and
+`RETRY_AFTER`; revisit past 1,000, when the holders, about 575 lines, could
+become a `backend/keep_awake_holders.py` as their tests now are),
+`web/bundles.js` 953 (the dialog's one role; the saved list's dates and
+delete, about 90 lines, use its state),
+`web/status.js` 952 (split this pass), `backend/prompt_text.py` 933
+(unchanged) and `web/gallery-actions.js` 932 (split this pass).
+`web/tag-lists.js` (284, from 196) is far under the screen: Grid values
+and Swap tags joined its suggestion lists (`a03274c`), the role it was
+split out for.
+
+### Verification, 2026-11-13
+
+Each change records its own checks in its message. The page moves: `node
+--check` on each touched script, the top-level name set across the six
+files equal before and after with each name declared once, and their
+non-comment lines equal as a multiset. The test splits: the sorted node ids
+equal before and after (248 and 95), and every non-blank line of each old
+file in exactly one new file, docstrings and imports aside; under WSL
+(Ubuntu, the project's Linux virtualenv) the Linux script tests passed 248
+of 248 and the keep-awake tests 93 with 2 skipped. At the end of the pass,
+on Windows with this documentation change: `uv run --group dev pytest -n
+8` **9,583 passed, 254 skipped** in 229 seconds; `ruff check .` clean; the
+pinned type gate 0 errors and 0 warnings over 199 files; `git diff
+--check` clean, and every relative link and anchor in this file,
+`docs/rules.md` and `AGENTS.md` resolves. The whole smoke table
+(`run_smoke.py --all --jobs 3 --offset 300 --rerun-failed-alone`) passed
+116 of 117 in 1,131 seconds. `smoke-phone-dialogs` failed, and failed again
+alone, on one expectation: a saved bundle's date row adds a 51 px line on
+the phone (GAL#27's check, `__dateShift() => [0,51]`). It failed the same
+way at `b270e98`, before this pass, so it was not a split and not a race:
+`todo/nov12-rows`'s next commit, `93e7277` (a protected bundle row allowed
+one more line on the phone), already fixed it, and with that commit merged
+into this branch `smoke-phone-dialogs` passes alone. No row is needed. As before, these establish equivalence at the
 source, API and fake-backend levels, and add no GPU measurement to
 `docs/verified.md`.

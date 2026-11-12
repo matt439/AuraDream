@@ -25,6 +25,7 @@ const REFINE_PASSES = 8;
 
 let refineTimer;
 let refineEpoch = 0;
+const refinePreviewMark = { pending: false, polled: false };  // markPreview (state.js)
 // What the last preview was refused with, or null: what Refine would be
 // refused with, so the button says so before the click rather than after the
 // dialog has closed.
@@ -738,8 +739,9 @@ function refineRequest() {
   return { path: '/api/grid', body, preview: body, sweep: true };
 }
 
-function scheduleRefinePreview(delay = 250) {
+function scheduleRefinePreview(delay = 250, { polled = false } = {}) {
   clearTimeout(refineTimer);
+  markPreview(refinePreviewMark, polled);
   refineTimer = setTimeout(previewRefine, delay);
 }
 
@@ -749,6 +751,7 @@ function scheduleRefinePreview(delay = 250) {
 // leaves no step, or a size past the guard, is refused here in the server's
 // words. Replies that overtake each other are dropped by the epoch.
 async function previewRefine() {
+  const polled = takePreviewMark(refinePreviewMark);
   if (!refineSource || !els.refineDialog.open) return;
   const epoch = ++refineEpoch;
   const { preview, sweep } = refineRequest();
@@ -770,11 +773,11 @@ async function previewRefine() {
     return;
   }
   try {
-    const p = await api('/api/grid/preview', {
+    const p = await api('/api/grid/preview', polledIf(polled, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(preview),
-    });
+    }));
     if (epoch !== refineEpoch) return;
     const strengths = p.values.strength ?? [];
     const steps = p.values.steps?.[0];
@@ -855,8 +858,9 @@ async function runRefine() {
   // line with the dialog and its edits gone. It stays open now, the refusal
   // in its own line. Until the pass's first frame, the viewer shows its
   // source standing in for it (startJob's `placeholder`), captioned with
-  // where the pass is: on SDXL, which sends no frames, it showed whatever
-  // image was there before for the whole pass. The full image - the wide
+  // where the pass is: on a checkpoint that sends no frames (no preview map;
+  // SDXL before 2026-11-12), it showed whatever image was there before for
+  // the whole pass. The full image - the wide
   // dialog's source pane has it already - since the thumbnail, stretched to
   // the viewer, was a fourfold upscale at QHD.
   const source = refineSource;

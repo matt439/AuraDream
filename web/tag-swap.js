@@ -65,6 +65,11 @@ let swapTimer = null;
 // A Queue press waiting on its check: a second press does nothing. Two
 // waits aborted each other's check in a loop that never yielded.
 let swapWaiting = false;
+// The Replace boxes' unknown-tag lookup (scheduleSwapTagCheck): its timer, the
+// epoch a late answer is dropped by, and the boxes' text it last answered.
+let swapTagTimer = null;
+let swapTagEpoch = 0;
+let swapTagKey = '';
 
 // The rows as the server's summary words them ("red hair, long hair → silver
 // hair"), for the queue row until the server's own name lands.
@@ -144,6 +149,9 @@ function openSwapDialog() {
   els.swapDialog.showModal();
   swapLiveRows()[0]?.querySelector('.swap-find').focus();
   scheduleSwapCheck(0);
+  // Rows typed before are kept, and the checkpoint may have changed since.
+  swapTagKey = '';
+  scheduleSwapTagCheck(0);
 }
 
 function swapFieldInput(value) {
@@ -166,6 +174,7 @@ function swapRow(find = '', replace = '') {
   findBox.spellcheck = false;
   findBox.autocomplete = 'off';
   findBox.maxLength = SWAP_MAX_TEXT;
+  swapListBox(findBox);
   const arrow = document.createElement('span');
   arrow.className = 'swap-arrow';
   arrow.setAttribute('aria-hidden', 'true');
@@ -188,6 +197,7 @@ function swapRow(find = '', replace = '') {
   replaceBox.spellcheck = false;
   replaceBox.autocomplete = 'off';
   replaceBox.maxLength = SWAP_MAX_TEXT;
+  swapListBox(replaceBox);
   const remove = document.createElement('button');
   remove.type = 'button';
   remove.className = 'ghost tiny swap-remove';
@@ -284,6 +294,178 @@ function swapEdited(delay = SWAP_CHECK_DELAY) {
     showError('', false, { slot: els.swapError });
   }
   scheduleSwapCheck(delay);
+  scheduleSwapTagCheck(delay);
+}
+
+// ------------------------------------------------- the boxes' tag help
+
+// On a tag checkpoint (tagVocabularyEnabled, as the prompt box decides) every
+// Find and Replace box suggests tags for the comma item at the caret, as the
+// negative box does: tag-lists.js's editor list, one for the dialog
+// (#swap-tag-suggestions), placed under the box with the focus - the rows
+// scroll, and a list inside one was cut off at their edge - and closed as
+// anything in the dialog scrolls, the list's own scroll aside. Asked with
+// `field=negative` while the swap is in the negative prompt. A pick replaces
+// the item at the caret as typing would (one Ctrl+Z takes it back); Enter or
+// Tab on a selected item picks it rather than pressing Queue or moving on.
+function swapListBox(box) {
+  box.setAttribute('aria-autocomplete', 'list');
+  box.setAttribute('aria-controls', 'swap-tag-suggestions');
+  box.setAttribute('aria-expanded', 'false');
+}
+
+function suggestSwapTags(event) {
+  const box = event.target;
+  const menu = els.swapTagSuggestions;
+  if (!box.matches?.('.swap-find, .swap-replace')) return;
+  if (!tagVocabularyEnabled || !els.swapDialog.open || document.activeElement !== box) {
+    hideSwapSuggestions();
+    return;
+  }
+  const range = currentTagRange(box);
+  const { query } = range;
+  const text = box.value;
+  const model = loadedModel;
+  const same = menu._input === box && !menu.hidden;
+  if (event.type !== 'input' && same && menu._query === query) return;
+  const negative = swapPayload().field === 'negative_prompt';
+  scheduleEditorSuggestions(box, menu, {
+    query,
+    ...(negative ? { field: 'negative' } : {}),
+    pick: (suggestion) => applySwapSuggestion(box, suggestion),
+    place: placeSwapSuggestions,
+    keep: same,
+    current: () => loadedModel === model && tagVocabularyEnabled && els.swapDialog.open
+      && document.activeElement === box && box.value === text
+      && currentTagRange(box).start === range.start && currentTagRange(box).end === range.end,
+  });
+}
+
+// Only a list that is up, as the negative box's (the lookup is shared).
+function hideSwapSuggestions() {
+  const menu = els.swapTagSuggestions;
+  if (menu.hidden) return;
+  clearTimeout(tagEditorSuggestionTimer);
+  tagEditorSuggestionEpoch += 1;
+  const box = menu._input;
+  renderEditorSuggestions(box, menu, [], { pick: (suggestion) => applySwapSuggestion(box, suggestion) });
+}
+
+// Under the box, or over it where the window has more room above than the
+// list needs below. Fixed to the window: the list is the dialog's, outside
+// the rows' scroll, at the box's own left and width (280 px at the least,
+// inside the window).
+function placeSwapSuggestions(menu) {
+  if (menu.hidden || !menu._input) return;
+  const box = menu._input.getBoundingClientRect();
+  const viewHeight = window.visualViewport?.height ?? window.innerHeight;
+  const width = Math.min(Math.max(box.width, 280), window.innerWidth - 24);
+  menu.style.width = `${width}px`;
+  menu.style.left = `${Math.max(12, Math.min(box.left, window.innerWidth - 12 - width))}px`;
+  const below = viewHeight - box.bottom;
+  const up = menu.offsetHeight + 8 > below && box.top > below;
+  menu.style.top = `${up ? box.top - 4 - menu.offsetHeight : box.bottom + 4}px`;
+}
+
+function applySwapSuggestion(box, suggestion) {
+  if (!box.isConnected) { hideSwapSuggestions(); return; }
+  const { start, end } = currentTagRange(box);
+  box.focus();
+  box.setSelectionRange(start, end);
+  if (!document.execCommand('insertText', false, suggestion.text)) {
+    box.setRangeText(suggestion.text, start, end, 'end');
+    box.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+  hideSwapSuggestions();
+}
+
+// The Replace boxes' tags the index does not know - in a replacing row and
+// an Add row alike, since either writes them into every prompt - marked on
+// the box (its title naming each and why) and said in the line under the
+// rows: "Not a known tag: silver_hiar - Queue still puts it in." Advisory:
+// Queue is never held for it, and silent when the lookup is unavailable or
+// fails, as the chips never call an unchecked tag unknown. One lookup for
+// every row, the rows' Replace text joined as one prompt so contextual prose
+// on a hybrid checkpoint is told from a tag (as the Refine dialog's line);
+// asked a moment after the typing stops, and not again for the same text.
+function scheduleSwapTagCheck(delay = SWAP_CHECK_DELAY) {
+  clearTimeout(swapTagTimer);
+  const epoch = ++swapTagEpoch;
+  const rows = swapLiveRows().map((row) => {
+    const box = row.querySelector('.swap-replace');
+    // The item at the caret of the box being typed in is not called unknown
+    // until it is finished, as the chips' item being typed is not: the
+    // check comes again as the box loses the focus.
+    let typing = -1;
+    if (document.activeElement === box) {
+      const { start, query } = currentTagRange(box);
+      if (query) typing = promptTagSpans(box.value).findIndex((span) => span.start === start);
+    }
+    return { box, parts: promptTagParts(box.value), typing };
+  });
+  const prompt = rows.map((row) => row.parts.join(', ')).filter(Boolean).join(', ');
+  const tags = promptTagParts(prompt).slice(0, TAG_LOOKUP_CAP);
+  const model = loadedModel;
+  const key = JSON.stringify([model, prompt, rows.map((row) => row.typing)]);
+  if (!els.swapDialog.open || !tagVocabularyEnabled || !tags.length) {
+    swapTagKey = key;
+    markSwapTags(rows, []);
+    return;
+  }
+  if (key === swapTagKey) return;
+  swapTagTimer = setTimeout(async () => {
+    let unknown = [];
+    try {
+      const body = await api('/api/tags/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tags, prompt }),
+      });
+      if (epoch !== swapTagEpoch || loadedModel !== model) return;
+      if (body.available) {
+        unknown = body.results.map((result, index) => ({ ...result, index })).filter((result) => result.valid === false
+          && !body.parts?.some((part) => part.kind === 'prose' && result.index >= part.first && result.index <= part.last));
+      }
+    } catch { /* unchecked is not unknown */ }
+    if (epoch !== swapTagEpoch) return;
+    swapTagKey = key;
+    markSwapTags(rows, unknown);
+  }, delay);
+}
+
+// The verdict onto the rows it was asked for: each comma item's index is
+// its row's by the rows' counts, in order.
+function markSwapTags(rows, unknown) {
+  let first = 0;
+  const said = [];
+  const titles = [];
+  const several = rows.filter((row) => row.parts.length).length > 1;
+  rows.forEach((row) => {
+    const last = first + row.parts.length;
+    const mine = unknown.filter((result) => result.index >= first && result.index < last
+      && result.index !== first + row.typing);
+    first = last;
+    const names = [...new Set(mine.map((result) => result.tag))];
+    row.box.classList.toggle('swap-unknown', names.length > 0);
+    const n = swapLiveRows().indexOf(row.box.closest('.swap-row')) + 1;
+    const reasons = names.map((tag) => `${tag}: ${mine.find((result) => result.tag === tag).reason || 'not a known tag'}`);
+    row.box.title = names.length ? `Not a known tag - ${reasons.join('; ')}. Queue still puts ${names.length === 1 ? 'it' : 'them'} in.` : '';
+    for (const tag of names) said.push(several ? `${tag} (row ${n})` : tag);
+    titles.push(...reasons.map((reason) => (several ? `Row ${n}, ${reason}` : reason)));
+  });
+  const listed = said.length > 8 ? [...said.slice(0, 8), `${said.length - 8} more`] : said;
+  const line = said.length
+    ? `Not a known tag: ${listed.join(', ')} - Queue still puts ${said.length === 1 ? 'it' : 'them'} in.`
+    : '';
+  if (els.swapTags.textContent !== line) els.swapTags.textContent = line;
+  els.swapTags.title = titles.join('\n');
+}
+
+// The tag helper came or went (tag-chips.js): an open dialog asks again.
+function syncSwapTagVerdicts() {
+  if (!els.swapDialog.open) return;
+  swapTagKey = '';
+  scheduleSwapTagCheck(0);
 }
 
 function swapPayload() {
@@ -495,14 +677,32 @@ function setupSwap() {
     const row = e.target.closest('.swap-row');
     if (row && e.target.matches('.swap-find')) syncSwapRowMode(row);
     swapEdited();
+    suggestSwapTags(e);
   });
+  els.swapRows.addEventListener('click', suggestSwapTags);
+  els.swapRows.addEventListener('keyup', (e) => {
+    if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) suggestSwapTags(e);
+  });
+  // The list's keys first (tag-lists.js, editorListKeydown): Enter or Tab on
+  // a selected item picks it, and an Escape the list takes closes the list
+  // alone - each prevented, so Queue's Enter below and the dialog leave it.
+  els.swapRows.addEventListener('keydown', (e) => {
+    if (e.target === els.swapTagSuggestions._input) editorListKeydown(e, els.swapTagSuggestions, hideSwapSuggestions);
+  });
+  // Out of a Replace box, the item it was typing is finished: checked at once.
+  els.swapRows.addEventListener('focusout', (e) => {
+    hideSwapSuggestions();
+    if (e.target.matches('.swap-replace')) scheduleSwapTagCheck(0);
+  });
+  els.swapDialog.addEventListener('scroll', (e) => { if (e.target !== els.swapTagSuggestions) hideSwapSuggestions(); }, true);
+  window.addEventListener('resize', hideSwapSuggestions);
   // Out of the rows, the slots removed rows kept can go: nothing in there is
   // under the pointer, and the rows' fixed height moves nothing outside.
   els.swapRows.addEventListener('pointerleave', collapseSwapRows);
   els.swapDialog.addEventListener('change', (e) => { if (e.target.name === 'swap-field') swapEdited(0); });
   // Enter in a box is Queue's press, as in any form.
   els.swapRows.addEventListener('keydown', (e) => {
-    if (keyboardEventHeld(e) || keyboardCommandModifier(e) || e.shiftKey) return;
+    if (e.defaultPrevented || keyboardEventHeld(e) || keyboardCommandModifier(e) || e.shiftKey) return;
     if (e.key === 'Enter' && e.target.matches('input')) {
       e.preventDefault();
       if (!e.repeat) void queueSwap();
@@ -512,6 +712,9 @@ function setupSwap() {
     clearTimeout(swapTimer);
     swapAsking?.abort();
     swapAsking = null;
+    clearTimeout(swapTagTimer);
+    swapTagEpoch += 1;
+    hideSwapSuggestions();
   });
   onSelectionChange(syncSwapButton);
   syncSwapRowNames();

@@ -231,6 +231,9 @@
   .panel summary::after { content: ""; position: absolute; inset: -9px 0; }
   .notification-choice > .tr-open { position: relative; }
   .notification-choice > .tr-open::after { content: ""; position: absolute; inset: -10px -6px; }
+  /* + panel size at the Sizes label's end, the same way. */
+  .sub i > .grid-size-add { position: relative; }
+  .sub i > .grid-size-add::after { content: ""; position: absolute; inset: -12px -6px; }
   /* The tools over a picture - a gallery card's, a run's tiles' - were 24 px
      tall: a finger's 32, their widths still shrinking to share the card.
      The phone draws none (below). */
@@ -547,6 +550,13 @@
     border-radius: var(--r-sm);
   }
   .notification-choice > .tr-open::after { content: none; }
+  /* + panel size likewise: a finger's box at the Sizes label's end, the
+     line growing to it here, where the panel is one scrolling column. */
+  .sub i > .grid-size-add {
+    min-height: var(--h-md); padding-inline: var(--sp-2); margin-right: calc(-1 * var(--sp-2));
+    border-radius: var(--r-sm);
+  }
+  .sub i > .grid-size-add::after { content: none; }
 
   /* Every fold one row: 48 px under a hairline, its name 16 px bold, what
      it holds (Custom dimensions' 1024 × 1024, the grid's sweeps, LoRA's
@@ -556,24 +566,24 @@
      a dialog's) and the summary was an 18 px line reaching 36 by a
      pseudo-element. Two lines of 15 px at 1.25 and its padding are its 48,
      so a summary rewritten from one line to two moves nothing under it. */
-  details:is(.setup-disclosure, .section, .ms-technical, .bundle-automatic, .model-performance) {
+  details:is(.setup-disclosure, .section, .ms-technical, .bundle-automatic, .model-performance, .model-storage) {
     border-top: 1px solid var(--line); padding-block: 0;
   }
-  details:is(.setup-disclosure, .section, .ms-technical, .bundle-automatic, .model-performance) > summary {
+  details:is(.setup-disclosure, .section, .ms-technical, .bundle-automatic, .model-performance, .model-storage) > summary {
     position: relative; display: flex; align-items: center; gap: var(--sp-3);
     min-height: 48px; height: auto; margin: 0; padding: var(--sp-1) 28px var(--sp-1) 0;
     list-style: none; cursor: pointer; white-space: normal; overflow: visible;
     font-size: var(--fs-md); font-weight: 600; line-height: var(--lh-tight); color: var(--text);
   }
-  details:is(.setup-disclosure, .section, .ms-technical, .bundle-automatic, .model-performance) > summary::-webkit-details-marker { display: none; }
-  details:is(.setup-disclosure, .section, .ms-technical, .bundle-automatic, .model-performance) > summary::before,
+  details:is(.setup-disclosure, .section, .ms-technical, .bundle-automatic, .model-performance, .model-storage) > summary::-webkit-details-marker { display: none; }
+  details:is(.setup-disclosure, .section, .ms-technical, .bundle-automatic, .model-performance, .model-storage) > summary::before,
   details[open].section > summary::before { content: none; }
-  details:is(.setup-disclosure, .section, .ms-technical, .bundle-automatic, .model-performance) > summary::after {
+  details:is(.setup-disclosure, .section, .ms-technical, .bundle-automatic, .model-performance, .model-storage) > summary::after {
     content: ""; position: absolute; inset: 50% 6px auto auto;
     width: 9px; height: 9px; margin-top: -7px;
     border: solid var(--muted); border-width: 0 2px 2px 0; rotate: 45deg;
   }
-  details[open]:is(.setup-disclosure, .section, .ms-technical, .bundle-automatic, .model-performance) > summary::after {
+  details[open]:is(.setup-disclosure, .section, .ms-technical, .bundle-automatic, .model-performance, .model-storage) > summary::after {
     margin-top: -2px; rotate: -135deg;
   }
   details:is(.setup-disclosure, .section) > summary > :is(span, em) {
@@ -585,6 +595,12 @@
      name, its choices, its note), two lines at most. */
   .model-performance > summary { display: block; padding-block: 13px 5px; }
   .model-performance > summary > span { font-size: var(--fs-body-sm); }
+  /* On disk is a fold row like the rest, across the sheet; the earlier
+     stars' offer wraps its words over its two buttons. */
+  .model-storage > summary { width: auto; }
+  .model-favourites-offer { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+  .model-favourites-offer > span { flex: 1 1 100%; }
+  .model-favourites-offer > button { margin-left: 0; }
   .section { padding-top: 0; gap: var(--sp-3); }
   /* Shut, a fold is its 48 px row: the flex gap still stood between the
      summary and its hidden contents, 12 px more under Grid search than
@@ -797,6 +813,13 @@
      the sheet's edge. */
   :is(.swap-field, .bundle-scope) { column-gap: var(--sp-4); row-gap: 0; }
   :is(.swap-field, .bundle-scope) label { gap: var(--sp-2); }
+  /* A saved bundle's size and date (GAL#27) take the room its Download and
+     Import leave, wrapping inside it at the date (two small lines beside a
+     44 px button), rather than pushing Import to a line of its own: the
+     date adds no line to a row. A protected row's already wrap onto a line
+     with Protected and no button, where two lines would add height: there
+     the size keeps its width and Download moves down beside the buttons. */
+  .bundle-row:not(:has(.bundle-import-password)) .bundle-size { flex: 1 1 10rem; min-width: 0; }
   /* A sheet's scale buttons (Then refine's, Mass refine's, Refine's 1x to
      2x) 8 px apart, as a finger's neighbours are, not 6. */
   dialog .presets { gap: var(--sp-2); }

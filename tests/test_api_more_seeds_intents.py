@@ -87,19 +87,19 @@ def test_concurrent_same_token_waits_through_persistence_and_queues_once(client,
     def held(definition, cells):
         calls.append(definition["job_id"])
         entered.set()
-        assert release.wait(5)
+        assert release.wait(30)
         return original(definition, cells)
 
     monkeypatch.setattr(storage, "retain_run_job", held)
     with ThreadPoolExecutor(max_workers=2) as pool:
         first = pool.submit(client.post, "/api/more-seeds", json=body)
         try:
-            assert entered.wait(5), "the first intent never reached persistence"
+            assert entered.wait(30), "the first intent never reached persistence"
             second = pool.submit(client.post, "/api/more-seeds", json=body)
             assert main.jobs.busy() and main.jobs.more_seeds_intents.pending
         finally:
             release.set()
-        a, b = first.result(timeout=5), second.result(timeout=5)
+        a, b = first.result(timeout=30), second.result(timeout=30)
     assert a.status_code == b.status_code == 200
     assert a.json() == b.json()
     assert len(calls) == 1 and len(store.retained_run_jobs()) == 1

@@ -174,7 +174,7 @@ def test_mixed_grid_resume_reads_every_actual_size_and_retains_sizes(client, fak
 
 def test_mixed_grid_resume_sees_planned_keys_before_gallery_awaits(client, fake):
     release = threading.Event()
-    fake.after_generate = lambda: release.wait(5)
+    fake.after_generate = lambda: release.wait(30)
     try:
         accepted = client.post("/api/grid", json=BODY).json()
         preview = client.post("/api/grid/preview", json={**BODY, "resume": True}).json()

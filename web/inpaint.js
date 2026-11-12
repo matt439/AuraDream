@@ -67,6 +67,7 @@ let inpaintLoraDrops = 0;
 
 let inpaintTimer;
 let inpaintEpoch = 0;
+const inpaintPreviewMark = { pending: false, polled: false };  // markPreview (state.js)
 // What the last preview refused, and the request it answered for (as JSON).
 let inpaintProblem = null;
 let inpaintPreviewed = null;
@@ -647,8 +648,9 @@ function inpaintRequest() {
   return { path: '/api/grid', body, preview: body, sweep: true };
 }
 
-function scheduleInpaintPreview(delay = 250) {
+function scheduleInpaintPreview(delay = 250, { polled = false } = {}) {
   clearTimeout(inpaintTimer);
+  markPreview(inpaintPreviewMark, polled);
   inpaintTimer = setTimeout(previewInpaint, delay);
 }
 
@@ -657,6 +659,7 @@ function scheduleInpaintPreview(delay = 250) {
 // server's words - a strength that leaves no step, the mask gone. Nothing is
 // asked while the mask is not stored: Inpaint says why it waits.
 async function previewInpaint() {
+  const polled = takePreviewMark(inpaintPreviewMark);
   if (!inpaintSource || !els.inpaintDialog.open) return;
   const epoch = ++inpaintEpoch;
   const { preview, sweep } = inpaintRequest();
@@ -679,11 +682,11 @@ async function previewInpaint() {
     return;
   }
   try {
-    const p = await api('/api/grid/preview', {
+    const p = await api('/api/grid/preview', polledIf(polled, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(preview),
-    });
+    }));
     if (epoch !== inpaintEpoch) return;
     const strengths = p.values.strength ?? [];
     const steps = p.values.steps?.[0];

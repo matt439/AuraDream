@@ -336,7 +336,7 @@ def test_two_simultaneous_imports_from_one_snapshot_allow_only_one_atomic_commit
     barrier = Barrier(2)
 
     def import_once():
-        barrier.wait(timeout=5)
+        barrier.wait(timeout=30)
         try:
             return snippets.import_collection(database, body)
         except (snippets.SnippetsError, portable.PortabilityError) as exc:

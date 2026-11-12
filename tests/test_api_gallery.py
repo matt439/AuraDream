@@ -218,7 +218,7 @@ def test_delete_unstarred_says_when_any_job_is_running(client, fake, store, monk
         "/api/generate", json={"prompt": "a lighthouse in fog", "width": 256, "height": 256}
     ).json()["job_id"]
     try:
-        assert running.wait(5)
+        assert running.wait(30)
         preview = client.get("/api/gallery/unstarred").json()
         assert (preview["unstarred"], preview["job_active"]) == (2, True)
         # A count that no longer holds, with the job still going: the refusal

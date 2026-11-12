@@ -86,6 +86,15 @@
   margin-top: var(--sp-2);
   scroll-margin-bottom: calc(var(--gutter) + var(--panel-pad) + 1px);
 }
+/* + panel size (GEN#64, grid-preview.js addPanelSize): at the Sizes label's
+   line end, sized as the line's text so the fold grows no taller - the
+   panel has no spare row at 1400x900 - and drawn as Then refine's opener. */
+.sub i > .grid-size-add {
+  flex: 0 0 auto; margin-left: auto; padding: 0; border: 0; background: none;
+  font: inherit; line-height: inherit; color: var(--text-3);
+  text-decoration: underline dotted; text-underline-offset: 2px; cursor: pointer;
+}
+.sub i > .grid-size-add:hover { color: var(--text); }
 /* The count, the time and the disk are what decide whether to start a night:
    the preview's first line reads at body size, the axes and notes under it
    stay hint text. Amber with the rest under .warn. */

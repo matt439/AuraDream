@@ -108,7 +108,7 @@ def test_threads_waiting_on_another_process_share_one_deadline(store):
 
 
 def _sidecar_writers():
-    from backend import presets, saved_searches, snippets
+    from backend import model_favourites, presets, saved_searches, snippets
     from backend.schemas_presets import PresetFields, PresetPayload
     from backend.schemas_saved_searches import SavedSearchFields
     from backend.schemas_snippets import SnippetFields
@@ -120,10 +120,11 @@ def _sidecar_writers():
         (saved_searches, lambda db: saved_searches.change(db, SavedSearchFields(
             name="search", query="", favorites=True, all_models=False,
         ))),
+        (model_favourites, lambda db: model_favourites.change(db, "someone/model", True)[0]),
     ]
 
 
-@pytest.mark.parametrize("index", range(3), ids=["presets", "snippets", "saved_searches"])
+@pytest.mark.parametrize("index", range(4), ids=["presets", "snippets", "saved_searches", "model_favourites"])
 def test_a_sidecar_write_waits_out_another_processs_write(tmp_path, index):
     # Two app processes saving the same sidecar at once: the second used
     # maintenance's MAINTENANCE_GRACE (0.25 s) and was refused as busy when

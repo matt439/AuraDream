@@ -57,6 +57,11 @@
    display: contents, so its cells are the row's grid items and a press on
    any of them chooses the row. Below 700 px the facts take a second line. */
 .model-table { display: grid; border: 1px solid var(--line); border-radius: var(--r-sm); }
+/* The table's place while a gallery bundle operation refuses its read. */
+.model-table-held {
+  margin: 0; padding: var(--sp-3); border: 1px solid var(--line); border-radius: var(--r-sm);
+  color: var(--muted); overflow-wrap: anywhere;
+}
 .model-row {
   display: grid; align-items: center; column-gap: var(--sp-2);
   grid-template-columns: var(--h-sm) minmax(0, 1.7fr) minmax(0, 1fr) minmax(0, .55fr) minmax(0, 1fr) minmax(0, 1.3fr) var(--h-xs);
@@ -163,6 +168,48 @@
 .model-performance-label { font-weight: 600; }
 .model-performance-note { color: var(--text-readout); font-size: var(--fs-body-sm); }
 .model-performance[open] > .model-loader-options { margin-top: var(--sp-2); }
+/* The one-time offer to import this browser's earlier stars (model-favourites.js,
+   syncModelFavouriteOffer): one line of words with its two buttons after
+   them, above the heading row. A press keeps its height (an inline
+   min-height) until the next opening. */
+.model-favourites-offer {
+  margin: 0; padding: var(--sp-2) var(--sp-3); font-size: var(--fs-body-sm); color: var(--text-soft);
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--r-sm);
+}
+.model-favourites-offer:focus { outline: none; }
+.model-favourites-offer > button { margin-left: var(--sp-2); }
+/* On disk (model-storage.js): collapsed, last in the body, read on its
+   opening. A read-only inventory; it holds no delete control. */
+.model-storage { min-width: 0; border-top: 1px solid var(--line); padding-top: var(--sp-2); }
+.model-storage > summary { cursor: pointer; font-weight: 600; border-radius: var(--r-xs); width: fit-content; }
+.model-storage > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.model-storage-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); margin-top: var(--sp-2); }
+.model-storage-status { margin: 0; min-width: 0; color: var(--text-readout); font-size: var(--fs-body-sm); }
+.model-storage-head > button { flex: none; }
+.model-storage-body { display: grid; gap: var(--sp-2); margin-top: var(--sp-2); font-size: var(--fs-body-sm); }
+.model-storage-body p { margin: 0; }
+.model-storage-facts {
+  display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--sp-1) var(--sp-3); margin: 0;
+}
+.model-storage-facts > dt { color: var(--text-readout); }
+.model-storage-facts > dd { margin: 0; overflow-wrap: anywhere; }
+.model-storage-facts > dd[title] { cursor: help; }
+.model-storage-table { width: 100%; border-collapse: collapse; }
+.model-storage-table caption, .model-storage-heading { text-align: left; font-weight: 600; padding-bottom: var(--sp-1); }
+.model-storage-table th, .model-storage-table td {
+  padding: var(--sp-1) var(--sp-2); border-top: 1px solid var(--line); text-align: right; overflow-wrap: anywhere;
+}
+.model-storage-table th:first-child { width: 100%; text-align: left; font-weight: 400; }
+/* Only a checkpoint's name wraps; the sizes and column names keep whole. */
+.model-storage-table :is(td, thead th:not(:first-child)) { white-space: nowrap; overflow-wrap: normal; }
+.model-storage-table thead th { color: var(--text-readout); font-weight: 600; border-top: 0; }
+.model-storage-table [title] { cursor: help; }
+.model-storage-others { display: grid; gap: var(--sp-1); margin: 0; padding: 0; list-style: none; }
+.model-storage-others > li { display: flex; justify-content: space-between; gap: var(--sp-3); min-width: 0; }
+.model-storage-repo { min-width: 0; overflow-wrap: anywhere; }
+.model-storage-size { flex: none; color: var(--text-readout); }
+.model-storage-warning { color: var(--warn); }
+.model-storage-note, .model-storage-empty { color: var(--text-readout); }
 .model-picker .model-startup { color: var(--text); font-weight: 400; font-size: var(--fs-md); }
 .model-startup > input { flex: none; }
 .model-picker-footer {

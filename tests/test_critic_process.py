@@ -146,7 +146,7 @@ def test_a_process_is_waited_for_until_its_last_thread_exits():
     )
     try:
         port = int(process.stdout.readline())
-        deadline = time.monotonic() + 2
+        deadline = time.monotonic() + 30
         while Path(f"/proc/{process.pid}/stat").read_text().rpartition(")")[2].split()[0] != "Z":
             assert time.monotonic() < deadline
             time.sleep(0.01)

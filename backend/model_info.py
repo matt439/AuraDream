@@ -14,7 +14,7 @@ import json
 from pathlib import Path, PurePosixPath
 import time
 
-from .launch import CHECKPOINTS, FORMATS
+from .launch import CHECKPOINTS, FORMATS, catalogue_entry, written_id  # noqa: F401 - model_cache_storage reads FORMATS here
 from .model_benchmarks import speed_for
 from .instruction_edit import INSTRUCTION_EDIT_UNAVAILABLE
 from .model_defaults import defaults_for
@@ -475,7 +475,7 @@ def _cached_state(model_id: str, cache_dir: str, converted_home: str, minute: in
 def download_reference_bytes(model_id: str) -> int | None:
     """Selected-file reference size, never an estimate of bytes still missing."""
     references = download_references()
-    recipe = references["models"].get(model_id)
+    recipe = references["models"].get(written_id(model_id))
     known = recipe is not None and all(item["files"] is not None for item in recipe["sources"])
     if not known:
         return None
@@ -484,6 +484,8 @@ def download_reference_bytes(model_id: str) -> int | None:
 
 
 def download_facts(model_id: str) -> dict[str, str]:
+    # A renamed lite-infer id reads its entry's recipe (`launch.written_id`).
+    model_id = written_id(model_id)
     references = download_references()
     recipe = references["models"].get(model_id)
     size = download_reference_bytes(model_id)
@@ -532,8 +534,9 @@ def _instruction_edit_facts(model_id: str, *, catalogued: bool, reason: str | No
 # only where one is fitted (`latent_preview.FACTORS`). From the loaders and
 # docs/verified.md: FLUX.1, Z-Image, Lumina and NewBie decode through the
 # 16-channel `AutoencoderKL`, Krea 2, Qwen-Image and Anima through
-# `AutoencoderKLQwenImage`; SDXL's VAE has four channels, and FLUX.2 [klein],
-# ERNIE and FLUX 3 use FLUX.2's (`GEN#6` owns those two maps).
+# `AutoencoderKLQwenImage`; SDXL's VAE has four channels (its map fitted on
+# the CPU, 2026-11-12), and FLUX.2 [klein], ERNIE and FLUX 3 use FLUX.2's,
+# which has none yet.
 _FLUX_LATENTS = "AutoencoderKL/16"
 _QWEN_LATENTS = "AutoencoderKLQwenImage/16"
 _SDXL_LATENTS = "AutoencoderKL/4"
@@ -587,10 +590,7 @@ _CAPABILITIES_BASIS = "From the checkpoint's id, before a load."
 
 
 def _catalogue_entry(model_id: str):
-    return next((
-        entry for entry in CHECKPOINTS
-        if model_id == entry.repo or any(model_id == entry.lite_repo(fmt) for fmt, _ in FORMATS)
-    ), None)
+    return catalogue_entry(model_id)
 
 
 def capabilities_for(model_id: str, quantization: str | None = None) -> dict[str, str] | None:
@@ -699,7 +699,7 @@ def details_for(
     ), _OPEN)
     profile = defaults_for(model_id)
     fit, fit_note = ("", "") if lite else _FIT.get(checkpoint.repo, ("", ""))
-    lite_format = next((fmt for fmt, _ in FORMATS if model_id == checkpoint.lite_repo(fmt)), None)
+    lite_format = checkpoint.lite_format(model_id)
     on_card = card_fit(checkpoint.repo, lite_format, quantization, offload, card_memory)
     if on_card is not None:
         # The card's own words first; a fact it does not cover (Kontext's

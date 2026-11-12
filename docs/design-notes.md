@@ -345,6 +345,68 @@ are not built. What is not measured: that the PC stays awake past its sleep
 timer while the request is held. The one real call made (2026-11-10, this
 PC) was a request Windows accepted and that was released at once.
 
+**Keeping the PC awake under WSL (2026-11-12, `GEN#66`).** A server started
+by `wsl/serve.sh` is `linux` to `sys.platform`, so `platform_inhibitor`
+took `systemd-inhibit`. That blocks only the VM's logind; the Windows
+host's sleep timer, the one that matters, never sees it, while the status
+said `holding` and the doctor passed. The 2026-11-12 audit found it.
+
+- WSL is detected by its interop entry
+  (`/proc/sys/fs/binfmt_misc/WSLInterop`, or `WSLInterop-late`) or
+  `microsoft` in the kernel release, and then `systemd-inhibit` is never
+  taken: a hold that holds nothing is worse than none, because it is
+  reported as one.
+- The hold is Windows' own power request, the same system-required one as
+  `PowerRequest`, made by Windows PowerShell 5.1 (`powershell.exe`) through
+  interop: a short script compiles four kernel32 calls with `Add-Type`,
+  sets the request, prints `held <pid>` (or `refused: <Windows' words>`)
+  and reads its stdin until it ends, then clears the request and closes
+  the handle. The stdin is a pipe only the server holds, so the pipe's
+  guarantee is Linux's `cat`'s: release closes it (then terminate, then
+  kill), and the server dying in any way closes it too. Windows closes the
+  handle when powershell.exe ends however it ends.
+- The script goes as `-EncodedCommand` (UTF-16LE, base64): one argument
+  that neither WSL's command-line building nor Windows' parsing can split
+  or unquote, where the C# needs double quotes. Nothing is written to disk
+  and no execution policy is read or changed.
+- Waiting for `held` rather than a fixed delay: `Add-Type` compiles at each
+  start (about half a second here, up to `START_WAIT`, 30 s, on a slow
+  PC), and only `held` proves the request was set. A refusal, silence or
+  an early end is refused for `RETRY_AFTER`, as the other holders are.
+- Without interop (or powershell.exe) nothing can reach Windows. Nothing is
+  held, the status's `kind` is `none` with `detail` saying why
+  (`WSL_NO_HOLD`), the server logs it once at start, and the doctor warns
+  with the interop setting and the sleep timer as fixes.
+
+Tried from WSL 2 on this PC (2026-11-12, no GPU): the request was accepted
+in about 0.45 s; on release the script exited 0, and when its WSL process
+was killed with SIGKILL the Windows process was gone by the next check.
+`powercfg /requests` needs an administrator's prompt and has not been read
+while it holds; that is Matt's check.
+
+**A timed retry is a poll (2026-11-12, `GEN#67`).** The excluded polls
+were a list of paths, and a path is not enough: `GET /api/models` is read
+when someone opens Models, and again every 10 s by the page itself after a
+failed read, while the picker stays open; the cache facts a status poll
+asks for (again at every poll after a failure) and the pictures strip's
+5 s retry (`GET /api/gallery`) are the same. Each counted as use, so an
+idle tab after a refused catalogue read held the PC awake, and since
+`GEN#51` delayed idle release too. The page now marks those reads with
+`X-AuraDream-Poll` (`polledRead` in `state.js`), and `counts_as_activity`
+leaves a marked GET out; a write counts whatever it carries, so the header
+cannot excuse a change. Backing off the retry instead would still have
+counted each one. `smoke-idle-activity` holds it in the browser: the fake
+records what the real rule would count (`/api/fake/activity`, the fake's
+own keep-awake being off) while each polling surface stays open with
+nothing pressed, and fails with the marker taken out. A review then found
+one write the page sends by itself: a status poll that sees the model load
+or unload asks the open grid section's preview (and a comparison's, and
+an open Refine, Inpaint or Outpaint dialog's) again, a `POST
+/api/grid/preview`, so idle release's own unload restarted the clock it
+had just run out. That route writes nothing, so it alone accepts the
+marker on a POST; a debounced preview carries it only when no edit asked
+for one meanwhile (`markPreview` in `state.js`).
+
 **Who may frame the page.** A page on another site that frames the app gets
 the app's own origin inside the frame, so a click it steers there is a
 same-origin write: the Host header is the app's and so is the `Origin`, and
@@ -768,7 +830,7 @@ keep this treatment.)
 
 An in-page list moves under the pointer (and loses its focus) if its options
 are rebuilt while open, so while any picker list matches `:open` catalogue
-replies, other tabs' favourites and a status write to that list wait for it
+replies and a status write to that list wait for it
 to close, then land. The other controls take a server change at once, so a
 checkpoint picked from the open list still sits on the new loading options.
 Its keys now reach the page, which leaves them all to the list: Escape closes
@@ -930,7 +992,8 @@ need the most VRAM (24 GB+ for FLUX-size models), with no per-model figures.
 Changing draft offload settings refreshes these facts as changing quantization
 does, without applying either setting or loading a model.
 
-Each row's star saves a browser-local favourite immediately. The table groups
+Each row's star saves a favourite on the server immediately (`UI#52`,
+2026-11-12; below). The table groups
 Favourites first and Other models after, without duplicating rows, but only when
 it is drawn for an opening (or while the picker is closed): a star pressed in
 an open picker changes in place, because regrouping then would move the row,
@@ -939,9 +1002,33 @@ ordinary and Nunchaku formats share it; Anima Turbo and Aesthetic retain their
 distinct identities. Starring preserves the choice and unsaved loader edits,
 does not load weights, and keeps button focus. A table rebuilt for new loading
 options returns focus to the same model's control, since losing it would close
-the picker. Browser storage is guarded; when unavailable the session can keep
-stars while the page reports that they could not be saved. Other tabs' storage
-changes update the stars, and the grouping at the next opening.
+the picker. A refused write keeps the press for this page and says so in the
+note. Another device's stars arrive at the next read (the page's start and
+each opening), changing stars in place and the grouping at the next opening;
+the page's first set, when a slow or refused start read leaves it to an
+opening, is no exception, since a finger, the focus or an open list may be
+on a row (`:hover` follows none of them).
+
+Favourites moved from per-origin localStorage to the server on 2026-11-12
+(`UI#52`): the LAN address, the HTTPS route and the phone each had their own
+set. `backend/model_favourites.py` keeps one set of canonical ids per gallery
+database, in `auradream.model-favourites-<db>.json` beside it, as saved
+searches keep theirs: bounded (200 ids of at most 512 characters), atomic
+replace, its own cross-process reservation, independent of gallery
+maintenance, model admission and the GPU gate, and behind the passcode like
+every route. A press sends only its own star (`{model_id, favourite}`), a set
+operation, so it never undoes another device's star and needs no expected
+revision; the set's revision moves only when the set changes, and the page
+takes an answer only when it is not older than one it has read, so a late
+reply never undoes a newer one. One star's writes go one at a time: a press
+while that star's write is on its way only records the wish, sent when the
+answer comes if it still differs, since two quick presses sent together
+could reach the server's threads in either order and leave the star against
+the last press. The old localStorage set is only read now,
+for a one-time offer (explicit, dismissible, never automatic) to merge it in;
+its answer is remembered in `auradream.model-favourites-import.v1`. The offer
+is decided as the picker opens, never while it stays open, and a press keeps
+its line's height until the next opening, so nothing moves under the pointer.
 
 Group by type (2026-10-31) lists the non-favourite rows under their Style
 column's word (Photorealism, General, Anime, Stylised anime…) instead of
@@ -1239,6 +1326,51 @@ tested against one: `hub_access.check`'s `auth_check`, the pinned
 old ids for now, since they are saved in settings and PNG metadata; moving
 to the new names, with the old ones still read from saved settings and
 metadata, is deferred (`GEN#47`).
+
+**The new names are read-only aliases (2026-11-12, `GEN#47`).** Of the two
+ways the audit offered, Matt chose to keep writing the old ids and to read
+the new names as the same entry and recipe, rather than move the catalogue:
+moving it would have made every saved setting, PNG, `CellKey` and run id an
+id the app no longer writes, for no gain while the 307 holds. All 18 lite
+ids were checked against the Hub that day; each renames by one rule
+(`_r32-bnb4-text-encoder` becomes `-r32`, ERNIE's `-bnb4-text-encoder` goes),
+so `Checkpoint.lite_alias` derives the new name rather than listing it.
+`launch.written_id` turns a new name into the old one where an id enters:
+`AURADREAM_MODEL_ID` as `config` reads it (and so `--model`, the menu and the
+CLI), a switch (`model_selection.validate`), the saved startup choice's
+checkpoint comparison (`startup_preferences.apply_saved_environment`),
+`--via-server`'s check of the server's checkpoint, and the recipe readers
+(`model_info`, `download_progress`, `hub_access.sources`). The exact-id
+sites that already matched lite ids (`launch._match`, `api_runs._model_name`,
+`model_benchmarks.speed_for`, `model_info`'s entry and format,
+`model_selection`'s format, `loading`'s known ids) go through
+`catalogue_entry`/`Checkpoint.lite_format`, which know both. A download
+asks for the old id, follows the 307 inside huggingface_hub (its client
+follows redirects; a file HEAD follows a same-host one itself) and lands in
+the cache under the old id's folder, where the cache check looks.
+`tests/test_lite_aliases.py` answers the 307s with an httpx `MockTransport`
+under huggingface_hub's own client: the access check's HEAD and auth check,
+a refusal behind the redirect, and a download whose snapshot the cache
+check then reads as complete. Should lite-infer ever drop the redirect, the
+old ids stop downloading, and moving the catalogue becomes the fix.
+
+**The download recipe refreshed (2026-11-12, `GEN#65`).** Seven recipes had
+no selection (FLUX.1 dev and schnell, FLUX.2 [klein] 9B and base 9B and
+Krea 2 Raw, then unreadable without a sign-in, and both FLUX 3 entries,
+whose shard maps were unreadable before the licences were accepted), so
+Models showed their download size as Unknown (first-time F27).
+`tools/model_downloads.py` now checks the file offline and refreshes it from
+the Hub's metadata with the local sign-in; the local account read all seven.
+An unknown selection is derived rather than written by hand: an ordinary
+pipeline's by diffusers 0.42.1's own `DiffusionPipeline.download` allowlist
+(its helpers called over the listing and `model_index.json`; this reproduces
+every plain recorded selection, and differs only where a loader passes or
+omits components, Z-Anime and ERNIE's `pe`), FLUX 3's by `flux3_loading`'s
+two snapshot patterns. A recorded selection is never rewritten. The lite
+sources had moved on at `main` (only their READMEs changed), so their
+commits were re-recorded with `moved_to` naming the new repository; a cache
+holding the earlier commit now reads Unknown, as one at the newer commit
+did before.
 
 ## FLUX 3 [Klein]: an app-owned pipeline over pinned folders
 
@@ -4105,7 +4237,12 @@ than found in the morning: a variable no placeholder mentions multiplies the
 night by a value that changes nothing, and a placeholder with no variable
 renders the literal `{ground}` into every image of the run - **including
 when the variables box is empty**, which used to short-circuit past both
-checks (a plain prompt with no placeholders still expands to itself). The
+checks (a plain prompt with no placeholders still expands to itself). A
+value that names a declared variable (`a = {b} hat`) is refused the same
+way (GEN#63, 2026-11-12): `substitute()` makes one pass, so it resolved to
+`{b} hat, red` with the braces at the encoder. Refusing beat a second pass
+with cycle detection: no substitution order to define, and `CellKey` and
+run ids untouched. The refusal carries no code - the page only shows it. The
 product of the variables is **counted before it is built**
 (`math.prod` against `max_grid_images`): `MAX_AXIS_VALUES` caps values per
 variable, nothing capped the variables, and eighteen binary lines built
@@ -4115,6 +4252,34 @@ so `{size} dog` is `dog` rather than ` dog`, and nothing else. The prompt loop
 sits just inside the seed loop, for the reason seeds are outermost: a night
 that ends early has swept every setting for the prompts it reached, which is a
 comparison.
+
+**The preview measures each resolved prompt** (PA#15, 2026-11-12). Check
+reads the prompt box, so on a grid it counted the `{name}` template, and one
+value could carry its prompt past T5's or CLIP's budget, where the pipeline
+cuts in silence. `/api/grid/preview` now answers `budgets`
+(`grid_budgets.measure_cells`): `prompt_encoding.measure` over each distinct
+resolved (prompt, negative-as-`applied()`) pair, so the same exact strings
+Check measures. Only where something is substituted (a grid with no
+variables is the prompt Check already counts). Cold as Check is - the CPU
+tokenizers on a daemon thread, never the model or the gate - and bounded,
+because the preview runs at every pause in typing and can resolve to a
+thousand prompts: the first `MAX_MEASURED` (128) distinct pairs, and one
+`WAIT` (5 s) for a cold tokenizer across the whole preview rather than
+Check's 30 s per call, after which `detail` says the counts are unknown.
+A tokenizer that cannot be read (gated, offline, still loading) stops the
+measuring at the first prompt it misses: `prompt_encoding` caches only a
+load that succeeded, so each later prompt would start the load again and
+wait its share - a review found an unaccepted gate costing every preview
+its full 5 s in tens of failed Hub requests. One try per preview, as
+Check makes one per check; the page then says the reason, not the cap.
+The server decides what is lost (a pooled-only encoder's cut, FLUX.1's
+CLIP-L, is not) and which values tip a prompt over: a value whose every
+measured prompt is cut while some other prompt is not. With every prompt cut
+the template is long and no value is named. The page puts the per-encoder
+range as the listing box's last row, so the preview grows no further toward
+Run grid (the box scrolls inside itself), and the cut as a warning note.
+`EncoderReport` moved to the leaf `schemas_encoder.py` so `GridPreview`
+can carry it: `schemas_prompt` imports `schemas_generate`.
 
 **`none` closes only its own hole** (2026-10-05). One space goes with the
 word (`grid._close_hole`): the one after it where the word followed a space or
@@ -6073,6 +6238,27 @@ debounced 250 ms preview (grid, refine, inpaint, outpaint) is only
 scheduled at that point, so a press in that window with one of those
 panels open can still meet the same refusal.
 
+A refused read used to leave a panel saying nothing (2026-11-12, `UI#53`).
+`GalleryAdmission`'s 409 had a sentence and no code, and Models opened with
+an empty table and no word on why; the tag finder called it "Danbooru
+unreachable". The refusal now carries `gallery_maintenance`. Models shows
+`GALLERY_MAINTENANCE_WORDS` in the table's place (desktop and phone sheet)
+and holds Switch with "Wait for the gallery bundle operation to finish";
+On disk, Check and the tag finder say the same words in their own places
+(backup is named too: an automatic backup and a backup-settings save hold
+the same admission). The reason keeps the height of a table already shown,
+so the On disk fold below never moves under the pointer as the poll brings
+the same list back, and a focused row hands its focus to the picker's body
+as it hides. A refused read can leave itself with `afterGalleryMaintenance` (the Models
+catalogue, an open On disk fold). The bundle status poll, which already
+watches every bundle operation, runs them once it sees none running. No
+new timer was added, and each of those reads carries the poll header, so
+none counts as someone using AuraDream. The catalogue's own ten-second
+retry stands down meanwhile. The rest still show the server's sentence or
+nothing, and recover on the next press or the settle's re-reads: Finish
+run's hold title, Expand, the critic, the tag helper's suggestions and
+validation, and the previews.
+
 **Windows credential source (2026-10-26, `GAL#6`).** V4 now stores only an opaque
 scoped credential reference and inactive pending/ready state. Explicit hidden-input
 setup writes pending metadata before a new generic WinCred target; uncertain
@@ -6317,7 +6503,8 @@ weights · m:ss - the first load of a session takes a few minutes.", the clock
 aria-hidden, one line. After Generate the eye is on the viewer, where "Nothing
 generated this session" had stood for the minutes a first load takes. The
 line's own nodes are kept and put back when the ticker stops - at the first
-progress event after the load, not at the first frame: SDXL sends no frames,
+progress event after the load, not at the first frame: a checkpoint with no
+preview map sends no frames (SDXL too, before 2026-11-12),
 and the clock would have frozen there.
 
 **What a queued job is behind** (2026-10-05). A paused job keeps the gate, so
@@ -9022,6 +9209,35 @@ pending choice and retaining it in Undo snapshots restores documented behavior.
 Comparison grouping and C were left out of this bounded slice; existing S and
 visible comparison controls remain.
 
+**The Sampling fold (2026-11-12, `UI#51`).** UX#21's last candidate, built on
+Matt's answer to the 2026-11-12 audit: Steps, CFG, Mu and True CFG in one
+native fold, since the self-report rates them Sometimes (A6-A8) and True CFG
+and Mu sweeps Never, while the panel at 1400x900 has no room. Shut, the fold
+is one summary line where the caption and row were two, so Generate sits about
+60 px higher; open, it is no taller than the caption and row were (its own
+padding dropped, its rule 4 px into the panel's gap). Three choices differ from Custom dimensions. First, the summary
+is the effective request, not the boxes: a blank box is sent absent and the
+server fills it from the profile, so the summary says the profile's number; a
+blank Mu says "auto" or the fixed shift as the box's placeholder does. A
+value hidden behind a fold must not read as something else. Second, it is
+remembered per browser (`auradream.sampling-open`): someone who tunes steps
+every session keeps it open, which the requirement's "reversible" asks for,
+while Custom dimensions keeps its no-persistence decision. Third, nothing
+reveals it on Reuse or restore. Its summary already shows the restored values,
+and opening it there would push Seed and Generate down under a pointer. Only
+a press that needs a box inside opens it. Set CFG sits above the fold, so
+nothing under it moves. The refusal of an incomplete number (by Generate, Run
+grid or Run comparison, all below the fold) is the one exception, as it is for
+Custom dimensions: it can happen only after someone typed the bad number and
+then shut the fold, and the refusal moves focus to the box anyway. Such a
+reveal is not remembered: only a press on the summary is stored, so one Set
+True CFG does not leave the fold open on every later visit. True CFG's value
+is marked "(unused)" while no negative prompt is sent, since `applied()`
+then records none.
+True CFG went inside rather than staying direct: alone it would cost a row,
+and its summary names it once set. The `DEV#1` trials may still judge the
+placement.
+
 **Ownership review (2026-10-26).** The [approved follow-up](maintainer/plan-shortcut-workflow.md)
 fixes actual browser conflicts: Ctrl+Enter generated behind Then refine settings,
 Picked activated and generated in one event, lightbox Alt+Arrow intercepted
@@ -9561,7 +9777,43 @@ once-per-cell check skipped every first cell (found on the card, fixed).
 The matrices cannot be validated in CI; the fit script and its date are
 in the module docstring, and the frames were looked at.
 
-A refine pass has a stand-in until its first frame: SDXL sends none, and the
+**SDXL's map and the non-flow rule (2026-11-12, `GEN#6`'s SDXL half).**
+Animagine became the open checkpoint a fresh visit suggests (`GEN#59`), and
+every SDXL render showed a bar with no picture: the catalogue maps SDXL to
+`AutoencoderKL/4` and no map existed. The first two maps' recipe was in the
+docstring but its script had not been kept, so it was written down as
+`tools/fit_latent_preview.py` and run on the CPU from the Hugging Face cache
+(no download, no card): the posterior's mean, normalised as the pipeline
+normalises (`(z - shift) * scale`; SDXL has no shift, scale 0.13025), against
+the image area-averaged to latent resolution, every fifth image held out. Its
+images are Windows 11's stock wallpapers and lock-screen photos (26, two
+512 px crops each): installed everywhere, nobody's own pictures, and nothing
+to download. Before trusting it on SDXL, the script refitted FLUX.1 Krea
+[dev]'s VAE on the same images and reached 0.966 held out, against the
+original fit's 0.964 on its own images (the shipped FLUX matrix scores 0.898
+on these; it stays as it is, looked at on the card). SDXL's fit, from
+Animagine's VAE (`sdxl-vae-fp16-fix`), scores 0.909 held out and 0.905 on
+Kohaku's and NoobAI's VAEs (the original SDXL VAE's weights), so one map
+serves the family. Four channels hold less colour than sixteen, hence the
+lower figure and a softer picture.
+
+SDXL's schedulers (Euler, Euler Ancestral; NoobAI's zero-terminal-SNR
+Euler) are not flow matching: their latent after a step is
+`x_0 + sigma * eps` with sigma from about 14.6 (4096 for NoobAI) down to 0,
+where `render`'s gain, threshold and blur were written for
+`(1 - s) x_0 + s eps`. `latent_preview.flow_view` is the one translation:
+divide by `1 + sigma` and read `s = sigma / (1 + sigma)`, which is that form
+exactly, so the rule stays one rule (flow's 0.9 is sigma 9; the gain cap at
+s 0.75 is sigma 3). A DDIM-style scheduler (DPM-Solver, UniPC:
+`init_noise_sigma` 1) carries the latent divided by `sqrt(1 + sigma^2)` and
+is multiplied back first. A `FlowMatch*` scheduler, and anything without an
+`init_noise_sigma` (no flow scheduler has one), passes unchanged. The tests
+judge the translation by each scheduler's own `add_noise`. Not done here:
+FLUX.2's map (`AutoencoderKLFlux2/32`, klein, ERNIE and FLUX 3) stays
+deferred, and SDXL's frames have not been looked at on the card.
+
+A refine pass has a stand-in until its first frame: SDXL sent none then (it
+has a map since 2026-11-12, above; FLUX.2's family still sends none), and the
 viewer showed whatever image was there before for the whole pass, with nothing
 naming the source. `runRefine` hands `startJob` a `placeholder` (the source's
 full image - the thumbnail was a fourfold upscale at QHD - the result's size,
@@ -9990,6 +10242,23 @@ server demotes nothing (and promotes nothing: no author sentence asks for
 it); no Find tag row, since the finder writes into the prompt, and none
 while the box is greyed
 ([review-2026-10-29-backlog.md](maintainer/review-2026-10-29-backlog.md#pa12-tag-suggestions-in-the-negative-prompt)).
+The Grid's Prompt variables box and Swap tags' Find and Replace boxes had
+none either (`PA#16`, 2026-11-12): on Animagine, `red hair -> silver_hiar`
+over 40 picked images queued 40 rerenders of a misspelt tag. Both now take
+the editor list. The grid box asks about the value at the caret, bounded
+by `|` and commas, since a value may hold several comma items; the name and
+the empty-value words (`grid.NONE_TOKENS`: `none`, `off`, `-`...) are the
+grid's own, never asked about, or Enter would turn `off` into a preselected
+`off shoulder` and fill a cell meant to be empty. Swap tags has one list for the dialog,
+fixed to the window under the focused box, because the rows are a
+scrolling box that clipped a list inside a row. Each Replace box also gets
+an advisory verdict (one `/api/tags/validate` for every row, the texts
+joined as one prompt so contextual prose is not called a bad tag), on the
+box and in one line kept while empty so nothing moves; the item still
+being typed waits for the box to lose the focus, as the chips' does.
+It never holds Queue: a tag the index lacks may be a new or private one,
+and the chips never block Generate either
+([review-2026-11-12-todo.md](maintainer/review-2026-11-12-todo.md#pa16-tag-help-in-grid-values-and-swap-tags-fields)).
 **Find tag** (2026-10-22, user request): a cowlick on top of the head is
 `ahoge`, which no completion of "cowlick" reaches. Danbooru's wiki says
 what each tag shows, so the server searches page text (`body_matches`),
@@ -10502,8 +10771,10 @@ The exact-id profile starts at the author's example values, 28 steps and CFG 5.
 Mu is unavailable because Euler's noise schedule is not flow matching. Normal
 FP8, int8 and bfloat16 component loading is supported; no Nunchaku build is
 mapped. Refine starts at strength 0.4 and shares the corrected scheduler.
-There is no four-channel SDXL latent-preview map, and the Refine preview does
-not invent a flow start-sigma value for this scheduler.
+The Refine preview does not invent a flow start-sigma value for this
+scheduler. The live preview reads its sigma through the non-flow rule (below,
+"SDXL's map and the non-flow rule"): the zero-terminal-SNR schedule's first
+four steps at 28 (down to sigma 58, 27, 17 and 12, from 4096) draw nothing.
 
 The guide keeps NoobAI's quality/date vocabulary and author caption-order
 excerpt separate from other SDXL models. The card gives both a quality prefix
@@ -13854,6 +14125,8 @@ What the server answers:
 | `/outputs/…` | `StaticFiles` mount on `settings.outputs_dir` | every PNG by its file name, binned ones too; the gallery routes give the names |
 | `/docs`, `/redoc`, `/docs/oauth2-redirect`, `/openapi.json` | FastAPI's defaults (`FastAPI(title=…)` sets no `docs_url`) | the whole API, described, with a form to call it |
 | `/api/status`, `/api/loras`, `/api/models`, `/api/model/load`, `/api/model/switch`, `/api/model/unload` | `main.py` | paths, the card, the running commit; loading, switching (a download with the machine's Hugging Face token) and unloading |
+| `/api/models/favourites`, `/api/models/favourites/import` | `api_model_favourites.py` | the gallery's model stars and the one-time import of a browser's earlier set |
+| `/api/models/storage` | `api_model_storage.py` | the read-only model-cache inventory (Models > On disk) |
 | `/api/generate`, `/api/grid`, `/api/grid/preview` | `api_generate.py` | queueing work |
 | `/api/rerender`, `/api/swap-tags`, `/api/refine/batch`, `/api/more-seeds`, `/api/instruction-edit` and their previews | `api_rerender.py`, `api_swap.py`, `api_refine_batch.py`, `api_more_seeds.py`, `api_instruction_edit.py` | queueing work from gallery rows |
 | `/api/runs/{id}` and Finish run | `api_runs.py` | run details, queueing the rest |
@@ -14009,6 +14282,30 @@ it has exactly those three parts, the MAC matches (`compare_digest`) and
 `expires` is in the future. Thirty days; a `GET /` with a valid cookie more
 than a day old sets a fresh one, so a device used within the month stays
 signed in.
+
+Since `DEV#56` (2026-11-12) a request someone makes on an open page renews
+too: any request `keep_awake.counts_as_activity` counts, with a valid
+cookie more than a day old, gets a fresh one on whatever it answers. The
+page alone left a tab or installed PWA that stays open and is used daily,
+and so never loads `/` again, signed out at day thirty. The page's timed
+polls (`/api/status` and the rest of activity's exclusions), the job
+streams and its files still never renew, so a tab left open and unused
+still ends with its month, as an idle tab does not hold the PC awake. One
+rule decides both, so a poll later excluded from activity is excluded from
+renewal with it. A request signed in by `Authorization: Bearer` gets no
+cookie, renewed or not.
+
+Renewing on any counted request opened a race the page alone did not have:
+the gate stores no sessions, so Sign out only clears the cookie on the
+device, and a slow counted request already running (Expand waiting behind a
+render, a critic Check, an import's upload) would answer after it with a
+fresh thirty-day cookie, signing the device back in. The gate therefore
+counts sign-outs sent with a valid cookie (`Gate.sign_outs`, in memory, on
+the event loop), and a request renews only if none was answered while it
+ran. It is for the whole server, not per device, since no device is told
+apart: another device's sign-out costs an overlapping request its renewal,
+which its next request makes up. A sign-out with no valid cookie counts for
+nothing, so a caller who is not signed in cannot hold anyone's renewal back.
 
 - Nothing is stored, so a restart or an update signs nobody out, which
   matters on the Windows PC that is started by hand each day.
@@ -14182,7 +14479,8 @@ in the README only with stage 3.
    line in `install-service.sh`'s environment file. Tests in
    `tests/test_cli.py` (a server that asks: the header sent, the 401 and
    429 words, the passcode never in the output), `tests/test_doctor.py`,
-   the server probe's tests, `tests/test_linux_scripts.py` (a stub server
+   the server probe's tests, `tests/test_linux_passcode.py` (split from
+   `tests/test_linux_scripts.py` on 2026-11-13; a stub server
    that asks; busy and status read through it; a 401 and a 429 each said in
    their own words, with stop and update refusing; an environment file whose
    passcode holds a space or a `$` refused before it is sourced, the value
@@ -14280,7 +14578,8 @@ commented line in `install-service.sh`'s environment file. Tests:
 `tests/test_server_probe.py` (new), `tests/test_doctor.py`,
 `tests/test_cli_via_server.py` (where `--via-server`'s tests live since
 `test_cli.py` was split), `tests/test_cli.py`,
-`tests/test_linux_scripts.py`, `tests/test_install_scripts.py`, and a
+`tests/test_linux_scripts.py` (its passcode tests in
+`tests/test_linux_passcode.py` since 2026-11-13), `tests/test_install_scripts.py`, and a
 stand-in server that asks, `tests/passcode_stub.py`. With no passcode set
 and none asked, every request these callers make is the one it was. What
 the source decided, and what the design had not said:
@@ -14352,7 +14651,8 @@ the source decided, and what the design had not said:
   `LC_ALL=C`, so "letters" means ASCII's.
 - The scripts' Python reads the passcode's bytes from `os.environb` and
   sends them as they are, so nothing is decoded on the way.
-- `tests/test_linux_scripts.py` runs on Linux only. It was run under WSL
+- `tests/test_linux_scripts.py` (since 2026-11-13 split three ways, the
+  passcode's tests in `tests/test_linux_passcode.py`) runs on Linux only. It was run under WSL
   (Ubuntu, the project's own Linux virtualenv's Python, nothing
   installed): 230 passed, and 240 with the review's tests.
 
@@ -14736,6 +15036,15 @@ logical file bytes, shared catalogue ownership, converted trees and unknown
 references reported honestly. Unreferenced does not mean unused or safe to
 delete. No cache delete is designed into this slice.
 
+Models > On disk (`GEN#68`, 2026-11-12, `web/model-storage.js`) shows that
+inventory read-only: a fold collapsed by default, last in the picker's body
+so opening it moves nothing above it, read on its first opening in a page
+and on Refresh only, never on a timer or as the picker opens (a scan reads
+every cached file's size). Model rows are labelled by catalogue name, an
+unknown selection shows its known bytes with "+", and the fold says that rows
+overlap and that "not referenced" is not "unused". It has no delete control;
+the guarded delete is designed only after Matt has seen this fold.
+
 Status takes a different path: required-file stats plus selected-source
 partial blobs, off-loop under the existing revision retry, sampled at most
 every two seconds. Partial blobs can belong to another download in that
@@ -14768,6 +15077,24 @@ bind with exact allowed hosts so local scripts can still probe loopback.
 The loopback certificate SAN and client CA trust are explicit prerequisites.
 Tests create a temporary certificate and trust it only in their process;
 no service, firewall, CA store or live LAN installation was changed.
+
+**A pair that cannot serve (`DEV#55`, 2026-11-12).** Checking only that
+both files existed let a non-PEM, mismatched or password-protected pair
+reach uvicorn, which failed with an opaque `[SSL] PEM lib` traceback; under
+the systemd user service that was three restarts and then a failed unit.
+`server_transport.setting_problem` now loads the pair as uvicorn will
+(`ssl.SSLContext.load_cert_chain`, after the certificate alone through
+`load_verify_locations` so the words can name the file at fault), with a
+password callback that raises: AuraDream never asks for or stores a key's
+password, so an encrypted key is refused in words naming `openssl pkey`.
+The refusal is the passcode's start-up path (stderr and the log file
+before anything binds). Both settings refusals now exit 78
+(`main.SETTINGS_REFUSED_STATUS`, sysexits' EX_CONFIG), and the service's
+unit lists it in `RestartPreventExitStatus`, so the unit fails at once and
+`control.sh` says "failed while starting" instead of waiting through
+restarts that cannot help; a held port stays exit 1 and is still restarted,
+since that can clear. The doctor's TLS row (no row without a pair) runs the
+same function, so it fails exactly where the server would refuse to start.
 
 ## Releasing the model after idle minutes
 

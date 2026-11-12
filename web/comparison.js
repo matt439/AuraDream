@@ -150,15 +150,17 @@ function compareUnfilled(variants) {
   return null;
 }
 
-function scheduleComparePreview(delay = 250) {
+function scheduleComparePreview(delay = 250, { polled = false } = {}) {
   clearTimeout(comparePreviewTimer);
   if (!analysisResult || els.promptAnalysis.hidden) return;
+  markPreview(comparePreviewMark, polled);
   comparePreviewTimer = setTimeout(previewComparison, delay);
 }
 
 // The server's own count and estimate, as the grid section's preview is, with
 // the same token against a slow reply landing over a newer one.
 async function previewComparison() {
+  const polled = takePreviewMark(comparePreviewMark);
   const epoch = ++comparePreviewEpoch;
   const variants = comparedVariants();
   els.comparePreview.classList.remove('warn');
@@ -176,11 +178,11 @@ async function previewComparison() {
   }
   try {
     const payload = comparePayload(variants);
-    const p = await api('/api/grid/preview', {
+    const p = await api('/api/grid/preview', polledIf(polled, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
-    });
+    }));
     if (epoch !== comparePreviewEpoch) return;
     els.comparePreview.classList.toggle('warn', !!p.duplicates);
     // The grid's summary counts batch starts as seeds; the comparison's

@@ -31,6 +31,7 @@ let criticClockTimer = 0;
 const compareChoice = { reordered: true, rewrite: true, yours: true };
 let comparePreviewTimer;
 let comparePreviewEpoch = 0;
+const comparePreviewMark = { pending: false, polled: false };  // markPreview (state.js)
 
 // What each finding rests on, by `PromptFinding.source`. The label is the
 // sourcing rule made visible: Guide and Authors quote the checkpoint's authors,
@@ -104,7 +105,9 @@ async function checkPrompt(payload = collect()) {
     renderAnalysis(dismissal === analysisDismissal);
     return analysisResult;
   } catch (err) {
-    if (epoch === analysisEpoch) showError(err.message);
+    if (epoch === analysisEpoch) {
+      showError(galleryMaintenance(err) ? `${GALLERY_MAINTENANCE_WORDS}; check again when it ends.` : err.message);
+    }
     return null;
   } finally {
     if (epoch === analysisEpoch) resetCheckButton();

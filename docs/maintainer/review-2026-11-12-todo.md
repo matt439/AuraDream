@@ -325,6 +325,203 @@ Matt accepted every recommended answer above. As a result:
 - Kept: `GEN#15` stays `CARD` for a model-offload text-to-image render.
   The 2026-11-11 sequential inpaint does not close it.
 
+## Added at Matt's request (2026-11-12)
+
+Matt added two items after the answers above. Both were checked against
+the code on main (e06ae8d); neither is built.
+
+### GAL#27 Saved bundles listed by date
+
+`bundles.list_bundles` (`backend/bundles.py:71-89`) sorts by file name,
+descending. An app-named export happens to sort newest first. An uploaded
+or renamed archive sorts by its name, though, so it lands wherever its
+letters put it, whatever its date. Each entry already carries
+`created_at` (the file's mtime). First step: sort by `created_at`, newest
+first, with the name as the tie-break. Then check that the Bundles
+dialog's list (and its phone sheet) shows the date the order follows.
+Add a test with names whose order disagrees with their dates. Size S.
+
+### UI#53 Models is blank while a bundle operation runs
+
+`GalleryAdmission` (`backend/bundle_manager.py:192-207`) answers every
+counted `/api/` path, `/api/models` included, with a 409 that has a
+sentence and no `code` while a bundle import, export or clear runs. The
+Models panel then opens empty, with no word on why. First step: give that
+409 a refusal code (`refusal_codes.py`). Models then shows the reason in
+place of the list, and reads again when the operation ends (through the
+status poll that already reports bundle maintenance, not a new timed
+poll). Check the other panels that read a counted route while one runs,
+too. Add a smoke on the fake with a held import. Size S-M.
+
+## Results (2026-11-12)
+
+Each row was built on its own branch, then reviewed by a separate
+adversarial reviewer, and every finding the fixer confirmed was fixed
+before the branches were merged. Each branch passed the full suite, ruff,
+the pinned type gate and its smokes. After the merge, the whole suite and
+the smoke table passed again. Nothing ran on the card, and no weights were
+downloaded. Plans with their own owners record their results there:
+`GEN#48` in [plan-anima-refine.md](plan-anima-refine.md), `INP#12` in
+[plan-detailer.md](plan-detailer.md), and `DEV#20` in
+[plan-card-harness.md](plan-card-harness.md).
+
+- **`GEN#63`** (done). `grid._check_variables` refuses a value that names
+  a declared `{name}`, the value's own included, in words, in both
+  variable modes. That covers the preview, Run grid and the CLI (exit 2).
+  Braces that name no declared variable stay text. Refusing was chosen
+  over a second substitution, so `CellKey` and run ids are untouched. The
+  refusal carries no code: the page only shows it, as it does every other
+  grid refusal, and `test_refusal_codes` admits only codes the page reads.
+- **`PA#15`** (done). `/api/grid/preview` answers `budgets`
+  (`backend/grid_budgets.py`): each distinct resolved prompt and negative,
+  measured cold the way Check measures them, at most 128 of them, with one
+  5 s tokenizer wait for the whole preview. A tokenizer that cannot be
+  read stops the measuring at the first miss, so a gated repository costs
+  one try per preview. The server names which encoders cut and which
+  values tip a prompt over. The page puts the token range last in the
+  listing, with a warning note for a cut. `EncoderReport` moved to
+  `schemas_encoder.py`.
+- **`GEN#64`** (done). A "+ panel size" text button on the Sizes label line
+  appends the panel's `WxH` through `replaceBoxText`. A size already
+  listed is refused in the hint. The label line keeps its height (asserted
+  in smoke-grid), and on touch the button gets a 44 px press box.
+- **`GEN#67`** (done). The page marks its own timed retries, and a
+  debounced preview that only a poll caused, with `X-AuraDream-Poll`.
+  `keep_awake.counts_as_activity` leaves those requests out. The fake
+  gains `POST /api/fake/activity`, which records requests by the real
+  rule. The new smoke-idle-activity asserts that an idle page holding
+  every polling surface counts nothing, and it fails with the mark
+  reverted.
+- **`GEN#66`** (built; Matt's check left). Under WSL, `systemd-inhibit` is
+  never used. With interop, `WslPowerRequest` holds a Windows
+  `PowerRequestSystemRequired` from a `powershell.exe` child until its
+  stdin closes. Without interop, the status, the start-up log and the
+  doctor say nothing is held. A trial from real WSL 2 was accepted, and it
+  released when its parent was killed. `powercfg /requests` needs an
+  elevated prompt, so it is Matt's step.
+- **`DEV#55`** (done). `server_transport.setting_problem` loads the TLS
+  pair as uvicorn will (certificate first, then the key with a password
+  callback that raises), so a bad pair is refused in words before
+  anything binds. Settings refusals exit 78 (`SETTINGS_REFUSED_STATUS`),
+  and the systemd unit gains `RestartPreventExitStatus=78`, which an
+  installed service picks up when `install-service.sh` is run again. The
+  doctor gains a TLS row.
+- **`DEV#56`** (done). A valid session more than a day old is renewed on
+  any request that `counts_as_activity` counts. Polls, streams, files,
+  HEAD requests and Bearer callers never renew it, so an unused tab still
+  ends with its month. A sign-out answered while a counted request is in
+  flight holds that request's renewal back. The page-only assertion in
+  `tests/test_api_passcode.py` was changed on purpose.
+- **`DEV#54`** (done). `FakeBackend.hold` holds a call on an event. The
+  move-to-front test and the file's other clock-racing tests (skips,
+  pauses, cancels, the snapshot) hold their cells on it, not on a step
+  budget.
+- **`DEV#59`** (done). About 160 positive waits across 40 test files now
+  allow 30 s. `tests/test_positive_waits.py` reads every test file's AST
+  and fails on a literal under 10 s, unless the wait is under `assert not`
+  or a timeout-expecting `pytest.raises`, or is a named negative.
+- **`GEN#47`** (done). The app keeps writing the old lite-infer ids. The
+  renamed repositories, which follow one rule (`_r32-bnb4-text-encoder`
+  becomes `-r32`), are read as aliases through `launch.written_id`
+  wherever an id enters. Offline `MockTransport` tests answer 307s under
+  huggingface_hub's own client.
+- **`GEN#65`** (done). `tools/model_downloads.py` has `--check` (offline)
+  and a metadata-only refresh. All seven missing recipes are now filled:
+  FLUX.1 dev and schnell about 33.7 GB each, FLUX.2 klein 9B and base 9B
+  about 34.7 GB, Krea 2 Raw about 35.7 GB, and both FLUX 3 entries about
+  20.3 GB, with their shard maps. The 18 lite sources were re-recorded,
+  with `moved_to`.
+- **`GAL#25`** (done). Every free word reaches FTS5 as a quoted prefix,
+  while exclusions stay exact. The odd-quote LIKE fallback now matches the
+  same way (`search.word_match`).
+- **`GAL#26`** (done). Each saved bundle in Bundles has a Delete that asks
+  first. `DELETE /api/gallery/bundles/files/{name}` refuses with
+  `bundle_in_use` while the file is leased or an operation runs, and with
+  `bundle_gone` when the file is missing. An archive the automatic backup
+  journal counts is held, with its reason shown before any question.
+- **`PA#16`** (done). Tag suggestions now work in Grid's variable values
+  and in Swap tags' Find and Replace boxes. One `/api/tags/validate` call
+  gives an advisory verdict on Replace and Add, and it never holds Queue.
+- **`UI#52`** (done). Favourites live in `auradream.model-favourites-<db>.json`
+  (`model_favourites.py`, `/api/models/favourites`), one set per gallery
+  and canonical ids. Each press sends one star, in order. The picker
+  offers once to import the browser's old set.
+- **`GEN#68`** (built; Matt's look left). Models > On disk shows the
+  storage inventory read-only. It reads when first opened and on Refresh,
+  with no timed poll and no delete control. The fake plants a scratch Hub
+  cache, and smoke-model-storage covers the fold.
+- **`UI#51`** (done). Steps, CFG, Mu and True CFG are one fold,
+  `#sampling-section`, whose one-line summary always shows the effective
+  values. Only a press on the summary remembers the state. A refused
+  number or Set CFG reveals the box. Shut, the fold puts Generate about
+  62 px higher at 1400x900. smoke-sampling-fold is new.
+- **`GEN#6`** (CPU half built; card glance left). `tools/fit_latent_preview.py`
+  keeps the fitting recipe. On the same held-out images, the FLUX.1
+  refit's R² of 0.966 reproduces the card fit's 0.964. SDXL's map, fitted
+  from Animagine's VAE, has an R² of 0.909 (0.905 on Kohaku's and
+  NoobAI's VAEs). `latent_preview.flow_view` turns non-flow latents into
+  the flow form, so the threshold and blur stay one rule. The first frame
+  is noisy (σ 8.85), so if the card glance finds it ugly, lowering the
+  threshold for non-flow schedulers is a one-line follow-up.
+- **`DEV#20`** (done). The guard reads `nvidia-smi --loop-ms` as one stream
+  and the shared counters as one held PDH query. PDH was chosen over
+  `typeperf -si`, which never sees an instance created after it starts. A
+  local read-only run reached 0.5 s, and the summary reports
+  `achieved_period_s`.
+- **`DEV#62`** (done). The four missing costs were added, scaled from local
+  times, and the test now requires the costs and the table to match
+  exactly.
+- **`DEV#58`** (phase 1). In smoke, smoke-analysis, smoke-animagine,
+  smoke-lightbox and smoke-wide, fixed sleeps fell from 196.7 s to 34.4 s.
+  Each one before an expect now polls that expect (`window.__when`), which
+  `test_converted_smokes_poll_their_expects_instead_of_sleeping` enforces.
+  The waits that remain are before actions, or absence checks that carry
+  a `why`.
+- **`INP#12`** (desk half done). Two detectors pass: YuNet (MIT) and the
+  MediaPipe Hand Landmarker (Apache-2.0). Both are trained on photographs.
+  The deepghs anime detectors stop at Ultralytics' AGPL-3.0 provenance.
+  A CPU trial on illustrations needs Matt's call: accept photo-trained
+  detectors, or commission a new bounded search.
+- **`GAL#27`** (done). `bundles.list_bundles` sorts by the file's
+  last-modified time, newest first, and breaks a tie by name. The dialog
+  shows that date inside the size span, so no row gets taller on the
+  desktop or at 393 px (a touch rule lets the size wrap beside Import),
+  except a protected row on the phone: beside `GAL#26`'s Delete it takes
+  one more line (+51 px), which smoke-phone-dialogs allows. smoke-bundles
+  and smoke-phone-dialogs measure each row with and without its date.
+- **`UI#53`** (done). `GalleryAdmission`'s 409 is coded
+  `gallery_maintenance`. While an import, export, backup or clear runs,
+  Models shows the reason in place of the table, holds Switch, and keeps
+  the table's height so On disk stays put. On disk, Check and the tag
+  finder say the same. A refused catalogue or On disk read is repeated
+  through the existing bundles status poll once the operation ends, marked
+  as a poll. The fake gains `/api/fake/bundle` (`hold`), and the new
+  smoke-gallery-maintenance covers the hold. Places still showing the
+  server's sentence (Finish run's hold title, Expand, the critic, the tag
+  helper's suggestions, previews) are listed in the design notes.
+- **`DEV#61`** (done). The fifth pass of
+  [source-audit.md](source-audit.md) made five splits: the confirm
+  questions into `web/ask-dialog.js`, the server-held model stars into
+  `web/model-favourites.js`, Expand's state and the translation writers
+  into `web/prompt-expand.js` (the page loads 78 scripts), and
+  `tests/test_linux_scripts.py` and `tests/test_keep_awake.py` into helpers
+  plus separate files, with the same test ids. Nineteen long files are kept
+  whole, each with a dated reason and a trigger; `main.py`'s fired
+  `/api/models` trigger was re-screened and its seam kept.
+- **`DEV#60`** (done). `docs/rules.md`'s Frontend and CLI, Tests and Layout
+  sections have headings by area (Phones and tablets one of them, with its
+  own parts), moved, never reworded. `tests/test_rules_sections.py` caps a
+  section at 350 non-blank lines outside fenced code; four Rules sections
+  are held at their current lengths, and their numbers fall with them.
+- **`DEV#63`** (done). AGENTS.md's Layout is nine lines, each linking to
+  its part of rules.md's Layout (55,797 to 36,593 bytes). Five facts found
+  only in AGENTS.md moved to rules.md first. `tests/test_docs_maps.py`
+  keeps the short Layout linked to every part and under 2,500 characters.
+- **`GEN#48`** (stage 1 done). Private Img2Img passes for Turbo, Aesthetic
+  and Preview are in `backend/backends/anima_refine.py`, with CPU tests.
+  Nothing is wired in, and every Anima profile still refuses Refine. Next
+  is the plan's stage 2, a card qualification.
+
 ## Not added
 
 None of the 26 was refuted. Some were folded in rather than given rows of

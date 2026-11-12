@@ -140,6 +140,16 @@ def test_random_prompt_cli_draws_per_image_and_saves_the_same_choices_as_grid(cl
     assert len(cli.requests) == 8
 
 
+def test_a_value_naming_another_variable_is_refused_in_the_cli(cli, capsys):
+    # GEN#63's refusal is grid.expand's, so the terminal gets the browser's line.
+    code = generate.main([
+        "{a}, {b}", "--grid-prompt", "a = {b} hat | none\nb = red | blue", "--dry-run", *SIZE,
+    ])
+    assert code == 2
+    assert "names {b}; a value is filled in once" in capsys.readouterr().err
+    assert cli.requests == []
+
+
 def test_random_prompt_mode_requires_a_variable_block_in_the_cli(cli, capsys):
     # Refused with the flags, as --via-server refuses it (`_grid_flags`).
     with pytest.raises(SystemExit) as stopped:
@@ -361,7 +371,7 @@ def _held_gallery(store, monkeypatch, seconds):
 
     holder = threading.Thread(target=hold, daemon=True)
     holder.start()
-    assert started.wait(5)
+    assert started.wait(30)
     return holder
 
 
@@ -383,7 +393,7 @@ def test_a_save_refused_by_a_busy_gallery_waits_rather_than_ending_the_night(
     assert store.list_images()[1] == 3
     err = capsys.readouterr().err
     assert err.count("gallery busy in another process; still waiting to save") == 1
-    holders[0].join(5)
+    holders[0].join(30)
 
 
 def test_resume_against_a_busy_gallery_says_so_without_a_traceback(cli, store, monkeypatch, capsys):
@@ -391,7 +401,7 @@ def test_resume_against_a_busy_gallery_says_so_without_a_traceback(cli, store, m
     code = generate.main(["a fox", "--seed", "3", "--grid-steps", "6,8", "--resume", *SIZE, "-q"])
     assert code == 1 and cli.requests == []
     assert "--resume: another AuraDream process is using the gallery" in capsys.readouterr().err
-    holder.join(5)
+    holder.join(30)
 
 
 def test_a_seed_list_runs_the_grid_at_exactly_those_seeds(cli, store, capsys):

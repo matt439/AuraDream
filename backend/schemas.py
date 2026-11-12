@@ -12,6 +12,8 @@ either place:
 - `schemas_mask_crop` - only the masked area's spec (`MaskCropSpec`) and the
   preview's region (`MaskCropArea`)
 - `schemas_prompt` - Expand, Check, the critic's critique, tag lookup
+- `schemas_encoder` - `EncoderReport` (also `schemas_prompt`'s) and the grid
+  preview's prompt budgets (`GridPromptBudget`, `GridPromptBudgets`)
 - `schemas_gallery` - records, runs, the recycle bin
 - `schemas_rerun` - Re-render, Swap tags, Mass refine, More seeds
 - `schemas_model` - the model status poll, the prompting guide, the switch

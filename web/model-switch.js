@@ -1,6 +1,6 @@
 // Checkpoint selection and the state that belongs to one model selection.
 // The picker's strip of the chosen checkpoint's images is model-shots.js,
-// loaded right after this file.
+// loaded right after this file, and the table's stars model-favourites.js.
 // Declarations only; app.js wires the controls after every script has loaded.
 'use strict';
 
@@ -67,11 +67,11 @@ let modelPickerAppliedSettings = null;
 let modelPickerDeferredReset = null;
 let modelCatalogueRequested = null;
 let modelCatalogueFailedAt = 0;
+// The last catalogue read was refused because a gallery bundle operation runs
+// (galleryMaintenance): the table gives way to the reason, and bundles.js's
+// status poll asks again once it ends (afterGalleryMaintenance).
+let modelCatalogueMaintenance = false;
 const modelOptionKeys = new WeakMap();
-const MODEL_FAVOURITES_KEY = 'auradream.model-favourites.v1';
-let modelFavourites = new Set();
-let modelFavouriteMessage = null;
-let modelFavouriteChanges = new Map();
 // The favourites the table is grouped by. A star toggles in place while the
 // picker is open (moving its row would move a control under the pointer);
 // the next opening groups by the stars as they are then.
@@ -102,30 +102,6 @@ function setModelGrouping(byType) {
   } catch { modelGroupingUnsaved = true; }
   modelTableGrouping = new Set(modelFavourites);
   if (modelCatalogueLoaded) renderModelOptions(modelChoice());
-}
-
-function parseModelFavourites(raw) {
-  try {
-    const saved = JSON.parse(raw ?? '[]');
-    return new Set(Array.isArray(saved) ? saved.filter((id) => typeof id === 'string' && id.trim() && id.length <= 512) : []);
-  } catch { return new Set(); }
-}
-
-function restoreModelFavourites() {
-  try { modelFavourites = parseModelFavourites(localStorage.getItem(MODEL_FAVOURITES_KEY)); }
-  catch { /* A blocked store still allows favourites for this page. */ }
-  applyUnsavedModelFavourites();
-}
-
-function applyUnsavedModelFavourites() {
-  for (const [id, on] of modelFavouriteChanges) {
-    if (on) modelFavourites.add(id);
-    else modelFavourites.delete(id);
-  }
-}
-
-function modelFavouriteId(modelId) {
-  return modelCatalogueDetails[modelId]?.favourite_id || modelId;
 }
 
 // The loader selects draw their lists in the page (base-select). Rebuilding or
@@ -199,19 +175,6 @@ function revealModelControl(control) {
 
 function modelLabel(id) {
   return modelCatalogueEntries.find((entry) => entry.model_id === id)?.label || id;
-}
-
-function syncModelStars() {
-  for (const star of els.modelTable.querySelectorAll('.model-star')) {
-    const id = star.closest('.model-row').dataset.model;
-    const on = modelFavourites.has(modelFavouriteId(id));
-    const name = modelLabel(id);
-    const glyph = on ? '★' : '☆';
-    if (star.textContent !== glyph) star.textContent = glyph;
-    setModelAttribute(star, 'aria-pressed', String(on));
-    setModelAttribute(star, 'title', on ? `${name} is a favourite — click to remove`
-      : `Add ${name} to your favourites in this browser`);
-  }
 }
 
 function modelFactCell(label, value, detail, note, { muted = false } = {}) {
@@ -512,39 +475,6 @@ function renderModelOptions(wanted) {
   syncModelDownloadFacts();
 }
 
-function toggleModelFavourite(modelId) {
-  // Merge against storage at the time of the click: another tab may have
-  // saved a star before its asynchronous storage event reaches this one.
-  restoreModelFavourites();
-  const id = modelFavouriteId(modelId);
-  if (modelFavourites.has(id)) modelFavourites.delete(id);
-  else modelFavourites.add(id);
-  modelFavouriteChanges.set(id, modelFavourites.has(id));
-  try {
-    localStorage.setItem(MODEL_FAVOURITES_KEY, JSON.stringify([...modelFavourites]));
-    modelFavouriteChanges.clear();
-    modelFavouriteMessage = null;
-  } catch {
-    modelFavouriteMessage = 'Favourites changed for this page, but this browser could not save them for next time.';
-  }
-  // The star changes in place; the choice and pending loading settings stay.
-  syncModelStars();
-  syncModelSwitch();
-}
-
-function receiveModelFavourites(event) {
-  if (event.key !== MODEL_FAVOURITES_KEY && event.key !== null) return;
-  try { if (event.storageArea !== localStorage) return; }
-  catch { return; }
-  // Read the latest store, rather than an event that may precede this tab's
-  // own recent click. Keep session-only changes after a refused write.
-  restoreModelFavourites();
-  if (!modelFavouriteChanges.size) modelFavouriteMessage = null;
-  if (modelCatalogueLoaded && els.modelPicker.hidden) renderModelOptions(modelChoice());
-  else syncModelStars();
-  syncModelSwitch();
-}
-
 function modelChangeHold() {
   return modelSwitchSending || modelSwitching ? 'Wait for the model settings change to finish' : '';
 }
@@ -646,7 +576,8 @@ function modelSwitchHold({ load = true } = {}) {
   return serverOffline ? 'The server is not answering'
     : modelWorkHold()
     || (modelState === 'loading' ? 'The weights are still loading' : '')
-    || (modelCatalogueFailed() ? 'The checkpoint list could not be loaded; retrying' : '')
+    || (modelCatalogueFailed() ? (modelCatalogueMaintenance ? 'Wait for the gallery bundle operation to finish'
+      : 'The checkpoint list could not be loaded; retrying') : '')
     || (!modelCatalogueLoaded || modelCataloguePending ? 'The checkpoint list is still loading' : '')
     || (!modelChoice() ? 'Choose a checkpoint compatible with these settings' : '')
     || modelOptionHold()
@@ -801,6 +732,23 @@ function syncModelSwitch() {
   const stale = modelCatalogueFailed();
   if (els.modelTable.classList.contains('model-table-stale') !== stale) els.modelTable.classList.toggle('model-table-stale', stale);
   setModelAttribute(els.modelTable, 'aria-busy', String(stale));
+  // Refused by a gallery bundle operation: its reason in the table's place,
+  // never an empty or dimmed list with no word on why (UI#53).
+  const held = stale && modelCatalogueMaintenance;
+  const heldText = held
+    ? `${GALLERY_MAINTENANCE_WORDS}, so the checkpoint list cannot be read now. It is read again when the operation ends.` : '';
+  if (held && !els.modelTable.hidden) {
+    // The reason keeps the shown table's height, so nothing below it (the On
+    // disk fold) moves under the pointer as the hold begins, or as the same
+    // list comes back when it ends; and a focused row hands its focus to the
+    // picker's body rather than dropping it to the page.
+    const height = els.modelTable.offsetHeight;
+    els.modelTableHeld.style.minHeight = height ? `${height}px` : '';
+    if (els.modelTable.contains(document.activeElement)) els.modelPickerBody.focus({ preventScroll: true });
+  } else if (!held && els.modelTableHeld.style.minHeight) els.modelTableHeld.style.minHeight = '';
+  if (els.modelTableHeld.textContent !== heldText) els.modelTableHeld.textContent = heldText;
+  if (els.modelTableHeld.hidden !== !held) els.modelTableHeld.hidden = !held;
+  if (els.modelTable.hidden !== held) els.modelTable.hidden = held;
   const formatHidden = els.modelQuantization.value !== 'nunchaku';
   if (els.modelFormatField.hidden !== formatHidden) els.modelFormatField.hidden = formatHidden;
   syncModelOptionHolds();
@@ -931,9 +879,10 @@ function receiveModelSettings(status, { reset = false } = {}) {
     }
     modelOwnSwitch = null;
   }
-  if (!modelCatalogueLoaded && !modelCataloguePending && !els.modelPicker.hidden
+  if (!modelCatalogueLoaded && !modelCataloguePending && !els.modelPicker.hidden && !modelCatalogueMaintenance
       && Date.now() - modelCatalogueFailedAt > 10000) {
-    void refreshModelCatalogue(); // A failed list retries while the picker is open.
+    // A failed list retries while the picker is open: a timed read, never use.
+    void refreshModelCatalogue({ polled: true });
   }
   if (modelCatalogueLoaded && !modelCataloguePending && !els.modelPicker.hidden
       && modelCacheRevision !== null && modelCatalogueCacheRevision !== modelCacheRevision) {
@@ -1013,6 +962,9 @@ function showModelPicker(on, { focus = true, offered = false } = {}) {
     // Each opening groups the table by the stars, and the grouping choice, as they are now.
     modelTableGrouping = new Set(modelFavourites);
     restoreModelGrouping();
+    syncModelFavouriteOffer();
+    // Another device's stars since the last read show in place.
+    void refreshModelFavourites();
     if (modelCatalogueLoaded) renderModelOptions(modelChoice() || modelRuntimeSettings?.model_id);
     syncModelSwitch();
     syncPerformanceDisclosure({ opening: true });
@@ -1093,7 +1045,9 @@ async function refreshModelCacheFacts() {
     if (value) query.set(key, value);
   }
   try {
-    const body = await api(`/api/models${query.size ? `?${query}` : ''}`);
+    // Asked by a status poll, and again at every poll after a failure: the
+    // page's own timer, never someone using it (POLL_HEADER).
+    const body = await api(`/api/models${query.size ? `?${query}` : ''}`, polledRead());
     if (epoch !== modelCatalogueEpoch) return;
     for (const entry of modelCatalogueEntries) {
       const info = body.details?.[entry.model_id];
@@ -1109,7 +1063,7 @@ async function refreshModelCacheFacts() {
   finally { modelCacheFactsPending = false; }
 }
 
-async function refreshModelCatalogue({ current = false } = {}) {
+async function refreshModelCatalogue({ current = false, polled = false } = {}) {
   const epoch = ++modelCatalogueEpoch;
   modelCataloguePending = true;
   syncModelSwitch();
@@ -1131,7 +1085,8 @@ async function refreshModelCatalogue({ current = false } = {}) {
   query.set('compilation', (performanceChoiceInvalid(els.modelCompilation) ? modelRuntimeSettings?.compilation : selected?.compilation) || 'eager');
   query.set('attention', (performanceChoiceInvalid(els.modelAttention) ? modelRuntimeSettings?.attention : selected?.attention) || 'native');
   try {
-    const body = await api(`/api/models${query.size ? `?${query}` : ''}`);
+    // `polled`: the timed retry after a failure (receiveModelSettings).
+    const body = await api(`/api/models${query.size ? `?${query}` : ''}`, polled ? polledRead() : undefined);
     if (epoch !== modelCatalogueEpoch) return;
     if (modelListOpen()) {
       await whenModelListsClosed();
@@ -1140,7 +1095,7 @@ async function refreshModelCatalogue({ current = false } = {}) {
     if (runtimeAsked !== modelRuntimeIdentity(modelRuntimeSettings)) {
       // Asked again as the picker and runtime are now; that request's epoch
       // keeps the picker pending, so Switch stays held until it answers.
-      void refreshModelCatalogue({ current });
+      void refreshModelCatalogue({ current, polled });
       return;
     }
     const wanted = { ...(selected ?? body) };
@@ -1197,6 +1152,7 @@ async function refreshModelCatalogue({ current = false } = {}) {
     modelCatalogueKind = modelCatalogueKey(modelPickerSettings());
     modelCatalogueRequested = `${modelCatalogueKind}|${wantedModel}`;
     modelCatalogueLoaded = true;
+    modelCatalogueMaintenance = false;
     modelSwitchError = null;
     if (modelPerformanceOpening) {
       modelPerformanceOpening = false;
@@ -1205,7 +1161,10 @@ async function refreshModelCatalogue({ current = false } = {}) {
     }
   } catch (err) {
     if (epoch !== modelCatalogueEpoch) return;
-    modelSwitchError = err.message;
+    // A bundle operation's refusal is said in the table's place, not the note.
+    modelCatalogueMaintenance = galleryMaintenance(err);
+    modelSwitchError = modelCatalogueMaintenance ? null : err.message;
+    if (modelCatalogueMaintenance) afterGalleryMaintenance('model-catalogue', () => refreshModelCatalogue({ polled: true }));
     modelCatalogueLoaded = false;
     // The opening's catalogue did not answer: a later retry never moves the
     // choice, or the picker's body, by itself (nor opens the disclosure).
@@ -1321,6 +1280,8 @@ function checkpointChanged(previousModel, nextModel = loadedModel) {
   ++tagEditorSuggestionEpoch;
   hideTagSuggestions();
   hideNegativeSuggestions();
+  hideGridSuggestions();
+  hideSwapSuggestions();
   ++refineEpoch;
   ++refineCheckEpoch;
   ++refineTagEpoch;

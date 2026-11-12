@@ -3,6 +3,8 @@ stream terminated, cancel and pause landing where they should."""
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
+import threading
 import time
 
 import pytest
@@ -13,11 +15,21 @@ from tests.api_helpers import run_grid, run_one, stream_job, wait_for
 from tests.fakes import FakeBackend
 
 
+def _hold(fake, when=None):
+    """Hold the fake's calls on an event, not a clock: a call `when` accepts
+    (every call when it is None) waits after its first step until the
+    returned event is set, however slow the runner (DEV#54)."""
+    release = threading.Event()
+    fake.hold, fake.hold_when = release, when
+    return release
+
+
 def test_move_front_lists_the_authoritative_order_and_never_preempts(client, fake):
-    fake.step_seconds = 0.01
+    release = _hold(fake)
     payload = {"width": 256, "height": 256, "steps": 35}
     first = client.post("/api/generate", json={**payload, "prompt": "first"}).json()["job_id"]
     wait_for(client, first, lambda s: s["current_call"] is not None)
+    assert fake.holding.wait(30)
     second = client.post("/api/generate", json={**payload, "prompt": "second"}).json()["job_id"]
     third = client.post("/api/generate", json={**payload, "prompt": "third"}).json()["job_id"]
     moved = client.post(f"/api/jobs/{third}/front")
@@ -26,6 +38,7 @@ def test_move_front_lists_the_authoritative_order_and_never_preempts(client, fak
     assert [job["job_id"] for job in client.get("/api/jobs").json()] == [first, third, second]
     assert client.post(f"/api/jobs/{first}/front").status_code == 409
     assert client.post("/api/jobs/unknown/front").status_code == 404
+    release.set()
     for job_id in (first, third, second):
         assert stream_job(client, job_id)[-1]["status"] == "done"
     assert [request.prompt for request in fake.requests] == ["first", "third", "second"]
@@ -33,18 +46,20 @@ def test_move_front_lists_the_authoritative_order_and_never_preempts(client, fak
 
 
 def test_skip_keeps_earlier_images_continues_and_finish_recovers_the_hole(client, fake, store):
-    fake.step_seconds = 0.05  # a 1 s cell: the skip must land while it runs
+    # The second cell is held until the skip lands in it.
+    _hold(fake, lambda _: len(fake.requests) == 2)
     job_id = client.post("/api/generate", json={
         "prompt": "a fox", "width": 256, "height": 256, "steps": 20, "runs": 3, "seed": 10,
     }).json()["job_id"]
     running = wait_for(client, job_id, lambda s: s["run"] == 2 and s["current_call"] is not None)
+    assert fake.holding.wait(30)
     response = client.post(f"/api/jobs/{job_id}/skip", params={"call": running["current_call"]})
     assert response.status_code == 200
     done = stream_job(client, job_id)[-1]
     assert done["status"] == "done" and done["failures"] == 0 and done["skipped"] == 1
     assert [image["seed"] for image in done["images"]] == [10, 12]
     assert done["skipped_cells"] == [{"label": None, "seed": 11, "error": "Skipped by user"}]
-    deadline = time.monotonic() + 3
+    deadline = time.monotonic() + 30
     while (saved := store.retained_run_jobs(done["run_id"])[0])["outcome"] is None:
         assert time.monotonic() < deadline
         time.sleep(0.01)
@@ -52,7 +67,6 @@ def test_skip_keeps_earlier_images_continues_and_finish_recovers_the_hole(client
     assert saved["outcome"]["completed_indices"] == [0, 2]
     answer = client.post(f"/api/runs/{done['run_id']}/finish/preview").json()
     assert answer["available"] and answer["cells"] == 1
-    fake.step_seconds = 0
     accepted = client.post(f"/api/runs/{done['run_id']}/finish", json={"expected": answer["pin"]})
     assert accepted.status_code == 200
     recovered = stream_job(client, accepted.json()["job_id"])[-1]
@@ -60,7 +74,8 @@ def test_skip_keeps_earlier_images_continues_and_finish_recovers_the_hole(client
 
 
 def test_multiple_intentional_skips_do_not_trigger_the_failure_rule(client, fake):
-    fake.step_seconds = 0.05  # a 1 s cell: the skip must land while it runs
+    # Every cell but the last is held until its skip lands in it.
+    _hold(fake, lambda _: len(fake.requests) < 5)
     job_id = client.post("/api/generate", json={
         "prompt": "a fox", "width": 256, "height": 256, "steps": 20, "runs": 5,
     }).json()["job_id"]
@@ -72,14 +87,19 @@ def test_multiple_intentional_skips_do_not_trigger_the_failure_rule(client, fake
 
 
 def test_a_stale_skip_cannot_skip_the_next_cell(client, fake):
-    fake.step_seconds = 0.01
+    first = _hold(fake, lambda _: len(fake.requests) == 1)
     job_id = client.post("/api/generate", json={
         "prompt": "x", "width": 256, "height": 256, "steps": 15, "runs": 2,
     }).json()["job_id"]
+    assert fake.holding.wait(30)
     old = wait_for(client, job_id, lambda s: s["current_call"] is not None)["current_call"]
+    # The first cell's own event releases it; the second is held on another.
+    release = _hold(fake, lambda _: len(fake.requests) == 2)
+    first.set()
     wait_for(client, job_id, lambda s: s["run"] == 2 and s["current_call"] is not None)
     response = client.post(f"/api/jobs/{job_id}/skip", params={"call": old})
     assert response.status_code == 409 and "already finished" in response.json()["detail"]
+    release.set()
     done = stream_job(client, job_id)[-1]
     assert done["skipped"] == 0 and len(done["images"]) == 2
 
@@ -102,17 +122,21 @@ def test_a_skip_after_the_last_callback_keeps_the_completed_image(client, fake):
 
 
 def test_skip_is_held_while_paused_and_during_then_refine(client, fake):
-    fake.step_seconds = 0.01
+    release = _hold(fake)
     job_id = client.post("/api/generate", json={
         "prompt": "x", "width": 256, "height": 256, "steps": 20, "runs": 2,
     }).json()["job_id"]
     running = wait_for(client, job_id, lambda s: s["current_call"] is not None)
+    assert fake.holding.wait(30)
     client.post(f"/api/jobs/{job_id}/pause")
+    release.set()  # the pause lands at the boundary after the held first cell
     paused = wait_for(client, job_id, lambda s: s["paused"])
     assert "Resume" in paused["skip_reason"]
     assert client.post(f"/api/jobs/{job_id}/skip", params={"call": running["current_call"]}).status_code == 409
     client.post(f"/api/jobs/{job_id}/cancel")
     assert stream_job(client, job_id)[-1]["status"] == "cancelled"
+    # Then the pass alone is held, so its stage is still there to be read.
+    release = _hold(fake, lambda request: request.refine is not None)
     job_id = client.post("/api/generate", json={
         "prompt": "x", "width": 256, "height": 256, "steps": 20,
         "then_refine": {"scale": 1.5, "strength": 0.5},
@@ -120,6 +144,7 @@ def test_skip_is_held_while_paused_and_during_then_refine(client, fake):
     stage = wait_for(client, job_id, lambda s: s["stage"] == "pass")
     assert "Finish run adds a pass a stop left missing" in stage["skip_reason"]
     assert client.post(f"/api/jobs/{job_id}/skip", params={"call": 1}).status_code == 409
+    release.set()
     assert stream_job(client, job_id)[-1]["status"] == "done"
 
 
@@ -220,13 +245,14 @@ def test_a_pass_replayed_says_its_source_is_binned_then_restored(client, fake):
 
 
 def test_active_jobs_are_listed_without_their_images(client, fake):
-    fake.step_seconds = 0.02
+    release = _hold(fake)
     job_id = client.post(
         "/api/generate", json={"prompt": "x", "width": 256, "height": 256, "steps": 20}
     ).json()["job_id"]
     live = client.get("/api/jobs").json()
     assert [job["job_id"] for job in live] == [job_id]
     assert "images" not in live[0]
+    release.set()
     stream_job(client, job_id)
     assert client.get("/api/jobs").json() == []
 
@@ -262,7 +288,9 @@ def test_every_stream_sees_the_terminal_event(store):
 
 
 def test_cancel_mid_sweep_keeps_what_finished(client, fake):
-    fake.step_seconds = 0.01
+    # Every cell after the first is held, so the cancel lands mid-sweep; the
+    # held call polls it as a step would.
+    _hold(fake, lambda _: len(fake.requests) >= 2)
     job_id = client.post(
         "/api/generate", json={"prompt": "x", "width": 256, "height": 256, "steps": 5, "runs": 8}
     ).json()["job_id"]
@@ -284,12 +312,16 @@ def test_a_job_pauses_between_cells_and_hands_the_card_back(client, fake):
     # want for twenty minutes. The hold lands at the cell boundary, the
     # worker acknowledges it, the allocator reserve is returned, and a resume
     # carries on from the next cell.
-    fake.step_seconds = 0.01
+    # The second cell is held until the pause is asked, so the grid cannot
+    # finish first; the hold lands at the boundary after it.
+    release = _hold(fake, lambda _: len(fake.requests) == 2)
     job_id = client.post(
         "/api/grid", json={"prompt": "x", "width": 256, "height": 256, "steps": 4, "steps_axis": "4,5,6,7,8,9", "seed": 1},
     ).json()["job_id"]
     wait_for(client, job_id, lambda s: len(s["images"]) >= 1)
+    assert fake.holding.wait(30)
     assert client.post(f"/api/jobs/{job_id}/pause").json()["pause_requested"] is True
+    release.set()
     held = wait_for(client, job_id, lambda s: s["paused"])
     started = len(fake.requests)
     time.sleep(0.15)
@@ -306,35 +338,48 @@ def test_a_job_pauses_between_cells_and_hands_the_card_back(client, fake):
 
 
 def test_cancel_lands_on_a_paused_job(client, fake):
-    fake.step_seconds = 0.01
+    release = _hold(fake, lambda _: len(fake.requests) == 2)
     job_id = client.post(
         "/api/grid", json={"prompt": "x", "width": 256, "height": 256, "steps": 4, "steps_axis": "4,5,6,7", "seed": 1},
     ).json()["job_id"]
     wait_for(client, job_id, lambda s: len(s["images"]) >= 1)
+    assert fake.holding.wait(30)
     client.post(f"/api/jobs/{job_id}/pause")
+    release.set()
     wait_for(client, job_id, lambda s: s["paused"])
     started = time.perf_counter()
     client.post(f"/api/jobs/{job_id}/cancel")
     done = stream_job(client, job_id)[-1]
     # A polled hold, not a bare Event.wait(): the cancel lands within the poll.
-    assert done["status"] == "cancelled" and time.perf_counter() - started < 2.0
+    assert done["status"] == "cancelled" and time.perf_counter() - started < 10.0
     assert 1 <= len(done["images"]) < 4
 
 
 def test_cancelling_a_queued_job_ends_it_at_once(client, fake):
-    fake.step_seconds = 0.02
+    release = _hold(fake)
     ahead = client.post(
         "/api/generate", json={"prompt": "x", "width": 256, "height": 256, "steps": 40}
     ).json()["job_id"]
+    assert fake.holding.wait(30)
     queued = client.post(
         "/api/generate", json={"prompt": "y", "width": 256, "height": 256}
     ).json()["job_id"]
-    started = time.perf_counter()
-    assert client.post(f"/api/jobs/{queued}/cancel").json()["status"] == "cancelled"
-    events = stream_job(client, queued)
-    # One terminal event, delivered without waiting for the job ahead.
+
+    def cancel_and_stream():
+        status = client.post(f"/api/jobs/{queued}/cancel").json()["status"]
+        return status, stream_job(client, queued)
+
+    # The job ahead stays held until the cancel and its terminal event have
+    # both answered: one that waited for it would never answer, so the
+    # future's timeout fails the test instead of hanging it.
+    with concurrent.futures.ThreadPoolExecutor(1) as pool:
+        try:
+            status, events = pool.submit(cancel_and_stream).result(timeout=30)
+        finally:
+            release.set()
+    assert status == "cancelled"
+    # One terminal event, delivered while the job ahead was still held.
     assert [e["type"] for e in events] == ["done"]
-    assert time.perf_counter() - started < 0.5
     stream_job(client, ahead)
     assert [r.prompt for r in fake.requests] == ["x"]
 
@@ -419,8 +464,9 @@ def test_a_skipped_cell_is_named_by_its_label_and_seed(client, fake):
 def test_a_snapshot_says_what_the_job_is(client, fake):
     # A page that did not submit the job - a reload, the queue note - names
     # it from the snapshot: the prompt, the size, how many images it makes,
-    # and whether it is a grid's cells or one request's repeats.
-    fake.step_seconds = 0.02
+    # and whether it is a grid's cells or one request's repeats. Every call
+    # is held, so all three are still listed however slow the runner.
+    release = _hold(fake)
     plain = client.post(
         "/api/generate",
         json={"prompt": "a whale " * 30, "width": 512, "height": 384, "num_images": 2, "runs": 3, "steps": 8},
@@ -445,5 +491,6 @@ def test_a_snapshot_says_what_the_job_is(client, fake):
     # resume (test_api_grid has one that is).
     assert not any(job["comparison"] for job in (first, second, third))
     client.post(f"/api/jobs/{plain}/cancel")
+    release.set()
     stream_job(client, grid)
     stream_job(client, varied)

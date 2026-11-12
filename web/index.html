@@ -97,6 +97,11 @@
       <!-- The help sits outside the label, so it describes the select without
            also joining its name. -->
       <div class="model-format" id="model-format-field" hidden><label for="model-format">Nunchaku format</label><select id="model-format" autocomplete="off" aria-describedby="model-format-help"></select><span class="model-format-help" id="model-format-help"></span></div>
+      <!-- The one-time offer to import the stars this browser kept before
+           the server held them (model-favourites.js, syncModelFavouriteOffer):
+           decided as the picker opens, never while it stays open. tabindex
+           -1: a press's outcome takes the focus from the button it hides. -->
+      <p class="model-favourites-offer" id="model-favourites-offer" tabindex="-1" hidden><span id="model-favourites-offer-text"></span><button class="ghost tiny" id="btn-model-favourites-import" type="button" title="Add this browser's earlier favourites to this gallery's">Import</button><button class="ghost tiny" id="btn-model-favourites-dismiss" type="button" title="Keep this gallery's favourites as they are; this browser won't ask again">Don't import</button></p>
       <!-- The grouping choice sits on the heading's line, outside the label
            that names the radio group. -->
       <div class="model-picker-heading-row">
@@ -114,9 +119,25 @@
           <span></span><span>Model</span><span>Style</span><span title="Whether this app can run a second image-to-image pass on this checkpoint">Refine</span><span title="Largest size the authors document or show; 1 MP is about 1024x1024">Size</span><span title="Timed on an RTX 5080. Fast, Medium or Slow only for a timing with these loading options; otherwise Reference or Unmeasured, from another setup">Speed</span><span></span>
         </div>
       </div>
+      <!-- In the table's place while a gallery bundle operation refuses its
+           read (model-switch.js, syncModelSwitch). -->
+      <p class="model-table-held" id="model-table-held" role="status" hidden></p>
       <!-- What each action does with this choice (syncModelSwitch): read with
            the table, not a live region, so an opening announces nothing. -->
       <p class="sr-only" id="model-picker-help">Apply &amp; save saves these settings without loading them; Switch &amp; load loads them now.</p>
+      <!-- What the model cache holds (GET /api/models/storage), read only
+           when this fold opens or Refresh is pressed: never on a timer, never
+           at the picker's opening. Read-only: nothing here deletes
+           (model-storage.js). Last in the body, so opening it moves nothing
+           above it. -->
+      <details class="model-storage" id="model-storage">
+        <summary>On disk</summary>
+        <div class="model-storage-head">
+          <p class="model-storage-status" id="model-storage-status" role="status"></p>
+          <button class="ghost tiny" id="btn-model-storage-refresh" type="button" title="Read the model cache again">Refresh</button>
+        </div>
+        <div class="model-storage-body" id="model-storage-body"></div>
+      </details>
     </div>
     <!-- The checkbox sits by the actions it is saved with. The note is the
          outcomes and the server's state in a reserved height; Revert (unsaved
@@ -210,7 +231,7 @@
         <button type="button" class="ghost tiny" id="btn-analyze" aria-controls="prompt-analysis"
                 title="Check this prompt against the checkpoint's guide and what its text encoders read - instant, on this machine">Check</button>
         <!-- Held with aria-disabled and the reason as its title, never
-             disabled (status.js, syncExpandButton): a first use can take
+             disabled (prompt-expand.js, syncExpandButton): a first use can take
              minutes, and a disabled button dropped a keyboard user's focus. -->
         <button type="button" class="ghost tiny" id="btn-expand" hidden
                 title="Use ERNIE's prompt rewriter once, put its result here, then review it before generating">Expand</button>
@@ -464,51 +485,59 @@
          The badge sits outside the <label> on purpose - inside it, a tap would
          be forwarded to the input, taking focus off the badge and closing the
          tooltip in the same gesture that opened it. The caption is the row's:
-         without one, the row read as part of Size above it. -->
-    <div class="field" role="group" aria-labelledby="sampling-caption">
-      <span id="sampling-caption">Sampling</span>
-      <div class="row sampling-row">
-        <div class="sub grow">
-          <i><label for="steps">Steps</label>
-            <span class="help" tabindex="0" role="note" aria-label="Steps help" aria-describedby="steps-tip">?<span
-              class="tip" id="steps-tip">Denoising steps. 28 is a safe starting point for an
-              unrecognised checkpoint; more steps cost proportionally more time.</span></span></i>
-          <input type="number" id="steps" inputmode="numeric" enterkeyhint="done" value="28" min="1" max="100" aria-describedby="steps-tip">
-        </div>
-        <div class="sub grow">
-          <i><label for="cfg" id="cfg-label">CFG</label>
-            <span class="help" tabindex="0" role="note" aria-label="CFG help" aria-describedby="cfg-tip">?<span
-              class="tip" id="cfg-tip">Classifier-free guidance, 3.5 to start. Above 1 the
-              negative prompt applies, at roughly 2x the time per step.</span></span></i>
-          <input type="number" id="cfg" inputmode="decimal" enterkeyhint="done" value="3.5" min="0" max="20" step="0.1" aria-describedby="cfg-tip">
-        </div>
-        <div class="sub grow" id="mu-field">
-          <i><label for="mu">Mu</label>
-            <span class="help" tabindex="0" role="note" aria-label="Mu help" aria-describedby="mu-tip">?<span
-              class="tip" id="mu-tip">Flow-matching timestep shift. Leave blank unless the
-              checkpoint is known to want a fixed one - otherwise the pipeline derives its
-              own.</span></span></i>
-          <!-- Blank is the pipeline's own shift, which its tip explains:
-               "auto" says so where the box would otherwise be an empty patch,
-               and where that shift is fixed the box shows its mu instead
-               (status.js, muPlaceholder). -->
-          <input type="number" id="mu" inputmode="decimal" enterkeyhint="done" min="0" max="10" step="0.05" placeholder="auto" aria-describedby="mu-tip">
-        </div>
-        <!-- Real CFG kept apart from the guidance value, on the one family where
-             they are two knobs (FLUX.1). Greyed out - not hidden, so the panel
-             keeps its shape - wherever the CFG box is real CFG already. -->
-        <div class="sub grow" id="true-cfg-field">
-          <i><label for="true-cfg">True CFG</label>
-            <span class="help end" tabindex="0" role="note" aria-label="True CFG help" aria-describedby="true-cfg-tip">?<span
-              class="tip" id="true-cfg-tip">Not a separate knob on this checkpoint: its CFG
-              box is real classifier-free guidance already, and the negative prompt follows
-              that.</span></span></i>
-          <input type="number" id="true-cfg" inputmode="decimal" enterkeyhint="done" min="1" max="20" step="0.1" placeholder="off" aria-describedby="true-cfg-tip">
+         without one, the row read as part of Size above it.
+         The four sit behind one native fold, as Custom dimensions does (UI#51):
+         its summary always says what a Generate runs with - a blank box's
+         profile value, Mu's "auto" or fixed shift, a typed True CFG - and
+         its open or shut state is remembered per browser (sizes.js,
+         initSamplingFold). Nothing opens it by itself but a press that
+         focuses a box inside it (an incomplete number, Set CFG). -->
+    <details class="setup-disclosure" id="sampling-section">
+      <summary id="sampling-caption">Sampling <span id="sampling-value">28 steps · CFG 3.5 · Mu auto</span></summary>
+      <div class="setup-body">
+        <div class="row sampling-row" role="group" aria-label="Sampling">
+          <div class="sub grow">
+            <i><label for="steps">Steps</label>
+              <span class="help" tabindex="0" role="note" aria-label="Steps help" aria-describedby="steps-tip">?<span
+                class="tip" id="steps-tip">Denoising steps. 28 is a safe starting point for an
+                unrecognised checkpoint; more steps cost proportionally more time.</span></span></i>
+            <input type="number" id="steps" inputmode="numeric" enterkeyhint="done" value="28" min="1" max="100" aria-describedby="steps-tip">
+          </div>
+          <div class="sub grow">
+            <i><label for="cfg" id="cfg-label">CFG</label>
+              <span class="help" tabindex="0" role="note" aria-label="CFG help" aria-describedby="cfg-tip">?<span
+                class="tip" id="cfg-tip">Classifier-free guidance, 3.5 to start. Above 1 the
+                negative prompt applies, at roughly 2x the time per step.</span></span></i>
+            <input type="number" id="cfg" inputmode="decimal" enterkeyhint="done" value="3.5" min="0" max="20" step="0.1" aria-describedby="cfg-tip">
+          </div>
+          <div class="sub grow" id="mu-field">
+            <i><label for="mu">Mu</label>
+              <span class="help" tabindex="0" role="note" aria-label="Mu help" aria-describedby="mu-tip">?<span
+                class="tip" id="mu-tip">Flow-matching timestep shift. Leave blank unless the
+                checkpoint is known to want a fixed one - otherwise the pipeline derives its
+                own.</span></span></i>
+            <!-- Blank is the pipeline's own shift, which its tip explains:
+                 "auto" says so where the box would otherwise be an empty patch,
+                 and where that shift is fixed the box shows its mu instead
+                 (status.js, muPlaceholder). -->
+            <input type="number" id="mu" inputmode="decimal" enterkeyhint="done" min="0" max="10" step="0.05" placeholder="auto" aria-describedby="mu-tip">
+          </div>
+          <!-- Real CFG kept apart from the guidance value, on the one family where
+               they are two knobs (FLUX.1). Greyed out - not hidden, so the panel
+               keeps its shape - wherever the CFG box is real CFG already. -->
+          <div class="sub grow" id="true-cfg-field">
+            <i><label for="true-cfg">True CFG</label>
+              <span class="help end" tabindex="0" role="note" aria-label="True CFG help" aria-describedby="true-cfg-tip">?<span
+                class="tip" id="true-cfg-tip">Not a separate knob on this checkpoint: its CFG
+                box is real classifier-free guidance already, and the negative prompt follows
+                that.</span></span></i>
+            <input type="number" id="true-cfg" inputmode="decimal" enterkeyhint="done" min="1" max="20" step="0.1" placeholder="off" aria-describedby="true-cfg-tip">
+          </div>
         </div>
       </div>
-    </div>
+    </details>
 
-    <!-- What a press makes, under a caption of its own as Sampling's (shown
+    <!-- What a press makes, under a caption of its own, Size's twin (shown
          in one column and from 1800 px on a window taller than 1150 px;
          elsewhere only the group's name, so Generate keeps its place:
          styles/fields.css): the seed it starts from, how many at once and how many times. Repeat is
@@ -731,8 +760,12 @@
               not saying it.<br>
               Blank runs the prompt exactly as written — and is refused if the prompt
               still has <b>{placeholders}</b> in it, rather than rendering the braces.</span></span></i>
-          <textarea id="grid-prompt" rows="2" spellcheck="false" aria-describedby="grid-prompt-tip"
-            placeholder="size = big | small | none"></textarea>
+          <div class="grid-prompt-editor">
+            <textarea id="grid-prompt" rows="2" spellcheck="false" aria-describedby="grid-prompt-tip"
+              placeholder="size = big | small | none" aria-autocomplete="list"
+              aria-controls="grid-tag-suggestions" aria-expanded="false"></textarea>
+            <ul class="tag-suggestions" id="grid-tag-suggestions" role="listbox" aria-label="Grid value tag suggestions" hidden></ul>
+          </div>
           <label for="grid-prompt-mode">Variable mode</label>
           <select id="grid-prompt-mode" aria-describedby="grid-prompt-mode-hint">
             <option value="cross">Cross all values</option>
@@ -743,7 +776,9 @@
       </div>
       <div class="row">
         <div class="sub grow">
-          <i><label for="grid-size">Sizes</label></i>
+          <i><label for="grid-size">Sizes</label>
+            <button type="button" class="grid-size-add" id="grid-size-add"
+                    title="Add the panel's width x height to Sizes">+ panel size</button></i>
           <input type="text" id="grid-size" maxlength="2000" autocomplete="off"
                  placeholder="1024x1024, 768x1024" aria-describedby="grid-size-hint">
           <p class="hint" id="grid-size-hint">Width x height pairs, separated by commas. Blank keeps the panel size.</p>
@@ -983,7 +1018,8 @@
         <input type="search" id="search" enterkeyhint="search" placeholder="Search prompts · / to focus" aria-label="Search gallery"
                aria-keyshortcuts="/" title="Search gallery (/ outside fields, menus and dialogs)" aria-describedby="search-tip">
         <span class="help" tabindex="0" role="note" aria-label="Search help" aria-describedby="search-tip">?<span class="tip" id="search-tip">
-          Bare words match the prompt. <b>key:value</b> filters the settings:<br>
+          Bare words match the start of a prompt word (<b>drag</b> finds dragon);
+          <b>key:value</b> filters the settings:<br>
           <b>seed:42</b> · <b>steps:8</b> · <b>cfg:0.5</b> · <b>tcfg:1.5</b> · <b>mu:none</b> ·
           <b>model:flux</b> · <b>quant:fp8</b> · <b>lora:ink</b> · <b>run:ab12cd</b> · <b>job:ab12cd</b> ·
           <b>date:today</b> · <b>size:1024x768</b> · <b>hash:3f9a</b> · <b>refine:12</b> · <b>strength:0.4</b><br>
@@ -2009,7 +2045,7 @@
   </div>
 </dialog>
 
-<!-- The questions a delete asks (gallery-actions.js: confirmDialog,
+<!-- The questions a delete asks (ask-dialog.js: confirmDialog,
      countDialog) - Delete unstarred's count, and in the recycle bin Delete
      permanently and Empty recycle bin - in the page's own dialog beside what
      was pressed rather than the browser's light box at the top of the
@@ -2040,6 +2076,10 @@
     <button type="button" class="close sheet-close" data-sheet-close aria-label="Close (Escape)">✕</button>
   </header>
   <div class="swap-rows" id="swap-rows"></div>
+  <!-- One list for every Find and Replace box, placed under the box with the
+       focus (tag-swap.js, placeSwapSuggestions): the rows scroll, and a list
+       inside a row was cut off at their edge. -->
+  <ul class="tag-suggestions swap-tag-suggestions" id="swap-tag-suggestions" role="listbox" aria-label="Swap tags tag suggestions" hidden></ul>
   <div class="swap-options">
     <button type="button" class="ghost small" id="swap-add">+ Add row</button>
     <fieldset class="swap-field">
@@ -2048,6 +2088,7 @@
       <label id="swap-negative-label"><input type="radio" name="swap-field" value="negative_prompt"> Negative prompt</label>
     </fieldset>
   </div>
+  <p class="swap-tags hint warn" id="swap-tags" role="status"></p>
   <p class="swap-hint" id="swap-hint">Whole comma items match, whatever their case, spacing or underscores; a weight round
     the whole item is kept, and one typed in Find is ignored. Inside prose a single tag also matches as a phrase. Every row has to find all
     of its tags or the image is left out. An empty Find adds its tags at the start or the end, in the prompt's own
@@ -2478,6 +2519,8 @@
 <script src="/static/status.js"></script>
 <script src="/static/model-switch.js"></script>
 <script src="/static/model-shots.js"></script>
+<script src="/static/model-storage.js"></script>
+<script src="/static/model-favourites.js"></script>
 <script src="/static/generation.js"></script>
 <script src="/static/job-progress.js"></script>
 <script src="/static/job-queue.js"></script>
@@ -2488,6 +2531,7 @@
 <script src="/static/runs.js"></script>
 <script src="/static/viewer.js"></script>
 <script src="/static/gallery.js"></script>
+<script src="/static/ask-dialog.js"></script>
 <script src="/static/gallery-actions.js"></script>
 <script src="/static/gallery-head.js"></script>
 <script src="/static/gallery-select.js"></script>

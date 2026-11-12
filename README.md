@@ -122,7 +122,8 @@ the idle server needs a model loaded. Compact facts show style, Refine support,
 recorded speed and
 upper MP guidance, labelled as a recommendation, documented/native maximum or
 example size. Star models to keep favourites at the top of the
-list; favourites are remembered in this browser. Loading options have visible
+list; favourites are kept with the gallery on the server, so every
+browser and device reaching it shares them. Loading options have visible
 explanations. Speed categories use earlier RTX 5080 samples and label different
 setups as references. Finish
 or cancel queued/running jobs first, and wait for any load, prompt check, critic
@@ -366,7 +367,7 @@ set in a start-up warning.
 | `AURADREAM_CRITIC` | `true` | Enable the optional local prompt critic |
 | `AURADREAM_CRITIC_SERVER` | unset | Use a local compatible `llama-server` binary |
 | `AURADREAM_CRITIC_MODEL` | unset | Use a local `.gguf` instead of downloading the pinned critic model |
-| `AURADREAM_KEEP_AWAKE` | `true` | Hold the PC awake while AuraDream is busy: `systemd-inhibit` on Linux, a power request on Windows |
+| `AURADREAM_KEEP_AWAKE` | `true` | Hold the PC awake while AuraDream is busy: `systemd-inhibit` on Linux, a power request on Windows (under WSL, Windows' own through `powershell.exe`; nothing with interop off) |
 | `AURADREAM_KEEP_AWAKE_IDLE_MINUTES` | `20` | Minutes to keep holding after the last request someone made (the page's timed polls are not one); `0` holds only while busy |
 | `AURADREAM_IDLE_UNLOAD_MINUTES` | `0` | Opt-in model release after idle minutes; waits for work to finish, ignores timed page polls, and works with keep-awake off |
 
@@ -394,7 +395,9 @@ browser on the PC itself signs in once too. Know what it is and is not:
 - There is one passcode and no accounts. Changing it and restarting signs
   every device out; nothing else does. **Sign out** in the Models panel
   signs out the browser it is pressed in. A browser stays signed in for
-  thirty days after its last visit, across restarts and updates.
+  thirty days after it was last used (a page load, or anything done on an
+  open page; the page's own timed checks do not count), across restarts
+  and updates.
 
 Set it in the environment only (never a flag or the saved settings); the
 server will not start with fewer than 8 characters. After five wrong

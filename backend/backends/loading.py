@@ -447,7 +447,7 @@ def require_custom_pipeline_class(model_id: str) -> str | None:
     known = {checkpoint.repo.casefold() for checkpoint in CHECKPOINTS}
     known.update(
         repo.casefold() for checkpoint in CHECKPOINTS for fmt, _ in FORMATS
-        if (repo := checkpoint.lite_repo(fmt)) is not None
+        for repo in (checkpoint.lite_repo(fmt), checkpoint.lite_alias(fmt)) if repo is not None
     )
     if model_id.casefold() in known:
         return None

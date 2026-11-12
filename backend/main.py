@@ -42,7 +42,7 @@ if __name__ == "__main__":
 else:
     compiler_cache._seal_startup()
 
-from . import api_backup, api_bundles, api_gallery, api_generate, api_jobs, api_masks, api_more_seeds, api_png, api_presets, api_prompt, api_refine_batch, api_rerender, api_runs, api_saved_searches, api_snippets, api_swap, app_context, bundle_common, bundles, card_facts, gallery_lock, gallery_reports, hf_sign_in, hub_access, keep_awake, loras, model_selection, passcode, prompt_encoding, response_headers, startup_preferences, storage  # noqa: E402
+from . import api_backup, api_bundles, api_gallery, api_generate, api_jobs, api_masks, api_model_favourites, api_more_seeds, api_png, api_presets, api_prompt, api_refine_batch, api_rerender, api_runs, api_saved_searches, api_snippets, api_swap, app_context, bundle_common, bundles, card_facts, gallery_lock, gallery_reports, hf_sign_in, hub_access, keep_awake, loras, model_selection, passcode, prompt_encoding, response_headers, startup_preferences, storage  # noqa: E402
 from .backup_service import BackupService  # noqa: E402
 from .api_guide import router as guide_router  # noqa: E402
 from .api_model_storage import router as model_storage_router  # noqa: E402
@@ -1398,6 +1398,7 @@ services = app_context.AppServices(
 app.include_router(api_prompt.create_router(services))
 app.include_router(guide_router)
 app.include_router(model_storage_router)
+app.include_router(api_model_favourites.create_router(services))
 app.include_router(api_snippets.create_router(services))
 app.include_router(api_saved_searches.create_router(services))
 app.include_router(api_presets.create_router(services))
@@ -1463,6 +1464,12 @@ def _open_when_listening(server: uvicorn.Server, url: str) -> None:
     threading.Thread(target=wait_then_open, daemon=True, name="open-browser").start()
 
 
+# The exit status of a start refused for its own settings (a passcode or TLS
+# pair the server cannot use): sysexits' EX_CONFIG. The Linux service's unit
+# lists it in RestartPreventExitStatus, since starting again cannot help.
+SETTINGS_REFUSED_STATUS = 78
+
+
 def run(*, open_browser: bool = False) -> None:
     """Serve until a signal. Ctrl-C exits with status 130, as the start-up
     menu's does, and without a traceback: once shutdown is complete uvicorn
@@ -1476,7 +1483,9 @@ def run(*, open_browser: bool = False) -> None:
     opens the page once the server is listening; never by default.
 
     An AURADREAM_PASSCODE under 8 characters (or past what the sign-in
-    takes) exits 1 before any of that, in words that never hold it."""
+    takes), or a TLS pair that cannot be loaded (`server_transport`), exits
+    SETTINGS_REFUSED_STATUS before any of that, in words that never hold the
+    passcode."""
     # An invalid passcode is never handed to a request. Keep only its safe
     # explanation; the log is opened below before that refusal is reported.
     problem = (passcode.setting_problem(settings.passcode)
@@ -1499,7 +1508,7 @@ def run(*, open_browser: bool = False) -> None:
         if problem is not None:
             print(problem, file=sys.stderr, flush=True)
             log_to_file.startup_refusal(problem)
-            raise SystemExit(1)
+            raise SystemExit(SETTINGS_REFUSED_STATUS)
         if busy:
             message = (
                 f"Port {settings.port} is in use by another program (or reserved by the system), "

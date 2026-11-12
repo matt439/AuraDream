@@ -68,7 +68,8 @@ def test_a_deferred_inpaint_is_not_yet_and_never_a_plain_no():
 
 def test_recorded_answers_per_family():
     """What the docs already record, so a table edit that flips one fails
-    here by name: SDXL and FLUX.2's VAE have no preview map (`GEN#6`), klein
+    here by name: FLUX.2's VAE has no preview map and SDXL's has one
+    (`GEN#6`'s SDXL half), klein
     and FLUX 3 take references, the app's own pipelines take no LoRA, and
     only ERNIE and FLUX 3 expand."""
     def flag(repo: str, key: str) -> str:
@@ -76,11 +77,12 @@ def test_recorded_answers_per_family():
         assert flags is not None
         return flags[key]
 
-    for repo in ("cagliostrolab/animagine-xl-4.0", "LyliaEngine/waiIllustriousSDXL_v170",
-                 "black-forest-labs/FLUX.2-klein-9B", "baidu/ERNIE-Image-Turbo",
+    for repo in ("black-forest-labs/FLUX.2-klein-9B", "baidu/ERNIE-Image-Turbo",
                  "black-forest-labs/flux-3-image-klein"):
         assert flag(repo, "preview") == "No", repo
-    for repo in (KREA_DEV, "krea/Krea-2-Turbo", "Tongyi-MAI/Z-Image-Turbo", "SeeSee21/Z-Anime",
+    for repo in ("cagliostrolab/animagine-xl-4.0", "LyliaEngine/waiIllustriousSDXL_v170",
+                 "Laxhar/noobai-XL-Vpred-1.0",
+                 KREA_DEV, "krea/Krea-2-Turbo", "Tongyi-MAI/Z-Image-Turbo", "SeeSee21/Z-Anime",
                  "circlestone-labs/Anima", "duongve/NetaYume-Lumina-Image-2.0",
                  "NewBie-AI/NewBie-image-Exp0.1"):
         assert flag(repo, "preview") == "Yes", repo

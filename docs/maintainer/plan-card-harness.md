@@ -3,7 +3,8 @@
 **Status:** `DEV#20` (card guard), `DEV#22` (image metrics) and `DEV#23`
 (`CARD#10` step packs) opened 2026-10-29 from that day's TODO audit, which
 Matt approved in full. `DEV#22` is built (2026-10-30, below); `DEV#20`'s
-stage 1 is built (2026-10-30, below) and its card stage is open;
+stage 1 is built (2026-10-30, below), its card stage was met 2026-11-11
+and its sampler holds the requested period since 2026-11-12 (below);
 `DEV#23`'s first stage is built too (2026-10-30, below), but for its
 hand-typed Ctrl-C runs on the fake. Each item's first stage is CPU,
 fake-server or browser work; `DEV#20` and `DEV#23` each have a second stage
@@ -94,7 +95,8 @@ reached the refuse-at figure, or after any trip in the session.
 **The sampler and the watcher** read the counters and act on the answer:
 `nvidia-smi --query-gpu=memory.used,memory.total --format=csv,noheader,nounits`
 for the whole card, `typeperf` for the Windows GPU Adapter Memory and GPU
-Process Memory shared counters, `psutil.virtual_memory().available` for
+Process Memory shared counters (since 2026-11-12 one `--loop-ms` stream and
+one held PDH query instead: "Holding the period" below), `psutil.virtual_memory().available` for
 free RAM, and `GetPerformanceInfo` for commit headroom. `psutil` and
 `numpy` are already installed as dependencies of `accelerate` (`uv.lock`).
 The app does not declare them, and this item adds no dependency; declaring
@@ -259,7 +261,88 @@ too. One gap: the guard requested 0.5 s sampling but achieved about 1.8 s,
 because each sample spawns `typeperf -sc 1` and `nvidia-smi` serially
 (`watch`'s `LocalHost` sampler). Its tree working set (6.97 GiB) therefore
 read below the supervisor's peak (9.56 GiB). Holding the requested period
-is `DEV#20`'s remaining CPU work ([2026-11-12 audit](review-2026-11-12-todo.md#dev20-the-card-guard-keeps-its-sampling-period-on-windows)).
+was `DEV#20`'s remaining CPU work ([2026-11-12 audit](review-2026-11-12-todo.md#dev20-the-card-guard-keeps-its-sampling-period-on-windows)),
+done the next day (below).
+
+**Holding the period (done 2026-11-12).** `LocalHost` no longer spawns
+anything per sample:
+
+- **The whole card** comes from one long-lived `nvidia-smi
+  --query-gpu=memory.used,memory.total --format=csv,noheader,nounits -i 0
+  --loop-ms=<period>` (at least 100 ms), read line by line on a daemon
+  thread (`LineStream`), which keeps the newest parsed line and when it
+  came. `-i 0` is the first GPU, the line the old one-shot parse took. A
+  line older than two periods plus 2 s counts as unread, so a stalled
+  stream feeds `card_unread` as a failed spawn did; the first sample waits
+  up to 15 s for the first line (the old spawn's timeout); a stream that
+  has exited is started again at the next sample. Linux uses the same
+  stream.
+- **The shared counters** (Windows) come from one PDH query held open for
+  the session through ctypes (`PdhCounters`: `PdhAddEnglishCounterW` on
+  the same three wildcard paths, `PdhGetFormattedCounterArrayW` as
+  doubles), so a collection takes well under a millisecond. PDH rather
+  than a `typeperf -si` stream, because typeperf fixes a wildcard's
+  instances at its CSV header and would never see a `GPU Process Memory`
+  instance that appears after the start (the watched server's, once it
+  allocates); a held PDH query re-enumerates them at each collection
+  (checked locally: over 30 s its instance set matched a fresh query's
+  every time while processes came and went). The English names also read
+  on a localized Windows, which `typeperf`'s did not. Where PDH cannot
+  open, the sampler falls back to the old `typeperf -sc 1` spawn; the
+  baseline row's new `sources` says which (`"pdh"` or `"typeperf -sc 1"`,
+  null off Windows). Both paths share one parse (`shared_usage`).
+- **The schedule.** Samples are due every `--period` from the start, so a
+  sample's cost comes out of the next sleep rather than adding to it; a
+  sample later than its slot is followed at once and the schedule restarts
+  from there, with no burst to catch up. The `summary` row now carries
+  `period_s`, `achieved_period_s` (the mean time between the loop's
+  samples, null with fewer than two) and `longest_gap_s`. A `--period`
+  that is not a positive number is refused (exit 2). The host's streams
+  and query are closed however the watch ends.
+
+`tests/test_card_guard.py` holds it on stubs, with no real nvidia-smi,
+PDH, RAM or commit read: a 0.3 s sample at a 1 s period sleeps 0.7 s and
+achieves 1.0; a 1.8 s sample at 0.5 s (the 2026-11-11 case) achieves and
+reports 1.8 without a burst; the host is closed after a trip and a
+refusal; the PDH counters parse as the recorded typeperf row does; the
+stream's argv, its newest line, its going stale, its restart and a
+missing nvidia-smi run on a fake process; `LocalHost` takes the card from
+the stream (waiting only on the first sample), the shared counters from
+the query, falls back to typeperf without PDH and reads no shared
+counters off Windows.
+
+Checked locally (read-only, no GPU work started): `watch --period 0.5`
+for 20 s with no watched tree achieved 0.5 s (longest gap 0.517 s, 41
+samples), where the old sampler took about 1.8 s; against a sleeping
+Python process `--ram-floor-gib 1000` still tripped at once, killed its
+tree and exited 4, and no `nvidia-smi` stream was left running after
+either. The targeted tests, the full suite, ruff and the Pyright gate
+pass. The next card session confirms the achieved period under load from
+its `summary` row; until then 0.5 s is a desk figure, not a card one.
+
+**Hardened after review (2026-11-12): the stream's process and the PDH
+fill.** Three gaps the review found, each with a stub test that fails
+without its fix:
+
+- A stream whose reader thread ended while its process still ran (an
+  undecodable byte under text mode is a `ValueError`) was started again
+  beside the old one, which then ran on a pipe nobody drained. `LineStream`
+  now stops the previous process before it starts another.
+- On Windows each stream's process joins the guard's one job object with
+  `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` (`KillOnCloseJob`, ctypes), never
+  closed by hand, so a guard ended without its `finally` (Stop-Process
+  -Force, a crash) takes its `nvidia-smi --loop-ms` with it. Checked
+  locally: the interpreter killed hard with `Stop-Process -Force` left no
+  `nvidia-smi` running. Off Windows, or where the job cannot be made, the
+  stream runs unbound as before, and a force-killed guard there leaves a
+  looping `nvidia-smi` to stop by hand (it ends at its next write to the
+  closed pipe).
+- `PdhCounters.read` dropped the whole collection when a counter's array
+  grew between its size probe and its fill (a process starting, which
+  could blank the baseline's shared reading and turn the shared trips off
+  for the session). It now probes again, up to four times per counter.
+  A fake `pdh` writing real `PDH_FMT_COUNTERVALUE_ITEM_W` records covers
+  the instance names, an invalid `CStatus` skipped and the regrowth.
 
 **Hardened after review (2026-10-31): the card unread mid-watch.** The
 watcher refused to start without a whole-card reading, but after the

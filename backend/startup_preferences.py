@@ -292,6 +292,12 @@ def apply_saved_environment(
         return None
     if model is None and _explicit(env, "AURADREAM_MODEL_ID"):
         model = env["AURADREAM_MODEL_ID"]
+    if model is not None:
+        # A renamed lite-infer id is the saved checkpoint under its new name
+        # (GEN#47); launch imports this module, so its rule is read lazily.
+        from .launch import written_id
+
+        model = written_id(model)
     if model is not None and model != preferences.model_id:
         log.warning(
             "Ignoring saved startup settings for %s: this start names %s",

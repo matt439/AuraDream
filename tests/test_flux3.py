@@ -608,8 +608,9 @@ def test_the_catalogue_lists_both_before_the_editor_with_their_cold_facts():
         assert entry.gate == "click-through gate" and entry.lite is None
         detail = model_info.details_for(model_id, quantization="fp8")
         assert detail["access"] == "Accept licence" and detail["refine"] == "No"
-        # The descriptors could not be read: no download size is claimed.
-        assert detail["download"] == "Unknown"
+        # The shard maps were read on 2026-11-12 (tools/model_downloads.py):
+        # the loader's two snapshot passes, about 20.3 GB.
+        assert detail["download"] == "~20.3 GB"
         assert "Only 1024×1024 has been measured on this card" in detail["megapixels_note"]
         # Measured 2026-11-10: 6.08 GiB allocated at fp8 on a plain image, under
         # the 6.8 GiB below which a card is not sized, as FLUX.2 [klein] 4B.
@@ -621,6 +622,8 @@ def test_the_catalogue_lists_both_before_the_editor_with_their_cold_facts():
     assert model_info.details_for(flux3_loading.MODEL_ID, quantization="none", card_memory=12 * 1024 ** 3)["fit"] == ""
     assert flux3_loading.BASE_MODEL_ID not in model_info._BF16_NEEDS
     for model_id in (flux3_loading.MODEL_ID, flux3_loading.BASE_MODEL_ID):
-        # A switch asks the Hub about the pinned repository itself.
+        # A switch asks the Hub about the pinned repository itself, with a HEAD
+        # on its modular index now that the selection is known.
         pin = flux3_loading.source(model_id)
-        assert hub_access.sources(model_id) == [hub_access.Source(pin["repo_id"], pin["revision"], None)]
+        assert hub_access.sources(model_id) == [
+            hub_access.Source(pin["repo_id"], pin["revision"], flux3_loading.INDEX)]

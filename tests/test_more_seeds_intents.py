@@ -24,7 +24,7 @@ class Clock:
 
 
 async def wait_for(event: asyncio.Event) -> None:
-    await asyncio.wait_for(event.wait(), timeout=2)
+    await asyncio.wait_for(event.wait(), timeout=30)
 
 
 def test_concurrent_retries_share_one_operation_and_return_independent_receipts():
@@ -50,7 +50,7 @@ def test_concurrent_retries_share_one_operation_and_return_independent_receipts(
             assert calls == 1 and ledger.pending
             assert not first.done() and not second.done()
             release.set()
-            a, b = await asyncio.wait_for(asyncio.gather(first, second), timeout=2)
+            a, b = await asyncio.wait_for(asyncio.gather(first, second), timeout=30)
             assert a == b == {"job_id": "one", "more": [{"job_id": "two"}], "queued": 4}
             a["more"][0]["job_id"] = "changed by the first caller"
             assert b["more"][0]["job_id"] == "two"
@@ -93,7 +93,7 @@ def test_distinct_tokens_are_distinct_intents_even_when_the_payloads_match():
             await wait_for(entered)
             assert ledger.pending
             release.set()
-            answers = await asyncio.wait_for(asyncio.gather(*tasks), timeout=2)
+            answers = await asyncio.wait_for(asyncio.gather(*tasks), timeout=30)
             assert {answer["job_id"] for answer in answers} == {"job-1", "job-2"}
             assert calls == 2 and not ledger.pending
         finally:
@@ -190,7 +190,7 @@ def test_receipt_lifetime_starts_at_settlement_and_running_entries_do_not_expire
             await asyncio.sleep(0)
             assert calls == 1 and ledger.pending
             release.set()
-            await asyncio.wait_for(asyncio.gather(task, replay), timeout=2)
+            await asyncio.wait_for(asyncio.gather(task, replay), timeout=30)
             clock.advance(19)
             assert await ledger.execute(token, PAYLOAD, CONTEXT, operation) == {"job_id": "long-operation"}
             clock.advance(2)
@@ -241,8 +241,8 @@ def test_settlement_keeps_a_receipt_before_task_done_callbacks_run():
             await wait_for(started)
             clock.advance(100)
             release.set()
-            assert await asyncio.wait_for(observed, timeout=2) == ("refused", 503)
-            answer = await asyncio.wait_for(task, timeout=2)
+            assert await asyncio.wait_for(observed, timeout=30) == ("refused", 503)
+            answer = await asyncio.wait_for(task, timeout=30)
             assert await ledger.execute(token, PAYLOAD, CONTEXT, operation) == answer
             assert calls == 1 and not ledger.pending
         finally:
@@ -279,8 +279,8 @@ def test_cancelling_one_caller_waits_for_settlement_without_cancelling_the_inten
             assert calls == 1
             release.set()
             with pytest.raises(asyncio.CancelledError):
-                await asyncio.wait_for(caller, timeout=2)
-            assert await asyncio.wait_for(retry, timeout=2) == {"job_id": "accepted-once"}
+                await asyncio.wait_for(caller, timeout=30)
+            assert await asyncio.wait_for(retry, timeout=30) == {"job_id": "accepted-once"}
             assert await ledger.execute(token, PAYLOAD, CONTEXT, operation) == {"job_id": "accepted-once"}
             assert calls == 1 and not ledger.pending
         finally:
@@ -363,7 +363,7 @@ def test_capacity_preserves_running_work_and_recent_receipts_until_expiry():
             assert refused.value.status_code == 503
             assert ledger.pending and calls == 1
             release.set()
-            await asyncio.wait_for(task, timeout=2)
+            await asyncio.wait_for(task, timeout=30)
             with pytest.raises(IntentProblem) as refused:
                 ledger.issue(PAYLOAD, CONTEXT)
             assert refused.value.status_code == 503
@@ -413,7 +413,7 @@ def test_close_drains_work_refuses_fresh_operations_and_keeps_accepted_replay():
                 await ledger.execute(fresh, PAYLOAD, CONTEXT, operation)
             assert refused.value.status_code == 503 and calls == 1
             release.set()
-            answer, _ = await asyncio.wait_for(asyncio.gather(task, closing), timeout=2)
+            answer, _ = await asyncio.wait_for(asyncio.gather(task, closing), timeout=30)
             assert not ledger.pending
             assert await ledger.execute(running, PAYLOAD, CONTEXT, operation) == answer
             with pytest.raises(IntentProblem) as refused:
