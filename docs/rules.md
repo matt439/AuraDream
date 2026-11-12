@@ -4483,8 +4483,10 @@ measured on the card and when.
   checkpoint. The Grid's Prompt variables box (`PA#16`) takes it too, its
   own `#grid-tag-suggestions` floating under the box (`.grid-prompt-editor`;
   nothing moves), for the value at the caret: between the line's `=` and a
-  `|` or comma (`gridValueRange`), never the name before the `=`, `none`
-  or a line with no `=` (`suggestGridValues`, `applyGridSuggestion`); its
+  `|` or comma (`gridValueRange`), never the name before the `=`, a
+  `NONE_VALUES` word (`none`, `off`, `-`...: `grid.NONE_TOKENS`, which a
+  preselected `off shoulder` would otherwise fill) or a line with no `=`
+  (`suggestGridValues`, `applyGridSuggestion`); its
   unknown values stay the tag tray's (`gridVariableTip`). Swap tags' Find
   and Replace boxes take it as one list for the dialog,
   `#swap-tag-suggestions`, `position: fixed` under the focused box

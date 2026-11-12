@@ -9995,7 +9995,9 @@ none either (`PA#16`, 2026-11-12): on Animagine, `red hair -> silver_hiar`
 over 40 picked images queued 40 rerenders of a misspelt tag. Both now take
 the editor list. The grid box asks about the value at the caret, bounded
 by `|` and commas, since a value may hold several comma items; the name and
-`none` are the grid's own words. Swap tags has one list for the dialog,
+the empty-value words (`grid.NONE_TOKENS`: `none`, `off`, `-`...) are the
+grid's own, never asked about, or Enter would turn `off` into a preselected
+`off shoulder` and fill a cell meant to be empty. Swap tags has one list for the dialog,
 fixed to the window under the focused box, because the rows are a
 scrolling box that clipped a list inside a row. Each Replace box also gets
 an advisory verdict (one `/api/tags/validate` for every row, the texts

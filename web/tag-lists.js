@@ -205,8 +205,10 @@ function negativeCaret(event) {
 // characters it starts with (`preselects`). A value is what lies between the
 // line's `=` and the caret's `|` or comma (gridValueRange): a value may hold
 // several comma items, each a tag of the prompt it fills. Nothing is asked
-// for the name before the `=`, or for `none`, the grid's own word for no
-// value. Its unknown values are the tag tray's to mark already
+// for the name before the `=`, or for a NONE_VALUES word (`none`, `off`,
+// `-`... grid.NONE_TOKENS, tag-chips.js), the grid's own word for no value:
+// a preselected `off shoulder` taken by Enter would fill a deliberately
+// empty cell. Its unknown values are the tag tray's to mark already
 // (gridVariableTip), so the box has no verdict line of its own. Asked on
 // typing, a click and the caret keys; a list already up stays while it asks
 // (`keep`), and a click or caret key that stays in its value asks nothing.
@@ -232,7 +234,7 @@ function suggestGridValues(event) {
   const el = els.gridPrompt;
   const menu = els.gridTagSuggestions;
   const range = tagVocabularyEnabled && !replacingBox && document.activeElement === el ? gridValueRange(el) : null;
-  if (!range || !range.query || range.query.toLowerCase() === 'none') {
+  if (!range || !range.query || NONE_VALUES.has(range.query.toLowerCase())) {
     hideGridSuggestions();
     return;
   }
