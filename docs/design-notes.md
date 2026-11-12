@@ -384,6 +384,22 @@ was killed with SIGKILL the Windows process was gone by the next check.
 `powercfg /requests` needs an administrator's prompt and has not been read
 while it holds; that is Matt's check.
 
+**A timed retry is a poll (2026-11-12, `GEN#67`).** The excluded polls
+were a list of paths, and a path is not enough: `GET /api/models` is read
+when someone opens Models, and again every 10 s by the page itself after a
+failed read, while the picker stays open; the cache facts a status poll
+asks for (again at every poll after a failure) and the pictures strip's
+5 s retry (`GET /api/gallery`) are the same. Each counted as use, so an
+idle tab after a refused catalogue read held the PC awake, and since
+`GEN#51` delayed idle release too. The page now marks those reads with
+`X-AuraDream-Poll` (`polledRead` in `state.js`), and `counts_as_activity`
+leaves a marked GET out; a write counts whatever it carries, so the header
+cannot excuse a change. Backing off the retry instead would still have
+counted each one. `smoke-idle-activity` holds it in the browser: the fake
+records what the real rule would count (`/api/fake/activity`, the fake's
+own keep-awake being off) while each polling surface stays open with
+nothing pressed, and fails with the marker taken out.
+
 **Who may frame the page.** A page on another site that frames the app gets
 the app's own origin inside the frame, so a click it steers there is a
 same-origin write: the Host header is the app's and so is the `Origin`, and

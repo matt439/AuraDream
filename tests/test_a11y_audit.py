@@ -31,7 +31,7 @@ WATCHED = {
     "smoke-model-switch", "smoke-more-seeds", "smoke-outpaint", "smoke-phone-dialogs",
     "smoke-phone-gallery", "smoke-refine", "smoke-refine-batch", "smoke-saved-searches",
     "smoke-setup-portability", "smoke-shortcuts", "smoke-snippet-portability", "smoke-snippets",
-    "smoke-swap", "smoke-then-refine", "smoke-download-progress",
+    "smoke-swap", "smoke-then-refine", "smoke-download-progress", "smoke-idle-activity",
 }
 
 

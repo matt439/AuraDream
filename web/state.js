@@ -701,6 +701,18 @@ const LOST_PHRASE = 'server not answering — retrying';
 // passcode again (status.js, goSignedOut); Sign in is the button beside it.
 const SIGNED_OUT_PHRASE = 'signed out';
 
+// A read the page sends by itself on a timer - a retry after a failure, or
+// a refresh a status poll asked for - carries this header, so the server
+// never counts it as someone using AuraDream (backend/keep_awake.py's
+// POLL_HEADER): an idle tab must not hold the PC awake or the model loaded.
+// A read a press starts goes without it.
+const POLL_HEADER = 'X-AuraDream-Poll';
+function polledRead(options = {}) {
+  const headers = new Headers(options.headers);
+  headers.set(POLL_HEADER, '1');
+  return { ...options, headers };
+}
+
 // Every /api/ request carries the checkpoint revision the page last saw; the
 // server alone decides which routes refuse a stale one, so a model-dependent
 // route added there needs nothing here.

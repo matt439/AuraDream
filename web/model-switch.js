@@ -933,7 +933,8 @@ function receiveModelSettings(status, { reset = false } = {}) {
   }
   if (!modelCatalogueLoaded && !modelCataloguePending && !els.modelPicker.hidden
       && Date.now() - modelCatalogueFailedAt > 10000) {
-    void refreshModelCatalogue(); // A failed list retries while the picker is open.
+    // A failed list retries while the picker is open: a timed read, never use.
+    void refreshModelCatalogue({ polled: true });
   }
   if (modelCatalogueLoaded && !modelCataloguePending && !els.modelPicker.hidden
       && modelCacheRevision !== null && modelCatalogueCacheRevision !== modelCacheRevision) {
@@ -1093,7 +1094,9 @@ async function refreshModelCacheFacts() {
     if (value) query.set(key, value);
   }
   try {
-    const body = await api(`/api/models${query.size ? `?${query}` : ''}`);
+    // Asked by a status poll, and again at every poll after a failure: the
+    // page's own timer, never someone using it (POLL_HEADER).
+    const body = await api(`/api/models${query.size ? `?${query}` : ''}`, polledRead());
     if (epoch !== modelCatalogueEpoch) return;
     for (const entry of modelCatalogueEntries) {
       const info = body.details?.[entry.model_id];
@@ -1109,7 +1112,7 @@ async function refreshModelCacheFacts() {
   finally { modelCacheFactsPending = false; }
 }
 
-async function refreshModelCatalogue({ current = false } = {}) {
+async function refreshModelCatalogue({ current = false, polled = false } = {}) {
   const epoch = ++modelCatalogueEpoch;
   modelCataloguePending = true;
   syncModelSwitch();
@@ -1131,7 +1134,8 @@ async function refreshModelCatalogue({ current = false } = {}) {
   query.set('compilation', (performanceChoiceInvalid(els.modelCompilation) ? modelRuntimeSettings?.compilation : selected?.compilation) || 'eager');
   query.set('attention', (performanceChoiceInvalid(els.modelAttention) ? modelRuntimeSettings?.attention : selected?.attention) || 'native');
   try {
-    const body = await api(`/api/models${query.size ? `?${query}` : ''}`);
+    // `polled`: the timed retry after a failure (receiveModelSettings).
+    const body = await api(`/api/models${query.size ? `?${query}` : ''}`, polled ? polledRead() : undefined);
     if (epoch !== modelCatalogueEpoch) return;
     if (modelListOpen()) {
       await whenModelListsClosed();
@@ -1140,7 +1144,7 @@ async function refreshModelCatalogue({ current = false } = {}) {
     if (runtimeAsked !== modelRuntimeIdentity(modelRuntimeSettings)) {
       // Asked again as the picker and runtime are now; that request's epoch
       // keeps the picker pending, so Switch stays held until it answers.
-      void refreshModelCatalogue({ current });
+      void refreshModelCatalogue({ current, polled });
       return;
     }
     const wanted = { ...(selected ?? body) };

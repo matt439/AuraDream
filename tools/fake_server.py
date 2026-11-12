@@ -12,7 +12,8 @@ cells of a grid can be told apart on a sheet. A cell whose prompt holds
 `[fail]` raises, as an out-of-memory cell would, so a grid's skipped cells
 and the failure rule can be driven from the page. The fake's own test-only
 knobs, never on the real server, are POSTs under `/api/fake/`: load, step,
-expand, model, lora, bin-age, peak, refine, instruction-edit, disk-full and
+expand, model, lora, bin-age, peak, refine, instruction-edit, disk-full,
+activity and
 passcode; the comment
 above each route states its body and its answer. The instruction-edit gate
 is open on a fake claiming FLUX.1 Kontext [dev] alone - there an edit is
@@ -771,6 +772,38 @@ def main() -> int:
     async def fake_unreachable(on: bool = Body(..., embed=True)) -> dict:
         silent["on"] = on
         return {"on": on}
+
+    # What would count as someone using AuraDream, which the fake cannot
+    # show by itself: it runs with keep-awake off, so no controller notes
+    # anything. Every request but these knobs is recorded as `METHOD path`
+    # with whether `keep_awake.scope_counts_as_activity` - the real
+    # middleware's own rule, its poll marker read - counts it (the last
+    # RECORD_LIMIT). Answers the record since the last `reset` (true clears
+    # it after answering).
+    from backend import keep_awake as keep_awake_rules
+
+    record_limit = 5000
+    activity: list[dict] = []
+
+    class RecordActivity:
+        def __init__(self, app: Any) -> None:
+            self.app = app
+
+        async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+            if scope.get("type") == "http" and not scope.get("path", "").startswith("/api/fake/"):
+                activity.append({"request": f"{scope.get('method', '')} {scope.get('path', '')}",
+                                 "counted": keep_awake_rules.scope_counts_as_activity(scope)})
+                del activity[:-record_limit]
+            await self.app(scope, receive, send)
+
+    app_main.app.add_middleware(RecordActivity)
+
+    @app_main.app.post("/api/fake/activity", include_in_schema=False)
+    async def fake_activity(reset: bool = Body(False, embed=True)) -> dict:
+        seen = list(activity)
+        if reset:
+            activity.clear()
+        return {"requests": seen, "counted": [entry["request"] for entry in seen if entry["counted"]]}
 
     # The passcode's gate (backend/passcode.py), which a fake never has by
     # itself: it binds 127.0.0.1, and starts with none whatever this

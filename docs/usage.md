@@ -1287,8 +1287,9 @@ outlives a cancelled request, and holds until it ends). It also holds for
 `AURADREAM_KEEP_AWAKE_IDLE_MINUTES` (default 20) after the last request
 someone made: a page load or an API call. The page's own timed requests are
 not one - the status poll, the bundle dialog's and automatic backup's status
-reads, the job streams and listings, an inpaint's mask keep-alive and its
-files and thumbnails - so a tab left open on an idle server lets the PC
+reads, the job streams and listings, an inpaint's mask keep-alive, the
+Models panel's own retries after a failed read, and its files and
+thumbnails - so a tab left open on an idle server lets the PC
 sleep after the idle minutes. `0` holds only while busy;
 `AURADREAM_KEEP_AWAKE=false` holds nothing. On Linux without
 `systemd-inhibit`, or on any other system, nothing is held.

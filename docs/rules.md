@@ -3215,8 +3215,13 @@ measured on the card and when.
   and the critic's downloads) holds through the counted `keep_awake.busy`,
   never a provider. `counts_as_activity` excludes the page's timed requests
   (`/api/status`, the bundle and automatic-backup status reads, `GET
-  /api/jobs*`, the mask keep-alive, `/static/` and `/outputs/`); a new timed
-  poll joins that list, or an idle open tab holds the PC awake for ever.
+  /api/jobs*`, the mask keep-alive, `/static/` and `/outputs/`, and any GET
+  carrying `X-AuraDream-Poll`, which the page's `polledRead` adds to the
+  reads it repeats on a timer of a route a person also reads: the Models
+  catalogue's retry after a failure, its cache facts and the pictures
+  strip's retry); a new timed poll joins that list or sends the marker, or
+  an idle open tab holds the PC awake for ever (`smoke-idle-activity`).
+  A write never counts as a poll, marker or not.
   Nothing in it raises into its callers, and the status poll reads the
   last check's cached answer, never a subprocess. A holder's `hold` and
   `release` run on different threads (`asyncio.to_thread`), so a holder
@@ -10235,6 +10240,20 @@ and `/outputs/` 401 again. Turned off, the address is the app. The real
 machines (Safari's autofill, the home-screen icon, a session across a
 restart, the scripts) are not a smoke's to say.
 
+`smoke-idle-activity.json` uses its own fresh FLUX.1 Krea [dev] fake on
+7958, a row beside `smoke-offline`'s and `smoke-passcode`'s, and reads
+`/api/fake/activity`: the page load and its first reads are counted as
+use, then an idle page keeps each polling surface open in turn with
+nothing pressed and none of its requests counted - the bundles dialog
+with automatic backup shown (7 s), Models with its pictures strip and its
+cache facts failing after the server answered (12 s, each asking again on
+the status poll), and Models with its catalogue failing (15 s, the 10 s
+retry) - each window's record holding the timed reads it names. The
+catalogue asked again by hand is counted. Without the poll marker the
+strip, facts and catalogue retries are counted (`GEN#67`, checked by
+reverting it). The real keep-awake controller and idle release are the
+unit tests'; the fake runs with keep-awake off.
+
 `smoke-catalogue-stale.json` uses a fresh FLUX.1 Krea [dev] fake on 7959:
 a Models catalogue reply asked for the runtime loader is held while the
 server saves the edited one and a status brings it (the catalogue already
@@ -11168,7 +11187,11 @@ on, as a disk with no room; `POST /api/fake/passcode` (`{passcode}`: a
 string turns the passcode's gate on with it, a new one ending every
 session, null turns it off; `{reset: true}` clears the limiter; it
 answers `{on}`, never the value, and a fake starts with no gate whatever
-the environment holds); the fake's rewriter and translator count as downloaded from their
+the environment holds); `POST /api/fake/activity` (`{reset}`) answers every
+request but the knobs since the last reset as `{requests: [{request,
+counted}], counted}`, `counted` by `keep_awake.scope_counts_as_activity`,
+the real middleware's rule with its poll marker read, since the fake runs
+with keep-awake off (`smoke-idle-activity`); the fake's rewriter and translator count as downloaded from their
 first use), and `node tools/browser.mjs tools/smoke.json` drives headless
 Edge or Chrome over the DevTools protocol with Node's own WebSocket - no npm
 install - through the lightbox zoom and the focus its close leaves on the

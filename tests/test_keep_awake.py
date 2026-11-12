@@ -868,6 +868,33 @@ def test_the_polls_named_are_the_routes_the_page_polls():
     assert "/keep`" in (web / "inpaint.js").read_text(encoding="utf-8")
 
 
+def test_a_marked_poll_is_never_activity_and_a_marked_write_still_is():
+    assert counts_as_activity("GET", "/api/models", polled=True) is False
+    assert counts_as_activity("GET", "/api/gallery", polled=True) is False
+    assert counts_as_activity("POST", "/api/model/switch", polled=True) is True
+    assert counts_as_activity("GET", "/api/models") is True
+    scope = {"type": "http", "method": "GET", "path": "/api/models",
+             "headers": [(b"X-AuraDream-Poll", b"1")]}
+    assert keep_awake.scope_counts_as_activity(scope) is False
+    assert keep_awake.scope_counts_as_activity({**scope, "headers": []}) is True
+
+
+def test_the_page_marks_its_timed_retries_as_polls():
+    # GEN#67: a failed catalogue read retried every 10 s, the cache facts a
+    # status poll asks for (again at each poll after a failure) and the
+    # pictures strip's retry kept an idle tab's PC awake. The browser half is
+    # smoke-idle-activity; this holds the names together.
+    web = ROOT / "web"
+    state = (web / "state.js").read_text(encoding="utf-8")
+    assert keep_awake.POLL_HEADER == "x-auradream-poll" and "const POLL_HEADER = 'X-AuraDream-Poll';" in state
+    switch = (web / "model-switch.js").read_text(encoding="utf-8")
+    assert "void refreshModelCatalogue({ polled: true });" in switch
+    assert "polled ? polledRead() : undefined" in switch
+    assert switch.count("polledRead()") == 2              # the retry and the cache facts
+    shots = (web / "model-shots.js").read_text(encoding="utf-8")
+    assert "syncModelShots({ fresh: true, polled: true });" in shots and "polledRead({ signal" in shots
+
+
 # --- the server ------------------------------------------------------------------
 
 def test_the_lifespan_runs_one_controller_and_lets_go_on_the_way_out(fake):
@@ -908,10 +935,12 @@ def test_requests_note_activity_but_the_page_polls_do_not(client, monkeypatch):
     client.post("/api/masks/" + "0" * 64 + "/keep")
     client.get("/static/app.js")
     client.head("/")
+    client.get("/api/models", headers={"X-AuraDream-Poll": "1"})
     assert noted == []
     client.get("/")
     client.get("/api/gallery")
-    assert len(noted) == 2
+    client.get("/api/models")
+    assert len(noted) == 3
 
 
 def test_a_refused_host_is_never_activity(client, monkeypatch):

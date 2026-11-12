@@ -781,6 +781,7 @@ uses the driver's graceful close/cleanup. See the full Tests rules.
 | 7957 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-phone-landscape` |
 | 7958 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-offline` |
 | 7958 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-passcode` |
+| 7958 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-idle-activity` |
 | 7959 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-catalogue-stale` |
 | 7959 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-download-progress` |
 | 7960 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-phone-dialogs` |
@@ -828,7 +829,9 @@ Gotchas:
   unanswered, a PC asleep), `/api/fake/disk-full` (`on`: every image save
   refused as a full disk), `/api/fake/passcode` (`passcode`: a string
   turns the passcode's gate on, null off; `reset`: clears the limiter; a
-  fake starts with none); a prompt containing `[fail]` fails its cell;
+  fake starts with none), `/api/fake/activity` (every request since the
+  last `reset` and those keep-awake's rule counts as use, the fake's own
+  keep-awake being off); a prompt containing `[fail]` fails its cell;
   `--critic-delay`, `--no-critic`.
 
 GPU behaviour, pixels, timing and memory are the card's to say, recorded in
