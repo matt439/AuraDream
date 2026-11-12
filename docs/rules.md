@@ -344,6 +344,12 @@ before changing it.
   and separate cached trees
 - `backend/backends/anima_pipeline.py` — upstream Anima modular blocks behind
   the standard pipeline interface, with per-step progress and cancellation
+- `backend/backends/anima_refine.py` — private, unregistered Anima
+  image-to-image classes over the upstream encoder, image-to-image core and
+  decoder (`GEN#48` stage 1): the text pipeline's callback, `num_timesteps`
+  as the sliced count before the first step, flow rounding (`start_index`)
+  and a start sigma read on a scheduler copy; `refine.sibling` still answers
+  None and the Anima profiles keep Refine unsupported until the card
 - `backend/backends/flux3_loading.py` — FLUX 3 [Klein] and Klein Base: the
   pinned snapshot's configs (preflight: the modular index's classes, the
   transformer's `flow_map`) then only its `transformer/`, `text_encoder/` and
