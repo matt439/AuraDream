@@ -469,7 +469,7 @@ class Recorder:
         self.held = False
 
 
-async def _until(predicate, timeout: float = 5.0) -> None:
+async def _until(predicate, timeout: float = 30.0) -> None:
     loop = asyncio.get_running_loop()
     deadline = loop.time() + timeout
     while not predicate():
@@ -716,7 +716,7 @@ def test_a_running_job_is_a_reason_seen_at_once(client, fake):
     assert controller is not None
     job = client.post("/api/generate", json={"prompt": "a lighthouse", "width": 256, "height": 256,
                                              "steps": 20}).json()["job_id"]
-    until(lambda: "an image job is queued or running" in controller.status()["reasons"], 5)
+    until(lambda: "an image job is queued or running" in controller.status()["reasons"], 30)
     assert "an image job is queued or running" in client.get("/api/status").json()["keep_awake"]["reasons"]
     assert main._busy_jobs() is not None
     client.post(f"/api/jobs/{job}/cancel")
@@ -739,12 +739,12 @@ def test_the_load_holds_on_its_own_thread(client, fake, monkeypatch):
 
     monkeypatch.setattr(fake, "load", slow_load)
     client.post("/api/model/load")
-    assert entered.wait(5)
+    assert entered.wait(30)
     assert held_inside == [True]
-    until(lambda: "loading the model" in controller.status()["reasons"], 5)
+    until(lambda: "loading the model" in controller.status()["reasons"], 30)
     assert main._busy_loading() == "loading the model"
     leave.set()
-    until(lambda: main._busy_loading() is None and "loading the model" not in controller._counted, 5)
+    until(lambda: main._busy_loading() is None and "loading the model" not in controller._counted, 30)
 
 
 def test_providers_name_the_card_a_switch_and_a_bundle(fake, monkeypatch):

@@ -174,7 +174,7 @@ def test_competing_first_begins_have_one_winner_and_no_implicit_second_attempt()
     owner.publish(10)
     barrier = threading.Barrier(2)
     def begin():
-        barrier.wait(timeout=5)
+        barrier.wait(timeout=30)
         try:
             return owner.begin_first_call()
         except RuntimeError:

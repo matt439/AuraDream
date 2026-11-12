@@ -263,7 +263,7 @@ def test_the_models_api_refreshes_facts_after_successful_and_failed_load_attempt
     monkeypatch.setattr(fake, "load", load)
     response = client.post("/api/model/load")
     assert response.status_code == 200  # accepted; the daemon load finishes later
-    deadline = time.monotonic() + 5
+    deadline = time.monotonic() + 30
     while True:
         status = client.get("/api/status").json()
         if status["cache_revision"] > before["cache_revision"] and status["state"] == ("error" if fail else "ready"):

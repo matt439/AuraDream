@@ -10866,6 +10866,28 @@ tokenizer cache, saved only after a passing job, never keeps a partial set.
 Without it, as on forks' pull requests, those warn and skip
 (`tests/test_fetch_tokenizers.py`).
 
+A test's wait has seconds of margin. A positive wait, one expected to
+succeed (an event set, a future answered, a thread ended, a deadline poll
+seeing its condition), allows 30 s: it costs that only when the test is
+already failing, and a Windows runner once took 13 s over a setup. A
+negative wait, one proving something has *not* happened yet, stays short and
+says so: directly under `assert not ...`, under a `pytest.raises(...)` that
+expects only a timeout (`TimeoutError`, `TimeoutExpired`, `queue.Empty`), or
+named with its reason in `NEGATIVE` in `tests/test_positive_waits.py`. A
+wait under `if not`/`while not`, or one expected to end by raising another
+error, is positive. The scan reads every file under `tests/`, and each
+string in one that parses as a script with a wait (a child interpreter's),
+for a `timeout=` keyword, `.wait/.join/.result()`'s first argument,
+`asyncio.wait_for`'s second, a tests helper's timeout and its default, a
+clock-plus-literal deadline and a `range(N)` loop around a sleep, and fails
+on any other literal under 10 s. The `api_helpers` polls
+(`until`, `wait_for`, `wait_for_status`) default to 30 s. A test that must
+act while a fake job is running holds it on an event, never on
+`step_seconds`: `FakeBackend.hold` (an unset `threading.Event`) holds each
+call `hold_when` accepts after its first step, polling the cancel and skip
+as a step would, and `holding` says one is waiting
+(`tests/test_api_jobs.py`'s `_hold`).
+
 A commit runs once. Before installing anything, the lint job asks the
 GitHub API (`tools/ci_duplicates.py`, standard library, the read-only token
 with `pull-requests`/`actions` read) whether another run covers this one, and

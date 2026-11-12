@@ -434,7 +434,7 @@ def test_two_simultaneous_imports_from_one_snapshot_allow_only_one_atomic_commit
     barrier = Barrier(2)
 
     def import_once():
-        barrier.wait(timeout=5)
+        barrier.wait(timeout=30)
         try:
             return presets.import_collection(database, body)
         except (presets.PresetsError, portable.PortabilityError) as exc:
@@ -454,7 +454,7 @@ def test_concurrent_crud_and_import_from_one_snapshot_never_merge_partially(tmp_
     barrier = Barrier(2)
 
     def crud():
-        barrier.wait(timeout=5)
+        barrier.wait(timeout=30)
         try:
             return presets.change(
                 database, PresetUpdate.model_validate({**fields("Renamed"), "revision": 1}), item_id=local.id,
@@ -463,7 +463,7 @@ def test_concurrent_crud_and_import_from_one_snapshot_never_merge_partially(tmp_
             return exc.status
 
     def import_once():
-        barrier.wait(timeout=5)
+        barrier.wait(timeout=30)
         try:
             return presets.import_collection(database, body)
         except (presets.PresetsError, portable.PortabilityError) as exc:

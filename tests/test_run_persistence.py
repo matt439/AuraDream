@@ -40,7 +40,7 @@ def cells(prompt="a lighthouse", *, seed=10):
     return [grid.Cell(GenerateRequest(prompt=prompt, width=256, height=256), seed)]
 
 
-def retained_outcome(job_id, timeout=5):
+def retained_outcome(job_id, timeout=30):
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         row = next((row for row in storage.retained_run_jobs() if row["job_id"] == job_id), None)
@@ -257,7 +257,7 @@ def test_a_finished_job_does_not_wait_for_its_outcome_write(client, fake, store,
 
     def slow(*args, **kwargs):
         entered.set()
-        assert release.wait(5)
+        assert release.wait(30)
         return finish(*args, **kwargs)
 
     monkeypatch.setattr(storage, "finish_run_job", slow)
@@ -265,7 +265,7 @@ def test_a_finished_job_does_not_wait_for_its_outcome_write(client, fake, store,
         response = client.post("/api/generate", json={"prompt": "a night", "width": 256, "height": 256})
         job_id = response.json()["job_id"]
         assert stream_job(client, job_id)[-1]["status"] == "done"
-        assert entered.wait(5)
+        assert entered.wait(30)
         assert store.retained_run_jobs()[0]["outcome"] is None
     finally:
         release.set()
@@ -284,9 +284,9 @@ def test_an_outcome_write_failure_is_logged_and_leaves_null_without_failing_the_
     monkeypatch.setattr(storage, "finish_run_job", fail)
     response = client.post("/api/generate", json={"prompt": "a night", "width": 256, "height": 256})
     assert stream_job(client, response.json()["job_id"])[-1]["status"] == "done"
-    assert attempted.wait(5)
+    assert attempted.wait(30)
     assert store.retained_run_jobs()[0]["outcome"] is None
-    deadline = time.monotonic() + 5
+    deadline = time.monotonic() + 30
     while "could not record the outcome" not in caplog.text and time.monotonic() < deadline:
         time.sleep(0.005)
     assert "could not record the outcome" in caplog.text
@@ -375,10 +375,10 @@ def test_mask_writers_reserve_the_gallery_before_taking_the_write_lock(store, mo
     monkeypatch.setattr(gallery_lock, "hold", observed_hold)
     with original_hold(store.settings.db_path):
         writer.start()
-        assert entered.wait(5)
+        assert entered.wait(30)
         acquired = store._write_lock.acquire(blocking=False)
         if acquired:
             store._write_lock.release()
-    writer.join(5)
+    writer.join(30)
     assert not writer.is_alive() and not errors
     assert acquired, "the writer took the write lock while waiting for the gallery reservation"

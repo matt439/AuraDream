@@ -76,7 +76,7 @@ def test_direct_tls_serves_and_probes_a_verified_https_page(fake, monkeypatch, t
             direct = urllib.request.build_opener(urllib.request.ProxyHandler({}))
             request = urllib.request.Request(url + "api/model/unload", data=b"", method="POST",
                                              headers={"Origin": url.removesuffix("/")})
-            with direct.open(request, timeout=5) as response:
+            with direct.open(request, timeout=30) as response:
                 observed.append(response.status)
         finally:
             servers[0].should_exit = True

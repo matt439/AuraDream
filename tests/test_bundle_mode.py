@@ -498,10 +498,10 @@ def test_fresh_owned_process_discovers_marker_and_holds_native_lease_for_asgi_li
         if child.poll() is None:
             child.stdin.close()
             try:
-                child.wait(timeout=5)
+                child.wait(timeout=30)
             except subprocess.TimeoutExpired:
                 child.kill()
-                child.wait(timeout=5)
+                child.wait(timeout=30)
         for stream in (child.stdin, child.stdout, child.stderr):
             if stream and not stream.closed:
                 stream.close()

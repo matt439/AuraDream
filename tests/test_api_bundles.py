@@ -90,14 +90,14 @@ def test_running_bundle_blocks_mutations_but_status_stays_available(client, monk
     def held(expected, password=None, progress=None, **scope):
         progress("writing", 1, 3)
         entered.set()
-        assert release.wait(5)
+        assert release.wait(30)
         return {"cleared": True, "deleted_ids": []}
 
     monkeypatch.setattr(bundles, "export_bundle", held)
     start = client.post("/api/gallery/bundles/export", json={"expected": 0})
     try:
         assert start.status_code == 202
-        assert entered.wait(2)
+        assert entered.wait(30)
         assert client.get("/api/status").status_code == 200
         status = client.get("/api/gallery/bundles/status").json()
         assert status["state"] == "running" and status["progress"] == {"phase": "writing", "done": 1, "total": 3}
@@ -301,7 +301,7 @@ def test_cancelling_supervisor_keeps_reservation_until_worker_finishes(tmp_path)
 
         def held():
             entered.set()
-            assert release.wait(5)
+            assert release.wait(30)
             assert upload.exists()
             return {"imported": 1}
 

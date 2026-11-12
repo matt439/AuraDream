@@ -66,7 +66,7 @@ def test_repeated_reruns_skip_live_cells_and_partial_overlaps_only_queue_the_res
 ):
     a, b = plant(store, 1), plant(store, 2)
     release = threading.Event()
-    fake.after_generate = lambda: release.wait(5)
+    fake.after_generate = lambda: release.wait(30)
     blocker = None
     try:
         if waiting:
@@ -113,7 +113,7 @@ def test_gallery_and_live_cells_have_separate_counts_and_all_skipped_words(clien
     a, b, c = (plant(store, seed) for seed in (1, 2, 3))
     finish(client, accepted(client, route, payload(route, [a.id])))
     release = threading.Event()
-    fake.after_generate = lambda: release.wait(5)
+    fake.after_generate = lambda: release.wait(30)
     try:
         live = accepted(client, route, payload(route, [b.id]))
         body = payload(route, [a.id, b.id])
@@ -143,7 +143,7 @@ def test_completion_during_the_gallery_scan_keeps_the_earlier_queue_snapshot(
     a = plant(store, 1)
     body = payload(route, [a.id])
     release = threading.Event()
-    fake.after_generate = lambda: release.wait(5)
+    fake.after_generate = lambda: release.wait(30)
     first = accepted(client, route, body)
     wait_for(client, first["job_id"], lambda job: job["status"] == "running")
     scan = storage.completed_cells
@@ -273,7 +273,7 @@ def test_mixed_planned_and_invalid_results_name_both_reasons(client, fake, store
     a = plant(store, 1)
     bad = plant(store, 2, lora="missing-adapter")
     release = threading.Event()
-    fake.after_generate = lambda: release.wait(5)
+    fake.after_generate = lambda: release.wait(30)
     try:
         first = accepted(client, route, payload(route, [a.id]))
         body = payload(route, [a.id, bad.id])
@@ -313,7 +313,7 @@ def test_matching_uses_applied_settings_and_unrelated_reruns_remain_eligible(cli
     else:
         unrelated = {**rerun, "width": 512}
     release = threading.Event()
-    fake.after_generate = lambda: release.wait(5)
+    fake.after_generate = lambda: release.wait(30)
     try:
         first = accepted(client, "/api/generate", body)
         if route != "/api/rerender":
@@ -363,7 +363,7 @@ def test_a_different_mask_or_outpaint_spec_is_a_different_live_cell(
         first_body.update(width=images[0].width, height=images[0].height)
         second_body.update(width=images[1].width, height=images[1].height)
     release = threading.Event()
-    fake.after_generate = lambda: release.wait(5)
+    fake.after_generate = lambda: release.wait(30)
     try:
         first = accepted(client, route, first_body)
         if route != "/api/rerender":

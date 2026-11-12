@@ -195,7 +195,7 @@ def test_parallel_creates_and_update_delete_are_serialized(tmp_path):
     start = Barrier(2)
 
     def modify(delete):
-        start.wait(timeout=5)
+        start.wait(timeout=30)
         try:
             return saved_searches.change(
                 database, None if delete else SavedSearchUpdate(**fields(name=original.name).model_dump(), revision=1),
@@ -214,7 +214,7 @@ def test_sidecar_lock_is_independent_of_gallery_reservation(tmp_path):
     database = tmp_path / "gallery.db"
     with gallery_lock.hold(database):
         with ThreadPoolExecutor(max_workers=1) as executor:
-            assert executor.submit(saved_searches.change, database, fields()).result(timeout=5)
+            assert executor.submit(saved_searches.change, database, fields()).result(timeout=30)
 
 
 def test_lock_refusal_is_reported_with_fixed_message(tmp_path, monkeypatch):

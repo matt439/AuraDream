@@ -23,7 +23,7 @@ def test_readers_share_resolved_paths_and_exclude_claims_until_every_release(tmp
     one.release()
     assert registry.leased(path)
     with ThreadPoolExecutor(1) as pool:
-        pool.submit(two.release).result(5)
+        pool.submit(two.release).result(30)
     assert not registry.leased(path) and registry.snapshot() == frozenset()
     with registry.exclusive(path):
         with pytest.raises(LeaseBusy):
@@ -139,11 +139,11 @@ def test_response_holds_through_stream_and_background_and_disables_handoff(tmp_p
 
         original = scope(extensions={"http.response.pathsend": {}, "other.extension": {}})
         task = asyncio.create_task(response(original, receive, send))
-        await asyncio.wait_for(started.wait(), 5)
+        await asyncio.wait_for(started.wait(), 30)
         with pytest.raises(LeaseBusy):
             registry.exclusive(path)
         release.set()
-        await asyncio.wait_for(task, 5)
+        await asyncio.wait_for(task, 30)
         assert background == [True] and not registry.leased(path)
         assert not any(message["type"] == "http.response.pathsend" for message in messages)
         assert b"".join(message.get("body", b"") for message in messages) == b"body"
@@ -181,13 +181,13 @@ def test_response_releases_on_cancellation_and_original_errors(tmp_path, failure
 
         task = asyncio.create_task(response(scope(), receive, send))
         if failure == "cancel":
-            await asyncio.wait_for(entered.wait(), 5)
+            await asyncio.wait_for(entered.wait(), 30)
             task.cancel()
             with pytest.raises(asyncio.CancelledError):
                 await task
         else:
             with pytest.raises(RuntimeError if failure == "missing" else ValueError):
-                await asyncio.wait_for(task, 5)
+                await asyncio.wait_for(task, 30)
         assert not registry.leased(path)
         assert background == ([True] if failure == "background" else [])
 

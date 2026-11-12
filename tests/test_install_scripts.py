@@ -317,7 +317,7 @@ def test_untrusted_https_is_refused_before_an_install_or_update(sandbox, script)
     finally:
         server.shutdown()
         server.server_close()
-        thread.join(timeout=5)
+        thread.join(timeout=30)
     assert result.returncode == 1, result.stdout + result.stderr
     assert f"HTTPS listener at https://127.0.0.1:{server.server_address[1]}/" in result.stdout
     assert "could not be verified" in result.stdout and "Certificate verification stays on" in result.stdout
