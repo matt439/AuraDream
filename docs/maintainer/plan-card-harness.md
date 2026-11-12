@@ -320,6 +320,30 @@ either. The targeted tests, the full suite, ruff and the Pyright gate
 pass. The next card session confirms the achieved period under load from
 its `summary` row; until then 0.5 s is a desk figure, not a card one.
 
+**Hardened after review (2026-11-12): the stream's process and the PDH
+fill.** Three gaps the review found, each with a stub test that fails
+without its fix:
+
+- A stream whose reader thread ended while its process still ran (an
+  undecodable byte under text mode is a `ValueError`) was started again
+  beside the old one, which then ran on a pipe nobody drained. `LineStream`
+  now stops the previous process before it starts another.
+- On Windows each stream's process joins the guard's one job object with
+  `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` (`KillOnCloseJob`, ctypes), never
+  closed by hand, so a guard ended without its `finally` (Stop-Process
+  -Force, a crash) takes its `nvidia-smi --loop-ms` with it. Checked
+  locally: the interpreter killed hard with `Stop-Process -Force` left no
+  `nvidia-smi` running. Off Windows, or where the job cannot be made, the
+  stream runs unbound as before, and a force-killed guard there leaves a
+  looping `nvidia-smi` to stop by hand (it ends at its next write to the
+  closed pipe).
+- `PdhCounters.read` dropped the whole collection when a counter's array
+  grew between its size probe and its fill (a process starting, which
+  could blank the baseline's shared reading and turn the shared trips off
+  for the session). It now probes again, up to four times per counter.
+  A fake `pdh` writing real `PDH_FMT_COUNTERVALUE_ITEM_W` records covers
+  the instance names, an invalid `CStatus` skipped and the regrowth.
+
 **Hardened after review (2026-10-31): the card unread mid-watch.** The
 watcher refused to start without a whole-card reading, but after the
 first sample a sample with no card reading (nvidia-smi failing or timing

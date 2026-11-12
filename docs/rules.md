@@ -10975,7 +10975,9 @@ so no test reads a counter or races one (its trip after
 `card_unread_samples` samples in a row without a whole-card reading
 among them, and its schedule taking a sample's cost out of the next sleep
 and reporting the period achieved); the stream and the PDH query are
-stubbed too.
+stubbed too, the query's ctypes records written by a fake `pdh` (a
+fill that grows mid-read is probed again), and on Windows a real child
+dies with the guard's kill-on-close job.
 
 `uv run python tools/run_smoke.py <smoke> [<smoke> ...]` runs smokes without
 a second terminal: it reads `AGENTS.md`'s port table (the port, the

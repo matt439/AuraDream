@@ -345,6 +345,32 @@ def commit_headroom_gib() -> float | None:
     return (info.CommitLimit - info.CommitTotal) * info.PageSize / 2**30
 
 
+_PDH_ITEM: Any = None
+
+
+def pdh_item_type() -> Any:
+    """`PDH_FMT_COUNTERVALUE_ITEM_W`, built once on first use (tests build
+    records with it on any platform)."""
+    global _PDH_ITEM
+    if _PDH_ITEM is None:
+        import ctypes
+        from ctypes import wintypes
+
+        class Union(ctypes.Union):
+            _fields_ = [("longValue", ctypes.c_long), ("doubleValue", ctypes.c_double),
+                        ("largeValue", ctypes.c_longlong)]
+
+        class Value(ctypes.Structure):
+            _anonymous_ = ("u",)
+            _fields_ = [("CStatus", wintypes.DWORD), ("u", Union)]
+
+        class Item(ctypes.Structure):
+            _fields_ = [("szName", ctypes.c_wchar_p), ("FmtValue", Value)]
+
+        _PDH_ITEM = Item
+    return _PDH_ITEM
+
+
 class PdhCounters:
     """The three GPU memory counters through PDH, one query held open for the
     session (`DEV#20`): a collection takes well under a millisecond where a
@@ -356,6 +382,7 @@ class PdhCounters:
 
     _FMT_DOUBLE_NOCAP = 0x00000200 | 0x00008000  # PDH_FMT_DOUBLE | PDH_FMT_NOCAP100
     _MORE_DATA = 0x800007D2
+    _ATTEMPTS = 4
 
     def __init__(self, pdh: Any, query: Any, counters: list[tuple[str, Any]]) -> None:
         self._pdh = pdh
@@ -388,37 +415,41 @@ class PdhCounters:
         import ctypes
         from ctypes import wintypes
 
-        class Value(ctypes.Structure):
-            class _Union(ctypes.Union):
-                _fields_ = [("longValue", ctypes.c_long), ("doubleValue", ctypes.c_double),
-                            ("largeValue", ctypes.c_longlong)]
-            _anonymous_ = ("u",)
-            _fields_ = [("CStatus", wintypes.DWORD), ("u", _Union)]
-
-        class Item(ctypes.Structure):
-            _fields_ = [("szName", wintypes.LPWSTR), ("FmtValue", Value)]
-
+        item_type = pdh_item_type()
         if self._pdh.PdhCollectQueryData(self._query) != 0:
             return None
         out: dict[str, float] = {}
         for path, handle in self._counters:
-            size = wintypes.DWORD(0)
-            count = wintypes.DWORD(0)
-            status = self._pdh.PdhGetFormattedCounterArrayW(
-                handle, self._FMT_DOUBLE_NOCAP, ctypes.byref(size), ctypes.byref(count), None) & 0xFFFFFFFF
-            if status == 0 and count.value == 0:
-                continue
-            if status != self._MORE_DATA:
+            done = False
+            # The size probe and the fill are two calls: a process that
+            # starts between them grows the array and the fill answers
+            # MORE_DATA, so probe again rather than drop the collection.
+            for _ in range(self._ATTEMPTS):
+                size = wintypes.DWORD(0)
+                count = wintypes.DWORD(0)
+                status = self._pdh.PdhGetFormattedCounterArrayW(
+                    handle, self._FMT_DOUBLE_NOCAP, ctypes.byref(size), ctypes.byref(count), None) & 0xFFFFFFFF
+                if status == 0 and count.value == 0:
+                    done = True
+                    break
+                if status != self._MORE_DATA:
+                    return None
+                buf = ctypes.create_string_buffer(size.value)
+                status = self._pdh.PdhGetFormattedCounterArrayW(
+                    handle, self._FMT_DOUBLE_NOCAP, ctypes.byref(size), ctypes.byref(count), buf) & 0xFFFFFFFF
+                if status == self._MORE_DATA:
+                    continue
+                if status != 0:
+                    return None
+                items = ctypes.cast(buf, ctypes.POINTER(item_type))
+                for i in range(count.value):
+                    item = items[i]
+                    if item.FmtValue.CStatus in (0, 1):  # PDH_CSTATUS_VALID_DATA / NEW_DATA
+                        out[path.replace("(*)", f"({item.szName})")] = float(item.FmtValue.doubleValue)
+                done = True
+                break
+            if not done:
                 return None
-            buf = ctypes.create_string_buffer(size.value)
-            if self._pdh.PdhGetFormattedCounterArrayW(
-                    handle, self._FMT_DOUBLE_NOCAP, ctypes.byref(size), ctypes.byref(count), buf) != 0:
-                return None
-            items = ctypes.cast(buf, ctypes.POINTER(Item))
-            for i in range(count.value):
-                item = items[i]
-                if item.FmtValue.CStatus in (0, 1):  # PDH_CSTATUS_VALID_DATA / NEW_DATA
-                    out[path.replace("(*)", f"({item.szName})")] = float(item.FmtValue.doubleValue)
         return out
 
     def close(self) -> None:
@@ -449,10 +480,14 @@ class LineStream:
         self.starts = 0
 
     def _start(self) -> None:
+        # The pump can end while its process still runs (an undecodable
+        # line); stop that one first, or it lives on with nobody reading it.
+        old, self._proc = self._proc, None
+        if old is not None:
+            _stop(old)
         try:
             proc = self._spawn(self.argv)
         except OSError:
-            self._proc = None
             return
         self._proc = proc
         self.starts += 1
@@ -497,18 +532,116 @@ class LineStream:
         proc, self._proc = self._proc, None
         if proc is None:
             return
-        try:
-            proc.terminate()
-            proc.wait(timeout=5)
-        except (OSError, subprocess.SubprocessError):
-            pass
+        _stop(proc)
         if self._thread is not None:
             self._thread.join(timeout=5)
 
 
+def _stop(proc: Any) -> None:
+    try:
+        if proc.poll() is None:
+            proc.terminate()
+        proc.wait(timeout=5)
+    except (OSError, subprocess.SubprocessError):
+        pass
+
+
+class KillOnCloseJob:
+    """A Windows job object that kills its processes when its last handle
+    closes: at the guard's exit, however it ends (a forced Stop-Process runs
+    no `finally`). Each stream's process joins the guard's one job, so a
+    killed guard leaves no `nvidia-smi --loop-ms` behind. `open()` answers
+    None off Windows or where the job cannot be made; the stream then runs
+    unbound, and only `close()` stops it."""
+
+    _KILL_ON_JOB_CLOSE = 0x2000
+    _EXTENDED_LIMIT_INFORMATION = 9
+    _SET_QUOTA_TERMINATE = 0x0100 | 0x0001
+
+    def __init__(self, kernel32: Any, handle: Any) -> None:
+        self._kernel32 = kernel32
+        self.handle = handle
+
+    @classmethod
+    def open(cls) -> KillOnCloseJob | None:
+        if sys.platform != "win32":
+            return None
+        import ctypes
+        from ctypes import wintypes
+
+        class Basic(ctypes.Structure):
+            _fields_ = [("PerProcessUserTimeLimit", ctypes.c_int64), ("PerJobUserTimeLimit", ctypes.c_int64),
+                        ("LimitFlags", wintypes.DWORD), ("MinimumWorkingSetSize", ctypes.c_size_t),
+                        ("MaximumWorkingSetSize", ctypes.c_size_t), ("ActiveProcessLimit", wintypes.DWORD),
+                        ("Affinity", ctypes.c_size_t), ("PriorityClass", wintypes.DWORD),
+                        ("SchedulingClass", wintypes.DWORD)]
+
+        class Extended(ctypes.Structure):
+            _fields_ = [("BasicLimitInformation", Basic), ("IoInfo", ctypes.c_uint64 * 6),
+                        ("ProcessMemoryLimit", ctypes.c_size_t), ("JobMemoryLimit", ctypes.c_size_t),
+                        ("PeakProcessMemoryUsed", ctypes.c_size_t), ("PeakJobMemoryUsed", ctypes.c_size_t)]
+
+        try:
+            kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        except OSError:
+            return None
+        kernel32.CreateJobObjectW.restype = wintypes.HANDLE
+        kernel32.CreateJobObjectW.argtypes = [ctypes.c_void_p, wintypes.LPCWSTR]
+        kernel32.SetInformationJobObject.argtypes = [wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p,
+                                                     wintypes.DWORD]
+        kernel32.OpenProcess.restype = wintypes.HANDLE
+        kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+        kernel32.AssignProcessToJobObject.argtypes = [wintypes.HANDLE, wintypes.HANDLE]
+        kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+        handle = kernel32.CreateJobObjectW(None, None)
+        if not handle:
+            return None
+        info = Extended()
+        info.BasicLimitInformation.LimitFlags = cls._KILL_ON_JOB_CLOSE
+        if not kernel32.SetInformationJobObject(handle, cls._EXTENDED_LIMIT_INFORMATION, ctypes.byref(info),
+                                                ctypes.sizeof(info)):
+            kernel32.CloseHandle(handle)
+            return None
+        return cls(kernel32, handle)
+
+    def assign(self, pid: int) -> bool:
+        if self.handle is None:
+            return False
+        proc = self._kernel32.OpenProcess(self._SET_QUOTA_TERMINATE, False, pid)
+        if not proc:
+            return False
+        try:
+            return bool(self._kernel32.AssignProcessToJobObject(self.handle, proc))
+        finally:
+            self._kernel32.CloseHandle(proc)
+
+    def close(self) -> None:
+        handle, self.handle = self.handle, None
+        if handle is not None:
+            self._kernel32.CloseHandle(handle)
+
+
+# The guard's one job, opened at the first stream and never closed by hand:
+# the process's exit closes it, which is the point.
+_JOB: KillOnCloseJob | None = None
+_JOB_TRIED = False
+
+
+def _guard_job() -> KillOnCloseJob | None:
+    global _JOB, _JOB_TRIED
+    if not _JOB_TRIED:
+        _JOB_TRIED = True
+        _JOB = KillOnCloseJob.open()
+    return _JOB
+
+
 def _spawn_lines(argv: list[str]) -> subprocess.Popen[str]:
-    return subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL,
+    proc = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL,
                             text=True, bufsize=1)
+    job = _guard_job()
+    if job is not None:
+        job.assign(proc.pid)
+    return proc
 
 
 def nvidia_smi_stream(period: float, **kw: Any) -> LineStream:

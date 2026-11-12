@@ -12,6 +12,8 @@ import ast
 import dataclasses
 import io
 import json
+import subprocess
+import sys
 import threading
 from pathlib import Path
 
@@ -463,6 +465,9 @@ class FakeProc:
         self.terminated = True
         self.release.set()
 
+    def poll(self) -> int | None:
+        return 0 if self.release.is_set() else None
+
     def wait(self, timeout: float | None = None) -> int:
         return 0
 
@@ -525,6 +530,130 @@ def test_an_exited_stream_starts_again_and_a_missing_one_reads_none() -> None:
     gone = card_guard.LineStream(["nvidia-smi"], card_guard.parse_nvidia_smi, spawn=missing, clock=clock)
     assert gone.latest(5.0, wait=1.0) is None
     gone.close()
+
+
+class BadLineProc(FakeProc):
+    """A process still running whose output the pump cannot read (an
+    undecodable byte under text mode raises UnicodeDecodeError)."""
+
+    @property
+    def stdout(self):  # type: ignore[no-untyped-def]
+        yield "3029, 16303\n"
+        raise UnicodeDecodeError("cp1252", b"\x81", 0, 1, "undefined")
+
+
+def test_a_stream_whose_reader_died_stops_its_process_before_starting_another() -> None:
+    clock = Clock()
+    procs: list[FakeProc] = []
+
+    def spawn(argv: list[str]) -> FakeProc:
+        proc = (BadLineProc if not procs else FakeProc)(["3100, 16303\n"], threading.Event())
+        procs.append(proc)
+        return proc
+
+    stream = card_guard.LineStream(["nvidia-smi"], card_guard.parse_nvidia_smi, spawn=spawn, clock=clock)
+    assert stream.latest(5.0, wait=10.0) == (3029.0, 16303.0)
+    assert stream._thread is not None
+    stream._thread.join(10)
+    assert procs[0].poll() is None  # the reader is gone, the process is not
+    clock.now += 6.0
+    assert stream.latest(5.0, wait=10.0) == (3100.0, 16303.0)
+    assert stream.starts == 2
+    assert procs[0].terminated  # not left running on a pipe nobody drains
+    stream.close()
+    assert procs[1].terminated
+
+
+class FakePdh:
+    """pdh.dll's three calls, writing real PDH_FMT_COUNTERVALUE_ITEM_W records
+    into the caller's buffer. `grow` adds instances between a counter's size
+    probe and its fill that many times (a process starting mid-read)."""
+
+    MORE_DATA = 0x800007D2
+
+    def __init__(self, instances: dict[int, list[tuple[str, int, float]]], grow: int = 0) -> None:
+        self.instances = instances
+        self.grow = grow
+        self.fills = 0
+        self._keep: list[object] = []
+
+    def PdhCollectQueryData(self, query: object) -> int:  # noqa: N802
+        return 0
+
+    def PdhGetFormattedCounterArrayW(self, handle: int, fmt: int, size_ref, count_ref, buf) -> int:  # noqa: N802,ANN001
+        import ctypes
+        item_type = card_guard.pdh_item_type()
+        rows = self.instances[handle]
+        size, count = size_ref._obj, count_ref._obj
+        need = len(rows) * ctypes.sizeof(item_type)
+        if buf is None:
+            size.value, count.value = need, len(rows)
+            return 0 if not rows else self.MORE_DATA
+        self.fills += 1
+        if self.grow:
+            self.grow -= 1
+            rows.append(("pid_999_luid_x", 0, 1.0))
+            size.value, count.value = len(rows) * ctypes.sizeof(item_type), len(rows)
+            return self.MORE_DATA
+        array = (item_type * len(rows))()
+        for i, (name, status, value) in enumerate(rows):
+            array[i].szName = name
+            array[i].FmtValue.CStatus = status
+            array[i].FmtValue.doubleValue = value
+        self._keep.append(array)
+        ctypes.memmove(buf, array, need)
+        count.value = len(rows)
+        return 0
+
+
+def _pdh_instances() -> dict[int, list[tuple[str, int, float]]]:
+    luid, other = "luid_0x00000000_0x00017694_phys_0", "luid_0x00000000_0x00018F2D_phys_0"
+    return {
+        0: [(luid, 0, 104857600.0), (other, 0, 8192.0)],
+        1: [(luid, 1, 3192995840.0), (other, 0, 0.0)],
+        2: [(f"pid_100_{luid}", 0, 2097152.0), (f"pid_101_{luid}", 0, 1048576.0),
+            (f"pid_100_{other}", 0, 9999999.0), (f"pid_555_{luid}", 0, 52428800.0),
+            (f"pid_101_{other}", 0xC0000BBA, 7e9)],  # PDH_CSTATUS_INVALID_DATA: skipped
+    }
+
+
+def _pdh_counters(fake: FakePdh) -> card_guard.PdhCounters:
+    return card_guard.PdhCounters(fake, object(), [(path, i) for i, path in enumerate(card_guard.TYPEPERF_COUNTERS)])
+
+
+def test_the_pdh_read_names_each_instance_and_skips_invalid_ones() -> None:
+    counters = _pdh_counters(FakePdh(_pdh_instances())).read()
+    assert counters is not None
+    assert "\\GPU Process Memory(pid_101_luid_0x00000000_0x00018F2D_phys_0)\\Shared Usage" not in counters
+    assert counters["\\GPU Adapter Memory(luid_0x00000000_0x00017694_phys_0)\\Dedicated Usage"] == 3192995840.0
+    assert card_guard.shared_usage(counters, [100, 101]) == card_guard.parse_typeperf(TYPEPERF, [100, 101])
+
+
+def test_a_pdh_array_that_grows_mid_read_is_probed_again_not_dropped() -> None:
+    fake = FakePdh(_pdh_instances(), grow=2)
+    counters = _pdh_counters(fake).read()
+    assert counters is not None and fake.fills == 5  # two MORE_DATA fills, then the three counters
+    assert card_guard.shared_usage(counters, [100, 101]) == (100.0, 3.0)
+    # One that keeps growing past the attempts fails the collection.
+    endless = FakePdh(_pdh_instances(), grow=100)
+    assert _pdh_counters(endless).read() is None
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="a Windows job object")
+def test_a_stream_process_dies_with_the_guards_job() -> None:
+    job = card_guard.KillOnCloseJob.open()
+    assert job is not None
+    child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"],
+                             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        assert job.assign(child.pid)
+        assert child.poll() is None
+        job.close()  # what the guard's exit does, however it ends
+        assert child.wait(timeout=10) is not None
+    finally:
+        if child.poll() is None:
+            child.kill()
+            child.wait()
 
 
 class StubStream:
