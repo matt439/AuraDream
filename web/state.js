@@ -813,7 +813,7 @@ function loraRefused(err) {
 // while it runs (backend/bundle_manager.py's GalleryAdmission). A panel whose
 // read was refused so says these words in place of its contents, and may
 // leave a read with `afterGalleryMaintenance` for when the operation ends.
-const GALLERY_MAINTENANCE_WORDS = 'A gallery bundle import, export or clear is running';
+const GALLERY_MAINTENANCE_WORDS = 'A gallery bundle import, export, backup or clear is running';
 function galleryMaintenance(err) {
   return err?.code === 'gallery_maintenance';
 }

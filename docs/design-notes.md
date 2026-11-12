@@ -6244,8 +6244,12 @@ an empty table and no word on why; the tag finder called it "Danbooru
 unreachable". The refusal now carries `gallery_maintenance`. Models shows
 `GALLERY_MAINTENANCE_WORDS` in the table's place (desktop and phone sheet)
 and holds Switch with "Wait for the gallery bundle operation to finish";
-On disk, Check and the tag finder say the same words in their own places.
-A refused read can leave itself with `afterGalleryMaintenance` (the Models
+On disk, Check and the tag finder say the same words in their own places
+(backup is named too: an automatic backup and a backup-settings save hold
+the same admission). The reason keeps the height of a table already shown,
+so the On disk fold below never moves under the pointer as the poll brings
+the same list back, and a focused row hands its focus to the picker's body
+as it hides. A refused read can leave itself with `afterGalleryMaintenance` (the Models
 catalogue, an open On disk fold). The bundle status poll, which already
 watches every bundle operation, runs them once it sees none running. No
 new timer was added, and each of those reads carries the poll header, so

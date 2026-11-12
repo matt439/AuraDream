@@ -9616,7 +9616,12 @@ Models opens with `GALLERY_MAINTENANCE_WORDS` in the table's place, Switch
 is held in the bundle's words and the note has no raw sentence. On disk,
 Check and the tag finder say the same words. Once the hold is released,
 the bundle status poll brings back the catalogue and the open fold, and
-`/api/fake/activity` counts neither read. On the phone (393x852, touch),
+`/api/fake/activity` counts neither read. A second held import then
+refuses a re-read of the list already shown, with a row focused: the
+reason keeps the table's height, so the On disk fold's summary stays put
+as the hold begins and ends, and the focus moves to the picker's body
+(hiding the row with it used to drop the focus and close Models). On the
+phone (393x852, touch),
 the Models sheet shows the words inside the screen with no sideways
 overflow, then recovers.
 

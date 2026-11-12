@@ -959,6 +959,15 @@ function syncModelSwitch() {
   const held = stale && modelCatalogueMaintenance;
   const heldText = held
     ? `${GALLERY_MAINTENANCE_WORDS}, so the checkpoint list cannot be read now. It is read again when the operation ends.` : '';
+  if (held && !els.modelTable.hidden) {
+    // The reason keeps the shown table's height, so nothing below it (the On
+    // disk fold) moves under the pointer as the hold begins, or as the same
+    // list comes back when it ends; and a focused row hands its focus to the
+    // picker's body rather than dropping it to the page.
+    const height = els.modelTable.offsetHeight;
+    els.modelTableHeld.style.minHeight = height ? `${height}px` : '';
+    if (els.modelTable.contains(document.activeElement)) els.modelPickerBody.focus({ preventScroll: true });
+  } else if (!held && els.modelTableHeld.style.minHeight) els.modelTableHeld.style.minHeight = '';
   if (els.modelTableHeld.textContent !== heldText) els.modelTableHeld.textContent = heldText;
   if (els.modelTableHeld.hidden !== !held) els.modelTableHeld.hidden = !held;
   if (els.modelTable.hidden !== held) els.modelTable.hidden = held;
