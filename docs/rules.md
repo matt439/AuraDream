@@ -6,10 +6,13 @@ silently; this file keeps every rule with its identifiers and exact wording,
 the full module map, and what each smoke covers. `docs/design-notes.md` keeps
 the reasoning, under headings of the same subject. Read the part for an area
 before changing it: the Layout is headed by part of the tree, Frontend and
-CLI by component and Tests by test and smoke area (`grep -n "^#"
-docs/rules.md` lists every heading). A section stays under
-`tests/test_rules_sections.py`'s length; one that outgrows it is split under
-headings of its own, moving whole bullets or paragraphs, never rewording.
+CLI by component and Tests by test and smoke area (`grep -nE "^##+ "
+docs/rules.md` lists the headings, the title and fenced shell comments
+aside). A section stays under `tests/test_rules_sections.py`'s length,
+or for the four Rules sections it names (Model and loader, Reproduction, Jobs,
+Prompt analyser) under the length each had when the limit was set; one that
+outgrows it is split under headings of its own, moving whole bullets or
+paragraphs, never rewording.
 
 ## Layout
 
@@ -9713,7 +9716,7 @@ dialog takes the three steps and joins `WATCHED`. The audit reads markup
 only: it is a regression guard, and passing it is no part of `UI#7`'s
 hands-on screen-reader checks.
 
-### Browser checks and the first smokes
+### Browser checks, the fake server's knobs and the first checkpoint smokes
 
 There is no JavaScript test suite. `web/` is checked in a real browser
 instead: `uv run python tools/fake_server.py` serves the app on 7861 on the
@@ -10203,7 +10206,7 @@ catalogue retries and the unload's preview are counted (`GEN#67`, checked
 by reverting it). The real keep-awake controller and idle release are the
 unit tests'; the fake runs with keep-awake off.
 
-### Checkpoint smokes
+### More checkpoint smokes
 
 `smoke-anima.json` checks Anima Turbo defaults, its documented size range,
 disabled Mu, applied saved settings, the artist check on the card's

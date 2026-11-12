@@ -21,8 +21,10 @@ ROOT = Path(__file__).resolve().parent.parent
 # and is still a part that can be read in one sitting.
 LIMIT = 350
 
-# Sections DEV#60 did not regroup, held at their length when the limit was
-# set: they may shrink, never grow. One that grows is split under ####
+# Sections DEV#60 did not regroup, each held at its exact current length: a
+# section that grows fails, and one that shrinks fails too until its number
+# here is lowered to match, so the allowance follows every shrink and never
+# lets the section grow back. One that has to grow is split under ####
 # headings by topic (move whole bullets; never reword a rule), and its entry
 # goes when it fits the limit.
 LONGER = {
@@ -85,11 +87,13 @@ def test_no_section_runs_past_the_limit():
 
 
 def test_the_longer_sections_are_still_there_and_still_longer():
-    # An allowance outliving its section, or one the section now fits
-    # without, would let the next section grow unseen.
+    # An allowance outliving its section, one the section now fits without,
+    # or one left above a section that shrank would let it grow unseen.
     counts = dict(_sections(_rules()))
     assert [h for h in LONGER if h not in counts] == []
     assert [h for h in LONGER if counts[h] <= LIMIT] == []
+    stale = {h: counts[h] for h in LONGER if counts[h] < LONGER[h]}
+    assert stale == {}, "lower these allowances in LONGER to the new lengths"
 
 
 def test_the_counting_skips_fenced_code_and_blank_lines():

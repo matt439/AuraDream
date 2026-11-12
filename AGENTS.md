@@ -14,7 +14,7 @@ FLUX.1 Kontext [dev], only edits, and its loads are held (the edit gate below).
 
 This file is the short version. Before changing an area, read its part of
 **`docs/rules.md`** (every rule in full, the module map, what each smoke
-covers; its headings name the areas, `grep -n "^#" docs/rules.md`) and its section of **`docs/design-notes.md`** (why, and what went
+covers; its headings name the areas, `grep -nE "^##+ " docs/rules.md`) and its section of **`docs/design-notes.md`** (why, and what went
 wrong before). `docs/verified.md` lists what has been measured on the card.
 **`TODO.md`** indexes open work, one row per item pointing to its owner; a
 fresh thread starts at its NOW.
