@@ -11177,11 +11177,16 @@ still says why. A check that a request settled names how it ends, not only
 what it shows: Check's `aria-busy` is gone, the critic is no longer
 `critiquing`, the gallery has no `galleryPending`, the chips' `tagSlots`
 are this prompt's, the page has stopped scrolling. Otherwise a check could
-pass on the answer before. A fixed `wait` stays only where the check is of
-an absence or a timer: nothing happened in that time, like a double-click's
+pass on the answer before. A timer is waited out on its own clock, as
+`performance.now() - lbArrowPress > 600` is for the lightbox's 500 ms
+`lbAfterArrow`. Before an `expect`, a fixed `wait` stays only where the
+check is of an absence: nothing happened in that time, like a double-click's
 second press that neither zooms nor closes, or a Batch that leaves the
 comparison's count alone. Such a step carries a `why` saying so (the driver
-reads only `wait`). The remaining smokes are later phases of `DEV#58`. Each
+reads only `wait`), and
+`test_converted_smokes_poll_their_expects_instead_of_sleeping`
+(`tests/test_run_smoke.py`) holds these files to it. Waits before an action
+(a click, a key) and the remaining smokes are later phases of `DEV#58`. Each
 run's browser profile, under the
 system temp directory, is removed on every way out - the steps' end, a
 failure, a throw, Ctrl-C or SIGTERM - once the browser's whole process tree

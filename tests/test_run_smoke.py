@@ -679,6 +679,26 @@ def test_the_costs_file_names_every_smoke_in_the_table_and_no_other():
     assert sorted(set(costs) - named) == [], "cost entries for no smoke in the table"
 
 
+# The smokes DEV#58 has converted so far; a later phase adds its files here.
+CONDITION_WAIT_SMOKES = ("smoke", "smoke-analysis", "smoke-animagine", "smoke-lightbox", "smoke-wide")
+
+
+@pytest.mark.parametrize("name", CONDITION_WAIT_SMOKES)
+def test_converted_smokes_poll_their_expects_instead_of_sleeping(name):
+    # A fixed wait whose next step (past logs) is an expect races the page:
+    # the expect polls through __when instead. Only a wait carrying a `why`
+    # (an absence, nothing happening in that time) may stand before one.
+    steps = json.loads((ROOT / "tools" / f"{name}.json").read_text(encoding="utf-8"))
+    bare = []
+    for index, step in enumerate(steps):
+        if "wait" not in step or "why" in step:
+            continue
+        after = next((s for s in steps[index + 1:] if "log" not in s), {})
+        if "expect" in after:
+            bare.append((index, step["wait"], after["expect"][:80]))
+    assert bare == [], "fixed waits before an expect, with no why"
+
+
 def test_an_unreadable_costs_file_leaves_every_row_equal(tmp_path):
     runner = _runner()
     assert runner.load_costs(tmp_path / "missing.json") == {}

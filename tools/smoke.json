@@ -100,10 +100,8 @@
   {"log": "'(the two runs are deleted again, so the page of 48 below still reaches the planted images)'"},
   {"eval": "Promise.all([window.__owls, window.__foxes].map((run) => api('/api/gallery?limit=100&search=run:' + run).then((p) => Promise.all(p.items.map((r) => api('/api/images/' + r.id, {method: 'DELETE'}))))))"},
   {"eval": "setSheet(false); els.favOnly.checked = false; els.search.value = ''; resetGallery();"},
-  {"wait": 800},
-
   {"log": "'The checkpoint scope: the two images planted under another checkpoint are hidden until All models is ticked, and the tick says how many'"},
-  {"expect": "!els.allModels.checked && galleryRecords.every((r) => r.model_id === loadedModel) && els.otherModels.textContent.startsWith(' (+')"},
+  {"expect": "__when(() => !galleryPending && !els.allModels.checked && galleryRecords.every((r) => r.model_id === loadedModel) && els.otherModels.textContent.startsWith(' (+'))"},
   {"expect": "![...els.runList.options].some((o) => o.value === 'planted')"},
   {"eval": "window.__scoped = total; els.allModels.checked = true; els.allModels.onchange();"},
   {"expect": "__when(() => (!galleryPending) && (total >= window.__scoped + 2 && els.otherModels.textContent === '' && galleryRecords.filter((r) => r.model_id !== loadedModel).length >= 2))"},
