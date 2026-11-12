@@ -67,7 +67,7 @@ let inpaintLoraDrops = 0;
 
 let inpaintTimer;
 let inpaintEpoch = 0;
-const inpaintPreviewMark = previewMark();
+const inpaintPreviewMark = { pending: false, polled: false };  // markPreview (state.js)
 // What the last preview refused, and the request it answered for (as JSON).
 let inpaintProblem = null;
 let inpaintPreviewed = null;

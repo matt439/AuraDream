@@ -155,7 +155,7 @@ function declaredGridVariables() {
 // duration lookup), so a slow reply for the boxes as they *were* could land
 // after the reply for the boxes as they are. Same token the gallery uses.
 let previewEpoch = 0;
-const gridPreviewMark = previewMark();
+const gridPreviewMark = { pending: false, polled: false };  // markPreview (state.js)
 
 // Opening the fold by hand brings Run grid into view on the next frame
 // (revealGridRun), and the preview's reply lands after that, under the same

@@ -53,7 +53,7 @@ let outpaintOpenEpoch = 0;
 let outpaintLoraDrops = 0;
 let outpaintTimer;
 let outpaintEpoch = 0;
-const outpaintPreviewMark = previewMark();
+const outpaintPreviewMark = { pending: false, polled: false };  // markPreview (state.js)
 let outpaintProblem = null;
 let outpaintPreviewed = null;
 let outpaintCheckTimer;

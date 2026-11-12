@@ -57,6 +57,9 @@ function fixture() {
     syncAnalysisStale: () => { calls.analysis++; }, revealGridRun: () => { calls.reveals++; },
     hideNegativeSuggestions: () => {}, placePhoneNegative: () => {}, syncMoreOptions: () => {},
     muStatic: () => null, humanBytes: value => String(value),
+    // state.js's poll mark: a direct preview (a toggle, these calls) is never marked.
+    takePreviewMark: mark => { const polled = mark.polled; mark.pending = mark.polled = false; return polled; },
+    polledIf: (polled, options) => { assert.equal(polled, false); return options; },
     api: (url, options) => { const request = { ...deferred(), url, options }; calls.requests.push(request); return request.promise; },
   });
   for (const name of ['sizes.js', 'grid-preview.js']) {

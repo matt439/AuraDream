@@ -31,7 +31,7 @@ let criticClockTimer = 0;
 const compareChoice = { reordered: true, rewrite: true, yours: true };
 let comparePreviewTimer;
 let comparePreviewEpoch = 0;
-const comparePreviewMark = previewMark();
+const comparePreviewMark = { pending: false, polled: false };  // markPreview (state.js)
 
 // What each finding rests on, by `PromptFinding.source`. The label is the
 // sourcing rule made visible: Guide and Authors quote the checkpoint's authors,

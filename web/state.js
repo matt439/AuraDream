@@ -720,7 +720,7 @@ function polledRead(options = {}) {
 // only while nothing else is pending, any other schedule clears it, and the
 // send takes it (`polledIf`), so a preview someone's edit asked for always
 // counts. The server accepts the header on that one advisory POST alone.
-function previewMark() { return { pending: false, polled: false }; }
+// A mark is a plain `{ pending: false, polled: false }` in its own script.
 function markPreview(mark, polled) {
   if (!polled) mark.polled = false;
   else if (!mark.pending) mark.polled = true;

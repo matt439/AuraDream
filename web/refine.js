@@ -25,7 +25,7 @@ const REFINE_PASSES = 8;
 
 let refineTimer;
 let refineEpoch = 0;
-const refinePreviewMark = previewMark();
+const refinePreviewMark = { pending: false, polled: false };  // markPreview (state.js)
 // What the last preview was refused with, or null: what Refine would be
 // refused with, so the button says so before the click rather than after the
 // dialog has closed.
