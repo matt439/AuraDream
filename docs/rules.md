@@ -959,8 +959,10 @@ before changing it.
   (`docs/maintainer/plan-card-harness.md`, Image metrics);
   `card_guard.py` is the card session's guard: a pure decision (whole card,
   shared GPU memory, free RAM, commit headroom, a rung's projection) beside
-  a watcher that reads nvidia-smi, `typeperf`, psutil and
-  `GetPerformanceInfo`, writes JSONL rows and on a trip kills the watched
+  a watcher that reads one `nvidia-smi --loop-ms` stream, one held PDH
+  query (`typeperf` only as its fallback), psutil and `GetPerformanceInfo`
+  on a fixed schedule, writes JSONL rows (the summary with the period
+  achieved) and on a trip kills the watched
   process tree, never calling the app's API (`docs/maintainer/plan-card-harness.md`,
   Card guard);
   `card/card10-*.json` the `CARD#10` step packs, one `browser.mjs` step
@@ -10971,7 +10973,9 @@ card's strict 15,500 boundary), that block as the only source of the
 defaults, and the watcher on a stub host with an injected sleep and clock,
 so no test reads a counter or races one (its trip after
 `card_unread_samples` samples in a row without a whole-card reading
-among them).
+among them, and its schedule taking a sample's cost out of the next sleep
+and reporting the period achieved); the stream and the PDH query are
+stubbed too.
 
 `uv run python tools/run_smoke.py <smoke> [<smoke> ...]` runs smokes without
 a second terminal: it reads `AGENTS.md`'s port table (the port, the

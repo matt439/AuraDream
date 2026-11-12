@@ -12,6 +12,7 @@ import ast
 import dataclasses
 import io
 import json
+import threading
 from pathlib import Path
 
 import pytest
@@ -354,6 +355,259 @@ def test_the_unread_count_is_a_limit_a_session_can_change() -> None:
     assert code == 4 and [r["event"] for r in rows][1] == "ram_guard"
 
 
+# --- Holding the period (DEV#20) ----------------------------------------------------
+
+
+class SlowHost(StubHost):
+    """A stub whose every sample takes `cost` seconds of the injected clock."""
+
+    def __init__(self, clock: Clock, cost: float, samples: list[Sample]) -> None:
+        super().__init__(samples)
+        self.clock = clock
+        self.cost = cost
+        self.closed = 0
+
+    def sample(self, pids: list[int]) -> Sample:
+        self.clock.now += self.cost
+        return super().sample(pids)
+
+    def close(self) -> None:
+        self.closed += 1
+
+
+def _paced(cost: float, period: float, duration: float) -> tuple[SlowHost, list[float], list[dict[str, object]]]:
+    clock = Clock()
+    sleeps: list[float] = []
+
+    def sleep(seconds: float) -> None:
+        sleeps.append(round(seconds, 6))
+        clock.sleep(seconds)
+
+    host = SlowHost(clock, cost, [_sample()])
+    out = io.StringIO()
+    code = card_guard.watch(host, LIMITS, card_guard.Rows(out, lambda: "t"), sleep=sleep, clock=clock,
+                            period=period, row_every=60.0, duration=duration)
+    assert code == 0
+    return host, sleeps, [json.loads(line) for line in out.getvalue().splitlines()]
+
+
+def test_a_samples_cost_comes_out_of_the_sleep_not_on_top_of_the_period() -> None:
+    host, sleeps, rows = _paced(cost=0.3, period=1.0, duration=10.0)
+    # The first sleep is the whole period (the baseline's cost came before
+    # the start); every later one is the period less the sample's 0.3 s.
+    assert sleeps[0] == 1.0 and set(sleeps[1:]) == {0.7}
+    summary = rows[-1]
+    assert (summary["period_s"], summary["achieved_period_s"], summary["longest_gap_s"]) == (1.0, 1.0, 1.0)
+    assert host.closed == 1
+
+
+def test_a_sampler_slower_than_the_period_reports_the_period_it_achieved() -> None:
+    # The 2026-11-11 session's case: 0.5 s asked, about 1.8 s per sample.
+    host, sleeps, rows = _paced(cost=1.8, period=0.5, duration=9.0)
+    assert sleeps == [0.5]  # behind from then on: no sleep, and no burst to catch up
+    summary = rows[-1]
+    assert (summary["period_s"], summary["achieved_period_s"], summary["longest_gap_s"]) == (0.5, 1.8, 1.8)
+    assert rows[0]["period_s"] == 0.5 and "sources" not in rows[0]
+
+
+def test_the_host_is_closed_however_the_watch_ends() -> None:
+    clock = Clock()
+    host = SlowHost(clock, 0.0, [_sample(card_mib=15501.0)])
+    assert card_guard.watch(host, LIMITS, card_guard.Rows(io.StringIO(), lambda: "t"), sleep=clock.sleep,
+                            clock=clock) == 3
+    assert host.closed == 1
+    blind = SlowHost(clock, 0.0, [Sample(available_gib=30.0)])
+    assert card_guard.watch(blind, LIMITS, card_guard.Rows(io.StringIO(), lambda: "t"), sleep=clock.sleep,
+                            clock=clock) == 2
+    assert blind.closed == 1
+
+
+def test_one_sample_reports_no_achieved_period() -> None:
+    _, _, rows = _paced(cost=0.0, period=1.0, duration=0.0)
+    assert (rows[-1]["achieved_period_s"], rows[-1]["longest_gap_s"]) == (None, None)
+
+
+def test_the_pdh_counters_read_as_the_typeperf_rows_do() -> None:
+    luid, other = "luid_0x00000000_0x00017694_phys_0", "luid_0x00000000_0x00018F2D_phys_0"
+    counters = {
+        f"\\GPU Adapter Memory({luid})\\Shared Usage": 104857600.0,
+        f"\\GPU Adapter Memory({other})\\Shared Usage": 8192.0,
+        f"\\GPU Adapter Memory({luid})\\Dedicated Usage": 3192995840.0,
+        f"\\GPU Adapter Memory({other})\\Dedicated Usage": 0.0,
+        f"\\GPU Process Memory(pid_100_{luid})\\Shared Usage": 2097152.0,
+        f"\\GPU Process Memory(pid_101_{luid})\\Shared Usage": 1048576.0,
+        f"\\GPU Process Memory(pid_100_{other})\\Shared Usage": 9999999.0,
+        f"\\GPU Process Memory(pid_555_{luid})\\Shared Usage": 52428800.0,
+    }
+    assert card_guard.shared_usage(counters, [100, 101]) == card_guard.parse_typeperf(TYPEPERF, [100, 101])
+    assert card_guard.shared_usage(counters, [100, 101]) == (100.0, 3.0)
+    assert card_guard.shared_usage({}, [100]) == (None, None)
+
+
+class FakeProc:
+    """A stream process whose stdout yields `lines`, then blocks until `release`."""
+
+    def __init__(self, lines: list[str], release: threading.Event) -> None:
+        self.lines = lines
+        self.release = release
+        self.terminated = False
+        self.drained = threading.Event()
+
+    @property
+    def stdout(self):  # type: ignore[no-untyped-def]
+        yield from self.lines
+        self.drained.set()
+        self.release.wait(30)
+
+    def terminate(self) -> None:
+        self.terminated = True
+        self.release.set()
+
+    def wait(self, timeout: float | None = None) -> int:
+        return 0
+
+
+class Spawner:
+    def __init__(self, lines: list[str]) -> None:
+        self.lines = lines
+        self.argvs: list[list[str]] = []
+        self.procs: list[FakeProc] = []
+
+    def __call__(self, argv: list[str]) -> FakeProc:
+        self.argvs.append(argv)
+        proc = FakeProc(self.lines, threading.Event())
+        self.procs.append(proc)
+        return proc
+
+
+def test_nvidia_smi_is_one_looping_stream_on_the_first_gpu() -> None:
+    spawn = Spawner([])
+    stream = card_guard.nvidia_smi_stream(0.5, spawn=spawn)
+    assert stream.argv == ["nvidia-smi", "--query-gpu=memory.used,memory.total", "--format=csv,noheader,nounits",
+                           "-i", "0", "--loop-ms=500"]
+    assert card_guard.nvidia_smi_stream(0.01, spawn=spawn).argv[-1] == "--loop-ms=100"
+    assert spawn.argvs == []  # nothing runs until the first read
+
+
+def test_the_stream_keeps_the_newest_line_and_goes_stale() -> None:
+    clock = Clock()
+    spawn = Spawner(["[N/A], 16303\n", "3029, 16303\n", "3100, 16303\n"])
+    stream = card_guard.LineStream(["nvidia-smi"], card_guard.parse_nvidia_smi, spawn=spawn, clock=clock)
+    # The first read waits for the stream's lines (the unparsable one skipped).
+    assert stream.latest(5.0, wait=10.0) is not None
+    assert spawn.procs[0].drained.wait(10)
+    assert stream.latest(5.0) == (3100.0, 16303.0)
+    assert stream.starts == 1
+    # Silent past the age allowed: unread, the process kept.
+    clock.now += 6.0
+    assert stream.latest(5.0) is None
+    assert stream.starts == 1
+    stream.close()
+    assert spawn.procs[0].terminated
+
+
+def test_an_exited_stream_starts_again_and_a_missing_one_reads_none() -> None:
+    clock = Clock()
+    spawn = Spawner(["3029, 16303\n"])
+    stream = card_guard.LineStream(["nvidia-smi"], card_guard.parse_nvidia_smi, spawn=spawn, clock=clock)
+    assert stream.latest(5.0, wait=10.0) == (3029.0, 16303.0)
+    spawn.procs[0].release.set()  # the process ends
+    assert stream._thread is not None
+    stream._thread.join(10)
+    clock.now += 6.0
+    assert stream.latest(5.0, wait=10.0) == (3029.0, 16303.0)
+    assert stream.starts == 2
+    stream.close()
+
+    def missing(argv: list[str]) -> FakeProc:
+        raise FileNotFoundError(argv[0])
+
+    gone = card_guard.LineStream(["nvidia-smi"], card_guard.parse_nvidia_smi, spawn=missing, clock=clock)
+    assert gone.latest(5.0, wait=1.0) is None
+    gone.close()
+
+
+class StubStream:
+    def __init__(self, value: tuple[float, float] | None) -> None:
+        self.value = value
+        self.calls: list[tuple[float, float]] = []
+        self.closed = False
+
+    def latest(self, max_age: float, wait: float = 0.0) -> tuple[float, float] | None:
+        self.calls.append((max_age, wait))
+        return self.value
+
+    def close(self) -> None:
+        self.closed = True
+
+
+class StubPdh:
+    def __init__(self, counters: dict[str, float] | None) -> None:
+        self.counters = counters
+        self.closed = False
+
+    def read(self) -> dict[str, float] | None:
+        return self.counters
+
+    def close(self) -> None:
+        self.closed = True
+
+
+@pytest.fixture
+def quiet_memory(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No real RAM or commit reading in a LocalHost test."""
+    import psutil
+
+    class Memory:
+        available = 30 * 2**30
+
+    monkeypatch.setattr(psutil, "virtual_memory", lambda: Memory())
+    monkeypatch.setattr(card_guard, "commit_headroom_gib", lambda: 20.0)
+
+
+def _typeperf_never() -> str | None:
+    raise AssertionError("typeperf spawned with PDH open")
+
+
+def test_the_local_host_reads_the_stream_and_the_held_query(quiet_memory: None) -> None:
+    card = StubStream((3029.0, 16303.0))
+    luid = "luid_0x0_0x1_phys_0"
+    pdh = StubPdh({f"\\GPU Adapter Memory({luid})\\Shared Usage": 100 * 2**20,
+                   f"\\GPU Adapter Memory({luid})\\Dedicated Usage": 3 * 2**30})
+    host = card_guard.LocalHost(0.5, card=card, open_shared=lambda: pdh,  # type: ignore[arg-type,return-value]
+                                typeperf=_typeperf_never, windows=True)
+    assert host.sources == {"card": "nvidia-smi --loop-ms", "shared": "pdh"}
+    first = host.sample([])
+    assert (first.card_mib, first.card_total_mib, first.adapter_shared_mib, first.available_gib,
+            first.commit_headroom_gib) == (3029.0, 16303.0, 100.0, 30.0, 20.0)
+    card.value = None  # the stream went silent
+    assert host.sample([]).card_mib is None
+    # Only the first sample waits for nvidia-smi's first line; a line counts
+    # as read for two periods plus the slack.
+    assert card.calls == [(1.0 + card_guard._STALE_SLACK_S, card_guard._FIRST_READ_S),
+                          (1.0 + card_guard._STALE_SLACK_S, 0.0)]
+    pdh.counters = None  # a failed collection reads nothing
+    assert host.sample([]).adapter_shared_mib is None
+    host.close()
+    assert card.closed and pdh.closed
+
+
+def test_without_pdh_windows_falls_back_to_typeperf_and_linux_reads_no_shared(quiet_memory: None) -> None:
+    host = card_guard.LocalHost(1.0, card=StubStream((3029.0, 16303.0)), open_shared=lambda: None,  # type: ignore[arg-type]
+                                typeperf=lambda: TYPEPERF, windows=True)
+    assert host.sources["shared"] == "typeperf -sc 1"
+    assert host.sample([100, 101]).process_shared_mib == 3.0
+
+    def never_opened() -> None:
+        raise AssertionError("PDH opened off Windows")
+
+    linux = card_guard.LocalHost(1.0, card=StubStream((3029.0, 16303.0)), open_shared=never_opened,  # type: ignore[arg-type]
+                                 typeperf=_typeperf_never, windows=False)
+    assert linux.sources == {"card": "nvidia-smi --loop-ms", "shared": None}
+    sample = linux.sample([])
+    assert (sample.card_mib, sample.adapter_shared_mib, sample.process_shared_mib) == (3029.0, None, None)
+
+
 # --- The command line -------------------------------------------------------------
 
 
@@ -402,3 +656,10 @@ def test_the_module_imports_nothing_heavy() -> None:
         elif isinstance(node, ast.ImportFrom) and node.module:
             names.add(node.module.split(".")[0])
     assert not names & {"backend", "torch", "diffusers", "numpy"}
+
+
+def test_watch_cli_refuses_a_period_that_is_not_positive() -> None:
+    host = StubHost([_sample()])
+    assert card_guard.main(["watch", "--period", "0"], host=host) == 2
+    assert card_guard.main(["watch", "--period", "-1"], host=host) == 2
+    assert card_guard.main(["watch", "--period", "nan"], host=host) == 2
