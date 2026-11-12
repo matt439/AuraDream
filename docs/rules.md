@@ -540,7 +540,7 @@ before changing it.
   use; `@app.middleware("http")` wrapped every response, the job streams
   included, in another task and delayed a stream's attach), module `busy`
   (nothing when none is installed) and `hold_while` for the CLI
-  (`tests/test_keep_awake.py`)
+  (`tests/test_keep_awake.py`, the holders `tests/test_keep_awake_holders.py`)
 - `backend/response_headers.py` — the two headers every response carries,
   stdlib and Starlette only: `ResponseHeadersMiddleware` (a plain ASGI
   layer adding `Content-Security-Policy: frame-ancestors 'self'` and
@@ -3347,7 +3347,7 @@ measured on the card and when.
   `detail` says why; never a claimed hold. Tests never take a real hold
   through the server or the CLI: `tests/conftest.py` replaces
   `platform_inhibitor` with `NoInhibitor`. The real calls are
-  `tests/test_keep_awake.py`'s two, on Windows (the power request, and
+  `tests/test_keep_awake_holders.py`'s two, on Windows (the power request, and
   the WSL script run by Windows' own `powershell.exe`), each released in
   the same test.
 - Idle model release is default off (`AURADREAM_IDLE_UNLOAD_MINUTES=0`).
@@ -10526,7 +10526,7 @@ backdrop focus restoration, context ordering with the full inventory, menu-opene
 fallbacks, accurate menu hints, the Prompts group's P row with `#prompt`'s
 `aria-keyshortcuts="P"`, and a 390 px layout without horizontal overflow.
 
-`tests/test_keep_awake.py` checks the `systemd-inhibit` child with a fake
+`tests/test_keep_awake_holders.py` checks the `systemd-inhibit` child with a fake
 popen and clock (its argv, a refusal within `START_WAIT` or `SHORT_LIFE`,
 the retry after `RETRY_AFTER`, release by closing the pipe), Windows'
 `PowerRequest` with its four calls faked (create with the reason, set once,
@@ -10540,12 +10540,13 @@ once), WSL's detection and its `powershell.exe` holder with a fake popen
 a refusal in Windows' words and its retry, silence, an early end, a child
 ignoring the end of its input, no interop holding nothing with its
 `detail`; the script run for real by Windows' `powershell.exe`, let go at
-once), the controller
+once); `tests/test_keep_awake.py` the controller
 through its asyncio task (providers, counted holds from threads, the idle
 minutes, `wake`), `counts_as_activity` against the page's polls, the
 activity middleware and `/api/status`'s `keep_awake`, the CLI's
 `hold_while`, the doctor's VRAM, LAN and Keep awake rows (Linux's and
-Windows' and WSL's), and the two settings. No real systemd is used.
+Windows' and WSL's), and the two settings. No real systemd is used. The
+fakes both share are `tests/keep_awake_helpers.py`'s.
 
 `tests/test_response_headers.py` asks the real app for the page, `/sw.js`,
 API routes, `/docs`, files and misses under both mounts, a 404, a 405 and a
