@@ -201,9 +201,9 @@ Backend (`backend/`):
 - `model_favourites.py` the Models panel's stars: one bounded, atomic,
   revisioned set of canonical ids per gallery database under its own
   reservation (like saved searches), `schemas_model_favourites.py` its strict
-  models, `api_model_favourites.py` its model-free routes; `web/model-switch.js`
-  reads it at the page's start and as Models opens, and offers once to import
-  a browser's earlier localStorage set
+  models, `api_model_favourites.py` its model-free routes; `web/model-favourites.js`
+  reads it (at the page's start, and as `web/model-switch.js` opens Models),
+  and offers once to import a browser's earlier localStorage set
 - `bundle_leases.py` archive reader/exclusive leases, complete download/import
   lifetimes and uncertain-input quarantine, with opt-in shared companion locks in
   `bundle_file_lock.py`; `bundle_mode.py` explicit Windows/NTFS mode installation

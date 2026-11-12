@@ -14479,7 +14479,8 @@ in the README only with stage 3.
    line in `install-service.sh`'s environment file. Tests in
    `tests/test_cli.py` (a server that asks: the header sent, the 401 and
    429 words, the passcode never in the output), `tests/test_doctor.py`,
-   the server probe's tests, `tests/test_linux_scripts.py` (a stub server
+   the server probe's tests, `tests/test_linux_passcode.py` (split from
+   `tests/test_linux_scripts.py` on 2026-11-13; a stub server
    that asks; busy and status read through it; a 401 and a 429 each said in
    their own words, with stop and update refusing; an environment file whose
    passcode holds a space or a `$` refused before it is sourced, the value
@@ -14577,7 +14578,8 @@ commented line in `install-service.sh`'s environment file. Tests:
 `tests/test_server_probe.py` (new), `tests/test_doctor.py`,
 `tests/test_cli_via_server.py` (where `--via-server`'s tests live since
 `test_cli.py` was split), `tests/test_cli.py`,
-`tests/test_linux_scripts.py`, `tests/test_install_scripts.py`, and a
+`tests/test_linux_scripts.py` (its passcode tests in
+`tests/test_linux_passcode.py` since 2026-11-13), `tests/test_install_scripts.py`, and a
 stand-in server that asks, `tests/passcode_stub.py`. With no passcode set
 and none asked, every request these callers make is the one it was. What
 the source decided, and what the design had not said:
@@ -14649,7 +14651,8 @@ the source decided, and what the design had not said:
   `LC_ALL=C`, so "letters" means ASCII's.
 - The scripts' Python reads the passcode's bytes from `os.environb` and
   sends them as they are, so nothing is decoded on the way.
-- `tests/test_linux_scripts.py` runs on Linux only. It was run under WSL
+- `tests/test_linux_scripts.py` (since 2026-11-13 split three ways, the
+  passcode's tests in `tests/test_linux_passcode.py`) runs on Linux only. It was run under WSL
   (Ubuntu, the project's own Linux virtualenv's Python, nothing
   installed): 230 passed, and 240 with the review's tests.
 

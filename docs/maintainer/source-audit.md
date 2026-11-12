@@ -490,7 +490,7 @@ Screened the 659 tracked Python, JavaScript, CSS and HTML files in
 `backend/`, `web/`, `tests/` and `tools/` at `b270e98` (the
 `todo/nov12-rows` branch, 237 commits after the fourth pass's base
 `0351278`), then worked on the `todo/source-audit-5` branch. 23 files were
-over 1,000 lines (21 application, 2 test), up from 20. Three were new over
+over 1,000 lines (20 application, 3 test), up from 20. Three were new over
 the screen: `web/status.js` (871 to 1,072), and from 2026-11-12's merged
 work `tests/test_keep_awake.py` (669 to 1,284) and `tools/card_guard.py`
 (656 to 1,067); every retained file but two grew.
@@ -541,7 +541,7 @@ left as written.
 | `backend/guides.py` | 1,766; 1,825 | Still one role: sourced guide dicts and the two Anima builders, no mutable state. Growth is FLUX 3 [Klein]'s guides. No guide gained a non-data role and no family is near 1,000 lines; the 2026-10-31 facade requirements stand. |
 | `backend/storage.py` | 1,717; 1,729 | 12 lines: prefix matching in gallery search (`8f87f9f`, `6414e17`) and the stable refusal codes (`10235fa`), both in the core. The 2026-11-05 reasons stand. |
 | `backend/model_defaults.py` | 1,560; 1,668 | Growth is FLUX 3 [Klein]'s profiles, the open default's change to Animagine (`f2790dd`) and the 16 GB card's measured words (`9a72920`: `MEASURED_CARD_GB`, `card_words`, a `card` argument to `_inpaint_strength_hint`), views over data. No profile holds a callable (no `lambda` in the file), so the 2026-10-11 trigger has not fired. |
-| `backend/main.py` | 1,368; 1,578 | Still the app's composition and the model's lifecycle state. Growth: the passcode gate and the middleware order it fixed (`hold_model_for_request` moved above it, with the layer comment), idle release (`_idle_unload_busy`, `_unload_for_idle`, `_release_owned`), the status's passcode, card and download fields, the card's fit badge in `/api/models` (4 lines through `card_facts`) and `run`'s TLS and passcode handling. Each reads globals tests rebind on `main` (`settings` 43 times, `_switching` 18, `Server` 18, `_passcode_gate` 6). The keep-awake providers are still five, and the load-failure wording still has one user, so those triggers have not fired; `/api/models` grew only by the card read. The `model_views.py` seam (about 130 lines, as recorded) stays not taken: `_expander_status`, `_merged_defaults` and `_listed_loras` read `main.backend`, which the fake fixture replaces, and `_disk_free_mb` reads `main.settings`. Revisit if a provider is added, a second module needs `_load_failure`'s words, or the model views pass about 250 lines. |
+| `backend/main.py` | 1,368; 1,578 | Still the app's composition and the model's lifecycle state. Growth: the passcode gate and the middleware order it fixed (`hold_model_for_request` moved above it, with the layer comment), idle release (`_idle_unload_busy`, `_unload_for_idle`, `_release_owned`), the status's passcode, card and download fields, the card's fit badge in `/api/models` (4 lines through `card_facts`) and `run`'s TLS and passcode handling. Each reads globals tests rebind on `main` (`settings` 43 times, `_switching` 18, `Server` 18, `_passcode_gate` 6). The keep-awake providers are still five, and the load-failure wording still has one user, so those two triggers have not fired. The third, `/api/models` growing, did fire (the card read), so the fourth pass's `_HUB_FAILURES`/`_hub_failure` seam was re-screened: both are unchanged since `0351278` (about 45 lines, no state), `_load_failure` is still their only caller, and `tests/test_api.py` calls `main._hub_failure` directly, so a move to `hub_access.py` would need a re-export for a cut of about 3% with no second user; not taken. The card read is unrelated to the Hub wording that trigger guarded. The `model_views.py` seam (about 130 lines, as recorded) stays not taken: `_expander_status`, `_merged_defaults` and `_listed_loras` read `main.backend`, which the fake fixture replaces, and `_disk_free_mb` reads `main.settings`. Revisit if a provider is added, a second module needs `_load_failure`'s words, or the model views pass about 250 lines. |
 | `backend/prompt_sources.py` | 1,485; 1,535 | Growth is FLUX 3 [Klein]'s groundings; the resolver gained no logic. The 2026-11-05 reasons and trigger stand. |
 | `backend/generate.py` | 1,375; 1,453 | Growth is the full-disk hold (`_save_held`, `8f9d83c`, `e7a3adb`) and the passcode's bearer header (`ee93660`). `_main` is 1,004 lines, under its 1,100 trigger, and no flag family added flag-only checks inside it. The 2026-11-05 reasons stand. |
 | `backend/jobs.py` | 1,336; 1,386 | Growth is the full-disk pause (`cbeab4e`: `_hold` holding the render, `pause_reason`) and first-run recovery (`1b9138c`). Then refine's stage (`_units` through `_passes`) is about 120 lines, under its 250 trigger, and no second post-generation stage joined it. |
@@ -594,8 +594,10 @@ pinned type gate 0 errors and 0 warnings over 199 files; `git diff
 (`run_smoke.py --all --jobs 3 --offset 300 --rerun-failed-alone`) passed
 116 of 117 in 1,131 seconds. `smoke-phone-dialogs` failed, and failed again
 alone, on one expectation: a saved bundle's date row adds a 51 px line on
-the phone (GAL#27's check, `__dateShift() => [0,51]`). It fails the same
-way at `b270e98`, before this pass, so it is not a split and not a race;
-it is left to its own row. As before, these establish equivalence at the
+the phone (GAL#27's check, `__dateShift() => [0,51]`). It failed the same
+way at `b270e98`, before this pass, so it was not a split and not a race:
+`todo/nov12-rows`'s next commit, `93e7277` (a protected bundle row allowed
+one more line on the phone), already fixed it, and with that commit merged
+into this branch `smoke-phone-dialogs` passes alone. No row is needed. As before, these establish equivalence at the
 source, API and fake-backend levels, and add no GPU measurement to
 `docs/verified.md`.
