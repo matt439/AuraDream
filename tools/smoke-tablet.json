@@ -103,7 +103,7 @@
   {"expect": "__until(() => document.body.dataset.tier === 'tablet')"},
   {"expect": "isShown(els.generate) && isShown(els.viewer) && isShown(els.gallery) && !isShown(document.getElementById('phone-tabs')) && viewBand().bottom === innerHeight"},
   {"expect": "els.generate.parentElement === __panel() && els.viewer.parentElement === els.stage && els.recent.parentElement === els.stage && !isShown(document.getElementById('phone-actions')) && !document.getElementById('phone-results').children.length"},
-  {"expect": "els.gridSection.parentElement === __panel() && els.negField.parentElement === __panel() && els.gridRun.parentElement === els.gridSection && !document.getElementById('more-sheet-body').children.length && !document.querySelectorAll('.phone-step').length && isShown(els.steps) && !isShown(document.getElementById('more-options'))"},
+  {"expect": "els.gridSection.parentElement === __panel() && els.negField.parentElement === __panel() && els.gridRun.parentElement === els.gridSection && !document.getElementById('more-sheet-body').children.length && !document.querySelectorAll('.phone-step').length && isShown(document.getElementById('sampling-caption')) && !isShown(document.getElementById('more-options'))"},
   {"expect": "(() => { els.generate.focus({preventScroll: true}); const ok = document.activeElement === els.generate; els.generate.blur(); return ok; })()"},
   {"eval": "scrollTo({top: 0, behavior: 'instant'});"},
   {"viewport": [678, 1180, 2], "mobile": true},

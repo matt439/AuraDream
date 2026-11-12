@@ -173,12 +173,13 @@
   {"eval": "els.steps.value = '30'; els.steps.dispatchEvent(new Event('input', {bubbles: true}));"},
   {"expect": "__el('more-options-summary').textContent === '30 steps · CFG 3.5 · seed random · repeat ×2' && !__el('more-options-dot').hidden"},
   {"log": "'Grid search opened in the sheet, its row the sheet last at its foot: the press brings the row up under the title, clear of the foot it brings, Run grid there in sight; shut, the foot goes'"},
-  {"eval": "els.gridSection.querySelector('summary').scrollIntoView({block: 'center'});"},
+  {"eval": "els.samplingSection.open = true; els.gridSection.querySelector('summary').scrollIntoView({block: 'center'});"},
   {"expect": "__box(els.gridSection).bottom > innerHeight - 100"},
   {"tap": "#grid-section > summary"},
   {"expect": "__until(() => els.gridSection.open && isShown(els.gridRun) && __box(els.gridSection).top >= __box(__el('more-sheet-done')).bottom && __box(els.gridSection).top < 160 && (() => { const g = __box(els.gridRun); return g.height >= 44 && g.bottom <= innerHeight + 0.5 && Math.abs(g.left - 16) < 0.5 && Math.abs(g.right - (innerWidth - 16)) < 0.5; })() && __el('more-options-summary').textContent.endsWith(' · grid'))"},
   {"tap": "#grid-section > summary"},
   {"expect": "__until(() => !els.gridSection.open && !isShown(els.gridRun) && !isShown(__el('more-sheet-actions')))"},
+  {"eval": "els.samplingSection.open = false;"},
   {"log": "'Back closes it as Escape does, its entry gone and the focus on the row again'"},
   {"expect": "__until(() => backDepth === 1 && !backGoing)"},
   {"eval": "history.back();"},
@@ -511,5 +512,5 @@
   {"expect": "(() => { const panel = document.querySelector('.panel'), order = [els.prompt.closest('.field'), els.negField, els.presets.closest('.field'), els.samplingSection, __el('output-caption').closest('.field'), document.querySelector('.notification-choice'), els.gridSection, document.querySelector('.execution-cache-row'), els.conditioningSection], FOLLOWS = Node.DOCUMENT_POSITION_FOLLOWING; return order.every((n) => n.parentElement === panel) && order.slice(1).every((n, i) => order[i].compareDocumentPosition(n) & FOLLOWS) && els.customSize.parentElement === els.presets.closest('.field'); })()"},
   {"log": "'And the compose controls home: the status in the topbar, Examples, Check, Tags and Expand in the prompt caption, the check in the results column and its sheet shut, no Shape, chip or check line'"},
   {"expect": "(() => { const cap = document.querySelector('label[for=\"prompt\"]').parentElement; return __el('status').parentElement === document.querySelector('.topbar') && ['examples', 'btn-analyze', 'tag-helper', 'btn-expand', 'btn-reset'].every((id) => __el(id).parentElement === cap) && !__el('prompt-toolbar').children.length && els.promptAnalysis.parentElement === els.tagValidationWide && !__el('check-sheet').open && !document.querySelector('.phone-shape, #phone-size-chip') && !isShown(__el('check-chip')) && isShown(els.presets) && isShown(els.reset); })()"},
-  {"expect": "!isShown(__el('more-options')) && !__el('more-sheet').open && !__el('more-sheet-body').children.length && !document.querySelectorAll('.phone-step').length && !__el('neg-fold') && !('fold' in els.negField.dataset) && !els.batch.hasAttribute('aria-label') && !els.runs.hasAttribute('aria-label') && els.dice.parentElement.tagName === 'I' && els.dice.closest('.sub') === els.seed.closest('.sub') && els.seed.closest('.row') === els.runs.closest('.row') && els.gridRun.parentElement === els.gridSection && [els.steps, els.seed, els.runs, els.negative, els.thenRefineOpen].every(isShown) && !isShown(els.stepCache)"}
+  {"expect": "!isShown(__el('more-options')) && !__el('more-sheet').open && !__el('more-sheet-body').children.length && !document.querySelectorAll('.phone-step').length && !__el('neg-fold') && !('fold' in els.negField.dataset) && !els.batch.hasAttribute('aria-label') && !els.runs.hasAttribute('aria-label') && els.dice.parentElement.tagName === 'I' && els.dice.closest('.sub') === els.seed.closest('.sub') && els.seed.closest('.row') === els.runs.closest('.row') && els.gridRun.parentElement === els.gridSection && [__el('sampling-caption'), els.seed, els.runs, els.negative, els.thenRefineOpen].every(isShown) && !els.samplingSection.open && !isShown(els.stepCache)"}
 ]

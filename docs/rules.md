@@ -4128,8 +4128,10 @@ measured on the card and when.
   `revealSetupField`; Set CFG/True CFG, `focusNegativeKnob`) opens it. Set
   CFG sits above it, so nothing moves under that press; Generate's refusal
   moves focus to the box as Custom dimensions' does. Shut, it saves the
-  row's height (Generate about 50 px higher at 1400x900); on the phone it
-  moves whole into More options' sheet, first.
+  row's height (Generate about 60 px higher at 1400x900); open, it is no
+  taller than the caption and row were (no padding of its own, and in the
+  panel `margin-top: -4px`, fields.css). On the phone it moves whole into
+  More options' sheet, first.
 - The sampling row (`.sampling-row`) keeps each name on one line, with
   `white-space: nowrap` on the `<label>` alone - never on the label line,
   which also holds the ? badge and its tip. No box is narrower than its name

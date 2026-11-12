@@ -9027,7 +9027,8 @@ Matt's answer to the 2026-11-12 audit: Steps, CFG, Mu and True CFG in one
 native fold, since the self-report rates them Sometimes (A6-A8) and True CFG
 and Mu sweeps Never, while the panel at 1400x900 has no room. Shut, the fold
 is one summary line where the caption and row were two, so Generate sits about
-50 px higher. Three choices differ from Custom dimensions. First, the summary
+60 px higher; open, it is no taller than the caption and row were (its own
+padding dropped, its rule 4 px into the panel's gap). Three choices differ from Custom dimensions. First, the summary
 is the effective request, not the boxes: a blank box is sent absent and the
 server fills it from the profile, so the summary says the profile's number; a
 blank Mu says "auto" or the fixed shift as the box's placeholder does. A
