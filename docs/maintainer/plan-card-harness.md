@@ -249,6 +249,18 @@ several sessions' test runs resident. **Decided 2026-11-03: the floor stays
 closed) rather than with a lower floor, since a FLUX-class load's 40-50 GB
 RAM spike leaves a lower floor little to protect.
 
+**Stage 2 met (2026-11-11), recorded 2026-11-12.** The Animagine XL 4.0
+fp8 cropped-outpaint session (`CARD#13`) ran the guard at its defaults
+beside the session's own 0.25 s supervisor: both exited 0, nothing tripped,
+and the guard's peak card reading (10,212 MiB) matched the render's
+(10,210 MiB; `docs/measurements/card13-sdxl-2026-11-11.json`). verified.md's
+row names the guard and its limits. The FLUX 3 and Kontext sessions ran it
+too. One gap: the guard requested 0.5 s sampling but achieved about 1.8 s,
+because each sample spawns `typeperf -sc 1` and `nvidia-smi` serially
+(`watch`'s `LocalHost` sampler). Its tree working set (6.97 GiB) therefore
+read below the supervisor's peak (9.56 GiB). Holding the requested period
+is `DEV#20`'s remaining CPU work ([2026-11-12 audit](review-2026-11-12-todo.md#dev20-the-card-guard-keeps-its-sampling-period-on-windows)).
+
 **Hardened after review (2026-10-31): the card unread mid-watch.** The
 watcher refused to start without a whole-card reading, but after the
 first sample a sample with no card reading (nvidia-smi failing or timing

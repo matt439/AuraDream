@@ -705,8 +705,10 @@ were not viewed. Evidence: `card4-quant/` in the cards directory
 
 Remaining after the fixed-loader trial on 2026-10-27: INT8 and fp8 under
 model/sequential offload on FLUX.1 dev, schnell, Krea 2 Turbo, Krea 2 Raw,
-klein 9B and base 9B; Krea dev's INT8 modes, fp8/sequential and fp8/model
-repeatability. Krea dev's fp8/model load and first render are now measured
+klein 9B and base 9B; Krea dev's INT8 modes and fp8/model repeatability.
+Krea dev's fp8/sequential load and its RAM were measured on 2026-11-11 under
+a cropped inpaint (see "FLUX.1 Krea dev with sequential offload, 2026-11-11");
+its text-to-image repeatability is not. Krea dev's fp8/model load and first render are now measured
 in [the fixed-loader result](#ram-at-the-load-the-fixed-loader-2026-10-27),
 not a repeat or a new cross-mode quality comparison. The earlier RAM guard
 stops remain historical evidence. Any Qwen-Image mode on Windows, INT8 with
