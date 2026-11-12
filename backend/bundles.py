@@ -24,6 +24,7 @@ from PIL import Image
 
 from . import backup_receipts, bundle_capacity, bundle_crypto, bundle_images, bundle_leases, gallery_lock, png_settings, storage
 from . import mask_crop as mask_crop_rule
+from . import refusal_codes
 from .bundle_archive import _DATABASE, _FORMAT, _MANIFEST, _READ_AHEAD_MAX, _check_space, _verify_archive
 from .bundle_common import (
     _CHUNK,
@@ -37,6 +38,7 @@ from .bundle_common import (
     _mask_rows,
     _quiet,
     _rows,
+    sentence,
 )
 from .bundle_recovery import _embedded_member, _mask_crop, _rebuilt_member, _recovered_outpaint
 from .bundle_images import _critical_digest, _inspect_source, _metadata, _references, _rewrite_all, _validate_row
@@ -68,10 +70,27 @@ def bundle_path(name: str) -> Path:
     return path
 
 
+_UNREADABLE_RECEIPTS = ("the automatic backup's receipts could not be read, so no saved bundle "
+                        "is deleted by hand")
+_MANAGED_COPY = "this is a copy the automatic backup keeps; its retention removes it, not a delete by hand"
+
+
+def _delete_holds(directory: Path) -> tuple[frozenset[str], str | None]:
+    """The names whose Delete the backup journal holds, or one reason for
+    every name when the journal cannot be read (GAL#26)."""
+    try:
+        return backup_receipts.counted_archives(_settings().db_path, directory), None
+    except backup_receipts.ReceiptError:
+        return frozenset(), _UNREADABLE_RECEIPTS
+
+
 def list_bundles() -> list[dict]:
+    """The saved bundles, each with `delete_hold`: why its Delete is refused
+    (the automatic backup's journal counts it, or cannot be read), or None."""
     directory = _directory()
     if not directory.exists():
         return []
+    managed, unreadable = _delete_holds(directory)
     found = []
     for p in directory.iterdir():
         if p.suffix.lower() not in _SUFFIXES or not p.is_file() or _is_link(p):
@@ -84,9 +103,72 @@ def list_bundles() -> list[dict]:
                 info = p.stat()
             except OSError:
                 continue
+            hold = unreadable or (_MANAGED_COPY if p.name.casefold() in managed else None)
             found.append({"name": p.name, "bytes": info.st_size, "created_at": info.st_mtime,
-                          "encrypted": encrypted})
+                          "encrypted": encrypted, "delete_hold": sentence(hold) if hold else None})
     return sorted(found, key=lambda b: b["name"], reverse=True)
+
+
+class ManagedBundle(BundleError):
+    """A saved bundle the automatic backup's journal still counts."""
+
+
+class CannotDelete(BundleError):
+    """An unlink the operating system refuses for good (not a sharing hold)."""
+
+
+_SHARING_VIOLATION = 32  # Windows' ERROR_SHARING_VIOLATION
+
+
+def delete_saved_bundle(name: str) -> dict:
+    """Remove one saved bundle the person chose and confirmed (GAL#26).
+
+    Never automatic or bulk: one named file a press asked for. Refused, with
+    `bundle_in_use`, while a download or an import reads it (the archive's
+    exclusive lease, which waits for no reader) or while another process
+    holds it open; with `bundle_gone` when it is not there. An archive the
+    automatic backup's journal counts as a copy is refused: its retention
+    owns it, and a copy gone by hand would still be counted as a backup.
+    The caller refuses while a bundle operation holds the gallery.
+    """
+    path = bundle_path(name)
+    gone = refusal_codes.CodedLookupError(
+        f"{name} is no longer among the saved bundles; nothing was deleted.", refusal_codes.BUNDLE_GONE)
+    busy = refusal_codes.CodedError(
+        f"{name} is being downloaded or imported; nothing was deleted. Try again when it has finished.",
+        refusal_codes.BUNDLE_IN_USE)
+    if not path.is_file():
+        raise gone
+    managed, unreadable = _delete_holds(path.parent)
+    if unreadable:
+        raise ManagedBundle(f"{unreadable}; nothing was deleted")
+    if path.name.casefold() in managed:
+        raise ManagedBundle(f"{name} is a copy the automatic backup keeps; its retention removes it, "
+                            "not a delete by hand. Nothing was deleted")
+    try:
+        lease = bundle_leases.downloads.exclusive(path)
+    except bundle_leases.LeaseBusy:
+        raise busy from None
+    with lease:
+        try:
+            size = path.lstat().st_size
+            if _is_link(path) or not path.is_file():
+                raise gone
+            path.unlink()
+        except FileNotFoundError:
+            raise gone from None
+        except PermissionError as exc:
+            # Windows' sharing violation (winerror 32): another process (an
+            # Explorer copy, another server) has the file open without
+            # sharing its delete, which passes. Anything else - Linux never
+            # refuses an unlink for an open file - is a permission that
+            # waiting does not change, said in its own words.
+            if getattr(exc, "winerror", None) == _SHARING_VIOLATION:
+                raise busy from None
+            raise CannotDelete(f"the server cannot delete {name} ({exc.strerror or 'permission denied'}); "
+                               "nothing was deleted") from None
+    log.info("deleted saved bundle %s (%d bytes)", path.name, size)
+    return {"name": path.name, "bytes": size}
 
 
 class MissingImage(BundleError):

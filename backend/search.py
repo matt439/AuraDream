@@ -357,6 +357,36 @@ def split_search(search: str) -> tuple[list[str], list, str]:
     return terms.clauses, terms.params, " ".join(terms.words)
 
 
+def _word_char(c: str) -> bool:
+    return c.isalnum()
+
+
+def word_match(prompt: str | None, word: str, prefix: int) -> int:
+    """Whether `prompt` holds `word` literally (case aside) where a word
+    starts, and - unless `prefix` - where one ends too: a free word from its
+    first letters (`drag` finds dragon, not snapdragon), an exclusion whole
+    (`-drag` leaves out "drag race", not dragon). An edge that is itself
+    punctuation (`26"`) needs no boundary; the quote stays literal.
+
+    The search's fallback when a word's odd double quote breaks the MATCH
+    (`list_images`), as near the index's prefix and exact matches as a
+    literal search gets: a LIKE substring there turned `-drag` into a
+    leave-out of every dragon too (GAL#25).
+    """
+    if not prompt or not word:
+        return 0
+    text, want = prompt.lower(), word.lower()
+    start_bound, end_bound = _word_char(want[0]), not prefix and _word_char(want[-1])
+    at = text.find(want)
+    while at >= 0:
+        end = at + len(want)
+        if not (start_bound and at > 0 and _word_char(text[at - 1])) and not (
+                end_bound and end < len(text) and _word_char(text[end])):
+            return 1
+        at = text.find(want, at + 1)
+    return 0
+
+
 def like_escape(term: str) -> str:
     r"""Neutralise LIKE wildcards, for use with ESCAPE '\'."""
     return term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
@@ -367,7 +397,7 @@ def strict_scope(search: str | None) -> tuple[list[str], list]:
     and nothing else.
 
     For the paths where a fuzzy match is a hazard - a delete, a statistic.
-    `list_images`' LIKE fallback changes the predicate's semantics on any
+    `list_images`' fallback changes the predicate's semantics on any
     token with an odd quote, and a destructive filter resolved through a fuzzy
     index should not be confirmed blind: free text is refused, not matched,
     and so is an excluded word, which goes through the same index. A

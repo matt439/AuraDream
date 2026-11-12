@@ -870,6 +870,13 @@ Search combines these terms with free text matching the prompt:
 Orientation values compare the stored width and height. Combine them with
 prompt words or other filters, such as `size:portrait seed:42`.
 
+A prompt word matches the start of a word, so the gallery narrows as you
+type: `drag` finds "dragon" and "drag race" but not "snapdragon". Every
+word must match, in any order. An excluded word is exact: `dra -drag`
+keeps the dragons and leaves out "drag race". Words like AND, OR and NOT
+are searched as words, and a search holding an odd double quote (`26"`)
+matches the same way.
+
 A leading `-` leaves images out: `fox -blonde` is the foxes whose prompt does
 not have "blonde", and `seed:>10 -seed:12` every seed above 10 but 12. A lone
 `-`, a word starting `--` (`--ar`) and a quoted `"-x"` are still prompt text.
@@ -1409,6 +1416,19 @@ but whose file is gone is restored from the bundle when the bundle holds that
 same picture. Different files using the same name
 are refused before changing the gallery. Source images the bundle does not
 hold cannot be linked; the result counts those links, which are left empty.
+
+**Delete** on a saved bundle's row removes that one file from the server
+after a question naming it and its size, like Empty bin: it cannot be
+undone, and a bundle the gallery was cleared into may be the only copy of
+those images. The gallery itself is not changed. Each file is deleted on
+its own; nothing deletes saved bundles automatically or several at once.
+The delete waits, with the row kept and the reason in the status line,
+while that file is being downloaded or imported, while a bundle
+operation is running, or, on Windows, while another program holds it
+open. A copy the automatic startup backup still counts is left to its own
+retention: that row's Delete is held and says so, and every row's is held
+while the backup's receipts cannot be read. A file the server has no
+permission to delete is refused in those words.
 
 After import, **Show new gallery images** opens the newly added live rows;
 **Show new images in bin** opens additions that were binned when bundled.
