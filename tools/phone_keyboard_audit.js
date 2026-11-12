@@ -77,7 +77,8 @@ window.__keyboardPasses = async () => {
 // form must remain editable; its usual sticky controls return on dismissal.
 window.__keyboardOtherForms = async () => {
   const cases = [
-    { open: openMoreSheet, dialog: 'more-sheet', field: 'steps' },
+    // Steps is in the Sampling fold, shut the first time (UI#51): opened here.
+    { open: () => { els.samplingSection.open = true; return openMoreSheet(); }, dialog: 'more-sheet', field: 'steps' },
     { open: openSetups, dialog: 'setups-dialog', field: 'setups-name' },
     { open: openSnippets, dialog: 'snippets-dialog', field: 'snippets-name' },
     { open: openSavedSearches, dialog: 'saved-searches-dialog', field: 'saved-searches-name' },

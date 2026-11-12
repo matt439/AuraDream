@@ -12,7 +12,7 @@
     "expect": "__until(() => modelState === 'ready' && !galleryPending)"
   },
   {
-    "eval": "resetPanel(); writeBox(els.prompt, 'numeric input source'); __fixNumber(els.width, '256'); __fixNumber(els.height, '256'); window.__realApi = api; window.__posts = []; window.__morePosts = 0; api = async (path, options) => { if (path === '/api/generate' || path === '/api/grid') __posts.push({path, body: JSON.parse(options.body)}); if (path === '/api/more-seeds') __morePosts++; return __realApi(path, options); }; (async () => { await __realApi('/api/fake/step', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({seconds:0})}); })()"
+    "eval": "resetPanel(); els.samplingSection.open = true; writeBox(els.prompt, 'numeric input source'); __fixNumber(els.width, '256'); __fixNumber(els.height, '256'); window.__realApi = api; window.__posts = []; window.__morePosts = 0; api = async (path, options) => { if (path === '/api/generate' || path === '/api/grid') __posts.push({path, body: JSON.parse(options.body)}); if (path === '/api/more-seeds') __morePosts++; return __realApi(path, options); }; (async () => { await __realApi('/api/fake/step', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({seconds:0})}); })()"
   },
   {
     "log": "\"Steps: actual native typing 1e stays invalid, says which field to fix and focuses it without a POST.\""

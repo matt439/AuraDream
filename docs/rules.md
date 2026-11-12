@@ -4239,12 +4239,43 @@ measured on the card and when.
   no automatic close or poll-driven reopen, and no new persistence key.
   Pending restored LoRA names survive snapshots/Undo, but Reset or a replacement
   Reuse clears them so a late catalogue cannot restore stale conditioning.
+- Sampling is a native fold too (`#sampling-section`, summary
+  `#sampling-caption`, UI#51): Steps, CFG, Mu and True CFG. Its summary
+  (`#sampling-value`, `syncSamplingSummary`, sizes.js) always gives the
+  effective values: a blank Steps or CFG box as the profile's (`lastDefaults`),
+  CFG named plainly (the row's label says "(distilled)") with "(unused)" where
+  `cfg_ignored`, a blank Mu as `muPlaceholder()` ("auto" or the fixed shift),
+  no Mu where `muSupported` is false, True CFG only where supported and typed
+  (with "(unused)" when `negativeSent` sends no negative, so `applied()`
+  drops it),
+  and "check …" in `.warn` for a box whose number cannot be read. In the
+  panel it is one line (`white-space: nowrap`, an ellipsis past
+  `calc(100% - 6.5em)`, the whole text its `title`): a wrap moved Seed and
+  Generate as True CFG was typed. It follows
+  the boxes' input, `syncCfg`, `syncMu` and `syncMuWords`, never opening or
+  shutting the fold. Unlike the two above, its open state is remembered per
+  browser (`auradream.sampling-open`, `'1'`/`'0'`, try/catch; shut when
+  absent or unreadable), restored by `initSamplingFold` before the first
+  paint; not the panel's, so Reset leaves it. Only a press on the summary
+  writes it (its click, read on the next task); a reveal is never stored. Status, Reuse, Reset, setups and
+  Load settings from PNG write its boxes shut and leave it shut; only a
+  press that focuses a box inside (an incomplete number at Generate,
+  `revealSetupField`; Set CFG/True CFG, `focusNegativeKnob`) opens it. Set
+  CFG sits above it, so nothing moves under that press. The refusal of an
+  incomplete number by Generate, Run grid or Run comparison (`refuseBadNumber`)
+  opens it above the pressed button, which moves down; it is the accepted
+  exception, as Custom dimensions' is, and focus goes to the box. Shut, it saves the
+  row's height (Generate about 60 px higher at 1400x900); open, it is no
+  taller than the caption and row were (with a fine pointer: no padding of
+  its own, and in the panel `margin-top: -4px`, fields.css; a touch screen
+  keeps the usual spacing, which its ? badges' upward reach needs). On the
+  phone it moves whole into More options' sheet, first.
 - The sampling row (`.sampling-row`) keeps each name on one line, with
   `white-space: nowrap` on the `<label>` alone - never on the label line,
   which also holds the ? badge and its tip. No box is narrower than its name
   (`min-width: min-content`), and its boxes take the counters' padding.
-  Seed, Batch and Repeat form the Output group (`#output-caption`, the
-  Sampling caption's twin, role=group), one line at every width.
+  Seed, Batch and Repeat form the Output group (`#output-caption`,
+  role=group), one line at every width.
   `#run-hint`, what Batch and Repeat add up to (Batch and Repeat are
   described by it), sits under Generate after `#progress`, not in the group:
   above Generate its two lines moved Generate as Batch or Repeat passed 1
@@ -7483,7 +7514,7 @@ measured on the card and when.
   refusal beside it (`#error.at-generate`) take the page's colour
   (`--bg`) for it, the held Generate's mix too.
   Every fold (`details` of `.setup-disclosure`, `.section`,
-  `.ms-technical`, `.bundle-automatic`, `.model-performance`: Custom
+  `.ms-technical`, `.bundle-automatic`, `.model-performance`: Sampling, Custom
   dimensions, Grid search, LoRA & references, a dialog's Prompt and
   sampling, More seeds' and Bundles' folds, the Models sheet's
   Performance) is one row on the phone: 48 px under a 1 px rule, no
@@ -10442,6 +10473,17 @@ restore/Reuse/Undo and pending LoRA catalogue behavior, numeric-focus reveal,
 reference activation/order/capability state, native expansion, scoped `/` and M,
 hidden-pick independence, no immediate queue, modal/editing/modifier/IME/repeat
 protection and responsive screenshots at 390/600/1400/2048 px.
+
+`smoke-sampling-fold.json` uses its own fresh FLUX.1 Krea [dev] fake on 7925.
+It checks the Sampling fold (UI#51): shut the first time and one summary line
+at 1400x900, the summary's effective values with blank, typed, True CFG and
+unreadable boxes and on Z-Anime (fixed shift), Animagine (no Mu) and klein
+(unused CFG) after switches, a summary press opening in place with nothing
+above it moving, the open state across a status poll and two reloads, Reuse
+and Reset leaving it shut, Generate's incomplete-number refusal and Set True
+CFG opening it to focus a box without storing the opening, True CFG marked
+"(unused)" while no negative prompt is sent, and a storage that refuses
+writes.
 
 `smoke-shortcut-dispatch.json` uses a fresh fake on 7924. It checks modal and
 menu ownership, exact modifiers, handled/composing/repeated events, native

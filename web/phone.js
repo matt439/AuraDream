@@ -40,7 +40,7 @@ function phoneHome(node) {
 // and Grid search - and, first, the negative prompt while it does not run
 // (placePhoneNegative). Run grid is in its foot.
 const moreSheetNodes = () => [
-  $('sampling-caption').closest('.field'), els.seed.closest('.sub'), els.runs.closest('.sub'),
+  els.samplingSection, els.seed.closest('.sub'), els.runs.closest('.sub'),
   els.customSize, els.conditioningSection, document.querySelector('.notification-choice'),
   document.querySelector('.execution-cache-row'), els.gridSection,
 ];

@@ -9188,6 +9188,35 @@ pending choice and retaining it in Undo snapshots restores documented behavior.
 Comparison grouping and C were left out of this bounded slice; existing S and
 visible comparison controls remain.
 
+**The Sampling fold (2026-11-12, `UI#51`).** UX#21's last candidate, built on
+Matt's answer to the 2026-11-12 audit: Steps, CFG, Mu and True CFG in one
+native fold, since the self-report rates them Sometimes (A6-A8) and True CFG
+and Mu sweeps Never, while the panel at 1400x900 has no room. Shut, the fold
+is one summary line where the caption and row were two, so Generate sits about
+60 px higher; open, it is no taller than the caption and row were (its own
+padding dropped, its rule 4 px into the panel's gap). Three choices differ from Custom dimensions. First, the summary
+is the effective request, not the boxes: a blank box is sent absent and the
+server fills it from the profile, so the summary says the profile's number; a
+blank Mu says "auto" or the fixed shift as the box's placeholder does. A
+value hidden behind a fold must not read as something else. Second, it is
+remembered per browser (`auradream.sampling-open`): someone who tunes steps
+every session keeps it open, which the requirement's "reversible" asks for,
+while Custom dimensions keeps its no-persistence decision. Third, nothing
+reveals it on Reuse or restore. Its summary already shows the restored values,
+and opening it there would push Seed and Generate down under a pointer. Only
+a press that needs a box inside opens it. Set CFG sits above the fold, so
+nothing under it moves. The refusal of an incomplete number (by Generate, Run
+grid or Run comparison, all below the fold) is the one exception, as it is for
+Custom dimensions: it can happen only after someone typed the bad number and
+then shut the fold, and the refusal moves focus to the box anyway. Such a
+reveal is not remembered: only a press on the summary is stored, so one Set
+True CFG does not leave the fold open on every later visit. True CFG's value
+is marked "(unused)" while no negative prompt is sent, since `applied()`
+then records none.
+True CFG went inside rather than staying direct: alone it would cost a row,
+and its summary names it once set. The `DEV#1` trials may still judge the
+placement.
+
 **Ownership review (2026-10-26).** The [approved follow-up](maintainer/plan-shortcut-workflow.md)
 fixes actual browser conflicts: Ctrl+Enter generated behind Then refine settings,
 Picked activated and generated in one event, lightbox Alt+Arrow intercepted

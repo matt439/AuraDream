@@ -16,6 +16,31 @@
 .setup-disclosure > summary span.warn { color: var(--warn); }
 .setup-body { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-2); min-width: 0; }
 .custom-orientation { display: flex; }
+/* Sampling's fold (UI#51) takes the place of a caption and its row, and open
+   it must cost no more than they did: the panel has no room at 1400x900,
+   where the fold's own 4 px above and below and the body's 8 px put
+   Generate 19 px lower than the caption had. Its summary keeps its --h-sm
+   target; the row sits straight under it, as it sat under the caption, and
+   in the panel its rule takes 4 px of the gap above (where nothing is
+   pressed), which is the summary's height over the caption's line. In More
+   options' sheet on the phone it keeps the sheet's own spacing, and a
+   touch screen keeps the fold's usual spacing everywhere: there the ?
+   badges' press reaches 8 px above them, into a summary straight above. */
+@media not (pointer: coarse) {
+  #sampling-section { padding-block: 0; }
+  #sampling-section > .setup-body { margin-top: 0; }
+  .panel > #sampling-section { margin-top: -4px; }
+}
+/* And its summary stays one line in the panel, whatever is typed: a second
+   line moved Seed and Generate down while a True CFG was typed. Plain values
+   fit (28 steps · CFG 3.5 · Mu auto · True CFG 4.5 is 205 of 229 px at
+   1400); a longer one is cut, its title whole (sizes.js). 6.5em is the
+   marker and the bold name before it, at any tier's type. On the phone the
+   sheet's fold row takes two lines (styles/touch.css). */
+.panel > #sampling-section > summary > span {
+  display: inline-block; max-width: calc(100% - 6.5em); vertical-align: bottom;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 
 textarea, input[type="number"], input[type="search"], input[type="text"], input[type="password"] {
   background: var(--panel-2);

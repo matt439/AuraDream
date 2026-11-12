@@ -122,6 +122,8 @@ function syncMuWords() {
     : d?.mu != null ? `none,${d.mu}` : '';
   els.gridMuField.title = why;
   els.gridMuTip.replaceChildren(...(why ? [why] : gridMuTipDefault));
+  // The Sampling fold's summary says Mu's blank as the placeholder does.
+  syncSamplingSummary();
 }
 
 // What steps/CFG/mu mean depends on the checkpoint - 8 steps at CFG 0 is right
@@ -227,6 +229,7 @@ function syncMu() {
     els.mu.value = '';
     els.gridMu.value = '';
   }
+  syncSamplingSummary();
 }
 
 // The editor's two actions on the card - ERNIE's rewriter and the prompt

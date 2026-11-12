@@ -315,7 +315,8 @@ can change during a download. For manual cleanup while stopped, follow
 ## Generate and manage jobs
 
 Enter a prompt, choose a size and press **Generate**. The checkpoint supplies
-its starting Steps, CFG and Mu. The **?** badges explain each control and
+its starting Steps, CFG and Mu, which the **Sampling** fold's summary shows
+(see [Compact setup](#compact-setup)). The **?** badges explain each control and
 which settings the model uses. A blank Seed draws a new seed; a fixed Seed
 lets you compare settings. Reproduction also depends on the checkpoint,
 quantizer, size and other inputs. Nunchaku is not bitwise reproducible.
@@ -1113,6 +1114,20 @@ below it. **LoRA & references** contains adapter/weight and reference controls;
 its summary names active or retained inputs. Restore and Reuse reveal relevant
 setup, and an incomplete number reveals its field before focusing it. Closing
 a group keeps every setting. Status updates preserve your chosen open state.
+
+**Sampling** holds Steps, CFG, Mu and True CFG. Its summary always shows the
+values a Generate will use, such as `28 steps · CFG 3.5 · Mu auto`:
+a blank box shows the checkpoint's default, Mu shows `auto` or the
+checkpoint's fixed shift, True CFG appears once you set it (marked
+`(unused)` until a negative prompt is there for it to run), and a number
+the box cannot read shows as `check steps` (or the field's name). This
+browser remembers whether you last opened or shut it from its summary, and
+it starts shut.
+Reuse, Reset, Saved setups and Load settings from PNG change the values
+without opening it. Only a press that needs one of its boxes opens it: an
+unfinished number at Generate, Run grid or Run comparison, or **Set CFG** /
+**Set True CFG** under a greyed negative prompt; that opening is not
+remembered. On a phone it is the first row of **More options**.
 
 ### Keyboard and lightbox
 

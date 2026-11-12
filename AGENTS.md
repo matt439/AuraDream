@@ -760,6 +760,7 @@ uses the driver's graceful close/cleanup. See the full Tests rules.
 | 7923 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-control-sizing` |
 | 7924 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-shortcut-dispatch` |
 | 7925 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-compact-setup` |
+| 7925 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-sampling-fold` |
 | 7926 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-execution-reuse` |
 | 7927 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-automatic-backup` |
 | 7928 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-retention` |
