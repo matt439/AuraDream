@@ -8825,7 +8825,9 @@ surviving a JSON round trip, the search fallback keeping its filters, and the
 HTTP guards. `tests/test_docs_maps.py` holds `CLAUDE.md` to the one
 `@AGENTS.md` import; every backend module, `web/*.js` and `web/styles/*.css`
 named in the Layout above (the stylesheets in `index.html`'s link order, and
-its count of classic scripts); and every `tools/smoke*.json` in `AGENTS.md`'s
+its count of classic scripts); `AGENTS.md`'s short Layout to a link to every
+`###` part of the Layout above (a new part gets its line there) and to its
+bounded length in lines and bytes; and every `tools/smoke*.json` in `AGENTS.md`'s
 port table, on the row whose port its first `navigate` uses, and named
 below; and every `/api/fake/...` route and command-line flag
 `tools/fake_server.py` registers (read as text, never imported), named in

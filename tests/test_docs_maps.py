@@ -91,6 +91,9 @@ def test_agents_layout_points_at_every_part_of_the_full_map():
     bullets = [line for line in short.splitlines() if line.startswith("- ")]
     assert len(bullets) <= len(parts) + 2
     assert len(short.splitlines()) <= len(bullets) + 8
+    # Lines alone would let the map return as long single-line bullets: cap
+    # the section's size too (about 1.9 KB when it was cut).
+    assert len(short) <= 2500
 
 
 def test_every_smoke_is_in_the_port_table_on_its_port():
