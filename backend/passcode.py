@@ -19,7 +19,8 @@ unencrypted; it keeps out people who can merely reach the address.
 
 The limiter's state is read and written on the event loop only.
 
-Standard library and Starlette only; no `config` import.
+Standard library and Starlette only (with `keep_awake`'s and
+`server_probe`'s, which are stdlib); no `config` import.
 """
 from __future__ import annotations
 
@@ -38,6 +39,7 @@ from starlette.datastructures import MutableHeaders
 from starlette.requests import cookie_parser
 from starlette.responses import JSONResponse, Response
 
+from .keep_awake import counts_as_activity
 from .server_probe import is_loopback
 
 log = logging.getLogger("auradream.passcode")
@@ -73,8 +75,11 @@ WRONG_DETAIL = "That passcode is not right."
 
 TOKEN_VERSION = "v1"
 SESSION_SECONDS = 30 * 24 * 60 * 60
-# A valid cookie older than this is replaced on a GET of the page, so a
-# device used within the month stays signed in.
+# A valid cookie older than this is replaced on a GET of the page or on any
+# request someone using it makes (`keep_awake.counts_as_activity`: never
+# the page's timed polls, the job streams or its files), so a device used
+# within the month stays signed in, a tab or PWA left open included, while
+# an idle open tab does not keep its session alive by polling.
 RENEW_AFTER_SECONDS = 24 * 60 * 60
 # A fixed label, not a random salt: there is one secret, not a table of them.
 SESSION_SALT = b"auradream.passcode.session.v1"
@@ -333,7 +338,9 @@ class PasscodeMiddleware:
     signed in is none of those).
 
     A request passes with a valid session cookie or the passcode as
-    `Authorization: Bearer`. Otherwise GET or HEAD of exactly `/` is the
+    `Authorization: Bearer`. A cookie a day old is replaced on the page and
+    on a request that `counts_as_activity`, never on a poll or a file
+    (`RENEW_AFTER_SECONDS`). Otherwise GET or HEAD of exactly `/` is the
     sign-in page (`page`, a 200: a service worker rejects a redirect for a
     navigation, and the title probes raise on a 401), `OPEN_PATHS` pass,
     and everything else is a 401 whose body is never read.
@@ -387,13 +394,24 @@ class PasscodeMiddleware:
             response = self._page() if is_page else self._required()
             await response(scope, receive, send)
             return
+        secure = scope.get("scheme") == "https"
         if not is_page:
-            await self.app(scope, receive, send)
+            if not (renew and counts_as_activity(method, path)):
+                await self.app(scope, receive, send)
+                return
+
+            # Someone using an open tab: a fresh cookie once the one sent is
+            # a day old, on whatever the answer is.
+            async def send_renewed(message: Any) -> None:
+                if message.get("type") == "http.response.start":
+                    MutableHeaders(scope=message).append("Set-Cookie", gate.cookie(gate.mint(), secure=secure))
+                await send(message)
+
+            await self.app(scope, receive, send_renewed)
             return
 
         # The page itself, signed in: never the cached copy on a signed-out
         # reload, and a fresh cookie once the one sent is a day old.
-        secure = scope.get("scheme") == "https"
 
         async def send_page(message: Any) -> None:
             if message.get("type") == "http.response.start":

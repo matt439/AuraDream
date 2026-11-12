@@ -348,7 +348,7 @@ def test_the_page_renews_a_cookie_a_day_old_and_is_never_served_cached(client, g
     page = client.get("/")
     assert page.headers["cache-control"] == "no-cache" and "set-cookie" not in page.headers
     clocks[1].at += 24 * 3600 + 60
-    # Only the page renews: a poll or a file does not.
+    # A poll or a file does not renew: an idle open tab is not someone using it.
     assert "set-cookie" not in client.get("/api/status").headers
     assert "set-cookie" not in client.get("/static/app.js").headers
     assert "cache-control" not in client.get("/api/status").headers
@@ -362,6 +362,42 @@ def test_the_page_renews_a_cookie_a_day_old_and_is_never_served_cached(client, g
     clocks[1].at += 29 * 24 * 3600 + 3600
     assert not gate.valid(first)
     assert client.get("/api/status").status_code == 200
+
+
+def test_a_counted_api_request_renews_a_cookie_a_day_old_for_a_tab_left_open(client, gate, clocks):
+    """DEV#56: a tab or PWA left open and used daily never loads `/` again,
+    so a request someone makes (`keep_awake.counts_as_activity`) renews too;
+    the page's timed polls, job streams and files still never do."""
+    assert sign_in(client).status_code == 204
+    first = client.cookies.get(gate.cookie_name)
+    # Under a day old: nothing is renewed, counted or not.
+    assert "set-cookie" not in client.get("/api/gallery").headers
+    clocks[1].at += 24 * 3600 + 60
+    for path in ("/api/status", "/api/jobs", "/api/gallery/bundles/status", "/static/app.js"):
+        assert "set-cookie" not in client.get(path).headers, path
+    assert "set-cookie" not in client.head("/api/gallery").headers
+    answer = client.get("/api/gallery")
+    assert answer.status_code == 200
+    renewed = session_cookie(answer)
+    fresh = renewed.split("; ")[0].split("=", 1)[1]
+    assert fresh != first and gate.valid(fresh) and not gate.renewable(fresh)
+    assert sorted(renewed.split("; ")[1:]) == ["HttpOnly", "Max-Age=2592000", "Path=/", "SameSite=Lax"]
+    assert client.cookies.get(gate.cookie_name) == fresh
+    # Renewed once: the next counted request carries the fresh cookie.
+    assert "set-cookie" not in client.get("/api/gallery").headers
+    # A write renews as well, whatever it answers.
+    clocks[1].at += 24 * 3600 + 60
+    assert session_cookie(client.post("/api/model/unload"))
+    # A month after the first sign-in the tab is still signed in.
+    clocks[1].at += 28 * 24 * 3600
+    assert not gate.valid(first)
+    assert client.get("/api/status").status_code == 200
+
+
+def test_a_bearer_request_is_never_given_a_renewed_cookie(client, gate, clocks):
+    clocks[1].at += 24 * 3600 + 60
+    answer = client.get("/api/gallery", headers=BEARER)
+    assert answer.status_code == 200 and "set-cookie" not in answer.headers
 
 
 # ------------------------------------------------------------------- Bearer

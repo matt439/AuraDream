@@ -519,7 +519,9 @@ before changing it.
   docs/design-notes.md, "A passcode beyond loopback"): `asked`/`gate_for` (on when `AURADREAM_PASSCODE` is set and
   the bind or an allowed host is not loopback), `Gate` (the comparison, the
   scrypt-derived session key and the `v1.<expires>.<mac>` cookie; it keeps
-  a digest, never the passcode), `Limiter` (wrong passcodes for the whole
+  a digest, never the passcode; a cookie more than a day old is renewed on
+  `/` and on any request `keep_awake.counts_as_activity` counts, never on a
+  timed poll, a job stream, a file or a Bearer request), `Limiter` (wrong passcodes for the whole
   server, on the event loop only) and `PasscodeMiddleware`, a plain ASGI
   layer always installed that passes everything through while `main`'s
   gate is None. Its place in `main` is inside the response headers, the

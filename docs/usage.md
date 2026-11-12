@@ -1231,8 +1231,9 @@ route, image and stream answers 401 until the browser has signed in. It is
 asked whenever `AURADREAM_HOST` or a name in `AURADREAM_ALLOWED_HOSTS` is
 not loopback, of every caller, the PC's own browser and a proxy on the same
 machine included; on a server only this machine reaches it is not asked.
-A browser stays signed in for thirty days after its last visit, across
-restarts; **Sign out** is in the Models panel. If the session ends under an
+A browser stays signed in for thirty days after it was last used (a page
+load, or anything done on an open page; the page's own timed checks do not
+count), across restarts; **Sign out** is in the Models panel. If the session ends under an
 open page, the top bar says "signed out" with a **Sign in** button, and
 nothing typed is lost. Anything that is not a browser sends
 `Authorization: Bearer <passcode>`: `generate --via-server`, the doctor and
