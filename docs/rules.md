@@ -11061,7 +11061,10 @@ beside wall clock, and each rerun verdict as an annotation on the run's
 page: an error for one that failed again alone, a warning for one that
 passed alone, a race to fix), and uploads each smoke's result, browser log,
 screenshots and failed fake's log as `smoke-artifacts-<index>` when it
-fails. A smoke `run_smoke_costs.json` lacks counts as twelve seconds; refresh it
+fails. A smoke `run_smoke_costs.json` lacks counts as twelve seconds, but
+`tests/test_run_smoke.py` requires the file to name exactly the table's
+smokes: a new row adds its entry, a hand estimate or a local time scaled
+to the hosted ones until the next refresh (`DEV#62`). Refresh it
 with `smoke_timings.py <part's artifacts> --write-costs` per part after the
 table changes much. uv's cache is the lint job's own (`cache-suffix: lint`,
 dev tools only) apart from the test jobs' (`app`, saved by the first part
@@ -11428,7 +11431,27 @@ one pending, printing the step it was on, and 2 on a script it refuses
 before starting - among them an
 `expect` joining an async helper (`__until`, or a `window.__x = async` the
 file defines) to more with && or ||, which is never awaited: the whole
-condition goes inside the predicate. Each run's browser profile, under the
+condition goes inside the predicate. A smoke waits for what its next
+`expect` needs rather than sleeping a fixed time before it (`DEV#58`):
+`smoke`, `smoke-analysis`, `smoke-animagine`, `smoke-lightbox` and
+`smoke-wide` define `window.__when(fn, ms = 10000)` after each `navigate`,
+which polls `fn` every 50 ms (an exception, such as a chip not drawn yet,
+reads as not yet) and once more at its end, so a condition that never holds
+still says why. A check that a request settled names how it ends, not only
+what it shows: Check's `aria-busy` is gone, the critic is no longer
+`critiquing`, the gallery has no `galleryPending`, the chips' `tagSlots`
+are this prompt's, the page has stopped scrolling. Otherwise a check could
+pass on the answer before. A timer is waited out on its own clock, as
+`performance.now() - lbArrowPress > 600` is for the lightbox's 500 ms
+`lbAfterArrow`. Before an `expect`, a fixed `wait` stays only where the
+check is of an absence: nothing happened in that time, like a double-click's
+second press that neither zooms nor closes, or a Batch that leaves the
+comparison's count alone. Such a step carries a `why` saying so (the driver
+reads only `wait`), and
+`test_converted_smokes_poll_their_expects_instead_of_sleeping`
+(`tests/test_run_smoke.py`) holds these files to it. Waits before an action
+(a click, a key) and the remaining smokes are later phases of `DEV#58`. Each
+run's browser profile, under the
 system temp directory, is removed on every way out - the steps' end, a
 failure, a throw, Ctrl-C or SIGTERM - once the browser's whole process tree
 has stopped. The browser gets 10 s to close itself before its tree is killed,
