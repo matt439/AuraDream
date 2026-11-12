@@ -244,6 +244,13 @@ els.gridSection.addEventListener('toggle', () => scheduleComparePreview(0));
 // A grid variable's chip names the values the fold declares, and asks about
 // them (gridVariableTip): the tray reads the box again as it changes.
 els.gridPrompt.addEventListener('input', () => { if (gridVariableChips()) scheduleTagValidation(); });
+// On a tag checkpoint the box suggests tags for the value at the caret
+// (tag-lists.js, suggestGridValues).
+els.gridPrompt.addEventListener('input', suggestGridValues);
+els.gridPrompt.addEventListener('click', suggestGridValues);
+els.gridPrompt.addEventListener('keyup', gridValuesCaret);
+els.gridPrompt.addEventListener('keydown', (event) => editorListKeydown(event, els.gridTagSuggestions, hideGridSuggestions));
+els.gridPrompt.addEventListener('blur', hideGridSuggestions);
 els.gridSection.addEventListener('toggle', () => { if (gridVariableChips()) scheduleTagValidation(0); });
 // A listed seed axis makes the count and the base seed moot; say so in place.
 els.gridSeedList.addEventListener('input', () => {

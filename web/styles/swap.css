@@ -48,6 +48,19 @@
 .swap-field label { display: inline-flex; align-items: center; gap: var(--sp-1); }
 .swap-field label[hidden] { display: none; }
 .swap-hint { color: var(--text-3); font-size: var(--fs-label); }
+/* The Replace boxes' unknown tags (tag-swap.js, markSwapTags): one line,
+   kept while empty, so a verdict landing never moves the hint, the list or
+   Queue; what does not fit is in its title. Advisory, so amber on the box,
+   never the danger red of a refusal. */
+.swap-dialog .swap-tags {
+  min-height: calc(var(--fs-body-sm) * var(--lh)); margin: 0; font-size: var(--fs-body-sm);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.swap-row input.swap-unknown { border-color: var(--warn); }
+/* One list for every box (tag-swap.js, placeSwapSuggestions), fixed to the
+   window at the focused box, which sets its left, top and width: inside the
+   rows it was cut off at their scrolling edge. */
+.swap-dialog .swap-tag-suggestions { position: fixed; right: auto; top: 0; left: 0; z-index: 60; }
 /* Two lines, always: a longer count or a refusal never pushes the list and
    the buttons down. What does not fit is in its title. */
 .swap-count {

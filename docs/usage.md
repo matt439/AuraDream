@@ -793,9 +793,11 @@ ground = grass | dirt
 ```
 
 This makes six prompts. `none` removes that fragment; commas remain part of
-a value. Unused variables and placeholders without values are refused,
-as is a value naming another variable (`hat = {size} hat`): values are
-filled in once, so its braces would reach the model.
+a value. On a Danbooru-tag checkpoint the box suggests tags for the value
+you are typing, as the prompt box does. Unused variables and placeholders
+without values are refused, as is a value naming another variable
+(`hat = {size} hat`): values are filled in once, so its braces would reach
+the model.
 The preview counts each resolved prompt's tokens per text encoder, as Check
 counts the prompt box, on the listing's last line. Where a value carries a
 prompt past what an encoder reads, a warning names the encoder and the value
@@ -1013,6 +1015,10 @@ already rendered, already queued, a deleted source or LoRA, the same as another 
 Each image keeps its own seed, size and settings; one job is queued per
 size. A listed row notes when it is an inpaint or outpaint, and when only
 its masked area runs; an instruction edit is left out with its reason.
+On a Danbooru-tag checkpoint the Find and Replace boxes suggest tags as the
+prompt box does, and a replacement or added tag the index does not know is
+named under the rows and outlined in amber once you move on from it - a
+warning only: **Queue** still puts it in.
 
 **Refine…** (beside **Swap tags…**) runs a refine pass of each selected
 image - or, with nothing selected, of what the filter matches - from its
