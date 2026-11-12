@@ -1250,7 +1250,9 @@ ids were checked against the Hub that day; each renames by one rule
 so `Checkpoint.lite_alias` derives the new name rather than listing it.
 `launch.written_id` turns a new name into the old one where an id enters:
 `AURADREAM_MODEL_ID` as `config` reads it (and so `--model`, the menu and the
-CLI), a switch (`model_selection.validate`), and the recipe readers
+CLI), a switch (`model_selection.validate`), the saved startup choice's
+checkpoint comparison (`startup_preferences.apply_saved_environment`),
+`--via-server`'s check of the server's checkpoint, and the recipe readers
 (`model_info`, `download_progress`, `hub_access.sources`). The exact-id
 sites that already matched lite ids (`launch._match`, `api_runs._model_name`,
 `model_benchmarks.speed_for`, `model_info`'s entry and format,

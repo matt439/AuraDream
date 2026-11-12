@@ -143,9 +143,16 @@ def test_the_access_check_follows_a_307_to_the_renamed_repository(hub, monkeypat
     monkeypatch.setattr(hub_access, "_ask", REAL_ASK)
     monkeypatch.setattr(hub_access, "download_facts", lambda model_id: {"cache_state": "absent"})
     assert hub_access.check(KREA_INT4) is None
+    pinned = hub_access.sources(KREA_INT4)[0]
+    assert pinned.revision and pinned.filename
+    asked = f"/{KREA_INT4}/resolve/{pinned.revision}/{pinned.filename}"
+    requests.clear()
     assert hub_access.check(KREA_INT4_NEW) is None
-    heads = [path for method, path in requests if method == "HEAD"]
-    assert any(KREA_INT4 in path for path in heads) and any(KREA_INT4_NEW in path for path in heads)
+    # The alias asks the old id's pinned file (the recipe's), which the Hub
+    # redirects - never the new name's own auth check.
+    assert requests[0] == ("HEAD", asked)
+    assert ("HEAD", asked.replace(KREA_INT4, KREA_INT4_NEW)) in requests
+    assert not any(path.endswith("/auth-check") for _, path in requests)
     # The repository's auth check (a recipe without files) follows it too.
     REAL_ASK(hub_access.Source(KREA_INT4, None, None))
     assert ("GET", f"/api/models/{KREA_INT4_NEW}/auth-check") in requests
@@ -174,3 +181,21 @@ def test_a_download_through_the_307_lands_where_the_cache_check_reads(hub, tmp_p
     source = {"repo_id": KREA_INT4, "revision": "main", "commit": COMMIT,
               "files": {"model_index.json": len(BODY)}, "indexes": {}}
     assert model_info._hub_source_state(source, ["model_index.json"], str(tmp_path)) == "complete"
+
+
+@pytest.mark.parametrize("source", ["argument", "environment"])
+def test_a_start_naming_a_new_name_keeps_the_saved_choice_for_its_old_id(tmp_path, monkeypatch, source):
+    # A saved Nunchaku choice for the old id applies to a start (--model or
+    # AURADREAM_MODEL_ID) naming the renamed repository: one checkpoint.
+    db_path = tmp_path / "gallery.db"
+    choice = startup_preferences.StartupPreferences(KREA_INT4, "nunchaku", "none", True)
+    startup_preferences.save(db_path, choice)
+    monkeypatch.setattr(startup_preferences.sys, "platform", "linux")
+    env = {"AURADREAM_DB_PATH": str(db_path)}
+    if source == "environment":
+        env["AURADREAM_MODEL_ID"] = KREA_INT4_NEW
+        applied = startup_preferences.apply_saved_environment(env)
+    else:
+        applied = startup_preferences.apply_saved_environment(env, model=KREA_INT4_NEW)
+    assert applied == choice
+    assert env["AURADREAM_QUANT"] == "nunchaku" and env["AURADREAM_OFFLOAD"] == "none"

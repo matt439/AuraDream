@@ -1818,8 +1818,8 @@ measured on the card and when.
   The app keeps writing the old ids (settings, PNGs, `CellKey`, run ids,
   `model-downloads.json`'s keys). A new name is a read-only alias:
   `launch.written_id` turns it into the old id where an id enters
-  (`config`'s `AURADREAM_MODEL_ID`, `model_selection.validate`, recipe
-  reads), and every exact-id match (`launch._match`, `catalogue_entry`,
+  (`config`'s `AURADREAM_MODEL_ID`, `model_selection.validate`, the saved
+  startup choice's comparison, `--via-server`'s model check, recipe reads), and every exact-id match (`launch._match`, `catalogue_entry`,
   `Checkpoint.lite_format`) knows both. Never add an alias as a recipe key or
   write one (`tests/test_lite_aliases.py`, with the 307s answered by an httpx
   `MockTransport`). FLUX 3 has no Nunchaku build (`CARD#21`).

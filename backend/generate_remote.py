@@ -76,6 +76,33 @@ def _server_json(base: str, path: str, *, body=None, data=None, headers=None, ti
     return answer
 
 
+def _check_server_selection(args, status: dict) -> None:
+    """Refuse flags or environment naming loading settings the server is not
+    using; --via-server asserts the selection, never switches it."""
+    import os
+
+    for value, key, flag, env in (
+        (args.model, "model_id", "--model", "AURADREAM_MODEL_ID"),
+        (args.quant, "quantization", "--quant", "AURADREAM_QUANT"),
+        (args.offload, "offload", "--offload", "AURADREAM_OFFLOAD"),
+    ):
+        wanted = value if value is not None else os.getenv(env)
+        if wanted is None:
+            continue
+        compared = wanted
+        if key == "model_id":
+            # The server reports the id it writes; lite-infer's renamed
+            # repository names the same checkpoint (GEN#47).
+            from backend.launch import written_id
+
+            compared = written_id(wanted)
+        if compared != status[key]:
+            raise _ServerError(
+                f"{flag} asks for {wanted}, but the server uses {status[key]}; "
+                "select those settings in Models first, or use matching flags/environment", 422,
+            )
+
+
 def _via_server(args, parser: argparse.ArgumentParser, source, carried, mask_image, width, height, sized, outpaint_sides, *,
                 check_carried_source, mask_from_record, resolved_execution) -> int:
     """Script the public API; all model defaults and admission stay server-owned.
@@ -132,17 +159,7 @@ def _via_server(args, parser: argparse.ArgumentParser, source, carried, mask_ima
             effective_execution = resolved_execution(args, status.get("execution"), source)
         except ValueError as exc:
             raise _ServerError(str(exc), 422) from exc
-        for value, key, flag, env in (
-            (args.model, "model_id", "--model", "AURADREAM_MODEL_ID"),
-            (args.quant, "quantization", "--quant", "AURADREAM_QUANT"),
-            (args.offload, "offload", "--offload", "AURADREAM_OFFLOAD"),
-        ):
-            wanted = value if value is not None else os.getenv(env)
-            if wanted is not None and wanted != status[key]:
-                raise _ServerError(
-                    f"{flag} asks for {wanted}, but the server uses {status[key]}; "
-                    "select those settings in Models first, or use matching flags/environment", 422,
-                )
+        _check_server_selection(args, status)
         revision = status.get("model_revision")
         if not isinstance(revision, int):
             raise _ServerError("the server's status has no model revision; update the server before using --via-server")
