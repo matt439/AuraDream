@@ -105,7 +105,9 @@ async function checkPrompt(payload = collect()) {
     renderAnalysis(dismissal === analysisDismissal);
     return analysisResult;
   } catch (err) {
-    if (epoch === analysisEpoch) showError(err.message);
+    if (epoch === analysisEpoch) {
+      showError(galleryMaintenance(err) ? `${GALLERY_MAINTENANCE_WORDS}; check again when it ends.` : err.message);
+    }
     return null;
   } finally {
     if (epoch === analysisEpoch) resetCheckButton();

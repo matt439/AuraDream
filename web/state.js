@@ -119,7 +119,7 @@ const els = {
   setupsUpdate: $('setups-update'), setupsRename: $('setups-rename'), setupsDelete: $('setups-delete'),
   setupsRestore: $('setups-restore'), setupsReload: $('setups-reload'), setupsAll: $('setups-all'),
   setupsModels: $('setups-models'), setupsSummary: $('setups-summary'), setupsStatus: $('setups-status'),
-  modelTable: $('model-table'), modelTableHead: $('model-table-head'),
+  modelTable: $('model-table'), modelTableHead: $('model-table-head'), modelTableHeld: $('model-table-held'),
   modelSwitch: $('btn-model-switch'), modelSave: $('btn-model-save'), modelPickerNote: $('model-picker-note'),
   modelPickerNoteText: $('model-picker-note-text'), modelRevert: $('btn-model-revert'), modelPickerHelp: $('model-picker-help'),
   modelQuantization: $('model-quantization'), modelOffload: $('model-offload'),
@@ -807,6 +807,28 @@ function refusedIds(err) {
 // The request's adapter was refused: no such file, or not this checkpoint's.
 function loraRefused(err) {
   return err?.code === 'lora_missing' || err?.code === 'lora_mismatch';
+}
+
+// A gallery bundle import, export, clear or backup holds every counted route
+// while it runs (backend/bundle_manager.py's GalleryAdmission). A panel whose
+// read was refused so says these words in place of its contents, and may
+// leave a read with `afterGalleryMaintenance` for when the operation ends.
+const GALLERY_MAINTENANCE_WORDS = 'A gallery bundle import, export or clear is running';
+function galleryMaintenance(err) {
+  return err?.code === 'gallery_maintenance';
+}
+// The reads refused that way, by key, each asked once when bundles.js's
+// status poll - the one that already watches bundle operations, never a new
+// timer - sees none running. Each read is the page's own timer: it carries
+// POLL_HEADER, so it never counts as someone using AuraDream.
+const galleryMaintenanceReads = new Map();
+function afterGalleryMaintenance(key, read) {
+  galleryMaintenanceReads.set(key, read);
+}
+function galleryMaintenanceEnded() {
+  const reads = [...galleryMaintenanceReads.values()];
+  galleryMaintenanceReads.clear();
+  for (const read of reads) void read();
 }
 
 // FastAPI's own 422s carry a list of {loc, msg, ctx, input} objects, which as

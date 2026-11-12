@@ -701,6 +701,9 @@ async function pollBundleStatus() {
   const epoch = bundleRequestEpoch;
   try {
     const status = await api('/api/gallery/bundles/status');
+    // Reads a running operation refused (the Models list, its On disk fold)
+    // are asked again once none runs, whoever's operation it was.
+    if (status.state !== 'running') galleryMaintenanceEnded();
     // A poll begun before this page's POST must not replace its pending state;
     // an upload's own progress is still shown while its body is sent.
     if (!bundleSending && epoch === bundleRequestEpoch) await receiveBundleStatus(status);

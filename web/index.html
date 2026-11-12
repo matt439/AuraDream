@@ -119,6 +119,9 @@
           <span></span><span>Model</span><span>Style</span><span title="Whether this app can run a second image-to-image pass on this checkpoint">Refine</span><span title="Largest size the authors document or show; 1 MP is about 1024x1024">Size</span><span title="Timed on an RTX 5080. Fast, Medium or Slow only for a timing with these loading options; otherwise Reference or Unmeasured, from another setup">Speed</span><span></span>
         </div>
       </div>
+      <!-- In the table's place while a gallery bundle operation refuses its
+           read (model-switch.js, syncModelSwitch). -->
+      <p class="model-table-held" id="model-table-held" role="status" hidden></p>
       <!-- What each action does with this choice (syncModelSwitch): read with
            the table, not a live region, so an opening announces nothing. -->
       <p class="sr-only" id="model-picker-help">Apply &amp; save saves these settings without loading them; Switch &amp; load loads them now.</p>

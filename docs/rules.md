@@ -713,7 +713,9 @@ before changing it.
 - `backend/refusal_codes.py` — the stable codes of the refusals the page
   acts on (`CODES`: `image_unknown`, `image_binned`, `more_seeds_cap`,
   `more_seeds_receipt`, `lora_missing`, `lora_mismatch`,
-  `selection_changed`, `mask_missing`, `bundle_in_use`, `bundle_gone`) and
+  `selection_changed`, `mask_missing`, `bundle_in_use`, `bundle_gone`,
+  `gallery_maintenance`: `GalleryAdmission`'s refusal while a bundle
+  operation runs, which the page's `galleryMaintenance` reads) and
   the errors that carry one out of
   the modules under the HTTP layer: `CodedError`, a `ValueError` with a
   `code` and the gallery `ids` it names, and `CodedLookupError`. Stdlib
@@ -9606,6 +9608,18 @@ longest figure too), and no row moves within the queue note. It also checks
 `#job-said` for a priced and an unpriced press, and the cell line's
 `~N expected` before the own-pace `~N left`, which it never follows.
 
+`smoke-gallery-maintenance.json` uses its own fresh FLUX.1 Krea [dev] fake
+on shared port 7955 (`UI#53`). It saves a one-image backup, then holds an
+import of it with `/api/fake/bundle`. While the import runs, `/api/models`
+answers 409 `gallery_maintenance` and the model favourites still answer.
+Models opens with `GALLERY_MAINTENANCE_WORDS` in the table's place, Switch
+is held in the bundle's words and the note has no raw sentence. On disk,
+Check and the tag finder say the same words. Once the hold is released,
+the bundle status poll brings back the catalogue and the open fold, and
+`/api/fake/activity` counts neither read. On the phone (393x852, touch),
+the Models sheet shows the words inside the screen with no sideways
+overflow, then recovers.
+
 `smoke-gallery-top.json` uses a fresh FLUX.1 Krea [dev] fake on 7955 and
 a 60-image grid. At 1400x900 "↑ Top" stays hidden at the top and 300 px
 past the head, shows a long way down at the window's bottom right (hit by
@@ -11407,7 +11421,11 @@ pipeline with no image-to-image sibling answers; `POST /api/fake/unreachable`
 (`{on}`) holds every request but the knobs unanswered while on (two
 minutes at most, released when it goes off), as a PC asleep on Wi-Fi; `POST
 /api/fake/disk-full` (`{on}`) makes every image save raise `ENOSPC` while
-on, as a disk with no room; `POST /api/fake/passcode` (`{passcode}`: a
+on, as a disk with no room; `POST /api/fake/bundle` (`{hold}`) makes each
+bundle export, backup or import worker wait while on (two minutes at
+most) before its real work, so `GalleryAdmission` refuses every counted
+route meanwhile; the `/api/fake/` knobs pass that admission, so `{hold:
+false}` lets the operation finish (`smoke-gallery-maintenance`); `POST /api/fake/passcode` (`{passcode}`: a
 string turns the passcode's gate on with it, a new one ending every
 session, null turns it off; `{reset: true}` clears the limiter; it
 answers `{on}`, never the value, and a fake starts with no gate whatever

@@ -23,6 +23,7 @@ from fastapi.responses import JSONResponse
 
 from .bundle_common import sentence
 from .jobs import JobManager
+from .refusal_codes import GALLERY_MAINTENANCE
 
 log = logging.getLogger(__name__)
 PREFIX = "/api/gallery/bundles"
@@ -31,6 +32,8 @@ PREFIX = "/api/gallery/bundles"
 # `GalleryAdmission` exempts those routes from its reader count.
 BACKUP_PREFIX = "/api/gallery/automatic-backup"
 BUSY = "A gallery bundle operation is already in progress."
+# What `GalleryAdmission` answers a counted request with while one runs.
+GALLERY_MAINTENANCE_DETAIL = "Gallery bundle operation in progress; wait for it to finish."
 StartFailure = Literal["worker_cancelled_before_start", "worker_start_failed"]
 
 
@@ -205,7 +208,9 @@ class GalleryAdmission:
             return await self.app(scope, receive, send)
         manager = self.get_manager()
         if manager.running:
-            response = JSONResponse({"detail": "Gallery bundle operation in progress; wait for it to finish."}, status_code=409)
+            # Coded, so a panel whose read was refused says why in place of
+            # its contents and reads again when the bundle status says it ended.
+            response = JSONResponse({"detail": GALLERY_MAINTENANCE_DETAIL, "code": GALLERY_MAINTENANCE}, status_code=409)
             return await response(scope, receive, send)
         manager.readers += 1
         try:

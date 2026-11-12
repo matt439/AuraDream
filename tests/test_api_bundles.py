@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 from fastapi import HTTPException
 
-from backend import api_bundles, bundle_crypto, bundles, main
+from backend import api_bundles, bundle_crypto, bundle_manager, bundles, main, refusal_codes
 from tests.api_helpers import ORIGIN, run_one
 from tests.bundle_helpers import holding_child
 
@@ -102,6 +102,15 @@ def test_running_bundle_blocks_mutations_but_status_stays_available(client, monk
         status = client.get("/api/gallery/bundles/status").json()
         assert status["state"] == "running" and status["progress"] == {"phase": "writing", "done": 1, "total": 3}
         assert client.get("/api/gallery").status_code == 409
+        # Coded, so a panel says why in place of its contents (UI#53): the
+        # Models catalogue, its On disk fold, Check, LoRAs and run details.
+        for path in ("/api/gallery", "/api/models", "/api/models/storage", "/api/loras", "/api/runs/x"):
+            refused = client.get(path)
+            assert refused.status_code == 409, path
+            assert refused.json() == {"detail": bundle_manager.GALLERY_MAINTENANCE_DETAIL,
+                                      "code": refusal_codes.GALLERY_MAINTENANCE}, path
+        # The model favourites keep their own sidecar and answer throughout.
+        assert client.get("/api/models/favourites").status_code == 200
         assert client.post("/api/generate", json={"prompt": "a fox"}).status_code == 409
         assert client.post("/api/images/1/favorite").status_code == 409
         assert client.post("/api/images/purge", json={"ids": [1], "expected_ids": [1]}).status_code == 409

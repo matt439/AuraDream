@@ -890,6 +890,48 @@ def main() -> int:
         full["on"] = on
         return {"on": on}
 
+    # A gallery bundle operation that outlasts a smoke's steps: while `hold`
+    # is on, each export, backup or import worker waits (HOLD_LIMIT at most)
+    # before it starts its real work, so `GalleryAdmission` refuses every
+    # counted route meanwhile, as a long import does. These knobs pass that
+    # admission (they are not gallery reads), so a call with `hold: false`
+    # lets the held operation finish. Answers the state.
+    from starlette.middleware import Middleware
+
+    from backend import api_bundles, bundles
+
+    bundle_gate = threading.Event()
+    bundle_gate.set()
+
+    def held_bundle(real: Any) -> Any:
+        def run(*run_args: Any, **run_kwargs: Any) -> Any:
+            bundle_gate.wait(hold_limit)
+            return real(*run_args, **run_kwargs)
+        return run
+
+    for name in ("export_bundle", "import_bundle", "_import_uploaded_bundle"):
+        setattr(bundles, name, held_bundle(getattr(bundles, name)))
+
+    class FakeKnobsPastAdmission(api_bundles.GalleryAdmission):
+        async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+            if scope.get("type") == "http" and scope.get("path", "").startswith("/api/fake/"):
+                return await self.app(scope, receive, send)
+            return await super().__call__(scope, receive, send)
+
+    app_main.app.user_middleware = [
+        Middleware(FakeKnobsPastAdmission, get_manager=lambda: app_main.bundle_manager)
+        if entry.cls is api_bundles.GalleryAdmission else entry
+        for entry in app_main.app.user_middleware
+    ]
+
+    @app_main.app.post("/api/fake/bundle", include_in_schema=False)
+    async def fake_bundle(hold: bool = Body(..., embed=True)) -> dict:
+        if hold:
+            bundle_gate.clear()
+        else:
+            bundle_gate.set()
+        return {"hold": hold}
+
     import uvicorn
 
     print(f"fake server on http://127.0.0.1:{args.port}  gallery: {data}", flush=True)
