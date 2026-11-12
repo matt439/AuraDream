@@ -869,6 +869,12 @@ Search combines these terms with free text matching the prompt:
 Orientation values compare the stored width and height. Combine them with
 prompt words or other filters, such as `size:portrait seed:42`.
 
+A prompt word matches the start of a word, so the gallery narrows as you
+type: `drag` finds "dragon" and "drag race" but not "snapdragon". Every
+word must match, in any order. An excluded word is exact: `dra -drag`
+keeps the dragons and leaves out "drag race". Words like AND, OR and NOT
+are searched as words.
+
 A leading `-` leaves images out: `fox -blonde` is the foxes whose prompt does
 not have "blonde", and `seed:>10 -seed:12` every seed above 10 but 12. A lone
 `-`, a word starting `--` (`--ar`) and a quoted `"-x"` are still prompt text.

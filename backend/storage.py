@@ -927,11 +927,17 @@ def list_images(
     # matched two different ways.
     text_at, text_params_at = len(where), len(params)
     if words:
+        # Each free word is a quoted phrase with FTS5's prefix star (GAL#25):
+        # the box searches as you type, and `drag` finds dragon before the
+        # word is finished. The quotes keep AND, OR, NOT and NEAR words and
+        # `*`, `(` or `^` inside one literal; a word the tokenizer splits
+        # (`blue-ey`) is a phrase whose last token is the prefix.
         where.append("id IN (SELECT rowid FROM images_fts WHERE images_fts MATCH ?)")
-        params.append(" ".join(f'"{t}"' for t in words))
+        params.append(" ".join(f'"{t}"*' for t in words))
     if excluded:
         # One NOT IN for every excluded word: `prompt` is NOT NULL, so no row
         # is lost to a NULL here, and an exclusion-only search needs no MATCH.
+        # No star: `-blonde` leaves out the word, never every word it starts.
         where.append("id NOT IN (SELECT rowid FROM images_fts WHERE images_fts MATCH ?)")
         params.append(" OR ".join(f'"{t}"' for t in excluded))
 
@@ -951,7 +957,9 @@ def list_images(
             # - quotes into a malformed MATCH. Swap *only* the text predicates
             # so favorites and anything added later still applies, and AND one
             # LIKE per word: FTS matches tokens in any order, where a single
-            # LIKE over the raw string would demand them contiguous.
+            # LIKE over the raw string would demand them contiguous. A LIKE
+            # substring is wider than the index's prefix and exact exclusion:
+            # the price of a search the index could not parse at all.
             where[text_at:] = (
                 [r"prompt LIKE ? ESCAPE '\'"] * len(words)
                 + [r"prompt NOT LIKE ? ESCAPE '\'"] * len(excluded)

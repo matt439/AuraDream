@@ -469,7 +469,9 @@ before changing it.
   the complement `COALESCE((clause), 0) = 0`, keeping NULL rows; any other
   `-word` an excluded word; a lone `-`, `--x` and a quoted token stay free
   text), the LIKE escape, `strict_scope` (`key:value` terms and their
-  exclusions; free text and `-word` refused)
+  exclusions; free text and `-word` refused). `storage.list_images` sends
+  each free word to FTS5 as a quoted prefix (`"drag"*`) and each excluded
+  word exact (GAL#25); its LIKE fallback is a substring either way
 - `backend/main.py` — app lifecycle and model ownership: load state and
   lock, `ensure_loaded`, the load-failure wording, model switching, status,
   the model and adapter routes, the middlewares, and the `services`
