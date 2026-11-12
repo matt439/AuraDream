@@ -10827,7 +10827,10 @@ beside wall clock, and each rerun verdict as an annotation on the run's
 page: an error for one that failed again alone, a warning for one that
 passed alone, a race to fix), and uploads each smoke's result, browser log,
 screenshots and failed fake's log as `smoke-artifacts-<index>` when it
-fails. A smoke `run_smoke_costs.json` lacks counts as twelve seconds; refresh it
+fails. A smoke `run_smoke_costs.json` lacks counts as twelve seconds, but
+`tests/test_run_smoke.py` requires the file to name exactly the table's
+smokes: a new row adds its entry, a hand estimate or a local time scaled
+to the hosted ones until the next refresh (`DEV#62`). Refresh it
 with `smoke_timings.py <part's artifacts> --write-costs` per part after the
 table changes much. uv's cache is the lint job's own (`cache-suffix: lint`,
 dev tools only) apart from the test jobs' (`app`, saved by the first part

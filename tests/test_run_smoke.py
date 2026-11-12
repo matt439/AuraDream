@@ -669,10 +669,14 @@ def _plan(*costs: float):
     return runner, [(row, row.smokes) for row in rows], {f"smoke-{i}": c for i, c in enumerate(costs)}
 
 
-def test_the_costs_file_names_only_smokes_in_the_table():
+def test_the_costs_file_names_every_smoke_in_the_table_and_no_other():
+    # Equal, not a subset: a smoke the file lacks is balanced at DEFAULT_COST,
+    # which put four rows' worth of guesses into --shard (DEV#62). A new row
+    # adds its entry, measured or a hand estimate until the next refresh.
     costs = _runner().load_costs()
     named = {smoke for row in _rows() for smoke in row.smokes}
-    assert costs and set(costs) <= named
+    assert sorted(named - set(costs)) == [], "smokes with no cost entry"
+    assert sorted(set(costs) - named) == [], "cost entries for no smoke in the table"
 
 
 def test_an_unreadable_costs_file_leaves_every_row_equal(tmp_path):
