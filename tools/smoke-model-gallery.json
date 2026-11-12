@@ -249,7 +249,8 @@
     "expect": "__until(() => !els.lightbox.open && !els.modelPicker.hidden && document.activeElement === __shots()[2] && __shots()[2].tabIndex === 0)"
   },
   {
-    "wait": 300
+    "wait": 300,
+    "why": "an absence: the Escape that closed the lightbox does not also close the Models picker or move the focus off the shot"
   },
   {
     "expect": "!els.modelPicker.hidden && document.activeElement === __shots()[2]"

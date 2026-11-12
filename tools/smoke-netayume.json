@@ -1,7 +1,7 @@
 [
   {"navigate": "http://127.0.0.1:7871/"},
-  {"wait": 1200},
-  {"expect": "(async () => { const end = Date.now() + 20000; while (Date.now() < end) { if (document.getElementById('status-dot').className.includes('ready') && !!lastHints) return true; await new Promise((r) => setTimeout(r, 50)); } return false; })()"},
+  {"eval": "window.__when = async (fn, ms = 10000) => { const end = Date.now() + ms; while (Date.now() < end) { try { if (await fn()) return true; } catch { /* not drawn yet */ } await new Promise((r) => setTimeout(r, 50)); } return !!(await fn()); }"},
+  {"expect": "__when(() => document.getElementById('status-dot').className.includes('ready') && !!lastHints, 20000)"},
   {"expect": "els.steps.value === '40' && els.cfg.value === '5' && els.mu.value === ''"},
   {"expect": "!els.negative.disabled && !els.mu.disabled && !els.gridMu.disabled && els.trueCfg.disabled"},
   {"expect": "tagVocabularyEnabled && !els.tagHelper.hidden && els.prompt.spellcheck"},
