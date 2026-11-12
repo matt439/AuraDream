@@ -21,7 +21,7 @@ const vm = require('node:vm');
 const root = process.argv[1], scenario = process.argv[2];
 function element(value = '') {
   const classes = new Set();
-  return { value, disabled: false, hidden: false, checked: false, title: '',
+  return { value, disabled: false, hidden: false, checked: false, title: '', validity: { badInput: false },
     textContent: '', children: [],
     classList: { add: name => classes.add(name), remove: name => classes.delete(name),
       contains: name => classes.has(name), toggle(name, on) { if (on) classes.add(name); else classes.delete(name); } },
@@ -40,7 +40,8 @@ function fixture() {
   const els = {};
   for (const name of ['prompt', 'negative', 'cfg', 'trueCfg', 'trueCfgField', 'negField', 'negNote', 'negEnable',
     'gridPreview', 'gridPrompt', 'gridPromptMode', 'gridSteps', 'gridSize', 'gridCfg', 'gridMu',
-    'gridLoraScale', 'gridSeeds', 'gridSeedList', 'gridResume', 'gridBudget', 'runs', 'lora']) els[name] = element();
+    'gridLoraScale', 'gridSeeds', 'gridSeedList', 'gridResume', 'gridBudget', 'runs', 'lora',
+    'steps', 'mu', 'samplingValue']) els[name] = element();
   Object.assign(els.prompt, { value: 'a {coat} fox' });
   els.negative.value = '  keep this negative  ';
   els.cfg.value = '0'; els.trueCfg.value = ''; els.runs.value = '1';
@@ -57,6 +58,8 @@ function fixture() {
     syncAnalysisStale: () => { calls.analysis++; }, revealGridRun: () => { calls.reveals++; },
     hideNegativeSuggestions: () => {}, placePhoneNegative: () => {}, syncMoreOptions: () => {},
     muStatic: () => null, humanBytes: value => String(value),
+    // syncCfg also writes the Sampling fold's summary (UI#51).
+    lastDefaults: null, muSupported: false, muPlaceholder: () => 'auto',
     api: (url, options) => { const request = { ...deferred(), url, options }; calls.requests.push(request); return request.promise; },
   });
   for (const name of ['sizes.js', 'grid-preview.js']) {
