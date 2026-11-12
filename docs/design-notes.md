@@ -9561,6 +9561,41 @@ once-per-cell check skipped every first cell (found on the card, fixed).
 The matrices cannot be validated in CI; the fit script and its date are
 in the module docstring, and the frames were looked at.
 
+**SDXL's map and the non-flow rule (2026-11-12, `GEN#6`'s SDXL half).**
+Animagine became the open checkpoint a fresh visit suggests (`GEN#59`), and
+every SDXL render showed a bar with no picture: the catalogue maps SDXL to
+`AutoencoderKL/4` and no map existed. The first two maps' recipe was in the
+docstring but its script had not been kept, so it was written down as
+`tools/fit_latent_preview.py` and run on the CPU from the Hugging Face cache
+(no download, no card): the posterior's mean, normalised as the pipeline
+normalises (`(z - shift) * scale`; SDXL has no shift, scale 0.13025), against
+the image area-averaged to latent resolution, every fifth image held out. Its
+images are Windows 11's stock wallpapers and lock-screen photos (26, two
+512 px crops each): installed everywhere, nobody's own pictures, and nothing
+to download. Before trusting it on SDXL, the script refitted FLUX.1 Krea
+[dev]'s VAE on the same images and reached 0.966 held out, against the
+original fit's 0.964 on its own images (the shipped FLUX matrix scores 0.898
+on these; it stays as it is, looked at on the card). SDXL's fit, from
+Animagine's VAE (`sdxl-vae-fp16-fix`), scores 0.909 held out and 0.905 on
+Kohaku's and NoobAI's VAEs (the original SDXL VAE's weights), so one map
+serves the family. Four channels hold less colour than sixteen, hence the
+lower figure and a softer picture.
+
+SDXL's schedulers (Euler, Euler Ancestral; NoobAI's zero-terminal-SNR
+Euler) are not flow matching: their latent after a step is
+`x_0 + sigma * eps` with sigma from about 14.6 (4096 for NoobAI) down to 0,
+where `render`'s gain, threshold and blur were written for
+`(1 - s) x_0 + s eps`. `latent_preview.flow_view` is the one translation:
+divide by `1 + sigma` and read `s = sigma / (1 + sigma)`, which is that form
+exactly, so the rule stays one rule (flow's 0.9 is sigma 9; the gain cap at
+s 0.75 is sigma 3). A DDIM-style scheduler (DPM-Solver, UniPC:
+`init_noise_sigma` 1) carries the latent divided by `sqrt(1 + sigma^2)` and
+is multiplied back first. A `FlowMatch*` scheduler, and anything without an
+`init_noise_sigma` (no flow scheduler has one), passes unchanged. The tests
+judge the translation by each scheduler's own `add_noise`. Not done here:
+FLUX.2's map (`AutoencoderKLFlux2/32`, klein, ERNIE and FLUX 3) stays
+deferred, and SDXL's frames have not been looked at on the card.
+
 A refine pass has a stand-in until its first frame: SDXL sends none, and the
 viewer showed whatever image was there before for the whole pass, with nothing
 naming the source. `runRefine` hands `startJob` a `placeholder` (the source's
@@ -10502,8 +10537,10 @@ The exact-id profile starts at the author's example values, 28 steps and CFG 5.
 Mu is unavailable because Euler's noise schedule is not flow matching. Normal
 FP8, int8 and bfloat16 component loading is supported; no Nunchaku build is
 mapped. Refine starts at strength 0.4 and shares the corrected scheduler.
-There is no four-channel SDXL latent-preview map, and the Refine preview does
-not invent a flow start-sigma value for this scheduler.
+The Refine preview does not invent a flow start-sigma value for this
+scheduler. The live preview reads its sigma through the non-flow rule (below,
+"SDXL's map and the non-flow rule"): the zero-terminal-SNR schedule's first
+four steps at 28 (down to sigma 58, 27, 17 and 12, from 4096) draw nothing.
 
 The guide keeps NoobAI's quality/date vocabulary and author caption-order
 excerpt separate from other SDXL models. The card gives both a quality prefix

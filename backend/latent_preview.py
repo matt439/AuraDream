@@ -26,6 +26,13 @@ The latents the callback carries are x_t, not x_0: under flow matching
 `1 / (1 - sigma)` on the signal and a small blur against what is left of the
 noise, and nothing is drawn at all above sigma 0.9, where there is nothing
 to see. `sigma` is read off the scheduler for the step just taken.
+
+SDXL's map (`AutoencoderKL/4`) came later, on 2026-11-12 and on the CPU,
+by the same recipe kept as `tools/fit_latent_preview.py`, which reproduced
+the FLUX fit's held-out R-squared (0.966 against 0.964) before it fitted
+SDXL's. SDXL's schedulers are not flow matching, so `flow_view` turns their
+latent and sigma into the flow form first (the non-flow rule): one map and
+one gain, threshold and blur for every scheduler.
 """
 from __future__ import annotations
 
@@ -102,6 +109,21 @@ FACTORS: dict[str, _Factors] = {
         bias=(-0.0395, +0.0605, -0.1580),
         downsample=8,
     ),
+    # SDXL's VAE (every SDXL entry in the catalogue), fitted 2026-11-12 on the
+    # CPU by `tools/fit_latent_preview.py` from Animagine XL 4.0's VAE
+    # (`sdxl-vae-fp16-fix`, latents `z * 0.13025`): R-squared 0.909 over
+    # held-out pixels. Four channels carry less colour than sixteen, so the
+    # picture is softer than FLUX's; docs/verified.md has the fit's record.
+    "AutoencoderKL/4": _Factors(
+        matrix=(
+        (+0.3590, +0.4049, +0.4384),
+        (-0.2681, +0.0524, +0.1524),
+        (+0.1199, +0.2082, -0.0748),
+        (-0.3311, -0.2279, -0.2454),
+        ),
+        bias=(+0.1236, -0.0090, +0.0349),
+        downsample=8,
+    ),
 }
 
 
@@ -134,6 +156,31 @@ def unpack(pipe: Any, latents: Any, height: int, width: int) -> Any:
     while out.dim() > 4:
         out = out[:, :, 0]
     return out[0]
+
+
+def flow_view(scheduler: Any, latent: Any, sigma: float) -> tuple[Any, float]:
+    """The latent and sigma as `render` reads them: flow matching's
+    `x_t = (1 - s) x_0 + s eps`.
+
+    A `FlowMatch*` scheduler's are that already, and so is anything without
+    an `init_noise_sigma` (no flow scheduler has one): both pass unchanged.
+    The others' `sigmas` are the noise-to-signal ratio sigma of
+    `x_0 + sigma * eps`. The Euler family (SDXL's, init_noise_sigma above 1)
+    carries the latent in that form; DDIM-style ones (DPM-Solver, UniPC,
+    init_noise_sigma 1) carry it divided by sqrt(1 + sigma^2), so it is
+    multiplied back. Dividing by (1 + sigma) then gives the flow form with
+    s = sigma / (1 + sigma), and `render`'s gain, threshold (s 0.9 is sigma 9)
+    and blur apply as they are.
+    """
+    if type(scheduler).__name__.startswith("FlowMatch"):
+        return latent, sigma
+    init = getattr(scheduler, "init_noise_sigma", None)
+    if init is None:
+        return latent, sigma
+    sigma = max(float(sigma), 0.0)
+    if float(init) <= 1.0:
+        latent = latent * (1.0 + sigma * sigma) ** 0.5
+    return latent / (1.0 + sigma), sigma / (1.0 + sigma)
 
 
 def render(latent: Any, factors: _Factors, sigma: float = 0.0) -> bytes | None:
