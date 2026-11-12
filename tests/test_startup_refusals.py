@@ -47,7 +47,9 @@ def test_a_startup_refusal_is_printed_once_and_kept_even_at_critical(fake, monke
     levels = [handler.level for handler in handlers]
     with pytest.raises(SystemExit) as stopped:
         main.run()
-    assert stopped.value.code == 1
+    # A settings refusal is EX_CONFIG, which the Linux unit does not restart;
+    # a held port can clear, so it stays 1.
+    assert stopped.value.code == (main.SETTINGS_REFUSED_STATUS if reason == "passcode" else 1)
     said = capsys.readouterr()
     assert said.err.count(expected) == 1 and said.out == ""
     path = log_file.path_for(main.settings.db_path)
