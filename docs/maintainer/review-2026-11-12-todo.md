@@ -307,6 +307,24 @@ Each has a recommended answer, which is not taken until Matt says so.
   or keep the row for a model-offload render? *Recommended:* keep it for the
   model-offload render, which is the mode the plan names.
 
+## Matt's answers (2026-11-12)
+
+Matt accepted every recommended answer above. As a result:
+
+- Now `OPEN`, each with the scope its recommendation names: `GEN#47`
+  (read-only aliases plus offline 307 tests), `GEN#68` (a read-only On disk
+  fold; the guarded delete waits until Matt has seen it), `UI#52`
+  (favourites as a server sidecar), `GAL#25` (prefix matching),
+  `GAL#26` (a confirmed single-bundle delete), `UI#51` (the
+  Steps/CFG/Mu fold), `DEV#56` (renewal on counted API requests),
+  `GEN#6` (the SDXL map only), `INP#12` (stage 1's desk half only),
+  `DEV#63` (the AGENTS.md Layout trim) and `GEN#64` (a "+ panel size"
+  button).
+- Retired: `CARD#4`, `CARD#6` and `CARD#12`. Their unmeasured modes stay
+  listed in [verified.md](../verified.md#quantization-and-offload-2026-10-25).
+- Kept: `GEN#15` stays `CARD` for a model-offload text-to-image render.
+  The 2026-11-11 sequential inpaint does not close it.
+
 ## Not added
 
 None of the 26 was refuted. Some were folded in rather than given rows of

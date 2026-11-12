@@ -104,7 +104,9 @@ transformer in 400 MB shards measured by RSS) the peak fell from +3.56 to
 +1.78 GiB at fp8 and the resident size after the load from +3.29 to +1.19
 GiB; int8 the same. On the card (2026-10-27) the FLUX.1 Krea dev fp8 load
 peaked at 27.9 GiB working set; the other checkpoints' loads are still the
-card's to say (`CARD#4`, `#6`, `#12` and the rows behind them).
+card's to say. Their rows (`CARD#4`, `#6`, `#12`) were retired on
+2026-11-12 under the K4/K5 Never ratings. The modes stay unmeasured until one
+is in use (verified.md, "Quantization and offload").
 
 **The Z-Anime override, 2026-11-11.** A guarded `CARD#13` load stopped
 at 24.12 GiB working set before rendering. Its replacement Qwen3 encoder

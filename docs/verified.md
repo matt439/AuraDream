@@ -715,6 +715,15 @@ stops remain historical evidence. Any Qwen-Image mode on Windows, INT8 with
 sequential offload on the other checkpoints, and other sizes, batches, LoRAs,
 Refine and inpaint under these modes remain unmeasured.
 
+**Retired from the backlog, 2026-11-12.** Matt rates other quantizations
+and offloads (K4, K5) Never, so `CARD#4`, `CARD#6` (the Windows fp8 rows:
+Krea 2 Turbo's time, Krea 2 Raw, klein 9B and base 9B) and `CARD#12`
+(Qwen-Image on Windows: fp8 with sequential offload again, BF16 with
+sequential offload untried) are no longer planned card work. The modes
+listed here and in the RAM sections below stay unmeasured. A mode is
+measured when it becomes one Matt uses
+([2026-11-12 audit](maintainer/review-2026-11-12-todo.md#matts-answers-2026-11-12)).
+
 ### RAM at the load (2026-10-25)
 
 Every Windows load tried that day that quantizes a FLUX.1-, Krea 2-,
