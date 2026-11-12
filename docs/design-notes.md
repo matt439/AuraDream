@@ -345,6 +345,68 @@ are not built. What is not measured: that the PC stays awake past its sleep
 timer while the request is held. The one real call made (2026-11-10, this
 PC) was a request Windows accepted and that was released at once.
 
+**Keeping the PC awake under WSL (2026-11-12, `GEN#66`).** A server started
+by `wsl/serve.sh` is `linux` to `sys.platform`, so `platform_inhibitor`
+took `systemd-inhibit`. That blocks only the VM's logind; the Windows
+host's sleep timer, the one that matters, never sees it, while the status
+said `holding` and the doctor passed. The 2026-11-12 audit found it.
+
+- WSL is detected by its interop entry
+  (`/proc/sys/fs/binfmt_misc/WSLInterop`, or `WSLInterop-late`) or
+  `microsoft` in the kernel release, and then `systemd-inhibit` is never
+  taken: a hold that holds nothing is worse than none, because it is
+  reported as one.
+- The hold is Windows' own power request, the same system-required one as
+  `PowerRequest`, made by Windows PowerShell 5.1 (`powershell.exe`) through
+  interop: a short script compiles four kernel32 calls with `Add-Type`,
+  sets the request, prints `held <pid>` (or `refused: <Windows' words>`)
+  and reads its stdin until it ends, then clears the request and closes
+  the handle. The stdin is a pipe only the server holds, so the pipe's
+  guarantee is Linux's `cat`'s: release closes it (then terminate, then
+  kill), and the server dying in any way closes it too. Windows closes the
+  handle when powershell.exe ends however it ends.
+- The script goes as `-EncodedCommand` (UTF-16LE, base64): one argument
+  that neither WSL's command-line building nor Windows' parsing can split
+  or unquote, where the C# needs double quotes. Nothing is written to disk
+  and no execution policy is read or changed.
+- Waiting for `held` rather than a fixed delay: `Add-Type` compiles at each
+  start (about half a second here, up to `START_WAIT`, 30 s, on a slow
+  PC), and only `held` proves the request was set. A refusal, silence or
+  an early end is refused for `RETRY_AFTER`, as the other holders are.
+- Without interop (or powershell.exe) nothing can reach Windows. Nothing is
+  held, the status's `kind` is `none` with `detail` saying why
+  (`WSL_NO_HOLD`), the server logs it once at start, and the doctor warns
+  with the interop setting and the sleep timer as fixes.
+
+Tried from WSL 2 on this PC (2026-11-12, no GPU): the request was accepted
+in about 0.45 s; on release the script exited 0, and when its WSL process
+was killed with SIGKILL the Windows process was gone by the next check.
+`powercfg /requests` needs an administrator's prompt and has not been read
+while it holds; that is Matt's check.
+
+**A timed retry is a poll (2026-11-12, `GEN#67`).** The excluded polls
+were a list of paths, and a path is not enough: `GET /api/models` is read
+when someone opens Models, and again every 10 s by the page itself after a
+failed read, while the picker stays open; the cache facts a status poll
+asks for (again at every poll after a failure) and the pictures strip's
+5 s retry (`GET /api/gallery`) are the same. Each counted as use, so an
+idle tab after a refused catalogue read held the PC awake, and since
+`GEN#51` delayed idle release too. The page now marks those reads with
+`X-AuraDream-Poll` (`polledRead` in `state.js`), and `counts_as_activity`
+leaves a marked GET out; a write counts whatever it carries, so the header
+cannot excuse a change. Backing off the retry instead would still have
+counted each one. `smoke-idle-activity` holds it in the browser: the fake
+records what the real rule would count (`/api/fake/activity`, the fake's
+own keep-awake being off) while each polling surface stays open with
+nothing pressed, and fails with the marker taken out. A review then found
+one write the page sends by itself: a status poll that sees the model load
+or unload asks the open grid section's preview (and a comparison's, and
+an open Refine, Inpaint or Outpaint dialog's) again, a `POST
+/api/grid/preview`, so idle release's own unload restarted the clock it
+had just run out. That route writes nothing, so it alone accepts the
+marker on a POST; a debounced preview carries it only when no edit asked
+for one meanwhile (`markPreview` in `state.js`).
+
 **Who may frame the page.** A page on another site that frames the app gets
 the app's own origin inside the frame, so a click it steers there is a
 same-origin write: the Host header is the app's and so is the `Origin`, and

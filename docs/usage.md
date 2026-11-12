@@ -1310,23 +1310,34 @@ outlives a cancelled request, and holds until it ends). It also holds for
 `AURADREAM_KEEP_AWAKE_IDLE_MINUTES` (default 20) after the last request
 someone made: a page load or an API call. The page's own timed requests are
 not one - the status poll, the bundle dialog's and automatic backup's status
-reads, the job streams and listings, an inpaint's mask keep-alive and its
-files and thumbnails - so a tab left open on an idle server lets the PC
+reads, the job streams and listings, an inpaint's mask keep-alive, the
+Models panel's own retries after a failed read, and its files and
+thumbnails - so a tab left open on an idle server lets the PC
 sleep after the idle minutes. `0` holds only while busy;
 `AURADREAM_KEEP_AWAKE=false` holds nothing. On Linux without
 `systemd-inhibit`, or on any other system, nothing is held.
 
+Under WSL (`wsl/serve.sh`) the PC that sleeps is Windows, and
+`systemd-inhibit` would hold only the Linux VM, so it is never used there:
+the server asks Windows for the same power request through WSL interop, by
+running Windows' own `powershell.exe`, which holds it until the server lets
+go or stops (`powercfg /requests` lists it under SYSTEM). With interop
+turned off, nothing can reach Windows: nothing is held, the status says so
+in `detail`, and the doctor warns.
+
 `GET /api/status` reports it as `keep_awake`, from the last check (the poll
 starts no process): `kind` (`systemd-inhibit`, `power-request` on Windows,
-`none` where nothing can be held, or `off`), `holding`, `wanted` (there is a
+`wsl-power-request` under WSL, `none` where nothing can be held, or `off`),
+`holding`, `wanted` (there is a
 reason to hold), `reasons` (such as `in use (a request in the last 20
 minutes)` or the job's), `detail` (why the last hold was refused, until one
-works) and `idle_minutes`. A hold that polkit or Windows refuses is `wanted`
+works, or why nothing can be held under WSL) and `idle_minutes`. A hold that polkit or Windows refuses is `wanted`
 but not `holding`, is logged once and is tried again every five minutes. The
 doctor's **Keep awake** row tries the same hold and lets go at once: on
-Linux it prints a polkit rule that allows a refused one, on Windows it gives
-Windows' own words. Waking a suspended PC from the network is outside
-AuraDream.
+Linux it prints a polkit rule that allows a refused one, on Windows and
+under WSL it gives Windows' own words, and under WSL without interop it
+warns that nothing can keep the PC awake. Waking a suspended PC from the
+network is outside AuraDream.
 
 To release the image model automatically after use, set
 `AURADREAM_IDLE_UNLOAD_MINUTES` to a whole number of minutes and restart
@@ -1339,7 +1350,9 @@ returns to its startup size.
 
 The Windows hold has been tried only as a call that Windows accepted and
 released (2026-11-10); that the PC then stays awake past its sleep timer
-has not been measured.
+has not been measured. The WSL hold has been tried the same way from WSL 2
+(2026-11-12): accepted, then let go when released and when its WSL process
+was killed; `powercfg /requests` has not yet been read while it holds.
 
 A page opened by a LAN address over plain `http` is not a secure context, so
 the context menu's copy items and **Notify when done** are held there with

@@ -515,9 +515,17 @@ before changing it.
   `PowerCreateRequest` handle with `PowerRequestSystemRequired` set, cleared
   and closed on release, its four calls behind `PowerApi` and bound to
   kernel32 by `Kernel32Power` only at the first call; never the display,
-  `SetThreadExecutionState` or a power setting), `NoInhibitor` elsewhere or
-  on Linux without systemd-inhibit, `platform_inhibitor` choosing among the
-  three, `KeepAwake` (an asyncio task holding while `main`'s providers name a
+  `SetThreadExecutionState` or a power setting), `WslPowerRequest` under
+  WSL (kind `wsl-power-request`: `under_wsl` by the interop entry or
+  `microsoft` in the kernel release; Windows' `powershell.exe`, found by
+  `windows_powershell` only with interop on, runs `wsl_hold_script` by
+  `-EncodedCommand`, answers `held <pid>` or `refused: <Windows' words>`
+  within `START_WAIT`, and holds the same system-required request until
+  its stdin, a pipe only the server holds, ends; release closes it, then
+  terminate, then kill; never systemd-inhibit there, which holds only the
+  VM), `NoInhibitor` elsewhere, on Linux without systemd-inhibit or under
+  WSL without interop (its `detail`, `WSL_NO_HOLD`, in the status),
+  `platform_inhibitor` choosing among the four, `KeepAwake` (an asyncio task holding while `main`'s providers name a
   reason, a counted `busy(reason)` is open, or for
   `AURADREAM_KEEP_AWAKE_IDLE_MINUTES` after a request `counts_as_activity`
   passes; `wake` checks again at once from any thread; a cached `status()`
@@ -648,8 +656,10 @@ before changing it.
   repos); with a non-loopback `AURADREAM_HOST`, `AURADREAM_ALLOWED_HOSTS`
   without 127.0.0.1 or with a wildcard (each warns); on Linux a trial
   `systemd-inhibit ... true` block hold (refused warns, with a polkit rule),
-  and on Windows a trial `keep_awake.PowerRequest` let go at once (refused
-  warns in Windows' words);
+  under WSL instead a trial `keep_awake.WslPowerRequest` let go at once
+  (refused warns in Windows' words; interop off warns that nothing can
+  hold Windows), and on Windows a trial `keep_awake.PowerRequest` let go at
+  once (refused warns in Windows' words);
   a Hugging Face
   token as `HF_TOKEN` (or `HUGGING_FACE_HUB_TOKEN`) or the token file's existence (`hf_sign_in`), never read or sent.
   Imports `config` first and torch inside the GPU check; never diffusers,
@@ -3289,18 +3299,32 @@ measured on the card and when.
   and the critic's downloads) holds through the counted `keep_awake.busy`,
   never a provider. `counts_as_activity` excludes the page's timed requests
   (`/api/status`, the bundle and automatic-backup status reads, `GET
-  /api/jobs*`, the mask keep-alive, `/static/` and `/outputs/`); a new timed
-  poll joins that list, or an idle open tab holds the PC awake for ever.
+  /api/jobs*`, the mask keep-alive, `/static/` and `/outputs/`, and any GET
+  carrying `X-AuraDream-Poll`, which the page's `polledRead` adds to the
+  reads it repeats on a timer of a route a person also reads: the Models
+  catalogue's retry after a failure, its cache facts and the pictures
+  strip's retry); a new timed poll joins that list or sends the marker, or
+  an idle open tab holds the PC awake for ever (`smoke-idle-activity`).
+  A write never counts as a poll, marker or not, but for `POST
+  /api/grid/preview`, which writes nothing: the previews a status poll
+  asks again when it sees the model load or unload (idle release's unload
+  among them) carry the marker through `markPreview`/`takePreviewMark`
+  (`state.js`), and an edit's preview, pending or sent, goes without it.
   Nothing in it raises into its callers, and the status poll reads the
   last check's cached answer, never a subprocess. A holder's `hold` and
   `release` run on different threads (`asyncio.to_thread`), so a holder
   keeps nothing per thread: Windows' is a power request handle, never
   `SetThreadExecutionState`. It asks for the system only
   (`PowerRequestSystemRequired`), never the display, and reads or changes
-  no power setting. Tests never take a real hold through the server or the
-  CLI: `tests/conftest.py` replaces `platform_inhibitor` with
-  `NoInhibitor`. The one real call is `tests/test_keep_awake.py`'s, on
-  Windows, released in the same test.
+  no power setting. Under WSL it never takes `systemd-inhibit`, which
+  holds only the VM: Windows' request goes through `powershell.exe` by
+  interop (`WslPowerRequest`), or nothing is held and the status's
+  `detail` says why; never a claimed hold. Tests never take a real hold
+  through the server or the CLI: `tests/conftest.py` replaces
+  `platform_inhibitor` with `NoInhibitor`. The real calls are
+  `tests/test_keep_awake.py`'s two, on Windows (the power request, and
+  the WSL script run by Windows' own `powershell.exe`), each released in
+  the same test.
 - Idle model release is default off (`AURADREAM_IDLE_UNLOAD_MINUTES=0`).
   `idle_unload.IdleUnload` runs one event-loop timer and shares KeepAwake's
   real-request clock, even when its power inhibitor is off. Jobs, card
@@ -10332,6 +10356,23 @@ and `/outputs/` 401 again. Turned off, the address is the app. The real
 machines (Safari's autofill, the home-screen icon, a session across a
 restart, the scripts) are not a smoke's to say.
 
+`smoke-idle-activity.json` uses its own fresh FLUX.1 Krea [dev] fake on
+7958, a row beside `smoke-offline`'s and `smoke-passcode`'s, and reads
+`/api/fake/activity`: the page load and its first reads are counted as
+use, then an idle page keeps each polling surface open in turn with
+nothing pressed and none of its requests counted - the bundles dialog
+with automatic backup shown (7 s), Models with its pictures strip and its
+cache facts failing after the server answered (12 s, each asking again on
+the status poll), and Models with its catalogue failing (15 s, the 10 s
+retry) - each window's record holding the timed reads it names. The
+catalogue asked again by hand is counted. Then, with the Grid section
+open and a prompt, an Unload stands in for idle release's: the status
+poll's grid preview is sent and only the Unload is counted, while an
+edit's preview after it is. Without the poll marker the strip, facts and
+catalogue retries and the unload's preview are counted (`GEN#67`, checked
+by reverting it). The real keep-awake controller and idle release are the
+unit tests'; the fake runs with keep-awake off.
+
 `smoke-catalogue-stale.json` uses a fresh FLUX.1 Krea [dev] fake on 7959:
 a Models catalogue reply asked for the runtime loader is held while the
 server saves the edited one and a status brings it (the catalogue already
@@ -10397,12 +10438,17 @@ it was given and waits `RETRY_AFTER`; a refused clear still closes; the
 `REASON_CONTEXT` layout; `Kernel32Power` over a fake kernel32: the system
 asked for, never the display, and a null or invalid handle or a zero
 return a refusal naming the call; one real request on Windows, let go at
+once), WSL's detection and its `powershell.exe` holder with a fake popen
+(the script's reason, the system asked for and never the display, `held`,
+a refusal in Windows' words and its retry, silence, an early end, a child
+ignoring the end of its input, no interop holding nothing with its
+`detail`; the script run for real by Windows' `powershell.exe`, let go at
 once), the controller
 through its asyncio task (providers, counted holds from threads, the idle
 minutes, `wake`), `counts_as_activity` against the page's polls, the
 activity middleware and `/api/status`'s `keep_awake`, the CLI's
 `hold_while`, the doctor's VRAM, LAN and Keep awake rows (Linux's and
-Windows'), and the two settings. No real systemd is used.
+Windows' and WSL's), and the two settings. No real systemd is used.
 
 `tests/test_response_headers.py` asks the real app for the page, `/sw.js`,
 API routes, `/docs`, files and misses under both mounts, a 404, a 405 and a
@@ -11290,7 +11336,11 @@ on, as a disk with no room; `POST /api/fake/passcode` (`{passcode}`: a
 string turns the passcode's gate on with it, a new one ending every
 session, null turns it off; `{reset: true}` clears the limiter; it
 answers `{on}`, never the value, and a fake starts with no gate whatever
-the environment holds); the fake's rewriter and translator count as downloaded from their
+the environment holds); `POST /api/fake/activity` (`{reset}`) answers every
+request but the knobs since the last reset as `{requests: [{request,
+counted}], counted}`, `counted` by `keep_awake.scope_counts_as_activity`,
+the real middleware's rule with its poll marker read, since the fake runs
+with keep-awake off (`smoke-idle-activity`); the fake's rewriter and translator count as downloaded from their
 first use), and `node tools/browser.mjs tools/smoke.json` drives headless
 Edge or Chrome over the DevTools protocol with Node's own WebSocket - no npm
 install - through the lightbox zoom and the focus its close leaves on the

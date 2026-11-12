@@ -704,6 +704,39 @@ const LOST_PHRASE = 'server not answering — retrying';
 // passcode again (status.js, goSignedOut); Sign in is the button beside it.
 const SIGNED_OUT_PHRASE = 'signed out';
 
+// A read the page sends by itself on a timer - a retry after a failure, or
+// a refresh a status poll asked for - carries this header, so the server
+// never counts it as someone using AuraDream (backend/keep_awake.py's
+// POLL_HEADER): an idle tab must not hold the PC awake or the model loaded.
+// A read a press starts goes without it.
+const POLL_HEADER = 'X-AuraDream-Poll';
+function polledRead(options = {}) {
+  const headers = new Headers(options.headers);
+  headers.set(POLL_HEADER, '1');
+  return { ...options, headers };
+}
+
+// The debounced previews (grid, comparison, Refine, Inpaint, Outpaint) are
+// also asked again when a status poll sees the model load or unload - idle
+// release's unload among them - and that POST /api/grid/preview is the
+// page's own timer too. Each keeps a mark: a schedule a poll made sets it
+// only while nothing else is pending, any other schedule clears it, and the
+// send takes it (`polledIf`), so a preview someone's edit asked for always
+// counts. The server accepts the header on that one advisory POST alone.
+// A mark is a plain `{ pending: false, polled: false }` in its own script.
+function markPreview(mark, polled) {
+  if (!polled) mark.polled = false;
+  else if (!mark.pending) mark.polled = true;
+  mark.pending = true;
+}
+function takePreviewMark(mark) {
+  const polled = mark.polled;
+  mark.pending = false;
+  mark.polled = false;
+  return polled;
+}
+function polledIf(polled, options) { return polled ? polledRead(options) : options; }
+
 // Every /api/ request carries the checkpoint revision the page last saw; the
 // server alone decides which routes refuse a stale one, so a model-dependent
 // route added there needs nothing here.

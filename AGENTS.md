@@ -129,8 +129,9 @@ Backend (`backend/`):
 - `main.py` lifecycle, model state, switching and the model routes;
   `app_context.py` the `AppServices` getters routers read main through;
   `detached.py` daemon-thread calls; `keep_awake.py` the Linux
-  `systemd-inhibit` hold, and Windows' power request (`PowerRequest`),
-  while busy and for the idle minutes after a request
+  `systemd-inhibit` hold, and Windows' power request (`PowerRequest`; under
+  WSL through interop's `powershell.exe`, `WslPowerRequest`, never
+  `systemd-inhibit`), while busy and for the idle minutes after a request
   (`ActivityMiddleware`, never the page's timed polls), stdlib only, the
   CLI's `hold_while` too; `response_headers.py` the ASGI layer putting
   `frame-ancestors 'self'` and `nosniff` on every response, added last in
@@ -786,6 +787,7 @@ uses the driver's graceful close/cleanup. See the full Tests rules.
 | 7957 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-phone-landscape` |
 | 7958 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-offline` |
 | 7958 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-passcode` |
+| 7958 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-idle-activity` |
 | 7959 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-catalogue-stale` |
 | 7959 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-download-progress` |
 | 7960 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-phone-dialogs` |
@@ -833,7 +835,9 @@ Gotchas:
   unanswered, a PC asleep), `/api/fake/disk-full` (`on`: every image save
   refused as a full disk), `/api/fake/passcode` (`passcode`: a string
   turns the passcode's gate on, null off; `reset`: clears the limiter; a
-  fake starts with none); a prompt containing `[fail]` fails its cell;
+  fake starts with none), `/api/fake/activity` (every request since the
+  last `reset` and those keep-awake's rule counts as use, the fake's own
+  keep-awake being off); a prompt containing `[fail]` fails its cell;
   `--critic-delay`, `--no-critic`.
 
 GPU behaviour, pixels, timing and memory are the card's to say, recorded in

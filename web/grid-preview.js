@@ -242,6 +242,7 @@ function budgetLines(budgets) {
 // duration lookup), so a slow reply for the boxes as they *were* could land
 // after the reply for the boxes as they are. Same token the gallery uses.
 let previewEpoch = 0;
+const gridPreviewMark = { pending: false, polled: false };  // markPreview (state.js)
 
 // Opening the fold by hand brings Run grid into view on the next frame
 // (revealGridRun), and the preview's reply lands after that, under the same
@@ -257,6 +258,7 @@ function previewShown() {
 }
 
 async function previewGrid() {
+  const polled = takePreviewMark(gridPreviewMark);
   if (modelChangeHold()) { ++previewEpoch; return; }
   if (!els.gridSection.open) {
     ++previewEpoch;  // A close retires pending success and error replies.
@@ -276,11 +278,11 @@ async function previewGrid() {
   }
   const body = gridPayload();
   try {
-    const p = await api('/api/grid/preview', {
+    const p = await api('/api/grid/preview', polledIf(polled, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
-    });
+    }));
     if (epoch !== previewEpoch) return;  // superseded while in flight
     els.gridPreview.classList.remove('warn');
     // The axis decides the negative prompt's reach - see syncCfg.
@@ -393,10 +395,13 @@ async function previewGrid() {
 // The prompt check's comparison is a grid on the same panel, so whatever moves
 // this preview's totals - the size, the steps, the seed - moves its too.
 let gridTimer;
-function schedulePreview() {
+// `polled`: a status poll asked (POLL_HEADER, markPreview). An input's
+// event, which some listeners pass here, has no such field: an edit counts.
+function schedulePreview({ polled = false } = {}) {
   // Then refine's fold says the pass size of the size now in the panel.
   syncThenRefine();
   clearTimeout(gridTimer);
+  markPreview(gridPreviewMark, polled === true);
   gridTimer = setTimeout(previewGrid, 250);
-  scheduleComparePreview();
+  scheduleComparePreview(250, { polled: polled === true });
 }

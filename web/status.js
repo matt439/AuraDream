@@ -896,10 +896,12 @@ function receiveStatus(s, asked = Date.now()) {
     // the loaded schedule answers (`start_sigma`): a load that lands with the
     // dialog open adds the line, an unload takes it away.
     if (els.dot.classList.contains('ready') !== (s.state === 'ready')) {
-      schedulePreview();
-      if (refineSource) scheduleRefinePreview();
-      if (inpaintSource) scheduleInpaintPreview();
-      if (outpaintSource) scheduleOutpaintPreview();
+      // Asked by the poll, not by anyone - idle release's unload is one -
+      // so these previews never count as use (POLL_HEADER, markPreview).
+      schedulePreview({ polled: true });
+      if (refineSource) scheduleRefinePreview(250, { polled: true });
+      if (inpaintSource) scheduleInpaintPreview(250, { polled: true });
+      if (outpaintSource) scheduleOutpaintPreview(250, { polled: true });
     }
     els.dot.className = `dot ${s.state}`;
     const was = modelState;
