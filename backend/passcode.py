@@ -216,6 +216,11 @@ class Gate:
         self.limiter = Limiter(clock)
         self.open_prefixes = open_prefixes
         self._now = now
+        # Sign-outs from a signed-in device so far. The gate stores no
+        # sessions, so a renewal minted after a sign-out would sign that
+        # device back in: a request renews only if none came while it ran.
+        # Read and written on the event loop only.
+        self.sign_outs = 0
 
     def matches(self, submitted: str) -> bool:
         """The comparison alone, never counted. Digests, so that neither
@@ -340,7 +345,7 @@ class PasscodeMiddleware:
     A request passes with a valid session cookie or the passcode as
     `Authorization: Bearer`. A cookie a day old is replaced on the page and
     on a request that `counts_as_activity`, never on a poll or a file
-    (`RENEW_AFTER_SECONDS`). Otherwise GET or HEAD of exactly `/` is the
+    (`RENEW_AFTER_SECONDS`), nor on an answer a sign-out overtook. Otherwise GET or HEAD of exactly `/` is the
     sign-in page (`page`, a 200: a service worker rejects a redirect for a
     navigation, and the title probes raise on a 401), `OPEN_PATHS` pass,
     and everything else is a 401 whose body is never read.
@@ -390,11 +395,18 @@ class PasscodeMiddleware:
                     self._log_wrong(scope, "header")
                 signed_in = attempt.ok
         is_page = method in ("GET", "HEAD") and path == "/"
+        sign_outs = gate.sign_outs
         if not signed_in:
             response = self._page() if is_page else self._required()
             await response(scope, receive, send)
             return
         secure = scope.get("scheme") == "https"
+
+        def renewal_stands() -> bool:
+            # A sign-out answered while this request ran cleared a cookie
+            # that this answer must not set again.
+            return renew and gate.sign_outs == sign_outs
+
         if not is_page:
             if not (renew and counts_as_activity(method, path)):
                 await self.app(scope, receive, send)
@@ -403,7 +415,7 @@ class PasscodeMiddleware:
             # Someone using an open tab: a fresh cookie once the one sent is
             # a day old, on whatever the answer is.
             async def send_renewed(message: Any) -> None:
-                if message.get("type") == "http.response.start":
+                if message.get("type") == "http.response.start" and renewal_stands():
                     MutableHeaders(scope=message).append("Set-Cookie", gate.cookie(gate.mint(), secure=secure))
                 await send(message)
 
@@ -417,7 +429,7 @@ class PasscodeMiddleware:
             if message.get("type") == "http.response.start":
                 headers = MutableHeaders(scope=message)
                 headers["Cache-Control"] = "no-cache"
-                if renew:
+                if renewal_stands():
                     headers.append("Set-Cookie", gate.cookie(gate.mint(), secure=secure))
             await send(message)
 
@@ -496,7 +508,13 @@ class PasscodeMiddleware:
     @staticmethod
     async def _sign_out(gate: Gate, scope: Any, receive: Any, send: Any) -> None:
         """`POST /api/passcode/sign-out`: clear the cookie on this device.
-        Needs no session; nothing is stored, so no other device is touched."""
+        Needs no session; no session is stored, so no other device is
+        signed out. One sent with a valid cookie stops the renewal of every
+        request still running (`Gate.sign_outs`), which would otherwise set
+        the cleared cookie again; a signed-out caller cannot do that."""
+        cookies = cookie_parser(_text(_header(scope, b"cookie") or b""))
+        if gate.valid(cookies.get(gate.cookie_name)):
+            gate.sign_outs += 1
         cleared = Response(status_code=204, headers={
             "Set-Cookie": gate.cookie("", secure=scope.get("scheme") == "https"),
             "Cache-Control": "no-store",

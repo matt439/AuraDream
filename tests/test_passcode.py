@@ -317,3 +317,91 @@ def test_the_open_list_is_exact_paths_for_reading_only():
     # The fake server's knobs stay open on the fake alone.
     fake = Gate(PASSCODE, port=7860, open_prefixes=("/api/fake/",))
     assert fake.is_open("POST", "/api/fake/passcode") and not fake.is_open("POST", "/api/status")
+
+
+# ---------------------------------------------------------------- the layer
+
+
+def _scope(method: str, path: str, token: str | None, name: str) -> dict:
+    headers = [(b"host", b"127.0.0.1")]
+    if token is not None:
+        headers.append((b"cookie", f"{name}={token}".encode("ascii")))
+    return {"type": "http", "method": method, "path": path, "scheme": "http", "headers": headers}
+
+
+async def _call(layer, scope: dict) -> list[bytes]:
+    """Run one request through the layer; the Set-Cookie values it answered."""
+    started: list[dict] = []
+
+    async def receive() -> dict:
+        return {"type": "http.request", "body": b"", "more_body": False}
+
+    async def send(message: dict) -> None:
+        if message["type"] == "http.response.start":
+            started.append(message)
+
+    await layer(scope, receive, send)
+    return [value for key, value in started[0]["headers"] if key.lower() == b"set-cookie"]
+
+
+@pytest.mark.parametrize(("method", "path"), [("POST", "/api/prompt/expand"), ("GET", "/")])
+def test_an_answer_that_a_sign_out_overtook_never_sets_the_cookie_again(method, path):
+    """The gate stores no sessions: a renewal minted after this device's
+    sign-out would sign it back in. A request still running when a signed-in
+    sign-out is answered (Expand waiting behind a render) renews nothing."""
+    import asyncio
+
+    from starlette.responses import Response
+
+    wall = Clock(1_800_000_000.0)
+    gate = gate_at(wall)
+    old = gate.mint()
+    wall.at += passcode.RENEW_AFTER_SECONDS + 60
+    assert gate.renewable(old)
+
+    async def run() -> tuple[list[bytes], list[bytes], list[bytes]]:
+        release = asyncio.Event()
+        reached = asyncio.Event()
+
+        async def app(scope, receive, send):
+            if scope["path"] == path:
+                reached.set()
+                await release.wait()
+            await Response(status_code=200)(scope, receive, send)
+
+        layer = passcode.PasscodeMiddleware(app, lambda: gate, ROOT / "web" / "passcode.html")
+        slow = asyncio.create_task(_call(layer, _scope(method, path, old, gate.cookie_name)))
+        await reached.wait()
+        signed_out = await _call(layer, _scope("POST", passcode.SIGN_OUT_PATH, old, gate.cookie_name))
+        release.set()
+        overtaken = await slow
+        # A request begun after the sign-out (another tab still holding the
+        # cookie) renews as before: only the overtaken answer is held back.
+        release.set()
+        later = await _call(layer, _scope(method, path, old, gate.cookie_name))
+        return signed_out, overtaken, later
+
+    signed_out, overtaken, later = asyncio.run(run())
+    assert len(signed_out) == 1 and b"Max-Age=0" in signed_out[0]
+    assert overtaken == []
+    assert len(later) == 1 and b"Max-Age=2592000" in later[0]
+
+
+def test_only_a_signed_in_sign_out_holds_back_renewals():
+    """A caller with no valid cookie cannot stop anyone's renewal."""
+    import asyncio
+
+    from starlette.responses import Response
+
+    wall = Clock(1_800_000_000.0)
+    gate = gate_at(wall)
+
+    async def app(scope, receive, send):
+        await Response(status_code=200)(scope, receive, send)
+
+    layer = passcode.PasscodeMiddleware(app, lambda: gate, ROOT / "web" / "passcode.html")
+    for token in (None, "v1.1.junk"):
+        asyncio.run(_call(layer, _scope("POST", passcode.SIGN_OUT_PATH, token, gate.cookie_name)))
+    assert gate.sign_outs == 0
+    asyncio.run(_call(layer, _scope("POST", passcode.SIGN_OUT_PATH, gate.mint(), gate.cookie_name)))
+    assert gate.sign_outs == 1

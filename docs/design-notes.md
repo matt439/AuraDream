@@ -14022,6 +14022,18 @@ rule decides both, so a poll later excluded from activity is excluded from
 renewal with it. A request signed in by `Authorization: Bearer` gets no
 cookie, renewed or not.
 
+Renewing on any counted request opened a race the page alone did not have:
+the gate stores no sessions, so Sign out only clears the cookie on the
+device, and a slow counted request already running (Expand waiting behind a
+render, a critic Check, an import's upload) would answer after it with a
+fresh thirty-day cookie, signing the device back in. The gate therefore
+counts sign-outs sent with a valid cookie (`Gate.sign_outs`, in memory, on
+the event loop), and a request renews only if none was answered while it
+ran. It is for the whole server, not per device, since no device is told
+apart: another device's sign-out costs an overlapping request its renewal,
+which its next request makes up. A sign-out with no valid cookie counts for
+nothing, so a caller who is not signed in cannot hold anyone's renewal back.
+
 - Nothing is stored, so a restart or an update signs nobody out, which
   matters on the Windows PC that is started by hand each day.
 - Changing the passcode changes the key and signs every device out. That is
