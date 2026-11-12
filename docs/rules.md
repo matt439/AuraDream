@@ -612,7 +612,9 @@ before changing it.
   `passcode.asked` and `setting_problem` as the server decides them: not
   asked on a server only this machine reaches, asked, a WARN for none on a
   server reachable beyond it, a FAIL for one `main.run` would not start
-  with; never the value);
+  with; never the value); the TLS pair (`check_tls`, only when one is set:
+  `server_transport.setting_problem` as the server runs it, a FAIL for a
+  pair it would refuse);
   the card's
   memory against the default checkpoint's measured 12.0 GiB peak (under it
   warns; on Linux below compute capability 10.0 it names the int4 Nunchaku
@@ -732,7 +734,8 @@ before changing it.
   then `uv python install 3.13`, `uv sync`, a CUDA check and the doctor.
   `install-service.sh` writes `auradream.service` under
   `$XDG_CONFIG_HOME/systemd/user` (`uv run --no-sync python -m backend.main`,
-  `Restart=on-failure`, `TimeoutStopSec=120`, no `systemd-inhibit` wrapper:
+  `Restart=on-failure`, `RestartPreventExitStatus=78` (a passcode or TLS
+  pair the server refused: restarting cannot help), `TimeoutStopSec=120`, no `systemd-inhibit` wrapper:
   the server holds the PC itself) and, only when there is none, the env
   file `auradream/auradream.env` (0600, never rewritten): `AURADREAM_HOST=0.0.0.0`,
   `AURADREAM_ALLOWED_HOSTS` as loopback plus the host name, its `.local`
@@ -1042,7 +1045,12 @@ before changing it.
   origins, parsed as scheme/host/effective port. Reject credentials, paths,
   query/fragment delimiters and wildcards; the hostname must still be in
   `AURADREAM_ALLOWED_HOSTS`. They add no CORS policy or Host exemption.
-  Direct TLS requires the existing PEM certificate/key pair. Probes retain
+  Direct TLS requires the existing PEM certificate/key pair, loaded at
+  start-up by `server_transport.setting_problem` as uvicorn will load it
+  (a password callback that raises: no key password is ever asked for or
+  kept); a pair that cannot serve is refused in words before anything
+  binds, exit 78 (`main.SETTINGS_REFUSED_STATUS`, the passcode's too), never
+  as uvicorn's `PEM lib` traceback. Probes retain
   certificate verification and callers use HTTPS when that pair is set;
   scripts must not treat an unverified configured TLS listener as idle.
   The proxy recipe keeps its backend on loopback. No certificate, trust,

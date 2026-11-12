@@ -14769,6 +14769,24 @@ The loopback certificate SAN and client CA trust are explicit prerequisites.
 Tests create a temporary certificate and trust it only in their process;
 no service, firewall, CA store or live LAN installation was changed.
 
+**A pair that cannot serve (`DEV#55`, 2026-11-12).** Checking only that
+both files existed let a non-PEM, mismatched or password-protected pair
+reach uvicorn, which failed with an opaque `[SSL] PEM lib` traceback; under
+the systemd user service that was three restarts and then a failed unit.
+`server_transport.setting_problem` now loads the pair as uvicorn will
+(`ssl.SSLContext.load_cert_chain`, after the certificate alone through
+`load_verify_locations` so the words can name the file at fault), with a
+password callback that raises: AuraDream never asks for or stores a key's
+password, so an encrypted key is refused in words naming `openssl pkey`.
+The refusal is the passcode's start-up path (stderr and the log file
+before anything binds). Both settings refusals now exit 78
+(`main.SETTINGS_REFUSED_STATUS`, sysexits' EX_CONFIG), and the service's
+unit lists it in `RestartPreventExitStatus`, so the unit fails at once and
+`control.sh` says "failed while starting" instead of waiting through
+restarts that cannot help; a held port stays exit 1 and is still restarted,
+since that can clear. The doctor's TLS row (no row without a pair) runs the
+same function, so it fails exactly where the server would refuse to start.
+
 ## Releasing the model after idle minutes
 
 `GEN#50` is opt-in through `AURADREAM_IDLE_UNLOAD_MINUTES` (0, off).

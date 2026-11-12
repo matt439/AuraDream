@@ -201,6 +201,9 @@ Environment=PYTHONUTF8=1
 ExecStart="$(unit_path "$uv")" run --no-sync python -m backend.main
 Restart=on-failure
 RestartSec=10
+# 78: AuraDream refused its own settings (a passcode or TLS pair it cannot
+# use); starting again cannot help, so the unit fails at once instead.
+RestartPreventExitStatus=78
 # A stop finishes the current step and any gallery bundle operation first.
 TimeoutStopSec=120
 UMask=0077

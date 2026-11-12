@@ -441,7 +441,11 @@ HTTPS too. Keep both file variables in each local caller's environment;
 Python/curl clients may use `SSL_CERT_FILE`/`CURL_CA_BUNDLE` for a private
 CA. Do not disable certificate verification. The port remains
 `AURADREAM_PORT` (7860 by default); open `https://<address>:7860`.
-An unset pair keeps HTTP; a missing partner or missing file refuses startup.
+An unset pair keeps HTTP; a missing partner or missing file, a file that
+is not PEM, a key that is not the certificate's, or a key protected by a
+password refuses startup in words (AuraDream never asks for a key's
+password: write an unencrypted copy with `openssl pkey`). The doctor's TLS
+row checks the same before you start.
 Store key material outside the checkout with access limited to the service
 user. No installer, firewall or trust-store change is automatic.
 

@@ -646,7 +646,7 @@ def test_a_passcode_under_eight_characters_stops_the_start_before_it_binds(fake,
     monkeypatch.setattr(main, "Server", never)
     with pytest.raises(SystemExit) as stopped:
         main.run()
-    assert stopped.value.code == 1
+    assert stopped.value.code == main.SETTINGS_REFUSED_STATUS == 78
     said = capsys.readouterr()
     assert "AURADREAM_PASSCODE is shorter than 8 characters" in said.err
     assert value not in said.err and value not in said.out

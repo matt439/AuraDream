@@ -380,6 +380,7 @@ def test_install_service_writes_the_unit_and_env_and_enables_it(sandbox):
     assert f'ExecStart="{sandbox["stubs"]}/uv" run --no-sync python -m backend.main\n' in unit
     assert Path(str(sandbox["stubs"] / "uv")).is_absolute()
     for line in ("Environment=PYTHONUTF8=1", "Restart=on-failure", "RestartSec=10",
+                 "RestartPreventExitStatus=78",   # main.SETTINGS_REFUSED_STATUS
                  "StartLimitIntervalSec=900", "StartLimitBurst=3", "TimeoutStopSec=120",
                  "UMask=0077", "WantedBy=default.target"):
         assert line + "\n" in unit
