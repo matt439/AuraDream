@@ -459,14 +459,44 @@ def _check_power_request(request: keep_awake.Holder) -> list[Check]:
                   "AuraDream works. The display may still turn off, and a sleep you ask for still happens.")]
 
 
+def _check_wsl_power_request(program: str | None,
+                             build: Callable[[str], keep_awake.Holder] | None) -> list[Check]:
+    """WSL's trial: Windows' power request through powershell.exe, set and
+    let go at once; systemd-inhibit is never tried, since under WSL it
+    holds only the Linux VM."""
+    if not program:
+        return [Check(WARN, "Keep awake", keep_awake.WSL_NO_HOLD + ".",
+                      "Turn WSL interop on ([interop] enabled=true in /etc/wsl.conf, then wsl --shutdown), or "
+                      "lengthen or turn off Windows' sleep timer (Settings > System > Power) while AuraDream "
+                      "is used from another device.")]
+    request = (build or (lambda path: keep_awake.WslPowerRequest("AuraDream doctor: check", program=path)))(program)
+    try:
+        request.hold()
+    except Exception as exc:  # noqa: BLE001 - whatever stopped it is the row's words
+        why = str(exc) or type(exc).__name__
+        return [Check(WARN, "Keep awake", f"Under WSL, Windows refused a power request through powershell.exe "
+                      f"({why}), so this PC may sleep in the middle of a load or a render. systemd-inhibit "
+                      "would hold only the Linux VM.",
+                      "If this PC sleeps when idle, lengthen or turn off its sleep timer (Settings > System > "
+                      "Power) while AuraDream is used from another device.")]
+    finally:
+        request.release()
+    return [Check(PASS, "Keep awake", "Under WSL, Windows accepts a power request made through powershell.exe, "
+                  "so Windows' idle sleep timer waits while AuraDream works (systemd-inhibit, which holds only "
+                  "the Linux VM, is not used). The display may still turn off.")]
+
+
 def check_keep_awake(platform: str | None = None, which: Callable[[str], str | None] = shutil.which,
                      run: Callable[..., Any] = subprocess.run, enabled: bool | None = None,
                      user: str | None = None,
-                     power: Callable[[], keep_awake.Holder] | None = None) -> list[Check]:
+                     power: Callable[[], keep_awake.Holder] | None = None,
+                     wsl: bool | None = None, exists: Callable[[str], bool] = os.path.exists,
+                     wsl_power: Callable[[str], keep_awake.Holder] | None = None) -> list[Check]:
     """Whether the server may hold the PC awake while it works. On Linux, a
-    trial block hold around `true`, let go when it ends; on Windows, a
-    trial power request (`power` builds it), let go at once. Nothing
-    elsewhere."""
+    trial block hold around `true`, let go when it ends; under WSL, a trial
+    power request through powershell.exe (`wsl_power` builds it, `wsl` None
+    asks `keep_awake.under_wsl`); on Windows, a trial power request (`power`
+    builds it); each let go at once. Nothing elsewhere."""
     platform = sys.platform if platform is None else platform
     if platform != "win32" and not platform.startswith("linux"):
         return []
@@ -474,6 +504,8 @@ def check_keep_awake(platform: str | None = None, which: Callable[[str], str | N
         return [Check(PASS, "Keep awake", "switched off (AURADREAM_KEEP_AWAKE=false), so nothing is tried.")]
     if platform == "win32":
         return _check_power_request((power or (lambda: keep_awake.PowerRequest("AuraDream doctor: check")))())
+    if keep_awake.under_wsl(exists=exists) if wsl is None else wsl:
+        return _check_wsl_power_request(keep_awake.windows_powershell(which=which, exists=exists), wsl_power)
     program = which("systemd-inhibit")
     if not program:
         return [Check(WARN, "Keep awake", "systemd-inhibit was not found, so AuraDream cannot keep this PC "

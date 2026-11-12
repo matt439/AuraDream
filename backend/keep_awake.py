@@ -1,5 +1,5 @@
 """Keeping the PC awake while AuraDream is busy (Linux through systemd-inhibit,
-Windows through a power request).
+Windows through a power request, WSL through Windows' power request).
 
 A PC that suspends after a spell of idleness (logind's IdleAction, Windows'
 sleep timer) sees no keyboard or mouse while a browser on another machine
@@ -37,6 +37,18 @@ belongs to the process, not a thread, which is why it is this and not
 `SetThreadExecutionState`: hold and release run on different threads. No
 power setting or plan is read or changed.
 
+Under WSL (`under_wsl`) the server is Linux but the PC that sleeps is
+Windows: `systemd-inhibit` there blocks only the VM's logind, never the
+Windows host's sleep timer, so it is never taken. The hold is the same power
+request, made by Windows' own `powershell.exe` through WSL interop
+(`WslPowerRequest`, kind "wsl-power-request"): a small script that sets the
+request, says `held`, and reads its stdin, a pipe only this process holds,
+until it ends; then it clears the request and exits. Releasing closes the
+pipe (then terminate, then kill), and so does this process dying in any
+way; Windows closes the handle when powershell.exe ends however it ends.
+Without interop or powershell.exe, nothing is held and the status says why
+(`NoInhibitor.detail`).
+
 Elsewhere, or on Linux with no systemd-inhibit on the PATH, nothing is held
 (`NoInhibitor`, kind "none").
 
@@ -51,9 +63,11 @@ Standard library only: the doctor and the CLI import it without the app.
 from __future__ import annotations
 
 import asyncio
+import base64
 import contextlib
 import ctypes
 import logging
+import os
 import shutil
 import subprocess
 import sys
@@ -81,22 +95,31 @@ _POLLED_GETS = frozenset({
     "/api/gallery/bundles/status",
     "/api/gallery/automatic-backup",
 })
+# A timed read the page sends only because an earlier one failed, or because
+# a status poll said its answer changed (web/model-switch.js's catalogue
+# retry and cache facts, web/model-shots.js's retry), carries this header
+# (`POLL_HEADER` in web/state.js): a GET with it is the page's own timer,
+# never someone using it. Only GETs: a write always counts.
+POLL_HEADER = "x-auradream-poll"
 # The page's files: a page load is counted by "/" and its API calls, and a
 # cached page's revalidations or a thumbnail are not someone using it, nor
 # the browser's own check for a newer service worker (/sw.js).
 _FILE_PREFIXES = ("/static/", "/outputs/")
 
 
-def counts_as_activity(method: str, path: str) -> bool:
+def counts_as_activity(method: str, path: str, *, polled: bool = False) -> bool:
     """True for a request that is someone using AuraDream: page loads and API
-    calls. Not HEAD or OPTIONS, the page's timed polls (above), the job
-    streams, the mask keep-alive, nor a GET of the page's files."""
+    calls. Not HEAD or OPTIONS, the page's timed polls (above, and a GET
+    marked `polled` by POLL_HEADER), the job streams, the mask keep-alive,
+    nor a GET of the page's files."""
     method = (method or "").upper()
     if method in ("HEAD", "OPTIONS"):
         return False
     path = (path or "/").split("?", 1)[0]
     path = path.rstrip("/") or "/"
     if method == "GET":
+        if polled:
+            return False
         if path in _POLLED_GETS or path == "/api/jobs" or path.startswith("/api/jobs/"):
             return False
         if path.startswith(_FILE_PREFIXES) or path in ("/favicon.ico", "/sw.js"):
@@ -104,6 +127,14 @@ def counts_as_activity(method: str, path: str) -> bool:
     if method == "POST" and path.startswith("/api/masks/") and path.endswith("/keep"):
         return False
     return True
+
+
+def scope_counts_as_activity(scope: Any) -> bool:
+    """`counts_as_activity` for an ASGI http scope, with its POLL_HEADER
+    read (the middleware below and the fake server's recorder share it)."""
+    marker = POLL_HEADER.encode("latin-1")
+    polled = any(name.lower() == marker for name, _ in scope.get("headers") or ())
+    return counts_as_activity(scope.get("method", ""), scope.get("path", "/"), polled=polled)
 
 
 class ActivityMiddleware:
@@ -119,7 +150,7 @@ class ActivityMiddleware:
     async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
         controller = self.get_controller() if scope.get("type") == "http" else None
         method = scope.get("method", "") if controller is not None else ""
-        if controller is None or not counts_as_activity(method, scope.get("path", "/")):
+        if controller is None or not scope_counts_as_activity(scope):
             await self.app(scope, receive, send)
             return
         controller.note_activity()
@@ -404,11 +435,263 @@ class PowerRequest:
                     log.warning("Keep awake: letting go of the power request: %s", exc)
 
 
+# --------------------------------------------------- Windows' hold from WSL
+
+# The binfmt entries WSL registers to run Windows programs; absent when
+# interop is off (`[interop] enabled=false` in /etc/wsl.conf). Newer WSL
+# names it WSLInterop-late.
+WSL_INTEROP = ("/proc/sys/fs/binfmt_misc/WSLInterop", "/proc/sys/fs/binfmt_misc/WSLInterop-late")
+# Where Windows PowerShell 5.1 sits when the Windows PATH is not appended
+# (`appendWindowsPath=false`): the C: drive's default mount.
+WINDOWS_POWERSHELL = "/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe"
+
+WSL_NO_HOLD = ("Under WSL, systemd-inhibit holds only the Linux VM, never Windows, and Windows' "
+               "powershell.exe is not reachable through WSL interop, so nothing keeps this PC awake")
+
+
+def _kernel_release() -> str:
+    uname = getattr(os, "uname", None)
+    try:
+        return uname().release if uname is not None else ""
+    except OSError:
+        return ""
+
+
+def under_wsl(*, release: str | None = None, exists: Callable[[str], bool] = os.path.exists) -> bool:
+    """True inside WSL: its interop entry, or "microsoft" in the kernel's
+    release (5.15.x-microsoft-standard-WSL2, 4.4.0-19041-Microsoft)."""
+    release = _kernel_release() if release is None else release
+    return "microsoft" in release.lower() or any(exists(path) for path in WSL_INTEROP)
+
+
+def windows_powershell(*, which: Callable[[str], str | None] = shutil.which,
+                       exists: Callable[[str], bool] = os.path.exists) -> str | None:
+    """Windows PowerShell as WSL runs it, or None: interop must be on (its
+    binfmt entry), then powershell.exe on the PATH or at its default mount."""
+    if not any(exists(path) for path in WSL_INTEROP):
+        return None
+    found = which("powershell.exe")
+    if found:
+        return found
+    return WINDOWS_POWERSHELL if exists(WINDOWS_POWERSHELL) else None
+
+
+# What powershell.exe runs. The C# is Add-Type's (C# 5 under Windows
+# PowerShell 5.1); REASON_CONTEXT is padded to its union's size, as
+# `_ReasonContext` is. The script prints one line, `held` or `refused: <why>`,
+# then reads its stdin to the end before clearing the request and closing
+# the handle; Windows closes the handle anyway when the process ends.
+_WSL_HOLD_CS = r"""
+[StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+public struct ReasonContext {
+    public uint Version;
+    public uint Flags;
+    [MarshalAs(UnmanagedType.LPWStr)] public string Reason;
+    public IntPtr Detailed1;
+    public IntPtr Detailed2;
+}
+[DllImport("kernel32.dll", SetLastError = true)]
+static extern IntPtr PowerCreateRequest(ref ReasonContext context);
+[DllImport("kernel32.dll", SetLastError = true)]
+static extern bool PowerSetRequest(IntPtr request, int type);
+[DllImport("kernel32.dll", SetLastError = true)]
+static extern bool PowerClearRequest(IntPtr request, int type);
+[DllImport("kernel32.dll", SetLastError = true)]
+static extern bool CloseHandle(IntPtr handle);
+static Exception Refused(string call) {
+    int code = Marshal.GetLastWin32Error();
+    return new Exception("Windows refused " + call + " (error " + code + "): "
+        + new System.ComponentModel.Win32Exception(code).Message);
+}
+public static IntPtr Hold(string reason) {
+    ReasonContext context = new ReasonContext();
+    context.Version = 0;
+    context.Flags = 1;
+    context.Reason = reason;
+    IntPtr request = PowerCreateRequest(ref context);
+    if (request == IntPtr.Zero || request == new IntPtr(-1)) throw Refused("PowerCreateRequest");
+    if (!PowerSetRequest(request, 1)) {
+        Exception refused = Refused("PowerSetRequest");
+        CloseHandle(request);
+        throw refused;
+    }
+    return request;
+}
+public static void Let(IntPtr request) {
+    PowerClearRequest(request, 1);
+    CloseHandle(request);
+}
+""".strip("\n")
+
+_WSL_HOLD_PS = r"""$ErrorActionPreference = 'Stop'
+try {
+    Add-Type -Namespace AuraDream -Name WslHold -MemberDefinition @'
+<CS>
+'@
+    $request = [AuraDream.WslHold]::Hold('<REASON>')
+} catch {
+    $e = $_.Exception
+    while ($e.InnerException) { $e = $e.InnerException }
+    [Console]::Out.WriteLine('refused: ' + ($e.Message -replace '\s+', ' '))
+    [Console]::Out.Flush()
+    exit 1
+}
+[Console]::Out.WriteLine('held ' + $PID)
+[Console]::Out.Flush()
+try {
+    while ($null -ne [Console]::In.ReadLine()) { }
+} finally {
+    [AuraDream.WslHold]::Let($request)
+}
+"""
+
+
+def wsl_hold_script(reason: str) -> str:
+    """The PowerShell that holds a power request until its stdin ends."""
+    # A single-quoted PowerShell string: quotes doubled, line breaks gone.
+    safe = " ".join(str(reason).split()).replace("'", "''")
+    return _WSL_HOLD_PS.replace("<CS>", _WSL_HOLD_CS).replace("<REASON>", safe)
+
+
+class WslPowerRequest:
+    """Windows' power request, held from WSL by Windows' powershell.exe
+    through interop (the module docstring says how and why). hold() and
+    release() are idempotent and safe from any thread; held is True from a
+    `held` answer while the child runs. hold() raises OSError, in Windows'
+    words where it gave some, and does not ask again until RETRY_AFTER has
+    passed. popen and monotonic are injectable for tests."""
+
+    kind = "wsl-power-request"
+    START_WAIT = 30.0               # seconds for `held`: Add-Type compiles at each start
+    STOP_WAIT = 5.0                 # seconds for each step of release()
+    RETRY_AFTER = 300.0             # seconds before trying again after a refusal
+    SHORT_LIFE = 60.0               # seconds: a holder that stopped sooner was refused
+
+    def __init__(self, reason: str = REASON, *, program: str = WINDOWS_POWERSHELL,
+                 popen: Callable[..., Any] | None = None,
+                 monotonic: Callable[[], float] = time.monotonic) -> None:
+        self.reason, self.program = reason, program
+        self._popen = popen or subprocess.Popen
+        self._monotonic = monotonic
+        self._proc: Any = None
+        self.windows_pid: str | None = None
+        self._started = 0.0
+        self._refused: tuple[str, float] | None = None
+        self._lock = threading.Lock()
+
+    def argv(self) -> list[str]:
+        # -EncodedCommand carries the script as one argument, untouched by
+        # the quoting WSL and Windows apply to a command line; it reads no
+        # file and changes no execution policy.
+        encoded = base64.b64encode(wsl_hold_script(self.reason).encode("utf-16-le")).decode("ascii")
+        return [self.program, "-NoLogo", "-NoProfile", "-NonInteractive", "-EncodedCommand", encoded]
+
+    @property
+    def held(self) -> bool:
+        proc = self._proc
+        return proc is not None and proc.poll() is None
+
+    def _refuse(self, why: str) -> OSError:
+        self._refused = (why, self._monotonic())
+        return OSError(why)
+
+    def hold(self) -> None:
+        with self._lock:
+            if self.held:
+                return
+            if self._proc is not None:      # it stopped (ended on the Windows side, say)
+                proc, self._proc = self._proc, None
+                _stop(proc, self.STOP_WAIT)
+                if self._monotonic() - self._started < self.SHORT_LIFE:
+                    raise self._refuse(f"powershell.exe stopped holding at once (exit code {proc.returncode})")
+            if self._refused is not None and self._monotonic() - self._refused[1] < self.RETRY_AFTER:
+                raise OSError(self._refused[0])
+            try:
+                proc = self._popen(self.argv(), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                   stderr=subprocess.DEVNULL, close_fds=True)
+            except OSError as exc:
+                raise self._refuse(f"powershell.exe could not be started through WSL interop: {exc}") from None
+            line = _first_line(proc, self.START_WAIT)
+            words = (line or "").split()
+            if words[:1] == ["held"] and proc.poll() is None:
+                # Windows' own process id, for the log line.
+                self.windows_pid = words[1] if len(words) > 1 else None
+                self._proc, self._refused, self._started = proc, None, self._monotonic()
+                log.debug("Keep awake: powershell.exe %s holds a power request.", self.windows_pid)
+                return
+            _stop(proc, self.STOP_WAIT)
+            if line is None:
+                raise self._refuse(f"powershell.exe gave no answer within {self.START_WAIT:g} s")
+            if line.startswith("refused:"):
+                raise self._refuse(line[len("refused:"):].strip() or "Windows refused a power request")
+            raise self._refuse(f"powershell.exe stopped before holding (exit code {proc.returncode})"
+                               + (f": {line}" if line and not words[:1] == ["held"] else ""))
+
+    def release(self) -> None:
+        with self._lock:
+            proc, self._proc = self._proc, None
+            if proc is not None:
+                _stop(proc, self.STOP_WAIT)
+
+
+def _first_line(proc: Any, timeout: float) -> str | None:
+    """The child's first line of output, stripped: "" at its end, None when
+    none came within `timeout`. Read on a daemon thread, which the child's
+    end (`_stop`) lets go."""
+    box: list[Any] = []
+
+    def read() -> None:
+        try:
+            box.append(proc.stdout.readline())
+        except (OSError, ValueError):
+            box.append(b"")
+
+    reader = threading.Thread(target=read, name="keep-awake-wsl-answer", daemon=True)
+    reader.start()
+    reader.join(timeout)
+    if not box:
+        return None
+    line = box[0]
+    if isinstance(line, bytes):
+        line = line.decode("utf-8", "replace")
+    return (line or "").strip()
+
+
+def _stop(proc: Any, wait: float) -> None:
+    """Close the child's stdin (the end of its input lets go), then
+    terminate, then kill; then close its pipes. Never raises."""
+    try:
+        if proc.stdin is not None:
+            proc.stdin.close()
+    except OSError:
+        pass
+    for stop in (None, proc.terminate, proc.kill):
+        try:
+            if stop is not None:
+                stop()
+            proc.wait(timeout=wait)
+            break
+        except subprocess.TimeoutExpired:
+            continue
+        except OSError:
+            break
+    for pipe in (getattr(proc, "stdout", None), getattr(proc, "stderr", None)):
+        try:
+            if pipe is not None:
+                pipe.close()
+        except OSError:
+            pass
+
+
 class NoInhibitor:
-    """Neither Linux with systemd-inhibit nor Windows: nothing is held."""
+    """Neither Linux with systemd-inhibit, Windows, nor WSL with interop:
+    nothing is held. `detail` says why where that is worth saying (WSL)."""
 
     kind = "none"
     held = False
+
+    def __init__(self, detail: str | None = None) -> None:
+        self.detail = detail
 
     def hold(self) -> None:
         pass
@@ -419,13 +702,20 @@ class NoInhibitor:
 
 def platform_inhibitor(reason: str = REASON, *, platform: str | None = None,
                        which: Callable[[str], str | None] = shutil.which,
-                       ) -> Inhibitor | PowerRequest | NoInhibitor:
-    """This machine's inhibitor: systemd-inhibit's on Linux where it is on
-    the PATH, a power request on Windows, else one that holds nothing."""
+                       wsl: bool | None = None,
+                       exists: Callable[[str], bool] = os.path.exists,
+                       ) -> Inhibitor | PowerRequest | WslPowerRequest | NoInhibitor:
+    """This machine's inhibitor: a power request on Windows; under WSL the
+    same request through powershell.exe, never systemd-inhibit; on other
+    Linux systemd-inhibit's where it is on the PATH; else one that holds
+    nothing. `wsl` None asks `under_wsl`."""
     platform = sys.platform if platform is None else platform
     if platform == "win32":
         return PowerRequest(reason)
     if platform.startswith("linux"):
+        if under_wsl(exists=exists) if wsl is None else wsl:
+            program = windows_powershell(which=which, exists=exists)
+            return WslPowerRequest(reason, program=program) if program else NoInhibitor(WSL_NO_HOLD)
         program = which("systemd-inhibit")
         if program:
             return Inhibitor(reason, program=program)
@@ -581,18 +871,23 @@ class KeepAwake:
 
     def status(self) -> dict[str, Any]:
         """The last check's answer, for /api/status (no subprocess): kind
-        ("systemd-inhibit", "power-request" or "none"), holding (the inhibitor really holds),
-        wanted (there is a reason to; a refused hold is wanted, not
-        holding), reasons, detail (the last refusal, until a hold works) and
-        idle_minutes."""
+        ("systemd-inhibit", "power-request", "wsl-power-request" or "none"),
+        holding (the inhibitor really holds), wanted (there is a reason to; a
+        refused hold is wanted, not holding), reasons, detail (the last
+        refusal until a hold works, else why nothing can be held: WSL
+        without interop) and idle_minutes."""
         reasons = list(self._reasons)
+        detail = self._detail or getattr(self.inhibitor, "detail", None)
         return {"kind": self.inhibitor.kind, "holding": self._holding, "wanted": bool(reasons),
-                "reasons": reasons, "detail": self._detail, "idle_minutes": self.idle_minutes}
+                "reasons": reasons, "detail": detail, "idle_minutes": self.idle_minutes}
 
     # -- the task
 
     def start(self) -> asyncio.Task:
         """Start ticking on the running loop."""
+        why = getattr(self.inhibitor, "detail", None)
+        if why:
+            log.warning("Keep awake: %s.", why)
         self._loop = asyncio.get_running_loop()
         self._wakeup = asyncio.Event()
         self._task = asyncio.create_task(self._run(), name="keep-awake")

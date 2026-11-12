@@ -8,6 +8,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import shutil
 import subprocess
 import sys
 import threading
@@ -167,13 +168,223 @@ def test_a_program_that_cannot_start_is_a_refusal():
 
 
 def test_platform_inhibitor_is_systemd_inhibit_on_linux_only_where_it_is_installed():
-    found = platform_inhibitor(platform="linux", which=lambda name: "/usr/bin/" + name)
+    found = platform_inhibitor(platform="linux", wsl=False, which=lambda name: "/usr/bin/" + name)
     assert isinstance(found, Inhibitor) and found.program == "/usr/bin/systemd-inhibit"
-    assert isinstance(platform_inhibitor(platform="linux", which=lambda name: None), NoInhibitor)
+    assert isinstance(platform_inhibitor(platform="linux", wsl=False, which=lambda name: None), NoInhibitor)
     assert isinstance(platform_inhibitor(platform="darwin", which=lambda name: "x"), NoInhibitor)
     nothing = NoInhibitor()
     nothing.hold()
-    assert nothing.held is False and nothing.kind == "none"
+    assert nothing.held is False and nothing.kind == "none" and nothing.detail is None
+
+
+# --- WSL: Windows' power request through powershell.exe ---------------------------
+
+INTEROP = keep_awake.WSL_INTEROP[0]
+
+
+def _exists(*paths: str):
+    return lambda path: path in paths
+
+
+def test_wsl_is_its_interop_entry_or_microsoft_in_the_kernel_release():
+    assert keep_awake.under_wsl(release="5.15.167.4-microsoft-standard-WSL2", exists=_exists())
+    assert keep_awake.under_wsl(release="4.4.0-19041-Microsoft", exists=_exists())
+    assert keep_awake.under_wsl(release="6.8.0-generic", exists=_exists(keep_awake.WSL_INTEROP[1]))
+    assert not keep_awake.under_wsl(release="6.8.0-48-generic", exists=_exists())
+
+
+def test_windows_powershell_needs_interop_then_the_path_or_the_default_mount():
+    found = lambda name: "/mnt/c/WINDOWS/System32/WindowsPowerShell/v1.0/" + name  # noqa: E731
+    assert keep_awake.windows_powershell(which=found, exists=_exists()) is None      # interop off
+    assert keep_awake.windows_powershell(which=found, exists=_exists(INTEROP)).endswith("/powershell.exe")
+    assert keep_awake.windows_powershell(
+        which=lambda name: None, exists=_exists(INTEROP, keep_awake.WINDOWS_POWERSHELL),
+    ) == keep_awake.WINDOWS_POWERSHELL
+    assert keep_awake.windows_powershell(which=lambda name: None, exists=_exists(INTEROP)) is None
+
+
+def test_under_wsl_the_hold_is_windows_power_request_never_systemd_inhibit():
+    everything = lambda name: "/usr/bin/" + name  # noqa: E731
+    found = platform_inhibitor(platform="linux", wsl=True, which=everything, exists=_exists(INTEROP))
+    assert isinstance(found, keep_awake.WslPowerRequest) and found.kind == "wsl-power-request"
+    assert found.program == "/usr/bin/powershell.exe" and not found.held
+    # Detected by itself, from the interop entry.
+    assert isinstance(platform_inhibitor(platform="linux", which=everything, exists=_exists(INTEROP)),
+                      keep_awake.WslPowerRequest)
+    # Without interop nothing can reach Windows: nothing is held, and the status says why.
+    nothing = platform_inhibitor(platform="linux", wsl=True, which=everything, exists=_exists())
+    assert isinstance(nothing, NoInhibitor) and nothing.detail == keep_awake.WSL_NO_HOLD
+    assert "never Windows" in nothing.detail
+
+
+class Answer:
+    """A child's stdout: `line` at the first readline, or (None) nothing
+    until the child ends."""
+
+    def __init__(self, proc: WslProc, line: bytes | None) -> None:
+        self.proc, self.line, self.closed = proc, line, False
+
+    def readline(self) -> bytes:
+        if self.line is not None:
+            return self.line
+        self.proc.ended.wait(5)
+        return b""
+
+    def close(self) -> None:
+        self.closed = True
+
+
+class WslProc(FakeProc):
+    """powershell.exe running the hold script: answers `line` (b"held 4242\\r\\n",
+    b"refused: ...", b"" for an end before holding, None for silence)."""
+
+    def __init__(self, clock: Clock, line: bytes | None = b"held 4242\r\n", *, lives: float | None = None,
+                 returncode: int = 1, ignores_eof: bool = False) -> None:
+        super().__init__(clock, lives, returncode=returncode, ignores_eof=ignores_eof)
+        self.ended = threading.Event()
+        self.stdout = Answer(self, line)
+        if line is not None and not line.startswith(b"held"):
+            self.returncode = returncode        # it said its word and stopped
+            self.ended.set()
+
+    def poll(self) -> int | None:
+        code = super().poll()
+        if code is not None:
+            self.ended.set()
+        return code
+
+    def terminate(self) -> None:
+        super().terminate()
+        self.ended.set()
+
+    def kill(self) -> None:
+        super().kill()
+        self.ended.set()
+
+
+def _wsl(*procs: WslProc, clock: Clock | None = None):
+    popen = Popen(*procs)
+    request = keep_awake.WslPowerRequest("AuraDream is in use", program="/mnt/c/ps/powershell.exe",
+                                         popen=popen, monotonic=clock or procs[0].clock)
+    return request, popen
+
+
+def _script(argv: list[str]) -> str:
+    import base64
+
+    assert argv[:5] == ["/mnt/c/ps/powershell.exe", "-NoLogo", "-NoProfile", "-NonInteractive", "-EncodedCommand"]
+    return base64.b64decode(argv[5]).decode("utf-16-le")
+
+
+def test_a_wsl_hold_is_powershell_holding_on_a_pipe_only_we_hold_until_released():
+    clock = Clock()
+    proc = WslProc(clock)
+    request, popen = _wsl(proc)
+    request.hold()
+    request.hold()                          # idempotent: one child
+    argv, kwargs = popen.calls[0]
+    assert len(popen.calls) == 1 and request.held and request.windows_pid == "4242"
+    assert kwargs["stdin"] == subprocess.PIPE and kwargs["stdout"] == subprocess.PIPE
+    assert kwargs["stderr"] == subprocess.DEVNULL and kwargs["close_fds"] is True
+    script = _script(argv)
+    assert "::Hold('AuraDream is in use')" in script
+    # The system only (PowerRequestSystemRequired, 1), never the display (0);
+    # cleared and closed once its stdin ends.
+    assert "PowerSetRequest(request, 1)" in script and "PowerClearRequest(request, 1)" in script
+    assert "PowerSetRequest(request, 0)" not in script and "powercfg" not in script.lower()
+    assert "[Console]::In.ReadLine()" in script and "::Let($request)" in script
+    request.release()
+    assert proc.stdin.closed and proc.signals == [] and proc.stdout.closed and not request.held
+    request.release()                       # idempotent
+
+
+def test_the_wsl_script_quotes_its_reason_as_one_powershell_string():
+    script = keep_awake.wsl_hold_script("Matt's\nrender")
+    assert "::Hold('Matt''s render')" in script
+    assert "-EncodedCommand" not in script and "\"kernel32.dll\"" in script
+
+
+def test_a_wsl_holder_that_ignores_the_end_of_its_input_is_terminated():
+    clock = Clock()
+    proc = WslProc(clock, ignores_eof=True)
+    request, _ = _wsl(proc)
+    request.hold()
+    request.release()
+    assert proc.signals == ["terminate"] and not request.held
+
+
+def test_windows_refusal_through_wsl_is_in_windows_words_and_waits_before_asking_again():
+    clock = Clock()
+    refused = WslProc(clock, b"refused: Windows refused PowerSetRequest (error 5): Access is denied.\r\n")
+    request, popen = _wsl(refused, WslProc(clock))
+    with pytest.raises(OSError, match=r"^Windows refused PowerSetRequest \(error 5\): Access is denied\.$"):
+        request.hold()
+    assert not request.held and refused.stdin.closed
+    clock.now += keep_awake.WslPowerRequest.RETRY_AFTER - 1
+    with pytest.raises(OSError, match="Access is denied"):
+        request.hold()
+    assert len(popen.calls) == 1
+    clock.now += 2
+    request.hold()
+    assert request.held and len(popen.calls) == 2
+
+
+def test_a_wsl_holder_that_says_nothing_or_stops_at_once_or_cannot_start_is_a_refusal():
+    clock = Clock()
+    silent = WslProc(clock, None)
+    request, _ = _wsl(silent)
+    request.START_WAIT = 0.05
+    with pytest.raises(OSError, match="gave no answer within 0.05 s"):
+        request.hold()
+    assert silent.stdin.closed and silent.returncode is not None and not request.held
+
+    request, _ = _wsl(WslProc(clock, b"", returncode=255))
+    with pytest.raises(OSError, match=r"stopped before holding \(exit code 255\)$"):
+        request.hold()
+
+    def popen(argv, **kwargs):
+        raise OSError(8, "Exec format error")
+    request = keep_awake.WslPowerRequest(program="powershell.exe", popen=popen, monotonic=clock)
+    with pytest.raises(OSError, match="could not be started through WSL interop: .*Exec format error"):
+        request.hold()
+
+
+def test_a_wsl_holder_that_stops_soon_is_a_refusal_and_one_that_lived_is_restarted():
+    clock = Clock()
+    request, popen = _wsl(WslProc(clock, lives=10), WslProc(clock, lives=120), WslProc(clock))
+    request.hold()
+    clock.now += 10
+    assert not request.held
+    with pytest.raises(OSError, match="stopped holding at once"):
+        request.hold()
+    clock.now += keep_awake.WslPowerRequest.RETRY_AFTER
+    request.hold()
+    clock.now += 120
+    request.hold()                          # it lived: a new one, no refusal
+    assert request.held and len(popen.calls) == 3
+
+
+def test_the_controller_says_why_nothing_is_held_under_wsl_without_interop():
+    controller = KeepAwake(NoInhibitor(keep_awake.WSL_NO_HOLD), monotonic=Clock())
+    status = controller.status()
+    assert status["kind"] == "none" and status["detail"] == keep_awake.WSL_NO_HOLD
+    KeepAwakeStatus.model_validate(status)
+    KeepAwakeStatus.model_validate({**status, "kind": "wsl-power-request", "detail": None})
+
+
+@pytest.mark.skipif(sys.platform != "win32" or not shutil.which("powershell.exe"),
+                    reason="Windows' own powershell.exe")
+def test_the_wsl_hold_script_holds_and_lets_go_for_real():
+    # The script WSL sends, run by Windows' powershell.exe directly: Add-Type
+    # compiles, the request is set and, at the end of its input, let go.
+    request = keep_awake.WslPowerRequest("AuraDream test: released at once", program=shutil.which("powershell.exe"))
+    try:
+        request.hold()
+        assert request.held and (request.windows_pid or "").isdigit()
+    finally:
+        proc = request._proc
+        request.release()
+    assert not request.held and proc is not None and proc.returncode == 0
 
 
 # --- Windows' power request ------------------------------------------------------
@@ -850,7 +1061,7 @@ def _ran(code, stderr=""):
 
 def test_keep_awake_trial_passes_when_the_hold_is_allowed():
     run, calls = _ran(0)
-    [check] = doctor.check_keep_awake("linux", which=lambda name: "/usr/bin/" + name, run=run, enabled=True)
+    [check] = doctor.check_keep_awake("linux", wsl=False, which=lambda name: "/usr/bin/" + name, run=run, enabled=True)
     assert check.status == PASS and check.title == "Keep awake"
     argv, kwargs = calls[0]
     assert argv == ["/usr/bin/systemd-inhibit", "--what=sleep:idle", "--who=AuraDream doctor", "--why=check",
@@ -860,7 +1071,7 @@ def test_keep_awake_trial_passes_when_the_hold_is_allowed():
 
 def test_keep_awake_refused_warns_with_the_polkit_rule():
     run, _ = _ran(1, "Failed to inhibit: Access denied")
-    [check] = doctor.check_keep_awake("linux", which=lambda name: "/usr/bin/" + name, run=run, enabled=True,
+    [check] = doctor.check_keep_awake("linux", wsl=False, which=lambda name: "/usr/bin/" + name, run=run, enabled=True,
                                       user="matt")
     assert check.status == WARN and "Access denied" in check.detail
     assert "org.freedesktop.login1.inhibit-block-sleep" in check.fix
@@ -871,14 +1082,14 @@ def test_keep_awake_refused_warns_with_the_polkit_rule():
 def test_keep_awake_timeout_missing_off_and_elsewhere():
     def slow(argv, **kwargs):
         raise subprocess.TimeoutExpired(argv, kwargs["timeout"])
-    [check] = doctor.check_keep_awake("linux", which=lambda name: "x", run=slow, enabled=True, user="u")
+    [check] = doctor.check_keep_awake("linux", wsl=False, which=lambda name: "x", run=slow, enabled=True, user="u")
     assert check.status == WARN and "did not finish" in check.detail
-    [check] = doctor.check_keep_awake("linux", which=lambda name: None, enabled=True)
+    [check] = doctor.check_keep_awake("linux", wsl=False, which=lambda name: None, enabled=True)
     assert check.status == WARN and "not found" in check.detail
 
     def never(*args, **kwargs):
         raise AssertionError("nothing is run")
-    [check] = doctor.check_keep_awake("linux", which=lambda name: "x", run=never, enabled=False)
+    [check] = doctor.check_keep_awake("linux", wsl=False, which=lambda name: "x", run=never, enabled=False)
     assert check.status == PASS and "AURADREAM_KEEP_AWAKE=false" in check.detail
     assert doctor.check_keep_awake("darwin", run=never, power=never) == []
     [check] = doctor.check_keep_awake("win32", run=never, power=never, enabled=False)
@@ -922,6 +1133,40 @@ def test_the_doctors_windows_row_asks_for_the_servers_own_holder(monkeypatch):
     monkeypatch.setattr(keep_awake, "PowerRequest", Trial)
     [check] = doctor.check_keep_awake("win32", enabled=True)
     assert check.status == PASS and built == ["AuraDream doctor: check"]
+
+
+def _never(*args, **kwargs):
+    raise AssertionError("systemd-inhibit is never tried under WSL")
+
+
+def test_the_doctor_under_wsl_tries_windows_power_request_never_systemd_inhibit(monkeypatch):
+    built = []
+
+    class Trial(Recorder):
+        def __init__(self, reason, *, program):
+            super().__init__()
+            built.append((reason, program))
+
+    monkeypatch.setattr(keep_awake, "WslPowerRequest", Trial)
+    [check] = doctor.check_keep_awake("linux", wsl=True, which=lambda name: "/mnt/c/ps/" + name, run=_never,
+                                      enabled=True, exists=_exists(INTEROP))
+    assert check.status == PASS and "Under WSL" in check.detail and "only the Linux VM" in check.detail
+    assert built == [("AuraDream doctor: check", "/mnt/c/ps/powershell.exe")]
+
+
+def test_the_doctor_under_wsl_warns_when_windows_refuses_or_interop_is_off():
+    clock = Clock()
+    refused = WslProc(clock, b"refused: Windows refused PowerCreateRequest (error 5): Access is denied.\n")
+    request, _ = _wsl(refused)
+    [check] = doctor.check_keep_awake("linux", wsl=True, which=lambda name: "/mnt/c/ps/" + name, run=_never,
+                                      enabled=True, exists=_exists(INTEROP), wsl_power=lambda program: request)
+    assert check.status == WARN and "Access is denied" in check.detail and "sleep timer" in check.fix
+    assert not request.held
+
+    [check] = doctor.check_keep_awake("linux", wsl=True, which=lambda name: "/usr/bin/" + name, run=_never,
+                                      enabled=True, exists=_exists())
+    assert check.status == WARN and check.detail == keep_awake.WSL_NO_HOLD + "."
+    assert "[interop] enabled=true" in check.fix and "polkit" not in check.fix
 
 
 def test_lan_rows():

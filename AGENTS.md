@@ -125,8 +125,9 @@ Backend (`backend/`):
 - `main.py` lifecycle, model state, switching and the model routes;
   `app_context.py` the `AppServices` getters routers read main through;
   `detached.py` daemon-thread calls; `keep_awake.py` the Linux
-  `systemd-inhibit` hold, and Windows' power request (`PowerRequest`),
-  while busy and for the idle minutes after a request
+  `systemd-inhibit` hold, and Windows' power request (`PowerRequest`; under
+  WSL through interop's `powershell.exe`, `WslPowerRequest`, never
+  `systemd-inhibit`), while busy and for the idle minutes after a request
   (`ActivityMiddleware`, never the page's timed polls), stdlib only, the
   CLI's `hold_while` too; `response_headers.py` the ASGI layer putting
   `frame-ancestors 'self'` and `nosniff` on every response, added last in

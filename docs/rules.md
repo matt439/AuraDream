@@ -491,9 +491,17 @@ before changing it.
   `PowerCreateRequest` handle with `PowerRequestSystemRequired` set, cleared
   and closed on release, its four calls behind `PowerApi` and bound to
   kernel32 by `Kernel32Power` only at the first call; never the display,
-  `SetThreadExecutionState` or a power setting), `NoInhibitor` elsewhere or
-  on Linux without systemd-inhibit, `platform_inhibitor` choosing among the
-  three, `KeepAwake` (an asyncio task holding while `main`'s providers name a
+  `SetThreadExecutionState` or a power setting), `WslPowerRequest` under
+  WSL (kind `wsl-power-request`: `under_wsl` by the interop entry or
+  `microsoft` in the kernel release; Windows' `powershell.exe`, found by
+  `windows_powershell` only with interop on, runs `wsl_hold_script` by
+  `-EncodedCommand`, answers `held <pid>` or `refused: <Windows' words>`
+  within `START_WAIT`, and holds the same system-required request until
+  its stdin, a pipe only the server holds, ends; release closes it, then
+  terminate, then kill; never systemd-inhibit there, which holds only the
+  VM), `NoInhibitor` elsewhere, on Linux without systemd-inhibit or under
+  WSL without interop (its `detail`, `WSL_NO_HOLD`, in the status),
+  `platform_inhibitor` choosing among the four, `KeepAwake` (an asyncio task holding while `main`'s providers name a
   reason, a counted `busy(reason)` is open, or for
   `AURADREAM_KEEP_AWAKE_IDLE_MINUTES` after a request `counts_as_activity`
   passes; `wake` checks again at once from any thread; a cached `status()`
@@ -619,8 +627,10 @@ before changing it.
   repos); with a non-loopback `AURADREAM_HOST`, `AURADREAM_ALLOWED_HOSTS`
   without 127.0.0.1 or with a wildcard (each warns); on Linux a trial
   `systemd-inhibit ... true` block hold (refused warns, with a polkit rule),
-  and on Windows a trial `keep_awake.PowerRequest` let go at once (refused
-  warns in Windows' words);
+  under WSL instead a trial `keep_awake.WslPowerRequest` let go at once
+  (refused warns in Windows' words; interop off warns that nothing can
+  hold Windows), and on Windows a trial `keep_awake.PowerRequest` let go at
+  once (refused warns in Windows' words);
   a Hugging Face
   token as `HF_TOKEN` (or `HUGGING_FACE_HUB_TOKEN`) or the token file's existence (`hf_sign_in`), never read or sent.
   Imports `config` first and torch inside the GPU check; never diffusers,
@@ -3213,10 +3223,15 @@ measured on the card and when.
   keeps nothing per thread: Windows' is a power request handle, never
   `SetThreadExecutionState`. It asks for the system only
   (`PowerRequestSystemRequired`), never the display, and reads or changes
-  no power setting. Tests never take a real hold through the server or the
-  CLI: `tests/conftest.py` replaces `platform_inhibitor` with
-  `NoInhibitor`. The one real call is `tests/test_keep_awake.py`'s, on
-  Windows, released in the same test.
+  no power setting. Under WSL it never takes `systemd-inhibit`, which
+  holds only the VM: Windows' request goes through `powershell.exe` by
+  interop (`WslPowerRequest`), or nothing is held and the status's
+  `detail` says why; never a claimed hold. Tests never take a real hold
+  through the server or the CLI: `tests/conftest.py` replaces
+  `platform_inhibitor` with `NoInhibitor`. The real calls are
+  `tests/test_keep_awake.py`'s two, on Windows (the power request, and
+  the WSL script run by Windows' own `powershell.exe`), each released in
+  the same test.
 - Idle model release is default off (`AURADREAM_IDLE_UNLOAD_MINUTES=0`).
   `idle_unload.IdleUnload` runs one event-loop timer and shares KeepAwake's
   real-request clock, even when its power inhibitor is off. Jobs, card
@@ -10285,12 +10300,17 @@ it was given and waits `RETRY_AFTER`; a refused clear still closes; the
 `REASON_CONTEXT` layout; `Kernel32Power` over a fake kernel32: the system
 asked for, never the display, and a null or invalid handle or a zero
 return a refusal naming the call; one real request on Windows, let go at
+once), WSL's detection and its `powershell.exe` holder with a fake popen
+(the script's reason, the system asked for and never the display, `held`,
+a refusal in Windows' words and its retry, silence, an early end, a child
+ignoring the end of its input, no interop holding nothing with its
+`detail`; the script run for real by Windows' `powershell.exe`, let go at
 once), the controller
 through its asyncio task (providers, counted holds from threads, the idle
 minutes, `wake`), `counts_as_activity` against the page's polls, the
 activity middleware and `/api/status`'s `keep_awake`, the CLI's
 `hold_while`, the doctor's VRAM, LAN and Keep awake rows (Linux's and
-Windows'), and the two settings. No real systemd is used.
+Windows' and WSL's), and the two settings. No real systemd is used.
 
 `tests/test_response_headers.py` asks the real app for the page, `/sw.js`,
 API routes, `/docs`, files and misses under both mounts, a 404, a 405 and a
