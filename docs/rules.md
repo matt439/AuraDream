@@ -2,7 +2,8 @@
 
 The complete rule set, moved here from `AGENTS.md` on 2026-10-08 so it stays
 short (`CLAUDE.md` only imports it). `AGENTS.md` keeps the rules that break things
-silently; this file keeps every rule with its identifiers and exact wording,
+silently and, as its Layout, one line per area linking to this Layout's
+parts (`DEV#63`); this file keeps every rule with its identifiers and exact wording,
 the full module map, and what each smoke covers. `docs/design-notes.md` keeps
 the reasoning, under headings of the same subject. Read the part for an area
 before changing it: the Layout is headed by part of the tree, Frontend and
@@ -86,7 +87,9 @@ paragraphs, never rewording.
 - `backend/api_backup.py` - explicit backup configuration and cached status
   routes; `backend/schemas_backup.py` owns their validated models
 - `backend/bundle_leases.py` - per-process archive reader/exclusive claims and
-  leased FileResponse lifetime; shared process state and explicit native-lock mode
+  leased FileResponse lifetime (a complete download's or import's); shared
+  process state and explicit native-lock mode; an uncertain input's claim
+  stays quarantined until restart
 - `backend/bundle_file_lock.py` - opt-in nonblocking shared/exclusive native
   locks on persistent archive companions, with identity and cleanup ownership checks
 - `backend/bundle_mode.py` - explicit Windows/NTFS shared-download installation,
@@ -154,7 +157,8 @@ paragraphs, never rewording.
   the fit badge (`card_fit`); `capabilities_for` answers the seven flags
   beside Refine (inpaint, outpaint, references, LoRA, negative prompt, live
   preview, Expand) as `details_for`'s `capabilities_note`, and
-  `capability_table` is docs/usage.md's table of them
+  `capability_table` is docs/usage.md's table of them; download sizes come
+  from `model-downloads.json` (`tools/model_downloads.py`)
 - `backend/hub_access.py` — the Hugging Face access check a switch asks before
   it releases the working checkpoint: cache first, then one HEAD per recipe
   source at its revision (or the repo's auth check); a `Refusal` only when the
@@ -457,7 +461,9 @@ paragraphs, never rewording.
   and rebuilt mask; no settings, session or lock.
   storage imports every name back, so `storage.<name>` still answers; the
   mask writers, holds and `mask_path` stay in storage, where tests patch them
-- `backend/metadata.py` — the PNG chunk's key (`auradream`) and
+- `backend/metadata.py` — `require_header_metadata`, the guard refusing
+  app text placed after IDAT (which header-only readers cannot see); the
+  PNG chunk's key (`auradream`) and
   `embedded_metadata`, which still reads the legacy `local-diffusion` and
   `krea` keys (and `auradream-mask`'s legacy `local-diffusion-mask`); the
   PNG chunk codec (`PNG_SIGNATURE`, `text_keyword`, `metadata_chunk`) and
@@ -761,7 +767,13 @@ paragraphs, never rewording.
   by `.gitattributes`. Each `.cmd` runs its `.ps1` with
   `-NoProfile -ExecutionPolicy Bypass -File`, passes its arguments through,
   pauses unless `AURADREAM_INSTALL_NO_PAUSE` is set and returns the exit
-  code. Native calls run under `ErrorActionPreference = 'Continue'` and are
+  code. `install.ps1` checks the machine, installs uv and Git only if
+  missing, sets `HF_HOME` before anything could download, runs `uv sync`
+  and the doctor, and makes shortcuts to `bin\auradream.cmd --open`;
+  `update.ps1` copies the database and runs `git pull --ff-only` and
+  `uv sync`. Neither downloads weights, writes `auradream.settings.json`,
+  moves the gallery, sets `AURADREAM_*` for the user or touches WSL.
+  Native calls run under `ErrorActionPreference = 'Continue'` and are
   judged by exit code (5.1 turns their stderr into errors). `install.ps1
   -DryRun` changes nothing, still runs the read-only checks, carries on past
   a stop and exits 1 if a real run would have stopped; `-Yes`, or no
@@ -914,7 +926,10 @@ paragraphs, never rewording.
   `generation-presets.js` the named generation/grid setup dialog, raw capture,
   explicit validated Restore and whole-draft Undo;
   `setup-import.js` saved-setup Export…/Import… and the separate
-  file-index merge dialog (styles in `setups.css`); `import-merge.js`, loaded
+  file-index merge dialog (styles in `setups.css`), which never calls
+  `setupSummary` (it writes the editor's summary and reads the composer),
+  keeps the editor, composer and Undo, and never resends an uncertain
+  import; `import-merge.js`, loaded
   before both, what the two merge dialogs share - the file read, the
   envelope, the choice reasons and holds and the rows drawn from a preview
   (`renderImportRows`) - stateless, each file keeping its own state,

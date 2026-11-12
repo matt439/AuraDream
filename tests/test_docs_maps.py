@@ -79,6 +79,20 @@ def test_the_layout_counts_the_page_scripts():
     assert f"`index.html` loads {len(scripts)} classic" in _layout()
 
 
+def test_agents_layout_points_at_every_part_of_the_full_map():
+    # AGENTS.md's Layout is one line per area (DEV#63); the files are mapped
+    # only in rules.md's. Each part of that map keeps a line pointing at it,
+    # and the short Layout does not grow back into a second map.
+    text = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+    short = text[text.index("## Layout\n"):text.index("## Rules that break")]
+    parts = re.findall(r"^### (.+)$", _layout(), re.M)
+    slugs = [re.sub(r"[^\w\- ]", "", p.lower()).replace(" ", "-") for p in parts]
+    assert slugs and [s for s in slugs if f"docs/rules.md#{s})" not in short] == []
+    bullets = [line for line in short.splitlines() if line.startswith("- ")]
+    assert len(bullets) <= len(parts) + 2
+    assert len(short.splitlines()) <= len(bullets) + 8
+
+
 def test_every_smoke_is_in_the_port_table_on_its_port():
     table = _smoke_table()
     smokes = {p.stem: p for p in (ROOT / "tools").glob("smoke*.json")}
