@@ -6,13 +6,15 @@ from functools import lru_cache
 from pathlib import Path
 
 from . import model_info
+from .launch import written_id
 from .model_cache_storage import free_bytes
 
 
 def sample(model_id: str) -> dict:
     from huggingface_hub.constants import HF_HOME, HF_HUB_CACHE
 
-    return _sample(model_id, str(HF_HUB_CACHE), str(HF_HOME), int(time.monotonic() // 2), model_info.cache_revision())
+    # A renamed lite-infer id samples its entry's recipe (`launch.written_id`).
+    return _sample(written_id(model_id), str(HF_HUB_CACHE), str(HF_HOME), int(time.monotonic() // 2), model_info.cache_revision())
 
 
 @lru_cache(maxsize=64)

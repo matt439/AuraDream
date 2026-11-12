@@ -9,7 +9,7 @@ import sys
 from dataclasses import dataclass
 from typing import TypedDict
 
-from .launch import CHECKPOINTS, FORMATS
+from .launch import catalogue_entry
 from .model_defaults import defaults_for
 
 
@@ -160,14 +160,8 @@ def speed_for(
     model_id: str, quantization: str | None = None, offload: str = "model",
 ) -> dict[str, str]:
     """Return a measured sample or an explicitly labelled different-setup reference."""
-    checkpoint = next((
-        entry for entry in CHECKPOINTS
-        if model_id == entry.repo or any(model_id == entry.lite_repo(fmt) for fmt, _ in FORMATS)
-    ), None)
-    fmt = next((
-        name for name, _ in FORMATS
-        if checkpoint is not None and checkpoint.lite_repo(name) == model_id
-    ), None)
+    checkpoint = catalogue_entry(model_id)
+    fmt = checkpoint.lite_format(model_id) if checkpoint is not None else None
     quantization = quantization or ("nunchaku" if fmt else "fp8")
     samples = _SAMPLES.get(checkpoint.repo, ()) if checkpoint else ()
     if not samples:

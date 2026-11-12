@@ -6,6 +6,7 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .launch import written_id
 from .legacy_names import default_db_path
 from .server_transport import origin_key
 from .execution import ExecutionSpec, loader_execution_from_choices
@@ -76,7 +77,9 @@ _STARTUP_LOADER_EXECUTION, _STARTUP_LOADER_EXECUTION_ERROR = _loader_execution_e
 class Settings:
     # Which checkpoint to serve: default `model_defaults.DEFAULT_MODEL_ID`; the
     # catalogue is `launch.CHECKPOINTS`.
-    model_id: str = os.getenv("AURADREAM_MODEL_ID", DEFAULT_MODEL_ID)
+    # lite-infer's renamed repositories are read as the ids the app writes
+    # (`launch.written_id`).
+    model_id: str = written_id(os.getenv("AURADREAM_MODEL_ID", DEFAULT_MODEL_ID))
 
     # The values and what each means are worded once, in
     # `loader_choices.QUANTIZATION_CHOICES`; memory and timing per checkpoint

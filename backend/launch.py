@@ -51,7 +51,24 @@ class Checkpoint:
     lite: str | None = None
 
     def lite_repo(self, fmt: str) -> str | None:
+        """The lite id the app writes (settings, PNGs, keys, recipes)."""
         return self.lite.format(fmt=fmt) if self.lite else None
+
+    def lite_alias(self, fmt: str) -> str | None:
+        """lite-infer's renamed repository for `lite_repo(fmt)`, read only
+        (`written_id`); None without a lite build."""
+        repo = self.lite_repo(fmt)
+        return _renamed(repo) if repo else None
+
+    def lite_format(self, model_id: str) -> str | None:
+        """The 4-bit format `model_id` names among this entry's lite ids,
+        written or renamed, or None."""
+        return next((fmt for fmt, _ in FORMATS if self.lite and model_id in (
+            self.lite_repo(fmt), self.lite_alias(fmt))), None)
+
+    def names(self, model_id: str) -> bool:
+        """Whether `model_id` is this entry: its repo or a lite id, either name."""
+        return model_id == self.repo or self.lite_format(model_id) is not None
 
     def summary(self) -> str:
         profile = defaults_for(self.repo)
@@ -62,6 +79,20 @@ class Checkpoint:
 
 
 _LITE = "lite-infer/{stem}-nunchaku-lite-{{fmt}}_r32-bnb4-text-encoder"
+# lite-infer renamed its re-uploads (seen 2026-11-09; every one checked
+# 2026-11-12): the Hub answers an old id with a 307 to a name without the
+# encoder suffix, `_r32` turned `-r32` (ERNIE's has no rank). The app keeps
+# writing the old ids, which settings, PNG metadata, `CellKey` and run ids
+# already hold, and reads a new name as an alias of the same entry
+# (`written_id`; docs/design-notes.md, "Newer checkpoints").
+_RENAMES = (("_r32-bnb4-text-encoder", "-r32"), ("-bnb4-text-encoder", ""))
+
+
+def _renamed(repo: str) -> str:
+    for old, new in _RENAMES:
+        if repo.endswith(old):
+            return repo[: -len(old)] + new
+    return repo
 
 CHECKPOINTS: tuple[Checkpoint, ...] = (
     Checkpoint(
@@ -501,14 +532,30 @@ def _index(options: list[tuple[str, str]], key: str | None, fallback: str) -> in
 
 
 def _match(model_id: str) -> tuple[Checkpoint | None, str | None]:
-    """The catalogue entry an id names, and the 4-bit format if it is a lite repo."""
+    """The catalogue entry an id names, and the 4-bit format if it is a lite
+    repo (lite-infer's renamed one included)."""
     for checkpoint in CHECKPOINTS:
         if model_id == checkpoint.repo:
             return checkpoint, None
-        for fmt, _ in FORMATS:
-            if model_id == checkpoint.lite_repo(fmt):
-                return checkpoint, fmt
+        if (fmt := checkpoint.lite_format(model_id)) is not None:
+            return checkpoint, fmt
     return None, None
+
+
+def catalogue_entry(model_id: str) -> Checkpoint | None:
+    """The entry `model_id` names, a renamed lite id included; exact ids only."""
+    return _match(model_id)[0]
+
+
+def written_id(model_id: str) -> str:
+    """The id the app writes for `model_id`: a renamed lite-infer repository
+    read as the old id of the same entry, every other id unchanged. The
+    entry points (config's AURADREAM_MODEL_ID, a switch) pass ids through
+    it, so a new name never reaches settings, metadata or keys."""
+    checkpoint, fmt = _match(model_id)
+    if checkpoint is None or fmt is None:
+        return model_id
+    return checkpoint.lite_repo(fmt) or model_id
 
 
 def _card_format(env: Mapping[str, str]) -> str:
