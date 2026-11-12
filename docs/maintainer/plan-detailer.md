@@ -2,7 +2,8 @@
 
 **Status, 2026-10-27:** Matt requested a plan for `INP#12`. This document
 commissions no implementation, dependency installation, detector download,
-gallery scan or card run. Detector selection and qualification are open.
+gallery scan or card run. Detector selection and qualification are open
+(the 2026-11-12 status below records the desk half since).
 The proposal follows [R10](review-2026-10-25.md#r10-a-face-and-hand-detailer);
 the existing machinery is described in [Inpainting](../design-notes.md#inpainting)
 and [Generate, then refine](plan-then-refine.md).
@@ -38,6 +39,10 @@ or a permanent detector resident on the GPU. Picked-image batches and a
 Then detail pass come after the single-image path has useful evidence.
 
 ## Detector feasibility comes first
+
+*Written on 2026-10-27; for the four assets it names, the
+[2026-11-12 desk results](#stage-1-desk-results-2026-11-12) supersede the
+open questions below, including the Ultralytics row's review.*
 
 Primary sources checked on **2026-10-27** establish candidates, not a winner:
 
@@ -79,14 +84,14 @@ GitHub's contents API (Git LFS pointer files), model cards, licence files,
 and `HEAD` requests to Google's model bucket (size, MD5, CRC32C). Nothing
 was installed, imported or downloaded: no package and no weight bytes. The
 pinned environment is unchanged. The bound held: two face and two hand
-assets were inspected.
+assets were inspected; a third face asset, BlazeFace, was screened out
+from its model card alone.
 
 **Screened out first.** The MediaPipe BlazeFace (short range) card scopes
 the model to camera images and says "Face bounding box sides should be at
 least 20% of the corresponding image sides" ([card](https://storage.googleapis.com/mediapipe-assets/MediaPipe%20BlazeFace%20Model%20Card%20(Short%20Range).pdf),
 Apache-2.0, June 2021). A detailer is for the small faces this excludes,
-so BlazeFace was not one of the two face assets inspected. For the record,
-its float16 asset is 229,746 bytes, MD5 `a3dd6ec31725290770b97cec0cbf94c9`.
+so BlazeFace was not one of the two face assets inspected.
 
 | Asset | Terms (code / weights) | Provenance and domain | Exact bytes | Desk verdict |
 |---|---|---|---|---|
@@ -103,10 +108,11 @@ on 2026-11-12. The dependency delta is measured against `uv.lock`.
   (25,678,743 bytes, SHA-256
   `2e2ebc8ae2c11ae032753bc3cafad5142ef0b755448509122bc6c1442bd19676`) and
   lists Python 3.13 in its classifiers. It requires `absl-py`,
-  `flatbuffers`, `sounddevice`, `opencv-contrib-python` and `matplotlib`
-  (which pulls in `contourpy`, `cycler`, `fonttools`, `kiwisolver`,
-  `pyparsing` and `python-dateutil`). The lock has none of these; it
-  already has `numpy`, `pillow`, `packaging` and `cffi`. PyPI lists
+  `certifi`, `numpy`, `flatbuffers`, `sounddevice`,
+  `opencv-contrib-python` and `matplotlib` (which pulls in `contourpy`,
+  `cycler`, `fonttools`, `kiwisolver`, `pyparsing` and
+  `python-dateutil`). The lock already has `certifi`, `numpy`, `pillow`,
+  `packaging` and `cffi`; the delta is the rest. PyPI lists
   seven 1.x releases, from 1.0.0 on 2026-07-27 to 1.2.3, so a trial pins
   one exactly.
 - [`opencv-python`](https://pypi.org/project/opencv-python/) 5.0.0.93
