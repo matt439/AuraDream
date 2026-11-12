@@ -3221,7 +3221,11 @@ measured on the card and when.
   catalogue's retry after a failure, its cache facts and the pictures
   strip's retry); a new timed poll joins that list or sends the marker, or
   an idle open tab holds the PC awake for ever (`smoke-idle-activity`).
-  A write never counts as a poll, marker or not.
+  A write never counts as a poll, marker or not, but for `POST
+  /api/grid/preview`, which writes nothing: the previews a status poll
+  asks again when it sees the model load or unload (idle release's unload
+  among them) carry the marker through `markPreview`/`takePreviewMark`
+  (`state.js`), and an edit's preview, pending or sent, goes without it.
   Nothing in it raises into its callers, and the status poll reads the
   last check's cached answer, never a subprocess. A holder's `hold` and
   `release` run on different threads (`asyncio.to_thread`), so a holder
@@ -10249,9 +10253,12 @@ with automatic backup shown (7 s), Models with its pictures strip and its
 cache facts failing after the server answered (12 s, each asking again on
 the status poll), and Models with its catalogue failing (15 s, the 10 s
 retry) - each window's record holding the timed reads it names. The
-catalogue asked again by hand is counted. Without the poll marker the
-strip, facts and catalogue retries are counted (`GEN#67`, checked by
-reverting it). The real keep-awake controller and idle release are the
+catalogue asked again by hand is counted. Then, with the Grid section
+open and a prompt, an Unload stands in for idle release's: the status
+poll's grid preview is sent and only the Unload is counted, while an
+edit's preview after it is. Without the poll marker the strip, facts and
+catalogue retries and the unload's preview are counted (`GEN#67`, checked
+by reverting it). The real keep-awake controller and idle release are the
 unit tests'; the fake runs with keep-awake off.
 
 `smoke-catalogue-stale.json` uses a fresh FLUX.1 Krea [dev] fake on 7959:

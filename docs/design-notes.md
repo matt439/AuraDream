@@ -398,7 +398,14 @@ cannot excuse a change. Backing off the retry instead would still have
 counted each one. `smoke-idle-activity` holds it in the browser: the fake
 records what the real rule would count (`/api/fake/activity`, the fake's
 own keep-awake being off) while each polling surface stays open with
-nothing pressed, and fails with the marker taken out.
+nothing pressed, and fails with the marker taken out. A review then found
+one write the page sends by itself: a status poll that sees the model load
+or unload asks the open grid section's preview (and a comparison's, and
+an open Refine, Inpaint or Outpaint dialog's) again, a `POST
+/api/grid/preview`, so idle release's own unload restarted the clock it
+had just run out. That route writes nothing, so it alone accepts the
+marker on a POST; a debounced preview carries it only when no edit asked
+for one meanwhile (`markPreview` in `state.js`).
 
 **Who may frame the page.** A page on another site that frames the app gets
 the app's own origin inside the frame, so a click it steers there is a

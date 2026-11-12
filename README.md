@@ -366,7 +366,7 @@ set in a start-up warning.
 | `AURADREAM_CRITIC` | `true` | Enable the optional local prompt critic |
 | `AURADREAM_CRITIC_SERVER` | unset | Use a local compatible `llama-server` binary |
 | `AURADREAM_CRITIC_MODEL` | unset | Use a local `.gguf` instead of downloading the pinned critic model |
-| `AURADREAM_KEEP_AWAKE` | `true` | Hold the PC awake while AuraDream is busy: `systemd-inhibit` on Linux, a power request on Windows |
+| `AURADREAM_KEEP_AWAKE` | `true` | Hold the PC awake while AuraDream is busy: `systemd-inhibit` on Linux, a power request on Windows (under WSL, Windows' own through `powershell.exe`; nothing with interop off) |
 | `AURADREAM_KEEP_AWAKE_IDLE_MINUTES` | `20` | Minutes to keep holding after the last request someone made (the page's timed polls are not one); `0` holds only while busy |
 | `AURADREAM_IDLE_UNLOAD_MINUTES` | `0` | Opt-in model release after idle minutes; waits for work to finish, ignores timed page polls, and works with keep-awake off |
 

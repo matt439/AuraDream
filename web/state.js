@@ -713,6 +713,27 @@ function polledRead(options = {}) {
   return { ...options, headers };
 }
 
+// The debounced previews (grid, comparison, Refine, Inpaint, Outpaint) are
+// also asked again when a status poll sees the model load or unload - idle
+// release's unload among them - and that POST /api/grid/preview is the
+// page's own timer too. Each keeps a mark: a schedule a poll made sets it
+// only while nothing else is pending, any other schedule clears it, and the
+// send takes it (`polledIf`), so a preview someone's edit asked for always
+// counts. The server accepts the header on that one advisory POST alone.
+function previewMark() { return { pending: false, polled: false }; }
+function markPreview(mark, polled) {
+  if (!polled) mark.polled = false;
+  else if (!mark.pending) mark.polled = true;
+  mark.pending = true;
+}
+function takePreviewMark(mark) {
+  const polled = mark.polled;
+  mark.pending = false;
+  mark.polled = false;
+  return polled;
+}
+function polledIf(polled, options) { return polled ? polledRead(options) : options; }
+
 // Every /api/ request carries the checkpoint revision the page last saw; the
 // server alone decides which routes refuse a stale one, so a model-dependent
 // route added there needs nothing here.

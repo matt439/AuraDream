@@ -895,6 +895,37 @@ def test_the_page_marks_its_timed_retries_as_polls():
     assert "syncModelShots({ fresh: true, polled: true });" in shots and "polledRead({ signal" in shots
 
 
+def test_a_marked_grid_preview_is_the_one_write_that_never_counts():
+    # The reviewer's case: idle release unloads, the status poll sees it and
+    # asks the open grid section's preview again (a POST). Marked, it is the
+    # page's own timer; unmarked, an edit's; any other marked write counts.
+    assert counts_as_activity("POST", "/api/grid/preview", polled=True) is False
+    assert counts_as_activity("POST", "/api/grid/preview") is True
+    assert counts_as_activity("POST", "/api/grid", polled=True) is True
+    assert counts_as_activity("POST", "/api/generate", polled=True) is True
+    scope = {"type": "http", "method": "POST", "path": "/api/grid/preview",
+             "headers": [(b"x-auradream-poll", b"1")]}
+    assert keep_awake.scope_counts_as_activity(scope) is False
+    assert keep_awake.scope_counts_as_activity({**scope, "headers": []}) is True
+
+
+def test_the_status_polls_previews_carry_the_mark():
+    # The browser half is smoke-idle-activity's unload step; this holds every
+    # preview a status transition schedules, and every send, to the mark.
+    web = ROOT / "web"
+    status = (web / "status.js").read_text(encoding="utf-8")
+    for call in ("schedulePreview({ polled: true });",
+                 "scheduleRefinePreview(250, { polled: true });",
+                 "scheduleInpaintPreview(250, { polled: true });",
+                 "scheduleOutpaintPreview(250, { polled: true });"):
+        assert call in status
+    for name in ("grid-preview", "comparison", "refine", "inpaint", "outpaint"):
+        source = (web / f"{name}.js").read_text(encoding="utf-8")
+        assert source.count("api('/api/grid/preview', polledIf(polled, {") == 1, name
+        assert source.count("api('/api/grid/preview'") == 1, name
+        assert "takePreviewMark(" in source and "markPreview(" in source, name
+
+
 # --- the server ------------------------------------------------------------------
 
 def test_the_lifespan_runs_one_controller_and_lets_go_on_the_way_out(fake):

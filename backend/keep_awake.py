@@ -99,8 +99,12 @@ _POLLED_GETS = frozenset({
 # a status poll said its answer changed (web/model-switch.js's catalogue
 # retry and cache facts, web/model-shots.js's retry), carries this header
 # (`POLL_HEADER` in web/state.js): a GET with it is the page's own timer,
-# never someone using it. Only GETs: a write always counts.
+# never someone using it. A write always counts, but for the one advisory
+# POST that writes nothing: the grid preview a status poll asks again when
+# the model loads or unloads (web/status.js; idle release's unload is one),
+# which the grid section, a comparison and the image-pass dialogs share.
 POLL_HEADER = "x-auradream-poll"
+_POLLED_POSTS = frozenset({"/api/grid/preview"})
 # The page's files: a page load is counted by "/" and its API calls, and a
 # cached page's revalidations or a thumbnail are not someone using it, nor
 # the browser's own check for a newer service worker (/sw.js).
@@ -109,9 +113,9 @@ _FILE_PREFIXES = ("/static/", "/outputs/")
 
 def counts_as_activity(method: str, path: str, *, polled: bool = False) -> bool:
     """True for a request that is someone using AuraDream: page loads and API
-    calls. Not HEAD or OPTIONS, the page's timed polls (above, and a GET
-    marked `polled` by POLL_HEADER), the job streams, the mask keep-alive,
-    nor a GET of the page's files."""
+    calls. Not HEAD or OPTIONS, the page's timed polls (above, and a GET -
+    or the grid preview's POST - marked `polled` by POLL_HEADER), the job
+    streams, the mask keep-alive, nor a GET of the page's files."""
     method = (method or "").upper()
     if method in ("HEAD", "OPTIONS"):
         return False
@@ -125,6 +129,8 @@ def counts_as_activity(method: str, path: str, *, polled: bool = False) -> bool:
         if path.startswith(_FILE_PREFIXES) or path in ("/favicon.ico", "/sw.js"):
             return False
     if method == "POST" and path.startswith("/api/masks/") and path.endswith("/keep"):
+        return False
+    if method == "POST" and polled and path in _POLLED_POSTS:
         return False
     return True
 

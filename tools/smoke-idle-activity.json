@@ -49,5 +49,21 @@
   {"expect": "__until(() => modelCatalogueLoaded && !modelCataloguePending)", "fatal": true},
   {"expect": "(async () => (await __activity(true)).counted.includes('GET /api/models'))()"},
   {"eval": "showModelPicker(false);"},
+
+  {"log": "'The Grid section open with a prompt; the model unloads (idle release, here an Unload): the status poll asks the preview again, the page\\'s own timer'"},
+  {"eval": "els.gridSection.open = true; els.prompt.value = 'a lighthouse at dusk'; els.prompt.dispatchEvent(new Event('input', { bubbles: true }));"},
+  {"expect": "__until(() => /image/.test(els.gridPreview.textContent))", "fatal": true},
+  {"wait": 600},
+  {"expect": "(async () => { await __activity(true); await api('/api/model/unload', { method: 'POST' }); return true; })()", "fatal": true},
+  {"expect": "__until(async () => !document.getElementById('status-dot').className.includes('ready') && __seen(await __activity(), 'POST /api/grid/preview') >= 1)", "fatal": true},
+  {"wait": 3500},
+  {"expect": "(async () => { const record = await __activity(true); window.__unload = record; return __seen(record, 'POST /api/grid/preview') >= 1; })()"},
+  {"log": "__paths(__unload)"},
+  {"expect": "JSON.stringify(__unload.counted) === JSON.stringify(['POST /api/model/unload'])"},
+  {"log": "__unload.counted"},
+
+  {"log": "'An edit\\'s preview still counts'"},
+  {"eval": "els.prompt.value = 'a lighthouse at dawn'; els.prompt.dispatchEvent(new Event('input', { bubbles: true }));"},
+  {"expect": "__until(async () => (await __activity()).counted.includes('POST /api/grid/preview'))"},
   {"expect": "__a11yCheck()"}
 ]
