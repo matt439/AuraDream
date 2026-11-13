@@ -95,6 +95,8 @@ def _snapshot(cache_dir: Path | None = None) -> dict:
     # selected-file map is unknown. Keep that revision conservatively claimed.
     owners: dict[tuple[str, str, str | None], set[str]] = defaultdict(set)
     known: dict[str, bool] = {}
+    recorded: dict[str, set[str]] = defaultdict(set)  # repo -> retained commits
+    repo_models: dict[str, set[str]] = defaultdict(set)
     for model in catalogue:
         recipe = references["models"].get(model)
         if recipe is None:
@@ -109,18 +111,29 @@ def _snapshot(cache_dir: Path | None = None) -> dict:
                 known[model] = False
             for name in names if names is not None else [None]:
                 owners[(source["repo_id"], commit, name)].add(model)
+            recorded[source["repo_id"]].add(commit)
+            repo_models[source["repo_id"]].add(model)
 
     sizes: dict[tuple, int] = {}
     model_blobs: dict[str, set[tuple]] = defaultdict(set)
     blob_models: dict[tuple, set[str]] = defaultdict(set)
+    # A catalogue repository cached only at commits no reference records (a
+    # download from before the recorded commit, or after a later upstream
+    # one): its files are that checkpoint's, which ones a load selects is
+    # unknown, as Models' own cache column says (`model_info._hub_source_state`).
+    other_blobs: dict[str, set[tuple]] = defaultdict(set)
     unreferenced_blobs: set[tuple] = set()
     repos = []
     for repo in sorted(info.repos if info else [], key=lambda item: (item.repo_type, item.repo_id)):
         revisions = []
+        # Beside a recorded revision, another one is an old download: unreferenced.
+        other_revision = repo.repo_type == "model" and repo.repo_id in recorded and not any(
+            revision.commit_hash in recorded[repo.repo_id] for revision in repo.revisions)
         for revision in sorted(repo.revisions, key=lambda item: item.commit_hash):
             revision_models: set[str] = set()
             revision_blobs: set[tuple] = set()
             revision_unreferenced: set[tuple] = set()
+            revision_other = sorted(repo_models[repo.repo_id]) if other_revision else []
             for file in revision.files:
                 try:
                     identity = _identity(file.blob_path)
@@ -138,6 +151,9 @@ def _snapshot(cache_dir: Path | None = None) -> dict:
                     blob_models[identity].update(selected)
                     for model in selected:
                         model_blobs[model].add(identity)
+                elif revision_other:
+                    for model in revision_other:
+                        other_blobs[model].add(identity)
                 else:
                     revision_unreferenced.add(identity)
                     unreferenced_blobs.add(identity)
@@ -145,6 +161,7 @@ def _snapshot(cache_dir: Path | None = None) -> dict:
                 "revision": revision.commit_hash, "refs": sorted(revision.refs),
                 "cached_bytes": sum(sizes[key] for key in revision_blobs),
                 "catalogue_models": sorted(revision_models),
+                "other_revision_of": revision_other,
                 "unreferenced_bytes": sum(sizes[key] for key in revision_unreferenced),
             })
         repos.append({"repo_id": repo.repo_id, "repo_type": repo.repo_type, "cached_bytes": repo.size_on_disk, "revisions": revisions})
@@ -167,15 +184,16 @@ def _snapshot(cache_dir: Path | None = None) -> dict:
 
     models = [{
         "model_id": model, "reference_complete": known[model],
-        "cached_bytes": sum(sizes[key] for key in model_blobs[model]) if known[model] else None,
+        "cached_bytes": sum(sizes[key] for key in model_blobs[model]) if known[model] and not other_blobs[model] else None,
         "revision_bytes": sum(sizes[key] for key in model_blobs[model]),
+        "other_revision_bytes": sum(sizes[key] for key in other_blobs[model]),
         "shared_bytes": sum(sizes[key] for key in model_blobs[model] if len(blob_models[key]) > 1),
         "exclusive_bytes": sum(sizes[key] for key in model_blobs[model] if len(blob_models[key]) == 1),
         "converted_bytes": converted_models.get(model, 0),
         "converted_directory": converted_targets[model].name if model in converted_targets else None,
     } for model in catalogue]
     # A blob not selected in one revision may still serve another revision.
-    unreferenced_only = unreferenced_blobs - set(blob_models)
+    unreferenced_only = unreferenced_blobs - set(blob_models) - {key for keys in other_blobs.values() for key in keys}
     return {
         "cache_dir": str(cache_dir), "free_bytes": free_bytes(cache_dir),
         "converted_dir": str(converted_root), "converted_free_bytes": free_bytes(converted_root),
@@ -187,5 +205,5 @@ def _snapshot(cache_dir: Path | None = None) -> dict:
         "store_only_bytes": max(0, (info.size_on_disk if info else 0) - sum(sizes.values())),
         "models": models, "repositories": repos,
         "warnings": sorted(set(warnings)),
-        "note": "Read-only point-in-time file-byte inventory, not disk allocation or a deletion plan. Model rows overlap where files are shared; do not add them. Unknown selected-file maps keep cached_bytes null. Unreferenced means absent from the catalogue's retained download references, not unused: helpers and other apps may need it. Each revision's unreferenced_bytes is local to that revision and can share blobs with another; the overall unreferenced_bytes excludes every blob a catalogue selection references. Corrupted repositories can be omitted; directory metadata, Xet chunks and files outside the Hub and conversion caches are not included.",
+        "note": "Read-only point-in-time file-byte inventory, not disk allocation or a deletion plan. Model rows overlap where files are shared; do not add them. Unknown selected-file maps keep cached_bytes null, as does a catalogue repository cached only at commits no reference records: its bytes are other_revision_bytes, the checkpoint's, while an old revision beside a recorded one stays unreferenced. Unreferenced means absent from the catalogue's retained download references, not unused: helpers and other apps may need it. Each revision's unreferenced_bytes is local to that revision and can share blobs with another; the overall unreferenced_bytes excludes every blob a catalogue selection references. Corrupted repositories can be omitted; directory metadata, Xet chunks and files outside the Hub and conversion caches are not included.",
     }

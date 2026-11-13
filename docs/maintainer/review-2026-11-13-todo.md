@@ -451,6 +451,18 @@ that pins the free-text refusal.
   that the saved output did not name, and one parallel run of
   smoke-bin-restore-order failed and then passed seven times. Its fake's log
   shows no error.
+- **`GEN#71`** (done 2026-11-13). `model_cache_storage._snapshot` notes each
+  repository's recorded commits. A catalogue model repository with no
+  cached revision at any of them is the other revision of every checkpoint
+  sourcing it (`other_revision_of` on the revision): its bytes are those
+  checkpoints' `other_revision_bytes`, their `cached_bytes` is null, and
+  they are left out of the unreferenced total. An old revision beside a
+  recorded one stays unreferenced, as before. The page shows such a row as
+  "Unknown (size)", titled with why, and keeps the repository out of Other
+  repositories. `tests/test_model_cache_storage.py` adds the case and holds
+  the old revision; the fake plants Kohaku XL Zeta at an unrecorded commit
+  and smoke-model-storage checks its row (the phone fit included). The
+  storage, model-info, bundle and fake-server tests and ruff pass.
 
 ## Not added
 

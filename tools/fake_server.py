@@ -125,7 +125,8 @@ def _plant_model_cache(data: Path) -> None:
     """Point the On disk inventory (`GET /api/models/storage`) at a scratch
     Hub cache and conversion home under the fake's data, never this
     machine's own: a few bytes of one catalogue checkpoint's selected files,
-    a repository no entry names and a partial download. Same answers on
+    another's at an unrecorded commit, a repository no entry names and a
+    partial download. Same answers on
     every machine; the real scan reads them."""
     from backend import model_cache_storage, model_info
 
@@ -140,6 +141,8 @@ def _plant_model_cache(data: Path) -> None:
         f"models--cagliostrolab--animagine-xl-4.0/snapshots/{commit}/model_index.json": 671,
         f"models--cagliostrolab--animagine-xl-4.0/snapshots/{commit}/unet/config.json": 1830,
         "models--cagliostrolab--animagine-xl-4.0/refs/main": None,
+        # Kohaku cached only at a commit no reference records (GEN#71).
+        f"models--KBlueLeaf--Kohaku-XL-Zeta/snapshots/{'5' * 40}/model_index.json": 3000,
         f"models--someone--unlisted-model/snapshots/{'4' * 40}/weights.safetensors": 6000,
         "models--someone--unlisted-model/blobs/partial.incomplete": 2048,
     }

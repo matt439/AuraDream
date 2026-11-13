@@ -15041,14 +15041,23 @@ tests validate links into the repository's other Markdown documents.
 `scan_cache_dir` on a daemon thread, one reservation owned by the worker,
 logical file bytes, shared catalogue ownership, converted trees and unknown
 references reported honestly. Unreferenced does not mean unused or safe to
-delete. No cache delete is designed into this slice.
+delete. No cache delete is designed into this slice. A catalogue repository
+cached only at commits no retained reference records (a download from
+before the recorded commit, or after a later upstream one) is that
+checkpoint's other revision (`GEN#71`, 2026-11-13): its bytes are the
+checkpoint's `other_revision_bytes` and its `cached_bytes` is null, the
+Unknown Models' cache column already says (`model_info._hub_source_state`,
+"main is mutable"). It was counted as 0 bytes and listed among other apps'
+repositories, the classification a guarded delete would have been designed
+on. An old revision beside a recorded one stays unreferenced.
 
 Models > On disk (`GEN#68`, 2026-11-12, `web/model-storage.js`) shows that
 inventory read-only: a fold collapsed by default, last in the picker's body
 so opening it moves nothing above it, read on its first opening in a page
 and on Refresh only, never on a timer or as the picker opens (a scan reads
 every cached file's size). Model rows are labelled by catalogue name, an
-unknown selection shows its known bytes with "+", and the fold says that rows
+unknown selection shows its known bytes with "+", one cached only at an
+unrecorded commit "Unknown (its bytes)", and the fold says that rows
 overlap and that "not referenced" is not "unused". It has no delete control;
 the guarded delete is designed only after Matt has seen this fold.
 

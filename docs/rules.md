@@ -10206,11 +10206,13 @@ local cache tallies, never a network-speed or card measurement.
 
 `smoke-model-storage.json` uses its own fresh FLUX fake on shared port 7959,
 whose inventory reads the scratch Hub cache `tools/fake_server.py` plants
-under its data (a few bytes of Animagine XL 4.0's selected files, an
-unlisted repository, a partial download), never the machine's. It checks
+under its data (a few bytes of Animagine XL 4.0's selected files, Kohaku
+XL Zeta at a commit no reference records, an unlisted repository, a partial
+download), never the machine's. It checks
 that Models > On disk is shut and empty with no read at the page's start or
 the picker's opening, reads once as it opens with nothing above it moving,
-names the catalogue row, the other repository, the partial download and the
+names the catalogue row, Kohaku's row as "Unknown" with its bytes (never an
+other repository, `GEN#71`), the other repository, the partial download and the
 read-only/unreferenced words, holds no control but Refresh (no delete),
 reads nothing on a second opening or a picker reopening, reads again on
 Refresh, says a refused read's words, and on an iPhone-sized touch screen is
