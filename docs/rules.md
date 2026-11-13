@@ -810,7 +810,9 @@ paragraphs, never rewording.
   in-process, and only for a non-default folder. `update.ps1` refuses while
   the port's page is AuraDream's or a process runs from the folder's
   `.venv`, copies the database `legacy_names` would pick (or
-  `AURADREAM_DB_PATH`) to `<name>-before-update-<commit>.db` before
+  `AURADREAM_DB_PATH`, `~` and a relative path read as `config.py` reads
+  them, from the project folder, never the window's current one:
+  `DEV#68`) to `<name>-before-update-<commit>.db` before
   `git pull --ff-only`, and never resets, stashes or checks out. `<commit>`
   is `git rev-parse --short HEAD` before the pull: a copy already there for
   that commit is left alone (never refreshed), and of the copies so named

@@ -105,12 +105,12 @@ def sandbox(tmp_path):
     return {"root": root, "stubs": stubs, "home": home, "log": log, "env": env, "tmp": tmp_path}
 
 
-def _run(sandbox, script: str, *args: str) -> subprocess.CompletedProcess:
+def _run(sandbox, script: str, *args: str, cwd: Path | None = None) -> subprocess.CompletedProcess:
     return subprocess.run(
         ["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
          "-File", str(REPO / script), *args],
         env=sandbox["env"], capture_output=True, text=True, encoding="utf-8", errors="replace",
-        timeout=180, stdin=subprocess.DEVNULL,
+        timeout=180, stdin=subprocess.DEVNULL, cwd=cwd,
     )
 
 
@@ -423,6 +423,24 @@ def test_update_copies_the_gallery_then_pulls_and_syncs(sandbox):
     calls = _calls(sandbox)
     assert any(c.endswith("pull --ff-only") for c in calls) and "uv sync" in calls
     assert "Already up to date (abc1234)." in result.stdout
+
+
+@pytest.mark.parametrize("setting", ["relative", "home"])
+def test_update_reads_a_relative_gallery_path_from_the_project_folder(sandbox, setting):
+    # DEV#68: run from another folder, a relative AURADREAM_DB_PATH was
+    # tested there, so the update went ahead with no copy to go back to.
+    _checkout_with_gallery(sandbox, "unused.db")
+    base = sandbox["root"] if setting == "relative" else sandbox["home"]
+    data = base / "data"
+    data.mkdir()
+    (data / "gallery.db").write_bytes(b"gallery")
+    sandbox["env"]["AURADREAM_DB_PATH"] = r"data\gallery.db" if setting == "relative" else r"~\data\gallery.db"
+    elsewhere = sandbox["tmp"] / "elsewhere"
+    (elsewhere / "data").mkdir(parents=True)   # a decoy the old test found nothing in
+    result = _run(sandbox, "update.ps1", "-DryRun", cwd=elsewhere)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert str(data / "gallery-before-update-abc1234.db") in result.stdout
+    assert "nothing to copy" not in result.stdout
 
 
 def test_update_reports_the_old_and_new_commits_and_count(sandbox):

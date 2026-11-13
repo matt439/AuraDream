@@ -169,6 +169,11 @@ if ($dirty.Code -eq 0 -and $dirty.Text.Trim()) {
 # or local-diffusion.db while that is the only one; AURADREAM_DB_PATH wins.
 if ($env:AURADREAM_DB_PATH) {
     $db = [Environment]::ExpandEnvironmentVariables($env:AURADREAM_DB_PATH)
+    # As backend/config.py reads it: ~ is the user's folder, and a relative
+    # path is the project folder's, where the server starts (bin\auradream.cmd),
+    # never this window's current folder (DEV#68).
+    if ($db -eq '~' -or $db -like '~\*' -or $db -like '~/*') { $db = $env:USERPROFILE + $db.Substring(1) }
+    if (-not [IO.Path]::IsPathRooted($db)) { $db = Join-Path $Root $db }
 } else {
     $db = Join-Path $Root 'auradream.db'
     $legacy = Join-Path $Root 'local-diffusion.db'

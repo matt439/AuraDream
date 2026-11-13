@@ -578,8 +578,17 @@ that pins the free-text refusal.
   PowerShell with an inert uv in each place and none: arguments, folder and
   exit code pass through, and the missing case says so with no
   CommandNotFoundException. Six of its eight cases fail on the old
-  launcher. Not done: `update.ps1`'s own uv lookup (the optional part),
-  since its sandbox does not move `USERPROFILE` and would find a real uv.
+  launcher. `update.ps1`'s own uv lookup (the optional part) followed
+  after `DEV#68`.
+- **`DEV#68`** (done 2026-11-13). `update.ps1` reads `AURADREAM_DB_PATH` as
+  `config.py` does: environment variables expanded, a leading `~` the user's
+  folder, and a relative path joined to the project folder before the
+  test, so the copy no longer depends on the window's folder.
+  `tests/test_install_scripts.py` runs a dry run from another folder (with
+  an empty `data` decoy there) for `data\gallery.db` and
+  `~\data\gallery.db`; both name the copy beside the real gallery and fail
+  on the old script, which said there was nothing to copy. `_run` takes a
+  `cwd`. The install-script tests pass.
 
 ## Not added
 
