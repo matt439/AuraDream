@@ -380,6 +380,17 @@ Each has a recommended answer, which is not taken until Matt says so.
   `aria-keyshortcuts` and Reuse's existing Undo; smoke-shortcut-dispatch
   extended. Size S.
 
+## Matt's answers (2026-11-13)
+
+Matt accepted both recommendations the same day: `GAL#31` (positive free
+words in the page's Delete unstarred, prefix-matched as the gallery
+matches them, refusing the odd-quote fallback and `-word`; `clear --where`
+stays strict) and `UI#56` (U for Reuse settings in the lightbox and on a
+focused card or sheet cell, scoped like M). Both are `OPEN`, with the first
+steps above. `GAL#31` changes a recorded rule: its build updates
+design-notes.md's Delete unstarred section (7302-7306) and the smoke step
+that pins the free-text refusal.
+
 ## Not added
 
 - **Load a grid run back into the panel.** Matt deferred it on 2026-10-18
