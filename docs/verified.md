@@ -2309,8 +2309,7 @@ Not measured: Klein Base at int8 and bf16 (the same transformer size as
 Klein's); other sizes than 1024x1024, batches, more than one reference,
 LoRA (none exist), sequential or no offload; the upsampler's captions
 against BFL's bf16 upsampler (18.8 GB in bf16 does not fit the 16 GB card),
-the int8 upsampler, captions long enough to reach the limit; CI's
-`HF_TOKEN` account's access (`GEN#46`); FLUX 3 on the 8 GB 3070 (`CARD#21`,
+the int8 upsampler, captions long enough to reach the limit; FLUX 3 on the 8 GB 3070 (`CARD#21`,
 deferred: no int4 build is wired in). Evidence (events, guard samples,
 PNGs) is kept in a local scratch directory, not committed.
 

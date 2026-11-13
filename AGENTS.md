@@ -380,7 +380,8 @@ slow and have no GPU driver: a test that races a clock (a time budget, a
 cell to skip or pause mid-run) needs seconds of margin, not milliseconds.
 `tools/fetch_tokenizers.py` fetches the real-tokenizer tests' files first,
 with the `HF_TOKEN` repository secret for the gated repos its list names
-(FLUX.1-Krea-dev, FLUX.1-Kontext-dev, Krea 2 Turbo).
+(FLUX.1-Krea-dev, FLUX.1-Kontext-dev, Krea 2 Turbo, FLUX 3 [Klein] and
+Klein Base).
 
 The UI is checked with smokes: start a fake server, then run the smoke.
 What each smoke covers is listed in `docs/rules.md` under Tests.
