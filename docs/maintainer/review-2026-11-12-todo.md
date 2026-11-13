@@ -447,7 +447,9 @@ downloaded. Plans with their own owners record their results there:
   (`model_favourites.py`, `/api/models/favourites`), one set per gallery
   and canonical ids. Each press sends one star, in order. The picker
   offers once to import the browser's old set.
-- **`GEN#68`** (built; Matt's look left). Models > On disk shows the
+- **`GEN#68`** (done; Matt's look 2026-11-14, recorded under
+  [R9](review-2026-11-10-peers.md#r9-storage-view); the delete is
+  `GEN#72`). Models > On disk shows the
   storage inventory read-only. It reads when first opened and on Refresh,
   with no timed poll and no delete control. The fake plants a scratch Hub
   cache, and smoke-model-storage covers the fold.
