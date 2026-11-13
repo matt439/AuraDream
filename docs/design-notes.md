@@ -381,8 +381,11 @@ said `holding` and the doctor passed. The 2026-11-12 audit found it.
 Tried from WSL 2 on this PC (2026-11-12, no GPU): the request was accepted
 in about 0.45 s; on release the script exited 0, and when its WSL process
 was killed with SIGKILL the Windows process was gone by the next check.
-`powercfg /requests` needs an administrator's prompt and has not been read
-while it holds; that is Matt's check.
+On 2026-11-14 Matt read `powercfg /requests` from an administrator's
+prompt: with the WSL server busy, SYSTEM listed Windows' `powershell.exe`
+with "AuraDream is in use" (and no `systemd-inhibit` stand-in), and once
+the server was no longer busy the entry was gone. The native Windows
+server's hold read the same way the same day, listed under `python.exe`.
 
 **A timed retry is a poll (2026-11-12, `GEN#67`).** The excluded polls
 were a list of paths, and a path is not enough: `GET /api/models` is read

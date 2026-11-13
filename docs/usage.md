@@ -1388,7 +1388,10 @@ The Windows hold has been tried only as a call that Windows accepted and
 released (2026-11-10); that the PC then stays awake past its sleep timer
 has not been measured. The WSL hold has been tried the same way from WSL 2
 (2026-11-12): accepted, then let go when released and when its WSL process
-was killed; `powercfg /requests` has not yet been read while it holds.
+was killed. Both holds have been read in `powercfg /requests` (2026-11-14):
+under SYSTEM, "AuraDream is in use" by `python.exe` for the Windows server
+and by `powershell.exe` for the WSL one, gone once the server was no longer
+busy.
 
 A page opened by a LAN address over plain `http` is not a secure context, so
 the context menu's copy items and **Notify when done** are held there with
