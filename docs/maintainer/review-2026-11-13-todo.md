@@ -463,6 +463,19 @@ that pins the free-text refusal.
   the old revision; the fake plants Kohaku XL Zeta at an unrecorded commit
   and smoke-model-storage checks its row (the phone fit included). The
   storage, model-info, bundle and fake-server tests and ruff pass.
+- **`GAL#30`** (done 2026-11-13). `gallery_reports.runs` reads every listed
+  run's sizes in its own session (`_listed_run_sizes`): one query of the
+  listed runs' retained cells, sizes taken from the raw request JSON
+  without a `GenerateRequest` per cell, then one images query for the runs
+  with an unreadable retained row or none. `run_sizes` had no other caller
+  (Finish run works out its own sizes) and is gone.
+  `tests/test_runs_list_sizes.py`: 30 runs list in two sessions (the listed
+  runs' and the recovery candidates') with nothing validated, where the old
+  code opened 32; an unreadable row falls back to its images without
+  touching another run's sizes; a run with no retained row takes its
+  images'. The Runs, storage, size-crop, Finish run and persistence tests,
+  ruff, the type gate and smoke-runs-scope-recovery,
+  smoke-runs-favorite-counts and smoke-size-crop pass.
 
 ## Not added
 
