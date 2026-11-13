@@ -263,6 +263,8 @@ else
             stop_update 'Git did not update: code files changed in this folder would be overwritten by the new version. Nothing was discarded.' 'Git names the files above. To keep your change, copy those files somewhere else first. Then put back the original with: git restore <file> (this discards your change to that file) and run bash linux/update.sh again.'
         elif grep -qE 'Not possible to fast-forward|diverging|non-fast-forward|fatal: Need to specify how to reconcile' <<<"$pull"; then
             stop_update 'Git did not update: this folder has commits of its own that the new version does not include. Nothing was discarded.' 'If you made those commits, merge or rebase them yourself (git pull). If you did not, ask on the project page before changing anything.'
+        elif grep -q 'You are not currently on a branch' <<<"$pull"; then
+            stop_update 'Git did not update: this folder is on one older version by itself (a detached HEAD, as going back after an update leaves it). Nothing was discarded.' 'Go back to the latest version'"'"'s branch with: git checkout main, then run bash linux/update.sh again.'
         elif grep -qE 'no tracking information|There is no tracking' <<<"$pull"; then
             stop_update 'Git did not update: this branch does not follow one on GitHub.' 'Switch to main with: git checkout main, then run bash linux/update.sh again.'
         elif grep -qE 'Could not resolve host|unable to access|Failed to connect|timed out' <<<"$pull"; then

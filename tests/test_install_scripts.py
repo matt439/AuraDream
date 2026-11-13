@@ -615,6 +615,27 @@ def test_update_explains_a_refused_pull_and_discards_nothing(sandbox):
     assert "uv sync" not in calls
 
 
+def test_update_on_a_detached_head_names_git_checkout_main_without_noise(sandbox):
+    # DEV#69: Git's detached-HEAD refusal goes to stderr with blank lines,
+    # which PowerShell 5.1 printed as RemoteException; no pattern matched.
+    _checkout_with_gallery(sandbox)
+    stub = (sandbox["stubs"] / "git.cmd").read_text()
+    pull = (
+        'if "%~3"=="pull" (echo pulled>"%STUB_LOG%.pulled"'
+        '& >&2 echo You are not currently on a branch.& >&2 echo.'
+        '& >&2 echo     git pull ^<remote^> ^<branch^>& >&2 echo.& exit /b 1)'
+    )
+    lines = [pull if line.startswith('if "%~3"=="pull"') else line for line in stub.splitlines()]
+    (sandbox["stubs"] / "git.cmd").write_text("\r\n".join(lines) + "\r\n")
+    result = _run(sandbox, "update.ps1")
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "You are not currently on a branch." in result.stdout
+    assert "RemoteException" not in result.stdout + result.stderr
+    assert "detached HEAD" in result.stdout and "git checkout main" in result.stdout
+    assert "git pull --ff-only failed" not in result.stdout
+    assert not any(word in c for c in _calls(sandbox) for word in ("reset", "checkout", "clean", "stash"))
+
+
 def test_update_explains_untracked_files_in_the_way(sandbox):
     # Untracked files (a ZIP folder's leftovers) are not restored by git
     # restore: the advice is to move them.

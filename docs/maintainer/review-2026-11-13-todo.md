@@ -591,6 +591,19 @@ that pins the free-text refusal.
   `~\data\gallery.db`; both name the copy beside the real gallery and fail
   on the old script, which said there was nothing to copy. `_run` takes a
   `cwd`. The install-script tests pass.
+- **`DEV#69`** (done 2026-11-13). `Invoke-Capture` in `update.ps1` and
+  `install.ps1` turns a stderr ErrorRecord into its message, so a blank
+  stderr line stays blank instead of printing
+  `System.Management.Automation.RemoteException` (probed first under
+  Windows PowerShell 5.1: the record's message of a blank line is empty).
+  A pull refused with "You are not currently on a branch" now stops with
+  its own words, a detached HEAD as going back after an update leaves it,
+  and `git checkout main`; `linux/update.sh` gets the same branch (bash
+  never had the noise). Tests: on Windows a git stub whose pull writes
+  Git's refusal to stderr with blank lines (no RemoteException, the named
+  stop; fails on the old scripts), and the Linux sandbox's pull output
+  (251 Linux script tests pass under WSL). setup.md's going-back section
+  says update.cmd stops and says so.
 
 ## Not added
 

@@ -561,8 +561,8 @@ newer database rather than deleting it. Images made since the copy are
 still in `outputs\` but not in the older database:
 `uv run python -m backend.reindex` adds them back from the PNGs' own
 metadata (without their stars). The folder then stays on that commit, and
-`update.cmd` cannot pull there; `git checkout main` returns to the branch
-that updates.
+`update.cmd` cannot pull there (it stops and says so); `git checkout main`
+returns to the branch that updates.
 
 A ZIP download cannot be updated in place. Running `install.cmd` again
 offers to turn the folder into a Git checkout ([Easy install](#easy-install)),

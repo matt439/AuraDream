@@ -46,7 +46,12 @@ function Invoke-Capture([string]$Exe, [string[]]$Arguments) {
     $old = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
     try {
-        $lines = & $Exe @Arguments 2>&1 | ForEach-Object { "$_" }
+        # A stderr line arrives as an ErrorRecord; under PowerShell 5.1 "$_" of a
+        # blank one is "System.Management.Automation.RemoteException", so the
+        # line is its message (DEV#69).
+        $lines = & $Exe @Arguments 2>&1 | ForEach-Object {
+            if ($_ -is [System.Management.Automation.ErrorRecord]) { $_.Exception.Message } else { "$_" }
+        }
         $code = $LASTEXITCODE
     } catch {
         $lines = @("$_")
@@ -269,6 +274,8 @@ if ($DryRun) {
             Stop-Update 'Git did not update: code files changed in this folder would be overwritten by the new version. Nothing was discarded.' 'Git names the files above. To keep your change, copy those files somewhere else first. Then put back the original with: git restore <file> (this discards your change to that file) and run update.cmd again.'
         } elseif ($text -match 'Not possible to fast-forward|diverging|non-fast-forward|fatal: Need to specify how to reconcile') {
             Stop-Update 'Git did not update: this folder has commits of its own that the new version does not include. Nothing was discarded.' 'If you made those commits, merge or rebase them yourself (git pull). If you did not, ask on the project page before changing anything.'
+        } elseif ($text -match 'You are not currently on a branch') {
+            Stop-Update 'Git did not update: this folder is on one older version by itself (a detached HEAD, as going back after an update leaves it). Nothing was discarded.' 'Go back to the latest version''s branch with: git checkout main, then run update.cmd again.'
         } elseif ($text -match 'no tracking information|There is no tracking') {
             Stop-Update 'Git did not update: this branch does not follow one on GitHub.' 'Switch to main with: git checkout main, then run update.cmd again.'
         } elseif ($text -match 'Could not resolve host|unable to access|Failed to connect|timed out') {

@@ -662,6 +662,19 @@ def test_update_explains_a_refused_pull_and_discards_nothing(sandbox):
 
 
 @on_linux
+def test_update_on_a_detached_head_names_git_checkout_main(sandbox):
+    # DEV#69: "Going back after an update" leaves HEAD detached.
+    _checkout_with_gallery(sandbox)
+    sandbox["env"]["STUB_PULL_EXIT"] = "1"
+    sandbox["env"]["STUB_PULL_OUTPUT"] = "You are not currently on a branch.\nPlease specify which branch you want to merge with."
+    result = _run(sandbox, "update.sh")
+    assert result.returncode == 1
+    assert "detached HEAD" in result.stdout and "git checkout main" in result.stdout
+    assert "git pull --ff-only failed" not in result.stdout
+    assert not any(word in c for c in _calls(sandbox) for word in ("reset", "checkout", "clean", "stash"))
+
+
+@on_linux
 def test_update_explains_untracked_files_in_the_way(sandbox):
     _checkout_with_gallery(sandbox)
     sandbox["env"]["STUB_PULL_EXIT"] = "1"
