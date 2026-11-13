@@ -1186,7 +1186,11 @@ paragraphs, never rewording.
   it only defines its functions; `AURADREAM_INSTALL_TEST_NO_BROWSER` keeps
   `open` from starting a browser (`tests/test_auradream_server.py`)
 - `wsl/` — `env.sh` (Linux-side paths and the Nunchaku defaults, to source),
-  `setup.sh`, `serve.sh`: running the same checkout from WSL 2
+  `setup.sh`, `serve.sh`: running the same checkout from WSL 2. Each
+  default is exported with an `AURADREAM_WSL_DEFAULT_*` marker; sourced
+  again, a value equal to its marker is worked out afresh, one that differs
+  is the user's and loses its marker (`DEV#70`,
+  `tests/test_wsl_env.py`, bash only)
 - `docs/design-notes.md` — why each part is the way it is, one section per
   area, with the history behind every rule below; read the section for an
   area before changing it

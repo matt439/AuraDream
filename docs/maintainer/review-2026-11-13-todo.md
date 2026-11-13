@@ -604,6 +604,17 @@ that pins the free-text refusal.
   stop; fails on the old scripts), and the Linux sandbox's pull output
   (251 Linux script tests pass under WSL). setup.md's going-back section
   says update.cmd stops and says so.
+- **`DEV#70`** (done 2026-11-13). `wsl/env.sh` treats a value still equal
+  to its marker as unset: the quantization is set again to `nunchaku` with
+  its marker, and the checkpoint is worked out again under Nunchaku (the
+  format's lite id) or left unset otherwise. A value that differs from its
+  marker is kept and the marker dropped, which also fixes an old case: a
+  user's own checkpoint under fp8 used to keep the lite id's stale marker.
+  `tests/test_wsl_env.py` (bash only, so Linux CI and WSL) sources the file
+  twice in four cases: nothing changed, `AURADREAM_QUANT=fp8` (the
+  reproduced case: no lite id now), `AURADREAM_NUNCHAKU_FORMAT=int4` (the
+  int4 id) and a user's checkpoint with fp8 (kept, no markers). Three fail
+  on the old file; all pass under WSL.
 
 ## Not added
 
