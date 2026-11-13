@@ -579,7 +579,9 @@ that pins the free-text refusal.
   exit code pass through, and the missing case says so with no
   CommandNotFoundException. Six of its eight cases fail on the old
   launcher. `update.ps1`'s own uv lookup (the optional part) followed
-  after `DEV#68`.
+  after `DEV#68`: the same two folders after PATH; a dry run with uv only
+  in each passes, and with none still stops on "uv is not installed" (the
+  two found cases fail on the old script).
 - **`DEV#68`** (done 2026-11-13). `update.ps1` reads `AURADREAM_DB_PATH` as
   `config.py` does: environment variables expanded, a leading `~` the user's
   folder, and a relative path joined to the project folder before the

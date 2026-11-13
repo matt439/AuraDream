@@ -156,8 +156,20 @@ $git = Get-Command git -CommandType Application -ErrorAction SilentlyContinue | 
 if (-not $git) { Stop-Update 'Git is not installed (or not on PATH in this window).' 'Run install.cmd, which installs it, or install it from https://git-scm.com/download/win; then open a new window.' }
 $git = $git.Source
 $uv = Get-Command uv -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+if ($uv) {
+    $uv = $uv.Source
+} else {
+    # Where install.cmd puts it when this window's PATH predates the install,
+    # as bin\auradream.cmd and .ps1 look (DEV#67).
+    $uv = $null
+    foreach ($dir in @(
+        $(if ($env:USERPROFILE) { Join-Path $env:USERPROFILE '.local\bin' }),
+        $(if ($env:LOCALAPPDATA) { Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Links' })
+    )) {
+        if ($dir -and (Test-Path -LiteralPath (Join-Path $dir 'uv.exe'))) { $uv = Join-Path $dir 'uv.exe'; break }
+    }
+}
 if (-not $uv) { Stop-Update 'uv is not installed (or not on PATH in this window).' 'Run install.cmd, which installs it; then open a new window.' }
-$uv = $uv.Source
 $dirty = Invoke-Capture $git @('-C', $Root, 'status', '--porcelain', '--untracked-files=no')
 if ($dirty.Code -eq 0 -and $dirty.Text.Trim()) {
     Note 'Some code files in this folder were changed. Git keeps them; the update goes ahead unless the new version changes the same files:'

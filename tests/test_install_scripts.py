@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import shutil
 import ssl
 import subprocess
 import sys
@@ -423,6 +424,25 @@ def test_update_copies_the_gallery_then_pulls_and_syncs(sandbox):
     calls = _calls(sandbox)
     assert any(c.endswith("pull --ff-only") for c in calls) and "uv sync" in calls
     assert "Already up to date (abc1234)." in result.stdout
+
+
+@pytest.mark.parametrize("where", [r".local\bin", r"Local\Microsoft\WinGet\Links", None])
+def test_update_finds_uv_where_install_put_it_off_path(sandbox, where):
+    # DEV#67's optional part: a window opened before install.cmd added uv.
+    _checkout_with_gallery(sandbox)
+    (sandbox["stubs"] / "uv.cmd").unlink()
+    if where is not None:
+        folder = sandbox["home"] / where
+        folder.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(Path(SYSTEM_ROOT) / "System32" / "where.exe", folder / "uv.exe")   # any program; a dry run never runs it
+    result = _run(sandbox, "update.ps1", "-DryRun")
+    if where is None:
+        assert result.returncode == 1, result.stdout + result.stderr
+        assert "uv is not installed" in result.stdout
+    else:
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "uv is not installed" not in result.stdout
+        assert "would run in" in result.stdout
 
 
 @pytest.mark.parametrize("setting", ["relative", "home"])
