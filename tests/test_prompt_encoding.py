@@ -309,6 +309,9 @@ def _cached(source: pe.TokenizerSource) -> Path | None:
     return None
 
 
+FLUX3 = "black-forest-labs/flux-3-image-klein"
+FLUX3_BASE = "black-forest-labs/flux-3-image-klein-base"
+
 # Measured budgets for a one-line prompt. NetaYume's instruction costs 18
 # tokens and the space after "<Prompt Start>" joins the first word.
 REAL = [
@@ -321,10 +324,20 @@ REAL = [
     ("duongve/NetaYume-Lumina-Image-2.0", {"Gemma 2 2B": 237}),
     ("NewBie-AI/NewBie-image-Exp0.1", {"Gemma 3 4B": 511, "Jina CLIP v2": 2046}),
     ("circlestone-labs/Anima", {"Qwen3-0.6B": 512, "T5 ids": 511}),
+    # FLUX 3 [Klein]: the user turn's three tokens before the text, the four
+    # of the closing turn after it. Gated: CI's HF_TOKEN account has accepted
+    # both licences (tools/fetch_tokenizers.py fails a run that cannot fetch).
+    (FLUX3, {"Qwen3-VL-4B": pe.FLUX3_SEQUENCE - 3}),
+    (FLUX3_BASE, {"Qwen3-VL-4B": pe.FLUX3_SEQUENCE - 3}),
 ]
 # Where the chat template's closing turn starts being lost, measured the same
 # way: klein's empty thinking block costs it four tokens more than Z-Anime's.
-REAL_CLEAN = {"black-forest-labs/FLUX.2-klein-4B": 500, "SeeSee21/Z-Anime": 504}
+REAL_CLEAN = {
+    "black-forest-labs/FLUX.2-klein-4B": 500,
+    "SeeSee21/Z-Anime": 504,
+    FLUX3: 8184,
+    FLUX3_BASE: 8184,
+}
 FOX = "Cinematic photo of a red fox in fresh snow, golden hour"
 
 
@@ -350,7 +363,8 @@ def test_real_tokenizers_agree_with_the_pipelines_own_truncation(monkeypatch, mo
 
     # Past every budget, the text before the cut is exactly what the
     # pipeline's own truncating tokenizer call keeps after its template.
-    long = " ".join(f"forest{i % 7}" for i in range(700))
+    # At least one word per budget token, so FLUX 3's 8189 is passed too.
+    long = " ".join(f"forest{i % 7}" for i in range(max(700, *budgets.values())))
     for spec in pe.encoders_for(model_id):
         loaded = pe._tokenizers[spec.source]
         tokenizer = loaded.tokenizer
@@ -393,20 +407,11 @@ def test_real_clip_reads_its_control_tokens_in_any_case(monkeypatch):
 
 # Qwen-Image is not measured above, but its budget is the pipeline's own
 # arithmetic: it drops its 34-token system turn and keeps 512, and the
-# template's closing turn goes past 507. FLUX 3 [Klein]'s repos are gated, and
-# REAL waits until CI's HF_TOKEN account has accepted their licence
-# (tools/fetch_tokenizers.py fails the run on a token that cannot fetch one);
-# its 8189 and 8184 were measured on 2026-11-09 with the same Qwen3-VL
-# tokenizer files (equal sizes) from lite-infer's public re-upload: the user
-# turn's three tokens before the text, the four of the closing turn after it.
-FLUX3 = "black-forest-labs/flux-3-image-klein"
-FLUX3_BASE = "black-forest-labs/flux-3-image-klein-base"
+# template's closing turn goes past 507.
 FAKE_ONLY = [
     ("Qwen/Qwen-Image", {"Qwen2.5-VL-7B": pe.QWEN_IMAGE_SEQUENCE}),
-    (FLUX3, {"Qwen3-VL-4B": pe.FLUX3_SEQUENCE - 3}),
-    (FLUX3_BASE, {"Qwen3-VL-4B": pe.FLUX3_SEQUENCE - 3}),
 ]
-FAKE_CLEAN = {**REAL_CLEAN, "Qwen/Qwen-Image": 507, FLUX3: 8184, FLUX3_BASE: 8184}
+FAKE_CLEAN = {**REAL_CLEAN, "Qwen/Qwen-Image": 507}
 
 
 @pytest.mark.parametrize("model_id, budgets", REAL + FAKE_ONLY)

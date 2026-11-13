@@ -1398,7 +1398,9 @@ passes no `target_timestep`, which the transformer requires of, and only
 of, a flow-map model). On 2026-11-10, with the licences accepted, the local
 account downloaded both repositories and `flux3_loading.preflight` passed
 on both snapshots, so the official index and configs are what the loader
-expected; CI's `HF_TOKEN` account is not checked yet (`GEN#46`).
+expected. CI's `HF_TOKEN` account has accepted both too (2026-11-13), so
+both are in `tests/test_prompt_encoding.py`'s `REAL` and CI's tokenizer
+fetch.
 
 **Loading.** There is no `model_index.json`, so `DiffusionPipeline` cannot
 resolve these repositories, and `component_libraries`, `unused_components`
