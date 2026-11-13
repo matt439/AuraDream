@@ -7,7 +7,7 @@ import tempfile
 import uuid
 from pathlib import Path
 
-from . import gallery_lock, preset_portability
+from . import gallery_lock, preset_portability, sidecar_io
 from .schemas_preset_portability import PresetImportCommit
 from .schemas_presets import MAX_PRESETS, Preset, PresetFields, PresetUpdate
 
@@ -37,7 +37,7 @@ def _unique_fields(pairs: list[tuple[str, object]]) -> dict:
 
 def _read(path: Path) -> list[Preset]:
     try:
-        with path.open("rb") as stream:
+        with sidecar_io.open_read(path) as stream:
             raw = stream.read(MAX_FILE_BYTES + 1)
         if len(raw) > MAX_FILE_BYTES:
             raise ValueError("file is too large")
@@ -80,7 +80,7 @@ def _write(path: Path, items: list[Preset]) -> None:
             stream.write(data)
             stream.flush()
             os.fsync(stream.fileno())
-        os.replace(temporary, path)
+        sidecar_io.replace(temporary, path)
     finally:
         if temporary is not None:
             try:

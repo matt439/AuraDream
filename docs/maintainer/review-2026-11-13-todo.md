@@ -402,6 +402,20 @@ that pins the free-text refusal.
   notes' renewal paragraph and rules.md name the rule. Passcode, keep-awake
   and docs tests, ruff, the type gate, smoke-passcode and
   smoke-idle-activity pass.
+- **`GAL#28`** (done 2026-11-13). `backend/sidecar_io.py` is the one
+  `open_read` and `replace` of all seven sidecars: the four the row named
+  and startup choices, backup settings and receipts. Both retry for about
+  half a second (six waits, 10-200 ms) on Windows only, and only on a
+  sharing violation. One thing the probes had not shown: `os.replace`
+  reports it as WinError 5 or 32, but a refused `open` goes through the C
+  runtime and arrives as EACCES with no `winerror`, so that is the reader's
+  case. Any other error, and every error off Windows, is raised at once, so
+  each module's own refusal words stand. `tests/test_sidecar_io.py`: the
+  retry and the give-up on both sides, the errors not retried, a scan that
+  every sidecar goes through the helper, and on Windows a three-second
+  star-against-read race that collected 61 refusals before the fix and none
+  after (three runs). The 1,065 tests of the sidecars and their routes, ruff,
+  the type gate and four runs of smoke-model-hover pass.
 
 ## Not added
 

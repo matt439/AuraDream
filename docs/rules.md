@@ -122,6 +122,11 @@ paragraphs, never rewording.
 - `backend/presets.py` - bounded, revisioned named generation/grid drafts in
   their own atomic sidecar; `backend/schemas_presets.py` owns the strict raw
   payload and API capture types
+- `backend/sidecar_io.py` - the one open-for-read and `os.replace` of every
+  JSON sidecar (stars, snippets, setups, saved searches, startup choices,
+  backup settings and receipts), retried for about half a second on a
+  Windows sharing violation (`GAL#28`); a new sidecar uses it, held by
+  `tests/test_sidecar_io.py`
 - `backend/preset_portability.py` - cold raw setup export, digests and explicit
   file-index merge plans; `backend/schemas_preset_portability.py` owns the native
   format and choices; `backend/strict_json.py` supplies bounded UTF-8 syntax for

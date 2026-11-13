@@ -12,7 +12,7 @@ import tempfile
 import uuid
 from pathlib import Path
 
-from . import gallery_lock, snippet_portability
+from . import gallery_lock, sidecar_io, snippet_portability
 from .schemas_snippet_portability import SnippetImportCommit
 from .legacy_names import sidecar
 from .schemas_snippets import MAX_SNIPPETS, Snippet, SnippetFields, SnippetUpdate
@@ -34,7 +34,7 @@ def path_for(database: Path) -> Path:
 
 def _read(path: Path) -> list[Snippet]:
     try:
-        with path.open("rb") as stream:
+        with sidecar_io.open_read(path) as stream:
             raw = stream.read(MAX_FILE_BYTES + 1)
         if len(raw) > MAX_FILE_BYTES:
             raise ValueError("file is too large")
@@ -77,7 +77,7 @@ def _write(path: Path, items: list[Snippet]) -> None:
             stream.write(data)
             stream.flush()
             os.fsync(stream.fileno())
-        os.replace(temporary, path)
+        sidecar_io.replace(temporary, path)
     finally:
         if temporary is not None:
             try:
