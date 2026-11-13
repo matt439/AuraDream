@@ -17,8 +17,13 @@ from __future__ import annotations
 import errno
 import os
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import BinaryIO
+from typing import BinaryIO, TypeVar
+
+from . import gallery_lock
+
+T = TypeVar("T")
 
 WINDOWS = os.name == "nt"
 SHARING_WINERRORS = frozenset({5, 32})
@@ -34,6 +39,17 @@ def transient(exc: BaseException) -> bool:
     if winerror is None:
         return exc.errno == errno.EACCES
     return winerror in SHARING_WINERRORS
+
+
+def reserved_read(path: Path, read: Callable[[Path], T]) -> T:
+    """`read(path)` under this process's part of the sidecar's reservation,
+    which a save holds across its replace: in one process a read never
+    overlaps a save. It never takes or creates the lock file, so another
+    process's save is ridden out by the retries below rather than waited
+    for. A busy reservation raises `gallery_lock.GalleryBusy` for the
+    caller's own words."""
+    with gallery_lock.local(path, wait=gallery_lock.SESSION_WAIT):
+        return read(path)
 
 
 def open_read(path: Path) -> BinaryIO:

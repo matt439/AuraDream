@@ -93,8 +93,12 @@ def _write(path: Path, items: list[SavedSearch]) -> None:
 
 
 def read(database: Path) -> list[SavedSearch]:
-    # Atomic replacement makes a read coherent without creating a lock or file.
-    return _read(path_for(database))
+    # Atomic replacement keeps a read complete; the reservation keeps it off a
+    # save's replace (GAL#28) and creates no lock or file.
+    try:
+        return sidecar_io.reserved_read(path_for(database), _read)
+    except gallery_lock.GalleryBusy:
+        raise SavedSearchesError("Another AuraDream process is saving searches; try again.", 409) from None
 
 
 def change(

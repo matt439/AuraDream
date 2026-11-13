@@ -87,9 +87,13 @@ def _write(path: Path, items: list[Snippet]) -> None:
 
 
 def read(database: Path) -> list[Snippet]:
-    # Atomic replacement publishes only a complete file; a GET needs no lock
-    # and creates neither a preference file nor a directory on first use.
-    return _read(path_for(database))
+    # Atomic replacement publishes only a complete file; the reservation keeps
+    # a GET off a save's replace (GAL#28), creating neither a preference file,
+    # a lock file nor a directory on first use.
+    try:
+        return sidecar_io.reserved_read(path_for(database), _read)
+    except gallery_lock.GalleryBusy as exc:
+        raise SnippetsError("Another AuraDream process is saving snippets; try again.", 409) from exc
 
 
 def change(

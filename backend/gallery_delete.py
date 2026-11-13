@@ -16,7 +16,7 @@ from collections.abc import Callable, Sequence
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from . import gallery_lock, storage
+from . import deleted_files, gallery_lock, storage
 from .instruction_edit import InstructionEditSource, descriptor_from_image
 from .metadata import edit_from_json
 from .search import strict_scope
@@ -262,10 +262,8 @@ def delete_matching(
         ).fetchall()
     removed = 0
     for row in doomed:
-        path = storage.settings.outputs_dir / row["filename"]
-        if path.exists() and storage._unlink(path):
-            removed += 1
-        storage._delete_thumbnails(path)
+        removed += deleted_files.remove(row["filename"])
+    deleted_files.sweep()
     masks = sweep_masks(in_flight)
     return {"records": len(doomed), "files": removed, "ids": [row["id"] for row in doomed], "masks": masks}
 
@@ -282,10 +280,10 @@ def delete_image(image_id: int, in_flight: InFlight | None = None) -> bool:
             return False
         conn.execute("DELETE FROM images WHERE id = ?", (image_id,))
     # The row is already gone, so a file someone else has open must not turn a
-    # delete that did happen into a 500. clear_history's orphan sweep collects
-    # whatever gets left behind.
-    storage._unlink(storage.settings.outputs_dir / row["filename"])
-    storage._delete_thumbnails(storage.settings.outputs_dir / row["filename"])
+    # delete that did happen into a 500: `deleted_files` retries it, and
+    # removes one still held once it is released.
+    deleted_files.remove(row["filename"])
+    deleted_files.sweep()
     sweep_masks(in_flight)
     return True
 
@@ -549,10 +547,8 @@ def purge_images(
             conn.execute(f"DELETE FROM images WHERE id IN ({marks})", chunk)
     removed = 0
     for row in rows:
-        path = storage.settings.outputs_dir / row["filename"]
-        if path.exists() and storage._unlink(path):
-            removed += 1
-        storage._delete_thumbnails(path)
+        removed += deleted_files.remove(row["filename"])
+    deleted_files.sweep()
     masks = sweep_masks(in_flight)
     return {"records": len(rows), "files": removed, "ids": wanted, "masks": masks}
 
@@ -608,10 +604,8 @@ def empty_bin(
                 )
     removed = 0
     for row in doomed:
-        path = storage.settings.outputs_dir / row["filename"]
-        if path.exists() and storage._unlink(path):
-            removed += 1
-        storage._delete_thumbnails(path)
+        removed += deleted_files.remove(row["filename"])
+    deleted_files.sweep()
     masks = sweep_masks(in_flight)
     return {"records": len(doomed), "files": removed, "ids": sorted(row["id"] for row in doomed),
             "masks": masks}
@@ -700,10 +694,7 @@ def clear_history(keep_favorites: bool = False, in_flight: InFlight | None = Non
 
     removed = 0
     for filename in doomed:
-        path = storage.settings.outputs_dir / filename
-        if path.exists() and storage._unlink(path):
-            removed += 1
-        storage._delete_thumbnails(path)
+        removed += deleted_files.remove(filename)
 
     # Partials from a power cut or a killed process, by age - never the fresh
     # one another process may be encoding right now. A kept row's committed

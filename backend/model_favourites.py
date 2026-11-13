@@ -102,8 +102,12 @@ def _write(path: Path, items: list[str], revision: int) -> None:
 
 
 def read(database: Path) -> tuple[list[str], int]:
-    # Atomic replacement makes a read coherent without creating a lock or file.
-    return _read(path_for(database))
+    # Atomic replacement keeps a read complete; the reservation keeps it off a
+    # save's replace (GAL#28) and creates no lock or file.
+    try:
+        return sidecar_io.reserved_read(path_for(database), _read)
+    except gallery_lock.GalleryBusy:
+        raise ModelFavouritesError("Another AuraDream process is saving model favourites; try again.", 409) from None
 
 
 def _update(database: Path, adds: list[str], removes: list[str]) -> tuple[list[str], int, int]:

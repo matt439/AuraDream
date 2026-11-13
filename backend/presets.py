@@ -90,8 +90,12 @@ def _write(path: Path, items: list[Preset]) -> None:
 
 
 def read(database: Path) -> list[Preset]:
-    # Atomic replacement makes unlocked reads complete and first reads cold.
-    return _read(path_for(database))
+    # Atomic replacement keeps reads complete and first reads cold; the
+    # reservation keeps a read off a save's replace (GAL#28).
+    try:
+        return sidecar_io.reserved_read(path_for(database), _read)
+    except gallery_lock.GalleryBusy as exc:
+        raise PresetsError("Another AuraDream process is saving setups; try again.", 409) from exc
 
 
 def change(

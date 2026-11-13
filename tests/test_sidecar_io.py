@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from backend import model_favourites, sidecar_io
+from backend import gallery_lock, model_favourites, sidecar_io
 
 ROOT = Path(__file__).resolve().parents[1]
 SIDECARS = (
@@ -126,6 +126,28 @@ def test_every_sidecar_reads_and_publishes_through_the_helper(module):
     assert not re.search(r"\.open\(\s*\"rb\"", source), module
 
 
+def test_a_read_waits_for_this_process_save_and_creates_no_file(tmp_path):
+    database = tmp_path / "gallery.db"
+    path = model_favourites.path_for(database)
+    saving, done = threading.Event(), threading.Event()
+    answers: list[object] = []
+
+    def read():
+        saving.wait(30)
+        answers.append(model_favourites.read(database))
+        done.set()
+
+    reader = threading.Thread(target=read)
+    reader.start()
+    with gallery_lock.hold(path, create=False, wait=30):
+        saving.set()
+        assert not done.wait(0.3)  # held behind the save's reservation
+    assert done.wait(30)
+    reader.join(30)
+    assert answers == [([], 0)]
+    assert list(tmp_path.iterdir()) == []
+
+
 @pytest.mark.skipif(os.name != "nt", reason="the sharing violation is Windows behaviour")
 def test_a_star_and_a_read_overlapping_on_windows_both_succeed(tmp_path):
     """The probe that found it (78 of 20,000 reads refused, and saves too)."""
@@ -156,6 +178,6 @@ def test_a_star_and_a_read_overlapping_on_windows_both_succeed(tmp_path):
             reads += 1
     finally:
         stop.set()
-        writer.join(10)
-    assert reads > 100
+        writer.join(30)
+    assert reads > 10  # reads wait behind saves now; a loaded runner reads fewer
     assert errors == []

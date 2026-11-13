@@ -416,6 +416,41 @@ that pins the free-text refusal.
   star-against-read race that collected 61 refusals before the fix and none
   after (three runs). The 1,065 tests of the sidecars and their routes, ruff,
   the type gate and four runs of smoke-model-hover pass.
+  Follow-up, the same day: the retry alone was not enough. Under a reader in
+  a tight loop, about one run in five still had a save refused after its
+  half second. The four request sidecars' reads now also take
+  `sidecar_io.reserved_read`: `gallery_lock.local`, this process's part of
+  the sidecar's reservation, which a save holds across its replace. It never
+  takes or creates the lock file, so the recorded rule that a read never
+  waits on another process's save still holds (the cross-process tests of
+  setups and saved searches). The race then passed 12 runs of 12 alone. Under
+  parallel load its only failure was the test's own floor of 100 reads (96),
+  now 10.
+- **`GAL#29`** (done 2026-11-13). `backend/deleted_files.py` removes a
+  permanently deleted image's PNG, thumbnail and legacy sibling after its
+  row. Each file is retried as `sidecar_io` does. One still held is
+  remembered for the process with the image filename it belonged to, and
+  swept after every permanent delete, before every bundle `_inventory` and
+  at exit. Delete permanently, Empty bin, purge, the scoped delete and
+  `clear` all use it. A sweep never removes a file a row names again or any
+  other untracked file. An independent review found that the
+  sweep in `_inventory` broke Bundle & clear: a file held at the first
+  inventory and released before the check after writing was listed once,
+  swept the second time, and the clear was refused as an outside change
+  with the deleted image in the archive. `_inventory` now leaves out a file
+  still remembered, so an operation's inventories agree. Following the same
+  review, a sweep never raises (the delete before it has happened), and the
+  exit sweep waits half a second for the gallery, never behind a running
+  bundle. `tests/conftest.py` resets the memory for every test.
+  `tests/test_deleted_files.py` (10 tests, one with a real open handle on
+  Windows): five failed without the change; both Bundle & clear cases
+  (held throughout, released between the inventories) failed without the
+  exclusion. The full suite passed twice (9,732), ruff and the type gate
+  pass, as do nine smokes of the sidecars, delete, bin and bundles, twice in
+  parallel. Not explained: one earlier full run had 3 failures and an error
+  that the saved output did not name, and one parallel run of
+  smoke-bin-restore-order failed and then passed seven times. Its fake's log
+  shows no error.
 
 ## Not added
 

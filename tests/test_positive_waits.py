@@ -44,6 +44,9 @@ POSITIVE = 30.0
 # flagged source, with the reason. A new short wait that proves a negative
 # joins here; a positive one gets `POSITIVE` seconds instead.
 NEGATIVE: dict[tuple[str, str, str], str] = {
+    ("test_sidecar_io.py", "test_a_star_and_a_read_overlapping_on_windows_both_succeed",
+     "time.monotonic() + 3"):
+        "how long the read-against-star race runs, not a wait for an outcome",
     ("fakes.py", "FakeBackend._wait_for_hold", "hold.wait(0.01)"):
         "one slice of a polled hold; the loop around it waits on the event",
     ("test_conditioning.py", "test_two_meta_builds_never_overlap", "second.join(0.5)"):

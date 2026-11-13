@@ -125,8 +125,11 @@ paragraphs, never rewording.
 - `backend/sidecar_io.py` - the one open-for-read and `os.replace` of every
   JSON sidecar (stars, snippets, setups, saved searches, startup choices,
   backup settings and receipts), retried for about half a second on a
-  Windows sharing violation (`GAL#28`); a new sidecar uses it, held by
-  `tests/test_sidecar_io.py`
+  Windows sharing violation, and `reserved_read`, which the four request
+  sidecars' reads take: this process's part of the sidecar's reservation
+  (`gallery_lock.local`), never its lock file, so a read never overlaps
+  this process's save nor waits on another's (`GAL#28`); a new sidecar
+  uses both, held by `tests/test_sidecar_io.py`
 - `backend/preset_portability.py` - cold raw setup export, digests and explicit
   file-index merge plans; `backend/schemas_preset_portability.py` owns the native
   format and choices; `backend/strict_json.py` supplies bounded UTF-8 syntax for
@@ -487,6 +490,13 @@ paragraphs, never rewording.
 - `backend/gallery_delete.py` — taking images out: the keep-favourites
   predicates, scoped delete and its preview, per-image delete, recycle bin,
   clear and VACUUM (under `storage._write_lock`, read at call time)
+- `backend/deleted_files.py` — a permanently deleted image's PNG and
+  thumbnails, after its row: each retried on a Windows sharing violation,
+  one still held remembered (in the process) and swept once released,
+  after every permanent delete, before every bundle `_inventory` (which
+  leaves out one still held, so an operation's two inventories agree) and
+  at exit, never waiting behind a running bundle; a sweep never raises;
+  never a file a row names again, never any other untracked file (`GAL#29`)
 - `backend/run_jobs.py` — retained run jobs: each admitted job's resolved
   cells and definition in the `run_jobs` table (whose schema stays in
   storage) and its terminal outcome, for Finish run; reads storage's
