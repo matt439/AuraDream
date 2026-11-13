@@ -391,6 +391,18 @@ steps above. `GAL#31` changes a recorded rule: its build updates
 design-notes.md's Delete unstarred section (7302-7306) and the smoke step
 that pins the free-text refusal.
 
+## Results
+
+- **`DEV#64`** (done 2026-11-13). `PasscodeMiddleware` asks
+  `keep_awake.scope_counts_as_activity(scope)`, the rule `ActivityMiddleware`
+  uses, so the poll mark is read. `test_a_request_the_page_marks_as_a_poll_never_renews`
+  sends a marked `GET /api/models` and a marked grid preview to a day-old
+  session (no cookie), a marked unload (renewed: not a polled route), and
+  both requests unmarked (renewed); it fails on the old call. The design
+  notes' renewal paragraph and rules.md name the rule. Passcode, keep-awake
+  and docs tests, ruff, the type gate, smoke-passcode and
+  smoke-idle-activity pass.
+
 ## Not added
 
 - **Load a grid run back into the panel.** Matt deferred it on 2026-10-18

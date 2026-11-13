@@ -585,8 +585,8 @@ paragraphs, never rewording.
   the bind or an allowed host is not loopback), `Gate` (the comparison, the
   scrypt-derived session key and the `v1.<expires>.<mac>` cookie; it keeps
   a digest, never the passcode; a cookie more than a day old is renewed on
-  `/` and on any request `keep_awake.counts_as_activity` counts, never on a
-  timed poll, a job stream, a file or a Bearer request, nor on an answer
+  `/` and on any request `keep_awake.scope_counts_as_activity` counts, never on a
+  timed poll (the poll mark included), a job stream, a file or a Bearer request, nor on an answer
   that a signed-in sign-out overtook, `Gate.sign_outs`), `Limiter` (wrong passcodes for the whole
   server, on the event loop only) and `PasscodeMiddleware`, a plain ASGI
   layer always installed that passes everything through while `main`'s

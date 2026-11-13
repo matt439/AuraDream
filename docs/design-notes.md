@@ -14286,7 +14286,7 @@ than a day old sets a fresh one, so a device used within the month stays
 signed in.
 
 Since `DEV#56` (2026-11-12) a request someone makes on an open page renews
-too: any request `keep_awake.counts_as_activity` counts, with a valid
+too: any request `keep_awake.scope_counts_as_activity` counts, with a valid
 cookie more than a day old, gets a fresh one on whatever it answers. The
 page alone left a tab or installed PWA that stays open and is used daily,
 and so never loads `/` again, signed out at day thirty. The page's timed
@@ -14294,7 +14294,12 @@ polls (`/api/status` and the rest of activity's exclusions), the job
 streams and its files still never renew, so a tab left open and unused
 still ends with its month, as an idle tab does not hold the PC awake. One
 rule decides both, so a poll later excluded from activity is excluded from
-renewal with it. A request signed in by `Authorization: Bearer` gets no
+renewal with it. That rule is `keep_awake.scope_counts_as_activity`, which
+reads the page's poll mark (`X-AuraDream-Poll`) as well: until `DEV#64`
+(2026-11-13) the gate asked the bare `counts_as_activity`, so a marked
+timer on a counted route (the catalogue and model-shots retries, the
+maintenance re-reads, the grid preview's re-reads) renewed an idle tab's
+session. A request signed in by `Authorization: Bearer` gets no
 cookie, renewed or not.
 
 Renewing on any counted request opened a race the page alone did not have:
