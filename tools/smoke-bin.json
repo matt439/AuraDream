@@ -32,7 +32,7 @@
   {"key": "Delete"},
   {"expect": "__until(() => total === 7 && lbList[lbIndex].id !== __lb.id && els.lbError.textContent === 'Moved #' + __lb.id + ' to the recycle bin. Restore')"},
   {"eval": "window.__t0 = total; els.lightbox.dispatchEvent(new KeyboardEvent('keydown', {key: 'Delete', repeat: true, bubbles: true}));"},
-  {"wait": 600},
+  {"wait": 600, "why": "an absence: a held Delete's repeats bin nothing more and leave the note as the first press wrote it"},
   {"expect": "total === __t0 && !deleting.size && els.lbError.textContent === 'Moved #' + __lb.id + ' to the recycle bin. Restore'"},
   {"click": "#lb-error button[data-bin-restore]"},
   {"expect": "__until(() => total === 8 && els.lightbox.open && els.lbError.textContent === 'Restored #' + __lb.id + '.' && galleryRecords.some((r) => r.id === __lb.id))"},

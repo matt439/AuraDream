@@ -8,7 +8,7 @@ The maintainer's working backlog for this personal project: it records what is p
 
 **Aim (2026-10-29):** keep useful work ready for Matt's common workstation tasks. [Reported use](docs/design/preferences.md) guides priority; it does not approve the candidate redesign.
 
-**Ready backlog (updated 2026-11-13):** one `OPEN` row, `DEV#58` (conditions for the smokes' fixed sleeps, phases 2 on). The [2026-11-12 TODO audit](docs/maintainer/review-2026-11-12-todo.md#results-2026-11-12)'s rows, with `GAL#27` and `UI#53` added at Matt's request, were built 2026-11-12 and 13: those finished were removed, and the rest wait on Matt (`GEN#66` and `GEN#68`, `USER`), on the card (`GEN#6`, `GEN#48`'s stage 2) or on his call (`INP#12`, deferred). Local CPU, stub-script and fake-browser checks do not establish card, clean-machine or real-device acceptance.
+**Ready backlog (updated 2026-11-13):** no `OPEN` rows; `DEV#58` (conditions for the smokes' fixed sleeps) finished 2026-11-13. The [2026-11-12 TODO audit](docs/maintainer/review-2026-11-12-todo.md#results-2026-11-12)'s rows, with `GAL#27` and `UI#53` added at Matt's request, were built 2026-11-12 and 13: those finished were removed, and the rest wait on Matt (`GEN#66` and `GEN#68`, `USER`), on the card (`GEN#6`, `GEN#48`'s stage 2) or on his call (`INP#12`, deferred). Local CPU, stub-script and fake-browser checks do not establish card, clean-machine or real-device acceptance.
 
 **Decisions:** no unanswered `DECISION` rows. On 2026-11-12 Matt accepted every recommended answer of the [2026-11-12 audit](docs/maintainer/review-2026-11-12-todo.md#matts-answers-2026-11-12): 11 rows became `OPEN`, `CARD#4`, `CARD#6` and `CARD#12` were retired under the K4/K5 Never ratings, and `GEN#15` stays a model-offload card render. Decisions in force that limit work: `GEN#39` and unattended backups (`GAL#22`, `GAL#6`) declined; `GEN#8`, `GEN#20` and `INP#10` deferred by Matt; `PERF#7`'s answers (cache beside the gallery, static shapes, shipping after `PERF#1`); `DEV#20`'s 4 GiB commit floor (a card session runs on a quiet machine); `GEN#45`'s FLUX 3 scope (Klein and Klein Base, the upsampler opt-in only); the passcode's flagged choices as written (2026-11-10); Animagine XL 4.0 as the first open checkpoint (`GEN#59`) and Anima for the first app-owned Refine (`GEN#48`), both 2026-11-11. The history is in the owners and in Review coverage below.
 
@@ -120,14 +120,6 @@ The maintainer's working backlog for this personal project: it records what is p
 | `UI#40` | USER | MED | M | Phone acceptance: physical iPhone keyboard/sharing/gestures, Android/system and native iOS edge Back, landscape instruction caret and actual iPad Split View. [Phone review](docs/maintainer/review-2026-11-05-phone.md#10-edit-dialog-keyboard-acceptance-2026-11-07). |
 | `UI#7` | USER | LOW | M | Hands-on NVDA/Narrator, touch, native notification delivery and actual Windows scaling checks; browser emulation and accessibility-tree inspection do not complete them. [Manual checks](docs/design/validation.md#accessibility-and-desktop-checks). |
 
-## Tests, docs and tooling
-
-**Owner:** [the 2026-11-12 TODO audit](docs/maintainer/review-2026-11-12-todo.md#ready-work-open).
-
-| id | status | sev | size | item |
-|---|---|---|---|---|
-| `DEV#58` | OPEN | MED | M | Phase 1 done 2026-11-12 (five files, 196.7 s of sleeps to 34.4 s, enforced by test). Next phases, worst first: smoke-phone-gallery, smoke-sheet, smoke-refine, smoke-jobs, smoke-refine-sdxl; add each to `CONDITION_WAIT_SMOKES`. [Results](docs/maintainer/review-2026-11-12-todo.md#results-2026-11-12). |
-
 ## Review coverage
 
 Each review's remaining work is indexed above; closed findings stay in their owners.
@@ -172,7 +164,7 @@ Each review's remaining work is indexed above; closed findings stay in their own
 | 2026-11-10 peers | [The app against comparable projects](docs/maintainer/review-2026-11-10-peers.md): 48 candidates checked against the code and earlier decisions, 23 kept (`GEN#48`-`GEN#56`, `INP#13`, `DEV#31`-`DEV#40`, `UI#41`-`UI#43`), the rest recorded as not taken; `DEV#31`, `DEV#32` (through stage 3), `DEV#34`-`DEV#38`, `DEV#40`, `GEN#51`-`GEN#54`, `GEN#56`, `UI#42` and `GEN#57` (opened and built the same day) built 2026-11-10; `GEN#50`, `GEN#55`'s first slice, `DEV#33`, `UI#41`, `UI#43` and `DEV#39`'s local audit built 2026-11-11; `GEN#48`, `GEN#49`, `INP#13`, `DEV#32` stage 4 and `DEV#39`'s hosted job indexed above. |
 | 2026-11-10 first time | [A first-time user, after the installer](docs/maintainer/review-2026-11-10-first-time.md): 56 findings checked by skeptics, one refuted; merged to 28, 27 as rows (`DEV#41`-`DEV#53`, `GEN#58`-`GEN#62`, `UI#44`-`UI#50`, `PA#13`, `PA#14`), all built 2026-11-10/11; F27 is now under `GEN#65`. |
 
-| 2026-11-12 TODO audit | [Reconciliation and new work](docs/maintainer/review-2026-11-12-todo.md): stale NOW and coverage text fixed, `DEV#20` stage 2 recorded; 26 verified proposals added as 14 `OPEN` rows and 13 `DECISION` rows; Matt accepted every recommendation the same day (11 more `OPEN`, `CARD#4`/`CARD#6`/`CARD#12` retired).; built 2026-11-12/13 with `GAL#27` and `UI#53` ([results](docs/maintainer/review-2026-11-12-todo.md#results-2026-11-12)), `DEV#58` left open. |
+| 2026-11-12 TODO audit | [Reconciliation and new work](docs/maintainer/review-2026-11-12-todo.md): stale NOW and coverage text fixed, `DEV#20` stage 2 recorded; 26 verified proposals added as 14 `OPEN` rows and 13 `DECISION` rows; Matt accepted every recommendation the same day (11 more `OPEN`, `CARD#4`/`CARD#6`/`CARD#12` retired).; built 2026-11-12/13 with `GAL#27` and `UI#53` ([results](docs/maintainer/review-2026-11-12-todo.md#results-2026-11-12)); `DEV#58` finished 2026-11-13, every smoke polling its expects. |
 ---
 
 ## How to read this file

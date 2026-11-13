@@ -209,7 +209,7 @@
   {"click": "#__spot"},
   {"eval": "document.getElementById('__spot').remove()"},
   {"expect": "__menu().hidden"},
-  {"wait": 600},
+  {"wait": 600, "why": "an absence: the press on the picture beside the menu closes the menu only, and the lightbox stays open after it"},
   {"expect": "els.lightbox.open"},
   {"log": "'Escape in the menu closes the menu only'"},
   {"rightclick": "#lb-img"},

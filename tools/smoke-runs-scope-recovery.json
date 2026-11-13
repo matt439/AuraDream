@@ -44,7 +44,8 @@
     "shot": "runs-scope-unavailable-wide.png"
   },
   {
-    "wait": 180
+    "wait": 180,
+    "why": "an absence: with focus on the Runs list after the refusal, no retry request goes out by itself in that time"
   },
   {
     "expect": "__runsScope.runRequests.length === __runsScope.beforeRetryRequests",

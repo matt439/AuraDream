@@ -9788,9 +9788,10 @@ before starting - among them an
 file defines) to more with && or ||, which is never awaited: the whole
 condition goes inside the predicate. A smoke waits for what its next
 `expect` needs rather than sleeping a fixed time before it (`DEV#58`):
-`smoke`, `smoke-analysis`, `smoke-animagine`, `smoke-lightbox` and
-`smoke-wide` define `window.__when(fn, ms = 10000)` after each `navigate`,
-which polls `fn` every 50 ms (an exception, such as a chip not drawn yet,
+every smoke that has such a wait defines `window.__when(fn, ms = 10000)`
+after each `navigate` (after the accessibility watch's inject and
+`__a11yWatch()` where the smoke has them, which must follow the navigate
+directly), which polls `fn` every 50 ms (an exception, such as a chip not drawn yet,
 reads as not yet) and once more at its end, so a condition that never holds
 still says why. A check that a request settled names how it ends, not only
 what it shows: Check's `aria-busy` is gone, the critic is no longer
@@ -9804,8 +9805,14 @@ second press that neither zooms nor closes, or a Batch that leaves the
 comparison's count alone. Such a step carries a `why` saying so (the driver
 reads only `wait`), and
 `test_converted_smokes_poll_their_expects_instead_of_sleeping`
-(`tests/test_run_smoke.py`) holds these files to it. Waits before an action
-(a click, a key) and the remaining smokes are later phases of `DEV#58`. Each
+(`tests/test_run_smoke.py`) holds every smoke file to it, a new one too.
+A press that replaces the document (smoke-offline's Try again) is one `eval`
+whose promise settles only when the old document goes, with a `why`, then
+the next page's `__when`: a poll begun in the old document would be
+destroyed with it. Waits before an action (a click, a key, a tap) may stay
+where nothing races: the phone's 500 ms between two picture taps keeps them
+from counting as a double tap. Turn one into a condition when a run shows
+the action can start early. Each
 run's browser profile, under the
 system temp directory, is removed on every way out - the steps' end, a
 failure, a throw, Ctrl-C or SIGTERM - once the browser's whole process tree

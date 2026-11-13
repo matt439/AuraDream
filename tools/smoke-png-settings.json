@@ -72,7 +72,7 @@
   {"expect": "document.elementFromPoint(462, 345) === document.querySelector('#gallery img') && document.elementFromPoint(180, 180) === els.prompt"},
   {"drag": [462, 345, 180, 180]},
   {"expect": "__until(() => __drops.started === 1 && __drops.files && !document.body.classList.contains('png-drop'))"},
-  {"wait": 300},
+  {"wait": 300, "why": "an absence: a dragged card's image is no file brought to the page - no outline, nothing sent, nothing said"},
   {"expect": "!__drops.outlined && __sent.length === __sentBefore && els.error.hidden && els.error.textContent === '' && els.prompt.value === __kept && !pageDrag"},
   {"eval": "__drop([__galleryPng]);"},
   {"expect": "__until(() => els.prompt.value === 'a lighthouse 灯台 in fog' && __sent.length === __sentBefore + 1)"},

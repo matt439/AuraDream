@@ -679,8 +679,8 @@ def test_the_costs_file_names_every_smoke_in_the_table_and_no_other():
     assert sorted(set(costs) - named) == [], "cost entries for no smoke in the table"
 
 
-# The smokes DEV#58 has converted so far; a later phase adds its files here.
-CONDITION_WAIT_SMOKES = ("smoke", "smoke-analysis", "smoke-animagine", "smoke-lightbox", "smoke-wide")
+# Every smoke (DEV#58, finished 2026-11-13): a new smoke is held to it too.
+CONDITION_WAIT_SMOKES = tuple(sorted(p.stem for p in (ROOT / "tools").glob("smoke*.json")))
 
 
 @pytest.mark.parametrize("name", CONDITION_WAIT_SMOKES)

@@ -12,6 +12,9 @@
     "eval": "__a11yWatch()"
   },
   {
+    "eval": "window.__when = async (fn, ms = 10000) => { const end = Date.now() + ms; while (Date.now() < end) { try { if (await fn()) return true; } catch { /* not drawn yet */ } await new Promise((r) => setTimeout(r, 50)); } return !!(await fn()); }"
+  },
+  {
     "eval": "window.__until = async (fn, ms = 20000) => { const end = Date.now() + ms; while (Date.now() < end) { try { if (await fn()) return true; } catch {} await new Promise((r) => setTimeout(r, 40)); } return false; }; window.__s = (name) => document.getElementById('saved-searches-' + name); window.__field = (name,value) => { const e=__s(name); if(e.type==='checkbox')e.checked=value;else e.value=value; e.dispatchEvent(new Event('input',{bubbles:true})); e.dispatchEvent(new Event('change',{bubbles:true})); }; window.__open = async () => { await openSavedSearches(); return __until(()=>__s('dialog').open && savedSearchReady && !savedSearchPending); }; window.__post = (path,body) => api(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); window.__done = async (job) => { let result; if(!await __until(async()=>{ result=await api('/api/jobs/'+job.job_id); return !['queued','running'].includes(result.status); }))throw Error('Fixture timed out'); if(result.status!=='done')throw Error(result.error||result.status); return result; }; window.__fits = () => { const e=__s('dialog'),b=e.getBoundingClientRect(); return b.left>=0 && b.top>=0 && b.right<=innerWidth+1 && b.bottom<=innerHeight+1 && e.scrollWidth<=e.clientWidth+1; }; window.__errors=[]; addEventListener('error',(e)=>__errors.push(e.message)); addEventListener('unhandledrejection',(e)=>__errors.push(String(e.reason))); window.__settleStatus=async()=>{if(!await __until(()=>!statusPending))throw Error('Status did not settle');await refreshStatus();if(!await __until(()=>!statusPending))throw Error('Status refresh did not settle');};"
   },
   {
@@ -420,13 +423,14 @@
     "expect": "__open()"
   },
   {
-    "eval": "selectSavedSearch(__todayId); els.search.value='a debounce that must not replace the bookmark'; els.search.dispatchEvent(new Event('input',{bubbles:true})); window.__calls=[]; applySavedSearch(); __releasePage();"
+    "eval": "selectSavedSearch(__todayId); window.__typed=performance.now(); els.search.value='a debounce that must not replace the bookmark'; els.search.dispatchEvent(new Event('input',{bubbles:true})); window.__calls=[]; applySavedSearch(); __releasePage();"
   },
   {
     "expect": "__until(()=>!__s('dialog').open && !galleryPending && total===4 && els.search.value==='date:today saved search nebula')"
   },
   {
-    "wait": 400
+    "expect": "__when(()=>performance.now()-__typed>600)",
+    "why": "a timer: the input event's 250 ms search debounce is waited out on its own clock, so a reload it might still start would be counted"
   },
   {
     "log": "({calls:__calls,pending:!!galleryPending,total,records:galleryRecords.map((r)=>r.id),seen:newestImageSeen,head:galleryReadHead,filter:els.search.value})"
@@ -640,6 +644,9 @@
   },
   {
     "eval": "__a11yWatch()"
+  },
+  {
+    "eval": "window.__when = async (fn, ms = 10000) => { const end = Date.now() + ms; while (Date.now() < end) { try { if (await fn()) return true; } catch { /* not drawn yet */ } await new Promise((r) => setTimeout(r, 50)); } return !!(await fn()); }"
   },
   {
     "eval": "window.__until=async(fn,ms=20000)=>{const end=Date.now()+ms;while(Date.now()<end){if(await fn())return true;await new Promise((r)=>setTimeout(r,50));}return false;};"

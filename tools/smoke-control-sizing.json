@@ -13,6 +13,9 @@
     "navigate": "http://127.0.0.1:7923/"
   },
   {
+    "eval": "window.__when = async (fn, ms = 10000) => { const end = Date.now() + ms; while (Date.now() < end) { try { if (await fn()) return true; } catch { /* not drawn yet */ } await new Promise((r) => setTimeout(r, 50)); } return !!(await fn()); }"
+  },
+  {
     "eval": "window.__until = async (fn, ms = 20000) => { const end = Date.now() + ms; while (Date.now() < end) { if (await fn()) return true; await new Promise(r => setTimeout(r, 50)); } return false; };\nwindow.__frames = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));\nwindow.__visible = el => !!el && el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().height > 0;\nwindow.__box = el => { const r = el.getBoundingClientRect(); return {x:r.x,y:r.y,width:r.width,height:r.height}; };\nwindow.__sameBox = (a, b) => ['x','y','width','height'].every(k => Math.abs(a[k] - b[k]) < 0.6);\nwindow.__caption = () => els.prompt.closest('.field').querySelector(':scope > span');\nwindow.__captionButtons = () => [els.examplesBtn,els.tagsBtn,els.analyze,els.expandPrompt,els.reset].filter(__visible);\nwindow.__captionFits = () => { const cap = __caption().getBoundingClientRect(); const bs = __captionButtons(); const rs = bs.map(b => b.getBoundingClientRect()); const centers = rs.map(r => (r.top+r.bottom)/2); const label = __caption().querySelector('label').getBoundingClientRect(); return bs.length >= 3 && bs.every((b,i) => rs[i].height >= 23.5 && parseFloat(getComputedStyle(b).fontSize) >= 11 && rs[i].left >= cap.left-0.6 && rs[i].right <= cap.right+0.6 && rs[i].left >= label.right) && Math.max(...centers)-Math.min(...centers) < 5 && rs.every((a,i) => rs.every((b,j) => i===j || a.right<=b.left+0.6 || b.right<=a.left+0.6)); };\nwindow.__footerButtons = () => [...document.querySelectorAll('.gallery-footer button')].filter(__visible);\nwindow.__footerFits = () => { const f = document.querySelector('.gallery-footer').getBoundingClientRect(); const bs = __footerButtons(); const rs=bs.map(b=>b.getBoundingClientRect()); return document.documentElement.scrollWidth <= document.documentElement.clientWidth && bs.length>=6 && rs.every(r=>r.height>=25.5 && r.width>=23.5 && r.left>=f.left-0.6 && r.right<=f.right+0.6 && r.left>=0 && r.right<=document.documentElement.clientWidth) && Math.max(...rs.map(r=>r.top))-Math.min(...rs.map(r=>r.top))<1; };\nwindow.__hit = el => { const r=el.getBoundingClientRect(); const top=document.querySelector('.topbar').getBoundingClientRect().bottom; return r.top>=top && r.bottom<=innerHeight && [0.15,0.5,0.85].every(v=>{const hit=document.elementFromPoint(r.left+r.width*v,r.top+r.height/2); return hit===el || el.contains(hit);}); };\nwindow.__ring = el => { const s=getComputedStyle(el); return document.activeElement===el && el.matches(':focus-visible') && s.outlineStyle==='solid' && parseFloat(s.outlineWidth)>=2 && s.outlineColor==='rgb(74, 214, 200)'; };\nwindow.__snapshot = () => ({viewport:[innerWidth,innerHeight,devicePixelRatio],model:loadedModel,caption:__captionButtons().map(b=>[b.id,__box(b),getComputedStyle(b).fontSize]),footer:__footerButtons().map(b=>[b.id,__box(b)])});\nwindow.__switchSizingModel = async id => { const r=await fetch('/api/model/switch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model_id:id,load:false})}); if(!r.ok)throw new Error(await r.text()); if(!await __until(async()=>{const s=await api('/api/status'); if(s.model_id!==id || s.switching)return false; receiveStatus(s,Date.now()); return true;},5000))throw new Error('Sizing model switch timed out: '+id); await __frames(); };\nwindow.__captionResults = [];\nwindow.__walkCaptionModels = async ids => { for(const id of ids){await __switchSizingModel(id);const fit=__captionFits();__captionResults.push({...__snapshot(),fit});if(!fit)return false;}return true; };"
   },
   {
@@ -52,7 +55,8 @@
     "hover": "#btn-more-seeds"
   },
   {
-    "wait": 180
+    "wait": 180,
+    "why": "an absence: hovering the held More seeds leaves its look and box as they were, so the check waits out any hover transition"
   },
   {
     "expect": "__sameBox(__box(els.moreSeeds),__heldBox) && getComputedStyle(els.moreSeeds).backgroundColor===__heldStyle"
@@ -100,7 +104,8 @@
     "hover": "#btn-select"
   },
   {
-    "wait": 180
+    "wait": 180,
+    "why": "an absence: hovering the pressed Select leaves its fill and box as they were, so the check waits out any hover transition"
   },
   {
     "expect": "__sameBox(__box(els.select),__selectBox) && getComputedStyle(els.select).backgroundColor===__selectedFill && __footerFits()"

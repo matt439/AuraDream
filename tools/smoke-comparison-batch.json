@@ -1,9 +1,9 @@
 [
   {"navigate": "http://127.0.0.1:7874/"},
+  {"eval": "window.__when = async (fn, ms = 10000) => { const end = Date.now() + ms; while (Date.now() < end) { try { if (await fn()) return true; } catch { /* not drawn yet */ } await new Promise((r) => setTimeout(r, 50)); } return !!(await fn()); }"},
   {"eval": "document.getElementById('analysis-details').querySelector('summary').click()"},
-  {"wait": 1200},
   {"log": "'Comparison Seeds keeps its total while its own Batch groups generation'"},
-  {"expect": "[...els.compareSeeds.options].map((o) => o.value).join(',') === '4,8' && els.compareSeeds.value === '4' && [...els.compareBatch.options].map((o) => o.value).join(',') === '1,2,4' && els.compareBatch.value === '1'"},
+  {"expect": "__when(() => document.getElementById('status-dot').className.includes('ready') && !!lastHints && document.getElementById('analysis-details').open && [...els.compareSeeds.options].map((o) => o.value).join(',') === '4,8' && els.compareSeeds.value === '4' && [...els.compareBatch.options].map((o) => o.value).join(',') === '1,2,4' && els.compareBatch.value === '1')"},
   {"expect": "els.compareSeeds.getAttribute('autocomplete') === 'off' && els.compareBatch.getAttribute('autocomplete') === 'off'"},
   {"eval": "els.prompt.value = 'a crimson otter'; els.negative.value = ''; els.steps.value = '2'; own('steps'); els.width.value = '256'; els.height.value = '256'; els.seed.value = '100'; els.batch.value = '12'; els.runs.value = '7'; promptReplaced(); checkPrompt()"},
   {"eval": "els.compareOwn.value = 'a blue otter'; compareOwnChanged(); window.__batchCases = []; window.__batchWait = async (ready) => { for (let attempt = 0; attempt < 100; attempt++) { if (ready()) return; await new Promise((resolve) => setTimeout(resolve, 100)); } throw new Error('Comparison preview or gallery did not settle'); };"},

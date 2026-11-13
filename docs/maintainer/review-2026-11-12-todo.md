@@ -477,6 +477,28 @@ downloaded. Plans with their own owners record their results there:
   `test_converted_smokes_poll_their_expects_instead_of_sleeping` enforces.
   The waits that remain are before actions, or absence checks that carry
   a `why`.
+- **`DEV#58`** (done 2026-11-13). The other 54 smokes with a fixed wait
+  before an expect were converted the same way, and their fixed sleeps fell
+  from 383.1 s to 78.3 s. Most of what remains comes before taps and keys
+  (smoke-phone-gallery's 500 ms gaps between picture taps, smoke-jobs'
+  timed pauses), plus absences that carry a `why`. The test now covers
+  every smoke file. Each smoke's file was converted by one agent and then
+  checked by a second, adversarial one, which tried to show a new
+  condition could pass on the state before its action. Every smoke passed
+  at least three times in a row after its last edit, with the machine
+  loaded by the others' runs. The reviews fixed conditions that did not
+  name their action's end: smoke-passcode's status poll was read before
+  its record, smoke-refine-sdxl's source could match an older record, and
+  smoke-compare-cfg polled one axis of two. Reviews also tied smoke-tags'
+  checks to the text just typed, waited out the 2 s card-note timer in
+  smoke-gallery on its own clock, and anchored the scrim-tap clock in
+  smoke-phone-gallery after the tap. smoke-offline's Try again now
+  settles with the document it replaces. Found on the way and not fixed
+  here: `model_favourites.read` (like the saved-search and snippet
+  sidecars) opens its file with no lock, and on Windows a read that
+  overlaps `os.replace` fails (a probe: 78 of 20,000 reads). That makes
+  smoke-model-hover's last step flaky on Windows only. Hosted CI runs the
+  smokes on Linux.
 - **`INP#12`** (desk half done). Two detectors pass: YuNet (MIT) and the
   MediaPipe Hand Landmarker (Apache-2.0). Both are trained on photographs.
   The deepghs anime detectors stop at Ultralytics' AGPL-3.0 provenance.

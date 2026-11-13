@@ -1,6 +1,7 @@
 [
   {"log": "'a gallery card\\'s batch outlined on hover, against a fake server claiming the default Krea 2 Turbo on 7892 (a fresh --data): a Batch 3 x Repeat 2 is one set of six, a steps grid\\'s cells at Batch 2 are sets of two, a single image marks nothing and nothing moves'"},
   {"navigate": "http://127.0.0.1:7892/"},
+  {"eval": "window.__when = async (fn, ms = 10000) => { const end = Date.now() + ms; while (Date.now() < end) { try { if (await fn()) return true; } catch { /* not drawn yet */ } await new Promise((r) => setTimeout(r, 50)); } return !!(await fn()); }"},
   {"eval": "window.__until = async (fn, ms = 20000) => { const end = Date.now() + ms; while (Date.now() < end) { try { if (fn()) return true; } catch { /* not yet */ } await new Promise((r) => setTimeout(r, 50)); } return false; };"},
   {"expect": "__until(() => document.getElementById('status-dot').className.includes('ready'))"},
   {"eval": "resetPanel(); showError(''); window.__post = (path, body) => fetch(path, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}).then((r) => r.json()); window.__wait = async (id) => { for (let i = 0; i < 600; i++) { const s = await (await fetch('/api/jobs/' + id)).json(); if (s.status !== 'queued' && s.status !== 'running') return s; await new Promise((r) => setTimeout(r, 100)); } }; window.__cards = () => [...document.querySelectorAll('#gallery .card[data-id]')]; window.__mates = () => [...document.querySelectorAll('#gallery .card.batch-mate')].map((el) => +el.dataset.id).sort((a, b) => a - b);"},
@@ -27,9 +28,9 @@
   {"expect": "JSON.stringify(__mates()) === JSON.stringify(__cell.filter((id) => id !== +document.querySelector('.__t-grid').dataset.id))"},
 
   {"log": "'a single image marks nothing'"},
+  {"eval": "window.__hoverAt = performance.now()"},
   {"hover": ".__t-one > img"},
-  {"wait": 500},
-  {"expect": "__mates().length === 0"},
+  {"expect": "__when(() => mateOver === document.querySelector('.__t-one') && performance.now() - __hoverAt > MATE_DELAY + 250 && __mates().length === 0)"},
 
   {"log": "'a press keeps the marks: the batch is still the one under the pointer'"},
   {"hover": ".__t-six > img"},

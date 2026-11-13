@@ -1,16 +1,14 @@
 [
   {"navigate": "http://127.0.0.1:7887/"},
+  {"eval": "window.__when = async (fn, ms = 10000) => { const end = Date.now() + ms; while (Date.now() < end) { try { if (await fn()) return true; } catch { /* not drawn yet */ } await new Promise((r) => setTimeout(r, 50)); } return !!(await fn()); }"},
   {"eval": "document.getElementById('analysis-details').querySelector('summary').click()"},
-  {"wait": 1500},
-  {"expect": "document.getElementById('status-dot').className.includes('ready') && tagVocabularyEnabled && !els.analysisCritic.hidden"},
+  {"expect": "__when(() => (document.getElementById('status-dot').className.includes('ready') && tagVocabularyEnabled && !els.analysisCritic.hidden), 20000)"},
 
   {"log": "'The rewrite is checked without the tag index: a finding on the prompt that rests on it (here the order, a Series before a Character) is not called fixed when the rewrite lacks it, only not flagged'"},
   {"eval": "els.prompt.value = '1girl, honkai: star rail, firefly (honkai: star rail), masterpiece'; els.prompt.dispatchEvent(new Event('input', {bubbles: true})); els.analyze.click();"},
-  {"wait": 1000},
-  {"expect": "analysisResult.body.style === 'tags' && analysisResult.body.findings.some((f) => f.rule === 'guide.order' && f.message.startsWith('\"honkai: star rail\" (Series) comes before'))"},
+  {"expect": "__when(() => !els.analyze.hasAttribute('aria-busy') && (analysisResult.body.style === 'tags' && analysisResult.body.findings.some((f) => f.rule === 'guide.order' && f.message.startsWith('\"honkai: star rail\" (Series) comes before'))))"},
   {"eval": "els.criticAsk.click();"},
-  {"wait": 1500},
-  {"expect": "!critiquing && critiqueResult !== null && critiqueResult.body.rewrite.includes('honkai: star rail, firefly (honkai: star rail)') && !critiqueResult.body.rewrite_findings.some((f) => f.rule === 'guide.order')"},
+  {"expect": "__when(() => (!critiquing && critiqueResult !== null && critiqueResult.body.rewrite.includes('honkai: star rail, firefly (honkai: star rail)') && !critiqueResult.body.rewrite_findings.some((f) => f.rule === 'guide.order')))"},
   {"expect": "(() => { const notes = [...els.criticResult.querySelectorAll('.critic-checked > .analysis-note')].map((n) => n.textContent); return notes.length === 1 && notes[0].startsWith('Not flagged on the rewrite, whose check asks the tag index nothing of its own - these may still apply: \"honkai: star rail\" (Series) comes before') && [...els.criticResult.querySelectorAll('.critic-checked .analysis-carried')].every((c) => c.textContent === 'also in your prompt'); })()"},
   {"eval": "closeAnalysis();"},
 
