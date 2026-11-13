@@ -560,6 +560,7 @@ function syncReuseButton(button, rec, compact = false) {
   button.dataset.reuseEditBinned = String(!!rec.edit_binned);
   button.dataset.reuseCompact = String(compact);
   button.classList.add('reuse-settings');
+  button.setAttribute('aria-keyshortcuts', 'U');
   const executionReason = executionReuseReason(rec);
   if (executionReason) {
     button.textContent = compact ? '\u21b6' : rec.edit != null ? 'Reuse instruction edit' : 'Reuse settings';
@@ -650,6 +651,33 @@ function notCarried(rec) {
     adapter && 'its adapter',
   ].filter(Boolean);
   return what.length ? `; ${what.join(' and ')} will not carry over` : '';
+}
+
+// U (UI#56): Reuse settings from the keyboard, scoped as M is
+// (openMoreSeedsFromKey): the lightbox's image, by its button's press so its
+// hold and its words apply; else the focused card, result, sheet cell or
+// recent image. reuse() says why where it is held and leaves its Undo note.
+function reuseFromKey(target) {
+  if (els.lightbox.open) {
+    if (els.lbReuse.hidden || !lbList[lbIndex]) return false;
+    els.lbReuse.click();
+    return true;
+  }
+  const own = target.closest?.('#gallery .card[data-id], #viewer figure[data-id]');
+  const button = own?.querySelector('.reuse-settings');
+  if (button) {
+    if (button.hidden) return false;
+    button.click();
+    return true;
+  }
+  let rec = null;
+  const cell = target.closest?.('#sheet-grid .sheet-cell[data-id]');
+  const recent = target.closest?.('#recent img[data-id]');
+  if (cell) rec = sheetCellRecord(cell);
+  else if (recent) rec = sessionRecords.find((r) => r.id === +recent.dataset.id);
+  if (!rec || rec.binned_at) return false;
+  reuse(rec);
+  return true;
 }
 
 function reuseButton(rec, compact = false) {

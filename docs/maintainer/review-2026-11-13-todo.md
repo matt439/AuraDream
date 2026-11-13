@@ -631,6 +631,21 @@ that pins the free-text refusal.
   new words and a `fox` step asks the server's count. The design notes'
   Delete unstarred section, usage.md and rules.md say so. 497 search,
   gallery, storage and clear tests and smoke-gallery pass.
+- **`UI#56`** (done 2026-11-13, Matt's answer). Unshifted U,
+  `reuse.reuseFromKey`, beside M in `app.js`'s dispatch and scoped as M is:
+  in the lightbox it presses `#lb-reuse`, so its hold and title apply; on a
+  focused card or result it presses that image's own Reuse button; on a
+  sheet cell or session image it calls `reuse()`, which says why where it
+  is held and leaves the panel note's Undo. Not in fields, menus, dialogs
+  other than the lightbox, or with a modifier. Help has a U row in the
+  gallery, lightbox and sheet groups; every Reuse button carries
+  `aria-keyshortcuts="U"` (`#lb-reuse` also says "(U)" until its record's
+  title replaces it), and the image menu's Reuse item shows the hint.
+  smoke-shortcut-dispatch, with `reuse` stubbed, presses U on a card, in
+  the lightbox and on a sheet cell (each the right id), proves repeated,
+  composing, consumed, shifted and modified U do nothing, and checks the
+  help rows and attributes; it, smoke-shortcuts and smoke-context-menu
+  pass. usage.md's key table and rules.md say so.
 
 ## Not added
 

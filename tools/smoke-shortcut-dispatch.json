@@ -553,6 +553,39 @@
     "eval": "if(els.lightbox.open)dismissLightbox();"
   },
   {
+    "log": "'UI#56: U is Reuse settings on a focused card and in the lightbox, by the button the press would take; repeated, composing, consumed, shifted or modified U does nothing, and the help, the buttons and the menu name it.'"
+  },
+  {
+    "eval": "window.__reuseCalls=[];window.__savedReuse=reuse;reuse=(rec)=>{__reuseCalls.push(rec.id);};__img(0).focus({preventScroll:true});for(const flags of [{repeat:true},{isComposing:true},{prevented:true},{ctrlKey:true},{altKey:true},{metaKey:true},{shiftKey:true}])__probe(document.activeElement,'u',flags);"
+  },
+  {
+    "expect": "__reuseCalls.length===0&&document.activeElement===__img(0)"
+  },
+  {
+    "key": "u"
+  },
+  {
+    "expect": "__until(()=>__reuseCalls.length===1&&__reuseCalls[0]===galleryRecords[0].id&&!els.lightbox.open&&!document.querySelector('dialog[open]'))"
+  },
+  {
+    "eval": "openLightbox(galleryRecords[1],galleryRecords);els.lbClose.focus({preventScroll:true});__probe(els.lbClose,'u',{repeat:true});"
+  },
+  {
+    "expect": "els.lightbox.open&&__reuseCalls.length===1"
+  },
+  {
+    "key": "u"
+  },
+  {
+    "expect": "__until(()=>__reuseCalls.length===2&&__reuseCalls[1]===galleryRecords[1].id)"
+  },
+  {
+    "eval": "if(els.lightbox.open)dismissLightbox();"
+  },
+  {
+    "expect": "els.lbReuse.getAttribute('aria-keyshortcuts')==='U'&&__img(0).closest('.card').querySelector('.reuse-settings').getAttribute('aria-keyshortcuts')==='U'&&['gallery','lightbox','sheet'].every(id=>SHORTCUT_GROUPS.find(g=>g.id===id).rows.some(([keys])=>keys.join()==='U'))"
+  },
+  {
     "log": "'Sheet F guards match gallery F; repeated arrows and Ctrl+End still navigate.'"
   },
   {
@@ -587,6 +620,21 @@
   },
   {
     "expect": "document.activeElement===sheetCells().at(-1).querySelector('img')"
+  },
+  {
+    "eval": "__probe(document.activeElement,'u',{repeat:true});__probe(document.activeElement,'u',{shiftKey:true});"
+  },
+  {
+    "expect": "__reuseCalls.length===2"
+  },
+  {
+    "key": "u"
+  },
+  {
+    "expect": "__until(()=>__reuseCalls.length===3&&__reuseCalls[2]===sheetCellRecord(sheetCells().at(-1)).id&&sheetMode&&!els.lightbox.open)"
+  },
+  {
+    "eval": "reuse=__savedReuse;"
   },
   {
     "log": "'P goes back to the prompt box from a sheet cell: caret at the end, no text, Undo, pick, query, sheet or scroll change.'"

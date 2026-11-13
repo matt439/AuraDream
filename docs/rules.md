@@ -4410,6 +4410,11 @@ measured on the card and when.
   focuses `#prompt` with the caret at the end (`focusPromptBox`): no text,
   Undo, Check, suggestion, pick, search or sheet change, and the same one
   reveal as `/` only where the narrow layout left the box off screen.
+  Unshifted U (`reuse.reuseFromKey`, `UI#56`) is Reuse settings on the same
+  images M takes: the lightbox's and a card's or result's by pressing its own
+  Reuse button (its hold and words apply), a sheet cell's or session image's
+  through `reuse()`; help rows, `aria-keyshortcuts="U"` on every Reuse
+  button and the image menu's hint name it.
   Unshifted M opens More seeds for the focused gallery/result/sheet/session
   image or unobstructed lightbox image, using its one id and the existing holds
   and preview. It never queues or widens to hidden picks. Its actual visible
@@ -10481,7 +10486,10 @@ menu ownership, exact modifiers, handled/composing/repeated events, native
 button repeat, lightbox editing/select/browser navigation, ordinary Generate
 and Grid, delayed More seeds/help Escape precedence, and P back to the prompt
 from a card, a sheet cell and the card the lightbox returns to (never from
-fields, menus, the model picker, help, a settings dialog or the lightbox).
+fields, menus, the model picker, help, a settings dialog or the lightbox),
+and U as Reuse settings on a card, in the lightbox and on a sheet cell
+(`reuse` stubbed; repeated, composing, consumed, shifted and modified U
+ignored; the help rows and `aria-keyshortcuts`, `UI#56`).
 
 `smoke-shortcuts.json` uses a fresh fake on 7913. It checks the complete
 shortcut list and read-only Getting started block before any images exist,
