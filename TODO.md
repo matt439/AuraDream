@@ -91,7 +91,7 @@ No open rows: the [2026-11-13 audit](docs/maintainer/review-2026-11-13-todo.md#r
 | `GEN#20` | DEFERRED | LOW | L+card | Opt-in A1111 weighting and 77-token chunking on SDXL, deferred by Matt 2026-10-27 because he does not write weighted prompts; revisit on request. [10-24 G10](docs/maintainer/review-2026-10-24.md#g10-a1111-style-weighting-and-long-prompts-on-sdxl). |
 | `GEN#48` | CARD | MED | L+card | Stage 1 built 2026-11-12: private Anima Img2Img passes with CPU tests, wired to nothing. Next: stage 2, Matt's authorized card qualification of Turbo (then Aesthetic, Preview; one load each); stage 3 wires it into Refine. [Plan](docs/maintainer/plan-anima-refine.md). |
 | `GEN#49` | CARD | LOW | L+card | Tiled refine past the one-pass size guards. First a throwaway card look, with Matt's OK: one 2x source as four overlapping masked-area regions at strength 0.3-0.4; a plan only if the seams pass. [R2](docs/maintainer/review-2026-11-10-peers.md#r2-tiled-refine). |
-| `GEN#72` | OPEN | LOW | L | A guarded delete in Models > On disk, any whole checkpoint (Matt, 2026-11-14: unused, outdated, space, licence ended). Planned 2026-11-14; nine questions await Matt's answers (the plan follows its recommendations meanwhile). Next: stage 0, the Nunchaku row named by its entry. [Plan](docs/maintainer/plan-model-delete.md#stages-and-completion-criteria). |
+| `GEN#72` | OPEN | LOW | L | A guarded delete in Models > On disk, any whole checkpoint (Matt, 2026-11-14: unused, outdated, space, licence ended). Planned 2026-11-14; Matt accepted all nine recommended answers the same day. Next: stage 0, the Nunchaku row named by its entry. [Plan](docs/maintainer/plan-model-delete.md#stages-and-completion-criteria). |
 
 ## Speed
 

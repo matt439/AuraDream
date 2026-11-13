@@ -4,8 +4,8 @@
 was the [peer review's R9](review-2026-11-10-peers.md#r9-storage-view);
 this plan owns it from now on (the TODO row's pointer moves here with the
 first stage's commit). Every stage below is CPU and browser work on scratch
-caches; none needs the card. Matt's questions are at the end; the plan
-follows the recommended answer until he answers.
+caches; none needs the card. Matt's questions are at the end; he
+accepted every recommended answer on 2026-11-14.
 
 Two drafts were merged: one written safety-first, one from the user's
 side. Where they disagreed, the choice and one line of why are given in
@@ -495,6 +495,9 @@ Delete on the selected row to see it held; after stage 4, one Anima variant,
 with the other two still loading. The result goes in `docs/verified.md`.
 
 ## Matt's questions
+
+**Answered 2026-11-14:** Matt accepted every recommended answer below, so
+the plan stands as written.
 
 1. **Can the selected checkpoint be deleted?** *Recommended: no;* held with
    "Choose another checkpoint first". Otherwise the next Generate, or a
