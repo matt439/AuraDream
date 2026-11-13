@@ -16,10 +16,10 @@ from collections.abc import Callable, Sequence
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from . import gallery_lock, storage
+from . import deleted_files, gallery_lock, storage
 from .instruction_edit import InstructionEditSource, descriptor_from_image
 from .metadata import edit_from_json
-from .search import strict_scope
+from .search import strict_scope, unstarred_scope
 
 
 # The images a starred one was made from: a refine pass's source and a klein
@@ -103,6 +103,7 @@ def matching_preview(
     model_id: str | None = None,
     newer_than: int | None = None,
     live_only: bool = False,
+    free_words: bool = False,
 ) -> dict[str, Any]:
     """What a strict scope selects, named: counts, prompts, and the jobs and
     checkpoints a substring term (`job:`, `model:`) actually matched.
@@ -129,8 +130,12 @@ def matching_preview(
     does, which moves what it takes there; the CLI's `--where` reaches the
     bin too, and `binned` is how many of `records` are in it. `favorites` is
     the live stars: a binned star keeps nothing.
+
+    `free_words` reads the scope as the page's Delete unstarred does
+    (`search.unstarred_scope`: positive free words prefix-matched as the
+    gallery matches them); without it, as `clear --where`, strictly.
     """
-    filters, params = strict_scope(search)
+    filters, params = (unstarred_scope if free_words else strict_scope)(search)
     if model_id:
         filters.append("model_id = ?")
         params.append(model_id)
@@ -211,6 +216,7 @@ def delete_matching(
     model_id: str | None = None,
     to_bin: bool = False,
     in_flight: InFlight | None = None,
+    free_words: bool = False,
 ) -> dict[str, Any]:
     """Delete the rows a strict scope selects, and their files - nothing else.
 
@@ -233,9 +239,10 @@ def delete_matching(
     - and touches no file, so `files` is 0. Without it the delete is
     permanent and reaches binned rows too, as `clear --where` does, and then
     sweeps the inpaint masks nothing names any more (`sweep_masks`, with
-    `in_flight`), which the bin never does.
+    `in_flight`), which the bin never does. `free_words` is
+    `matching_preview`'s: the page's scope, as it counted it.
     """
-    filters, params = strict_scope(search)
+    filters, params = (unstarred_scope if free_words else strict_scope)(search)
     if keep_favorites:
         filters.append(_UNKEPT)
     if model_id:
@@ -262,10 +269,8 @@ def delete_matching(
         ).fetchall()
     removed = 0
     for row in doomed:
-        path = storage.settings.outputs_dir / row["filename"]
-        if path.exists() and storage._unlink(path):
-            removed += 1
-        storage._delete_thumbnails(path)
+        removed += deleted_files.remove(row["filename"])
+    deleted_files.sweep()
     masks = sweep_masks(in_flight)
     return {"records": len(doomed), "files": removed, "ids": [row["id"] for row in doomed], "masks": masks}
 
@@ -282,10 +287,10 @@ def delete_image(image_id: int, in_flight: InFlight | None = None) -> bool:
             return False
         conn.execute("DELETE FROM images WHERE id = ?", (image_id,))
     # The row is already gone, so a file someone else has open must not turn a
-    # delete that did happen into a 500. clear_history's orphan sweep collects
-    # whatever gets left behind.
-    storage._unlink(storage.settings.outputs_dir / row["filename"])
-    storage._delete_thumbnails(storage.settings.outputs_dir / row["filename"])
+    # delete that did happen into a 500: `deleted_files` retries it, and
+    # removes one still held once it is released.
+    deleted_files.remove(row["filename"])
+    deleted_files.sweep()
     sweep_masks(in_flight)
     return True
 
@@ -549,10 +554,8 @@ def purge_images(
             conn.execute(f"DELETE FROM images WHERE id IN ({marks})", chunk)
     removed = 0
     for row in rows:
-        path = storage.settings.outputs_dir / row["filename"]
-        if path.exists() and storage._unlink(path):
-            removed += 1
-        storage._delete_thumbnails(path)
+        removed += deleted_files.remove(row["filename"])
+    deleted_files.sweep()
     masks = sweep_masks(in_flight)
     return {"records": len(rows), "files": removed, "ids": wanted, "masks": masks}
 
@@ -608,10 +611,8 @@ def empty_bin(
                 )
     removed = 0
     for row in doomed:
-        path = storage.settings.outputs_dir / row["filename"]
-        if path.exists() and storage._unlink(path):
-            removed += 1
-        storage._delete_thumbnails(path)
+        removed += deleted_files.remove(row["filename"])
+    deleted_files.sweep()
     masks = sweep_masks(in_flight)
     return {"records": len(doomed), "files": removed, "ids": sorted(row["id"] for row in doomed),
             "masks": masks}
@@ -700,10 +701,7 @@ def clear_history(keep_favorites: bool = False, in_flight: InFlight | None = Non
 
     removed = 0
     for filename in doomed:
-        path = storage.settings.outputs_dir / filename
-        if path.exists() and storage._unlink(path):
-            removed += 1
-        storage._delete_thumbnails(path)
+        removed += deleted_files.remove(filename)
 
     # Partials from a power cut or a killed process, by age - never the fresh
     # one another process may be encoding right now. A kept row's committed

@@ -103,6 +103,16 @@ def no_real_keep_awake(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def no_remembered_deletes(monkeypatch):
+    """A file one test's delete found held never reaches the next test's
+    sweep, nor registers a real exit hook in the pytest process."""
+    from backend import deleted_files
+
+    monkeypatch.setattr(deleted_files, "_pending", {})
+    monkeypatch.setattr(deleted_files, "_at_exit", True)
+
+
+@pytest.fixture(autouse=True)
 def cheap_scrypt(monkeypatch):
     # New bundles get the smallest cost readers accept (16 MiB, not 128 MiB).
     monkeypatch.setattr(bundle_crypto, "_LOG2_N", 14)

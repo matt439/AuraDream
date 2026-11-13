@@ -17,7 +17,7 @@ from datetime import timedelta
 from pathlib import Path
 from uuid import uuid4
 
-from . import backup_credentials, backup_preferences, backup_receipts, bundle_mode
+from . import backup_credentials, backup_preferences, backup_receipts, bundle_mode, sidecar_io
 from .backup_policy import MAX_KEEP_LAST, BackupPolicy
 
 MAX_AGE_HOURS = 876_000
@@ -173,7 +173,7 @@ def load(db_path: Path) -> LoadedSettings:
         before = path.stat()
         if not stat.S_ISREG(before.st_mode) or before.st_size > _MAX_BYTES:
             raise ValueError("invalid settings file")
-        with path.open("rb") as stream:
+        with sidecar_io.open_read(path) as stream:
             opened = os.fstat(stream.fileno())
             data = stream.read(_MAX_BYTES + 1)
             after = os.fstat(stream.fileno())
@@ -300,7 +300,7 @@ def _persist(db_path: Path, chosen: BackupSettings, version: int) -> LoadedSetti
             stream.write(data)
             stream.flush()
             os.fsync(stream.fileno())
-        os.replace(temporary, path)
+        sidecar_io.replace(temporary, path)
         temporary = None
     finally:
         if temporary is not None:

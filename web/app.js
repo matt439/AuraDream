@@ -803,6 +803,10 @@ document.addEventListener('keydown', (e) => {
       e.preventDefault();
       return;
     }
+    if (!e.shiftKey && e.key.toLowerCase() === 'u' && reuseFromKey(e.target)) {
+      e.preventDefault();
+      return;
+    }
   }
   if (!els.lightbox.open || inMenu || keyboardEditingTarget(e.target) || keyboardCommandModifier(e)) return;
   // Shift+arrows belongs to an active swipe. Alt/Ctrl/Meta arrows keep their

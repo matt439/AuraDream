@@ -184,8 +184,8 @@ function imageItems({ kind, rec, host }) {
       label: `${selection.has(rec.id) ? 'Unpick' : 'Pick'} #${rec.id}`, hint: 'X',
       held: !!lightboxPickHeld(rec), title: lightboxPickTitle(rec), run: () => pickFromLightbox(rec),
     }] : []),
-    sheet ? syncedItem('↻ Reuse settings', (b) => syncReuseButton(b, rec, true), () => reuse(rec))
-      : buttonItem('↻ Reuse settings', lightbox ? els.lbReuse : find('.reuse-settings')),
+    sheet ? syncedItem('↻ Reuse settings', (b) => syncReuseButton(b, rec, true), () => reuse(rec), 'U')
+      : buttonItem('↻ Reuse settings', lightbox ? els.lbReuse : find('.reuse-settings'), 'U'),
     {
       label: 'Use seed', title: `Put ${rec.seed} in the Seed box`,
       run: () => { useSeed(rec.seed); cardNote(host, lightbox ? `Seed ${rec.seed} is in the Seed box.` : 'Seed set'); },

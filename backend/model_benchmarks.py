@@ -47,6 +47,13 @@ _BUSY_CPU = (
     "timing."
 )
 _BUSY = {"caveat": _BUSY_CPU, "basis": "First run, busy PC", "warm": False}
+# The 2026-10-25 quantization and offload table (docs/verified.md): an
+# identical repeat of each process's first render, which replaced the
+# 2026-10-05 first runs on a busy PC for the checkpoints it repeated (GEN#70).
+_REPEAT = (
+    "An identical repeat of the process's first render, one seed; other apps "
+    "were running."
+)
 class _NunchakuSetup(TypedDict):
     quantization: str
     platform: str
@@ -70,16 +77,16 @@ _SAMPLES: dict[str, tuple[Sample, ...]] = {
                caveat="The recorded no-offload setup spilled into system RAM; 2 MP took 72 s.", **_NVFP4),
     ),
     "cagliostrolab/animagine-xl-4.0": (
-        Sample(17.2, "~17 s · 1 MP", 28, "2026-10-05",
-               "17.2 s; 0.22 s a step after the first", guidance="CFG 5", **_BUSY),
+        Sample(7.60, "~8 s · 1 MP", 28, "2026-10-25",
+               "7.60 s, 0.22 s a step; the process's first took 8.18 s", guidance="CFG 5", caveat=_REPEAT),
     ),
     "KBlueLeaf/Kohaku-XL-Zeta": (
         Sample(9.68, "~10 s · 1 MP", 28, "2026-09-26", "9.33 / 9.68 s", guidance="CFG 5",
                caveat=_AFTER_CANCEL),
     ),
     "OnomaAIResearch/Illustrious-XL-v2.0": (
-        Sample(11.1, "~11 s · 1 MP", 28, "2026-10-05", "11.1 s; 0.22 s a step",
-               guidance="CFG 5", **_BUSY),
+        Sample(7.61, "~8 s · 1 MP", 28, "2026-10-25",
+               "7.61 s, 0.22 s a step; the process's first took 9.89 s", guidance="CFG 5", caveat=_REPEAT),
     ),
     "LyliaEngine/waiIllustriousSDXL_v170": (
         Sample(9.64, "~10 s · 1.38 MP", 28, "2026-09-26", "9.25 / 9.64 s",
@@ -126,13 +133,17 @@ _SAMPLES: dict[str, tuple[Sample, ...]] = {
                "27.3 s, 19.5 s of it the first step; 1.4 s a step after", **_BUSY),
         Sample(23, "~16–23 s · 1 MP", 4, "2026-09-08", "16–23 s", **_NVFP4),
     ),
+    "black-forest-labs/FLUX.2-klein-base-4B": (
+        Sample(57.95, "~58 s · 1 MP", 50, "2026-10-25",
+               "57.95 s, 1.11 s a step; the process's first took 61.35 s", guidance="CFG 4", caveat=_REPEAT),
+    ),
     "black-forest-labs/FLUX.2-klein-4B": (
         Sample(10.2, "~10 s · 1 MP", 4, "2026-09-08", "10.2 s", caveat="Text-to-image, without reference images."),
         Sample(4, "~4 s · 1 MP", 4, "2026-09-05", "4.0 s", **_NVFP4),
     ),
     "Tongyi-MAI/Z-Image-Turbo": (
-        Sample(14.3, "~14 s · 1 MP", 8, "2026-10-05",
-               "14.3 s; 0.9 s a step after the first", **_BUSY),
+        Sample(10.17, "~10 s · 1 MP", 8, "2026-10-25",
+               "10.17 s, 0.89 s a step; the process's first took 12.77 s", caveat=_REPEAT),
         Sample(10.6, "~8–11 s · 1 MP", 8, "2026-09-08", "8 s and 10.6 s",
                caveat="Two same-day samples. A dropped WSL page cache also produced 17–19 s before warming.", **_NVFP4),
     ),
@@ -141,6 +152,8 @@ _SAMPLES: dict[str, tuple[Sample, ...]] = {
                caveat="Warm sample; first image of a session took 210 s. Loading took 22 s separately.", **_NVFP4),
     ),
     "baidu/ERNIE-Image-Turbo": (
+        Sample(13.14, "~13 s · 1 MP", 8, "2026-10-25",
+               "13.14 s, 1.18 s a step; the process's first took 17.23 s", guidance="CFG 1", caveat=_REPEAT),
         Sample(10.2, "~10 s · 1 MP", 8, "2026-09-08", "9.6–10.2 s",
                caveat="Warm samples; first image of a process took 17–18 s. Loading took 22 s separately.", **_NVFP4),
     ),

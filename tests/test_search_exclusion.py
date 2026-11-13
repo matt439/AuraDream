@@ -206,7 +206,7 @@ def test_the_unstarred_route_takes_an_exclusion_and_refuses_an_excluded_word(cli
     refused = client.get("/api/gallery/unstarred", params={"search": "-fox"})
     assert refused.status_code == 422
     assert "their exclusions or an empty search" in refused.json()["detail"]
-    assert "'-fox' is free text" in refused.json()["detail"]
+    assert "'-fox' is an excluded word" in refused.json()["detail"]
 
 
 def test_keep_rates_under_an_exclusion_leave_the_bin_and_other_models_out(store):

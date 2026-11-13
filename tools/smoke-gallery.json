@@ -363,7 +363,10 @@
   {"eval": "els.search.value = 'seed:>0 -blonde'; els.search.oninput();"},
   {"expect": "__until(() => galleryPending === null && total > 0 && !els.deleteUnstarred.hidden)"},
   {"eval": "deleteUnstarred()"},
-  {"expect": "__until(() => __asked.length === 1 && els.galleryError.textContent.includes(\"'-blonde' is free text; strict scopes take key:value terms and their exclusions\"))"},
+  {"expect": "__until(() => __asked.length === 1 && els.galleryError.textContent.includes(\"'-blonde' is an excluded word, which a delete's scope never takes\"))"},
+  {"log": "'GAL#31: a free word is Delete unstarred's scope, prefix-matched as the grid matched it: the dialog asks for the count the server gives under fox'"},
+  {"eval": "showError('', false, {slot: els.galleryError}); els.search.value = 'fox'; els.search.oninput();"},
+  {"expect": "(async () => { if (!await __until(() => galleryPending === null && total > 0 && !els.deleteUnstarred.hidden)) return false; window.__foxes = (await api('/api/gallery/unstarred?search=fox')).unstarred; window.__asked = []; deleteUnstarred(); return __foxes > 0 && await __until(() => __asked.length === 1 && __asked[0].startsWith('Delete ' + __foxes + ' unstarred images matching \"fox\"') && els.galleryError.textContent === ''); })()"},
   {"expect": "__panelRects() === __panelBefore"},
 
   {"log": "'a mistyped key (GAL#23): sed:42 finds nothing as prompt words, and the empty line says so with seed:42 a press away - the press searches it in place without scrolling the page; masterpiece:1.2, near no key, gets the plain line; step:30 and seeds:42 are mended to their nearest key though another is two edits away; the empty line of the bin the same hint; and the height of the head never moves'"},

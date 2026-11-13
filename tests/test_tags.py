@@ -96,6 +96,8 @@ def test_validation_handles_model_tags_characters_unknowns_and_cutoff():
 
     def fetch(path, params):
         calls.append((path, params))
+        if path == "/tag_aliases.json":
+            return []
         names = params["search[name_normalize]"].split(",")
         return [rows[name] for name in names if name in rows]
 
@@ -134,8 +136,11 @@ def test_validation_handles_model_tags_characters_unknowns_and_cutoff():
         None, None, None, None, "after_cutoff", "deprecated", "not_found",
     ]
 
+    # The miss, and only it, is asked of the alias table: it names none.
+    assert [path for path, _ in calls] == ["/tags.json", "/tag_aliases.json"]
+    assert calls[1][1]["search[antecedent_name_comma]"] == "made_up_tag"
     vocabulary.validate(tags, {"great score"}, CUTOFF)
-    assert len(calls) == 1, "exact hits and misses are cached"
+    assert len(calls) == 2, "exact hits, misses and alias answers are cached"
 
 
 def test_every_unknown_reason_has_its_code():
@@ -145,6 +150,8 @@ def test_every_unknown_reason_has_its_code():
     }
 
     def fetch(path, params):
+        if path == "/tag_aliases.json":
+            return []
         return [rows[name] for name in params["search[name_normalize]"].split(",") if name in rows]
 
     results = DanbooruTagVocabulary(fetch).validate(["empty tag", "undated tag"], set(), CUTOFF)
@@ -153,6 +160,78 @@ def test_every_unknown_reason_has_its_code():
         ("no_date", "Danbooru tag has no creation date"),
     ]
     assert all(item["code"] is None for item in unchecked_results(["a", "b"], {"a"}))
+
+
+ALIASES = {"twin_tails": "twintails", "blond_hair": "blonde_hair", "old_name": "gone_too"}
+
+
+def alias_fetch(rows, calls=None, *, aliases_fail=False):
+    """A stub index with Danbooru's alias table: an antecedent is an empty
+    tag (`twin_tails`, 0 posts) or no tag at all."""
+
+    def fetch(path, params):
+        if calls is not None:
+            calls.append((path, params))
+        if path == "/tag_aliases.json":
+            if aliases_fail:
+                raise TagLookupUnavailable("Danbooru returned invalid JSON")
+            assert params["search[status]"] == "active"
+            names = params["search[antecedent_name_comma]"].split(",")
+            return [{"antecedent_name": name, "consequent_name": ALIASES[name]} for name in names if name in ALIASES]
+        names = params["search[name_normalize]"].split(",")
+        return [rows[name] for name in names if name in rows]
+
+    return fetch
+
+
+ALIAS_ROWS = {
+    "twin_tails": record("twin_tails", count=0),
+    "twintails": record("twintails", 1_300_000),
+    "blonde_hair": record("blonde_hair", 1_700_000),
+    "gone_too": record("gone_too", count=0),
+    "smile": record("smile", 4_000_000),
+}
+
+
+def test_an_alias_names_the_tag_its_posts_carry_with_that_tags_category():
+    calls = []
+    vocabulary = DanbooruTagVocabulary(alias_fetch(ALIAS_ROWS, calls))
+    results = vocabulary.validate(["twin tails", "blond hair", "smile"], set(), None)
+    by_tag = {item["tag"]: item for item in results}
+    # An empty antecedent and one with no row at all both resolve.
+    for tag, canonical, count in (("twin tails", "twintails", 1_300_000), ("blond hair", "blonde hair", 1_700_000)):
+        assert by_tag[tag] == {
+            "tag": tag, "valid": False, "canonical": canonical, "source": "danbooru",
+            "category": "general", "post_count": count, "code": "alias",
+            "reason": f"a Danbooru alias of {canonical}, the tag its posts carry",
+        }
+    assert by_tag["smile"]["valid"] is True
+    # One alias query for the two misses (never the known tag), one for the
+    # consequents' rows; all cached.
+    assert [path for path, _ in calls] == ["/tags.json", "/tag_aliases.json", "/tags.json"]
+    assert sorted(calls[1][1]["search[antecedent_name_comma]"].split(",")) == ["blond_hair", "twin_tails"]
+    assert sorted(calls[2][1]["search[name_normalize]"].split(",")) == ["blonde_hair", "twintails"]
+    vocabulary.validate(["twin tails", "blond hair"], set(), None)
+    assert len(calls) == 3
+
+
+def test_an_alias_to_a_tag_that_is_no_usable_tag_keeps_the_names_own_verdict():
+    # `old_name` -> `gone_too`, itself empty: no chain is followed.
+    result = DanbooruTagVocabulary(alias_fetch(ALIAS_ROWS)).validate(["old name"], set(), None)[0]
+    assert (result["valid"], result["code"], result["canonical"]) == (False, "not_found", None)
+    # A consequent too new for the checkpoint is not offered either.
+    rows = {**ALIAS_ROWS, "twintails": record("twintails", 1_300_000, created="2025-03-01")}
+    result = DanbooruTagVocabulary(alias_fetch(rows)).validate(["twin tails"], set(), CUTOFF)[0]
+    assert (result["code"], result["reason"]) == ("empty", "Danbooru tag has no posts")
+
+
+def test_a_failed_alias_lookup_leaves_the_verdict_empty_and_asks_again_next_time():
+    calls = []
+    vocabulary = DanbooruTagVocabulary(alias_fetch(ALIAS_ROWS, calls, aliases_fail=True))
+    result = vocabulary.validate(["twin tails"], set(), None)[0]
+    assert (result["valid"], result["code"]) == (False, "empty")
+    vocabulary._fetch_json = alias_fetch(ALIAS_ROWS, calls)
+    assert vocabulary.validate(["twin tails"], set(), None)[0]["code"] == "alias"
 
 
 def suggestion(name, count=None):

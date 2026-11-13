@@ -46,7 +46,8 @@ function modelStorageFacts(body) {
 // Catalogue entries with files in the cache. A shared file counts under
 // every entry that uses it, so the column is never summed.
 function modelStorageModels(body) {
-  const rows = (body.models ?? []).filter((row) => row.revision_bytes > 0 || row.converted_bytes > 0);
+  const rows = (body.models ?? []).filter((row) => row.revision_bytes > 0 || row.other_revision_bytes > 0
+    || row.converted_bytes > 0);
   const label = (id) => modelCatalogueEntries.find((entry) => entry.model_id === id)?.label || id;
   if (!rows.length) {
     return [modelStorageCell('p', 'No catalogue checkpoint has files in the cache.', 'model-storage-empty')];
@@ -74,10 +75,20 @@ function modelStorageModels(body) {
     const name = modelStorageCell('th', label(row.model_id));
     name.scope = 'row';
     name.title = row.model_id;
-    const cached = row.cached_bytes === null
-      ? modelStorageCell('td', `${modelStorageBytes(row.revision_bytes)}+`)
-      : modelStorageCell('td', modelStorageBytes(row.cached_bytes));
-    if (row.cached_bytes === null) cached.title = 'At least this much: the files a load selects are not all known';
+    // Cached only at a commit the app has no file list for (GEN#71): its
+    // bytes, but which of them a load would use is unknown, as Models says.
+    const otherOnly = row.cached_bytes === null && !(row.revision_bytes > 0) && row.other_revision_bytes > 0;
+    let cached;
+    if (row.cached_bytes !== null) cached = modelStorageCell('td', modelStorageBytes(row.cached_bytes));
+    else if (otherOnly) {
+      cached = modelStorageCell('td', `Unknown (${humanBytes(row.other_revision_bytes)})`);
+      cached.title = 'Downloaded at a different commit from the one this app records, so which of these files a load uses is unknown';
+    } else {
+      cached = modelStorageCell('td', `${modelStorageBytes(row.revision_bytes)}+`);
+      cached.title = row.other_revision_bytes > 0
+        ? `At least this much, and ${humanBytes(row.other_revision_bytes)} more at a different commit from the one this app records`
+        : 'At least this much: the files a load selects are not all known';
+    }
     line.append(name, cached, modelStorageCell('td', modelStorageBytes(row.shared_bytes)),
       modelStorageCell('td', modelStorageBytes(row.converted_bytes)));
     rowsBody.append(line);
@@ -86,10 +97,12 @@ function modelStorageModels(body) {
   return [table];
 }
 
-// Repositories none of whose cached revisions a catalogue entry selects.
+// Repositories none of whose cached revisions a catalogue entry selects or
+// owns at a commit it does not record.
 function modelStorageOthers(body) {
   const others = (body.repositories ?? []).filter((repo) => repo.cached_bytes > 0
-    && (repo.revisions ?? []).every((revision) => !(revision.catalogue_models ?? []).length));
+    && (repo.revisions ?? []).every((revision) => !(revision.catalogue_models ?? []).length
+      && !(revision.other_revision_of ?? []).length));
   if (!others.length) return [];
   const heading = modelStorageCell('p', 'Other repositories in the cache', 'model-storage-heading');
   const list = document.createElement('ul');

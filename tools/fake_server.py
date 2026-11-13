@@ -125,7 +125,8 @@ def _plant_model_cache(data: Path) -> None:
     """Point the On disk inventory (`GET /api/models/storage`) at a scratch
     Hub cache and conversion home under the fake's data, never this
     machine's own: a few bytes of one catalogue checkpoint's selected files,
-    a repository no entry names and a partial download. Same answers on
+    another's at an unrecorded commit, a repository no entry names and a
+    partial download. Same answers on
     every machine; the real scan reads them."""
     from backend import model_cache_storage, model_info
 
@@ -140,6 +141,8 @@ def _plant_model_cache(data: Path) -> None:
         f"models--cagliostrolab--animagine-xl-4.0/snapshots/{commit}/model_index.json": 671,
         f"models--cagliostrolab--animagine-xl-4.0/snapshots/{commit}/unet/config.json": 1830,
         "models--cagliostrolab--animagine-xl-4.0/refs/main": None,
+        # Kohaku cached only at a commit no reference records (GEN#71).
+        f"models--KBlueLeaf--Kohaku-XL-Zeta/snapshots/{'5' * 40}/model_index.json": 3000,
         f"models--someone--unlisted-model/snapshots/{'4' * 40}/weights.safetensors": 6000,
         "models--someone--unlisted-model/blobs/partial.incomplete": 2048,
     }
@@ -456,7 +459,7 @@ def main() -> int:
     # Deterministic stand-in for Danbooru's live tag API. Browser smoke tests
     # exercise autocomplete, caret replacement and per-item validation without
     # making the test suite depend on the network or the current tag database.
-    from backend.tags import display_tag, is_model_tag, normalize_tag
+    from backend.tags import alias_verdict, display_tag, is_model_tag, normalize_tag
 
     class FakeTagVocabulary:
         records = {
@@ -469,7 +472,11 @@ def main() -> int:
             # Artists, for Anima's "put @ before an artist name".
             "kantoku": ("artist", 9_000),
             "wlop": ("artist", 31_000),
+            "twintails": ("general", 1_300_000),
         }
+        # Danbooru's alias table: the antecedent answers as its consequent
+        # (PA#17), as `DanbooruTagVocabulary` resolves it.
+        aliases = {"twin_tails": "twintails"}
 
         def suggest(self, query, cutoff, limit=20):
             wanted = normalize_tag(query)
@@ -543,6 +550,14 @@ def main() -> int:
                             "post_count": count,
                         }
                     )
+                elif name in self.aliases:
+                    consequent = self.aliases[name]
+                    category, count = self.records[consequent]
+                    results.append(alias_verdict(tag, {
+                        "tag": display_tag(consequent), "valid": True, "canonical": display_tag(consequent),
+                        "source": "danbooru", "category": category, "post_count": count,
+                        "reason": None, "code": None,
+                    }))
                 else:
                     results.append(
                         {

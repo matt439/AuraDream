@@ -122,6 +122,14 @@ paragraphs, never rewording.
 - `backend/presets.py` - bounded, revisioned named generation/grid drafts in
   their own atomic sidecar; `backend/schemas_presets.py` owns the strict raw
   payload and API capture types
+- `backend/sidecar_io.py` - the one open-for-read and `os.replace` of every
+  JSON sidecar (stars, snippets, setups, saved searches, startup choices,
+  backup settings and receipts), retried for about half a second on a
+  Windows sharing violation, and `reserved_read`, which the four request
+  sidecars' reads take: this process's part of the sidecar's reservation
+  (`gallery_lock.local`), never its lock file, so a read never overlaps
+  this process's save nor waits on another's (`GAL#28`); a new sidecar
+  uses both, held by `tests/test_sidecar_io.py`
 - `backend/preset_portability.py` - cold raw setup export, digests and explicit
   file-index merge plans; `backend/schemas_preset_portability.py` owns the native
   format and choices; `backend/strict_json.py` supplies bounded UTF-8 syntax for
@@ -281,7 +289,9 @@ paragraphs, never rewording.
   asked with `field=negative`, the negative box's, where `avoid` is empty and
   nothing else changes; no `field` is today's answer), Find
   tag's wiki search (`describe`, `wiki_definition`) and exact
-  validation with a reason `code` for tag-caption checkpoints; remote failure
+  validation with a reason `code` for tag-caption checkpoints (a missing or
+  empty name Danbooru aliases is `alias`, `alias_verdict`: still red, naming
+  the consequent and carrying its category for Check); remote failure
   means unchecked, never invalid - except an item longer than any tag
   (`TAG_NAME_MAX`, 200), answered unknown without the index, reachable or
   not
@@ -482,6 +492,13 @@ paragraphs, never rewording.
 - `backend/gallery_delete.py` — taking images out: the keep-favourites
   predicates, scoped delete and its preview, per-image delete, recycle bin,
   clear and VACUUM (under `storage._write_lock`, read at call time)
+- `backend/deleted_files.py` — a permanently deleted image's PNG and
+  thumbnails, after its row: each retried on a Windows sharing violation,
+  one still held remembered (in the process) and swept once released,
+  after every permanent delete, before every bundle `_inventory` (which
+  leaves out one still held, so an operation's two inventories agree) and
+  at exit, never waiting behind a running bundle; a sweep never raises;
+  never a file a row names again, never any other untracked file (`GAL#29`)
 - `backend/run_jobs.py` — retained run jobs: each admitted job's resolved
   cells and definition in the `run_jobs` table (whose schema stays in
   storage) and its terminal outcome, for Finish run; reads storage's
@@ -519,8 +536,11 @@ paragraphs, never rewording.
   the complement `COALESCE((clause), 0) = 0`, keeping NULL rows; any other
   `-word` an excluded word; a lone `-`, `--x` and a quoted token stay free
   text), the LIKE escape, `strict_scope` (`key:value` terms and their
-  exclusions; free text and `-word` refused). `storage.list_images` sends
-  each free word to FTS5 as a quoted prefix (`"drag"*`) and each excluded
+  exclusions; free text and `-word` refused), `unstarred_scope` (the page's
+  Delete unstarred, `GAL#31`: the same plus positive free words through
+  `fts_prefix_match`; a word with an odd double quote and `-word`
+  refused). `storage.list_images` sends
+  each free word to FTS5 as a quoted prefix (`fts_prefix_match`, `"drag"*`) and each excluded
   word exact (GAL#25); its fallback (an odd double quote breaks the
   MATCH) keeps both through `search.word_match`, a literal match bounded
   where a word starts (and, excluded, ends), registered on the connection
@@ -585,8 +605,8 @@ paragraphs, never rewording.
   the bind or an allowed host is not loopback), `Gate` (the comparison, the
   scrypt-derived session key and the `v1.<expires>.<mac>` cookie; it keeps
   a digest, never the passcode; a cookie more than a day old is renewed on
-  `/` and on any request `keep_awake.counts_as_activity` counts, never on a
-  timed poll, a job stream, a file or a Bearer request, nor on an answer
+  `/` and on any request `keep_awake.scope_counts_as_activity` counts, never on a
+  timed poll (the poll mark included), a job stream, a file or a Bearer request, nor on an answer
   that a signed-in sign-out overtook, `Gate.sign_outs`), `Limiter` (wrong passcodes for the whole
   server, on the event loop only) and `PasscodeMiddleware`, a plain ASGI
   layer always installed that passes everything through while `main`'s
@@ -793,7 +813,9 @@ paragraphs, never rewording.
   in-process, and only for a non-default folder. `update.ps1` refuses while
   the port's page is AuraDream's or a process runs from the folder's
   `.venv`, copies the database `legacy_names` would pick (or
-  `AURADREAM_DB_PATH`) to `<name>-before-update-<commit>.db` before
+  `AURADREAM_DB_PATH`, `~` and a relative path read as `config.py` reads
+  them, from the project folder, never the window's current one:
+  `DEV#68`) to `<name>-before-update-<commit>.db` before
   `git pull --ff-only`, and never resets, stashes or checks out. `<commit>`
   is `git rev-parse --short HEAD` before the pull: a copy already there for
   that commit is left alone (never refreshed), and of the copies so named
@@ -825,13 +847,17 @@ paragraphs, never rewording.
   file `auradream/auradream.env` (0600, never rewritten): `AURADREAM_HOST=0.0.0.0`,
   `AURADREAM_ALLOWED_HOSTS` as loopback plus the host name, its `.local`
   name and IPv4 addresses, lowercase, and the xet pins; it reports
-  lingering and prints the addresses; `--uninstall` keeps the env file.
+  lingering and prints the addresses; `--uninstall` keeps the env file;
+  `--print-unit` prints only the unit it would write.
   `update.sh` is `update.ps1`'s steps (refuses while AuraDream or a `.venv`
   program runs, copies the database the env file's `AURADREAM_DB_PATH` or
   `legacy_names` picks, `git pull --ff-only`, `uv sync`, never resets);
   `--restart` stops the service only when `/api/status` and the bundle
   status say idle (`common.sh`'s `server_busy`) and starts it again however
-  the update ends. `control.sh` (no `--dry-run`; it changes nothing but
+  the update ends. Last, an installed unit that differs from
+  `install-service.sh --print-unit`'s is named with the command that
+  rewrites it (`DEV#66`: a unit from before `DEV#55` lacks exit 78's
+  no-restart); it never rewrites the unit itself. `control.sh` (no `--dry-run`; it changes nothing but
   the service's state) takes `status` (the unit, lingering, the checkout
   after a quiet `git fetch` that never fails it, `/api/status`'s summary,
   with the running process's `commit` and a restart note when the
@@ -1005,8 +1031,19 @@ paragraphs, never rewording.
   self-contained (style and icon inline) and probes a page file
   (`/static/manifest.webmanifest`, which neither counts as use nor waits on
   a load) every 5 s, at once on Try again, `online` and the tab coming back
-  into view, then `location.replace('/')` on any answer. A change to
-  `offline.html` raises the cache's version in `sw.js`.
+  into view, then `location.replace('/')` on any answer. Its live part
+  (`#state`) is written only when its words change; each ask's clock
+  ("Asking now…", "Last asked at …") is in `#clock`, outside it, or a
+  screen reader hears a pair every 5 s while the PC sleeps (`UI#54`). Try
+  again held while it asks carries its reason as a title. A change to
+  `offline.html` raises the cache's version in `sw.js`, and
+  `tests/test_service_worker.py` (`OFFLINE_RELEASES`) records the page's
+  hash under it, so a change without one fails. Notify when done
+  (`job-progress.js`) shows its notification through the worker's
+  registration (`showNotification`) where one controls the page, the
+  `Notification` constructor only as the fallback (Chrome on Android grants
+  the permission and throws on the constructor, `UI#55`), and `sw.js`'s
+  `notificationclick` focuses an open AuraDream tab or opens `/`.
   The stylesheet is
   `style.css` (tokens and base layout), followed by `styles/*.css` in the
   explicit link order: `model-picker.css` the Models picker (first, at its
@@ -1129,6 +1166,9 @@ paragraphs, never rewording.
   arguments passed through. Each is a `.ps1` (PowerShell picks it, so
   Ctrl-C stops the server without cmd.exe's "Terminate batch job (Y/N)?")
   beside a `.cmd` for cmd.exe, which always asks; keep each pair in step.
+  `auradream`'s pair both find uv on PATH, then `~\.local\bin`, then
+  WinGet's Links, and exit 1 with "uv was not found" without it
+  (`DEV#67`; `tests/test_startup_refusals.py` runs both).
   `auradream-server` (`.ps1`, with a `.cmd` that runs it) updates and
   controls a Linux server over `ssh`: `status`, `start`, `stop`/`restart`
   (`-Force`), `update` (`linux/update.sh --restart`; `-DryRun`:
@@ -1149,7 +1189,11 @@ paragraphs, never rewording.
   it only defines its functions; `AURADREAM_INSTALL_TEST_NO_BROWSER` keeps
   `open` from starting a browser (`tests/test_auradream_server.py`)
 - `wsl/` — `env.sh` (Linux-side paths and the Nunchaku defaults, to source),
-  `setup.sh`, `serve.sh`: running the same checkout from WSL 2
+  `setup.sh`, `serve.sh`: running the same checkout from WSL 2. Each
+  default is exported with an `AURADREAM_WSL_DEFAULT_*` marker; sourced
+  again, a value equal to its marker is worked out afresh, one that differs
+  is the user's and loses its marker (`DEV#70`,
+  `tests/test_wsl_env.py`, bash only)
 - `docs/design-notes.md` — why each part is the way it is, one section per
   area, with the history behind every rule below; read the section for an
   area before changing it
@@ -4366,6 +4410,11 @@ measured on the card and when.
   focuses `#prompt` with the caret at the end (`focusPromptBox`): no text,
   Undo, Check, suggestion, pick, search or sheet change, and the same one
   reveal as `/` only where the narrow layout left the box off screen.
+  Unshifted U (`reuse.reuseFromKey`, `UI#56`) is Reuse settings on the same
+  images M takes: the lightbox's and a card's or result's by pressing its own
+  Reuse button (its hold and words apply), a sheet cell's or session image's
+  through `reuse()`; help rows, `aria-keyshortcuts="U"` on every Reuse
+  button and the image menu's hint name it.
   Unshifted M opens More seeds for the focused gallery/result/sheet/session
   image or unobstructed lightbox image, using its one id and the existing holds
   and preview. It never queues or widens to hidden picks. Its actual visible
@@ -6120,7 +6169,10 @@ measured on the card and when.
   under the pointer where the panel holds still. Axis messages lead with the
   box's name (`Steps`, `CFG`, `Mu`, `LoRA weight`, `Strength`, `Seed list`),
   a value past the request's own bounds included (`grid._within`, read off
-  `GenerateRequest`: "CFG: 25 is above 20, the most it takes");
+  `GenerateRequest`: "CFG: 25 is above 20, the most it takes"), a `nan` or
+  `inf` as not a number, and an over-long Prompt variables block by the
+  box's name with its count (`GridRequest._prompt_axis_fits`, never a field
+  bound that would name `prompt_axis`);
   `parse_axis` closes up a spaced range between two numbers, leaving a lone
   `-` as Mu's none, and refuses a stepless range that would stop at its
   first value (`0.8-1.2` needs a step). The grid's Steps and CFG
@@ -7129,9 +7181,10 @@ measured on the card and when.
   nominal tiers, display rounding and guidance tolerances do not affect it.
   `id:` is the gallery id the page shows as #N
   (a range is a span), and `search.strict_scope` is the reading for
-  `clear --where`, `keep_rates` and the gallery's Delete unstarred
-  (`GET`/`DELETE /api/gallery/unstarred`): `clear --where <box>
-  --keep-favorites` over HTTP, the search box strict or empty, gated on the
+  `clear --where` and `keep_rates`; the gallery's Delete unstarred
+  (`GET`/`DELETE /api/gallery/unstarred`) reads `search.unstarred_scope`
+  (`free_words=True`, `GAL#31`): `clear --where <box>
+  --keep-favorites` over HTTP, the search box (words as the grid matches them, terms) or empty, gated on the
   count typed back and pinned to it as `expected`, which `delete_matching`
   checks under the write lock and answers 409 on a mismatch ("Nothing was
   moved; look again.") - adding that a
@@ -8763,7 +8816,8 @@ measured on the card and when.
   and script; nothing under `/static/` answers before sign-in), titled
   exactly `AuraDream` for the scripts that probe the title, one labelled
   password field (`autocomplete="current-password"`, 16 px so iOS does not
-  zoom), a Sign in button held with `aria-disabled` while it sends, and a
+  zoom), a Sign in button held with `aria-disabled` and its reason as a
+  title while it sends, and a
   live region for the server's words; it posts `/api/passcode` with
   `fetch` and opens `/` on 204. `sw.js` and `offline.html` are unchanged:
   the worker passes the sign-in page on as any answer, and the offline
@@ -9959,7 +10013,8 @@ a qualified suggestion written with bare parentheses (an escaped copy typed
 by hand valid with no "canonical:" note, an underscored one noted and
 marked repeated),
 category edges, repeats and the focus ring on one, the shared tip and the
-after-cutoff mark, + tag, gap hover (waited for, as a late tray render
+after-cutoff mark, a Danbooru alias (the fake's `twin tails`: red, its label
+and tip naming `twintails`, placed in that tag's step, `PA#17`), + tag, gap hover (waited for, as a late tray render
 redraws it) and click (none on the label or hint),
 the Tags helper under the prompt and whole, its order line (the server's
 steps, the cite as title), the caret line naming the steps that fit from
@@ -10191,11 +10246,13 @@ local cache tallies, never a network-speed or card measurement.
 
 `smoke-model-storage.json` uses its own fresh FLUX fake on shared port 7959,
 whose inventory reads the scratch Hub cache `tools/fake_server.py` plants
-under its data (a few bytes of Animagine XL 4.0's selected files, an
-unlisted repository, a partial download), never the machine's. It checks
+under its data (a few bytes of Animagine XL 4.0's selected files, Kohaku
+XL Zeta at a commit no reference records, an unlisted repository, a partial
+download), never the machine's. It checks
 that Models > On disk is shut and empty with no read at the page's start or
 the picker's opening, reads once as it opens with nothing above it moving,
-names the catalogue row, the other repository, the partial download and the
+names the catalogue row, Kohaku's row as "Unknown" with its bytes (never an
+other repository, `GEN#71`), the other repository, the partial download and the
 read-only/unreferenced words, holds no control but Refresh (no delete),
 reads nothing on a second opening or a picker reopening, reads again on
 Refresh, says a refused read's words, and on an iPhone-sized touch screen is
@@ -10429,7 +10486,10 @@ menu ownership, exact modifiers, handled/composing/repeated events, native
 button repeat, lightbox editing/select/browser navigation, ordinary Generate
 and Grid, delayed More seeds/help Escape precedence, and P back to the prompt
 from a card, a sheet cell and the card the lightbox returns to (never from
-fields, menus, the model picker, help, a settings dialog or the lightbox).
+fields, menus, the model picker, help, a settings dialog or the lightbox),
+and U as Reuse settings on a card, in the lightbox and on a sheet cell
+(`reuse` stubbed; repeated, composing, consumed, shifted and modified U
+ignored; the help rows and `aria-keyshortcuts`, `UI#56`).
 
 `smoke-shortcuts.json` uses a fresh fake on 7913. It checks the complete
 shortcut list and read-only Getting started block before any images exist,
@@ -11652,7 +11712,9 @@ card the same node and the paged-in tail kept, no reset; and last, as it
 plants two blonde foxes, an exclusion: `fox -blonde` loading only fox cards
 without "blonde", its total the server's, the tip's `-word` line, Delete
 unstarred's count dialog for `seed:>=100 -seed:100` and its refusal of
-`-blonde` in `#gallery-error`, with no panel control's rectangle moved; and
+`-blonde` in `#gallery-error`, with no panel control's rectangle moved, then
+its count dialog under the free word `fox` asking the server's count
+(`GAL#31`); and
 after it a mistyped key (GAL#23): `sed:42` adding "sed:42 was searched as
 prompt words; did you mean seed:42?" and its Search seed:42 button to the
 empty line, the head's height that of a plain empty search, the press
@@ -13643,8 +13705,10 @@ and the bin. These are presentation checks on fake data, not device acceptance.
 `smoke-offline.json` uses a fresh FLUX.1 Krea [dev] fake on 7958: the
 page at 127.0.0.1 registers `sw.js`, which controls the next load; with
 `/api/fake/unreachable` on, opening `/` again shows `offline.html` after the
-navigation timeout (its heading, the host, the in-page script's own
-timestamped "No answer" after Try again); with it off, Try again opens
+navigation timeout (its heading, the host, "No answer yet" after Try
+again with the ask's time outside the live part, Try again held with its
+reason and the a11y audit passing while it is, and a second failed ask
+leaving the live part untouched); with it off, Try again opens
 AuraDream itself, under the worker, its topbar ready. The open page's own
 "server not answering" was already held by other smokes. Its last steps
 turn the passcode's gate on (`/api/fake/passcode`) with the browser signed
@@ -13659,7 +13723,9 @@ it is drawn. With one, `/` is the sign-in page (the page's own title, the
 host, one inline script, no stylesheet) and the status, scripts, styles,
 `offline.html`, `/sw.js`, `/outputs/`, `/docs`, the gallery and the jobs
 are 401 while the manifest and an icon are 200; nothing typed and a wrong
-passcode are each said in the page; five wrong in a row lock every attempt
+passcode are each said in the page (Sign in held with its reason while a
+wrong one is sent, the a11y audit passing, which rides every page of the
+smoke); five wrong in a row lock every attempt
 (the step makes two more wrong ones, each after its lock, so the lock is
 four seconds and nothing races a one-second one), the right one too (429),
 and the page says how long; after the knob's `reset` the right

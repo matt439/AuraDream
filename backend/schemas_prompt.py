@@ -341,8 +341,10 @@ class TagValidationItem(BaseModel):
     # the index never had. None for a known or unchecked tag, but for
     # `grid_variable`: a grid placeholder (`{hair}`), given no verdict and
     # never asked about, which the page draws as the grid's, not as a tag.
+    # `alias`: Danbooru files the name under `canonical` (`tags.alias_verdict`),
+    # whose category and post count it carries.
     code: Literal[
-        "not_found", "deprecated", "empty", "no_date", "after_cutoff", "grid_variable"
+        "not_found", "deprecated", "empty", "no_date", "after_cutoff", "grid_variable", "alias"
     ] | None = None
 
 

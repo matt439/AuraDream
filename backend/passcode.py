@@ -39,7 +39,7 @@ from starlette.datastructures import MutableHeaders
 from starlette.requests import cookie_parser
 from starlette.responses import JSONResponse, Response
 
-from .keep_awake import counts_as_activity
+from .keep_awake import scope_counts_as_activity
 from .server_probe import is_loopback
 
 log = logging.getLogger("auradream.passcode")
@@ -76,7 +76,7 @@ WRONG_DETAIL = "That passcode is not right."
 TOKEN_VERSION = "v1"
 SESSION_SECONDS = 30 * 24 * 60 * 60
 # A valid cookie older than this is replaced on a GET of the page or on any
-# request someone using it makes (`keep_awake.counts_as_activity`: never
+# request someone using it makes (`keep_awake.scope_counts_as_activity`: never
 # the page's timed polls, the job streams or its files), so a device used
 # within the month stays signed in, a tab or PWA left open included, while
 # an idle open tab does not keep its session alive by polling.
@@ -344,7 +344,8 @@ class PasscodeMiddleware:
 
     A request passes with a valid session cookie or the passcode as
     `Authorization: Bearer`. A cookie a day old is replaced on the page and
-    on a request that `counts_as_activity`, never on a poll or a file
+    on a request that `scope_counts_as_activity`, never on a poll (the
+    page's own or one it marks) or a file
     (`RENEW_AFTER_SECONDS`), nor on an answer a sign-out overtook. Otherwise GET or HEAD of exactly `/` is the
     sign-in page (`page`, a 200: a service worker rejects a redirect for a
     navigation, and the title probes raise on a 401), `OPEN_PATHS` pass,
@@ -408,7 +409,9 @@ class PasscodeMiddleware:
             return renew and gate.sign_outs == sign_outs
 
         if not is_page:
-            if not (renew and counts_as_activity(method, path)):
+            # The poll mark is read too: a marked GET or grid preview is a
+            # timer, not someone using the tab.
+            if not (renew and scope_counts_as_activity(scope)):
                 await self.app(scope, receive, send)
                 return
 

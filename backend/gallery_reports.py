@@ -9,9 +9,11 @@ the tests' replacement of `storage.settings` reaches these queries too.
 """
 from __future__ import annotations
 
+import gzip
 import json
 import logging
 import sqlite3
+from collections import defaultdict
 from datetime import datetime, timezone
 from collections.abc import Sequence
 from typing import Any
@@ -508,22 +510,55 @@ _RUN_AXES = {
 _AXIS_COUNTS = ", ".join(f"COUNT(DISTINCT {expr}) AS axis_{name}" for name, expr in _RUN_AXES.items())
 
 
-def run_sizes(run_id: str) -> list[tuple[int, int]]:
-    """Retained concrete requests define a run, including its unfinished sizes."""
+def _raw_sizes(blob: bytes) -> set[tuple[int, int]]:
+    """One retained job's cell sizes from its raw requests, unvalidated: a
+    list only needs the canvases, not a `GenerateRequest` per cell. Raises
+    ValueError for a row that cannot be read, as `retained_run_jobs` would."""
     try:
-        retained = storage.retained_run_jobs(run_id)
-    except ValueError:
-        retained = []
-    sizes = sorted({
-        (cell.request.width, cell.request.height)
-        for saved in retained for cell in saved["cells"]
-    })
-    if sizes:
-        return sizes
-    with storage._session() as conn:
-        return sorted((row["width"], row["height"]) for row in conn.execute(
-            "SELECT DISTINCT width, height FROM images WHERE run_id = ?", (run_id,),
-        ))
+        cells = json.loads(gzip.decompress(blob))
+    except (TypeError, ValueError, OSError, EOFError) as exc:
+        raise ValueError("unreadable retained cells") from exc
+    if not isinstance(cells, list):
+        raise ValueError("cells must be a list")
+    sizes = set()
+    for cell in cells:
+        request = cell.get("request") if isinstance(cell, dict) else None
+        size = (request.get("width"), request.get("height")) if isinstance(request, dict) else (None, None)
+        if not all(type(side) is int and side > 0 for side in size):
+            raise ValueError("invalid retained cell")
+        sizes.add(size)
+    return sizes
+
+
+def _listed_run_sizes(conn: sqlite3.Connection, run_ids: list[str]) -> dict[str, list[tuple[int, int]]]:
+    """Every listed run's sizes in the caller's one session (GAL#30): its
+    retained requests define a run, its unfinished sizes included. The list
+    is asked for after every finished job, and a session, gunzip and
+    validation per run took 1.5 s for 200. A run with an unreadable retained
+    row, or none, takes its images' sizes (binned rows too)."""
+    if not run_ids:
+        return {}
+    marks = ",".join("?" * len(run_ids))
+    retained: dict[str, set[tuple[int, int]]] = {}
+    unreadable: set[str] = set()
+    for row in conn.execute(f"SELECT run_id, cells FROM run_jobs WHERE run_id IN ({marks})", run_ids):
+        if row["run_id"] in unreadable:
+            continue
+        try:
+            retained.setdefault(row["run_id"], set()).update(_raw_sizes(row["cells"]))
+        except ValueError:
+            unreadable.add(row["run_id"])
+            retained.pop(row["run_id"], None)
+    sizes = {run_id: sorted(found) for run_id, found in retained.items() if found}
+    rest = [run_id for run_id in run_ids if run_id not in sizes]
+    if rest:
+        images: dict[str, list[tuple[int, int]]] = defaultdict(list)
+        for row in conn.execute(
+            f"SELECT DISTINCT run_id, width, height FROM images WHERE run_id IN ({','.join('?' * len(rest))})", rest,
+        ):
+            images[row["run_id"]].append((row["width"], row["height"]))
+        sizes.update({run_id: sorted(images[run_id]) for run_id in rest})
+    return sizes
 
 
 def runs(limit: int = 20, model_id: str | None = None) -> list[RunSummary]:
@@ -564,10 +599,11 @@ def runs(limit: int = 20, model_id: str | None = None) -> list[RunSummary]:
                 f"SELECT * FROM images WHERE id IN ({marks})", [g["first_id"] for g in groups]
             ):
                 firsts[row["id"]] = row
+        listed_sizes = _listed_run_sizes(conn, [group["run_id"] for group in groups])
     summaries = []
     for group in groups:
         first = firsts[group["first_id"]]
-        sizes = run_sizes(group["run_id"])
+        sizes = listed_sizes[group["run_id"]]
         summaries.append(
             RunSummary(
                 run_id=group["run_id"],

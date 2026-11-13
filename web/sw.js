@@ -14,7 +14,10 @@
 // Not a classic page script: index.html never loads it.
 'use strict';
 
-const CACHE = 'auradream-offline-v1';
+// offline.html is cached at install only: a change to it needs a new name
+// here, or an installed worker keeps the old copy (the hash beside it in
+// tests/test_service_worker.py holds the two together).
+const CACHE = 'auradream-offline-v2';
 const OFFLINE_URL = '/static/offline.html';
 // A LAN server sends "/" in milliseconds, busy or not (a load runs off the
 // event loop); a PC asleep or gone from the network leaves a connection
@@ -36,6 +39,23 @@ self.addEventListener('activate', (event) => {
       .filter((name) => name.startsWith('auradream-') && name !== CACHE)
       .map((name) => caches.delete(name)));
     await self.clients.claim();
+  })());
+});
+
+// Notify when done shows its notification through this worker where it
+// controls the page (job-progress.js; Chrome on Android has no Notification
+// constructor to call). A tap brings an open AuraDream tab forward, or opens
+// one.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil((async () => {
+    const open = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const page = open.find((client) => new URL(client.url).origin === self.location.origin);
+    if (page) {
+      await page.focus();
+      return;
+    }
+    await self.clients.openWindow('/');
   })());
 });
 

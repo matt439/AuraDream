@@ -22,7 +22,7 @@ from pathlib import Path, PurePosixPath
 
 from PIL import Image
 
-from . import backup_receipts, bundle_capacity, bundle_crypto, bundle_images, bundle_leases, gallery_lock, png_settings, storage
+from . import backup_receipts, bundle_capacity, bundle_crypto, bundle_images, bundle_leases, deleted_files, gallery_lock, png_settings, storage
 from . import mask_crop as mask_crop_rule
 from . import refusal_codes
 from .bundle_archive import _DATABASE, _FORMAT, _MANIFEST, _READ_AHEAD_MAX, _check_space, _verify_archive
@@ -235,7 +235,12 @@ def _carried_mask(path: Path) -> bool:
 def _inventory(skipped: list[str] | None = None) -> list[tuple[str, Path]]:
     """Every file a whole-gallery bundle carries, as (member, path). A file
     in the masks directory that is no carried mask (`_carried_mask`) is left
-    out and its name added to `skipped`, where a list is given."""
+    out and its name added to `skipped`, where a list is given. A deleted
+    image's file that was held open is removed first, once released, and
+    left out while it is still held (`deleted_files`), so no bundle carries
+    an image the user deleted and two inventories of one operation agree."""
+    deleted_files.sweep()
+    held = set(deleted_files.pending())
     outputs = _settings().outputs_dir
     found = []
     for directory, prefix, suffixes in (
@@ -253,6 +258,8 @@ def _inventory(skipped: list[str] | None = None) -> list[tuple[str, Path]]:
             if path.name.lower().endswith(".part"):
                 raise BundleError(_partial_refusal(path))
             if path.suffix.lower() not in suffixes:
+                continue
+            if path in held:
                 continue
             if _is_link(path) or not path.is_file() or not _basename(path.name):
                 raise BundleError(f"unsafe image file: {path.name}")

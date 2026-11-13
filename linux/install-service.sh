@@ -6,6 +6,7 @@
 #     bash linux/install-service.sh --no-start   # write and enable; start it later
 #     bash linux/install-service.sh --dry-run    # print the unit and settings; change nothing
 #     bash linux/install-service.sh --uninstall  # stop, disable and remove the unit
+#     bash linux/install-service.sh --print-unit # print only the unit it would write
 #
 # It writes ~/.config/systemd/user/auradream.service (under XDG_CONFIG_HOME
 # when that is set) and, only when there is none yet, the service's
@@ -19,13 +20,15 @@ source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 dry_run=0
 uninstall=0
 start=1
+print_unit=0
 for arg in "$@"; do
     case "$arg" in
         --dry-run) dry_run=1 ;;
         --uninstall) uninstall=1 ;;
         --no-start) start=0 ;;
+        --print-unit) print_unit=1 ;;
         -h | --help)
-            sed -n '2,14p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+            sed -n '2,15p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
             exit 0
             ;;
         *)
@@ -34,6 +37,53 @@ for arg in "$@"; do
             ;;
     esac
 done
+
+# --- The unit ---------------------------------------------------------------------
+# Defined before anything runs: linux/update.sh compares an installed unit
+# with --print-unit's.
+# systemd treats % as a specifier: a literal one is written %%.
+unit_path() { printf '%s' "${1//%/%%}"; }
+
+unit_text() {
+    cat <<UNIT
+# Written by linux/install-service.sh; run it again to rewrite this file.
+# Settings go in $(unit_path "$ENV_FILE"), not here.
+[Unit]
+Description=AuraDream (local text-to-image server)
+StartLimitIntervalSec=900
+StartLimitBurst=3
+
+[Service]
+Type=simple
+WorkingDirectory=$(unit_path "$ROOT")
+EnvironmentFile=$(unit_path "$ENV_FILE")
+Environment=PYTHONUTF8=1
+# No --open (there is no desktop to open), and no systemd-inhibit wrapper:
+# AuraDream holds the PC awake itself, only while it is busy.
+ExecStart="$(unit_path "$uv")" run --no-sync python -m backend.main
+Restart=on-failure
+RestartSec=10
+# 78: AuraDream refused its own settings (a passcode or TLS pair it cannot
+# use); starting again cannot help, so the unit fails at once instead.
+RestartPreventExitStatus=78
+# A stop finishes the current step and any gallery bundle operation first.
+TimeoutStopSec=120
+UMask=0077
+# KillMode is left at its default, control-group: a stop also ends the prompt
+# critic's llama-server, which runs in a session of its own.
+
+[Install]
+WantedBy=default.target
+UNIT
+}
+
+# --print-unit: the unit this version writes, on stdout and nothing else
+# (linux/update.sh compares the installed one with it); changes nothing.
+if [ "$print_unit" = 1 ]; then
+    uv=$(find_uv) || exit 1
+    unit_text
+    exit 0
+fi
 
 refuse() {
     say "  [stop] $1"
@@ -176,43 +226,6 @@ HF_XET_FIXED_DOWNLOAD_CONCURRENCY=32
 # How long after the last request it stays held awake, in minutes:
 #AURADREAM_KEEP_AWAKE_IDLE_MINUTES=20
 ENV
-}
-
-# --- The unit ---------------------------------------------------------------------
-# systemd treats % as a specifier: a literal one is written %%.
-unit_path() { printf '%s' "${1//%/%%}"; }
-
-unit_text() {
-    cat <<UNIT
-# Written by linux/install-service.sh; run it again to rewrite this file.
-# Settings go in $(unit_path "$ENV_FILE"), not here.
-[Unit]
-Description=AuraDream (local text-to-image server)
-StartLimitIntervalSec=900
-StartLimitBurst=3
-
-[Service]
-Type=simple
-WorkingDirectory=$(unit_path "$ROOT")
-EnvironmentFile=$(unit_path "$ENV_FILE")
-Environment=PYTHONUTF8=1
-# No --open (there is no desktop to open), and no systemd-inhibit wrapper:
-# AuraDream holds the PC awake itself, only while it is busy.
-ExecStart="$(unit_path "$uv")" run --no-sync python -m backend.main
-Restart=on-failure
-RestartSec=10
-# 78: AuraDream refused its own settings (a passcode or TLS pair it cannot
-# use); starting again cannot help, so the unit fails at once instead.
-RestartPreventExitStatus=78
-# A stop finishes the current step and any gallery bundle operation first.
-TimeoutStopSec=120
-UMask=0077
-# KillMode is left at its default, control-group: a stop also ends the prompt
-# critic's llama-server, which runs in a session of its own.
-
-[Install]
-WantedBy=default.target
-UNIT
 }
 
 say ''

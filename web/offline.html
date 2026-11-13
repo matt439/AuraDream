@@ -30,7 +30,8 @@
   svg { width: 72px; height: 72px; border-radius: 16px; }
   h1 { margin: 16px 0 8px; font-size: 20px; line-height: 1.3; }
   p { margin: 0 0 12px; color: #c9c9d4; }
-  #state { margin: 16px 0; color: #8b8b9a; font-size: 13px; min-height: 1.5em; }
+  #state { margin: 16px 0 2px; color: #8b8b9a; font-size: 13px; min-height: 1.5em; }
+  #clock { margin: 0 0 16px; color: #8b8b9a; font-size: 12px; min-height: 1.5em; }
   button {
     min-height: 44px; padding: 10px 22px; border: 0; border-radius: 10px;
     background: #6a4cf0; color: #fff; font: inherit; font-weight: 600; cursor: pointer;
@@ -61,7 +62,11 @@
   <p>The page could not reach <strong id="where">the PC</strong>. It may be
     off or asleep, on another network, or AuraDream may not be running on it.</p>
   <p>Wake or start it, and this page opens AuraDream as soon as it answers.</p>
+  <!-- Only a change of outcome is announced: the clock of each ask stays
+       outside the live part, or a screen reader would hear a new pair every
+       few seconds for as long as the PC sleeps (UI#54). -->
   <div id="state" aria-live="polite">Trying again every few seconds…</div>
+  <div id="clock"></div>
   <button type="button" id="retry">Try again</button>
 </main>
 <script>
@@ -71,16 +76,23 @@ const EVERY_MS = 5000;
 const PROBE_TIMEOUT_MS = 5000;
 const where = document.getElementById('where');
 const state = document.getElementById('state');
+const clock = document.getElementById('clock');
 const retry = document.getElementById('retry');
 where.textContent = location.host || 'the PC';
 let probing = false;
 let timer = 0;
 
+// The live part changes only when what it says does.
+function say(text) {
+  if (state.textContent !== text) state.textContent = text;
+}
+
 async function probe() {
   if (probing) return;
   probing = true;
   retry.setAttribute('aria-disabled', 'true');
-  state.textContent = 'Trying…';
+  retry.title = 'Already asking the PC; wait for its answer';
+  clock.textContent = 'Asking now…';
   clearTimeout(timer);
   const abort = new AbortController();
   const stop = setTimeout(() => abort.abort(), PROBE_TIMEOUT_MS);
@@ -88,16 +100,19 @@ async function probe() {
     // Any answer at all is the server back; "/" again then goes through the
     // worker to the network and opens the page itself.
     await fetch('/static/manifest.webmanifest', { cache: 'no-store', signal: abort.signal });
-    state.textContent = 'AuraDream answered — opening…';
+    say('AuraDream answered — opening…');
+    clock.textContent = '';
     location.replace('/');
     return;
   } catch {
     const at = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    state.textContent = `No answer at ${at}. Trying again every few seconds…`;
+    say('No answer yet. Trying again every few seconds…');
+    clock.textContent = `Last asked at ${at}`;
   } finally {
     clearTimeout(stop);
     probing = false;
     retry.removeAttribute('aria-disabled');
+    retry.removeAttribute('title');
   }
   timer = setTimeout(probe, EVERY_MS);
 }

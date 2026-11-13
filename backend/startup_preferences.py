@@ -16,6 +16,7 @@ from collections.abc import MutableMapping
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
+from . import sidecar_io
 from .legacy_names import default_db_path, sidecar
 from .execution import INVALID_LOADER_CONFIGURATION, ExecutionSpec, canonical_loader_execution
 from .model_defaults import OFFLOAD_MODES, QUANT_MODES
@@ -87,7 +88,7 @@ class PreferenceSnapshot:
 def capture_snapshot(db_path: Path) -> PreferenceSnapshot:
     """Capture before saving; unreadable/oversized data refuses any overwrite."""
     try:
-        with path_for(db_path).open("rb") as stream:
+        with sidecar_io.open_read(path_for(db_path)) as stream:
             data = stream.read(_MAX_BYTES + 1)
     except FileNotFoundError:
         return PreferenceSnapshot(None)
@@ -129,7 +130,7 @@ def load_result(db_path: Path) -> PreferenceLoad:
     path = path_for(db_path)
     payload: object = None
     try:
-        with path.open("rb") as stream:
+        with sidecar_io.open_read(path) as stream:
             data = stream.read(_MAX_BYTES + 1)
         if len(data) > _MAX_BYTES:
             raise ValueError("startup preferences exceed their byte bound")
@@ -191,7 +192,7 @@ def _write_bytes(db_path: Path, data: bytes) -> None:
             stream.write(data)
             stream.flush()
             os.fsync(stream.fileno())
-        os.replace(temporary, path)
+        sidecar_io.replace(temporary, path)
         temporary = None
     finally:
         if temporary is not None:

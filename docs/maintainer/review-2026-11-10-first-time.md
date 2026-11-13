@@ -618,7 +618,9 @@ retained measurement; no card or RAM-pressure run was repeated.
 
 Both FLUX 3 rows show an Unknown download and cache state
 (`backend/model-downloads.json`, `files: null`); setup.md gives Klein's memory
-but no size. This is `GEN#46`'s shard-map step; no new row.
+but no size. This was `GEN#46`'s shard-map step, moved to `GEN#65` and
+recorded 2026-11-12: both FLUX 3 entries about 20.3 GB, with their shard
+maps ([results](review-2026-11-12-todo.md#results-2026-11-12)); no new row.
 
 ### F28 docs/ is mostly maintainer records
 

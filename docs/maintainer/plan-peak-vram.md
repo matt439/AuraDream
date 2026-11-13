@@ -365,7 +365,11 @@ own allocator figures in the style of `verified.md`'s refine table, and
 the result is a row in `verified.md`. Nothing here is claimed until then.
 SDXL done 2026-10-25 on WAI v17, against nvidia-smi and the Windows
 shared-memory counters rather than a hand reading (the counters Task
-Manager shows); FLUX.1 Krea [dev] not yet.
+Manager shows); FLUX.1 Krea [dev] not yet. On 2026-11-12 Matt kept it for
+a model-offload text-to-image render: the 2026-11-11 sequential-offload
+inpaint (`docs/measurements/card13-flux-sequential-2026-11-11.json`)
+recorded peak pairs through the normal path but does not close this phase
+([answers](review-2026-11-12-todo.md#matts-answers-2026-11-12)).
 
 **Later, not designed:** the Refine size warning reading local history.
 Today the tight line is a profile's measured pixel count from

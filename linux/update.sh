@@ -14,6 +14,8 @@
 # refuses is explained, and nothing is reset, stashed or checked out.
 # --restart stops the service only when it is idle (no job, load or gallery
 # bundle operation), and starts it again afterwards, even if the update fails.
+# An installed service unit that differs from the one install-service.sh
+# now writes is named, with the command that rewrites it.
 set -euo pipefail
 
 # shellcheck source=linux/common.sh
@@ -26,7 +28,7 @@ for arg in "$@"; do
         --dry-run) dry_run=1 ;;
         --restart) restart=1 ;;
         -h | --help)
-            sed -n '2,16p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+            sed -n '2,18p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
             exit 0
             ;;
         *)
@@ -261,6 +263,8 @@ else
             stop_update 'Git did not update: code files changed in this folder would be overwritten by the new version. Nothing was discarded.' 'Git names the files above. To keep your change, copy those files somewhere else first. Then put back the original with: git restore <file> (this discards your change to that file) and run bash linux/update.sh again.'
         elif grep -qE 'Not possible to fast-forward|diverging|non-fast-forward|fatal: Need to specify how to reconcile' <<<"$pull"; then
             stop_update 'Git did not update: this folder has commits of its own that the new version does not include. Nothing was discarded.' 'If you made those commits, merge or rebase them yourself (git pull). If you did not, ask on the project page before changing anything.'
+        elif grep -q 'You are not currently on a branch' <<<"$pull"; then
+            stop_update 'Git did not update: this folder is on one older version by itself (a detached HEAD, as going back after an update leaves it). Nothing was discarded.' 'Go back to the latest version'"'"'s branch with: git checkout main, then run bash linux/update.sh again.'
         elif grep -qE 'no tracking information|There is no tracking' <<<"$pull"; then
             stop_update 'Git did not update: this branch does not follow one on GitHub.' 'Switch to main with: git checkout main, then run bash linux/update.sh again.'
         elif grep -qE 'Could not resolve host|unable to access|Failed to connect|timed out' <<<"$pull"; then
@@ -286,6 +290,19 @@ else
         exit 1
     fi
     ok 'Packages up to date.'
+fi
+
+# 6. The service's unit ---------------------------------------------------------------
+# install-service.sh writes the unit once; a later version's unit (DEV#55's
+# RestartPreventExitStatus=78, say) reaches a service only when it runs
+# again. Compared with what the version now here would write; said, never
+# rewritten here.
+if [ -f "$UNIT_FILE" ]; then
+    wanted_code=0
+    wanted=$(bash "$(dirname "${BASH_SOURCE[0]}")/install-service.sh" --print-unit 2>/dev/null) || wanted_code=$?
+    if [ "$wanted_code" = 0 ] && [ -n "$wanted" ] && [ "$wanted" != "$(cat -- "$UNIT_FILE")" ]; then
+        note "The installed service unit ($UNIT_FILE) is not the one this version writes. Run bash linux/install-service.sh to rewrite it (your settings in $ENV_FILE are kept)."
+    fi
 fi
 
 say ''

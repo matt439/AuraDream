@@ -98,8 +98,10 @@ async function signIn(event) {
     return;
   }
   sending = true;
-  // Held, not disabled: the button keeps its place in the tab order.
+  // Held, not disabled: the button keeps its place in the tab order, and
+  // says why (UI#54).
   button.setAttribute('aria-disabled', 'true');
+  button.title = 'Signing in; wait for the answer';
   state.textContent = 'Signing in…';
   try {
     // In the body, never the address: addresses are logged and sent on.
@@ -132,6 +134,7 @@ async function signIn(event) {
   }
   sending = false;
   button.removeAttribute('aria-disabled');
+  button.removeAttribute('title');
 }
 
 form.addEventListener('submit', signIn);

@@ -394,6 +394,28 @@ def test_a_counted_api_request_renews_a_cookie_a_day_old_for_a_tab_left_open(cli
     assert client.get("/api/status").status_code == 200
 
 
+def test_a_request_the_page_marks_as_a_poll_never_renews(client, gate, clocks):
+    """DEV#64: the page's timers that reuse a counted route send
+    `keep_awake.POLL_HEADER` (the catalogue and model-shots retries, the
+    maintenance re-reads, the grid preview's re-reads). They keep firing in
+    a tab nobody uses, so they never renew, whatever they answer; the same
+    requests unmarked still do."""
+    from backend.keep_awake import POLL_HEADER
+
+    marked = {POLL_HEADER: "1"}
+    assert sign_in(client).status_code == 204
+    clocks[1].at += 24 * 3600 + 60
+    assert "set-cookie" not in client.get("/api/models", headers=marked).headers
+    preview = client.post("/api/grid/preview", json={}, headers=marked)
+    assert "set-cookie" not in preview.headers, preview.status_code
+    # A marked write that is not a polled route still counts.
+    assert session_cookie(client.post("/api/model/unload", headers=marked))
+    clocks[1].at += 24 * 3600 + 60
+    assert session_cookie(client.get("/api/models"))
+    clocks[1].at += 24 * 3600 + 60
+    assert session_cookie(client.post("/api/grid/preview", json={}))
+
+
 def test_a_bearer_request_is_never_given_a_renewed_cookie(client, gate, clocks):
     clocks[1].at += 24 * 3600 + 60
     answer = client.get("/api/gallery", headers=BEARER)

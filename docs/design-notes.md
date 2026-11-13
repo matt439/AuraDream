@@ -863,7 +863,16 @@ Illustrious, SDXL twins at 0.22 s a step, read Medium and Fast from them,
 and schnell's 27.3 s, 19.5 s of it the first step, read barely faster than
 Krea dev's warm 42 s. Their notes give the recorded per-step figures and no
 longer call them upper bounds (Illustrious took 15 s at the same settings
-on 2026-09-17).
+on 2026-09-17). The 2026-10-25 quantization and offload table's identical
+repeats (fp8, model offload, Windows, other apps running) replaced the busy
+first runs of Animagine (7.60 s), Illustrious (7.61 s) and Z-Image Turbo
+(10.17 s), and gave FLUX.2 klein base 4B (57.95 s, Slow) and ERNIE-Image
+Turbo's FP8 (13.14 s) their first Windows samples, each note naming the
+process's first render too (`GEN#70`, 2026-11-13). Only schnell keeps a busy
+first run. The table's repeats for checkpoints that already had a warm
+sample (klein 4B 4.70 s against 10.2 s, Kohaku 7.85 s against 9.68 s, the
+other SDXL and Anima rows) were left as they were: the category is the same
+either way, and those samples were already warm repeats.
 Missing timings say Unmeasured and show default steps, never an extrapolated
 speed from those steps. The tooltip preserves settings, date and warm/cold
 caveats, without file paths. These are single prior runs, not a controlled
@@ -4533,7 +4542,12 @@ reading the bounds off `GenerateRequest`'s fields, so they cannot drift).
 It used to reach pydantic when the cells were built and read
 "guidance_scale: Input should be less than or equal to 20" - the field's
 name under a box labelled "CFG (distilled)", and no value (2026-10-12
-review, R26). The panel's size line says a side off the 16 grid the same
+review, R26). A `nan` still got there, passing every bound, until
+`parse_axis` refused a value that is no finite number as "not a number",
+`inf` with it (`GEN#69`, 2026-11-13). The Prompt variables block's 2,000
+characters (a saved setup's too) are likewise a model check under the box's
+name with the count, not the field bound pydantic worded "prompt_axis:
+String should have at most 2000 characters". The panel's size line says a side off the 16 grid the same
 way before Generate does ("1000 is not a multiple of 16: 992 or 1008"), and
 the schema's refusal is now those words too.
 
@@ -7301,10 +7315,18 @@ written while the prompt waited lost its newest images too (review
 
 **The scope is strict, judged at the click.** The button shows whenever
 the filter matches something and the Starred tick is off (with it on,
-every match is a keeper). Whether the box is a strict scope is the
-server's call: free text is refused with a 422 that says what to do,
+every match is a keeper). Whether the box is a scope is the
+server's call: a refusal is a 422 that says what to do,
 rather than the page guessing at the grammar with a second copy of the
-key list. An empty box is the whole gallery, which is why
+key list. Free words were refused too until `GAL#31` (Matt, 2026-11-13):
+the button showed under `fox`, the grid listed the foxes and the press was
+refused. Since `GAL#25` each word is the grid's own prefix match, so
+`search.unstarred_scope` takes positive words through that same MATCH
+(`fts_prefix_match`, shared with `list_images`): the count typed back is
+of what the grid listed, and the dialog's sample prompts show what the
+prefix took. A word with an odd double quote, which the grid matches
+through its literal fallback instead, and `-word` stay refused, and
+`clear --where` stays `strict_scope`. An empty box is the whole gallery, which is why
 `matching_preview` and `delete_matching(keep_favorites=True)` now accept
 an empty scope and `clear.py` refuses a blank `--where` itself - the
 "whole gallery is `clear` without --where" message is the CLI's manners,
@@ -10292,6 +10314,17 @@ empty or too new, with the reason as a `code` beside the sentence
 (`not_found`, `deprecated`, `empty`, `no_date`, `after_cutoff`): a tag too
 new for the checkpoint shows ⏲ where a typo shows ?, red either way, since
 the fixes differ, and matching the sentence would break with its wording.
+A name Danbooru aliases (`twin tails`, filed as `twintails`) is `alias`
+(`PA#17`, 2026-11-13): Danbooru keeps the antecedent as an empty tag, or
+none, so it read "Danbooru tag has no posts" and Check left it unplaced. A
+missing or empty name is asked of the active `/tag_aliases.json` once, then
+the consequent's own row, both cached; a consequent that is itself no usable
+tag at the cutoff is not offered, and no chain is followed. The verdict
+stays red (a checkpoint trained on Danbooru's captions saw the consequent),
+names the consequent in its reason and the chip's label, and carries its
+category and post count, so Check places it. This is Danbooru's own
+redirect, not the "did you mean" the 2026-10-04 review declined (U113). A
+failed alias lookup caches nothing and leaves the verdict as it was.
 An unavailable API makes ordinary tags unchecked, not invalid, and never
 blocks generation: presence in the index is useful
 evidence, not proof that a particular caption reached training. The one
@@ -14286,7 +14319,7 @@ than a day old sets a fresh one, so a device used within the month stays
 signed in.
 
 Since `DEV#56` (2026-11-12) a request someone makes on an open page renews
-too: any request `keep_awake.counts_as_activity` counts, with a valid
+too: any request `keep_awake.scope_counts_as_activity` counts, with a valid
 cookie more than a day old, gets a fresh one on whatever it answers. The
 page alone left a tab or installed PWA that stays open and is used daily,
 and so never loads `/` again, signed out at day thirty. The page's timed
@@ -14294,7 +14327,12 @@ polls (`/api/status` and the rest of activity's exclusions), the job
 streams and its files still never renew, so a tab left open and unused
 still ends with its month, as an idle tab does not hold the PC awake. One
 rule decides both, so a poll later excluded from activity is excluded from
-renewal with it. A request signed in by `Authorization: Bearer` gets no
+renewal with it. That rule is `keep_awake.scope_counts_as_activity`, which
+reads the page's poll mark (`X-AuraDream-Poll`) as well: until `DEV#64`
+(2026-11-13) the gate asked the bare `counts_as_activity`, so a marked
+timer on a counted route (the catalogue and model-shots retries, the
+maintenance re-reads, the grid preview's re-reads) renewed an idle tab's
+session. A request signed in by `Authorization: Bearer` gets no
 cookie, renewed or not.
 
 Renewing on any counted request opened a race the page alone did not have:
@@ -15036,14 +15074,23 @@ tests validate links into the repository's other Markdown documents.
 `scan_cache_dir` on a daemon thread, one reservation owned by the worker,
 logical file bytes, shared catalogue ownership, converted trees and unknown
 references reported honestly. Unreferenced does not mean unused or safe to
-delete. No cache delete is designed into this slice.
+delete. No cache delete is designed into this slice. A catalogue repository
+cached only at commits no retained reference records (a download from
+before the recorded commit, or after a later upstream one) is that
+checkpoint's other revision (`GEN#71`, 2026-11-13): its bytes are the
+checkpoint's `other_revision_bytes` and its `cached_bytes` is null, the
+Unknown Models' cache column already says (`model_info._hub_source_state`,
+"main is mutable"). It was counted as 0 bytes and listed among other apps'
+repositories, the classification a guarded delete would have been designed
+on. An old revision beside a recorded one stays unreferenced.
 
 Models > On disk (`GEN#68`, 2026-11-12, `web/model-storage.js`) shows that
 inventory read-only: a fold collapsed by default, last in the picker's body
 so opening it moves nothing above it, read on its first opening in a page
 and on Refresh only, never on a timer or as the picker opens (a scan reads
 every cached file's size). Model rows are labelled by catalogue name, an
-unknown selection shows its known bytes with "+", and the fold says that rows
+unknown selection shows its known bytes with "+", one cached only at an
+unrecorded commit "Unknown (its bytes)", and the fold says that rows
 overlap and that "not referenced" is not "unused". It has no delete control;
 the guarded delete is designed only after Matt has seen this fold.
 

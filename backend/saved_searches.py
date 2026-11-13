@@ -7,7 +7,7 @@ import tempfile
 import uuid
 from pathlib import Path
 
-from . import gallery_lock
+from . import gallery_lock, sidecar_io
 from .schemas_saved_searches import (
     MAX_SAVED_SEARCHES, SavedSearch, SavedSearchFields, SavedSearchUpdate, name_key,
 )
@@ -38,7 +38,7 @@ def _unique_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
 
 def _read(path: Path) -> list[SavedSearch]:
     try:
-        with path.open("rb") as stream:
+        with sidecar_io.open_read(path) as stream:
             raw = stream.read(MAX_FILE_BYTES + 1)
         if len(raw) > MAX_FILE_BYTES:
             raise ValueError("file is too large")
@@ -83,7 +83,7 @@ def _write(path: Path, items: list[SavedSearch]) -> None:
             stream.write(data)
             stream.flush()
             os.fsync(stream.fileno())
-        os.replace(temporary, path)
+        sidecar_io.replace(temporary, path)
     finally:
         if temporary is not None:
             try:
@@ -93,8 +93,12 @@ def _write(path: Path, items: list[SavedSearch]) -> None:
 
 
 def read(database: Path) -> list[SavedSearch]:
-    # Atomic replacement makes a read coherent without creating a lock or file.
-    return _read(path_for(database))
+    # Atomic replacement keeps a read complete; the reservation keeps it off a
+    # save's replace (GAL#28) and creates no lock or file.
+    try:
+        return sidecar_io.reserved_read(path_for(database), _read)
+    except gallery_lock.GalleryBusy:
+        raise SavedSearchesError("Another AuraDream process is saving searches; try again.", 409) from None
 
 
 def change(

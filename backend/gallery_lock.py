@@ -40,6 +40,22 @@ _local = threading.local()
 
 
 @contextmanager
+def local(database: Path, *, wait: float):
+    """This process's reservation of `database` alone, the in-process lock
+    `hold` takes first, never its lock file: a sidecar read stays off this
+    process's own save (GAL#28) and never waits on another process's."""
+    key = os.path.normcase(str(database.resolve()))
+    with _mutex:
+        lock = _locks.setdefault(key, threading.RLock())
+    if not lock.acquire(timeout=wait if wait > 0 else -1):
+        raise GalleryBusy(_BUSY)
+    try:
+        yield
+    finally:
+        lock.release()
+
+
+@contextmanager
 def hold(database: Path, *, create: bool = True, wait: float = 0.0):
     key = os.path.normcase(str(database.resolve()))
     with _mutex:

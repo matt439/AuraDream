@@ -613,6 +613,42 @@ def test_update_reads_the_service_env_file(sandbox):
 
 
 @on_linux
+def test_install_service_prints_only_the_unit_it_writes(sandbox):
+    (sandbox["root"] / ".venv").mkdir()
+    printed = _run(sandbox, "install-service.sh", "--print-unit")
+    assert printed.returncode == 0, printed.stdout + printed.stderr
+    assert printed.stdout.startswith("# Written by linux/install-service.sh")
+    assert _systemctl(sandbox) == [] and not _unit(sandbox).exists()
+    sandbox["env"]["STUB_LINGER"] = "yes"
+    installed = _run(sandbox, "install-service.sh", "--no-start")
+    assert installed.returncode == 0, installed.stdout + installed.stderr
+    assert _unit(sandbox).read_text() == printed.stdout
+
+
+@on_linux
+@pytest.mark.parametrize("stale", [False, True])
+def test_update_names_an_installed_unit_this_version_would_write_differently(sandbox, stale):
+    # DEV#66: a unit installed before DEV#55 lacks RestartPreventExitStatus=78,
+    # which only install-service.sh run again adds.
+    _checkout_with_gallery(sandbox)
+    (sandbox["root"] / ".venv").mkdir()
+    unit = _unit(sandbox)
+    unit.parent.mkdir(parents=True)
+    current = _run(sandbox, "install-service.sh", "--print-unit").stdout
+    line = "RestartPreventExitStatus=78\n"
+    assert line in current
+    written = current.replace(line, "") if stale else current
+    unit.write_text(written)
+    for args in ((), ("--dry-run",)):
+        result = _run(sandbox, "update.sh", *args)
+        assert result.returncode == 0, result.stdout + result.stderr
+        named = f"The installed service unit ({unit}) is not the one this version writes" in result.stdout
+        assert named == stale
+        assert ("Run bash linux/install-service.sh to rewrite it" in result.stdout) == stale
+    assert unit.read_text() == written   # said, never rewritten
+
+
+@on_linux
 def test_update_explains_a_refused_pull_and_discards_nothing(sandbox):
     _checkout_with_gallery(sandbox)
     sandbox["env"]["STUB_PULL_EXIT"] = "128"
@@ -623,6 +659,19 @@ def test_update_explains_a_refused_pull_and_discards_nothing(sandbox):
     calls = _calls(sandbox)
     assert not any(word in c for c in calls for word in ("reset", "checkout", "clean", "stash"))
     assert "uv sync" not in calls
+
+
+@on_linux
+def test_update_on_a_detached_head_names_git_checkout_main(sandbox):
+    # DEV#69: "Going back after an update" leaves HEAD detached.
+    _checkout_with_gallery(sandbox)
+    sandbox["env"]["STUB_PULL_EXIT"] = "1"
+    sandbox["env"]["STUB_PULL_OUTPUT"] = "You are not currently on a branch.\nPlease specify which branch you want to merge with."
+    result = _run(sandbox, "update.sh")
+    assert result.returncode == 1
+    assert "detached HEAD" in result.stdout and "git checkout main" in result.stdout
+    assert "git pull --ff-only failed" not in result.stdout
+    assert not any(word in c for c in _calls(sandbox) for word in ("reset", "checkout", "clean", "stash"))
 
 
 @on_linux

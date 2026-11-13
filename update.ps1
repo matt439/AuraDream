@@ -46,7 +46,12 @@ function Invoke-Capture([string]$Exe, [string[]]$Arguments) {
     $old = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
     try {
-        $lines = & $Exe @Arguments 2>&1 | ForEach-Object { "$_" }
+        # A stderr line arrives as an ErrorRecord; under PowerShell 5.1 "$_" of a
+        # blank one is "System.Management.Automation.RemoteException", so the
+        # line is its message (DEV#69).
+        $lines = & $Exe @Arguments 2>&1 | ForEach-Object {
+            if ($_ -is [System.Management.Automation.ErrorRecord]) { $_.Exception.Message } else { "$_" }
+        }
         $code = $LASTEXITCODE
     } catch {
         $lines = @("$_")
@@ -156,8 +161,20 @@ $git = Get-Command git -CommandType Application -ErrorAction SilentlyContinue | 
 if (-not $git) { Stop-Update 'Git is not installed (or not on PATH in this window).' 'Run install.cmd, which installs it, or install it from https://git-scm.com/download/win; then open a new window.' }
 $git = $git.Source
 $uv = Get-Command uv -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+if ($uv) {
+    $uv = $uv.Source
+} else {
+    # Where install.cmd puts it when this window's PATH predates the install,
+    # as bin\auradream.cmd and .ps1 look (DEV#67).
+    $uv = $null
+    foreach ($dir in @(
+        $(if ($env:USERPROFILE) { Join-Path $env:USERPROFILE '.local\bin' }),
+        $(if ($env:LOCALAPPDATA) { Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Links' })
+    )) {
+        if ($dir -and (Test-Path -LiteralPath (Join-Path $dir 'uv.exe'))) { $uv = Join-Path $dir 'uv.exe'; break }
+    }
+}
 if (-not $uv) { Stop-Update 'uv is not installed (or not on PATH in this window).' 'Run install.cmd, which installs it; then open a new window.' }
-$uv = $uv.Source
 $dirty = Invoke-Capture $git @('-C', $Root, 'status', '--porcelain', '--untracked-files=no')
 if ($dirty.Code -eq 0 -and $dirty.Text.Trim()) {
     Note 'Some code files in this folder were changed. Git keeps them; the update goes ahead unless the new version changes the same files:'
@@ -169,6 +186,11 @@ if ($dirty.Code -eq 0 -and $dirty.Text.Trim()) {
 # or local-diffusion.db while that is the only one; AURADREAM_DB_PATH wins.
 if ($env:AURADREAM_DB_PATH) {
     $db = [Environment]::ExpandEnvironmentVariables($env:AURADREAM_DB_PATH)
+    # As backend/config.py reads it: ~ is the user's folder, and a relative
+    # path is the project folder's, where the server starts (bin\auradream.cmd),
+    # never this window's current folder (DEV#68).
+    if ($db -eq '~' -or $db -like '~\*' -or $db -like '~/*') { $db = $env:USERPROFILE + $db.Substring(1) }
+    if (-not [IO.Path]::IsPathRooted($db)) { $db = Join-Path $Root $db }
 } else {
     $db = Join-Path $Root 'auradream.db'
     $legacy = Join-Path $Root 'local-diffusion.db'
@@ -252,6 +274,8 @@ if ($DryRun) {
             Stop-Update 'Git did not update: code files changed in this folder would be overwritten by the new version. Nothing was discarded.' 'Git names the files above. To keep your change, copy those files somewhere else first. Then put back the original with: git restore <file> (this discards your change to that file) and run update.cmd again.'
         } elseif ($text -match 'Not possible to fast-forward|diverging|non-fast-forward|fatal: Need to specify how to reconcile') {
             Stop-Update 'Git did not update: this folder has commits of its own that the new version does not include. Nothing was discarded.' 'If you made those commits, merge or rebase them yourself (git pull). If you did not, ask on the project page before changing anything.'
+        } elseif ($text -match 'You are not currently on a branch') {
+            Stop-Update 'Git did not update: this folder is on one older version by itself (a detached HEAD, as going back after an update leaves it). Nothing was discarded.' 'Go back to the latest version''s branch with: git checkout main, then run update.cmd again.'
         } elseif ($text -match 'no tracking information|There is no tracking') {
             Stop-Update 'Git did not update: this branch does not follow one on GitHub.' 'Switch to main with: git checkout main, then run update.cmd again.'
         } elseif ($text -match 'Could not resolve host|unable to access|Failed to connect|timed out') {

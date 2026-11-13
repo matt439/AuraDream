@@ -32,12 +32,25 @@ export AURADREAM_DB_PATH="${AURADREAM_DB_PATH:-$_auradream_db}"
 # The reason to run here at all: Nunchaku Lite's 4-bit kernels are Linux-only.
 # These repos are the official weights re-uploaded pre-quantized, and not gated.
 # nvfp4 needs an RTX 50 (Blackwell); older cards use the same names with int4.
+#
+# Each default is exported with a marker beside it holding the same value.
+# Sourced again (serve.sh sources it after .bashrc did), a value still equal
+# to its marker is this file's default, not a choice, so it is worked out
+# afresh: a changed AURADREAM_QUANT or AURADREAM_NUNCHAKU_FORMAT then reaches
+# the checkpoint (DEV#70). A value that differs from its marker is the user's
+# and is kept, the marker dropped.
+if [ -n "${AURADREAM_WSL_DEFAULT_QUANT:-}" ] && [ "${AURADREAM_QUANT:-}" = "$AURADREAM_WSL_DEFAULT_QUANT" ]; then
+  unset AURADREAM_QUANT
+fi
+unset AURADREAM_WSL_DEFAULT_QUANT
 if [ -z "${AURADREAM_QUANT:-}" ]; then
   export AURADREAM_QUANT="nunchaku"
   export AURADREAM_WSL_DEFAULT_QUANT="$AURADREAM_QUANT"
-elif [ "${AURADREAM_WSL_DEFAULT_QUANT:-}" != "$AURADREAM_QUANT" ]; then
-  unset AURADREAM_WSL_DEFAULT_QUANT
 fi
+if [ -n "${AURADREAM_WSL_DEFAULT_MODEL_ID:-}" ] && [ "${AURADREAM_MODEL_ID:-}" = "$AURADREAM_WSL_DEFAULT_MODEL_ID" ]; then
+  unset AURADREAM_MODEL_ID
+fi
+unset AURADREAM_WSL_DEFAULT_MODEL_ID
 # The checkpoint default is tied to the quantization: a pre-quantized repo
 # under fp8 dies deep in transformers after the whole download ("quantized
 # with BitsAndBytesConfig but you are passing a TorchAoConfig"). Any other
@@ -49,8 +62,6 @@ if [ "$AURADREAM_QUANT" = "nunchaku" ]; then
   if [ -z "${AURADREAM_MODEL_ID:-}" ]; then
     export AURADREAM_MODEL_ID="lite-infer/krea-2-turbo-nunchaku-lite-${_auradream_fmt}_r32-bnb4-text-encoder"
     export AURADREAM_WSL_DEFAULT_MODEL_ID="$AURADREAM_MODEL_ID"
-  elif [ "${AURADREAM_WSL_DEFAULT_MODEL_ID:-}" != "$AURADREAM_MODEL_ID" ]; then
-    unset AURADREAM_WSL_DEFAULT_MODEL_ID
   fi
   # FLUX.1 Krea dev:  lite-infer/flux.1-krea-dev-nunchaku-lite-${_auradream_fmt}_r32-bnb4-text-encoder
   # ERNIE-Image Turbo: lite-infer/ERNIE-Image-Turbo-nunchaku-lite-${_auradream_fmt}-bnb4-text-encoder (no _r32)

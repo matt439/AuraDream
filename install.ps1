@@ -121,7 +121,12 @@ function Invoke-Capture([string]$Exe, [string[]]$Arguments) {
     $old = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
     try {
-        $lines = & $Exe @Arguments 2>&1 | ForEach-Object { "$_" }
+        # A stderr line arrives as an ErrorRecord; under PowerShell 5.1 "$_" of a
+        # blank one is "System.Management.Automation.RemoteException", so the
+        # line is its message (DEV#69).
+        $lines = & $Exe @Arguments 2>&1 | ForEach-Object {
+            if ($_ -is [System.Management.Automation.ErrorRecord]) { $_.Exception.Message } else { "$_" }
+        }
         $code = $LASTEXITCODE
     } catch {
         $lines = @("$_")

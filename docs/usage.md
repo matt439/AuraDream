@@ -293,7 +293,10 @@ see what the model cache holds. It reads the cache only when you open it, or
 press its **Refresh**, never on a timer, and it has no delete control: it
 shows the Hub cache total, free space on its drive, converted copies,
 incomplete downloads, the bytes no catalogue download names, each catalogue
-checkpoint with files in the cache, and other repositories there. The same
+checkpoint with files in the cache, and other repositories there. A
+checkpoint downloaded at a different commit from the one AuraDream records
+shows **Unknown** with its size: the files are its, but which of them a load
+would use is not known. The same
 inventory is the read-only JSON at `/api/models/storage` on the same server
 (signed in, when a passcode is asked). It runs only when requested, off the
 server's request loop, and never deletes anything. It lists measured cached bytes
@@ -356,8 +359,11 @@ request browser notification permission. It notifies when this tab is hidden
 and its own watched job ends, with distinct messages for failure, cancellation
 and budget stops. Visible or replayed finishes do not alert again. The
 browser preference is separate from generation settings; blocked or
-unsupported notifications show a reason beside the checkbox. Desktop
-permission and delivery depend on your browser and operating system.
+unsupported notifications show a reason beside the checkbox. Where the page
+has its service worker (127.0.0.1, localhost or HTTPS) the notification goes
+through it, which Android's Chrome needs, and tapping it brings AuraDream
+forward. Desktop permission and delivery depend on your browser and
+operating system.
 
 The browser remembers prompts and controls; sampling settings are remembered
 per checkpoint. **Reset** restores defaults. Resume is never remembered as
@@ -906,7 +912,9 @@ not have "blonde", and `seed:>10 -seed:12` every seed above 10 but 12. A lone
 `-`, a word starting `--` (`--ar`) and a quoted `"-x"` are still prompt text.
 Delete unstarred and `clear --where` take `-key:value` but refuse `-word`,
 which goes through the fuzzy prompt index; on the command line write
-`--where=-seed:42` when the exclusion comes first.
+`--where=-seed:42` when the exclusion comes first. Delete unstarred also
+takes plain words, matched as the gallery matches them (`fox` takes
+foxglove too); `clear --where` does not.
 
 MP comparisons use the exact, unrounded stored pixel area. For example,
 `size:>1mp` includes 1024x1024 (1.048576 MP), while `size:>=1mp` excludes
@@ -1139,11 +1147,11 @@ it, or the visible opener of a menu that closed. Help can be opened above a ligh
 | Where | Keys |
 | --- | --- |
 | Main workspace | Ctrl/Cmd+Enter generates; inside an open Grid field runs the grid; in Refine runs the pass; in Refine… (Mass refine) runs the batch; in Swap tags queues; in More seeds… queues the batches. P, outside fields, menus and dialogs, goes back to the prompt box with the caret at the end, changing no text |
-| Gallery | `/` focuses search outside fields, menus and dialogs. M opens More seeds for the focused image's batch without queuing. Tab enters the cards; arrows/Home/End navigate, Enter opens, F stars; Space picks (in either mode), Shift+Space picks a range, Ctrl/Cmd+A adds every loaded card, Esc clears |
-| Lightbox | Left/Right browse, F stars, R opens Refine, M opens More seeds without queuing, S toggles the picked pair, or otherwise compares a pass with its source or an image with its CFG neighbour, Delete moves the image to the recycle bin (in the bin: asks to delete it permanently), Esc closes |
+| Gallery | `/` focuses search outside fields, menus and dialogs. M opens More seeds for the focused image's batch without queuing; U reuses its settings, as its Reuse button does. Tab enters the cards; arrows/Home/End navigate, Enter opens, F stars; Space picks (in either mode), Shift+Space picks a range, Ctrl/Cmd+A adds every loaded card, Esc clears |
+| Lightbox | Left/Right browse, F stars, R opens Refine, M opens More seeds without queuing, U reuses its settings, S toggles the picked pair, or otherwise compares a pass with its source or an image with its CFG neighbour, Delete moves the image to the recycle bin (in the bin: asks to delete it permanently), Esc closes |
 | Lightbox zoom | Wheel or +/− zoom, drag pans, 0 fits, 1 or double-click shows actual pixels |
 | Right-click an image | A menu of its actions: Star, Reuse settings, Use seed, Use prompt (its prompt and negative prompt into their boxes, the seed and settings left as they are; Ctrl+Z or the note's Undo gives your own text back), More seeds of this batch…, Refine…, Inpaint…, Outpaint…, Edit by instruction…, reference, Show run as sheet, Pick this run (a live card), Copy prompt / seed / image, Open PNG in new tab, Move to recycle bin. On a picked card: the picks' actions. The Menu key or Shift+F10 opens it from the keyboard; Shift+right-click gives the browser's own menu |
-| Contact sheet | Arrows move between populated cells; Home/End use row ends, Ctrl+Home/End the corners. Tab reaches the current cell's star; Enter/Space opens its lightbox, F stars |
+| Contact sheet | Arrows move between populated cells; Home/End use row ends, Ctrl+Home/End the corners. Tab reaches the current cell's star; Enter/Space opens its lightbox, F stars, U reuses its settings |
 | Prompt/tag chips | Tab/Enter accepts a suggestion after three matching characters; Alt+Left/Right reorders chips, Delete removes, Enter edits |
 | Prompt replacements | Ctrl+Z restores text after Apply, Reuse (or a loaded PNG), Expand, Examples or a chip edit |
 | Inpaint | With the picture focused: B brush, E eraser, `[` `]` or Alt+wheel size, I invert, Ctrl+Z / Ctrl+Shift+Z undo and redo, arrows move the brush, Space paints; Ctrl+Enter runs (Outpaint too) |
@@ -1606,8 +1614,11 @@ link from an image. There is no automatic purge.
 **Delete unstarred** moves unstarred images matching the current gallery
 scope to the recycle bin after showing a preview and asking for the count.
 It preserves starred images and their sources/references, and leaves images
-already in the bin alone. Use an empty search or `key:value` terms; free
-text is refused for deletion. With All models off, deletion stays within
+already in the bin alone. Use an empty search, words or `key:value`
+terms. A word matches as the gallery's search does, so `fox` also takes
+foxglove and foxes: read the sample prompts in the dialog. An excluded
+word (`-blonde`) and a word with a stray double quote are refused for
+deletion. With All models off, deletion stays within
 the current checkpoint. From the terminal:
 
 ```powershell

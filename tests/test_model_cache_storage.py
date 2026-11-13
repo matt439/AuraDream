@@ -52,8 +52,8 @@ def test_measured_bytes_share_files_without_doubling_totals_and_keep_old_revisio
     result = cache.snapshot(hub)
     models = {item["model_id"]: item for item in result["models"]}
     assert models["model/a"] == {"model_id": "model/a", "reference_complete": True, "cached_bytes": 11,
-                                  "revision_bytes": 11, "shared_bytes": 11, "exclusive_bytes": 0, "converted_bytes": 17,
-                                  "converted_directory": "a-ready"}
+                                  "revision_bytes": 11, "other_revision_bytes": 0, "shared_bytes": 11,
+                                  "exclusive_bytes": 0, "converted_bytes": 17, "converted_directory": "a-ready"}
     assert models["model/b"]["cached_bytes"] == 18
     assert models["model/b"]["shared_bytes"] == 11
     assert models["model/b"]["exclusive_bytes"] == 7
@@ -68,6 +68,7 @@ def test_measured_bytes_share_files_without_doubling_totals_and_keep_old_revisio
     revisions = {item["revision"]: item for item in repos["demo/shared"]["revisions"]}
     assert revisions[CURRENT]["catalogue_models"] == ["model/a", "model/b"]
     assert revisions[OLD]["catalogue_models"] == []
+    assert revisions[OLD]["other_revision_of"] == []  # beside the recorded one: an old download
     assert result["warnings"] == []
     assert before == {path: path.read_bytes() for root in (hub, converted) for path in root.rglob("*") if path.is_file()}
 
@@ -80,6 +81,26 @@ def test_unknown_file_selection_never_claims_a_measured_model_total(inventory):
     assert model["reference_complete"] is False and model["cached_bytes"] is None
     assert model["revision_bytes"] == 18
     assert "not unused" in result["note"]
+
+
+def test_a_catalogue_repository_cached_only_at_an_unrecorded_commit_is_unknown_not_zero(inventory):
+    """GEN#71: a download from before the recorded commit, or after a later
+    upstream one, is the checkpoint's at an unknown selection, never 0 bytes
+    and never another app's repository."""
+    hub, _, references = inventory
+    references["sources"]["source"]["commit"] = "9" * 40
+    result = cache.snapshot(hub)
+    models = {item["model_id"]: item for item in result["models"]}
+    for model in ("model/a", "model/b"):
+        assert models[model]["cached_bytes"] is None and models[model]["revision_bytes"] == 0
+        assert models[model]["other_revision_bytes"] == 23  # both cached revisions
+        assert models[model]["reference_complete"] is True
+    revisions = {item["revision"]: item for item in next(
+        repo for repo in result["repositories"] if repo["repo_id"] == "demo/shared")["revisions"]}
+    assert revisions[CURRENT]["other_revision_of"] == revisions[OLD]["other_revision_of"] == ["model/a", "model/b"]
+    assert revisions[CURRENT]["catalogue_models"] == []
+    assert result["unreferenced_bytes"] == 13  # the critic alone
+    assert "other_revision_bytes" in result["note"]
 
 
 def test_missing_cache_is_zero_without_creating_it(inventory, tmp_path):

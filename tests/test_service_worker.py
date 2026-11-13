@@ -5,6 +5,7 @@ navigation, and the offline page standing alone. The behaviour itself, a
 silent server's "/" and the page reopening, is smoke-offline's."""
 from __future__ import annotations
 
+import hashlib
 import re
 from pathlib import Path
 
@@ -39,6 +40,32 @@ def test_the_worker_answers_only_the_page_and_caches_only_the_offline_page():
     assert re.search(r"const CACHE = 'auradream-offline-v\d+';", SW)
 
 
+# The cache name each offline.html was released under, by the page's hash
+# (line ends normalised). The worker caches the page at install only, so a
+# changed page under the old name never reaches a browser that has it.
+OFFLINE_RELEASES = {
+    "auradream-offline-v2": "10cc23d6caf791bfdad8940182be34bfc4547d2879f9bc00b36c9eddf96171db",
+}
+
+
+def test_a_changed_offline_page_has_a_new_cache_name():
+    cache = re.search(r"const CACHE = '(auradream-offline-v\d+)';", SW)
+    assert cache is not None
+    digest = hashlib.sha256((WEB / "offline.html").read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+    assert OFFLINE_RELEASES.get(cache[1]) == digest, (
+        f"offline.html changed: give sw.js's CACHE a new version and record {digest} under it here"
+    )
+
+
+def test_the_offline_page_announces_only_a_change_of_outcome():
+    # UI#54: the live part is written only when its words change; each
+    # ask's clock goes in a part no screen reader announces.
+    assert OFFLINE.count("aria-live") == 1 and '<div id="state" aria-live="polite">' in OFFLINE
+    assert 'id="clock"' in OFFLINE and "state.textContent = " not in OFFLINE.replace(
+        "if (state.textContent !== text) state.textContent = text;", "")
+    assert "clock.textContent = `Last asked at ${at}`;" in OFFLINE
+
+
 def test_the_offline_page_stands_alone():
     # Nothing it shows may need the server it says is gone.
     assert not re.search(r'<(link|img|script)[^>]*\s(href|src)=', OFFLINE)
@@ -47,3 +74,14 @@ def test_the_offline_page_stands_alone():
     assert "fetch('/static/manifest.webmanifest'" in OFFLINE
     assert (WEB / "manifest.webmanifest").is_file()
     assert "location.replace('/')" in OFFLINE
+
+
+def test_notify_when_done_goes_through_the_worker_and_its_tap_opens_the_page():
+    # UI#55: Chrome on Android throws on the Notification constructor, so a
+    # controlled page asks the registration; the tap is the worker's.
+    progress = (WEB / "job-progress.js").read_text(encoding="utf-8")
+    assert "registration.showNotification(title, shown)" in progress
+    assert ".catch(construct)" in progress
+    assert "self.addEventListener('notificationclick'" in SW
+    assert "self.clients.openWindow('/')" in SW
+    assert "event.notification.close()" in SW

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import shutil
 import ssl
 import subprocess
 import sys
@@ -105,12 +106,12 @@ def sandbox(tmp_path):
     return {"root": root, "stubs": stubs, "home": home, "log": log, "env": env, "tmp": tmp_path}
 
 
-def _run(sandbox, script: str, *args: str) -> subprocess.CompletedProcess:
+def _run(sandbox, script: str, *args: str, cwd: Path | None = None) -> subprocess.CompletedProcess:
     return subprocess.run(
         ["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
          "-File", str(REPO / script), *args],
         env=sandbox["env"], capture_output=True, text=True, encoding="utf-8", errors="replace",
-        timeout=180, stdin=subprocess.DEVNULL,
+        timeout=180, stdin=subprocess.DEVNULL, cwd=cwd,
     )
 
 
@@ -425,6 +426,43 @@ def test_update_copies_the_gallery_then_pulls_and_syncs(sandbox):
     assert "Already up to date (abc1234)." in result.stdout
 
 
+@pytest.mark.parametrize("where", [r".local\bin", r"Local\Microsoft\WinGet\Links", None])
+def test_update_finds_uv_where_install_put_it_off_path(sandbox, where):
+    # DEV#67's optional part: a window opened before install.cmd added uv.
+    _checkout_with_gallery(sandbox)
+    (sandbox["stubs"] / "uv.cmd").unlink()
+    if where is not None:
+        folder = sandbox["home"] / where
+        folder.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(Path(SYSTEM_ROOT) / "System32" / "where.exe", folder / "uv.exe")   # any program; a dry run never runs it
+    result = _run(sandbox, "update.ps1", "-DryRun")
+    if where is None:
+        assert result.returncode == 1, result.stdout + result.stderr
+        assert "uv is not installed" in result.stdout
+    else:
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "uv is not installed" not in result.stdout
+        assert "would run in" in result.stdout
+
+
+@pytest.mark.parametrize("setting", ["relative", "home"])
+def test_update_reads_a_relative_gallery_path_from_the_project_folder(sandbox, setting):
+    # DEV#68: run from another folder, a relative AURADREAM_DB_PATH was
+    # tested there, so the update went ahead with no copy to go back to.
+    _checkout_with_gallery(sandbox, "unused.db")
+    base = sandbox["root"] if setting == "relative" else sandbox["home"]
+    data = base / "data"
+    data.mkdir()
+    (data / "gallery.db").write_bytes(b"gallery")
+    sandbox["env"]["AURADREAM_DB_PATH"] = r"data\gallery.db" if setting == "relative" else r"~\data\gallery.db"
+    elsewhere = sandbox["tmp"] / "elsewhere"
+    (elsewhere / "data").mkdir(parents=True)   # a decoy the old test found nothing in
+    result = _run(sandbox, "update.ps1", "-DryRun", cwd=elsewhere)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert str(data / "gallery-before-update-abc1234.db") in result.stdout
+    assert "nothing to copy" not in result.stdout
+
+
 def test_update_reports_the_old_and_new_commits_and_count(sandbox):
     _checkout_with_gallery(sandbox)
     sandbox["env"]["STUB_AFTER_COMMIT"] = "def5678"
@@ -575,6 +613,27 @@ def test_update_explains_a_refused_pull_and_discards_nothing(sandbox):
     calls = _calls(sandbox)
     assert not any(word in c for c in calls for word in ("reset", "checkout", "clean", "stash"))
     assert "uv sync" not in calls
+
+
+def test_update_on_a_detached_head_names_git_checkout_main_without_noise(sandbox):
+    # DEV#69: Git's detached-HEAD refusal goes to stderr with blank lines,
+    # which PowerShell 5.1 printed as RemoteException; no pattern matched.
+    _checkout_with_gallery(sandbox)
+    stub = (sandbox["stubs"] / "git.cmd").read_text()
+    pull = (
+        'if "%~3"=="pull" (echo pulled>"%STUB_LOG%.pulled"'
+        '& >&2 echo You are not currently on a branch.& >&2 echo.'
+        '& >&2 echo     git pull ^<remote^> ^<branch^>& >&2 echo.& exit /b 1)'
+    )
+    lines = [pull if line.startswith('if "%~3"=="pull"') else line for line in stub.splitlines()]
+    (sandbox["stubs"] / "git.cmd").write_text("\r\n".join(lines) + "\r\n")
+    result = _run(sandbox, "update.ps1")
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "You are not currently on a branch." in result.stdout
+    assert "RemoteException" not in result.stdout + result.stderr
+    assert "detached HEAD" in result.stdout and "git checkout main" in result.stdout
+    assert "git pull --ff-only failed" not in result.stdout
+    assert not any(word in c for c in _calls(sandbox) for word in ("reset", "checkout", "clean", "stash"))
 
 
 def test_update_explains_untracked_files_in_the_way(sandbox):

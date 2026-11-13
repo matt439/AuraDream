@@ -335,15 +335,45 @@ def test_a_pass_whose_source_has_gone_says_so(client, store):
     assert record["refine_missing"] is True
 
 
-def test_delete_unstarred_refuses_free_text(client, fake):
-    # The gallery matched "lighthouse" through FTS and its LIKE fallback; a
-    # destructive scope is not resolved through either.
-    run_grid(client, steps_axis="6,8", seed=1)
+def test_delete_unstarred_takes_free_words_as_the_gallery_matches_them(client, store):
+    # GAL#31 (Matt, 2026-11-13): a word is prefix-matched as the gallery's
+    # search matches it, so `fox` takes foxglove and foxes too, and the count
+    # the dialog shows is of the images the grid listed.
+    model = settings.model_id
+    _plant(store, model, "a red fox", seed=1)
+    _plant(store, model, "foxglove by a wall", seed=2)
+    starred = _plant(store, model, "two foxes at dusk", seed=3)
+    _plant(store, model, "a lighthouse in fog", seed=4)
+    _plant(store, "somebody/else", "a fox elsewhere", seed=5)
+    client.post(f"/api/images/{starred.id}/favorite?value=true")
+    listed = {item["id"] for item in client.get("/api/gallery", params={"search": "fox"}).json()["items"]}
+    assert len(listed) == 3
+    preview = client.get("/api/gallery/unstarred", params={"search": "fox"}).json()
+    assert (preview["records"], preview["favorites"], preview["unstarred"]) == (3, 1, 2)
+    with_term = client.get("/api/gallery/unstarred", params={"search": "fox seed:1"}).json()
+    assert with_term["unstarred"] == 1
+    done = client.delete("/api/gallery/unstarred", params={"search": "fox", "expected": 2})
+    assert done.status_code == 200, done.text
+    assert set(done.json()["binned"]) == listed - {starred.id}
+    left = {item["prompt"] for item in client.get("/api/gallery", params={"all_models": True}).json()["items"]}
+    assert left == {"two foxes at dusk", "a lighthouse in fog", "a fox elsewhere"}
+
+
+@pytest.mark.parametrize(("search", "said"), [
+    ("fox -blonde", "'-blonde' is an excluded word, which a delete's scope never takes"),
+    ('a 6" figure', """'6"' has an odd double quote"""),
+])
+def test_delete_unstarred_still_refuses_an_excluded_word_and_the_literal_fallback(client, store, search, said):
+    # The gallery matches `-word` through the same index, and a word with an
+    # odd double quote through its literal fallback: neither is a delete's
+    # scope. Nothing moves.
+    _plant(store, settings.model_id, 'a 6" figure of a fox', seed=1)
     for method in ("get", "delete"):
-        response = getattr(client, method)("/api/gallery/unstarred?search=lighthouse&expected=2")
+        response = getattr(client, method)("/api/gallery/unstarred", params={"search": search, "expected": 1})
         assert response.status_code == 422
-        assert "free text" in response.json()["detail"]
-    assert client.get("/api/gallery").json()["total"] == 2
+        detail = response.json()["detail"]
+        assert detail.startswith("Delete unstarred takes words, key:value terms") and said in detail
+    assert client.get("/api/gallery").json()["total"] == 1
 
 
 def _ladder_terms(record, *, by_run=False):

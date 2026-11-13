@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import BinaryIO, Literal, Never
 from uuid import UUID
 
-from . import bundle_mode, gallery_lock, legacy_names
+from . import bundle_mode, gallery_lock, legacy_names, sidecar_io
 from .backup_policy import Protection
 
 MARKER = "managed_backup"
@@ -420,7 +420,7 @@ def load_state(db_path: Path, gallery_id: str) -> Journal:
             raise ReceiptError(_ERROR)
         if not stat.S_ISREG(path.lstat().st_mode):
             raise ReceiptError(_ERROR)
-        with path.open("rb") as stream:
+        with sidecar_io.open_read(path) as stream:
             data = stream.read(_MAX_BYTES + 1)
         if len(data) > _MAX_BYTES:
             raise ReceiptError(_ERROR)
@@ -446,7 +446,7 @@ def counted_archives(db_path: Path, directory: Path) -> frozenset[str]:
     try:
         if not path.exists() and not path.is_symlink():
             return frozenset()
-        with path.open("rb") as stream:
+        with sidecar_io.open_read(path) as stream:
             data = stream.read(_MAX_BYTES + 1)
         gallery_id = json.loads(data.decode("utf-8")).get("gallery_id")
     except (OSError, ValueError, AttributeError, RecursionError):
@@ -488,7 +488,7 @@ def _store(db_path: Path, gallery_id: str, journal: Journal) -> None:
             stream.write(data)
             stream.flush()
             os.fsync(stream.fileno())
-        os.replace(temporary, path)
+        sidecar_io.replace(temporary, path)
         temporary = None  # Ownership moved; never clean a recreated old name.
     finally:
         if temporary is not None:
