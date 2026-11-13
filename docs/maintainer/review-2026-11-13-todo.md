@@ -630,7 +630,10 @@ that pins the free-text refusal.
   listed ones) and both refusals; smoke-gallery's `-blonde` step reads the
   new words and a `fox` step asks the server's count. The design notes'
   Delete unstarred section, usage.md and rules.md say so. 497 search,
-  gallery, storage and clear tests and smoke-gallery pass.
+  gallery, storage and clear tests and smoke-gallery pass. The PR's CI
+  found one more pin: `smoke.json` pressed Delete unstarred under `fox`
+  expecting the refusal; it now asks under `fox -blonde`, still refused
+  before any dialog.
 - **`UI#56`** (done 2026-11-13, Matt's answer). Unshifted U,
   `reuse.reuseFromKey`, beside M in `app.js`'s dispatch and scoped as M is:
   in the lightbox it presses `#lb-reuse`, so its hold and title apply; on a

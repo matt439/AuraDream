@@ -186,9 +186,9 @@
   {"expect": "__when(() => els.galleryError.textContent.includes('Moved ' + window.__n + ' images to the recycle bin') && els.bin.querySelector('.count').textContent.trim() !== '')"},
   {"eval": "els.favOnly.checked = true; els.favOnly.onchange();"},
   {"expect": "__when(() => (!galleryPending) && (els.deleteUnstarred.hidden))"},
-  {"eval": "els.favOnly.checked = false; els.search.value = 'fox'; resetGallery();"},
+  {"eval": "els.favOnly.checked = false; els.search.value = 'fox -blonde'; resetGallery();"},
   {"wait": 800},
-  {"eval": "askCount = () => { throw new Error('a free-text scope must be refused before any dialog'); }; deleteUnstarred();"},
-  {"expect": "__when(() => els.galleryError.textContent.includes('free text'))"},
+  {"eval": "askCount = () => { throw new Error('an excluded word must be refused before any dialog (GAL#31 takes plain words, never -word)'); }; deleteUnstarred();"},
+  {"expect": "__when(() => els.galleryError.textContent.includes(\"'-blonde' is an excluded word\"))"},
   {"eval": "askCount = countDialog; els.search.value = ''; resetGallery();"}
 ]
