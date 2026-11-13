@@ -6135,7 +6135,10 @@ measured on the card and when.
   under the pointer where the panel holds still. Axis messages lead with the
   box's name (`Steps`, `CFG`, `Mu`, `LoRA weight`, `Strength`, `Seed list`),
   a value past the request's own bounds included (`grid._within`, read off
-  `GenerateRequest`: "CFG: 25 is above 20, the most it takes");
+  `GenerateRequest`: "CFG: 25 is above 20, the most it takes"), a `nan` or
+  `inf` as not a number, and an over-long Prompt variables block by the
+  box's name with its count (`GridRequest._prompt_axis_fits`, never a field
+  bound that would name `prompt_axis`);
   `parse_axis` closes up a spaced range between two numbers, leaving a lone
   `-` as Mu's none, and refuses a stepless range that would stop at its
   first value (`0.8-1.2` needs a step). The grid's Steps and CFG

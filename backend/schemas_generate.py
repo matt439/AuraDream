@@ -44,6 +44,8 @@ if TYPE_CHECKING:
 # onto the latent sequence, and attention is quadratic in that length: four 1 MP
 # references is already several times the cost of the prompt alone.
 MAX_REFERENCES = 4
+# The Prompt variables box's length, as a saved setup's (`PresetGrid`).
+PROMPT_AXIS_LIMIT = 2000
 
 CropAnchor = Literal[
     "center", "top", "bottom", "left", "right",
@@ -757,7 +759,10 @@ class GridRequest(GenerateSubmission):
     # Named values for the placeholders in the prompt, one variable per line -
     # `size = big | small`. Longer than the numeric axes because its values are
     # prose, and split on `|` because a prompt is full of commas.
-    prompt_axis: str = Field(default="", max_length=2000)
+    # At most PROMPT_AXIS_LIMIT characters, refused under the box's name by
+    # `_prompt_axis_fits`, not a field bound pydantic would word as
+    # "prompt_axis: String should have at most 2000 characters" (GEN#69).
+    prompt_axis: str = ""
     # Cross every value, or draw one value per variable from each image's seed.
     # Random mode runs images separately so each cell has one resolved prompt.
     prompt_mode: Literal["cross", "random"] = "cross"
@@ -797,6 +802,18 @@ class GridRequest(GenerateSubmission):
     # purpose and the night takes what it reaches; what it did not reach is a
     # resume. Counted from submission, since "until seven" includes the load.
     budget_minutes: float | None = Field(default=None, gt=0, le=7 * 24 * 60)
+
+    @model_validator(mode="after")
+    def _prompt_axis_fits(self) -> "GridRequest":
+        # A model validator's refusal carries no field name; a custom error,
+        # so no "Value error, " either.
+        if len(self.prompt_axis) > PROMPT_AXIS_LIMIT:
+            raise PydanticCustomError(
+                "prompt_axis_too_long",
+                "Prompt variables: {count} characters, more than the {limit} they hold",
+                {"count": f"{len(self.prompt_axis):,}", "limit": f"{PROMPT_AXIS_LIMIT:,}"},
+            )
+        return self
 
     @model_validator(mode="after")
     def _runs_are_not_a_grid_axis(self) -> "GridRequest":

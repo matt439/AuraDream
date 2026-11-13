@@ -476,6 +476,16 @@ that pins the free-text refusal.
   images'. The Runs, storage, size-crop, Finish run and persistence tests,
   ruff, the type gate and smoke-runs-scope-recovery,
   smoke-runs-favorite-counts and smoke-size-crop pass.
+- **`GEN#69`** (done 2026-11-13). `grid.parse_axis` refuses a value that is
+  no finite number (`nan`, `inf`) as "CFG: 'nan' is not a number", under the
+  box's name like any other bad token. `GridRequest.prompt_axis` has no
+  field bound now: `_prompt_axis_fits`, a model check whose refusal carries
+  no field name, says "Prompt variables: N characters, more than the 2,000
+  they hold" with the block's count. The limit stays 2,000 (`PROMPT_AXIS_LIMIT`), as a saved
+  setup's `PresetGrid.prompt_axis`, which a test holds equal. Grid and API
+  tests (preview and run, both cases, the limit itself accepted) fail
+  without the change. The full suite (9,745), ruff, the type gate,
+  smoke-grid and smoke-random-prompts pass.
 
 ## Not added
 

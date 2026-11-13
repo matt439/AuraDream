@@ -285,7 +285,13 @@ def parse_axis(
                 # has to name the field either way.
                 values.extend(_range_values(match, cast, label))
             else:
-                values.append(cast(token))
+                value = cast(token)
+                # float() takes `nan` and `inf`, and a NaN passes every bound
+                # check (`_within`), to be refused by pydantic under the
+                # field's name ("guidance_scale: ...") instead (GEN#69).
+                if isinstance(value, float) and not math.isfinite(value):
+                    raise ValueError
+                values.append(value)
         except ValueError as exc:
             if str(exc).startswith(f"{label}:"):
                 raise

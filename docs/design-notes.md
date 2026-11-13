@@ -4533,7 +4533,12 @@ reading the bounds off `GenerateRequest`'s fields, so they cannot drift).
 It used to reach pydantic when the cells were built and read
 "guidance_scale: Input should be less than or equal to 20" - the field's
 name under a box labelled "CFG (distilled)", and no value (2026-10-12
-review, R26). The panel's size line says a side off the 16 grid the same
+review, R26). A `nan` still got there, passing every bound, until
+`parse_axis` refused a value that is no finite number as "not a number",
+`inf` with it (`GEN#69`, 2026-11-13). The Prompt variables block's 2,000
+characters (a saved setup's too) are likewise a model check under the box's
+name with the count, not the field bound pydantic worded "prompt_axis:
+String should have at most 2000 characters". The panel's size line says a side off the 16 grid the same
 way before Generate does ("1000 is not a multiple of 16: 992 or 1008"), and
 the schema's refusal is now those words too.
 

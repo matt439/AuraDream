@@ -12,7 +12,7 @@ import time
 import pytest
 from PIL import Image
 
-from backend import grid, main, storage
+from backend import grid, main, schemas_generate, schemas_presets, storage
 from backend.config import settings
 from backend.model_defaults import defaults_for
 from backend.schemas import GenerateRequest
@@ -446,6 +446,44 @@ def test_a_grid_out_of_the_schemas_range_names_the_field(client):
     # Under the box's name, quoting the value - not pydantic's "steps: Input
     # should be less than or equal to 100".
     assert response.json()["detail"] == "Steps: 110 is above 100, the most it takes"
+
+
+def test_a_nan_in_an_axis_is_not_a_number_under_its_box(client, fake):
+    # GEN#69: was "guidance_scale: Input should be less than or equal to 20".
+    for route in ("/api/grid/preview", "/api/grid"):
+        response = client.post(route, json={"prompt": "x", "width": 256, "height": 256, "cfg_axis": "2, nan"})
+        assert response.status_code == 422
+        assert response.json()["detail"] == "CFG: 'nan' is not a number"
+    assert not fake.requests
+
+
+def test_prompt_variables_over_their_length_are_refused_under_the_boxs_name(client, fake):
+    # GEN#69: was "prompt_axis: String should have at most 2000 characters".
+    block = "size = " + " | ".join(["big"] * 700)
+    for route in ("/api/grid/preview", "/api/grid"):
+        response = client.post(route, json={"prompt": "a {size} fox", "width": 256, "height": 256, "prompt_axis": block})
+        assert response.status_code == 422
+        assert readable(response.json()["detail"]) == f"Prompt variables: {len(block):,} characters, more than the 2,000 they hold"
+    assert not fake.requests
+    at_limit = ("size = big | small" + " " * 2000)[:schemas_generate.PROMPT_AXIS_LIMIT]
+    assert client.post("/api/grid/preview", json={
+        "prompt": "a {size} fox", "width": 256, "height": 256, "prompt_axis": at_limit,
+    }).status_code == 200
+
+
+def test_the_prompt_variables_limit_is_a_saved_setups(client):
+    assert schemas_presets.PresetGrid.model_fields["prompt_axis"].metadata[0].max_length == schemas_generate.PROMPT_AXIS_LIMIT
+
+
+def readable(detail):
+    """What `readableDetail` in web/state.js shows for a 422's detail."""
+    if isinstance(detail, str):
+        return detail
+    return "; ".join(
+        (".".join(str(part) for part in e.get("loc", []) if part != "body") + ": " if [p for p in e.get("loc", []) if p != "body"] else "")
+        + str(e.get("msg", "")).removeprefix("Value error, ")
+        for e in detail
+    )
 
 
 def test_runs_are_not_a_grid_axis(client):

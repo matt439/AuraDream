@@ -226,6 +226,19 @@ def test_each_axis_is_named_after_its_box():
         grid.parse_seeds("abc")
 
 
+@pytest.mark.parametrize("box, axes", [
+    ("CFG", dict(cfg="3, nan")), ("CFG", dict(cfg="NaN")), ("Mu", dict(mu="none, nan")),
+    ("CFG", dict(cfg="inf")), ("Mu", dict(mu="-inf")), ("LoRA weight", dict(lora_scale="nan")),
+])
+def test_a_value_that_is_no_finite_number_is_not_a_number(box, axes):
+    # GEN#69: float() takes these and a NaN passes every bound, so pydantic
+    # refused the cell as "guidance_scale: Input should be ...".
+    token = next(value for value in re.split(r"[,\s]+", next(iter(axes.values()))) if "n" in value.lower() and value != "none")
+    spec = {"steps": "", "cfg": "", "mu": "", **axes}
+    with pytest.raises(ValueError, match=f"^{box}: {re.escape(repr(token))} is not a number$"):
+        grid.axis_values(request(lora="style"), **spec)
+
+
 @pytest.mark.parametrize(
     "spec", ["12-6", "6-12x0", "6-12x-2", "eight", "6..12", "6-12x0.5", "6.5-12", "8.5"]
 )
