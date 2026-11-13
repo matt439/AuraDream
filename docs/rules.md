@@ -1022,8 +1022,14 @@ paragraphs, never rewording.
   self-contained (style and icon inline) and probes a page file
   (`/static/manifest.webmanifest`, which neither counts as use nor waits on
   a load) every 5 s, at once on Try again, `online` and the tab coming back
-  into view, then `location.replace('/')` on any answer. A change to
-  `offline.html` raises the cache's version in `sw.js`.
+  into view, then `location.replace('/')` on any answer. Its live part
+  (`#state`) is written only when its words change; each ask's clock
+  ("Asking now…", "Last asked at …") is in `#clock`, outside it, or a
+  screen reader hears a pair every 5 s while the PC sleeps (`UI#54`). Try
+  again held while it asks carries its reason as a title. A change to
+  `offline.html` raises the cache's version in `sw.js`, and
+  `tests/test_service_worker.py` (`OFFLINE_RELEASES`) records the page's
+  hash under it, so a change without one fails.
   The stylesheet is
   `style.css` (tokens and base layout), followed by `styles/*.css` in the
   explicit link order: `model-picker.css` the Models picker (first, at its
@@ -8783,7 +8789,8 @@ measured on the card and when.
   and script; nothing under `/static/` answers before sign-in), titled
   exactly `AuraDream` for the scripts that probe the title, one labelled
   password field (`autocomplete="current-password"`, 16 px so iOS does not
-  zoom), a Sign in button held with `aria-disabled` while it sends, and a
+  zoom), a Sign in button held with `aria-disabled` and its reason as a
+  title while it sends, and a
   live region for the server's words; it posts `/api/passcode` with
   `fetch` and opens `/` on 204. `sw.js` and `offline.html` are unchanged:
   the worker passes the sign-in page on as any answer, and the offline
@@ -13666,8 +13673,10 @@ and the bin. These are presentation checks on fake data, not device acceptance.
 `smoke-offline.json` uses a fresh FLUX.1 Krea [dev] fake on 7958: the
 page at 127.0.0.1 registers `sw.js`, which controls the next load; with
 `/api/fake/unreachable` on, opening `/` again shows `offline.html` after the
-navigation timeout (its heading, the host, the in-page script's own
-timestamped "No answer" after Try again); with it off, Try again opens
+navigation timeout (its heading, the host, "No answer yet" after Try
+again with the ask's time outside the live part, Try again held with its
+reason and the a11y audit passing while it is, and a second failed ask
+leaving the live part untouched); with it off, Try again opens
 AuraDream itself, under the worker, its topbar ready. The open page's own
 "server not answering" was already held by other smokes. Its last steps
 turn the passcode's gate on (`/api/fake/passcode`) with the browser signed
@@ -13682,7 +13691,9 @@ it is drawn. With one, `/` is the sign-in page (the page's own title, the
 host, one inline script, no stylesheet) and the status, scripts, styles,
 `offline.html`, `/sw.js`, `/outputs/`, `/docs`, the gallery and the jobs
 are 401 while the manifest and an icon are 200; nothing typed and a wrong
-passcode are each said in the page; five wrong in a row lock every attempt
+passcode are each said in the page (Sign in held with its reason while a
+wrong one is sent, the a11y audit passing, which rides every page of the
+smoke); five wrong in a row lock every attempt
 (the step makes two more wrong ones, each after its lock, so the lock is
 four seconds and nothing races a one-second one), the right one too (429),
 and the page says how long; after the knob's `reset` the right

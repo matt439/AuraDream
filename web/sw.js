@@ -14,7 +14,10 @@
 // Not a classic page script: index.html never loads it.
 'use strict';
 
-const CACHE = 'auradream-offline-v1';
+// offline.html is cached at install only: a change to it needs a new name
+// here, or an installed worker keeps the old copy (the hash beside it in
+// tests/test_service_worker.py holds the two together).
+const CACHE = 'auradream-offline-v2';
 const OFFLINE_URL = '/static/offline.html';
 // A LAN server sends "/" in milliseconds, busy or not (a load runs off the
 // event loop); a PC asleep or gone from the network leaves a connection

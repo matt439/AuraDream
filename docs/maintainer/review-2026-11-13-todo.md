@@ -522,6 +522,20 @@ that pins the free-text refusal.
   category); smoke-tags (the chip, its tip and its order step),
   smoke-analysis-tags, smoke-tag-finder, smoke-swap and smoke-refine-sdxl
   pass.
+- **`UI#54`** (done 2026-11-13). `offline.html`'s live part is written only
+  when its words change ("No answer yet. Trying again every few seconds…",
+  then nothing more while the PC stays silent); each ask's clock ("Asking
+  now…", "Last asked at …") is in a `#clock` outside it. Try again and the
+  passcode page's Sign in carry a title while held. `sw.js`'s cache is
+  `auradream-offline-v2`, and `tests/test_service_worker.py` records
+  offline.html's hash under it (`OFFLINE_RELEASES`), so a change without a
+  new version fails; another test holds the one live part. smoke-offline
+  and smoke-passcode carry the a11y audit on every page they show (both in
+  `WATCHED`), re-injected after each in-page document swap; smoke-offline
+  audits Try again while held and watches the live part through a second
+  failed ask (no change), and smoke-passcode audits Sign in held on a
+  wrong passcode. Both smokes and the audit's file checks pass. Hands-on
+  screen-reader checks stay `UI#7`.
 
 ## Not added
 
