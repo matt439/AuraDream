@@ -842,13 +842,17 @@ paragraphs, never rewording.
   file `auradream/auradream.env` (0600, never rewritten): `AURADREAM_HOST=0.0.0.0`,
   `AURADREAM_ALLOWED_HOSTS` as loopback plus the host name, its `.local`
   name and IPv4 addresses, lowercase, and the xet pins; it reports
-  lingering and prints the addresses; `--uninstall` keeps the env file.
+  lingering and prints the addresses; `--uninstall` keeps the env file;
+  `--print-unit` prints only the unit it would write.
   `update.sh` is `update.ps1`'s steps (refuses while AuraDream or a `.venv`
   program runs, copies the database the env file's `AURADREAM_DB_PATH` or
   `legacy_names` picks, `git pull --ff-only`, `uv sync`, never resets);
   `--restart` stops the service only when `/api/status` and the bundle
   status say idle (`common.sh`'s `server_busy`) and starts it again however
-  the update ends. `control.sh` (no `--dry-run`; it changes nothing but
+  the update ends. Last, an installed unit that differs from
+  `install-service.sh --print-unit`'s is named with the command that
+  rewrites it (`DEV#66`: a unit from before `DEV#55` lacks exit 78's
+  no-restart); it never rewrites the unit itself. `control.sh` (no `--dry-run`; it changes nothing but
   the service's state) takes `status` (the unit, lingering, the checkout
   after a quiet `git fetch` that never fails it, `/api/status`'s summary,
   with the running process's `commit` and a restart note when the

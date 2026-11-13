@@ -14,6 +14,8 @@
 # refuses is explained, and nothing is reset, stashed or checked out.
 # --restart stops the service only when it is idle (no job, load or gallery
 # bundle operation), and starts it again afterwards, even if the update fails.
+# An installed service unit that differs from the one install-service.sh
+# now writes is named, with the command that rewrites it.
 set -euo pipefail
 
 # shellcheck source=linux/common.sh
@@ -26,7 +28,7 @@ for arg in "$@"; do
         --dry-run) dry_run=1 ;;
         --restart) restart=1 ;;
         -h | --help)
-            sed -n '2,16p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+            sed -n '2,18p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
             exit 0
             ;;
         *)
@@ -286,6 +288,19 @@ else
         exit 1
     fi
     ok 'Packages up to date.'
+fi
+
+# 6. The service's unit ---------------------------------------------------------------
+# install-service.sh writes the unit once; a later version's unit (DEV#55's
+# RestartPreventExitStatus=78, say) reaches a service only when it runs
+# again. Compared with what the version now here would write; said, never
+# rewritten here.
+if [ -f "$UNIT_FILE" ]; then
+    wanted_code=0
+    wanted=$(bash "$(dirname "${BASH_SOURCE[0]}")/install-service.sh" --print-unit 2>/dev/null) || wanted_code=$?
+    if [ "$wanted_code" = 0 ] && [ -n "$wanted" ] && [ "$wanted" != "$(cat -- "$UNIT_FILE")" ]; then
+        note "The installed service unit ($UNIT_FILE) is not the one this version writes. Run bash linux/install-service.sh to rewrite it (your settings in $ENV_FILE are kept)."
+    fi
 fi
 
 say ''

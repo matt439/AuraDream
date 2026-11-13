@@ -834,8 +834,10 @@ kept; the way back, as in
 [Going back after an update](#going-back-after-an-update)), runs `git pull --ff-only` and `uv sync`, and never
 resets, stashes or checks out a change of yours: a pull Git refuses is
 explained. It reads the service's environment file, so it copies the
-database the service uses. `install-service.sh` again rewrites the unit
-(never the environment file).
+database the service uses. When the installed unit is not the one this
+version's `install-service.sh` writes, it says so at the end: run
+`bash linux/install-service.sh` again, which rewrites the unit (never the
+environment file).
 
 ### Controlling the service
 

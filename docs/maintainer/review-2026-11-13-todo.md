@@ -557,6 +557,19 @@ that pins the free-text refusal.
   `/api/loras` is held until a reference chip has focus (4 s at most): the
   old smoke fails at the reorder's expect, the new one passes. The smoke
   passes as committed.
+- **`DEV#66`** (done 2026-11-13). `install-service.sh --print-unit` prints
+  only the unit it would write (its definitions now come before anything
+  runs) and changes nothing. `update.sh`'s last step, dry runs included,
+  compares an installed unit with that output from the version now in the
+  checkout and, when they differ, names the unit and `bash
+  linux/install-service.sh` in one note; it never rewrites the unit. A
+  failed print says nothing. `tests/test_linux_scripts.py`: `--print-unit`
+  equals the unit `--no-start` writes and touches nothing; a stale unit
+  (without `RestartPreventExitStatus=78`) is named and a current one is not,
+  in a real run and a dry run, the file unchanged. The stale case fails on
+  the old `update.sh`. The Linux script, control and passcode tests (251)
+  pass under WSL. Whether the real server's unit lacks the line is still
+  unchecked: the next update says so.
 
 ## Not added
 
