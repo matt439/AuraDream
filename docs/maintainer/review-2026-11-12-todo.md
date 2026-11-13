@@ -392,13 +392,14 @@ downloaded. Plans with their own owners record their results there:
   rule. The new smoke-idle-activity asserts that an idle page holding
   every polling surface counts nothing, and it fails with the mark
   reverted.
-- **`GEN#66`** (built; Matt's check left). Under WSL, `systemd-inhibit` is
+- **`GEN#66`** (done; accepted 2026-11-14). Under WSL, `systemd-inhibit` is
   never used. With interop, `WslPowerRequest` holds a Windows
   `PowerRequestSystemRequired` from a `powershell.exe` child until its
   stdin closes. Without interop, the status, the start-up log and the
   doctor say nothing is held. A trial from real WSL 2 was accepted, and it
-  released when its parent was killed. `powercfg /requests` needs an
-  elevated prompt, so it is Matt's step.
+  released when its parent was killed. On 2026-11-14 Matt's elevated
+  `powercfg /requests` listed `powershell.exe` with "AuraDream is in use"
+  under SYSTEM while the WSL server was busy, and nothing once it was not.
 - **`DEV#55`** (done). `server_transport.setting_problem` loads the TLS
   pair as uvicorn will (certificate first, then the key with a password
   callback that raises), so a bad pair is refused in words before
@@ -446,7 +447,9 @@ downloaded. Plans with their own owners record their results there:
   (`model_favourites.py`, `/api/models/favourites`), one set per gallery
   and canonical ids. Each press sends one star, in order. The picker
   offers once to import the browser's old set.
-- **`GEN#68`** (built; Matt's look left). Models > On disk shows the
+- **`GEN#68`** (done; Matt's look 2026-11-14, recorded under
+  [R9](review-2026-11-10-peers.md#r9-storage-view); the delete is
+  `GEN#72`). Models > On disk shows the
   storage inventory read-only. It reads when first opened and on Refresh,
   with no timed poll and no delete control. The fake plants a scratch Hub
   cache, and smoke-model-storage covers the fold.

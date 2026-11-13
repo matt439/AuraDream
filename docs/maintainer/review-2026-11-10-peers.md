@@ -264,6 +264,22 @@ references: the critic, other helpers and other apps can need those files.
 This is neither disk-allocation accounting nor a deletion plan. The guarded
 delete remains a later design after this inventory has been considered.
 
+**Matt's look, 2026-11-14 (`GEN#68` closed).** Models > On disk over the
+real Windows cache "looks ok": a 551.2 GiB Hub cache with 926.7 GiB free,
+48.3 GiB of converted copies, 17.5 GiB not referenced, no incomplete
+downloads, and 16 catalogue rows (Anima's three sharing 1.4 GiB, three
+SDXL entries 3.0 MiB). One row is a bare id: Krea 2 Turbo's Nunchaku
+transformer (`lite-infer/...nvfp4_r32-bnb4-text-encoder`, 10.9 MiB, a
+quantization's source rather than a catalogue entry), which the delete's
+design should name by its entry. Matt's answer on what he would delete:
+any model, for any of these reasons: he no longer uses it, it is
+outdated, he needs the space, or its licence has expired. So the guarded
+delete (`GEN#72`) takes a whole checkpoint, not only stale revisions or
+unreferenced bytes; its design must say what happens to files another
+entry shares, to its converted copies, to the loaded or selected
+checkpoint, and to a job or load in flight. The plan:
+[plan-model-delete.md](plan-model-delete.md) (2026-11-14).
+
 `GEN#55`. Models shows each entry's reference download size and a cache
 word, not bytes on disk. Absent: measured bytes per entry, the cache total,
 free space on the cache drive, any delete, and what no entry references
