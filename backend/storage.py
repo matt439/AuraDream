@@ -48,7 +48,7 @@ from .record_fields import (  # noqa: F401 - re-exported for storage.<name>
     rebuilt_outpaint_mask, recovered_mask_crop, recovered_outpaint, stored_mask_crop, stored_mask_crop_box,
     without_mask_crop_parameters,
 )
-from .search import parse_search, word_match
+from .search import fts_prefix_match, parse_search, word_match
 from .schemas import ImageRecord, OutpaintSpec, effective_true_cfg
 from .schemas_mask_crop import MaskCropSpec
 
@@ -933,7 +933,7 @@ def list_images(
         # `*`, `(` or `^` inside one literal; a word the tokenizer splits
         # (`blue-ey`) is a phrase whose last token is the prefix.
         where.append("id IN (SELECT rowid FROM images_fts WHERE images_fts MATCH ?)")
-        params.append(" ".join(f'"{t}"*' for t in words))
+        params.append(fts_prefix_match(words))
     if excluded:
         # One NOT IN for every excluded word: `prompt` is NOT NULL, so no row
         # is lost to a NULL here, and an exclusion-only search needs no MATCH.

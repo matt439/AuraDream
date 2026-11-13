@@ -615,6 +615,22 @@ that pins the free-text refusal.
   reproduced case: no lite id now), `AURADREAM_NUNCHAKU_FORMAT=int4` (the
   int4 id) and a user's checkpoint with fp8 (kept, no markers). Three fail
   on the old file; all pass under WSL.
+- **`GAL#31`** (done 2026-11-13, Matt's answer). `search.unstarred_scope`
+  is the page's Delete unstarred scope: `strict_scope`'s terms and
+  exclusions plus positive free words through `fts_prefix_match`, now the
+  one builder of the grid's prefix MATCH (`storage.list_images` uses it),
+  so the dialog's count is of what the grid listed. A word with an odd
+  double quote (the grid's literal fallback) and `-word` ("an excluded
+  word, which a delete's scope never takes") are refused; `clear --where`
+  and `keep_rates` stay `strict_scope`. `matching_preview` and
+  `delete_matching` take `free_words`, which only the route sets.
+  `tests/test_api_gallery.py` replaces the free-text refusal with `fox`
+  taking foxglove and foxes (the grid's three, a star kept, another
+  checkpoint's untouched, the preview and the binned ids equal to the
+  listed ones) and both refusals; smoke-gallery's `-blonde` step reads the
+  new words and a `fox` step asks the server's count. The design notes'
+  Delete unstarred section, usage.md and rules.md say so. 497 search,
+  gallery, storage and clear tests and smoke-gallery pass.
 
 ## Not added
 

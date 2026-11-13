@@ -404,12 +404,46 @@ def strict_scope(search: str | None) -> tuple[list[str], list]:
     `-key:value` is exact SQL and is taken (Matt, 2026-10-29: option A of
     docs/maintainer/plan-search-exclusion.md).
     """
+    return _strict_terms(search, free_words=False)
+
+
+def fts_prefix_match(words: list[str]) -> str:
+    """The full-text MATCH of the gallery's free words: each a quoted phrase
+    with FTS5's prefix star (GAL#25), so `fox` also takes foxglove and foxes.
+    `storage.list_images` and Delete unstarred's scope share it."""
+    return " ".join(f'"{t}"*' for t in words)
+
+
+def unstarred_scope(search: str | None) -> tuple[list[str], list]:
+    """The page's Delete unstarred scope (GAL#31, Matt 2026-11-13):
+    `strict_scope`'s terms and exclusions plus positive free words, matched
+    as the gallery matches them (`fts_prefix_match`), so the count the dialog
+    shows is of the images the grid listed. A word with an odd double quote,
+    which the gallery matches through its literal fallback instead, and an
+    excluded word stay refused; `clear --where` stays `strict_scope`.
+    """
+    return _strict_terms(search, free_words=True)
+
+
+def _strict_terms(search: str | None, *, free_words: bool) -> tuple[list[str], list]:
     if not search or not search.strip():
         return [], []
     terms = parse_search(search)
-    if terms.words:
+    if terms.words and not free_words:
         raise ValueError(f"key:value terms only; {' '.join(terms.words)!r} is free text")
+    odd = [word for word in terms.words if word.count('"') % 2]
+    if odd:
+        raise ValueError(
+            f"{' '.join(odd)!r} has an odd double quote, which the gallery matches literally, "
+            "not through its index; take the quote out"
+        )
     if terms.excluded:
         said = " ".join(f"-{word}" for word in terms.excluded)
+        if free_words:
+            raise ValueError(f"{said!r} is an excluded word, which a delete's scope never takes")
         raise ValueError(f"{said!r} is free text; strict scopes take key:value terms and their exclusions")
-    return terms.clauses, terms.params
+    clauses, params = list(terms.clauses), list(terms.params)
+    if terms.words:
+        clauses.append("id IN (SELECT rowid FROM images_fts WHERE images_fts MATCH ?)")
+        params.append(fts_prefix_match(terms.words))
+    return clauses, params

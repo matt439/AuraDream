@@ -7315,10 +7315,18 @@ written while the prompt waited lost its newest images too (review
 
 **The scope is strict, judged at the click.** The button shows whenever
 the filter matches something and the Starred tick is off (with it on,
-every match is a keeper). Whether the box is a strict scope is the
-server's call: free text is refused with a 422 that says what to do,
+every match is a keeper). Whether the box is a scope is the
+server's call: a refusal is a 422 that says what to do,
 rather than the page guessing at the grammar with a second copy of the
-key list. An empty box is the whole gallery, which is why
+key list. Free words were refused too until `GAL#31` (Matt, 2026-11-13):
+the button showed under `fox`, the grid listed the foxes and the press was
+refused. Since `GAL#25` each word is the grid's own prefix match, so
+`search.unstarred_scope` takes positive words through that same MATCH
+(`fts_prefix_match`, shared with `list_images`): the count typed back is
+of what the grid listed, and the dialog's sample prompts show what the
+prefix took. A word with an odd double quote, which the grid matches
+through its literal fallback instead, and `-word` stay refused, and
+`clear --where` stays `strict_scope`. An empty box is the whole gallery, which is why
 `matching_preview` and `delete_matching(keep_favorites=True)` now accept
 an empty scope and `clear.py` refuses a blank `--where` itself - the
 "whole gallery is `clear` without --where" message is the CLI's manners,

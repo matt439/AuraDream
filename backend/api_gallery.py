@@ -25,22 +25,25 @@ from .schemas import (
     RunSummary,
     UnstarredPreview,
 )
-from .search import SQLITE_INT, strict_scope
+from .search import SQLITE_INT, unstarred_scope
 
 
 def _unstarred_scope(search: str | None) -> str | None:
-    """The search box as a strict scope, or a 422 that says why it is not one.
+    """The search box as Delete unstarred's scope, or a 422 that says why it
+    is not one.
 
-    `strict_scope` refuses free text with the grammar's own words; here the
-    reader has just watched the gallery match that text, so the reply says
-    what to do instead.
+    `search.unstarred_scope` takes positive free words, matched as the
+    gallery matched them (GAL#31), and refuses an excluded word or an odd
+    double quote in the grammar's own words; here the reader has just
+    watched the gallery match that text, so the reply says what to do
+    instead.
     """
     try:
-        strict_scope(search)
+        unstarred_scope(search)
     except ValueError as exc:
         raise HTTPException(
             status_code=422,
-            detail=f"Delete unstarred takes key:value terms, their exclusions or an empty search - {exc}",
+            detail=f"Delete unstarred takes words, key:value terms, their exclusions or an empty search - {exc}",
         ) from exc
     return search or None
 
@@ -360,7 +363,7 @@ def create_router(
         """
         found = await asyncio.to_thread(
             gallery_delete.matching_preview, _unstarred_scope(search), model_scope(all_models), newer_than,
-            live_only=True,
+            live_only=True, free_words=True,
         )
         return UnstarredPreview(
             unstarred=found["records"] - found["favorites"] - found["sources_kept"],
@@ -378,9 +381,10 @@ def create_router(
 
         The one bulk delete the page offers, and the inverse of the per-card one:
         star what is worth keeping, then remove the rest of the run in one gesture
-        rather than the rest one card at a time. The scope is the search box read
-        strictly - `key:value` terms only, an empty box meaning the whole gallery
-        - and `expected` is the count the dialog showed, so a sweep that landed
+        rather than the rest one card at a time. The scope is the search box
+        (`search.unstarred_scope`: words prefix-matched as the gallery matches
+        them, `key:value` terms and their exclusions, never an excluded word;
+        an empty box meaning the whole gallery) - and `expected` is the count the dialog showed, so a sweep that landed
         more unstarred images while it was open is answered 409 rather than
         swept up on a number confirmed for fewer. A starred image keeps what it
         was made from - a pass its source, a render its references - since the
@@ -401,6 +405,7 @@ def create_router(
                 expected=expected,
                 model_id=model_scope(all_models),
                 to_bin=True,
+                free_words=True,
             )
         except gallery_delete.SelectionChanged as exc:
             # Whether a job may move the count again is the server's to say: the

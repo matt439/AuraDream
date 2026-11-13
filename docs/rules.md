@@ -536,8 +536,11 @@ paragraphs, never rewording.
   the complement `COALESCE((clause), 0) = 0`, keeping NULL rows; any other
   `-word` an excluded word; a lone `-`, `--x` and a quoted token stay free
   text), the LIKE escape, `strict_scope` (`key:value` terms and their
-  exclusions; free text and `-word` refused). `storage.list_images` sends
-  each free word to FTS5 as a quoted prefix (`"drag"*`) and each excluded
+  exclusions; free text and `-word` refused), `unstarred_scope` (the page's
+  Delete unstarred, `GAL#31`: the same plus positive free words through
+  `fts_prefix_match`; a word with an odd double quote and `-word`
+  refused). `storage.list_images` sends
+  each free word to FTS5 as a quoted prefix (`fts_prefix_match`, `"drag"*`) and each excluded
   word exact (GAL#25); its fallback (an odd double quote breaks the
   MATCH) keeps both through `search.word_match`, a literal match bounded
   where a word starts (and, excluded, ends), registered on the connection
@@ -7173,9 +7176,10 @@ measured on the card and when.
   nominal tiers, display rounding and guidance tolerances do not affect it.
   `id:` is the gallery id the page shows as #N
   (a range is a span), and `search.strict_scope` is the reading for
-  `clear --where`, `keep_rates` and the gallery's Delete unstarred
-  (`GET`/`DELETE /api/gallery/unstarred`): `clear --where <box>
-  --keep-favorites` over HTTP, the search box strict or empty, gated on the
+  `clear --where` and `keep_rates`; the gallery's Delete unstarred
+  (`GET`/`DELETE /api/gallery/unstarred`) reads `search.unstarred_scope`
+  (`free_words=True`, `GAL#31`): `clear --where <box>
+  --keep-favorites` over HTTP, the search box (words as the grid matches them, terms) or empty, gated on the
   count typed back and pinned to it as `expected`, which `delete_matching`
   checks under the write lock and answers 409 on a mismatch ("Nothing was
   moved; look again.") - adding that a
@@ -11700,7 +11704,9 @@ card the same node and the paged-in tail kept, no reset; and last, as it
 plants two blonde foxes, an exclusion: `fox -blonde` loading only fox cards
 without "blonde", its total the server's, the tip's `-word` line, Delete
 unstarred's count dialog for `seed:>=100 -seed:100` and its refusal of
-`-blonde` in `#gallery-error`, with no panel control's rectangle moved; and
+`-blonde` in `#gallery-error`, with no panel control's rectangle moved, then
+its count dialog under the free word `fox` asking the server's count
+(`GAL#31`); and
 after it a mistyped key (GAL#23): `sed:42` adding "sed:42 was searched as
 prompt words; did you mean seed:42?" and its Search seed:42 button to the
 empty line, the head's height that of a plain empty search, the press

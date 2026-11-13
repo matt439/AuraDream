@@ -19,7 +19,7 @@ from typing import Any
 from . import deleted_files, gallery_lock, storage
 from .instruction_edit import InstructionEditSource, descriptor_from_image
 from .metadata import edit_from_json
-from .search import strict_scope
+from .search import strict_scope, unstarred_scope
 
 
 # The images a starred one was made from: a refine pass's source and a klein
@@ -103,6 +103,7 @@ def matching_preview(
     model_id: str | None = None,
     newer_than: int | None = None,
     live_only: bool = False,
+    free_words: bool = False,
 ) -> dict[str, Any]:
     """What a strict scope selects, named: counts, prompts, and the jobs and
     checkpoints a substring term (`job:`, `model:`) actually matched.
@@ -129,8 +130,12 @@ def matching_preview(
     does, which moves what it takes there; the CLI's `--where` reaches the
     bin too, and `binned` is how many of `records` are in it. `favorites` is
     the live stars: a binned star keeps nothing.
+
+    `free_words` reads the scope as the page's Delete unstarred does
+    (`search.unstarred_scope`: positive free words prefix-matched as the
+    gallery matches them); without it, as `clear --where`, strictly.
     """
-    filters, params = strict_scope(search)
+    filters, params = (unstarred_scope if free_words else strict_scope)(search)
     if model_id:
         filters.append("model_id = ?")
         params.append(model_id)
@@ -211,6 +216,7 @@ def delete_matching(
     model_id: str | None = None,
     to_bin: bool = False,
     in_flight: InFlight | None = None,
+    free_words: bool = False,
 ) -> dict[str, Any]:
     """Delete the rows a strict scope selects, and their files - nothing else.
 
@@ -233,9 +239,10 @@ def delete_matching(
     - and touches no file, so `files` is 0. Without it the delete is
     permanent and reaches binned rows too, as `clear --where` does, and then
     sweeps the inpaint masks nothing names any more (`sweep_masks`, with
-    `in_flight`), which the bin never does.
+    `in_flight`), which the bin never does. `free_words` is
+    `matching_preview`'s: the page's scope, as it counted it.
     """
-    filters, params = strict_scope(search)
+    filters, params = (unstarred_scope if free_words else strict_scope)(search)
     if keep_favorites:
         filters.append(_UNKEPT)
     if model_id:

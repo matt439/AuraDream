@@ -912,7 +912,9 @@ not have "blonde", and `seed:>10 -seed:12` every seed above 10 but 12. A lone
 `-`, a word starting `--` (`--ar`) and a quoted `"-x"` are still prompt text.
 Delete unstarred and `clear --where` take `-key:value` but refuse `-word`,
 which goes through the fuzzy prompt index; on the command line write
-`--where=-seed:42` when the exclusion comes first.
+`--where=-seed:42` when the exclusion comes first. Delete unstarred also
+takes plain words, matched as the gallery matches them (`fox` takes
+foxglove too); `clear --where` does not.
 
 MP comparisons use the exact, unrounded stored pixel area. For example,
 `size:>1mp` includes 1024x1024 (1.048576 MP), while `size:>=1mp` excludes
@@ -1612,8 +1614,11 @@ link from an image. There is no automatic purge.
 **Delete unstarred** moves unstarred images matching the current gallery
 scope to the recycle bin after showing a preview and asking for the count.
 It preserves starred images and their sources/references, and leaves images
-already in the bin alone. Use an empty search or `key:value` terms; free
-text is refused for deletion. With All models off, deletion stays within
+already in the bin alone. Use an empty search, words or `key:value`
+terms. A word matches as the gallery's search does, so `fox` also takes
+foxglove and foxes: read the sample prompts in the dialog. An excluded
+word (`-blonde`) and a word with a stray double quote are refused for
+deletion. With All models off, deletion stays within
 the current checkpoint. From the terminal:
 
 ```powershell
