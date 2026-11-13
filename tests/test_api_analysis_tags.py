@@ -53,6 +53,31 @@ def test_a_tag_checkpoint_orders_by_the_categories_the_chips_see(client, fake, m
     assert TAG_PROMPT[order["start"]:order["end"]] == "green hair"
 
 
+def test_a_danbooru_alias_reaches_the_chips_and_check_with_the_tag_it_is_filed_under(client, fake, monkeypatch):
+    """PA#17: `twin_tails` is an empty tag Danbooru files as `twintails`."""
+    claim(monkeypatch, fake, ANIMAGINE)
+    rows = {
+        "twin_tails": {"name": "twin_tails", "post_count": 0, "category": 0, "created_at": "2010-01-01T00:00:00Z"},
+        "twintails": {"name": "twintails", "post_count": 1_300_000, "category": 0, "created_at": "2010-01-01T00:00:00Z"},
+    }
+
+    def fetch(path, params):
+        if path == "/tag_aliases.json":
+            names = params["search[antecedent_name_comma]"].split(",")
+            return [{"antecedent_name": "twin_tails", "consequent_name": "twintails"}] if "twin_tails" in names else []
+        return [rows[name] for name in params["search[name_normalize]"].split(",") if name in rows]
+
+    monkeypatch.setattr(tag_lookup, "tag_vocabulary", tags.DanbooruTagVocabulary(fetch))
+    body = client.post("/api/tags/validate", json={"tags": ["twin tails"]}).json()
+    assert body["available"] is True
+    (item,) = body["results"]
+    assert (item["valid"], item["code"], item["canonical"], item["category"]) == (False, "alias", "twintails", "general")
+    assert item["reason"] == "a Danbooru alias of twintails, the tag its posts carry"
+    # Check places it by the consequent's category, not "no usable category".
+    categories, detail, asked = tag_lookup.tag_categories(ANIMAGINE, "1girl, twin tails")
+    assert categories is not None and categories.get("twin tails") == "general" and detail is None
+
+
 def test_an_unreachable_tag_index_costs_the_order_check_not_the_answer(client, fake, monkeypatch):
     claim(monkeypatch, fake, ANIMAGINE)
     vocabulary = Vocabulary(offline=True)

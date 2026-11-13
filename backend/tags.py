@@ -10,6 +10,7 @@ never "invalid" - generation remains local and the editor remains authoritative.
 from __future__ import annotations
 
 import json
+import logging
 import re
 import threading
 from collections.abc import Callable, Iterable
@@ -21,6 +22,7 @@ from urllib.request import Request, urlopen
 # Safebooru's Cloudflare answers every non-browser client with a 403 challenge
 # page (checked 2026-10-30); the main host still serves the tag API.
 _API_BASE = "https://danbooru.donmai.us"
+log = logging.getLogger(__name__)
 _CATEGORIES = {0: "general", 1: "artist", 3: "copyright", 4: "character", 5: "meta"}
 _YEAR_TAG = re.compile(r"year \d{4}", re.IGNORECASE)
 
@@ -81,6 +83,28 @@ def wiki_definition(body: str) -> str | None:
 
 class TagLookupUnavailable(RuntimeError):
     """The external vocabulary could not be reached or returned bad data."""
+
+
+# The verdicts an alias can answer: a name with no row, or an empty one.
+_ALIASABLE = frozenset({"not_found", "empty"})
+
+
+def _needs_alias(row: dict | None) -> bool:
+    return row is None or (not row.get("is_deprecated") and int(row.get("post_count", 0)) <= 0)
+
+
+def alias_verdict(tag: str, canonical: dict) -> dict:
+    """`tag`'s verdict as an alias of the valid tag `canonical` describes.
+
+    Danbooru's own redirect: posts tagged with the name are tagged with the
+    consequent, so that is the tag a checkpoint trained on its captions
+    knows. Its category places the item in Check; not valid, so the chip,
+    Swap tags and Refine say so, naming it (`code` "alias")."""
+    return {
+        **canonical, "tag": tag, "valid": False, "source": "danbooru",
+        "reason": f"a Danbooru alias of {canonical['canonical']}, the tag its posts carry",
+        "code": "alias",
+    }
 
 
 def normalize_tag(tag: str) -> str:
@@ -229,6 +253,8 @@ class DanbooruTagVocabulary:
         self._suggestions: dict[tuple[str, str | None], list[dict]] = {}
         self._descriptions: dict[tuple[str, str | None], list[dict]] = {}
         self._records: dict[str, dict | None] = {}
+        # Antecedent -> active consequent, or None where the table has none.
+        self._aliases: dict[str, str | None] = {}
 
     def suggest(self, query: str, cutoff: str | None, limit: int = SUGGESTION_LIMIT) -> list[dict]:
         normalized = normalize_tag(query).replace("*", "").replace("?", "")
@@ -347,15 +373,8 @@ class DanbooruTagVocabulary:
         }
         with self._lock:
             missing = [name for name in normalized if name not in self._records]
-        for chunk in self._chunks(missing):
-            rows = self._fetch_json(
-                "/tags.json",
-                {"search[name_normalize]": ",".join(chunk), "limit": "100"},
-            )
-            found = {str(row.get("name", "")): row for row in rows if row.get("name")}
-            with self._lock:
-                for name in chunk:
-                    self._put(self._records, name, found.get(name), 10_000)
+        self._fetch_records(missing)
+        self._resolve_aliases(normalized)
 
         results = []
         for tag in tags:
@@ -373,10 +392,64 @@ class DanbooruTagVocabulary:
                     }
                 )
                 continue
+            name = normalize_tag(tag)
             with self._lock:
-                row = self._records.get(normalize_tag(tag))
-            results.append(self._validation(tag, row, cutoff))
+                row = self._records.get(name)
+                consequent = self._aliases.get(name)
+                target = self._records.get(consequent) if consequent else None
+            verdict = self._validation(tag, row, cutoff)
+            if verdict["code"] in _ALIASABLE and consequent and target is not None:
+                canonical = self._validation(display_tag(consequent), target, cutoff)
+                if canonical["valid"]:
+                    verdict = alias_verdict(tag, canonical)
+            results.append(verdict)
         return results
+
+    def _fetch_records(self, names: list[str]) -> None:
+        """Each name's `/tags.json` row, or None, into the record cache."""
+        for chunk in self._chunks(names):
+            rows = self._fetch_json(
+                "/tags.json",
+                {"search[name_normalize]": ",".join(chunk), "limit": "100"},
+            )
+            found = {str(row.get("name", "")): row for row in rows if row.get("name")}
+            with self._lock:
+                for name in chunk:
+                    self._put(self._records, name, found.get(name), 10_000)
+
+    def _resolve_aliases(self, names: Iterable[str]) -> None:
+        """Danbooru keeps an alias's antecedent as an empty tag (`twin_tails`,
+        0 posts) or none at all: ask the active alias table about those once,
+        then the consequents' own rows (PA#17). Advisory: a failed lookup
+        caches nothing and leaves the verdict `empty` or `not_found`."""
+        with self._lock:
+            unresolved = [
+                name for name in names
+                if name not in self._aliases and _needs_alias(self._records.get(name))
+            ]
+        if not unresolved:
+            return
+        aliases: dict[str, str] = {}
+        try:
+            for chunk in self._chunks(unresolved):
+                for row in self._fetch_json("/tag_aliases.json", {
+                    "search[antecedent_name_comma]": ",".join(chunk),
+                    "search[status]": "active",
+                    "limit": "100",
+                    "only": "antecedent_name,consequent_name",
+                }):
+                    antecedent, consequent = row.get("antecedent_name"), row.get("consequent_name")
+                    if isinstance(antecedent, str) and isinstance(consequent, str) and consequent:
+                        aliases[antecedent] = consequent
+            with self._lock:
+                unknown = [name for name in set(aliases.values()) if name not in self._records]
+            self._fetch_records(unknown)
+        except TagLookupUnavailable as exc:
+            log.info("tag aliases unchecked: %s", exc)
+            return
+        with self._lock:
+            for name in unresolved:
+                self._put(self._aliases, name, aliases.get(name), 10_000)
 
     @staticmethod
     def _eligible(row: dict, cutoff: str | None) -> bool:

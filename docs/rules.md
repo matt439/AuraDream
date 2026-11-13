@@ -289,7 +289,9 @@ paragraphs, never rewording.
   asked with `field=negative`, the negative box's, where `avoid` is empty and
   nothing else changes; no `field` is today's answer), Find
   tag's wiki search (`describe`, `wiki_definition`) and exact
-  validation with a reason `code` for tag-caption checkpoints; remote failure
+  validation with a reason `code` for tag-caption checkpoints (a missing or
+  empty name Danbooru aliases is `alias`, `alias_verdict`: still red, naming
+  the consequent and carrying its category for Check); remote failure
   means unchecked, never invalid - except an item longer than any tag
   (`TAG_NAME_MAX`, 200), answered unknown without the index, reachable or
   not
@@ -9977,7 +9979,8 @@ a qualified suggestion written with bare parentheses (an escaped copy typed
 by hand valid with no "canonical:" note, an underscored one noted and
 marked repeated),
 category edges, repeats and the focus ring on one, the shared tip and the
-after-cutoff mark, + tag, gap hover (waited for, as a late tray render
+after-cutoff mark, a Danbooru alias (the fake's `twin tails`: red, its label
+and tip naming `twintails`, placed in that tag's step, `PA#17`), + tag, gap hover (waited for, as a late tray render
 redraws it) and click (none on the label or hint),
 the Tags helper under the prompt and whole, its order line (the server's
 steps, the cite as title), the caret line naming the steps that fit from

@@ -502,6 +502,26 @@ that pins the free-text refusal.
   and the Linux samples beside them. Its 26 tests, smoke-model-hover,
   smoke-model-switch, smoke-model-startup, smoke-ernie and smoke-animagine
   pass.
+- **`PA#17`** (done 2026-11-13). `DanbooruTagVocabulary.validate` asks the
+  active alias table (`/tag_aliases.json`,
+  `search[antecedent_name_comma]`, checked live the same day: `twin_tails`
+  and `blond_hair` answer `twintails` and `blonde_hair`) about names with no
+  row or an empty one, chunked as the tag query is, then the consequents'
+  rows; both cached. `tags.alias_verdict` gives code `alias`: still not
+  valid, the consequent as `canonical` with its category and post count,
+  and a reason naming it, which the chip's label ("alias of twintails"),
+  its tip, Swap tags' and Refine's titles show. Check places it by that
+  category. A consequent that is no usable tag at the cutoff keeps the
+  name's own verdict, and no chain is followed. A failed alias lookup
+  caches nothing, leaving `empty` or `not_found`. `TagValidationItem.code`
+  takes `alias`: the first smoke run found the response refused without
+  it, which an API test now holds. The fake answers `twin tails` the same
+  way through `alias_verdict`. Tests: `tests/test_tags.py` (alias, empty
+  consequent, too-new consequent, failed lookup then retried, cache
+  counts) and `tests/test_api_analysis_tags.py` (the route and Check's
+  category); smoke-tags (the chip, its tip and its order step),
+  smoke-analysis-tags, smoke-tag-finder, smoke-swap and smoke-refine-sdxl
+  pass.
 
 ## Not added
 

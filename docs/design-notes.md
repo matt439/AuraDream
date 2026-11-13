@@ -10306,6 +10306,17 @@ empty or too new, with the reason as a `code` beside the sentence
 (`not_found`, `deprecated`, `empty`, `no_date`, `after_cutoff`): a tag too
 new for the checkpoint shows ⏲ where a typo shows ?, red either way, since
 the fixes differ, and matching the sentence would break with its wording.
+A name Danbooru aliases (`twin tails`, filed as `twintails`) is `alias`
+(`PA#17`, 2026-11-13): Danbooru keeps the antecedent as an empty tag, or
+none, so it read "Danbooru tag has no posts" and Check left it unplaced. A
+missing or empty name is asked of the active `/tag_aliases.json` once, then
+the consequent's own row, both cached; a consequent that is itself no usable
+tag at the cutoff is not offered, and no chain is followed. The verdict
+stays red (a checkpoint trained on Danbooru's captions saw the consequent),
+names the consequent in its reason and the chip's label, and carries its
+category and post count, so Check places it. This is Danbooru's own
+redirect, not the "did you mean" the 2026-10-04 review declined (U113). A
+failed alias lookup caches nothing and leaves the verdict as it was.
 An unavailable API makes ordinary tags unchecked, not invalid, and never
 blocks generation: presence in the index is useful
 evidence, not proof that a particular caption reached training. The one

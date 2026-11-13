@@ -459,7 +459,7 @@ def main() -> int:
     # Deterministic stand-in for Danbooru's live tag API. Browser smoke tests
     # exercise autocomplete, caret replacement and per-item validation without
     # making the test suite depend on the network or the current tag database.
-    from backend.tags import display_tag, is_model_tag, normalize_tag
+    from backend.tags import alias_verdict, display_tag, is_model_tag, normalize_tag
 
     class FakeTagVocabulary:
         records = {
@@ -472,7 +472,11 @@ def main() -> int:
             # Artists, for Anima's "put @ before an artist name".
             "kantoku": ("artist", 9_000),
             "wlop": ("artist", 31_000),
+            "twintails": ("general", 1_300_000),
         }
+        # Danbooru's alias table: the antecedent answers as its consequent
+        # (PA#17), as `DanbooruTagVocabulary` resolves it.
+        aliases = {"twin_tails": "twintails"}
 
         def suggest(self, query, cutoff, limit=20):
             wanted = normalize_tag(query)
@@ -546,6 +550,14 @@ def main() -> int:
                             "post_count": count,
                         }
                     )
+                elif name in self.aliases:
+                    consequent = self.aliases[name]
+                    category, count = self.records[consequent]
+                    results.append(alias_verdict(tag, {
+                        "tag": display_tag(consequent), "valid": True, "canonical": display_tag(consequent),
+                        "source": "danbooru", "category": category, "post_count": count,
+                        "reason": None, "code": None,
+                    }))
                 else:
                     results.append(
                         {

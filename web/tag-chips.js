@@ -211,7 +211,9 @@ function renderTagValidation(results, state = 'checked', detail = '') {
       // A tag the checkpoint's cutoff came before is marked apart from one
       // the index never had: the fixes differ. Red either way.
       mark.textContent = result.code === 'after_cutoff' ? '⏲' : '?';
-      status = result.code === 'after_cutoff' ? 'unknown, too new for this checkpoint' : 'unknown';
+      // An alias names the tag Danbooru files it under (PA#17): the fix.
+      status = result.code === 'after_cutoff' ? 'unknown, too new for this checkpoint'
+        : result.code === 'alias' ? `alias of ${result.canonical}` : 'unknown';
       tip.push(`${result.reason || 'not found in Danbooru'}; generation is still allowed.`, 'Double-click to fix it.');
     } else {
       chip.classList.add('unchecked');
