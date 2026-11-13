@@ -550,6 +550,13 @@ that pins the free-text refusal.
   Notify unticks with its reason. The service-worker test holds the handler.
   smoke-jobs and the service-worker tests pass. Delivery on a real Android
   phone and an iPhone joins `UI#40`.
+- **`DEV#65`** (done 2026-11-13). smoke-compact-setup's FLUX.2 klein switch
+  step now counts the `/api/loras` answers through its own `api` wrapper and
+  waits for one (and `lorasLoaded`) before the chips are set and focused; the
+  step's `why` names the race. Proved with scratch copies whose
+  `/api/loras` is held until a reference chip has focus (4 s at most): the
+  old smoke fails at the reorder's expect, the new one passes. The smoke
+  passes as committed.
 
 ## Not added
 

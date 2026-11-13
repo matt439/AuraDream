@@ -864,7 +864,8 @@
     "log": "'Reference activation/reordering keeps its disclosure and focus useful. A capability switch retains the ids and says they are unavailable, then makes them usable again on Klein.'"
   },
   {
-    "eval": "(async()=>{els.lora.value='';els.lora.dispatchEvent(new Event('change',{bubbles:true}));await __switch('black-forest-labs/FLUX.2-klein-4B');})()"
+    "eval": "(async()=>{els.lora.value='';els.lora.dispatchEvent(new Event('change',{bubbles:true}));const tracked=api;let answered=0;api=(route,options)=>{const reply=tracked(route,options);if(route==='/api/loras')reply.then(()=>{answered++;},()=>{answered++;});return reply;};try{await __switch('black-forest-labs/FLUX.2-klein-4B');if(!await __until(()=>answered>0&&lorasLoaded))throw new Error('No loras answer after the klein switch');}finally{api=tracked;}await __frames();})()",
+    "why": "DEV#65: the switch's loras refresh re-renders the reference chips (syncConditioning); its answer must land before a chip is focused and moved, or the focused x is gone"
   },
   {
     "expect": "referenceSupported"
