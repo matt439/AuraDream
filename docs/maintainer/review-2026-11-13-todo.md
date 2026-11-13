@@ -486,6 +486,22 @@ that pins the free-text refusal.
   tests (preview and run, both cases, the limit itself accepted) fail
   without the change. The full suite (9,745), ruff, the type gate,
   smoke-grid and smoke-random-prompts pass.
+- **`GEN#70`** (done 2026-11-13). `model_benchmarks._SAMPLES` takes the
+  2026-10-25 table's identical repeats at fp8, model offload, Windows, the
+  profile's steps and CFG: Animagine 7.60 s, Illustrious 7.61 s and Z-Image
+  Turbo 10.17 s (Fast) replace their 2026-10-05 busy first runs, and klein
+  base 4B (57.95 s, Slow) and ERNIE-Image Turbo's FP8 (13.14 s, Fast) get
+  their first Windows samples. Each note names the process's first render
+  and that other apps were running. The busy first runs were removed rather
+  than kept as fallbacks: at the same setup a fallback is never chosen.
+  Schnell keeps its busy first run, the 4-bit Linux samples stay, and int8,
+  bf16 and sequential offload stay references (K4, K5). Decided: klein 4B's
+  4.70 s and Kohaku's 7.85 s do not replace their 10.2 s and 9.68 s, which
+  were already warm repeats with the same category. `test_model_benchmarks.py`
+  holds the five (label, timing, steps, setup, the other modes unmatched)
+  and the Linux samples beside them. Its 26 tests, smoke-model-hover,
+  smoke-model-switch, smoke-model-startup, smoke-ernie and smoke-animagine
+  pass.
 
 ## Not added
 

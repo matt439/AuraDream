@@ -863,7 +863,16 @@ Illustrious, SDXL twins at 0.22 s a step, read Medium and Fast from them,
 and schnell's 27.3 s, 19.5 s of it the first step, read barely faster than
 Krea dev's warm 42 s. Their notes give the recorded per-step figures and no
 longer call them upper bounds (Illustrious took 15 s at the same settings
-on 2026-09-17).
+on 2026-09-17). The 2026-10-25 quantization and offload table's identical
+repeats (fp8, model offload, Windows, other apps running) replaced the busy
+first runs of Animagine (7.60 s), Illustrious (7.61 s) and Z-Image Turbo
+(10.17 s), and gave FLUX.2 klein base 4B (57.95 s, Slow) and ERNIE-Image
+Turbo's FP8 (13.14 s) their first Windows samples, each note naming the
+process's first render too (`GEN#70`, 2026-11-13). Only schnell keeps a busy
+first run. The table's repeats for checkpoints that already had a warm
+sample (klein 4B 4.70 s against 10.2 s, Kohaku 7.85 s against 9.68 s, the
+other SDXL and Anima rows) were left as they were: the category is the same
+either way, and those samples were already warm repeats.
 Missing timings say Unmeasured and show default steps, never an extrapolated
 speed from those steps. The tooltip preserves settings, date and warm/cold
 caveats, without file paths. These are single prior runs, not a controlled

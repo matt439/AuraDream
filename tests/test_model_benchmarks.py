@@ -24,8 +24,7 @@ def test_timing_comparisons_use_the_checkpoints_normal_steps():
 
 
 @pytest.mark.parametrize("model_id", [
-    "krea/Krea-2-Raw", "black-forest-labs/FLUX.2-klein-9B",
-    "black-forest-labs/FLUX.2-klein-base-4B", "black-forest-labs/FLUX.2-klein-base-9B",
+    "krea/Krea-2-Raw", "black-forest-labs/FLUX.2-klein-9B", "black-forest-labs/FLUX.2-klein-base-9B",
 ])
 def test_unmeasured_variants_do_not_inherit_a_family_timing(model_id):
     detail = model_info.details_for(model_id)
@@ -58,19 +57,14 @@ def test_anima_releases_keep_their_own_measurements():
 
 
 def test_first_run_busy_samples_get_no_speed_category():
-    # Animagine and Illustrious are SDXL twins at 0.22 s a step; their first
-    # images of a process read Medium and Fast, and schnell's 27.3 s (19.5 s
-    # of it the first step) read barely faster than Krea dev's warm 42 s.
-    for model_id in (
-        "cagliostrolab/animagine-xl-4.0", "OnomaAIResearch/Illustrious-XL-v2.0",
-        "black-forest-labs/FLUX.1-schnell", "Tongyi-MAI/Z-Image-Turbo",
-    ):
-        detail = model_info.details_for(model_id)
-        assert detail["speed_label"] == "Reference", model_id
-        assert detail["speed_basis"] == "First run, busy PC"
-        assert "not a warm timing" in detail["speed_note"]
-        assert "a step" in detail["speed_note"]
-    assert "19.5 s of it the first step" in model_info.details_for("black-forest-labs/FLUX.1-schnell")["speed_note"]
+    # Schnell's 27.3 s (19.5 s of it the first step) read barely faster than
+    # Krea dev's warm 42 s; Animagine's and Illustrious's first runs, SDXL
+    # twins at 0.22 s a step, read Medium and Fast before their warm repeats.
+    detail = model_info.details_for("black-forest-labs/FLUX.1-schnell")
+    assert detail["speed_label"] == "Reference"
+    assert detail["speed_basis"] == "First run, busy PC"
+    assert "not a warm timing" in detail["speed_note"]
+    assert "19.5 s of it the first step" in detail["speed_note"]
     assert all(
         sample.warm == (sample.basis != "First run, busy PC")
         for samples in model_benchmarks._SAMPLES.values() for sample in samples
@@ -82,17 +76,39 @@ def test_speed_tooltip_retains_noncomparable_size_and_cold_cpu_caveats():
     assert "1.38 MP" in wai["speed_summary"]
     assert "1024×1344" in wai["speed_note"]
     animagine = model_info.details_for("cagliostrolab/animagine-xl-4.0")
-    assert animagine["speed_label"] == "Reference"
-    assert animagine["speed_basis"] == "First run, busy PC"
-    assert "17.2 s" in animagine["speed_note"]
-    assert "2026-10-05" in animagine["speed_note"]
-    assert "First image of a process" in animagine["speed_note"]
-    assert "CPU about 75% busy" in animagine["speed_note"]
-    # Not an upper bound: Illustrious took 15 s at the same settings on
-    # 2026-09-17, more than its 11.1 s first run.
+    assert "other apps were running" in animagine["speed_note"]
+    assert "the process's first took 8.18 s" in animagine["speed_note"]
     assert "upper-bound" not in animagine["speed_note"]
     int8 = model_info.details_for("cagliostrolab/animagine-xl-4.0", "int8")
     assert (int8["speed_label"], int8["speed_basis"]) == ("Reference", "timed with FP8")
+
+
+@pytest.mark.parametrize(("model_id", "label", "timing", "steps"), [
+    # GEN#70: the warm fp8 repeats of 2026-10-25 (docs/verified.md's
+    # quantization and offload table), at each profile's own steps and CFG.
+    ("cagliostrolab/animagine-xl-4.0", "Fast", "7.60 s", "28 steps, CFG 5"),
+    ("OnomaAIResearch/Illustrious-XL-v2.0", "Fast", "7.61 s", "28 steps, CFG 5"),
+    ("Tongyi-MAI/Z-Image-Turbo", "Fast", "10.17 s", "8 steps;"),
+    ("black-forest-labs/FLUX.2-klein-base-4B", "Slow", "57.95 s", "50 steps, CFG 4"),
+    ("baidu/ERNIE-Image-Turbo", "Fast", "13.14 s", "8 steps, CFG 1"),
+])
+def test_the_warm_fp8_repeats_are_the_windows_samples(model_id, label, timing, steps):
+    detail = model_info.details_for(model_id)
+    assert (detail["speed_label"], detail["speed_basis"]) == (label, "Measured")
+    assert timing in detail["speed_note"] and steps in detail["speed_note"]
+    assert "FP8, Windows, model offload, 2026-10-25" in detail["speed_note"]
+    assert "other apps were running" in detail["speed_note"]
+    for quantization, offload in (("int8", "model"), ("none", "model"), ("fp8", "sequential")):
+        other = model_info.details_for(model_id, quantization, offload)
+        assert other["speed_label"] in {"Reference", "Unmeasured"} and "no matching timing" in other["speed_note"]
+
+
+def test_the_4_bit_linux_samples_stay_beside_the_windows_repeats(monkeypatch):
+    monkeypatch.setattr(model_benchmarks.sys, "platform", "linux")
+    ernie = next(entry for entry in CHECKPOINTS if entry.repo == "baidu/ERNIE-Image-Turbo")
+    assert "9.6–10.2 s" in model_info.details_for(ernie.lite_repo("nvfp4"))["speed_note"]
+    zimage = next(entry for entry in CHECKPOINTS if entry.repo == "Tongyi-MAI/Z-Image-Turbo")
+    assert "8 s and 10.6 s" in model_info.details_for(zimage.lite_repo("nvfp4"))["speed_note"]
 
 
 @pytest.mark.parametrize(("quantization", "offload", "label", "basis"), [
