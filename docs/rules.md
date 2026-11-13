@@ -1029,7 +1029,12 @@ paragraphs, never rewording.
   again held while it asks carries its reason as a title. A change to
   `offline.html` raises the cache's version in `sw.js`, and
   `tests/test_service_worker.py` (`OFFLINE_RELEASES`) records the page's
-  hash under it, so a change without one fails.
+  hash under it, so a change without one fails. Notify when done
+  (`job-progress.js`) shows its notification through the worker's
+  registration (`showNotification`) where one controls the page, the
+  `Notification` constructor only as the fallback (Chrome on Android grants
+  the permission and throws on the constructor, `UI#55`), and `sw.js`'s
+  `notificationclick` focuses an open AuraDream tab or opens `/`.
   The stylesheet is
   `style.css` (tokens and base layout), followed by `styles/*.css` in the
   explicit link order: `model-picker.css` the Models picker (first, at its

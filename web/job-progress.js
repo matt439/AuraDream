@@ -544,14 +544,32 @@ function notifyJobDone(jobId, data, options = {}) {
   syncJobNotifications();
   if (!document.hidden || !notifyDoneEnabled || jobNotificationHold()) return;
   const [outcome, body] = jobNotificationWords(data, options);
-  try {
-    const notification = new window.Notification(`${PAGE_TITLE}: ${outcome}`, {
-      body, tag: `auradream-job-${jobId}`,
-    });
-    notification.onclick = () => { window.focus(); notification.close(); };
-  } catch {
+  const title = `${PAGE_TITLE}: ${outcome}`;
+  const shown = { body, tag: `auradream-job-${jobId}` };
+  const refused = () => {
     notifyDoneEnabled = false;
     remember(NOTIFY_DONE_KEY, 'false');
     syncJobNotifications('Notifications could not be shown in this browser');
+  };
+  const construct = () => {
+    try {
+      const notification = new window.Notification(title, shown);
+      notification.onclick = () => { window.focus(); notification.close(); };
+    } catch {
+      refused();
+    }
+  };
+  // Through the service worker where one controls the page (UI#55): Chrome on
+  // Android grants the permission but throws "Illegal constructor" on use, so
+  // the constructor is only the fallback. sw.js's notificationclick focuses
+  // or opens the page.
+  let worker = null;
+  try { worker = navigator.serviceWorker?.controller ? navigator.serviceWorker : null; } catch { /* no worker */ }
+  if (!worker) {
+    construct();
+    return;
   }
+  worker.ready
+    .then((registration) => registration.showNotification(title, shown))
+    .catch(construct);
 }

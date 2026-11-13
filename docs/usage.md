@@ -359,8 +359,11 @@ request browser notification permission. It notifies when this tab is hidden
 and its own watched job ends, with distinct messages for failure, cancellation
 and budget stops. Visible or replayed finishes do not alert again. The
 browser preference is separate from generation settings; blocked or
-unsupported notifications show a reason beside the checkbox. Desktop
-permission and delivery depend on your browser and operating system.
+unsupported notifications show a reason beside the checkbox. Where the page
+has its service worker (127.0.0.1, localhost or HTTPS) the notification goes
+through it, which Android's Chrome needs, and tapping it brings AuraDream
+forward. Desktop permission and delivery depend on your browser and
+operating system.
 
 The browser remembers prompts and controls; sampling settings are remembered
 per checkpoint. **Reset** restores defaults. Resume is never remembered as

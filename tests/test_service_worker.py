@@ -74,3 +74,14 @@ def test_the_offline_page_stands_alone():
     assert "fetch('/static/manifest.webmanifest'" in OFFLINE
     assert (WEB / "manifest.webmanifest").is_file()
     assert "location.replace('/')" in OFFLINE
+
+
+def test_notify_when_done_goes_through_the_worker_and_its_tap_opens_the_page():
+    # UI#55: Chrome on Android throws on the Notification constructor, so a
+    # controlled page asks the registration; the tap is the worker's.
+    progress = (WEB / "job-progress.js").read_text(encoding="utf-8")
+    assert "registration.showNotification(title, shown)" in progress
+    assert ".catch(construct)" in progress
+    assert "self.addEventListener('notificationclick'" in SW
+    assert "self.clients.openWindow('/')" in SW
+    assert "event.notification.close()" in SW

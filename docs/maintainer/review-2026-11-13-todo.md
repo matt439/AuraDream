@@ -536,6 +536,20 @@ that pins the free-text refusal.
   failed ask (no change), and smoke-passcode audits Sign in held on a
   wrong passcode. Both smokes and the audit's file checks pass. Hands-on
   screen-reader checks stay `UI#7`.
+- **`UI#55`** (done 2026-11-13). `notifyJobDone` shows its notification
+  through `(await navigator.serviceWorker.ready).showNotification` when a
+  worker controls the page; a refused registration falls back to the
+  constructor, and only both refused untick Notify. With no controller (plain
+  http to a LAN address) the constructor runs as before. `sw.js`'s
+  `notificationclick` closes it and focuses an open AuraDream tab, or opens
+  `/`. Not pinned: `offline.html` is unchanged, so the cache keeps its name.
+  smoke-jobs stubs `navigator.serviceWorker` (no controller for the steps
+  before) and adds three steps: the constructor throws while the
+  registration records the job's title, body and tag, Notify stays ticked;
+  the registration refuses and the constructor takes it; both refuse and
+  Notify unticks with its reason. The service-worker test holds the handler.
+  smoke-jobs and the service-worker tests pass. Delivery on a real Android
+  phone and an iPhone joins `UI#40`.
 
 ## Not added
 
