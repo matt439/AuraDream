@@ -277,7 +277,8 @@ outdated, he needs the space, or its licence has expired. So the guarded
 delete (`GEN#72`) takes a whole checkpoint, not only stale revisions or
 unreferenced bytes; its design must say what happens to files another
 entry shares, to its converted copies, to the loaded or selected
-checkpoint, and to a job or load in flight.
+checkpoint, and to a job or load in flight. The plan:
+[plan-model-delete.md](plan-model-delete.md) (2026-11-14).
 
 `GEN#55`. Models shows each entry's reference download size and a cache
 word, not bytes on disk. Absent: measured bytes per entry, the cache total,
