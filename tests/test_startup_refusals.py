@@ -150,3 +150,63 @@ def test_the_launcher_keeps_errors_visible_and_preserves_exit_and_arguments(tmp_
     assert "inert uv finished" in result.stdout
     assert ("Press any key to close this window." in result.stdout) == pauses
     assert ("Read the message above." in result.stdout) == pauses
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows PowerShell launcher")
+@pytest.mark.parametrize("code", [0, 7])
+@pytest.mark.parametrize("tool_location", ["path", "user", "winget", "missing"])
+def test_the_powershell_launcher_finds_uv_as_its_cmd_does(tmp_path, code, tool_location):
+    # DEV#67: auradream.ps1, which PowerShell picks over the .cmd, ran a bare
+    # `uv` and exited 0 when there was none.
+    project = tmp_path / "AuraDream with spaces"
+    (project / "bin").mkdir(parents=True)
+    launcher = project / "bin" / "auradream.ps1"
+    launcher.write_bytes((ROOT / "bin" / "auradream.ps1").read_bytes())
+    stubs = tmp_path / "stubs"
+    stubs.mkdir()
+    user_home = tmp_path / "user home"
+    local_data = user_home / "Local"
+    tool_dir = {"path": stubs, "user": user_home / ".local" / "bin",
+                "winget": local_data / "Microsoft" / "WinGet" / "Links", "missing": None}[tool_location]
+    if tool_dir is not None:
+        tool_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(sys._base_executable, tool_dir / "uv.exe")
+    (project / "run").write_text(
+        "import json, os, sys\n"
+        "from pathlib import Path\n"
+        "Path(os.environ['STUB_LOG']).write_text(json.dumps([os.getcwd(), sys.argv[1:]]))\n"
+        "print('inert uv finished', flush=True)\n"
+        "sys.exit(int(os.environ['STUB_EXIT']))\n",
+        encoding="utf-8",
+    )
+    calls = tmp_path / "calls.json"
+    system_root = os.environ.get("SystemRoot", r"C:\Windows")
+    powershell = Path(system_root) / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
+    environment = {
+        key: value for key, value in os.environ.items()
+        if not key.upper().startswith(("PYTHON", "AURADREAM_", "HF_", "UV_"))
+        and key.upper() != "PATH"
+    }
+    environment.update({
+        "PATH": os.pathsep.join([str(stubs), sys.base_prefix, str(Path(system_root) / "System32")]),
+        "PYTHONHOME": sys.base_prefix,
+        "USERPROFILE": str(user_home), "LOCALAPPDATA": str(local_data),
+        "STUB_LOG": str(calls), "STUB_EXIT": str(code),
+    })
+    result = subprocess.run(
+        [str(powershell), "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+         "-File", str(launcher), "--model", "stub/model", "--open"],
+        cwd=tmp_path, env=environment, stdin=subprocess.DEVNULL, capture_output=True, text=True,
+        timeout=60,
+    )
+    if tool_location == "missing":
+        assert result.returncode == 1, result.stdout + result.stderr
+        assert "uv was not found. Run install.cmd" in result.stdout
+        assert "CommandNotFoundException" not in result.stdout + result.stderr
+        assert not calls.exists()
+        return
+    assert result.returncode == code, result.stdout + result.stderr
+    directory, arguments = json.loads(calls.read_text())
+    assert Path(directory) == project
+    assert arguments == ["python", "-m", "backend.main", "--model", "stub/model", "--open"]
+    assert "inert uv finished" in result.stdout

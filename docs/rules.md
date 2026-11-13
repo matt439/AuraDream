@@ -1161,6 +1161,9 @@ paragraphs, never rewording.
   arguments passed through. Each is a `.ps1` (PowerShell picks it, so
   Ctrl-C stops the server without cmd.exe's "Terminate batch job (Y/N)?")
   beside a `.cmd` for cmd.exe, which always asks; keep each pair in step.
+  `auradream`'s pair both find uv on PATH, then `~\.local\bin`, then
+  WinGet's Links, and exit 1 with "uv was not found" without it
+  (`DEV#67`; `tests/test_startup_refusals.py` runs both).
   `auradream-server` (`.ps1`, with a `.cmd` that runs it) updates and
   controls a Linux server over `ssh`: `status`, `start`, `stop`/`restart`
   (`-Force`), `update` (`linux/update.sh --restart`; `-DryRun`:

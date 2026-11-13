@@ -570,6 +570,16 @@ that pins the free-text refusal.
   the old `update.sh`. The Linux script, control and passcode tests (251)
   pass under WSL. Whether the real server's unit lacks the line is still
   unchecked: the next update says so.
+- **`DEV#67`** (done 2026-11-13). `bin/auradream.ps1` finds uv as its
+  `.cmd` does (PATH, `~\.local\bin`, WinGet's Links), says "uv was not
+  found. Run install.cmd from the AuraDream folder, then try again." and
+  exits 1 without it, and exits 1 when the run left no exit code.
+  `tests/test_startup_refusals.py` runs the real launcher under Windows
+  PowerShell with an inert uv in each place and none: arguments, folder and
+  exit code pass through, and the missing case says so with no
+  CommandNotFoundException. Six of its eight cases fail on the old
+  launcher. Not done: `update.ps1`'s own uv lookup (the optional part),
+  since its sandbox does not move `USERPROFILE` and would find a real uv.
 
 ## Not added
 
