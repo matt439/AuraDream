@@ -125,8 +125,9 @@ def _plant_model_cache(data: Path) -> None:
     """Point the On disk inventory (`GET /api/models/storage`) at a scratch
     Hub cache and conversion home under the fake's data, never this
     machine's own: a few bytes of one catalogue checkpoint's selected files,
-    another's at an unrecorded commit, a repository no entry names and a
-    partial download. Same answers on
+    another's at an unrecorded commit, Krea 2 Turbo's two Nunchaku lite
+    rows (one under its renamed repository), a repository no entry names
+    and a partial download. Same answers on
     every machine; the real scan reads them."""
     from backend import model_cache_storage, model_info
 
@@ -146,6 +147,22 @@ def _plant_model_cache(data: Path) -> None:
         f"models--someone--unlisted-model/snapshots/{'4' * 40}/weights.safetensors": 6000,
         "models--someone--unlisted-model/blobs/partial.incomplete": 2048,
     }
+    # Krea 2 Turbo's Nunchaku lite ids (GEN#72 stage 0): the nvfp4 one's
+    # tokenizer files at its recorded commit, as a Windows Check fetches
+    # them, and the int4 one under lite-infer's renamed repository, which no
+    # recipe names: both rows read under the entry, the alias never an other
+    # repository or unreferenced.
+    krea2 = model_info.catalogue_entry("krea/Krea-2-Turbo")
+    assert krea2 is not None
+    nvfp4, alias = krea2.lite_repo("nvfp4"), krea2.lite_alias("int4")
+    assert nvfp4 is not None and alias is not None
+    lite = references["sources"][references["models"][nvfp4]["sources"][0]["source"]]
+    lite_commit = lite.get("commit") or lite["revision"]
+    planted.update({
+        f"models--{nvfp4.replace('/', '--')}/snapshots/{lite_commit}/tokenizer/tokenizer_config.json": 664,
+        f"models--{nvfp4.replace('/', '--')}/snapshots/{lite_commit}/tokenizer/chat_template.jinja": 5292,
+        f"models--{alias.replace('/', '--')}/snapshots/{'6' * 40}/tokenizer/tokenizer_config.json": 1024,
+    })
     for name, size in planted.items():
         path = hub / name
         if path.exists():

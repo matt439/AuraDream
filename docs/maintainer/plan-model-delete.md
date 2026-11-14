@@ -1,9 +1,10 @@
 # Plan: delete a whole checkpoint from Models > On disk
 
-**Status: planned 2026-11-14 (`GEN#72`). Nothing built.** The row's owner
-was the [peer review's R9](review-2026-11-10-peers.md#r9-storage-view);
-this plan owns it from now on (the TODO row's pointer moves here with the
-first stage's commit). Every stage below is CPU and browser work on scratch
+**Status: planned 2026-11-14 (`GEN#72`). Stage 0 built 2026-11-14 (rows
+named by entry, the lite and alias repositories on the entry's row, the
+page's sub-lines); stages 1-4 not built.** The row's owner was the
+[peer review's R9](review-2026-11-10-peers.md#r9-storage-view); this plan
+owns it from now on (the TODO row points here). Every stage below is CPU and browser work on scratch
 caches; none needs the card. Matt's questions are at the end; he
 accepted every recommended answer on 2026-11-14.
 
@@ -459,6 +460,11 @@ Riskiest last. Each stage is one or more commits on one branch.
    id's row; the page groups lite rows.
    *Done when* storage tests cover a lite and an alias row and
    `smoke-model-storage` reads the lite row by its entry.
+   *Built 2026-11-14:* `model_cache_storage._lite_aliases`/`_row_names`;
+   `tests/test_model_cache_storage.py`'s lite-and-alias test; the fake
+   plants Krea 2 Turbo's NVFP4 tokenizer files and its INT4 id under the
+   renamed repository, and the smoke reads both lines under the entry's
+   row (shown with dashes when the entry itself holds nothing).
 1. **Planner, read-only.** `_snapshot` keeps an internal per-file index
    (first-hop paths, repository, revision, owners, converted targets)
    behind an unchanged answer; **(new)** `backend/model_cache_delete.py`

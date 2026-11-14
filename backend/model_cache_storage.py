@@ -28,6 +28,27 @@ def _catalogue_model_ids() -> list[str]:
     ))
 
 
+def _lite_aliases(catalogue: list[str]) -> dict[str, str]:
+    """lite-infer's renamed repository -> the lite id the app writes for it
+    (`launch.written_id`), for written ids in `catalogue`. An alias has no
+    recipe (`tools/model_downloads.py --check`), so its cached revisions are
+    the written id's other revisions, never a row of their own."""
+    return {
+        alias: written for entry in model_info.CHECKPOINTS if entry.lite for fmt, _ in model_info.FORMATS
+        if (written := entry.lite_repo(fmt)) in catalogue
+        and (alias := entry.lite_alias(fmt)) is not None and alias != written
+    }
+
+
+def _row_names(model: str) -> dict:
+    """The catalogue entry a storage row belongs to: its official id, its
+    name and, for a Nunchaku lite id, the 4-bit format (None otherwise)."""
+    entry = model_info.catalogue_entry(model)
+    if entry is None:
+        return {"entry": model, "label": None, "variant": None}
+    return {"entry": entry.repo, "label": entry.name, "variant": entry.lite_format(model)}
+
+
 def free_bytes(path: Path) -> int | None:
     """Free space on the containing drive, even before a cache exists."""
     try:
@@ -123,17 +144,24 @@ def _snapshot(cache_dir: Path | None = None) -> dict:
     # unknown, as Models' own cache column says (`model_info._hub_source_state`).
     other_blobs: dict[str, set[tuple]] = defaultdict(set)
     unreferenced_blobs: set[tuple] = set()
+    aliases = _lite_aliases(catalogue)
     repos = []
     for repo in sorted(info.repos if info else [], key=lambda item: (item.repo_type, item.repo_id)):
         revisions = []
         # Beside a recorded revision, another one is an old download: unreferenced.
         other_revision = repo.repo_type == "model" and repo.repo_id in recorded and not any(
             revision.commit_hash in recorded[repo.repo_id] for revision in repo.revisions)
+        # lite-infer's renamed repository: every revision is the written
+        # lite id's other revision (no recipe records the alias's files).
+        alias_of = aliases.get(repo.repo_id) if repo.repo_type == "model" else None
         for revision in sorted(repo.revisions, key=lambda item: item.commit_hash):
             revision_models: set[str] = set()
             revision_blobs: set[tuple] = set()
             revision_unreferenced: set[tuple] = set()
-            revision_other = sorted(repo_models[repo.repo_id]) if other_revision else []
+            if alias_of is not None:
+                revision_other = [alias_of]
+            else:
+                revision_other = sorted(repo_models[repo.repo_id]) if other_revision else []
             for file in revision.files:
                 try:
                     identity = _identity(file.blob_path)
@@ -183,7 +211,7 @@ def _snapshot(cache_dir: Path | None = None) -> dict:
         claimed_converted.update(files)
 
     models = [{
-        "model_id": model, "reference_complete": known[model],
+        "model_id": model, **_row_names(model), "reference_complete": known[model],
         "cached_bytes": sum(sizes[key] for key in model_blobs[model]) if known[model] and not other_blobs[model] else None,
         "revision_bytes": sum(sizes[key] for key in model_blobs[model]),
         "other_revision_bytes": sum(sizes[key] for key in other_blobs[model]),
@@ -205,5 +233,5 @@ def _snapshot(cache_dir: Path | None = None) -> dict:
         "store_only_bytes": max(0, (info.size_on_disk if info else 0) - sum(sizes.values())),
         "models": models, "repositories": repos,
         "warnings": sorted(set(warnings)),
-        "note": "Read-only point-in-time file-byte inventory, not disk allocation or a deletion plan. Model rows overlap where files are shared; do not add them. Unknown selected-file maps keep cached_bytes null, as does a catalogue repository cached only at commits no reference records: its bytes are other_revision_bytes, the checkpoint's, while an old revision beside a recorded one stays unreferenced. Unreferenced means absent from the catalogue's retained download references, not unused: helpers and other apps may need it. Each revision's unreferenced_bytes is local to that revision and can share blobs with another; the overall unreferenced_bytes excludes every blob a catalogue selection references. Corrupted repositories can be omitted; directory metadata, Xet chunks and files outside the Hub and conversion caches are not included.",
+        "note": "Read-only point-in-time file-byte inventory, not disk allocation or a deletion plan. Model rows overlap where files are shared; do not add them. Unknown selected-file maps keep cached_bytes null, as does a catalogue repository cached only at commits no reference records: its bytes are other_revision_bytes, the checkpoint's, while an old revision beside a recorded one stays unreferenced. A renamed lite-infer repository's bytes are the other_revision_bytes of the lite id the app writes; entry, label and variant name the catalogue entry a row belongs to. Unreferenced means absent from the catalogue's retained download references, not unused: helpers and other apps may need it. Each revision's unreferenced_bytes is local to that revision and can share blobs with another; the overall unreferenced_bytes excludes every blob a catalogue selection references. Corrupted repositories can be omitted; directory metadata, Xet chunks and files outside the Hub and conversion caches are not included.",
     }

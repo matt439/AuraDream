@@ -51,7 +51,8 @@ def test_measured_bytes_share_files_without_doubling_totals_and_keep_old_revisio
     before = {path: path.read_bytes() for root in (hub, converted) for path in root.rglob("*") if path.is_file()}
     result = cache.snapshot(hub)
     models = {item["model_id"]: item for item in result["models"]}
-    assert models["model/a"] == {"model_id": "model/a", "reference_complete": True, "cached_bytes": 11,
+    assert models["model/a"] == {"model_id": "model/a", "entry": "model/a", "label": None, "variant": None,
+                                  "reference_complete": True, "cached_bytes": 11,
                                   "revision_bytes": 11, "other_revision_bytes": 0, "shared_bytes": 11,
                                   "exclusive_bytes": 0, "converted_bytes": 17, "converted_directory": "a-ready"}
     assert models["model/b"]["cached_bytes"] == 18
@@ -101,6 +102,44 @@ def test_a_catalogue_repository_cached_only_at_an_unrecorded_commit_is_unknown_n
     assert revisions[CURRENT]["catalogue_models"] == []
     assert result["unreferenced_bytes"] == 13  # the critic alone
     assert "other_revision_bytes" in result["note"]
+
+
+def test_lite_rows_and_a_renamed_lite_repository_are_named_by_their_entry(inventory, monkeypatch):
+    """GEN#72 stage 0: a Nunchaku lite id's row names Krea 2 Turbo and its
+    format, and lite-infer's renamed repository (no recipe of its own) is
+    the written id's other revision: never its own row, never unreferenced."""
+    hub, _, references = inventory
+    entry = model_info.catalogue_entry("krea/Krea-2-Turbo")
+    assert entry is not None and entry.lite
+    nvfp4, int4, alias = entry.lite_repo("nvfp4"), entry.lite_repo("int4"), entry.lite_alias("int4")
+    assert nvfp4 and int4 and alias and alias != int4
+    lite_commit, alias_commit = "6" * 40, "7" * 40
+    for model in (nvfp4, int4):
+        references["models"][model] = {"kind": "pipeline", "sources": [
+            {"source": f"{model}@main", "files": ["tokenizer/tokenizer.json"]}]}
+        references["sources"][f"{model}@main"] = {"repo_id": model, "commit": lite_commit, "revision": "main"}
+    write(hub, f"models--{nvfp4.replace('/', '--')}/snapshots/{lite_commit}/tokenizer/tokenizer.json", b"t" * 19)
+    write(hub, f"models--{alias.replace('/', '--')}/snapshots/{alias_commit}/tokenizer/tokenizer.json", b"r" * 23)
+    # The alias at the int4 id's own recorded commit is still the alias's: its
+    # file list is not the one the reference retains.
+    write(hub, f"models--{alias.replace('/', '--')}/snapshots/{lite_commit}/model_index.json", b"m" * 2)
+    monkeypatch.setattr(cache, "_catalogue_model_ids", lambda: [*references["models"], entry.repo])
+    result = cache.snapshot(hub)
+    models = {item["model_id"]: item for item in result["models"]}
+    assert alias not in models
+    assert {key: models[nvfp4][key] for key in ("entry", "label", "variant", "cached_bytes", "other_revision_bytes")} == {
+        "entry": "krea/Krea-2-Turbo", "label": "Krea 2 Turbo", "variant": "nvfp4",
+        "cached_bytes": 19, "other_revision_bytes": 0}
+    assert {key: models[int4][key] for key in ("entry", "label", "variant", "cached_bytes", "revision_bytes", "other_revision_bytes")} == {
+        "entry": "krea/Krea-2-Turbo", "label": "Krea 2 Turbo", "variant": "int4",
+        "cached_bytes": None, "revision_bytes": 0, "other_revision_bytes": 25}
+    assert {key: models[entry.repo][key] for key in ("entry", "label", "variant")} == {
+        "entry": "krea/Krea-2-Turbo", "label": "Krea 2 Turbo", "variant": None}
+    assert result["unreferenced_bytes"] == 18  # unchanged: old image revision plus the critic
+    repos = {item["repo_id"]: item for item in result["repositories"]}
+    assert all(revision["other_revision_of"] == [int4] and revision["catalogue_models"] == []
+               and revision["unreferenced_bytes"] == 0 for revision in repos[alias]["revisions"])
+    assert result["warnings"] == []
 
 
 def test_missing_cache_is_zero_without_creating_it(inventory, tmp_path):

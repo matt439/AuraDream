@@ -43,12 +43,48 @@ function modelStorageFacts(body) {
   return list;
 }
 
-// Catalogue entries with files in the cache. A shared file counts under
-// every entry that uses it, so the column is never summed.
+function modelStorageHasBytes(row) {
+  return row.revision_bytes > 0 || row.other_revision_bytes > 0 || row.converted_bytes > 0;
+}
+
+// What a 4-bit lite id's row is called under its entry ("Krea 2 Turbo,
+// Nunchaku NVFP4 files"); the server names the entry (`entry`, `label`,
+// `variant`), never a bare lite-infer id.
+function modelStorageRowLabel(row) {
+  const name = row.label
+    || modelCatalogueEntries.find((entry) => entry.model_id === (row.entry ?? row.model_id))?.label
+    || row.entry || row.model_id;
+  return row.variant ? `${name}, Nunchaku ${row.variant.toUpperCase()} files` : name;
+}
+
+// Catalogue entries with files in the cache, each variant (a Nunchaku lite
+// id) a sub-line under its entry's row, which shows (dashes where it holds
+// nothing itself) whenever any of its lines has bytes. A shared file counts
+// under every entry that uses it, so the column is never summed.
+function modelStorageGroups(models) {
+  const groups = new Map();
+  for (const row of models) {
+    const key = row.entry ?? row.model_id;
+    if (!groups.has(key)) groups.set(key, { entry: null, variants: [] });
+    if (row.variant) groups.get(key).variants.push(row);
+    else groups.get(key).entry = row;
+  }
+  const rows = [];
+  for (const [key, group] of groups) {
+    const variants = group.variants.filter(modelStorageHasBytes);
+    if (!variants.length && !(group.entry && modelStorageHasBytes(group.entry))) continue;
+    const variant = variants[0] ?? {};
+    rows.push(group.entry ?? {
+      model_id: key, entry: key, label: variant.label ?? null, variant: null, cached_bytes: 0,
+      revision_bytes: 0, other_revision_bytes: 0, shared_bytes: 0, converted_bytes: 0,
+    });
+    rows.push(...variants);
+  }
+  return rows;
+}
+
 function modelStorageModels(body) {
-  const rows = (body.models ?? []).filter((row) => row.revision_bytes > 0 || row.other_revision_bytes > 0
-    || row.converted_bytes > 0);
-  const label = (id) => modelCatalogueEntries.find((entry) => entry.model_id === id)?.label || id;
+  const rows = modelStorageGroups(body.models ?? []);
   if (!rows.length) {
     return [modelStorageCell('p', 'No catalogue checkpoint has files in the cache.', 'model-storage-empty')];
   }
@@ -72,17 +108,23 @@ function modelStorageModels(body) {
   const rowsBody = document.createElement('tbody');
   for (const row of rows) {
     const line = document.createElement('tr');
-    const name = modelStorageCell('th', label(row.model_id));
+    if (row.variant) line.className = 'model-storage-variant';
+    const name = modelStorageCell('th', modelStorageRowLabel(row));
     name.scope = 'row';
     name.title = row.model_id;
     // Cached only at a commit the app has no file list for (GEN#71): its
     // bytes, but which of them a load would use is unknown, as Models says.
     const otherOnly = row.cached_bytes === null && !(row.revision_bytes > 0) && row.other_revision_bytes > 0;
     let cached;
-    if (row.cached_bytes !== null) cached = modelStorageCell('td', modelStorageBytes(row.cached_bytes));
-    else if (otherOnly) {
+    // An entry's row shown only as its variants' heading holds nothing itself.
+    if (row.cached_bytes !== null || !modelStorageHasBytes(row)) {
+      cached = modelStorageCell('td', modelStorageBytes(row.cached_bytes ?? 0));
+    } else if (otherOnly) {
       cached = modelStorageCell('td', `Unknown (${humanBytes(row.other_revision_bytes)})`);
-      cached.title = 'Downloaded at a different commit from the one this app records, so which of these files a load uses is unknown';
+      // A lite id's files can also be under lite-infer's renamed repository.
+      cached.title = row.variant
+        ? 'Downloaded at a different commit, or under lite-infer\'s new repository name, from the one this app records, so which of these files a load uses is unknown'
+        : 'Downloaded at a different commit from the one this app records, so which of these files a load uses is unknown';
     } else {
       cached = modelStorageCell('td', `${modelStorageBytes(row.revision_bytes)}+`);
       cached.title = row.other_revision_bytes > 0

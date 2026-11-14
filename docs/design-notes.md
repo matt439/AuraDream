@@ -15097,6 +15097,22 @@ unrecorded commit "Unknown (its bytes)", and the fold says that rows
 overlap and that "not referenced" is not "unused". It has no delete control;
 the guarded delete is designed only after Matt has seen this fold.
 
+Matt's look over his real cache (2026-11-14) found one row named by a bare
+id, Krea 2 Turbo's Nunchaku NVFP4 source: the page labelled rows from
+`/api/models`' list, which carries lite ids only for Nunchaku on Linux. So
+the server names every row (`entry`, `label`, `variant`) and the page shows
+a lite id as a sub-line of its entry, "Krea 2 Turbo, Nunchaku NVFP4 files"
+(`GEN#72` stage 0, [the delete's plan](maintainer/plan-model-delete.md#naming-the-nunchaku-row)).
+The same stage attributes lite-infer's renamed repository (`lite_alias`) to
+the lite id the app writes. Adding the alias to the catalogue ids alone
+would not do: it has no recipe, so it would land in no `recorded` repository,
+its files would count as unreferenced and it would show as an unknown row
+of its own. Every revision of it is instead the written id's other
+revision (`other_revision_bytes`): its file list is not the one the
+retained reference records, even at the same commit. The delete takes an
+entry as one group, so its lite and alias repositories have to be on its
+row first.
+
 Status takes a different path: required-file stats plus selected-source
 partial blobs, off-loop under the existing revision retry, sampled at most
 every two seconds. Partial blobs can belong to another download in that

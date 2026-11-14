@@ -932,7 +932,9 @@ paragraphs, never rewording.
   `model-favourites.js` the table's stars (the server's set, this page's
   unconfirmed presses and the one-time import offer);
   `model-storage.js` the picker's read-only On disk fold (the cache
-  inventory, read when the fold opens or on Refresh, never on a timer);
+  inventory, read when the fold opens or on Refresh, never on a timer;
+  rows by the server's `label`, a Nunchaku lite id a sub-line of its
+  entry's row, "Krea 2 Turbo, Nunchaku NVFP4 files");
   `bundles.js` owns the gallery bundle dialog (Back up and its scope
   included) and background-operation polling, and `automatic-backup.js`
   its automatic startup backup settings (protection, consent, retention
@@ -1219,7 +1221,14 @@ paragraphs, never rewording.
 - `/api/models/storage` scans only on explicit request, on a daemon thread,
   with one scan reservation lasting through its worker. Catalogue model
   byte rows can overlap, unknown selected-file maps stay unknown, and
-  unreferenced bytes never imply safe deletion. The page asks for it only
+  unreferenced bytes never imply safe deletion. Each model row names its
+  catalogue entry (`entry`, the official id from `launch.catalogue_entry`;
+  `label`, its name; `variant`, a Nunchaku lite id's `nvfp4`/`int4` from
+  `Checkpoint.lite_format`, else null). A cached `lite_alias` repository
+  (lite-infer's renamed one, which has no recipe) is the written lite id's
+  other revision, every revision of it: its bytes are that row's
+  `other_revision_bytes`, never a row of its own, never in
+  `unreferenced_bytes` (`_lite_aliases`; `GEN#72` stage 0). The page asks for it only
   from Models > On disk, on the fold's opening or Refresh; it holds no
   delete control. `/api/status` uses only
   `download_progress`'s targeted two-second samples under its revision retry
@@ -10247,12 +10256,16 @@ local cache tallies, never a network-speed or card measurement.
 `smoke-model-storage.json` uses its own fresh FLUX fake on shared port 7959,
 whose inventory reads the scratch Hub cache `tools/fake_server.py` plants
 under its data (a few bytes of Animagine XL 4.0's selected files, Kohaku
-XL Zeta at a commit no reference records, an unlisted repository, a partial
-download), never the machine's. It checks
+XL Zeta at a commit no reference records, Krea 2 Turbo's NVFP4 lite
+tokenizer files and its INT4 lite id under lite-infer's renamed repository,
+an unlisted repository, a partial download), never the machine's. It checks
 that Models > On disk is shut and empty with no read at the page's start or
 the picker's opening, reads once as it opens with nothing above it moving,
 names the catalogue row, Kohaku's row as "Unknown" with its bytes (never an
-other repository, `GEN#71`), the other repository, the partial download and the
+other repository, `GEN#71`), Krea 2 Turbo's row with its two Nunchaku lines
+under it by the entry's name, the renamed repository as the INT4 line's
+"Unknown (its bytes)" and never an other repository or unreferenced (`GEN#72`
+stage 0), the other repository, the partial download and the
 read-only/unreferenced words, holds no control but Refresh (no delete),
 reads nothing on a second opening or a picker reopening, reads again on
 Refresh, says a refused read's words, and on an iPhone-sized touch screen is

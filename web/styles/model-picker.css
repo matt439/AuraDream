@@ -204,6 +204,9 @@
 .model-storage-table :is(td, thead th:not(:first-child)) { white-space: nowrap; overflow-wrap: normal; }
 .model-storage-table thead th { color: var(--text-readout); font-weight: 600; border-top: 0; }
 .model-storage-table [title] { cursor: help; }
+/* A Nunchaku lite id's line under its entry's row: indented, no rule between. */
+.model-storage-table .model-storage-variant > * { border-top: 0; color: var(--text-readout); }
+.model-storage-table .model-storage-variant > th:first-child { padding-left: var(--sp-4); }
 .model-storage-others { display: grid; gap: var(--sp-1); margin: 0; padding: 0; list-style: none; }
 .model-storage-others > li { display: flex; justify-content: space-between; gap: var(--sp-3); min-width: 0; }
 .model-storage-repo { min-width: 0; overflow-wrap: anywhere; }

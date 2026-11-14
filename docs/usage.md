@@ -296,7 +296,9 @@ incomplete downloads, the bytes no catalogue download names, each catalogue
 checkpoint with files in the cache, and other repositories there. A
 checkpoint downloaded at a different commit from the one AuraDream records
 shows **Unknown** with its size: the files are its, but which of them a load
-would use is not known. The same
+would use is not known. A checkpoint's Nunchaku 4-bit files are a line
+under its row ("Krea 2 Turbo, Nunchaku NVFP4 files"), including those
+downloaded under lite-infer's newer repository name. The same
 inventory is the read-only JSON at `/api/models/storage` on the same server
 (signed in, when a passcode is asked). It runs only when requested, off the
 server's request loop, and never deletes anything. It lists measured cached bytes
