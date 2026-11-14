@@ -1269,13 +1269,23 @@ paragraphs, never rewording.
   taken with the last holder otherwise; on a symlink cache a blob goes only
   when no surviving entry resolves to it. `held` (`model_delete_held`) is
   what the server cannot prove safe: a shared Xet store
-  (`<hub>/blobs/.huggingface-shared-blobs`) or a link out of a repository,
+  (`<hub>/blobs/.huggingface-shared-blobs`, where the plan takes something
+  from the Hub) or a link out of a repository,
   a folder linked or lying outside the configured roots (a converted target
-  is compared by name first, so another HF_HOME's is never looked at), an
+  is compared by name first, so another HF_HOME's is never looked at, and
+  two drives are not inside; neither hold makes an entry with nothing
+  cached anything but the 404), an
   unrecorded revision of a repository several entries name, an older tree
   from a source repository two entries share and a file neither uses now,
   and, until stage 4 (`SHARED_REPOSITORY_DELETE`), any removal inside a
-  shared repository. Answers name repositories, revisions and names
+  shared repository. The index's hub is the scan's resolved one
+  (`scan_cache_dir` resolves a linked cache), so repository folders are the
+  scanned ones. `selected`/`loaded`/`load_on_startup` and the
+  `model_selected` guard read `Plan.names`: the entry, or an id outside the
+  catalogue (a case variant of one included) whose repository, ignoring
+  case, the plan's repositories name - a selected `Tongyi-MAI/Z-Image` is
+  Z-Anime's; another catalogue entry is a sharer, never the plan's. Answers
+  name repositories, revisions and names
   relative to the roots, never an absolute path. Never touched: gallery
   rows, PNGs, masks, bundles, settings, setups, favourites, saved searches,
   LoRAs, the critic, the translator, upscalers, the compile cache, FLUX 3's

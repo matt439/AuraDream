@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from pathlib import Path
 
 import pytest
@@ -28,6 +29,8 @@ ILLUSTRIOUS, WAI, ROUWEI = single_file.ILLUSTRIOUS_ID, single_file.WAI_ID, singl
 SDXL = "stabilityai/stable-diffusion-xl-base-1.0"
 ERNIE = "baidu/ERNIE-Image-Turbo"
 KREA2 = "krea/Krea-2-Turbo"
+ZANIME, ZIMAGE = "SeeSee21/Z-Anime", "Tongyi-MAI/Z-Image"
+NETAYUME, LUMINA = "duongve/NetaYume-Lumina-Image-2.0", "Alpha-VLLM/Lumina-Image-2.0"
 OLD = "8" * 40
 
 
@@ -247,6 +250,19 @@ def test_a_shared_xet_store_is_held(caches):
     assert result.held is not None and "shared Xet store" in result.held["detail"]
 
 
+def test_a_shared_xet_store_holds_only_a_plan_that_takes_from_the_hub(caches):
+    store = caches.hub / "blobs"
+    store.mkdir()
+    (store / delete.SHARED_STORE_MARKER).write_text("1\n")
+    # Nothing cached is still the one 404, marker or not.
+    with pytest.raises(delete.NotOnDisk):
+        plan(KREA2)
+    # A converted copy alone is not the store's.
+    caches.convert(AESTHETIC)
+    result = plan(AESTHETIC)
+    assert [part.kind for part in result.parts] == ["converted"] and result.held is None
+
+
 def test_a_partial_download_is_named_relative_to_the_cache(caches):
     caches.plant(KREA2)
     partial = caches.folder(KREA2) / "blobs" / "0123abcd.incomplete"
@@ -331,7 +347,94 @@ def test_an_unknown_id_and_an_absent_entry_are_one_answer(caches):
             plan(model)
 
 
+# ------------------------------------- the selected checkpoint outside it
+
+
+@pytest.mark.parametrize("entry, other", [(ZANIME, ZIMAGE), (NETAYUME, LUMINA)])
+def test_an_id_outside_the_catalogue_is_the_repository_it_names(caches, entry, other):
+    # Any text-to-image checkpoint runs by id; Z-Image and Lumina are each
+    # one entry's recipe repository, so the plan takes them whole.
+    caches.plant(entry)
+    result = plan(entry)
+    assert (("hub", other, True) in {(part.kind, part.repo, part.whole) for part in result.parts})
+    for state, key in (("selected", "selected"), ("loaded", "loaded"), ("saved", "load_on_startup")):
+        assert plan(entry, **{state: other}).answer()[key] is True, state
+    # The Hub's ids, and NTFS's folders, ignore case.
+    assert plan(entry, selected=other.upper()).answer()["selected"] is True
+    assert plan(entry, selected=f"{other}@main").answer()["selected"] is True
+    assert plan(entry, selected="someone/else").answer()["selected"] is False
+
+
+def test_a_case_variant_of_a_catalogue_id_is_its_entry(caches):
+    caches.plant(KREA2)
+    assert plan(KREA2, selected=KREA2.lower(), loaded=KREA2.upper()).answer()["selected"] is True
+    assert plan(KREA2, loaded=KREA2.upper()).answer()["loaded"] is True
+
+
+def test_another_catalogue_entry_selected_is_a_sharer_not_the_plan(caches):
+    for model in (TURBO, AESTHETIC):
+        caches.plant(model)
+    _illustrious_alone(caches)
+    assert plan(TURBO, selected=AESTHETIC, loaded=AESTHETIC).answer()["selected"] is False
+    assert plan(ILLUSTRIOUS, selected=WAI).answer()["selected"] is False
+
+
 # ------------------------------------------------------------ containment
+
+
+def test_paths_on_two_drives_are_not_inside(monkeypatch):
+    if sys.platform == "win32":
+        assert not delete._lexically_inside(Path("D:/hub/models--a--b"), Path("C:/hub"))
+
+    def two_drives(paths):
+        raise ValueError("Paths don't have the same drive")
+
+    monkeypatch.setattr(os.path, "commonpath", two_drives)
+    assert not delete._lexically_inside(Path("/one/hub/models--a--b"), Path("/two/hub"))
+
+
+def test_a_converted_target_outside_the_root_holds_and_never_answers_503(caches, monkeypatch, tmp_path):
+    # As the fake's: this server's converted root on another drive than the
+    # HF_HOME the loaders resolve their targets through.
+    elsewhere = tmp_path / "other-drive"
+    monkeypatch.setattr(model_cache_storage, "hf_home_dir", lambda name: elsewhere / name)
+    commonpath = os.path.commonpath
+    mark = os.path.normcase(str(elsewhere))
+
+    def two_drives(paths):
+        if len({os.path.normcase(os.path.abspath(path)).startswith(mark) for path in paths}) > 1:
+            raise ValueError("Paths don't have the same drive")
+        return commonpath(paths)
+
+    monkeypatch.setattr(os.path, "commonpath", two_drives)
+    # Nothing cached: the one 404, though the target is held unlooked at.
+    with pytest.raises(delete.NotOnDisk):
+        plan(WAI)
+    caches.plant(WAI, only=WAI)
+    result = plan(WAI)
+    assert [part.kind for part in result.parts] == ["hub"]
+    assert result.held is not None and "outside this server's converted cache" in result.held["detail"]
+
+
+def test_a_hub_reached_through_a_link_plans_as_its_real_folder(caches, monkeypatch, tmp_path):
+    # `~/.cache` or HF_HOME linked to a larger disk: the scan resolves the
+    # link, and the plan's folders must be the folders it scanned.
+    for model in (TURBO, AESTHETIC):
+        caches.plant(model)
+    real = plan(TURBO)
+    assert real.held is not None and "Anima Aesthetic v1.1 also use" in real.held["detail"]
+    linked = tmp_path / "linked" / "hub"
+    link_folder(linked, caches.hub)
+    import huggingface_hub.constants as constants
+
+    monkeypatch.setattr(constants, "HF_HUB_CACHE", str(linked))
+    monkeypatch.setenv("HF_HUB_CACHE", str(linked))
+    assert model_cache_storage.hub_cache_dir() == linked
+    through = plan(TURBO)
+    assert through.answer() == real.answer()
+    assert through.parts and relatives(through) == relatives(real)
+    for removal in through.removals:
+        assert removal.path.is_relative_to(caches.hub.resolve()), removal
 
 
 def test_the_scratch_roots_are_not_the_real_cache_and_the_sentinel_survives(caches):

@@ -498,7 +498,12 @@ Riskiest last. Each stage is one or more commits on one branch.
    at its scratch Hub (`hub_cache_dir`); its converted targets still
    resolve under the real `HF_HOME` until stage 3 sets the fake's, so a
    plan there holds a converted entry ("outside ... the converted cache")
-   without looking at the real tree.
+   without looking at the real tree, and an entry with nothing cached is
+   still the 404. Review fixes: the index's hub is the scan's resolved one
+   (a linked cache), `_lexically_inside` says two drives are not inside,
+   the Xet marker holds only a plan taking from the Hub, and `Plan.names`
+   counts a selected, loaded or saved id outside the catalogue (or a case
+   variant) by its repository.
 2. **Converted-tree removal**, backend only, not exposed.
    *Done when* rename-to-work-shape, lock contention and every injected
    failure leave only `_is_work` directories, and a later load converts

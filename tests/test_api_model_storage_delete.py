@@ -95,6 +95,13 @@ def test_unknown_and_absent_entries_are_the_same_404(client, caches):
     assert answers[0].json() == answers[1].json() == {
         "detail": "No catalogue checkpoint by that id has files in this server's cache.",
         "code": "model_not_on_disk"}
+    # A cache-wide shared Xet store holds a delete, never an absent entry's 404.
+    store = caches.hub / "blobs"
+    store.mkdir()
+    (store / delete.SHARED_STORE_MARKER).write_text("1\n")
+    absent = client.get(PLAN, params={"model_id": KREA2})
+    assert absent.status_code == 404 and absent.json()["code"] == "model_not_on_disk"
+    assert client.get(PLAN, params={"model_id": ERNIE}).json()["held"]["code"] == "model_delete_held"
 
 
 def test_the_plan_reports_selected_loaded_and_saved_for_the_next_start(client, caches, fake, monkeypatch):
@@ -177,6 +184,26 @@ def test_a_lite_id_selected_counts_as_its_entry(fake, monkeypatch):
     assert entry is not None
     monkeypatch.setattr(model_selection, "_selection", (entry.lite_repo("nvfp4"), 3))
     assert _code(_plan(entry=KREA2, label="Krea 2 Turbo", model_ids=(KREA2,))) == "model_selected"
+
+
+def test_an_id_outside_the_catalogue_in_the_plans_repositories_is_refused(fake, monkeypatch):
+    # Z-Anime's recipe takes Tongyi-MAI/Z-Image whole; selected or loaded by
+    # its own id (AURADREAM_MODEL_ID, any case), it is the plan's too.
+    zanime = _plan(entry="SeeSee21/Z-Anime", label="Z-Anime", model_ids=("SeeSee21/Z-Anime",),
+                   repositories=frozenset({"SeeSee21/Z-Anime", "Tongyi-MAI/Z-Image"}))
+    for selected in ("Tongyi-MAI/Z-Image", "tongyi-mai/z-image"):
+        monkeypatch.setattr(model_selection, "_selection", (selected, 3))
+        fake.loaded = True
+        refused = main._model_delete_refusal(zanime, main._model_delete_context(None))
+        assert refused is not None and refused.code == "model_selected"
+        assert refused.detail == (f"Z-Anime's delete takes files of {selected}, which is the selected "
+                                  "checkpoint. Choose another checkpoint first.")
+    monkeypatch.setattr(model_selection, "_selection", ("someone/else", 4))
+    assert main._model_delete_refusal(zanime, main._model_delete_context(None)) is None
+    saved = main._model_delete_refusal(zanime, main._model_delete_context("Tongyi-MAI/Z-Image"))
+    assert saved is not None and saved.code == "model_selected"
+    assert saved.detail == ("Z-Anime's delete takes files of Tongyi-MAI/Z-Image, which is saved to load "
+                            "automatically on the next start. Choose another checkpoint first.")
 
 
 def test_the_checkpoint_saved_for_the_next_start_is_refused_in_its_own_words(fake):

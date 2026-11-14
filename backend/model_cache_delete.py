@@ -61,7 +61,9 @@ class PlanContext:
     """The server's state a plan reads, by catalogue entry id (`entry.repo`):
     the selected checkpoint, the loaded one, the one saved to load on the
     next start, and Check's tokenizer fetches still in flight
-    (`prompt_encoding.pending_sources`). Each counts as a present sharer."""
+    (`prompt_encoding.pending_sources`). Each counts as a present sharer.
+    An id outside the catalogue stays itself (`entry_of`): `Plan.names`
+    reads it by its repository."""
 
     selected: str | None = None
     loaded: str | None = None
@@ -141,15 +143,33 @@ class Plan:
         return any(getattr(source, "repo", None) in self.repositories
                    or getattr(source, "tree", None) in self.model_ids for source in sources)
 
+    def names(self, model_id: str | None) -> bool:
+        """Whether a `PlanContext` id (selected, loaded, saved) is what this
+        plan would delete: its own entry, or an id outside the catalogue
+        whose repository the plan names. A selected `Tongyi-MAI/Z-Image` is
+        Z-Anime's recipe repository, owned and taken whole; a case variant
+        of a catalogue id (`AURADREAM_MODEL_ID=black-forest-labs/flux.1-krea-dev`)
+        is no catalogue entry but the same folder on NTFS, so the comparison
+        ignores case, as the Hub's ids do. Another catalogue entry is never
+        this plan's: a sharer's files are kept by the last-holder rule."""
+        if model_id is None:
+            return False
+        if model_id == self.entry:
+            return True
+        if model_info.catalogue_entry(model_id) is not None:
+            return False
+        repo = model_id.split("@", 1)[0].casefold()
+        return any(repo == named.casefold() for named in self.repositories)
+
     def answer(self) -> dict:
         return {
             "entry": self.entry, "label": self.label,
             "parts": [part.answer() for part in self.parts],
             "kept_shared": self.kept_shared, "also_taken_shared": self.also_taken_shared,
             "frees_bytes": self.frees_bytes, "held": self.held, "downloading": self.downloading,
-            "selected": self.entry == self.context.selected,
-            "loaded": self.entry == self.context.loaded,
-            "load_on_startup": self.entry == self.context.saved,
+            "selected": self.names(self.context.selected),
+            "loaded": self.names(self.context.loaded),
+            "load_on_startup": self.names(self.context.saved),
             "pin": self.pin,
         }
 
@@ -175,10 +195,14 @@ def _is_link(path: Path) -> bool:
 
 
 def _lexically_inside(path: Path, root: Path) -> bool:
-    """Inside `root` by name alone: never touches a path that is not."""
+    """Inside `root` by name alone: never touches a path that is not. Paths
+    on two drives (Windows' `commonpath` raises) are not inside."""
     path_text = os.path.normcase(os.path.abspath(path))
     root_text = os.path.normcase(os.path.abspath(root))
-    return path_text != root_text and os.path.commonpath([path_text, root_text]) == root_text
+    try:
+        return path_text != root_text and os.path.commonpath([path_text, root_text]) == root_text
+    except ValueError:
+        return False
 
 
 def _inside(path: Path, root: Path) -> bool:
@@ -199,9 +223,14 @@ class _Collector:
         self.roots = {"hub": hub, "converted": converted}
         self.removals: list[Removal] = []
         self.held: list[tuple[int, str]] = []
+        # Whether a hold was found in something of the entry's on disk. A
+        # hold that is not (a converted target outside the root, never looked
+        # at) leaves an entry with nothing cached the plan's one 404.
+        self.found = False
 
-    def hold(self, priority: int, detail: str) -> None:
+    def hold(self, priority: int, detail: str, *, on_disk: bool = True) -> None:
         self.held.append((priority, detail))
+        self.found = self.found or on_disk
 
     def item(self, kind: str, root: str, path: Path) -> Removal | None:
         """One file or link, measured without following it."""
@@ -282,10 +311,6 @@ def _plan(entry_id: str, context: PlanContext, cache_dir: Path | None) -> Plan:
     result.repositories = frozenset(named | aliases | set(lite_ids))
     owned = {repo for repo in result.repositories if not index.recipe_repos.get(repo, frozenset()) - group}
     shared = result.repositories - owned
-
-    if os.path.lexists(hub / "blobs" / SHARED_STORE_MARKER):
-        collect.hold(0, "This Hugging Face cache keeps a shared Xet store across repositories; "
-                        "deleting from it is not built yet.")
 
     touched: set[str] = set()
     # Repositories the group alone names: whole.
@@ -376,8 +401,9 @@ def _plan(entry_id: str, context: PlanContext, cache_dir: Path | None) -> Plan:
         # By name first: a target resolved through another HF_HOME is never
         # even looked at.
         if not _lexically_inside(target, converted_root):
+            # Unlooked at, it says nothing of what the entry has on disk.
             collect.hold(1, "Its converted copy's folder lies outside this server's converted cache; "
-                            "deleting it is not built.")
+                            "deleting it is not built.", on_disk=False)
             continue
         units = []
         if os.path.lexists(target):
@@ -431,6 +457,13 @@ def _plan(entry_id: str, context: PlanContext, cache_dir: Path | None) -> Plan:
         result.downloading.extend(
             {"repo": repo, "file": Path(os.path.relpath(path, hub)).as_posix()} for path in partial)
 
+    # A cache-wide shared Xet store serves the Hub parts' bytes to other
+    # repositories: held where the plan takes something from the Hub, never
+    # for an entry with nothing there (its converted copy is not the store's).
+    if (any(part.kind in ("hub", "lite") for part in result.parts)
+            and os.path.lexists(hub / "blobs" / SHARED_STORE_MARKER)):
+        collect.hold(0, "This Hugging Face cache keeps a shared Xet store across repositories; "
+                        "deleting from it is not built yet.")
     if any(part.shared_repository for part in result.parts) and not SHARED_REPOSITORY_DELETE:
         repos = sorted({part.repo for part in result.parts if part.shared_repository and part.repo})
         others = sorted({_label(entry_of(model)) for repo in repos for model in index.recipe_repos.get(repo, ())}
@@ -446,7 +479,7 @@ def _plan(entry_id: str, context: PlanContext, cache_dir: Path | None) -> Plan:
         result.held = {"code": MODEL_DELETE_HELD, "detail": min(collect.held)[1]}
     result.removals = sorted(collect.removals, key=lambda removal: (removal.root, removal.relative))
     result.pin = _pin(result, kept, targets)
-    if not result.parts and not result.kept_shared and not result.downloading and result.held is None:
+    if not result.parts and not result.kept_shared and not result.downloading and not collect.found:
         raise NotOnDisk(entry_id)
     return result
 

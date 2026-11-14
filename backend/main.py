@@ -1438,12 +1438,17 @@ def _model_delete_refusal(plan: model_cache_delete.Plan, context: model_cache_de
     reservation: the refusal, coded, or None. `context` is read just before
     (`_model_delete_context`); the busy states are read here, live."""
     label = plan.label
-    if plan.entry in (context.selected, context.loaded):
-        return refusals.Refused(409, f"{label} is the selected checkpoint. Choose another checkpoint first.",
-                                refusal_codes.MODEL_SELECTED)
-    if plan.entry == context.saved:
+    # `Plan.names`: the entry itself, or an id outside the catalogue (a case
+    # variant of one included) whose repository the plan would delete from.
+    for current in (context.selected, context.loaded):
+        if plan.names(current):
+            who = label if current == plan.entry else f"{label}'s delete takes files of {current}, which"
+            return refusals.Refused(409, f"{who} is the selected checkpoint. Choose another checkpoint first.",
+                                    refusal_codes.MODEL_SELECTED)
+    if plan.names(context.saved):
+        who = label if context.saved == plan.entry else f"{label}'s delete takes files of {context.saved}, which"
         return refusals.Refused(
-            409, f"{label} is saved to load automatically on the next start. Choose another checkpoint first.",
+            409, f"{who} is saved to load automatically on the next start. Choose another checkpoint first.",
             refusal_codes.MODEL_SELECTED)
 
     def busy(why: str) -> refusals.Refused:

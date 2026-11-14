@@ -214,7 +214,11 @@ def _scan(cache_dir: Path | None = None) -> tuple[dict, CacheIndex]:
     unreferenced_blobs: set[tuple] = set()
     aliases = _lite_aliases(catalogue)
     converted_root = hf_home_dir("converted")
-    index = CacheIndex(hub=cache_dir, converted_root=converted_root, sizes=sizes,
+    # The index's hub is the scan's own: `scan_cache_dir` resolves the cache
+    # (`expanduser().resolve()`), so every file and blob it lists lies under
+    # the real folder, not a symlink or junction the setting names. The
+    # planner's repository folders are built from this, lexically.
+    index = CacheIndex(hub=cache_dir.expanduser().resolve(), converted_root=converted_root, sizes=sizes,
                        recipe_repos={repo: frozenset(models) for repo, models in repo_models.items()})
     repos = []
     for repo in sorted(info.repos if info else [], key=lambda item: (item.repo_type, item.repo_id)):
