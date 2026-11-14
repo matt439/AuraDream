@@ -28,8 +28,9 @@ paragraphs, never rewording.
   shared catalogue references on a daemon thread, and keeps the scan's
   per-file index (`CacheIndex`) behind its unchanged answer;
   `backend/model_cache_delete.py` plans deleting one whole catalogue entry
-  from that index (`plan()`, read-only: `GEN#72` stage 1; nothing deletes
-  yet).
+  from that index (`plan()`, read-only: `GEN#72` stage 1) and runs the
+  delete's worker (`delete()`: converted trees only, `GEN#72` stage 2; no
+  route reaches it yet).
 - `backend/idle_unload.py` owns the default-off event-loop idle release timer;
   it shares `keep_awake.py`'s activity clock and drains admitted cleanup.
 - `backend/server_transport.py` parses exact browser origins and validates
@@ -1303,7 +1304,31 @@ paragraphs, never rewording.
   files are being deleted"), `_refuse_busy_switch`, `_unload_weights`,
   `_idle_unload_busy`, the bundle manager's busy lambda (main's and
   `tests/conftest.py`'s), the `_busy_deleting` keep-awake provider, and
-  `/api/status`'s `model_delete`, inside its revision retry loop. `/api/status` uses only
+  `/api/status`'s `model_delete`, inside its revision retry loop.
+  `model_cache_delete.delete(model_id, pin, context)` (stage 2, no route
+  yet) is the worker: on its caller's daemon thread it holds the scan
+  reservation and `keep_awake.busy("deleting a checkpoint")` for its whole
+  run, re-plans, and before anything changes refuses (`DeleteRefused`, its
+  `code`) a different pin (`model_cache_changed`), a selected, loaded or
+  saved-for-start entry, a fetch it touches, a partial download, a held
+  part and, until stage 3 (`HUB_DELETE`), any Hub or lite part
+  (`model_delete_held`); `assert_inside_roots` then re-reads the configured
+  roots and checks every removal, unit, converted target and lock inside
+  them. A converted tree is removed under the loaders' own
+  `WeakFileLock(<root>/<target>.lock)` (`LOCK_TIMEOUT`, a timeout is
+  `model_delete_busy`; an older recipe's tree takes its own lock too),
+  re-read file for file under it (`model_cache_changed` if it moved), then
+  renamed with `os.rename` into a new `<target>-<8 [a-z0-9]>/tree`, exactly
+  `single_file._is_work`'s shape (an older tree into its entry's current
+  target's, so the entry's next load sweeps any leftover); a refused rename
+  is `model_files_in_use` with nothing changed. Every work directory of the
+  target is then removed under the lock; a failure midway leaves only
+  `_is_work` directories, never a marker-less target. A failure after
+  something changed is the `Outcome`'s `remaining` (kind, bytes left,
+  reason), never a refusal. The worker never unlinks a `.lock` (filelock
+  itself removes one on release on Windows); `freed_bytes` is the roots'
+  volumes' free space before and after; `model_info.invalidate_cache_facts`
+  runs on the way out. `/api/status` uses only
   `download_progress`'s targeted two-second samples under its revision retry
   loop, never a whole-cache scan. Progress is an approximate local cache
   tally, not network transfer speed. Unknown/drifted references have no
@@ -10333,7 +10358,14 @@ yet: `tests/test_model_cache_delete.py` runs every case of the plan's
 Tests section on a plain-copy cache and, where the platform lets the test
 make links (Linux, WSL; skipped on Windows without the privilege), a
 symlink one, and `tests/test_api_model_storage_delete.py` the GET, the
-guards and the inert `_deleting_model`. Both build on
+guards and the inert `_deleting_model`. The worker's converted-tree
+removal (stage 2) is `tests/test_model_cache_delete_converted.py`: the
+rename into `_is_work`'s shape before any byte goes, another thread's
+`WeakFileLock` refusing, `os.rename`, its work directory and
+`shutil.rmtree` raising Windows' sharing violation (winerror 32) leaving
+nothing or only `_is_work` directories, the refusals before anything
+changes, the roots re-asserted, and each converting loader converting
+cleanly in the scratch cache afterwards. All build on
 `tests/model_cache_fixtures.py`, which points `HF_HOME` and `HF_HUB_CACHE`
 (the environment and `huggingface_hub.constants`) at a scratch home for
 the test, so the real loaders' converted targets resolve there, plants the

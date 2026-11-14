@@ -15149,6 +15149,28 @@ memory-mapped safetensors file blocks a rename on Windows is unverified;
 refusing the selected entry is the guard, and the delete's rename-first
 order (stages 2 and 3) is defence in depth.
 
+The delete's converted-tree removal (`GEN#72` stage 2,
+`model_cache_delete.delete`, no route yet) renames before it removes. A
+converted tree is published by one rename and checked as a whole (marker
+and `model_index.json`), so removing it in place would leave, on the first
+file Windows will not let go, a marker-less target: "Incomplete converted
+model cache; remove ... and retry", a load refused until someone removes it
+by hand. Renamed first into `<target>-<8>/tree`, the loaders' own
+`_is_work` shape, it stops being a hit atomically, a refused rename changes
+nothing (`model_files_in_use`), and whatever an `rmtree` cannot finish is a
+stale work directory the next load's `sweep_work`, or the next delete,
+removes. An older recipe's tree is renamed into its entry's *current*
+target's shape for the same reason: nothing else would ever sweep a
+leftover of a recipe no loader names now. Both run under the loaders'
+`WeakFileLock`, with a short timeout, since a conversion holds it for
+minutes; the lock file is never unlinked by the delete (another process
+may take it the moment it is released), though filelock removes it itself
+on release on Windows. Under the lock the tree is re-read file for file
+against the plan, so a tree that changed, became a link, or appeared since
+is never taken. Until stage 3 the worker refuses any plan with something
+to take from the Hub, so a delete can never stop half done at a part not
+built yet.
+
 Status takes a different path: required-file stats plus selected-source
 partial blobs, off-loop under the existing revision retry, sampled at most
 every two seconds. Partial blobs can belong to another download in that

@@ -3,8 +3,9 @@
 **Status: planned 2026-11-14 (`GEN#72`). Stage 0 built 2026-11-14 (rows
 named by entry, the lite and alias repositories on the entry's row, the
 page's sub-lines); stage 1 built 2026-11-14 (the read-only planner, its
-GET, the codes, the guards, `_deleting_model` wired inert); stages 2-4 not
-built.** The row's owner was the
+GET, the codes, the guards, `_deleting_model` wired inert); stage 2 built
+2026-11-14 (the worker's converted-tree removal, backend only, no route);
+stages 3 and 4 not built.** The row's owner was the
 [peer review's R9](review-2026-11-10-peers.md#r9-storage-view); this plan
 owns it from now on (the TODO row points here). Every stage below is CPU and browser work on scratch
 caches; none needs the card. Matt's questions are at the end; he
@@ -508,6 +509,26 @@ Riskiest last. Each stage is one or more commits on one branch.
    *Done when* rename-to-work-shape, lock contention and every injected
    failure leave only `_is_work` directories, and a later load converts
    cleanly in the scratch cache (`tests/test_converter_cache.py` style).
+   *Built 2026-11-14:* `model_cache_delete.delete(model_id, pin, context)`,
+   the worker stage 3's route will run on a daemon thread: the scan
+   reservation and `keep_awake.busy` for its whole run, a fresh plan, and
+   before anything changes `DeleteRefused` (a code) for a different pin, a
+   selected/loaded/saved entry, a fetch it touches, a partial download, a
+   held part, or any Hub or lite part until stage 3 (`HUB_DELETE`), then
+   `assert_inside_roots` (the configured roots read again; every removal,
+   unit, converted target and lock inside them). `remove_converted` takes
+   each converted part under `WeakFileLock(<root>/<target>.lock,
+   timeout=LOCK_TIMEOUT)` (an older tree's own lock too), re-reads the tree
+   file for file under it, renames it into a new
+   `<target>-<8 [a-z0-9]>/tree` and removes every work directory of the
+   target. Choices left open here: an older recipe's tree is renamed into
+   its entry's *current* target's work shape, so the entry's next load
+   sweeps a leftover no loader would otherwise name; a failure after
+   something changed is the `Outcome`'s `remaining`, a refusal only while
+   nothing has; `freed_bytes` measures the roots' distinct volumes;
+   `model_info.invalidate_cache_facts` runs in the worker's `finally`.
+   filelock removes a `.lock` on release on Windows by itself; the delete
+   never unlinks one. Tests: `tests/test_model_cache_delete_converted.py`.
 3. **Whole-checkpoint delete for entries with no shared part.** The trash
    rename, the POST, the reservation, the page control, the dialog, the
    smoke and the docs. Entries with a shared part show Delete held with

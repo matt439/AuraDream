@@ -31,12 +31,12 @@ def scratch_cache_scan(monkeypatch, tmp_path):
     monkeypatch.setattr(model_cache_storage, "snapshot", lambda: {"cache_dir": str(tmp_path), "models": []})
 
     # Nor plan or run a checkpoint delete against it (`GEN#72`): the walk
-    # only asks whether the route is gated. `delete` arrives in stage 2.
+    # only asks whether the route is gated.
     def forbidden(*args, **kwargs):
         raise AssertionError("the route walk reached the model cache delete")
 
     monkeypatch.setattr(model_cache_delete, "plan", forbidden)
-    monkeypatch.setattr(model_cache_delete, "delete", forbidden, raising=False)
+    monkeypatch.setattr(model_cache_delete, "delete", forbidden)
 
 
 def _concrete(path: str) -> str:

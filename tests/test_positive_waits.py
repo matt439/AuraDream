@@ -53,6 +53,9 @@ NEGATIVE: dict[tuple[str, str, str], str] = {
         "proves the second build is still waiting its turn",
     ("test_converter_cache.py", "test_the_sweep_waits_for_a_conversion_holding_the_lock", "worker.join(0.5)"):
         "proves the resolve is still waiting on the held lock",
+    ("test_model_cache_delete_converted.py", "test_a_conversion_holding_the_lock_refuses_with_nothing_changed",
+     "delete.delete(WAI, planned.pin, lock_timeout=0.3)"):
+        "proves the delete gives up on a lock another thread holds",
     ("test_critic_install.py", "test_the_sweep_waits_for_an_install_holding_the_lock", "worker.join(0.5)"):
         "proves the install is still waiting on the held lock",
     ("test_single_file.py", "test_the_sweep_waits_for_a_conversion_holding_the_lock", "worker.join(0.5)"):
