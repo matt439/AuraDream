@@ -1456,23 +1456,48 @@ def _unlink_files(result: Plan, parts: list[Part], outcome: Outcome) -> None:
                     part=part, reason="A file in it is open, so it could not be removed.") from None
             # The stopped repository's parts (one before it may still hold
             # blobs, which go after every entry) and every later one.
-            sizes = {_key(removal.path): removal.size for removal in result.removals}
-            for later in order[order.index(by_repo[repo][0]):]:
-                left = [path for path in [*later.entries, *later.blobs] if os.path.lexists(path)]
-                if later is not part and not left:
-                    continue
-                if later is not part:
-                    reason = "It stays: the delete stopped at another part."
-                elif stopped.blob:
-                    # No revision names it any more: no later plan sees it.
-                    reason = ("A file in it is open, perhaps in another program, so its stored bytes stay in the "
-                              "repository's blobs folder, which no revision names now; remove them by hand.")
-                else:
-                    reason = ("A file in it is open, perhaps in another program, so some of its files stay; "
-                              "a later delete can take them.")
-                outcome.remaining.append({"kind": later.kind, "reason": reason,
-                                          "bytes": sum(sizes.get(_key(path), 0) for path in left)})
+            _remaining_after_stop(result, order[order.index(by_repo[repo][0]):], stopped, outcome)
             return
+
+
+def _remaining_after_stop(result: Plan, parts: list[Part], stopped: _Stopped, outcome: Outcome) -> None:
+    """What a stop inside a shared repository leaves, as `remaining`: for the
+    stopped part and every part after it, the planned entries and blobs
+    still on disk. A blob no snapshot entry names now (its entries went
+    before the stop, whether it came at an entry or at a blob) is its own
+    row: no later plan sees it, since plans read snapshot entries, so only
+    removing it by hand frees it. The rest a later delete can take."""
+    hub = result.hub
+    assert hub is not None
+    sizes = {_key(removal.path): removal.size for removal in result.removals}
+    alive: dict[str, set[str]] = {}
+    open_file = "A file in it is open, perhaps in another program, so "
+    for later in parts:
+        assert later.repo is not None
+        left = [path for path in [*later.entries, *later.blobs] if os.path.lexists(path)]
+        blobs = {_key(blob) for blob in later.blobs}
+        left_blobs = [path for path in left if _key(path) in blobs]
+        if left_blobs and later.repo not in alive:
+            alive[later.repo] = _named_blobs(_repo_folder(hub, later.repo))
+        unnamed = [path for path in left_blobs if _key(path) not in alive[later.repo]]
+        named = [path for path in left if path not in unnamed]
+        stopped_here = later is stopped.part
+        if named or (stopped_here and not unnamed):
+            reason = (f"{open_file}some of its files stay; a later delete can take them." if stopped_here
+                      else "It stays: the delete stopped at another part.")
+            outcome.remaining.append({"kind": later.kind, "reason": reason,
+                                      "bytes": sum(sizes.get(_key(path), 0) for path in named)})
+        if unnamed:
+            if not stopped_here:
+                why = "The delete stopped at another part, so its"
+            elif stopped.blob:
+                why = f"{open_file}its"
+            else:
+                why = "The delete stopped partway, so some of its"
+            outcome.remaining.append({
+                "kind": later.kind, "bytes": sum(sizes.get(_key(path), 0) for path in unnamed),
+                "reason": f"{why} stored bytes stay in the repository's blobs folder, which no revision names "
+                          "now; remove them by hand."})
 
 
 def _unlink_repository(result: Plan, repo: str, parts: list[Part], done: _Unlinks, outcome: Outcome) -> None:

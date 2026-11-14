@@ -599,11 +599,14 @@ Riskiest last. Each stage is one or more commits on one branch.
    that appeared since the plan refuses the check (`model_cache_changed`);
    unselected files at the entry's own commit in a shared repository stay
    (question 4 takes them only where the repository is the entry's alone),
-   so such a revision is not emptied and keeps its refs and notes; a stop
-   at a blob (its entries gone) says the bytes stay unnamed in `blobs/`,
-   which no later plan can see; the page keeps a row the last holder's
-   delete emptied (`also_taken_shared`) as "Its files shared with … went
-   with it.", so no row below moves. Tests:
+   so such a revision is not emptied and keeps its refs and notes; a blob
+   left by a stop (at it, or at an entry after its own entries went) is a
+   `remaining` row of its own saying the bytes stay unnamed in `blobs/`,
+   which no later plan can see, to remove by hand; the page keeps a row the
+   last holder's delete emptied (`also_taken_shared`) as "Its files shared
+   with … went with it.", so no row below moves, but only when nothing
+   stayed: after a stop the re-read shows the sharer as the cache holds it,
+   its Delete… free. Tests:
    `tests/test_model_cache_delete_shared.py` (both layouts; the symlink one
    run under WSL), the POST's in `tests/test_api_model_storage_delete.py`;
    `smoke-model-delete` deletes Anima Turbo beside Preview, then Preview as

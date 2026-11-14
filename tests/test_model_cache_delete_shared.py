@@ -357,9 +357,24 @@ def test_an_unlink_refused_leaves_no_ref_to_a_missing_snapshot(caches, monkeypat
         return
     outcome = delete.delete(ILLUSTRIOUS, planned.pin)
     assert outcome.changed
-    [left] = outcome.remaining
+    sdxl = next(part for part in planned.parts if part.repo == SDXL)
+    # On a symlink cache a stop after some entries went leaves their blobs
+    # named by nothing: a row of its own, never one a later delete takes.
+    unnamed = [blob for blob in sdxl.blobs if blob.exists() and delete._key(blob)
+               not in delete._named_blobs(caches.folder(SDXL))]
+    assert bool(unnamed) == (caches.layout == "symlink" and where in ("an entry midway", "the last entry",
+                                                                       "the first blob", "the last blob"))
+    [left, *orphans] = outcome.remaining
     assert left["kind"] == "hub" and "open" in left["reason"]
-    assert 0 < left["bytes"] <= next(part.bytes for part in planned.parts if part.repo == SDXL)
+    assert 0 < left["bytes"] <= sdxl.bytes
+    if unnamed and not where.endswith("blob"):
+        assert orphans == [{"kind": "hub", "bytes": sum(blob.stat().st_size for blob in unnamed),
+                            "reason": "The delete stopped partway, so some of its stored bytes stay in the "
+                                      "repository's blobs folder, which no revision names now; remove them by hand."}]
+        assert "a later delete" in left["reason"]
+    else:
+        assert orphans == []
+    assert sum(row["bytes"] for row in outcome.remaining) <= sdxl.bytes
     # Its own repository and converted copy went; the ref went first.
     assert not os.path.lexists(caches.folder(ILLUSTRIOUS))
     assert not any(path.is_dir() for path in caches.converted.iterdir())
@@ -376,10 +391,12 @@ def test_an_unlink_refused_leaves_no_ref_to_a_missing_snapshot(caches, monkeypat
         assert "blobs folder" in left["reason"] and calls[-1].exists()
         assert not (caches.folder(SDXL) / "snapshots" / commit).exists()
         return
-    # Let go, the next delete takes what stayed.
+    # Let go, the next delete takes what stayed, but never a blob no entry
+    # names: its row said so.
     assert "a later delete" in left["reason"]
     assert run(ILLUSTRIOUS).remaining == []
     assert not (caches.folder(SDXL) / "snapshots" / commit).exists()
+    assert all(blob.exists() for blob in unnamed)
     readable(caches)
     assert under(caches.state(), f"home/hub/{stem(SDXL)}/snapshots/{OLD}",
                  f"home/hub/{stem(SDXL)}/refs/old") == sibling

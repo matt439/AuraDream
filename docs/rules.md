@@ -10001,11 +10001,14 @@ pipeline with no image-to-image sibling answers; `POST /api/fake/unreachable`
 minutes at most, released when it goes off), as a PC asleep on Wi-Fi; `POST
 /api/fake/disk-full` (`{on}`) makes every image save raise `ENOSPC` while
 on, as a disk with no room; `POST /api/fake/model-cache` (`{plant}`,
-`{touch}`) plants a checkpoint delete's fixtures in the fake's scratch
+`{touch}`, `{hold_open, after}`, `{close}`) plants a checkpoint delete's
+fixtures in the fake's scratch
 `HF_HOME` (FLUX.1 Krea [dev]'s files, Anima Turbo and Anima Preview sharing
 Anima-Base, Preview's converted copy, ERNIE with its rewriter) or writes one
 new file in a repository's first cached revision, so a plan read before no
-longer holds, and invalidates the cache facts (`smoke-model-delete`);
+longer holds, or holds a file of a shared repository open after `after`
+unlinks there (the file-level step stops, as at an open file on Windows)
+until `close`, and invalidates the cache facts (`smoke-model-delete`);
 `POST /api/fake/bundle` (`{hold}`) makes each
 bundle export, backup or import worker wait while on (two minutes at
 most) before its real work, so `GalleryAdmission` refuses every counted
@@ -10529,7 +10532,11 @@ no inventory warning, a status poll that saw the delete running while its
 POST was out holding nothing after it ("Read at", ERNIE free); Turbo's plan
 then freeing nothing; ERNIE deleted and its Models cache word turning to
 "Not cached"; closing the fold letting the result lines go and Turbo's
-press then saying it has nothing of its own, kept for Preview; Preview, now
+press then saying it has nothing of its own, kept for Preview; Preview's
+delete with a file of the base held open after one unlink (the knob's
+`hold_open`) answering what is left and why in its line ("a later delete
+can take them"), Turbo's row then as the cache holds it, its Delete… free,
+never "went with it", and Refresh letting the line go; Preview, now
 the last holder, asked with "Also removes … shared with Anima Aesthetic
 v1.1, Anima Turbo v1.1, which have nothing else on disk." and no "Kept:",
 then its row and Turbo's (as "Its files shared with … went with it.")

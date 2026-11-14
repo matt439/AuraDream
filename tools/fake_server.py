@@ -36,8 +36,9 @@ data directory, so the model-cache inventory (Models > On disk), a
 checkpoint delete, the Models cache words and every converted target, lock
 and work directory read that home, never this machine's caches. The
 `model-cache` knob plants a delete's fixtures there (two Anima entries
-sharing a base, a converted copy, ERNIE, FLUX.1 Krea [dev]'s files) or
-changes a repository between a plan and its confirm.
+sharing a base, a converted copy, ERNIE, FLUX.1 Krea [dev]'s files),
+changes a repository between a plan and its confirm, or holds a file of a
+shared repository open so a delete stops partway.
 Everything else - the job queue, SSE, resume, the runs summary, pause, the
 budget, the analyser's rules - is the real code, which is the point:
 `tools/browser.mjs` drives a headless browser against this to check the UI.
@@ -989,15 +990,43 @@ def main() -> int:
 
     storage.save_image = save_unless_full
 
+    # A file open in a shared repository, which no page can make: while
+    # `opened` names one (the `model-cache` knob's `hold_open`), the
+    # delete's file-level step unlinks `after` files in it and is then
+    # refused there, as Windows refuses an open file
+    # (`model_cache_delete._unlink`'s stop), so a delete answers with what
+    # stayed.
+    from backend import model_cache_delete
+
+    real_unlink = model_cache_delete._unlink
+    opened: dict[str, Any] = {"repo": None, "after": 0}
+
+    def unlink_unless_open(path: Path, part: Any, done: Any, outcome: Any, *, blob: bool = False) -> None:
+        if opened["repo"] is not None and part.repo == opened["repo"]:
+            if opened["after"] <= 0:
+                raise model_cache_delete._Stopped(part, blob)
+            opened["after"] -= 1
+        real_unlink(path, part, done, outcome, blob=blob)
+
+    model_cache_delete._unlink = unlink_unless_open
+
     # The scratch model cache (`_scratch_hf_home`) for a checkpoint delete's
     # smoke: `plant` adds `_DELETE_FIXTURES`; `touch` (a repository id)
     # writes one new file in its first cached revision, so a plan read
-    # before no longer holds. Answers what it planted or touched; the Models
+    # before no longer holds; `hold_open` (a repository id) holds a file in
+    # it open after `after` unlinks there (`unlink_unless_open`), and
+    # `close` lets go. Answers what it planted, touched or holds open; the Models
     # cache facts are read again.
     @app_main.app.post("/api/fake/model-cache", include_in_schema=False)
-    async def fake_model_cache(plant: bool = Body(False), touch: str | None = Body(None)) -> dict:
+    async def fake_model_cache(plant: bool = Body(False), touch: str | None = Body(None),
+                               hold_open: str | None = Body(None), after: int = Body(1),
+                               close: bool = Body(False)) -> dict:
         from huggingface_hub.constants import HF_HUB_CACHE
 
+        if close:
+            opened.update(repo=None, after=0)
+        if hold_open is not None:
+            opened.update(repo=hold_open, after=after)
         hub = Path(HF_HUB_CACHE)
         planted = _plant_delete_fixtures(hub) if plant else []
         touched = None
@@ -1008,7 +1037,7 @@ def main() -> int:
                 (revisions[0] / f"added-{time.monotonic_ns()}.json").write_text("{}", encoding="utf-8")
                 touched = touch
         app_main.invalidate_cache_facts()
-        return {"planted": planted, "touched": touched}
+        return {"planted": planted, "touched": touched, "open": opened["repo"]}
 
     @app_main.app.post("/api/fake/disk-full", include_in_schema=False)
     async def fake_disk_full(on: bool = Body(..., embed=True)) -> dict:

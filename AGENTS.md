@@ -564,7 +564,8 @@ Gotchas:
   unanswered, a PC asleep), `/api/fake/disk-full` (`on`: every image save
   refused as a full disk), `/api/fake/model-cache` (`plant`: a checkpoint
   delete's fixtures in the fake's scratch `HF_HOME`; `touch`: a repository
-  changed between a plan and its confirm), `/api/fake/bundle` (`hold`: each bundle
+  changed between a plan and its confirm; `hold_open`: a shared repository's
+  file open after `after` unlinks, until `close`), `/api/fake/bundle` (`hold`: each bundle
   export or import waits, so the gallery's admission refuses counted
   routes; the knobs pass it), `/api/fake/passcode` (`passcode`: a string
   turns the passcode's gate on, null off; `reset`: clears the limiter; a

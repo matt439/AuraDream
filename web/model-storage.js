@@ -431,9 +431,11 @@ function modelDeleteQuestion(plan) {
 
 function modelDeleteResult(result) {
   const freed = result.freed_bytes ?? result.planned_bytes;
-  const left = (result.remaining ?? []).reduce((sum, part) => sum + (part.bytes || 0), 0);
-  const rest = (result.remaining ?? []).length
-    ? ` ${humanBytes(left)} is left: ${result.remaining[0].reason}` : '';
+  // What stayed, by its reason: a later delete takes some, only a hand
+  // removes others (blobs no revision names).
+  const left = new Map();
+  for (const part of result.remaining ?? []) left.set(part.reason, (left.get(part.reason) ?? 0) + (part.bytes || 0));
+  const rest = [...left].map(([reason, bytes]) => ` ${humanBytes(bytes)} is left: ${reason}`).join('');
   return `Deleted ${result.label}: about ${humanBytes(freed)} freed.${rest}`;
 }
 
@@ -535,8 +537,11 @@ async function deleteModelStorage(button) {
     modelStorageDeleted.set(entry, { text: modelDeleteResult(result), variants });
     // A sharer shown only for the files this last holder took with it
     // (also_taken_shared) has nothing left either: its row stays in place
-    // as a line saying so, as the deleted one's does.
-    const takenWith = new Set((plan.also_taken_shared ?? []).flatMap((share) => share.with));
+    // as a line saying so, as the deleted one's does. Not when the delete
+    // stopped partway (remaining): the shared files may have stayed, so the
+    // re-read shows the sharer as the cache now holds it, its Delete… free.
+    const stopped = (result.remaining ?? []).length > 0;
+    const takenWith = new Set(stopped ? [] : (plan.also_taken_shared ?? []).flatMap((share) => share.with));
     for (const line of modelStorageBody?.models ?? []) {
       const sharer = line.entry ?? line.model_id;
       if (line.variant || !takenWith.has(line.label) || modelStorageDeleted.has(sharer)
