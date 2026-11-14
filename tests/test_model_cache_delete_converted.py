@@ -23,10 +23,12 @@ import pytest
 
 from backend import keep_awake, model_cache_delete as delete, model_cache_storage, model_info
 from backend.backends import anima_loading, netayume_loading, newbie_loading, single_file
+from backend.encoder_table import TokenizerSource
 from backend.refusal_codes import (
     MODEL_CACHE_CHANGED,
     MODEL_DELETE_BUSY,
     MODEL_DELETE_HELD,
+    MODEL_DOWNLOADING,
     MODEL_FILES_IN_USE,
     MODEL_SELECTED,
 )
@@ -295,6 +297,48 @@ def test_a_changed_cache_selected_or_held_entry_refuses_before_anything(caches):
             delete.delete(AESTHETIC, planned.pin)
     finally:
         model_cache_storage._scan_lock.release()
+
+
+def test_a_tokenizer_fetch_from_the_tree_refuses_at_the_worker(caches):
+    # Check began reading the converted tree between the route's guard and
+    # the worker's re-plan: the worker's own check refuses before the rename.
+    target = caches.convert(AESTHETIC)
+    planned = delete.plan(AESTHETIC)
+    assert planned.repositories
+    before = caches.state()
+    for source in (TokenizerSource("nobody/else", "tokenizer", tree=AESTHETIC),
+                   TokenizerSource(sorted(planned.repositories)[0], "tokenizer")):
+        with pytest.raises(delete.DeleteRefused) as refused:
+            delete.delete(AESTHETIC, planned.pin, delete.PlanContext(pending=frozenset({source})))
+        assert refused.value.code == MODEL_DELETE_BUSY
+        assert caches.state() == before and target.is_dir()
+        assert not model_cache_storage._scan_lock.locked()
+    # A fetch from another entry's tree, from a repository it never names,
+    # holds nothing here.
+    other = TokenizerSource("nobody/else", "tokenizer", tree=NETAYUME)
+    outcome = delete.delete(AESTHETIC, planned.pin, delete.PlanContext(pending=frozenset({other})))
+    assert outcome.remaining == [] and not target.exists()
+
+
+@pytest.mark.parametrize("hub_delete", [False, True], ids=["hub held", "hub built"])
+def test_a_partial_download_refuses_at_the_worker(caches, monkeypatch, hub_delete):
+    # Refused as a download, whether or not the Hub part would be held anyway.
+    monkeypatch.setattr(delete, "HUB_DELETE", hub_delete)
+    caches.plant(WAI, only=WAI)
+    target = caches.convert(WAI)
+    partial = caches.folder(WAI) / "blobs" / "0123abcd.incomplete"
+    partial.parent.mkdir(parents=True, exist_ok=True)
+    partial.write_bytes(b"half")
+    # The plan read it: the pin is current, so only the worker's own
+    # download check stands between it and the rename.
+    planned = delete.plan(WAI)
+    assert planned.downloading
+    before = caches.state()
+    with pytest.raises(delete.DeleteRefused) as refused:
+        delete.delete(WAI, planned.pin)
+    assert refused.value.code == MODEL_DOWNLOADING and "0123abcd.incomplete" in refused.value.detail
+    assert caches.state() == before and target.is_dir()
+    assert not model_cache_storage._scan_lock.locked()
 
 
 def test_under_the_lock_a_tree_that_changed_or_appeared_is_not_taken(caches):
