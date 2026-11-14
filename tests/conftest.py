@@ -213,7 +213,7 @@ def fake(store, monkeypatch):
     monkeypatch.setattr(main, "jobs", JobManager(backend, main.ensure_loaded))
     monkeypatch.setattr(main, "bundle_manager", main.api_bundles.BundleManager(
         lambda: main.jobs,
-        lambda: main._switching,
+        lambda: main._switching or main._deleting_model is not None,
     ))
     # The analyser's tokenizers without the Hub, and a cache that starts and
     # ends empty: it is module state, and another test file reads it too.

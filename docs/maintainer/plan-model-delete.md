@@ -1,9 +1,16 @@
 # Plan: delete a whole checkpoint from Models > On disk
 
-**Status: planned 2026-11-14 (`GEN#72`). Nothing built.** The row's owner
-was the [peer review's R9](review-2026-11-10-peers.md#r9-storage-view);
-this plan owns it from now on (the TODO row's pointer moves here with the
-first stage's commit). Every stage below is CPU and browser work on scratch
+**Status: planned 2026-11-14 (`GEN#72`). Stage 0 built 2026-11-14 (rows
+named by entry, the lite and alias repositories on the entry's row, the
+page's sub-lines); stage 1 built 2026-11-14 (the read-only planner, its
+GET, the codes, the guards, `_deleting_model` wired inert); stage 2 built
+2026-11-14 (the worker's converted-tree removal, backend only, no route);
+stage 3 built 2026-11-14 (the Hub trash, the POST and its reservation,
+Delete… in the page, `smoke-model-delete`); stage 4 built 2026-11-14
+(files inside shared repositories, file by file). Built through stage 4;
+Matt's acceptance on his real Windows cache is left.** The row's owner was the
+[peer review's R9](review-2026-11-10-peers.md#r9-storage-view); this plan
+owns it from now on (the TODO row points here). Every stage below is CPU and browser work on scratch
 caches; none needs the card. Matt's questions are at the end; he
 accepted every recommended answer on 2026-11-14.
 
@@ -74,7 +81,7 @@ A delete of entry E removes, on this server's cache only:
 
 | Route | What it does |
 |---|---|
-| `GET /api/models/storage` | Unchanged and read-only. `tests/test_model_cache_storage.py`'s DELETE-is-405 assertion stays. |
+| `GET /api/models/storage` | Read-only. `tests/test_model_cache_storage.py`'s DELETE-is-405 assertion stays. Each entry row gains `delete_held` (stage 3's review): its plan's `held` detail on the same scan, or null. |
 | `GET /api/models/storage/plan?model_id=<id>` **(new)** | A dry run on a daemon thread (`detached(..., "model-cache-plan")`) under `model_cache_storage._scan_lock`. Answers `{entry, label, parts: [{kind: "hub"\|"lite"\|"converted"\|"converted-old", repo?, revision?, bytes, files}], kept_shared: [{bytes, with: [labels]}], also_taken_shared: [{bytes, with: [labels]}], frees_bytes, held: {code, detail} \| null, selected, loaded, load_on_startup, pin}`. |
 | `POST /api/models/storage/delete` **(new)** | Body `{model_id, pin}` (pydantic, `extra="forbid"`). Answers 200 `{label, planned_bytes, freed_bytes, remaining: [{kind, bytes, reason}]}`. |
 
@@ -103,9 +110,9 @@ New codes in `backend/refusal_codes.py` and `CODES`, raised through
 | `model_selected` | E is the selected (and so any loaded) checkpoint | says "Choose another checkpoint first" |
 | `model_downloading` | an `*.incomplete` under a repository the plan touches | says the sentence, naming the repository and the partial file's name relative to the cache (never `hf cache prune`: in huggingface_hub 1.33 it also removes every ref-less revision in every repository, and the app's commit-pinned downloads, such as Anima Turbo's and Aesthetic's `hf_hub_download` sources, write no ref) |
 | `model_cache_changed` | the pin differs | re-reads the plan and asks again |
-| `model_files_in_use` | Windows refused the first rename: nothing changed | says the sentence |
+| `model_files_in_use` | Windows refused a rename: every rename made is put back, nothing changed | says the sentence |
 | `model_not_on_disk` | E has nothing cached, or names no catalogue entry (one answer, 404) | refreshes the fold |
-| `model_delete_held` | a part the server cannot prove safe: an ambiguous `other_revision_of`, a shared repository before stage 4, a shared Xet store | the row's Delete is held with the detail as its title |
+| `model_delete_held` | a part the server cannot prove safe: an ambiguous `other_revision_of`, a shared repository before stage 4 (`SHARED_REPOSITORY_DELETE` off), a shared Xet store | the row's Delete is held with the detail as its title |
 
 ### Guards: loaded, selected, jobs, loads, downloads
 
@@ -459,6 +466,11 @@ Riskiest last. Each stage is one or more commits on one branch.
    id's row; the page groups lite rows.
    *Done when* storage tests cover a lite and an alias row and
    `smoke-model-storage` reads the lite row by its entry.
+   *Built 2026-11-14:* `model_cache_storage._lite_aliases`/`_row_names`;
+   `tests/test_model_cache_storage.py`'s lite-and-alias test; the fake
+   plants Krea 2 Turbo's NVFP4 tokenizer files and its INT4 id under the
+   renamed repository, and the smoke reads both lines under the entry's
+   row (shown with dashes when the entry itself holds nothing).
 1. **Planner, read-only.** `_snapshot` keeps an internal per-file index
    (first-hop paths, repository, revision, owners, converted targets)
    behind an unchanged answer; **(new)** `backend/model_cache_delete.py`
@@ -467,10 +479,59 @@ Riskiest last. Each stage is one or more commits on one branch.
    *Done when* every planner case above passes, the existing storage tests
    pass unchanged, a byte-for-byte no-mutation test passes, and ruff and
    `tools/typecheck.py` are green.
+   *Built 2026-11-14:* `model_cache_storage._scan` (the answer and its
+   `CacheIndex`; `_snapshot` returns the answer alone, unchanged) and
+   `hub_cache_dir`; `model_cache_delete.plan` (`PlanContext`, `Plan.answer`,
+   `fetching`, the pin; `SHARED_REPOSITORY_DELETE` false until stage 4,
+   so a removal inside a shared repository is `held`, its parts
+   `shared_repository: true`); the GET in `api_model_storage.create_plan_router`
+   with `gallery_images` (question 9: one count, `storage.count_live_images`);
+   the seven codes (`refusal_codes.MODEL_DELETE_CODES`; the page reads none
+   until stage 3); `main._model_delete_refusal`, `_model_delete_context`,
+   `_saved_start_entry`; `_deleting_model` in every reader listed under
+   Reservation and `/api/status`'s `model_delete`;
+   `prompt_encoding.pending_sources` (every fetch thread still running,
+   those `unload()` forgot too, not `_loading` alone). Tests:
+   `tests/test_model_cache_delete.py` (both layouts; the symlink one runs
+   where links can be made, Linux and WSL, and skips on Windows without the
+   privilege), `tests/test_api_model_storage_delete.py`,
+   `tests/model_cache_fixtures.py` (scratch `HF_HOME`/`HF_HUB_CACHE` for
+   the test through the environment and `huggingface_hub.constants`: the
+   suite's conftest imports the backend first, so "before any backend
+   import" holds for the fake in stage 3). The fake points the plan's scan
+   at its scratch Hub (`hub_cache_dir`); its converted targets still
+   resolve under the real `HF_HOME` until stage 3 sets the fake's, so a
+   plan there holds a converted entry ("outside ... the converted cache")
+   without looking at the real tree, and an entry with nothing cached is
+   still the 404. Review fixes: the index's hub is the scan's resolved one
+   (a linked cache), `_lexically_inside` says two drives are not inside,
+   the Xet marker holds only a plan taking from the Hub, and `Plan.names`
+   counts a selected, loaded or saved id outside the catalogue (or a case
+   variant) by its repository.
 2. **Converted-tree removal**, backend only, not exposed.
    *Done when* rename-to-work-shape, lock contention and every injected
    failure leave only `_is_work` directories, and a later load converts
    cleanly in the scratch cache (`tests/test_converter_cache.py` style).
+   *Built 2026-11-14:* `model_cache_delete.delete(model_id, pin, context)`,
+   the worker stage 3's route will run on a daemon thread: the scan
+   reservation and `keep_awake.busy` for its whole run, a fresh plan, and
+   before anything changes `DeleteRefused` (a code) for a different pin, a
+   selected/loaded/saved entry, a fetch it touches, a partial download, a
+   held part, or any Hub or lite part until stage 3 (`HUB_DELETE`), then
+   `assert_inside_roots` (the configured roots read again; every removal,
+   unit, converted target and lock inside them). `remove_converted` takes
+   each converted part under `WeakFileLock(<root>/<target>.lock,
+   timeout=LOCK_TIMEOUT)` (an older tree's own lock too), re-reads the tree
+   file for file under it, renames it into a new
+   `<target>-<8 [a-z0-9]>/tree` and removes every work directory of the
+   target. Choices left open here: an older recipe's tree is renamed into
+   its entry's *current* target's work shape, so the entry's next load
+   sweeps a leftover no loader would otherwise name; a failure after
+   something changed is the `Outcome`'s `remaining`, a refusal only while
+   nothing has; `freed_bytes` measures the roots' distinct volumes;
+   `model_info.invalidate_cache_facts` runs in the worker's `finally`.
+   filelock removes a `.lock` on release on Windows by itself; the delete
+   never unlinks one. Tests: `tests/test_model_cache_delete_converted.py`.
 3. **Whole-checkpoint delete for entries with no shared part.** The trash
    rename, the POST, the reservation, the page control, the dialog, the
    smoke and the docs. Entries with a shared part show Delete held with
@@ -480,6 +541,37 @@ Riskiest last. Each stage is one or more commits on one branch.
    *Done when* the API and CPU tests pass, `smoke-model-delete` and
    `smoke-model-storage` pass under `run_smoke.py --rerun-failed-alone`
    with no page error and a clean a11y check, and `pytest -n auto` is green.
+   *Built 2026-11-14:* `HUB_DELETE` on; `model_cache_delete.remove`
+   (every part renamed before any is removed: the converted trees under
+   their lock, then every whole repository of the group into
+   `model_cache_storage.trash_dir(hub)/<8 hex>/`; a refused rename
+   anywhere puts back what moved, so `model_files_in_use` and
+   `model_downloading` still mean nothing changed), `sweep_trash` at each
+   delete's start (its own `<8 hex>` folders only) and the inventory's
+   warning for a leftover; `Plan.removes_expander` for ERNIE's line; the
+   POST in `main` (`delete_model_storage`, `_run_model_delete`,
+   `_delete_task`, `_model_delete_finished`; `ModelDeleteRequest`), which
+   also compares the pin on the loop before reserving. Page:
+   `web/model-storage.js` (`modelStorageDeleteHeld`, `deleteModelStorage`,
+   the result line keeping the row and its sub-lines,
+   `receiveModelDeleteStatus` from the status poll), the five helpers in
+   `web/state.js`, the picker kept open while its question is up
+   (`web/app.js`), the phone's one-grid-per-line table in
+   `styles/touch.css`. Choices where this plan left room: an entry with
+   kept shared files left and nothing of its own still shows a row (the
+   inventory counts the shared files under it), and its Delete… says there
+   is nothing to free instead of asking; a busy refusal holds every
+   Delete… until the next status; the inventory's rows carry each plan's
+   hold (`delete_held`, `model_cache_delete.annotate_holds` under the same
+   scan), so a shared part's row is held as the fold reads, and a hold a
+   press meets that the read did not holds its row until Refresh;
+   "this PC's cache" is said in the title and a line of its own. The fake
+   sets its scratch `HF_HOME`/`HF_HUB_CACHE` in `main()` before any backend
+   import for every fake, and plants the delete's fixtures only through a
+   knob (`POST /api/fake/model-cache`, `plant`; `touch` changes a
+   repository), so the other smokes' Models cache words do not change.
+   Tests: `tests/test_model_cache_delete_hub.py`, the POST's in
+   `tests/test_api_model_storage_delete.py`.
 4. **File-level delete inside shared repositories.** Anima Turbo and
    Aesthetic (one repository, two commits), Anima Preview, Illustrious, WAI
    and RouWei, with the last-holder rule.
@@ -487,6 +579,38 @@ Riskiest last. Each stage is one or more commits on one branch.
    and sibling revisions byte for byte, in both layouts where the platform
    allows, and the smoke deletes one of two sharers leaving the other's
    row intact.
+   *Built 2026-11-14:* `SHARED_REPOSITORY_DELETE` on (kept as a switch, as
+   `HUB_DELETE`); each shared part (one per repository and revision) names
+   its `entries`, `blobs` and, when the delete empties its revision
+   (`emptied`), the `refs` naming it, which are removals the pin covers; a
+   shared repository's folder that is a link is held. `remove()` takes the
+   converted and whole-repository renames first, then `_check_files` (no
+   partial download, every planned entry, blob and ref as planned, an
+   emptied revision holding only the planned entries and refs) and
+   `_unlink_files`, one repository at a time: refs read now, entries,
+   blobs no surviving link names now, then `_prune_repository` (empty
+   folders bottom-up, the snapshot folder only while no ref names it,
+   `.no_exist/<commit>`, a nested ref's empty folders, the repository's
+   folder once empty). A check that fails or a first unlink refused puts
+   every rename back with nothing changed; a later refused unlink stops at
+   once, prunes what it emptied, and names the stopped repository's
+   touched parts and every later one in `remaining`. Choices where this
+   plan left room: refs are found again on disk at the unlink, and a ref
+   that appeared since the plan refuses the check (`model_cache_changed`);
+   unselected files at the entry's own commit in a shared repository stay
+   (question 4 takes them only where the repository is the entry's alone),
+   so such a revision is not emptied and keeps its refs and notes; a blob
+   left by a stop (at it, or at an entry after its own entries went) is a
+   `remaining` row of its own saying the bytes stay unnamed in `blobs/`,
+   which no later plan can see, to remove by hand; the page keeps a row the
+   last holder's delete emptied (`also_taken_shared`) as "Its files shared
+   with … went with it.", so no row below moves, but only when nothing
+   stayed: after a stop the re-read shows the sharer as the cache holds it,
+   its Delete… free. Tests:
+   `tests/test_model_cache_delete_shared.py` (both layouts; the symlink one
+   run under WSL), the POST's in `tests/test_api_model_storage_delete.py`;
+   `smoke-model-delete` deletes Anima Turbo beside Preview, then Preview as
+   the last holder.
 
 **Matt's acceptance (no GPU, after stage 3 and again after 4).** He deletes
 one real entry of his choice on Windows with another selected, compares the

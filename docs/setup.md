@@ -574,8 +574,21 @@ setups, snippets, saved searches and backup settings).
 
 ## Free disk space
 
-To remove one checkpoint, stop AuraDream and any other program using the
-same Hugging Face cache first. From PowerShell in the AuraDream folder:
+To remove one catalogue checkpoint, use **Delete…** on its row in
+**Models > On disk** ([Inspect model storage](usage.md#inspect-model-storage)):
+it asks first, keeps files another checkpoint on disk still uses (deleting
+file by file inside a repository two checkpoints share, such as Anima
+Turbo's and Aesthetic's), and removes the converted copy too. It deletes only from the cache this server
+uses (the WSL and Linux servers keep their own), and is held for the
+selected checkpoint. Stop other programs using the same Hugging Face cache
+first. Gallery images, setups and favourites stay; using the checkpoint
+again downloads it again, which needs your Hugging Face access to its
+licence. The Xet chunk cache under `HF_HOME\xet` is not per checkpoint;
+`hf cache` manages it.
+
+For a repository no catalogue checkpoint names, or another cache (the WSL
+or Linux server's), stop AuraDream and any other program using the same
+Hugging Face cache first. From PowerShell in the AuraDream folder:
 
 ```powershell
 uv run hf cache ls

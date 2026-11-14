@@ -289,17 +289,63 @@ test fails while it differs from the catalogue.
 ### Inspect model storage
 
 Open **On disk** at the foot of the Models panel (collapsed by default) to
-see what the model cache holds. It reads the cache only when you open it, or
-press its **Refresh**, never on a timer, and it has no delete control: it
+see what the model cache holds, and to delete a checkpoint you no longer
+need. It reads the cache only when you open it, press its **Refresh** or
+delete something, never on a timer. It
 shows the Hub cache total, free space on its drive, converted copies,
 incomplete downloads, the bytes no catalogue download names, each catalogue
 checkpoint with files in the cache, and other repositories there. A
 checkpoint downloaded at a different commit from the one AuraDream records
 shows **Unknown** with its size: the files are its, but which of them a load
-would use is not known. The same
-inventory is the read-only JSON at `/api/models/storage` on the same server
-(signed in, when a passcode is asked). It runs only when requested, off the
-server's request loop, and never deletes anything. It lists measured cached bytes
+would use is not known. A checkpoint's Nunchaku 4-bit files are a line
+under its row ("Krea 2 Turbo, Nunchaku NVFP4 files"), including those
+downloaded under lite-infer's newer repository name.
+
+Each checkpoint's row ends in **Delete…**. It reads what the delete would
+take and asks first: how much it frees (downloaded files and the converted
+copy), what it keeps because another checkpoint on disk still uses it
+("Kept: … shared with …"), what it removes with the last checkpoint that
+used it, ERNIE's prompt rewriter (Expand) when it is cached, how many
+gallery images used it, and that it cannot be undone. Confirmed, the row
+becomes the result ("Deleted …: about … freed") and stays there until you
+close the fold or press Refresh, so nothing below it moves. A checkpoint's
+Nunchaku files go with it; on Windows that is only this PC's cache, never a
+WSL or Linux server's own. Delete… is held, with the reason as its tooltip,
+for the selected or loaded checkpoint, the one saved to load on the next
+start (choose another checkpoint first), and while a job, load, switch,
+critique, Expand, gallery bundle operation or another delete runs.
+
+Checkpoints that share a repository are deleted file by file: Anima Turbo
+and Anima Aesthetic are two versions in one repository, and the Anima
+three share their text encoder files, as Illustrious, WAI and RouWei share
+SDXL base's configuration and tokenizer files. Deleting one takes only its
+own files; the shared ones stay while another of them still has files on
+disk, is selected, loaded or saved to load on the next start, and go with
+the last (the question says "Also removes … shared with …"). When the
+shared files go, a row shown only for them becomes a line saying so, in
+place.
+
+A download still writing into it, or a file open in another program,
+refuses the delete with nothing removed; if the cache changed since the
+question was asked, it asks again. If a file inside a shared repository is
+opened by another program partway through, the delete stops there and says
+what stayed: the files already removed are downloaded again by the next
+load, and pressing Delete… again later takes the rest.
+
+What stays: gallery images and their settings, setups, presets, favourites,
+saved searches, LoRAs, the prompt critic, the translator, the upscalers,
+repositories no catalogue checkpoint names, and other caches. Using the
+checkpoint again downloads it again, which needs your Hugging Face access
+to its licence; deleting does not withdraw that access or touch images made
+under it. Other apps using the same Hugging Face cache lose these files too:
+stop them first. The Hub's Xet chunk cache (`HF_HOME\xet`) is not attributed
+to any one checkpoint and is left alone; `hf cache` commands manage it. For
+repositories no catalogue checkpoint names, or another cache, follow
+[Free disk space](setup.md#free-disk-space).
+
+The same inventory is the read-only JSON at `/api/models/storage` on the
+same server (signed in, when a passcode is asked). It runs only when
+requested, off the server's request loop, and never deletes anything. It lists measured cached bytes
 for each catalogue selection, converted copies, shared bytes, the Hub cache
 total, incomplete downloads and free space on the cache drive. Model rows
 can share the same files, so adding their totals double-counts them.
@@ -312,8 +358,9 @@ upstream branch. `store_only_bytes` is the Hub's shared-store data with no
 scanned snapshot; it is reported separately. These are file bytes rather
 than allocated disk space; incomplete/corrupt repositories may be omitted
 with a warning, and Xet's chunk cache is outside the inventory. The numbers
-can change during a download. For manual cleanup while stopped, follow
-[Free disk space](setup.md#free-disk-space).
+can change during a download. A delete that met an open file names what it
+left beside the Hub cache as a warning; the next delete removes it. For
+manual cleanup while stopped, follow [Free disk space](setup.md#free-disk-space).
 
 ## Generate and manage jobs
 

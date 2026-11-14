@@ -26,9 +26,17 @@ MOUNTED = ["/static/app.js", "/static/offline.html", "/static/no-such-file.js", 
 def scratch_cache_scan(monkeypatch, tmp_path):
     # The table walk reaches storage inspection too: never inventory the
     # developer's real cache just to establish whether the route is gated.
-    from backend import model_cache_storage
+    from backend import model_cache_delete, model_cache_storage
 
-    monkeypatch.setattr(model_cache_storage, "snapshot", lambda: {"cache_dir": str(tmp_path), "models": []})
+    monkeypatch.setattr(model_cache_storage, "snapshot", lambda **_: {"cache_dir": str(tmp_path), "models": []})
+
+    # Nor plan or run a checkpoint delete against it (`GEN#72`): the walk
+    # only asks whether the route is gated.
+    def forbidden(*args, **kwargs):
+        raise AssertionError("the route walk reached the model cache delete")
+
+    monkeypatch.setattr(model_cache_delete, "plan", forbidden)
+    monkeypatch.setattr(model_cache_delete, "delete", forbidden)
 
 
 def _concrete(path: str) -> str:

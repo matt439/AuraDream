@@ -263,8 +263,13 @@ restoreModelGrouping();
 els.modelGroupByType.onchange = () => setModelGrouping(els.modelGroupByType.checked);
 els.btnModelFavouritesImport.onclick = () => void importModelFavourites();
 els.btnModelFavouritesDismiss.onclick = dismissModelFavouriteOffer;
-els.modelStorage.addEventListener('toggle', () => { if (els.modelStorage.open) void loadModelStorage(); });
-els.btnModelStorageRefresh.onclick = () => void loadModelStorage({ fresh: true });
+els.modelStorage.addEventListener('toggle', toggleModelStorage);
+els.btnModelStorageRefresh.onclick = refreshModelStorage;
+// Each entry's Delete… (model-storage.js); a held one says why.
+els.modelStorageBody.addEventListener('click', (event) => {
+  const button = event.target.closest('.model-storage-delete');
+  if (button) void deleteModelStorage(button);
+});
 els.models.onclick = () => showModelPicker(els.modelPicker.hidden);
 els.modelTable.addEventListener('change', (event) => {
   if (event.target.name === 'model-choice') modelPickerEdited('model_id');
@@ -307,6 +312,8 @@ els.modelShotsAll.onclick = showModelShotsGallery;
 window.addEventListener('resize', refitModelShots);
 document.addEventListener('pointerdown', (event) => {
   if (els.lightbox.open) return;
+  // A question the picker asked (On disk's Delete…) is the picker's own.
+  if (els.confirmDialog.open) return;
   // The button's own parts too: on a phone the status rides in it (phone.js).
   if (!els.modelPicker.hidden && !els.modelPicker.contains(event.target) && !els.models.contains(event.target)) {
     showModelPicker(false, { focus: false });
@@ -314,7 +321,7 @@ document.addEventListener('pointerdown', (event) => {
 });
 els.modelPicker.addEventListener('focusout', () => {
   setTimeout(() => {
-    if (els.lightbox.open) return;
+    if (els.lightbox.open || els.confirmDialog.open) return;
     if (!els.modelPicker.contains(document.activeElement) && document.activeElement !== els.models) {
       showModelPicker(false, { focus: false });
     }

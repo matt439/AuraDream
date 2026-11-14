@@ -1,12 +1,12 @@
 """What the model status poll serves and the switch request: the structured
 prompting guide and its tag helper, the critic's and Expand's cold status,
-`ModelSwitchRequest` and `ModelStatus`.
+`ModelSwitchRequest`, `ModelDeleteRequest` and `ModelStatus`.
 """
 from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_serializer
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 from .config import settings
 from .backends.regional_compile import RegionalDiagnostics
@@ -178,6 +178,16 @@ class ModelSwitchRequest(BaseModel):
     execution: ExecutionSpec | None = None
 
 
+class ModelDeleteRequest(BaseModel):
+    """`POST /api/models/storage/delete`: one catalogue entry by its
+    official id, and the pin of the plan the person confirmed."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    model_id: str = Field(min_length=1, max_length=512)
+    pin: str = Field(min_length=1, max_length=128)
+
+
 class ModelDownloadStatus(BaseModel):
     downloaded_bytes: int = 0
     total_bytes: int | None = None
@@ -190,6 +200,9 @@ class ModelDownloadStatus(BaseModel):
 class ModelStatus(BaseModel):
     state: Literal["unloaded", "loading", "ready", "error"]
     switching: bool = False
+    # The label of the checkpoint whose files are being deleted from this
+    # server's caches (Models > On disk), or None: no timed poll of its own.
+    model_delete: str | None = None
     idle_unload_minutes: int = 0
     idle_unloaded: bool = False
     model_revision: int = 0

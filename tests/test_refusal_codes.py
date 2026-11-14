@@ -301,9 +301,31 @@ def _scripts() -> dict[str, str]:
 def test_the_page_reads_every_code_the_server_gives_and_no_other():
     # A code nobody reads is dead weight; one the page reads that the server
     # never gives is a branch that cannot run.
+    # A checkpoint delete's codes (`GEN#72`) too, since Models > On disk has
+    # its Delete control (stage 3).
     text = "\n".join(_scripts().values())
     read = set(re.findall(r"err\??\.code [!=]== '([a-z_]+)'", text))
     assert read == set(refusal_codes.CODES)
+
+
+def test_a_checkpoint_delete_has_its_seven_codes():
+    # docs/maintainer/plan-model-delete.md's codes table, word for word.
+    assert refusal_codes.MODEL_DELETE_CODES == {
+        "model_delete_busy", "model_selected", "model_downloading", "model_cache_changed",
+        "model_files_in_use", "model_not_on_disk", "model_delete_held",
+    }
+    assert refusal_codes.MODEL_DELETE_CODES <= refusal_codes.CODES
+    for code in refusal_codes.MODEL_DELETE_CODES:
+        assert refusals.Refused(409, "said", code).body() == {"detail": "said", "code": code}
+
+
+def test_a_checkpoint_delete_plan_says_unknown_and_absent_by_code(client):
+    # The plan (`GET /api/models/storage/plan`) answers an id no entry names
+    # and an entry with nothing cached alike (tests/test_api_model_storage_delete.py
+    # has the scratch cache); `model_not_on_disk` is the one code for both.
+    assert _refused(client.get("/api/models/storage/plan", params={"model_id": "nobody/nothing"}),
+                    404, "model_not_on_disk") == (
+        "No catalogue checkpoint by that id has files in this server's cache.")
 
 
 def test_the_page_decides_nothing_from_a_refusals_sentence():

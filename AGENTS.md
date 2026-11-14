@@ -161,6 +161,13 @@ Reproduction and storage:
 - A new column needs a `_migrate` entry (`storage._ADDED_COLUMNS`, which a
   bundle merge's types also come from); `_row_to_record` reads unguarded.
 - `save_image` writes `.png.part` and renames after the row commits.
+- A checkpoint delete (Models > On disk, `model_cache_delete`) reserves the
+  idle server (`_deleting_model`) and the scan lock, never touches the
+  selected, loaded or saved-for-start entry, keeps files a present sharer
+  selects (the selected, loaded and saved ones count as present), renames
+  before it removes, inside a shared repository unlinks an emptied
+  revision's refs before its entries and its entries before their blobs
+  (never a ref to a missing snapshot), and never names `hf cache prune`.
 - Page deletes bin (`binned_at`); live reads exclude it,
   `_tracked_files`/`existing_*`/bundles/`clear`/`completed_cells`/`lineage_images`/
   `newest_image_id` read every row; only Empty bin, `DELETE /api/images/{id}` and `clear`
@@ -511,6 +518,7 @@ uses the driver's graceful close/cleanup. See the full Tests rules.
 | 7959 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-catalogue-stale` |
 | 7959 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-download-progress` |
 | 7959 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-model-storage` |
+| 7959 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-model-delete` |
 | 7960 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-phone-dialogs` |
 | 7960 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-phone-gallery` |
 | 7960 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-phone-keyboard` |
@@ -554,7 +562,10 @@ Gotchas:
   `/api/fake/instruction-edit` (the edit gate, open by default only on a
   Kontext fake), `/api/fake/unreachable` (`on`: every other request held
   unanswered, a PC asleep), `/api/fake/disk-full` (`on`: every image save
-  refused as a full disk), `/api/fake/bundle` (`hold`: each bundle
+  refused as a full disk), `/api/fake/model-cache` (`plant`: a checkpoint
+  delete's fixtures in the fake's scratch `HF_HOME`; `touch`: a repository
+  changed between a plan and its confirm; `hold_open`: a shared repository's
+  file open after `after` unlinks, until `close`), `/api/fake/bundle` (`hold`: each bundle
   export or import waits, so the gallery's admission refuses counted
   routes; the knobs pass it), `/api/fake/passcode` (`passcode`: a string
   turns the passcode's gate on, null off; `reset`: clears the limiter; a

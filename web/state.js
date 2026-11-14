@@ -808,6 +808,30 @@ function refusedIds(err) {
 function loraRefused(err) {
   return err?.code === 'lora_missing' || err?.code === 'lora_mismatch';
 }
+// A checkpoint delete's refusals (Models > On disk, model-storage.js;
+// backend/refusal_codes.py's MODEL_DELETE_CODES). Something else has the
+// server: the row's Delete is held until the next status says what.
+function modelDeleteBusy(err) {
+  return err?.code === 'model_delete_busy';
+}
+// The cache changed between the plan and the delete: read it, ask again.
+function modelDeleteChanged(err) {
+  return err?.code === 'model_cache_changed';
+}
+// No such entry has files on disk any more: the fold is read again.
+function modelDeleteGone(err) {
+  return err?.code === 'model_not_on_disk';
+}
+// A part the server cannot prove safe: the row's Delete is held, its title
+// the server's sentence.
+function modelDeleteHeldByServer(err) {
+  return err?.code === 'model_delete_held';
+}
+// Not now, for a reason the sentence names: the selected (or saved) entry,
+// a download still writing, a file open in another program.
+function modelDeleteNotNow(err) {
+  return err?.code === 'model_selected' || err?.code === 'model_downloading' || err?.code === 'model_files_in_use';
+}
 
 // A gallery bundle import, export, clear or backup holds every counted route
 // while it runs (backend/bundle_manager.py's GalleryAdmission). A panel whose

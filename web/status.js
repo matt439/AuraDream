@@ -881,6 +881,9 @@ function receiveStatus(s, asked = Date.now()) {
         : '',
       disk,
     ].filter(Boolean).join(' · ');
+    // Models > On disk: a checkpoint delete running, and every Delete… held
+    // or let go by what this answer says (model-storage.js).
+    receiveModelDeleteStatus(s);
     offerModelPicker(s);
     receiveFinishStatus(s);
 }

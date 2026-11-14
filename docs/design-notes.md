@@ -15094,8 +15094,164 @@ and on Refresh only, never on a timer or as the picker opens (a scan reads
 every cached file's size). Model rows are labelled by catalogue name, an
 unknown selection shows its known bytes with "+", one cached only at an
 unrecorded commit "Unknown (its bytes)", and the fold says that rows
-overlap and that "not referenced" is not "unused". It has no delete control;
-the guarded delete is designed only after Matt has seen this fold.
+overlap and that "not referenced" is not "unused". It had no delete control
+until `GEN#72` stage 3: the guarded delete was designed only after Matt had
+seen this fold.
+
+Matt's look over his real cache (2026-11-14) found one row named by a bare
+id, Krea 2 Turbo's Nunchaku NVFP4 source: the page labelled rows from
+`/api/models`' list, which carries lite ids only for Nunchaku on Linux. So
+the server names every row (`entry`, `label`, `variant`) and the page shows
+a lite id as a sub-line of its entry, "Krea 2 Turbo, Nunchaku NVFP4 files"
+(`GEN#72` stage 0, [the delete's plan](maintainer/plan-model-delete.md#naming-the-nunchaku-row)).
+The same stage attributes lite-infer's renamed repository (`lite_alias`) to
+the lite id the app writes. Adding the alias to the catalogue ids alone
+would not do: it has no recipe, so it would land in no `recorded` repository,
+its files would count as unreferenced and it would show as an unknown row
+of its own. Every revision of it is instead the written id's other
+revision (`other_revision_bytes`): its file list is not the one the
+retained reference records, even at the same commit. The delete takes an
+entry as one group, so its lite and alias repositories have to be on its
+row first.
+
+The delete's planner (`GEN#72` stage 1, `model_cache_delete.plan`) is
+read-only and works file by file from the inventory's own scan, not through
+huggingface_hub's `HFCacheInfo.delete_revisions`: that works per revision
+(the whole folder only when no other revision is left), while a revision
+two entries share - SDXL base under Illustrious, WAI and RouWei, Anima-Base
+under the three Anima entries - has to keep a sharer's files, and its
+`DeleteCacheStrategy.execute()` swallows `PermissionError` and coordinates
+with none of the app's locks. So the scan keeps a per-file index (first
+hops, repository, revision, owners) behind its unchanged answer. A
+repository only the entry's recipes name goes whole, old revisions,
+unselected files and the rest included (Matt's answer 4); one another
+entry names is planned file by file, and a file shared with another entry
+is kept while that sharer is present and goes with the last holder
+otherwise (answer 3: deleting WAI, RouWei and Illustrious in turn would
+otherwise strand SDXL base). "Present" counts the selected, loaded and
+saved-for-start entries and a Check fetch in flight, not only bytes on
+disk: a selected Illustrious with nothing downloaded still reads its
+Check tokenizers from SDXL base, and its next load or conversion needs
+them. The selected entry itself is refused (answer 1), which closes every
+fetch outside a load with one rule. A pending fetch is every fetch thread
+still running, including one `prompt_encoding.unload()` forgot, because
+the thread reads the files until it returns. An older converted tree is
+attributed by its marker's `source.repo_id` and `source.filename`, never
+the folder stem: the stem cannot tell a hand-made folder from the app's,
+and the filename is what tells Anima Turbo's tree from Aesthetic's in one
+repository. What cannot be proved safe is held, not guessed (a shared Xet
+store, an unrecorded revision several entries could own, an older tree
+from a shared source repository and a file neither uses now); until
+stage 4 so was any removal inside a shared repository. A converted target
+is checked against the converted root by name before anything looks at
+it: a fake or test whose `HF_HOME` differs from the loaders' would
+otherwise have the planner stat the real converted copies. Whether a
+memory-mapped safetensors file blocks a rename on Windows is unverified;
+refusing the selected entry is the guard, and the delete's rename-first
+order (stages 2 and 3) is defence in depth.
+
+The delete's converted-tree removal (`GEN#72` stage 2,
+`model_cache_delete.delete`, no route yet) renames before it removes. A
+converted tree is published by one rename and checked as a whole (marker
+and `model_index.json`), so removing it in place would leave, on the first
+file Windows will not let go, a marker-less target: "Incomplete converted
+model cache; remove ... and retry", a load refused until someone removes it
+by hand. Renamed first into `<target>-<8>/tree`, the loaders' own
+`_is_work` shape, it stops being a hit atomically, a refused rename changes
+nothing (`model_files_in_use`), and whatever an `rmtree` cannot finish is a
+stale work directory the next load's `sweep_work`, or the next delete,
+removes. An older recipe's tree is renamed into its entry's *current*
+target's shape for the same reason: nothing else would ever sweep a
+leftover of a recipe no loader names now. Both run under the loaders'
+`WeakFileLock`, with a short timeout, since a conversion holds it for
+minutes; the lock file is never unlinked by the delete (another process
+may take it the moment it is released), though filelock removes it itself
+on release on Windows. Under the lock the tree is re-read file for file
+against the plan, so a tree that changed, became a link, or appeared since
+is never taken. Until stage 3 the worker refuses any plan with something
+to take from the Hub, so a delete can never stop half done at a part not
+built yet.
+
+Stage 3 (`POST /api/models/storage/delete`, Models > On disk's Delete…)
+removes a repository the entry's group owns outright the same way: renamed
+first, out of the Hub cache into a sibling trash
+(`<hub>.auradream-deleting/<8 hex>/models--org--name`), then removed from
+there. Not inside the hub: `scan_cache_dir` reports an unknown folder there
+as a corrupted repository. Every repository of the group (the entry's own,
+its lite ones, a cached alias) is moved before any is removed, so the cache
+is consistent the moment the last rename lands; what an open file keeps is
+already out of the cache, named by the inventory as a warning and swept by
+the next delete. On Windows an open file fails its rename with nothing
+changed (`model_files_in_use`); a hub that is a mount point fails it as
+another drive, the same way. Every part is renamed before any is removed:
+the converted trees first, under their lock (so a conversion running
+refuses the delete before any Hub folder moves), then the repositories.
+A refused rename anywhere, or a download begun since the plan, puts back
+every rename already made: the first build removed WAI's converted copy
+before trying its Hub rename, so a Hub file open in another program left
+the copy gone and the repository on disk, a 200 with `remaining` where
+the docs promised nothing removed. Only a rename that will not go back
+leaves a partial delete, said in `remaining`.
+The route reads the plan off the loop, then checks every guard on the event
+loop with no await before `main._deleting_model` is set, and the worker
+plans again under the scan reservation and compares the pin: a cache that
+changed between the dialog and the press is refused with nothing removed,
+and the page reads the plan and asks again. Its own flag, not
+`_switching`, because `/api/status` reports it and the page must not say
+"switching"; the owner task is shielded from a caller who leaves and
+drained by the lifespan, as an unload's. The selected, loaded and
+saved-for-start entries are refused, never deleted under a sharer's name
+either. A removal inside a repository other entries use was held
+(`model_delete_held`, naming them) until stage 4, and the inventory says
+a plan's hold on each row (`delete_held`, the entry's plan run on the same
+scan's index): the first build learned a plan's hold only from a press, so
+Anima Turbo's Delete… looked free until pressed, and again after each
+Refresh.
+The page keeps a deleted
+entry's row as its result line, sub-lines too, across the re-read: without
+it every row below would move up and the next row's Delete… would land
+under the pointer. A status poll that saw this tab's delete running is
+forgotten when the POST answers: left, it said "Deleting …" over the
+re-read's "Read at" and held every Delete… until the next poll. An entry whose remaining files are only those a present
+sharer keeps has nothing to free, and its Delete… says so rather than ask.
+`freed_bytes` is measured (the volumes' free space before and after) and
+shown as "about": another writer can move it either way. The fake server
+runs on a scratch `HF_HOME` of its own for the whole process, so a smoke's
+delete can only ever reach the fake's cache.
+
+Stage 4 deletes inside a repository other entries' recipes name (Anima
+Turbo and Aesthetic's one repository at two commits, Anima-Base, SDXL
+base) file by file, since no rename can take one entry's files out of a
+folder another entry reads. So it cannot promise "nothing or everything"
+the way a rename can; it promises the next best thing, a state the Hub's
+own scan and the loaders always read: files missing from a pinned
+revision, which the next load downloads again, never a corrupted
+repository. The order is what keeps that true at every step. A revision
+the delete empties loses its refs first: a ref naming a missing snapshot
+is what `scan_cache_dir` calls corrupted, and the inventory would then skip
+the whole repository, sharer's files included; detached, the revision is
+still a plain one. Snapshot entries go before blobs, because an entry
+whose blob is gone is the other corruption the scan reports (a broken
+link); a blob goes only when no surviving entry's first hop names it,
+checked again at the moment of the unlink, not only at plan time. Folders
+go last, only empty ones, the snapshot folder only while no ref names it
+and the repository's folder only once nothing is left in it, since the
+scan needs `snapshots/` wherever the folder is. Before the first unlink the
+parts are checked against the plan (sizes, mtimes, refs, a download begun)
+after the converted and whole-repository renames, so a refusal still puts
+those back and changes nothing; the first unlink refused does the same.
+After that, an unlink Windows refuses (an open file) stops the step at
+once and what stays is `remaining`: going on past an open file would only
+lengthen the list of half-done revisions. One case cannot be made whole:
+on a symlink cache a blob whose entries are gone but which is itself open
+stays in `blobs/`, named by no revision, so the answer says to remove it by
+hand; on Linux an open file unlinks anyway, and Windows caches rarely have
+links. The last holder's delete can empty a row the fold was showing only
+for its shared files (Turbo's, kept for Preview, once Preview goes), so
+the page keeps that row too, as a line saying they went with it: the same
+pointer rule as the deleted row's. The shared Xet store stays held: its
+payloads serve several repositories, and nothing here can see who else
+names them.
 
 Status takes a different path: required-file stats plus selected-source
 partial blobs, off-loop under the existing revision retry, sampled at most

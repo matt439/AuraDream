@@ -125,6 +125,7 @@
     "smoke-z-anime": 4,
     "smoke-idle-activity": 41,
     "smoke-model-storage": 12,
+    "smoke-model-delete": 14,
     "smoke-gallery-maintenance": 10
   }
 }
