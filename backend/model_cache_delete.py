@@ -11,11 +11,11 @@ reservation and answers, without changing anything on disk:
 - a repository the group alone names (no other entry's recipe does): the
   whole `models--org--name` folder - every revision, unselected files,
   `refs/`, `.no_exist/` - and each lite repository the same way;
-- a repository other entries' recipes also name: file by file, the group's
-  selected files at its recorded commits, a file another entry selects too
-  kept while that sharer is present (the last-holder rule) and taken with
-  the last holder otherwise; deleting inside such a repository is stage 4,
-  so until `SHARED_REPOSITORY_DELETE` a plan that would is held;
+- a repository other entries' recipes also name: file by file (stage 4),
+  the group's selected files at its recorded commits, a file another entry
+  selects too kept while that sharer is present (the last-holder rule) and
+  taken with the last holder otherwise; a revision the delete empties takes
+  its refs and `.no_exist/<commit>` with it;
 - the entry's converted tree and its work directories, and older converted
   trees whose marker names the entry's own source repository and file.
 
@@ -33,12 +33,18 @@ loaders' own lock into exactly `single_file._is_work`'s shape
 (`<target>-<8>/tree`), so it stops being a hit at once, then each
 repository the group owns outright (`HUB_DELETE`, stage 3) out of the Hub
 cache into its sibling trash (`model_cache_storage.trash_dir`,
-`<8 hex>/<folder>`). A refused rename anywhere puts the others back:
-nothing changed. Then each target's work directories and each trash folder
-are removed; what an open file kept is swept by the next load or delete and
-named by the inventory. A refusal before anything changed is
-`DeleteRefused` with its code; a failure after something changed is the
-outcome's `remaining`.
+`<8 hex>/<folder>`). The files inside shared repositories (stage 4) are
+checked as planned next, then unlinked: each emptied revision's refs first,
+then its snapshot entries, then the blobs no surviving entry resolves to,
+then emptied folders bottom-up and the revision's `.no_exist/<commit>`. A
+refused rename, a check that fails or a first unlink that fails puts every
+rename back: nothing changed. After the first unlink a failure stops the
+file-level step at once, and what stays is `remaining`: files missing from a
+pinned revision, never a ref to a missing snapshot. Then each target's work
+directories and each trash folder are removed; what an open file kept is
+swept by the next load or delete and named by the inventory. A refusal
+before anything changed is `DeleteRefused` with its code; a failure after
+something changed is the outcome's `remaining`.
 """
 from __future__ import annotations
 
@@ -71,10 +77,10 @@ from .refusal_codes import (
 
 log = logging.getLogger(__name__)
 
-# Deleting files inside a repository other entries' recipes also name is
-# the plan's stage 4. Until it is built, a plan with such a removal is held;
-# the parts it would take carry `shared_repository: true`.
-SHARED_REPOSITORY_DELETE = False
+# Deleting files inside a repository other entries' recipes also name, file
+# by file, is the plan's stage 4, built: the parts it takes carry
+# `shared_repository: true`. Off, a plan with such a removal is held.
+SHARED_REPOSITORY_DELETE = True
 # huggingface_hub 1.33's cache-wide shared Xet store marks `<hub>/blobs`
 # with this file: its payloads serve several repositories (held, never planned).
 SHARED_STORE_MARKER = ".huggingface-shared-blobs"
@@ -83,7 +89,7 @@ _MARKER_BYTES = 64 * 1024
 # Removing a repository the group owns outright from the Hub cache (the
 # trash rename) is the plan's stage 3, built: off, `delete()` refuses a plan
 # with a Hub or lite part, with nothing changed. A removal inside a shared
-# repository stays held by the planner until `SHARED_REPOSITORY_DELETE`.
+# repository is held by the planner while `SHARED_REPOSITORY_DELETE` is off.
 HUB_DELETE = True
 # How long a delete waits for a converted tree's lock. A conversion holds it
 # for minutes and a load only while it sweeps and checks, so a wait past this
@@ -152,6 +158,15 @@ class Part:
     # converted tree, a work directory) or, inside a shared repository, the
     # snapshot entries and the blobs no surviving entry resolves to.
     units: list[Path] = field(default_factory=list)
+    # Inside a shared repository (stage 4), the same paths by role: the
+    # revision's snapshot entries, the repository blobs no surviving entry
+    # resolves to and, when the delete empties the revision (`emptied`),
+    # the refs naming it, unlinked first so it is never a ref to a missing
+    # snapshot.
+    entries: list[Path] = field(default_factory=list)
+    blobs: list[Path] = field(default_factory=list)
+    refs: list[Path] = field(default_factory=list)
+    emptied: bool = False
 
     def answer(self) -> dict:
         answer: dict = {"kind": self.kind}
@@ -428,6 +443,10 @@ def _plan(entry_id: str, context: PlanContext, cache_dir: Path | None,
     shares: dict[frozenset[str], list[int]] = defaultdict(list)
     for path, (file, sharers) in sorted(taken.items(), key=lambda item: str(item[0])):
         folder = _repo_folder(hub, file.repo_id)
+        if _is_link(folder) or not _inside(folder, hub):
+            collect.hold(1, f"{file.repo_id}'s cache folder is a link or lies outside the Hub cache; "
+                            "deleting from it is not built.")
+            continue
         if not (_inside(file.entry, folder) and _inside(file.blob, folder)) or (
                 file.blob != file.entry and _is_link(file.blob)):
             collect.hold(0, f"A file of {file.repo_id} resolves outside its repository, as a shared Xet "
@@ -440,10 +459,12 @@ def _plan(entry_id: str, context: PlanContext, cache_dir: Path | None,
                 kind, repo=file.repo_id, revision=file.revision, shared_repository=True)
         part.files += 1
         part.units.append(path)
+        part.entries.append(path)
         collect.item(part.kind, "hub", path)
         freed = 0
         if file.blob != file.entry and file.blob not in surviving_blobs and file.blob not in counted:
             part.units.append(file.blob)
+            part.blobs.append(file.blob)
             collect.item(part.kind, "hub", file.blob)
         if file.blob not in surviving_blobs and file.blob not in counted:
             freed = file.size
@@ -452,6 +473,24 @@ def _plan(entry_id: str, context: PlanContext, cache_dir: Path | None,
         if sharers:
             shares[sharers].append(freed)
         touched.add(file.repo_id)
+    # A revision the delete empties loses its refs first (they are removals
+    # the pin covers): detached, never a ref to a missing snapshot, which the
+    # scan calls a corrupted repository.
+    for (repo, revision), part in parts.items():
+        if any(file.repo_type == "model" and file.repo_id == repo and file.revision == revision
+               and file.entry not in taken for file in index.files):
+            continue
+        part.emptied = True
+        indexed = index.repos.get(("model", repo))
+        folder = _repo_folder(hub, repo)
+        for name in sorted(indexed.revisions.get(revision, ()) if indexed is not None else ()):
+            ref = folder / "refs" / name
+            if _is_link(ref) or not _inside(ref, folder):
+                collect.hold(1, f"A ref of {repo} is a link or lies outside its folder; deleting it is not built.")
+                continue
+            part.refs.append(ref)
+            part.units.append(ref)
+            collect.item(part.kind, "hub", ref)
     result.parts.extend(parts[key] for key in sorted(parts))
     result.also_taken_shared = [
         {"bytes": sum(sizes), "with": sorted(_label(sharer) for sharer in sharers)}
@@ -558,8 +597,9 @@ def _plan(entry_id: str, context: PlanContext, cache_dir: Path | None,
 def annotate_holds(context: PlanContext | None = None) -> Callable[[dict, model_cache_storage.CacheIndex], None]:
     """For `model_cache_storage.snapshot(annotate=...)`: each catalogue
     entry's row gains `delete_held`, its plan's `held` detail on this scan's
-    index (a shared repository before stage 4, a shared Xet store, a link
-    out of its repository, ...), or null; a lite id's sub-line always null.
+    index (a shared Xet store, a link out of its repository, an unrecorded
+    revision several entries could own, ...), or null; a lite id's sub-line
+    always null.
     So the page holds such a row's Delete… as it reads the cache, not only
     once pressed. The plan's other refusals (selected, busy, a partial
     download) are the page's and the press's. Runs under the snapshot's
@@ -873,28 +913,34 @@ def remove(result: Plan, outcome: Outcome, *, lock_timeout: float = LOCK_TIMEOUT
     "How files are removed"):
 
     1. each converted part under the loaders' lock (the target's `.lock`, an
-       older tree's own too, each taken once and held to the end of step 3),
+       older tree's own too, each taken once and held to the end of step 4),
        its tree re-read as planned and renamed into the target's work shape;
     2. each repository the group owns outright renamed into a new folder of
        the Hub cache's trash;
-    3. every work directory of each converted target removed;
-    4. the locks released, each repository's trash folder removed.
+    3. the files inside shared repositories (stage 4) checked as planned,
+       then unlinked (`_unlink_files`): refs of each emptied revision, its
+       snapshot entries, the blobs no surviving entry resolves to, emptied
+       folders bottom-up and `.no_exist/<commit>`;
+    4. every work directory of each converted target removed;
+    5. the locks released, each repository's trash folder removed.
 
-    A refusal in steps 1-2 (a lock held, a tree or repository changed, a
-    partial download, a refused rename) puts every rename back and raises
+    A refusal in steps 1-3 before the first unlink (a lock held, a tree,
+    repository or file changed, a partial download, a refused rename, a
+    first unlink refused) puts every rename back and raises
     `DeleteRefused`: nothing changed, whichever part refused. Only if a
     rename will not go back has something changed; then what was put back,
     or never reached, is `remaining` beside the refused part, and what will
-    not go back is removed. A failure in steps 3-4 is `remaining`. The
-    caller holds the scan reservation and has checked the plan
-    (`delete()`)."""
+    not go back is removed. A failure after the first unlink, or in steps
+    4-5, is `remaining`. The caller holds the scan reservation and has
+    checked the plan (`delete()`)."""
     from .backends.single_file import _is_work
 
     wanted = None if kinds is None else set(kinds)
     parts = [part for part in result.parts if wanted is None or part.kind in wanted]
     converted = sorted((part for part in parts if part.kind in _CONVERTED_KINDS),
                        key=lambda part: part.kind != "converted")
-    repositories = [part for part in parts if part.kind in _HUB_KINDS]
+    repositories = [part for part in parts if part.kind in _HUB_KINDS and not part.shared_repository]
+    shared = [part for part in parts if part.kind in _HUB_KINDS and part.shared_repository]
     moves: list[_Move] = []
     going = {id(part) for part in parts}
     with ExitStack() as locks:
@@ -904,6 +950,10 @@ def remove(result: Plan, outcome: Outcome, *, lock_timeout: float = LOCK_TIMEOUT
                 _stage_converted(result, part, locks, taken, moves, lock_timeout)
             for part in repositories:
                 _stage_repository(result, part, moves)
+            for part in shared:
+                _check_files(result, part)
+            # Raises only when its first unlink is refused: nothing changed.
+            _unlink_files(result, shared, outcome)
         except DeleteRefused as refused:
             stranded = _put_back(result, moves)
             if not stranded:
@@ -938,8 +988,9 @@ def remove_converted(result: Plan, outcome: Outcome, *, lock_timeout: float = LO
 
 
 def remove_hub(result: Plan, outcome: Outcome) -> None:
-    """`remove()` for the plan's whole repositories alone (the entry's own
-    and its lite ones)."""
+    """`remove()` for the plan's Hub and lite parts alone: the repositories
+    it takes whole (the entry's own and its lite ones) and its files inside
+    shared ones."""
     remove(result, outcome, kinds=_HUB_KINDS)
 
 
@@ -1175,13 +1226,14 @@ def _partial(folder: Path) -> str | None:
 def _stage_repository(result: Plan, part: Part, moves: list[_Move]) -> None:
     """Step 2 of `remove()` for one whole repository: renamed out of the
     Hub cache into a new folder of its trash. Raises `DeleteRefused` (with
-    the part) for a part inside a shared repository, a partial download or a
-    refused rename."""
+    the part) for a part that is not one whole folder, a partial download or
+    a refused rename."""
     label = result.label
     if not part.whole or part.shared_repository or len(part.units) != 1:
-        # The planner holds these until stage 4; never reached unheld.
-        raise DeleteRefused(MODEL_DELETE_HELD, f"Deleting {label}'s files inside a repository other checkpoints "
-                                               "use is not built yet; nothing was deleted.",
+        # Never reached: `remove()` takes a shared repository's files one by
+        # one (`_unlink_files`), and only a whole folder comes here.
+        raise DeleteRefused(MODEL_DELETE_HELD, f"{label}'s files in {part.repo} are not one whole folder of its "
+                                               "own; nothing was deleted.",
                             part=part, reason="It sits in a repository another checkpoint uses.")
     folder = part.units[0]
     partial = _partial(folder)
@@ -1263,3 +1315,280 @@ def _remove_trash(result: Plan, moves: list[_Move], outcome: Outcome) -> None:
             model_cache_storage.trash_dir(result.hub).rmdir()
         except OSError:
             pass  # an earlier leftover is still there: the inventory names it
+
+
+# ------------------------------------- files inside a shared repository
+
+
+def _key(path: Path | str) -> str:
+    return os.path.normcase(os.path.abspath(path))
+
+
+def _refs_naming(folder: Path, commits: set[str]) -> dict[str, list[Path]]:
+    """Each of `commits` -> the ref files under `folder/refs` naming it, read
+    now (`refs/main`, `refs/refs/pr/1`, ...). A ref is read as the Hub's scan
+    reads it, its text the commit; surrounding whitespace is ignored here, so
+    a delete finds more refs, never fewer."""
+    found: dict[str, list[Path]] = defaultdict(list)
+    refs = folder / "refs"
+    if not commits or _is_link(refs) or not refs.is_dir():
+        return found
+    for directory, dirs, files in os.walk(refs, followlinks=False):
+        here = Path(directory)
+        dirs[:] = [name for name in dirs if not _is_link(here / name)]
+        for name in files:
+            path = here / name
+            try:
+                commit = path.read_text(encoding="utf-8", errors="replace").strip()
+            except OSError:
+                continue
+            if commit in commits:
+                found[commit].append(path)
+    return found
+
+
+def _snapshot_items(directory: Path) -> set[str]:
+    """Every file and link under `directory`, never following a link."""
+    items: set[str] = set()
+    for here, dirs, files in os.walk(directory, followlinks=False):
+        links = [name for name in dirs if _is_link(Path(here) / name)]
+        dirs[:] = [name for name in dirs if name not in links]
+        items.update(_key(Path(here) / name) for name in [*files, *links])
+    return items
+
+
+def _check_files(result: Plan, part: Part) -> None:
+    """Step 3's check, before the first unlink, for one part inside a shared
+    repository: no partial download in the repository, every planned entry,
+    blob and ref still as planned (size, mtime_ns), and an emptied revision
+    still holding only the planned entries, with only the planned refs
+    naming it. Raises `DeleteRefused` (with the part) otherwise."""
+    assert result.hub is not None and part.repo is not None and part.revision is not None
+    label = result.label
+    folder = _repo_folder(result.hub, part.repo)
+    changed = DeleteRefused(MODEL_CACHE_CHANGED, f"{label}'s files changed since the plan was read; read it again.",
+                            part=part, reason="It changed after the plan was read.")
+    if _is_link(folder) or not folder.is_dir():
+        raise changed
+    partial = _partial(folder)
+    if partial is not None:
+        raise DeleteRefused(MODEL_DOWNLOADING, f"A download is still writing {partial} in {part.repo}; "
+                                               "let it finish, or stop it, first.",
+                            part=part, reason="A download started writing in it.")
+    planned = {_key(removal.path): removal for removal in result.removals}
+    for path in [*part.entries, *part.blobs, *part.refs]:
+        removal = planned.get(_key(path))
+        try:
+            info = os.lstat(path)
+        except OSError:
+            raise changed from None
+        size = info.st_size if stat.S_ISREG(info.st_mode) else 0
+        if removal is None or (size, info.st_mtime_ns) != (removal.size, removal.mtime_ns):
+            raise changed
+    if part.emptied:
+        snapshot = folder / "snapshots" / part.revision
+        if _snapshot_items(snapshot) != {_key(entry) for entry in part.entries}:
+            raise changed
+        named = _refs_naming(folder, {part.revision}).get(part.revision, [])
+        if {_key(ref) for ref in named} != {_key(ref) for ref in part.refs}:
+            raise changed
+
+
+class _Stopped(Exception):
+    """An unlink refused inside a shared repository: the part it stopped,
+    and whether at a blob (every snapshot entry naming it already gone)."""
+
+    def __init__(self, part: Part, blob: bool = False) -> None:
+        super().__init__(part.repo)
+        self.part = part
+        self.blob = blob
+
+
+@dataclass
+class _Unlinks:
+    """How many files the file-level step has unlinked so far."""
+
+    count: int = 0
+
+
+def _unlink(path: Path, part: Part, done: _Unlinks, outcome: Outcome, *, blob: bool = False) -> None:
+    """One file or link; one gone already is no failure. Anything else
+    refused (an open file on Windows, a permission) stops the step at once."""
+    try:
+        os.unlink(path)
+    except FileNotFoundError:
+        return
+    except OSError:
+        log.warning("could not remove a file of %s: it is open, or not this server's to remove", part.repo)
+        log.debug("unlink in %s", part.repo, exc_info=True)
+        raise _Stopped(part, blob) from None
+    done.count += 1
+    outcome.changed = True
+
+
+def _unlink_files(result: Plan, parts: list[Part], outcome: Outcome) -> None:
+    """Step 3's unlinks for every part inside a shared repository, one
+    repository at a time (`_unlink_repository`). A refused unlink stops the
+    step at once: refused before anything was unlinked, it raises
+    `DeleteRefused` (`model_files_in_use`, with the part), so `remove()`
+    puts every rename back; after, the stopped part's bytes left and each
+    part not reached are `remaining`. What stays is always files missing
+    from a revision, which the next load downloads again, never a ref to a
+    missing snapshot."""
+    if not parts:
+        return
+    done = _Unlinks()
+    by_repo: dict[str, list[Part]] = defaultdict(list)
+    for part in parts:
+        assert part.repo is not None
+        by_repo[part.repo].append(part)
+    order = [part for repo in sorted(by_repo) for part in by_repo[repo]]
+    for repo in sorted(by_repo):
+        try:
+            _unlink_repository(result, repo, by_repo[repo], done, outcome)
+        except _Stopped as stopped:
+            part = stopped.part
+            if done.count == 0:
+                raise DeleteRefused(
+                    MODEL_FILES_IN_USE,
+                    f"A file in {result.label}'s downloaded files ({part.repo}) is open, perhaps in another "
+                    "program; nothing was deleted.",
+                    part=part, reason="A file in it is open, so it could not be removed.") from None
+            # The stopped repository's parts (one before it may still hold
+            # blobs, which go after every entry) and every later one.
+            sizes = {_key(removal.path): removal.size for removal in result.removals}
+            for later in order[order.index(by_repo[repo][0]):]:
+                left = [path for path in [*later.entries, *later.blobs] if os.path.lexists(path)]
+                if later is not part and not left:
+                    continue
+                if later is not part:
+                    reason = "It stays: the delete stopped at another part."
+                elif stopped.blob:
+                    # No revision names it any more: no later plan sees it.
+                    reason = ("A file in it is open, perhaps in another program, so its stored bytes stay in the "
+                              "repository's blobs folder, which no revision names now; remove them by hand.")
+                else:
+                    reason = ("A file in it is open, perhaps in another program, so some of its files stay; "
+                              "a later delete can take them.")
+                outcome.remaining.append({"kind": later.kind, "reason": reason,
+                                          "bytes": sum(sizes.get(_key(path), 0) for path in left)})
+            return
+
+
+def _unlink_repository(result: Plan, repo: str, parts: list[Part], done: _Unlinks, outcome: Outcome) -> None:
+    """The plan's files inside one shared repository, in the order that keeps
+    the cache readable at every step (docs/maintainer/plan-model-delete.md,
+    "Files inside a repository others use"):
+
+    1. each emptied revision's refs, as found now: it becomes detached, never
+       a ref to a missing snapshot;
+    2. each snapshot entry;
+    3. each planned blob no surviving snapshot entry resolves to, checked
+       now (a link's first hop, as the Hub's scan reads it): a blob still
+       named is kept, never left a broken link;
+    4. emptied folders bottom-up (an emptied revision's snapshot folder only
+       while no ref names it), then its `.no_exist/<commit>`, and the
+       repository's folder once nothing at all is left in it.
+
+    Raises `_Stopped` at the first refused unlink, after step 4 for what it
+    had unlinked here (only empty folders go, so it is safe at any point)."""
+    assert result.hub is not None
+    folder = _repo_folder(result.hub, repo)
+    emptied = {part.revision: part for part in parts if part.emptied and part.revision is not None}
+    before = done.count
+    try:
+        for commit, refs in sorted(_refs_naming(folder, set(emptied)).items()):
+            for ref in sorted(refs):
+                _unlink(ref, emptied[commit], done, outcome)
+        for part in parts:
+            for entry in part.entries:
+                _unlink(entry, part, done, outcome)
+        alive = _named_blobs(folder)
+        for part in parts:
+            for blob in part.blobs:
+                if _key(blob) in alive:
+                    log.info("kept a blob of %s that another revision's file still names", repo)
+                    continue
+                _unlink(blob, part, done, outcome, blob=True)
+    finally:
+        # Nothing unlinked here (a refusal that puts everything back), nothing pruned.
+        if done.count > before:
+            _prune_repository(folder, parts, set(emptied))
+
+
+def _prune_repository(folder: Path, parts: list[Part], emptied: set[str]) -> None:
+    """Step 4 of `_unlink_repository`."""
+    named = _refs_naming(folder, emptied)
+    for part in parts:
+        assert part.revision is not None
+        snapshot = folder / "snapshots" / part.revision
+        whole = part.emptied and not named.get(part.revision)
+        _prune(snapshot, including_top=whole)
+        if whole and not os.path.lexists(snapshot):
+            _remove_notes(folder / ".no_exist" / part.revision)
+    if emptied:
+        # A nested ref's emptied folders (`refs/refs/pr/`); `refs/` stays.
+        _prune(folder / "refs", including_top=False)
+    if not _snapshot_items(folder):
+        # Nothing of any revision is left: its empty folders go, the
+        # repository's too. Otherwise `snapshots/` stays: the scan needs it.
+        _prune(folder, including_top=True)
+
+
+def _named_blobs(folder: Path) -> set[str]:
+    """The first hop of every link under the repository's snapshots: the
+    blobs some snapshot entry still resolves to."""
+    named: set[str] = set()
+    for here, dirs, files in os.walk(folder / "snapshots", followlinks=False):
+        for name in [*files, *dirs]:
+            path = Path(here) / name
+            if path.is_symlink():
+                try:
+                    named.add(_key(Path(here) / os.readlink(path)))
+                except OSError:
+                    continue
+        dirs[:] = [name for name in dirs if not _is_link(Path(here) / name)]
+    return named
+
+
+def _prune(top: Path, *, including_top: bool) -> None:
+    """Remove the empty folders under `top`, bottom-up (never a link), and
+    `top` itself when asked and empty. A folder that is not empty stays."""
+    if _is_link(top) or not top.is_dir():
+        return
+    for here, dirs, _ in os.walk(top, topdown=False, followlinks=False):
+        for name in dirs:
+            path = Path(here) / name
+            if _is_link(path):
+                continue
+            try:
+                os.rmdir(path)
+            except OSError:
+                pass  # not empty: something stays in it
+    if including_top:
+        try:
+            os.rmdir(top)
+        except OSError:
+            pass
+
+
+def _remove_notes(folder: Path) -> None:
+    """A revision's `.no_exist/<commit>`: the Hub client's zero-byte notes of
+    files the revision lacks. Best effort: a note left is harmless."""
+    if _is_link(folder) or not folder.is_dir():
+        return
+    for here, dirs, files in os.walk(folder, topdown=False, followlinks=False):
+        for name in [*files, *(name for name in dirs if _is_link(Path(here) / name))]:
+            try:
+                os.unlink(Path(here) / name)
+            except OSError:
+                log.debug("could not remove a .no_exist note", exc_info=True)
+        for name in dirs:
+            try:
+                os.rmdir(Path(here) / name)
+            except OSError:
+                pass
+    try:
+        os.rmdir(folder)
+    except OSError:
+        pass

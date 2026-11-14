@@ -9,7 +9,8 @@ then removed from there. A refused rename, whichever part's, puts back
 what moved and changes nothing (`model_files_in_use`); what an open file
 keeps in the trash is the outcome's `remaining`, named by the inventory as
 a warning and swept by the next delete. A removal inside a
-repository other entries use stays held until stage 4.
+repository other entries use is stage 4's, file by file:
+tests/test_model_cache_delete_shared.py.
 """
 from __future__ import annotations
 
@@ -178,28 +179,13 @@ def test_a_converted_copy_and_its_source_repository_go_together(copy_caches, mon
     assert {path.name for path in caches.converted.iterdir() if path.is_dir()} == set()
 
 
-# ------------------------------------------------- still held: shared parts
-
-
-def test_a_shared_repository_stays_held_naming_its_sharers(caches):
-    # Illustrious selects files of SDXL base, which WAI and RouWei select
-    # too. As the last holder its delete would take them: a removal inside a
-    # shared repository is stage 4's, so it is held with the sharers named.
-    caches.plant(ILLUSTRIOUS)
-    before = caches.state()
-    planned = delete.plan(ILLUSTRIOUS)
-    assert planned.held is not None and planned.held["code"] == MODEL_DELETE_HELD
-    assert SDXL in planned.held["detail"] and "WAI" in planned.held["detail"]
-    with pytest.raises(delete.DeleteRefused) as refused:
-        delete.delete(ILLUSTRIOUS, planned.pin)
-    assert refused.value.code == MODEL_DELETE_HELD
-    assert caches.state() == before
+# ------------------------------------------------------- shared parts kept
 
 
 def test_files_a_present_sharer_keeps_stay_and_the_rest_goes(caches):
     # With WAI on disk the shared SDXL base files are kept, not taken: the
-    # plan removes nothing inside a shared repository, so it runs now and
-    # leaves SDXL base byte for byte.
+    # plan removes nothing inside a shared repository, and its delete leaves
+    # SDXL base byte for byte.
     caches.plant(ILLUSTRIOUS)
     caches.plant(WAI)
     planned = delete.plan(ILLUSTRIOUS)

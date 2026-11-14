@@ -362,7 +362,9 @@ def test_under_the_lock_a_tree_that_changed_or_appeared_is_not_taken(caches):
         with pytest.raises(delete.DeleteRefused) as refused:
             delete.remove_converted(planned, delete.Outcome(planned.label, planned.frees_bytes))
         assert refused.value.code == MODEL_CACHE_CHANGED
-        assert caches.state() == before
+        # But the zero-byte `.lock` the lock leaves where filelock keeps it (Linux).
+        unlocked = {key: value for key, value in caches.state().items() if not key.endswith(".lock")}
+        assert unlocked == {key: value for key, value in before.items() if not key.endswith(".lock")}
     target.unlink() if target.is_symlink() else os.rmdir(target)  # the junction itself, never its target
     shutil.rmtree(caches.converted / "moved-away")
     stale_work(target)

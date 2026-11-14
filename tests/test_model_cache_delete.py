@@ -79,9 +79,9 @@ def test_anima_aesthetic_keeps_the_base_its_sharers_use_and_turbos_revision(cach
         "with": ["Anima 2.9B Preview v1", "Anima Turbo v1.1"],
     }]
     assert result.also_taken_shared == []
-    # Its file sits in Turbo's repository: file-level deletion is stage 4.
-    assert result.held is not None and result.held["code"] == "model_delete_held"
-    assert "Anima Turbo v1.1" in result.held["detail"] and "not built yet" in result.held["detail"]
+    # Its file sits in Turbo's repository: taken file by file (stage 4), its
+    # revision emptied, Turbo's untouched.
+    assert result.held is None and hub.emptied and hub.revision == commit
     # Nothing of Turbo's revision, the base or another converted tree.
     assert not any(turbo_commit in path or "Anima-Base" in path or "turbo" in path for path in relatives(result))
     assert caches.state() == before
@@ -116,12 +116,13 @@ def test_a_blob_another_revision_still_resolves_to_stays(caches):
     assert relatives(result) >= {f"models--circlestone-labs--Anima/snapshots/{commit}/{name}"}
 
 
-def test_a_stage_4_switch_releases_the_shared_repository_hold(caches, monkeypatch):
+def test_the_shared_repository_switch_off_holds_a_removal_inside_one(caches, monkeypatch):
     for model in (TURBO, AESTHETIC):
         caches.plant(model)
-    assert plan(AESTHETIC).held is not None
-    monkeypatch.setattr(delete, "SHARED_REPOSITORY_DELETE", True)
-    assert plan(AESTHETIC).held is None
+    assert delete.SHARED_REPOSITORY_DELETE and plan(AESTHETIC).held is None
+    monkeypatch.setattr(delete, "SHARED_REPOSITORY_DELETE", False)
+    held = plan(AESTHETIC).held
+    assert held is not None and "Anima Turbo v1.1" in held["detail"] and "not built yet" in held["detail"]
 
 
 # --------------------------------------------- the SDXL three, last holder
@@ -141,8 +142,8 @@ def test_the_last_holder_takes_the_shared_base_and_says_so(caches):
     assert sdxl.shared_repository and sdxl.bytes == base and sdxl.files == 17
     own = next(part for part in result.parts if part.repo == ILLUSTRIOUS)
     assert own.whole and not own.shared_repository
-    # Taking files out of the SDXL repository others name waits for stage 4.
-    assert result.held is not None and "WAI Illustrious v17" in result.held["detail"]
+    # Taken file by file out of the SDXL repository others name (stage 4).
+    assert result.held is None and sdxl.emptied
 
 
 @pytest.mark.parametrize("present", ["own file", "other revision", "converted", "selected", "loaded",
@@ -172,7 +173,7 @@ def test_a_present_sharer_keeps_the_shared_base(caches, present):
     assert result.kept_shared == [{"bytes": base, "with": expected}]
     assert not any("stable-diffusion-xl" in path for path in relatives(result))
     assert {part.repo for part in result.parts} == {ILLUSTRIOUS}
-    # Nothing comes out of the shared repository, so nothing waits for stage 4.
+    # Nothing comes out of the shared repository.
     assert result.held is None
     if present == "a tokenizer fetch":
         assert result.fetching(context["pending"])
@@ -422,7 +423,7 @@ def test_a_hub_reached_through_a_link_plans_as_its_real_folder(caches, monkeypat
     for model in (TURBO, AESTHETIC):
         caches.plant(model)
     real = plan(TURBO)
-    assert real.held is not None and "Anima Aesthetic v1.1 also use" in real.held["detail"]
+    assert real.held is None and any(part.shared_repository for part in real.parts)
     linked = tmp_path / "linked" / "hub"
     link_folder(linked, caches.hub)
     import huggingface_hub.constants as constants

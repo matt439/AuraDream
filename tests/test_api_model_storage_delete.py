@@ -2,7 +2,8 @@
 the plan's GET on scratch caches (stage 1), the guards as one reusable
 function, `_deleting_model` in every reader of `_switching`, and the delete's
 POST (stage 3): every guard by its code, the reservation while the worker
-runs, a caller who leaves, the cache facts' revision, no absolute path.
+runs, a caller who leaves, the cache facts' revision, no absolute path; and
+files inside a repository other entries share (stage 4) through the POST.
 """
 from __future__ import annotations
 
@@ -29,6 +30,7 @@ ERNIE = "baidu/ERNIE-Image-Turbo"
 KREA2 = "krea/Krea-2-Turbo"
 ILLUSTRIOUS = "OnomaAIResearch/Illustrious-XL-v2.0"
 SDXL = "stabilityai/stable-diffusion-xl-base-1.0"
+ANIMA, AESTHETIC = "circlestone-labs/Anima", "circlestone-labs/Anima@aesthetic-v1.1"
 PLAN = "/api/models/storage/plan"
 DELETING = "a checkpoint's files are being deleted; wait for the delete to finish"
 
@@ -151,6 +153,9 @@ def test_no_answer_names_an_absolute_path(client, caches, tmp_path):
     partial = caches.folder(ILLUSTRIOUS) / "blobs" / "partial.incomplete"
     partial.parent.mkdir(parents=True, exist_ok=True)
     partial.write_bytes(b"half")
+    # A cache-wide shared Xet store: a hold in words too.
+    (caches.hub / "blobs").mkdir()
+    (caches.hub / "blobs" / delete.SHARED_STORE_MARKER).write_text("1\n")
     answer = client.get(PLAN, params={"model_id": ILLUSTRIOUS}).json()
     assert answer["held"] and answer["downloading"] and answer["also_taken_shared"]
     text = json.dumps(answer)
@@ -159,9 +164,11 @@ def test_no_answer_names_an_absolute_path(client, caches, tmp_path):
 
 
 def test_the_inventory_holds_each_row_its_plan_holds(client, caches, monkeypatch):
-    # Illustrious alone is the last holder of SDXL base's shared files: its
-    # plan is held, so its row says so as the cache is read, before any
-    # press, in the plan's own words. ERNIE's and a lite sub-line's are null.
+    # With the shared-repository switch off, Illustrious alone, the last
+    # holder of SDXL base's shared files, has a held plan, so its row says
+    # so as the cache is read, before any press, in the plan's own words.
+    # ERNIE's and a lite sub-line's are null.
+    monkeypatch.setattr(delete, "SHARED_REPOSITORY_DELETE", False)
     caches.plant(ILLUSTRIOUS)
     caches.plant(ERNIE)
     entry = model_info.catalogue_entry(KREA2)
@@ -187,6 +194,11 @@ def test_the_inventory_holds_each_row_its_plan_holds(client, caches, monkeypatch
     assert not model_cache_storage._scan_lock.locked()
     # With WAI on disk the shared files are kept: Illustrious's row is free.
     caches.plant("LyliaEngine/waiIllustriousSDXL_v170")
+    rows = {row["model_id"]: row for row in client.get("/api/models/storage").json()["models"]}
+    assert rows[ILLUSTRIOUS]["delete_held"] is None
+    # Switched on (stage 4), the last holder's row is free as well.
+    monkeypatch.setattr(delete, "SHARED_REPOSITORY_DELETE", True)
+    shutil.rmtree(caches.folder("LyliaEngine/waiIllustriousSDXL_v170"))
     rows = {row["model_id"]: row for row in client.get("/api/models/storage").json()["models"]}
     assert rows[ILLUSTRIOUS]["delete_held"] is None
 
@@ -465,6 +477,29 @@ def test_a_delete_answers_what_it_freed_and_releases_everything(client, caches, 
     assert gone.status_code == 404 and gone.json()["code"] == "model_not_on_disk"
 
 
+def test_one_of_two_sharers_goes_file_by_file_through_the_post(client, caches):
+    # Stage 4: Anima Aesthetic's file sits in the repository Anima Turbo's
+    # recipe names too, and the base both use is kept for Turbo, present.
+    for model in (ANIMA, AESTHETIC):
+        caches.plant(model)
+    _, turbo_commit, _ = caches.own_file(ANIMA)
+    _, commit, _ = caches.own_file(AESTHETIC)
+    planned = client.get(PLAN, params={"model_id": AESTHETIC}).json()
+    assert planned["held"] is None and [part["shared_repository"] for part in planned["parts"]] == [True]
+    assert planned["kept_shared"][0]["with"] == ["Anima Turbo v1.1"]
+    turbo = {key: value for key, value in caches.state().items() if turbo_commit in key or "Anima-Base" in key}
+    response = _delete(client, AESTHETIC, planned["pin"])
+    assert response.status_code == 200, response.text
+    assert response.json()["remaining"] == [] and response.json()["planned_bytes"] == planned["frees_bytes"]
+    assert not (caches.folder(ANIMA) / "snapshots" / commit).exists()
+    assert {key: value for key, value in caches.state().items()
+            if turbo_commit in key or "Anima-Base" in key} == turbo
+    rows = {row["model_id"]: row for row in client.get("/api/models/storage").json()["models"]}
+    assert rows[AESTHETIC]["exclusive_bytes"] == 0 and rows[ANIMA]["exclusive_bytes"] > 0
+    assert rows[ANIMA]["delete_held"] is None
+    assert main._deleting_model is None and not model_cache_storage._scan_lock.locked()
+
+
 def test_the_body_is_exact(client, caches):
     caches.plant(ERNIE)
     pin = _pin(client, ERNIE)
@@ -499,11 +534,12 @@ def test_a_changed_cache_and_an_absent_entry_refuse_by_code(client, caches):
 
 
 def test_held_downloading_and_in_use_refuse_by_code_with_nothing_changed(client, caches, monkeypatch):
-    # Held: Illustrious, the last holder of SDXL base's shared files.
-    caches.plant(ILLUSTRIOUS)
-    held = _delete(client, ILLUSTRIOUS, _pin(client, ILLUSTRIOUS))
+    # Held: Anima Turbo's file at a commit no record names, which Anima
+    # Aesthetic could also own (one repository, two entries).
+    caches.put(ANIMA, "8" * 40, "split_files/diffusion_models/anima-turbo-v1.0.safetensors")
+    held = _delete(client, ANIMA, _pin(client, ANIMA))
     assert held.status_code == 409 and held.json()["code"] == "model_delete_held"
-    assert SDXL in held.json()["detail"]
+    assert "could also own" in held.json()["detail"]
     caches.plant(ERNIE)
     partial = caches.folder(ERNIE) / "blobs" / "0123abcd.incomplete"
     partial.parent.mkdir(parents=True, exist_ok=True)

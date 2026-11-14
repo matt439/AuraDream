@@ -312,13 +312,25 @@ close the fold or press Refresh, so nothing below it moves. A checkpoint's
 Nunchaku files go with it; on Windows that is only this PC's cache, never a
 WSL or Linux server's own. Delete… is held, with the reason as its tooltip,
 for the selected or loaded checkpoint, the one saved to load on the next
-start (choose another checkpoint first), while a job, load, switch,
-critique, Expand, gallery bundle operation or another delete runs, and for a
-checkpoint whose files sit in a repository another checkpoint uses (Anima
-Turbo and Aesthetic, Illustrious as the last of the SDXL three): those
-deletes are not built yet. A download still writing into it, or a file open
-in another program, refuses the delete with nothing removed; if the cache
-changed since the question was asked, it asks again.
+start (choose another checkpoint first), and while a job, load, switch,
+critique, Expand, gallery bundle operation or another delete runs.
+
+Checkpoints that share a repository are deleted file by file: Anima Turbo
+and Anima Aesthetic are two versions in one repository, and the Anima
+three share their text encoder files, as Illustrious, WAI and RouWei share
+SDXL base's configuration and tokenizer files. Deleting one takes only its
+own files; the shared ones stay while another of them still has files on
+disk, is selected, loaded or saved to load on the next start, and go with
+the last (the question says "Also removes … shared with …"). When the
+shared files go, a row shown only for them becomes a line saying so, in
+place.
+
+A download still writing into it, or a file open in another program,
+refuses the delete with nothing removed; if the cache changed since the
+question was asked, it asks again. If a file inside a shared repository is
+opened by another program partway through, the delete stops there and says
+what stayed: the files already removed are downloaded again by the next
+load, and pressing Delete… again later takes the rest.
 
 What stays: gallery images and their settings, setups, presets, favourites,
 saved searches, LoRAs, the prompt critic, the translator, the upscalers,

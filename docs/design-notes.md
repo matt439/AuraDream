@@ -15141,8 +15141,8 @@ the folder stem: the stem cannot tell a hand-made folder from the app's,
 and the filename is what tells Anima Turbo's tree from Aesthetic's in one
 repository. What cannot be proved safe is held, not guessed (a shared Xet
 store, an unrecorded revision several entries could own, an older tree
-from a shared source repository and a file neither uses now), and until
-stage 4 so is any removal inside a shared repository. A converted target
+from a shared source repository and a file neither uses now); until
+stage 4 so was any removal inside a shared repository. A converted target
 is checked against the converted root by name before anything looks at
 it: a fake or test whose `HF_HOME` differs from the loaders' would
 otherwise have the planner stat the real converted copies. Whether a
@@ -15201,11 +15201,12 @@ and the page reads the plan and asks again. Its own flag, not
 "switching"; the owner task is shielded from a caller who leaves and
 drained by the lifespan, as an unload's. The selected, loaded and
 saved-for-start entries are refused, never deleted under a sharer's name
-either. A removal inside a repository other entries use is still held
+either. A removal inside a repository other entries use was held
 (`model_delete_held`, naming them) until stage 4, and the inventory says
-so on each row (`delete_held`, the entry's plan run on the same scan's
-index): the first build learned a plan's hold only from a press, so Anima
-Turbo's Delete… looked free until pressed, and again after each Refresh.
+a plan's hold on each row (`delete_held`, the entry's plan run on the same
+scan's index): the first build learned a plan's hold only from a press, so
+Anima Turbo's Delete… looked free until pressed, and again after each
+Refresh.
 The page keeps a deleted
 entry's row as its result line, sub-lines too, across the re-read: without
 it every row below would move up and the next row's Delete… would land
@@ -15217,6 +15218,40 @@ sharer keeps has nothing to free, and its Delete… says so rather than ask.
 shown as "about": another writer can move it either way. The fake server
 runs on a scratch `HF_HOME` of its own for the whole process, so a smoke's
 delete can only ever reach the fake's cache.
+
+Stage 4 deletes inside a repository other entries' recipes name (Anima
+Turbo and Aesthetic's one repository at two commits, Anima-Base, SDXL
+base) file by file, since no rename can take one entry's files out of a
+folder another entry reads. So it cannot promise "nothing or everything"
+the way a rename can; it promises the next best thing, a state the Hub's
+own scan and the loaders always read: files missing from a pinned
+revision, which the next load downloads again, never a corrupted
+repository. The order is what keeps that true at every step. A revision
+the delete empties loses its refs first: a ref naming a missing snapshot
+is what `scan_cache_dir` calls corrupted, and the inventory would then skip
+the whole repository, sharer's files included; detached, the revision is
+still a plain one. Snapshot entries go before blobs, because an entry
+whose blob is gone is the other corruption the scan reports (a broken
+link); a blob goes only when no surviving entry's first hop names it,
+checked again at the moment of the unlink, not only at plan time. Folders
+go last, only empty ones, the snapshot folder only while no ref names it
+and the repository's folder only once nothing is left in it, since the
+scan needs `snapshots/` wherever the folder is. Before the first unlink the
+parts are checked against the plan (sizes, mtimes, refs, a download begun)
+after the converted and whole-repository renames, so a refusal still puts
+those back and changes nothing; the first unlink refused does the same.
+After that, an unlink Windows refuses (an open file) stops the step at
+once and what stays is `remaining`: going on past an open file would only
+lengthen the list of half-done revisions. One case cannot be made whole:
+on a symlink cache a blob whose entries are gone but which is itself open
+stays in `blobs/`, named by no revision, so the answer says to remove it by
+hand; on Linux an open file unlinks anyway, and Windows caches rarely have
+links. The last holder's delete can empty a row the fold was showing only
+for its shared files (Turbo's, kept for Preview, once Preview goes), so
+the page keeps that row too, as a line saying they went with it: the same
+pointer rule as the deleted row's. The shared Xet store stays held: its
+payloads serve several repositories, and nothing here can see who else
+names them.
 
 Status takes a different path: required-file stats plus selected-source
 partial blobs, off-loop under the existing revision retry, sampled at most

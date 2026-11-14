@@ -135,7 +135,7 @@ function modelStorageDeleteHeld(row) {
   if (modelStorageLoading) return 'The model cache is being read; wait for it to finish';
   if (bundleStatus?.state === 'running') return GALLERY_MAINTENANCE_WORDS;
   if (modelStorageHeldPlans.has(entry)) return modelStorageHeldPlans.get(entry);
-  // The inventory's own read of the plan's hold (a shared repository, ...).
+  // The inventory's own read of the plan's hold (a shared Xet store, ...).
   if (row.delete_held) return row.delete_held.replace(/\.$/, '');
   if (modelStorageBusyHold) return modelStorageBusyHold;
   return '';
@@ -533,6 +533,16 @@ async function deleteModelStorage(button) {
       .filter((line) => line.variant && (line.entry ?? line.model_id) === entry && modelStorageHasBytes(line))
       .map((line) => line.model_id);
     modelStorageDeleted.set(entry, { text: modelDeleteResult(result), variants });
+    // A sharer shown only for the files this last holder took with it
+    // (also_taken_shared) has nothing left either: its row stays in place
+    // as a line saying so, as the deleted one's does.
+    const takenWith = new Set((plan.also_taken_shared ?? []).flatMap((share) => share.with));
+    for (const line of modelStorageBody?.models ?? []) {
+      const sharer = line.entry ?? line.model_id;
+      if (line.variant || !takenWith.has(line.label) || modelStorageDeleted.has(sharer)
+        || !modelStorageHasBytes(line)) continue;
+      modelStorageDeleted.set(sharer, { text: `Its files shared with ${plan.label} went with it.`, variants: [] });
+    }
     if (modelStorageBody) renderModelStorage(modelStorageBody);
     modelStorageSay(modelDeleteResult(result));
     await loadModelStorage({ fresh: true });

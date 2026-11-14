@@ -6,7 +6,9 @@ page's sub-lines); stage 1 built 2026-11-14 (the read-only planner, its
 GET, the codes, the guards, `_deleting_model` wired inert); stage 2 built
 2026-11-14 (the worker's converted-tree removal, backend only, no route);
 stage 3 built 2026-11-14 (the Hub trash, the POST and its reservation,
-Delete… in the page, `smoke-model-delete`); stage 4 not built.** The row's owner was the
+Delete… in the page, `smoke-model-delete`); stage 4 built 2026-11-14
+(files inside shared repositories, file by file). Built through stage 4;
+Matt's acceptance on his real Windows cache is left.** The row's owner was the
 [peer review's R9](review-2026-11-10-peers.md#r9-storage-view); this plan
 owns it from now on (the TODO row points here). Every stage below is CPU and browser work on scratch
 caches; none needs the card. Matt's questions are at the end; he
@@ -110,7 +112,7 @@ New codes in `backend/refusal_codes.py` and `CODES`, raised through
 | `model_cache_changed` | the pin differs | re-reads the plan and asks again |
 | `model_files_in_use` | Windows refused a rename: every rename made is put back, nothing changed | says the sentence |
 | `model_not_on_disk` | E has nothing cached, or names no catalogue entry (one answer, 404) | refreshes the fold |
-| `model_delete_held` | a part the server cannot prove safe: an ambiguous `other_revision_of`, a shared repository before stage 4, a shared Xet store | the row's Delete is held with the detail as its title |
+| `model_delete_held` | a part the server cannot prove safe: an ambiguous `other_revision_of`, a shared repository before stage 4 (`SHARED_REPOSITORY_DELETE` off), a shared Xet store | the row's Delete is held with the detail as its title |
 
 ### Guards: loaded, selected, jobs, loads, downloads
 
@@ -577,6 +579,35 @@ Riskiest last. Each stage is one or more commits on one branch.
    and sibling revisions byte for byte, in both layouts where the platform
    allows, and the smoke deletes one of two sharers leaving the other's
    row intact.
+   *Built 2026-11-14:* `SHARED_REPOSITORY_DELETE` on (kept as a switch, as
+   `HUB_DELETE`); each shared part (one per repository and revision) names
+   its `entries`, `blobs` and, when the delete empties its revision
+   (`emptied`), the `refs` naming it, which are removals the pin covers; a
+   shared repository's folder that is a link is held. `remove()` takes the
+   converted and whole-repository renames first, then `_check_files` (no
+   partial download, every planned entry, blob and ref as planned, an
+   emptied revision holding only the planned entries and refs) and
+   `_unlink_files`, one repository at a time: refs read now, entries,
+   blobs no surviving link names now, then `_prune_repository` (empty
+   folders bottom-up, the snapshot folder only while no ref names it,
+   `.no_exist/<commit>`, a nested ref's empty folders, the repository's
+   folder once empty). A check that fails or a first unlink refused puts
+   every rename back with nothing changed; a later refused unlink stops at
+   once, prunes what it emptied, and names the stopped repository's
+   touched parts and every later one in `remaining`. Choices where this
+   plan left room: refs are found again on disk at the unlink, and a ref
+   that appeared since the plan refuses the check (`model_cache_changed`);
+   unselected files at the entry's own commit in a shared repository stay
+   (question 4 takes them only where the repository is the entry's alone),
+   so such a revision is not emptied and keeps its refs and notes; a stop
+   at a blob (its entries gone) says the bytes stay unnamed in `blobs/`,
+   which no later plan can see; the page keeps a row the last holder's
+   delete emptied (`also_taken_shared`) as "Its files shared with … went
+   with it.", so no row below moves. Tests:
+   `tests/test_model_cache_delete_shared.py` (both layouts; the symlink one
+   run under WSL), the POST's in `tests/test_api_model_storage_delete.py`;
+   `smoke-model-delete` deletes Anima Turbo beside Preview, then Preview as
+   the last holder.
 
 **Matt's acceptance (no GPU, after stage 3 and again after 4).** He deletes
 one real entry of his choice on Windows with another selected, compares the

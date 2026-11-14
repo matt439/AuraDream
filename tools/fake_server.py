@@ -197,8 +197,9 @@ def _plant_model_cache(data: Path) -> None:
 # What `POST /api/fake/model-cache` plants for a checkpoint delete's smoke
 # (`GEN#72`): the selected FLUX.1 Krea [dev]'s files (its row's Delete held),
 # Anima Turbo and Anima Preview sharing Anima-Base's files (a delete of
-# Preview keeps them; Turbo's own file sits in the repository Aesthetic's
-# recipe names too, so its delete is held), Preview's converted copy, and
+# either keeps them while the other is present, and the last takes them;
+# Turbo's own file sits in the repository Aesthetic's recipe names too, so
+# its delete goes file by file, stage 4), Preview's converted copy, and
 # ERNIE with its prompt rewriter, after Preview in the table.
 _DELETE_FIXTURES = (
     "black-forest-labs/FLUX.1-Krea-dev", "circlestone-labs/Anima", "Gazingstars123/Anima-2.9B",

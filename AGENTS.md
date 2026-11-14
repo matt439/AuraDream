@@ -165,7 +165,9 @@ Reproduction and storage:
   idle server (`_deleting_model`) and the scan lock, never touches the
   selected, loaded or saved-for-start entry, keeps files a present sharer
   selects (the selected, loaded and saved ones count as present), renames
-  before it removes, and never names `hf cache prune`.
+  before it removes, inside a shared repository unlinks an emptied
+  revision's refs before its entries and its entries before their blobs
+  (never a ref to a missing snapshot), and never names `hf cache prune`.
 - Page deletes bin (`binned_at`); live reads exclude it,
   `_tracked_files`/`existing_*`/bundles/`clear`/`completed_cells`/`lineage_images`/
   `newest_image_id` read every row; only Empty bin, `DELETE /api/images/{id}` and `clear`

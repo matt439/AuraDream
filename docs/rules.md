@@ -32,7 +32,8 @@ paragraphs, never rewording.
   `backend/model_cache_delete.py` plans deleting one whole catalogue entry
   from that index (`plan()`, read-only) and runs the delete's worker
   (`delete()`: every converted tree and repository the entry owns
-  outright renamed aside before any is removed; `GEN#72` stages 1-3), and
+  outright renamed aside before any is removed, then its files inside
+  shared repositories unlinked one by one; `GEN#72` stages 1-4), and
   gives the inventory each entry's hold (`annotate_holds`).
 - `backend/idle_unload.py` owns the default-off event-loop idle release timer;
   it shares `keep_awake.py`'s activity clock and drains admitted cleanup.
@@ -951,8 +952,10 @@ paragraphs, never rewording.
   rows by the server's `label`, a Nunchaku lite id a sub-line of its
   entry's row, "Krea 2 Turbo, Nunchaku NVFP4 files"; each entry row's
   trailing Delete…, `modelStorageDeleteHeld`, `deleteModelStorage` and the
-  result line that keeps the row; `receiveModelDeleteStatus` from the
-  status poll);
+  result line that keeps the row - a sharer's row too, when the last
+  holder's delete took the files it was shown for (`also_taken_shared`),
+  so no row below moves up; `receiveModelDeleteStatus` from the status
+  poll);
   `bundles.js` owns the gallery bundle dialog (Back up and its scope
   included) and background-operation polling, and `automatic-backup.js`
   its automatic startup backup settings (protection, consent, retention
@@ -1254,11 +1257,12 @@ paragraphs, never rewording.
   (the route's `snapshot(annotate=...)`, with main's plan context) runs the
   entry's plan on the scan's index and gives its `held` detail, or null (a
   lite sub-line, nothing on disk, a plan that failed to read), so the page
-  holds a shared part's Delete… as it reads, not only once pressed.
+  holds a held plan's Delete… as it reads, not only once pressed.
 - A checkpoint delete (`GEN#72`, [the plan](maintainer/plan-model-delete.md);
-  stages 0-3 built: names, the planner, converted trees, whole
-  repositories with the POST and the page; stage 4, files inside shared
-  repositories, not) takes one catalogue entry, named
+  stages 0-4 built: names, the planner, converted trees, whole
+  repositories with the POST and the page, files inside shared
+  repositories; Matt's acceptance on the real cache left) takes one
+  catalogue entry, named
   by its exact official id, and its group (its Nunchaku lite ids and any
   cached lite-infer alias). `GET /api/models/storage/plan?model_id=` runs
   `model_cache_delete.plan` on a daemon thread (`model-cache-plan`) under
@@ -1266,7 +1270,8 @@ paragraphs, never rewording.
   the parts (`hub`/`lite`: a repository only the group's recipes name
   whole, every revision, unselected file, `refs/` and `.no_exist/`; one
   other entries' recipes also name file by file, its parts
-  `shared_repository: true`; `converted`: the entry's tree and its
+  `shared_repository: true`, one per revision, a revision every file of
+  which goes `emptied` with its refs as removals; `converted`: the entry's tree and its
   `single_file._is_work` work directories, never the `.lock`;
   `converted-old`: a tree whose marker's `source.repo_id` and
   `source.filename` are the entry's), `kept_shared` and
@@ -1294,8 +1299,8 @@ paragraphs, never rewording.
   cached anything but the 404), an
   unrecorded revision of a repository several entries name, an older tree
   from a source repository two entries share and a file neither uses now,
-  and, until stage 4 (`SHARED_REPOSITORY_DELETE`), any removal inside a
-  shared repository. The index's hub is the scan's resolved one
+  and, with `SHARED_REPOSITORY_DELETE` off (on since stage 4), any removal
+  inside a shared repository. The index's hub is the scan's resolved one
   (`scan_cache_dir` resolves a linked cache), so repository folders are the
   scanned ones. `selected`/`loaded`/`load_on_startup` and the
   `model_selected` guard read `Plan.names`: the entry, or an id outside the
@@ -1347,12 +1352,14 @@ paragraphs, never rewording.
   them, and a Hub trash that is a link or a drive root's refused. It sweeps
   what earlier deletes left in the trash (its own `<8 hex>` folders only),
   then `remove()` renames every part before it removes any: the converted
-  trees, then the Hub repositories. A refused rename anywhere (or a lock,
-  change or partial download met while renaming) puts back every rename
-  made, newest first, and refuses with nothing changed, whichever part
-  refused; only a rename that will not go back leaves something changed,
-  and then the parts left, put back or never reached are `remaining` and
-  what will not go back is removed. A converted tree is removed under the loaders' own
+  trees, then the Hub repositories taken whole; then the files inside
+  shared repositories are checked and unlinked (below). A refused rename
+  anywhere (or a lock, change or partial download met while renaming or
+  checking, or a refused first unlink) puts back every rename made, newest
+  first, and refuses with nothing changed, whichever part refused; only a
+  rename that will not go back leaves something changed, and then the
+  parts left, put back or never reached are `remaining` and what will not
+  go back is removed. A converted tree is removed under the loaders' own
   `WeakFileLock(<root>/<target>.lock)` (`LOCK_TIMEOUT`, a timeout is
   `model_delete_busy`; an older recipe's tree takes its own lock too),
   re-read file for file under it (`model_cache_changed` if it moved), then
@@ -1365,8 +1372,7 @@ paragraphs, never rewording.
   `_is_work` directories, never a marker-less target. A failure after
   something changed is the `Outcome`'s `remaining` (kind, bytes left,
   reason), never a refusal. A repository the group owns outright (whole,
-  never `shared_repository`: those stay held by the planner until stage 4,
-  naming the sharers) is renamed with `os.rename` out of the Hub cache into
+  never `shared_repository`) is renamed with `os.rename` out of the Hub cache into
   a new `<hub>.auradream-deleting/<8 hex>/` folder
   (`model_cache_storage.trash_dir`, the hub's sibling, outside
   `scan_cache_dir`'s view), after the converted renames and before any
@@ -1376,6 +1382,27 @@ paragraphs, never rewording.
   `model_downloading`, all with every rename put back and nothing changed
   (an emptied trash removed again); what an open file kept in the trash
   is `remaining`, which the inventory names and the next delete sweeps.
+  Files inside a repository other entries' recipes name (stage 4,
+  `_check_files`, `_unlink_files`): after the renames each part is checked
+  as planned - no `*.incomplete` in the repository, every entry, blob and
+  ref by size and mtime_ns, an emptied revision holding only the planned
+  entries with only the planned refs naming it - (`model_cache_changed`,
+  `model_downloading`, every rename put back), then one repository at a
+  time: each emptied revision's refs (read now) unlinked first, so it is
+  detached, never a ref to a missing snapshot (which `scan_cache_dir` calls
+  corrupted); each snapshot entry; each planned blob no surviving snapshot
+  link names now (its first hop, as the scan reads it; one still named
+  stays); then empty folders bottom-up, an emptied revision's snapshot
+  folder only while no ref names it, its `.no_exist/<commit>`, a nested
+  ref's empty folders, and the repository's folder once nothing at all is
+  left in it (otherwise `snapshots/` stays, which the scan needs). A
+  refused unlink (`os.unlink`; one already gone is no failure) stops the
+  step at once: the first one refused puts every rename back and refuses
+  `model_files_in_use` with nothing changed; a later one leaves the
+  stopped repository's touched parts and every later part in `remaining`
+  (a stop at a blob says its bytes stay unnamed in `blobs/`), and what is
+  left is files missing from a pinned revision, which the next load
+  downloads again. The shared Xet store stays held.
   `Plan.removes_expander` says the entry's own repository takes ERNIE's
   cached prompt rewriter (`PROMPT_EXPANDER_WEIGHTS`, held equal to
   `backends.loading`'s). The worker never unlinks a `.lock` (filelock
@@ -10427,17 +10454,28 @@ cleanly in the scratch cache afterwards. The Hub removal (stage 3) is
 `tests/test_model_cache_delete_hub.py`: an owned repository through the
 trash with everything else byte for byte, the group's repositories all
 moved before any is removed, a converted copy with its source (both
-renamed before either goes), a shared
-repository still held and a present sharer's files kept, a refused first
+renamed before either goes), a present sharer's files kept, a refused first
 rename (in use, another drive, no trash folder) changing nothing, a later
 one putting back what moved, a refused Hub part (in use, a download begun)
 putting WAI's converted copy back, a rename that will not go back
 finished with what stays named, an open file in the trash named by the inventory
 and swept by the next delete, a linked trash refused, and ERNIE's
-rewriter. `tests/test_api_model_storage_delete.py` drives the POST: every
+rewriter. Files inside shared repositories (stage 4) are
+`tests/test_model_cache_delete_shared.py`, in both layouts: Anima
+Aesthetic beside Turbo (its revision, refs and `.no_exist` gone, Turbo's
+revision byte for byte), a blob another revision names kept, the Anima
+three and the SDXL three deleted in turn with the last taking the base and
+its folder, a present sharer (selected, saved, loaded) keeping it, an
+unselected file keeping its revision, ref and notes, a sibling revision
+byte for byte, the Xet store still held, a late ref changing the pin, a
+change found before the first unlink (a ref, a download, a changed or new
+file) putting every rename back, an unlink refused at the ref, an entry or
+a blob leaving no ref to a missing snapshot (`scan_cache_dir` with no
+warnings) and the sibling intact, and a stop in one repository naming the
+next as staying. `tests/test_api_model_storage_delete.py` drives the POST: every
 guard by code, the inventory's `delete_held` (a held plan's words before
 any press, null once a sharer is present, a failed plan leaving its row
-unheld), the exact body, a cross-site POST, the reservation refusing
+unheld), one of two sharers through the POST, the exact body, a cross-site POST, the reservation refusing
 Generate, load, switch, unload, bundles and a second delete and showing in
 `/api/status`, a caller who leaves, the cache revision, no absolute path.
 All build on
@@ -10476,21 +10514,27 @@ shared port 7959 (run one at a time in the band), whose scratch `HF_HOME`
 the lite rows under Krea 2 Turbo with one Delete… there and none on a
 sub-line; the selected row's Delete… held with "It is the selected
 checkpoint. Choose another checkpoint first" and a press saying so without
-a plan or a question; Anima Turbo's row held as the fold reads, by its
-plan's hold in the inventory (its own file sits in the repository Anima
-Aesthetic's recipe names), the sharer named, and a press saying so without
-a plan or a question; a running job holding every Delete… and letting go
-once it ends; a cache changed between the plan and the confirm (the knob's
-`touch`) refused by code, the plan read and the question asked again,
-ERNIE's naming its rewriter; Anima Preview through the real dialog (its
-title, frees with downloaded files and converted copy, "Kept: … shared with
-Anima Turbo v1.1", what stays, other apps, "This cannot be undone.",
-"Delete checkpoint" painted destroy), then its row as the result in place
-through exactly one re-read with ERNIE's Delete… keeping its bounding box
-and Turbo's row intact, a status poll that saw the delete running while
-its POST was out holding nothing after it ("Read at", ERNIE free); Preview's plan then freeing nothing and a press
-saying so; ERNIE deleted and its Models cache word turning to "Not cached";
-closing the fold letting the result lines go; the a11y watch and check; and
+a plan or a question; Anima Turbo's row free as the fold reads (its own
+file sits in the repository Anima Aesthetic's recipe names: stage 4); a
+running job holding every Delete… and letting go once it ends; a cache
+changed between the plan and the confirm (the knob's `touch`) refused by
+code, the plan read and the question asked again, ERNIE's naming its
+rewriter; Anima Turbo through the real dialog (its title, frees with
+downloaded files alone, "Kept: … shared with Anima 2.9B Preview v1", no
+"Also removes", what stays, other apps, "This cannot be undone.", "Delete
+checkpoint" painted destroy), then its row as the result in place through
+exactly one re-read with Preview's Delete… keeping its bounding box and
+Preview's row intact, its repository's folder gone and the base kept with
+no inventory warning, a status poll that saw the delete running while its
+POST was out holding nothing after it ("Read at", ERNIE free); Turbo's plan
+then freeing nothing; ERNIE deleted and its Models cache word turning to
+"Not cached"; closing the fold letting the result lines go and Turbo's
+press then saying it has nothing of its own, kept for Preview; Preview, now
+the last holder, asked with "Also removes … shared with Anima Aesthetic
+v1.1, Anima Turbo v1.1, which have nothing else on disk." and no "Kept:",
+then its row and Turbo's (as "Its files shared with … went with it.")
+staying in place as result lines, and the base gone with no warning; the
+a11y watch and check; and
 on an iPhone-sized touch screen every Delete… at least 44 px inside the
 sheet with no sideways scroll (`__phoneAudit`).
 
