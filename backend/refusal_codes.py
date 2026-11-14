@@ -37,11 +37,39 @@ BUNDLE_GONE = "bundle_gone"
 # A gallery bundle import, export, clear or backup holds the gallery: every
 # counted route (`bundle_manager.GalleryAdmission`) waits until it ends.
 GALLERY_MAINTENANCE = "gallery_maintenance"
+# A checkpoint delete (Models > On disk, `model_cache_delete`) waits: a job,
+# the card, a load, switch, unload or drain, a counted model request, Check's
+# tokenizer fetch from a repository it touches, a cache scan or another
+# delete. Held until the status poll clears it.
+MODEL_DELETE_BUSY = "model_delete_busy"
+# The checkpoint is the selected (and so any loaded) one, or the one saved to
+# load automatically on the next start: choose another first.
+MODEL_SELECTED = "model_selected"
+# A partial download (`*.incomplete`) sits in a repository the delete touches.
+MODEL_DOWNLOADING = "model_downloading"
+# The cache changed between the plan the person confirmed and the delete:
+# its pin differs. Read the plan again and ask again.
+MODEL_CACHE_CHANGED = "model_cache_changed"
+# Windows refused the first rename: a file is open; nothing changed.
+MODEL_FILES_IN_USE = "model_files_in_use"
+# No catalogue entry by that id, or nothing of it is cached: one answer, 404.
+MODEL_NOT_ON_DISK = "model_not_on_disk"
+# A part of the delete the server cannot prove safe (a shared Xet store, an
+# ambiguous revision, a shared repository before it is built): the plan's
+# `held`, and the row's Delete held with its detail.
+MODEL_DELETE_HELD = "model_delete_held"
+# The codes the page reads only once Models > On disk has its Delete control
+# (`GEN#72` stage 3); the server gives them from stage 1.
+MODEL_DELETE_CODES = frozenset({
+    MODEL_DELETE_BUSY, MODEL_SELECTED, MODEL_DOWNLOADING, MODEL_CACHE_CHANGED,
+    MODEL_FILES_IN_USE, MODEL_NOT_ON_DISK, MODEL_DELETE_HELD,
+})
 
 CODES = frozenset({
     IMAGE_UNKNOWN, IMAGE_BINNED, MORE_SEEDS_CAP, MORE_SEEDS_RECEIPT,
     LORA_MISSING, LORA_MISMATCH, SELECTION_CHANGED, MASK_MISSING,
     BUNDLE_IN_USE, BUNDLE_GONE, GALLERY_MAINTENANCE,
+    *MODEL_DELETE_CODES,
 })
 
 

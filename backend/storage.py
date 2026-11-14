@@ -1166,6 +1166,27 @@ def newest_image_id() -> int | None:
         return None
 
 
+def count_live_images(model_ids: Iterable[str]) -> int | None:
+    """How many live gallery images name one of `model_ids` - a checkpoint
+    delete's dialog says so ("37 images used it") - or None where the gallery
+    is reserved or unreadable. One count, the short wait of the status poll's."""
+    ids = sorted(set(model_ids))
+    if not ids:
+        return 0
+    try:
+        with gallery_lock.hold(settings.db_path, wait=NEWEST_ID_WAIT):
+            conn = _connect()
+            try:
+                return int(conn.execute(
+                    f"SELECT COUNT(*) FROM images WHERE {_LIVE} AND model_id IN ({', '.join('?' * len(ids))})",
+                    ids,
+                ).fetchone()[0])
+            finally:
+                conn.close()
+    except (gallery_lock.GalleryBusy, sqlite3.Error, OSError):
+        return None
+
+
 def _newest_id(conn: sqlite3.Connection) -> int:
     return int(conn.execute("SELECT MAX(id) FROM images").fetchone()[0] or 0)
 

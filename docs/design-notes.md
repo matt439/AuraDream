@@ -15113,6 +15113,42 @@ retained reference records, even at the same commit. The delete takes an
 entry as one group, so its lite and alias repositories have to be on its
 row first.
 
+The delete's planner (`GEN#72` stage 1, `model_cache_delete.plan`) is
+read-only and works file by file from the inventory's own scan, not through
+huggingface_hub's `HFCacheInfo.delete_revisions`: that works per revision
+(the whole folder only when no other revision is left), while a revision
+two entries share - SDXL base under Illustrious, WAI and RouWei, Anima-Base
+under the three Anima entries - has to keep a sharer's files, and its
+`DeleteCacheStrategy.execute()` swallows `PermissionError` and coordinates
+with none of the app's locks. So the scan keeps a per-file index (first
+hops, repository, revision, owners) behind its unchanged answer. A
+repository only the entry's recipes name goes whole, old revisions,
+unselected files and the rest included (Matt's answer 4); one another
+entry names is planned file by file, and a file shared with another entry
+is kept while that sharer is present and goes with the last holder
+otherwise (answer 3: deleting WAI, RouWei and Illustrious in turn would
+otherwise strand SDXL base). "Present" counts the selected, loaded and
+saved-for-start entries and a Check fetch in flight, not only bytes on
+disk: a selected Illustrious with nothing downloaded still reads its
+Check tokenizers from SDXL base, and its next load or conversion needs
+them. The selected entry itself is refused (answer 1), which closes every
+fetch outside a load with one rule. A pending fetch is every fetch thread
+still running, including one `prompt_encoding.unload()` forgot, because
+the thread reads the files until it returns. An older converted tree is
+attributed by its marker's `source.repo_id` and `source.filename`, never
+the folder stem: the stem cannot tell a hand-made folder from the app's,
+and the filename is what tells Anima Turbo's tree from Aesthetic's in one
+repository. What cannot be proved safe is held, not guessed (a shared Xet
+store, an unrecorded revision several entries could own, an older tree
+from a shared source repository and a file neither uses now), and until
+stage 4 so is any removal inside a shared repository. A converted target
+is checked against the converted root by name before anything looks at
+it: a fake or test whose `HF_HOME` differs from the loaders' would
+otherwise have the planner stat the real converted copies. Whether a
+memory-mapped safetensors file blocks a rename on Windows is unverified;
+refusing the selected entry is the guard, and the delete's rename-first
+order (stages 2 and 3) is defence in depth.
+
 Status takes a different path: required-file stats plus selected-source
 partial blobs, off-loop under the existing revision retry, sampled at most
 every two seconds. Partial blobs can belong to another download in that

@@ -171,6 +171,9 @@ def _plant_model_cache(data: Path) -> None:
         path.write_bytes(commit.encode() if size is None else b"x" * size)
     scan = model_cache_storage.snapshot
     model_cache_storage.snapshot = lambda cache_dir=None: scan(cache_dir or hub)
+    # And a checkpoint delete's plan (`model_cache_delete`), which scans
+    # through `_scan` with no cache_dir: the same scratch cache.
+    model_cache_storage.hub_cache_dir = lambda: hub
     model_cache_storage.hf_home_dir = lambda name: converted
 
 

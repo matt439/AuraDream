@@ -114,6 +114,9 @@ LOAD_WAIT = 30.0
 _lock = threading.Lock()
 _tokenizers: dict[TokenizerSource, _Loaded] = {}
 _loading: dict[TokenizerSource, _Pending] = {}
+# Every fetch whose thread has not returned, those `unload()` forgot from
+# `_loading` too: the files it reads are in use until it does.
+_running: set[_Pending] = set()
 
 _UNKNOWN_PLACES = 8
 _MARKUP = re.compile(r"<\|?/?[^<>\s|]+\|?>|\[/?[A-Z_]+\]")
@@ -228,6 +231,7 @@ def _fetch(pending: _Pending) -> None:
         pending.error = exc
     finally:
         with _lock:
+            _running.discard(pending)
             if _loading.get(source) is pending:
                 del _loading[source]
                 if pending.loaded is not None:
@@ -250,13 +254,24 @@ def _start(source: TokenizerSource) -> _Loaded | _Pending:
             thread = threading.Thread(
                 target=_fetch, args=(pending,), daemon=True, name="tokenizer-load"
             )
+            _running.add(pending)
             try:
                 thread.start()
             except RuntimeError as exc:  # no new threads while the process exits
                 del _loading[source]
+                _running.discard(pending)
                 pending.error = exc
                 pending.done.set()
         return pending
+
+
+def pending_sources() -> frozenset[TokenizerSource]:
+    """The tokenizers Check is fetching now: a fetch outlives the check that
+    started it, and an `unload()` that forgot it, until its thread returns.
+    A checkpoint delete holds while one reads a repository it touches
+    (`model_cache_delete.Plan.fetching`)."""
+    with _lock:
+        return frozenset(pending.source for pending in _running)
 
 
 def _wait(state: _Loaded | _Pending, deadline: float, seconds: float | None = None) -> _Loaded:

@@ -1,7 +1,10 @@
 """On-demand, read-only cache accounting against retained download references.
 
-No Hub call, model import or delete plan. Unreferenced means only that the
-catalogue's retained file lists do not name it; other apps/helpers can need it.
+No Hub call or model import. Unreferenced means only that the catalogue's
+retained file lists do not name it; other apps/helpers can need it. The scan
+also keeps a per-file index (`CacheIndex`) the answer never shows: what
+`model_cache_delete.plan` reads to decide what a checkpoint's delete would
+take, from the same scan the inventory's numbers come from.
 """
 from __future__ import annotations
 
@@ -9,6 +12,7 @@ import os
 import shutil
 import threading
 from collections import defaultdict
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import model_info
@@ -19,6 +23,57 @@ _scan_lock = threading.Lock()
 
 class ScanBusy(Exception):
     pass
+
+
+@dataclass(frozen=True)
+class IndexedFile:
+    """One snapshot entry of a scanned Hub repository."""
+
+    repo_id: str
+    repo_type: str
+    revision: str
+    # The file's path inside the snapshot, posix.
+    name: str
+    # The first hop: the snapshot entry itself (a link on a symlink cache, the
+    # file on a plain-copy one) and what that entry names directly (the
+    # repository's `blobs/<etag>`, or the entry again). A shared Xet store is
+    # a further hop, never followed here.
+    entry: Path
+    blob: Path
+    identity: tuple
+    size: int
+    # Catalogue ids whose recipe selects it at this commit (an unknown file
+    # map claims every file of the revision).
+    owners: frozenset[str]
+    # Its revision's `other_revision_of`.
+    other_of: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class IndexedRepo:
+    repo_id: str
+    repo_type: str
+    path: Path
+    # commit -> its refs
+    revisions: dict[str, frozenset[str]]
+
+
+@dataclass
+class CacheIndex:
+    """What one scan saw, file by file, for the delete planner; never answered."""
+
+    hub: Path
+    converted_root: Path
+    files: list[IndexedFile] = field(default_factory=list)
+    repos: dict[tuple[str, str], IndexedRepo] = field(default_factory=dict)
+    # repo id -> the catalogue ids whose recipe names it
+    recipe_repos: dict[str, frozenset[str]] = field(default_factory=dict)
+    # resolved identity -> logical bytes
+    sizes: dict[tuple, int] = field(default_factory=dict)
+    converted_files: dict[Path, int] = field(default_factory=dict)
+    converted_targets: dict[str, Path] = field(default_factory=dict)
+    # model id -> its answer row
+    rows: dict[str, dict] = field(default_factory=dict)
 
 
 def _catalogue_model_ids() -> list[str]:
@@ -87,6 +142,14 @@ def _tree_files(root: Path, warnings: list[str]) -> dict[Path, int]:
     return result
 
 
+def hub_cache_dir() -> Path:
+    """The Hub cache this process reads (`HF_HUB_CACHE`), at call time; the
+    fake server points it at its scratch cache."""
+    from huggingface_hub.constants import HF_HUB_CACHE
+
+    return Path(HF_HUB_CACHE)
+
+
 def snapshot(cache_dir: Path | None = None) -> dict:
     """Inspect once; the worker owns the reservation even if its caller leaves."""
     if not _scan_lock.acquire(blocking=False):
@@ -98,11 +161,16 @@ def snapshot(cache_dir: Path | None = None) -> dict:
 
 
 def _snapshot(cache_dir: Path | None = None) -> dict:
+    return _scan(cache_dir)[0]
+
+
+def _scan(cache_dir: Path | None = None) -> tuple[dict, CacheIndex]:
+    """The inventory's answer and the index behind it; the caller holds
+    `_scan_lock`."""
     from huggingface_hub import scan_cache_dir
-    from huggingface_hub.constants import HF_HUB_CACHE
     from huggingface_hub.errors import CacheNotFound
 
-    cache_dir = Path(cache_dir or HF_HUB_CACHE)
+    cache_dir = Path(cache_dir or hub_cache_dir())
     references = model_info.download_references()
     catalogue = _catalogue_model_ids()
     warnings: list[str] = []
@@ -145,8 +213,14 @@ def _snapshot(cache_dir: Path | None = None) -> dict:
     other_blobs: dict[str, set[tuple]] = defaultdict(set)
     unreferenced_blobs: set[tuple] = set()
     aliases = _lite_aliases(catalogue)
+    converted_root = hf_home_dir("converted")
+    index = CacheIndex(hub=cache_dir, converted_root=converted_root, sizes=sizes,
+                       recipe_repos={repo: frozenset(models) for repo, models in repo_models.items()})
     repos = []
     for repo in sorted(info.repos if info else [], key=lambda item: (item.repo_type, item.repo_id)):
+        index.repos[(repo.repo_type, repo.repo_id)] = IndexedRepo(
+            repo.repo_id, repo.repo_type, Path(repo.repo_path),
+            {revision.commit_hash: frozenset(revision.refs) for revision in repo.revisions})
         revisions = []
         # Beside a recorded revision, another one is an old download: unreferenced.
         other_revision = repo.repo_type == "model" and repo.repo_id in recorded and not any(
@@ -185,6 +259,10 @@ def _snapshot(cache_dir: Path | None = None) -> dict:
                 else:
                     revision_unreferenced.add(identity)
                     unreferenced_blobs.add(identity)
+                index.files.append(IndexedFile(
+                    repo.repo_id, repo.repo_type, revision.commit_hash, name,
+                    Path(file.file_path), Path(file.blob_path), identity, file.size_on_disk,
+                    frozenset(selected), tuple(revision_other)))
             revisions.append({
                 "revision": revision.commit_hash, "refs": sorted(revision.refs),
                 "cached_bytes": sum(sizes[key] for key in revision_blobs),
@@ -194,7 +272,6 @@ def _snapshot(cache_dir: Path | None = None) -> dict:
             })
         repos.append({"repo_id": repo.repo_id, "repo_type": repo.repo_type, "cached_bytes": repo.size_on_disk, "revisions": revisions})
 
-    converted_root = hf_home_dir("converted")
     converted_files = _tree_files(converted_root, warnings)
     converted_targets = {}
     for model in catalogue:
@@ -220,6 +297,9 @@ def _snapshot(cache_dir: Path | None = None) -> dict:
         "converted_bytes": converted_models.get(model, 0),
         "converted_directory": converted_targets[model].name if model in converted_targets else None,
     } for model in catalogue]
+    index.converted_files = converted_files
+    index.converted_targets = converted_targets
+    index.rows = {row["model_id"]: row for row in models}
     # A blob not selected in one revision may still serve another revision.
     unreferenced_only = unreferenced_blobs - set(blob_models) - {key for keys in other_blobs.values() for key in keys}
     return {
@@ -234,4 +314,4 @@ def _snapshot(cache_dir: Path | None = None) -> dict:
         "models": models, "repositories": repos,
         "warnings": sorted(set(warnings)),
         "note": "Read-only point-in-time file-byte inventory, not disk allocation or a deletion plan. Model rows overlap where files are shared; do not add them. Unknown selected-file maps keep cached_bytes null, as does a catalogue repository cached only at commits no reference records: its bytes are other_revision_bytes, the checkpoint's, while an old revision beside a recorded one stays unreferenced. A renamed lite-infer repository's bytes are the other_revision_bytes of the lite id the app writes; entry, label and variant name the catalogue entry a row belongs to. Unreferenced means absent from the catalogue's retained download references, not unused: helpers and other apps may need it. Each revision's unreferenced_bytes is local to that revision and can share blobs with another; the overall unreferenced_bytes excludes every blob a catalogue selection references. Corrupted repositories can be omitted; directory metadata, Xet chunks and files outside the Hub and conversion caches are not included.",
-    }
+    }, index

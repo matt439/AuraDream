@@ -190,6 +190,9 @@ class ModelDownloadStatus(BaseModel):
 class ModelStatus(BaseModel):
     state: Literal["unloaded", "loading", "ready", "error"]
     switching: bool = False
+    # The label of the checkpoint whose files are being deleted from this
+    # server's caches (Models > On disk), or None: no timed poll of its own.
+    model_delete: str | None = None
     idle_unload_minutes: int = 0
     idle_unloaded: bool = False
     model_revision: int = 0

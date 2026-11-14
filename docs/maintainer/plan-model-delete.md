@@ -2,7 +2,9 @@
 
 **Status: planned 2026-11-14 (`GEN#72`). Stage 0 built 2026-11-14 (rows
 named by entry, the lite and alias repositories on the entry's row, the
-page's sub-lines); stages 1-4 not built.** The row's owner was the
+page's sub-lines); stage 1 built 2026-11-14 (the read-only planner, its
+GET, the codes, the guards, `_deleting_model` wired inert); stages 2-4 not
+built.** The row's owner was the
 [peer review's R9](review-2026-11-10-peers.md#r9-storage-view); this plan
 owns it from now on (the TODO row points here). Every stage below is CPU and browser work on scratch
 caches; none needs the card. Matt's questions are at the end; he
@@ -473,6 +475,30 @@ Riskiest last. Each stage is one or more commits on one branch.
    *Done when* every planner case above passes, the existing storage tests
    pass unchanged, a byte-for-byte no-mutation test passes, and ruff and
    `tools/typecheck.py` are green.
+   *Built 2026-11-14:* `model_cache_storage._scan` (the answer and its
+   `CacheIndex`; `_snapshot` returns the answer alone, unchanged) and
+   `hub_cache_dir`; `model_cache_delete.plan` (`PlanContext`, `Plan.answer`,
+   `fetching`, the pin; `SHARED_REPOSITORY_DELETE` false until stage 4,
+   so a removal inside a shared repository is `held`, its parts
+   `shared_repository: true`); the GET in `api_model_storage.create_plan_router`
+   with `gallery_images` (question 9: one count, `storage.count_live_images`);
+   the seven codes (`refusal_codes.MODEL_DELETE_CODES`; the page reads none
+   until stage 3); `main._model_delete_refusal`, `_model_delete_context`,
+   `_saved_start_entry`; `_deleting_model` in every reader listed under
+   Reservation and `/api/status`'s `model_delete`;
+   `prompt_encoding.pending_sources` (every fetch thread still running,
+   those `unload()` forgot too, not `_loading` alone). Tests:
+   `tests/test_model_cache_delete.py` (both layouts; the symlink one runs
+   where links can be made, Linux and WSL, and skips on Windows without the
+   privilege), `tests/test_api_model_storage_delete.py`,
+   `tests/model_cache_fixtures.py` (scratch `HF_HOME`/`HF_HUB_CACHE` for
+   the test through the environment and `huggingface_hub.constants`: the
+   suite's conftest imports the backend first, so "before any backend
+   import" holds for the fake in stage 3). The fake points the plan's scan
+   at its scratch Hub (`hub_cache_dir`); its converted targets still
+   resolve under the real `HF_HOME` until stage 3 sets the fake's, so a
+   plan there holds a converted entry ("outside ... the converted cache")
+   without looking at the real tree.
 2. **Converted-tree removal**, backend only, not exposed.
    *Done when* rename-to-work-shape, lock contention and every injected
    failure leave only `_is_work` directories, and a later load converts

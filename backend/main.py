@@ -46,6 +46,7 @@ from . import api_backup, api_bundles, api_gallery, api_generate, api_jobs, api_
 from .backup_service import BackupService  # noqa: E402
 from .api_guide import router as guide_router  # noqa: E402
 from .api_model_storage import router as model_storage_router  # noqa: E402
+from . import api_model_storage, model_cache_delete, model_cache_storage  # noqa: E402
 from .build_info import read_commit as _read_commit  # noqa: E402
 from .server_probe import auradream_at as _auradream_at, is_loopback as _is_loopback, page_url as _page_url, port_busy as _port_busy  # noqa: E402
 from .backends import get_backend  # noqa: E402
@@ -109,6 +110,12 @@ _model_request_paths: dict[str, int] = {}
 # A switch waiting for counted requests to finish: new ones are refused, as
 # during the switch itself, so the wait ends.
 _switch_draining = False
+# The label of the checkpoint whose files are being deleted (Models > On
+# disk, `model_cache_delete`), or None. Its own flag, not `_switching`:
+# `/api/status` reports both and the page must not say "switching". Every
+# reader of `_switching` reads it too (docs/maintainer/plan-model-delete.md,
+# "Reservation"); the delete that sets it is `GEN#72` stage 3.
+_deleting_model: str | None = None
 # How long a switch waits for counted requests already in flight before it
 # refuses. The page's own cold reads - the adapter list, the token count and
 # the tag check it sends when a load lands or typing pauses - take a moment,
@@ -340,8 +347,8 @@ bundle_manager = api_bundles.BundleManager(
     # A load never touches the gallery, so a bundle runs beside one (the usual
     # start is a preload, then an import). A switch's unload and select do not
     # either, but stay refused: they are brief. A Generate's load has a queued
-    # job, which `reserve` refuses on its own.
-    lambda: _switching,
+    # job, which `reserve` refuses on its own. A checkpoint delete likewise.
+    lambda: _switching or _deleting_model is not None,
 )
 backup_service: BackupService | None = None
 _startup_task: asyncio.Task | None = None
@@ -373,6 +380,10 @@ def _busy_switching() -> str | None:
     return "switching the checkpoint" if switching else None
 
 
+def _busy_deleting() -> str | None:
+    return "deleting a checkpoint" if _deleting_model is not None else None
+
+
 def _busy_bundle() -> str | None:
     # Bundles and the automatic backup alike: `running` lasts until the
     # worker thread has really ended.
@@ -382,7 +393,7 @@ def _busy_bundle() -> str | None:
     return f"a gallery {operation} is running"
 
 
-KEEP_AWAKE_PROVIDERS = (_busy_jobs, _busy_card, _busy_loading, _busy_switching, _busy_bundle)
+KEEP_AWAKE_PROVIDERS = (_busy_jobs, _busy_card, _busy_loading, _busy_switching, _busy_deleting, _busy_bundle)
 
 
 def _start_keep_awake() -> keep_awake.KeepAwake | None:
@@ -420,7 +431,7 @@ def _keep_awake_status() -> KeepAwakeStatus | None:
 
 def _idle_unload_busy() -> bool:
     return bool(
-        _switching or _switch_draining or _model_requests or _load_lock.locked()
+        _switching or _switch_draining or _deleting_model is not None or _model_requests or _load_lock.locked()
         or _load_state["state"] == "loading"
         or (_keep_awake is not None and _keep_awake.work_reasons())
     )
@@ -573,6 +584,11 @@ async def hold_model_for_request(request: Request, call_next):
     if _switching or _switch_draining:
         return JSONResponse(
             {"detail": "the checkpoint is switching; wait for the switch to finish"},
+            status_code=409,
+        )
+    if _deleting_model is not None:
+        return JSONResponse(
+            {"detail": "a checkpoint's files are being deleted; wait for the delete to finish"},
             status_code=409,
         )
     # The old name is read for a page loaded before the rename to AuraDream.
@@ -736,6 +752,7 @@ async def status() -> ModelStatus:
     while True:
         revision = model_selection.revision()
         switching = _switching
+        deleting = _deleting_model
         # The live jobs first, then the gallery's newest id: a job saves its
         # rows before it ends, so one missing from `active` has every image
         # counted in `newest`, and the page never sees a job gone with its
@@ -744,7 +761,7 @@ async def status() -> ModelStatus:
         active = [job.id for job in jobs.active()]
         info, newest = await asyncio.to_thread(_describe_with_newest)
         model_download = await asyncio.to_thread(download_progress.sample, info["model_id"])
-        if revision == model_selection.revision() and switching == _switching:
+        if revision == model_selection.revision() and switching == _switching and deleting == _deleting_model:
             break
     state = _load_state["state"]
     if state in {"unloaded", "ready"}:
@@ -759,6 +776,7 @@ async def status() -> ModelStatus:
         state=state,
         load_started_at=_load_state.get("started_at") if state == "loading" else None,
         switching=_switching,
+        model_delete=_deleting_model,
         idle_unload_minutes=settings.idle_unload_minutes,
         idle_unloaded=_idle_unloaded and state == "unloaded",
         model_revision=revision,
@@ -1181,7 +1199,10 @@ def _restore_preferences(previous, previous_preload) -> None:
 
 
 def _refuse_busy_switch() -> None:
-    """Refuse a switch while a load, a job or an editor action has the server."""
+    """Refuse a switch while a load, a job or an editor action has the
+    server, or a checkpoint's files are being deleted."""
+    if _deleting_model is not None:
+        raise HTTPException(status_code=409, detail="a checkpoint's files are being deleted; wait for the delete to finish")
     if _load_lock.locked() or _load_state["state"] == "loading":
         raise HTTPException(status_code=409, detail="the weights are still loading; wait for the load")
     if jobs.busy():
@@ -1323,6 +1344,8 @@ async def _unload_weights(*, idle: bool = False) -> None:
         raise HTTPException(status_code=409, detail="the weights are still loading; wait for the load")
     if _switching or _switch_draining:
         raise HTTPException(status_code=409, detail="the checkpoint is in use; wait for its requests to finish")
+    if _deleting_model is not None:
+        raise HTTPException(status_code=409, detail="a checkpoint's files are being deleted; wait for the delete to finish")
     # Reserve before the first await. A new load or Generate cannot enter
     # while the model and the prompt helpers are being released. The owner
     # outlives a disconnected/cancelled HTTP waiter and is drained at shutdown.
@@ -1379,6 +1402,81 @@ async def _release_model() -> None:
     await asyncio.to_thread(prompt_encoding.unload)
 
 
+# ------------------------------------------------------------ checkpoint delete
+
+
+def _entry_id(model_id: str) -> str:
+    return model_cache_delete.entry_of(model_id)
+
+
+def _saved_start_entry() -> str | None:
+    """The catalogue entry saved to load automatically on the next start
+    (`auradream.settings.json`), whatever this run's --model or
+    AURADREAM_MODEL_ID overrides; None without one. Reads the file: off the
+    event loop."""
+    saved = startup_preferences.load_result(settings.db_path).preferences
+    if saved is None or not saved.load_on_startup:
+        return None
+    return _entry_id(saved.model_id)
+
+
+def _model_delete_context(saved: str | None) -> model_cache_delete.PlanContext:
+    """The server's state a checkpoint delete's plan reads: the selected and
+    loaded entries (a lite id counts as its entry), the one saved for the
+    next start (read by the caller, `_saved_start_entry`) and Check's
+    tokenizer fetches in flight. Cheap and in memory."""
+    selected = _entry_id(current_model_id(settings))
+    return model_cache_delete.PlanContext(
+        selected=selected, loaded=selected if backend.is_ready() else None, saved=saved,
+        pending=prompt_encoding.pending_sources(),
+    )
+
+
+def _model_delete_refusal(plan: model_cache_delete.Plan, context: model_cache_delete.PlanContext) -> refusals.Refused | None:
+    """The guards a checkpoint delete passes (docs/maintainer/plan-model-delete.md,
+    "Guards"), on the event loop with no await between this and the
+    reservation: the refusal, coded, or None. `context` is read just before
+    (`_model_delete_context`); the busy states are read here, live."""
+    label = plan.label
+    if plan.entry in (context.selected, context.loaded):
+        return refusals.Refused(409, f"{label} is the selected checkpoint. Choose another checkpoint first.",
+                                refusal_codes.MODEL_SELECTED)
+    if plan.entry == context.saved:
+        return refusals.Refused(
+            409, f"{label} is saved to load automatically on the next start. Choose another checkpoint first.",
+            refusal_codes.MODEL_SELECTED)
+
+    def busy(why: str) -> refusals.Refused:
+        return refusals.Refused(409, f"{why}; delete {label} once it is done.", refusal_codes.MODEL_DELETE_BUSY)
+
+    if jobs.busy():
+        return busy("Jobs are queued or running")
+    holder, _ = jobs.card()
+    if holder is not None:
+        return busy(f"The {holder} is using the card")
+    if _load_lock.locked() or _load_state["state"] == "loading":
+        return busy("The weights are loading")
+    if (_switching or _switch_draining or (_switch_task is not None and not _switch_task.done())
+            or (_unload_task is not None and not _unload_task.done())):
+        return busy("The checkpoint is switching or unloading")
+    if _model_requests:
+        return busy("Another model request is in progress")
+    if plan.fetching(prompt_encoding.pending_sources()):
+        return busy("Check is reading a tokenizer from its files")
+    if model_cache_storage._scan_lock.locked():
+        return busy("A cache inspection is running")
+    if _deleting_model is not None:
+        return busy(f"{_deleting_model} is being deleted")
+    if plan.downloading:
+        partial = plan.downloading[0]
+        return refusals.Refused(
+            409, f"A download is still writing {partial['file']} in {partial['repo']}; "
+                 "let it finish, or stop it, first.", refusal_codes.MODEL_DOWNLOADING)
+    if plan.held is not None:
+        return refusals.Refused(409, plan.held["detail"], refusal_codes.MODEL_DELETE_HELD)
+    return None
+
+
 # The app's state as the route modules read it: every getter reads main's
 # global when a request arrives, so a test or the fake server that rebinds
 # one of them on this module is seen by every route.
@@ -1398,6 +1496,8 @@ services = app_context.AppServices(
 app.include_router(api_prompt.create_router(services))
 app.include_router(guide_router)
 app.include_router(model_storage_router)
+app.include_router(api_model_storage.create_plan_router(
+    lambda: _model_delete_context(_saved_start_entry())))
 app.include_router(api_model_favourites.create_router(services))
 app.include_router(api_snippets.create_router(services))
 app.include_router(api_saved_searches.create_router(services))
