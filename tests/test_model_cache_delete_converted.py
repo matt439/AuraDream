@@ -7,8 +7,9 @@ exactly `single_file._is_work`'s shape and removed from there with every
 stale work directory, the `.lock` staying. Every injected failure
 (`os.rename`, `shutil.rmtree` raising Windows' sharing violation) must
 leave nothing but `_is_work` directories, and a later load converts cleanly
-in the scratch cache, in `tests/test_converter_cache.py`'s style. No route
-reaches the delete yet; stage 3 adds it.
+in the scratch cache, in `tests/test_converter_cache.py`'s style. Stage 3's route
+(`POST /api/models/storage/delete`) runs it; its Hub removal is
+`tests/test_model_cache_delete_hub.py`.
 """
 from __future__ import annotations
 
@@ -255,7 +256,10 @@ def test_a_conversion_holding_the_lock_refuses_with_nothing_changed(caches):
     assert not target.exists()
 
 
-def test_the_hub_part_is_stage_3s_and_refuses_before_anything(caches):
+def test_with_hub_delete_off_a_hub_part_refuses_before_anything(caches, monkeypatch):
+    # Stage 3 turned it on (tests/test_model_cache_delete_hub.py); off, a
+    # plan with a Hub part still changes nothing, its converted copy included.
+    monkeypatch.setattr(delete, "HUB_DELETE", False)
     caches.plant(WAI, only=WAI)
     caches.convert(WAI)
     before = caches.state()

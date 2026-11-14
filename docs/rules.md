@@ -22,15 +22,17 @@ paragraphs, never rewording.
 - `backend/api_guide.py` renders only the checkout's usage guide at `/guide`
   with the existing pinned Markdown parser, escaped HTML, tables and stable
   heading ids; `web/guide.css` styles that separate read-only page.
-- `backend/api_model_storage.py` exposes the explicit read-only cache scan
-  and a checkpoint delete's dry-run plan;
+- `backend/api_model_storage.py` exposes the explicit cache scan (which
+  changes nothing) and a checkpoint delete's dry-run plan; the delete's
+  POST and its reservation live in `main`;
   `backend/model_cache_storage.py` measures logical cached-file bytes and
-  shared catalogue references on a daemon thread, and keeps the scan's
-  per-file index (`CacheIndex`) behind its unchanged answer;
+  shared catalogue references on a daemon thread, keeps the scan's
+  per-file index (`CacheIndex`) behind its unchanged answer, and names the
+  Hub cache's delete trash (`trash_dir`);
   `backend/model_cache_delete.py` plans deleting one whole catalogue entry
-  from that index (`plan()`, read-only: `GEN#72` stage 1) and runs the
-  delete's worker (`delete()`: converted trees only, `GEN#72` stage 2; no
-  route reaches it yet).
+  from that index (`plan()`, read-only) and runs the delete's worker
+  (`delete()`: converted trees, then repositories the entry owns outright
+  through the trash; `GEN#72` stages 1-3).
 - `backend/idle_unload.py` owns the default-off event-loop idle release timer;
   it shares `keep_awake.py`'s activity clock and drains admitted cleanup.
 - `backend/server_transport.py` parses exact browser origins and validates
@@ -774,8 +776,10 @@ paragraphs, never rewording.
   operation runs, which the page's `galleryMaintenance` reads; and a
   checkpoint delete's seven, `MODEL_DELETE_CODES`: `model_delete_busy`,
   `model_selected`, `model_downloading`, `model_cache_changed`,
-  `model_files_in_use`, `model_not_on_disk`, `model_delete_held`, given
-  from `GEN#72` stage 1 and read by the page from stage 3) and
+  `model_files_in_use`, `model_not_on_disk`, `model_delete_held`, which
+  model-storage.js reads through state.js's `modelDeleteBusy`,
+  `modelDeleteChanged`, `modelDeleteGone`, `modelDeleteHeldByServer` and
+  `modelDeleteNotNow`) and
   the errors that carry one out of
   the modules under the HTTP layer: `CodedError`, a `ValueError` with a
   `code` and the gallery `ids` it names, and `CodedLookupError`. Stdlib
@@ -941,10 +945,13 @@ paragraphs, never rewording.
   `model-shots.js` the picker's strip of the chosen checkpoint's images;
   `model-favourites.js` the table's stars (the server's set, this page's
   unconfirmed presses and the one-time import offer);
-  `model-storage.js` the picker's read-only On disk fold (the cache
-  inventory, read when the fold opens or on Refresh, never on a timer;
+  `model-storage.js` the picker's On disk fold (the cache inventory, read
+  when the fold opens, on Refresh or after a delete, never on a timer;
   rows by the server's `label`, a Nunchaku lite id a sub-line of its
-  entry's row, "Krea 2 Turbo, Nunchaku NVFP4 files");
+  entry's row, "Krea 2 Turbo, Nunchaku NVFP4 files"; each entry row's
+  trailing Delete…, `modelStorageDeleteHeld`, `deleteModelStorage` and the
+  result line that keeps the row; `receiveModelDeleteStatus` from the
+  status poll);
   `bundles.js` owns the gallery bundle dialog (Back up and its scope
   included) and background-operation polling, and `automatic-backup.js`
   its automatic startup backup settings (protection, consent, retention
@@ -1239,10 +1246,13 @@ paragraphs, never rewording.
   other revision, every revision of it: its bytes are that row's
   `other_revision_bytes`, never a row of its own, never in
   `unreferenced_bytes` (`_lite_aliases`; `GEN#72` stage 0). The page asks for it only
-  from Models > On disk, on the fold's opening or Refresh; it holds no
-  delete control.
+  from Models > On disk, on the fold's opening, Refresh or after its own
+  delete. What a delete left in the Hub cache's trash is a warning naming
+  the trash folder, never its path.
 - A checkpoint delete (`GEN#72`, [the plan](maintainer/plan-model-delete.md);
-  stage 1 built: the planner, read-only) takes one catalogue entry, named
+  stages 0-3 built: names, the planner, converted trees, whole
+  repositories with the POST and the page; stage 4, files inside shared
+  repositories, not) takes one catalogue entry, named
   by its exact official id, and its group (its Nunchaku lite ids and any
   cached lite-infer alias). `GET /api/models/storage/plan?model_id=` runs
   `model_cache_delete.plan` on a daemon thread (`model-cache-plan`) under
@@ -1299,22 +1309,38 @@ paragraphs, never rewording.
   a scan, another delete: `model_delete_busy`; `model_downloading`;
   `model_delete_held`), with `_model_delete_context` (live) and
   `_saved_start_entry` (the settings file, off the loop). `main._deleting_model`
-  (the label, or None; nothing sets it before stage 3) is read by every
-  reader of `_switching`: `hold_model_for_request` (409, "a checkpoint's
+  (the label, or None) is read by every reader of `_switching`: `hold_model_for_request` (409, "a checkpoint's
   files are being deleted"), `_refuse_busy_switch`, `_unload_weights`,
   `_idle_unload_busy`, the bundle manager's busy lambda (main's and
   `tests/conftest.py`'s), the `_busy_deleting` keep-awake provider, and
   `/api/status`'s `model_delete`, inside its revision retry loop.
-  `model_cache_delete.delete(model_id, pin, context)` (stage 2, no route
-  yet) is the worker: on its caller's daemon thread it holds the scan
+  `POST /api/models/storage/delete` (`ModelDeleteRequest`: `model_id`,
+  `pin`, `extra="forbid"`, strict) reads the plan off the loop
+  (`model-cache-plan`), then on the event loop, with no await before the
+  reservation, runs `_model_delete_refusal` and compares the pin
+  (`model_cache_changed`), sets `_deleting_model` and starts `_delete_task`
+  (`_run_model_delete`: the worker through `detached(...,
+  "model-cache-delete")` with the context read on its thread; `finally`
+  `invalidate_cache_facts` and `_deleting_model = None`), awaited through
+  `asyncio.shield` so a caller who leaves does not stop it; the lifespan
+  gathers it as it does `_unload_task`, and `_model_delete_finished` logs
+  only a failure that is no refusal. It answers 200 `{label,
+  planned_bytes, freed_bytes, remaining}`; a refusal before anything
+  changed is its coded 409 (`model_not_on_disk` 404, an unreadable cache
+  503). The route is not a counted model request; `GalleryAdmission`
+  counts it under `/api/models/`.
+  `model_cache_delete.delete(model_id, pin, context)` is the worker: on
+  its caller's daemon thread it holds the scan
   reservation and `keep_awake.busy("deleting a checkpoint")` for its whole
   run, re-plans, and before anything changes refuses (`DeleteRefused`, its
   `code`) a different pin (`model_cache_changed`), a selected, loaded or
   saved-for-start entry, a fetch it touches, a partial download, a held
-  part and, until stage 3 (`HUB_DELETE`), any Hub or lite part
+  part and, with `HUB_DELETE` off, any Hub or lite part
   (`model_delete_held`); `assert_inside_roots` then re-reads the configured
   roots and checks every removal, unit, converted target and lock inside
-  them. A converted tree is removed under the loaders' own
+  them, and a Hub trash that is a link or a drive root's refused. It sweeps
+  what earlier deletes left in the trash (its own `<8 hex>` folders only),
+  then removes the converted parts, then the Hub ones. A converted tree is removed under the loaders' own
   `WeakFileLock(<root>/<target>.lock)` (`LOCK_TIMEOUT`, a timeout is
   `model_delete_busy`; an older recipe's tree takes its own lock too),
   re-read file for file under it (`model_cache_changed` if it moved), then
@@ -1325,7 +1351,21 @@ paragraphs, never rewording.
   target is then removed under the lock; a failure midway leaves only
   `_is_work` directories, never a marker-less target. A failure after
   something changed is the `Outcome`'s `remaining` (kind, bytes left,
-  reason), never a refusal. The worker never unlinks a `.lock` (filelock
+  reason), never a refusal. A repository the group owns outright (whole,
+  never `shared_repository`: those stay held by the planner until stage 4,
+  naming the sharers) is renamed with `os.rename` out of the Hub cache into
+  a new `<hub>.auradream-deleting/<8 hex>/` folder
+  (`model_cache_storage.trash_dir`, the hub's sibling, outside
+  `scan_cache_dir`'s view), every one of the group's before any is
+  removed, then `rmtree`d from there; a refused first rename is
+  `model_files_in_use` (another drive: the same code, its own words), one
+  gone is `model_cache_changed`, a partial download found then is
+  `model_downloading`, all with nothing changed (an emptied trash removed
+  again); after a change each is `remaining`, as is what an open file kept
+  in the trash, which the inventory names and the next delete sweeps.
+  `Plan.removes_expander` says the entry's own repository takes ERNIE's
+  cached prompt rewriter (`PROMPT_EXPANDER_WEIGHTS`, held equal to
+  `backends.loading`'s). The worker never unlinks a `.lock` (filelock
   itself removes one on release on Windows); `freed_bytes` is the roots'
   volumes' free space before and after; `model_info.invalidate_cache_facts`
   runs on the way out. `/api/status` uses only
@@ -4088,8 +4128,7 @@ measured on the card and when.
   `CodedError` under the HTTP layer); it never tests `err.message`.
   `tests/test_refusal_codes.py` holds each code beside its sentence, that
   the page reads exactly the codes the server gives (a checkpoint
-  delete's `MODEL_DELETE_CODES` excepted until the page's Delete control,
-  `GEN#72` stage 3), and that no script in
+  delete's `MODEL_DELETE_CODES` included), and that no script in
   `web/` tests a refusal's message. Re-render's left-out picks say
   `binned` as a field beside their words (`RerenderGone.binned`) for the
   same reason. A test or smoke that fakes one of these refusals gives it
@@ -9921,7 +9960,13 @@ pipeline with no image-to-image sibling answers; `POST /api/fake/unreachable`
 (`{on}`) holds every request but the knobs unanswered while on (two
 minutes at most, released when it goes off), as a PC asleep on Wi-Fi; `POST
 /api/fake/disk-full` (`{on}`) makes every image save raise `ENOSPC` while
-on, as a disk with no room; `POST /api/fake/bundle` (`{hold}`) makes each
+on, as a disk with no room; `POST /api/fake/model-cache` (`{plant}`,
+`{touch}`) plants a checkpoint delete's fixtures in the fake's scratch
+`HF_HOME` (FLUX.1 Krea [dev]'s files, Anima Turbo and Anima Preview sharing
+Anima-Base, Preview's converted copy, ERNIE with its rewriter) or writes one
+new file in a repository's first cached revision, so a plan read before no
+longer holds, and invalidates the cache facts (`smoke-model-delete`);
+`POST /api/fake/bundle` (`{hold}`) makes each
 bundle export, backup or import worker wait while on (two minutes at
 most) before its real work, so `GalleryAdmission` refuses every counted
 route meanwhile; the `/api/fake/` knobs pass that admission, so `{hold:
@@ -10353,8 +10398,8 @@ viewer/topbar/Models consistency, silent visual counters and idle release.
 Its narrow view checks horizontal bounds; byte counters are approximate
 local cache tallies, never a network-speed or card measurement.
 
-The checkpoint delete's planner (`GEN#72` stage 1) has CPU tests, no smoke
-yet: `tests/test_model_cache_delete.py` runs every case of the plan's
+The checkpoint delete's planner (`GEN#72` stage 1) has CPU tests:
+`tests/test_model_cache_delete.py` runs every case of the plan's
 Tests section on a plain-copy cache and, where the platform lets the test
 make links (Linux, WSL; skipped on Windows without the privilege), a
 symlink one, and `tests/test_api_model_storage_delete.py` the GET, the
@@ -10365,7 +10410,19 @@ rename into `_is_work`'s shape before any byte goes, another thread's
 `shutil.rmtree` raising Windows' sharing violation (winerror 32) leaving
 nothing or only `_is_work` directories, the refusals before anything
 changes, the roots re-asserted, and each converting loader converting
-cleanly in the scratch cache afterwards. All build on
+cleanly in the scratch cache afterwards. The Hub removal (stage 3) is
+`tests/test_model_cache_delete_hub.py`: an owned repository through the
+trash with everything else byte for byte, the group's repositories all
+moved before any is removed, a converted copy with its source, a shared
+repository still held and a present sharer's files kept, a refused first
+rename (in use, another drive, no trash folder) changing nothing, a later
+one keeping what moved, an open file in the trash named by the inventory
+and swept by the next delete, a linked trash refused, and ERNIE's
+rewriter. `tests/test_api_model_storage_delete.py` drives the POST: every
+guard by code, the exact body, a cross-site POST, the reservation refusing
+Generate, load, switch, unload, bundles and a second delete and showing in
+`/api/status`, a caller who leaves, the cache revision, no absolute path.
+All build on
 `tests/model_cache_fixtures.py`, which points `HF_HOME` and `HF_HUB_CACHE`
 (the environment and `huggingface_hub.constants`) at a scratch home for
 the test, so the real loaders' converted targets resolve there, plants the
@@ -10374,9 +10431,8 @@ or change. The route walk (`tests/test_api_passcode_routes.py`) stubs
 `model_cache_delete.plan` and `delete` to fail.
 
 `smoke-model-storage.json` uses its own fresh FLUX fake on shared port 7959,
-whose inventory (and a delete plan's scan, through
-`model_cache_storage.hub_cache_dir`) reads the scratch Hub cache `tools/fake_server.py` plants
-under its data (a few bytes of Animagine XL 4.0's selected files, Kohaku
+whose inventory reads the scratch Hub cache `tools/fake_server.py` plants
+in the scratch `HF_HOME` it sets under its data before any backend import (a few bytes of Animagine XL 4.0's selected files, Kohaku
 XL Zeta at a commit no reference records, Krea 2 Turbo's NVFP4 lite
 tokenizer files and its INT4 lite id under lite-infer's renamed repository,
 an unlisted repository, a partial download), never the machine's. It checks
@@ -10387,11 +10443,36 @@ other repository, `GEN#71`), Krea 2 Turbo's row with its two Nunchaku lines
 under it by the entry's name, the renamed repository as the INT4 line's
 "Unknown (its bytes)" and never an other repository or unreferenced (`GEN#72`
 stage 0), the other repository, the partial download and the
-read-only/unreferenced words, holds no control but Refresh (no delete),
+unreferenced words, holds only Refresh while shut and unread and, read, one
+Delete… per entry row named for its entry and none on a sub-line,
 reads nothing on a second opening or a picker reopening, reads again on
 Refresh, says a refused read's words, and on an iPhone-sized touch screen is
 a 48 px fold row whose open contents fit the sheet with no control under
-44 px (`__phoneAudit`).
+44 px (`__phoneAudit`). On a phone or tablet each line of the table is a
+grid of its own (`styles/touch.css`): the name across it, then the sizes
+and the row's Delete…, a whole touch target.
+
+`smoke-model-delete.json` uses its own fresh FLUX.1 Krea [dev] fake on
+shared port 7959 (run one at a time in the band), whose scratch `HF_HOME`
+`POST /api/fake/model-cache` plants with the delete's fixtures. It checks
+the lite rows under Krea 2 Turbo with one Delete… there and none on a
+sub-line; the selected row's Delete… held with "It is the selected
+checkpoint. Choose another checkpoint first" and a press saying so without
+a plan or a question; Anima Turbo's press held by its plan (its own file
+sits in the repository Anima Aesthetic's recipe names), the row then held
+with the sharer named; a running job holding every Delete… and letting go
+once it ends; a cache changed between the plan and the confirm (the knob's
+`touch`) refused by code, the plan read and the question asked again,
+ERNIE's naming its rewriter; Anima Preview through the real dialog (its
+title, frees with downloaded files and converted copy, "Kept: … shared with
+Anima Turbo v1.1", what stays, other apps, "This cannot be undone.",
+"Delete checkpoint" painted destroy), then its row as the result in place
+through exactly one re-read with ERNIE's Delete… keeping its bounding box
+and Turbo's row intact; Preview's plan then freeing nothing and a press
+saying so; ERNIE deleted and its Models cache word turning to "Not cached";
+closing the fold letting the result lines go; the a11y watch and check; and
+on an iPhone-sized touch screen every Delete… at least 44 px inside the
+sheet with no sideways scroll (`__phoneAudit`).
 
 `smoke-catalogue-stale.json` uses a fresh FLUX.1 Krea [dev] fake on 7959:
 a Models catalogue reply asked for the runtime loader is held while the

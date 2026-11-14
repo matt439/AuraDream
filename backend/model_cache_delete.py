@@ -1,6 +1,6 @@
 """Deleting one whole catalogue checkpoint from this server's caches: the
-planner, read-only (`GEN#72` stage 1), and the delete's worker, which so far
-removes converted trees only (stage 2; no route reaches it yet).
+planner, read-only (`GEN#72` stage 1), and the delete's worker (stages 2 and
+3), which `POST /api/models/storage/delete` runs on a daemon thread.
 
 docs/maintainer/plan-model-delete.md is the design. The unit is one catalogue
 entry and its group: the entry's own id, its Nunchaku lite ids and any
@@ -28,16 +28,20 @@ planned on it, and answers name repositories, revisions and names relative
 to those roots only, never an absolute path.
 
 `delete()` re-plans under the same reservation, refuses a different pin, and
-removes the converted parts: each tree under its loaders' own lock, renamed
-first into exactly `single_file._is_work`'s shape (`<target>-<8>/tree`), so
-it stops being a hit at once, then removed with every stale work directory
-of the target. A refusal before anything changed is `DeleteRefused` with its
-code; a failure after something changed is the outcome's `remaining`. Until
-`HUB_DELETE` (stage 3), a plan with anything to take from the Hub is refused
-with nothing changed.
+removes, converted parts first: each tree under its loaders' own lock,
+renamed first into exactly `single_file._is_work`'s shape
+(`<target>-<8>/tree`), so it stops being a hit at once, then removed with
+every stale work directory of the target. Then each repository the group
+owns outright (`HUB_DELETE`, stage 3): renamed out of the Hub cache into
+its sibling trash (`model_cache_storage.trash_dir`, `<8 hex>/<folder>`),
+every repository before any is removed, then removed from there; what an
+open file kept is swept by the next delete and named by the inventory. A
+refusal before anything changed is `DeleteRefused` with its code; a failure
+after something changed is the outcome's `remaining`.
 """
 from __future__ import annotations
 
+import errno
 import hashlib
 import hmac
 import json
@@ -75,14 +79,19 @@ SHARED_REPOSITORY_DELETE = False
 SHARED_STORE_MARKER = ".huggingface-shared-blobs"
 # An older converted tree's marker is read only this far.
 _MARKER_BYTES = 64 * 1024
-# Removing a repository from the Hub cache (the trash rename) is the plan's
-# stage 3. Until it is built, `delete()` refuses a plan with a Hub or lite
-# part, with nothing changed; the planner answers as before.
-HUB_DELETE = False
+# Removing a repository the group owns outright from the Hub cache (the
+# trash rename) is the plan's stage 3, built: off, `delete()` refuses a plan
+# with a Hub or lite part, with nothing changed. A removal inside a shared
+# repository stays held by the planner until `SHARED_REPOSITORY_DELETE`.
+HUB_DELETE = True
 # How long a delete waits for a converted tree's lock. A conversion holds it
 # for minutes and a load only while it sweeps and checks, so a wait past this
 # is one running: `model_delete_busy`.
 LOCK_TIMEOUT = 2.0
+# ERNIE's prompt rewriter (Expand) inside its own repository's snapshot:
+# `backends.loading.PROMPT_EXPANDER_WEIGHTS`, which imports torch, so held
+# equal by tests/test_model_cache_delete_hub.py. A plan taking it says so.
+PROMPT_EXPANDER_WEIGHTS = "pe/model.safetensors"
 # What a work directory's suffix is drawn from: `_is_work` accepts these.
 _WORK_ALPHABET = string.ascii_lowercase + string.digits
 # The keep-awake hold the worker takes for its whole run.
@@ -183,6 +192,14 @@ class Plan:
     def frees_bytes(self) -> int:
         return sum(part.bytes for part in self.parts)
 
+    @property
+    def removes_expander(self) -> bool:
+        """Whether the delete takes a cached prompt rewriter (ERNIE's Expand)
+        with the entry's own repository."""
+        return any(removal.root == "hub" and removal.relative.split("/")[1:2] == ["snapshots"]
+                   and "/".join(removal.relative.split("/")[3:]) == PROMPT_EXPANDER_WEIGHTS
+                   for removal in self.removals)
+
     def fetching(self, sources: Iterable[Any]) -> bool:
         """Whether a tokenizer fetch in flight reads a repository or a
         converted tree this plan touches."""
@@ -213,6 +230,7 @@ class Plan:
             "parts": [part.answer() for part in self.parts],
             "kept_shared": self.kept_shared, "also_taken_shared": self.also_taken_shared,
             "frees_bytes": self.frees_bytes, "held": self.held, "downloading": self.downloading,
+            "removes_expander": self.removes_expander,
             "selected": self.names(self.context.selected),
             "loaded": self.names(self.context.loaded),
             "load_on_startup": self.names(self.context.saved),
@@ -680,9 +698,14 @@ def delete(model_id: str, pin: str, context: PlanContext | None = None, cache_di
             _refuse_before_change(result, pin)
             outcome = Outcome(result.label, result.frees_bytes)
             volumes = _volumes(result)
+            # What an earlier delete's open file left in the trash goes first,
+            # so the free space measured after counts this delete's alone.
+            if result.hub is not None:
+                sweep_trash(model_cache_storage.trash_dir(result.hub))
             before = _free(volumes)
             try:
                 remove_converted(result, outcome, lock_timeout=lock_timeout)
+                remove_hub(result, outcome)
             finally:
                 after = _free(volumes)
                 if before is not None and after is not None:
@@ -755,6 +778,11 @@ def assert_inside_roots(result: Plan) -> None:
     for root, path in paths:
         if not _inside(path, roots[root]):
             raise refused
+    # The Hub cache's trash is its sibling, never a link, never a drive root's.
+    trash = model_cache_storage.trash_dir(hub)
+    if any(part.kind in ("hub", "lite") for part in result.parts) and (
+            hub.parent == hub or (os.path.lexists(trash) and (_is_link(trash) or not trash.is_dir()))):
+        raise refused
 
 
 def _volumes(result: Plan) -> list[Path]:
@@ -929,3 +957,167 @@ def _sweep_work(root: Path, target: Path, part: Part, outcome: Outcome, label: s
                          "A file in it is still open; the next load or delete removes the rest.", size=left[1])
             continue
         outcome.changed = True
+
+
+# ------------------------------------------------- repositories, whole
+
+
+def _is_bin(path: Path) -> bool:
+    """One of the trash's own folders: eight hex digits, a real folder."""
+    return (len(path.name) == 8 and all(char in "0123456789abcdef" for char in path.name)
+            and not _is_link(path) and path.is_dir())
+
+
+def sweep_trash(trash: Path) -> list[str]:
+    """Remove what earlier deletes left in the Hub cache's trash (only its
+    own `<8 hex>` folders, never a link), and the trash once empty. Answers
+    the names it could not remove; a failure is logged and left for the
+    next delete."""
+    if not os.path.lexists(trash) or _is_link(trash) or not trash.is_dir():
+        return []
+    left = []
+    try:
+        bins = sorted(trash.iterdir())
+    except OSError:
+        return []
+    for bin_ in bins:
+        if not _is_bin(bin_):
+            left.append(bin_.name)
+            continue
+        try:
+            shutil.rmtree(bin_)
+        except OSError:
+            log.warning("could not yet remove files an earlier checkpoint delete left (%s): a file is open",
+                        bin_.name)
+            log.debug("rmtree of %s", bin_.name, exc_info=True)
+            left.append(bin_.name)
+    if not left:
+        try:
+            trash.rmdir()
+        except OSError:
+            pass  # not empty after all: the next delete's
+    return left
+
+
+def _new_bin(trash: Path) -> Path:
+    """A fresh, empty `<8 hex>` folder in the trash (made if need be)."""
+    trash.mkdir(exist_ok=True)
+    if _is_link(trash) or not trash.is_dir():
+        raise NotADirectoryError(trash.name)
+    for _ in range(64):
+        bin_ = trash / secrets.token_hex(4)
+        try:
+            bin_.mkdir()
+        except FileExistsError:
+            continue
+        return bin_
+    raise FileExistsError(f"no free folder name in {trash.name}")
+
+
+def _partial(folder: Path) -> str | None:
+    """A partial download's name (relative to the Hub cache) in `folder`."""
+    try:
+        found = sorted((folder / "blobs").glob("*.incomplete"))
+    except OSError:
+        return None
+    return f"{folder.name}/blobs/{found[0].name}" if found else None
+
+
+def remove_hub(result: Plan, outcome: Outcome) -> None:
+    """Remove the plan's whole repositories (the entry's own and its lite
+    ones): each renamed out of the Hub cache into a new folder of its trash,
+    all of them before any is removed, then removed from there. A refused
+    rename while nothing has changed refuses the delete
+    (`model_files_in_use`); after, it is `remaining`, as is what an open
+    file keeps in the trash (out of the cache already; the next delete
+    sweeps it). The caller holds the scan reservation and has checked the
+    plan (`delete()`)."""
+    parts = [part for part in result.parts if part.kind in ("hub", "lite")]
+    if not parts:
+        return
+    assert result.hub is not None
+    trash = model_cache_storage.trash_dir(result.hub)
+    label = result.label
+    moved: list[tuple[Part, Path]] = []
+    for part in parts:
+        if not part.whole or part.shared_repository or len(part.units) != 1:
+            # The planner holds these until stage 4; never reached unheld.
+            outcome.stop(part, MODEL_DELETE_HELD, f"Deleting {label}'s files inside a repository other checkpoints "
+                                                  "use is not built yet; nothing was deleted.",
+                         "It sits in a repository another checkpoint uses.")
+            continue
+        folder = part.units[0]
+        partial = _partial(folder)
+        if partial is not None:
+            outcome.stop(part, MODEL_DOWNLOADING, f"A download is still writing {partial} in {part.repo}; "
+                                                  "let it finish, or stop it, first.",
+                         "A download started writing in it.")
+            continue
+        bin_ = _move_to_trash(folder, trash, part, outcome, label)
+        if bin_ is not None:
+            moved.append((part, bin_))
+    for part, bin_ in moved:
+        try:
+            shutil.rmtree(bin_)
+        except OSError:
+            log.warning("could not remove all of %s's deleted files yet (%s): a file in them is open",
+                        part.repo, bin_.name)
+            log.debug("rmtree of %s", bin_.name, exc_info=True)
+            left = _contents(bin_) if os.path.lexists(bin_) else (0, 0)
+            outcome.stop(part, MODEL_FILES_IN_USE, f"A file in {label}'s downloaded files is open; nothing was "
+                                                   "deleted.",
+                         "A file in it is still open; it is out of the cache, and the next delete removes the rest.",
+                         size=left[1])
+    if moved and not any(os.path.lexists(bin_) for _, bin_ in moved):
+        try:
+            trash.rmdir()
+        except OSError:
+            pass  # an earlier leftover is still there: the inventory names it
+
+
+def _move_to_trash(folder: Path, trash: Path, part: Part, outcome: Outcome, label: str) -> Path | None:
+    """Rename one repository folder into a new folder of the trash; the
+    folder it went into, or None (the stop recorded, or raised while
+    nothing has changed) when it would not go."""
+    try:
+        bin_ = _new_bin(trash)
+    except OSError:
+        try:
+            trash.rmdir()  # made for this delete and left empty: nothing changed
+        except OSError:
+            pass
+        log.warning("could not make a folder beside the Hub cache to delete %s", part.repo)
+        log.debug("trash folder for %s", part.repo, exc_info=True)
+        outcome.stop(part, MODEL_FILES_IN_USE, f"No folder could be made beside the Hub cache to delete {label}'s "
+                                               "files from; nothing was deleted.",
+                     "It could not be moved out of the cache.")
+        return None
+    try:
+        os.rename(folder, bin_ / folder.name)
+    except OSError as error:
+        for empty in (bin_, trash):
+            try:
+                empty.rmdir()  # the trash too, unless an earlier leftover is in it
+            except OSError:
+                break  # empty: the next delete sweeps it
+        if isinstance(error, FileNotFoundError):
+            log.warning("%s's cache folder went before its delete could move it", part.repo)
+            outcome.stop(part, MODEL_CACHE_CHANGED, f"{label}'s files changed since the plan was read; read it again.",
+                         "It went from the cache before the delete reached it.", size=0)
+            return None
+        log.warning("could not move %s out of the Hub cache: a file in it is open, or it is on another drive",
+                    part.repo)
+        log.debug("rename of %s", part.repo, exc_info=True)
+        if getattr(error, "errno", None) == errno.EXDEV:
+            outcome.stop(part, MODEL_FILES_IN_USE, f"{label}'s files ({part.repo}) lie on another drive than the "
+                                                   "Hub cache's folder, so they could not be moved out of it; "
+                                                   "nothing was deleted.",
+                         "It lies on another drive, so it could not be moved out of the cache.")
+        else:
+            outcome.stop(part, MODEL_FILES_IN_USE,
+                         f"A file in {label}'s downloaded files ({part.repo}) is open, perhaps in another program, "
+                         "so they could not be moved out of the cache; nothing was deleted.",
+                         "A file in it is open, so it could not be moved out of the cache.")
+        return None
+    outcome.changed = True
+    return bin_

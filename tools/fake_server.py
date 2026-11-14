@@ -13,7 +13,7 @@ cells of a grid can be told apart on a sheet. A cell whose prompt holds
 and the failure rule can be driven from the page. The fake's own test-only
 knobs, never on the real server, are POSTs under `/api/fake/`: load, step,
 expand, model, lora, bin-age, peak, refine, instruction-edit, disk-full,
-activity and
+model-cache, activity and
 passcode; the comment
 above each route states its body and its answer. The instruction-edit gate
 is open on a fake claiming FLUX.1 Kontext [dev] alone - there an edit is
@@ -30,9 +30,14 @@ supplied directory, including its saved settings; use genuinely new scratch
 data for isolated runs. Before importing the application, the fake installs
 a fixed refusal for Windows backup credential access. Cached credential
 metadata and platform facts remain unchanged; this does not isolate reused
-data from other filesystem or backup operations. The model-cache inventory
-(Models > On disk) reads a scratch Hub cache planted under the data
-directory, never this machine's.
+data from other filesystem or backup operations. Before any backend import
+the fake points `HF_HOME` and `HF_HUB_CACHE` at a scratch home under the
+data directory, so the model-cache inventory (Models > On disk), a
+checkpoint delete, the Models cache words and every converted target, lock
+and work directory read that home, never this machine's caches. The
+`model-cache` knob plants a delete's fixtures there (two Anima entries
+sharing a base, a converted copy, ERNIE, FLUX.1 Krea [dev]'s files) or
+changes a repository between a plan and its confirm.
 Everything else - the job queue, SSE, resume, the runs summary, pause, the
 budget, the analyser's rules - is the real code, which is the point:
 `tools/browser.mjs` drives a headless browser against this to check the UI.
@@ -121,19 +126,37 @@ def _install_credential_refusal() -> None:
     backup_credentials._credential_api = _refuse_credential_api
 
 
-def _plant_model_cache(data: Path) -> None:
-    """Point the On disk inventory (`GET /api/models/storage`) at a scratch
-    Hub cache and conversion home under the fake's data, never this
-    machine's own: a few bytes of one catalogue checkpoint's selected files,
-    another's at an unrecorded commit, Krea 2 Turbo's two Nunchaku lite
-    rows (one under its renamed repository), a repository no entry names
-    and a partial download. Same answers on
-    every machine; the real scan reads them."""
-    from backend import model_cache_storage, model_info
+def _scratch_hf_home(data: Path) -> Path:
+    """`HF_HOME` and `HF_HUB_CACHE` for the whole process, under the fake's
+    data: set before any backend (or huggingface_hub) import, so the Hub
+    cache, `legacy_names.hf_home_dir` (the converted root, its locks and
+    work directories) and the Models cache facts all resolve there, never to
+    this machine's caches. A checkpoint delete on a fake deletes only here."""
+    home = data / "model-cache"
+    os.environ["HF_HOME"] = str(home)
+    os.environ["HF_HUB_CACHE"] = str(home / "hub")
+    return home
 
-    hub = data / "model-cache" / "hub"
-    converted = data / "model-cache" / "converted"
-    converted.mkdir(parents=True, exist_ok=True)
+
+def _plant_model_cache(data: Path) -> None:
+    """Plant the On disk inventory's scratch Hub cache (`GET
+    /api/models/storage`), in the scratch home `_scratch_hf_home` set: a
+    few bytes of one catalogue checkpoint's selected files, another's at an
+    unrecorded commit, Krea 2 Turbo's two Nunchaku lite rows (one under its
+    renamed repository), a repository no entry names and a partial
+    download. Same answers on every machine; the real scan reads them."""
+    import huggingface_hub.constants as constants
+
+    from backend import model_info
+    from backend.legacy_names import hf_home_dir
+
+    home = data / "model-cache"
+    hub = home / "hub"
+    # The process reads the scratch home, or nothing here runs: a delete
+    # must never reach this machine's own cache.
+    if (Path(constants.HF_HOME), Path(constants.HF_HUB_CACHE)) != (home, hub):
+        raise SystemExit("the fake's HF_HOME is not its scratch home; refusing to start")
+    hf_home_dir("converted").mkdir(parents=True, exist_ok=True)
     references = model_info.download_references()
     recipe = references["models"]["cagliostrolab/animagine-xl-4.0"]["sources"][0]
     source = references["sources"][recipe["source"]]
@@ -169,12 +192,55 @@ def _plant_model_cache(data: Path) -> None:
             continue
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(commit.encode() if size is None else b"x" * size)
-    scan = model_cache_storage.snapshot
-    model_cache_storage.snapshot = lambda cache_dir=None: scan(cache_dir or hub)
-    # And a checkpoint delete's plan (`model_cache_delete`), which scans
-    # through `_scan` with no cache_dir: the same scratch cache.
-    model_cache_storage.hub_cache_dir = lambda: hub
-    model_cache_storage.hf_home_dir = lambda name: converted
+
+
+# What `POST /api/fake/model-cache` plants for a checkpoint delete's smoke
+# (`GEN#72`): the selected FLUX.1 Krea [dev]'s files (its row's Delete held),
+# Anima Turbo and Anima Preview sharing Anima-Base's files (a delete of
+# Preview keeps them; Turbo's own file sits in the repository Aesthetic's
+# recipe names too, so its delete is held), Preview's converted copy, and
+# ERNIE with its prompt rewriter, after Preview in the table.
+_DELETE_FIXTURES = (
+    "black-forest-labs/FLUX.1-Krea-dev", "circlestone-labs/Anima", "Gazingstars123/Anima-2.9B",
+    "baidu/ERNIE-Image-Turbo",
+)
+
+
+def _plant_delete_fixtures(hub: Path) -> list[str]:
+    from backend import model_info
+    from backend.backends.single_file import CONVERSION_MARKER
+
+    references = model_info.download_references()
+    planted = []
+    for model in _DELETE_FIXTURES:
+        for choice in references["models"][model]["sources"]:
+            source = references["sources"][choice["source"]]
+            commit = source.get("commit") or source["revision"]
+            names = list(choice["files"] or [])[:12]
+            if model == "baidu/ERNIE-Image-Turbo":
+                names.append("pe/model.safetensors")
+            folder = hub / ("models--" + source["repo_id"].replace("/", "--"))
+            if source["revision"] != commit:
+                # A branch the download resolved, as the Hub's own client records it.
+                ref = folder / "refs" / source["revision"]
+                ref.parent.mkdir(parents=True, exist_ok=True)
+                ref.write_text(commit, encoding="utf-8")
+            for name in names:
+                path = folder / "snapshots" / commit / name
+                if not path.exists():
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_bytes(f"{source['repo_id']}:{name}".encode() * 64)
+            planted.append(source["repo_id"])
+    conversion = model_info._conversion_target("Gazingstars123/Anima-2.9B")
+    assert conversion is not None
+    target, marker, recipe = conversion
+    if not target.exists():
+        (target / "transformer").mkdir(parents=True)
+        (target / "model_index.json").write_text("{}", encoding="utf-8")
+        (target / "transformer" / "diffusion_pytorch_model.safetensors").write_bytes(b"converted" * 2048)
+        marker.write_text(recipe, encoding="utf-8")  # the loader's own record (CONVERSION_MARKER)
+        assert marker.name == CONVERSION_MARKER
+    return sorted(set(planted))
 
 
 def main() -> int:
@@ -189,6 +255,8 @@ def main() -> int:
     os.environ["AURADREAM_BUNDLES_DIR"] = str(data / "bundles")
     os.environ["AURADREAM_PORT"] = str(args.port)
     os.environ["AURADREAM_MODEL_ID"] = args.model
+    # Before any backend import: huggingface_hub reads these at its import.
+    _scratch_hf_home(data)
     # A fake does no work worth keeping a PC awake for, and a smoke run on a
     # Linux desktop must not take a real systemd-inhibit hold.
     os.environ["AURADREAM_KEEP_AWAKE"] = "false"
@@ -919,6 +987,27 @@ def main() -> int:
         return real_save(*save_args, **save_kwargs)
 
     storage.save_image = save_unless_full
+
+    # The scratch model cache (`_scratch_hf_home`) for a checkpoint delete's
+    # smoke: `plant` adds `_DELETE_FIXTURES`; `touch` (a repository id)
+    # writes one new file in its first cached revision, so a plan read
+    # before no longer holds. Answers what it planted or touched; the Models
+    # cache facts are read again.
+    @app_main.app.post("/api/fake/model-cache", include_in_schema=False)
+    async def fake_model_cache(plant: bool = Body(False), touch: str | None = Body(None)) -> dict:
+        from huggingface_hub.constants import HF_HUB_CACHE
+
+        hub = Path(HF_HUB_CACHE)
+        planted = _plant_delete_fixtures(hub) if plant else []
+        touched = None
+        if touch is not None:
+            snapshots = hub / ("models--" + touch.replace("/", "--")) / "snapshots"
+            revisions = sorted(snapshots.iterdir()) if snapshots.is_dir() else []
+            if revisions:
+                (revisions[0] / f"added-{time.monotonic_ns()}.json").write_text("{}", encoding="utf-8")
+                touched = touch
+        app_main.invalidate_cache_facts()
+        return {"planted": planted, "touched": touched}
 
     @app_main.app.post("/api/fake/disk-full", include_in_schema=False)
     async def fake_disk_full(on: bool = Body(..., embed=True)) -> dict:

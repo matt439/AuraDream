@@ -15094,8 +15094,9 @@ and on Refresh only, never on a timer or as the picker opens (a scan reads
 every cached file's size). Model rows are labelled by catalogue name, an
 unknown selection shows its known bytes with "+", one cached only at an
 unrecorded commit "Unknown (its bytes)", and the fold says that rows
-overlap and that "not referenced" is not "unused". It has no delete control;
-the guarded delete is designed only after Matt has seen this fold.
+overlap and that "not referenced" is not "unused". It had no delete control
+until `GEN#72` stage 3: the guarded delete was designed only after Matt had
+seen this fold.
 
 Matt's look over his real cache (2026-11-14) found one row named by a bare
 id, Krea 2 Turbo's Nunchaku NVFP4 source: the page labelled rows from
@@ -15170,6 +15171,39 @@ against the plan, so a tree that changed, became a link, or appeared since
 is never taken. Until stage 3 the worker refuses any plan with something
 to take from the Hub, so a delete can never stop half done at a part not
 built yet.
+
+Stage 3 (`POST /api/models/storage/delete`, Models > On disk's Delete…)
+removes a repository the entry's group owns outright the same way: renamed
+first, out of the Hub cache into a sibling trash
+(`<hub>.auradream-deleting/<8 hex>/models--org--name`), then removed from
+there. Not inside the hub: `scan_cache_dir` reports an unknown folder there
+as a corrupted repository. Every repository of the group (the entry's own,
+its lite ones, a cached alias) is moved before any is removed, so the cache
+is consistent the moment the last rename lands; what an open file keeps is
+already out of the cache, named by the inventory as a warning and swept by
+the next delete. On Windows an open file fails the first rename with
+nothing changed (`model_files_in_use`); a hub that is a mount point fails it
+as another drive, the same way. Converted parts go first, under their
+lock, so a conversion running refuses the delete before any Hub file goes.
+The route reads the plan off the loop, then checks every guard on the event
+loop with no await before `main._deleting_model` is set, and the worker
+plans again under the scan reservation and compares the pin: a cache that
+changed between the dialog and the press is refused with nothing removed,
+and the page reads the plan and asks again. Its own flag, not
+`_switching`, because `/api/status` reports it and the page must not say
+"switching"; the owner task is shielded from a caller who leaves and
+drained by the lifespan, as an unload's. The selected, loaded and
+saved-for-start entries are refused, never deleted under a sharer's name
+either. A removal inside a repository other entries use is still held
+(`model_delete_held`, naming them) until stage 4. The page keeps a deleted
+entry's row as its result line, sub-lines too, across the re-read: without
+it every row below would move up and the next row's Delete… would land
+under the pointer. An entry whose remaining files are only those a present
+sharer keeps has nothing to free, and its Delete… says so rather than ask.
+`freed_bytes` is measured (the volumes' free space before and after) and
+shown as "about": another writer can move it either way. The fake server
+runs on a scratch `HF_HOME` of its own for the whole process, so a smoke's
+delete can only ever reach the fake's cache.
 
 Status takes a different path: required-file stats plus selected-source
 partial blobs, off-loop under the existing revision retry, sampled at most

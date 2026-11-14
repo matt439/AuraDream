@@ -1,22 +1,28 @@
-"""A checkpoint delete through the app (`GEN#72`, stage 1 of
-docs/maintainer/plan-model-delete.md): the plan's GET on scratch caches, the
-guards as one reusable function, and `_deleting_model` wired inert into
-every reader of `_switching` (the delete that sets it is stage 3).
+"""A checkpoint delete through the app (`GEN#72`, docs/maintainer/plan-model-delete.md):
+the plan's GET on scratch caches (stage 1), the guards as one reusable
+function, `_deleting_model` in every reader of `_switching`, and the delete's
+POST (stage 3): every guard by its code, the reservation while the worker
+runs, a caller who leaves, the cache facts' revision, no absolute path.
 """
 from __future__ import annotations
 
 import asyncio
 import json
+import shutil
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 import pytest
 from fastapi import HTTPException
+from fastapi.testclient import TestClient
 from PIL import Image
 
-from backend import main, model_cache_delete as delete, model_cache_storage, model_info, model_selection, prompt_encoding, startup_preferences
+from backend import main, model_cache_delete as delete, model_cache_storage, model_info, model_selection, prompt_encoding, schemas, startup_preferences
 from backend.encoder_table import TokenizerSource
 from backend.schemas import GenerateRequest
+from tests.api_helpers import ORIGIN
 from tests.model_cache_fixtures import scratch_caches
 
 ERNIE = "baidu/ERNIE-Image-Turbo"
@@ -296,7 +302,7 @@ def test_a_partial_download_and_a_held_part_refuse_by_their_codes(fake):
     assert refused is not None and (refused.code, refused.detail) == ("model_delete_held", "Not built yet.")
 
 
-# ----------------------------------------------- _deleting_model, inert
+# ------------------------------------------- _deleting_model, its readers
 
 
 def test_a_delete_in_progress_refuses_model_work_switch_unload_and_bundles(client, monkeypatch):
@@ -360,3 +366,278 @@ def test_a_fetch_in_flight_is_pending_until_its_thread_returns(fake, monkeypatch
     while prompt_encoding.pending_sources() and time.monotonic() < deadline:
         time.sleep(0.01)
     assert prompt_encoding.pending_sources() == frozenset()
+
+
+# ------------------------------------------------- the delete (stage 3)
+
+DELETE = "/api/models/storage/delete"
+
+
+def _pin(client, model_id: str) -> str:
+    response = client.get(PLAN, params={"model_id": model_id})
+    assert response.status_code == 200, response.text
+    return response.json()["pin"]
+
+
+def _delete(client, model_id: str, pin: str, **headers):
+    return client.post(DELETE, json={"model_id": model_id, "pin": pin}, headers=headers or None)
+
+
+def test_a_delete_answers_what_it_freed_and_releases_everything(client, caches, monkeypatch):
+    caches.plant(ERNIE)
+    caches.plant(KREA2)
+    pin = _pin(client, ERNIE)
+    planned = client.get(PLAN, params={"model_id": ERNIE}).json()["frees_bytes"]
+    revision = model_info.cache_revision()
+    threads = []
+    worker = delete.delete
+
+    def watched(*args, **kwargs):
+        threads.append(threading.current_thread())
+        assert main._deleting_model == "ERNIE-Image Turbo"
+        assert main._busy_deleting() == "deleting a checkpoint"
+        return worker(*args, **kwargs)
+
+    monkeypatch.setattr(delete, "delete", watched)
+    response = _delete(client, ERNIE, pin)
+    assert response.status_code == 200, response.text
+    answer = response.json()
+    assert set(answer) == {"label", "planned_bytes", "freed_bytes", "remaining"}
+    assert (answer["label"], answer["planned_bytes"], answer["remaining"]) == ("ERNIE-Image Turbo", planned, [])
+    assert isinstance(answer["freed_bytes"], int) and answer["freed_bytes"] >= 0
+    assert len(threads) == 1 and threads[0].daemon and threads[0].name == "model-cache-delete"
+    assert not caches.folder(ERNIE).exists() and caches.folder(KREA2).is_dir()
+    assert main._deleting_model is None and main._delete_task is None
+    assert not model_cache_storage._scan_lock.locked()
+    # The Models cache facts follow (`download_progress` and the page key on it).
+    assert model_info.cache_revision() > revision
+    assert client.get("/api/status").json()["model_delete"] is None
+    # Deleted, it is no longer on disk: the same 404 as an unknown id.
+    gone = client.get(PLAN, params={"model_id": ERNIE})
+    assert gone.status_code == 404 and gone.json()["code"] == "model_not_on_disk"
+
+
+def test_the_body_is_exact(client, caches):
+    caches.plant(ERNIE)
+    pin = _pin(client, ERNIE)
+    for body in ({"model_id": ERNIE}, {"pin": pin}, {"model_id": ERNIE, "pin": pin, "force": True},
+                 {"model_id": ERNIE, "pin": 7}, {"model_id": "", "pin": pin}):
+        assert client.post(DELETE, json=body).status_code == 422, body
+    assert caches.folder(ERNIE).is_dir()
+
+
+def test_a_cross_site_post_is_refused_before_anything(client, caches):
+    caches.plant(ERNIE)
+    pin = _pin(client, ERNIE)
+    response = _delete(client, ERNIE, pin, Origin="https://elsewhere.example")
+    assert response.status_code == 403
+    assert caches.folder(ERNIE).is_dir() and main._deleting_model is None
+
+
+def test_a_changed_cache_and_an_absent_entry_refuse_by_code(client, caches):
+    caches.plant(ERNIE)
+    pin = _pin(client, ERNIE)
+    caches.put(ERNIE, "7" * 40, "added.json")
+    before = caches.state()
+    changed = _delete(client, ERNIE, pin)
+    assert changed.status_code == 409 and changed.json()["code"] == "model_cache_changed"
+    assert caches.state() == before
+    for model in ("nobody/nothing", KREA2):
+        absent = _delete(client, model, pin)
+        assert absent.status_code == 404 and absent.json() == {
+            "detail": "No catalogue checkpoint by that id has files in this server's cache.",
+            "code": "model_not_on_disk"}
+    assert main._deleting_model is None
+
+
+def test_held_downloading_and_in_use_refuse_by_code_with_nothing_changed(client, caches, monkeypatch):
+    # Held: Illustrious, the last holder of SDXL base's shared files.
+    caches.plant(ILLUSTRIOUS)
+    held = _delete(client, ILLUSTRIOUS, _pin(client, ILLUSTRIOUS))
+    assert held.status_code == 409 and held.json()["code"] == "model_delete_held"
+    assert SDXL in held.json()["detail"]
+    caches.plant(ERNIE)
+    partial = caches.folder(ERNIE) / "blobs" / "0123abcd.incomplete"
+    partial.parent.mkdir(parents=True, exist_ok=True)
+    partial.write_bytes(b"half")
+    downloading = _delete(client, ERNIE, _pin(client, ERNIE))
+    assert downloading.status_code == 409 and downloading.json()["code"] == "model_downloading"
+    assert "0123abcd.incomplete" in downloading.json()["detail"]
+    partial.unlink()
+    before = caches.state()
+    pin = _pin(client, ERNIE)
+
+    def refuse(source, destination, *args, **kwargs):
+        raise PermissionError(13, "in use", str(source), 32)
+
+    monkeypatch.setattr(delete.os, "rename", refuse)
+    in_use = _delete(client, ERNIE, pin)
+    assert in_use.status_code == 409 and in_use.json()["code"] == "model_files_in_use"
+    assert caches.state() == before and main._deleting_model is None and main._delete_task is None
+
+
+@pytest.mark.parametrize("state", ["selected", "loaded", "saved"])
+def test_the_selected_loaded_or_saved_entry_is_refused_by_the_route(client, caches, fake, monkeypatch, state):
+    caches.plant(ERNIE)
+    pin = _pin(client, ERNIE)
+    if state == "saved":
+        startup_preferences.save(main.settings.db_path, startup_preferences.StartupPreferences(
+            model_id=ERNIE, quantization="fp8", offload="model", load_on_startup=True))
+    else:
+        monkeypatch.setattr(model_selection, "_selection", (ERNIE, 9))
+        fake.loaded = state == "loaded"
+    response = _delete(client, ERNIE, pin)
+    assert response.status_code == 409 and response.json()["code"] == "model_selected"
+    assert "Choose another checkpoint first" in response.json()["detail"]
+    assert caches.folder(ERNIE).is_dir()
+
+
+@pytest.mark.parametrize("busy", ["jobs", "card", "load lock", "loading", "switching", "counted request",
+                                  "tokenizer", "scan", "another delete", "gallery maintenance"])
+def test_each_busy_state_refuses_the_route_by_code(client, caches, monkeypatch, busy):
+    caches.plant(ERNIE)
+    pin = _pin(client, ERNIE)
+    code = "model_delete_busy"
+    if busy == "jobs":
+        monkeypatch.setattr(main.jobs, "busy", lambda: True)
+    elif busy == "card":
+        monkeypatch.setattr(main.jobs, "card", lambda: ("critic", "ticket"))
+    elif busy == "load lock":
+        monkeypatch.setattr(main._load_lock, "locked", lambda: True)
+    elif busy == "loading":
+        monkeypatch.setitem(main._load_state, "state", "loading")
+    elif busy == "switching":
+        monkeypatch.setattr(main, "_switching", True)
+    elif busy == "counted request":
+        monkeypatch.setattr(main, "_model_requests", 1)
+    elif busy == "tokenizer":
+        monkeypatch.setattr(prompt_encoding, "pending_sources",
+                            lambda: frozenset({TokenizerSource(ERNIE, "tokenizer")}))
+    elif busy == "scan":
+        model_cache_storage._scan_lock.acquire()
+    elif busy == "another delete":
+        monkeypatch.setattr(main, "_deleting_model", "Anima Aesthetic v1.1")
+    else:
+        monkeypatch.setitem(main.bundle_manager.state, "state", "running")
+        code = "gallery_maintenance"
+    try:
+        response = _delete(client, ERNIE, pin)
+    finally:
+        if busy == "scan":
+            model_cache_storage._scan_lock.release()
+    assert response.status_code == 409 and response.json()["code"] == code, response.text
+    assert caches.folder(ERNIE).is_dir()
+    if busy != "another delete":
+        assert main._deleting_model is None
+
+
+def test_while_a_delete_runs_model_work_switch_unload_bundles_and_scans_wait(client, caches, monkeypatch):
+    caches.plant(ERNIE)
+    pin = _pin(client, ERNIE)
+    entered, release = threading.Event(), threading.Event()
+    worker = delete.delete
+
+    def held(*args, **kwargs):
+        entered.set()
+        assert release.wait(30)
+        return worker(*args, **kwargs)
+
+    monkeypatch.setattr(delete, "delete", held)
+    with ThreadPoolExecutor() as pool:
+        future = pool.submit(_delete, client, ERNIE, pin)
+        try:
+            assert entered.wait(30)
+            assert main._deleting_model == "ERNIE-Image Turbo"
+            payload = {"prompt": "a lighthouse", "width": 256, "height": 256}
+            for path, body in (("/api/generate", payload), ("/api/model/load", None), ("/api/model/unload", None),
+                               ("/api/model/switch", {"model_id": KREA2})):
+                response = client.post(path, json=body)
+                assert response.status_code == 409 and response.json()["detail"] == DELETING, (path, response.text)
+            assert client.post("/api/gallery/bundles/export", json={"expected": 0}).status_code == 409
+            status = client.get("/api/status").json()
+            assert status["model_delete"] == "ERNIE-Image Turbo" and status["switching"] is False
+            assert main._busy_deleting() == "deleting a checkpoint" and main._idle_unload_busy()
+            again = _delete(client, ERNIE, pin)
+            assert again.status_code == 409 and again.json()["code"] == "model_delete_busy"
+        finally:
+            release.set()
+        assert future.result(timeout=30).status_code == 200
+    assert main._deleting_model is None and not caches.folder(ERNIE).exists()
+
+
+def test_a_caller_who_leaves_does_not_stop_the_delete(client, caches, monkeypatch):
+    caches.plant(ERNIE)
+    pin = _pin(client, ERNIE)
+    entered, release = threading.Event(), threading.Event()
+    worker = delete.delete
+
+    def held(*args, **kwargs):
+        entered.set()
+        assert release.wait(30)
+        return worker(*args, **kwargs)
+
+    monkeypatch.setattr(delete, "delete", held)
+    request = schemas.ModelDeleteRequest(model_id=ERNIE, pin=pin)
+
+    async def scenario():
+        waiter = asyncio.create_task(main.delete_model_storage(request))
+        try:
+            assert await asyncio.to_thread(entered.wait, 10)
+            owner = main._delete_task
+            assert owner is not None
+            waiter.cancel()
+            await asyncio.gather(waiter, return_exceptions=True)
+            assert main._deleting_model == "ERNIE-Image Turbo" and not owner.done()
+            response = await asyncio.to_thread(client.post, "/api/model/load")
+            assert response.status_code == 409
+        finally:
+            release.set()
+        outcome = await asyncio.wait_for(owner, 30)
+        assert outcome.remaining == []
+        assert main._deleting_model is None and main._delete_task is None
+
+    client.portal.call(scenario)
+    assert not caches.folder(ERNIE).exists()
+
+
+def test_a_failure_nobody_expected_still_releases(client, caches, monkeypatch):
+    caches.plant(ERNIE)
+    pin = _pin(client, ERNIE)
+
+    def broken(*args, **kwargs):
+        raise RuntimeError("a private path and words")
+
+    monkeypatch.setattr(delete, "delete", broken)
+    failed = TestClient(main.app, base_url=ORIGIN, raise_server_exceptions=False)
+    response = failed.post(DELETE, json={"model_id": ERNIE, "pin": pin})
+    assert response.status_code == 500 and "private" not in response.text
+    assert main._deleting_model is None and main._delete_task is None
+
+
+def test_the_delete_answers_no_absolute_path(client, caches, tmp_path, monkeypatch):
+    entry = model_info.catalogue_entry(KREA2)
+    assert entry is not None
+    nvfp4 = entry.lite_repo("nvfp4")
+    assert nvfp4
+    caches.plant(KREA2)
+    caches.plant(nvfp4)
+    pin = _pin(client, KREA2)
+    rmtree = shutil.rmtree
+    lite = "models--" + nvfp4.replace("/", "--")
+
+    def stop(path, *args, **kwargs):
+        if (Path(path) / lite).exists():
+            raise PermissionError(13, "in use", str(path), 32)
+        return rmtree(path, *args, **kwargs)
+
+    monkeypatch.setattr(delete.shutil, "rmtree", stop)
+    response = _delete(client, KREA2, pin)
+    assert response.status_code == 200 and response.json()["remaining"]
+    assert response.json()["remaining"][0]["kind"] == "lite"
+    text = response.text
+    for root in (tmp_path, caches.home, caches.hub, caches.converted):
+        assert str(root) not in text and root.as_posix() not in text and json.dumps(str(root))[1:-1] not in text
+    # The leftover is out of the cache, named beside it, and swept next time.
+    monkeypatch.setattr(delete.shutil, "rmtree", rmtree)
+    warnings = client.get("/api/models/storage").json()["warnings"]
+    assert any("hub.auradream-deleting" in warning for warning in warnings)

@@ -598,6 +598,24 @@
   /* On disk is a fold row like the rest, across the sheet; the earlier
      stars' offer wraps its words over its two buttons. */
   .model-storage > summary { width: auto; }
+  /* Five columns do not fit the sheet: each line of On disk's table is a
+     grid of its own, the name across it, then the sizes and the row's
+     Delete… (a whole touch target) under it, every line on one template
+     so the columns still stand under their names. */
+  .model-storage-table, .model-storage-table :is(thead, tbody) { display: block; }
+  .model-storage-table caption { display: block; }
+  .model-storage-table tr {
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) calc(var(--h-md) * 2);
+    align-items: center; border-top: 1px solid var(--line);
+  }
+  .model-storage-table thead tr { border-top: 0; }
+  .model-storage-table tr > :first-child { grid-column: 1 / -1; }
+  .model-storage-table :is(th, td) { border-top: 0; white-space: normal; overflow-wrap: break-word; min-width: 0; }
+  .model-storage-table th:first-child { width: auto; }
+  .model-storage-table .model-storage-result { grid-column: 1 / -1; height: auto; min-height: var(--h-md); }
+  .model-storage-table .model-storage-variant { border-top: 0; }
+  .model-storage-table .model-storage-action { padding-left: 0; }
+  .model-storage-delete { min-height: var(--h-md); width: 100%; }
   .model-favourites-offer { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
   .model-favourites-offer > span { flex: 1 1 100%; }
   .model-favourites-offer > button { margin-left: 0; }

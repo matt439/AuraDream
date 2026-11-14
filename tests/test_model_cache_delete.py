@@ -527,7 +527,7 @@ def test_the_answer_names_no_absolute_path(caches, tmp_path):
             assert str(root).replace("\\", "\\\\") not in text
     answer = plan(ERNIE, selected=KREA2, saved=ERNIE).answer()
     assert set(answer) == {"entry", "label", "parts", "kept_shared", "also_taken_shared", "frees_bytes",
-                           "held", "downloading", "selected", "loaded", "load_on_startup", "pin"}
+                           "held", "downloading", "removes_expander", "selected", "loaded", "load_on_startup", "pin"}
     assert (answer["entry"], answer["label"]) == (ERNIE, "ERNIE-Image Turbo")
     assert (answer["selected"], answer["loaded"], answer["load_on_startup"]) == (False, False, True)
 

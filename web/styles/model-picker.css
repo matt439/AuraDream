@@ -179,7 +179,8 @@
 .model-favourites-offer:focus { outline: none; }
 .model-favourites-offer > button { margin-left: var(--sp-2); }
 /* On disk (model-storage.js): collapsed, last in the body, read on its
-   opening. A read-only inventory; it holds no delete control. */
+   opening. Each entry's row ends in its Delete…; a deleted one keeps its
+   row as the result line, so nothing below it moves. */
 .model-storage { min-width: 0; border-top: 1px solid var(--line); padding-top: var(--sp-2); }
 .model-storage > summary { cursor: pointer; font-weight: 600; border-radius: var(--r-xs); width: fit-content; }
 .model-storage > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -207,6 +208,14 @@
 /* A Nunchaku lite id's line under its entry's row: indented, no rule between. */
 .model-storage-table .model-storage-variant > * { border-top: 0; color: var(--text-readout); }
 .model-storage-table .model-storage-variant > th:first-child { padding-left: var(--sp-4); }
+.model-storage-table .model-storage-action { padding-right: 0; }
+.model-storage-delete { display: block; white-space: nowrap; }
+/* A deleted entry's result, in the row's own place: it may wrap. */
+.model-storage-table .model-storage-result {
+  text-align: left; white-space: normal; overflow-wrap: anywhere; color: var(--text-readout);
+  /* As tall as a row's Delete…, so the rows below stay where they were. */
+  height: var(--h-xs);
+}
 .model-storage-others { display: grid; gap: var(--sp-1); margin: 0; padding: 0; list-style: none; }
 .model-storage-others > li { display: flex; justify-content: space-between; gap: var(--sp-3); min-width: 0; }
 .model-storage-repo { min-width: 0; overflow-wrap: anywhere; }

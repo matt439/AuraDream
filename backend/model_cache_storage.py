@@ -1,10 +1,12 @@
-"""On-demand, read-only cache accounting against retained download references.
+"""On-demand cache accounting against retained download references; the scan
+itself changes nothing.
 
 No Hub call or model import. Unreferenced means only that the catalogue's
 retained file lists do not name it; other apps/helpers can need it. The scan
 also keeps a per-file index (`CacheIndex`) the answer never shows: what
 `model_cache_delete.plan` reads to decide what a checkpoint's delete would
-take, from the same scan the inventory's numbers come from.
+take, from the same scan the inventory's numbers come from, and a delete
+then runs under the same reservation (`_scan_lock`).
 """
 from __future__ import annotations
 
@@ -23,6 +25,27 @@ _scan_lock = threading.Lock()
 
 class ScanBusy(Exception):
     pass
+
+
+# A checkpoint delete renames a repository it takes whole out of the Hub
+# cache into this sibling folder of it (`<hub>.auradream-deleting/<8 hex>/`)
+# before removing it: outside `scan_cache_dir`'s view, which would call an
+# unknown folder inside the hub a corrupted repository. What a removal could
+# not finish stays there, named by the inventory as a warning, until the
+# next delete sweeps it.
+TRASH_SUFFIX = ".auradream-deleting"
+
+
+def trash_dir(hub: Path) -> Path:
+    return hub.parent / (hub.name + TRASH_SUFFIX)
+
+
+def trash_left(hub: Path) -> bool:
+    """Whether an earlier delete left anything in the Hub cache's trash."""
+    try:
+        return any(trash_dir(hub).iterdir())
+    except OSError:
+        return False
 
 
 @dataclass(frozen=True)
@@ -276,6 +299,9 @@ def _scan(cache_dir: Path | None = None) -> tuple[dict, CacheIndex]:
             })
         repos.append({"repo_id": repo.repo_id, "repo_type": repo.repo_type, "cached_bytes": repo.size_on_disk, "revisions": revisions})
 
+    if trash_left(index.hub):
+        warnings.append(f"Files of a deleted checkpoint are still in {trash_dir(index.hub).name} beside the Hub "
+                        "cache (a file was open); the next checkpoint delete removes them.")
     converted_files = _tree_files(converted_root, warnings)
     converted_targets = {}
     for model in catalogue:
@@ -317,5 +343,5 @@ def _scan(cache_dir: Path | None = None) -> tuple[dict, CacheIndex]:
         "store_only_bytes": max(0, (info.size_on_disk if info else 0) - sum(sizes.values())),
         "models": models, "repositories": repos,
         "warnings": sorted(set(warnings)),
-        "note": "Read-only point-in-time file-byte inventory, not disk allocation or a deletion plan. Model rows overlap where files are shared; do not add them. Unknown selected-file maps keep cached_bytes null, as does a catalogue repository cached only at commits no reference records: its bytes are other_revision_bytes, the checkpoint's, while an old revision beside a recorded one stays unreferenced. A renamed lite-infer repository's bytes are the other_revision_bytes of the lite id the app writes; entry, label and variant name the catalogue entry a row belongs to. Unreferenced means absent from the catalogue's retained download references, not unused: helpers and other apps may need it. Each revision's unreferenced_bytes is local to that revision and can share blobs with another; the overall unreferenced_bytes excludes every blob a catalogue selection references. Corrupted repositories can be omitted; directory metadata, Xet chunks and files outside the Hub and conversion caches are not included.",
+        "note": "Point-in-time file-byte inventory, not disk allocation or a deletion plan: reading it changes nothing, and a checkpoint delete reads its own plan (GET /api/models/storage/plan). Model rows overlap where files are shared; do not add them. Unknown selected-file maps keep cached_bytes null, as does a catalogue repository cached only at commits no reference records: its bytes are other_revision_bytes, the checkpoint's, while an old revision beside a recorded one stays unreferenced. A renamed lite-infer repository's bytes are the other_revision_bytes of the lite id the app writes; entry, label and variant name the catalogue entry a row belongs to. Unreferenced means absent from the catalogue's retained download references, not unused: helpers and other apps may need it. Each revision's unreferenced_bytes is local to that revision and can share blobs with another; the overall unreferenced_bytes excludes every blob a catalogue selection references. Corrupted repositories can be omitted; directory metadata, Xet chunks and files outside the Hub and conversion caches are not included.",
     }, index

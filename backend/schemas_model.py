@@ -1,12 +1,12 @@
 """What the model status poll serves and the switch request: the structured
 prompting guide and its tag helper, the critic's and Expand's cold status,
-`ModelSwitchRequest` and `ModelStatus`.
+`ModelSwitchRequest`, `ModelDeleteRequest` and `ModelStatus`.
 """
 from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_serializer
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 from .config import settings
 from .backends.regional_compile import RegionalDiagnostics
@@ -176,6 +176,16 @@ class ModelSwitchRequest(BaseModel):
     # Omission preserves loader intent; explicit empty selects Eager/native.
     # Only load=false may save a supported but unavailable loader recipe.
     execution: ExecutionSpec | None = None
+
+
+class ModelDeleteRequest(BaseModel):
+    """`POST /api/models/storage/delete`: one catalogue entry by its
+    official id, and the pin of the plan the person confirmed."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    model_id: str = Field(min_length=1, max_length=512)
+    pin: str = Field(min_length=1, max_length=128)
 
 
 class ModelDownloadStatus(BaseModel):

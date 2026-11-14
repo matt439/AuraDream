@@ -5,7 +5,8 @@ named by entry, the lite and alias repositories on the entry's row, the
 page's sub-lines); stage 1 built 2026-11-14 (the read-only planner, its
 GET, the codes, the guards, `_deleting_model` wired inert); stage 2 built
 2026-11-14 (the worker's converted-tree removal, backend only, no route);
-stages 3 and 4 not built.** The row's owner was the
+stage 3 built 2026-11-14 (the Hub trash, the POST and its reservation,
+Delete… in the page, `smoke-model-delete`); stage 4 not built.** The row's owner was the
 [peer review's R9](review-2026-11-10-peers.md#r9-storage-view); this plan
 owns it from now on (the TODO row points here). Every stage below is CPU and browser work on scratch
 caches; none needs the card. Matt's questions are at the end; he
@@ -538,6 +539,32 @@ Riskiest last. Each stage is one or more commits on one branch.
    *Done when* the API and CPU tests pass, `smoke-model-delete` and
    `smoke-model-storage` pass under `run_smoke.py --rerun-failed-alone`
    with no page error and a clean a11y check, and `pytest -n auto` is green.
+   *Built 2026-11-14:* `HUB_DELETE` on; `model_cache_delete.remove_hub`
+   (every whole repository of the group renamed into
+   `model_cache_storage.trash_dir(hub)/<8 hex>/` before any is removed;
+   converted parts go first, under their lock), `sweep_trash` at each
+   delete's start (its own `<8 hex>` folders only) and the inventory's
+   warning for a leftover; `Plan.removes_expander` for ERNIE's line; the
+   POST in `main` (`delete_model_storage`, `_run_model_delete`,
+   `_delete_task`, `_model_delete_finished`; `ModelDeleteRequest`), which
+   also compares the pin on the loop before reserving. Page:
+   `web/model-storage.js` (`modelStorageDeleteHeld`, `deleteModelStorage`,
+   the result line keeping the row and its sub-lines,
+   `receiveModelDeleteStatus` from the status poll), the five helpers in
+   `web/state.js`, the picker kept open while its question is up
+   (`web/app.js`), the phone's one-grid-per-line table in
+   `styles/touch.css`. Choices where this plan left room: an entry with
+   kept shared files left and nothing of its own still shows a row (the
+   inventory counts the shared files under it), and its Delete… says there
+   is nothing to free instead of asking; a busy refusal holds every
+   Delete… until the next status; a held plan holds its row until Refresh;
+   "this PC's cache" is said in the title and a line of its own. The fake
+   sets its scratch `HF_HOME`/`HF_HUB_CACHE` in `main()` before any backend
+   import for every fake, and plants the delete's fixtures only through a
+   knob (`POST /api/fake/model-cache`, `plant`; `touch` changes a
+   repository), so the other smokes' Models cache words do not change.
+   Tests: `tests/test_model_cache_delete_hub.py`, the POST's in
+   `tests/test_api_model_storage_delete.py`.
 4. **File-level delete inside shared repositories.** Anima Turbo and
    Aesthetic (one repository, two commits), Anima Preview, Illustrious, WAI
    and RouWei, with the last-holder rule.

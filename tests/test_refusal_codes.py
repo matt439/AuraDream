@@ -301,12 +301,11 @@ def _scripts() -> dict[str, str]:
 def test_the_page_reads_every_code_the_server_gives_and_no_other():
     # A code nobody reads is dead weight; one the page reads that the server
     # never gives is a branch that cannot run.
-    # A checkpoint delete's codes (`GEN#72`) are given from stage 1, and read
-    # once Models > On disk has its Delete control (stage 3): until then the
-    # page reads none of them, and every other code.
+    # A checkpoint delete's codes (`GEN#72`) too, since Models > On disk has
+    # its Delete control (stage 3).
     text = "\n".join(_scripts().values())
     read = set(re.findall(r"err\??\.code [!=]== '([a-z_]+)'", text))
-    assert read == set(refusal_codes.CODES - refusal_codes.MODEL_DELETE_CODES)
+    assert read == set(refusal_codes.CODES)
 
 
 def test_a_checkpoint_delete_has_its_seven_codes():

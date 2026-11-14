@@ -74,6 +74,7 @@ from .schemas import (  # noqa: E402
     ExpanderStatus,
     KeepAwakeStatus,
     ModelDownloadStatus,
+    ModelDeleteRequest,
     ModelStatus,
     ModelSwitchRequest,
     PromptGuide,
@@ -114,8 +115,12 @@ _switch_draining = False
 # disk, `model_cache_delete`), or None. Its own flag, not `_switching`:
 # `/api/status` reports both and the page must not say "switching". Every
 # reader of `_switching` reads it too (docs/maintainer/plan-model-delete.md,
-# "Reservation"); the delete that sets it is `GEN#72` stage 3.
+# "Reservation"). Set by `POST /api/models/storage/delete` before its first
+# await, cleared when its worker has finished (`_run_model_delete`).
 _deleting_model: str | None = None
+# That delete's owner task: it outlives a caller who leaves (awaited through
+# `asyncio.shield`) and the lifespan drains it, as it does `_unload_task`.
+_delete_task: asyncio.Task | None = None
 # How long a switch waits for counted requests already in flight before it
 # refuses. The page's own cold reads - the adapter list, the token count and
 # the tag check it sends when a load lands or typing pauses - take a moment,
@@ -506,6 +511,8 @@ async def lifespan(app: FastAPI):
             _idle_unload = None
         if _unload_task is not None:
             await asyncio.gather(_unload_task, return_exceptions=True)
+        if _delete_task is not None:
+            await asyncio.gather(_delete_task, return_exceptions=True)
         if _startup_task is not None and not _startup_task.done():
             _startup_task.cancel()
             await asyncio.gather(_startup_task, return_exceptions=True)
@@ -1480,6 +1487,95 @@ def _model_delete_refusal(plan: model_cache_delete.Plan, context: model_cache_de
     if plan.held is not None:
         return refusals.Refused(409, plan.held["detail"], refusal_codes.MODEL_DELETE_HELD)
     return None
+
+
+_DELETE_UNREADABLE = "The model cache could not be read. Check that its drive is available."
+
+
+def _model_delete_failure(error: BaseException) -> HTTPException | None:
+    """A planner's or worker's refusal as the route answers it, or None for
+    an error that is not one."""
+    if isinstance(error, model_cache_delete.DeleteRefused):
+        return refusals.Refused(409, error.detail, error.code)
+    if isinstance(error, model_cache_delete.NotOnDisk):
+        return refusals.Refused(404, "No catalogue checkpoint by that id has files in this server's cache.",
+                                refusal_codes.MODEL_NOT_ON_DISK)
+    if isinstance(error, model_cache_storage.ScanBusy):
+        return refusals.Refused(409, "A cache inspection is running; delete once it is done.",
+                                refusal_codes.MODEL_DELETE_BUSY)
+    if isinstance(error, (OSError, ValueError)):
+        return HTTPException(status_code=503, detail=_DELETE_UNREADABLE)
+    return None
+
+
+@app.post("/api/models/storage/delete")
+async def delete_model_storage(body: ModelDeleteRequest) -> dict:
+    """Delete one catalogue checkpoint's files from this server's caches, as
+    the plan with `pin` said (docs/maintainer/plan-model-delete.md). The plan
+    is read again off the loop; every guard is then checked on the event
+    loop with no await before the reservation, and the worker re-plans
+    under the scan reservation and refuses a different pin with nothing
+    removed. 200 with `{label, planned_bytes, freed_bytes, remaining}`, a
+    `remaining` naming what a file still open kept; a refusal before
+    anything changed is a coded 409 (404 for no such entry on disk)."""
+    global _deleting_model, _delete_task
+
+    def read() -> tuple[model_cache_delete.Plan, str | None]:
+        saved = _saved_start_entry()
+        return model_cache_delete.plan(body.model_id, _model_delete_context(saved)), saved
+
+    try:
+        planned, saved = await _detached(read, name="model-cache-plan")
+    except Exception as error:
+        refusal = _model_delete_failure(error)
+        if refusal is None:
+            raise
+        raise refusal from None
+    # From here to the reservation: no await.
+    refused = _model_delete_refusal(planned, _model_delete_context(saved))
+    if refused is not None:
+        raise refused
+    if planned.pin != body.pin:
+        raise refusals.Refused(409, f"{planned.label}'s files changed since the plan was read; read it again.",
+                               refusal_codes.MODEL_CACHE_CHANGED)
+    _deleting_model = planned.label
+    _delete_task = asyncio.create_task(_run_model_delete(body.model_id, body.pin), name="model-cache-delete")
+    _delete_task.add_done_callback(_model_delete_finished)
+    try:
+        outcome = await asyncio.shield(_delete_task)
+    except Exception as error:
+        refusal = _model_delete_failure(error)
+        if refusal is None:
+            raise
+        raise refusal from None
+    return outcome.answer()
+
+
+async def _run_model_delete(model_id: str, pin: str) -> model_cache_delete.Outcome:
+    """The delete's owner: its worker on a daemon thread, with the context
+    read there (the saved choice is a file); the reservation released and
+    the cache facts invalidated when it has finished, whatever happened."""
+    global _deleting_model
+    try:
+        return await _detached(
+            lambda: model_cache_delete.delete(model_id, pin, _model_delete_context(_saved_start_entry())),
+            name="model-cache-delete")
+    finally:
+        invalidate_cache_facts()
+        _deleting_model = None
+
+
+def _model_delete_finished(task: asyncio.Task) -> None:
+    global _delete_task
+    if _delete_task is task:
+        _delete_task = None
+    if task.cancelled():
+        return
+    error = task.exception()
+    # A refusal is the caller's answer; only a failure nobody expected is logged.
+    if error is not None and _model_delete_failure(error) is None:
+        log.error("checkpoint delete failed: %s", short_error(error))
+        log.debug("delete traceback", exc_info=(type(error), error, error.__traceback__))
 
 
 # The app's state as the route modules read it: every getter reads main's
