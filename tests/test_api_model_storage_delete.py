@@ -158,6 +158,54 @@ def test_no_answer_names_an_absolute_path(client, caches, tmp_path):
         assert str(root) not in text and root.as_posix() not in text and json.dumps(str(root))[1:-1] not in text
 
 
+def test_the_inventory_holds_each_row_its_plan_holds(client, caches, monkeypatch):
+    # Illustrious alone is the last holder of SDXL base's shared files: its
+    # plan is held, so its row says so as the cache is read, before any
+    # press, in the plan's own words. ERNIE's and a lite sub-line's are null.
+    caches.plant(ILLUSTRIOUS)
+    caches.plant(ERNIE)
+    entry = model_info.catalogue_entry(KREA2)
+    assert entry is not None and (lite := entry.lite_repo("nvfp4"))
+    caches.plant(lite)
+    threads = []
+    snapshot = model_cache_storage.snapshot
+
+    def watched(*args, **kwargs):
+        threads.append(threading.current_thread())
+        return snapshot(*args, **kwargs)
+
+    monkeypatch.setattr(model_cache_storage, "snapshot", watched)
+    response = client.get("/api/models/storage")
+    assert response.status_code == 200, response.text
+    rows = {row["model_id"]: row for row in response.json()["models"]}
+    assert all("delete_held" in row for row in rows.values())
+    planned = client.get(PLAN, params={"model_id": ILLUSTRIOUS}).json()
+    assert planned["held"] and rows[ILLUSTRIOUS]["delete_held"] == planned["held"]["detail"]
+    assert SDXL in rows[ILLUSTRIOUS]["delete_held"]
+    assert rows[ERNIE]["delete_held"] is None and rows[lite]["delete_held"] is None
+    assert len(threads) == 1 and threads[0].daemon and threads[0].name == "model-cache-storage"
+    assert not model_cache_storage._scan_lock.locked()
+    # With WAI on disk the shared files are kept: Illustrious's row is free.
+    caches.plant("LyliaEngine/waiIllustriousSDXL_v170")
+    rows = {row["model_id"]: row for row in client.get("/api/models/storage").json()["models"]}
+    assert rows[ILLUSTRIOUS]["delete_held"] is None
+
+
+def test_a_plan_that_fails_leaves_its_row_unheld_and_the_inventory_answering(client, caches, monkeypatch):
+    caches.plant(ERNIE)
+    planner = delete._plan
+
+    def failing(entry_id, *args, **kwargs):
+        if entry_id == ERNIE:
+            raise OSError("private path")
+        return planner(entry_id, *args, **kwargs)
+
+    monkeypatch.setattr(delete, "_plan", failing)
+    response = client.get("/api/models/storage")
+    assert response.status_code == 200 and "private" not in response.text
+    assert next(row for row in response.json()["models"] if row["model_id"] == ERNIE)["delete_held"] is None
+
+
 # -------------------------------------------------------------- the guards
 
 

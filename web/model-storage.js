@@ -23,8 +23,9 @@ let modelStoragePlanning = null;
 let modelStorageDeleting = null;
 let modelDeleteRunning = null;
 // A busy refusal holds every Delete until the next status says what holds
-// the server; a held plan (`model_delete_held`) holds its row with the
-// server's words until Refresh.
+// the server; a held plan (`model_delete_held`) a press met that the read
+// did not (the inventory's rows carry `delete_held`) holds its row with
+// the server's words until Refresh.
 let modelStorageBusyHold = '';
 const modelStorageHeldPlans = new Map();
 // Deleted entries' result lines, by entry id: each keeps its row (and its
@@ -116,7 +117,8 @@ function modelStorageEntryOf(id) {
 
 // Why a row's Delete… cannot run now, or '' when it can: what the server
 // would refuse, read from what the page already knows (the status poll's
-// selection, load, jobs, card, switch and delete; this fold's own read).
+// selection, load, jobs, card, switch and delete; this fold's own read,
+// whose rows carry their plan's hold as `delete_held`).
 function modelStorageDeleteHeld(row) {
   const entry = row.entry ?? row.model_id;
   const selected = modelRuntimeSettings?.model_id ?? loadedModel;
@@ -133,6 +135,8 @@ function modelStorageDeleteHeld(row) {
   if (modelStorageLoading) return 'The model cache is being read; wait for it to finish';
   if (bundleStatus?.state === 'running') return GALLERY_MAINTENANCE_WORDS;
   if (modelStorageHeldPlans.has(entry)) return modelStorageHeldPlans.get(entry);
+  // The inventory's own read of the plan's hold (a shared repository, ...).
+  if (row.delete_held) return row.delete_held.replace(/\.$/, '');
   if (modelStorageBusyHold) return modelStorageBusyHold;
   return '';
 }
@@ -519,6 +523,10 @@ async function deleteModelStorage(button) {
       return;
     } finally {
       modelStorageDeleting = null;
+      // The POST answered, so this delete is over: a status poll that saw
+      // it running would otherwise hold every Delete… and say "Deleting …"
+      // over the re-read's line until the next poll.
+      if (modelDeleteRunning === plan.label) modelDeleteRunning = null;
     }
     // The result in the row's place at once, and across the re-read.
     const variants = (modelStorageBody?.models ?? [])

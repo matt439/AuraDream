@@ -8,28 +8,30 @@ from . import model_cache_delete, model_cache_storage, refusal_codes, storage
 from .detached import detached
 from .refusals import Refused
 
-router = APIRouter()
-
 _UNREADABLE = "The model cache could not be read. Check that its drive is available."
 _SCAN_BUSY = "A cache inspection is already running. Wait for it to finish."
 
 
-@router.get("/api/models/storage")
-async def storage_snapshot() -> dict:
-    try:
-        return await detached(model_cache_storage.snapshot, "model-cache-storage")
-    except model_cache_storage.ScanBusy:
-        raise HTTPException(status_code=409, detail=_SCAN_BUSY) from None
-    except (OSError, ValueError):
-        raise HTTPException(status_code=503, detail=_UNREADABLE) from None
-
-
 def create_plan_router(context: Callable[[], model_cache_delete.PlanContext]) -> APIRouter:
-    """`GET /api/models/storage/plan`: what deleting one catalogue entry
-    would take, read-only (`model_cache_delete.plan`). `context` is main's
+    """`GET /api/models/storage`, the inventory, each entry's row with the
+    delete's hold (`model_cache_delete.annotate_holds`), and
+    `GET /api/models/storage/plan`: what deleting one catalogue entry would
+    take, read-only (`model_cache_delete.plan`). `context` is main's
     selected, loaded and saved-for-start entries and Check's fetches, read
     on the worker thread (the saved choice is a file)."""
     plan_router = APIRouter()
+
+    @plan_router.get("/api/models/storage")
+    async def storage_snapshot() -> dict:
+        def work() -> dict:
+            return model_cache_storage.snapshot(annotate=model_cache_delete.annotate_holds(context()))
+
+        try:
+            return await detached(work, "model-cache-storage")
+        except model_cache_storage.ScanBusy:
+            raise HTTPException(status_code=409, detail=_SCAN_BUSY) from None
+        except (OSError, ValueError):
+            raise HTTPException(status_code=503, detail=_UNREADABLE) from None
 
     @plan_router.get("/api/models/storage/plan")
     async def storage_plan(model_id: str) -> dict:

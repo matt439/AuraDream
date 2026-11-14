@@ -4,10 +4,11 @@ docs/maintainer/plan-model-delete.md, "How files are removed > A repository
 E owns outright", is the spec: a repository only the entry's group names
 (its own, its Nunchaku lite ones, a cached lite-infer alias) is renamed out
 of the Hub cache into the sibling trash (`<hub>.auradream-deleting/<8 hex>/`)
-- every repository before any is removed - then removed from there. A
-refused first rename changes nothing (`model_files_in_use`); what an open
-file keeps in the trash is the outcome's `remaining`, named by the
-inventory as a warning and swept by the next delete. A removal inside a
+- every part, converted trees included, renamed before any is removed -
+then removed from there. A refused rename, whichever part's, puts back
+what moved and changes nothing (`model_files_in_use`); what an open file
+keeps in the trash is the outcome's `remaining`, named by the inventory as
+a warning and swept by the next delete. A removal inside a
 repository other entries use stays held until stage 4.
 """
 from __future__ import annotations
@@ -21,7 +22,7 @@ import pytest
 
 from backend import model_cache_delete as delete, model_cache_storage, model_info
 from backend.backends import single_file
-from backend.refusal_codes import MODEL_CACHE_CHANGED, MODEL_DELETE_HELD, MODEL_FILES_IN_USE
+from backend.refusal_codes import MODEL_CACHE_CHANGED, MODEL_DELETE_HELD, MODEL_DOWNLOADING, MODEL_FILES_IN_USE
 from tests.model_cache_fixtures import LAYOUTS, link_folder, scratch_caches
 
 ERNIE = "baidu/ERNIE-Image-Turbo"
@@ -151,12 +152,28 @@ def test_the_lite_repositories_and_alias_all_move_before_any_is_removed(caches, 
     assert not os.path.lexists(trash(caches))
 
 
-def test_a_converted_copy_and_its_source_repository_go_together(copy_caches):
+def test_a_converted_copy_and_its_source_repository_go_together(copy_caches, monkeypatch):
     caches = copy_caches
     caches.plant(WAI, only=WAI)
     target = caches.convert(WAI)
+    events = []
+    rename, rmtree = os.rename, shutil.rmtree
+
+    def watch_rename(source, destination, *args, **kwargs):
+        events.append(("rename", Path(source).name))
+        return rename(source, destination, *args, **kwargs)
+
+    def watch_rmtree(path, *args, **kwargs):
+        events.append(("rmtree", Path(path).name))
+        return rmtree(path, *args, **kwargs)
+
+    monkeypatch.setattr(os, "rename", watch_rename)
+    monkeypatch.setattr(shutil, "rmtree", watch_rmtree)
     outcome = run(WAI)
     assert outcome.remaining == [] and outcome.changed
+    # Both renamed before either is removed: the converted tree first.
+    assert [kind for kind, _ in events] == ["rename", "rename", "rmtree", "rmtree"]
+    assert [name for kind, name in events if kind == "rename"] == [target.name, stem(WAI)]
     assert not os.path.lexists(caches.folder(WAI)) and not target.exists()
     assert {path.name for path in caches.converted.iterdir() if path.is_dir()} == set()
 
@@ -229,25 +246,105 @@ def test_a_refused_first_rename_changes_nothing(copy_caches, monkeypatch, failur
     assert not model_cache_storage._scan_lock.locked()
 
 
-def test_a_later_refused_rename_keeps_what_moved_and_names_what_stays(copy_caches, monkeypatch):
+def test_a_later_refused_rename_puts_back_what_moved(copy_caches, monkeypatch):
+    # The group's last repository is refused after the others moved: they
+    # come back, and the delete refuses with nothing changed.
     caches = copy_caches
-    nvfp4, alias = krea2_group(caches)
+    krea2_group(caches)
     planned = delete.plan(KREA2)
+    last = [part for part in planned.parts if part.kind in ("hub", "lite")][-1]
+    assert last.repo is not None
+    before = caches.state()
+    rename, moved = os.rename, []
+
+    def refuse_last(source, destination, *args, **kwargs):
+        if Path(source).name == stem(last.repo):
+            raise in_use(source)
+        moved.append(Path(source).name)
+        return rename(source, destination, *args, **kwargs)
+
+    monkeypatch.setattr(os, "rename", refuse_last)
+    with pytest.raises(delete.DeleteRefused) as refused:
+        delete.delete(KREA2, planned.pin)
+    assert refused.value.code == MODEL_FILES_IN_USE and "nothing was deleted" in refused.value.detail
+    assert len(moved) == 4  # two moved out, and back
+    assert caches.state() == before
+    assert not os.path.lexists(trash(caches))
+    assert not model_cache_storage._scan_lock.locked()
+    monkeypatch.setattr(os, "rename", rename)
+    assert delete.delete(KREA2, planned.pin).remaining == []
+
+
+def without_locks(state: dict) -> dict:
+    """The zero-byte `.lock` a converted part's lock leaves (by design)."""
+    return {key: value for key, value in state.items() if not key.endswith(".lock")}
+
+
+@pytest.mark.parametrize("failure", ["in use", "download"])
+def test_a_refused_hub_part_puts_the_converted_copy_back(copy_caches, monkeypatch, failure):
+    # WAI's converted copy goes aside first; then its source repository is
+    # refused (a file open in another program, or a download that started
+    # since the plan). The copy comes back: nothing removed, as the docs say.
+    caches = copy_caches
+    caches.plant(WAI, only=WAI)
+    target = caches.convert(WAI)
+    planned = delete.plan(WAI)
+    assert sorted(part.kind for part in planned.parts) == ["converted", "hub"]
+    partial = caches.folder(WAI) / "blobs" / "0123abcd.incomplete"
+    before = without_locks(caches.state())
+    rename, moved = os.rename, []
+
+    def refuse_hub(source, destination, *args, **kwargs):
+        if Path(source).name == stem(WAI) and failure == "in use":
+            raise in_use(source)
+        moved.append(Path(source).name)
+        rename(source, destination, *args, **kwargs)
+        if Path(source) == target and failure == "download":
+            partial.parent.mkdir(parents=True, exist_ok=True)
+            partial.write_bytes(b"half a file")
+
+    monkeypatch.setattr(os, "rename", refuse_hub)
+    with pytest.raises(delete.DeleteRefused) as refused:
+        delete.delete(WAI, planned.pin)
+    assert refused.value.code == (MODEL_FILES_IN_USE if failure == "in use" else MODEL_DOWNLOADING)
+    assert moved[:2] == [target.name, "tree"]  # aside, and back
+    if failure == "download":
+        partial.unlink()
+        if not any(partial.parent.iterdir()):
+            partial.parent.rmdir()  # made for the partial alone
+    assert without_locks(caches.state()) == before
+    assert target.is_dir() and caches.folder(WAI).is_dir()
+    assert not os.path.lexists(trash(caches))
+    assert not model_cache_storage._scan_lock.locked()
+    monkeypatch.setattr(os, "rename", rename)
+    assert delete.delete(WAI, planned.pin).remaining == []
+    assert not target.exists() and not os.path.lexists(caches.folder(WAI))
+
+
+def test_a_rename_that_will_not_go_back_is_finished_and_says_what_stays(copy_caches, monkeypatch):
+    # The double fault: the Hub rename refused, and the converted copy will
+    # not go back either. It is out of the loaders' sight already, so it is
+    # removed, and the answer names the repository that stays.
+    caches = copy_caches
+    caches.plant(WAI, only=WAI)
+    target = caches.convert(WAI)
+    planned = delete.plan(WAI)
     rename = os.rename
 
-    def refuse_lite(source, destination, *args, **kwargs):
-        if Path(source).name == stem(nvfp4):
+    def refuse(source, destination, *args, **kwargs):
+        if Path(source).name in (stem(WAI), "tree"):
             raise in_use(source)
         return rename(source, destination, *args, **kwargs)
 
-    monkeypatch.setattr(os, "rename", refuse_lite)
-    outcome = delete.delete(KREA2, planned.pin)
+    monkeypatch.setattr(os, "rename", refuse)
+    outcome = delete.delete(WAI, planned.pin)
+    hub = next(part for part in planned.parts if part.kind == "hub")
     assert outcome.changed
-    part = next(part for part in planned.parts if part.repo == nvfp4)
-    assert outcome.remaining == [{"kind": "lite", "bytes": part.bytes,
+    assert outcome.remaining == [{"kind": "hub", "bytes": hub.bytes,
                                   "reason": "A file in it is open, so it could not be moved out of the cache."}]
-    assert caches.folder(nvfp4).is_dir()
-    assert not os.path.lexists(caches.folder(KREA2)) and not os.path.lexists(caches.folder(alias))
+    assert not target.exists() and caches.folder(WAI).is_dir()
+    assert {path.name for path in caches.converted.iterdir() if path.is_dir()} == set()
+    assert not os.path.lexists(trash(caches))
 
 
 def test_an_open_file_in_the_trash_is_named_and_swept_by_the_next_delete(copy_caches, monkeypatch):

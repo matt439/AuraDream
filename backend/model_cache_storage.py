@@ -14,6 +14,7 @@ import os
 import shutil
 import threading
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -173,18 +174,24 @@ def hub_cache_dir() -> Path:
     return Path(HF_HUB_CACHE)
 
 
-def snapshot(cache_dir: Path | None = None) -> dict:
-    """Inspect once; the worker owns the reservation even if its caller leaves."""
+def snapshot(cache_dir: Path | None = None, annotate: Callable[[dict, CacheIndex], None] | None = None) -> dict:
+    """Inspect once; the worker owns the reservation even if its caller
+    leaves. `annotate(answer, index)`, under the same reservation, adds to
+    the answer from the scan's index (the checkpoint delete's holds,
+    `model_cache_delete.annotate_holds`)."""
     if not _scan_lock.acquire(blocking=False):
         raise ScanBusy
     try:
-        return _snapshot(cache_dir)
+        return _snapshot(cache_dir, annotate)
     finally:
         _scan_lock.release()
 
 
-def _snapshot(cache_dir: Path | None = None) -> dict:
-    return _scan(cache_dir)[0]
+def _snapshot(cache_dir: Path | None = None, annotate: Callable[[dict, CacheIndex], None] | None = None) -> dict:
+    answer, index = _scan(cache_dir)
+    if annotate is not None:
+        annotate(answer, index)
+    return answer
 
 
 def _scan(cache_dir: Path | None = None) -> tuple[dict, CacheIndex]:

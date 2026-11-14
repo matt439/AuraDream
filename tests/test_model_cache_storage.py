@@ -171,7 +171,7 @@ def test_corrupt_repo_is_reported_without_leaking_raw_paths(inventory):
 def test_route_inspects_only_on_demand_on_a_daemon_thread(client, monkeypatch):
     calls = []
 
-    def inspect():
+    def inspect(*_args, **_kwargs):
         calls.append(threading.current_thread())
         return {"models": [], "read_only": True}
 
@@ -192,12 +192,12 @@ def test_scan_reservation_is_nonblocking_and_recovers(client, monkeypatch):
         assert response.status_code == 409 and "already running" in response.json()["detail"]
     finally:
         cache._scan_lock.release()
-    monkeypatch.setattr(cache, "_snapshot", lambda _: {"models": []})
+    monkeypatch.setattr(cache, "_snapshot", lambda *_: {"models": []})
     assert client.get("/api/models/storage").status_code == 200
 
 
 def test_route_read_failure_has_plain_words_and_no_filesystem_details(client, monkeypatch):
-    def unreadable():
+    def unreadable(**_kwargs):
         raise OSError("private path and environment text")
 
     monkeypatch.setattr(cache, "snapshot", unreadable)

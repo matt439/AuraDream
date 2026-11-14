@@ -4,7 +4,8 @@ only, on scratch caches.
 docs/maintainer/plan-model-delete.md, "How files are removed > Converted
 tree", is the spec: under the loaders' own lock, the tree is renamed into
 exactly `single_file._is_work`'s shape and removed from there with every
-stale work directory, the `.lock` staying. Every injected failure
+stale work directory, the `.lock` staying; every part is renamed before
+any is removed, so a refused rename puts back what moved. Every injected failure
 (`os.rename`, `shutil.rmtree` raising Windows' sharing violation) must
 leave nothing but `_is_work` directories, and a later load converts cleanly
 in the scratch cache, in `tests/test_converter_cache.py`'s style. Stage 3's route
@@ -492,28 +493,31 @@ def test_an_rmtree_refused_at_once_on_stale_work_alone_changes_nothing(caches, m
     assert converted_state(caches) == before and stale.is_dir()
 
 
-def test_a_later_failure_keeps_what_changed_and_names_what_stays(caches, monkeypatch):
-    # The entry's tree goes; the older recipe's rename is then refused: a
-    # 200 with `remaining` in stage 3, never a refusal saying nothing changed.
+def test_a_later_refused_rename_puts_the_first_back(caches, monkeypatch):
+    # The entry's tree goes aside; the older recipe's rename is then
+    # refused: every part is renamed before any is removed, so the tree
+    # comes back and the delete refuses with nothing changed.
     target = caches.convert(WAI)
     older = caches.older("wai-illustrious-v17-0000000000000000",
                          json.dumps({"version": 0, "source": single_file.WAI_SOURCE}))
     planned = delete.plan(WAI)
-    rename = os.rename
+    before = converted_state(caches)
+    rename, moved = os.rename, []
 
     def refuse_older(source, destination, *args, **kwargs):
         if Path(source) == older:
             raise in_use(source)
+        moved.append(Path(source).name)
         return rename(source, destination, *args, **kwargs)
 
     monkeypatch.setattr(os, "rename", refuse_older)
-    outcome = delete.delete(WAI, planned.pin)
-    assert outcome.changed and not target.exists()
-    older_part = next(part for part in planned.parts if part.kind == "converted-old")
-    assert outcome.remaining == [{"kind": "converted-old", "bytes": older_part.bytes,
-                                  "reason": "A file in it is open, so it could not be moved aside."}]
-    assert older.is_dir() and (older / single_file.CONVERSION_MARKER).is_file()
-    only_work_left(caches, target, {older.name})
+    with pytest.raises(delete.DeleteRefused) as refused:
+        delete.delete(WAI, planned.pin)
+    assert refused.value.code == MODEL_FILES_IN_USE and "nothing was deleted" in refused.value.detail
+    assert moved == [target.name, "tree"]  # aside, and back
+    assert converted_state(caches) == before
+    assert target.is_dir() and (older / single_file.CONVERSION_MARKER).is_file()
+    assert not model_cache_storage._scan_lock.locked()
 
 
 def test_an_older_trees_leftover_is_swept_by_the_entrys_next_load(caches, monkeypatch):

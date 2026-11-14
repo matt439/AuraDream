@@ -79,7 +79,7 @@ A delete of entry E removes, on this server's cache only:
 
 | Route | What it does |
 |---|---|
-| `GET /api/models/storage` | Unchanged and read-only. `tests/test_model_cache_storage.py`'s DELETE-is-405 assertion stays. |
+| `GET /api/models/storage` | Read-only. `tests/test_model_cache_storage.py`'s DELETE-is-405 assertion stays. Each entry row gains `delete_held` (stage 3's review): its plan's `held` detail on the same scan, or null. |
 | `GET /api/models/storage/plan?model_id=<id>` **(new)** | A dry run on a daemon thread (`detached(..., "model-cache-plan")`) under `model_cache_storage._scan_lock`. Answers `{entry, label, parts: [{kind: "hub"\|"lite"\|"converted"\|"converted-old", repo?, revision?, bytes, files}], kept_shared: [{bytes, with: [labels]}], also_taken_shared: [{bytes, with: [labels]}], frees_bytes, held: {code, detail} \| null, selected, loaded, load_on_startup, pin}`. |
 | `POST /api/models/storage/delete` **(new)** | Body `{model_id, pin}` (pydantic, `extra="forbid"`). Answers 200 `{label, planned_bytes, freed_bytes, remaining: [{kind, bytes, reason}]}`. |
 
@@ -108,7 +108,7 @@ New codes in `backend/refusal_codes.py` and `CODES`, raised through
 | `model_selected` | E is the selected (and so any loaded) checkpoint | says "Choose another checkpoint first" |
 | `model_downloading` | an `*.incomplete` under a repository the plan touches | says the sentence, naming the repository and the partial file's name relative to the cache (never `hf cache prune`: in huggingface_hub 1.33 it also removes every ref-less revision in every repository, and the app's commit-pinned downloads, such as Anima Turbo's and Aesthetic's `hf_hub_download` sources, write no ref) |
 | `model_cache_changed` | the pin differs | re-reads the plan and asks again |
-| `model_files_in_use` | Windows refused the first rename: nothing changed | says the sentence |
+| `model_files_in_use` | Windows refused a rename: every rename made is put back, nothing changed | says the sentence |
 | `model_not_on_disk` | E has nothing cached, or names no catalogue entry (one answer, 404) | refreshes the fold |
 | `model_delete_held` | a part the server cannot prove safe: an ambiguous `other_revision_of`, a shared repository before stage 4, a shared Xet store | the row's Delete is held with the detail as its title |
 
@@ -539,10 +539,12 @@ Riskiest last. Each stage is one or more commits on one branch.
    *Done when* the API and CPU tests pass, `smoke-model-delete` and
    `smoke-model-storage` pass under `run_smoke.py --rerun-failed-alone`
    with no page error and a clean a11y check, and `pytest -n auto` is green.
-   *Built 2026-11-14:* `HUB_DELETE` on; `model_cache_delete.remove_hub`
-   (every whole repository of the group renamed into
-   `model_cache_storage.trash_dir(hub)/<8 hex>/` before any is removed;
-   converted parts go first, under their lock), `sweep_trash` at each
+   *Built 2026-11-14:* `HUB_DELETE` on; `model_cache_delete.remove`
+   (every part renamed before any is removed: the converted trees under
+   their lock, then every whole repository of the group into
+   `model_cache_storage.trash_dir(hub)/<8 hex>/`; a refused rename
+   anywhere puts back what moved, so `model_files_in_use` and
+   `model_downloading` still mean nothing changed), `sweep_trash` at each
    delete's start (its own `<8 hex>` folders only) and the inventory's
    warning for a leftover; `Plan.removes_expander` for ERNIE's line; the
    POST in `main` (`delete_model_storage`, `_run_model_delete`,
@@ -557,7 +559,10 @@ Riskiest last. Each stage is one or more commits on one branch.
    kept shared files left and nothing of its own still shows a row (the
    inventory counts the shared files under it), and its Delete… says there
    is nothing to free instead of asking; a busy refusal holds every
-   Delete… until the next status; a held plan holds its row until Refresh;
+   Delete… until the next status; the inventory's rows carry each plan's
+   hold (`delete_held`, `model_cache_delete.annotate_holds` under the same
+   scan), so a shared part's row is held as the fold reads, and a hold a
+   press meets that the read did not holds its row until Refresh;
    "this PC's cache" is said in the title and a line of its own. The fake
    sets its scratch `HF_HOME`/`HF_HUB_CACHE` in `main()` before any backend
    import for every fake, and plants the delete's fixtures only through a

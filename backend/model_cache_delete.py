@@ -28,16 +28,17 @@ planned on it, and answers name repositories, revisions and names relative
 to those roots only, never an absolute path.
 
 `delete()` re-plans under the same reservation, refuses a different pin, and
-removes, converted parts first: each tree under its loaders' own lock,
-renamed first into exactly `single_file._is_work`'s shape
-(`<target>-<8>/tree`), so it stops being a hit at once, then removed with
-every stale work directory of the target. Then each repository the group
-owns outright (`HUB_DELETE`, stage 3): renamed out of the Hub cache into
-its sibling trash (`model_cache_storage.trash_dir`, `<8 hex>/<folder>`),
-every repository before any is removed, then removed from there; what an
-open file kept is swept by the next delete and named by the inventory. A
-refusal before anything changed is `DeleteRefused` with its code; a failure
-after something changed is the outcome's `remaining`.
+renames every part before it removes any: each converted tree under its
+loaders' own lock into exactly `single_file._is_work`'s shape
+(`<target>-<8>/tree`), so it stops being a hit at once, then each
+repository the group owns outright (`HUB_DELETE`, stage 3) out of the Hub
+cache into its sibling trash (`model_cache_storage.trash_dir`,
+`<8 hex>/<folder>`). A refused rename anywhere puts the others back:
+nothing changed. Then each target's work directories and each trash folder
+are removed; what an open file kept is swept by the next load or delete and
+named by the inventory. A refusal before anything changed is
+`DeleteRefused` with its code; a failure after something changed is the
+outcome's `remaining`.
 """
 from __future__ import annotations
 
@@ -52,7 +53,7 @@ import shutil
 import stat
 import string
 from collections import defaultdict
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from contextlib import ExitStack
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -356,13 +357,16 @@ def plan(model_id: str, context: PlanContext | None = None, cache_dir: Path | No
         model_cache_storage._scan_lock.release()
 
 
-def _plan(entry_id: str, context: PlanContext, cache_dir: Path | None) -> Plan:
-    """`plan()`'s work; the caller holds `model_cache_storage._scan_lock`."""
+def _plan(entry_id: str, context: PlanContext, cache_dir: Path | None,
+          index: model_cache_storage.CacheIndex | None = None) -> Plan:
+    """`plan()`'s work, on `index` (scanned now without one); the caller
+    holds `model_cache_storage._scan_lock`."""
     from .backends.single_file import CONVERSION_MARKER, _is_work
 
     entry = model_info.catalogue_entry(entry_id)
     assert entry is not None
-    _, index = model_cache_storage._scan(cache_dir)
+    if index is None:
+        _, index = model_cache_storage._scan(cache_dir)
     hub, converted_root = index.hub, index.converted_root
     lite_ids = [repo for fmt, _ in model_info.FORMATS if entry.lite and (repo := entry.lite_repo(fmt))]
     aliases = {alias for fmt, _ in model_info.FORMATS
@@ -551,6 +555,38 @@ def _plan(entry_id: str, context: PlanContext, cache_dir: Path | None) -> Plan:
     return result
 
 
+def annotate_holds(context: PlanContext | None = None) -> Callable[[dict, model_cache_storage.CacheIndex], None]:
+    """For `model_cache_storage.snapshot(annotate=...)`: each catalogue
+    entry's row gains `delete_held`, its plan's `held` detail on this scan's
+    index (a shared repository before stage 4, a shared Xet store, a link
+    out of its repository, ...), or null; a lite id's sub-line always null.
+    So the page holds such a row's Delete… as it reads the cache, not only
+    once pressed. The plan's other refusals (selected, busy, a partial
+    download) are the page's and the press's. Runs under the snapshot's
+    scan reservation, reading no file the plans would not."""
+    context = context or PlanContext()
+
+    def annotate(answer: dict, index: model_cache_storage.CacheIndex) -> None:
+        for row in answer.get("models", []):
+            row["delete_held"] = None
+            entry = model_info.catalogue_entry(row["model_id"])
+            if entry is None or entry.repo != row["model_id"]:
+                continue
+            try:
+                planned = _plan(entry.repo, context, None, index)
+            except NotOnDisk:
+                continue
+            except (OSError, ValueError):
+                # The press reads its plan again and says what it meets.
+                log.warning("could not read %s's delete plan with the model cache", entry.name)
+                log.debug("plan of %s", entry.repo, exc_info=True)
+                continue
+            if planned.held is not None:
+                row["delete_held"] = planned.held["detail"]
+
+    return annotate
+
+
 def _present_entries(index: model_cache_storage.CacheIndex) -> set[str]:
     """Entries with something of their own on disk: exclusive Hub bytes,
     other-revision bytes or a converted tree (the last-holder rule)."""
@@ -644,12 +680,19 @@ def _pin(result: Plan, kept: dict, targets: dict[str, Path]) -> str:
 class DeleteRefused(Exception):
     """A delete refused with nothing changed: `code` (a `refusal_codes`
     code) and `detail`, the person's sentence. A route raises it as
-    `refusals.refusal(409, error.detail, error)`."""
+    `refusals.refusal(409, error.detail, error)`. Raised while renaming
+    (`remove()`), it also names the `part` that refused, the `reason` its
+    `remaining` row would give and, when not the part's planned bytes, the
+    `size` left: what is said if a rename then will not go back."""
 
-    def __init__(self, code: str, detail: str) -> None:
+    def __init__(self, code: str, detail: str, *, part: Part | None = None, reason: str | None = None,
+                 size: int | None = None) -> None:
         super().__init__(detail)
         self.code = code
         self.detail = detail
+        self.part = part
+        self.reason = reason
+        self.size = size
 
 
 @dataclass
@@ -684,7 +727,9 @@ def delete(model_id: str, pin: str, context: PlanContext | None = None, cache_di
     `keep_awake.busy`; re-plans with `context`, refuses a different pin, a
     selected, loaded or saved-for-start entry, a fetch it touches, a partial
     download or a held part, and re-asserts every path inside the configured
-    roots, all before the first rename (`DeleteRefused`, nothing changed).
+    roots, all before the first rename (`DeleteRefused`, nothing changed);
+    then `remove()` renames every part before removing any, so a refused
+    rename puts the others back and is `DeleteRefused` too.
     Raises `NotOnDisk` as `plan()` does. The model cache facts are
     invalidated on the way out, whatever happened."""
     entry = model_info.catalogue_entry(model_id)
@@ -704,8 +749,7 @@ def delete(model_id: str, pin: str, context: PlanContext | None = None, cache_di
                 sweep_trash(model_cache_storage.trash_dir(result.hub))
             before = _free(volumes)
             try:
-                remove_converted(result, outcome, lock_timeout=lock_timeout)
-                remove_hub(result, outcome)
+                remove(result, outcome, lock_timeout=lock_timeout)
             finally:
                 after = _free(volumes)
                 if before is not None and after is not None:
@@ -805,35 +849,145 @@ def _free(volumes: list[Path]) -> int | None:
     return sum(known) if known and len(known) == len(sizes) else None
 
 
+_CONVERTED_KINDS = ("converted", "converted-old")
+_HUB_KINDS = ("hub", "lite")
+
+
+@dataclass
+class _Move:
+    """One rename a delete made before removing anything: `part`'s folder
+    from `source` to `moved`, inside `holder`, the empty folder made for it
+    (a work directory of the target, or a folder of the Hub cache's trash).
+    Each part makes at most one."""
+
+    part: Part
+    source: Path
+    moved: Path
+    holder: Path
+
+
+def remove(result: Plan, outcome: Outcome, *, lock_timeout: float = LOCK_TIMEOUT,
+           kinds: Iterable[str] | None = None) -> None:
+    """Remove the plan's parts (those of `kinds`, all by default), renaming
+    every one before removing any (docs/maintainer/plan-model-delete.md,
+    "How files are removed"):
+
+    1. each converted part under the loaders' lock (the target's `.lock`, an
+       older tree's own too, each taken once and held to the end of step 3),
+       its tree re-read as planned and renamed into the target's work shape;
+    2. each repository the group owns outright renamed into a new folder of
+       the Hub cache's trash;
+    3. every work directory of each converted target removed;
+    4. the locks released, each repository's trash folder removed.
+
+    A refusal in steps 1-2 (a lock held, a tree or repository changed, a
+    partial download, a refused rename) puts every rename back and raises
+    `DeleteRefused`: nothing changed, whichever part refused. Only if a
+    rename will not go back has something changed; then what was put back,
+    or never reached, is `remaining` beside the refused part, and what will
+    not go back is removed. A failure in steps 3-4 is `remaining`. The
+    caller holds the scan reservation and has checked the plan
+    (`delete()`)."""
+    from .backends.single_file import _is_work
+
+    wanted = None if kinds is None else set(kinds)
+    parts = [part for part in result.parts if wanted is None or part.kind in wanted]
+    converted = sorted((part for part in parts if part.kind in _CONVERTED_KINDS),
+                       key=lambda part: part.kind != "converted")
+    repositories = [part for part in parts if part.kind in _HUB_KINDS]
+    moves: list[_Move] = []
+    going = {id(part) for part in parts}
+    with ExitStack() as locks:
+        try:
+            taken: set[str] = set()
+            for part in converted:
+                _stage_converted(result, part, locks, taken, moves, lock_timeout)
+            for part in repositories:
+                _stage_repository(result, part, moves)
+        except DeleteRefused as refused:
+            stranded = _put_back(result, moves)
+            if not stranded:
+                raise
+            # A rename that will not go back: that part is out of the cache
+            # (a work directory, the trash), so something changed after all.
+            outcome.changed = True
+            moves = stranded
+            going = {id(move.part) for move in stranded}
+            for part in parts:
+                if id(part) in going:
+                    continue
+                if part is refused.part:
+                    outcome.remaining.append({"kind": part.kind,
+                                              "bytes": part.bytes if refused.size is None else refused.size,
+                                              "reason": refused.reason or refused.detail})
+                else:
+                    outcome.remaining.append({"kind": part.kind, "bytes": part.bytes,
+                                              "reason": "It stays: the delete stopped at another part."})
+        if moves:
+            outcome.changed = True
+        for part in converted:
+            if id(part) in going:
+                assert part.target is not None
+                _sweep_work(part.target.parent, part.target, part, outcome, result.label, _is_work)
+    _remove_trash(result, [move for move in moves if move.part.kind in _HUB_KINDS], outcome)
+
+
 def remove_converted(result: Plan, outcome: Outcome, *, lock_timeout: float = LOCK_TIMEOUT) -> None:
-    """Remove the plan's converted parts: the entry's tree with its work
-    directories, then each older recipe's tree. The caller holds the scan
-    reservation and has checked the plan (`delete()`)."""
-    for part in sorted((part for part in result.parts if part.kind in ("converted", "converted-old")),
-                       key=lambda part: part.kind != "converted"):
-        _remove_converted_part(result, part, outcome, lock_timeout)
+    """`remove()` for the plan's converted parts alone."""
+    remove(result, outcome, lock_timeout=lock_timeout, kinds=_CONVERTED_KINDS)
 
 
-def _remove_converted_part(result: Plan, part: Part, outcome: Outcome, lock_timeout: float) -> None:
-    """One converted part, under the loaders' lock (docs/maintainer/plan-model-delete.md,
-    "How files are removed > Converted tree"):
+def remove_hub(result: Plan, outcome: Outcome) -> None:
+    """`remove()` for the plan's whole repositories alone (the entry's own
+    and its lite ones)."""
+    remove(result, outcome, kinds=_HUB_KINDS)
+
+
+def _put_back(result: Plan, moves: list[_Move]) -> list[_Move]:
+    """Undo `moves`, newest first, each folder renamed back to where it was
+    and the empty folder made for it removed; answers the moves that would
+    not go back (in their order), left where they were moved to."""
+    stranded = []
+    for move in reversed(moves):
+        try:
+            os.rename(move.moved, move.source)
+        except OSError:
+            log.warning("could not put %s back after a refused delete", move.source.name)
+            log.debug("rename back of %s", move.source.name, exc_info=True)
+            stranded.append(move)
+            continue
+        try:
+            move.holder.rmdir()
+        except OSError:
+            pass  # empty: a work directory or trash folder the next load or delete sweeps
+    if result.hub is not None and any(move.part.kind in _HUB_KINDS for move in moves):
+        try:
+            model_cache_storage.trash_dir(result.hub).rmdir()
+        except OSError:
+            pass  # an earlier leftover, or a stranded one, is still there
+    return stranded[::-1]
+
+
+def _stage_converted(result: Plan, part: Part, locks: ExitStack, taken: set[str], moves: list[_Move],
+                     lock_timeout: float) -> None:
+    """Steps 1 of `remove()` for one converted part:
 
     1. the target's `.lock` (an older tree's own too), with a short timeout:
-       a timeout is a conversion running;
+       a timeout is a conversion running; a lock another part took is not
+       taken twice (a second `FileLock` on it in this process would wait on
+       the first);
     2. the tree as planned, re-read under the lock;
     3. `os.rename(tree, <target>-<8>/tree)`: the tree stops being a hit at
-       once, and a refused rename changes nothing;
-    4. every work directory of the target removed (the renamed tree's and
-       stale ones), a failure midway leaving only `_is_work`'s shape, which
-       the next load's `sweep_work` and the next delete remove.
+       once, and a refused rename changes nothing.
 
-    The `.lock` stays: zero bytes, recreated by the loaders, and unlinking a
-    lock another process may take after the release would let two holders
-    sweep each other's work directories."""
+    Its work directories go in step 3 (`_sweep_work`), a failure midway
+    leaving only `_is_work`'s shape, which the next load's `sweep_work` and
+    the next delete remove. The `.lock` stays: zero bytes, recreated by the
+    loaders, and unlinking a lock another process may take after the
+    release would let two holders sweep each other's work directories.
+    Raises `DeleteRefused` (with the part) on any refusal."""
     from filelock import Timeout
     from huggingface_hub.utils._fixes import WeakFileLock
-
-    from .backends.single_file import _is_work
 
     target = part.target
     assert target is not None
@@ -842,29 +996,26 @@ def _remove_converted_part(result: Plan, part: Part, outcome: Outcome, lock_time
     # By what the plan made each unit, not by the disk: a work directory a
     # load swept since is no tree that changed.
     trees = [unit for unit in part.units if unit == target or part.kind == "converted-old"]
-    locks = [root / f"{target.name}.lock", *(root / f"{tree.name}.lock" for tree in trees if tree != target)]
+    for lock in [root / f"{target.name}.lock", *(root / f"{tree.name}.lock" for tree in trees if tree != target)]:
+        key = os.path.normcase(os.path.abspath(lock))
+        if key in taken:
+            continue
+        try:
+            locks.enter_context(WeakFileLock(lock, timeout=lock_timeout))
+        except Timeout:
+            raise DeleteRefused(MODEL_DELETE_BUSY, f"{label} is being converted or loaded by another run; delete "
+                                                   "it once that is done.",
+                                part=part, reason="Another run was converting or loading it.") from None
+        taken.add(key)
     changed = f"{label}'s converted files changed since the plan was read; read it again."
-    with ExitStack() as held:
-        for lock in locks:
-            try:
-                held.enter_context(WeakFileLock(lock, timeout=lock_timeout))
-            except Timeout:
-                outcome.stop(part, MODEL_DELETE_BUSY,
-                             f"{label} is being converted or loaded by another run; delete it once that is done.",
-                             "Another run was converting or loading it.")
-                return
-        if part.kind == "converted" and target not in trees and os.path.lexists(target):
-            outcome.stop(part, MODEL_CACHE_CHANGED, changed, "Its converted copy appeared after the plan was read.",
-                         size=0)
-            return
-        for tree in trees:
-            if not _as_planned(result, tree):
-                outcome.stop(part, MODEL_CACHE_CHANGED, changed, "It changed after the plan was read.")
-                return
-        for tree in trees:
-            if not _move_aside(tree, target, part, outcome, label):
-                return
-        _sweep_work(root, target, part, outcome, label, _is_work)
+    if part.kind == "converted" and target not in trees and os.path.lexists(target):
+        raise DeleteRefused(MODEL_CACHE_CHANGED, changed, part=part, size=0,
+                            reason="Its converted copy appeared after the plan was read.")
+    for tree in trees:
+        if not _as_planned(result, tree):
+            raise DeleteRefused(MODEL_CACHE_CHANGED, changed, part=part, reason="It changed after the plan was read.")
+    for tree in trees:
+        moves.append(_move_aside(tree, target, part, label))
 
 
 def _as_planned(result: Plan, tree: Path) -> bool:
@@ -893,9 +1044,9 @@ def _new_work(root: Path, target: Path) -> Path:
     raise FileExistsError(f"no free work directory name beside {target.name}")
 
 
-def _move_aside(tree: Path, target: Path, part: Part, outcome: Outcome, label: str) -> bool:
-    """Rename `tree` into a new work directory of `target`; False (the stop
-    recorded, or raised while nothing has changed) when it would not go."""
+def _move_aside(tree: Path, target: Path, part: Part, label: str) -> _Move:
+    """Rename `tree` into a new work directory of `target`; raises
+    `DeleteRefused` (`model_files_in_use`) when it would not go."""
     in_use = (f"A file in {label}'s converted copy is open, perhaps in another program, so it could not "
               "be moved aside; nothing was deleted.")
     try:
@@ -903,8 +1054,7 @@ def _move_aside(tree: Path, target: Path, part: Part, outcome: Outcome, label: s
     except OSError:
         log.warning("could not make a work directory to delete the converted copy %s", tree.name)
         log.debug("work directory for %s", tree.name, exc_info=True)
-        outcome.stop(part, MODEL_FILES_IN_USE, in_use, "It could not be moved aside.")
-        return False
+        raise DeleteRefused(MODEL_FILES_IN_USE, in_use, part=part, reason="It could not be moved aside.") from None
     try:
         os.rename(tree, work / "tree")
     except OSError:
@@ -914,10 +1064,9 @@ def _move_aside(tree: Path, target: Path, part: Part, outcome: Outcome, label: s
             work.rmdir()
         except OSError:
             pass  # empty: `_is_work`'s shape, swept by the next load or delete
-        outcome.stop(part, MODEL_FILES_IN_USE, in_use, "A file in it is open, so it could not be moved aside.")
-        return False
-    outcome.changed = True
-    return True
+        raise DeleteRefused(MODEL_FILES_IN_USE, in_use, part=part,
+                            reason="A file in it is open, so it could not be moved aside.") from None
+    return _Move(part, tree, work / "tree", work)
 
 
 def _contents(folder: Path) -> tuple[int, int]:
@@ -1023,62 +1172,30 @@ def _partial(folder: Path) -> str | None:
     return f"{folder.name}/blobs/{found[0].name}" if found else None
 
 
-def remove_hub(result: Plan, outcome: Outcome) -> None:
-    """Remove the plan's whole repositories (the entry's own and its lite
-    ones): each renamed out of the Hub cache into a new folder of its trash,
-    all of them before any is removed, then removed from there. A refused
-    rename while nothing has changed refuses the delete
-    (`model_files_in_use`); after, it is `remaining`, as is what an open
-    file keeps in the trash (out of the cache already; the next delete
-    sweeps it). The caller holds the scan reservation and has checked the
-    plan (`delete()`)."""
-    parts = [part for part in result.parts if part.kind in ("hub", "lite")]
-    if not parts:
-        return
-    assert result.hub is not None
-    trash = model_cache_storage.trash_dir(result.hub)
+def _stage_repository(result: Plan, part: Part, moves: list[_Move]) -> None:
+    """Step 2 of `remove()` for one whole repository: renamed out of the
+    Hub cache into a new folder of its trash. Raises `DeleteRefused` (with
+    the part) for a part inside a shared repository, a partial download or a
+    refused rename."""
     label = result.label
-    moved: list[tuple[Part, Path]] = []
-    for part in parts:
-        if not part.whole or part.shared_repository or len(part.units) != 1:
-            # The planner holds these until stage 4; never reached unheld.
-            outcome.stop(part, MODEL_DELETE_HELD, f"Deleting {label}'s files inside a repository other checkpoints "
-                                                  "use is not built yet; nothing was deleted.",
-                         "It sits in a repository another checkpoint uses.")
-            continue
-        folder = part.units[0]
-        partial = _partial(folder)
-        if partial is not None:
-            outcome.stop(part, MODEL_DOWNLOADING, f"A download is still writing {partial} in {part.repo}; "
-                                                  "let it finish, or stop it, first.",
-                         "A download started writing in it.")
-            continue
-        bin_ = _move_to_trash(folder, trash, part, outcome, label)
-        if bin_ is not None:
-            moved.append((part, bin_))
-    for part, bin_ in moved:
-        try:
-            shutil.rmtree(bin_)
-        except OSError:
-            log.warning("could not remove all of %s's deleted files yet (%s): a file in them is open",
-                        part.repo, bin_.name)
-            log.debug("rmtree of %s", bin_.name, exc_info=True)
-            left = _contents(bin_) if os.path.lexists(bin_) else (0, 0)
-            outcome.stop(part, MODEL_FILES_IN_USE, f"A file in {label}'s downloaded files is open; nothing was "
-                                                   "deleted.",
-                         "A file in it is still open; it is out of the cache, and the next delete removes the rest.",
-                         size=left[1])
-    if moved and not any(os.path.lexists(bin_) for _, bin_ in moved):
-        try:
-            trash.rmdir()
-        except OSError:
-            pass  # an earlier leftover is still there: the inventory names it
+    if not part.whole or part.shared_repository or len(part.units) != 1:
+        # The planner holds these until stage 4; never reached unheld.
+        raise DeleteRefused(MODEL_DELETE_HELD, f"Deleting {label}'s files inside a repository other checkpoints "
+                                               "use is not built yet; nothing was deleted.",
+                            part=part, reason="It sits in a repository another checkpoint uses.")
+    folder = part.units[0]
+    partial = _partial(folder)
+    if partial is not None:
+        raise DeleteRefused(MODEL_DOWNLOADING, f"A download is still writing {partial} in {part.repo}; "
+                                               "let it finish, or stop it, first.",
+                            part=part, reason="A download started writing in it.")
+    assert result.hub is not None
+    moves.append(_move_to_trash(folder, model_cache_storage.trash_dir(result.hub), part, label))
 
 
-def _move_to_trash(folder: Path, trash: Path, part: Part, outcome: Outcome, label: str) -> Path | None:
-    """Rename one repository folder into a new folder of the trash; the
-    folder it went into, or None (the stop recorded, or raised while
-    nothing has changed) when it would not go."""
+def _move_to_trash(folder: Path, trash: Path, part: Part, label: str) -> _Move:
+    """Rename one repository folder into a new folder of the trash; raises
+    `DeleteRefused` when it would not go."""
     try:
         bin_ = _new_bin(trash)
     except OSError:
@@ -1088,36 +1205,61 @@ def _move_to_trash(folder: Path, trash: Path, part: Part, outcome: Outcome, labe
             pass
         log.warning("could not make a folder beside the Hub cache to delete %s", part.repo)
         log.debug("trash folder for %s", part.repo, exc_info=True)
-        outcome.stop(part, MODEL_FILES_IN_USE, f"No folder could be made beside the Hub cache to delete {label}'s "
-                                               "files from; nothing was deleted.",
-                     "It could not be moved out of the cache.")
-        return None
+        raise DeleteRefused(MODEL_FILES_IN_USE, f"No folder could be made beside the Hub cache to delete "
+                                                f"{label}'s files from; nothing was deleted.",
+                            part=part, reason="It could not be moved out of the cache.") from None
     try:
         os.rename(folder, bin_ / folder.name)
     except OSError as error:
         for empty in (bin_, trash):
             try:
-                empty.rmdir()  # the trash too, unless an earlier leftover is in it
+                empty.rmdir()  # the trash too, unless another folder is in it
             except OSError:
                 break  # empty: the next delete sweeps it
         if isinstance(error, FileNotFoundError):
             log.warning("%s's cache folder went before its delete could move it", part.repo)
-            outcome.stop(part, MODEL_CACHE_CHANGED, f"{label}'s files changed since the plan was read; read it again.",
-                         "It went from the cache before the delete reached it.", size=0)
-            return None
+            raise DeleteRefused(MODEL_CACHE_CHANGED, f"{label}'s files changed since the plan was read; read it "
+                                                     "again.",
+                                part=part, size=0, reason="It went from the cache before the delete reached it.") \
+                from None
         log.warning("could not move %s out of the Hub cache: a file in it is open, or it is on another drive",
                     part.repo)
         log.debug("rename of %s", part.repo, exc_info=True)
         if getattr(error, "errno", None) == errno.EXDEV:
-            outcome.stop(part, MODEL_FILES_IN_USE, f"{label}'s files ({part.repo}) lie on another drive than the "
-                                                   "Hub cache's folder, so they could not be moved out of it; "
-                                                   "nothing was deleted.",
-                         "It lies on another drive, so it could not be moved out of the cache.")
-        else:
-            outcome.stop(part, MODEL_FILES_IN_USE,
-                         f"A file in {label}'s downloaded files ({part.repo}) is open, perhaps in another program, "
-                         "so they could not be moved out of the cache; nothing was deleted.",
-                         "A file in it is open, so it could not be moved out of the cache.")
-        return None
-    outcome.changed = True
-    return bin_
+            raise DeleteRefused(MODEL_FILES_IN_USE, f"{label}'s files ({part.repo}) lie on another drive than the "
+                                                    "Hub cache's folder, so they could not be moved out of it; "
+                                                    "nothing was deleted.",
+                                part=part, reason="It lies on another drive, so it could not be moved out of the "
+                                                  "cache.") from None
+        raise DeleteRefused(MODEL_FILES_IN_USE,
+                            f"A file in {label}'s downloaded files ({part.repo}) is open, perhaps in another "
+                            "program, so they could not be moved out of the cache; nothing was deleted.",
+                            part=part, reason="A file in it is open, so it could not be moved out of the cache.") \
+            from None
+    return _Move(part, folder, bin_ / folder.name, bin_)
+
+
+def _remove_trash(result: Plan, moves: list[_Move], outcome: Outcome) -> None:
+    """Step 4 of `remove()`: each moved repository's trash folder removed;
+    what an open file keeps there is `remaining` (out of the cache already;
+    the next delete sweeps it), and the trash goes once empty."""
+    if not moves:
+        return
+    assert result.hub is not None
+    for move in moves:
+        try:
+            shutil.rmtree(move.holder)
+        except OSError:
+            log.warning("could not remove all of %s's deleted files yet (%s): a file in them is open",
+                        move.part.repo, move.holder.name)
+            log.debug("rmtree of %s", move.holder.name, exc_info=True)
+            left = _contents(move.holder) if os.path.lexists(move.holder) else (0, 0)
+            outcome.stop(move.part, MODEL_FILES_IN_USE, f"A file in {result.label}'s downloaded files is open; "
+                                                        "nothing was deleted.",
+                         "A file in it is still open; it is out of the cache, and the next delete removes the rest.",
+                         size=left[1])
+    if not any(os.path.lexists(move.holder) for move in moves):
+        try:
+            model_cache_storage.trash_dir(result.hub).rmdir()
+        except OSError:
+            pass  # an earlier leftover is still there: the inventory names it

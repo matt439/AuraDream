@@ -15181,10 +15181,17 @@ as a corrupted repository. Every repository of the group (the entry's own,
 its lite ones, a cached alias) is moved before any is removed, so the cache
 is consistent the moment the last rename lands; what an open file keeps is
 already out of the cache, named by the inventory as a warning and swept by
-the next delete. On Windows an open file fails the first rename with
-nothing changed (`model_files_in_use`); a hub that is a mount point fails it
-as another drive, the same way. Converted parts go first, under their
-lock, so a conversion running refuses the delete before any Hub file goes.
+the next delete. On Windows an open file fails its rename with nothing
+changed (`model_files_in_use`); a hub that is a mount point fails it as
+another drive, the same way. Every part is renamed before any is removed:
+the converted trees first, under their lock (so a conversion running
+refuses the delete before any Hub folder moves), then the repositories.
+A refused rename anywhere, or a download begun since the plan, puts back
+every rename already made: the first build removed WAI's converted copy
+before trying its Hub rename, so a Hub file open in another program left
+the copy gone and the repository on disk, a 200 with `remaining` where
+the docs promised nothing removed. Only a rename that will not go back
+leaves a partial delete, said in `remaining`.
 The route reads the plan off the loop, then checks every guard on the event
 loop with no await before `main._deleting_model` is set, and the worker
 plans again under the scan reservation and compares the pin: a cache that
@@ -15195,10 +15202,16 @@ and the page reads the plan and asks again. Its own flag, not
 drained by the lifespan, as an unload's. The selected, loaded and
 saved-for-start entries are refused, never deleted under a sharer's name
 either. A removal inside a repository other entries use is still held
-(`model_delete_held`, naming them) until stage 4. The page keeps a deleted
+(`model_delete_held`, naming them) until stage 4, and the inventory says
+so on each row (`delete_held`, the entry's plan run on the same scan's
+index): the first build learned a plan's hold only from a press, so Anima
+Turbo's Delete… looked free until pressed, and again after each Refresh.
+The page keeps a deleted
 entry's row as its result line, sub-lines too, across the re-read: without
 it every row below would move up and the next row's Delete… would land
-under the pointer. An entry whose remaining files are only those a present
+under the pointer. A status poll that saw this tab's delete running is
+forgotten when the POST answers: left, it said "Deleting …" over the
+re-read's "Read at" and held every Delete… until the next poll. An entry whose remaining files are only those a present
 sharer keeps has nothing to free, and its Delete… says so rather than ask.
 `freed_bytes` is measured (the volumes' free space before and after) and
 shown as "about": another writer can move it either way. The fake server

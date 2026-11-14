@@ -31,8 +31,9 @@ paragraphs, never rewording.
   Hub cache's delete trash (`trash_dir`);
   `backend/model_cache_delete.py` plans deleting one whole catalogue entry
   from that index (`plan()`, read-only) and runs the delete's worker
-  (`delete()`: converted trees, then repositories the entry owns outright
-  through the trash; `GEN#72` stages 1-3).
+  (`delete()`: every converted tree and repository the entry owns
+  outright renamed aside before any is removed; `GEN#72` stages 1-3), and
+  gives the inventory each entry's hold (`annotate_holds`).
 - `backend/idle_unload.py` owns the default-off event-loop idle release timer;
   it shares `keep_awake.py`'s activity clock and drains admitted cleanup.
 - `backend/server_transport.py` parses exact browser origins and validates
@@ -1248,7 +1249,12 @@ paragraphs, never rewording.
   `unreferenced_bytes` (`_lite_aliases`; `GEN#72` stage 0). The page asks for it only
   from Models > On disk, on the fold's opening, Refresh or after its own
   delete. What a delete left in the Hub cache's trash is a warning naming
-  the trash folder, never its path.
+  the trash folder, never its path. Each row also carries `delete_held`:
+  under the same scan reservation, `model_cache_delete.annotate_holds`
+  (the route's `snapshot(annotate=...)`, with main's plan context) runs the
+  entry's plan on the scan's index and gives its `held` detail, or null (a
+  lite sub-line, nothing on disk, a plan that failed to read), so the page
+  holds a shared part's Delete… as it reads, not only once pressed.
 - A checkpoint delete (`GEN#72`, [the plan](maintainer/plan-model-delete.md);
   stages 0-3 built: names, the planner, converted trees, whole
   repositories with the POST and the page; stage 4, files inside shared
@@ -1340,15 +1346,22 @@ paragraphs, never rewording.
   roots and checks every removal, unit, converted target and lock inside
   them, and a Hub trash that is a link or a drive root's refused. It sweeps
   what earlier deletes left in the trash (its own `<8 hex>` folders only),
-  then removes the converted parts, then the Hub ones. A converted tree is removed under the loaders' own
+  then `remove()` renames every part before it removes any: the converted
+  trees, then the Hub repositories. A refused rename anywhere (or a lock,
+  change or partial download met while renaming) puts back every rename
+  made, newest first, and refuses with nothing changed, whichever part
+  refused; only a rename that will not go back leaves something changed,
+  and then the parts left, put back or never reached are `remaining` and
+  what will not go back is removed. A converted tree is removed under the loaders' own
   `WeakFileLock(<root>/<target>.lock)` (`LOCK_TIMEOUT`, a timeout is
   `model_delete_busy`; an older recipe's tree takes its own lock too),
   re-read file for file under it (`model_cache_changed` if it moved), then
   renamed with `os.rename` into a new `<target>-<8 [a-z0-9]>/tree`, exactly
   `single_file._is_work`'s shape (an older tree into its entry's current
-  target's, so the entry's next load sweeps any leftover); a refused rename
-  is `model_files_in_use` with nothing changed. Every work directory of the
-  target is then removed under the lock; a failure midway leaves only
+  target's, so the entry's next load sweeps any leftover; each lock taken
+  once and held until the converted removals end); a refused rename
+  is `model_files_in_use` with nothing changed. Once every part is renamed,
+  every work directory of the target is removed under the lock; a failure midway leaves only
   `_is_work` directories, never a marker-less target. A failure after
   something changed is the `Outcome`'s `remaining` (kind, bytes left,
   reason), never a refusal. A repository the group owns outright (whole,
@@ -1356,13 +1369,13 @@ paragraphs, never rewording.
   naming the sharers) is renamed with `os.rename` out of the Hub cache into
   a new `<hub>.auradream-deleting/<8 hex>/` folder
   (`model_cache_storage.trash_dir`, the hub's sibling, outside
-  `scan_cache_dir`'s view), every one of the group's before any is
-  removed, then `rmtree`d from there; a refused first rename is
+  `scan_cache_dir`'s view), after the converted renames and before any
+  removal, then `rmtree`d from there; a refused rename is
   `model_files_in_use` (another drive: the same code, its own words), one
   gone is `model_cache_changed`, a partial download found then is
-  `model_downloading`, all with nothing changed (an emptied trash removed
-  again); after a change each is `remaining`, as is what an open file kept
-  in the trash, which the inventory names and the next delete sweeps.
+  `model_downloading`, all with every rename put back and nothing changed
+  (an emptied trash removed again); what an open file kept in the trash
+  is `remaining`, which the inventory names and the next delete sweeps.
   `Plan.removes_expander` says the entry's own repository takes ERNIE's
   cached prompt rewriter (`PROMPT_EXPANDER_WEIGHTS`, held equal to
   `backends.loading`'s). The worker never unlinks a `.lock` (filelock
@@ -10413,13 +10426,18 @@ changes, the roots re-asserted, and each converting loader converting
 cleanly in the scratch cache afterwards. The Hub removal (stage 3) is
 `tests/test_model_cache_delete_hub.py`: an owned repository through the
 trash with everything else byte for byte, the group's repositories all
-moved before any is removed, a converted copy with its source, a shared
+moved before any is removed, a converted copy with its source (both
+renamed before either goes), a shared
 repository still held and a present sharer's files kept, a refused first
 rename (in use, another drive, no trash folder) changing nothing, a later
-one keeping what moved, an open file in the trash named by the inventory
+one putting back what moved, a refused Hub part (in use, a download begun)
+putting WAI's converted copy back, a rename that will not go back
+finished with what stays named, an open file in the trash named by the inventory
 and swept by the next delete, a linked trash refused, and ERNIE's
 rewriter. `tests/test_api_model_storage_delete.py` drives the POST: every
-guard by code, the exact body, a cross-site POST, the reservation refusing
+guard by code, the inventory's `delete_held` (a held plan's words before
+any press, null once a sharer is present, a failed plan leaving its row
+unheld), the exact body, a cross-site POST, the reservation refusing
 Generate, load, switch, unload, bundles and a second delete and showing in
 `/api/status`, a caller who leaves, the cache revision, no absolute path.
 All build on
@@ -10458,9 +10476,10 @@ shared port 7959 (run one at a time in the band), whose scratch `HF_HOME`
 the lite rows under Krea 2 Turbo with one Delete… there and none on a
 sub-line; the selected row's Delete… held with "It is the selected
 checkpoint. Choose another checkpoint first" and a press saying so without
-a plan or a question; Anima Turbo's press held by its plan (its own file
-sits in the repository Anima Aesthetic's recipe names), the row then held
-with the sharer named; a running job holding every Delete… and letting go
+a plan or a question; Anima Turbo's row held as the fold reads, by its
+plan's hold in the inventory (its own file sits in the repository Anima
+Aesthetic's recipe names), the sharer named, and a press saying so without
+a plan or a question; a running job holding every Delete… and letting go
 once it ends; a cache changed between the plan and the confirm (the knob's
 `touch`) refused by code, the plan read and the question asked again,
 ERNIE's naming its rewriter; Anima Preview through the real dialog (its
@@ -10468,7 +10487,8 @@ title, frees with downloaded files and converted copy, "Kept: … shared with
 Anima Turbo v1.1", what stays, other apps, "This cannot be undone.",
 "Delete checkpoint" painted destroy), then its row as the result in place
 through exactly one re-read with ERNIE's Delete… keeping its bounding box
-and Turbo's row intact; Preview's plan then freeing nothing and a press
+and Turbo's row intact, a status poll that saw the delete running while
+its POST was out holding nothing after it ("Read at", ERNIE free); Preview's plan then freeing nothing and a press
 saying so; ERNIE deleted and its Models cache word turning to "Not cached";
 closing the fold letting the result lines go; the a11y watch and check; and
 on an iPhone-sized touch screen every Delete… at least 44 px inside the

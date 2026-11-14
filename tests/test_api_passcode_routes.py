@@ -28,7 +28,7 @@ def scratch_cache_scan(monkeypatch, tmp_path):
     # developer's real cache just to establish whether the route is gated.
     from backend import model_cache_delete, model_cache_storage
 
-    monkeypatch.setattr(model_cache_storage, "snapshot", lambda: {"cache_dir": str(tmp_path), "models": []})
+    monkeypatch.setattr(model_cache_storage, "snapshot", lambda **_: {"cache_dir": str(tmp_path), "models": []})
 
     # Nor plan or run a checkpoint delete against it (`GEN#72`): the walk
     # only asks whether the route is gated.
