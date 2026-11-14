@@ -27,7 +27,7 @@ import pytest
 from backend import model_cache_delete as delete, model_cache_storage
 from backend.backends import single_file
 from backend.refusal_codes import MODEL_CACHE_CHANGED, MODEL_DELETE_HELD, MODEL_DOWNLOADING, MODEL_FILES_IN_USE
-from tests.model_cache_fixtures import LAYOUTS, scratch_caches
+from tests.model_cache_fixtures import LAYOUTS, scratch_caches, touch_later
 
 TURBO = "circlestone-labs/Anima"
 AESTHETIC = "circlestone-labs/Anima@aesthetic-v1.1"
@@ -276,9 +276,13 @@ def _illustrious_with_everything(caches) -> tuple[str, dict]:
 @pytest.mark.parametrize("failure", ["a ref", "a download", "a changed file", "a new file"])
 def test_a_change_found_before_the_first_unlink_puts_every_rename_back(caches, monkeypatch, failure):
     commit, _ = _illustrious_with_everything(caches)
+    snapshot = caches.folder(SDXL) / "snapshots" / commit
+    if failure == "a changed file" and (snapshot / "model_index.json").is_symlink() \
+            and os.utime not in os.supports_follow_symlinks:
+        # Decided before the delete runs, so the skip never unwinds through it.
+        pytest.skip("os.utime cannot stamp a symlink itself on this platform")
     planned = delete.plan(ILLUSTRIOUS)
     before = without_locks(caches.state())
-    snapshot = caches.folder(SDXL) / "snapshots" / commit
     rename, renamed = os.rename, []
 
     def change_after_the_renames(source, destination, *args, **kwargs):
@@ -294,9 +298,7 @@ def test_a_change_found_before_the_first_unlink_puts_every_rename_back(caches, m
             (caches.folder(SDXL) / "blobs" / "0123abcd.incomplete").write_bytes(b"half")
         elif failure == "a changed file":
             entry = snapshot / "model_index.json"
-            stamp = entry.lstat()
-            os.utime(entry, ns=(stamp.st_atime_ns, stamp.st_mtime_ns + 10_000_000_000),
-                     **({"follow_symlinks": False} if entry.is_symlink() else {}))
+            touch_later(entry)
         else:
             caches.put(SDXL, commit, "unet/diffusion_pytorch_model.fp16.safetensors")
 

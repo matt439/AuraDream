@@ -49,6 +49,21 @@ def link_folder(link: Path, target: Path) -> None:
         os.symlink(target, link, target_is_directory=True)
 
 
+def touch_later(entry: Path, seconds: int = 10) -> None:
+    """Move one snapshot entry's own mtime on: the link itself on a symlink
+    cache, whose blob may serve other files. Windows cannot stamp a link
+    without following it (`os.utime` lacks `follow_symlinks` there), so a
+    symlink case skips; Linux runs it."""
+    stamp = entry.lstat()
+    times = (stamp.st_atime_ns, stamp.st_mtime_ns + seconds * 1_000_000_000)
+    if not entry.is_symlink():
+        os.utime(entry, ns=times)
+    elif os.utime in os.supports_follow_symlinks:
+        os.utime(entry, ns=times, follow_symlinks=False)
+    else:
+        pytest.skip("os.utime cannot stamp a symlink itself on this platform")
+
+
 def tree_state(root: Path) -> dict[str, tuple]:
     """Every entry under `root`, byte for byte: a file's bytes and mtime, a
     link's target, a folder."""

@@ -19,7 +19,7 @@ from backend import model_cache_delete as delete, model_cache_storage, model_inf
 from backend.backends import anima_loading, single_file
 from backend.encoder_table import TokenizerSource
 from backend.launch import CHECKPOINTS
-from tests.model_cache_fixtures import LAYOUTS, link_folder, scratch_caches
+from tests.model_cache_fixtures import LAYOUTS, link_folder, scratch_caches, touch_later
 
 TURBO = "circlestone-labs/Anima"
 AESTHETIC = "circlestone-labs/Anima@aesthetic-v1.1"
@@ -507,10 +507,8 @@ def test_the_pin_is_stable_until_the_cache_changes(caches):
     kept = plan(ILLUSTRIOUS)
     _, commit, names = next(source for source in caches.recipe(ILLUSTRIOUS) if source[0] == SDXL)
     entry = caches.folder(SDXL) / "snapshots" / commit / names[0]
-    stamp = entry.lstat()
     # The link itself on a symlink cache: its blob may serve the delete's files too.
-    os.utime(entry, ns=(stamp.st_atime_ns, stamp.st_mtime_ns + 10_000_000_000),
-             **({"follow_symlinks": False} if entry.is_symlink() else {}))
+    touch_later(entry)
     assert plan(ILLUSTRIOUS).pin != kept.pin
 
 
