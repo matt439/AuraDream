@@ -826,6 +826,7 @@ async function loadReviewRuns({ older = false } = {}) {
       const check = document.createElement('button'); check.type = 'button'; check.className = 'ghost review-check';
       check.textContent = 'Check remaining work';
       const actions = document.createElement('div'); actions.className = 'review-actions'; actions.append(check);
+      const feedback = document.createElement('p'); feedback.className = 'review-feedback'; feedback.setAttribute('role', 'alert'); feedback.hidden = true;
       check.onclick = async () => {
         if (!current()) { syncReviewRuns(); return; }
         if (finishRuns.get(run.run_id)?.pending) return;
@@ -833,7 +834,7 @@ async function loadReviewRuns({ older = false } = {}) {
         const state = await readFinishRun(run.run_id, {force: true});
         if (!current() || !row.isConnected || !state) return;
         if (!actions.querySelector('.finish-run-tool')) {
-          const finish = finishRunButton(run.run_id, {className: 'primary', slot: $('review-runs-error')});
+          const finish = finishRunButton(run.run_id, {className: 'primary', slot: feedback});
           actions.append(finish);
         }
         syncReviewRuns();
@@ -847,7 +848,7 @@ async function loadReviewRuns({ older = false } = {}) {
         void showRun(run.run_id);
       };
       actions.append(view);
-      row.append(title, whenLine, stateLine, actions);
+      row.append(title, whenLine, stateLine, actions, feedback);
       $('review-runs-list').append(row);
     }
     filterReviewRuns();

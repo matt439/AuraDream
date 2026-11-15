@@ -144,7 +144,7 @@ class Check:
             expect("__lists===1 && __details===0 && __visible().length===1 && $('review-runs-older').hidden && $('review-runs-scope').textContent.includes('latest 200')")]
         for index, (target, cells, query) in enumerate([(zero, 1, zero), (run, missing, 'restart probe')], 1):
             row = '#review-runs-list [data-run="' + target + '"]'
-            steps += search(query) + [expect("__visible().length===1 && __visible()[0].dataset.run===" + json.dumps(target))]
+            steps += search(query) + [expect("__visible().length===1 && __visible()[0].dataset.run===" + json.dumps(target)), expect("!$('review-runs-error').textContent && __visible()[0].querySelector('.review-feedback').hidden")]
             steps += click(row + ' .review-check') + [expect("__until(()=>finishRuns.get(" + json.dumps(target) + ")?.preview?.cells===" + str(cells) + " && !!__visible()[0].querySelector('.finish-run-tool'))"),
                 expect("JSON.stringify(collect())===__draft && __a11yCheck()"),
                 {"shot": 'history-' + str(index) + '-before.png'}]

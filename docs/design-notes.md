@@ -15418,3 +15418,6 @@ Refresh retries a failed expanded read at the same cap, but changed scope
 and a reopened dialog reset to 20. Expanding replaces the summary list, so
 checks must be deliberately requested again. This is not exhaustive history
 pagination and does not imply a run beyond the latest 200 is accessible here.
+
+Finish feedback belongs to its run row, so filtering to a different unfinished
+run cannot carry over another run's "nothing missing" message.
