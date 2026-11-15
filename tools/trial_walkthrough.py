@@ -62,8 +62,10 @@ def steps_for(manifest: dict) -> list[dict]:
               " return r.width>0 && !!at && (t.contains(at)||at.contains(t));})()")
         add("click", selector)
 
-    def expect(expression: str):
+    def expect(expression: str, *, fatal: bool = False):
         add("expect", expression)
+        if fatal:
+            steps[-1]["fatal"] = True
 
     def fill(selector: str, value):
         click(selector)
@@ -73,8 +75,8 @@ def steps_for(manifest: dict) -> list[dict]:
         add("keycombo", ["Control", "a"])
         add("type", str(value))
 
-    def until(expression: str):
-        expect(f"__until(() => {expression})")
+    def until(expression: str, *, fatal: bool = False):
+        expect(f"__until(() => {expression})", fatal=fatal)
 
     def task(name: str):
         add("log", json.dumps(name))
@@ -106,8 +108,8 @@ def steps_for(manifest: dict) -> list[dict]:
     add("navigate", f"http://127.0.0.1:{port}/")
     add("eval", "window.__until = async(fn, ms=30000) => {const end=Date.now()+ms; while(Date.now()<end){try{if(await fn())return true}catch{} await new Promise(r=>setTimeout(r,50))}return false}; window.__post = (path,body)=>fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(r=>r.json());")
     expected = str(Path(manifest["data"]) / "bundles").replace("\\", "/").lower()
-    expect("(async()=>{const listing=await api('/api/gallery/bundles'); return listing.directory.replaceAll('\\\\','/').toLowerCase() === " + json.dumps(expected) + ";})()")
-    until("modelState === 'ready' && !galleryPending")
+    expect("(async()=>{const listing=await api('/api/gallery/bundles'); return listing.directory.replaceAll('\\\\','/').toLowerCase() === " + json.dumps(expected) + ";})()", fatal=True)
+    until("modelState === 'ready' && !galleryPending", fatal=True)
     add("eval", _INSTRUMENT)
     add("log", "JSON.stringify({userAgent:navigator.userAgent,viewport:[innerWidth,innerHeight],dpr:devicePixelRatio,syntheticFixture:true,fixtureVersion:" + str(FIXTURE_VERSION) + "})")
 
@@ -116,6 +118,9 @@ def steps_for(manifest: dict) -> list[dict]:
     fill("#prompt", "An observatory above clouds" if variant == "A" else "A greenhouse beside a lake")
     # FLUX needs its separate True CFG above one before the negative is usable.
     # Record this real control detour rather than writing a disabled field.
+    # Current compact panel hides Sampling on a fresh browser profile.
+    click("#sampling-caption")
+    expect("document.querySelector('#sampling-section').open", fatal=True)
     fill("#true-cfg", 1.5)
     expect("!els.negative.disabled")
     fill("#negative", "blur" if variant == "A" else "low contrast")
@@ -182,7 +187,7 @@ def steps_for(manifest: dict) -> list[dict]:
     result("runningCancelled:true, queuedCancelled:true, survivorRunning:true, watchedJob:currentJob, customSizeDetour:true")
     add("navigate", f"http://127.0.0.1:{port}/")
     add("eval", "window.__until = async(fn,ms=30000)=>{const end=Date.now()+ms;while(Date.now()<end){try{if(await fn())return true}catch{}await new Promise(r=>setTimeout(r,50))}return false}; window.__task='after reload'; " + _INSTRUMENT + " window.__post=(path,body)=>fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(r=>r.json()); try{window.__survivor=sessionStorage.getItem('trial-survivor')}catch{}")
-    until("modelState==='ready' && !galleryPending")
+    until("modelState==='ready' && !galleryPending", fatal=True)
     until("currentJob===__survivor && busy")
     expect("els.prompt.value===" + json.dumps("Trial survivor " + variant + "3"))
     add("log", "JSON.stringify({task:'2 reload',draft:els.prompt.value,watchedJob:currentJob,focus:document.activeElement?.id,customSizeOpen:els.customSize.open,width:els.width.value,liveServerReopenOnly:true})")
