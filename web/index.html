@@ -1314,9 +1314,12 @@
     <button type="button" class="ghost" id="review-runs-close">Close</button></div>
   <p>Check a recent run for remaining work. Finish uses its saved settings, not your current draft.</p>
   <p id="review-runs-scope" role="status"></p>
+  <label for="review-runs-find">Find in loaded runs</label>
+  <input id="review-runs-find" type="search" placeholder="Prompt or run ID" autocomplete="off">
+  <p id="review-runs-matches" role="status"></p>
   <div id="review-runs-list"></div>
   <p id="review-runs-error" role="alert" hidden></p>
-  <div class="dialog-actions"><button type="button" class="ghost" id="review-runs-refresh">Refresh recent runs</button></div>
+  <div class="dialog-actions"><button type="button" class="ghost" id="review-runs-older" hidden>Include older runs (up to 200)</button><button type="button" class="ghost" id="review-runs-refresh">Refresh recent runs</button></div>
 </dialog>
 <dialog class="gallery-sheet" id="gallery-filter-sheet" aria-labelledby="gallery-filter-title">
   <div class="gallery-sheet-head">

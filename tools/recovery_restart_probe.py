@@ -35,7 +35,7 @@ def open_tab_steps(port: int) -> list[dict]:
     ]
 
 
-def run(data: Path, port: int, *, browser_finish: bool = False, open_tab: bool = False, review_finish: str | None = None) -> dict:
+def run(data: Path, port: int, *, browser_finish: bool = False, open_tab: bool = False, review_finish: str | None = None, history_review: str | None = None) -> dict:
     data = data.resolve()
     if data.exists() or not data.parent.is_dir() or not 1024 <= port <= 65535:
         raise ValueError("Use a new scratch path with existing parent and a loopback port 1024..65535")
@@ -124,6 +124,11 @@ def run(data: Path, port: int, *, browser_finish: bool = False, open_tab: bool =
         before = wait(partial)
         assert before["status"] == "running" and 0 < len(before["images"]) < 12
         run_id = before["images"][0]["run_id"]
+        zero = None
+        if history_review:
+            zero = api('/api/generate', {'prompt': 'older never-started recovery', 'seed': 927400,
+                'steps': 8, 'width': 256, 'height': 256})
+            assert api('/api/jobs/' + zero['job_id'])['status'] == 'queued'
         first_pid = runtime
         if open_tab:
             # Freeze the owned job while the browser attaches; no timing race
@@ -164,19 +169,36 @@ def run(data: Path, port: int, *, browser_finish: bool = False, open_tab: bool =
         assert preview["skipped"] == len(retained) and preview["queued"] == 0
         assert preview["cells"] == preview["images"] == 12 - len(retained)
         api("/api/fake/step", {"seconds": 0})
-        if browser_finish or review_finish:
+        newer_rows = []
+        if history_review:
+            assert zero is not None
+            assert api('/api/runs/' + zero['run_id'])['images'] == 0
+            for index in range(21):
+                newer = api('/api/generate', {'prompt': 'later complete ' + str(index),
+                    'seed': 928000 + index, 'steps': 1, 'width': 256, 'height': 256})
+                wait(lambda newer=newer: api('/api/jobs/' + newer['job_id'])['status'] == 'done')
+            newer_rows = [r for r in api('/api/gallery?all_models=true')['items'] if r['prompt'].startswith('later complete ')]
+            assert len(newer_rows) == 21
+            assert not {run_id, zero['run_id']} & {r['run_id'] for r in api('/api/runs?limit=20')}
+            assert {run_id, zero['run_id']} <= {r['run_id'] for r in api('/api/runs?limit=200')}
+        if browser_finish or review_finish or history_review:
             # Reuse the existing browser contract, never its process lifecycle.
             if str(ROOT) not in sys.path:
                 sys.path.insert(0, str(ROOT))
             from tools.check_run_continue import Check
             browser = Check(port, data)
-            if review_finish:
+            if history_review:
+                assert zero is not None
+                browser.history(run_id, zero['run_id'], 12 - len(retained), phone=history_review == 'phone')
+            elif review_finish:
                 browser.review(run_id, 12 - len(retained), phone=review_finish == "phone")
             else:
                 browser.browser("restarted-grid-finish", [(run_id, 12 - len(retained), False)])
             jobs = api("/api/jobs?include_finished=true")
-            assert len(jobs) == 1, "Browser Finish must create exactly one job"
-            resumed = jobs[0]["job_id"]
+            assert len(jobs) == (23 if history_review else 1), 'Unexpected job count after browser Finish'
+            candidates = [j for j in jobs if j['run_id'] == run_id]
+            assert len(candidates) == 1
+            resumed = candidates[0]['job_id']
         else:
             resumed = api("/api/grid", resume)["job_id"]
         def finished():
@@ -204,8 +226,14 @@ def run(data: Path, port: int, *, browser_finish: bool = False, open_tab: bool =
             assert error.code == 409
         else:
             raise AssertionError("Completed resume queued duplicate work")
+        if history_review:
+            assert zero is not None
+            all_rows = api('/api/gallery?all_models=true')['items']
+            zero_rows = [r for r in all_rows if r['run_id'] == zero['run_id']]
+            assert len(zero_rows) == 1 and zero_rows[0]['seed'] == 927400
+            assert all(next(r for r in all_rows if r['id'] == row['id']) == row for row in newer_rows)
         revision = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
-        evidence = {"source": revision, "open_tab_reconnect": open_tab, "finish_path": "review-" + review_finish if review_finish else "browser" if browser_finish else "api", "run_id": run_id, "first_pid": first_pid,
+        evidence = {"source": revision, "history_review": history_review, "zero_image_recovered": bool(history_review), "open_tab_reconnect": open_tab, "finish_path": "history-review-" + history_review if history_review else "review-" + review_finish if review_finish else "browser" if browser_finish else "api", "run_id": run_id, "first_pid": first_pid,
             "second_pid": second_pid, "original_job": job, "resumed_job": resumed,
             "persisted_after_restart": len(retained), "generated_missing": len(result["images"]),
             "final_unique_cells": len(final), "completed_resume_status": 409,
@@ -234,5 +262,6 @@ if __name__ == "__main__":
     parser.add_argument("--browser-finish", action="store_true", help="exercise existing browser Finish and draft-preservation contract after restart")
     parser.add_argument("--open-tab", action="store_true", help="keep the same browser document open through owned process stop/start")
     parser.add_argument("--review-finish", choices=("desktop", "phone"))
+    parser.add_argument("--history-review", choices=("desktop", "phone"))
     args = parser.parse_args()
-    print(json.dumps(run(args.data, args.port, browser_finish=args.browser_finish, open_tab=args.open_tab, review_finish=args.review_finish), indent=2))
+    print(json.dumps(run(args.data, args.port, browser_finish=args.browser_finish, open_tab=args.open_tab, review_finish=args.review_finish, history_review=args.history_review), indent=2))

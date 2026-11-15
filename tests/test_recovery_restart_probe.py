@@ -6,12 +6,12 @@ import pytest
 from tools.recovery_restart_probe import run
 
 
-@pytest.mark.parametrize("browser_finish", [False, True])
-def test_existing_path_refused_without_touching(tmp_path, browser_finish):
+@pytest.mark.parametrize("browser_finish,history_review", [(False, None), (True, None), (False, "desktop"), (False, "phone")])
+def test_existing_path_refused_without_touching(tmp_path, browser_finish, history_review):
     marker = tmp_path / "keep.txt"
     marker.write_text("untouched")
     with pytest.raises(ValueError, match="new scratch"):
-        run(tmp_path, 8346, browser_finish=browser_finish)
+        run(tmp_path, 8346, browser_finish=browser_finish, history_review=history_review)
     assert marker.read_text() == "untouched"
     assert list(tmp_path.iterdir()) == [marker]
 

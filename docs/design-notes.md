@@ -15398,3 +15398,26 @@ unstarred and Re-render in stable slots, and cards moved down far enough to
 clamp the context menu. Preserve the gallery's established geometry instead
 of shrinking search/Runs or weakening its selection/menu regression checks.
 The same recovery button moves into Gallery Filters on a phone.
+
+
+## Finding older unfinished runs (2026-11-15)
+
+A retained partial run and a never-started zero-image run remain recoverable
+through existing API contracts after restart. But after 21 later completed
+runs the review's initial 20 summaries exclude both, with no route to older
+entries. An owned CPU worker/browser reproduction confirmed this: the API's
+bounded 200-run list contained 23 runs, while the actual dialog hid both
+recoverable ones. This was a discovery gap, not a generation/replay defect.
+
+Include older runs now deliberately reads the existing maximum of 200
+summaries. Find in loaded runs filters their prompt/run ID locally; the
+screen says its loaded-count and history boundary, including no matches.
+Expansion does not issue any per-run details/preview calls. Each run still
+needs an explicit Check, and Finish retains all prior pins and guards.
+Refresh retries a failed expanded read at the same cap, but changed scope
+and a reopened dialog reset to 20. Expanding replaces the summary list, so
+checks must be deliberately requested again. This is not exhaustive history
+pagination and does not imply a run beyond the latest 200 is accessible here.
+
+Finish feedback belongs to its run row, so filtering to a different unfinished
+run cannot carry over another run's "nothing missing" message.

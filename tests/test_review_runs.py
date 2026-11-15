@@ -11,6 +11,8 @@ RECOVERY_HARNESS = HARNESS.replace(
     """const recoveryNodes = {
       'review-runs': {open: true}, 'review-runs-scope': {textContent: ''},
       'review-runs-error': {textContent: ''},
+      'review-runs-find': {value: ''}, 'review-runs-matches': {textContent: ''},
+      'review-runs-older': {hidden: true, setAttribute() {}},
       'review-runs-list': {children: [], replaceChildren() {this.children = [];}}
     };
     function $(id) {return recoveryNodes[id] ?? null;}
@@ -18,6 +20,48 @@ RECOVERY_HARNESS = HARNESS.replace(
     """,
 )
 CASES = {
+    "explicit_bounded_expansion": """
+      reviewRunsScope=reviewRunsKey(); reviewRunsMore=true;
+      const task=loadReviewRuns({older:true});
+      assert.equal(requests[0].path,'/api/runs?limit=200');
+      await loadReviewRuns({older:true}); assert.equal(requests.length,1);
+      requests[0].resolve([]); await task;
+      await loadReviewRuns({older:true}); assert.equal(requests.length,1);
+    """,
+    "expansion_scope_reset": """
+      reviewRunsScope=reviewRunsKey(); reviewRunsLimit=200;
+      els.allModels.checked=true; syncReviewRuns();
+      const task=loadReviewRuns();
+      assert.equal(requests[0].path,'/api/runs?limit=20&all_models=true');
+      requests[0].resolve([]); await task;
+    """,
+    "expanded_refresh_stays_bounded": """
+      reviewRunsScope=reviewRunsKey(); reviewRunsLimit=200;
+      const task=loadReviewRuns(); assert.equal(requests[0].path,'/api/runs?limit=200');
+      requests[0].resolve([]); await task;
+    """,
+    "stale_expansion_is_inert": """
+      reviewRunsScope=reviewRunsKey(); reviewRunsMore=true;
+      els.allModels.checked=true; await loadReviewRuns({older:true});
+      assert.equal(requests.length,0);
+    """,
+    "failed_expansion_is_not_empty": """
+      reviewRunsScope=reviewRunsKey(); reviewRunsMore=true;
+      const task=loadReviewRuns({older:true}); requests[0].reject(Error('history unavailable')); await task;
+      assert.equal(reviewRunsLoading,false); assert.equal(reviewRunsLimit,200);
+      assert.ok($('review-runs-scope').textContent.includes('could not be loaded'));
+      assert.equal($('review-runs-error').textContent,'history unavailable');
+    """,
+    "local_filter_is_only_loaded_rows": """
+      $('review-runs-list').children=[{dataset:{find:'mist abc123'}},{dataset:{find:'rain def456'}}];
+      $('review-runs-find').value=' ABC123 '; filterReviewRuns();
+      assert.deepEqual($('review-runs-list').children.map(row=>row.hidden),[false,true]);
+      assert.equal(requests.length,0); assert.ok($('review-runs-matches').textContent.startsWith('1 of 2'));
+      $('review-runs-find').value='nothing'; filterReviewRuns();
+      assert.ok($('review-runs-matches').textContent.startsWith('0 of 2'));
+      $('review-runs-find').value=''; filterReviewRuns();
+      assert.equal($('review-runs-list').children.some(row=>row.hidden),false);
+    """,
     "bounded_empty": """
       const task=loadReviewRuns(); assert.equal(requests.length,1);
       assert.equal(requests[0].path,'/api/runs?limit=20');
