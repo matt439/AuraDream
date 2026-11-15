@@ -1115,6 +1115,9 @@ paragraphs, never rewording.
   the documentation-only lint path; `ci_duplicates.py` skips a run another
   run of the workflow covers; `typecheck.py` runs the pinned,
   locally bundled Pyright checker over the configured scope;
+  `anima_refine_pack.py` prints the offline Turbo Refine protocol and a blank
+  receipt, and checks recorded receipt completeness without starting a session
+  or granting qualification (`tests/test_anima_refine_pack.py`; Anima Refine plan);
   `perf_cases.py` holds the fixed speed comparison cases the card runs
   share and prints their `backend.generate` lines, running none
   (`docs/maintainer/plan-step-caching.md`, Fixed comparison cases);
