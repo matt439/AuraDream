@@ -15390,3 +15390,11 @@ A change away and back still requires Refresh. Finish checks that ownership
 both before and after its asynchronous eligibility read. This is distinct
 from proving a surviving tab reconnects: the outcome here is a discoverable,
 deliberate user control after a fresh page, not API-driven completion.
+
+The desktop entry sits with the generation panel's recovery/status controls,
+not inside the gallery header. Adding a full-label button to that constrained
+row changed its wrap thresholds: selection could no longer keep Delete
+unstarred and Re-render in stable slots, and cards moved down far enough to
+clamp the context menu. Preserve the gallery's established geometry instead
+of shrinking search/Runs or weakening its selection/menu regression checks.
+The same recovery button moves into Gallery Filters on a phone.

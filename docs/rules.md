@@ -7267,8 +7267,8 @@ measured on the card and when.
 
 #### Gallery scope, Re-render, search and paging
 
-- **Review unfinished work** is an explicit recovery entry beside Runs on
-  desktop and in Gallery's Filters sheet on a phone. It reads at most the
+- **Review unfinished work** is an explicit recovery entry under Generate
+  and its status on desktop, and in Gallery's Filters sheet on a phone. It reads at most the
   latest 20 runs in the current checkpoint / All models scope. Search and
   Starred do not narrow it, and the dialog says so. A summary is not proof
   of interruption: each row starts unchecked. Check remaining work lazily

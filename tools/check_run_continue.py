@@ -128,7 +128,7 @@ class Check:
                       expect("$('gallery-filter-sheet').open"),
                       {"shot": "review-entry.png"}]
         steps += [
-            {"click": "#btn-review-runs"},
+            {"eval": "$('btn-review-runs').scrollIntoView({block:'center'});"}, {"click": "#btn-review-runs"},
             expect("__until(()=>$('review-runs').open && !!__row())"),
             expect("!document.querySelector('#review-runs-list .finish-run-tool') && JSON.stringify(collect())===__draft"),
             {"eval": "window.__realApi=api;window.__releasePlan=null;api=async(path,options)=>{const answer=await __realApi(path,options);if(path==='/api/runs/'+__run && !__releasePlan)return new Promise(resolve=>{__releasePlan=()=>resolve(answer);});return answer;};"},
@@ -168,11 +168,11 @@ class Check:
         ]
         if phone:
             steps += [expect("__until(()=>!backGoing && $('gallery-filter-sheet').open)"),
-                      {"click": "#btn-review-runs"},
+                      {"eval": "$('btn-review-runs').scrollIntoView({block:'center'});"}, {"click": "#btn-review-runs"},
                       expect("__until(()=>$('review-runs').open && !!__row() && !backGoing && backStack.some(layer=>layer.el===$('review-runs')))"),
                       {"eval": "history.back()"},
                       expect("__until(()=>!$('review-runs').open && $('gallery-filter-sheet').open && !backGoing)")]
-        steps += [{"click": "#btn-review-runs"},
+        steps += [{"eval": "$('btn-review-runs').scrollIntoView({block:'center'});"}, {"click": "#btn-review-runs"},
                   expect("__until(()=>$('review-runs').open && !!__row())"),
                   {"click": row + " .review-view"},
                   expect("__until(()=>!$('review-runs').open && !$('gallery-filter-sheet').open && sheetMode && sheetShownRun()===__run && !galleryPending)"),

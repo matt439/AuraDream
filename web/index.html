@@ -722,6 +722,11 @@
       <button class="ghost small" id="last-run-dismiss" aria-label="Dismiss">✕</button>
     </div>
 
+    <!-- Keep recovery outside the width-constrained gallery header so
+         selection changes never reflow its controls or shift its cards. -->
+    <button type="button" class="ghost small" id="btn-review-runs" aria-haspopup="dialog"
+            aria-controls="review-runs">Review unfinished work</button>
+
     <!-- Below Generate and its progress, so the opt-in adds no row above
          the controls people leave running. Permission is asked only on a tick. -->
     <div class="notification-choice">
@@ -1003,8 +1008,6 @@
         </div>
         <!-- One line per night's grid, newest first; picking one searches for
              `run:<id>` and opens the sheet. -->
-        <button type="button" class="ghost small" id="btn-review-runs" aria-haspopup="dialog"
-          aria-controls="review-runs">Review unfinished work</button>
         <select id="run-list" class="runs" aria-label="Recent runs" disabled>
           <option value="">Runs…</option>
         </select>
