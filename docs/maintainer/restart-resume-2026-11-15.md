@@ -94,3 +94,18 @@ python tools/recovery_restart_probe.py --data <NEW-scratch-path> --port 8356 --b
 The initial development browser pass met all nine expectations but the
 probe used the wrong finished-job key (`id` rather than `job_id`) afterwards;
 that attempt is not a successful end-to-end result. Its logs were retained.
+
+
+Successful browser continuation on implementation `effc820`, based on main
+`754bd4e`: nine browser expectations passed, two persisted cells survived,
+exactly ten missing cells were generated, and the final twelve-cell run had
+no duplicates or changed retained rows. Completed Resume refused with 409.
+Both owned server lifetimes stopped and released their loopback port. Cold
+refusal/trial-kit/docs-map tests passed 28 checks; Ruff passed. This does not
+claim a full CPU suite or the entire browser smoke matrix was run locally.
+
+API mode was also rechecked on the same implementation: two retained cells,
+ten exact missing cells, twelve unique final cells, unchanged retained rows
+and completed-resume 409. It used a separate new scratch gallery and released
+the same loopback port after both owned lifetimes. Raw evidence for both
+modes remains outside the repository; no personal images or logs are added.
