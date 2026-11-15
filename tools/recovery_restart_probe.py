@@ -17,7 +17,25 @@ import uuid
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def run(data: Path, port: int, *, browser_finish: bool = False) -> dict:
+def open_tab_steps(port: int) -> list[dict]:
+    """No state injection for outage/recovery: the owned server really stops."""
+    return [
+        {"navigate": f"http://127.0.0.1:{port}/"},
+        {"eval": "window.__until=async fn=>{const end=Date.now()+60000;while(Date.now()<end){if(fn())return true;await new Promise(r=>setTimeout(r,50));}return false;};"},
+        {"expect": "__until(()=>!serverOffline && modelRevision!==null && busy && currentJob!==null)", "fatal": True},
+        {"eval": "writeBox(els.prompt,'UNSENT reconnect draft');writeBox(els.negative,'keep this negative');persistPanel();window.__draft=JSON.stringify(collect());window.__documentProof={};window.__oldStarted=serverStartedAt;"},
+        {"log": "'OPEN_TAB_ATTACHED'"},
+        {"expect": "__until(()=>serverOffline && streamLost)", "fatal": True},
+        {"expect": "els.dot.className==='dot error' && els.statusText.textContent.includes(LOST_PHRASE) && els.generate.getAttribute('aria-disabled')==='true' && els.stepRow.hidden && jobEta==='' && els.jobMirror.textContent==='' && JSON.stringify(collect())===__draft", "fatal": True},
+        {"log": "'OPEN_TAB_OFFLINE'"},
+        {"expect": "__until(()=>!serverOffline && serverStartedAt!==__oldStarted && !busy && !jobListing)", "fatal": True},
+        {"expect": "!!window.__documentProof && JSON.stringify(collect())===__draft && els.dot.className==='dot ready' && els.generate.getAttribute('aria-disabled')==='false' && els.error.textContent.toLowerCase().includes('restarted') && !queuedIds.length", "fatal": True},
+        {"expect": "(async()=>{const jobs=await (await fetch('/api/jobs?include_finished=true')).json();return jobs.length===0;})()", "fatal": True},
+        {"log": "'OPEN_TAB_RECOVERED'"},
+    ]
+
+
+def run(data: Path, port: int, *, browser_finish: bool = False, open_tab: bool = False) -> dict:
     data = data.resolve()
     if data.exists() or not data.parent.is_dir() or not 1024 <= port <= 65535:
         raise ValueError("Use a new scratch path with existing parent and a loopback port 1024..65535")
@@ -30,6 +48,8 @@ def run(data: Path, port: int, *, browser_finish: bool = False) -> dict:
     if listening():
         raise ValueError("Port already occupied; refusing")
     data.mkdir()
+    browser_process = None
+    browser_log = None
     process = None
     runtime = None
     token = None
@@ -105,8 +125,32 @@ def run(data: Path, port: int, *, browser_finish: bool = False) -> dict:
         assert before["status"] == "running" and 0 < len(before["images"]) < 12
         run_id = before["images"][0]["run_id"]
         first_pid = runtime
+        if open_tab:
+            # Freeze the owned job while the browser attaches; no timing race
+            # against a job that can finish during browser startup.
+            api("/api/jobs/" + job + "/pause?value=true", {})
+            wait(lambda: api("/api/jobs/" + job).get("paused"))
+            steps = open_tab_steps(port)
+            steps_path = data / "open-tab.json"
+            steps_path.write_text(json.dumps(steps, indent=2), encoding="utf-8")
+            browser_log = (data / "open-tab.log").open("w", encoding="utf-8")
+            env = dict(os.environ)
+            env.pop("AURADREAM_PORT_OFFSET", None)
+            browser_process = subprocess.Popen(["node", str(ROOT / "tools/browser.mjs"), str(steps_path)],
+                cwd=ROOT, env=env, stdout=browser_log, stderr=subprocess.STDOUT,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+            def browser_mark(marker):
+                if browser_process.poll() is not None:
+                    raise RuntimeError("Open-tab browser ended before " + marker)
+                return (' => "' + marker + '"') in (data / "open-tab.log").read_text(encoding="utf-8")
+            wait(lambda: browser_mark("OPEN_TAB_ATTACHED"))
         stop()  # Actual owned process termination, not a fake route or cancellation.
+        if open_tab:
+            wait(lambda: browser_mark("OPEN_TAB_OFFLINE"))
         start()
+        if browser_process is not None:
+            if browser_process.wait(timeout=90) != 0:
+                raise AssertionError("Open-tab reconnect failed; inspect open-tab.log")
         second_pid = runtime
         assert first_pid != second_pid
         rows = api("/api/gallery?all_models=true")["items"]
@@ -158,7 +202,7 @@ def run(data: Path, port: int, *, browser_finish: bool = False) -> dict:
         else:
             raise AssertionError("Completed resume queued duplicate work")
         revision = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
-        evidence = {"source": revision, "finish_path": "browser" if browser_finish else "api", "run_id": run_id, "first_pid": first_pid,
+        evidence = {"source": revision, "open_tab_reconnect": open_tab, "finish_path": "browser" if browser_finish else "api", "run_id": run_id, "first_pid": first_pid,
             "second_pid": second_pid, "original_job": job, "resumed_job": resumed,
             "persisted_after_restart": len(retained), "generated_missing": len(result["images"]),
             "final_unique_cells": len(final), "completed_resume_status": 409,
@@ -166,6 +210,16 @@ def run(data: Path, port: int, *, browser_finish: bool = False) -> dict:
         (data / "restart-evidence.json").write_text(json.dumps(evidence, indent=2), encoding="utf-8")
         return evidence
     finally:
+        if browser_process is not None and browser_process.poll() is None:
+            # Let the fatal browser predicate expire and run its normal browser
+            # cleanup before the bounded last-resort process termination.
+            try:
+                browser_process.wait(timeout=65)
+            except subprocess.TimeoutExpired:
+                browser_process.terminate()
+                browser_process.wait(timeout=15)
+        if browser_log is not None:
+            browser_log.close()
         stop()
         log.close()
 
@@ -175,5 +229,6 @@ if __name__ == "__main__":
     parser.add_argument("--data", required=True, type=Path)
     parser.add_argument("--port", required=True, type=int)
     parser.add_argument("--browser-finish", action="store_true", help="exercise existing browser Finish and draft-preservation contract after restart")
+    parser.add_argument("--open-tab", action="store_true", help="keep the same browser document open through owned process stop/start")
     args = parser.parse_args()
-    print(json.dumps(run(args.data, args.port, browser_finish=args.browser_finish), indent=2))
+    print(json.dumps(run(args.data, args.port, browser_finish=args.browser_finish, open_tab=args.open_tab), indent=2))

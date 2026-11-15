@@ -10811,6 +10811,9 @@ Cold refusal tests live in `tests/test_recovery_restart_probe.py`; the
 CPU qualification. Optional `--browser-finish` reuses the existing Finish
 browser driver to check draft preservation and once-only submission before
 the exact-cell checks; it does not claim trusted-input discoverability.
+Optional `--open-tab` keeps one document alive across the owned stop/start,
+handshaking visible offline state before restart and checking changed server
+identity, draft preservation and no automatic resubmission afterwards.
 It never runs against an existing gallery.
 
 `smoke-queue-cancel-recovery.json` uses a fresh FLUX.1 Krea [dev] fake on
