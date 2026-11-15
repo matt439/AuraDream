@@ -1003,6 +1003,8 @@
         </div>
         <!-- One line per night's grid, newest first; picking one searches for
              `run:<id>` and opens the sheet. -->
+        <button type="button" class="ghost small" id="btn-review-runs" aria-haspopup="dialog"
+          aria-controls="review-runs">Review unfinished work</button>
         <select id="run-list" class="runs" aria-label="Recent runs" disabled>
           <option value="">Runs…</option>
         </select>
@@ -1304,6 +1306,15 @@
      moved in whole on the phone and home again off it; the gallery's line
      (#gallery-error) is moved into the open sheet's foot, so a held press
      says why where it was pressed. -->
+<dialog id="review-runs" class="review-runs" aria-labelledby="review-runs-title">
+  <div class="dialog-head"><h2 id="review-runs-title">Review unfinished work</h2>
+    <button type="button" class="ghost" id="review-runs-close">Close</button></div>
+  <p>Check a recent run for remaining work. Finish uses its saved settings, not your current draft.</p>
+  <p id="review-runs-scope" role="status"></p>
+  <div id="review-runs-list"></div>
+  <p id="review-runs-error" role="alert" hidden></p>
+  <div class="dialog-actions"><button type="button" class="ghost" id="review-runs-refresh">Refresh recent runs</button></div>
+</dialog>
 <dialog class="gallery-sheet" id="gallery-filter-sheet" aria-labelledby="gallery-filter-title">
   <div class="gallery-sheet-head">
     <h2 id="gallery-filter-title">Filters</h2>

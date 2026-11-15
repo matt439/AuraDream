@@ -15367,3 +15367,26 @@ Choices, and why:
 Not built: Recent prompts under Examples, the review's second slice, which
 waits on whether this one falls short. It would be the only way back to a
 prompt whose job saved no image.
+
+
+## Reviewing unfinished work (2026-11-15)
+
+An empty volatile Jobs list after restart must not make a retained partial
+run undiscoverable. The existing Runs picker knew historical outputs, and
+Finish already knew exact replay eligibility, but finding the right entry
+and then the Finish control required prior knowledge. Review unfinished
+work connects those existing contracts without inventing a recovery API.
+
+This is a bounded review, not an inferred unfinished-only list. Recent run
+summaries cannot tell whether low output count means interruption, deletion,
+a completed small run, or a held replay. We show the latest 20 scoped runs,
+then read exact details only when a person checks a row. Retained/binned
+counts and the Finish refusal remain visible beside the action. A separate
+View saved outputs path lets a person inspect before committing to more work.
+No image generation is automatic and the current composer remains untouched.
+
+The list and row reads own a dialog epoch plus the server/checkpoint/scope.
+A change away and back still requires Refresh. Finish checks that ownership
+both before and after its asynchronous eligibility read. This is distinct
+from proving a surviving tab reconnects: the outcome here is a discoverable,
+deliberate user control after a fresh page, not API-driven completion.

@@ -27,7 +27,7 @@ let phoneSearchHelp = null;
 // What each sheet holds, host by host, in the order drawn.
 const galleryFilterPlaces = () => [
   ['gallery-filter-chips', [els.favOnly.closest('label'), $('all-models-label')]],
-  ['gallery-filter-run', [els.runList]],
+  ['gallery-filter-run', [els.runList, $('btn-review-runs')]],
   ['gallery-filter-view', [els.sheetBtn]],
   ['search-help-fold', [phoneSearchHelp]],
 ];

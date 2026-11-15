@@ -50,6 +50,7 @@ class TestSelect extends TestNode {
   get innerHTML() { return this.options.map((option) => option.text).join('|'); }
 }
 const Option = TestOption;
+function $() { return null; } // The new recovery dialog is closed in Runs-picker tests.
 const els = { runList: new TestSelect(), allModels: { checked: false }, search: { value: '' } };
 const document = { createElement: () => new TestNode(), querySelectorAll: () => [] };
 let loadedModel = 'current/model', modelRevision = 1, serverStartedAt = 11, binMode = false;

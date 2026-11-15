@@ -107,6 +107,88 @@ class Check:
         return self.until(lambda: (job if (job := self.job(accepted["job_id"]))["status"]
                                   not in ("queued", "running") else None))
 
+    def review(self, run: str, missing: int, *, phone: bool = False):
+        """Visible recovery entry and Finish over this owned server's run."""
+        row = f'#review-runs-list [data-run="{run}"]'
+        def expect(code):
+            return {"expect": code, "fatal": True}
+        steps = [
+            {"touch": phone},
+            {"viewport": [393, 852, 3] if phone else [1400, 900], "mobile": phone},
+            {"navigate": self.url + "/"},
+            {"eval": "window.__until=async fn=>{const end=Date.now()+30000;while(Date.now()<end){if(fn())return true;await new Promise(r=>setTimeout(r,40));}return false;};"},
+            expect("__until(()=>modelState==='ready' && !galleryPending && !jobListing)"),
+            {"inject": "a11y_audit.js"}, {"eval": "__a11yWatch()"},
+            {"eval": "writeBox(els.prompt,'INDEPENDENT unfinished draft');els.prompt.blur();syncTyping();persistPanel();window.__draft=JSON.stringify(collect());window.__run=" + json.dumps(run) + ";window.__row=()=>document.querySelector(" + json.dumps(row) + ");window.__posts=0;window.__nativeFetch=window.fetch.bind(window);window.fetch=(u,o)=>{if(String(u).endsWith('/finish') && o?.method==='POST')__posts++;return __nativeFetch(u,o);};"},
+        ]
+        if phone:
+            steps += [expect("__until(()=>isPhone() && !('typing' in document.body.dataset) && $('tab-gallery').getBoundingClientRect().height>0)"), {"tap": "#tab-gallery"},
+                      expect("__until(()=>isPhone() && document.body.dataset.view==='gallery')"),
+                      {"click": "#btn-gallery-filters"},
+                      expect("$('gallery-filter-sheet').open"),
+                      {"shot": "review-entry.png"}]
+        steps += [
+            {"click": "#btn-review-runs"},
+            expect("__until(()=>$('review-runs').open && !!__row())"),
+            expect("!document.querySelector('#review-runs-list .finish-run-tool') && JSON.stringify(collect())===__draft"),
+            {"eval": "window.__realApi=api;window.__releasePlan=null;api=async(path,options)=>{const answer=await __realApi(path,options);if(path==='/api/runs/'+__run && !__releasePlan)return new Promise(resolve=>{__releasePlan=()=>resolve(answer);});return answer;};"},
+            {"click": row + " .review-check"},
+            expect("__until(()=>!!__releasePlan)"),
+            {"eval": "els.allModels.checked=true;syncRunList();els.allModels.checked=false;syncRunList();__releasePlan();api=__realApi;"},
+            expect("__until(()=>!finishRuns.get(__run)?.pending)"),
+            expect("!__row().querySelector('.finish-run-tool') && $('review-runs-scope').textContent.includes('scope changed') && __posts===0"),
+            {"click": "#review-runs-refresh"},
+            expect("__until(()=>!!__row() && reviewRunsCurrent())"),
+            {"click": row + " .review-check"},
+            expect("__until(()=>!!__row().querySelector('.finish-run-tool') && finishRuns.get(__run)?.preview?.cells===" + str(missing) + ")"),
+            expect("__row().querySelector('.review-state').textContent.includes('saved image') && JSON.stringify(collect())===__draft && __posts===0 && __a11yCheck()"),
+            {"eval": "submitting=true;syncFinishRunButtons();"},
+            expect("__row().querySelector('.finish-run-tool').getAttribute('aria-disabled')==='true' && __row().querySelector('.finish-run-tool').title.includes('submitted')"),
+            {"click": row + " .finish-run-tool"},
+            expect("__posts===0 && $('review-runs-error').textContent.includes('submitted')"),
+            {"eval": "submitting=false;syncFinishRunButtons();window.__realApi=api;window.__releaseFinish=null;api=async(path,options)=>{const answer=await __realApi(path,options);if(path==='/api/runs/'+__run && !__releaseFinish)return new Promise(resolve=>{__releaseFinish=()=>resolve(answer);});return answer;};"},
+            {"click": row + " .finish-run-tool"},
+            expect("__until(()=>!!__releaseFinish)"),
+            {"eval": "els.allModels.checked=true;syncRunList();els.allModels.checked=false;syncRunList();__releaseFinish();api=__realApi;"},
+            expect("__until(()=>!finishPresses.has(__run))"),
+            expect("__posts===0 && $('review-runs-error').textContent.includes('Context changed')"),
+            {"click": "#review-runs-refresh"},
+            expect("__until(()=>!!__row() && reviewRunsCurrent())"),
+            {"click": row + " .review-check"},
+            expect("__until(()=>!!__row().querySelector('.finish-run-tool') && finishRuns.get(__run)?.preview?.available)"),
+            {"shot": "review-before.png"},
+            {"eval": "window.__finish=__row().querySelector('.finish-run-tool');__finish.scrollIntoView({block:'center'});"},
+            {"click": row + " .finish-run-tool"},
+            {"eval": "__finish.click();"},
+            expect("__until(()=>!busy && !submitting && __posts===1 && finishRuns.get(__run)?.preview?.reason==='nothing in this run is missing')"),
+            expect("JSON.stringify(collect())===__draft && __posts===1 && __finish.getAttribute('aria-disabled')==='true' && __a11yCheck()"),
+            {"shot": "review-after.png"},
+            {"click": "#review-runs-close"},
+            expect("!$('review-runs').open && JSON.stringify(collect())===__draft"),
+        ]
+        if phone:
+            steps += [expect("__until(()=>!backGoing && $('gallery-filter-sheet').open)"),
+                      {"click": "#btn-review-runs"},
+                      expect("__until(()=>$('review-runs').open && !!__row() && !backGoing && backStack.some(layer=>layer.el===$('review-runs')))"),
+                      {"eval": "history.back()"},
+                      expect("__until(()=>!$('review-runs').open && $('gallery-filter-sheet').open && !backGoing)")]
+        steps += [{"click": "#btn-review-runs"},
+                  expect("__until(()=>$('review-runs').open && !!__row())"),
+                  {"click": row + " .review-view"},
+                  expect("__until(()=>!$('review-runs').open && !$('gallery-filter-sheet').open && sheetMode && sheetShownRun()===__run && !galleryPending)"),
+                  expect("JSON.stringify(collect())===__draft && __posts===1 && __a11yCheck()"),
+                  {"shot": "review-saved-outputs.png"}]
+        shutil.copyfile(ROOT / "tools/a11y_audit.js", self.directory / "a11y_audit.js")
+        path = self.directory / "review-work.json"
+        path.write_text(json.dumps(steps, indent=2), encoding="utf-8")
+        env = dict(os.environ, AURADREAM_SCREENSHOT_DIR=str(self.directory / "screenshots"))
+        env.pop("AURADREAM_PORT_OFFSET", None)
+        with (self.directory / "review-work.log").open("w", encoding="utf-8") as log:
+            result = subprocess.run(["node", str(ROOT / "tools/browser.mjs"), str(path)], cwd=ROOT,
+                env=env, stdout=log, stderr=subprocess.STDOUT, timeout=180)
+        if result.returncode:
+            raise AssertionError("Review work browser failed; inspect review-work.log")
+
     def browser(self, name: str, runs: list[tuple[str, int, bool]], *, budget=None):
         steps = [
             {"navigate": self.url + "/"}, {"wait": 1000},
