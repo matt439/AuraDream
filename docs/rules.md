@@ -10803,6 +10803,13 @@ and Finish recovery, ordered rapid receipts, delayed POST/history snapshots,
 transient history retries, cancellation/foreign-job exclusions and no
 historical replay after reload.
 
+The opt-in `tools/recovery_restart_probe.py` requires a new scratch path and
+unused loopback port, uses the trial worker ownership token to stop only its
+actual runtime, and verifies missing-cell Resume after a real stop/restart.
+Cold refusal tests live in `tests/test_recovery_restart_probe.py`; the
+[dated evidence](maintainer/restart-resume-2026-11-15.md) bounds its API-only
+CPU qualification. It never runs against an existing gallery.
+
 `smoke-queue-cancel-recovery.json` uses a fresh FLUX.1 Krea [dev] fake on
 7944 with 0.3 s steps. Seven owned fake-server jobs and controlled offline,
 HTTP500 and malformed-200 JSON replies check row/bulk cancellation ownership,
