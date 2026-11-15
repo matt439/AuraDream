@@ -66,3 +66,31 @@ used or changed.
 - One checkpoint's synthetic backend and fixed prompt/seed grid do not
   qualify GPU resource release, real model determinism, mixed-model runs,
   reference-image provenance or other grid axes.
+
+
+## Browser Finish continuation on current main
+
+The optional `--browser-finish` mode reuses `check_run_continue.Check.browser`
+after the owned restart; it does not use that helper's process lifecycle.
+It opens a fresh browser, creates an unrelated composer draft, selects the
+persisted run, and invokes the real Finish control twice synchronously.
+Nine expectations require one Finish POST with its preview proof, focus on
+"Finish sent", unchanged draft, and a disabled Finish control once complete.
+The restart probe then independently checks the resulting job, exact missing
+cells, unchanged persisted rows and final twelve-cell set as in API mode.
+
+This is a browser DOM activation contract, not trusted pointer/keyboard
+input, human discoverability or reconnect of a browser left open during the
+outage. The composer is set programmatically and run selection uses existing
+page helpers. It does not replace the workbench human-trial tasks. Existing
+workbench and cancellation evidence remains in its original separate lane.
+
+Run with a NEW scratch path and a free loopback port:
+
+```powershell
+python tools/recovery_restart_probe.py --data <NEW-scratch-path> --port 8356 --browser-finish
+```
+
+The initial development browser pass met all nine expectations but the
+probe used the wrong finished-job key (`id` rather than `job_id`) afterwards;
+that attempt is not a successful end-to-end result. Its logs were retained.
