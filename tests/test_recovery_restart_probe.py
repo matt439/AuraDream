@@ -32,3 +32,18 @@ def test_occupied_port_refused_before_creation(tmp_path):
         with pytest.raises(ValueError, match="occupied"):
             run(data, listener.getsockname()[1])
         assert not data.exists()
+
+
+def test_open_tab_handshakes_require_truthful_state_before_restart():
+    from tools.recovery_restart_probe import open_tab_steps
+    steps = open_tab_steps(8357)
+    assert sum("navigate" in step for step in steps) == 1
+    assert steps[0]["navigate"] == "http://127.0.0.1:8357/"
+    assert all(step.get("fatal") is True for step in steps if "expect" in step)
+    offline = next(i for i, step in enumerate(steps) if step.get("log") == "'OPEN_TAB_OFFLINE'")
+    assert "serverOffline && streamLost" in steps[offline - 2]["expect"]
+    assert "els.stepRow.hidden" in steps[offline - 1]["expect"]
+    assert "jobEta==='" in steps[offline - 1]["expect"]
+    assert "serverStartedAt!==__oldStarted" in steps[offline + 1]["expect"]
+    assert "jobs.length===0" in steps[-2]["expect"]
+    assert steps[-1]["log"] == "'OPEN_TAB_RECOVERED'"
