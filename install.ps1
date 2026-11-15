@@ -333,8 +333,11 @@ if ([Environment]::OSVersion.Platform -ne 'Win32NT') {
     elseif ($build -ge 10240) { Note "Windows 10 (build $build). AuraDream is tested on Windows 11; winget may be missing here, which is handled." }
     else { Warn "Windows build $build is older than Windows 10 and is not supported." }
 }
-if (-not ((Test-Path -LiteralPath (Join-Path $Root 'pyproject.toml')) -and (Test-Path -LiteralPath (Join-Path $Root 'backend\main.py')))) {
-    Stop-Install "This folder does not look like AuraDream ($Root has no pyproject.toml and backend\main.py)." 'Run install.cmd from inside the AuraDream folder you downloaded or cloned.'
+# Refuse partial source ZIPs before tool installation or shortcut creation.
+$RequiredFiles = @('pyproject.toml', 'uv.lock', 'backend\main.py', 'web\index.html', 'bin\auradream.cmd')
+$MissingFiles = @($RequiredFiles | Where-Object { -not (Test-Path -LiteralPath (Join-Path $Root $_) -PathType Leaf) })
+if ($MissingFiles.Count -gt 0) {
+    Stop-Install ("This AuraDream folder is incomplete. Missing files: " + ($MissingFiles -join ', ') + ".") 'Extract the whole ZIP into a new local folder, or restore the missing files in your checkout, then run install.cmd there. Keep your existing gallery and saved settings.'
 }
 if ($Root.StartsWith('\\')) {
     Stop-Install "This folder is on a network share ($Root). The packages, the gallery database and the shortcuts need a folder on a drive of this machine." 'Copy the folder to a local drive, such as C:\AuraDream, and run install.cmd there.'

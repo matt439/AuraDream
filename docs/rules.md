@@ -815,6 +815,12 @@ paragraphs, never rewording.
   a stop and exits 1 if a real run would have stopped; `-Yes`, or no
   keyboard, takes every default (default download folder, no Hugging Face
   sign-in, both shortcuts, a first start on Animagine without a sign-in).
+  Its initial folder preflight requires files (not directories) at
+  `pyproject.toml`, `uv.lock`, `backend/main.py`, `web/index.html` and
+  `bin/auradream.cmd`; an incomplete extraction lists the missing files
+  before a real run reaches tool installation. Dry-run records the refusal
+  and continues read-only as usual. Tests exercise missing lock/UI/launcher
+  in both modes with inert tools and temporary homes.
   It refuses a network-share folder, and, like `update.ps1`, refuses while
   AuraDream runs. Git comes from winget with `--scope user` only (no
   administrator approval). A sign-in is `HF_TOKEN` or the token file
