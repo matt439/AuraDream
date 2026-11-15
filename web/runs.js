@@ -45,6 +45,7 @@ function finishRunWords(run, preview) {
 
 function finishRunHold(button, state = finishRuns.get(button.dataset.run)) {
   return button.dataset.finishSent ? 'Sent: it runs as a job of its own'
+    : button.closest('#review-runs') && !reviewRunsCurrent() ? 'Context changed. Refresh recent runs.'
     : binMode ? BIN_HELD
     : submitHold() || (submitting ? 'A job is being submitted' : '')
     || (finishPresses.has(button.dataset.run) ? 'Checking Finish run.' : '')
@@ -80,6 +81,7 @@ function syncFinishRunButtons() {
     line.title = line.textContent;
   }
   syncLastRunFinish();
+  syncReviewRuns();
 }
 
 // What Finish run would do, in the sheet line's words: the missing cells and
@@ -193,7 +195,7 @@ function receiveFinishStatus(status) {
 async function pressFinishRun(button, { slot = els.galleryError } = {}) {
   const run = button.dataset.run;
   if (!run || button.dataset.finishSent || finishPresses.has(run)) return;
-  const local = binMode ? BIN_HELD : submitHold() || (submitting ? 'A job is being submitted' : '');
+  const local = button.closest('#review-runs') && !reviewRunsCurrent() ? 'Context changed. Refresh recent runs.' : binMode ? BIN_HELD : submitHold() || (submitting ? 'A job is being submitted' : '');
   if (local) { showError(local, false, { slot }); return; }
   const identity = finishIdentity();
   let context = finishContext();
@@ -220,7 +222,7 @@ async function pressFinishRun(button, { slot = els.galleryError } = {}) {
       return;
     }
     const preview = state.preview;
-    const why = binMode ? BIN_HELD : submitHold() || (submitting ? 'A job is being submitted' : '');
+    const why = button.closest('#review-runs') && !reviewRunsCurrent() ? 'Context changed. Refresh recent runs.' : binMode ? BIN_HELD : submitHold() || (submitting ? 'A job is being submitted' : '');
     if (why) { showError(why, false, { slot }); return; }
     await startJob(`/api/runs/${encodeURIComponent(run)}/finish`, { expected: preview.pin }, {
       panel: false, slot,
@@ -567,6 +569,7 @@ function syncRunList() {
     : realRunOption(selected) ? selected.text : 'Recent runs';
   // A phone's Runs row, its sheet and its run chip read the same state.
   syncPhoneRuns();
+  syncReviewRuns();
 }
 
 // Closed-picker navigation is only a candidate. Enter or blur commits it;
@@ -731,4 +734,114 @@ function reserveSheetRoom(head) {
   const end = document.querySelector('main').getBoundingClientRect().bottom + scrollY;
   const short = landing + innerHeight - end;
   if (short > 0) els.sheet.style.marginBottom = `${Math.ceil(short)}px`;
+}
+
+// Explicit recovery discovery. One bounded list read; detailed replay plans
+// are fetched only for rows the user checks, never for all recent runs.
+let reviewRunsEpoch = 0;
+let reviewRunsScope = null;
+const reviewRunsKey = () => JSON.stringify([finishIdentity(), runsScope()]);
+const reviewRunsCurrent = () => reviewRunsScope === reviewRunsKey() && !binMode;
+
+function syncReviewRuns() {
+  const dialog = $('review-runs');
+  if (!dialog?.open) return;
+  const current = reviewRunsCurrent();
+  if (!current && reviewRunsScope !== null) { reviewRunsEpoch++; reviewRunsScope = null; }
+  if (!current) $('review-runs-scope').textContent = 'The checkpoint or gallery scope changed. Refresh recent runs before continuing.';
+  for (const row of $('review-runs-list').children) {
+    const state = finishRuns.get(row.dataset.run);
+    const checked = row.dataset.checked === 'true';
+    const check = row.querySelector('.review-check');
+    const why = !current ? 'Context changed. Refresh recent runs.' : state?.pending ? 'Checking remaining work' : '';
+    check.setAttribute('aria-disabled', String(!!why));
+    check.title = why || 'Read the saved run and its current missing work';
+    const view = row.querySelector('.review-view');
+    view.setAttribute('aria-disabled', String(!current));
+    view.title = current ? 'Inspect saved outputs without changing your draft' : 'Context changed. Refresh recent runs.';
+    const finish = row.querySelector('.finish-run-tool');
+    if (finish) syncFinishRunButton(finish);
+    const text = row.querySelector('.review-state');
+    if (!current) text.textContent = 'Not checked for the current scope.';
+    else if (checked) {
+      const details = state?.details;
+      const saved = details ? `${plural(details.images, 'saved image')}${details.binned ? `; ${details.binned} in the recycle bin` : ''}. ` : '';
+      const outputs = state?.preview?.available && state.preview.images ? `${plural(state.preview.images, 'image')} to generate; ` : '';
+      text.textContent = saved + outputs + (finishRunCounts(state) ?? 'Checking remaining work...');
+    }
+  }
+}
+
+async function loadReviewRuns() {
+  const dialog = $('review-runs');
+  const epoch = ++reviewRunsEpoch;
+  reviewRunsScope = reviewRunsKey();
+  const scope = reviewRunsScope;
+  const current = () => dialog.open && epoch === reviewRunsEpoch && scope === reviewRunsKey() && !binMode;
+  $('review-runs-list').replaceChildren();
+  showError('', false, {slot: $('review-runs-error'), mirror: false});
+  if (binMode) { $('review-runs-scope').textContent = 'Leave the recycle bin to review unfinished work.'; return; }
+  $('review-runs-scope').textContent = 'Loading the 20 most recent runs...';
+  const params = new URLSearchParams({limit: 20});
+  if (els.allModels.checked) params.set('all_models', 'true');
+  try {
+    const runs = await api(`/api/runs?${params}`);
+    if (!current()) { syncReviewRuns(); return; }
+    $('review-runs-scope').textContent = runs.length
+      ? `${plural(runs.length, 'recent run')}${els.allModels.checked ? ' across all checkpoints' : ' on the current checkpoint'}. Search and Starred do not narrow this list. Check remaining work before finishing.`
+      : 'No recent runs in this checkpoint scope.';
+    for (const run of runs) {
+      const row = document.createElement('section');
+      row.className = 'review-run'; row.dataset.run = run.run_id;
+      const title = document.createElement('h3');
+      title.textContent = promptGist(run.prompt || '') || `Run ${run.run_id}`;
+      const whenLine = document.createElement('p');
+      whenLine.textContent = `${when(Date.parse(run.started_at))} · ${runAxes(run) || `seed ${run.seed}`}`;
+      const stateLine = document.createElement('p'); stateLine.className = 'review-state';
+      stateLine.textContent = `${plural(run.images, 'saved image')} listed. Remaining work not checked.`;
+      const check = document.createElement('button'); check.type = 'button'; check.className = 'ghost review-check';
+      check.textContent = 'Check remaining work';
+      const actions = document.createElement('div'); actions.className = 'review-actions'; actions.append(check);
+      check.onclick = async () => {
+        if (!current()) { syncReviewRuns(); return; }
+        if (finishRuns.get(run.run_id)?.pending) return;
+        row.dataset.checked = 'true';
+        const state = await readFinishRun(run.run_id, {force: true});
+        if (!current() || !row.isConnected || !state) return;
+        if (!actions.querySelector('.finish-run-tool')) {
+          const finish = finishRunButton(run.run_id, {className: 'primary', slot: $('review-runs-error')});
+          actions.append(finish);
+        }
+        syncReviewRuns();
+      };
+      const view = document.createElement('button'); view.type = 'button'; view.className = 'ghost review-view'; view.textContent = 'View saved outputs';
+      view.onclick = () => {
+        if (!current()) { syncReviewRuns(); return; }
+        dialog.close();
+        const filters = $('gallery-filter-sheet');
+        if (filters.open) closeGallerySheetFor(filters);
+        void showRun(run.run_id);
+      };
+      actions.append(view);
+      row.append(title, whenLine, stateLine, actions);
+      $('review-runs-list').append(row);
+    }
+    syncReviewRuns();
+  } catch (err) {
+    if (!current()) return;
+    $('review-runs-scope').textContent = 'Recent runs could not be loaded. Refresh to try again.';
+    showError(err.message, false, {slot: $('review-runs-error'), mirror: false});
+  }
+}
+
+function initReviewRuns() {
+  const dialog = $('review-runs');
+  $('btn-review-runs').onclick = () => {
+    if (dialog.open) return;
+    dialog.showModal();
+    void loadReviewRuns();
+  };
+  $('review-runs-close').onclick = () => dialog.close();
+  $('review-runs-refresh').onclick = () => { void loadReviewRuns(); };
+  dialog.addEventListener('close', () => { reviewRunsEpoch++; reviewRunsScope = null; $('review-runs-list').replaceChildren(); });
 }

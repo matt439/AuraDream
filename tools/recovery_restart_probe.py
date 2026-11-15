@@ -35,7 +35,7 @@ def open_tab_steps(port: int) -> list[dict]:
     ]
 
 
-def run(data: Path, port: int, *, browser_finish: bool = False, open_tab: bool = False) -> dict:
+def run(data: Path, port: int, *, browser_finish: bool = False, open_tab: bool = False, review_finish: str | None = None) -> dict:
     data = data.resolve()
     if data.exists() or not data.parent.is_dir() or not 1024 <= port <= 65535:
         raise ValueError("Use a new scratch path with existing parent and a loopback port 1024..65535")
@@ -164,13 +164,16 @@ def run(data: Path, port: int, *, browser_finish: bool = False, open_tab: bool =
         assert preview["skipped"] == len(retained) and preview["queued"] == 0
         assert preview["cells"] == preview["images"] == 12 - len(retained)
         api("/api/fake/step", {"seconds": 0})
-        if browser_finish:
+        if browser_finish or review_finish:
             # Reuse the existing browser contract, never its process lifecycle.
             if str(ROOT) not in sys.path:
                 sys.path.insert(0, str(ROOT))
             from tools.check_run_continue import Check
             browser = Check(port, data)
-            browser.browser("restarted-grid-finish", [(run_id, 12 - len(retained), False)])
+            if review_finish:
+                browser.review(run_id, 12 - len(retained), phone=review_finish == "phone")
+            else:
+                browser.browser("restarted-grid-finish", [(run_id, 12 - len(retained), False)])
             jobs = api("/api/jobs?include_finished=true")
             assert len(jobs) == 1, "Browser Finish must create exactly one job"
             resumed = jobs[0]["job_id"]
@@ -202,7 +205,7 @@ def run(data: Path, port: int, *, browser_finish: bool = False, open_tab: bool =
         else:
             raise AssertionError("Completed resume queued duplicate work")
         revision = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
-        evidence = {"source": revision, "open_tab_reconnect": open_tab, "finish_path": "browser" if browser_finish else "api", "run_id": run_id, "first_pid": first_pid,
+        evidence = {"source": revision, "open_tab_reconnect": open_tab, "finish_path": "review-" + review_finish if review_finish else "browser" if browser_finish else "api", "run_id": run_id, "first_pid": first_pid,
             "second_pid": second_pid, "original_job": job, "resumed_job": resumed,
             "persisted_after_restart": len(retained), "generated_missing": len(result["images"]),
             "final_unique_cells": len(final), "completed_resume_status": 409,
@@ -230,5 +233,6 @@ if __name__ == "__main__":
     parser.add_argument("--port", required=True, type=int)
     parser.add_argument("--browser-finish", action="store_true", help="exercise existing browser Finish and draft-preservation contract after restart")
     parser.add_argument("--open-tab", action="store_true", help="keep the same browser document open through owned process stop/start")
+    parser.add_argument("--review-finish", choices=("desktop", "phone"))
     args = parser.parse_args()
-    print(json.dumps(run(args.data, args.port, browser_finish=args.browser_finish, open_tab=args.open_tab), indent=2))
+    print(json.dumps(run(args.data, args.port, browser_finish=args.browser_finish, open_tab=args.open_tab, review_finish=args.review_finish), indent=2))

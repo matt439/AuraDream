@@ -11,6 +11,8 @@
 window.addEventListener('error', sayPageError);
 window.addEventListener('unhandledrejection', sayPageError);
 
+initReviewRuns();
+
 let searchTimer;
 els.generate.onclick = pressGenerate;
 els.cancel.onclick = cancelJob;

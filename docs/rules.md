@@ -7267,6 +7267,23 @@ measured on the card and when.
 
 #### Gallery scope, Re-render, search and paging
 
+- **Review unfinished work** is an explicit recovery entry under Generate
+  and its status on desktop, and in Gallery's Filters sheet on a phone. It reads at most the
+  latest 20 runs in the current checkpoint / All models scope. Search and
+  Starred do not narrow it, and the dialog says so. A summary is not proof
+  of interruption: each row starts unchecked. Check remaining work lazily
+  reads the existing run details and Finish preview; it shows retained and
+  binned outputs, exact missing work or the server's refusal. Finish uses
+  the existing pinned replay path, never the composer's independent draft;
+  nothing resumes automatically. View saved outputs opens the existing run
+  sheet. Closing, refreshing, or changing server/checkpoint/gallery scope
+  invalidates outstanding list ownership, including a scope round trip.
+  A stale row cannot Finish, including after its last awaited check. Closing
+  removes recovery controls so hidden dialogs do not keep refreshing plans.
+  `tests/test_review_runs.py` covers bounded reads and stale ownership;
+  the owned restart probe's `--review-finish desktop|phone` exercises the
+  rendered recovery entry through safe Finish without a live model.
+
 - The gallery is the running checkpoint's: `GET /api/gallery`, `/api/runs`,
   `GET`/`DELETE /api/gallery/unstarred`, `POST /api/rerender[/preview]` and
   `POST /api/swap-tags[/preview]`, `POST /api/refine/batch[/preview]` and
