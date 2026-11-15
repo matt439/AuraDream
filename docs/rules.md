@@ -7268,9 +7268,13 @@ measured on the card and when.
 #### Gallery scope, Re-render, search and paging
 
 - **Review unfinished work** is an explicit recovery entry under Generate
-  and its status on desktop, and in Gallery's Filters sheet on a phone. It reads at most the
-  latest 20 runs in the current checkpoint / All models scope. Search and
-  Starred do not narrow it, and the dialog says so. A summary is not proof
+  and its status on desktop, and in Gallery's Filters sheet on a phone. It
+  starts with the latest 20 runs in the current checkpoint / All models
+  scope; Include older runs deliberately expands to the existing API cap
+  of 200, never an unbounded history scan. Find in loaded runs filters only
+  those summaries by prompt or run ID, without reading replay plans. It
+  reports matching/loaded counts, including zero matches. The cap is visible.
+  Gallery Search and Starred do not narrow it, and the dialog says so. A summary is not proof
   of interruption: each row starts unchecked. Check remaining work lazily
   reads the existing run details and Finish preview; it shows retained and
   binned outputs, exact missing work or the server's refusal. Finish uses
@@ -7282,7 +7286,12 @@ measured on the card and when.
   removes recovery controls so hidden dialogs do not keep refreshing plans.
   `tests/test_review_runs.py` covers bounded reads and stale ownership;
   the owned restart probe's `--review-finish desktop|phone` exercises the
-  rendered recovery entry through safe Finish without a live model.
+  rendered recovery entry through safe Finish without a live model. Its
+  `--history-review desktop|phone` variant retains an old partial run and a
+  zero-image queued run across an owned restart, adds 21 newer completed
+  runs, then finds and finishes both through the review controls. Expansion
+  makes no eager per-run requests; double activation, stale scope replies,
+  failed reads, local filtering and independent draft preservation are checked.
 
 - The gallery is the running checkpoint's: `GET /api/gallery`, `/api/runs`,
   `GET`/`DELETE /api/gallery/unstarred`, `POST /api/rerender[/preview]` and

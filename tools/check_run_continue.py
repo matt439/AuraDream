@@ -107,6 +107,61 @@ class Check:
         return self.until(lambda: (job if (job := self.job(accepted["job_id"]))["status"]
                                   not in ("queued", "running") else None))
 
+    def history(self, run: str, zero: str, missing: int, *, phone: bool = False):
+        """Find older partial and never-started runs without eager replay reads."""
+        def expect(code):
+            return {"expect": code, "fatal": True}
+
+        def click(selector):
+            return [{"eval": "document.querySelector(" + json.dumps(selector) + ").scrollIntoView({block:'center'});"}, {"click": selector}]
+
+        def search(text):
+            return click('#review-runs-find') + [{"keycombo": ["Control", "a"]}, {"type": text}]
+
+        steps = [{"touch": phone}, {"viewport": [393, 852, 3] if phone else [1400, 900], "mobile": phone},
+            {"navigate": self.url + '/'},
+            {"eval": "window.__until=async fn=>{const end=Date.now()+30000;while(Date.now()<end){if(fn())return true;await new Promise(r=>setTimeout(r,40));}return false;};"},
+            expect("__until(()=>modelState==='ready' && !galleryPending && !jobListing)"),
+            {"inject": "a11y_audit.js"}, {"eval": "__a11yWatch();writeBox(els.prompt,'Independent history draft');els.prompt.blur();syncTyping();persistPanel();window.__draft=JSON.stringify(collect());window.__visible=()=>[...$('review-runs-list').children].filter(r=>!r.hidden);"}]
+        if phone:
+            steps += [{"tap": '#tab-gallery'}, expect("__until(()=>document.body.dataset.view==='gallery')")]
+            steps += click('#btn-gallery-filters')
+        steps += click('#btn-review-runs') + [
+            expect("__until(()=>$('review-runs-list').children.length===20 && !reviewRunsLoading)"),
+            {"eval": "window.__api=api;window.__release=null;window.__lists=0;window.__details=0;window.__posts=0;api=async(path,options)=>{if(/^\\/api\\/runs\\/[^?]/.test(path)){__details++;if(path.endsWith('/finish'))__posts++;}if(path.startsWith('/api/runs?limit=200')){__lists++;const answer=await __api(path,options);if(!__release)return new Promise(resolve=>{__release=()=>resolve(answer);});return answer;}return __api(path,options);};"}]
+        steps += search('older never-started') + [expect("__visible().length===0 && $('review-runs-matches').textContent.startsWith('0 of 20') && !$('review-runs-older').hidden")]
+        steps += click('#review-runs-older') + [{"eval": "$('review-runs-older').click()"}, expect("__until(()=>!!__release)"),
+            expect("__lists===1 && __details===0"),
+            {"eval": "els.allModels.checked=true;syncRunList();els.allModels.checked=false;syncRunList();__release();api=__api;"},
+            expect("__until(()=>!reviewRunsCurrent() && !$('review-runs-list').children.length)"),
+            expect("__posts===0 && JSON.stringify(collect())===__draft")]
+        steps += click('#review-runs-refresh') + [expect("__until(()=>$('review-runs-list').children.length===20 && !reviewRunsLoading)"),
+            {"eval": "api=async(path,options)=>{if(path.startsWith('/api/runs?limit=200'))throw Error('controlled history read failure');return __api(path,options);};"}]
+        steps += click('#review-runs-older') + [expect("__until(()=>!reviewRunsLoading && $('review-runs-error').textContent.includes('controlled history read failure'))"),
+            expect("$('review-runs-scope').textContent.includes('could not be loaded') && __posts===0"),
+            {"eval": "window.__details=0;window.__lists=0;api=async(path,options)=>{if(/^\\/api\\/runs\\/[^?]/.test(path)){__details++;if(path.endsWith('/finish'))__posts++;}if(path.startsWith('/api/runs?limit=200'))__lists++;return __api(path,options);};"}]
+        steps += click('#review-runs-refresh') + [expect("__until(()=>$('review-runs-list').children.length===23 && !reviewRunsLoading)"),
+            expect("__lists===1 && __details===0 && __visible().length===1 && $('review-runs-older').hidden && $('review-runs-scope').textContent.includes('latest 200')")]
+        for index, (target, cells, query) in enumerate([(zero, 1, zero), (run, missing, 'restart probe')], 1):
+            row = '#review-runs-list [data-run="' + target + '"]'
+            steps += search(query) + [expect("__visible().length===1 && __visible()[0].dataset.run===" + json.dumps(target))]
+            steps += click(row + ' .review-check') + [expect("__until(()=>finishRuns.get(" + json.dumps(target) + ")?.preview?.cells===" + str(cells) + " && !!__visible()[0].querySelector('.finish-run-tool'))"),
+                expect("JSON.stringify(collect())===__draft && __a11yCheck()"),
+                {"shot": 'history-' + str(index) + '-before.png'}]
+            steps += click(row + ' .finish-run-tool') + [{"eval": "__visible()[0].querySelector('.finish-run-tool').click()"},
+                expect("__until(()=>!busy && !submitting && __posts===" + str(index) + " && finishRuns.get(" + json.dumps(target) + ")?.preview?.reason==='nothing in this run is missing')"),
+                expect("JSON.stringify(collect())===__draft && __a11yCheck()")]
+        steps += click('#review-runs-close') + [expect("!$('review-runs').open && JSON.stringify(collect())===__draft && __posts===2")]
+        shutil.copyfile(ROOT / 'tools/a11y_audit.js', self.directory / 'a11y_audit.js')
+        path = self.directory / 'history-review.json'
+        path.write_text(json.dumps(steps, indent=2), encoding='utf-8')
+        env = dict(os.environ, AURADREAM_SCREENSHOT_DIR=str(self.directory / 'screenshots'))
+        env.pop('AURADREAM_PORT_OFFSET', None)
+        with (self.directory / 'history-review.log').open('w', encoding='utf-8') as log:
+            result = subprocess.run(['node', str(ROOT / 'tools/browser.mjs'), str(path)], cwd=ROOT,
+                env=env, stdout=log, stderr=subprocess.STDOUT, timeout=240)
+        assert result.returncode == 0, 'History browser failed; inspect history-review.log'
+
     def review(self, run: str, missing: int, *, phone: bool = False):
         """Visible recovery entry and Finish over this owned server's run."""
         row = f'#review-runs-list [data-run="{run}"]'
