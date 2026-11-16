@@ -320,6 +320,17 @@ const els = {
   editSteps: $('edit-steps'), editGuidance: $('edit-guidance'),
   editPreview: $('edit-preview'), editError: $('edit-error'),
   editCancel: $('edit-cancel'), editRun: $('edit-run'),
+  detailerDialog: $('detailer-dialog'), detailerTitle: $('detailer-title'), detailerClose: $('detailer-close'),
+  detailerStage: $('detailer-stage'), detailerImage: $('detailer-image'), detailerBoxes: $('detailer-boxes'),
+  detailerSourceLine: $('detailer-source-line'), detailerDetectors: $('detailer-detectors'),
+  detailerDetectorNote: $('detailer-detector-note'), detailerPrepare: $('detailer-prepare'),
+  detailerRefresh: $('detailer-refresh'), detailerDetect: $('detailer-detect'), detailerBusy: $('detailer-busy'),
+  detailerRegions: $('detailer-regions'), detailerRecipe: $('detailer-recipe'),
+  detailerOrderNote: $('detailer-order-note'),
+  detailerPrompt: $('detailer-prompt'), detailerNegative: $('detailer-negative'), detailerCarried: $('detailer-carried'),
+  detailerSteps: $('detailer-steps'), detailerGuidance: $('detailer-guidance'), detailerStrength: $('detailer-strength'),
+  detailerSeed: $('detailer-seed'), detailerSummary: $('detailer-summary'), detailerError: $('detailer-error'),
+  detailerCancel: $('detailer-cancel'), detailerRun: $('detailer-run'),
 };
 
 // Aspect × megapixel tier. Every side is a multiple of 16 (the VAE downsamples by
@@ -781,7 +792,7 @@ async function api(path, options) {
     throw Object.assign(new Error(readableDetail(detail)), { status: res.status, body, code });
   }
   const body = res.status === 204 ? null : await res.json();
-  const advisory = /^\/api\/(?:prompt\/|tags\/|loras$|grid\/preview$|swap-tags\/preview$|refine\/batch\/preview$|more-seeds\/preview$|png\/settings$|runs\/[^/]+(?:\/finish\/preview)?$)/.test(path.split('?')[0]);
+  const advisory = /^\/api\/(?:prompt\/|tags\/|loras$|grid\/preview$|detailer\/preview$|swap-tags\/preview$|refine\/batch\/preview$|more-seeds\/preview$|png\/settings$|runs\/[^/]+(?:\/finish\/preview)?$)/.test(path.split('?')[0]);
   if (advisory && revision !== null && revision !== modelRevision) {
     throw Object.assign(new Error('The checkpoint changed while this request was running. Try again with the current checkpoint.'), { status: 409 });
   }

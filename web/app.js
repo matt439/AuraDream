@@ -685,6 +685,19 @@ new ResizeObserver(() => { if (outpaintSource) drawOutpaintFrame(); }).observe(e
 // Edit by instruction (instruction-edit.js): Enter in a number box and
 // Ctrl+Enter run it; Open Models… closes it for the picker, switching nothing.
 els.editRun.onclick = () => { void runEdit(); };
+els.detailerRun.onclick = () => { void runDetailer(); };
+els.detailerDetect.onclick = () => { void detectDetailer(); };
+els.detailerPrepare.onclick = () => { void prepareDetailer(); };
+els.detailerRefresh.onclick = () => { void refreshDetailerStatus(); };
+els.detailerCancel.onclick = els.detailerClose.onclick = closeDetailer;
+els.detailerDetectors.addEventListener('change', detailerChangedDetector);
+els.detailerRegions.addEventListener('change', chooseDetailerRegion);
+els.detailerBoxes.addEventListener('click', chooseDetailerRegion);
+els.detailerDialog.addEventListener('cancel', detailerCancelEvent);
+els.detailerDialog.addEventListener('close', detailerClosed);
+els.detailerDialog.addEventListener('keydown', detailerKeydown);
+for (const el of [els.detailerPrompt, els.detailerNegative, els.detailerSeed,
+  els.detailerSteps, els.detailerGuidance, els.detailerStrength]) el.addEventListener('input', detailerChanged);
 els.editCancel.onclick = els.editClose.onclick = closeEdit;
 els.editOpenModels.onclick = editOpenModels;
 els.editDialog.addEventListener('cancel', editCancelEvent);
@@ -773,6 +786,7 @@ document.addEventListener('keydown', (e) => {
       else if (dialog === els.inpaintDialog) void runInpaint();
       else if (dialog === els.outpaintDialog) void runOutpaint();
       else if (dialog === els.editDialog) void runEdit();
+      else if (dialog === els.detailerDialog) void runDetailer();
       else if (dialog === els.refineBatchDialog) void runRefineBatch();
       else if (dialog === els.swapDialog) void queueSwap();
       else if (dialog === els.moreSeedsDialog) void runMoreSeeds();

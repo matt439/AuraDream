@@ -59,12 +59,15 @@ try:
     from backend.config import settings
     from backend.execution import canonical_execution, execution_chunk, execution_from_json, execution_key
     from backend.instruction_edit import StoredInstructionEdit, descriptor_from_image, edit_key
+    from backend.detailer import StoredDetailer, iter_rebuilt_masks, stored_json as detailer_json
     from backend.metadata import (
         PNG_METADATA_KEY,  # noqa: F401 - re-exported; tests read reindex.PNG_METADATA_KEY
         PNG_METADATA_KEYS, PNG_SIGNATURE, canonical_edit, edit_chunk, edit_from_info,
         edit_from_json, edit_from_sources, embedded_metadata, execution_from_info,
         execution_from_sources, metadata_chunk, require_header_metadata, text_chunk, text_keyword,
         validate_edit_record,
+        canonical_detailer, detailer_chunk, detailer_from_info, detailer_from_json, detailer_from_sources,
+        validate_detailer_record,
     )
 except ModuleNotFoundError as exc:  # pragma: no cover - startup guard
     sys.exit(
@@ -149,9 +152,15 @@ def _preflight_edits(source: Path, rows: list[dict] | None = None) -> None:
             meta = _edit_metadata(path)
             if meta is not None:
                 validate_edit_record(canonical_edit(meta.get("edit")), meta)
+                detailer = canonical_detailer(meta.get("detailer"))
+                validate_detailer_record(detailer, meta)
+                _verify_detailer_masks(detailer)
         return
     for row in rows:
         stored = edit_from_json(row.get("edit"))
+        detailer = detailer_from_json(row.get("detailer"))
+        validate_detailer_record(detailer, row)
+        _verify_detailer_masks(detailer)
         filename = row.get("filename")
         if not isinstance(filename, str) or Path(filename).name != filename:
             continue  # The normal row validator reports unsafe ordinary names.
@@ -160,6 +169,8 @@ def _preflight_edits(source: Path, rows: list[dict] | None = None) -> None:
             meta = _edit_metadata(path)
             if meta is not None or stored is not None:
                 edit_from_sources(row, meta or {})
+            if meta is not None or detailer is not None:
+                detailer_from_sources(row, meta or {})
 
 
 def _preflight_retained_edits(filenames, existing: dict[str, int], outputs: Path) -> None:
@@ -172,8 +183,39 @@ def _preflight_retained_edits(filenames, existing: dict[str, int], outputs: Path
         path = outputs / filename
         # A missing ordinary destination retains its normal conflict behavior;
         # an edit cannot claim its durable PNG representation is still present.
-        if path.is_file() or known.edit is not None:
+        if path.is_file() or known.edit is not None or known.detailer is not None:
             edit_from_sources(_known_edit_row(known), _edit_metadata(path) or {})
+            detailer_from_sources(_known_edit_row(known), _edit_metadata(path) or {})
+
+
+def _verify_detailer_masks(stored: StoredDetailer | None) -> None:
+    if stored is not None:
+        for _digest, picture in iter_rebuilt_masks(stored.plan):
+            picture.close()
+
+
+def _proves_detailer(path: Path, stored: StoredDetailer) -> bool:
+    try:
+        if path.is_symlink() or path.is_junction():
+            return False
+        with Image.open(path) as image:
+            return descriptor_from_image(path.name, image) == stored.plan.source
+    except (OSError, ValueError, Image.DecompressionBombError):
+        return False
+
+
+def _remapped_detailer(stored: StoredDetailer | None, source: int | None, counts: dict[str, int]) -> StoredDetailer | None:
+    if stored is None:
+        return None
+    if source is None:
+        counts["unresolved_detailers"] += 1
+    return StoredDetailer(plan=stored.plan.model_copy(update={"source_id": source}), pass_index=stored.pass_index)
+
+
+def _same_detailer(left: StoredDetailer | None, right: StoredDetailer | None) -> bool:
+    if left is None or right is None:
+        return left is right
+    return left.model_dump(exclude={"plan": {"source_id"}}) == right.model_dump(exclude={"plan": {"source_id"}})
 
 
 def _proves_edit(path: Path, stored: StoredInstructionEdit) -> bool:
@@ -207,6 +249,9 @@ def _known_edit_row(known) -> dict:
     return {
         "edit": edit_key(known.edit), "model_id": known.model_id,
         "width": known.width, "height": known.height, "prompt": known.prompt,
+        "detailer": detailer_json(known.detailer), "mask": known.mask, "batch": known.batch,
+        "outpaint": known.outpaint, "mask_crop": known.mask_crop, "upscaler": known.upscaler,
+        "crop_anchor": known.crop_anchor,
     }
 
 
@@ -231,7 +276,9 @@ def _dependency_order(rows: list[dict], cycles: set[int]) -> list[dict]:
             return
         visiting.add(identifier)
         stored = edit_from_json(row.get("edit"))
-        links = [*_json_list(row.get("reference")), row.get("refine"), stored.source if stored else None]
+        detailer = detailer_from_json(row.get("detailer"))
+        links = [*_json_list(row.get("reference")), row.get("refine"), stored.source if stored else None,
+                 detailer.plan.source_id if detailer is not None else None]
         for source_id in links:
             if type(source_id) is int and source_id in by_id:
                 visit(by_id[source_id])
@@ -329,6 +376,16 @@ class _Masks:
         self.restored.add(digest)
         self.pictures[digest] = mask
         self.counts["masks"] += 1
+
+    def detailer(self, stored: StoredDetailer | None) -> None:
+        if stored is None:
+            return
+        for digest, picture in iter_rebuilt_masks(stored.plan):
+            if self.held(digest):
+                picture.close()
+            else:
+                self.restore(digest, picture)
+                self.counts["detailer_masks_rebuilt"] += 1
 
     def from_directory(self, directory: Path) -> None:
         """Every `masks/*.png` named by the hash of its own pixels."""
@@ -547,6 +604,7 @@ def _database_meta(
         **({"upscaler": upscaler} if upscaler is not None else {}),
         **execution_chunk(execution_from_json(row.get("execution"))),
         **edit_chunk(edit_from_json(row.get("edit"))),
+        **detailer_chunk(detailer_from_json(row.get("detailer"))),
         **storage.peak_chunk(row),
     }
 
@@ -564,6 +622,8 @@ def merge_database(
         "conflicts": 0,
         "unresolved_references": 0,
         "unresolved_edits": 0,
+        "unresolved_detailers": 0,
+        "detailer_masks_rebuilt": 0,
         "masks": 0,
         "bad_masks": 0,
         "unresolved_masks": 0,
@@ -598,6 +658,7 @@ def merge_database(
         try:
             execution_from_json(row.get("execution"))
             edit_from_json(row.get("edit"))
+            detailer_from_json(row.get("detailer"))
             png_settings.crop_anchor(
                 row.get("crop_anchor"), source=row.get("refine"),
                 mask=row.get("mask"), outpaint=row.get("outpaint"),
@@ -644,6 +705,7 @@ def merge_database(
         try:
             execution = _execution_from_sources(row, png_meta)
             stored_edit = edit_from_sources(row, png_meta or {})
+            stored_detailer = detailer_from_sources(row, png_meta or {})
         except ValueError as exc:
             counts["invalid"] += 1
             print(f"  skip  {filename}: invalid execution metadata: {exc}", file=out)
@@ -662,12 +724,17 @@ def merge_database(
                         retained_edit = edit_from_info(
                             _known_edit_row(known), {key: kept.info.get(key) for key in PNG_METADATA_KEYS},
                         )
+                        retained_detailer = detailer_from_info(
+                            _known_edit_row(known), {key: kept.info.get(key) for key in PNG_METADATA_KEYS},
+                        )
                 if retained != execution:
                     raise ValueError("different execution already uses that filename")
                 if not _same_edit(retained_edit, stored_edit) or (
                     stored_edit is not None and known.prompt != row["prompt"]
                 ):
                     raise ValueError("different instruction edit already uses that filename")
+                if not _same_detailer(retained_detailer, stored_detailer):
+                    raise ValueError("different detailer manifest already uses that filename")
             except (OSError, ValueError) as exc:
                 counts["conflicts"] += 1
                 print(f"  skip  {filename}: cannot keep its existing execution metadata: {exc}", file=out)
@@ -688,7 +755,20 @@ def merge_database(
             ):
                 edit_source = mapped_source
         remapped_edit = _remapped_edit(stored_edit, edit_source, counts)
-        row = {**row, "execution": execution_key(execution), "edit": edit_key(remapped_edit)}
+        detailer_source = None
+        if stored_detailer is not None and stored_detailer.plan.source_id is not None and source_id not in edit_cycles:
+            original_source = source_rows.get(stored_detailer.plan.source_id)
+            mapped_source = id_map.get(stored_detailer.plan.source_id)
+            if (
+                original_source is not None and original_source["filename"] == stored_detailer.plan.source.filename
+                and mapped_source is not None and _proves_detailer(source / original_source["filename"], stored_detailer)
+                and (dry_run or _proves_detailer(outputs / original_source["filename"], stored_detailer))
+            ):
+                detailer_source = mapped_source
+        remapped_detailer = _remapped_detailer(stored_detailer, detailer_source, counts)
+        row = {**row, "execution": execution_key(execution), "edit": edit_key(remapped_edit),
+               "detailer": detailer_json(remapped_detailer)}
+        masks.detailer(remapped_detailer)
 
         source_references = [
             value for value in _json_list(row.get("reference")) if isinstance(value, int)
@@ -785,6 +865,7 @@ def merge_database(
             "upscaler": meta.get("upscaler"),
             "execution": execution_key(execution),
             "edit": edit_key(remapped_edit),
+            "detailer": detailer_json(remapped_detailer),
             "batch": storage._batch(row.get("batch")),
             # The recycle bin is SQLite's alone, as the star is: carried with
             # the database, and None (live) from one that predates it.
@@ -801,7 +882,7 @@ def merge_database(
             png_execution = canonical_execution(png_meta.get("execution") if png_meta is not None else None)
             png_crop = png_meta.get("mask_crop") if png_meta is not None else None
             if (copied or row.get("refine") != refine or row.get("crop_anchor") != meta.get("crop_anchor")
-                    or execution != png_execution or remapped_edit != stored_edit
+                    or execution != png_execution or remapped_edit != stored_edit or remapped_detailer != stored_detailer
                     or png_crop != meta.get("mask_crop") or parameters is not None):
                 # A database rebuilt beside its original PNGs can renumber or
                 # lose a source too. Keep --from-image's crop and source in
@@ -829,6 +910,7 @@ def reindex(
         "indexed": 0, "present": 0, "no_metadata": 0, "conflicts": 0,
         "unresolved_references": 0, "masks": 0, "bad_masks": 0, "unresolved_masks": 0,
         "unresolved_edits": 0,
+        "unresolved_detailers": 0, "detailer_masks_rebuilt": 0,
         "outpaint_malformed": 0, "outpaints_recovered": 0, "outpaint_masks_rebuilt": 0,
         "mask_crop_malformed": 0, "mask_crops_recovered": 0,
         "invalid_upscalers": 0,
@@ -876,6 +958,25 @@ def reindex(
             return None
         return existing[filename]
 
+    def resolve_detailer(stored: StoredDetailer) -> int | None:
+        if stored.plan.source_id is None:
+            return None
+        filename = stored.plan.source.filename
+        if filename in visiting:
+            edit_cycles.update(visiting)
+            return None
+        if filename in paths:
+            index(paths[filename])
+        if filename not in existing or filename in edit_cycles:
+            return None
+        actual = edit_identities.get(filename)
+        if actual is None:
+            if not _proves_detailer(outputs / filename, stored):
+                return None
+        elif actual != stored.plan.source:
+            return None
+        return existing[filename]
+
     def resolve_source(provenance) -> int | None:
         if not isinstance(provenance, dict):
             return None
@@ -919,10 +1020,14 @@ def reindex(
                     raise ValueError("the retained row disappeared")
                 target_meta = _edit_metadata(outputs / path.name)
                 retained = edit_from_sources(_known_edit_row(known), target_meta or {})
+                incoming_detailer = canonical_detailer((_edit_metadata(path) or {}).get("detailer"))
+                retained_detailer = detailer_from_sources(_known_edit_row(known), target_meta or {})
                 if not _same_edit(incoming, retained) or (
                     incoming is not None and known.prompt != (_edit_metadata(path) or {}).get("prompt")
                 ):
                     raise ValueError("different instruction edit already uses that filename")
+                if not _same_detailer(incoming_detailer, retained_detailer):
+                    raise ValueError("different detailer manifest already uses that filename")
             except (OSError, ValueError) as exc:
                 counts["conflicts"] += 1
                 print(f"  skip  {path.name}: cannot keep existing edit metadata: {exc}", file=out)
@@ -944,6 +1049,7 @@ def reindex(
         try:
             execution = canonical_execution(meta.get("execution"))
             stored_edit = canonical_edit(meta.get("edit"))
+            stored_detailer = canonical_detailer(meta.get("detailer"))
         except ValueError as exc:
             counts["invalid_execution"] += 1
             print(f"  skip  {path.name}: invalid execution metadata: {exc}", file=out)
@@ -980,6 +1086,12 @@ def reindex(
         # only in memory; no dry-run metadata or file is ever written.
         planned_source = abs(edit_source) if dry_run and edit_source is not None else edit_source
         remapped_edit = _remapped_edit(stored_edit, planned_source, counts)
+        detailer_source = resolve_detailer(stored_detailer) if stored_detailer is not None else None
+        if path.name in edit_cycles:
+            detailer_source = None
+        detailer_source = abs(detailer_source) if dry_run and detailer_source is not None else detailer_source
+        remapped_detailer = _remapped_detailer(stored_detailer, detailer_source, counts)
+        masks.detailer(remapped_detailer)
         references = []
         reference_sources = []
         sources = _json_list(meta.get("reference_sources"))
@@ -1036,6 +1148,7 @@ def reindex(
             or meta.get("mask_crop") != crop_meta
             or parameters is not None
             or stored_edit != remapped_edit
+            or stored_detailer != remapped_detailer
         )
         meta = {
             **meta,
@@ -1066,6 +1179,8 @@ def reindex(
         meta.update(execution_chunk(execution))
         meta.pop("edit", None)
         meta.update(edit_chunk(remapped_edit))
+        meta.pop("detailer", None)
+        meta.update(detailer_chunk(remapped_detailer))
         digest = storage.content_hash(image) if image is not None else None
         identities[path.name] = {
             "filename": path.name, "hash": digest, "width": width, "height": height,
@@ -1183,6 +1298,10 @@ def main(argv: list[str] | None = None) -> int:
         summary += f", {counts['unresolved_references']} unresolved reference/refine source(s)"
     if counts["unresolved_edits"]:
         summary += f", {counts['unresolved_edits']} unresolved instruction-edit source(s)"
+    if counts["unresolved_detailers"]:
+        summary += f", {counts['unresolved_detailers']} unresolved detailer original source(s)"
+    if counts["detailer_masks_rebuilt"]:
+        summary += f", {counts['detailer_masks_rebuilt']} detailer mask(s) built again from their frozen regions"
     if counts["masks"]:
         summary += f", {counts['masks']} inpaint mask(s) {'to restore' if args.dry_run else 'restored'}"
     if counts["bad_masks"]:

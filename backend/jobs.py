@@ -23,6 +23,8 @@ from .backends import Cancelled, GenerationBackend
 from .model_selection import current_settings
 from .config import settings
 from .error_text import generation_error, short_error as short_error
+from .detailer import DetailerPlan
+from .detached import detached
 from .execution import require_configured_loader_available, require_default_execution, resolve_execution
 from .grid import Cell, CellKey, cell_keys, progress_steps, run_id as _run_id
 from .job_state import _TERMINAL, Job
@@ -89,12 +91,20 @@ def disk_full(exc: BaseException) -> bool:
 
 
 def _cell_masks(cells: list[Cell]) -> set[str]:
-    """The inpaint masks `cells` will read."""
-    return {
-        cell.request.mask
-        for cell in cells
-        if cell.request.refine is not None and cell.request.mask is not None
-    }
+    """Every mask a queued cell reads or retains in its saved provenance.
+
+    An individual detailer replay is an ordinary inpaint, yet its result
+    carries the full frozen plan. Hold those other region masks too, even
+    if the original result row is deleted while this replay waits.
+    """
+    masks: set[str] = set()
+    for cell in cells:
+        request = cell.request
+        if request.refine is not None and request.mask is not None:
+            masks.add(request.mask)
+        if request.detailer is not None:
+            masks.update(request.detailer.plan.masks)
+    return masks
 
 
 def _release_masks(job_id: str) -> None:
@@ -184,7 +194,8 @@ class JobManager:
         if job is None:
             return None
         with job._call_lock:
-            if job.status != "running" or job.paused or job.stage == "pass" or job.cancel_requested:
+            if (job.status != "running" or job.paused or job.stage == "pass"
+                    or job.detailer is not None or job.cancel_requested):
                 # Do not call skip_state while holding its non-reentrant lock.
                 refused = True
             else:
@@ -258,7 +269,13 @@ class JobManager:
         planned: dict[tuple[int, int], set[CellKey]] = {}
         editable = self.backend.instruction_edit_refusal(current_settings(settings)) is None
         for job in self.active():
-            for cell in [*job.cells, *list(job.pending_passes), *list(job.source_passes)]:
+            # Later detailer sources do not exist until their predecessor
+            # saves. Do not report guessed original-source keys as planned.
+            concrete = (
+                [job.detailer_cell] if job.detailer_cell is not None else
+                job.cells[:1] if job.status == "queued" else []
+            ) if job.detailer is not None else job.cells
+            for cell in [*concrete, *list(job.pending_passes), *list(job.source_passes)]:
                 if cell.request.edit is not None and not editable:
                     # Its backend has closed the gate since, or the selection
                     # left the measured envelope: the cell fails as it begins
@@ -291,7 +308,8 @@ class JobManager:
         return bool(self.active()) or self.more_seeds_intents.pending
 
     async def run_when_idle(
-        self, fn: Callable[[], Any], holder: str = "editor", ticket: str | None = None
+        self, fn: Callable[[], Any], holder: str = "editor", ticket: str | None = None,
+        *, daemon: bool = False,
     ) -> Any:
         """Run a synchronous backend operation without racing the job queue.
 
@@ -316,7 +334,14 @@ class JobManager:
             self._ticket = ticket
             try:
                 loop = asyncio.get_running_loop()
-                worker = loop.run_in_executor(self._pool, fn)
+                # Bounded CPU detector/download work is admitted exactly as
+                # accelerator work, but its thread must not be joined at
+                # interpreter exit. Request cancellation still holds the
+                # gate until that admitted worker has unwound.
+                worker = (
+                    asyncio.create_task(detached(fn, name=holder)) if daemon else
+                    loop.run_in_executor(self._pool, fn)
+                )
                 try:
                     return await asyncio.shield(worker)
                 except asyncio.CancelledError:
@@ -483,6 +508,17 @@ class JobManager:
             then_refine=then_refine,
         )
 
+    async def submit_detailer(self, cells: list[Cell], *, detailer: DetailerPlan) -> Job:
+        """Admit one frozen dependent inpaint chain, with every mask held.
+
+        The per-region cells name the original source until their turn.
+        Once a result commits the next call uses its id; this operation
+        cannot be resumed as a list of independent original-source cells.
+        """
+        return await self.submit_cells(
+            cells, run_id=detailer.group_id, grid=False, detailer=detailer,
+        )
+
     async def submit_cells(
         self,
         cells: list[Cell],
@@ -496,6 +532,7 @@ class JobManager:
         more_seeds: int | None = None,
         then_refine: ThenRefine | None = None,
         pass_sources: list[int] | None = None,
+        detailer: DetailerPlan | None = None,
     ) -> Job:
         """Queue an already-expanded list of pipeline calls - a grid, usually.
 
@@ -518,6 +555,24 @@ class JobManager:
         where the job's request is its first pass's.
         """
         sources = list(dict.fromkeys(pass_sources or []))
+        if detailer is not None:
+            detailer = DetailerPlan.model_validate(detailer)
+            if (sources or then_refine is not None or not cells
+                    or len(cells) != len(detailer.accepted) or detailer.source_id is None):
+                raise ValueError("a detailer queues one complete accepted plan without other passes")
+            if run_id is not None and run_id != detailer.group_id:
+                raise ValueError("a detailer's run id must match its frozen plan")
+            run_id, grid = detailer.group_id, False
+            for index, cell in enumerate(cells):
+                req = cell.request
+                if (req.refine != detailer.source_id or req.mask != detailer.masks[index]
+                        or (req.width, req.height) != (detailer.source.width, detailer.source.height)
+                        or cell.seed != wrap_seed(detailer.base_seed + index)
+                        or req.num_images != 1 or req.runs != 1 or req.edit is not None
+                        or req.outpaint is not None or req.mask_crop is not None
+                        or req.detailer is None or req.detailer.plan != detailer
+                        or req.detailer.pass_index != index):
+                    raise ValueError("a detailer cell must match its frozen source, mask and region")
         if sources and (then_refine is None or run_id is None):
             raise ValueError("missing passes need their run's Then refine and run id")
         source_passes = (
@@ -593,6 +648,7 @@ class JobManager:
             refine_batch=refine_batch,
             more_seeds=more_seeds,
             then_refine=then_refine,
+            detailer=detailer,
         )
         if then_refine is not None:
             job.pass_run_id = pass_run_id(resolved_run_id, then_refine)
@@ -616,6 +672,7 @@ class JobManager:
                 )
             job.holds_masks = True
         origin = (
+            "detailer" if detailer is not None else
             "more_seeds" if more_seeds is not None else
             "refine_batch" if refine_batch is not None else
             "swap" if swap is not None else
@@ -636,6 +693,7 @@ class JobManager:
                     **then_refine.model_dump(), "pass_run_id": job.pass_run_id,
                 },
                 **({"pass_sources": sources} if sources else {}),
+                **({"detailer": detailer.model_dump(mode="json")} if detailer is not None else {}),
             },
         }
         try:
@@ -850,7 +908,15 @@ class JobManager:
             log.error("job %s failed: %s", job.id, exc)
             log.debug("job traceback", exc_info=True)
             error = generation_error(exc)
-            if job.stopped_by == "failures":
+            if job.stopped_by == "detailer_failure":
+                kept = len(job.images)
+                error = (
+                    f"Detailer stopped at region {job.run} of {job.total_runs}; "
+                    f"{kept} completed pass{'' if kept == 1 else 'es'} kept. "
+                    "Start a new detailer review to try again. "
+                    f"Last: {error}"
+                )
+            elif job.stopped_by == "failures":
                 # The failure rule ended it, which is three in a row or a
                 # third of the grid - not one bad cell, which the last
                 # exception alone made it read as. Where, how many and
@@ -908,6 +974,37 @@ class JobManager:
         reason = geometry_refusal(resolved)
         if reason is not None:
             raise ValueError(reason)
+
+    @staticmethod
+    def _prove_detailer_source(image_id: int, proof) -> None:
+        """A live source must still be the full RGB pixels the plan names."""
+        from PIL import Image
+
+        from .instruction_edit import descriptor_from_image
+
+        (path,) = storage.reference_paths([image_id], noun="detailer source image")
+        with Image.open(path) as image:
+            if image.size != (proof.width, proof.height) or path.name != proof.filename:
+                raise ValueError(f"detailer source image #{image_id} changed; start a new detailer review")
+            actual = descriptor_from_image(path.name, image)
+        if actual != proof:
+            raise ValueError(f"detailer source image #{image_id} changed; start a new detailer review")
+
+    @staticmethod
+    def _prove_detailer_mask(request: GenerateRequest) -> None:
+        """A held name still has to contain the recorded full-size levels."""
+        from PIL import Image
+
+        from .record_fields import mask_hash
+
+        if request.mask is None:
+            raise ValueError("the detailer region has no mask; start a new review")
+        path = storage.mask_path(request.mask)
+        with Image.open(path) as image:
+            if (image.format != "PNG" or image.mode != "L"
+                    or image.size != (request.width, request.height)
+                    or mask_hash(image) != request.mask):
+                raise ValueError("the detailer's stored mask changed; start a new detailer review")
 
     def _generate(self, job: Job, loop: asyncio.AbstractEventLoop) -> bool:
         """Run the job's cells back to back, publishing images as they land.
@@ -1001,9 +1098,18 @@ class JobManager:
             if cancelled:
                 return True
         offset = len(job.pass_sources)
+        direct_source = job.detailer.source_id if job.detailer is not None else None
+        direct_proof = job.detailer.source if job.detailer is not None else None
         for index, cell in enumerate(job.cells):
             if self._stops_before(job, loop, offset + index):
                 return True
+            if job.detailer is not None:
+                # Every planned cell starts with the original source. Only
+                # this call is rebound after its predecessor committed.
+                # All full-size masks have already been held at admission.
+                cell = replace(cell, request=cell.request.model_copy(update={"refine": direct_source}))
+                job.detailer_cell = cell
+                job.stage = "detailer"
             req, seed = cell.request, cell.seed
             # A grid varies the step count between cells, so the totals the
             # progress events carry are the cell's, not the job's - and on a
@@ -1021,6 +1127,17 @@ class JobManager:
 
             started = time.perf_counter()
             try:
+                if job.detailer is not None:
+                    if direct_source is None or direct_proof is None:
+                        raise ValueError("the detailer's source has not been resolved; start a new review")
+                    self._prove_detailer_source(direct_source, direct_proof)
+                    # Ask the loaded class for each actual pass, not only
+                    # the profile that accepted the original source.
+                    self.backend.check_refine_supported(req)
+                if req.detailer is not None:
+                    # A saved pass replay is an ordinary inpaint job, yet
+                    # its mask must still match the recorded geometry.
+                    self._prove_detailer_mask(req)
                 # An inpaint's mask is a file beside the rows, not one: one
                 # lost since the submit fails this cell in words as it
                 # begins, before any backend reads it.
@@ -1064,6 +1181,14 @@ class JobManager:
                     job, loop, cell, images, elapsed_ms, self.backend.last_peak(),
                     mask_region=self.backend.last_mask_crop(),
                 )
+                if job.detailer is not None:
+                    if len(records) != 1 or len(images) != 1:
+                        raise ValueError("a detailer region must save exactly one result")
+                    from .instruction_edit import descriptor_from_image
+
+                    direct_source = records[0].id
+                    direct_proof = descriptor_from_image(records[0].filename, images[0])
+                    job.detailer_last_image = direct_source
                 if len(images) == req.num_images:
                     job.completed_indices.append(index)
             except Cancelled:
@@ -1088,12 +1213,19 @@ class JobManager:
                     "job %s: cell %d/%d failed: %s", job.id, index + 1, len(job.cells), exc
                 )
                 log.debug("cell traceback", exc_info=True)
+                if job.detailer is not None:
+                    # The next region depends on this result. Continuing
+                    # with an older source would misrepresent the chain.
+                    job.stopped_by = "detailer_failure"
+                    raise
                 if self._too_many_failures(consecutive, job.failures, self._units(job)):
                     job.stopped_by = "failures"
                     raise
                 continue
             finally:
                 job.end_call(call, clear_skip=True)
+                if job.detailer is not None:
+                    job.detailer_cell = None
             consecutive = 0
             if job.then_refine is not None:
                 cancelled, pass_streak = self._passes(

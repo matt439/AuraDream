@@ -1,6 +1,8 @@
 .venv/
 # Explicit regional compiler artifacts, never part of gallery bundles or source.
 auradream.compile-cache/
+# Pinned CPU detector assets, separate from gallery images/bundles.
+auradream.detailer/
 local-diffusion.compile-cache/
 # Local test fixtures, static-checker installations and diagnostic receipts.
 /work/

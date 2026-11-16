@@ -756,6 +756,7 @@ function receiveStatus(s, asked = Date.now()) {
     // And Edit by instruction's, with Generate held where the checkpoint only
     // edits (instruction-edit.js).
     if (s.defaults) syncEditCapability(s.defaults);
+    if (detailerSource) syncDetailerDialog();
     // Mass refine's Refine… says the hedge or the final answer as the status
     // settles it, and an open dialog's Refine what holds it now.
     syncRefineBatchButton();

@@ -11,9 +11,10 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from .config import settings
 from .execution import ExecutionSpec, canonical_execution
 from .instruction_edit import StoredInstructionEdit
+from .detailer import StoredDetailer
 from .refine import Upscaler
 from .png_settings import crop_anchor
-from .metadata import validate_edit_record
+from .metadata import validate_detailer_record, validate_edit_record
 from .schemas_generate import CropAnchor
 from .schemas_mask_crop import MaskCropSpec
 from .schemas_outpaint import OutpaintSpec
@@ -93,6 +94,7 @@ class ImageRecord(BaseModel):
     execution: ExecutionSpec | None = None
     # Frozen source proof survives missing or unproven imported source ids.
     edit: StoredInstructionEdit | None = None
+    detailer: StoredDetailer | None = None
     edit_missing: bool = False
     edit_binned: bool = False
     # How many images the pipeline call that made this one held (the panel's
@@ -159,6 +161,7 @@ class ImageRecord(BaseModel):
         ):
             raise ValueError("an instruction edit cannot also carry another generation workflow")
         validate_edit_record(self.edit, self.model_dump())
+        validate_detailer_record(self.detailer, self.model_dump())
         return self
 
 

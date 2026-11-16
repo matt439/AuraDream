@@ -214,8 +214,8 @@ async function startBundleClear(path, options, owner) {
 // the picked ids and shows the counts.
 const BUNDLE_SCOPE_HINTS = {
   all: "Includes every model, every starred image and the recycle bin. The gallery's search and filters do not limit this action.",
-  picked: 'Only the picked images, whatever the filter, with their thumbnails. The gallery is kept. A refine source or a reference travels only if it is picked too.',
-  starred: 'The starred images of every model, outside the recycle bin, with their thumbnails. The gallery is kept. A refine source or a reference travels only if it is starred too.',
+  picked: 'Picked images only; gallery kept. Sources, references and intermediate detail passes must be picked too. Masks and detail settings travel; missing sources prevent replay.',
+  starred: 'Starred images only, outside the bin; gallery kept. Sources, references and intermediate detail passes must be starred too. Masks and detail settings travel; missing sources prevent replay.',
 };
 
 // Frozen pre-rename literal (Local Diffusion): must equal backend/bundle_crypto.py
@@ -620,8 +620,8 @@ function renderBundleResult(status, past = false) {
     const leftOut = left === 1 ? ' 1 picked image was left out: it is in the recycle bin or no longer in the gallery.'
       : left ? ` ${left} picked images were left out: they are in the recycle bin or no longer in the gallery.` : '';
     const links = result.links_outside || 0;
-    const outside = links === 1 ? ' 1 link to a source image (a reference or a refine source) points outside the bundle; an import leaves it out.'
-      : links ? ` ${links} links to source images (references or refine sources) point outside the bundle; an import leaves them out.` : '';
+    const outside = links === 1 ? ' 1 source link points outside the bundle; its image is not added automatically. A pass needing it cannot replay.'
+      : links ? ` ${links} source links point outside the bundle; their images are not added automatically. Passes needing them cannot replay.` : '';
     say(`Backed up and verified ${what}. The gallery is unchanged.${leftOut}${outside}`, false);
   } else if (status.operation === 'export') {
     const end = result.cleared ? (past ? 'The gallery was cleared.' : 'The gallery is empty and ready for new images.')

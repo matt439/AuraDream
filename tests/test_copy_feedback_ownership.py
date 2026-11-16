@@ -96,7 +96,10 @@ function fixture() {
     referenceAt: () => -1, useSeed: poison('useSeed'), usePromptReason: () => '',
     usePrompt: poison('usePrompt'), isShown: () => true, starTitle: () => 'Star',
     settingsLine: () => 'cold', promptSearchLine: () => element(), factsList: () => element(),
+    // Unrelated pass-menu appearance adapters stay inert; the actual copy
+    // item, press, feedback and lightbox ownership functions run below.
     syncReuseButton: noop, syncMoreSeedsFor: noop, syncOutpaintTool: noop, syncEditTool: noop,
+    syncDetailerTool: noop,
     syncReferenceTool: noop, syncLightboxInpaint: noop, syncLightboxOutpaint: noop,
     syncPhoneViewerImage: noop, $: () => element(),
     forgetLadders: noop, showModelPicker: poison('model picker'), OFFLINE_MESSAGE: 'offline',

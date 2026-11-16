@@ -31,6 +31,7 @@
 <link rel="stylesheet" href="/static/styles/inpaint.css">
 <link rel="stylesheet" href="/static/styles/outpaint.css">
 <link rel="stylesheet" href="/static/styles/instruction-edit.css">
+<link rel="stylesheet" href="/static/styles/detailer.css">
 <link rel="stylesheet" href="/static/styles/bundles.css">
 <link rel="stylesheet" href="/static/styles/swap.css">
 <link rel="stylesheet" href="/static/styles/refine-batch.css">
@@ -2046,6 +2047,54 @@
   </div>
 </dialog>
 
+<!-- One image, CPU detection and an explicit review before serial inpaints. -->
+<dialog class="inpaint-dialog detailer-dialog" id="detailer-dialog" aria-labelledby="detailer-title"
+        aria-describedby="detailer-source-line">
+  <div class="ip-head dialog-head">
+    <h2 id="detailer-title">Detail faces/hands</h2>
+    <button type="button" class="close" id="detailer-close" aria-label="Close (Escape)">✕</button>
+  </div>
+  <div class="ip-paint">
+    <div class="ip-stage detailer-stage" id="detailer-stage">
+      <img id="detailer-image" alt="" draggable="false">
+      <div class="detailer-boxes" id="detailer-boxes" role="group" aria-label="Detected regions on the source"></div>
+    </div>
+  </div>
+  <div class="ip-controls">
+    <p class="rf-source-line" id="detailer-source-line"></p>
+    <label class="field"><span>Detector</span><select id="detailer-detectors"></select></label>
+    <p class="hint" id="detailer-detector-note"></p>
+    <div class="detailer-detector-actions">
+      <button type="button" class="ghost small" id="detailer-prepare">Download detector</button>
+      <button type="button" class="ghost small" id="detailer-refresh">Refresh status</button>
+      <button type="button" class="ghost small" id="detailer-detect">Detect regions</button>
+    </div>
+    <p class="sr-only" id="detailer-busy" role="status"></p>
+    <ol class="detailer-region-list" id="detailer-regions" aria-label="Regions in pass order"></ol>
+    <p class="hint detailer-order-note" id="detailer-order-note">The marked areas are the masks. Passes run in list order; overlaps keep earlier edits. Each pass is saved.</p>
+    <details class="detailer-recipe" id="detailer-recipe">
+      <summary>Prompt and sampling for these passes</summary>
+      <label class="field"><span>Prompt</span><textarea id="detailer-prompt" rows="3" spellcheck="true"></textarea></label>
+      <label class="field"><span>Negative prompt</span><textarea id="detailer-negative" rows="2" spellcheck="true"></textarea></label>
+      <p class="hint" id="detailer-carried"></p>
+    </details>
+    <div class="field"><div class="row">
+      <div class="sub grow"><i><label for="detailer-strength">Strength</label></i><input id="detailer-strength" type="number" min="0.01" max="1" step="0.05" inputmode="decimal"></div>
+      <div class="sub grow"><i><label for="detailer-steps">Steps</label></i><input id="detailer-steps" type="number" min="1" max="100" step="1" inputmode="numeric"></div>
+      <div class="sub grow"><i><label for="detailer-guidance">CFG</label></i><input id="detailer-guidance" type="number" min="0" max="20" step="0.1" inputmode="decimal"></div>
+      <div class="sub grow"><i><label for="detailer-seed">Base seed</label></i><input id="detailer-seed" type="number" min="0" step="1" placeholder="random" inputmode="numeric"></div>
+    </div></div>
+    <div class="detailer-said">
+      <p class="hint" id="detailer-summary" aria-live="polite"></p>
+      <p class="error" id="detailer-error" role="alert" hidden></p>
+    </div>
+    <div class="rf-actions dialog-actions">
+      <button type="button" class="ghost" id="detailer-cancel">Cancel</button>
+      <button type="button" class="primary" id="detailer-run" aria-keyshortcuts="Control+Enter" aria-disabled="true" title="Detect regions, then review them before queuing.">Queue detail passes</button>
+    </div>
+  </div>
+</dialog>
+
 <!-- The questions a delete asks (ask-dialog.js: confirmDialog,
      countDialog) - Delete unstarred's count, and in the recycle bin Delete
      permanently and Empty recycle bin - in the page's own dialog beside what
@@ -2556,6 +2605,7 @@
 <script src="/static/inpaint.js"></script>
 <script src="/static/outpaint.js"></script>
 <script src="/static/instruction-edit.js"></script>
+<script src="/static/detailer.js"></script>
 <script src="/static/prompt-note.js"></script>
 <script src="/static/tags.js"></script>
 <script src="/static/tag-lists.js"></script>

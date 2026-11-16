@@ -27,11 +27,11 @@ def cell(seed, *, prompt="a retained fox", batch=1, **fields):
     )
 
 
-def retain(store, cells, run="retained-night", *, model=None, quant=None, metadata=None, completed=()):
+def retain(store, cells, run="retained-night", *, model=None, quant=None, metadata=None, completed=(), origin="grid"):
     job_id = uuid.uuid4().hex[:12]
     first = cells[0]
     store.retain_run_job({
-        "job_id": job_id, "run_id": run, "created_at": time.time(), "origin": "grid",
+        "job_id": job_id, "run_id": run, "created_at": time.time(), "origin": origin,
         "model_id": model or settings.model_id, "quantization": quant or settings.quantization,
         "width": first.request.width, "height": first.request.height,
         "batch": first.request.num_images, "comparison": bool((metadata or {}).get("comparison")),
@@ -172,6 +172,84 @@ def test_foreign_checkpoint_and_quantizer_hold_before_any_admission(client, stor
     assert not answer["available"] and words in answer["reason"]
     assert client.post(f"/api/runs/{run}/finish", json={}).status_code == 409
     assert not fake.seeds
+
+
+@pytest.mark.parametrize("state", ["never-started", "partial", "deleted"])
+def test_detailer_run_cannot_replay_dependent_templates_after_restart(client, store, fake, monkeypatch, state):
+    cells = [cell(10), cell(11)]
+    run = retain(store, cells, origin="detailer")
+    if state != "never-started":
+        record = plant(store, cells[0], run)
+        if state == "deleted":
+            store.delete_image(record.id)
+    client.portal.call(main.jobs.shutdown)
+    monkeypatch.setattr(main, "jobs", JobManager(fake, main.ensure_loaded))
+
+    answer = preview(client, run)
+    assert not answer["available"] and answer["total"] == 2
+    assert answer["cells"] == answer["images"] == 0
+    assert "Detailer chains cannot be finished automatically" in answer["reason"]
+    assert "review the last saved image" in answer["reason"]
+    details = client.get(f"/api/runs/{run}")
+    assert details.status_code == 200, details.text
+    assert not details.json()["actions"]["finish"]["available"]
+    refused = client.post(f"/api/runs/{run}/finish", json={"expected": answer["pin"]})
+    assert refused.status_code == 422 and refused.json()["detail"] == answer["reason"]
+    assert not main.jobs.active() and fake.requests == []
+
+
+def test_one_detailer_definition_holds_all_templates_in_a_shared_run(client, store, fake):
+    run = retain(store, [cell(1)])
+    retain(store, [cell(2)], run, origin="detailer")
+    answer = preview(client, run)
+    assert not answer["available"] and answer["total"] == 2
+    refused = client.post(f"/api/runs/{run}/finish", json={})
+    assert refused.status_code == 422 and "Detailer chains" in refused.json()["detail"]
+    assert not main.jobs.active() and fake.requests == []
+
+
+@pytest.mark.parametrize("original_chain", [False, True])
+def test_detailer_ancestry_holds_imported_chain_but_allows_independent_single_pass_finish(
+    client, store, fake, original_chain,
+):
+    from backend.detailer import DetailerPlan, DetectorFacts, Region, StoredDetailer, region_mask
+    from backend.instruction_edit import descriptor_from_image
+
+    source = plant(store, cell(1), "detailer-source")
+    with Image.open(store.reference_paths([source.id])[0]) as image:
+        proof = descriptor_from_image(source.filename, image)
+    region = Region(id="face", kind="face", box=(32, 32, 96, 96), confidence=0.9, detector="fixture")
+    with region_mask(256, 256, region, 0, 0) as image:
+        digest, _ = store.store_mask(image)
+    plan = DetailerPlan(
+        source_id=source.id, source=proof,
+        detectors=[DetectorFacts(id="fixture", runtime="fixture", version="1", asset_revision="1",
+                                 asset_sha256="0" * 64, preprocessing="RGB")],
+        candidates=[region], accepted=[region.id], masks=[digest], padding=0, feather=0,
+        threshold=0.5, nms_iou=0.5, base_seed=2, recipe={"prompt": "detail"},
+    )
+    item = cell(2, refine=source.id, mask=digest, strength=1,
+                detailer=StoredDetailer(plan=plan, pass_index=0))
+    if original_chain:
+        # Bundles/PNG imports keep the operation id and provenance but do not
+        # carry the local run_jobs recovery table.
+        run = plan.group_id
+        plant(store, item, run)
+        answer = preview(client, run)
+        assert not answer["available"] and answer["total"] == 1
+        assert "Detailer chains" in answer["reason"]
+        details = client.get(f"/api/runs/{run}")
+        assert details.status_code == 200 and details.json()["sizes"] == [[256, 256]]
+        assert client.post(f"/api/runs/{run}/finish", json={}).status_code == 422
+        assert not main.jobs.active() and fake.requests == []
+    else:
+        # A deliberate single-pass replay still carries its detection ancestry,
+        # while its ordinary independent run is safe to finish without detection.
+        run = retain(store, [item], run="single-detailer-pass")
+        answer = preview(client, run)
+        assert answer["available"]
+        _, done = finish(client, run, answer)
+        assert len(done["images"]) == 1 and fake.seeds == [2]
 
 
 def test_nonempty_run_with_no_matching_keys_is_held_as_drift(client, store, fake):

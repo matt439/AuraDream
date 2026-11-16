@@ -335,6 +335,7 @@ function streamJob(jobId, { reattached = 0 } = {}) {
       if (alive && reattached < 3) return streamJob(jobId, { reattached: reattached + 1 });
       const grid = job?.grid;
       const submitted = submissions.get(jobId);
+      const detailer = !!job?.detailer || submitted?.path === '/api/detailer';
       const runId = job?.run_id ?? submitted?.run_id;
       forgetJob(jobId);
       setBusy(false);
@@ -362,7 +363,8 @@ function streamJob(jobId, { reattached = 0 } = {}) {
         const text = made
           ? `The server restarted, and this job ended with it after ${made}${planned ? ` of ${planned}` : ''} `
             + `image${(planned ?? made) === 1 ? '' : 's'}. They are in the gallery; `
-            + (runId ? 'Open this run from Runs and use Finish run for the rest.'
+            + (detailer ? 'Open Detail faces/hands… on an image for a new review.'
+              : runId ? 'Open this run from Runs and use Finish run for the rest.'
               : `Use ${grid ? "the panel's Resume tick" : 'Generate'} for this older job.`)
           : 'The server restarted, and this job ended with it before any of it had finished.';
         showError(text);
@@ -377,8 +379,8 @@ function streamJob(jobId, { reattached = 0 } = {}) {
       holdTitle(failure?.offline ? 'Server not answering' : 'Lost the job');
       // Its first frame had cleared the strip and nothing of it landed: the
       // viewer was an empty box, the only words red in the panel.
-      if (lost && cleared && !made) showLostRun({ ...lost, run: runId }, submitted);
-      else if (lost && runId) setFinish([
+      if (lost && cleared && !made) showLostRun({ ...lost, run: runId, detailer }, submitted);
+      else if (lost && runId && !detailer) setFinish([
         finishRunButton(runId, { className: 'ghost tiny', slot: els.error }),
       ]);
       // With another tab's images owed since this job took over (finishJob);

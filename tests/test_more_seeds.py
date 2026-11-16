@@ -3,10 +3,14 @@ from __future__ import annotations
 
 import dataclasses
 
+import pytest
+
 from backend import more_seeds
 from backend.config import settings
 from backend.schemas import ImageRecord
 from backend.seeds import MAX_SEED
+from tests.bundle_helpers import save_source
+from tests.detailer_helpers import save_detail
 
 
 def record(id_, seed, *, run_id="r", job_id="j", prompt="a fox", batch=None, **fields):
@@ -55,3 +59,22 @@ def test_calls_are_consecutive_seeds_at_most_the_batch_each():
     assert more_seeds.calls([1, 2, 3, 4, 5], 2) == [[1, 2], [3, 4], [5]]
     assert more_seeds.calls([1, 2, 4, 5, 6], 4) == [[1, 2], [4, 5, 6]]
     assert more_seeds.calls([MAX_SEED, 0, 1], 3) == [[MAX_SEED, 0, 1]]
+
+
+@pytest.mark.parametrize("recorded", [False, True])
+def test_detailer_more_seeds_are_independent_single_passes_with_unrecorded_batch(store, recorded):
+    child = save_detail(save_source())
+    if not recorded:
+        child = child.model_copy(update={"batch": None})
+    batch, = more_seeds.group([child])
+    more_seeds.plan(batch, count=3, fallback=4, applied=lambda request: request, held=set())
+    assert batch.status == more_seeds.QUEUED and batch.size == 1
+    assert batch.seeds == [child.seed + offset for offset in (1, 2, 3)]
+    assert len(batch.cells) == 3
+    for cell in batch.cells:
+        assert cell.request.num_images == cell.request.runs == 1
+        assert cell.request.refine == child.refine and cell.request.mask == child.mask
+        assert cell.request.detailer == child.detailer
+    if not recorded:
+        assert "detailer passes run one image per call" in batch.notes
+        assert not any("pixel budget" in note for note in batch.notes)

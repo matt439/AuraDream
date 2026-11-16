@@ -34,7 +34,11 @@ from . import gallery_lock, refine
 # alike. `grid` imports neither this module nor anything that does.
 from .grid import lora_key, mask_key, reference_key, refine_key, shape_key
 from .instruction_edit import InstructionEditSource, descriptor_from_image, edit_key
-from .metadata import PNG_MASK_KEY, PNG_METADATA_KEY, canonical_edit, edit_chunk, edit_from_json, validate_edit_record
+from .detailer import stored_json as detailer_json
+from .metadata import (
+    PNG_MASK_KEY, PNG_METADATA_KEY, canonical_detailer, canonical_edit, detailer_chunk, detailer_from_json,
+    edit_chunk, edit_from_json, validate_detailer_record, validate_edit_record,
+)
 from .mask_crop import Crop
 from .png_settings import crop_anchor as _crop_anchor
 from .refusal_codes import IMAGE_BINNED, IMAGE_UNKNOWN, MASK_MISSING, CodedError
@@ -191,7 +195,8 @@ CREATE TABLE IF NOT EXISTS images (
     vram_peak_allocated INTEGER,
     vram_peak_reserved  INTEGER,
     mask_crop       TEXT,
-    mask_crop_box   TEXT
+    mask_crop_box   TEXT,
+    detailer        TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_images_created ON images (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_images_job ON images (job_id);
@@ -322,6 +327,9 @@ _ADDED_COLUMNS = (
     # a result like the peak pair, for display and pricing, never in a key.
     # Only ever set beside `mask_crop`.
     ("mask_crop_box", "TEXT", None),
+    # The frozen detector/regions/chain explanation; individual passes still
+    # replay as ordinary inpaints, never by running detection again.
+    ("detailer", "TEXT", None),
 )
 
 
@@ -495,6 +503,7 @@ def _row_to_record(
         upscaler=row["upscaler"],
         execution=execution_from_json(row["execution"]),
         edit=edit,
+        detailer=detailer_from_json(row["detailer"]),
         edit_missing=edit_missing or (edit is not None and edit.source is None),
         edit_binned=edit_binned,
         batch=row["batch"],
@@ -525,7 +534,7 @@ _COLUMNS = (
     "mu", "seed", "model_id", "duration_ms", "favorite", "created_at", "job_id", "run_id",
     "quantization", "variables", "true_cfg", "content_hash", "reference", "lora", "lora_scale",
     "refine", "strength", "crop_anchor", "batch", "binned_at", "mask", "outpaint", "upscaler",
-    "execution", "edit", "vram_peak_allocated", "vram_peak_reserved", "mask_crop", "mask_crop_box",
+    "execution", "edit", "vram_peak_allocated", "vram_peak_reserved", "mask_crop", "mask_crop_box", "detailer",
 )
 
 # What every live-facing read adds: an image in the recycle bin is gone from
@@ -611,6 +620,7 @@ def save_image(
     created = datetime.now(timezone.utc)
     execution = canonical_execution(request.execution)
     edit = edit_from_json(edit_key(request.edit))
+    detailer = request.validate_detailer()
     allocated, reserved = (_peak(peak[0]), _peak(peak[1])) if peak is not None else (None, None)
     variables_json = json.dumps(variables) if variables else None
     mask = request.mask if request.refine is not None else None
@@ -691,12 +701,14 @@ def save_image(
         **({"upscaler": upscaler} if upscaler is not None else {}),
         **execution_chunk(execution),
         **edit_chunk(edit),
+        **detailer_chunk(detailer),
         # Results, not settings, so absent rather than null when unmeasured:
         # a chunk from a CPU or before them reads the same.
         **peak_chunk({"vram_peak_allocated": allocated, "vram_peak_reserved": reserved}),
     }
     info = PngImagePlugin.PngInfo()
     validate_edit_record(edit, meta)
+    validate_detailer_record(detailer, meta)
     # A1111-style single-line block, so other tools can read the params back.
     # Mu is not an A1111 key, but it is part of what reproduces the image, which
     # is the reason the block exists. Nor is True CFG: on FLUX.1 the CFG
@@ -791,6 +803,7 @@ def save_image(
                         "upscaler": upscaler,
                         "execution": execution_key(execution),
                         "edit": edit_key(edit),
+                        "detailer": detailer_json(detailer),
                         "vram_peak_allocated": allocated,
                         "vram_peak_reserved": reserved,
                         "mask_crop": crop_spec.key() if crop_spec is not None else None,
@@ -1219,6 +1232,7 @@ def import_file(values: dict[str, Any]) -> ImageRecord:
         **values,
         "execution": execution_key(execution_from_json(values.get("execution"))),
         "edit": edit_key(edit_from_json(values.get("edit"))),
+        "detailer": detailer_json(detailer_from_json(values.get("detailer"))),
         "crop_anchor": _crop_anchor(
             values.get("crop_anchor"), source=values.get("refine"),
             mask=values.get("mask"), outpaint=values.get("outpaint"),
@@ -1232,6 +1246,7 @@ def import_file(values: dict[str, Any]) -> ImageRecord:
         _box_within(values.get("mask_crop_box"), values["width"], values["height"])
         if values["mask_crop"] is not None else None
     )
+    validate_detailer_record(detailer_from_json(values.get("detailer")), values)
     with _write_lock, _session() as conn:
         row = _insert_row(conn, {column: values.get(column) for column in _COLUMNS})
         states = _edit_states(conn, [row])
@@ -1271,7 +1286,9 @@ def index_file(
     )
     execution = execution_key(meta.get("execution"))
     edit = edit_key(meta.get("edit"))
+    detailer = detailer_json(canonical_detailer(meta.get("detailer")))
     validate_edit_record(canonical_edit(meta.get("edit")), {**meta, "width": width, "height": height})
+    validate_detailer_record(canonical_detailer(meta.get("detailer")), {**meta, "width": width, "height": height})
     with _write_lock, _session() as conn:
         row = _insert_row(
             conn,
@@ -1313,6 +1330,7 @@ def index_file(
                 ),
                 "execution": execution,
                 "edit": edit,
+                "detailer": detailer,
                 "vram_peak_allocated": _peak(meta.get("vram_peak_allocated")),
                 "vram_peak_reserved": _peak(meta.get("vram_peak_reserved")),
                 "mask_crop": crop[0].key() if crop is not None else None,

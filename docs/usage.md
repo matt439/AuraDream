@@ -753,6 +753,49 @@ strength is the place to start; see [verified.md](verified.md#inpaint).
 FLUX.1 Krea dev's outpaint was measured too: its 16:9 seams joined cleanly
 ([verified.md](verified.md#outpaint)); dev and schnell were not.
 
+## Detail faces and hands
+
+Open a gallery image's right-click menu and choose **Detail faces/hands…**.
+This action currently uses supported SDXL checkpoints. Choose a detector,
+read its image-domain limits, and press **Download detector** if its pinned
+assets are missing. Downloads happen only at that press. **Detect regions**
+runs on the CPU while the server is idle and does not load an image model.
+For a cached detector, **Verify/repair detector** checks its assets and may
+download changed or corrupt files again, within the stated size bound.
+
+Review the numbered mask areas and the matching checkbox list. Each area
+includes the detector's box plus its padding, with feathering inside the
+marked boundary. Untick false
+positives or regions you want to keep. The server fixes the order shown;
+overlapping regions are kept separate, and later passes see earlier edits.
+No detections, or no regions selected, queues nothing. A detector only finds
+a region: it does not decide that anatomy is wrong or promise an improvement.
+The detector's confidence is not an image-quality score.
+
+**Prompt and sampling for these passes** opens the source's prompt pair.
+Strength, Steps, CFG and Base seed apply to the detail passes; consecutive
+regions use consecutive seeds. A blank Base seed draws a random one. The
+main prompt, seed and references stay as they were. **Queue detail passes**
+runs one whole-canvas inpaint per selected region, preserving every unmasked
+source pixel. Each result is saved; the next region starts from that saved
+result, and the original stays in the gallery.
+
+Pause takes effect between regions. Cancel keeps completed passes, discards
+the unfinished pass and stops the rest. A failed region stops the chain too.
+Skip and automatic Finish are unavailable for a dependent detail chain;
+open **Detail faces/hands…** on an image for a new review. A changed source,
+checkpoint or expired review needs fresh detection before Queue.
+
+Each saved pass keeps its source, mask and detail settings in its gallery
+record and PNG. Rerunning an individual pass uses those saved inputs without
+redetection. A picked or starred bundle includes source images and
+intermediate passes only if you select those too; its masks and detail
+settings travel, but an omitted source prevents replay.
+
+CPU detection and fake-browser checks do not qualify small-region render
+quality, seams, identity or anatomy on the card. That comparison remains a
+separate acceptance step in the [detailer plan](maintainer/plan-detailer.md).
+
 ## Outpaint an image
 
 **Outpaint…** extends a gallery image's canvas past its edges and paints the

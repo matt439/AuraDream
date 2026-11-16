@@ -23,6 +23,7 @@ from pydantic_core import PydanticCustomError
 
 from . import instruction_edit as edit_rules
 from .instruction_edit import InstructionEditSpec, StoredInstructionEdit
+from .detailer import StoredDetailer, verify_masks
 from .model_selection import current_model_id
 from .config import settings
 from .execution import (
@@ -188,12 +189,35 @@ class GenerateRequest(BaseModel):
     # New intent may carry source/recipe alone. Complete stored replay data
     # travels here too, but its proof is always checked again at admission.
     edit: InstructionEditSpec | StoredInstructionEdit | None = None
+    # Frozen detection provenance, never permission to redetect or replay a
+    # chain. This request runs exactly one ordinary inpaint of its direct source.
+    detailer: StoredDetailer | None = None
     seed: int | None = Field(default=None, ge=0, le=MAX_SEED)
     num_images: int = Field(default=1, ge=1, le=MAX_BATCH)
     # Sequential passes. Each one is a separate pipeline call whose base seed is
     # the previous run's plus `num_images`, so a long sweep costs no more VRAM
     # than a single image - which is what makes 2K sweeps possible at all.
     runs: int = Field(default=1, ge=1, le=MAX_RUNS)
+
+    def validate_detailer(self) -> StoredDetailer | None:
+        if self.detailer is None:
+            return None
+        detail = StoredDetailer.model_validate(self.detailer)
+        if self.refine is None or self.mask != detail.expected_mask:
+            raise ValueError("a detailer pass needs its direct inpaint source and recorded mask")
+        if (self.width, self.height) != (detail.plan.source.width, detail.plan.source.height):
+            raise ValueError("a detailer pass must keep its original source dimensions")
+        if self.edit is not None or self.outpaint is not None or self.mask_crop is not None or self.upscaler is not None:
+            raise ValueError("a detailer pass is an ordinary whole-canvas inpaint")
+        if self.num_images != 1 or self.runs != 1:
+            raise ValueError("a detailer pass runs one image per call")
+        verify_masks(detail.plan)
+        return detail
+
+    @model_validator(mode="after")
+    def _detailer_is_an_inpaint(self) -> "GenerateRequest":
+        self.validate_detailer()
+        return self
 
     @field_validator("edit", mode="before")
     @classmethod
@@ -503,6 +527,10 @@ class GenerateRequest(BaseModel):
         # Also covers internal model_copy requests without revalidating a
         # stamped outpaint (whose derived mask is deliberately post-validation).
         require_default_execution(self.execution)
+        if self.detailer is not None:
+            self.validate_detailer()
+            if not inpaint_supported:
+                raise ValueError("this checkpoint cannot run the recorded detailer inpaint")
         if self.edit is not None:
             bound_edit = self.validate_edit(require_bound=True)
             if not instruction_edit_supported:

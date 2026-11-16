@@ -34,6 +34,8 @@ dependencies = [
     "peft>=0.20.0",
     # Password-protected gallery bundles (backend/bundle_crypto.py).
     "cryptography>=44",
+    # CPU-only face/hand region review; model assets download only on explicit request.
+    "opencv-python-headless==4.13.0.92",
 ]
 
 [project.urls]

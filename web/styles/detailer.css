@@ -1,0 +1,38 @@
+/* ------------------------------------------------------ face and hand review */
+.detailer-dialog { --ip-image-h: 18vh; scrollbar-gutter: stable; }
+.detailer-stage img { object-fit: contain; }
+.detailer-stage { overflow: visible; }
+.detailer-boxes { position: absolute; inset: 0; pointer-events: none; }
+.detailer-box {
+  position: absolute; pointer-events: auto; padding: 0; min-width: 0; min-height: 0;
+  display: flex; align-items: flex-start; justify-content: flex-start;
+  border: 2px dashed #fff; border-radius: 0; background: rgba(0, 0, 0, 0.15);
+  color: #fff; text-shadow: 0 1px 2px #000; font-size: var(--fs-sm);
+  box-shadow: 0 0 0 1px #000; cursor: pointer;
+}
+.detailer-box[aria-pressed="true"] { border-style: solid; border-color: #fff; background: rgba(106, 76, 240, 0.24); }
+.detailer-box[aria-pressed="false"] { opacity: 0.65; }
+.detailer-box:focus-visible { outline: 3px solid var(--accent-2); outline-offset: 3px; }
+.detailer-detector-actions { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+.detailer-detector-actions button { min-width: 12ch; }
+#detailer-prepare { min-width: 24ch; }
+#detailer-detector-note, #detailer-summary { margin: 0; min-height: calc(2 * var(--lh) * var(--fs-body-sm)); }
+#detailer-detector-note { height: calc(2 * var(--lh) * var(--fs-body-sm)); overflow-y: auto; }
+.detailer-region-list {
+  min-height: 80px; height: 80px; overflow-y: auto; margin: 0;
+  padding: var(--sp-2); list-style: none; border: 1px solid var(--line);
+  border-radius: var(--r-md); background: var(--panel-2);
+}
+.detailer-region-list li { margin: 0; }
+.detailer-region-list label { display: flex; align-items: center; gap: var(--sp-2); min-height: var(--h-sm); cursor: pointer; }
+.detailer-region-list input { flex: none; }
+.detailer-order-note { margin: 0; }
+.detailer-recipe > summary { cursor: pointer; color: var(--text); }
+.detailer-recipe .field { margin-top: var(--sp-2); }
+.detailer-said { height: calc(2 * var(--lh) * var(--fs-body-sm)); overflow-y: auto; }
+#detailer-error { margin: 0; font-size: var(--fs-body-sm); }
+.detailer-dialog .dialog-actions > button:last-child { min-width: 20ch; }
+@media (min-width: 1800px) {
+  .detailer-dialog { --ip-image-h: min(68vh, 1000px); }
+  .detailer-region-list { height: 150px; }
+}

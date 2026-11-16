@@ -332,6 +332,18 @@ paragraphs, never rewording.
   descriptor and exact recipe geometry before key/admission work
   (`bind_source`, `bind_request`); `load_bound_source` proves and decodes
   through one open handle and returns the prepared working-size RGB; no loading.
+- `backend/detailer.py` — versioned detector/region/plan provenance, canonical
+  ordering and suppression, frozen box-feather masks and operation identity;
+  stored limits are independent of current request ceilings.
+- `backend/detailer_admission.py` — bounded gallery-only RGB decode and source
+  proof for a detailer's preview and queue admission; no model loading.
+- `backend/detailer_detectors.py` — cold detector status, explicit pinned asset
+  preparation and lazy CPU-only anime/photographic face and hand detectors.
+- `backend/detailer_hands.py` — the OpenCV Zoo palm/hand ONNX preprocessing,
+  inference and landmark-to-box adapter; native DNN calls use CPU only.
+- `backend/api_detailer.py` — detector status/preparation, admitted CPU preview
+  and bounded single-use region reviews; validates sources and ordinary SDXL
+  inpaints before submitting a serial detail operation.
 - `backend/api_instruction_edit.py` — the cold single-source preview and
   `POST /api/instruction-edit`, the one route that queues an edit, both behind
   the backend's `instruction_edit_qualified()`, the selected checkpoint, the
@@ -905,7 +917,7 @@ paragraphs, never rewording.
 
 ### The page (`web/`)
 
-- `web/` - served as-is from `/static`; `index.html` loads 78 classic
+- `web/` - served as-is from `/static`; `index.html` loads 79 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `page-helpers.js`, right
   after it, the page-wide pure helpers (`plural`, `excerpt`, `units`,
@@ -934,6 +946,8 @@ paragraphs, never rewording.
   controls, the frame, the preview, submit, close and Reuse; `styles/outpaint.css`);
   `instruction-edit.js` Edit by instruction… (the capability, the menu item, the
   dialog's preview, submit, close and Reuse, and an edit's lineage; `styles/instruction-edit.css`);
+  `detailer.js` the single-image face/hand detector status, explicit download,
+  candidate review, overlay boxes and ordered inpaint submission (`styles/detailer.css`);
   `prompt-note.js` the note under the prompt and its Undo (`showPromptNote`, `promptUndo`); `tags.js`, `tag-tokens.js` and `tag-chips.js` the prompt helper, `tag-lists.js` the editors' suggestion lists and the negative box's, `tag-helper.js` its Tags menu (the toggles, Start with, Finish with and the caret line), `tag-finder.js` its Find
   tag dropdown; `prompt-examples.js` the
   Examples menu, `prompt-expand.js` Expand (ERNIE's rewriter, FLUX 3's upsampler; its button's
@@ -1076,7 +1090,8 @@ paragraphs, never rewording.
   Gallery beside, `sheet.css` the contact sheet, `lightbox.css` the
   lightbox, `refine.css` the Refine dialog and motion, `inpaint.css` and
   `outpaint.css` their dialogs, `instruction-edit.css` the Edit by
-  instruction dialog and an edit's badge, `bundles.css` the bundle dialog,
+  instruction dialog and an edit's badge, `detailer.css` the face/hand region
+  review and overlay, `bundles.css` the bundle dialog,
   `swap.css`, `refine-batch.css` and `more-seeds.css` those dialogs
   (`swap.css` also the `batch-*` result rows all three share),
   `bin.css` the recycle bin, `context-menu.css` the right-click menu and
@@ -1152,6 +1167,11 @@ paragraphs, never rewording.
   `trial_walkthrough.py` writes the agent walkthrough's real-input steps
   for its version 2 manifest (`docs/design/trials/README.md`;
   `tests/test_trial_kit.py` holds the steps to the page cold);
+  `detailer_trial.py` repeats the frozen public-image CPU detector trial in
+  `docs/maintainer/detailer-cpu-2026-11-16.json`, checking source and detector
+  hashes, labelled box matches, misses, latency and sampled process RSS.
+  Only `--download` fetches its pinned public files; it never opens the
+  gallery or loads diffusion, and writes its report under the work folder;
   `check_classic_scripts.py` with `check_classic_scripts.mjs` checks the
   page's ordered classic scripts in Node without running their bodies:
   syntax, shared declarations and undefined names
@@ -2321,6 +2341,8 @@ measured on the card and when.
 
 ### Reproduction
 
+#### Execution recipes and candidates
+
 - The reserved `execution` request field uses `execution.ExecutionSpec`:
   frozen named compilation, attention and step-cache recipes, with unknown
   fields/names refused. Every nonempty recipe is unavailable in this build,
@@ -2413,6 +2435,8 @@ measured on the card and when.
   detach replacements. Terminal discard drops refs without touching foreign
   hooks. Public nonempty guards remain closed; actual runtime/card qualification
   remains separate.
+#### Seeds, grids and stored reproduction
+
 - Seeds are drawn from `2**53 - 1` and wrapped at `2**63 - 1`; both live in
   `seeds.py`. One generator per image, seeded `seed + i`; runs take base
   `seed + i * num_images`. The page refuses a typed seed past
@@ -2590,6 +2614,8 @@ measured on the card and when.
   `binned_at` is not old enough for a scoped empty. A malformed `before` is
   422. The footer's count is the whole bin's: the page never shows a scoped
   summary's `records` there.
+#### Gallery references and refine sources
+
 - Reference images are gallery ids, never paths. The page's chips are
   numbered in `referenceIds` order, since that order is what a prompt's
   "image 2" means; every reorder or removal (a drag, Alt+Left/Right or Delete
@@ -2752,6 +2778,8 @@ measured on the card and when.
   until restored; `refine_binned` (read, not stored, from the same lookup)
   says which, so the page reads "refine of #N (in the recycle bin)" and
   offers Restore, which clears both.
+#### Inpainting, outpainting and masks
+
 - An inpaint is a refine pass with `GenerateRequest.mask`: a stored mask
   named by `storage.mask_hash` (all 64 hex digits of the SHA-256 of its
   size and `L` levels), never a path; `storage.mask_path` is the one
@@ -2997,6 +3025,46 @@ measured on the card and when.
   class's callback latents (Z-Image's are the blended latents, unpacked).
   No profile has an `inpaint_measured` row: none measured differs from its
   `refine_measured`, and the dialog has no tight line.
+#### Detail operations
+
+- A detail operation (`INP#12`, `docs/maintainer/plan-detailer.md`) is a
+  single-source chain of ordinary full-canvas SDXL inpaints. Detection is
+  admitted idle CPU work on a daemon, never a diffusion load. Cold status
+  creates no cache or download; only explicit Prepare fetches exact pinned
+  size/SHA-256 assets. Preview proves original RGB pixels, normalizes and
+  suppresses boxes deterministically, then retains a bounded ten-minute
+  receipt tied to source proof and selected model revision (sixteen cached
+  reviews). Queue chooses only reviewed region ids, in the server's total
+  order; overlapping regions stay separate and later passes see earlier
+  edits. A receipt is reserved before any await and consumed after successful
+  admission. A failed recipe can be corrected without redetecting; stale
+  source/model and expired/reused reviews have stable refusal codes.
+  Every mask is built and stored before admission and held for the entire
+  job. Each pass uses `wrap_seed(base_seed + ordinal)` and the preceding
+  saved result; source RGB proof and actual mask pixels are checked before
+  each call. The first failure stops the chain, cancel retains committed
+  outputs, pause is between regions, and Skip is held. Normal disk-full
+  pause/save recovery applies. Automatic Finish of an original operation
+  is refused; a new explicit review restarts it.
+  `GenerateRequest.detailer`/`ImageRecord.detailer` carry optional versioned
+  provenance (`StoredDetailer`, plan plus zero-based pass index), recorded
+  as a migrated nullable JSON column and in the PNG. The operation id hashes
+  source proof, accepted geometry/masks and resolved recipe; individual
+  inpaint `CellKey`s and every old run id stay unchanged. Confidence and local
+  source ids are not reproduction controls. Reruns of one saved region use
+  its ordinary direct source/mask and actual sampling fields without
+  detection; More seeds uses one image per call. Mass refine/Then refine or
+  an explicit replacement source/mask drops old execution provenance. Missing
+  direct sources refuse replay rather than silently becoming text-to-image.
+  Bundle/reindex carries proof-based source remaps or unresolved provenance,
+  checks SQL/PNG agreement, reconstructs every manifest mask and verifies its
+  frozen geometry/hash. Saved rows (binned too) and queued individual replays
+  retain all manifest masks against sweeping. Selected bundles include source
+  and intermediate images only when selected too; masks/provenance alone
+  cannot restore an absent source chain. No card anatomy/identity or
+  small-region improvement is established by these CPU/browser checks.
+#### Loader and prompt variant reproduction
+
 - Under Nunchaku (WSL) a seed does not reproduce bit-for-bit - Z-Image
   within noise, ERNIE visibly - so a duplicate count or a re-render's hash is
   the fp8 path's guarantee only; `docs/verified.md` has the numbers.
@@ -5741,6 +5809,28 @@ measured on the card and when.
   (`#outpaint-crop-box`) dotted since the band's edge is dashed; the two
   dialogs share `maskCropAsked`. Cropped and never priced, the preview says
   "no estimate: no masked-area pass has run here yet".
+
+- Detail faces/hands… (`detailer.js`, `styles/detailer.css`) is a single-image
+  context-menu action on a card, result, sheet cell or lightbox. It opens its
+  own `#detailer-dialog`, closing the lightbox and returning it on a close that
+  queued nothing. A close elsewhere returns focus to its opener without
+  scrolling; an accepted job hands focus to the source card or Generate.
+  Opening reads cold detector status only. Download detector is an explicit
+  press, and Detect regions is a separate CPU request: neither a status poll,
+  a recipe edit, a checkbox nor Queue starts detection or downloads.
+  The server's numbered regions stay in server order; both the overlay and
+  checkbox list select those ids. Overlaps are named by the preview and the
+  dialog explains that later passes see earlier edits. Selecting none and an
+  empty detection result hold Queue with their reason, so neither creates a
+  duplicate source image. The prompt pair, strength, steps, CFG and base seed
+  belong to the dialog, and never write the composer or references. Whole-box
+  prompt fills use `replaceBoxText`. Queue uses `startJob` with `panel: false`;
+  only acceptance closes the dialog. Held controls use `aria-disabled` and a
+  titled reason, and a held press says it. The in-flight submit holds close
+  and Escape. Source moves, model changes and coded `detailer_stale` or
+  `detailer_receipt` refusals retire the frozen review; Queue never silently
+  redetects. The dialog shares the Inpaint box and its wide two-pane layout,
+  with a fixed review list and message slots to keep controls still.
 
 #### Edit by instruction and Load settings from PNG
 
@@ -9996,7 +10086,12 @@ fake's directory and back, as a rename by hand would; `POST
 `days` for Empty's age scope, leaving live rows live; `POST
 /api/fake/refine` (`{supported}`, answering what it replaced) takes the
 claimed checkpoint's refine pass away and gives it back, as a loaded
-pipeline with no image-to-image sibling answers; `POST /api/fake/unreachable`
+pipeline with no image-to-image sibling answers; `POST /api/fake/detailer`
+(`{empty, fail, prepared, seconds, fail_pass}`) sets deterministic detector fixtures,
+including an empty answer, a detector exception, explicit first-use setup,
+bounded latency and a zero-based serial render failure after earlier saves,
+with no detector package or asset download;
+`POST /api/fake/unreachable`
 (`{on}`) holds every request but the knobs unanswered while on (two
 minutes at most, released when it goes off), as a PC asleep on Wi-Fi; `POST
 /api/fake/disk-full` (`{on}`) makes every image save raise `ENOSPC` while
@@ -11352,6 +11447,16 @@ Re-render, Swap tags and More seeds; the CLI's `--mask-crop`, its
 `--from-image` carry and mismatch, and `--via-server`).
 
 ### Image pass smokes
+
+`smoke-detailer.json` runs on an Animagine XL 4.0 fake on shared port 7960,
+with its own fresh scratch gallery and `--step 0.3`. It uses a deterministic
+CPU detector adapter, never real packages or detector assets, and checks the
+image menu, region review and overlap, empty detections and held reasons,
+unchanged composer, stale source/model, ordered saved inpaints and partial
+results, focus return, and narrow, standard and wide layouts. It also holds
+actual detection replies across close/reopen, source bin/restore and a
+checkpoint switch, ensuring retired work never refills a newer review. Detection
+quality and diffusion improvement remain separate real-data/card checks.
 
 `smoke-refine.json` checks the Refine dialog on a FLUX.1 Krea [dev] fake on
 7875, whose refine cells are the source image under a stamp: no refine

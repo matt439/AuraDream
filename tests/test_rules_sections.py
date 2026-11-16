@@ -29,7 +29,6 @@ LIMIT = 350
 # goes when it fits the limit.
 LONGER = {
     "### Model and loader": 791,
-    "### Reproduction": 690,
     "### Jobs": 684,
     "### Prompt analyser": 412,
 }

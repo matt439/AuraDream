@@ -12,7 +12,7 @@ cells of a grid can be told apart on a sheet. A cell whose prompt holds
 `[fail]` raises, as an out-of-memory cell would, so a grid's skipped cells
 and the failure rule can be driven from the page. The fake's own test-only
 knobs, never on the real server, are POSTs under `/api/fake/`: load, step,
-expand, model, lora, bin-age, peak, refine, instruction-edit, disk-full,
+expand, model, lora, bin-age, peak, refine, instruction-edit, detailer, disk-full,
 model-cache, activity and
 passcode; the comment
 above each route states its body and its answer. The instruction-edit gate
@@ -57,6 +57,7 @@ import sys
 import tempfile
 import threading
 import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, NoReturn
 
@@ -296,6 +297,12 @@ def main() -> int:
     from backend.jobs import JobManager
     from tests.fakes import FakeBackend, FakeCritic, fake_tokenizer
 
+    # CPU detector fixtures belong to this fake alone. The real detailer
+    # adapter is replaced below before it can import runtimes or read assets.
+    detailer_fixture: dict[str, Any] = {
+        "empty": False, "fail": False, "prepared": False, "seconds": 0.0, "fail_pass": None,
+    }
+
     class DrawingBackend(FakeBackend):
         """A fake whose images carry their seed and steps as pixels."""
 
@@ -346,6 +353,8 @@ def main() -> int:
             self._last_peak = None
             if "[fail]" in request.prompt:
                 raise RuntimeError("a [fail] cell, as the prompt asked")
+            if request.detailer is not None and request.detailer.pass_index == detailer_fixture["fail_pass"]:
+                raise RuntimeError("the requested fake detailer pass failed")
             # Drawn first, so the steps can hand out ever-sharper previews of
             # it the way the real backend hands out latent previews.
             out = self._draw(request, seed)
@@ -511,6 +520,69 @@ def main() -> int:
     fake.edit_qualified = args.model == KONTEXT_V1.model_id
     app_main.backend = fake
     app_main.jobs = JobManager(fake, app_main.ensure_loaded)
+
+    from backend import api_detailer
+    from backend.detailer import DetectorFacts, Region
+    from backend.detailer_detectors import DetailerDetectors
+
+    class FakeDetailerDetectors(DetailerDetectors):
+        """Deterministic CPU boxes; no detector imports, files or network."""
+
+        _ids = (
+            ("anime-face-lbp-v1", "Fake anime faces", ["face"]),
+            ("photo-face-yunet-v1", "Fake photographic faces", ["face"]),
+            ("photo-hands-opencv-v1", "Fake photographic hands", ["hand"]),
+        )
+
+        def status(self):
+            return [
+                {"id": name, "label": label, "classes": classes,
+                 "available": bool(detailer_fixture["prepared"]), "prepare_available": True,
+                 "download_bytes": 0 if detailer_fixture["prepared"] else 1024, "asset_bytes": 1024,
+                 "reason": "" if detailer_fixture["prepared"] else "Download the fake detector assets first."}
+                for name, label, classes in self._ids
+            ]
+
+        def prepare(self, detector_id, should_cancel: Callable[[], bool] = lambda: False):
+            self._check(detector_id, should_cancel)
+            detailer_fixture["prepared"] = True
+
+        @staticmethod
+        def _check(detector, should_cancel):
+            if detector not in {row[0] for row in FakeDetailerDetectors._ids}:
+                raise ValueError("Unknown fake detailer detector.")
+            if should_cancel and should_cancel():
+                from backend.backends import Cancelled
+
+                raise Cancelled()
+
+        def detect(self, detector_id, image, should_cancel: Callable[[], bool] = lambda: False):
+            self._check(detector_id, should_cancel)
+            end = time.monotonic() + float(detailer_fixture["seconds"])
+            while time.monotonic() < end:
+                self._check(detector_id, should_cancel)
+                time.sleep(0.02)
+            if detailer_fixture["fail"]:
+                raise ValueError("The fake detailer detector failed.")
+            if not detailer_fixture["prepared"]:
+                raise ValueError("Download the fake detector assets first.")
+            proof = DetectorFacts(
+                id=detector_id, runtime="fake-cpu", version="1", asset_revision="fake-detailer-v1",
+                asset_sha256="d" * 64, preprocessing="RGB pixels; deterministic fractional fixture boxes; CPU only",
+            )
+            if detailer_fixture["empty"]:
+                return [], [proof]
+            w, h = image.size
+            kind = "hand" if "hands" in detector_id else "face"
+            boxes = ((w // 10, h // 10, 2 * w // 5, 2 * h // 5),
+                     (3 * w // 10, h // 5, 3 * w // 5, h // 2))
+            return [
+                Region(id=f"fake-{i + 1}", kind=kind, box=box, confidence=0.9 - i * 0.1, detector=detector_id)
+                for i, box in enumerate(boxes)
+            ], [proof]
+
+    detailer_detectors = FakeDetailerDetectors(data / "detector-cache")
+    api_detailer.detectors_for = lambda services: detailer_detectors
 
     # Not "downloaded" until a first translation, as the fake's rewriter is not
     # until a first expansion (FakeBackend), so Expand's first-use line is on
@@ -709,6 +781,21 @@ def main() -> int:
     # and whether they fail as a gated repo does, or are held until the next
     # call.
     from fastapi import Body
+
+    # Deterministic detailer boxes, failures, setup and latency. Each call
+    # sets every fixture; an omitted flag resets to its ordinary value.
+    # `fail_pass` is the zero-based serial render to fail after earlier saves.
+    @app_main.app.post("/api/fake/detailer", include_in_schema=False)
+    async def fake_detailer(
+        empty: bool = Body(False), fail: bool = Body(False), prepared: bool = Body(True),
+        seconds: float = Body(0.0), fail_pass: int | None = Body(None),
+    ) -> dict:
+        detailer_fixture.update({
+            "empty": empty, "fail": fail, "prepared": prepared,
+            "seconds": min(5.0, max(0.0, seconds)) if math.isfinite(seconds) else 0.0,
+            "fail_pass": fail_pass,
+        })
+        return dict(detailer_fixture)
 
     load_gate = threading.Event()
     fake.load_gate = load_gate

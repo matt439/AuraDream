@@ -15,6 +15,7 @@ import math
 # sizes.py owns the preset table the browser's copy is asserted against.
 from backend.launch import add_model_arguments
 from backend.png_settings import image_settings
+from backend.metadata import canonical_detailer
 from backend.sizes import SIZES, TIERS
 
 
@@ -332,6 +333,9 @@ def _apply_image_settings(args: argparse.Namespace, meta: dict) -> None:
     """
     if meta.get("edit") is not None:
         raise ValueError("Instruction-edit settings must be reopened from the gallery image; CLI editing is unavailable.")
+    detailer = canonical_detailer(meta.get("detailer"))
+    if detailer is not None and (meta.get("refine") is None or meta.get("mask") is None):
+        raise ValueError("The recorded detailer pass has no resolved direct source and mask; restore its source before replay.")
     if args.prompt is None:
         args.prompt = meta.get("prompt")
     if args.negative is None:
@@ -413,6 +417,9 @@ def _apply_image_settings(args: argparse.Namespace, meta: dict) -> None:
                 args.carried_outpaint_mask = meta.get("mask") if isinstance(meta.get("mask"), str) else None
         elif args.mask is None and args.outpaint is None and isinstance(meta.get("mask"), str):
             args.mask_hash = meta["mask"]
+            # The ordinary source proof is checked below just as for every
+            # other carried inpaint. Detection and full-chain intent never run.
+            args.carried_detailer = detailer
     if args.model is None and meta.get("model"):
         args.model = meta["model"]
     # The file's size only when none of the four size arguments was given.

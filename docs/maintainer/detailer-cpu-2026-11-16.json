@@ -1,0 +1,1067 @@
+{
+  "platform": "Windows-11-10.0.26300-SP0",
+  "python": "3.13.15",
+  "labels": {
+    "purpose": "bounded CPU adapter feasibility, not generated-gallery quality or diffusion acceptance; fixed recipes/no threshold tuning; box match IoU>=0.3 and no false positives on blank negative; target these clear frontal faces and photographic hands only; occluded and tiny coverage descriptive, not shipping gate",
+    "calibration": [
+      "anime-cc0.png",
+      "astronaut.png",
+      "hand-gestures.png:0"
+    ],
+    "holdout": [
+      "wikipe-tan.png",
+      "hand-gestures.png:5"
+    ],
+    "images": {
+      "anime-cc0.png": {
+        "faces": [
+          [
+            250,
+            650,
+            1080,
+            1380
+          ]
+        ],
+        "hands": [
+          [
+            923,
+            1120,
+            1290,
+            1690
+          ]
+        ]
+      },
+      "wikipe-tan.png": {
+        "faces": [
+          [
+            290,
+            270,
+            705,
+            602
+          ]
+        ],
+        "hands": [
+          [
+            24,
+            1040,
+            236,
+            1170
+          ],
+          [
+            842,
+            1065,
+            1095,
+            1235
+          ]
+        ]
+      },
+      "astronaut.png": {
+        "faces": [
+          [
+            178,
+            65,
+            279,
+            180
+          ]
+        ],
+        "hands": []
+      },
+      "hand-gestures.png:0": {
+        "crop": [
+          0,
+          0,
+          262,
+          196
+        ],
+        "faces": [],
+        "hands": [
+          [
+            90,
+            80,
+            144,
+            145
+          ]
+        ]
+      },
+      "hand-gestures.png:5": {
+        "crop": [
+          0,
+          196,
+          262,
+          392
+        ],
+        "faces": [],
+        "hands": [
+          [
+            86,
+            48,
+            179,
+            142
+          ]
+        ]
+      },
+      "blank": {
+        "size": [
+          512,
+          512
+        ],
+        "faces": [],
+        "hands": []
+      },
+      "palm-demo.gif:0": {
+        "frame": 0,
+        "faces": [],
+        "hands": [
+          [
+            0,
+            135,
+            205,
+            410
+          ],
+          [
+            282,
+            163,
+            475,
+            386
+          ]
+        ],
+        "note": "left hand clipped by image edge"
+      },
+      "pepper-e1p1.jpg": {
+        "faces": [
+          [
+            660,
+            233,
+            712,
+            301
+          ],
+          [
+            735,
+            762,
+            789,
+            825
+          ],
+          [
+            766,
+            1310,
+            813,
+            1363
+          ]
+        ],
+        "note": "third face eyes obscured by hat; no settings tuned"
+      }
+    },
+    "exploratory_extensions": [
+      "palm-demo.gif:0",
+      "pepper-e1p1.jpg"
+    ]
+  },
+  "labels_sha256": "6ca1ad7d100bde263349cee26cf1daec5296659f7f043ea5e98fcec81709fdcb",
+  "runs": [
+    {
+      "image": "anime-cc0.png",
+      "detector": "anime-face-lbp-v1",
+      "source_size": [
+        1570,
+        2400
+      ],
+      "regions": [],
+      "facts": [
+        {
+          "id": "anime-face-lbp-v1",
+          "runtime": "opencv-python-headless",
+          "version": "4.13.0.92",
+          "asset_revision": "4433ab1ae1166ea75acfe99eb0f18709dac329a0",
+          "asset_sha256": "9376d30ac38db6bda2a68b88b3b76bbd7e6aa33af47f7f5c76bc88ca75f1ce30",
+          "preprocessing": "rgb-bgr;max-side1536-linear;gray-equalize;scale1.1;neighbors5;min24;confidence1-unscored;box-floor-ceil-v1;cv=4.13.0;numpy=2.5.2",
+          "provider": "CPU",
+          "additional_assets": []
+        }
+      ],
+      "matches": [],
+      "misses": 1,
+      "false_positives": 0,
+      "elapsed_seconds": 0.7609558000112884,
+      "rss_peak_sampled": 275890176
+    },
+    {
+      "image": "anime-cc0.png",
+      "detector": "photo-face-yunet-v1",
+      "source_size": [
+        1570,
+        2400
+      ],
+      "regions": [],
+      "facts": [
+        {
+          "id": "photo-face-yunet-v1",
+          "runtime": "opencv-python-headless",
+          "version": "4.13.0.92",
+          "asset_revision": "48b10fa505aeb51fbd127fc60a5c660040e823b7",
+          "asset_sha256": "8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4",
+          "preprocessing": "rgb-bgr;max-side1536-linear;yunet-score0.5;nms0.3;top128;box-floor-ceil-v1;cv=4.13.0;numpy=2.5.2",
+          "provider": "CPU",
+          "additional_assets": []
+        }
+      ],
+      "matches": [],
+      "misses": 1,
+      "false_positives": 0,
+      "elapsed_seconds": 0.12711580004543066,
+      "rss_peak_sampled": 335474688
+    },
+    {
+      "image": "anime-cc0.png",
+      "detector": "photo-hands-opencv-v1",
+      "source_size": [
+        1570,
+        2400
+      ],
+      "regions": [],
+      "facts": [
+        {
+          "id": "photo-hands-opencv-v1",
+          "runtime": "opencv-python-headless",
+          "version": "4.13.0.92",
+          "asset_revision": "48b10fa505aeb51fbd127fc60a5c660040e823b7",
+          "asset_sha256": "78ff51c38496b7fc8b8ebdb6cc8c1abb02fa6c38427c6848254cdaba57fcce7c",
+          "preprocessing": "rgb-bgr;max-side1536-linear;opencv-hands-v1-anchors64-inverse-affine;palm192-score0.5-nms0.3-top16;pose224-conf0.8;landmark-extents;box-floor-ceil-v1;cv=4.13.0;numpy=2.5.2",
+          "provider": "CPU",
+          "additional_assets": [
+            {
+              "id": "handpose_estimation_mediapipe_2023feb.onnx",
+              "revision": "48b10fa505aeb51fbd127fc60a5c660040e823b7",
+              "sha256": "db0898ae717b76b075d9bf563af315b29562e11f8df5027a1ef07b02bef6d81c"
+            }
+          ]
+        }
+      ],
+      "matches": [],
+      "misses": 1,
+      "false_positives": 0,
+      "elapsed_seconds": 0.07945150003070012,
+      "rss_peak_sampled": 244883456
+    },
+    {
+      "image": "wikipe-tan.png",
+      "detector": "anime-face-lbp-v1",
+      "source_size": [
+        1110,
+        2100
+      ],
+      "regions": [],
+      "facts": [
+        {
+          "id": "anime-face-lbp-v1",
+          "runtime": "opencv-python-headless",
+          "version": "4.13.0.92",
+          "asset_revision": "4433ab1ae1166ea75acfe99eb0f18709dac329a0",
+          "asset_sha256": "9376d30ac38db6bda2a68b88b3b76bbd7e6aa33af47f7f5c76bc88ca75f1ce30",
+          "preprocessing": "rgb-bgr;max-side1536-linear;gray-equalize;scale1.1;neighbors5;min24;confidence1-unscored;box-floor-ceil-v1;cv=4.13.0;numpy=2.5.2",
+          "provider": "CPU",
+          "additional_assets": []
+        }
+      ],
+      "matches": [],
+      "misses": 1,
+      "false_positives": 0,
+      "elapsed_seconds": 0.032315799966454506,
+      "rss_peak_sampled": 239484928
+    },
+    {
+      "image": "wikipe-tan.png",
+      "detector": "photo-face-yunet-v1",
+      "source_size": [
+        1110,
+        2100
+      ],
+      "regions": [],
+      "facts": [
+        {
+          "id": "photo-face-yunet-v1",
+          "runtime": "opencv-python-headless",
+          "version": "4.13.0.92",
+          "asset_revision": "48b10fa505aeb51fbd127fc60a5c660040e823b7",
+          "asset_sha256": "8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4",
+          "preprocessing": "rgb-bgr;max-side1536-linear;yunet-score0.5;nms0.3;top128;box-floor-ceil-v1;cv=4.13.0;numpy=2.5.2",
+          "provider": "CPU",
+          "additional_assets": []
+        }
+      ],
+      "matches": [],
+      "misses": 1,
+      "false_positives": 0,
+      "elapsed_seconds": 0.07630249997600913,
+      "rss_peak_sampled": 305840128
+    },
+    {
+      "image": "wikipe-tan.png",
+      "detector": "photo-hands-opencv-v1",
+      "source_size": [
+        1110,
+        2100
+      ],
+      "regions": [],
+      "facts": [
+        {
+          "id": "photo-hands-opencv-v1",
+          "runtime": "opencv-python-headless",
+          "version": "4.13.0.92",
+          "asset_revision": "48b10fa505aeb51fbd127fc60a5c660040e823b7",
+          "asset_sha256": "78ff51c38496b7fc8b8ebdb6cc8c1abb02fa6c38427c6848254cdaba57fcce7c",
+          "preprocessing": "rgb-bgr;max-side1536-linear;opencv-hands-v1-anchors64-inverse-affine;palm192-score0.5-nms0.3-top16;pose224-conf0.8;landmark-extents;box-floor-ceil-v1;cv=4.13.0;numpy=2.5.2",
+          "provider": "CPU",
+          "additional_assets": [
+            {
+              "id": "handpose_estimation_mediapipe_2023feb.onnx",
+              "revision": "48b10fa505aeb51fbd127fc60a5c660040e823b7",
+              "sha256": "db0898ae717b76b075d9bf563af315b29562e11f8df5027a1ef07b02bef6d81c"
+            }
+          ]
+        }
+      ],
+      "matches": [],
+      "misses": 2,
+      "false_positives": 0,
+      "elapsed_seconds": 0.043432800041045994,
+      "rss_peak_sampled": 231575552
+    },
+    {
+      "image": "astronaut.png",
+      "detector": "anime-face-lbp-v1",
+      "source_size": [
+        512,
+        512
+      ],
+      "regions": [],
+      "facts": [
+        {
+          "id": "anime-face-lbp-v1",
+          "runtime": "opencv-python-headless",
+          "version": "4.13.0.92",
+          "asset_revision": "4433ab1ae1166ea75acfe99eb0f18709dac329a0",
+          "asset_sha256": "9376d30ac38db6bda2a68b88b3b76bbd7e6aa33af47f7f5c76bc88ca75f1ce30",
+          "preprocessing": "rgb-bgr;max-side1536-linear;gray-equalize;scale1.1;neighbors5;min24;confidence1-unscored;box-floor-ceil-v1;cv=4.13.0;numpy=2.5.2",
+          "provider": "CPU",
+          "additional_assets": []
+        }
+      ],
+      "matches": [],
+      "misses": 1,
+      "false_positives": 0,
+      "elapsed_seconds": 0.014033199986442924,
+      "rss_peak_sampled": 201523200
+    },
+    {
+      "image": "astronaut.png",
+      "detector": "photo-face-yunet-v1",
+      "source_size": [
+        512,
+        512
+      ],
+      "regions": [
+        {
+          "id": "photo-face-yunet-v1:0",
+          "kind": "face",
+          "box": [
+            178,
+            62,
+            269,
+            177
+          ],
+          "confidence": 0.9323273301124573,
+          "detector": "photo-face-yunet-v1"
+        }
+      ],
+      "facts": [
+        {
+          "id": "photo-face-yunet-v1",
+          "runtime": "opencv-python-headless",
+          "version": "4.13.0.92",
+          "asset_revision": "48b10fa505aeb51fbd127fc60a5c660040e823b7",
+          "asset_sha256": "8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4",
+          "preprocessing": "rgb-bgr;max-side1536-linear;yunet-score0.5;nms0.3;top128;box-floor-ceil-v1;cv=4.13.0;numpy=2.5.2",
+          "provider": "CPU",
+          "additional_assets": []
+        }
+      ],
+      "matches": [
+        {
+          "label": 0,
+          "region": 0,
+          "iou": 0.857335127860027
+        }
+      ],
+      "misses": 0,
+      "false_positives": 0,
+      "elapsed_seconds": 0.02728239999851212,
+      "rss_peak_sampled": 219537408
+    },
+    {
+      "image": "astronaut.png",
+      "detector": "photo-hands-opencv-v1",
+      "source_size": [
+        512,
+        512
+      ],
+      "regions": [],
+      "facts": [
+        {
+          "id": "photo-hands-opencv-v1",
+          "runtime": "opencv-python-headless",
+          "version": "4.13.0.92",
+          "asset_revision": "48b10fa505aeb51fbd127fc60a5c660040e823b7",
+          "asset_sha256": "78ff51c38496b7fc8b8ebdb6cc8c1abb02fa6c38427c6848254cdaba57fcce7c",
+          "preprocessing": "rgb-bgr;max-side1536-linear;opencv-hands-v1-anchors64-inverse-affine;palm192-score0.5-nms0.3-top16;pose224-conf0.8;landmark-extents;box-floor-ceil-v1;cv=4.13.0;numpy=2.5.2",
+          "provider": "CPU",
+          "additional_assets": [
+            {
+              "id": "handpose_estimation_mediapipe_2023feb.onnx",
+              "revision": "48b10fa505aeb51fbd127fc60a5c660040e823b7",
+              "sha256": "db0898ae717b76b075d9bf563af315b29562e11f8df5027a1ef07b02bef6d81c"
+            }
+          ]
+        }
+      ],
+      "matches": [],
+      "misses": 0,
+      "false_positives": 0,
+      "elapsed_seconds": 0.036909200018271804,
+      "rss_peak_sampled": 211361792
+    },
+    {
+      "image": "hand-gestures.png:0",
+      "detector": "anime-face-lbp-v1",
+      "source_size": [
+        262,
+        196
+      ],
+      "regions": [],
+      "facts": [
+        {
+          "id": "anime-face-lbp-v1",
+          "runtime": "opencv-python-headless",
+          "version": "4.13.0.92",
+          "asset_revision": "4433ab1ae1166ea75acfe99eb0f18709dac329a0",
+          "asset_sha256": "9376d30ac38db6bda2a68b88b3b76bbd7e6aa33af47f7f5c76bc88ca75f1ce30",
+          "preprocessing": "rgb-bgr;max-side1536-linear;gray-equalize;scale1.1;neighbors5;min24;confidence1-unscored;box-floor-ceil-v1;cv=4.13.0;numpy=2.5.2",
+          "provider": "CPU",
+          "additional_assets": []
+        }
+      ],
+      "matches": [],
+      "misses": 0,
+      "false_positives": 0,
+      "elapsed_seconds": 0.009441900008823723,
+      "rss_peak_sampled": 202326016
+    },
+    {
+      "image": "hand-gestures.png:0",
+      "detector": "photo-face-yunet-v1",
+      "source_size": [
+        262,
+        196
+      ],
+      "regions": [],
+      "facts": [
+        {
+          "id": "photo-face-yunet-v1",
+          "runtime": "opencv-python-headless",
+          "version": "4.13.0.92",
+          "asset_revision": "48b10fa505aeb51fbd127fc60a5c660040e823b7",
+          "asset_sha256": "8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4",
+          "preprocessing": "rgb-bgr;max-side1536-linear;yunet-score0.5;nms0.3;top128;box-floor-ceil-v1;cv=4.13.0;numpy=2.5.2",
+          "provider": "CPU",
+          "additional_assets": []
+        }
+      ],
+      "matches": [],
+      "misses": 0,
+      "false_positives": 0,
+      "elapsed_seconds": 0.013418199960142374,
+      "rss_peak_sampled": 204308480
+    },
+    {
+      "image": "hand-gestures.png:0",
+      "detector": "photo-hands-opencv-v1",
+      "source_size": [
+        262,
+        196
+      ],
+      "regions": [],
+      "facts": [
+        {
+          "id": "photo-hands-opencv-v1",
+          "runtime": "opencv-python-headless",
+          "version": "4.13.0.92",
+          "asset_revision": "48b10fa505aeb51fbd127fc60a5c660040e823b7",
+          "asset_sha256": "78ff51c38496b7fc8b8ebdb6cc8c1abb02fa6c38427c6848254cdaba57fcce7c",
+          "preprocessing": "rgb-bgr;max-side1536-linear;opencv-hands-v1-anchors64-inverse-affine;palm192-score0.5-nms0.3-top16;pose224-conf0.8;landmark-extents;box-floor-ceil-v1;cv=4.13.0;numpy=2.5.2",
+          "provider": "CPU",
+          "additional_assets": [
+            {
+              "id": "handpose_estimation_mediapipe_2023feb.onnx",
+              "revision": "48b10fa505aeb51fbd127fc60a5c660040e823b7",
+              "sha256": "db0898ae717b76b075d9bf563af315b29562e11f8df5027a1ef07b02bef6d81c"
+            }
+          ]
+        }
+      ],
+      "matches": [],
+      "misses": 1,
+      "false_positives": 0,
+      "elapsed_seconds": 0.0578265999793075,
+      "rss_peak_sampled": 225058816
+    },
+    {
+      "image": "hand-gestures.png:5",
+      "detector": "anime-face-lbp-v1",
+      "source_size": [
+        262,
+        196
+      ],
+      "regions": [],
+      "facts": [
+        {
+          "id": "anime-face-lbp-v1",
+          "runtime": "opencv-python-headless",
+          "version": "4.13.0.92",
+          "asset_revision": "4433ab1ae1166ea75acfe99eb0f18709dac329a0",
+          "asset_sha256": "9376d30ac38db6bda2a68b88b3b76bbd7e6aa33af47f7f5c76bc88ca75f1ce30",
+          "preprocessing": "rgb-bgr;max-side1536-linear;gray-equalize;scale1.1;neighbors5;min24;confidence1-unscored;box-floor-ceil-v1;cv=4.13.0;numpy=2.5.2",
+          "provider": "CPU",
+          "additional_assets": []
+        }
+      ],
+      "matches": [],
+      "misses": 0,
+      "false_positives": 0,
+      "elapsed_seconds": 0.010383399960119277,
+      "rss_peak_sampled": 201158656
+    },
+    {
+      "image": "hand-gestures.png:5",
+      "detector": "photo-face-yunet-v1",
+      "source_size": [
+        262,
+        196
+      ],
+      "regions": [],
+      "facts": [
+        {
+          "id": "photo-face-yunet-v1",
+          "runtime": "opencv-python-headless",
+          "version": "4.13.0.92",
+          "asset_revision": "48b10fa505aeb51fbd127fc60a5c660040e823b7",
+          "asset_sha256": "8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4",
+          "preprocessing": "rgb-bgr;max-side1536-linear;yunet-score0.5;nms0.3;top128;box-floor-ceil-v1;cv=4.13.0;numpy=2.5.2",
+          "provider": "CPU",
+          "additional_assets": []
+        }
+      ],
+      "matches": [],
+      "misses": 0,
+      "false_positives": 0,
+      "elapsed_seconds": 0.017329599999357015,
+      "rss_peak_sampled": 201760768
+    },
+    {
+      "image": "hand-gestures.png:5",
+      "detector": "photo-hands-opencv-v1",
+      "source_size": [
+        262,
+        196
+      ],
+      "regions": [],
+      "facts": [
+        {
+          "id": "photo-hands-opencv-v1",
+          "runtime": "opencv-python-headless",
+          "version": "4.13.0.92",
+          "asset_revision": "48b10fa505aeb51fbd127fc60a5c660040e823b7",
+          "asset_sha256": "78ff51c38496b7fc8b8ebdb6cc8c1abb02fa6c38427c6848254cdaba57fcce7c",
+          "preprocessing": "rgb-bgr;max-side1536-linear;opencv-hands-v1-anchors64-inverse-affine;palm192-score0.5-nms0.3-top16;pose224-conf0.8;landmark-extents;box-floor-ceil-v1;cv=4.13.0;numpy=2.5.2",
+          "provider": "CPU",
+          "additional_assets": [
+            {
+              "id": "handpose_estimation_mediapipe_2023feb.onnx",
+              "revision": "48b10fa505aeb51fbd127fc60a5c660040e823b7",
+              "sha256": "db0898ae717b76b075d9bf563af315b29562e11f8df5027a1ef07b02bef6d81c"
+            }
+          ]
+        }
+      ],
+      "matches": [],
+      "misses": 1,
+      "false_positives": 0,
+      "elapsed_seconds": 0.06530669995117933,
+      "rss_peak_sampled": 229138432
+    },
+    {
+      "image": "blank",
+      "detector": "anime-face-lbp-v1",
+      "source_size": [
+        512,
+        512
+      ],
+      "regions": [],
+      "facts": [
+        {
+          "id": "anime-face-lbp-v1",
+          "runtime": "opencv-python-headless",
+          "version": "4.13.0.92",
+          "asset_revision": "4433ab1ae1166ea75acfe99eb0f18709dac329a0",
+          "asset_sha256": "9376d30ac38db6bda2a68b88b3b76bbd7e6aa33af47f7f5c76bc88ca75f1ce30",
+          "preprocessing": "rgb-bgr;max-side1536-linear;gray-equalize;scale1.1;neighbors5;min24;confidence1-unscored;box-floor-ceil-v1;cv=4.13.0;numpy=2.5.2",
+          "provider": "CPU",
+          "additional_assets": []
+        }
+      ],
+      "matches": [],
+      "misses": 0,
+      "false_positives": 0,
+      "elapsed_seconds": 0.015199200017377734,
+      "rss_peak_sampled": 204271616
+    },
+    {
+      "image": "blank",
+      "detector": "photo-face-yunet-v1",
+      "source_size": [
+        512,
+        512
+      ],
+      "regions": [],
+      "facts": [
+        {
+          "id": "photo-face-yunet-v1",
+          "runtime": "opencv-python-headless",
+          "version": "4.13.0.92",
+          "asset_revision": "48b10fa505aeb51fbd127fc60a5c660040e823b7",
+          "asset_sha256": "8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4",
+          "preprocessing": "rgb-bgr;max-side1536-linear;yunet-score0.5;nms0.3;top128;box-floor-ceil-v1;cv=4.13.0;numpy=2.5.2",
+          "provider": "CPU",
+          "additional_assets": []
+        }
+      ],
+      "matches": [],
+      "misses": 0,
+      "false_positives": 0,
+      "elapsed_seconds": 0.029307099990546703,
+      "rss_peak_sampled": 222306304
+    },
+    {
+      "image": "blank",
+      "detector": "photo-hands-opencv-v1",
+      "source_size": [
+        512,
+        512
+      ],
+      "regions": [],
+      "facts": [
+        {
+          "id": "photo-hands-opencv-v1",
+          "runtime": "opencv-python-headless",
+          "version": "4.13.0.92",
+          "asset_revision": "48b10fa505aeb51fbd127fc60a5c660040e823b7",
+          "asset_sha256": "78ff51c38496b7fc8b8ebdb6cc8c1abb02fa6c38427c6848254cdaba57fcce7c",
+          "preprocessing": "rgb-bgr;max-side1536-linear;opencv-hands-v1-anchors64-inverse-affine;palm192-score0.5-nms0.3-top16;pose224-conf0.8;landmark-extents;box-floor-ceil-v1;cv=4.13.0;numpy=2.5.2",
+          "provider": "CPU",
+          "additional_assets": [
+            {
+              "id": "handpose_estimation_mediapipe_2023feb.onnx",
+              "revision": "48b10fa505aeb51fbd127fc60a5c660040e823b7",
+              "sha256": "db0898ae717b76b075d9bf563af315b29562e11f8df5027a1ef07b02bef6d81c"
+            }
+          ]
+        }
+      ],
+      "matches": [],
+      "misses": 0,
+      "false_positives": 0,
+      "elapsed_seconds": 0.03831969999009743,
+      "rss_peak_sampled": 214110208
+    },
+    {
+      "image": "palm-demo.gif:0",
+      "detector": "anime-face-lbp-v1",
+      "source_size": [
+        600,
+        450
+      ],
+      "regions": [],
+      "facts": [
+        {
+          "id": "anime-face-lbp-v1",
+          "runtime": "opencv-python-headless",
+          "version": "4.13.0.92",
+          "asset_revision": "4433ab1ae1166ea75acfe99eb0f18709dac329a0",
+          "asset_sha256": "9376d30ac38db6bda2a68b88b3b76bbd7e6aa33af47f7f5c76bc88ca75f1ce30",
+          "preprocessing": "rgb-bgr;max-side1536-linear;gray-equalize;scale1.1;neighbors5;min24;confidence1-unscored;box-floor-ceil-v1;cv=4.13.0;numpy=2.5.2",
+          "provider": "CPU",
+          "additional_assets": []
+        }
+      ],
+      "matches": [],
+      "misses": 0,
+      "false_positives": 0,
+      "elapsed_seconds": 0.013513999991118908,
+      "rss_peak_sampled": 201195520
+    },
+    {
+      "image": "palm-demo.gif:0",
+      "detector": "photo-face-yunet-v1",
+      "source_size": [
+        600,
+        450
+      ],
+      "regions": [],
+      "facts": [
+        {
+          "id": "photo-face-yunet-v1",
+          "runtime": "opencv-python-headless",
+          "version": "4.13.0.92",
+          "asset_revision": "48b10fa505aeb51fbd127fc60a5c660040e823b7",
+          "asset_sha256": "8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4",
+          "preprocessing": "rgb-bgr;max-side1536-linear;yunet-score0.5;nms0.3;top128;box-floor-ceil-v1;cv=4.13.0;numpy=2.5.2",
+          "provider": "CPU",
+          "additional_assets": []
+        }
+      ],
+      "matches": [],
+      "misses": 0,
+      "false_positives": 0,
+      "elapsed_seconds": 0.02631299995118752,
+      "rss_peak_sampled": 222187520
+    },
+    {
+      "image": "palm-demo.gif:0",
+      "detector": "photo-hands-opencv-v1",
+      "source_size": [
+        600,
+        450
+      ],
+      "regions": [
+        {
+          "id": "photo-hands-opencv-v1:0",
+          "kind": "hand",
+          "box": [
+            272,
+            172,
+            432,
+            351
+          ],
+          "confidence": 0.9914121627807617,
+          "detector": "photo-hands-opencv-v1"
+        }
+      ],
+      "facts": [
+        {
+          "id": "photo-hands-opencv-v1",
+          "runtime": "opencv-python-headless",
+          "version": "4.13.0.92",
+          "asset_revision": "48b10fa505aeb51fbd127fc60a5c660040e823b7",
+          "asset_sha256": "78ff51c38496b7fc8b8ebdb6cc8c1abb02fa6c38427c6848254cdaba57fcce7c",
+          "preprocessing": "rgb-bgr;max-side1536-linear;opencv-hands-v1-anchors64-inverse-affine;palm192-score0.5-nms0.3-top16;pose224-conf0.8;landmark-extents;box-floor-ceil-v1;cv=4.13.0;numpy=2.5.2",
+          "provider": "CPU",
+          "additional_assets": [
+            {
+              "id": "handpose_estimation_mediapipe_2023feb.onnx",
+              "revision": "48b10fa505aeb51fbd127fc60a5c660040e823b7",
+              "sha256": "db0898ae717b76b075d9bf563af315b29562e11f8df5027a1ef07b02bef6d81c"
+            }
+          ]
+        }
+      ],
+      "matches": [
+        {
+          "label": 1,
+          "region": 0,
+          "iou": 0.5989426487318477
+        }
+      ],
+      "misses": 1,
+      "false_positives": 0,
+      "elapsed_seconds": 0.056458699982613325,
+      "rss_peak_sampled": 229003264
+    },
+    {
+      "image": "pepper-e1p1.jpg",
+      "detector": "anime-face-lbp-v1",
+      "source_size": [
+        1200,
+        1660
+      ],
+      "regions": [
+        {
+          "id": "anime-face-lbp-v1:0",
+          "kind": "face",
+          "box": [
+            720,
+            755,
+            802,
+            837
+          ],
+          "confidence": 1.0,
+          "detector": "anime-face-lbp-v1"
+        },
+        {
+          "id": "anime-face-lbp-v1:1",
+          "kind": "face",
+          "box": [
+            740,
+            1290,
+            832,
+            1382
+          ],
+          "confidence": 1.0,
+          "detector": "anime-face-lbp-v1"
+        }
+      ],
+      "facts": [
+        {
+          "id": "anime-face-lbp-v1",
+          "runtime": "opencv-python-headless",
+          "version": "4.13.0.92",
+          "asset_revision": "4433ab1ae1166ea75acfe99eb0f18709dac329a0",
+          "asset_sha256": "9376d30ac38db6bda2a68b88b3b76bbd7e6aa33af47f7f5c76bc88ca75f1ce30",
+          "preprocessing": "rgb-bgr;max-side1536-linear;gray-equalize;scale1.1;neighbors5;min24;confidence1-unscored;box-floor-ceil-v1;cv=4.13.0;numpy=2.5.2",
+          "provider": "CPU",
+          "additional_assets": []
+        }
+      ],
+      "matches": [
+        {
+          "label": 1,
+          "region": 0,
+          "iou": 0.5059488399762047
+        }
+      ],
+      "misses": 2,
+      "false_positives": 1,
+      "elapsed_seconds": 0.04400120000354946,
+      "rss_peak_sampled": 276520960
+    },
+    {
+      "image": "pepper-e1p1.jpg",
+      "detector": "photo-face-yunet-v1",
+      "source_size": [
+        1200,
+        1660
+      ],
+      "regions": [
+        {
+          "id": "photo-face-yunet-v1:0",
+          "kind": "face",
+          "box": [
+            732,
+            761,
+            789,
+            829
+          ],
+          "confidence": 0.753808856010437,
+          "detector": "photo-face-yunet-v1"
+        },
+        {
+          "id": "photo-face-yunet-v1:1",
+          "kind": "face",
+          "box": [
+            755,
+            1298,
+            820,
+            1367
+          ],
+          "confidence": 0.7222861647605896,
+          "detector": "photo-face-yunet-v1"
+        }
+      ],
+      "facts": [
+        {
+          "id": "photo-face-yunet-v1",
+          "runtime": "opencv-python-headless",
+          "version": "4.13.0.92",
+          "asset_revision": "48b10fa505aeb51fbd127fc60a5c660040e823b7",
+          "asset_sha256": "8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4",
+          "preprocessing": "rgb-bgr;max-side1536-linear;yunet-score0.5;nms0.3;top128;box-floor-ceil-v1;cv=4.13.0;numpy=2.5.2",
+          "provider": "CPU",
+          "additional_assets": []
+        }
+      ],
+      "matches": [
+        {
+          "label": 1,
+          "region": 0,
+          "iou": 0.8777089783281734
+        },
+        {
+          "label": 2,
+          "region": 1,
+          "iou": 0.5554069119286511
+        }
+      ],
+      "misses": 1,
+      "false_positives": 0,
+      "elapsed_seconds": 0.0917520999792032,
+      "rss_peak_sampled": 337088512
+    },
+    {
+      "image": "pepper-e1p1.jpg",
+      "detector": "photo-hands-opencv-v1",
+      "source_size": [
+        1200,
+        1660
+      ],
+      "regions": [],
+      "facts": [
+        {
+          "id": "photo-hands-opencv-v1",
+          "runtime": "opencv-python-headless",
+          "version": "4.13.0.92",
+          "asset_revision": "48b10fa505aeb51fbd127fc60a5c660040e823b7",
+          "asset_sha256": "78ff51c38496b7fc8b8ebdb6cc8c1abb02fa6c38427c6848254cdaba57fcce7c",
+          "preprocessing": "rgb-bgr;max-side1536-linear;opencv-hands-v1-anchors64-inverse-affine;palm192-score0.5-nms0.3-top16;pose224-conf0.8;landmark-extents;box-floor-ceil-v1;cv=4.13.0;numpy=2.5.2",
+          "provider": "CPU",
+          "additional_assets": [
+            {
+              "id": "handpose_estimation_mediapipe_2023feb.onnx",
+              "revision": "48b10fa505aeb51fbd127fc60a5c660040e823b7",
+              "sha256": "db0898ae717b76b075d9bf563af315b29562e11f8df5027a1ef07b02bef6d81c"
+            }
+          ]
+        }
+      ],
+      "evaluation": "No predeclared labels for this capability/source; inference evidence only.",
+      "elapsed_seconds": 0.043815299984999,
+      "rss_peak_sampled": 233197568
+    }
+  ],
+  "process_peak_sampled": 337088512,
+  "date": "2026-11-16",
+  "source_code_files": {
+    "backend/detailer_detectors.py": "7c2f67117999202d3cdeb30258ef3b301a182f99e13e089a34ed4be97e5ffcc2",
+    "backend/detailer_hands.py": "d2e5eae087e24ddb6a9810fc5bc1b146d348c8c96c8db37b0526b625e470f741",
+    "tools/detailer_trial.py": "0fffe9108b3c90f36050b43c74e87c42b6b323043333a3e315a6199f76553a27"
+  },
+  "sources": [
+    {
+      "file": "anime-cc0.png",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/e/e7/Anime_girl_publicdomainq.png",
+      "licence": "CC0-1.0",
+      "author": "oksmith",
+      "licence_url": "https://commons.wikimedia.org/wiki/File:Anime_girl_publicdomainq.png",
+      "bytes": 220260,
+      "sha256": "d51fea3bef4cce76b07755a67de454a288be47d81a6fb87f29723ccbf8a765e2"
+    },
+    {
+      "file": "wikipe-tan.png",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/c/c8/Wikipe-tan_full_length.png",
+      "licence": "CC-BY-SA-3.0",
+      "author": "Kasuga",
+      "licence_url": "https://commons.wikimedia.org/wiki/File:Wikipe-tan_full_length.png",
+      "bytes": 114154,
+      "sha256": "5dbe4625375f49fb40a90c71834608c87d6eb75047be4a3a29d55ea29c9ff522"
+    },
+    {
+      "file": "astronaut.png",
+      "url": "https://raw.githubusercontent.com/scikit-image/scikit-image/v0.25.2/skimage/data/astronaut.png",
+      "licence": "NASA public domain; skimage no known restrictions",
+      "author": "NASA",
+      "licence_url": "https://scikit-image.org/docs/stable/api/skimage.data.html#skimage.data.astronaut",
+      "bytes": 791555,
+      "sha256": "88431cd9653ccd539741b555fb0a46b61558b301d4110412b5bc28b5e3ea6cb5"
+    },
+    {
+      "file": "hand-gestures.png",
+      "url": "https://media.githubusercontent.com/media/opencv/opencv_zoo/48b10fa505aeb51fbd127fc60a5c660040e823b7/models/handpose_estimation_mediapipe/example_outputs/gesture_classification.png",
+      "licence": "Apache-2.0",
+      "author": "OpenCV Zoo contributors",
+      "licence_url": "https://github.com/opencv/opencv_zoo/blob/48b10fa505aeb51fbd127fc60a5c660040e823b7/models/handpose_estimation_mediapipe/README.md#license",
+      "bytes": 513541,
+      "sha256": "759c971087aef3068527f46b401af9fdead5a8dda3f68257d445bfb279fa99a9"
+    },
+    {
+      "file": "palm-demo.gif",
+      "url": "https://media.githubusercontent.com/media/opencv/opencv_zoo/48b10fa505aeb51fbd127fc60a5c660040e823b7/models/palm_detection_mediapipe/example_outputs/mppalmdet_demo.gif",
+      "licence": "Apache-2.0",
+      "author": "OpenCV Zoo contributors",
+      "licence_url": "https://github.com/opencv/opencv_zoo/blob/48b10fa505aeb51fbd127fc60a5c660040e823b7/models/palm_detection_mediapipe/README.md#license",
+      "bytes": 2178521,
+      "sha256": "e4a6e6ff306117f575807ea05bf06c67190bf16fe2d315873acd0824a678dfaf"
+    },
+    {
+      "file": "pepper-e1p1.jpg",
+      "url": "https://www.peppercarrot.com/0_sources/ep01_Potion-of-Flight/low-res/en_Pepper-and-Carrot_by-David-Revoy_E01P01.jpg",
+      "licence": "CC-BY-4.0",
+      "author": "David Revoy",
+      "licence_url": "https://www.peppercarrot.com/en/about/index.html",
+      "bytes": 443436,
+      "sha256": "f1de30872ce216b4ea57f6d99110867ba44396211119ffd20bce6277332f64d3",
+      "additional_terms_url": "https://www.davidrevoy.com/article1178/license-update-ai-derivation-prohibited-on-all-my-art-lore-stories-and-comics",
+      "usage_restriction": "CPU box detection only; no training, generated pixels or distributed artwork derivatives. Do not use this source for diffusion/inpaint comparisons."
+    }
+  ],
+  "detectors": {
+    "anime-face-lbp-v1": {
+      "id": "anime-face-lbp-v1",
+      "runtime": "opencv-python-headless",
+      "version": "4.13.0.92",
+      "asset_revision": "4433ab1ae1166ea75acfe99eb0f18709dac329a0",
+      "asset_sha256": "9376d30ac38db6bda2a68b88b3b76bbd7e6aa33af47f7f5c76bc88ca75f1ce30",
+      "preprocessing": "rgb-bgr;max-side1536-linear;gray-equalize;scale1.1;neighbors5;min24;confidence1-unscored;box-floor-ceil-v1;cv=4.13.0;numpy=2.5.2",
+      "provider": "CPU",
+      "additional_assets": []
+    },
+    "photo-face-yunet-v1": {
+      "id": "photo-face-yunet-v1",
+      "runtime": "opencv-python-headless",
+      "version": "4.13.0.92",
+      "asset_revision": "48b10fa505aeb51fbd127fc60a5c660040e823b7",
+      "asset_sha256": "8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4",
+      "preprocessing": "rgb-bgr;max-side1536-linear;yunet-score0.5;nms0.3;top128;box-floor-ceil-v1;cv=4.13.0;numpy=2.5.2",
+      "provider": "CPU",
+      "additional_assets": []
+    },
+    "photo-hands-opencv-v1": {
+      "id": "photo-hands-opencv-v1",
+      "runtime": "opencv-python-headless",
+      "version": "4.13.0.92",
+      "asset_revision": "48b10fa505aeb51fbd127fc60a5c660040e823b7",
+      "asset_sha256": "78ff51c38496b7fc8b8ebdb6cc8c1abb02fa6c38427c6848254cdaba57fcce7c",
+      "preprocessing": "rgb-bgr;max-side1536-linear;opencv-hands-v1-anchors64-inverse-affine;palm192-score0.5-nms0.3-top16;pose224-conf0.8;landmark-extents;box-floor-ceil-v1;cv=4.13.0;numpy=2.5.2",
+      "provider": "CPU",
+      "additional_assets": [
+        {
+          "id": "handpose_estimation_mediapipe_2023feb.onnx",
+          "revision": "48b10fa505aeb51fbd127fc60a5c660040e823b7",
+          "sha256": "db0898ae717b76b075d9bf563af315b29562e11f8df5027a1ef07b02bef6d81c"
+        }
+      ]
+    }
+  },
+  "method": {
+    "entry": "DetailerDetectors.detect",
+    "source_decoding": "Pillow decode selected frame then convert RGB; optional exact labelled crop; no orientation change",
+    "gpu_used": false,
+    "private_gallery_scanned": false,
+    "thresholds_tuned": false,
+    "ground_truth": "Approximate boxes recorded by visual inspection before parent adapter run for each original source. Palm demo was added as a known upstream positive after gesture misses, so is exploratory rather than an independent holdout.",
+    "holdout_limit": "Initial intended holdout Wikipe-tan and gesture5 both missed. Palm demo known-positive extension and1Pepper comic page are exploratory additions after failures. Repeating this report is engine reproducibility, not a new independent holdout.",
+    "memory": "Project Python3.13.15/OpenCV4.13.0.92/NumPy2.5.2/Pillow12.3.0; process RSS sampled10ms, not a hard peak bound. Initial isolated trial NumPy2.5.5 recorded separately.",
+    "diffusion_quality": "not measured; no anatomy/identity improvement claim; card acceptance separate",
+    "matching": "Greedy highest IoU first, label/region indices break ties, IoU>=0.3. Report misses and unmatched predictions even when a wider box visibly covers the face. Approximate labels are not expert ground truth.",
+    "repeat_command": "uv run python tools/detailer_trial.py --download --work work/detailer-trial",
+    "final_repeat": "Repeated all 24 CPU calls after the cold-status cache-repair change; identical regions. Explicit repair availability changed, inference recipes did not."
+  },
+  "decision": {
+    "photographic_faces": "working experimental CPU finder; one frontal photo positive, negative blank empty",
+    "photographic_hands": "working experimental CPU finder; one visible full hand positive; clipped other hand and2gesture panels missed; illustrated hands missed",
+    "illustrated_faces": "native positive on2of3 comic faces, both separate anime portraits missed; low-recall experimental manual-review candidate only, no generated-anime qualification",
+    "limits": "every result needs user region review; misses remain explicit; no automatic generation-wide use"
+  },
+  "initial_trial": {
+    "python": "3.13.15",
+    "numpy": "2.5.5",
+    "opencv": "4.13.0.92",
+    "process_peak_sampled": 329277440,
+    "result": "same region boxes as project-runtime repeat; initial7-input corpus then1illustrated-page extension; all misses retained"
+  }
+}

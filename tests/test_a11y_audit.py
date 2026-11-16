@@ -27,7 +27,7 @@ CHECK = {"expect": "__a11yCheck()"}
 # purpose is a decision; one that lost its steps in an edit is caught.
 WATCHED = {
     "smoke-bin", "smoke-bundles", "smoke-button-states", "smoke-context-menu", "smoke-delete",
-    "smoke-generation-presets", "smoke-inpaint", "smoke-instruction-edit", "smoke-lightbox",
+    "smoke-generation-presets", "smoke-inpaint", "smoke-instruction-edit", "smoke-lightbox", "smoke-detailer",
     "smoke-model-delete", "smoke-model-storage", "smoke-model-switch", "smoke-more-seeds", "smoke-outpaint", "smoke-phone-dialogs",
     "smoke-phone-gallery", "smoke-refine", "smoke-refine-batch", "smoke-saved-searches",
     "smoke-setup-portability", "smoke-shortcuts", "smoke-snippet-portability", "smoke-snippets",
