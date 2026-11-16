@@ -1,0 +1,955 @@
+{
+  "schema": "gen49-sdxl-four-region-card-result-v1",
+  "status": "measurement-audit-and-narrow-planning-look-passed",
+  "date_brisbane": "2026-11-17",
+  "audited_at_utc": "2026-11-16T19:49:29.285354+00:00",
+  "raw_directory": "work/gen49-sdxl-four-region-20261117-a1",
+  "source_commit": "097b498cdb4e2a30049a9209c4d312af2a53ed98",
+  "driver_sha256": "874e53ed793a9243437dfb84bac3e59ce95f94aa19639d4582a6304504212fa8",
+  "bootstrap_sha256": "fe14d4d3d445697fbae98e6f407b748917a116bf2e06c8590992fab94d1ec054",
+  "base_driver_sha256": "2e36f8442395865debbc52adb0ec02d29ba055266a939c06b8f9ea22e817e371",
+  "audit_script_sha256": "9b04fa31087184898bbde81f8748a9ef172cc9fee4bfe8d36c4d7da6ca3eb348",
+  "selection": {
+    "model": "cagliostrolab/animagine-xl-4.0",
+    "revision": "2b7c1b397761bf5bd3cc42e5b39ec99314a75a96",
+    "quantization": "fp8",
+    "offload": "model",
+    "platform": "Windows RTX 5080 CUDA 0",
+    "compilation": "Eager",
+    "attention": "Native"
+  },
+  "versions": {
+    "torch": "2.13.0+cu130",
+    "torchao": "0.18.0",
+    "diffusers": "0.42.1",
+    "transformers": "5.16.1",
+    "accelerate": "1.15.0"
+  },
+  "plan": {
+    "schema": "gen49-sdxl-four-region-look-v1",
+    "model": "cagliostrolab/animagine-xl-4.0",
+    "checkpoint_revision": "2b7c1b397761bf5bd3cc42e5b39ec99314a75a96",
+    "loader": "Windows RTX 5080 CUDA 0 fp8/model Eager/Native diffusers 0.42.1; offline one load",
+    "recipe": {
+      "prompt": "masterpiece, best quality, anime scenery, continuous wide landscape, a stone bridge crossing horizontally through the center over a river flowing vertically through the center, wooden cabin on the riverbank, tall pine trees with fine branches, textured stonework, snowy mountains across the horizon, morning sunlight",
+      "negative_prompt": "low quality, blurry",
+      "steps": 28,
+      "guidance_scale": 5.0,
+      "num_images": 1,
+      "mu": null
+    },
+    "baseline": {
+      "size": [
+        1024,
+        1024
+      ],
+      "seed": 12345
+    },
+    "fixture": {
+      "size": [
+        2048,
+        2048
+      ],
+      "resize": "Pillow RGB Lanczos exactly 2x",
+      "model_marker": "fixture/cpu-lanczos-resize",
+      "duration_ms": 0,
+      "note": "CPU fixture, never claimed to be a 2048-square diffusion render"
+    },
+    "tiles": [
+      {
+        "ordinal": 0,
+        "name": "top-left",
+        "paint_box": [
+          0,
+          0,
+          1088,
+          1088
+        ],
+        "mask_hash": "edcd1374ab338524421162ce388462ef473d9d9bae2c844e9d698b4463ece732",
+        "mask_rgb_bytes_sha256": "71c4c6609f40dfa39e4631054f6e40ed7fd0aa5b1fb3729a5e1f0a24f1a255fe",
+        "crop_box": [
+          0,
+          0,
+          1120,
+          1120
+        ],
+        "working": [
+          1040,
+          1040
+        ],
+        "seed": 12346
+      },
+      {
+        "ordinal": 1,
+        "name": "top-right",
+        "paint_box": [
+          960,
+          0,
+          2048,
+          1088
+        ],
+        "mask_hash": "701ae96c806eb5e6a8380260dfa075d3306cf544d046ee0810b73c148d049890",
+        "mask_rgb_bytes_sha256": "da7f7da891ca72fe12ec15347307f0380a6cd01115742533a4139379bec1e81d",
+        "crop_box": [
+          928,
+          0,
+          2048,
+          1120
+        ],
+        "working": [
+          1040,
+          1040
+        ],
+        "seed": 12347
+      },
+      {
+        "ordinal": 2,
+        "name": "bottom-left",
+        "paint_box": [
+          0,
+          960,
+          1088,
+          2048
+        ],
+        "mask_hash": "124012ed2e09aa64b2b56ca41e95071a44d19b840d7253d4a29146215e9daee8",
+        "mask_rgb_bytes_sha256": "df49ab70ec9a6a971e4ad933a72fa50eb9b7ad95a338a55c888a4f7adce5152c",
+        "crop_box": [
+          0,
+          928,
+          1120,
+          2048
+        ],
+        "working": [
+          1040,
+          1040
+        ],
+        "seed": 12348
+      },
+      {
+        "ordinal": 3,
+        "name": "bottom-right",
+        "paint_box": [
+          960,
+          960,
+          2048,
+          2048
+        ],
+        "mask_hash": "88adb30666c4acc406cfec7d47eb4d95572d8e708af5397032bc911454ca5b4b",
+        "mask_rgb_bytes_sha256": "60131ceb740f11f0b6c86fe0b5b04ae80ccad32ab9e61087c5cdc945bbc1bbe0",
+        "crop_box": [
+          928,
+          928,
+          2048,
+          2048
+        ],
+        "working": [
+          1040,
+          1040
+        ],
+        "seed": 12349
+      }
+    ],
+    "strength": 0.35,
+    "crop_spec": {
+      "rule": "bbox16",
+      "pad": 32,
+      "tier": 1
+    },
+    "crop_resize_disclosure": "Each bbox16 pad-32 crop is 1120 square, downsampled to 1040 square for diffusion and Lanczos-resized back; this is not a native 2048-square render or latent tiling.",
+    "blend": {
+      "order": [
+        "top-left",
+        "top-right",
+        "bottom-left",
+        "bottom-right"
+      ],
+      "overlap_pixels": 128,
+      "interior_inward_feather_pixels": 64,
+      "policy": "serial ordinary inpaint overlays; later regions see the prior saved result; no extra blend"
+    },
+    "sequence": [
+      "baseline",
+      "CPU2x-fixture",
+      "cancel-top-left",
+      "recover-top-left",
+      "repeat-top-left",
+      "top-right",
+      "bottom-left",
+      "bottom-right",
+      "unload"
+    ],
+    "guard": {
+      "limits": {
+        "card_mib": 15500.0,
+        "project_mib": 15200.0,
+        "refuse_at_peak_mib": 15000.0,
+        "adapter_shared_rise_mib": 1024.0,
+        "process_shared_rise_mib": 512.0,
+        "ram_floor_gib": 4.0,
+        "commit_floor_gib": 4.0,
+        "need_ram_gib": null,
+        "busy_card_mib": null,
+        "card_unread_samples": 3.0,
+        "margin_mib": 500.0,
+        "margin_gib": 1.0
+      },
+      "startup_ram_gib": 24,
+      "startup_commit_gib": 24,
+      "idle_card_mib": 2500,
+      "server_rss_cap_gib": 16,
+      "period_s": 0.25,
+      "stale_cap_s": 3,
+      "load_cap_s": 180,
+      "job_cap_s": 180,
+      "session_cap_s": 1200
+    },
+    "qualification": "exploratory only; inspect whole images and native seams; metrics alone cannot accept quality"
+  },
+  "load": {
+    "started_at": 1794858150.8242443,
+    "finished_at": 1794858164.4157271,
+    "pipeline": "StableDiffusionXLPipeline",
+    "checkpoint_revision": "2b7c1b397761bf5bd3cc42e5b39ec99314a75a96"
+  },
+  "load_count": 1,
+  "fixture": {
+    "source_rgb_sha256": "0fdc2bda4ca7e49eef03f025674a08f287c732852e16261f4deeb92761bd5364",
+    "cpu_enlargement_rgb_sha256": "cd2f7641dafb59989f497f08b241050609652344cc499575a227209d702653d8",
+    "exact_lanczos_2x_verified": true,
+    "model_marker": "fixture/cpu-lanczos-resize",
+    "duration_ms": 0
+  },
+  "cases": [
+    {
+      "name": "baseline",
+      "id": 1,
+      "source_id": null,
+      "seed": 12345,
+      "elapsed_seconds": 13.2649245262146,
+      "pixel_sha256": "0fdc2bda4ca7e49eef03f025674a08f287c732852e16261f4deeb92761bd5364",
+      "png_sha256": "422c0ad0869527cff04f7dbbcd7f0f84894f5f01c0f8978be493c46ea608d7c9",
+      "metadata_sha256": "510b3ef84a485447e8a2d60efe4d6ea1609f5c234e28caaf57839b358fd56abe",
+      "allocated_peak_gib": 3.1200928688049316,
+      "reserved_peak_gib": 3.46875,
+      "guard": {
+        "samples": 53,
+        "peaks": {
+          "card_mib": 5720.0,
+          "adapter_rise_mib": 93.9,
+          "process_rise_mib": 82.0,
+          "tree_gib": 5.66,
+          "tree_private_gib": 10.08962631225586
+        },
+        "minima": {
+          "available_gib": 27.0,
+          "commit_headroom_gib": 19.54
+        },
+        "longest_gap_s": 0.26833367347717285
+      },
+      "raw_working_output": {
+        "path": "C:\\Projects\\AuraDream\\work\\gen49-sdxl-four-region-20261117-a1\\raw-1794858164881905700-0.png",
+        "size": [
+          1024,
+          1024
+        ],
+        "pixel_sha256": "0fdc2bda4ca7e49eef03f025674a08f287c732852e16261f4deeb92761bd5364",
+        "png_sha256": "59f81f8c27e9ee66cd42c0d7bc36af868f50f28abf618be476f45e2d99328ddb"
+      }
+    },
+    {
+      "name": "cancel-top-left",
+      "status": "cancelled",
+      "elapsed_seconds": 3.9398443698883057,
+      "completed_steps": 2,
+      "decoded_outputs": 0,
+      "saved_outputs": 0,
+      "source_and_mask_unchanged": true,
+      "guard": {
+        "samples": 15,
+        "peaks": {
+          "card_mib": 5921.0,
+          "adapter_rise_mib": 93.1,
+          "process_rise_mib": 82.0,
+          "tree_gib": 5.67,
+          "tree_private_gib": 11.270153045654297
+        },
+        "minima": {
+          "available_gib": 26.91,
+          "commit_headroom_gib": 18.23
+        },
+        "longest_gap_s": 0.2608053684234619
+      }
+    },
+    {
+      "name": "recover-top-left",
+      "id": 3,
+      "source_id": 2,
+      "seed": 12346,
+      "elapsed_seconds": 7.201622486114502,
+      "pixel_sha256": "3254431339487cf357c4dd5cd9800c0ebc3f74a7871c10878d3e08610568d500",
+      "png_sha256": "0b827d322a69f6511e259d6e9baf65b04362242185b1034052d4d2de7a4c01ae",
+      "metadata_sha256": "5c22301ea7f5b9d5d5b5380601b507a1017ab8913254bbfe85e0c7bc5d15bc36",
+      "allocated_peak_gib": 3.289018154144287,
+      "reserved_peak_gib": 3.65625,
+      "guard": {
+        "samples": 29,
+        "peaks": {
+          "card_mib": 5924.0,
+          "adapter_rise_mib": 93.9,
+          "process_rise_mib": 82.0,
+          "tree_gib": 5.64,
+          "tree_private_gib": 10.419483184814453
+        },
+        "minima": {
+          "available_gib": 26.54,
+          "commit_headroom_gib": 19.23
+        },
+        "longest_gap_s": 0.2587590217590332
+      },
+      "raw_working_output": {
+        "path": "C:\\Projects\\AuraDream\\work\\gen49-sdxl-four-region-20261117-a1\\raw-1794858182839058400-0.png",
+        "size": [
+          1040,
+          1040
+        ],
+        "pixel_sha256": "323a2272cdb81e1ac9ff3755ae2db327db7cc66d3338ce5347357aeb9d2ef669",
+        "png_sha256": "8b912f124aefe7c1a58e3ec92117e7723d566d3a90fe97047e131e2390094b7e"
+      },
+      "crop": {
+        "rule": "bbox16",
+        "pad": 32,
+        "tier": 1,
+        "box": [
+          0,
+          0,
+          1120,
+          1120
+        ],
+        "working": [
+          1040,
+          1040
+        ]
+      },
+      "source_full_rgb_sha256": "cd2f7641dafb59989f497f08b241050609652344cc499575a227209d702653d8",
+      "mask_hash": "edcd1374ab338524421162ce388462ef473d9d9bae2c844e9d698b4463ece732",
+      "difference": {
+        "identical": false,
+        "mean": 5.626547972361247,
+        "max": 219,
+        "psnr": 24.199534492363956,
+        "threshold": 16,
+        "pct_over_threshold": 15.254426002502441,
+        "differing_pixels": 1182132,
+        "pixels": 4194304,
+        "outside_mask_max": 0
+      },
+      "seam_source_result": [
+        {
+          "step": 8.471966911764707,
+          "soft_gradient": 16.48636933871198
+        },
+        {
+          "step": 8.47763480392157,
+          "soft_gradient": 13.597365264662946
+        }
+      ],
+      "exact_raw_tile_overlay_reconstruction": true,
+      "outside_mask_max": 0
+    },
+    {
+      "name": "repeat-top-left",
+      "id": 4,
+      "source_id": 2,
+      "seed": 12346,
+      "elapsed_seconds": 6.82914662361145,
+      "pixel_sha256": "3254431339487cf357c4dd5cd9800c0ebc3f74a7871c10878d3e08610568d500",
+      "png_sha256": "b4f04eccf82664cbac60a027d5444fa8006bb806971e03615835a27ac786f75e",
+      "metadata_sha256": "87013c1e09224ce0f77e4169929fe68d3b67698a377238b2c9767e24b0fc0bc4",
+      "allocated_peak_gib": 3.289018154144287,
+      "reserved_peak_gib": 3.65625,
+      "guard": {
+        "samples": 28,
+        "peaks": {
+          "card_mib": 5928.0,
+          "adapter_rise_mib": 87.5,
+          "process_rise_mib": 82.0,
+          "tree_gib": 5.59,
+          "tree_private_gib": 9.735584259033203
+        },
+        "minima": {
+          "available_gib": 26.78,
+          "commit_headroom_gib": 19.81
+        },
+        "longest_gap_s": 0.26990771293640137
+      },
+      "raw_working_output": {
+        "path": "C:\\Projects\\AuraDream\\work\\gen49-sdxl-four-region-20261117-a1\\raw-1794858190004930100-0.png",
+        "size": [
+          1040,
+          1040
+        ],
+        "pixel_sha256": "323a2272cdb81e1ac9ff3755ae2db327db7cc66d3338ce5347357aeb9d2ef669",
+        "png_sha256": "8b912f124aefe7c1a58e3ec92117e7723d566d3a90fe97047e131e2390094b7e"
+      },
+      "crop": {
+        "rule": "bbox16",
+        "pad": 32,
+        "tier": 1,
+        "box": [
+          0,
+          0,
+          1120,
+          1120
+        ],
+        "working": [
+          1040,
+          1040
+        ]
+      },
+      "source_full_rgb_sha256": "cd2f7641dafb59989f497f08b241050609652344cc499575a227209d702653d8",
+      "mask_hash": "edcd1374ab338524421162ce388462ef473d9d9bae2c844e9d698b4463ece732",
+      "difference": {
+        "identical": false,
+        "mean": 5.626547972361247,
+        "max": 219,
+        "psnr": 24.199534492363956,
+        "threshold": 16,
+        "pct_over_threshold": 15.254426002502441,
+        "differing_pixels": 1182132,
+        "pixels": 4194304,
+        "outside_mask_max": 0
+      },
+      "seam_source_result": [
+        {
+          "step": 8.471966911764707,
+          "soft_gradient": 16.48636933871198
+        },
+        {
+          "step": 8.47763480392157,
+          "soft_gradient": 13.597365264662946
+        }
+      ],
+      "exact_raw_tile_overlay_reconstruction": true,
+      "outside_mask_max": 0
+    },
+    {
+      "name": "top-right",
+      "id": 5,
+      "source_id": 3,
+      "seed": 12347,
+      "elapsed_seconds": 7.129370927810669,
+      "pixel_sha256": "be678eaaf4b68a5e5b00e712d961857753af05d3b8fbebf846749e125cd3e616",
+      "png_sha256": "804425c7b9337a8ea0ac8b9ea3408afd3d4da9c4d4051e816a806e11f55029cc",
+      "metadata_sha256": "581489dc4e032ff44c95c164801ced09fb3ca27d9d411577972bb2b9d59af3e3",
+      "allocated_peak_gib": 3.289018154144287,
+      "reserved_peak_gib": 3.65625,
+      "guard": {
+        "samples": 28,
+        "peaks": {
+          "card_mib": 5951.0,
+          "adapter_rise_mib": 96.3,
+          "process_rise_mib": 82.0,
+          "tree_gib": 5.57,
+          "tree_private_gib": 10.395576477050781
+        },
+        "minima": {
+          "available_gib": 26.66,
+          "commit_headroom_gib": 18.57
+        },
+        "longest_gap_s": 0.26866865158081055
+      },
+      "raw_working_output": {
+        "path": "C:\\Projects\\AuraDream\\work\\gen49-sdxl-four-region-20261117-a1\\raw-1794858196849358000-0.png",
+        "size": [
+          1040,
+          1040
+        ],
+        "pixel_sha256": "1cf9ee07ed1b915d3eab6db00761da72fae5b5995a92460b003ef5ff4bdfa4de",
+        "png_sha256": "dc8a532fa04bc5c361043427c4ad9fcecaba7cfddafb5bb8be71e96d7b42919f"
+      },
+      "crop": {
+        "rule": "bbox16",
+        "pad": 32,
+        "tier": 1,
+        "box": [
+          928,
+          0,
+          2048,
+          1120
+        ],
+        "working": [
+          1040,
+          1040
+        ]
+      },
+      "source_full_rgb_sha256": "3254431339487cf357c4dd5cd9800c0ebc3f74a7871c10878d3e08610568d500",
+      "mask_hash": "701ae96c806eb5e6a8380260dfa075d3306cf544d046ee0810b73c148d049890",
+      "difference": {
+        "identical": false,
+        "mean": 5.384815692901611,
+        "max": 234,
+        "psnr": 24.260863568420522,
+        "threshold": 16,
+        "pct_over_threshold": 14.428901672363281,
+        "differing_pixels": 1182054,
+        "pixels": 4194304,
+        "outside_mask_max": 0
+      },
+      "seam_source_result": [
+        {
+          "step": 6.416360294117647,
+          "soft_gradient": 13.356287732530042
+        },
+        {
+          "step": 6.508731617647059,
+          "soft_gradient": 10.851721642540383
+        }
+      ],
+      "exact_raw_tile_overlay_reconstruction": true,
+      "outside_mask_max": 0
+    },
+    {
+      "name": "bottom-left",
+      "id": 6,
+      "source_id": 5,
+      "seed": 12348,
+      "elapsed_seconds": 6.907456636428833,
+      "pixel_sha256": "97054e26bae00f9a84470291191c494d8c3f36b0bf489426f428800050ba1644",
+      "png_sha256": "6e3b247a33d1dc7196c508cf50318b007fb65343b2335d5e38f0ac8f209527ba",
+      "metadata_sha256": "44f0068b4f937f972a6428080838d18206b0e06d2c46c6cc762246e751ce1b07",
+      "allocated_peak_gib": 3.289018154144287,
+      "reserved_peak_gib": 3.65625,
+      "guard": {
+        "samples": 28,
+        "peaks": {
+          "card_mib": 5888.0,
+          "adapter_rise_mib": 84.0,
+          "process_rise_mib": 82.0,
+          "tree_gib": 5.58,
+          "tree_private_gib": 10.289569854736328
+        },
+        "minima": {
+          "available_gib": 27.45,
+          "commit_headroom_gib": 19.34
+        },
+        "longest_gap_s": 0.2580404281616211
+      },
+      "raw_working_output": {
+        "path": "C:\\Projects\\AuraDream\\work\\gen49-sdxl-four-region-20261117-a1\\raw-1794858203969850100-0.png",
+        "size": [
+          1040,
+          1040
+        ],
+        "pixel_sha256": "be94f1d1e18ca0ff9741410eda04df971afe584cdfdf5952fc874547721129fd",
+        "png_sha256": "1d5c61d59bf7465b68de338393e7203b0c6d383cb8ee74194ef61c8fdfd8a3e6"
+      },
+      "crop": {
+        "rule": "bbox16",
+        "pad": 32,
+        "tier": 1,
+        "box": [
+          0,
+          928,
+          1120,
+          2048
+        ],
+        "working": [
+          1040,
+          1040
+        ]
+      },
+      "source_full_rgb_sha256": "be678eaaf4b68a5e5b00e712d961857753af05d3b8fbebf846749e125cd3e616",
+      "mask_hash": "124012ed2e09aa64b2b56ca41e95071a44d19b840d7253d4a29146215e9daee8",
+      "difference": {
+        "identical": false,
+        "mean": 4.715492407480876,
+        "max": 222,
+        "psnr": 25.51882714672349,
+        "threshold": 16,
+        "pct_over_threshold": 13.171958923339844,
+        "differing_pixels": 1181630,
+        "pixels": 4194304,
+        "outside_mask_max": 0
+      },
+      "seam_source_result": [
+        {
+          "step": 5.251225490196078,
+          "soft_gradient": 14.785442598977857
+        },
+        {
+          "step": 5.319087009803922,
+          "soft_gradient": 12.395620960694316
+        }
+      ],
+      "exact_raw_tile_overlay_reconstruction": true,
+      "outside_mask_max": 0
+    },
+    {
+      "name": "bottom-right",
+      "id": 7,
+      "source_id": 6,
+      "seed": 12349,
+      "elapsed_seconds": 6.271800756454468,
+      "pixel_sha256": "7a04e5835b31c39ed8947c92be67e4ead678f24ac0c775a3075f77767212d6ad",
+      "png_sha256": "113f010664f9cce7b0a0244f186fb066de7757af860deed84c4ef49ffbbf47a3",
+      "metadata_sha256": "8fad6f4a77959d6023433b2445549f2952e0d5b84d4c26c88774f43faaf3da0c",
+      "allocated_peak_gib": 3.289018154144287,
+      "reserved_peak_gib": 3.65625,
+      "guard": {
+        "samples": 25,
+        "peaks": {
+          "card_mib": 5874.0,
+          "adapter_rise_mib": 83.0,
+          "process_rise_mib": 82.0,
+          "tree_gib": 5.65,
+          "tree_private_gib": 10.596710205078125
+        },
+        "minima": {
+          "available_gib": 27.84,
+          "commit_headroom_gib": 19.54
+        },
+        "longest_gap_s": 0.26520776748657227
+      },
+      "raw_working_output": {
+        "path": "C:\\Projects\\AuraDream\\work\\gen49-sdxl-four-region-20261117-a1\\raw-1794858210877628100-0.png",
+        "size": [
+          1040,
+          1040
+        ],
+        "pixel_sha256": "4f0c114d9ab919e206b26cde50404e4d46e96cee7caac7373514023d53766ad2",
+        "png_sha256": "e03c1f91b6d56b875852fb3dc17856de79e952f9a0dfbd74f990df117829773b"
+      },
+      "crop": {
+        "rule": "bbox16",
+        "pad": 32,
+        "tier": 1,
+        "box": [
+          928,
+          928,
+          2048,
+          2048
+        ],
+        "working": [
+          1040,
+          1040
+        ]
+      },
+      "source_full_rgb_sha256": "97054e26bae00f9a84470291191c494d8c3f36b0bf489426f428800050ba1644",
+      "mask_hash": "88adb30666c4acc406cfec7d47eb4d95572d8e708af5397032bc911454ca5b4b",
+      "difference": {
+        "identical": false,
+        "mean": 4.508539438247681,
+        "max": 211,
+        "psnr": 25.83836030276533,
+        "threshold": 16,
+        "pct_over_threshold": 13.011789321899414,
+        "differing_pixels": 1182045,
+        "pixels": 4194304,
+        "outside_mask_max": 0
+      },
+      "seam_source_result": [
+        {
+          "step": 5.055606617647059,
+          "soft_gradient": 11.479398132497991
+        },
+        {
+          "step": 5.135263480392157,
+          "soft_gradient": 9.672946761919786
+        }
+      ],
+      "exact_raw_tile_overlay_reconstruction": true,
+      "outside_mask_max": 0
+    }
+  ],
+  "serial_chain": [
+    {
+      "ordinal": 0,
+      "source": 2,
+      "result": 3,
+      "mask": "edcd1374ab338524421162ce388462ef473d9d9bae2c844e9d698b4463ece732",
+      "pixel_sha256": "3254431339487cf357c4dd5cd9800c0ebc3f74a7871c10878d3e08610568d500"
+    },
+    {
+      "ordinal": 1,
+      "source": 3,
+      "result": 5,
+      "mask": "701ae96c806eb5e6a8380260dfa075d3306cf544d046ee0810b73c148d049890",
+      "pixel_sha256": "be678eaaf4b68a5e5b00e712d961857753af05d3b8fbebf846749e125cd3e616"
+    },
+    {
+      "ordinal": 2,
+      "source": 5,
+      "result": 6,
+      "mask": "124012ed2e09aa64b2b56ca41e95071a44d19b840d7253d4a29146215e9daee8",
+      "pixel_sha256": "97054e26bae00f9a84470291191c494d8c3f36b0bf489426f428800050ba1644"
+    },
+    {
+      "ordinal": 3,
+      "source": 6,
+      "result": 7,
+      "mask": "88adb30666c4acc406cfec7d47eb4d95572d8e708af5397032bc911454ca5b4b",
+      "pixel_sha256": "7a04e5835b31c39ed8947c92be67e4ead678f24ac0c775a3075f77767212d6ad"
+    }
+  ],
+  "full_frame_comparison": {
+    "source_final_difference": {
+      "identical": false,
+      "mean": 19.13139732678731,
+      "max": 234,
+      "psnr": 18.98142105112659,
+      "threshold": 16,
+      "pct_over_threshold": 52.875471115112305,
+      "differing_pixels": 4192186,
+      "pixels": 4194304
+    },
+    "crops": {
+      "vertical": [
+        896,
+        0,
+        1152,
+        2048
+      ],
+      "horizontal": [
+        0,
+        896,
+        2048,
+        1152
+      ],
+      "center": [
+        768,
+        768,
+        1280,
+        1280
+      ]
+    },
+    "note": "Whole-frame statistics are not a seam/content quality verdict."
+  },
+  "resources": {
+    "samples": 289,
+    "duration_seconds": 72.20684289999917,
+    "requested_period_seconds": 0.25,
+    "longest_gap_seconds": 0.26990771293640137,
+    "peaks": {
+      "card_mib": 5951.0,
+      "adapter_rise_mib": 96.3,
+      "process_rise_mib": 82.0,
+      "tree_gib": 9.31,
+      "tree_private_gib": 11.270153045654297
+    },
+    "minima": {
+      "available_gib": 23.86,
+      "commit_headroom_gib": 18.23
+    },
+    "baseline": {
+      "time": "2026-11-17T05:42:27+1000",
+      "event": "baseline",
+      "limits": {
+        "card_mib": 15500.0,
+        "project_mib": 15200.0,
+        "refuse_at_peak_mib": 15000.0,
+        "adapter_shared_rise_mib": 1024.0,
+        "process_shared_rise_mib": 512.0,
+        "ram_floor_gib": 4.0,
+        "commit_floor_gib": 4.0,
+        "need_ram_gib": 24,
+        "busy_card_mib": 2500,
+        "card_unread_samples": 3.0,
+        "margin_mib": 500.0,
+        "margin_gib": 1.0
+      },
+      "pids": [
+        49656,
+        56532,
+        21200
+      ],
+      "sources": {
+        "card": "nvidia-smi --loop-ms",
+        "shared": "pdh"
+      },
+      "period_s": 0.25,
+      "card_mib": 1828.0,
+      "adapter_shared_mib": 106.3,
+      "adapter_rise_mib": 0.0,
+      "process_shared_mib": 0.0,
+      "process_rise_mib": 0.0,
+      "available_gib": 33.36,
+      "commit_headroom_gib": 30.27,
+      "tree_gib": 0.02
+    },
+    "post_unload": {
+      "samples": 4,
+      "peaks": {
+        "card_mib": 2160.0,
+        "adapter_rise_mib": 82.7,
+        "process_rise_mib": 82.0,
+        "tree_gib": 5.55,
+        "tree_private_gib": 7.585731506347656
+      },
+      "minima": {
+        "available_gib": 28.15,
+        "commit_headroom_gib": 22.6
+      },
+      "longest_gap_s": 0.2539491653442383
+    }
+  },
+  "process_cleanup": {
+    "server_pid": 49656,
+    "server_exit": 15,
+    "guard_error": null,
+    "power": {
+      "acquired": true,
+      "released": true
+    },
+    "at": 1794858220.258435,
+    "port_7996_closed": true,
+    "server_pid_absent": true,
+    "exit_note": "Server exit 15 is the controller's scoped termination after acknowledged unload; not a graceful server shutdown claim.",
+    "observed_startup_tree_pids_absent": [
+      49656,
+      56532,
+      21200
+    ]
+  },
+  "verification": {
+    "image_rows": 7,
+    "api_jobs": 7,
+    "successful_diffusion_outputs": 6,
+    "cpu_fixtures": 1,
+    "cancelled_outputs": 0,
+    "mask_rows": 4,
+    "outstanding_mask_holds": 0,
+    "job_api_sql_png_allocator_agreement": true,
+    "source_and_mask_proofs": true,
+    "cpu_exact_composite_reconstruction": true,
+    "source_manifest_unchanged": true,
+    "raw_files_unchanged_by_audit": true,
+    "no_framework_import_in_audit": true
+  },
+  "installed_overlay_source": {
+    "path": ".venv\\Lib\\site-packages\\diffusers\\image_processor.py",
+    "sha256": "0a06258cc405c60bba694b022297815347fb129b69c7c68c1a7512e7eb30d2cd"
+  },
+  "visual_review": {
+    "status": "reviewed; narrow planning gate passed",
+    "reviewers": [
+      {
+        "reviewer": "/root",
+        "role": "Direct visual inspection",
+        "artifacts": [
+          "overview.png",
+          "seam-vertical-source-native.png",
+          "seam-vertical-final-native.png",
+          "seam-horizontal-source-native.png",
+          "seam-horizontal-final-native.png",
+          "seam-center-source-native.png",
+          "seam-center-final-native.png"
+        ],
+        "planning_gate": "Passed only for writing a bounded GEN#49 plan; no product/release qualification.",
+        "visible_joins": "No obvious rectangular boundary, center crosshair or abrupt color step in this one scene; roof/cabin/dock-water lines continue.",
+        "detail_and_fidelity": "Fine wood bracing, panels, roof, foliage and reflections substantially redraw and often smooth. A thin upright behind the roof is more prominent and may be introduced. Fidelity and useful detail benefit are not established.",
+        "baseline_scope": "The prompt requested a bridge and river but the baseline is a cabin/dock/water scene. No bridge-preservation claim is supported.",
+        "bounds": "One synthetic scene, Animagine XL 4.0, strength 0.35, 128-pixel overlap, 64-pixel inward feather, top-left/top-right/bottom-left/bottom-right order only."
+      },
+      {
+        "reviewer": "/root/anima_release_plan",
+        "role": "Independent visual inspection; agreement reported to auditor by root",
+        "planning_gate": "Passed only for writing a bounded GEN#49 plan; no product/release qualification.",
+        "visible_joins": "No obvious rectangular boundary, center crosshair or abrupt color step in this one scene; roof/cabin/dock-water lines continue.",
+        "detail_and_fidelity": "Fine wood bracing, panels, roof, foliage and reflections substantially redraw and often smooth. A thin upright behind the roof is more prominent and may be introduced. Fidelity and useful detail benefit are not established.",
+        "baseline_scope": "The prompt requested a bridge and river but the baseline is a cabin/dock/water scene. No bridge-preservation claim is supported.",
+        "bounds": "One synthetic scene, Animagine XL 4.0, strength 0.35, 128-pixel overlap, 64-pixel inward feather, top-left/top-right/bottom-left/bottom-right order only."
+      }
+    ],
+    "reviewed_artifact_sha256": {
+      "overview.png": "d34afc3ca5d898d2e9af86fa05e9a35bfd9424d0f251b679a9bba90b8ae69f6d",
+      "seam-vertical-source-native.png": "f37d2b9c833c744fecdacbb1c219cec4a28d3895bb4e3ec2aac11fe7c558674f",
+      "seam-vertical-final-native.png": "f132a488bf200d7f689f2554848c520941eb913b0d00c6fd7bf292bffe47f47e",
+      "seam-horizontal-source-native.png": "b37499762eda57a894a10a523119f77543bfcc5bd4e4db6c235a63f3b6f29363",
+      "seam-horizontal-final-native.png": "d9a1a45113240be2a5e23e3b63d00f5fd4a65e53282870b50174d4bca8b27d90",
+      "seam-center-source-native.png": "5bfa47bbe308f220abd6c6561ef205229d32acee5137dfa38567d9ad7f79e4be",
+      "seam-center-final-native.png": "0711e05596416ca30843ef488d822af2a1370380c8770725c4a0cceb30b1bb94"
+    },
+    "fidelity_or_detail_benefit_established": false,
+    "product_or_release_qualified": false,
+    "result": "A bounded product plan may now be written. Numeric and visual observations do not select defaults, promise improvement or close GEN#49."
+  },
+  "scope": "One frozen exploratory scene and ordered pixel overlays; 1120-square crops run at 1040 square then resize back. No latent multi-diffusion, product plan, default change or row closure follows from numeric success.",
+  "raw_manifest": {
+    "allocator.jsonl": "fe00df5626b21356635df85a9e82e35c8c5cb1890d222e156b0cf976fc9dbe53",
+    "auradream.log": "5564863fb46ecde53da62d819d17a5dc31d1a97da8c79edb19aa3968ab5a3fc9",
+    "baseline-sse.jsonl": "0fe6f78b8f68bdcf62ecdf9ce328280525079aeb53692a8ac3915f4d07deb95b",
+    "baseline.png": "422c0ad0869527cff04f7dbbcd7f0f84894f5f01c0f8978be493c46ea608d7c9",
+    "bottom-left-sse.jsonl": "6421da5cbc105a70c7d3ce0b9f17b604f639a98aa749b12129478e5ccadf511a",
+    "bottom-right-sse.jsonl": "1025367350eb1d2d770de9dac86254f8308db62ed0c8555d027f0edc20e4b9e5",
+    "cancel-top-left-sse.jsonl": "221feb53f1786f0216807bec19f019bf152e61e77e3dd6af84b629cfecaf6e5f",
+    "cleanup.json": "def84126c05825968f4243b3c6e6262cbf478b2e09bb72a1ff2ee07c34d46224",
+    "enlarged-fixture.png": "425ed2ab3d3ef50323501ce4d24e7a585a613453bf0cdaa02feb2f252dc0b09d",
+    "final-composite.png": "113f010664f9cce7b0a0244f186fb066de7757af860deed84c4ef49ffbbf47a3",
+    "fixture.json": "b051877eea0583029ad5cdd5a19580ab93cf65c9226fb6f4847e21dcf3fae540",
+    "full-comparison.json": "7a8d283cd3abc7e3c88cc06107f8884bdd7631c9d7ff73601ee320683bb7b9de",
+    "gallery.db": "7497c9198e15ae626c99777991e356b150a603f4cd32175cad889881970b8e2a",
+    "gallery.db-shm": "aa4311bf45b3604c9ba105c3d3a85b4625a8ff68a6d57ea55ecabfae6d657f36",
+    "gallery.db-wal": "e7e7eb58806f6d64ccb441f13e3842dab9a4edf31af47b85afc79aae26d4c923",
+    "gallery.db.gallery.lock": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+    "gpu.txt": "dd3af5a542f1a58ee7178ffdf000f624baa67875f98b33c88500a171dc60fcaf",
+    "guard.jsonl": "7a50da6e7a9553bb6d1552baf8ac5dc83ea64f18e9c3a35d9d3848a751c43fa0",
+    "loads.jsonl": "f8d244f311e8c1f3cbf62ae37f7b1a181b49e0415bbe9b57475de5395d3fd2f8",
+    "metadata-1.json": "510b3ef84a485447e8a2d60efe4d6ea1609f5c234e28caaf57839b358fd56abe",
+    "metadata-3.json": "5c22301ea7f5b9d5d5b5380601b507a1017ab8913254bbfe85e0c7bc5d15bc36",
+    "metadata-4.json": "87013c1e09224ce0f77e4169929fe68d3b67698a377238b2c9767e24b0fc0bc4",
+    "metadata-5.json": "581489dc4e032ff44c95c164801ced09fb3ca27d9d411577972bb2b9d59af3e3",
+    "metadata-6.json": "44f0068b4f937f972a6428080838d18206b0e06d2c46c6cc762246e751ce1b07",
+    "metadata-7.json": "8fad6f4a77959d6023433b2445549f2952e0d5b84d4c26c88774f43faaf3da0c",
+    "overview.png": "d34afc3ca5d898d2e9af86fa05e9a35bfd9424d0f251b679a9bba90b8ae69f6d",
+    "plan.json": "f1155b5e667e97f45568c2da1ef83a2ff5541d0e2ba7e92f8911a1d11f689078",
+    "post-overlay-tile-3.png": "39a19a5970ac7d07391c104802ef1b2e6f72d4b184b628276ad4c0a08cdb23a1",
+    "post-overlay-tile-4.png": "39a19a5970ac7d07391c104802ef1b2e6f72d4b184b628276ad4c0a08cdb23a1",
+    "post-overlay-tile-5.png": "adcc4bec616ab0ab21d06b70fdfdece57781ffa89c20fb1c28cd5bb85c59dd6f",
+    "post-overlay-tile-6.png": "4f607588bb056a1fbfd9ea930f5aec0a99a470f5240972d9cd4beff78192abfb",
+    "post-overlay-tile-7.png": "9be050ef44a0f91d764a52ec90d50ccb763bccf9153e56782a015fc8194843d8",
+    "power.json": "4b36446fb9ec61e9086826a784b5cac8411a960d3de1d5cf0a5dfe123bd5945e",
+    "raw-1794858164881905700-0.png": "59f81f8c27e9ee66cd42c0d7bc36af868f50f28abf618be476f45e2d99328ddb",
+    "raw-1794858182839058400-0.png": "8b912f124aefe7c1a58e3ec92117e7723d566d3a90fe97047e131e2390094b7e",
+    "raw-1794858190004930100-0.png": "8b912f124aefe7c1a58e3ec92117e7723d566d3a90fe97047e131e2390094b7e",
+    "raw-1794858196849358000-0.png": "dc8a532fa04bc5c361043427c4ad9fcecaba7cfddafb5bb8be71e96d7b42919f",
+    "raw-1794858203969850100-0.png": "1d5c61d59bf7465b68de338393e7203b0c6d383cb8ee74194ef61c8fdfd8a3e6",
+    "raw-1794858210877628100-0.png": "e03c1f91b6d56b875852fb3dc17856de79e952f9a0dfbd74f990df117829773b",
+    "receipt.json": "e5d0b0553f0c51c769ce273ee18c6080ba458af3b738bb24f78b6eecd8e24d12",
+    "recover-top-left-sse.jsonl": "cd982909767ac6d54daca7fc0ed35b1e98e91a50d28f6e1ae1bdbafe992f64e7",
+    "repeat-top-left-sse.jsonl": "f96db68303cbec720563f34dd2bcddd412b73508ba04a73e053996e9ccd7cb97",
+    "seam-center-final-native.png": "0711e05596416ca30843ef488d822af2a1370380c8770725c4a0cceb30b1bb94",
+    "seam-center-source-native.png": "5bfa47bbe308f220abd6c6561ef205229d32acee5137dfa38567d9ad7f79e4be",
+    "seam-horizontal-final-native.png": "d9a1a45113240be2a5e23e3b63d00f5fd4a65e53282870b50174d4bca8b27d90",
+    "seam-horizontal-source-native.png": "b37499762eda57a894a10a523119f77543bfcc5bd4e4db6c235a63f3b6f29363",
+    "seam-vertical-final-native.png": "f132a488bf200d7f689f2554848c520941eb913b0d00c6fd7bf292bffe47f47e",
+    "seam-vertical-source-native.png": "f37d2b9c833c744fecdacbb1c219cec4a28d3895bb4e3ec2aac11fe7c558674f",
+    "server.log": "fe45a21b9aaaac891caf6c9032520a0cb1b164728c9423a624313566c0170471",
+    "server.py": "d734ed33e8153c7e845013b6ecbc90d878ed7cd93dbd412b6a90e1bb061b3dc3",
+    "source-diff.patch": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "top-right-sse.jsonl": "20374bce5818717f324955ae4b8b6dc53405d2e54856f672c317f2759d7e73d8",
+    "masks/124012ed2e09aa64b2b56ca41e95071a44d19b840d7253d4a29146215e9daee8.png": "8947fe9ceebf4fdb7fe01f7d6830617a53de832291c8849ff26d9b7fbc4cf7f7",
+    "masks/701ae96c806eb5e6a8380260dfa075d3306cf544d046ee0810b73c148d049890.png": "f47ccb6fa43547ea29c0ceaa6615c59f7d65caa3ec4237c9f5d76f728579dc8e",
+    "masks/88adb30666c4acc406cfec7d47eb4d95572d8e708af5397032bc911454ca5b4b.png": "1f4bf6cc235622f703dd18c857293f845829f8d49910322b7be90ef1f0ccf289",
+    "masks/edcd1374ab338524421162ce388462ef473d9d9bae2c844e9d698b4463ece732.png": "3b154a2a08afa3d7287ba414fc3d12f125beec7b2b90d527b8e93804d78e77a4",
+    "outputs/20261116-194257-12345-7ff53c.png": "422c0ad0869527cff04f7dbbcd7f0f84894f5f01c0f8978be493c46ea608d7c9",
+    "outputs/20261116-194258-12345-df6ba2.png": "425ed2ab3d3ef50323501ce4d24e7a585a613453bf0cdaa02feb2f252dc0b09d",
+    "outputs/20261116-194308-12346-f02a76.png": "0b827d322a69f6511e259d6e9baf65b04362242185b1034052d4d2de7a4c01ae",
+    "outputs/20261116-194315-12346-3cc05e.png": "b4f04eccf82664cbac60a027d5444fa8006bb806971e03615835a27ac786f75e",
+    "outputs/20261116-194322-12347-9d5a30.png": "804425c7b9337a8ea0ac8b9ea3408afd3d4da9c4d4051e816a806e11f55029cc",
+    "outputs/20261116-194329-12348-6cac9f.png": "6e3b247a33d1dc7196c508cf50318b007fb65343b2335d5e38f0ac8f209527ba",
+    "outputs/20261116-194335-12349-84a942.png": "113f010664f9cce7b0a0244f186fb066de7757af860deed84c4ef49ffbbf47a3",
+    "outputs/masks/124012ed2e09aa64b2b56ca41e95071a44d19b840d7253d4a29146215e9daee8.png": "8947fe9ceebf4fdb7fe01f7d6830617a53de832291c8849ff26d9b7fbc4cf7f7",
+    "outputs/masks/701ae96c806eb5e6a8380260dfa075d3306cf544d046ee0810b73c148d049890.png": "f47ccb6fa43547ea29c0ceaa6615c59f7d65caa3ec4237c9f5d76f728579dc8e",
+    "outputs/masks/88adb30666c4acc406cfec7d47eb4d95572d8e708af5397032bc911454ca5b4b.png": "1f4bf6cc235622f703dd18c857293f845829f8d49910322b7be90ef1f0ccf289",
+    "outputs/masks/edcd1374ab338524421162ce388462ef473d9d9bae2c844e9d698b4463ece732.png": "3b154a2a08afa3d7287ba414fc3d12f125beec7b2b90d527b8e93804d78e77a4",
+    "outputs/thumbnails/20261116-194257-12345-7ff53c.webp": "4e3af5870d5b3b51bc0d25cf6a04fd704a7e0928c9e45572e0b49434383c2c8b",
+    "outputs/thumbnails/20261116-194258-12345-df6ba2.webp": "0a110e4625f24ab1bee9b3559cae13cb81c5c5f15ac10a64ddd7643b67e855b7",
+    "outputs/thumbnails/20261116-194308-12346-f02a76.webp": "553d33cf8df707618117aae1d6186a71e3f4ae6d6b9d239cd8ddea7ab9248d67",
+    "outputs/thumbnails/20261116-194315-12346-3cc05e.webp": "553d33cf8df707618117aae1d6186a71e3f4ae6d6b9d239cd8ddea7ab9248d67",
+    "outputs/thumbnails/20261116-194322-12347-9d5a30.webp": "99d9c15be2c0a737a1b10941c1bd60bfdb53fc0bcd6cf346b5425dda0851a865",
+    "outputs/thumbnails/20261116-194329-12348-6cac9f.webp": "f5e5f1ec20529888a17ca2794f50e6bcc82813e4e5d940ce19cfac6f69393250",
+    "outputs/thumbnails/20261116-194335-12349-84a942.webp": "5c0fedd530163f5dcf40d5f35d98749068b3481ea693c131f970219d76e8f010"
+  },
+  "bootstrap_file_sha256": "d734ed33e8153c7e845013b6ecbc90d878ed7cd93dbd412b6a90e1bb061b3dc3",
+  "bootstrap_hash_note": "The controller source-string digest normalizes Windows CRLF to LF; raw server.py file SHA-256 is retained separately."
+}

@@ -1515,6 +1515,45 @@ CPU gate passed 11,071 tests with 325 skips; Ruff and all 217 Pyright sources
 passed. `GEN#48` is complete for the documented bounded envelopes, with the
 full validation and limitations in the owner.
 
+### Four-region SDXL tiled-refine look (2026-11-17)
+
+`GEN#49`'s exploratory one-load session used the exact cached Animagine XL
+4.0 revision `2b7c1b397761bf5bd3cc42e5b39ec99314a75a96`, Windows/RTX 5080,
+fp8/model, Eager/Native and diffusers 0.42.1. A new 1024-square synthetic
+render became an exact CPU Lanczos 2x fixture, honestly marked as such.
+Four ordinary masked-area jobs then traversed the 2048-square canvas
+top-left, top-right, bottom-left, bottom-right at strength 0.35,
+28 full steps/CFG 5 and seeds 12346-12349. Overlap was 128 pixels, interior
+inward feather 64; `bbox16:32@1` cropped 1120 square and denoised at 1040
+square before the existing resize/overlay. Later tiles saw the prior result.
+
+The first tile cancelled without a decoded/saved output; recovery and its
+exact repeat matched. Six diffusion images plus the explicitly CPU fixture
+were stored; the four-result chain excludes the extra repeat. Each completed
+crop ran nine callbacks. All five cropped outputs reconstructed bit for bit
+from their raw working tiles and installed crop/overlay helpers. Outside-mask
+maximum difference was zero for every pass. Source/mask, job/API/SQL/PNG and
+independent allocator checks passed. Load took 13.59 s; the chain's API times
+were 7.20/7.13/6.91/6.27 s including observations and validation, not pure
+model benchmarks. The 72.21 s guard retained 289 samples, longest gap 0.270 s.
+Whole-card peak was 5951 MiB, shared rises 96.3/82 MiB adapter/process,
+RSS/private 9.31/11.27 GiB, free-RAM/commit minima 23.86/18.23 GiB. The
+24/24 GiB admission, 16 GiB RSS cap and unchanged card/shared/4 GiB live
+floors held. Unload answered, owned server processes were scoped/reaped
+(expected exit 15), port 7996 closed and power was released.
+
+Root and independent visual reviews inspected the overview and native centre,
+horizontal and vertical source/final crops. No obvious rectangular boundary,
+centre cross or abrupt colour step appeared, and major cabin/dock/water lines
+continue. Fine bracing, roof, foliage and reflections redraw and often smooth;
+a thin upright behind the roof is more prominent or possibly introduced.
+The baseline did not realize the requested bridge/river faithfully. Fidelity
+and useful detail gain remain unestablished. This supports writing the
+[bounded plan](maintainer/plan-tiled-refine.md), not product qualification,
+a default, general seam freedom or TODO closure. The [receipt](maintainer/gen49-sdxl-four-region-2026-11-17.json)
+preserves raw hashes, exact scripts/masks/tiles/intermediates and separate
+visual reviews. Auditing did not change the raw evidence.
+
 ### Peak per image, FLUX.1 Krea dev; guarded Refine stop (2026-11-16)
 
 The authorized overnight session completed `GEN#15`'s remaining Windows
@@ -2522,6 +2561,38 @@ gallery was not used. Not measured: a critique beside a load in progress
 the critic, and a rewrite against its original over more than two seeds on
 FLUX.1 (both measured 2026-10-25 on Z-Image Turbo and Animagine, the rows
 above); kill-on-close under WSL; Ctrl-C during a critique.
+
+### Critic partial-placement follow-up (2026-11-17)
+
+Four frozen, eligible one-shot calls completed with pinned b11206 CUDA 13.4
+and Qwen3-4B Q8_0 on Windows/RTX 5080, driver 616.92, with no image pipeline.
+The three partial-placement prompts passed their CPU prerequisites, but the
+actual model added `[series]` in cases A/C and changed the name to
+`Arlen Voss (series)` in B. All were correctly rejected as changed words
+before the source-bound partial-placement condition at validation line 689.
+The fully placed control preserved the prompt pieces and retained Check's
+canonical reorder with kind `check`. **The partial-placement target remains
+unreached.** These are three new partial cases and one control, without
+combining ambiguous earlier counts. No reply was repaired or retried.
+
+Actual Check, the ordinary critic job gate and `PromptCritic.critique` ran;
+all four normal process/listener/gate cleanups passed. Critique times were
+18.66/13.86/19.49/10.14 s. All 304 guard samples re-evaluate to `ok`, with
+0.250266 s mean period and 0.260073 s longest gap. Whole-card peak was
+7437 MiB over 1825; process RSS/private 5.116/7.241 GiB, shared rises
+184.148/98 MiB adapter/process, free-RAM/commit minima 28.273/23.452 GiB.
+The 16/16 GiB admission and unchanged live card/shared/4 GiB floors held.
+Final card was 1826 MiB and power was released. Numerical GPU layer counts
+were absent; no layer count or full-GPU placement is inferred from timings
+or memory. Llama allocations are outside Torch's allocator.
+
+The [receipt](maintainer/card11-critic-2026-11-17.json) binds all 196 source
+hashes, original structured replies, validator traces and unchanged raw
+evidence. Zero image/assistant/download/Python Torch CUDA-init calls occurred.
+This direct protocol did not exercise HTTP/UI or post-reply rewrite lint;
+empty rewrite findings do not establish clean rewrites. PA#18 assistant
+inference, image comparisons, WSL kill-on-close and typed Ctrl-C remain held
+or untested. `CARD#11` stays open.
 
 ## FLUX 3 [Klein] and its prompt upsampler (2026-11-10)
 

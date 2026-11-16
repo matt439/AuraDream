@@ -71,6 +71,16 @@ First step, on the card with Matt's OK: refine one 2x FLUX.1 or SDXL source
 as four overlapping Only the masked area regions at strength 0.3-0.4 and
 look at the seams. A plan is written only if that is acceptable.
 
+**2026-11-17 result:** the authorized overnight session ran the four-region
+SDXL look on an honestly marked CPU 2x source. Source/mask, cancellation,
+repeat, overlay reconstruction and resource checks passed. Root and an
+independent agent saw no obvious seam or centre cross, with substantial
+texture/geometry redraw and no established detail benefit. This passed only
+the planning gate. The [bounded plan](plan-tiled-refine.md) now owns the
+private CPU prototype, durable intent, backend/card and public-flow stages;
+the [dated result](../verified.md#four-region-sdxl-tiled-refine-look-2026-11-17)
+keeps the exact limits. No public tiled-refine feature is released.
+
 ### R3 a wider instruction-edit envelope
 
 `INP#13`, after `INP#11`'s card acceptance. Any 1:1 source qualifies today
