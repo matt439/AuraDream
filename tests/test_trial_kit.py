@@ -142,3 +142,21 @@ def test_the_driver_reads_only_roles_the_fixture_writes():
 def test_the_more_seeds_refusal_is_recorded():
     fixture = (ROOT / "tools" / "trial_fixture.py").read_text(encoding="utf-8")
     assert '("foreign_more_seeds", "/api/more-seeds"' in fixture
+
+
+def test_walkthrough_refuses_to_act_without_owned_ready_fixture():
+    steps = trial_walkthrough.steps_for(_manifest())
+    ownership = [s for s in steps if "listing.directory" in s.get("expect", "")]
+    readiness = [s for s in steps if "modelState" in s.get("expect", "") and "!galleryPending" in s.get("expect", "")]
+    assert len(ownership) == 1 and ownership[0]["fatal"] is True
+    assert len(readiness) == 2 and all(s["fatal"] is True for s in readiness)
+    first_click = next(i for i, s in enumerate(steps) if "click" in s)
+    assert steps.index(ownership[0]) < steps.index(readiness[0]) < first_click
+
+
+def test_sampling_is_opened_by_real_input_before_true_cfg():
+    steps = trial_walkthrough.steps_for(_manifest())
+    sampling = next(i for i, s in enumerate(steps) if s.get("click") == "#sampling-caption")
+    cfg = next(i for i, s in enumerate(steps) if s.get("click") == "#true-cfg")
+    assert sampling < cfg
+    assert steps[sampling + 1] == {"expect": "document.querySelector('#sampling-section').open", "fatal": True}

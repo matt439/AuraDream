@@ -13,6 +13,9 @@ fixture). Keep the participant's
 record blank until observed. An automated assertion is not Matt's prediction,
 press count, timing, quote or task outcome.
 
+The [2026-11-15 AD-2 comparison](expert-baseline-2026-11-15.md) records a
+current-source recheck, Sampling disclosure driver repair and concept limits.
+
 ## Current app: prepare, launch and reset
 
 Run from the repository root in PowerShell. Check available space first; the

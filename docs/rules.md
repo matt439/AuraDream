@@ -9967,6 +9967,11 @@ with a nonempty string. Malformed values/ambiguous actions refuse before
 screenshots, profile work or spawn. Valid metadata reaches a poisoned existing
 downstream boundary; these cold tests do not qualify actual driver stopping.
 
+The trial walkthrough uses fatal scratch-ownership and initial/reload readiness
+checks before continuing. Its fresh-profile task opens Sampling with a real
+summary press before filling True CFG; `tests/test_trial_kit.py` locks these
+contracts. See [AD-2 baseline](design/trials/expert-baseline-2026-11-15.md).
+
 `browser.mjs` supports `{"expect": "...", "fatal": true}` for prerequisites.
 Falsy results, throws and rejected awaited promises fail/count and stop later
 steps through the ordinary graceful close/cleanup path. Async setup expressions
