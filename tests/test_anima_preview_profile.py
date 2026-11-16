@@ -16,9 +16,10 @@ def test_preview_profile_has_guided_defaults_and_final_custom_pipeline_limits():
     assert (defaults["steps"], defaults["guidance_scale"], defaults["mu"]) == (30, 4.0, None)
     assert defaults["negative_prompt_supported"] and defaults["cfg_threshold"] == 1
     assert defaults["refine_settled"] and defaults["inpaint_settled"]
-    assert defaults["refine_strength"] is None
+    assert defaults["refine_strength"] == .125 and defaults["refine_supported"]
+    assert defaults["refine_rounding"] == "flow" and defaults["refine_tight_pixels"] == 1024**2
     assert not any(defaults[key] for key in (
-        "mu_supported", "reference_supported", "refine_supported", "inpaint_supported",
+        "mu_supported", "reference_supported", "inpaint_supported",
         "true_cfg_supported",
     ))
     assert _profile_for(MODEL_ID)["guide"] is guides.ANIMA_PREVIEW_GUIDE

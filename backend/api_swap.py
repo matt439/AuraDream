@@ -125,7 +125,7 @@ async def swap_plan(
         except ValueError as exc:
             result.status, result.detail = "invalid", error_detail(exc)
             continue
-        spec = submission.input_spec(cell.request)
+        spec = submission.input_spec(cell.request, model_id=services.model_id())
         if spec != submission.NO_INPUTS:
             if spec not in checked:
                 checked[spec] = await submission.unusable_input(services, cell.request)

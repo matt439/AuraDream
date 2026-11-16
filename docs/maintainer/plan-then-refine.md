@@ -1,21 +1,23 @@
 # Plan: generate, then refine, in one job
 
-**Status, 2026-10-29: phases 1 and 2 built; phase 3's card check half
-done. Its WAI v17 night ran - no drift in the alternation's peak, the pair
-back to back no slower than apart, the same pixels either way
-(`verified.md`, Refine pass, "Peak per image and Then refine, WAI v17");
-its FLUX.1 Krea dev night is left (`GEN#16`). That night stopped at the
-RAM guard during its load on 2026-10-25; `GEN#22`'s fixed loader has
-since met that prerequisite (a cold FLUX.1 Krea dev fp8 load peaked at
-27.9 GiB working set, neither guard tripping:
-[verified.md](../verified.md#ram-at-the-load-the-fixed-loader-2026-10-27)),
-so the card run itself is the one remaining step, and it waits on Matt's
-OK. The build items once filed under phase 3 are now rows of their own,
+**Status, 2026-11-16: phases 1 and 2 built; phase 3's WAI v17 comparison
+is qualified, and its FLUX.1 Krea [dev] attempt has a guarded stop.** WAI's
+alternation had no peak drift or extra back-to-back cost, with identical
+pixels apart and together. The authorized overnight FLUX session loaded
+and made five direct images, but its first 1.5x Refine reached 15,632 MiB
+whole-card, above the unchanged 15,500 MiB limit, before any completed pass.
+No FLUX alternation or timing comparison is qualified; no retry relaxed the
+limit. [Result](#guarded-flux-attempt-2026-11-16).
+
+The earlier 2026-10-25 FLUX attempt stopped at its load's RAM guard;
+`GEN#22`'s fixed loader met that prerequisite on 2026-10-27. The remaining
+obstacle measured here is the first pass's card use on this host baseline.
+The build items once filed under phase 3 became rows of their own,
 added 2026-10-29: [phase 4](#phase-4-finish-run-adds-missing-passes),
 missing passes in Finish run (`GEN#35`, built 2026-10-30); [phase 5](#phase-5-more-seeds-carries-the-pass),
 More seeds carrying the pass (`GEN#37`, built 2026-10-30); and
 [several strengths per image](#decision-several-strengths-per-image)
-(`GEN#39`, DECISION: Q2's "if wanted" is Matt's yes or no).**
+(`GEN#39`, declined 2026-10-29).
 Matt took every recommended answer to the open questions the same day ("i
 like recommended"). Built as below except: a pass's failures have a streak
 of their own, apart from the cells', since a base made between two failed
@@ -402,17 +404,60 @@ per session, stopping at the first that fills the card): peak memory of
 the alternation, which moves the VAE and the sibling class every cell, and
 whether the base and its pass back to back cost more than the two run
 apart. WAI v17 is done (`verified.md`, "Peak per image and Then refine, WAI
-v17"). FLUX.1 Krea dev is left: its 2026-10-25 attempt stopped at the RAM
-guard during the load, and the fixed loader's 27.9 GiB peak
-([verified.md](../verified.md#ram-at-the-load-the-fixed-loader-2026-10-27))
-clears that, so only the run remains. It needs Matt's OK for the session,
-and RAM checked as well as the card (FLUX loads spike RAM; one load per
-session). Done when `docs/verified.md` records that night's peak of the
+v17"). FLUX.1 Krea dev's 2026-10-25 attempt stopped at the RAM guard
+during the load; its 2026-11-16 one-load attempt cleared loading but stopped
+at the card guard on the first pass, as recorded below. Every future
+session still checks RAM as well as the card and loads once. Done when
+`docs/verified.md` records that night's peak of the
 alternation beside `nvidia-smi` and shared GPU memory, and the pair's time
 back to back against apart, or the guard that stopped it. The phases'
 earlier build items (several strengths, missing passes in Finish, More
 seeds carrying the pass) are no longer part of phase 3: they are phases 4
 and 5 and the decision below.
+
+### Guarded FLUX attempt, 2026-11-16
+
+The overnight session used one real Windows server and one cached
+FLUX.1 Krea [dev] fp8/model-offload load, Eager/Native and a scratch
+gallery. The fixed recipe was 1024x1024, 28 steps, distilled CFG 3.5,
+automatic Mu, no negative prompt or LoRA; Refine was the existing measured
+1.5x/strength 0.1 recipe, targeting 1536x1536 with three steps in its
+28-step tail. Two three-seed rounds in opposite apart/together order were
+planned before viewing results. Full hashes, environment and source facts
+are in the [compact receipt](flux-memory-2026-11-16.json).
+
+Loading took 49.76 s. Two seed-12345 direct baselines completed in 65.12
+and 44.89 s wall time, followed by the first round's three separate bases
+(seeds 20001-20003) in 132.96 s. Their successful allocator/storage proof
+closes the distinct [peak-memory check](plan-peak-vram.md#phase-3-result-2026-11-16).
+It does not establish a follow-on pass's fit or cost.
+
+The first separate Refine, source #3 at seed 20001, stopped before its
+first completed denoise step. The guard sampled **15,632 MiB whole-card**
+against its unchanged **15,500 MiB** limit and killed the owned server
+tree. At that sample, process shared had risen 82.0 MiB and adapter shared
+71.8 MiB; free RAM was 36.76 GiB and commit headroom 24.52 GiB. No pass
+PNG or successful allocator observation exists for it. The other separate
+passes, together job and second round were never reached. Therefore no
+apart/together timing ratio, pixel comparison or alternation-residency
+claim follows from this attempt.
+
+Across 1,210 samples, the held-PDH/`nvidia-smi --loop-ms` guard achieved
+0.249965 s mean spacing (0.309916 s longest gap). Shared rises were at
+most 82.0 MiB process and 84.6 MiB adapter. Its card/shared limits and
+4 GiB free-RAM/commit floors stayed unchanged; explicit preflight required
+40 GiB free RAM, 44 GiB commit and at most 2,500 MiB busy card. The trial
+began at 1,400 MiB whole-card. The earlier first direct render reached only
+4.03 GiB sampled commit headroom, so host commit is also a narrow measured
+margin even though the later failure was the card limit.
+
+Cleanup recorded PID 43956 exited with status 15; the supervisor confirmed
+no listener on 7995 and 1,441 MiB whole-card afterwards. Raw logs, five
+successful PNGs, metadata, SQL and captured API/job records remain under
+`work/flux-gen15-gen16-20261116/`, whose file hashes the compact receipt
+retains. No real gallery was opened or modified. A future comparison needs
+a separately viable guarded session; this stop never licenses a higher
+limit or establishes that the 1.5x model-offload pass fits this baseline.
 
 ### Phase 4: Finish run adds missing passes
 

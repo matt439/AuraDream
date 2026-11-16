@@ -94,6 +94,10 @@ async def expand_grid(
         raise HTTPException(status_code=422, detail=error_detail(exc)) from exc
     # Sources and masks are held to each actual canvas; the base size may be
     # replaced completely by the paired size axis.
+    for cell in cells:
+        reason = submission.refine_request_refusal(services, cell.request)
+        if reason is not None:
+            raise HTTPException(status_code=422, detail=reason)
     for group in submission.cells_by_size(cells).values():
         await submission.refuse_unusable_inputs(services, group[0].request)
     run_id = grid.run_id(cells, services.model_id(), services.quantization())
@@ -224,8 +228,18 @@ def create_router(services: AppServices) -> APIRouter:
         # as the pipeline will run them - which a sweep's do not. Schedulers
         # only, no weights, and None before a load.
         start_sigma = None
+        denoised_steps = None
         if request.refine is not None and cells:
             applied = [services.backend().applied(cell.request) for cell in cells]
+            from .refine import start_index
+
+            counts = {
+                None if (start := start_index(r.steps, r.strength, services.model_id(), r.inpainting)) is None
+                else r.steps - start
+                for r in applied if r.steps is not None and r.strength is not None
+            }
+            if len(counts) == 1 and None not in counts:
+                denoised_steps = next(iter(counts))
             if len({(r.width, r.height, r.steps, r.mu, r.strength) for r in applied}) == 1 and applied[0].refine is not None:
                 start_sigma = services.backend().start_sigma(applied[0])
         elif spec is not None and cells and len({(cell.request.width, cell.request.height, cell.request.steps) for cell in cells}) == 1:
@@ -282,6 +296,7 @@ def create_router(services: AppServices) -> APIRouter:
             budget_seeds=budget_seeds,
             bytes=disk_bytes,
             start_sigma=start_sigma,
+            denoised_steps=denoised_steps,
             passes=images if spec is not None else 0,
             pass_width=pass_sizes[0][0] if len(pass_sizes) == 1 else None,
             pass_height=pass_sizes[0][1] if len(pass_sizes) == 1 else None,

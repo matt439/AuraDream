@@ -1,0 +1,1288 @@
+{
+  "schema": "anima-refine-negative-card-result-v1",
+  "date": "2026-11-17",
+  "timezone": "Australia/Brisbane",
+  "result": "Two completed private one-load probes of explicit nonempty negative content at CFG 4, with retained original-source controls.",
+  "negative_prompt": "low quality, blurry",
+  "runtime_code_commit": "9341e575dc450b5867e3c88745e1849c40af47ce",
+  "data_head": "091303afab1dc0ac7cd5b5df427dcdd051ceac09",
+  "runtime_code_commit_note": "No backend/tools files differ between these two recorded commits.",
+  "scope": {
+    "platform": "Windows-11-10.0.26300-SP0",
+    "gpu": "RTX 5080 16 GB",
+    "quantization": "fp8",
+    "offload": "model",
+    "execution": "Eager/native",
+    "width": 1024,
+    "height": 1024,
+    "steps": 30,
+    "cfg": 4.0,
+    "seed": 4471,
+    "source": "each variant original audited baseline RGB",
+    "completed_refine_strength": 0.125,
+    "cancelled_refine_strength": 0.4,
+    "cancel_after_completed_steps": 1,
+    "one_image_per_cpu_generator_call": true,
+    "loras": [],
+    "references": [],
+    "mu": null
+  },
+  "variants": {
+    "aesthetic": {
+      "selection": {
+        "checkpoint": "circlestone-labs/Anima@aesthetic-v1.1",
+        "variant": "Aesthetic v1.1",
+        "revision": "594c27fea35648b87c86a9b4d5436a6024c820b5",
+        "source_filename": "split_files/diffusion_models/anima-aesthetic-v1.1.safetensors",
+        "source_repo": "circlestone-labs/Anima",
+        "text_class": "AnimaAestheticPipeline",
+        "refine_class": "AnimaAestheticImg2ImgPipeline",
+        "layers": 28,
+        "quantization": "fp8",
+        "offload": "model",
+        "platform": "Windows"
+      },
+      "session": {
+        "git_revision": "091303afab1dc0ac7cd5b5df427dcdd051ceac09",
+        "utc_started": "2026-11-16T18:03:37.511523+00:00",
+        "checkpoint_revision": "594c27fea35648b87c86a9b4d5436a6024c820b5",
+        "loader_recipe": "Windows fp8/model, CUDA, Eager/native, offline cached tree, CPU generator",
+        "gpu_name": "NVIDIA GeForce RTX 5080",
+        "driver": "616.92",
+        "torch_version": "2.13.0+cu130",
+        "diffusers_version": "0.42.1",
+        "torchao_version": "0.18.0",
+        "guard_log": "guard.jsonl",
+        "limits_receipt": "limits.json",
+        "preflight_receipt": "preflight.json",
+        "load_receipt": "load-receipt.json",
+        "final_residency_receipt": "cleanup-receipt.json"
+      },
+      "settings": {
+        "prompt": "anime illustration of a woman in a blue coat beside a red bicycle, leafy park, daylight",
+        "steps": 30,
+        "cfg": 4.0,
+        "width": 1024,
+        "height": 1024,
+        "negative_values": [
+          "",
+          "low quality, blurry"
+        ],
+        "batch_call_size": 1,
+        "generator_device": "cpu"
+      },
+      "source_sha256": {
+        "work\\anima_variant_negative_probe.py": "1541e3a7892556c817fd3872317644f7a2e05b8e85777c65d89748c5219e0db3",
+        "work\\anima_variant_refine_card.py": "b47a61326501917748888737f3b0d9cf4df4f9b89c9e6dbbbbbb3668d6185def",
+        "tools\\anima_refine_card.py": "4ceb51dd805583e300b4a0f04abff79a7b27907082f40d31d73a9aca6e2c50a1",
+        "tools\\card_guard.py": "1a553aa6dcb1b096a250d8aa8d813ca14238889e8264f91204d1c976906c6410",
+        "backend\\backends\\anima_refine.py": "074b48351d9dca38357ef5a4fa83ed63343816828cf9d60d5b6f2142918c5975",
+        "backend\\backends\\anima_pipeline.py": "ad18abe6225009dca17882a26a22a21f2136c2d5112cece950886e9a5e0e1cfd"
+      },
+      "cache_inventory": {
+        "tree": "D:\\huggingface\\auradream\\converted\\anima-aesthetic-v1.1-af3ae4d3dc5ad93b",
+        "configuration_sha256": {
+          "local-diffusion-conversion.json": "651a3eb571588b0e6d77f8543ddedeb073f1d6838ab45825fade26abbe65217a",
+          "model_index.json": "e6a01b4b829773f300e7fac32c71641755e8352ad581151f53a3666ba39cee8e",
+          "transformer/config.json": "ce39a28775e0ba1bafd7563fd53fa93b284d7b7210fdd040254b82c7ee1324a9",
+          "text_conditioner/config.json": "684fbedefa7a3d44c6ced8ac157ee68b99e175a1dbbfe3db08ec2edc5df1f525",
+          "text_encoder/config.json": "02d465b716eca4b89f994eef71ca134101cdeb1efc6da0244529e867d37ad09c",
+          "vae/config.json": "09ae58a9a73661cc51668e026ad97e0c78aeb019197720fadbb1ed8d7820d727",
+          "scheduler/scheduler_config.json": "4337d4f61777c38d778c074d3fe0118aaf9b3ab2592283a8a3f182cd18e9950f",
+          "tokenizer/tokenizer_config.json": "b0af17a39a4e6b6bc7d4523534668cbb8ffa2669ace1f1d7a3dd47c640411602",
+          "t5_tokenizer/tokenizer_config.json": "da99df8a132cb0f1090f49840d8a54091d9363f262cbbfcadb91057bb7ca4d3b"
+        },
+        "conversion_recipe": {
+          "dtype": "bfloat16",
+          "scheduler": "FlowMatchEulerDiscreteScheduler",
+          "shared": {
+            "repo_id": "circlestone-labs/Anima-Base-v1.0-Diffusers",
+            "revision": "073c3a9db359c31ad0e8aa268d15775473c2176c"
+          },
+          "shift": 3.0,
+          "source": {
+            "filename": "split_files/diffusion_models/anima-aesthetic-v1.1.safetensors",
+            "repo_id": "circlestone-labs/Anima",
+            "revision": "594c27fea35648b87c86a9b4d5436a6024c820b5"
+          },
+          "version": 1
+        },
+        "weight_file_sizes_only": {
+          "transformer/diffusion_pytorch_model.safetensors": 3912877104,
+          "text_conditioner/diffusion_pytorch_model.safetensors": 269339400,
+          "text_encoder/model.safetensors": 1192133232,
+          "vae/diffusion_pytorch_model.safetensors": 253806966
+        }
+      },
+      "original_source_proof": {
+        "directory": "C:\\Projects\\AuraDream\\work\\anima-aesthetic-refine-2026-11-17",
+        "source_png": "C:\\Projects\\AuraDream\\work\\anima-aesthetic-refine-2026-11-17\\baseline.png",
+        "source_rgb_sha256": "fa096876a8c0763a36e2c45ce6f097f51df5c5711a9333cf0451595e2d7e3805",
+        "source_png_sha256": "589ad5c16878a856b0101393d5dea32dff86953ccf37ff64db8b3e1d547b3e8d",
+        "empty_control_rgb_sha256": "ca15ade1f50fdc10b326d74e694bb4374e1b6730d0bb03cf4cb0419f32f136de",
+        "original_receipt_sha256": "5533a8221fce5e81a7e6aea571be549ba926e6339dcbaef25b4b45d499399c3e"
+      },
+      "schedule_proof": {
+        "0.125": {
+          "completed_steps": 4,
+          "begin_index": 26,
+          "start_sigma": 0.31578952074050903
+        },
+        "0.25": {
+          "completed_steps": 8,
+          "begin_index": 22,
+          "start_sigma": 0.5217391848564148
+        },
+        "0.4": {
+          "completed_steps": 12,
+          "begin_index": 18,
+          "start_sigma": 0.6666666865348816
+        }
+      },
+      "load": {
+        "elapsed_seconds": 6.615266500000871,
+        "allocated_peak_mib": 0.0,
+        "reserved_peak_mib": 0.0,
+        "host_metrics": {
+          "whole_card_peak_mib": 2039.0,
+          "adapter_shared_rise_mib": 70.27734375,
+          "process_shared_rise_mib": 74.0,
+          "process_ram_peak_gib": 7.1213531494140625,
+          "minimum_free_ram_gib": 27.002559661865234,
+          "minimum_commit_headroom_gib": 28.505687713623047
+        }
+      },
+      "guard": {
+        "limits": {
+          "card_mib": 15500.0,
+          "project_mib": 15200.0,
+          "refuse_at_peak_mib": 15000.0,
+          "adapter_shared_rise_mib": 1024.0,
+          "process_shared_rise_mib": 512.0,
+          "ram_floor_gib": 4.0,
+          "commit_floor_gib": 4.0,
+          "need_ram_gib": 24.0,
+          "busy_card_mib": 2500.0,
+          "card_unread_samples": 3.0,
+          "margin_mib": 500.0,
+          "margin_gib": 1.0
+        },
+        "extra_limits": {
+          "preflight_free_ram_gib": 24.0,
+          "preflight_commit_headroom_gib": 24.0,
+          "process_tree_rss_cap_gib": 16.0
+        },
+        "preflight": {
+          "sample": {
+            "card_mib": 2028.0,
+            "adapter_shared_mib": 119.0546875,
+            "process_shared_mib": 0.0,
+            "available_gib": 33.74109649658203,
+            "commit_headroom_gib": 36.89990234375,
+            "tree_gib": 0.0118560791015625,
+            "card_total_mib": 16303.0
+          },
+          "baseline": {
+            "adapter_shared_mib": 119.0546875,
+            "process_shared_mib": 0.0
+          },
+          "sources": {
+            "card": "nvidia-smi --loop-ms",
+            "shared": "pdh"
+          }
+        },
+        "summary": {
+          "event": "summary",
+          "elapsed": 64.38980660000016,
+          "stopped_reason": null,
+          "complete": true,
+          "samples": 257,
+          "achieved_max_period_seconds": 0.25056929999846034,
+          "final_sample": {
+            "card_mib": 1985.0,
+            "adapter_shared_mib": 103.62890625,
+            "process_shared_mib": null,
+            "available_gib": 34.880516052246094,
+            "commit_headroom_gib": 37.67820358276367,
+            "tree_gib": null,
+            "card_total_mib": 16303.0
+          }
+        },
+        "all_required_counters_finite": true,
+        "all_sample_verdicts": "ok",
+        "extrema": {
+          "whole_card_peak_mib": 4978.0,
+          "process_ram_peak_gib": 7.1213531494140625,
+          "minimum_free_ram_gib": 27.002559661865234,
+          "minimum_commit_headroom_gib": 26.421283721923828,
+          "adapter_shared_rise_peak_mib": 135.9765625,
+          "process_shared_rise_peak_mib": 82.0
+        }
+      },
+      "cleanup": {
+        "sequence": 8,
+        "ok": true,
+        "resident_allocated_mib": 32.0,
+        "resident_reserved_mib": 32.0,
+        "host_metrics": {
+          "whole_card_peak_mib": 2338.0,
+          "adapter_shared_rise_mib": 87.1484375,
+          "process_shared_rise_mib": 82.0,
+          "process_ram_peak_gib": 5.4290313720703125,
+          "minimum_free_ram_gib": 29.332870483398438,
+          "minimum_commit_headroom_gib": 28.869396209716797
+        }
+      },
+      "after_exit": {
+        "card_mib": 1985.0,
+        "adapter_shared_mib": 103.62890625,
+        "process_shared_mib": null,
+        "available_gib": 34.880516052246094,
+        "commit_headroom_gib": 37.67820358276367,
+        "tree_gib": null,
+        "card_total_mib": 16303.0
+      },
+      "keep_awake": {
+        "reason": "AuraDream private Anima Refine card qualification",
+        "kind": "power-request",
+        "holding": false,
+        "acquired": true,
+        "released": true,
+        "failure": null,
+        "scope_error": null
+      },
+      "proof_checks": {
+        "five_png_rgb_and_exact_metadata_hashes_recomputed": true,
+        "all_six_call_metadata_hashes_recomputed": true,
+        "actual_call_kwargs_equal_receipt_and_saved_image_metadata": true,
+        "explicit_negative_argument_matches_request_in_all_six_calls": true,
+        "nonempty_negative_differs_from_known_empty_control": true,
+        "empty_control_matches_previous_strength_0125": true,
+        "direct_after_matches_original_baseline": true,
+        "negative_repeat_and_post_cancel_recovery_match": true,
+        "original_source_pixels_and_png_unchanged": true,
+        "cancelled_at_first_completed_step_without_decoded_output": true,
+        "unique_rgb_outputs": 3
+      },
+      "cases": [
+        {
+          "id": "empty-control",
+          "status": "completed",
+          "request": {
+            "id": "empty-control",
+            "prompt": "anime illustration of a woman in a blue coat beside a red bicycle, leafy park, daylight",
+            "negative_prompt": "",
+            "width": 1024,
+            "height": 1024,
+            "steps": 30,
+            "cfg": 4.0,
+            "seed": 4471,
+            "strength": 0.125,
+            "source_sha256": "fa096876a8c0763a36e2c45ce6f097f51df5c5711a9333cf0451595e2d7e3805",
+            "expected_pixel_sha256": "ca15ade1f50fdc10b326d74e694bb4374e1b6730d0bb03cf4cb0419f32f136de"
+          },
+          "completed_steps": 4,
+          "start_sigma": 0.31578952074050903,
+          "source_sha256": "fa096876a8c0763a36e2c45ce6f097f51df5c5711a9333cf0451595e2d7e3805",
+          "pipeline_kwargs": {
+            "prompt": "anime illustration of a woman in a blue coat beside a red bicycle, leafy park, daylight",
+            "negative_prompt": "",
+            "width": 1024,
+            "height": 1024,
+            "num_inference_steps": 30,
+            "guidance_scale": 4.0,
+            "num_images_per_prompt": 1,
+            "strength": 0.125,
+            "generator": {
+              "device": "cpu",
+              "seed": 4471
+            },
+            "callback_on_step_end": "record each completed step; cooperative cancel at frozen boundary",
+            "image": {
+              "mode": "RGB",
+              "width": 1024,
+              "height": 1024,
+              "pixel_sha256": "fa096876a8c0763a36e2c45ce6f097f51df5c5711a9333cf0451595e2d7e3805"
+            }
+          },
+          "metrics": {
+            "elapsed_seconds": 6.931431400000292,
+            "allocated_peak_mib": 2472.9814453125,
+            "reserved_peak_mib": 2642.0,
+            "resident_allocated_mib": 32.0009765625,
+            "whole_card_peak_mib": 4971.0,
+            "adapter_shared_rise_mib": 109.8671875,
+            "process_shared_rise_mib": 82.0,
+            "process_ram_peak_gib": 5.601085662841797,
+            "minimum_free_ram_gib": 28.287845611572266,
+            "minimum_commit_headroom_gib": 26.421283721923828
+          },
+          "pixel_sha256": "ca15ade1f50fdc10b326d74e694bb4374e1b6730d0bb03cf4cb0419f32f136de",
+          "png_sha256": "77f5526656fe76d99448b7c6b58a57c2be6f8cc30344d27c0f3e2d1703f4d9cf",
+          "metadata_sha256": "cbee0863e98785097388c69cc9ca924b2e2f1659abb3ebe43f951f082679db1a",
+          "call_metadata_sha256": "bd7e06eba6523ce89b19e05f573c00273bba4ee821ebcfb62451aea9c4368cb3",
+          "visual_review": "Full RGB is identical to the previously reviewed original strength-0.125 output; its earlier visual findings are inherited without claiming a new inspection."
+        },
+        {
+          "id": "negative-0125",
+          "status": "completed",
+          "request": {
+            "id": "negative-0125",
+            "prompt": "anime illustration of a woman in a blue coat beside a red bicycle, leafy park, daylight",
+            "negative_prompt": "low quality, blurry",
+            "width": 1024,
+            "height": 1024,
+            "steps": 30,
+            "cfg": 4.0,
+            "seed": 4471,
+            "strength": 0.125,
+            "source_sha256": "fa096876a8c0763a36e2c45ce6f097f51df5c5711a9333cf0451595e2d7e3805"
+          },
+          "completed_steps": 4,
+          "start_sigma": 0.31578952074050903,
+          "source_sha256": "fa096876a8c0763a36e2c45ce6f097f51df5c5711a9333cf0451595e2d7e3805",
+          "pipeline_kwargs": {
+            "prompt": "anime illustration of a woman in a blue coat beside a red bicycle, leafy park, daylight",
+            "negative_prompt": "low quality, blurry",
+            "width": 1024,
+            "height": 1024,
+            "num_inference_steps": 30,
+            "guidance_scale": 4.0,
+            "num_images_per_prompt": 1,
+            "strength": 0.125,
+            "generator": {
+              "device": "cpu",
+              "seed": 4471
+            },
+            "callback_on_step_end": "record each completed step; cooperative cancel at frozen boundary",
+            "image": {
+              "mode": "RGB",
+              "width": 1024,
+              "height": 1024,
+              "pixel_sha256": "fa096876a8c0763a36e2c45ce6f097f51df5c5711a9333cf0451595e2d7e3805"
+            }
+          },
+          "metrics": {
+            "elapsed_seconds": 5.547983500000555,
+            "allocated_peak_mib": 2472.9873046875,
+            "reserved_peak_mib": 2642.0,
+            "resident_allocated_mib": 32.0009765625,
+            "whole_card_peak_mib": 4971.0,
+            "adapter_shared_rise_mib": 87.87890625,
+            "process_shared_rise_mib": 82.0,
+            "process_ram_peak_gib": 5.328510284423828,
+            "minimum_free_ram_gib": 28.20815658569336,
+            "minimum_commit_headroom_gib": 27.32101821899414
+          },
+          "pixel_sha256": "87ab0dd8302acf30ec1daf4cda663b9586f55a00e3b04731c5ab8942dc30e9a4",
+          "png_sha256": "af1330de4ee1042e4bb1ad6e4b4b56fab50602d12dbda9220775ba1e937e737c",
+          "metadata_sha256": "8a8f92f75c1dfac28a92a7c91c1cc9c0c0345d6af8043539bc38119a6dd83592",
+          "call_metadata_sha256": "ccaf433f618cad58af24e39aba047bb339e159dcf336816990d68f88d181d19e",
+          "visual_review": "Root inspected this negative-0125 output: subject, blue coat, red bicycle and scene composition are retained, with expected outline/texture changes and no obvious new seam or identity replacement. Existing geometry/anatomy imperfections remain; no universal quality claim or Matt review."
+        },
+        {
+          "id": "negative-repeat",
+          "status": "completed",
+          "request": {
+            "id": "negative-repeat",
+            "prompt": "anime illustration of a woman in a blue coat beside a red bicycle, leafy park, daylight",
+            "negative_prompt": "low quality, blurry",
+            "width": 1024,
+            "height": 1024,
+            "steps": 30,
+            "cfg": 4.0,
+            "seed": 4471,
+            "strength": 0.125,
+            "source_sha256": "fa096876a8c0763a36e2c45ce6f097f51df5c5711a9333cf0451595e2d7e3805",
+            "compare_to": "negative-0125"
+          },
+          "completed_steps": 4,
+          "start_sigma": 0.31578952074050903,
+          "source_sha256": "fa096876a8c0763a36e2c45ce6f097f51df5c5711a9333cf0451595e2d7e3805",
+          "pipeline_kwargs": {
+            "prompt": "anime illustration of a woman in a blue coat beside a red bicycle, leafy park, daylight",
+            "negative_prompt": "low quality, blurry",
+            "width": 1024,
+            "height": 1024,
+            "num_inference_steps": 30,
+            "guidance_scale": 4.0,
+            "num_images_per_prompt": 1,
+            "strength": 0.125,
+            "generator": {
+              "device": "cpu",
+              "seed": 4471
+            },
+            "callback_on_step_end": "record each completed step; cooperative cancel at frozen boundary",
+            "image": {
+              "mode": "RGB",
+              "width": 1024,
+              "height": 1024,
+              "pixel_sha256": "fa096876a8c0763a36e2c45ce6f097f51df5c5711a9333cf0451595e2d7e3805"
+            }
+          },
+          "metrics": {
+            "elapsed_seconds": 4.8230879999973695,
+            "allocated_peak_mib": 2472.9873046875,
+            "reserved_peak_mib": 2642.0,
+            "resident_allocated_mib": 32.0009765625,
+            "whole_card_peak_mib": 4947.0,
+            "adapter_shared_rise_mib": 103.12890625,
+            "process_shared_rise_mib": 82.0,
+            "process_ram_peak_gib": 5.3421630859375,
+            "minimum_free_ram_gib": 29.267688751220703,
+            "minimum_commit_headroom_gib": 28.118961334228516
+          },
+          "pixel_sha256": "87ab0dd8302acf30ec1daf4cda663b9586f55a00e3b04731c5ab8942dc30e9a4",
+          "png_sha256": "af1330de4ee1042e4bb1ad6e4b4b56fab50602d12dbda9220775ba1e937e737c",
+          "metadata_sha256": "589fa40f499a02552e3cd14cd18f0a8023801166f5616acd9af4ce3e0f589951",
+          "call_metadata_sha256": "d6a76f0d922025d3920a0fe9914f634d32098ecfe28f16e1cca5bb545fffe882",
+          "visual_review": "Full RGB is identical to the inspected negative-0125 output; inherits those findings."
+        },
+        {
+          "id": "negative-cancel",
+          "status": "cancelled",
+          "request": {
+            "id": "negative-cancel",
+            "prompt": "anime illustration of a woman in a blue coat beside a red bicycle, leafy park, daylight",
+            "negative_prompt": "low quality, blurry",
+            "width": 1024,
+            "height": 1024,
+            "steps": 30,
+            "cfg": 4.0,
+            "seed": 4471,
+            "strength": 0.4,
+            "source_sha256": "fa096876a8c0763a36e2c45ce6f097f51df5c5711a9333cf0451595e2d7e3805",
+            "cancel_after_completed_steps": 1
+          },
+          "completed_steps": 1,
+          "start_sigma": 0.6666666865348816,
+          "source_sha256": "fa096876a8c0763a36e2c45ce6f097f51df5c5711a9333cf0451595e2d7e3805",
+          "pipeline_kwargs": {
+            "prompt": "anime illustration of a woman in a blue coat beside a red bicycle, leafy park, daylight",
+            "negative_prompt": "low quality, blurry",
+            "width": 1024,
+            "height": 1024,
+            "num_inference_steps": 30,
+            "guidance_scale": 4.0,
+            "num_images_per_prompt": 1,
+            "strength": 0.4,
+            "generator": {
+              "device": "cpu",
+              "seed": 4471
+            },
+            "callback_on_step_end": "record each completed step; cooperative cancel at frozen boundary",
+            "image": {
+              "mode": "RGB",
+              "width": 1024,
+              "height": 1024,
+              "pixel_sha256": "fa096876a8c0763a36e2c45ce6f097f51df5c5711a9333cf0451595e2d7e3805"
+            }
+          },
+          "metrics": {
+            "elapsed_seconds": 2.1818634000010206,
+            "allocated_peak_mib": 2472.4873046875,
+            "reserved_peak_mib": 2642.0,
+            "resident_allocated_mib": 32.0009765625,
+            "whole_card_peak_mib": 4967.0,
+            "adapter_shared_rise_mib": 103.35546875,
+            "process_shared_rise_mib": 82.0,
+            "process_ram_peak_gib": 5.3421630859375,
+            "minimum_free_ram_gib": 29.392562866210938,
+            "minimum_commit_headroom_gib": 28.248416900634766
+          },
+          "pixel_sha256": null,
+          "png_sha256": null,
+          "metadata_sha256": null,
+          "call_metadata_sha256": "a849655b94b71b69ca387cc9e4ec8920148af012aa243e504206c87442e2fa2b",
+          "visual_review": null
+        },
+        {
+          "id": "negative-recovery",
+          "status": "completed",
+          "request": {
+            "id": "negative-recovery",
+            "prompt": "anime illustration of a woman in a blue coat beside a red bicycle, leafy park, daylight",
+            "negative_prompt": "low quality, blurry",
+            "width": 1024,
+            "height": 1024,
+            "steps": 30,
+            "cfg": 4.0,
+            "seed": 4471,
+            "strength": 0.125,
+            "source_sha256": "fa096876a8c0763a36e2c45ce6f097f51df5c5711a9333cf0451595e2d7e3805",
+            "compare_to": "negative-0125"
+          },
+          "completed_steps": 4,
+          "start_sigma": 0.31578952074050903,
+          "source_sha256": "fa096876a8c0763a36e2c45ce6f097f51df5c5711a9333cf0451595e2d7e3805",
+          "pipeline_kwargs": {
+            "prompt": "anime illustration of a woman in a blue coat beside a red bicycle, leafy park, daylight",
+            "negative_prompt": "low quality, blurry",
+            "width": 1024,
+            "height": 1024,
+            "num_inference_steps": 30,
+            "guidance_scale": 4.0,
+            "num_images_per_prompt": 1,
+            "strength": 0.125,
+            "generator": {
+              "device": "cpu",
+              "seed": 4471
+            },
+            "callback_on_step_end": "record each completed step; cooperative cancel at frozen boundary",
+            "image": {
+              "mode": "RGB",
+              "width": 1024,
+              "height": 1024,
+              "pixel_sha256": "fa096876a8c0763a36e2c45ce6f097f51df5c5711a9333cf0451595e2d7e3805"
+            }
+          },
+          "metrics": {
+            "elapsed_seconds": 4.901789900002768,
+            "allocated_peak_mib": 2472.9873046875,
+            "reserved_peak_mib": 2642.0,
+            "resident_allocated_mib": 32.0009765625,
+            "whole_card_peak_mib": 4978.0,
+            "adapter_shared_rise_mib": 103.66796875,
+            "process_shared_rise_mib": 82.0,
+            "process_ram_peak_gib": 5.304252624511719,
+            "minimum_free_ram_gib": 29.31368637084961,
+            "minimum_commit_headroom_gib": 27.607357025146484
+          },
+          "pixel_sha256": "87ab0dd8302acf30ec1daf4cda663b9586f55a00e3b04731c5ab8942dc30e9a4",
+          "png_sha256": "af1330de4ee1042e4bb1ad6e4b4b56fab50602d12dbda9220775ba1e937e737c",
+          "metadata_sha256": "8b57330c529fde5c6bb35a666438a08d4394ca9378f103e39659600aa7593b23",
+          "call_metadata_sha256": "32759ec47ea6e88da94558ffe069a9a6ed7f96c962d831d0686bfc813796d313",
+          "visual_review": "After callback-one cancellation, full RGB is identical to the inspected negative-0125 output; inherits those findings."
+        },
+        {
+          "id": "direct-after",
+          "status": "completed",
+          "request": {
+            "id": "direct-after",
+            "prompt": "anime illustration of a woman in a blue coat beside a red bicycle, leafy park, daylight",
+            "negative_prompt": "",
+            "width": 1024,
+            "height": 1024,
+            "steps": 30,
+            "cfg": 4.0,
+            "seed": 4471,
+            "strength": null,
+            "source_sha256": null,
+            "expected_pixel_sha256": "fa096876a8c0763a36e2c45ce6f097f51df5c5711a9333cf0451595e2d7e3805"
+          },
+          "completed_steps": 30,
+          "start_sigma": null,
+          "source_sha256": null,
+          "pipeline_kwargs": {
+            "prompt": "anime illustration of a woman in a blue coat beside a red bicycle, leafy park, daylight",
+            "negative_prompt": "",
+            "width": 1024,
+            "height": 1024,
+            "num_inference_steps": 30,
+            "guidance_scale": 4.0,
+            "num_images_per_prompt": 1,
+            "generator": {
+              "device": "cpu",
+              "seed": 4471
+            },
+            "callback_on_step_end": "record each completed step; cooperative cancel at frozen boundary"
+          },
+          "metrics": {
+            "elapsed_seconds": 21.303330900002038,
+            "allocated_peak_mib": 2224.86962890625,
+            "reserved_peak_mib": 2394.0,
+            "resident_allocated_mib": 32.00146484375,
+            "whole_card_peak_mib": 4762.0,
+            "adapter_shared_rise_mib": 135.9765625,
+            "process_shared_rise_mib": 82.0,
+            "process_ram_peak_gib": 5.432941436767578,
+            "minimum_free_ram_gib": 29.325725555419922,
+            "minimum_commit_headroom_gib": 27.947769165039062
+          },
+          "pixel_sha256": "fa096876a8c0763a36e2c45ce6f097f51df5c5711a9333cf0451595e2d7e3805",
+          "png_sha256": "589ad5c16878a856b0101393d5dea32dff86953ccf37ff64db8b3e1d547b3e8d",
+          "metadata_sha256": "71676a3b2057846dabe1f2dec8c05bf3db47c61efc572753db25266d4094b5f9",
+          "call_metadata_sha256": "6a8ce86860c69934577ccf065ca53a934a509dc37de6fc54ec090fc5b8060ed5",
+          "visual_review": "The final empty-negative ordinary direct render is full-RGB identical to the previously reviewed original baseline; inherits its existing composition and geometry/anatomy findings."
+        }
+      ],
+      "visual_review": {
+        "reviewer": "Codex root agent",
+        "review_recorded_utc": "2026-11-16T18:22:24+00:00",
+        "local_date": "2026-11-17",
+        "timezone": "Australia/Brisbane",
+        "method": "Root inspected this variant negative-0125 image; old control/baseline notes and new repeat/recovery notes are inherited only after full RGB equality.",
+        "viewed_new_output": "work/anima-aesthetic-negative-2026-11-17/negative-0125.png",
+        "inherited_original_review": "work/anima-aesthetic-refine-2026-11-17/visual-review.json",
+        "inherited_original_review_sha256": "d3f27b24fb18c0691bd09c0f8f541f16514e1d566e3e8be2bd82ddb543a77d5f",
+        "receipt_before_review_sha256": "72f6079dec27d342514e9891edfacb2af51246214e3971b66eb649df05821053",
+        "receipt_after_review_sha256": "0ea2f14bd5771fb7ffde2f9d2dd662420d989058493ef3119c52e164ce0de4f4",
+        "unreviewed_copy": "receipt-unreviewed.json",
+        "notes_by_case": {
+          "empty-control": "Full RGB is identical to the previously reviewed original strength-0.125 output; its earlier visual findings are inherited without claiming a new inspection.",
+          "negative-0125": "Root inspected this negative-0125 output: subject, blue coat, red bicycle and scene composition are retained, with expected outline/texture changes and no obvious new seam or identity replacement. Existing geometry/anatomy imperfections remain; no universal quality claim or Matt review.",
+          "negative-repeat": "Full RGB is identical to the inspected negative-0125 output; inherits those findings.",
+          "negative-recovery": "After callback-one cancellation, full RGB is identical to the inspected negative-0125 output; inherits those findings.",
+          "direct-after": "The final empty-negative ordinary direct render is full-RGB identical to the previously reviewed original baseline; inherits its existing composition and geometry/anatomy findings."
+        },
+        "Matt_reviewed": false,
+        "author_recommendation": false,
+        "universal_quality_claim": false
+      },
+      "evidence": {
+        "directory": "work/anima-aesthetic-negative-2026-11-17",
+        "unreviewed_receipt_sha256": "72f6079dec27d342514e9891edfacb2af51246214e3971b66eb649df05821053",
+        "reviewed_receipt_sha256": "0ea2f14bd5771fb7ffde2f9d2dd662420d989058493ef3119c52e164ce0de4f4",
+        "raw_file_sha256": {
+          "guard.jsonl": "b56b0bc3e7aa724fa84f768e2b8b87d73dab5f6f9a4217c7609f25db746fa8e2",
+          "load-receipt.json": "7d698ba92d824e906b446adf884a89acf2f0c755031e133a8f8958ae33b83610",
+          "cleanup-receipt.json": "7ba935ef554e557f7f1621ab77fe3825e126552b8ea29ce36fd6b27721d7cb47",
+          "after-exit.json": "0eb2135a61c22edf2fcb02fcc62aaeaaaf9a0e059bed896a421a34d3184af412",
+          "preflight.json": "a9c1060ce6b3304ee492c5a980643b3f38678ecff631a2bea2b692e6557b78aa",
+          "limits.json": "e24bea8a36a6cc5c151dd82155b7dfc6210ec88c523c7e3cbd2a4dacb5cef8d0",
+          "extra-limits.json": "db6d328dfa17a593bfc40cdc51adf7f4aa24db7d3fe1c053c0488910d21c7164",
+          "keep-awake.json": "8a9474be12c05360fd865d1f671c73ed91e0af1ca3b6db4982e0f862082076e2",
+          "source-proof.json": "59ed9bc1909a28a715cbd200e4a654dcd485a979a905089046edad1125e77e3c",
+          "source-proof-preflight.json": "59ed9bc1909a28a715cbd200e4a654dcd485a979a905089046edad1125e77e3c",
+          "schedule-proof.json": "435bfe8c0be57ca0d6997ff6311afcc95100063c86619b9fce79cde060e38fc2",
+          "frozen-plan.json": "e54dfc862d29f14517f360d67676c8d445bdc94c8f77525c46d197c4981fa521",
+          "visual-review.json": "5b0c552c4cf27ee415932a71363e380110840e481fe541f31da9dd8ba9817b08"
+        }
+      }
+    },
+    "preview": {
+      "selection": {
+        "checkpoint": "Gazingstars123/Anima-2.9B",
+        "variant": "2.9B Preview v1",
+        "revision": "9f9cb502dbae7a616c3cc5a530633427fe735665",
+        "source_filename": "Anima-2.9B-preview-v1.safetensors",
+        "source_repo": "Gazingstars123/Anima-2.9B",
+        "text_class": "AnimaPreviewPipeline",
+        "refine_class": "AnimaPreviewImg2ImgPipeline",
+        "layers": 40,
+        "quantization": "fp8",
+        "offload": "model",
+        "platform": "Windows"
+      },
+      "session": {
+        "git_revision": "091303afab1dc0ac7cd5b5df427dcdd051ceac09",
+        "utc_started": "2026-11-16T18:07:47.915846+00:00",
+        "checkpoint_revision": "9f9cb502dbae7a616c3cc5a530633427fe735665",
+        "loader_recipe": "Windows fp8/model, CUDA, Eager/native, offline cached tree, CPU generator",
+        "gpu_name": "NVIDIA GeForce RTX 5080",
+        "driver": "616.92",
+        "torch_version": "2.13.0+cu130",
+        "diffusers_version": "0.42.1",
+        "torchao_version": "0.18.0",
+        "guard_log": "guard.jsonl",
+        "limits_receipt": "limits.json",
+        "preflight_receipt": "preflight.json",
+        "load_receipt": "load-receipt.json",
+        "final_residency_receipt": "cleanup-receipt.json"
+      },
+      "settings": {
+        "prompt": "anime illustration of a woman in a blue coat beside a red bicycle, leafy park, daylight",
+        "steps": 30,
+        "cfg": 4.0,
+        "width": 1024,
+        "height": 1024,
+        "negative_values": [
+          "",
+          "low quality, blurry"
+        ],
+        "batch_call_size": 1,
+        "generator_device": "cpu"
+      },
+      "source_sha256": {
+        "work\\anima_variant_negative_probe.py": "1541e3a7892556c817fd3872317644f7a2e05b8e85777c65d89748c5219e0db3",
+        "work\\anima_variant_refine_card.py": "b47a61326501917748888737f3b0d9cf4df4f9b89c9e6dbbbbbb3668d6185def",
+        "tools\\anima_refine_card.py": "4ceb51dd805583e300b4a0f04abff79a7b27907082f40d31d73a9aca6e2c50a1",
+        "tools\\card_guard.py": "1a553aa6dcb1b096a250d8aa8d813ca14238889e8264f91204d1c976906c6410",
+        "backend\\backends\\anima_refine.py": "074b48351d9dca38357ef5a4fa83ed63343816828cf9d60d5b6f2142918c5975",
+        "backend\\backends\\anima_pipeline.py": "ad18abe6225009dca17882a26a22a21f2136c2d5112cece950886e9a5e0e1cfd"
+      },
+      "cache_inventory": {
+        "tree": "D:\\huggingface\\auradream\\converted\\Anima-2.9B-preview-v1-de3dbe63ae5cc807",
+        "configuration_sha256": {
+          "local-diffusion-conversion.json": "13f1da579895ecf53d86a1d9eedbe049e6bc80ee42aa33ee3020c3ebf29c3e83",
+          "model_index.json": "a966ce43ba974c0f737753b63be3349091be771f3e8e5358b7d020f554fe8a74",
+          "transformer/config.json": "229602cb76df20d390248cf26de1a24877b8147cc32466ee566e09c0f1a561c6",
+          "text_conditioner/config.json": "980f34fb982cf14ed8418dbfe58e79e86ada9971af3aba082543b1b11bae05a9",
+          "text_encoder/config.json": "02d465b716eca4b89f994eef71ca134101cdeb1efc6da0244529e867d37ad09c",
+          "vae/config.json": "8205267c3e2fd11fad0998a63ce49813d3d673b9be1faec56a340cfd4a98c1c8",
+          "scheduler/scheduler_config.json": "7b300e1e0c763523fe1a732d998c02347cdddd6dd538ae5ee0c7cc92ea558ab9",
+          "tokenizer/tokenizer_config.json": "b0af17a39a4e6b6bc7d4523534668cbb8ffa2669ace1f1d7a3dd47c640411602",
+          "t5_tokenizer/tokenizer_config.json": "da99df8a132cb0f1090f49840d8a54091d9363f262cbbfcadb91057bb7ca4d3b"
+        },
+        "conversion_recipe": {
+          "checkpoint_prefix": "net.",
+          "dtype": "bfloat16",
+          "scheduler": "FlowMatchEulerDiscreteScheduler",
+          "shared": {
+            "repo_id": "circlestone-labs/Anima-Base-v1.0-Diffusers",
+            "revision": "073c3a9db359c31ad0e8aa268d15775473c2176c"
+          },
+          "shift": 3.0,
+          "source": {
+            "filename": "Anima-2.9B-preview-v1.safetensors",
+            "repo_id": "Gazingstars123/Anima-2.9B",
+            "revision": "9f9cb502dbae7a616c3cc5a530633427fe735665"
+          },
+          "transformer_config": {
+            "num_layers": 40
+          },
+          "version": 1
+        },
+        "weight_file_sizes_only": {
+          "transformer/diffusion_pytorch_model.safetensors": 5573862232,
+          "text_conditioner/diffusion_pytorch_model.safetensors": 269339400,
+          "text_encoder/model.safetensors": 1192133232,
+          "vae/diffusion_pytorch_model.safetensors": 253806966
+        }
+      },
+      "original_source_proof": {
+        "directory": "C:\\Projects\\AuraDream\\work\\anima-preview-refine-2026-11-17",
+        "source_png": "C:\\Projects\\AuraDream\\work\\anima-preview-refine-2026-11-17\\baseline.png",
+        "source_rgb_sha256": "b646b1ec5a54c22fcd8734fb404e200b079824022d8b5d58246698959a7e1f66",
+        "source_png_sha256": "d189a7bd4f8e1f6216731cf0a7f22d7ac2774be75c0ffa4226331047dabccdf2",
+        "empty_control_rgb_sha256": "dfa5394c062dfb626f5c423f0e5577eda6496ec9739adc6c04bca5d7137c1b20",
+        "original_receipt_sha256": "2a612c3ac929d37f2729a77fa057a02393922890220f5a7f42d456c0392593e5"
+      },
+      "schedule_proof": {
+        "0.125": {
+          "completed_steps": 4,
+          "begin_index": 26,
+          "start_sigma": 0.31578952074050903
+        },
+        "0.25": {
+          "completed_steps": 8,
+          "begin_index": 22,
+          "start_sigma": 0.5217391848564148
+        },
+        "0.4": {
+          "completed_steps": 12,
+          "begin_index": 18,
+          "start_sigma": 0.6666666865348816
+        }
+      },
+      "load": {
+        "elapsed_seconds": 7.8429517000004125,
+        "allocated_peak_mib": 0.0,
+        "reserved_peak_mib": 0.0,
+        "host_metrics": {
+          "whole_card_peak_mib": 2208.0,
+          "adapter_shared_rise_mib": 73.234375,
+          "process_shared_rise_mib": 74.0,
+          "process_ram_peak_gib": 9.097957611083984,
+          "minimum_free_ram_gib": 23.55438232421875,
+          "minimum_commit_headroom_gib": 23.712509155273438
+        }
+      },
+      "guard": {
+        "limits": {
+          "card_mib": 15500.0,
+          "project_mib": 15200.0,
+          "refuse_at_peak_mib": 15000.0,
+          "adapter_shared_rise_mib": 1024.0,
+          "process_shared_rise_mib": 512.0,
+          "ram_floor_gib": 4.0,
+          "commit_floor_gib": 4.0,
+          "need_ram_gib": 24.0,
+          "busy_card_mib": 2500.0,
+          "card_unread_samples": 3.0,
+          "margin_mib": 500.0,
+          "margin_gib": 1.0
+        },
+        "extra_limits": {
+          "preflight_free_ram_gib": 24.0,
+          "preflight_commit_headroom_gib": 24.0,
+          "process_tree_rss_cap_gib": 16.0
+        },
+        "preflight": {
+          "sample": {
+            "card_mib": 1985.0,
+            "adapter_shared_mib": 102.6328125,
+            "process_shared_mib": 0.0,
+            "available_gib": 33.72477340698242,
+            "commit_headroom_gib": 36.49558639526367,
+            "tree_gib": 0.020496368408203125,
+            "card_total_mib": 16303.0
+          },
+          "baseline": {
+            "adapter_shared_mib": 102.6328125,
+            "process_shared_mib": 0.0
+          },
+          "sources": {
+            "card": "nvidia-smi --loop-ms",
+            "shared": "pdh"
+          }
+        },
+        "summary": {
+          "event": "summary",
+          "elapsed": 78.63930470000196,
+          "stopped_reason": null,
+          "complete": true,
+          "samples": 314,
+          "achieved_max_period_seconds": 0.2611347999991267,
+          "final_sample": {
+            "card_mib": 1983.0,
+            "adapter_shared_mib": 104.109375,
+            "process_shared_mib": null,
+            "available_gib": 34.71731185913086,
+            "commit_headroom_gib": 36.699363708496094,
+            "tree_gib": null,
+            "card_total_mib": 16303.0
+          }
+        },
+        "all_required_counters_finite": true,
+        "all_sample_verdicts": "ok",
+        "extrema": {
+          "whole_card_peak_mib": 5738.0,
+          "process_ram_peak_gib": 9.097957611083984,
+          "minimum_free_ram_gib": 23.55438232421875,
+          "minimum_commit_headroom_gib": 23.712509155273438,
+          "adapter_shared_rise_peak_mib": 86.61328125,
+          "process_shared_rise_peak_mib": 82.0
+        }
+      },
+      "cleanup": {
+        "sequence": 8,
+        "ok": true,
+        "resident_allocated_mib": 32.0,
+        "resident_reserved_mib": 32.0,
+        "host_metrics": {
+          "whole_card_peak_mib": 2327.0,
+          "adapter_shared_rise_mib": 83.4765625,
+          "process_shared_rise_mib": 82.0,
+          "process_ram_peak_gib": 6.107379913330078,
+          "minimum_free_ram_gib": 28.52721405029297,
+          "minimum_commit_headroom_gib": 26.940044403076172
+        }
+      },
+      "after_exit": {
+        "card_mib": 1983.0,
+        "adapter_shared_mib": 104.109375,
+        "process_shared_mib": null,
+        "available_gib": 34.71731185913086,
+        "commit_headroom_gib": 36.699363708496094,
+        "tree_gib": null,
+        "card_total_mib": 16303.0
+      },
+      "keep_awake": {
+        "reason": "AuraDream private Anima Refine card qualification",
+        "kind": "power-request",
+        "holding": false,
+        "acquired": true,
+        "released": true,
+        "failure": null,
+        "scope_error": null
+      },
+      "proof_checks": {
+        "five_png_rgb_and_exact_metadata_hashes_recomputed": true,
+        "all_six_call_metadata_hashes_recomputed": true,
+        "actual_call_kwargs_equal_receipt_and_saved_image_metadata": true,
+        "explicit_negative_argument_matches_request_in_all_six_calls": true,
+        "nonempty_negative_differs_from_known_empty_control": true,
+        "empty_control_matches_previous_strength_0125": true,
+        "direct_after_matches_original_baseline": true,
+        "negative_repeat_and_post_cancel_recovery_match": true,
+        "original_source_pixels_and_png_unchanged": true,
+        "cancelled_at_first_completed_step_without_decoded_output": true,
+        "unique_rgb_outputs": 3
+      },
+      "cases": [
+        {
+          "id": "empty-control",
+          "status": "completed",
+          "request": {
+            "id": "empty-control",
+            "prompt": "anime illustration of a woman in a blue coat beside a red bicycle, leafy park, daylight",
+            "negative_prompt": "",
+            "width": 1024,
+            "height": 1024,
+            "steps": 30,
+            "cfg": 4.0,
+            "seed": 4471,
+            "strength": 0.125,
+            "source_sha256": "b646b1ec5a54c22fcd8734fb404e200b079824022d8b5d58246698959a7e1f66",
+            "expected_pixel_sha256": "dfa5394c062dfb626f5c423f0e5577eda6496ec9739adc6c04bca5d7137c1b20"
+          },
+          "completed_steps": 4,
+          "start_sigma": 0.31578952074050903,
+          "source_sha256": "b646b1ec5a54c22fcd8734fb404e200b079824022d8b5d58246698959a7e1f66",
+          "pipeline_kwargs": {
+            "prompt": "anime illustration of a woman in a blue coat beside a red bicycle, leafy park, daylight",
+            "negative_prompt": "",
+            "width": 1024,
+            "height": 1024,
+            "num_inference_steps": 30,
+            "guidance_scale": 4.0,
+            "num_images_per_prompt": 1,
+            "strength": 0.125,
+            "generator": {
+              "device": "cpu",
+              "seed": 4471
+            },
+            "callback_on_step_end": "record each completed step; cooperative cancel at frozen boundary",
+            "image": {
+              "mode": "RGB",
+              "width": 1024,
+              "height": 1024,
+              "pixel_sha256": "b646b1ec5a54c22fcd8734fb404e200b079824022d8b5d58246698959a7e1f66"
+            }
+          },
+          "metrics": {
+            "elapsed_seconds": 7.624422999997478,
+            "allocated_peak_mib": 3277.1025390625,
+            "reserved_peak_mib": 3446.0,
+            "resident_allocated_mib": 32.0009765625,
+            "whole_card_peak_mib": 5737.0,
+            "adapter_shared_rise_mib": 86.61328125,
+            "process_shared_rise_mib": 82.0,
+            "process_ram_peak_gib": 6.311260223388672,
+            "minimum_free_ram_gib": 27.353557586669922,
+            "minimum_commit_headroom_gib": 24.80860137939453
+          },
+          "pixel_sha256": "dfa5394c062dfb626f5c423f0e5577eda6496ec9739adc6c04bca5d7137c1b20",
+          "png_sha256": "d01078fa929469957955927ea5a51400ce5854d3a1c22a1e15a6cbc52eb3a92e",
+          "metadata_sha256": "ab014332dbfea33fb11c95d5e547b6f19d9217407c982e76f0be5a1c8c72389a",
+          "call_metadata_sha256": "f1a4e38b8e9f93f745a49db2bd34e184cd728d2dc1f25b2412ee2b4bf0382025",
+          "visual_review": "Full RGB is identical to the previously reviewed original strength-0.125 output; its earlier visual findings are inherited without claiming a new inspection."
+        },
+        {
+          "id": "negative-0125",
+          "status": "completed",
+          "request": {
+            "id": "negative-0125",
+            "prompt": "anime illustration of a woman in a blue coat beside a red bicycle, leafy park, daylight",
+            "negative_prompt": "low quality, blurry",
+            "width": 1024,
+            "height": 1024,
+            "steps": 30,
+            "cfg": 4.0,
+            "seed": 4471,
+            "strength": 0.125,
+            "source_sha256": "b646b1ec5a54c22fcd8734fb404e200b079824022d8b5d58246698959a7e1f66"
+          },
+          "completed_steps": 4,
+          "start_sigma": 0.31578952074050903,
+          "source_sha256": "b646b1ec5a54c22fcd8734fb404e200b079824022d8b5d58246698959a7e1f66",
+          "pipeline_kwargs": {
+            "prompt": "anime illustration of a woman in a blue coat beside a red bicycle, leafy park, daylight",
+            "negative_prompt": "low quality, blurry",
+            "width": 1024,
+            "height": 1024,
+            "num_inference_steps": 30,
+            "guidance_scale": 4.0,
+            "num_images_per_prompt": 1,
+            "strength": 0.125,
+            "generator": {
+              "device": "cpu",
+              "seed": 4471
+            },
+            "callback_on_step_end": "record each completed step; cooperative cancel at frozen boundary",
+            "image": {
+              "mode": "RGB",
+              "width": 1024,
+              "height": 1024,
+              "pixel_sha256": "b646b1ec5a54c22fcd8734fb404e200b079824022d8b5d58246698959a7e1f66"
+            }
+          },
+          "metrics": {
+            "elapsed_seconds": 6.252140300002793,
+            "allocated_peak_mib": 3277.1083984375,
+            "reserved_peak_mib": 3446.0,
+            "resident_allocated_mib": 32.0009765625,
+            "whole_card_peak_mib": 5737.0,
+            "adapter_shared_rise_mib": 84.51171875,
+            "process_shared_rise_mib": 82.0,
+            "process_ram_peak_gib": 6.311260223388672,
+            "minimum_free_ram_gib": 27.38656997680664,
+            "minimum_commit_headroom_gib": 25.629070281982422
+          },
+          "pixel_sha256": "6d5ec5ebb5653efb30892dc7a7e26de50b73b1ad667d5de7ec55d1d1b890a27d",
+          "png_sha256": "bbdcd7f3f30f741bd7c3b37fecf396db79002a6dc965667730bf9dae89dcb217",
+          "metadata_sha256": "7e89cbd957f53413a29b4cabe8545a957f697dcaf89c8b1f2e1b084826dddc7c",
+          "call_metadata_sha256": "1f743e21492177c9c09fa80210a37aeb035098a0d373d84c07b9041954c398bf",
+          "visual_review": "Root inspected this negative-0125 output: subject, blue coat, red bicycle and scene composition are retained, with expected outline/texture changes and no obvious new seam or identity replacement. Existing geometry/anatomy imperfections remain; no universal quality claim or Matt review."
+        },
+        {
+          "id": "negative-repeat",
+          "status": "completed",
+          "request": {
+            "id": "negative-repeat",
+            "prompt": "anime illustration of a woman in a blue coat beside a red bicycle, leafy park, daylight",
+            "negative_prompt": "low quality, blurry",
+            "width": 1024,
+            "height": 1024,
+            "steps": 30,
+            "cfg": 4.0,
+            "seed": 4471,
+            "strength": 0.125,
+            "source_sha256": "b646b1ec5a54c22fcd8734fb404e200b079824022d8b5d58246698959a7e1f66",
+            "compare_to": "negative-0125"
+          },
+          "completed_steps": 4,
+          "start_sigma": 0.31578952074050903,
+          "source_sha256": "b646b1ec5a54c22fcd8734fb404e200b079824022d8b5d58246698959a7e1f66",
+          "pipeline_kwargs": {
+            "prompt": "anime illustration of a woman in a blue coat beside a red bicycle, leafy park, daylight",
+            "negative_prompt": "low quality, blurry",
+            "width": 1024,
+            "height": 1024,
+            "num_inference_steps": 30,
+            "guidance_scale": 4.0,
+            "num_images_per_prompt": 1,
+            "strength": 0.125,
+            "generator": {
+              "device": "cpu",
+              "seed": 4471
+            },
+            "callback_on_step_end": "record each completed step; cooperative cancel at frozen boundary",
+            "image": {
+              "mode": "RGB",
+              "width": 1024,
+              "height": 1024,
+              "pixel_sha256": "b646b1ec5a54c22fcd8734fb404e200b079824022d8b5d58246698959a7e1f66"
+            }
+          },
+          "metrics": {
+            "elapsed_seconds": 6.1220914000005,
+            "allocated_peak_mib": 3277.1083984375,
+            "reserved_peak_mib": 3446.0,
+            "resident_allocated_mib": 32.0009765625,
+            "whole_card_peak_mib": 5735.0,
+            "adapter_shared_rise_mib": 84.12890625,
+            "process_shared_rise_mib": 82.0,
+            "process_ram_peak_gib": 6.220272064208984,
+            "minimum_free_ram_gib": 27.63440704345703,
+            "minimum_commit_headroom_gib": 25.561866760253906
+          },
+          "pixel_sha256": "6d5ec5ebb5653efb30892dc7a7e26de50b73b1ad667d5de7ec55d1d1b890a27d",
+          "png_sha256": "bbdcd7f3f30f741bd7c3b37fecf396db79002a6dc965667730bf9dae89dcb217",
+          "metadata_sha256": "60babb88e0cd74eb28a022fd8b463ba9a27898c828481dcb20a6ad4f2b6d67e0",
+          "call_metadata_sha256": "c2f2e9cbf3fc92339ac54fd1abf0161c35698cfc9f048c50a48eab806720affb",
+          "visual_review": "Full RGB is identical to the inspected negative-0125 output; inherits those findings."
+        },
+        {
+          "id": "negative-cancel",
+          "status": "cancelled",
+          "request": {
+            "id": "negative-cancel",
+            "prompt": "anime illustration of a woman in a blue coat beside a red bicycle, leafy park, daylight",
+            "negative_prompt": "low quality, blurry",
+            "width": 1024,
+            "height": 1024,
+            "steps": 30,
+            "cfg": 4.0,
+            "seed": 4471,
+            "strength": 0.4,
+            "source_sha256": "b646b1ec5a54c22fcd8734fb404e200b079824022d8b5d58246698959a7e1f66",
+            "cancel_after_completed_steps": 1
+          },
+          "completed_steps": 1,
+          "start_sigma": 0.6666666865348816,
+          "source_sha256": "b646b1ec5a54c22fcd8734fb404e200b079824022d8b5d58246698959a7e1f66",
+          "pipeline_kwargs": {
+            "prompt": "anime illustration of a woman in a blue coat beside a red bicycle, leafy park, daylight",
+            "negative_prompt": "low quality, blurry",
+            "width": 1024,
+            "height": 1024,
+            "num_inference_steps": 30,
+            "guidance_scale": 4.0,
+            "num_images_per_prompt": 1,
+            "strength": 0.4,
+            "generator": {
+              "device": "cpu",
+              "seed": 4471
+            },
+            "callback_on_step_end": "record each completed step; cooperative cancel at frozen boundary",
+            "image": {
+              "mode": "RGB",
+              "width": 1024,
+              "height": 1024,
+              "pixel_sha256": "b646b1ec5a54c22fcd8734fb404e200b079824022d8b5d58246698959a7e1f66"
+            }
+          },
+          "metrics": {
+            "elapsed_seconds": 2.6218420999975933,
+            "allocated_peak_mib": 3276.6083984375,
+            "reserved_peak_mib": 3446.0,
+            "resident_allocated_mib": 32.0009765625,
+            "whole_card_peak_mib": 5736.0,
+            "adapter_shared_rise_mib": 83.76953125,
+            "process_shared_rise_mib": 82.0,
+            "process_ram_peak_gib": 6.1810150146484375,
+            "minimum_free_ram_gib": 27.838665008544922,
+            "minimum_commit_headroom_gib": 24.511341094970703
+          },
+          "pixel_sha256": null,
+          "png_sha256": null,
+          "metadata_sha256": null,
+          "call_metadata_sha256": "7e7b08009f0f9f31aaf8bb56bcadfa028676087caa7a4a13e865fc7ffe6d2ee2",
+          "visual_review": null
+        },
+        {
+          "id": "negative-recovery",
+          "status": "completed",
+          "request": {
+            "id": "negative-recovery",
+            "prompt": "anime illustration of a woman in a blue coat beside a red bicycle, leafy park, daylight",
+            "negative_prompt": "low quality, blurry",
+            "width": 1024,
+            "height": 1024,
+            "steps": 30,
+            "cfg": 4.0,
+            "seed": 4471,
+            "strength": 0.125,
+            "source_sha256": "b646b1ec5a54c22fcd8734fb404e200b079824022d8b5d58246698959a7e1f66",
+            "compare_to": "negative-0125"
+          },
+          "completed_steps": 4,
+          "start_sigma": 0.31578952074050903,
+          "source_sha256": "b646b1ec5a54c22fcd8734fb404e200b079824022d8b5d58246698959a7e1f66",
+          "pipeline_kwargs": {
+            "prompt": "anime illustration of a woman in a blue coat beside a red bicycle, leafy park, daylight",
+            "negative_prompt": "low quality, blurry",
+            "width": 1024,
+            "height": 1024,
+            "num_inference_steps": 30,
+            "guidance_scale": 4.0,
+            "num_images_per_prompt": 1,
+            "strength": 0.125,
+            "generator": {
+              "device": "cpu",
+              "seed": 4471
+            },
+            "callback_on_step_end": "record each completed step; cooperative cancel at frozen boundary",
+            "image": {
+              "mode": "RGB",
+              "width": 1024,
+              "height": 1024,
+              "pixel_sha256": "b646b1ec5a54c22fcd8734fb404e200b079824022d8b5d58246698959a7e1f66"
+            }
+          },
+          "metrics": {
+            "elapsed_seconds": 6.180133499998192,
+            "allocated_peak_mib": 3277.1083984375,
+            "reserved_peak_mib": 3446.0,
+            "resident_allocated_mib": 32.0009765625,
+            "whole_card_peak_mib": 5738.0,
+            "adapter_shared_rise_mib": 83.68359375,
+            "process_shared_rise_mib": 82.0,
+            "process_ram_peak_gib": 6.1810150146484375,
+            "minimum_free_ram_gib": 27.80295181274414,
+            "minimum_commit_headroom_gib": 25.595653533935547
+          },
+          "pixel_sha256": "6d5ec5ebb5653efb30892dc7a7e26de50b73b1ad667d5de7ec55d1d1b890a27d",
+          "png_sha256": "bbdcd7f3f30f741bd7c3b37fecf396db79002a6dc965667730bf9dae89dcb217",
+          "metadata_sha256": "faac28ade94d91201d5ae3689ed6929e0df952abc97fccd4f073b3c5b168ee6e",
+          "call_metadata_sha256": "327cb2fffcd7d6771afb52bd0bda42e26db6a89ffddb44afeac02f98ce7e95e1",
+          "visual_review": "After callback-one cancellation, full RGB is identical to the inspected negative-0125 output; inherits those findings."
+        },
+        {
+          "id": "direct-after",
+          "status": "completed",
+          "request": {
+            "id": "direct-after",
+            "prompt": "anime illustration of a woman in a blue coat beside a red bicycle, leafy park, daylight",
+            "negative_prompt": "",
+            "width": 1024,
+            "height": 1024,
+            "steps": 30,
+            "cfg": 4.0,
+            "seed": 4471,
+            "strength": null,
+            "source_sha256": null,
+            "expected_pixel_sha256": "b646b1ec5a54c22fcd8734fb404e200b079824022d8b5d58246698959a7e1f66"
+          },
+          "completed_steps": 30,
+          "start_sigma": null,
+          "source_sha256": null,
+          "pipeline_kwargs": {
+            "prompt": "anime illustration of a woman in a blue coat beside a red bicycle, leafy park, daylight",
+            "negative_prompt": "",
+            "width": 1024,
+            "height": 1024,
+            "num_inference_steps": 30,
+            "guidance_scale": 4.0,
+            "num_images_per_prompt": 1,
+            "generator": {
+              "device": "cpu",
+              "seed": 4471
+            },
+            "callback_on_step_end": "record each completed step; cooperative cancel at frozen boundary"
+          },
+          "metrics": {
+            "elapsed_seconds": 29.63476879999871,
+            "allocated_peak_mib": 3028.99072265625,
+            "reserved_peak_mib": 3198.0,
+            "resident_allocated_mib": 32.00146484375,
+            "whole_card_peak_mib": 5490.0,
+            "adapter_shared_rise_mib": 85.2109375,
+            "process_shared_rise_mib": 82.0,
+            "process_ram_peak_gib": 6.107379913330078,
+            "minimum_free_ram_gib": 27.798625946044922,
+            "minimum_commit_headroom_gib": 25.89653778076172
+          },
+          "pixel_sha256": "b646b1ec5a54c22fcd8734fb404e200b079824022d8b5d58246698959a7e1f66",
+          "png_sha256": "d189a7bd4f8e1f6216731cf0a7f22d7ac2774be75c0ffa4226331047dabccdf2",
+          "metadata_sha256": "77db92ed9daf7dd6cd6e70b8875776bf43bfdd8b60cded77b30efe8204073f9a",
+          "call_metadata_sha256": "4b33d9600a9ef28457f0db7ca4479f3e2152ec785b68a661e64837fe3b29c4ae",
+          "visual_review": "The final empty-negative ordinary direct render is full-RGB identical to the previously reviewed original baseline; inherits its existing composition and geometry/anatomy findings."
+        }
+      ],
+      "visual_review": {
+        "reviewer": "Codex root agent",
+        "review_recorded_utc": "2026-11-16T18:22:24+00:00",
+        "local_date": "2026-11-17",
+        "timezone": "Australia/Brisbane",
+        "method": "Root inspected this variant negative-0125 image; old control/baseline notes and new repeat/recovery notes are inherited only after full RGB equality.",
+        "viewed_new_output": "work/anima-preview-negative-2026-11-17/negative-0125.png",
+        "inherited_original_review": "work/anima-preview-refine-2026-11-17/visual-review.json",
+        "inherited_original_review_sha256": "d1d2f98fe0d570eb3b091f54ffad29e8eb98594304c037b5c8f7064f2cc82c3c",
+        "receipt_before_review_sha256": "b8cc7412a79c226bbfc2f4dcb523b4664696d94f2c8901f0c5f076306ffbe2b8",
+        "receipt_after_review_sha256": "a747e8e39816e36d30a171035521d1a67b8a9011fad94a12a2bdaf13cfbe7f54",
+        "unreviewed_copy": "receipt-unreviewed.json",
+        "notes_by_case": {
+          "empty-control": "Full RGB is identical to the previously reviewed original strength-0.125 output; its earlier visual findings are inherited without claiming a new inspection.",
+          "negative-0125": "Root inspected this negative-0125 output: subject, blue coat, red bicycle and scene composition are retained, with expected outline/texture changes and no obvious new seam or identity replacement. Existing geometry/anatomy imperfections remain; no universal quality claim or Matt review.",
+          "negative-repeat": "Full RGB is identical to the inspected negative-0125 output; inherits those findings.",
+          "negative-recovery": "After callback-one cancellation, full RGB is identical to the inspected negative-0125 output; inherits those findings.",
+          "direct-after": "The final empty-negative ordinary direct render is full-RGB identical to the previously reviewed original baseline; inherits its existing composition and geometry/anatomy findings."
+        },
+        "Matt_reviewed": false,
+        "author_recommendation": false,
+        "universal_quality_claim": false
+      },
+      "evidence": {
+        "directory": "work/anima-preview-negative-2026-11-17",
+        "unreviewed_receipt_sha256": "b8cc7412a79c226bbfc2f4dcb523b4664696d94f2c8901f0c5f076306ffbe2b8",
+        "reviewed_receipt_sha256": "a747e8e39816e36d30a171035521d1a67b8a9011fad94a12a2bdaf13cfbe7f54",
+        "raw_file_sha256": {
+          "guard.jsonl": "578097bd7429c41b14c4ff1f789f7aadd62a3695d5b5ae6547b56649862c68a8",
+          "load-receipt.json": "b24705bfc9fe11740dc08aeaef9d3c293c1bebd5de3201d06f1d32704fe7c7e6",
+          "cleanup-receipt.json": "edfb351b97d12411e9cd832ac3e956ccbf35b3ba9eb7d5a5de39fc758927fd63",
+          "after-exit.json": "c68644f887cb1b64c0b145096062a041e513b085e9e8bbceb44144571d736c62",
+          "preflight.json": "189cd7fb8253ad793604c98292807d0b175bbd4c02aee64501502bd77045fe02",
+          "limits.json": "e24bea8a36a6cc5c151dd82155b7dfc6210ec88c523c7e3cbd2a4dacb5cef8d0",
+          "extra-limits.json": "db6d328dfa17a593bfc40cdc51adf7f4aa24db7d3fe1c053c0488910d21c7164",
+          "keep-awake.json": "8a9474be12c05360fd865d1f671c73ed91e0af1ca3b6db4982e0f862082076e2",
+          "source-proof.json": "d29047e4bacd0275b61bbecbdd980f13491bff42d04300052e3662559df1cb8f",
+          "source-proof-preflight.json": "d29047e4bacd0275b61bbecbdd980f13491bff42d04300052e3662559df1cb8f",
+          "schedule-proof.json": "435bfe8c0be57ca0d6997ff6311afcc95100063c86619b9fce79cde060e38fc2",
+          "frozen-plan.json": "457b4738ce76a3d06f1fe93b82676595f100502109429906671909d2a68be6ac",
+          "visual-review.json": "11cf242f69513cfa7be5c49d475b5aff26bdab38dce686359f19475b7957b5b4"
+        }
+      }
+    }
+  },
+  "limits_of_evidence": [
+    "The explicit nonempty content low quality, blurry ran through the actual CFG-4 negative argument; it was not an execution or loader option and was never replaced by a proxy.",
+    "Completed nonempty Refine was measured at strength 0.125, 30 full steps, CFG 4 and 1024 square; negative strength 0.4 was exercised only through callback-one cancellation.",
+    "One original source and seed 4471 per variant were used. There is no enlargement, other aspect, hardware, platform, quantization or offload measurement here.",
+    "Root inspected the new negative-0125 image of each variant. Empty/control findings are inherited only after full RGB equality with earlier reviewed images; repeats/recovery are inherited only after full equality with the new negative image.",
+    "Existing geometry/anatomy imperfections remain. These observations are not Matt acceptance, author advice or a universal claim that a negative phrase improves quality.",
+    "The record establishes measured branch response, reproduction, cancellation and cleanup; public API/profile admission is a separate integration decision."
+  ]
+}

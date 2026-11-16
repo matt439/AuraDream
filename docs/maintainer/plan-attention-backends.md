@@ -22,6 +22,62 @@ implemented with `PERF#1`. A recorded `cudnn-v1` remains unavailable to
 render or Reuse; this establishes metadata transport, not runtime processor
 or card qualification.
 
+## Diffusers 0.42.1 private compatibility, 2026-11-16
+
+The installed attention sources were rechecked on diffusers **0.42.1** with
+torch **2.13.0+cu130**. The exact FLUX transformer, its joint/single attention
+classes and `FluxAttnProcessor` still match the complete-coverage owner.
+The real setter still changes both processors and the global registry;
+the public context restores that incidental registry change. The installed
+dispatcher forwards each processor override to `_native_cudnn_attention`,
+whose ordinary path makes Q/K/V contiguous and selects only
+`SDPBackend.CUDNN_ATTENTION` around SDPA. No production attention adapter
+change was needed.
+
+`tests/test_attention_runtime.py` now checks those real installed classes
+and APIs in an isolated CPU worker. Its freshly initialized miniature
+transformer has one joint and one single block, fewer than 50,000 parameters,
+and no checkpoint weights. Both real processors reach the real cuDNN
+dispatcher, with **SDPA replaced by a recording stand-in**. The check verifies
+cuDNN-only flags and contiguous inputs, propagation of a synthetic SDPA error
+without retry, restoration of the flags after success and failure, exact
+processor field restoration, and an ordinary Native dispatch after cleanup.
+Socket, compiler and CUDA guards record zero attempts; CUDA remains
+uninitialized. The receipt hashes the installed transformer, dispatcher and
+model setter source files. The unrelated optional bitsandbytes backend is
+excluded from this CPU worker because it compiles during import on Linux.
+
+Only the private cuDNN candidate additionally accepts **exactly 0.42.1**.
+Its existing 0.40 compatibility stays intact. Other 0.42 patches, development
+or locally marked versions refuse; regional compilation and FBC retain their
+separate 0.40 matrices. The request, queue, load, direct-generation and replay
+admission guards stay closed. This source compatibility result uses float32
+CPU inputs and a stand-in: it qualifies no cuDNN kernel, bf16/fp16 activation
+support, checkpoint output, device fit, determinism, image quality or speed.
+
+Validation: **383 focused execution/attention checks passed** with ordinary
+fixtures (one existing Starlette deprecation warning), and Ruff passed over
+the changed Python files. The isolated candidate/selection/runtime subset
+also passed all 176 checks with `--noconftest`. Independent review found no
+blocking issue. The final focused receipt is
+`work/perf3-attention-0421-focused-a2/test_installed_flux_processors0/receipt.json`.
+The first wider command incorrectly excluded shared fixtures; its 43 setup
+errors disappeared when the same scope used the ordinary fixture setup.
+The whole-source pinned type check found no diagnostics in this slice;
+its only five diagnostics belonged to the concurrently prepared Anima card
+harness, which is tracked by that work's owner. No checkpoint weights,
+GPU inference, compiler execution or network access was used for this slice.
+`PERF#3` remains CARD.
+
+The [bounded card comparison](#bounded-implementation-and-acceptance) is
+unchanged. `GEN#22`'s fixed-loader RAM prerequisite was measured on
+2026-10-27 in `docs/verified.md`; recheck live free RAM, commit headroom and
+desktop VRAM before a new session. Retain the exact software versions,
+actual projection-output dtype, selected cuDNN dispatcher/function, guarded
+load/render peaks and the fixed-case PNGs. A private qualification harness
+must enter the existing owned `_load_prepared`/`_invoke_pipeline` seam;
+ordinary public generation continues to refuse this recipe.
+
 ## Conservative experimental environment policy
 
 Experimental execution never overrides `DIFFUSERS_ATTN_BACKEND`. Its startup

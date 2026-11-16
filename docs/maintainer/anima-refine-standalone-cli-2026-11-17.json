@@ -1,0 +1,632 @@
+{
+  "schema": "anima-standalone-cli-acceptance-v1",
+  "date": "2026-11-17",
+  "status": "passed",
+  "scope": "Three separate fresh normal standalone CLI loads and one measured same-size Refine output per qualified Anima selector. This is distinct from the separately recorded public HTTP/CLI-via-server sessions. No negative, enlargement, alternate loader/platform or performance qualification follows.",
+  "tested_commit": "90eb8c5ffce45692792436856427bc6d7bb07f6a",
+  "variants": {
+    "turbo": {
+      "status": "passed",
+      "tested_commit": "90eb8c5ffce45692792436856427bc6d7bb07f6a",
+      "model_id": "circlestone-labs/Anima",
+      "steps": 8,
+      "guidance_scale": 1.0,
+      "strength": 0.25,
+      "seed": 4471,
+      "size": [
+        1024,
+        1024
+      ],
+      "argv": [
+        "C:\\Projects\\AuraDream\\.venv\\Scripts\\python.exe",
+        "-m",
+        "backend.generate",
+        "anime illustration of a woman in a blue coat beside a red bicycle, leafy park, daylight",
+        "--model",
+        "circlestone-labs/Anima",
+        "--quant",
+        "fp8",
+        "--offload",
+        "model",
+        "--refine",
+        "1",
+        "--strength",
+        "0.25",
+        "--steps",
+        "8",
+        "--cfg",
+        "1.0",
+        "--seed",
+        "4471",
+        "--width",
+        "1024",
+        "--height",
+        "1024",
+        "--no-mu"
+      ],
+      "mode": "Literal standalone python -m backend.generate; no HTTP generation or bypass flags. Gate only forwards stdio/waits.",
+      "one_source_one_result": {
+        "source_id": 1,
+        "result_id": 2,
+        "images_before": 1,
+        "images_after": 2,
+        "retained_jobs": 0,
+        "source_rgb_sha256": "2d98ce1be08140fe107ebae6f2a95fd198d14ac4025a3233dc2ae5393916f145",
+        "source_png_sha256": "08a58ad42658ce4db6f1894b738b83c9e2dfd58505f8c97d1b387b29f4a9b391",
+        "source_row_and_png_unchanged": true
+      },
+      "result": {
+        "rgb_sha256": "726e7968f9a04cb1a459d77aa5c14b68d116c5756e259a80f2ede6cb9e91771d",
+        "png_sha256": "2f2dd4f40b5c9fa8489864be183c76cc7cefe007b2275045e0d7647ecaeb4bd3",
+        "exact_metadata_sha256": "bcb4289a205631ef9fd52e02accf819cbfb255211ea0d9c0c3f370359d680167",
+        "recorded_backend_peak_bytes": [
+          2591532544,
+          2768240640
+        ],
+        "peak_scope": "Recorded backend pair agrees between SQL and PNG; no independent Torch allocator observation was installed.",
+        "duration_ms": 4381,
+        "source_provenance": {
+          "filename": "20261116-182308-4471-096433.png",
+          "hash": "2d98ce1be08140fe",
+          "width": 1024,
+          "height": 1024
+        },
+        "negative_prompt": null,
+        "true_cfg": null,
+        "run_id": "edd65219e663"
+      },
+      "normal_cli_output": {
+        "load_announcements": 1,
+        "ready_announcements": 1,
+        "ready_line": "17s on NVIDIA GeForce RTX 5080",
+        "new_result_path_printed": true,
+        "stdout_bytes": 782,
+        "stderr_bytes": 2105,
+        "wall_s": 26.879745,
+        "timing_scope": "Descriptive one first-use CLI invocation; no speed qualification."
+      },
+      "guard": {
+        "limits_in_force": {
+          "card_mib": 15500.0,
+          "project_mib": 15200.0,
+          "refuse_at_peak_mib": 15000.0,
+          "adapter_shared_rise_mib": 1024.0,
+          "process_shared_rise_mib": 512.0,
+          "ram_floor_gib": 4.0,
+          "commit_floor_gib": 4.0,
+          "need_ram_gib": 24,
+          "busy_card_mib": 2500,
+          "card_unread_samples": 3.0,
+          "margin_mib": 500.0,
+          "margin_gib": 1.0
+        },
+        "need_commit_gib": 24,
+        "rss_cap_gib": 16,
+        "sources": {
+          "card": "nvidia-smi --loop-ms",
+          "shared": "pdh"
+        },
+        "baseline": {
+          "card_mib": 1805.0,
+          "adapter_shared_mib": 116.1,
+          "process_shared_mib": 0.0,
+          "available_gib": 29.14,
+          "commit_headroom_gib": 31.19
+        },
+        "samples": 107,
+        "requested_period_s": 0.25,
+        "mean_gap_s": 0.249633697,
+        "largest_gap_s": 0.264199018,
+        "largest_gap_precedes_cli_process": false,
+        "samples_after_cli_spawn": 106,
+        "mean_gap_after_cli_spawn_s": 0.249981658,
+        "largest_gap_after_cli_spawn_s": 0.264199018,
+        "peaks": {
+          "card_mib": 4742.0,
+          "adapter_rise_mib": 81.7,
+          "process_rise_mib": 82.0,
+          "tree_gib": 7.69,
+          "tree_private_gib": 9.86202621459961
+        },
+        "minima": {
+          "available_gib": 21.8,
+          "commit_headroom_gib": 21.93
+        },
+        "trips": 0
+      },
+      "power": {
+        "acquired": true,
+        "released": true,
+        "held": false
+      },
+      "cleanup": {
+        "gate_pid": 52328,
+        "exit": 0,
+        "guard_error": null,
+        "power": {
+          "acquired": true,
+          "released": true,
+          "held": false
+        },
+        "at": 1794855943.7175045
+      },
+      "process_readback": [
+        {
+          "role": "gate",
+          "pid": 52328,
+          "original_process_absent": true,
+          "pid_reused_after_session": false
+        },
+        {
+          "role": "cli redirector",
+          "pid": 46760,
+          "original_process_absent": true,
+          "pid_reused_after_session": false
+        }
+      ],
+      "source_identity": {
+        "manifest_files": 193,
+        "initial_final_equal": true,
+        "current_audit_equal": true,
+        "controller_sha256": "d4dbc86f83b777e2d5e4b9c7345bb4c4dff33a32b5cbeb3bfda9c68ffa25e47b",
+        "gate_template_utf8_lf_sha256": "6d6c1c99119da809c251a2018fe8627d91a5f40fd396c00ac9d6e0916689c8cb",
+        "actual_gate_file_sha256": "e35af4980dd2d9c88547c2681619ca80d951ba01251b00719291cac5485a076a",
+        "private_reference_sha256": "8b5028422db7f164b7ca482d1fca848dc172c8b112651a32a2e557707950000c",
+        "backend_generate_sha256": "edd0383c2d9e3c69e19a03afa2953962df2f3d5474856163a5e15c1ac8c3289a"
+      },
+      "evidence": {
+        "run_directory": "work/turbo-standalone-cli-20261117-v2",
+        "source_gallery": "work/turbo-standalone-cli-fixture-20261117-v1",
+        "raw_file_sha256": {
+          "cleanup.json": "3c94e7b0351dce4b9b51b8689020953a7249d239bb3cf80f1de1018925013576",
+          "cli-process.json": "220d9b480ecf3da0b4a2ac7b5ccf00cc81c2e56b8f1892e4150040e31fbcbae9",
+          "cli.stderr": "52eef3a2b44d411421b19e94db33a9edd63b02e897d53c59a8ec112038a3d486",
+          "cli.stdout": "34252f82eb941ef790f213a48361b2226f583e8731c9b7a1e8449faadbb49d65",
+          "gate.py": "e35af4980dd2d9c88547c2681619ca80d951ba01251b00719291cac5485a076a",
+          "go": "b5004f26a852b0d60ec1237432c1a33c2307ff2458c374d9d99749d045c7feb9",
+          "gpu.txt": "f978b9ab09955290aad704b5c81557e9683e5ca71b80bac4b64fa92e2cbcd985",
+          "guard.jsonl": "a75ec9f17f8c5bdfc3ce7e533e94fe09f2019836b602832c4caf8fd806e17b67",
+          "invocation.json": "fb8e27895dff1afd17c1b2c16cf843cbe5273d4c984e33b63eaa28ed4f08990d",
+          "plan.json": "be48ff5c2cc905e276da800aabea7c8ff3244e441c87ee6f60a65b7c830e85a9",
+          "power.json": "fe36de346bdb11409ba52dd0d068517a18938bc7347deb5ecf92c5c082ac34d4",
+          "receipt.json": "b6971b5c8df0bc9c04be4a5922681e3ce63eea81f1182ea4c39e06254767ff30",
+          "result-metadata.json": "bcb4289a205631ef9fd52e02accf819cbfb255211ea0d9c0c3f370359d680167"
+        },
+        "fixture_sha256": "f0c039f97fb1b788ce6c7ea12e2177ef6c669c82d897a83cee87840db011bb06",
+        "database_sha256_at_audit": "8178fe4c3fd4db3627316ec3e6b690cdc7d2525ab063e53bb41f74a8adf79d1a",
+        "raw_preserved": true
+      }
+    },
+    "aesthetic": {
+      "status": "passed",
+      "tested_commit": "90eb8c5ffce45692792436856427bc6d7bb07f6a",
+      "model_id": "circlestone-labs/Anima@aesthetic-v1.1",
+      "steps": 30,
+      "guidance_scale": 4.0,
+      "strength": 0.125,
+      "seed": 4471,
+      "size": [
+        1024,
+        1024
+      ],
+      "argv": [
+        "C:\\Projects\\AuraDream\\.venv\\Scripts\\python.exe",
+        "-m",
+        "backend.generate",
+        "anime illustration of a woman in a blue coat beside a red bicycle, leafy park, daylight",
+        "--model",
+        "circlestone-labs/Anima@aesthetic-v1.1",
+        "--quant",
+        "fp8",
+        "--offload",
+        "model",
+        "--refine",
+        "1",
+        "--strength",
+        "0.125",
+        "--steps",
+        "30",
+        "--cfg",
+        "4.0",
+        "--seed",
+        "4471",
+        "--width",
+        "1024",
+        "--height",
+        "1024",
+        "--no-mu"
+      ],
+      "mode": "Literal standalone python -m backend.generate; no HTTP generation or bypass flags. Gate only forwards stdio/waits.",
+      "one_source_one_result": {
+        "source_id": 1,
+        "result_id": 2,
+        "images_before": 1,
+        "images_after": 2,
+        "retained_jobs": 0,
+        "source_rgb_sha256": "fa096876a8c0763a36e2c45ce6f097f51df5c5711a9333cf0451595e2d7e3805",
+        "source_png_sha256": "3f6248710751c16fc2019c1ff859ebfd510b67a8c159503a00f213ebecc914a0",
+        "source_row_and_png_unchanged": true
+      },
+      "result": {
+        "rgb_sha256": "ca15ade1f50fdc10b326d74e694bb4374e1b6730d0bb03cf4cb0419f32f136de",
+        "png_sha256": "f3bb3a8815928494a47bc310f6fc734c157af3a42e14835f7ac75212aeb098e3",
+        "exact_metadata_sha256": "5f5cab7c09bcac38ddc191fa61d5b95a20c679419675039be6c812dd801b70f2",
+        "recorded_backend_peak_bytes": [
+          2593108992,
+          2770337792
+        ],
+        "peak_scope": "Recorded backend pair agrees between SQL and PNG; no independent Torch allocator observation was installed.",
+        "duration_ms": 6731,
+        "source_provenance": {
+          "filename": "20261116-182309-4471-fef943.png",
+          "hash": "fa096876a8c0763a",
+          "width": 1024,
+          "height": 1024
+        },
+        "negative_prompt": null,
+        "true_cfg": null,
+        "run_id": "37f1352f44de"
+      },
+      "normal_cli_output": {
+        "load_announcements": 1,
+        "ready_announcements": 1,
+        "ready_line": "12s on NVIDIA GeForce RTX 5080",
+        "new_result_path_printed": true,
+        "stdout_bytes": 810,
+        "stderr_bytes": 2027,
+        "wall_s": 35.535943,
+        "timing_scope": "Descriptive one first-use CLI invocation; no speed qualification."
+      },
+      "guard": {
+        "limits_in_force": {
+          "card_mib": 15500.0,
+          "project_mib": 15200.0,
+          "refuse_at_peak_mib": 15000.0,
+          "adapter_shared_rise_mib": 1024.0,
+          "process_shared_rise_mib": 512.0,
+          "ram_floor_gib": 4.0,
+          "commit_floor_gib": 4.0,
+          "need_ram_gib": 24,
+          "busy_card_mib": 2500,
+          "card_unread_samples": 3.0,
+          "margin_mib": 500.0,
+          "margin_gib": 1.0
+        },
+        "need_commit_gib": 24,
+        "rss_cap_gib": 16,
+        "sources": {
+          "card": "nvidia-smi --loop-ms",
+          "shared": "pdh"
+        },
+        "baseline": {
+          "card_mib": 1796.0,
+          "adapter_shared_mib": 114.2,
+          "process_shared_mib": 0.0,
+          "available_gib": 29.59,
+          "commit_headroom_gib": 31.86
+        },
+        "samples": 141,
+        "requested_period_s": 0.25,
+        "mean_gap_s": 0.249762305,
+        "largest_gap_s": 0.268106461,
+        "largest_gap_precedes_cli_process": false,
+        "samples_after_cli_spawn": 140,
+        "mean_gap_after_cli_spawn_s": 0.249990827,
+        "largest_gap_after_cli_spawn_s": 0.268106461,
+        "peaks": {
+          "card_mib": 4739.0,
+          "adapter_rise_mib": 82.7,
+          "process_rise_mib": 82.0,
+          "tree_gib": 8.32,
+          "tree_private_gib": 10.178874969482422
+        },
+        "minima": {
+          "available_gib": 21.05,
+          "commit_headroom_gib": 20.59
+        },
+        "trips": 0
+      },
+      "power": {
+        "acquired": true,
+        "released": true,
+        "held": false
+      },
+      "cleanup": {
+        "gate_pid": 57308,
+        "exit": 0,
+        "guard_error": null,
+        "power": {
+          "acquired": true,
+          "released": true,
+          "held": false
+        },
+        "at": 1794855999.6845098
+      },
+      "process_readback": [
+        {
+          "role": "gate",
+          "pid": 57308,
+          "original_process_absent": true,
+          "pid_reused_after_session": false
+        },
+        {
+          "role": "cli redirector",
+          "pid": 42380,
+          "original_process_absent": true,
+          "pid_reused_after_session": false
+        }
+      ],
+      "source_identity": {
+        "manifest_files": 193,
+        "initial_final_equal": true,
+        "current_audit_equal": true,
+        "controller_sha256": "d4dbc86f83b777e2d5e4b9c7345bb4c4dff33a32b5cbeb3bfda9c68ffa25e47b",
+        "gate_template_utf8_lf_sha256": "6d6c1c99119da809c251a2018fe8627d91a5f40fd396c00ac9d6e0916689c8cb",
+        "actual_gate_file_sha256": "e35af4980dd2d9c88547c2681619ca80d951ba01251b00719291cac5485a076a",
+        "private_reference_sha256": "462d8814f524fc3740670e81739207f2174c2dac6a6f15e3d6a6f7c2c380f7ae",
+        "backend_generate_sha256": "edd0383c2d9e3c69e19a03afa2953962df2f3d5474856163a5e15c1ac8c3289a"
+      },
+      "evidence": {
+        "run_directory": "work/aesthetic-standalone-cli-20261117-v1",
+        "source_gallery": "work/aesthetic-standalone-cli-fixture-20261117-v1",
+        "raw_file_sha256": {
+          "cleanup.json": "1b26ffb132c87b3c1d87fbc7d2a8683058224080f34e17c88a784d58ca7de460",
+          "cli-process.json": "240e1f1bff330e7c0e8d3666d5fe7677df498ab2f5ed05b8a99fe5bc65b8241b",
+          "cli.stderr": "39d11203b807498f99a8039fe0150ecadecd22f5499d0be84d77c3e4f6f4edd9",
+          "cli.stdout": "3b292c86883263b57a3b27d9b64e5cf9738d147d357917753ee7c0136b691fc0",
+          "gate.py": "e35af4980dd2d9c88547c2681619ca80d951ba01251b00719291cac5485a076a",
+          "go": "b5004f26a852b0d60ec1237432c1a33c2307ff2458c374d9d99749d045c7feb9",
+          "gpu.txt": "f978b9ab09955290aad704b5c81557e9683e5ca71b80bac4b64fa92e2cbcd985",
+          "guard.jsonl": "c5e44e81379c710bc9bce2371335e08ea417670cea4810935ff6d28d41121a9a",
+          "invocation.json": "5ff659af595305e21a61b93f9e5af3333f1d2f5b9406f5792e6ae0d7e6bc73b5",
+          "plan.json": "ba20dcefe60205d6a269d661725f33703a7a0b5947784ca5b25df3931645c6fd",
+          "power.json": "fe36de346bdb11409ba52dd0d068517a18938bc7347deb5ecf92c5c082ac34d4",
+          "receipt.json": "3eaeb93cf350977280221adf7750360ab5f53112ac670ebd92a7cec5521d1930",
+          "result-metadata.json": "5f5cab7c09bcac38ddc191fa61d5b95a20c679419675039be6c812dd801b70f2"
+        },
+        "fixture_sha256": "c9af54b2485396d9721b5363c6e5acfa62356204e214e259e82280e88775b260",
+        "database_sha256_at_audit": "39b69e7db3fd92282f128679e3847e320ad606cf51aee908b83d9bb4078e527d",
+        "raw_preserved": true
+      }
+    },
+    "preview": {
+      "status": "passed",
+      "tested_commit": "90eb8c5ffce45692792436856427bc6d7bb07f6a",
+      "model_id": "Gazingstars123/Anima-2.9B",
+      "steps": 30,
+      "guidance_scale": 4.0,
+      "strength": 0.125,
+      "seed": 4471,
+      "size": [
+        1024,
+        1024
+      ],
+      "argv": [
+        "C:\\Projects\\AuraDream\\.venv\\Scripts\\python.exe",
+        "-m",
+        "backend.generate",
+        "anime illustration of a woman in a blue coat beside a red bicycle, leafy park, daylight",
+        "--model",
+        "Gazingstars123/Anima-2.9B",
+        "--quant",
+        "fp8",
+        "--offload",
+        "model",
+        "--refine",
+        "1",
+        "--strength",
+        "0.125",
+        "--steps",
+        "30",
+        "--cfg",
+        "4.0",
+        "--seed",
+        "4471",
+        "--width",
+        "1024",
+        "--height",
+        "1024",
+        "--no-mu"
+      ],
+      "mode": "Literal standalone python -m backend.generate; no HTTP generation or bypass flags. Gate only forwards stdio/waits.",
+      "one_source_one_result": {
+        "source_id": 1,
+        "result_id": 2,
+        "images_before": 1,
+        "images_after": 2,
+        "retained_jobs": 0,
+        "source_rgb_sha256": "b646b1ec5a54c22fcd8734fb404e200b079824022d8b5d58246698959a7e1f66",
+        "source_png_sha256": "af1b0c5cdda42bebddfef8c93332cb09b0983d11e21ceafd9382ad55bdc73a4b",
+        "source_row_and_png_unchanged": true
+      },
+      "result": {
+        "rgb_sha256": "dfa5394c062dfb626f5c423f0e5577eda6496ec9739adc6c04bca5d7137c1b20",
+        "png_sha256": "e57b75eabcc549d1c3c9c58aaa71c77c246991ee5b4017b11999a47cdc5d2f46",
+        "exact_metadata_sha256": "2017c94f93233bbee9b0e08c9d36fd9dcee0ab537a6a5e785c4e6c4a04db28b6",
+        "recorded_backend_peak_bytes": [
+          3436291072,
+          3613392896
+        ],
+        "peak_scope": "Recorded backend pair agrees between SQL and PNG; no independent Torch allocator observation was installed.",
+        "duration_ms": 7596,
+        "source_provenance": {
+          "filename": "20261116-182317-4471-8d0e5a.png",
+          "hash": "b646b1ec5a54c22f",
+          "width": 1024,
+          "height": 1024
+        },
+        "negative_prompt": null,
+        "true_cfg": null,
+        "run_id": "13e1808c8cf9"
+      },
+      "normal_cli_output": {
+        "load_announcements": 1,
+        "ready_announcements": 1,
+        "ready_line": "13s on NVIDIA GeForce RTX 5080",
+        "new_result_path_printed": true,
+        "stdout_bytes": 794,
+        "stderr_bytes": 2105,
+        "wall_s": 32.600273,
+        "timing_scope": "Descriptive one first-use CLI invocation; no speed qualification."
+      },
+      "guard": {
+        "limits_in_force": {
+          "card_mib": 15500.0,
+          "project_mib": 15200.0,
+          "refuse_at_peak_mib": 15000.0,
+          "adapter_shared_rise_mib": 1024.0,
+          "process_shared_rise_mib": 512.0,
+          "ram_floor_gib": 4.0,
+          "commit_floor_gib": 4.0,
+          "need_ram_gib": 24,
+          "busy_card_mib": 2500,
+          "card_unread_samples": 3.0,
+          "margin_mib": 500.0,
+          "margin_gib": 1.0
+        },
+        "need_commit_gib": 24,
+        "rss_cap_gib": 16,
+        "sources": {
+          "card": "nvidia-smi --loop-ms",
+          "shared": "pdh"
+        },
+        "baseline": {
+          "card_mib": 1788.0,
+          "adapter_shared_mib": 91.1,
+          "process_shared_mib": 0.0,
+          "available_gib": 28.46,
+          "commit_headroom_gib": 29.78
+        },
+        "samples": 123,
+        "requested_period_s": 0.25,
+        "mean_gap_s": 0.2626093,
+        "largest_gap_s": 1.784461737,
+        "largest_gap_precedes_cli_process": true,
+        "samples_after_cli_spawn": 121,
+        "mean_gap_after_cli_spawn_s": 0.250001546,
+        "largest_gap_after_cli_spawn_s": 0.264736414,
+        "peaks": {
+          "card_mib": 5541.0,
+          "adapter_rise_mib": 83.7,
+          "process_rise_mib": 82.0,
+          "tree_gib": 10.42,
+          "tree_private_gib": 12.638839721679688
+        },
+        "minima": {
+          "available_gib": 19.23,
+          "commit_headroom_gib": 19.15
+        },
+        "trips": 0
+      },
+      "power": {
+        "acquired": true,
+        "released": true,
+        "held": false
+      },
+      "cleanup": {
+        "gate_pid": 51640,
+        "exit": 0,
+        "guard_error": null,
+        "power": {
+          "acquired": true,
+          "released": true,
+          "held": false
+        },
+        "at": 1794856081.3403444
+      },
+      "process_readback": [
+        {
+          "role": "gate",
+          "pid": 51640,
+          "original_process_absent": true,
+          "pid_reused_after_session": false
+        },
+        {
+          "role": "cli redirector",
+          "pid": 34996,
+          "original_process_absent": true,
+          "pid_reused_after_session": false
+        }
+      ],
+      "source_identity": {
+        "manifest_files": 193,
+        "initial_final_equal": true,
+        "current_audit_equal": true,
+        "controller_sha256": "d4dbc86f83b777e2d5e4b9c7345bb4c4dff33a32b5cbeb3bfda9c68ffa25e47b",
+        "gate_template_utf8_lf_sha256": "6d6c1c99119da809c251a2018fe8627d91a5f40fd396c00ac9d6e0916689c8cb",
+        "actual_gate_file_sha256": "e35af4980dd2d9c88547c2681619ca80d951ba01251b00719291cac5485a076a",
+        "private_reference_sha256": "f4768d1e4e3174ff08e08757af81f98e5db83a7e6bc05cabc07323e6cbfed903",
+        "backend_generate_sha256": "edd0383c2d9e3c69e19a03afa2953962df2f3d5474856163a5e15c1ac8c3289a"
+      },
+      "evidence": {
+        "run_directory": "work/preview-standalone-cli-20261117-v1",
+        "source_gallery": "work/preview-standalone-cli-fixture-20261117-v1",
+        "raw_file_sha256": {
+          "cleanup.json": "ccf9448930b765d47925542cfc68958edeb94959fc09f5d314f4c31fb2e6a365",
+          "cli-process.json": "240d223c0d6f686a8b39a37b3b1db186968204faf4f914308c3aa653da4d24ee",
+          "cli.stderr": "eff01ff7a88da3a15c70fde681209857d579dfee6ab67f768a603b07bd181f40",
+          "cli.stdout": "37b5af6853429c77819f3c2a1f77cc2765ddd7d5617827f74d3529b9d0fed18b",
+          "gate.py": "e35af4980dd2d9c88547c2681619ca80d951ba01251b00719291cac5485a076a",
+          "go": "b5004f26a852b0d60ec1237432c1a33c2307ff2458c374d9d99749d045c7feb9",
+          "gpu.txt": "f978b9ab09955290aad704b5c81557e9683e5ca71b80bac4b64fa92e2cbcd985",
+          "guard.jsonl": "12286211c3ab9cfe5f7afa10262d23f83ce2c2a3d5d0cdc228afa2a30fa496da",
+          "invocation.json": "ceba9cd4110e4e08e868aef75c45b32dc97c21593b922f8bff8e947763fe2dd4",
+          "plan.json": "cbab104766695a5a5472f235a23c8dc1562cdf8215d5309bc20ec0d11f1f3355",
+          "power.json": "fe36de346bdb11409ba52dd0d068517a18938bc7347deb5ecf92c5c082ac34d4",
+          "receipt.json": "2c5af75cd2ca619e73ab8000b61ef06c63575e3d9ac69f1e945d5cdc06a7821a",
+          "result-metadata.json": "2017c94f93233bbee9b0e08c9d36fd9dcee0ab537a6a5e785c4e6c4a04db28b6"
+        },
+        "fixture_sha256": "99c73147838ca18f1a2a8588cc192356129681571564712935bf529b7a1832d0",
+        "database_sha256_at_audit": "66fdcf180e232bb432655e9f73376c98171c32d1e42b97800dd8a7ebc0cab994",
+        "raw_preserved": true
+      }
+    }
+  },
+  "launcher_and_probe_fixes": {
+    "explicit_gate_stdio": "The gate forwards stdout=sys.stdout/stderr=sys.stderr so Windows children inherit redirected files rather than character handles; model CLI argv and generation code are unmodified.",
+    "production_probe_budget": "The reviewed default is five seconds per request, allowing the observed roughly 2.03-second closed-port refusal (WSAECONNREFUSED). Timeouts, unknown errors, ready/loading models and passcode refusals still prevent loading. No --ignore-server flag was used.",
+    "evidence_directory": "work/standalone-launcher-cpu-20261117",
+    "closed_port_probe_sha256": "86d9f3df0f284664821103232698a48a50a0c84c0c3be5fcc45a546e3bbbfddc",
+    "after_fix_probe_sha256": "e85b40f562a9ec510a5620a79da233a85b2e1613c80a6f0e6618d5616f8c3cfa"
+  },
+  "prior_failed_turbo_attempt": {
+    "directory": "work/turbo-standalone-cli-20261117-v1",
+    "status": "failed before model loading; not a passed qualification",
+    "controller_status": "stopped",
+    "gate_exit": 4,
+    "stdout_bytes": 0,
+    "stderr_bytes": 0,
+    "reason": "The existing two-second server probe timed out before Windows delivered the closed-port refusal. Missing explicit child stdio hid the normal refusal text. V2 is the successful new attempt after both fixes.",
+    "raw_files_unchanged": true,
+    "raw_file_sha256": {
+      "cleanup.json": "df7fa1ca39ecee8e645dbc52250a09a76bfebb3d9c15b92ca17337f45a46cf2c",
+      "cli-process.json": "91103b47789711cd3619a324b77764de95d4f3bf01302dbd219b578b5d6e35ca",
+      "cli.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "cli.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gate.py": "23a2df8c2c4ee1c6432e0000011ebad3b0bf3eb17a5cf7d9466c0a299f626fc6",
+      "go": "b5004f26a852b0d60ec1237432c1a33c2307ff2458c374d9d99749d045c7feb9",
+      "gpu.txt": "f978b9ab09955290aad704b5c81557e9683e5ca71b80bac4b64fa92e2cbcd985",
+      "guard.jsonl": "043506cccf36baa60b758a0cd60fd5b535b0332ce8b72770f84514aa6fdde9fc",
+      "invocation.json": "fb8e27895dff1afd17c1b2c16cf843cbe5273d4c984e33b63eaa28ed4f08990d",
+      "plan.json": "be48ff5c2cc905e276da800aabea7c8ff3244e441c87ee6f60a65b7c830e85a9",
+      "power.json": "fe36de346bdb11409ba52dd0d068517a18938bc7347deb5ecf92c5c082ac34d4",
+      "receipt.json": "619b15c31745983ea3716661a3bc00d4590101f29c0a2898792202964e84f286"
+    }
+  },
+  "post_exit_readback": {
+    "audited_at_utc": "2026-11-16T19:15:16.150585+00:00",
+    "all_recorded_gate_and_cli_processes_absent": true,
+    "port7992_bindable": true,
+    "listeners_on_ports7992_7993": []
+  },
+  "audit_limits": {
+    "all_three_rgb_png_exact_metadata_hashes_recomputed": true,
+    "source_rows_and_pngs_unchanged": true,
+    "one_load_ready_and_new_row_per_process": true,
+    "all193_source_files_initial_final_current_match": true,
+    "independent_torch_allocator_observation": false,
+    "private_process_ram_counters": "psutil tree RSS/private, not PyTorch allocator statistics.",
+    "raw_receipts_mutated": false,
+    "frameworks_imported": []
+  }
+}

@@ -236,6 +236,10 @@ def create_router(services: AppServices) -> APIRouter:
             # to it here: re-rendered elsewhere, its mask no longer covers it. An
             # outpaint (frozen, so it keys) is checked at that size per padding,
             # never sharing a plain refine's verdict over the same source.
+            for cell in cells:
+                reason = submission.refine_request_refusal(services, cell.request)
+                if reason is not None:
+                    raise HTTPException(status_code=422, detail=reason)
             for spec in {submission.input_spec(c.request) for c in cells}:
                 if spec != submission.NO_INPUTS:
                     await submission.refuse_unusable_inputs(services, cells[0].request.model_copy(

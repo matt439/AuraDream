@@ -7,7 +7,7 @@ source are built; real nonempty cache admission and a separately
 approved card comparison remain `PERF#4`. This is the
 bounded next slice from [R4](review-2026-10-25.md#r4-step-caching-for-the-long-undistilled-schedules).
 No package installation, runtime model import, weights, tensor allocation
-or GPU generation was used for the source stages. Public caching stays unavailable
+or GPU generation was used for the original 2026-10-27 stages. Public caching stays unavailable
 and defaults are unchanged.
 
 The selector stage keeps step cache as composer intent, never a loader preference.
@@ -205,13 +205,61 @@ warnings**, and repository Ruff passed. Ordinary suite fixtures retain their
 established CUDA-availability check; none of these results qualifies a real
 checkpoint, GPU performance, pixels, Linux or hosted CI.
 
+## Diffusers 0.42.1 private compatibility, 2026-11-16
+
+The installed **0.42.1** FBC and cache APIs were rechecked before admitting
+the private experiment on the current app dependency. The existing owner
+already covers `CacheContext` and `StateManager.reset`, and snapshots and
+restores the child-registry caches that cache enable/disable now invalidate.
+Both installed FLUX block metadata entries still return hidden states at
+index 1 and encoder states at index 0. No production owner change was needed.
+
+`tests/test_fbc_flux_runtime.py` adds the exact-class integration missing from
+the earlier arithmetic probe. It constructs an untrained miniature installed
+`FluxTransformer2DModel` with one joint and one single block, **19,396 CPU
+parameters**, and calls the production `_api`/layout/owner implementation
+against the unmodified installed registry bootstrap and metadata. It manually
+loops the real block forwards with fixed conditioning; **SDPA is a recording
+stand-in**. It does not call the full transformer or diffusion pipeline.
+
+Real installed FBC hooks compute both blocks on the first call and only the
+leader on reuse. Conditional and unconditional contexts remain independent.
+The probe checks fresh call state, a cancellation while the installed context
+is active, the ordinary forwards after cleanup, and exact restoration of a
+pre-existing root registry's child-cache object across enable/disable.
+The owner closes without invalidation or shared disposal. Its receipt hashes
+the owner and installed transformer/FBC/hook/cache/metadata sources. Native
+and lazy CUDA, compute, compiler and network guards all record zero attempts;
+CUDA remains uninitialized and compiler directories stay empty.
+
+Only the private cache candidate additionally accepts **exactly 0.42.1**,
+alongside its existing 0.40 matrix. The separate attention adapter has its own
+source probe. Other 0.42 patches/development/local versions and regional
+compilation do not inherit either result. Every public request, load, queue,
+generation and replay guard remains closed. This is source integration over
+tiny random CPU blocks and stand-in attention, not real checkpoint arithmetic,
+kernel support, image quality, speed, memory or repeatability qualification.
+The fixed card comparisons below remain `PERF#4`.
+
+The isolated new probe passed **1 check in 7.81 seconds**. Ruff passed over the
+three changed Python files, and pinned Pyright checked **215 sources with zero
+errors/warnings**. Independent review found no blocking issue. The retained
+receipt is
+`work/perf4-fbc-0421-real-flux-a1/test_installed_exact_flux_fbc_0/receipt.json`.
+The combined execution/candidate/FBC owner/backend/request/arithmetic/new-probe
+scope passed **393 checks in 26.32 seconds**, with one existing Starlette
+deprecation warning and ordinary test fixtures. Those fixtures retain their
+normal availability probe; the new isolated worker's zero-CUDA evidence is
+bounded to that worker.
+
 ## One algorithm and one undistilled family
 
 Start with diffusers' **First Block Cache (FBC)** on the exact catalogue
 id `black-forest-labs/FLUX.1-Krea-dev`, fp8, CUDA, model offload, native
 attention and eager execution. This undistilled FLUX.1 integration has
 registered block types and a cache-aware pipeline in the installed
-diffusers 0.40.0. Its usual 28-step schedule is the first qualification
+diffusers 0.40.0, with the exact 0.42.1 private source check above. Its usual
+28-step schedule is the first qualification
 case. Krea 2 Raw, klein base and Z-Anime remain later family slices.
 
 Use `FirstBlockCacheConfig(threshold=0.05)` explicitly. This is the

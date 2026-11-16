@@ -617,7 +617,7 @@ function renderLightbox() {
   els.lbRefine.setAttribute('aria-disabled', String(!refineSupported || binned));
   els.lbRefine.title = binned ? 'In the recycle bin: restore it to refine it'
     : refineSupported ? 'Refine this image: scale it up and re-denoise it part of the way (R)'
-      : 'This checkpoint has no refine pass';
+      : refineUnavailableReason();
   syncLightboxInpaint(rec);
   syncLightboxOutpaint(rec);
   syncCompare(rec);

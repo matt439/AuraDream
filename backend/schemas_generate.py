@@ -930,6 +930,10 @@ class GridPreview(BaseModel):
     # different sizes on FLUX.1, whose shift grows with the size. Null before
     # a load, for a schedule that is not flow matching, and for a sweep.
     start_sigma: float | None = None
+    # Exact per-image denoising count when every applied Refine cell has a
+    # known schedule start and shares this count; null for mixed/unknown
+    # counts or without a Refine request. Never a batch total.
+    denoised_steps: int | None = None
     # Under Then refine: the passes queued after the cells (one per image)
     # and their size. Their time and disk are in `seconds` and `bytes`.
     passes: int = 0

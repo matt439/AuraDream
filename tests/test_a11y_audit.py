@@ -26,6 +26,7 @@ CHECK = {"expect": "__a11yCheck()"}
 # The dialog-heavy smokes the audit rides. A smoke dropped from here on
 # purpose is a decision; one that lost its steps in an edit is caught.
 WATCHED = {
+    "smoke-anima-refine", "smoke-anima-aesthetic", "smoke-anima-preview",
     "smoke-bin", "smoke-bundles", "smoke-button-states", "smoke-context-menu", "smoke-delete",
     "smoke-generation-presets", "smoke-inpaint", "smoke-instruction-edit", "smoke-lightbox", "smoke-detailer",
     "smoke-model-delete", "smoke-model-storage", "smoke-model-switch", "smoke-more-seeds", "smoke-outpaint", "smoke-phone-dialogs",

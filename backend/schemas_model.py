@@ -197,6 +197,12 @@ class ModelDownloadStatus(BaseModel):
     note: str = ""
 
 
+class RefineStrengthSuggestions(BaseModel):
+    steps: int
+    strengths: list[float]
+    steps_reason: str
+
+
 class ModelStatus(BaseModel):
     state: Literal["unloaded", "loading", "ready", "error"]
     switching: bool = False
@@ -213,6 +219,7 @@ class ModelStatus(BaseModel):
     load_started_at: float | None = None
     # Numbers and flags, plus `instruction_edit_reason`: the held edit's words.
     defaults: dict[str, float | int | bool | str | None] = {}
+    refine_strength_suggestions: RefineStrengthSuggestions | None = None
     # Prose for the same profile, keyed by control name - what steps/CFG/mu mean
     # on *this* checkpoint. Unlike `defaults`, which the UI applies once, these
     # follow the server for the whole session.

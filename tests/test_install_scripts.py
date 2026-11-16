@@ -12,10 +12,12 @@ from __future__ import annotations
 import hashlib
 import os
 import shutil
+import socket
 import ssl
 import subprocess
 import sys
 import threading
+from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -297,6 +299,11 @@ def test_install_wrapper_explains_a_missing_companion_from_a_zip(tmp_path):
 
 @pytest.mark.parametrize("script", ["install.ps1", "update.ps1"])
 def test_untrusted_https_is_refused_before_an_install_or_update(sandbox, script):
+    _nvidia_smi(sandbox["stubs"], "NVIDIA-SMI CUDA Version: 13.0", "NVIDIA RTX, 12.0, 16303")
+    _git(sandbox["stubs"])
+    _uv(sandbox["stubs"])
+    _winget(sandbox["stubs"])
+
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):  # noqa: N802 - stdlib name
             self.send_response(200)
@@ -326,6 +333,135 @@ def test_untrusted_https_is_refused_before_an_install_or_update(sandbox, script)
     assert f"HTTPS listener at https://127.0.0.1:{server.server_address[1]}/" in result.stdout
     assert "could not be verified" in result.stdout and "Certificate verification stays on" in result.stdout
     assert _snapshot(sandbox["root"]) == before and _calls(sandbox) == []
+
+
+@contextmanager
+def _tls_listener(sandbox, *, stalled=False, status=200):
+    """A TLS fixture whose silent TCP precheck cannot block its accept loop."""
+    certfile, keyfile = loopback_certificate(sandbox["tmp"])
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    context.load_cert_chain(certfile, keyfile)
+    hello = threading.Event()
+    release = threading.Event()
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):  # noqa: N802 - stdlib name
+            body = b"<title>Another loopback application</title>"
+            self.send_response(status)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *args):
+            pass
+
+    class Server(ThreadingHTTPServer):
+        daemon_threads = False  # server_close joins every owned request worker
+
+        def finish_request(self, request, client_address):
+            request.settimeout(30)
+            try:
+                first = request.recv(1, socket.MSG_PEEK)
+                if not first:
+                    return  # the installer's plain TCP precheck closed
+                if first == b"\x16":
+                    hello.set()
+                if stalled:
+                    release.wait(timeout=30)  # no TLS reply before the probe's deadline
+                    return
+                with context.wrap_socket(request, server_side=True) as connection:
+                    self.RequestHandlerClass(connection, client_address, self)
+            except (ConnectionError, TimeoutError, ssl.SSLError):
+                pass  # the probing client closed after refusing or timing out
+
+    server = Server(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    sandbox["env"].update(AURADREAM_SSL_CERTFILE=str(certfile), AURADREAM_SSL_KEYFILE=str(keyfile),
+                          AURADREAM_PORT=str(server.server_address[1]))
+    try:
+        yield server, certfile, hello
+    finally:
+        release.set()
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=30)
+        assert not thread.is_alive()
+
+
+@pytest.mark.parametrize("script", ["install.ps1", "update.ps1"])
+def test_incomplete_https_handshake_is_refused_before_an_install_or_update(sandbox, script):
+    # Every tool is inert even if the safety check regresses. No .git is
+    # needed: the TLS refusal must precede the checkout/tool prerequisites.
+    _nvidia_smi(sandbox["stubs"], "NVIDIA-SMI CUDA Version: 13.0", "NVIDIA RTX, 12.0, 16303")
+    _git(sandbox["stubs"])
+    _uv(sandbox["stubs"])
+    _winget(sandbox["stubs"])
+    # .NET initializes this normal profile directory when a fresh PowerShell
+    # child starts; make it part of the input, then check the whole home.
+    (sandbox["home"] / "AppData" / "Roaming").mkdir(parents=True)
+    before = _snapshot(sandbox["root"], sandbox["home"])
+    with _tls_listener(sandbox, stalled=True) as (server, _, hello):
+        result = _run(sandbox, script, *(["-Yes"] if script == "install.ps1" else []))
+        assert hello.is_set(), "the HTTPS probe never reached the loopback TLS listener"
+        assert result.returncode == 1, result.stdout + result.stderr
+        assert f"HTTPS listener at https://127.0.0.1:{server.server_address[1]}/" in result.stdout
+        assert "could not be verified" in result.stdout and "Certificate verification stays on" in result.stdout
+    assert _snapshot(sandbox["root"], sandbox["home"]) == before and _calls(sandbox) == []
+
+
+@pytest.mark.parametrize("script", ["install.ps1", "update.ps1"])
+@pytest.mark.parametrize("status", [200, 404])
+def test_verified_other_https_response_keeps_its_classification(sandbox, script, status):
+    with _tls_listener(sandbox, status=status) as (server, certfile, hello):
+        # Trust this one generated leaf only, in a fresh child process. No
+        # certificate enters the OS trust store, and the production function
+        # is evaluated unchanged, without the script's top-level actions.
+        certificate = ssl.PEM_cert_to_DER_cert(certfile.read_text())
+        sandbox["env"]["STUB_TLS_CERT_SHA256"] = hashlib.sha256(certificate).hexdigest().upper()
+        sandbox["env"]["STUB_TLS_URL"] = f"https://127.0.0.1:{server.server_address[1]}/"
+        pin = """
+Add-Type @'
+using System;
+using System.Net;
+using System.Net.Security;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
+public static class LoopbackCertificatePin {
+    private static string expected;
+    private static string address;
+    public static void Install(string hash, string url) {
+        expected = hash;
+        address = url;
+        ServicePointManager.ServerCertificateValidationCallback = Verify;
+    }
+    private static bool Verify(object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors errors) {
+        var request = sender as HttpWebRequest;
+        if (certificate == null || request == null || request.Address.AbsoluteUri != address) return false;
+        using (var sha = SHA256.Create()) {
+            return BitConverter.ToString(sha.ComputeHash(certificate.GetRawCertData())).Replace("-", "") == expected;
+        }
+    }
+}
+'@
+[LoopbackCertificatePin]::Install($env:STUB_TLS_CERT_SHA256, $env:STUB_TLS_URL)
+"""
+        path = str(REPO / script).replace("'", "''")
+        command = pin + (
+            "$tokens=$null; $errors=$null; "
+            f"$ast=[System.Management.Automation.Language.Parser]::ParseFile('{path}',[ref]$tokens,[ref]$errors); "
+            "$function=$ast.Find({param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] "
+            "-and $node.Name -eq 'Test-AuraDreamAt'},$true); "
+            "Invoke-Expression $function.Extent.Text; Test-AuraDreamAt ([int]$env:AURADREAM_PORT)"
+        )
+        result = subprocess.run(
+            ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", command],
+            env=sandbox["env"], capture_output=True, text=True, timeout=60,
+        )
+        assert hello.is_set()
+        assert result.returncode == 0 and not result.stderr, result.stdout + result.stderr
+        assert result.stdout.strip() == "other"
+    assert _calls(sandbox) == []
 
 
 def test_install_unblocks_only_its_named_powershell_scripts(sandbox):

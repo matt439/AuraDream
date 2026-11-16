@@ -59,10 +59,10 @@ function syncThenRefine() {
   const held = thenRefineHeld();
   els.thenRefineLabel.setAttribute('aria-disabled', String(held));
   els.thenRefine.setAttribute('aria-disabled', String(held));
-  els.thenRefineLabel.title = held ? REFINE_NONE : 'A refine pass of every image right after the cell that made it';
+  els.thenRefineLabel.title = held ? refineUnavailableReason() : 'A refine pass of every image right after the cell that made it';
   // The held box carries the reason itself: a label's title describes the
   // label, not the checkbox a screen reader lands on.
-  els.thenRefine.title = held ? REFINE_NONE : '';
+  els.thenRefine.title = held ? refineUnavailableReason() : '';
   els.thenRefineStrength.placeholder = thenRefineStrengthText();
   const on = thenRefineOn();
   const strength = thenRefineStrengthText();
@@ -79,10 +79,10 @@ function syncThenRefine() {
   });
   els.thenRefineOpen.textContent = on ? `Refine ${trScale}× · ${strength}` : 'Then refine: off';
   els.thenRefineOpen.classList.toggle('on', on);
-  els.thenRefineOpen.title = held ? `Then refine - ${REFINE_NONE}`
+  els.thenRefineOpen.title = held ? `Then refine - ${refineUnavailableReason()}`
     : on ? `Each image is then refined at ${trScale}× and strength ${strength}; change or turn it off`
     : 'Follow each image Generate or Run grid makes with a refine pass';
-  els.thenRefineHint.textContent = held ? REFINE_NONE
+  els.thenRefineHint.textContent = held ? refineUnavailableReason()
     : sizeAxis ? `Run grid refines every image at ${trScale}x its own size; the grid preview lists the pass sizes. Each pass keeps its image's prompt and seed.`
     : size && !refineFits(size) ? `${width}×${height} at ${trScale}× is ${size[0]}×${size[1]}, past what a refine pass renders.`
     : size ? `Each image is then refined at ${trScale}× to ${size[0]}×${size[1]} from its own prompt and seed; the passes join a run of their own.`
@@ -144,7 +144,7 @@ function initThenRefine() {
     if (!thenRefineHeld()) return;
     event.preventDefault();
     els.thenRefineHint.textContent = '';
-    els.thenRefineHint.textContent = REFINE_NONE;
+    els.thenRefineHint.textContent = refineUnavailableReason();
   });
   // Each through the grid's preview, which counts and prices the passes
   // and syncs the fold (schedulePreview), as a size change does.

@@ -15,6 +15,8 @@ from .grid import Cell
 from .refine import scaled
 from .refine_batch import plan, too_big
 from .config import settings
+from . import refine_qualification
+from .model_selection import current_model_id
 from .schemas_generate import GenerateRequest, ThenRefine, default_strength
 
 
@@ -72,6 +74,14 @@ def refusal(requests: list[GenerateRequest], spec: ThenRefine, unavailable: str 
                 else "an inpaint" if request.mask is not None else "a refine pass"
             )
             return f"Then refine follows a direct render; this is already {what} of #{request.refine}"
+        if refine_qualification.applies(current_model_id(settings)):
+            # Validate every base, including later CFG/strength cells sharing
+            # one size. The stand-in id is never opened as a gallery source.
+            probe = stand_in(request, spec)
+            bounded = (refine_qualification.request_refusal(current_model_id(settings), probe)
+                       or refine_qualification.source_refusal(current_model_id(settings), (request.width, request.height)))
+            if bounded is not None:
+                return bounded
         key = request.width, request.height, request.steps
         if key in seen:
             continue

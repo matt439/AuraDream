@@ -59,7 +59,11 @@ def test_the_status_says_when_the_answer_is_final(client, fake, monkeypatch):
         defaults = client.get("/api/status").json()["defaults"]
         assert defaults["refine_settled"] is settled, model_id
         if settled:
-            assert defaults["refine_supported"] is False
+            # Turbo now has a structural counterpart. Its actual host/loader
+            # holds are independently tested with supplied facts.
+            assert defaults["refine_supported"] is (model_id in {
+                "circlestone-labs/Anima", "circlestone-labs/Anima@aesthetic-v1.1", "Gazingstars123/Anima-2.9B",
+            })
 
 
 def test_a_refine_is_refused_at_submit_where_the_checkpoint_has_none(client, fake, store):
@@ -379,7 +383,7 @@ def test_the_status_says_whose_the_strength_is(client, fake, monkeypatch):
     for model_id, strength, profiled in (
         ("black-forest-labs/FLUX.1-Krea-dev", 0.1, True),
         ("cagliostrolab/animagine-xl-4.0", 0.4, True),
-        ("circlestone-labs/Anima", None, False),
+        ("circlestone-labs/Anima", .25, True),
     ):
         described = dict(fake.describe(), model_id=model_id, refine_supported=None)
         monkeypatch.setattr(fake, "describe", lambda described=described: described)

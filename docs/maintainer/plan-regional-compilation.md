@@ -463,6 +463,113 @@ This proves the bounded CPU failure policy, not regional kernels, native CUDA
 behavior, model compatibility, fallback-free card execution or performance.
 Runtime admission remains closed.
 
+## Diffusers 0.42.1 registration compatibility, 2026-11-17
+
+The installed `FluxTransformer2DModel`, joint/single blocks and
+`ModelMixin.compile_repeated_blocks` still match the private registration
+owner. A new isolated CPU probe builds one tiny exact block of each family,
+then runs the production inspector and `register_regions` through the real
+Diffusers registration method and real `nn.Module.compile`. Only the
+`torch.compile` boundary is replaced by a recording stand-in. It observes
+`backend="inductor"`, fullgraph/static/default arguments and the actual scoped
+Dynamo flags; it never invokes a compiler backend or a forward.
+
+The probe checks no root compilation, exact per-block registration, refusal
+of already registered regions before another mutation, reference-only close,
+and a deliberately failed second registration which preserves its cause,
+discards the unpublished candidate once and restores caller flags. Framework
+imports after Torch's initial import are guarded against compiler, CUDA and
+network activity; all counters stay zero and CUDA remains uninitialized.
+The receipt hashes installed FLUX, ModelMixin and the actual
+`torch/nn/modules/module.py` source, with exact runtime versions. This is
+registration/source compatibility only: no model weights, Inductor backend,
+Triton compiler, CUDA kernel, quantized/offloaded pipeline or card result.
+
+The private regional candidate now additionally accepts **exact 0.42.1**;
+other patches/development/local variants still refuse, and the original
+0.40 matrix is retained. Its pinned Triton requirements and all public
+nonempty admission guards remain unchanged. The current Windows environment
+has neither Triton distribution installed, so actual private preparation still
+refuses in the missing-toolchain words; source compatibility is not a bypass.
+No dependency, environment or cache policy was changed.
+
+Validation: **419 focused execution, registration, backend ownership and cache
+checks passed**, one existing Starlette warning, 40.22 seconds. The final
+guarded real-class receipt is
+`work/regional-0421-focused-a1/test_installed_flux_registers_0/receipt.json`.
+Independent source review found no blocking issue. The existing CPU Dynamo
+policy probe remains a separate check of actual scoped failure semantics;
+neither probe establishes toolchain, kernel, cache-hit, speed or card fit.
+`PERF#1` remains at CARD for those requirements.
+
+Final candidate/runtime/documentation checks passed 166 tests, Ruff passed,
+and pinned Pyright checked 215 sources with zero diagnostics. The broader
+full-suite gate will run again with the next integrated feature slice; the
+419 focused checks above cover this source-only private-matrix change.
+
+## Tiny Windows CUDA toolchain, 2026-11-17
+
+A separate, guarded **tiny toolchain probe passed** on the RTX 5080. It used
+one fresh Python 3.13.15 child in a cached, offline uv overlay containing
+`triton-windows==3.7.1.post27`, torch 2.13.0+cu130, torchao 0.18.0 and
+diffusers 0.42.1; driver 616.92, CUDA runtime 13.0 and cuDNN version integer
+92000. The base environment still has neither Triton distribution. The
+[compact audited receipt](perf1-tiny-toolchain-2026-11-17.json) owns the
+exact versions, hashes, measurements, guards and remaining limits.
+
+The overlay's package files live outside its temporary `sysconfig.platlib`.
+Worker-local `CC` and `CUDA_PATH` therefore explicitly selected the
+RECORD-verified bundled TinyCC and NVIDIA directory; both runtime resolutions
+and imported compiler paths were checked. TinyCC reported
+`0.9.28rc 2026-03-07_mob@05bb793`, ptxas `12.8.93`. No persistent PATH change,
+base-environment dependency/lock change or application admission change was made. This result
+applies to that explicit overlay/tool selection; an ordinary default compiler
+installation was not tested.
+
+| Check | Result |
+|---|---|
+| Direct Triton JIT, 4,096 float32 values | Addition exactly matched Torch CUDA; retained PTX 8.7 targeting `sm_120a` and an 8,992-byte CUDA ELF cubin. Phase cost 7.054 s. |
+| Actual Inductor, fixed elementwise shape | Exact first/warm outputs; one backend graph, two attempted/returned compiled calls, one logical generated-kernel metric. Phase cost 27.854 s. |
+| Strict policy and changed-shape diagnostic | Flags and `compile_threads=1` scope restored. Separate isolated `fullgraph=False`, recompile limit 1: 4096 to 2048 raised `FailOnRecompileLimitHit`, with no additional graph/call or returned result. |
+| Artifact audit | All 62 cache files (63,657,243 bytes), six direct-kernel artifacts and 287 hashed installed RECORD entries rechecked. Cache includes five PTX/cubin pairs and autotune variants; a logical-kernel count is not a binary count. |
+
+These are diagnostic phase costs, including setup/imports and warm calls,
+not model speed measurements. Captured result hashes also match independently
+constructed CPU float32 expectations; tensor result bytes were not retained
+and the audit reran no GPU work. Python outgoing DNS/connect/sendto remained
+blocked with zero attempts. The published wheel digest remains an artifact
+reference; the installed files and imported native compiler were separately
+identified by their verified RECORD and hashes.
+
+The session required 16 GiB available RAM and commit headroom. Two earlier
+attempts stopped before permit with the original 2,000 MiB idle ceiling
+configured. The first combined refusal lacked its original admission sample
+and specific cause (its later 2,143 MiB reading is not substituted for it).
+The second retained 2,024 MiB above that ceiling. Root inspected
+the quiet desktop around 2,020 MiB after test-worker CUDA contexts ended,
+with ordinary DWM/browser/Codex surfaces and no AuraDream orphan browsers.
+It selected an explicit **2,500 MiB idle allowance for this tiny no-model
+session**. Both refused attempts remain evidence. The live limits stayed
+15,500 MiB whole-card, adapter/process shared rises 1,024/512 MiB and
+4 GiB RAM/commit floors.
+
+All 201 finite guard samples independently re-evaluate to `ok`, at mean
+0.250482 s and longest gap 0.283531 s. Whole-card peak was **2,369 MiB** over
+a 2,010 MiB baseline; shared rises were 83.273 MiB adapter and 82 MiB process.
+Sampled process-tree peaks were **0.951 GiB working set / 1.686 GiB private**;
+minimum available RAM/commit headroom **29.996 / 24.894 GiB**. The allocator's
+observed peak was 64.125 MiB allocated / 66 MiB reserved. Final allocator
+readings were zero, the post-exit card was 2,010 MiB and the owned Windows
+power request released.
+
+This meets the tiny toolchain prerequisite only. Regional model execution,
+FP8/offload, application compiler-cache startup binding and new-process
+retained-cache reuse, image quality, model performance and public admission
+remain unqualified. `PERF#1` still owns the complete guarded model table and
+`PERF#7` still waits on that evidence. Raw local artifacts remain under
+`work/perf1-tiny-toolchain-20261117-idle2500/`; no model weights or real
+gallery were opened by this probe.
+
 ## Initial slice and refusal matrix
 
 Propose an explicit, experimental loader choice: **Eager** (the unchanged

@@ -135,6 +135,7 @@ function fixture() {
     ASPECTS: ['1:1'], SIZES: { '1:1': { 1: [1024, 1024], 2: [1536, 1536] } },
     REFINE_SCALES: [0.5, 1, 1.5, 2], REFINE_SCALE: 1.5, REFINE_STRENGTH: 0.5,
     REFINE_NONE: 'Refine unavailable', pickedAspect: '1:1', pickedTier: 1,
+    refineUnavailableReason: () => 'Refine unavailable', refineStrengthSuggestions: null,
     promptUndo: null, innerHeight: 900, scrollY: 0,
     remembered: key => store.get(key) ?? null,
     remember: (key, value) => store.set(key, value), forget: key => store.delete(key),

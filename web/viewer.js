@@ -338,7 +338,7 @@ function resultFigure(rec) {
 // The card's ⤢ on a result: on a checkpoint without a pass it says so under
 // the gallery's head and over the tile (`refuseInCard`), and opens nothing.
 function refineResult(rec, tile) {
-  if (!refineSupported) { refuseInCard(tile, REFINE_NONE, 'No refine pass here'); return; }
+  if (!refineSupported) { refuseInCard(tile, refineUnavailableReason(), 'No refine pass here'); return; }
   openRefine(rec);
 }
 

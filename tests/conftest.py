@@ -76,6 +76,13 @@ def no_real_card(monkeypatch):
     from backend import card_facts
 
     monkeypatch.setattr(card_facts, "card", lambda device="cuda": None)
+    supplied_probe = card_facts.probe
+    monkeypatch.setattr(card_facts, "probe", lambda device, torch=None: (
+        None if torch is None else supplied_probe(device, torch)
+    ))
+    # Supplied hardware observations are process state too. A fake probe in
+    # another test must not qualify a later test's cold Refine admission.
+    monkeypatch.setattr(card_facts, "_OBSERVED", {})
 
 
 @pytest.fixture(autouse=True)

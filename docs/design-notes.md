@@ -1290,9 +1290,12 @@ Expand, never automatic. The bump came alone, first:
   `POST /api/instruction-edit` and edit More seeds refused with "diffusers
   0.42.1 (only 0.40.0 was) is not measured" until a card run re-measured
   Kontext on 0.42.1 (done 2026-11-10, below: the envelope is now 0.42.1);
-  and `execution.py`'s regional and attention/cache candidates
-  (`_CANDIDATE_DIFFUSERS`), which were read against 0.40's hooks and stay
-  held there, not re-measured. Nonempty recipes stay unavailable either way.
+  and `execution.py`'s regional and attention/cache candidates, initially
+  kept on their 0.40 source matrix. The 2026-11-16 CPU audit below admits
+  exact 0.42.1 to private attention/FBC experiments. A separate 2026-11-17
+  registration probe also admits private regional preparation on this exact
+  release; its optional toolchain and card qualification remain outstanding.
+  Nonempty public recipes remain unavailable.
 - `encoder_table`'s copied prompt strings did not change in 0.42.1
   (`tests/test_prompt_encoding.py` passes against it).
 - 0.42.1's `download`/`from_pretrained` first resolve the revision on the Hub
@@ -1323,8 +1326,28 @@ version. Kontext inside the envelope (fp8, model offload, Eager, 1:1 at
 and the same memory and step time, so `QUALIFIED_ENVELOPE.diffusers_version`
 is now "0.42.1" and Kontext edits open again on the installed diffusers; any
 other version, 0.40.0 included, is refused in the same words. The execution
-candidates were not re-measured and stay held on 0.40. Numbers in
+candidates were not re-measured by that session. Numbers in
 `docs/verified.md` (diffusers 0.42.1 against 0.40.0, measured 2026-11-10).
+
+**Private attention source compatibility (2026-11-16).** The installed
+0.42.1 FLUX processor, setter and forced-cuDNN dispatch paths passed a tiny
+CPU ownership probe with SDPA replaced by a recording stand-in. The check
+exercises joint/single processors, cuDNN-only flags, exception restoration
+and return to Native while forbidding CUDA initialization, compilation and
+network access. The private attention candidate accepts this exact release;
+this is no kernel, speed, fit or repeatability qualification. A separate
+production-owner probe over tiny real FLUX blocks and installed FBC hooks
+checks reuse, context separation and cleanup through the same SDPA stand-in;
+it also admits private FBC preparation on exact 0.42.1, without a full
+transformer, checkpoint pipeline or kernel. The 2026-11-17 regional probe
+exercises actual ModelMixin/Module registration over tiny FLUX classes with
+a recording compiler stand-in, strict flags and failure/close checks. It
+establishes registration-source compatibility on exact 0.42.1, without a
+forward, Inductor backend or installed optional toolchain. The original
+0.40 matrices stay accepted. The remaining card protocols belong to the
+[attention](maintainer/plan-attention-backends.md) and
+[step-caching](maintainer/plan-step-caching.md) plans, with compilation's
+toolchain and card requirements in the [regional plan](maintainer/plan-regional-compilation.md).
 
 **lite-infer renamed its repositories (seen 2026-11-09).** The re-uploads
 the catalogue names (`launch._LITE`,
@@ -1606,8 +1629,9 @@ for at least 2". The size prose names the 1, 1.5 and 2 MP tiers the strip
 marks in range, and the size line quotes the bounds as written, 0.26-2.36
 MP (The prompting guide). The integration's two refusals are final before a
 load: user adapters are refused by the id (LoRA adapters, below), and the
-Refine dialog says Anima has no pass without hedging that a load will decide
-(The refine pass, `_OWN_PIPELINES`).
+the structural Refine answer is final before loading. The bounded Anima passes
+added 2026-11-17 still hold every unmeasured runtime/request choice (The refine
+pass, below), with independent recipes for Turbo, Aesthetic and Preview.
 
 Sources: [official model card and Turbo files](https://huggingface.co/circlestone-labs/Anima),
 [official shared component tree](https://huggingface.co/circlestone-labs/Anima-Base-v1.0-Diffusers),
@@ -1638,8 +1662,8 @@ implementation, changing call defaults to 30 steps/CFG 4. The author gives
 30-50 steps/CFG 4-5 and says Euler suits Aesthetic. The scheduler remains
 the official Diffusers conversion's FlowMatch Euler, shift 3; this does not
 implement the card's alternative ComfyUI samplers. Mu, references, user
-LoRAs, Refine and Nunchaku remain unavailable, with the same before-load
-refusals as Turbo.
+LoRAs and Nunchaku remain unavailable. Its later measured Refine pass is bounded
+separately from Turbo at 30 steps/CFG 4, as the Refine section describes.
 
 The guide shares the family size, spelling, artist and prose guidance, but
 replaces Turbo's distillation/CFG-1 text. The Aesthetic-specific advice says
@@ -1678,8 +1702,9 @@ Qwen-Image VAE and tokenizers; the preview supplies its own learned
 conditioner. `AnimaPreviewPipeline` inherits Aesthetic's callback-capable
 inference interface with 30-step/CFG-4 defaults. It keeps this integration's
 FlowMatch Euler shift 3; the author's Euler/sgm-uniform and other ComfyUI
-combinations are separate recipes. Mu, references, user LoRAs, Refine,
-inpaint and Nunchaku remain unavailable.
+combinations are separate recipes. Mu, references, user LoRAs, inpaint and
+Nunchaku remain unavailable. Its later measured Refine pass is bounded to the
+expanded Preview checkpoint's own 30-step/CFG-4 experiment.
 
 The preview has its own sourced guide and critic grounding. It recommends
 detailed mixed tag/prose prompts, uses `@` artist tags, and distinguishes
@@ -2329,13 +2354,63 @@ refine the row then describes wrongly. In diffusers 0.40 that gives FLUX.1
 (Krea dev, dev, schnell), SDXL (Animagine, Kohaku, Illustrious, WAI),
 Z-Image (Turbo, Z-Anime) and Qwen-Image a pass, and Krea 2, FLUX.2 [klein],
 ERNIE-Image and Lumina 2 (NetaYume) none; Anima and NewBie run this repo's
-own pipeline classes, which have no sibling. A table of families was not
+own pipeline classes. The later exact Anima extensions are bounded below;
+the other local classes still have no registered sibling. A table of families was not
 written: the loader is model-agnostic, and so is this. Each profile carries
 `refine_supported` as its guess before a load, `describe()` answers from the
 class after it, `/api/status` merges the two like `reference_supported`, and
 `tests/test_refine.py` holds every guess to the installed diffusers.
 If the live class supports the pass but the profile has no strength, status
 reports `refine.DEFAULT_STRENGTH`, matching request defaults and the tooltip.
+
+### Anima's measured same-size passes (2026-11-17)
+
+Three independent private trials measured 1024-square recipes and three
+strengths; none measured general enlargement. Their source integration is
+limited to RTX 5080, Windows CUDA 0, fp8/model offload, Eager/Native,
+diffusers 0.42.1 and 1024-square gallery source and output.
+
+| Variant | Full steps / CFG | Provisional opening | Steps at 0.125 / 0.25 / 0.4 |
+| --- | --- | --- | --- |
+| Turbo v1.1 | 8 / 1 | 0.25 | 1 / 2 / 4 |
+| Aesthetic v1.1 | 30 / 4 | 0.125 | 4 / 8 / 12 |
+| 2.9B Preview v1 | 30 / 4 | 0.125 | 4 / 8 / 12 |
+
+Compare 3 uses the server's measured 0.125/0.25/0.4 values. Other sizes,
+sampling values and loaders stay held with their reason rather than being
+silently normalized into a direct render. The openings are agent-reviewed
+conservative choices, not author recommendations or anatomy-repair promises.
+
+Aesthetic/Preview keep ordinary negative conditioning at CFG 4. Separate
+bounded card probes checked known empty controls, a nonempty negative that
+changed the pixels, exact repeat/recovery, cancellation and an unchanged
+direct sample afterwards. The stored `true_cfg=4` is the existing effective
+negative CFG, so admission accepts it on replay without exposing a separate
+True CFG knob or clearing the user's text. Turbo at CFG 1 still ignores its
+negative. Arbitrary text remains subject to the existing encoder limits;
+these branch checks do not promise prompt quality.
+
+The three exact local classes are deliberate resolver extensions. Each profile
+still describes structure, while `refine_qualification` and the backend's
+supplied facts decide admission. An unknown GPU remains held; a normal load
+refreshes hardware facts and cold readers only inspect them. Native checks
+include late environment/default/registry changes without importing frameworks
+from status or Check. Queue, every actual grid combination, per-image planners,
+CLI and retained recovery check the same bounds. Then refine's id 1 is only a
+stand-in: its future source size comes from its base request, never that row.
+
+`refine_admission` proves the actual PNG size and gallery RGB provenance before
+decode/use, including after a queued source changes. A same-size fit may return
+its original PIL object, so ownership transfers instead of closing that image.
+Each variant frees the loaded owner's hooks after every one-image call, matching the
+private measured sequence. Its explicit flow rounding stays separate from Mu;
+the server supplies preview step counts and reads start sigma from the same
+Anima schedule block on a copy. Existing keys, run ids and stored intent do not
+change. CPU/browser checks establish this integration's source behavior; the
+real-server card acceptance and measured limits remain in the
+[owner](maintainer/plan-anima-refine.md).
+
+### Shared Refine construction and execution
 
 **`refine.build`, not `from_pipe`.** `DiffusionPipeline.from_pipe` is the
 library's own way to make one pipeline from another "without reallocating
@@ -6308,6 +6383,23 @@ would refuse to run beside the developer's own server. `keep_rates` groups
 on the same six-decimal rounding `completed_cells` uses and always includes
 size; free text in its scope is refused rather than sent through the
 fuzzy LIKE fallback.
+
+**Windows closed-port refusal budget (2026-11-17).** A guarded standalone
+CLI acceptance attempt stopped before loading because a closed loopback
+port took about 2.03 seconds to return `WSAECONNREFUSED`; the old two-second
+card-check deadline expired first and conservatively called it a server
+that did not answer. `_server_holds_gpu` now allows five seconds per
+request. Connection refusal still means no server; a real timeout, unreadable
+status, ready/loading checkpoint or refused passcode still prevents a second
+load. Authenticated requests retain the same no-redirect opener. This changes
+the CLI's card check only, not the shared title/status probe defaults. The
+regression models the delayed refusal without sleeping; the native read-only
+probe and the failed scratch attempt are retained under
+`work/standalone-launcher-cpu-20261117/` and
+`work/turbo-standalone-cli-20261117-v1/`. The latter's missing logs were a
+separate diagnostic-launcher problem: a Windows child with unspecified
+stdio used character handles instead of its parent's redirected files.
+Explicit forwarding fixes that harness; it never bypasses the server check.
 
 **`--from-image` carries the variables** (`_image_variables`), as
 `/api/rerender` does, because they are the only place a comparison
@@ -15329,6 +15421,26 @@ bind with exact allowed hosts so local scripts can still probe loopback.
 The loopback certificate SAN and client CA trust are explicit prerequisites.
 Tests create a temporary certificate and trust it only in their process;
 no service, firewall, CA store or live LAN installation was changed.
+
+**A slow HTTPS handshake is still unverified (2026-11-17).** The Windows
+CI installer test reached the updater's later no-`.git` refusal instead of
+its HTTPS refusal. Its exact transport status was not retained. A controlled
+loopback reproduction then delayed TLS negotiation beyond the existing
+two-second request limit: both shipped probe functions returned `other` on
+the observed .NET `Timeout`, and the updater carried on to the same later
+checkout check. The configured listener had accepted TCP, but no verified
+HTTP response established that it was unrelated to AuraDream.
+
+The probe now holds install/update after an HTTPS request failure without
+a verified HTTP response. A response-bearing HTTP error such as a verified
+unrelated 404 remains `other`, as does a verified unrelated successful page.
+Plain HTTP and the initial TCP test are unchanged. Certificate validation,
+the loopback direct connection and redirect refusal remain in place. The
+regression uses a controlled stalled handshake, retaining the original
+untrusted-certificate test. Positive HTTPS controls pin only their generated
+leaf certificate within a fresh test process; no OS trust-store changes or
+production validation callback are involved. Tests use temporary project
+folders and inert tools, not a real installation or update.
 
 **A pair that cannot serve (`DEV#55`, 2026-11-12).** Checking only that
 both files existed let a non-PEM, mismatched or password-protected pair

@@ -193,12 +193,14 @@ paragraphs, never rewording.
   uses `--force`; the missing-sign-in alternative says to stop AuraDream
   before rerunning the Windows installer. It never signs in or reads a token
 - `backend/card_facts.py` — the server's CUDA card: `card(device)` (total
-  memory in bytes, compute capability), `total_memory`, `capability`; None
+  memory in bytes, compute capability and optional observed name), `total_memory`, `capability`; None
   for a CPU device, no CUDA, no card or any error. Cold (torch only on the
   first ask, `torch.cuda` queries only, never diffusers), cached per device;
   the routes read it off the event loop (`main._read_card`, the status's
   describe thread). The tests' `no_real_card` and the fake server make it
-  None (the fake's until `POST /api/fake/card` claims one); a test that wants a card patches `card`
+  None (the fake's until `POST /api/fake/card` claims one); a test that wants a card patches `card`.
+  `observed` only reads supplied probe results, importing/probing nothing;
+  a successful explicit Anima load refreshes its qualification facts uncached
 - `backend/model_benchmarks.py` — retained RTX 5080 timing references, exact
   checkpoint/loading-option matching and coarse speed categories; no live benchmark
 
@@ -320,6 +322,11 @@ paragraphs, never rewording.
   ships beside a pipeline's own (`sibling`), that class built over the loaded
   components (`build`), the steps a strength leaves, and the source scaled to
   cover the requested size and cropped; a leaf module like `seeds`
+- `backend/refine_qualification.py` — import-cold measured Anima envelope table,
+  supplied loader/hardware facts, per-request/source refusals and measured
+  strength suggestions; it probes nothing and changes no reproduction keys
+- `backend/refine_admission.py` — gallery-only Anima source decode/proof:
+  actual PNG dimensions and RGB provenance before fitting, rechecked per call
 - `backend/instruction_edit.py` — standalone `kontext-v1` recipe, strict
   request/stored-source contracts, original-RGB provenance and exact-aspect
   Lanczos geometry, canonical bound identity, the held-reason sentences and
@@ -371,6 +378,11 @@ paragraphs, never rewording.
   `paste_back`; numpy, Pillow, `sizes` and `refine`. The app crops, never
   the class's `padding_mask_crop`; the rule's boxes are pinned by
   `tests/test_mask_crop.py`
+- `backend/tiled_refine.py` — private provisional GEN#49 CPU orchestration:
+  the frozen 2048-square four-region masks, serial existing crop/overlay
+  helpers, injected renderer, per-tile seeds and immutable result facts;
+  cancellation discards the working composite. No production import or
+  public admission; `tests/test_tiled_refine.py` checks the bounded prototype
 - `backend/sizes.py` — the preset table; the CLI's `--aspect/--mp`, config's
   `max_side`/`max_pixels` and a refine pass's `refine_max_side`/
   `refine_max_pixels` (any 2 MP preset at 2x), `web/state.js`'s copy,
@@ -411,12 +423,12 @@ paragraphs, never rewording.
   and separate cached trees
 - `backend/backends/anima_pipeline.py` — upstream Anima modular blocks behind
   the standard pipeline interface, with per-step progress and cancellation
-- `backend/backends/anima_refine.py` — private, unregistered Anima
+- `backend/backends/anima_refine.py` — Anima
   image-to-image classes over the upstream encoder, image-to-image core and
   decoder (`GEN#48` stage 1): the text pipeline's callback, `num_timesteps`
   as the sliced count before the first step, flow rounding (`start_index`)
-  and a start sigma read on a scheduler copy; `refine.sibling` still answers
-  None and the Anima profiles keep Refine unsupported until the card
+  and a start sigma read on a scheduler copy; only the three exact measured
+  variants are registered, each behind its own runtime/request envelope
 - `backend/backends/flux3_loading.py` — FLUX 3 [Klein] and Klein Base: the
   pinned snapshot's configs (preflight: the modular index's classes, the
   transformer's `flow_map`) then only its `transformer/`, `text_encoder/` and
@@ -869,6 +881,13 @@ paragraphs, never rewording.
   seam `AURADREAM_INSTALL_TEST_ROOT` names the project folder, ignores the
   user's saved variables and takes the desktop from `USERPROFILE`
   (`tests/test_install_scripts.py`, Windows only)
+  A configured HTTPS listener that accepted TCP but yielded no verified HTTP
+  response holds install/update, including a TLS handshake timeout. A verified
+  unrelated HTTPS response, including an HTTP error response, remains `other`;
+  certificate verification, no-proxy and no-redirect behavior stay intact.
+  Loopback tests cover an untrusted certificate and a controlled stalled
+  handshake before tool calls or writes, plus process-pinned unrelated HTTPS
+  success/error controls; the OS trust store is untouched.
 - `linux/setup.sh`, `linux/install-service.sh`, `linux/update.sh`,
   `linux/control.sh` and `linux/common.sh` (which the four source) - the
   native Linux setup, systemd user service, updater and service control:
@@ -1150,6 +1169,12 @@ paragraphs, never rewording.
   `anima_refine_pack.py` prints the offline Turbo Refine protocol and a blank
   receipt, and checks recorded receipt completeness without starting a session
   or granting qualification (`tests/test_anima_refine_pack.py`; Anima Refine plan);
+  `anima_refine_card.py` runs that private, explicitly invoked Windows Turbo
+  experiment in a waiting child, admitted and watched by `card_guard` before
+  loading cached weights. It retains raw counters, bounded phase receipts and
+  image hashes; missing counters or a safety/time limit stop the child tree.
+  Image review and public Refine qualification remain separate
+  (`tests/test_anima_refine_card.py`; Anima Refine plan);
   `prompt_assistant_pack.py` prints the local writing assistant's fixed future
   GPU cases and blank receipt and checks recorded completeness, with no backend
   import, network, process, API or card action (`PA#18`;
@@ -1475,6 +1500,8 @@ measured on the card and when.
 
 ### Model and loader
 
+#### Checkpoint integrations
+
 - `KBlueLeaf/Kohaku-XL-Zeta` uses its ordinary Diffusers SDXL tree and
   supplied epsilon/Euler scheduler. Start at 28 steps/CFG 5 and disable Mu.
   Keep its hybrid prose/tag guide, 2024-07-10 vocabulary cutoff and
@@ -1558,7 +1585,8 @@ measured on the card and when.
   downloads and links. Never change the bare id's Turbo meaning or cache.
   `AnimaAestheticPipeline` shares the inference blocks with 30-step/CFG-4
   defaults and fixed FlowMatch Euler shift 3. Mu, references, user LoRAs,
-  Refine and Nunchaku are unavailable. Its own guide and critic grounding
+  and Nunchaku are unavailable. Its measured Refine uses the independent
+  Aesthetic envelope below. Its own guide and critic grounding
   omit Turbo's CFG-1/distillation claims and the generic `score_7` prefix:
   the authors discourage `score_*` in both Aesthetic prompts. Both guides
   state the card's tag order verbatim, which Check reads
@@ -1579,7 +1607,8 @@ measured on the card and when.
   in settings and metadata. `AnimaPreviewPipeline` uses the existing fixed
   FlowMatch Euler shift 3 integration with 30-step/CFG-4 defaults; this is not
   the author's ComfyUI sampler/scheduler recipe. Mu, references, user LoRAs,
-  Refine, inpaint and Nunchaku are unavailable. Its own guide/critic grounding
+  inpaint and Nunchaku are unavailable. Its measured Refine uses the independent
+  Preview envelope below. Its own guide/critic grounding
   describes detailed mixed prompts and the preview's size advice without
   inheriting Turbo distillation or Aesthetic score prohibitions. Do not infer
   measured speed, memory or quality from the other Anima selections.
@@ -1638,6 +1667,8 @@ measured on the card and when.
   never comma chips; 1024x1024 is an example, not a published size ceiling.
   References, user LoRAs and Nunchaku are unavailable for this integration.
 
+
+#### Shared loading, quantization and switching
 
 - App-owned names use AuraDream: `AURADREAM_*`,
   `auradream.db`, `~/auradream`, `auradream.*` browser keys
@@ -1780,6 +1811,9 @@ measured on the card and when.
   own to come - the next revision wiped the Models note's outcome
   (`test_status_retries_a_newest_id_read_that_crossed_a_switch`). LoRA denoiser caches must be
   invalidated when the selected checkpoint changes.
+
+#### Startup preferences and the Models picker
+
 - Server launch restores `startup_preferences` before config imports, without
   terminal input unless `--menu` is given. Flags override explicit environment,
   then saved preferences, then defaults; `--defaults` skips preferences.
@@ -2060,6 +2094,9 @@ measured on the card and when.
   an unlisted row leaves the choice as it was, and any other opening, a
   choice made in the picker meanwhile (`modelPickerEdited`) or a catalogue
   that fails clears the request, so a later answer never moves the choice.
+
+#### Loader choices and instruction edit admission
+
 - Quantization and offload descriptions live in `loader_choices.py` and are
   shared by the menu and the picker; only figures true of every catalogue
   checkpoint go there, and no unmeasured quality claim (INT8 is "the same
@@ -2197,6 +2234,9 @@ measured on the card and when.
   `forced_mu(pipe, None)`; the hooks are freed and the source closed in
   `finally`; and the result must be exactly one image at the recipe's output
   size, with no composite.
+
+#### Pipeline ownership and optional components
+
 - Backend loading owns returned component overrides and the unpublished pipeline
   in one candidate through shard/weights-context exit, placement, callback checks,
   console configuration and diagnostics. Publish the complete call parameters,
@@ -2439,12 +2479,17 @@ measured on the card and when.
   changing the environment. FBC additionally refuses true CFG and an existing
   cache. A matching candidate grants no runtime availability or loaded-API,
   processor, shape, kernel or device qualification.
-- The regional and attention/cache candidates were read against diffusers
-  0.40 and stay keyed to it (`execution._CANDIDATE_DIFFUSERS`) while the app
-  installs 0.42, whose hooks API changed (`StateManager.set_context` takes a
-  `CacheContext`; `enable_cache`/`disable_cache` invalidate child-registry
-  caches). Every 0.42 install answers "checked only on diffusers 0.40".
-  Moving them is its own qualification, with the fixtures that pass 0.40.0.
+- Private regional/attention/FBC candidates retain their diffusers 0.40
+  source matrix and accept exact 0.42.1 after separate registration,
+  processor/owner/hook CPU audits;
+  `tests/test_attention_runtime.py` exercises real tiny FLUX processors through
+  a recording SDPA stand-in and checks forced-cuDNN scope and restoration.
+  It runs no attention kernel or CUDA work. This does not qualify another
+  patch release, compiler/kernel behavior or public nonempty admission.
+  Regional preparation still requires its pinned optional Triton toolchain.
+  The hook APIs changed in 0.42 (`StateManager.set_context` takes a
+  `CacheContext`; cache enable/disable invalidates child-registry caches),
+  so their source and card qualification remain independent.
 - Private FBC ownership validates exact eager FLUX block identities, order,
   counts and output metadata. One retained owner covers the shared denoiser;
   each call installs fresh fixed-threshold hooks, resets state/context before
@@ -2802,6 +2847,53 @@ measured on the card and when.
   until restored; `refine_binned` (read, not stored, from the same lookup)
   says which, so the page reads "refine of #N (in the recycle bin)" and
   offers Restore, which clears both.
+#### Measured Anima Refine
+
+- Only the three exact selected ids and exact Turbo/Aesthetic/Preview text
+  classes have their measured app-owned counterparts. They still pass the
+  `REQUIRED`/`CARRIED` checks; lookalikes and subclasses remain unregistered. The
+  profile's positive structural answer grants no runtime permission.
+- `refine_qualification.ENVELOPES` owns the measured data: RTX 5080,
+  Windows, CUDA device 0, fp8/model offload, Eager/Native, diffusers 0.42.1,
+  1024-square original source and output and strengths 0.125/0.25/0.4. Turbo
+  has 8 full steps/CFG 1 and opens at 0.25; Aesthetic/Preview have 30 steps/
+  CFG 4 and open at 0.125. These are provisional measured openings. No enlargement, other
+  loader, platform or card is inferred. Inpaint/outpaint stay unavailable.
+- The backend reads supplied/cached host facts. `card_facts.observed` never
+  imports or probes; the existing card probe supplies the GPU name, and an
+  actual Anima load refreshes it after successful preparation. Unknown hardware
+  stays held. Native checks read startup/current environment and only already
+  imported dispatcher facts; they never import a framework from Check/status,
+  mutate an override or echo its value. Each Turbo image call verifies the
+  exact Native baseline before and after forwarding, with no retry.
+- Every actual expanded request is checked, not a grid's first combination.
+  Queue admission rejects all nonempty execution/composer intent before source
+  I/O, then all pure per-variant qualifications before gallery proofs or mask work.
+  Mass refine reports ineligible rows individually; retained Finish, More seeds,
+  rerenders and CLI use the same bounds. Then refine validates the base's
+  dimensions and future pass without opening its placeholder source id.
+- Admission and each actual call prove the source's live gallery identity,
+  actual dimensions and existing RGB provenance hash. The backend decodes from
+  one open handle before fitting; a same-size fit transfers the living image.
+  A changed, missing or binned source refuses before the model call. This uses
+  ordinary Refine provenance and adds no stored field, key or normalization.
+- Each variant's explicit flow-rounding policy is separate from Mu. Central
+  `refine.start_index` feeds initial progress, estimates and duplicate advice;
+  keys retain the requested strength. Sigma advice calls the Anima reader on a
+  scheduler copy. Each one-image call frees the loaded owner's hooks, including
+  failures/cancellation, matching the measured serial protocol.
+- Aesthetic/Preview retain ordinary negative conditioning at CFG 4, separately
+  checked by empty controls and nonempty repeat/recovery card probes. Their
+  stored `true_cfg=4` with an active negative is the existing effective-CFG
+  bookkeeping, not another knob; accept that normalized intent for replay.
+  Turbo at CFG 1 keeps its ordinary ignored-negative behavior. Text varies
+  within existing encoder/request limits and carries no quality guarantee.
+- Status supplies typed measured strength suggestions and a scalar held reason.
+  Grid preview supplies an exact common per-image `denoised_steps` or null.
+  The page consumes them, keeps typed values on polling, and refreshes held
+  titles when the reason changes without a capability change. It adds no Anima
+  rounding policy. All unqualified values remain inspectable and held in words.
+
 #### Inpainting, outpainting and masks
 
 - An inpaint is a refine pass with `GenerateRequest.mask`: a stored mask
@@ -9731,8 +9823,11 @@ locked `pyright==1.1.407` Python package. Node must already be installed.
 The gate verifies the package and bundled JavaScript version, constrains
 the wrapper to that bundle/global Node and disables its update/provision
 paths. Missing tools, absent/empty includes, malformed output and zero
-analyzed files fail; checker diagnostics and nonzero status are preserved.
-`tests/test_typecheck.py` covers these refusal and success paths. The CPU
+analyzed files fail. Includes must be literal config-relative paths; absolute,
+drive/root-qualified and glob includes refuse before launch. The checker count
+must match deduplicated `.py`/`.pyi` sources, so ignored scope cannot pass on a
+decoy. Checker diagnostics/nonzero status remain; `tests/test_typecheck.py`
+covers contracts and the real pinned-checker regression. The CPU
 CI job runs this same command after installation, before tokenizer fetches;
 documentation-only changes retain the lightweight lint-only path.
 
@@ -9903,8 +9998,8 @@ DevTools appears. Preserve the bounded readiness wait after exit 0; nonzero
 exits/signals still fail early, and an absent endpoint still times out.
 `tests/test_browser_startup_wait.py` covers delayed handoff, absent handoff
 and signal failure with cold fixtures; profile/a11y tests use the real
-browser and verify cleanup. The dialog-audit smoke manifest now contains
-24 rows, including download progress; each page is watched separately and
+browser and verify cleanup. The dialog-audit smoke manifest includes the
+registered dialog smokes and download progress; each page is watched separately and
 checked immediately before navigation and at the end.
 
 Late-ladder fixtures isolate records through the normal gallery filter and
@@ -10758,8 +10853,8 @@ tags round a sentence that keeps its place, the @ name's Artist chip slot),
 the Tags menu (its order line and sections, Start with written ahead of a
 prose prompt, held once complete with its reason said on a press, undone
 by Ctrl+Z, no `safe` beside `nsfw`, the empty prompt's caret line), a
-FLUX.1 pass reused there (the final no-pass line, its strength said as
-FLUX.1's and 0.4 as the general starting strength), the refused adapter
+FLUX.1 pass reused there (Turbo's structural support and its measured 0.25
+opening, with the foreign strength named), the refused adapter
 (greyed select with the reason, a 422 at submit, no LoRA on the row), the
 grid's dead Mu and LoRA weight axes with their reasons and their syntax
 back when they apply, a Reuse writing no Mu into the dead box nor sending
@@ -10776,7 +10871,9 @@ node tools/browser.mjs tools/smoke-anima.json
 its own prompt advice and Example, its Tags menu (the family's order, no
 score tags, no Start with) and the card's order checked with a score tag
 placed though not offered, active negative prompt, unsupported
-controls, saved variant identity and final no-Refine answer on port 7895:
+controls, saved variant identity, measured 0.125 Refine opening at 30 steps/
+CFG 4, server-supplied pass counts, unsupported-recipe holds and saved
+source/strength/negative carry on port 7895:
 
 ```powershell
 uv run python tools/fake_server.py --port 7895 --model circlestone-labs/Anima@aesthetic-v1.1
@@ -10788,8 +10885,9 @@ node tools/browser.mjs tools/smoke-anima-aesthetic.json
 guide and size caveat, score-free Tags menu with inherited parent order as
 information,
 its two encoder budgets, unchecked tag order, negative-prompt activation,
-unsupported-input refusals and applied saved settings on port 7911, using a
-fresh scratch gallery:
+unsupported-input refusals, applied saved settings, measured 0.125 Refine
+opening at 30 steps/CFG 4, pass counts, recipe holds and saved source/
+strength/negative carry on port 7911, using a fresh scratch gallery:
 
 ```powershell
 uv run python tools/fake_server.py --port 7911 --model Gazingstars123/Anima-2.9B --data <scratch-directory>
@@ -11421,6 +11519,21 @@ node tools/browser.mjs tools/smoke-analysis-tags.json
 
 ### Image pass tests
 
+`tests/test_anima_refine_card.py` checks the private runner's admission,
+counter coverage, fixed phase limits, partial receipts and worker cleanup with
+CPU stand-ins. These checks load no weights and establish no GPU fit, image
+quality or public Refine support.
+
+`tests/test_refine_qualification.py` checks the supplied-fact Turbo matrix and
+import-cold policy. `tests/test_refine_native.py` checks the current/frozen/active
+Native observations without a framework import. `tests/test_api_anima_refine.py`
+checks every expanded cell, hardware/loader holds, source changes, Mass/Then
+refine and rerun/recovery refusals. `tests/test_anima_refine_backend.py` exercises
+the actual backend and installed blocks over CPU stand-ins, including living
+source images, exact callback counts, serial cleanup and Native drift.
+`tests/test_cli_anima_refine.py` checks cold known-loader refusals and retained
+source/strength through the command line. These are not integrated card evidence.
+
 The refine pass is covered the same way: `tests/test_refine.py` (each
 profile's `refine_supported` and each sibling's call held to the installed
 diffusers, Anima's and NewBie's answer final before a load
@@ -11560,6 +11673,15 @@ Re-render, Swap tags and More seeds; the CLI's `--mask-crop`, its
 
 ### Image pass smokes
 
+`smoke-anima-refine.json` uses its own fresh Turbo fake on shared port 7960.
+It checks cold/live measured support, opening at 1024 square and 0.25,
+server-supplied 0.125/0.25/0.4 suggestions and exact two/four-of-eight captions,
+source/size/steps/CFG/strength holds, explicit queue and saved source/strength,
+and changing held reasons without changing capability. The native Aesthetic
+and Preview smokes also check their measured 30-step/CFG-4 recipes, opening
+0.125, 4/8/12 counts, preserved negatives and unrelated-feature refusals. No checkpoint
+weights or GPU qualification comes from these browser checks.
+
 `smoke-detailer.json` runs on an Animagine XL 4.0 fake on shared port 7960,
 with its own fresh scratch gallery and `--step 0.3`. It uses a deterministic
 CPU detector adapter, never real packages or detector assets, and checks the
@@ -11601,7 +11723,9 @@ a strength list crossed with it, the run's sheet with a Size axis, a
 remembered 1.25x that differs from the boxes' 1.5x left standing by the
 run and the next open at it, a scale button, a typed W and a second press
 leaving it, Reuse of a compared cell at its own size, and held with both
-factors named on a 1.5 MP source, a press saying so with focus kept), Mu's "auto", the preview's "starts at N% noise" from an injected
+factors named on a 1.5 MP source, a press saying so with focus kept), Mu's "auto",
+the preview's exact server-supplied step count without an approximate label,
+its "starts at N% noise" from an injected
 `start_sigma` (the fake reads none), none for a sweep, and the reading
 taken away by an unload and put back by a load with the dialog open and no
 box touched, Refine held while the server does not answer, arrow-key
@@ -11646,7 +11770,8 @@ unloaded off-catalogue capability guess: ⤢ opening nothing, a refined
 record's Reuse keeping the pass in the dialog with Refine dead and nothing
 submitted, the dialog waking when status says the pipeline has a pass,
 Generate meanwhile rendering directly, a final answer's wording
-(`refine_settled`) and the guess's back, and a foreign pass's general
+(`refine_settled`) and the same full refusal in the held Refine title, the
+guess's back, and a foreign pass's general
 starting strength (`refine_strength_profiled` false); and Mass refine's
 Refine… held with the hedge, then `REFINE_NONE`, even under a search that
 gives it images, a press opening nothing, and live once the status says
@@ -12821,6 +12946,12 @@ candidate disposal, precompiled root/region refusal and idempotent reference
 cleanup with stubs. Installed `ConfigModule.patch` over synthetic flags
 checks nested/thread restoration. Real Flux/Dynamo imports, compiler calls,
 fallback and device behavior remain unexecuted.
+`tests/test_regional_compile_runtime.py` also runs
+`tests/fixtures/regional_flux_registration_cpu.py`: tiny exact installed FLUX
+blocks pass through real regional and Module registration with only
+`torch.compile` replaced by a recording stand-in. It checks strict flags,
+partial-failure discard/cause, duplicate refusal and reference-only close;
+no forward, Inductor, toolchain or GPU kernel is exercised.
 `tests/test_pipeline_ownership.py` exercises the actual eager loader over strict
 synthetic runtime modules, unpublished override/pipeline failure at context entry
 and exit, publication order, registration transfer and shared unload behavior.
@@ -12871,6 +13002,10 @@ shared ownership, later replacements and idempotent restoration with stubs.
 It also executes source-extracted installed public context/setter bodies.
 Its focused run uses `--noconftest`, with no actual Diffusers import, tensor,
 forward or device probe; real runtime/card qualification remains separate.
+`tests/test_attention_runtime.py` checks tiny real installed FLUX processors
+through a recording SDPA stand-in, forced-cuDNN flags and Native restoration,
+with network, compiler and CUDA initialization forbidden. This is source
+compatibility for private 0.42.1 preparation, not kernel/card qualification.
 `tests/test_attention_environment.py` retains the cold warning/source checks:
 exact startup snapshots, fixed redaction, CLI logging, unchanged selection and
 status reads that do not reread environment or import a framework.
@@ -12911,6 +13046,11 @@ is modeled as absent; a discoverable poison package verifies that boundary.
 Compiler, device and network counters stay zero across imports and all arithmetic,
 context, freshness, cancellation and cleanup cases. This is no real-model or card
 qualification.
+`tests/test_fbc_flux_runtime.py` adds the production FBC owner and registry
+bootstrap over tiny real installed joint/single FLUX blocks. A recording SDPA
+stand-in checks reuse, context separation, fresh calls and cancellation cleanup,
+with CUDA, compiler and network forbidden. It runs no full transformer,
+checkpoint pipeline or attention kernel and grants no card qualification.
 
 ### Instruction edit tests and smoke
 

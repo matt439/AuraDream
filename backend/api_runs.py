@@ -241,8 +241,9 @@ async def finish_plan(services: AppServices, run_id: str) -> FinishPlan:
     refusal_code = 409
     if not reason and spec is not None:
         unavailable = await submission.refine_unavailable(services)
-        if unavailable is not None:
-            reason, refusal_code = unavailable, 422
+        bounded = then_refine.refusal([cell.request for cell in kept], spec, unavailable)
+        if bounded is not None:
+            reason, refusal_code = bounded, 422
     if not reason:
         checked: dict[tuple, tuple[str, str] | None] = {}
         for cell in [*kept, *kept_passes]:
@@ -250,6 +251,9 @@ async def finish_plan(services: AppServices, run_id: str) -> FinishPlan:
             try:
                 request.check_budget()
                 request.check_refine_steps()
+                bounded = submission.refine_request_refusal(services, request)
+                if bounded is not None:
+                    raise ValueError(bounded)
             except ValueError as exc:
                 reason, refusal_code = error_detail(exc), 422
                 break

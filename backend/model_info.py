@@ -18,6 +18,7 @@ from .launch import CHECKPOINTS, FORMATS, catalogue_entry, written_id  # noqa: F
 from .model_benchmarks import speed_for
 from .instruction_edit import INSTRUCTION_EDIT_UNAVAILABLE
 from .model_defaults import defaults_for
+from .refine_qualification import envelope_for
 
 
 _FLUX_SIZE = (
@@ -698,6 +699,7 @@ def details_for(
         value for prefix, value in _ACCESS.items() if checkpoint.gate.startswith(prefix)
     ), _OPEN)
     profile = defaults_for(model_id)
+    measured_refine = envelope_for(model_id)
     fit, fit_note = ("", "") if lite else _FIT.get(checkpoint.repo, ("", ""))
     lite_format = checkpoint.lite_format(model_id)
     on_card = card_fit(checkpoint.repo, lite_format, quantization, offload, card_memory)
@@ -709,6 +711,10 @@ def details_for(
         "style": style,
         "refine": "Yes" if profile["refine_supported"] else "No",
         "refine_note": (
+            ("Measured only on RTX 5080, Windows, fp8/model offload, Eager/Native and diffusers 0.42.1: "
+             f"1024×1024 source and output, {measured_refine.steps} steps, CFG {measured_refine.guidance_scale:g}; "
+             "strengths 0.125, 0.25 or 0.4.")
+            if measured_refine is not None else
             "This app has a compatible image-to-image Refine pass for this checkpoint."
             if profile["refine_supported"] else
             "This app has no compatible image-to-image Refine pass for this checkpoint."

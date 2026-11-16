@@ -87,7 +87,10 @@ def test_anima_releases_keep_separate_favourites_but_link_to_the_real_repo():
     aesthetic = model_info.details_for("circlestone-labs/Anima@aesthetic-v1.1")
     assert turbo["favourite_id"] != aesthetic["favourite_id"]
     assert turbo["url"] == aesthetic["url"] == "https://huggingface.co/circlestone-labs/Anima"
-    assert turbo["refine"] == aesthetic["refine"] == "No"
+    assert turbo["refine"] == aesthetic["refine"] == "Yes"
+    assert "RTX 5080" in turbo["refine_note"] and "1024×1024" in turbo["refine_note"]
+    assert "0.125, 0.25 or 0.4" in turbo["refine_note"]
+    assert "30 steps, CFG 4" in aesthetic["refine_note"]
     assert "Only a 1.05 MP square" in aesthetic["megapixels_note"]
 
 
@@ -100,7 +103,7 @@ def test_anima_preview_keeps_its_own_recommendations_and_measured_sizes():
     assert "1536-square" in preview["megapixels_note"] and "iffy" in preview["megapixels_note"]
     assert "1024×1024 and 1152×1536" in preview["megapixels_note"]
     assert "other sizes and loading settings remain unmeasured" in preview["megapixels_note"]
-    assert preview["refine"] == "No"
+    assert preview["refine"] == "Yes" and "30 steps, CFG 4" in preview["refine_note"]
 
 
 @pytest.mark.parametrize("model_id", [

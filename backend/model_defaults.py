@@ -995,9 +995,11 @@ _EXACT_PROFILES: dict[str, dict[str, Any]] = {
         "cfg_threshold": 1.0,
         "negative_prompt_supported": True,
         "reference_supported": False,
-        "refine_supported": False,
+        "refine_supported": True,
         "inpaint_supported": False,
-        "refine_strength": None,
+        "refine_strength": .25,
+        "refine_rounding": "flow",
+        "refine_measured": Measured("Anima Turbo v1.1", "fp8", 1024, 1024),
         "true_cfg_supported": False,
         "guide": guides.ANIMA_TURBO_GUIDE,
         "hints": {
@@ -1025,9 +1027,11 @@ _EXACT_PROFILES: dict[str, dict[str, Any]] = {
         "cfg_threshold": 1.0,
         "negative_prompt_supported": True,
         "reference_supported": False,
-        "refine_supported": False,
+        "refine_supported": True,
         "inpaint_supported": False,
-        "refine_strength": None,
+        "refine_strength": .125,
+        "refine_rounding": "flow",
+        "refine_measured": Measured("Anima Aesthetic v1.1", "fp8", 1024, 1024),
         "true_cfg_supported": False,
         "guide": guides.ANIMA_AESTHETIC_GUIDE,
         "hints": {
@@ -1055,9 +1059,11 @@ _EXACT_PROFILES: dict[str, dict[str, Any]] = {
         "cfg_threshold": 1.0,
         "negative_prompt_supported": True,
         "reference_supported": False,
-        "refine_supported": False,
+        "refine_supported": True,
         "inpaint_supported": False,
-        "refine_strength": None,
+        "refine_strength": .125,
+        "refine_rounding": "flow",
+        "refine_measured": Measured("Anima 2.9B Preview v1", "fp8", 1024, 1024),
         "true_cfg_supported": False,
         "guide": guides.ANIMA_PREVIEW_GUIDE,
         "hints": {
@@ -1259,7 +1265,9 @@ def _inpaint_strength_runs(family: str | None) -> list[str]:
 
 # The checkpoints whose pipeline is this repo's own class - the Anima variants',
 # FLUX 3 [Klein]'s modular blocks and NewBie's - beside which diffusers exports no
-# image-to-image class, so `refine.sibling` answers None loaded or not
+# image-to-image class. The three measured Anima variants have deliberate
+# app-owned extensions, bounded independently at runtime; the other local
+# classes still resolve to None loaded or not
 # (`tests/test_refine.py`). Their `refine_supported` is the answer a load
 # would give, not a guess: `refine_settled` says so, and the Refine dialog
 # stops telling the user that a load will decide.
@@ -1616,6 +1624,10 @@ def hints_for(
     values["refine_sweep"] = ",".join(
         f"{v:g}" for v in strength_sweep(values["refine_strength"], values["steps"])
     )
+    from .refine_qualification import envelope_for
+
+    if (measured_refine := envelope_for(model_id)) is not None:
+        values["refine_sweep"] = ",".join(f"{value:g}" for value in measured_refine.strengths)
     hints = dict(profile["hints"])
     hints["prompt"] = profile["guide"]["prompt"]
     hints["size"] = profile["guide"]["size"]

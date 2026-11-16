@@ -133,6 +133,14 @@ Model and loader:
 
 Schedule and profiles:
 
+- Anima Refine is bounded independently for the three exact variants: RTX
+  5080/Windows CUDA 0, fp8/model, Eager/Native, diffusers 0.42.1, 1024-square
+  source/output and strengths 0.125/0.25/0.4. Turbo uses 8 steps/CFG 1 and
+  opens at 0.25; Aesthetic and Preview use 30 steps/CFG 4 and open at 0.125.
+  Keep qualification/source checks at admission and each call; enlargement,
+  other classes and other loaders/platforms stay held. See `docs/rules.md`,
+  "Measured Anima Refine".
+
 - A requested `mu` is the whole shift (`schedule.forced_mu`,
   `shifted_sigmas`, `requested_shift`), and only on a `FlowMatch*`
   scheduler. Tests assert on `scheduler.sigmas`.
@@ -524,6 +532,7 @@ uses the driver's graceful close/cleanup. See the full Tests rules.
 | 7960 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-phone-keyboard` |
 | 7960 | animagine-xl-4.0, its own fresh scratch `--data`, `--step 0.3` | `smoke-detailer` |
 | 7960 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-prompt-assistant` |
+| 7960 | circlestone-labs/Anima, its own fresh scratch `--data` | `smoke-anima-refine` |
 
 FLUX.1-Krea-dev is `black-forest-labs/FLUX.1-Krea-dev`; animagine is
 `cagliostrolab/animagine-xl-4.0`. The ports are full: `--jobs` puts each
@@ -583,6 +592,8 @@ GPU behaviour, pixels, timing and memory are the card's to say, recorded in
 ## Environment
 
 Python 3.13 (not 3.14 — torchao/diffusers wheels lag there).
-torch 2.13.0+cu130, diffusers 0.42.1, torchao 0.18.0 (the execution
-candidates stay held on their measured diffusers 0.40; Kontext's envelope
-was re-measured on 0.42.1).
+torch 2.13.0+cu130, diffusers 0.42.1, torchao 0.18.0. Private regional,
+attention and FBC candidates have separate exact-0.42.1 CPU source checks;
+regional preparation still requires its pinned optional toolchain.
+Public nonempty execution remains unavailable.
+Kontext's envelope was re-measured on 0.42.1.

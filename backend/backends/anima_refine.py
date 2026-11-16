@@ -1,10 +1,8 @@
-"""Private image-to-image pass over Diffusers' Anima blocks (GEN#48 stage 1).
+"""Image-to-image passes over Diffusers' Anima blocks (GEN#48).
 
-Not registered anywhere: `refine.sibling` still answers None for every Anima
-class, the Anima profiles keep `refine_supported` False, and nothing in the
-backend imports this module. It exists so the pass can be qualified on CPU
-now and measured on the card later (docs/maintainer/plan-anima-refine.md)
-without opening an unqualified public route.
+Only the three exact qualified classes are registered structurally. Their
+backend still requires each variant's measured loader, hardware, source and
+request envelope (docs/maintainer/plan-anima-refine.md).
 
 The upstream implementation is reused unchanged: `AnimaImg2ImgVaeEncoderStep`
 (preprocess, posterior-mode encode, latents mean/std normalisation),
@@ -51,8 +49,8 @@ def start_index(steps: int, strength: float) -> int:
 
     `get_timesteps` in the installed Anima `before_denoise` module, in its
     order of operations (flow rounding: eight steps at 0.4 run four). Not
-    `refine.start_index`, which picks flow or SDXL rounding by `mu_supported`
-    - false for Anima's fixed shift - and would answer SDXL's five.
+    the Mu capability: public `refine.start_index` reads Turbo's explicit
+    flow-rounding policy while Mu remains unavailable.
     """
     init_timestep = min(steps * strength, steps)
     return int(max(steps - init_timestep, 0))

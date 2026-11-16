@@ -38,6 +38,22 @@ function firstLoadNote() {
 // profile until the user touches *that* control. A checkpoint switch restores
 // that checkpoint's own edits before later polls apply its defaults again.
 let lastDefaults = null;
+let refineStrengthSuggestions = null;
+
+// The server supplies a measured sweep where the normal neighbourhood is not
+// qualified. These are presentation values, never another admission policy.
+function receiveRefineStrengthSuggestions(value) {
+  const before = JSON.stringify(refineStrengthSuggestions);
+  refineStrengthSuggestions = value && Number.isInteger(value.steps) && value.steps > 0
+    && Array.isArray(value.strengths) && value.strengths.length > 0
+    && value.strengths.every((strength) => typeof strength === 'number'
+      && Number.isFinite(strength) && strength > 0 && strength <= 1)
+    && typeof value.steps_reason === 'string'
+    ? { steps: value.steps, strengths: [...value.strengths], steps_reason: value.steps_reason }
+    : null;
+  return before !== JSON.stringify(refineStrengthSuggestions);
+}
+
 function applyDefaults(d) {
   if (!d || d.steps === undefined) return;
   lastDefaults = d;
@@ -667,6 +683,8 @@ function receiveStatus(s, asked = Date.now()) {
       if (previousModel) resetGallery();
       loadRuns();
     }
+    const previousRefineReason = refineUnavailableReason();
+    const refineSuggestionsChanged = receiveRefineStrengthSuggestions(s.refine_strength_suggestions);
     applyDefaults(s.defaults);
     // After the profile, so a remembered value set on this checkpoint wins
     // over it and a value set on another is left to the profile.
@@ -748,7 +766,8 @@ function receiveStatus(s, asked = Date.now()) {
       syncReuseButtons();
     }
     if (s.defaults && typeof s.defaults.refine_supported === 'boolean'
-        && s.defaults.refine_supported !== refineSupported) {
+        && (s.defaults.refine_supported !== refineSupported
+          || previousRefineReason !== refineUnavailableReason() || refineSuggestionsChanged)) {
       refineSupported = s.defaults.refine_supported;
       syncCardTools();
       // An open dialog wakes, or says why it cannot run, and asks again.

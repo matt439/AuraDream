@@ -554,6 +554,10 @@ class JobManager:
         `run_id`, and `cells` may then be empty - a run missing only passes -
         where the job's request is its first pass's.
         """
+        for cell in cells:
+            require_default_execution(cell.request.execution)
+            if "step_cache" in cell.request.model_fields_set:
+                raise ValueError("Resolve composer step cache before submitting expanded cells.")
         sources = list(dict.fromkeys(pass_sources or []))
         if detailer is not None:
             detailer = DetailerPlan.model_validate(detailer)
@@ -581,6 +585,32 @@ class JobManager:
         )
         if not cells and not source_passes:
             raise ValueError("nothing to queue: every base whose pass was missing has gone since the check")
+        from . import refine_admission, refine_qualification
+
+        for cell in source_passes:
+            # Reject the whole batch before any source proof or other I/O,
+            # including copied inpaint requests outside the Turbo pass gate.
+            require_default_execution(cell.request.execution)
+            if "step_cache" in cell.request.model_fields_set:
+                raise ValueError("Resolve composer step cache before submitting expanded cells.")
+        selected = current_settings(settings)
+        require_configured_loader_available(selected)
+        for cell in [*cells, *source_passes]:
+            reason = self.backend.refine_refusal(selected, cell.request)
+            if refine_qualification.applies(selected.model_id) and cell.request.inpainting:
+                reason = reason or refine_qualification.request_refusal(selected.model_id, cell.request)
+            if reason is not None:
+                raise ValueError(reason)
+        if then_refine is not None and refine_qualification.applies(selected.model_id):
+            for cell in cells:
+                probe = stand_in(cell.request, then_refine)
+                reason = (self.backend.refine_refusal(selected, probe)
+                          or refine_qualification.source_refusal(selected.model_id, (cell.request.width, cell.request.height)))
+                if reason is not None:
+                    raise ValueError(reason)
+        for cell in [*cells, *source_passes]:
+            if cell.request.refine is not None and refine_qualification.applies(selected.model_id):
+                await asyncio.to_thread(refine_admission.check_source, cell.request, selected.model_id)
         # Internal model_copy cells bypass request validation. Refuse the
         # whole batch before stamping masks, retaining work or starting a load,
         # including callers that supply their own run id. Stamped outpaints
@@ -599,9 +629,6 @@ class JobManager:
                 )
                 if reason is not None:
                     raise ValueError(reason)
-            require_default_execution(cell.request.execution)
-            if "step_cache" in cell.request.model_fields_set:
-                raise ValueError("Resolve composer step cache before submitting expanded cells.")
         selected = current_settings(settings)
         require_configured_loader_available(selected)
         # Expanded/stored cells already describe complete requests. Missing
@@ -1127,6 +1154,13 @@ class JobManager:
 
             started = time.perf_counter()
             try:
+                if req.refine is not None:
+                    from . import refine_admission, refine_qualification
+
+                    selected = current_settings(settings)
+                    if refine_qualification.applies(selected.model_id):
+                        self.backend.check_refine_supported(req)
+                        refine_admission.check_source(req, selected.model_id)
                 if job.detailer is not None:
                     if direct_source is None or direct_proof is None:
                         raise ValueError("the detailer's source has not been resolved; start a new review")

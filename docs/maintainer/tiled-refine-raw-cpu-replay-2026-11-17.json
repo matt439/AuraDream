@@ -1,0 +1,354 @@
+{
+  "schema": "auradream-tiled-refine-raw-cpu-replay-v1",
+  "date_local": "2026-11-17",
+  "timezone": "Australia/Brisbane",
+  "finished_utc": "2026-11-16T20:31:08.728206+00:00",
+  "status": "passed CPU replay over retained raw outputs; no new GPU qualification",
+  "successful_attempt": {
+    "directory": "work/gen49-private-raw-cpu-replay-20261117-a3",
+    "exit_code": 0,
+    "reported_replay_seconds": 2.8933746999973664,
+    "timing_scope": "CPU orchestration/input comparisons/verification only, after imports; no rendering or speed claim"
+  },
+  "failed_guard_policy_attempts": [
+    {
+      "attempt": "work/gen49-private-raw-cpu-replay-20261117-a1",
+      "exit_code": 1,
+      "status": "failed before first completed composite; no prototype or pixel-match qualification",
+      "cause": "A conservative import finder raised RuntimeError for an optional triton availability import. Torch has_triton_package normally catches ImportError and treats the absent optional package as unavailable.",
+      "failure_receipt": "work/gen49-private-raw-cpu-replay-20261117-a1-failure-audit/receipt.json",
+      "failure_receipt_sha256": "63b55f25ac5008e88aa10e12448e10eb36320ec45d2fbf6d57229cce6e01af9e",
+      "executed_driver_source_sha256": "0048ef0b2aa4a5023e773ddf7f95ad0b6786390240cde30beeb6d4b2f9f78c88",
+      "failed_attempt_directory_untouched": true,
+      "pixel_or_prototype_math_failure_claimed": false
+    },
+    {
+      "attempt": "work/gen49-private-raw-cpu-replay-20261117-a2",
+      "exit_code": 1,
+      "status": "failed before first completed composite; no prototype or pixel-match qualification",
+      "cause": "Installed CPU overlay helper imports Dynamo trace_rules, which imports torch._inductor.test_operators as metadata. The harness import-only Inductor block raised RuntimeError; actual compilation remained forbidden.",
+      "failure_receipt": "work/gen49-private-raw-cpu-replay-20261117-a2-failure-audit/receipt.json",
+      "failure_receipt_sha256": "844d743b7eb2c7e5ec39ca0f641b5d109ef181edce36c74242d73c8b79e9eebc",
+      "executed_driver_source_sha256": "a06b47f0c3f72dd025856a6fe49da32c31bce235ffe5198678075e21e448ae9e",
+      "failed_attempt_directory_untouched": true,
+      "pixel_or_prototype_math_failure_claimed": false
+    }
+  ],
+  "scope": {
+    "prototype_identity": "private-provisional-sdxl-four-region-2048-v1",
+    "prototype_sha256": "8c3fe6b9bd378d1361e3325eef529a536d57343e2d40377d810b67b294151215",
+    "prototype_author_stability_confirmed_before_execution": true,
+    "input": "Existing measured 2048x2048 RGB Lanczos fixture; not a new diffusion render.",
+    "render_source": "Fresh copies of retained 1040x1040 RGB raw GPU outputs injected in original four-tile order.",
+    "new_gpu_work": false,
+    "learned_model_or_pipeline_calls": false,
+    "gallery_writes": false,
+    "not_qualified": [
+      "actual new backend adapter",
+      "durable request/source intent",
+      "public flow or release",
+      "GPU repeatability of this new module",
+      "new memory/speed/quality result"
+    ]
+  },
+  "environment": {
+    "CUDA_VISIBLE_DEVICES": "-1",
+    "AURADREAM_DEVICE": "cpu",
+    "HF_HUB_OFFLINE": "1",
+    "TRANSFORMERS_OFFLINE": "1",
+    "versions": {
+      "torch": "2.13.0+cu130",
+      "diffusers": "0.42.1",
+      "pillow": "13.0.0",
+      "numpy": "2.5.2"
+    },
+    "version_note": "Installed metadata checked during receipt audit; source lock/hash retained."
+  },
+  "input_source_rgb_sha256": "cd2f7641dafb59989f497f08b241050609652344cc499575a227209d702653d8",
+  "image_seed": 12346,
+  "recipe": {
+    "name": "private-provisional-sdxl-four-region-2048-v1",
+    "model": "cagliostrolab/animagine-xl-4.0",
+    "revision": "2b7c1b397761bf5bd3cc42e5b39ec99314a75a96",
+    "prompt": "masterpiece, best quality, anime scenery, continuous wide landscape, a stone bridge crossing horizontally through the center over a river flowing vertically through the center, wooden cabin on the riverbank, tall pine trees with fine branches, textured stonework, snowy mountains across the horizon, morning sunlight",
+    "negative_prompt": "low quality, blurry",
+    "steps": 28,
+    "guidance_scale": 5.0,
+    "strength": 0.35,
+    "num_images": 1,
+    "mu": null,
+    "size": [
+      2048,
+      2048
+    ],
+    "crop": {
+      "rule": "bbox16",
+      "pad": 32,
+      "tier": 1
+    },
+    "overlap": 128,
+    "feather": 64,
+    "latent_block": 8,
+    "order": [
+      "top-left",
+      "top-right",
+      "bottom-left",
+      "bottom-right"
+    ]
+  },
+  "tiles": [
+    {
+      "ordinal": 0,
+      "name": "top-left",
+      "seed": 12346,
+      "recorded_job": "recover-top-left",
+      "raw_file": "raw-1794858182839058400-0.png",
+      "raw_png_sha256": "8b912f124aefe7c1a58e3ec92117e7723d566d3a90fe97047e131e2390094b7e",
+      "raw_rgb_sha256": "323a2272cdb81e1ac9ff3755ae2db327db7cc66d3338ce5347357aeb9d2ef669",
+      "expected_full_source_rgb_sha256": "cd2f7641dafb59989f497f08b241050609652344cc499575a227209d702653d8",
+      "input_crop_rgb_sha256": "3889aaeab5fee8f5bdb55ab72facc612219da8a5ddcdc4c2e92093463279d80f",
+      "full_mask_hash": "edcd1374ab338524421162ce388462ef473d9d9bae2c844e9d698b4463ece732",
+      "working_mask_sha256": "e3d1f8cb922061e7b874b3fedbd0ef589db9c92e94254820929aea48612870e5",
+      "pipeline_mask_sha256": "6071a1a59a794b6258315f3691cd5572a3ecf351b5b725c447786b02c43d1aa9",
+      "input_source_matches_recorded_prior_composite": true,
+      "input_masks_match_independent_fixed_recipe": true,
+      "plan": {
+        "ordinal": 0,
+        "name": "top-left",
+        "paint_box": [
+          0,
+          0,
+          1088,
+          1088
+        ],
+        "mask_hash": "edcd1374ab338524421162ce388462ef473d9d9bae2c844e9d698b4463ece732",
+        "mask_bytes_sha256": "71c4c6609f40dfa39e4631054f6e40ed7fd0aa5b1fb3729a5e1f0a24f1a255fe",
+        "crop_box": [
+          0,
+          0,
+          1120,
+          1120
+        ],
+        "working": [
+          1040,
+          1040
+        ],
+        "seed": 12346
+      },
+      "actual_full_result_rgb_sha256": "3254431339487cf357c4dd5cd9800c0ebc3f74a7871c10878d3e08610568d500",
+      "full_intermediate_matches_recorded_gpu_chain": true
+    },
+    {
+      "ordinal": 1,
+      "name": "top-right",
+      "seed": 12347,
+      "recorded_job": "top-right",
+      "raw_file": "raw-1794858196849358000-0.png",
+      "raw_png_sha256": "dc8a532fa04bc5c361043427c4ad9fcecaba7cfddafb5bb8be71e96d7b42919f",
+      "raw_rgb_sha256": "1cf9ee07ed1b915d3eab6db00761da72fae5b5995a92460b003ef5ff4bdfa4de",
+      "expected_full_source_rgb_sha256": "3254431339487cf357c4dd5cd9800c0ebc3f74a7871c10878d3e08610568d500",
+      "input_crop_rgb_sha256": "774b4446372f325acc083a0a9bb9d38660d705591d3ecdbe8f0b409527c3908f",
+      "full_mask_hash": "701ae96c806eb5e6a8380260dfa075d3306cf544d046ee0810b73c148d049890",
+      "working_mask_sha256": "e49ae35492f124f8b628cd940fee4e40e9d1719a544acd1d235f98a8ce8d88d2",
+      "pipeline_mask_sha256": "c61466bc7fc32120b52940aae1c049d3ab59b142b82e0d4ec30b84579a7f15a5",
+      "input_source_matches_recorded_prior_composite": true,
+      "input_masks_match_independent_fixed_recipe": true,
+      "plan": {
+        "ordinal": 1,
+        "name": "top-right",
+        "paint_box": [
+          960,
+          0,
+          2048,
+          1088
+        ],
+        "mask_hash": "701ae96c806eb5e6a8380260dfa075d3306cf544d046ee0810b73c148d049890",
+        "mask_bytes_sha256": "da7f7da891ca72fe12ec15347307f0380a6cd01115742533a4139379bec1e81d",
+        "crop_box": [
+          928,
+          0,
+          2048,
+          1120
+        ],
+        "working": [
+          1040,
+          1040
+        ],
+        "seed": 12347
+      },
+      "actual_full_result_rgb_sha256": "be678eaaf4b68a5e5b00e712d961857753af05d3b8fbebf846749e125cd3e616",
+      "full_intermediate_matches_recorded_gpu_chain": true
+    },
+    {
+      "ordinal": 2,
+      "name": "bottom-left",
+      "seed": 12348,
+      "recorded_job": "bottom-left",
+      "raw_file": "raw-1794858203969850100-0.png",
+      "raw_png_sha256": "1d5c61d59bf7465b68de338393e7203b0c6d383cb8ee74194ef61c8fdfd8a3e6",
+      "raw_rgb_sha256": "be94f1d1e18ca0ff9741410eda04df971afe584cdfdf5952fc874547721129fd",
+      "expected_full_source_rgb_sha256": "be678eaaf4b68a5e5b00e712d961857753af05d3b8fbebf846749e125cd3e616",
+      "input_crop_rgb_sha256": "37498a1dcf93c68ae18c5211b11a21f2b59f86246fba6886b508f8b1a8a1d69f",
+      "full_mask_hash": "124012ed2e09aa64b2b56ca41e95071a44d19b840d7253d4a29146215e9daee8",
+      "working_mask_sha256": "52128c40abb1351eeb140d7c41535109707101e4ee1d9aeee996886a2d7edbd6",
+      "pipeline_mask_sha256": "85941f14ff049c394234ebab208adc79f828d6f6145c98fd4302176b9f97cf01",
+      "input_source_matches_recorded_prior_composite": true,
+      "input_masks_match_independent_fixed_recipe": true,
+      "plan": {
+        "ordinal": 2,
+        "name": "bottom-left",
+        "paint_box": [
+          0,
+          960,
+          1088,
+          2048
+        ],
+        "mask_hash": "124012ed2e09aa64b2b56ca41e95071a44d19b840d7253d4a29146215e9daee8",
+        "mask_bytes_sha256": "df49ab70ec9a6a971e4ad933a72fa50eb9b7ad95a338a55c888a4f7adce5152c",
+        "crop_box": [
+          0,
+          928,
+          1120,
+          2048
+        ],
+        "working": [
+          1040,
+          1040
+        ],
+        "seed": 12348
+      },
+      "actual_full_result_rgb_sha256": "97054e26bae00f9a84470291191c494d8c3f36b0bf489426f428800050ba1644",
+      "full_intermediate_matches_recorded_gpu_chain": true
+    },
+    {
+      "ordinal": 3,
+      "name": "bottom-right",
+      "seed": 12349,
+      "recorded_job": "bottom-right",
+      "raw_file": "raw-1794858210877628100-0.png",
+      "raw_png_sha256": "e03c1f91b6d56b875852fb3dc17856de79e952f9a0dfbd74f990df117829773b",
+      "raw_rgb_sha256": "4f0c114d9ab919e206b26cde50404e4d46e96cee7caac7373514023d53766ad2",
+      "expected_full_source_rgb_sha256": "97054e26bae00f9a84470291191c494d8c3f36b0bf489426f428800050ba1644",
+      "input_crop_rgb_sha256": "9140791bee9e48f64f09778162db5cbc8e7d7abf39a6e334f17e2ed9a750b5f8",
+      "full_mask_hash": "88adb30666c4acc406cfec7d47eb4d95572d8e708af5397032bc911454ca5b4b",
+      "working_mask_sha256": "d1acd0f9bcc397a6d4b410c41d433ed451d333228173f9c4d8a332ba4df9bd28",
+      "pipeline_mask_sha256": "ae2c349bc53e12248985dbec84ec4a9a4c7951b2f900b525a8c4f831cb63a1c8",
+      "input_source_matches_recorded_prior_composite": true,
+      "input_masks_match_independent_fixed_recipe": true,
+      "plan": {
+        "ordinal": 3,
+        "name": "bottom-right",
+        "paint_box": [
+          960,
+          960,
+          2048,
+          2048
+        ],
+        "mask_hash": "88adb30666c4acc406cfec7d47eb4d95572d8e708af5397032bc911454ca5b4b",
+        "mask_bytes_sha256": "60131ceb740f11f0b6c86fe0b5b04ae80ccad32ab9e61087c5cdc945bbc1bbe0",
+        "crop_box": [
+          928,
+          928,
+          2048,
+          2048
+        ],
+        "working": [
+          1040,
+          1040
+        ],
+        "seed": 12349
+      },
+      "actual_full_result_rgb_sha256": "7a04e5835b31c39ed8947c92be67e4ead678f24ac0c775a3075f77767212d6ad",
+      "full_intermediate_matches_recorded_gpu_chain": true
+    }
+  ],
+  "callbacks": {
+    "injected_reports": 36,
+    "injected_reports_per_tile": 9,
+    "type": "Synthetic CPU callback reports supplied by injected renderer; not real new GPU steps.",
+    "matches_prior_recorded_gpu_callback_count_per_tile": 9,
+    "prior_count_is_historical_not_rerun": true
+  },
+  "results": {
+    "all_four_full_intermediate_rgb_hashes_match": true,
+    "final_rgb_sha256": "7a04e5835b31c39ed8947c92be67e4ead678f24ac0c775a3075f77767212d6ad",
+    "matches_original_final_composite_rgb": true,
+    "source_borrow_unchanged_before_caller_close": true,
+    "excluded_repeat_raw_files": [
+      "raw-1794858190004930100-0.png"
+    ],
+    "crop_snapshot_note": "post-overlay-tile*.png are1120-square snapshots; full saved records3/5/6/7 were used as intermediate references.",
+    "new_png_byte_identity_claimed": false
+  },
+  "cpu_helper": {
+    "class": "diffusers.image_processor.VaeImageProcessor",
+    "method": "apply_overlay",
+    "calls_observed": 4,
+    "source_sha256": "94d23edbd23821e13bfd69c84ce359ac63b541ee28da0f72526514606217893b",
+    "module_file_sha256": "0a06258cc405c60bba694b022297815347fb129b69c7c68c1a7512e7eb30d2cd",
+    "body_retained": "installed-overlay-source.txt",
+    "scope": "Actual installed no-crop PIL overlay helper; no learned model or pipeline call"
+  },
+  "guard_observations": {
+    "hard_execution_guard_attempts": {
+      "network": [],
+      "subprocess": [],
+      "compiler": [],
+      "cuda": [],
+      "runtime_import": []
+    },
+    "guarded_compile_entry_points": [
+      "torch.compile",
+      "torch.nn.Module.compile",
+      "torch._dynamo.optimize",
+      "torch._dynamo.optimize_assert",
+      "torch._dynamo.export",
+      "torch._inductor.compile",
+      "torch._inductor.aot_compile",
+      "torch._inductor.aoti_compile_and_package"
+    ],
+    "torch_cuda_initialized": false,
+    "optional_compiler_import_probes": [
+      {
+        "module": "triton",
+        "result": "unavailable",
+        "executed": false
+      }
+    ],
+    "compiler_metadata_modules_imported": {
+      "_dynamo": 93,
+      "_inductor": 17
+    },
+    "metadata_import_policy": "Torch/Dynamo/Inductor imports and registration metadata allowed; no compiler execution observed. Normal unavailable Triton query is separately counted.",
+    "specific_guards_clear": true,
+    "universal_sandbox_claimed": false
+  },
+  "integrity": {
+    "all_original_raw_files_unchanged": true,
+    "raw_file_count_verified_before_after_and_audit": 74,
+    "source_before_after_and_audit_equal": true,
+    "source_entry_count": 194,
+    "critical_source_sha256": {
+      "backend/tiled_refine.py": "8c3fe6b9bd378d1361e3325eef529a536d57343e2d40377d810b67b294151215",
+      "backend/mask_crop.py": "6e5db563a7f33dad3ae632ca0bca6981a3856b2a926bbde47abaa7828babb4d5",
+      "backend/refine.py": "af035f8c69c5c135a1b3ab34fd3b26c7b259e7fe5453dfae8d7ceded61a0c086",
+      "backend/record_fields.py": "826bf52424b8ac96d1a58ac6f2233bfb199c67bd9fdfec38402b755c7e42171b",
+      "backend/seeds.py": "0f08f6b6d2c05714f806c0f3123556c1e65e4398af5a2d365bf3359c93d89631",
+      "backend/config.py": "b7189b43e41237b1a9eacfb84957bcda634af7501f6fd19a2b1cd625dce41000",
+      "uv.lock": "623d29ad0123fe832ebd172d0b3eeda66a7dad1be28f6e0b483daab68fe15c0b",
+      "pyproject.toml": "de475675e0b93f42f1b65779f8268fe086a223a87dcef3bfe97920062d8e3eb7",
+      "work/tiled_refine_raw_cpu_replay.py": "58e5620e27c769b7281b20ce14574d8bede6ab18720addb52e24ca0f4e4c1816"
+    },
+    "historical_gpu_receipt_sha256": "6e862f4d57db6dd687c6ec1b366d73bbe386c3b917b561ee9149f55f66fe071e"
+  },
+  "evidence": {
+    "raw_gpu_directory": "work/gen49-sdxl-four-region-20261117-a1",
+    "cpu_replay_directory": "work/gen49-private-raw-cpu-replay-20261117-a3",
+    "replay_receipt_sha256": "ba4d06e0d5ba68af100e43df093edfd3ff18081cb781a36a06ea41632d1a7030",
+    "initial_manifests_sha256": "380529705aa1140b591776eb4d434a52901ff34f8fc443b63d58eb5ea6dacad5",
+    "retained_overlay_source_sha256": "94d23edbd23821e13bfd69c84ce359ac63b541ee28da0f72526514606217893b",
+    "executed_driver_snapshot": "work/gen49-private-raw-cpu-replay-20261117-a3-audit/executed-driver-source.py",
+    "executed_driver_snapshot_sha256": "58e5620e27c769b7281b20ce14574d8bede6ab18720addb52e24ca0f4e4c1816",
+    "original_gpu_files_touched_by_audit": false
+  }
+}
