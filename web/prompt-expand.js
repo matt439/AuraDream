@@ -439,6 +439,7 @@ function syncExpandButton() {
     : busy ? 'A job is queued or running: Expand waits for the image queue to finish'
     : elsewhereBusy ? EXPAND_ELSEWHERE
     : critiquing ? 'Wait for the critic to finish'
+    : assistantRun ? 'Wait for the prompt assistant to finish'
     : '';
   const cost = expandCost();
   const title = expandTitle();
@@ -503,6 +504,7 @@ function clearPromptTranslation() {
 function promptReplaced() {
   clearPromptTranslation();
   syncAnalysisStale();
+  syncPromptAssistant();
 }
 
 function showPromptTranslation(source, translation) {

@@ -14,13 +14,15 @@ import subprocess
 import tempfile
 import threading
 import time
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
 
 from . import critic_context, critic_runtime, critic_server, critic_validation
 from .config import settings
+from .backends.base import Cancelled
 from .schemas import CriticStatus, GenerateRequest, PromptAnalysis, PromptCritique
+from .schemas_assistant import PromptAssistantRequest, PromptAssistantResponse
 
 # Public entry points stay available from this module.
 from .critic_context import (
@@ -103,6 +105,7 @@ class PromptCritic:
         self._prepare_lock = threading.Lock()
         self._run_lock = threading.Lock()
         self._process_lock = threading.Lock()
+        self._stop_lock = threading.Lock()
         self._process: subprocess.Popen | None = None
         self._prepared: tuple[Path, Path] | None = None
 
@@ -235,7 +238,64 @@ class PromptCritic:
                 ) from exc
             raise
 
+    def assist(
+        self, model_id: str, request: PromptAssistantRequest, should_cancel: Callable[[], bool],
+    ) -> PromptAssistantResponse:
+        """Write a draft using the same transient, keyed server as the critic.
+
+        The caller owns the image gate. Tag verification belongs outside it;
+        cancellation stops only the process captured by this invocation.
+        """
+        from . import prompt_assistant
+
+        prepared = self._prepared
+        if prepared is None or not all(path.is_file() for path in prepared):
+            raise critic_runtime.CriticUnavailable("the local prompt model is not prepared; prepare() fetches it first")
+        server, model = prepared
+        context = prompt_assistant.build_context(model_id, request)
+        prompt_assistant.check_fits(context, estimated=True)
+        with self._run_lock:
+            if should_cancel():
+                raise Cancelled("prompt assistant stopped")
+            started = time.perf_counter()
+            response = self._run_completion(
+                server, model, prompt_assistant.request_body(context),
+                lambda base, key, body: prompt_assistant.counted_body(base, key, body, context),
+                should_cancel,
+            )
+            seconds = time.perf_counter() - started
+        if should_cancel():
+            raise Cancelled("prompt assistant stopped")
+        content, finish = _content(response)
+        if finish == "length":
+            raise critic_runtime.CriticError(
+                "the prompt assistant ran out of room before finishing; start a new conversation "
+                "or shorten the prompt and ask again"
+            )
+        return prompt_assistant.validate_answer(content, model_id, request, model=self._label(model), seconds=seconds)
+
     def _run(self, server: Path, model: Path, context: critic_context.CriticContext, prompt: str) -> Any:
+        def counted_body(base: str, key: str, body: dict[str, Any]) -> dict[str, Any]:
+            counted = critic_context._counted(base, key, body, context, prompt)
+            if counted is None:
+                log.warning("llama-server did not count the question's tokens; sized by the estimate")
+            else:
+                critic_context.check_fits(counted)
+                body["max_tokens"] = critic_context.max_tokens(counted)
+            return body
+
+        return self._run_completion(server, model, critic_context.request_body(context), counted_body)
+
+    def _run_completion(
+        self, server: Path, model: Path, body: dict[str, Any],
+        counted_body: Callable[[str, str, dict[str, Any]], dict[str, Any]],
+        should_cancel: Callable[[], bool] | None = None,
+    ) -> Any:
+        def check_cancelled() -> None:
+            if should_cancel is not None and should_cancel():
+                raise Cancelled("prompt assistant stopped")
+
+        check_cancelled()
         api_key = secrets.token_urlsafe(32)
         port = critic_server._free_port()
         base = f"http://127.0.0.1:{port}"
@@ -255,8 +315,27 @@ class PromptCritic:
                     ) from exc
                 with self._process_lock:
                     self._process = process
+                finished = threading.Event()
+                stop_errors: list[Exception] = []
+
+                def watch_stop() -> None:
+                    while not finished.is_set():
+                        if should_cancel is not None and should_cancel():
+                            try:
+                                with self._stop_lock:
+                                    critic_server._stop(process)
+                            except Exception as exc:  # observed below before the gate opens
+                                stop_errors.append(exc)
+                            return
+                        time.sleep(0.05)
+
+                watcher = None
+                if should_cancel is not None:
+                    watcher = threading.Thread(target=watch_stop, name="prompt-assistant-stop", daemon=True)
+                    watcher.start()
                 try:
                     critic_server._wait_until_healthy(process, base, log_path)
+                    check_cancelled()
                     try:
                         status, _ = critic_server._request("GET", base + "/v1/models", None, None, 5.0)
                         if status != 401:
@@ -275,33 +354,38 @@ class PromptCritic:
                             )
                         if owned is None:
                             log.debug("port %d's listener unchecked here; its key guards it", port)
-                        body = critic_context.request_body(context)
-                        counted = critic_context._counted(base, api_key, body, context, prompt)
-                        if counted is None:
-                            log.warning(
-                                "llama-server did not count the question's tokens; "
-                                "sized by the estimate"
-                            )
-                        else:
-                            critic_context.check_fits(counted)
-                            body["max_tokens"] = critic_context.max_tokens(counted)
+                        body = counted_body(base, api_key, body)
+                        check_cancelled()
                         status, payload = critic_server._request(
                             "POST", base + "/v1/chat/completions", api_key, body, critic_server.REQUEST_TIMEOUT
                         )
                     except (OSError, http.client.HTTPException) as exc:
+                        check_cancelled()
                         raise critic_runtime.CriticError(
                             f"llama-server did not answer: {exc}; {critic_server._tail(log_path)}"
                         ) from exc
+                    check_cancelled()
                     if status != 200:
                         raise critic_runtime.CriticError(
                             f"llama-server answered {status}: {critic_server._error_message(payload)}"
                         )
                     return payload
+                except Exception:
+                    # A stopped server often reports its exit while loading,
+                    # before reaching the completion request's socket handler.
+                    check_cancelled()
+                    raise
                 finally:
                     # Always, and before the gate opens: an image job admitted
                     # next must not find 5.5 GiB of the card still taken.
                     try:
-                        critic_server._stop(process)
+                        finished.set()
+                        if watcher is not None:
+                            watcher.join()
+                        with self._stop_lock:
+                            critic_server._stop(process)
+                        if stop_errors:
+                            raise stop_errors[0]
                     finally:
                         with self._process_lock:
                             if self._process is process:
@@ -316,7 +400,8 @@ class PromptCritic:
         with self._process_lock:
             process = self._process
         if process is not None:
-            critic_server._stop(process)
+            with self._stop_lock:
+                critic_server._stop(process)
 
 
 prompt_critic = PromptCritic()

@@ -30,7 +30,6 @@ LIMIT = 350
 LONGER = {
     "### Model and loader": 791,
     "### Jobs": 684,
-    "### Prompt analyser": 412,
 }
 
 # Anchors into rules.md from documents whose changes do not run the tests

@@ -23,6 +23,7 @@ function criticHold() {
     : busy ? 'An image job is queued or running. The critic needs the card to itself, so it waits for the queue to finish.'
     : elsewhereBusy ? CRITIC_ELSEWHERE
     : expandingPrompt ? 'Wait for prompt expansion to finish.'
+    : assistantRun ? 'Wait for the prompt assistant to finish.'
     : '';
 }
 function syncCritic() {
@@ -82,6 +83,7 @@ async function askCritic() {
     return;
   }
   if (expandingPrompt) { showError('Wait for prompt expansion to finish.', true); return; }
+  if (assistantRun) { showError('Wait for the prompt assistant to finish.', true); return; }
   const payload = collect();
   if (!payload.prompt) { showError('Enter a prompt first.'); els.prompt.focus(); return; }
   const effectiveNegative = analysisNegative(payload);

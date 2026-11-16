@@ -42,7 +42,7 @@ if __name__ == "__main__":
 else:
     compiler_cache._seal_startup()
 
-from . import api_backup, api_bundles, api_gallery, api_generate, api_jobs, api_masks, api_model_favourites, api_more_seeds, api_png, api_presets, api_prompt, api_refine_batch, api_rerender, api_runs, api_saved_searches, api_snippets, api_swap, app_context, bundle_common, bundles, card_facts, gallery_lock, gallery_reports, hf_sign_in, hub_access, keep_awake, loras, model_selection, passcode, prompt_encoding, response_headers, startup_preferences, storage  # noqa: E402
+from . import api_backup, api_bundles, api_gallery, api_generate, api_jobs, api_masks, api_model_favourites, api_more_seeds, api_png, api_presets, api_prompt, api_prompt_assistant, api_refine_batch, api_rerender, api_runs, api_saved_searches, api_snippets, api_swap, app_context, bundle_common, bundles, card_facts, gallery_lock, gallery_reports, hf_sign_in, hub_access, keep_awake, loras, model_selection, passcode, prompt_encoding, response_headers, startup_preferences, storage  # noqa: E402
 from .backup_service import BackupService  # noqa: E402
 from .api_guide import router as guide_router  # noqa: E402
 from . import api_model_storage, model_cache_delete, model_cache_storage  # noqa: E402
@@ -1595,6 +1595,7 @@ services = app_context.AppServices(
 
 # The routers read the app-owned worker and scope when a request arrives.
 app.include_router(api_prompt.create_router(services))
+app.include_router(api_prompt_assistant.create_router(services))
 app.include_router(guide_router)
 app.include_router(api_model_storage.create_plan_router(
     lambda: _model_delete_context(_saved_start_entry())))

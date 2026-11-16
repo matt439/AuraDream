@@ -1,0 +1,44 @@
+/* Explicit local prompt drafts share one dialog; the composer stays still. */
+.prompt-assistant-dialog {
+  width: min(900px, calc(100vw - 2 * var(--gutter)));
+  height: min(780px, calc(100dvh - 2 * var(--gutter)));
+  max-height: calc(100dvh - 2 * var(--gutter));
+  padding: var(--panel-pad); border: 1px solid var(--line-strong);
+  border-radius: var(--r-lg); background: var(--panel); color: var(--text);
+  box-shadow: var(--shadow-pop); overflow: hidden;
+  container: prompt-assistant / size;
+}
+.prompt-assistant-dialog[open] { display: flex; flex-direction: column; gap: var(--sp-3); }
+.prompt-assistant-dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+.assistant-head { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-3); flex: none; }
+.assistant-head h2 { margin: 0; font-size: var(--fs-lg); }
+.assistant-body { display: flex; flex: 1; flex-direction: column; gap: var(--sp-3); min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.assistant-body > * { flex-shrink: 0; }
+.assistant-body p { margin: 0; overflow-wrap: anywhere; }
+.assistant-body > label, .assistant-compose > label { display: flex; flex-direction: column; gap: var(--sp-1); font-size: var(--fs-label); color: var(--text-2); }
+.assistant-compose { display: flex; flex-direction: column; gap: var(--sp-1); flex: none; }
+.assistant-compose p { margin: 0; }
+#assistant-mode { width: 100%; min-height: var(--h-field); }
+#assistant-instruction { height: calc(2lh + var(--h-field)); min-height: calc(2lh + var(--h-field)); max-height: 8lh; }
+.assistant-cost-line, #assistant-stale { margin: 0; font-size: var(--fs-body-sm); }
+.assistant-cost-line { height: 3lh; flex: none; overflow-y: auto; }
+#assistant-status { margin: 0; height: 3lh; flex: none; overflow-y: auto; font-size: var(--fs-body-sm); white-space: pre-wrap; }
+#assistant-result { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
+#assistant-result[hidden] { display: none; }
+.assistant-draft { padding: var(--sp-3); border: 1px solid var(--line); border-radius: var(--r-md); display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+.assistant-draft h3 { margin: 0; font-size: var(--fs-body-sm); }
+.assistant-draft-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.assistant-draft > button { align-self: flex-start; }
+#assistant-history-wrap > summary { cursor: pointer; min-height: var(--h-sm); font-size: var(--fs-label); color: var(--text-2); }
+#assistant-history { display: flex; flex-direction: column; gap: var(--sp-2); font-size: var(--fs-body-sm); }
+.assistant-tags { display: flex; flex-direction: column; gap: var(--sp-2); }
+.assistant-tag { padding: var(--sp-2); border: 1px solid var(--line); border-radius: var(--r-sm); }
+.assistant-tag > label { display: flex; align-items: center; gap: var(--sp-2); min-height: var(--h-sm); }
+.assistant-tag-verdict { font-size: var(--fs-body-sm); color: var(--text-3); }
+.assistant-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: var(--sp-2); flex: none; }
+#assistant-reset { margin-right: auto; }
+#assistant-ask { min-width: 7em; }
+#assistant-clock { white-space: nowrap; }
+@media (min-width: 1800px) {
+  .prompt-assistant-dialog { width: min(1040px, calc(100vw - 2 * var(--gutter))); }
+}

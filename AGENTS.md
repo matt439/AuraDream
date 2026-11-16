@@ -523,6 +523,7 @@ uses the driver's graceful close/cleanup. See the full Tests rules.
 | 7960 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-phone-gallery` |
 | 7960 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-phone-keyboard` |
 | 7960 | animagine-xl-4.0, its own fresh scratch `--data`, `--step 0.3` | `smoke-detailer` |
+| 7960 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-prompt-assistant` |
 
 FLUX.1-Krea-dev is `black-forest-labs/FLUX.1-Krea-dev`; animagine is
 `cagliostrolab/animagine-xl-4.0`. The ports are full: `--jobs` puts each

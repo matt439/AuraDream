@@ -63,7 +63,7 @@ function fixture() {
   document.createElement=tag=>element(tag); document.createDocumentFragment=()=>element('fragment');
   const poison = name => function () { calls.poisoned.push(name); throw Error('forbidden port: '+name); };
   const sandbox = vm.createContext({ els,document,referenceIds:[],calls,modelState:'ready',busy:false,elsewhereBusy:false,
-    expandingPrompt:false,serverOffline:false,critiquing:false,critiqueOffline:false,promptCritiqueReady:false,
+    expandingPrompt:false,assistantRun:null,serverOffline:false,critiquing:false,critiqueOffline:false,promptCritiqueReady:false,
     promptCritiqueSupported:true,trueCfgSupported:false,negativeSupported:true,cfgThreshold:1,lastDefaults:{guidance_scale:2},
     collect:()=>({ prompt:els.prompt.value.trim(),negative_prompt:els.negative.value,reference:[],guidance_scale:2,seed:42 }),
     modelChangeHold:()=>false,sayModelChangeHold:poison('model hold'),checkpointName:id=>id,

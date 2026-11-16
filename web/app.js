@@ -20,6 +20,7 @@ els.pause.onclick = togglePause;
 els.cancelQueued.onclick = cancelQueued;
 initQueueControls();
 initSnippets();
+initPromptAssistant();
 initSnippetImport();
 initSetups();
 initSetupImport();

@@ -57,6 +57,7 @@ function openTopbarMenu(event) {
     null,
     { label: 'Saved setups…', title: 'Restore, save and manage named setups of the panel', run: () => { void openSetups(); } },
     { label: 'Personal snippets…', title: 'Insert, save and manage your own prompt snippets', run: () => { void openSnippets(); } },
+    { label: 'Write a prompt…', title: 'Create or improve a prompt, or find tags with a local model', run: () => openPromptAssistant() },
     press('Load settings from PNG…', els.pngButton),
     null,
     dangerItem(press('Reset', els.reset)),

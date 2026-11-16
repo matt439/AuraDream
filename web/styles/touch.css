@@ -714,6 +714,21 @@
     min-height: auto; overflow: visible;
   }
 
+  /* The prompt writer keeps its composer in place while answers arrive.
+     Its results scroll above that composer, including above the keyboard. */
+  .prompt-assistant-dialog { overflow: hidden; }
+  .prompt-assistant-dialog > .assistant-body { min-height: 0; overflow-y: auto; }
+  @container prompt-assistant (max-height: 500px) {
+    .assistant-compose > .hint { display: none; }
+    .assistant-cost-line, #assistant-status { height: 1lh; }
+    #assistant-instruction { height: var(--h-field); min-height: var(--h-field); }
+  }
+  @container prompt-assistant (max-height: 260px) {
+    .assistant-body, .assistant-cost-line { display: none; }
+  }
+  :root[data-short-sheet] .prompt-assistant-dialog { overflow-y: auto; }
+  :root[data-short-sheet] .prompt-assistant-dialog > * { flex-shrink: 0; }
+
   /* Inpaint's tools wrap inside the screen: in two rows that never wrapped,
      Only the masked area, its Pad and Show mask lay past the right edge.
      The tools a finger's 44 px; the masked area and its Pad a line of
