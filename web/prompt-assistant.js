@@ -193,8 +193,7 @@ function renderAssistantAnswer(host, body, interactive) {
     }
     article.append(head, prompt);
     if (draft.notes?.length) {
-      const notes = document.createElement('details'); notes.className = 'assistant-draft-notes';
-      const summary = document.createElement('summary'); summary.textContent = 'Notes'; notes.append(summary);
+      const notes = document.createElement('div'); notes.className = 'assistant-draft-notes';
       for (const words of draft.notes) {
         const note = document.createElement('p'); note.className = 'hint'; note.textContent = words; notes.append(note);
       }

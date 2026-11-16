@@ -98,7 +98,7 @@
     padding-bottom: max(var(--sp-4), var(--safe-b));
   }
   .assistant-head button, .assistant-tools select, .assistant-about > summary,
-  .assistant-actions button, .assistant-draft-head button, .assistant-draft-notes > summary,
+  .assistant-actions button, .assistant-draft-head button,
   .assistant-response-note > summary { min-height: var(--h-md); }
   .assistant-head button { min-width: var(--h-md); }
 

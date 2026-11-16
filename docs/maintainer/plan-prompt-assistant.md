@@ -329,3 +329,18 @@ screenshots in `smoke-prompt-assistant-m5u045lz/`),
 `auradream-smoke-artifacts-u_u1_z56/summary.json` (sizing and phone Create), and
 `auradream-smoke-artifacts-rqv_wtv_/summary.json` (analysis/phone dialogs).
 GPU testing remains held.
+
+## Inline draft notes (2026-11-17)
+
+Matt preferred removing the per-draft Notes disclosure because its row used
+space that the notes themselves could occupy. Draft notes now appear directly
+below the prompt as secondary text, without a Notes heading or disclosure.
+Their content is unchanged; consecutive notes have a compact 4 px gap.
+
+The final assistant smoke passed all 231 steps, including six visible inline
+notes across the three cards, fully inside the conversation at 1920 and 2048 px.
+The previous reply-note, About, contrast and interaction checks remain. The
+three-draft and phone screenshots were inspected. Eight documentation-map
+checks and the classic-script guard passed. Receipt under the system temporary
+directory: `auradream-smoke-artifacts-noxva0y5/summary.json`, screenshots in
+`smoke-prompt-assistant-72rqm4ol/`. No inference was run.

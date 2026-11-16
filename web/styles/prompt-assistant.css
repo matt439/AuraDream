@@ -35,8 +35,7 @@
 .assistant-draft h3 { min-width: 0; margin: 0; font-size: var(--fs-body-sm); overflow-wrap: anywhere; }
 .assistant-draft-notes, .assistant-draft .hint { color: var(--text-2); }
 .assistant-draft-notes { font-size: var(--fs-label); }
-.assistant-draft-notes > summary { cursor: pointer; min-height: var(--h-sm); }
-.assistant-draft-notes p { margin-top: var(--sp-1); }
+.assistant-draft-notes p + p { margin-top: var(--sp-1); }
 .assistant-response-note { font-size: var(--fs-label); color: var(--text-3); }
 .assistant-response-note > summary { cursor: pointer; min-height: var(--h-sm); }
 .assistant-response-note .assistant-message { margin-top: var(--sp-2); color: var(--text-2); }

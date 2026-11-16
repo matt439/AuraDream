@@ -11782,8 +11782,9 @@ replies scroll above it; incoming drafts and progress text cannot move the
 writing controls. The wider chat pane is 600 px on ordinary desktop windows and
 680-900 px in the wide tier. Task selection shares its header where it fits;
 the message box and Send/Stop share one compact composer. Drafts put Use beside
-their title and keep explanations in Notes disclosures, so three short drafts
-fit together on a wide desktop. Repeated setup/privacy copy lives in About the
+their title and show explanations directly below the prompt as compact secondary
+text, so no Notes disclosure row consumes space. Three short drafts fit together
+on a wide desktop. Repeated setup/privacy copy lives in About the
 local assistant at the bottom, opening upward without moving the composer.
 Prompt/help stay above the writing tools. Reset is the last button on the same
 toolbar row as Examples, Assistant, Tags and Check, aligned at its right edge.

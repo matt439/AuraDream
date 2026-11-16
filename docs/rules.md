@@ -3918,7 +3918,8 @@ measured on the card and when.
   The pane is 600 px below the wide tier, 680-900 px within it, capped to the
   viewport. Task selection shares the header when it fits; the message and
   Send/Stop share one compact composer. Draft titles and Use share a row;
-  optional Notes are native disclosures. About sits below the message frame
+  draft notes are plain secondary text below the prompt, without a disclosure
+  or a separate Notes label. About sits below the message frame
   and opens upward over the conversation without moving writing controls.
   Long status text remains focusable/scrollable with its full text as a title.
   The model's JSON schema and question reserve `message` for brief optional

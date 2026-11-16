@@ -577,7 +577,7 @@ and Ctrl+Z restores the editor. The sidebar stays open, so you can keep refining
 the applied prompt. Earlier drafts remain in the chat. An external edit, Undo,
 or a changed checkpoint holds application so an old answer cannot replace new
 work. Ctrl/Cmd+Enter in the sidebar sends; Escape there closes it.
-Draft explanations are under **Notes**. **About the local assistant** at the
+Draft explanations appear directly below each prompt. **About the local assistant** at the
 bottom explains context, downloads and tag verification without moving the
 message box when opened.
 If the model repeats its drafts in its reply, that extra prose is tucked into
