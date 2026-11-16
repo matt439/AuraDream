@@ -1290,9 +1290,10 @@ Expand, never automatic. The bump came alone, first:
   `POST /api/instruction-edit` and edit More seeds refused with "diffusers
   0.42.1 (only 0.40.0 was) is not measured" until a card run re-measured
   Kontext on 0.42.1 (done 2026-11-10, below: the envelope is now 0.42.1);
-  and `execution.py`'s regional and attention/cache candidates
-  (`_CANDIDATE_DIFFUSERS`), which were read against 0.40's hooks and stay
-  held there, not re-measured. Nonempty recipes stay unavailable either way.
+  and `execution.py`'s regional and attention/cache candidates, initially
+  kept on their 0.40 source matrix. The 2026-11-16 CPU audit below admits
+  exact 0.42.1 to private attention/FBC experiments; regional compilation stays
+  on 0.40. Nonempty public recipes remain unavailable.
 - `encoder_table`'s copied prompt strings did not change in 0.42.1
   (`tests/test_prompt_encoding.py` passes against it).
 - 0.42.1's `download`/`from_pretrained` first resolve the revision on the Hub
@@ -1323,8 +1324,23 @@ version. Kontext inside the envelope (fp8, model offload, Eager, 1:1 at
 and the same memory and step time, so `QUALIFIED_ENVELOPE.diffusers_version`
 is now "0.42.1" and Kontext edits open again on the installed diffusers; any
 other version, 0.40.0 included, is refused in the same words. The execution
-candidates were not re-measured and stay held on 0.40. Numbers in
+candidates were not re-measured by that session. Numbers in
 `docs/verified.md` (diffusers 0.42.1 against 0.40.0, measured 2026-11-10).
+
+**Private attention source compatibility (2026-11-16).** The installed
+0.42.1 FLUX processor, setter and forced-cuDNN dispatch paths passed a tiny
+CPU ownership probe with SDPA replaced by a recording stand-in. The check
+exercises joint/single processors, cuDNN-only flags, exception restoration
+and return to Native while forbidding CUDA initialization, compilation and
+network access. The private attention candidate accepts this exact release;
+this is no kernel, speed, fit or repeatability qualification. A separate
+production-owner probe over tiny real FLUX blocks and installed FBC hooks
+checks reuse, context separation and cleanup through the same SDPA stand-in;
+it also admits private FBC preparation on exact 0.42.1, without a full
+transformer, checkpoint pipeline or kernel. Regional compilation retains its
+separate 0.40 matrix. The remaining card protocols belong to the
+[attention](maintainer/plan-attention-backends.md) and
+[step-caching](maintainer/plan-step-caching.md) plans.
 
 **lite-infer renamed its repositories (seen 2026-11-09).** The re-uploads
 the catalogue names (`launch._LITE`,

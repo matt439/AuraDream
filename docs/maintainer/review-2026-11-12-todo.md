@@ -458,7 +458,8 @@ downloaded. Plans with their own owners record their results there:
   values. Only a press on the summary remembers the state. A refused
   number or Set CFG reveals the box. Shut, the fold puts Generate about
   62 px higher at 1400x900. smoke-sampling-fold is new.
-- **`GEN#6`** (CPU half built; card glance left). `tools/fit_latent_preview.py`
+- **`GEN#6`** (CPU build and card capture complete; Matt's glance left).
+  `tools/fit_latent_preview.py`
   keeps the fitting recipe. On the same held-out images, the FLUX.1
   refit's R² of 0.966 reproduces the card fit's 0.964. SDXL's map, fitted
   from Animagine's VAE, has an R² of 0.909 (0.905 on Kohaku's and
@@ -466,6 +467,8 @@ downloaded. Plans with their own owners record their results there:
   the flow form, so the threshold and blur stay one rule. The first frame
   is noisy (σ 8.85), so if the card glance finds it ugly, lowering the
   threshold for non-flow schedulers is a one-line follow-up.
+  The [2026-11-17 capture](#gen6-card-capture-2026-11-17) retains original
+  early/late JPEGs and the final PNG for that decision; it changes no threshold.
 - **`DEV#20`** (done). The guard reads `nvidia-smi --loop-ms` as one stream
   and the shared counters as one held PDH query. PDH was chosen over
   `typeperf -si`, which never sees an instance created after it starts. A
@@ -546,6 +549,66 @@ downloaded. Plans with their own owners record their results there:
   and Preview are in `backend/backends/anima_refine.py`, with CPU tests.
   Nothing is wired in, and every Anima profile still refuses Refine. Next
   is the plan's stage 2, a card qualification.
+
+## GEN#6 card capture (2026-11-17)
+
+The authorized overnight session captured one real Animagine XL 4.0 render
+on Windows/RTX 5080: fp8, model offload, Eager/Native, 1024x1024, 28 steps,
+CFG 5 and seed 12345. A synthetic blue-coat/red-scarf snowy-park prompt
+made colour and composition easy to compare. The server loaded once from
+the existing cache, with downloads and preload off, using a new scratch
+gallery. No real gallery or application source changed for the capture.
+The [measurement receipt](gen6-preview-2026-11-17.json) retains the exact
+recipe, dependencies, source/driver hashes and guard evidence.
+
+The ordinary backend preview callback produced **14 original 256x256 JPEGs**,
+at steps 1, 3, 5, ..., 27. A client received every frame over the real job's
+SSE endpoint; original JPEG bytes and decoded RGB hashes match the callback
+copies in every case. The first frame's Euler sigma was 8.848301, translated
+by the existing non-flow rule to 0.898460, just below the unchanged 0.9
+threshold. No frame was expected at terminal step 28. The completed
+1024-square PNG's allocator pair (3,350,174,208 / 3,724,541,952 bytes,
+3.12/3.47 GiB) agrees with the independent process observation, backend,
+captured job/API records, SQL and PNG metadata. Its full RGB SHA-256 is
+`75c4bdde2a02802a0a697571473169d5db4cbe0b1beee34216827248430e8ba4`.
+
+These retained artifacts are byte-identical copies of the originals, with
+no resizing, recompression or other image transformation:
+
+| Artifact | Dimensions | Purpose |
+| --- | --- | --- |
+| [Step 1](gen6-preview-2026-11-17/step-01.jpg) | 256x256 | First emitted frame, still noisy |
+| [Step 15](gen6-preview-2026-11-17/step-15.jpg) | 256x256 | Scene emerging |
+| [Step 27](gen6-preview-2026-11-17/step-27.jpg) | 256x256 | Last preview |
+| [Final PNG](gen6-preview-2026-11-17/final.png) | 1024x1024 | Completed image for comparison |
+
+**Agent observation, not Matt's acceptance:** the supervising agent looked
+at those three frames and the final image. Step 1 is noise; by step 15 the
+scene emerges. The late preview keeps the final's blue coat, red scarf,
+warm sunlight from the left, cool blue snow and person/tree composition.
+Fine detail is not expected from a 256-pixel preview. Matt has not judged
+whether the noisy first frame is acceptable, and this transport capture
+does not accept the real browser presentation. Those hands-on questions
+remain; no threshold or map was changed on the agent's visual judgment.
+
+Load was 15.89 s and the job 26.15 s wall time (25.917 s saved duration).
+These describe one first-use render, not speed qualification: the full CPU
+suite began near capture end on the same PC. The guard's unchanged live
+limits were 15,500 MiB card, +512 MiB process shared, +1,024 MiB adapter
+shared and 4 GiB free-RAM/commit floors; explicit admission required 16 GiB
+free RAM, 16 GiB commit headroom and at most 2,000 MiB busy card.
+
+Starting at 1,442 MiB whole-card, 40.42 GiB free RAM and 47.80 GiB commit
+headroom, it measured 5,386 MiB whole-card at most, shared rises of 82.0 MiB
+process / 118.6 MiB adapter, and at least 29.75 GiB free RAM / 34.14 GiB
+commit headroom. Load peaked at 10.16 GiB server-tree RSS and 12.09 GiB
+private. The held-PDH/`nvidia-smi --loop-ms` sampler recorded 186 samples,
+mean spacing 0.249826 s and longest gap 0.277368 s; nothing tripped.
+Both source manifests (191 files) agree. The successful unload's four
+samples were 1,819-1,831 MiB whole-card; owned cleanup recorded server PID
+39356 exited with status 15 and no guard error. Full raw evidence and all
+14 frame pairs remain under `work/gen6-sdxl-preview-20261117/`; the receipt
+hashes those files and the four repository artifacts above.
 
 ## Not added
 

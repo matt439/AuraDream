@@ -884,6 +884,40 @@ v2.0-STABLE LoRA behavior and batch scaling are also unmeasured; its fp8 peak
 is the October 5 row, and its int8, full-bfloat16 and sequential-offload
 runs, each repeating its own pixels, are in "Quantization and offload".
 
+### SDXL live-preview capture (2026-11-17)
+
+One real Animagine XL 4.0 fp8/model-offload render on Windows/RTX 5080,
+1024 square, 28 steps, CFG 5 and seed 12345 produced fourteen 256-square
+JPEG previews at steps 1, 3, ... 27. The ordinary backend callback and real
+job SSE stream delivered byte-identical frames; their JPEG and decoded RGB
+hashes were rechecked. This captured the actual non-flow scheduler path
+(`EulerDiscreteScheduler`) and the fitted SDXL VAE map, without changing it.
+
+The [first frame](maintainer/gen6-preview-2026-11-17/step-01.jpg) is noise.
+The [middle](maintainer/gen6-preview-2026-11-17/step-15.jpg) and
+[late](maintainer/gen6-preview-2026-11-17/step-27.jpg) frames progressively
+show the person, blue coat/red scarf, warm light at left and cool snowy
+forest in the [final image](maintainer/gen6-preview-2026-11-17/final.png).
+That is the root agent's visual observation; Matt's preference for showing
+the noisy first frame and a real-page glance remain unaccepted (`GEN#6`).
+Callback/SSE capture is not a browser-layout acceptance check.
+
+One load took 15.891 s; the saved render took 25.917 s. The first frame
+arrived 17.816 s into the call. These are descriptive timings with other
+CPU work on the machine, not a speed comparison. Peak allocator values
+were 3,350,174,208 / 3,724,541,952 bytes (3.12/3.47 GiB), matching backend,
+job/API, SQL and PNG; whole-card peak was 5,386 MiB. Shared rises were
+82 MiB process / 118.6 MiB adapter. Load peaked at 10.16 GiB working set /
+12.09 GiB private; free-RAM/commit minima stayed at 29.75/34.14 GiB.
+The unchanged live guards passed all 186 samples (0.249826 s mean interval,
+0.277368 s longest). Unload and owned process cleanup completed.
+
+The [receipt](maintainer/gen6-preview-2026-11-17.json) retains exact hashes,
+guard windows, source manifests and provenance. The
+[owner review](maintainer/review-2026-11-12-todo.md#gen6-card-capture-2026-11-17)
+records what remains for Matt. Raw evidence stays in
+`work/gen6-sdxl-preview-20261117/`.
+
 ## Refine pass
 
 Measured 2026-10-03 on the RTX 5080, Windows, fp8, model offload, against
@@ -1234,6 +1268,84 @@ RAM guard during its load (Checkpoints, "RAM at the load"); the stops'
 behaviour on a real spill or RAM trip in this harness (nothing came near).
 Evidence: `sdxl-wai/run-card/` in the cards directory (`summary.json`,
 `results.jsonl`, `samples.jsonl`, `server.log`, `images/`).
+
+### Anima Turbo private Refine (2026-11-16)
+
+The fixed private Turbo v1.1 trial completed on Windows/RTX 5080, fp8/model
+offload, Eager/Native, diffusers 0.42.1, torch 2.13.0+cu130 and torchao
+0.18.0. One cached load, immutable 1024-square source and output, eight full
+steps, CFG 1, no Mu/LoRA/reference, seeds 4471/4472. The
+[receipt](maintainer/anima-refine-turbo-2026-11-16.json) retains exact source,
+output and metadata proofs, guard samples, runtime/source hashes and agent
+visual notes. Public Refine remains held pending stage 3 integration.
+
+| Strength | Actual steps / start sigma | Time | Allocated / reserved peak | Whole-card peak |
+| --- | --- | --- | --- | --- |
+| 0.125 | 1 / 0.300000012 | 2.733 s | 2470.98 / 2640 MiB | 4394 MiB |
+| 0.25 | 2 / 0.5 | 3.088 s | 2471.48 / 2640 MiB | 4395 MiB |
+| 0.4 | 4 / 0.75 | 3.928-4.712 s, including repeat/recovery | 2471.48 / 2640 MiB | 4394-4398 MiB |
+
+Same-seed repeats, serial batch members versus their solo seeds and recovery
+after cancellation have equal full RGB hashes. Cancel stopped after one
+completed callback without a decoded output; the direct baseline after the
+passes/cancel reproduces the first baseline. All ten image/metadata hashes
+were independently rechecked. The first four cases also match the retained
+earlier process's completed cases.
+
+Load took 4.389 s, peaking at 7.768 GiB sampled process RAM. Session free-RAM
+and commit minima were 35.413/38.765 GiB; process/adapter shared rises were
+82/84.109 MiB. All 296 guard verdicts were `ok`, with 0.25 s requested spacing
+and a 0.294277 s maximum gap. Cleanup retained 32 MiB allocated/reserved
+before exit; after exit whole-card usage was 1448 MiB versus 1445 at admission.
+The owned Windows power request was acquired and released.
+
+Agent visual review retained the woman, blue coat, red bicycle and park.
+Strength 0.25 is a provisional conservative opening candidate for this recipe;
+0.4 redraws more face/background/shoe detail. Broken fine anatomy and unwanted
+generated caption text remain. Matt has not reviewed these images himself.
+No larger size, other aspect, checkpoint variant, loader or platform is
+qualified. The first attempt stopped on a Windows IPC publication race after
+four cases; its evidence is unchanged. Immutable handoffs and a real Windows
+locked-reader regression preceded the successful fresh one-load trial. The
+[Anima plan](maintainer/plan-anima-refine.md#turbo-one-load-result-2026-11-16)
+owns the remaining public integration and acceptance work.
+
+### Peak per image, FLUX.1 Krea dev; guarded Refine stop (2026-11-16)
+
+The authorized overnight session completed `GEN#15`'s remaining Windows
+fp8/model-offload text-to-image check through the real server and a scratch
+gallery. Driver 616.92, torch 2.13.0+cu130, torchao 0.18.0, diffusers 0.42.1,
+Eager/Native, offline cached weights; one load. Five 1024-square, 28-step,
+CFG-3.5 images each recorded **12,880,261,120 allocated / 13,555,990,528
+reserved bytes** (12.00/12.63 GiB). Independent process allocator readings,
+backend, saved job/API records, SQL and PNG metadata agree exactly. Seed
+12345 repeats full RGB pixels and the 2026-10-27 fixed-loader baseline.
+The inspected baseline is a coherent fox in a snowy forest at dawn.
+
+Load took 49.76 s and peaked at 28.39 GiB working set / 35.33 GiB private.
+The first render took 64.786 s (44.681 s repeat); direct whole-card peaks
+were 14,632-14,689 MiB. Shared rises stayed at or below 82 MiB process /
+84.6 MiB adapter. The first render's private peak was 45.44 GiB, with only
+4.03 GiB sampled commit headroom: a narrow margin above the unchanged
+4 GiB floor. Later sessions must budget for the render as well as the load.
+
+`GEN#16` remains unqualified. Its first 1536-square Refine (1.5x, strength
+0.1) reached **15,632 MiB whole-card** before a completed denoising step;
+the unchanged 15,500 MiB guard killed the owned server tree. No pass was
+saved, no alternation/timing comparison completed and no limit was relaxed.
+The sampled shared rises did not trip; this is a card-limit stop, not proof
+of a completed spilled render. The owned port closed and the card returned
+to 1,441 MiB. The 1,210 guard samples averaged 0.249965 s apart (longest
+0.309916 s), with held PDH counters and an independent watchdog.
+
+The [compact receipt](maintainer/flux-memory-2026-11-16.json) retains exact
+image/metadata hashes, source identifiers, guard windows and the failed
+attempt. Full API/SQL/PNG/allocator/guard evidence remains under
+`work/flux-gen15-gen16-20261116/`. The dirty source diff and manifest identify
+the actual runtime; this was not an unmodified main checkout. The
+[peak plan](maintainer/plan-peak-vram.md#phase-3-result-2026-11-16) and
+[Then refine plan](maintainer/plan-then-refine.md#guarded-flux-attempt-2026-11-16)
+own the detailed result and remaining work.
 
 ## Inpaint
 

@@ -1150,6 +1150,12 @@ paragraphs, never rewording.
   `anima_refine_pack.py` prints the offline Turbo Refine protocol and a blank
   receipt, and checks recorded receipt completeness without starting a session
   or granting qualification (`tests/test_anima_refine_pack.py`; Anima Refine plan);
+  `anima_refine_card.py` runs that private, explicitly invoked Windows Turbo
+  experiment in a waiting child, admitted and watched by `card_guard` before
+  loading cached weights. It retains raw counters, bounded phase receipts and
+  image hashes; missing counters or a safety/time limit stop the child tree.
+  Image review and public Refine qualification remain separate
+  (`tests/test_anima_refine_card.py`; Anima Refine plan);
   `prompt_assistant_pack.py` prints the local writing assistant's fixed future
   GPU cases and blank receipt and checks recorded completeness, with no backend
   import, network, process, API or card action (`PA#18`;
@@ -2439,12 +2445,16 @@ measured on the card and when.
   changing the environment. FBC additionally refuses true CFG and an existing
   cache. A matching candidate grants no runtime availability or loaded-API,
   processor, shape, kernel or device qualification.
-- The regional and attention/cache candidates were read against diffusers
-  0.40 and stay keyed to it (`execution._CANDIDATE_DIFFUSERS`) while the app
-  installs 0.42, whose hooks API changed (`StateManager.set_context` takes a
-  `CacheContext`; `enable_cache`/`disable_cache` invalidate child-registry
-  caches). Every 0.42 install answers "checked only on diffusers 0.40".
-  Moving them is its own qualification, with the fixtures that pass 0.40.0.
+- Regional candidates retain their diffusers 0.40 source matrix
+  (`execution._CANDIDATE_DIFFUSERS`). Private attention/FBC candidates also
+  accept exact 0.42.1 after separate processor/owner/hook CPU audits;
+  `tests/test_attention_runtime.py` exercises real tiny FLUX processors through
+  a recording SDPA stand-in and checks forced-cuDNN scope and restoration.
+  It runs no attention kernel or CUDA work. This does not qualify another
+  patch release, regional compilation or public nonempty admission.
+  The hook APIs changed in 0.42 (`StateManager.set_context` takes a
+  `CacheContext`; cache enable/disable invalidates child-registry caches),
+  so their source and card qualification remain independent.
 - Private FBC ownership validates exact eager FLUX block identities, order,
   counts and output metadata. One retained owner covers the shared denoiser;
   each call installs fresh fixed-threshold hooks, resets state/context before
@@ -11421,6 +11431,11 @@ node tools/browser.mjs tools/smoke-analysis-tags.json
 
 ### Image pass tests
 
+`tests/test_anima_refine_card.py` checks the private runner's admission,
+counter coverage, fixed phase limits, partial receipts and worker cleanup with
+CPU stand-ins. These checks load no weights and establish no GPU fit, image
+quality or public Refine support.
+
 The refine pass is covered the same way: `tests/test_refine.py` (each
 profile's `refine_supported` and each sibling's call held to the installed
 diffusers, Anima's and NewBie's answer final before a load
@@ -12871,6 +12886,10 @@ shared ownership, later replacements and idempotent restoration with stubs.
 It also executes source-extracted installed public context/setter bodies.
 Its focused run uses `--noconftest`, with no actual Diffusers import, tensor,
 forward or device probe; real runtime/card qualification remains separate.
+`tests/test_attention_runtime.py` checks tiny real installed FLUX processors
+through a recording SDPA stand-in, forced-cuDNN flags and Native restoration,
+with network, compiler and CUDA initialization forbidden. This is source
+compatibility for private 0.42.1 preparation, not kernel/card qualification.
 `tests/test_attention_environment.py` retains the cold warning/source checks:
 exact startup snapshots, fixed redaction, CLI logging, unchanged selection and
 status reads that do not reread environment or import a framework.
@@ -12911,6 +12930,11 @@ is modeled as absent; a discoverable poison package verifies that boundary.
 Compiler, device and network counters stay zero across imports and all arithmetic,
 context, freshness, cancellation and cleanup cases. This is no real-model or card
 qualification.
+`tests/test_fbc_flux_runtime.py` adds the production FBC owner and registry
+bootstrap over tiny real installed joint/single FLUX blocks. A recording SDPA
+stand-in checks reuse, context separation, fresh calls and cancellation cleanup,
+with CUDA, compiler and network forbidden. It runs no full transformer,
+checkpoint pipeline or attention kernel and grants no card qualification.
 
 ### Instruction edit tests and smoke
 

@@ -1,10 +1,12 @@
 # Anima Refine
 
-**Status: stages 0 and 1 done (2026-11-11, 2026-11-12); card qualification
-(stage 2) and release (stage 3) remain.** The public Refine is still held.
+**Status: stages 0 and 1 done (2026-11-11, 2026-11-12); stage 2's Turbo
+experiment measured and agent-reviewed at 1024 square on Windows fp8/model
+(2026-11-16). Aesthetic/Preview card qualification and public release
+(stage 3) remain.** The public Refine is still held.
 Matt selected Anima as the first family for `GEN#48` on 2026-11-11.
 This closes the family choice in the [peer review](review-2026-11-10-peers.md#r1-refine-on-the-families-that-have-none).
-It does not qualify a Refine pass or authorize a GPU run. No capability,
+That family choice alone did not qualify a Refine pass or authorize a GPU run. No capability,
 profile, loader or generation code changed in stage 0.
 
 The pass starts from a gallery image, fits it to the requested size through
@@ -357,3 +359,210 @@ the final focused 231-test run includes those cases and the final checker.
 Tests used `CUDA_VISIBLE_DEVICES=''`; no weights, live gallery or GPU run.
 Nothing in this pack is evidence of real VAE/denoiser quality, GPU fit or
 speed.
+
+### Private runner, 2026-11-16
+
+`tools/anima_refine_card.py` runs this fixed Turbo sequence only in a separately
+authorized quiet Windows RTX 5080 session. It never registers public Refine,
+loads another checkpoint, opens a server or reads the production gallery.
+The required RAM admission is a conservative session budget: the historical
+Turbo record does not give a measured host-RAM peak. For the overnight attempt
+the budget is 40 GiB free before the load and a 2,000 MiB idle-card ceiling;
+the ordinary 4 GiB free-RAM/commit floors and device/shared limits stay intact.
+
+```powershell
+uv run --no-sync python tools/anima_refine_card.py --output work/anima-refine-2026-11-16 --need-ram-gib 40 --busy-card-mib 2000
+```
+
+The evidence directory must be new. A waiting child joins a kill-on-close job
+before admission; only a successful mandatory-counter sample lets it import
+the backend and load. The parent uses the existing guard sampler and decisions,
+requires held PDH counters rather than the slower typeperf fallback, retains
+every quarter-second raw sample and enforces the fixed phase/session caps.
+An independent watchdog kills the child on those caps or a sampler heartbeat
+gap over two seconds. CUDA visibility/order overrides are refused so CUDA 0
+cannot silently differ from the guarded physical GPU 0.
+
+The child forces offline Hub/Transformers operation, a scratch gallery and the
+frozen loader choices; a missing converted Turbo tree refuses before any load,
+conversion or download. Its `keep_awake.hold_while` scope requires an actual
+Windows system power request before importing/loading weights, covers all
+load/cases/unload work and releases in `finally` before reporting a failed
+worker to the parent. `keep-awake.json` retains actual acquired/held/released
+state and failures; a forced process exit closes Windows' handle. This uses
+the CLI primitive and never reads the app's event-loop providers.
+It records actual callback counts/sigmas, load/pass
+allocator measurements, full RGB/PNG/metadata hashes and supporting source
+hashes. Each phase is durably acknowledged before the next begins. Failure
+retains the incomplete receipt and final after-exit device/host reading; no
+later case follows a trip. The sibling's loaded owner frees model hooks after
+each call, including cancellation, and sibling references go before unload.
+
+The optional 1280-square tail is omitted by default. Even with
+`--include-upscale`, a single measured area cannot supply a projection slope:
+the runner records a skip and proceeds to cleanup. A later enlargement needs
+its own defensible measured headroom/projection evidence. No guessed slope
+qualifies a larger size.
+
+`receipt.json` keeps visual reviews null until the actual retained images are
+inspected. `anima_refine_pack.py check` should therefore refuse an otherwise
+successful unreviewed run. Exit zero means the supervised sequence completed;
+it neither authenticates pictures nor chooses a strength or enables release.
+
+#### First attempt stopped at Windows IPC, 2026-11-16
+
+The authorized overnight attempt in `work/anima-refine-2026-11-16/` retained
+one Turbo load, the direct baseline and three same-size strength passes. The
+parent then stopped the child because replacing the polled `ack.json` failed
+with Windows error 5. This was a runner publication defect, not a card-limit
+trip. The original incomplete receipt, source/images, raw samples and hashes
+remain untouched. Repeat, batch/solo, cancellation/recovery, direct-after and
+ordinary unload were not reached; visual reviews remain unset. These partial
+observations do not qualify Anima Refine or establish an opening strength.
+
+| Case | Completed steps / start sigma | Seconds | Allocated / reserved peak MiB | Whole-card peak MiB |
+|---|---|---|---|---|
+| Direct baseline, 1024 square | 8 / not applicable | 19.670 | 2223.37 / 2392 | 4145 |
+| Strength 0.125 | 1 / 0.300000012 | 3.943 | 2470.98 / 2640 | 4393 |
+| Strength 0.25 | 2 / 0.5 | 3.063 | 2471.48 / 2640 | 4396 |
+| Strength 0.4 | 4 / 0.75 | 3.798 | 2471.48 / 2640 | 4391 |
+
+The cached load took 6.406 seconds and sampled 7.984 GiB maximum process
+RAM, with 35.896 GiB free RAM and 41.628 GiB commit headroom at its minima.
+Across those completed image cases the shared-process rise was 82 MiB and
+the adapter rise at most 84.715 MiB. The guard retained 185 samples with a
+maximum achieved interval of 0.250649 seconds and no limit trip. After the
+supervisor killed the child, its separate after-exit reading was 1,445 MiB
+whole-card, 43.372 GiB free RAM and 51.436 GiB commit headroom. The worker's
+power receipt retains its last acquired/held state, because the forced exit
+could not write a normal release receipt; Windows closes its process handle.
+
+The repair publishes immutable sequence-specific request/result/failure files
+and sequence/action-specific acknowledgement files. A poller never opens a
+target that a later handoff must replace. Mutable evidence receipts retry
+only Windows access/sharing errors 5, 32 and 33, at most eight attempts and
+0.28 seconds of delay; a persistent or unrelated failure still stops the
+attempt. A real CPU-only Windows subprocess regression holds all thirteen
+begin acknowledgements open without delete sharing, proves replacement is
+refused, and completes the actual parent/child handshakes. It imports no
+backend or torch and takes no power request or GPU counter reading. The
+repaired runner needs a new evidence directory for a fresh one-load attempt;
+it never resumes or rewrites the failed session into a successful one.
+
+#### Turbo one-load result, 2026-11-16
+
+The repaired runner completed a new one-load session in
+`work/anima-refine-2026-11-16-ipc-fix/`, exit 0. Its compact committed
+[measurement receipt](anima-refine-turbo-2026-11-16.json) retains the exact
+recipe, source and output proofs, guard/load/case/final measurements,
+agent visual review and limits. The original failed session above remains
+unchanged. No public resolver, profile or generation flow was opened by this
+experiment; stage 3 remains separate.
+
+**Measured envelope only:** official Turbo v1.1
+(`circlestone-labs/Anima`, revision
+`f973fc41ec7545364ac9776c2440285f43ff2a30`), the pinned shared component tree,
+Windows 11 build 26300, RTX 5080 16 GB, driver 616.92, torch 2.13.0+cu130,
+diffusers 0.42.1 and torchao 0.18.0; fp8, model offload, Eager/native,
+FlowMatch Euler shift 3, one image per CPU-generator call. Every image was
+1024x1024 RGB, eight full steps, CFG 1, no Mu, LoRA or reference, the frozen
+synthetic prompt and seeds 4471/4472. Negative was empty and unused at CFG 1.
+1280 was skipped. There is no measured larger size, other aspect, Aesthetic,
+Preview, WSL, 3070 or alternative-loader Refine result here.
+
+| Case | Completed steps / start sigma | Seconds | Allocated / reserved peak MiB | Whole-card peak MiB |
+|---|---|---|---|---|
+| Direct baseline | 8 / not applicable | 14.168 | 2223.37 / 2392 | 4146 |
+| Strength 0.125 | 1 / 0.300000012 | 2.733 | 2470.98 / 2640 | 4394 |
+| Strength 0.25 | 2 / 0.5 | 3.088 | 2471.48 / 2640 | 4395 |
+| Strength 0.4 and same-seed repeats/recovery | 4 / 0.75 | 3.928-4.712 | 2471.48 / 2640 | 4394-4398 |
+| Batch second / solo second, seed 4472 | 4 / 0.75 | 4.301 / 4.235 | 2471.48 / 2640 | 4393 / 4392 |
+| Cancel after first completed step | 1 / 0.75 | 3.410 | 2470.98 / 2640 | 4394 |
+| Direct again after passes/cancel | 8 / not applicable | 5.584 | 2223.37 / 2392 | 4147 |
+
+The direct baseline's full RGB hash is the direct-after hash. Strength 0.4,
+its repeat, the batch's first image and post-cancel recovery have one full
+RGB hash; batch second and solo seed 4472 have another. Every Refine and
+cancel case proves the unchanged original baseline RGB as its source.
+The cancel unwound at callback one with no decoded PNG or metadata output.
+All ten PNG, decoded RGB and exact metadata-byte hashes were recomputed;
+there are five unique RGB outputs. The raw direct-after record also carries
+the baseline hash as available runner context even though its request source
+is null and the text pipeline receives no image; that annotation is retained
+and explained, not rewritten into an image-to-image request.
+
+The cached load took 4.389 seconds and sampled 7.768 GiB maximum process RAM.
+Session minima were 35.413 GiB free RAM and 38.765 GiB commit headroom;
+shared-process and adapter rises peaked at 82 and 84.109 MiB. All required
+counters were present, all 296 sampled verdicts were `ok`, the requested
+period was 0.25 seconds and the largest achieved interval was 0.294277 seconds.
+The stated 40 GiB load admission and 2,000 MiB idle-card ceiling were kept,
+along with the ordinary 4 GiB RAM/commit floors and card/shared limits.
+Normal cleanup recorded 32 MiB allocated and reserved before child exit,
+not zero; after exit the whole card read 1,448 MiB against 1,445 at preflight.
+The Windows power request was acquired and released with no holder error.
+
+**Agent visual judgement:** the root agent inspected all five unique outputs
+at 1024 display size; duplicates inherit findings only after full RGB equality.
+The woman, blue coat, red bicycle and leafy park stay identifiable, with the
+first seed's composition retained and no observed composite seam. The baseline
+already has broken fine spokes/fingers and unwanted caption or watermark-like
+generated text. Strength 0.125 mostly preserves those pixels with little clear
+benefit. Strength 0.25 cleans some wheel/outline work with small line changes
+while retaining face, pose and objects; anatomy and caption defects remain.
+Strength 0.4 is sharper and more saturated but redraws more face/background/foot
+detail and drifts the unwanted caption; the second seed also changes buttons,
+shoes and hand detail without identity replacement. The provisional opening
+candidate is **0.25 for the exact measured recipe**, an observation on this
+synthetic source, not an author recommendation or quality guarantee. Matt has
+not performed this visual review himself.
+
+The successful raw `receipt.json` received only those visual-review strings.
+Its byte-identical `receipt-unreviewed.json` and full pre-review SHA-256 remain
+beside it; `visual-review.json` records who/when, viewed unique files, hash
+links and notes. `anima_refine_pack.py check` then returned `receipt_complete:
+true`, no problems, exit 0; that completeness check does not enable support.
+Before the retry, 60 runner CPU tests passed, including thirteen real Windows
+locked-reader handoffs; the runner/pack/doc-map/section set passed 178 tests,
+Ruff passed and pinned Pyright checked 215 sources with zero errors.
+
+**Next:** stage 3 may release only deliberately bounded Turbo support from
+this evidence, with the ordinary source/reproduction paths and the listed
+automated/browser checks. Aesthetic and Preview stay held until their own
+one-load sessions. No enlargement recommendation follows from the skipped
+1280 case. `GEN#48` remains open until its measured public release is complete.
+
+#### Integrated CPU gate, 2026-11-17
+
+After the full-suite Windows reader failure, the bounded read retry and
+deterministic locked-reader/CRT regression passed all 72 runner tests.
+The complete Windows CPU suite then passed **10,431 tests, 325 skipped**,
+85 warnings, exit 0 in 367.16 seconds (`pytest -n 4 --timeout=600 -q`;
+`work/overnight-2026-11-17-cpu.log`). The skips include uncached real
+tokenizers and platform-specific cases. Ruff passed and pinned Pyright
+checked 215 sources with zero errors/warnings. This gate checks the final
+IO hardening as well as the private attention/FBC compatibility slices;
+the successful card receipt retains its earlier exact runner hash rather
+than pretending the later IO changes were used for that render.
+
+#### Windows reader race found by the full CPU gate, 2026-11-17
+
+The wider CPU run then exposed a second IPC gap: its real Windows child
+exited after handoff nine. The parent retained the incomplete fixture receipt,
+but the old fixture did not save the child's stderr as a file. An independent
+private-card CPU probe reproduced access denial while reading a newly
+published immutable message, including CRT `PermissionError(EACCES)` without
+a `winerror`. Immutable names prevent replacement conflicts; they do not
+guarantee that an exclusive scanner has already released a new file.
+
+`read_json` now retries only Windows errors 5/32/33 or the Windows-only CRT
+form above, at most eight attempts and 0.28 seconds of delay. Missing files
+still answer immediately; persistent denial, unrelated I/O and malformed JSON
+remain errors. Deterministic tests cover transient recovery, the finite stop
+budget and those refusal boundaries. The actual thirteen-handoff Windows
+fixture now also injects a CRT read denial at handoff nine and must recover;
+its complete child stdout/stderr remain in fixture artifacts on success or
+failure. A focused pass alone does not resolve the original full-gate result:
+the full CPU gate must pass again after this repair. No card evidence or its
+recorded historical tool-source hashes changed, and this I/O-only repair
+requires no new GPU measurement.

@@ -1,21 +1,19 @@
 # Plan: peak GPU memory per image
 
-**Status, 2026-10-24: phases 1 and 2 built (`GEN#15`); phase 3, the card
-check, is Matt's. 2026-10-25: phase 3's SDXL half is done (WAI v17: the
-recorded pair is the allocator's, equal to `verified.md`'s refine table,
-and agrees across the record, the API and the PNG; `verified.md`, Refine
-pass, "Peak per image and Then refine, WAI v17"); its FLUX.1 Krea [dev]
-half is not, the session having stopped at the RAM guard during its
-load.** 2026-10-29: that RAM-guard prerequisite is met: `GEN#22`'s fixed
-loader brought the cold fp8 FLUX.1 Krea [dev] load to a 27.9 GiB working set,
-down from 46+ (`docs/verified.md`, "RAM at the load, the fixed loader
-(2026-10-27)"), so the one remaining step of `GEN#15` is phase 3's FLUX.1
-Krea [dev] render on the card, which needs Matt's OK (one load per session,
-GPU and RAM watched). That `GEN#22` session's own render read 12.00 GiB
-allocated and 12.63 reserved with 14,947 MiB by `nvidia-smi`, a reference
-for the comparison; its section does not record the pair read back from the
-record, the API and the PNG, so it does not close phase 3. Matt decided the feature on 2026-10-24 and took every
-proposed answer to the open questions at the end ("i like recommended").
+**Status, 2026-11-16: phases 1-3 complete (`GEN#15`).** WAI v17 supplied
+the SDXL card evidence on 2026-10-25. The authorized overnight session on
+2026-11-16 supplied the remaining FLUX.1 Krea [dev] fp8/model-offload
+text-to-image evidence: five 1024-square records agree exactly with the
+process allocator, backend, job/API, SQL and PNG. The later Refine attempt
+stopped at the unchanged card guard; it does not undo these completed direct
+measurements or qualify Then refine. [Result](#phase-3-result-2026-11-16).
+
+The earlier 2026-10-25 FLUX session stopped at its load's RAM guard.
+`GEN#22`'s fixed loader met that prerequisite on 2026-10-27 (27.9 GiB
+working set, down from 46+); its own allocator readings lacked the saved
+record/API/PNG comparison, which is why this phase remained open. Matt
+decided the feature on 2026-10-24 and took every proposed answer to the
+open questions at the end ("i like recommended").
 Built as written, except: the body of `generate()` moved to
 `_generate_images` under the name, the wrapper keeping the signature;
 the peak keys are absent from the chunk when unmeasured rather than null,
@@ -365,11 +363,63 @@ own allocator figures in the style of `verified.md`'s refine table, and
 the result is a row in `verified.md`. Nothing here is claimed until then.
 SDXL done 2026-10-25 on WAI v17, against nvidia-smi and the Windows
 shared-memory counters rather than a hand reading (the counters Task
-Manager shows); FLUX.1 Krea [dev] not yet. On 2026-11-12 Matt kept it for
+Manager shows); FLUX.1 Krea [dev] completed 2026-11-16 below. On 2026-11-12 Matt kept it for
 a model-offload text-to-image render: the 2026-11-11 sequential-offload
 inpaint (`docs/measurements/card13-flux-sequential-2026-11-11.json`)
 recorded peak pairs through the normal path but does not close this phase
 ([answers](review-2026-11-12-todo.md#matts-answers-2026-11-12)).
+
+### Phase 3 result, 2026-11-16
+
+One real Windows server, one cached FLUX.1 Krea [dev] load, fp8/model
+offload, Eager/Native, a new scratch gallery and offline Hub/Transformers
+settings. RTX 5080, driver 616.92, torch 2.13.0+cu130, torchao 0.18.0,
+Diffusers 0.42.1, Transformers 5.16.1 and Accelerate 1.15.0. The
+[compact receipt](flux-memory-2026-11-16.json) identifies HEAD, the dirty
+diff's hash, key source hashes and the private driver's hash. The full local
+receipt retains the 191-file manifest, exact diff, captured API/job records
+and raw allocator/guard evidence. This was not an unmodified main tree.
+
+Five 1024x1024 direct images, 28 steps, distilled CFG 3.5, automatic Mu,
+no negative prompt or LoRA, recorded **12,880,261,120 allocated /
+13,555,990,528 reserved bytes** (12.00/12.63 GiB) each. A wrapper around the
+ordinary backend call independently read the process's CUDA peak counters
+after return, without changing its requests, peak accounting or output.
+Those observations, `last_peak`, the saved job/API records, SQL and each
+PNG's `auradream` chunk agree byte for byte on both values. The receipt's
+PNG, decoded RGB and exact retained metadata hashes were rechecked against
+the files and database after the session stopped.
+
+| Direct seed | Saved duration | Whole-card peak | Process RSS/private peak | Free RAM/commit minima |
+| --- | --- | --- | --- | --- |
+| 12345, first | 64.786 s | 14,653 MiB | 23.50/45.44 GiB | 19.33/4.03 GiB |
+| 12345, repeat | 44.681 s | 14,632 MiB | 18.56/39.54 GiB | 24.20/12.50 GiB |
+| 20001 | 44.446 s | 14,636 MiB | 18.40/39.12 GiB | 25.27/12.22 GiB |
+| 20002 | 44.221 s | 14,636 MiB | 18.41/39.06 GiB | 25.35/12.71 GiB |
+| 20003 | 43.732 s | 14,689 MiB | 18.40/38.97 GiB | 25.87/11.60 GiB |
+
+Seed 12345 reproduced full RGB SHA-256
+`016cd669f418c1251a0c43e42362bf9c6c8d5a456fb50f9c34f38e4b25fcff9f`,
+also the fixed-loader session's 2026-10-27 image. Pixel equality establishes
+reproduction; the baseline's visual review is separate.
+
+Load took 49.76 s, peaking at 28.39 GiB process RSS and 35.33 GiB private,
+with at least 15.94 GiB free RAM and 14.97 GiB commit headroom. The session
+started at 1,400 MiB whole-card, 42.70 GiB free RAM and 49.47 GiB commit
+headroom. `card_guard`'s unchanged 15,500 MiB card, +512 MiB process shared,
++1,024 MiB adapter shared and 4 GiB RAM/commit floors applied; preflight
+required 40 GiB free RAM, 44 GiB commit and at most 2,500 MiB busy card.
+One held PDH query and `nvidia-smi --loop-ms` produced 1,210 samples through
+the later stop: 0.249965 s mean spacing, 0.309916 s longest gap. Shared
+rises stayed at or below 82.0 MiB process and 84.6 MiB adapter. The first
+render's 4.03 GiB sampled commit minimum left only 0.03 GiB over the floor;
+this is a narrow measured margin, not permission to loosen that guard.
+
+The first 1536-square Refine then crossed 15,500 MiB before its first
+completed step; the [Then refine result](plan-then-refine.md#guarded-flux-attempt-2026-11-16)
+owns that failure. The guard killed only the owned server tree (PID 43956,
+exit 15); the supervisor confirmed no listener on 7995 and 1,441 MiB
+whole-card afterwards. No pass was saved and no larger retry ran.
 
 **Later, not designed:** the Refine size warning reading local history.
 Today the tight line is a profile's measured pixel count from

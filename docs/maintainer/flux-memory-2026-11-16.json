@@ -1,0 +1,335 @@
+{
+  "schema": "auradream-flux-memory-trial-v1",
+  "date": "2026-11-16",
+  "scope": [
+    "GEN#15",
+    "GEN#16"
+  ],
+  "outcome": {
+    "GEN#15": "Five successful model-offload text-to-image records agree with independent process allocator observations, backend.last_peak, saved job/API records, SQL and PNG metadata.",
+    "GEN#16": "Stopped by unchanged whole-card guard before the first completed 1536x1536 refine step; no pass, alternation or apart/together timing comparison qualified."
+  },
+  "platform": {
+    "os": "Windows",
+    "gpu": "NVIDIA GeForce RTX 5080",
+    "physical_card_mib": 16303,
+    "driver": "616.92",
+    "versions": {
+      "torch": "2.13.0+cu130",
+      "torchao": "0.18.0",
+      "diffusers": "0.42.1",
+      "transformers": "5.16.1",
+      "accelerate": "1.15.0"
+    }
+  },
+  "runtime": {
+    "model_id": "black-forest-labs/FLUX.1-Krea-dev",
+    "quantization": "fp8",
+    "offload": "model",
+    "execution": null,
+    "attention": "Native",
+    "source_commit": "64d8acaac0448b96c77dbd7df9ebbe31adb518b8",
+    "source_manifest_count": 191,
+    "source_diff_sha256": "37949b4ae66b392546062e232b1e0f0115e7a9c3e14c8b8ce6fc64b96d3254b0",
+    "driver_sha256": "2e36f8442395865debbc52adb0ec02d29ba055266a939c06b8f9ea22e817e371",
+    "relevant_source_sha256": {
+      "backend/backends/diffusers_backend.py": "efaabcf4652d9ca1578f096abbe17eddf8ffd6a5ee23fd6a121376dc4ecc54cf",
+      "backend/execution.py": "cb4caaef589bfe778429d22cc76a5e8db8a53ff0de88e530dbb12be38f771f53",
+      "backend/storage.py": "628077c18a8ca404baf25d97392e702568d2a2476e8a815aa9f1eb655c226977",
+      "backend/jobs.py": "32a9f6d50a7703a9e5553a54bac4a3a6c18ed59d76355e0feff629b4eaec09c4",
+      "tools/card_guard.py": "1a553aa6dcb1b096a250d8aa8d813ca14238889e8264f91204d1c976906c6410",
+      "uv.lock": "623d29ad0123fe832ebd172d0b3eeda66a7dad1be28f6e0b483daab68fe15c0b",
+      "pyproject.toml": "de475675e0b93f42f1b65779f8268fe086a223a87dcef3bfe97920062d8e3eb7"
+    },
+    "environment": {
+      "HF_HUB_OFFLINE": "1",
+      "TRANSFORMERS_OFFLINE": "1",
+      "AURADREAM_PRELOAD": "false",
+      "AURADREAM_COMPILATION": "eager",
+      "AURADREAM_ATTENTION": "native",
+      "CUDA_VISIBLE_DEVICES": "refused if present",
+      "DIFFUSERS_ATTN_BACKEND": "absent or exact native; nonnative refused",
+      "gallery": "new disposable scratch database/output directory"
+    },
+    "source_notes": "Manifest and exact dirty source diff captured at start. Guard stop prevented final manifest check. Subsequent readback matched 190/191 files; execution.py changed at 23:27:37 +10 after session stop at 23:25:21 +10. Trial-era execution.py is reconstructible from the captured diff and its retained full hash."
+  },
+  "recipe": {
+    "prompt": "a red fox sitting in a snowy pine forest at dawn, soft golden light through the trees, photograph",
+    "width": 1024,
+    "height": 1024,
+    "steps": 28,
+    "guidance_scale": 3.5,
+    "num_images": 1,
+    "mu": null
+  },
+  "one_load": {
+    "elapsed_s": 49.760043,
+    "guard": {
+      "samples": 199,
+      "peaks": {
+        "card_mib": 1657.0,
+        "adapter_rise_mib": 77.5,
+        "process_rise_mib": 74.0,
+        "tree_gib": 28.39,
+        "tree_private_gib": 35.33369064331055
+      },
+      "minima": {
+        "available_gib": 15.94,
+        "commit_headroom_gib": 14.97
+      },
+      "longest_gap_s": 0.30991601943969727
+    }
+  },
+  "guard": {
+    "limits_in_force": {
+      "card_mib": 15500.0,
+      "project_mib": 15200.0,
+      "refuse_at_peak_mib": 15000.0,
+      "adapter_shared_rise_mib": 1024.0,
+      "process_shared_rise_mib": 512.0,
+      "ram_floor_gib": 4.0,
+      "commit_floor_gib": 4.0,
+      "need_ram_gib": 40,
+      "busy_card_mib": 2500,
+      "card_unread_samples": 3.0,
+      "margin_mib": 500.0,
+      "margin_gib": 1.0
+    },
+    "sources": {
+      "card": "nvidia-smi --loop-ms",
+      "shared": "pdh"
+    },
+    "baseline": {
+      "card_mib": 1400.0,
+      "adapter_shared_mib": 67.9,
+      "process_shared_mib": 0.0,
+      "available_gib": 42.7,
+      "commit_headroom_gib": 49.47,
+      "tree_gib": 0.06
+    },
+    "requested_period_s": 0.25,
+    "achieved_mean_gap_s": 0.249964993,
+    "longest_gap_s": 0.309916019,
+    "samples": 1210,
+    "summary_through_trip": {
+      "samples": 1210,
+      "peaks": {
+        "card_mib": 15632.0,
+        "adapter_rise_mib": 84.6,
+        "process_rise_mib": 82.0,
+        "tree_gib": 28.39,
+        "tree_private_gib": 45.4414
+      },
+      "minima": {
+        "available_gib": 15.94,
+        "commit_headroom_gib": 4.03
+      }
+    },
+    "host_commit_caution": "First successful render reached only 4.03 GiB sampled commit headroom, 0.03 GiB above the unchanged 4 GiB floor. This is a measured narrow margin, not permission to retry with relaxed limits."
+  },
+  "images": [
+    {
+      "id": 1,
+      "seed": 12345,
+      "run_id": "d2d4ef71396c",
+      "duration_ms": 64786,
+      "elapsed_call_s": 64.781754,
+      "peak_allocated_bytes": 12880261120,
+      "peak_reserved_bytes": 13555990528,
+      "pixel_sha256": "016cd669f418c1251a0c43e42362bf9c6c8d5a456fb50f9c34f38e4b25fcff9f",
+      "png_sha256": "e30eae801299833b562e4cdc9bccfff9dacf52f9976e57d20272ff02869a3665",
+      "metadata_sha256": "78b5f88afe6e2885ef309a4125b39949a80746f7a7b2733e5dd6e54448bb8604",
+      "guard": {
+        "samples": 259,
+        "peaks": {
+          "card_mib": 14653.0,
+          "adapter_rise_mib": 84.6,
+          "process_rise_mib": 82.0,
+          "tree_gib": 23.5,
+          "tree_private_gib": 45.4414
+        },
+        "minima": {
+          "available_gib": 19.33,
+          "commit_headroom_gib": 4.03
+        }
+      }
+    },
+    {
+      "id": 2,
+      "seed": 12345,
+      "run_id": "d2d4ef71396c",
+      "duration_ms": 44681,
+      "elapsed_call_s": 44.677366,
+      "peak_allocated_bytes": 12880261120,
+      "peak_reserved_bytes": 13555990528,
+      "pixel_sha256": "016cd669f418c1251a0c43e42362bf9c6c8d5a456fb50f9c34f38e4b25fcff9f",
+      "png_sha256": "0e7e27e8a6b4ba4d49b65650bd491791f0e56a0f0b250ea748bd7cffc302dd7f",
+      "metadata_sha256": "c94c6ca42b9e52d944ab895f4ecd3182661f23e6c06161ebeb27003cb5d8cc23",
+      "guard": {
+        "samples": 178,
+        "peaks": {
+          "card_mib": 14632.0,
+          "adapter_rise_mib": 83.8,
+          "process_rise_mib": 82.0,
+          "tree_gib": 18.56,
+          "tree_private_gib": 39.5413
+        },
+        "minima": {
+          "available_gib": 24.2,
+          "commit_headroom_gib": 12.5
+        }
+      }
+    },
+    {
+      "id": 3,
+      "seed": 20001,
+      "run_id": "342c0af5e791",
+      "duration_ms": 44446,
+      "elapsed_call_s": 44.442857,
+      "peak_allocated_bytes": 12880261120,
+      "peak_reserved_bytes": 13555990528,
+      "pixel_sha256": "5cd3be484cd6dd90a9dcb0de37747fd0fb669a511d67f693160714f220614258",
+      "png_sha256": "9660f063bc8d271bb81b0ac81bbbb553ba9685961ceae1b597bab98ba71f3a40",
+      "metadata_sha256": "08ccfeeccd863449bfcab26c4c5fdacd0245d0c9bd7ad1cf7c566ded86b884fb",
+      "guard": {
+        "samples": 178,
+        "peaks": {
+          "card_mib": 14636.0,
+          "adapter_rise_mib": 76.9,
+          "process_rise_mib": 82.0,
+          "tree_gib": 18.4,
+          "tree_private_gib": 39.1185
+        },
+        "minima": {
+          "available_gib": 25.27,
+          "commit_headroom_gib": 12.22
+        }
+      }
+    },
+    {
+      "id": 4,
+      "seed": 20002,
+      "run_id": "342c0af5e791",
+      "duration_ms": 44221,
+      "elapsed_call_s": 44.217597,
+      "peak_allocated_bytes": 12880261120,
+      "peak_reserved_bytes": 13555990528,
+      "pixel_sha256": "a3fd6f0d6da565ef9686eb3205e7b611891a97199523d7e131dec4a0c2d52be0",
+      "png_sha256": "b37408df0fdd97ad3e2b52844a820083b7e9e2db876fe05f2bc805971385adbc",
+      "metadata_sha256": "74900183a81de530816df7a944bb4d1921ea4cf694b024b6fd6c146ea5fa240f",
+      "guard": {
+        "samples": 177,
+        "peaks": {
+          "card_mib": 14636.0,
+          "adapter_rise_mib": 74.3,
+          "process_rise_mib": 82.0,
+          "tree_gib": 18.41,
+          "tree_private_gib": 39.0644
+        },
+        "minima": {
+          "available_gib": 25.35,
+          "commit_headroom_gib": 12.71
+        }
+      }
+    },
+    {
+      "id": 5,
+      "seed": 20003,
+      "run_id": "342c0af5e791",
+      "duration_ms": 43732,
+      "elapsed_call_s": 43.728867,
+      "peak_allocated_bytes": 12880261120,
+      "peak_reserved_bytes": 13555990528,
+      "pixel_sha256": "275e4ed8ddfd446f73bf001f0a19fc931dad52b06c5f2629a48809a957b10be4",
+      "png_sha256": "55b8153ad5c957858cde2cd197ab86ece5730654ca8f438386b3b1d0381dbd0b",
+      "metadata_sha256": "593bc69a5428454881229e3e2f1715af564d66fe2534ee959594bd27e586d6f6",
+      "guard": {
+        "samples": 175,
+        "peaks": {
+          "card_mib": 14689.0,
+          "adapter_rise_mib": 74.4,
+          "process_rise_mib": 82.0,
+          "tree_gib": 18.4,
+          "tree_private_gib": 38.9715
+        },
+        "minima": {
+          "available_gib": 25.87,
+          "commit_headroom_gib": 11.6
+        }
+      }
+    }
+  ],
+  "repeat_pixel_identical": true,
+  "repeat_matches_2026_10_27_GEN22_pixel_hash": true,
+  "attempted_refine": {
+    "source_id": 3,
+    "seed": 20001,
+    "width": 1536,
+    "height": 1536,
+    "scale": 1.5,
+    "strength": 0.1,
+    "steps_requested": 28,
+    "steps_in_tail": 3,
+    "steps_completed": 0,
+    "outputs_saved": 0,
+    "stop": {
+      "time": "2026-11-16T23:25:21+1000",
+      "event": "TRIP",
+      "answer": {
+        "verdict": "trip",
+        "why": "card",
+        "reading": 15632.0,
+        "limit": 15500.0,
+        "projected_mib": null,
+        "measured": [],
+        "reason": null
+      },
+      "sampled_at": 1794835521.6519818,
+      "tree_private_gib": 25.800212860107422,
+      "card_mib": 15632.0,
+      "adapter_shared_mib": 139.7,
+      "adapter_rise_mib": 71.8,
+      "process_shared_mib": 82.0,
+      "process_rise_mib": 82.0,
+      "available_gib": 36.76,
+      "commit_headroom_gib": 24.52,
+      "tree_gib": 7.34
+    },
+    "not_reached": [
+      "remaining apart passes",
+      "together job",
+      "second comparison round",
+      "unload endpoint"
+    ]
+  },
+  "cleanup": {
+    "server_pid": 43956,
+    "server_exit": 15,
+    "guard_error": "RuntimeError: guard: card: 15632.0 crossed 15500.0",
+    "at": 1794835522.04121,
+    "scope": "Owned scratch server process tree; no successful unload endpoint after guard stop."
+  },
+  "supervisor_cleanup_observation": {
+    "server_pid": 43956,
+    "port": 7995,
+    "listener": "none after termination",
+    "whole_card_mib_after_termination": 1441,
+    "provenance": "Supervising root agent live readback after guard stop; not a guard sample or new render."
+  },
+  "evidence": {
+    "local_directory": "work/flux-gen15-gen16-20261116",
+    "files_sha256": {
+      "receipt.json": "2eb1d4fb409f4e86ddd36016cd0ab329de234b04e90a1c71634f81f016aa953b",
+      "guard.jsonl": "be5c1d96ffd35706bf5a66221d43df200b5c4ed815a167968f2997a953c7cbde",
+      "allocator.jsonl": "821c1807c246e56c6bf74e53a908aceb60ba565f5d367c979413eebfcede7c7e",
+      "cleanup.json": "7b3f6c07b3a8404a514e6725b1f2e0de6663f0f1762ad92da9c87fa7d78f7903",
+      "guard-failure.txt": "2b3c83bb50889362e5b7a16f8a9ccab59c1c0c51edd1c9fae94a852e66e70e3e",
+      "gpu.txt": "f978b9ab09955290aad704b5c81557e9683e5ca71b80bac4b64fa92e2cbcd985",
+      "source-diff.patch": "37949b4ae66b392546062e232b1e0f0115e7a9c3e14c8b8ce6fc64b96d3254b0",
+      "server.py": "fe13dfe5d39ef6b8c664f1cf24be8a6971d3f3bfeaa04094d36565483bdd3b84",
+      "server.log": "e86e309a39cd46b7f6fba26814161ae673be0106250d2fe3d85986575c9d2aaa"
+    },
+    "scope_note": "Compact retained measurement summary. Raw PNGs, exact metadata text, SQL, API/job snapshots, source manifest and samples remain in the ignored local directory; this summary does not authenticate missing external files."
+  },
+  "quality": "Baseline image visual review is separate and is not inferred from hash/peak agreement."
+}

@@ -1,0 +1,365 @@
+{
+  "schema": "auradream-sdxl-preview-capture-v1",
+  "item": "GEN#6",
+  "date": "2026-11-17",
+  "session_started": "2026-11-17T00:03:58.190243+10:00",
+  "session_finished": "2026-11-17T00:04:44.452515+10:00",
+  "outcome": "One real Animagine fp8/model-offload render produced14 preview frames. Every original JPEG and decodedRGB hash agrees between ordinary backend callback and actual SSE transport. One final PNG saved normally. No browser UI or Matt acceptance established.",
+  "platform": {
+    "os": "Windows",
+    "gpu": "NVIDIA GeForce RTX 5080",
+    "physical_card_mib": 16303,
+    "driver": "616.92",
+    "versions": {
+      "torch": "2.13.0+cu130",
+      "torchao": "0.18.0",
+      "diffusers": "0.42.1",
+      "transformers": "5.16.1",
+      "accelerate": "1.15.0"
+    }
+  },
+  "runtime": {
+    "model_id": "cagliostrolab/animagine-xl-4.0",
+    "quantization": "fp8",
+    "offload": "model",
+    "execution": null,
+    "attention": "Native",
+    "offline": true,
+    "preload": false,
+    "gallery": "new disposable scratch database and output directory",
+    "source_commit": "64d8acaac0448b96c77dbd7df9ebbe31adb518b8",
+    "source_manifest_count": 191,
+    "source_manifest_start_equals_end": true,
+    "source_diff_sha256": "a0bb8f387a664c845fb92a7668f76ff1667279be83732ee6a21fa5ad994a2ebb",
+    "driver_sha256": "f4be4d83043b6e651b66c498229e6b1c870c87956d1d5997039f491bb84395b2",
+    "base_guard_driver_sha256": "2e36f8442395865debbc52adb0ec02d29ba055266a939c06b8f9ea22e817e371",
+    "bootstrap_sha256": "49c6bc9ad0ae4d6e72e2b8be9fb46569f2cabce8010d42b4c3f70fea2b9aab5f",
+    "relevant_source_sha256": {
+      "backend/latent_preview.py": "fb6e917abc0ff3a62eb385a2ad8ffb36fd356b92d55149e2a1a26fc4d2bbec27",
+      "backend/backends/diffusers_backend.py": "efaabcf4652d9ca1578f096abbe17eddf8ffd6a5ee23fd6a121376dc4ecc54cf",
+      "backend/jobs.py": "32a9f6d50a7703a9e5553a54bac4a3a6c18ed59d76355e0feff629b4eaec09c4",
+      "tools/card_guard.py": "1a553aa6dcb1b096a250d8aa8d813ca14238889e8264f91204d1c976906c6410",
+      "uv.lock": "623d29ad0123fe832ebd172d0b3eeda66a7dad1be28f6e0b483daab68fe15c0b"
+    }
+  },
+  "recipe": {
+    "prompt": "1girl, solo, blue coat, red scarf, standing in a snowy park, pine trees, morning sunlight, best quality, high quality",
+    "negative_prompt": "low quality, worst quality",
+    "width": 1024,
+    "height": 1024,
+    "steps": 28,
+    "guidance_scale": 5.0,
+    "mu": null,
+    "num_images": 1,
+    "seed": 12345
+  },
+  "preview": {
+    "map": "AutoencoderKL/4",
+    "scheduler": "EulerDiscreteScheduler",
+    "vae_class": "AutoencoderKL",
+    "latent_channels": 4,
+    "dimensions": [
+      256,
+      256
+    ],
+    "count": 14,
+    "steps": [
+      1,
+      3,
+      5,
+      7,
+      9,
+      11,
+      13,
+      15,
+      17,
+      19,
+      21,
+      23,
+      25,
+      27
+    ],
+    "callback_to_sse_bytes_identical": true,
+    "frames": [
+      {
+        "step": 1,
+        "sigma_after_step": 8.84830093383789,
+        "flow_sigma_after_step": 0.8984596422552352,
+        "elapsed_call_s": 17.816418886184692,
+        "jpeg_sha256": "21535db6fe834a1267267a8e8262f74e14b17f23b788d55858756246ceebebd6",
+        "pixel_sha256": "54b2fab3cfe768bfc86e986c11f5018c5f02cb1bc5c04178adfaebbabc1fe715"
+      },
+      {
+        "step": 3,
+        "sigma_after_step": 6.197038173675537,
+        "flow_sigma_after_step": 0.8610539536030697,
+        "elapsed_call_s": 18.3136568069458,
+        "jpeg_sha256": "4fe0e3e916b470d9f18d95b16cdff866c98975c3e8e2f554d99808eb14cabc40",
+        "pixel_sha256": "9d6149ff42637c4beb64387f21510c2a32c934030d81b9c2cd04e9047ce5d1f0"
+      },
+      {
+        "step": 5,
+        "sigma_after_step": 4.488953113555908,
+        "flow_sigma_after_step": 0.8178158968910977,
+        "elapsed_call_s": 18.817740440368652,
+        "jpeg_sha256": "af23444ab5d8ad6ddde57dd1ef473b4ee52bd0742148a86b4ba02ee7b53bb489",
+        "pixel_sha256": "b9b3b8bc46d4bf1471e487058ab42e315e8a3bf40f45104b07716fb7205cfff1"
+      },
+      {
+        "step": 7,
+        "sigma_after_step": 3.3477649688720703,
+        "flow_sigma_after_step": 0.769996766807883,
+        "elapsed_call_s": 19.317967176437378,
+        "jpeg_sha256": "c4547dd123bc4f135a2aac873d64cb2550f5b489a31322bd50eaf84ff3bd8439",
+        "pixel_sha256": "34ffcac3f130dd86ec556f928aeb499f8bb91f65a90cd6bba1c5a038291ebdfe"
+      },
+      {
+        "step": 9,
+        "sigma_after_step": 2.5576648712158203,
+        "flow_sigma_after_step": 0.7189167512401883,
+        "elapsed_call_s": 19.818023204803467,
+        "jpeg_sha256": "305ef2c2ddf37ce7fa32449961d110f00005df842fb45a4b06dec582b47c425f",
+        "pixel_sha256": "ee42ae706693bbe4589dcbf3be4a06b9b0d5f86f3ddc9a2327fbb9481f2fdac4"
+      },
+      {
+        "step": 11,
+        "sigma_after_step": 1.9910918474197388,
+        "flow_sigma_after_step": 0.6656739241014452,
+        "elapsed_call_s": 20.318300008773804,
+        "jpeg_sha256": "db5a6a3fc1a1ac1503a6bb8229e3a566a0eab055dc6e3ca53b9f4c55837cec91",
+        "pixel_sha256": "149c440742c5e1edf2b497443aa78c9d5c228f6ef799b813aab5a4f8c401fe6e"
+      },
+      {
+        "step": 13,
+        "sigma_after_step": 1.5704747438430786,
+        "flow_sigma_after_step": 0.6109668058808021,
+        "elapsed_call_s": 20.822766065597534,
+        "jpeg_sha256": "aa691ffba2b8b109ede77523d4f9388a805707ff0eec6cbda1bbd5f4d0a753a2",
+        "pixel_sha256": "1e77ce78f115a0ced621060076ec1709c14b760ed00f8df2bc62a45cb70d4625"
+      },
+      {
+        "step": 15,
+        "sigma_after_step": 1.2473174333572388,
+        "flow_sigma_after_step": 0.555025033332246,
+        "elapsed_call_s": 21.325395822525024,
+        "jpeg_sha256": "895a97b97511747183d2433c95adf02bc2e7a55b061167328339c04c8858b220",
+        "pixel_sha256": "36d760fa05463fd0519da145bdb2f1ac93e6a01d35821eacba708ebbffd7f33e"
+      },
+      {
+        "step": 17,
+        "sigma_after_step": 0.9904093742370605,
+        "flow_sigma_after_step": 0.4975907906466187,
+        "elapsed_call_s": 21.830983638763428,
+        "jpeg_sha256": "b7eed172d279d63bd0a9c83c2fce85b0a3049e9cc128bd96bbbf5f57fa9330ff",
+        "pixel_sha256": "6773960db21e3b73fdb945c2a1c7fb2fec5c23ab53e01f4252ccf8a52d3315b2"
+      },
+      {
+        "step": 19,
+        "sigma_after_step": 0.7789236903190613,
+        "flow_sigma_after_step": 0.43786234033420307,
+        "elapsed_call_s": 22.33594036102295,
+        "jpeg_sha256": "448ba36e6e2118cc5721a8fd4ea6a1016c94209827be8c06fe3ad9aa50a4a1a5",
+        "pixel_sha256": "b2ccb0ea10bee7fb06374ec36b5c84ed5624379d8f7a85519522a2bed81b4351"
+      },
+      {
+        "step": 21,
+        "sigma_after_step": 0.5980913043022156,
+        "flow_sigma_after_step": 0.3742535252473349,
+        "elapsed_call_s": 22.84029793739319,
+        "jpeg_sha256": "d5d8c3b6dbff67bf79da4ed8b9904afc9bc48c1bc0e5783fbb010a732c66bca1",
+        "pixel_sha256": "c438e86ca81e98e6c3f0e2df9ef0f043adb9a40f808e52f83830250cdad404e6"
+      },
+      {
+        "step": 23,
+        "sigma_after_step": 0.43581610918045044,
+        "flow_sigma_after_step": 0.30353198184216634,
+        "elapsed_call_s": 23.33666729927063,
+        "jpeg_sha256": "7809968c3be1adbcea46ba8df3ddda64bc2b66b16a2abe53870ef8805efde03f",
+        "pixel_sha256": "098187ef92198f5b19994a44d3dcf80a6d734b8acc9233feeca35cdca82ddd42"
+      },
+      {
+        "step": 25,
+        "sigma_after_step": 0.2771809995174408,
+        "flow_sigma_after_step": 0.21702562097476277,
+        "elapsed_call_s": 23.838430643081665,
+        "jpeg_sha256": "1fb85a26aa30223cd5e0b8e2d7c44b46de9498e7d4e8956cb59c05dea8b793a2",
+        "pixel_sha256": "73a38f10e97b1b69cbad3e040a05419204a7af50ad8d7ae529d923f6fbac0a45"
+      },
+      {
+        "step": 27,
+        "sigma_after_step": 0.04131447896361351,
+        "flow_sigma_after_step": 0.03967531403647865,
+        "elapsed_call_s": 24.33597159385681,
+        "jpeg_sha256": "68e5b7a541feea1eae87e25e1e3f677c43d8ad36fd79776e2ebdbfd04c8594fe",
+        "pixel_sha256": "5de747b1b500b3c2f3eb5b17b2941a796d5dd91965569e17f938ab29cd6c2515"
+      }
+    ],
+    "terminal_step28_has_preview": false
+  },
+  "timing": {
+    "load_elapsed_s": 15.890799,
+    "job_wall_s": 26.150782,
+    "saved_duration_ms": 25917,
+    "scope": "Descriptive single first-use render only; the full CPU suite began near capture end on the same PC. No speed qualification or comparison."
+  },
+  "guard": {
+    "limits_in_force": {
+      "card_mib": 15500.0,
+      "project_mib": 15200.0,
+      "refuse_at_peak_mib": 15000.0,
+      "adapter_shared_rise_mib": 1024.0,
+      "process_shared_rise_mib": 512.0,
+      "ram_floor_gib": 4.0,
+      "commit_floor_gib": 4.0,
+      "need_ram_gib": 16,
+      "busy_card_mib": 2000,
+      "card_unread_samples": 3.0,
+      "margin_mib": 500.0,
+      "margin_gib": 1.0
+    },
+    "explicit_need_commit_gib": 16,
+    "sources": {
+      "card": "nvidia-smi --loop-ms",
+      "shared": "pdh"
+    },
+    "baseline": {
+      "card_mib": 1442.0,
+      "adapter_shared_mib": 76.0,
+      "process_shared_mib": 0.0,
+      "available_gib": 40.42,
+      "commit_headroom_gib": 47.8
+    },
+    "samples": 186,
+    "requested_period_s": 0.25,
+    "achieved_mean_gap_s": 0.249826234,
+    "longest_gap_s": 0.27736783,
+    "trips": 0,
+    "load": {
+      "samples": 64,
+      "peaks": {
+        "card_mib": 1677.0,
+        "adapter_rise_mib": 73.4,
+        "process_rise_mib": 74.0,
+        "tree_gib": 10.16,
+        "tree_private_gib": 12.086532592773438
+      },
+      "minima": {
+        "available_gib": 29.75,
+        "commit_headroom_gib": 34.14
+      },
+      "longest_gap_s": 0.27736783027648926
+    },
+    "render": {
+      "samples": 104,
+      "peaks": {
+        "card_mib": 5386.0,
+        "adapter_rise_mib": 118.6,
+        "process_rise_mib": 82.0,
+        "tree_gib": 5.77,
+        "tree_private_gib": 10.957565307617188
+      },
+      "minima": {
+        "available_gib": 33.79,
+        "commit_headroom_gib": 34.36
+      },
+      "longest_gap_s": 0.27367496490478516
+    },
+    "post_unload": {
+      "samples": 4,
+      "peaks": {
+        "card_mib": 1831.0,
+        "adapter_rise_mib": 86.2,
+        "process_rise_mib": 82.0,
+        "tree_gib": 5.77,
+        "tree_private_gib": 7.913570404052734
+      },
+      "minima": {
+        "available_gib": 33.72,
+        "commit_headroom_gib": 37.39
+      },
+      "longest_gap_s": 0.26365232467651367
+    }
+  },
+  "final": {
+    "dimensions": [
+      1024,
+      1024
+    ],
+    "seed": 12345,
+    "run_id": "4b6db8e5155e",
+    "peak_allocated_bytes": 3350174208,
+    "peak_reserved_bytes": 3724541952,
+    "peak_agreement": "process allocator/backend.last_peak/captured job and API records/SQL/PNG",
+    "pixel_sha256": "75c4bdde2a02802a0a697571473169d5db4cbe0b1beee34216827248430e8ba4",
+    "png_sha256": "da7eda50ca3e3dbdff3695ce12386de73c5793ebbed5f19d315817bee1e91b03",
+    "exact_metadata_sha256": "77b252876a0fe1bb501cabc878bcb61b4fb6f3a88ded889644bbdc871a5d2302"
+  },
+  "representative_artifacts": [
+    {
+      "path": "docs/maintainer/gen6-preview-2026-11-17/step-01.jpg",
+      "source": "callback-frames/step-01.jpg",
+      "sha256": "21535db6fe834a1267267a8e8262f74e14b17f23b788d55858756246ceebebd6",
+      "bytes": 21208,
+      "copy": "byte-identical original; no image transformation"
+    },
+    {
+      "path": "docs/maintainer/gen6-preview-2026-11-17/step-15.jpg",
+      "source": "callback-frames/step-15.jpg",
+      "sha256": "895a97b97511747183d2433c95adf02bc2e7a55b061167328339c04c8858b220",
+      "bytes": 14286,
+      "copy": "byte-identical original; no image transformation"
+    },
+    {
+      "path": "docs/maintainer/gen6-preview-2026-11-17/step-27.jpg",
+      "source": "callback-frames/step-27.jpg",
+      "sha256": "68e5b7a541feea1eae87e25e1e3f677c43d8ad36fd79776e2ebdbfd04c8594fe",
+      "bytes": 15133,
+      "copy": "byte-identical original; no image transformation"
+    },
+    {
+      "path": "docs/maintainer/gen6-preview-2026-11-17/final.png",
+      "source": "outputs/20261116-140442-12345-b35172.png",
+      "sha256": "da7eda50ca3e3dbdff3695ce12386de73c5793ebbed5f19d315817bee1e91b03",
+      "bytes": 1591635,
+      "copy": "byte-identical original; no image transformation"
+    }
+  ],
+  "agent_visual_review": {
+    "reviewer": "Supervising root agent; not Matt",
+    "reviewed_steps": [
+      1,
+      15,
+      27
+    ],
+    "final_reviewed": true,
+    "observations": "Step1 is noise. By step15 the scene emerges. Step27 preserves the blue coat, red scarf, warm left sunlight, cool blue snow and person/tree composition of the final image. Fine detail is not expected at256pixels.",
+    "scope": "Agent visual inspection of captured images, not native browser UI acceptance."
+  },
+  "remaining_acceptance": [
+    "Matt judges whether the noisy first frame is acceptable.",
+    "Real browser presentation glance remains unaccepted."
+  ],
+  "cleanup": {
+    "server_pid": 39356,
+    "server_exit": 15,
+    "guard_error": null,
+    "at": 1794837884.8219361
+  },
+  "evidence": {
+    "local_directory": "work/gen6-sdxl-preview-20261117",
+    "files_sha256": {
+      "receipt.json": "cea43ffb97799bc391a9c80e281ed656126b796610d45af138ee36cda44e4186",
+      "guard.jsonl": "19c5af44c8585e01d6d3581c174233115eb818ac5e78bd654112f2e52f044309",
+      "callback-frames.jsonl": "6819001679fefe1e7a8b991abea2b32941770e0a18d8bdf9ec762a7711e27d3c",
+      "sse.jsonl": "5f6be2cc3f1d90e678e21d40b981609f093c9808e5efe665fc8ea49254c17e3c",
+      "allocator.jsonl": "6ac2aea865a2b20b8005a7c42acaf94e1dafece356fc71b92f124467c8b6adbf",
+      "metadata-1.json": "77b252876a0fe1bb501cabc878bcb61b4fb6f3a88ded889644bbdc871a5d2302",
+      "cleanup.json": "ac346a543bb609c3bc26dbf86082fd8be0e47de527c123dce8f323a7d5d478c3",
+      "gpu.txt": "f978b9ab09955290aad704b5c81557e9683e5ca71b80bac4b64fa92e2cbcd985",
+      "source-diff.patch": "a0bb8f387a664c845fb92a7668f76ff1667279be83732ee6a21fa5ad994a2ebb",
+      "server.py": "60f84e1350ee8010f1abbb1499b9ac3da014505e20ff0e8c3bcd153911ebbd67",
+      "server.log": "1870c379bb59b69b60ce4e9c36fe0d85a396e798a5961de40c692bc974cbbbdd"
+    },
+    "scope": "Representative original image bytes are retained in the repository. Full14frame sets, raw guard/SSE logs, SQL, source manifests and API/job snapshots remain in the ignored local directory."
+  }
+}

@@ -66,18 +66,36 @@ def test_candidate_requires_the_source_inspected_dependency_environment(candidat
     assert candidate(spec, dataclasses.replace(FACTS, **changes), **TARGET) is not None
 
 
-def test_every_candidate_stays_held_on_the_installed_diffusers_042():
-    # The app installs diffusers 0.42; the candidates were read against 0.40's
-    # hooks and are held there, in words that name the version.
+def test_attention_and_cache_have_separate_source_probes_on_installed_diffusers_0421():
+    # Each adapter has a guarded real-class CPU integration probe. Neither
+    # source result qualifies regional compilation or public execution.
     assert execution.compiler_metadata().diffusers.startswith("0.42.")
     regional = execution.ExecutionSpec(compilation="regional-v1")
-    for candidate, spec, facts in (
-        *((candidate, spec, FACTS) for candidate, spec in CANDIDATES),
-        (execution.regional_candidate_reason, regional, dataclasses.replace(FACTS, triton_windows="3.7.1.post27")),
-    ):
-        assert candidate(spec, facts, **TARGET) is None
-        reason = candidate(spec, dataclasses.replace(facts, diffusers="0.42.1"), **TARGET)
-        assert reason is not None and "checked only on diffusers 0.40" in reason
+    facts = dataclasses.replace(FACTS, triton_windows="3.7.1.post27")
+    assert execution.regional_candidate_reason(regional, facts, **TARGET) is None
+    reason = execution.regional_candidate_reason(regional, dataclasses.replace(facts, diffusers="0.42.1"), **TARGET)
+    assert reason is not None and "checked only on diffusers 0.40" in reason
+    for candidate, spec in CANDIDATES:
+        assert candidate(spec, dataclasses.replace(FACTS, diffusers="0.42.1"), **TARGET) is None
+        with pytest.raises(ValueError, match="not available"):
+            execution.require_default_execution(spec)
+
+
+@pytest.mark.parametrize("candidate, spec", CANDIDATES, ids=["cudnn", "fbc"])
+@pytest.mark.parametrize("diffusers", ["0.42.0", "0.42.2", "0.43.0", "0.42.1.dev0", "0.42.1+uninspected"])
+def test_private_migration_is_exact_0421_not_an_uninspected_release(candidate, spec, diffusers):
+    reason = candidate(spec, dataclasses.replace(FACTS, diffusers=diffusers), **TARGET)
+    assert reason is not None and "0.40 or 0.42.1" in reason
+
+
+@pytest.mark.parametrize("candidate, spec", CANDIDATES, ids=["cudnn", "fbc"])
+@pytest.mark.parametrize("changes", [
+    {"torchao": "0.19.0"}, {"torch": "2.14.0+cu130"}, {"torch": "2.13.0+cpu"},
+    {"python_version": (3, 14)}, {"platform": "darwin"},
+])
+def test_private_0421_migration_preserves_the_other_dependency_guards(candidate, spec, changes):
+    facts = dataclasses.replace(FACTS, diffusers="0.42.1", **changes)
+    assert candidate(spec, facts, **TARGET) is not None
 
 
 @pytest.mark.parametrize("candidate, spec", CANDIDATES, ids=["cudnn", "fbc"])
