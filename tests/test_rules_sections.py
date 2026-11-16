@@ -28,7 +28,6 @@ LIMIT = 350
 # headings by topic (move whole bullets; never reword a rule), and its entry
 # goes when it fits the limit.
 LONGER = {
-    "### Model and loader": 791,
     "### Jobs": 684,
 }
 

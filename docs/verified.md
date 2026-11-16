@@ -158,8 +158,9 @@ Evidence is in `%TEMP%/local-diffusion-anima-preview-20261024/`:
 `baseline.json`, `memory.jsonl`, `watchdog.json`, `converted-inventory.json`,
 the separate `gpu.db`, previews and `outputs/` PNGs. The two stopped attempts
 are retained in `first-load-ram-stop/` and `cached-load-ram-stop/`.
-Other sizes and batch scaling remain unmeasured (INT8, full BF16 and fp8 with sequential offload at 1024x1024 were measured 2026-10-25: "Quantization and offload", below). Mu, references, user LoRAs, Refine, inpaint and Nunchaku remain
-unavailable in this integration.
+Other sizes and batch scaling remain unmeasured (INT8, full BF16 and fp8 with sequential offload at 1024x1024 were measured 2026-10-25: "Quantization and offload", below). Mu, references, user LoRAs, inpaint and Nunchaku remain
+unavailable. Refine was unavailable in this October integration; its later
+bounded same-size release and acceptance are recorded under Refine pass below.
 The measurement/cache-fact updates passed 69 focused Python tests
 (`test_model_info`, `test_model_benchmarks`, `test_model_downloads` and
 `test_docs_maps`) and all 18 expectations in `smoke-anima-preview.json`
@@ -239,8 +240,9 @@ null. The pipeline was unloaded afterward. Evidence is in
 The full Python suite passed 2,187 tests with 4 skips and 39
 dependency deprecation warnings. `smoke-anima-aesthetic.json` passed all 23
 browser expectations. Higher
-resolutions and batch scaling remain unmeasured for Aesthetic (INT8, full BF16 and fp8 with sequential offload at 1024x1024 were measured 2026-10-25: "Quantization and offload", below). Mu, references, Refine, user LoRAs and Nunchaku
-are unavailable in this integration.
+resolutions and batch scaling remain unmeasured for Aesthetic (INT8, full BF16 and fp8 with sequential offload at 1024x1024 were measured 2026-10-25: "Quantization and offload", below). Mu, references, user LoRAs and Nunchaku
+are unavailable. Refine was unavailable in this October integration; its
+later bounded same-size release and acceptance are recorded below.
 
 RouWei 0.8 epsilon was verified on 2026-10-07 with Windows FP8, model
 offload, batch 1 and seed 12345. CPU conversion and the first load took
@@ -1286,14 +1288,14 @@ its integrated real-server acceptance passed below.
 | 0.25 | 2 / 0.5 | 3.088 s | 2471.48 / 2640 MiB | 4395 MiB |
 | 0.4 | 4 / 0.75 | 3.928-4.712 s, including repeat/recovery | 2471.48 / 2640 MiB | 4394-4398 MiB |
 
-The profile's measured line quotes this private pass, without an enlargement
-or integrated-backend claim:
+The profiles' measured lines originate in the private same-size passes;
+their later integrated and standalone acceptance is recorded below:
 
 | Checkpoint / loader | Source and output | Full steps / strength | Scope |
 | --- | --- | --- | --- |
-| Anima Turbo v1.1, fp8/model | 1024x1024 | 8 / 0.25 | Same-size private pass; no guard trip |
-| Anima Aesthetic v1.1, fp8/model | 1024x1024 | 30 / 0.125 | Independent one-load private pass, CFG 4; no guard trip |
-| Anima 2.9B Preview v1, fp8/model | 1024x1024 | 30 / 0.125 | Independent one-load private pass, CFG 4; no guard trip |
+| Anima Turbo v1.1, fp8/model | 1024x1024 | 8 / 0.25 | CFG 1; independent private, public API and standalone CLI acceptance |
+| Anima Aesthetic v1.1, fp8/model | 1024x1024 | 30 / 0.125 | CFG 4; independent private, public API and standalone CLI acceptance |
+| Anima 2.9B Preview v1, fp8/model | 1024x1024 | 30 / 0.125 | CFG 4; independent private, public API and standalone CLI acceptance |
 
 Same-seed repeats, serial batch members versus their solo seeds and recovery
 after cancellation have equal full RGB hashes. Cancel stopped after one
@@ -1313,12 +1315,15 @@ Agent visual review retained the woman, blue coat, red bicycle and park.
 Strength 0.25 is a provisional conservative opening candidate for this recipe;
 0.4 redraws more face/background/shoe detail. Broken fine anatomy and unwanted
 generated caption text remain. Matt has not reviewed these images himself.
-No larger size, other aspect, checkpoint variant, loader or platform is
-qualified. The first attempt stopped on a Windows IPC publication race after
+This Turbo experiment qualifies no larger size, other aspect, checkpoint
+variant, loader or platform; the independent variant results follow below.
+The first attempt stopped on a Windows IPC publication race after
 four cases; its evidence is unchanged. Immutable handoffs and a real Windows
 locked-reader regression preceded the successful fresh one-load trial. The
 [Anima plan](maintainer/plan-anima-refine.md#turbo-one-load-result-2026-11-16)
-owns the remaining public integration and acceptance work.
+owns the completed bounded public/standalone evidence and passing final
+integrated regression gate. Original private receipts retain their historical
+source and public-support fields unchanged.
 
 ### Anima Turbo integrated Refine acceptance (2026-11-17)
 
@@ -1373,8 +1378,9 @@ Strength 0.125 is the conservative opening candidate: some clearer outlines,
 with flattened foliage and higher contrast. Higher strengths redraw more and
 can strongly simplify background texture; fine geometry defects remain.
 These are bounded observations, not Matt's review or a quality guarantee.
-Only this recipe/size/loader was measured. Public Aesthetic support remains
-held pending its integration and real-API acceptance; Preview is separate.
+Only this recipe/size/loader was measured by the private trial. Its later
+bounded public/standalone acceptance is recorded below; Preview has separate
+private and integrated results.
 
 ### Anima 2.9B Preview private Refine (2026-11-17)
 
@@ -1402,9 +1408,9 @@ changed foliage texture; higher strengths can flatten/saturate it and redraw
 face, basket and wheel details. Existing cropped geometry/anatomy defects
 remain. No author recommendation, general improvement or Matt acceptance is
 claimed. The [receipt](maintainer/anima-refine-preview-2026-11-17.json)
-records exact configuration/source/guard proofs and visual notes. Public
-Preview integration and acceptance remain separate; no larger size, aspect
-or alternative loader/platform is qualified.
+records exact configuration/source/guard proofs and visual notes. Later public
+and standalone acceptance is recorded below; no larger size, aspect or
+alternative loader/platform is qualified.
 
 ### Anima Aesthetic/Preview nonempty negatives (2026-11-17)
 
@@ -1424,6 +1430,90 @@ existing fine geometry defects remain. The
 [receipt](maintainer/anima-refine-negative-2026-11-17.json) distinguishes
 the completed 0.125 branch from the 0.4 cancellation check. This establishes
 the branch and reproduction controls, not a quality promise for arbitrary text.
+
+### Anima Aesthetic/Preview integrated Refine acceptance (2026-11-17)
+
+Separate one-load real public-server sessions passed on `3925cbd`, inside
+the measured Windows/RTX 5080 CUDA 0, fp8/model, Eager/Native, diffusers
+0.42.1, 1024-square source/output, 30-step/CFG-4 envelope. Each saved twelve
+outputs matching its private full RGB references across the 0.125 opening,
+nonempty negative, 0.4 serial batch/solo, cancel/recovery, same-size Then
+refine, Mass refine, More seeds, retained Finish and PNG-carried CLI-via-server
+request. All source fixtures, PNG/full-RGB/exact-metadata hashes, SQL and
+captured API/job records were independently checked. Each recorded peak pair
+also matches the post-call CUDA counters and `last_peak` observation.
+
+The 0.125 passes ran four steps from sigma 0.315789521; 0.4 ran twelve from
+0.666666687, twenty-four for its serial batch. The `low quality, blurry`
+case retained that text and applied `true_cfg=4` in saved job/API/SQL/PNG
+data. Its raw request has no separate True CFG override: the private negative
+artifact observed pipeline `guidance_scale=4` without `true_cfg_scale`;
+the public session observed caller intent and matching pixels, without a
+pipeline-kwargs hook. Cancel after SSE step one saved nothing and cleared
+the peak; retained Finish recovered that SQL-defined cell in the same session.
+Thirteen owner-hook releases per variant include every image and cancel.
+Five invalid probes refused before queueing; same-size Re-render pruned with
+409 and enlargement remained 422.
+
+| Measurement | Aesthetic | Preview |
+| --- | --- | --- |
+| Cached load | 14.29 s | 14.79 s |
+| Whole-card peak | 4801 MiB | 5632 MiB |
+| Server-tree RSS / private peak | 7.35 / 10.43 GiB | 10.96 / 13.43 GiB |
+| Minimum free RAM / commit | 24.82 / 22.37 GiB | 21.63 / 20.63 GiB |
+| Shared rise, process / adapter | 82 / 221.5 MiB | 82 / 93.1 MiB |
+| Guard samples / mean gap / longest gap | 603 / 0.249869 / 0.274964 s | 765 / 0.249919 / 0.278056 s |
+
+No guard tripped; both unloaded, released power and left their owned
+processes gone. The [combined receipt](maintainer/anima-refine-variants-public-2026-11-17.json)
+preserves the 193-file start/end manifests and exact `3925cbd` identity,
+separately from the later CLI timeout correction. This is public API and
+CLI-via-server acceptance, not native-browser GPU presentation, restart
+recovery, a speed qualification or wider hardware/loader/shape support.
+Agent visual findings and existing anatomy/texture limits remain as recorded
+in the private receipts; Matt has not supplied his own acceptance.
+
+### Anima standalone CLI Refine acceptance (2026-11-17)
+
+Three separate ordinary `python -m backend.generate` invocations passed on
+`90eb8c5`, each one fresh load, one unchanged source row/PNG and one new
+expected Refine result. Turbo used 8 steps/CFG 1/strength 0.25; Aesthetic and
+Preview used 30 steps/CFG 4/strength 0.125. Official selector ids, seed 4471,
+1024-square source/output, Windows/RTX 5080 CUDA 0, fp8/model and Eager/Native
+were retained, without HTTP generation, `--ignore-server`, quiet mode or
+generation patches. Each source/private RGB, PNG and exact metadata hash was
+rechecked against SQL and source provenance. The recorded backend peak pair
+agrees between SQL and PNG; no independent Torch allocator observation was
+installed in these standalone processes. OS RSS/private measurements are
+separate.
+
+| Measurement | Turbo v2 | Aesthetic | Preview |
+| --- | --- | --- | --- |
+| CLI ready line / saved render | 17 s / 4.381 s | 12 s / 6.731 s | 13 s / 7.596 s |
+| Recorded allocated / reserved bytes | 2591532544 / 2768240640 | 2593108992 / 2770337792 | 3436291072 / 3613392896 |
+| Whole-card peak | 4742 MiB | 4739 MiB | 5541 MiB |
+| Watched-tree RSS / private peak | 7.69 / 9.86 GiB | 8.32 / 10.18 GiB | 10.42 / 12.64 GiB |
+| Minimum free RAM / commit | 21.80 / 21.93 GiB | 21.05 / 20.59 GiB | 19.23 / 19.15 GiB |
+
+All guards passed with the unchanged live floors/card/shared limits,
+24 GiB free-RAM/commit admission and 16 GiB RSS cap. Shared process rise was
+82 MiB each, adapter rise at most 83.7 MiB. Preview's 1.784 s startup sample
+gap preceded the literal CLI child; its maximum thereafter was 0.264736 s.
+Every process exited zero, released power and left no owned gate/CLI process;
+port 7992 was bindable at audit. All 193 initial/final/current source hashes
+agree. Times are descriptive, and negative standalone CLI was not tested.
+
+The original Turbo v1 remains a failed pre-load refusal: its two-second
+server probe expired before Windows returned closed-port refusal, while
+unspecified child stdio hid the refusal output. The separately reviewed
+five-second probe and explicit diagnostic gate stdout/stderr forwarding
+preserve admission. Turbo v2 is the successful new attempt. The
+[standalone receipt](maintainer/anima-refine-standalone-cli-2026-11-17.json)
+retains successful proofs and the unchanged failed v1 evidence; it does not
+relabel that failure or widen the measured envelopes. The final integrated
+CPU gate passed 11,071 tests with 325 skips; Ruff and all 217 Pyright sources
+passed. `GEN#48` is complete for the documented bounded envelopes, with the
+full validation and limitations in the owner.
 
 ### Peak per image, FLUX.1 Krea dev; guarded Refine stop (2026-11-16)
 

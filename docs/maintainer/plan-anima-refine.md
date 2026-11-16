@@ -1,11 +1,12 @@
 # Anima Refine
 
-**Status: stages 0 and 1 done (2026-11-11, 2026-11-12); stage 2's Turbo
-experiment measured and agent-reviewed at 1024 square on Windows fp8/model
-(2026-11-16), followed by independent Aesthetic and Preview trials on
-2026-11-17. Bounded Turbo passed integrated public API/CLI-via-server
-acceptance. The measured Aesthetic/Preview source extension passed its full
-CPU/browser gates; their integrated API and standalone CLI checks remain.**
+**Status, 2026-11-17: source integration and bounded card acceptance passed
+for Turbo, Aesthetic and Preview.** Each has its own private measurement,
+real public API/CLI-via-server acceptance and standalone CLI result.
+The release is limited to RTX 5080/Windows CUDA 0, fp8/model offload,
+Eager/Native, diffusers 0.42.1 and 1024-square source/output, with each
+variant's measured steps, CFG and strengths. The final integrated regression
+gate passed; `GEN#48` is complete within these envelopes.
 Matt selected Anima as the first family for `GEN#48` on 2026-11-11.
 This closes the family choice in the [peer review](review-2026-11-10-peers.md#r1-refine-on-the-families-that-have-none).
 That family choice alone did not qualify a Refine pass or authorize a GPU run. No capability,
@@ -528,11 +529,11 @@ Before the retry, 60 runner CPU tests passed, including thirteen real Windows
 locked-reader handoffs; the runner/pack/doc-map/section set passed 178 tests,
 Ruff passed and pinned Pyright checked 215 sources with zero errors.
 
-**Next:** stage 3 may release only deliberately bounded Turbo support from
-this evidence, with the ordinary source/reproduction paths and the listed
-automated/browser checks. Aesthetic and Preview stay held until their own
-one-load sessions. No enlargement recommendation follows from the skipped
-1280 case. `GEN#48` remains open until its measured public release is complete.
+**Follow-through:** the bounded family integrations and real public/standalone
+acceptance below now carry this evidence through the ordinary source and
+reproduction paths. Aesthetic and Preview received independent one-load
+measurements before their extensions. The skipped 1280 case supplies no
+enlargement recommendation. The final integrated regression gate passed below.
 
 #### Integrated CPU gate, 2026-11-17
 
@@ -613,20 +614,23 @@ The browser fixture's immediate close/reopen also raced the queued native
 dialog close event. It now waits for the real `refineSource === null`
 transition before opening another source, with no fixed sleep.
 
-### Remaining integrated card acceptance
+<a id="remaining-integrated-card-acceptance"></a>
+### Integrated card acceptance protocol
 
-CPU and fake-browser results do not qualify the newly connected real-backend
-path. Run a separate guarded real-server session after integration,
-with a scratch gallery and the retained baseline RGB. At matched seed 4471,
+CPU and fake-browser results alone do not qualify a newly connected real-backend
+path. The completed acceptance used separate guarded real-server sessions
+after integration, scratch galleries and the retained baseline RGB. Its
+frozen Turbo protocol required, at matched seed 4471,
 the 0.25 pass must reproduce the measured `726e7968…` pixels. A serial two-image
 0.4 call must match `a3d6d770…` / `fc78687d…`, and a direct-then-Refine at
 scale 1 / 0.25 must reproduce the baseline/pass pair. Observe actual progress,
 cancel/recovery, saved metadata and owner-hook residency; keep held-path
 checks and ordinary generation. No larger target belongs in that acceptance.
 
-`GEN#48` remains tracked for this acceptance and independent Aesthetic/Preview
-one-load qualifications. The original trial receipts and source hashes stay
-historical evidence, not a claim that the integrated public path was measured.
+Turbo and the independently measured Aesthetic/Preview variants have now
+passed their corresponding integrated API and standalone CLI sessions below.
+The original private receipts and source hashes remain historical evidence;
+the later public receipts identify exactly which integrated code was tested.
 
 ### Local integration checks
 
@@ -723,8 +727,8 @@ exact measured recipe**, not an author recipe, anatomy-improvement claim or
 quality guarantee. Matt has not reviewed these images himself. The raw
 receipt received only those visual-review strings; its byte-identical
 `receipt-unreviewed.json` and review sidecar preserve the pre-review hash and
-reviewer/time. Public resolver/profile/browser/CLI release remains separate;
-Preview still requires its own conversion and one-load card session.
+reviewer/time. The later bounded source/public/standalone results are recorded
+below; Preview received its own conversion and one-load trial before release.
 
 #### Preview preparation and one-load result, 2026-11-17
 
@@ -795,8 +799,8 @@ replacement was observed. The provisional conservative opening is **0.125
 for this exact measured recipe**, not author advice, a quality guarantee or
 Matt acceptance. The original raw receipt bytes remain in
 `receipt-unreviewed.json`; only visual-review strings were added to the live
-receipt, with reviewer/time and hashes in its sidecar. Public integration is
-stage 3; the measured envelope covers this exact 1024-square recipe.
+receipt, with reviewer/time and hashes in its sidecar. The later stage 3
+results below carry this exact measured 1024-square recipe into public flows.
 
 ### Integrated public card acceptance, 2026-11-17
 
@@ -939,11 +943,10 @@ opening, holds, queueing and source/strength carry. The Turbo fixture checks
 switching to those independently measured recipes and back to Turbo's own.
 
 The evidence remains separate: `anima-refine-aesthetic-2026-11-17.json` and
-`anima-refine-preview-2026-11-17.json` own their private measurements; Turbo's
-integrated acceptance owns its real API result. Aesthetic/Preview integrated
-real-server/API acceptance follows this source extension before the complete
-family is declared finished. Enlargement and every unmeasured loader/card
-remain held.
+`anima-refine-preview-2026-11-17.json` own their private measurements; each
+variant's later public and standalone receipts own its integrated result.
+All three bounded card acceptances and the final integrated regression gate
+have passed. Enlargement and every unmeasured loader/card stay held.
 
 ### Family source validation
 
@@ -972,5 +975,106 @@ Browser receipts are retained at
 `%TEMP%/auradream-smoke-artifacts-daym2goa/summary.json` (three passing rows and
 the diagnosed Preview fixture) and
 `auradream-smoke-artifacts-yzbb38wk/summary.json` (corrected Preview). These
-source/fake-browser checks do not substitute for the final integrated
-Aesthetic/Preview card sessions.
+source/fake-browser checks stand beside the separately completed integrated
+Aesthetic/Preview card sessions below.
+
+### Integrated Aesthetic and Preview acceptance
+
+Both variants passed the predeclared public API and CLI-via-server pack on
+`3925cbd9385405f056d912c26cf4675ba91cf3bb`, in separate one-load sessions:
+twelve saved outputs and one cooperative cancellation each. The 0.125 opening,
+0.4 serial batch and solo seed, recovery, same-size Then refine baseline/pass,
+Mass refine, More seeds, retained Finish and PNG-carried CLI request reproduce
+their private reference RGB hashes. All twelve PNG/full-RGB/exact-metadata
+hashes per variant were independently checked against SQL and captured job/API
+records; all eight original fixture PNGs remain unchanged. Each negative case
+retains `low quality, blurry` and applied `true_cfg=4` in job/API/SQL/PNG, while
+its raw request has no separate True CFG override. The bound private artifact
+directly observed pipeline `guidance_scale=4` without `true_cfg_scale`; the
+public session observed the caller request and matching pixels, with no
+pipeline-kwargs hook installed. The [combined public receipt](anima-refine-variants-public-2026-11-17.json)
+keeps that distinction and the exact tested source identities.
+
+Actual 0.125 passes ran four callbacks from sigma 0.315789521; 0.4 ran twelve
+from 0.666666687, twenty-four for its serial two-image batch. Thirteen loaded-owner
+hook releases per variant include each batch image and cancel. Cancel after
+the first observed SSE step saved nothing and cleared the peak; Finish used
+its checked retained SQL definition in the same session. Five held probes
+returned 422 without queueing; same-size Re-render pruned with 409 and
+enlargement remained 422. CLI `--from-image --via-server` carried source and
+strength without explicit replacement flags. This measures the public API
+and remote CLI path; native-browser GPU presentation and restart recovery
+were not tested by these sessions.
+
+No guard tripped. Aesthetic's 603 samples averaged 0.249869 s with a
+0.274964 s longest gap; Preview's 765 averaged 0.249919 s with a 0.278056 s
+longest gap. Their whole-card peaks were 4801/5632 MiB; process shared rose
+82 MiB each, adapter shared 221.5/93.1 MiB. Server-tree RSS/private peaks
+were 7.35/10.43 GiB and 10.96/13.43 GiB; free-RAM/commit minima were
+24.82/22.37 GiB and 21.63/20.63 GiB. Explicit 24 GiB RAM/commit admission,
+the 16 GiB RSS cap and unchanged card/shared/4 GiB floors held. Loads took
+14.29/14.79 s; times are descriptive. Both unloaded, released power and left
+their owned PIDs absent. Port 7993 was reused sequentially, so later listeners
+are not attributed to an earlier ended process. All 193 source hashes agree
+at each run's start/end. The later standalone CLI timeout fix is disclosed
+separately and does not rewrite these receipts' source identity.
+
+### Standalone CLI acceptance
+
+All three normal standalone CLI invocations passed separately on
+`90eb8c5ffce45692792436856427bc6d7bb07f6a`: one fresh process/load and one
+new measured Refine image each. Turbo used eight steps, CFG 1 and strength
+0.25; Aesthetic and Preview used thirty steps, CFG 4 and strength 0.125.
+Each selected its official catalogue id, fp8/model offload, 1024-square
+source/output and seed 4471, without `--via-server`, `--ignore-server`,
+quiet mode or generation patches. Full RGB hashes match the private opening
+references. Source rows/PNGs remain unchanged; SQL and PNG agree on source
+provenance, strength, seed, sampling and the recorded backend peak pair.
+No independent Torch allocator observation was installed; process RSS/private
+counters are separate host measurements. The [standalone receipt](anima-refine-standalone-cli-2026-11-17.json)
+retains those distinctions and all three source manifests.
+
+Ordinary stdout contains one load/ready announcement and one new result path
+per process. Ready times were 17/12/13 s and saved render durations
+4.381/6.731/7.596 s (Turbo/Aesthetic/Preview), descriptive only. Whole-card
+peaks were 4742/4739/5541 MiB; process shared rose 82 MiB each and adapter
+shared at most 83.7 MiB. Maximum watched-tree RSS/private was 10.42/12.64 GiB;
+the lowest sampled free RAM/commit was 19.23/19.15 GiB. Explicit 24 GiB
+RAM/commit admission, the 16 GiB RSS cap and unchanged card/shared/4 GiB floors
+held. Preview had a 1.784 s startup sample gap before its literal CLI spawned,
+with a 0.264736 s maximum thereafter. No guard tripped. All exited zero,
+released power and left no recorded gate/CLI process; port 7992 was bindable
+at audit. Each 193-file manifest agrees at start, end and audit; raw receipts
+were preserved.
+
+The original Turbo v1 attempt remains a failed pre-load refusal. Its two-second
+server-check timeout expired before Windows delivered closed-port refusal,
+while unspecified child stdio hid the refusal output. The separately reviewed
+five-second bounded probe and explicit gate stdout/stderr forwarding fixed
+those issues without bypassing admission. Turbo v2 is the successful fresh
+attempt; the failed directory and exact hashes remain. These standalone
+results establish the CLI path separately from public API/CLI-via-server
+evidence. No other size, loader, platform or quality guarantee is inferred.
+
+### Final current-tree integrated gate
+
+The integrated checkout passed `uv run --group dev pytest -n 4
+--durations=20 --timeout=600 -q` with `CUDA_VISIBLE_DEVICES=-1`:
+**11,071 passed, 325 skipped**, 85 warnings, exit 0 in 356.71 seconds.
+Ruff passed and pinned Pyright checked all **217 backend/tool sources** with
+zero diagnostics. The four Anima fake-browser rows and the independent
+private/public/standalone card receipts above supply their separate evidence.
+
+The preceding integrated attempt passed every other test but failed the
+rules section-length check: Model and loader had grown from its frozen 791
+lines to 793. Five topic subheadings now divide whole bullets into sections
+of 153/141/280/137/82 lines, preserving all prose and the original anchor;
+the obsolete allowance was removed. Focused section/map checks passed before
+the fresh full-suite pass. The failed log remains preserved at
+`work/overnight-integrated-final-2026-11-17-cpu.log`; the passing log is
+`work/overnight-integrated-final-2026-11-17-cpu-v2.log`.
+
+This closes `GEN#48` with the dated verified results and TODO removal.
+Enlargement, other aspects/loaders/platforms/cards, native-browser GPU
+presentation and restart recovery remain unmeasured. Agent image review does
+not claim Matt's preference or an anatomy/detail improvement guarantee.

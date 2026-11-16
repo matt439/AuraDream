@@ -1488,6 +1488,8 @@ measured on the card and when.
 
 ### Model and loader
 
+#### Checkpoint integrations
+
 - `KBlueLeaf/Kohaku-XL-Zeta` uses its ordinary Diffusers SDXL tree and
   supplied epsilon/Euler scheduler. Start at 28 steps/CFG 5 and disable Mu.
   Keep its hybrid prose/tag guide, 2024-07-10 vocabulary cutoff and
@@ -1654,6 +1656,8 @@ measured on the card and when.
   References, user LoRAs and Nunchaku are unavailable for this integration.
 
 
+#### Shared loading, quantization and switching
+
 - App-owned names use AuraDream: `AURADREAM_*`,
   `auradream.db`, `~/auradream`, `auradream.*` browser keys
   and the `auradream` PNG chunk. Keep Krea only in checkpoint/vendor
@@ -1795,6 +1799,9 @@ measured on the card and when.
   own to come - the next revision wiped the Models note's outcome
   (`test_status_retries_a_newest_id_read_that_crossed_a_switch`). LoRA denoiser caches must be
   invalidated when the selected checkpoint changes.
+
+#### Startup preferences and the Models picker
+
 - Server launch restores `startup_preferences` before config imports, without
   terminal input unless `--menu` is given. Flags override explicit environment,
   then saved preferences, then defaults; `--defaults` skips preferences.
@@ -2075,6 +2082,9 @@ measured on the card and when.
   an unlisted row leaves the choice as it was, and any other opening, a
   choice made in the picker meanwhile (`modelPickerEdited`) or a catalogue
   that fails clears the request, so a later answer never moves the choice.
+
+#### Loader choices and instruction edit admission
+
 - Quantization and offload descriptions live in `loader_choices.py` and are
   shared by the menu and the picker; only figures true of every catalogue
   checkpoint go there, and no unmeasured quality claim (INT8 is "the same
@@ -2212,6 +2222,9 @@ measured on the card and when.
   `forced_mu(pipe, None)`; the hooks are freed and the source closed in
   `finally`; and the result must be exactly one image at the recipe's output
   size, with no composite.
+
+#### Pipeline ownership and optional components
+
 - Backend loading owns returned component overrides and the unpublished pipeline
   in one candidate through shard/weights-context exit, placement, callback checks,
   console configuration and diagnostics. Publish the complete call parameters,
