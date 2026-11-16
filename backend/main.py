@@ -60,7 +60,7 @@ from .launch import CHECKPOINTS, warn_legacy_env  # noqa: E402
 from .instruction_edit import (  # noqa: E402
     INSTRUCTION_EDIT_UNAVAILABLE, is_edit_only, option_refusals, require_model_available,
 )
-from . import api_instruction_edit  # noqa: E402
+from . import api_detailer, api_instruction_edit  # noqa: E402
 from . import log_file  # noqa: E402
 from .idle_unload import IdleUnload  # noqa: E402
 from . import server_transport  # noqa: E402
@@ -579,6 +579,7 @@ async def hold_model_for_request(request: Request, call_next):
     path = request.url.path
     depends_on_model = path in {
         "/api/instruction-edit/preview", "/api/instruction-edit",
+        "/api/detailer/preview", "/api/detailer",
         "/api/generate", "/api/grid", "/api/rerender", "/api/swap-tags", "/api/refine/batch", "/api/more-seeds",
         "/api/loras", "/api/png/settings",
         "/api/model/load", "/api/model/unload",
@@ -1605,6 +1606,7 @@ app.include_router(api_runs.create_router(services))
 app.include_router(api_generate.create_router(services))
 app.include_router(api_rerender.create_router(services))
 app.include_router(api_instruction_edit.create_router(services))
+app.include_router(api_detailer.create_router(services))
 app.include_router(api_swap.create_router(services))
 app.include_router(api_refine_batch.create_router(services))
 app.include_router(api_more_seeds.create_router(services))

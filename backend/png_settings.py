@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any
 
 from backend.metadata import embedded_metadata, require_header_metadata
 from backend.execution import canonical_execution
-from backend.metadata import canonical_edit
+from backend.metadata import canonical_detailer, canonical_edit, validate_detailer_record
 from backend.refine import CROP_ANCHORS
 
 if TYPE_CHECKING:
@@ -79,6 +79,10 @@ def record(chunks: Mapping[str, Any], name: str) -> dict | None:
         if canonical_edit(meta.get("edit")) is not None:
             raise ValueError("instruction-edit settings must be reopened from the gallery image")
         canonical_execution(meta.get("execution"))
+        # Loading sampling text never imports the source, masks or operation.
+        # Still validate a manifest that is present instead of treating damaged
+        # detailer metadata as an unrelated plain-generation settings record.
+        validate_detailer_record(canonical_detailer(meta.get("detailer")), meta)
         crop_anchor(
             meta.get("crop_anchor"), source=meta.get("refine"),
             mask=meta.get("mask"), outpaint=meta.get("outpaint"),

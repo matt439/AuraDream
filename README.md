@@ -322,6 +322,13 @@ outpaint has not been measured). See
 [Inpaint](docs/usage.md#inpaint-part-of-an-image) and
 [Outpaint](docs/usage.md#outpaint-an-image).
 
+**Detail faces/hands…** in an image's right-click menu finds candidate regions
+on the CPU, lets you choose them, then queues an inpaint of each selected
+region in order. It starts with supported SDXL checkpoints and explicit
+detector downloads. Every intermediate pass is saved. Detection does not
+judge anatomy, and detailer render quality has not been qualified on the card.
+See [Detail faces and hands](docs/usage.md#detail-faces-and-hands).
+
 ## Headless
 
 Generate without a server or browser, using the same backend and gallery:

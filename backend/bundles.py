@@ -44,7 +44,8 @@ from .bundle_recovery import _embedded_member, _mask_crop, _rebuilt_member, _rec
 from .bundle_images import _critical_digest, _inspect_source, _metadata, _references, _rewrite_all, _validate_row
 from .metadata import require_header_metadata
 from .instruction_edit import StoredInstructionEdit, edit_key
-from .metadata import edit_from_json
+from .detailer import StoredDetailer, iter_rebuilt_masks, stored_json as detailer_json
+from .metadata import detailer_from_json, edit_from_json
 
 _SUFFIXES = (".zip", bundle_crypto.SUFFIX)
 
@@ -512,7 +513,12 @@ def _chosen(ids: list[int]) -> tuple[list[dict], list[tuple[str, Path]]]:
         stem = Path(row["filename"]).stem
         files += [(name, found[name]) for name in (f"images/thumbnails/{stem}.webp", f"images/{stem}.webp")
                   if name in found]
-    masks = sorted({f"masks/{row['mask']}.png" for row in rows if row.get("mask")} & set(found))
+    mask_names = {row["mask"] for row in rows if row.get("mask")}
+    for row in rows:
+        stored = detailer_from_json(row.get("detailer"))
+        if stored is not None:
+            mask_names.update(stored.plan.masks)
+    masks = sorted({f"masks/{digest}.png" for digest in mask_names} & set(found))
     files += [(name, found[name]) for name in masks]
     return rows, files
 
@@ -554,7 +560,15 @@ def _restrict(snapshot: Path, keep: set[int]) -> None:
         # And the masks no chosen row names: a mask is a picture painted over
         # an image the bundle need not hold.
         if conn.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'masks'").fetchone():
-            conn.execute("DELETE FROM masks WHERE hash NOT IN (SELECT mask FROM images WHERE mask IS NOT NULL)")
+            held = {row[0] for row in conn.execute("SELECT mask FROM images WHERE mask IS NOT NULL")}
+            if "detailer" in {row[1] for row in conn.execute("PRAGMA table_info(images)")}:
+                for row in conn.execute("SELECT detailer FROM images WHERE detailer IS NOT NULL"):
+                    stored = detailer_from_json(row[0])
+                    if stored is not None:
+                        held.update(stored.plan.masks)
+            conn.execute("CREATE TEMP TABLE kept_masks (hash TEXT PRIMARY KEY)")
+            conn.executemany("INSERT INTO kept_masks VALUES (?)", [(digest,) for digest in held])
+            conn.execute("DELETE FROM masks WHERE hash NOT IN (SELECT hash FROM kept_masks)")
         conn.execute("INSERT INTO images_fts(images_fts) VALUES('rebuild')")
         conn.commit()
         conn.execute("VACUUM")
@@ -573,6 +587,7 @@ def _links_outside(rows: list[dict]) -> int:
     return sum(
         sum(i not in held for i in _references(row)) + (row.get("refine") is not None and row["refine"] not in held)
         + ((edit := edit_from_json(row.get("edit"))) is not None and edit.source not in held)
+        + ((detail := detailer_from_json(row.get("detailer"))) is not None and detail.plan.source_id not in held)
         for row in rows
     )
 
@@ -918,6 +933,7 @@ def _import_bundle(path: Path, password: str | None, progress: Progress,
                                 raise BundleError(f"not a PNG image: {target.name}")
                             bundle_images._execution(existing[row["filename"].casefold()], image.info)
                             bundle_images._edit(existing[row["filename"].casefold()], image.info)
+                            bundle_images._detailer(existing[row["filename"].casefold()], image.info)
                 except (OSError, ValueError, Image.DecompressionBombError) as exc:
                     raise BundleError(f"cannot read existing execution metadata for {target.name}: {exc}") from exc
                 # A present image is kept and its bundle copy never unpacked.
@@ -939,6 +955,7 @@ def _import_bundle(path: Path, password: str | None, progress: Progress,
                     with Image.open(stream) as image:
                         execution = bundle_images._execution(row, image.info)
                         edit = bundle_images._edit(row, image.info)
+                        bundle_images._detailer(row, image.info)
                     _validate_row(row, width, height, existing[row["filename"].casefold()]["content_hash"])
                     return None, True, execution, edit
                 pixels = _inspect_source(row, data)
@@ -1018,6 +1035,10 @@ def _import_bundle(path: Path, password: str | None, progress: Progress,
                             raise BundleError(f"different execution already uses the filename {name}")
                         if bundle_images._portable_edit(bundle_images._edit(known)) != bundle_images._portable_edit(edit):
                             raise BundleError(f"different instruction edit already uses the filename {name}")
+                        if bundle_images._portable_detailer(bundle_images._detailer(known)) != bundle_images._portable_detailer(
+                            bundle_images._detailer(row)
+                        ):
+                            raise BundleError(f"different detailer manifest already uses the filename {name}")
                         incoming_anchor = row.get("crop_anchor")
                         if known.get("refine") is None:
                             # A prior import of this source-less selection
@@ -1036,7 +1057,8 @@ def _import_bundle(path: Path, password: str | None, progress: Progress,
                         next_id += 1
                         mapping[row["id"]] = next_id
                         values = {key: row.get(key) for key in storage._COLUMNS}
-                        values.update(id=next_id, content_hash=digest, execution=execution, edit=edit)
+                        values.update(id=next_id, content_hash=digest, execution=execution, edit=edit,
+                                      detailer=bundle_images._detailer(row))
                         # A result, so a bad one is dropped, never the bundle.
                         for key in ("vram_peak_allocated", "vram_peak_reserved"):
                             values[key] = storage._peak(values[key])
@@ -1052,6 +1074,39 @@ def _import_bundle(path: Path, password: str | None, progress: Progress,
                 source_by_id = {r["id"]: r for r in source_rows}
                 cyclic = _cyclic_edit_sources(source_by_id)
                 for original, values in pending:
+                    detail = detailer_from_json(values.get("detailer"))
+                    if detail is not None:
+                        source = source_by_id.get(detail.plan.source_id)
+                        proof = detail.plan.source
+                        source_pixels = inspected["images/" + source["filename"]][0] if source is not None else None
+                        proven = (
+                            detail.plan.source_id != original["id"] and source is not None and source_pixels is not None
+                            and source["filename"] == proof.filename
+                            and (source_pixels.width, source_pixels.height) == (proof.width, proof.height)
+                            and source_pixels.rgb_hash == proof.hash
+                        )
+                        local_id = mapping.get(detail.plan.source_id) if proven else None
+                        unresolved += local_id is None
+                        remapped = detail.plan.model_copy(update={"source_id": local_id})
+                        values["detailer"] = detailer_json(StoredDetailer(plan=remapped, pass_index=detail.pass_index))
+                        # The frozen box recipe reconstructs every chain mask,
+                        # including future/pass masks absent from this selection.
+                        # Hash agreement is checked before any file is installed.
+                        for digest, picture in iter_rebuilt_masks(detail.plan):
+                            try:
+                                if digest in carried:
+                                    continue
+                                target = work / storage.MASKS_DIR / f"{digest}.png"
+                                target.parent.mkdir(parents=True, exist_ok=True)
+                                picture.save(target, format="PNG", compress_level=6)
+                                conn.execute(
+                                    "INSERT OR IGNORE INTO masks (hash, width, height, created_at) VALUES (?, ?, ?, ?)",
+                                    (digest, picture.width, picture.height, datetime.now(timezone.utc).isoformat()),
+                                )
+                                embedded[digest] = target
+                                carried.add(digest)
+                            finally:
+                                picture.close()
                     edit = edit_from_json(values.get("edit"))
                     if edit is not None:
                         source = source_by_id.get(edit.source)

@@ -16,6 +16,7 @@ from typing import Any
 from .backends.base import ExecutionDiagnosticsReader
 from .backends.regional_compile import RegionalDiagnosticOwner, RegionalDiagnostics
 from .grid import Cell
+from .detailer import DetailerPlan
 from .schemas import GenerateRequest, ThenRefine
 
 _TERMINAL = {"done", "error", "cancelled"}
@@ -101,6 +102,11 @@ class Job:
     # More seeds' count: its cells continue batches the gallery already
     # holds, so the job is named as more of its prompt, not as a new one.
     more_seeds: int | None = None
+    # A dependent chain of saved inpaints. The static cells retain every
+    # mask; only the current call has a concrete intermediate source id.
+    detailer: DetailerPlan | None = None
+    detailer_cell: Cell | None = None
+    detailer_last_image: int | None = None
     # Then refine: a pass of each image right after its cell, the strength
     # resolved, saved under `pass_run_id`. `stage` is "pass" while one runs,
     # and `pending_passes` the cell's passes still to run - planned, so More
@@ -241,6 +247,8 @@ class Job:
             else "This job is stopping" if self.cancel_requested
             else "No cell is running while this job is queued" if self.status == "queued"
             else "Resume this job before skipping a cell" if self.paused
+            else "Detailer regions depend on earlier results and cannot be skipped"
+            if self.detailer is not None
             else "Then refine passes cannot be skipped: Finish run adds a pass a stop left missing"
             if self.stage == "pass"
             else "No cell is running between calls" if call is None
@@ -271,6 +279,8 @@ class Job:
         failing images said "after 3 cells failed"."""
         if self.grid:
             return "cell"
+        if self.detailer is not None:
+            return "region"
         if sum(cell.request.num_images for cell in self.cells) > len(self.cells):
             return "batch"
         return "image"
@@ -345,6 +355,14 @@ class Job:
             "comparison": self.comparison,
             "swap": None if self.swap is None else self.swap[:120],
             "more_seeds": self.more_seeds,
+            "detailer": None if self.detailer is None else {
+                "source_id": self.detailer.source_id,
+                "group_id": self.detailer.group_id,
+                "regions": len(self.cells),
+                "completed": len(self.completed_indices),
+                "last_image_id": self.detailer_last_image,
+                "partial": len(self.completed_indices) < len(self.cells),
+            },
             "status": self.status,
             "waiting_on": self.waiting_on,
             "ahead_paused_at": self.ahead_paused_at,

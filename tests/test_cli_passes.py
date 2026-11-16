@@ -292,6 +292,34 @@ def test_from_image_reproduces_an_inpaint_over_its_mask(cli, store, monkeypatch,
     assert cli.requests[-1].mask is None
 
 
+def test_from_image_replays_only_one_detail_pass_and_refuses_changed_source(cli, store, monkeypatch, capsys):
+    from tests.bundle_helpers import save_source
+    from tests.detailer_helpers import save_detail
+
+    source = save_source()
+    child = save_detail(source)
+    path = str(store.settings.outputs_dir / child.filename)
+    monkeypatch.setattr(generate, "_project", project_claiming(generate, ANIMAGINE))
+    assert generate.main(["--from-image", path, "-q"]) == 0
+    assert len(cli.requests) == 1
+    assert cli.requests[0].detailer == child.detailer
+    assert cli.requests[0].refine == source.id
+    assert store.list_images()[0][0].detailer == child.detailer
+    # The gallery id in another gallery may name unrelated pixels. Detailer
+    # replay must retain its intent and refuse, rather than become generation.
+    with store._session() as conn:
+        conn.execute("UPDATE images SET content_hash=? WHERE id=?", ("0" * 16, source.id))
+    with pytest.raises(SystemExit) as refused:
+        generate.main(["--from-image", path, "-q"])
+    assert refused.value.code == 2
+    assert "recorded direct source" in capsys.readouterr().err
+    assert len(cli.requests) == 1
+    # Explicitly choosing another source starts an ordinary refine and carries
+    # neither the historical detection nor its mask.
+    assert generate.main(["--from-image", path, "--refine", str(source.id), "-q"]) == 0
+    assert cli.requests[-1].detailer is None and cli.requests[-1].mask is None
+
+
 def test_an_inpaint_sweep_runs_the_cells_the_server_would(cli, store, monkeypatch, tmp_path):
     from backend import grid
     from backend.schemas import GenerateRequest

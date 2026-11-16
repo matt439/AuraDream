@@ -101,7 +101,7 @@ function finishJob(jobId, data, { submitted, sheet, foreign = false, staleBefore
     // A plain job's seeds, which a blank Seed box drew and nothing on the
     // page showed short of the lightbox: Use seed keeps the composition for
     // the next prompt, and writes nothing else.
-    const plain = !data.grid && data.refine == null && images.length;
+    const plain = !data.detailer && !data.grid && data.refine == null && images.length;
     // More seeds' too, where the seeds they took are the news: a batch's
     // run on from its highest, the same span for each batch of one run.
     const seeded = plain || (data.more_seeds != null && images.length);
@@ -136,7 +136,7 @@ function finishJob(jobId, data, { submitted, sheet, foreign = false, staleBefore
       // swap's or a batch refine's, whose images are many batches of
       // another's. Held where every image has gone since, or the checkpoint
       // is another; the batches are the server's.
-      const pass = !data.grid && data.refine != null && data.refine_batch == null && data.swap == null;
+      const pass = !data.detailer && !data.grid && data.refine != null && data.refine_batch == null && data.swap == null;
       if ((seeded || pass) && images.length) line.push(finishMoreSeeds(images, 'result-dup'));
     }
   }
@@ -149,13 +149,18 @@ function finishJob(jobId, data, { submitted, sheet, foreign = false, staleBefore
       'Lay this run out as a contact sheet'));
   }
   // A finished grid's next step: more seeds of every cell of its run.
-  if (data.grid && data.status === 'done' && images.length && data.run_id && !foreign) {
+  if (!data.detailer && data.grid && data.status === 'done' && images.length && data.run_id && !foreign) {
     line.push(moreSeedsRunButton(data.run_id, { model: images[0].model_id, className: 'ghost tiny' }));
   }
   // The server kept the complete run, including Repeat, comparisons and
   // cells this tab never saw. Missing counts and holds never come from the
   // current composer or from this tab's old request payload.
-  if (data.run_id && !foreign && !atLoad) line.push(finishRunButton(data.run_id, { className: 'ghost tiny', slot: els.error }));
+  if (data.run_id && !data.detailer && !foreign && !atLoad) line.push(finishRunButton(data.run_id, { className: 'ghost tiny', slot: els.error }));
+  if (data.detailer && !atLoad) {
+    line.push(data.detailer.partial
+      ? ` Detail pass stopped after ${data.detailer.completed} of ${data.detailer.regions} regions. Kept passes stay in the gallery; open an image's Detail faces/hands… for a new review.`
+      : ` Detail passes completed ${data.detailer.completed} of ${data.detailer.regions} regions.`);
+  }
   const executionCaption = executionDiagnosticCaption(data.execution_diagnostics);
   if (executionCaption) line.push(` ${executionCaption.short}.`);
   // Another tab's job keeps out of this page's finish line: that line is
@@ -592,7 +597,7 @@ function withdrawNewImage(to = null) {
 // page sent it; its refusal - the server still gone - is said in the card.
 // The next job's first frame clears it; an answering server rewords it
 // (`lostRunBack`).
-function showLostRun({ heading, text, run }, submitted) {
+function showLostRun({ heading, text, run, detailer = false }, submitted) {
   const card = document.createElement('div');
   card.className = 'lost-run';
   card.setAttribute('role', 'group');
@@ -604,7 +609,10 @@ function showLostRun({ heading, text, run }, submitted) {
   line.textContent = text;
   card.append(head, line);
   const runId = run ?? submitted?.run_id;
-  if (runId) {
+  if (detailer || submitted?.path === '/api/detailer') {
+    card.dataset.detailer = 'true';
+    line.textContent += ' Saved passes stay in the gallery. Open Detail faces/hands… on an image for a new review.';
+  } else if (runId) {
     card.dataset.run = runId;
     const refused = document.createElement('p');
     refused.className = 'error';
@@ -627,7 +635,9 @@ function lostRunBack(restarted, s) {
   const at = typeof s.started_at === 'number'
     ? new Date(s.started_at * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
   card.querySelector('h2').textContent = restarted ? `The server restarted${at ? ` at ${at}` : ''}` : 'The server is back';
-  card.querySelector('p').textContent = card.dataset.run
+  card.querySelector('p').textContent = card.dataset.detailer
+    ? 'Saved detail passes stay in the gallery. Open Detail faces/hands… on an image for a new review.'
+    : card.dataset.run
     ? 'Finish run checks the saved cells of this run. Your composer stays as it is.'
     : "This job has no retained run id here. Find it in Runs; older runs use the panel's Resume tick.";
   const refused = card.querySelector('.error');

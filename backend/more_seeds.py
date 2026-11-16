@@ -204,13 +204,14 @@ def plan(
     template = batch.template
     size, batch.recorded = batch_size(batch.held, fallback)
     fit = fitting(size, template.width, template.height, template.refine)
-    if template.edit is not None:
+    if template.edit is not None or template.detailer is not None:
         fit = 1
     if not batch.recorded:
         batch.notes.append(f"its Batch was not recorded: the panel's {size}")
     if fit < size:
         batch.notes.append(
             "instruction edits run one image per call" if template.edit is not None else
+            "detailer passes run one image per call" if template.detailer is not None else
             f"Batch {size} is past the pixel budget at {template.width}×{template.height}: {fit} at a time"
         )
     batch.size = fit

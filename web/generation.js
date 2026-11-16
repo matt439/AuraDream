@@ -154,7 +154,8 @@ function setBusy(on) {
 // strength they share; more seeds' continue batches, named by the first
 // one's prompt.
 function describeJob(job, length = 60, { markup = false } = {}) {
-  const what = job.edit != null ? `instruction edit of #${job.edit.source ?? '?'}`
+  const what = job.detailer != null ? `detail faces/hands of #${job.detailer.source_id ?? '?'} · ${plural(job.detailer.regions, 'region')}`
+    : job.edit != null ? `instruction edit of #${job.edit.source ?? '?'}`
     : job.refine_batch != null ? `refine ×${job.refine_batch} at strength ${job.strength}`
     : job.more_seeds != null ? `more seeds · ${snippet(job.prompt ?? '', length, { markup })}`
     : job.swap != null ? `swap · ${snippet(job.swap, length, { markup: true })}`
@@ -200,6 +201,7 @@ function snippet(text, length = 60, { markup = false } = {}) {
 // server's snapshot names it (nameJob): a re-render carries no prompt of its
 // own, and a grid's image count is the server's to work out.
 function submissionLabel(path, payload) {
+  if (path === '/api/detailer') return `detail faces/hands · ${plural(payload.accepted.length, 'region')}`;
   const finish = /^\/api\/runs\/([^/]+)\/finish$/.exec(path);
   if (finish) return `Finish run ${finish[1]}`;
   if (path === '/api/rerender') {

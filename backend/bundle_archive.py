@@ -22,7 +22,7 @@ from pathlib import Path, PurePosixPath
 from . import backup_receipts, bundle_crypto, bundle_leases
 from .bundle_common import _CHUNK, _WORKERS, MASK_HASH, BundleError, Progress, _basename, _mask_rows, _quiet, _rows
 from .bundle_images import _inspect_mask, _inspect_source
-from .metadata import PNG_SIGNATURE, edit_from_json
+from .metadata import PNG_SIGNATURE, detailer_from_json, edit_from_json
 
 
 _FORMAT = "auradream-gallery"
@@ -215,6 +215,7 @@ def _verify_archive(path: Path, destination: Path | None = None, *, password: st
                 for row in found:
                     try:
                         edit = edit_from_json(row.get("edit"))
+                        detailer = detailer_from_json(row.get("detailer"))
                     except (TypeError, ValueError) as exc:
                         raise BundleError(f"invalid instruction-edit metadata for {row['filename']}: {exc}") from exc
                     if edit is not None:
@@ -222,6 +223,8 @@ def _verify_archive(path: Path, destination: Path | None = None, *, password: st
                             raise BundleError("version 1 bundles cannot carry instruction edits")
                         if edit.source is not None:
                             needed_sources.add(edit.source)
+                    if detailer is not None and detailer.plan.source_id is not None:
+                        needed_sources.add(detailer.plan.source_id)
                     if "images/" + row["filename"] not in files:
                         raise BundleError(f"the bundle is missing {row['filename']}")
                 # Private copies leave export's pre-cleanup snapshot unchanged.

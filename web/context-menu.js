@@ -201,6 +201,7 @@ function imageItems({ kind, rec, host }) {
       : buttonItem('✎ Inpaint…', lightbox ? els.lbInpaint : find('.inpaint-tool')),
     lightbox ? buttonItem('⬚ Outpaint…', els.lbOutpaint)
       : syncedItem('⬚ Outpaint…', syncOutpaintTool, () => outpaintFromCard(rec, host)),
+    syncedItem('Detail faces/hands…', (b) => syncDetailerTool(b, rec), () => detailerFromCard(rec)),
     // Show this specialist pass when the editor is selected or the image
     // already belongs to its lineage; Reuse still opens any saved edit.
     ...((rec.edit || modelRuntimeSettings?.model_id === 'black-forest-labs/FLUX.1-Kontext-dev')

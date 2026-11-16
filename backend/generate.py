@@ -105,6 +105,11 @@ def _carried_source_dropped(args: argparse.Namespace, p: SimpleNamespace, parser
         # No row under the id is refused in words below, as it always was.
         return False
     said = "is not the image"
+    if getattr(args, "carried_detailer", None) is not None:
+        parser.error(
+            f"--from-image: detailer source image {args.refine} is not the PNG's recorded direct source; "
+            "restore the original source or start a new detailer review"
+        )
     what = (
         "an outpaint" if args.carried_outpaint
         else "an inpaint" if args.mask_hash is not None else "a refine pass"
@@ -133,6 +138,7 @@ def _carried_source_dropped(args: argparse.Namespace, p: SimpleNamespace, parser
     args.carried_mask_crop = None
     args.carried_mask_crop_region = None
     args.carried_mask_crop_malformed = False
+    args.carried_detailer = None
     # An outpaint goes with its source, or the run would be a plain render
     # at the canvas's size.
     if args.carried_outpaint:
@@ -465,6 +471,7 @@ def _main(argv: list[str] | None, awake: contextlib.ExitStack) -> int:
     # the record's refine source's identity, and whether its strength carried.
     args.mask_hash = None
     args.carried_source = None
+    args.carried_detailer = None
     args.carried_strength = False
     args.carried_upscaler = False
     args.carried_crop_anchor = False
@@ -751,6 +758,7 @@ def _main(argv: list[str] | None, awake: contextlib.ExitStack) -> int:
             mask=mask,
             outpaint=outpaint_spec,
             mask_crop=mask_crop_spec,
+            detailer=args.carried_detailer,
             seed=seed,
             num_images=args.batch,
             runs=args.runs,

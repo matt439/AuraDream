@@ -1,0 +1,560 @@
+[
+  {
+    "log": "'Detail faces/hands on an Animagine fake with deterministic CPU boxes: explicit setup and detection, empty and failed detection, overlapping region selection, unchanged composer, source and receipt refusal, ordered saved passes, cancel/failure partial results, focus return and narrow/standard/wide layouts. No detector quality or card claim.'"
+  },
+  {
+    "navigate": "http://127.0.0.1:7960/"
+  },
+  {
+    "inject": "a11y_audit.js"
+  },
+  {
+    "eval": "__a11yWatch()"
+  },
+  {
+    "eval": "window.__until = async (fn, ms = 20000) => { const end = Date.now() + ms; while (Date.now() < end) { try { if (await fn()) return true; } catch { /* not settled */ } await new Promise((r) => setTimeout(r, 50)); } return false; }; window.__post = (path, body, headers = {}) => fetch(path, {method: 'POST', headers: {'Content-Type': 'application/json', ...headers}, body: JSON.stringify(body)}); window.__knob = (body) => __post('/api/fake/detailer', body); window.__job = async (id) => (await (await fetch('/api/jobs/' + id)).json()); window.__item = () => [...els.contextMenu.querySelectorAll('[role=menuitem]')].find((li) => li.textContent.includes('Detail faces/hands')); window.__draft = () => JSON.stringify(collect()); window.__fit = () => { const r = els.detailerDialog.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth && r.bottom <= innerHeight + 1 && els.detailerDialog.scrollWidth <= els.detailerDialog.clientWidth + 1 && document.documentElement.scrollWidth <= document.documentElement.clientWidth; };"
+  },
+  {
+    "expect": "__until(() => modelState === 'ready' && inpaintSupported && !!lastDefaults)",
+    "fatal": true
+  },
+  {
+    "expect": "(async () => { await __post('/api/fake/step', {seconds: 0.01}); const res = await __post('/api/generate', {prompt: '1girl, garden, detailer smoke source', negative_prompt: 'blurry', width: 512, height: 512, steps: 4, guidance_scale: 7, seed: 41}); if (!res.ok) return false; window.__base = await res.json(); return await __until(async () => (await __job(__base.job_id)).status === 'done'); })()",
+    "fatal": true
+  },
+  {
+    "eval": "resetGallery()"
+  },
+  {
+    "expect": "__until(() => !galleryPending && galleryRecords.some((r) => r.prompt === '1girl, garden, detailer smoke source'))",
+    "fatal": true
+  },
+  {
+    "eval": "window.__src = galleryRecords.find((r) => r.prompt === '1girl, garden, detailer smoke source'); replaceBoxText(els.prompt, 'keep my composer prompt'); replaceBoxText(els.negative, 'keep my negative'); els.seed.value = '900'; window.__keptDraft = __draft(); openLightbox(__src, galleryRecords)"
+  },
+  {
+    "expect": "__until(() => els.lightbox.open)",
+    "fatal": true
+  },
+  {
+    "rightclick": "#lb-img"
+  },
+  {
+    "expect": "__until(() => !els.contextMenu.hidden && !!__item())",
+    "fatal": true
+  },
+  {
+    "eval": "__item().click()"
+  },
+  {
+    "expect": "__until(() => els.detailerDialog.open && detailerStatus && !detailerWorking)",
+    "fatal": true
+  },
+  {
+    "expect": "!els.lightbox.open && !detailerPreview && els.detailerDetect.getAttribute('aria-disabled') === 'true' && els.detailerRun.getAttribute('aria-disabled') === 'true' && !els.detailerDetect.disabled && !els.detailerRun.disabled && __draft() === __keptDraft"
+  },
+  {
+    "eval": "els.detailerDetect.click()"
+  },
+  {
+    "expect": "__until(() => !els.detailerError.hidden && /Download/.test(els.detailerError.textContent))"
+  },
+  {
+    "eval": "els.detailerPrepare.click()"
+  },
+  {
+    "expect": "__until(() => !detailerWorking && chosenDetailerDetector()?.available && els.detailerDetect.getAttribute('aria-disabled') === 'false')",
+    "fatal": true
+  },
+  {
+    "expect": "__draft() === __keptDraft && !detailerPreview && els.detailerPrepare.getAttribute('aria-disabled') === 'false' && els.detailerPrepare.textContent === 'Verify/repair detector' && els.detailerPrepare.title.includes('changed assets may be redownloaded')"
+  },
+  {
+    "log": "'a cached ready detector still offers explicit verification and bounded repair; the native press reaches the real prepare route'"
+  },
+  {
+    "eval": "window.__repairFetch = window.fetch; window.__repairReplies = []; window.fetch = (path, options) => __repairFetch(path, options).then((response) => { if (String(path) === '/api/detailer/prepare') __repairReplies.push(response.status); return response; }); window.__readyPrepareRect = els.detailerPrepare.getBoundingClientRect().toJSON(); document.querySelector('#detailer-prepare').scrollIntoView({block:'nearest'});"
+  },
+  {
+    "click": "#detailer-prepare"
+  },
+  {
+    "expect": "__until(() => __repairReplies.length === 1 && __repairReplies[0] === 200 && !detailerWorking && chosenDetailerDetector()?.available && els.detailerPrepare.getAttribute('aria-disabled') === 'false')",
+    "fatal": true
+  },
+  {
+    "expect": "els.detailerDetect.getAttribute('aria-disabled') === 'false' && !detailerPreview && __draft() === __keptDraft && els.detailerPrepare.getBoundingClientRect().width === __readyPrepareRect.width"
+  },
+  {
+    "eval": "window.fetch = __repairFetch"
+  },
+  {
+    "log": "'an empty detection is explicit and queues nothing; a detector exception is an error, not an empty success'"
+  },
+  {
+    "expect": "(async () => { const res = await __knob({empty: true}); if (!res.ok) return false; return true; })()",
+    "fatal": true
+  },
+  {
+    "eval": "document.querySelector(\"#detailer-detect\").scrollIntoView({block: 'nearest'})"
+  },
+  {
+    "click": "#detailer-detect"
+  },
+  {
+    "expect": "__until(() => detailerPreview && detailerPreview.regions.length === 0 && !detailerWorking)",
+    "fatal": true
+  },
+  {
+    "expect": "detailerSelected.size === 0 && els.detailerSummary.textContent.includes('Nothing will be queued') && els.detailerRun.getAttribute('aria-disabled') === 'true'"
+  },
+  {
+    "eval": "document.querySelector(\"#detailer-run\").scrollIntoView({block: 'nearest'})"
+  },
+  {
+    "click": "#detailer-run"
+  },
+  {
+    "expect": "els.detailerError.textContent.includes('Nothing will be queued') && __draft() === __keptDraft"
+  },
+  {
+    "expect": "(async () => { const res = await __knob({fail: true}); if (!res.ok) return false; return true; })()",
+    "fatal": true
+  },
+  {
+    "eval": "document.querySelector(\"#detailer-detect\").scrollIntoView({block: 'nearest'})"
+  },
+  {
+    "click": "#detailer-detect"
+  },
+  {
+    "expect": "__until(() => !detailerWorking && !detailerPreview && !els.detailerError.hidden && /failed/.test(els.detailerError.textContent))"
+  },
+  {
+    "expect": "(async () => { const res = await __knob({}); if (!res.ok) return false; return true; })()",
+    "fatal": true
+  },
+  {
+    "eval": "document.querySelector(\"#detailer-detect\").scrollIntoView({block: 'nearest'})"
+  },
+  {
+    "click": "#detailer-detect"
+  },
+  {
+    "expect": "__until(() => !detailerWorking && detailerPreview?.regions.length === 2 && detailerSelected.size === 2)",
+    "fatal": true
+  },
+  {
+    "expect": "els.detailerRegions.querySelectorAll('input:checked').length === 2 && els.detailerBoxes.querySelectorAll('button[aria-pressed=true]').length === 2 && els.detailerRegions.textContent.includes('overlaps') && els.detailerRun.getAttribute('aria-disabled') === 'false' && __draft() === __keptDraft"
+  },
+  {
+    "expect": "detailerPreview.regions.every((r) => Array.isArray(r.mask_box) && r.mask_box[0] <= r.box[0] && r.mask_box[1] <= r.box[1] && r.mask_box[2] >= r.box[2] && r.mask_box[3] >= r.box[3] && Math.abs(parseFloat([...els.detailerBoxes.querySelectorAll('button')].find((b) => b.dataset.region === r.id).style.left) - r.mask_box[0] / detailerPreview.width * 100) < 0.001) && els.detailerOrderNote.textContent.includes('feather 8px within') && els.detailerRegions.textContent.includes('overlaps region 2') && !els.detailerRegions.textContent.includes('fake-')"
+  },
+  {
+    "eval": "document.querySelector(\"#detailer-regions li:first-child input\").scrollIntoView({block: 'nearest'})"
+  },
+  {
+    "click": "#detailer-regions li:first-child input"
+  },
+  {
+    "expect": "detailerSelected.size === 1 && els.detailerBoxes.querySelector('button').getAttribute('aria-pressed') === 'false'"
+  },
+  {
+    "eval": "document.querySelector(\"#detailer-regions li:last-child input\").scrollIntoView({block: 'nearest'})"
+  },
+  {
+    "click": "#detailer-regions li:last-child input"
+  },
+  {
+    "expect": "detailerSelected.size === 0 && els.detailerRun.getAttribute('aria-disabled') === 'true'"
+  },
+  {
+    "eval": "document.querySelector(\"#detailer-run\").scrollIntoView({block: 'nearest'})"
+  },
+  {
+    "click": "#detailer-run"
+  },
+  {
+    "expect": "els.detailerError.textContent === 'Select at least one region to queue.'"
+  },
+  {
+    "eval": "document.querySelector(\"#detailer-boxes button:first-child\").scrollIntoView({block: 'nearest'})"
+  },
+  {
+    "click": "#detailer-boxes button:first-child"
+  },
+  {
+    "eval": "document.querySelector(\"#detailer-boxes button:last-child\").scrollIntoView({block: 'nearest'})"
+  },
+  {
+    "click": "#detailer-boxes button:last-child"
+  },
+  {
+    "expect": "detailerSelected.size === 2 && els.detailerRegions.querySelectorAll('input:checked').length === 2"
+  },
+  {
+    "log": "'the same review at standard, narrow and wide widths, with no horizontal overflow'"
+  },
+  {
+    "expect": "__fit()"
+  },
+  {
+    "eval": "els.detailerDialog.scrollTop = 0"
+  },
+  {
+    "shot": "detailer-standard.png"
+  },
+  {
+    "viewport": [
+      800,
+      900
+    ]
+  },
+  {
+    "expect": "__until(__fit)"
+  },
+  {
+    "eval": "els.detailerDialog.scrollTop = 0"
+  },
+  {
+    "shot": "detailer-narrow.png"
+  },
+  {
+    "viewport": [
+      1900,
+      1000
+    ]
+  },
+  {
+    "expect": "__until(__fit)"
+  },
+  {
+    "eval": "els.detailerDialog.scrollTop = 0"
+  },
+  {
+    "shot": "detailer-wide.png"
+  },
+  {
+    "viewport": [
+      1400,
+      900
+    ]
+  },
+  {
+    "expect": "__until(__fit)"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__until(() => !els.detailerDialog.open && els.lightbox.open && lbList[lbIndex].id === __src.id)"
+  },
+  {
+    "eval": "closeLightbox(); void openDetailer(__src)"
+  },
+  {
+    "expect": "__until(() => els.detailerDialog.open && detailerStatus && !detailerWorking)",
+    "fatal": true
+  },
+  {
+    "log": "'closing and reopening while Detect runs retires its late actual reply'"
+  },
+  {
+    "eval": "window.__holdReply = () => { let release; const gate = new Promise((resolve) => { release = resolve; }); window.__heldReply = false; window.__releasedReply = false; window.__releaseReply = release; window.__unheldApi = api; api = async (path, ...rest) => { const answer = await window.__unheldApi(path, ...rest); if (path === '/api/detailer/preview') { window.__heldReply = true; await gate; window.__releasedReply = true; } return answer; }; }; window.__letReply = async () => { window.__releaseReply(); await __until(() => window.__releasedReply); api = window.__unheldApi; return true; };"
+  },
+  {
+    "expect": "(async () => { await __knob({seconds: 2}); __holdReply(); return true; })()",
+    "fatal": true
+  },
+  {
+    "eval": "els.detailerDetect.scrollIntoView({block: 'nearest'})"
+  },
+  {
+    "click": "#detailer-detect"
+  },
+  {
+    "expect": "detailerWorking && !detailerPreview",
+    "fatal": true
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__until(() => !els.detailerDialog.open)",
+    "fatal": true
+  },
+  {
+    "expect": "(async () => { await openDetailer(__src); return true; })()",
+    "fatal": true
+  },
+  {
+    "expect": "__until(() => __heldReply && detailerStatus && !detailerWorking && !detailerPreview)",
+    "fatal": true
+  },
+  {
+    "expect": "__letReply()",
+    "fatal": true
+  },
+  {
+    "expect": "!detailerPreview && detailerSelected.size === 0 && __draft() === __keptDraft"
+  },
+  {
+    "log": "'a source moved while a completed Detect reply is held cannot regain stale boxes'"
+  },
+  {
+    "expect": "(async () => { await __knob({}); __holdReply(); return true; })()",
+    "fatal": true
+  },
+  {
+    "eval": "els.detailerDetect.scrollIntoView({block: 'nearest'})"
+  },
+  {
+    "click": "#detailer-detect"
+  },
+  {
+    "expect": "__until(() => __heldReply && detailerWorking)",
+    "fatal": true
+  },
+  {
+    "expect": "(async () => { await deleteImage(__src); return true; })()",
+    "fatal": true
+  },
+  {
+    "expect": "!detailerWorking && !detailerPreview && els.detailerError.textContent.includes(\"source changed\")"
+  },
+  {
+    "expect": "__letReply()",
+    "fatal": true
+  },
+  {
+    "expect": "!detailerPreview && detailerSelected.size === 0"
+  },
+  {
+    "expect": "(async () => { const restored = await restoreImages([__src.id], {fromLightbox: false}); return restored?.restored.includes(__src.id); })()",
+    "fatal": true
+  },
+  {
+    "log": "'a checkpoint switch after Detect completed but before its reply arrived requires a fresh dialog'"
+  },
+  {
+    "eval": "__holdReply()"
+  },
+  {
+    "eval": "els.detailerDetect.scrollIntoView({block: 'nearest'})"
+  },
+  {
+    "click": "#detailer-detect"
+  },
+  {
+    "expect": "__until(() => __heldReply && detailerWorking)",
+    "fatal": true
+  },
+  {
+    "expect": "(async () => { const res = await __post('/api/model/switch', {model_id: 'OnomaAIResearch/Illustrious-XL-v2.0', load: false}, {'X-AuraDream-Model-Revision': String(modelRevision)}); if (!res.ok) return false; return await __until(async () => { await refreshStatus(); return loadedModel === 'OnomaAIResearch/Illustrious-XL-v2.0' && !modelSwitching; }); })()",
+    "fatal": true
+  },
+  {
+    "expect": "__letReply()",
+    "fatal": true
+  },
+  {
+    "expect": "!detailerWorking && !detailerPreview && detailerSelected.size === 0 && els.detailerDetect.getAttribute(\"aria-disabled\") === \"true\" && /reopen/.test(els.detailerDetect.title)"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "(async () => { const res = await __post('/api/model/switch', {model_id: 'cagliostrolab/animagine-xl-4.0', load: true}, {'X-AuraDream-Model-Revision': String(modelRevision)}); if (!res.ok) return false; return await __until(async () => { await refreshStatus(); return loadedModel === 'cagliostrolab/animagine-xl-4.0' && modelState === 'ready' && !modelSwitching; }); })()",
+    "fatal": true
+  },
+  {
+    "expect": "(async () => { await openDetailer(__src); return detailerStatus?.supported && !detailerWorking; })()",
+    "fatal": true
+  },
+  {
+    "eval": "document.querySelector(\"#detailer-detect\").scrollIntoView({block: 'nearest'})"
+  },
+  {
+    "click": "#detailer-detect"
+  },
+  {
+    "expect": "__until(() => detailerPreview?.regions.length === 2 && !detailerWorking)",
+    "fatal": true
+  },
+  {
+    "log": "'a source binned elsewhere after review refuses Queue without discarding the dialog recipe'"
+  },
+  {
+    "expect": "(async () => { const res = await __post('/api/images/bin', {ids: [__src.id]}); return res.ok; })()",
+    "fatal": true
+  },
+  {
+    "eval": "document.querySelector(\"#detailer-run\").scrollIntoView({block: 'nearest'})"
+  },
+  {
+    "click": "#detailer-run"
+  },
+  {
+    "expect": "__until(() => !detailerSending && !detailerPreview && !els.detailerError.hidden && /recycle bin/.test(els.detailerError.textContent))"
+  },
+  {
+    "expect": "els.detailerDialog.open && els.detailerPrompt.value === __src.prompt && __draft() === __keptDraft"
+  },
+  {
+    "expect": "(async () => { const res = await __post('/api/images/restore', {ids: [__src.id]}); return res.ok; })()",
+    "fatal": true
+  },
+  {
+    "eval": "document.querySelector(\"#detailer-detect\").scrollIntoView({block: 'nearest'})"
+  },
+  {
+    "click": "#detailer-detect"
+  },
+  {
+    "expect": "__until(() => detailerPreview?.regions.length === 2 && !detailerWorking)",
+    "fatal": true
+  },
+  {
+    "expect": "(async () => { const res = await __post('/api/detailer/preview', {source: __src.id, detector: els.detailerDetectors.value, model_revision: modelRevision - 1}, {'X-AuraDream-Model-Revision': String(modelRevision - 1)}); return res.status === 409; })()"
+  },
+  {
+    "log": "'Queue saves two inpaints in displayed order; the second uses the first saved result, while the composer stays unchanged'"
+  },
+  {
+    "expect": "(async () => { const res = await __post('/api/fake/step', {seconds: 0.3}); return res.ok; })()",
+    "fatal": true
+  },
+  {
+    "eval": "window.__repeatBody = {receipt: detailerPreview.receipt, accepted: detailerPreview.regions.map((r) => r.id), recipe: {prompt: els.detailerPrompt.value, negative_prompt: els.detailerNegative.value, steps: +els.detailerSteps.value, guidance_scale: +els.detailerGuidance.value, strength: +els.detailerStrength.value, seed: +els.detailerSeed.value}};"
+  },
+  {
+    "eval": "document.querySelector(\"#detailer-run\").scrollIntoView({block: 'nearest'})"
+  },
+  {
+    "click": "#detailer-run"
+  },
+  {
+    "expect": "__until(() => !els.detailerDialog.open && busy)",
+    "fatal": true
+  },
+  {
+    "eval": "window.__chainJob = currentJob"
+  },
+  {
+    "expect": "__until(async () => { const j = await __job(__chainJob); return j.status === 'done' && j.images.length === 2; })",
+    "fatal": true
+  },
+  {
+    "expect": "(async () => { const j = await __job(__chainJob); window.__chain = j.images; return j.detailer.completed === 2 && j.detailer.partial === false && __chain[0].refine === __src.id && __chain[1].refine === __chain[0].id && __chain[0].detailer.pass_index === 0 && __chain[1].detailer.pass_index === 1 && __chain[0].mask !== __chain[1].mask && __chain[0].seed === 41 && __chain[1].seed === 42 && __draft() === __keptDraft; })()"
+  },
+  {
+    "expect": "(async () => { const res = await __post('/api/detailer', __repeatBody, {'X-AuraDream-Model-Revision': String(modelRevision)}); const body = await res.json(); return res.status === 409 && body.code === 'detailer_receipt'; })()"
+  },
+  {
+    "expect": "__until(() => !busy)",
+    "fatal": true
+  },
+  {
+    "log": "'a second-region failure stops the chain and keeps the first intermediate as partial'"
+  },
+  {
+    "expect": "(async () => { const res = await __knob({fail_pass: 1}); if (!res.ok) return false; await openDetailer(__src); return true; })()",
+    "fatal": true
+  },
+  {
+    "expect": "__until(() => detailerStatus && !detailerWorking)",
+    "fatal": true
+  },
+  {
+    "eval": "document.querySelector(\"#detailer-detect\").scrollIntoView({block: 'nearest'})"
+  },
+  {
+    "click": "#detailer-detect"
+  },
+  {
+    "expect": "__until(() => detailerPreview?.regions.length === 2 && !detailerWorking)",
+    "fatal": true
+  },
+  {
+    "eval": "document.querySelector(\"#detailer-run\").scrollIntoView({block: 'nearest'})"
+  },
+  {
+    "click": "#detailer-run"
+  },
+  {
+    "expect": "__until(() => !els.detailerDialog.open && busy)",
+    "fatal": true
+  },
+  {
+    "eval": "window.__failedJob = currentJob"
+  },
+  {
+    "expect": "__until(async () => (await __job(__failedJob)).status === 'error')",
+    "fatal": true
+  },
+  {
+    "expect": "(async () => { const j = await __job(__failedJob); return j.images.length === 1 && j.detailer.completed === 1 && j.detailer.partial === true && j.detailer.last_image_id === j.images[0].id && j.failures === 1 && /fake detailer pass failed/.test(j.error); })()"
+  },
+  {
+    "expect": "__until(() => !busy)",
+    "fatal": true
+  },
+  {
+    "log": "'Cancel during the second region keeps the first saved result, runs no later region and holds Skip with a reason'"
+  },
+  {
+    "expect": "(async () => { await __knob({}); await __post('/api/fake/step', {seconds: 0.3}); await openDetailer(__src); return true; })()",
+    "fatal": true
+  },
+  {
+    "eval": "document.querySelector(\"#detailer-detect\").scrollIntoView({block: 'nearest'})"
+  },
+  {
+    "click": "#detailer-detect"
+  },
+  {
+    "expect": "__until(() => detailerPreview?.regions.length === 2 && !detailerWorking)",
+    "fatal": true
+  },
+  {
+    "eval": "els.detailerSteps.value = '20'; detailerChanged()"
+  },
+  {
+    "eval": "document.querySelector(\"#detailer-run\").scrollIntoView({block: 'nearest'})"
+  },
+  {
+    "click": "#detailer-run"
+  },
+  {
+    "expect": "__until(() => !els.detailerDialog.open && busy)",
+    "fatal": true
+  },
+  {
+    "eval": "window.__cancelJob = currentJob"
+  },
+  {
+    "expect": "__until(async () => { const j = await __job(__cancelJob); return j.status === 'running' && j.images.length === 1 && j.run === 2 && j.step >= 1; }, 30000)",
+    "fatal": true
+  },
+  {
+    "expect": "(async () => { const j = await __job(__cancelJob); return !!j.skip_reason && /detail|dependent|region/i.test(j.skip_reason); })()"
+  },
+  {
+    "expect": "(async () => { const res = await __post('/api/jobs/' + __cancelJob + '/cancel', {}); return res.ok; })()",
+    "fatal": true
+  },
+  {
+    "expect": "__until(async () => (await __job(__cancelJob)).status === 'cancelled')",
+    "fatal": true
+  },
+  {
+    "expect": "(async () => { const j = await __job(__cancelJob); return j.images.length === 1 && j.detailer.partial === true && j.detailer.completed === 1 && __draft() === __keptDraft; })()"
+  },
+  {
+    "expect": "__until(() => !busy)",
+    "fatal": true
+  },
+  {
+    "expect": "__a11yCheck()"
+  }
+]

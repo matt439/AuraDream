@@ -894,12 +894,21 @@ def cell_from_record(
         # request validator refuses recipes unavailable in this build.
         "execution": record.execution,
         "edit": record.edit,
+        "detailer": record.detailer,
         "seed": record.seed,
     }
     unknown = set(changes) - set(GenerateRequest.model_fields)
     if unknown:
         raise TypeError(f"no GenerateRequest field {', '.join(sorted(unknown))}")
     fields.update(changes)
+    # Choosing the result as a new source (Mass refine) starts an ordinary
+    # pass; the old detection does not become execution intent for that image.
+    if "detailer" not in changes and (
+        fields["refine"] != record.refine or fields["mask"] != record.mask
+    ):
+        fields["detailer"] = None
+    if fields["detailer"] is not None and (fields["refine"] is None or fields["mask"] is None):
+        raise ValueError("the recorded detailer pass has no resolved direct source and mask; restore its source before replay")
     if fields["edit"] is not None:
         # Replay always retains the original input, never the resulting child.
         # Source availability/pixels are checked again by submission.

@@ -354,7 +354,7 @@ def test_resume_skips_what_the_gallery_holds(cli, store):
     assert [r.steps for r in cli.requests] == [6, 8]
 
 
-def _held_gallery(store, monkeypatch, seconds):
+def _held_gallery(store, monkeypatch, seconds, *, release=None):
     """Another process's long hold - a browser bundle export - beginning as
     the first image is saved, past a shortened SESSION_WAIT."""
     import threading
@@ -367,7 +367,10 @@ def _held_gallery(store, monkeypatch, seconds):
     def hold():
         with gallery_lock.hold(store.settings.db_path):
             started.set()
-            threading.Event().wait(seconds)
+            if release is None:
+                threading.Event().wait(seconds)
+            else:
+                release.wait(30)
 
     holder = threading.Thread(target=hold, daemon=True)
     holder.start()
@@ -382,14 +385,28 @@ def test_a_save_refused_by_a_busy_gallery_waits_rather_than_ending_the_night(
     # rendered image and every cell after it, returning 1 with nothing saved.
     real_save = storage.save_image
     holders = []
+    import threading
+    from backend import gallery_lock
+    release = threading.Event()
 
     def save_after_a_hold(*args, **kwargs):
         if not holders:
-            holders.append(_held_gallery(store, monkeypatch, 0.8))
-        return real_save(*args, **kwargs)
+            holders.append(_held_gallery(store, monkeypatch, None, release=release))
+        try:
+            return real_save(*args, **kwargs)
+        except gallery_lock.GalleryBusy:
+            # Release only after the real reservation refuses. Encoding or a
+            # busy runner cannot consume a fixed hold before the save arrives.
+            release.set()
+            raise
 
     monkeypatch.setattr(storage, "save_image", save_after_a_hold)
-    assert generate.main(["a fox", "--seed", "7", "--runs", "3", *SIZE]) == 0
+    try:
+        assert generate.main(["a fox", "--seed", "7", "--runs", "3", *SIZE]) == 0
+    finally:
+        release.set()
+        if holders:
+            holders[0].join(30)
     assert store.list_images()[1] == 3
     err = capsys.readouterr().err
     assert err.count("gallery busy in another process; still waiting to save") == 1

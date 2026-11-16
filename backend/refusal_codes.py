@@ -21,6 +21,10 @@ IMAGE_BINNED = "image_binned"
 MORE_SEEDS_CAP = "more_seeds_cap"
 # More seeds' receipt expired, is another server's or names another request.
 MORE_SEEDS_RECEIPT = "more_seeds_receipt"
+# A detailer's frozen region review expired, was consumed, or is unknown.
+DETAILER_RECEIPT = "detailer_receipt"
+# Its source pixels or selected checkpoint changed after detection.
+DETAILER_STALE = "detailer_stale"
 # The request's adapter has no file in the LoRA directory.
 LORA_MISSING = "lora_missing"
 # The request's adapter is there but does not fit the running checkpoint.
@@ -67,6 +71,7 @@ MODEL_DELETE_CODES = frozenset({
 
 CODES = frozenset({
     IMAGE_UNKNOWN, IMAGE_BINNED, MORE_SEEDS_CAP, MORE_SEEDS_RECEIPT,
+    DETAILER_RECEIPT, DETAILER_STALE,
     LORA_MISSING, LORA_MISMATCH, SELECTION_CHANGED, MASK_MISSING,
     BUNDLE_IN_USE, BUNDLE_GONE, GALLERY_MAINTENANCE,
     *MODEL_DELETE_CODES,

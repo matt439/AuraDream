@@ -521,6 +521,7 @@ function forgetImages(ids, { binned = false } = {}) {
   }
   // An open Edit by instruction… on one of them asks its preview again.
   editSourcesMoved(gone, { deleted: !binned });
+  detailerSourcesMoved(gone);
   if (orphans.size) {
     document.querySelectorAll('.reuse-settings').forEach((b) => {
       if (b.dataset.reuseEditSource && gone.has(+b.dataset.reuseEditSource)) {
@@ -602,6 +603,7 @@ function unforgetImages(ids) {
     document.querySelectorAll(`img[data-id="${r.id}"]`).forEach((img) => { titleImage(img, r); });
   }
   editSourcesMoved(back);
+  detailerSourcesMoved(back);
   document.querySelectorAll('.reuse-settings').forEach((b) => {
     if (b.dataset.reuseEditSource && back.has(+b.dataset.reuseEditSource)) {
       b.dataset.reuseEditGone = 'false';

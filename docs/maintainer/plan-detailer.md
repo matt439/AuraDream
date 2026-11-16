@@ -1,5 +1,13 @@
 # Plan: face and hand detailer
 
+**Status, 2026-11-16:** Matt commissioned implementation as an active goal.
+This supersedes the earlier commissioning holds for the necessary CPU,
+source and browser work, including the bounded detector search and isolated
+CPU trial. Card execution remains separately authorized. The implementation
+uses a single source and supported SDXL checkpoint; optional picked-image
+batches and Then detail remain later work, not part of this commission.
+Stages 1-3 are built and locally checked; stage 4 remains unrun.
+
 **Status, 2026-10-27:** Matt requested a plan for `INP#12`. This document
 commissions no implementation, dependency installation, detector download,
 gallery scan or card run. Detector selection and qualification are open
@@ -330,7 +338,132 @@ explicit restart/new review only, without promising automatic Finish.
    retained run definitions, bounds, cancellation and partial-result
    accounting. Do not add it implicitly to Then refine or enable by default.
 
-The review's `L+card` is an initial estimate, not measured effort. Detector
-failure or a crop dependency may change it. The first useful decision after
-this plan is whether to commission Stage 1; UI values and detector choice
-remain proposed until that evidence exists.
+## Implementation, 2026-11-16
+
+The single-source path is built. An image's right-click menu opens
+**Detail faces/hands…**. It leaves the main draft alone, reads cold detector
+status, and offers an explicit verified download before CPU detection.
+Cached assets also offer **Verify/repair detector**, which checks hashes and
+downloads only missing or changed files; this repairs same-size corruption
+without making the status poll hash or fetch weights.
+The dialog draws the server's exact padded mask extents, numbers the canonical
+order, names overlapping masks and lets Matt deselect regions. No detections
+and an empty selection queue nothing. The current request bound is sixteen
+accepted regions from at most 128 candidates, on a source up to 4,194,304
+pixels (also held to the ordinary inpaint guard). These are request ceilings,
+not measured diffusion fit claims.
+
+**Detector decision.** Use three experimental CPU region finders: nagadomi's
+MIT LBP cascade for illustrated faces, YuNet 2023mar for photographic faces,
+and the separately Apache-licensed OpenCV Zoo palm/21-landmark hand exports.
+The normal dependency is `opencv-python-headless==4.13.0.92`. OpenCV 5 was
+rejected in the trial because it removed the cascade API. NumPy, Torch and
+Diffusers lock versions are unchanged. No MediaPipe Python runtime or GPU
+delegate is installed. Exact licence notices are retained in `LICENSES/`
+and `NOTICE`; assets are not distributed with the application.
+
+The [CPU receipt](detailer-cpu-2026-11-16.json) records source permissions,
+hashes, approximate predeclared labels, fixed recipes, boxes, failures,
+latency and sampled process memory. The repeatable command is
+`uv run python tools/detailer_trial.py --download --work work/detailer-trial`.
+It downloads only its pinned public trial files and assets, never opens the
+gallery and never loads diffusion. A repeat performs 24 CPU calls. The
+final project-runtime repeat sampled 321.47 MiB process RSS at its highest sample;
+this is not a hard memory bound.
+
+The evidence supports a deliberately experimental region-review feature,
+not general generated-anime detection. YuNet found the frontal photographic
+face, the hand port found a visible full hand in its upstream example, and
+LBP found two of three small comic faces. Both separate anime portraits,
+the illustrated hands and two gesture panels were missed. The original
+holdout failed; the known-positive palm example and comic page were later
+exploratory additions. No thresholds were tuned and those additions do not
+become an independent holdout. All misses remain in the receipt. The comic
+source is for detection evidence only and must not become a diffusion/card
+fixture. Every result still needs Matt's review; detection never judges
+anatomy or promises improvement.
+
+**Frozen behavior.** `detailer-v1` retains the original RGB descriptor,
+detector runtime/asset/preprocessing facts, candidates and accepted order,
+mask hashes, base seed and resolved sampling/loader recipe. Normalization
+floors left/top, ceils right/bottom, clips to the source, rejects invalid or
+off-image boxes, uses threshold 0.5 and same-class greedy NMS at IoU 0.5,
+then orders by class/top/left/bottom/right/detector/id. The minimum valid
+region is a nonempty integer pixel box; each native detector also records
+its own minimum/threshold preprocessing. `box-feather-v1` pads by sixteen
+pixels, clips at the source boundary and applies an inward integer alpha
+ramp of up to eight pixels, limited by the box's smaller side. This is not
+Gaussian blur. These UI values are provisional choices, not quality targets;
+a changed raster algorithm requires a new rule name.
+
+The preview cache holds at most sixteen reviews for ten minutes. It binds
+source pixels and selected model revision, reserves a receipt before awaits
+and consumes it on successful admission. Correcting an invalid recipe can
+retry the same review; successful or simultaneous repeated admission cannot
+duplicate the chain. Source/model changes refuse before queuing. All masks
+are built and held before admission. The ordinary single worker saves each
+inpaint before substituting its id as the next region's source. It proves
+each direct source's full RGB pixels and each mask's pixels/hash before its
+call. A failure stops the chain; cancel keeps committed passes; pause is
+between regions and Skip is held. A full disk uses the ordinary held-image
+save/resume path.
+
+**Carry and recovery.** A nullable migrated `detailer` column and PNG field
+hold the versioned plan plus pass index. The operation has a separate
+24-character identity; per-pass `CellKey`s and legacy run ids are unchanged.
+Individual reruns and More seeds use the saved direct source/mask, with one
+image per call, without redetection. Historical detection provenance stays
+distinct from each row's actual seed/prompt/sampling fields. Mass refine,
+Then refine or an explicitly replaced source/mask starts an ordinary new
+pass. Missing direct sources refuse replay. Whole or selected bundles and
+reindex preserve proof-based original-source remaps or an unresolved
+descriptor, check SQL/PNG agreement, and rebuild/verify every frozen mask.
+Saved and binned manifests and queued individual replays retain all their
+masks against sweeping. Selected sources and intermediates travel only when
+selected too; masks and provenance cannot recover omitted images.
+Original-chain Finish is held, including after import/restart. Partial
+results name what completed and require a new explicit review to restart.
+
+### Local validation, 2026-11-16
+
+- `uv run --group dev pytest -n 4 --durations=15 -q --tb=short`:
+  **10,030 passed, 325 skipped**, 85 warnings, 490.54 seconds on Windows.
+  A subsequent cache-repair availability/UI correction passed all 27 focused
+  detector/API tests and the native detailer browser smoke.
+- Ruff passed, and pinned Pyright checked 208 Python files with zero errors.
+  The classic-script guard checked all 79 scripts.
+- Seven affected smokes passed: `smoke-detailer`, `smoke-inpaint`,
+  `smoke-queue-controls`, `smoke-bundles`, `smoke-context-menu`,
+  `smoke-more-seeds` and `smoke-bin`. The final detailer run included a real
+  press of Verify/repair against a cached detector. Standard 1400x900,
+  narrow 800x900 and wide 1900x1000 screenshots were inspected: numbered
+  mask extents, review and Queue remain visible without clipping.
+- The public-image trial was repeated after the repair correction:
+  24 CPU calls, identical regions, exact current source hashes in the
+  receipt. No private gallery scan, diffusion load or GPU render ran.
+
+The first full run exposed an isolated copy-feedback fixture missing the
+new unrelated menu adapter, and the rules section exceeded its allowance.
+The fixture was updated without replacing the actual copy handlers; the
+rules were split at whole bullets under bounded headings. Both pass in the
+full result above. A CLI save fixture's unrelated fixed-time gallery hold
+also raced the test load; it now releases on the actual busy refusal.
+
+### Remaining card acceptance
+
+Stage 4 remains unrun and separately authorized. Use one supported, already
+measured SDXL checkpoint and one existing measured square source size; start
+with Animagine XL 4.0 unless Matt chooses another. Matt picks the source
+images, rather than scanning his gallery. Freeze a small region bound,
+seeds, prompt pair and ordinary inpaint settings first. Compare the original,
+a manually selected ordinary inpaint, and the detailer result at matched
+settings; keep every intermediate. Check outside-mask pixel equality, seams,
+identity and anatomy as well as load/render RAM, commit headroom, device
+VRAM/shared memory and time, using the project's guard. Stop before shared
+GPU spill or the agreed host-RAM limit. Small-region improvement and the
+whole-canvas recipe are unqualified until that comparison. Batch and Then
+detail remain optional later work.
+
+The review's `L+card` was an initial estimate, not measured effort. The
+implementation and evidence above supersede the initial commissioning holds;
+the remaining card comparison decides whether the render is useful.

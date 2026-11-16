@@ -122,6 +122,7 @@ function holdTitle(text) {
 // several. "cell 2/3" for three plain images named the grid's word, and
 // "run 2/3" a fourth meaning of run.
 function unitWord(job) {
+  if (job?.detailer) return 'region';
   if (job?.grid) return 'cell';
   // Then refine's passes are no part of a batch: half the planned images,
   // after Finish run's missing passes (one image each) are taken off.
@@ -210,7 +211,7 @@ function showCell(data, { job = null, budget = null, note = '', jobId = null } =
   }
   const said = typeof note === 'function' ? note(job) : note;
   if (said) parts.push(said);
-  if (data.label) parts.push(`cell ${data.run}/${data.total_runs} · ${data.label}`);
+  if (data.label) parts.push(`${job?.detailer ? 'region' : 'cell'} ${data.run}/${data.total_runs} · ${data.label}`);
   jobEta = '';
   jobEtaSeconds = null;
   const runs = data.total_runs || 1;
@@ -412,7 +413,8 @@ function syncNow(job) {
   const lead = foreign ? `${ANOTHER_TABS_JOB}:` : 'Now:';
   els.progressNow.textContent = what ? `${lead} ${what}` : '';
   els.progressNow.title = what ? `${lead} ${describeJob(job, 120, { markup: true })}` : '';
-  const name = job.edit != null ? `the instruction edit of #${job.edit.source ?? '?'}`
+  const name = job.detailer != null ? `the detail passes of #${job.detailer.source_id ?? '?'}`
+    : job.edit != null ? `the instruction edit of #${job.edit.source ?? '?'}`
     : job.refine_batch != null ? 'this batch refine'
     : job.more_seeds != null ? 'these more seeds'
     : job.swap != null ? 'this swap'

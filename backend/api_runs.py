@@ -62,6 +62,32 @@ async def finish_plan(services: AppServices, run_id: str) -> FinishPlan:
         raise HTTPException(status_code=404, detail="unknown run")
 
     definition = definitions[0] if definitions else None
+    detailer_records = [
+        record for record in records
+        if record.detailer is not None and record.detailer.group_id == run_id
+    ]
+    if any(saved.get("origin") == "detailer" for saved in definitions) or detailer_records:
+        # Detailer regions depend on the preceding saved result. Retained
+        # template cells cannot be replayed independently after a stop or
+        # restart: that would run every mask against the original source.
+        # Keep the run inspectable while recovery remains an explicit review.
+        saved_cells = [cell for saved in definitions for cell in saved["cells"]]
+        sizes = sorted({(cell.request.width, cell.request.height) for cell in saved_cells}) or sorted(
+            {(record.width, record.height) for record in detailer_records}
+        )
+        total = len(saved_cells) or max(
+            (len(record.detailer.plan.accepted) for record in detailer_records if record.detailer is not None),
+            default=0,
+        )
+        preview = FinishRunPreview(
+            run_id=run_id, available=False,
+            reason=("Detailer chains cannot be finished automatically; review the last saved image "
+                    "and start a new detail operation."),
+            total=total, cells=0, images=0, rendered=0, queued=0, redrawn=0,
+            budget_minutes=definition["metadata"].get("budget_minutes") if definition else None,
+            pin=hashlib.sha256(f"{run_id}:detailer-review-required".encode()).hexdigest()[:16],
+        )
+        return FinishPlan(preview, definition, [], records, sizes, 422)
     if any(cell.request.edit is not None for saved in definitions for cell in saved["cells"]) or any(
         record.edit is not None for record in records
     ):

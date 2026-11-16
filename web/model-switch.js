@@ -1265,6 +1265,7 @@ function checkpointChanged(previousModel, nextModel = loadedModel) {
     inpaintCheckpointChanged();
     outpaintCheckpointChanged();
     editCheckpointChanged(nextModel);
+    detailerCheckpointChanged();
     els.gridResume.checked = false;
     pendingLora = '';
     els.lora.replaceChildren(new Option('none', ''));

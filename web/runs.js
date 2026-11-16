@@ -334,13 +334,13 @@ async function announceLastRun() {
   els.lastRunShow.hidden = !last.image_count || deleted === last.image_count;
   // A run that finished: more seeds of every cell of it, beside Show run.
   // The checkpoint and its batches are the server's to judge (`foreign`).
-  els.lastRunMore.hidden = !(last.status === 'done' && last.run_id && last.image_count > deleted);
+  els.lastRunMore.hidden = !(!last.detailer && last.status === 'done' && last.run_id && last.image_count > deleted);
   syncMoreSeedsTool(els.lastRunMore, {
     title: `More seeds of every cell of run ${last.run_id}, starred or not, the seeds following on - each at its own settings and Batch`,
   });
   // Availability is the server's, including Repeat, comparisons and jobs
   // with no surviving images. The composer is never a run definition.
-  els.lastRunResume.hidden = !last.run_id || (last.status === 'error' && !last.started_at);
+  els.lastRunResume.hidden = !!last.detailer || !last.run_id || (last.status === 'error' && !last.started_at);
   if (!els.lastRunResume.hidden) configureFinishRun(els.lastRunResume, last.run_id, { slot: els.error });
   syncLastRunFinish();
   els.lastRun.hidden = false;

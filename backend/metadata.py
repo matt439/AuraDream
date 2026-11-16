@@ -8,6 +8,7 @@ from typing import Any, IO
 
 from .execution import ExecutionSpec, canonical_execution, execution_from_json
 from .instruction_edit import StoredInstructionEdit, geometry, recipe_for, stored_from_json
+from .detailer import StoredDetailer, stored_from_json as detailer_stored_from_json
 
 PNG_METADATA_KEY = "auradream"
 
@@ -115,6 +116,68 @@ def embedded_mask(info: Mapping[Any, Any]) -> str | None:
 def canonical_edit(value: object) -> StoredInstructionEdit | None:
     """Strict stored intent; absence alone means an ordinary image."""
     return None if value is None else StoredInstructionEdit.model_validate(value)
+
+
+def canonical_detailer(value: object) -> StoredDetailer | None:
+    """A complete frozen detailer manifest; malformed presence is an error."""
+    return None if value is None else StoredDetailer.model_validate(value)
+
+
+def detailer_from_json(value: str | None) -> StoredDetailer | None:
+    return None if value is None else detailer_stored_from_json(value)
+
+
+def detailer_chunk(value: object) -> dict[str, Any]:
+    stored = canonical_detailer(value)
+    return {} if stored is None else {"detailer": stored.model_dump(mode="json")}
+
+
+def validate_detailer_record(stored: StoredDetailer | None, record: Mapping[str, Any]) -> None:
+    """Preserve pass provenance even when an imported direct source is absent.
+
+    A detailer child is an ordinary inpaint. Recovery can lose its numeric
+    source link, but cannot erase the frozen operation or claim another mask
+    was used. The manifest alone never grants permission to replay a chain.
+    """
+    if stored is None:
+        return
+    expected = stored.plan.source.width, stored.plan.source.height
+    size = record.get("width"), record.get("height")
+    if "size" in record and "width" not in record and "height" not in record:
+        parts = tuple(str(record["size"]).split("x"))
+        if parts == tuple(str(value) for value in expected):
+            size = expected
+    if size != expected:
+        raise ValueError("detailer result dimensions must match its original source")
+    mask = record.get("mask")
+    if mask is not None and mask != stored.expected_mask:
+        raise ValueError("detailer result mask disagrees with its frozen region")
+    if any(record.get(key) is not None for key in ("edit", "outpaint", "mask_crop", "upscaler", "crop_anchor")):
+        raise ValueError("detailer provenance belongs to a whole-canvas ordinary inpaint")
+    batch = record.get("batch")
+    if batch is not None and (type(batch) is not int or batch != 1):
+        raise ValueError("detailer passes require one image per pipeline call")
+
+
+def detailer_from_sources(row: Mapping[str, Any], meta: Mapping[str, Any] | None) -> StoredDetailer | None:
+    """SQL and PNG must retain the same manifest, including unresolved proof."""
+    database = detailer_from_json(row.get("detailer"))
+    validate_detailer_record(database, row)
+    if meta is None:
+        return database
+    embedded = canonical_detailer(meta.get("detailer"))
+    validate_detailer_record(embedded, meta)
+    if database != embedded:
+        raise ValueError("detailer manifests disagree between the database and PNG")
+    return database
+
+
+def detailer_from_info(row: Mapping[str, Any], info: Mapping[str, Any] | None) -> StoredDetailer | None:
+    raw = embedded_metadata(info) if info is not None else None
+    meta = json.loads(raw) if raw is not None else {}
+    if not isinstance(meta, dict):
+        raise ValueError("PNG metadata must be a JSON object")
+    return detailer_from_sources(row, meta)
 
 
 def edit_from_json(value: str | None) -> StoredInstructionEdit | None:

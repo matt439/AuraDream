@@ -522,6 +522,7 @@ uses the driver's graceful close/cleanup. See the full Tests rules.
 | 7960 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-phone-dialogs` |
 | 7960 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-phone-gallery` |
 | 7960 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-phone-keyboard` |
+| 7960 | animagine-xl-4.0, its own fresh scratch `--data`, `--step 0.3` | `smoke-detailer` |
 
 FLUX.1-Krea-dev is `black-forest-labs/FLUX.1-Krea-dev`; animagine is
 `cagliostrolab/animagine-xl-4.0`. The ports are full: `--jobs` puts each
@@ -560,7 +561,8 @@ Gotchas:
   `/api/fake/bin-age`, `/api/fake/peak`, `/api/fake/card` (a claimed card),
   `/api/fake/refine` (`supported`: the claimed checkpoint's refine pass),
   `/api/fake/instruction-edit` (the edit gate, open by default only on a
-  Kontext fake), `/api/fake/unreachable` (`on`: every other request held
+  Kontext fake), `/api/fake/detailer` (`empty`, `fail`, `prepared`, `seconds`, `fail_pass`:
+  deterministic CPU detector fixtures, with no detector downloads), `/api/fake/unreachable` (`on`: every other request held
   unanswered, a PC asleep), `/api/fake/disk-full` (`on`: every image save
   refused as a full disk), `/api/fake/model-cache` (`plant`: a checkpoint
   delete's fixtures in the fake's scratch `HF_HOME`; `touch`: a repository

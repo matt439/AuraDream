@@ -338,6 +338,13 @@ def sweep_masks(in_flight: InFlight | None = None, *, settle: bool = True, orpha
         held = set(in_flight()) if in_flight is not None else set()
         held |= {row[0] for row in conn.execute("SELECT hash FROM mask_holds")}
         held |= {row[0] for row in conn.execute("SELECT DISTINCT mask FROM images WHERE mask IS NOT NULL")}
+        # A saved partial chain explains and retains every accepted region,
+        # including masks for passes never reached after a cancel/failure.
+        from .detailer import stored_from_json
+        for row in conn.execute("SELECT detailer FROM images WHERE detailer IS NOT NULL"):
+            detail = stored_from_json(row[0])
+            if detail is not None:
+                held.update(detail.plan.masks)
         doomed = [
             row["hash"]
             for row in conn.execute("SELECT hash, created_at FROM masks")

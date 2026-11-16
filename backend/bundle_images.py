@@ -21,9 +21,11 @@ from . import png_settings, storage
 from .bundle_common import _CHUNK, _WORKERS, MASK_HASH, BundleError
 from .execution import execution_chunk, execution_from_json, execution_key
 from .instruction_edit import edit_key
+from .detailer import iter_rebuilt_masks, stored_json as detailer_json
 from .metadata import (
     PNG_METADATA_KEYS, PNG_SIGNATURE, edit_chunk, edit_from_info, edit_from_json, execution_from_info,
     metadata_chunk, require_header_metadata, text_keyword, validate_edit_record,
+    detailer_chunk, detailer_from_info, detailer_from_json, validate_detailer_record,
 )
 
 
@@ -77,6 +79,8 @@ def _pixels(path: Path | str | IO[bytes], *, name: str | None = None, row: dict 
                     raise BundleError(f"not a PNG image: {name}")
                 execution = _execution(row, image.info) if row is not None else None
                 edit = _edit(row, image.info) if row is not None else None
+                if row is not None:
+                    _detailer(row, image.info)
                 image.load()
                 raw = _raw_digest(image)
                 identity = hashlib.sha256(repr((
@@ -152,6 +156,7 @@ def _validate_row(row: dict, width: int, height: int, content_hash: str) -> None
     _references(row)
     _execution(row)
     _edit(row)
+    _detailer(row)
     refine = row.get("refine")
     if refine is not None and (type(refine) is not int or refine <= 0):
         raise BundleError(f"invalid refine source on image {row['id']}")
@@ -234,6 +239,28 @@ def _edit(row: dict, info: dict | None = None) -> str | None:
 def _portable_edit(value: str | None) -> tuple | None:
     edit = edit_from_json(value)
     return None if edit is None else (edit.recipe, edit.edit_source)
+
+
+def _detailer(row: dict, info: dict | None = None) -> str | None:
+    """Require matching complete SQL/PNG provenance, including fast imports."""
+    try:
+        stored = detailer_from_json(row.get("detailer")) if info is None else detailer_from_info(row, info)
+        validate_detailer_record(stored, row)
+        if stored is not None and info is not None:
+            for _digest, mask in iter_rebuilt_masks(stored.plan):
+                mask.close()
+        return detailer_json(stored) if stored is not None else None
+    except (TypeError, ValueError) as exc:
+        raise BundleError(f"invalid detailer metadata for {row['filename']}: {exc}") from exc
+
+
+def _portable_detailer(value: str | None) -> dict | None:
+    stored = detailer_from_json(value)
+    if stored is None:
+        return None
+    result = stored.model_dump(mode="json")
+    result["plan"].pop("source_id")
+    return result
 
 
 def _inspect_source(row: dict, data: bytes):
@@ -320,6 +347,7 @@ def _metadata(row: dict, by_id: dict[int, dict]) -> dict:
         **({"upscaler": row["upscaler"]} if row.get("upscaler") is not None else {}),
         **execution_chunk(execution_from_json(row.get("execution"))),
         **edit_chunk(edit_from_json(row.get("edit"))),
+        **detailer_chunk(detailer_from_json(row.get("detailer"))),
         **storage.peak_chunk(row),
     }
 
