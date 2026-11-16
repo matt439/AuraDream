@@ -3917,9 +3917,11 @@ measured on the card and when.
   snapshot for follow-ups. External edits and native Undo still invalidate it.
   The pane is 600 px below the wide tier, 680-900 px within it, capped to the
   viewport. Task selection shares the header when it fits; the message and
-  Send/Stop share one compact composer. Draft titles and Use share a row;
+  Send/Stop share one compact composer with a two-line message field and 4 px
+  frame padding. Draft titles and Use share a row;
   draft notes are plain secondary text below the prompt, without a disclosure
-  or a separate Notes label. About sits below the message frame
+  or a separate Notes label, in a darker section with a visible top divider.
+  About sits below the message frame
   and opens upward over the conversation without moving writing controls.
   Long status text remains focusable/scrollable with its full text as a title.
   The model's JSON schema and question reserve `message` for brief optional
@@ -3928,8 +3930,9 @@ measured on the card and when.
   draft copies in `message`: repetitive prose goes into a closed Assistant note
   below the cards. It is preserved intact, including any unique commentary,
   and the same presentation applies to earlier turns. Concise non-repetitive
-  replies stay visible. Draft cards use a lighter token-mixed surface, the strong
-  border, and readable secondary text on that surface.
+  replies stay visible. Draft cards use the existing tag surface (`--panel-tags`)
+  and the strong border. Notes use `--panel-2`; text contrast is checked against
+  the surface it actually appears on.
 
 #### Prompt checks, encoders and tag placement
 

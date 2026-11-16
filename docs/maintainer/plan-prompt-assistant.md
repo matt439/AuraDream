@@ -344,3 +344,22 @@ three-draft and phone screenshots were inspected. Eight documentation-map
 checks and the classic-script guard passed. Receipt under the system temporary
 directory: `auradream-smoke-artifacts-noxva0y5/summary.json`, screenshots in
 `smoke-prompt-assistant-72rqm4ol/`. No inference was run.
+
+## Tag-coloured cards and smaller composer (2026-11-17)
+
+Matt requested a smaller input, result backgrounds matching the existing tag
+box, and stronger separation between prompt and notes. The message field is
+now two lines rather than three, its frame padding is 4 px rather than 8 px,
+and Send/Stop use the ordinary control height while retaining touch targets.
+Drafts use `--panel-tags` for the prompt area. Notes remain visible, with their
+own padded `--panel-2` section and a full-width strong divider above them.
+
+The assistant smoke passed all 231 steps. It now checks exact agreement with
+the tag surface token, distinct notes fill/divider/padding, text contrast on
+each actual surface, and a two-line desktop field with a smaller message frame.
+The three drafts and six notes still fit at 1920/2048 px; pending controls stay
+stable, and phone/short-viewport guards pass. Desktop and phone screenshots were
+inspected. Eight documentation-map tests, the classic-script guard and 39
+screenshot-path checks passed. Receipt under the system temporary directory:
+`auradream-smoke-artifacts-hrt9_h35/summary.json`, screenshots in
+`smoke-prompt-assistant-3lljge9u/`. No inference was run.
