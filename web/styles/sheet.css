@@ -346,3 +346,14 @@
    contrast, and out of the pointer's way. */
 .card.gone { background: var(--panel); border-style: dashed; pointer-events: none; }
 .card .tomb { height: 100%; border: none; }
+
+/* Recovery keeps controls stable while read-only plans arrive. */
+.review-runs { width: min(640px, calc(100vw - 32px)); max-height: 85vh; overflow: auto;
+  color: var(--text); background: var(--panel); border: 1px solid var(--line-strong); border-radius: var(--r-md); padding: var(--sp-4); }
+.review-runs .dialog-head, .review-actions, .review-runs .dialog-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); }
+.review-runs .dialog-head h2 { flex: 1; margin: 0; }
+.review-runs p { color: var(--text-readout); overflow-wrap: anywhere; }
+.review-run { border-top: 1px solid var(--line); padding-block: var(--sp-3); }
+.review-run h3 { margin: 0; font-size: var(--fs-md); overflow-wrap: anywhere; }
+.review-state { min-height: 3em; }
+.review-actions button { min-height: 44px; }

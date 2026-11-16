@@ -827,6 +827,12 @@ paragraphs, never rewording.
   a stop and exits 1 if a real run would have stopped; `-Yes`, or no
   keyboard, takes every default (default download folder, no Hugging Face
   sign-in, both shortcuts, a first start on Animagine without a sign-in).
+  Its initial folder preflight requires files (not directories) at
+  `pyproject.toml`, `uv.lock`, `backend/main.py`, `web/index.html` and
+  `bin/auradream.cmd`; an incomplete extraction lists the missing files
+  before a real run reaches tool installation. Dry-run records the refusal
+  and continues read-only as usual. Tests exercise missing lock/UI/launcher
+  in both modes with inert tools and temporary homes.
   It refuses a network-share folder, and, like `update.ps1`, refuses while
   AuraDream runs. Git comes from winget with `--scope user` only (no
   administrator approval). A sign-in is `HF_TOKEN` or the token file
@@ -1130,6 +1136,9 @@ paragraphs, never rewording.
   the documentation-only lint path; `ci_duplicates.py` skips a run another
   run of the workflow covers; `typecheck.py` runs the pinned,
   locally bundled Pyright checker over the configured scope;
+  `anima_refine_pack.py` prints the offline Turbo Refine protocol and a blank
+  receipt, and checks recorded receipt completeness without starting a session
+  or granting qualification (`tests/test_anima_refine_pack.py`; Anima Refine plan);
   `perf_cases.py` holds the fixed speed comparison cases the card runs
   share and prints their `backend.generate` lines, running none
   (`docs/maintainer/plan-step-caching.md`, Fixed comparison cases);
@@ -7348,6 +7357,32 @@ measured on the card and when.
 
 #### Gallery scope, Re-render, search and paging
 
+- **Review unfinished work** is an explicit recovery entry under Generate
+  and its status on desktop, and in Gallery's Filters sheet on a phone. It
+  starts with the latest 20 runs in the current checkpoint / All models
+  scope; Include older runs deliberately expands to the existing API cap
+  of 200, never an unbounded history scan. Find in loaded runs filters only
+  those summaries by prompt or run ID, without reading replay plans. It
+  reports matching/loaded counts, including zero matches. The cap is visible.
+  Gallery Search and Starred do not narrow it, and the dialog says so. A summary is not proof
+  of interruption: each row starts unchecked. Check remaining work lazily
+  reads the existing run details and Finish preview; it shows retained and
+  binned outputs, exact missing work or the server's refusal. Finish uses
+  the existing pinned replay path, never the composer's independent draft;
+  nothing resumes automatically. View saved outputs opens the existing run
+  sheet. Closing, refreshing, or changing server/checkpoint/gallery scope
+  invalidates outstanding list ownership, including a scope round trip.
+  A stale row cannot Finish, including after its last awaited check. Closing
+  removes recovery controls so hidden dialogs do not keep refreshing plans.
+  `tests/test_review_runs.py` covers bounded reads and stale ownership;
+  the owned restart probe's `--review-finish desktop|phone` exercises the
+  rendered recovery entry through safe Finish without a live model. Its
+  `--history-review desktop|phone` variant retains an old partial run and a
+  zero-image queued run across an owned restart, adds 21 newer completed
+  runs, then finds and finishes both through the review controls. Expansion
+  makes no eager per-run requests; double activation, stale scope replies,
+  failed reads, local filtering and independent draft preservation are checked.
+
 - The gallery is the running checkpoint's: `GET /api/gallery`, `/api/runs`,
   `GET`/`DELETE /api/gallery/unstarred`, `POST /api/rerender[/preview]` and
   `POST /api/swap-tags[/preview]`, `POST /api/refine/batch[/preview]` and
@@ -10888,6 +10923,19 @@ Gated listings reproduce fast queued completion/failure, once-only outcomes
 and Finish recovery, ordered rapid receipts, delayed POST/history snapshots,
 transient history retries, cancellation/foreign-job exclusions and no
 historical replay after reload.
+
+The opt-in `tools/recovery_restart_probe.py` requires a new scratch path and
+unused loopback port, uses the trial worker ownership token to stop only its
+actual runtime, and verifies missing-cell Resume after a real stop/restart.
+Cold refusal tests live in `tests/test_recovery_restart_probe.py`; the
+[dated evidence](maintainer/restart-resume-2026-11-15.md) bounds its synthetic
+CPU qualification. Optional `--browser-finish` reuses the existing Finish
+browser driver to check draft preservation and once-only submission before
+the exact-cell checks; it does not claim trusted-input discoverability.
+Optional `--open-tab` keeps one document alive across the owned stop/start,
+handshaking visible offline state before restart and checking changed server
+identity, draft preservation and no automatic resubmission afterwards.
+It never runs against an existing gallery.
 
 `smoke-queue-cancel-recovery.json` uses a fresh FLUX.1 Krea [dev] fake on
 7944 with 0.3 s steps. Seven owned fake-server jobs and controlled offline,

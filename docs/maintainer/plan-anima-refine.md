@@ -255,3 +255,105 @@ usage and catalogue wording, regenerating any generated capability table
 through its owner tool. Run the relevant automated gates and record their
 bounded results here. Remove `GEN#48` only when its implemented and measured
 release is complete; a selected family or private wrapper does not close it.
+
+
+## Offline session pack (2026-11-15)
+
+`tools/anima_refine_pack.py` makes stage 2 repeatable without opening the
+public route. It has no runner, backend import, counters or network:
+
+```powershell
+uv run python tools/anima_refine_pack.py plan > "$env:TEMP/anima-refine-plan.json"
+# After a separately authorized session, save the completed receipt object:
+uv run python tools/anima_refine_pack.py check "$env:TEMP/anima-refine-receipt.json"
+```
+
+The JSON contains `receipt`, a **blank template**, not a measurement. Save
+that object alone for `check`. All required measurements begin as null and
+cases as `not-run`. Exit 1 means missing/inconsistent evidence; exit 0 means
+only that the recorded fields are complete and internally consistent.
+The checker does not inspect external receipt files, authenticate hashes,
+judge pictures or qualify a model. It cannot enable public Refine.
+
+### Fixed one-load Turbo sequence
+
+Windows, official Turbo v1.1, fp8/model offload, eight steps, CFG 1, no Mu,
+negative prompt, LoRA or references. The prompt is a synthetic composition
+probe, not an author's example. It fixes a subject, coloured clothing and a
+second object so source retention is easy to judge. Seeds are fixed before
+viewing results. The sequence has a direct 1024-square baseline; strengths
+0.125, 0.25 and 0.4; a repeated 0.4; consecutive batch members at seed and
+seed+1 followed by solo seed+1; cancellation after the first completed step;
+a recovery pass; a direct baseline again; and one optional 1280-square pass.
+All passes use the original baseline pixels, never a previous refined image.
+The batch is the app's consecutive one-image-call contract, not an unqualified
+multi-image call. The direct-after check follows both success and cancellation.
+
+The tail counts 1/2/4 and shift-3 start sigmas 0.3/0.5/0.75 are checked
+against the existing private wrapper and installed scheduler in a CPU test.
+The receipt must record the *actual* callback counts and sigmas, not copy
+these expected figures. Cancel must record no decoded output; repeat,
+batch/solo, recovery and direct-after comparisons use decoded-pixel hashes.
+Hash definitions: `pixel_sha256` is the full SHA-256 of decoded RGB bytes
+(at the recorded dimensions); `png_sha256` hashes saved PNG bytes;
+`metadata_sha256` hashes the exact retained UTF-8 metadata receipt bytes.
+`source_sha256` uses the same full RGB pixel hash as the baseline. These are
+full proof hashes, not the gallery tool's abbreviated 16-character display.
+Retain files, not just the digests. A source with a different size or mode
+needs its own explicitly recorded conversion before hashing and use.
+
+### Preconditions and bounded attempt
+
+This pack is preparation, not permission for a GPU run. The future private
+runner must wire the existing card guard before loading, retain its raw
+samples and effective limits, and confirm a quiet RTX 5080 session. The
+existing limits remain owned by `tools/card_guard.py`; do not copy or loosen
+them here. Choose and record a checkpoint-specific load RAM minimum and
+busy-card threshold from the current measured Anima record and live baseline.
+State the RAM budget and reserve the machine before starting. Set a 30-minute
+session cap, a ten-minute load cap and two-minute pass cap for this *attempt*;
+these are stop budgets, not measured performance claims. A timeout is retained
+as an incomplete session, never silently retried or converted to a pass.
+
+Stop on OOM, spill/shared-memory trip, low free RAM or commit headroom,
+missing required counters or source proof, cancellation that does not stop,
+or the wall-time cap. No later case follows a safety trip. Check final
+resident memory and guard cleanup even on failure. Refuse the optional
+1280 step unless same-size evidence and guard projection permit it; record
+`skipped` and the reason. A skipped enlargement establishes no supported
+larger size. No attempted size above 1280, no second checkpoint, and no
+3070/WSL/alternative-loader inference belongs in this session.
+
+Each completed image needs elapsed time, allocated/reserved/whole-card peak,
+shared-memory rises, process RAM peak, free-RAM and commit minima, resident
+allocated memory, raw output/metadata hashes, and composition/detail/artefact
+notes. Keep the session's version/loader, load receipt, guard log, and final
+residency receipt. Manual review of those sources and pictures is still
+required before any dated result goes into `verified.md` or stage 3 starts.
+
+### Quality gate and CPU evidence
+
+Review the baseline and each completed case side by side at matched display
+size and at 100% crops. Record whether the woman, blue coat, red bicycle and
+park remain identifiable; compare face/hands, object boundaries, textures
+and colour stability. Reject visible seams, broken geometry, smeared detail
+or an unexplained composition replacement. Higher strength need not look
+better. A strength is a candidate only if the reviewer explicitly records
+its benefit and trade-off; a complete receipt alone never makes it one.
+If the baseline is unusable, preserve the failed probe rather than silently
+changing prompt/seed midway through the one-load session. The optional
+upscale must show useful detail rather than merely a larger saved canvas.
+
+CPU verification: `pytest -q tests/test_anima_refine_pack.py
+ tests/test_anima_refine.py tests/test_card_guard.py tests/test_docs_maps.py
+ --timeout=120` passed 231 tests, with one existing Starlette deprecation
+warning. `ruff check .` passed. The repository's pinned Pyright check passed
+203 files with zero errors/warnings using a temporary config pointing at
+the original checkout's existing virtualenv (no dependency installation).
+The wider CPU regression run (`pytest -n 2 -q --timeout=120`) passed
+10,034 tests, skipped 325, and emitted 83 warnings in 484.56 seconds. It
+started before the final ten oversized-number metric cases were added;
+the final focused 231-test run includes those cases and the final checker.
+Tests used `CUDA_VISIBLE_DEVICES=''`; no weights, live gallery or GPU run.
+Nothing in this pack is evidence of real VAE/denoiser quality, GPU fit or
+speed.

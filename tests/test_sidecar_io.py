@@ -6,7 +6,6 @@ from __future__ import annotations
 import os
 import re
 import threading
-import time
 from pathlib import Path
 
 import pytest
@@ -149,35 +148,74 @@ def test_a_read_waits_for_this_process_save_and_creates_no_file(tmp_path):
 
 
 @pytest.mark.skipif(os.name != "nt", reason="the sharing violation is Windows behaviour")
-def test_a_star_and_a_read_overlapping_on_windows_both_succeed(tmp_path):
-    """The probe that found it (78 of 20,000 reads refused, and saves too)."""
+def test_a_star_and_a_read_overlapping_on_windows_both_succeed(tmp_path, monkeypatch):
+    """Real star/read overlap, not a throughput target for a loaded runner.
+
+    Pause each real replace while the writer owns its production reservation,
+    then start a read. It must wait, and observe the complete new revision
+    after publication. Every round changes the star, so each exercises fsync
+    and replace; a fast no-op writer cannot satisfy this proof.
+    """
     database = tmp_path / "gallery.db"
     model_favourites.change(database, "a/one", True)
-    errors: list[BaseException] = []
-    stop = threading.Event()
+    original_replace = sidecar_io.replace
+    original_read = sidecar_io.reserved_read
+    rounds = 24
 
-    def toggle():
-        favourite = False
-        while not stop.is_set():
+    def overlap(index):
+        saving, reading = threading.Event(), threading.Event()
+        publish, read_done = threading.Event(), threading.Event()
+        errors: list[BaseException] = []
+        written: list[object] = []
+        observed: list[object] = []
+        favourite = index % 2 == 0
+
+        def held_replace(source, target):
+            saving.set()
+            assert publish.wait(30), "test did not release the real sidecar replace"
+            original_replace(source, target)
+
+        def entering_read(path, read):
+            reading.set()
+            return original_read(path, read)
+
+        monkeypatch.setattr(sidecar_io, "replace", held_replace)
+        monkeypatch.setattr(sidecar_io, "reserved_read", entering_read)
+
+        def toggle():
             try:
-                model_favourites.change(database, "a/two", favourite)
+                written.append(model_favourites.change(database, "a/two", favourite))
             except BaseException as exc:  # noqa: BLE001 - the test reports them
                 errors.append(exc)
-            favourite = not favourite
 
-    writer = threading.Thread(target=toggle, daemon=True)
-    writer.start()
-    deadline = time.monotonic() + 3
-    reads = 0
-    try:
-        while time.monotonic() < deadline:
+        def read():
             try:
-                model_favourites.read(database)
+                observed.append(model_favourites.read(database))
             except BaseException as exc:  # noqa: BLE001
                 errors.append(exc)
-            reads += 1
-    finally:
-        stop.set()
-        writer.join(30)
-    assert reads > 10  # reads wait behind saves now; a loaded runner reads fewer
-    assert errors == []
+            finally:
+                read_done.set()
+
+        writer = threading.Thread(target=toggle, daemon=True)
+        reader = threading.Thread(target=read, daemon=True)
+        writer.start()
+        reader_started = False
+        try:
+            assert saving.wait(30), "star did not reach its real replace"
+            reader.start()
+            reader_started = True
+            assert reading.wait(30), "read did not enter its production reservation"
+            assert not read_done.wait(0.02), "read escaped the in-flight save's reservation"
+        finally:
+            publish.set()
+            writer.join(30)
+            if reader_started:
+                reader.join(30)
+        assert not writer.is_alive() and not reader.is_alive()
+        assert errors == []
+        expected = (["a/one", "a/two"] if favourite else ["a/one"], index + 2)
+        assert written == observed == [expected]
+
+    for index in range(rounds):
+        overlap(index)
+    assert model_favourites.read(database) == (["a/one"], rounds + 1)

@@ -15367,3 +15367,57 @@ Choices, and why:
 Not built: Recent prompts under Examples, the review's second slice, which
 waits on whether this one falls short. It would be the only way back to a
 prompt whose job saved no image.
+
+
+## Reviewing unfinished work (2026-11-15)
+
+An empty volatile Jobs list after restart must not make a retained partial
+run undiscoverable. The existing Runs picker knew historical outputs, and
+Finish already knew exact replay eligibility, but finding the right entry
+and then the Finish control required prior knowledge. Review unfinished
+work connects those existing contracts without inventing a recovery API.
+
+This is a bounded review, not an inferred unfinished-only list. Recent run
+summaries cannot tell whether low output count means interruption, deletion,
+a completed small run, or a held replay. We show the latest 20 scoped runs,
+then read exact details only when a person checks a row. Retained/binned
+counts and the Finish refusal remain visible beside the action. A separate
+View saved outputs path lets a person inspect before committing to more work.
+No image generation is automatic and the current composer remains untouched.
+
+The list and row reads own a dialog epoch plus the server/checkpoint/scope.
+A change away and back still requires Refresh. Finish checks that ownership
+both before and after its asynchronous eligibility read. This is distinct
+from proving a surviving tab reconnects: the outcome here is a discoverable,
+deliberate user control after a fresh page, not API-driven completion.
+
+The desktop entry sits with the generation panel's recovery/status controls,
+not inside the gallery header. Adding a full-label button to that constrained
+row changed its wrap thresholds: selection could no longer keep Delete
+unstarred and Re-render in stable slots, and cards moved down far enough to
+clamp the context menu. Preserve the gallery's established geometry instead
+of shrinking search/Runs or weakening its selection/menu regression checks.
+The same recovery button moves into Gallery Filters on a phone.
+
+
+## Finding older unfinished runs (2026-11-15)
+
+A retained partial run and a never-started zero-image run remain recoverable
+through existing API contracts after restart. But after 21 later completed
+runs the review's initial 20 summaries exclude both, with no route to older
+entries. An owned CPU worker/browser reproduction confirmed this: the API's
+bounded 200-run list contained 23 runs, while the actual dialog hid both
+recoverable ones. This was a discovery gap, not a generation/replay defect.
+
+Include older runs now deliberately reads the existing maximum of 200
+summaries. Find in loaded runs filters their prompt/run ID locally; the
+screen says its loaded-count and history boundary, including no matches.
+Expansion does not issue any per-run details/preview calls. Each run still
+needs an explicit Check, and Finish retains all prior pins and guards.
+Refresh retries a failed expanded read at the same cap, but changed scope
+and a reopened dialog reset to 20. Expanding replaces the summary list, so
+checks must be deliberately requested again. This is not exhaustive history
+pagination and does not imply a run beyond the latest 200 is accessible here.
+
+Finish feedback belongs to its run row, so filtering to a different unfinished
+run cannot carry over another run's "nothing missing" message.

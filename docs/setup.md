@@ -32,6 +32,13 @@ way.
    while AuraDream is running (stop it first) and on a network share (use
    a folder on this machine's own drive).
 
+If it says **This AuraDream folder is incomplete**, read the missing filenames.
+Extract the whole ZIP into a new local folder, or restore those files in your
+checkout, before rerunning `install.cmd`. Do not delete your existing gallery
+or saved settings to fix missing application files. The installer checks its
+package manifest/lock, backend entry point, web page and Windows launcher
+before installing tools or making shortcuts.
+
 What it does, in order:
 
 - Checks Windows, the folder (OneDrive, a very long path or non-English

@@ -78,6 +78,9 @@ def sandbox(tmp_path):
     (root / "bin").mkdir()
     (root / "pyproject.toml").write_text('[project]\nname = "auradream"\n')
     (root / "backend" / "main.py").write_text("")
+    (root / "uv.lock").write_text("version = 1\n")
+    (root / "web").mkdir()
+    (root / "web" / "index.html").write_text("<!doctype html>")
     (root / "bin" / "auradream.cmd").write_text("@echo off\r\n")
     stubs = tmp_path / "stubs"
     stubs.mkdir()
@@ -647,3 +650,25 @@ def test_update_explains_untracked_files_in_the_way(sandbox):
     assert "not part of the code" in result.stdout and "Move or rename them" in result.stdout
     assert "git restore" not in result.stdout
     assert "uv sync" not in _calls(sandbox)
+
+
+@pytest.mark.parametrize("missing", ["uv.lock", "web/index.html", "bin/auradream.cmd"])
+@pytest.mark.parametrize("dry_run", [True, False])
+def test_install_refuses_incomplete_extraction_before_tools(sandbox, missing, dry_run):
+    # Only disposable fixture files and inert tools are used, even before the fix.
+    _nvidia_smi(sandbox["stubs"], "NVIDIA-SMI 580.00 CUDA Version: 13.0", "NVIDIA GeForce RTX 5080, 12.0, 16303")
+    _uv(sandbox["stubs"])
+    _git(sandbox["stubs"])
+    _winget(sandbox["stubs"])
+    (sandbox["root"] / missing).unlink()
+    flags = ["-DryRun", "-Yes"] if dry_run else ["-Yes"]
+    result = _run(sandbox, "install.ps1", *flags)
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "incomplete" in result.stdout.lower()
+    assert missing.replace("/", "\\") in result.stdout
+    assert "Extract the whole ZIP" in result.stdout
+    if dry_run:
+        assert all(call.endswith("--version") for call in _calls(sandbox))
+    else:
+        assert _calls(sandbox) == []
+    assert not list(sandbox["home"].rglob("*.lnk"))
