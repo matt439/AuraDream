@@ -66,19 +66,37 @@ def test_candidate_requires_the_source_inspected_dependency_environment(candidat
     assert candidate(spec, dataclasses.replace(FACTS, **changes), **TARGET) is not None
 
 
-def test_attention_and_cache_have_separate_source_probes_on_installed_diffusers_0421():
-    # Each adapter has a guarded real-class CPU integration probe. Neither
-    # source result qualifies regional compilation or public execution.
+def test_all_private_candidates_have_separate_source_probes_on_installed_diffusers_0421():
+    # Each adapter has its own guarded real-class CPU integration probe.
+    # These source results qualify no compiler/kernel or public execution.
     assert execution.compiler_metadata().diffusers.startswith("0.42.")
     regional = execution.ExecutionSpec(compilation="regional-v1")
     facts = dataclasses.replace(FACTS, triton_windows="3.7.1.post27")
     assert execution.regional_candidate_reason(regional, facts, **TARGET) is None
-    reason = execution.regional_candidate_reason(regional, dataclasses.replace(facts, diffusers="0.42.1"), **TARGET)
-    assert reason is not None and "checked only on diffusers 0.40" in reason
+    assert execution.regional_candidate_reason(regional, dataclasses.replace(facts, diffusers="0.42.1"), **TARGET) is None
+    with pytest.raises(ValueError, match="not available"):
+        execution.require_default_execution(regional)
     for candidate, spec in CANDIDATES:
         assert candidate(spec, dataclasses.replace(FACTS, diffusers="0.42.1"), **TARGET) is None
         with pytest.raises(ValueError, match="not available"):
             execution.require_default_execution(spec)
+
+
+@pytest.mark.parametrize("diffusers", ["0.42.0", "0.42.2", "0.43.0", "0.42.1.dev0", "0.42.1+uninspected"])
+def test_regional_private_migration_is_exact_and_retains_its_toolchain_guards(diffusers):
+    spec = execution.ExecutionSpec(compilation="regional-v1")
+    facts = dataclasses.replace(FACTS, diffusers=diffusers, triton_windows="3.7.1.post27")
+    reason = execution.regional_candidate_reason(spec, facts, **TARGET)
+    assert reason is not None and "0.40 or 0.42.1" in reason
+
+
+@pytest.mark.parametrize("triton", [None, "3.7.1.post26", "3.8.0"])
+def test_regional_0421_source_compatibility_does_not_replace_the_missing_windows_toolchain(triton):
+    spec = execution.ExecutionSpec(compilation="regional-v1")
+    facts = dataclasses.replace(FACTS, diffusers="0.42.1", triton_windows=triton)
+    assert execution.regional_candidate_reason(spec, facts, **TARGET) == (
+        "The Windows regional compilation candidate needs triton-windows 3.7.1.post27."
+    )
 
 
 @pytest.mark.parametrize("candidate, spec", CANDIDATES, ids=["cudnn", "fbc"])

@@ -1292,8 +1292,10 @@ Expand, never automatic. The bump came alone, first:
   Kontext on 0.42.1 (done 2026-11-10, below: the envelope is now 0.42.1);
   and `execution.py`'s regional and attention/cache candidates, initially
   kept on their 0.40 source matrix. The 2026-11-16 CPU audit below admits
-  exact 0.42.1 to private attention/FBC experiments; regional compilation stays
-  on 0.40. Nonempty public recipes remain unavailable.
+  exact 0.42.1 to private attention/FBC experiments. A separate 2026-11-17
+  registration probe also admits private regional preparation on this exact
+  release; its optional toolchain and card qualification remain outstanding.
+  Nonempty public recipes remain unavailable.
 - `encoder_table`'s copied prompt strings did not change in 0.42.1
   (`tests/test_prompt_encoding.py` passes against it).
 - 0.42.1's `download`/`from_pretrained` first resolve the revision on the Hub
@@ -1337,10 +1339,15 @@ this is no kernel, speed, fit or repeatability qualification. A separate
 production-owner probe over tiny real FLUX blocks and installed FBC hooks
 checks reuse, context separation and cleanup through the same SDPA stand-in;
 it also admits private FBC preparation on exact 0.42.1, without a full
-transformer, checkpoint pipeline or kernel. Regional compilation retains its
-separate 0.40 matrix. The remaining card protocols belong to the
+transformer, checkpoint pipeline or kernel. The 2026-11-17 regional probe
+exercises actual ModelMixin/Module registration over tiny FLUX classes with
+a recording compiler stand-in, strict flags and failure/close checks. It
+establishes registration-source compatibility on exact 0.42.1, without a
+forward, Inductor backend or installed optional toolchain. The original
+0.40 matrices stay accepted. The remaining card protocols belong to the
 [attention](maintainer/plan-attention-backends.md) and
-[step-caching](maintainer/plan-step-caching.md) plans.
+[step-caching](maintainer/plan-step-caching.md) plans, with compilation's
+toolchain and card requirements in the [regional plan](maintainer/plan-regional-compilation.md).
 
 **lite-infer renamed its repositories (seen 2026-11-09).** The re-uploads
 the catalogue names (`launch._LITE`,

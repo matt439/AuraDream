@@ -250,11 +250,12 @@ def _minor(value: str | None, expected: str) -> bool:
     return value is not None and value.split("+", 1)[0].split(".")[:2] == expected.split(".")
 
 
-# Regional private candidates retain their diffusers 0.40 source matrix.
-# The exact 0.42.1 attention processor/dispatcher and FBC owner/hook integration
-# have separate guarded tiny-CPU probes. This permits private preparation only;
-# kernels, real-model behavior and every public admission stay held.
+# The exact 0.42.1 regional registration, attention processor/dispatcher and
+# FBC owner/hook integration have separate guarded tiny-CPU probes. This permits
+# private preparation only; kernels, real-model behavior and every public
+# admission stay held. The original 0.40 source matrix remains accepted.
 _CANDIDATE_DIFFUSERS = "0.40"
+_REGIONAL_CANDIDATE_DIFFUSERS = "0.42.1"
 _ATTENTION_CACHE_CANDIDATE_DIFFUSERS = "0.42.1"
 
 
@@ -287,8 +288,10 @@ def regional_candidate_reason(
         return "The regional compilation candidate needs Windows or Linux with Python 3.13."
     if not _minor(facts.torch, "2.13") or not (facts.torch or "").endswith("+cu130"):
         return "The regional compilation candidate needs the torch 2.13 CUDA 13.0 environment."
-    if not _minor(facts.diffusers, _CANDIDATE_DIFFUSERS) or not _minor(facts.torchao, "0.18"):
-        return ("The regional compilation candidate was checked only on diffusers 0.40 with torchao 0.18;"
+    inspected_diffusers = (_minor(facts.diffusers, _CANDIDATE_DIFFUSERS)
+                          or facts.diffusers == _REGIONAL_CANDIDATE_DIFFUSERS)
+    if not inspected_diffusers or not _minor(facts.torchao, "0.18"):
+        return ("The regional compilation candidate was checked only on diffusers 0.40 or 0.42.1 with torchao 0.18;"
                 " it is not re-checked on this install.")
     if facts.platform == "win32" and facts.triton_windows != "3.7.1.post27":
         return "The Windows regional compilation candidate needs triton-windows 3.7.1.post27."

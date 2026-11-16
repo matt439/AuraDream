@@ -2445,13 +2445,14 @@ measured on the card and when.
   changing the environment. FBC additionally refuses true CFG and an existing
   cache. A matching candidate grants no runtime availability or loaded-API,
   processor, shape, kernel or device qualification.
-- Regional candidates retain their diffusers 0.40 source matrix
-  (`execution._CANDIDATE_DIFFUSERS`). Private attention/FBC candidates also
-  accept exact 0.42.1 after separate processor/owner/hook CPU audits;
+- Private regional/attention/FBC candidates retain their diffusers 0.40
+  source matrix and accept exact 0.42.1 after separate registration,
+  processor/owner/hook CPU audits;
   `tests/test_attention_runtime.py` exercises real tiny FLUX processors through
   a recording SDPA stand-in and checks forced-cuDNN scope and restoration.
   It runs no attention kernel or CUDA work. This does not qualify another
-  patch release, regional compilation or public nonempty admission.
+  patch release, compiler/kernel behavior or public nonempty admission.
+  Regional preparation still requires its pinned optional Triton toolchain.
   The hook APIs changed in 0.42 (`StateManager.set_context` takes a
   `CacheContext`; cache enable/disable invalidates child-registry caches),
   so their source and card qualification remain independent.
@@ -12836,6 +12837,12 @@ candidate disposal, precompiled root/region refusal and idempotent reference
 cleanup with stubs. Installed `ConfigModule.patch` over synthetic flags
 checks nested/thread restoration. Real Flux/Dynamo imports, compiler calls,
 fallback and device behavior remain unexecuted.
+`tests/test_regional_compile_runtime.py` also runs
+`tests/fixtures/regional_flux_registration_cpu.py`: tiny exact installed FLUX
+blocks pass through real regional and Module registration with only
+`torch.compile` replaced by a recording stand-in. It checks strict flags,
+partial-failure discard/cause, duplicate refusal and reference-only close;
+no forward, Inductor, toolchain or GPU kernel is exercised.
 `tests/test_pipeline_ownership.py` exercises the actual eager loader over strict
 synthetic runtime modules, unpublished override/pipeline failure at context entry
 and exit, publication order, registration transfer and shared unload behavior.

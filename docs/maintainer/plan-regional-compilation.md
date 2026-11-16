@@ -463,6 +463,50 @@ This proves the bounded CPU failure policy, not regional kernels, native CUDA
 behavior, model compatibility, fallback-free card execution or performance.
 Runtime admission remains closed.
 
+## Diffusers 0.42.1 registration compatibility, 2026-11-17
+
+The installed `FluxTransformer2DModel`, joint/single blocks and
+`ModelMixin.compile_repeated_blocks` still match the private registration
+owner. A new isolated CPU probe builds one tiny exact block of each family,
+then runs the production inspector and `register_regions` through the real
+Diffusers registration method and real `nn.Module.compile`. Only the
+`torch.compile` boundary is replaced by a recording stand-in. It observes
+`backend="inductor"`, fullgraph/static/default arguments and the actual scoped
+Dynamo flags; it never invokes a compiler backend or a forward.
+
+The probe checks no root compilation, exact per-block registration, refusal
+of already registered regions before another mutation, reference-only close,
+and a deliberately failed second registration which preserves its cause,
+discards the unpublished candidate once and restores caller flags. Framework
+imports after Torch's initial import are guarded against compiler, CUDA and
+network activity; all counters stay zero and CUDA remains uninitialized.
+The receipt hashes installed FLUX, ModelMixin and the actual
+`torch/nn/modules/module.py` source, with exact runtime versions. This is
+registration/source compatibility only: no model weights, Inductor backend,
+Triton compiler, CUDA kernel, quantized/offloaded pipeline or card result.
+
+The private regional candidate now additionally accepts **exact 0.42.1**;
+other patches/development/local variants still refuse, and the original
+0.40 matrix is retained. Its pinned Triton requirements and all public
+nonempty admission guards remain unchanged. The current Windows environment
+has neither Triton distribution installed, so actual private preparation still
+refuses in the missing-toolchain words; source compatibility is not a bypass.
+No dependency, environment or cache policy was changed.
+
+Validation: **419 focused execution, registration, backend ownership and cache
+checks passed**, one existing Starlette warning, 40.22 seconds. The final
+guarded real-class receipt is
+`work/regional-0421-focused-a1/test_installed_flux_registers_0/receipt.json`.
+Independent source review found no blocking issue. The existing CPU Dynamo
+policy probe remains a separate check of actual scoped failure semantics;
+neither probe establishes toolchain, kernel, cache-hit, speed or card fit.
+`PERF#1` remains at CARD for those requirements.
+
+Final candidate/runtime/documentation checks passed 166 tests, Ruff passed,
+and pinned Pyright checked 215 sources with zero diagnostics. The broader
+full-suite gate will run again with the next integrated feature slice; the
+419 focused checks above cover this source-only private-matrix change.
+
 ## Initial slice and refusal matrix
 
 Propose an explicit, experimental loader choice: **Eager** (the unchanged

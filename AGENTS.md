@@ -583,7 +583,8 @@ GPU behaviour, pixels, timing and memory are the card's to say, recorded in
 ## Environment
 
 Python 3.13 (not 3.14 — torchao/diffusers wheels lag there).
-torch 2.13.0+cu130, diffusers 0.42.1, torchao 0.18.0. Private attention/FBC
-candidates have separate exact-0.42.1 CPU source checks; regional compilation
-retains its 0.40 matrix. Public nonempty execution remains unavailable.
+torch 2.13.0+cu130, diffusers 0.42.1, torchao 0.18.0. Private regional,
+attention and FBC candidates have separate exact-0.42.1 CPU source checks;
+regional preparation still requires its pinned optional toolchain.
+Public nonempty execution remains unavailable.
 Kontext's envelope was re-measured on 0.42.1.
