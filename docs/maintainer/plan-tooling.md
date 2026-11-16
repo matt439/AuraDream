@@ -456,6 +456,40 @@ GPU render or human acceptance was performed. The CI job runs the same
 gate after install; docs-only changes retain their lint-only path. Linux
 and hosted execution were not run or claimed; no push/PR was made.
 
+### Custom type-check scope must match the checker (2026-11-17)
+
+The Anima release worktree exposed a false pass in `tools/typecheck.py`.
+A copied config named existing `backend/` and `tools/` directories through
+absolute paths. The wrapper's filesystem preflight accepted them, but pinned
+Pyright 1.1.407 ignored both includes because they were not relative, fell
+back to one adjacent scratch helper and returned zero errors/exit 0. The
+wrapper checked only that some file was analyzed, so it returned 0 too.
+A separate two-source/one-decoy CPU fixture reproduced that exact behavior.
+
+The wrapper now refuses absolute, drive-qualified and rooted includes before
+launching the checker, consistently across Windows and Linux path syntax.
+Includes must name literal config-relative Python files or directories;
+explicit `../backend` and `../tools` paths remain supported for copied configs,
+including a config that points its venv settings at an existing checkout.
+Globs are explicitly unsupported rather than given an inaccurate filesystem
+preflight. The declared scope is the deduplicated set of `.py` and `.pyi`
+files, including overlapping directory/file entries. The reported
+`filesAnalyzed` must equal that count; a missing or unexpected checked file
+fails with both counts. Checker diagnostics and existing nonzero exit codes
+remain intact. The default repository include list, pinned version, Node
+selection and no-update/no-install controls are unchanged.
+
+The regression invokes the actual installed pinned checker on a tiny copied
+config: its raw absolute-include run still demonstrates the misleading clean
+one-file result, the repaired wrapper refuses it, and the corrected relative
+config checks both intended files successfully. Deterministic tests also
+cover host-independent path refusals, unsupported globs, under/over counts,
+overlapping includes, stubs and preserved nonzero exits. The default full
+repository gate checked **215 sources, zero errors and zero warnings** after
+the repair; all **46 type-gate tests** and focused Ruff passed.
+No application imports, model weights, GPU work, dependency
+installation or release-worktree modifications were needed.
+
 
 ## Explicit fixture prerequisites (2026-10-28, DEV#9)
 

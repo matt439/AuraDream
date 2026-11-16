@@ -9742,8 +9742,11 @@ locked `pyright==1.1.407` Python package. Node must already be installed.
 The gate verifies the package and bundled JavaScript version, constrains
 the wrapper to that bundle/global Node and disables its update/provision
 paths. Missing tools, absent/empty includes, malformed output and zero
-analyzed files fail; checker diagnostics and nonzero status are preserved.
-`tests/test_typecheck.py` covers these refusal and success paths. The CPU
+analyzed files fail. Includes must be literal config-relative paths; absolute,
+drive/root-qualified and glob includes refuse before launch. The checker count
+must match deduplicated `.py`/`.pyi` sources, so ignored scope cannot pass on a
+decoy. Checker diagnostics/nonzero status remain; `tests/test_typecheck.py`
+covers contracts and the real pinned-checker regression. The CPU
 CI job runs this same command after installation, before tokenizer fetches;
 documentation-only changes retain the lightweight lint-only path.
 

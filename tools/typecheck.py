@@ -5,7 +5,7 @@ import importlib.metadata
 import importlib.util
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 import shutil
 import subprocess
 import sys
@@ -14,17 +14,29 @@ ROOT = Path(__file__).resolve().parent.parent
 PYRIGHT_VERSION = "1.1.407"
 
 
-def _scope(project: Path) -> None:
+def _scope(project: Path) -> int:
     config = json.loads(project.read_text(encoding="utf-8"))
     includes = config.get("include") if isinstance(config, dict) else None
     if not isinstance(includes, list) or not includes or any(not isinstance(path, str) or not path.strip() for path in includes):
         raise ValueError("the Pyright configuration needs an explicit, nonempty include list")
+    sources: set[Path] = set()
     for include in includes:
-        source = project.parent / include
-        if not ((source.is_file() and source.suffix == ".py") or (
-            source.is_dir() and any(path.is_file() for path in source.rglob("*.py"))
-        )):
+        # Pyright ignores absolute includes, then can fall back to an
+        # unrelated file beside a copied config and report a clean result.
+        # Keep the same refusal on every host, including Windows drive paths
+        # inspected from Linux. Explicit ../ paths remain config-relative.
+        if Path(include).is_absolute() or PureWindowsPath(include).drive or include.startswith(("/", "\\")):
+            raise ValueError(f"Pyright include must be relative to its configuration file: {include}")
+        if any(character in include for character in "*?[]"):
+            raise ValueError(f"Pyright include must name a literal source file or directory, not a glob: {include}")
+        source = (project.parent / include).resolve()
+        found = ({source} if source.is_file() and source.suffix in {".py", ".pyi"} else
+                 {path.resolve() for path in source.rglob("*") if path.is_file() and path.suffix in {".py", ".pyi"}}
+                 if source.is_dir() else set())
+        if not found:
             raise ValueError(f"the configured Pyright include has no Python sources: {include}")
+        sources.update(found)
+    return len(sources)
 
 
 def _run(arguments: list[str], root: Path) -> subprocess.CompletedProcess[str]:
@@ -53,7 +65,7 @@ def _output(done: subprocess.CompletedProcess[str]) -> None:
 def main(project: Path | None = None) -> int:
     project = (project if project is not None else ROOT / "pyrightconfig.json").resolve()
     try:
-        _scope(project)
+        expected_files = _scope(project)
         # The Python wrapper may provision Node when it is absent. Refuse
         # before invoking it: this gate must use the already-installed runtime.
         node_target = "node.exe" if sys.platform == "win32" else "node"
@@ -87,6 +99,10 @@ def main(project: Path | None = None) -> int:
                 raise ValueError
         except (ValueError, KeyError, TypeError):
             print("Typecheck failed: Pyright returned malformed output or analyzed no files", file=sys.stderr)
+            return checked.returncode or 2
+        if files != expected_files:
+            print(f"Typecheck failed: configured scope has {expected_files} Python sources, "
+                  f"but Pyright analyzed {files}; refusing a scope mismatch", file=sys.stderr)
             return checked.returncode or 2
         return checked.returncode or (1 if errors else 0)
     except (OSError, ValueError, importlib.metadata.PackageNotFoundError, subprocess.TimeoutExpired) as exc:

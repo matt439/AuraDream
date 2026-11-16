@@ -207,3 +207,90 @@ def test_launch_failure_is_clear(project, monkeypatch, capsys):
     monkeypatch.setattr(typecheck.subprocess, "run", fail)
     assert typecheck.main(project) == 2
     assert "checker could not launch" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("include", ["C:/repo/backend", "C:\\repo\\backend", "C:backend",
+                                     "/repo/backend", "\\\\server\\share\\backend", "\\backend"])
+def test_absolute_drive_and_rooted_includes_fail_before_checker(project, monkeypatch, capsys, include):
+    calls = _checker(monkeypatch)
+    project.write_text(json.dumps({"include": [include]}), encoding="utf-8")
+    assert typecheck.main(project) == 2
+    assert "must be relative" in capsys.readouterr().err
+    assert calls == []
+
+
+def test_existing_absolute_include_cannot_fall_back_to_a_clean_decoy(project, monkeypatch, capsys):
+    calls = _checker(monkeypatch)
+    source = project.parent / "source"
+    project.write_text(json.dumps({"include": [str(source.resolve())]}), encoding="utf-8")
+    (project.parent / "decoy.py").write_text("value: int = 1\n", encoding="utf-8")
+    assert typecheck.main(project) == 2
+    assert "must be relative" in capsys.readouterr().err and calls == []
+
+
+@pytest.mark.parametrize("include", ["source/**/*.py", "source/?.py", "source/[ot]*.py"])
+def test_unsupported_glob_scope_is_refused_explicitly(project, monkeypatch, capsys, include):
+    calls = _checker(monkeypatch)
+    project.write_text(json.dumps({"include": [include]}), encoding="utf-8")
+    assert typecheck.main(project) == 2
+    assert "literal source file or directory" in capsys.readouterr().err and calls == []
+
+
+@pytest.mark.parametrize("actual", [1, 3])
+def test_analyzed_count_must_match_all_configured_sources(project, monkeypatch, capsys, actual):
+    (project.parent / "source" / "two.py").write_text("value: int = 2\n", encoding="utf-8")
+    _checker(monkeypatch, report={"generalDiagnostics": [], "summary": {"filesAnalyzed": actual, "errorCount": 0}})
+    assert typecheck.main(project) == 2
+    assert f"configured scope has 2 Python sources, but Pyright analyzed {actual}" in capsys.readouterr().err
+
+
+def test_scope_mismatch_preserves_nonzero_checker_status(project, monkeypatch):
+    (project.parent / "source" / "two.py").write_text("value: int = 2\n", encoding="utf-8")
+    _checker(monkeypatch, code=7)
+    assert typecheck.main(project) == 7
+
+
+def test_duplicate_and_overlapping_includes_count_each_file_once(project, monkeypatch):
+    project.write_text(json.dumps({"include": ["source", "source/one.py", "source"]}), encoding="utf-8")
+    calls = _checker(monkeypatch)
+    assert typecheck.main(project) == 0 and len(calls) == 2
+
+
+def test_copied_config_can_use_explicit_relative_parent_scope(project, monkeypatch):
+    nested = project.parent / "copied"
+    nested.mkdir()
+    copied = nested / "pyrightconfig.json"
+    copied.write_text(json.dumps({"include": ["../source"]}), encoding="utf-8")
+    calls = _checker(monkeypatch)
+    assert typecheck.main(copied) == 0
+    assert calls[-1][1]["cwd"] == copied.parent
+
+
+def test_python_stub_sources_are_included_in_the_expected_count(project, monkeypatch):
+    (project.parent / "source" / "shape.pyi").write_text("value: int\n", encoding="utf-8")
+    _checker(monkeypatch, report={"generalDiagnostics": [], "summary": {"filesAnalyzed": 2, "errorCount": 0}})
+    assert typecheck.main(project) == 0
+
+
+def test_real_pinned_checker_ignored_absolute_scope_cannot_pass(tmp_path):
+    """Exercise the installed checker, including its original misleading exit zero."""
+    if typecheck.importlib.util.find_spec("pyright") is None or typecheck.shutil.which(
+            "node.exe" if sys.platform == "win32" else "node") is None:
+        pytest.skip("pinned checker and existing Node are required for this native regression")
+    (tmp_path / "backend").mkdir()
+    (tmp_path / "tools").mkdir()
+    (tmp_path / "copied").mkdir()
+    (tmp_path / "backend" / "one.py").write_text("value: int = 1\n", encoding="utf-8")
+    (tmp_path / "tools" / "two.py").write_text("value: int = 2\n", encoding="utf-8")
+    (tmp_path / "copied" / "decoy.py").write_text("value: int = 3\n", encoding="utf-8")
+    config = tmp_path / "copied" / "pyrightconfig.json"
+    config.write_text(json.dumps({"include": [str(tmp_path / "backend"), str(tmp_path / "tools")],
+                                  "typeCheckingMode": "standard", "pythonVersion": "3.13"}), encoding="utf-8")
+    misleading = typecheck._run(["--project", str(config), "--outputjson"], config.parent)
+    assert misleading.returncode == 0, misleading.stderr
+    assert json.loads(misleading.stdout)["summary"]["filesAnalyzed"] == 1
+    assert "Ignoring path" in misleading.stderr
+    assert typecheck.main(config) == 2
+    config.write_text(json.dumps({"include": ["../backend", "../tools"],
+                                  "typeCheckingMode": "standard", "pythonVersion": "3.13"}), encoding="utf-8")
+    assert typecheck.main(config) == 0
