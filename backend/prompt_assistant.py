@@ -42,9 +42,20 @@ class _CandidateTag(BaseModel):
 class _Answer(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    message: str = Field(max_length=2000)
-    drafts: list[AssistantDraft] = Field(max_length=3)
-    tags: list[_CandidateTag] = Field(max_length=20)
+    message: str = Field(
+        max_length=2000,
+        description=(
+            "Optional brief acknowledgement or follow-up question, at most two sentences. "
+            "The app displays drafts and tags separately: never repeat their text, list them, "
+            "or put draft notes here. Use an empty string when no conversational text is needed."
+        ),
+    )
+    drafts: list[AssistantDraft] = Field(
+        max_length=3, description="The only place for prompt drafts and their notes; displayed as individual cards.",
+    )
+    tags: list[_CandidateTag] = Field(
+        max_length=20, description="The only place for candidate tag names and their explanations.",
+    )
 
 
 @dataclass(frozen=True)
@@ -83,7 +94,14 @@ def build_context(model_id: str, request: PromptAssistantRequest) -> AssistantCo
         "language into tags unless useful for this checkpoint or requested. A request for tag discovery "
         "does not imply that its selected checkpoint requires tags.",
         "Keep responses concise: each draft normally under 200 words; never pad a prompt with vague "
-        "quality claims. The message is a short conversational response, not a repeat of the drafts.",
+        "quality claims.",
+        "The app displays drafts and tags from their JSON arrays as individual cards. Write each prompt "
+        "only in drafts[].prompt, each draft explanation only in drafts[].notes, and each candidate "
+        "tag and explanation only in tags. Never copy them into message, including numbered lists, "
+        "bullet lists, summaries of each draft or a second Notes section.",
+        "message is optional conversational text only: at most two brief sentences acknowledging the "
+        "request or asking a useful follow-up question. Use an empty string when no such text is needed. "
+        "Do not introduce, enumerate or reproduce the cards in message.",
     ]
     if sources.caveat:
         lines.extend(["Guidance scope:", sources.caveat])

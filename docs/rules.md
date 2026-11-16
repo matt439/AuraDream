@@ -3921,6 +3921,14 @@ measured on the card and when.
   optional Notes are native disclosures. About sits below the message frame
   and opens upward over the conversation without moving writing controls.
   Long status text remains focusable/scrollable with its full text as a title.
+  The model's JSON schema and question reserve `message` for brief optional
+  conversational text; draft prompts/notes and tag names/reasons belong only
+  to their structured arrays. The page also checks complete whitespace-normalized
+  draft copies in `message`: repetitive prose goes into a closed Assistant note
+  below the cards. It is preserved intact, including any unique commentary,
+  and the same presentation applies to earlier turns. Concise non-repetitive
+  replies stay visible. Draft cards use a lighter token-mixed surface, the strong
+  border, and readable secondary text on that surface.
 
 #### Prompt checks, encoders and tag placement
 
@@ -4546,11 +4554,12 @@ measured on the card and when.
   intact. These target-size changes apply in every held/selected/hover state,
   so a state change cannot move a control under the pointer. Narrow footer
   wrapping and the error line's reserved slot remain unchanged.
-- Prompt's name, help and Reset share `.prompt-caption`, with Reset at the
-  right edge. The named `.prompt-tools` group holds Examples, Assistant, Tags,
-  Check and Expand in its own compact row. Model-specific tools cannot wrap
-  Reset onto a line alone. Phone movers use the same nodes and hide the empty
-  home toolbar; returning to desktop restores each node to its proper row.
+- Prompt's name and help share `.prompt-caption`. The named `.prompt-tools`
+  group holds Examples, Assistant, Tags, Check, Expand and Reset in one compact
+  row, with Reset at the right edge. Model-specific tools cannot wrap Reset
+  onto a line alone. Phone movers use the same nodes; Reset stays hidden at
+  home as the topbar menu's action, and the otherwise empty home toolbar hides.
+  Returning to desktop restores each node to its proper row.
 
 #### The panel's controls
 

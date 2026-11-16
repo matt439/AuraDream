@@ -291,3 +291,41 @@ screenshots in `smoke-prompt-assistant-ynhgpevx/`),
 `auradream-smoke-artifacts-k9bjg1lh/summary.json` (control sizing),
 `auradream-smoke-artifacts-wyciob3z/summary.json` (phone Create), and
 `auradream-smoke-artifacts-ckcpar2h/summary.json` (four regressions).
+
+## Reset row, duplicate prose and card contrast (2026-11-17)
+
+Matt clarified that Reset belongs on the same row as the writing controls,
+and supplied a real reply showing each prompt twice: the model copied the
+drafts into `message` as a numbered list as well as returning `drafts`.
+Reset now ends the writing-tools row, aligned right, while Prompt/help remain
+above it. All 26 catalogue combinations retain one tool row; the phone's hidden
+Reset remains the topbar menu's action.
+
+The model question and JSON schema explicitly reserve `message` for a brief
+optional acknowledgement or follow-up. Draft text, draft notes and tag
+explanations belong only in their structured fields. Validation preserves the
+model's unique commentary rather than deleting it heuristically. For existing
+repetitive replies, the page detects a complete whitespace-normalized draft
+inside `message` and puts that full prose in a closed Assistant note below the
+cards. Normal conversational messages stay visible, empty ones add no empty
+paragraph, warnings stay visible, and the same rule renders earlier turns.
+Conversation data and the note's unique questions are preserved intact.
+
+Draft cards use a lighter token-mixed grey fill with the strong border and
+secondary text adjusted for that fill. The real-example browser fixture checks
+three Sakura/Aiko/Mei cards, a line-wrapped numbered echo, a unique question,
+native note expansion, earlier history, empty/normal messages and card contrast.
+Card fill and border contrast against the sidebar exceed 1.6:1 and 2.5:1;
+prompt, title and Notes text exceed 4.5:1 on the fill. Fresh screenshots were
+visually inspected; no repeated prompt list is visible above the cards.
+
+Local checks: 202 focused assistant/API/runtime and documentation/classic-script/
+audit/browser-output tests passed; Ruff passed; pinned Pyright checked 218
+sources with zero errors or warnings. Five distinct smokes passed, all on
+isolated fakes without inference: assistant (234 steps), control-sizing,
+phone-create, analysis and phone-dialogs. Receipts under the system temporary
+directory: `auradream-smoke-artifacts-0gamvo2e/summary.json` (assistant,
+screenshots in `smoke-prompt-assistant-m5u045lz/`),
+`auradream-smoke-artifacts-u_u1_z56/summary.json` (sizing and phone Create), and
+`auradream-smoke-artifacts-rqv_wtv_/summary.json` (analysis/phone dialogs).
+GPU testing remains held.

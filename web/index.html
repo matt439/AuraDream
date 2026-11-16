@@ -218,9 +218,6 @@
         <span class="help" tabindex="0" role="note" aria-label="Prompt help" aria-describedby="prompt-tip">?<span
           class="tip wide" id="prompt-tip">This checkpoint's prompting guide appears here once
           the server answers.</span></span>
-        <!-- Reset stays beside the field's name, apart from the writing tools. -->
-        <button type="button" class="ghost tiny reset danger" id="btn-reset"
-                title="Clear every box and put the panel back to this checkpoint's defaults; the browser forgets the remembered settings, and Undo puts them back for a while">Reset</button>
       </span>
       <span class="prompt-tools" role="group" aria-label="Prompt tools">
         <span class="examples" id="examples">
@@ -245,6 +242,8 @@
              minutes, and a disabled button dropped a keyboard user's focus. -->
         <button type="button" class="ghost tiny" id="btn-expand" hidden
                 title="Use ERNIE's prompt rewriter once, put its result here, then review it before generating">Expand</button>
+        <button type="button" class="ghost tiny reset danger" id="btn-reset"
+                title="Clear every box and put the panel back to this checkpoint's defaults; the browser forgets the remembered settings, and Undo puts them back for a while">Reset</button>
       </span>
       <div class="prompt-editor">
         <textarea id="prompt" rows="5" placeholder="a fox walking in the snow, overcast light"

@@ -156,13 +156,25 @@ function renderAssistantResult() {
   syncPromptAssistant();
 }
 
+function assistantMessageRepeatsDraft(body) {
+  // Some model replies copy the structured drafts into their conversational
+  // text too. Keep that text available, without showing a second prompt list.
+  const normal = (text) => String(text ?? '').replace(/\s+/gu, ' ').trim();
+  const message = normal(body.message);
+  return (body.drafts || []).some((draft) => {
+    const prompt = normal(draft.prompt);
+    return prompt && message.includes(prompt);
+  });
+}
+
 function renderAssistantAnswer(host, body, interactive) {
   const speaker = document.createElement('strong'); speaker.className = 'assistant-speaker';
   speaker.textContent = 'Assistant'; host.append(speaker);
   const message = document.createElement('p');
   message.className = 'assistant-message';
   message.textContent = body.message;
-  host.append(message);
+  const repeatedMessage = assistantMessageRepeatsDraft(body);
+  if (body.message?.trim() && !repeatedMessage) host.append(message);
   for (const warning of body.warnings || []) {
     const note = document.createElement('p');
     note.className = 'warn'; note.textContent = warning; host.append(note);
@@ -189,6 +201,11 @@ function renderAssistantAnswer(host, body, interactive) {
       article.append(notes);
     }
     host.append(article);
+  }
+  if (repeatedMessage) {
+    const note = document.createElement('details'); note.className = 'assistant-response-note';
+    const summary = document.createElement('summary'); summary.textContent = 'Assistant note';
+    note.append(summary, message); host.append(note);
   }
   if (body.tags?.length) {
     const list = document.createElement('div'); list.className = 'assistant-tags';

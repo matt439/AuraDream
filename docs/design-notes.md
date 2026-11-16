@@ -11785,8 +11785,14 @@ the message box and Send/Stop share one compact composer. Drafts put Use beside
 their title and keep explanations in Notes disclosures, so three short drafts
 fit together on a wide desktop. Repeated setup/privacy copy lives in About the
 local assistant at the bottom, opening upward without moving the composer.
-The prompt's name/help and Reset have their own stable caption row; writing
-tools occupy the explicit toolbar below it, avoiding an isolated wrapped Reset.
+Prompt/help stay above the writing tools. Reset is the last button on the same
+toolbar row as Examples, Assistant, Tags and Check, aligned at its right edge.
+Draft cards use a lighter surface and a stronger border. If a model repeats a
+complete draft in its conversational message, that prose stays in a closed
+Assistant note below the cards. Unique conversational replies stay visible;
+the complete message and structured drafts remain in the conversation data.
+The model's output contract also explicitly keeps prompt text and notes in
+their structured fields rather than repeating them in the message.
 Replies that arrive after Stop, closure, reset or a newer request cannot change
 the editor. Bounded history refuses excess input instead of forgetting earlier
 instructions silently.

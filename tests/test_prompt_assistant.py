@@ -75,6 +75,37 @@ def test_unknown_checkpoint_gets_general_guidance_without_invented_authority():
     assert "general" in context.system.lower()
 
 
+@pytest.mark.parametrize("mode", ["create", "improve", "tags"])
+def test_runtime_question_keeps_conversation_separate_from_displayed_cards(mode):
+    req = PromptAssistantRequest(
+        ticket="test", mode=mode, instruction="a park scene", prompt="a girl in a park",
+    )
+    body = prompt_assistant.request_body(prompt_assistant.build_context(ANIMAGINE, req))
+    system = body["messages"][0]["content"]
+    schema = body["response_format"]["json_schema"]["schema"]
+    assert "only in drafts[].prompt" in system
+    assert "only in drafts[].notes" in system
+    assert "Never copy them into message" in system
+    assert "at most two brief sentences" in system
+    assert "empty string" in system
+    assert "never repeat their text" in schema["properties"]["message"]["description"]
+    assert "individual cards" in schema["properties"]["drafts"]["description"]
+    assert "only place" in schema["properties"]["tags"]["description"]
+
+
+def test_conversation_text_and_structured_drafts_survive_validation_without_rewriting():
+    # Instructions guide generation, not a heuristic licence to delete the
+    # model's unique follow-up or omission/retention notes during validation.
+    message = "I kept the requested park. Would you prefer morning or evening?"
+    result = validated(answer(message=message, drafts=[{
+        "title": "Park", "prompt": "A girl in a park.", "notes": ["Kept the park setting."],
+    }]))
+    assert result.message == message
+    assert result.drafts[0].prompt == "A girl in a park."
+    assert result.drafts[0].notes == ["Kept the park setting."]
+    assert validated(answer(message="")).message == ""
+
+
 def test_validated_output_is_labelled_and_preserves_the_full_draft():
     result = validated()
     assert result.model_id == FLUX and result.model == "local-model" and result.seconds == 1.2

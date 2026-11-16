@@ -580,6 +580,8 @@ work. Ctrl/Cmd+Enter in the sidebar sends; Escape there closes it.
 Draft explanations are under **Notes**. **About the local assistant** at the
 bottom explains context, downloads and tag verification without moving the
 message box when opened.
+If the model repeats its drafts in its reply, that extra prose is tucked into
+**Assistant note** below the cards; each draft is shown once by default.
 
 The assistant uses the same local Qwen3-4B runtime and first-use downloads as
 Suggest improvements. It waits for image jobs, loads and other prompt GPU work,
