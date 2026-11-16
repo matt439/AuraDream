@@ -181,7 +181,7 @@ def _mask_from_record(path: str, digest: str):
         return None
 
 
-def _server_holds_gpu(host: str, port: int, timeout: float = 2.0) -> str | None:
+def _server_holds_gpu(host: str, port: int, timeout: float = 5.0) -> str | None:
     """The checkpoint a running server has on the GPU, or None when none does.
 
     The CLI builds its own backend and loads a second copy of the weights into
@@ -192,6 +192,10 @@ def _server_holds_gpu(host: str, port: int, timeout: float = 2.0) -> str | None:
     harmless state. Refuses only when the state is ready or loading; a timeout
     is a server too busy to answer, which is the case to refuse. Advisory:
     one-directional, and blind across the WSL/Windows boundary.
+
+    Windows can take just over two seconds to refuse a closed loopback
+    port; allow five per request so that refusal is not mistaken for a
+    listening server's timeout. An actual timeout still refuses the load.
 
     A server that asks for a passcode is asked again with this environment's
     `AURADREAM_PASSCODE`; one whose gate still refuses raises

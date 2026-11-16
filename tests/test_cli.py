@@ -615,6 +615,93 @@ def test_the_probe_tells_no_server_from_a_busy_one(monkeypatch):
     assert generate._server_holds_gpu("127.0.0.1", 7860) == "m (loading)"
 
 
+def test_the_probe_allows_the_windows_closed_port_refusal_to_arrive(monkeypatch):
+    import urllib.error
+    import urllib.request
+
+    observed = []
+
+    def refused(url, timeout):
+        observed.append(timeout)
+        # The native Windows probe took about 2.03 s to receive WSAECONNREFUSED.
+        # Model the result without sleeping or racing CI's clock.
+        if timeout < 2.05:
+            raise urllib.error.URLError(TimeoutError("timed out"))
+        raise urllib.error.URLError(ConnectionRefusedError(10061, "refused"))
+
+    monkeypatch.setattr(urllib.request, "urlopen", refused)
+    assert generate._server_holds_gpu("127.0.0.1", 7992) is None
+    assert observed == [5.0]
+
+
+@pytest.mark.parametrize("state, expected", [
+    ("unloaded", None), ("ready", "m (ready)"), ("loading", "m (loading)"),
+])
+def test_the_longer_probe_keeps_loaded_and_unloaded_server_verdicts(monkeypatch, state, expected):
+    import json
+    import urllib.request
+
+    def answer(url, timeout):
+        assert timeout == 5.0
+        return io.BytesIO(json.dumps({"state": state, "model_id": "m"}).encode())
+
+    monkeypatch.setattr(urllib.request, "urlopen", answer)
+    assert generate._server_holds_gpu("127.0.0.1", 7992) == expected
+
+
+@pytest.mark.parametrize("error", [
+    TimeoutError("timed out"), OSError("unavailable"), ValueError("invalid status JSON"),
+])
+def test_the_longer_probe_still_refuses_timeout_and_unknown_status(monkeypatch, error):
+    import urllib.request
+
+    def refused(url, timeout):
+        assert timeout == 5.0
+        raise error
+
+    monkeypatch.setattr(urllib.request, "urlopen", refused)
+    assert "did not answer" in generate._server_holds_gpu("127.0.0.1", 7992)
+
+
+@pytest.mark.parametrize("status", [401, 429])
+def test_the_longer_probe_passes_its_budget_through_passcode_refusals(monkeypatch, status):
+    import urllib.error
+    import urllib.request
+    from backend import server_probe
+
+    calls = []
+
+    def asks(url, timeout):
+        calls.append(timeout)
+        raise urllib.error.HTTPError(url, status, "gate refused", {}, None)
+
+    def checked(url, passcode, timeout):
+        calls.append(timeout)
+        raise server_probe.PasscodeRefused(status, sent=True)
+
+    monkeypatch.setattr(urllib.request, "urlopen", asks)
+    monkeypatch.setattr(server_probe, "status_json", checked)
+    with pytest.raises(server_probe.PasscodeRefused) as refused:
+        generate._server_holds_gpu("127.0.0.1", 7992)
+    assert refused.value.status == status and calls == [5.0, 5.0]
+
+
+def test_the_cli_card_probe_does_not_redirect_an_authenticated_request(monkeypatch):
+    from tests.passcode_stub import AskingServer
+
+    secret = "correct-horse-battery"
+    elsewhere = AskingServer(None, {"/api/status": {"state": "unloaded", "model_id": "elsewhere"}})
+    server = AskingServer(secret, {"/api/status": (307, {"Location": elsewhere.url + "api/status"})})
+    try:
+        monkeypatch.setenv("AURADREAM_PASSCODE", secret)
+        assert "did not answer" in generate._server_holds_gpu("127.0.0.1", server.port)
+        assert server.requests == [("GET", "/api/status", False), ("GET", "/api/status", False), ("GET", "/api/status", True)]
+        assert elsewhere.requests == []
+    finally:
+        server.close()
+        elsewhere.close()
+
+
 def test_the_probe_asks_a_server_that_wants_a_passcode_with_this_environments(monkeypatch):
     from backend import server_probe
     from tests.passcode_stub import AskingServer

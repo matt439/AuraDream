@@ -6384,6 +6384,23 @@ on the same six-decimal rounding `completed_cells` uses and always includes
 size; free text in its scope is refused rather than sent through the
 fuzzy LIKE fallback.
 
+**Windows closed-port refusal budget (2026-11-17).** A guarded standalone
+CLI acceptance attempt stopped before loading because a closed loopback
+port took about 2.03 seconds to return `WSAECONNREFUSED`; the old two-second
+card-check deadline expired first and conservatively called it a server
+that did not answer. `_server_holds_gpu` now allows five seconds per
+request. Connection refusal still means no server; a real timeout, unreadable
+status, ready/loading checkpoint or refused passcode still prevents a second
+load. Authenticated requests retain the same no-redirect opener. This changes
+the CLI's card check only, not the shared title/status probe defaults. The
+regression models the delayed refusal without sleeping; the native read-only
+probe and the failed scratch attempt are retained under
+`work/standalone-launcher-cpu-20261117/` and
+`work/turbo-standalone-cli-20261117-v1/`. The latter's missing logs were a
+separate diagnostic-launcher problem: a Windows child with unspecified
+stdio used character handles instead of its parent's redirected files.
+Explicit forwarding fixes that harness; it never bypasses the server check.
+
 **`--from-image` carries the variables** (`_image_variables`), as
 `/api/rerender` does, because they are the only place a comparison
 version's name lives. They carry only while the prompt pair is the image's
