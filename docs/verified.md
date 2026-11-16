@@ -1404,6 +1404,25 @@ records exact configuration/source/guard proofs and visual notes. Public
 Preview integration and acceptance remain separate; no larger size, aspect
 or alternative loader/platform is qualified.
 
+### Anima Aesthetic/Preview nonempty negatives (2026-11-17)
+
+Separate one-load probes reused each variant's original 1024-square source
+at 30 steps/CFG 4, fp8/model offload and the same Windows/RTX 5080 envelope.
+At strength 0.125, `low quality, blurry` reached the real negative-conditioning
+branch: each result differs from its retained empty control and equals its
+repeat and post-cancel recovery. Cancel at 0.4 stopped after callback one
+without an image; empty-negative direct-after renders match their baselines.
+Actual call kwargs, source/PNG/metadata proofs and all twelve calls were audited.
+
+Aesthetic/Preview loads took 6.615/7.843 s, process RSS peaked at
+7.121/9.098 GiB and whole-card at 4978/5738 MiB. Both guards passed every
+sample and normal cleanup/power release succeeded. Agent review of the two
+new negative outputs retained the subject, coat, bicycle and composition;
+existing fine geometry defects remain. The
+[receipt](maintainer/anima-refine-negative-2026-11-17.json) distinguishes
+the completed 0.125 branch from the 0.4 cancellation check. This establishes
+the branch and reproduction controls, not a quality promise for arbitrary text.
+
 ### Peak per image, FLUX.1 Krea dev; guarded Refine stop (2026-11-16)
 
 The authorized overnight session completed `GEN#15`'s remaining Windows
@@ -1782,6 +1801,18 @@ anything above 2.4 MP, and the real server and Inpaint dialog under WSL.
 Evidence: `card3-wsl/out/` in the cards directory (`zturbo/` and
 `kreadev/`: `results.jsonl`, `run.log`, PNGs, previews, the strips;
 `watch-*.csv`), and `~/ld-card3/` in WSL.
+
+### Real server and Inpaint dialog on Z-Image Turbo (2026-11-17)
+
+Z-Image Turbo NVFP4 through the real WSL2 server and production Inpaint dialog, model offload, 1024x1024, 8 steps, CFG0, strength1, seed12345, Mu omitted and crop off. One honest synthetic RGB-grid gallery source and one browser-painted hard circular mask, about 20% of the canvas; one actual load at 9341e57. The cached model revision was f5fc49362b8a8b2901a6e7afe811b12bf5ee5eb2. An owned isolated KERNELS_CACHE supplied only the authoritatively verified v2 reference to cached 64b10f6b8968b27cadaabfb3f6d2395f2251c848; all four kernel files matched official digests, and the 196,137,920-byte binary matched SHA-256 d120280ecae32d40a2265103eac692d9be45b4d5493d39133f5bc14beab83f9c. The normal shared cache's missing refs/v2 was not repaired; no binary or weights download was needed.
+
+All 156 browser steps and 67 assertions passed: first inpaint, page reload and Reuse of its persisted mask, same-seed repeat, Cancel at step 2/8 with zero saved images, then recovery. The three saved cells took 31.369, 8.316 and 5.414 s after a 15.744 s load. Peaks were 4.354 GiB allocated / 5.098 GiB reserved and 7,301 MiB whole-card. The same seed was not pixel-identical: mean full-image channel differences 0.80066 and 0.58532, maxima 116/127. Every one of 842,052 unmasked pixels was exactly the source's in all three results. SQL, PNG provenance, stored and embedded mask agreed. PNG-only recovery into disjoint scratch storage recovered two images and one mask with no unresolved references/masks; RGB and mask levels were exact, while reencoded PNG file bytes differed.
+
+Actual challenged load admission saw 37.14 GiB free RAM / 41.78 GiB commit headroom; the matching grant arrived 0.266 s after the request and source rechecked the 1.5 s bound before loading. Windows minima were 18.32 GiB free / 17.89 GiB commit, adapter shared rise 282.18 MiB under the 300 MiB session guard. Linux owned RSS peaked 12.69 GiB under the 16 GiB cap, VmSwap stayed at zero and minimum Linux free RAM was 33.397 GiB. No guard tripped. Windows sampling mean/max gaps were 0.290/1.286 s; Linux 0.136/0.249 s. Explicit STOP signalled only recorded server PGID 610; cleanup and subsequent CPU checks proved the original guard/server absent and group empty. No service or distro termination command was issued.
+
+The original driver's overall exit remains failed solely because support export included 292 MB of generated owned CUDA cache and crossed its 256 MiB copy cap. Supplemental CPU-only export succeeded after excluding only runtime-cache, with all omitted files inventoried by path/size/SHA256; original failure and tested sources remain unchanged. No GPU rerun occurred. This is one model's interface/compositing/storage result; the visible hard boundary on an artificial grid is not real-image seam/artistic-quality acceptance. FLUX.1 dev and schnell lite remain unmeasured for CARD#3.
+
+[Consolidated receipt](maintainer/card3-z-turbo-wsl-2026-11-17.json).
 
 ### Only the masked area
 

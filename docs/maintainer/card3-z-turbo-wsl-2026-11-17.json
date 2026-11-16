@@ -1,0 +1,436 @@
+{
+  "audit_generated_utc": "2026-11-16T18:14:55.989746+00:00",
+  "run_date_local": "2026-11-17",
+  "timezone": "Australia/Brisbane",
+  "tested_runtime_commit": "9341e57",
+  "acceptance_decision": "accepted-ZTurbo-real-dialog-compositing-storage-slice-only",
+  "scope": "Z-Image Turbo NVFP4 WSL real-server/Inpaint-dialog/compositing/storage slice only",
+  "original_overall_result": {
+    "gpu_trial": true,
+    "normal_shared_cache_repaired": false,
+    "distro_termination_attempted": false,
+    "ok": false,
+    "error": "RuntimeError: cpu-evidence failed or lacked its owned terminal receipt; inspect retained output"
+  },
+  "original_summary_sha256": "fb04186cc777228cdbd2b6c2bc253a1a715818e471a144e2e683f9a4f043dc62",
+  "supplemental_cpu_export": {
+    "ok": true,
+    "model_browser_gpu_rerun": false,
+    "source_receipt": "work\\card3-z-turbo-wsl-20261117-supplemental-export-a1\\supplemental-sources.json",
+    "helper_result": {
+      "ok": true,
+      "copied_files": 77,
+      "copied_bytes": 2109869,
+      "excluded_runtime_cache_files": 37,
+      "excluded_runtime_cache_bytes": 292385755,
+      "source": "/home/matsi/auradream-card3-trials/6f67356d5a90408591a4f7ff08258185",
+      "destination": "/mnt/c/Projects/AuraDream/work/card3-z-turbo-wsl-20261117-supplemental-export-a1/linux-artifacts"
+    }
+  },
+  "source_evidence": {
+    "retained_snapshots": 21,
+    "all_manifest_hashes_equal": true,
+    "backend_checks": [
+      {
+        "path": "backend/main.py",
+        "load_sha256": "b922315eba3070f49cc6639a47be75b230879fa11eb8859bcc0571984f4c9788",
+        "raw_current_equal": true,
+        "git_9341e57_lf_equal": true
+      },
+      {
+        "path": "backend/config.py",
+        "load_sha256": "b7189b43e41237b1a9eacfb84957bcda634af7501f6fd19a2b1cd625dce41000",
+        "raw_current_equal": true,
+        "git_9341e57_lf_equal": true
+      },
+      {
+        "path": "backend/backends/diffusers_backend.py",
+        "load_sha256": "cdf8a7b3c1fa3ea7937157a247ab83585f57a27b8dfa2b11cb79caef5e12b5cd",
+        "raw_current_equal": true,
+        "git_9341e57_lf_equal": true
+      },
+      {
+        "path": "backend/backends/loading.py",
+        "load_sha256": "9be74744319b06920caf9ae6c55ac1ec4bd20b2b7954f7991721d54adcd77575",
+        "raw_current_equal": true,
+        "git_9341e57_lf_equal": true
+      },
+      {
+        "path": "backend/refine.py",
+        "load_sha256": "71735867c9942a392c52eed747b49549d8a26fcdbccf398e7bd2473ea3c9f426",
+        "raw_current_equal": true,
+        "git_9341e57_lf_equal": true
+      },
+      {
+        "path": "backend/jobs.py",
+        "load_sha256": "f1e0eeb78ad3609a09facc6bb48182c29f78b845443a45b08e58f29878dc54b7",
+        "raw_current_equal": true,
+        "git_9341e57_lf_equal": true
+      }
+    ]
+  },
+  "load": {
+    "actual_attempts": 1,
+    "seconds": 15.743932819999827,
+    "ready": true,
+    "model": "lite-infer/z-image-turbo-nunchaku-lite-nvfp4_r32-bnb4-text-encoder",
+    "stack": {
+      "torch": "2.13.0+cu130",
+      "torchao": "0.18.0",
+      "diffusers": "0.42.1",
+      "transformers": "5.16.1",
+      "accelerate": "1.15.0",
+      "kernels": "0.16.1",
+      "bitsandbytes": "0.50.2"
+    },
+    "python": "3.13.15 (main, Sep  1 2026, 14:18:08) [Clang 22.1.3 ]",
+    "runtime": {
+      "torch_imported": true,
+      "torch_runtime_version": "2.13.0+cu130",
+      "cuda_build": "13.0",
+      "cuda_initialized": true,
+      "gpu_name": "NVIDIA GeForce RTX 5080",
+      "capability": [
+        12,
+        0
+      ],
+      "cudnn_version": 92000,
+      "driver_version": "616.92"
+    },
+    "host_grant": {
+      "available_gib": 37.13959503173828,
+      "challenge": "50b1e5c5d3f743f785ddbd7784e1c342",
+      "commit_headroom_gib": 41.78278350830078,
+      "nonce": "6f67356d5a90408591a4f7ff08258185",
+      "received_monotonic": 10635.86612636
+    },
+    "grant_received_seconds_after_request": 0.26643168600094214,
+    "matching_windows_sample_indexes": [
+      44
+    ],
+    "source_rechecks_request_deadline_seconds": 1.5
+  },
+  "windows_guard": {
+    "samples": 373,
+    "mean_gap_seconds": 0.28989129892473403,
+    "max_gap_seconds": 1.2857557000006636,
+    "trip_count": 0,
+    "target_period_seconds": 0.25,
+    "limits": {
+      "card_mib": 15500.0,
+      "project_mib": 15200.0,
+      "refuse_at_peak_mib": 15000.0,
+      "adapter_shared_rise_mib": 300.0,
+      "process_shared_rise_mib": 512.0,
+      "ram_floor_gib": 4.0,
+      "commit_floor_gib": 4.0,
+      "need_ram_gib": 24.0,
+      "busy_card_mib": 2500.0,
+      "card_unread_samples": 3.0,
+      "margin_mib": 500.0,
+      "margin_gib": 1.0
+    },
+    "max_card_mib": 7301.0,
+    "max_adapter_shared_rise_mib": 282.1796875,
+    "min_free_ram_gib": 18.316871643066406,
+    "min_commit_headroom_gib": 17.89099884033203
+  },
+  "linux_guard": {
+    "samples": 721,
+    "mean_gap_seconds": 0.1358991484624994,
+    "max_gap_seconds": 0.24878968499979237,
+    "peak_owned_rss_gib": 12.685493469238281,
+    "limits": {
+      "owned_rss_gib": 16,
+      "vmswap_growth_kib": 0,
+      "minimum_available_gib": 4,
+      "valid_nonce_heartbeat_seconds": 3,
+      "session_seconds": 600
+    },
+    "max_vmswap_kib": 0,
+    "min_linux_available_gib": 33.39665603637695,
+    "guard_summary": {
+      "cleanup_error": null,
+      "keep_awake": false,
+      "model": "lite-infer/z-image-turbo-nunchaku-lite-nvfp4_r32-bnb4-text-encoder",
+      "nonce": "6f67356d5a90408591a4f7ff08258185",
+      "ok": true,
+      "owned_group": {
+        "kernel_thread": false,
+        "name": "python",
+        "pgid": 610,
+        "pid": 610,
+        "ppid": 423,
+        "sid": 610,
+        "start_ticks": 1062441,
+        "state": "R",
+        "task_flags": 4194304,
+        "uid": 1000
+      },
+      "reason": "ExpectedStop: requested STOP",
+      "requested_stop": true,
+      "seconds": 101.43434041200089
+    },
+    "cleanup": {
+      "leader": {
+        "kernel_thread": false,
+        "name": "python",
+        "pgid": 610,
+        "pid": 610,
+        "ppid": 423,
+        "sid": 610,
+        "start_ticks": 1062441,
+        "state": "R",
+        "task_flags": 4194304,
+        "uid": 1000
+      },
+      "ok": true,
+      "phase": "server",
+      "remaining": []
+    },
+    "signals": [
+      {
+        "event": "owned-group-signal",
+        "monotonic": 10720.784491332,
+        "phase": "server",
+        "signal": "SIGINT",
+        "leader": {
+          "pid": 610,
+          "name": "python",
+          "state": "R",
+          "ppid": 423,
+          "pgid": 610,
+          "sid": 610,
+          "task_flags": 4194304,
+          "kernel_thread": false,
+          "start_ticks": 1062441,
+          "uid": 1000
+        }
+      }
+    ]
+  },
+  "browser": {
+    "steps": 156,
+    "expectations": 67,
+    "all_expectations_passed": true,
+    "jobs": {
+      "completed_8_step_one_image": 3,
+      "cancelled_at_step": 2,
+      "cancelled_saved_images": 0
+    },
+    "page_reload_and_persisted_mask_reuse": true
+  },
+  "storage": {
+    "db_integrity": "ok",
+    "rows": 4,
+    "partial_pngs": 0,
+    "mask_holds_after_shutdown": 0,
+    "source_rgb_sha256": "a0a2fd00a5edd42b7c90c4dfd38bb038521e18f125634c196dc18d4da1bd95fc",
+    "outside_mask_pixels": 842052,
+    "outside_mask_max_rgb_difference": 0,
+    "masked_pixels": 206524,
+    "result_rows": [
+      {
+        "id": 1,
+        "filename": "20261116-173348-0-fixture.png",
+        "png_file_sha256": "c392e18ac12e87c2a19c14014544836b16903eddf5cd4f38e46b12a329aa1746",
+        "model": "auradream-fixture/synthetic-rgb-v1",
+        "duration_ms": 0,
+        "mask": null,
+        "vram_peak_allocated_bytes": null,
+        "vram_peak_reserved_bytes": null
+      },
+      {
+        "id": 2,
+        "filename": "20261116-173504-12345-6773b0.png",
+        "png_file_sha256": "be420b011bde9f96cc77233ab18e3c7d3fe2b49352d61121950230d3698e17e4",
+        "model": "lite-infer/z-image-turbo-nunchaku-lite-nvfp4_r32-bnb4-text-encoder",
+        "duration_ms": 31369,
+        "mask": "e0618042c1cdf90d6766d0e68050e1599b3ef92ff8788b97b64a9640cb3cfdb7",
+        "vram_peak_allocated_bytes": 4674494976,
+        "vram_peak_reserved_bytes": 5471469568
+      },
+      {
+        "id": 3,
+        "filename": "20261116-173514-12345-7591d6.png",
+        "png_file_sha256": "ae95f1f718378d3e84cc5a21e1e780256fec7109721373c68b13c8bb189167d6",
+        "model": "lite-infer/z-image-turbo-nunchaku-lite-nvfp4_r32-bnb4-text-encoder",
+        "duration_ms": 8316,
+        "mask": "e0618042c1cdf90d6766d0e68050e1599b3ef92ff8788b97b64a9640cb3cfdb7",
+        "vram_peak_allocated_bytes": 4674888192,
+        "vram_peak_reserved_bytes": 5473566720
+      },
+      {
+        "id": 4,
+        "filename": "20261116-173524-12345-4f7e7f.png",
+        "png_file_sha256": "535fa9697e56e003c1f10c21a0f67fa8606e0385f74089f6626f2a4105222044",
+        "model": "lite-infer/z-image-turbo-nunchaku-lite-nvfp4_r32-bnb4-text-encoder",
+        "duration_ms": 5414,
+        "mask": "e0618042c1cdf90d6766d0e68050e1599b3ef92ff8788b97b64a9640cb3cfdb7",
+        "vram_peak_allocated_bytes": 4674888192,
+        "vram_peak_reserved_bytes": 5473566720
+      }
+    ],
+    "verification_result": {
+      "ok": true,
+      "scope": "CPU storage/pixels only; browser receipt must prove cancelled job saved zero",
+      "source": {
+        "id": 1,
+        "filename": "20261116-173348-0-fixture.png",
+        "prompt": "Synthetic deterministic RGB grid-v1 fixture; no diffusion model was run.",
+        "negative_prompt": null,
+        "width": 1024,
+        "height": 1024,
+        "steps": 0,
+        "guidance_scale": 0.0,
+        "mu": null,
+        "seed": 0,
+        "model_id": "auradream-fixture/synthetic-rgb-v1",
+        "duration_ms": 0,
+        "favorite": 0,
+        "created_at": "2026-11-16T17:33:48.781858+00:00",
+        "job_id": null,
+        "run_id": null,
+        "quantization": null,
+        "variables": null,
+        "true_cfg": null,
+        "content_hash": "a0a2fd00a5edd42b",
+        "reference": null,
+        "lora": null,
+        "lora_scale": null,
+        "refine": null,
+        "strength": null,
+        "crop_anchor": null,
+        "batch": null,
+        "binned_at": null,
+        "mask": null,
+        "outpaint": null,
+        "upscaler": null,
+        "execution": null,
+        "edit": null,
+        "vram_peak_allocated": null,
+        "vram_peak_reserved": null,
+        "mask_crop": null,
+        "mask_crop_box": null,
+        "detailer": null
+      },
+      "results": [
+        {
+          "id": 2,
+          "filename": "20261116-173504-12345-6773b0.png",
+          "job_id": "0f9f515f777c",
+          "pixel_sha256": "6b393042b4e887effd3fccc4d985cfd7e87398f2aa89a833c2c9911bfd30cad7",
+          "comparison": {
+            "outside_pixels": 842052,
+            "outside_max": 0,
+            "inside_pixels": 206524,
+            "inside_mean": 80.76085103910441,
+            "inside_max": 239,
+            "inside_changed_pixels": 206520
+          }
+        },
+        {
+          "id": 3,
+          "filename": "20261116-173514-12345-7591d6.png",
+          "job_id": "bdb1ac83a2e7",
+          "pixel_sha256": "cf849fcabfeffa3b33b43577aa8ddf0fae1b151f102dfbb91db78038c04150bc",
+          "comparison": {
+            "outside_pixels": 842052,
+            "outside_max": 0,
+            "inside_pixels": 206524,
+            "inside_mean": 80.45170052875211,
+            "inside_max": 239,
+            "inside_changed_pixels": 206518
+          }
+        },
+        {
+          "id": 4,
+          "filename": "20261116-173524-12345-4f7e7f.png",
+          "job_id": "03a186d93f28",
+          "pixel_sha256": "67185a785edefdedadce9d58e5b393bfd48926032d581b727013caa54d558b16",
+          "comparison": {
+            "outside_pixels": 842052,
+            "outside_max": 0,
+            "inside_pixels": 206524,
+            "inside_mean": 81.14644948448283,
+            "inside_max": 239,
+            "inside_changed_pixels": 206521
+          }
+        }
+      ],
+      "mask": "e0618042c1cdf90d6766d0e68050e1599b3ef92ff8788b97b64a9640cb3cfdb7",
+      "repeat_differences_from_first": [
+        {
+          "id": 3,
+          "mean_channel_difference": 0.8006594975789388,
+          "max_channel_difference": 116,
+          "changed_pixels": 206325
+        },
+        {
+          "id": 4,
+          "mean_channel_difference": 0.5853169759114584,
+          "max_channel_difference": 127,
+          "changed_pixels": 205560
+        }
+      ],
+      "repeat_exact": false,
+      "note": "Nunchaku may differ at the same seed; equality is measured, never required."
+    },
+    "png_only_recovery": {
+      "ok": true,
+      "counts": {
+        "indexed": 2,
+        "present": 0,
+        "no_metadata": 0,
+        "conflicts": 0,
+        "unresolved_references": 0,
+        "masks": 1,
+        "bad_masks": 0,
+        "unresolved_masks": 0,
+        "unresolved_edits": 0,
+        "unresolved_detailers": 0,
+        "detailer_masks_rebuilt": 0,
+        "outpaint_malformed": 0,
+        "outpaints_recovered": 0,
+        "outpaint_masks_rebuilt": 0,
+        "mask_crop_malformed": 0,
+        "mask_crops_recovered": 0,
+        "invalid_upscalers": 0,
+        "invalid_crop_anchors": 0,
+        "invalid_execution": 0
+      },
+      "source_id": 1,
+      "result_id": 2,
+      "mask": "e0618042c1cdf90d6766d0e68050e1599b3ef92ff8788b97b64a9640cb3cfdb7",
+      "scope": "PNG-only recovery into separate scratch storage; no model run"
+    },
+    "recovered_rgb_and_mask_equal": true,
+    "recovered_png_encoded_bytes_equal": false
+  },
+  "unrelated_work_boundary": {
+    "actual_logged_signals_only_targeted_recorded_nonce_group": true,
+    "distro_or_service_termination_commands": false,
+    "real_run_unrelated_pid_continuity_baseline_recorded": false,
+    "prior_weightless_foreign_and_DeckLab_preservation_proof": "work/wsl-card3-preservation-20261117-a2/summary.json",
+    "scope": "No unrelated process/service or live gallery/cache was targeted; no universal background-PID continuity claim."
+  },
+  "post_run_harness_fix": {
+    "scope": "future runs only; not a replacement for the tested driver snapshot",
+    "issue": "watchdog/close must terminate the browser job even if its Node parent has exited",
+    "fix": "kill retained owned process handles independently of poll() before close",
+    "source_sha256": "3ac894c4387db7c2fd369fb91d27793141814be7dcec2254468ea359a485f0fc",
+    "cpu_protocol_and_export_regressions_passed": 16,
+    "gpu_rerun": false
+  },
+  "limitations": [
+    "Original overall exit remains failed because the first support exporter included generated CUDA cache bytes.",
+    "Supplemental CPU support export succeeded; generated cache bytes remain at source with hashes inventoried.",
+    "Normal shared kernel refs/v2 remains unrepaired; this trial used an authoritatively verified owned overlay.",
+    "Same-seed pixels differ under Nunchaku; repeated PNG equality is not claimed.",
+    "Synthetic hard-mask fixture establishes interface/compositing, not real-image seam or artistic quality.",
+    "The actual normal browser path waited for its whole job tree; the future hard-stall watchdog descendant edge was not exercised by this run.",
+    "FLUX.1 dev and schnell lite CARD#3 measurements remain unrun."
+  ],
+  "schema": "auradream-card3-z-turbo-wsl-result-v1",
+  "root_acceptance_note": "Root inspected browser/storage/recovery/guard/cleanup fields; original exporter failure and supplemental CPU-only export remain distinct. No acceptance of dev/schnell, pixel-identical Nunchaku replay, or artistic seam quality."
+}

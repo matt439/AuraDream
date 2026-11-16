@@ -838,3 +838,63 @@ found neither server PID 45424 nor a listener on 7993. All 193 source hashes
 match at start, end and independent audit; the raw receipt was not mutated.
 Times are descriptive. The original visual limits remain; this does not
 qualify enlargement, Aesthetic/Preview, other loaders or cards.
+
+#### Explicit nonempty negatives, 2026-11-17
+
+Separate private one-load probes of Aesthetic v1.1 and Preview v1 completed
+six calls each: the retained empty-negative 0.125 control, explicit
+`low quality, blurry` at 0.125, its repeat, callback-one cancellation at 0.4,
+recovery at 0.125, then an empty-negative direct render. Each probe reused
+its original audited 1024-square RGB baseline and seed 4471, with 30 full
+steps, CFG 4, fp8/model offload, Eager/native and one CPU generator per
+one-image call. The combined receipt is
+`docs/maintainer/anima-refine-negative-2026-11-17.json`; the source data head
+was `091303a`, with runtime code unchanged from `9341e57`.
+
+All twelve retained `*-call.json` files record the actual pipeline kwargs,
+including the exact negative string. The saved image metadata and receipt
+arguments agree. Both empty controls match their original 0.125 hashes;
+both final direct images match their original baselines. Each nonempty image
+differs from its empty control and is RGB-identical to its repeat and its
+post-cancel recovery. The 0.125 passes actually ran four steps from sigma
+0.315789521; nonempty cancellation stopped at callback one from strength
+0.4/sigma 0.666666687 without decoding. Each run saved five images with three
+unique RGB outputs, plus a retained call proof for cancellation. Every PNG,
+full RGB, exact output metadata and call-metadata hash was recomputed; source
+pixels and source PNGs remain unchanged.
+
+| Measurement | Aesthetic | Preview |
+|---|---|---|
+| Cached load | 6.615 s | 7.843 s |
+| Nonempty 0.125 / repeat / recovery | 5.548 / 4.823 / 4.902 s | 6.252 / 6.122 / 6.180 s |
+| Nonempty cancel after callback one | 2.182 s | 2.622 s |
+| Empty direct after | 21.303 s | 29.635 s |
+| Peak allocated / reserved | 2472.99 / 2642 MiB | 3277.11 / 3446 MiB |
+| Whole-card peak | 4978 MiB | 5738 MiB |
+| Peak process RAM | 7.121 GiB | 9.098 GiB |
+| Minimum free RAM / commit | 27.003 / 26.421 GiB | 23.554 / 23.713 GiB |
+| Guard samples / total time | 257 / 64.390 s | 314 / 78.639 s |
+| Largest achieved sample interval | 0.250569 s | 0.261135 s |
+| Post-exit card / preflight | 1985 / 2028 MiB | 1983 / 1985 MiB |
+
+All sampled verdicts were `ok`; the requested period was 0.25 seconds.
+Initial admission stayed 24 GiB free RAM and commit with a 2500 MiB idle-card
+ceiling; continuous RAM/commit floors stayed 4 GiB, process RSS cap 16 GiB,
+and card/shared limits unchanged. Normal cleanup recorded 32 MiB allocated
+and reserved before process exit. Both Windows power requests were acquired
+and released without error. Complete recipe, source/configuration identity,
+per-call metrics and raw evidence hashes remain in the combined receipt.
+
+The root agent inspected `negative-0125.png` from both runs: subject, blue
+coat, red bicycle and scene composition remain, with expected outline/texture
+changes and no obvious new seam or identity replacement. Existing geometry
+and anatomy imperfections remain. Other image findings are inherited only
+after full RGB equality with earlier reviewed controls or this newly viewed
+negative output. This is agent review, not Matt acceptance, author advice or
+a universal quality claim. The tested string is qualification input. The
+stable nonempty branch and its cancellation/recovery support removing the
+temporary empty-negative admission condition for ordinary content inside the
+existing measured envelope; no larger size, other loader or completed
+nonempty 0.4 quality comparison is established. Original raw receipts remain
+byte-identical in `receipt-unreviewed.json`; only visual-note strings were
+added to the live receipts, with review sidecars recording who/when and hashes.
