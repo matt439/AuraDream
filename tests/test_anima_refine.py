@@ -1,4 +1,4 @@
-"""The Anima image-to-image pass and exact Turbo registration on CPU.
+"""The Anima image-to-image passes and their exact registrations on CPU.
 
 Tiny stand-ins replace the learned models and tokenizers only; the encoder
 step, schedule slicing, noise mixing, guidance, denoising loop and decode are
@@ -113,20 +113,21 @@ def _block_slice(steps, strength):
 
 
 @pytest.mark.parametrize("text_cls", [AnimaTurboPipeline, AnimaAestheticPipeline, AnimaPreviewPipeline])
-def test_only_the_exact_turbo_class_has_a_structural_refine_counterpart(text_cls):
-    expected = AnimaTurboImg2ImgPipeline if text_cls is AnimaTurboPipeline else None
-    assert refine.sibling(text_cls) is expected
+def test_each_exact_anima_class_has_its_own_structural_refine_counterpart(text_cls):
+    assert refine.sibling(text_cls) is IMG2IMG[text_cls]
     assert refine.sibling(text_cls, "Inpaint") is None
     assert refine.sibling(IMG2IMG[text_cls]) is None
 
 
 @pytest.mark.parametrize("model_id", ANIMA_IDS)
-def test_only_the_turbo_profile_describes_the_measured_refine(model_id):
+def test_each_anima_profile_describes_its_separately_measured_refine(model_id):
     profile = defaults_for(model_id)
-    turbo = model_id == ANIMA_IDS[0]
-    assert profile["refine_supported"] is turbo
+    assert profile["refine_supported"] is True
     assert profile["inpaint_supported"] is False
-    assert refine.start_index(8, 0.4, model_id) == (4 if turbo else None)
+    assert profile["mu_supported"] is False
+    assert profile["refine_rounding"] == "flow"
+    assert profile["refine_strength"] == (.25 if model_id == ANIMA_IDS[0] else .125)
+    assert refine.start_index(profile["steps"], .4, model_id) == (4 if model_id == ANIMA_IDS[0] else 18)
 
 
 @pytest.mark.parametrize(
@@ -152,7 +153,8 @@ def test_call_takes_what_a_refine_pass_hands_it_with_family_defaults(cls, steps,
 @pytest.mark.parametrize(
     "steps, strength, begin, run, sigma",
     [(8, 0.4, 4, 4, 0.75), (8, 1.0, 0, 8, 1.0), (30, 0.4, 18, 12, 0.666667),
-     (30, 0.1, 27, 3, 0.25), (8, 0.125, 7, 1, 0.3)],
+     (30, 0.1, 27, 3, 0.25), (8, 0.125, 7, 1, 0.3),
+     (30, .125, 26, 4, .315789521), (30, .25, 22, 8, .521739185)],
 )
 def test_installed_block_matches_stage_zero_probe(steps, strength, begin, run, sigma):
     assert _block_slice(steps, strength)[:2] == (begin, run)
@@ -171,16 +173,18 @@ def test_rounding_matches_the_installed_block_on_fractional_boundaries():
             assert steps_run(steps, strength) == run, (steps, strength)
             # The public advisory uses the same pure policy, while runtime
             # qualification remains a separate backend admission decision.
-            assert refine.start_index(steps, strength, ANIMA_IDS[0]) == begin, (steps, strength)
-            assert refine.steps_run(steps, strength, ANIMA_IDS[0]) == run, (steps, strength)
+            for model in ANIMA_IDS:
+                assert refine.start_index(steps, strength, model) == begin, (model, steps, strength)
+                assert refine.steps_run(steps, strength, model) == run, (model, steps, strength)
 
 
 def test_anima_rounds_as_flow_not_as_its_mu_flag_says():
     # Its explicit Refine policy keeps the fixed-shift flow rule separate
     # from Mu support; SDXL's branch runs three steps of eight instead.
     assert steps_run(8, 0.4) == 4
-    assert defaults_for(ANIMA_IDS[0])["mu_supported"] is False
-    assert refine.start_index(8, 0.4, ANIMA_IDS[0]) == 4
+    for model in ANIMA_IDS:
+        assert defaults_for(model)["mu_supported"] is False
+        assert refine.start_index(8, 0.4, model) == 4
     assert defaults_for(SDXL_ID)["mu_supported"] is False
     assert 8 - refine.start_index(8, 0.4, SDXL_ID) == 3
 

@@ -66,7 +66,7 @@ def test_preview_applied_settings_and_public_identity_survive_png_and_resume(cli
     [
         ({"reference": [1]}, "takes no reference images"),
         ({"lora": "demo-style.safetensors"}, "not supported by this Anima 2.9B Preview integration"),
-        ({"refine": 1, "strength": 0.4}, "has no refine pass"),
+        ({"refine": 1, "strength": 0.4}, "1024×1024"),
     ],
 )
 def test_preview_refuses_unsupported_inputs_before_queuing(client, preview, extra, reason):

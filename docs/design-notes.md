@@ -1629,9 +1629,9 @@ for at least 2". The size prose names the 1, 1.5 and 2 MP tiers the strip
 marks in range, and the size line quotes the bounds as written, 0.26-2.36
 MP (The prompting guide). The integration's two refusals are final before a
 load: user adapters are refused by the id (LoRA adapters, below), and the
-the structural Refine answer is final before loading. The bounded Turbo pass
-added 2026-11-17 still holds every unmeasured runtime/request choice (The refine
-pass, below); Aesthetic and Preview retain their no-pass answer.
+the structural Refine answer is final before loading. The bounded Anima passes
+added 2026-11-17 still hold every unmeasured runtime/request choice (The refine
+pass, below), with independent recipes for Turbo, Aesthetic and Preview.
 
 Sources: [official model card and Turbo files](https://huggingface.co/circlestone-labs/Anima),
 [official shared component tree](https://huggingface.co/circlestone-labs/Anima-Base-v1.0-Diffusers),
@@ -1662,8 +1662,8 @@ implementation, changing call defaults to 30 steps/CFG 4. The author gives
 30-50 steps/CFG 4-5 and says Euler suits Aesthetic. The scheduler remains
 the official Diffusers conversion's FlowMatch Euler, shift 3; this does not
 implement the card's alternative ComfyUI samplers. Mu, references, user
-LoRAs, Refine and Nunchaku remain unavailable, with the same before-load
-refusals as Turbo.
+LoRAs and Nunchaku remain unavailable. Its later measured Refine pass is bounded
+separately from Turbo at 30 steps/CFG 4, as the Refine section describes.
 
 The guide shares the family size, spelling, artist and prose guidance, but
 replaces Turbo's distillation/CFG-1 text. The Aesthetic-specific advice says
@@ -1702,8 +1702,9 @@ Qwen-Image VAE and tokenizers; the preview supplies its own learned
 conditioner. `AnimaPreviewPipeline` inherits Aesthetic's callback-capable
 inference interface with 30-step/CFG-4 defaults. It keeps this integration's
 FlowMatch Euler shift 3; the author's Euler/sgm-uniform and other ComfyUI
-combinations are separate recipes. Mu, references, user LoRAs, Refine,
-inpaint and Nunchaku remain unavailable.
+combinations are separate recipes. Mu, references, user LoRAs, inpaint and
+Nunchaku remain unavailable. Its later measured Refine pass is bounded to the
+expanded Preview checkpoint's own 30-step/CFG-4 experiment.
 
 The preview has its own sourced guide and critic grounding. It recommends
 detailed mixed tag/prose prompts, uses `@` artist tags, and distinguishes
@@ -2353,7 +2354,7 @@ refine the row then describes wrongly. In diffusers 0.40 that gives FLUX.1
 (Krea dev, dev, schnell), SDXL (Animagine, Kohaku, Illustrious, WAI),
 Z-Image (Turbo, Z-Anime) and Qwen-Image a pass, and Krea 2, FLUX.2 [klein],
 ERNIE-Image and Lumina 2 (NetaYume) none; Anima and NewBie run this repo's
-own pipeline classes. The later exact Turbo extension is bounded below;
+own pipeline classes. The later exact Anima extensions are bounded below;
 the other local classes still have no registered sibling. A table of families was not
 written: the loader is model-agnostic, and so is this. Each profile carries
 `refine_supported` as its guess before a load, `describe()` answers from the
@@ -2362,18 +2363,34 @@ class after it, `/api/status` merges the two like `reference_supported`, and
 If the live class supports the pass but the profile has no strength, status
 reports `refine.DEFAULT_STRENGTH`, matching request defaults and the tooltip.
 
-### Anima Turbo's measured same-size pass (2026-11-17)
+### Anima's measured same-size passes (2026-11-17)
 
-The private Turbo trial measured one 1024-square recipe and three strengths;
-it did not measure general enlargement or another Anima variant. The first
-source slice therefore exposes only that recipe: RTX 5080, Windows CUDA 0,
-fp8/model offload, Eager/Native, diffusers 0.42.1, a 1024-square gallery source
-and output, eight steps and CFG 1. Strength starts at 0.25; Compare 3 uses
-the server's measured 0.125/0.25/0.4 values. Every other value is held by the
-server, with its reason, rather than being silently normalized into a direct
-render. Aesthetic/Preview and enlargements wait for their own measurements.
+Three independent private trials measured 1024-square recipes and three
+strengths; none measured general enlargement. Their source integration is
+limited to RTX 5080, Windows CUDA 0, fp8/model offload, Eager/Native,
+diffusers 0.42.1 and 1024-square gallery source and output.
 
-The exact local Turbo class is a deliberate resolver extension. Its profile
+| Variant | Full steps / CFG | Provisional opening | Steps at 0.125 / 0.25 / 0.4 |
+| --- | --- | --- | --- |
+| Turbo v1.1 | 8 / 1 | 0.25 | 1 / 2 / 4 |
+| Aesthetic v1.1 | 30 / 4 | 0.125 | 4 / 8 / 12 |
+| 2.9B Preview v1 | 30 / 4 | 0.125 | 4 / 8 / 12 |
+
+Compare 3 uses the server's measured 0.125/0.25/0.4 values. Other sizes,
+sampling values and loaders stay held with their reason rather than being
+silently normalized into a direct render. The openings are agent-reviewed
+conservative choices, not author recommendations or anatomy-repair promises.
+
+Aesthetic/Preview keep ordinary negative conditioning at CFG 4. Separate
+bounded card probes checked known empty controls, a nonempty negative that
+changed the pixels, exact repeat/recovery, cancellation and an unchanged
+direct sample afterwards. The stored `true_cfg=4` is the existing effective
+negative CFG, so admission accepts it on replay without exposing a separate
+True CFG knob or clearing the user's text. Turbo at CFG 1 still ignores its
+negative. Arbitrary text remains subject to the existing encoder limits;
+these branch checks do not promise prompt quality.
+
+The three exact local classes are deliberate resolver extensions. Each profile
 still describes structure, while `refine_qualification` and the backend's
 supplied facts decide admission. An unknown GPU remains held; a normal load
 refreshes hardware facts and cold readers only inspect them. Native checks
@@ -2385,7 +2402,7 @@ stand-in: its future source size comes from its base request, never that row.
 `refine_admission` proves the actual PNG size and gallery RGB provenance before
 decode/use, including after a queued source changes. A same-size fit may return
 its original PIL object, so ownership transfers instead of closing that image.
-Turbo frees the loaded owner's hooks after every one-image call, matching the
+Each variant frees the loaded owner's hooks after every one-image call, matching the
 private measured sequence. Its explicit flow rounding stays separate from Mu;
 the server supplies preview step counts and reads start sigma from the same
 Anima schedule block on a copy. Existing keys, run ids and stored intent do not

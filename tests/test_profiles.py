@@ -342,8 +342,10 @@ def test_anima_aesthetic_has_distinct_defaults_and_quality_advice():
     assert (profile["steps"], profile["guidance_scale"], profile["mu"]) == (30, 4.0, None)
     assert profile["cfg_threshold"] == 1.0 and profile["negative_prompt_supported"]
     assert not any(profile[key] for key in (
-        "mu_supported", "true_cfg_supported", "reference_supported", "refine_supported",
+        "mu_supported", "true_cfg_supported", "reference_supported",
     ))
+    assert profile["refine_supported"] and profile["refine_strength"] == .125
+    assert profile["refine_rounding"] == "flow" and profile["refine_tight_pixels"] == 1024**2
     assert profile["refine_settled"]
     checkpoint = next(c for c in launch.CHECKPOINTS if c.repo == model)
     assert checkpoint.name == "Anima Aesthetic v1.1" and checkpoint.lite is None
@@ -933,6 +935,8 @@ def test_a_refine_passs_tight_line_is_a_row_of_verified_md():
         "OnomaAIResearch/Illustrious-XL-v2.0": ("Illustrious XL v2.0", "fp8", 2896, 2896),
         "Qwen/Qwen-Image": ("Qwen-Image", "NVFP4", 1280, 1280),
         "circlestone-labs/Anima": ("Anima Turbo v1.1", "fp8", 1024, 1024),
+        "circlestone-labs/Anima@aesthetic-v1.1": ("Anima Aesthetic v1.1", "fp8", 1024, 1024),
+        "Gazingstars123/Anima-2.9B": ("Anima 2.9B Preview v1", "fp8", 1024, 1024),
     }
     text = (ROOT / "docs" / "verified.md").read_text(encoding="utf-8")
     section = text.split("### Past 4 MP", 1)[1].split("\n## ", 1)[0]

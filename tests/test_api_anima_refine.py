@@ -1,4 +1,4 @@
-"""Measured-only Turbo Refine across HTTP admission, planning and recovery.
+"""Measured Anima Refine recipes across HTTP admission, planning and recovery.
 
 The source PNGs and backend are CPU stand-ins. These checks establish no card
 fit or output quality; real integrated acceptance remains a separate session.
@@ -29,6 +29,21 @@ MEASURED_HOST = ("win32", "0.42.1", "NVIDIA GeForce RTX 5080", True)
 SETTINGS_READERS = (config, main, jobs, schemas, schemas_generate, fakes, then_refine, refine_batch)
 
 
+@dataclasses.dataclass(frozen=True)
+class VariantRecipe:
+    name: str
+    model_id: str
+    steps: int = 30
+    cfg: float = 4.0
+    opening: float = .125
+
+
+VARIANTS = (
+    VariantRecipe("aesthetic", "circlestone-labs/Anima@aesthetic-v1.1"),
+    VariantRecipe("preview", "Gazingstars123/Anima-2.9B"),
+)
+
+
 def select(monkeypatch, **changes):
     for module in SETTINGS_READERS:
         monkeypatch.setattr(module, "settings", dataclasses.replace(module.settings, **changes))
@@ -47,14 +62,28 @@ def turbo(fake, monkeypatch):
     return fake
 
 
-def plant(store, *, seed=101, width=1024, height=1024, **fields):
+@pytest.fixture(params=VARIANTS, ids=lambda recipe: recipe.name)
+def variant(request, fake, monkeypatch):
+    recipe = request.param
+    select(monkeypatch, model_id=recipe.model_id, quantization="fp8", offload="model", device="cuda")
+    profile = defaults_for(recipe.model_id)
+    fake._profile_model = recipe.model_id
+    for key in ("cfg_threshold", "true_cfg_supported", "mu_supported", "negative_prompt_supported",
+                "reference_supported", "refine_supported", "inpaint_supported"):
+        setattr(fake, key, profile[key])
+    fake.lora_reason = loading.lora_refusal(recipe.model_id)
+    fake.refine_host_facts = MEASURED_HOST
+    return recipe, fake
+
+
+def plant(store, *, seed=101, width=1024, height=1024, model_id=TURBO, **fields):
     request = GenerateRequest(**{
         "prompt": "a keeper", "width": width, "height": height, "steps": 8,
         "guidance_scale": 1.0, **fields,
     })
     return store.save_image(
         Image.new("RGB", (width, height), (40, 60, 80)), request,
-        seed=seed, duration_ms=1, model_id=TURBO, quantization="fp8",
+        seed=seed, duration_ms=1, model_id=model_id, quantization="fp8",
         run_id=f"fixture-{seed}", batch=1,
     )
 
@@ -62,6 +91,15 @@ def plant(store, *, seed=101, width=1024, height=1024, **fields):
 def pass_body(source, **changes):
     return {"prompt": "a keeper", "width": 1024, "height": 1024, "steps": 8,
             "guidance_scale": 1.0, "refine": source, "seed": 7001, **changes}
+
+
+def plant_variant(store, recipe, **fields):
+    return plant(store, model_id=recipe.model_id,
+                 **{"steps": recipe.steps, "guidance_scale": recipe.cfg, **fields})
+
+
+def variant_body(recipe, source, **changes):
+    return {**pass_body(source), "steps": recipe.steps, "guidance_scale": recipe.cfg, **changes}
 
 
 def assert_no_work(fake):
@@ -515,13 +553,334 @@ def test_copied_eager_inpainting_refuses_before_any_turbo_source_or_mask_work(tu
     assert_no_work(turbo)
 
 
-@pytest.mark.parametrize("model_id", ["circlestone-labs/Anima@aesthetic-v1.1", "Gazingstars123/Anima-2.9B"])
-def test_other_anima_variants_keep_their_refine_hold(client, turbo, store, monkeypatch, model_id):
+@pytest.mark.parametrize("recipe", VARIANTS, ids=lambda recipe: recipe.name)
+def test_variant_selection_requires_its_own_measured_recipe(client, turbo, store, monkeypatch, recipe):
     source = plant(store)
-    select(monkeypatch, model_id=model_id)
+    select(monkeypatch, model_id=recipe.model_id)
+    status = client.get("/api/status").json()
+    assert status["defaults"]["refine_supported"] is True
+    assert status["defaults"]["refine_strength"] == recipe.opening
+    assert status["refine_strength_suggestions"]["steps"] == recipe.steps
+    # Switching checkpoints does not turn Turbo's short schedule into this
+    # variant's recipe, even though the shared source dimensions fit.
+    response = client.post("/api/generate", json=pass_body(source.id))
+    assert response.status_code == 422, response.text
+    assert "30 steps" in response.json()["detail"]
+    assert_no_work(turbo)
+
+
+def test_variant_cold_and_loaded_status_publish_the_separate_measured_recipe(client, variant):
+    recipe, fake = variant
+    for loaded in (False, True):
+        fake.loaded = loaded
+        status = client.get("/api/status").json()
+        defaults = status["defaults"]
+        assert defaults["refine_supported"] is True and defaults["refine_settled"] is True
+        assert defaults["refine_strength"] == recipe.opening and defaults["refine_reason"] is None
+        assert defaults["steps"] == recipe.steps and defaults["guidance_scale"] == recipe.cfg
+        assert defaults["mu_supported"] is False and defaults["refine_tight_pixels"] == 1024 ** 2
+        suggestions = status["refine_strength_suggestions"]
+        assert suggestions["steps"] == recipe.steps
+        assert suggestions["strengths"] == [.125, .25, .4]
+        assert "30" in suggestions["steps_reason"]
+    assert_no_work(fake)
+
+
+@pytest.mark.parametrize("host, words", [
+    (("win32", "0.42.1", None, True), "GPU has not been verified"),
+    (("win32", "0.42.1", "NVIDIA GeForce RTX 3070", True), "only the RTX 5080"),
+    (("win32", "0.42.1", "NVIDIA GeForce RTX 5080", False), "Native attention"),
+    (("linux", "0.42.1", "NVIDIA GeForce RTX 5080", True), "only Windows"),
+    (("win32", "0.42.2", "NVIDIA GeForce RTX 5080", True), "only 0.42.1"),
+])
+def test_variant_host_bounds_refuse_before_image_work(client, variant, store, host, words):
+    recipe, fake = variant
+    source = plant_variant(store, recipe)
+    fake.loaded = False
+    fake.refine_host_facts = host
     status = client.get("/api/status").json()
     assert status["defaults"]["refine_supported"] is False
-    assert status["refine_strength_suggestions"] is None
-    response = client.post("/api/generate", json=pass_body(source.id))
-    assert response.status_code == 422 and "no refine pass" in response.json()["detail"]
-    assert_no_work(turbo)
+    assert words in status["defaults"]["refine_reason"]
+    response = client.post("/api/generate", json=variant_body(recipe, source.id))
+    assert response.status_code == 422 and words in response.json()["detail"], response.text
+    assert_no_work(fake)
+
+
+@pytest.mark.parametrize("choice, words", [
+    ({"quantization": "int8"}, "only fp8"),
+    ({"offload": "sequential"}, "only model offload"),
+    ({"device": "cpu"}, "only CUDA device 0"),
+])
+def test_variant_loader_bounds_refuse_before_source_or_weights(client, variant, store, monkeypatch, choice, words):
+    recipe, fake = variant
+    source = plant_variant(store, recipe)
+    select(monkeypatch, **choice)
+    fake.loaded = False
+    response = client.post("/api/generate", json=variant_body(recipe, source.id))
+    assert response.status_code == 422 and words in response.json()["detail"], response.text
+    assert_no_work(fake)
+
+
+@pytest.mark.parametrize("changes, words", [
+    ({"width": 1280, "height": 1280}, "1024"),
+    ({"steps": 28}, "30 steps"),
+    ({"guidance_scale": 1}, "CFG 4"),
+    ({"strength": .3}, "strengths 0.125, 0.25 and 0.4"),
+])
+def test_variant_request_bounds_remain_measured_after_negative_branch_qualification(client, variant, store, changes, words):
+    recipe, fake = variant
+    source = plant_variant(store, recipe)
+    fake.loaded = False
+    for route in ("/api/generate", "/api/grid/preview"):
+        response = client.post(route, json=variant_body(recipe, source.id, **changes))
+        assert response.status_code == 422, response.text
+        assert words in response.json()["detail"]
+    assert_no_work(fake)
+
+
+@pytest.mark.parametrize("axis, values, words", [
+    ("steps_axis", "30,31", "30 steps"),
+    ("cfg_axis", "4,5", "CFG 4"),
+    ("strength_axis", "0.125,0.3", "strengths 0.125, 0.25 and 0.4"),
+])
+def test_variant_later_grid_cells_cannot_inherit_the_valid_first_verdict(client, variant, store, axis, values, words):
+    recipe, fake = variant
+    source = plant_variant(store, recipe)
+    fake.loaded = False
+    for route in ("/api/grid/preview", "/api/grid"):
+        response = client.post(route, json=variant_body(recipe, source.id, **{axis: values}))
+        assert response.status_code == 422 and words in response.json()["detail"], response.text
+    assert_no_work(fake)
+
+
+@pytest.mark.parametrize("strength, count", [(.125, 4), (.25, 8), (.4, 12)])
+def test_variant_flow_counts_and_saved_recipe_are_exact(client, variant, store, strength, count):
+    recipe, fake = variant
+    source = plant_variant(store, recipe)
+    body = variant_body(recipe, source.id, strength=strength, num_images=2)
+    preview = client.post("/api/grid/preview", json=body)
+    assert preview.status_code == 200 and preview.json()["denoised_steps"] == count, preview.text
+    response = client.post("/api/generate", json=body)
+    assert response.status_code == 200, response.text
+    done = stream_job(client, response.json()["job_id"])[-1]
+    assert done["status"] == "done" and len(done["images"]) == 2, done
+    assert (done["step"], done["total_steps"]) == (count * 2, count * 2)
+    for row in done["images"]:
+        assert (row["model_id"], row["refine"], row["strength"]) == (recipe.model_id, source.id, strength)
+        assert (row["steps"], row["guidance_scale"], row["negative_prompt"], row["mu"]) == (30, 4, None, None)
+        with Image.open(store.settings.outputs_dir / row["filename"]) as image:
+            chunk = json.loads(image.info["auradream"])
+        assert chunk["model"] == recipe.model_id and chunk["refine"] == source.id
+        assert (chunk["strength"], chunk["steps"], chunk["guidance_scale"]) == (strength, 30, 4)
+
+
+def test_variant_mass_refine_and_more_seeds_preserve_the_measured_source(client, variant, store):
+    recipe, fake = variant
+    good = plant_variant(store, recipe, seed=2101)
+    wrong_source = plant_variant(store, recipe, seed=2102, width=512, height=512)
+    body = {"ids": [good.id, wrong_source.id], "favorites": False, "scale": 1}
+    preview = client.post("/api/refine/batch/preview", json=body)
+    assert preview.status_code == 200, preview.text
+    plans = {row["id"]: row for row in preview.json()["images"]}
+    assert preview.json()["strength"] == recipe.opening
+    assert plans[good.id]["status"] == "queued"
+    assert plans[wrong_source.id]["status"] == "invalid" and "1024" in plans[wrong_source.id]["detail"]
+    response = client.post("/api/refine/batch", json={**body, "expected": preview.json()["ids"]})
+    assert response.status_code == 200 and response.json()["queued"] == 1, response.text
+    done = stream_job(client, response.json()["job_id"])[-1]
+    assert done["status"] == "done" and len(done["images"]) == 1, done
+    passed = done["images"][0]
+    assert (passed["refine"], passed["strength"], passed["steps"], passed["guidance_scale"]) == (good.id, .125, 30, 4)
+    rerender = client.post("/api/rerender/preview", json={
+        "ids": [passed["id"]], "width": 1024, "height": 1024, "favorites": False,
+    })
+    assert rerender.status_code == 200, rerender.text
+    assert rerender.json()["pruned"] == 1 and rerender.json()["queued"] == 0
+    more = client.post("/api/more-seeds", json={"ids": [passed["id"]], "favorites": False, "count": 1})
+    assert more.status_code == 200, more.text
+    recovered = stream_job(client, more.json()["job_id"])[-1]
+    assert recovered["status"] == "done" and len(recovered["images"]) == 1, recovered
+    child = recovered["images"][0]
+    assert (child["model_id"], child["refine"], child["strength"], child["steps"], child["guidance_scale"]) == (
+        recipe.model_id, good.id, .125, 30, 4,
+    )
+    assert child["seed"] == passed["seed"] + 1
+
+
+def test_variant_then_refine_uses_its_own_recipe_and_future_base(client, variant, store):
+    recipe, fake = variant
+    unrelated = plant_variant(store, recipe, width=512, height=512)
+    assert unrelated.id == 1
+    response = client.post("/api/generate", json={
+        "prompt": "new measured variant base", "width": 1024, "height": 1024,
+        "steps": recipe.steps, "guidance_scale": recipe.cfg, "seed": 2401,
+        "then_refine": {"scale": 1},
+    })
+    assert response.status_code == 200, response.text
+    done = stream_job(client, response.json()["job_id"])[-1]
+    assert done["status"] == "done" and len(done["images"]) == 2, done
+    base, passed = done["images"]
+    assert base["refine"] is None and base["id"] != unrelated.id
+    assert (passed["refine"], passed["strength"], passed["steps"], passed["guidance_scale"]) == (base["id"], .125, 30, 4)
+    assert done["total_steps"] == 4
+
+
+def test_variant_finish_recovers_the_original_refine_source_and_sampling(client, variant, store):
+    recipe, fake = variant
+    source = plant_variant(store, recipe)
+    request = GenerateRequest(**variant_body(recipe, source.id))
+    cell = grid.Cell(request=request, seed=2501, label="retained measured variant pass")
+    run_id = "variant-refine-recovery-" + uuid.uuid4().hex[:8]
+    store.retain_run_job({
+        "job_id": uuid.uuid4().hex[:12], "run_id": run_id, "created_at": time.time(),
+        "origin": "grid", "model_id": recipe.model_id, "quantization": "fp8",
+        "width": 1024, "height": 1024, "batch": 1, "comparison": False, "metadata": {"grid": True},
+    }, [cell])
+    preview = client.post(f"/api/runs/{run_id}/finish/preview")
+    assert preview.status_code == 200 and preview.json()["available"] is True, preview.text
+    response = client.post(f"/api/runs/{run_id}/finish", json={"expected": preview.json()["pin"]})
+    assert response.status_code == 200, response.text
+    done = stream_job(client, response.json()["job_id"])[-1]
+    assert done["status"] == "done" and done["run_id"] == run_id, done
+    assert [(row["refine"], row["strength"], row["steps"], row["guidance_scale"], row["seed"])
+            for row in done["images"]] == [(source.id, .125, 30, 4, 2501)]
+
+
+@pytest.mark.parametrize("side, cfg, scale, words", [
+    (512, 4, 2, "source"), (1024, 5, 1, "CFG 4"),
+])
+def test_variant_retained_then_refine_is_refused_before_a_base_exists(client, variant, store, side, cfg, scale, words):
+    recipe, fake = variant
+    request = GenerateRequest(prompt="unmeasured retained base", width=side, height=side,
+                              steps=recipe.steps, guidance_scale=cfg, seed=2601)
+    spec = schemas.ThenRefine(scale=scale, strength=recipe.opening, steps=recipe.steps)
+    run_id = "variant-retained-then-" + uuid.uuid4().hex[:8]
+    store.retain_run_job({
+        "job_id": uuid.uuid4().hex[:12], "run_id": run_id, "created_at": time.time(),
+        "origin": "grid", "model_id": recipe.model_id, "quantization": "fp8",
+        "width": side, "height": side, "batch": 1, "comparison": False,
+        "metadata": {"grid": True, "then_refine": {
+            **spec.model_dump(), "pass_run_id": then_refine.pass_run_id(run_id, spec),
+        }},
+    }, [grid.Cell(request=request, seed=2601)])
+    assert store.list_images(limit=10)[0] == []
+    preview = client.post(f"/api/runs/{run_id}/finish/preview")
+    assert preview.status_code == 200 and preview.json()["available"] is False, preview.text
+    assert words in preview.json()["reason"]
+    response = client.post(f"/api/runs/{run_id}/finish", json={"expected": preview.json()["pin"]})
+    assert response.status_code == 422 and words in response.json()["detail"], response.text
+    assert_no_work(fake)
+
+
+@pytest.mark.parametrize("change, words", [
+    ({"guidance_scale": 5}, "CFG 4"),
+    ({"mask": "c" * 64}, "ordinary whole-image Refine pass"),
+], ids=["later-unmeasured-cfg", "later-copied-inpaint"])
+def test_variant_queue_checks_every_copied_cell_before_source_work(variant, store, monkeypatch, change, words):
+    from backend import refine_admission
+
+    recipe, fake = variant
+    source = plant_variant(store, recipe)
+    ordinary = GenerateRequest(**variant_body(recipe, source.id))
+    copied = ordinary.model_copy(update={**change, "execution": None})
+    touched = []
+
+    def poison(name):
+        def forbidden(*args, **kwargs):
+            touched.append(name)
+            raise AssertionError("unqualified variant cell reached " + name)
+        return forbidden
+
+    monkeypatch.setattr(refine_admission, "check_source", poison("source proof"))
+    for name in ("reference_paths", "stamp_outpaints", "hold_masks", "retain_run_job"):
+        monkeypatch.setattr(store, name, poison(name))
+
+    async def forbidden_load():
+        raise AssertionError("unqualified variant cell reached a model load")
+
+    async def scenario():
+        manager = jobs.JobManager(fake, forbidden_load)
+        try:
+            with pytest.raises(ValueError, match=words):
+                await manager.submit_cells(
+                    [grid.Cell(request=ordinary, seed=2701), grid.Cell(request=copied, seed=2702)],
+                    run_id="explicit-variant-admission-order",
+                )
+            assert manager._loop is None and manager._jobs == {} and manager._pending == []
+        finally:
+            await manager.shutdown()
+
+    asyncio.run(scenario())
+    assert touched == []
+    assert_no_work(fake)
+
+
+def assert_variant_negative_record(store, recipe, source, row, negative):
+    assert (row["model_id"], row["refine"], row["strength"], row["steps"], row["guidance_scale"]) == (
+        recipe.model_id, source.id, recipe.opening, recipe.steps, recipe.cfg,
+    )
+    assert (row["negative_prompt"], row["true_cfg"]) == (negative, recipe.cfg)
+    with Image.open(store.settings.outputs_dir / row["filename"]) as image:
+        chunk = json.loads(image.info["auradream"])
+    assert chunk["model"] == recipe.model_id and chunk["refine"] == source.id
+    assert (chunk["strength"], chunk["steps"], chunk["guidance_scale"]) == (recipe.opening, recipe.steps, recipe.cfg)
+    assert (chunk["negative_prompt"], chunk["true_cfg"]) == (negative, recipe.cfg)
+    assert chunk["refine_source"]["hash"] == source.content_hash
+
+
+def test_variant_refine_negative_text_and_normalized_cfg_survive_more_seeds(client, variant, store):
+    recipe, fake = variant
+    source = plant_variant(store, recipe)
+    negative = "low quality, blurry"
+    body = variant_body(recipe, source.id, negative_prompt=negative)
+    preview = client.post("/api/grid/preview", json=body)
+    assert preview.status_code == 200 and preview.json()["denoised_steps"] == 4, preview.text
+    response = client.post("/api/generate", json=body)
+    assert response.status_code == 200, response.text
+    done = stream_job(client, response.json()["job_id"])[-1]
+    assert done["status"] == "done" and len(done["images"]) == 1, done
+    passed = done["images"][0]
+    assert_variant_negative_record(store, recipe, source, passed, negative)
+    # The stored ordinary CFG is normalized to true_cfg=4. It must remain
+    # replayable rather than be mistaken for an unsupported separate knob.
+    replay = client.post("/api/rerender/preview", json={
+        "ids": [passed["id"]], "width": 1024, "height": 1024, "favorites": False,
+    })
+    assert replay.status_code == 200 and replay.json()["pruned"] == 1, replay.text
+    more = client.post("/api/more-seeds", json={"ids": [passed["id"]], "favorites": False, "count": 1})
+    assert more.status_code == 200, more.text
+    continued = stream_job(client, more.json()["job_id"])[-1]
+    assert continued["status"] == "done" and len(continued["images"]) == 1, continued
+    assert_variant_negative_record(store, recipe, source, continued["images"][0], negative)
+    assert continued["images"][0]["seed"] == passed["seed"] + 1
+    direct = client.post("/api/generate", json={
+        "prompt": "ordinary variant generation", "width": 256, "height": 256,
+        "steps": recipe.steps, "guidance_scale": recipe.cfg, "negative_prompt": negative,
+    })
+    assert direct.status_code == 200, direct.text
+    done = stream_job(client, direct.json()["job_id"])[-1]
+    assert done["status"] == "done" and len(done["images"]) == 1, done
+    assert done["images"][0]["negative_prompt"] == negative
+    assert done["images"][0]["refine"] is None
+
+
+def test_variant_finish_preserves_a_recorded_negative_prompt_and_cfg(client, variant, store):
+    recipe, fake = variant
+    source = plant_variant(store, recipe)
+    negative = "low quality, blurry"
+    request = GenerateRequest(**variant_body(recipe, source.id, negative_prompt=negative, true_cfg=recipe.cfg))
+    run_id = "variant-negative-recovery-" + uuid.uuid4().hex[:8]
+    cell = grid.Cell(request=request, seed=2901, label="recorded negative pass")
+    store.retain_run_job({
+        "job_id": uuid.uuid4().hex[:12], "run_id": run_id, "created_at": time.time(),
+        "origin": "grid", "model_id": recipe.model_id, "quantization": "fp8",
+        "width": 1024, "height": 1024, "batch": 1, "comparison": False, "metadata": {"grid": True},
+    }, [cell])
+    preview = client.post(f"/api/runs/{run_id}/finish/preview")
+    assert preview.status_code == 200 and preview.json()["available"] is True, preview.text
+    response = client.post(f"/api/runs/{run_id}/finish", json={"expected": preview.json()["pin"]})
+    assert response.status_code == 200, response.text
+    done = stream_job(client, response.json()["job_id"])[-1]
+    assert done["status"] == "done" and len(done["images"]) == 1, done
+    assert done["run_id"] == run_id and done["images"][0]["seed"] == 2901
+    assert_variant_negative_record(store, recipe, source, done["images"][0], negative)

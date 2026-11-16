@@ -1,4 +1,4 @@
-"""The measured Anima Turbo Refine envelope, independent of runtime imports.
+"""Measured Anima Refine envelopes, independent of runtime imports.
 
 Supplied facts decide admission. These result limits do not change the request,
 its reproduction identity or any other checkpoint's ordinary Refine behavior.
@@ -6,6 +6,7 @@ its reproduction identity or any other checkpoint's ordinary Refine behavior.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from types import MappingProxyType
 from typing import Any
 
 from .execution import canonical_execution, canonical_loader_execution
@@ -14,6 +15,7 @@ from .execution import canonical_execution, canonical_loader_execution
 @dataclass(frozen=True)
 class QualifiedRefine:
     model_id: str = "circlestone-labs/Anima"
+    name: str = "Anima Turbo Refine"
     gpu_name: str = "NVIDIA GeForce RTX 5080"
     platform: str = "win32"
     diffusers_version: str = "0.42.1"
@@ -25,15 +27,31 @@ class QualifiedRefine:
     guidance_scale: float = 1.0
     strengths: tuple[float, ...] = (.125, .25, .4)
     default_strength: float = .25
+    empty_negative: bool = False  # False after the variant's conditioning branch is qualified.
 
 
 ANIMA_TURBO = QualifiedRefine()
-NAME = "Anima Turbo Refine"
+ANIMA_AESTHETIC = QualifiedRefine(
+    model_id="circlestone-labs/Anima@aesthetic-v1.1", name="Anima Aesthetic Refine",
+    steps=30, guidance_scale=4., default_strength=.125, empty_negative=False,
+)
+ANIMA_PREVIEW = QualifiedRefine(
+    model_id="Gazingstars123/Anima-2.9B", name="Anima 2.9B Preview Refine",
+    steps=30, guidance_scale=4., default_strength=.125, empty_negative=False,
+)
+ENVELOPES = MappingProxyType({entry.model_id.casefold(): entry for entry in (
+    ANIMA_TURBO, ANIMA_AESTHETIC, ANIMA_PREVIEW,
+)})
+NAME = ANIMA_TURBO.name  # Retained name of the first measured slice.
+
+
+def envelope_for(model_id: str) -> QualifiedRefine | None:
+    return ENVELOPES.get(model_id.casefold())
 
 
 def applies(model_id: str) -> bool:
     """Recognize case variants too, so they cannot escape the exact-id hold."""
-    return model_id.casefold() == ANIMA_TURBO.model_id.casefold()
+    return envelope_for(model_id) is not None
 
 
 @dataclass(frozen=True)
@@ -57,9 +75,9 @@ class LoaderFacts:
 
 def loader_refusal(model_id: str, facts: LoaderFacts, *, check_hardware: bool = True) -> str | None:
     """The first unmeasured supplied loading fact, without probing anything."""
-    if not applies(model_id):
+    envelope = envelope_for(model_id)
+    if envelope is None:
         return None
-    envelope = ANIMA_TURBO
     if model_id != envelope.model_id:
         choice = f"select {envelope.model_id} exactly"
     elif facts.platform != envelope.platform:
@@ -87,45 +105,53 @@ def loader_refusal(model_id: str, facts: LoaderFacts, *, check_hardware: bool = 
             if execution is None:
                 return None
             choice = "this performance configuration; only Eager with Native attention was measured"
-    return f"{NAME} is held: {choice}."
+    return f"{envelope.name} is held: {choice}."
 
 
 def source_refusal(model_id: str, size: tuple[int, int]) -> str | None:
-    if applies(model_id) and size != ANIMA_TURBO.size:
-        return f"{NAME} is measured only from a 1024×1024 source; this source is {size[0]}×{size[1]}."
+    envelope = envelope_for(model_id)
+    if envelope is not None and size != envelope.size:
+        return f"{envelope.name} is measured only from a 1024×1024 source; this source is {size[0]}×{size[1]}."
     return None
 
 
 def request_refusal(model_id: str, request: Any) -> str | None:
     """Check every actual expanded pass; never normalize unsupported intent."""
-    if not applies(model_id) or request.refine is None:
+    envelope = envelope_for(model_id)
+    if envelope is None or request.refine is None:
         return None
-    envelope = ANIMA_TURBO
+    name = envelope.name
     try:
         execution = canonical_execution(getattr(request, "execution", None))
     except (TypeError, ValueError):
-        return f"{NAME} has an unreadable performance configuration."
+        return f"{name} has an unreadable performance configuration."
     if execution is not None:
-        return f"{NAME} is measured only with Eager, Native attention and step caching off."
+        return f"{name} is measured only with Eager, Native attention and step caching off."
     if request.inpainting or request.edit is not None or request.upscaler is not None:
-        return f"{NAME} is measured only as an ordinary whole-image Refine pass."
+        return f"{name} is measured only as an ordinary whole-image Refine pass."
     if (request.width, request.height) != envelope.size:
-        return f"{NAME} is measured only at 1024×1024; enlargement and other output sizes are held."
+        return f"{name} is measured only at 1024×1024; enlargement and other output sizes are held."
     if type(request.steps) is not int or request.steps != envelope.steps:
-        return f"{NAME} is measured only at 8 steps; set Steps to 8."
-    if request.guidance_scale != envelope.guidance_scale or request.true_cfg is not None:
-        return f"{NAME} is measured only at CFG 1; set CFG to 1."
+        return f"{name} is measured only at {envelope.steps} steps; set Steps to {envelope.steps}."
+    negative = getattr(request, "negative_prompt", None)
+    recorded_cfg = (negative and envelope.guidance_scale > 1
+                    and request.true_cfg == envelope.guidance_scale)
+    if request.guidance_scale != envelope.guidance_scale or (request.true_cfg is not None and not recorded_cfg):
+        return f"{name} is measured only at CFG {envelope.guidance_scale:g}; set CFG to {envelope.guidance_scale:g}."
+    if envelope.empty_negative and negative not in (None, ""):
+        return f"{name} is measured with an empty negative prompt; clear the negative prompt."
     if request.strength not in envelope.strengths:
-        return f"{NAME} is measured only at strengths 0.125, 0.25 and 0.4."
+        return f"{name} is measured only at strengths 0.125, 0.25 and 0.4."
     if request.lora is not None or request.reference or request.mu is not None:
-        return f"{NAME} is measured without LoRAs, references or a Mu override."
+        return f"{name} is measured without LoRAs, references or a Mu override."
     if request.crop_anchor != "center":
-        return f"{NAME} is measured with the source unchanged at its own size; use the centre crop anchor."
+        return f"{name} is measured with the source unchanged at its own size; use the centre crop anchor."
     return None
 
 
 def suggestions(model_id: str) -> dict[str, Any] | None:
-    if not applies(model_id):
+    envelope = envelope_for(model_id)
+    if envelope is None:
         return None
-    return {"steps": ANIMA_TURBO.steps, "strengths": list(ANIMA_TURBO.strengths),
-            "steps_reason": f"{NAME} is measured at 8 steps; set Steps to 8 to compare the measured strengths."}
+    return {"steps": envelope.steps, "strengths": list(envelope.strengths),
+            "steps_reason": f"{envelope.name} is measured at {envelope.steps} steps; set Steps to {envelope.steps} to compare the measured strengths."}

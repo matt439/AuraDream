@@ -51,16 +51,28 @@ def test_explicit_rounding_does_not_grant_an_unknown_or_held_capability(monkeypa
     assert refine.start_index(8, .4, "test/held", inpaint=True) is None
 
 
-@pytest.mark.parametrize("strength, begin, count", [(.125, 7, 1), (.25, 6, 2), (.4, 4, 4)])
-def test_measured_turbo_tail_reaches_initial_batch_progress_and_estimates(monkeypatch, strength, begin, count):
+@pytest.mark.parametrize("model, steps, cfg", [
+    ("circlestone-labs/Anima", 8, 1.),
+    ("circlestone-labs/Anima@aesthetic-v1.1", 30, 4.),
+    ("Gazingstars123/Anima-2.9B", 30, 4.),
+])
+@pytest.mark.parametrize("strength", [.125, .25, .4])
+def test_each_measured_anima_tail_reaches_initial_batch_progress_and_estimates(
+    monkeypatch, model, steps, cfg, strength,
+):
     from backend import gallery_reports
 
-    model = "circlestone-labs/Anima"
+    measured = {
+        8: {.125: (7, 1), .25: (6, 2), .4: (4, 4)},
+        30: {.125: (26, 4), .25: (22, 8), .4: (18, 12)},
+    }
+    begin, count = measured[steps][strength]
     assert defaults_for(model)["mu_supported"] is False
-    assert refine.start_index(8, strength, model) == begin
-    assert refine.steps_run(8, strength, model) == count
+    assert refine.start_index(steps, strength, model) == begin
+    assert refine.steps_run(steps, strength, model) == count
     monkeypatch.setattr(grid, "current_model_id", lambda _: model)
-    request = GenerateRequest(prompt="a fox", steps=8, refine=3, strength=strength, num_images=2)
+    request = GenerateRequest(prompt="a fox", steps=steps, guidance_scale=cfg,
+                              refine=3, strength=strength, num_images=2)
     cell = grid.Cell(request, 17)
     assert grid.denoised_steps(request) == count
     assert grid.progress_steps(request) == 2 * count
@@ -121,6 +133,8 @@ def test_the_inpaint_start_index_matches_the_real_inpaint_classes_scheduler(mode
     ("Tongyi-MAI/Z-Image-Turbo", 8, "0.2-0.5x0.05", 4),
     ("KBlueLeaf/Kohaku-XL-Zeta", 10, "0.4,0.45,0.5", 1),
     ("circlestone-labs/Anima", 8, "0.125,0.15,0.25,0.4", 1),
+    ("circlestone-labs/Anima@aesthetic-v1.1", 30, "0.125,0.126,0.25,0.4", 1),
+    ("Gazingstars123/Anima-2.9B", 30, "0.125,0.126,0.25,0.4", 1),
 ])
 def test_duplicate_advisory_uses_integer_start_without_changing_resume_keys(
     model_id, steps, axis, expected,

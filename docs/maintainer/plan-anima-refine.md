@@ -2,9 +2,10 @@
 
 **Status: stages 0 and 1 done (2026-11-11, 2026-11-12); stage 2's Turbo
 experiment measured and agent-reviewed at 1024 square on Windows fp8/model
-(2026-11-16). Bounded Turbo stage 3 passed integrated public API/CLI-via-server
-card acceptance on 2026-11-17. Aesthetic and Preview also passed their own
-private 1024-square trials; their public integration and acceptance remain.**
+(2026-11-16), followed by independent Aesthetic and Preview trials on
+2026-11-17. Bounded Turbo passed integrated public API/CLI-via-server
+acceptance. The measured Aesthetic/Preview source extension passed its full
+CPU/browser gates; their integrated API and standalone CLI checks remain.**
 Matt selected Anima as the first family for `GEN#48` on 2026-11-11.
 This closes the family choice in the [peer review](review-2026-11-10-peers.md#r1-refine-on-the-families-that-have-none).
 That family choice alone did not qualify a Refine pass or authorize a GPU run. No capability,
@@ -898,3 +899,78 @@ existing measured envelope; no larger size, other loader or completed
 nonempty 0.4 quality comparison is established. Original raw receipts remain
 byte-identical in `receipt-unreviewed.json`; only visual-note strings were
 added to the live receipts, with review sidecars recording who/when and hashes.
+
+## Aesthetic and Preview integration, 2026-11-17
+
+Independent one-load private trials have now supplied the missing Aesthetic
+v1.1 and 40-layer 2.9B Preview data. The earlier holds were prerequisites,
+not a decision to leave those variants unsupported after measurement. Their
+source extension uses the same RTX 5080/Windows CUDA 0, fp8/model,
+Eager/Native, diffusers 0.42.1 and 1024-square source/output envelope.
+
+The pure immutable envelope table keeps identities, display names, steps,
+CFG, allowed strengths and provisional openings distinct. Turbo retains
+8 steps/CFG 1/opening 0.25. Aesthetic and Preview each use 30 steps/CFG 4 and
+open at 0.125. Their allowed 0.125/0.25/0.4 passes run 4/8/12 steps from
+indices 26/22/18, at measured start sigmas 0.315789521/0.521739185/0.666666687.
+No strength, size, loader or platform boundary was widened from those data.
+
+The resolver registers only each exact measured text class and its exact
+counterpart, preserving constructor and `REQUIRED`/`CARRIED` contracts.
+Profiles, measured-size notes, typed suggestions, API admission, actual
+per-call/source checks and central rounding all consult the corresponding
+variant. Tests retain unknown/impostor/subclass refusals and direct-render
+behavior; no generation algorithm or dependency changed.
+
+Separate guarded negative-conditioning probes also passed for each new
+variant: known empty 0.125 control hashes, a nonempty `low quality, blurry`
+negative that changed the pixels, exact repeats/recovery, cancellation without
+a saved output, and each direct baseline unchanged afterwards. The temporary
+empty-negative hold was removed before release; no user text is cleared.
+Normal CFG-4 negatives retain their existing derived `true_cfg=4` in rows,
+PNGs, keys and reruns. This does not enable a separate True CFG control or
+guarantee arbitrary prompt quality. Turbo's CFG-1 negative behavior is unchanged.
+
+The existing status-driven frontend needs no model-specific arithmetic:
+it receives the 30-step measured suggestions and exact 4/8/12 counts.
+Native Aesthetic/Preview smoke fixtures keep their existing guide, LoRA,
+reference, Mu and negative-prompt coverage while adding measured Refine
+opening, holds, queueing and source/strength carry. The Turbo fixture checks
+switching to those independently measured recipes and back to Turbo's own.
+
+The evidence remains separate: `anima-refine-aesthetic-2026-11-17.json` and
+`anima-refine-preview-2026-11-17.json` own their private measurements; Turbo's
+integrated acceptance owns its real API result. Aesthetic/Preview integrated
+real-server/API acceptance follows this source extension before the complete
+family is declared finished. Enlargement and every unmeasured loader/card
+remain held.
+
+### Family source validation
+
+The completed source extension passed the full suite with
+`CUDA_VISIBLE_DEVICES=-1`, the existing original virtualenv and at most four
+workers: **11,061 passed, 325 skipped**, 85 warnings, exit 0, 366.03 seconds.
+Ruff passed and pinned Pyright checked all **217 backend/tool sources** with
+zero diagnostics, using the relative-scope worktree configuration.
+
+Focused checks included 605 resolver/schedule/qualification tests, 117 actual
+CPU-backend/Native-observation tests, 100 HTTP admission/recovery tests and
+201 profile/CLI/legacy/docs/audit/capability checks. The negative tests cover
+actual conditional output changes and repeats plus unchanged user text and
+effective CFG 4 through rows, PNGs, More seeds and Finish; Turbo's ignored
+negative behavior remains distinct.
+
+All four Anima browser smokes passed. Aesthetic ran 85 steps, Preview 73 and
+the shared Turbo Refine row 103, alongside the existing Turbo guide smoke.
+The sole new fixture failure assumed an empty reference list instead of the
+API's canonical null; it was corrected to assert null, without changing
+production behavior or weakening the source/negative checks. Measured controls
+and twelve-of-thirty preview captions were visually inspected. Owned fake and
+browser processes/ports were cleaned up.
+
+Browser receipts are retained at
+`%TEMP%/auradream-smoke-artifacts-daym2goa/summary.json` (three passing rows and
+the diagnosed Preview fixture) and
+`auradream-smoke-artifacts-yzbb38wk/summary.json` (corrected Preview). These
+source/fake-browser checks do not substitute for the final integrated
+Aesthetic/Preview card sessions.

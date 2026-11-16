@@ -16,9 +16,9 @@ already holds (`build`) and the two share every module, hook and adapter.
 Which checkpoints have one is therefore the installed diffusers' answer
 (`sibling`), not a table here: FLUX.1, SDXL, Z-Image and Qwen-Image do; Krea
 2, FLUX.2 [klein], ERNIE-Image and Lumina 2 do not. The exact app-owned
-Anima Turbo class has an explicitly registered sibling; its runtime
-qualification is a separate check. The other Anima variants and NewBie have
-none. WAI and RouWei can explicitly opt into the pinned
+Anima Turbo, Aesthetic and Preview classes have explicitly registered
+siblings; each runtime qualification is a separate check. NewBie has none.
+WAI and RouWei can explicitly opt into the pinned
 Anime6B GAN before the VAE encode; its temporary net is released before the
 diffusion pass. The default path and its existing pixels stay unchanged.
 
@@ -346,8 +346,8 @@ def sibling(pipeline: type, kind: str = "Img2Img") -> type | None:
     `StableDiffusionXLInpaintPipeline` - and only for the class diffusers
     itself exports under that name: a local pipeline that merely shares one
     (the tests' stand-ins, a custom class) has components nobody checked
-    against the sibling's. The exact app-owned Anima Turbo class is the one
-    deliberate extension, sharing the same signature checks; resolving its
+    against the sibling's. The three exact app-owned Anima classes are the
+    deliberate extensions, sharing the same signature checks; resolving a
     class grants no runtime qualification. None where there is no such class,
     or where its call could not run what the text-to-image one runs (`REQUIRED`,
     or `INPAINT_REQUIRED` for an inpaint, and `CARRIED`).
@@ -357,16 +357,18 @@ def sibling(pipeline: type, kind: str = "Img2Img") -> type | None:
     name = getattr(pipeline, "__name__", "")
     if not name.endswith("Pipeline") or any(infix in name for infix in KINDS):
         return None
-    if kind == "Img2Img" and name == "AnimaTurboPipeline":
+    if kind == "Img2Img" and name in {
+        "AnimaTurboPipeline", "AnimaAestheticPipeline", "AnimaPreviewPipeline",
+    }:
         # Import only while resolving an already loaded pipeline class. The
         # schemas, storage and cold status paths import this leaf module too.
-        from .backends.anima_pipeline import AnimaTurboPipeline
+        from .backends.anima_pipeline import AnimaAestheticPipeline, AnimaPreviewPipeline, AnimaTurboPipeline
 
-        if pipeline is not AnimaTurboPipeline:
+        if not any(pipeline is known for known in (AnimaTurboPipeline, AnimaAestheticPipeline, AnimaPreviewPipeline)):
             return None
-        from .backends.anima_refine import AnimaTurboImg2ImgPipeline
+        from .backends.anima_refine import IMG2IMG
 
-        found = AnimaTurboImg2ImgPipeline
+        found = IMG2IMG[pipeline]
     else:
         import diffusers
 

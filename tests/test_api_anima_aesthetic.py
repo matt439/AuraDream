@@ -80,7 +80,7 @@ def test_aesthetic_negative_prompt_switches_on_only_above_one(client, aesthetic,
     [
         ({"reference": [1]}, "takes no reference images"),
         ({"lora": "demo-style.safetensors"}, "not supported by this Anima Aesthetic integration"),
-        ({"refine": 1, "strength": 0.4}, "has no refine pass"),
+        ({"refine": 1, "strength": 0.4}, "1024×1024"),
     ],
 )
 def test_aesthetic_refuses_unsupported_inputs_before_queuing(client, aesthetic, extra, reason):

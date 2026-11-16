@@ -1292,6 +1292,8 @@ or integrated-backend claim:
 | Checkpoint / loader | Source and output | Full steps / strength | Scope |
 | --- | --- | --- | --- |
 | Anima Turbo v1.1, fp8/model | 1024x1024 | 8 / 0.25 | Same-size private pass; no guard trip |
+| Anima Aesthetic v1.1, fp8/model | 1024x1024 | 30 / 0.125 | Independent one-load private pass, CFG 4; no guard trip |
+| Anima 2.9B Preview v1, fp8/model | 1024x1024 | 30 / 0.125 | Independent one-load private pass, CFG 4; no guard trip |
 
 Same-seed repeats, serial batch members versus their solo seeds and recovery
 after cancellation have equal full RGB hashes. Cancel stopped after one

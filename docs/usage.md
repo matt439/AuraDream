@@ -248,8 +248,8 @@ and Expand. The table below holds the same words for the whole catalogue.
 | NoobAI-XL V-pred 1.0 | Yes | Yes | Yes | No | Yes | Yes | Yes | No |
 | Z-Anime Base | Yes | Yes | Yes | No | Yes | Yes | Yes | No |
 | Anima Turbo v1.1 | Yes | No | No | No | No | Yes | Yes | No |
-| Anima Aesthetic v1.1 | No | No | No | No | No | Yes | Yes | No |
-| Anima 2.9B Preview v1 | No | No | No | No | No | Yes | Yes | No |
+| Anima Aesthetic v1.1 | Yes | No | No | No | No | Yes | Yes | No |
+| Anima 2.9B Preview v1 | Yes | No | No | No | No | Yes | Yes | No |
 | NetaYume Lumina v4 | No | No | No | No | Yes | Yes | Yes | No |
 | NewBie image Exp0.1 | No | No | No | No | No | Yes | Yes | No |
 | FLUX.1 [dev] | Yes | Yes | Yes | No | Yes | Yes | Yes | No |
@@ -640,12 +640,15 @@ The app records references, adapter and weight for Reuse and Resume.
 
 ## Refine an existing image
 
-**Anima Turbo Refine** currently redraws a 1024×1024 gallery image at that
-same size. It is measured only on an RTX 5080 with Windows, fp8/model offload,
-Eager/Native and diffusers 0.42.1, at 8 steps and CFG 1. Strength starts at
-0.25; Compare 3 offers 0.125, 0.25 and 0.4. Other values and enlargements stay
-held with their reason. An unknown GPU remains held until card discovery or
-loading verifies it. Aesthetic and Preview still have no released Refine pass.
+**Anima Refine** currently redraws a 1024×1024 gallery image at that same
+size. Each variant was measured independently on an RTX 5080 with Windows,
+fp8/model offload, Eager/Native and diffusers 0.42.1. Turbo uses 8 steps and
+CFG 1, opening at strength 0.25; Aesthetic and 2.9B Preview use 30 steps and
+CFG 4, opening at 0.125. Compare 3 offers the measured 0.125, 0.25 and 0.4
+values. Other values and enlargements stay held with their reason. An unknown
+GPU remains held until card discovery or loading verifies it.
+At CFG 4, Aesthetic and Preview preserve the negative prompt in the pass and
+its saved settings. Turbo at CFG 1 ignores it, as it does in direct generation.
 These strengths can redraw details and do not promise to repair anatomy.
 For Mass refine or Then refine, use scale 1 and the same measured settings.
 

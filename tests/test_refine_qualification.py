@@ -1,4 +1,4 @@
-"""Supplied-fact Turbo Refine admission, without frameworks or card work."""
+"""Supplied-fact Anima Refine admission, without frameworks or card work."""
 from __future__ import annotations
 
 import dataclasses
@@ -15,8 +15,11 @@ from backend import refine_qualification as qualification
 
 
 MODEL = "circlestone-labs/Anima"
+AESTHETIC = "circlestone-labs/Anima@aesthetic-v1.1"
+PREVIEW = "Gazingstars123/Anima-2.9B"
+VARIANT_IDS = (MODEL, AESTHETIC, PREVIEW)
 OTHER_MODELS = (
-    "circlestone-labs/Anima@aesthetic-v1.1", "Gazingstars123/Anima-2.9B",
+    "circlestone-labs/Anima@aesthetic-v1.2", "Gazingstars123/Anima-2.9B-preview-v2",
     "circlestone-labs/Anima-Base-v1.0-Diffusers", "cagliostrolab/animagine-xl-4.0",
     "black-forest-labs/FLUX.1-Krea-dev", "nobody/another-model",
 )
@@ -33,8 +36,14 @@ def request(**changes):
     values = dict(refine=17, inpainting=False, edit=None, upscaler=None,
                   width=1024, height=1024, steps=8, guidance_scale=1., true_cfg=None,
                   strength=.25, lora=None, reference=[], mu=None, crop_anchor="center",
-                  execution=None)
+                  execution=None, negative_prompt="")
     return SimpleNamespace(**(values | changes))
+
+
+def variant_request(model, **changes):
+    envelope = qualification.envelope_for(model)
+    return request(**(dict(steps=envelope.steps, guidance_scale=envelope.guidance_scale,
+                          strength=envelope.default_strength) | changes))
 
 
 def test_measured_envelope_is_explicit_and_frozen():
@@ -51,16 +60,45 @@ def test_measured_envelope_is_explicit_and_frozen():
         envelope.steps = 30
 
 
+@pytest.mark.parametrize("model, attribute, steps, cfg, opening", [
+    (MODEL, "ANIMA_TURBO", 8, 1., .25),
+    (AESTHETIC, "ANIMA_AESTHETIC", 30, 4., .125),
+    (PREVIEW, "ANIMA_PREVIEW", 30, 4., .125),
+])
+def test_each_variant_has_its_own_frozen_exact_measured_recipe(model, attribute, steps, cfg, opening):
+    envelope = qualification.envelope_for(model)
+    assert envelope is getattr(qualification, attribute)
+    assert envelope.model_id == model and envelope.steps == steps
+    assert envelope.guidance_scale == cfg and envelope.default_strength == opening
+    assert envelope.size == (1024, 1024) and envelope.strengths == (.125, .25, .4)
+    assert envelope.platform == "win32" and envelope.gpu_name == "NVIDIA GeForce RTX 5080"
+    assert (envelope.quantization, envelope.offload, envelope.diffusers_version) == ("fp8", "model", "0.42.1")
+    assert envelope.devices == ("cuda", "cuda:0")
+    assert isinstance(envelope.empty_negative, bool)
+    assert qualification.envelope_for(model.swapcase()) is envelope
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        envelope.default_strength = .5
+
+
+def test_the_variant_table_cannot_be_mutated_or_extended_by_a_caller():
+    assert set(qualification.ENVELOPES) == {model.casefold() for model in VARIANT_IDS}
+    with pytest.raises(TypeError):
+        qualification.ENVELOPES["nobody/unmeasured"] = qualification.ANIMA_TURBO
+
+
+@pytest.mark.parametrize("model", VARIANT_IDS)
 @pytest.mark.parametrize("device", ["cuda", "cuda:0"])
-def test_only_the_measured_supplied_loader_is_admitted(device):
-    assert qualification.loader_refusal(MODEL, loader(device=device)) is None
+def test_only_the_measured_supplied_loader_is_admitted(model, device):
+    assert qualification.loader_refusal(model, loader(device=device)) is None
 
 
+@pytest.mark.parametrize("model", VARIANT_IDS)
 @pytest.mark.parametrize("execution", [None, {}, {"compilation": None, "attention_backend": None}])
-def test_empty_loader_execution_keeps_eager_identity(execution):
-    assert qualification.loader_refusal(MODEL, loader(loader_execution=execution)) is None
+def test_empty_loader_execution_keeps_eager_identity(model, execution):
+    assert qualification.loader_refusal(model, loader(loader_execution=execution)) is None
 
 
+@pytest.mark.parametrize("model", VARIANT_IDS)
 @pytest.mark.parametrize("changes, detail", [
     ({"quantization": "int8"}, "quantization"), ({"quantization": "none"}, "quantization"),
     ({"quantization": "nunchaku"}, "quantization"), ({"quantization": "FP8"}, "quantization"),
@@ -76,43 +114,48 @@ def test_empty_loader_execution_keeps_eager_identity(execution):
     ({"gpu_name": "NVIDIA GeForce RTX 5090"}, "GPU"), ({"gpu_name": "RTX 5080"}, "GPU"),
     ({"native_attention": False}, "attention override"),
 ])
-def test_each_unmeasured_supplied_loading_fact_holds(changes, detail):
+def test_each_unmeasured_supplied_loading_fact_holds(model, changes, detail):
     facts = loader(**changes)
     before = dataclasses.asdict(facts)
-    reason = qualification.loader_refusal(MODEL, facts)
-    assert reason is not None and qualification.NAME in reason and detail in reason
+    reason = qualification.loader_refusal(model, facts)
+    assert reason is not None and qualification.envelope_for(model).name in reason and detail in reason
     assert dataclasses.asdict(facts) == before
 
 
+@pytest.mark.parametrize("model", VARIANT_IDS)
 @pytest.mark.parametrize("execution", [
     {"compilation": "regional-v1"}, {"attention_backend": "cudnn-v1"},
     {"step_cache": "fbc-005-v1"}, {"compilation": "future"}, {"extra": "value"},
     "regional-v1", [], 17,
 ])
-def test_nonempty_or_unreadable_loader_execution_never_grants_admission(execution):
-    reason = qualification.loader_refusal(MODEL, loader(loader_execution=execution))
+def test_nonempty_or_unreadable_loader_execution_never_grants_admission(model, execution):
+    reason = qualification.loader_refusal(model, loader(loader_execution=execution))
     assert reason is not None and "configuration" in reason
 
 
-@pytest.mark.parametrize("model", [MODEL.lower(), MODEL.upper(), "Circlestone-Labs/Anima"])
-def test_case_variants_cannot_escape_the_exact_id_requirement(model):
+@pytest.mark.parametrize("canonical, model", [
+    (canonical, alias) for canonical in VARIANT_IDS
+    for alias in (canonical.lower(), canonical.upper(), canonical.swapcase())
+])
+def test_case_variants_cannot_escape_the_exact_id_requirement(canonical, model):
     assert qualification.applies(model)
     assert qualification.loader_refusal(model, loader()) == (
-        f"{qualification.NAME} is held: select {MODEL} exactly."
+        f"{qualification.envelope_for(canonical).name} is held: select {canonical} exactly."
     )
     assert qualification.source_refusal(model, (1024, 768)) is not None
-    assert qualification.request_refusal(model, request(steps=30)) is not None
+    assert qualification.request_refusal(model, variant_request(canonical, steps=qualification.envelope_for(canonical).steps + 1))
 
 
+@pytest.mark.parametrize("model", VARIANT_IDS)
 @pytest.mark.parametrize("gpu_name", [None, "NVIDIA GeForce RTX 3070", "unverified"])
-def test_potential_loader_check_skips_only_gpu_name(gpu_name):
+def test_potential_loader_check_skips_only_gpu_name(model, gpu_name):
     facts = loader(gpu_name=gpu_name)
-    assert qualification.loader_refusal(MODEL, facts) is not None
-    assert qualification.loader_refusal(MODEL, facts, check_hardware=False) is None
+    assert qualification.loader_refusal(model, facts) is not None
+    assert qualification.loader_refusal(model, facts, check_hardware=False) is None
     for changes in ({"platform": "linux"}, {"device": "cpu"}, {"native_attention": False},
                     {"quantization": "none"}, {"offload": "sequential"},
                     {"diffusers_version": None}, {"loader_execution": {"attention_backend": "cudnn-v1"}}):
-        assert qualification.loader_refusal(MODEL, dataclasses.replace(facts, **changes), check_hardware=False)
+        assert qualification.loader_refusal(model, dataclasses.replace(facts, **changes), check_hardware=False)
 
 
 def test_loader_facts_of_snapshots_selected_scalars_and_preserves_explicit_execution():
@@ -128,32 +171,35 @@ def test_loader_facts_of_snapshots_selected_scalars_and_preserves_explicit_execu
         gpu_name="NVIDIA GeForce RTX 5080", native_attention=True) == loader()
 
 
+@pytest.mark.parametrize("model", VARIANT_IDS)
 @pytest.mark.parametrize("strength", [.125, .25, .4])
-def test_each_measured_actual_pass_is_admitted_without_normalization(strength):
-    actual = request(strength=strength)
+def test_each_measured_actual_pass_is_admitted_without_normalization(model, strength):
+    actual = variant_request(model, strength=strength)
     before = vars(actual).copy()
-    assert qualification.request_refusal(MODEL, actual) is None
+    assert qualification.request_refusal(model, actual) is None
     assert vars(actual) == before
-    assert qualification.source_refusal(MODEL, (1024, 1024)) is None
+    assert qualification.source_refusal(model, (1024, 1024)) is None
 
 
+@pytest.mark.parametrize("model", VARIANT_IDS)
 @pytest.mark.parametrize("execution", [None, {}, {"compilation": None, "attention_backend": None}])
-def test_empty_per_render_execution_preserves_the_measured_eager_pass(execution):
-    assert qualification.request_refusal(MODEL, request(execution=execution)) is None
-    legacy = request()
+def test_empty_per_render_execution_preserves_the_measured_eager_pass(model, execution):
+    assert qualification.request_refusal(model, variant_request(model, execution=execution)) is None
+    legacy = variant_request(model)
     del legacy.execution
-    assert qualification.request_refusal(MODEL, legacy) is None
+    assert qualification.request_refusal(model, legacy) is None
 
 
+@pytest.mark.parametrize("model", VARIANT_IDS)
 @pytest.mark.parametrize("execution", [
     {"compilation": "regional-v1"}, {"attention_backend": "cudnn-v1"},
     {"step_cache": "fbc-005-v1"}, {"step_cache": "future"}, {"unknown": "value"},
     "cudnn-v1", [], 17,
 ])
-def test_nonempty_or_unreadable_per_render_execution_is_held_without_dropping_it(execution):
-    actual = request(execution=execution)
-    reason = qualification.request_refusal(MODEL, actual)
-    assert reason is not None and qualification.NAME in reason
+def test_nonempty_or_unreadable_per_render_execution_is_held_without_dropping_it(model, execution):
+    actual = variant_request(model, execution=execution)
+    reason = qualification.request_refusal(model, actual)
+    assert reason is not None and qualification.envelope_for(model).name in reason
     assert actual.execution is execution
 
 
@@ -183,9 +229,67 @@ def test_each_unmeasured_shape_or_sampling_intent_holds_without_dropping_it(chan
     assert vars(actual) == before
 
 
+@pytest.mark.parametrize("model", [AESTHETIC, PREVIEW])
+@pytest.mark.parametrize("changes", [
+    {"inpainting": True}, {"edit": object()}, {"upscaler": "realesrgan-x4plus-anime6b"},
+    {"width": 512, "height": 512}, {"width": 1024, "height": 768},
+    {"width": 1280, "height": 1280},
+    {"steps": 8}, {"steps": 29}, {"steps": 31}, {"steps": 30.0}, {"steps": True}, {"steps": None},
+    {"guidance_scale": 1.}, {"guidance_scale": 3.}, {"guidance_scale": 5.},
+    {"guidance_scale": float("nan")}, {"guidance_scale": float("inf")},
+    {"true_cfg": 0.}, {"true_cfg": 1.},
+    {"strength": 0.}, {"strength": .15}, {"strength": .3}, {"strength": 1.},
+    {"strength": None}, {"strength": float("nan")},
+    {"lora": "adapter"}, {"lora": ""}, {"reference": [3]}, {"mu": 0.}, {"mu": 1.},
+    {"crop_anchor": "top"}, {"crop_anchor": "bottom-right"},
+])
+def test_cfg_four_variants_keep_their_own_bounds_without_inheriting_turbo_sampling(model, changes):
+    actual = variant_request(model, **changes)
+    before = vars(actual).copy()
+    reason = qualification.request_refusal(model, actual)
+    assert reason is not None and qualification.envelope_for(model).name in reason
+    assert vars(actual) == before
+
+
+@pytest.mark.parametrize("model", [AESTHETIC, PREVIEW])
+@pytest.mark.parametrize("negative", ["rain", " ", "no people"])
+def test_cfg_four_negative_prompt_follows_its_measured_data_flag_and_is_never_dropped(model, negative):
+    envelope = qualification.envelope_for(model)
+    actual = variant_request(model, negative_prompt=negative)
+    reason = qualification.request_refusal(model, actual)
+    if envelope.empty_negative:
+        assert reason is not None and "negative prompt" in reason
+    else:
+        assert reason is None
+    assert actual.negative_prompt == negative
+
+
+@pytest.mark.parametrize("model", [AESTHETIC, PREVIEW])
+@pytest.mark.parametrize("empty_negative", [False, True])
+def test_negative_prompt_guard_is_per_recipe_data_not_a_permanent_cfg_four_capability_loss(
+    monkeypatch, model, empty_negative,
+):
+    envelope = dataclasses.replace(qualification.envelope_for(model), empty_negative=empty_negative)
+    monkeypatch.setattr(qualification, "envelope_for", lambda _: envelope)
+    actual = variant_request(model, negative_prompt="preserve these exclusion words")
+    reason = qualification.request_refusal(model, actual)
+    assert (reason is not None) is empty_negative
+    assert actual.negative_prompt == "preserve these exclusion words"
+    for negative in (None, ""):
+        assert qualification.request_refusal(model, variant_request(model, negative_prompt=negative)) is None
+    assert qualification.request_refusal(model, SimpleNamespace(refine=None, negative_prompt="rain")) is None
+
+
+def test_turbo_ignored_negative_text_does_not_invent_an_active_negative_branch():
+    actual = request(negative_prompt="rain")
+    assert qualification.request_refusal(MODEL, actual) is None
+    assert actual.negative_prompt == "rain"
+
+
+@pytest.mark.parametrize("model", VARIANT_IDS)
 @pytest.mark.parametrize("size", [(512, 512), (1280, 1280), (768, 1024), (1024, 768), (0, 1024)])
-def test_the_original_source_has_its_own_exact_size_requirement(size):
-    assert qualification.source_refusal(MODEL, size) is not None
+def test_the_original_source_has_its_own_exact_size_requirement(model, size):
+    assert qualification.source_refusal(model, size) is not None
 
 
 class UnreadableFacts:
@@ -202,18 +306,20 @@ def test_other_checkpoint_families_keep_their_existing_admission(model):
     assert qualification.suggestions(model) is None
 
 
-def test_turbo_direct_generation_does_not_read_or_normalize_refine_fields():
-    assert qualification.request_refusal(MODEL, SimpleNamespace(refine=None)) is None
+@pytest.mark.parametrize("model", VARIANT_IDS)
+def test_direct_generation_does_not_read_or_normalize_refine_fields(model):
+    assert qualification.request_refusal(model, SimpleNamespace(refine=None)) is None
 
 
-def test_measured_strength_suggestions_are_fresh_copies_without_a_profile_guess():
-    first = qualification.suggestions(MODEL)
-    second = qualification.suggestions(MODEL)
+@pytest.mark.parametrize("model", VARIANT_IDS)
+def test_measured_strength_suggestions_are_fresh_copies_without_a_profile_guess(model):
+    first = qualification.suggestions(model)
+    second = qualification.suggestions(model)
     assert first == second
-    assert first["steps"] == 8 and first["strengths"] == [.125, .25, .4]
+    assert first["steps"] == qualification.envelope_for(model).steps and first["strengths"] == [.125, .25, .4]
     first["strengths"].clear()
     assert second["strengths"] == [.125, .25, .4]
-    assert qualification.suggestions(MODEL)["strengths"] == [.125, .25, .4]
+    assert qualification.suggestions(model)["strengths"] == [.125, .25, .4]
 
 
 def fake_torch(*, name="NVIDIA GeForce RTX 5080", available=True):
@@ -301,6 +407,16 @@ actual = SimpleNamespace(refine=1, inpainting=False, edit=None, upscaler=None, w
 assert q.request_refusal(q.ANIMA_TURBO.model_id, actual) is None
 assert q.source_refusal(q.ANIMA_TURBO.model_id, (1024, 1024)) is None
 assert q.suggestions(q.ANIMA_TURBO.model_id)["strengths"] == [.125, .25, .4]
+for envelope in q.ENVELOPES.values():
+    actual.steps = envelope.steps
+    actual.guidance_scale = envelope.guidance_scale
+    actual.strength = envelope.default_strength
+    actual.negative_prompt = ""
+    assert q.envelope_for(envelope.model_id) is envelope
+    assert q.loader_refusal(envelope.model_id, facts) is None
+    assert q.request_refusal(envelope.model_id, actual) is None
+    assert q.source_refusal(envelope.model_id, (1024, 1024)) is None
+    assert q.suggestions(envelope.model_id)["steps"] == envelope.steps
 card_facts.probe = network
 assert card_facts.observed() is None
 assert os.environ == before and not any(attempts.values())

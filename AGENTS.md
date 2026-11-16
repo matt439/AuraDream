@@ -133,12 +133,13 @@ Model and loader:
 
 Schedule and profiles:
 
-- Anima Turbo Refine is a measured, bounded extension, not a general Anima
-  capability: only exact Turbo on RTX 5080/Windows CUDA 0, fp8/model,
-  Eager/Native, diffusers 0.42.1, 1024-square source/output, 8 steps, CFG 1
-  and strengths 0.125/0.25/0.4 (opening 0.25). Keep its qualification/source
-  checks at admission and each call; Aesthetic/Preview and enlargement stay
-  held. See `docs/rules.md`, "Measured Anima Turbo Refine".
+- Anima Refine is bounded independently for the three exact variants: RTX
+  5080/Windows CUDA 0, fp8/model, Eager/Native, diffusers 0.42.1, 1024-square
+  source/output and strengths 0.125/0.25/0.4. Turbo uses 8 steps/CFG 1 and
+  opens at 0.25; Aesthetic and Preview use 30 steps/CFG 4 and open at 0.125.
+  Keep qualification/source checks at admission and each call; enlargement,
+  other classes and other loaders/platforms stay held. See `docs/rules.md`,
+  "Measured Anima Refine".
 
 - A requested `mu` is the whole shift (`schedule.forced_mu`,
   `shifted_sigmas`, `requested_shift`), and only on a `FlowMatch*`

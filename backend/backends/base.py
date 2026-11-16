@@ -229,7 +229,7 @@ class GenerationBackend(abc.ABC):
 
     def refine_refusal(self, selected: Any, request: "GenerateRequest | None" = None, *,
                        check_hardware: bool = True) -> str | None:
-        """The measured Turbo envelope; other checkpoints retain their contract."""
+        """The measured Anima envelopes; other checkpoints retain their contract."""
         from .. import refine_qualification
 
         if request is not None and (request.refine is None or request.inpainting):

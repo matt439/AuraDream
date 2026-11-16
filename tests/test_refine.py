@@ -44,6 +44,7 @@ SIBLINGS = {
     "ZImagePipeline": "ZImageImg2ImgPipeline",
     "QwenImagePipeline": "QwenImageImg2ImgPipeline",
 }
+ANIMA_CLASSES = ("AnimaTurboPipeline", "AnimaAestheticPipeline", "AnimaPreviewPipeline")
 
 
 # ---------------------------------------------------------------- the sibling
@@ -62,29 +63,29 @@ def test_the_profile_guess_matches_the_installed_diffusers(model_id, class_name)
     assert ("no compatible image-to-image counterpart" in hint) is (found is None)
 
 
-def test_only_the_exact_qualified_turbo_class_has_a_local_sibling():
-    # The exact Turbo class has a deliberately registered counterpart. This
-    # structural answer is independent of the backend's runtime qualification.
+def test_only_the_exact_measured_anima_classes_have_local_siblings():
+    # Each exact Anima class has its own deliberately registered counterpart.
+    # This structural answer is independent of runtime qualification.
     from backend.backends.anima_loading import AESTHETIC_MODEL_ID
     from backend.backends.anima_pipeline import AnimaAestheticPipeline, AnimaPreviewPipeline, AnimaTurboPipeline
-    from backend.backends.anima_refine import AnimaTurboImg2ImgPipeline
+    from backend.backends.anima_refine import IMG2IMG
     from backend.backends.newbie_pipeline import NewbiePipeline
 
-    assert refine.sibling(AnimaTurboPipeline) is AnimaTurboImg2ImgPipeline
-    assert refine.sibling(AnimaTurboPipeline, "Inpaint") is None
-    assert refine.sibling(AnimaTurboImg2ImgPipeline) is None
-    assert refine.sibling(AnimaAestheticPipeline) is None
-    assert refine.sibling(AnimaPreviewPipeline) is None
+    for pipeline in (AnimaTurboPipeline, AnimaAestheticPipeline, AnimaPreviewPipeline):
+        assert refine.sibling(pipeline) is IMG2IMG[pipeline]
+        assert refine.sibling(pipeline, "Inpaint") is None
+        assert refine.sibling(IMG2IMG[pipeline]) is None
     assert refine.sibling(NewbiePipeline) is None
     assert defaults_for("circlestone-labs/Anima")["refine_supported"]
-    assert not defaults_for(AESTHETIC_MODEL_ID)["refine_supported"]
-    assert not defaults_for("Gazingstars123/Anima-2.9B")["refine_supported"]
+    assert defaults_for(AESTHETIC_MODEL_ID)["refine_supported"]
+    assert defaults_for("Gazingstars123/Anima-2.9B")["refine_supported"]
     assert not defaults_for("NewBie-AI/NewBie-image-Exp0.1")["refine_supported"]
     # These app-owned structural answers are settled before a load. Runtime
-    # qualification may still hold Turbo; loading does not discover an
-    # unmeasured sibling for any of the other local classes.
+    # qualification may still hold any selected Anima recipe; loading does
+    # not discover an unmeasured sibling for another local class.
     assert defaults_for("circlestone-labs/Anima")["refine_settled"]
     assert defaults_for(AESTHETIC_MODEL_ID)["refine_settled"]
+    assert defaults_for("Gazingstars123/Anima-2.9B")["refine_settled"]
     assert defaults_for("NewBie-AI/NewBie-image-Exp0.1")["refine_settled"]
     # An unrecognised checkpoint is not promised one either, until it loads -
     # and that is a guess the load settles.
@@ -99,16 +100,18 @@ def test_a_class_that_only_shares_the_name_has_no_sibling():
     # The sibling is built over the pipeline's components unchecked, so it is
     # offered only for the class diffusers itself exports under that name.
     assert refine.sibling(type("FluxPipeline", (), {})) is None
-    assert refine.sibling(type("AnimaTurboPipeline", (), {})) is None
+    for name in ANIMA_CLASSES:
+        assert refine.sibling(type(name, (), {})) is None
     assert refine.sibling(KleinLikePipeline) is None
     # And never for a class that is already image-to-image.
     assert refine.sibling(diffusers.FluxImg2ImgPipeline) is None
 
 
-def test_a_subclass_cannot_borrow_the_registered_turbo_identity():
-    from backend.backends.anima_pipeline import AnimaTurboPipeline
+@pytest.mark.parametrize("class_name", ANIMA_CLASSES)
+def test_a_subclass_cannot_borrow_a_registered_anima_identity(class_name):
+    from backend.backends import anima_pipeline
 
-    borrowed = type("AnimaTurboPipeline", (AnimaTurboPipeline,), {})
+    borrowed = type(class_name, (getattr(anima_pipeline, class_name),), {})
     assert refine.sibling(borrowed) is None
 
 
@@ -116,11 +119,14 @@ def test_a_subclass_cannot_borrow_the_registered_turbo_identity():
     "image", "strength", "generator", "callback_on_step_end", "prompt",
     "negative_prompt", "guidance_scale", "num_inference_steps", "num_images_per_prompt",
 ])
-def test_the_registered_turbo_sibling_obeys_required_and_carried_checks(monkeypatch, missing):
-    from backend.backends.anima_pipeline import AnimaTurboPipeline
-    from backend.backends.anima_refine import AnimaTurboImg2ImgPipeline
+@pytest.mark.parametrize("class_name", ANIMA_CLASSES)
+def test_each_registered_anima_sibling_obeys_required_and_carried_checks(monkeypatch, missing, class_name):
+    from backend.backends import anima_pipeline
+    from backend.backends.anima_refine import IMG2IMG
 
-    signature = inspect.signature(AnimaTurboImg2ImgPipeline.__call__)
+    pipeline = getattr(anima_pipeline, class_name)
+    counterpart = IMG2IMG[pipeline]
+    signature = inspect.signature(counterpart.__call__)
 
     def incompatible(*args, **kwargs):
         raise AssertionError("resolving a sibling must not invoke it")
@@ -128,16 +134,18 @@ def test_the_registered_turbo_sibling_obeys_required_and_carried_checks(monkeypa
     incompatible.__signature__ = signature.replace(
         parameters=[parameter for name, parameter in signature.parameters.items() if name != missing],
     )
-    monkeypatch.setattr(AnimaTurboImg2ImgPipeline, "__call__", incompatible)
-    assert refine.sibling(AnimaTurboPipeline) is None
+    monkeypatch.setattr(counterpart, "__call__", incompatible)
+    assert refine.sibling(pipeline) is None
 
 
-def test_the_registered_turbo_sibling_refuses_an_uninspectable_call(monkeypatch):
-    from backend.backends.anima_pipeline import AnimaTurboPipeline
-    from backend.backends.anima_refine import AnimaTurboImg2ImgPipeline
+@pytest.mark.parametrize("class_name", ANIMA_CLASSES)
+def test_each_registered_anima_sibling_refuses_an_uninspectable_call(monkeypatch, class_name):
+    from backend.backends import anima_pipeline
+    from backend.backends.anima_refine import IMG2IMG
 
-    monkeypatch.setattr(AnimaTurboImg2ImgPipeline, "__call__", None)
-    assert refine.sibling(AnimaTurboPipeline) is None
+    pipeline = getattr(anima_pipeline, class_name)
+    monkeypatch.setattr(IMG2IMG[pipeline], "__call__", None)
+    assert refine.sibling(pipeline) is None
 
 
 def test_refine_import_stays_cold_with_the_app_owned_registration():

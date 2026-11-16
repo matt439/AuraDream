@@ -61,7 +61,9 @@ def test_the_status_says_when_the_answer_is_final(client, fake, monkeypatch):
         if settled:
             # Turbo now has a structural counterpart. Its actual host/loader
             # holds are independently tested with supplied facts.
-            assert defaults["refine_supported"] is (model_id == "circlestone-labs/Anima")
+            assert defaults["refine_supported"] is (model_id in {
+                "circlestone-labs/Anima", "circlestone-labs/Anima@aesthetic-v1.1", "Gazingstars123/Anima-2.9B",
+            })
 
 
 def test_a_refine_is_refused_at_submit_where_the_checkpoint_has_none(client, fake, store):

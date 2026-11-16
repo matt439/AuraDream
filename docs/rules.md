@@ -322,10 +322,10 @@ paragraphs, never rewording.
   ships beside a pipeline's own (`sibling`), that class built over the loaded
   components (`build`), the steps a strength leaves, and the source scaled to
   cover the requested size and cropped; a leaf module like `seeds`
-- `backend/refine_qualification.py` — import-cold measured Turbo envelope,
+- `backend/refine_qualification.py` — import-cold measured Anima envelope table,
   supplied loader/hardware facts, per-request/source refusals and measured
   strength suggestions; it probes nothing and changes no reproduction keys
-- `backend/refine_admission.py` — gallery-only Turbo source decode/proof:
+- `backend/refine_admission.py` — gallery-only Anima source decode/proof:
   actual PNG dimensions and RGB provenance before fitting, rechecked per call
 - `backend/instruction_edit.py` — standalone `kontext-v1` recipe, strict
   request/stored-source contracts, original-RGB provenance and exact-aspect
@@ -422,8 +422,8 @@ paragraphs, never rewording.
   image-to-image classes over the upstream encoder, image-to-image core and
   decoder (`GEN#48` stage 1): the text pipeline's callback, `num_timesteps`
   as the sliced count before the first step, flow rounding (`start_index`)
-  and a start sigma read on a scheduler copy; only exact Turbo is registered,
-  behind its measured runtime/request envelope. Aesthetic/Preview remain private
+  and a start sigma read on a scheduler copy; only the three exact measured
+  variants are registered, each behind its own runtime/request envelope
 - `backend/backends/flux3_loading.py` — FLUX 3 [Klein] and Klein Base: the
   pinned snapshot's configs (preflight: the modular index's classes, the
   transformer's `flow_map`) then only its `transformer/`, `text_encoder/` and
@@ -1571,7 +1571,8 @@ measured on the card and when.
   downloads and links. Never change the bare id's Turbo meaning or cache.
   `AnimaAestheticPipeline` shares the inference blocks with 30-step/CFG-4
   defaults and fixed FlowMatch Euler shift 3. Mu, references, user LoRAs,
-  Refine and Nunchaku are unavailable. Its own guide and critic grounding
+  and Nunchaku are unavailable. Its measured Refine uses the independent
+  Aesthetic envelope below. Its own guide and critic grounding
   omit Turbo's CFG-1/distillation claims and the generic `score_7` prefix:
   the authors discourage `score_*` in both Aesthetic prompts. Both guides
   state the card's tag order verbatim, which Check reads
@@ -1592,7 +1593,8 @@ measured on the card and when.
   in settings and metadata. `AnimaPreviewPipeline` uses the existing fixed
   FlowMatch Euler shift 3 integration with 30-step/CFG-4 defaults; this is not
   the author's ComfyUI sampler/scheduler recipe. Mu, references, user LoRAs,
-  Refine, inpaint and Nunchaku are unavailable. Its own guide/critic grounding
+  inpaint and Nunchaku are unavailable. Its measured Refine uses the independent
+  Preview envelope below. Its own guide/critic grounding
   describes detailed mixed prompts and the preview's size advice without
   inheriting Turbo distillation or Aesthetic score prohibitions. Do not infer
   measured speed, memory or quality from the other Anima selections.
@@ -2820,16 +2822,17 @@ measured on the card and when.
   until restored; `refine_binned` (read, not stored, from the same lookup)
   says which, so the page reads "refine of #N (in the recycle bin)" and
   offers Restore, which clears both.
-#### Measured Anima Turbo Refine
+#### Measured Anima Refine
 
-- Only exact `circlestone-labs/Anima` and exact `AnimaTurboPipeline` have the
-  app-owned Turbo counterpart. It still passes `REQUIRED`/`CARRIED` checks;
-  lookalikes, subclasses, Aesthetic and Preview remain unregistered. The
+- Only the three exact selected ids and exact Turbo/Aesthetic/Preview text
+  classes have their measured app-owned counterparts. They still pass the
+  `REQUIRED`/`CARRIED` checks; lookalikes and subclasses remain unregistered. The
   profile's positive structural answer grants no runtime permission.
-- `refine_qualification.ANIMA_TURBO` owns the measured envelope: RTX 5080,
+- `refine_qualification.ENVELOPES` owns the measured data: RTX 5080,
   Windows, CUDA device 0, fp8/model offload, Eager/Native, diffusers 0.42.1,
-  1024-square original source and output, eight full steps, CFG 1 and strengths
-  0.125/0.25/0.4; the provisional opening is 0.25. No enlargement, other
+  1024-square original source and output and strengths 0.125/0.25/0.4. Turbo
+  has 8 full steps/CFG 1 and opens at 0.25; Aesthetic/Preview have 30 steps/
+  CFG 4 and open at 0.125. These are provisional measured openings. No enlargement, other
   loader, platform or card is inferred. Inpaint/outpaint stay unavailable.
 - The backend reads supplied/cached host facts. `card_facts.observed` never
   imports or probes; the existing card probe supplies the GPU name, and an
@@ -2840,7 +2843,7 @@ measured on the card and when.
   exact Native baseline before and after forwarding, with no retry.
 - Every actual expanded request is checked, not a grid's first combination.
   Queue admission rejects all nonempty execution/composer intent before source
-  I/O, then all pure Turbo qualifications before gallery proofs or mask work.
+  I/O, then all pure per-variant qualifications before gallery proofs or mask work.
   Mass refine reports ineligible rows individually; retained Finish, More seeds,
   rerenders and CLI use the same bounds. Then refine validates the base's
   dimensions and future pass without opening its placeholder source id.
@@ -2849,11 +2852,17 @@ measured on the card and when.
   one open handle before fitting; a same-size fit transfers the living image.
   A changed, missing or binned source refuses before the model call. This uses
   ordinary Refine provenance and adds no stored field, key or normalization.
-- Turbo's explicit flow-rounding policy is separate from Mu. Central
+- Each variant's explicit flow-rounding policy is separate from Mu. Central
   `refine.start_index` feeds initial progress, estimates and duplicate advice;
   keys retain the requested strength. Sigma advice calls the Anima reader on a
   scheduler copy. Each one-image call frees the loaded owner's hooks, including
   failures/cancellation, matching the measured serial protocol.
+- Aesthetic/Preview retain ordinary negative conditioning at CFG 4, separately
+  checked by empty controls and nonempty repeat/recovery card probes. Their
+  stored `true_cfg=4` with an active negative is the existing effective-CFG
+  bookkeeping, not another knob; accept that normalized intent for replay.
+  Turbo at CFG 1 keeps its ordinary ignored-negative behavior. Text varies
+  within existing encoder/request limits and carries no quality guarantee.
 - Status supplies typed measured strength suggestions and a scalar held reason.
   Grid preview supplies an exact common per-image `denoised_steps` or null.
   The page consumes them, keeps typed values on polling, and refreshes held
@@ -11640,8 +11649,9 @@ Re-render, Swap tags and More seeds; the CLI's `--mask-crop`, its
 It checks cold/live measured support, opening at 1024 square and 0.25,
 server-supplied 0.125/0.25/0.4 suggestions and exact two/four-of-eight captions,
 source/size/steps/CFG/strength holds, explicit queue and saved source/strength,
-and changing held reasons without changing capability. Existing Anima smokes
-retain the unqualified variants and unrelated-feature refusals. No checkpoint
+and changing held reasons without changing capability. The native Aesthetic
+and Preview smokes also check their measured 30-step/CFG-4 recipes, opening
+0.125, 4/8/12 counts, preserved negatives and unrelated-feature refusals. No checkpoint
 weights or GPU qualification comes from these browser checks.
 
 `smoke-detailer.json` runs on an Animagine XL 4.0 fake on shared port 7960,

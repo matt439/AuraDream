@@ -1,9 +1,8 @@
 """Image-to-image passes over Diffusers' Anima blocks (GEN#48).
 
-Only the exact Turbo class is registered structurally. Its backend still
-requires the measured loader, hardware, source and request envelope. Aesthetic
-and Preview remain private and unregistered pending independent card trials
-(docs/maintainer/plan-anima-refine.md).
+Only the three exact qualified classes are registered structurally. Their
+backend still requires each variant's measured loader, hardware, source and
+request envelope (docs/maintainer/plan-anima-refine.md).
 
 The upstream implementation is reused unchanged: `AnimaImg2ImgVaeEncoderStep`
 (preprocess, posterior-mode encode, latents mean/std normalisation),
