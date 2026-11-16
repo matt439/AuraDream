@@ -15422,6 +15422,26 @@ The loopback certificate SAN and client CA trust are explicit prerequisites.
 Tests create a temporary certificate and trust it only in their process;
 no service, firewall, CA store or live LAN installation was changed.
 
+**A slow HTTPS handshake is still unverified (2026-11-17).** The Windows
+CI installer test reached the updater's later no-`.git` refusal instead of
+its HTTPS refusal. Its exact transport status was not retained. A controlled
+loopback reproduction then delayed TLS negotiation beyond the existing
+two-second request limit: both shipped probe functions returned `other` on
+the observed .NET `Timeout`, and the updater carried on to the same later
+checkout check. The configured listener had accepted TCP, but no verified
+HTTP response established that it was unrelated to AuraDream.
+
+The probe now holds install/update after an HTTPS request failure without
+a verified HTTP response. A response-bearing HTTP error such as a verified
+unrelated 404 remains `other`, as does a verified unrelated successful page.
+Plain HTTP and the initial TCP test are unchanged. Certificate validation,
+the loopback direct connection and redirect refusal remain in place. The
+regression uses a controlled stalled handshake, retaining the original
+untrusted-certificate test. Positive HTTPS controls pin only their generated
+leaf certificate within a fresh test process; no OS trust-store changes or
+production validation callback are involved. Tests use temporary project
+folders and inert tools, not a real installation or update.
+
 **A pair that cannot serve (`DEV#55`, 2026-11-12).** Checking only that
 both files existed let a non-PEM, mismatched or password-protected pair
 reach uvicorn, which failed with an opaque `[SSL] PEM lib` traceback; under

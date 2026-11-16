@@ -115,10 +115,21 @@ function Test-AuraDreamAt([int]$Port) {
         } finally { $response.Close() }
         if ($page -match '<title>AuraDream</title>') { return 'auradream' }
     } catch {
-        $failure = $_.Exception
-        while ($null -ne $failure) {
-            if ($env:AURADREAM_SSL_CERTFILE -and $failure -is [System.Net.WebException] -and $failure.Status -in @('TrustFailure', 'SecureChannelFailure')) { return 'tls_unverified' }
-            $failure = $failure.InnerException
+        if ($env:AURADREAM_SSL_CERTFILE) {
+            $failure = $_.Exception
+            while ($null -ne $failure) {
+                # An HTTP error response completed TLS verification too.
+                if ($failure -is [System.Net.WebException] -and
+                    $failure.Status -eq [System.Net.WebExceptionStatus]::ProtocolError -and
+                    $failure.Response -is [System.Net.HttpWebResponse]) {
+                    $failure.Response.Close()
+                    return 'other'
+                }
+                $failure = $failure.InnerException
+            }
+            # TCP connected, but a timeout or another incomplete HTTPS probe
+            # cannot establish that the listener is safe to update under.
+            return 'tls_unverified'
         }
     }
     return 'other'

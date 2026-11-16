@@ -881,6 +881,13 @@ paragraphs, never rewording.
   seam `AURADREAM_INSTALL_TEST_ROOT` names the project folder, ignores the
   user's saved variables and takes the desktop from `USERPROFILE`
   (`tests/test_install_scripts.py`, Windows only)
+  A configured HTTPS listener that accepted TCP but yielded no verified HTTP
+  response holds install/update, including a TLS handshake timeout. A verified
+  unrelated HTTPS response, including an HTTP error response, remains `other`;
+  certificate verification, no-proxy and no-redirect behavior stay intact.
+  Loopback tests cover an untrusted certificate and a controlled stalled
+  handshake before tool calls or writes, plus process-pinned unrelated HTTPS
+  success/error controls; the OS trust store is untouched.
 - `linux/setup.sh`, `linux/install-service.sh`, `linux/update.sh`,
   `linux/control.sh` and `linux/common.sh` (which the four source) - the
   native Linux setup, systemd user service, updater and service control:
