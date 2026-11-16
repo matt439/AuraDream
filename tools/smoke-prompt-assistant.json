@@ -77,6 +77,12 @@
     "key": "Tab"
   },
   {
+    "expect": "assistantSidebarOpen() && document.activeElement===document.querySelector('.assistant-about > summary') && __pa.requests.length===0"
+  },
+  {
+    "key": "Tab"
+  },
+  {
     "expect": "assistantSidebarOpen() && !els.assistantSidebar.contains(document.activeElement) && __pa.requests.length===0"
   },
   {
@@ -178,6 +184,66 @@
   },
   {
     "shot": "assistant-wide.png"
+  },
+  {
+    "log": "'Three realistic tag-prompt drafts fit together in the wider conversation. Notes stay available without consuming the response pane; About lives below the compact composer.'"
+  },
+  {
+    "expect": "(async()=>{__pa.densitySaved={result:assistantResultData,turns:assistantTurns,snapshot:assistantSnapshot};const body=__pa.synthetic('Here are three prompt drafts based on the idea of a girl standing in a park.',{drafts:[{title:'Summer Park Scene',prompt:'1girl, park, summer, sunny, standing, outdoor, nature, masterpiece, high score, great score, absurdres',notes:['Added seasonal details (summer/sunny) for atmosphere.','Included outdoor and nature for setting context.']},{title:'Autumn Leaves',prompt:'1girl, park, autumn, leaves, standing, outdoor, nature, masterpiece, high score, great score, absurdres',notes:['Focused on seasonal foliage for visual interest.','Maintained the core elements of the scene.']},{title:'Quiet Evening',prompt:'1girl, park, evening, sunset, standing, outdoor, nature, masterpiece, high score, great score, absurdres',notes:['Added warm evening light and a quiet mood.','Kept the girl standing in the original park setting.']}],warnings:['Suggestions are model-generated. Review details and exact lettering before applying them.']});assistantResultData=body;assistantTurns=[{role:'user',content:'a girl standing in a park'},{role:'assistant',content:assistantHistoryText(body),display:body.message,answer:body}];assistantSnapshot=assistantSource();renderAssistantHistory();renderAssistantResult();document.querySelector('.assistant-body').scrollTop=0;await __pa.frames();__pa.threeDraftsFit=()=>{const sidebar=els.assistantSidebar.getBoundingClientRect(),host=document.querySelector('.assistant-body'),r=host.getBoundingClientRect(),buttons=[...els.assistantResult.querySelectorAll('[data-assistant-draft]')],drafts=[...els.assistantResult.querySelectorAll('.assistant-draft')],notes=[...els.assistantResult.querySelectorAll('.assistant-draft-notes')];const bad=buttons.map(e=>{const b=e.getBoundingClientRect(),at=document.elementFromPoint(b.left+b.width/2,b.top+b.height/2);return {rect:b.toJSON(),hit:!!at&&(at===e||e.contains(at))};}).filter(x=>x.rect.top<r.top||x.rect.bottom>r.bottom+1||!x.hit);__pa.assert(sidebar.width>=640,'wide assistant is still too narrow: '+sidebar.width);__pa.assert(r.height>=sidebar.height*0.6,'conversation gets too little vertical room: '+r.height+'/'+sidebar.height);__pa.assert(buttons.length===3&&!bad.length,'all three draft actions must be visible together: '+JSON.stringify(bad));__pa.assert(drafts.length===3&&drafts.every(e=>e.scrollHeight<=e.clientHeight+1),'a draft clips or has its own vertical scroller');__pa.assert(notes.length===3&&notes.every(e=>!e.open),'draft notes are not initially collapsed');return true;};return __pa.threeDraftsFit()&&__pa.controlsFit();})()",
+    "fatal": true
+  },
+  {
+    "shot": "assistant-three-drafts.png"
+  },
+  {
+    "viewport": [
+      2048,
+      1152
+    ]
+  },
+  {
+    "expect": "(async()=>{await __pa.frames();return __pa.threeDraftsFit()&&__pa.controlsFit()&&els.prompt.value===__pa.original;})()",
+    "fatal": true
+  },
+  {
+    "shot": "assistant-three-drafts-2048.png"
+  },
+  {
+    "click": ".assistant-draft-notes > summary"
+  },
+  {
+    "expect": "els.assistantResult.querySelector('.assistant-draft-notes').open && els.assistantResult.querySelector('.assistant-draft-notes').textContent.includes('Added seasonal details') && els.prompt.value===__pa.original && __pa.requests.length===1"
+  },
+  {
+    "click": ".assistant-draft-notes > summary"
+  },
+  {
+    "expect": "(async()=>{await __pa.frames();return __pa.threeDraftsFit();})()",
+    "fatal": true
+  },
+  {
+    "expect": "(async()=>{const about=document.querySelector('.assistant-about'),compose=document.querySelector('.assistant-compose'),summary=about?.querySelector(':scope > summary');__pa.assert(!!summary&&!about.open,'About footer is missing or starts open');const r=summary.getBoundingClientRect(),c=document.querySelector('.assistant-input').getBoundingClientRect();__pa.assert(r.top>=c.bottom-1,'About must be below the message frame');__pa.aboutGeometry=[els.assistantInstruction,els.assistantAsk,compose].map(e=>e.getBoundingClientRect().toJSON());const at=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return !!at&&(at===summary||summary.contains(at));})()",
+    "fatal": true
+  },
+  {
+    "click": ".assistant-about > summary"
+  },
+  {
+    "expect": "(async()=>{await __pa.frames();const about=document.querySelector('.assistant-about'),panel=about.querySelector('.assistant-about-content');if(!about.open||!panel)return false;const stable=[els.assistantInstruction,els.assistantAsk,document.querySelector('.assistant-compose')].every((e,i)=>{const r=e.getBoundingClientRect(),b=__pa.aboutGeometry[i];return ['x','y','width','height'].every(k=>Math.abs(r[k]-b[k])<0.5);}),r=panel.getBoundingClientRect();return stable&&r.left>=0&&r.right<=innerWidth+1&&r.top>=0&&r.bottom<=innerHeight+1&&panel.scrollWidth<=panel.clientWidth+1;})()",
+    "fatal": true
+  },
+  {
+    "shot": "assistant-about-footer.png"
+  },
+  {
+    "click": ".assistant-about > summary"
+  },
+  {
+    "expect": "__a11yCheck({root:'#prompt-assistant-sidebar'})"
+  },
+  {
+    "expect": "(async()=>{assistantResultData=__pa.densitySaved.result;assistantTurns=__pa.densitySaved.turns;assistantSnapshot=__pa.densitySaved.snapshot;renderAssistantHistory();renderAssistantResult();await __pa.frames();return !document.querySelector('.assistant-about').open&&assistantResultData===__pa.densitySaved.result&&__pa.requests.length===1;})()",
+    "fatal": true
   },
   {
     "viewport": [
@@ -307,7 +373,7 @@
     "fatal": true
   },
   {
-    "expect": "(() => {const stable=(el,b)=>{const r=el.getBoundingClientRect();return ['x','y','width','height'].every(k=>Math.abs(r[k]-b[k])<0.5);};return stable(els.assistantAsk,__paAskBefore)&&stable(els.assistantInstruction,__paInstructionBefore);})()"
+    "expect": "(() => {const pairs=[[els.assistantAsk,__paAskBefore],[els.assistantInstruction,__paInstructionBefore]],bad=pairs.map(([e,b])=>({id:e.id,before:b,after:e.getBoundingClientRect().toJSON()})).filter(x=>['x','y','width','height'].some(k=>Math.abs(x.after[k]-x.before[k])>=0.5));if(bad.length)throw Error('Assistant controls moved while answering: '+JSON.stringify(bad));return true;})()"
   },
   {
     "expect": "els.generate.getAttribute('aria-disabled')==='true' && els.generate.title.toLowerCase().includes('assistant') && els.assistantStop.getAttribute('aria-disabled')!=='true'"
@@ -341,7 +407,7 @@
     "expect": "els.assistantInstruction.value==='Keep this follow-up instruction while the previous answer finishes.'"
   },
   {
-    "expect": "(() => {const stable=(el,b)=>{const r=el.getBoundingClientRect();return ['x','y','width','height'].every(k=>Math.abs(r[k]-b[k])<0.5);};return stable(els.assistantAsk,__paAskBefore)&&stable(els.assistantInstruction,__paInstructionBefore);})()"
+    "expect": "(() => {const pairs=[[els.assistantAsk,__paAskBefore],[els.assistantInstruction,__paInstructionBefore]],bad=pairs.map(([e,b])=>({id:e.id,before:b,after:e.getBoundingClientRect().toJSON()})).filter(x=>['x','y','width','height'].some(k=>Math.abs(x.after[k]-x.before[k])>=0.5));if(bad.length)throw Error('Assistant controls moved while answering: '+JSON.stringify(bad));return true;})()"
   },
   {
     "expect": "(() => {const rows=[...els.assistantResult.querySelectorAll('input[data-assistant-tag]')];return rows.length===4 && rows.slice(0,2).every(input=>input.getAttribute('aria-disabled')!=='true'&&!input.disabled) && rows.slice(2).every(input=>input.disabled||input.getAttribute('aria-disabled')==='true') && els.assistantResult.textContent.includes('Not in the tag index.') && els.assistantResult.textContent.includes('The index did not answer.');})()"

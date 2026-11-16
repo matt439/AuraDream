@@ -11779,8 +11779,14 @@ source editor/checkpoint snapshot, and keeps the sidebar open. Its own applied
 text becomes the next conversational source; external edits and Undo still hold
 stale suggestions. The follow-up text box stays in a fixed compose area while
 replies scroll above it; incoming drafts and progress text cannot move the
-writing controls. Repeated setup/privacy copy lives in About the local assistant,
-with a compact live status and readable spacing between messages and drafts.
+writing controls. The wider chat pane is 600 px on ordinary desktop windows and
+680-900 px in the wide tier. Task selection shares its header where it fits;
+the message box and Send/Stop share one compact composer. Drafts put Use beside
+their title and keep explanations in Notes disclosures, so three short drafts
+fit together on a wide desktop. Repeated setup/privacy copy lives in About the
+local assistant at the bottom, opening upward without moving the composer.
+The prompt's name/help and Reset have their own stable caption row; writing
+tools occupy the explicit toolbar below it, avoiding an isolated wrapped Reset.
 Replies that arrive after Stop, closure, reset or a newer request cannot change
 the editor. Bounded history refuses excess input instead of forgetting earlier
 instructions silently.

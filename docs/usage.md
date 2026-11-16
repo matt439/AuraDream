@@ -577,6 +577,9 @@ and Ctrl+Z restores the editor. The sidebar stays open, so you can keep refining
 the applied prompt. Earlier drafts remain in the chat. An external edit, Undo,
 or a changed checkpoint holds application so an old answer cannot replace new
 work. Ctrl/Cmd+Enter in the sidebar sends; Escape there closes it.
+Draft explanations are under **Notes**. **About the local assistant** at the
+bottom explains context, downloads and tag verification without moving the
+message box when opened.
 
 The assistant uses the same local Qwen3-4B runtime and first-use downloads as
 Suggest improvements. It waits for image jobs, loads and other prompt GPU work,

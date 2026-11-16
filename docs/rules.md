@@ -3906,7 +3906,7 @@ measured on the card and when.
   out of browser storage and gallery data. `syncLoadButton` is the Load
   button's aria/title writer, including the assistant's hold. CPU checks
   do not qualify this workflow's GPU latency, memory or prompt quality.
-- The prompt caption's Assistant toggle opens a named, nonmodal right sidebar,
+- The prompt toolbar's Assistant toggle opens a named, nonmodal right sidebar,
   never Examples or a native dialog. At 1280 px and above the workspace reserves
   its width; smaller windows overlay it, and phones fill the visible viewport.
   The editor stays usable. Ctrl/Cmd+Enter within the sidebar sends; Escape there
@@ -3915,6 +3915,12 @@ measured on the card and when.
   drafts remain visible above the fixed composer; only the newest answer offers
   Use. Explicit application keeps the sidebar open and rebases its exact source
   snapshot for follow-ups. External edits and native Undo still invalidate it.
+  The pane is 600 px below the wide tier, 680-900 px within it, capped to the
+  viewport. Task selection shares the header when it fits; the message and
+  Send/Stop share one compact composer. Draft titles and Use share a row;
+  optional Notes are native disclosures. About sits below the message frame
+  and opens upward over the conversation without moving writing controls.
+  Long status text remains focusable/scrollable with its full text as a title.
 
 #### Prompt checks, encoders and tag placement
 
@@ -4540,6 +4546,11 @@ measured on the card and when.
   intact. These target-size changes apply in every held/selected/hover state,
   so a state change cannot move a control under the pointer. Narrow footer
   wrapping and the error line's reserved slot remain unchanged.
+- Prompt's name, help and Reset share `.prompt-caption`, with Reset at the
+  right edge. The named `.prompt-tools` group holds Examples, Assistant, Tags,
+  Check and Expand in its own compact row. Model-specific tools cannot wrap
+  Reset onto a line alone. Phone movers use the same nodes and hide the empty
+  home toolbar; returning to desktop restores each node to its proper row.
 
 #### The panel's controls
 
@@ -8722,7 +8733,7 @@ measured on the card and when.
   snippets… stay in the Examples menu as well.
   The prompt's toolbar (`#prompt-toolbar`, `role="group"`, in the prompt
   editor after `#prompt-tokens`): Examples (its span with its menu),
-  Assistant, Check, the Tags helper's span and Expand, moved from the caption in
+  Assistant, Check, the Tags helper's span and Expand, moved from the desktop toolbar in
   that order, two columns of 44 px tonal buttons (`--panel-2`, 16 px bold) 8 px
   apart and 8 px under the box. Three or four are drawn in two rows (Tags and
   Expand are never both); the caption

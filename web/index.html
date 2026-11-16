@@ -209,15 +209,20 @@
        seen (.sr-only). -->
   <section class="panel" aria-labelledby="panel-head">
     <h2 class="sr-only" id="panel-head">Settings</h2>
-    <!-- A div, not a label: the ? badge and the Examples button sit in the
-         caption, and inside a <label> a tap on either would be forwarded to
-         the textarea. The tooltip is the checkpoint's prompting guide, from
+    <!-- A div, not a label: the ? badge and prompt tools stay outside the
+         label, so a tap is not forwarded to the textarea. The tooltip is
+         the checkpoint's prompting guide, from
          /api/status like the ? badges below; the examples are its list. -->
     <div class="field">
-      <span><label for="prompt">Prompt</label>
+      <span class="prompt-caption"><label for="prompt">Prompt</label>
         <span class="help" tabindex="0" role="note" aria-label="Prompt help" aria-describedby="prompt-tip">?<span
           class="tip wide" id="prompt-tip">This checkpoint's prompting guide appears here once
           the server answers.</span></span>
+        <!-- Reset stays beside the field's name, apart from the writing tools. -->
+        <button type="button" class="ghost tiny reset danger" id="btn-reset"
+                title="Clear every box and put the panel back to this checkpoint's defaults; the browser forgets the remembered settings, and Undo puts them back for a while">Reset</button>
+      </span>
+      <span class="prompt-tools" role="group" aria-label="Prompt tools">
         <span class="examples" id="examples">
           <button type="button" class="ghost tiny" id="btn-examples" aria-haspopup="menu"
                   aria-expanded="false" title="Example prompts from the authors, saved setups and your personal snippets">Examples</button>
@@ -240,12 +245,6 @@
              minutes, and a disabled button dropped a keyboard user's focus. -->
         <button type="button" class="ghost tiny" id="btn-expand" hidden
                 title="Use ERNIE's prompt rewriter once, put its result here, then review it before generating">Expand</button>
-        <!-- The whole panel, not the prompt: back to the checkpoint's
-             defaults, and the browser forgets what it had remembered. Red
-             under the pointer, as the page's other destructive buttons are,
-             and followed for a while by an Undo (panel.js, resetPanel). -->
-        <button type="button" class="ghost tiny reset danger" id="btn-reset"
-                title="Clear every box and put the panel back to this checkpoint's defaults; the browser forgets the remembered settings, and Undo puts them back for a while">Reset</button>
       </span>
       <div class="prompt-editor">
         <textarea id="prompt" rows="5" placeholder="a fox walking in the snow, overcast light"
@@ -2583,17 +2582,12 @@
 <aside class="prompt-assistant-sidebar" id="prompt-assistant-sidebar" aria-labelledby="assistant-title" hidden>
   <div class="assistant-head">
     <h2 id="assistant-title">Prompt assistant</h2>
+    <div class="assistant-tools">
+      <label class="sr-only" for="assistant-mode">Task</label>
+      <select id="assistant-mode"><option value="create">Create a prompt</option><option value="improve">Improve my prompt</option><option value="tags">Find tags</option></select>
+    </div>
     <button type="button" class="ghost small" id="assistant-reset" title="Clear this conversation; the main prompt stays unchanged">New chat</button>
     <button type="button" class="ghost small" id="assistant-close" title="Close the assistant and stop its current answer">Close</button>
-  </div>
-  <div class="assistant-tools">
-    <label for="assistant-mode">Task</label>
-    <select id="assistant-mode"><option value="create">Create a prompt</option><option value="improve">Improve my prompt</option><option value="tags">Find tags</option></select>
-    <details class="assistant-about"><summary>About the local assistant</summary>
-      <p>Chat runs locally and stays in this page until you leave. Suggested tag names are sent to Danbooru for verification. Review drafts before using them.</p>
-      <p class="assistant-cost-line"><span id="assistant-cost"></span></p>
-      <p>A download already started may finish after Stop.</p>
-    </details>
   </div>
   <div class="assistant-body">
     <div id="assistant-intro" class="assistant-empty"><h3>What would you like to create?</h3><p>Describe an idea, ask for a change to your prompt, or find tags for a detail.</p><p class="hint">Drafts appear here. Your prompt changes only when you choose Use prompt.</p></div>
@@ -2603,15 +2597,26 @@
     <p class="warn" id="assistant-stale" hidden>The prompt, negative prompt or checkpoint changed. Start a new conversation before applying these suggestions.</p>
   </div>
   <div class="assistant-compose">
-    <p id="assistant-status" role="status" aria-live="polite">Describe your idea to get started.</p>
-    <label for="assistant-instruction">Message
+    <p id="assistant-status" role="status" aria-live="polite" tabindex="0">Describe your idea to get started.</p>
+    <div class="assistant-input">
+      <label class="sr-only" for="assistant-instruction">Message</label>
       <textarea id="assistant-instruction" rows="3" maxlength="2000" placeholder="Describe your idea…" aria-describedby="assistant-context-note"></textarea>
-    </label>
-    <p class="hint" id="assistant-context-note">Includes your current prompt and negative prompt.</p>
-    <div class="assistant-actions">
-      <span id="assistant-clock" aria-hidden="true"></span><span class="hint key-hint">Ctrl+Enter to send</span>
-      <button type="button" class="ghost" id="assistant-stop" aria-disabled="true" title="There is no answer running.">Stop</button>
-      <button type="button" class="primary" id="assistant-ask" aria-keyshortcuts="Control+Enter Meta+Enter">Send</button>
+      <div class="assistant-actions">
+        <span id="assistant-clock" aria-hidden="true"></span>
+        <button type="button" class="ghost small" id="assistant-stop" aria-disabled="true" title="There is no answer running.">Stop</button>
+        <button type="button" class="primary small" id="assistant-ask" aria-keyshortcuts="Control+Enter Meta+Enter">Send</button>
+      </div>
+    </div>
+    <div class="assistant-foot">
+      <details class="assistant-about"><summary>About the local assistant</summary>
+        <div class="assistant-about-content">
+          <p id="assistant-context-note">Each message includes your current prompt and negative prompt.</p>
+          <p>Chat runs locally and stays in this page until you leave. Suggested tag names are sent to Danbooru for verification. Review drafts before using them.</p>
+          <p class="assistant-cost-line"><span id="assistant-cost"></span></p>
+          <p>A download already started may finish after Stop.</p>
+        </div>
+      </details>
+      <span class="hint key-hint">Ctrl+Enter to send</span>
     </div>
   </div>
 </aside>

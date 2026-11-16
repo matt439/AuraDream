@@ -250,3 +250,44 @@ under `smoke-prompt-assistant-93jk0m_7/`; passed after the final action alignmen
 `auradream-smoke-artifacts-nwvwm3u3/summary.json` (phone).
 
 The GPU hold and physical phone/keyboard acceptance remain unchanged.
+
+## Wider chat and compact controls (2026-11-17)
+
+Matt's actual-page screenshots showed Reset wrapped below the prompt tools and
+only two of three drafts fitting in the sidebar. The second layout pass widens
+the desktop pane from 420/460-520 px to 600/680-900 px, puts task selection in
+the header where it fits, and moves About to the footer. About opens upward
+without changing the message box or Send position. The compact composer groups
+the message and actions in one frame, with one focus ring, shorter status copy
+and the long status text available to focus/scroll and as a title.
+
+Draft titles share a row with Use prompt. Their optional explanations move into
+native Notes disclosures; prompts retain their complete text in the one
+conversation scroller. Reset stays beside Prompt/help on a stable caption row,
+with writing tools in the explicit toolbar below it. Phone moves preserve each
+node's new desktop home.
+
+The strengthened assistant fixture uses three realistic tag prompts and two
+notes each, matching Matt's example. At 1920x1080 and 2048x1152 it requires all
+three Use controls to fit and be hit-testable, at least 60% of the sidebar for
+conversation, and closed notes. Native Notes and footer About presses retain
+their layout checks; all conversation, Stop, stale-source, Undo, pending-control
+stability and phone guards remain. A narrowed Send button initially moved when
+Thinking appeared; its stable width was restored before the final pass.
+
+Local checks use fakes and no inference. Seven distinct smokes passed:
+prompt-assistant, control-sizing (all 26 catalogue models, explicit tag-tool
+views at 1400/1800/2048 px), phone-create, phone-dialogs, analysis,
+compact-setup and shortcut-dispatch. Desktop three-draft, footer About, toolbar
+and phone screenshots were visually inspected. Physical-device and GPU
+acceptance remain separate.
+
+Final follow-up checks: 139 documentation/classic-script/audit/browser-output
+tests passed, Ruff passed, and pinned Pyright checked 218 sources with zero
+errors or warnings. The final assistant pass completed all 226 steps after the
+single composer focus ring was applied. Receipts under the system temporary
+directory: `auradream-smoke-artifacts-3_fpgl12/summary.json` (assistant,
+screenshots in `smoke-prompt-assistant-ynhgpevx/`),
+`auradream-smoke-artifacts-k9bjg1lh/summary.json` (control sizing),
+`auradream-smoke-artifacts-wyciob3z/summary.json` (phone Create), and
+`auradream-smoke-artifacts-ckcpar2h/summary.json` (four regressions).

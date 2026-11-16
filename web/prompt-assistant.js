@@ -28,6 +28,7 @@ function assistantSourceChanged() {
 
 function assistantSay(words, warn = false) {
   if (els.assistantStatus.textContent !== words) els.assistantStatus.textContent = words;
+  els.assistantStatus.title = words;
   els.assistantStatus.classList.toggle('warn', warn);
 }
 
@@ -169,16 +170,23 @@ function renderAssistantAnswer(host, body, interactive) {
   for (const [index, draft] of (body.drafts || []).entries()) {
     const article = document.createElement('article');
     article.className = 'assistant-draft';
+    const head = document.createElement('div'); head.className = 'assistant-draft-head';
     const title = document.createElement('h3'); title.textContent = draft.title || `Draft ${index + 1}`;
     const prompt = document.createElement('p'); prompt.className = 'assistant-draft-text'; prompt.textContent = draft.prompt;
-    article.append(title, prompt);
-    for (const words of draft.notes || []) {
-      const note = document.createElement('p'); note.className = 'hint'; note.textContent = words; article.append(note);
-    }
+    head.append(title);
     if (interactive) {
       const use = document.createElement('button'); use.type = 'button'; use.className = 'ghost small';
       use.textContent = 'Use prompt'; use.dataset.assistantDraft = String(index);
-      use.onclick = () => applyAssistantDraft(index); article.append(use);
+      use.onclick = () => applyAssistantDraft(index); head.append(use);
+    }
+    article.append(head, prompt);
+    if (draft.notes?.length) {
+      const notes = document.createElement('details'); notes.className = 'assistant-draft-notes';
+      const summary = document.createElement('summary'); summary.textContent = 'Notes'; notes.append(summary);
+      for (const words of draft.notes) {
+        const note = document.createElement('p'); note.className = 'hint'; note.textContent = words; notes.append(note);
+      }
+      article.append(notes);
     }
     host.append(article);
   }
@@ -236,7 +244,7 @@ function resetAssistantConversation({ clearInstruction = true } = {}) {
   els.assistantInstruction.placeholder = assistantMode === 'improve' ? 'What would you like to change?' : assistantMode === 'tags' ? 'Describe the detail you need tags for…' : 'Describe your idea…';
   $('assistant-intro').querySelector('h3').textContent = assistantMode === 'improve' ? 'What would you like to change?' : assistantMode === 'tags' ? 'Which detail needs a tag?' : 'What would you like to create?';
   $('assistant-intro').querySelector('p').textContent = assistantMode === 'improve' ? 'Start with your prompt in the editor, then describe the change you want.' : assistantMode === 'tags' ? 'Describe a detail to find candidate tags checked against the Danbooru index.' : 'Describe an idea and develop it into a prompt with follow-up messages.';
-  assistantSay('Describe your idea or the change you want. You choose what to apply.');
+  assistantSay('Describe your idea or the change you want.');
 }
 
 function assistantSidebarOpen() { return !els.assistantSidebar.hidden; }
@@ -312,7 +320,7 @@ async function askPromptAssistant() {
     renderAssistantHistory(); renderAssistantResult();
     assistantSay(assistantSourceChanged()
       ? 'The source text changed while the model answered. Nothing can be applied; start a new conversation for the current text.'
-      : 'Answer ready. Choose a draft or ask for a change; the main prompt is unchanged.', assistantSourceChanged());
+      : 'Ready. Choose a draft or send a follow-up.', assistantSourceChanged());
     if (document.activeElement === els.assistantAsk) els.assistantResult.focus({ preventScroll: true });
   } catch (err) {
     if (run.epoch !== assistantEpoch || run.stopped || !assistantSidebarOpen()) return;
@@ -366,7 +374,7 @@ function applyAssistantText(text, message) {
     // covers that editor: keep the visible control and software keyboard state.
     applyControl.focus({ preventScroll: true });
   }
-  assistantSay('Prompt updated. You can keep refining it here, or undo in the prompt editor.');
+  assistantSay('Prompt updated. Keep refining it here, or undo in the editor.');
   syncPromptAssistant();
   offerPromptUndo(message, () => {
     rewriteBox(els.prompt, before); promptReplaced(); syncTagSelection(); scheduleTagValidation(0); schedulePreview(); persistPanel();

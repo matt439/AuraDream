@@ -291,6 +291,15 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
    empties every box, and a slip next to the one button people press all day
    would cost them the prompt they were about to run. */
 .field > span .reset { float: right; letter-spacing: 0; text-transform: none; font-weight: 400; }
+/* The field name and Reset have a stable row of their own. Prompt tools
+   cannot push Reset onto a new line as a tag-capable checkpoint arrives. */
+.field > .prompt-caption { display: flex; align-items: center; gap: var(--sp-1); }
+.field > .prompt-caption .reset { float: none; margin-left: auto; }
+.field > .prompt-tools { display: flex; align-items: center; gap: var(--sp-1); min-width: 0; letter-spacing: 0; text-transform: none; font-weight: 400; }
+.prompt-tools .examples, .prompt-tools .tag-helper { margin-left: 0; }
+/* On a phone these same nodes move below the editor. Their home contains
+   only comment anchors then, so it contributes no empty row. */
+.field > .prompt-tools:not(:has(> *)) { display: none; }
 
 /* Example prompts: a button in the Prompt caption and a list that drops under
    it. Clicking one fills the box - the guide says how to write a prompt, the
@@ -302,15 +311,15 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
    Keep their compact caption row and secondary tone; the wide tier already
    has its own larger caption targets. */
 @media (width < 1800px) {
-  .field > span:has(> label[for="prompt"]) .ghost.tiny {
+  .field > :is(.prompt-caption, .prompt-tools) .ghost.tiny {
     min-height: calc(var(--h-sm) - 2px);
     padding-block: calc((var(--h-sm) - 2px - var(--lh) * var(--fs-sm) - 2px) / 2);
     font-size: var(--fs-sm);
   }
 }
-/* Running, Expand keeps its idle width (prompt-expand.js, syncExpandButton, locks
-   it) and "Expand…" uses the side padding for its ellipsis, so the full
-   caption row does not wrap Reset under the pointer. */
+/* Running, Expand keeps its idle width (prompt-expand.js, syncExpandButton,
+   locks it) and uses its side padding for the ellipsis, keeping the tool row
+   still under the pointer. */
 #btn-expand.running { padding-inline: 0; white-space: nowrap; }
 /* From 1800 px the tiny buttons are the most-used secondary controls - the
    Prompt caption's Examples, Check and Reset, the check's Apply and Use
