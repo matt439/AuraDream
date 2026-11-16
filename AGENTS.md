@@ -133,6 +133,13 @@ Model and loader:
 
 Schedule and profiles:
 
+- Anima Turbo Refine is a measured, bounded extension, not a general Anima
+  capability: only exact Turbo on RTX 5080/Windows CUDA 0, fp8/model,
+  Eager/Native, diffusers 0.42.1, 1024-square source/output, 8 steps, CFG 1
+  and strengths 0.125/0.25/0.4 (opening 0.25). Keep its qualification/source
+  checks at admission and each call; Aesthetic/Preview and enlargement stay
+  held. See `docs/rules.md`, "Measured Anima Turbo Refine".
+
 - A requested `mu` is the whole shift (`schedule.forced_mu`,
   `shifted_sigmas`, `requested_shift`), and only on a `FlowMatch*`
   scheduler. Tests assert on `scheduler.sigmas`.
@@ -524,6 +531,7 @@ uses the driver's graceful close/cleanup. See the full Tests rules.
 | 7960 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-phone-keyboard` |
 | 7960 | animagine-xl-4.0, its own fresh scratch `--data`, `--step 0.3` | `smoke-detailer` |
 | 7960 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-prompt-assistant` |
+| 7960 | circlestone-labs/Anima, its own fresh scratch `--data` | `smoke-anima-refine` |
 
 FLUX.1-Krea-dev is `black-forest-labs/FLUX.1-Krea-dev`; animagine is
 `cagliostrolab/animagine-xl-4.0`. The ports are full: `--jobs` puts each

@@ -29,7 +29,7 @@ from dataclasses import dataclass, field, replace
 from types import TracebackType
 from typing import TYPE_CHECKING, Any
 
-from .. import compiler_cache, latent_preview, loras, mask_crop, refine
+from .. import card_facts, compiler_cache, latent_preview, loras, mask_crop, refine, refine_admission, refine_qualification
 from ..model_selection import current_model_id, current_settings
 from ..config import ATTENTION_ENVIRONMENT_WARNING, settings
 from ..execution import (
@@ -466,6 +466,10 @@ class DiffusersBackend(GenerationBackend):
         )
         require_configured_loader_available(selected)
         self._load_prepared(canonical_loader_execution(getattr(selected, "loader_execution", None)))
+        if refine_qualification.applies(selected.model_id):
+            # Loading already owns framework/device work. Status and Check only
+            # read this supplied observation; they never probe for this gate.
+            card_facts.probe(selected.device)
 
     def _load_prepared(self, execution: ExecutionSpec | None) -> None:
         """Private preparation path, also used by every ordinary eager load.
@@ -1206,7 +1210,11 @@ class DiffusersBackend(GenerationBackend):
             true_cfg_supported=self._true_cfg_supported(),
             reference_supported=self._reference_supported(),
             lora_supported=self.lora_supported(),
-            refine_supported=self._refine_supported(),
+            # Preserve read-only/replay intent even on an unqualified host.
+            # Admission and every call enforce the measured envelope first.
+            refine_supported=(refine.sibling(type(self._pipe)) is not None
+                              if refine_qualification.applies(current_model_id(settings))
+                              else self._refine_supported()),
             inpaint_supported=self._inpaint_supported(),
         )
 
@@ -1233,6 +1241,9 @@ class DiffusersBackend(GenerationBackend):
         """
         pipe = self._pipe
         if pipe is None:
+            return False
+        selected = current_settings(settings)
+        if refine_qualification.applies(selected.model_id) and self.refine_refusal(selected) is not None:
             return False
         if self._refine_class is None or self._refine_class[0] is not type(pipe):
             self._refine_class = (type(pipe), refine.sibling(type(pipe)))
@@ -1351,6 +1362,8 @@ class DiffusersBackend(GenerationBackend):
         assert counterpart is not None and counterpart[1] is not None  # Supported by the resolved class.
         sibling = counterpart[1]
         try:
+            if refine_qualification.applies(current_model_id(settings)) and not inpaint:
+                return self._refiner(pipe).start_sigma(steps, request.strength)
             cropped = mask_crop.request_region(request)
             if cropped is not None:
                 width, height = request.denoise_size(cropped.working)
@@ -1611,6 +1624,8 @@ class DiffusersBackend(GenerationBackend):
         import torch
 
         pipe = self._pipe
+        if request.refine is not None and refine_qualification.applies(current_model_id(settings)):
+            self.check_refine_supported(request)
         if getattr(request, "upscaler", None) is not None:
             self.check_refine_supported(request)
         # Run what will be recorded: the negative prompt where the pipeline can
@@ -1778,7 +1793,9 @@ class DiffusersBackend(GenerationBackend):
             source_id = request.refine
             assert source_id is not None, "a refine pass has its source"
             crop = {"crop_anchor": request.crop_anchor} if request.crop_anchor != "center" else {}
-            if request.upscaler is not None:
+            if refine_qualification.applies(current_model_id(settings)):
+                kwargs["image"] = refine_admission.load_source(request, current_model_id(settings))
+            elif request.upscaler is not None:
                 kwargs["image"] = refine.source_image(
                     source_id, request.width, request.height, upscaler=request.upscaler,
                     should_cancel=should_cancel, device=current_settings(settings).device,
@@ -1968,16 +1985,31 @@ class DiffusersBackend(GenerationBackend):
         everything back, after a cancel or a failure too.
         """
         images: list[Image] = []
+        per_call_cleanup = refine_qualification.applies(current_model_id(settings))
+        free_hooks = getattr(pipe, "maybe_free_model_hooks", None)
         try:
             for index, generator in enumerate(generators):
                 if index and should_cancel is not None and should_cancel():
                     raise Cancelled
                 batch["index"] = index
-                result = self._invoke_pipeline(runner, {**kwargs, "num_images_per_prompt": 1, "generator": generator})
+                try:
+                    if per_call_cleanup:
+                        reason = self.refine_refusal(current_settings(settings))
+                        if reason is not None:
+                            raise ValueError(reason)
+                    result = self._invoke_pipeline(runner, {**kwargs, "num_images_per_prompt": 1, "generator": generator})
+                    if per_call_cleanup:
+                        reason = self.refine_refusal(current_settings(settings))
+                        if reason is not None:
+                            raise ValueError(reason)
+                finally:
+                    # The measured Anima sequence releases the loaded owner
+                    # after every one-image call, including cancellation.
+                    if per_call_cleanup and callable(free_hooks):
+                        free_hooks()
                 images.extend(result.images)
         finally:
-            free_hooks = getattr(pipe, "maybe_free_model_hooks", None)
-            if callable(free_hooks):
+            if not per_call_cleanup and callable(free_hooks):
                 free_hooks()
         return images
 
@@ -2039,6 +2071,7 @@ class DiffusersBackend(GenerationBackend):
 
     def describe(self) -> dict:
         selected = current_settings(settings)
+        refine_reason = self.refine_refusal(selected)
         info: dict[str, Any] = {
             "model_id": selected.model_id,
             "quantization": selected.quantization,
@@ -2056,7 +2089,9 @@ class DiffusersBackend(GenerationBackend):
             ),
             # The pipeline's class is the answer here: whether diffusers
             # ships an image-to-image sibling for it.
-            "refine_supported": self._refine_supported() if self._pipe is not None else None,
+            "refine_supported": (self._refine_supported() if self._pipe is not None
+                                 else False if refine_reason is not None else None),
+            "refine_reason": refine_reason,
             # The inpaint class and the profile's decision together.
             "inpaint_supported": self._inpaint_supported() if self._pipe is not None else None,
             # And where its Strength box can start: the class's own default.

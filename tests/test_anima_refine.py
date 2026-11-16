@@ -1,9 +1,9 @@
-"""The private Anima image-to-image pass on CPU (GEN#48 stage 1).
+"""The Anima image-to-image pass and exact Turbo registration on CPU.
 
 Tiny stand-ins replace the learned models and tokenizers only; the encoder
 step, schedule slicing, noise mixing, guidance, denoising loop and decode are
 the installed Diffusers Anima blocks, on a real FlowMatch scheduler. Nothing
-here is a card measurement or a release: the public Refine stays held.
+here is a card measurement or permission to bypass runtime qualification.
 """
 from __future__ import annotations
 
@@ -109,22 +109,24 @@ def _block_slice(steps, strength):
     return scheduler.begin_index, state.get("num_inference_steps"), float(scheduler.sigmas[scheduler.begin_index])
 
 
-# --- The public Refine stays held -------------------------------------------
+# --- Structural registration does not grant runtime qualification -----------
 
 
 @pytest.mark.parametrize("text_cls", [AnimaTurboPipeline, AnimaAestheticPipeline, AnimaPreviewPipeline])
-def test_public_resolver_still_refuses_every_anima_class(text_cls):
-    assert refine.sibling(text_cls) is None
+def test_only_the_exact_turbo_class_has_a_structural_refine_counterpart(text_cls):
+    expected = AnimaTurboImg2ImgPipeline if text_cls is AnimaTurboPipeline else None
+    assert refine.sibling(text_cls) is expected
     assert refine.sibling(text_cls, "Inpaint") is None
     assert refine.sibling(IMG2IMG[text_cls]) is None
 
 
 @pytest.mark.parametrize("model_id", ANIMA_IDS)
-def test_anima_profiles_keep_refine_unsupported(model_id):
+def test_only_the_turbo_profile_describes_the_measured_refine(model_id):
     profile = defaults_for(model_id)
-    assert profile["refine_supported"] is False
+    turbo = model_id == ANIMA_IDS[0]
+    assert profile["refine_supported"] is turbo
     assert profile["inpaint_supported"] is False
-    assert refine.start_index(8, 0.4, model_id) is None
+    assert refine.start_index(8, 0.4, model_id) == (4 if turbo else None)
 
 
 @pytest.mark.parametrize(
@@ -167,12 +169,18 @@ def test_rounding_matches_the_installed_block_on_fractional_boundaries():
                 continue  # the empty slice the call refuses
             assert start_index(steps, strength) == begin, (steps, strength)
             assert steps_run(steps, strength) == run, (steps, strength)
+            # The public advisory uses the same pure policy, while runtime
+            # qualification remains a separate backend admission decision.
+            assert refine.start_index(steps, strength, ANIMA_IDS[0]) == begin, (steps, strength)
+            assert refine.steps_run(steps, strength, ANIMA_IDS[0]) == run, (steps, strength)
 
 
 def test_anima_rounds_as_flow_not_as_its_mu_flag_says():
-    # `refine.start_index` keys the rounding on `mu_supported`, which Anima's
-    # fixed shift leaves false; SDXL's branch would run three steps of eight.
+    # Its explicit Refine policy keeps the fixed-shift flow rule separate
+    # from Mu support; SDXL's branch runs three steps of eight instead.
     assert steps_run(8, 0.4) == 4
+    assert defaults_for(ANIMA_IDS[0])["mu_supported"] is False
+    assert refine.start_index(8, 0.4, ANIMA_IDS[0]) == 4
     assert defaults_for(SDXL_ID)["mu_supported"] is False
     assert 8 - refine.start_index(8, 0.4, SDXL_ID) == 3
 

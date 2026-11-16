@@ -12,7 +12,10 @@ from __future__ import annotations
 
 import inspect
 import json
+from pathlib import Path
 import re
+import subprocess
+import sys
 from types import SimpleNamespace
 
 import diffusers
@@ -59,22 +62,27 @@ def test_the_profile_guess_matches_the_installed_diffusers(model_id, class_name)
     assert ("no compatible image-to-image counterpart" in hint) is (found is None)
 
 
-def test_the_local_pipelines_have_no_sibling():
-    # Anima and NewBie run this repo's own pipeline classes, which diffusers
-    # exports nothing beside; their profiles say so before a load.
+def test_only_the_exact_qualified_turbo_class_has_a_local_sibling():
+    # The exact Turbo class has a deliberately registered counterpart. This
+    # structural answer is independent of the backend's runtime qualification.
     from backend.backends.anima_loading import AESTHETIC_MODEL_ID
-    from backend.backends.anima_pipeline import AnimaAestheticPipeline, AnimaTurboPipeline
+    from backend.backends.anima_pipeline import AnimaAestheticPipeline, AnimaPreviewPipeline, AnimaTurboPipeline
+    from backend.backends.anima_refine import AnimaTurboImg2ImgPipeline
     from backend.backends.newbie_pipeline import NewbiePipeline
 
-    assert refine.sibling(AnimaTurboPipeline) is None
+    assert refine.sibling(AnimaTurboPipeline) is AnimaTurboImg2ImgPipeline
+    assert refine.sibling(AnimaTurboPipeline, "Inpaint") is None
+    assert refine.sibling(AnimaTurboImg2ImgPipeline) is None
     assert refine.sibling(AnimaAestheticPipeline) is None
+    assert refine.sibling(AnimaPreviewPipeline) is None
     assert refine.sibling(NewbiePipeline) is None
-    assert not defaults_for("circlestone-labs/Anima")["refine_supported"]
+    assert defaults_for("circlestone-labs/Anima")["refine_supported"]
     assert not defaults_for(AESTHETIC_MODEL_ID)["refine_supported"]
+    assert not defaults_for("Gazingstars123/Anima-2.9B")["refine_supported"]
     assert not defaults_for("NewBie-AI/NewBie-image-Exp0.1")["refine_supported"]
-    # And that answer is final before a load: no load can find a sibling for
-    # a class diffusers does not export, so the Refine dialog says so rather
-    # than "a load answers for certain".
+    # These app-owned structural answers are settled before a load. Runtime
+    # qualification may still hold Turbo; loading does not discover an
+    # unmeasured sibling for any of the other local classes.
     assert defaults_for("circlestone-labs/Anima")["refine_settled"]
     assert defaults_for(AESTHETIC_MODEL_ID)["refine_settled"]
     assert defaults_for("NewBie-AI/NewBie-image-Exp0.1")["refine_settled"]
@@ -91,9 +99,64 @@ def test_a_class_that_only_shares_the_name_has_no_sibling():
     # The sibling is built over the pipeline's components unchecked, so it is
     # offered only for the class diffusers itself exports under that name.
     assert refine.sibling(type("FluxPipeline", (), {})) is None
+    assert refine.sibling(type("AnimaTurboPipeline", (), {})) is None
     assert refine.sibling(KleinLikePipeline) is None
     # And never for a class that is already image-to-image.
     assert refine.sibling(diffusers.FluxImg2ImgPipeline) is None
+
+
+def test_a_subclass_cannot_borrow_the_registered_turbo_identity():
+    from backend.backends.anima_pipeline import AnimaTurboPipeline
+
+    borrowed = type("AnimaTurboPipeline", (AnimaTurboPipeline,), {})
+    assert refine.sibling(borrowed) is None
+
+
+@pytest.mark.parametrize("missing", [
+    "image", "strength", "generator", "callback_on_step_end", "prompt",
+    "negative_prompt", "guidance_scale", "num_inference_steps", "num_images_per_prompt",
+])
+def test_the_registered_turbo_sibling_obeys_required_and_carried_checks(monkeypatch, missing):
+    from backend.backends.anima_pipeline import AnimaTurboPipeline
+    from backend.backends.anima_refine import AnimaTurboImg2ImgPipeline
+
+    signature = inspect.signature(AnimaTurboImg2ImgPipeline.__call__)
+
+    def incompatible(*args, **kwargs):
+        raise AssertionError("resolving a sibling must not invoke it")
+
+    incompatible.__signature__ = signature.replace(
+        parameters=[parameter for name, parameter in signature.parameters.items() if name != missing],
+    )
+    monkeypatch.setattr(AnimaTurboImg2ImgPipeline, "__call__", incompatible)
+    assert refine.sibling(AnimaTurboPipeline) is None
+
+
+def test_the_registered_turbo_sibling_refuses_an_uninspectable_call(monkeypatch):
+    from backend.backends.anima_pipeline import AnimaTurboPipeline
+    from backend.backends.anima_refine import AnimaTurboImg2ImgPipeline
+
+    monkeypatch.setattr(AnimaTurboImg2ImgPipeline, "__call__", None)
+    assert refine.sibling(AnimaTurboPipeline) is None
+
+
+def test_refine_import_stays_cold_with_the_app_owned_registration():
+    script = """
+import builtins
+original = builtins.__import__
+def guarded(name, *args, **kwargs):
+    if name.split('.')[0] in {'torch', 'diffusers', 'transformers'}:
+        raise AssertionError('cold Refine import attempted ' + name)
+    return original(name, *args, **kwargs)
+builtins.__import__ = guarded
+from backend import refine
+assert refine.REQUIRED
+"""
+    done = subprocess.run(
+        [sys.executable, "-c", script], cwd=Path(__file__).resolve().parents[1],
+        capture_output=True, text=True, timeout=30,
+    )
+    assert done.returncode == 0, done.stdout + done.stderr
 
 
 @pytest.mark.parametrize("class_name", sorted(SIBLINGS))
@@ -132,6 +195,7 @@ def test_the_steps_a_strength_leaves():
     assert refine.steps_run(28, 0.4) == 11
     assert refine.steps_run(28, 0.4, "black-forest-labs/FLUX.1-Krea-dev") == 12
     assert refine.steps_run(28, 0.4, "KBlueLeaf/Kohaku-XL-Zeta") == 11
+    assert refine.steps_run(8, 0.4, "circlestone-labs/Anima") == 4
     assert refine.steps_run(8, 0.5) == 4
     assert refine.steps_run(4, 0.1) == 1
     assert refine.steps_run(28, 1.0) == 28

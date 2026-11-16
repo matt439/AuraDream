@@ -247,7 +247,7 @@ and Expand. The table below holds the same words for the whole catalogue.
 | RouWei 0.8 epsilon | Yes | Yes | Yes | No | Yes | Yes | Yes | No |
 | NoobAI-XL V-pred 1.0 | Yes | Yes | Yes | No | Yes | Yes | Yes | No |
 | Z-Anime Base | Yes | Yes | Yes | No | Yes | Yes | Yes | No |
-| Anima Turbo v1.1 | No | No | No | No | No | Yes | Yes | No |
+| Anima Turbo v1.1 | Yes | No | No | No | No | Yes | Yes | No |
 | Anima Aesthetic v1.1 | No | No | No | No | No | Yes | Yes | No |
 | Anima 2.9B Preview v1 | No | No | No | No | No | Yes | Yes | No |
 | NetaYume Lumina v4 | No | No | No | No | Yes | Yes | Yes | No |
@@ -639,6 +639,15 @@ pipeline is the app's own (the Anima variants, NewBie and FLUX 3 [Klein]);
 The app records references, adapter and weight for Reuse and Resume.
 
 ## Refine an existing image
+
+**Anima Turbo Refine** currently redraws a 1024×1024 gallery image at that
+same size. It is measured only on an RTX 5080 with Windows, fp8/model offload,
+Eager/Native and diffusers 0.42.1, at 8 steps and CFG 1. Strength starts at
+0.25; Compare 3 offers 0.125, 0.25 and 0.4. Other values and enlargements stay
+held with their reason. An unknown GPU remains held until card discovery or
+loading verifies it. Aesthetic and Preview still have no released Refine pass.
+These strengths can redraw details and do not promise to repair anatomy.
+For Mass refine or Then refine, use scale 1 and the same measured settings.
 
 **Crop anchor** chooses which part of a differently shaped source Refine
 keeps: the center, an edge or a corner. It applies to ordinary Refine, and is

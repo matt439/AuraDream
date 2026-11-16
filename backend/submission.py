@@ -7,7 +7,7 @@ from typing import Literal
 
 from fastapi import HTTPException
 
-from . import grid, instruction_edit, instruction_edit_admission, loras, refine, storage
+from . import grid, instruction_edit, instruction_edit_admission, loras, refine, refine_admission, refine_qualification, storage
 from .app_context import AppServices
 from .execution import configured_loader_unavailable_reason, unavailable_reason
 from .model_selection import current_settings
@@ -158,6 +158,9 @@ async def unusable_input(
             # The source gone is the source's refusal, its code beside it.
             return Unusable.from_error("upscaler", exc)
     if request.refine is not None:
+        reason = services.backend().refine_refusal(selected, request)
+        if reason is not None:
+            return "refine", reason
         inpainting = request.inpainting
         if inpainting:
             reason = await inpaint_unavailable(services, outpainting=request.outpaint is not None)
@@ -167,6 +170,7 @@ async def unusable_input(
             return ("inpaint" if inpainting else "refine"), reason
         try:
             await asyncio.to_thread(storage.reference_paths, [request.refine], "source image")
+            await asyncio.to_thread(refine_admission.check_source, request, selected.model_id)
         except ValueError as exc:
             return Unusable.from_error("source", exc)
         if request.outpaint is not None:
@@ -223,6 +227,8 @@ async def refine_unavailable(services: AppServices) -> str | None:
     """Why this server has no refine pass, or None where it has one: what a
     pass's submission is refused with, Mass refine's included."""
     info = await asyncio.to_thread(services.backend().describe)
+    if info.get("refine_reason") is not None:
+        return info["refine_reason"]
     if services.merged_defaults(info)["refine_supported"]:
         return None
     return (
@@ -338,17 +344,28 @@ async def prune_held(services: AppServices, cells: list[grid.Cell]) -> tuple[set
 NO_INPUTS: tuple = (None, (), None, None, None, None, None, None)
 
 
-def input_spec(request: GenerateRequest) -> tuple:
+def input_spec(request: GenerateRequest, *, model_id: str | None = None) -> tuple:
     """The inputs `unusable_input` checks, as one hashable key: adapter,
     references, refine source, mask, outpaint, upscaler, edit and the
     masked-area crop. Producers
     check each distinct key once, and skip `NO_INPUTS`; one tuple, so a new
     input cannot be left out of one producer's key and shared there by two
     requests that differ in it."""
-    return (
+    inputs = (
         request.lora, tuple(request.reference), request.refine, request.mask, request.outpaint,
         request.upscaler, request.edit, request.mask_crop,
     )
+    if request.refine is not None and model_id is not None and refine_qualification.applies(model_id):
+        return (*inputs, request.width, request.height, request.steps, request.guidance_scale,
+                request.strength, request.true_cfg, request.mu, request.crop_anchor)
+    return inputs
+
+
+def refine_request_refusal(services: AppServices, request: GenerateRequest) -> str | None:
+    """Cheap per-expanded-request admission before any shared source verdict."""
+    if request.refine is None:
+        return None
+    return services.backend().refine_refusal(current_settings(services.settings()), request)
 
 
 def status_counts(results) -> dict[str, int]:

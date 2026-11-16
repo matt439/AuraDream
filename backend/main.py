@@ -66,7 +66,7 @@ from .idle_unload import IdleUnload  # noqa: E402
 from . import server_transport  # noqa: E402
 from .error_text import download_failure, generation_error  # noqa: E402
 from . import download_progress  # noqa: E402
-from . import refusal_codes, refusals  # noqa: E402
+from . import refusal_codes, refusals, refine_qualification  # noqa: E402
 from .model_defaults import DEFAULT_MODEL_ID, OPEN_DEFAULT_MODEL_ID, defaults_for, guide_for, hints_for  # noqa: E402
 from .schemas import (  # noqa: E402
     ExpanderDownload,
@@ -78,6 +78,7 @@ from .schemas import (  # noqa: E402
     ModelSwitchRequest,
     PromptGuide,
 )
+from .schemas_model import RefineStrengthSuggestions  # noqa: E402
 from .translation import MODEL_BYTES as TRANSLATOR_BYTES  # noqa: E402
 from .translation import prompt_translator  # noqa: E402
 
@@ -776,6 +777,7 @@ async def status() -> ModelStatus:
         # actual readiness without changing the load supervisor's own state.
         state = "ready" if backend.is_ready() else "unloaded"
     defaults = _merged_defaults(info)
+    refine_suggestions = refine_qualification.suggestions(info["model_id"])
     selected_settings = current_settings(settings)
     card_holder, card_ticket = jobs.card()
     token_present = _hf_token_present()
@@ -790,6 +792,8 @@ async def status() -> ModelStatus:
         cache_revision=model_cache_revision(),
         model_download=ModelDownloadStatus.model_validate(model_download),
         defaults=defaults,
+        refine_strength_suggestions=(RefineStrengthSuggestions.model_validate(refine_suggestions)
+                                     if refine_suggestions is not None else None),
         hints=hints_for(
             info["model_id"],
             defaults["cfg_threshold"],
@@ -926,6 +930,7 @@ def _merged_defaults(info: dict) -> dict:
     # where an edit can queue), as its `instruction_edit_supported` does.
     if "instruction_edit_reason" in info:
         defaults["instruction_edit_reason"] = info["instruction_edit_reason"]
+    defaults["refine_reason"] = info.get("refine_reason")
     # And Generate's hold on an edit-only checkpoint, which names that gate.
     if defaults.get("text_to_image_supported") is False and isinstance(info.get("text_to_image_reason"), str):
         defaults["text_to_image_reason"] = info["text_to_image_reason"]

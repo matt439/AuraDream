@@ -6,7 +6,7 @@ import asyncio
 
 from fastapi import APIRouter, HTTPException
 
-from . import gallery_reports, grid, refine_batch, storage, submission
+from . import gallery_reports, grid, refine_batch, refine_qualification, storage, submission
 from .app_context import AppServices
 from .model_defaults import defaults_for
 from .schemas import (
@@ -89,6 +89,11 @@ async def refine_batch_plan(
         if p.record.id in missing:
             p.drop("file_missing", f"the file for #{p.record.id} is missing from the gallery directory")
             continue
+        if refine_qualification.applies(services.model_id()):
+            unusable = await submission.unusable_input(services, p.cell.request)
+            if unusable is not None:
+                p.drop("invalid", unusable[1])
+                continue
         # Another checkpoint's adapter was dropped by the plan; this one's
         # has to be here, and fit, or the pass would run without it.
         lora = p.cell.request.lora

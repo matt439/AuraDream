@@ -76,7 +76,7 @@ function refineBatchTarget() {
   if (binMode) return { why: BIN_HELD };
   if (!refineSupported) {
     return {
-      why: lastDefaults?.refine_settled ? REFINE_NONE
+      why: (lastDefaults?.refine_reason || lastDefaults?.refine_settled) ? refineUnavailableReason()
         : 'Refine is unavailable: as far as the server can tell, this checkpoint has no compatible '
           + 'image-to-image pipeline. A load answers for certain.',
     };
@@ -388,7 +388,7 @@ function refineBatchRow(image) {
 function refineBatchHold() {
   const held = submitHold();
   if (held) return held;
-  if (!refineSupported) return 'This checkpoint has no refine pass';
+  if (!refineSupported) return refineUnavailableReason();
   const field = rbFieldProblem();
   if (field) return field;
   if (rbAsking || JSON.stringify(rbPayload()) !== rbAnswerKey) return 'Checking the images…';

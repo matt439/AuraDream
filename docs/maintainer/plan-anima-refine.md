@@ -2,8 +2,9 @@
 
 **Status: stages 0 and 1 done (2026-11-11, 2026-11-12); stage 2's Turbo
 experiment measured and agent-reviewed at 1024 square on Windows fp8/model
-(2026-11-16). Aesthetic/Preview card qualification and public release
-(stage 3) remain.** The public Refine is still held.
+(2026-11-16). Bounded Turbo stage 3 source is built (2026-11-17); its
+integrated real-server/card acceptance remains. Aesthetic/Preview remain
+unqualified and held.**
 Matt selected Anima as the first family for `GEN#48` on 2026-11-11.
 This closes the family choice in the [peer review](review-2026-11-10-peers.md#r1-refine-on-the-families-that-have-none).
 That family choice alone did not qualify a Refine pass or authorize a GPU run. No capability,
@@ -566,3 +567,109 @@ failure. A focused pass alone does not resolve the original full-gate result:
 the full CPU gate must pass again after this repair. No card evidence or its
 recorded historical tool-source hashes changed, and this I/O-only repair
 requires no new GPU measurement.
+
+## Bounded Turbo integration, 2026-11-17
+
+Stage 3's first source slice registers only the exact Turbo counterpart.
+`refine_qualification` freezes the supplied-fact envelope: exact official
+Turbo id, RTX 5080, Windows CUDA 0, fp8/model offload, Eager/Native,
+diffusers 0.42.1, 1024-square original source and output, 8 full steps and
+CFG 1. Only the measured strengths 0.125/0.25/0.4 are admitted; the provisional
+opening is 0.25. Unknown hardware, another loader/host, another strength,
+enlargement, Aesthetic and Preview remain held with a specific reason.
+
+Host discovery remains with existing card queries and explicit model loading.
+The new qualification reader never imports a framework or probes a device;
+successful Anima loading refreshes the name after preparation, so an earlier
+unknown cache cannot hold it forever. Native checks compare startup/current
+environment, already-imported defaults and the exact active Native entry.
+Every Turbo forward verifies them before and after use without retry or
+environment mutation. Ordinary text-to-image and other families keep their
+existing behavior.
+
+All expanded requests are checked before shared source verdicts. Queue
+admission refuses the whole batch's execution/composer and pure qualification
+errors before source proofs or mask work. Actual gallery PNGs must match the
+1024-square record and its existing RGB provenance; queued changes are checked
+again at each cell and decoded through one handle before use. The normal
+source/key/PNG/bundle machinery is unchanged. Then refine uses its base's
+dimensions for the future source, never the placeholder gallery id; Finish
+and the CLI check those same future passes before queueing or loading.
+
+The explicit flow-rounding policy feeds central progress/estimate/duplicate
+logic without enabling Mu or changing requested-strength keys. Sigma advice
+uses the existing Anima scheduler-copy reader. The backend frees the loaded
+owner after each Turbo image call, matching the private serial protocol.
+Status supplies typed measured suggestions and held reasons, while previews
+return an exact common per-image step count. Polling preserves typed values
+and updates a changed refusal even when capability remains false.
+
+The source checks caught and fixed a same-size PIL ownership error before
+card use: `refine.fitted` can return its input, so the returned image must stay
+open. Independent review also identified queue-order, retained Then refine,
+CLI loader-preflight and Native-drift gaps; regression checks cover each.
+The browser fixture's immediate close/reopen also raced the queued native
+dialog close event. It now waits for the real `refineSource === null`
+transition before opening another source, with no fixed sleep.
+
+### Remaining integrated card acceptance
+
+CPU and fake-browser results do not qualify the newly connected real-backend
+path. Run a separate guarded real-server session after integration,
+with a scratch gallery and the retained baseline RGB. At matched seed 4471,
+the 0.25 pass must reproduce the measured `726e7968…` pixels. A serial two-image
+0.4 call must match `a3d6d770…` / `fc78687d…`, and a direct-then-Refine at
+scale 1 / 0.25 must reproduce the baseline/pass pair. Observe actual progress,
+cancel/recovery, saved metadata and owner-hook residency; keep held-path
+checks and ordinary generation. No larger target belongs in that acceptance.
+
+`GEN#48` remains tracked for this acceptance and independent Aesthetic/Preview
+one-load qualifications. The original trial receipts and source hashes stay
+historical evidence, not a claim that the integrated public path was measured.
+
+### Local integration checks
+
+The isolated worktree used the original checkout's existing environment,
+without dependency changes or a second virtualenv.
+
+- Full source suite: `python -m pytest -n 4 --durations=20 -q --tb=short
+  --timeout=600` — **10,665 passed, 325 skipped**, 85 warnings, exit 0,
+  334.33 seconds. The earlier full pass found two stale test expectations:
+  the new accessibility-smoke registration and Turbo's old No capability.
+  Both were corrected without weakening the audit and passed 57 focused
+  checks before the fresh full run.
+- Ruff passed. Pinned Pyright checked **217 backend/tool sources** with zero
+  diagnostics, using a temporary relative-scope config pointed at the existing
+  environment. An initial absolute-scope experiment was rejected as validation
+  when Pyright reported that it ignored those paths; the corrected scope is
+  the result above.
+- The new API matrix includes 44 checks for all actual grid combinations,
+  copied-request order, sources changed in size or pixels, hardware/loader
+  changes, per-image Mass refine, Then refine stand-ins and retained Finish.
+  Actual backend CPU tests cover private-wrapper equality, batch/solo seeds,
+  per-image hook cleanup, cancellation/error recovery, living PIL ownership,
+  Native drift and cached-unknown hardware refresh. The import-cold matrix
+  passed 109 isolated checks and Native observations passed 18 isolated checks.
+- Four distinct Anima browser smokes passed: Turbo, Aesthetic, Preview and the
+  new measured Refine row. The final new row passed **103 steps** in 9.41 s.
+  Its accessibility watch placement and terminal audit match the registered
+  contract. Desktop 1400×900, narrow 800×900 and emulated phone 393×852 valid
+  and held screenshots were inspected, with stable hit tests and readable
+  choices/reasons. The phone fixture deliberately scrolls the modal to reveal
+  Strength or the held reason; this is not physical-device acceptance.
+
+Browser evidence is retained at
+`%TEMP%/auradream-smoke-artifacts-nnrwrl38/summary.json` (final Refine row,
+seven captures) and `auradream-smoke-artifacts-2p2zc4d_/summary.json` (the
+other three passing rows and the original diagnosed fixture failure).
+Owned fake/browser processes were cleaned up; the final row's port 19960
+had no listener afterwards.
+
+These runs used no checkpoint weights or model inference. The broad suite
+did initialize one CUDA metadata/allocator context: Windows PowerShell removes
+an environment variable assigned an empty string, so that assignment did not
+hide the card. Existing CPU-stub peak-accounting paths can query CUDA when it
+is visible. That worker exited with the suite. Future whole-suite commands
+use `CUDA_VISIBLE_DEVICES=-1`; the strict installed CPU probes independently
+forbid CUDA initialization, compilation and network access. No integrated
+GPU fit, pixels, memory or speed result is claimed by these checks.

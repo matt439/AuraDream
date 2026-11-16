@@ -709,6 +709,9 @@ def details_for(
         "style": style,
         "refine": "Yes" if profile["refine_supported"] else "No",
         "refine_note": (
+            ("Measured only on RTX 5080, Windows, fp8/model offload, Eager/Native and diffusers 0.42.1: "
+             "1024×1024 source and output, 8 steps, CFG 1; strengths 0.125, 0.25 or 0.4.")
+            if model_id == "circlestone-labs/Anima" else
             "This app has a compatible image-to-image Refine pass for this checkpoint."
             if profile["refine_supported"] else
             "This app has no compatible image-to-image Refine pass for this checkpoint."

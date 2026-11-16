@@ -481,6 +481,7 @@ function dayBreak(rec) {
 // Use these references (syncUseReferences).
 const REFINE_NONE = 'This checkpoint has no refine pass compatible with this app. '
   + 'The FLUX.1, SDXL, Z-Image and Qwen-Image checkpoints have one.';
+const refineUnavailableReason = () => lastDefaults?.refine_reason || REFINE_NONE;
 const REFERENCES_NONE = "This checkpoint can't use reference images; FLUX.2 [klein] can.";
 
 function card(rec) {
@@ -581,7 +582,7 @@ function card(rec) {
 // here rather than in openRefine, so the card can say it where it was
 // pressed as well.
 function refineFromCard(rec, div) {
-  if (!refineSupported) { refuseInCard(div, REFINE_NONE, 'No refine pass here'); return; }
+  if (!refineSupported) { refuseInCard(div, refineUnavailableReason(), 'No refine pass here'); return; }
   openRefine(rec);
 }
 
@@ -648,7 +649,7 @@ function starTitle(on, button) {
 function syncRefineTool(button) {
   button.setAttribute('aria-disabled', String(!refineSupported));
   const title = refineSupported ? 'Refine: scale this image up and re-denoise it part of the way'
-    : 'Refine - this checkpoint has no refine pass';
+    : `Refine - ${refineUnavailableReason()}`;
   button.title = title;
   button.setAttribute('aria-label', title);
   button.dataset.tip = refineSupported ? 'Refine…' : 'No refine pass here';

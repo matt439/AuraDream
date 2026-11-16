@@ -828,6 +828,22 @@ def _main(argv: list[str] | None, awake: contextlib.ExitStack) -> int:
     # the checkpoint profile, which is what decides the resume comparison and
     # the negative-prompt note below.
     backend = p.get_backend("diffusers")
+    from . import refine_admission, refine_qualification
+
+    if refine_qualification.applies(p.settings.model_id):
+        for cell in cells:
+            # The command-line plan remains cold. Actual hardware is required
+            # after the requested load, by check_refine_supported below.
+            bounded = backend.refine_refusal(p.settings, cell.request, check_hardware=False)
+            if bounded is not None:
+                print(bounded, file=sys.stderr)
+                return 2
+            if cell.request.refine is not None:
+                try:
+                    refine_admission.check_source(cell.request, p.settings.model_id)
+                except ValueError as exc:
+                    print(str(exc), file=sys.stderr)
+                    return 2
 
     # References, adapters and a refine source are all-or-nothing inputs: a
     # night that renders every cell as plain text-to-image because the pipeline
@@ -986,6 +1002,14 @@ def _main(argv: list[str] | None, awake: contextlib.ExitStack) -> int:
         from backend.schemas import ThenRefine
 
         spec = then_refine.resolved(ThenRefine(**args.then_refine))
+        if refine_qualification.applies(p.settings.model_id):
+            for cell in cells:
+                bounded = backend.refine_refusal(
+                    p.settings, then_refine.stand_in(cell.request, spec), check_hardware=False,
+                )
+                if bounded is not None:
+                    print(f"--then-refine-scale: {bounded}", file=sys.stderr)
+                    return 2
         unavailable = None if p.defaults_for(p.settings.model_id).get("refine_supported", True) else (
             f"{p.settings.model_id} has no refine pass in this app"
         )

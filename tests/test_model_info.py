@@ -87,7 +87,9 @@ def test_anima_releases_keep_separate_favourites_but_link_to_the_real_repo():
     aesthetic = model_info.details_for("circlestone-labs/Anima@aesthetic-v1.1")
     assert turbo["favourite_id"] != aesthetic["favourite_id"]
     assert turbo["url"] == aesthetic["url"] == "https://huggingface.co/circlestone-labs/Anima"
-    assert turbo["refine"] == aesthetic["refine"] == "No"
+    assert turbo["refine"] == "Yes" and aesthetic["refine"] == "No"
+    assert "RTX 5080" in turbo["refine_note"] and "1024×1024" in turbo["refine_note"]
+    assert "0.125, 0.25 or 0.4" in turbo["refine_note"]
     assert "Only a 1.05 MP square" in aesthetic["megapixels_note"]
 
 

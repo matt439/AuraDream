@@ -98,8 +98,9 @@ function compareScales(src = refineSource) {
 
 const refineSizesText = (sizes) => sizes.map(([w, h]) => `${w}×${h}`).join(', ');
 
-// Compare 3: half the checkpoint's strength, it, and half as much again, on
-// the 0.05 grid, less any that leaves no step of the Steps box or passes 1.
+// Compare 3 uses the server's measured values where it supplies a fixed
+// recipe. Otherwise it offers half the checkpoint's strength, it, and half
+// as much again, on the 0.05 grid, less any that leaves no step or passes 1.
 // model_defaults.strength_sweep is the same arithmetic in the same order, so
 // the Strength tip's example and this button's sweep are the same numbers.
 // Half rounds up on the quotient snapped to six places: Z-Anime's 0.15 makes
@@ -108,6 +109,13 @@ const refineSizesText = (sizes) => sizes.map(([w, h]) => `${w}×${h}`).join(', '
 // of few steps loses the half first, and its label then counts two.
 function compareSweep(steps = refineStepsNow()) {
   const start = refineDefaultStrength();
+  if (refineStrengthSuggestions) {
+    const matches = steps === refineStrengthSuggestions.steps;
+    return {
+      start, values: matches ? [...refineStrengthSuggestions.strengths] : [], dropped: [],
+      measured: true, reason: matches ? '' : refineStrengthSuggestions.steps_reason,
+    };
+  }
   const values = [];
   const dropped = [];
   for (const factor of [0.5, 1, 1.5]) {
@@ -134,6 +142,9 @@ function refineStepsNow() {
 // at 2 steps - a 6-12x2 steps grid makes them - left none of 0.05, 0.1 and
 // 0.15 a step, and the button wrote an empty Strength.
 function compareStepsNeeded() {
+  // A measured recipe does not promise another step count. Its hold is the
+  // server's sentence, rather than a locally extrapolated minimum.
+  if (refineStrengthSuggestions) return null;
   for (let steps = refineStepsNow() + 1; steps <= 1000; steps++) {
     if (compareStrengths(steps).length >= 2) return steps;
   }
@@ -170,7 +181,7 @@ function openRefine(rec, pass = null) {
   // head and over the card (refuseInCard). Reuse of a refined record opens
   // anyway: the pass is kept, with the reason, until a load says it can run.
   if (!refineSupported && !pass) {
-    showError(REFINE_NONE, true);
+    showError(refineUnavailableReason(), true);
     return false;
   }
   // Opened from the lightbox, a close that does not run goes back to it
@@ -507,7 +518,7 @@ function syncRefine() {
   // offer: the button is held, saying the Steps that would, and the lines
   // name none. Two of them is a sweep of two: the label counts them, and the
   // title names the one left out and why - it promised "either side".
-  const { start, values: sweepValues, dropped } = compareSweep();
+  const { start, values: sweepValues, dropped, measured, reason: sweepReason } = compareSweep();
   const compare = sweepValues.join(',');
   const swept = sweepValues.length >= 2;
   const need = swept ? null : compareStepsNeeded();
@@ -518,17 +529,18 @@ function syncRefine() {
   const compareLabel = `Compare ${sweepValues.length === 2 ? 2 : 3}`;
   if (els.refineCompare.textContent !== compareLabel) els.refineCompare.textContent = compareLabel;
   const other = sweepValues.find((v) => v !== start);
-  const around = sweepValues.length === 3 ? `this checkpoint's ${start} and either side of it`
+  const around = measured ? `measured strengths at ${refineStrengthSuggestions.steps} steps`
+    : sweepValues.length === 3 ? `this checkpoint's ${start} and either side of it`
     : sweepValues.includes(start) ? `this checkpoint's ${start} and ${other} ${other < start ? 'below' : 'above'} it`
       : `around this checkpoint's ${start}`;
   els.refineCompare.title = swept
     ? `Write ${compare} into Strength: ${around}, run side by side as one sweep`
       + (dropped.length ? ` - ${dropped.join(', and ')}` : '')
-    : `No sweep at ${refineStepsNow()} steps: fewer than two strengths around ${start} leave a step`
+    : sweepReason || `No sweep at ${refineStepsNow()} steps: fewer than two strengths around ${start} leave a step`
       + (need ? ` - raise Steps to ${need}` : '');
   els.refineSweepHint.textContent = swept
-    ? `Several values (${compare}) run side by side and open as a sheet.`
-    : 'Several values, comma-separated, run side by side and open as a sheet'
+    ? `${measured ? 'Measured strengths' : 'Several values'} (${compare}) run side by side and open as a sheet.`
+    : sweepReason || 'Several values, comma-separated, run side by side and open as a sheet'
       + (need ? `; at ${refineStepsNow()} steps a sweep around ${start} needs Steps of ${need} or more.` : '.');
 
   // The seeds the versions take, counting up from the box like a Batch: one
@@ -578,7 +590,8 @@ function syncRefine() {
   // says it: "a load answers" sent a user with Anima loaded off to load it.
   els.refineUnavailable.hidden = refineSupported;
   els.refineUnavailable.textContent = refineSupported ? ''
-    : lastDefaults?.refine_settled ? `Refine is unavailable. ${REFINE_NONE}`
+    : (lastDefaults?.refine_reason || lastDefaults?.refine_settled)
+      ? `Refine is unavailable. ${refineUnavailableReason()}`
       : 'Refine is unavailable: as far as the server can tell, this checkpoint has no compatible '
         + 'image-to-image pipeline. A load answers for certain - the pass stays here until then.';
   syncRefineFromPanel();
@@ -595,7 +608,7 @@ function syncRefine() {
 // refine pass, a size past the guard, or the preview's refusal.
 function syncRefineRun() {
   const problem = submitHold() || (submitting ? PASS_IN_FLIGHT : '')
-    || (!refineSupported ? 'This checkpoint has no refine pass'
+    || (!refineSupported ? refineUnavailableReason()
       : refineSizeProblem(+els.refineWidth.value, +els.refineHeight.value) || refineProblem);
   els.refineRun.setAttribute('aria-disabled', String(!!problem));
   els.refineRun.title = problem || 'Run the pass (Ctrl+Enter)';
@@ -781,10 +794,13 @@ async function previewRefine() {
     if (epoch !== refineEpoch) return;
     const strengths = p.values.strength ?? [];
     const steps = p.values.steps?.[0];
-    // About: the pipelines round differently (SDXL floors, the flow ones
-    // round up), and the progress bar counts what actually runs.
+    // The server knows the profiled pipeline's rounding. Keep the old
+    // approximate caption only where it cannot supply an exact count.
     const run = !sweep && typeof steps === 'number' && strengths.length === 1
-      ? ` · about ${Math.max(1, Math.round(steps * strengths[0]))} of ${steps} steps run` : '';
+      ? Number.isInteger(p.denoised_steps) && p.denoised_steps > 0
+        ? ` · ${p.denoised_steps} of ${steps} steps run`
+        : ` · about ${Math.max(1, Math.round(steps * strengths[0]))} of ${steps} steps run`
+      : '';
     // Description, not a refusal: the tip says 1 keeps nothing, and here
     // the number is about to.
     const single = !sweep && strengths.length === 1 ? strengths[0] : null;

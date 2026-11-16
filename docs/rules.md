@@ -193,12 +193,14 @@ paragraphs, never rewording.
   uses `--force`; the missing-sign-in alternative says to stop AuraDream
   before rerunning the Windows installer. It never signs in or reads a token
 - `backend/card_facts.py` — the server's CUDA card: `card(device)` (total
-  memory in bytes, compute capability), `total_memory`, `capability`; None
+  memory in bytes, compute capability and optional observed name), `total_memory`, `capability`; None
   for a CPU device, no CUDA, no card or any error. Cold (torch only on the
   first ask, `torch.cuda` queries only, never diffusers), cached per device;
   the routes read it off the event loop (`main._read_card`, the status's
   describe thread). The tests' `no_real_card` and the fake server make it
-  None (the fake's until `POST /api/fake/card` claims one); a test that wants a card patches `card`
+  None (the fake's until `POST /api/fake/card` claims one); a test that wants a card patches `card`.
+  `observed` only reads supplied probe results, importing/probing nothing;
+  a successful explicit Anima load refreshes its qualification facts uncached
 - `backend/model_benchmarks.py` — retained RTX 5080 timing references, exact
   checkpoint/loading-option matching and coarse speed categories; no live benchmark
 
@@ -320,6 +322,11 @@ paragraphs, never rewording.
   ships beside a pipeline's own (`sibling`), that class built over the loaded
   components (`build`), the steps a strength leaves, and the source scaled to
   cover the requested size and cropped; a leaf module like `seeds`
+- `backend/refine_qualification.py` — import-cold measured Turbo envelope,
+  supplied loader/hardware facts, per-request/source refusals and measured
+  strength suggestions; it probes nothing and changes no reproduction keys
+- `backend/refine_admission.py` — gallery-only Turbo source decode/proof:
+  actual PNG dimensions and RGB provenance before fitting, rechecked per call
 - `backend/instruction_edit.py` — standalone `kontext-v1` recipe, strict
   request/stored-source contracts, original-RGB provenance and exact-aspect
   Lanczos geometry, canonical bound identity, the held-reason sentences and
@@ -411,12 +418,12 @@ paragraphs, never rewording.
   and separate cached trees
 - `backend/backends/anima_pipeline.py` — upstream Anima modular blocks behind
   the standard pipeline interface, with per-step progress and cancellation
-- `backend/backends/anima_refine.py` — private, unregistered Anima
+- `backend/backends/anima_refine.py` — Anima
   image-to-image classes over the upstream encoder, image-to-image core and
   decoder (`GEN#48` stage 1): the text pipeline's callback, `num_timesteps`
   as the sliced count before the first step, flow rounding (`start_index`)
-  and a start sigma read on a scheduler copy; `refine.sibling` still answers
-  None and the Anima profiles keep Refine unsupported until the card
+  and a start sigma read on a scheduler copy; only exact Turbo is registered,
+  behind its measured runtime/request envelope. Aesthetic/Preview remain private
 - `backend/backends/flux3_loading.py` — FLUX 3 [Klein] and Klein Base: the
   pinned snapshot's configs (preflight: the modular index's classes, the
   transformer's `flow_map`) then only its `transformer/`, `text_encoder/` and
@@ -2813,6 +2820,46 @@ measured on the card and when.
   until restored; `refine_binned` (read, not stored, from the same lookup)
   says which, so the page reads "refine of #N (in the recycle bin)" and
   offers Restore, which clears both.
+#### Measured Anima Turbo Refine
+
+- Only exact `circlestone-labs/Anima` and exact `AnimaTurboPipeline` have the
+  app-owned Turbo counterpart. It still passes `REQUIRED`/`CARRIED` checks;
+  lookalikes, subclasses, Aesthetic and Preview remain unregistered. The
+  profile's positive structural answer grants no runtime permission.
+- `refine_qualification.ANIMA_TURBO` owns the measured envelope: RTX 5080,
+  Windows, CUDA device 0, fp8/model offload, Eager/Native, diffusers 0.42.1,
+  1024-square original source and output, eight full steps, CFG 1 and strengths
+  0.125/0.25/0.4; the provisional opening is 0.25. No enlargement, other
+  loader, platform or card is inferred. Inpaint/outpaint stay unavailable.
+- The backend reads supplied/cached host facts. `card_facts.observed` never
+  imports or probes; the existing card probe supplies the GPU name, and an
+  actual Anima load refreshes it after successful preparation. Unknown hardware
+  stays held. Native checks read startup/current environment and only already
+  imported dispatcher facts; they never import a framework from Check/status,
+  mutate an override or echo its value. Each Turbo image call verifies the
+  exact Native baseline before and after forwarding, with no retry.
+- Every actual expanded request is checked, not a grid's first combination.
+  Queue admission rejects all nonempty execution/composer intent before source
+  I/O, then all pure Turbo qualifications before gallery proofs or mask work.
+  Mass refine reports ineligible rows individually; retained Finish, More seeds,
+  rerenders and CLI use the same bounds. Then refine validates the base's
+  dimensions and future pass without opening its placeholder source id.
+- Admission and each actual call prove the source's live gallery identity,
+  actual dimensions and existing RGB provenance hash. The backend decodes from
+  one open handle before fitting; a same-size fit transfers the living image.
+  A changed, missing or binned source refuses before the model call. This uses
+  ordinary Refine provenance and adds no stored field, key or normalization.
+- Turbo's explicit flow-rounding policy is separate from Mu. Central
+  `refine.start_index` feeds initial progress, estimates and duplicate advice;
+  keys retain the requested strength. Sigma advice calls the Anima reader on a
+  scheduler copy. Each one-image call frees the loaded owner's hooks, including
+  failures/cancellation, matching the measured serial protocol.
+- Status supplies typed measured strength suggestions and a scalar held reason.
+  Grid preview supplies an exact common per-image `denoised_steps` or null.
+  The page consumes them, keeps typed values on polling, and refreshes held
+  titles when the reason changes without a capability change. It adds no Anima
+  rounding policy. All unqualified values remain inspectable and held in words.
+
 #### Inpainting, outpainting and masks
 
 - An inpaint is a refine pass with `GenerateRequest.mask`: a stored mask
@@ -9917,8 +9964,8 @@ DevTools appears. Preserve the bounded readiness wait after exit 0; nonzero
 exits/signals still fail early, and an absent endpoint still times out.
 `tests/test_browser_startup_wait.py` covers delayed handoff, absent handoff
 and signal failure with cold fixtures; profile/a11y tests use the real
-browser and verify cleanup. The dialog-audit smoke manifest now contains
-24 rows, including download progress; each page is watched separately and
+browser and verify cleanup. The dialog-audit smoke manifest includes the
+registered dialog smokes and download progress; each page is watched separately and
 checked immediately before navigation and at the end.
 
 Late-ladder fixtures isolate records through the normal gallery filter and
@@ -10772,8 +10819,8 @@ tags round a sentence that keeps its place, the @ name's Artist chip slot),
 the Tags menu (its order line and sections, Start with written ahead of a
 prose prompt, held once complete with its reason said on a press, undone
 by Ctrl+Z, no `safe` beside `nsfw`, the empty prompt's caret line), a
-FLUX.1 pass reused there (the final no-pass line, its strength said as
-FLUX.1's and 0.4 as the general starting strength), the refused adapter
+FLUX.1 pass reused there (Turbo's structural support and its measured 0.25
+opening, with the foreign strength named), the refused adapter
 (greyed select with the reason, a 422 at submit, no LoRA on the row), the
 grid's dead Mu and LoRA weight axes with their reasons and their syntax
 back when they apply, a Reuse writing no Mu into the dead box nor sending
@@ -11440,6 +11487,16 @@ counter coverage, fixed phase limits, partial receipts and worker cleanup with
 CPU stand-ins. These checks load no weights and establish no GPU fit, image
 quality or public Refine support.
 
+`tests/test_refine_qualification.py` checks the supplied-fact Turbo matrix and
+import-cold policy. `tests/test_refine_native.py` checks the current/frozen/active
+Native observations without a framework import. `tests/test_api_anima_refine.py`
+checks every expanded cell, hardware/loader holds, source changes, Mass/Then
+refine and rerun/recovery refusals. `tests/test_anima_refine_backend.py` exercises
+the actual backend and installed blocks over CPU stand-ins, including living
+source images, exact callback counts, serial cleanup and Native drift.
+`tests/test_cli_anima_refine.py` checks cold known-loader refusals and retained
+source/strength through the command line. These are not integrated card evidence.
+
 The refine pass is covered the same way: `tests/test_refine.py` (each
 profile's `refine_supported` and each sibling's call held to the installed
 diffusers, Anima's and NewBie's answer final before a load
@@ -11578,6 +11635,14 @@ Re-render, Swap tags and More seeds; the CLI's `--mask-crop`, its
 `--from-image` carry and mismatch, and `--via-server`).
 
 ### Image pass smokes
+
+`smoke-anima-refine.json` uses its own fresh Turbo fake on shared port 7960.
+It checks cold/live measured support, opening at 1024 square and 0.25,
+server-supplied 0.125/0.25/0.4 suggestions and exact two/four-of-eight captions,
+source/size/steps/CFG/strength holds, explicit queue and saved source/strength,
+and changing held reasons without changing capability. Existing Anima smokes
+retain the unqualified variants and unrelated-feature refusals. No checkpoint
+weights or GPU qualification comes from these browser checks.
 
 `smoke-detailer.json` runs on an Animagine XL 4.0 fake on shared port 7960,
 with its own fresh scratch gallery and `--step 0.3`. It uses a deterministic

@@ -22,6 +22,52 @@ from test_profiles import CASES
 from test_refine import SIBLINGS
 
 
+@pytest.mark.parametrize("policy, mu_supported, expected", [
+    ("flow", False, 4), ("flow", True, 4),
+    ("sdxl", False, 5), ("sdxl", True, 5),
+    (None, False, 5), (None, True, 4), ("unrecognised", True, None),
+])
+def test_explicit_refine_rounding_is_independent_of_mu_and_legacy_defaults_stay_stable(
+    monkeypatch, policy, mu_supported, expected,
+):
+    from backend import model_defaults
+
+    profile = {"refine_supported": True, "inpaint_supported": True,
+               "mu_supported": mu_supported, "refine_rounding": policy}
+    monkeypatch.setattr(model_defaults, "defaults_for", lambda _: profile)
+    assert refine.start_index(8, .4, "test/policy") == expected
+    # A Refine-only policy cannot silently alter an inpaint's own rounding.
+    assert refine.start_index(8, .4, "test/policy", inpaint=True) == (4 if mu_supported else 5)
+
+
+def test_explicit_rounding_does_not_grant_an_unknown_or_held_capability(monkeypatch):
+    from backend import model_defaults
+
+    monkeypatch.setattr(model_defaults, "defaults_for", lambda _: {
+        "refine_supported": False, "inpaint_supported": False,
+        "mu_supported": False, "refine_rounding": "flow", "inpaint_rounding": "flow",
+    })
+    assert refine.start_index(8, .4, "test/held") is None
+    assert refine.start_index(8, .4, "test/held", inpaint=True) is None
+
+
+@pytest.mark.parametrize("strength, begin, count", [(.125, 7, 1), (.25, 6, 2), (.4, 4, 4)])
+def test_measured_turbo_tail_reaches_initial_batch_progress_and_estimates(monkeypatch, strength, begin, count):
+    from backend import gallery_reports
+
+    model = "circlestone-labs/Anima"
+    assert defaults_for(model)["mu_supported"] is False
+    assert refine.start_index(8, strength, model) == begin
+    assert refine.steps_run(8, strength, model) == count
+    monkeypatch.setattr(grid, "current_model_id", lambda _: model)
+    request = GenerateRequest(prompt="a fox", steps=8, refine=3, strength=strength, num_images=2)
+    cell = grid.Cell(request, 17)
+    assert grid.denoised_steps(request) == count
+    assert grid.progress_steps(request) == 2 * count
+    assert gallery_reports.estimate_seconds([cell], None, refine_costs={count: 1800.0}) == 3.6
+    assert gallery_reports.estimate_seconds([cell], None, refine_costs={count + 1: 1800.0}) is None
+
+
 @pytest.mark.parametrize("model_id, class_name", CASES)
 def test_profiled_start_index_matches_the_real_siblings_scheduler(model_id, class_name):
     sibling = refine.sibling(getattr(diffusers, class_name))
@@ -74,6 +120,7 @@ def test_the_inpaint_start_index_matches_the_real_inpaint_classes_scheduler(mode
     ("black-forest-labs/FLUX.1-schnell", 4, "0.5-0.9x0.1", 2),
     ("Tongyi-MAI/Z-Image-Turbo", 8, "0.2-0.5x0.05", 4),
     ("KBlueLeaf/Kohaku-XL-Zeta", 10, "0.4,0.45,0.5", 1),
+    ("circlestone-labs/Anima", 8, "0.125,0.15,0.25,0.4", 1),
 ])
 def test_duplicate_advisory_uses_integer_start_without_changing_resume_keys(
     model_id, steps, axis, expected,

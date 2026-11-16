@@ -1629,8 +1629,9 @@ for at least 2". The size prose names the 1, 1.5 and 2 MP tiers the strip
 marks in range, and the size line quotes the bounds as written, 0.26-2.36
 MP (The prompting guide). The integration's two refusals are final before a
 load: user adapters are refused by the id (LoRA adapters, below), and the
-Refine dialog says Anima has no pass without hedging that a load will decide
-(The refine pass, `_OWN_PIPELINES`).
+the structural Refine answer is final before loading. The bounded Turbo pass
+added 2026-11-17 still holds every unmeasured runtime/request choice (The refine
+pass, below); Aesthetic and Preview retain their no-pass answer.
 
 Sources: [official model card and Turbo files](https://huggingface.co/circlestone-labs/Anima),
 [official shared component tree](https://huggingface.co/circlestone-labs/Anima-Base-v1.0-Diffusers),
@@ -2352,13 +2353,47 @@ refine the row then describes wrongly. In diffusers 0.40 that gives FLUX.1
 (Krea dev, dev, schnell), SDXL (Animagine, Kohaku, Illustrious, WAI),
 Z-Image (Turbo, Z-Anime) and Qwen-Image a pass, and Krea 2, FLUX.2 [klein],
 ERNIE-Image and Lumina 2 (NetaYume) none; Anima and NewBie run this repo's
-own pipeline classes, which have no sibling. A table of families was not
+own pipeline classes. The later exact Turbo extension is bounded below;
+the other local classes still have no registered sibling. A table of families was not
 written: the loader is model-agnostic, and so is this. Each profile carries
 `refine_supported` as its guess before a load, `describe()` answers from the
 class after it, `/api/status` merges the two like `reference_supported`, and
 `tests/test_refine.py` holds every guess to the installed diffusers.
 If the live class supports the pass but the profile has no strength, status
 reports `refine.DEFAULT_STRENGTH`, matching request defaults and the tooltip.
+
+### Anima Turbo's measured same-size pass (2026-11-17)
+
+The private Turbo trial measured one 1024-square recipe and three strengths;
+it did not measure general enlargement or another Anima variant. The first
+source slice therefore exposes only that recipe: RTX 5080, Windows CUDA 0,
+fp8/model offload, Eager/Native, diffusers 0.42.1, a 1024-square gallery source
+and output, eight steps and CFG 1. Strength starts at 0.25; Compare 3 uses
+the server's measured 0.125/0.25/0.4 values. Every other value is held by the
+server, with its reason, rather than being silently normalized into a direct
+render. Aesthetic/Preview and enlargements wait for their own measurements.
+
+The exact local Turbo class is a deliberate resolver extension. Its profile
+still describes structure, while `refine_qualification` and the backend's
+supplied facts decide admission. An unknown GPU remains held; a normal load
+refreshes hardware facts and cold readers only inspect them. Native checks
+include late environment/default/registry changes without importing frameworks
+from status or Check. Queue, every actual grid combination, per-image planners,
+CLI and retained recovery check the same bounds. Then refine's id 1 is only a
+stand-in: its future source size comes from its base request, never that row.
+
+`refine_admission` proves the actual PNG size and gallery RGB provenance before
+decode/use, including after a queued source changes. A same-size fit may return
+its original PIL object, so ownership transfers instead of closing that image.
+Turbo frees the loaded owner's hooks after every one-image call, matching the
+private measured sequence. Its explicit flow rounding stays separate from Mu;
+the server supplies preview step counts and reads start sigma from the same
+Anima schedule block on a copy. Existing keys, run ids and stored intent do not
+change. CPU/browser checks establish this integration's source behavior; the
+real-server card acceptance and measured limits remain in the
+[owner](maintainer/plan-anima-refine.md).
+
+### Shared Refine construction and execution
 
 **`refine.build`, not `from_pipe`.** `DiffusionPipeline.from_pipe` is the
 library's own way to make one pipeline from another "without reallocating

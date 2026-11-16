@@ -932,6 +932,7 @@ def test_a_refine_passs_tight_line_is_a_row_of_verified_md():
         "KBlueLeaf/Kohaku-XL-Zeta": ("Kohaku XL Zeta", "fp8", 2896, 2896),
         "OnomaAIResearch/Illustrious-XL-v2.0": ("Illustrious XL v2.0", "fp8", 2896, 2896),
         "Qwen/Qwen-Image": ("Qwen-Image", "NVFP4", 1280, 1280),
+        "circlestone-labs/Anima": ("Anima Turbo v1.1", "fp8", 1024, 1024),
     }
     text = (ROOT / "docs" / "verified.md").read_text(encoding="utf-8")
     section = text.split("### Past 4 MP", 1)[1].split("\n## ", 1)[0]

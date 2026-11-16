@@ -114,6 +114,9 @@ class FakeBackend(GenerationBackend):
         self.edit_host: tuple[str, str | None] = (
             QUALIFIED_ENVELOPE.platform, QUALIFIED_ENVELOPE.diffusers_version,
         )
+        self.refine_host_facts: tuple[str, str | None, str | None, bool] = (
+            "win32", "0.42.1", "NVIDIA GeForce RTX 5080", True,
+        )
         # What each instruction edit the fake ran was handed: the recipe's
         # pipeline geometry, the prepared source's size, the seed and steps.
         self.edit_calls: list[dict] = []
@@ -123,6 +126,9 @@ class FakeBackend(GenerationBackend):
 
     def instruction_edit_host(self) -> tuple[str, str | None]:
         return self.edit_host
+
+    def refine_host(self) -> tuple[str, str | None, str | None, bool]:
+        return self.refine_host_facts
 
     def _sync_model_profile(self) -> None:
         """Switch the fake's capabilities with the server's selected model.
@@ -290,6 +296,16 @@ class FakeBackend(GenerationBackend):
             # The real backend's contract: loading happens in main.ensure_loaded
             # and nowhere else, so a job that reaches here unloaded is a bug.
             raise RuntimeError("model is not loaded")
+        if request.refine is not None:
+            from backend import refine_admission, refine_qualification
+
+            reason = self.refine_refusal(selected, request)
+            if refine_qualification.applies(selected.model_id) and request.inpainting:
+                reason = reason or refine_qualification.request_refusal(selected.model_id, request)
+            if reason is not None:
+                raise ValueError(reason)
+            if refine_qualification.applies(selected.model_id):
+                refine_admission.check_source(request, selected.model_id)
         self._last_peak = None
         self._last_mask_crop = None
         self.requests.append(request)
@@ -410,6 +426,7 @@ class FakeBackend(GenerationBackend):
         selected = current_settings(settings)
         qualified = self.instruction_edit_qualified()
         edit_reason = self.instruction_edit_refusal(selected)
+        refine_reason = self.refine_refusal(selected)
         extra: dict = {}
         if not defaults_for(selected.model_id)["text_to_image_supported"]:
             extra["text_to_image_reason"] = text_to_image_refusal(
@@ -422,7 +439,8 @@ class FakeBackend(GenerationBackend):
             "offload": selected.offload,
             "cfg_threshold": None,
             "reference_supported": self.reference_supported,
-            "refine_supported": self.refine_supported,
+            "refine_supported": self.refine_supported and refine_reason is None,
+            "refine_reason": refine_reason,
             "inpaint_supported": self.inpaint_supported,
             "lora_supported": self.lora_supported(),
             # As the real backend answers them: the instance's gate, the

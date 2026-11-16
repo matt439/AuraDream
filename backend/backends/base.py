@@ -9,6 +9,7 @@ layer or the UI noticing.
 from __future__ import annotations
 
 import abc
+import os
 import sys
 from typing import TYPE_CHECKING, Any, Callable
 
@@ -33,6 +34,29 @@ CancelFn = Callable[[], bool]
 # a backend to produce and for a caller to take.
 PreviewFn = Callable[[bytes, int, int], None]
 ExecutionDiagnosticsReader = Callable[[], "RegionalDiagnostics | None"]
+
+
+def _refine_native_observed() -> bool:
+    """Read startup/current/already-imported Native facts without imports."""
+    from ..config import ATTENTION_ENVIRONMENT_WARNING
+
+    if ATTENTION_ENVIRONMENT_WARNING is not None or os.environ.get("DIFFUSERS_ATTN_BACKEND", "native") != "native":
+        return False
+    dispatch = sys.modules.get("diffusers.models.attention_dispatch")
+    for name in ("diffusers.utils.constants", "diffusers.models.attention_dispatch"):
+        if name not in sys.modules:
+            continue
+        module = sys.modules[name]
+        if module is None or getattr(module, "DIFFUSERS_ATTN_BACKEND", None) != "native":
+            return False
+    if dispatch is None:
+        return True  # No runtime import yet: the actual call checks again.
+    try:
+        active, function = dispatch._AttentionBackendRegistry.get_active_backend()
+        native = dispatch.AttentionBackendName.NATIVE
+        return active is native and function is dispatch._native_attention and callable(function)
+    except Exception:
+        return False
 
 
 class Cancelled(Exception):
@@ -192,12 +216,46 @@ class GenerationBackend(abc.ABC):
         """
         return False
 
+    def refine_host(self) -> tuple[str, str | None, str | None, bool]:
+        """Supplied/cached qualification facts, without a framework/device probe."""
+        from .. import card_facts
+        from ..config import settings
+        from ..model_selection import current_settings
+
+        selected = current_settings(settings)
+        found = card_facts.observed(selected.device)
+        return (sys.platform, installed_diffusers_version(),
+                None if found is None else found.name, _refine_native_observed())
+
+    def refine_refusal(self, selected: Any, request: "GenerateRequest | None" = None, *,
+                       check_hardware: bool = True) -> str | None:
+        """The measured Turbo envelope; other checkpoints retain their contract."""
+        from .. import refine_qualification
+
+        if request is not None and (request.refine is None or request.inpainting):
+            return None
+        if not refine_qualification.applies(selected.model_id):
+            return None
+        platform, version, gpu, native = self.refine_host()
+        facts = refine_qualification.LoaderFacts.of(
+            selected, platform=platform, diffusers_version=version, gpu_name=gpu, native_attention=native,
+        )
+        return (refine_qualification.loader_refusal(selected.model_id, facts, check_hardware=check_hardware)
+                or (refine_qualification.request_refusal(selected.model_id, request) if request is not None else None))
+
     def check_refine_supported(self, request: "GenerateRequest") -> None:
         """Refuse a pass the loaded pipeline cannot perform, before any cell.
 
         A profile is only a pre-load guess for an unfamiliar checkpoint id.
         Normalization must not turn an accepted refine job into direct renders.
         """
+        if request.refine is not None:
+            from ..config import settings
+            from ..model_selection import current_settings
+
+            reason = self.refine_refusal(current_settings(settings), request)
+            if reason is not None:
+                raise ValueError(reason)
         if getattr(request, "edit", None) is not None:
             require_execution_available(request.validate_edit(), qualified=self.instruction_edit_qualified())
         if getattr(request, "upscaler", None) is not None:

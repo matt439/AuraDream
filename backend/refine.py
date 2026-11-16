@@ -15,8 +15,10 @@ the same components, so the backend builds that sibling over the pipeline it
 already holds (`build`) and the two share every module, hook and adapter.
 Which checkpoints have one is therefore the installed diffusers' answer
 (`sibling`), not a table here: FLUX.1, SDXL, Z-Image and Qwen-Image do; Krea
-2, FLUX.2 [klein], ERNIE-Image and Lumina 2 do not, and neither do the local
-Anima and NewBie pipelines. WAI and RouWei can explicitly opt into the pinned
+2, FLUX.2 [klein], ERNIE-Image and Lumina 2 do not. The exact app-owned
+Anima Turbo class has an explicitly registered sibling; its runtime
+qualification is a separate check. The other Anima variants and NewBie have
+none. WAI and RouWei can explicitly opt into the pinned
 Anime6B GAN before the VAE encode; its temporary net is released before the
 diffusion pass. The default path and its existing pixels stay unchanged.
 
@@ -344,20 +346,33 @@ def sibling(pipeline: type, kind: str = "Img2Img") -> type | None:
     `StableDiffusionXLInpaintPipeline` - and only for the class diffusers
     itself exports under that name: a local pipeline that merely shares one
     (the tests' stand-ins, a custom class) has components nobody checked
-    against the sibling's. None where there is no such class, or where its
-    call could not run what the text-to-image one runs (`REQUIRED`, or
-    `INPAINT_REQUIRED` for an inpaint, and `CARRIED`).
+    against the sibling's. The exact app-owned Anima Turbo class is the one
+    deliberate extension, sharing the same signature checks; resolving its
+    class grants no runtime qualification. None where there is no such class,
+    or where its call could not run what the text-to-image one runs (`REQUIRED`,
+    or `INPAINT_REQUIRED` for an inpaint, and `CARRIED`).
     """
     if kind not in KINDS:
         raise ValueError(f"no sibling kind {kind!r}; one of {', '.join(KINDS)}")
     name = getattr(pipeline, "__name__", "")
     if not name.endswith("Pipeline") or any(infix in name for infix in KINDS):
         return None
-    import diffusers
+    if kind == "Img2Img" and name == "AnimaTurboPipeline":
+        # Import only while resolving an already loaded pipeline class. The
+        # schemas, storage and cold status paths import this leaf module too.
+        from .backends.anima_pipeline import AnimaTurboPipeline
 
-    if getattr(diffusers, name, None) is not pipeline:
-        return None
-    found = getattr(diffusers, f"{name[: -len('Pipeline')]}{kind}Pipeline", None)
+        if pipeline is not AnimaTurboPipeline:
+            return None
+        from .backends.anima_refine import AnimaTurboImg2ImgPipeline
+
+        found = AnimaTurboImg2ImgPipeline
+    else:
+        import diffusers
+
+        if getattr(diffusers, name, None) is not pipeline:
+            return None
+        found = getattr(diffusers, f"{name[: -len('Pipeline')]}{kind}Pipeline", None)
     if found is None:
         return None
     try:
@@ -435,9 +450,18 @@ def start_index(steps: int, strength: float, model_id: str, inpaint: bool = Fals
     profile = defaults_for(model_id)
     if not profile["inpaint_supported" if inpaint else "refine_supported"]:
         return None
-    if profile["mu_supported"]:
+    # Fixed-shift Anima uses the same flow slicing without accepting Mu.
+    # The explicit policy is independent of that capability; legacy profiles
+    # retain their established rule. An ordinary Refine policy never changes
+    # an inpaint's arithmetic implicitly.
+    policy = profile.get("inpaint_rounding" if inpaint else "refine_rounding")
+    if policy is None:
+        policy = "flow" if profile["mu_supported"] else "sdxl"
+    if policy == "flow":
         return int(max(steps - min(steps * strength, steps), 0))
-    return max(steps - min(int(steps * strength), steps), 0)
+    if policy == "sdxl":
+        return max(steps - min(int(steps * strength), steps), 0)
+    return None
 
 
 def steps_run(

@@ -1277,13 +1277,21 @@ offload, Eager/Native, diffusers 0.42.1, torch 2.13.0+cu130 and torchao
 steps, CFG 1, no Mu/LoRA/reference, seeds 4471/4472. The
 [receipt](maintainer/anima-refine-turbo-2026-11-16.json) retains exact source,
 output and metadata proofs, guard samples, runtime/source hashes and agent
-visual notes. Public Refine remains held pending stage 3 integration.
+visual notes. The 2026-11-17 stage 3 source slice uses only this bounded
+recipe; its real-server integration acceptance remains separate.
 
 | Strength | Actual steps / start sigma | Time | Allocated / reserved peak | Whole-card peak |
 | --- | --- | --- | --- | --- |
 | 0.125 | 1 / 0.300000012 | 2.733 s | 2470.98 / 2640 MiB | 4394 MiB |
 | 0.25 | 2 / 0.5 | 3.088 s | 2471.48 / 2640 MiB | 4395 MiB |
 | 0.4 | 4 / 0.75 | 3.928-4.712 s, including repeat/recovery | 2471.48 / 2640 MiB | 4394-4398 MiB |
+
+The profile's measured line quotes this private pass, without an enlargement
+or integrated-backend claim:
+
+| Checkpoint / loader | Source and output | Full steps / strength | Scope |
+| --- | --- | --- | --- |
+| Anima Turbo v1.1, fp8/model | 1024x1024 | 8 / 0.25 | Same-size private pass; no guard trip |
 
 Same-seed repeats, serial batch members versus their solo seeds and recovery
 after cancellation have equal full RGB hashes. Cancel stopped after one
