@@ -10864,7 +10864,9 @@ node tools/browser.mjs tools/smoke-anima.json
 its own prompt advice and Example, its Tags menu (the family's order, no
 score tags, no Start with) and the card's order checked with a score tag
 placed though not offered, active negative prompt, unsupported
-controls, saved variant identity and final no-Refine answer on port 7895:
+controls, saved variant identity, measured 0.125 Refine opening at 30 steps/
+CFG 4, server-supplied pass counts, unsupported-recipe holds and saved
+source/strength/negative carry on port 7895:
 
 ```powershell
 uv run python tools/fake_server.py --port 7895 --model circlestone-labs/Anima@aesthetic-v1.1
@@ -10876,8 +10878,9 @@ node tools/browser.mjs tools/smoke-anima-aesthetic.json
 guide and size caveat, score-free Tags menu with inherited parent order as
 information,
 its two encoder budgets, unchecked tag order, negative-prompt activation,
-unsupported-input refusals and applied saved settings on port 7911, using a
-fresh scratch gallery:
+unsupported-input refusals, applied saved settings, measured 0.125 Refine
+opening at 30 steps/CFG 4, pass counts, recipe holds and saved source/
+strength/negative carry on port 7911, using a fresh scratch gallery:
 
 ```powershell
 uv run python tools/fake_server.py --port 7911 --model Gazingstars123/Anima-2.9B --data <scratch-directory>
