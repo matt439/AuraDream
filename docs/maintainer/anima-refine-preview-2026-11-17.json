@@ -1,0 +1,781 @@
+{
+  "schema": "anima-refine-preview-card-result-v1",
+  "date": "2026-11-17",
+  "timezone": "Australia/Brisbane",
+  "result": "Completed private one-load Preview experiment with root-agent visual review after separate guarded CPU cache preparation; public release is separate.",
+  "public_support_enabled": false,
+  "larger_sizes_measured": false,
+  "environment": {
+    "platform": "Windows-11-10.0.26300-SP0",
+    "gpu": "NVIDIA GeForce RTX 5080",
+    "card_total_mib": 16303.0,
+    "driver": "616.92",
+    "torch": "2.13.0+cu130",
+    "diffusers": "0.42.1",
+    "torchao": "0.18.0",
+    "git_head": "9341e575dc450b5867e3c88745e1849c40af47ce",
+    "source_sha256": {
+      "work\\anima_variant_refine_card.py": "b47a61326501917748888737f3b0d9cf4df4f9b89c9e6dbbbbbb3668d6185def",
+      "tools\\anima_refine_card.py": "4ceb51dd805583e300b4a0f04abff79a7b27907082f40d31d73a9aca6e2c50a1",
+      "tools\\card_guard.py": "1a553aa6dcb1b096a250d8aa8d813ca14238889e8264f91204d1c976906c6410",
+      "backend\\backends\\anima_refine.py": "074b48351d9dca38357ef5a4fa83ed63343816828cf9d60d5b6f2142918c5975",
+      "backend\\backends\\anima_pipeline.py": "ad18abe6225009dca17882a26a22a21f2136c2d5112cece950886e9a5e0e1cfd"
+    }
+  },
+  "selection": {
+    "checkpoint": "Gazingstars123/Anima-2.9B",
+    "variant": "2.9B Preview v1",
+    "revision": "9f9cb502dbae7a616c3cc5a530633427fe735665",
+    "source_filename": "Anima-2.9B-preview-v1.safetensors",
+    "source_repo": "Gazingstars123/Anima-2.9B",
+    "text_class": "AnimaPreviewPipeline",
+    "refine_class": "AnimaPreviewImg2ImgPipeline",
+    "layers": 40,
+    "quantization": "fp8",
+    "offload": "model",
+    "platform": "Windows"
+  },
+  "recipe": {
+    "prompt": "anime illustration of a woman in a blue coat beside a red bicycle, leafy park, daylight",
+    "negative_prompt": "",
+    "steps": 30,
+    "cfg": 4.0,
+    "mu": null,
+    "batch_call_size": 1,
+    "quantization": "fp8",
+    "offload": "model",
+    "execution": "Eager/native",
+    "device": "cuda:0",
+    "generator_device": "cpu",
+    "width": 1024,
+    "height": 1024,
+    "base_seed": 4471,
+    "second_seed": 4472,
+    "loras": [],
+    "references": [],
+    "immutable_source_rgb_sha256": "b646b1ec5a54c22fcd8734fb404e200b079824022d8b5d58246698959a7e1f66",
+    "conversion_recipe": {
+      "checkpoint_prefix": "net.",
+      "dtype": "bfloat16",
+      "scheduler": "FlowMatchEulerDiscreteScheduler",
+      "shared": {
+        "repo_id": "circlestone-labs/Anima-Base-v1.0-Diffusers",
+        "revision": "073c3a9db359c31ad0e8aa268d15775473c2176c"
+      },
+      "shift": 3.0,
+      "source": {
+        "filename": "Anima-2.9B-preview-v1.safetensors",
+        "repo_id": "Gazingstars123/Anima-2.9B",
+        "revision": "9f9cb502dbae7a616c3cc5a530633427fe735665"
+      },
+      "transformer_config": {
+        "num_layers": 40
+      },
+      "version": 1
+    },
+    "configuration_sha256": {
+      "local-diffusion-conversion.json": "13f1da579895ecf53d86a1d9eedbe049e6bc80ee42aa33ee3020c3ebf29c3e83",
+      "model_index.json": "a966ce43ba974c0f737753b63be3349091be771f3e8e5358b7d020f554fe8a74",
+      "transformer/config.json": "229602cb76df20d390248cf26de1a24877b8147cc32466ee566e09c0f1a561c6",
+      "text_conditioner/config.json": "980f34fb982cf14ed8418dbfe58e79e86ada9971af3aba082543b1b11bae05a9",
+      "text_encoder/config.json": "02d465b716eca4b89f994eef71ca134101cdeb1efc6da0244529e867d37ad09c",
+      "vae/config.json": "8205267c3e2fd11fad0998a63ce49813d3d673b9be1faec56a340cfd4a98c1c8",
+      "scheduler/scheduler_config.json": "7b300e1e0c763523fe1a732d998c02347cdddd6dd538ae5ee0c7cc92ea558ab9",
+      "tokenizer/tokenizer_config.json": "b0af17a39a4e6b6bc7d4523534668cbb8ffa2669ace1f1d7a3dd47c640411602",
+      "t5_tokenizer/tokenizer_config.json": "da99df8a132cb0f1090f49840d8a54091d9363f262cbbfcadb91057bb7ca4d3b"
+    }
+  },
+  "cpu_cache_preparation": {
+    "directory": "work/anima-preview-convert-cpu-mode-2026-11-17",
+    "operation": "Separate guarded offline CPU conversion, not a GPU/backend load or inference",
+    "schema": "anima-preview-offline-cpu-conversion-v1",
+    "driver_sha256": "932422d57f5e2ff3b35a58069c37a536c9d4fbc443a76044b0dfc19861cd1274",
+    "source": {
+      "path": "D:\\huggingface\\hub\\models--Gazingstars123--Anima-2.9B\\snapshots\\9f9cb502dbae7a616c3cc5a530633427fe735665\\Anima-2.9B-preview-v1.safetensors",
+      "bytes": 5843204206,
+      "sha256": "0b3020d1b906155f7eb30667622723e87160632c8c7a5f1c93bdce685f2a346d"
+    },
+    "shared_snapshot": "D:\\huggingface\\hub\\models--circlestone-labs--Anima-Base-v1.0-Diffusers\\snapshots\\073c3a9db359c31ad0e8aa268d15775473c2176c",
+    "published_target": "D:\\huggingface\\auradream\\converted\\Anima-2.9B-preview-v1-de3dbe63ae5cc807",
+    "normal_owner_api": "anima_loading.resolve_model(PREVIEW_MODEL_ID, fp8), using normal lock and atomic publish",
+    "old_target_or_staging_policy": "Refuse existing target/prefix paths; normal stale sweep replaced with refusal, never old-tree deletion",
+    "downloads": "Pinned cached files only; Hub local_files_only forced; no package changes",
+    "conversion_calls": 1,
+    "backend_load_calls": 0,
+    "cuda_initialized": false,
+    "forbidden_call_attempts": {
+      "lazy_cuda_init": 0,
+      "native_cuda_init": 0,
+      "tensor_cuda": 0,
+      "module_cuda": 0,
+      "backend_load": 0,
+      "backend_generate": 0,
+      "pipeline_call": 0
+    },
+    "conversion_seconds": 10.582927200000995,
+    "supervisor": {
+      "ok": true,
+      "failure": null,
+      "samples": 77,
+      "max_sample_gap_seconds": 0.25061469999855035,
+      "seconds": 19.10830150000038,
+      "host_metrics": {
+        "whole_card_peak_mib": 2034.0,
+        "adapter_shared_rise_mib": 6.3046875,
+        "process_shared_rise_mib": 0.0,
+        "process_ram_peak_gib": 7.555042266845703,
+        "minimum_free_ram_gib": 23.43030548095703,
+        "minimum_commit_headroom_gib": 21.344165802001953
+      }
+    },
+    "limits": {
+      "standard": {
+        "card_mib": 15500.0,
+        "project_mib": 15200.0,
+        "refuse_at_peak_mib": 15000.0,
+        "adapter_shared_rise_mib": 1024.0,
+        "process_shared_rise_mib": 512.0,
+        "ram_floor_gib": 4.0,
+        "commit_floor_gib": 4.0,
+        "need_ram_gib": 24.0,
+        "busy_card_mib": 2500.0,
+        "card_unread_samples": 3.0,
+        "margin_mib": 500.0,
+        "margin_gib": 1.0
+      },
+      "extra": {
+        "preflight_commit_gib": 24.0,
+        "process_tree_rss_cap_gib": 16.0,
+        "conversion_seconds": 600,
+        "session_seconds": 1800,
+        "period_seconds": 0.25
+      }
+    },
+    "preflight": {
+      "sample": {
+        "card_mib": 2028.0,
+        "adapter_shared_mib": 91.09765625,
+        "process_shared_mib": 0.0,
+        "available_gib": 33.196441650390625,
+        "commit_headroom_gib": 29.72857666015625,
+        "tree_gib": 0.004985809326171875,
+        "card_total_mib": 16303.0
+      },
+      "baseline": {
+        "adapter_shared_mib": 91.09765625,
+        "process_shared_mib": 0.0
+      }
+    },
+    "after_exit": {
+      "card_mib": 2063.0,
+      "adapter_shared_mib": 97.40234375,
+      "process_shared_mib": null,
+      "available_gib": 31.05097198486328,
+      "commit_headroom_gib": 29.842151641845703,
+      "tree_gib": null,
+      "card_total_mib": 16303.0
+    },
+    "final_checks": {
+      "ok": true,
+      "errors": []
+    },
+    "keep_awake": {
+      "reason": "AuraDream private Anima Refine card qualification",
+      "kind": "power-request",
+      "holding": false,
+      "acquired": true,
+      "released": true,
+      "failure": null,
+      "scope_error": null
+    },
+    "versions": {
+      "torch": "2.13.0+cu130",
+      "diffusers": "0.42.1",
+      "torchao": "0.18.0",
+      "transformers": "5.16.1",
+      "safetensors": "0.8.0"
+    },
+    "source_sha256": {
+      "work\\anima_preview_convert_private.py": "932422d57f5e2ff3b35a58069c37a536c9d4fbc443a76044b0dfc19861cd1274",
+      "work\\anima_variant_refine_card.py": "b47a61326501917748888737f3b0d9cf4df4f9b89c9e6dbbbbbb3668d6185def",
+      "tools\\anima_refine_card.py": "4ceb51dd805583e300b4a0f04abff79a7b27907082f40d31d73a9aca6e2c50a1",
+      "tools\\card_guard.py": "1a553aa6dcb1b096a250d8aa8d813ca14238889e8264f91204d1c976906c6410",
+      "backend\\backends\\anima_loading.py": "4e72e6b49324b59f6506684077b1bb7cb3274278f5dc92004c42562e17a03d9f"
+    },
+    "published_configuration_matches_gpu_load": true,
+    "raw_file_sha256": {
+      "result-0001.json": "1cda44f637662047cba7a40c6df8d17cf2e7906fc0d04c2aa886163535e06525",
+      "supervisor.json": "bd06166fe340e9db25c99cd37c76f18f421673dff1d15bb4e5f9f50412744d51",
+      "guard.jsonl": "ea0634e2f1a689a0764f7c12fd78cc61ca64bb260892affffe351308cc5a72bc",
+      "cache-preflight.json": "1d19e1bdbcd8feead244bac4a767a8d1f1c5bdd6da032e310a91f6374c4a4256",
+      "limits.json": "9aa64e97f79eb10c0137e0506ec0e4d923efc091eb72e222ca7f077049cb0554",
+      "preflight.json": "055993472be925c89db360646bc3050a4e481e315d53c39dc1ba52d249a1c4df",
+      "after-exit.json": "f7556db10f43278627dcad7750bb8142397712ccff33d23cfa5e24918c28f226",
+      "final-checks.json": "29bffd8c93a762daf2b9740027793a4ffef823ddd839405684bed68c614f11e3",
+      "keep-awake.json": "8a9474be12c05360fd865d1f671c73ed91e0af1ca3b6db4982e0f862082076e2"
+    },
+    "first_failed_attempt": {
+      "directory": "work/anima-preview-convert-2026-11-17",
+      "result": {
+        "schema": "anima-preview-offline-cpu-conversion-v1",
+        "ok": false,
+        "backend_load_calls": 0,
+        "cuda_initialized": false,
+        "error": "ModuleNotFoundError: Could not import module 'BloomPreTrainedModel'. Are this object's requirements defined correctly?"
+      },
+      "supervisor": {
+        "ok": false,
+        "failure": "RuntimeError: CPU conversion worker exited 1; inspect worker.log",
+        "samples": 99,
+        "max_sample_gap_seconds": 0.2505877000003238,
+        "seconds": 24.603105300000607,
+        "host_metrics": {
+          "whole_card_peak_mib": 2023.0,
+          "adapter_shared_rise_mib": 0.0,
+          "process_shared_rise_mib": 0.0,
+          "process_ram_peak_gib": 0.6612396240234375,
+          "minimum_free_ram_gib": 33.22193145751953,
+          "minimum_commit_headroom_gib": 29.513286590576172
+        }
+      },
+      "original_driver_sha256": "2903c19794618ff63703757135891167e0b37447942122c71a57049f146d97f9",
+      "failed_directory_files_unchanged": true,
+      "manifest_file": "work/anima-preview-import-diagnosis-2026-11-17/failed-attempt-manifest.json",
+      "manifest_sha256": "2bcfca5e139826511710ea1a0d13bdf086534b8af19793dd1aa0c2df3fa71898",
+      "diagnosed_exception_chain": [
+        {
+          "type": "ModuleNotFoundError",
+          "message": "Could not import module 'BloomPreTrainedModel'. Are this object's requirements defined correctly?"
+        },
+        {
+          "type": "RuntimeError",
+          "message": "CPU conversion forbids lazy_cuda_init"
+        }
+      ],
+      "traceback_file": "work/anima-preview-import-probe-2026-11-17/error-traceback.txt",
+      "traceback_sha256": "9f8e8c8223c527dd603b4e7c0931f17dc601e05a9bf832785b5be8b170553370",
+      "cause": "Transformers lazy Bloom import wrapped torchao MX kernel CUDA-capability discovery, which hit the native hard lazy-init refusal before normal conversion/component loading. No missing package was established.",
+      "repair": "Inside the deliberate CPU context, advertise CUDA unavailable and zero devices before imports; use child CUDA_VISIBLE_DEVICES=-1. Native/lazy/Tensor/Module CUDA and backend/inference refusals remain hard. Full traceback/cause logging and failed late-exit outcome were repaired.",
+      "repaired_import_probe_directory": "work/anima-preview-import-probe-cpu-mode-2026-11-17",
+      "repaired_import_probe_result_sha256": "74e569c57c224941dfbb51aad8e89c44f2023a4ff2778889cb579aeddbc3cbe5",
+      "repaired_import_probe_cuda_initialized": false,
+      "repaired_import_probe_forbidden_attempts": {
+        "lazy_cuda_init": 0,
+        "native_cuda_init": 0,
+        "tensor_cuda": 0,
+        "module_cuda": 0,
+        "backend_load": 0,
+        "backend_generate": 0,
+        "pipeline_call": 0
+      }
+    },
+    "raw_guard_audit": {
+      "baseline_and_samples": 77,
+      "all_required_counters_finite": true,
+      "all_sample_verdicts": "ok",
+      "extrema_match_supervisor": true
+    }
+  },
+  "schedule_proof": {
+    "0.125": {
+      "completed_steps": 4,
+      "begin_index": 26,
+      "start_sigma": 0.31578952074050903
+    },
+    "0.25": {
+      "completed_steps": 8,
+      "begin_index": 22,
+      "start_sigma": 0.5217391848564148
+    },
+    "0.4": {
+      "completed_steps": 12,
+      "begin_index": 18,
+      "start_sigma": 0.6666666865348816
+    }
+  },
+  "guard": {
+    "limits": {
+      "card_mib": 15500.0,
+      "project_mib": 15200.0,
+      "refuse_at_peak_mib": 15000.0,
+      "adapter_shared_rise_mib": 1024.0,
+      "process_shared_rise_mib": 512.0,
+      "ram_floor_gib": 4.0,
+      "commit_floor_gib": 4.0,
+      "need_ram_gib": 24.0,
+      "busy_card_mib": 2500.0,
+      "card_unread_samples": 3.0,
+      "margin_mib": 500.0,
+      "margin_gib": 1.0
+    },
+    "extra_limits": {
+      "preflight_free_ram_gib": 24.0,
+      "preflight_commit_headroom_gib": 24.0,
+      "process_tree_rss_cap_gib": 16.0
+    },
+    "preflight": {
+      "sample": {
+        "card_mib": 2022.0,
+        "adapter_shared_mib": 93.50390625,
+        "process_shared_mib": 0.0,
+        "available_gib": 34.47242736816406,
+        "commit_headroom_gib": 31.13243865966797,
+        "tree_gib": 0.020481109619140625,
+        "card_total_mib": 16303.0
+      },
+      "baseline": {
+        "adapter_shared_mib": 93.50390625,
+        "process_shared_mib": 0.0
+      },
+      "sources": {
+        "card": "nvidia-smi --loop-ms",
+        "shared": "pdh"
+      }
+    },
+    "requested_period_seconds": 0.25,
+    "summary": {
+      "event": "summary",
+      "elapsed": 180.97890019999977,
+      "stopped_reason": null,
+      "complete": true,
+      "samples": 723,
+      "achieved_max_period_seconds": 0.2506332000011753,
+      "final_sample": {
+        "card_mib": 2028.0,
+        "adapter_shared_mib": 105.953125,
+        "process_shared_mib": null,
+        "available_gib": 34.10200119018555,
+        "commit_headroom_gib": 30.999839782714844,
+        "tree_gib": null,
+        "card_total_mib": 16303.0
+      }
+    },
+    "all_required_counters_present_and_finite": true,
+    "all_sample_verdicts": "ok",
+    "extra_guard_stop_present": false,
+    "session_extrema": {
+      "whole_card_peak_mib": 5783.0,
+      "adapter_shared_rise_peak_mib": 96.04296875,
+      "process_shared_rise_peak_mib": 82.0,
+      "process_ram_peak_gib": 10.398731231689453,
+      "minimum_free_ram_gib": 23.81403350830078,
+      "minimum_commit_headroom_gib": 18.22199249267578
+    }
+  },
+  "load": {
+    "elapsed_seconds": 6.440359800000806,
+    "allocated_peak_mib": 0.0,
+    "reserved_peak_mib": 0.0,
+    "host_metrics": {
+      "whole_card_peak_mib": 2251.0,
+      "adapter_shared_rise_mib": 73.515625,
+      "process_shared_rise_mib": 74.0,
+      "process_ram_peak_gib": 10.398731231689453,
+      "minimum_free_ram_gib": 23.81403350830078,
+      "minimum_commit_headroom_gib": 18.22199249267578
+    }
+  },
+  "cleanup": {
+    "sequence": 13,
+    "ok": true,
+    "resident_allocated_mib": 32.0,
+    "resident_reserved_mib": 32.0,
+    "host_metrics": {
+      "whole_card_peak_mib": 2369.0,
+      "adapter_shared_rise_mib": 94.93359375,
+      "process_shared_rise_mib": 82.0,
+      "process_ram_peak_gib": 6.1254119873046875,
+      "minimum_free_ram_gib": 28.139083862304688,
+      "minimum_commit_headroom_gib": 21.555828094482422
+    }
+  },
+  "after_exit": {
+    "card_mib": 2028.0,
+    "adapter_shared_mib": 105.953125,
+    "process_shared_mib": null,
+    "available_gib": 34.10200119018555,
+    "commit_headroom_gib": 30.999839782714844,
+    "tree_gib": null,
+    "card_total_mib": 16303.0
+  },
+  "keep_awake": {
+    "reason": "AuraDream private Anima Refine card qualification",
+    "kind": "power-request",
+    "holding": false,
+    "acquired": true,
+    "released": true,
+    "failure": null,
+    "scope_error": null
+  },
+  "proof_checks": {
+    "completed_images": 10,
+    "cancelled_cases": 1,
+    "unique_rgb_images": 5,
+    "all_png_rgb_and_exact_metadata_hashes_recomputed": true,
+    "all_saved_images_rgb_1024_square": true,
+    "refine_sources_match_original_full_rgb": true,
+    "cancel_after_one_completed_step_without_decoded_output": true,
+    "direct_after_request_and_proof_have_no_source": true,
+    "decoded_pixel_equalities": [
+      [
+        "repeat-04",
+        "strength-04"
+      ],
+      [
+        "batch-first",
+        "strength-04"
+      ],
+      [
+        "solo-second",
+        "batch-second"
+      ],
+      [
+        "recovery-04",
+        "strength-04"
+      ],
+      [
+        "direct-after",
+        "baseline"
+      ]
+    ]
+  },
+  "cases": [
+    {
+      "id": "baseline",
+      "status": "completed",
+      "seed": 4471,
+      "strength": null,
+      "completed_steps": 30,
+      "start_sigma": null,
+      "metrics": {
+        "elapsed_seconds": 30.63443649999863,
+        "allocated_peak_mib": 3028.990234375,
+        "reserved_peak_mib": 3198.0,
+        "resident_allocated_mib": 32.0009765625,
+        "whole_card_peak_mib": 5530.0,
+        "adapter_shared_rise_mib": 83.0234375,
+        "process_shared_rise_mib": 82.0,
+        "process_ram_peak_gib": 6.3965606689453125,
+        "minimum_free_ram_gib": 28.03378677368164,
+        "minimum_commit_headroom_gib": 19.43273162841797
+      },
+      "pixel_sha256": "b646b1ec5a54c22fcd8734fb404e200b079824022d8b5d58246698959a7e1f66",
+      "png_sha256": "d189a7bd4f8e1f6216731cf0a7f22d7ac2774be75c0ffa4226331047dabccdf2",
+      "metadata_sha256": "f66acc226b017ecff474904bc439ac76e09931921caa3a20c39ddf1bb3af3b6b",
+      "source_sha256": null,
+      "visual_review": "Coherent subject in a blue coat beside a red bicycle and leafy park, with a soft painterly background. The bicycle is inherently cropped and fine anatomy/geometry is imperfect. No observed new composite seam or composition replacement."
+    },
+    {
+      "id": "strength-0125",
+      "status": "completed",
+      "seed": 4471,
+      "strength": 0.125,
+      "completed_steps": 4,
+      "start_sigma": 0.31578952074050903,
+      "metrics": {
+        "elapsed_seconds": 6.228082600000562,
+        "allocated_peak_mib": 3277.10302734375,
+        "reserved_peak_mib": 3446.0,
+        "resident_allocated_mib": 32.00146484375,
+        "whole_card_peak_mib": 5779.0,
+        "adapter_shared_rise_mib": 81.34375,
+        "process_shared_rise_mib": 82.0,
+        "process_ram_peak_gib": 6.347114562988281,
+        "minimum_free_ram_gib": 28.122394561767578,
+        "minimum_commit_headroom_gib": 18.902507781982422
+      },
+      "pixel_sha256": "dfa5394c062dfb626f5c423f0e5577eda6496ec9739adc6c04bca5d7137c1b20",
+      "png_sha256": "d01078fa929469957955927ea5a51400ce5854d3a1c22a1e15a6cbc52eb3a92e",
+      "metadata_sha256": "0b7fbad48176390c3ed6cc32c12c3b3501aad440b0dd617ba2ab24b00e6fc2e8",
+      "source_sha256": "b646b1ec5a54c22fcd8734fb404e200b079824022d8b5d58246698959a7e1f66",
+      "visual_review": "Preserves subject, pose, face, bicycle and colours, with sharper outlined/angular foliage and changed texture. No observed new composite seam or composition replacement. Provisional conservative opening candidate only for the exact measured recipe; anatomy improvement is not established."
+    },
+    {
+      "id": "strength-025",
+      "status": "completed",
+      "seed": 4471,
+      "strength": 0.25,
+      "completed_steps": 8,
+      "start_sigma": 0.5217391848564148,
+      "metrics": {
+        "elapsed_seconds": 9.991683000000194,
+        "allocated_peak_mib": 3277.10302734375,
+        "reserved_peak_mib": 3446.0,
+        "resident_allocated_mib": 32.00146484375,
+        "whole_card_peak_mib": 5778.0,
+        "adapter_shared_rise_mib": 79.30078125,
+        "process_shared_rise_mib": 82.0,
+        "process_ram_peak_gib": 6.33929443359375,
+        "minimum_free_ram_gib": 28.294349670410156,
+        "minimum_commit_headroom_gib": 19.326404571533203
+      },
+      "pixel_sha256": "ff29bb4a2d161919e0745e4a64c82e9feb0a51c540d3acf2bacc141112b23520",
+      "png_sha256": "167f98c8f29c6398dcdfa0b870a2e22ae112b603e434b9b3ed2f889ac32202aa",
+      "metadata_sha256": "b4f3d29f56a0f58fc26511c6320637ad8dcfd82ecf1277f6a9b1304a9917524f",
+      "source_sha256": "b646b1ec5a54c22fcd8734fb404e200b079824022d8b5d58246698959a7e1f66",
+      "visual_review": "At seed 4471, increasingly flattens and saturates foliage and redraws small linework, without clear texture improvement. Subject/coat/bicycle/park composition remains, with no observed new composite seam or composition replacement."
+    },
+    {
+      "id": "strength-04",
+      "status": "completed",
+      "seed": 4471,
+      "strength": 0.4,
+      "completed_steps": 12,
+      "start_sigma": 0.6666666865348816,
+      "metrics": {
+        "elapsed_seconds": 13.30524140000125,
+        "allocated_peak_mib": 3277.10302734375,
+        "reserved_peak_mib": 3446.0,
+        "resident_allocated_mib": 32.00146484375,
+        "whole_card_peak_mib": 5780.0,
+        "adapter_shared_rise_mib": 81.34765625,
+        "process_shared_rise_mib": 82.0,
+        "process_ram_peak_gib": 6.1835784912109375,
+        "minimum_free_ram_gib": 28.46893310546875,
+        "minimum_commit_headroom_gib": 20.19222640991211
+      },
+      "pixel_sha256": "1c6c8902bee6775bc4c7a151b9334722409784e59fd4958ae10937ae1a4be641",
+      "png_sha256": "50cc4f8c9e533c2a341021b1c5ef015d26b1a1a2c309e17612b88bea1db75417",
+      "metadata_sha256": "c851a194f4d4c76072c3e06a0707b90d62672b60aec6e75aaf5f72193cb2ad64",
+      "source_sha256": "b646b1ec5a54c22fcd8734fb404e200b079824022d8b5d58246698959a7e1f66",
+      "visual_review": "At seed 4471, further flattens/saturates foliage and redraws small linework, without clear texture improvement. The composition remains identifiable, with no observed new composite seam or composition replacement. Not selected as opening strength."
+    },
+    {
+      "id": "repeat-04",
+      "status": "completed",
+      "seed": 4471,
+      "strength": 0.4,
+      "completed_steps": 12,
+      "start_sigma": 0.6666666865348816,
+      "metrics": {
+        "elapsed_seconds": 13.274112900000546,
+        "allocated_peak_mib": 3277.10302734375,
+        "reserved_peak_mib": 3446.0,
+        "resident_allocated_mib": 32.00146484375,
+        "whole_card_peak_mib": 5783.0,
+        "adapter_shared_rise_mib": 79.78515625,
+        "process_shared_rise_mib": 82.0,
+        "process_ram_peak_gib": 6.309856414794922,
+        "minimum_free_ram_gib": 28.26380157470703,
+        "minimum_commit_headroom_gib": 19.97186279296875
+      },
+      "pixel_sha256": "1c6c8902bee6775bc4c7a151b9334722409784e59fd4958ae10937ae1a4be641",
+      "png_sha256": "50cc4f8c9e533c2a341021b1c5ef015d26b1a1a2c309e17612b88bea1db75417",
+      "metadata_sha256": "1f373898d2ccb295dc2848d3381dadb8aca9f4a90a1d03bbe60870ebcb05ac27",
+      "source_sha256": "b646b1ec5a54c22fcd8734fb404e200b079824022d8b5d58246698959a7e1f66",
+      "visual_review": "Decoded RGB is identical to strength-04; inherits its inspected first-seed composition, foliage flattening/saturation and linework trade-offs."
+    },
+    {
+      "id": "batch-first",
+      "status": "completed",
+      "seed": 4471,
+      "strength": 0.4,
+      "completed_steps": 12,
+      "start_sigma": 0.6666666865348816,
+      "metrics": {
+        "elapsed_seconds": 13.543597500000033,
+        "allocated_peak_mib": 3277.10302734375,
+        "reserved_peak_mib": 3446.0,
+        "resident_allocated_mib": 32.00146484375,
+        "whole_card_peak_mib": 5779.0,
+        "adapter_shared_rise_mib": 80.02734375,
+        "process_shared_rise_mib": 82.0,
+        "process_ram_peak_gib": 6.302036285400391,
+        "minimum_free_ram_gib": 28.28570556640625,
+        "minimum_commit_headroom_gib": 19.10741424560547
+      },
+      "pixel_sha256": "1c6c8902bee6775bc4c7a151b9334722409784e59fd4958ae10937ae1a4be641",
+      "png_sha256": "50cc4f8c9e533c2a341021b1c5ef015d26b1a1a2c309e17612b88bea1db75417",
+      "metadata_sha256": "9d619a1dbd7ca200f779c39c0df273c20f3c98a75e4a7a4d441392c896444c8a",
+      "source_sha256": "b646b1ec5a54c22fcd8734fb404e200b079824022d8b5d58246698959a7e1f66",
+      "visual_review": "Decoded RGB is identical to strength-04; inherits its inspected first-seed composition, foliage flattening/saturation and linework trade-offs."
+    },
+    {
+      "id": "batch-second",
+      "status": "completed",
+      "seed": 4472,
+      "strength": 0.4,
+      "completed_steps": 12,
+      "start_sigma": 0.6666666865348816,
+      "metrics": {
+        "elapsed_seconds": 13.73149039999953,
+        "allocated_peak_mib": 3277.10302734375,
+        "reserved_peak_mib": 3446.0,
+        "resident_allocated_mib": 32.00146484375,
+        "whole_card_peak_mib": 5781.0,
+        "adapter_shared_rise_mib": 94.76171875,
+        "process_shared_rise_mib": 82.0,
+        "process_ram_peak_gib": 6.072208404541016,
+        "minimum_free_ram_gib": 28.282550811767578,
+        "minimum_commit_headroom_gib": 19.41988754272461
+      },
+      "pixel_sha256": "bb5577a09809b07f71c61a5c9629a35a9434a841b4c439d186cbbc0d266fd7b3",
+      "png_sha256": "db934616fc4bdbf1c9028b8df5aee18be0d029ec66e7719330dffab9646a4035",
+      "metadata_sha256": "03a2562af283e1fe5f2609a75aba67830f96e3151674351c647c59c73dfed414",
+      "source_sha256": "b646b1ec5a54c22fcd8734fb404e200b079824022d8b5d58246698959a7e1f66",
+      "visual_review": "At seed 4472, retains painterly foliage but changes face/hair and slightly changes basket/wheel geometry. Subject, blue coat, red bicycle and park remain coherent, with no observed new composite seam or composition replacement; not a quality guarantee."
+    },
+    {
+      "id": "solo-second",
+      "status": "completed",
+      "seed": 4472,
+      "strength": 0.4,
+      "completed_steps": 12,
+      "start_sigma": 0.6666666865348816,
+      "metrics": {
+        "elapsed_seconds": 13.713149199998952,
+        "allocated_peak_mib": 3277.10302734375,
+        "reserved_peak_mib": 3446.0,
+        "resident_allocated_mib": 32.00146484375,
+        "whole_card_peak_mib": 5780.0,
+        "adapter_shared_rise_mib": 96.04296875,
+        "process_shared_rise_mib": 82.0,
+        "process_ram_peak_gib": 6.065853118896484,
+        "minimum_free_ram_gib": 27.930294036865234,
+        "minimum_commit_headroom_gib": 18.75405502319336
+      },
+      "pixel_sha256": "bb5577a09809b07f71c61a5c9629a35a9434a841b4c439d186cbbc0d266fd7b3",
+      "png_sha256": "db934616fc4bdbf1c9028b8df5aee18be0d029ec66e7719330dffab9646a4035",
+      "metadata_sha256": "5e470ec22cd04a4c335fa6d6f59a6907c94fed819fe8e789467092ec98649f3b",
+      "source_sha256": "b646b1ec5a54c22fcd8734fb404e200b079824022d8b5d58246698959a7e1f66",
+      "visual_review": "Decoded RGB is identical to inspected batch-second; inherits its painterly foliage and face/hair/basket/wheel redraw trade-offs."
+    },
+    {
+      "id": "cancel-04",
+      "status": "cancelled",
+      "seed": 4471,
+      "strength": 0.4,
+      "completed_steps": 1,
+      "start_sigma": 0.6666666865348816,
+      "metrics": {
+        "elapsed_seconds": 2.9133898000000045,
+        "allocated_peak_mib": 3276.60302734375,
+        "reserved_peak_mib": 3446.0,
+        "resident_allocated_mib": 32.00146484375,
+        "whole_card_peak_mib": 5778.0,
+        "adapter_shared_rise_mib": 94.57421875,
+        "process_shared_rise_mib": 82.0,
+        "process_ram_peak_gib": 6.058032989501953,
+        "minimum_free_ram_gib": 28.011695861816406,
+        "minimum_commit_headroom_gib": 19.969985961914062
+      },
+      "pixel_sha256": null,
+      "png_sha256": null,
+      "metadata_sha256": null,
+      "source_sha256": "b646b1ec5a54c22fcd8734fb404e200b079824022d8b5d58246698959a7e1f66",
+      "visual_review": null
+    },
+    {
+      "id": "recovery-04",
+      "status": "completed",
+      "seed": 4471,
+      "strength": 0.4,
+      "completed_steps": 12,
+      "start_sigma": 0.6666666865348816,
+      "metrics": {
+        "elapsed_seconds": 13.738527100000283,
+        "allocated_peak_mib": 3277.10302734375,
+        "reserved_peak_mib": 3446.0,
+        "resident_allocated_mib": 32.00146484375,
+        "whole_card_peak_mib": 5780.0,
+        "adapter_shared_rise_mib": 95.63671875,
+        "process_shared_rise_mib": 82.0,
+        "process_ram_peak_gib": 6.059780120849609,
+        "minimum_free_ram_gib": 28.104290008544922,
+        "minimum_commit_headroom_gib": 19.199840545654297
+      },
+      "pixel_sha256": "1c6c8902bee6775bc4c7a151b9334722409784e59fd4958ae10937ae1a4be641",
+      "png_sha256": "50cc4f8c9e533c2a341021b1c5ef015d26b1a1a2c309e17612b88bea1db75417",
+      "metadata_sha256": "4571f8d99eae0d53fe046c2ba9088588de7a2336bc3b64bc34d02e79d7f8f2d9",
+      "source_sha256": "b646b1ec5a54c22fcd8734fb404e200b079824022d8b5d58246698959a7e1f66",
+      "visual_review": "After cancellation, decoded RGB is identical to strength-04; inherits its inspected first-seed composition and foliage/linework trade-offs."
+    },
+    {
+      "id": "direct-after",
+      "status": "completed",
+      "seed": 4471,
+      "strength": null,
+      "completed_steps": 30,
+      "start_sigma": null,
+      "metrics": {
+        "elapsed_seconds": 29.872027100000196,
+        "allocated_peak_mib": 3028.99072265625,
+        "reserved_peak_mib": 3198.0,
+        "resident_allocated_mib": 32.00146484375,
+        "whole_card_peak_mib": 5532.0,
+        "adapter_shared_rise_mib": 96.02734375,
+        "process_shared_rise_mib": 82.0,
+        "process_ram_peak_gib": 6.129322052001953,
+        "minimum_free_ram_gib": 28.08702850341797,
+        "minimum_commit_headroom_gib": 19.121788024902344
+      },
+      "pixel_sha256": "b646b1ec5a54c22fcd8734fb404e200b079824022d8b5d58246698959a7e1f66",
+      "png_sha256": "d189a7bd4f8e1f6216731cf0a7f22d7ac2774be75c0ffa4226331047dabccdf2",
+      "metadata_sha256": "9a2fc835290783d157a0afe1de2f3c07bf55a21931d43513cd7b817a37c0774a",
+      "source_sha256": null,
+      "visual_review": "The ordinary direct render after successful passes and cancellation is pixel-identical to the inspected baseline, with no source input; its inherent cropping/fine-anatomy limitations remain."
+    }
+  ],
+  "visual_review": {
+    "reviewer": "Codex root agent",
+    "review_recorded_utc": "2026-11-16T17:28:04+00:00",
+    "local_date": "2026-11-17",
+    "timezone": "Australia/Brisbane",
+    "method": "Root inspected all five unique actual RGB outputs; duplicate findings are carried only after full RGB hash equality checks.",
+    "viewed_unique_files": [
+      "work/anima-preview-refine-2026-11-17/baseline.png",
+      "work/anima-preview-refine-2026-11-17/strength-0125.png",
+      "work/anima-preview-refine-2026-11-17/strength-025.png",
+      "work/anima-preview-refine-2026-11-17/strength-04.png",
+      "work/anima-preview-refine-2026-11-17/batch-second.png"
+    ],
+    "receipt_before_review_sha256": "c69a99270465ad9bb6165bd3aa402cb29d72a9e8c720f3aac41b7409ef29cdb5",
+    "receipt_after_review_sha256": "2a612c3ac929d37f2729a77fa057a02393922890220f5a7f42d456c0392593e5",
+    "unreviewed_copy": "receipt-unreviewed.json",
+    "notes_by_case": {
+      "baseline": "Coherent subject in a blue coat beside a red bicycle and leafy park, with a soft painterly background. The bicycle is inherently cropped and fine anatomy/geometry is imperfect. No observed new composite seam or composition replacement.",
+      "strength-0125": "Preserves subject, pose, face, bicycle and colours, with sharper outlined/angular foliage and changed texture. No observed new composite seam or composition replacement. Provisional conservative opening candidate only for the exact measured recipe; anatomy improvement is not established.",
+      "strength-025": "At seed 4471, increasingly flattens and saturates foliage and redraws small linework, without clear texture improvement. Subject/coat/bicycle/park composition remains, with no observed new composite seam or composition replacement.",
+      "strength-04": "At seed 4471, further flattens/saturates foliage and redraws small linework, without clear texture improvement. The composition remains identifiable, with no observed new composite seam or composition replacement. Not selected as opening strength.",
+      "repeat-04": "Decoded RGB is identical to strength-04; inherits its inspected first-seed composition, foliage flattening/saturation and linework trade-offs.",
+      "batch-first": "Decoded RGB is identical to strength-04; inherits its inspected first-seed composition, foliage flattening/saturation and linework trade-offs.",
+      "batch-second": "At seed 4472, retains painterly foliage but changes face/hair and slightly changes basket/wheel geometry. Subject, blue coat, red bicycle and park remain coherent, with no observed new composite seam or composition replacement; not a quality guarantee.",
+      "solo-second": "Decoded RGB is identical to inspected batch-second; inherits its painterly foliage and face/hair/basket/wheel redraw trade-offs.",
+      "recovery-04": "After cancellation, decoded RGB is identical to strength-04; inherits its inspected first-seed composition and foliage/linework trade-offs.",
+      "direct-after": "The ordinary direct render after successful passes and cancellation is pixel-identical to the inspected baseline, with no source input; its inherent cropping/fine-anatomy limitations remain."
+    },
+    "opening_candidate": {
+      "strength": 0.125,
+      "scope": "Provisional conservative candidate only for exact Preview v1 Windows RTX 5080 fp8/model Eager/native 1024-square 30-step CFG-4 recipe. No author advice, anatomy/quality guarantee or Matt review."
+    },
+    "Matt_reviewed": false,
+    "public_support_enabled": false
+  },
+  "evidence": {
+    "directory": "work/anima-preview-refine-2026-11-17",
+    "unreviewed_receipt_sha256": "c69a99270465ad9bb6165bd3aa402cb29d72a9e8c720f3aac41b7409ef29cdb5",
+    "reviewed_receipt_sha256": "2a612c3ac929d37f2729a77fa057a02393922890220f5a7f42d456c0392593e5",
+    "raw_file_sha256": {
+      "guard.jsonl": "6938d0ca4c8a83f17189521b3b15156632d2a3e837d1c4c52ced9288a25fcf0e",
+      "load-receipt.json": "bb2f373556d7dfc56337060a7669102819c53e36c1025da5dd074152fe43039f",
+      "cleanup-receipt.json": "5a0b1c36a260d44bef7c5c2f2fbfe3c1f741391b7e9cbe211a41332c0d4c6048",
+      "after-exit.json": "b932e7dadfe9e8f092f116ebc3dd5bde68d63c972e14d38bd6b40d9ff48aa84f",
+      "keep-awake.json": "8a9474be12c05360fd865d1f671c73ed91e0af1ca3b6db4982e0f862082076e2",
+      "preflight.json": "1281f7d9eee944eda3880b88fdd5eb45e04273b7e20bfb3abbd3b2d3824ea7fa",
+      "limits.json": "e24bea8a36a6cc5c151dd82155b7dfc6210ec88c523c7e3cbd2a4dacb5cef8d0",
+      "extra-limits.json": "db6d328dfa17a593bfc40cdc51adf7f4aa24db7d3fe1c053c0488910d21c7164",
+      "schedule-proof.json": "435bfe8c0be57ca0d6997ff6311afcc95100063c86619b9fce79cde060e38fc2",
+      "visual-review.json": "d1d2f98fe0d570eb3b091f54ffad29e8eb98594304c037b5c8f7064f2cc82c3c"
+    }
+  },
+  "limits_of_evidence": [
+    "Only exact Preview v1 Windows RTX 5080 fp8/model Eager/native 1024-square 30-step CFG-4 ordinary Img2Img was measured, using one synthetic source and two refine noise seeds. No enlargement or other aspect was attempted.",
+    "Initial 24-GiB free-RAM and commit admission and explicit 2500-MiB idle-card ceiling were session choices; continuous floors remained 4 GiB, process RSS cap 16 GiB, whole-card/shared limits unchanged.",
+    "Root-agent review is not Matt acceptance. The provisional 0.125 opening preserves composition while changing foliage outlines/texture; no anatomy improvement, general quality guarantee or author recommendation follows.",
+    "Higher strengths flatten/saturate first-seed foliage without clear texture benefit; second noise seed changes face/hair and basket/wheel geometry while retaining painterly foliage.",
+    "Consecutive one-image calls establish the tested batch-second/solo equality; no batched multi-image pipeline call is qualified.",
+    "Normal cleanup recorded 32 MiB allocated/reserved before child exit. Whole-card after exit was 2028 MiB versus 2022 MiB preflight, not zero.",
+    "CPU conversion evidence is preparation only. Its source/configuration proof was independently matched to the later GPU load; it does not qualify a render by itself.",
+    "Other hardware/platforms, quantization/offload modes, inpaint, references, LoRAs and public resolver/profile/browser/CLI wiring are outside this private result."
+  ]
+}

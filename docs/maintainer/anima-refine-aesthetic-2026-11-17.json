@@ -1,0 +1,585 @@
+{
+  "schema": "anima-refine-aesthetic-card-result-v1",
+  "date": "2026-11-17",
+  "timezone": "Australia/Brisbane",
+  "result": "Completed private one-load Aesthetic experiment with root-agent visual review; public release is separate.",
+  "public_support_enabled": false,
+  "larger_sizes_measured": false,
+  "environment": {
+    "platform": "Windows-11-10.0.26300-SP0",
+    "gpu": "NVIDIA GeForce RTX 5080",
+    "card_total_mib": 16303.0,
+    "driver": "616.92",
+    "torch": "2.13.0+cu130",
+    "diffusers": "0.42.1",
+    "torchao": "0.18.0",
+    "git_head": "42096d9a1319719d967762ecd3a6c42155c22f4f",
+    "source_sha256": {
+      "work\\anima_variant_refine_card.py": "b47a61326501917748888737f3b0d9cf4df4f9b89c9e6dbbbbbb3668d6185def",
+      "tools\\anima_refine_card.py": "4ceb51dd805583e300b4a0f04abff79a7b27907082f40d31d73a9aca6e2c50a1",
+      "tools\\card_guard.py": "1a553aa6dcb1b096a250d8aa8d813ca14238889e8264f91204d1c976906c6410",
+      "backend\\backends\\anima_refine.py": "9e383da14f44d4f0386f39f435295a724dd5272a6f030d577b7808cf32110afc",
+      "backend\\backends\\anima_pipeline.py": "ad18abe6225009dca17882a26a22a21f2136c2d5112cece950886e9a5e0e1cfd"
+    }
+  },
+  "selection": {
+    "checkpoint": "circlestone-labs/Anima@aesthetic-v1.1",
+    "variant": "Aesthetic v1.1",
+    "revision": "594c27fea35648b87c86a9b4d5436a6024c820b5",
+    "source_filename": "split_files/diffusion_models/anima-aesthetic-v1.1.safetensors",
+    "source_repo": "circlestone-labs/Anima",
+    "text_class": "AnimaAestheticPipeline",
+    "refine_class": "AnimaAestheticImg2ImgPipeline",
+    "layers": 28,
+    "quantization": "fp8",
+    "offload": "model",
+    "platform": "Windows"
+  },
+  "recipe": {
+    "prompt": "anime illustration of a woman in a blue coat beside a red bicycle, leafy park, daylight",
+    "negative_prompt": "",
+    "steps": 30,
+    "cfg": 4.0,
+    "mu": null,
+    "batch_call_size": 1,
+    "quantization": "fp8",
+    "offload": "model",
+    "execution": "Eager/native",
+    "device": "cuda:0",
+    "generator_device": "cpu",
+    "width": 1024,
+    "height": 1024,
+    "base_seed": 4471,
+    "second_seed": 4472,
+    "loras": [],
+    "references": [],
+    "immutable_source_rgb_sha256": "fa096876a8c0763a36e2c45ce6f097f51df5c5711a9333cf0451595e2d7e3805",
+    "conversion_recipe": {
+      "dtype": "bfloat16",
+      "scheduler": "FlowMatchEulerDiscreteScheduler",
+      "shared": {
+        "repo_id": "circlestone-labs/Anima-Base-v1.0-Diffusers",
+        "revision": "073c3a9db359c31ad0e8aa268d15775473c2176c"
+      },
+      "shift": 3.0,
+      "source": {
+        "filename": "split_files/diffusion_models/anima-aesthetic-v1.1.safetensors",
+        "repo_id": "circlestone-labs/Anima",
+        "revision": "594c27fea35648b87c86a9b4d5436a6024c820b5"
+      },
+      "version": 1
+    },
+    "configuration_sha256": {
+      "local-diffusion-conversion.json": "651a3eb571588b0e6d77f8543ddedeb073f1d6838ab45825fade26abbe65217a",
+      "model_index.json": "e6a01b4b829773f300e7fac32c71641755e8352ad581151f53a3666ba39cee8e",
+      "transformer/config.json": "ce39a28775e0ba1bafd7563fd53fa93b284d7b7210fdd040254b82c7ee1324a9",
+      "text_conditioner/config.json": "684fbedefa7a3d44c6ced8ac157ee68b99e175a1dbbfe3db08ec2edc5df1f525",
+      "text_encoder/config.json": "02d465b716eca4b89f994eef71ca134101cdeb1efc6da0244529e867d37ad09c",
+      "vae/config.json": "09ae58a9a73661cc51668e026ad97e0c78aeb019197720fadbb1ed8d7820d727",
+      "scheduler/scheduler_config.json": "4337d4f61777c38d778c074d3fe0118aaf9b3ab2592283a8a3f182cd18e9950f",
+      "tokenizer/tokenizer_config.json": "b0af17a39a4e6b6bc7d4523534668cbb8ffa2669ace1f1d7a3dd47c640411602",
+      "t5_tokenizer/tokenizer_config.json": "da99df8a132cb0f1090f49840d8a54091d9363f262cbbfcadb91057bb7ca4d3b"
+    }
+  },
+  "schedule_proof": {
+    "0.125": {
+      "completed_steps": 4,
+      "begin_index": 26,
+      "start_sigma": 0.31578952074050903
+    },
+    "0.25": {
+      "completed_steps": 8,
+      "begin_index": 22,
+      "start_sigma": 0.5217391848564148
+    },
+    "0.4": {
+      "completed_steps": 12,
+      "begin_index": 18,
+      "start_sigma": 0.6666666865348816
+    }
+  },
+  "guard": {
+    "limits": {
+      "card_mib": 15500.0,
+      "project_mib": 15200.0,
+      "refuse_at_peak_mib": 15000.0,
+      "adapter_shared_rise_mib": 1024.0,
+      "process_shared_rise_mib": 512.0,
+      "ram_floor_gib": 4.0,
+      "commit_floor_gib": 4.0,
+      "need_ram_gib": 24.0,
+      "busy_card_mib": 2500.0,
+      "card_unread_samples": 3.0,
+      "margin_mib": 500.0,
+      "margin_gib": 1.0
+    },
+    "extra_limits": {
+      "preflight_free_ram_gib": 24.0,
+      "preflight_commit_headroom_gib": 24.0,
+      "process_tree_rss_cap_gib": 16.0
+    },
+    "preflight": {
+      "sample": {
+        "card_mib": 2030.0,
+        "adapter_shared_mib": 111.94921875,
+        "process_shared_mib": 0.0,
+        "available_gib": 33.82572555541992,
+        "commit_headroom_gib": 31.374412536621094,
+        "tree_gib": 0.020488739013671875,
+        "card_total_mib": 16303.0
+      },
+      "baseline": {
+        "adapter_shared_mib": 111.94921875,
+        "process_shared_mib": 0.0
+      },
+      "sources": {
+        "card": "nvidia-smi --loop-ms",
+        "shared": "pdh"
+      }
+    },
+    "requested_period_seconds": 0.25,
+    "summary": {
+      "event": "summary",
+      "elapsed": 150.4578308,
+      "stopped_reason": null,
+      "complete": true,
+      "samples": 601,
+      "achieved_max_period_seconds": 0.253482800000711,
+      "final_sample": {
+        "card_mib": 2031.0,
+        "adapter_shared_mib": 107.82421875,
+        "process_shared_mib": null,
+        "available_gib": 33.71105194091797,
+        "commit_headroom_gib": 31.508155822753906,
+        "tree_gib": null,
+        "card_total_mib": 16303.0
+      }
+    },
+    "all_required_counters_present_and_finite": true,
+    "all_sample_verdicts": "ok",
+    "extra_guard_stop_present": false,
+    "session_extrema": {
+      "whole_card_peak_mib": 4982.0,
+      "adapter_shared_rise_peak_mib": 81.71875,
+      "process_shared_rise_peak_mib": 82.0,
+      "process_ram_peak_gib": 8.257183074951172,
+      "minimum_free_ram_gib": 25.80266571044922,
+      "minimum_commit_headroom_gib": 18.66330337524414
+    }
+  },
+  "load": {
+    "elapsed_seconds": 6.9177195000011125,
+    "allocated_peak_mib": 0.0,
+    "reserved_peak_mib": 0.0,
+    "host_metrics": {
+      "whole_card_peak_mib": 2048.0,
+      "adapter_shared_rise_mib": 71.984375,
+      "process_shared_rise_mib": 74.0,
+      "process_ram_peak_gib": 8.257183074951172,
+      "minimum_free_ram_gib": 25.80266571044922,
+      "minimum_commit_headroom_gib": 21.32763671875
+    }
+  },
+  "cleanup": {
+    "sequence": 13,
+    "ok": true,
+    "resident_allocated_mib": 32.0,
+    "resident_reserved_mib": 32.0,
+    "host_metrics": {
+      "whole_card_peak_mib": 2370.0,
+      "adapter_shared_rise_mib": 76.90625,
+      "process_shared_rise_mib": 82.0,
+      "process_ram_peak_gib": 5.448860168457031,
+      "minimum_free_ram_gib": 27.948219299316406,
+      "minimum_commit_headroom_gib": 22.673419952392578
+    }
+  },
+  "after_exit": {
+    "card_mib": 2031.0,
+    "adapter_shared_mib": 107.82421875,
+    "process_shared_mib": null,
+    "available_gib": 33.71105194091797,
+    "commit_headroom_gib": 31.508155822753906,
+    "tree_gib": null,
+    "card_total_mib": 16303.0
+  },
+  "keep_awake": {
+    "reason": "AuraDream private Anima Refine card qualification",
+    "kind": "power-request",
+    "holding": false,
+    "acquired": true,
+    "released": true,
+    "failure": null,
+    "scope_error": null
+  },
+  "proof_checks": {
+    "completed_images": 10,
+    "cancelled_cases": 1,
+    "unique_rgb_images": 5,
+    "all_png_rgb_and_exact_metadata_hashes_recomputed": true,
+    "all_saved_images_rgb_1024_square": true,
+    "refine_sources_match_original_full_rgb": true,
+    "cancel_after_one_completed_step_without_decoded_output": true,
+    "direct_after_request_and_proof_have_no_source": true,
+    "decoded_pixel_equalities": [
+      [
+        "repeat-04",
+        "strength-04"
+      ],
+      [
+        "batch-first",
+        "strength-04"
+      ],
+      [
+        "solo-second",
+        "batch-second"
+      ],
+      [
+        "recovery-04",
+        "strength-04"
+      ],
+      [
+        "direct-after",
+        "baseline"
+      ]
+    ]
+  },
+  "cases": [
+    {
+      "id": "baseline",
+      "status": "completed",
+      "seed": 4471,
+      "strength": null,
+      "completed_steps": 30,
+      "start_sigma": null,
+      "metrics": {
+        "elapsed_seconds": 30.282247000001007,
+        "allocated_peak_mib": 2224.869140625,
+        "reserved_peak_mib": 2394.0,
+        "resident_allocated_mib": 32.0009765625,
+        "whole_card_peak_mib": 4732.0,
+        "adapter_shared_rise_mib": 81.71875,
+        "process_shared_rise_mib": 82.0,
+        "process_ram_peak_gib": 5.429195404052734,
+        "minimum_free_ram_gib": 28.715877532958984,
+        "minimum_commit_headroom_gib": 22.479129791259766
+      },
+      "pixel_sha256": "fa096876a8c0763a36e2c45ce6f097f51df5c5711a9333cf0451595e2d7e3805",
+      "png_sha256": "589ad5c16878a856b0101393d5dea32dff86953ccf37ff64db8b3e1d547b3e8d",
+      "metadata_sha256": "71bb180efdf75e58d045b5b9c744f1881383048f76ce40ca86b37435d16bff33",
+      "source_sha256": null,
+      "visual_review": "Woman, blue coat, red bicycle and leafy background remain identifiable, with no observed seam or composition replacement. Fine bicycle/hand geometry is already imperfect."
+    },
+    {
+      "id": "strength-0125",
+      "status": "completed",
+      "seed": 4471,
+      "strength": 0.125,
+      "completed_steps": 4,
+      "start_sigma": 0.31578952074050903,
+      "metrics": {
+        "elapsed_seconds": 5.131100999999035,
+        "allocated_peak_mib": 2472.98193359375,
+        "reserved_peak_mib": 2642.0,
+        "resident_allocated_mib": 32.00146484375,
+        "whole_card_peak_mib": 4982.0,
+        "adapter_shared_rise_mib": 80.71875,
+        "process_shared_rise_mib": 82.0,
+        "process_ram_peak_gib": 5.399494171142578,
+        "minimum_free_ram_gib": 28.715892791748047,
+        "minimum_commit_headroom_gib": 22.50832748413086
+      },
+      "pixel_sha256": "ca15ade1f50fdc10b326d74e694bb4374e1b6730d0bb03cf4cb0419f32f136de",
+      "png_sha256": "77f5526656fe76d99448b7c6b58a57c2be6f8cc30344d27c0f3e2d1703f4d9cf",
+      "metadata_sha256": "7710850556687c8219390725bb244d69df4075c50f4c6b7af1c39bd893d20163",
+      "source_sha256": "fa096876a8c0763a36e2c45ce6f097f51df5c5711a9333cf0451595e2d7e3805",
+      "visual_review": "Retains pose and face with some cleaner bicycle outlines, but flattens foliage and raises contrast. Woman, blue coat, red bicycle and leafy background remain identifiable; no observed seam or composition replacement. Provisional conservative opening candidate only for the exact measured recipe."
+    },
+    {
+      "id": "strength-025",
+      "status": "completed",
+      "seed": 4471,
+      "strength": 0.25,
+      "completed_steps": 8,
+      "start_sigma": 0.5217391848564148,
+      "metrics": {
+        "elapsed_seconds": 7.228908999999476,
+        "allocated_peak_mib": 2472.98193359375,
+        "reserved_peak_mib": 2642.0,
+        "resident_allocated_mib": 32.00146484375,
+        "whole_card_peak_mib": 4982.0,
+        "adapter_shared_rise_mib": 81.2578125,
+        "process_shared_rise_mib": 82.0,
+        "process_ram_peak_gib": 5.4095611572265625,
+        "minimum_free_ram_gib": 28.683338165283203,
+        "minimum_commit_headroom_gib": 21.750293731689453
+      },
+      "pixel_sha256": "cecdf012f20f880d87e880859acd9fe53d8e534a6d2fd86a9c90f2169c8fa743",
+      "png_sha256": "f52aa08fe55646f31d96d2901c46e2ecc7c32cf8b8b5012bd265d0aaf40394c2",
+      "metadata_sha256": "ae1610bb17e8ad1370f267b3007957984ebf9abd35f2730055eee4a21cdd9e15",
+      "source_sha256": "fa096876a8c0763a36e2c45ce6f097f51df5c5711a9333cf0451595e2d7e3805",
+      "visual_review": "Retains the woman, blue coat, red bicycle and leafy background, but progressively posterizes foliage and redraws small outlines. No clear texture improvement; no observed seam or composition replacement. Baseline bicycle/hand geometry is not established as improved."
+    },
+    {
+      "id": "strength-04",
+      "status": "completed",
+      "seed": 4471,
+      "strength": 0.4,
+      "completed_steps": 12,
+      "start_sigma": 0.6666666865348816,
+      "metrics": {
+        "elapsed_seconds": 10.142677299998468,
+        "allocated_peak_mib": 2472.98193359375,
+        "reserved_peak_mib": 2642.0,
+        "resident_allocated_mib": 32.00146484375,
+        "whole_card_peak_mib": 4982.0,
+        "adapter_shared_rise_mib": 80.2578125,
+        "process_shared_rise_mib": 82.0,
+        "process_ram_peak_gib": 5.4016571044921875,
+        "minimum_free_ram_gib": 28.677207946777344,
+        "minimum_commit_headroom_gib": 22.279586791992188
+      },
+      "pixel_sha256": "f6f9ce7a1524d0223293d6d67b4ed7e001cd0a9897c85802027c2103c972bdd2",
+      "png_sha256": "b660442ccbb173b2554dca099138c7a104fe56bf26bc4a6bb3ac2d9d97721473",
+      "metadata_sha256": "e672f0cfb18a4f7452ab6105c701709fcadf2690f9b192935f2eff641862e4e5",
+      "source_sha256": "fa096876a8c0763a36e2c45ce6f097f51df5c5711a9333cf0451595e2d7e3805",
+      "visual_review": "At seed 4471, retains the woman, blue coat, red bicycle and leafy background but further posterizes foliage and redraws small outlines without clear texture improvement. No observed seam or composition replacement; not selected as opening strength."
+    },
+    {
+      "id": "repeat-04",
+      "status": "completed",
+      "seed": 4471,
+      "strength": 0.4,
+      "completed_steps": 12,
+      "start_sigma": 0.6666666865348816,
+      "metrics": {
+        "elapsed_seconds": 9.785413100000369,
+        "allocated_peak_mib": 2472.98193359375,
+        "reserved_peak_mib": 2642.0,
+        "resident_allocated_mib": 32.00146484375,
+        "whole_card_peak_mib": 4980.0,
+        "adapter_shared_rise_mib": 80.4375,
+        "process_shared_rise_mib": 82.0,
+        "process_ram_peak_gib": 5.518596649169922,
+        "minimum_free_ram_gib": 28.41480255126953,
+        "minimum_commit_headroom_gib": 21.475772857666016
+      },
+      "pixel_sha256": "f6f9ce7a1524d0223293d6d67b4ed7e001cd0a9897c85802027c2103c972bdd2",
+      "png_sha256": "b660442ccbb173b2554dca099138c7a104fe56bf26bc4a6bb3ac2d9d97721473",
+      "metadata_sha256": "1645825e5e79efe4f82bf5e61a6b4c714fee0fdd777e8cf2c78b9990443131b5",
+      "source_sha256": "fa096876a8c0763a36e2c45ce6f097f51df5c5711a9333cf0451595e2d7e3805",
+      "visual_review": "Decoded RGB is identical to strength-04; inherits the inspected first-seed composition, foliage posterization and redraw trade-offs."
+    },
+    {
+      "id": "batch-first",
+      "status": "completed",
+      "seed": 4471,
+      "strength": 0.4,
+      "completed_steps": 12,
+      "start_sigma": 0.6666666865348816,
+      "metrics": {
+        "elapsed_seconds": 10.114770000000135,
+        "allocated_peak_mib": 2472.98193359375,
+        "reserved_peak_mib": 2642.0,
+        "resident_allocated_mib": 32.00146484375,
+        "whole_card_peak_mib": 4980.0,
+        "adapter_shared_rise_mib": 81.34375,
+        "process_shared_rise_mib": 82.0,
+        "process_ram_peak_gib": 5.518596649169922,
+        "minimum_free_ram_gib": 27.958999633789062,
+        "minimum_commit_headroom_gib": 20.89867401123047
+      },
+      "pixel_sha256": "f6f9ce7a1524d0223293d6d67b4ed7e001cd0a9897c85802027c2103c972bdd2",
+      "png_sha256": "b660442ccbb173b2554dca099138c7a104fe56bf26bc4a6bb3ac2d9d97721473",
+      "metadata_sha256": "ec9f1b08371c42c0320814421590e29aead485cc3b674c76210664c65f17d08e",
+      "source_sha256": "fa096876a8c0763a36e2c45ce6f097f51df5c5711a9333cf0451595e2d7e3805",
+      "visual_review": "Decoded RGB is identical to strength-04; inherits the inspected first-seed composition, foliage posterization and redraw trade-offs."
+    },
+    {
+      "id": "batch-second",
+      "status": "completed",
+      "seed": 4472,
+      "strength": 0.4,
+      "completed_steps": 12,
+      "start_sigma": 0.6666666865348816,
+      "metrics": {
+        "elapsed_seconds": 10.339685999999347,
+        "allocated_peak_mib": 2472.98193359375,
+        "reserved_peak_mib": 2642.0,
+        "resident_allocated_mib": 32.00146484375,
+        "whole_card_peak_mib": 4979.0,
+        "adapter_shared_rise_mib": 81.078125,
+        "process_shared_rise_mib": 82.0,
+        "process_ram_peak_gib": 5.2917327880859375,
+        "minimum_free_ram_gib": 27.966777801513672,
+        "minimum_commit_headroom_gib": 20.63095474243164
+      },
+      "pixel_sha256": "2b16684080e50c667190386464ff96fd94d7ced63bb15ff7139f8572840f648b",
+      "png_sha256": "0ddf59f882497ac895e049d58e70bd27384c2d0cf89d008d1ba1a8e184b37f7c",
+      "metadata_sha256": "25a953beda67501e353fe50f79d513454d60c396e3796e555f397ebcec05fe7b",
+      "source_sha256": "fa096876a8c0763a36e2c45ce6f097f51df5c5711a9333cf0451595e2d7e3805",
+      "visual_review": "At seed 4472, retains more leaf texture and the woman/blue coat/red bicycle/leafy background, but changes face, hair, coat buttons and shoes. No observed seam or composition replacement; this is a different trade-off, not a quality guarantee."
+    },
+    {
+      "id": "solo-second",
+      "status": "completed",
+      "seed": 4472,
+      "strength": 0.4,
+      "completed_steps": 12,
+      "start_sigma": 0.6666666865348816,
+      "metrics": {
+        "elapsed_seconds": 10.15160669999932,
+        "allocated_peak_mib": 2472.98193359375,
+        "reserved_peak_mib": 2642.0,
+        "resident_allocated_mib": 32.00146484375,
+        "whole_card_peak_mib": 4980.0,
+        "adapter_shared_rise_mib": 81.0078125,
+        "process_shared_rise_mib": 82.0,
+        "process_ram_peak_gib": 5.5034942626953125,
+        "minimum_free_ram_gib": 27.779159545898438,
+        "minimum_commit_headroom_gib": 20.379722595214844
+      },
+      "pixel_sha256": "2b16684080e50c667190386464ff96fd94d7ced63bb15ff7139f8572840f648b",
+      "png_sha256": "0ddf59f882497ac895e049d58e70bd27384c2d0cf89d008d1ba1a8e184b37f7c",
+      "metadata_sha256": "af78138a8b91e83ea5c3136aaaf55cba432b02ce62a03ee185babd9b314e6cee",
+      "source_sha256": "fa096876a8c0763a36e2c45ce6f097f51df5c5711a9333cf0451595e2d7e3805",
+      "visual_review": "Decoded RGB is identical to inspected batch-second; inherits its texture and face/hair/clothing redraw trade-offs."
+    },
+    {
+      "id": "cancel-04",
+      "status": "cancelled",
+      "seed": 4471,
+      "strength": 0.4,
+      "completed_steps": 1,
+      "start_sigma": 0.6666666865348816,
+      "metrics": {
+        "elapsed_seconds": 2.311562699998831,
+        "allocated_peak_mib": 2472.48193359375,
+        "reserved_peak_mib": 2642.0,
+        "resident_allocated_mib": 32.00146484375,
+        "whole_card_peak_mib": 4980.0,
+        "adapter_shared_rise_mib": 79.796875,
+        "process_shared_rise_mib": 82.0,
+        "process_ram_peak_gib": 5.495674133300781,
+        "minimum_free_ram_gib": 27.76160430908203,
+        "minimum_commit_headroom_gib": 20.05710220336914
+      },
+      "pixel_sha256": null,
+      "png_sha256": null,
+      "metadata_sha256": null,
+      "source_sha256": "fa096876a8c0763a36e2c45ce6f097f51df5c5711a9333cf0451595e2d7e3805",
+      "visual_review": null
+    },
+    {
+      "id": "recovery-04",
+      "status": "completed",
+      "seed": 4471,
+      "strength": 0.4,
+      "completed_steps": 12,
+      "start_sigma": 0.6666666865348816,
+      "metrics": {
+        "elapsed_seconds": 10.159915500000352,
+        "allocated_peak_mib": 2472.98193359375,
+        "reserved_peak_mib": 2642.0,
+        "resident_allocated_mib": 32.00146484375,
+        "whole_card_peak_mib": 4981.0,
+        "adapter_shared_rise_mib": 81.265625,
+        "process_shared_rise_mib": 82.0,
+        "process_ram_peak_gib": 5.2973480224609375,
+        "minimum_free_ram_gib": 27.840267181396484,
+        "minimum_commit_headroom_gib": 20.83633804321289
+      },
+      "pixel_sha256": "f6f9ce7a1524d0223293d6d67b4ed7e001cd0a9897c85802027c2103c972bdd2",
+      "png_sha256": "b660442ccbb173b2554dca099138c7a104fe56bf26bc4a6bb3ac2d9d97721473",
+      "metadata_sha256": "266744032688bd7108bbb83941510249544b7956e93f7deef9698332e031d2c8",
+      "source_sha256": "fa096876a8c0763a36e2c45ce6f097f51df5c5711a9333cf0451595e2d7e3805",
+      "visual_review": "After cancellation, decoded RGB is identical to strength-04; inherits its inspected first-seed composition, foliage posterization and redraw trade-offs."
+    },
+    {
+      "id": "direct-after",
+      "status": "completed",
+      "seed": 4471,
+      "strength": null,
+      "completed_steps": 30,
+      "start_sigma": null,
+      "metrics": {
+        "elapsed_seconds": 21.257305000000997,
+        "allocated_peak_mib": 2224.86962890625,
+        "reserved_peak_mib": 2394.0,
+        "resident_allocated_mib": 32.00146484375,
+        "whole_card_peak_mib": 4733.0,
+        "adapter_shared_rise_mib": 80.984375,
+        "process_shared_rise_mib": 82.0,
+        "process_ram_peak_gib": 5.452770233154297,
+        "minimum_free_ram_gib": 27.489158630371094,
+        "minimum_commit_headroom_gib": 18.66330337524414
+      },
+      "pixel_sha256": "fa096876a8c0763a36e2c45ce6f097f51df5c5711a9333cf0451595e2d7e3805",
+      "png_sha256": "589ad5c16878a856b0101393d5dea32dff86953ccf37ff64db8b3e1d547b3e8d",
+      "metadata_sha256": "5c6381b74df2bb811ea78a2e51bec135dc7292c7c2a780ab1787fa5ce632d95a",
+      "source_sha256": null,
+      "visual_review": "After successful passes and cancellation, the ordinary direct render is pixel-identical to the inspected baseline; its source field is null and its existing bicycle/hand geometry limitations remain."
+    }
+  ],
+  "visual_review": {
+    "reviewer": "Codex root agent",
+    "review_recorded_utc": "2026-11-16T16:38:39+00:00",
+    "local_date": "2026-11-17",
+    "timezone": "Australia/Brisbane",
+    "method": "Root inspected all five unique RGB outputs; duplicate findings are carried only after full RGB hash equality checks.",
+    "viewed_unique_files": [
+      "work/anima-aesthetic-refine-2026-11-17/baseline.png",
+      "work/anima-aesthetic-refine-2026-11-17/strength-0125.png",
+      "work/anima-aesthetic-refine-2026-11-17/strength-025.png",
+      "work/anima-aesthetic-refine-2026-11-17/strength-04.png",
+      "work/anima-aesthetic-refine-2026-11-17/batch-second.png"
+    ],
+    "receipt_before_review_sha256": "98d2769b051005d3c36c08ec0f9ae2365a7e12bca22647d346600e75ef850919",
+    "receipt_after_review_sha256": "5533a8221fce5e81a7e6aea571be549ba926e6339dcbaef25b4b45d499399c3e",
+    "unreviewed_copy": "receipt-unreviewed.json",
+    "notes_by_case": {
+      "baseline": "Woman, blue coat, red bicycle and leafy background remain identifiable, with no observed seam or composition replacement. Fine bicycle/hand geometry is already imperfect.",
+      "strength-0125": "Retains pose and face with some cleaner bicycle outlines, but flattens foliage and raises contrast. Woman, blue coat, red bicycle and leafy background remain identifiable; no observed seam or composition replacement. Provisional conservative opening candidate only for the exact measured recipe.",
+      "strength-025": "Retains the woman, blue coat, red bicycle and leafy background, but progressively posterizes foliage and redraws small outlines. No clear texture improvement; no observed seam or composition replacement. Baseline bicycle/hand geometry is not established as improved.",
+      "strength-04": "At seed 4471, retains the woman, blue coat, red bicycle and leafy background but further posterizes foliage and redraws small outlines without clear texture improvement. No observed seam or composition replacement; not selected as opening strength.",
+      "repeat-04": "Decoded RGB is identical to strength-04; inherits the inspected first-seed composition, foliage posterization and redraw trade-offs.",
+      "batch-first": "Decoded RGB is identical to strength-04; inherits the inspected first-seed composition, foliage posterization and redraw trade-offs.",
+      "batch-second": "At seed 4472, retains more leaf texture and the woman/blue coat/red bicycle/leafy background, but changes face, hair, coat buttons and shoes. No observed seam or composition replacement; this is a different trade-off, not a quality guarantee.",
+      "solo-second": "Decoded RGB is identical to inspected batch-second; inherits its texture and face/hair/clothing redraw trade-offs.",
+      "recovery-04": "After cancellation, decoded RGB is identical to strength-04; inherits its inspected first-seed composition, foliage posterization and redraw trade-offs.",
+      "direct-after": "After successful passes and cancellation, the ordinary direct render is pixel-identical to the inspected baseline; its source field is null and its existing bicycle/hand geometry limitations remain."
+    },
+    "opening_candidate": {
+      "strength": 0.125,
+      "scope": "Provisional conservative candidate only for exact Aesthetic v1.1 Windows RTX 5080 fp8/model Eager/native 1024-square 30-step CFG-4 recipe; no anatomy-improvement or general quality guarantee; not an author recipe."
+    },
+    "Matt_reviewed": false,
+    "public_support_enabled": false
+  },
+  "evidence": {
+    "directory": "work/anima-aesthetic-refine-2026-11-17",
+    "unreviewed_receipt_sha256": "98d2769b051005d3c36c08ec0f9ae2365a7e12bca22647d346600e75ef850919",
+    "reviewed_receipt_sha256": "5533a8221fce5e81a7e6aea571be549ba926e6339dcbaef25b4b45d499399c3e",
+    "raw_file_sha256": {
+      "guard.jsonl": "d139001a87b4faeb9ff1cdf2dd4a0abd42be319a8d5c77c779ff75ec8edc2602",
+      "load-receipt.json": "0e70159343f515653f851411f2b231354c06243e35223a998f1b3c088c1a45a5",
+      "cleanup-receipt.json": "ec71cc33be6b3776941fe752a82cd46db2883605246f5ac804a6a56f1baa1b5f",
+      "after-exit.json": "fd32f8e0f157aa537de0924226cede9aeb826d3388ee603622998fef5840f2c9",
+      "keep-awake.json": "8a9474be12c05360fd865d1f671c73ed91e0af1ca3b6db4982e0f862082076e2",
+      "preflight.json": "f33bd6a6b8a5a00d6ec76012c62d320c6ed4771a3dc8cf84cdcecb9213bbbc17",
+      "limits.json": "e24bea8a36a6cc5c151dd82155b7dfc6210ec88c523c7e3cbd2a4dacb5cef8d0",
+      "extra-limits.json": "db6d328dfa17a593bfc40cdc51adf7f4aa24db7d3fe1c053c0488910d21c7164",
+      "schedule-proof.json": "435bfe8c0be57ca0d6997ff6311afcc95100063c86619b9fce79cde060e38fc2",
+      "visual-review.json": "d3f27b24fb18c0691bd09c0f8f541f16514e1d566e3e8be2bd82ddb543a77d5f"
+    }
+  },
+  "limits_of_evidence": [
+    "Only exact Aesthetic v1.1 Windows RTX 5080 fp8/model Eager/native 1024-square 30-step CFG-4 ordinary Img2Img was measured, using one synthetic source and two refine noise seeds. No enlargement or other aspect was attempted.",
+    "Initial 24-GiB free-RAM and commit admission and explicit 2500-MiB idle-card ceiling were session choices; continuous floors remained 4 GiB, process RSS cap 16 GiB, and whole-card/shared limits unchanged.",
+    "Root-agent visual inspection is not Matt acceptance. The provisional 0.125 opening candidate trades some cleaner bicycle outlines for flatter foliage/higher contrast. No anatomy improvement, quality guarantee or author recommendation is established.",
+    "Higher strengths at first seed posterize foliage/redraw outlines without clear texture improvement; second noise seed changes face/hair/clothing details while retaining the composition.",
+    "One-image calls seeded seed+i establish the tested batch-second/solo equality; no batched multi-image pipeline call is qualified.",
+    "Final normal cleanup recorded 32 MiB allocated/reserved before child exit. Whole-card after exit was 2031 MiB versus 2030 MiB preflight, not a claim of zero context/device memory.",
+    "Preview, other hardware/platforms, quantization/offload modes, inpaint, references, LoRAs and public resolver/profile/browser/CLI wiring are outside this result."
+  ]
+}

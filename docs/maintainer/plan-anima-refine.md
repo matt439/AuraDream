@@ -2,9 +2,9 @@
 
 **Status: stages 0 and 1 done (2026-11-11, 2026-11-12); stage 2's Turbo
 experiment measured and agent-reviewed at 1024 square on Windows fp8/model
-(2026-11-16). Bounded Turbo stage 3 source is built (2026-11-17); its
-integrated real-server/card acceptance remains. Aesthetic/Preview remain
-unqualified and held.**
+(2026-11-16). Bounded Turbo stage 3 passed integrated public API/CLI-via-server
+card acceptance on 2026-11-17. Aesthetic and Preview also passed their own
+private 1024-square trials; their public integration and acceptance remain.**
 Matt selected Anima as the first family for `GEN#48` on 2026-11-11.
 This closes the family choice in the [peer review](review-2026-11-10-peers.md#r1-refine-on-the-families-that-have-none).
 That family choice alone did not qualify a Refine pass or authorize a GPU run. No capability,
@@ -673,3 +673,168 @@ is visible. That worker exited with the suite. Future whole-suite commands
 use `CUDA_VISIBLE_DEVICES=-1`; the strict installed CPU probes independently
 forbid CUDA initialization, compilation and network access. No integrated
 GPU fit, pixels, memory or speed result is claimed by these checks.
+
+#### Aesthetic one-load result, 2026-11-17
+
+The private Aesthetic v1.1 experiment completed one load, ten saved images and
+one cancellation, exit 0, in `work/anima-aesthetic-refine-2026-11-17/`.
+The committed measurement receipt is
+`docs/maintainer/anima-refine-aesthetic-2026-11-17.json`. This is evidence for
+the exact `circlestone-labs/Anima@aesthetic-v1.1` selection at revision
+`594c27fea35648b87c86a9b4d5436a6024c820b5`, Windows 11 build 26300, RTX 5080,
+driver 616.92, torch 2.13.0+cu130, diffusers 0.42.1 and torchao 0.18.0;
+fp8/model offload, Eager/native, FlowMatch Euler shift 3, 1024x1024 RGB,
+30 full steps, CFG 4, empty negative, no Mu/LoRA/reference. Seeds 4471 and
+4472 ran as consecutive one-image CPU-generator calls over the immutable
+direct baseline. No larger size or different aspect was attempted.
+
+Strengths 0.125/0.25/0.4 actually ran 4/8/12 steps from begin indices
+26/22/18 and sigmas 0.315789521/0.521739185/0.666666687, matching the
+installed scheduler's CPU proof. Their first pass times were 5.131/7.229/
+10.143 seconds; direct baseline/direct-after were 30.282/21.257 seconds.
+The 0.4 repeat, batch first and post-cancel recovery are RGB-identical to
+the first 0.4 pass; batch second equals solo seed 4472; direct-after equals
+the baseline. Cancellation stopped at callback one without decoded output.
+All ten PNG/full RGB/exact metadata hashes were recomputed; the ten images
+have five unique RGB hashes, and every pass proves the same original source.
+
+The cached load took 6.918 seconds and sampled 8.257 GiB peak process RAM.
+Refine peaks reached 2472.98/2642 MiB allocated/reserved and 4982 MiB whole
+card over a 2030 MiB preflight. Shared-process/adapter rises peaked at
+82/81.719 MiB; session minima were 25.803 GiB free RAM and 18.663 GiB commit
+headroom. The initial admission was 24 GiB free RAM and commit, with an
+explicit 2500 MiB idle-card ceiling; continuous RAM/commit floors stayed
+4 GiB, the process-RSS cap 16 GiB and the card/shared limits unchanged.
+All 601 sampled verdicts were `ok`; requested period 0.25 seconds, largest
+achieved interval 0.253483 seconds. Normal unload retained 32 MiB allocated
+and reserved before exit, and the post-exit card read 2031 MiB. The Windows
+power request was acquired and released without error.
+
+The root agent inspected all five unique outputs. Woman, blue coat, red
+bicycle and leafy background remain identifiable, with no observed seams
+or composition replacement; fine bicycle/hand geometry was already imperfect.
+At 0.125 pose/face are retained and some bicycle outlines are cleaner, at the
+cost of flatter foliage and higher contrast. At seed 4471, 0.25/0.4 increasingly
+posterize foliage and redraw small outlines without clear texture benefit.
+Seed 4472 at 0.4 retains more leaf texture but changes face/hair, buttons and
+shoes. The provisional conservative opening candidate is **0.125 for this
+exact measured recipe**, not an author recipe, anatomy-improvement claim or
+quality guarantee. Matt has not reviewed these images himself. The raw
+receipt received only those visual-review strings; its byte-identical
+`receipt-unreviewed.json` and review sidecar preserve the pre-review hash and
+reviewer/time. Public resolver/profile/browser/CLI release remains separate;
+Preview still requires its own conversion and one-load card session.
+
+#### Preview preparation and one-load result, 2026-11-17
+
+Preview required a separate offline CPU conversion before the private card
+session. Its cached split file was exactly 5,843,204,206 bytes with SHA-256
+`0b3020d1b906155f7eb30667622723e87160632c8c7a5f1c93bdce685f2a346d`;
+the pinned shared snapshot was present. Normal
+`anima_loading.resolve_model(PREVIEW_MODEL_ID, "fp8")` retained its locking
+and atomic publication, with local-only Hub reads and refusal to remove any
+old target/staging path. The successful CPU attempt took 10.583 seconds inside
+the converter, 19.108 seconds under supervision, and sampled 7.555 GiB peak
+RSS over 77 baseline/samples. CUDA stayed uninitialized, with zero backend
+loads, inference calls or forbidden native/lazy/Tensor/Module CUDA attempts.
+Final checks passed and the Windows power request was released.
+
+The first CPU attempt failed before conversion/component loading: a
+Transformers lazy Bloom import wrapped torchao's import-time CUDA capability
+probe, which met the harness's hard lazy-init refusal. It did not establish a
+missing dependency. A guarded import-only reproduction retained the complete
+cause chain. The repaired private CPU context advertises CUDA unavailable/
+zero devices with `CUDA_VISIBLE_DEVICES=-1`, preserving every hard CUDA and
+inference refusal. Traceback/cause recording and late-failure outcome handling
+were also corrected. The original failed folder remains unchanged, and the
+successful conversion used a new evidence directory. Its configuration hashes
+were subsequently matched exactly to the GPU load.
+
+The private Preview v1 card experiment then completed one load, ten images
+and one cancellation in `work/anima-preview-refine-2026-11-17/`, exit 0.
+The combined committed receipt is
+`docs/maintainer/anima-refine-preview-2026-11-17.json`. Its exact selection is
+`Gazingstars123/Anima-2.9B`, revision
+`9f9cb502dbae7a616c3cc5a530633427fe735665`, the 40-layer Preview and its own
+conditioner; Windows 11 build 26300, RTX 5080, driver 616.92, torch
+2.13.0+cu130, diffusers 0.42.1, torchao 0.18.0, fp8/model offload,
+Eager/native, FlowMatch Euler shift 3, 1024x1024 RGB, 30 full steps, CFG 4,
+empty negative and no Mu/LoRA/reference. Seeds 4471/4472 ran as consecutive
+one-image CPU-generator calls over the immutable direct baseline.
+
+Strengths 0.125/0.25/0.4 ran 4/8/12 steps from indices 26/22/18 and sigmas
+0.315789521/0.521739185/0.666666687, matching the CPU schedule proof. Their
+first pass times were 6.228/9.992/13.305 seconds; direct baseline/direct-after
+were 30.634/29.872 seconds. The 0.4 repeat, batch first and post-cancel recovery
+are RGB-identical to the first 0.4 pass; batch second equals solo seed 4472;
+direct-after equals the baseline. Cancellation stopped at callback one without
+decoded output. All ten PNG/full RGB/exact metadata hashes were recomputed;
+there are five unique RGB outputs, and every pass proves the same source.
+
+The GPU cached load took 6.440 seconds and sampled 10.399 GiB peak process
+RAM. Refine peaks reached 3277.10/3446 MiB allocated/reserved and 5783 MiB
+whole card over a 2022 MiB preflight. Shared-process/adapter rises peaked at
+82/96.043 MiB; minimum free RAM/commit headroom were 23.814/18.222 GiB.
+Initial admission stayed 24 GiB free RAM and commit, with an explicit
+2500 MiB idle-card ceiling; continuous floors stayed 4 GiB, the process-RSS
+cap 16 GiB and card/shared limits unchanged. All 723 sampled verdicts were
+`ok`; the largest achieved interval was 0.250633 seconds at a requested
+0.25-second period. Normal cleanup retained 32 MiB allocated and reserved
+before exit; the post-exit card read 2028 MiB. Power hold/release passed.
+
+The root agent inspected all five unique actual images. Subject, blue coat,
+red bicycle and leafy park remain coherent against a soft painterly baseline;
+the bicycle is inherently cropped and fine anatomy is imperfect. At 0.125,
+subject/pose/face/bicycle/colours are preserved with sharper outlined/angular
+foliage and changed texture. At seed 4471, 0.25/0.4 increasingly flatten and
+saturate foliage and redraw small linework without clear texture benefit.
+Seed 4472 at 0.4 retains painterly foliage but changes face/hair and slightly
+changes basket/wheel geometry. No new composite seam or composition
+replacement was observed. The provisional conservative opening is **0.125
+for this exact measured recipe**, not author advice, a quality guarantee or
+Matt acceptance. The original raw receipt bytes remain in
+`receipt-unreviewed.json`; only visual-review strings were added to the live
+receipt, with reviewer/time and hashes in its sidecar. Public integration is
+stage 3; the measured envelope covers this exact 1024-square recipe.
+
+### Integrated public card acceptance, 2026-11-17
+
+Passed on `9341e575dc450b5867e3c88745e1849c40af47ce`: one cached Turbo
+load through the real public server, Windows RTX 5080 CUDA 0, fp8/model,
+Eager/Native, diffusers 0.42.1, 1024-square source/output, eight full steps
+and CFG 1. Eleven declared outputs reproduce the private reference RGB
+hashes: the 0.25 single/recovery/CLI pass, serial 0.4 batch and its solo
+second seed, same-size Then refine's baseline/pass pair, Mass refine,
+More seeds and retained Finish. Every saved PNG, full RGB and exact metadata
+hash was independently recomputed against SQL and the captured job/API
+records; allocated/reserved peaks agree with the process observation and
+`last_peak`. All four CPU fixture PNGs stayed unchanged, and every actual
+Refine source, including the new Then refine base, proves the original full
+RGB. The [public acceptance receipt](anima-refine-turbo-public-2026-11-17.json)
+retains the hashes, source manifest and complete scope.
+
+Actual progress was two steps at start sigma 0.5 for strength 0.25 and four
+at 0.75 for 0.4, eight callbacks for the serial batch. The loaded owner
+released hooks after each image and cancellation, twelve observations in
+all. Cancel was requested after real SSE step one and unwound at callback
+two with no saved/decoded output and cleared `last_peak`; Finish then used
+the checked retained SQL cell and preview pin in the same one-load session.
+Five held probes returned 422 without queueing; same-size Re-render pruned
+with 409 and enlargement stayed 422. The ordinary CLI used `--from-image
+--via-server` without explicit source/strength flags; its actual retained
+request carried the PNG's source id and 0.25 strength. This establishes
+public API and CLI-via-server acceptance, not a native-browser GPU trial,
+standalone CLI loading, a restart-recovery trial or another platform.
+
+The load took 11.12 s, peaking at 8.65 GiB server-tree RSS and 10.63 GiB
+private; session minima were 25.61 GiB free RAM and 19.92 GiB commit headroom.
+Whole-card peak was 4,983 MiB over a 2,031 MiB baseline, shared rises
+82.0 MiB process / 82.1 MiB adapter. The declared 24 GiB RAM/commit admission,
+16 GiB RSS cap and unchanged card/shared/4 GiB floors held. Of 306 samples,
+one 2.437 s startup gap preceded any load; the 238 samples from loading
+onward averaged 0.249985 s with a 0.266288 s maximum gap. No guard tripped.
+Power was acquired/released, unload answered `unloaded`, and later readback
+found neither server PID 45424 nor a listener on 7993. All 193 source hashes
+match at start, end and independent audit; the raw receipt was not mutated.
+Times are descriptive. The original visual limits remain; this does not
+qualify enlargement, Aesthetic/Preview, other loaders or cards.

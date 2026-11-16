@@ -1,0 +1,368 @@
+{
+  "schema": "auradream-perf1-tiny-toolchain-v1",
+  "date_local": "2026-11-17",
+  "timezone": "Australia/Brisbane",
+  "worker_started_utc": "2026-11-16T16:44:45.011185+00:00",
+  "status": "passed-tiny-toolchain-only",
+  "scope": "One isolated cached uv overlay with explicitly selected bundled tools, float32 CUDA arithmetic and strict Inductor failure policy.",
+  "not_qualified": [
+    "model or regional FLUX execution",
+    "FP8/quantized offload",
+    "application compiler-cache startup binding",
+    "retained-cache new-process reuse",
+    "default compiler installation",
+    "model performance",
+    "public nonempty execution admission"
+  ],
+  "environment": {
+    "platform": "Windows",
+    "python": "3.13.15",
+    "gpu": "NVIDIA GeForce RTX 5080",
+    "device_capability": [
+      12,
+      0
+    ],
+    "driver": "616.92",
+    "torch_cuda_runtime": "13.0",
+    "cudnn_version_integer": 92000,
+    "distributions": {
+      "torch": "2.13.0+cu130",
+      "torchao": "0.18.0",
+      "diffusers": "0.42.1",
+      "triton-windows": "3.7.1.post27"
+    },
+    "triton_import_version": "3.7.1"
+  },
+  "overlay": {
+    "command": "uv run --offline --no-sync --with triton-windows==3.7.1.post27 python -B <waiting-worker>",
+    "base_triton_distributions_after": {
+      "triton": null,
+      "triton-windows": null
+    },
+    "base_absence_evidence": "Controller verification and independent root/current metadata checks.",
+    "published_wheel_reference": {
+      "bytes": 49684257,
+      "sha256": "e8ed215c02afc85a81f0097196f8bebdf6f68085f1bc0fe8771b9a74783f15ab",
+      "new_wheel_hash_check_claimed": false
+    },
+    "installed_record_hashed_files_verified": 287,
+    "record_unhashed_entries": [
+      "triton_windows-3.7.1.post27.dist-info/RECORD"
+    ],
+    "selected_cc_relative_to_distribution": "triton/runtime/tcc/tcc.exe",
+    "selected_cuda_path_relative_to_distribution": "triton/backends/nvidia",
+    "selection_reason": "uv overlay sysconfig.platlib does not contain distribution's bundled toolchain",
+    "default_sysconfig_tcc_exists": false,
+    "actual_runtime_tool_resolution_verified": true,
+    "ptxas_version": "12.8.93",
+    "tinycc_version": "0.9.28rc 2026-03-07_mob@05bb793",
+    "bundled_files": {
+      "triton/_C/libtriton.pyd": {
+        "bytes": 110934528,
+        "sha256": "03f7d9b25d269373cf240eb7751de4859f386210b338887cb242e65d250bcc5e"
+      },
+      "triton/runtime/tcc/tcc.exe": {
+        "bytes": 25088,
+        "sha256": "78dc86cfd8dfb47251a6f7c905a74d61547505c522edbb429c953665d4acb447"
+      },
+      "triton/runtime/tcc/libtcc.dll": {
+        "bytes": 374272,
+        "sha256": "1e990d684011ae24060ec758eb1b963637f8ca65e1630346b7d5a9979dfd85eb"
+      },
+      "triton/backends/nvidia/bin/ptxas.exe": {
+        "bytes": 24753152,
+        "sha256": "7f6f04d25e5a7ab2c07c15e4ef26a07cec08104ebfebf364331fafa8f3c443d6"
+      },
+      "triton/backends/nvidia/include/cuda.h": {
+        "bytes": 1177046,
+        "sha256": "756c5d0b68c4bf33d279419d5db479d63263abe80c1e476f8899f4b077215bf5"
+      },
+      "triton/backends/nvidia/lib/libdevice.10.bc": {
+        "bytes": 473728,
+        "sha256": "5c2fae37c86e68c3a38605a95f512d7d12d5f3db986310be47f57304aa72a5ee"
+      },
+      "triton/backends/nvidia/lib/x64/cuda.lib": {
+        "bytes": 805036,
+        "sha256": "a55203daeb1b04d348200e002d2f2dc77d9b31edcff7dad76cffa4497ee14265"
+      }
+    },
+    "persistent_path_or_base_environment_changes": false
+  },
+  "guard": {
+    "admission": {
+      "available_ram_gib": 16,
+      "commit_headroom_gib": 16,
+      "idle_card_mib": 2500
+    },
+    "idle_ceiling_basis": "Root inspected the quiet desktop near 2020 MiB after test-worker contexts ended; normal DWM/Edge/Codex surfaces remained, with no AuraDream orphan browser. The 2500 MiB ceiling applies only to this tiny no-model session.",
+    "live_limits": {
+      "whole_card_mib": 15500,
+      "adapter_shared_rise_mib": 1024,
+      "process_shared_rise_mib": 512,
+      "available_ram_floor_gib": 4,
+      "commit_headroom_floor_gib": 4
+    },
+    "sampler": {
+      "card": "nvidia-smi --loop-ms",
+      "shared": "pdh"
+    },
+    "requested_period_seconds": 0.25,
+    "raw_samples": 201,
+    "sample_span_seconds": 50.0963614,
+    "mean_sample_period_seconds": 0.250481807,
+    "longest_sample_gap_seconds": 0.2835311,
+    "all_raw_counters_finite": true,
+    "all_decisions_independently_recomputed": "ok",
+    "trip_count": 0,
+    "baseline_whole_card_mib": 2010.0,
+    "whole_card_peak_mib": 2369.0,
+    "adapter_shared_rise_peak_mib": 83.2734375,
+    "process_shared_rise_peak_mib": 82.0,
+    "tree_rss_peak_gib": 0.9510917663574219,
+    "tree_private_peak_gib": 1.6856613159179688,
+    "available_ram_min_gib": 29.996158599853516,
+    "commit_headroom_min_gib": 24.894367218017578,
+    "caps_seconds": {
+      "load": 120,
+      "compile_phase": 180,
+      "session": 600,
+      "admitted_sampler_heartbeat": 3
+    }
+  },
+  "measurements": [
+    {
+      "phase": "load",
+      "elapsed_seconds": 5.766737,
+      "samples": 23,
+      "allocator_peak_mib": {
+        "allocated": 0.0,
+        "reserved": 0.0
+      },
+      "host": {
+        "whole_card_peak_mib": 2014.0,
+        "tree_rss_peak_gib": 0.56689453125,
+        "tree_private_peak_gib": 0.9399337768554688,
+        "available_ram_min_gib": 31.558609008789062,
+        "commit_headroom_min_gib": 29.188129425048828
+      }
+    },
+    {
+      "phase": "direct-triton",
+      "elapsed_seconds": 7.05411,
+      "samples": 28,
+      "exact": true,
+      "elements": 4096,
+      "dtype": "float32",
+      "result_sha256": "54bcc5bfee4066ccdae1bb2c19ddf615235e76f0db09ae1036062529420cf171",
+      "allocator_peak_mib": {
+        "allocated": 0.06689453125,
+        "reserved": 2.0
+      },
+      "host": {
+        "whole_card_peak_mib": 2307.0,
+        "tree_rss_peak_gib": 0.7924232482910156,
+        "tree_private_peak_gib": 1.5675048828125,
+        "available_ram_min_gib": 31.489463806152344,
+        "commit_headroom_min_gib": 28.28076934814453
+      }
+    },
+    {
+      "phase": "inductor",
+      "elapsed_seconds": 27.854036,
+      "samples": 111,
+      "exact": true,
+      "backend_counts": {
+        "graphs": 1,
+        "call_attempts": 2,
+        "call_returns": 2
+      },
+      "generated_kernels": 1,
+      "speed_claim": false,
+      "result_sha256": "a124048a41d14c04e43fe77032a30e6658266d01ea82343bd7c2abd63074dfb3",
+      "flags_before": [
+        false,
+        false,
+        8,
+        1
+      ],
+      "flags_after": [
+        false,
+        false,
+        8,
+        1
+      ],
+      "allocator_peak_mib": {
+        "allocated": 64.09375,
+        "reserved": 66.0
+      },
+      "host": {
+        "whole_card_peak_mib": 2367.0,
+        "tree_rss_peak_gib": 0.9430885314941406,
+        "tree_private_peak_gib": 1.6740188598632812,
+        "available_ram_min_gib": 29.996158599853516,
+        "commit_headroom_min_gib": 24.894367218017578
+      }
+    },
+    {
+      "phase": "recompile-diagnostic",
+      "elapsed_seconds": 0.715823,
+      "samples": 3,
+      "counts": {
+        "graphs": 1,
+        "call_attempts": 2,
+        "call_returns": 2
+      },
+      "expected_error": {
+        "type": "FailOnRecompileLimitHit",
+        "message": "Hard failure due to fail_on_recompile_limit_hit"
+      },
+      "diagnostic_fullgraph": false,
+      "flags_restored": true,
+      "no_changed_shape_result": true,
+      "allocator_peak_mib": {
+        "allocated": 64.125,
+        "reserved": 66.0
+      },
+      "host": {
+        "whole_card_peak_mib": 2369.0,
+        "tree_rss_peak_gib": 0.9510917663574219,
+        "tree_private_peak_gib": 1.6856613159179688,
+        "available_ram_min_gib": 30.258529663085938,
+        "commit_headroom_min_gib": 25.05457305908203
+      }
+    },
+    {
+      "phase": "cleanup",
+      "elapsed_seconds": 0.377501,
+      "samples": 2,
+      "allocator_peak_mib": {
+        "allocated": 64.125,
+        "reserved": 66.0
+      },
+      "host": {
+        "whole_card_peak_mib": 2369.0,
+        "tree_rss_peak_gib": 0.9332847595214844,
+        "tree_private_peak_gib": 1.6757545471191406,
+        "available_ram_min_gib": 30.301239013671875,
+        "commit_headroom_min_gib": 25.306926727294922
+      }
+    }
+  ],
+  "proof": {
+    "direct_triton_asm": {
+      "ptx": {
+        "bytes": 5020,
+        "sha256": "8ad6f3f80608fdab27ca7c1694f3def4c15d17af04797f8be2fc3d50866de890"
+      },
+      "cubin": {
+        "bytes": 8992,
+        "sha256": "94e75c34fb68b2d076463840bcb94a6bfb2699453d32feafe9b8eb1c537dd08a"
+      }
+    },
+    "direct_ptx_version": "8.7",
+    "direct_ptx_target": "sm_120a",
+    "direct_cubin_format": "CUDA ELF, e_machine 190",
+    "captured_result_digests_match_cpu_float32_expectations": true,
+    "retained_result_tensor_bytes": false,
+    "inductor_backend": {
+      "module": "torch._dynamo.backends.inductor",
+      "name": "inductor",
+      "source_sha256": "be78c06184e2f8da11829ae396263f10031feef78d637fabcf003f2ae8d71d45"
+    },
+    "fixed_backend_counts": {
+      "graphs": 1,
+      "call_attempts": 2,
+      "call_returns": 2
+    },
+    "fixed_logical_generated_kernels": 1,
+    "policy_restored": true,
+    "changed_shape_4096_to_2048": "FailOnRecompileLimitHit; no returned result or additional backend graph/call",
+    "python_outgoing_dns_connect_sendto_attempts": 0,
+    "automatic_retry_or_eager_fallback": false,
+    "cache_manifest": {
+      "files": 62,
+      "bytes": 63657243,
+      "ptx_files": 5,
+      "cubin_files": 5,
+      "all_paths_sizes_hashes_verified": true,
+      "interpretation": "Includes autotune variants; one logical generated-kernel metric is not one compiled binary."
+    },
+    "timing_interpretation": "Phase costs include setup/imports and warm calls. They are not model speed benchmarks."
+  },
+  "cleanup": {
+    "worker_allocator_mib": {
+      "allocated_mib": 0.0,
+      "reserved_mib": 0.0
+    },
+    "after_exit": {
+      "card_mib": 2010.0,
+      "adapter_shared_mib": 91.05078125,
+      "process_shared_mib": null,
+      "available_gib": 31.297954559326172,
+      "commit_headroom_gib": 26.999835968017578,
+      "tree_gib": null,
+      "card_total_mib": 16303.0
+    },
+    "power_request": {
+      "initial": {
+        "kind": "power-request",
+        "holding": true
+      },
+      "kind": "power-request",
+      "holding": false,
+      "released": true
+    },
+    "no_gpu_rerun_during_receipt_audit": true
+  },
+  "refused_attempts": [
+    {
+      "directory": "work/perf1-tiny-toolchain-20261117",
+      "permit_published": false,
+      "cuda_or_compiler_case_run": false,
+      "reason": "Generic combined preflight refusal before first-sample capture was fixed. The original admission reading was not retained.",
+      "after_exit_card_mib": 2143,
+      "note": "The after-exit reading is not substituted for the missing admission sample."
+    },
+    {
+      "directory": "work/perf1-tiny-toolchain-20261117-after-tests",
+      "permit_published": false,
+      "cuda_or_compiler_case_run": false,
+      "admission_card_mib": 2024,
+      "idle_ceiling_mib": 2000,
+      "reason": "Quiet idle card exceeded the conservative initial ceiling."
+    }
+  ],
+  "source": {
+    "tracked_content_reference_commit": "42096d9a1319719d967762ecd3a6c42155c22f4f",
+    "reference_match": "Listed tracked source content matches after CRLF-to-LF normalization; the worker did not retain a HEAD field.",
+    "driver_sha256": "fe01f8d53823b78b8499ffd00d8ccde9b230ccab7873228ff3496b6d74b1686f",
+    "files_sha256": {
+      "backend/config.py": "b7189b43e41237b1a9eacfb84957bcda634af7501f6fd19a2b1cd625dce41000",
+      "backend/backends/regional_compile.py": "724aec3e7741fc633a0079e57f7bc8cfe488ebb9c1c7dfbf8fb90951e06a0281",
+      "tools/card_guard.py": "1a553aa6dcb1b096a250d8aa8d813ca14238889e8264f91204d1c976906c6410",
+      "work/perf3_card_private.py": "5d7a3722c3af14253dd2a4da57cfe27ab7952e182857ff2c3ede2938a67f8478",
+      "uv.lock": "623d29ad0123fe832ebd172d0b3eeda66a7dad1be28f6e0b483daab68fe15c0b",
+      "pyproject.toml": "de475675e0b93f42f1b65779f8268fe086a223a87dcef3bfe97920062d8e3eb7"
+    },
+    "source_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "evidence": {
+    "directory": "work/perf1-tiny-toolchain-20261117-idle2500",
+    "file_sha256": {
+      "plan.json": "1f3900f7448c41f8b3ed35c8f54a814b071e60c6802e0cf8a226a75a777f7030",
+      "preflight.json": "499793ed75299e665383100b653686c4e5ed4134b81aa60fd799834c65182003",
+      "stack.json": "0066a80a622973822bebbf6fd55990e50a829dfae4c0632a28f656fd0d8af507",
+      "summary.json": "7aa82fdcdce5b432802486cc861994ab94be81a84e0bed76c6962d6e1defc17c",
+      "guard.jsonl": "366e97d73965c1a75dde31f4af076cbbd4ff5e043e9baa7fcefc3e7b967ecbc8",
+      "measurements.json": "159076fce0753019eb246311bc317c96755d2db80a150b73bc11e9ca44d0c182",
+      "cache-files.json": "e4e50d4ead19bb207da96e14f5112a27d07acd1459b57204e2d458fed945a06c",
+      "result-0001-complete.json": "02df902555fffb5ec108030c2c949e7f528fa6b8fb37935725ba41df34675a67",
+      "fixed-graph-0001.py": "3a955e01be2a58084679118041f5e695ce8fd5283dd941fe99f48ae460c4826c",
+      "limit-graph-0001.py": "dc2385cce6d1a3ec784aab6b92d7c12f3e0e3cadcdf54784cae9789e4a3abea2",
+      "worker.log": "1821655ea979c26a02979a9ce0c9c91e845509b43b1797f773d4173206bfc9a1",
+      "worker-final-residency.json": "3710d78fcc5934e34672550a86201047b2ea0084bb98432f62e12789d19649e0",
+      "after-exit.json": "3137ec6841ebd83e2b2c542fc270703183af97117d278c185bd2d028371203a4",
+      "keep-awake.json": "c819fb2dfb90829600d7da7d9d7a58c61e839524a413cafbd2ed48abe60c057b"
+    }
+  }
+}
