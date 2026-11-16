@@ -1,0 +1,553 @@
+[
+  {
+    "log": "'Local prompt assistant on its own fresh FLUX fake: Create, Improve and Find tags through the real fake API; explicit undo-aware application; bounded conversation, mode/reset, source changes, late replies, Stop/Close, failure retry and responsive native dialog. No real LLM, GPU, image generation or user gallery.'"
+  },
+  {
+    "navigate": "http://127.0.0.1:7960/"
+  },
+  {
+    "inject": "a11y_audit.js"
+  },
+  {
+    "eval": "__a11yWatch()"
+  },
+  {
+    "viewport": [
+      1400,
+      900
+    ]
+  },
+  {
+    "expect": "(async()=>{\n const until=async(fn,ms=20000)=>{const end=Date.now()+ms;while(Date.now()<end){if(await fn())return true;await new Promise(resolve=>setTimeout(resolve,40));}return false;};\n const assert=(ok,why)=>{if(!ok)throw Error(why);};\n assert(await until(()=>loadedModel==='black-forest-labs/FLUX.1-Krea-dev'&&Number.isInteger(modelRevision)&&!busy&&!galleryPending&&!jobListing),'fresh FLUX page did not settle');\n const q=window.__pa={until,assert,native:api,requests:[],answers:[],stops:[],forbidden:[],errors:[],fixture:null,sequence:0};\n addEventListener('error',e=>q.errors.push(e.message));addEventListener('unhandledrejection',e=>q.errors.push(String(e.reason)));\n q.instruction=text=>{replaceBoxText(els.assistantInstruction,text);els.assistantInstruction.dispatchEvent(new Event('input',{bubbles:true}));};\n q.mode=mode=>{els.assistantMode.value=mode;els.assistantMode.dispatchEvent(new Event('change',{bubbles:true}));};\n q.source=text=>{writeBox(els.prompt,text);promptReplaced();els.prompt.dispatchEvent(new Event('input',{bubbles:true}));};\n q.synthetic=(name,extra={})=>({model_id:loadedModel,model:'Synthetic local assistant',seconds:0.1,message:name,\n   drafts:[{title:name,prompt:'A red fox in a snowy forest. '+name,notes:['Synthetic smoke suggestion.']}],tags:[],warnings:[],...extra});\n q.arm=(name,extra={})=>{assert(!q.fixture,'a previous reply fixture remains');const f={name,body:q.synthetic(name,extra),captured:false,released:false};q.fixture=f;return f;};\n q.release=(f,error=null)=>{assert(f.captured&&!f.released&&f.resolve,'fixture not captured or already released');f.released=true;f.error=error;f.resolve();};\n q.frames=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));\n api=async(path,options)=>{\n   const method=String(options?.method||'GET').toUpperCase();\n   if(method!=='GET'&&!path.startsWith('/api/prompt/assist')&&!['/api/prompt/measure','/api/tags/validate','/api/prompt/analyze'].includes(path)){q.forbidden.push(method+' '+path);throw Error('Assistant smoke refuses unrelated writes: '+path);}\n   if(path.startsWith('/api/prompt/assist/')&&path.endsWith('/stop')){q.stops.push(path);return {stopped:true,running:false};}\n   if(path==='/api/prompt/assist'&&method==='POST'){\n     const body=JSON.parse(options.body);q.requests.push(body);\n     const f=q.fixture;\n     if(f&&!f.captured){f.captured=true;f.request=body;await new Promise(resolve=>{f.resolve=resolve;});if(q.fixture===f)q.fixture=null;if(f.error){const e=Error(f.error);e.status=502;throw e;}q.answers.push(f.body);return f.body;}\n     const result=await q.native(path,options);q.answers.push(result);return result;\n   }\n   return q.native(path,options);\n };\n q.source('A red fox standing in snow, green eyes, no buildings, a sign reading \"OPEN\".');\n q.original=els.prompt.value;q.caption=els.examplesBox.closest('.field').querySelector(':scope > span').getBoundingClientRect().height;q.promptTop=els.prompt.getBoundingClientRect().top;\n return true;\n})()",
+    "fatal": true
+  },
+  {
+    "log": "'The assistant opens from Examples without increasing the full prompt caption; Snippets remains last and opening alone sends nothing.'"
+  },
+  {
+    "click": "#btn-examples"
+  },
+  {
+    "expect": "!els.examplesMenu.hidden && !!document.getElementById('prompt-assistant-menu-item') && els.examplesMenu.lastElementChild.id==='snippets-menu-item' && Math.abs(els.examplesBox.closest('.field').querySelector(':scope > span').getBoundingClientRect().height-__pa.caption)<0.5 && Math.abs(els.prompt.getBoundingClientRect().top-__pa.promptTop)<0.5",
+    "fatal": true
+  },
+  {
+    "eval": "els.examplesMenu.querySelector('[role=menuitem]').focus({preventScroll:true});"
+  },
+  {
+    "key": "End"
+  },
+  {
+    "expect": "document.activeElement.id==='snippets-menu-item' && (()=>{const e=document.activeElement,r=e.getBoundingClientRect(),m=els.examplesMenu.getBoundingClientRect();return r.top>=m.top&&r.bottom<=m.bottom&&e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));})()",
+    "fatal": true
+  },
+  {
+    "key": "ArrowUp"
+  },
+  {
+    "expect": "document.activeElement.id==='setups-menu-item'",
+    "fatal": true
+  },
+  {
+    "key": "ArrowUp"
+  },
+  {
+    "expect": "document.activeElement.id==='prompt-assistant-menu-item'",
+    "fatal": true
+  },
+  {
+    "click": "#prompt-assistant-menu-item"
+  },
+  {
+    "expect": "__pa.until(()=>els.assistantDialog.open && els.examplesMenu.hidden && !assistantRun)",
+    "fatal": true
+  },
+  {
+    "expect": "__pa.requests.length===0 && els.assistantDialog.getAttribute('aria-labelledby') && els.assistantInstruction.maxLength===2000 && els.prompt.value===__pa.original"
+  },
+  {
+    "log": "'Create executes the fake local service once and leaves the composer unchanged. A follow-up sends prior dialogue; only Use prompt writes, with native Undo.'"
+  },
+  {
+    "eval": "__pa.mode('create'); __pa.instruction('Write two distinct prompts for a red fox in snow.');"
+  },
+  {
+    "eval": "window.__paSwitchBefore=modelSwitchSending; modelSwitchSending=true; syncPromptAssistant();"
+  },
+  {
+    "expect": "modelChangeHold()==='Wait for the model settings change to finish' && els.assistantAsk.getAttribute('aria-disabled')==='true' && els.assistantAsk.title===modelChangeHold()+'.'",
+    "fatal": true
+  },
+  {
+    "click": "#assistant-ask"
+  },
+  {
+    "expect": "__pa.requests.length===0 && !assistantRun && els.assistantStatus.textContent===modelChangeHold()+'.'"
+  },
+  {
+    "eval": "modelSwitchSending=__paSwitchBefore; syncPromptAssistant();"
+  },
+  {
+    "expect": "els.assistantAsk.getAttribute('aria-disabled')!=='true'",
+    "fatal": true
+  },
+  {
+    "click": "#assistant-ask"
+  },
+  {
+    "expect": "__pa.until(()=>!assistantRun && assistantResultData?.drafts?.length>0 && __pa.requests.length===1)",
+    "fatal": true
+  },
+  {
+    "expect": "els.prompt.value===__pa.original && __pa.requests[0].mode==='create' && __pa.requests[0].history.length===0 && __pa.requests[0].ticket.length>0 && assistantTurns.length>=2 && els.assistantResult.querySelector('[data-assistant-draft=\"0\"]')"
+  },
+  {
+    "eval": "(() => {const host=document.querySelector('.assistant-body'), result=els.assistantResult; if(!result.hidden)host.scrollTop+=result.getBoundingClientRect().top-host.getBoundingClientRect().top;})()"
+  },
+  {
+    "shot": "assistant-create.png"
+  },
+  {
+    "eval": "window.__paFirstDraft=assistantResultData.drafts[0].prompt; __pa.instruction('Keep the fox and snowy setting, use a closer composition.');"
+  },
+  {
+    "click": "#assistant-ask"
+  },
+  {
+    "expect": "__pa.until(()=>!assistantRun && __pa.requests.length===2 && assistantResultData?.drafts?.length>0)",
+    "fatal": true
+  },
+  {
+    "expect": "__pa.requests[1].mode==='create' && __pa.requests[1].history.length>=2 && __pa.requests[1].history.some(turn=>turn.role==='user' && turn.content.includes('red fox')) && __pa.requests[1].history.some(turn=>turn.role==='assistant') && els.prompt.value===__pa.original"
+  },
+  {
+    "eval": "window.__paApplied=assistantResultData.drafts[0].prompt;"
+  },
+  {
+    "expect": "(async()=>{const e=document.querySelector(\"[data-assistant-draft=\\\"0\\\"]\"), host=e?.closest('.assistant-body'); if(!e||!host)return false;const r=e.getBoundingClientRect(), b=host.getBoundingClientRect();host.scrollTop+=r.bottom>b.bottom?r.bottom-b.bottom+4:r.top<b.top?r.top-b.top-4:0;await __pa.frames();const t=e.getBoundingClientRect(), h=host.getBoundingClientRect();return t.top>=h.top&&t.bottom<=h.bottom&&e.contains(document.elementFromPoint(t.x+t.width/2,t.y+t.height/2));})()",
+    "fatal": true
+  },
+  {
+    "click": "[data-assistant-draft=\"0\"]"
+  },
+  {
+    "expect": "__pa.until(()=>els.prompt.value===__paApplied && !els.assistantDialog.open)",
+    "fatal": true
+  },
+  {
+    "keycombo": [
+      "Control",
+      "z"
+    ]
+  },
+  {
+    "expect": "els.prompt.value===__pa.original"
+  },
+  {
+    "click": "#btn-examples"
+  },
+  {
+    "click": "#prompt-assistant-menu-item"
+  },
+  {
+    "expect": "els.assistantDialog.open",
+    "fatal": true
+  },
+  {
+    "log": "'Reset and changing tasks clear the previous conversation. Improve uses the existing source and keeps it untouched until explicit application.'"
+  },
+  {
+    "click": "#assistant-reset"
+  },
+  {
+    "expect": "assistantTurns.length===0 && assistantResultData===null"
+  },
+  {
+    "eval": "__pa.mode('improve'); __pa.instruction('Keep every subject, green eyes, exclusion and the exact OPEN lettering; make the phrasing clearer.');"
+  },
+  {
+    "click": "#assistant-ask"
+  },
+  {
+    "expect": "__pa.until(()=>!assistantRun && __pa.requests.length===3 && assistantResultData?.drafts?.length>0)",
+    "fatal": true
+  },
+  {
+    "expect": "__pa.requests[2].mode==='improve' && __pa.requests[2].prompt===__pa.original && __pa.requests[2].history.length===0 && els.prompt.value===__pa.original"
+  },
+  {
+    "expect": "(async()=>{__pa.assert(await __pa.until(()=>!statusPending),'status read did not settle before the offline fixture');window.__paOfflineBefore=serverOffline; window.__paOfflineApi=api; api=async(path,options)=>{if(path==='/api/status'){const e=Error('Synthetic offline status');e.offline=true;throw e;}return __paOfflineApi(path,options);}; serverOffline=true; syncPromptAssistant();return true;})()",
+    "fatal": true
+  },
+  {
+    "expect": "els.assistantResult.querySelector('[data-assistant-draft=\"0\"]').getAttribute('aria-disabled')==='true' && els.assistantResult.querySelector('[data-assistant-draft=\"0\"]').title.includes('server is not answering')",
+    "fatal": true
+  },
+  {
+    "expect": "(async()=>{const e=document.querySelector(\"[data-assistant-draft=\\\"0\\\"]\"), host=e?.closest('.assistant-body'); if(!e||!host)return false;const r=e.getBoundingClientRect(), b=host.getBoundingClientRect();host.scrollTop+=r.bottom>b.bottom?r.bottom-b.bottom+4:r.top<b.top?r.top-b.top-4:0;await __pa.frames();const t=e.getBoundingClientRect(), h=host.getBoundingClientRect();return t.top>=h.top&&t.bottom<=h.bottom&&e.contains(document.elementFromPoint(t.x+t.width/2,t.y+t.height/2));})()",
+    "fatal": true
+  },
+  {
+    "click": "[data-assistant-draft=\"0\"]"
+  },
+  {
+    "expect": "els.assistantDialog.open && els.prompt.value===__pa.original && els.assistantStatus.textContent.includes('server is not answering')"
+  },
+  {
+    "eval": "api=__paOfflineApi; serverOffline=__paOfflineBefore; syncPromptAssistant(); void refreshStatus();"
+  },
+  {
+    "log": "'Find tags reaches the real fake service on a prose checkpoint. Only authoritative usable candidates are insertable; unverified suggestions remain explanations.'"
+  },
+  {
+    "eval": "__pa.mode('tags'); __pa.instruction('A silly single tuft of hair sticking up: find its Danbooru tag.');"
+  },
+  {
+    "expect": "assistantTurns.length===0 && assistantResultData===null"
+  },
+  {
+    "click": "#assistant-ask"
+  },
+  {
+    "expect": "__pa.until(()=>!assistantRun && __pa.requests.length===4 && assistantResultData?.tags?.length>0)",
+    "fatal": true
+  },
+  {
+    "expect": "__pa.requests[3].mode==='tags' && __pa.requests[3].history.length===0 && els.prompt.value===__pa.original && els.assistantResult.textContent.includes('ahoge')"
+  },
+  {
+    "eval": "window.__paTags=__pa.arm('Synthetic authoritative tag verdicts',{drafts:[],tags:[{text:'ahoge',reason:'Model suggestion: the raised hair tuft.',status:'valid',canonical:null,detail:'Known general tag.'},{text:'stupid hair',reason:'Model suggestion: a possible alias.',status:'alias',canonical:'ahoge',detail:'Alias of ahoge.'},{text:'invented_glitter_hair_zz',reason:'Model suggestion only.',status:'not_found',canonical:null,detail:'Not in the tag index.'},{text:'unchecked_hair_zz',reason:'Model suggestion only.',status:'unchecked',canonical:null,detail:'The index did not answer.'}],warnings:['Synthetic index verdicts for browser validation.']}); __pa.instruction('Compare checked and unchecked tag suggestions.'); window.__paAskBefore=els.assistantAsk.getBoundingClientRect().toJSON(); window.__paInstructionBefore=els.assistantInstruction.getBoundingClientRect().toJSON();"
+  },
+  {
+    "click": "#assistant-ask"
+  },
+  {
+    "expect": "__pa.until(()=>__paTags.captured && !!assistantRun)",
+    "fatal": true
+  },
+  {
+    "expect": "(() => {const stable=(el,b)=>{const r=el.getBoundingClientRect();return ['x','y','width','height'].every(k=>Math.abs(r[k]-b[k])<0.5);};return stable(els.assistantAsk,__paAskBefore)&&stable(els.assistantInstruction,__paInstructionBefore);})()"
+  },
+  {
+    "expect": "els.generate.getAttribute('aria-disabled')==='true' && els.generate.title.toLowerCase().includes('assistant') && els.assistantStop.getAttribute('aria-disabled')!=='true'"
+  },
+  {
+    "eval": "__pa.instruction('Keep this follow-up instruction while the previous answer finishes.');"
+  },
+  {
+    "eval": "__pa.release(__paTags);"
+  },
+  {
+    "expect": "__pa.until(()=>!assistantRun && assistantResultData?.message==='Synthetic authoritative tag verdicts')",
+    "fatal": true
+  },
+  {
+    "expect": "els.assistantInstruction.value==='Keep this follow-up instruction while the previous answer finishes.'"
+  },
+  {
+    "expect": "(() => {const stable=(el,b)=>{const r=el.getBoundingClientRect();return ['x','y','width','height'].every(k=>Math.abs(r[k]-b[k])<0.5);};return stable(els.assistantAsk,__paAskBefore)&&stable(els.assistantInstruction,__paInstructionBefore);})()"
+  },
+  {
+    "expect": "(() => {const rows=[...els.assistantResult.querySelectorAll('input[data-assistant-tag]')];return rows.length===4 && rows.slice(0,2).every(input=>input.getAttribute('aria-disabled')!=='true'&&!input.disabled) && rows.slice(2).every(input=>input.disabled||input.getAttribute('aria-disabled')==='true') && els.assistantResult.textContent.includes('Not in the tag index.') && els.assistantResult.textContent.includes('The index did not answer.');})()"
+  },
+  {
+    "eval": "(() => {const host=document.querySelector('.assistant-body'), result=els.assistantResult; if(!result.hidden)host.scrollTop+=result.getBoundingClientRect().top-host.getBoundingClientRect().top;})()"
+  },
+  {
+    "shot": "assistant-tags.png"
+  },
+  {
+    "expect": "(async()=>{const e=document.querySelector(\"input[data-assistant-tag=\\\"0\\\"]\"), host=e?.closest('.assistant-body'); if(!e||!host)return false;const r=e.getBoundingClientRect(), b=host.getBoundingClientRect();host.scrollTop+=r.bottom>b.bottom?r.bottom-b.bottom+4:r.top<b.top?r.top-b.top-4:0;await __pa.frames();const t=e.getBoundingClientRect(), h=host.getBoundingClientRect();return t.top>=h.top&&t.bottom<=h.bottom&&e.contains(document.elementFromPoint(t.x+t.width/2,t.y+t.height/2));})()",
+    "fatal": true
+  },
+  {
+    "click": "input[data-assistant-tag=\"0\"]"
+  },
+  {
+    "expect": "(async()=>{const e=document.querySelector(\"#assistant-insert-tags\"), host=e?.closest('.assistant-body'); if(!e||!host)return false;const r=e.getBoundingClientRect(), b=host.getBoundingClientRect();host.scrollTop+=r.bottom>b.bottom?r.bottom-b.bottom+4:r.top<b.top?r.top-b.top-4:0;await __pa.frames();const t=e.getBoundingClientRect(), h=host.getBoundingClientRect();return t.top>=h.top&&t.bottom<=h.bottom&&e.contains(document.elementFromPoint(t.x+t.width/2,t.y+t.height/2));})()",
+    "fatal": true
+  },
+  {
+    "click": "#assistant-insert-tags"
+  },
+  {
+    "expect": "__pa.until(()=>!els.assistantDialog.open && els.prompt.value.includes('ahoge') && els.prompt.value.startsWith(__pa.original))",
+    "fatal": true
+  },
+  {
+    "keycombo": [
+      "Control",
+      "z"
+    ]
+  },
+  {
+    "expect": "els.prompt.value===__pa.original"
+  },
+  {
+    "click": "#btn-examples"
+  },
+  {
+    "click": "#prompt-assistant-menu-item"
+  },
+  {
+    "expect": "els.assistantDialog.open",
+    "fatal": true
+  },
+  {
+    "log": "'A reply about earlier source text remains reviewable but cannot overwrite an edit made while it was thinking.'"
+  },
+  {
+    "eval": "__pa.mode('improve'); __pa.instruction('Improve the source while keeping its details.'); window.__paStale=__pa.arm('Reply for earlier source');"
+  },
+  {
+    "click": "#assistant-ask"
+  },
+  {
+    "expect": "__pa.until(()=>__paStale.captured && !!assistantRun)",
+    "fatal": true
+  },
+  {
+    "eval": "__pa.source('A deliberate newer composer draft.'); __pa.release(__paStale);"
+  },
+  {
+    "expect": "__pa.until(()=>!assistantRun && assistantResultData?.message==='Reply for earlier source')",
+    "fatal": true
+  },
+  {
+    "expect": "els.prompt.value==='A deliberate newer composer draft.' && els.assistantResult.querySelector('[data-assistant-draft=\"0\"]').getAttribute('aria-disabled')==='true'"
+  },
+  {
+    "expect": "(async()=>{const e=document.querySelector(\"[data-assistant-draft=\\\"0\\\"]\"), host=e?.closest('.assistant-body'); if(!e||!host)return false;const r=e.getBoundingClientRect(), b=host.getBoundingClientRect();host.scrollTop+=r.bottom>b.bottom?r.bottom-b.bottom+4:r.top<b.top?r.top-b.top-4:0;await __pa.frames();const t=e.getBoundingClientRect(), h=host.getBoundingClientRect();return t.top>=h.top&&t.bottom<=h.bottom&&e.contains(document.elementFromPoint(t.x+t.width/2,t.y+t.height/2));})()",
+    "fatal": true
+  },
+  {
+    "click": "[data-assistant-draft=\"0\"]"
+  },
+  {
+    "expect": "els.assistantDialog.open && els.prompt.value==='A deliberate newer composer draft.' && els.assistantStatus.textContent.length>0"
+  },
+  {
+    "log": "'Stopping owns only its ticket. Late answers after Stop or Close never replace a later answer, and reopening makes no request.'"
+  },
+  {
+    "click": "#assistant-reset"
+  },
+  {
+    "eval": "__pa.mode('create'); __pa.instruction('A stoppable draft.'); window.__paStopped=__pa.arm('Abandoned stopped reply'); window.__paStopsBefore=__pa.stops.length;"
+  },
+  {
+    "click": "#assistant-ask"
+  },
+  {
+    "expect": "__pa.until(()=>__paStopped.captured && !!assistantRun)",
+    "fatal": true
+  },
+  {
+    "click": "#assistant-stop"
+  },
+  {
+    "expect": "__pa.until(()=>__pa.stops.length===__paStopsBefore+1)",
+    "fatal": true
+  },
+  {
+    "eval": "__pa.release(__paStopped);"
+  },
+  {
+    "expect": "__pa.until(()=>!assistantRun)",
+    "fatal": true
+  },
+  {
+    "expect": "assistantResultData?.message!=='Abandoned stopped reply' && els.prompt.value==='A deliberate newer composer draft.' && __pa.stops.at(-1).includes(__paStopped.request.ticket)"
+  },
+  {
+    "eval": "__pa.instruction('A draft whose dialog will close.'); window.__paClosed=__pa.arm('Abandoned closed reply'); window.__paStopsBefore=__pa.stops.length;"
+  },
+  {
+    "click": "#assistant-ask"
+  },
+  {
+    "expect": "__pa.until(()=>__paClosed.captured && !!assistantRun)",
+    "fatal": true
+  },
+  {
+    "click": "#assistant-close"
+  },
+  {
+    "expect": "__pa.until(()=>!els.assistantDialog.open && __pa.stops.length===__paStopsBefore+1)",
+    "fatal": true
+  },
+  {
+    "click": "#btn-examples"
+  },
+  {
+    "click": "#prompt-assistant-menu-item"
+  },
+  {
+    "expect": "els.assistantDialog.open && __pa.requests.length===8",
+    "fatal": true
+  },
+  {
+    "eval": "__pa.release(__paClosed);"
+  },
+  {
+    "expect": "__pa.until(()=>!assistantRun)",
+    "fatal": true
+  },
+  {
+    "expect": "assistantResultData?.message!=='Abandoned closed reply' && els.prompt.value==='A deliberate newer composer draft.'"
+  },
+  {
+    "log": "'A failed answer leaves instruction text and source intact, releases the generation hold, and an explicit retry succeeds.'"
+  },
+  {
+    "eval": "__pa.instruction('Keep this instruction after failure.'); window.__paFailed=__pa.arm('Never shown');"
+  },
+  {
+    "click": "#assistant-ask"
+  },
+  {
+    "expect": "__pa.until(()=>__paFailed.captured && !!assistantRun)",
+    "fatal": true
+  },
+  {
+    "eval": "__pa.release(__paFailed,'Synthetic local assistant refusal');"
+  },
+  {
+    "expect": "__pa.until(()=>!assistantRun && els.assistantStatus.textContent.includes('Synthetic local assistant refusal'))",
+    "fatal": true
+  },
+  {
+    "expect": "els.assistantInstruction.value==='Keep this instruction after failure.' && els.prompt.value==='A deliberate newer composer draft.' && !submitHold({composer:true})"
+  },
+  {
+    "eval": "window.__paRetried=__pa.arm('Explicit retry answered');"
+  },
+  {
+    "click": "#assistant-ask"
+  },
+  {
+    "expect": "__pa.until(()=>__paRetried.captured && !!assistantRun)",
+    "fatal": true
+  },
+  {
+    "eval": "__pa.release(__paRetried);"
+  },
+  {
+    "expect": "__pa.until(()=>!assistantRun && assistantResultData?.message==='Explicit retry answered')",
+    "fatal": true
+  },
+  {
+    "log": "'A checkpoint revision invalidates the conversation and every prepared use; it never applies another checkpoint\\'s late reply.'"
+  },
+  {
+    "eval": "__pa.instruction('A draft retired by a model revision.'); window.__paChanged=__pa.arm('Abandoned previous-checkpoint reply');"
+  },
+  {
+    "click": "#assistant-ask"
+  },
+  {
+    "expect": "__pa.until(()=>__paChanged.captured && !!assistantRun)",
+    "fatal": true
+  },
+  {
+    "eval": "checkpointChanged(loadedModel,loadedModel); __pa.release(__paChanged);"
+  },
+  {
+    "expect": "__pa.until(()=>!assistantRun)",
+    "fatal": true
+  },
+  {
+    "expect": "assistantResultData?.message!=='Abandoned previous-checkpoint reply' && assistantTurns.length===0 && els.prompt.value==='A deliberate newer composer draft.' && els.assistantStatus.textContent.includes('checkpoint changed') && els.assistantStatus.textContent.includes('conversation was cleared')"
+  },
+  {
+    "eval": "if(els.assistantDialog.open)els.assistantClose.click();"
+  },
+  {
+    "log": "'The dialog fits a narrow desktop and the phone sheet; native Escape returns focus without any automatic local-model request.'"
+  },
+  {
+    "viewport": [
+      400,
+      650
+    ]
+  },
+  {
+    "click": "#btn-examples"
+  },
+  {
+    "click": "#prompt-assistant-menu-item"
+  },
+  {
+    "expect": "__pa.until(()=>els.assistantDialog.open)",
+    "fatal": true
+  },
+  {
+    "expect": "(() => {const r=els.assistantDialog.getBoundingClientRect();return r.left>=0&&r.top>=0&&r.right<=innerWidth+1&&r.bottom<=innerHeight+1&&els.assistantDialog.scrollWidth<=els.assistantDialog.clientWidth+1;})()"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__pa.until(()=>!els.assistantDialog.open && document.activeElement===els.examplesBtn)",
+    "fatal": true
+  },
+  {
+    "touch": true
+  },
+  {
+    "viewport": [
+      393,
+      852,
+      3
+    ],
+    "mobile": true
+  },
+  {
+    "inject": "phone_audit.js"
+  },
+  {
+    "expect": "__pa.until(()=>matchMedia(PHONE_MEDIA).matches)",
+    "fatal": true
+  },
+  {
+    "click": "#btn-examples"
+  },
+  {
+    "click": "#prompt-assistant-menu-item"
+  },
+  {
+    "expect": "__pa.until(()=>els.assistantDialog.open)",
+    "fatal": true
+  },
+  {
+    "expect": "(() => {const r=__phoneAudit({root:'#prompt-assistant-dialog'});return r.overflow===0&&!r.offside.length&&!r.small.length&&!r.dialogs.length;})()"
+  },
+  {
+    "expect": "document.activeElement!==els.assistantInstruction && els.prompt.value==='A deliberate newer composer draft.'"
+  },
+  {
+    "eval": "assistantResultData=__pa.synthetic('Phone draft preview'); assistantSnapshot=assistantSource(); renderAssistantResult();"
+  },
+  {
+    "eval": "(() => {const host=document.querySelector('.assistant-body'), result=els.assistantResult; if(!result.hidden)host.scrollTop+=result.getBoundingClientRect().top-host.getBoundingClientRect().top;})()"
+  },
+  {
+    "shot": "assistant-phone.png"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__pa.until(()=>!els.assistantDialog.open && !backGoing)",
+    "fatal": true
+  },
+  {
+    "log": "JSON.stringify({forbidden:__pa.forbidden, errors:__pa.errors, requests:__pa.requests.length, running:!!assistantRun, busy, submissions:submissions.size})"
+  },
+  {
+    "expect": "__pa.forbidden.length===0 && __pa.errors.length===0 && __pa.requests.length===11 && !assistantRun && !busy && submissions.size===0"
+  },
+  {
+    "expect": "__a11yCheck()"
+  }
+]

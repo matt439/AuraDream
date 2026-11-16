@@ -14,7 +14,7 @@ from typing import NamedTuple
 
 from PIL import Image
 
-from backend import critic, prompt_encoding
+from backend import critic, prompt_assistant, prompt_encoding
 from backend.backends import flux3_loading, flux3_upsampler
 from backend.backends.base import Cancelled, GenerationBackend
 from backend.config import settings
@@ -24,6 +24,7 @@ from backend.instruction_edit import QUALIFIED_ENVELOPE, text_to_image_refusal
 from backend.model_defaults import defaults_for
 from backend.model_selection import current_model_id, current_settings
 from backend.schemas import CriticStatus, GenerateRequest, PromptCritique, default_strength
+from backend.schemas_assistant import PromptAssistantRequest, PromptAssistantResponse
 
 
 def expands(model_id: str) -> bool:
@@ -519,6 +520,7 @@ class FakeCritic:
         # (model_id, request, applied, analysis) per critique, in order, and
         # a running log of what happened when - prepare, critique, done.
         self.critiques: list[tuple] = []
+        self.assists: list[tuple] = []
         self.events: list[str] = []
         self.started = threading.Event()
 
@@ -614,6 +616,58 @@ class FakeCritic:
                 "reordered": rotated if ordered else None,
             }
         )
+
+    def assist(self, model_id, request: PromptAssistantRequest, should_cancel) -> PromptAssistantResponse:
+        if not self.prepares or not self.fetched:
+            raise CriticUnavailable("the local prompt model is not prepared; prepare() fetches it first")
+        self.assists.append((model_id, request))
+        self.events.append("assist")
+        self.started.set()
+        started = time.perf_counter()
+        unloaded = self.unloads
+        try:
+            context = prompt_assistant.build_context(model_id, request)
+            prompt_assistant.check_fits(context)
+            while time.perf_counter() - started < self.delay:
+                if should_cancel() or self.unloads != unloaded:
+                    raise Cancelled("prompt assistant stopped")
+                time.sleep(0.01)
+            if should_cancel() or self.unloads != unloaded:
+                raise Cancelled("prompt assistant stopped")
+            if self.fail is True:
+                raise CriticError("llama-server exited with code 1 before it was ready")
+            if self.fail:
+                raise self.fail
+            if request.mode == "tags":
+                answer = {
+                    "message": "These candidate tags may describe the hair you have in mind.",
+                    "drafts": [],
+                    "tags": [
+                        {"text": "ahoge", "reason": "A single lock of hair sticking up."},
+                        {"text": "twin tails", "reason": "Two tied sections of hair."},
+                        {"text": "invented assistant tag", "reason": "An intentionally unknown candidate in the fake."},
+                    ],
+                }
+            else:
+                source = request.prompt if request.mode == "improve" else request.instruction
+                revised = (
+                    f"{source} {request.instruction}" if request.mode == "improve" else
+                    f"{source}. Soft dawn light and a clear composition."
+                )
+                answer = {
+                    "message": "Here are two drafts to review. Tell me what you would like to change.",
+                    "drafts": [
+                        {"title": "First direction", "prompt": revised, "notes": ["Review the added lighting."]},
+                        {"title": "Alternative", "prompt": f"{source}. Gentle moonlight and a wider view.", "notes": []},
+                    ],
+                    "tags": [],
+                }
+            return prompt_assistant.validate_answer(
+                json.dumps(answer), model_id, request, model=self.label,
+                seconds=time.perf_counter() - started,
+            )
+        finally:
+            self.events.append("assist done")
 
     def unload(self) -> None:
         self.unloads += 1

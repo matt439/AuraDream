@@ -23,6 +23,8 @@
   {
     "click": "#btn-examples"
   },
+  {"eval": "if (els.examplesMenu.scrollHeight > els.examplesMenu.clientHeight) els.examplesMenu.scrollTop = els.examplesMenu.scrollHeight;"},
+  {"expect": "(() => { const e = document.querySelector(\"#snippets-menu-item\"), m = els.examplesMenu.getBoundingClientRect(); if (!e || els.examplesMenu.hidden) return false; const r = e.getBoundingClientRect(); return r.top >= m.top && r.bottom <= m.bottom && e.contains(document.elementFromPoint(r.x+r.width/2, r.y+r.height/2)); })()", "fatal": true},
   {
     "click": "#snippets-menu-item"
   },
@@ -203,6 +205,8 @@
   {
     "click": "#btn-examples"
   },
+  {"eval": "if (els.examplesMenu.scrollHeight > els.examplesMenu.clientHeight) els.examplesMenu.scrollTop = els.examplesMenu.scrollHeight;"},
+  {"expect": "(() => { const e = document.querySelector(\"#setups-menu-item\"), m = els.examplesMenu.getBoundingClientRect(); if (!e || els.examplesMenu.hidden) return false; const r = e.getBoundingClientRect(); return r.top >= m.top && r.bottom <= m.bottom && e.contains(document.elementFromPoint(r.x+r.width/2, r.y+r.height/2)); })()", "fatal": true},
   {
     "click": "#setups-menu-item"
   },
@@ -578,6 +582,8 @@
   {
     "click": "#btn-examples"
   },
+  {"eval": "if (els.examplesMenu.scrollHeight > els.examplesMenu.clientHeight) els.examplesMenu.scrollTop = els.examplesMenu.scrollHeight;"},
+  {"expect": "(() => { const e = document.querySelector(\"#snippets-menu-item\"), m = els.examplesMenu.getBoundingClientRect(); if (!e || els.examplesMenu.hidden) return false; const r = e.getBoundingClientRect(); return r.top >= m.top && r.bottom <= m.bottom && e.contains(document.elementFromPoint(r.x+r.width/2, r.y+r.height/2)); })()", "fatal": true},
   {
     "click": "#snippets-menu-item"
   },
@@ -596,6 +602,8 @@
   {
     "click": "#btn-examples"
   },
+  {"eval": "if (els.examplesMenu.scrollHeight > els.examplesMenu.clientHeight) els.examplesMenu.scrollTop = els.examplesMenu.scrollHeight;"},
+  {"expect": "(() => { const e = document.querySelector(\"#setups-menu-item\"), m = els.examplesMenu.getBoundingClientRect(); if (!e || els.examplesMenu.hidden) return false; const r = e.getBoundingClientRect(); return r.top >= m.top && r.bottom <= m.bottom && e.contains(document.elementFromPoint(r.x+r.width/2, r.y+r.height/2)); })()", "fatal": true},
   {
     "click": "#setups-menu-item"
   },

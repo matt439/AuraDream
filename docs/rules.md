@@ -224,6 +224,8 @@ paragraphs, never rewording.
   leaf over `mask_crop`'s constants, no settings
 - `backend/schemas_prompt.py` — Expand, Check (analysis, findings, orders),
   the chip count, the critic's critique, Danbooru tag suggestion/validation
+- `backend/schemas_assistant.py` — bounded local prompt-assistant requests,
+  conversation messages, drafts, candidate tags and lookup verdicts
 - `backend/schemas_encoder.py` — `EncoderReport` (re-exported by
   `schemas_prompt`) and the grid preview's `GridPromptBudget(s)`; a leaf, so
   `schemas_generate.GridPreview` can carry them without importing
@@ -277,6 +279,9 @@ paragraphs, never rewording.
   tree and loopback requests, `critic_context.py` the question and token budget,
   `critic_reorder.py` pure prompt permutations, and `critic_validation.py`
   answer grounding and rewrite validation
+- `backend/prompt_assistant.py` — the writing assistant's checkpoint-grounded
+  dialogue, structured draft validation, retention warnings and authoritative
+  tag lookup after inference; no model loading
 - `backend/critic_issues.py` — what a critic issue says, for
   `critic_validation.validate`: the restated-finding vocabulary (`_says`,
   `_restated`, `_MEASURED`, `_PART_COUNT` and the patterns it builds on) and
@@ -651,6 +656,9 @@ paragraphs, never rewording.
   findings, the order detail, the chips' order slots, the rewrite's lint),
   blocking and CPU only; `backend/tag_lookup.py` the Danbooru lookup the
   chips and Check share, and owner of the patchable `tag_vocabulary`
+- `backend/api_prompt_assistant.py` — ticketed prompt-writing requests and
+  Stop, preparation outside the card gate, shared critic runtime admission,
+  bounded conversation and tag verification after the card is released
 - `backend/submission.py` — what every cell producer checks before it
   queues (`refuse_unusable_inputs`, `unusable_input`, `refine_unavailable`,
   `inpaint_unavailable`, `mask_unusable`, `not_yet_rendered`) and the gallery selection (`resolve_selection`),
@@ -923,7 +931,7 @@ paragraphs, never rewording.
 
 ### The page (`web/`)
 
-- `web/` - served as-is from `/static`; `index.html` loads 79 classic
+- `web/` - served as-is from `/static`; `index.html` loads 80 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `page-helpers.js`, right
   after it, the page-wide pure helpers (`plural`, `excerpt`, `units`,
@@ -958,7 +966,9 @@ paragraphs, never rewording.
   tag dropdown; `prompt-examples.js` the
   Examples menu, `prompt-expand.js` Expand (ERNIE's rewriter, FLUX 3's upsampler; its button's
   state, `syncExpandButton`, and the English under the prompt, `placeTranslation`,
-  `promptReplaced`); `analysis.js`,
+  `promptReplaced`); `prompt-assistant.js` the local Create/Improve/Find tags
+  dialog, in-memory conversation, ticketed Stop and explicit undoable prompt
+  application; `analysis.js`,
   `analysis-critic.js` and `comparison.js` the check and critic. `sizes.js`
   and `status.js` retain their control/profile roles; `model-switch.js` owns
   checkpoint selection and retiring state prepared under the old model;
@@ -1091,7 +1101,8 @@ paragraphs, never rewording.
   `style.css` (tokens and base layout), followed by `styles/*.css` in the
   explicit link order: `model-picker.css` the Models picker (first, at its
   old place in `style.css`), `fields.css` the panel's fields,
-  `analysis.css` the prompt check, critic and comparison, `generation.css`
+  `analysis.css` the prompt check, critic and comparison,
+  `prompt-assistant.css` the writing assistant's dialog and drafts, `generation.css`
   the grid search, the buttons and progress, `gallery.css` the stage and
   Gallery beside, `sheet.css` the contact sheet, `lightbox.css` the
   lightbox, `refine.css` the Refine dialog and motion, `inpaint.css` and
@@ -1139,6 +1150,10 @@ paragraphs, never rewording.
   `anima_refine_pack.py` prints the offline Turbo Refine protocol and a blank
   receipt, and checks recorded receipt completeness without starting a session
   or granting qualification (`tests/test_anima_refine_pack.py`; Anima Refine plan);
+  `prompt_assistant_pack.py` prints the local writing assistant's fixed future
+  GPU cases and blank receipt and checks recorded completeness, with no backend
+  import, network, process, API or card action (`PA#18`;
+  `tests/test_prompt_assistant_pack.py`, Prompt assistant plan);
   `perf_cases.py` holds the fixed speed comparison cases the card runs
   share and prints their `backend.generate` lines, running none
   (`docs/maintainer/plan-step-caching.md`, Fixed comparison cases);
@@ -3781,6 +3796,26 @@ measured on the card and when.
 
 ### Prompt analyser
 
+#### Local prompt writing
+
+- The optional writing assistant (`PA#18`, `POST /api/prompt/assist`) shares
+  the critic's pinned runtime and process owner, never image weights. Its
+  Create/Improve/Find tags tasks use bounded, client-owned history as untrusted
+  dialogue and checkpoint author excerpts as guidance. Preparation stays
+  outside the gate; inference runs through `run_when_idle` only after the
+  load/job recheck; tag verification runs after the child has stopped and
+  the gate has opened. Model-generated explanations are not index verdicts.
+  A candidate remains unchecked when the index is unavailable; only verified
+  tags and usable aliases may be inserted. A Stop belongs to one ticket,
+  including a stop-before-POST, and may never terminate a later request's
+  process. The page uses exact source text/checkpoint snapshots before
+  applying through `rewriteBox`, never auto-applies, and keeps conversation
+  out of browser storage and gallery data. `syncLoadButton` is the Load
+  button's aria/title writer, including the assistant's hold. CPU checks
+  do not qualify this workflow's GPU latency, memory or prompt quality.
+
+#### Prompt checks, encoders and tag placement
+
 - Three layers over the body Generate sends (`PromptAnalysisRequest`): Check
   (`POST /api/prompt/analyze`), the critic (`POST /api/prompt/critique`) and
   the comparison grid (`prompt_variants`). Check works cold: CPU tokenizers
@@ -4027,6 +4062,9 @@ measured on the card and when.
   multi-item prose passage. The finding remains advisory with no Apply;
   `PromptAnalysis.reordered_detail` and the critic's `set_aside` explain the
   app's precaution, without changing the author's order or cite.
+
+#### Local critic runtime and answer validation
+
 - The critic is pinned: llama.cpp `b11206` archives (`critic.BUILDS`: Windows
   CUDA 13.4, and Ubuntu for WSL) and `Qwen/Qwen3-4B-GGUF` `Qwen3-4B-Q8_0.gguf`
   at a fixed revision, each held to its size and sha256 (`.part`, verify,
@@ -11136,6 +11174,26 @@ node tools/browser.mjs tools/smoke-results.json
 ```
 
 ### Prompt analyser tests and smokes
+
+`test_prompt_assistant.py`, `test_prompt_assistant_runtime.py` and
+`test_api_prompt_assistant.py` cover the local
+writing assistant's bounded requests/history and structured answers, checkpoint
+grounding, retention warnings, tag-index verdicts/offline fallback, shared
+transient critic runtime, preparation and job/load admission, ticketed Stop,
+late replies and model/passcode guards. The existing critic process tests
+continue to cover the reused llama.cpp lifecycle. These are CPU/fake checks;
+`tools/prompt_assistant_pack.py` only prepares a future GPU protocol and audits
+a manually completed receipt, never executes it.
+
+`smoke-prompt-assistant.json` uses a separate fresh FLUX.1 Krea [dev] fake on
+7960. It covers the three task modes and a follow-up, explicit draft application
+and undo, tag verdicts and insertion, changed-editor refusals, failure/retry,
+Stop/Close/reopen, checkpoint changes, and the native dialog on desktop and
+phone, with accessibility and phone-layout audits. It runs no LLM or GPU work:
+
+```powershell
+uv run python tools/run_smoke.py smoke-prompt-assistant
+```
 
 The prompt analyser is tested the same way, with no network and no GPU:
 `test_prompt_encoding*.py` (`test_prompt_encoding.py` the encoder table,

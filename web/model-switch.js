@@ -534,6 +534,7 @@ function modelWorkHold() {
     || (elsewhereBusy ? 'A job started in another tab or window is running; switch once it ends' : '')
     || (expandingPrompt ? 'Wait for prompt expansion to finish' : '')
     || (critiquing ? 'Wait for the critic to finish' : '')
+    || (assistantRun ? 'Wait for the prompt assistant to finish' : '')
     || (cardHolder ? 'Wait for the current GPU work to finish' : '');
 }
 
@@ -1245,6 +1246,7 @@ async function switchModel({ load = true } = {}) {
 // takes it.
 function checkpointChanged(previousModel, nextModel = loadedModel) {
   modelSwitchError = null;
+  assistantCheckpointChanged();
   if (previousModel) {
     if (els.confirmDialog.open) els.confirmDialog.close('');
     keepSampling(previousModel);

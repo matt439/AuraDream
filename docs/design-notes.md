@@ -11660,6 +11660,50 @@ prompt Krea publishes for an LLM of your choice to expand prompts with - is
 where "one cohesive paragraph" comes from ("Write one cohesive paragraph
 after the thinking block. No bullets, JSON, or markdown").
 
+## A local prompt-writing assistant
+
+`PA#18`, 2026-11-16. Matt asked for all three tasks: turn ideas into prompts
+with conversational follow-ups, improve an existing prompt, and find Danbooru
+tags from a description. The [implementation and card handoff](maintainer/plan-prompt-assistant.md)
+own the detail. He commissioned the source and preparation for GPU testing,
+explicitly holding that testing.
+
+The critic already supplies a pinned, measured local runtime with bounded
+context, verified downloads and process ownership. Its request is deliberately
+conservative: it may not invent scenery, objects, mood or lettering. A new
+assistant request gives Create permission to develop ideas while asking Improve
+to keep the user's intent unless its instruction changes it. It uses the same
+Qwen3-4B Q8_0 and llama.cpp pin; selecting a larger/newer model before measuring
+this baseline would introduce a second uncertainty. The existing critic remains
+its own Check workflow.
+
+The new dialog opens from Examples, preserving the prompt caption's scarce
+space, and from the phone's topbar menu. Conversation stays in page memory.
+Apply is explicit and undoable, and tied to the source editor/checkpoint snapshot.
+The follow-up text box stays in a fixed compose area while replies scroll above
+it; incoming drafts and progress text cannot move the writing controls.
+Replies that arrive after Stop, closure, reset or a newer request cannot change
+the editor. Bounded history refuses excess input instead of forgetting earlier
+instructions silently.
+
+Find tags separates the model's proposed explanations from authoritative tag
+verdicts. Candidate names go through the same tag index as the existing tools;
+a confident model answer does not validate a tag. Network failure is unchecked,
+and the UI cannot insert it as a verified choice. Full conversational text goes
+only to the local runtime; candidate tag names still reach Danbooru. This extends
+the earlier wiki-finder decision without making the LLM a replacement index.
+
+Inference shares the critic's transient child and the job gate. Preparation and
+post-answer tag verification stay outside the gate; no assistant request loads
+image weights. Stop names one ticket, including when it overtakes its POST, and
+must not stop a different request. The child must be gone before the next card
+holder begins. The old critic's latency and memory measurements do not qualify
+the new task's input/output budgets, semantic fidelity or cancellation path.
+
+The offline test-pack tool writes no measurements and executes no session.
+CPU and fake-browser checks are recorded in the owner; actual GPU evidence is
+still a future, separately authorized session.
+
 ## The prompt analyser
 
 The request was a tool that says whether a natural-language prompt is

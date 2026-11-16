@@ -296,6 +296,7 @@ function submitHold({ composer = false } = {}) {
     : modelChangeHold() ? modelChangeHold()
     : expandingPrompt ? 'Wait for prompt expansion to finish'
     : critiquing ? 'Wait for the critic to finish'
+    : assistantRun ? 'Wait for the prompt assistant to finish'
     : composer && textToImageReason ? textToImageReason
     : composer ? executionSubmitHold() : executionLoadHold();
 }
@@ -381,6 +382,7 @@ async function startJob(path, payload, {
   // behind it on the server anyway, but a click that seems to do nothing for
   // fifteen seconds reads as a lost one.
   if (critiquing) { showError('Wait for the critic to finish.', false, { slot }); return; }
+  if (assistantRun) { showError('Wait for the prompt assistant to finish.', false, { slot }); return; }
   const recipe = payload.execution;
   const executionWhy = executionLoadHold() || (recipe && Object.values(recipe).some((value) => value != null) ? EXECUTION_UNAVAILABLE : '');
   if (executionWhy) { showError(executionWhy, false, { slot }); return; }

@@ -245,8 +245,16 @@ const EXPAND_ELSEWHERE = 'A job started in another tab or window is running; Exp
 function syncPromptExpansion() {
   syncExpandButton();
   syncUnload();
+  syncLoadButton();
   syncSubmitButtons();
   syncCritic();
+  syncPromptAssistant();
+}
+
+function syncLoadButton() {
+  const why = assistantRun ? 'Wait for the prompt assistant to finish' : executionLoadHold();
+  els.load.setAttribute('aria-disabled', String(!!why));
+  els.load.title = why || (modelState === 'error' ? 'Try the load again, once what stopped it is fixed' : 'Load the weights now');
 }
 
 // Unload's one writer. setBusy, Expand and the critic each used to set it,
@@ -265,6 +273,7 @@ function syncUnload() {
     : expandingPrompt ? 'Wait for prompt expansion to finish'
     : cardHolder === 'expand' && stoppedExpansionTickets.has(cardTicket) ? 'The abandoned expansion is finishing its current stage'
     : critiquing ? 'Wait for the critic to finish'
+    : assistantRun ? 'Wait for the prompt assistant to finish'
     : modelState === 'loading' ? 'The weights are still loading'
     : '';
   els.unload.setAttribute('aria-disabled', String(!!why));
@@ -286,6 +295,7 @@ function syncUnload() {
 let loadLine = null;
 async function loadModel() {
   if (modelChangeHold()) { sayModelChangeHold(); return; }
+  if (assistantRun) { showError('Wait for the prompt assistant to finish.'); return; }
   if (executionLoadHold()) { showError(executionLoadHold()); return; }
   try {
     await api('/api/model/load', { method: 'POST' });

@@ -23,6 +23,7 @@
 <link rel="stylesheet" href="/static/styles/model-picker.css">
 <link rel="stylesheet" href="/static/styles/fields.css">
 <link rel="stylesheet" href="/static/styles/analysis.css">
+<link rel="stylesheet" href="/static/styles/prompt-assistant.css">
 <link rel="stylesheet" href="/static/styles/generation.css">
 <link rel="stylesheet" href="/static/styles/gallery.css">
 <link rel="stylesheet" href="/static/styles/sheet.css">
@@ -219,7 +220,7 @@
           the server answers.</span></span>
         <span class="examples" id="examples">
           <button type="button" class="ghost tiny" id="btn-examples" aria-haspopup="menu"
-                  aria-expanded="false" title="Example prompts from the authors, saved setups and your personal snippets">Examples</button>
+                  aria-expanded="false" title="Example prompts from the authors, local prompt writing, saved setups and your personal snippets">Examples</button>
           <ul class="menu" id="examples-menu" role="menu" aria-labelledby="btn-examples" hidden></ul>
         </span>
         <span class="tag-helper" id="tag-helper" hidden>
@@ -2577,6 +2578,32 @@
   </div>
 </dialog>
 
+<dialog class="prompt-assistant-dialog" id="prompt-assistant-dialog" aria-labelledby="assistant-title" aria-describedby="assistant-intro">
+  <div class="assistant-head dialog-head"><h2 id="assistant-title">Write a prompt</h2><button type="button" class="ghost" id="assistant-close">Close</button></div>
+  <div class="assistant-body">
+    <p class="hint" id="assistant-intro">Create a prompt, improve one you have written or find tags. The language model runs locally; proposed tag names are sent to Danbooru for verification. Review every draft before using it.</p>
+    <label for="assistant-mode">Help with
+      <select id="assistant-mode"><option value="create">Create a prompt</option><option value="improve">Improve my prompt</option><option value="tags">Find tags</option></select>
+    </label>
+    <details id="assistant-history-wrap" hidden><summary>Conversation</summary><div id="assistant-history"></div></details>
+    <div id="assistant-result" tabindex="-1" hidden></div>
+    <p class="warn" id="assistant-stale" hidden>The prompt, negative prompt or checkpoint changed. Start a new conversation before applying these suggestions.</p>
+  </div>
+  <div class="assistant-compose">
+    <label for="assistant-instruction">Your idea or instruction
+      <textarea id="assistant-instruction" rows="3" maxlength="2000" placeholder="Describe what you want to create, change or find" aria-describedby="assistant-context-note"></textarea>
+    </label>
+    <p class="hint" id="assistant-context-note">Includes the current prompt and negative prompt. New conversation clears this chat. A download already started may finish after Stop.</p>
+  </div>
+  <p class="assistant-cost-line"><span id="assistant-cost"></span><span id="assistant-clock" aria-hidden="true"></span></p>
+  <p id="assistant-status" role="status" aria-live="polite">Describe your idea or the change you want. Nothing is applied automatically.</p>
+  <div class="assistant-actions dialog-actions">
+    <button type="button" class="ghost" id="assistant-reset">New conversation</button>
+    <button type="button" class="ghost" id="assistant-stop" aria-disabled="true" title="There is no answer running.">Stop</button>
+    <button type="button" class="primary" id="assistant-ask">Ask</button>
+  </div>
+</dialog>
+
 <!-- Classic scripts sharing one global scope; app.js, the last, is the
      only one that runs anything at load. Order matters: see state.js. -->
 <script src="/static/state.js"></script>
@@ -2632,6 +2659,7 @@
 <script src="/static/tag-finder.js"></script>
 <script src="/static/prompt-examples.js"></script>
 <script src="/static/prompt-expand.js"></script>
+<script src="/static/prompt-assistant.js"></script>
 <script src="/static/analysis.js"></script>
 <script src="/static/analysis-critic.js"></script>
 <script src="/static/comparison.js"></script>

@@ -635,6 +635,7 @@ def main() -> int:
             "kantoku": ("artist", 9_000),
             "wlop": ("artist", 31_000),
             "twintails": ("general", 1_300_000),
+            "ahoge": ("general", 994_000),
         }
         # Danbooru's alias table: the antecedent answers as its consequent
         # (PA#17), as `DanbooruTagVocabulary` resolves it.

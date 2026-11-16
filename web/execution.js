@@ -228,9 +228,7 @@ function syncExecutionControls() {
     && !option.unavailable_reason && !option.configuration_reason);
   els.stepCache.closest('.execution-cache-row').hidden = !cacheAdmitted
     && !els.stepCache.value && !performanceChoiceInvalid(els.stepCache);
-  const why = executionLoadHold();
-  els.load.setAttribute('aria-disabled', String(!!why));
-  if (why) els.load.title = why;
+  syncLoadButton();
   syncPerformanceDisclosure();
 }
 

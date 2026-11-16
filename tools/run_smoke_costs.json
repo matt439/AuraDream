@@ -7,11 +7,13 @@
     "Not CI's either: smoke, smoke-analysis, smoke-animagine, smoke-lightbox and smoke-wide are their hosted times scaled by the local after/before ratio (median of Windows --jobs 1 runs) once their fixed waits became conditions (2026-11-12, DEV#58); smoke-analysis's before run failed partway (90.5 s), so its 59 is an estimate until the next refresh.",
     "Not CI's: smoke-gallery-maintenance is one Windows run (2026-11-12, --jobs 1), unscaled, until the next refresh.",
     "Not CI's either: the other smokes DEV#58 converted (2026-11-13) are their hosted times scaled by the local after/before ratio (one Windows --jobs 1 run before, the median of three or more after, nine agents' runs loading the machine together); smoke-comparison's before run failed, so it keeps its hosted time until the next refresh.",
-    "Not CI's: smoke-detailer is one Windows --jobs 1 run (2026-11-16), unscaled, until the next refresh."
+    "Not CI's: smoke-detailer is one Windows --jobs 1 run (2026-11-16), unscaled, until the next refresh.",
+    "Not CI's: smoke-prompt-assistant is one Windows --jobs 1 run (2026-11-16), unscaled, until the next refresh."
   ],
   "seconds": {
     "smoke": 42,
     "smoke-analysis": 59,
+    "smoke-prompt-assistant": 13,
     "smoke-analysis-tags": 14,
     "smoke-anima": 4,
     "smoke-anima-aesthetic": 2,
