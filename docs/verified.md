@@ -1554,6 +1554,14 @@ a default, general seam freedom or TODO closure. The [receipt](maintainer/gen49-
 preserves raw hashes, exact scripts/masks/tiles/intermediates and separate
 visual reviews. Auditing did not change the raw evidence.
 
+The later private CPU orchestration reproduces this same four-tile chain
+exactly when injected with its retained raw outputs. All four intermediate
+RGB proofs and the final match, using four observed calls to the installed
+overlay helper. Its 36 callbacks are synthetic; this is not new inference,
+card, fidelity, speed or release qualification. The
+[CPU replay receipt](maintainer/tiled-refine-raw-cpu-replay-2026-11-17.json)
+retains the passing attempt and two earlier import-guard failures separately.
+
 ### Peak per image, FLUX.1 Krea dev; guarded Refine stop (2026-11-16)
 
 The authorized overnight session completed `GEN#15`'s remaining Windows

@@ -378,6 +378,11 @@ paragraphs, never rewording.
   `paste_back`; numpy, Pillow, `sizes` and `refine`. The app crops, never
   the class's `padding_mask_crop`; the rule's boxes are pinned by
   `tests/test_mask_crop.py`
+- `backend/tiled_refine.py` — private provisional GEN#49 CPU orchestration:
+  the frozen 2048-square four-region masks, serial existing crop/overlay
+  helpers, injected renderer, per-tile seeds and immutable result facts;
+  cancellation discards the working composite. No production import or
+  public admission; `tests/test_tiled_refine.py` checks the bounded prototype
 - `backend/sizes.py` — the preset table; the CLI's `--aspect/--mp`, config's
   `max_side`/`max_pixels` and a refine pass's `refine_max_side`/
   `refine_max_pixels` (any 2 MP preset at 2x), `web/state.js`'s copy,

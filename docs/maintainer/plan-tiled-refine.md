@@ -2,8 +2,8 @@
 
 **Status, 2026-11-17:** `GEN#49`'s throwaway SDXL seam experiment passed
 the narrow gate for this plan. Product implementation is not released.
-The private CPU orchestration prototype is being built; its results belong
-below. The originating [R2](review-2026-11-10-peers.md#r2-tiled-refine)
+The private CPU orchestration prototype is built and its integrated CPU,
+focused and static gates pass. The originating [R2](review-2026-11-10-peers.md#r2-tiled-refine)
 owns why the experiment came first.
 
 The aim is to refine a larger image through bounded overlapping regions,
@@ -97,7 +97,11 @@ expose temporary gallery ids as the composite's source.
 
 Keep the original root source id and full RGB/dimension/provenance proof
 distinct from transient in-memory composites. Prove the root before work
-and at every tile boundary. Internal masks are derived from the frozen
+and at every tile boundary. The first integrated recipe starts from a
+1024-square RGB gallery root and prepares the 2048-square canvas with the
+same exact CPU Lanczos resize. The prototype's source hash proves that
+prepared canvas, not the original gallery root; retain both proofs and the
+versioned preparation method. Internal masks are derived from the frozen
 algorithm and never become sources or references. Preserve prompt, negative,
 strength, steps, CFG, selected checkpoint and outer image seed unchanged.
 One cell's cancellation/error produces no final image; completed earlier
@@ -156,5 +160,61 @@ release and its dated verification are complete.
 
 ## Private CPU result
 
-Pending implementation and validation. The exploratory receipt above remains
-separate from the prototype and every later integrated result.
+[`backend/tiled_refine.py`](../../backend/tiled_refine.py) implements the
+unregistered first stage under the private provisional identity
+`private-provisional-sdxl-four-region-2048-v1`. It validates exact recipe
+field types, RGB mode, dimensions and storable integer seed before a renderer
+runs. Immutable plans bind the prepared source's full RGB proof, four frozen
+mask hashes, exact crop boxes/working sizes and wrapped per-tile seeds.
+Each renderer receives borrowed private crop inputs and the fixed recipe,
+returns one fresh 1040-square RGB image and reports nine ordered steps.
+
+The wrapper composes through the installed helpers in memory. Facts retain
+each transient source/result RGB proof and callback count. Cancel, callback
+failure and malformed progress latch even when a renderer catches them;
+success transfers only one complete image. Borrowed root/input aliases are
+refused, malformed image containers release their transferred fresh images,
+and owned crops/masks/raw images/intermediates close on every terminal path.
+Planning masks use explicit `closing`: Pillow's image context exit alone
+does not close an in-memory pixel core. No gallery rows/files, schema fields,
+keys, profiles, resolver, route, settings or capability changes were made.
+The sole rules change maps the new leaf module in Layout.
+
+Final focused verification on the frozen source passed **110 tests**:
+96 prototype cases, eight module-map and six rules-section checks, with one
+existing Starlette warning, in 10.50 s (`CUDA_VISIBLE_DEVICES=-1`, OMP 1).
+The tests pin the measured masks/crops, real helper arithmetic, serial
+current-source carry, seed wrap, outside-mask identity, exact output and
+progress contracts, later-tile cancellation/helper/progress errors, all
+owned image lifetimes and a cold config-before-renderer/framework boundary.
+Ruff passed; pinned Pyright checked **218 sources**, zero errors/warnings.
+Root and independent source/test reviews found no remaining blocker.
+
+The final integrated suite passed **11167 tests, 325 skipped**, 85 warnings,
+exit 0 in 418.69 s, with `CUDA_VISIBLE_DEVICES=-1` and four workers. Its log
+is `work/overnight-tiled-final-2026-11-17-cpu.log`. The source-bound focused/
+static receipt is `work/gen49-private-cpu-validation-20261117.json`.
+An independent CPU replay of the actual saved GPU tiles passed in a fresh
+process. It injected the first-tile recovery and the remaining three raw
+1040-square images, with 36 explicitly synthetic callbacks. All four full
+intermediate RGB hashes and the final composite match the measured chain
+exactly, including final `7a04e5835b31c39ed8947c92be67e4ead678f24ac0c775a3075f77767212d6ad`.
+Input crops/masks/seeds match the original source/crop proofs. The unmodified
+installed `VaeImageProcessor.apply_overlay` was observed four times; no
+replacement overlay or new inference was used. Original raw files stayed
+unchanged. The replay is CPU orchestration evidence, not new GPU, quality,
+pipeline, durability or performance qualification.
+
+The first two replay attempts stopped before a completed overlay because
+their import-only guard rejected optional Triton availability and then
+installed Inductor metadata imports. Those failed attempts remain preserved.
+The fresh passing attempt allows CPU metadata registration and records
+ordinary optional-package absence separately from execution. CUDA, actual
+compile entry points, learned model/pipeline imports, subprocess and network
+guards stayed enforced. Its raw receipt is
+`work/gen49-private-raw-cpu-replay-20261117-a3/receipt.json`; the independently
+audited [bounded derivative](tiled-refine-raw-cpu-replay-2026-11-17.json)
+retains the helper/source proofs and separate failed-attempt disclosures.
+The next implementation stage remains the exact loaded-backend adapter and
+durable pass intent, followed by broader card quality/recovery and public
+flows. No pipeline/GPU/product qualification is inferred from this prototype.
