@@ -8607,7 +8607,8 @@ measured on the card and when.
   `aria-haspopup="menu"` host the menu opens from - Shape, the Size chip,
   a queued row's ⋯): Load or Retry load while it is shown, Unload while it is
   shown, then Saved setups… (`openSetups`), Personal snippets…
-  (`openSnippets`), Load settings from PNG… and Reset, last in
+  (`openSnippets`), Write a prompt… (`openPromptAssistant`), Load settings
+  from PNG… and Reset, last in
   `--danger`. Each of Load, Unload, Load settings from PNG… and Reset
   presses the page's own button, held and titled as it is (`buttonItem`),
   and a held press says why above the bars (`sayAtGenerate`); a PNG
@@ -13462,7 +13463,7 @@ free space not drawn, each id once; a tap on the name in the chip opening
 Models with its entry, still open 300 ms later, its chevron turned, and a
 tap on the chip shutting it; the ⋯ opening the docked menu "More" with
 its entry - Unload (titled Free VRAM), Saved setups…, Personal
-snippets…, Load settings from PNG… and Reset, 48 px rows, none held,
+snippets…, Write a prompt…, Load settings from PNG… and Reset, 48 px rows, none held,
 Reset last in `--danger`, the menu across the window at its foot - and
 Saved setups… opening the setups sheet with one entry, which Back shuts,
 the focus back on the ⋯; at the page's top
@@ -13966,6 +13967,12 @@ Two count-confirmation states at 48 px use the real `countDialog` and Cancel
 only. The total is 88 field/late-content states. Rendered-height prerequisites
 prevent stale geometry from passing; raw drafts, node identity, holds, page
 scroll, sticky restoration and Cancel's null answer are checked too.
+Before intentionally focusing a library form, the fixture waits for its read,
+phone-row redraw, queued viewport reveal and rendered geometry to settle.
+`tests/test_phone_keyboard_audit.py` drives the real injected helper with
+controlled animation frames to hold each unfinished owner in turn. Async
+fixture steps return true explicitly and stop later steps if setup fails;
+field failures retain focus, bounds, scroll, pending-frame and hit diagnostics.
 The [native image-pass follow-up](maintainer/review-2026-11-05-phone.md#10-edit-dialog-keyboard-acceptance-2026-11-07)
 records 23 accepted field cases with per-run source provenance. It does not
 qualify the additional phone-form fallback, physical devices or Split View.

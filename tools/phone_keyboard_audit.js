@@ -10,6 +10,32 @@ window.__keyboardUntil = async (fn, ms = 5000) => {
   }
   return false;
 };
+// Opening a library form also reads its list, redraws the phone's rows and
+// settles opening focus. A changed viewport queues its own reveal frame.
+// Drain those owners and observe stable rendered geometry before simulating
+// the user's focus; two unconditional frames can end in the middle of either.
+window.__keyboardIdle = async (dialog, supplied = false) => {
+  const end = Date.now() + 5000;
+  let previous = '', stable = 0;
+  while (Date.now() < end) {
+    await new Promise(requestAnimationFrame);
+    const libraryReady = dialog.id === 'setups-dialog' ? setupsReady && !setupsPending
+      : dialog.id === 'snippets-dialog' ? snippetsReady && !snippetsPending
+      : dialog.id === 'saved-searches-dialog' ? savedSearchReady && !savedSearchPending : true;
+    const rowsReady = [...phoneLists].every(([select, entry]) => !dialog.contains(select)
+      || entry.signature === phoneListSignature(select));
+    const box = dialog.getBoundingClientRect();
+    const ready = dialog.open && !backGoing && backDepth === 1 && libraryReady && rowsReady
+      && !sheetViewportFrame && (!isPhone() || sheetOpened?.dialog === dialog)
+      && (!supplied || Math.abs(box.height - window.__keyboardMetrics[0]) < 1);
+    const geometry = JSON.stringify([box.toJSON(), dialog.scrollTop, dialog.scrollHeight,
+      document.activeElement?.id, getComputedStyle(dialog.querySelector('.dialog-head')).position]);
+    stable = ready && geometry === previous ? stable + 1 : 0;
+    previous = geometry;
+    if (stable >= 2) return true;
+  }
+  throw new Error(`${dialog.id} did not become idle before keyboard focus`);
+};
 window.__keyboardViewportDescriptor = Object.getOwnPropertyDescriptor(window, 'visualViewport');
 window.__keyboardViewport = (height, offsetTop) => {
   Object.defineProperty(window, 'visualViewport', { configurable: true, value: { height, offsetTop, scale: 1 } });
@@ -47,7 +73,7 @@ window.__keyboardPasses = async () => {
     __keyboardRestore();
     await test.open(galleryRecords[0]);
     const d = document.getElementById(test.dialog);
-    await __keyboardUntil(() => d.open && !backGoing);
+    if (!await __keyboardUntil(() => d.open && !backGoing)) throw new Error(`${test.dialog} did not open`);
     __keyboardViewport(...window.__keyboardMetrics);
     for (const id of test.fields) {
       const field = document.getElementById(id);
@@ -68,7 +94,7 @@ window.__keyboardPasses = async () => {
     }
     __keyboardRestore();
     d.querySelector('[id$="-cancel"]').click();
-    await __keyboardUntil(() => !d.open && !backGoing);
+    if (!await __keyboardUntil(() => !d.open && !backGoing)) throw new Error(`${test.dialog} did not close`);
   }
   return results;
 };
@@ -89,12 +115,12 @@ window.__keyboardOtherForms = async () => {
     __keyboardRestore();
     await test.open();
     const d = document.getElementById(test.dialog), field = document.getElementById(test.field);
-    if (!await __keyboardUntil(() => d.open && !backGoing)) throw new Error(`${test.dialog} did not open`);
+    await __keyboardIdle(d);
     if (field.type === 'text') {
       field.value = 'Keep this draft';
       field.dispatchEvent(new Event('input', { bubbles: true }));
     }
-    await tick();
+    await __keyboardIdle(d);
     const controls = [...d.querySelectorAll('input, textarea, select, button')];
     const holds = () => controls.filter((c) => c.tagName === 'BUTTON')
       .map((c) => [c.id, c.disabled, c.getAttribute('aria-disabled'), c.hidden]);
@@ -106,11 +132,16 @@ window.__keyboardOtherForms = async () => {
         && [[0.5, 0.5], [0.1, 0.1], [0.9, 0.1], [0.1, 0.9], [0.9, 0.9]]
           .every(([x, y]) => document.elementFromPoint(b.left + b.width * x, b.top + b.height * y) === field);
     };
+    const geometry = () => ({ active: document.activeElement.id, box: field.getBoundingClientRect().toJSON(),
+      dialog: d.getBoundingClientRect().toJSON(), scrollTop: d.scrollTop, maxScroll: d.scrollHeight - d.clientHeight,
+      viewportFrame: sheetViewportFrame,
+      hit: document.elementFromPoint(field.getBoundingClientRect().left + 10, field.getBoundingClientRect().top + 10)?.id });
     const unchanged = () => field === document.getElementById(test.field) && field.value === value
       && controls.length === d.querySelectorAll('input, textarea, select, button').length
       && controls.every((c, i) => c === d.querySelectorAll('input, textarea, select, button')[i])
       && JSON.stringify(holds()) === originalHolds && scrollX === page[0] && scrollY === page[1];
     __keyboardViewport(...window.__keyboardMetrics);
+    await __keyboardIdle(d, true);
     noteSheetInput();
     field.focus({ preventScroll: true });
     syncSheetViewport();
@@ -119,13 +150,13 @@ window.__keyboardOtherForms = async () => {
     await __keyboardUntil(() => fitted() && clear(), 1200);
     results.push({ field: test.field, clear: clear(), unchanged: unchanged(),
       supplied: [...window.__keyboardMetrics], height: d.getBoundingClientRect().height,
-      headPosition: getComputedStyle(d.querySelector('.dialog-head')).position });
+      headPosition: getComputedStyle(d.querySelector('.dialog-head')).position, geometry: geometry() });
     const late = document.createElement('p');
     late.style.height = '28px';
     (field.closest('.field') || field.parentElement).before(late);
     await tick();
     await __keyboardUntil(clear, 1200);
-    const afterLate = { field: test.field, late: true, clear: fitted() && clear(), unchanged: unchanged() };
+    const afterLate = { field: test.field, late: true, clear: fitted() && clear(), unchanged: unchanged(), geometry: geometry() };
     late.remove();
     __keyboardRestore();
     await tick();

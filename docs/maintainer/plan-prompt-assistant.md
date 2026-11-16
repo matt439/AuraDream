@@ -178,3 +178,29 @@ passes; its original menu failures were diagnosed and corrected), and
 The remaining `PA#18` work is GPU qualification and Matt's review of generated
 prompts. No weights were downloaded, real LLM/image inference run, or assistant
 GPU measurements/qualification claimed by this implementation session.
+
+## PR integration checks
+
+PR #84's first hosted run (`43834820760`, 2026-11-16) passed Linux and all
+five Windows CPU shards. Browser shard 5 found an old five-action phone-menu
+expectation and a keyboard fixture race: the first short-viewport field was
+sometimes obscured, while its late-content state passed. The phone-menu
+expectation now includes Write a prompt… and retains ordered actions, Reset's
+last/danger checks, Unload's title, enabled states and geometry.
+
+The keyboard race also reproduced locally on More options' Steps before the
+repair, rather than only the CI setup-name field. The supplied-viewport fixture
+now waits for the open form's read and phone-list redraw, its queued viewport
+reveal, and stable fitted geometry before one intentional focus. Its clear/hit
+assertions and timing budgets are retained. Async setup steps fail fatally and
+return true explicitly; failure rows now include geometry and focus diagnostics.
+A deterministic Node-backed CPU test executes the real injected helper and
+holds each unfinished owner, without a browser or model.
+
+The corrected phone smoke passed (30.79 seconds) at
+`auradream-smoke-artifacts-hzegxj3u/summary.json`; the keyboard smoke passed
+(9 seconds) at `auradream-smoke-artifacts-nxk7qzkx/summary.json`. The original
+local keyboard failure is retained under `auradream-smoke-artifacts-354bk9h7/`.
+Both repairs stay on the original PR branch. No hosted job was rerun unchanged.
+The final phone/keyboard pair also passed together with two smoke workers
+(2/2, 38 seconds; `auradream-smoke-artifacts-83si8w1m/summary.json`).
