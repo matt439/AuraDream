@@ -92,7 +92,8 @@
     "log": "'an empty detection is explicit and queues nothing; a detector exception is an error, not an empty success'"
   },
   {
-    "eval": "__knob({empty: true})"
+    "expect": "(async () => { const res = await __knob({empty: true}); if (!res.ok) return false; return true; })()",
+    "fatal": true
   },
   {
     "eval": "document.querySelector(\"#detailer-detect\").scrollIntoView({block: 'nearest'})"
@@ -117,7 +118,8 @@
     "expect": "els.detailerError.textContent.includes('Nothing will be queued') && __draft() === __keptDraft"
   },
   {
-    "eval": "__knob({fail: true})"
+    "expect": "(async () => { const res = await __knob({fail: true}); if (!res.ok) return false; return true; })()",
+    "fatal": true
   },
   {
     "eval": "document.querySelector(\"#detailer-detect\").scrollIntoView({block: 'nearest'})"
@@ -129,7 +131,8 @@
     "expect": "__until(() => !detailerWorking && !detailerPreview && !els.detailerError.hidden && /failed/.test(els.detailerError.textContent))"
   },
   {
-    "eval": "__knob({})"
+    "expect": "(async () => { const res = await __knob({}); if (!res.ok) return false; return true; })()",
+    "fatal": true
   },
   {
     "eval": "document.querySelector(\"#detailer-detect\").scrollIntoView({block: 'nearest'})"
@@ -455,7 +458,8 @@
     "log": "'a second-region failure stops the chain and keeps the first intermediate as partial'"
   },
   {
-    "eval": "__knob({fail_pass: 1}); void openDetailer(__src)"
+    "expect": "(async () => { const res = await __knob({fail_pass: 1}); if (!res.ok) return false; await openDetailer(__src); return true; })()",
+    "fatal": true
   },
   {
     "expect": "__until(() => detailerStatus && !detailerWorking)",
