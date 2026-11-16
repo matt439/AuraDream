@@ -11716,7 +11716,9 @@ a strength list crossed with it, the run's sheet with a Size axis, a
 remembered 1.25x that differs from the boxes' 1.5x left standing by the
 run and the next open at it, a scale button, a typed W and a second press
 leaving it, Reuse of a compared cell at its own size, and held with both
-factors named on a 1.5 MP source, a press saying so with focus kept), Mu's "auto", the preview's "starts at N% noise" from an injected
+factors named on a 1.5 MP source, a press saying so with focus kept), Mu's "auto",
+the preview's exact server-supplied step count without an approximate label,
+its "starts at N% noise" from an injected
 `start_sigma` (the fake reads none), none for a sweep, and the reading
 taken away by an unload and put back by a load with the dialog open and no
 box touched, Refine held while the server does not answer, arrow-key
@@ -11761,7 +11763,8 @@ unloaded off-catalogue capability guess: ⤢ opening nothing, a refined
 record's Reuse keeping the pass in the dialog with Refine dead and nothing
 submitted, the dialog waking when status says the pipeline has a pass,
 Generate meanwhile rendering directly, a final answer's wording
-(`refine_settled`) and the guess's back, and a foreign pass's general
+(`refine_settled`) and the same full refusal in the held Refine title, the
+guess's back, and a foreign pass's general
 starting strength (`refine_strength_profiled` false); and Mass refine's
 Refine… held with the hedge, then `REFINE_NONE`, even under a search that
 gives it images, a press opening nothing, and live once the status says
