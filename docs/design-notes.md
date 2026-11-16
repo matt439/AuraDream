@@ -11769,11 +11769,18 @@ Qwen3-4B Q8_0 and llama.cpp pin; selecting a larger/newer model before measuring
 this baseline would introduce a second uncertainty. The existing critic remains
 its own Check workflow.
 
-The new dialog opens from Examples, preserving the prompt caption's scarce
-space, and from the phone's topbar menu. Conversation stays in page memory.
-Apply is explicit and undoable, and tied to the source editor/checkpoint snapshot.
-The follow-up text box stays in a fixed compose area while replies scroll above
-it; incoming drafts and progress text cannot move the writing controls.
+Matt's 2026-11-17 layout review moved writing out of Examples into a direct
+Assistant button beside the prompt. A nonmodal right sidebar keeps the editor
+usable alongside the conversation. Wide windows reserve its width; smaller
+windows overlay the workspace, with a full visible-viewport panel on phones.
+Earlier messages retain their drafts, while only the latest answer offers Use.
+Conversation stays in page memory. Apply is explicit and undoable, tied to the
+source editor/checkpoint snapshot, and keeps the sidebar open. Its own applied
+text becomes the next conversational source; external edits and Undo still hold
+stale suggestions. The follow-up text box stays in a fixed compose area while
+replies scroll above it; incoming drafts and progress text cannot move the
+writing controls. Repeated setup/privacy copy lives in About the local assistant,
+with a compact live status and readable spacing between messages and drafts.
 Replies that arrive after Stop, closure, reset or a newer request cannot change
 the editor. Bounded history refuses excess input instead of forgetting earlier
 instructions silently.

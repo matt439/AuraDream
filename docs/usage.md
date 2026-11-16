@@ -567,20 +567,22 @@ download and any prompt recheck. Its process stops after answering.
 Supported platforms and custom binaries are described in
 [Settings](../README.md#settings); `AURADREAM_CRITIC=false` disables it.
 
-**Write a prompt…**, in the **Examples** menu (or the phone's topbar **⋯**),
-opens the experimental local writing assistant. **Create** develops a rough
+**Assistant**, beside the prompt (in its toolbar on a phone), opens the
+experimental local writing assistant in a right sidebar. **Create** develops a rough
 idea into drafts; **Improve** revises the current prompt to your instruction;
 **Find tags** suggests candidate Danbooru tags and checks their names. You can
-send follow-ups in the same dialog. Review each answer: the model can invent
+send follow-ups while keeping the main editor available. Review each answer: the model can invent
 details or lose ones you wanted. **Use prompt** applies a draft explicitly,
-and Ctrl+Z restores the editor. A changed source prompt or checkpoint holds
-application so an old answer cannot replace new work.
+and Ctrl+Z restores the editor. The sidebar stays open, so you can keep refining
+the applied prompt. Earlier drafts remain in the chat. An external edit, Undo,
+or a changed checkpoint holds application so an old answer cannot replace new
+work. Ctrl/Cmd+Enter in the sidebar sends; Escape there closes it.
 
 The assistant uses the same local Qwen3-4B runtime and first-use downloads as
 Suggest improvements. It waits for image jobs, loads and other prompt GPU work,
-and releases its process after each answer. **Stop**, or closing the dialog,
-requests cancellation. Conversation stays in this page's memory; **New
-conversation** clears it. It is not saved with images. Candidate tag names are
+and releases its process after each answer. **Stop**, or closing the sidebar,
+requests cancellation. Conversation stays in this page's memory; **New chat**
+clears it. It is not saved with images. Candidate tag names are
 sent to Danbooru for verification; the conversation is local. An unavailable
 lookup leaves tags unchecked. Prompt quality, latency and memory for this new
 workflow still await GPU testing; the critic's measurements above are not

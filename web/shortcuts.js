@@ -159,6 +159,7 @@ function shortcutContext(target) {
     const source = shortcutContext(ctxMenu.host);
     return context('Image actions', ['menus', ...source.groups], 'Enter chooses a menu item. Image shortcuts apply outside the menu in their listed contexts.');
   }
+  if (at?.closest('#prompt-assistant-sidebar')) return context('Prompt assistant', ['prompt'], 'Ctrl/Cmd+Enter sends a message. Escape closes the sidebar. Tab can move back to the workspace.');
   if (at?.closest('#examples-menu')) return context('Example prompts', ['menus', 'prompt'], 'Enter chooses an example; Escape returns to Examples.');
   if (at?.closest('#picked-menu')) return context('Picked images', ['menus', 'gallery'], 'Enter chooses a picked-image action; Escape returns to Picked.');
   if (at?.closest('#inpaint-canvas')) return context('Inpaint picture', ['inpaint', 'generate'], 'Picture keys act on the mask; text fields keep normal editing.');

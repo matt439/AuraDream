@@ -986,7 +986,7 @@ paragraphs, never rewording.
   Examples menu, `prompt-expand.js` Expand (ERNIE's rewriter, FLUX 3's upsampler; its button's
   state, `syncExpandButton`, and the English under the prompt, `placeTranslation`,
   `promptReplaced`); `prompt-assistant.js` the local Create/Improve/Find tags
-  dialog, in-memory conversation, ticketed Stop and explicit undoable prompt
+  sidebar, in-memory conversation, ticketed Stop and explicit undoable prompt
   application; `analysis.js`,
   `analysis-critic.js` and `comparison.js` the check and critic. `sizes.js`
   and `status.js` retain their control/profile roles; `model-switch.js` owns
@@ -1051,7 +1051,8 @@ paragraphs, never rewording.
   and Batch's and Repeat's − and + (`syncPhoneSteppers`);
   `phone-compose.js`, after it, the phone's compose controls (`syncPhoneCompose`,
   which `syncPhoneHosts` calls): the topbar's model chip and its ⋯
-  (`openTopbarMenu`), the prompt's toolbar and the check's sheet and line
+  (`openTopbarMenu`), the prompt's two-column toolbar with the direct Assistant
+  button and the check's sheet and line
   (`syncPhoneCheck`, `syncCheckChip`, `leavePhoneCheck`, which `selectIn`
   calls), and the size's Shape and Size chip (`syncPhoneSize`, which
   `syncSize` calls);
@@ -1121,7 +1122,7 @@ paragraphs, never rewording.
   explicit link order: `model-picker.css` the Models picker (first, at its
   old place in `style.css`), `fields.css` the panel's fields,
   `analysis.css` the prompt check, critic and comparison,
-  `prompt-assistant.css` the writing assistant's dialog and drafts, `generation.css`
+  `prompt-assistant.css` the writing assistant's sidebar and drafts, `generation.css`
   the grid search, the buttons and progress, `gallery.css` the stage and
   Gallery beside, `sheet.css` the contact sheet, `lightbox.css` the
   lightbox, `refine.css` the Refine dialog and motion, `inpaint.css` and
@@ -3905,6 +3906,15 @@ measured on the card and when.
   out of browser storage and gallery data. `syncLoadButton` is the Load
   button's aria/title writer, including the assistant's hold. CPU checks
   do not qualify this workflow's GPU latency, memory or prompt quality.
+- The prompt caption's Assistant toggle opens a named, nonmodal right sidebar,
+  never Examples or a native dialog. At 1280 px and above the workspace reserves
+  its width; smaller windows overlay it, and phones fill the visible viewport.
+  The editor stays usable. Ctrl/Cmd+Enter within the sidebar sends; Escape there
+  closes it, while workspace shortcuts retain their ordinary routes. Close and
+  touch Back request Stop and discard late replies. Conversation and earlier
+  drafts remain visible above the fixed composer; only the newest answer offers
+  Use. Explicit application keeps the sidebar open and rebases its exact source
+  snapshot for follow-ups. External edits and native Undo still invalidate it.
 
 #### Prompt checks, encoders and tag placement
 
@@ -8409,14 +8419,15 @@ measured on the card and when.
   Back closes the top overlay on any touch screen, the tablet's too
   (`touch.js`, `syncBackLayers`): Android's Back and iOS's edge swipe went
   back a page from inside the lightbox. The lightbox, every `<dialog>`, the
-  Models picker, the context menu, the run sheet, the recycle bin and the
+  Models picker, prompt assistant sidebar, the context menu, the run sheet, the recycle bin and the
   phone's selection bar each hold one history entry while open (`history.pushState`, the URL unchanged, the state
   `auradreamLayer` with this load's token and the entry's depth); a mouse's
   overlays hold none, so a PC's history is untouched. Back (`popstate`)
   closes the overlays above the entry it lands on, top first, each by the
   user's own close: `dismissLightbox`; a dialog's `cancel` and then
   `close()`, as Escape does, which a dialog still sending refuses;
-  `showModelPicker(false)`; `closeContextMenu`; `setSheet(false)`, which
+  `showModelPicker(false)`; `closePromptAssistant`, which stops its current
+  answer and restores its visible opener; `closeContextMenu`; `setSheet(false)`, which
   puts back a search the sheet wrote; `toggleBin()` while the bin is shown
   (its Empty button shown exactly then, the element watched), back to the
   gallery as its own button leaves it (under the selection bar, opened
@@ -8699,7 +8710,7 @@ measured on the card and when.
   `aria-haspopup="menu"` host the menu opens from - Shape, the Size chip,
   a queued row's ⋯): Load or Retry load while it is shown, Unload while it is
   shown, then Saved setups… (`openSetups`), Personal snippets…
-  (`openSnippets`), Write a prompt… (`openPromptAssistant`), Load settings
+  (`openSnippets`), Load settings
   from PNG… and Reset, last in
   `--danger`. Each of Load, Unload, Load settings from PNG… and Reset
   presses the page's own button, held and titled as it is (`buttonItem`),
@@ -8711,18 +8722,28 @@ measured on the card and when.
   snippets… stay in the Examples menu as well.
   The prompt's toolbar (`#prompt-toolbar`, `role="group"`, in the prompt
   editor after `#prompt-tokens`): Examples (its span with its menu),
-  Check, the Tags helper's span and Expand, moved from the caption in
-  that order, a row of 44 px tonal buttons (`--panel-2`, 16 px bold) 8 px
-  apart and 8 px under the box, each its words' width, never wrapping
-  (three at most are drawn: Tags and Expand are never both); the caption
+  Assistant, Check, the Tags helper's span and Expand, moved from the caption in
+  that order, two columns of 44 px tonal buttons (`--panel-2`, 16 px bold) 8 px
+  apart and 8 px under the box. Three or four are drawn in two rows (Tags and
+  Expand are never both); the caption
   is the box's name and `?` alone, Reset the ⋯'s and not drawn there. In
   the editor, so what hangs from its foot hangs under the toolbar (the Tags
   helper, from its button) and a note's coming (the Example's Undo, an
   expansion's) moves nothing over it; the suggestions as one types and
   Find tag hang from the box's foot instead, over the toolbar
-  (`--tools-h`, the toolbar's 52 px and the check's line's), where the
+  (`--tools-h`, the toolbar's 104 px including its top gap, plus 52 px for
+  the check's line while present), where the
   caret is. A press in the toolbar shuts the suggestions as a press
   outside the editor does.
+  Assistant opens the same nonmodal sidebar as on the desktop, filling the
+  phone's visible viewport using `--sheet-viewport-top` and
+  `--sheet-viewport-height`, with safe-area padding and 44 px header, task
+  and action targets. It takes no initial text focus, so opening it does
+  not raise the keyboard. Its conversation scrolls above the composer;
+  short visible viewports reduce the message box and status, then let the
+  sidebar scroll below 200 px. Back uses its ordinary Close path and keeps
+  the page's scroll. The direct toolbar button replaces its former topbar
+  menu entry.
   The prompt check is a sheet (`#check-sheet`, a `<dialog>` in the panel,
   `aria-label` Prompt check): `placeTagValidation` puts `#prompt-analysis`
   in its body under `PHONE_MEDIA` (the chips stay under the prompt), and
@@ -11292,8 +11313,11 @@ a manually completed receipt, never executes it.
 `smoke-prompt-assistant.json` uses a separate fresh FLUX.1 Krea [dev] fake on
 7960. It covers the three task modes and a follow-up, explicit draft application
 and undo, tag verdicts and insertion, changed-editor refusals, failure/retry,
-Stop/Close/reopen, checkpoint changes, and the native dialog on desktop and
-phone, with accessibility and phone-layout audits. It runs no LLM or GPU work:
+Stop/Close/reopen, checkpoint changes, and the nonmodal sidebar on desktop and
+phone, with accessibility and phone-layout audits. Direct access, retained
+structured history, workspace interaction, focus leaving the sidebar, explicit
+apply/rebase and Undo, reserved wide-layout room, narrow Escape and touch Back
+are checked. It runs no LLM or GPU work:
 
 ```powershell
 uv run python tools/run_smoke.py smoke-prompt-assistant
@@ -13608,7 +13632,7 @@ free space not drawn, each id once; a tap on the name in the chip opening
 Models with its entry, still open 300 ms later, its chevron turned, and a
 tap on the chip shutting it; the ⋯ opening the docked menu "More" with
 its entry - Unload (titled Free VRAM), Saved setups…, Personal
-snippets…, Write a prompt…, Load settings from PNG… and Reset, 48 px rows, none held,
+snippets…, Load settings from PNG… and Reset, 48 px rows, none held,
 Reset last in `--danger`, the menu across the window at its foot - and
 Saved setups… opening the setups sheet with one entry, which Back shuts,
 the focus back on the ⋯; at the page's top

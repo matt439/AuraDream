@@ -225,6 +225,9 @@ function backLayerList() {
     // picks kept, as Done does. Under every overlay opened from it.
     { el: selectBar, open: () => !selectBar.hidden, close: () => setSelectMode(false) },
     { el: els.sheet, open: () => sheetMode, close: () => { void setSheet(false); } },
+    // The prompt assistant is a nonmodal sidebar, so it is not part of the
+    // native-dialog list. Back uses the same Stop and focus return as Close.
+    { el: els.assistantSidebar, open: assistantSidebarOpen, close: closePromptAssistant },
     { el: els.modelPicker, open: () => !els.modelPicker.hidden, close: () => showModelPicker(false) },
     { el: els.lightbox, open: () => els.lightbox.open, close: dismissLightbox },
     // The phone viewer's facts raised as a sheet (phone-viewer.js, which

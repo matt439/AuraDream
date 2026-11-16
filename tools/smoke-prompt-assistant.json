@@ -1,6 +1,6 @@
 [
   {
-    "log": "'Local prompt assistant on its own fresh FLUX fake: Create, Improve and Find tags through the real fake API; explicit undo-aware application; bounded conversation, mode/reset, source changes, late replies, Stop/Close, failure retry and responsive native dialog. No real LLM, GPU, image generation or user gallery.'"
+    "log": "'Local prompt assistant on its own fresh FLUX fake: Create, Improve and Find tags through the real fake API; explicit undo-aware application; bounded conversation, mode/reset, source changes, late replies, Stop/Close, failure retry and responsive nonmodal sidebar. No real LLM, GPU, image generation or user gallery.'"
   },
   {
     "navigate": "http://127.0.0.1:7960/"
@@ -18,17 +18,17 @@
     ]
   },
   {
-    "expect": "(async()=>{\n const until=async(fn,ms=20000)=>{const end=Date.now()+ms;while(Date.now()<end){if(await fn())return true;await new Promise(resolve=>setTimeout(resolve,40));}return false;};\n const assert=(ok,why)=>{if(!ok)throw Error(why);};\n assert(await until(()=>loadedModel==='black-forest-labs/FLUX.1-Krea-dev'&&Number.isInteger(modelRevision)&&!busy&&!galleryPending&&!jobListing),'fresh FLUX page did not settle');\n const q=window.__pa={until,assert,native:api,requests:[],answers:[],stops:[],forbidden:[],errors:[],fixture:null,sequence:0};\n addEventListener('error',e=>q.errors.push(e.message));addEventListener('unhandledrejection',e=>q.errors.push(String(e.reason)));\n q.instruction=text=>{replaceBoxText(els.assistantInstruction,text);els.assistantInstruction.dispatchEvent(new Event('input',{bubbles:true}));};\n q.mode=mode=>{els.assistantMode.value=mode;els.assistantMode.dispatchEvent(new Event('change',{bubbles:true}));};\n q.source=text=>{writeBox(els.prompt,text);promptReplaced();els.prompt.dispatchEvent(new Event('input',{bubbles:true}));};\n q.synthetic=(name,extra={})=>({model_id:loadedModel,model:'Synthetic local assistant',seconds:0.1,message:name,\n   drafts:[{title:name,prompt:'A red fox in a snowy forest. '+name,notes:['Synthetic smoke suggestion.']}],tags:[],warnings:[],...extra});\n q.arm=(name,extra={})=>{assert(!q.fixture,'a previous reply fixture remains');const f={name,body:q.synthetic(name,extra),captured:false,released:false};q.fixture=f;return f;};\n q.release=(f,error=null)=>{assert(f.captured&&!f.released&&f.resolve,'fixture not captured or already released');f.released=true;f.error=error;f.resolve();};\n q.frames=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));\n api=async(path,options)=>{\n   const method=String(options?.method||'GET').toUpperCase();\n   if(method!=='GET'&&!path.startsWith('/api/prompt/assist')&&!['/api/prompt/measure','/api/tags/validate','/api/prompt/analyze'].includes(path)){q.forbidden.push(method+' '+path);throw Error('Assistant smoke refuses unrelated writes: '+path);}\n   if(path.startsWith('/api/prompt/assist/')&&path.endsWith('/stop')){q.stops.push(path);return {stopped:true,running:false};}\n   if(path==='/api/prompt/assist'&&method==='POST'){\n     const body=JSON.parse(options.body);q.requests.push(body);\n     const f=q.fixture;\n     if(f&&!f.captured){f.captured=true;f.request=body;await new Promise(resolve=>{f.resolve=resolve;});if(q.fixture===f)q.fixture=null;if(f.error){const e=Error(f.error);e.status=502;throw e;}q.answers.push(f.body);return f.body;}\n     const result=await q.native(path,options);q.answers.push(result);return result;\n   }\n   return q.native(path,options);\n };\n q.source('A red fox standing in snow, green eyes, no buildings, a sign reading \"OPEN\".');\n q.original=els.prompt.value;q.caption=els.examplesBox.closest('.field').querySelector(':scope > span').getBoundingClientRect().height;q.promptTop=els.prompt.getBoundingClientRect().top;\n return true;\n})()",
+    "expect": "(async()=>{\n const until=async(fn,ms=20000)=>{const end=Date.now()+ms;while(Date.now()<end){if(await fn())return true;await new Promise(resolve=>setTimeout(resolve,40));}return false;};\n const assert=(ok,why)=>{if(!ok)throw Error(why);};\n assert(await until(()=>loadedModel==='black-forest-labs/FLUX.1-Krea-dev'&&Number.isInteger(modelRevision)&&!busy&&!galleryPending&&!jobListing),'fresh FLUX page did not settle');\n const q=window.__pa={until,assert,native:api,requests:[],answers:[],stops:[],forbidden:[],errors:[],fixture:null,sequence:0};\n addEventListener('error',e=>q.errors.push(e.message));addEventListener('unhandledrejection',e=>q.errors.push(String(e.reason)));\n q.instruction=text=>{replaceBoxText(els.assistantInstruction,text);els.assistantInstruction.dispatchEvent(new Event('input',{bubbles:true}));};\n q.mode=mode=>{els.assistantMode.value=mode;els.assistantMode.dispatchEvent(new Event('change',{bubbles:true}));};\n q.source=text=>{writeBox(els.prompt,text);promptReplaced();els.prompt.dispatchEvent(new Event('input',{bubbles:true}));};\n q.synthetic=(name,extra={})=>({model_id:loadedModel,model:'Synthetic local assistant',seconds:0.1,message:name,\n   drafts:[{title:name,prompt:'A red fox in a snowy forest. '+name,notes:['Synthetic smoke suggestion.']}],tags:[],warnings:[],...extra});\n q.arm=(name,extra={})=>{assert(!q.fixture,'a previous reply fixture remains');const f={name,body:q.synthetic(name,extra),captured:false,released:false};q.fixture=f;return f;};\n q.release=(f,error=null)=>{assert(f.captured&&!f.released&&f.resolve,'fixture not captured or already released');f.released=true;f.error=error;f.resolve();};\n q.controlsFit=()=>{const bad=[els.assistantClose,els.assistantInstruction,els.assistantAsk,els.assistantStop].map(e=>{const r=e.getBoundingClientRect(),at=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return {id:e.id,rect:r.toJSON(),hit:!!at&&(at===e||e.contains(at))};}).filter(x=>x.rect.left<0||x.rect.right>innerWidth+1||x.rect.top<0||x.rect.bottom>innerHeight+1||!x.hit);if(bad.length)throw Error('Assistant controls offscreen or covered: '+JSON.stringify(bad));return true;};\n q.frames=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));\n api=async(path,options)=>{\n   const method=String(options?.method||'GET').toUpperCase();\n   if(method!=='GET'&&!path.startsWith('/api/prompt/assist')&&!['/api/prompt/measure','/api/tags/validate','/api/prompt/analyze'].includes(path)){q.forbidden.push(method+' '+path);throw Error('Assistant smoke refuses unrelated writes: '+path);}\n   if(path.startsWith('/api/prompt/assist/')&&path.endsWith('/stop')){q.stops.push(path);return {stopped:true,running:false};}\n   if(path==='/api/prompt/assist'&&method==='POST'){\n     const body=JSON.parse(options.body);q.requests.push(body);\n     const f=q.fixture;\n     if(f&&!f.captured){f.captured=true;f.request=body;await new Promise(resolve=>{f.resolve=resolve;});if(q.fixture===f)q.fixture=null;if(f.error){const e=Error(f.error);e.status=502;throw e;}q.answers.push(f.body);return f.body;}\n     const result=await q.native(path,options);q.answers.push(result);return result;\n   }\n   return q.native(path,options);\n };\n q.source('A red fox standing in snow, green eyes, no buildings, a sign reading \"OPEN\".');\n q.original=els.prompt.value;q.caption=els.examplesBox.closest('.field').querySelector(':scope > span').getBoundingClientRect().height;q.promptTop=els.prompt.getBoundingClientRect().top;\n return true;\n})()",
     "fatal": true
   },
   {
-    "log": "'The assistant opens from Examples without increasing the full prompt caption; Snippets remains last and opening alone sends nothing.'"
+    "log": "'A direct Assistant button opens the nonmodal right sidebar; Examples keeps only its own menu actions. Opening or changing focus sends nothing.'"
   },
   {
     "click": "#btn-examples"
   },
   {
-    "expect": "!els.examplesMenu.hidden && !!document.getElementById('prompt-assistant-menu-item') && els.examplesMenu.lastElementChild.id==='snippets-menu-item' && Math.abs(els.examplesBox.closest('.field').querySelector(':scope > span').getBoundingClientRect().height-__pa.caption)<0.5 && Math.abs(els.prompt.getBoundingClientRect().top-__pa.promptTop)<0.5",
+    "expect": "!els.examplesMenu.hidden && !document.getElementById('prompt-assistant-menu-item') && els.examplesMenu.lastElementChild.id==='snippets-menu-item'",
     "fatal": true
   },
   {
@@ -38,7 +38,7 @@
     "key": "End"
   },
   {
-    "expect": "document.activeElement.id==='snippets-menu-item' && (()=>{const e=document.activeElement,r=e.getBoundingClientRect(),m=els.examplesMenu.getBoundingClientRect();return r.top>=m.top&&r.bottom<=m.bottom&&e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));})()",
+    "expect": "document.activeElement.id==='snippets-menu-item'",
     "fatal": true
   },
   {
@@ -49,21 +49,74 @@
     "fatal": true
   },
   {
-    "key": "ArrowUp"
+    "key": "Escape"
   },
   {
-    "expect": "document.activeElement.id==='prompt-assistant-menu-item'",
+    "click": "#btn-prompt-assistant"
+  },
+  {
+    "expect": "__pa.until(()=>assistantSidebarOpen() && els.examplesMenu.hidden && !assistantRun)",
     "fatal": true
   },
   {
-    "click": "#prompt-assistant-menu-item"
+    "expect": "__pa.requests.length===0 && els.assistantSidebar.tagName==='ASIDE' && els.assistantSidebar.getAttribute('aria-labelledby') && !document.querySelector(':modal') && els.assistantInstruction.maxLength===2000 && els.prompt.value===__pa.original && els.assistantToggle.getAttribute('aria-expanded')==='true'"
   },
   {
-    "expect": "__pa.until(()=>els.assistantDialog.open && els.examplesMenu.hidden && !assistantRun)",
-    "fatal": true
+    "click": "#prompt"
   },
   {
-    "expect": "__pa.requests.length===0 && els.assistantDialog.getAttribute('aria-labelledby') && els.assistantInstruction.maxLength===2000 && els.prompt.value===__pa.original"
+    "key": "Escape"
+  },
+  {
+    "expect": "assistantSidebarOpen() && document.activeElement===els.prompt && !els.prompt.closest('[inert]') && __pa.requests.length===0"
+  },
+  {
+    "eval": "els.assistantAsk.focus({preventScroll:true});"
+  },
+  {
+    "key": "Tab"
+  },
+  {
+    "expect": "assistantSidebarOpen() && !els.assistantSidebar.contains(document.activeElement) && __pa.requests.length===0"
+  },
+  {
+    "eval": "__pa.generateBefore=generate; __pa.generateRoutes=0; generate=()=>{++__pa.generateRoutes;};"
+  },
+  {
+    "click": "#prompt"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "Enter"
+    ]
+  },
+  {
+    "expect": "__pa.generateRoutes===1 && assistantSidebarOpen() && __pa.requests.length===0 && !busy && submissions.size===0"
+  },
+  {
+    "eval": "generate=__pa.generateBefore; els.generate.focus({preventScroll:true});"
+  },
+  {
+    "key": "p"
+  },
+  {
+    "expect": "document.activeElement===els.prompt && assistantSidebarOpen() && __pa.requests.length===0"
+  },
+  {
+    "eval": "els.generate.focus({preventScroll:true});"
+  },
+  {
+    "key": "/"
+  },
+  {
+    "expect": "document.activeElement===els.search && assistantSidebarOpen() && __pa.requests.length===0"
+  },
+  {
+    "expect": "__a11yCheck({root:'#prompt-assistant-sidebar'})"
+  },
+  {
+    "click": "#assistant-instruction"
   },
   {
     "log": "'Create executes the fake local service once and leaves the composer unchanged. A follow-up sends prior dialogue; only Use prompt writes, with native Undo.'"
@@ -92,7 +145,13 @@
     "fatal": true
   },
   {
-    "click": "#assistant-ask"
+    "eval": "els.assistantMode.focus({preventScroll:true});"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "Enter"
+    ]
   },
   {
     "expect": "__pa.until(()=>!assistantRun && assistantResultData?.drafts?.length>0 && __pa.requests.length===1)",
@@ -108,10 +167,35 @@
     "shot": "assistant-create.png"
   },
   {
+    "viewport": [
+      1920,
+      1080
+    ]
+  },
+  {
+    "expect": "(async()=>{await __pa.frames();const r=els.assistantSidebar.getBoundingClientRect(),main=document.querySelector('main').getBoundingClientRect();return r.right<=innerWidth+1 && r.left>innerWidth/2 && main.right<=r.left+1 && els.prompt.getBoundingClientRect().right<r.left && !document.querySelector(':modal');})()",
+    "fatal": true
+  },
+  {
+    "shot": "assistant-wide.png"
+  },
+  {
+    "viewport": [
+      1400,
+      900
+    ]
+  },
+  {
     "eval": "window.__paFirstDraft=assistantResultData.drafts[0].prompt; __pa.instruction('Keep the fox and snowy setting, use a closer composition.');"
   },
   {
-    "click": "#assistant-ask"
+    "click": "#assistant-instruction"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "Enter"
+    ]
   },
   {
     "expect": "__pa.until(()=>!assistantRun && __pa.requests.length===2 && assistantResultData?.drafts?.length>0)",
@@ -119,6 +203,9 @@
   },
   {
     "expect": "__pa.requests[1].mode==='create' && __pa.requests[1].history.length>=2 && __pa.requests[1].history.some(turn=>turn.role==='user' && turn.content.includes('red fox')) && __pa.requests[1].history.some(turn=>turn.role==='assistant') && els.prompt.value===__pa.original"
+  },
+  {
+    "expect": "!els.assistantHistoryWrap.hidden && els.assistantHistoryWrap.tagName!=='DETAILS' && els.assistantHistory.textContent.includes(__paFirstDraft) && els.assistantHistory.textContent.includes('Write two distinct prompts')"
   },
   {
     "eval": "window.__paApplied=assistantResultData.drafts[0].prompt;"
@@ -131,7 +218,7 @@
     "click": "[data-assistant-draft=\"0\"]"
   },
   {
-    "expect": "__pa.until(()=>els.prompt.value===__paApplied && !els.assistantDialog.open)",
+    "expect": "__pa.until(()=>els.prompt.value===__paApplied && assistantSidebarOpen() && !assistantSourceChanged() && document.activeElement===els.prompt)",
     "fatal": true
   },
   {
@@ -141,16 +228,10 @@
     ]
   },
   {
-    "expect": "els.prompt.value===__pa.original"
+    "expect": "els.prompt.value===__pa.original && assistantSidebarOpen() && assistantSourceChanged()"
   },
   {
-    "click": "#btn-examples"
-  },
-  {
-    "click": "#prompt-assistant-menu-item"
-  },
-  {
-    "expect": "els.assistantDialog.open",
+    "expect": "assistantSidebarOpen()",
     "fatal": true
   },
   {
@@ -191,7 +272,7 @@
     "click": "[data-assistant-draft=\"0\"]"
   },
   {
-    "expect": "els.assistantDialog.open && els.prompt.value===__pa.original && els.assistantStatus.textContent.includes('server is not answering')"
+    "expect": "assistantSidebarOpen() && els.prompt.value===__pa.original && els.assistantStatus.textContent.includes('server is not answering')"
   },
   {
     "eval": "api=__paOfflineApi; serverOffline=__paOfflineBefore; syncPromptAssistant(); void refreshStatus();"
@@ -235,6 +316,21 @@
     "eval": "__pa.instruction('Keep this follow-up instruction while the previous answer finishes.');"
   },
   {
+    "click": "#assistant-instruction"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "Enter"
+    ]
+  },
+  {
+    "expect": "__pa.requests.length===5 && !!assistantRun && els.assistantInstruction.value==='Keep this follow-up instruction while the previous answer finishes.'"
+  },
+  {
+    "expect": "__a11yCheck({root:'#prompt-assistant-sidebar'})"
+  },
+  {
     "eval": "__pa.release(__paTags);"
   },
   {
@@ -257,6 +353,9 @@
     "shot": "assistant-tags.png"
   },
   {
+    "expect": "__a11yCheck({root:'#prompt-assistant-sidebar'})"
+  },
+  {
     "expect": "(async()=>{const e=document.querySelector(\"input[data-assistant-tag=\\\"0\\\"]\"), host=e?.closest('.assistant-body'); if(!e||!host)return false;const r=e.getBoundingClientRect(), b=host.getBoundingClientRect();host.scrollTop+=r.bottom>b.bottom?r.bottom-b.bottom+4:r.top<b.top?r.top-b.top-4:0;await __pa.frames();const t=e.getBoundingClientRect(), h=host.getBoundingClientRect();return t.top>=h.top&&t.bottom<=h.bottom&&e.contains(document.elementFromPoint(t.x+t.width/2,t.y+t.height/2));})()",
     "fatal": true
   },
@@ -271,7 +370,7 @@
     "click": "#assistant-insert-tags"
   },
   {
-    "expect": "__pa.until(()=>!els.assistantDialog.open && els.prompt.value.includes('ahoge') && els.prompt.value.startsWith(__pa.original))",
+    "expect": "__pa.until(()=>assistantSidebarOpen() && !assistantSourceChanged() && els.prompt.value.includes('ahoge') && els.prompt.value.startsWith(__pa.original))",
     "fatal": true
   },
   {
@@ -281,16 +380,10 @@
     ]
   },
   {
-    "expect": "els.prompt.value===__pa.original"
+    "expect": "els.prompt.value===__pa.original && assistantSidebarOpen() && assistantSourceChanged()"
   },
   {
-    "click": "#btn-examples"
-  },
-  {
-    "click": "#prompt-assistant-menu-item"
-  },
-  {
-    "expect": "els.assistantDialog.open",
+    "expect": "assistantSidebarOpen()",
     "fatal": true
   },
   {
@@ -324,7 +417,7 @@
     "click": "[data-assistant-draft=\"0\"]"
   },
   {
-    "expect": "els.assistantDialog.open && els.prompt.value==='A deliberate newer composer draft.' && els.assistantStatus.textContent.length>0"
+    "expect": "assistantSidebarOpen() && els.prompt.value==='A deliberate newer composer draft.' && els.assistantStatus.textContent.length>0"
   },
   {
     "log": "'Stopping owns only its ticket. Late answers after Stop or Close never replace a later answer, and reopening makes no request.'"
@@ -360,7 +453,7 @@
     "expect": "assistantResultData?.message!=='Abandoned stopped reply' && els.prompt.value==='A deliberate newer composer draft.' && __pa.stops.at(-1).includes(__paStopped.request.ticket)"
   },
   {
-    "eval": "__pa.instruction('A draft whose dialog will close.'); window.__paClosed=__pa.arm('Abandoned closed reply'); window.__paStopsBefore=__pa.stops.length;"
+    "eval": "__pa.instruction('A draft whose sidebar will close.'); window.__paClosed=__pa.arm('Abandoned closed reply'); window.__paStopsBefore=__pa.stops.length;"
   },
   {
     "click": "#assistant-ask"
@@ -373,17 +466,14 @@
     "click": "#assistant-close"
   },
   {
-    "expect": "__pa.until(()=>!els.assistantDialog.open && __pa.stops.length===__paStopsBefore+1)",
+    "expect": "__pa.until(()=>!assistantSidebarOpen() && __pa.stops.length===__paStopsBefore+1)",
     "fatal": true
   },
   {
-    "click": "#btn-examples"
+    "click": "#btn-prompt-assistant"
   },
   {
-    "click": "#prompt-assistant-menu-item"
-  },
-  {
-    "expect": "els.assistantDialog.open && __pa.requests.length===8",
+    "expect": "assistantSidebarOpen() && __pa.requests.length===8",
     "fatal": true
   },
   {
@@ -460,10 +550,10 @@
     "expect": "assistantResultData?.message!=='Abandoned previous-checkpoint reply' && assistantTurns.length===0 && els.prompt.value==='A deliberate newer composer draft.' && els.assistantStatus.textContent.includes('checkpoint changed') && els.assistantStatus.textContent.includes('conversation was cleared')"
   },
   {
-    "eval": "if(els.assistantDialog.open)els.assistantClose.click();"
+    "eval": "if(assistantSidebarOpen())els.assistantClose.click();"
   },
   {
-    "log": "'The dialog fits a narrow desktop and the phone sheet; native Escape returns focus without any automatic local-model request.'"
+    "log": "'The sidebar fits a narrow desktop and phone; Escape and phone Back close it without any automatic local-model request.'"
   },
   {
     "viewport": [
@@ -472,23 +562,20 @@
     ]
   },
   {
-    "click": "#btn-examples"
+    "click": "#btn-prompt-assistant"
   },
   {
-    "click": "#prompt-assistant-menu-item"
-  },
-  {
-    "expect": "__pa.until(()=>els.assistantDialog.open)",
+    "expect": "__pa.until(()=>assistantSidebarOpen())",
     "fatal": true
   },
   {
-    "expect": "(() => {const r=els.assistantDialog.getBoundingClientRect();return r.left>=0&&r.top>=0&&r.right<=innerWidth+1&&r.bottom<=innerHeight+1&&els.assistantDialog.scrollWidth<=els.assistantDialog.clientWidth+1;})()"
+    "expect": "(() => {const r=els.assistantSidebar.getBoundingClientRect();return r.left>=0&&r.top>=0&&r.right<=innerWidth+1&&r.bottom<=innerHeight+1&&els.assistantSidebar.scrollWidth<=els.assistantSidebar.clientWidth+1;})()"
   },
   {
     "key": "Escape"
   },
   {
-    "expect": "__pa.until(()=>!els.assistantDialog.open && document.activeElement===els.examplesBtn)",
+    "expect": "__pa.until(()=>!assistantSidebarOpen() && document.activeElement===els.assistantToggle)",
     "fatal": true
   },
   {
@@ -510,23 +597,24 @@
     "fatal": true
   },
   {
-    "click": "#btn-examples"
+    "click": "#btn-prompt-assistant"
   },
   {
-    "click": "#prompt-assistant-menu-item"
-  },
-  {
-    "expect": "__pa.until(()=>els.assistantDialog.open)",
+    "expect": "__pa.until(()=>assistantSidebarOpen())",
     "fatal": true
   },
   {
-    "expect": "(() => {const r=__phoneAudit({root:'#prompt-assistant-dialog'});return r.overflow===0&&!r.offside.length&&!r.small.length&&!r.dialogs.length;})()"
+    "expect": "(() => {const r=__phoneAudit({root:'#prompt-assistant-sidebar'});return r.overflow===0&&!r.offside.length&&!r.small.length&&!r.dialogs.length;})()"
+  },
+  {
+    "expect": "__pa.controlsFit()",
+    "fatal": true
   },
   {
     "expect": "document.activeElement!==els.assistantInstruction && els.prompt.value==='A deliberate newer composer draft.'"
   },
   {
-    "eval": "assistantResultData=__pa.synthetic('Phone draft preview'); assistantSnapshot=assistantSource(); renderAssistantResult();"
+    "eval": "resetAssistantConversation(); assistantResultData=__pa.synthetic('Phone draft preview'); assistantSnapshot=assistantSource(); renderAssistantResult(); assistantSay('Answer ready. Choose a draft or ask for a change; the main prompt is unchanged.'); __pa.instruction('Keep the fox; make the lighting softer.');"
   },
   {
     "eval": "(() => {const host=document.querySelector('.assistant-body'), result=els.assistantResult; if(!result.hidden)host.scrollTop+=result.getBoundingClientRect().top-host.getBoundingClientRect().top;})()"
@@ -535,10 +623,101 @@
     "shot": "assistant-phone.png"
   },
   {
+    "expect": "__a11yCheck({root:'#prompt-assistant-sidebar'})"
+  },
+  {
+    "expect": "(async()=>{const e=els.assistantResult.querySelector('[data-assistant-draft=\"0\"]'),host=e?.closest('.assistant-body');if(!e||!host)return false;const r=e.getBoundingClientRect(),b=host.getBoundingClientRect();host.scrollTop+=r.bottom>b.bottom?r.bottom-b.bottom+4:r.top<b.top?r.top-b.top-4:0;await __pa.frames();const t=e.getBoundingClientRect(),at=document.elementFromPoint(t.left+t.width/2,t.top+t.height/2);return !!at&&(at===e||e.contains(at));})()",
+    "fatal": true
+  },
+  {
+    "click": "[data-assistant-draft=\"0\"]"
+  },
+  {
+    "expect": "assistantSidebarOpen() && els.prompt.value===assistantResultData.drafts[0].prompt && !assistantSourceChanged() && els.assistantSidebar.contains(document.activeElement) && __pa.controlsFit()",
+    "fatal": true
+  },
+  {
+    "click": "#assistant-instruction"
+  },
+  {
+    "viewport": [
+      320,
+      650,
+      3
+    ],
+    "mobile": true
+  },
+  {
+    "expect": "(async()=>{await __pa.frames();const r=__phoneAudit({root:'#prompt-assistant-sidebar'});return !r.overflow&&!r.offside.length&&!r.small.length&&__pa.controlsFit();})()",
+    "fatal": true
+  },
+  {
+    "shot": "assistant-phone-small.png"
+  },
+  {
+    "log": "'Short landscape and a 300px keyboard-sized viewport keep the message and send controls visible and hit-testable.'"
+  },
+  {
+    "viewport": [
+      852,
+      393,
+      3
+    ],
+    "mobile": true
+  },
+  {
+    "expect": "(async()=>{await __pa.frames();const r=els.assistantSidebar.getBoundingClientRect();return matchMedia(PHONE_MEDIA).matches && r.left>=0&&r.top>=0&&r.right<=innerWidth+1&&r.bottom<=innerHeight+1&&__pa.controlsFit();})()",
+    "fatal": true
+  },
+  {
+    "shot": "assistant-landscape.png"
+  },
+  {
+    "viewport": [
+      393,
+      300,
+      3
+    ],
+    "mobile": true
+  },
+  {
+    "expect": "(async()=>{await __pa.frames();const r=els.assistantSidebar.getBoundingClientRect();return r.left>=0&&r.top>=0&&r.right<=innerWidth+1&&r.bottom<=innerHeight+1&&__pa.controlsFit();})()",
+    "fatal": true
+  },
+  {
+    "shot": "assistant-short.png"
+  },
+  {
+    "viewport": [
+      393,
+      852,
+      3
+    ],
+    "mobile": true
+  },
+  {
+    "expect": "(async()=>{await __pa.frames();return __pa.controlsFit();})()",
+    "fatal": true
+  },
+  {
     "key": "Escape"
   },
   {
-    "expect": "__pa.until(()=>!els.assistantDialog.open && !backGoing)",
+    "expect": "__pa.until(()=>!assistantSidebarOpen() && !backGoing)",
+    "fatal": true
+  },
+  {
+    "click": "#btn-prompt-assistant"
+  },
+  {
+    "expect": "__pa.until(()=>assistantSidebarOpen() && backDepth===1 && !backGoing)",
+    "fatal": true
+  },
+  {
+    "eval": "history.back();"
+  },
+  {
+    "expect": "__pa.until(()=>!assistantSidebarOpen() && backDepth===0 && !backGoing)",
     "fatal": true
   },
   {

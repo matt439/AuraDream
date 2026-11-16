@@ -779,6 +779,16 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   if (modelListOpen()) return;
+  // This companion is nonmodal: workspace keys retain their normal routes.
+  if (!modal && assistantSidebarOpen() && els.assistantSidebar.contains(e.target)) {
+    if (keyboardSubmit(e)) {
+      e.preventDefault();
+      if (!e.repeat) void askPromptAssistant();
+    } else if (e.key === 'Escape' && !keyboardCommandModifier(e) && !e.shiftKey && !e.repeat) {
+      e.preventDefault(); closePromptAssistant();
+    }
+    return;
+  }
   const inMenu = e.target.closest?.('[role="menu"], [role="listbox"]');
   if (keyboardSubmit(e)) {
     e.preventDefault();

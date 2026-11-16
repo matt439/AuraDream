@@ -68,7 +68,6 @@ function showExamples(open) {
     };
     els.examplesMenu.appendChild(li);
   });
-  appendAssistantMenuItem();
   appendSetupsMenuItem();
   appendSnippetsMenuItem();
 }

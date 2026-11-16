@@ -8,7 +8,9 @@ checks establish source behavior only.
 
 ## Scope
 
-One optional **Write a prompt…** dialog holds Create, Improve and Find tags.
+One optional **Prompt assistant** right sidebar holds Create, Improve and Find tags.
+The prompt caption's **Assistant** button opens it directly, on desktop and
+phone. It is nonmodal, with the main editor available while it stays open.
 The selected image checkpoint's guide accompanies each question. Create may
 suggest creative details; Improve is asked to preserve the source's subjects,
 constraints, exclusions and exact lettering unless the instruction changes them.
@@ -20,6 +22,9 @@ verdicts. The user explicitly applies a draft or inserts selected usable tags.
 Application uses the prompt editor's existing undo path and refuses an answer
 whose source prompt or checkpoint has since changed. Nothing generates an image
 or applies a draft automatically.
+An explicit application keeps the sidebar open and uses its new editor text as
+the next conversational source. An external edit or Undo still invalidates the
+prepared suggestions.
 
 Conversation history lives in the open page's memory, with an explicit reset.
 It is bounded rather than silently truncating away earlier instructions. It is
@@ -46,7 +51,7 @@ retain their existing owner. Requests remain model-dependent readers under
 requests remain closed by the existing passcode layer.
 
 Every request has a ticket. Stop is scoped to that ticket, including a stop that
-arrives before its request; closing the dialog requests Stop and discards late
+arrives before its request; closing the sidebar requests Stop and discards late
 answers. A stopped or superseded answer cannot overwrite a later conversation.
 
 `POST /api/prompt/assist` takes the mode, instruction, source prompt, optional
@@ -63,7 +68,7 @@ warnings. `POST /api/prompt/assist/{ticket}/stop` stops only that request.
   stop-before-start, revision and passcode admission, cleanup on failure.
 - Real browser against the fake server: all three modes, a follow-up, explicit
   application and undo, tags, stale editor/model changes, errors and retry,
-  Close/Stop/reopen, desktop and phone dialog layout.
+  Close/Stop/reopen, desktop and phone sidebar layout.
 - Repository checks: ruff, pinned Pyright, classic-script/shared-scope checks,
   documentation maps and relevant regression tests.
 
@@ -204,3 +209,44 @@ local keyboard failure is retained under `auradream-smoke-artifacts-354bk9h7/`.
 Both repairs stay on the original PR branch. No hosted job was rerun unchanged.
 The final phone/keyboard pair also passed together with two smoke workers
 (2/2, 38 seconds; `auradream-smoke-artifacts-83si8w1m/summary.json`).
+
+## Sidebar layout revision (2026-11-17)
+
+Matt requested a familiar right sidebar, direct access outside Examples, and a
+review of text and spacing. The Assistant button now opens a named nonmodal
+sidebar. Messages and earlier full drafts stay visible above a fixed composer;
+only the latest reply has Apply controls. Repeated help moves into About the
+local assistant, with readable draft cards and compact status text. Applying
+keeps the conversation available. The visible editor receives desktop focus
+for native Undo; covered phone/narrow editors return focus to the Use control.
+
+At 1280 px and above, the workspace reserves the sidebar's width. Smaller
+windows overlay it; phones fill the visible viewport above their own fixed
+bars. Touch Back and sidebar Escape close through the same ticketed Stop path.
+Workspace keyboard commands retain their ordinary routes, and Tab is not
+trapped. Short layouts retain the message box and actions above the keyboard.
+
+Local validation, without weights, inference or live gallery data:
+
+- 309 focused assistant/API/runtime, documentation, classic-script,
+  accessibility-audit and browser-output tests passed. Ruff passed and pinned
+  Pyright checked 218 sources with zero errors or warnings.
+- Nine distinct browser smokes passed: prompt-assistant, analysis,
+  shortcut-dispatch, shortcuts, snippets, generation-presets, phone-create,
+  phone-dialogs and phone. The assistant's final 207 steps include native
+  keyboard routing, explicit Apply/Undo and source rebasing, all three tasks,
+  Stop/late replies, tag verdicts, sidebar-root accessibility, focus leaving
+  the nonmodal sidebar, touch Back and control hit tests.
+- Fresh screenshots were inspected at desktop/wide, portrait, 320 px wide,
+  landscape and 393x300 keyboard-sized viewports. The new hit tests first
+  exposed phone bars covering Send, then a 9 px overflow in the short layout;
+  both were corrected and passed in the final fixture.
+
+Final receipts in the system temporary directory:
+`auradream-smoke-artifacts-7ueu4ny0/summary.json` (final assistant, screenshots
+under `smoke-prompt-assistant-93jk0m_7/`; passed after the final action alignment),
+`auradream-smoke-artifacts-jindd1wh/summary.json` (five desktop regressions),
+`auradream-smoke-artifacts-rjz_6m89/summary.json` (phone Create/dialogs), and
+`auradream-smoke-artifacts-nwvwm3u3/summary.json` (phone).
+
+The GPU hold and physical phone/keyboard acceptance remain unchanged.

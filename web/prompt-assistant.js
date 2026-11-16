@@ -1,5 +1,5 @@
 // Local prompt writing, revision and verified tag proposals. Declarations only;
-// app.js wires the dialog after the classic scripts have all been declared.
+// app.js wires the sidebar after the classic scripts have all been declared.
 'use strict';
 
 let assistantRun = null;
@@ -11,6 +11,7 @@ let assistantOrigin = null;
 let assistantMode = 'create';
 let assistantSelectedTags = new Set();
 let assistantClockTimer = null;
+let assistantPendingText = '';
 
 const ASSISTANT_INPUT_LIMIT = 12000;
 const ASSISTANT_HISTORY_LIMIT = 8;
@@ -81,13 +82,13 @@ function assistantHeld(button, reason, title) {
 }
 
 function syncPromptAssistant() {
-  if (!els.assistantDialog) return;
+  if (!els.assistantSidebar) return;
   assistantHeld(els.assistantAsk, assistantAskReason(), 'Ask the local model; nothing is applied automatically');
   assistantHeld(els.assistantStop, !assistantRun ? 'There is no answer running.'
     : assistantRun.stopping ? 'The stop request is being sent.' : '', 'Stop this answer and release its local process');
   assistantHeld(els.assistantReset, assistantRun ? 'Stop the current answer before starting a new conversation.' : '',
     'Clear this conversation; the main prompt stays unchanged');
-  els.assistantAsk.textContent = assistantRun ? 'Thinking…' : 'Ask';
+  els.assistantAsk.textContent = assistantRun ? 'Thinking…' : 'Send';
   els.assistantMode.setAttribute('aria-disabled', String(!!assistantRun));
   els.assistantMode.title = assistantRun ? 'Stop the current answer before changing the task.' : 'Choose the kind of prompt help';
   const applyReason = assistantApplyReason();
@@ -104,6 +105,9 @@ function syncPromptAssistant() {
   if (insert) assistantHeld(insert, applyReason || (!assistantSelectedTags.size ? 'Select at least one verified tag first.' : ''),
     'Append the selected verified tags to the prompt; Ctrl+Z restores it');
   els.assistantStale.hidden = !assistantSourceChanged();
+  $('assistant-intro').hidden = !!assistantTurns.length || !!assistantResultData || !!assistantPendingText;
+  $('assistant-pending').hidden = !assistantPendingText;
+  $('assistant-pending').textContent = assistantPendingText;
   const critic = criticStatus ?? { label: 'local model', fetch: [], fetch_bytes: 0 };
   const fetch = !promptCritiqueReady && critic.fetch.length
     ? `First use downloads ${critic.fetch.join(' and ')} (about ${humanBytes(critic.fetch_bytes)}) once. This can take a few minutes.` : '';
@@ -125,10 +129,18 @@ function renderAssistantHistory() {
   els.assistantHistory.replaceChildren();
   els.assistantHistoryWrap.hidden = !assistantTurns.length;
   for (const [index, turn] of assistantTurns.entries()) {
-    const item = document.createElement('p');
-    const who = document.createElement('strong');
-    who.textContent = turn.role === 'user' ? 'You: ' : 'Assistant: ';
-    item.append(who, document.createTextNode(turn.display ?? turn.content));
+    // The newest answer has the live Use controls below the history. Earlier
+    // drafts remain readable in the conversation without offering stale Use.
+    if (turn.role === 'assistant' && index === assistantTurns.length - 1) continue;
+    const item = document.createElement('div');
+    item.className = `assistant-turn assistant-turn-${turn.role}`;
+    if (turn.role === 'assistant' && turn.answer) renderAssistantAnswer(item, turn.answer, false);
+    else {
+      const who = document.createElement('strong'); who.className = 'assistant-speaker';
+      who.textContent = turn.role === 'user' ? 'You' : 'Assistant';
+      const text = document.createElement('p'); text.textContent = turn.display ?? turn.content;
+      item.append(who, text);
+    }
     item.dataset.turn = String(index);
     els.assistantHistory.append(item);
   }
@@ -139,7 +151,13 @@ function renderAssistantResult() {
   host.replaceChildren();
   host.hidden = !assistantResultData;
   if (!assistantResultData) { syncPromptAssistant(); return; }
-  const body = assistantResultData;
+  renderAssistantAnswer(host, assistantResultData, true);
+  syncPromptAssistant();
+}
+
+function renderAssistantAnswer(host, body, interactive) {
+  const speaker = document.createElement('strong'); speaker.className = 'assistant-speaker';
+  speaker.textContent = 'Assistant'; host.append(speaker);
   const message = document.createElement('p');
   message.className = 'assistant-message';
   message.textContent = body.message;
@@ -157,24 +175,27 @@ function renderAssistantResult() {
     for (const words of draft.notes || []) {
       const note = document.createElement('p'); note.className = 'hint'; note.textContent = words; article.append(note);
     }
-    const use = document.createElement('button'); use.type = 'button'; use.className = 'ghost small';
-    use.textContent = 'Use prompt'; use.dataset.assistantDraft = String(index);
-    use.onclick = () => applyAssistantDraft(index);
-    article.append(use); host.append(article);
+    if (interactive) {
+      const use = document.createElement('button'); use.type = 'button'; use.className = 'ghost small';
+      use.textContent = 'Use prompt'; use.dataset.assistantDraft = String(index);
+      use.onclick = () => applyAssistantDraft(index); article.append(use);
+    }
+    host.append(article);
   }
   if (body.tags?.length) {
     const list = document.createElement('div'); list.className = 'assistant-tags';
     const note = document.createElement('p'); note.className = 'hint';
-    note.textContent = 'The explanations below are model suggestions. The tag index decides which names are verified; only verified names can be selected.';
+    note.textContent = 'Only names verified by the tag index can be inserted. Meanings below are model suggestions.';
     list.append(note);
     for (const [index, tag] of body.tags.entries()) {
       const row = document.createElement('div'); row.className = 'assistant-tag';
-      const label = document.createElement('label'); label.className = 'check';
+      const label = document.createElement(interactive ? 'label' : 'div'); label.className = 'check';
       const tick = document.createElement('input'); tick.type = 'checkbox'; tick.dataset.assistantTag = String(index);
       tick.checked = assistantSelectedTags.has(index);
       const name = tag.status === 'alias' ? (tag.canonical || tag.text) : tag.text;
       const words = document.createElement('span'); words.textContent = name;
-      label.append(tick, words); row.append(label);
+      if (interactive) label.append(tick);
+      label.append(words); row.append(label);
       const verdict = document.createElement('p'); verdict.className = 'assistant-tag-verdict';
       verdict.textContent = `${tag.status === 'alias' ? `Alias of ${name}` : tag.status === 'valid' ? 'Verified tag' : 'Unverified tag'}${tag.detail ? `: ${tag.detail}` : ''}`;
       row.append(verdict);
@@ -190,14 +211,16 @@ function renderAssistantResult() {
       });
       list.append(row);
     }
-    const insert = document.createElement('button'); insert.type = 'button'; insert.id = 'assistant-insert-tags';
-    insert.className = 'ghost small'; insert.textContent = 'Insert selected tags'; insert.onclick = insertAssistantTags;
-    list.append(insert); host.append(list);
+    if (interactive) {
+      const insert = document.createElement('button'); insert.type = 'button'; insert.id = 'assistant-insert-tags';
+      insert.className = 'ghost small'; insert.textContent = 'Insert selected tags'; insert.onclick = insertAssistantTags;
+      list.append(insert);
+    }
+    host.append(list);
   }
   const footer = document.createElement('p'); footer.className = 'hint';
-  footer.textContent = `${body.model} · ${Math.round(body.elapsedSeconds ?? body.seconds)} s total. Review the result before using it.`;
+  footer.textContent = `${body.model} · ${Math.round(body.elapsedSeconds ?? body.seconds)} s`;
   host.append(footer);
-  syncPromptAssistant();
 }
 
 function resetAssistantConversation({ clearInstruction = true } = {}) {
@@ -206,31 +229,44 @@ function resetAssistantConversation({ clearInstruction = true } = {}) {
   assistantTurns = [];
   assistantResultData = null;
   assistantSnapshot = null;
+  assistantPendingText = '';
   assistantSelectedTags.clear();
   if (clearInstruction) els.assistantInstruction.value = '';
   renderAssistantHistory(); renderAssistantResult();
-  assistantSay('Describe your idea or the change you want. Nothing is applied automatically.');
+  els.assistantInstruction.placeholder = assistantMode === 'improve' ? 'What would you like to change?' : assistantMode === 'tags' ? 'Describe the detail you need tags for…' : 'Describe your idea…';
+  $('assistant-intro').querySelector('h3').textContent = assistantMode === 'improve' ? 'What would you like to change?' : assistantMode === 'tags' ? 'Which detail needs a tag?' : 'What would you like to create?';
+  $('assistant-intro').querySelector('p').textContent = assistantMode === 'improve' ? 'Start with your prompt in the editor, then describe the change you want.' : assistantMode === 'tags' ? 'Describe a detail to find candidate tags checked against the Danbooru index.' : 'Describe an idea and develop it into a prompt with follow-up messages.';
+  assistantSay('Describe your idea or the change you want. You choose what to apply.');
 }
 
+function assistantSidebarOpen() { return !els.assistantSidebar.hidden; }
+
 function openPromptAssistant(mode = null) {
-  if (els.assistantDialog.open) return;
+  if (assistantSidebarOpen()) return;
   assistantOrigin = document.activeElement;
   if (mode && mode !== assistantMode && !assistantRun) {
     assistantMode = mode; els.assistantMode.value = mode;
     resetAssistantConversation({ clearInstruction: false });
   }
   syncPromptAssistant();
-  els.assistantDialog.showModal();
-  // The phone's sheet setup keeps the keyboard away until the user chooses a
-  // text box. Desktop authors can type straight away.
+  els.assistantSidebar.hidden = false;
+  document.body.classList.add('assistant-open');
+  els.assistantToggle.setAttribute('aria-expanded', 'true');
+  syncBackLayers();
   if (!isPhone()) els.assistantInstruction.focus({ preventScroll: true });
+  else els.assistantClose.focus({ preventScroll: true });
 }
 
-function assistantClosed() {
-  if (els.assistantDialog.open) return;
+function closePromptAssistant() {
+  if (!assistantSidebarOpen()) return;
+  els.assistantSidebar.hidden = true;
+  document.body.classList.remove('assistant-open');
+  els.assistantToggle.setAttribute('aria-expanded', 'false');
   if (assistantRun) void stopPromptAssistant();
+  assistantPendingText = '';
+  syncBackLayers();
   const origin = assistantOrigin; assistantOrigin = null;
-  if (origin?.isConnected) origin.focus({ preventScroll: true });
+  (origin?.isConnected && isShown(origin) ? origin : els.assistantToggle).focus({ preventScroll: true });
 }
 
 function assistantClock() {
@@ -250,7 +286,9 @@ async function askPromptAssistant() {
   };
   assistantRun = run;
   assistantSnapshot = source;
-  assistantSay('Asking the local model…');
+  assistantPendingText = instruction;
+  const download = !promptCritiqueReady && criticStatus?.fetch?.length;
+  assistantSay(download ? `First use downloads ${criticStatus.fetch.join(' and ')} (about ${humanBytes(criticStatus.fetch_bytes)}). Then the local model writes an answer.` : 'Asking the local model…');
   clearInterval(assistantClockTimer); assistantClock();
   assistantClockTimer = setInterval(assistantClock, 1000);
   syncPromptExpansion();
@@ -260,14 +298,15 @@ async function askPromptAssistant() {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
     });
     promptCritiqueReady = true;
-    if (run.epoch !== assistantEpoch || run.stopped || !els.assistantDialog.open) return;
+    if (run.epoch !== assistantEpoch || run.stopped || !assistantSidebarOpen()) return;
     if (body.model_id !== source.model) {
       assistantSay('The checkpoint changed while this answer was prepared. Start a new conversation.', true); return;
     }
     assistantResultData = { ...body, elapsedSeconds: (Date.now() - run.started) / 1000 };
     assistantSelectedTags.clear();
     assistantTurns.push({ role: 'user', content: instruction },
-      { role: 'assistant', content: assistantHistoryText(body), display: body.message });
+      { role: 'assistant', content: assistantHistoryText(body), display: body.message, answer: assistantResultData });
+    assistantPendingText = '';
     if (els.assistantInstruction.value.trim() === instruction) els.assistantInstruction.value = '';
     els.assistantInstruction.placeholder = 'Refine the answer, for example: keep the pose and make the lighting softer';
     renderAssistantHistory(); renderAssistantResult();
@@ -276,11 +315,12 @@ async function askPromptAssistant() {
       : 'Answer ready. Choose a draft or ask for a change; the main prompt is unchanged.', assistantSourceChanged());
     if (document.activeElement === els.assistantAsk) els.assistantResult.focus({ preventScroll: true });
   } catch (err) {
-    if (run.epoch !== assistantEpoch || run.stopped || !els.assistantDialog.open) return;
+    if (run.epoch !== assistantEpoch || run.stopped || !assistantSidebarOpen()) return;
     assistantSay(err.offline ? 'The server did not answer. The main prompt is unchanged.' : `The assistant did not answer: ${err.message}`, true);
   } finally {
     if (assistantRun === run) {
       assistantRun = null;
+      assistantPendingText = '';
       clearInterval(assistantClockTimer); assistantClockTimer = null; assistantClock();
       if (run.stopped && run.epoch === assistantEpoch) assistantSay('Answer stopped. The main prompt is unchanged.');
       syncPromptExpansion();
@@ -311,13 +351,23 @@ function applyAssistantText(text, message) {
   const why = assistantApplyReason();
   if (why) { assistantSay(why, true); return; }
   const before = els.prompt.value;
-  assistantOrigin = null;
-  els.assistantDialog.close();
-  // A modal makes the main editor inert: close it before the undo-aware write.
+  const applyControl = document.activeElement;
   rewriteBox(els.prompt, text);
+  // Our own explicit application becomes the next conversational source.
+  // An external write or native Undo still invalidates it by exact text.
+  assistantSnapshot = assistantSource();
   promptReplaced(); syncTagSelection(); scheduleTagValidation(0); schedulePreview(); persistPanel();
-  els.prompt.focus({ preventScroll: true });
-  els.prompt.setSelectionRange(0, 0);
+  const editorVisible = !isPhone() && els.prompt.getBoundingClientRect().right <= els.assistantSidebar.getBoundingClientRect().left;
+  if (editorVisible) {
+    els.prompt.focus({ preventScroll: true });
+    els.prompt.setSelectionRange(0, 0);
+  } else if (applyControl?.isConnected && els.assistantSidebar.contains(applyControl) && isShown(applyControl)) {
+    // rewriteBox uses the native editor's undo path, which focuses it. A phone
+    // covers that editor: keep the visible control and software keyboard state.
+    applyControl.focus({ preventScroll: true });
+  }
+  assistantSay('Prompt updated. You can keep refining it here, or undo in the prompt editor.');
+  syncPromptAssistant();
   offerPromptUndo(message, () => {
     rewriteBox(els.prompt, before); promptReplaced(); syncTagSelection(); scheduleTagValidation(0); schedulePreview(); persistPanel();
   });
@@ -345,27 +395,16 @@ function insertAssistantTags() {
 function assistantCheckpointChanged() {
   if (assistantRun) { ++assistantEpoch; void stopPromptAssistant(); }
   assistantTurns = []; assistantResultData = null; assistantSnapshot = null; assistantSelectedTags.clear();
+  assistantPendingText = '';
   renderAssistantHistory(); renderAssistantResult();
-  if (els.assistantDialog.open) assistantSay('The checkpoint changed. This conversation was cleared; your instruction and the main prompt are unchanged.', true);
-}
-
-function appendAssistantMenuItem() {
-  const item = document.createElement('li');
-  item.id = 'prompt-assistant-menu-item'; item.setAttribute('role', 'menuitem'); item.tabIndex = -1;
-  item.setAttribute('aria-haspopup', 'dialog'); item.setAttribute('aria-controls', 'prompt-assistant-dialog');
-  item.textContent = 'Write a prompt…'; item.title = 'Create or improve a prompt, or find tags with a local model';
-  const open = () => { showExamples(false); openPromptAssistant(); };
-  item.onclick = open;
-  item.onkeydown = (event) => {
-    if (keyboardEventHeld(event) || keyboardCommandModifier(event) || event.shiftKey) return;
-    if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); if (!event.repeat) open(); }
-  };
-  els.examplesMenu.append(item);
+  if (assistantSidebarOpen()) assistantSay('The checkpoint changed. This conversation was cleared; your instruction and the main prompt are unchanged.', true);
 }
 
 function initPromptAssistant() {
-  els.assistantClose.onclick = () => els.assistantDialog.close();
-  els.assistantDialog.addEventListener('close', assistantClosed);
+  els.assistantToggle.onclick = () => {
+    if (assistantSidebarOpen()) closePromptAssistant(); else openPromptAssistant();
+  };
+  els.assistantClose.onclick = closePromptAssistant;
   els.assistantAsk.onclick = () => { void askPromptAssistant(); };
   els.assistantStop.onclick = () => { void stopPromptAssistant(); };
   els.assistantReset.onclick = () => resetAssistantConversation();
