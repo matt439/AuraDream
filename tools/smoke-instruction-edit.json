@@ -30,7 +30,7 @@
   {"expect": "__until(() => instructionEditSupported === false && /not available/.test(instructionEditReason))"},
   {"rightclick": "#gallery .card[data-id=\"1\"] > img"},
   {"expect": "__until(() => !els.contextMenu.hidden && __item('Edit by instruction'))"},
-  {"expect": "(() => { const items = [...els.contextMenu.querySelectorAll('[role=menuitem]')]; const edit = __item('Edit by instruction'); return edit.getAttribute('aria-disabled') === null && items.indexOf(edit) === items.indexOf(__item('Outpaint')) + 1 && /not available/.test(edit.title); })()"},
+  {"expect": "(() => { const items = [...els.contextMenu.querySelectorAll('[role=menuitem]')]; const edit = __item('Edit by instruction'); const detail = __item('Detail faces/hands'); return !!detail && edit.getAttribute('aria-disabled') === null && items.indexOf(detail) === items.indexOf(__item('Outpaint')) + 1 && items.indexOf(edit) === items.indexOf(detail) + 1 && /not available/.test(edit.title); })()"},
   {"eval": "__item('Edit by instruction').click()"},
   {"expect": "__until(() => els.editDialog.open && editPreview)"},
   {"expect": "els.contextMenu.hidden && !els.editUnavailable.hidden && els.editUnavailableText.textContent === instructionEditReason && editPreview.available === false && els.editRun.getAttribute('aria-disabled') === 'true' && els.editRun.title === instructionEditReason"},
