@@ -416,3 +416,34 @@ phone screenshots were inspected. Eight documentation-map tests and 39
 screenshot-path checks passed. Receipt under the system temporary directory:
 `auradream-smoke-artifacts-fdbhn6mf/summary.json`, screenshots in
 `smoke-prompt-assistant-4hy5ahew/`. No inference was run.
+
+## Added and removed tags (2026-11-17)
+
+Matt requested a visual indication of tag changes in each option. The server
+now returns response-only `draft_changes`, aligned with the draft array. Each
+entry has `added` and `removed` lists, or null when the existing prompt reader
+cannot safely compare both texts as tags. An empty source is supported. Prose,
+hybrid/structured text, quoted lettering and grid placeholders are withheld.
+Exact `normalize_tag` name differences preserve original spelling and order
+for display. Reordering, repeated instances and cosmetic case/underscore/escape
+changes do not add or remove a name; weighting changes remain meaningful.
+The field is absent from the LLM answer schema and cannot be authored by it.
+
+Each card shows green Added (+) and red Removed (−) rows, with no extra box or
+divider. An unchanged membership says No tags added or removed, since ordering
+can still change. The comparison is tied to the request's actual prompt and
+stays with the full page-memory answer after Apply, Undo, outside edits and
+follow-ups. It is excluded from the bounded model-history payload. Applying
+still writes the original draft string through the existing undo path.
+
+Local checks: 226 focused assistant/API/runtime and documentation/classic-script/
+audit/browser-output tests passed; Ruff passed; pinned Pyright checked 218
+sources with zero errors or warnings. The HTTP check verifies serialized changes
+from the real answer validator. The final assistant smoke passed all 294 steps,
+including three visible options and notes at 1920/2048 px, phone/320 px changes,
+unchanged/omitted data, contrast, literal text safety, fixed comparison history,
+keyboard Apply/Undo and all prior guards. Desktop and phone screenshots were
+inspected; 39 screenshot-path checks passed. Receipt under the system temporary
+directory: `auradream-smoke-artifacts-e4t4vx53/summary.json`, screenshots in
+`smoke-prompt-assistant-vpz6dzsi/`. No model weights, inference or real gallery
+were used. A running server must restart to supply the new response field.

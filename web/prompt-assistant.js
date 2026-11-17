@@ -169,6 +169,28 @@ function assistantMessageRepeatsDraft(body) {
   });
 }
 
+function renderAssistantTagChanges(article, changes) {
+  if (!changes) return;
+  const host = document.createElement('div'); host.className = 'assistant-tag-changes';
+  host.title = 'Compared with the prompt used for this reply.';
+  for (const [kind, label, prefix] of [['added', 'Added', '+'], ['removed', 'Removed', '−']]) {
+    const tags = changes[kind] || [];
+    if (!tags.length) continue;
+    const row = document.createElement('p'); row.className = `assistant-tags-${kind}`;
+    const name = document.createElement('strong'); name.textContent = `${label}:`; row.append(name);
+    for (const tag of tags) {
+      const item = document.createElement('span'); item.className = 'assistant-tag-change';
+      item.textContent = `${prefix} ${tag}`; row.append(item);
+    }
+    host.append(row);
+  }
+  if (!host.childElementCount) {
+    const note = document.createElement('p'); note.className = 'hint'; note.textContent = 'No tags added or removed.';
+    host.append(note);
+  }
+  article.append(host);
+}
+
 function renderAssistantAnswer(host, body, interactive) {
   const speaker = document.createElement('strong'); speaker.className = 'assistant-speaker';
   speaker.textContent = 'Assistant'; host.append(speaker);
@@ -198,6 +220,7 @@ function renderAssistantAnswer(host, body, interactive) {
       use.onclick = () => applyAssistantDraft(index); head.append(use);
     }
     article.append(head, prompt);
+    renderAssistantTagChanges(article, body.draft_changes?.[index]);
     if (draft.notes?.length) {
       const notes = document.createElement('div'); notes.className = 'assistant-draft-notes';
       for (const words of draft.notes) {

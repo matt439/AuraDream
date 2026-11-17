@@ -3942,6 +3942,15 @@ measured on the card and when.
   with the existing Use button path.
   A used number stays captured until its keyup (or window blur), so auto-repeat
   cannot type digits into the main prompt after Use transfers focus there.
+  `draft_changes` is response-only metadata aligned with the draft array,
+  computed from the request's original prompt, never supplied by the model.
+  Existing prompt readers admit only tag lists (or an empty source); prose,
+  mixed/structured text, quoted lettering and grid placeholders get no tag diff.
+  Exact normalized names use set differences, preserving typed spelling and
+  meaningful weights. Reorder and duplicate-count changes do not add/remove a
+  name. The page presents Added (+, green) and Removed (−, red) rows within each
+  card, or No tags added or removed. These stay fixed after Apply and in earlier replies,
+  and are excluded from the model's bounded history payload.
 
 #### Prompt checks, encoders and tag placement
 

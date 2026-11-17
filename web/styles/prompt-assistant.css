@@ -37,6 +37,11 @@
 .assistant-draft-notes, .assistant-draft .hint { color: var(--text-3); }
 .assistant-draft-notes { margin-top: var(--sp-1); font-size: var(--fs-label); }
 .assistant-draft-notes p + p { margin-top: var(--sp-1); }
+.assistant-tag-changes { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; font-size: var(--fs-label); }
+.assistant-tag-changes > p { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--sp-1) var(--sp-2); }
+.assistant-tags-added { color: var(--ok); }
+.assistant-tags-removed { color: var(--danger); }
+.assistant-tag-change { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
 .assistant-response-note { font-size: var(--fs-label); color: var(--text-3); }
 .assistant-response-note > summary { cursor: pointer; min-height: var(--h-sm); }
 .assistant-response-note .assistant-message { margin-top: var(--sp-2); color: var(--text-2); }

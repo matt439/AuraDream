@@ -20,6 +20,7 @@ from .prompt_sources import sources_for
 from .schemas_assistant import (
     OUTPUT_MAX_CHARS,
     AssistantDraft,
+    AssistantDraftChanges,
     AssistantTag,
     PromptAssistantRequest,
     PromptAssistantResponse,
@@ -215,6 +216,40 @@ def _changed_note(label: str, values: list[str]) -> str:
     return f"Original {label} absent or changed: {summary}. Review against your instruction."
 
 
+def _tag_items(prompt: str) -> dict[str, str] | None:
+    """Read only unambiguous tag lists, without claiming dictionary validity."""
+    if prompt_text.detect_style(prompt) != "tags" or prompt_text.QUOTED.search(prompt):
+        return None
+    items: dict[str, str] = {}
+    # Match detect_style's existing comma/fullwidth-comma/newline reading. A
+    # majority-tag style may still contain a prose piece: withhold that case.
+    for item in prompt_text._pieces(prompt):
+        if prompt_text._is_prose(item) or prompt_text.is_grid_variable(item):
+            return None
+        key = normalize_tag(item)
+        if not key:
+            return None
+        items.setdefault(key, item)
+    return items
+
+
+def _draft_changes(prompt: str, draft: str) -> AssistantDraftChanges | None:
+    """Compare exact normalized names; order and duplicate counts are ignored.
+
+    The first typed spelling on each side is retained for display. Weights,
+    punctuation and other literal text remain meaningful, unlike the critic's
+    advisory retention check, which also accepts stemming and longer tags.
+    """
+    before = _tag_items(prompt) if prompt.strip() else {}
+    after = _tag_items(draft)
+    if before is None or after is None:
+        return None
+    return AssistantDraftChanges(
+        added=[text for key, text in after.items() if key not in before],
+        removed=[text for key, text in before.items() if key not in after],
+    )
+
+
 def validate_answer(
     content: str, model_id: str, request: PromptAssistantRequest, *, model: str, seconds: float,
 ) -> PromptAssistantResponse:
@@ -264,7 +299,8 @@ def validate_answer(
         candidates.append(AssistantTag(text=text, reason=item.reason))
     return PromptAssistantResponse(
         model_id=model_id, model=model, seconds=seconds, message=answer.message,
-        drafts=drafts, tags=candidates, warnings=warnings,
+        drafts=drafts, draft_changes=[_draft_changes(request.prompt, draft.prompt) for draft in drafts],
+        tags=candidates, warnings=warnings,
     )
 
 

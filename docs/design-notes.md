@@ -11802,6 +11802,13 @@ uses the matching option outside fields; Alt+1/2/3 works from the message box.
 These press the ordinary Use action, retaining its source holds and Undo, while
 editing fields, modals, menus, composition and held/repeated keys keep their
 usual ownership. Old conversation cards do not advertise active number keys.
+Each tag-list option also shows Added and Removed names with +/− prefixes and
+green/red text. These are server-computed exact name changes against the prompt
+sent for that reply, using the existing text reader and tag normalization. They
+are not model explanations or dictionary verdicts. Prose and ambiguous mixed or
+structured prompts keep their normal presentation. The response's aligned
+`draft_changes` metadata remains with its page-memory answer, so Apply or later
+edits cannot change that comparison; the model's history excludes those lists.
 Replies that arrive after Stop, closure, reset or a newer request cannot change
 the editor. Bounded history refuses excess input instead of forgetting earlier
 instructions silently.

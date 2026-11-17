@@ -78,11 +78,23 @@ class AssistantTag(BaseModel):
     detail: str | None = None
 
 
+class AssistantDraftChanges(BaseModel):
+    """Server-computed exact tag-name changes, not model claims or verdicts."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    added: list[str] = Field(default_factory=list)
+    removed: list[str] = Field(default_factory=list)
+
+
 class PromptAssistantResponse(BaseModel):
     model_id: str
     model: str
     seconds: float = Field(ge=0)
     message: str = Field(max_length=2000)
     drafts: list[AssistantDraft] = Field(default_factory=list, max_length=3)
+    # Aligned with drafts; None means the existing prompt reader cannot safely
+    # compare the text as tags. Empty keeps older/fake responses compatible.
+    draft_changes: list[AssistantDraftChanges | None] = Field(default_factory=list, max_length=3)
     tags: list[AssistantTag] = Field(default_factory=list, max_length=20)
     warnings: list[str] = Field(default_factory=list)

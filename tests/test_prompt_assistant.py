@@ -114,6 +114,68 @@ def test_validated_output_is_labelled_and_preserves_the_full_draft():
     assert PromptAssistantResponse.model_validate(result.model_dump()) == result
 
 
+@pytest.mark.parametrize("source,draft,added,removed", [
+    ("1girl, park, day, sunny, wearing sports clothes",
+     "1girl, park, night, moonlight, wearing sports clothes", ["night", "moonlight"], ["day", "sunny"]),
+    ("1girl, green hair, summer", "1girl, green hair, summer", [], []),
+    ("1girl, Green Hair, green_hair, solo", "solo, green hair, 1girl, solo", [], []),
+    (r"foo \(series\), 1girl", "FOO_(series), 1GIRL", [], []),
+    ("(green hair:1.0), 1girl", "1girl, (green_hair:1.2)",
+     ["(green_hair:1.2)"], ["(green hair:1.0)"]),
+    ("1girl\npark，sunny", "park, 1girl, moonlight", ["moonlight"], ["sunny"]),
+    ("1girl, hair", "1girl, long hair", ["long hair"], ["hair"]),
+    (" \n ", "1girl, green_hair, Green Hair, solo", ["1girl", "green_hair", "solo"], []),
+])
+def test_draft_changes_compare_tag_names_preserving_meaning_and_typed_spelling(source, draft, added, removed):
+    result = validated(answer(drafts=[{"title": "Option", "prompt": draft}]), request(prompt=source))
+    assert result.model_dump()["draft_changes"] == [{"added": added, "removed": removed}]
+    assert result.drafts[0].prompt == draft
+
+
+@pytest.mark.parametrize("source,draft", [
+    ("A girl stands in a park.", "1girl, park, night"),
+    ("1girl, park, sunny", "A girl stands in a park at night."),
+    ("1girl, A woman is looking into the camera, blue hair", "1girl, park, night"),
+    ("1girl, park", "1girl, A woman is looking into the camera, blue hair"),
+    ("<general_tags>1girl, park</general_tags>", "1girl, park, night"),
+    ("1girl, park", '<general_tags>1girl, night</general_tags>'),
+    ('{"tags":["1girl","park"]}', "1girl, park, night"),
+    ("1girl, park", '{"tags":["1girl","night"]}'),
+    ('1girl, sign, "Open, Late"', "1girl, sign, night"),
+    ("1girl, sign", '1girl, sign, "Open, Late"'),
+    ("1girl, {place}", "1girl, park"),
+    ("1girl, park", "1girl, {place}"),
+    (", ".join([*(f"tag{i}" for i in range(20)), "she is smiling"]), "1girl, park"),
+])
+def test_draft_changes_withhold_prose_structures_lettering_and_placeholders(source, draft):
+    result = validated(answer(drafts=[{"title": "Option", "prompt": draft}]), request(prompt=source))
+    assert result.draft_changes == [None]
+
+
+def test_draft_changes_are_aligned_with_each_option_and_compatible_with_older_responses():
+    result = validated(answer(drafts=[
+        {"title": "Same", "prompt": "1girl, park, day"},
+        {"title": "Prose", "prompt": "A girl stands in the park."},
+        {"title": "Night", "prompt": "1girl, park, night"},
+    ]), request(prompt="1girl, park, day"))
+    assert result.model_dump()["draft_changes"] == [
+        {"added": [], "removed": []}, None, {"added": ["night"], "removed": ["day"]},
+    ]
+    legacy = result.model_dump(exclude={"draft_changes"})
+    assert PromptAssistantResponse.model_validate(legacy).draft_changes == []
+
+
+def test_tag_changes_are_server_only_and_cannot_be_authored_by_the_model():
+    body = prompt_assistant.request_body(prompt_assistant.build_context(FLUX, request()))
+    assert "draft_changes" not in json.dumps(body["response_format"])
+    for content in [
+        answer(draft_changes=[{"added": ["claimed"], "removed": []}]),
+        answer(drafts=[{"title": "Bad", "prompt": "1girl", "draft_changes": {"added": ["claimed"]}}]),
+    ]:
+        with pytest.raises(critic_runtime.CriticError):
+            validated(content)
+
+
 @pytest.mark.parametrize("content", [
     "no answer",
     '{"message":"broken", "drafts":[',

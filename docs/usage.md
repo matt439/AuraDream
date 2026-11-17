@@ -583,6 +583,10 @@ there closes it.
 Draft explanations appear directly below each prompt. **About the local assistant** at the
 bottom explains context, downloads and tag verification without moving the
 message box when opened.
+For tag prompts, each option shows **Added** tags in green with a **+**, and
+**Removed** tags in red with a **−**, compared with the prompt sent for that
+reply. The comparison stays the same after applying an option. Reordering alone
+shows **No tags added or removed**; prose and mixed or structured prompts omit this view.
 If the model repeats its drafts in its reply, that extra prose is tucked into
 **Assistant note** below the cards; each draft is shown once by default.
 

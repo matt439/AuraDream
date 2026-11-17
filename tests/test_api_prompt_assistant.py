@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import dataclasses
 import inspect
+import json
 import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -49,6 +50,22 @@ def test_all_modes_work_cold_without_loading_image_weights(client, fake, monkeyp
     else:
         assert len(body["drafts"]) == 2 and body["tags"] == []
     assert main.jobs.card() == (None, None)
+
+
+def test_tag_changes_serialize_from_the_real_answer_validator(client, fake, monkeypatch):
+    def assist(model_id, request, should_cancel):
+        return prompt_assistant.validate_answer(json.dumps({
+            "message": "Choose a direction.", "tags": [], "drafts": [
+                {"title": "Night", "prompt": "1girl, park, night"},
+                {"title": "Prose", "prompt": "A girl stands in a park at night."},
+            ],
+        }), model_id, request, model="fake critic", seconds=0.1)
+
+    monkeypatch.setattr(fake.critic, "assist", assist)
+    response = client.post("/api/prompt/assist", json=payload(mode="improve", prompt="1girl, park, day, sunny"))
+    assert response.status_code == 200, response.text
+    assert response.json()["draft_changes"] == [{"added": ["night"], "removed": ["day", "sunny"]}, None]
+    assert fake.loads == 0 and fake.requests == []
 
 
 def test_history_is_carried_as_data_and_invalid_request_does_not_prepare(client, fake):
