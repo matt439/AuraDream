@@ -11794,8 +11794,14 @@ source editor/checkpoint snapshot, and keeps the sidebar open. Its own applied
 text becomes the next conversational source; external edits and Undo still hold
 stale suggestions. The follow-up text box stays in a fixed compose area while
 replies scroll above it; incoming drafts and progress text cannot move the
-writing controls. The wider chat pane is 600 px on ordinary desktop windows and
-680-900 px in the wide tier. Task selection shares its header where it fits;
+writing controls. Sending clears the message field immediately and shows the
+sent instruction in the conversation. Replies leave newer typing and focus
+alone. A failed or stopped request restores its exact instruction only when the
+field has stayed empty and untouched, so retry is explicit and later edits win.
+Send takes the conversation to its end; new replies follow only while the reader
+stays near the bottom. Reading earlier messages never moves the workspace or
+pulls the conversation down. The wider chat pane is 600 px on ordinary desktop
+windows and 680-900 px in the wide tier. Task selection shares its header where it fits;
 the two-line message box and Send/Stop share one compact composer. Drafts put Use beside
 their title and show explanations directly below the prompt as compact secondary
 text, so no Notes disclosure row consumes space. Three short drafts fit together

@@ -18,7 +18,7 @@
     ]
   },
   {
-    "expect": "(async()=>{\n const until=async(fn,ms=20000)=>{const end=Date.now()+ms;while(Date.now()<end){if(await fn())return true;await new Promise(resolve=>setTimeout(resolve,40));}return false;};\n const assert=(ok,why)=>{if(!ok)throw Error(why);};\n assert(await until(()=>loadedModel==='black-forest-labs/FLUX.1-Krea-dev'&&Number.isInteger(modelRevision)&&!busy&&!galleryPending&&!jobListing),'fresh FLUX page did not settle');\n const q=window.__pa={until,assert,native:api,requests:[],answers:[],modelReads:[],stops:[],forbidden:[],errors:[],fixture:null,sequence:0};\n addEventListener('error',e=>q.errors.push(e.message));addEventListener('unhandledrejection',e=>q.errors.push(String(e.reason)));\n q.instruction=text=>{replaceBoxText(els.assistantInstruction,text);els.assistantInstruction.dispatchEvent(new Event('input',{bubbles:true}));};\n q.mode=mode=>{els.assistantMode.value=mode;els.assistantMode.dispatchEvent(new Event('change',{bubbles:true}));};\n q.source=text=>{writeBox(els.prompt,text);promptReplaced();els.prompt.dispatchEvent(new Event('input',{bubbles:true}));};\n q.synthetic=(name,extra={})=>({model_id:loadedModel,model:'Synthetic local assistant',seconds:0.1,message:name,\n   drafts:[{title:name,prompt:'A red fox in a snowy forest. '+name,notes:['Synthetic smoke suggestion.']}],tags:[],warnings:[],...extra});\n q.arm=(name,extra={})=>{assert(!q.fixture,'a previous reply fixture remains');const f={name,body:q.synthetic(name,extra),captured:false,released:false};q.fixture=f;return f;};\n q.release=(f,error=null)=>{assert(f.captured&&!f.released&&f.resolve,'fixture not captured or already released');f.released=true;f.error=error;f.resolve();};\n q.controlsFit=()=>{const bad=[els.assistantClose,els.assistantModel,els.assistantInstruction,els.assistantAsk,els.assistantStop].map(e=>{const r=e.getBoundingClientRect(),at=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return {id:e.id,rect:r.toJSON(),hit:!!at&&(at===e||e.contains(at))};}).filter(x=>x.rect.left<0||x.rect.right>innerWidth+1||x.rect.top<0||x.rect.bottom>innerHeight+1||!x.hit);if(bad.length)throw Error('Assistant controls offscreen or covered: '+JSON.stringify(bad));return true;};\n q.frames=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));\n api=async(path,options)=>{\n   const method=String(options?.method||'GET').toUpperCase();\n   if(method!=='GET'&&!path.startsWith('/api/prompt/assist')&&!['/api/prompt/measure','/api/tags/validate','/api/prompt/analyze'].includes(path)){q.forbidden.push(method+' '+path);throw Error('Assistant smoke refuses unrelated writes: '+path);}\n   if(path==='/api/prompt/assist/models'&&method==='GET'){const result=await q.native(path,options);q.modelReads.push(result);return result;}\n   if(path.startsWith('/api/prompt/assist/')&&path.endsWith('/stop')){q.stops.push(path);return {stopped:true,running:false};}\n   if(path==='/api/prompt/assist'&&method==='POST'){\n     const body=JSON.parse(options.body);q.requests.push(body);\n     const f=q.fixture;\n     if(f&&!f.captured){f.captured=true;f.request=body;await new Promise(resolve=>{f.resolve=resolve;});if(q.fixture===f)q.fixture=null;if(f.error){const e=Error(f.error);e.status=502;throw e;}q.answers.push(f.body);return f.body;}\n     const result=await q.native(path,options);q.answers.push(result);return result;\n   }\n   return q.native(path,options);\n };\n q.source('A red fox standing in snow, green eyes, no buildings, a sign reading \"OPEN\".');\n q.original=els.prompt.value;q.caption=els.examplesBox.closest('.field').querySelector(':scope > span').getBoundingClientRect().height;q.promptTop=els.prompt.getBoundingClientRect().top;\n return true;\n})()",
+    "expect": "(async()=>{\n const until=async(fn,ms=20000)=>{const end=Date.now()+ms;while(Date.now()<end){if(await fn())return true;await new Promise(resolve=>setTimeout(resolve,40));}return false;};\n const assert=(ok,why)=>{if(!ok)throw Error(why);};\n assert(await until(()=>loadedModel==='black-forest-labs/FLUX.1-Krea-dev'&&Number.isInteger(modelRevision)&&!busy&&!galleryPending&&!jobListing),'fresh FLUX page did not settle');\n const q=window.__pa={until,assert,native:api,requests:[],answers:[],modelReads:[],stops:[],forbidden:[],errors:[],fixture:null,sequence:0};\n addEventListener('error',e=>q.errors.push(e.message));addEventListener('unhandledrejection',e=>q.errors.push(String(e.reason)));\n q.instruction=text=>{replaceBoxText(els.assistantInstruction,text);els.assistantInstruction.dispatchEvent(new Event('input',{bubbles:true}));};\n q.mode=mode=>{els.assistantMode.value=mode;els.assistantMode.dispatchEvent(new Event('change',{bubbles:true}));};\n q.source=text=>{writeBox(els.prompt,text);promptReplaced();els.prompt.dispatchEvent(new Event('input',{bubbles:true}));};\n q.synthetic=(name,extra={})=>({model_id:loadedModel,model:'Synthetic local assistant',seconds:0.1,message:name,\n   drafts:[{title:name,prompt:'A red fox in a snowy forest. '+name,notes:['Synthetic smoke suggestion.']}],tags:[],warnings:[],...extra});\n q.arm=(name,extra={})=>{assert(!q.fixture,'a previous reply fixture remains');const f={name,body:q.synthetic(name,extra),captured:false,released:false};q.fixture=f;return f;};\n q.release=(f,error=null)=>{assert(f.captured&&!f.released&&f.resolve,'fixture not captured or already released');f.released=true;f.error=error;f.resolve();};\n q.controlsFit=()=>{const bad=[els.assistantClose,els.assistantModel,els.assistantInstruction,els.assistantAsk,els.assistantStop].map(e=>{const r=e.getBoundingClientRect(),at=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return {id:e.id,rect:r.toJSON(),hit:!!at&&(at===e||e.contains(at))};}).filter(x=>x.rect.left<0||x.rect.right>innerWidth+1||x.rect.top<0||x.rect.bottom>innerHeight+1||!x.hit);if(bad.length)throw Error('Assistant controls offscreen or covered: '+JSON.stringify(bad));return true;};\n q.frames=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));\n q.chatHost=()=>document.querySelector('.assistant-body');\n q.chatAtEnd=()=>{const h=q.chatHost();return h.scrollHeight-h.clientHeight-h.scrollTop<=1;};\n q.chatGeometry=()=>({x:scrollX,y:scrollY,width:innerWidth,height:innerHeight,dpr:devicePixelRatio,controls:[els.assistantInstruction,els.assistantAsk,els.assistantStop].map(e=>({id:e.id,rect:e.getBoundingClientRect().toJSON()}))});\n q.chatStable=before=>{const after=q.chatGeometry();assert(['x','y','width','height','dpr'].every(k=>after[k]===before[k]),'chat moved the document or viewport: '+JSON.stringify({before,after}));assert(before.controls.every((b,i)=>['x','y','width','height'].every(k=>Math.abs(after.controls[i].rect[k]-b.rect[k])<0.5)),'chat moved its fixed composer: '+JSON.stringify({before,after}));return true;};\n api=async(path,options)=>{\n   const method=String(options?.method||'GET').toUpperCase();\n   if(method!=='GET'&&!path.startsWith('/api/prompt/assist')&&!['/api/prompt/measure','/api/tags/validate','/api/prompt/analyze'].includes(path)){q.forbidden.push(method+' '+path);throw Error('Assistant smoke refuses unrelated writes: '+path);}\n   if(path==='/api/prompt/assist/models'&&method==='GET'){const result=await q.native(path,options);q.modelReads.push(result);return result;}\n   if(path.startsWith('/api/prompt/assist/')&&path.endsWith('/stop')){q.stops.push(path);return {stopped:true,running:false};}\n   if(path==='/api/prompt/assist'&&method==='POST'){\n     const body=JSON.parse(options.body);q.requests.push(body);\n     const f=q.fixture;\n     if(f&&!f.captured){f.captured=true;f.request=body;await new Promise(resolve=>{f.resolve=resolve;});if(q.fixture===f)q.fixture=null;if(f.error){const e=Error(f.error);e.status=502;throw e;}q.answers.push(f.body);return f.body;}\n     const result=await q.native(path,options);q.answers.push(result);return result;\n   }\n   return q.native(path,options);\n };\n q.source('A red fox standing in snow, green eyes, no buildings, a sign reading \"OPEN\".');\n q.original=els.prompt.value;q.caption=els.examplesBox.closest('.field').querySelector(':scope > span').getBoundingClientRect().height;q.promptTop=els.prompt.getBoundingClientRect().top;\n return true;\n})()",
     "fatal": true
   },
   {
@@ -133,10 +133,27 @@
     "click": "#assistant-instruction"
   },
   {
-    "log": "'Create executes the fake local service once and leaves the composer unchanged. A follow-up sends prior dialogue; only Use prompt writes, with native Undo.'"
+    "log": "'Create executes the fake local service once and leaves the main prompt unchanged. Plain Enter adds a newline; admitted sends clear the message immediately. A follow-up sends prior dialogue; only Use prompt writes, with native Undo.'"
   },
   {
     "eval": "__pa.mode('create'); __pa.instruction('Write two distinct prompts for a red fox in snow.');"
+  },
+  {
+    "eval": "els.assistantInstruction.focus({preventScroll:true}); els.assistantInstruction.setSelectionRange(els.assistantInstruction.value.length,els.assistantInstruction.value.length);"
+  },
+  {
+    "key": "Enter",
+    "native": true
+  },
+  {
+    "expect": "els.assistantInstruction.value==='Write two distinct prompts for a red fox in snow.\\n' && __pa.requests.length===0 && !assistantRun",
+    "fatal": true
+  },
+  {
+    "eval": "__pa.blockedMessage=els.assistantInstruction.value;"
+  },
+  {
+    "expect": "(()=>{const before=els.assistantInstruction.value;for(const init of [{isComposing:true},{keyCode:229},{held:true}]){const event=new KeyboardEvent('keydown',{key:'Enter',ctrlKey:true,bubbles:true,cancelable:true,...init});if(init.held)event.preventDefault();els.assistantInstruction.dispatchEvent(event);}return !assistantRun&&__pa.requests.length===0&&els.assistantInstruction.value===before;})()"
   },
   {
     "eval": "window.__paSwitchBefore=modelSwitchSending; modelSwitchSending=true; syncPromptAssistant();"
@@ -149,7 +166,7 @@
     "click": "#assistant-ask"
   },
   {
-    "expect": "__pa.requests.length===0 && !assistantRun && els.assistantStatus.textContent===modelChangeHold()+'.'"
+    "expect": "__pa.requests.length===0 && !assistantRun && els.assistantStatus.textContent===modelChangeHold()+'.' && els.assistantInstruction.value===__pa.blockedMessage"
   },
   {
     "eval": "modelSwitchSending=__paSwitchBefore; syncPromptAssistant();"
@@ -172,7 +189,7 @@
     "fatal": true
   },
   {
-    "expect": "els.prompt.value===__pa.original && __pa.requests[0].mode==='create' && __pa.requests[0].history.length===0 && __pa.requests[0].ticket.length>0 && assistantTurns.length>=2 && els.assistantResult.querySelector('[data-assistant-draft=\"0\"]') && __pa.requests[0].assistant_model==='default' && assistantResultData.model==='fake critic'"
+    "expect": "els.prompt.value===__pa.original && __pa.requests[0].mode==='create' && __pa.requests[0].history.length===0 && __pa.requests[0].ticket.length>0 && assistantTurns.length>=2 && els.assistantResult.querySelector('[data-assistant-draft=\"0\"]') && __pa.requests[0].assistant_model==='default' && assistantResultData.model==='fake critic' && els.assistantInstruction.value===''"
   },
   {
     "eval": "(() => {const host=document.querySelector('.assistant-body'), result=els.assistantResult; if(!result.hidden)host.scrollTop+=result.getBoundingClientRect().top-host.getBoundingClientRect().top;})()"
@@ -661,13 +678,19 @@
     "expect": "__pa.requests[3].mode==='tags' && __pa.requests[3].history.length===0 && els.prompt.value===__pa.original && els.assistantResult.textContent.includes('ahoge')"
   },
   {
-    "eval": "window.__paTags=__pa.arm('Synthetic authoritative tag verdicts',{drafts:[],tags:[{text:'ahoge',reason:'Model suggestion: the raised hair tuft.',status:'valid',canonical:null,detail:'Known general tag.'},{text:'stupid hair',reason:'Model suggestion: a possible alias.',status:'alias',canonical:'ahoge',detail:'Alias of ahoge.'},{text:'invented_glitter_hair_zz',reason:'Model suggestion only.',status:'not_found',canonical:null,detail:'Not in the tag index.'},{text:'unchecked_hair_zz',reason:'Model suggestion only.',status:'unchecked',canonical:null,detail:'The index did not answer.'}],warnings:['Synthetic index verdicts for browser validation.']}); __pa.instruction('Compare checked and unchecked tag suggestions.'); window.__paAskBefore=els.assistantAsk.getBoundingClientRect().toJSON(); window.__paInstructionBefore=els.assistantInstruction.getBoundingClientRect().toJSON();"
+    "eval": "window.__paTags=__pa.arm('Synthetic authoritative tag verdicts',{drafts:[],tags:[{text:'ahoge',reason:'Model suggestion: the raised hair tuft.',status:'valid',canonical:null,detail:'Known general tag.'},{text:'stupid hair',reason:'Model suggestion: a possible alias.',status:'alias',canonical:'ahoge',detail:'Alias of ahoge.'},{text:'invented_glitter_hair_zz',reason:'Model suggestion only.',status:'not_found',canonical:null,detail:'Not in the tag index.'},{text:'unchecked_hair_zz',reason:'Model suggestion only.',status:'unchecked',canonical:null,detail:'The index did not answer.'}],warnings:['Synthetic index verdicts for browser validation.']}); __pa.instruction('Compare checked and unchecked tag suggestions.'); window.__paAskBefore=els.assistantAsk.getBoundingClientRect().toJSON(); window.__paInstructionBefore=els.assistantInstruction.getBoundingClientRect().toJSON();\nassistantResultData={...assistantResultData,message:Array.from({length:36},(_,i)=>'Earlier answer line '+(i+1)+': keep this older conversation readable.').join('\\n')}; assistantTurns.at(-1).answer=assistantResultData; renderAssistantHistory(); renderAssistantResult(); __pa.chatHost().scrollTop=0; __pa.chatBeforeSend=__pa.chatGeometry();"
   },
   {
-    "click": "#assistant-ask"
+    "click": "#assistant-instruction"
   },
   {
-    "expect": "__pa.until(()=>__paTags.captured && !!assistantRun)",
+    "keycombo": [
+      "Control",
+      "Enter"
+    ]
+  },
+  {
+    "expect": "(async()=>{const settled=await __pa.until(()=>__paTags.captured && !!assistantRun);return settled && els.assistantInstruction.value==='' && assistantPendingText==='Compare checked and unchecked tag suggestions.' && __pa.chatHost().scrollHeight-__pa.chatHost().clientHeight>120 && __pa.chatAtEnd() && __pa.chatStable(__pa.chatBeforeSend);})()",
     "fatal": true
   },
   {
@@ -696,7 +719,11 @@
     "expect": "els.generate.getAttribute('aria-disabled')==='true' && els.generate.title.toLowerCase().includes('assistant') && els.assistantStop.getAttribute('aria-disabled')!=='true'"
   },
   {
-    "eval": "__pa.instruction('Keep this follow-up instruction while the previous answer finishes.');"
+    "eval": "__pa.instruction('Keep this follow-up instruction while the previous answer finishes.'); __pa.chatHost().scrollTop=72;"
+  },
+  {
+    "expect": "(async()=>{await __pa.frames();return __pa.chatHost().scrollTop===72&&!__pa.chatAtEnd();})()",
+    "fatal": true
   },
   {
     "click": "#assistant-instruction"
@@ -708,20 +735,20 @@
     ]
   },
   {
-    "expect": "__pa.requests.length===5 && !!assistantRun && els.assistantInstruction.value==='Keep this follow-up instruction while the previous answer finishes.'"
+    "expect": "__pa.requests.length===5 && !!assistantRun && els.assistantInstruction.value==='Keep this follow-up instruction while the previous answer finishes.' && assistantPendingText==='Compare checked and unchecked tag suggestions.'"
   },
   {
     "expect": "__a11yCheck({root:'#prompt-assistant-sidebar'})"
   },
   {
-    "eval": "__pa.release(__paTags);"
+    "eval": "__pa.chatReadTop=__pa.chatHost().scrollTop; __pa.chatReplyFocus=document.activeElement; __pa.release(__paTags);"
   },
   {
     "expect": "__pa.until(()=>!assistantRun && assistantResultData?.message==='Synthetic authoritative tag verdicts')",
     "fatal": true
   },
   {
-    "expect": "els.assistantInstruction.value==='Keep this follow-up instruction while the previous answer finishes.'"
+    "expect": "els.assistantInstruction.value==='Keep this follow-up instruction while the previous answer finishes.' && Math.abs(__pa.chatHost().scrollTop-__pa.chatReadTop)<=1 && !__pa.chatAtEnd() && document.activeElement===__pa.chatReplyFocus && __pa.chatStable(__pa.chatBeforeSend)"
   },
   {
     "expect": "(() => {const pairs=[[els.assistantAsk,__paAskBefore],[els.assistantInstruction,__paInstructionBefore]],bad=pairs.map(([e,b])=>({id:e.id,before:b,after:e.getBoundingClientRect().toJSON()})).filter(x=>['x','y','width','height'].some(k=>Math.abs(x.after[k]-x.before[k])>=0.5));if(bad.length)throw Error('Assistant controls moved while answering: '+JSON.stringify(bad));return true;})()"
@@ -809,13 +836,13 @@
     "click": "#assistant-reset"
   },
   {
-    "eval": "__pa.mode('create'); __pa.instruction('A stoppable draft.'); window.__paStopped=__pa.arm('Abandoned stopped reply'); window.__paStopsBefore=__pa.stops.length;"
+    "eval": "__pa.mode('create'); __pa.stoppedRaw='  A stoppable draft.  '; __pa.instruction(__pa.stoppedRaw); window.__paStopped=__pa.arm('Abandoned stopped reply'); window.__paStopsBefore=__pa.stops.length;"
   },
   {
     "click": "#assistant-ask"
   },
   {
-    "expect": "__pa.until(()=>__paStopped.captured && !!assistantRun)",
+    "expect": "(async()=>{const settled=await __pa.until(()=>__paStopped.captured && !!assistantRun);return settled && els.assistantInstruction.value==='' && assistantPendingText==='A stoppable draft.';})()",
     "fatal": true
   },
   {
@@ -833,7 +860,7 @@
     "fatal": true
   },
   {
-    "expect": "assistantResultData?.message!=='Abandoned stopped reply' && els.prompt.value==='A deliberate newer composer draft.' && __pa.stops.at(-1).includes(__paStopped.request.ticket)"
+    "expect": "assistantResultData?.message!=='Abandoned stopped reply' && els.prompt.value==='A deliberate newer composer draft.' && __pa.stops.at(-1).includes(__paStopped.request.ticket) && els.assistantInstruction.value===__pa.stoppedRaw"
   },
   {
     "eval": "__pa.instruction('A draft whose sidebar will close.'); window.__paClosed=__pa.arm('Abandoned closed reply'); window.__paStopsBefore=__pa.stops.length;"
@@ -842,8 +869,11 @@
     "click": "#assistant-ask"
   },
   {
-    "expect": "__pa.until(()=>__paClosed.captured && !!assistantRun)",
+    "expect": "(async()=>{const settled=await __pa.until(()=>__paClosed.captured && !!assistantRun);return settled && els.assistantInstruction.value==='';})()",
     "fatal": true
+  },
+  {
+    "eval": "__pa.instruction('Keep this unsent draft after closing.');"
   },
   {
     "click": "#assistant-close"
@@ -867,19 +897,19 @@
     "fatal": true
   },
   {
-    "expect": "assistantResultData?.message!=='Abandoned closed reply' && els.prompt.value==='A deliberate newer composer draft.'"
+    "expect": "assistantResultData?.message!=='Abandoned closed reply' && els.prompt.value==='A deliberate newer composer draft.' && els.assistantInstruction.value==='Keep this unsent draft after closing.'"
   },
   {
-    "log": "'A failed answer leaves instruction text and source intact, releases the generation hold, and an explicit retry succeeds.'"
+    "log": "'A failed send restores the exact untouched message for retry. A successful retry keeps a newly typed identical follow-up and follows the newest overflowing answer without moving the document, composer or focus.'"
   },
   {
-    "eval": "__pa.instruction('Keep this instruction after failure.'); window.__paFailed=__pa.arm('Never shown');"
+    "eval": "__pa.failedRaw='  Keep this instruction after failure.  '; __pa.instruction(__pa.failedRaw); window.__paFailed=__pa.arm('Never shown');"
   },
   {
     "click": "#assistant-ask"
   },
   {
-    "expect": "__pa.until(()=>__paFailed.captured && !!assistantRun)",
+    "expect": "(async()=>{const settled=await __pa.until(()=>__paFailed.captured && !!assistantRun);return settled && els.assistantInstruction.value==='' && assistantPendingText===__pa.failedRaw.trim();})()",
     "fatal": true
   },
   {
@@ -890,23 +920,34 @@
     "fatal": true
   },
   {
-    "expect": "els.assistantInstruction.value==='Keep this instruction after failure.' && els.prompt.value==='A deliberate newer composer draft.' && !submitHold({composer:true})"
+    "expect": "els.assistantInstruction.value===__pa.failedRaw && els.prompt.value==='A deliberate newer composer draft.' && !submitHold({composer:true})"
   },
   {
-    "eval": "window.__paRetried=__pa.arm('Explicit retry answered');"
+    "eval": "window.__paRetried=__pa.arm('Explicit retry answered',{drafts:[{title:'Long newest reply',prompt:Array.from({length:60},(_,i)=>'Newest reply detail '+(i+1)+': retain the fox and snowy forest.').join('\\n'),notes:['Synthetic overflowing answer for conversation-follow checks.']}]}); __pa.chatBeforeRetry=__pa.chatGeometry();"
   },
   {
     "click": "#assistant-ask"
   },
   {
-    "expect": "__pa.until(()=>__paRetried.captured && !!assistantRun)",
+    "expect": "(async()=>{const settled=await __pa.until(()=>__paRetried.captured && !!assistantRun);return settled && els.assistantInstruction.value==='' && __paRetried.request.instruction===__pa.failedRaw.trim() && __pa.chatAtEnd() && __pa.chatStable(__pa.chatBeforeRetry);})()",
     "fatal": true
   },
   {
-    "eval": "__pa.release(__paRetried);"
+    "eval": "__pa.instruction(__pa.failedRaw); els.assistantAsk.focus({preventScroll:true}); __pa.chatRetryFocus=document.activeElement; __pa.release(__paRetried);"
   },
   {
     "expect": "__pa.until(()=>!assistantRun && assistantResultData?.message==='Explicit retry answered')",
+    "fatal": true
+  },
+  {
+    "expect": "(async()=>{await __pa.frames();const h=__pa.chatHost();return els.assistantInstruction.value===__pa.failedRaw&&h.scrollHeight-h.clientHeight>120&&__pa.chatAtEnd()&&document.activeElement===__pa.chatRetryFocus&&__pa.chatStable(__pa.chatBeforeRetry);})()",
+    "fatal": true
+  },
+  {
+    "log": "'Cmd+Enter also clears at admission. A draft typed and then erased during a failed answer stays erased rather than resurrecting the sent message.'"
+  },
+  {
+    "expect": "(async()=>{\n const saved={api,instruction:els.assistantInstruction.value,result:assistantResultData,turns:assistantTurns,snapshot:assistantSnapshot,status:els.assistantStatus.textContent,warn:els.assistantStatus.classList.contains('warn'),scroll:__pa.chatHost().scrollTop};\n let fail=null;\n try {\n  api=async(path,options)=>path==='/api/prompt/assist'&&options?.method==='POST'?await new Promise((resolve,reject)=>{fail=reject;}):await saved.api(path,options);\n  __pa.instruction('A failure must not restore a deliberately erased draft.'); els.assistantInstruction.focus({preventScroll:true});\n  els.assistantInstruction.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',metaKey:true,bubbles:true,cancelable:true}));\n  __pa.assert(!!assistantRun&&!!fail&&els.assistantInstruction.value==='','Cmd+Enter did not immediately clear the admitted message');\n  __pa.instruction('A newer draft that I deliberately erase.'); __pa.instruction('');\n  fail(Error('Synthetic typed-and-erased failure')); fail=null;\n  __pa.assert(await __pa.until(()=>!assistantRun),'erased-draft failure did not settle');\n  __pa.assert(els.assistantInstruction.value===''&&els.assistantStatus.textContent.includes('Synthetic typed-and-erased failure'),'failure resurrected the deliberately erased draft');\n  return true;\n } finally {\n  if(fail){fail(Error('Synthetic fixture cleanup'));await __pa.until(()=>!assistantRun);}\n  api=saved.api; assistantResultData=saved.result; assistantTurns=saved.turns; assistantSnapshot=saved.snapshot; __pa.instruction(saved.instruction); renderAssistantHistory(); renderAssistantResult(); assistantSay(saved.status,saved.warn); __pa.chatHost().scrollTop=saved.scroll;\n }\n})()",
     "fatal": true
   },
   {

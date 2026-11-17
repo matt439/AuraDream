@@ -17,6 +17,7 @@ let assistantModel = 'default';
 let assistantModels = [];
 let assistantModelsEpoch = 0;
 let assistantModelsFailed = false;
+let assistantInstructionVersion = 0;
 
 const ASSISTANT_INPUT_LIMIT = 12000;
 const ASSISTANT_HISTORY_LIMIT = 8;
@@ -334,6 +335,19 @@ function resetAssistantConversation({ clearInstruction = true } = {}) {
 
 function assistantSidebarOpen() { return !els.assistantSidebar.hidden; }
 
+function assistantScrollPosition() {
+  const host = els.assistantSidebar.querySelector('.assistant-body');
+  return { top: host.scrollTop, follow: host.scrollHeight - host.clientHeight - host.scrollTop <= 48 };
+}
+
+function scrollAssistantConversation(position = { follow: true, top: 0 }) {
+  if (!assistantSidebarOpen()) return;
+  const host = els.assistantSidebar.querySelector('.assistant-body');
+  // Follow new messages at the end, but leave earlier messages where the
+  // reader put them. Only this conversation moves, never the workspace.
+  host.scrollTop = position.follow ? host.scrollHeight : position.top;
+}
+
 function openPromptAssistant(mode = null) {
   if (assistantSidebarOpen()) return;
   assistantOrigin = document.activeElement;
@@ -372,7 +386,10 @@ async function askPromptAssistant() {
   const why = assistantAskReason();
   if (why) { assistantSay(why, true); if (serverOffline) void refreshStatus(); return; }
   const source = assistantSource();
-  const instruction = els.assistantInstruction.value.trim();
+  const draft = els.assistantInstruction.value;
+  const instruction = draft.trim();
+  const instructionVersion = assistantInstructionVersion;
+  let answered = false;
   const run = { epoch: ++assistantEpoch, ticket: expandTicket(), mode: assistantMode, model: assistantModel,
     stopped: false, stopping: false, started: Date.now() };
   const payload = {
@@ -383,12 +400,14 @@ async function askPromptAssistant() {
   assistantRun = run;
   assistantSnapshot = source;
   assistantPendingText = instruction;
+  els.assistantInstruction.value = '';
   const selected = assistantModelStatus();
   const download = !selected.ready && selected.fetch.length;
   assistantSay(download ? `First use downloads ${selected.fetch.join(' and ')} (about ${humanBytes(selected.fetch_bytes)}). Then the local model writes an answer.` : 'Asking the local model…');
   clearInterval(assistantClockTimer); assistantClock();
   assistantClockTimer = setInterval(assistantClock, 1000);
   syncPromptExpansion();
+  scrollAssistantConversation();
   void refreshStatus();
   try {
     const body = await api('/api/prompt/assist', {
@@ -401,28 +420,36 @@ async function askPromptAssistant() {
     if (body.model_id !== source.model) {
       assistantSay('The checkpoint changed while this answer was prepared. Start a new conversation.', true); return;
     }
+    const position = assistantScrollPosition();
+    answered = true;
     assistantResultData = { ...body, elapsedSeconds: (Date.now() - run.started) / 1000 };
     assistantSelectedTags.clear();
     assistantTurns.push({ role: 'user', content: instruction },
       { role: 'assistant', content: assistantHistoryText(body), display: body.message, answer: assistantResultData });
     assistantPendingText = '';
-    if (els.assistantInstruction.value.trim() === instruction) els.assistantInstruction.value = '';
     els.assistantInstruction.placeholder = 'Refine the answer, for example: keep the pose and make the lighting softer';
     renderAssistantHistory(); renderAssistantResult();
+    scrollAssistantConversation(position);
     assistantSay(assistantSourceChanged()
       ? 'The source text changed while the model answered. Nothing can be applied; start a new conversation for the current text.'
       : 'Ready. Choose a draft or send a follow-up.', assistantSourceChanged());
-    if (document.activeElement === els.assistantAsk) els.assistantResult.focus({ preventScroll: true });
   } catch (err) {
     if (run.epoch !== assistantEpoch || run.stopped || !assistantSidebarOpen()) return;
     assistantSay(err.offline ? 'The server did not answer. The main prompt is unchanged.' : `The assistant did not answer: ${err.message}`, true);
   } finally {
     if (assistantRun === run) {
+      const position = assistantScrollPosition();
       assistantRun = null;
       assistantPendingText = '';
+      // Failed or stopped sends remain retryable, without replacing anything
+      // typed (even if subsequently erased) while the answer was pending.
+      if (!answered && assistantInstructionVersion === instructionVersion && !els.assistantInstruction.value) {
+        els.assistantInstruction.value = draft;
+      }
       clearInterval(assistantClockTimer); assistantClockTimer = null; assistantClock();
       if (run.stopped && run.epoch === assistantEpoch) assistantSay('Answer stopped. The main prompt is unchanged.');
       syncPromptExpansion();
+      scrollAssistantConversation(position);
       void refreshStatus();
       if (assistantSidebarOpen()) void refreshAssistantModels();
     }
@@ -567,11 +594,14 @@ function initPromptAssistant() {
     control.addEventListener('pointerdown', held);
     control.addEventListener('keydown', held);
   }
-  els.assistantInstruction.addEventListener('input', syncPromptAssistant);
+  els.assistantInstruction.addEventListener('input', () => {
+    ++assistantInstructionVersion;
+    syncPromptAssistant();
+  });
   els.prompt.addEventListener('input', syncPromptAssistant);
   els.negative.addEventListener('input', syncPromptAssistant);
   els.assistantInstruction.addEventListener('keydown', (event) => {
-    if (!keyboardSubmit(event)) return;
+    if (keyboardEventHeld(event) || !keyboardSubmit(event)) return;
     event.preventDefault(); event.stopPropagation();
     if (!event.repeat) void askPromptAssistant();
   });

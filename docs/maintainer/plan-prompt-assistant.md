@@ -510,3 +510,28 @@ the diagnosed phone fixture failure) and
 `auradream-smoke-artifacts-j5rtdnd8/summary.json` (the corrected phone pass).
 No assistant GPU session was run; prompt quality, latency, memory and
 real-model cancellation remain held for later authorization.
+
+## Message clearing and conversation following (2026-11-17)
+
+Matt reported that Ctrl+Enter left the sent message in the input and new
+entries stayed below the visible conversation. Admitted sends now clear the
+field immediately, retaining the pending message above it. Replies preserve
+newer drafts, including identical retyped text, and leave focus alone. Failed
+or stopped messages restore their exact original text only to an untouched
+empty field. A draft typed and then erased stays erased.
+
+Send scrolls the conversation to its end. Replies follow when the reader is
+within 48 px of the bottom; reading earlier messages preserves the scroll
+position. Document scrolling and the fixed composer's geometry stay unchanged.
+Plain Enter retains its newline behavior, and composing/already-handled events
+cannot send.
+
+Local validation used isolated fakes and no inference: all 336 assistant smoke
+steps passed, along with shortcuts and shortcut-dispatch. The 139 focused
+documentation, classic-script, accessibility-audit and browser-output checks
+passed, as did Ruff. Native Ctrl+Enter and Send cover immediate clearing;
+Cmd+Enter is checked with a synthetic browser event. Real overflow exercises
+both bottom-follow and reading-position preservation. Desktop and phone
+screenshots were inspected. Final receipts under the system temporary directory:
+`auradream-smoke-artifacts-ryhtc3an/summary.json` (assistant) and
+`auradream-smoke-artifacts-gj0hhjb9/summary.json` (keyboard regressions).

@@ -3932,8 +3932,15 @@ measured on the card and when.
   closes it, while workspace shortcuts retain their ordinary routes. Close and
   touch Back request Stop and discard late replies. Conversation and earlier
   drafts remain visible above the fixed composer; only the newest answer offers
-  Use. Explicit application keeps the sidebar open and rebases its exact source
-  snapshot for follow-ups. External edits and native Undo still invalidate it.
+  Use. An admitted Send clears the message field immediately, keeping the sent
+  instruction visible in the conversation while the reply is pending. Replies
+  never erase a follow-up draft or take focus. Failed or stopped messages return
+  to an untouched empty field for explicit retry; intervening edits win even if
+  they leave the field empty. Sending scrolls only the conversation to its end.
+  An arriving reply follows when the reader is within 48 px of the bottom;
+  scrolling up preserves the reader's position. Explicit application keeps the
+  sidebar open and rebases its exact source snapshot for follow-ups. External
+  edits and native Undo still invalidate it.
   The pane is 600 px below the wide tier, 680-900 px within it, capped to the
   viewport. Task selection shares the header when it fits; the message and
   Send/Stop share one compact composer with a two-line message field and 4 px
@@ -11383,7 +11390,10 @@ Stop/Close/reopen, checkpoint changes, and the nonmodal sidebar on desktop and
 phone, with accessibility and phone-layout audits. Direct access, retained
 structured history, workspace interaction, focus leaving the sidebar, explicit
 apply/rebase and Undo, reserved wide-layout room, narrow Escape and touch Back
-are checked. It runs no LLM or GPU work:
+are checked. Message checks cover immediate clearing through Send and Ctrl+Enter,
+preserved follow-up drafts, failure/Stop recovery, and conversation-only scroll
+following without interrupting earlier-message reading. It runs no LLM or GPU
+work:
 
 ```powershell
 uv run python tools/run_smoke.py smoke-prompt-assistant
