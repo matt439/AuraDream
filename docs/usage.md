@@ -567,20 +567,43 @@ download and any prompt recheck. Its process stops after answering.
 Supported platforms and custom binaries are described in
 [Settings](../README.md#settings); `AURADREAM_CRITIC=false` disables it.
 
-**Write a prompt…**, in the **Examples** menu (or the phone's topbar **⋯**),
-opens the experimental local writing assistant. **Create** develops a rough
+**Assistant**, beside the prompt (in its toolbar on a phone), opens the
+experimental local writing assistant in a right sidebar. **Create** develops a rough
 idea into drafts; **Improve** revises the current prompt to your instruction;
 **Find tags** suggests candidate Danbooru tags and checks their names. You can
-send follow-ups in the same dialog. Review each answer: the model can invent
+send follow-ups while keeping the main editor available. Review each answer: the model can invent
 details or lose ones you wanted. **Use prompt** applies a draft explicitly,
-and Ctrl+Z restores the editor. A changed source prompt or checkpoint holds
-application so an old answer cannot replace new work.
+and Ctrl+Z restores the editor. The sidebar stays open, so you can keep refining
+the applied prompt. Earlier drafts remain in the chat. An external edit, Undo,
+or a changed checkpoint holds application so an old answer cannot replace new
+work. The latest prompt options are numbered **1-3**. Press the matching number
+while focused in the assistant outside a text field, or **Alt+1/2/3** from its
+message box, to use that prompt. Ctrl/Cmd+Enter in the sidebar sends; Escape
+there closes it.
+Draft explanations appear directly below each prompt. **About the local assistant** at the
+bottom explains context, downloads and tag verification without moving the
+message box when opened.
+For tag prompts, each option shows **Added** tags in green with a **+**, and
+**Removed** tags in red with a **−**, compared with the prompt sent for that
+reply. The comparison stays the same after applying an option. Reordering alone
+shows **No tags added or removed**; prose and mixed or structured prompts omit this view.
+If the model repeats its drafts in its reply, that extra prose is tucked into
+**Assistant note** below the cards; each draft is shown once by default.
 
-The assistant uses the same local Qwen3-4B runtime and first-use downloads as
-Suggest improvements. It waits for image jobs, loads and other prompt GPU work,
-and releases its process after each answer. **Stop**, or closing the dialog,
-requests cancellation. Conversation stays in this page's memory; **New
-conversation** clears it. It is not saved with images. Candidate tag names are
+**Assistant model** selects the local writing model and remembers your choice
+in this browser. The default is the model used by Suggest improvements.
+Optional **Qwen3-8B Q4_K_M** and **Qwen3.5-4B Q8_0** use separate downloads
+of about 5.0 GB and 4.5 GB, plus the shared llama.cpp runtime if missing.
+Send downloads the selected model on first use; opening the sidebar checks
+what is already installed. These sizes describe downloads, not required VRAM.
+You can switch between replies and keep the conversation; each answer names
+its model. The choice is held while an answer runs. The selected image
+checkpoint continues to supply its prompting guide.
+
+The assistant waits for image jobs, loads and other prompt GPU work,
+and releases its process after each answer. **Stop**, or closing the sidebar,
+requests cancellation. Conversation stays in this page's memory; **New chat**
+clears it. It is not saved with images. Candidate tag names are
 sent to Danbooru for verification; the conversation is local. An unavailable
 lookup leaves tags unchecked. Prompt quality, latency and memory for this new
 workflow still await GPU testing; the critic's measurements above are not

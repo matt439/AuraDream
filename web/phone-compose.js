@@ -9,10 +9,9 @@
 'use strict';
 
 // The nodes moved here, each home again off the phone: the status into
-// Models (the chip), and the caption's Examples, Check, Tags and Expand
-// into the toolbar, in that order - the authors' words, the check, then
-// the checkpoint's own helpers. Reset is the topbar ⋯'s.
-const phoneToolbarNodes = () => [$('examples'), els.analyze, els.tagHelper, els.expandPrompt];
+// Models (the chip), the topbar's Assistant and the prompt's Examples, Check,
+// Tags and Expand into the toolbar. Reset is the topbar ⋯'s.
+const phoneToolbarNodes = () => [$('examples'), els.assistantToggle, els.analyze, els.tagHelper, els.expandPrompt];
 const phoneComposeMoved = () => [$('status'), ...phoneToolbarNodes()];
 
 // From syncPhoneHosts: at boot and at every change of tier.
@@ -57,7 +56,6 @@ function openTopbarMenu(event) {
     null,
     { label: 'Saved setups…', title: 'Restore, save and manage named setups of the panel', run: () => { void openSetups(); } },
     { label: 'Personal snippets…', title: 'Insert, save and manage your own prompt snippets', run: () => { void openSnippets(); } },
-    { label: 'Write a prompt…', title: 'Create or improve a prompt, or find tags with a local model', run: () => openPromptAssistant() },
     press('Load settings from PNG…', els.pngButton),
     null,
     dangerItem(press('Reset', els.reset)),

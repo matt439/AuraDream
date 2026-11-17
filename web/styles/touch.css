@@ -92,6 +92,21 @@
     padding-bottom: max(var(--gutter), var(--safe-b));
   }
 
+  .prompt-assistant-sidebar {
+    padding-left: max(var(--sp-4), var(--safe-l));
+    padding-right: max(var(--sp-4), var(--safe-r));
+    padding-bottom: max(var(--sp-4), var(--safe-b));
+  }
+  .assistant-head button, .assistant-tools select, .assistant-about > summary,
+  .assistant-actions button, .assistant-draft-head button,
+  .assistant-response-note > summary { min-height: var(--h-md); }
+  .assistant-head button { min-width: var(--h-md); }
+  .assistant-draft-tools > summary, .assistant-requirement-checks summary,
+  .assistant-draft-tag-validation > summary,
+  .assistant-tools-dialog summary, .assistant-tools-dialog button,
+  #assistant-compare, #assistant-focus-clear { min-height: var(--h-md); }
+  .assistant-foot summary { white-space: nowrap; }
+
   /* Under 16 px iOS Safari zooms the page into a box as it takes the focus,
      and leaves it zoomed. Every kind of box, whatever its own rule says. */
   textarea, select,
@@ -714,20 +729,30 @@
     min-height: auto; overflow: visible;
   }
 
-  /* The prompt writer keeps its composer in place while answers arrive.
-     Its results scroll above that composer, including above the keyboard. */
-  .prompt-assistant-dialog { overflow: hidden; }
-  .prompt-assistant-dialog > .assistant-body { min-height: 0; overflow-y: auto; }
+  /* The prompt assistant fills the phone's visible viewport. The conversation
+     shrinks above its composer; if the header and composer cannot fit, the
+     whole pane scrolls so every control remains reachable above the keyboard.
+     The page's form sheets maintain the same viewport properties. */
+  .assistant-about-short { display: inline; }
+  .assistant-about-long { display: none; }
+  .prompt-assistant-sidebar {
+    top: var(--sheet-viewport-top, 0px); bottom: auto;
+    z-index: 30;
+    left: 0; right: 0; width: auto; max-width: none;
+    height: var(--sheet-viewport-height, 100dvh);
+    max-height: var(--sheet-viewport-height, 100dvh);
+    padding-top: max(var(--sp-2), var(--safe-t));
+    border-radius: 0; overflow-x: hidden; overflow-y: auto;
+  }
+  body.assistant-open > main { margin-right: 0; }
+  .prompt-assistant-sidebar > .assistant-body { min-height: 0; overflow-y: auto; }
   @container prompt-assistant (max-height: 500px) {
-    .assistant-compose > .hint { display: none; }
-    .assistant-cost-line, #assistant-status { height: 1lh; }
+    #assistant-status { height: 1lh; }
     #assistant-instruction { height: var(--h-field); min-height: var(--h-field); }
   }
   @container prompt-assistant (max-height: 260px) {
-    .assistant-body, .assistant-cost-line { display: none; }
+    .assistant-body { display: none; }
   }
-  :root[data-short-sheet] .prompt-assistant-dialog { overflow-y: auto; }
-  :root[data-short-sheet] .prompt-assistant-dialog > * { flex-shrink: 0; }
 
   /* Inpaint's tools wrap inside the screen: in two rows that never wrapped,
      Only the masked area, its Pad and Show mask lay past the right edge.

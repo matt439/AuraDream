@@ -34,6 +34,7 @@ WATCHED = {
     "smoke-setup-portability", "smoke-shortcuts", "smoke-snippet-portability", "smoke-snippets",
     "smoke-swap", "smoke-then-refine", "smoke-download-progress", "smoke-idle-activity",
     "smoke-gallery-maintenance", "smoke-offline", "smoke-passcode", "smoke-prompt-assistant",
+    "smoke-assistant-workflow", "smoke-assistant-draft-tags",
 }
 
 

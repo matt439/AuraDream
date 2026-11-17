@@ -456,28 +456,29 @@
      Back gave it the focus again. */
   .topbar-more:hover { border-color: transparent; }
 
-  /* The prompt's toolbar under its box: Examples, Check, Tags and Expand,
+  /* The prompt's toolbar under its box: Examples, Assistant, Check, Tags and Expand,
      moved from the caption (34 px, 3.8 px apart, wrapping with Tags and
-     Expand) into one row of 44 px tonal buttons 8 px apart, each its
-     words' width, 16 px; the caption is the box's name and ? alone. What
+     Expand) into two columns of 44 px tonal buttons 8 px apart; the
+     caption is the box's name and ? alone. What
      hangs from the editor's foot - the suggestions as one types, Find tag -
      hangs from the box's, over the toolbar (and the check's line), so a
      list is where the caret is; the Tags helper hangs under the toolbar, from
      its button. */
-  .prompt-toolbar { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; margin-top: var(--sp-2); }
-  .prompt-toolbar > :is(span, button) { flex: none; margin: 0; }
-  .prompt-toolbar .ghost.tiny { margin: 0; }
+  .prompt-toolbar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: center; gap: var(--sp-2); min-width: 0; margin-top: var(--sp-2); }
+  .prompt-toolbar > :is(span, button) { min-width: 0; margin: 0; }
+  .prompt-toolbar #btn-examples, .prompt-toolbar #btn-tags { width: 100%; }
+  .prompt-toolbar :is(.ghost.tiny, #btn-prompt-assistant) { margin: 0; }
   /* Reset and Load settings from PNG… are the topbar ⋯'s rows here (each
      its own button's press), not drawn in the caption or the panel. */
   .field > span #btn-reset, .panel > .png-load { display: none; }
   .prompt-toolbar > [hidden] { display: none; }
-  .prompt-toolbar .ghost.tiny {
+  .prompt-toolbar :is(.ghost.tiny, #btn-prompt-assistant) {
     min-height: var(--h-md); height: var(--h-md); padding-inline: var(--sp-4);
     background-color: var(--panel-2); border-color: var(--line-strong); color: var(--text);
     font-size: var(--fs-md); font-weight: 600;
   }
-  .prompt-editor:has(> .prompt-toolbar) { --tools-h: calc(var(--h-md) + var(--sp-2)); }
-  .prompt-editor:has(> .check-chip:not([hidden])) { --tools-h: calc(2 * (var(--h-md) + var(--sp-2))); }
+  .prompt-editor:has(> .prompt-toolbar) { --tools-h: calc(2 * (var(--h-md) + var(--sp-2))); }
+  .prompt-editor:has(> .check-chip:not([hidden])) { --tools-h: calc(3 * (var(--h-md) + var(--sp-2))); }
   .prompt-editor > :is(.tag-suggestions, .tag-finder) { top: calc(100% + 4px - var(--tools-h, 0px)); }
 
   /* The check's line while a check is kept and its sheet shut: "Check:"

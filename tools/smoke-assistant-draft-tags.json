@@ -1,0 +1,275 @@
+[
+  {
+    "log": "'Assistant draft Danbooru validation on a fresh Animagine fake. Exact prompt text, existing editor verdicts, aliases, unknown/unchecked states, retry, history cache, native Apply/Undo, late replies and hybrid prose. No LLM, GPU, image generation or real gallery.'"
+  },
+  {
+    "navigate": "http://127.0.0.1:7960/"
+  },
+  {
+    "inject": "a11y_audit.js"
+  },
+  {
+    "eval": "__a11yWatch()"
+  },
+  {
+    "viewport": [
+      1920,
+      1080
+    ]
+  },
+  {
+    "expect": "(async()=>{\n const until=async(fn,ms=20000)=>{const end=Date.now()+ms;while(Date.now()<end){if(await fn())return true;await new Promise(resolve=>setTimeout(resolve,40));}return false;};\n const assert=(ok,why)=>{if(!ok)throw Error(why);};\n assert(await until(()=>loadedModel==='cagliostrolab/animagine-xl-4.0'&&tagVocabularyEnabled&&Number.isInteger(modelRevision)&&!busy&&!statusPending&&!galleryPending&&!jobListing),'fresh Animagine page did not settle');\n const q=window.__adt={until,assert,native:api,calls:[],answers:[],errors:[],forbidden:[],offline:new Set(),holds:new Map(),next:null};\n addEventListener('error',e=>q.errors.push(e.message));addEventListener('unhandledrejection',e=>q.errors.push(String(e.reason)));\n q.frames=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));\n q.instruction=text=>{replaceBoxText(els.assistantInstruction,text);els.assistantInstruction.dispatchEvent(new Event('input',{bubbles:true}));};\n q.arm=(prompt,title='Teto in Moonlit Park')=>{q.next={model_id:loadedModel,model:'Draft validation fake',seconds:0.1,message:'',drafts:[{title,prompt,notes:['Review the proposed names before applying.']}],tags:[],warnings:[]};q.instruction('Keep the subject and review the details.');};\n q.card=()=>els.assistantResult.querySelector('.assistant-draft');\n q.text=()=>q.card()?.querySelector('.assistant-draft-text');\n q.count=prompt=>q.calls.filter(item=>item.prompt===prompt).length;\n q.hold=prompt=>{const h={captured:false,release:null};q.holds.set(prompt,h);return h;};\n q.reveal=async selector=>{const e=document.querySelector(selector);assert(e,'missing '+selector);const menu=e.closest('.assistant-draft-tool-menu');if(menu){const r=e.getBoundingClientRect(),m=menu.getBoundingClientRect();menu.scrollTop+=r.bottom>m.bottom?r.bottom-m.bottom+5:r.top<m.top?r.top-m.top-5:0;}const host=e.closest('.assistant-body');if(host){const r=e.getBoundingClientRect(),h=host.getBoundingClientRect();host.scrollTop+=r.bottom>h.bottom?r.bottom-h.bottom+5:r.top<h.top?r.top-h.top-5:0;}await q.frames();const r=e.getBoundingClientRect(),hit=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return !!hit&&(hit===e||e.contains(hit));};\n q.switch=async model=>{await q.native('/api/model/switch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model_id:model,load:false})});await refreshStatus();return await until(()=>loadedModel===model&&!statusPending&&!galleryPending&&!jobListing);};\n api=async(path,options)=>{\n  const method=String(options?.method||'GET').toUpperCase();\n  if(path==='/api/prompt/assist'&&method==='POST'&&q.next){const answer=q.next;q.next=null;q.answers.push(answer);return answer;}\n  if(path==='/api/tags/validate'&&method==='POST'){\n   const request=JSON.parse(options.body);q.calls.push(request);const answer=await q.native(path,options);const held=q.holds.get(request.prompt);if(held&&!held.captured){held.captured=true;held.answer=answer;await new Promise(resolve=>{held.release=resolve;});}\n   if(q.offline.has(request.prompt))return {...answer,available:false,detail:'Synthetic Danbooru outage',results:answer.results.map(item=>item.source==='model'?item:{tag:item.tag,valid:null,reason:'Synthetic Danbooru outage'})};return answer;\n  }\n  if(method!=='GET'&&!['/api/prompt/measure','/api/prompt/analyze','/api/tags/validate'].includes(path)){q.forbidden.push(method+' '+path);throw Error('Draft tag smoke refuses unrelated writes: '+path);}\n  return q.native(path,options);\n };\n writeBox(els.prompt,'1girl, green eyes');promptReplaced();els.prompt.dispatchEvent(new Event('input',{bubbles:true}));q.original=els.prompt.value;\n q.example='1girl, Teto, from Vocaloid, safe, basketball, park, nighttime, moonlit, wearing a school uniform and microphone, masterpiece, high score, great score, absurdres, twin tails, green hair';\n return true;\n})()",
+    "fatal": true
+  },
+  {
+    "click": "#btn-prompt-assistant"
+  },
+  {
+    "expect": "__adt.until(()=>assistantSidebarOpen()&&assistantModels.length===3&&!statusPending)",
+    "fatal": true
+  },
+  {
+    "eval": "__adt.arm(__adt.example);"
+  },
+  {
+    "click": "#assistant-ask"
+  },
+  {
+    "expect": "__adt.until(()=>!assistantRun&&__adt.card()?.dataset.tagState==='checked'&&__adt.text().textContent===__adt.example&&__adt.card().querySelectorAll('.assistant-draft-tag.unknown').length>0)",
+    "fatal": true
+  },
+  {
+    "expect": "(()=>{const c=__adt.card(),marks=[...c.querySelectorAll('.assistant-draft-tag')];return els.prompt.value===__adt.original&&marks.length===promptTagParts(__adt.example).length&&marks.find(x=>x.textContent==='1girl').classList.contains('valid')&&marks.find(x=>x.textContent==='masterpiece').dataset.category==='guide'&&marks.find(x=>x.textContent==='Teto').classList.contains('unknown')&&marks.find(x=>x.textContent==='twin tails').classList.contains('alias')&&marks.find(x=>x.textContent==='twin tails').title.includes('twintails')&&__adt.calls.find(x=>x.prompt===__adt.example).tags.join('|')===promptTagParts(__adt.example).join('|')&&c.querySelector('[data-assistant-draft]').getAttribute('aria-disabled')==='false';})()",
+    "fatal": true
+  },
+  {
+    "shot": "assistant-draft-tags-desktop.png"
+  },
+  {
+    "click": "#assistant-result .assistant-draft-tools > summary"
+  },
+  {
+    "click": "#assistant-result .assistant-draft-tag-validation > summary"
+  },
+  {
+    "expect": "__adt.card().querySelector('.assistant-draft-tag-results').textContent.includes('Teto')&&__adt.card().querySelector('.assistant-draft-tag-results').textContent.includes('not found in Danbooru')&&__adt.card().querySelector('.assistant-draft-tag-results').textContent.includes('twintails')",
+    "fatal": true
+  },
+  {
+    "eval": "__adt.firstCount=__adt.count(__adt.example);"
+  },
+  {
+    "expect": "__adt.reveal('#assistant-result [data-assistant-action=recheck-tags]')",
+    "fatal": true
+  },
+  {
+    "click": "#assistant-result [data-assistant-action=recheck-tags]"
+  },
+  {
+    "expect": "__adt.until(()=>__adt.count(__adt.example)===__adt.firstCount+1&&__adt.card()?.dataset.tagState==='checked'&&__adt.text().textContent===__adt.example)",
+    "fatal": true
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "eval": "__adt.cacheCount=__adt.count(__adt.example);__adt.arm('1girl, green hair','A known option');"
+  },
+  {
+    "click": "#assistant-ask"
+  },
+  {
+    "expect": "__adt.until(()=>!assistantRun&&assistantTurns.length===4&&__adt.card()?.dataset.tagState==='checked')",
+    "fatal": true
+  },
+  {
+    "expect": "__adt.count(__adt.example)===__adt.cacheCount&&[...els.assistantHistory.querySelectorAll('.assistant-draft')].some(c=>c.querySelector('.assistant-draft-text').textContent===__adt.example&&c.querySelector('.assistant-draft-tag.unknown'))",
+    "fatal": true
+  },
+  {
+    "click": "#assistant-result [data-assistant-draft=\"0\"]"
+  },
+  {
+    "expect": "els.prompt.value==='1girl, green hair'&&__adt.text().textContent==='1girl, green hair'",
+    "fatal": true
+  },
+  {
+    "keycombo": [
+      "Control",
+      "z"
+    ]
+  },
+  {
+    "expect": "els.prompt.value===__adt.original",
+    "fatal": true
+  },
+  {
+    "click": "#assistant-reset"
+  },
+  {
+    "eval": "__adt.offlinePrompt='1girl, moonlit made up detail';__adt.offline.add(__adt.offlinePrompt);__adt.arm(__adt.offlinePrompt,'Unchecked during an outage');"
+  },
+  {
+    "click": "#assistant-ask"
+  },
+  {
+    "expect": "__adt.until(()=>!assistantRun&&__adt.card()?.dataset.tagState==='unchecked'&&__adt.card().querySelector('.assistant-draft-tag.unchecked'))",
+    "fatal": true
+  },
+  {
+    "expect": "!__adt.card().querySelector('.assistant-draft-tag.unknown')&&__adt.card().querySelector('.assistant-draft-tag.valid')&&__adt.text().textContent===__adt.offlinePrompt&&__adt.card().querySelector('[data-assistant-draft]').getAttribute('aria-disabled')==='false'",
+    "fatal": true
+  },
+  {
+    "eval": "__adt.offline.delete(__adt.offlinePrompt);"
+  },
+  {
+    "click": "#assistant-result .assistant-draft-tools > summary"
+  },
+  {
+    "click": "#assistant-result .assistant-draft-tag-validation > summary"
+  },
+  {
+    "expect": "__adt.reveal('#assistant-result [data-assistant-action=recheck-tags]')",
+    "fatal": true
+  },
+  {
+    "click": "#assistant-result [data-assistant-action=recheck-tags]"
+  },
+  {
+    "expect": "__adt.until(()=>__adt.card()?.dataset.tagState==='checked'&&__adt.card().querySelector('.assistant-draft-tag.unknown')&&__adt.text().textContent===__adt.offlinePrompt)",
+    "fatal": true
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "click": "#assistant-reset"
+  },
+  {
+    "eval": "__adt.capped=Array.from({length:65},()=> 'green hair').join(', ');__adt.arm(__adt.capped,'Bounded validation');"
+  },
+  {
+    "click": "#assistant-ask"
+  },
+  {
+    "expect": "__adt.until(()=>!assistantRun&&__adt.card()?.dataset.tagState==='checked'&&__adt.card().querySelectorAll('.assistant-draft-tag').length===65)",
+    "fatal": true
+  },
+  {
+    "expect": "__adt.calls.find(x=>x.prompt===__adt.capped).tags.length===64&&__adt.card().querySelectorAll('.assistant-draft-tag.valid').length===64&&__adt.card().querySelector('.assistant-draft-tag:last-child').classList.contains('unchecked')&&__adt.text().textContent===__adt.capped",
+    "fatal": true
+  },
+  {
+    "click": "#assistant-reset"
+  },
+  {
+    "eval": "__adt.literal='1girl, <img src=x onerror=window.__draftTagInjected=true>, firefly \\\\(honkai: star rail\\\\), {hair}';__adt.arm(__adt.literal,'Literal text stays text');"
+  },
+  {
+    "click": "#assistant-ask"
+  },
+  {
+    "expect": "__adt.until(()=>!assistantRun&&__adt.card()?.dataset.tagState==='checked')",
+    "fatal": true
+  },
+  {
+    "expect": "__adt.text().textContent===__adt.literal&&!__adt.text().querySelector('img')&&!window.__draftTagInjected&&__adt.card().querySelector('.assistant-draft-tag.grid-variable')",
+    "fatal": true
+  },
+  {
+    "click": "#assistant-reset"
+  },
+  {
+    "eval": "__adt.latePrompt='1girl, late close detail';window.__adtClose=__adt.hold(__adt.latePrompt);__adt.arm(__adt.latePrompt,'A delayed dictionary reply');"
+  },
+  {
+    "click": "#assistant-ask"
+  },
+  {
+    "expect": "__adt.until(()=>!assistantRun&&__adtClose.captured&&typeof __adtClose.release==='function'&&__adt.card()?.dataset.tagState==='pending')",
+    "fatal": true
+  },
+  {
+    "eval": "__adt.oldCard=__adt.card();__adt.oldText=__adt.oldCard.textContent;"
+  },
+  {
+    "click": "#assistant-close"
+  },
+  {
+    "eval": "__adtClose.release();"
+  },
+  {
+    "expect": "(async()=>{await __adt.frames();return !assistantSidebarOpen()&&__adt.oldCard.textContent===__adt.oldText;})()",
+    "fatal": true
+  },
+  {
+    "click": "#btn-prompt-assistant"
+  },
+  {
+    "expect": "__adt.until(()=>__adt.card()?.dataset.tagState==='checked'&&__adt.count(__adt.latePrompt)===2)",
+    "fatal": true
+  },
+  {
+    "click": "#assistant-reset"
+  },
+  {
+    "eval": "__adt.modelLate='1girl, late checkpoint detail';window.__adtModel=__adt.hold(__adt.modelLate);__adt.arm(__adt.modelLate,'Old checkpoint reply');"
+  },
+  {
+    "click": "#assistant-ask"
+  },
+  {
+    "expect": "__adt.until(()=>!assistantRun&&__adtModel.captured&&typeof __adtModel.release==='function')",
+    "fatal": true
+  },
+  {
+    "expect": "(async()=>{const ok=await __adt.switch('KBlueLeaf/Kohaku-XL-Zeta');__adtModel.release();await __adt.frames();return ok&&tagVocabularyEnabled&&!assistantTurns.length&&!els.assistantResult.querySelector('.assistant-draft');})()",
+    "fatal": true
+  },
+  {
+    "eval": "__adt.hybrid='1girl, A girl wearing a red, old hat, green hair';__adt.arm(__adt.hybrid,'Hybrid text keeps its prose');"
+  },
+  {
+    "click": "#assistant-ask"
+  },
+  {
+    "expect": "__adt.until(()=>!assistantRun&&__adt.card()?.dataset.tagState==='checked'&&__adt.card().querySelector('.assistant-draft-prose'))",
+    "fatal": true
+  },
+  {
+    "expect": "__adt.text().textContent===__adt.hybrid&&__adt.card().querySelectorAll('.assistant-draft-prose').length===2&&__adt.card().querySelectorAll('.assistant-draft-tag.valid').length===2&&!__adt.card().querySelector('.assistant-draft-tag.unknown')",
+    "fatal": true
+  },
+  {
+    "shot": "assistant-draft-tags-hybrid.png"
+  },
+  {
+    "expect": "__adt.switch('black-forest-labs/FLUX.1-Krea-dev')",
+    "fatal": true
+  },
+  {
+    "eval": "__adt.proseCalls=__adt.calls.length;__adt.arm('A red fox in moonlight.','A prose checkpoint');"
+  },
+  {
+    "click": "#assistant-ask"
+  },
+  {
+    "expect": "__adt.until(()=>!assistantRun&&__adt.card()?.querySelector('.assistant-draft-text').textContent==='A red fox in moonlight.')",
+    "fatal": true
+  },
+  {
+    "expect": "!tagVocabularyEnabled&&!__adt.card().querySelector('.assistant-draft-tag-validation')&&!__adt.card().querySelector('.assistant-draft-tag')&&__adt.calls.length===__adt.proseCalls&&els.prompt.value===__adt.original",
+    "fatal": true
+  },
+  {
+    "click": "#assistant-close"
+  },
+  {
+    "expect": "!assistantSidebarOpen()&&!assistantRun&&!busy&&submissions.size===0&&__adt.forbidden.length===0&&__adt.errors.length===0",
+    "fatal": true
+  },
+  {
+    "expect": "__a11yCheck()"
+  }
+]

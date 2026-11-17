@@ -21,6 +21,8 @@ els.cancelQueued.onclick = cancelQueued;
 initQueueControls();
 initSnippets();
 initPromptAssistant();
+initAssistantDraftTools();
+initAssistantDraftTags();
 initSnippetImport();
 initSetups();
 initSetupImport();
@@ -732,6 +734,7 @@ els.shortcutsDialog.addEventListener('click', shortcutsBackdrop);
 // Native buttons also repeat Enter clicks. Discrete actions own one press;
 // navigation, zoom, numeric stepping and the mask's held stroke still repeat.
 document.addEventListener('keydown', (e) => {
+  if (assistantDraftRepeat(e)) return;
   if (keyboardEventHeld(e)) return;
   const activation = e.key === 'Enter' || e.key === ' ';
   const button = e.target.closest?.('button, summary, [role="button"], [role="menuitem"], input[type="button"], input[type="submit"]');
@@ -779,6 +782,17 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   if (modelListOpen()) return;
+  // This companion is nonmodal: workspace keys retain their normal routes.
+  if (!modal && assistantSidebarOpen() && els.assistantSidebar.contains(e.target)) {
+    if (assistantDraftKey(e)) return;
+    if (keyboardSubmit(e)) {
+      e.preventDefault();
+      if (!e.repeat) void askPromptAssistant();
+    } else if (e.key === 'Escape' && !keyboardCommandModifier(e) && !e.shiftKey && !e.repeat) {
+      e.preventDefault(); closePromptAssistant();
+    }
+    return;
+  }
   const inMenu = e.target.closest?.('[role="menu"], [role="listbox"]');
   if (keyboardSubmit(e)) {
     e.preventDefault();

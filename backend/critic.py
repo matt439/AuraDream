@@ -15,10 +15,11 @@ import tempfile
 import threading
 import time
 from collections.abc import Callable, Mapping
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from . import critic_context, critic_runtime, critic_server, critic_validation
+from . import assistant_models, critic_context, critic_runtime, critic_server, critic_validation
 from .config import settings
 from .backends.base import Cancelled
 from .schemas import CriticStatus, GenerateRequest, PromptAnalysis, PromptCritique
@@ -98,6 +99,16 @@ def _content(response: Any) -> tuple[str, str | None]:
 # --- The critic --------------------------------------------------------------
 
 
+@dataclass(frozen=True)
+class PreparedAssistant:
+    """The exact local files and settings captured for one assistant request."""
+
+    server: Path
+    model: Path
+    label: str
+    profile: assistant_models.AssistantModel | None = None
+
+
 class PromptCritic:
     """Prepare once, critique on demand, never leave a server running."""
 
@@ -164,6 +175,50 @@ class PromptCritic:
             raise critic_runtime.CriticUnavailable("the prompt critic is switched off (AURADREAM_CRITIC)")
         with self._prepare_lock:
             self._prepared = (self._server_path(), self._model_path())
+
+    def assistant_models(self) -> list[dict[str, Any]]:
+        """Catalogue and first-use costs, using local file checks only."""
+        default = self.describe()
+        options: list[dict[str, Any]] = [{
+            "id": "default", "label": default.label, "ready": self.ready(),
+            "fetch": default.fetch, "fetch_bytes": default.fetch_bytes,
+            "model_bytes": critic_runtime.MODEL_SIZE if settings.critic_model is None else None,
+            "pinned": default.pinned, "qualification": "unmeasured",
+        }]
+        # Server installation is shared, while each GGUF has its own cache.
+        key = critic_runtime.platform_key()
+        server_bytes = 0
+        if settings.critic_server is None and key is not None and not self._server_ready():
+            server_bytes = sum(archive.size for archive in critic_runtime.BUILDS[key].archives)
+        for profile in assistant_models.MODELS:
+            cached = profile.cached() is not None
+            fetch = [f"llama.cpp {critic_runtime.RELEASE}"] if server_bytes else []
+            if not cached:
+                fetch.append(profile.label)
+            options.append({
+                "id": profile.key, "label": profile.label,
+                "ready": self.supported() and self._server_ready() and cached,
+                "fetch": fetch, "fetch_bytes": server_bytes + (0 if cached else profile.size),
+                "model_bytes": profile.size, "pinned": settings.critic_server is None,
+                "qualification": "unmeasured",
+            })
+        return options
+
+    def prepare_assistant(self, key: str = "default") -> PreparedAssistant:
+        """Prepare one selection without replacing the critic's baseline files."""
+        if key == "default":
+            self.prepare()
+            assert self._prepared is not None
+            server, model = self._prepared
+            return PreparedAssistant(server, model, self._label(model))
+        profile = assistant_models.get_model(key)
+        if not settings.critic:
+            raise critic_runtime.CriticUnavailable("the prompt critic is switched off (AURADREAM_CRITIC)")
+        with self._prepare_lock:
+            # Resolve the server before downloading weights, preserving its preflight.
+            server = self._server_path()
+            model = profile.download()
+        return PreparedAssistant(server, model, profile.label, profile)
 
     def _server_path(self) -> Path:
         if settings.critic_server is not None:
@@ -240,6 +295,7 @@ class PromptCritic:
 
     def assist(
         self, model_id: str, request: PromptAssistantRequest, should_cancel: Callable[[], bool],
+        prepared: PreparedAssistant | None = None,
     ) -> PromptAssistantResponse:
         """Write a draft using the same transient, keyed server as the critic.
 
@@ -248,20 +304,22 @@ class PromptCritic:
         """
         from . import prompt_assistant
 
-        prepared = self._prepared
-        if prepared is None or not all(path.is_file() for path in prepared):
+        if prepared is None and self._prepared is not None:
+            server, model = self._prepared
+            prepared = PreparedAssistant(server, model, self._label(model))
+        if prepared is None or not prepared.server.is_file() or not prepared.model.is_file():
             raise critic_runtime.CriticUnavailable("the local prompt model is not prepared; prepare() fetches it first")
-        server, model = prepared
+        server, model, profile = prepared.server, prepared.model, prepared.profile
         context = prompt_assistant.build_context(model_id, request)
-        prompt_assistant.check_fits(context, estimated=True)
+        prompt_assistant.check_fits(context, estimated=True, profile=profile)
         with self._run_lock:
             if should_cancel():
                 raise Cancelled("prompt assistant stopped")
             started = time.perf_counter()
             response = self._run_completion(
-                server, model, prompt_assistant.request_body(context),
-                lambda base, key, body: prompt_assistant.counted_body(base, key, body, context),
-                should_cancel,
+                server, model, prompt_assistant.request_body(context, profile),
+                lambda base, key, body: prompt_assistant.counted_body(base, key, body, context, profile),
+                should_cancel, profile,
             )
             seconds = time.perf_counter() - started
         if should_cancel():
@@ -272,7 +330,7 @@ class PromptCritic:
                 "the prompt assistant ran out of room before finishing; start a new conversation "
                 "or shorten the prompt and ask again"
             )
-        return prompt_assistant.validate_answer(content, model_id, request, model=self._label(model), seconds=seconds)
+        return prompt_assistant.validate_answer(content, model_id, request, model=prepared.label, seconds=seconds)
 
     def _run(self, server: Path, model: Path, context: critic_context.CriticContext, prompt: str) -> Any:
         def counted_body(base: str, key: str, body: dict[str, Any]) -> dict[str, Any]:
@@ -290,12 +348,15 @@ class PromptCritic:
         self, server: Path, model: Path, body: dict[str, Any],
         counted_body: Callable[[str, str, dict[str, Any]], dict[str, Any]],
         should_cancel: Callable[[], bool] | None = None,
+        profile: assistant_models.AssistantModel | None = None,
     ) -> Any:
         def check_cancelled() -> None:
             if should_cancel is not None and should_cancel():
                 raise Cancelled("prompt assistant stopped")
 
         check_cancelled()
+        if should_cancel is not None:
+            critic_runtime.report_progress("starting")
         api_key = secrets.token_urlsafe(32)
         port = critic_server._free_port()
         base = f"http://127.0.0.1:{port}"
@@ -304,7 +365,9 @@ class PromptCritic:
         try:
             with os.fdopen(handle, "wb") as log_file:
                 try:
-                    process = critic_server._spawn(critic_server.server_command(server, model, port), log_file, api_key)
+                    command = (critic_server.server_command(server, model, port) if profile is None
+                               else critic_server.server_command(server, model, port, profile))
+                    process = critic_server._spawn(command, log_file, api_key)
                 except OSError as exc:
                     where = (
                         f"AURADREAM_CRITIC_SERVER={server}"
@@ -356,6 +419,8 @@ class PromptCritic:
                             log.debug("port %d's listener unchecked here; its key guards it", port)
                         body = counted_body(base, api_key, body)
                         check_cancelled()
+                        if should_cancel is not None:
+                            critic_runtime.report_progress("writing")
                         status, payload = critic_server._request(
                             "POST", base + "/v1/chat/completions", api_key, body, critic_server.REQUEST_TIMEOUT
                         )

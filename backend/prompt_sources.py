@@ -761,6 +761,13 @@ _ANIMA = (
         _ANIMA_CARD,
     ),
     Excerpt(
+        "anima.negative",
+        "worst quality, low quality, score_1, score_2, score_3, artist name, blurry, "
+        "jpeg artifacts, chromatic aberration",
+        _ANIMA_CARD,
+        "the family card's recommended negative prompt; only applies when CFG > 1",
+    ),
+    Excerpt(
         "anima.spelling",
         "Use lowercase for tags, and spaces instead of underscores. Score tags are the "
         "only tags that use underscores.",
@@ -800,9 +807,11 @@ _ANIMA_APP = (
     "Autocomplete and the chips check Danbooru's tag index; the card names no cutoff.",
 )
 
-# The family prefix recommends score_7, which Aesthetic's own advice rejects.
-# Keep the remaining family guidance and the variant's explicit exception.
-_ANIMA_AESTHETIC = tuple(excerpt for excerpt in _ANIMA if excerpt.id != "anima.prefix") + (
+# The family's positive and negative recipes use scores, which Aesthetic's
+# own advice rejects. Keep its remaining guidance and the variant's exception.
+_ANIMA_AESTHETIC = tuple(
+    excerpt for excerpt in _ANIMA if excerpt.id not in {"anima.prefix", "anima.negative"}
+) + (
     Excerpt(
         "anima.aesthetic_quality",
         "You don't need to use quality tags in the positive at all",
@@ -1147,6 +1156,16 @@ GROUNDING: dict[str, Grounding] = {
                 note=(
                     "artist tags: the author's fallback when separate CLIP chunks are "
                     "unavailable, as in this app"
+                ),
+                order=True,
+            ),
+            Excerpt(
+                "rouwei.natural_text",
+                "Use only natural text after typing styles and quality tags.",
+                "https://huggingface.co/Minthy/RouWei-0.8#natural-text",
+                note=(
+                    "partial hybrid placement advice, not a complete tag order; in this "
+                    "app artist tags still use the author's very-end fallback"
                 ),
                 order=True,
             ),

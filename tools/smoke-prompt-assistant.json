@@ -1,6 +1,6 @@
 [
   {
-    "log": "'Local prompt assistant on its own fresh FLUX fake: Create, Improve and Find tags through the real fake API; explicit undo-aware application; bounded conversation, mode/reset, source changes, late replies, Stop/Close, failure retry and responsive native dialog. No real LLM, GPU, image generation or user gallery.'"
+    "log": "'Local prompt assistant on its own fresh FLUX fake: Create, Improve and Find tags through the real fake API; explicit undo-aware application; bounded conversation, mode/reset, source changes, late replies, Stop/Close, failure retry and responsive nonmodal sidebar. No real LLM, GPU, image generation or user gallery.'"
   },
   {
     "navigate": "http://127.0.0.1:7960/"
@@ -18,17 +18,17 @@
     ]
   },
   {
-    "expect": "(async()=>{\n const until=async(fn,ms=20000)=>{const end=Date.now()+ms;while(Date.now()<end){if(await fn())return true;await new Promise(resolve=>setTimeout(resolve,40));}return false;};\n const assert=(ok,why)=>{if(!ok)throw Error(why);};\n assert(await until(()=>loadedModel==='black-forest-labs/FLUX.1-Krea-dev'&&Number.isInteger(modelRevision)&&!busy&&!galleryPending&&!jobListing),'fresh FLUX page did not settle');\n const q=window.__pa={until,assert,native:api,requests:[],answers:[],stops:[],forbidden:[],errors:[],fixture:null,sequence:0};\n addEventListener('error',e=>q.errors.push(e.message));addEventListener('unhandledrejection',e=>q.errors.push(String(e.reason)));\n q.instruction=text=>{replaceBoxText(els.assistantInstruction,text);els.assistantInstruction.dispatchEvent(new Event('input',{bubbles:true}));};\n q.mode=mode=>{els.assistantMode.value=mode;els.assistantMode.dispatchEvent(new Event('change',{bubbles:true}));};\n q.source=text=>{writeBox(els.prompt,text);promptReplaced();els.prompt.dispatchEvent(new Event('input',{bubbles:true}));};\n q.synthetic=(name,extra={})=>({model_id:loadedModel,model:'Synthetic local assistant',seconds:0.1,message:name,\n   drafts:[{title:name,prompt:'A red fox in a snowy forest. '+name,notes:['Synthetic smoke suggestion.']}],tags:[],warnings:[],...extra});\n q.arm=(name,extra={})=>{assert(!q.fixture,'a previous reply fixture remains');const f={name,body:q.synthetic(name,extra),captured:false,released:false};q.fixture=f;return f;};\n q.release=(f,error=null)=>{assert(f.captured&&!f.released&&f.resolve,'fixture not captured or already released');f.released=true;f.error=error;f.resolve();};\n q.frames=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));\n api=async(path,options)=>{\n   const method=String(options?.method||'GET').toUpperCase();\n   if(method!=='GET'&&!path.startsWith('/api/prompt/assist')&&!['/api/prompt/measure','/api/tags/validate','/api/prompt/analyze'].includes(path)){q.forbidden.push(method+' '+path);throw Error('Assistant smoke refuses unrelated writes: '+path);}\n   if(path.startsWith('/api/prompt/assist/')&&path.endsWith('/stop')){q.stops.push(path);return {stopped:true,running:false};}\n   if(path==='/api/prompt/assist'&&method==='POST'){\n     const body=JSON.parse(options.body);q.requests.push(body);\n     const f=q.fixture;\n     if(f&&!f.captured){f.captured=true;f.request=body;await new Promise(resolve=>{f.resolve=resolve;});if(q.fixture===f)q.fixture=null;if(f.error){const e=Error(f.error);e.status=502;throw e;}q.answers.push(f.body);return f.body;}\n     const result=await q.native(path,options);q.answers.push(result);return result;\n   }\n   return q.native(path,options);\n };\n q.source('A red fox standing in snow, green eyes, no buildings, a sign reading \"OPEN\".');\n q.original=els.prompt.value;q.caption=els.examplesBox.closest('.field').querySelector(':scope > span').getBoundingClientRect().height;q.promptTop=els.prompt.getBoundingClientRect().top;\n return true;\n})()",
+    "expect": "(async()=>{\n const until=async(fn,ms=20000)=>{const end=Date.now()+ms;while(Date.now()<end){if(await fn())return true;await new Promise(resolve=>setTimeout(resolve,40));}return false;};\n const assert=(ok,why)=>{if(!ok)throw Error(why);};\n assert(await until(()=>loadedModel==='black-forest-labs/FLUX.1-Krea-dev'&&Number.isInteger(modelRevision)&&!busy&&!galleryPending&&!jobListing),'fresh FLUX page did not settle');\n const q=window.__pa={until,assert,native:api,requests:[],answers:[],modelReads:[],stops:[],forbidden:[],errors:[],fixture:null,sequence:0};\n addEventListener('error',e=>q.errors.push(e.message));addEventListener('unhandledrejection',e=>q.errors.push(String(e.reason)));\n q.instruction=text=>{replaceBoxText(els.assistantInstruction,text);els.assistantInstruction.dispatchEvent(new Event('input',{bubbles:true}));};\n q.mode=mode=>{els.assistantMode.value=mode;els.assistantMode.dispatchEvent(new Event('change',{bubbles:true}));};\n q.source=text=>{writeBox(els.prompt,text);promptReplaced();els.prompt.dispatchEvent(new Event('input',{bubbles:true}));};\n q.synthetic=(name,extra={})=>({model_id:loadedModel,model:'Synthetic local assistant',seconds:0.1,message:name,\n   drafts:[{title:name,prompt:'A red fox in a snowy forest. '+name,notes:['Synthetic smoke suggestion.']}],tags:[],warnings:[],...extra});\n q.arm=(name,extra={})=>{assert(!q.fixture,'a previous reply fixture remains');const f={name,body:q.synthetic(name,extra),captured:false,released:false};q.fixture=f;return f;};\n q.release=(f,error=null)=>{assert(f.captured&&!f.released&&f.resolve,'fixture not captured or already released');f.released=true;f.error=error;f.resolve();};\n q.controlsFit=()=>{const bad=[els.assistantClose,els.assistantModel,els.assistantInstruction,els.assistantAsk,els.assistantStop].map(e=>{const r=e.getBoundingClientRect(),at=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return {id:e.id,rect:r.toJSON(),hit:!!at&&(at===e||e.contains(at))};}).filter(x=>x.rect.left<0||x.rect.right>innerWidth+1||x.rect.top<0||x.rect.bottom>innerHeight+1||!x.hit);if(bad.length)throw Error('Assistant controls offscreen or covered: '+JSON.stringify(bad));return true;};\n q.toggleFits=()=>{const e=els.assistantToggle,bar=document.querySelector('.topbar'),r=e.getBoundingClientRect(),b=bar.getBoundingClientRect(),buttons=[...bar.querySelectorAll(':scope > button')].filter(isShown);q.assert(e.parentElement===bar&&buttons.at(-1)===e&&r.left>=innerWidth/2&&r.top>=b.top&&r.bottom<=b.bottom&&r.right<=document.documentElement.clientWidth&&document.documentElement.scrollWidth<=document.documentElement.clientWidth,'Assistant is not the visible rightmost topbar action: '+JSON.stringify({viewport:[innerWidth,innerHeight],width:document.documentElement.scrollWidth,button:r.toJSON(),bar:b.toJSON()}));q.assert([0.15,0.5,0.85].every(v=>{const hit=document.elementFromPoint(r.left+r.width*v,r.top+r.height/2);return hit===e||e.contains(hit);}),'Assistant button is covered');return true;};\n q.frames=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));\n q.chatHost=()=>document.querySelector('.assistant-body');\n q.chatAtEnd=()=>{const h=q.chatHost();return h.scrollHeight-h.clientHeight-h.scrollTop<=1;};\n q.chatGeometry=()=>({x:scrollX,y:scrollY,width:innerWidth,height:innerHeight,dpr:devicePixelRatio,controls:[els.assistantInstruction,els.assistantAsk,els.assistantStop].map(e=>({id:e.id,rect:e.getBoundingClientRect().toJSON()}))});\n q.chatStable=before=>{const after=q.chatGeometry();assert(['x','y','width','height','dpr'].every(k=>after[k]===before[k]),'chat moved the document or viewport: '+JSON.stringify({before,after}));assert(before.controls.every((b,i)=>['x','y','width','height'].every(k=>Math.abs(after.controls[i].rect[k]-b.rect[k])<0.5)),'chat moved its fixed composer: '+JSON.stringify({before,after}));return true;};\n api=async(path,options)=>{\n   const method=String(options?.method||'GET').toUpperCase();\n   if(method!=='GET'&&!path.startsWith('/api/prompt/assist')&&!['/api/prompt/measure','/api/tags/validate','/api/prompt/analyze'].includes(path)){q.forbidden.push(method+' '+path);throw Error('Assistant smoke refuses unrelated writes: '+path);}\n   if(path==='/api/prompt/assist/models'&&method==='GET'){const result=await q.native(path,options);q.modelReads.push(result);return result;}\n   if(path.startsWith('/api/prompt/assist/')&&path.endsWith('/stop')){q.stops.push(path);return {stopped:true,running:false};}\n   if(path==='/api/prompt/assist'&&method==='POST'){\n     const body=JSON.parse(options.body);q.requests.push(body);\n     const f=q.fixture;\n     if(f&&!f.captured){f.captured=true;f.request=body;await new Promise(resolve=>{f.resolve=resolve;});if(q.fixture===f)q.fixture=null;if(f.error){const e=Error(f.error);e.status=502;throw e;}q.answers.push(f.body);return f.body;}\n     const result=await q.native(path,options);q.answers.push(result);return result;\n   }\n   return q.native(path,options);\n };\n q.source('A red fox standing in snow, green eyes, no buildings, a sign reading \"OPEN\".');\n q.original=els.prompt.value;q.caption=els.examplesBox.closest('.field').querySelector(':scope > span').getBoundingClientRect().height;q.promptTop=els.prompt.getBoundingClientRect().top;\n return true;\n})()",
     "fatal": true
   },
   {
-    "log": "'The assistant opens from Examples without increasing the full prompt caption; Snippets remains last and opening alone sends nothing.'"
+    "log": "'A direct Assistant button opens the nonmodal right sidebar; Examples keeps only its own menu actions. Opening or changing focus sends nothing.'"
   },
   {
     "click": "#btn-examples"
   },
   {
-    "expect": "!els.examplesMenu.hidden && !!document.getElementById('prompt-assistant-menu-item') && els.examplesMenu.lastElementChild.id==='snippets-menu-item' && Math.abs(els.examplesBox.closest('.field').querySelector(':scope > span').getBoundingClientRect().height-__pa.caption)<0.5 && Math.abs(els.prompt.getBoundingClientRect().top-__pa.promptTop)<0.5",
+    "expect": "!els.examplesMenu.hidden && !document.getElementById('prompt-assistant-menu-item') && els.examplesMenu.lastElementChild.id==='snippets-menu-item'",
     "fatal": true
   },
   {
@@ -38,7 +38,7 @@
     "key": "End"
   },
   {
-    "expect": "document.activeElement.id==='snippets-menu-item' && (()=>{const e=document.activeElement,r=e.getBoundingClientRect(),m=els.examplesMenu.getBoundingClientRect();return r.top>=m.top&&r.bottom<=m.bottom&&e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));})()",
+    "expect": "document.activeElement.id==='snippets-menu-item'",
     "fatal": true
   },
   {
@@ -49,27 +49,121 @@
     "fatal": true
   },
   {
-    "key": "ArrowUp"
+    "key": "Escape"
   },
   {
-    "expect": "document.activeElement.id==='prompt-assistant-menu-item'",
+    "expect": "__pa.toggleFits()",
     "fatal": true
   },
   {
-    "click": "#prompt-assistant-menu-item"
+    "click": "#btn-prompt-assistant"
   },
   {
-    "expect": "__pa.until(()=>els.assistantDialog.open && els.examplesMenu.hidden && !assistantRun)",
+    "expect": "__pa.until(()=>assistantSidebarOpen() && els.examplesMenu.hidden && !assistantRun)",
     "fatal": true
   },
   {
-    "expect": "__pa.requests.length===0 && els.assistantDialog.getAttribute('aria-labelledby') && els.assistantInstruction.maxLength===2000 && els.prompt.value===__pa.original"
+    "expect": "__pa.until(()=>__pa.modelReads.length>0 && els.assistantModel.options.length===3)",
+    "fatal": true
   },
   {
-    "log": "'Create executes the fake local service once and leaves the composer unchanged. A follow-up sends prior dialogue; only Use prompt writes, with native Undo.'"
+    "expect": "(()=>{const models=__pa.modelReads.at(-1).models;return els.assistantModel.value==='default' && ['default','qwen3-8b','qwen3.5-4b'].every(id=>models.some(model=>model.id===id)) && models.filter(model=>model.id!=='default').every(model=>model.ready===false&&model.fetch.length&&model.fetch_bytes>0&&model.model_bytes>0&&model.qualification==='unmeasured') && els.assistantModel.labels.length>0 && !els.assistantModel.disabled && __pa.requests.length===0;})()",
+    "fatal": true
+  },
+  {
+    "expect": "__pa.requests.length===0 && els.assistantSidebar.tagName==='ASIDE' && els.assistantSidebar.getAttribute('aria-labelledby') && !document.querySelector(':modal') && els.assistantInstruction.maxLength===2000 && els.prompt.value===__pa.original && els.assistantToggle.getAttribute('aria-expanded')==='true'"
+  },
+  {
+    "click": "#prompt"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "assistantSidebarOpen() && document.activeElement===els.prompt && !els.prompt.closest('[inert]') && __pa.requests.length===0"
+  },
+  {
+    "eval": "els.assistantAsk.focus({preventScroll:true});"
+  },
+  {
+    "key": "Tab"
+  },
+  {
+    "expect": "assistantSidebarOpen() && document.activeElement===document.getElementById('assistant-pins-label') && __pa.requests.length===0"
+  },
+  {
+    "key": "Tab"
+  },
+  {
+    "expect": "assistantSidebarOpen() && document.activeElement===document.querySelector('.assistant-about:not(.assistant-pins) > summary') && __pa.requests.length===0"
+  },
+  {
+    "key": "Tab"
+  },
+  {
+    "expect": "assistantSidebarOpen() && !els.assistantSidebar.contains(document.activeElement) && __pa.requests.length===0"
+  },
+  {
+    "eval": "__pa.generateBefore=generate; __pa.generateRoutes=0; generate=()=>{++__pa.generateRoutes;};"
+  },
+  {
+    "click": "#prompt"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "Enter"
+    ]
+  },
+  {
+    "expect": "__pa.generateRoutes===1 && assistantSidebarOpen() && __pa.requests.length===0 && !busy && submissions.size===0"
+  },
+  {
+    "eval": "generate=__pa.generateBefore; els.generate.focus({preventScroll:true});"
+  },
+  {
+    "key": "p"
+  },
+  {
+    "expect": "document.activeElement===els.prompt && assistantSidebarOpen() && __pa.requests.length===0"
+  },
+  {
+    "eval": "els.generate.focus({preventScroll:true});"
+  },
+  {
+    "key": "/"
+  },
+  {
+    "expect": "document.activeElement===els.search && assistantSidebarOpen() && __pa.requests.length===0"
+  },
+  {
+    "expect": "__a11yCheck({root:'#prompt-assistant-sidebar'})"
+  },
+  {
+    "click": "#assistant-instruction"
+  },
+  {
+    "log": "'Create executes the fake local service once and leaves the main prompt unchanged. Plain Enter adds a newline; admitted sends clear the message immediately. A follow-up sends prior dialogue; only Use prompt writes, with native Undo.'"
   },
   {
     "eval": "__pa.mode('create'); __pa.instruction('Write two distinct prompts for a red fox in snow.');"
+  },
+  {
+    "eval": "els.assistantInstruction.focus({preventScroll:true}); els.assistantInstruction.setSelectionRange(els.assistantInstruction.value.length,els.assistantInstruction.value.length);"
+  },
+  {
+    "key": "Enter",
+    "native": true
+  },
+  {
+    "expect": "els.assistantInstruction.value==='Write two distinct prompts for a red fox in snow.\\n' && __pa.requests.length===0 && !assistantRun",
+    "fatal": true
+  },
+  {
+    "eval": "__pa.blockedMessage=els.assistantInstruction.value;"
+  },
+  {
+    "expect": "(()=>{const before=els.assistantInstruction.value;for(const init of [{isComposing:true},{keyCode:229},{held:true}]){const event=new KeyboardEvent('keydown',{key:'Enter',ctrlKey:true,bubbles:true,cancelable:true,...init});if(init.held)event.preventDefault();els.assistantInstruction.dispatchEvent(event);}return !assistantRun&&__pa.requests.length===0&&els.assistantInstruction.value===before;})()"
   },
   {
     "eval": "window.__paSwitchBefore=modelSwitchSending; modelSwitchSending=true; syncPromptAssistant();"
@@ -82,7 +176,7 @@
     "click": "#assistant-ask"
   },
   {
-    "expect": "__pa.requests.length===0 && !assistantRun && els.assistantStatus.textContent===modelChangeHold()+'.'"
+    "expect": "__pa.requests.length===0 && !assistantRun && els.assistantStatus.textContent===modelChangeHold()+'.' && els.assistantInstruction.value===__pa.blockedMessage"
   },
   {
     "eval": "modelSwitchSending=__paSwitchBefore; syncPromptAssistant();"
@@ -92,14 +186,20 @@
     "fatal": true
   },
   {
-    "click": "#assistant-ask"
+    "eval": "els.assistantMode.focus({preventScroll:true});"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "Enter"
+    ]
   },
   {
     "expect": "__pa.until(()=>!assistantRun && assistantResultData?.drafts?.length>0 && __pa.requests.length===1)",
     "fatal": true
   },
   {
-    "expect": "els.prompt.value===__pa.original && __pa.requests[0].mode==='create' && __pa.requests[0].history.length===0 && __pa.requests[0].ticket.length>0 && assistantTurns.length>=2 && els.assistantResult.querySelector('[data-assistant-draft=\"0\"]')"
+    "expect": "els.prompt.value===__pa.original && __pa.requests[0].mode==='create' && __pa.requests[0].history.length===0 && __pa.requests[0].ticket.length>0 && assistantTurns.length>=2 && els.assistantResult.querySelector('[data-assistant-draft=\"0\"]') && __pa.requests[0].assistant_model==='default' && assistantResultData.model==='fake critic' && els.assistantInstruction.value===''"
   },
   {
     "eval": "(() => {const host=document.querySelector('.assistant-body'), result=els.assistantResult; if(!result.hidden)host.scrollTop+=result.getBoundingClientRect().top-host.getBoundingClientRect().top;})()"
@@ -108,17 +208,373 @@
     "shot": "assistant-create.png"
   },
   {
+    "viewport": [
+      1920,
+      1080
+    ]
+  },
+  {
+    "expect": "(async()=>{await __pa.frames();const r=els.assistantSidebar.getBoundingClientRect(),main=document.querySelector('main').getBoundingClientRect();return r.right<=innerWidth+1 && r.left>innerWidth/2 && main.right<=r.left+1 && els.prompt.getBoundingClientRect().right<r.left && !document.querySelector(':modal');})()",
+    "fatal": true
+  },
+  {
+    "shot": "assistant-wide.png"
+  },
+  {
+    "log": "'A model reply that repeats three numbered prompt drafts is shown once as cards. Its complete conversational note stays available on demand; tag-coloured cards and separate notes remain distinct and readable.'"
+  },
+  {
+    "expect": "(async()=>{\n __pa.densitySaved={result:assistantResultData,turns:assistantTurns,snapshot:assistantSnapshot,original:__pa.original,prompt:els.prompt.value};\n __pa.tagSource='1girl, basketball, park, summer, sunny, wearing sports clothes, masterpiece, high score, great score, absurdres';\n __pa.source(__pa.tagSource);__pa.original=__pa.tagSource;\n const drafts=[\n  {title:'Moonlit Basketball in the Park',prompt:'1girl, basketball, park, night, moonlight, wearing sports clothes, masterpiece, high score, great score, absurdres',notes:['Changed the scene from sunny summer to moonlit night.','Kept the girl, sport and park setting.']},\n  {title:'Evening Game under Streetlights',prompt:'1girl, basketball, park, dusk, streetlight, wearing sports clothes, masterpiece, high score, great score, absurdres',notes:['Added dusk and streetlight for a later time of day.','Kept the existing clothes and sports activity.']},\n  {title:'Starlit Park Practice',prompt:'1girl, basketball, park, evening, starlight, wearing sports clothes, masterpiece, high score, great score, absurdres',notes:['Added evening and starlight for a quiet night scene.','Preserved the girl, basketball and park.']}\n ];\n const changes=[{added:['night','moonlight'],removed:['summer','sunny']},{added:['dusk','streetlight'],removed:['summer','sunny']},{added:['evening','starlight'],removed:['summer','sunny']}];\n const numbered=drafts.map((d,i)=>`${i+1}. ${i===1?d.prompt.replace(', safe,',',\\n safe,'):d.prompt}`).join('\\n');\n const message=\"Here are three prompt drafts based on the instruction 'girl in a park':\\n\\n\"+numbered+'\\n\\nNotes: Added character names, series contexts and specific park scenes. Would you like a closer composition?';\n const body=__pa.synthetic(message,{drafts,draft_changes:changes,warnings:['Suggestions are model-generated. Review details and exact lettering before applying them.']});\n __pa.repeatedMessage=message;\n assistantResultData=body;assistantTurns=[{role:'user',content:'Make this basketball park scene nighttime.'},{role:'assistant',content:assistantHistoryText(body),display:body.message,answer:body}];assistantSnapshot=assistantSource();renderAssistantHistory();renderAssistantResult();\n document.querySelector('.assistant-body').scrollTop=0;await __pa.frames();\n __pa.tagChangesView=host=>[...host.querySelectorAll('.assistant-tag-changes')].map(group=>({added:[...group.querySelectorAll('.assistant-tags-added .assistant-tag-change')].map(e=>e.textContent),removed:[...group.querySelectorAll('.assistant-tags-removed .assistant-tag-change')].map(e=>e.textContent)}));\n __pa.expectedTagChanges=JSON.stringify(changes);\n __pa.expectedTagView=JSON.stringify(changes.map(change=>({added:change.added.map(tag=>'+ '+tag),removed:change.removed.map(tag=>String.fromCharCode(0x2212)+' '+tag)})));\n __pa.tagChangesStable=()=>{__pa.assert(JSON.stringify(assistantResultData.draft_changes)===__pa.expectedTagChanges,'request-scoped tag metadata changed after editor updates');__pa.assert(JSON.stringify(__pa.tagChangesView(els.assistantResult))===__pa.expectedTagView,'visible tag changes were recomputed from the live editor');return true;};\n __pa.assert(!Object.hasOwn(JSON.parse(assistantHistoryText(body)),'draft_changes'),'presentation metadata was copied into bounded LLM history');\n __pa.cardContrast=()=>{\n  const canvas=document.createElement('canvas');canvas.width=canvas.height=1;const context=canvas.getContext('2d');\n  const rgba=color=>{context.clearRect(0,0,1,1);context.fillStyle=color;context.fillRect(0,0,1,1);return [...context.getImageData(0,0,1,1).data];};\n  const luminance=color=>{const rgb=rgba(color).slice(0,3).map(v=>{v/=255;return v<=0.04045?v/12.92:((v+0.055)/1.055)**2.4;});return rgb[0]*0.2126+rgb[1]*0.7152+rgb[2]*0.0722;};\n  const contrast=(a,b)=>(Math.max(a,b)+0.05)/(Math.min(a,b)+0.05), backdrop=luminance(getComputedStyle(els.assistantSidebar).backgroundColor);\n  const rootStyle=getComputedStyle(document.documentElement),tagColour=rgba(rootStyle.getPropertyValue('--panel-tags').trim());\n  return [...els.assistantResult.querySelectorAll('.assistant-draft')].every(card=>{\n   const style=getComputedStyle(card),fill=luminance(style.backgroundColor),border=luminance(style.borderTopColor),notes=card.querySelector('.assistant-draft-notes'),ns=getComputedStyle(notes),notesRgba=rgba(ns.backgroundColor),prompt=card.querySelector('.assistant-draft-text'),ps=getComputedStyle(prompt),promptBox=prompt.getBoundingClientRect(),notesBox=notes.getBoundingClientRect();\n   const ratios={border:contrast(border,backdrop),prompt:contrast(luminance(getComputedStyle(prompt).color),fill),title:contrast(luminance(getComputedStyle(card.querySelector('h3')).color),fill),notes:contrast(luminance(ns.color),fill)};\n   __pa.assert(JSON.stringify(rgba(style.backgroundColor))===JSON.stringify(tagColour)&&fill!==backdrop,'draft background must match the existing tag box');\n   __pa.assert((notesRgba[3]===0||JSON.stringify(notesRgba)===JSON.stringify(rgba(style.backgroundColor)))&&['Top','Right','Bottom','Left'].every(side=>parseFloat(ns['border'+side+'Width'])===0)&&['Top','Right','Bottom','Left'].every(side=>parseFloat(ns['margin'+side])>=0),'notes must share the card surface without an inner border or negative gutters');\n   __pa.assert(notesBox.top-promptBox.bottom>=8&&parseFloat(ns.fontSize)<parseFloat(ps.fontSize)&&ns.color!==ps.color,'notes must remain distinct through spacing and smaller, softer text');\n   __pa.assert(ratios.border>=2.5&&ratios.prompt>=4.5&&ratios.title>=4.5&&ratios.notes>=4.5,'draft or notes contrast is too low: '+JSON.stringify(ratios));\n   const added=card.querySelector('.assistant-tags-added'),removed=card.querySelector('.assistant-tags-removed'),group=card.querySelector('.assistant-tag-changes');\n   __pa.assert(added?.textContent.includes('Added')&&removed?.textContent.includes('Removed')&&added.checkVisibility()&&removed.checkVisibility(),'tag change labels or rows are missing');\n   const green=getComputedStyle(added).color,red=getComputedStyle(removed).color;\n   __pa.assert(green!==red&&contrast(luminance(green),fill)>=4.5&&contrast(luminance(red),fill)>=4.5,'added/removed text lacks distinct readable contrast');\n   __pa.assert(getComputedStyle(group).borderTopWidth==='0px'&&rgba(getComputedStyle(group).backgroundColor)[3]===0,'tag changes introduced another box or dividing line');return true;\n  });\n };\n __pa.compactComposer=()=>{const field=els.assistantInstruction,r=field.getBoundingClientRect(),line=parseFloat(getComputedStyle(field).lineHeight),frame=document.querySelector('.assistant-input').getBoundingClientRect();__pa.assert(r.height<=2*line+1&&frame.height<130,'desktop composer is still too tall: '+JSON.stringify({field:r.height,line,frame:frame.height}));return true;};\n __pa.threeDraftsFit=()=>{\n  const sidebar=els.assistantSidebar.getBoundingClientRect(),host=document.querySelector('.assistant-body'),r=host.getBoundingClientRect(),buttons=[...els.assistantResult.querySelectorAll('[data-assistant-draft]')],cards=[...els.assistantResult.querySelectorAll('.assistant-draft')],notes=[...els.assistantResult.querySelectorAll('.assistant-draft-notes')],responseNote=els.assistantResult.querySelector('.assistant-response-note'),messageNode=responseNote?.querySelector('.assistant-message');\n  const bad=buttons.map(e=>{const b=e.getBoundingClientRect(),at=document.elementFromPoint(b.left+b.width/2,b.top+b.height/2);return {rect:b.toJSON(),hit:!!at&&(at===e||e.contains(at))};}).filter(x=>x.rect.top<r.top||x.rect.bottom>r.bottom+1||!x.hit);\n  __pa.assert(sidebar.width>=640,'wide assistant is still too narrow: '+sidebar.width);__pa.assert(r.height>=sidebar.height*0.6,'conversation gets too little vertical room: '+r.height+'/'+sidebar.height);\n  __pa.assert(buttons.length===3&&!bad.length,'all three draft actions must be visible together: '+JSON.stringify(bad));__pa.assert(cards.length===3&&cards.every(e=>e.scrollHeight<=e.clientHeight+1),'a draft clips or has its own vertical scroller');__pa.assert(notes.length===3&&notes.every(e=>e.tagName==='DIV'&&!e.querySelector('summary')),'draft notes must be plain text without a dropdown');const noteLines=notes.flatMap(e=>[...e.querySelectorAll(':scope > p')]);__pa.assert(noteLines.length===6&&noteLines.every((e,i)=>{const b=e.getBoundingClientRect();return e.checkVisibility()&&e.textContent===body.drafts.flatMap(d=>d.notes)[i]&&b.top>=r.top&&b.bottom<=r.bottom+1;}),'all six draft notes must be visible by default and fit in the conversation: '+JSON.stringify({host:r.toJSON(),notes:noteLines.map(e=>({text:e.textContent,rect:e.getBoundingClientRect().toJSON()}))}));\n  __pa.assert(responseNote&&!responseNote.open&&messageNode?.textContent===__pa.repeatedMessage&&!messageNode.checkVisibility(),'repeated model prose must be collapsed, with its exact text retained: '+JSON.stringify({exists:!!responseNote,open:responseNote?.open,same:messageNode?.textContent===__pa.repeatedMessage,rects:messageNode?.getClientRects().length,visible:messageNode?.checkVisibility(),display:messageNode&&getComputedStyle(messageNode).display}));\n  __pa.assert(!els.assistantResult.querySelector(':scope > .assistant-message')&&!!(cards.at(-1).compareDocumentPosition(responseNote)&Node.DOCUMENT_POSITION_FOLLOWING),'repeated prose is still before the cards');\n  __pa.assert(els.assistantResult.querySelector(':scope > .warn')?.textContent===body.warnings[0],'model warning was hidden with repeated prose');\n  return __pa.cardContrast()&&__pa.compactComposer()&&__pa.tagChangesStable();\n };\n return true;\n})()",
+    "fatal": true
+  },
+  {
+    "shot": "assistant-three-draft-layout.png"
+  },
+  {
+    "expect": "__pa.threeDraftsFit()&&__pa.controlsFit()",
+    "fatal": true
+  },
+  {
+    "shot": "assistant-three-drafts.png"
+  },
+  {
+    "viewport": [
+      2048,
+      1152
+    ]
+  },
+  {
+    "expect": "(async()=>{await __pa.frames();return __pa.threeDraftsFit()&&__pa.controlsFit()&&els.prompt.value===__pa.original;})()",
+    "fatal": true
+  },
+  {
+    "shot": "assistant-three-drafts-2048.png"
+  },
+  {
+    "shot": "assistant-tag-changes.png"
+  },
+  {
+    "expect": "(async()=>{const original=assistantResultData;try{for(const changes of [undefined,[null,null,null]]){assistantResultData={...original};if(changes===undefined)delete assistantResultData.draft_changes;else assistantResultData.draft_changes=changes;renderAssistantResult();__pa.assert(!els.assistantResult.querySelector('.assistant-tag-changes'),'missing/unclassified metadata invented tag changes');}assistantResultData={...original,draft_changes:[{added:[],removed:[]},null,null]};renderAssistantResult();const empty=els.assistantResult.querySelector('.assistant-tag-changes');__pa.assert(empty?.textContent.includes('No tags added or removed.')&&!empty.querySelector('.assistant-tags-added,.assistant-tags-removed'),'unchanged tags need a compact no-change result');assistantResultData={...original,draft_changes:[{added:['<b>untrusted_tag</b>'],removed:['old&tag']},null,null]};renderAssistantResult();const safe=els.assistantResult.querySelector('.assistant-tag-changes');__pa.assert(safe.textContent.includes('+ <b>untrusted_tag</b>')&&safe.textContent.includes(String.fromCharCode(0x2212)+' old&tag')&&!safe.querySelector('b,img,script'),'tag names must remain literal text');return true;}finally{assistantResultData=original;renderAssistantResult();document.querySelector('.assistant-body').scrollTop=0;await __pa.frames();}})()",
+    "fatal": true
+  },
+  {
+    "expect": "(async()=>{const original=els.prompt.value;try{__pa.source(original+', newer editor tag');renderAssistantResult();await __pa.frames();__pa.assert(assistantSourceChanged()&&els.assistantResult.querySelector('[data-assistant-draft]').getAttribute('aria-disabled')==='true','changed editor must keep the stale apply hold');return __pa.tagChangesStable();}finally{__pa.source(original);assistantSnapshot=assistantSource();syncPromptAssistant();renderAssistantResult();document.querySelector('.assistant-body').scrollTop=0;await __pa.frames();}})()",
+    "fatal": true
+  },
+  {
+    "expect": "(async()=>{const e=els.assistantResult.querySelector('.assistant-response-note > summary'),host=e?.closest('.assistant-body');if(!e||!host)return false;const r=e.getBoundingClientRect(),b=host.getBoundingClientRect();host.scrollTop+=r.bottom>b.bottom?r.bottom-b.bottom+4:r.top<b.top?r.top-b.top-4:0;await __pa.frames();const t=e.getBoundingClientRect(),at=document.elementFromPoint(t.left+t.width/2,t.top+t.height/2);return t.top>=host.getBoundingClientRect().top&&t.bottom<=host.getBoundingClientRect().bottom&&!!at&&(at===e||e.contains(at));})()",
+    "fatal": true
+  },
+  {
+    "click": ".assistant-response-note > summary"
+  },
+  {
+    "expect": "(() => {const note=els.assistantResult.querySelector('.assistant-response-note'),message=note?.querySelector('.assistant-message');return note?.open&&message?.checkVisibility()&&message.textContent===__pa.repeatedMessage&&message.textContent.includes('Would you like a closer composition?')&&JSON.parse(assistantHistoryText(assistantResultData)).message===__pa.repeatedMessage&&els.prompt.value===__pa.original&&__pa.requests.length===1;})()"
+  },
+  {
+    "shot": "assistant-response-note.png"
+  },
+  {
+    "click": ".assistant-response-note > summary"
+  },
+  {
+    "expect": "(async()=>{document.querySelector('.assistant-body').scrollTop=0;await __pa.frames();return __pa.threeDraftsFit();})()",
+    "fatal": true
+  },
+  {
+    "expect": "(async()=>{const repeated=assistantResultData;try{assistantResultData={...repeated,message:'Would you like a closer composition?'};renderAssistantResult();await __pa.frames();const message=els.assistantResult.querySelector(':scope > .assistant-message');__pa.assert(message?.textContent==='Would you like a closer composition?'&&message.checkVisibility()&&!els.assistantResult.querySelector('.assistant-response-note'),'a unique follow-up question must stay visible');assistantResultData={...repeated,message:''};renderAssistantResult();__pa.assert(!els.assistantResult.querySelector('.assistant-message, .assistant-response-note'),'an empty model message must not make an empty response block');return true;}finally{assistantResultData=repeated;renderAssistantResult();document.querySelector('.assistant-body').scrollTop=0;}})()",
+    "fatal": true
+  },
+  {
+    "expect": "(async()=>{const original=assistantTurns,result=assistantResultData;try{const next=__pa.synthetic('A different follow-up.',{drafts:[{title:'Closer view',prompt:'1girl, basketball, park, close-up',notes:['Used a closer composition.']}],draft_changes:[{added:['close-up'],removed:['wide shot']}]});assistantTurns=[...original,{role:'user',content:'Try another composition.'},{role:'assistant',content:assistantHistoryText(next),display:next.message,answer:next}];assistantResultData=next;renderAssistantHistory();renderAssistantResult();await __pa.frames();const note=els.assistantHistory.querySelector('.assistant-response-note'),message=note?.querySelector('.assistant-message');__pa.assert(!!note&&!note.open&&message?.textContent===__pa.repeatedMessage&&!message.checkVisibility()&&els.assistantHistory.querySelectorAll('.assistant-draft').length===3&&!els.assistantHistory.querySelector('[data-assistant-draft]'),'historical draft presentation changed');__pa.assert(JSON.stringify(__pa.tagChangesView(els.assistantHistory))===__pa.expectedTagView,'historical replies lost their original request tag changes');__pa.assert(els.assistantResult.querySelector('.assistant-tags-added').textContent.includes('+ close-up')&&els.assistantResult.querySelector('.assistant-tags-removed').textContent.includes(String.fromCharCode(0x2212)+' wide shot'),'follow-up borrowed another reply tag changes');return true;}finally{assistantResultData=result;assistantTurns=original;renderAssistantHistory();renderAssistantResult();document.querySelector('.assistant-body').scrollTop=0;}})()",
+    "fatal": true
+  },
+  {
+    "expect": "(async()=>{await __pa.frames();return !els.assistantResult.querySelector('.assistant-draft-notes summary, details.assistant-draft-notes')&&__pa.threeDraftsFit()&&els.prompt.value===__pa.original&&__pa.requests.length===1;})()",
+    "fatal": true
+  },
+  {
+    "expect": "(async()=>{const about=document.querySelector('.assistant-about:not(.assistant-pins)'),compose=document.querySelector('.assistant-compose'),summary=about?.querySelector(':scope > summary');__pa.assert(!!summary&&!about.open,'About footer is missing or starts open');const r=summary.getBoundingClientRect(),c=document.querySelector('.assistant-input').getBoundingClientRect();__pa.assert(r.top>=c.bottom-1,'About must be below the message frame');__pa.aboutGeometry=[els.assistantInstruction,els.assistantAsk,compose].map(e=>e.getBoundingClientRect().toJSON());const at=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return !!at&&(at===summary||summary.contains(at));})()",
+    "fatal": true
+  },
+  {
+    "click": ".assistant-about:not(.assistant-pins) > summary"
+  },
+  {
+    "expect": "(async()=>{await __pa.frames();const about=document.querySelector('.assistant-about:not(.assistant-pins)'),panel=about.querySelector('.assistant-about-content');if(!about.open||!panel)return false;const stable=[els.assistantInstruction,els.assistantAsk,document.querySelector('.assistant-compose')].every((e,i)=>{const r=e.getBoundingClientRect(),b=__pa.aboutGeometry[i];return ['x','y','width','height'].every(k=>Math.abs(r[k]-b[k])<0.5);}),r=panel.getBoundingClientRect();return stable&&r.left>=0&&r.right<=innerWidth+1&&r.top>=0&&r.bottom<=innerHeight+1&&panel.scrollWidth<=panel.clientWidth+1;})()",
+    "fatal": true
+  },
+  {
+    "shot": "assistant-about-footer.png"
+  },
+  {
+    "click": ".assistant-about:not(.assistant-pins) > summary"
+  },
+  {
+    "expect": "__a11yCheck({root:'#prompt-assistant-sidebar'})"
+  },
+  {
+    "log": "'Latest draft cards are numbered 1?3. Native digits apply each draft with Undo; Alt+digits work from the message while plain digits keep typing. Other scopes, overlays and held actions remain guarded.'"
+  },
+  {
+    "expect": "(()=>{__pa.numberBase=els.prompt.value;__pa.numberInstruction=els.assistantInstruction.value;const badges=[...els.assistantResult.querySelectorAll('.assistant-draft-number')],buttons=[...els.assistantResult.querySelectorAll('[data-assistant-draft]')];return badges.length===3&&badges.every((e,i)=>e.textContent===String(i+1)&&e.checkVisibility())&&buttons.every((e,i)=>{const keys=e.getAttribute('aria-keyshortcuts')?.split(/\\s+/)||[];return e.getAttribute('aria-label')===`Use prompt ${i+1}`&&keys.includes(String(i+1))&&keys.includes(`Alt+${i+1}`);})&&document.getElementById('assistant-shortcut-hint').textContent.includes('1');})()",
+    "fatal": true
+  },
+  {
+    "eval": "assistantSnapshot=assistantSource();syncPromptAssistant();els.assistantResult.focus({preventScroll:true});"
+  },
+  {
+    "key": "1"
+  },
+  {
+    "expect": "els.prompt.value===assistantResultData.drafts[0].prompt&&assistantSidebarOpen()&&!assistantSourceChanged()&&document.activeElement===els.prompt&&__pa.requests.length===1&&__pa.tagChangesStable()",
+    "fatal": true
+  },
+  {
+    "keycombo": [
+      "Control",
+      "z"
+    ]
+  },
+  {
+    "expect": "els.prompt.value===__pa.numberBase&&assistantSidebarOpen()&&assistantSourceChanged()",
+    "fatal": true
+  },
+  {
+    "eval": "assistantSnapshot=assistantSource();syncPromptAssistant();els.assistantResult.focus({preventScroll:true});"
+  },
+  {
+    "key": "2"
+  },
+  {
+    "expect": "els.prompt.value===assistantResultData.drafts[1].prompt&&assistantSidebarOpen()&&!assistantSourceChanged()&&document.activeElement===els.prompt&&__pa.requests.length===1&&__pa.tagChangesStable()",
+    "fatal": true
+  },
+  {
+    "keycombo": [
+      "Control",
+      "z"
+    ]
+  },
+  {
+    "expect": "els.prompt.value===__pa.numberBase&&assistantSidebarOpen()&&assistantSourceChanged()",
+    "fatal": true
+  },
+  {
+    "eval": "assistantSnapshot=assistantSource();syncPromptAssistant();els.assistantResult.focus({preventScroll:true});"
+  },
+  {
+    "key": "3"
+  },
+  {
+    "expect": "els.prompt.value===assistantResultData.drafts[2].prompt&&assistantSidebarOpen()&&!assistantSourceChanged()&&document.activeElement===els.prompt&&__pa.requests.length===1&&__pa.tagChangesStable()",
+    "fatal": true
+  },
+  {
+    "keycombo": [
+      "Control",
+      "z"
+    ]
+  },
+  {
+    "expect": "els.prompt.value===__pa.numberBase&&assistantSidebarOpen()&&assistantSourceChanged()",
+    "fatal": true
+  },
+  {
+    "log": "'A consumed physical option key cannot autorepeat into the editor after Apply moves focus; matching keyup releases that protection and ordinary numeric typing resumes.'"
+  },
+  {
+    "expect": "(()=>{assistantSnapshot=assistantSource();syncPromptAssistant();els.assistantResult.focus({preventScroll:true});const down=new KeyboardEvent('keydown',{key:'1',code:'Digit1',bubbles:true,cancelable:true});els.assistantResult.dispatchEvent(down);__pa.assert(down.defaultPrevented&&els.prompt.value===assistantResultData.drafts[0].prompt&&document.activeElement===els.prompt,'Digit1 did not apply and focus the visible editor');const applied=els.prompt.value,repeat=new KeyboardEvent('keydown',{key:'1',code:'Digit1',repeat:true,bubbles:true,cancelable:true});els.prompt.dispatchEvent(repeat);__pa.assert(repeat.defaultPrevented&&els.prompt.value===applied,'the consumed Digit1 repeat reached the editor');els.prompt.dispatchEvent(new KeyboardEvent('keyup',{key:'1',code:'Digit1',bubbles:true}));const released=new KeyboardEvent('keydown',{key:'1',code:'Digit1',repeat:true,bubbles:true,cancelable:true});els.prompt.dispatchEvent(released);__pa.assert(!released.defaultPrevented&&els.prompt.value===applied,'matching keyup did not release Digit1');__pa.numberAppliedAfterHold=applied;els.prompt.setSelectionRange(applied.length,applied.length);return true;})()",
+    "fatal": true
+  },
+  {
+    "key": "1"
+  },
+  {
+    "expect": "els.prompt.value===__pa.numberAppliedAfterHold+'1'&&document.activeElement===els.prompt&&assistantSidebarOpen()",
+    "fatal": true
+  },
+  {
+    "expect": "(()=>{__pa.source(__pa.numberBase);assistantSnapshot=assistantSource();syncPromptAssistant();__pa.instruction('Hold an Alt option key.');els.assistantInstruction.focus({preventScroll:true});const down=new KeyboardEvent('keydown',{key:'2',code:'Digit2',altKey:true,bubbles:true,cancelable:true});els.assistantInstruction.dispatchEvent(down);__pa.assert(down.defaultPrevented&&els.prompt.value===assistantResultData.drafts[1].prompt&&document.activeElement===els.prompt,'Alt+Digit2 did not use its draft');const applied=els.prompt.value,repeat=new KeyboardEvent('keydown',{key:'2',code:'Digit2',altKey:true,repeat:true,bubbles:true,cancelable:true});els.prompt.dispatchEvent(repeat);__pa.assert(repeat.defaultPrevented&&els.prompt.value===applied,'a consumed Alt+Digit2 repeat reached the editor');els.prompt.dispatchEvent(new KeyboardEvent('keyup',{key:'2',code:'Digit2',altKey:true,bubbles:true}));const released=new KeyboardEvent('keydown',{key:'2',code:'Digit2',altKey:true,repeat:true,bubbles:true,cancelable:true});els.prompt.dispatchEvent(released);__pa.assert(!released.defaultPrevented&&els.prompt.value===applied,'matching keyup did not release Alt+Digit2');__pa.source(__pa.numberBase);__pa.instruction(__pa.numberInstruction);assistantSnapshot=assistantSource();syncPromptAssistant();return els.prompt.value===__pa.numberBase&&__pa.requests.length===1;})()",
+    "fatal": true
+  },
+  {
+    "expect": "(()=>{assistantSnapshot=assistantSource();syncPromptAssistant();els.assistantResult.focus({preventScroll:true});const before=els.prompt.value;for(const init of [{repeat:true},{isComposing:true},{keyCode:229},{shiftKey:true},{ctrlKey:true},{metaKey:true},{ctrlKey:true,altKey:true},{metaKey:true,altKey:true},{shiftKey:true,altKey:true},{key:'4'},{key:'0'}]){const e=new KeyboardEvent('keydown',{key:'1',bubbles:true,cancelable:true,...init});els.assistantResult.dispatchEvent(e);__pa.assert(els.prompt.value===before,'an unsupported number event applied a draft: '+JSON.stringify(init));}const held=new KeyboardEvent('keydown',{key:'2',bubbles:true,cancelable:true});held.preventDefault();els.assistantResult.dispatchEvent(held);return els.prompt.value===before&&__pa.requests.length===1;})()",
+    "fatal": true
+  },
+  {
+    "eval": "els.generate.focus({preventScroll:true});"
+  },
+  {
+    "key": "1"
+  },
+  {
+    "expect": "els.prompt.value===__pa.numberBase&&assistantSidebarOpen()&&document.activeElement===els.generate",
+    "fatal": true
+  },
+  {
+    "eval": "els.prompt.focus({preventScroll:true});els.prompt.setSelectionRange(els.prompt.value.length,els.prompt.value.length);"
+  },
+  {
+    "key": "3"
+  },
+  {
+    "expect": "els.prompt.value===__pa.numberBase+'3'&&document.activeElement===els.prompt&&assistantSidebarOpen()",
+    "fatal": true
+  },
+  {
+    "keycombo": [
+      "Control",
+      "z"
+    ]
+  },
+  {
+    "expect": "els.prompt.value===__pa.numberBase",
+    "fatal": true
+  },
+  {
+    "eval": "__pa.numberMode=els.assistantMode.value;els.assistantMode.focus({preventScroll:true});"
+  },
+  {
+    "key": "2"
+  },
+  {
+    "expect": "els.prompt.value===__pa.numberBase&&els.assistantMode.value===__pa.numberMode&&document.activeElement===els.assistantMode",
+    "fatal": true
+  },
+  {
+    "eval": "__pa.instruction('Type option ');els.assistantInstruction.focus({preventScroll:true});els.assistantInstruction.setSelectionRange(els.assistantInstruction.value.length,els.assistantInstruction.value.length);"
+  },
+  {
+    "key": "1"
+  },
+  {
+    "expect": "els.assistantInstruction.value==='Type option 1'&&els.prompt.value===__pa.numberBase&&document.activeElement===els.assistantInstruction",
+    "fatal": true
+  },
+  {
+    "keycombo": [
+      "Alt",
+      "2"
+    ]
+  },
+  {
+    "expect": "els.prompt.value===assistantResultData.drafts[1].prompt&&!assistantSourceChanged()&&els.assistantInstruction.value==='Type option 1'&&assistantSidebarOpen()&&__pa.tagChangesStable()",
+    "fatal": true
+  },
+  {
+    "keycombo": [
+      "Control",
+      "z"
+    ]
+  },
+  {
+    "expect": "els.prompt.value===__pa.numberBase&&assistantSourceChanged()",
+    "fatal": true
+  },
+  {
+    "expect": "(()=>{assistantSnapshot=assistantSource();syncPromptAssistant();els.assistantResult.focus({preventScroll:true});const event=new KeyboardEvent('keydown',{key:'3',code:'Numpad3',location:3,bubbles:true,cancelable:true});els.assistantResult.dispatchEvent(event);els.prompt.dispatchEvent(new KeyboardEvent('keyup',{key:'3',code:'Numpad3',location:3,bubbles:true}));return event.defaultPrevented&&els.prompt.value===assistantResultData.drafts[2].prompt&&!assistantSourceChanged();})()",
+    "fatal": true
+  },
+  {
+    "keycombo": [
+      "Control",
+      "z"
+    ]
+  },
+  {
+    "expect": "els.prompt.value===__pa.numberBase",
+    "fatal": true
+  },
+  {
+    "expect": "(()=>{assistantSnapshot=assistantSource();syncPromptAssistant();els.assistantResult.focus({preventScroll:true});const snapshot=assistantSnapshot;try{assistantSnapshot={...snapshot,prompt:'An earlier source for keyboard refusal.'};syncPromptAssistant();const event=new KeyboardEvent('keydown',{key:'1',bubbles:true,cancelable:true});els.assistantResult.dispatchEvent(event);els.assistantResult.dispatchEvent(new KeyboardEvent('keyup',{key:'1',bubbles:true}));return event.defaultPrevented&&els.prompt.value===__pa.numberBase&&els.assistantStatus.textContent.includes('changed');}finally{assistantSnapshot=snapshot;syncPromptAssistant();}})()",
+    "fatal": true
+  },
+  {
+    "expect": "(()=>{const run=assistantRun;try{assistantRun={ticket:'keyboard-pending-fixture',started:Date.now(),stopped:false,stopping:false};syncPromptAssistant();els.assistantResult.focus({preventScroll:true});const event=new KeyboardEvent('keydown',{key:'2',bubbles:true,cancelable:true});els.assistantResult.dispatchEvent(event);els.assistantResult.dispatchEvent(new KeyboardEvent('keyup',{key:'2',bubbles:true}));return event.defaultPrevented&&els.prompt.value===__pa.numberBase&&els.assistantStatus.textContent.includes('Wait');}finally{assistantRun=run;syncPromptExpansion();}})()",
+    "fatal": true
+  },
+  {
+    "expect": "(()=>{const overlays=[els.modelPicker,els.contextMenu,els.examplesMenu,els.tagsMenu,els.tagFinderMenu,els.pickedMenu],before=els.prompt.value;els.assistantResult.focus({preventScroll:true});for(const el of overlays){const hidden=el.hidden;try{el.hidden=false;const event=new KeyboardEvent('keydown',{key:'1',bubbles:true,cancelable:true});els.assistantResult.dispatchEvent(event);__pa.assert(els.prompt.value===before&&!event.defaultPrevented,'number shortcut ran beneath '+el.id);}finally{el.hidden=hidden;}}return true;})()",
+    "fatal": true
+  },
+  {
+    "eval": "els.assistantResult.focus({preventScroll:true});"
+  },
+  {
+    "key": "?"
+  },
+  {
+    "expect": "els.shortcutsDialog.open&&els.shortcutsBody.textContent.includes('Prompt assistant')&&els.shortcutsBody.textContent.includes('Alt+1')",
+    "fatal": true
+  },
+  {
+    "key": "1"
+  },
+  {
+    "expect": "els.shortcutsDialog.open&&els.prompt.value===__pa.numberBase&&__pa.requests.length===1",
+    "fatal": true
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "!els.shortcutsDialog.open&&assistantSidebarOpen()&&els.prompt.value===__pa.numberBase",
+    "fatal": true
+  },
+  {
+    "expect": "(async()=>{__pa.instruction(__pa.numberInstruction);assistantSnapshot=assistantSource();syncPromptAssistant();assistantSay('Ready. Choose a numbered draft or send a follow-up.');document.querySelector('.assistant-body').scrollTop=0;await __pa.frames();return __pa.threeDraftsFit()&&__pa.controlsFit()&&els.prompt.value===__pa.original&&__pa.requests.length===1&&!busy&&submissions.size===0;})()",
+    "fatal": true
+  },
+  {
+    "shot": "assistant-numbered-options.png"
+  },
+  {
+    "expect": "(async()=>{__pa.source(__pa.densitySaved.prompt);__pa.original=__pa.densitySaved.original;assistantResultData=__pa.densitySaved.result;assistantTurns=__pa.densitySaved.turns;assistantSnapshot=__pa.densitySaved.snapshot;renderAssistantHistory();renderAssistantResult();await __pa.frames();return !document.querySelector('.assistant-about:not(.assistant-pins)').open&&assistantResultData===__pa.densitySaved.result&&__pa.requests.length===1;})()",
+    "fatal": true
+  },
+  {
+    "viewport": [
+      1400,
+      900
+    ]
+  },
+  {
+    "log": "'Assistant model selection keeps the existing conversation and selected image checkpoint. A switch itself downloads nothing and sends no question.'"
+  },
+  {
+    "expect": "(()=>{__pa.modelSwitchSource=els.prompt.value;__pa.modelSwitchTurns=JSON.stringify(assistantTurns);__pa.modelSwitchResult=assistantResultData;__pa.criticLabel=criticStatus.label;els.assistantModel.focus({preventScroll:true});return els.assistantModel.value==='default'&&!assistantRun;})()",
+    "fatal": true
+  },
+  {
+    "key": "ArrowDown",
+    "native": true
+  },
+  {
+    "expect": "els.assistantModel.value==='qwen3-8b' && __pa.requests.length===1 && JSON.stringify(assistantTurns)===__pa.modelSwitchTurns && assistantResultData===__pa.modelSwitchResult && els.prompt.value===__pa.modelSwitchSource && !assistantSourceChanged() && criticStatus.label===__pa.criticLabel && els.assistantCost.textContent.includes('Qwen3-8B') && els.assistantCost.textContent.toLowerCase().includes('download')",
+    "fatal": true
+  },
+  {
     "eval": "window.__paFirstDraft=assistantResultData.drafts[0].prompt; __pa.instruction('Keep the fox and snowy setting, use a closer composition.');"
   },
   {
-    "click": "#assistant-ask"
+    "click": "#assistant-instruction"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "Enter"
+    ]
   },
   {
     "expect": "__pa.until(()=>!assistantRun && __pa.requests.length===2 && assistantResultData?.drafts?.length>0)",
     "fatal": true
   },
   {
-    "expect": "__pa.requests[1].mode==='create' && __pa.requests[1].history.length>=2 && __pa.requests[1].history.some(turn=>turn.role==='user' && turn.content.includes('red fox')) && __pa.requests[1].history.some(turn=>turn.role==='assistant') && els.prompt.value===__pa.original"
+    "expect": "__pa.requests[1].mode==='create' && __pa.requests[1].history.length>=2 && __pa.requests[1].history.some(turn=>turn.role==='user' && turn.content.includes('red fox')) && __pa.requests[1].history.some(turn=>turn.role==='assistant') && els.prompt.value===__pa.original && __pa.requests[1].assistant_model==='qwen3-8b' && assistantResultData.model==='Qwen3-8B Q4_K_M' && els.assistantResult.textContent.includes('Qwen3-8B Q4_K_M') && criticStatus.label===__pa.criticLabel"
+  },
+  {
+    "expect": "!els.assistantHistoryWrap.hidden && els.assistantHistoryWrap.tagName!=='DETAILS' && els.assistantHistory.textContent.includes(__paFirstDraft) && els.assistantHistory.textContent.includes('Write two distinct prompts')"
   },
   {
     "eval": "window.__paApplied=assistantResultData.drafts[0].prompt;"
@@ -131,7 +587,7 @@
     "click": "[data-assistant-draft=\"0\"]"
   },
   {
-    "expect": "__pa.until(()=>els.prompt.value===__paApplied && !els.assistantDialog.open)",
+    "expect": "__pa.until(()=>els.prompt.value===__paApplied && assistantSidebarOpen() && !assistantSourceChanged() && document.activeElement===els.prompt)",
     "fatal": true
   },
   {
@@ -141,26 +597,32 @@
     ]
   },
   {
-    "expect": "els.prompt.value===__pa.original"
+    "expect": "els.prompt.value===__pa.original && assistantSidebarOpen() && assistantSourceChanged()"
   },
   {
-    "click": "#btn-examples"
-  },
-  {
-    "click": "#prompt-assistant-menu-item"
-  },
-  {
-    "expect": "els.assistantDialog.open",
+    "expect": "assistantSidebarOpen()",
     "fatal": true
   },
   {
-    "log": "'Reset and changing tasks clear the previous conversation. Improve uses the existing source and keeps it untouched until explicit application.'"
+    "log": "'New chat explicitly clears the previous conversation. Changing tasks preserves it; Improve uses the existing source and keeps it untouched until explicit application.'"
   },
   {
     "click": "#assistant-reset"
   },
   {
     "expect": "assistantTurns.length===0 && assistantResultData===null"
+  },
+  {
+    "expect": "(()=>{els.assistantModel.focus({preventScroll:true});return els.assistantModel.value==='qwen3-8b'&&!assistantRun;})()",
+    "fatal": true
+  },
+  {
+    "key": "ArrowDown",
+    "native": true
+  },
+  {
+    "expect": "els.assistantModel.value==='qwen3.5-4b' && __pa.requests.length===2 && !assistantTurns.length && els.assistantCost.textContent.includes('Qwen3.5-4B') && els.assistantCost.textContent.toLowerCase().includes('download')",
+    "fatal": true
   },
   {
     "eval": "__pa.mode('improve'); __pa.instruction('Keep every subject, green eyes, exclusion and the exact OPEN lettering; make the phrasing clearer.');"
@@ -173,7 +635,7 @@
     "fatal": true
   },
   {
-    "expect": "__pa.requests[2].mode==='improve' && __pa.requests[2].prompt===__pa.original && __pa.requests[2].history.length===0 && els.prompt.value===__pa.original"
+    "expect": "__pa.requests[2].mode==='improve' && __pa.requests[2].prompt===__pa.original && __pa.requests[2].history.length===0 && els.prompt.value===__pa.original && __pa.requests[2].assistant_model==='qwen3.5-4b' && assistantResultData.model==='Qwen3.5-4B Q8_0' && criticStatus.label===__pa.criticLabel"
   },
   {
     "expect": "(async()=>{__pa.assert(await __pa.until(()=>!statusPending),'status read did not settle before the offline fixture');window.__paOfflineBefore=serverOffline; window.__paOfflineApi=api; api=async(path,options)=>{if(path==='/api/status'){const e=Error('Synthetic offline status');e.offline=true;throw e;}return __paOfflineApi(path,options);}; serverOffline=true; syncPromptAssistant();return true;})()",
@@ -191,7 +653,17 @@
     "click": "[data-assistant-draft=\"0\"]"
   },
   {
-    "expect": "els.assistantDialog.open && els.prompt.value===__pa.original && els.assistantStatus.textContent.includes('server is not answering')"
+    "expect": "assistantSidebarOpen() && els.prompt.value===__pa.original && els.assistantStatus.textContent.includes('server is not answering')"
+  },
+  {
+    "eval": "els.assistantResult.focus({preventScroll:true});"
+  },
+  {
+    "key": "1"
+  },
+  {
+    "expect": "els.prompt.value===__pa.original&&assistantSidebarOpen()&&els.assistantStatus.textContent.includes('server is not answering')",
+    "fatal": true
   },
   {
     "eval": "api=__paOfflineApi; serverOffline=__paOfflineBefore; syncPromptAssistant(); void refreshStatus();"
@@ -200,10 +672,10 @@
     "log": "'Find tags reaches the real fake service on a prose checkpoint. Only authoritative usable candidates are insertable; unverified suggestions remain explanations.'"
   },
   {
-    "eval": "__pa.mode('tags'); __pa.instruction('A silly single tuft of hair sticking up: find its Danbooru tag.');"
+    "eval": "__pa.taskTurns=JSON.stringify(assistantTurns); __pa.taskResult=assistantResultData; __pa.mode('tags'); __pa.instruction('A silly single tuft of hair sticking up: find its Danbooru tag.');"
   },
   {
-    "expect": "assistantTurns.length===0 && assistantResultData===null"
+    "expect": "JSON.stringify(assistantTurns)===__pa.taskTurns && assistantResultData===__pa.taskResult && assistantTurns.length>0"
   },
   {
     "click": "#assistant-ask"
@@ -213,48 +685,95 @@
     "fatal": true
   },
   {
-    "expect": "__pa.requests[3].mode==='tags' && __pa.requests[3].history.length===0 && els.prompt.value===__pa.original && els.assistantResult.textContent.includes('ahoge')"
+    "expect": "__pa.requests[3].mode==='tags' && __pa.requests[3].history.length>=2 && els.prompt.value===__pa.original && els.assistantResult.textContent.includes('ahoge')"
   },
   {
-    "eval": "window.__paTags=__pa.arm('Synthetic authoritative tag verdicts',{drafts:[],tags:[{text:'ahoge',reason:'Model suggestion: the raised hair tuft.',status:'valid',canonical:null,detail:'Known general tag.'},{text:'stupid hair',reason:'Model suggestion: a possible alias.',status:'alias',canonical:'ahoge',detail:'Alias of ahoge.'},{text:'invented_glitter_hair_zz',reason:'Model suggestion only.',status:'not_found',canonical:null,detail:'Not in the tag index.'},{text:'unchecked_hair_zz',reason:'Model suggestion only.',status:'unchecked',canonical:null,detail:'The index did not answer.'}],warnings:['Synthetic index verdicts for browser validation.']}); __pa.instruction('Compare checked and unchecked tag suggestions.'); window.__paAskBefore=els.assistantAsk.getBoundingClientRect().toJSON(); window.__paInstructionBefore=els.assistantInstruction.getBoundingClientRect().toJSON();"
+    "eval": "window.__paTags=__pa.arm('Synthetic authoritative tag verdicts',{drafts:[],tags:[{text:'ahoge',reason:'Model suggestion: the raised hair tuft.',status:'valid',canonical:null,detail:'Known general tag.'},{text:'stupid hair',reason:'Model suggestion: a possible alias.',status:'alias',canonical:'ahoge',detail:'Alias of ahoge.'},{text:'invented_glitter_hair_zz',reason:'Model suggestion only.',status:'not_found',canonical:null,detail:'Not in the tag index.'},{text:'unchecked_hair_zz',reason:'Model suggestion only.',status:'unchecked',canonical:null,detail:'The index did not answer.'}],warnings:['Synthetic index verdicts for browser validation.']}); __pa.instruction('Compare checked and unchecked tag suggestions.'); window.__paAskBefore=els.assistantAsk.getBoundingClientRect().toJSON(); window.__paInstructionBefore=els.assistantInstruction.getBoundingClientRect().toJSON();\nassistantResultData={...assistantResultData,message:Array.from({length:36},(_,i)=>'Earlier answer line '+(i+1)+': keep this older conversation readable.').join('\\n')}; assistantTurns.at(-1).answer=assistantResultData; renderAssistantHistory(); renderAssistantResult(); __pa.chatHost().scrollTop=0; __pa.chatBeforeSend=__pa.chatGeometry();"
   },
   {
-    "click": "#assistant-ask"
+    "click": "#assistant-instruction"
   },
   {
-    "expect": "__pa.until(()=>__paTags.captured && !!assistantRun)",
+    "keycombo": [
+      "Control",
+      "Enter"
+    ]
+  },
+  {
+    "expect": "(async()=>{const settled=await __pa.until(()=>__paTags.captured && !!assistantRun);return settled && els.assistantInstruction.value==='' && assistantPendingText==='Compare checked and unchecked tag suggestions.' && __pa.chatHost().scrollHeight-__pa.chatHost().clientHeight>120 && __pa.chatAtEnd() && __pa.chatStable(__pa.chatBeforeSend);})()",
     "fatal": true
   },
   {
-    "expect": "(() => {const stable=(el,b)=>{const r=el.getBoundingClientRect();return ['x','y','width','height'].every(k=>Math.abs(r[k]-b[k])<0.5);};return stable(els.assistantAsk,__paAskBefore)&&stable(els.assistantInstruction,__paInstructionBefore);})()"
+    "expect": "els.assistantModel.getAttribute('aria-disabled')==='true' && !els.assistantModel.disabled && __paTags.request.assistant_model==='qwen3.5-4b' && els.assistantModel.title.toLowerCase().includes('stop')",
+    "fatal": true
+  },
+  {
+    "eval": "els.assistantModel.focus({preventScroll:true});"
+  },
+  {
+    "key": "ArrowUp",
+    "native": true
+  },
+  {
+    "expect": "els.assistantModel.value==='qwen3.5-4b' && __paTags.request.assistant_model==='qwen3.5-4b' && els.assistantStatus.textContent.includes('Stop the current answer') && !!assistantRun",
+    "fatal": true
+  },
+  {
+    "expect": "(()=>{els.assistantModel.value='default';els.assistantModel.dispatchEvent(new Event('change',{bubbles:true}));return els.assistantModel.value==='qwen3.5-4b' && __paTags.request.assistant_model==='qwen3.5-4b' && __pa.requests.length===5 && !!assistantRun;})()",
+    "fatal": true
+  },
+  {
+    "expect": "(() => {const pairs=[[els.assistantAsk,__paAskBefore],[els.assistantInstruction,__paInstructionBefore]],bad=pairs.map(([e,b])=>({id:e.id,before:b,after:e.getBoundingClientRect().toJSON()})).filter(x=>['x','y','width','height'].some(k=>Math.abs(x.after[k]-x.before[k])>=0.5));if(bad.length)throw Error('Assistant controls moved while answering: '+JSON.stringify(bad));return true;})()"
   },
   {
     "expect": "els.generate.getAttribute('aria-disabled')==='true' && els.generate.title.toLowerCase().includes('assistant') && els.assistantStop.getAttribute('aria-disabled')!=='true'"
   },
   {
-    "eval": "__pa.instruction('Keep this follow-up instruction while the previous answer finishes.');"
+    "eval": "__pa.instruction('Keep this follow-up instruction while the previous answer finishes.'); __pa.chatHost().scrollTop=72;"
   },
   {
-    "eval": "__pa.release(__paTags);"
+    "expect": "(async()=>{await __pa.frames();return __pa.chatHost().scrollTop===72&&!__pa.chatAtEnd();})()",
+    "fatal": true
+  },
+  {
+    "click": "#assistant-instruction"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "Enter"
+    ]
+  },
+  {
+    "expect": "__pa.requests.length===5 && !!assistantRun && els.assistantInstruction.value==='Keep this follow-up instruction while the previous answer finishes.' && assistantPendingText==='Compare checked and unchecked tag suggestions.'"
+  },
+  {
+    "expect": "__a11yCheck({root:'#prompt-assistant-sidebar'})"
+  },
+  {
+    "eval": "__pa.chatReadTop=__pa.chatHost().scrollTop; __pa.chatReplyFocus=document.activeElement; __pa.release(__paTags);"
   },
   {
     "expect": "__pa.until(()=>!assistantRun && assistantResultData?.message==='Synthetic authoritative tag verdicts')",
     "fatal": true
   },
   {
-    "expect": "els.assistantInstruction.value==='Keep this follow-up instruction while the previous answer finishes.'"
+    "expect": "els.assistantInstruction.value==='Keep this follow-up instruction while the previous answer finishes.' && Math.abs(__pa.chatHost().scrollTop-__pa.chatReadTop)<=1 && !__pa.chatAtEnd() && document.activeElement===__pa.chatReplyFocus && __pa.chatStable(__pa.chatBeforeSend)"
   },
   {
-    "expect": "(() => {const stable=(el,b)=>{const r=el.getBoundingClientRect();return ['x','y','width','height'].every(k=>Math.abs(r[k]-b[k])<0.5);};return stable(els.assistantAsk,__paAskBefore)&&stable(els.assistantInstruction,__paInstructionBefore);})()"
+    "expect": "(() => {const pairs=[[els.assistantAsk,__paAskBefore],[els.assistantInstruction,__paInstructionBefore]],bad=pairs.map(([e,b])=>({id:e.id,before:b,after:e.getBoundingClientRect().toJSON()})).filter(x=>['x','y','width','height'].some(k=>Math.abs(x.after[k]-x.before[k])>=0.5));if(bad.length)throw Error('Assistant controls moved while answering: '+JSON.stringify(bad));return true;})()"
   },
   {
-    "expect": "(() => {const rows=[...els.assistantResult.querySelectorAll('input[data-assistant-tag]')];return rows.length===4 && rows.slice(0,2).every(input=>input.getAttribute('aria-disabled')!=='true'&&!input.disabled) && rows.slice(2).every(input=>input.disabled||input.getAttribute('aria-disabled')==='true') && els.assistantResult.textContent.includes('Not in the tag index.') && els.assistantResult.textContent.includes('The index did not answer.');})()"
+    "expect": "(() => {const rows=[...els.assistantResult.querySelectorAll('input[data-assistant-tag]')];return rows.length===4 && rows.slice(0,2).every(input=>input.getAttribute('aria-disabled')!=='true'&&!input.disabled) && rows.slice(2).every(input=>input.disabled||input.getAttribute('aria-disabled')==='true') && rows[1].closest('.assistant-tag').textContent.includes('stupid hair') && rows[1].closest('.assistant-tag').textContent.includes('ahoge') && els.assistantResult.textContent.includes('Not in the tag index.') && els.assistantResult.textContent.includes('The index did not answer.');})()"
   },
   {
     "eval": "(() => {const host=document.querySelector('.assistant-body'), result=els.assistantResult; if(!result.hidden)host.scrollTop+=result.getBoundingClientRect().top-host.getBoundingClientRect().top;})()"
   },
   {
     "shot": "assistant-tags.png"
+  },
+  {
+    "expect": "__a11yCheck({root:'#prompt-assistant-sidebar'})"
   },
   {
     "expect": "(async()=>{const e=document.querySelector(\"input[data-assistant-tag=\\\"0\\\"]\"), host=e?.closest('.assistant-body'); if(!e||!host)return false;const r=e.getBoundingClientRect(), b=host.getBoundingClientRect();host.scrollTop+=r.bottom>b.bottom?r.bottom-b.bottom+4:r.top<b.top?r.top-b.top-4:0;await __pa.frames();const t=e.getBoundingClientRect(), h=host.getBoundingClientRect();return t.top>=h.top&&t.bottom<=h.bottom&&e.contains(document.elementFromPoint(t.x+t.width/2,t.y+t.height/2));})()",
@@ -271,7 +790,7 @@
     "click": "#assistant-insert-tags"
   },
   {
-    "expect": "__pa.until(()=>!els.assistantDialog.open && els.prompt.value.includes('ahoge') && els.prompt.value.startsWith(__pa.original))",
+    "expect": "__pa.until(()=>assistantSidebarOpen() && !assistantSourceChanged() && els.prompt.value.includes('ahoge') && els.prompt.value.startsWith(__pa.original))",
     "fatal": true
   },
   {
@@ -281,23 +800,17 @@
     ]
   },
   {
-    "expect": "els.prompt.value===__pa.original"
+    "expect": "els.prompt.value===__pa.original && assistantSidebarOpen() && assistantSourceChanged()"
   },
   {
-    "click": "#btn-examples"
-  },
-  {
-    "click": "#prompt-assistant-menu-item"
-  },
-  {
-    "expect": "els.assistantDialog.open",
+    "expect": "assistantSidebarOpen()",
     "fatal": true
   },
   {
     "log": "'A reply about earlier source text remains reviewable but cannot overwrite an edit made while it was thinking.'"
   },
   {
-    "eval": "__pa.mode('improve'); __pa.instruction('Improve the source while keeping its details.'); window.__paStale=__pa.arm('Reply for earlier source');"
+    "eval": "resetAssistantConversation(); __pa.mode('improve'); __pa.instruction('Improve the source while keeping its details.'); window.__paStale=__pa.arm('Reply for earlier source');"
   },
   {
     "click": "#assistant-ask"
@@ -324,7 +837,7 @@
     "click": "[data-assistant-draft=\"0\"]"
   },
   {
-    "expect": "els.assistantDialog.open && els.prompt.value==='A deliberate newer composer draft.' && els.assistantStatus.textContent.length>0"
+    "expect": "assistantSidebarOpen() && els.prompt.value==='A deliberate newer composer draft.' && els.assistantStatus.textContent.length>0"
   },
   {
     "log": "'Stopping owns only its ticket. Late answers after Stop or Close never replace a later answer, and reopening makes no request.'"
@@ -333,13 +846,13 @@
     "click": "#assistant-reset"
   },
   {
-    "eval": "__pa.mode('create'); __pa.instruction('A stoppable draft.'); window.__paStopped=__pa.arm('Abandoned stopped reply'); window.__paStopsBefore=__pa.stops.length;"
+    "eval": "__pa.mode('create'); __pa.stoppedRaw='  A stoppable draft.  '; __pa.instruction(__pa.stoppedRaw); window.__paStopped=__pa.arm('Abandoned stopped reply'); window.__paStopsBefore=__pa.stops.length;"
   },
   {
     "click": "#assistant-ask"
   },
   {
-    "expect": "__pa.until(()=>__paStopped.captured && !!assistantRun)",
+    "expect": "(async()=>{const settled=await __pa.until(()=>__paStopped.captured && !!assistantRun);return settled && els.assistantInstruction.value==='' && assistantPendingText==='A stoppable draft.';})()",
     "fatal": true
   },
   {
@@ -357,33 +870,33 @@
     "fatal": true
   },
   {
-    "expect": "assistantResultData?.message!=='Abandoned stopped reply' && els.prompt.value==='A deliberate newer composer draft.' && __pa.stops.at(-1).includes(__paStopped.request.ticket)"
+    "expect": "assistantResultData?.message!=='Abandoned stopped reply' && els.prompt.value==='A deliberate newer composer draft.' && __pa.stops.at(-1).includes(__paStopped.request.ticket) && els.assistantInstruction.value===__pa.stoppedRaw"
   },
   {
-    "eval": "__pa.instruction('A draft whose dialog will close.'); window.__paClosed=__pa.arm('Abandoned closed reply'); window.__paStopsBefore=__pa.stops.length;"
+    "eval": "__pa.instruction('A draft whose sidebar will close.'); window.__paClosed=__pa.arm('Abandoned closed reply'); window.__paStopsBefore=__pa.stops.length;"
   },
   {
     "click": "#assistant-ask"
   },
   {
-    "expect": "__pa.until(()=>__paClosed.captured && !!assistantRun)",
+    "expect": "(async()=>{const settled=await __pa.until(()=>__paClosed.captured && !!assistantRun);return settled && els.assistantInstruction.value==='';})()",
     "fatal": true
+  },
+  {
+    "eval": "__pa.instruction('Keep this unsent draft after closing.');"
   },
   {
     "click": "#assistant-close"
   },
   {
-    "expect": "__pa.until(()=>!els.assistantDialog.open && __pa.stops.length===__paStopsBefore+1)",
+    "expect": "__pa.until(()=>!assistantSidebarOpen() && __pa.stops.length===__paStopsBefore+1)",
     "fatal": true
   },
   {
-    "click": "#btn-examples"
+    "click": "#btn-prompt-assistant"
   },
   {
-    "click": "#prompt-assistant-menu-item"
-  },
-  {
-    "expect": "els.assistantDialog.open && __pa.requests.length===8",
+    "expect": "assistantSidebarOpen() && __pa.requests.length===8",
     "fatal": true
   },
   {
@@ -394,19 +907,19 @@
     "fatal": true
   },
   {
-    "expect": "assistantResultData?.message!=='Abandoned closed reply' && els.prompt.value==='A deliberate newer composer draft.'"
+    "expect": "assistantResultData?.message!=='Abandoned closed reply' && els.prompt.value==='A deliberate newer composer draft.' && els.assistantInstruction.value==='Keep this unsent draft after closing.'"
   },
   {
-    "log": "'A failed answer leaves instruction text and source intact, releases the generation hold, and an explicit retry succeeds.'"
+    "log": "'A failed send restores the exact untouched message for retry. A successful retry keeps a newly typed identical follow-up and follows the newest overflowing answer without moving the document, composer or focus.'"
   },
   {
-    "eval": "__pa.instruction('Keep this instruction after failure.'); window.__paFailed=__pa.arm('Never shown');"
+    "eval": "__pa.failedRaw='  Keep this instruction after failure.  '; __pa.instruction(__pa.failedRaw); window.__paFailed=__pa.arm('Never shown');"
   },
   {
     "click": "#assistant-ask"
   },
   {
-    "expect": "__pa.until(()=>__paFailed.captured && !!assistantRun)",
+    "expect": "(async()=>{const settled=await __pa.until(()=>__paFailed.captured && !!assistantRun);return settled && els.assistantInstruction.value==='' && assistantPendingText===__pa.failedRaw.trim();})()",
     "fatal": true
   },
   {
@@ -417,23 +930,34 @@
     "fatal": true
   },
   {
-    "expect": "els.assistantInstruction.value==='Keep this instruction after failure.' && els.prompt.value==='A deliberate newer composer draft.' && !submitHold({composer:true})"
+    "expect": "els.assistantInstruction.value===__pa.failedRaw && els.prompt.value==='A deliberate newer composer draft.' && !submitHold({composer:true})"
   },
   {
-    "eval": "window.__paRetried=__pa.arm('Explicit retry answered');"
+    "eval": "window.__paRetried=__pa.arm('Explicit retry answered',{drafts:[{title:'Long newest reply',prompt:Array.from({length:60},(_,i)=>'Newest reply detail '+(i+1)+': retain the fox and snowy forest.').join('\\n'),notes:['Synthetic overflowing answer for conversation-follow checks.']}]}); __pa.chatBeforeRetry=__pa.chatGeometry();"
   },
   {
     "click": "#assistant-ask"
   },
   {
-    "expect": "__pa.until(()=>__paRetried.captured && !!assistantRun)",
+    "expect": "(async()=>{const settled=await __pa.until(()=>__paRetried.captured && !!assistantRun);return settled && els.assistantInstruction.value==='' && __paRetried.request.instruction===__pa.failedRaw.trim() && __pa.chatAtEnd() && __pa.chatStable(__pa.chatBeforeRetry);})()",
     "fatal": true
   },
   {
-    "eval": "__pa.release(__paRetried);"
+    "eval": "__pa.instruction(__pa.failedRaw); els.assistantAsk.focus({preventScroll:true}); __pa.chatRetryFocus=document.activeElement; __pa.release(__paRetried);"
   },
   {
     "expect": "__pa.until(()=>!assistantRun && assistantResultData?.message==='Explicit retry answered')",
+    "fatal": true
+  },
+  {
+    "expect": "(async()=>{await __pa.frames();const h=__pa.chatHost();return els.assistantInstruction.value===__pa.failedRaw&&h.scrollHeight-h.clientHeight>120&&__pa.chatAtEnd()&&document.activeElement===__pa.chatRetryFocus&&__pa.chatStable(__pa.chatBeforeRetry);})()",
+    "fatal": true
+  },
+  {
+    "log": "'Cmd+Enter also clears at admission. A draft typed and then erased during a failed answer stays erased rather than resurrecting the sent message.'"
+  },
+  {
+    "expect": "(async()=>{\n const saved={api,instruction:els.assistantInstruction.value,result:assistantResultData,turns:assistantTurns,snapshot:assistantSnapshot,status:els.assistantStatus.textContent,warn:els.assistantStatus.classList.contains('warn'),scroll:__pa.chatHost().scrollTop};\n let fail=null;\n try {\n  api=async(path,options)=>path==='/api/prompt/assist'&&options?.method==='POST'?await new Promise((resolve,reject)=>{fail=reject;}):await saved.api(path,options);\n  __pa.instruction('A failure must not restore a deliberately erased draft.'); els.assistantInstruction.focus({preventScroll:true});\n  els.assistantInstruction.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',metaKey:true,bubbles:true,cancelable:true}));\n  __pa.assert(!!assistantRun&&!!fail&&els.assistantInstruction.value==='','Cmd+Enter did not immediately clear the admitted message');\n  __pa.instruction('A newer draft that I deliberately erase.'); __pa.instruction('');\n  fail(Error('Synthetic typed-and-erased failure')); fail=null;\n  __pa.assert(await __pa.until(()=>!assistantRun),'erased-draft failure did not settle');\n  __pa.assert(els.assistantInstruction.value===''&&els.assistantStatus.textContent.includes('Synthetic typed-and-erased failure'),'failure resurrected the deliberately erased draft');\n  return true;\n } finally {\n  if(fail){fail(Error('Synthetic fixture cleanup'));await __pa.until(()=>!assistantRun);}\n  api=saved.api; assistantResultData=saved.result; assistantTurns=saved.turns; assistantSnapshot=saved.snapshot; __pa.instruction(saved.instruction); renderAssistantHistory(); renderAssistantResult(); assistantSay(saved.status,saved.warn); __pa.chatHost().scrollTop=saved.scroll;\n }\n})()",
     "fatal": true
   },
   {
@@ -460,10 +984,23 @@
     "expect": "assistantResultData?.message!=='Abandoned previous-checkpoint reply' && assistantTurns.length===0 && els.prompt.value==='A deliberate newer composer draft.' && els.assistantStatus.textContent.includes('checkpoint changed') && els.assistantStatus.textContent.includes('conversation was cleared')"
   },
   {
-    "eval": "if(els.assistantDialog.open)els.assistantClose.click();"
+    "eval": "if(assistantSidebarOpen())els.assistantClose.click();"
   },
   {
-    "log": "'The dialog fits a narrow desktop and the phone sheet; native Escape returns focus without any automatic local-model request.'"
+    "log": "'The sidebar fits a narrow desktop and phone; Escape and phone Back close it without any automatic local-model request.'"
+  },
+  {
+    "viewport": [
+      800,
+      650
+    ]
+  },
+  {
+    "expect": "(async()=>{await __pa.frames();return __pa.toggleFits();})()",
+    "fatal": true
+  },
+  {
+    "shot": "assistant-toggle-narrow.png"
   },
   {
     "viewport": [
@@ -472,23 +1009,24 @@
     ]
   },
   {
-    "click": "#btn-examples"
-  },
-  {
-    "click": "#prompt-assistant-menu-item"
-  },
-  {
-    "expect": "__pa.until(()=>els.assistantDialog.open)",
+    "expect": "(async()=>{await __pa.frames();return __pa.toggleFits();})()",
     "fatal": true
   },
   {
-    "expect": "(() => {const r=els.assistantDialog.getBoundingClientRect();return r.left>=0&&r.top>=0&&r.right<=innerWidth+1&&r.bottom<=innerHeight+1&&els.assistantDialog.scrollWidth<=els.assistantDialog.clientWidth+1;})()"
+    "click": "#btn-prompt-assistant"
+  },
+  {
+    "expect": "__pa.until(()=>assistantSidebarOpen())",
+    "fatal": true
+  },
+  {
+    "expect": "(() => {const r=els.assistantSidebar.getBoundingClientRect();return r.left>=0&&r.top>=0&&r.right<=innerWidth+1&&r.bottom<=innerHeight+1&&els.assistantSidebar.scrollWidth<=els.assistantSidebar.clientWidth+1;})()"
   },
   {
     "key": "Escape"
   },
   {
-    "expect": "__pa.until(()=>!els.assistantDialog.open && document.activeElement===els.examplesBtn)",
+    "expect": "__pa.until(()=>!assistantSidebarOpen() && document.activeElement===els.assistantToggle)",
     "fatal": true
   },
   {
@@ -510,35 +1048,213 @@
     "fatal": true
   },
   {
-    "click": "#btn-examples"
+    "click": "#btn-prompt-assistant"
   },
   {
-    "click": "#prompt-assistant-menu-item"
-  },
-  {
-    "expect": "__pa.until(()=>els.assistantDialog.open)",
+    "expect": "__pa.until(()=>assistantSidebarOpen())",
     "fatal": true
   },
   {
-    "expect": "(() => {const r=__phoneAudit({root:'#prompt-assistant-dialog'});return r.overflow===0&&!r.offside.length&&!r.small.length&&!r.dialogs.length;})()"
+    "expect": "(() => {const r=__phoneAudit({root:'#prompt-assistant-sidebar'});return r.overflow===0&&!r.offside.length&&!r.small.length&&!r.dialogs.length;})()"
+  },
+  {
+    "expect": "__pa.controlsFit()",
+    "fatal": true
   },
   {
     "expect": "document.activeElement!==els.assistantInstruction && els.prompt.value==='A deliberate newer composer draft.'"
   },
   {
-    "eval": "assistantResultData=__pa.synthetic('Phone draft preview'); assistantSnapshot=assistantSource(); renderAssistantResult();"
+    "eval": "resetAssistantConversation(); __pa.source('1girl, basketball, park, summer, sunny'); assistantResultData=__pa.synthetic('Phone draft preview',{drafts:[{title:'Night practice',prompt:'1girl, basketball, park, night, moonlight',notes:['Kept the girl, basketball and park.']}],draft_changes:[{added:['night','moonlight'],removed:['summer','sunny']}]}); assistantSnapshot=assistantSource(); renderAssistantResult(); assistantSay('Ready. Choose a draft or send a follow-up.'); __pa.instruction('Keep basketball; soften the lighting.');"
   },
   {
     "eval": "(() => {const host=document.querySelector('.assistant-body'), result=els.assistantResult; if(!result.hidden)host.scrollTop+=result.getBoundingClientRect().top-host.getBoundingClientRect().top;})()"
   },
   {
+    "expect": "(()=>{const added=els.assistantResult.querySelector('.assistant-tags-added'),removed=els.assistantResult.querySelector('.assistant-tags-removed'),card=els.assistantResult.querySelector('.assistant-draft'),r=card.getBoundingClientRect();return added?.checkVisibility()&&removed?.checkVisibility()&&added.textContent.includes('+ moonlight')&&removed.textContent.includes(String.fromCharCode(0x2212)+' sunny')&&[added,removed].every(e=>{const b=e.getBoundingClientRect();return b.left>=r.left&&b.right<=r.right+1;})&&__pa.controlsFit();})()",
+    "fatal": true
+  },
+  {
     "shot": "assistant-phone.png"
+  },
+  {
+    "expect": "__a11yCheck({root:'#prompt-assistant-sidebar'})"
+  },
+  {
+    "expect": "(async()=>{const e=els.assistantResult.querySelector('[data-assistant-draft=\"0\"]'),host=e?.closest('.assistant-body');if(!e||!host)return false;const r=e.getBoundingClientRect(),b=host.getBoundingClientRect();host.scrollTop+=r.bottom>b.bottom?r.bottom-b.bottom+4:r.top<b.top?r.top-b.top-4:0;await __pa.frames();const t=e.getBoundingClientRect(),at=document.elementFromPoint(t.left+t.width/2,t.top+t.height/2);return !!at&&(at===e||e.contains(at));})()",
+    "fatal": true
+  },
+  {
+    "click": "[data-assistant-draft=\"0\"]"
+  },
+  {
+    "expect": "assistantSidebarOpen() && els.prompt.value===assistantResultData.drafts[0].prompt && !assistantSourceChanged() && els.assistantSidebar.contains(document.activeElement) && __pa.controlsFit()",
+    "fatal": true
+  },
+  {
+    "click": "#assistant-instruction"
+  },
+  {
+    "viewport": [
+      320,
+      650,
+      3
+    ],
+    "mobile": true
+  },
+  {
+    "expect": "(async()=>{await __pa.frames();const r=__phoneAudit({root:'#prompt-assistant-sidebar'});return !r.overflow&&!r.offside.length&&!r.small.length&&__pa.controlsFit();})()",
+    "fatal": true
+  },
+  {
+    "shot": "assistant-phone-small.png"
+  },
+  {
+    "log": "'Short landscape and a 300px keyboard-sized viewport keep the message and send controls visible and hit-testable.'"
+  },
+  {
+    "viewport": [
+      852,
+      393,
+      3
+    ],
+    "mobile": true
+  },
+  {
+    "expect": "(async()=>{await __pa.frames();const r=els.assistantSidebar.getBoundingClientRect();return matchMedia(PHONE_MEDIA).matches && r.left>=0&&r.top>=0&&r.right<=innerWidth+1&&r.bottom<=innerHeight+1&&__pa.controlsFit();})()",
+    "fatal": true
+  },
+  {
+    "shot": "assistant-landscape.png"
+  },
+  {
+    "viewport": [
+      393,
+      300,
+      3
+    ],
+    "mobile": true
+  },
+  {
+    "expect": "(async()=>{await __pa.frames();const r=els.assistantSidebar.getBoundingClientRect();return r.left>=0&&r.top>=0&&r.right<=innerWidth+1&&r.bottom<=innerHeight+1&&__pa.controlsFit();})()",
+    "fatal": true
+  },
+  {
+    "shot": "assistant-short.png"
+  },
+  {
+    "log": "'Phone panes scroll when their fixed header and composer no longer fit: Continue, Send, Stop, Requirements and Compare remain reachable at 350, 300 and 250px, including a focused option and expanded message.'"
+  },
+  {
+    "eval": "__pa.phoneOverflowSaved={turns:assistantTurns,focus:assistantFocus,mode:assistantMode,compare:new Map(assistantCompareDrafts)}; assistantTurns=[{role:'user',content:'Keep the basketball and park.'},{role:'assistant',content:assistantHistoryText(assistantResultData),answer:assistantResultData}]; assistantCompareDrafts.set('phone-night',{model:loadedModel,title:'Night practice',prompt:assistantResultData.drafts[0].prompt}); assistantCompareDrafts.set('phone-day',{model:loadedModel,title:'Day practice',prompt:'1girl, basketball, park, daylight'}); renderAssistantHistory(); renderAssistantResult(); __pa.phoneFooterFits=()=>{const pane=els.assistantSidebar.getBoundingClientRect();const controls=[els.assistantAsk,els.assistantStop,document.querySelector('#assistant-pins > summary'),document.getElementById('assistant-compare')];return controls.every(e=>{const r=e.getBoundingClientRect(),hit=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return !e.hidden&&r.top>=pane.top&&r.bottom<=pane.bottom+1&&!!hit&&(hit===e||e.contains(hit));});}; __pa.phonePaneTop=()=>{els.assistantClose.focus({preventScroll:true});els.assistantSidebar.scrollTop=0;};"
+  },
+  {
+    "viewport": [393, 350, 3],
+    "mobile": true
+  },
+  {
+    "eval": "__pa.phonePaneTop();"
+  },
+  {
+    "wheel": ["#assistant-close", 500]
+  },
+  {
+    "expect": "__pa.until(()=>els.assistantSidebar.scrollTop>0&&__pa.phoneFooterFits())",
+    "fatal": true
+  },
+  {
+    "viewport": [393, 300, 3],
+    "mobile": true
+  },
+  {
+    "eval": "__pa.phonePaneTop();"
+  },
+  {
+    "wheel": ["#assistant-close", 500]
+  },
+  {
+    "expect": "__pa.until(()=>els.assistantSidebar.scrollTop>0&&__pa.phoneFooterFits())",
+    "fatal": true
+  },
+  {
+    "viewport": [393, 250, 3],
+    "mobile": true
+  },
+  {
+    "eval": "__pa.phonePaneTop();"
+  },
+  {
+    "swipe": [190, 145, 190, 20]
+  },
+  {
+    "expect": "__pa.until(()=>els.assistantSidebar.scrollTop>0&&__pa.phoneFooterFits())",
+    "fatal": true
+  },
+  {
+    "eval": "focusAssistantDraft(assistantResultData.drafts[0].prompt,'Night practice'); document.getElementById('assistant-expand').click(); __pa.phonePaneTop();"
+  },
+  {
+    "wheel": ["#assistant-close", 500]
+  },
+  {
+    "expect": "__pa.until(()=>els.assistantInstruction.closest('.assistant-input').classList.contains('expanded')&&!document.getElementById('assistant-focus').hidden&&__pa.phoneFooterFits())",
+    "fatal": true
+  },
+  {
+    "shot": "assistant-phone-overflow.png"
+  },
+  {
+    "click": "#assistant-pins > summary"
+  },
+  {
+    "expect": "(async()=>{await __pa.frames();const e=document.getElementById('assistant-requirements'),r=e.getBoundingClientRect(),pane=els.assistantSidebar.getBoundingClientRect(),hit=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return document.getElementById('assistant-pins').open&&r.top>=pane.top&&r.bottom<=pane.bottom+1&&!!hit&&(hit===e||e.contains(hit));})()",
+    "fatal": true
+  },
+  {
+    "click": "#assistant-pins > summary"
+  },
+  {
+    "viewport": [393, 852, 3],
+    "mobile": true
+  },
+  {
+    "expect": "(async()=>{await __pa.frames();__pa.assert(els.assistantSidebar.scrollTop===0&&els.assistantSidebar.scrollHeight<=els.assistantSidebar.clientHeight+1,'the tall phone pane retained a second scroller');const before=__pa.chatGeometry(),host=__pa.chatHost();host.scrollTop=host.scrollHeight;await __pa.frames();return __pa.chatStable(before)&&__pa.controlsFit()&&__pa.phoneFooterFits();})()",
+    "fatal": true
+  },
+  {
+    "eval": "document.getElementById('assistant-expand').click(); assistantTurns=__pa.phoneOverflowSaved.turns;assistantFocus=__pa.phoneOverflowSaved.focus;assistantMode=__pa.phoneOverflowSaved.mode;els.assistantMode.value=assistantMode;assistantCompareDrafts.clear();for(const [key,draft] of __pa.phoneOverflowSaved.compare)assistantCompareDrafts.set(key,draft);renderAssistantHistory();renderAssistantResult();els.assistantInstruction.focus({preventScroll:true});"
+  },
+  {
+    "viewport": [
+      393,
+      852,
+      3
+    ],
+    "mobile": true
+  },
+  {
+    "expect": "(async()=>{await __pa.frames();return __pa.controlsFit();})()",
+    "fatal": true
   },
   {
     "key": "Escape"
   },
   {
-    "expect": "__pa.until(()=>!els.assistantDialog.open && !backGoing)",
+    "expect": "__pa.until(()=>!assistantSidebarOpen() && !backGoing)",
+    "fatal": true
+  },
+  {
+    "click": "#btn-prompt-assistant"
+  },
+  {
+    "expect": "__pa.until(()=>assistantSidebarOpen() && backDepth===1 && !backGoing)",
+    "fatal": true
+  },
+  {
+    "eval": "history.back();"
+  },
+  {
+    "expect": "__pa.until(()=>!assistantSidebarOpen() && backDepth===0 && !backGoing)",
     "fatal": true
   },
   {
@@ -546,6 +1262,58 @@
   },
   {
     "expect": "__pa.forbidden.length===0 && __pa.errors.length===0 && __pa.requests.length===11 && !assistantRun && !busy && submissions.size===0"
+  },
+  {
+    "expect": "__a11yCheck()"
+  },
+  {
+    "log": "'A real page reload restores only the selected assistant model; conversations and prepared drafts remain page memory.'"
+  },
+  {
+    "expect": "(()=>{try{return localStorage.getItem('auradream.assistant-model')==='qwen3.5-4b'&&els.assistantModel.value==='qwen3.5-4b';}catch{return false;}})()",
+    "fatal": true
+  },
+  {
+    "touch": false
+  },
+  {
+    "viewport": [
+      1400,
+      900
+    ]
+  },
+  {
+    "expect": "__a11yCheck()"
+  },
+  {
+    "navigate": "http://127.0.0.1:7960/"
+  },
+  {
+    "inject": "a11y_audit.js"
+  },
+  {
+    "eval": "__a11yWatch()"
+  },
+  {
+    "expect": "(async()=>{const end=Date.now()+20000;while(Date.now()<end){if(loadedModel==='black-forest-labs/FLUX.1-Krea-dev'&&Number.isInteger(modelRevision)&&!statusPending&&!galleryPending&&!jobListing)return true;await new Promise(resolve=>setTimeout(resolve,40));}return false;})()",
+    "fatal": true
+  },
+  {
+    "click": "#btn-prompt-assistant"
+  },
+  {
+    "expect": "(async()=>{const end=Date.now()+20000;while(Date.now()<end){if(assistantSidebarOpen()&&els.assistantModel.value==='qwen3.5-4b'&&els.assistantModel.options.length===3&&!assistantRun)return true;await new Promise(resolve=>setTimeout(resolve,40));}return false;})()",
+    "fatal": true
+  },
+  {
+    "expect": "assistantTurns.length===0 && assistantResultData===null && !els.assistantInstruction.value && criticStatus.label==='fake critic' && els.assistantModel.selectedOptions[0].textContent.includes('Qwen3.5-4B') && !busy && submissions.size===0",
+    "fatal": true
+  },
+  {
+    "expect": "__a11yCheck({root:'#prompt-assistant-sidebar'})"
+  },
+  {
+    "shot": "assistant-model-restored.png"
   },
   {
     "expect": "__a11yCheck()"

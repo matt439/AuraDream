@@ -475,9 +475,13 @@ def build_context(
         "- parts: the prompt's own words for each part, null where it has none.",
         f"- issues: at most {MAX_ISSUES}, most important first, and none that no source "
         "supports. Each cites exactly one source id. quote: the prompt's exact words the "
-        "issue is about, or null. Do not repeat the rule findings listed at the end.",
+        "issue is about, or null. Do not repeat the rule findings listed below.",
         "Order lists place present parts. Generic/original subjects need no "
         "character/series names; never invent them.",
+        "Positive order and quality recipes belong to the positive rewrite; negative recipes "
+        "belong only to negative-prompt advice in an issue's fix. Never append a Negative: "
+        "block to the rewrite, move negative text into it or import another checkpoint's recipe. "
+        "Keep optional recommendations optional and preserve the author's qualified exceptions.",
         rewrite_rule,
         order_rule,
     ]
@@ -506,15 +510,28 @@ def build_context(
             "DOCUMENTED ORDER: " + " > ".join(order.steps)
             + f' - "{_one_line(order.cite, 200)}"',
         ]
+    if analysis.findings:
+        lines += ["", "RULE FINDINGS (already reported)"]
+        lines += [_finding_line(finding) for finding in analysis.findings[:_MAX_FINDINGS]]
+    # Sources and findings take priority over illustrative examples. Keep each
+    # selected example with its whole qualification, or omit that pair.
     examples = [example for example in sources.guide.get("examples", []) if example.strip()]
     if examples:
         # Their form only: one rewrite on the card ended in the sign example's
         # "Black Forest Labs", another in the owl example's colour grading.
-        lines += ["", "AUTHORS' EXAMPLE PROMPTS (their form only; never copy their subjects or text)"]
-        lines += [f"- {_one_line(example, _EXAMPLE_CHARS)}" for example in examples[:_MAX_EXAMPLES]]
-    if analysis.findings:
-        lines += ["", "RULE FINDINGS (already reported)"]
-        lines += [_finding_line(finding) for finding in analysis.findings[:_MAX_FINDINGS]]
+        heading = [
+            "", "AUTHORS' EXAMPLE PROMPTS (their form only; never copy their subjects or text)",
+            "Example notes qualify inherited or incomplete examples; explicit checkpoint guidance "
+            "takes priority over an example's order exceptions.",
+        ]
+        example_notes = sources.guide.get("example_notes") or {}
+        for example in examples[:_MAX_EXAMPLES]:
+            sample = [f"- {_one_line(example, _EXAMPLE_CHARS)}"]
+            if example_notes.get(example):
+                sample.append("Example note: " + example_notes[example])
+            if len(_defused("\n".join([*lines, *heading, *sample]))) <= SYSTEM_BUDGET_CHARS:
+                lines.extend([*heading, *sample])
+                heading = []
 
     user = f"Prompt:\n{request.prompt}"
     if negative is not None:

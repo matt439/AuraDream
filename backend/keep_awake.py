@@ -126,6 +126,8 @@ def counts_as_activity(method: str, path: str, *, polled: bool = False) -> bool:
             return False
         if path in _POLLED_GETS or path == "/api/jobs" or path.startswith("/api/jobs/"):
             return False
+        if path.startswith("/api/prompt/assist/") and path.endswith("/status"):
+            return False
         if path.startswith(_FILE_PREFIXES) or path in ("/favicon.ico", "/sw.js"):
             return False
     if method == "POST" and path.startswith("/api/masks/") and path.endswith("/keep"):

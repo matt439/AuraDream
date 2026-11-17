@@ -11,14 +11,15 @@ import re
 import threading
 import time
 from typing import NamedTuple
+from pathlib import Path
 
 from PIL import Image
 
-from backend import critic, prompt_assistant, prompt_encoding
+from backend import assistant_models, critic, critic_runtime, prompt_assistant, prompt_encoding
 from backend.backends import flux3_loading, flux3_upsampler
 from backend.backends.base import Cancelled, GenerationBackend
 from backend.config import settings
-from backend.critic import CriticError, CriticUnavailable
+from backend.critic import CriticError, CriticUnavailable, PreparedAssistant
 from backend.grid import progress_steps
 from backend.instruction_edit import QUALIFIED_ENVELOPE, text_to_image_refusal
 from backend.model_defaults import defaults_for
@@ -539,6 +540,9 @@ class FakeCritic:
         # a running log of what happened when - prepare, critique, done.
         self.critiques: list[tuple] = []
         self.assists: list[tuple] = []
+        self.assistant_preparations: list[tuple[str, PreparedAssistant]] = []
+        self._assistant_fetched: set[str] = set()
+        self._runtime_fetched = False
         self.events: list[str] = []
         self.started = threading.Event()
 
@@ -550,10 +554,11 @@ class FakeCritic:
 
     def describe(self) -> CriticStatus:
         build = critic.BUILDS["win-cuda-13.4-x64"]
-        fetch = [] if self.fetched or not self.pinned else [
-            (f"llama.cpp {critic.RELEASE}", sum(archive.size for archive in build.archives)),
-            (self.label, critic.MODEL_SIZE),
-        ]
+        fetch = []
+        if not self.fetched and self.pinned:
+            if not self._runtime_fetched:
+                fetch.append((f"llama.cpp {critic.RELEASE}", sum(archive.size for archive in build.archives)))
+            fetch.append((self.label, critic.MODEL_SIZE))
         return CriticStatus(
             label=self.label,
             pinned=self.pinned,
@@ -567,6 +572,45 @@ class FakeCritic:
         if self.prepare_fail is not None:
             raise self.prepare_fail
         self.fetched = True
+        self._runtime_fetched = True
+
+    def assistant_models(self) -> list[dict]:
+        """The selectable models' file state, without fetching or inference."""
+        status = self.describe()
+        result = [{
+            "id": "default", "label": status.label, "ready": self.ready(),
+            "fetch": status.fetch, "fetch_bytes": status.fetch_bytes,
+            "model_bytes": critic.MODEL_SIZE if self.pinned else None,
+            "pinned": self.pinned, "qualification": "unmeasured",
+        }]
+        build = critic.BUILDS["win-cuda-13.4-x64"]
+        for profile in assistant_models.MODELS:
+            fetch = []
+            if not self._runtime_fetched and self.pinned:
+                fetch.append((f"llama.cpp {critic.RELEASE}", sum(archive.size for archive in build.archives)))
+            if profile.key not in self._assistant_fetched:
+                fetch.append((profile.label, profile.size))
+            result.append({
+                "id": profile.key, "label": profile.label,
+                "ready": self.available and self._runtime_fetched and profile.key in self._assistant_fetched,
+                "fetch": [name for name, _ in fetch], "fetch_bytes": sum(size for _, size in fetch),
+                "model_bytes": profile.size, "pinned": self.pinned, "qualification": "unmeasured",
+            })
+        return result
+
+    def prepare_assistant(self, key: str = "default") -> PreparedAssistant:
+        profile = None if key == "default" else assistant_models.get_model(key)
+        baseline = self.fetched
+        self.prepare()
+        if profile is not None:
+            self.fetched = baseline
+            self._assistant_fetched.add(key)
+        prepared = PreparedAssistant(
+            server=Path("fake-llama-server"), model=Path(f"fake-{key}.gguf"),
+            label=self.label if profile is None else profile.label, profile=profile,
+        )
+        self.assistant_preparations.append((key, prepared))
+        return prepared
 
     def critique(self, model_id, request, applied, analysis) -> PromptCritique:
         # The real critic's contract: prepare() fetches, critique() runs.
@@ -635,17 +679,19 @@ class FakeCritic:
             }
         )
 
-    def assist(self, model_id, request: PromptAssistantRequest, should_cancel) -> PromptAssistantResponse:
-        if not self.prepares or not self.fetched:
+    def assist(self, model_id, request: PromptAssistantRequest, should_cancel, prepared=None) -> PromptAssistantResponse:
+        if not self.prepares or (prepared is None and not self.fetched):
             raise CriticUnavailable("the local prompt model is not prepared; prepare() fetches it first")
         self.assists.append((model_id, request))
         self.events.append("assist")
+        critic_runtime.report_progress("starting")
         self.started.set()
         started = time.perf_counter()
         unloaded = self.unloads
         try:
             context = prompt_assistant.build_context(model_id, request)
-            prompt_assistant.check_fits(context)
+            prompt_assistant.check_fits(context, profile=prepared.profile if prepared is not None else None)
+            critic_runtime.report_progress("writing")
             while time.perf_counter() - started < self.delay:
                 if should_cancel() or self.unloads != unloaded:
                     raise Cancelled("prompt assistant stopped")
@@ -681,7 +727,7 @@ class FakeCritic:
                     "tags": [],
                 }
             return prompt_assistant.validate_answer(
-                json.dumps(answer), model_id, request, model=self.label,
+                json.dumps(answer), model_id, request, model=prepared.label if prepared is not None else self.label,
                 seconds=time.perf_counter() - started,
             )
         finally:

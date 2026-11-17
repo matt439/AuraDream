@@ -353,6 +353,11 @@ body.png-drop::after {
   .topbar > .vram { display: none; }
   #btn-models { margin-left: auto; }
 }
+/* Keep the right-side assistant action inside a narrow desktop window.
+   The checkpoint and its state keep the room otherwise used by the word mark. */
+@media (max-width: 600px) {
+  .topbar .brand { display: none; }
+}
 
 /* The watched job beside the status, in the bar's unused width, and a 2 px
    line along its foot: in view at any scroll, where the panel's bar is not. */
@@ -367,7 +372,7 @@ body.png-drop::after {
    and in one column the mirror is the job's only readout in view. While a job
    is mirrored the free space gives it the room; wider, everything fits and
    the reading stays. The status keeps the checkpoint's name in every state.
-   The mirror's own margin keeps Load and Unload at the bar's end, which the
+   The mirror's own margin keeps the actions at the bar's end, which the
    free space's `margin-left: auto` did. */
 @media (max-width: 700px) {
   .topbar:has(#job-mirror:not([hidden])) .vram { display: none; }

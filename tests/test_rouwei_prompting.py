@@ -38,7 +38,9 @@ def test_rouwei_optional_quality_and_hybrid_prose_do_not_inherit_stricter_rules(
     assert prompt_rules.documented_order(ROUWEI) is None
     assert prompt_rules.reorder_tags(ROUWEI, "masterpiece, 1girl, smile", None) is None
     sources = prompt_sources.sources_for(ROUWEI)
-    assert [e.id for e in sources.excerpts if e.order] == ["rouwei.artist_order"]
+    assert [e.id for e in sources.excerpts if e.order] == ["rouwei.artist_order", "rouwei.natural_text"]
+    natural = next(e for e in sources.excerpts if e.id == "rouwei.natural_text")
+    assert "partial hybrid placement advice, not a complete tag order" in natural.note
     assert "never recommend BREAK" in sources.caveat
 
 

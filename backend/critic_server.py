@@ -18,9 +18,12 @@ import weakref
 from collections.abc import Mapping
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from . import critic_runtime
+
+if TYPE_CHECKING:
+    from .assistant_models import AssistantModel
 
 log = logging.getLogger(__name__)
 
@@ -40,7 +43,7 @@ _IDLE_SLEEP = 120
 # --- Running the server ------------------------------------------------------
 
 
-def server_command(server: Path, model: Path, port: int) -> list[str]:
+def server_command(server: Path, model: Path, port: int, profile: AssistantModel | None = None) -> list[str]:
     """The llama-server command line; flags as documented by b11206's --help.
 
     Both paths absolute: `_spawn` starts the server in its own directory, where
@@ -56,14 +59,14 @@ def server_command(server: Path, model: Path, port: int) -> list[str]:
         "--no-ui",
         # Never a network fetch of its own: the model is a local file.
         "--offline",
-        "-c", str(critic_runtime.CONTEXT),
+        "-c", str(profile.context if profile else critic_runtime.CONTEXT),
         "-np", "1",
         "--jinja",
         # Places GPU layers by the VRAM actually free, rather than failing when
         # the pipeline holds some. b11206 adjusts only arguments left unset, so
         # the context stays at `-c` and layers that do not fit go to the CPU.
         "--fit", "on",
-        "--reasoning-budget", str(critic_runtime.REASONING_BUDGET),
+        "--reasoning-budget", str(profile.reasoning_budget if profile else critic_runtime.REASONING_BUDGET),
         "--sleep-idle-seconds", str(_IDLE_SLEEP),
     ]
 

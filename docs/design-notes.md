@@ -5419,7 +5419,7 @@ status and the free space wrapped to two lines each, and the mirror was cut to
 from a hang, while in one column the mirror is the job's only readout in view.
 At 700 px and below the free space is hidden while a job is mirrored
 (`.topbar:has(#job-mirror:not([hidden])) .vram`), the mirror's
-`margin-right: auto` keeping Load and Unload at the bar's end; wider,
+`margin-right: auto` keeping the actions at the bar's end; wider,
 everything fits and it stays.
 
 **A finished job joins the gallery at its head.** It used to reset the
@@ -11765,31 +11765,203 @@ context, verified downloads and process ownership. Its request is deliberately
 conservative: it may not invent scenery, objects, mood or lettering. A new
 assistant request gives Create permission to develop ideas while asking Improve
 to keep the user's intent unless its instruction changes it. It uses the same
-Qwen3-4B Q8_0 and llama.cpp pin; selecting a larger/newer model before measuring
-this baseline would introduce a second uncertainty. The existing critic remains
-its own Check workflow.
+Qwen3-4B Q8_0 and llama.cpp pin as its default. On 2026-11-17 Matt requested
+selectable Qwen3-8B and Qwen3.5-4B alternatives. Qwen3-8B uses the author's
+Q4_K_M GGUF; Qwen3.5-4B uses llama.cpp's maintainers' Q8_0 GGUF. Each has a
+fixed revision, size, hash and sourced sampling/thinking profile, using the
+existing b11206 build whose source supports both architectures. Source support
+does not qualify their runtime, memory or prompt quality. Qwen3-4B stays the
+baseline for the held GPU comparison. The existing critic remains its own
+Check workflow and keeps its configured model.
 
-The new dialog opens from Examples, preserving the prompt caption's scarce
-space, and from the phone's topbar menu. Conversation stays in page memory.
-Apply is explicit and undoable, and tied to the source editor/checkpoint snapshot.
-The follow-up text box stays in a fixed compose area while replies scroll above
-it; incoming drafts and progress text cannot move the writing controls.
+The assistant's model select remembers only its id, in guarded localStorage.
+Each request captures its selection before preparation, which returns immutable
+paths, label and profile rather than changing shared critic state. Concurrent
+preparation cannot substitute weights or settings for a waiting answer. Switching
+between answers retains the bounded conversation; each answer keeps its own
+model label. During an answer the select is held with a reason. Opening the
+sidebar only checks files; Send triggers verified downloads of the selected
+GGUF and shared runtime if missing. The UI distinguishes download bytes from
+unmeasured memory requirements. All assistant card testing remains held.
+
+Matt's 2026-11-17 layout review moved writing out of Examples into a direct
+Assistant button. His follow-up placed it at the right end of the desktop
+topbar, above the sidebar it opens, rather than across the screen in the left
+prompt toolbar. Phones retain their prompt-toolbar access to the full-screen
+assistant. A nonmodal right sidebar keeps the editor
+usable alongside the conversation. Wide windows reserve its width; smaller
+windows overlay the workspace, with a full visible-viewport panel on phones.
+The full-screen phone pane contains focus and makes covered workspace surfaces
+inert, restoring their prior state when closed or when returning to desktop.
+Native tool dialogs remain available. A synchronous scoped release lets the
+existing editor writer retain native Undo while the phone pane covers it.
+Earlier messages retain their drafts, while only the latest answer offers Use.
+Conversation stays in page memory. Apply is explicit and undoable, tied to the
+source editor/checkpoint snapshot, and keeps the sidebar open. Its own applied
+text becomes the next conversational source; external edits and Undo still hold
+stale suggestions. The follow-up text box stays in a fixed compose area while
+replies scroll above it; incoming drafts and progress text cannot move the
+writing controls. Sending clears the message field immediately and shows the
+sent instruction in the conversation. Replies leave newer typing and focus
+alone. A failed or stopped request restores its exact instruction only when the
+field has stayed empty and untouched, so retry is explicit and later edits win.
+Send takes the conversation to its end; new replies follow only while the reader
+stays near the bottom. Reading earlier messages never moves the workspace or
+pulls the conversation down. The wider chat pane is 600 px on ordinary desktop
+windows and 680-900 px in the wide tier. Task selection shares its header where it fits;
+the two-line message box and Send/Stop share one compact composer. Drafts put Use beside
+their title and show explanations directly below the prompt as compact secondary
+text, so no Notes disclosure row consumes space. Three short drafts fit together
+on a wide desktop. Repeated setup/privacy copy lives in About the
+local assistant at the bottom, opening upward without moving the composer.
+Prompt/help stay above the writing tools. Reset is the last button on the same
+toolbar row as Examples, Tags and Check, aligned at its right edge.
+Draft cards use the same muted purple surface as the tag tray, with a strong
+outer border. Their inline notes share the card's surface, distinguished by
+smaller, softer text and a little space rather than an internal dividing line
+or a second coloured block. If a model repeats a
+complete draft in its conversational message, that prose stays in a closed
+Assistant note below the cards. Unique conversational replies stay visible;
+the complete message and structured drafts remain in the conversation data.
+The model's output contract also explicitly keeps prompt text and notes in
+their structured fields rather than repeating them in the message.
+The latest draft cards carry numbered badges. Plain 1-3 within the assistant
+uses the matching option outside fields; Alt+1/2/3 works from the message box.
+These press the ordinary Use action, retaining its source holds and Undo, while
+editing fields, modals, menus, composition and held/repeated keys keep their
+usual ownership. Old conversation cards do not advertise active number keys.
+Each tag-list option also shows Added and Removed names with +/− prefixes and
+green/red text. These are server-computed exact name changes against the prompt
+sent for that reply, using the existing text reader and tag normalization. They
+are not model explanations or dictionary verdicts. Prose and ambiguous mixed or
+structured prompts offer a literal wording comparison inside More instead.
+Equal/added/removed segments are computed by the server and reconstruct both
+texts; a bounded broad replacement handles expensive repetitive comparisons.
+The page uses text nodes rather than interpreting model text as HTML.
+The response's aligned
+`draft_changes` metadata remains with its page-memory answer, so Apply or later
+edits cannot change that comparison; the model's history excludes those lists.
 Replies that arrive after Stop, closure, reset or a newer request cannot change
 the editor. Bounded history refuses excess input instead of forgetting earlier
-instructions silently.
+instructions silently. Task changes now keep the conversation, so Create,
+Improve and Find tags can be stages of the same idea. A question-only answer
+is valid instead of forcing the model to invent a draft before clarifying it.
+
+The 2026-11-17 workflow review added an explicit continuation after manual
+editing or a context limit. Continue shows the current prompt and a short
+editable brief. Acceptance checks that source again, keeps the transcript
+visible and starts a new bounded model-history span; it does not silently
+discard old instructions. Old draft application stays held until a new answer.
+If an option was chosen for Refine, Continue previews it and offers an explicit
+checked choice to keep that focus; adopting the brief still leaves the editor
+unchanged.
+Pinned requirements accompany the brief. Their server checks mean only that
+an exact, case-sensitive phrase occurs with appropriate word boundaries;
+they cannot establish semantics or image fidelity. Each reply captures its
+pins: changing them holds its Apply controls while allowing a new request with
+the revised requirements. Refine this option captures
+its own focused prompt without writing the main editor or rebasing the source
+snapshot. Selecting an old option after an external edit, then clearing its
+focus, still requires Continue to review that changed source and its brief.
+An exact editor match marks Current prompt, and an unread reply offers Jump
+to latest without pulling
+someone away from earlier messages. The compact composer can explicitly expand.
+
+More actions work on current and earlier cards: Copy, Save as snippet, Refine,
+CPU Check and comparison selection. Saving prepares the existing snippet editor
+for an explicit Save and preserves unsaved/recovery state. Check reads a draft
+with current settings without applying it. Comparison preparation captures the
+chosen prompts and settings on four shared seeds, previews that payload and
+requires Generate comparison to submit it. It leaves prompt/grid fields alone;
+Repeat, grid axes and Then refine do not apply. This lets prompt alternatives
+be evaluated without claiming that polished wording predicts image quality.
+Requirements and Compare stay reachable in short panes. A phone snippet Insert
+closes the covering assistant before rewriting, making the destination visible
+and preserving the normal native Undo path.
+
+The phone sidebar permits vertical overflow when its header and composer no
+longer fit the visible viewport. Its conversation remains the only scroller
+when they fit. This also covers a focused option and expanded message: the
+earlier below-200-pixel fallback left Send, Stop and Requirements clipped at
+250-300 pixels, a plausible visible height above a software keyboard.
 
 Find tags separates the model's proposed explanations from authoritative tag
 verdicts. Candidate names go through the same tag index as the existing tools;
 a confident model answer does not validate a tag. Network failure is unchecked,
-and the UI cannot insert it as a verified choice. Full conversational text goes
-only to the local runtime; candidate tag names still reach Danbooru. This extends
+and the UI cannot insert it as a verified choice. Message instructions and
+dialogue history stay local; candidate tag names and draft comma items reach
+Danbooru. This extends
 the earlier wiki-finder decision without making the LLM a replacement index.
+
+Matt's follow-up screenshot showed unrecognised Danbooru names inside Create
+and Improve drafts. Their prompt text now uses the prompt editor's existing
+validation endpoint on tag-vocabulary checkpoints, sending the exact draft
+plus its first 64 comma items. The frontend adds read-only underlines and a
+More > Tag validation disclosure, including full verdicts and Recheck. Known
+names, unknown names, aliases and unchecked items remain distinct; index failure
+never makes a name invalid. Server-classified hybrid prose stays neutral, with
+dictionary lookup details kept separate from the known-tag count. This is
+authoritative name lookup, not an LLM judging its own suggestions or a guarantee
+that a checkpoint was trained on every indexed tag.
+
+Per-answer cache records follow the exact text, checkpoint and revision across
+current/earlier renderings. Request/epoch guards and aborts prevent closed,
+reset or switched conversations receiving late annotations; reopening can
+resume an unfinished check. No annotation changes the original draft used by
+Use, Copy or follow-ups, and aliases are shown rather than silently rewritten.
+The change is frontend-only over the existing tag API and does not expand the
+assistant's backend response schema or lift its GPU hold.
+
+Matt's next screenshot showed the drafting problem behind those verdicts:
+sentence fragments used as tags, invented template metadata and an old
+assistant-created identity carried into a newly named character. The writing
+question now explicitly prioritizes a latest subject/scene replacement over
+earlier dialogue and source text, while preserving pinned-conflict clarification.
+The first draft stays close to the request; variants cannot add people or change
+the count unasked. Danbooru tag portions are asked to use established individual
+names and preserve complete multiword names, rather than filling optional
+template slots with invented metadata. Strict tag guides get a separate
+pose/setting/object decomposition instruction; hybrid guides keep prose support.
+Up to three complete guide examples share a 1,200-character allowance and are
+marked as format references, never extra scene requirements. This improves the
+question sent to the model without silently rewriting its answer. Dictionary
+annotations remain authoritative; fewer invalid names and better semantic
+fidelity still need real-model evidence under the existing GPU hold.
+
+The subsequent model-guidance review made each checkpoint's positive order,
+offered prefix/suffix and negative recipe explicit in every assistant question.
+This is drawn from the existing guide and order reader, not a second model
+table. Recommendations keep their qualifications; no template asks the model
+to invent missing metadata. A negative recipe belongs in labelled draft notes,
+never the positive prompt. The request has no generation scales, so profile
+support and CFG/True CFG thresholds are conditional facts, not proof the typed
+negative runs. All sourced sentences and excerpt caveats are retained; the
+existing token gate refuses excess input instead of silently pruning later rules.
+
+Examples previously lost their guide notes: some are inherited, omit a quality
+chunk or intentionally differ from the preferred order. Both LLM questions now
+retain those qualifications and prioritize explicit guidance over example
+exceptions. The critic keeps its existing system budget by omitting an example
+and its note together when necessary, retaining all sources and reported findings.
+The source audit also added the Anima family card's conditional negative recipe
+without passing its score tags to Aesthetic or Preview, and RouWei's partial
+advice to place prose after style/quality tags without changing its artist-at-end
+fallback or claiming a complete tag order. The
+[assistant owner](maintainer/plan-prompt-assistant.md#checkpoint-tag-and-field-review-2026-11-17)
+records the model coverage and CPU checks. These question changes remain
+unmeasured for real-model accuracy under the existing GPU hold.
 
 Inference shares the critic's transient child and the job gate. Preparation and
 post-answer tag verification stay outside the gate; no assistant request loads
 image weights. Stop names one ticket, including when it overtakes its POST, and
 must not stop a different request. The child must be gone before the next card
-holder begins. The old critic's latency and memory measurements do not qualify
+holder begins. A ticket-owned metadata status route names preparation,
+downloads, waiting, startup, writing and verification, including actual transfer
+bytes where supplied by the downloader. A stopped/terminal ticket is frozen;
+its bounded status retention cannot update a later answer. These polls do not
+count as activity or acquire a model reader, and contain no conversation text.
+Local readiness and first-use download size are visible before Send. Download
+bytes remain distinct from VRAM. The old critic's latency and memory measurements do not qualify
 the new task's input/output budgets, semantic fidelity or cancellation path.
 
 The offline test-pack tool writes no measurements and executes no session.
