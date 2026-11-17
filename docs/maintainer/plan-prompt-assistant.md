@@ -748,3 +748,68 @@ dictionary/offline contracts. No weights, GPU inference or real gallery were
 used. This changes the model question, not the draft text or dictionary verdicts;
 real-model tag accuracy and semantic fidelity remain unmeasured under the
 existing GPU hold. Restart a running backend to pick up the new question.
+
+## Checkpoint tag and field review (2026-11-17)
+
+Matt requested a review of how the LLMs handle each model's tag order and
+preferred positive and negative prompting. The audit checked all 27 catalogue
+selections. Their existing exact helper recipes already reached the assistant;
+the defects were implicit field/order contracts, missing example qualifications
+and two missing author excerpts. All three assistant model choices share the
+revised checkpoint question.
+
+| Checkpoint selections | Guidance retained |
+|---|---|
+| Animagine XL 4.0 | Count, character, series, rating, scene details, quality ending; exact positive ending and negative recipe. |
+| Kohaku XL Zeta | Its Epsilon-derived sequence, prose within general content, quality/date/meta/rating ending; example order exception labelled. |
+| Illustrious XL v2.0 | Training sequence and optional metadata; v2 versus inherited v0.1 negative advice and example exceptions remain qualified. |
+| WAI v17 | Subject/scene before its quality ending, exact short negative; no invented complete tag sequence. |
+| NoobAI V-pred | Its separate positive prefix and author template remain qualified; no invented total order for its other-tags bucket. |
+| RouWei 0.8 | Optional positive quality, short negative retaining low quality, prose after style/quality, artist-at-end fallback within the CLIP limit. |
+| Anima Turbo | Family tag sequence, optional recommended positive prefix and newly supplied family negative, conditional on CFG > 1; default CFG 1 has no negative effect. |
+| Anima Aesthetic | Family order with its own quality advice; neither score-containing family recipe is inherited. |
+| Anima Preview | Its detailed hybrid guidance and parent sequence/example explicitly marked inherited reference; no Turbo recipe or enforced total order. |
+| NetaYume | Inherited parent tag/prose sequences, artist spelling and quality ending; no invented app negative recipe or duplicate system prefix. |
+| NewBie | XML character/general block order, optional absent fields, and supported prose/tag alternatives. |
+| FLUX.1 Krea/dev/schnell | Qualified BFL family prose guidance; separate True CFG controls negative activation. |
+| Four FLUX.2 Klein variants | Qualified subject/action/style/context guidance; negatives unsupported. |
+| FLUX 3 Klein and Base | Full scene caption/upsampler guidance; negative unsupported for distilled, conditional for Base. |
+| Krea 2 Turbo/Raw, Z-Image Turbo, Z-Anime, Qwen-Image, ERNIE Turbo | Each retains its own prose/structured guidance and qualified author sequences; app profile thresholds distinguish ordinary CFG from True CFG. |
+| Kontext | Its distinct instruction-edit guidance and unsupported negative control remain explicit. |
+
+The assistant now highlights the order read by Check and exact offered
+prefix/suffix/negative recipes. An unchecked order does not become a claim that
+the author gives none. Recommendations and missing optional template sections
+stay optional. Every citable guide sentence and excerpt caveat is retained;
+the existing token gate refuses excess input rather than dropping later rules.
+
+Draft text is explicitly positive-only. Suggested negative changes belong in
+labelled notes, which Use does not apply. Profile support and CFG/True CFG
+thresholds are conditional facts because drafting requests contain no current
+generation scales or loaded-pipeline capabilities. Typed negatives are context,
+not proof they run. Unknown checkpoints receive no guessed activation rule.
+
+Both the assistant and critic retain guide example notes, including inherited
+examples, omitted recipe chunks and order exceptions. Explicit guidance takes
+priority over those examples. The critic keeps its existing 6,000-character
+system budget by omitting an example and its entire note together when space
+is tight, retaining source excerpts and reported findings first.
+
+The added excerpts were checked against the authors' live cards on this date:
+[Anima's family negative and Aesthetic exception](https://huggingface.co/circlestone-labs/Anima#prompting),
+and [RouWei's partial hybrid placement advice](https://huggingface.co/Minthy/RouWei-0.8#natural-text).
+They add no new deterministic Check rule or automatic prompt correction.
+ERNIE and FLUX 3 Expand already use their checkpoint-native author rewriters.
+All work here is source/CPU validation; real-model tag accuracy, semantic
+fidelity and image quality remain unmeasured under the existing GPU hold.
+
+Validation: **2,051 passed, 4 skipped** in 65.26 seconds across the prompt,
+critic, assistant, relevant API/profile/guide and documentation suites. This
+includes 107 new catalogue-guidance cases and critic example-pair budget checks.
+Ruff passed; pinned Pyright checked 219 sources with zero errors or warnings.
+An independent source review found no blocking issue. Three fake-browser model
+smokes passed in 22 seconds: RouWei, Anima Aesthetic and Anima Preview. Receipt
+under system temp: `auradream-smoke-artifacts-858e4p17/summary.json`. Their owned
+fake servers and browser processes were stopped by the runner. The full CPU
+suite was not run for this bounded context/source change. Restart a running
+backend to pick up the revised questions.

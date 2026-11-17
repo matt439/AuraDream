@@ -23,16 +23,17 @@ def test_every_guide_constant_is_grounded():
     assert set(prompt_sources.GROUNDING) == set(prompt_sources.guide_constants())
 
 
-def test_aesthetic_critic_gets_its_quality_advice_instead_of_the_family_score_prefix():
+def test_aesthetic_critic_gets_its_quality_advice_instead_of_family_score_recipes():
     from backend.backends.anima_loading import AESTHETIC_MODEL_ID
 
     sources = prompt_sources.sources_for(AESTHETIC_MODEL_ID)
     assert sources.guide is guides.ANIMA_AESTHETIC_GUIDE
     excerpts = {excerpt.id: excerpt for excerpt in sources.excerpts}
     assert "anima.prefix" not in excerpts
+    assert "anima.negative" not in excerpts
     assert "anima.aesthetic_quality" in excerpts and "anima.aesthetic_scores" in excerpts
     assert "anima.order" in excerpts and "anima.artist" in excerpts
-    assert "score_7" not in " ".join(excerpt.text for excerpt in sources.excerpts)
+    assert not re.search(r"score_[1-7]", " ".join(excerpt.text for excerpt in sources.excerpts))
     assert all(excerpt.url == sources.url for excerpt in sources.excerpts)
     # The exception must reach the actual critic context, with Turbo's
     # existing family prefix remaining available for Turbo.
@@ -40,10 +41,52 @@ def test_aesthetic_critic_gets_its_quality_advice_instead_of_the_family_score_pr
     cited = " ".join(citation.text for citation in context.citations.values())
     assert "not using score_* tags in both the positive and negative prompt" in cited
     assert "does not need positive quality tags" in cited
-    assert "score_7" not in cited and "distillation" not in cited
+    assert not re.search(r"score_[1-7]", cited) and "distillation" not in cited
     assert "anima.prefix" in {
         excerpt.id for excerpt in prompt_sources.sources_for("circlestone-labs/Anima").excerpts
     }
+
+
+def test_anima_family_negative_recipe_reaches_the_critic_without_variant_leaks():
+    recipe = (
+        "worst quality, low quality, score_1, score_2, score_3, artist name, blurry, "
+        "jpeg artifacts, chromatic aberration"
+    )
+    sources = prompt_sources.sources_for("circlestone-labs/Anima")
+    excerpt = next(excerpt for excerpt in sources.excerpts if excerpt.id == "anima.negative")
+    assert excerpt.text == recipe
+    assert "recommended negative prompt" in excerpt.note
+    assert "CFG > 1" in excerpt.note
+    context = context_for("circlestone-labs/Anima")
+    assert recipe in context.system
+    assert excerpt.note in context.system
+    assert recipe in {citation.text for citation in context.citations.values()}
+    # Aesthetic explicitly rejects score recipes; Preview has its own bounded
+    # inheritance rather than acquiring the parent's negative recipe.
+    for model_id in ("circlestone-labs/Anima@aesthetic-v1.1", "Gazingstars123/Anima-2.9B"):
+        sources = prompt_sources.sources_for(model_id)
+        assert "anima.negative" not in {excerpt.id for excerpt in sources.excerpts}
+        assert recipe not in context_for(model_id).system
+
+
+def test_rouwei_partial_hybrid_advice_retains_the_artist_fallback_and_chunk_limit():
+    model_id = "Minthy/RouWei-0.8"
+    advice = "Use only natural text after typing styles and quality tags."
+    sources = prompt_sources.sources_for(model_id)
+    excerpts = {excerpt.id: excerpt for excerpt in sources.excerpts}
+    natural = excerpts["rouwei.natural_text"]
+    assert natural.text == advice
+    assert natural.order
+    assert natural.url.endswith("#natural-text")
+    assert "partial hybrid placement advice" in natural.note
+    assert "artist tags still" in natural.note
+    assert "very end" in excerpts["rouwei.artist_order"].text
+    assert "order" not in sources.guide["analysis"]
+    context = context_for(model_id)
+    assert advice in context.system and natural.note in context.system
+    assert "never recommend BREAK or separate chunks" in context.system
+    assert "Do not invent a full tag order" in context.system
+    assert advice in {item["text"] for item in prompt_sources.author_orders(model_id)}
 
 
 @pytest.mark.parametrize("model_id", catalogue_repos())
@@ -502,7 +545,7 @@ def test_author_orders_are_marked_only_where_the_guide_states_none():
         marked.update(ordered)
     assert marked == {
         "neta.sequence", "neta.prose_order", "ernie.sections", "qwen.portrait_flow",
-        "rouwei.artist_order", "noobai.order", "anima.preview_parent_order",
+        "rouwei.artist_order", "rouwei.natural_text", "noobai.order", "anima.preview_parent_order",
     }
 
 

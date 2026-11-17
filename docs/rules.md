@@ -3932,6 +3932,20 @@ measured on the card and when.
   three complete guide examples, totalling at most 1,200 characters, demonstrate
   formatting without lending their scene details to the answer. These are model
   instructions, not dictionary verdicts or measured prompt-quality improvements.
+- Every assistant model receives the selected checkpoint's explicit positive
+  order, exact offered prefix/suffix and negative recipe, with optional sections
+  kept optional. All citable guidance and excerpt caveats survive; an oversized
+  question is refused by the token gate rather than losing later source rules.
+  Profile facts describe negative support and its CFG or separate True CFG
+  threshold conditionally: the drafting request carries no current scales or
+  loaded-pipeline capabilities. The question asks for positive-only drafts;
+  negative advice belongs in labelled notes, never applied by Use. Guide example notes
+  accompany inherited, incomplete or order-exception examples; explicit guidance
+  takes precedence. The critic keeps these qualifications too, omitting an
+  example and its note together before sacrificing source or finding space.
+  Anima's family negative recipe is conditional on CFG > 1 and excluded from
+  Aesthetic/Preview; RouWei's prose-after-style/quality advice is only partial
+  placement guidance, retaining its artist-at-end and no-chunking caveats.
 - The optional writing assistant (`PA#18`, `POST /api/prompt/assist`) shares
   the critic's pinned runtime and process owner, never image weights. Its
   Create/Improve/Find tags tasks use bounded, client-owned history as untrusted
@@ -11472,7 +11486,7 @@ node tools/browser.mjs tools/smoke-results.json
 
 ### Prompt analyser tests and smokes
 
-`test_assistant_models.py`, `test_prompt_assistant.py`, `test_prompt_assistant_runtime.py` and
+`test_assistant_models.py`, `test_prompt_assistant.py`, `test_prompt_assistant_guidance.py`, `test_prompt_assistant_runtime.py` and
 `test_api_prompt_assistant.py` cover the local
 writing assistant's bounded requests/history and structured answers, checkpoint
 grounding, retention warnings, tag-index verdicts/offline fallback, shared
@@ -11483,7 +11497,12 @@ token budgets, verified alternative downloads, file-only catalogue reads and
 independence from the critic's configured baseline. The browser smoke checks
 both optional models, saved selection, model attribution, retained follow-ups
 and a held selector during an answer. The existing critic process tests
-continue to cover the reused llama.cpp lifecycle. These are CPU/fake checks;
+continue to cover the reused llama.cpp lifecycle. Catalogue guidance tests
+retain every source, caveat, checked order and exact recipe, preserve example
+notes and Anima variant boundaries, check conditional negative capabilities and
+refuse oversized context without pruning rules. Critic context tests keep whole
+example/note pairs within the existing system budget while retaining sources
+and reported findings. These are CPU/fake checks;
 `tools/prompt_assistant_pack.py` only prepares a future GPU protocol and audits
 a manually completed receipt, never executes it.
 

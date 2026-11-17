@@ -17,7 +17,8 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from . import critic_context, critic_runtime, critic_server, critic_validation, prompt_text, tag_lookup
 from .error_text import short_error
-from .model_defaults import guide_for
+from .model_defaults import defaults_for, guide_for
+from .prompt_order import documented_order
 from .prompt_sources import sources_for
 from .schemas_assistant import (
     OUTPUT_MAX_CHARS,
@@ -75,6 +76,60 @@ class AssistantContext:
     input_tokens: int
 
 
+def _checkpoint_contract(model_id: str, helper: Mapping[str, Any], *, known: bool) -> list[str]:
+    """Highlight the existing guide's recipes without turning preferences into requirements."""
+    lines = [
+        "CHECKPOINT PROMPT CONTRACT",
+        "drafts[].prompt is the positive prompt only. Put any suggested negative-prompt changes "
+        "in drafts[].notes, explicitly labelled Negative prompt; the app does not apply those notes. "
+        "Never put a negative recipe in the positive prompt or append a second Negative: block to it.",
+        "Use the selected checkpoint's order and positive/negative recipes, never another model's. "
+        "A training order or recommended recipe is not a requirement to fill every section: "
+        "optional quality, rating, year, artist, character and series tags stay optional unless "
+        "the supplied guidance or user explicitly asks for them. Do not insert a rating that "
+        "conflicts with the requested scene. Preserve any freedom the author allows within "
+        "sections or for prose mixed with tags.",
+    ]
+    order = documented_order(model_id)
+    if order is not None:
+        lines.extend([
+            "Documented positive order: " + " > ".join(order.steps),
+            "Order guidance: " + order.cite,
+        ])
+    else:
+        lines.append(
+            "This app checks no fixed positive order; retain any qualified author sequence "
+            "in the supplied guidance. Do not invent a full order or claim the author gives none."
+        )
+    for key, label in (
+        ("recommended_prefix", "Recommended positive prefix"),
+        ("recommended_suffix", "Recommended positive suffix"),
+    ):
+        if helper.get(key):
+            lines.append(f"{label}: " + ", ".join(helper[key]))
+    if helper.get("negative_prompt"):
+        lines.append("Recommended negative recipe: " + helper["negative_prompt"])
+    # These are the same app capabilities used by applied(), not extra author
+    # requirements. The drafting request deliberately contains no CFG settings.
+    if known:
+        profile = defaults_for(model_id)
+        if not profile["negative_prompt_supported"]:
+            lines.append(
+                "This app's checkpoint profile does not support a negative prompt. "
+                "Do not recommend one as a working control; express exclusions as desired visible content."
+            )
+        elif profile["true_cfg_supported"]:
+            lines.append("A negative prompt runs only with True CFG > 1, not from the ordinary CFG value alone.")
+        else:
+            lines.append(f"A negative prompt runs only with CFG > {profile['cfg_threshold']:g}.")
+    lines.append(
+        "The supplied negative_prompt_context is user context, not evidence that a negative prompt "
+        "runs. This drafting request contains no current CFG/True CFG or loaded-pipeline capabilities. "
+        "Keep any activation advice conditional; do not change settings or claim a negative was applied."
+    )
+    return lines
+
+
 def build_context(model_id: str, request: PromptAssistantRequest) -> AssistantContext:
     """Use the same authored excerpts as the critic, without inventing guide advice."""
     sources = sources_for(model_id)
@@ -129,16 +184,14 @@ def build_context(model_id: str, request: PromptAssistantRequest) -> AssistantCo
     ]
     if sources.caveat:
         lines.extend(["Guidance scope:", sources.caveat])
-    # Bounded excerpts, in their existing order. Never cut a sentence into a new rule.
-    room = 4000
+    helper = sources.guide.get("tag_helper") or {}
+    lines.extend(_checkpoint_contract(model_id, helper, known=sources.url is not None))
+    # Keep every authored sentence and caveat. The ordinary context-fit checks
+    # refuse an oversized question rather than silently losing a later rule.
     guidance = [sentence.text for sentence in sources.sentences]
     guidance += [f"{entry.text} ({entry.note})" if entry.note else entry.text for entry in sources.excerpts]
     lines.append("SUPPLIED CHECKPOINT GUIDANCE")
-    for text in guidance:
-        if len(text) <= room:
-            lines.append(text)
-            room -= len(text)
-    helper = sources.guide.get("tag_helper") or {}
+    lines.extend(guidance)
     if helper.get("vocabulary") == "danbooru":
         lines.extend([
             "DANBOORU DRAFTING",
@@ -170,9 +223,11 @@ def build_context(model_id: str, request: PromptAssistantRequest) -> AssistantCo
             )
         example_room = 1200
         examples = []
+        example_notes = sources.guide.get("example_notes") or {}
         for example in sources.guide.get("examples", []):
             if example.strip() and len(example) <= example_room:
-                examples.append(example)
+                note = example_notes.get(example)
+                examples.append(f"{example}\nExample note: {note}" if note else example)
                 example_room -= len(example)
                 if len(examples) == 3:
                     break
@@ -180,7 +235,9 @@ def build_context(model_id: str, request: PromptAssistantRequest) -> AssistantCo
             lines.extend([
                 "CHECKPOINT FORMAT EXAMPLES",
                 "These are format references, not scene requirements. Do not borrow their characters, "
-                "clothes, objects or setting unless the user requests them.",
+                "clothes, objects or setting unless the user requests them. Read each example note: "
+                "examples may be inherited, omit recipe chunks or differ from the documented order. "
+                "The explicit checkpoint guidance takes priority over an example's exceptions.",
                 *examples,
             ])
     data = {

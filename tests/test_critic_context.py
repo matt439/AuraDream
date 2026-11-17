@@ -1,6 +1,8 @@
 """Critic questions carry applied requests, sources, and output contracts."""
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
 
 from backend import critic_context, critic_runtime, prompt_sources
@@ -175,3 +177,35 @@ def test_the_system_message_fits_its_budget(model_id, style):
     context = critic_context.build_context(model_id, request, request, analysis)
     assert len(context.system) <= critic_context.SYSTEM_BUDGET_CHARS, len(context.system)
     assert context.system.count("\n- encoder.cut") == critic_context._MAX_FINDINGS
+
+
+@pytest.mark.parametrize("model_id", [
+    "KBlueLeaf/Kohaku-XL-Zeta", "OnomaAIResearch/Illustrious-XL-v2.0",
+    "LyliaEngine/waiIllustriousSDXL_v170", "Minthy/RouWei-0.8", "Gazingstars123/Anima-2.9B",
+])
+def test_critic_examples_keep_their_qualifying_notes(model_id):
+    sources = prompt_sources.sources_for(model_id)
+    context = context_for(model_id)
+    notes = sources.guide["example_notes"]
+    assert any(note in context.system for note in notes.values())
+    for example, note in notes.items():
+        if critic_context._one_line(example, critic_context._EXAMPLE_CHARS) in context.system:
+            assert "Example note: " + note in context.system
+
+
+def test_critic_omits_a_whole_example_and_note_before_any_source(monkeypatch):
+    sources = prompt_sources.sources_for(KREA_DEV)
+    example, note = "Unique illustrative scene.", "Inherited format exception."
+    qualified = replace(sources, guide={
+        **sources.guide, "examples": [example], "example_notes": {example: note},
+    })
+    monkeypatch.setattr(critic_context, "sources_for", lambda _: qualified)
+    complete = context_for(KREA_DEV)
+    assert example in complete.system and note in complete.system
+    monkeypatch.setattr(critic_context, "SYSTEM_BUDGET_CHARS", len(complete.system) - 1)
+    bounded = context_for(KREA_DEV)
+    assert len(bounded.system) <= critic_context.SYSTEM_BUDGET_CHARS
+    assert example not in bounded.system and note not in bounded.system
+    assert "AUTHORS' EXAMPLE PROMPTS" not in bounded.system
+    assert bounded.citations == complete.citations
+    assert all(citation.text in bounded.system for citation in complete.citations.values())

@@ -11919,6 +11919,29 @@ question sent to the model without silently rewriting its answer. Dictionary
 annotations remain authoritative; fewer invalid names and better semantic
 fidelity still need real-model evidence under the existing GPU hold.
 
+The subsequent model-guidance review made each checkpoint's positive order,
+offered prefix/suffix and negative recipe explicit in every assistant question.
+This is drawn from the existing guide and order reader, not a second model
+table. Recommendations keep their qualifications; no template asks the model
+to invent missing metadata. A negative recipe belongs in labelled draft notes,
+never the positive prompt. The request has no generation scales, so profile
+support and CFG/True CFG thresholds are conditional facts, not proof the typed
+negative runs. All sourced sentences and excerpt caveats are retained; the
+existing token gate refuses excess input instead of silently pruning later rules.
+
+Examples previously lost their guide notes: some are inherited, omit a quality
+chunk or intentionally differ from the preferred order. Both LLM questions now
+retain those qualifications and prioritize explicit guidance over example
+exceptions. The critic keeps its existing system budget by omitting an example
+and its note together when necessary, retaining all sources and reported findings.
+The source audit also added the Anima family card's conditional negative recipe
+without passing its score tags to Aesthetic or Preview, and RouWei's partial
+advice to place prose after style/quality tags without changing its artist-at-end
+fallback or claiming a complete tag order. The
+[assistant owner](maintainer/plan-prompt-assistant.md#checkpoint-tag-and-field-review-2026-11-17)
+records the model coverage and CPU checks. These question changes remain
+unmeasured for real-model accuracy under the existing GPU hold.
+
 Inference shares the critic's transient child and the job gate. Preparation and
 post-answer tag verification stay outside the gate; no assistant request loads
 image weights. Stop names one ticket, including when it overtakes its POST, and
