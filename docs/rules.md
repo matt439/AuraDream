@@ -11221,7 +11221,9 @@ refuses, is left out.
 Native typing checks incomplete Steps/CFG/Seed/size/True CFG before a POST,
 button and keyboard paths, intentional blanks, queuing, independent More
 seeds settings, grid Seeds/Budget and sampling overrides, and comparison
-controls that replace unrelated panel values.
+controls that replace unrelated panel values. Each native Generate press
+first reveals its button and requires a full visible, hit-testable target;
+opening Custom size may put it below the fixture's viewport.
 
 `smoke-button-states.json` uses a fresh Animagine fake on 7918 to check
 secondary/primary and selected text contrast, held hover and reason-on-press,
@@ -12227,7 +12229,9 @@ batch's Now line, both bars and elapsed line in the window at scroll 0 at
 as far as a wheel scrolls up, the prompt and Examples focused from deep in
 the gallery and by Shift+Tab (past the negative's button) brought into view
 with the page left where it was, a finding clicked in the prompt check
-selecting its words in view without the check moving, Generate pressed with
+selecting its words in view without the check moving (its setup uses the
+exact integer scroll interval and fatally requires the finding in view while
+the prompt is outside it), Generate pressed with
 the panel held staying under the pointer through its run and the panel
 holding its bottom again once the pointer leaves, Resume's tip opening
 upwards inside the window, a fold restored at load scrolling nothing, the

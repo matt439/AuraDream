@@ -844,3 +844,30 @@ focused/expanded phone screenshot was visually inspected with Send, Stop,
 Requirements and Compare fully reachable after scrolling. These isolated fake
 checks used no model weights, GPU inference or real gallery; they do not
 establish physical-device acceptance or lift the assistant's GPU hold.
+
+### Hosted CI fixture geometry follow-up
+
+PR #87's first full run passed the Linux and all five Windows test jobs, but
+two browser smokes also failed in their isolated diagnostic reruns. The prompt
+tools' extra row exposed older fixture geometry assumptions.
+
+In `smoke-numeric-inputs`, opening Custom size moved Generate to y899-942 in
+the 900 px viewport. A native click missed it and left the earlier Seed error
+visible, cascading into later assertions. Each native Generate press now has
+a fatal prerequisite that reveals the button, waits for layout and checks its
+hit target. The original native numeric typing and refusal/no-POST assertions
+remain. The focused smoke passed in 14 seconds including setup and cleanup;
+receipt under system temp: `auradream-smoke-artifacts-i54507uq/summary.json`.
+
+In `smoke-wide`, the prompt and selectable absence finding were less than
+one pixel apart. The setup's extra one-pixel margins rejected the valid
+integer scroll position. Its bounds now express the exact visibility
+conditions, and the unchanged prerequisite is fatal: the complete finding
+must be visible while the prompt is out of view before its native click.
+The original word-selection, focus and unchanged-page-scroll check remains.
+The full wide smoke passed in 46 seconds including setup and cleanup; receipt
+under system temp: `auradream-smoke-artifacts-_2udvot6/summary.json`.
+The focused documentation, browser-output and smoke-runner checks passed
+**235 tests**, and independent review confirmed both fixture repairs preserve
+their original behavioral assertions. Both fixes are part of the same PR;
+the CI jobs were not manually rerun.

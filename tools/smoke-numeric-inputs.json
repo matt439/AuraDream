@@ -6,7 +6,7 @@
     "navigate": "http://127.0.0.1:7921/"
   },
   {
-    "eval": "window.__until = async (fn, ms = 20000) => { const end = Date.now() + ms; while (Date.now() < end) { if (fn()) return true; await new Promise(r => setTimeout(r, 50)); } return false; }; window.__fixNumber = (el, text) => { el.value = text; el.dispatchEvent(new Event('input', {bubbles:true})); }; window.__incomplete = (el) => { el.value = ''; el.focus({preventScroll:true}); };"
+    "eval": "window.__until = async (fn, ms = 20000) => { const end = Date.now() + ms; while (Date.now() < end) { if (fn()) return true; await new Promise(r => setTimeout(r, 50)); } return false; }; window.__fixNumber = (el, text) => { el.value = text; el.dispatchEvent(new Event('input', {bubbles:true})); }; window.__incomplete = (el) => { el.value = ''; el.focus({preventScroll:true}); }; window.__revealGenerate = async () => { els.generate.scrollIntoView({block:'center'}); await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))); const r=els.generate.getBoundingClientRect(); return r.top>=0 && r.bottom<=innerHeight && document.elementFromPoint(r.left+r.width/2,r.top+r.height/2)===els.generate; };"
   },
   {
     "expect": "__until(() => modelState === 'ready' && !galleryPending)"
@@ -25,6 +25,10 @@
   },
   {
     "expect": "els.steps.value === '' && els.steps.validity.badInput"
+  },
+  {
+    "expect": "__revealGenerate()",
+    "fatal": true
   },
   {
     "click": "#btn-generate"
@@ -87,6 +91,10 @@
     "expect": "els.width.value === '' && els.width.validity.badInput"
   },
   {
+    "expect": "__revealGenerate()",
+    "fatal": true
+  },
+  {
     "click": "#btn-generate"
   },
   {
@@ -105,6 +113,10 @@
     "expect": "els.trueCfg.value === '' && els.trueCfg.validity.badInput"
   },
   {
+    "expect": "__revealGenerate()",
+    "fatal": true
+  },
+  {
     "click": "#btn-generate"
   },
   {
@@ -115,6 +127,10 @@
   },
   {
     "eval": "__fixNumber(els.steps, ''); __fixNumber(els.cfg, ''); __fixNumber(els.seed, ''); __fixNumber(els.trueCfg, ''); __fixNumber(els.width, '256');"
+  },
+  {
+    "expect": "__revealGenerate()",
+    "fatal": true
   },
   {
     "click": "#btn-generate"
@@ -142,6 +158,10 @@
   },
   {
     "type": "1e"
+  },
+  {
+    "expect": "__revealGenerate()",
+    "fatal": true
   },
   {
     "click": "#btn-generate"
