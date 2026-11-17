@@ -3933,6 +3933,14 @@ measured on the card and when.
   replies stay visible. Draft cards use the existing tag surface (`--panel-tags`)
   and the strong border. Notes use `--panel-2`; text contrast is checked against
   the surface it actually appears on.
+  The newest draft cards carry option numbers 1-3. In the assistant, the same
+  plain keys press their ordinary Use actions outside text fields; Alt+1/2/3
+  also works while typing. Workspace fields keep numbers, and modal/menu,
+  modifier, handled-event, composition and repeat guards apply. Earlier turns
+  have no active number badges. Source/pending/offline holds and Undo are shared
+  with the existing Use button path.
+  A used number stays captured until its keyup (or window blur), so auto-repeat
+  cannot type digits into the main prompt after Use transfers focus there.
 
 #### Prompt checks, encoders and tag placement
 

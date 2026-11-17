@@ -33,6 +33,7 @@
 .assistant-draft-head { display: flex; align-items: center; gap: var(--sp-3); justify-content: space-between; }
 .assistant-draft-head > button { flex: none; }
 .assistant-draft h3 { min-width: 0; margin: 0; font-size: var(--fs-body-sm); overflow-wrap: anywhere; }
+.assistant-draft-number { display: inline-flex; align-items: center; justify-content: center; min-width: 1.5em; height: 1.5em; margin-right: var(--sp-1); border: 1px solid var(--line-strong); border-radius: var(--r-xs); background: var(--panel-2); color: var(--text); vertical-align: middle; }
 .assistant-draft-notes, .assistant-draft .hint { color: var(--text-2); }
 .assistant-draft-notes { margin: 0 calc(-1 * var(--sp-3)) calc(-1 * var(--sp-3)); padding: var(--sp-2) var(--sp-3); border-top: 1px solid var(--line-strong); border-radius: 0 0 calc(var(--r-md) - 1px) calc(var(--r-md) - 1px); background: var(--panel-2); font-size: var(--fs-label); }
 .assistant-draft-notes p + p { margin-top: var(--sp-1); }

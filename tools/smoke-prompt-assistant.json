@@ -261,6 +261,222 @@
     "expect": "__a11yCheck({root:'#prompt-assistant-sidebar'})"
   },
   {
+    "log": "'Latest draft cards are numbered 1?3. Native digits apply each draft with Undo; Alt+digits work from the message while plain digits keep typing. Other scopes, overlays and held actions remain guarded.'"
+  },
+  {
+    "expect": "(()=>{__pa.numberBase=els.prompt.value;__pa.numberInstruction=els.assistantInstruction.value;const badges=[...els.assistantResult.querySelectorAll('.assistant-draft-number')],buttons=[...els.assistantResult.querySelectorAll('[data-assistant-draft]')];return badges.length===3&&badges.every((e,i)=>e.textContent===String(i+1)&&e.checkVisibility())&&buttons.every((e,i)=>{const keys=e.getAttribute('aria-keyshortcuts')?.split(/\\s+/)||[];return e.getAttribute('aria-label')===`Use prompt ${i+1}`&&keys.includes(String(i+1))&&keys.includes(`Alt+${i+1}`);})&&document.getElementById('assistant-shortcut-hint').textContent.includes('1');})()",
+    "fatal": true
+  },
+  {
+    "eval": "assistantSnapshot=assistantSource();syncPromptAssistant();els.assistantResult.focus({preventScroll:true});"
+  },
+  {
+    "key": "1"
+  },
+  {
+    "expect": "els.prompt.value===assistantResultData.drafts[0].prompt&&assistantSidebarOpen()&&!assistantSourceChanged()&&document.activeElement===els.prompt&&__pa.requests.length===1",
+    "fatal": true
+  },
+  {
+    "keycombo": [
+      "Control",
+      "z"
+    ]
+  },
+  {
+    "expect": "els.prompt.value===__pa.numberBase&&assistantSidebarOpen()&&assistantSourceChanged()",
+    "fatal": true
+  },
+  {
+    "eval": "assistantSnapshot=assistantSource();syncPromptAssistant();els.assistantResult.focus({preventScroll:true});"
+  },
+  {
+    "key": "2"
+  },
+  {
+    "expect": "els.prompt.value===assistantResultData.drafts[1].prompt&&assistantSidebarOpen()&&!assistantSourceChanged()&&document.activeElement===els.prompt&&__pa.requests.length===1",
+    "fatal": true
+  },
+  {
+    "keycombo": [
+      "Control",
+      "z"
+    ]
+  },
+  {
+    "expect": "els.prompt.value===__pa.numberBase&&assistantSidebarOpen()&&assistantSourceChanged()",
+    "fatal": true
+  },
+  {
+    "eval": "assistantSnapshot=assistantSource();syncPromptAssistant();els.assistantResult.focus({preventScroll:true});"
+  },
+  {
+    "key": "3"
+  },
+  {
+    "expect": "els.prompt.value===assistantResultData.drafts[2].prompt&&assistantSidebarOpen()&&!assistantSourceChanged()&&document.activeElement===els.prompt&&__pa.requests.length===1",
+    "fatal": true
+  },
+  {
+    "keycombo": [
+      "Control",
+      "z"
+    ]
+  },
+  {
+    "expect": "els.prompt.value===__pa.numberBase&&assistantSidebarOpen()&&assistantSourceChanged()",
+    "fatal": true
+  },
+  {
+    "log": "'A consumed physical option key cannot autorepeat into the editor after Apply moves focus; matching keyup releases that protection and ordinary numeric typing resumes.'"
+  },
+  {
+    "expect": "(()=>{assistantSnapshot=assistantSource();syncPromptAssistant();els.assistantResult.focus({preventScroll:true});const down=new KeyboardEvent('keydown',{key:'1',code:'Digit1',bubbles:true,cancelable:true});els.assistantResult.dispatchEvent(down);__pa.assert(down.defaultPrevented&&els.prompt.value===assistantResultData.drafts[0].prompt&&document.activeElement===els.prompt,'Digit1 did not apply and focus the visible editor');const applied=els.prompt.value,repeat=new KeyboardEvent('keydown',{key:'1',code:'Digit1',repeat:true,bubbles:true,cancelable:true});els.prompt.dispatchEvent(repeat);__pa.assert(repeat.defaultPrevented&&els.prompt.value===applied,'the consumed Digit1 repeat reached the editor');els.prompt.dispatchEvent(new KeyboardEvent('keyup',{key:'1',code:'Digit1',bubbles:true}));const released=new KeyboardEvent('keydown',{key:'1',code:'Digit1',repeat:true,bubbles:true,cancelable:true});els.prompt.dispatchEvent(released);__pa.assert(!released.defaultPrevented&&els.prompt.value===applied,'matching keyup did not release Digit1');__pa.numberAppliedAfterHold=applied;els.prompt.setSelectionRange(applied.length,applied.length);return true;})()",
+    "fatal": true
+  },
+  {
+    "key": "1"
+  },
+  {
+    "expect": "els.prompt.value===__pa.numberAppliedAfterHold+'1'&&document.activeElement===els.prompt&&assistantSidebarOpen()",
+    "fatal": true
+  },
+  {
+    "expect": "(()=>{__pa.source(__pa.numberBase);assistantSnapshot=assistantSource();syncPromptAssistant();__pa.instruction('Hold an Alt option key.');els.assistantInstruction.focus({preventScroll:true});const down=new KeyboardEvent('keydown',{key:'2',code:'Digit2',altKey:true,bubbles:true,cancelable:true});els.assistantInstruction.dispatchEvent(down);__pa.assert(down.defaultPrevented&&els.prompt.value===assistantResultData.drafts[1].prompt&&document.activeElement===els.prompt,'Alt+Digit2 did not use its draft');const applied=els.prompt.value,repeat=new KeyboardEvent('keydown',{key:'2',code:'Digit2',altKey:true,repeat:true,bubbles:true,cancelable:true});els.prompt.dispatchEvent(repeat);__pa.assert(repeat.defaultPrevented&&els.prompt.value===applied,'a consumed Alt+Digit2 repeat reached the editor');els.prompt.dispatchEvent(new KeyboardEvent('keyup',{key:'2',code:'Digit2',altKey:true,bubbles:true}));const released=new KeyboardEvent('keydown',{key:'2',code:'Digit2',altKey:true,repeat:true,bubbles:true,cancelable:true});els.prompt.dispatchEvent(released);__pa.assert(!released.defaultPrevented&&els.prompt.value===applied,'matching keyup did not release Alt+Digit2');__pa.source(__pa.numberBase);__pa.instruction(__pa.numberInstruction);assistantSnapshot=assistantSource();syncPromptAssistant();return els.prompt.value===__pa.numberBase&&__pa.requests.length===1;})()",
+    "fatal": true
+  },
+  {
+    "expect": "(()=>{assistantSnapshot=assistantSource();syncPromptAssistant();els.assistantResult.focus({preventScroll:true});const before=els.prompt.value;for(const init of [{repeat:true},{isComposing:true},{keyCode:229},{shiftKey:true},{ctrlKey:true},{metaKey:true},{ctrlKey:true,altKey:true},{metaKey:true,altKey:true},{shiftKey:true,altKey:true},{key:'4'},{key:'0'}]){const e=new KeyboardEvent('keydown',{key:'1',bubbles:true,cancelable:true,...init});els.assistantResult.dispatchEvent(e);__pa.assert(els.prompt.value===before,'an unsupported number event applied a draft: '+JSON.stringify(init));}const held=new KeyboardEvent('keydown',{key:'2',bubbles:true,cancelable:true});held.preventDefault();els.assistantResult.dispatchEvent(held);return els.prompt.value===before&&__pa.requests.length===1;})()",
+    "fatal": true
+  },
+  {
+    "eval": "els.generate.focus({preventScroll:true});"
+  },
+  {
+    "key": "1"
+  },
+  {
+    "expect": "els.prompt.value===__pa.numberBase&&assistantSidebarOpen()&&document.activeElement===els.generate",
+    "fatal": true
+  },
+  {
+    "eval": "els.prompt.focus({preventScroll:true});els.prompt.setSelectionRange(els.prompt.value.length,els.prompt.value.length);"
+  },
+  {
+    "key": "3"
+  },
+  {
+    "expect": "els.prompt.value===__pa.numberBase+'3'&&document.activeElement===els.prompt&&assistantSidebarOpen()",
+    "fatal": true
+  },
+  {
+    "keycombo": [
+      "Control",
+      "z"
+    ]
+  },
+  {
+    "expect": "els.prompt.value===__pa.numberBase",
+    "fatal": true
+  },
+  {
+    "eval": "__pa.numberMode=els.assistantMode.value;els.assistantMode.focus({preventScroll:true});"
+  },
+  {
+    "key": "2"
+  },
+  {
+    "expect": "els.prompt.value===__pa.numberBase&&els.assistantMode.value===__pa.numberMode&&document.activeElement===els.assistantMode",
+    "fatal": true
+  },
+  {
+    "eval": "__pa.instruction('Type option ');els.assistantInstruction.focus({preventScroll:true});els.assistantInstruction.setSelectionRange(els.assistantInstruction.value.length,els.assistantInstruction.value.length);"
+  },
+  {
+    "key": "1"
+  },
+  {
+    "expect": "els.assistantInstruction.value==='Type option 1'&&els.prompt.value===__pa.numberBase&&document.activeElement===els.assistantInstruction",
+    "fatal": true
+  },
+  {
+    "keycombo": [
+      "Alt",
+      "2"
+    ]
+  },
+  {
+    "expect": "els.prompt.value===assistantResultData.drafts[1].prompt&&!assistantSourceChanged()&&els.assistantInstruction.value==='Type option 1'&&assistantSidebarOpen()",
+    "fatal": true
+  },
+  {
+    "keycombo": [
+      "Control",
+      "z"
+    ]
+  },
+  {
+    "expect": "els.prompt.value===__pa.numberBase&&assistantSourceChanged()",
+    "fatal": true
+  },
+  {
+    "expect": "(()=>{assistantSnapshot=assistantSource();syncPromptAssistant();els.assistantResult.focus({preventScroll:true});const event=new KeyboardEvent('keydown',{key:'3',code:'Numpad3',location:3,bubbles:true,cancelable:true});els.assistantResult.dispatchEvent(event);els.prompt.dispatchEvent(new KeyboardEvent('keyup',{key:'3',code:'Numpad3',location:3,bubbles:true}));return event.defaultPrevented&&els.prompt.value===assistantResultData.drafts[2].prompt&&!assistantSourceChanged();})()",
+    "fatal": true
+  },
+  {
+    "keycombo": [
+      "Control",
+      "z"
+    ]
+  },
+  {
+    "expect": "els.prompt.value===__pa.numberBase",
+    "fatal": true
+  },
+  {
+    "expect": "(()=>{assistantSnapshot=assistantSource();syncPromptAssistant();els.assistantResult.focus({preventScroll:true});const snapshot=assistantSnapshot;try{assistantSnapshot={...snapshot,prompt:'An earlier source for keyboard refusal.'};syncPromptAssistant();const event=new KeyboardEvent('keydown',{key:'1',bubbles:true,cancelable:true});els.assistantResult.dispatchEvent(event);els.assistantResult.dispatchEvent(new KeyboardEvent('keyup',{key:'1',bubbles:true}));return event.defaultPrevented&&els.prompt.value===__pa.numberBase&&els.assistantStatus.textContent.includes('changed');}finally{assistantSnapshot=snapshot;syncPromptAssistant();}})()",
+    "fatal": true
+  },
+  {
+    "expect": "(()=>{const run=assistantRun;try{assistantRun={ticket:'keyboard-pending-fixture',started:Date.now(),stopped:false,stopping:false};syncPromptAssistant();els.assistantResult.focus({preventScroll:true});const event=new KeyboardEvent('keydown',{key:'2',bubbles:true,cancelable:true});els.assistantResult.dispatchEvent(event);els.assistantResult.dispatchEvent(new KeyboardEvent('keyup',{key:'2',bubbles:true}));return event.defaultPrevented&&els.prompt.value===__pa.numberBase&&els.assistantStatus.textContent.includes('Wait');}finally{assistantRun=run;syncPromptExpansion();}})()",
+    "fatal": true
+  },
+  {
+    "expect": "(()=>{const overlays=[els.modelPicker,els.contextMenu,els.examplesMenu,els.tagsMenu,els.tagFinderMenu,els.pickedMenu],before=els.prompt.value;els.assistantResult.focus({preventScroll:true});for(const el of overlays){const hidden=el.hidden;try{el.hidden=false;const event=new KeyboardEvent('keydown',{key:'1',bubbles:true,cancelable:true});els.assistantResult.dispatchEvent(event);__pa.assert(els.prompt.value===before&&!event.defaultPrevented,'number shortcut ran beneath '+el.id);}finally{el.hidden=hidden;}}return true;})()",
+    "fatal": true
+  },
+  {
+    "eval": "els.assistantResult.focus({preventScroll:true});"
+  },
+  {
+    "key": "?"
+  },
+  {
+    "expect": "els.shortcutsDialog.open&&els.shortcutsBody.textContent.includes('Prompt assistant')&&els.shortcutsBody.textContent.includes('Alt+1')",
+    "fatal": true
+  },
+  {
+    "key": "1"
+  },
+  {
+    "expect": "els.shortcutsDialog.open&&els.prompt.value===__pa.numberBase&&__pa.requests.length===1",
+    "fatal": true
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "!els.shortcutsDialog.open&&assistantSidebarOpen()&&els.prompt.value===__pa.numberBase",
+    "fatal": true
+  },
+  {
+    "expect": "(async()=>{__pa.instruction(__pa.numberInstruction);assistantSnapshot=assistantSource();syncPromptAssistant();assistantSay('Ready. Choose a numbered draft or send a follow-up.');document.querySelector('.assistant-body').scrollTop=0;await __pa.frames();return __pa.threeDraftsFit()&&__pa.controlsFit()&&els.prompt.value===__pa.original&&__pa.requests.length===1&&!busy&&submissions.size===0;})()",
+    "fatal": true
+  },
+  {
+    "shot": "assistant-numbered-options.png"
+  },
+  {
     "expect": "(async()=>{assistantResultData=__pa.densitySaved.result;assistantTurns=__pa.densitySaved.turns;assistantSnapshot=__pa.densitySaved.snapshot;renderAssistantHistory();renderAssistantResult();await __pa.frames();return !document.querySelector('.assistant-about').open&&assistantResultData===__pa.densitySaved.result&&__pa.requests.length===1;})()",
     "fatal": true
   },
@@ -358,6 +574,16 @@
   },
   {
     "expect": "assistantSidebarOpen() && els.prompt.value===__pa.original && els.assistantStatus.textContent.includes('server is not answering')"
+  },
+  {
+    "eval": "els.assistantResult.focus({preventScroll:true});"
+  },
+  {
+    "key": "1"
+  },
+  {
+    "expect": "els.prompt.value===__pa.original&&assistantSidebarOpen()&&els.assistantStatus.textContent.includes('server is not answering')",
+    "fatal": true
   },
   {
     "eval": "api=__paOfflineApi; serverOffline=__paOfflineBefore; syncPromptAssistant(); void refreshStatus();"

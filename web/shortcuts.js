@@ -83,6 +83,7 @@ const SHORTCUT_GROUPS = [
     scope: 'Suggestions and chip editors take Escape before the helper or prompt check beneath them.',
     rows: [
       [['P'], 'Focus the prompt box from the workspace, with the caret at the end. Fields, menus and dialogs keep their keys.'],
+      [['1', '2', '3'], 'In the prompt assistant, use the matching option from the latest reply. Text fields keep numeric typing; Alt+1/2/3 applies from its message field.'],
       [['Ctrl/Cmd+Z'], 'Undo text inserted or replaced by Apply, Reuse, PNG settings, Expand, Examples, Snippets or a chip edit.'],
       [['Tab', 'Enter'], 'Accept a matching tag suggestion when its list offers one.'],
       [['Up', 'Down'], 'Move through the open suggestion list.'],
@@ -159,7 +160,7 @@ function shortcutContext(target) {
     const source = shortcutContext(ctxMenu.host);
     return context('Image actions', ['menus', ...source.groups], 'Enter chooses a menu item. Image shortcuts apply outside the menu in their listed contexts.');
   }
-  if (at?.closest('#prompt-assistant-sidebar')) return context('Prompt assistant', ['prompt'], 'Ctrl/Cmd+Enter sends a message. Escape closes the sidebar. Tab can move back to the workspace.');
+  if (at?.closest('#prompt-assistant-sidebar')) return context('Prompt assistant', ['prompt'], '1–3 uses the matching latest prompt option outside text fields; Alt+1/2/3 also works while typing. Ctrl/Cmd+Enter sends. Escape closes the sidebar.');
   if (at?.closest('#examples-menu')) return context('Example prompts', ['menus', 'prompt'], 'Enter chooses an example; Escape returns to Examples.');
   if (at?.closest('#picked-menu')) return context('Picked images', ['menus', 'gallery'], 'Enter chooses a picked-image action; Escape returns to Picked.');
   if (at?.closest('#inpaint-canvas')) return context('Inpaint picture', ['inpaint', 'generate'], 'Picture keys act on the mask; text fields keep normal editing.');

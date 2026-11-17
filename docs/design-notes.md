@@ -11796,6 +11796,11 @@ Assistant note below the cards. Unique conversational replies stay visible;
 the complete message and structured drafts remain in the conversation data.
 The model's output contract also explicitly keeps prompt text and notes in
 their structured fields rather than repeating them in the message.
+The latest draft cards carry numbered badges. Plain 1-3 within the assistant
+uses the matching option outside fields; Alt+1/2/3 works from the message box.
+These press the ordinary Use action, retaining its source holds and Undo, while
+editing fields, modals, menus, composition and held/repeated keys keep their
+usual ownership. Old conversation cards do not advertise active number keys.
 Replies that arrive after Stop, closure, reset or a newer request cannot change
 the editor. Bounded history refuses excess input instead of forgetting earlier
 instructions silently.

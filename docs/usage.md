@@ -576,7 +576,10 @@ details or lose ones you wanted. **Use prompt** applies a draft explicitly,
 and Ctrl+Z restores the editor. The sidebar stays open, so you can keep refining
 the applied prompt. Earlier drafts remain in the chat. An external edit, Undo,
 or a changed checkpoint holds application so an old answer cannot replace new
-work. Ctrl/Cmd+Enter in the sidebar sends; Escape there closes it.
+work. The latest prompt options are numbered **1-3**. Press the matching number
+while focused in the assistant outside a text field, or **Alt+1/2/3** from its
+message box, to use that prompt. Ctrl/Cmd+Enter in the sidebar sends; Escape
+there closes it.
 Draft explanations appear directly below each prompt. **About the local assistant** at the
 bottom explains context, downloads and tag verification without moving the
 message box when opened.

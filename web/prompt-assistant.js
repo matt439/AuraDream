@@ -12,6 +12,7 @@ let assistantMode = 'create';
 let assistantSelectedTags = new Set();
 let assistantClockTimer = null;
 let assistantPendingText = '';
+let assistantDraftPressed = null;
 
 const ASSISTANT_INPUT_LIMIT = 12000;
 const ASSISTANT_HISTORY_LIMIT = 8;
@@ -94,7 +95,8 @@ function syncPromptAssistant() {
   els.assistantMode.title = assistantRun ? 'Stop the current answer before changing the task.' : 'Choose the kind of prompt help';
   const applyReason = assistantApplyReason();
   for (const button of els.assistantResult.querySelectorAll('[data-assistant-draft]')) {
-    assistantHeld(button, applyReason, 'Replace the main prompt with this draft; Ctrl+Z restores it');
+    const number = Number(button.dataset.assistantDraft) + 1;
+    assistantHeld(button, applyReason, `Use prompt ${number}: press ${number} outside text fields, or Alt+${number} in the assistant. Ctrl+Z restores it.`);
   }
   for (const tick of els.assistantResult.querySelectorAll('[data-assistant-tag]')) {
     const tag = assistantResultData?.tags?.[Number(tick.dataset.assistantTag)];
@@ -187,8 +189,12 @@ function renderAssistantAnswer(host, body, interactive) {
     const prompt = document.createElement('p'); prompt.className = 'assistant-draft-text'; prompt.textContent = draft.prompt;
     head.append(title);
     if (interactive) {
+      const number = document.createElement('span'); number.className = 'assistant-draft-number';
+      number.textContent = String(index + 1); title.prepend(number, ' ');
       const use = document.createElement('button'); use.type = 'button'; use.className = 'ghost small';
       use.textContent = 'Use prompt'; use.dataset.assistantDraft = String(index);
+      use.setAttribute('aria-label', `Use prompt ${index + 1}`);
+      use.setAttribute('aria-keyshortcuts', `${index + 1} Alt+${index + 1}`);
       use.onclick = () => applyAssistantDraft(index); head.append(use);
     }
     article.append(head, prompt);
@@ -402,6 +408,32 @@ function applyAssistantDraft(index) {
   if (draft) applyAssistantText(draft.prompt, 'A local assistant draft replaced your prompt.');
 }
 
+function assistantDraftKey(event) {
+  if (keyboardEventHeld(event) || event.repeat || event.shiftKey || event.ctrlKey || event.metaKey
+      || !assistantSidebarOpen() || !els.assistantSidebar.contains(event.target)
+      || document.querySelector('dialog[open]') || !els.modelPicker.hidden
+      || !els.contextMenu.hidden || !els.examplesMenu.hidden || !els.tagsMenu.hidden
+      || !els.tagFinderMenu.hidden || !els.pickedMenu.hidden
+      || (keyboardEditingTarget(event.target) && !event.altKey)) return false;
+  const index = ['1', '2', '3'].indexOf(event.key);
+  if (index < 0) return false;
+  const use = els.assistantResult.querySelector(`[data-assistant-draft="${index}"]`);
+  if (!use) return false;
+  event.preventDefault();
+  assistantDraftPressed = event.code || event.key;
+  // The ordinary Use path owns stale-source, pending/offline holds and Undo.
+  use.click();
+  return true;
+}
+
+function assistantDraftRepeat(event) {
+  if (!assistantDraftPressed || (event.code || event.key) !== assistantDraftPressed) return false;
+  if (!event.repeat) { assistantDraftPressed = null; return false; }
+  // Use focuses the main prompt. Its held number must not start typing there.
+  event.preventDefault();
+  return true;
+}
+
 function insertAssistantTags() {
   const why = assistantApplyReason();
   if (why) { assistantSay(why, true); return; }
@@ -425,6 +457,10 @@ function assistantCheckpointChanged() {
 }
 
 function initPromptAssistant() {
+  document.addEventListener('keyup', (event) => {
+    if ((event.code || event.key) === assistantDraftPressed) assistantDraftPressed = null;
+  }, true);
+  window.addEventListener('blur', () => { assistantDraftPressed = null; });
   els.assistantToggle.onclick = () => {
     if (assistantSidebarOpen()) closePromptAssistant(); else openPromptAssistant();
   };

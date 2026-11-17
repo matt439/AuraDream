@@ -363,3 +363,41 @@ inspected. Eight documentation-map tests, the classic-script guard and 39
 screenshot-path checks passed. Receipt under the system temporary directory:
 `auradream-smoke-artifacts-hrt9_h35/summary.json`, screenshots in
 `smoke-prompt-assistant-3lljge9u/`. No inference was run.
+
+## Numbered prompt options (2026-11-17)
+
+Matt requested numbers on the option cards and number-key selection. The latest
+drafts now carry 1-3 badges, with matching accessible button labels and
+`aria-keyshortcuts`. Plain 1/2/3 within the assistant applies that option when
+focus is outside an editor. Alt+1/2/3 also applies from its message field, so
+plain numeric typing keeps its meaning. The footer and keyboard help describe
+these routes. Earlier conversation cards have no active number badges.
+
+The handler presses the ordinary Use button, preserving source, pending and
+offline refusals and undo-aware application. It does not act outside the
+assistant, under a dialog/menu/model picker, on modified Ctrl/Meta/Shift or
+AltGr combinations, on a repeat, during composition, or on an already-handled
+event. Numpad digits share the same logical key mapping.
+
+The expanded assistant browser fixture checks native 1/2/3 with Undo, Alt+2
+from the message field, normal numeric typing in the message/main prompt/task
+selector, scope and overlay guards, held applications and keyboard help.
+Synthetic browser events cover numpad metadata, repeats, composition and extra
+modifiers; these are not physical-device acceptance. Existing interaction,
+phone, layout, contrast and source guards remain.
+After a successful shortcut the held number is captured through its release,
+including after Apply focuses the main editor. A matching keyup or window blur
+releases it; a fresh non-repeat press also retires a missed release. This keeps
+auto-repeat from inserting digits into the newly applied prompt. The fixture
+checks that focus-transfer edge and subsequent ordinary numeric typing.
+
+Final local results: all 290 assistant smoke steps passed, with desktop/phone
+number badges and narrow footer copy inspected. The existing shortcuts and
+shortcut-dispatch smokes passed after the capture guard. The 139 focused
+documentation/classic-script/audit/browser-output checks passed, the final
+classic-script guard passed, and the eight documentation-map checks passed
+after reconciliation. No inference or real gallery was used. Receipts under
+the system temporary directory:
+`auradream-smoke-artifacts-_qd2pkiv/summary.json` (assistant, screenshots in
+`smoke-prompt-assistant-6bdy6jur/`) and
+`auradream-smoke-artifacts-ja8g83fg/summary.json` (shortcut regressions).
