@@ -192,23 +192,47 @@
     "fatal": true
   },
   { "click": "#assistant-draft-check-close" },
+  {
+    "log": "'Refine captures an option without accepting a hand-edited source. Clearing the focus still requires Continue; its reviewed acceptance can retain the selected option.'"
+  },
+  { "click": "#assistant-instruction" },
+  { "type": "Keep the selected option." },
+  { "click": "#prompt" },
+  { "keycombo": ["Control", "End"] },
+  { "type": " A little warmer." },
+  {
+    "eval": "__aw.focusSource=els.prompt.value;__aw.focusSnapshot=JSON.stringify(assistantSnapshot);__aw.focusTurns=JSON.stringify(assistantTurns);__aw.focusContext=assistantContextStart;__aw.focusRequests=__aw.requests.length;"
+  },
+  { "expect": "assistantSourceChanged()&&!!assistantAskReason()&&els.prompt.value===__aw.variants[0].prompt+' A little warmer.'", "fatal": true },
   { "expect": "__aw.reveal('#assistant-result .assistant-draft:nth-of-type(2) .assistant-draft-tools > summary')", "fatal": true },
   { "click": "#assistant-result .assistant-draft:nth-of-type(2) .assistant-draft-tools > summary" },
   { "click": "#assistant-result .assistant-draft:nth-of-type(2) [data-assistant-action=refine]" },
   {
-    "expect": "assistantFocus?.prompt===__aw.variants[1].prompt&&!document.getElementById('assistant-focus').hidden&&document.getElementById('assistant-focus-text').textContent.includes('Evening light')&&els.prompt.value===__aw.variants[0].prompt",
+    "expect": "assistantFocus?.prompt===__aw.variants[1].prompt&&!document.getElementById('assistant-focus').hidden&&document.getElementById('assistant-focus-text').textContent.includes('Evening light')&&els.prompt.value===__aw.focusSource&&assistantSourceChanged()&&JSON.stringify(assistantSnapshot)===__aw.focusSnapshot&&els.assistantAsk.getAttribute('aria-disabled')==='true'",
     "fatal": true
   },
+  { "click": "#assistant-ask" },
+  { "expect": "__aw.requests.length===__aw.focusRequests&&!assistantRun&&assistantSourceChanged()", "fatal": true },
+  { "click": "#assistant-focus-clear" },
+  {
+    "expect": "!assistantFocus&&assistantSourceChanged()&&!!assistantAskReason()&&JSON.stringify(assistantSnapshot)===__aw.focusSnapshot&&JSON.stringify(assistantTurns)===__aw.focusTurns&&assistantContextStart===__aw.focusContext&&els.assistantAsk.getAttribute('aria-disabled')==='true'",
+    "fatal": true
+  },
+  { "click": "#assistant-ask" },
+  { "expect": "__aw.requests.length===__aw.focusRequests&&!assistantRun&&els.prompt.value===__aw.focusSource", "fatal": true },
+  { "expect": "__aw.reveal('#assistant-result .assistant-draft:nth-of-type(2) .assistant-draft-tools > summary')", "fatal": true },
+  { "click": "#assistant-result .assistant-draft:nth-of-type(2) .assistant-draft-tools > summary" },
+  { "click": "#assistant-result .assistant-draft:nth-of-type(2) [data-assistant-action=refine]" },
   { "click": "#assistant-continue" },
   {
-    "expect": "document.getElementById('assistant-continuation-dialog').open&&document.getElementById('assistant-continuation-focus-keep').checked&&document.getElementById('assistant-continuation-option-text').textContent===__aw.variants[1].prompt",
+    "expect": "document.getElementById('assistant-continuation-dialog').open&&document.getElementById('assistant-continuation-source').textContent===__aw.focusSource&&document.getElementById('assistant-continuation-focus-keep').checked&&document.getElementById('assistant-continuation-option-text').textContent===__aw.variants[1].prompt",
     "fatal": true
   },
   { "click": "#assistant-continuation-apply" },
-  { "expect": "assistantFocus?.prompt===__aw.variants[1].prompt&&assistantContextStart===assistantTurns.length&&assistantDraftsStale&&els.prompt.value===__aw.variants[0].prompt", "fatal": true },
+  { "expect": "assistantFocus?.prompt===__aw.variants[1].prompt&&assistantContextStart===assistantTurns.length&&assistantDraftsStale&&!assistantSourceChanged()&&els.prompt.value===__aw.focusSource&&JSON.stringify(assistantTurns)===__aw.focusTurns", "fatal": true },
   { "eval": "__aw.instruction('Keep this option and soften its light further.'); window.__awFocused=__aw.arm('Focused revision.',{drafts:[{title:'Softer evening',prompt:'A red fox beside a sign reading \"OPEN\", under soft warm evening light.',notes:[]}]});" },
   { "click": "#assistant-ask" },
-  { "expect": "__aw.until(()=>__awFocused.captured&&__awFocused.request.focus_prompt===__aw.variants[1].prompt&&__awFocused.request.prompt===__aw.variants[0].prompt)", "fatal": true },
+  { "expect": "__aw.until(()=>__awFocused.captured&&__awFocused.request.focus_prompt===__aw.variants[1].prompt&&__awFocused.request.prompt===__aw.focusSource&&__awFocused.request.history.length===0)", "fatal": true },
   { "eval": "__aw.release(__awFocused);" },
   { "expect": "__aw.until(()=>!assistantRun&&assistantResultData?.message==='Focused revision.')", "fatal": true },
   { "shot": "assistant-workflow-desktop.png" },

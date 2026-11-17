@@ -11860,8 +11860,11 @@ an exact, case-sensitive phrase occurs with appropriate word boundaries;
 they cannot establish semantics or image fidelity. Each reply captures its
 pins: changing them holds its Apply controls while allowing a new request with
 the revised requirements. Refine this option captures
-its own focused prompt without writing the main editor. An exact editor match
-marks Current prompt, and an unread reply offers Jump to latest without pulling
+its own focused prompt without writing the main editor or rebasing the source
+snapshot. Selecting an old option after an external edit, then clearing its
+focus, still requires Continue to review that changed source and its brief.
+An exact editor match marks Current prompt, and an unread reply offers Jump
+to latest without pulling
 someone away from earlier messages. The compact composer can explicitly expand.
 
 More actions work on current and earlier cards: Copy, Save as snippet, Refine,
@@ -11875,6 +11878,12 @@ be evaluated without claiming that polished wording predicts image quality.
 Requirements and Compare stay reachable in short panes. A phone snippet Insert
 closes the covering assistant before rewriting, making the destination visible
 and preserving the normal native Undo path.
+
+The phone sidebar permits vertical overflow when its header and composer no
+longer fit the visible viewport. Its conversation remains the only scroller
+when they fit. This also covers a focused option and expanded message: the
+earlier below-200-pixel fallback left Send, Stop and Requirements clipped at
+250-300 pixels, a plausible visible height above a software keyboard.
 
 Find tags separates the model's proposed explanations from authoritative tag
 verdicts. Candidate names go through the same tag index as the existing tools;

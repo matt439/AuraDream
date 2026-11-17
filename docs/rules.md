@@ -3969,8 +3969,10 @@ measured on the card and when.
   acceptance. Old options remain held until a new answer. No context is silently
   truncated; the space hint warns before the message/text limit. Briefs are at
   most 2,000 characters. Refine this option captures a separate `focus_prompt`
-  for the next request without applying it to the editor. Continue previews that
-  focused option too, with an explicit checked choice to retain it; accepting
+  for the next request without applying it to the editor or adopting a changed
+  source snapshot. Clearing that focus preserves the source-change hold until
+  Continue is accepted. Continue previews that focused option too, with an
+  explicit checked choice to retain it; accepting
   the brief never writes either source into the main prompt.
   Up to eight pinned requirements of at most 200 characters each accompany
   requests. These, the brief and the focused prompt all count toward the same
@@ -8926,9 +8928,12 @@ measured on the card and when.
   `--sheet-viewport-height`, with safe-area padding and 44 px header, task
   and action targets. It takes no initial text focus, so opening it does
   not raise the keyboard. Its conversation scrolls above the composer;
-  short visible viewports reduce the message box and status, then let the
-  sidebar scroll below 200 px. Back uses its ordinary Close path and keeps
-  the page's scroll. The direct toolbar button replaces its former topbar
+  short visible viewports reduce the message box and status. The sidebar
+  itself scrolls whenever its header and composer exceed the visible height,
+  including a focused option or expanded message, so actions and Requirements
+  remain reachable without a fixed keyboard-height cutoff.
+  Back uses its ordinary Close path and keeps the page's scroll. The direct
+  toolbar button replaces its former topbar
   menu entry.
   The prompt check is a sheet (`#check-sheet`, a `<dialog>` in the panel,
   `aria-label` Prompt check): `placeTagValidation` puts `#prompt-analysis`
@@ -11514,7 +11519,10 @@ phone, with accessibility and phone-layout audits. Direct access from the
 rightmost desktop topbar action, native hit checks at 800 and 400 px, retained
 structured history, workspace interaction, focus leaving the sidebar, explicit
 apply/rebase and Undo, reserved wide-layout room, narrow Escape and touch Back
-are checked. Message checks cover immediate clearing through Send and Ctrl+Enter,
+are checked. Short-phone checks scroll Send/Stop, Requirements and Compare
+into reach at 250, 300 and 350 px visible heights, including a focused option
+and expanded input, while tall-phone checks retain the fixed composer.
+Message checks cover immediate clearing through Send and Ctrl+Enter,
 preserved follow-up drafts, failure/Stop recovery, and conversation-only scroll
 following without interrupting earlier-message reading. It runs no LLM or GPU
 work:
@@ -11525,7 +11533,8 @@ uv run python tools/run_smoke.py smoke-prompt-assistant
 
 `smoke-assistant-workflow.json` uses its own separate fresh FLUX.1 Krea [dev]
 fake on 7960. It checks preserved task history, clarification-only replies,
-native source editing and reviewed continuation, pinned requirements,
+native source editing and reviewed continuation, a Refine/clear-focus sequence
+that cannot adopt an external edit before Continue, pinned requirements,
 focused-option follow-ups, visible readiness and ticket-phase/transfer feedback,
 applied markers, expanded input and context-limit recovery. Current and earlier
 draft actions cover Copy, snippet preparation, prose comparison, CPU Check and

@@ -813,3 +813,34 @@ under system temp: `auradream-smoke-artifacts-858e4p17/summary.json`. Their owne
 fake servers and browser processes were stopped by the runner. The full CPU
 suite was not run for this bounded context/source change. Restart a running
 backend to pick up the revised questions.
+
+## Source adoption and short-phone review fixes (2026-11-17)
+
+The branch review found two UI defects. Refine this option adopted an externally
+edited source snapshot, so clearing the focus enabled Send with the changed
+editor text and earlier history without Continue. Refine now preserves that
+snapshot and explains the hold; clearing focus keeps it. Only reviewed Continue
+acceptance adopts the changed source and starts its new model-history span.
+The workflow smoke edits the source with native input, presses Refine and
+clears focus, confirms both attempted sends remain held, then accepts Continue
+with the selected option retained and checks the next request's fresh history.
+
+The phone pane also clipped Send/Stop and Requirements at 250-300 px visible
+heights because its outer scrolling started only below 200 px. The phone
+sidebar now permits vertical overflow whenever its header and composer do not
+fit; the conversation remains the only scroller when they do. The assistant
+smoke exercises wheel/touch reachability at 350, 300 and 250 px, a focused
+option with expanded input, Requirements, and restoration to the tall pane.
+
+Ruff passed; pinned Pyright checked all 219 sources with no errors or warnings.
+The focused classic-script, documentation, smoke-runner, browser-output,
+accessibility and phone-keyboard checks passed **330 tests**. An independent
+source review found no additional defect. `smoke-assistant-workflow` passed in
+33 seconds including setup and cleanup, with its receipt under system temp:
+`auradream-smoke-artifacts-06lh3obl/summary.json`.
+`smoke-prompt-assistant` also passed in 33 seconds including setup and cleanup:
+`auradream-smoke-artifacts-3dc47jxt/summary.json`. Its retained 393x250
+focused/expanded phone screenshot was visually inspected with Send, Stop,
+Requirements and Compare fully reachable after scrolling. These isolated fake
+checks used no model weights, GPU inference or real gallery; they do not
+establish physical-device acceptance or lift the assistant's GPU hold.

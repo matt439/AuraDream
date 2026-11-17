@@ -1143,6 +1143,88 @@
     "shot": "assistant-short.png"
   },
   {
+    "log": "'Phone panes scroll when their fixed header and composer no longer fit: Continue, Send, Stop, Requirements and Compare remain reachable at 350, 300 and 250px, including a focused option and expanded message.'"
+  },
+  {
+    "eval": "__pa.phoneOverflowSaved={turns:assistantTurns,focus:assistantFocus,mode:assistantMode,compare:new Map(assistantCompareDrafts)}; assistantTurns=[{role:'user',content:'Keep the basketball and park.'},{role:'assistant',content:assistantHistoryText(assistantResultData),answer:assistantResultData}]; assistantCompareDrafts.set('phone-night',{model:loadedModel,title:'Night practice',prompt:assistantResultData.drafts[0].prompt}); assistantCompareDrafts.set('phone-day',{model:loadedModel,title:'Day practice',prompt:'1girl, basketball, park, daylight'}); renderAssistantHistory(); renderAssistantResult(); __pa.phoneFooterFits=()=>{const pane=els.assistantSidebar.getBoundingClientRect();const controls=[els.assistantAsk,els.assistantStop,document.querySelector('#assistant-pins > summary'),document.getElementById('assistant-compare')];return controls.every(e=>{const r=e.getBoundingClientRect(),hit=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return !e.hidden&&r.top>=pane.top&&r.bottom<=pane.bottom+1&&!!hit&&(hit===e||e.contains(hit));});}; __pa.phonePaneTop=()=>{els.assistantClose.focus({preventScroll:true});els.assistantSidebar.scrollTop=0;};"
+  },
+  {
+    "viewport": [393, 350, 3],
+    "mobile": true
+  },
+  {
+    "eval": "__pa.phonePaneTop();"
+  },
+  {
+    "wheel": ["#assistant-close", 500]
+  },
+  {
+    "expect": "__pa.until(()=>els.assistantSidebar.scrollTop>0&&__pa.phoneFooterFits())",
+    "fatal": true
+  },
+  {
+    "viewport": [393, 300, 3],
+    "mobile": true
+  },
+  {
+    "eval": "__pa.phonePaneTop();"
+  },
+  {
+    "wheel": ["#assistant-close", 500]
+  },
+  {
+    "expect": "__pa.until(()=>els.assistantSidebar.scrollTop>0&&__pa.phoneFooterFits())",
+    "fatal": true
+  },
+  {
+    "viewport": [393, 250, 3],
+    "mobile": true
+  },
+  {
+    "eval": "__pa.phonePaneTop();"
+  },
+  {
+    "swipe": [190, 145, 190, 20]
+  },
+  {
+    "expect": "__pa.until(()=>els.assistantSidebar.scrollTop>0&&__pa.phoneFooterFits())",
+    "fatal": true
+  },
+  {
+    "eval": "focusAssistantDraft(assistantResultData.drafts[0].prompt,'Night practice'); document.getElementById('assistant-expand').click(); __pa.phonePaneTop();"
+  },
+  {
+    "wheel": ["#assistant-close", 500]
+  },
+  {
+    "expect": "__pa.until(()=>els.assistantInstruction.closest('.assistant-input').classList.contains('expanded')&&!document.getElementById('assistant-focus').hidden&&__pa.phoneFooterFits())",
+    "fatal": true
+  },
+  {
+    "shot": "assistant-phone-overflow.png"
+  },
+  {
+    "click": "#assistant-pins > summary"
+  },
+  {
+    "expect": "(async()=>{await __pa.frames();const e=document.getElementById('assistant-requirements'),r=e.getBoundingClientRect(),pane=els.assistantSidebar.getBoundingClientRect(),hit=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return document.getElementById('assistant-pins').open&&r.top>=pane.top&&r.bottom<=pane.bottom+1&&!!hit&&(hit===e||e.contains(hit));})()",
+    "fatal": true
+  },
+  {
+    "click": "#assistant-pins > summary"
+  },
+  {
+    "viewport": [393, 852, 3],
+    "mobile": true
+  },
+  {
+    "expect": "(async()=>{await __pa.frames();__pa.assert(els.assistantSidebar.scrollTop===0&&els.assistantSidebar.scrollHeight<=els.assistantSidebar.clientHeight+1,'the tall phone pane retained a second scroller');const before=__pa.chatGeometry(),host=__pa.chatHost();host.scrollTop=host.scrollHeight;await __pa.frames();return __pa.chatStable(before)&&__pa.controlsFit()&&__pa.phoneFooterFits();})()",
+    "fatal": true
+  },
+  {
+    "eval": "document.getElementById('assistant-expand').click(); assistantTurns=__pa.phoneOverflowSaved.turns;assistantFocus=__pa.phoneOverflowSaved.focus;assistantMode=__pa.phoneOverflowSaved.mode;els.assistantMode.value=assistantMode;assistantCompareDrafts.clear();for(const [key,draft] of __pa.phoneOverflowSaved.compare)assistantCompareDrafts.set(key,draft);renderAssistantHistory();renderAssistantResult();els.assistantInstruction.focus({preventScroll:true});"
+  },
+  {
     "viewport": [
       393,
       852,

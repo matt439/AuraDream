@@ -83,12 +83,15 @@ function syncAssistantWorkflow() {
 
 function focusAssistantDraft(prompt, title) {
   if (assistantRun) { assistantSay('Wait for the current answer, or press Stop.', true); return; }
-  if (assistantSourceChanged()) assistantDraftsStale = true;
-  assistantSnapshot = assistantSource();
+  const changed = assistantSourceChanged();
+  if (changed) assistantDraftsStale = true;
+  // Focusing an option does not accept external editor changes. Continue owns
+  // that reviewed source adoption, including when the focus is later cleared.
   assistantFocus = { prompt, title };
   assistantMode = 'improve'; els.assistantMode.value = 'improve';
   assistantTaskWords();
-  assistantSay(`Your next message refines ${title}. The main prompt is unchanged.`);
+  assistantSay(`Your next message refines ${title}. The main prompt is unchanged.${changed
+    ? ' Choose Continue to review the current editor text before sending.' : ''}`, changed);
   syncPromptAssistant();
   els.assistantInstruction.focus({ preventScroll: true });
 }
