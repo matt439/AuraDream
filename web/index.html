@@ -2581,12 +2581,14 @@
 <aside class="prompt-assistant-sidebar" id="prompt-assistant-sidebar" aria-labelledby="assistant-title" hidden>
   <div class="assistant-head">
     <h2 id="assistant-title">Prompt assistant</h2>
-    <div class="assistant-tools">
-      <label class="sr-only" for="assistant-mode">Task</label>
-      <select id="assistant-mode"><option value="create">Create a prompt</option><option value="improve">Improve my prompt</option><option value="tags">Find tags</option></select>
-    </div>
     <button type="button" class="ghost small" id="assistant-reset" title="Clear this conversation; the main prompt stays unchanged">New chat</button>
     <button type="button" class="ghost small" id="assistant-close" title="Close the assistant and stop its current answer">Close</button>
+    <div class="assistant-tools">
+      <label class="sr-only" for="assistant-mode">Task</label>
+      <select id="assistant-mode"><option value="create">Create</option><option value="improve">Improve</option><option value="tags">Find tags</option></select>
+      <label class="sr-only" for="assistant-model">Assistant model</label>
+      <select id="assistant-model"><option value="default">Qwen3-4B Q8_0</option><option value="qwen3-8b">Qwen3-8B Q4_K_M</option><option value="qwen3.5-4b">Qwen3.5-4B Q8_0</option></select>
+    </div>
   </div>
   <div class="assistant-body">
     <div id="assistant-intro" class="assistant-empty"><h3>What would you like to create?</h3><p>Describe an idea, ask for a change to your prompt, or find tags for a detail.</p><p class="hint">Drafts appear here. Your prompt changes only when you choose Use prompt.</p></div>
@@ -2612,6 +2614,7 @@
           <p id="assistant-context-note">Each message includes your current prompt and negative prompt.</p>
           <p>Chat runs locally and stays in this page until you leave. Suggested tag names are sent to Danbooru for verification. Review drafts before using them.</p>
           <p class="assistant-cost-line"><span id="assistant-cost"></span></p>
+          <p>Choosing a model keeps this chat. Send prepares it on first use. Assistant speed, memory use and prompt quality have not been measured.</p>
           <p>A download already started may finish after Stop.</p>
         </div>
       </details>

@@ -9,7 +9,7 @@ import json
 import logging
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
@@ -27,6 +27,9 @@ from .schemas_assistant import (
     TagStatus,
 )
 from .tags import TagLookupUnavailable, normalize_tag
+
+if TYPE_CHECKING:
+    from .assistant_models import AssistantModel
 
 log = logging.getLogger("auradream")
 # Enough for the pinned model's reasoning and a useful concise JSON answer.
@@ -130,33 +133,40 @@ def build_context(model_id: str, request: PromptAssistantRequest) -> AssistantCo
     )
 
 
-def check_fits(context: AssistantContext, *, estimated: bool = False) -> None:
+def check_fits(
+    context: AssistantContext, *, estimated: bool = False, profile: AssistantModel | None = None,
+) -> None:
     count = context.input_tokens * (critic_context._ESTIMATE_FLOOR if estimated else 1)
-    if count + MIN_OUTPUT_TOKENS > critic_runtime.CONTEXT:
+    window = profile.context if profile else critic_runtime.CONTEXT
+    minimum = profile.reasoning_budget + 1000 if profile else MIN_OUTPUT_TOKENS
+    if count + minimum > window:
         raise critic_runtime.CriticError(
             "the prompt assistant's conversation is too long for its "
-            f"{critic_runtime.CONTEXT}-token window; start a new conversation or shorten the current text"
+            f"{window}-token window; start a new conversation or shorten the current text"
         )
 
 
-def request_body(context: AssistantContext) -> dict[str, Any]:
-    check_fits(context, estimated=True)
+def request_body(context: AssistantContext, profile: AssistantModel | None = None) -> dict[str, Any]:
+    check_fits(context, estimated=True, profile=profile)
     return {
         "messages": [
             {"role": "system", "content": context.system},
             {"role": "user", "content": context.user},
         ],
-        **critic_context.SAMPLING,
+        **(profile.sampling if profile else critic_context.SAMPLING),
         # Actual token count replaces this before inference where the server supports it.
-        "max_tokens": critic_runtime.CONTEXT,
-        "chat_template_kwargs": {"enable_thinking": True},
+        "max_tokens": profile.context if profile else critic_runtime.CONTEXT,
+        "chat_template_kwargs": {"enable_thinking": profile.enable_thinking if profile else True},
         "response_format": {
             "type": "json_schema", "json_schema": {"name": "prompt_assistant", "schema": context.schema},
         },
     }
 
 
-def counted_body(base: str, api_key: str, body: dict[str, Any], context: AssistantContext) -> dict[str, Any]:
+def counted_body(
+    base: str, api_key: str, body: dict[str, Any], context: AssistantContext,
+    profile: AssistantModel | None = None,
+) -> dict[str, Any]:
     """Check the actual rendered input count before inference; never trim conversation."""
     status, rendered = critic_server._request(
         "POST", base + "/apply-template", api_key,
@@ -167,11 +177,11 @@ def counted_body(base: str, api_key: str, body: dict[str, Any], context: Assista
     count = critic_context._count(base, api_key, template, special=True) if isinstance(template, str) else None
     if count is None:
         log.warning("llama-server did not count the prompt assistant question; sized by the estimate")
-        check_fits(context)
+        check_fits(context, profile=profile)
         count = context.input_tokens
     else:
-        check_fits(AssistantContext(context.system, context.user, context.schema, count))
-    return {**body, "max_tokens": critic_runtime.CONTEXT - count}
+        check_fits(AssistantContext(context.system, context.user, context.schema, count), profile=profile)
+    return {**body, "max_tokens": (profile.context if profile else critic_runtime.CONTEXT) - count}
 
 
 def _answer_object(content: str) -> dict[str, Any]:

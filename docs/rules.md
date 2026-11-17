@@ -284,6 +284,9 @@ paragraphs, never rewording.
 - `backend/prompt_assistant.py` — the writing assistant's checkpoint-grounded
   dialogue, structured draft validation, retention warnings and authoritative
   tag lookup after inference; no model loading
+- `backend/assistant_models.py` — optional writing-model pins, file-only cache
+  inspection, verified downloads and per-model context, thinking and sampling
+  profiles; the critic's default remains independent
 - `backend/critic_issues.py` — what a critic issue says, for
   `critic_validation.validate`: the restated-finding vocabulary (`_says`,
   `_restated`, `_MEASURED`, `_PART_COUNT` and the patterns it builds on) and
@@ -3891,6 +3894,22 @@ measured on the card and when.
 
 #### Local prompt writing
 
+- Assistant requests capture `assistant_model`: `default` keeps the critic's
+  configured model, `qwen3-8b` selects Qwen3-8B Q4_K_M and `qwen3.5-4b` selects
+  Qwen3.5-4B Q8_0. `assistant_models` pins each optional GGUF's revision, size
+  and SHA256, and records its author's sampling and thinking recipe. The
+  unchanged b11206 source supports both architectures; no GPU result follows.
+  `GET /api/prompt/assist/models` only checks local files and reports download
+  costs. Preparation returns an immutable `PreparedAssistant`; inference uses
+  those exact paths and profile even if another preparation finishes meanwhile.
+  Optional selections never replace the critic's prepared baseline. Their
+  bounded context and actual rendered-token checks apply before completion.
+  The sidebar remembers only the selected id in guarded browser storage;
+  conversation remains page-only. Between replies a model change retains the
+  conversation, with each answer labelled by the model that wrote it. Native
+  changes during an active answer restore its captured selection and say why.
+  Opening the selector never downloads weights; Send prepares the chosen model.
+  Model bytes are a download size, never a VRAM measurement.
 - The optional writing assistant (`PA#18`, `POST /api/prompt/assist`) shares
   the critic's pinned runtime and process owner, never image weights. Its
   Create/Improve/Find tags tasks use bounded, client-owned history as untrusted
@@ -11342,12 +11361,17 @@ node tools/browser.mjs tools/smoke-results.json
 
 ### Prompt analyser tests and smokes
 
-`test_prompt_assistant.py`, `test_prompt_assistant_runtime.py` and
+`test_assistant_models.py`, `test_prompt_assistant.py`, `test_prompt_assistant_runtime.py` and
 `test_api_prompt_assistant.py` cover the local
 writing assistant's bounded requests/history and structured answers, checkpoint
 grounding, retention warnings, tag-index verdicts/offline fallback, shared
 transient critic runtime, preparation and job/load admission, ticketed Stop,
-late replies and model/passcode guards. The existing critic process tests
+late replies and model/passcode guards. Selected-model tests also cover
+immutable selected-file capture, per-model thinking/sampling and
+token budgets, verified alternative downloads, file-only catalogue reads and
+independence from the critic's configured baseline. The browser smoke checks
+both optional models, saved selection, model attribution, retained follow-ups
+and a held selector during an answer. The existing critic process tests
 continue to cover the reused llama.cpp lifecycle. These are CPU/fake checks;
 `tools/prompt_assistant_pack.py` only prepares a future GPU protocol and audits
 a manually completed receipt, never executes it.

@@ -11,8 +11,8 @@
 .assistant-head { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); flex: none; }
 .assistant-head h2 { margin: 0 auto 0 0; font-size: var(--fs-lg); }
 .assistant-head button { flex: none; }
-.assistant-tools { min-width: 0; flex: 0 1 190px; }
-#assistant-mode { width: 100%; min-height: var(--h-md); padding: var(--sp-1) var(--sp-2); border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--panel-2); color: var(--text); font: inherit; }
+.assistant-tools { min-width: 0; flex: 1 1 100%; display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: var(--sp-2); }
+.assistant-tools select { width: 100%; min-width: 0; min-height: var(--h-md); padding: var(--sp-1) var(--sp-2); border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--panel-2); color: var(--text); font: inherit; }
 .assistant-about { position: relative; font-size: var(--fs-label); color: var(--text-3); }
 .assistant-about summary { cursor: pointer; min-height: var(--h-sm); }
 .assistant-about-content { position: absolute; z-index: 2; bottom: calc(100% + var(--sp-2)); left: 0; width: min(440px, calc(100vw - 2 * var(--panel-pad))); max-height: min(16lh, 50dvh); overflow-y: auto; padding: var(--sp-3); border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--panel-2); color: var(--text-2); box-shadow: var(--shadow-pop); }
@@ -73,6 +73,7 @@
 }
 @media (min-width: 1800px) {
   :root { --assistant-w: clamp(680px, 36vw, 900px); }
+  .assistant-tools { flex: 1 1 350px; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); }
 }
 @media (max-width: 600px) {
   .prompt-assistant-sidebar { width: 100%; }
@@ -84,9 +85,6 @@
   .assistant-foot { display: none; }
   #assistant-status { height: 1lh; }
   .assistant-compose { gap: var(--sp-1); }
-}
-@container prompt-assistant (max-width: 540px) {
-  .assistant-tools { flex-basis: 100%; order: 1; }
 }
 @media (forced-colors: active) {
   .assistant-input:has(#assistant-instruction:focus-visible) { outline-color: Highlight; }

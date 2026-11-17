@@ -590,8 +590,17 @@ shows **No tags added or removed**; prose and mixed or structured prompts omit t
 If the model repeats its drafts in its reply, that extra prose is tucked into
 **Assistant note** below the cards; each draft is shown once by default.
 
-The assistant uses the same local Qwen3-4B runtime and first-use downloads as
-Suggest improvements. It waits for image jobs, loads and other prompt GPU work,
+**Assistant model** selects the local writing model and remembers your choice
+in this browser. The default is the model used by Suggest improvements.
+Optional **Qwen3-8B Q4_K_M** and **Qwen3.5-4B Q8_0** use separate downloads
+of about 5.0 GB and 4.5 GB, plus the shared llama.cpp runtime if missing.
+Send downloads the selected model on first use; opening the sidebar checks
+what is already installed. These sizes describe downloads, not required VRAM.
+You can switch between replies and keep the conversation; each answer names
+its model. The choice is held while an answer runs. The selected image
+checkpoint continues to supply its prompting guide.
+
+The assistant waits for image jobs, loads and other prompt GPU work,
 and releases its process after each answer. **Stop**, or closing the sidebar,
 requests cancellation. Conversation stays in this page's memory; **New chat**
 clears it. It is not saved with images. Candidate tag names are

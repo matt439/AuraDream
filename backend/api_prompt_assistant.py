@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 
 from fastapi import APIRouter, HTTPException, Path
 
-from . import keep_awake, prompt_assistant
+from . import assistant_models, keep_awake, prompt_assistant
 from .api_prompt import critic_unsupported, prompt_failure, refuse_critique_now
 from .app_context import AppServices
 from .backends.base import Cancelled
@@ -34,6 +34,10 @@ def create_router(services: AppServices) -> APIRouter:
     router = APIRouter()
     running: dict[str, tuple[_AssistantRun, asyncio.Task]] = {}
     stopped: dict[str, float] = {}
+
+    @router.get("/api/prompt/assist/models")
+    async def list_assistant_models() -> dict:
+        return {"models": services.critic().assistant_models()}
 
     def prune_stops() -> None:
         cutoff = time.monotonic() - 300
@@ -67,20 +71,24 @@ def create_router(services: AppServices) -> APIRouter:
         if not critic.supported():
             raise HTTPException(status_code=422, detail=critic_unsupported(services.settings()))
         refuse_critique_now(services)
+        profile = (None if request.assistant_model == "default"
+                   else assistant_models.get_model(request.assistant_model))
         try:
-            prompt_assistant.check_fits(prompt_assistant.build_context(model_id, request), estimated=True)
+            prompt_assistant.check_fits(
+                prompt_assistant.build_context(model_id, request), estimated=True, profile=profile,
+            )
         except Exception as exc:
             raise prompt_failure(exc, "prompt assistant question") from exc
 
-        def prepare() -> None:
+        def prepare():
             run.check()
             # A dropped request never lets a still-running download sleep the
             # machine. The daemon thread is never joined at interpreter exit.
             with keep_awake.busy("preparing the local prompt assistant"):
-                critic.prepare()
+                return critic.prepare_assistant(request.assistant_model)
 
         try:
-            await detached(prepare, "assistant-prepare")
+            prepared = await detached(prepare, "assistant-prepare")
             run.check()
         except Cancelled:
             raise
@@ -92,7 +100,7 @@ def create_router(services: AppServices) -> APIRouter:
         refuse_critique_now(services)
         try:
             result = await services.jobs().run_when_idle(
-                lambda: critic.assist(model_id, request, run.stopped.is_set),
+                lambda: critic.assist(model_id, request, run.stopped.is_set, prepared),
                 holder="critic", ticket=request.ticket,
             )
         except BackendBusy as exc:

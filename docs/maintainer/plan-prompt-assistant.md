@@ -42,6 +42,25 @@ check, context sizing and process-tree cleanup. The existing
 `AURADREAM_CRITIC_MODEL` and `AURADREAM_CRITIC_SERVER` overrides still select a
 custom pair; this work does not download a newer candidate or change the pin.
 
+On 2026-11-17 Matt requested two selectable alternatives. **Assistant model**
+now offers the configured baseline, **Qwen3-8B Q4_K_M** (5,027,783,488 bytes)
+and **Qwen3.5-4B Q8_0** (4,482,403,264 bytes). The optional GGUFs' exact
+revisions and SHA256 pins live in `backend/assistant_models.py`. Metadata was
+checked against the publishers' Hub APIs without fetching weights. Qwen3-8B
+comes from Qwen; Qwen3.5-4B from llama.cpp's maintainers. The unchanged b11206
+source includes both architectures. Its context stays bounded to 8,192 tokens:
+Qwen3-8B uses the author's thinking recipe with the app's 2,048-token reasoning
+budget, and Qwen3.5-4B uses the author's general non-thinking recipe.
+
+The browser remembers only the choice id. Changing it between answers retains
+the conversation, and each reply keeps its model label. Send prepares the
+selected files; opening the sidebar only inspects local files. Preparation
+returns immutable paths and a profile for that request and never changes the
+critic's prepared baseline. Check keeps its configured model and overrides.
+The selection is held while an answer is pending, with an explanatory press.
+Download sizes are not memory measurements; both alternatives remain
+unmeasured for this workflow. The existing GPU hold still applies.
+
 Preparation runs outside the job gate. The actual answer runs through
 `jobs.run_when_idle`, after another check for an image load or queued/running
 job. It never calls `ensure_loaded`. The process must stop before releasing the
@@ -447,3 +466,47 @@ inspected; 39 screenshot-path checks passed. Receipt under the system temporary
 directory: `auradream-smoke-artifacts-e4t4vx53/summary.json`, screenshots in
 `smoke-prompt-assistant-vpz6dzsi/`. No model weights, inference or real gallery
 were used. A running server must restart to supply the new response field.
+
+## Selectable writing models (2026-11-17)
+
+Matt requested Qwen3-8B and Qwen3.5-4B alongside the configured baseline.
+The selector, pinned catalogue, separate runtime profiles and request-owned
+preparation described above are built. Only the selected id is remembered;
+model changes between replies retain the conversation. The compact task names
+Create, Improve and Find tags keep both selectors readable at 320 px. The wide
+header keeps its controls on one row so three drafts and their notes still fit.
+
+Local validation, without weights, GPU inference or real gallery data:
+
+- The full CPU run completed with 11,237 passed and 325 skipped, plus one
+  failed smoke-audit fixture check: the new reload needed an explicit
+  accessibility check immediately before navigation. After that correction,
+  all 293 focused audit, runtime, documentation, browser-output and smoke-runner
+  checks passed. Two additional actual-token boundary cases passed in the
+  runtime file: a 7,000-token input fits the non-thinking profile but is held
+  when the thinking profile needs its reasoning reserve.
+- Ruff passed. Pinned Pyright checked 219 Python sources with zero errors or
+  warnings. Shared classic-script syntax/scope checks passed.
+- The assistant browser smoke checks both alternatives through the fake API,
+  preserved follow-ups, per-reply attribution, held native and scripted model
+  changes, first-use information and a real page reload restoring only the id.
+  Its 325 steps also retain three-draft density, Apply/Undo, Stop, phone,
+  landscape and keyboard-sized viewports and accessibility checks.
+- Six distinct regression smokes passed: analysis, model-switch,
+  shortcut-dispatch, phone-create, phone-dialogs and phone. The phone fixture's
+  old caption-membership assertion was diagnosed and corrected to the existing
+  named prompt-tools row, including Assistant and Reset's last position. All
+  other desktop and phone geometry/host checks were retained.
+
+The first assistant smoke caught an extra wide header row reducing room for
+the third draft's notes. Its original density assertion was retained and the
+wide header corrected. Desktop, 320 px phone and restored-selection screenshots
+were visually inspected. The final compact-label browser check passed all 325
+steps (22 seconds in the browser, 29 seconds including the runner). Receipt:
+`auradream-smoke-artifacts-cyh5z35k/summary.json` under the system temporary
+directory; screenshots in `smoke-prompt-assistant-2y8bjjvl/`. The six regression
+receipts are `auradream-smoke-artifacts-lwvqziy7/summary.json` (five passed,
+the diagnosed phone fixture failure) and
+`auradream-smoke-artifacts-j5rtdnd8/summary.json` (the corrected phone pass).
+No assistant GPU session was run; prompt quality, latency, memory and
+real-model cancellation remain held for later authorization.

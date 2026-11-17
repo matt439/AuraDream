@@ -110,13 +110,13 @@ BUILDS: dict[str, Build] = {
 # per critique on Windows, median 10.5, 19.3 s for a tag prompt, and about
 # 5.5 GiB of VRAM over the desktop's. The research's 8.8-9.0 s and ~5.0 GiB
 # were greedy decoding, which thinking mode is not run with.
-class _ModelSource(TypedDict):
+class ModelSource(TypedDict):
     repo_id: str
     filename: str
     revision: str
 
 
-MODEL: _ModelSource = {
+MODEL: ModelSource = {
     "repo_id": "Qwen/Qwen3-4B-GGUF",
     "filename": "Qwen3-4B-Q8_0.gguf",
     "revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
@@ -487,30 +487,33 @@ def install_server(key: str) -> Path:
     return target / build.server
 
 
-def _model_cached() -> Path | None:
+def _model_cached(source: ModelSource | None = None) -> Path | None:
     """The pinned GGUF if the Hub cache already holds it; no network."""
     from huggingface_hub import try_to_load_from_cache
 
     try:
+        selected = MODEL if source is None else source
         cached = try_to_load_from_cache(
-            MODEL["repo_id"], MODEL["filename"], revision=MODEL["revision"]
+            selected["repo_id"], selected["filename"], revision=selected["revision"]
         )
     except (OSError, ValueError):
         return None
     return Path(cached) if isinstance(cached, str) and Path(cached).is_file() else None
 
 
-def verify_model(path: Path) -> None:
+def verify_model(path: Path, *, size: int | None = None, sha256: str | None = None) -> None:
     """Hold the GGUF to the pinned size and sha256, hashing it only once.
 
     Four gigabytes take seconds to hash, which every critique would otherwise
     pay; a stamp of the path, size and mtime under the install root records
     that this file was checked.
     """
+    expected_size = MODEL_SIZE if size is None else size
+    expected_sha256 = MODEL_SHA256 if sha256 is None else sha256
     stat = path.stat()
-    if stat.st_size != MODEL_SIZE:
-        raise CriticError(f"{path} is {stat.st_size} bytes, not the pinned {MODEL_SIZE}")
-    stamp_file = install_root() / "verified" / f"{MODEL_SHA256}.json"
+    if stat.st_size != expected_size:
+        raise CriticError(f"{path} is {stat.st_size} bytes, not the pinned {expected_size}")
+    stamp_file = install_root() / "verified" / f"{expected_sha256}.json"
     stamp = {"path": str(path.resolve()), "size": stat.st_size, "mtime_ns": stat.st_mtime_ns}
     try:
         if json.loads(stamp_file.read_text(encoding="utf-8")) == stamp:
@@ -518,25 +521,30 @@ def verify_model(path: Path) -> None:
     except (OSError, ValueError):
         pass
     digest = _sha256(path)
-    if digest != MODEL_SHA256:
+    if digest != expected_sha256:
         # Named by the file that holds the bytes: in a Hub cache with symlinks
         # `path` is a snapshot's link to a blob.
-        raise CriticError(f"{path.resolve()} has sha256 {digest}, not the pinned {MODEL_SHA256}")
+        raise CriticError(f"{path.resolve()} has sha256 {digest}, not the pinned {expected_sha256}")
     stamp_file.parent.mkdir(parents=True, exist_ok=True)
     stamp_file.write_text(json.dumps(stamp), encoding="utf-8")
 
 
-def download_model() -> Path:
+def download_model(
+    source: ModelSource | None = None, *, size: int | None = None, sha256: str | None = None,
+) -> Path:
     import huggingface_hub
 
-    if _model_cached() is None:
+    selected = MODEL if source is None else source
+    expected_size = MODEL_SIZE if size is None else size
+    expected_sha256 = MODEL_SHA256 if sha256 is None else sha256
+    if _model_cached(selected) is None:
         log.info(
-            "downloading the prompt critic's model %s/%s (%.1f GB)",
-            MODEL["repo_id"], MODEL["filename"], MODEL_SIZE / 1e9,
+            "downloading the local prompt model %s/%s (%.1f GB)",
+            selected["repo_id"], selected["filename"], expected_size / 1e9,
         )
-    path = Path(huggingface_hub.hf_hub_download(**MODEL))
+    path = Path(huggingface_hub.hf_hub_download(**selected))
     try:
-        verify_model(path)
+        verify_model(path, size=expected_size, sha256=expected_sha256)
     except CriticError as exc:
         # Fetched again, once. Not by deleting the file and asking: a cache
         # with symlinks relinks the blob it still holds, without a download.
@@ -546,17 +554,17 @@ def download_model() -> Path:
         log.warning("%s; downloading it again", exc)
         path.unlink(missing_ok=True)
         try:
-            path = Path(huggingface_hub.hf_hub_download(**MODEL, force_download=True))
+            path = Path(huggingface_hub.hf_hub_download(**selected, force_download=True))
         except Exception as fetch:
             # The Hub's own words for a failed forced download are "the above
             # error", which is its cause.
             reason = fetch.__cause__ or fetch
             raise CriticError(
-                f"{MODEL['filename']} in the Hub cache is off its pin and could not be "
+                f"{selected['filename']} in the Hub cache is off its pin and could not be "
                 f"downloaded again: {type(reason).__name__}: {reason}"
             ) from fetch
         try:
-            verify_model(path)
+            verify_model(path, size=expected_size, sha256=expected_sha256)
         except CriticError as again:
             # Not "delete it and retry": a retry has just fetched these bytes.
             raise CriticError(

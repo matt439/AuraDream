@@ -81,7 +81,7 @@ const els = {
   criticAsk: $('critic-ask'), criticLine: $('critic-line'), criticResult: $('critic-result'),
   criticProgress: $('critic-progress'), criticCost: $('critic-cost'),
   criticClock: $('critic-clock'), analysisStatus: $('analysis-status'),
-  assistantSidebar: $('prompt-assistant-sidebar'), assistantToggle: $('btn-prompt-assistant'), assistantMode: $('assistant-mode'),
+  assistantSidebar: $('prompt-assistant-sidebar'), assistantToggle: $('btn-prompt-assistant'), assistantMode: $('assistant-mode'), assistantModel: $('assistant-model'),
   assistantInstruction: $('assistant-instruction'), assistantAsk: $('assistant-ask'),
   assistantStop: $('assistant-stop'), assistantReset: $('assistant-reset'), assistantClose: $('assistant-close'),
   assistantStatus: $('assistant-status'), assistantCost: $('assistant-cost'), assistantClock: $('assistant-clock'),

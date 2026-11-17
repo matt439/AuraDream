@@ -13,9 +13,44 @@ let assistantSelectedTags = new Set();
 let assistantClockTimer = null;
 let assistantPendingText = '';
 let assistantDraftPressed = null;
+let assistantModel = 'default';
+let assistantModels = [];
+let assistantModelsEpoch = 0;
+let assistantModelsFailed = false;
 
 const ASSISTANT_INPUT_LIMIT = 12000;
 const ASSISTANT_HISTORY_LIMIT = 8;
+
+function assistantModelStatus() {
+  const id = assistantRun?.model || assistantModel;
+  if (id === 'default') {
+    return { id, ready: promptCritiqueReady, ...(criticStatus ?? { label: 'Qwen3-4B Q8_0', fetch: [], fetch_bytes: 0 }) };
+  }
+  return assistantModels.find((model) => model.id === id)
+    ?? { id, label: els.assistantModel.selectedOptions[0]?.textContent || 'local model', ready: false, fetch: [], fetch_bytes: 0 };
+}
+
+async function refreshAssistantModels() {
+  const epoch = ++assistantModelsEpoch;
+  try {
+    const body = await api('/api/prompt/assist/models');
+    if (epoch !== assistantModelsEpoch || !assistantSidebarOpen()) return;
+    if (!Array.isArray(body.models) || !body.models.some((model) => model.id === 'default')) {
+      throw new Error('The assistant model list is incomplete.');
+    }
+    assistantModels = body.models;
+    assistantModelsFailed = false;
+    for (const option of els.assistantModel.options) {
+      const model = assistantModels.find((item) => item.id === option.value);
+      if (model && option.textContent !== model.label) option.textContent = model.label;
+    }
+    syncPromptAssistant();
+  } catch {
+    if (epoch !== assistantModelsEpoch || !assistantSidebarOpen()) return;
+    assistantModelsFailed = true;
+    syncPromptAssistant();
+  }
+}
 
 function assistantSource() {
   return { prompt: els.prompt.value, negative: els.negative.value, model: loadedModel, revision: modelRevision };
@@ -93,6 +128,9 @@ function syncPromptAssistant() {
   els.assistantAsk.textContent = assistantRun ? 'Thinking…' : 'Send';
   els.assistantMode.setAttribute('aria-disabled', String(!!assistantRun));
   els.assistantMode.title = assistantRun ? 'Stop the current answer before changing the task.' : 'Choose the kind of prompt help';
+  els.assistantModel.setAttribute('aria-disabled', String(!!assistantRun));
+  els.assistantModel.title = assistantRun ? 'Stop the current answer before changing the assistant model.'
+    : 'Choose the local model for your next message; this conversation stays available';
   const applyReason = assistantApplyReason();
   for (const button of els.assistantResult.querySelectorAll('[data-assistant-draft]')) {
     const number = Number(button.dataset.assistantDraft) + 1;
@@ -111,13 +149,15 @@ function syncPromptAssistant() {
   $('assistant-intro').hidden = !!assistantTurns.length || !!assistantResultData || !!assistantPendingText;
   $('assistant-pending').hidden = !assistantPendingText;
   $('assistant-pending').textContent = assistantPendingText;
-  const critic = criticStatus ?? { label: 'local model', fetch: [], fetch_bytes: 0 };
-  const fetch = !promptCritiqueReady && critic.fetch.length
-    ? `First use downloads ${critic.fetch.join(' and ')} (about ${humanBytes(critic.fetch_bytes)}) once. This can take a few minutes.` : '';
+  const model = assistantModelStatus();
+  const fetch = !model.ready && model.fetch.length
+    ? `First use downloads ${model.fetch.join(' and ')} (about ${humanBytes(model.fetch_bytes)}) once. This can take a few minutes.` : '';
   const cost = assistantRun
     ? assistantRun.stopped ? 'Stopping the local answer; waiting for its process to exit.'
-      : fetch ? `${fetch} Then the local model writes an answer.` : `Waiting for ${critic.label} to finish its answer.`
-    : assistantExternalHold() || fetch || `Uses local ${critic.label}; waits for image jobs.`;
+      : fetch ? `${fetch} Then the local model writes an answer.` : `Waiting for ${model.label} to finish its answer.`
+    : assistantExternalHold() || fetch || (assistantModelsFailed
+      ? `Uses local ${model.label}. Download details are unavailable; Send will check the selected model.`
+      : `Uses local ${model.label}; waits for image jobs.`);
   if (els.assistantCost.textContent !== cost) els.assistantCost.textContent = cost;
 }
 
@@ -305,6 +345,7 @@ function openPromptAssistant(mode = null) {
   els.assistantSidebar.hidden = false;
   document.body.classList.add('assistant-open');
   els.assistantToggle.setAttribute('aria-expanded', 'true');
+  void refreshAssistantModels();
   syncBackLayers();
   if (!isPhone()) els.assistantInstruction.focus({ preventScroll: true });
   else els.assistantClose.focus({ preventScroll: true });
@@ -313,6 +354,7 @@ function openPromptAssistant(mode = null) {
 function closePromptAssistant() {
   if (!assistantSidebarOpen()) return;
   els.assistantSidebar.hidden = true;
+  ++assistantModelsEpoch;
   document.body.classList.remove('assistant-open');
   els.assistantToggle.setAttribute('aria-expanded', 'false');
   if (assistantRun) void stopPromptAssistant();
@@ -331,17 +373,19 @@ async function askPromptAssistant() {
   if (why) { assistantSay(why, true); if (serverOffline) void refreshStatus(); return; }
   const source = assistantSource();
   const instruction = els.assistantInstruction.value.trim();
-  const run = { epoch: ++assistantEpoch, ticket: expandTicket(), mode: assistantMode, stopped: false, stopping: false, started: Date.now() };
+  const run = { epoch: ++assistantEpoch, ticket: expandTicket(), mode: assistantMode, model: assistantModel,
+    stopped: false, stopping: false, started: Date.now() };
   const payload = {
-    ticket: run.ticket, mode: run.mode, instruction, prompt: source.prompt,
+    ticket: run.ticket, mode: run.mode, assistant_model: run.model, instruction, prompt: source.prompt,
     negative_prompt: source.negative || null,
     history: assistantTurns.map(({ role, content }) => ({ role, content })),
   };
   assistantRun = run;
   assistantSnapshot = source;
   assistantPendingText = instruction;
-  const download = !promptCritiqueReady && criticStatus?.fetch?.length;
-  assistantSay(download ? `First use downloads ${criticStatus.fetch.join(' and ')} (about ${humanBytes(criticStatus.fetch_bytes)}). Then the local model writes an answer.` : 'Asking the local model…');
+  const selected = assistantModelStatus();
+  const download = !selected.ready && selected.fetch.length;
+  assistantSay(download ? `First use downloads ${selected.fetch.join(' and ')} (about ${humanBytes(selected.fetch_bytes)}). Then the local model writes an answer.` : 'Asking the local model…');
   clearInterval(assistantClockTimer); assistantClock();
   assistantClockTimer = setInterval(assistantClock, 1000);
   syncPromptExpansion();
@@ -350,7 +394,9 @@ async function askPromptAssistant() {
     const body = await api('/api/prompt/assist', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
     });
-    promptCritiqueReady = true;
+    if (run.model === 'default') promptCritiqueReady = true;
+    const prepared = assistantModels.find((model) => model.id === run.model);
+    if (prepared) { prepared.ready = true; prepared.fetch = []; prepared.fetch_bytes = 0; }
     if (run.epoch !== assistantEpoch || run.stopped || !assistantSidebarOpen()) return;
     if (body.model_id !== source.model) {
       assistantSay('The checkpoint changed while this answer was prepared. Start a new conversation.', true); return;
@@ -378,6 +424,7 @@ async function askPromptAssistant() {
       if (run.stopped && run.epoch === assistantEpoch) assistantSay('Answer stopped. The main prompt is unchanged.');
       syncPromptExpansion();
       void refreshStatus();
+      if (assistantSidebarOpen()) void refreshAssistantModels();
     }
   }
 }
@@ -480,6 +527,11 @@ function assistantCheckpointChanged() {
 }
 
 function initPromptAssistant() {
+  try {
+    const saved = localStorage.getItem('auradream.assistant-model');
+    if ([...els.assistantModel.options].some((option) => option.value === saved)) assistantModel = saved;
+  } catch { /* Storage may be unavailable; the choice still works for this page. */ }
+  els.assistantModel.value = assistantModel;
   document.addEventListener('keyup', (event) => {
     if ((event.code || event.key) === assistantDraftPressed) assistantDraftPressed = null;
   }, true);
@@ -496,6 +548,25 @@ function initPromptAssistant() {
     assistantMode = els.assistantMode.value;
     resetAssistantConversation({ clearInstruction: false });
   };
+  els.assistantModel.onchange = () => {
+    if (assistantRun) {
+      els.assistantModel.value = assistantModel;
+      assistantSay('Stop the current answer before changing the assistant model.', true); return;
+    }
+    assistantModel = els.assistantModel.value;
+    try { localStorage.setItem('auradream.assistant-model', assistantModel); } catch { /* Page-only choice. */ }
+    syncPromptAssistant();
+    assistantSay(`Your next message uses ${assistantModelStatus().label}. This conversation is kept.`);
+  };
+  for (const [control, reason] of [[els.assistantMode, 'task'], [els.assistantModel, 'assistant model']]) {
+    const held = (event) => {
+      if (!assistantRun || (event.type === 'keydown' && ![' ', 'Enter', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key))) return;
+      event.preventDefault();
+      assistantSay(`Stop the current answer before changing the ${reason}.`, true);
+    };
+    control.addEventListener('pointerdown', held);
+    control.addEventListener('keydown', held);
+  }
   els.assistantInstruction.addEventListener('input', syncPromptAssistant);
   els.prompt.addEventListener('input', syncPromptAssistant);
   els.negative.addEventListener('input', syncPromptAssistant);

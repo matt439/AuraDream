@@ -21,6 +21,7 @@ class PromptAssistantRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     ticket: str = Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
+    assistant_model: Literal["default", "qwen3-8b", "qwen3.5-4b"] = "default"
     mode: Literal["create", "improve", "tags"]
     instruction: str = Field(min_length=1, max_length=2000)
     prompt: str = Field(default="", max_length=4000)

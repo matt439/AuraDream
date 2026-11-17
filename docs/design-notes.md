@@ -11765,9 +11765,24 @@ context, verified downloads and process ownership. Its request is deliberately
 conservative: it may not invent scenery, objects, mood or lettering. A new
 assistant request gives Create permission to develop ideas while asking Improve
 to keep the user's intent unless its instruction changes it. It uses the same
-Qwen3-4B Q8_0 and llama.cpp pin; selecting a larger/newer model before measuring
-this baseline would introduce a second uncertainty. The existing critic remains
-its own Check workflow.
+Qwen3-4B Q8_0 and llama.cpp pin as its default. On 2026-11-17 Matt requested
+selectable Qwen3-8B and Qwen3.5-4B alternatives. Qwen3-8B uses the author's
+Q4_K_M GGUF; Qwen3.5-4B uses llama.cpp's maintainers' Q8_0 GGUF. Each has a
+fixed revision, size, hash and sourced sampling/thinking profile, using the
+existing b11206 build whose source supports both architectures. Source support
+does not qualify their runtime, memory or prompt quality. Qwen3-4B stays the
+baseline for the held GPU comparison. The existing critic remains its own
+Check workflow and keeps its configured model.
+
+The assistant's model select remembers only its id, in guarded localStorage.
+Each request captures its selection before preparation, which returns immutable
+paths, label and profile rather than changing shared critic state. Concurrent
+preparation cannot substitute weights or settings for a waiting answer. Switching
+between answers retains the bounded conversation; each answer keeps its own
+model label. During an answer the select is held with a reason. Opening the
+sidebar only checks files; Send triggers verified downloads of the selected
+GGUF and shared runtime if missing. The UI distinguishes download bytes from
+unmeasured memory requirements. All assistant card testing remains held.
 
 Matt's 2026-11-17 layout review moved writing out of Examples into a direct
 Assistant button beside the prompt. A nonmodal right sidebar keeps the editor
