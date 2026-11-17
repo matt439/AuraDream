@@ -532,6 +532,7 @@ uses the driver's graceful close/cleanup. See the full Tests rules.
 | 7960 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-phone-keyboard` |
 | 7960 | animagine-xl-4.0, its own fresh scratch `--data`, `--step 0.3` | `smoke-detailer` |
 | 7960 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-prompt-assistant` |
+| 7960 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-assistant-workflow` |
 | 7960 | circlestone-labs/Anima, its own fresh scratch `--data` | `smoke-anima-refine` |
 
 FLUX.1-Krea-dev is `black-forest-labs/FLUX.1-Krea-dev`; animagine is

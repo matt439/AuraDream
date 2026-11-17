@@ -38,6 +38,7 @@ function syncTier() {
   // The phone's hosts (phone.js): Generate into the action bar and the
   // results under the settings, or home again and the queue's sheet shut.
   syncPhoneHosts();
+  syncAssistantPhoneFocus();
   // The held titles that say how to pick cards (gallery-select.js,
   // pickCardsWords) are a touch screen's or a mouse's: re-read them.
   if (was !== undefined) syncSelection();

@@ -578,6 +578,13 @@ async def hold_model_for_request(request: Request, call_next):
     global _model_requests
 
     path = request.url.path
+    parts = path.split("/")
+    if (request.method == "GET" and len(parts) == 6 and parts[1:4] == ["api", "prompt", "assist"]
+            and parts[4] and parts[5] == "status"):
+        # A ticket's phase is request metadata, independent of the selected
+        # checkpoint. It must remain readable while switching and must never
+        # reserve the model or reject the page's older revision header.
+        return await call_next(request)
     depends_on_model = path in {
         "/api/instruction-edit/preview", "/api/instruction-edit",
         "/api/detailer/preview", "/api/detailer",

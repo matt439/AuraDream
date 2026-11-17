@@ -2589,27 +2589,33 @@
       <label class="sr-only" for="assistant-model">Assistant model</label>
       <select id="assistant-model"><option value="default">Qwen3-4B Q8_0</option><option value="qwen3-8b">Qwen3-8B Q4_K_M</option><option value="qwen3.5-4b">Qwen3.5-4B Q8_0</option></select>
     </div>
+    <div class="assistant-summary"><span id="assistant-readiness" class="hint">Checking local files…</span><span id="assistant-context" class="hint"></span><button type="button" id="assistant-continue" class="ghost small" hidden>Continue…</button></div>
   </div>
   <div class="assistant-body">
     <div id="assistant-intro" class="assistant-empty"><h3>What would you like to create?</h3><p>Describe an idea, ask for a change to your prompt, or find tags for a detail.</p><p class="hint">Drafts appear here. Your prompt changes only when you choose Use prompt.</p></div>
     <section id="assistant-history-wrap" aria-label="Conversation" hidden><div id="assistant-history"></div></section>
     <div id="assistant-result" tabindex="-1" hidden></div>
     <p id="assistant-pending" class="assistant-turn assistant-turn-user" hidden></p>
-    <p class="warn" id="assistant-stale" hidden>The prompt, negative prompt or checkpoint changed. Start a new conversation before applying these suggestions.</p>
+    <p class="warn" id="assistant-stale" hidden>The prompt, negative prompt or checkpoint changed. Choose Continue to review the current text and keep working.</p>
   </div>
   <div class="assistant-compose">
+    <button type="button" id="assistant-latest" class="ghost small" hidden>Jump to latest reply</button>
+    <div id="assistant-focus" class="assistant-focus" hidden><span id="assistant-focus-text"></span><button type="button" class="ghost small" id="assistant-focus-clear">Use main prompt</button></div>
     <p id="assistant-status" role="status" aria-live="polite" tabindex="0">Describe your idea to get started.</p>
     <div class="assistant-input">
       <label class="sr-only" for="assistant-instruction">Message</label>
       <textarea id="assistant-instruction" rows="3" maxlength="2000" placeholder="Describe your idea…" aria-describedby="assistant-context-note"></textarea>
       <div class="assistant-actions">
         <span id="assistant-clock" aria-hidden="true"></span>
+        <button type="button" class="ghost small" id="assistant-expand" aria-expanded="false" aria-controls="assistant-instruction">Expand</button>
         <button type="button" class="ghost small" id="assistant-stop" aria-disabled="true" title="There is no answer running.">Stop</button>
         <button type="button" class="primary small" id="assistant-ask" aria-keyshortcuts="Control+Enter Meta+Enter">Send</button>
       </div>
     </div>
     <div class="assistant-foot">
-      <details class="assistant-about"><summary>About the local assistant</summary>
+      <details id="assistant-pins" class="assistant-about assistant-pins"><summary id="assistant-pins-label">Requirements</summary><div class="assistant-about-content"><label for="assistant-requirements">Keep in each draft</label><textarea id="assistant-requirements" rows="4" maxlength="1800" placeholder="Exact lettering, subject count, pose or exclusions…" aria-describedby="assistant-requirements-note"></textarea><p id="assistant-requirements-note" class="hint">One requirement per line, up to eight.</p></div></details>
+      <button type="button" class="ghost small" id="assistant-compare" hidden>Compare options</button>
+      <details class="assistant-about"><summary><span class="assistant-about-short">About</span><span class="assistant-about-long">About the local assistant</span></summary>
         <div class="assistant-about-content">
           <p id="assistant-context-note">Each message includes your current prompt and negative prompt.</p>
           <p>Chat runs locally and stays in this page until you leave. Suggested tag names are sent to Danbooru for verification. Review drafts before using them.</p>
@@ -2622,6 +2628,16 @@
     </div>
   </div>
 </aside>
+
+<dialog id="assistant-continuation-dialog" class="assistant-tools-dialog" aria-labelledby="assistant-continuation-title">
+  <div class="dialog-head"><h2 id="assistant-continuation-title">Continue with current prompt</h2><button type="button" class="ghost small" id="assistant-continuation-cancel">Cancel</button></div>
+  <details><summary>Current prompt</summary><p class="assistant-draft-text" id="assistant-continuation-source"></p></details>
+  <label id="assistant-continuation-focus-row" class="check" hidden><input type="checkbox" id="assistant-continuation-focus-keep">Keep refining the chosen option</label>
+  <details id="assistant-continuation-option" hidden><summary>Chosen option</summary><p class="assistant-draft-text" id="assistant-continuation-option-text"></p></details>
+  <label for="assistant-brief">Brief for the next replies</label><textarea id="assistant-brief" rows="5" maxlength="2000" aria-describedby="assistant-continuation-status"></textarea>
+  <p id="assistant-continuation-status" role="status"></p>
+  <button type="button" class="primary" id="assistant-continuation-apply">Continue with current prompt</button>
+</dialog>
 
 <!-- Classic scripts sharing one global scope; app.js, the last, is the
      only one that runs anything at load. Order matters: see state.js. -->
@@ -2679,6 +2695,9 @@
 <script src="/static/prompt-examples.js"></script>
 <script src="/static/prompt-expand.js"></script>
 <script src="/static/prompt-assistant.js"></script>
+<script src="/static/assistant-conversation.js"></script>
+<script src="/static/assistant-draft-tools.js"></script>
+<script src="/static/assistant-phone.js"></script>
 <script src="/static/analysis.js"></script>
 <script src="/static/analysis-critic.js"></script>
 <script src="/static/comparison.js"></script>

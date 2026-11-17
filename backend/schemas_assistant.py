@@ -27,6 +27,9 @@ class PromptAssistantRequest(BaseModel):
     prompt: str = Field(default="", max_length=4000)
     negative_prompt: str | None = Field(default=None, max_length=4000)
     history: list[AssistantMessage] = Field(default_factory=list, max_length=8)
+    requirements: list[str] = Field(default_factory=list, max_length=8)
+    brief: str = Field(default="", max_length=2000)
+    focus_prompt: str | None = Field(default=None, min_length=1, max_length=4000)
 
     @field_validator("instruction")
     @classmethod
@@ -35,12 +38,27 @@ class PromptAssistantRequest(BaseModel):
             raise ValueError("describe what you want the assistant to do")
         return value.strip()
 
+    @field_validator("requirements")
+    @classmethod
+    def _bounded_requirements(cls, values: list[str]) -> list[str]:
+        if any(not value.strip() or len(value) > 200 for value in values):
+            raise ValueError("each pinned requirement must contain 1 to 200 characters")
+        return values
+
+    @field_validator("focus_prompt")
+    @classmethod
+    def _focus_has_words(cls, value: str | None) -> str | None:
+        if value is not None and not value.strip():
+            raise ValueError("choose a nonempty prompt option to refine")
+        return value
+
     @model_validator(mode="after")
     def _bounded_conversation(self) -> PromptAssistantRequest:
-        if self.mode == "improve" and not self.prompt.strip():
+        if self.mode == "improve" and not (self.focus_prompt or self.prompt).strip():
             raise ValueError("enter a prompt before asking to improve it")
         size = len(self.instruction) + len(self.prompt) + len(self.negative_prompt or "")
         size += sum(len(message.content) for message in self.history)
+        size += len(self.brief) + len(self.focus_prompt or "") + sum(map(len, self.requirements))
         if size > INPUT_MAX_CHARS:
             raise ValueError(
                 f"the conversation and current text exceed {INPUT_MAX_CHARS} characters; "
@@ -88,6 +106,33 @@ class AssistantDraftChanges(BaseModel):
     removed: list[str] = Field(default_factory=list)
 
 
+class AssistantTextSegment(BaseModel):
+    """Literal word-diff text; clients render this as text, never HTML."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["equal", "added", "removed"]
+    text: str = Field(min_length=1, max_length=4000)
+
+
+class AssistantProseChanges(BaseModel):
+    """Lossless comparison computed by the server, outside the model schema."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    segments: list[AssistantTextSegment] = Field(default_factory=list)
+    coarse: bool = False
+
+
+class AssistantRequirementCheck(BaseModel):
+    """Exact phrase presence, never a semantic or generated-image guarantee."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    text: str = Field(min_length=1, max_length=200)
+    matched: bool
+
+
 class PromptAssistantResponse(BaseModel):
     model_id: str
     model: str
@@ -97,5 +142,7 @@ class PromptAssistantResponse(BaseModel):
     # Aligned with drafts; None means the existing prompt reader cannot safely
     # compare the text as tags. Empty keeps older/fake responses compatible.
     draft_changes: list[AssistantDraftChanges | None] = Field(default_factory=list, max_length=3)
+    prose_changes: list[AssistantProseChanges | None] = Field(default_factory=list, max_length=3)
+    requirement_checks: list[list[AssistantRequirementCheck]] = Field(default_factory=list, max_length=3)
     tags: list[AssistantTag] = Field(default_factory=list, max_length=20)
     warnings: list[str] = Field(default_factory=list)

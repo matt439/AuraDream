@@ -355,6 +355,8 @@ class PromptCritic:
                 raise Cancelled("prompt assistant stopped")
 
         check_cancelled()
+        if should_cancel is not None:
+            critic_runtime.report_progress("starting")
         api_key = secrets.token_urlsafe(32)
         port = critic_server._free_port()
         base = f"http://127.0.0.1:{port}"
@@ -417,6 +419,8 @@ class PromptCritic:
                             log.debug("port %d's listener unchecked here; its key guards it", port)
                         body = counted_body(base, api_key, body)
                         check_cancelled()
+                        if should_cancel is not None:
+                            critic_runtime.report_progress("writing")
                         status, payload = critic_server._request(
                             "POST", base + "/v1/chat/completions", api_key, body, critic_server.REQUEST_TIMEOUT
                         )

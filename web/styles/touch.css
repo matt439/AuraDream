@@ -101,6 +101,10 @@
   .assistant-actions button, .assistant-draft-head button,
   .assistant-response-note > summary { min-height: var(--h-md); }
   .assistant-head button { min-width: var(--h-md); }
+  .assistant-draft-tools > summary, .assistant-requirement-checks summary,
+  .assistant-tools-dialog summary, .assistant-tools-dialog button,
+  #assistant-compare, #assistant-focus-clear { min-height: var(--h-md); }
+  .assistant-foot summary { white-space: nowrap; }
 
   /* Under 16 px iOS Safari zooms the page into a box as it takes the focus,
      and leaves it zoomed. Every kind of box, whatever its own rule says. */
@@ -727,6 +731,8 @@
   /* The prompt assistant remains a sidebar, filling the phone's visible
      viewport. Its composer stays above the software keyboard; the same
      viewport properties are maintained for the page's form sheets. */
+  .assistant-about-short { display: inline; }
+  .assistant-about-long { display: none; }
   .prompt-assistant-sidebar {
     top: var(--sheet-viewport-top, 0px); bottom: auto;
     z-index: 30;

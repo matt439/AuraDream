@@ -298,6 +298,10 @@ function insertSnippet() {
   // focus without scrolling before the undo-aware write focuses the box.
   snippetsOrigin = null;
   els.snippetsDialog.close();
+  // An assistant draft can open this dialog over the full-screen phone pane.
+  // Insert is the explicit handoff to its covered editor; release that pane
+  // before the native undo-aware writer takes focus.
+  if (isPhone() && assistantSidebarOpen()) closePromptAssistant();
   if (target === 'variables') {
     // A shut fold's box takes no focus, so the write would not be typing's,
     // and a block written into a shut fold would not be seen. On the phone

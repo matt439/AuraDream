@@ -21,6 +21,7 @@ els.cancelQueued.onclick = cancelQueued;
 initQueueControls();
 initSnippets();
 initPromptAssistant();
+initAssistantDraftTools();
 initSnippetImport();
 initSetups();
 initSetupImport();

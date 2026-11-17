@@ -16,11 +16,68 @@ import tempfile
 import urllib.error
 import urllib.request
 import zipfile
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import TypedDict
 
 log = logging.getLogger(__name__)
+
+# Observational request-owned progress: preparation and inference run on daemon
+# threads, so a global callback could send an old download into a later ticket.
+Progress = Callable[[str, int | None, int | None], None]
+_progress: ContextVar[Progress | None] = ContextVar("critic_progress", default=None)
+
+
+def _notify_progress(callback: Progress | None, phase: str, done: int | None, total: int | None) -> None:
+    if callback is not None:
+        try:
+            callback(phase, done, total)
+        except Exception:
+            # Progress is presentation only; it cannot fail a verified download,
+            # a completion, cancellation or process cleanup.
+            log.debug("prompt assistant progress callback failed", exc_info=True)
+
+
+def report_progress(phase: str, done: int | None = None, total: int | None = None) -> None:
+    _notify_progress(_progress.get(), phase, done, total)
+
+
+@contextmanager
+def progress(callback: Progress) -> Iterator[None]:
+    token = _progress.set(callback)
+    try:
+        yield
+    finally:
+        _progress.reset(token)
+
+
+def _hub_progress() -> dict:
+    """Let the installed Hub downloader report its actual transfer counters."""
+    callback = _progress.get()
+    if callback is None:
+        return {}
+    from huggingface_hub.utils.tqdm import tqdm
+
+    class DownloadProgress(tqdm):
+        def __init__(self, *args, **kwargs) -> None:
+            super().__init__(*args, **kwargs)
+            self._downloaded = int(self.n)
+            self._report()
+
+        def _report(self) -> None:
+            total = int(self.total) if self.total is not None else None
+            _notify_progress(callback, "downloading", self._downloaded, total)
+
+        def update(self, n=1):
+            result = super().update(n)
+            self._downloaded += int(n or 0)
+            self._report()
+            return result
+
+    return {"tqdm_class": DownloadProgress}
 
 
 # --- The pinned runtime ------------------------------------------------------
@@ -300,6 +357,7 @@ def _fetch(url: str, destination: Path, size: int) -> None:
         while chunk := response.read(1 << 20):
             out.write(chunk)
             done += len(chunk)
+            report_progress("downloading", done, size)
             if done - reported >= step:
                 reported = done
                 log.info(
@@ -335,7 +393,9 @@ def _download(archive: Archive, downloads: Path) -> Path:
     part.unlink(missing_ok=True)
     log.info("downloading %s (%d MB)", archive.url, archive.size >> 20)
     try:
+        report_progress("downloading", 0, archive.size)
         _fetch(archive.url, part, archive.size)
+        report_progress("preparing")
         _verify_archive(part, archive)
     except BaseException:
         part.unlink(missing_ok=True)
@@ -542,7 +602,11 @@ def download_model(
             "downloading the local prompt model %s/%s (%.1f GB)",
             selected["repo_id"], selected["filename"], expected_size / 1e9,
         )
-    path = Path(huggingface_hub.hf_hub_download(**selected))
+    transfer = _hub_progress()
+    if _model_cached(selected) is None:
+        report_progress("downloading", 0, expected_size)
+    path = Path(huggingface_hub.hf_hub_download(**selected, **transfer))
+    report_progress("preparing")
     try:
         verify_model(path, size=expected_size, sha256=expected_sha256)
     except CriticError as exc:
@@ -554,7 +618,9 @@ def download_model(
         log.warning("%s; downloading it again", exc)
         path.unlink(missing_ok=True)
         try:
-            path = Path(huggingface_hub.hf_hub_download(**selected, force_download=True))
+            report_progress("downloading", 0, expected_size)
+            path = Path(huggingface_hub.hf_hub_download(**selected, force_download=True, **transfer))
+            report_progress("preparing")
         except Exception as fetch:
             # The Hub's own words for a failed forced download are "the above
             # error", which is its cause.

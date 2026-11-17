@@ -11,21 +11,25 @@ checks establish source behavior only.
 One optional **Prompt assistant** right sidebar holds Create, Improve and Find tags.
 The desktop topbar's rightmost **Assistant** button opens it directly, aligned
 with the sidebar. Phones keep the same button in their prompt toolbar. It is
-nonmodal, with the main editor available while it stays open.
+nonmodal on desktop, with the main editor available while it stays open. The
+full-screen phone pane contains focus and holds its covered workspace inert.
 The selected image checkpoint's guide accompanies each question. Create may
 suggest creative details; Improve is asked to preserve the source's subjects,
 constraints, exclusions and exact lettering unless the instruction changes them.
 Find tags proposes candidates and checks their names against the existing tag
 index. These are suggestions, never proof that a prompt will make a better image.
 
-Answers include drafts and notes, or candidate tags with authoritative lookup
-verdicts. The user explicitly applies a draft or inserts selected usable tags.
+Answers include drafts and notes, candidate tags with authoritative lookup
+verdicts, or a clarification question without forced draft content. The user
+explicitly applies a draft or inserts selected usable tags.
 Application uses the prompt editor's existing undo path and refuses an answer
 whose source prompt or checkpoint has since changed. Nothing generates an image
 or applies a draft automatically.
 An explicit application keeps the sidebar open and uses its new editor text as
 the next conversational source. An external edit or Undo still invalidates the
-prepared suggestions.
+prepared suggestions. Continue explicitly adopts reviewed current text and a
+short editable brief; old options remain held until a new answer. The previous
+transcript stays visible while a new bounded model-history span starts.
 
 Conversation history lives in the open page's memory, with an explicit reset.
 It is bounded rather than silently truncating away earlier instructions. It is
@@ -67,17 +71,21 @@ Preparation runs outside the job gate. The actual answer runs through
 job. It never calls `ensure_loaded`. The process must stop before releasing the
 gate. The critic and assistant share that lifecycle, so shutdown and Unload
 retain their existing owner. Requests remain model-dependent readers under
-`hold_model_for_request`, including its revision-header check, and signed-out
-requests remain closed by the existing passcode layer.
+`hold_model_for_request`, including its revision-header check, except the
+metadata-only ticket status read. Signed-out requests remain closed by the
+existing passcode layer.
 
 Every request has a ticket. Stop is scoped to that ticket, including a stop that
 arrives before its request; closing the sidebar requests Stop and discards late
 answers. A stopped or superseded answer cannot overwrite a later conversation.
 
 `POST /api/prompt/assist` takes the mode, instruction, source prompt, optional
-negative prompt, bounded user/assistant history and ticket. It returns the
-checkpoint and LLM labels, elapsed time, a message, drafts, tag candidates and
-warnings. `POST /api/prompt/assist/{ticket}/stop` stops only that request.
+negative prompt, bounded user/assistant history, pinned requirements, a
+continuation brief, optional focused draft and ticket. It returns the checkpoint
+and LLM labels, elapsed time, a message, drafts, tag candidates, warnings and
+server-computed comparisons/phrase checks. `POST /api/prompt/assist/{ticket}/stop`
+stops only that request. `GET /api/prompt/assist/{ticket}/status` exposes its
+phase and optional current-file transfer bytes, never the conversation.
 
 ## Validation before the card
 
@@ -565,3 +573,94 @@ its original narrow failure was diagnosed and corrected),
 and `auradream-smoke-artifacts-z58gqqyg/summary.json` (final narrow pass).
 The isolated fake servers and browser processes were stopped. No model weights
 or GPU inference were used; the assistant's GPU hold remains in force.
+
+## Conversation and draft workflow review (2026-11-17)
+
+Matt asked for a review of the sidebar's features and UX, then commissioned all
+of its recommendations. The review reproduced task changes clearing the chat,
+manual edits blocking continuation, an abrupt context limit after five short
+answers, question-only replies being refused and phone focus escaping behind
+the full-screen pane. The changes retain the compact composer, numbered purple
+draft cards, explicit Use and native Undo.
+
+- Changing Create, Improve or Find tags now sets the next request's task without
+  clearing the conversation. Continue opens the current source and an editable
+  brief; acceptance rechecks the exact source, retains the earlier transcript
+  and starts a new bounded model-history span. Old Use controls remain held
+  until a new answer. When Refine selected an option, Continue also previews
+  that focus and offers an explicit checked choice to keep it; neither source
+  is written to the editor. The space indicator warns before the existing limits;
+  no automatic truncation or unreviewed model summary replaces prior intent.
+- Requests carry a brief of at most 2,000 characters, up to eight pinned
+  requirements of at most 200 characters each, and an optional focused option.
+  All count toward the existing 12,000-character input limit. Refine this option
+  sets that focus for the next reply without applying a draft to the editor.
+  A reply captures its requirement list: later pin changes hold Apply while
+  permitting Send with the revised pins.
+  The validator accepts nonempty clarification-only replies while retaining
+  wrong-task and empty-answer refusals.
+- The server supplies response-only literal prose changes and exact pinned
+  phrase checks alongside the existing tag differences. Comparisons are
+  lossless for the original and proposed texts, with a bounded broad fallback
+  for expensive cases. Phrase presence is case-sensitive with boundaries at
+  word-like edges, not semantic understanding or an image guarantee. More
+  contains prose comparison; phrase checks are reviewable on each card.
+- More offers Copy, Save as snippet, Refine, Check and Add to comparison on
+  current and earlier drafts. Save prepares the ordinary snippet editor for an
+  explicit Save, preserving its dirty/recovery state. CPU Check uses a separate
+  dialog without editor writes or model loading. A comparison captures selected
+  prompts and current settings, previews one image per prompt on four shared
+  seeds, and submits only on Generate comparison. Prompt and grid fields are
+  unchanged; Repeat, grid axes and Then refine do not apply.
+  On a phone, a later snippet Insert closes the covering assistant before the
+  ordinary editor rewrite, revealing its destination and retaining native Undo.
+- Readiness/download cost is visible before Send. Ticket status names actual
+  preparation, download, waiting, startup, writing and verification phases,
+  with current-file transfer bytes where available. Status contains no prompt
+  content, bypasses model-reader admission and does not count as keep-awake
+  activity. Terminal records and stop tombstones expire after five minutes and
+  their union is bounded to 256; late callbacks cannot alter a terminal ticket.
+- An exact editor match marks Current prompt. Expanded message is optional;
+  Jump to latest appears for an unread reply without disrupting someone reading
+  history. Alias presentation retains both proposed and canonical spellings.
+  On full-screen phones the pane owns dialog semantics, background inert state
+  and native Tab/focus containment; desktop returns to the nonmodal aside.
+  The scoped synchronous editor-write helper preserves native Undo, and native
+  snippet, Check, continuation and comparison dialogs remain available.
+  Requirements and Compare remain reachable in short panes when the ordinary
+  About explanation and shortcut hints are hidden for space.
+
+The source is split across the existing assistant script and three small
+classic modules: `assistant-conversation.js`, `assistant-draft-tools.js` and
+`assistant-phone.js`. The expanded `smoke-prompt-assistant.json` preserves its
+existing density and interaction contracts. `smoke-assistant-workflow.json`
+uses its own fresh FLUX fake on the shared 7960 row for the new workflows,
+native phone focus/Undo, dialog handoffs and stale progress. Its generation
+handoff is stubbed; it runs no model downloads or image inference and uses no
+real gallery. GPU prompt quality, latency, memory and process cancellation
+remain unmeasured and explicitly held for separate authorization.
+
+Integrated local validation, without weights, GPU inference or real gallery:
+
+- `uv run --group dev pytest -n 6 --durations=25`: **11,296 passed, 325
+  skipped**, with 87 warnings, in 263.95 seconds. The first full run exposed a
+  missing cost-table row for the new smoke; after adding it, the complete CPU
+  gate passed. Log under the system temporary directory:
+  `auradream-assistant-cpu-c5ce51c07e2045d89f4fd3f029077014.log`.
+- Ruff passed. Pinned Pyright checked all 219 backend/tools Python sources with
+  zero errors or warnings. The classic-script guard passed all 83 scripts.
+- Eleven distinct browser smokes passed in 102 seconds: analysis, model-switch,
+  phone, phone-create, prompt-assistant, phone-dialogs, assistant-workflow,
+  shortcut-dispatch, shortcuts, snippets and control-sizing. Receipt under the
+  system temporary directory: `auradream-smoke-artifacts-ocl_6xop/summary.json`.
+  Comparison, continuation and phone screenshots were visually inspected;
+  dialog surfaces use the application tokens.
+
+The final focused browser pass passed both smokes: 343 assistant steps and 244
+workflow steps, in 61 seconds including setup/cleanup. It covers native phone
+snippet Insert/Undo, late snippet reads after dirty-editor reopen, About popup
+bounds with selected comparisons, and New chat clearing comparison selections.
+The final receipt is `auradream-smoke-artifacts-wh1wipmp/summary.json` under the
+system temporary directory; final screenshots were visually inspected. The
+final smoke/documentation/accessibility/harness subset passed 321 tests. These
+local checks do not lift the GPU hold or establish physical-device acceptance.

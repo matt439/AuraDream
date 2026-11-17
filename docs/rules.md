@@ -227,7 +227,8 @@ paragraphs, never rewording.
 - `backend/schemas_prompt.py` — Expand, Check (analysis, findings, orders),
   the chip count, the critic's critique, Danbooru tag suggestion/validation
 - `backend/schemas_assistant.py` — bounded local prompt-assistant requests,
-  conversation messages, drafts, candidate tags and lookup verdicts
+  conversation messages, pinned requirements, continuation briefs, focused
+  options, drafts, literal comparisons, candidate tags and lookup verdicts
 - `backend/schemas_encoder.py` — `EncoderReport` (re-exported by
   `schemas_prompt`) and the grid preview's `GridPromptBudget(s)`; a leaf, so
   `schemas_generate.GridPreview` can carry them without importing
@@ -282,8 +283,9 @@ paragraphs, never rewording.
   `critic_reorder.py` pure prompt permutations, and `critic_validation.py`
   answer grounding and rewrite validation
 - `backend/prompt_assistant.py` — the writing assistant's checkpoint-grounded
-  dialogue, structured draft validation, retention warnings and authoritative
-  tag lookup after inference; no model loading
+  dialogue, structured draft/clarification validation, retention and exact-phrase
+  warnings, bounded prose comparisons and authoritative tag lookup after
+  inference; no model loading
 - `backend/assistant_models.py` — optional writing-model pins, file-only cache
   inspection, verified downloads and per-model context, thinking and sampling
   profiles; the critic's default remains independent
@@ -673,7 +675,8 @@ paragraphs, never rewording.
   chips and Check share, and owner of the patchable `tag_vocabulary`
 - `backend/api_prompt_assistant.py` — ticketed prompt-writing requests and
   Stop, preparation outside the card gate, shared critic runtime admission,
-  bounded conversation and tag verification after the card is released
+  bounded conversation, metadata-only phase/transfer status and tag verification
+  after the card is released
 - `backend/submission.py` — what every cell producer checks before it
   queues (`refuse_unusable_inputs`, `unusable_input`, `refine_unavailable`,
   `inpaint_unavailable`, `mask_unusable`, `not_yet_rendered`) and the gallery selection (`resolve_selection`),
@@ -953,7 +956,7 @@ paragraphs, never rewording.
 
 ### The page (`web/`)
 
-- `web/` - served as-is from `/static`; `index.html` loads 80 classic
+- `web/` - served as-is from `/static`; `index.html` loads 83 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `page-helpers.js`, right
   after it, the page-wide pure helpers (`plural`, `excerpt`, `units`,
@@ -990,7 +993,12 @@ paragraphs, never rewording.
   state, `syncExpandButton`, and the English under the prompt, `placeTranslation`,
   `promptReplaced`); `prompt-assistant.js` the local Create/Improve/Find tags
   sidebar, in-memory conversation, ticketed Stop and explicit undoable prompt
-  application; `analysis.js`,
+  application; `assistant-conversation.js` its explicit source/brief continuation,
+  pinned requirements, option focus, space/readiness/progress feedback and
+  expanded message; `assistant-draft-tools.js` current/earlier draft Copy,
+  Save as snippet, Refine, Check, prose comparisons and captured same-seed
+  comparison dialogs; `assistant-phone.js` full-screen phone focus/inert
+  ownership and scoped undo-aware editor writes; `analysis.js`,
   `analysis-critic.js` and `comparison.js` the check and critic. `sizes.js`
   and `status.js` retain their control/profile roles; `model-switch.js` owns
   checkpoint selection and retiring state prepared under the old model;
@@ -3925,12 +3933,48 @@ measured on the card and when.
   out of browser storage and gallery data. `syncLoadButton` is the Load
   button's aria/title writer, including the assistant's hold. CPU checks
   do not qualify this workflow's GPU latency, memory or prompt quality.
+- Task changes affect the next message and retain the conversation and options.
+  A source edit or Undo still holds prepared options. Continue opens a native
+  dialog with the current prompt and an editable brief; only its explicit
+  acceptance adopts that exact source, starts a new bounded model-history span
+  and keeps the earlier transcript visible. The source is checked again on
+  acceptance. Old options remain held until a new answer. No context is silently
+  truncated; the space hint warns before the message/text limit. Briefs are at
+  most 2,000 characters. Refine this option captures a separate `focus_prompt`
+  for the next request without applying it to the editor. Continue previews that
+  focused option too, with an explicit checked choice to retain it; accepting
+  the brief never writes either source into the main prompt.
+  Up to eight pinned requirements of at most 200 characters each accompany
+  requests. These, the brief and the focused prompt all count toward the same
+  12,000-character input bound. Response-only `requirement_checks` report
+  literal, case-sensitive phrase presence with word boundaries at word-like
+  edges; they are advisory, never semantic or image guarantees. A reply captures
+  its requirements. Editing the pins holds its Apply controls until a new
+  answer, while Send remains available with the changed requirements. A nonempty
+  message-only clarification is valid in every task; empty answers and arrays
+  belonging to the wrong task remain refused.
+- `GET /api/prompt/assist/{ticket}/status` reports only the request's phase,
+  running flag and optional transferred/total bytes. Preparation, downloads,
+  waiting, child startup, writing and tag verification name real stages, not a
+  simulated timer. Request-owned callbacks cannot change terminal or later
+  tickets. Completed/stopped/failed status and stop tombstones expire after
+  five minutes, with their union bounded to 256. Status is metadata-only,
+  outside model-reader admission, closed by the passcode and excluded from
+  keep-awake activity; its timed browser reads also carry `polledRead`.
+  Local readiness/first-use download cost is visible before Send. Transfer
+  bytes describe the current file, never VRAM or measured assistant latency.
 - The desktop topbar's rightmost Assistant toggle opens a named, nonmodal right
   sidebar directly. At 600 px and below the word mark gives its room to the checkpoint
   status and actions, keeping the toggle inside the window.
   At 1280 px and above the workspace reserves
   its width; smaller windows overlay it, and phones fill the visible viewport.
-  Phones keep the same button in the prompt toolbar. The editor stays usable.
+  Phones keep the same button in the prompt toolbar. The editor stays usable
+  beside the desktop pane. A full-screen phone pane temporarily has dialog
+  semantics, holds covered body surfaces inert and contains keyboard focus;
+  native dialogs remain usable. Closing or leaving the phone tier restores
+  prior inert values and aside semantics. `assistantPhoneWrite` releases only
+  that owned hold synchronously around the ordinary undo-aware editor writer,
+  restoring containment before returning; it never awaits with the hold open.
   Ctrl/Cmd+Enter within the sidebar sends; Escape there
   closes it, while workspace shortcuts retain their ordinary routes. Close and
   touch Back request Stop and discard late replies. Conversation and earlier
@@ -3941,18 +3985,22 @@ measured on the card and when.
   to an untouched empty field for explicit retry; intervening edits win even if
   they leave the field empty. Sending scrolls only the conversation to its end.
   An arriving reply follows when the reader is within 48 px of the bottom;
-  scrolling up preserves the reader's position. Explicit application keeps the
+  scrolling up preserves the reader's position and offers Jump to latest reply.
+  Explicit application keeps the
   sidebar open and rebases its exact source snapshot for follow-ups. External
   edits and native Undo still invalidate it.
   The pane is 600 px below the wide tier, 680-900 px within it, capped to the
   viewport. Task selection shares the header when it fits; the message and
   Send/Stop share one compact composer with a two-line message field and 4 px
-  frame padding. Draft titles and Use share a row;
+  frame padding; Expand is an explicit temporary larger editor. Draft titles
+  and Use share a row, and an exact match with the editor says Current prompt;
   draft notes are plain secondary text below the prompt, without a disclosure
   or a separate Notes label. They share the card surface, using smaller, softer
   text and spacing instead of an internal divider or separate coloured section.
   About sits below the message frame
   and opens upward over the conversation without moving writing controls.
+  Requirements and Compare remain reachable in short panes even when the
+  ordinary About explanation and shortcut hint are hidden for space.
   Long status text remains focusable/scrollable with its full text as a title.
   The model's JSON schema and question reserve `message` for brief optional
   conversational text; draft prompts/notes and tag names/reasons belong only
@@ -3980,6 +4028,25 @@ measured on the card and when.
   name. The page presents Added (+, green) and Removed (−, red) rows within each
   card, or No tags added or removed. These stay fixed after Apply and in earlier replies,
   and are excluded from the model's bounded history payload.
+  `prose_changes` is also computed by the server, against `focus_prompt` when
+  present or otherwise the source prompt. Its literal equal/added/removed
+  segments reconstruct both texts exactly; a bounded broad replacement is used
+  for expensive comparisons. The page renders text nodes, `ins` and `del`, never
+  model-supplied HTML. Tag-list comparisons keep their existing presentation.
+- Current and earlier drafts offer compact More actions: Copy, Save as snippet,
+  Refine this option, Check this draft and Add to comparison. Save prepares the
+  existing snippet dialog for an explicit Save, respecting its unsaved edits
+  and recovery state. A later snippet Insert on a phone explicitly closes the
+  covering assistant before the normal rewrite, so the destination editor is
+  visible and native Undo survives. Check uses the cold CPU analyser in its own dialog without
+  editor writes or GPU work. More owns Escape and number keys while open.
+  Selected prompts can prepare a same-seed comparison on the current checkpoint:
+  one image per prompt on four shared seeds, with captured generation settings,
+  negative prompt, references and LoRA. Repeat, grid axes and Then refine do not
+  apply. Preparation previews on the server without changing prompt/grid fields;
+  only Generate comparison submits the reviewed payload. Checkpoint or captured
+  asset refusals invalidate it instead of resubmitting obsolete inputs. Aliases
+  show the proposed spelling and canonical name separately.
 
 #### Prompt checks, encoders and tag placement
 
@@ -11403,6 +11470,25 @@ work:
 ```powershell
 uv run python tools/run_smoke.py smoke-prompt-assistant
 ```
+
+`smoke-assistant-workflow.json` uses its own separate fresh FLUX.1 Krea [dev]
+fake on 7960. It checks preserved task history, clarification-only replies,
+native source editing and reviewed continuation, pinned requirements,
+focused-option follow-ups, visible readiness and ticket-phase/transfer feedback,
+applied markers, expanded input and context-limit recovery. Current and earlier
+draft actions cover Copy, snippet preparation, prose comparison, CPU Check and
+captured same-seed preview with an explicit generation handoff stub. Unread
+reply navigation, late stopped progress, native phone focus containment,
+phone Apply/close/Undo, modal Check focus and desktop restoration are covered
+with accessibility/touch audits. It performs no model downloads, GPU inference
+or image generation and uses no real gallery.
+
+`test_prompt_assistant.py` also checks clarification-only/wrong-task responses,
+all new request bounds, focused-source retention, lossless/coarse prose diffs
+and literal requirement boundaries. API/runtime tests check real stage ordering,
+download byte callbacks, status retention/expiry, terminal ownership and a status
+read through model switching without acquiring a model reader. The polling
+exclusion is covered by `test_keep_awake.py`.
 
 The prompt analyser is tested the same way, with no network and no GPU:
 `test_prompt_encoding*.py` (`test_prompt_encoding.py` the encoder table,

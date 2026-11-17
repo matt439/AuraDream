@@ -89,7 +89,13 @@
     "key": "Tab"
   },
   {
-    "expect": "assistantSidebarOpen() && document.activeElement===document.querySelector('.assistant-about > summary') && __pa.requests.length===0"
+    "expect": "assistantSidebarOpen() && document.activeElement===document.getElementById('assistant-pins-label') && __pa.requests.length===0"
+  },
+  {
+    "key": "Tab"
+  },
+  {
+    "expect": "assistantSidebarOpen() && document.activeElement===document.querySelector('.assistant-about:not(.assistant-pins) > summary') && __pa.requests.length===0"
   },
   {
     "key": "Tab"
@@ -288,21 +294,21 @@
     "fatal": true
   },
   {
-    "expect": "(async()=>{const about=document.querySelector('.assistant-about'),compose=document.querySelector('.assistant-compose'),summary=about?.querySelector(':scope > summary');__pa.assert(!!summary&&!about.open,'About footer is missing or starts open');const r=summary.getBoundingClientRect(),c=document.querySelector('.assistant-input').getBoundingClientRect();__pa.assert(r.top>=c.bottom-1,'About must be below the message frame');__pa.aboutGeometry=[els.assistantInstruction,els.assistantAsk,compose].map(e=>e.getBoundingClientRect().toJSON());const at=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return !!at&&(at===summary||summary.contains(at));})()",
+    "expect": "(async()=>{const about=document.querySelector('.assistant-about:not(.assistant-pins)'),compose=document.querySelector('.assistant-compose'),summary=about?.querySelector(':scope > summary');__pa.assert(!!summary&&!about.open,'About footer is missing or starts open');const r=summary.getBoundingClientRect(),c=document.querySelector('.assistant-input').getBoundingClientRect();__pa.assert(r.top>=c.bottom-1,'About must be below the message frame');__pa.aboutGeometry=[els.assistantInstruction,els.assistantAsk,compose].map(e=>e.getBoundingClientRect().toJSON());const at=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return !!at&&(at===summary||summary.contains(at));})()",
     "fatal": true
   },
   {
-    "click": ".assistant-about > summary"
+    "click": ".assistant-about:not(.assistant-pins) > summary"
   },
   {
-    "expect": "(async()=>{await __pa.frames();const about=document.querySelector('.assistant-about'),panel=about.querySelector('.assistant-about-content');if(!about.open||!panel)return false;const stable=[els.assistantInstruction,els.assistantAsk,document.querySelector('.assistant-compose')].every((e,i)=>{const r=e.getBoundingClientRect(),b=__pa.aboutGeometry[i];return ['x','y','width','height'].every(k=>Math.abs(r[k]-b[k])<0.5);}),r=panel.getBoundingClientRect();return stable&&r.left>=0&&r.right<=innerWidth+1&&r.top>=0&&r.bottom<=innerHeight+1&&panel.scrollWidth<=panel.clientWidth+1;})()",
+    "expect": "(async()=>{await __pa.frames();const about=document.querySelector('.assistant-about:not(.assistant-pins)'),panel=about.querySelector('.assistant-about-content');if(!about.open||!panel)return false;const stable=[els.assistantInstruction,els.assistantAsk,document.querySelector('.assistant-compose')].every((e,i)=>{const r=e.getBoundingClientRect(),b=__pa.aboutGeometry[i];return ['x','y','width','height'].every(k=>Math.abs(r[k]-b[k])<0.5);}),r=panel.getBoundingClientRect();return stable&&r.left>=0&&r.right<=innerWidth+1&&r.top>=0&&r.bottom<=innerHeight+1&&panel.scrollWidth<=panel.clientWidth+1;})()",
     "fatal": true
   },
   {
     "shot": "assistant-about-footer.png"
   },
   {
-    "click": ".assistant-about > summary"
+    "click": ".assistant-about:not(.assistant-pins) > summary"
   },
   {
     "expect": "__a11yCheck({root:'#prompt-assistant-sidebar'})"
@@ -524,7 +530,7 @@
     "shot": "assistant-numbered-options.png"
   },
   {
-    "expect": "(async()=>{__pa.source(__pa.densitySaved.prompt);__pa.original=__pa.densitySaved.original;assistantResultData=__pa.densitySaved.result;assistantTurns=__pa.densitySaved.turns;assistantSnapshot=__pa.densitySaved.snapshot;renderAssistantHistory();renderAssistantResult();await __pa.frames();return !document.querySelector('.assistant-about').open&&assistantResultData===__pa.densitySaved.result&&__pa.requests.length===1;})()",
+    "expect": "(async()=>{__pa.source(__pa.densitySaved.prompt);__pa.original=__pa.densitySaved.original;assistantResultData=__pa.densitySaved.result;assistantTurns=__pa.densitySaved.turns;assistantSnapshot=__pa.densitySaved.snapshot;renderAssistantHistory();renderAssistantResult();await __pa.frames();return !document.querySelector('.assistant-about:not(.assistant-pins)').open&&assistantResultData===__pa.densitySaved.result&&__pa.requests.length===1;})()",
     "fatal": true
   },
   {
@@ -598,7 +604,7 @@
     "fatal": true
   },
   {
-    "log": "'Reset and changing tasks clear the previous conversation. Improve uses the existing source and keeps it untouched until explicit application.'"
+    "log": "'New chat explicitly clears the previous conversation. Changing tasks preserves it; Improve uses the existing source and keeps it untouched until explicit application.'"
   },
   {
     "click": "#assistant-reset"
@@ -666,10 +672,10 @@
     "log": "'Find tags reaches the real fake service on a prose checkpoint. Only authoritative usable candidates are insertable; unverified suggestions remain explanations.'"
   },
   {
-    "eval": "__pa.mode('tags'); __pa.instruction('A silly single tuft of hair sticking up: find its Danbooru tag.');"
+    "eval": "__pa.taskTurns=JSON.stringify(assistantTurns); __pa.taskResult=assistantResultData; __pa.mode('tags'); __pa.instruction('A silly single tuft of hair sticking up: find its Danbooru tag.');"
   },
   {
-    "expect": "assistantTurns.length===0 && assistantResultData===null"
+    "expect": "JSON.stringify(assistantTurns)===__pa.taskTurns && assistantResultData===__pa.taskResult && assistantTurns.length>0"
   },
   {
     "click": "#assistant-ask"
@@ -679,7 +685,7 @@
     "fatal": true
   },
   {
-    "expect": "__pa.requests[3].mode==='tags' && __pa.requests[3].history.length===0 && els.prompt.value===__pa.original && els.assistantResult.textContent.includes('ahoge')"
+    "expect": "__pa.requests[3].mode==='tags' && __pa.requests[3].history.length>=2 && els.prompt.value===__pa.original && els.assistantResult.textContent.includes('ahoge')"
   },
   {
     "eval": "window.__paTags=__pa.arm('Synthetic authoritative tag verdicts',{drafts:[],tags:[{text:'ahoge',reason:'Model suggestion: the raised hair tuft.',status:'valid',canonical:null,detail:'Known general tag.'},{text:'stupid hair',reason:'Model suggestion: a possible alias.',status:'alias',canonical:'ahoge',detail:'Alias of ahoge.'},{text:'invented_glitter_hair_zz',reason:'Model suggestion only.',status:'not_found',canonical:null,detail:'Not in the tag index.'},{text:'unchecked_hair_zz',reason:'Model suggestion only.',status:'unchecked',canonical:null,detail:'The index did not answer.'}],warnings:['Synthetic index verdicts for browser validation.']}); __pa.instruction('Compare checked and unchecked tag suggestions.'); window.__paAskBefore=els.assistantAsk.getBoundingClientRect().toJSON(); window.__paInstructionBefore=els.assistantInstruction.getBoundingClientRect().toJSON();\nassistantResultData={...assistantResultData,message:Array.from({length:36},(_,i)=>'Earlier answer line '+(i+1)+': keep this older conversation readable.').join('\\n')}; assistantTurns.at(-1).answer=assistantResultData; renderAssistantHistory(); renderAssistantResult(); __pa.chatHost().scrollTop=0; __pa.chatBeforeSend=__pa.chatGeometry();"
@@ -758,7 +764,7 @@
     "expect": "(() => {const pairs=[[els.assistantAsk,__paAskBefore],[els.assistantInstruction,__paInstructionBefore]],bad=pairs.map(([e,b])=>({id:e.id,before:b,after:e.getBoundingClientRect().toJSON()})).filter(x=>['x','y','width','height'].some(k=>Math.abs(x.after[k]-x.before[k])>=0.5));if(bad.length)throw Error('Assistant controls moved while answering: '+JSON.stringify(bad));return true;})()"
   },
   {
-    "expect": "(() => {const rows=[...els.assistantResult.querySelectorAll('input[data-assistant-tag]')];return rows.length===4 && rows.slice(0,2).every(input=>input.getAttribute('aria-disabled')!=='true'&&!input.disabled) && rows.slice(2).every(input=>input.disabled||input.getAttribute('aria-disabled')==='true') && els.assistantResult.textContent.includes('Not in the tag index.') && els.assistantResult.textContent.includes('The index did not answer.');})()"
+    "expect": "(() => {const rows=[...els.assistantResult.querySelectorAll('input[data-assistant-tag]')];return rows.length===4 && rows.slice(0,2).every(input=>input.getAttribute('aria-disabled')!=='true'&&!input.disabled) && rows.slice(2).every(input=>input.disabled||input.getAttribute('aria-disabled')==='true') && rows[1].closest('.assistant-tag').textContent.includes('stupid hair') && rows[1].closest('.assistant-tag').textContent.includes('ahoge') && els.assistantResult.textContent.includes('Not in the tag index.') && els.assistantResult.textContent.includes('The index did not answer.');})()"
   },
   {
     "eval": "(() => {const host=document.querySelector('.assistant-body'), result=els.assistantResult; if(!result.hidden)host.scrollTop+=result.getBoundingClientRect().top-host.getBoundingClientRect().top;})()"
@@ -804,7 +810,7 @@
     "log": "'A reply about earlier source text remains reviewable but cannot overwrite an edit made while it was thinking.'"
   },
   {
-    "eval": "__pa.mode('improve'); __pa.instruction('Improve the source while keeping its details.'); window.__paStale=__pa.arm('Reply for earlier source');"
+    "eval": "resetAssistantConversation(); __pa.mode('improve'); __pa.instruction('Improve the source while keeping its details.'); window.__paStale=__pa.arm('Reply for earlier source');"
   },
   {
     "click": "#assistant-ask"

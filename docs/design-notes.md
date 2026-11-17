@@ -11791,6 +11791,10 @@ prompt toolbar. Phones retain their prompt-toolbar access to the full-screen
 assistant. A nonmodal right sidebar keeps the editor
 usable alongside the conversation. Wide windows reserve its width; smaller
 windows overlay the workspace, with a full visible-viewport panel on phones.
+The full-screen phone pane contains focus and makes covered workspace surfaces
+inert, restoring their prior state when closed or when returning to desktop.
+Native tool dialogs remain available. A synchronous scoped release lets the
+existing editor writer retain native Undo while the phone pane covers it.
 Earlier messages retain their drafts, while only the latest answer offers Use.
 Conversation stays in page memory. Apply is explicit and undoable, tied to the
 source editor/checkpoint snapshot, and keeps the sidebar open. Its own applied
@@ -11830,12 +11834,47 @@ Each tag-list option also shows Added and Removed names with +/− prefixes and
 green/red text. These are server-computed exact name changes against the prompt
 sent for that reply, using the existing text reader and tag normalization. They
 are not model explanations or dictionary verdicts. Prose and ambiguous mixed or
-structured prompts keep their normal presentation. The response's aligned
+structured prompts offer a literal wording comparison inside More instead.
+Equal/added/removed segments are computed by the server and reconstruct both
+texts; a bounded broad replacement handles expensive repetitive comparisons.
+The page uses text nodes rather than interpreting model text as HTML.
+The response's aligned
 `draft_changes` metadata remains with its page-memory answer, so Apply or later
 edits cannot change that comparison; the model's history excludes those lists.
 Replies that arrive after Stop, closure, reset or a newer request cannot change
 the editor. Bounded history refuses excess input instead of forgetting earlier
-instructions silently.
+instructions silently. Task changes now keep the conversation, so Create,
+Improve and Find tags can be stages of the same idea. A question-only answer
+is valid instead of forcing the model to invent a draft before clarifying it.
+
+The 2026-11-17 workflow review added an explicit continuation after manual
+editing or a context limit. Continue shows the current prompt and a short
+editable brief. Acceptance checks that source again, keeps the transcript
+visible and starts a new bounded model-history span; it does not silently
+discard old instructions. Old draft application stays held until a new answer.
+If an option was chosen for Refine, Continue previews it and offers an explicit
+checked choice to keep that focus; adopting the brief still leaves the editor
+unchanged.
+Pinned requirements accompany the brief. Their server checks mean only that
+an exact, case-sensitive phrase occurs with appropriate word boundaries;
+they cannot establish semantics or image fidelity. Each reply captures its
+pins: changing them holds its Apply controls while allowing a new request with
+the revised requirements. Refine this option captures
+its own focused prompt without writing the main editor. An exact editor match
+marks Current prompt, and an unread reply offers Jump to latest without pulling
+someone away from earlier messages. The compact composer can explicitly expand.
+
+More actions work on current and earlier cards: Copy, Save as snippet, Refine,
+CPU Check and comparison selection. Saving prepares the existing snippet editor
+for an explicit Save and preserves unsaved/recovery state. Check reads a draft
+with current settings without applying it. Comparison preparation captures the
+chosen prompts and settings on four shared seeds, previews that payload and
+requires Generate comparison to submit it. It leaves prompt/grid fields alone;
+Repeat, grid axes and Then refine do not apply. This lets prompt alternatives
+be evaluated without claiming that polished wording predicts image quality.
+Requirements and Compare stay reachable in short panes. A phone snippet Insert
+closes the covering assistant before rewriting, making the destination visible
+and preserving the normal native Undo path.
 
 Find tags separates the model's proposed explanations from authoritative tag
 verdicts. Candidate names go through the same tag index as the existing tools;
@@ -11848,7 +11887,13 @@ Inference shares the critic's transient child and the job gate. Preparation and
 post-answer tag verification stay outside the gate; no assistant request loads
 image weights. Stop names one ticket, including when it overtakes its POST, and
 must not stop a different request. The child must be gone before the next card
-holder begins. The old critic's latency and memory measurements do not qualify
+holder begins. A ticket-owned metadata status route names preparation,
+downloads, waiting, startup, writing and verification, including actual transfer
+bytes where supplied by the downloader. A stopped/terminal ticket is frozen;
+its bounded status retention cannot update a later answer. These polls do not
+count as activity or acquire a model reader, and contain no conversation text.
+Local readiness and first-use download size are visible before Send. Download
+bytes remain distinct from VRAM. The old critic's latency and memory measurements do not qualify
 the new task's input/output budgets, semantic fidelity or cancellation path.
 
 The offline test-pack tool writes no measurements and executes no session.

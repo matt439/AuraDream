@@ -15,7 +15,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from backend import assistant_models, critic, prompt_assistant, prompt_encoding
+from backend import assistant_models, critic, critic_runtime, prompt_assistant, prompt_encoding
 from backend.backends import flux3_loading, flux3_upsampler
 from backend.backends.base import Cancelled, GenerationBackend
 from backend.config import settings
@@ -684,12 +684,14 @@ class FakeCritic:
             raise CriticUnavailable("the local prompt model is not prepared; prepare() fetches it first")
         self.assists.append((model_id, request))
         self.events.append("assist")
+        critic_runtime.report_progress("starting")
         self.started.set()
         started = time.perf_counter()
         unloaded = self.unloads
         try:
             context = prompt_assistant.build_context(model_id, request)
             prompt_assistant.check_fits(context, profile=prepared.profile if prepared is not None else None)
+            critic_runtime.report_progress("writing")
             while time.perf_counter() - started < self.delay:
                 if should_cancel() or self.unloads != unloaded:
                     raise Cancelled("prompt assistant stopped")

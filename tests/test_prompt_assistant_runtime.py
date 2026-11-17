@@ -250,3 +250,49 @@ def test_even_parseable_json_is_withheld_when_the_runtime_reports_truncation(pre
     with pytest.raises(critic.CriticError, match="ran out of room"):
         prepared.assist(FLUX, request(), lambda: False)
     assert server.process.terminated and prepared._process is None
+
+
+def test_runtime_reports_starting_then_writing_without_changing_completion_or_cleanup(prepared, monkeypatch):
+    server = Server(monkeypatch, ANSWER)
+    phases = []
+    with critic_runtime.progress(lambda phase, done, total: phases.append((phase, done, total))):
+        assert prepared.assist(FLUX, request(), lambda: False).drafts
+    assert phases == [("starting", None, None), ("writing", None, None)]
+    assert server.process.terminated and prepared._process is None
+    critic_runtime.report_progress("starting")
+    assert len(phases) == 2
+
+
+def test_hub_progress_uses_real_transfer_counts_and_never_reaches_a_later_context(monkeypatch, tmp_path):
+    import huggingface_hub
+
+    target = tmp_path / "model.gguf"
+    target.write_bytes(b"not real weights")
+    monkeypatch.setattr(critic_runtime, "_model_cached", lambda *args: None)
+    monkeypatch.setattr(critic_runtime, "verify_model", lambda *args, **kwargs: None)
+
+    def fetch(**kwargs):
+        with kwargs["tqdm_class"](total=10, initial=3, disable=True) as bar:
+            bar.update(2)
+        return str(target)
+
+    monkeypatch.setattr(huggingface_hub, "hf_hub_download", fetch)
+    observations = []
+    with critic_runtime.progress(lambda *value: observations.append(value)):
+        assert critic_runtime.download_model(size=10) == target
+    assert ("downloading", 3, 10) in observations and ("downloading", 5, 10) in observations
+    assert observations[-1] == ("preparing", None, None)
+    count = len(observations)
+    critic_runtime.report_progress("writing")
+    assert len(observations) == count
+
+
+def test_broken_progress_observer_cannot_fail_assistant_or_process_cleanup(prepared, monkeypatch):
+    server = Server(monkeypatch, ANSWER)
+
+    def broken(phase, done, total):
+        raise RuntimeError("presentation failed")
+
+    with critic_runtime.progress(broken):
+        assert prepared.assist(FLUX, request(), lambda: False).drafts
+    assert server.process.terminated and prepared._process is None

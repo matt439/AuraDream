@@ -1,0 +1,426 @@
+[
+  {
+    "log": "'Assistant workflow improvements on an isolated FLUX fake: preserved task conversations, explicit source/context continuation, clarification-only answers, requirements, draft actions and full-screen phone focus. No model downloads, GPU, image generation or real gallery.'"
+  },
+  {
+    "navigate": "http://127.0.0.1:7960/"
+  },
+  {
+    "inject": "a11y_audit.js"
+  },
+  {
+    "eval": "__a11yWatch()"
+  },
+  {
+    "viewport": [1920, 1080]
+  },
+  {
+    "expect": "(async()=>{\n const until=async(fn,ms=20000)=>{const end=Date.now()+ms;while(Date.now()<end){if(await fn())return true;await new Promise(resolve=>setTimeout(resolve,40));}return false;};\n const assert=(ok,why)=>{if(!ok)throw Error(why);};\n assert(await until(()=>loadedModel==='black-forest-labs/FLUX.1-Krea-dev'&&Number.isInteger(modelRevision)&&!busy&&!galleryPending&&!jobListing&&!statusPending),'isolated FLUX page did not settle');\n const q=window.__aw={until,assert,native:api,requests:[],stops:[],polls:[],forbidden:[],errors:[],fixture:null,fixtures:new Map(),copied:[]};\n addEventListener('error',e=>q.errors.push(e.message));addEventListener('unhandledrejection',e=>q.errors.push(String(e.reason)));\n q.frames=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));\n q.instruction=text=>{replaceBoxText(els.assistantInstruction,text);els.assistantInstruction.dispatchEvent(new Event('input',{bubbles:true}));};\n q.mode=mode=>{els.assistantMode.value=mode;els.assistantMode.dispatchEvent(new Event('change',{bubbles:true}));};\n q.source=text=>{writeBox(els.prompt,text);promptReplaced();els.prompt.dispatchEvent(new Event('input',{bubbles:true}));};\n q.body=(message,extra={})=>({model_id:loadedModel,model:'Workflow fake assistant',seconds:0.1,message,drafts:[{title:'Fox by the sign',prompt:'A red fox beside a sign reading \"OPEN\", in soft moonlight.',notes:['Kept the fox and exact lettering.']}],tags:[],warnings:[],...extra});\n q.arm=(message,extra={})=>{assert(!q.fixture,'a previous reply fixture remains');const f={body:q.body(message,extra),captured:false,released:false,phase:'starting'};q.fixture=f;return f;};\n q.release=f=>{assert(f.captured&&!f.released&&f.resolve,'reply fixture not captured or already released');f.released=true;f.phase='complete';f.resolve();};\n q.chat=()=>document.querySelector('.assistant-body');\n q.controlFits=e=>{const r=e.getBoundingClientRect(),hit=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return r.left>=0&&r.right<=innerWidth+1&&r.top>=0&&r.bottom<=innerHeight+1&&!!hit&&(hit===e||e.contains(hit));};\n q.reveal=async selector=>{const e=document.querySelector(selector);assert(e,'missing '+selector);const host=e.closest('.assistant-body');if(host){const r=e.getBoundingClientRect(),h=host.getBoundingClientRect();host.scrollTop+=r.bottom>h.bottom?r.bottom-h.bottom+5:r.top<h.top?r.top-h.top-5:0;}await q.frames();return q.controlFits(e);};\n q.clipboardBefore=navigator.clipboard.writeText;navigator.clipboard.writeText=async text=>{q.copied.push(text);};\n api=async(path,options)=>{\n  const method=String(options?.method||'GET').toUpperCase();\n  const status=/^\\/api\\/prompt\\/assist\\/([^/]+)\\/status$/.exec(path);\n  if(status){const ticket=decodeURIComponent(status[1]);q.polls.push(ticket);const f=q.fixtures.get(ticket);if(f){if(f.holdStatus){f.holdStatus=false;return await new Promise(resolve=>{f.resolveStatus=resolve;});}return {phase:f.phase,running:!f.released,downloaded_bytes:f.phase==='downloading'?2048:null,total_bytes:f.phase==='downloading'?4096:null};}}\n  if(path.startsWith('/api/prompt/assist/')&&path.endsWith('/stop')&&method==='POST'){q.stops.push(path);return {stopped:true,running:false};}\n  if(path==='/api/prompt/assist'&&method==='POST'){const body=JSON.parse(options.body);q.requests.push(body);const f=q.fixture;if(f&&!f.captured){f.captured=true;f.request=body;q.fixtures.set(body.ticket,f);await new Promise(resolve=>{f.resolve=resolve;});if(q.fixture===f)q.fixture=null;return f.body;}}\n  if(method!=='GET'&&!['/api/prompt/assist','/api/prompt/analyze','/api/prompt/measure','/api/tags/validate','/api/grid/preview','/api/snippets'].includes(path)){q.forbidden.push(method+' '+path);throw Error('Assistant workflow refuses unrelated writes: '+path);}\n  return q.native(path,options);\n };\n q.source('A red fox beside a sign reading \"OPEN\", in cold daylight.');q.original=els.prompt.value;q.originalNegative=els.negative.value;\n return true;\n})()",
+    "fatal": true
+  },
+  {
+    "click": "#btn-prompt-assistant"
+  },
+  {
+    "expect": "__aw.until(()=>assistantSidebarOpen()&&assistantModels.length===3&&!statusPending)",
+    "fatal": true
+  },
+  { "eval": "els.assistantModel.focus({preventScroll:true});" },
+  { "key": "ArrowDown", "native": true },
+  {
+    "expect": "els.assistantModel.value==='qwen3-8b'&&!document.getElementById('assistant-readiness').hidden&&document.getElementById('assistant-readiness').textContent.toLowerCase().includes('download')&&__aw.requests.length===0",
+    "fatal": true
+  },
+  {
+    "log": "'Changing the task preserves visible history and options; a clarification-only reply remains a conversation, without an empty option card.'"
+  },
+  {
+    "eval": "__aw.instruction('Make the light softer, keeping the fox and OPEN lettering.'); window.__awFirst=__aw.arm('');"
+  },
+  {
+    "click": "#assistant-ask"
+  },
+  {
+    "expect": "__aw.until(()=>__awFirst.captured&&!!assistantRun&&els.assistantInstruction.value==='')",
+    "fatal": true
+  },
+  {
+    "eval": "__aw.release(__awFirst);"
+  },
+  {
+    "expect": "__aw.until(()=>!assistantRun&&assistantTurns.length===2&&assistantResultData?.drafts?.length===1)",
+    "fatal": true
+  },
+  {
+    "eval": "__aw.taskTurns=JSON.stringify(assistantTurns); __aw.taskResult=assistantResultData; els.assistantMode.focus({preventScroll:true});"
+  },
+  {
+    "key": "ArrowDown",
+    "native": true
+  },
+  {
+    "expect": "els.assistantMode.value==='improve'&&JSON.stringify(assistantTurns)===__aw.taskTurns&&assistantResultData===__aw.taskResult&&els.prompt.value===__aw.original",
+    "fatal": true
+  },
+  {
+    "eval": "__aw.instruction('Help me choose a direction.'); window.__awQuestion=__aw.arm('Would you prefer moonlight or warm evening light?',{drafts:[]});"
+  },
+  {
+    "click": "#assistant-ask"
+  },
+  {
+    "expect": "__aw.until(()=>__awQuestion.captured&&__awQuestion.request.history.length===2)",
+    "fatal": true
+  },
+  {
+    "eval": "__aw.release(__awQuestion);"
+  },
+  {
+    "expect": "__aw.until(()=>!assistantRun&&assistantTurns.length===4&&assistantResultData?.drafts?.length===0&&els.assistantResult.textContent.includes('Would you prefer moonlight')&&!els.assistantResult.querySelector('.assistant-draft'))",
+    "fatal": true
+  },
+  {
+    "log": "'A hand edit holds old applications. Continuing is an explicit, editable brief that keeps the transcript and adopts the current source.'"
+  },
+  { "click": "#prompt" },
+  { "keycombo": ["Control", "End"] },
+  { "type": " A little warmer." },
+  {
+    "expect": "assistantSourceChanged()&&!!assistantAskReason()&&!!assistantApplyReason()&&!document.getElementById('assistant-continue').hidden&&els.prompt.value===__aw.original+' A little warmer.'",
+    "fatal": true
+  },
+  { "click": "#assistant-continue" },
+  {
+    "expect": "document.getElementById('assistant-continuation-dialog').open&&document.getElementById('assistant-brief').value.trim().length>0&&assistantTurns.length===4",
+    "fatal": true
+  },
+  { "click": "#assistant-continuation-cancel" },
+  { "expect": "!document.getElementById('assistant-continuation-dialog').open&&assistantSourceChanged()&&assistantTurns.length===4" },
+  { "click": "#assistant-continue" },
+  { "click": "#assistant-brief" },
+  { "keycombo": ["Control", "a"] },
+  { "type": "Keep one red fox beside the sign. Lettering must remain OPEN." },
+  { "click": "#assistant-continuation-apply" },
+  {
+    "expect": "!document.getElementById('assistant-continuation-dialog').open&&!assistantSourceChanged()&&assistantTurns.length===4&&assistantContextStart===4&&assistantBrief==='Keep one red fox beside the sign. Lettering must remain OPEN.'&&assistantDraftsStale&&els.prompt.value===__aw.original+' A little warmer.'",
+    "fatal": true
+  },
+  {
+    "log": "'Pinned requirements and an expanded instruction editor are explicit. The next request carries only the reviewed continuation and new instruction, not discarded model history.'"
+  },
+  { "click": "#assistant-pins > summary" },
+  { "click": "#assistant-requirements" },
+  { "type": "red fox\nOPEN" },
+  { "click": "#assistant-pins > summary" },
+  { "click": "#assistant-expand" },
+  {
+    "expect": "document.getElementById('assistant-expand').getAttribute('aria-expanded')==='true'&&document.querySelector('.assistant-input').classList.contains('expanded')&&__aw.controlFits(els.assistantInstruction)&&__aw.controlFits(els.assistantAsk)",
+    "fatal": true
+  },
+  { "click": "#assistant-expand" },
+  { "expect": "document.getElementById('assistant-expand').getAttribute('aria-expanded')==='false'&&!document.querySelector('.assistant-input').classList.contains('expanded')" },
+  {
+    "eval": "__aw.variants=[{title:'Moonlight',prompt:'A red fox beside a sign reading \"OPEN\", in soft moonlight.',notes:['Kept the subject and lettering.']},{title:'Evening light',prompt:'A red fox beside a sign reading \"OPEN\", under warm evening light.',notes:['Changed only the light.']}]; __aw.instruction('Give me two lighting directions.'); window.__awOptions=__aw.arm('',{drafts:__aw.variants,prose_changes:[{segments:[{kind:'equal',text:'A red fox beside a sign reading \"OPEN\", in '},{kind:'removed',text:'cold daylight'},{kind:'added',text:'soft moonlight'},{kind:'equal',text:'.'}],coarse:false},null],requirement_checks:[[{text:'red fox',matched:true},{text:'OPEN',matched:true}],[{text:'red fox',matched:true},{text:'OPEN',matched:true}]]});"
+  },
+  { "click": "#assistant-ask" },
+  {
+    "expect": "__aw.until(()=>__awOptions.captured&&__awOptions.request.history.length===0&&__awOptions.request.brief===assistantBrief&&JSON.stringify(__awOptions.request.requirements)===JSON.stringify(['red fox','OPEN']))",
+    "fatal": true
+  },
+  { "click": "#assistant-pins > summary" },
+  { "click": "#assistant-requirements" },
+  { "keycombo": ["Control", "End"] },
+  { "type": "\none subject" },
+  { "click": "#assistant-pins > summary" },
+  { "expect": "assistantRequirements().length===3&&__awOptions.request.requirements.length===2&&!!assistantRun", "fatal": true },
+  { "eval": "__awOptions.phase='downloading';" },
+  {
+    "expect": "__aw.until(()=>__aw.polls.includes(__awOptions.request.ticket)&&document.getElementById('assistant-status').textContent.toLowerCase().includes('download'))",
+    "fatal": true
+  },
+  { "eval": "__awOptions.phase='writing';" },
+  {
+    "expect": "__aw.until(()=>document.getElementById('assistant-status').textContent.toLowerCase().includes('writ'))",
+    "fatal": true
+  },
+  { "eval": "__aw.release(__awOptions);" },
+  {
+    "expect": "__aw.until(()=>!assistantRun&&assistantResultData?.drafts?.length===2&&!assistantDraftsStale&&els.assistantResult.querySelectorAll('.assistant-draft').length===2)",
+    "fatal": true
+  },
+  { "expect": "assistantRequirementsChanged()&&!!assistantApplyReason()&&els.assistantResult.querySelector('[data-assistant-draft=\"0\"]').getAttribute('aria-disabled')==='true'", "fatal": true },
+  { "eval": "document.getElementById('assistant-requirements').value='red fox\\nOPEN';document.getElementById('assistant-requirements').dispatchEvent(new Event('input',{bubbles:true}));" },
+  { "expect": "!assistantRequirementsChanged()&&!assistantApplyReason()", "fatal": true },
+  { "expect": "__aw.reveal('#assistant-result [data-assistant-draft=\"0\"]')", "fatal": true },
+  { "click": "#assistant-result [data-assistant-draft=\"0\"]" },
+  {
+    "expect": "els.prompt.value===__aw.variants[0].prompt&&els.assistantResult.querySelector('article[data-assistant-prompt][aria-current=\"true\"] .assistant-applied')?.textContent==='Current prompt'&&!assistantSourceChanged()",
+    "fatal": true
+  },
+  {
+    "log": "'Draft actions preserve exact text and editor state. Copy and snippet saving remain available on earlier answers; wording comparison is literal text.'"
+  },
+  { "expect": "__aw.reveal('#assistant-result .assistant-draft:first-of-type .assistant-draft-tools > summary')", "fatal": true },
+  { "click": "#assistant-result .assistant-draft:first-of-type .assistant-draft-tools > summary" },
+  { "click": "#assistant-result .assistant-draft:first-of-type [data-assistant-action=copy]" },
+  { "expect": "__aw.until(()=>__aw.copied.at(-1)===__aw.variants[0].prompt&&els.prompt.value===__aw.variants[0].prompt)", "fatal": true },
+  { "click": "#assistant-result .assistant-draft:first-of-type [data-assistant-prose-diff] > summary" },
+  {
+    "expect": "(()=>{const diff=els.assistantResult.querySelector('[data-assistant-prose-diff]');return diff.open&&diff.querySelector('ins')?.textContent==='soft moonlight'&&diff.querySelector('del')?.textContent==='cold daylight'&&!diff.querySelector('img,script');})()",
+    "fatal": true
+  },
+  { "click": "#assistant-result .assistant-draft:first-of-type [data-assistant-prose-diff] > summary" },
+  { "click": "#assistant-result .assistant-draft:first-of-type [data-assistant-action=save]" },
+  {
+    "expect": "__aw.until(()=>els.snippetsDialog.open&&snippetsReady&&!snippetsPending&&els.snippetsText.value===__aw.variants[0].prompt&&els.snippetsName.value==='Moonlight')",
+    "fatal": true
+  },
+  { "click": "#snippets-save" },
+  { "expect": "__aw.until(()=>!snippetsPending&&!snippetsDirty&&snippetsSelected?.name==='Moonlight')", "fatal": true },
+  { "click": "#snippets-close" },
+  { "expect": "!els.snippetsDialog.open&&els.prompt.value===__aw.variants[0].prompt&&!busy&&submissions.size===0", "fatal": true },
+  { "eval": "els.assistantResult.querySelector('.assistant-draft-tools').open=false;" },
+  { "expect": "__aw.reveal('#assistant-result .assistant-draft:nth-of-type(2) .assistant-draft-tools > summary')", "fatal": true },
+  { "click": "#assistant-result .assistant-draft:nth-of-type(2) .assistant-draft-tools > summary" },
+  { "click": "#assistant-result .assistant-draft:nth-of-type(2) [data-assistant-action=check]" },
+  {
+    "expect": "__aw.until(()=>document.getElementById('assistant-draft-check-dialog').open&&document.getElementById('assistant-draft-check-status').textContent.includes('Draft checked'))",
+    "fatal": true
+  },
+  {
+    "expect": "document.getElementById('assistant-draft-check-prompt').textContent===__aw.variants[1].prompt&&els.prompt.value===__aw.variants[0].prompt&&document.getElementById('assistant-draft-check-results').textContent.length>0&&!busy&&submissions.size===0",
+    "fatal": true
+  },
+  { "click": "#assistant-draft-check-close" },
+  { "expect": "__aw.reveal('#assistant-result .assistant-draft:nth-of-type(2) .assistant-draft-tools > summary')", "fatal": true },
+  { "click": "#assistant-result .assistant-draft:nth-of-type(2) .assistant-draft-tools > summary" },
+  { "click": "#assistant-result .assistant-draft:nth-of-type(2) [data-assistant-action=refine]" },
+  {
+    "expect": "assistantFocus?.prompt===__aw.variants[1].prompt&&!document.getElementById('assistant-focus').hidden&&document.getElementById('assistant-focus-text').textContent.includes('Evening light')&&els.prompt.value===__aw.variants[0].prompt",
+    "fatal": true
+  },
+  { "click": "#assistant-continue" },
+  {
+    "expect": "document.getElementById('assistant-continuation-dialog').open&&document.getElementById('assistant-continuation-focus-keep').checked&&document.getElementById('assistant-continuation-option-text').textContent===__aw.variants[1].prompt",
+    "fatal": true
+  },
+  { "click": "#assistant-continuation-apply" },
+  { "expect": "assistantFocus?.prompt===__aw.variants[1].prompt&&assistantContextStart===assistantTurns.length&&assistantDraftsStale&&els.prompt.value===__aw.variants[0].prompt", "fatal": true },
+  { "eval": "__aw.instruction('Keep this option and soften its light further.'); window.__awFocused=__aw.arm('Focused revision.',{drafts:[{title:'Softer evening',prompt:'A red fox beside a sign reading \"OPEN\", under soft warm evening light.',notes:[]}]});" },
+  { "click": "#assistant-ask" },
+  { "expect": "__aw.until(()=>__awFocused.captured&&__awFocused.request.focus_prompt===__aw.variants[1].prompt&&__awFocused.request.prompt===__aw.variants[0].prompt)", "fatal": true },
+  { "eval": "__aw.release(__awFocused);" },
+  { "expect": "__aw.until(()=>!assistantRun&&assistantResultData?.message==='Focused revision.')", "fatal": true },
+  { "shot": "assistant-workflow-desktop.png" },
+  {
+    "log": "'Two historical options prepare a four-seed comparison without changing the composer or grid. Only the explicit Generate comparison press submits its captured plan.'"
+  },
+  {
+    "expect": "(()=>{const cards=[...els.assistantHistory.querySelectorAll('.assistant-draft')];const one=cards.find(e=>e.querySelector('.assistant-draft-text')?.textContent===__aw.variants[0].prompt),two=cards.find(e=>e.querySelector('.assistant-draft-text')?.textContent===__aw.variants[1].prompt);if(!one||!two)return false;one.dataset.workflowOption='one';two.dataset.workflowOption='two';__aw.comparisonPrompt=els.prompt.value;__aw.comparisonGrid=els.gridPrompt.value;__aw.previews=[];__aw.toolsApi=api;api=async(path,options)=>{if(path==='/api/grid/preview'&&options?.method==='POST')__aw.previews.push(JSON.parse(options.body));return __aw.toolsApi(path,options);};els.seed.value='42';return true;})()",
+    "fatal": true
+  },
+  { "expect": "__aw.reveal('[data-workflow-option=one] .assistant-draft-tools > summary')", "fatal": true },
+  { "click": "[data-workflow-option=one] .assistant-draft-tools > summary" },
+  { "click": "[data-workflow-option=one] [data-assistant-action=copy]" },
+  { "expect": "__aw.until(()=>__aw.copied.at(-1)===__aw.variants[0].prompt)", "fatal": true },
+  { "click": "[data-workflow-option=one] [data-assistant-action=compare]" },
+  { "expect": "document.querySelector('[data-workflow-option=one] [data-assistant-action=compare]').getAttribute('aria-pressed')==='true'&&assistantCompareDrafts.size===1", "fatal": true },
+  { "click": "[data-workflow-option=one] .assistant-draft-tools > summary" },
+  { "expect": "__aw.reveal('[data-workflow-option=two] .assistant-draft-tools > summary')", "fatal": true },
+  { "click": "[data-workflow-option=two] .assistant-draft-tools > summary" },
+  { "click": "[data-workflow-option=two] [data-assistant-action=compare]" },
+  { "expect": "assistantCompareDrafts.size===2&&document.getElementById('assistant-compare').getAttribute('aria-disabled')==='false'", "fatal": true },
+  { "click": "[data-workflow-option=two] .assistant-draft-tools > summary" },
+  { "expect": "__aw.controlFits(document.getElementById('assistant-compare'))", "fatal": true },
+  { "click": "#assistant-compare" },
+  {
+    "expect": "__aw.until(()=>document.getElementById('assistant-comparison-dialog').open&&assistantComparisonPrepared?.ready&&__aw.previews.length===1)",
+    "fatal": true
+  },
+  {
+    "expect": "(()=>{const p=__aw.previews[0];return p.seed===42&&p.seeds===4&&p.num_images===1&&p.runs===1&&p.resume===false&&p.prompt_axis===''&&p.steps_axis===''&&p.prompt_variants.length===2&&p.prompt_variants.every((v,i)=>v.prompt===__aw.variants[i].prompt)&&els.prompt.value===__aw.comparisonPrompt&&els.gridPrompt.value===__aw.comparisonGrid&&!busy&&submissions.size===0;})()",
+    "fatal": true
+  },
+  { "shot": "assistant-workflow-comparison.png" },
+  {
+    "eval": "__aw.savedStartJob=startJob;__aw.generated=[];startJob=async(path,payload,options)=>{__aw.generated.push({path,payload:JSON.parse(JSON.stringify(payload)),options});options.onAccepted?.();};els.seed.value='987';"
+  },
+  { "click": "#assistant-comparison-generate" },
+  {
+    "expect": "__aw.until(()=>__aw.generated.length===1&&!document.getElementById('assistant-comparison-dialog').open&&__aw.generated[0].path==='/api/grid'&&JSON.stringify(__aw.generated[0].payload)===JSON.stringify(__aw.previews[0])&&__aw.generated[0].options.panel===false&&__aw.generated[0].options.sheet===true&&els.prompt.value===__aw.comparisonPrompt&&els.gridPrompt.value===__aw.comparisonGrid&&!busy&&submissions.size===0)",
+    "fatal": true
+  },
+  { "eval": "startJob=__aw.savedStartJob;" },
+  {
+    "log": "'Context exhaustion gives advance information and a reviewed continuation. Earlier answers remain readable; no old history is silently truncated or auto-sent.'"
+  },
+  {
+    "expect": "(async()=>{document.getElementById('assistant-focus-clear').click();for(let i=0;assistantContextTurns().length<=ASSISTANT_HISTORY_LIMIT&&i<6;i++){__aw.instruction('Keep the fox '+i);const f=__aw.arm('Short reply '+i,{drafts:[{title:'Tiny option '+i,prompt:'A red fox beside a sign reading \"OPEN\". '+i,notes:[]}]});const pending=askPromptAssistant();if(!await __aw.until(()=>f.captured))return false;__aw.release(f);await pending;}__aw.instruction('One more small change.');return assistantTurns.length-assistantContextStart===10&&!!assistantHistoryReason()&&document.getElementById('assistant-context').textContent.length>0&&!document.getElementById('assistant-continue').hidden;})()",
+    "fatal": true
+  },
+  { "eval": "__aw.turnCountBeforeContinue=assistantTurns.length;__aw.requestCountBeforeContinue=__aw.requests.length;" },
+  { "click": "#assistant-continue" },
+  { "click": "#assistant-brief" },
+  { "keycombo": ["Control", "a"] },
+  { "type": "Retain the red fox and exact OPEN lettering. Explore only lighting." },
+  { "click": "#assistant-continuation-apply" },
+  {
+    "expect": "assistantTurns.length===__aw.turnCountBeforeContinue&&assistantContextStart===assistantTurns.length&&__aw.requests.length===__aw.requestCountBeforeContinue&&!assistantHistoryReason()&&assistantDraftsStale&&els.assistantHistory.querySelectorAll('.assistant-draft').length>0",
+    "fatal": true
+  },
+  { "shot": "assistant-workflow-continuation.png" },
+  { "expect": "__a11yCheck()", "fatal": true },
+  {
+    "log": "'Reading earlier messages is preserved when a reply arrives. Jump to latest is explicit; a delayed status from a stopped ticket cannot replace a later request status.'"
+  },
+  { "eval": "__aw.instruction('Keep the same subject.');window.__awUnread=__aw.arm('A new reply while reading earlier messages.');" },
+  { "click": "#assistant-ask" },
+  { "expect": "__aw.until(()=>__awUnread.captured&&!!assistantRun)", "fatal": true },
+  { "eval": "__aw.chat().scrollTop=0;__aw.readTop=__aw.chat().scrollTop;__aw.release(__awUnread);" },
+  {
+    "expect": "__aw.until(()=>!assistantRun&&assistantResultData?.message==='A new reply while reading earlier messages.'&&Math.abs(__aw.chat().scrollTop-__aw.readTop)<=1&&!document.getElementById('assistant-latest').hidden)",
+    "fatal": true
+  },
+  { "click": "#assistant-latest" },
+  {
+    "expect": "document.getElementById('assistant-latest').hidden&&__aw.chat().scrollHeight-__aw.chat().clientHeight-__aw.chat().scrollTop<=1",
+    "fatal": true
+  },
+  { "eval": "__aw.instruction('An answer to stop.');window.__awOld=__aw.arm('Stopped reply');__awOld.holdStatus=true;" },
+  { "click": "#assistant-ask" },
+  { "expect": "__aw.until(()=>__awOld.captured&&typeof __awOld.resolveStatus==='function')", "fatal": true },
+  { "click": "#assistant-close" },
+  { "expect": "__aw.until(()=>!assistantSidebarOpen()&&__aw.stops.some(path=>path.includes(__awOld.request.ticket)))", "fatal": true },
+  { "eval": "__aw.release(__awOld);" },
+  { "expect": "__aw.until(()=>!assistantRun)", "fatal": true },
+  { "click": "#btn-prompt-assistant" },
+  { "eval": "__aw.instruction('The later answer.');window.__awLater=__aw.arm('Later reply',{drafts:[{title:'Pale starlight',prompt:'A red fox beside a sign reading \"OPEN\", beneath pale starlight.',notes:[]}]});" },
+  { "click": "#assistant-ask" },
+  { "expect": "__aw.until(()=>__awLater.captured&&assistantRun?.ticket===__awLater.request.ticket)", "fatal": true },
+  { "eval": "__awLater.phase='writing';" },
+  { "expect": "__aw.until(()=>__aw.polls.includes(__awLater.request.ticket)&&els.assistantStatus.textContent.toLowerCase().includes('writ'))", "fatal": true },
+  { "eval": "__awOld.resolveStatus({phase:'downloading',running:true,downloaded_bytes:1,total_bytes:5000000000});" },
+  {
+    "expect": "(async()=>{await __aw.frames();return assistantRun?.ticket===__awLater.request.ticket&&!els.assistantStatus.textContent.toLowerCase().includes('download')&&assistantResultData?.message!=='Stopped reply';})()",
+    "fatal": true
+  },
+  { "eval": "__aw.release(__awLater);" },
+  { "expect": "__aw.until(()=>!assistantRun&&assistantResultData?.message==='Later reply')", "fatal": true },
+  { "expect": "__a11yCheck()", "fatal": true },
+  {
+    "log": "'On a full-screen phone the covered workspace is inert and native Tab wraps within the assistant. Its modal tools remain reachable; returning to desktop restores nonmodal workspace access.'"
+  },
+  { "touch": true },
+  { "viewport": [390, 844, 1], "mobile": true },
+  { "inject": "phone_audit.js" },
+  {
+    "expect": "(async()=>{await __aw.frames();const audit=__phoneAudit({root:'#prompt-assistant-sidebar'});return matchMedia(PHONE_MEDIA).matches&&assistantSidebarOpen()&&els.assistantSidebar.getAttribute('role')==='dialog'&&els.assistantSidebar.getAttribute('aria-modal')==='true'&&document.querySelector('main').inert&&__aw.controlFits(els.assistantClose)&&__aw.controlFits(els.assistantAsk)&&!audit.overflow&&!audit.offside.length&&!audit.small.length;})()",
+    "fatal": true
+  },
+  { "eval": "els.assistantReset.focus({preventScroll:true});" },
+  { "keycombo": ["Shift", "Tab"] },
+  {
+    "expect": "els.assistantSidebar.contains(document.activeElement)&&!document.activeElement.closest('[inert]')&&__aw.controlFits(document.activeElement)",
+    "fatal": true
+  },
+  { "key": "Tab" },
+  { "expect": "document.activeElement===els.assistantReset", "fatal": true },
+  { "eval": "__aw.phoneOriginal=els.prompt.value;" },
+  { "expect": "__aw.reveal('#assistant-result [data-assistant-draft=\"0\"]')", "fatal": true },
+  { "click": "#assistant-result [data-assistant-draft=\"0\"]" },
+  {
+    "expect": "els.prompt.value===__awLater.body.drafts[0].prompt&&els.prompt.value!==__aw.phoneOriginal&&assistantSidebarOpen()&&els.assistantSidebar.contains(document.activeElement)&&document.querySelector('main').inert",
+    "fatal": true
+  },
+  { "click": "#assistant-close" },
+  { "eval": "els.prompt.focus({preventScroll:true});" },
+  { "keycombo": ["Control", "z"] },
+  { "expect": "els.prompt.value===__aw.phoneOriginal&&!document.querySelector('main').inert&&!assistantSidebarOpen()", "fatal": true },
+  { "eval": "els.assistantToggle.click();" },
+  { "expect": "assistantSidebarOpen()&&document.querySelector('main').inert", "fatal": true },
+  { "expect": "__aw.reveal('#assistant-result .assistant-draft-tools > summary')", "fatal": true },
+  { "click": "#assistant-result .assistant-draft-tools > summary" },
+  { "click": "#assistant-result [data-assistant-action=save]" },
+  {
+    "expect": "__aw.until(()=>els.snippetsDialog.open&&snippetsReady&&!snippetsPending&&els.snippetsText.value===__awLater.body.drafts[0].prompt&&els.snippetsName.value==='Pale starlight')",
+    "fatal": true
+  },
+  { "eval": "__aw.phoneSnippetBefore=els.prompt.value;els.snippetsPlacement.focus({preventScroll:true});" },
+  { "key": "Home", "native": true },
+  { "expect": "els.snippetsPlacement.value==='append'&&document.activeElement===els.snippetsPlacement", "fatal": true },
+  { "click": "#snippets-insert" },
+  {
+    "expect": "__aw.until(()=>!els.snippetsDialog.open&&!assistantSidebarOpen()&&!document.querySelector('main').inert&&document.activeElement===els.prompt&&els.prompt.value===__aw.phoneSnippetBefore+'\\n'+__awLater.body.drafts[0].prompt)",
+    "fatal": true
+  },
+  { "keycombo": ["Control", "z"] },
+  { "expect": "els.prompt.value===__aw.phoneSnippetBefore&&!assistantSidebarOpen()&&!els.snippetsDialog.open&&!document.querySelector('main').inert", "fatal": true },
+  { "eval": "els.assistantToggle.click();els.assistantResult.querySelector('.assistant-draft-tools').open=false;" },
+  { "expect": "assistantSidebarOpen()&&document.querySelector('main').inert", "fatal": true },
+  {
+    "eval": "__aw.snippetsBeforeApi=api;__aw.snippetReadHeld=false;api=async(path,options)=>{if(path==='/api/snippets'&&String(options?.method||'GET').toUpperCase()==='GET'&&!__aw.snippetReadHeld){__aw.snippetReadHeld=true;return await new Promise(resolve=>{__aw.releaseSnippetRead=resolve;});}return __aw.snippetsBeforeApi(path,options);};"
+  },
+  { "expect": "__aw.reveal('#assistant-result .assistant-draft-tools > summary')", "fatal": true },
+  { "click": "#assistant-result .assistant-draft-tools > summary" },
+  { "click": "#assistant-result [data-assistant-action=save]" },
+  { "expect": "__aw.until(()=>els.snippetsDialog.open&&snippetsDirty&&snippetsPending==='read'&&typeof __aw.releaseSnippetRead==='function')", "fatal": true },
+  { "click": "#snippets-text" },
+  { "keycombo": ["Control", "a"] },
+  { "type": "A deliberately kept unsaved snippet." },
+  { "click": "#snippets-close" },
+  { "expect": "__aw.until(()=>!els.snippetsDialog.open&&assistantSidebarOpen()&&snippetsDirty)", "fatal": true },
+  { "click": "#assistant-result [data-assistant-action=save]" },
+  {
+    "expect": "__aw.until(()=>els.snippetsDialog.open&&snippetsReady&&!snippetsPending&&snippetsDirty&&els.snippetsText.value==='A deliberately kept unsaved snippet.')",
+    "fatal": true
+  },
+  { "click": "#snippets-text" },
+  { "keycombo": ["Control", "a"] },
+  { "type": "An even newer unsaved snippet." },
+  { "eval": "__aw.newSnippetItems=JSON.stringify(snippetsItems);__aw.releaseSnippetRead({items:[]});" },
+  {
+    "expect": "(async()=>{await __aw.frames();return els.snippetsDialog.open&&snippetsReady&&!snippetsPending&&snippetsDirty&&els.snippetsText.value==='An even newer unsaved snippet.'&&JSON.stringify(snippetsItems)===__aw.newSnippetItems;})()",
+    "fatal": true
+  },
+  { "click": "#snippets-close" },
+  { "expect": "__aw.until(()=>!els.snippetsDialog.open&&assistantSidebarOpen())", "fatal": true },
+  { "eval": "api=__aw.snippetsBeforeApi;els.assistantResult.querySelector('.assistant-draft-tools').open=false;" },
+  { "expect": "__aw.reveal('#assistant-result .assistant-draft-tools > summary')", "fatal": true },
+  { "click": "#assistant-result .assistant-draft-tools > summary" },
+  { "click": "#assistant-result [data-assistant-action=check]" },
+  {
+    "expect": "__aw.until(()=>document.getElementById('assistant-draft-check-dialog').open&&document.getElementById('assistant-draft-check-dialog').contains(document.activeElement)&&!document.getElementById('assistant-draft-check-dialog').closest('[inert]'))",
+    "fatal": true
+  },
+  { "key": "Tab" },
+  { "expect": "document.getElementById('assistant-draft-check-dialog').contains(document.activeElement)", "fatal": true },
+  { "click": "#assistant-draft-check-close" },
+  { "expect": "__aw.until(()=>!document.getElementById('assistant-draft-check-dialog').open&&els.assistantSidebar.contains(document.activeElement))", "fatal": true },
+  { "click": ".assistant-about:not(.assistant-pins) > summary" },
+  {
+    "expect": "(async()=>{await __aw.frames();const about=document.querySelector('.assistant-about:not(.assistant-pins)'),panel=about.querySelector('.assistant-about-content'),r=panel.getBoundingClientRect();return assistantCompareDrafts.size===2&&about.open&&r.left>=0&&r.right<=innerWidth+1&&r.top>=0&&r.bottom<=innerHeight+1&&panel.scrollWidth<=panel.clientWidth+1;})()",
+    "fatal": true
+  },
+  { "shot": "assistant-workflow-phone-about.png" },
+  { "click": ".assistant-about:not(.assistant-pins) > summary" },
+  { "shot": "assistant-workflow-phone.png" },
+  { "expect": "__a11yCheck({root:'#prompt-assistant-sidebar'})", "fatal": true },
+  { "touch": false },
+  { "viewport": [1920, 1080, 1] },
+  {
+    "expect": "(async()=>{await __aw.frames();return !matchMedia(PHONE_MEDIA).matches&&assistantSidebarOpen()&&!document.querySelector('main').inert&&!els.assistantSidebar.hasAttribute('aria-modal')&&els.assistantSidebar.getAttribute('role')!=='dialog';})()",
+    "fatal": true
+  },
+  { "click": "#prompt" },
+  { "expect": "document.activeElement===els.prompt&&assistantSidebarOpen()", "fatal": true },
+  { "eval": "__aw.beforeResetPrompt=els.prompt.value;" },
+  { "click": "#assistant-reset" },
+  { "expect": "assistantTurns.length===0&&assistantResultData===null&&assistantCompareDrafts.size===0&&document.getElementById('assistant-compare').hidden&&els.prompt.value===__aw.beforeResetPrompt", "fatal": true },
+  { "click": "#assistant-close" },
+  {
+    "expect": "!assistantSidebarOpen()&&!document.querySelector('main').inert&&__aw.forbidden.length===0&&__aw.errors.length===0&&!busy&&!assistantRun&&submissions.size===0",
+    "fatal": true
+  },
+  { "eval": "navigator.clipboard.writeText=__aw.clipboardBefore;" },
+  { "expect": "__a11yCheck()" }
+]
