@@ -401,3 +401,18 @@ the system temporary directory:
 `auradream-smoke-artifacts-_qd2pkiv/summary.json` (assistant, screenshots in
 `smoke-prompt-assistant-6bdy6jur/`) and
 `auradream-smoke-artifacts-ja8g83fg/summary.json` (shortcut regressions).
+
+## One surface per option (2026-11-17)
+
+Matt found the prompt/notes dividing line and separate fill made three options
+look like six boxes. Each option now has one continuous purple surface and one
+outer border. Inline notes use smaller, softer text and a 12 px gap below the
+prompt, without an internal rule, secondary fill or extra section padding.
+
+The assistant smoke passed all 290 steps, including no internal border or
+negative gutters, shared card surface, readable notes contrast, text/spacing
+distinction, three-draft fit and existing keyboard/phone guards. Desktop and
+phone screenshots were inspected. Eight documentation-map tests and 39
+screenshot-path checks passed. Receipt under the system temporary directory:
+`auradream-smoke-artifacts-fdbhn6mf/summary.json`, screenshots in
+`smoke-prompt-assistant-4hy5ahew/`. No inference was run.

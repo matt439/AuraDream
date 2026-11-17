@@ -3920,7 +3920,8 @@ measured on the card and when.
   Send/Stop share one compact composer with a two-line message field and 4 px
   frame padding. Draft titles and Use share a row;
   draft notes are plain secondary text below the prompt, without a disclosure
-  or a separate Notes label, in a darker section with a visible top divider.
+  or a separate Notes label. They share the card surface, using smaller, softer
+  text and spacing instead of an internal divider or separate coloured section.
   About sits below the message frame
   and opens upward over the conversation without moving writing controls.
   Long status text remains focusable/scrollable with its full text as a title.
@@ -3931,8 +3932,8 @@ measured on the card and when.
   below the cards. It is preserved intact, including any unique commentary,
   and the same presentation applies to earlier turns. Concise non-repetitive
   replies stay visible. Draft cards use the existing tag surface (`--panel-tags`)
-  and the strong border. Notes use `--panel-2`; text contrast is checked against
-  the surface it actually appears on.
+  and the strong outer border. Prompt and notes text contrast is checked against
+  that same surface.
   The newest draft cards carry option numbers 1-3. In the assistant, the same
   plain keys press their ordinary Use actions outside text fields; Alt+1/2/3
   also works while typing. Workspace fields keep numbers, and modal/menu,

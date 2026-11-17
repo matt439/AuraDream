@@ -11789,8 +11789,9 @@ local assistant at the bottom, opening upward without moving the composer.
 Prompt/help stay above the writing tools. Reset is the last button on the same
 toolbar row as Examples, Assistant, Tags and Check, aligned at its right edge.
 Draft cards use the same muted purple surface as the tag tray, with a strong
-border. Their inline notes occupy a darker bottom section, separated from the
-prompt by a full-width rule and their own padding. If a model repeats a
+outer border. Their inline notes share the card's surface, distinguished by
+smaller, softer text and a little space rather than an internal dividing line
+or a second coloured block. If a model repeats a
 complete draft in its conversational message, that prose stays in a closed
 Assistant note below the cards. Unique conversational replies stay visible;
 the complete message and structured drafts remain in the conversation data.
