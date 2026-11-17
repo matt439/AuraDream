@@ -11903,6 +11903,22 @@ Use, Copy or follow-ups, and aliases are shown rather than silently rewritten.
 The change is frontend-only over the existing tag API and does not expand the
 assistant's backend response schema or lift its GPU hold.
 
+Matt's next screenshot showed the drafting problem behind those verdicts:
+sentence fragments used as tags, invented template metadata and an old
+assistant-created identity carried into a newly named character. The writing
+question now explicitly prioritizes a latest subject/scene replacement over
+earlier dialogue and source text, while preserving pinned-conflict clarification.
+The first draft stays close to the request; variants cannot add people or change
+the count unasked. Danbooru tag portions are asked to use established individual
+names and preserve complete multiword names, rather than filling optional
+template slots with invented metadata. Strict tag guides get a separate
+pose/setting/object decomposition instruction; hybrid guides keep prose support.
+Up to three complete guide examples share a 1,200-character allowance and are
+marked as format references, never extra scene requirements. This improves the
+question sent to the model without silently rewriting its answer. Dictionary
+annotations remain authoritative; fewer invalid names and better semantic
+fidelity still need real-model evidence under the existing GPU hold.
+
 Inference shares the critic's transient child and the job gate. Preparation and
 post-answer tag verification stay outside the gate; no assistant request loads
 image weights. Stop names one ticket, including when it overtakes its POST, and

@@ -3920,6 +3920,18 @@ measured on the card and when.
   changes during an active answer restore its captured selection and say why.
   Opening the selector never downloads weights; Send prepares the chosen model.
   Model bytes are a download size, never a VRAM measurement.
+- The assistant's drafting question gives the latest explicit subject/scene
+  replacement priority over older dialogue, editor text and a focused option;
+  conflicting pinned requirements still ask for clarification. Earlier assistant
+  inventions are not user requirements. The first option stays minimal, and
+  variants may not add people or change the count unless requested. On Danbooru
+  checkpoints, tag portions use individual established names, preserve fixed
+  multiword names and omit unknown optional template slots rather than inventing
+  metadata. Only a guide whose `analysis.style.expects` is `tags` gets the strict
+  scene-to-pose/setting/object instruction; hybrid guides retain prose. Up to
+  three complete guide examples, totalling at most 1,200 characters, demonstrate
+  formatting without lending their scene details to the answer. These are model
+  instructions, not dictionary verdicts or measured prompt-quality improvements.
 - The optional writing assistant (`PA#18`, `POST /api/prompt/assist`) shares
   the critic's pinned runtime and process owner, never image weights. Its
   Create/Improve/Find tags tasks use bounded, client-owned history as untrusted

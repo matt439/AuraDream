@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 
 import pytest
 from pydantic import ValidationError
@@ -135,6 +136,101 @@ def test_unknown_checkpoint_gets_general_guidance_without_invented_authority():
     context = prompt_assistant.build_context("some/custom-model", request())
     assert "For unknown checkpoints give general suggestions" in context.system
     assert "general" in context.system.lower()
+
+
+def test_latest_replacement_overrides_model_inventions_without_losing_user_context():
+    req = PromptAssistantRequest(
+        ticket="test", mode="improve", instruction="hatsune miku standing on a beach",
+        prompt="1girl, Lila, basketball, park", negative_prompt="extra people",
+        history=[{"role": "assistant", "content": "Keep Lila's identity and Modern Day."}],
+        requirements=["solo"], brief="Earlier scene was in a park.",
+        focus_prompt="1girl, Lila, night, park",
+    )
+    context = prompt_assistant.build_context(ANIMAGINE, req)
+    assert "latest explicit subject or scene replacement overrides older dialogue, the current prompt" in context.system
+    assert "and a focused option" in context.system
+    assert "Earlier assistant inventions are suggestions, not user requirements" in context.system
+    assert "never carry an old character identity into a newly named character" in context.system
+    assert "Pinned requirements still require clarification when they conflict" in context.system
+    assert "ask a clarifying question" in context.system
+    assert json.loads(critic_context._restored(context.user)) == {
+        "task": "improve", "instruction": req.instruction, "current_prompt": req.prompt,
+        "negative_prompt_context": req.negative_prompt, "pinned_requirements": req.requirements,
+        "continuation_brief": req.brief, "focus_prompt": req.focus_prompt,
+        "previous_dialogue": [message.model_dump() for message in req.history],
+    }
+
+
+def test_prompt_variants_keep_a_direct_first_option_and_the_requested_subject_count():
+    context = prompt_assistant.build_context(ANIMAGINE, request())
+    assert "first draft a direct, minimal version" in context.system
+    assert "do not add people or change the subject count unless requested" in context.system
+    assert "Do not add props or actions to the first draft" in context.system
+    assert "One good draft is enough" in context.system
+
+
+@pytest.mark.parametrize("model_id", [ANIMAGINE, "KBlueLeaf/Kohaku-XL-Zeta"])
+def test_danbooru_drafting_keeps_real_multiword_names_and_does_not_fill_unknown_template_slots(model_id):
+    context = prompt_assistant.build_context(model_id, request())
+    assert "DANBOORU DRAFTING" in context.system
+    assert "established individual tag names, not plausible-sounding paraphrases" in context.system
+    assert "Keep complete multiword character names, series titles and fixed tag names intact" in context.system
+    assert "Template section labels are not literal tags" in context.system
+    assert "Do not invent a series, time period, artist or metadata tag" in context.system
+    assert "ask rather than inventing a name or dropping it" in context.system
+    assert "supplied checkpoint's actual rating and quality recipe" in context.system
+    assert "self-check does not verify names" in context.system
+
+
+def test_strict_tag_guidance_separates_pose_and_setting_without_converting_hybrid_prose():
+    strict = prompt_assistant.build_context(ANIMAGINE, request()).system
+    hybrid = prompt_assistant.build_context("KBlueLeaf/Kohaku-XL-Zeta", request()).system
+    assert "This checkpoint requires a tag list" in strict
+    assert "separate pose, setting and object tags" in strict
+    assert "'standing on a beach' as one tag" in strict
+    assert "This checkpoint requires a tag list" not in hybrid
+    assert "retain natural language" in hybrid
+    assert "Apply name rules only to the tag portions, not to prose sentences" in hybrid
+
+
+@pytest.mark.parametrize("model_id", [ANIMAGINE, "KBlueLeaf/Kohaku-XL-Zeta"])
+def test_tag_checkpoint_context_includes_complete_authored_format_examples(model_id):
+    sources = prompt_assistant.sources_for(model_id)
+    context = prompt_assistant.build_context(model_id, request())
+    assert "CHECKPOINT FORMAT EXAMPLES" in context.system
+    examples = sources.guide["examples"]
+    assert examples and all(example in context.system for example in examples)
+    assert "format references, not scene requirements" in context.system
+    assert "Do not borrow their characters" in context.system
+
+
+@pytest.mark.parametrize("examples,included", [
+    (["oversized " + "x" * 1200, "short complete sample"], ["short complete sample"]),
+    (["a" * 600, "b" * 600, "overflow"], ["a" * 600, "b" * 600]),
+    (["sample one", "sample two", "sample three", "sample four"],
+     ["sample one", "sample two", "sample three"]),
+])
+def test_checkpoint_format_examples_keep_whole_samples_within_both_bounds(monkeypatch, examples, included):
+    sources = prompt_assistant.sources_for(ANIMAGINE)
+    monkeypatch.setattr(prompt_assistant, "sources_for", lambda model_id: replace(
+        sources, guide={**sources.guide, "examples": examples},
+    ))
+    context = prompt_assistant.build_context(ANIMAGINE, request())
+    assert "CHECKPOINT FORMAT EXAMPLES" in context.system
+    present = [example for example in examples if example in context.system]
+    assert present == included
+    # A too-long example must be omitted, not turned into a different prompt.
+    if examples[0].startswith("oversized "):
+        assert "oversized " not in context.system
+    assert len(present) <= 3 and sum(map(len, present)) <= 1200
+
+
+@pytest.mark.parametrize("model_id", [FLUX, "some/custom-model"])
+def test_prose_and_unknown_checkpoints_do_not_gain_tag_format_examples(model_id):
+    context = prompt_assistant.build_context(model_id, request())
+    assert "CHECKPOINT FORMAT EXAMPLES" not in context.system
+    assert "DANBOORU DRAFTING" not in context.system
+    assert "This checkpoint requires a tag list" not in context.system
 
 
 @pytest.mark.parametrize("mode", ["create", "improve", "tags"])

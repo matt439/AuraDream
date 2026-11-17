@@ -718,3 +718,33 @@ geometry as a fatal prerequisite, retaining the exact Alt+Arrow/Delete
 stability assertions. That smoke passed in 21 seconds (30 seconds including
 setup/cleanup): `auradream-smoke-artifacts-blcw399c/summary.json`; 41 additional
 focused harness checks passed. All fake servers and owned browsers were stopped.
+
+## Drafting names and replacing stale context (2026-11-17)
+
+Matt's next screenshot showed that red underlines exposed invalid names without
+preventing the model from writing them: a beach request used sentence fragments
+as tags, invented template metadata and retained an earlier assistant-created
+character identity. The writing question now makes the latest explicit subject
+or scene replacement override earlier dialogue and editor/focused text. A
+conflicting pinned requirement still asks for clarification. The first option
+is asked to match the request directly; alternatives cannot add people or change
+the subject count unless requested.
+
+Danbooru checkpoints get explicit individual-name and complete-multiword-name
+instructions, guidance against filling unknown optional template slots, and
+up to three complete guide examples sharing a 1,200-character allowance.
+Examples demonstrate format without contributing scene requirements. Strict
+tag guides additionally decompose scene descriptions into pose, setting and
+object names. Hybrid guides keep natural-language support. The selected guide's
+rating and quality recipe stays authoritative; the screenshot's Animagine
+suffix is not treated as an invented tag list.
+
+Validation: 479 focused assistant/API/runtime, model-profile, test-pack,
+critic-context/source and documentation tests passed. Ruff passed. Pinned
+Pyright checked 219 sources with zero errors or warnings. Regression cases cover
+the reported subject replacement, preserved pins/source data, minimal/count-safe
+variants, strict/hybrid/prose routing, whole-example bounds and existing
+dictionary/offline contracts. No weights, GPU inference or real gallery were
+used. This changes the model question, not the draft text or dictionary verdicts;
+real-model tag accuracy and semantic fidelity remain unmeasured under the
+existing GPU hold. Restart a running backend to pick up the new question.
