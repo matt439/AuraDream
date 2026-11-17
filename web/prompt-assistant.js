@@ -277,6 +277,7 @@ function renderAssistantAnswer(host, body, interactive) {
     }
     renderAssistantRequirements(article, body.requirement_checks?.[index]);
     renderAssistantDraftTools(article, body, index, { interactive });
+    renderAssistantDraftTags(article, body, index);
     host.append(article);
   }
   if (repeatedMessage) {
@@ -328,6 +329,7 @@ function renderAssistantAnswer(host, body, interactive) {
 function resetAssistantConversation({ clearInstruction = true } = {}) {
   if (assistantRun) { assistantSay('Stop the current answer before starting a new conversation.', true); return; }
   ++assistantEpoch;
+  retireAssistantDraftTags();
   resetAssistantContext();
   resetAssistantDraftTools('A new chat was started.');
   assistantTurns = [];
@@ -367,6 +369,7 @@ function openPromptAssistant(mode = null) {
   els.assistantSidebar.hidden = false;
   document.body.classList.add('assistant-open');
   els.assistantToggle.setAttribute('aria-expanded', 'true');
+  resumeAssistantDraftTags();
   syncAssistantPhoneFocus();
   void refreshAssistantModels();
   syncBackLayers();
@@ -380,6 +383,7 @@ function closePromptAssistant() {
   ++assistantModelsEpoch;
   document.body.classList.remove('assistant-open');
   els.assistantToggle.setAttribute('aria-expanded', 'false');
+  retireAssistantDraftTags();
   syncAssistantPhoneFocus();
   if (assistantRun) void stopPromptAssistant();
   assistantPendingText = '';
@@ -567,6 +571,7 @@ function insertAssistantTags() {
 }
 
 function assistantCheckpointChanged() {
+  retireAssistantDraftTags();
   if (assistantRun) { ++assistantEpoch; void stopPromptAssistant(); }
   assistantTurns = []; assistantResultData = null; assistantSnapshot = null; assistantSelectedTags.clear();
   assistantPendingText = '';

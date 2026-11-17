@@ -102,6 +102,7 @@
   .assistant-response-note > summary { min-height: var(--h-md); }
   .assistant-head button { min-width: var(--h-md); }
   .assistant-draft-tools > summary, .assistant-requirement-checks summary,
+  .assistant-draft-tag-validation > summary,
   .assistant-tools-dialog summary, .assistant-tools-dialog button,
   #assistant-compare, #assistant-focus-clear { min-height: var(--h-md); }
   .assistant-foot summary { white-space: nowrap; }

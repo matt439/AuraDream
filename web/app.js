@@ -22,6 +22,7 @@ initQueueControls();
 initSnippets();
 initPromptAssistant();
 initAssistantDraftTools();
+initAssistantDraftTags();
 initSnippetImport();
 initSetups();
 initSetupImport();

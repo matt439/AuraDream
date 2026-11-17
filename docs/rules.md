@@ -956,7 +956,7 @@ paragraphs, never rewording.
 
 ### The page (`web/`)
 
-- `web/` - served as-is from `/static`; `index.html` loads 83 classic
+- `web/` - served as-is from `/static`; `index.html` loads 84 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `page-helpers.js`, right
   after it, the page-wide pure helpers (`plural`, `excerpt`, `units`,
@@ -997,7 +997,9 @@ paragraphs, never rewording.
   pinned requirements, option focus, space/readiness/progress feedback and
   expanded message; `assistant-draft-tools.js` current/earlier draft Copy,
   Save as snippet, Refine, Check, prose comparisons and captured same-seed
-  comparison dialogs; `assistant-phone.js` full-screen phone focus/inert
+  comparison dialogs; `assistant-draft-tags.js` read-only per-draft validation
+  through the prompt editor's tag endpoint, exact-text annotations, cached
+  verdicts and guarded Recheck; `assistant-phone.js` full-screen phone focus/inert
   ownership and scoped undo-aware editor writes; `analysis.js`,
   `analysis-critic.js` and `comparison.js` the check and critic. `sizes.js`
   and `status.js` retain their control/profile roles; `model-switch.js` owns
@@ -4047,6 +4049,25 @@ measured on the card and when.
   only Generate comparison submits the reviewed payload. Checkpoint or captured
   asset refusals invalidate it instead of resubmitting obsolete inputs. Aliases
   show the proposed spelling and canonical name separately.
+- Create and Improve drafts on tag-vocabulary checkpoints use the same
+  `POST /api/tags/validate` request as the prompt editor: the exact draft prompt
+  and its first 64 comma items. The model's own tag claims are never verdicts.
+  Read-only spans preserve every original character: known names have solid
+  green underlines (checkpoint guide tags use the guide accent), unknown names
+  wavy red, aliases dashed amber and unchecked items dotted underlines. Grid
+  placeholders are not tags. Server-classified natural-language spans stay
+  neutral, with dictionary details shown separately and not counted as known
+  tags. Offline or omitted results and items beyond the cap remain unchecked,
+  never invalid merely because a lookup was unavailable.
+  More > Tag validation exposes counts, full verdicts and Recheck. A per-answer
+  WeakMap cache is keyed by exact draft/model/revision; current and earlier
+  renderings share completed results. Request identity, epoch and checkpoint
+  guards discard late replies. Close, New chat and checkpoint changes abort
+  outstanding reads; reopening resumes unfinished uncached checks. Annotation
+  never edits the draft used by Use, Copy or follow-up requests, nor automatically
+  substitutes an alias. This adds no backend route or response-schema field.
+  About names the network scope: draft comma items and suggested tag names
+  are sent to Danbooru, while message instructions and dialogue history stay local.
 
 #### Prompt checks, encoders and tag placement
 
@@ -11482,6 +11503,14 @@ reply navigation, late stopped progress, native phone focus containment,
 phone Apply/close/Undo, modal Check focus and desktop restoration are covered
 with accessibility/touch audits. It performs no model downloads, GPU inference
 or image generation and uses no real gallery.
+
+`smoke-assistant-draft-tags.json` uses its own fresh Animagine XL 4.0 fake on
+7960. It checks Create/Improve draft annotations against the existing tag
+endpoint, exact prompt text through Use/Copy, known/unknown/alias/unchecked
+states, full verdicts and Recheck, the 64-item cap, shared historical caches,
+and close/reset/checkpoint late-reply guards. Hybrid response stubs prove that
+server-classified prose remains neutral and is not counted as a known tag.
+Checks use fake verdicts, not live Danbooru, model downloads or GPU inference.
 
 `test_prompt_assistant.py` also checks clarification-only/wrong-task responses,
 all new request bounds, focused-source retention, lossless/coarse prose diffs

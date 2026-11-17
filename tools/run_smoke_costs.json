@@ -9,6 +9,7 @@
     "Not CI's either: the other smokes DEV#58 converted (2026-11-13) are their hosted times scaled by the local after/before ratio (one Windows --jobs 1 run before, the median of three or more after, nine agents' runs loading the machine together); smoke-comparison's before run failed, so it keeps its hosted time until the next refresh.",
     "Not CI's: smoke-detailer is one Windows --jobs 1 run (2026-11-16), unscaled, until the next refresh.",
     "Not CI's: expanded smoke-prompt-assistant and smoke-assistant-workflow are Windows runs (2026-11-17), rounded up and unscaled, until the next refresh.",
+    "Not CI's: smoke-assistant-draft-tags is one Windows --jobs 1 run (2026-11-17), rounded up and unscaled, until the next refresh.",
     "Not CI's: smoke-anima-refine is the final Windows --jobs 1 run (2026-11-17), rounded up and unscaled, until the next refresh.",
     "Not CI's: expanded smoke-anima-aesthetic is its Windows --jobs 2 family run and smoke-anima-preview its corrected Windows --jobs 1 run (2026-11-17), rounded up and unscaled, until the next refresh."
   ],
@@ -17,6 +18,7 @@
     "smoke-analysis": 59,
     "smoke-prompt-assistant": 23,
     "smoke-assistant-workflow": 20,
+    "smoke-assistant-draft-tags": 9,
     "smoke-analysis-tags": 14,
     "smoke-anima": 4,
     "smoke-anima-refine": 10,

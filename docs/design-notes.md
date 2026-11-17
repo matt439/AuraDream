@@ -11879,9 +11879,29 @@ and preserving the normal native Undo path.
 Find tags separates the model's proposed explanations from authoritative tag
 verdicts. Candidate names go through the same tag index as the existing tools;
 a confident model answer does not validate a tag. Network failure is unchecked,
-and the UI cannot insert it as a verified choice. Full conversational text goes
-only to the local runtime; candidate tag names still reach Danbooru. This extends
+and the UI cannot insert it as a verified choice. Message instructions and
+dialogue history stay local; candidate tag names and draft comma items reach
+Danbooru. This extends
 the earlier wiki-finder decision without making the LLM a replacement index.
+
+Matt's follow-up screenshot showed unrecognised Danbooru names inside Create
+and Improve drafts. Their prompt text now uses the prompt editor's existing
+validation endpoint on tag-vocabulary checkpoints, sending the exact draft
+plus its first 64 comma items. The frontend adds read-only underlines and a
+More > Tag validation disclosure, including full verdicts and Recheck. Known
+names, unknown names, aliases and unchecked items remain distinct; index failure
+never makes a name invalid. Server-classified hybrid prose stays neutral, with
+dictionary lookup details kept separate from the known-tag count. This is
+authoritative name lookup, not an LLM judging its own suggestions or a guarantee
+that a checkpoint was trained on every indexed tag.
+
+Per-answer cache records follow the exact text, checkpoint and revision across
+current/earlier renderings. Request/epoch guards and aborts prevent closed,
+reset or switched conversations receiving late annotations; reopening can
+resume an unfinished check. No annotation changes the original draft used by
+Use, Copy or follow-ups, and aliases are shown rather than silently rewritten.
+The change is frontend-only over the existing tag API and does not expand the
+assistant's backend response schema or lift its GPU hold.
 
 Inference shares the critic's transient child and the job gate. Preparation and
 post-answer tag verification stay outside the gate; no assistant request loads

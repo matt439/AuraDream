@@ -34,8 +34,9 @@ transcript stays visible while a new bounded model-history span starts.
 Conversation history lives in the open page's memory, with an explicit reset.
 It is bounded rather than silently truncating away earlier instructions. It is
 not saved in the gallery, browser storage, generation metadata or server logs.
-Full text goes to the local llama.cpp child only. Tag verification sends the
-candidate names to Danbooru, as the existing tag tools do; it is not fully offline.
+Message instructions and dialogue history go to the local llama.cpp child only.
+Tag verification sends candidate names and draft comma items to Danbooru,
+as the existing tag tools do; it is not fully offline.
 An unavailable index leaves candidates unchecked, never verified by the LLM's
 confidence. A model explanation is labelled separately from an index verdict.
 
@@ -59,7 +60,8 @@ budget, and Qwen3.5-4B uses the author's general non-thinking recipe.
 
 The browser remembers only the choice id. Changing it between answers retains
 the conversation, and each reply keeps its model label. Send prepares the
-selected files; opening the sidebar only inspects local files. Preparation
+selected files; the model catalogue only inspects local files. Reopening a
+retained conversation can resume unfinished draft tag checks. Preparation
 returns immutable paths and a profile for that request and never changes the
 critic's prepared baseline. Check keeps its configured model and overrides.
 The selection is held while an answer is pending, with an explanatory press.
@@ -664,3 +666,55 @@ The final receipt is `auradream-smoke-artifacts-wh1wipmp/summary.json` under the
 system temporary directory; final screenshots were visually inspected. The
 final smoke/documentation/accessibility/harness subset passed 321 tests. These
 local checks do not lift the GPU hold or establish physical-device acceptance.
+
+## Tag verdicts inside Create and Improve drafts (2026-11-17)
+
+Matt supplied a screenshot of generated options containing unrecognised
+Danbooru names and asked for validation like the prompt editor. The draft
+renderer now reuses `POST /api/tags/validate` on tag-vocabulary checkpoints,
+with the exact draft prompt and first 64 comma items. No backend route,
+assistant schema field, model inference or automatic text correction is added.
+
+`assistant-draft-tags.js` keeps the prompt text exact while adding read-only
+underlines: solid green for known names (the guide accent for checkpoint guide
+tags), wavy red for unknown names, dashed amber for aliases and dotted for
+unchecked items. Grid placeholders remain unmarked as tags. More > Tag
+validation provides state counts, full verdicts and Recheck. Missing/offline
+results and items after the 64-item cap remain unchecked. Server-classified
+natural-language spans in hybrid prompts stay neutral; their dictionary details
+remain available without counting the prose as validated tags. A known name
+does not prove checkpoint training coverage or rendered image quality.
+
+Each answer owns a WeakMap cache of exact draft/model/revision records. Current
+and historical card renderings share finished verdicts; unfinished reads may
+resume after reopening. Request identity, epoch and checkpoint guards discard
+late responses, while Close, New chat and checkpoint changes abort outstanding
+work. Use, Copy and follow-up content always retain the original draft; aliases
+are visible suggestions, never silent replacements. About now explicitly says
+that draft comma items and suggested tag names are sent to Danbooru.
+
+`smoke-assistant-draft-tags.json` uses its own fresh Animagine fake on 7960,
+then switches to Kohaku to exercise the real contextual prose reader. Its cases cover each verdict
+state, Recheck, capped lookup, historical cache reuse, exact Use/Copy and
+late-response retirement. The fixture uses no live tag lookup, weights, GPU
+inference or real gallery. Test results belong to this follow-up's receipt;
+the earlier integrated gate above predates these changes. The GPU hold remains
+in force.
+
+Validation: 411 focused tag, contextual-prose, API, classic-script,
+documentation, smoke-runner, accessibility and browser-output tests passed;
+Ruff and the 84-script guard passed. The new smoke passed all 79 steps in
+9 seconds (17 seconds with setup/cleanup), with desktop and hybrid screenshots
+inspected: `auradream-smoke-artifacts-jy890r8u/summary.json` under system temp.
+The fake vocabulary is deterministic; it does not establish which names the
+live Danbooru index currently accepts.
+
+Four existing smokes also passed: prompt-assistant, assistant-workflow,
+mixed-prompts and tags. The first three passed in
+`auradream-smoke-artifacts-7yi5r1qe/summary.json`. The tags fixture's old 70 px
+wheel stopped 19 px before its under-header prerequisite, independently of the
+new draft renderer. Its native scroll now awaits the actual bottom-held
+geometry as a fatal prerequisite, retaining the exact Alt+Arrow/Delete
+stability assertions. That smoke passed in 21 seconds (30 seconds including
+setup/cleanup): `auradream-smoke-artifacts-blcw399c/summary.json`; 41 additional
+focused harness checks passed. All fake servers and owned browsers were stopped.
