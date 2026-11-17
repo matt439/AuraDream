@@ -5419,7 +5419,7 @@ status and the free space wrapped to two lines each, and the mirror was cut to
 from a hang, while in one column the mirror is the job's only readout in view.
 At 700 px and below the free space is hidden while a job is mirrored
 (`.topbar:has(#job-mirror:not([hidden])) .vram`), the mirror's
-`margin-right: auto` keeping Load and Unload at the bar's end; wider,
+`margin-right: auto` keeping the actions at the bar's end; wider,
 everything fits and it stays.
 
 **A finished job joins the gallery at its head.** It used to reset the
@@ -11785,7 +11785,10 @@ GGUF and shared runtime if missing. The UI distinguishes download bytes from
 unmeasured memory requirements. All assistant card testing remains held.
 
 Matt's 2026-11-17 layout review moved writing out of Examples into a direct
-Assistant button beside the prompt. A nonmodal right sidebar keeps the editor
+Assistant button. His follow-up placed it at the right end of the desktop
+topbar, above the sidebar it opens, rather than across the screen in the left
+prompt toolbar. Phones retain their prompt-toolbar access to the full-screen
+assistant. A nonmodal right sidebar keeps the editor
 usable alongside the conversation. Wide windows reserve its width; smaller
 windows overlay the workspace, with a full visible-viewport panel on phones.
 Earlier messages retain their drafts, while only the latest answer offers Use.
@@ -11808,7 +11811,7 @@ text, so no Notes disclosure row consumes space. Three short drafts fit together
 on a wide desktop. Repeated setup/privacy copy lives in About the
 local assistant at the bottom, opening upward without moving the composer.
 Prompt/help stay above the writing tools. Reset is the last button on the same
-toolbar row as Examples, Assistant, Tags and Check, aligned at its right edge.
+toolbar row as Examples, Tags and Check, aligned at its right edge.
 Draft cards use the same muted purple surface as the tag tray, with a strong
 outer border. Their inline notes share the card's surface, distinguished by
 smaller, softer text and a little space rather than an internal dividing line

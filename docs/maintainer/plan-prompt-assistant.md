@@ -9,8 +9,9 @@ checks establish source behavior only.
 ## Scope
 
 One optional **Prompt assistant** right sidebar holds Create, Improve and Find tags.
-The prompt caption's **Assistant** button opens it directly, on desktop and
-phone. It is nonmodal, with the main editor available while it stays open.
+The desktop topbar's rightmost **Assistant** button opens it directly, aligned
+with the sidebar. Phones keep the same button in their prompt toolbar. It is
+nonmodal, with the main editor available while it stays open.
 The selected image checkpoint's guide accompanies each question. Create may
 suggest creative details; Improve is asked to preserve the source's subjects,
 constraints, exclusions and exact lettering unless the instruction changes them.
@@ -535,3 +536,32 @@ both bottom-follow and reading-position preservation. Desktop and phone
 screenshots were inspected. Final receipts under the system temporary directory:
 `auradream-smoke-artifacts-ryhtc3an/summary.json` (assistant) and
 `auradream-smoke-artifacts-gj0hhjb9/summary.json` (keyboard regressions).
+
+## Sidebar opener alignment (2026-11-17)
+
+Matt found the left-side opener disconnected from the right sidebar. The
+desktop Assistant button now sits at the right end of the topbar, directly
+above the pane, at the same size as its neighbouring actions. The same node
+and its expanded state, toggle and focus-return paths are retained. On phones
+it still moves into the existing prompt toolbar for the full-screen assistant.
+At 600 px and below the word mark gives the checkpoint status and actions
+enough room; a native 400 px check caught overflow before this adjustment.
+
+The existing browser fixtures now check the rightmost header action separately
+from the prompt tools, including native hit tests at 800 and 400 px and the
+phone-to-desktop return. Desktop and narrow screenshots were inspected.
+
+Five focused browser smokes passed: prompt-assistant, control-sizing, phone,
+phone-create and narrow. The narrow fixture's old y749 click points landed
+1.5 px above Generate; measured right-edge centres and fatal hit prerequisites
+replace them. Its load-state check now expects Assistant after Load/Unload.
+All 106 focused documentation-map, section-bound, classic-script and browser
+output tests passed, along with Ruff and `git diff --check`.
+
+Receipts under the system temporary directory:
+`auradream-smoke-artifacts-art6f6qg/summary.json` (final assistant pass;
+its original narrow failure was diagnosed and corrected),
+`auradream-smoke-artifacts-p6bxri_l/summary.json` (sizing and phone passes),
+and `auradream-smoke-artifacts-z58gqqyg/summary.json` (final narrow pass).
+The isolated fake servers and browser processes were stopped. No model weights
+or GPU inference were used; the assistant's GPU hold remains in force.

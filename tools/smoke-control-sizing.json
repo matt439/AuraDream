@@ -16,7 +16,7 @@
     "eval": "window.__when = async (fn, ms = 10000) => { const end = Date.now() + ms; while (Date.now() < end) { try { if (await fn()) return true; } catch { /* not drawn yet */ } await new Promise((r) => setTimeout(r, 50)); } return !!(await fn()); }"
   },
   {
-    "eval": "window.__until = async (fn, ms = 20000) => { const end = Date.now() + ms; while (Date.now() < end) { if (await fn()) return true; await new Promise(r => setTimeout(r, 50)); } return false; };\nwindow.__frames = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));\nwindow.__visible = el => !!el && el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().height > 0;\nwindow.__box = el => { const r = el.getBoundingClientRect(); return {x:r.x,y:r.y,width:r.width,height:r.height}; };\nwindow.__sameBox = (a, b) => ['x','y','width','height'].every(k => Math.abs(a[k] - b[k]) < 0.6);\nwindow.__caption = () => els.prompt.closest('.field').querySelector(':scope > span');\nwindow.__captionButtons = () => [els.examplesBtn,els.assistantToggle,els.tagsBtn,els.analyze,els.expandPrompt,els.reset].filter(__visible);\nwindow.__captionFits = () => { const cap=__caption().getBoundingClientRect(), tools=document.querySelector('.prompt-tools').getBoundingClientRect(), reset=els.reset.getBoundingClientRect(), rs=__captionButtons().map(b=>b.getBoundingClientRect()), centers=rs.map(r=>(r.top+r.bottom)/2); return rs.length>=4 && els.reset.parentElement===document.querySelector('.prompt-tools') && Math.abs(reset.right-tools.right)<0.6 && tools.top>=cap.bottom+5.5 && tools.bottom<=els.prompt.getBoundingClientRect().top && rs.every(r=>r.height>=23.5&&r.left>=tools.left-0.6&&r.right<=tools.right+0.6) && __captionButtons().every(b=>parseFloat(getComputedStyle(b).fontSize)>=11) && Math.max(...centers)-Math.min(...centers)<0.6 && rs.every((a,i)=>rs.every((b,j)=>i===j||a.right<=b.left+0.6||b.right<=a.left+0.6)); };\nwindow.__footerButtons = () => [...document.querySelectorAll('.gallery-footer button')].filter(__visible);\nwindow.__footerFits = () => { const f = document.querySelector('.gallery-footer').getBoundingClientRect(); const bs = __footerButtons(); const rs=bs.map(b=>b.getBoundingClientRect()); return document.documentElement.scrollWidth <= document.documentElement.clientWidth && bs.length>=6 && rs.every(r=>r.height>=25.5 && r.width>=23.5 && r.left>=f.left-0.6 && r.right<=f.right+0.6 && r.left>=0 && r.right<=document.documentElement.clientWidth) && Math.max(...rs.map(r=>r.top))-Math.min(...rs.map(r=>r.top))<1; };\nwindow.__hit = el => { const r=el.getBoundingClientRect(); const top=document.querySelector('.topbar').getBoundingClientRect().bottom; return r.top>=top && r.bottom<=innerHeight && [0.15,0.5,0.85].every(v=>{const hit=document.elementFromPoint(r.left+r.width*v,r.top+r.height/2); return hit===el || el.contains(hit);}); };\nwindow.__ring = el => { const s=getComputedStyle(el); return document.activeElement===el && el.matches(':focus-visible') && s.outlineStyle==='solid' && parseFloat(s.outlineWidth)>=2 && s.outlineColor==='rgb(74, 214, 200)'; };\nwindow.__snapshot = () => ({viewport:[innerWidth,innerHeight,devicePixelRatio],model:loadedModel,caption:__captionButtons().map(b=>[b.id,__box(b),getComputedStyle(b).fontSize]),footer:__footerButtons().map(b=>[b.id,__box(b)])});\nwindow.__switchSizingModel = async id => { const r=await fetch('/api/model/switch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model_id:id,load:false})}); if(!r.ok)throw new Error(await r.text()); if(!await __until(async()=>{const s=await api('/api/status'); if(s.model_id!==id || s.switching)return false; receiveStatus(s,Date.now()); return true;},5000))throw new Error('Sizing model switch timed out: '+id); await __frames(); };\nwindow.__captionResults = [];\nwindow.__walkCaptionModels = async ids => { for(const id of ids){await __switchSizingModel(id);const fit=__captionFits();__captionResults.push({...__snapshot(),fit});if(!fit)return false;}return true; };"
+    "eval": "window.__until = async (fn, ms = 20000) => { const end = Date.now() + ms; while (Date.now() < end) { if (await fn()) return true; await new Promise(r => setTimeout(r, 50)); } return false; };\nwindow.__frames = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));\nwindow.__visible = el => !!el && el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().height > 0;\nwindow.__box = el => { const r = el.getBoundingClientRect(); return {x:r.x,y:r.y,width:r.width,height:r.height}; };\nwindow.__sameBox = (a, b) => ['x','y','width','height'].every(k => Math.abs(a[k] - b[k]) < 0.6);\nwindow.__caption = () => els.prompt.closest('.field').querySelector(':scope > span');\nwindow.__captionButtons = () => [els.examplesBtn,els.tagsBtn,els.analyze,els.expandPrompt,els.reset].filter(__visible);\nwindow.__captionFits = () => { const cap=__caption().getBoundingClientRect(), tools=document.querySelector('.prompt-tools').getBoundingClientRect(), reset=els.reset.getBoundingClientRect(), rs=__captionButtons().map(b=>b.getBoundingClientRect()), centers=rs.map(r=>(r.top+r.bottom)/2); return rs.length>=3 && els.reset.parentElement===document.querySelector('.prompt-tools') && Math.abs(reset.right-tools.right)<0.6 && tools.top>=cap.bottom+5.5 && tools.bottom<=els.prompt.getBoundingClientRect().top && rs.every(r=>r.height>=23.5&&r.left>=tools.left-0.6&&r.right<=tools.right+0.6) && __captionButtons().every(b=>parseFloat(getComputedStyle(b).fontSize)>=11) && Math.max(...centers)-Math.min(...centers)<0.6 && rs.every((a,i)=>rs.every((b,j)=>i===j||a.right<=b.left+0.6||b.right<=a.left+0.6)); };\nwindow.__assistantTopbarFits = () => { const e=els.assistantToggle, bar=document.querySelector('.topbar'), r=e.getBoundingClientRect(), b=bar.getBoundingClientRect(), s=getComputedStyle(bar), buttons=[...bar.querySelectorAll(':scope > button')].filter(__visible); return e.parentElement===bar && buttons.at(-1)===e && r.left>=innerWidth/2 && r.top>=b.top && r.bottom<=b.bottom && r.bottom<=innerHeight && Math.abs(r.right-(b.right-parseFloat(s.paddingRight)-parseFloat(s.borderRightWidth)))<0.6 && [0.15,0.5,0.85].every(v=>{const hit=document.elementFromPoint(r.left+r.width*v,r.top+r.height/2);return hit===e||e.contains(hit);}); };\nwindow.__footerButtons = () => [...document.querySelectorAll('.gallery-footer button')].filter(__visible);\nwindow.__footerFits = () => { const f = document.querySelector('.gallery-footer').getBoundingClientRect(); const bs = __footerButtons(); const rs=bs.map(b=>b.getBoundingClientRect()); return document.documentElement.scrollWidth <= document.documentElement.clientWidth && bs.length>=6 && rs.every(r=>r.height>=25.5 && r.width>=23.5 && r.left>=f.left-0.6 && r.right<=f.right+0.6 && r.left>=0 && r.right<=document.documentElement.clientWidth) && Math.max(...rs.map(r=>r.top))-Math.min(...rs.map(r=>r.top))<1; };\nwindow.__hit = el => { const r=el.getBoundingClientRect(); const top=document.querySelector('.topbar').getBoundingClientRect().bottom; return r.top>=top && r.bottom<=innerHeight && [0.15,0.5,0.85].every(v=>{const hit=document.elementFromPoint(r.left+r.width*v,r.top+r.height/2); return hit===el || el.contains(hit);}); };\nwindow.__ring = el => { const s=getComputedStyle(el); return document.activeElement===el && el.matches(':focus-visible') && s.outlineStyle==='solid' && parseFloat(s.outlineWidth)>=2 && s.outlineColor==='rgb(74, 214, 200)'; };\nwindow.__snapshot = () => ({viewport:[innerWidth,innerHeight,devicePixelRatio],model:loadedModel,assistant:__box(els.assistantToggle),caption:__captionButtons().map(b=>[b.id,__box(b),getComputedStyle(b).fontSize]),footer:__footerButtons().map(b=>[b.id,__box(b)])});\nwindow.__switchSizingModel = async id => { const r=await fetch('/api/model/switch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model_id:id,load:false})}); if(!r.ok)throw new Error(await r.text()); if(!await __until(async()=>{const s=await api('/api/status'); if(s.model_id!==id || s.switching)return false; receiveStatus(s,Date.now()); return true;},5000))throw new Error('Sizing model switch timed out: '+id); await __frames(); };\nwindow.__captionResults = [];\nwindow.__walkCaptionModels = async ids => { for(const id of ids){await __switchSizingModel(id);const fit=__captionFits()&&__assistantTopbarFits();__captionResults.push({...__snapshot(),fit});if(!fit)return false;}return true; };"
   },
   {
     "expect": "__until(()=>modelState==='ready'&&!galleryPending)"
@@ -25,7 +25,7 @@
     "eval": "resetPanel(); showError(''); clearSelection(); setSelectMode(false); scrollTo(0,0); window.__sizingOriginalModel=loadedModel;"
   },
   {
-    "expect": "__captionFits() && Math.abs(els.generate.getBoundingClientRect().height-43)<0.6 && els.generate.getBoundingClientRect().height>els.analyze.getBoundingClientRect().height+15 && getComputedStyle(els.generate).backgroundColor!==getComputedStyle(els.reset).backgroundColor && getComputedStyle(els.reset).backgroundColor===getComputedStyle(els.analyze).backgroundColor"
+    "expect": "__captionFits() && __assistantTopbarFits() && Math.abs(els.generate.getBoundingClientRect().height-43)<0.6 && els.generate.getBoundingClientRect().height>els.analyze.getBoundingClientRect().height+15 && getComputedStyle(els.generate).backgroundColor!==getComputedStyle(els.reset).backgroundColor && getComputedStyle(els.reset).backgroundColor===getComputedStyle(els.analyze).backgroundColor"
   },
   {
     "eval": "els.seed.value='5720723289104536'; window.__seedWidth=els.seed.getBoundingClientRect().width; window.__panelWidth=document.querySelector('.panel').getBoundingClientRect().width; els.examplesBtn.focus({preventScroll:true});"
@@ -145,7 +145,7 @@
     "expect": "__ring(els.pickedBtn) && __sameBox(__box(els.pickedBtn),__narrowPicked)"
   },
   {
-    "log": "'All catalogue models keep Reset on the field-name row and their writing tools on one stable row below it, including Assistant, Tags and the ERNIE Expand combination. Switching selects cold fake profiles only.'"
+    "log": "'All catalogue models keep Reset at the right end of the prompt tools, with Tags and the ERNIE Expand combination on that same stable row. Assistant stays at the right end of the topbar. Switching selects cold fake profiles only.'"
   },
   {
     "viewport": [
@@ -167,7 +167,7 @@
     "eval": "(async()=>{await __switchSizingModel(__sizingOriginalModel);scrollTo(0,0);els.examplesBtn.focus({preventScroll:true});await __frames();})()"
   },
   {
-    "expect": "__captionFits() && __hit(els.examplesBtn) && Math.abs(els.seed.getBoundingClientRect().width-__seedWidth)<0.6 && Math.abs(document.querySelector('.panel').getBoundingClientRect().width-__panelWidth)<0.6"
+    "expect": "__captionFits() && __assistantTopbarFits() && __hit(els.examplesBtn) && Math.abs(els.seed.getBoundingClientRect().width-__seedWidth)<0.6 && Math.abs(document.querySelector('.panel').getBoundingClientRect().width-__panelWidth)<0.6"
   },
   {
     "log": "'Responsive caption shapes at 600x900, 1536x864 at 125%, and 2048x1040 at 125% retain visible focus and a larger primary action. Footer target geometry is checked at each width.'"
@@ -195,7 +195,7 @@
     ]
   },
   {
-    "expect": "__captionFits() && __ring(els.examplesBtn) && __hit(els.examplesBtn) && els.generate.getBoundingClientRect().height>=42.5 && els.generate.getBoundingClientRect().height>els.analyze.getBoundingClientRect().height+15 && getComputedStyle(els.generate).backgroundColor!==getComputedStyle(els.analyze).backgroundColor"
+    "expect": "__captionFits() && __assistantTopbarFits() && __ring(els.examplesBtn) && __hit(els.examplesBtn) && els.generate.getBoundingClientRect().height>=42.5 && els.generate.getBoundingClientRect().height>els.analyze.getBoundingClientRect().height+15 && getComputedStyle(els.generate).backgroundColor!==getComputedStyle(els.analyze).backgroundColor"
   },
   {
     "eval": "els.bundles.scrollIntoView({block:'center'});"
@@ -229,7 +229,7 @@
     ]
   },
   {
-    "expect": "__captionFits() && __ring(els.examplesBtn) && __hit(els.examplesBtn) && els.generate.getBoundingClientRect().height>=42.5 && els.generate.getBoundingClientRect().height>els.analyze.getBoundingClientRect().height+15 && getComputedStyle(els.generate).backgroundColor!==getComputedStyle(els.analyze).backgroundColor"
+    "expect": "__captionFits() && __assistantTopbarFits() && __ring(els.examplesBtn) && __hit(els.examplesBtn) && els.generate.getBoundingClientRect().height>=42.5 && els.generate.getBoundingClientRect().height>els.analyze.getBoundingClientRect().height+15 && getComputedStyle(els.generate).backgroundColor!==getComputedStyle(els.analyze).backgroundColor"
   },
   {
     "eval": "els.bundles.scrollIntoView({block:'center'});"
@@ -263,7 +263,7 @@
     ]
   },
   {
-    "expect": "__captionFits() && __ring(els.examplesBtn) && __hit(els.examplesBtn) && els.generate.getBoundingClientRect().height>=42.5 && els.generate.getBoundingClientRect().height>els.analyze.getBoundingClientRect().height+15 && getComputedStyle(els.generate).backgroundColor!==getComputedStyle(els.analyze).backgroundColor"
+    "expect": "__captionFits() && __assistantTopbarFits() && __ring(els.examplesBtn) && __hit(els.examplesBtn) && els.generate.getBoundingClientRect().height>=42.5 && els.generate.getBoundingClientRect().height>els.analyze.getBoundingClientRect().height+15 && getComputedStyle(els.generate).backgroundColor!==getComputedStyle(els.analyze).backgroundColor"
   },
   {
     "eval": "els.bundles.scrollIntoView({block:'center'});"
@@ -275,7 +275,7 @@
     "log": "JSON.stringify(__snapshot())"
   },
   {
-    "log": "'The complete tag prompt toolbar at 1400, 1800 and 2048: Reset stays on the field-name row and all writing tools fit below it.'"
+    "log": "'The complete tag prompt toolbar at 1400, 1800 and 2048: Reset and writing tools fit one row, and Assistant remains the rightmost topbar action.'"
   },
   {
     "viewport": [
@@ -289,7 +289,7 @@
     "fatal": true
   },
   {
-    "expect": "(async()=>{scrollTo(0,0);await __frames();return __captionFits()&&__hit(els.reset)&&__hit(els.assistantToggle);})()",
+    "expect": "(async()=>{scrollTo(0,0);await __frames();return __captionFits()&&__hit(els.reset)&&__assistantTopbarFits();})()",
     "fatal": true
   },
   {
@@ -307,7 +307,7 @@
     "fatal": true
   },
   {
-    "expect": "(async()=>{scrollTo(0,0);await __frames();return __captionFits()&&__hit(els.reset)&&__hit(els.assistantToggle);})()",
+    "expect": "(async()=>{scrollTo(0,0);await __frames();return __captionFits()&&__hit(els.reset)&&__assistantTopbarFits();})()",
     "fatal": true
   },
   {
@@ -325,7 +325,7 @@
     "fatal": true
   },
   {
-    "expect": "(async()=>{scrollTo(0,0);await __frames();return __captionFits()&&__hit(els.reset)&&__hit(els.assistantToggle);})()",
+    "expect": "(async()=>{scrollTo(0,0);await __frames();return __captionFits()&&__hit(els.reset)&&__assistantTopbarFits();})()",
     "fatal": true
   },
   {

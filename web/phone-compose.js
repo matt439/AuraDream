@@ -9,8 +9,8 @@
 'use strict';
 
 // The nodes moved here, each home again off the phone: the status into
-// Models (the chip), and the caption's Examples, Assistant, Check, Tags and
-// Expand into the toolbar. Reset is the topbar ⋯'s.
+// Models (the chip), the topbar's Assistant and the prompt's Examples, Check,
+// Tags and Expand into the toolbar. Reset is the topbar ⋯'s.
 const phoneToolbarNodes = () => [$('examples'), els.assistantToggle, els.analyze, els.tagHelper, els.expandPrompt];
 const phoneComposeMoved = () => [$('status'), ...phoneToolbarNodes()];
 

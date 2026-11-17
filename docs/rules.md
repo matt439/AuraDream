@@ -3925,10 +3925,13 @@ measured on the card and when.
   out of browser storage and gallery data. `syncLoadButton` is the Load
   button's aria/title writer, including the assistant's hold. CPU checks
   do not qualify this workflow's GPU latency, memory or prompt quality.
-- The prompt toolbar's Assistant toggle opens a named, nonmodal right sidebar,
-  never Examples or a native dialog. At 1280 px and above the workspace reserves
+- The desktop topbar's rightmost Assistant toggle opens a named, nonmodal right
+  sidebar directly. At 600 px and below the word mark gives its room to the checkpoint
+  status and actions, keeping the toggle inside the window.
+  At 1280 px and above the workspace reserves
   its width; smaller windows overlay it, and phones fill the visible viewport.
-  The editor stays usable. Ctrl/Cmd+Enter within the sidebar sends; Escape there
+  Phones keep the same button in the prompt toolbar. The editor stays usable.
+  Ctrl/Cmd+Enter within the sidebar sends; Escape there
   closes it, while workspace shortcuts retain their ordinary routes. Close and
   touch Back request Stop and discard late replies. Conversation and earlier
   drafts remain visible above the fixed composer; only the newest answer offers
@@ -4603,11 +4606,12 @@ measured on the card and when.
   so a state change cannot move a control under the pointer. Narrow footer
   wrapping and the error line's reserved slot remain unchanged.
 - Prompt's name and help share `.prompt-caption`. The named `.prompt-tools`
-  group holds Examples, Assistant, Tags, Check, Expand and Reset in one compact
+  group holds Examples, Tags, Check, Expand and Reset in one compact
   row, with Reset at the right edge. Model-specific tools cannot wrap Reset
   onto a line alone. Phone movers use the same nodes; Reset stays hidden at
   home as the topbar menu's action, and the otherwise empty home toolbar hides.
-  Returning to desktop restores each node to its proper row.
+  Returning to desktop restores each node to its proper row, including Assistant
+  at the right edge of the topbar above its sidebar.
 
 #### The panel's controls
 
@@ -5622,7 +5626,7 @@ measured on the card and when.
   status text is a live region, so it is written only when it changes. At
   700 px and below, while `#job-mirror` is shown, the free-space reading
   (`.vram`) is hidden so the mirror and its load clock fit; the mirror's
-  `margin-right: auto` keeps Load and Unload at the bar's end; wider, the
+  `margin-right: auto` keeps the actions at the bar's end; wider, the
   free-space reading stays. While a job waits on the load, a client ticker
   writes "loading weights" with an `aria-hidden` clock span ("· m:ss") in
   `#progress-text` over an indeterminate bar; while the strip is empty (its
@@ -11387,7 +11391,8 @@ a manually completed receipt, never executes it.
 7960. It covers the three task modes and a follow-up, explicit draft application
 and undo, tag verdicts and insertion, changed-editor refusals, failure/retry,
 Stop/Close/reopen, checkpoint changes, and the nonmodal sidebar on desktop and
-phone, with accessibility and phone-layout audits. Direct access, retained
+phone, with accessibility and phone-layout audits. Direct access from the
+rightmost desktop topbar action, native hit checks at 800 and 400 px, retained
 structured history, workspace interaction, focus leaving the sidebar, explicit
 apply/rebase and Undo, reserved wide-layout room, narrow Escape and touch Back
 are checked. Message checks cover immediate clearing through Send and Ctrl+Enter,
@@ -12097,7 +12102,7 @@ to Generate; a press with nothing in the viewer focusing the viewer, which
 lets its tabindex go on blur; after a job, focus arriving in the panel
 keeping the pill, and a typed character or a real press on the prompt
 withdrawing it; the topbar's mirror whole with its load clock at 600 px,
-the status on one line and Unload at the bar's end, with the free space
+the status on one line and Assistant at the bar's end, with the free space
 back at 1400; the Search tip inside the window at 600 and 700 px (risen
 by `placeTip` where it fits neither under nor over its badge) and
 unshifted sideways at 1400; the grid's LoRA weight tip clear of the left edge at

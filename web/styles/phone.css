@@ -467,12 +467,12 @@
   .prompt-toolbar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: center; gap: var(--sp-2); min-width: 0; margin-top: var(--sp-2); }
   .prompt-toolbar > :is(span, button) { min-width: 0; margin: 0; }
   .prompt-toolbar #btn-examples, .prompt-toolbar #btn-tags { width: 100%; }
-  .prompt-toolbar .ghost.tiny { margin: 0; }
+  .prompt-toolbar :is(.ghost.tiny, #btn-prompt-assistant) { margin: 0; }
   /* Reset and Load settings from PNG… are the topbar ⋯'s rows here (each
      its own button's press), not drawn in the caption or the panel. */
   .field > span #btn-reset, .panel > .png-load { display: none; }
   .prompt-toolbar > [hidden] { display: none; }
-  .prompt-toolbar .ghost.tiny {
+  .prompt-toolbar :is(.ghost.tiny, #btn-prompt-assistant) {
     min-height: var(--h-md); height: var(--h-md); padding-inline: var(--sp-4);
     background-color: var(--panel-2); border-color: var(--line-strong); color: var(--text);
     font-size: var(--fs-md); font-weight: 600;
