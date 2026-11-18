@@ -1,0 +1,431 @@
+{
+  "date": "2026-11-18",
+  "source_commit": "f8f4cf2de7c690300735ea189876f687c5f937b1",
+  "runtime_source_count": 317,
+  "backend_raw_sha256": "c3a85a23288be5d3ccb3bdb1b4751f5456c75d714685d9cf02f3e597c838274e",
+  "hardware": "local RTX5080,16303MiB, Windows host with Ubuntu WSL2",
+  "stack": {
+    "torch": "2.13.0+cu130",
+    "diffusers": "0.42.1",
+    "transformers": "5.16.1",
+    "huggingface-hub": "1.33.0",
+    "kernels": "0.16.1",
+    "bitsandbytes": "0.50.2"
+  },
+  "downloads_performed": false,
+  "shared_model_or_kernel_cache_repaired": false,
+  "real_gallery_modified": false,
+  "global_WSL_shutdown_or_distro_termination": false,
+  "ok": true,
+  "measurement_completed": true,
+  "immediate_kill_on_close_passed": false,
+  "scope": "actual WSL critic owner SIGKILL and observed existing idle sleep fallback; not typed Ctrl-C",
+  "image_model_calls": 0,
+  "server": {
+    "owner_pid": 540,
+    "server_pid": 595,
+    "server_identity": {
+      "pid": 595,
+      "state": "R",
+      "start_ticks": 170262,
+      "uid": 1000,
+      "pgid": 595,
+      "sid": 595
+    },
+    "spawn_monotonic": 1702.625766638,
+    "server_session": 595,
+    "port": 40703,
+    "source_sha256": {
+      "backend/critic.py": "f89637908c42b1528191648f76e60bffbd5c2f5d3c5ffb8cd874ab90e6d9113f",
+      "backend/critic_server.py": "009c5e60959fa56f2f38ca5c9a6bde5ccfd659f6e3a02424b2d965cccfa3977d",
+      "backend/critic_context.py": "efb6bb2b8a750d8434e1e14b56402465cb6daa4cb762d4363a183af80f5f6157"
+    },
+    "model_sha256": "8c2f07f26af9747e41988551106f149b03eb9b5cb6df636027b6bf6278473300",
+    "model_bytes": 4280404704,
+    "server_path": "/home/matsi/.cache/huggingface/local-diffusion/llama.cpp/b11206-ubuntu-cuda-13.4-x64/llama-server",
+    "server_sha256": "626db7dc7f5e9da39d425821314d4d925bbd00d13310be60944c1283e8f82c1a",
+    "server_bytes": 17888,
+    "python": "3.13.15 (main, Sep  1 2026, 14:18:08) [Clang 22.1.3 ]",
+    "packages": {
+      "diffusers": "0.42.1",
+      "torch": "2.13.0+cu130",
+      "transformers": "5.16.1",
+      "huggingface-hub": "1.33.0"
+    }
+  },
+  "observations": [
+    {
+      "seconds_after_app_kill": 0.036118510000051174,
+      "owner_alive": false,
+      "server_alive": true,
+      "listener_open": true,
+      "whole_card_mib": 6824.0,
+      "linux_free_ram_gib": 45.32401657104492
+    },
+    {
+      "seconds_after_app_kill": 1.066771516000017,
+      "owner_alive": false,
+      "server_alive": true,
+      "listener_open": true,
+      "whole_card_mib": 6824.0,
+      "linux_free_ram_gib": 45.32170867919922
+    },
+    {
+      "seconds_after_app_kill": 5.1100415369999155,
+      "owner_alive": false,
+      "server_alive": true,
+      "listener_open": true,
+      "whole_card_mib": 6824.0,
+      "linux_free_ram_gib": 45.32008361816406
+    },
+    {
+      "seconds_after_app_kill": 30.040163314999972,
+      "owner_alive": false,
+      "server_alive": true,
+      "listener_open": true,
+      "whole_card_mib": 6824.0,
+      "linux_free_ram_gib": 45.321163177490234
+    },
+    {
+      "seconds_after_app_kill": 60.08147424799995,
+      "owner_alive": false,
+      "server_alive": true,
+      "listener_open": true,
+      "whole_card_mib": 6824.0,
+      "linux_free_ram_gib": 45.32792282104492
+    },
+    {
+      "seconds_after_app_kill": 90.12076404300001,
+      "owner_alive": false,
+      "server_alive": true,
+      "listener_open": true,
+      "whole_card_mib": 6824.0,
+      "linux_free_ram_gib": 45.3294563293457
+    },
+    {
+      "seconds_after_app_kill": 120.04919192200009,
+      "owner_alive": false,
+      "server_alive": true,
+      "listener_open": true,
+      "whole_card_mib": 6824.0,
+      "linux_free_ram_gib": 45.32781219482422
+    },
+    {
+      "seconds_after_app_kill": 130.11737122399995,
+      "owner_alive": false,
+      "server_alive": true,
+      "listener_open": true,
+      "whole_card_mib": 1502.0,
+      "linux_free_ram_gib": 45.34663009643555
+    },
+    {
+      "seconds_after_app_kill": 145.09297497500006,
+      "owner_alive": false,
+      "server_alive": true,
+      "listener_open": true,
+      "whole_card_mib": 1502.0,
+      "linux_free_ram_gib": 45.345027923583984
+    },
+    {
+      "seconds_after_app_kill": 160.0781312040001,
+      "owner_alive": false,
+      "server_alive": true,
+      "listener_open": true,
+      "whole_card_mib": 1502.0,
+      "linux_free_ram_gib": 45.345054626464844
+    }
+  ],
+  "finding": "Server process/listener survives owning-app SIGKILL; idle sleep releases most GPU memory by130s; external safety supervisor finally removes owned sessions.",
+  "cleanup": {
+    "ok": true,
+    "remaining": [],
+    "signalled_groups": {
+      "595": 595
+    },
+    "known_identities": [
+      {
+        "pid": 532,
+        "name": "python",
+        "state": "S",
+        "ppid": 426,
+        "pgid": 532,
+        "sid": 532,
+        "task_flags": 4194304,
+        "kernel_thread": false,
+        "start_ticks": 169148,
+        "uid": 1000
+      },
+      {
+        "pid": 540,
+        "name": "python",
+        "state": "S",
+        "ppid": 532,
+        "pgid": 540,
+        "sid": 540,
+        "task_flags": 4194304,
+        "kernel_thread": false,
+        "start_ticks": 169161,
+        "uid": 1000
+      },
+      {
+        "pid": 595,
+        "name": "llama-server",
+        "state": "T",
+        "ppid": 426,
+        "pgid": 595,
+        "sid": 595,
+        "task_flags": 4194304,
+        "kernel_thread": false,
+        "start_ticks": 170262,
+        "uid": 1000
+      },
+      {
+        "pid": 638,
+        "name": "nvidia-smi",
+        "state": "D",
+        "ppid": 532,
+        "pgid": 532,
+        "sid": 532,
+        "task_flags": 4194572,
+        "kernel_thread": false,
+        "start_ticks": 170424,
+        "uid": 1000
+      },
+      {
+        "pid": 640,
+        "name": "nvidia-smi",
+        "state": "R",
+        "ppid": 532,
+        "pgid": 532,
+        "sid": 532,
+        "task_flags": 4194304,
+        "kernel_thread": false,
+        "start_ticks": 170528,
+        "uid": 1000
+      },
+      {
+        "pid": 649,
+        "name": "nvidia-smi",
+        "state": "R",
+        "ppid": 532,
+        "pgid": 532,
+        "sid": 532,
+        "task_flags": 4194316,
+        "kernel_thread": false,
+        "start_ticks": 173425,
+        "uid": 1000
+      },
+      {
+        "pid": 655,
+        "name": "nvidia-smi",
+        "state": "D",
+        "ppid": 532,
+        "pgid": 532,
+        "sid": 532,
+        "task_flags": 4194304,
+        "kernel_thread": false,
+        "start_ticks": 176428,
+        "uid": 1000
+      },
+      {
+        "pid": 671,
+        "name": "nvidia-smi",
+        "state": "R",
+        "ppid": 532,
+        "pgid": 532,
+        "sid": 532,
+        "task_flags": 4456448,
+        "kernel_thread": false,
+        "start_ticks": 179433,
+        "uid": 1000
+      },
+      {
+        "pid": 695,
+        "name": "nvidia-smi",
+        "state": "D",
+        "ppid": 532,
+        "pgid": 532,
+        "sid": 532,
+        "task_flags": 4194304,
+        "kernel_thread": false,
+        "start_ticks": 184930,
+        "uid": 1000
+      }
+    ]
+  },
+  "post_cleanup_loopback_connect_codes": {
+    "7999": 10035,
+    "40703": 10035
+  },
+  "windows_guard": {
+    "samples": 692,
+    "recomputed_ok": 692,
+    "limits": {
+      "card_mib": 15500.0,
+      "project_mib": 15200.0,
+      "refuse_at_peak_mib": 15000.0,
+      "adapter_shared_rise_mib": 300.0,
+      "process_shared_rise_mib": 512.0,
+      "ram_floor_gib": 4.0,
+      "commit_floor_gib": 4.0,
+      "need_ram_gib": 16.0,
+      "busy_card_mib": 2500.0,
+      "card_unread_samples": 3.0,
+      "margin_mib": 500.0,
+      "margin_gib": 1.0
+    },
+    "card_peak_mib": 6824.0,
+    "adapter_shared_rise_mib": 120.73828125,
+    "ram_min_gib": 43.49476623535156,
+    "commit_min_gib": 41.58089065551758,
+    "mean_sample_gap_seconds": 0.2566358298118664,
+    "max_sample_gap_seconds": 0.26770729999407195,
+    "clock": "Windows time.monotonic"
+  },
+  "linux_guard": {
+    "samples": 4006,
+    "rss_peak_gib": 4.456523895263672,
+    "swap_peak_kib": 0,
+    "available_min_gib": 45.19948196411133,
+    "sampler_clock": {
+      "clock": "Linux time.monotonic",
+      "samples": 4006,
+      "mean_gap_seconds": 0.043158298967290856,
+      "max_gap_seconds": 0.05643776500005515,
+      "note": "gaps use only this process-side clock; Windows and Linux monotonic origins are never subtracted"
+    }
+  },
+  "external_safety_subreaper": true,
+  "production_source_changed_for_WSL_critic": false,
+  "typed_Ctrl_C_exercised": false,
+  "evidence": [
+    {
+      "path": ".artifacts/gpu-20261118/wsl/critic-owner-card-f8f4cf2/independent-audit.json",
+      "sha256": "c3fd8b2c91e2c339a14757260d3ac4db09e7f35d717d3d2515d733f7220dd013",
+      "bytes": 7722
+    },
+    {
+      "path": ".artifacts/gpu-20261118/wsl/critic-runtime-fingerprint-f8f4cf2-a2.json",
+      "sha256": "eaf3df14828e5b7bb2af0bf2eb54e76be49dc4a112fb91d1da18ba814b633640",
+      "bytes": 84190
+    }
+  ],
+  "at_baton_release": {
+    "GPU_used_MiB": 1182,
+    "GPU_utilization_percent": 0,
+    "free_RAM_GiB": 49.2,
+    "commit_headroom_GiB": 52.64,
+    "Ubuntu": "Stopped naturally",
+    "owned_listening_ports": [],
+    "owned_model_workers": []
+  },
+  "source_and_guard_evidence": [
+    {
+      "path": ".artifacts/gpu-20261118/wsl/critic-owner-card-f8f4cf2/summary.json",
+      "sha256": "997fbc3089bd7225b477e28f617688b13f30fabc31bb9fad48f194cd2ee091fb",
+      "bytes": 3987
+    },
+    {
+      "path": ".artifacts/gpu-20261118/wsl/critic-owner-card-f8f4cf2/guard.jsonl",
+      "sha256": "61ccb82e41fddc65fdab759d537cb13fd13e8f0ed7f39fc5c48b29e43e0ad522",
+      "bytes": 302748
+    },
+    {
+      "path": ".artifacts/gpu-20261118/wsl/critic-owner-card-f8f4cf2/admission.json",
+      "sha256": "4d6941a7d14b93746db9f03d92d3def9184f3760398a6ff52a6d50e717525c2d",
+      "bytes": 864
+    },
+    {
+      "path": ".artifacts/gpu-20261118/wsl/critic-owner-card-f8f4cf2/independent-audit.json",
+      "sha256": "c3fd8b2c91e2c339a14757260d3ac4db09e7f35d717d3d2515d733f7220dd013",
+      "bytes": 7722
+    },
+    {
+      "path": ".artifacts/gpu-20261118/wsl/critic-owner-card-f8f4cf2/linux-artifacts/runtime-fingerprint.json",
+      "sha256": "d75da4d9cb1e59fda2d7dca9a4a256ff526476b41e904a77271b83ac66f51f1b",
+      "bytes": 70368
+    },
+    {
+      "path": ".artifacts/gpu-20261118/wsl/critic-owner-card-f8f4cf2/linux-artifacts/sources.json",
+      "sha256": "5df267d4e40a4af04506f488323e28c28a589a462738626317837b4fd22b79d0",
+      "bytes": 887
+    },
+    {
+      "path": ".artifacts/gpu-20261118/wsl/critic-owner-card-f8f4cf2/linux-artifacts/owned-server.json",
+      "sha256": "eb469be76e1e8a0709a6e377b1b0457309f0ccc4b1854968083bf5ca80e2c0d2",
+      "bytes": 1132
+    },
+    {
+      "path": ".artifacts/gpu-20261118/wsl/critic-owner-card-f8f4cf2/linux-artifacts/writing.json",
+      "sha256": "23220610c3014c2c64712c169cfba569a110fa6f76c794908d9fd1f980c3e768",
+      "bytes": 102
+    },
+    {
+      "path": ".artifacts/gpu-20261118/wsl/critic-owner-card-f8f4cf2/linux-artifacts/controller.json",
+      "sha256": "96ec5cfe78b923867ca1df176e83bfa3bc1cafc47c3418aa029e12d2186a071d",
+      "bytes": 189
+    },
+    {
+      "path": ".artifacts/gpu-20261118/wsl/critic-owner-card-f8f4cf2/linux-artifacts/observations.json",
+      "sha256": "0df012c84245140e5e4e580a256be634b8356eef640a17b6415f5c78b79de4c6",
+      "bytes": 2122
+    },
+    {
+      "path": ".artifacts/gpu-20261118/wsl/critic-owner-card-f8f4cf2/linux-artifacts/result.json",
+      "sha256": "857e7a10e62bda443e26764a71dd9ff9e29bb3686a2818eb855f2a16521f282d",
+      "bytes": 2500
+    },
+    {
+      "path": ".artifacts/gpu-20261118/wsl/critic-owner-card-f8f4cf2/linux-artifacts/supervisor-summary.json",
+      "sha256": "094c1d85c8375e7b865b4ee1670dbea24895b98fea102ad70b603dc0cab82db2",
+      "bytes": 1905
+    },
+    {
+      "path": ".artifacts/gpu-20261118/wsl/critic-owner-card-f8f4cf2/linux-artifacts/supervisor-cleanup.json",
+      "sha256": "096f8437ad6adfa0c32e59190d150bd09bd34cdaa0662ba23fb7f861b9dce1c1",
+      "bytes": 1618
+    },
+    {
+      "path": ".artifacts/gpu-20261118/wsl/critic-owner-card-f8f4cf2/linux-artifacts/linux-supervisor.jsonl",
+      "sha256": "fe74922a6cf8efb4c6e6ad7c7cdf0b3698844c406cb26058ffb2c1e5729000df",
+      "bytes": 1931933
+    },
+    {
+      "path": ".artifacts/gpu-20261118/wsl/critic-owner-card-f8f4cf2/linux-artifacts/load-admission-request.json",
+      "sha256": "63872dbb47b04a6aa553d348395843a1a77ebccdd013344436f9d00dabc7b12b",
+      "bytes": 141
+    },
+    {
+      "path": ".artifacts/gpu-20261118/wsl/critic-owner-card-f8f4cf2/linux-artifacts/load-admission-used.json",
+      "sha256": "0abd3992dad195b238b63ae1987c8a289c207c9e987ee12c713b0670d788bf77",
+      "bytes": 261
+    }
+  ],
+  "windows_LISTEN_proof": {
+    "path": "work/gpu-20261118-wsl-handoff/release-listeners.json",
+    "sha256": "1c805b3cddb11dda561fb66273e79804ececa58035cbedd0a44fa6f5dcb84f5e",
+    "bytes": 692
+  },
+  "connect_ex_10035_is_not_a_port_closure_verdict": true,
+  "Ubuntu_stop_evidence": "Stopped was observed in the retained release tool transcript; no distro/global termination command was issued. The durable listener proof labels that transcript-derived state explicitly.",
+  "placement_limit": "No numeric GPU-layer count was retained; memory and timings do not establish full-GPU placement.",
+  "spawn_admission": {
+    "clock": "Linux time.monotonic for request, reception and check; Windows contributes freshly sampled physical RAM/commit values without a clock-origin subtraction",
+    "request_to_host_reply_seconds": 0.02669633999994403,
+    "request_to_recorded_check_seconds": 0.030525160000024698,
+    "physical_host_free_ram_gib": 43.99354553222656,
+    "physical_host_commit_headroom_gib": 47.56474304199219,
+    "final_pre_spawn_freshness_recheck_seconds": 1.5
+  },
+  "owner_SIGKILL_after_completion_request_entry_marker": true,
+  "inference_progress_boundary": "Marker proves entry to the completion-request function after health/auth readiness. It does not establish a completed token, reply, critique or latency result.",
+  "completed_critique_demonstrated": false,
+  "completed_token_or_reply_result": null,
+  "critique_latency_result": null,
+  "terminal_subject_skip_rule_validation": "The copied counter rule is unit-tested; no live terminal-skip behavior is inferred from successful phase completion.",
+  "independent_audit": {
+    "path": "work/gpu-20261118/audit/wsl-critic-owner-death-independent-audit.json",
+    "sha256": "f86f2007a3d419699affe72e9e4b2a3f1fa823ef8f08cf2a6c5de3e630b38cb7",
+    "bytes": 11447
+  }
+}

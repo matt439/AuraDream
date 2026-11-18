@@ -1,0 +1,323 @@
+{
+  "schema": "auradream-native-full-residency-lower-bound-v3",
+  "scope": "Native Windows torchao weight-only fp8/int8 with offload none; expressly excludes Nunchaku/int4 and any component-offloaded mode",
+  "method": "Read JSON safetensor headers and configs only, deduplicate tensor names across shards, canonicalize T5EncoderModel encoder.embed_tokens.weight to shared.weight. Count each remaining dense element as only1byte, even unquantized VAE/embedding/bias/norms; actual residency is greater.",
+  "tie_analysis": {
+    "T5EncoderModel": "Installed explicit tie maps encoder.embed_tokens.weight to shared.weight. All three snapshots store only shared.weight; alias is absent, so one embedding counted.",
+    "CLIPTextModel": "Snapshots store one token and one position embedding with distinct sizes. No lm_head/output embedding is loaded by this class; no matching declared tied duplicate is stored.",
+    "cross_components": "Pipeline index loads separate CLIPTextModel, T5EncoderModel, FluxTransformer2DModel and AutoencoderKL from separate component trees. No cross-component tied objects are configured or injected by standard FLUX loading.",
+    "placement": "settings.offload none takes pipe.to(device), moving all registered components; model/sequential are separate branches.",
+    "serialized_configuration_note": "The installed T5 configuration consumes legacy serialized tie_word_embeddings=false for scale_decoder_outputs and forces the effective tie_word_embeddings=True. The installed T5EncoderModel encoder.embed_tokens.weight -> shared.weight tie is active. Headers already store only shared.weight, so canonical deduplication remains decisive and all numeric lower bounds are unchanged."
+  },
+  "source_hashes": {
+    "t5": {
+      "path": ".venv\\Lib\\site-packages\\transformers\\models\\t5\\modeling_t5.py",
+      "sha256": "29bcef07c5350c2d044a697db5b87dbca90a9b9fa30eedb79f7122e6ce38f9f8"
+    },
+    "clip": {
+      "path": ".venv\\Lib\\site-packages\\transformers\\models\\clip\\modeling_clip.py",
+      "sha256": "8b6bb0ff5d0b0c8209a8846f5da3729a903cb7b5e3a68b71d31fba5e635c3acf"
+    },
+    "placement": {
+      "path": "backend\\backends\\loading.py",
+      "sha256": "9be74744319b06920caf9ae6c55ac1ec4bd20b2b7954f7991721d54adcd77575"
+    },
+    "flux": {
+      "path": ".venv\\Lib\\site-packages\\diffusers\\models\\transformers\\transformer_flux.py",
+      "sha256": "19c283790c6ecce114759c47daf98b448292dec9c5070ad04eda1580fbf31770"
+    },
+    "vae": {
+      "path": ".venv\\Lib\\site-packages\\diffusers\\models\\autoencoders\\autoencoder_kl.py",
+      "sha256": "091d72ea9ae2f45f465e70f05142e04850d1153052dca520291ceb707bda8c98"
+    },
+    "t5_configuration": {
+      "path": ".venv/Lib/site-packages/transformers/models/t5/configuration_t5.py",
+      "sha256": "5cdcc0a40ffb58656090d021e45feffe5ca79c4e51e51e8bac11a7aaba3259d9"
+    },
+    "transformers_modeling_utils": {
+      "path": ".venv/Lib/site-packages/transformers/modeling_utils.py",
+      "sha256": "f103dc66dd3f08e7842c3624c586b281250349e1c0707f394f98db992ec3cd8f"
+    }
+  },
+  "checkpoints": [
+    {
+      "model": "black-forest-labs/FLUX.1-dev",
+      "revision": "3de623fc3c33e44ffbe2bad470d0f45bccf2eb21",
+      "deduplicated_lower_bound_bytes": 16870599139,
+      "deduplicated_lower_bound_mib": 16089.057101249695,
+      "weights_alone_exceed_15500_guard": true,
+      "with_966MiB_desktop_exceeds_16303_physical": true,
+      "components": [
+        {
+          "component": "transformer",
+          "loaded_class": [
+            "diffusers",
+            "FluxTransformer2DModel"
+          ],
+          "deduplicated_dense_elements": 11901408320,
+          "deduplicated_tied_or_repeated_names": [],
+          "embedding_header_names": [
+            "context_embedder.bias",
+            "context_embedder.weight",
+            "time_text_embed.guidance_embedder.linear_1.bias",
+            "time_text_embed.guidance_embedder.linear_1.weight",
+            "time_text_embed.guidance_embedder.linear_2.bias",
+            "time_text_embed.guidance_embedder.linear_2.weight",
+            "time_text_embed.text_embedder.linear_1.bias",
+            "time_text_embed.text_embedder.linear_1.weight",
+            "time_text_embed.text_embedder.linear_2.bias",
+            "time_text_embed.text_embedder.linear_2.weight",
+            "time_text_embed.timestep_embedder.linear_1.bias",
+            "time_text_embed.timestep_embedder.linear_1.weight",
+            "time_text_embed.timestep_embedder.linear_2.bias",
+            "time_text_embed.timestep_embedder.linear_2.weight",
+            "x_embedder.bias",
+            "x_embedder.weight"
+          ],
+          "config_sha256": "4f601e115ed85ab891646f03d17dca39d61278eca4b618e8c642cad71495fee8",
+          "tie_word_embeddings": null,
+          "tie_encoder_decoder": null,
+          "architectures": null
+        },
+        {
+          "component": "text_encoder",
+          "loaded_class": [
+            "transformers",
+            "CLIPTextModel"
+          ],
+          "deduplicated_dense_elements": 123060480,
+          "deduplicated_tied_or_repeated_names": [],
+          "embedding_header_names": [
+            "text_model.embeddings.position_embedding.weight",
+            "text_model.embeddings.token_embedding.weight"
+          ],
+          "config_sha256": "d79d5c8c6ce85112a923d621a5412886ddbbb0636210fc0f72f450582e675542",
+          "tie_word_embeddings": null,
+          "tie_encoder_decoder": null,
+          "architectures": [
+            "CLIPTextModel"
+          ]
+        },
+        {
+          "component": "text_encoder_2",
+          "loaded_class": [
+            "transformers",
+            "T5EncoderModel"
+          ],
+          "deduplicated_dense_elements": 4762310656,
+          "deduplicated_tied_or_repeated_names": [],
+          "embedding_header_names": [
+            "shared.weight"
+          ],
+          "config_sha256": "9001e5a8ae0571a362f806b87b6105dd1a15c33dca237b606d2561164109beeb",
+          "tie_word_embeddings": false,
+          "tie_encoder_decoder": null,
+          "architectures": [
+            "T5EncoderModel"
+          ]
+        },
+        {
+          "component": "vae",
+          "loaded_class": [
+            "diffusers",
+            "AutoencoderKL"
+          ],
+          "deduplicated_dense_elements": 83819683,
+          "deduplicated_tied_or_repeated_names": [],
+          "embedding_header_names": [],
+          "config_sha256": "ad6f0acb584ceb3d136d1e32b684dec65db24bffe9223df2bac0b45539d4e6b5",
+          "tie_word_embeddings": null,
+          "tie_encoder_decoder": null,
+          "architectures": null
+        }
+      ]
+    },
+    {
+      "model": "black-forest-labs/FLUX.1-schnell",
+      "revision": "741f7c3ce8b383c54771c7003378a50191e9efe9",
+      "deduplicated_lower_bound_bytes": 16860369379,
+      "deduplicated_lower_bound_mib": 16079.301241874695,
+      "weights_alone_exceed_15500_guard": true,
+      "with_966MiB_desktop_exceeds_16303_physical": true,
+      "components": [
+        {
+          "component": "transformer",
+          "loaded_class": [
+            "diffusers",
+            "FluxTransformer2DModel"
+          ],
+          "deduplicated_dense_elements": 11891178560,
+          "deduplicated_tied_or_repeated_names": [],
+          "embedding_header_names": [
+            "context_embedder.bias",
+            "context_embedder.weight",
+            "time_text_embed.text_embedder.linear_1.bias",
+            "time_text_embed.text_embedder.linear_1.weight",
+            "time_text_embed.text_embedder.linear_2.bias",
+            "time_text_embed.text_embedder.linear_2.weight",
+            "time_text_embed.timestep_embedder.linear_1.bias",
+            "time_text_embed.timestep_embedder.linear_1.weight",
+            "time_text_embed.timestep_embedder.linear_2.bias",
+            "time_text_embed.timestep_embedder.linear_2.weight",
+            "x_embedder.bias",
+            "x_embedder.weight"
+          ],
+          "config_sha256": "397cfb92299488013ec3af6142a2a877366f8d2e44efbb4f3e33479e7960d3d0",
+          "tie_word_embeddings": null,
+          "tie_encoder_decoder": null,
+          "architectures": null
+        },
+        {
+          "component": "text_encoder",
+          "loaded_class": [
+            "transformers",
+            "CLIPTextModel"
+          ],
+          "deduplicated_dense_elements": 123060480,
+          "deduplicated_tied_or_repeated_names": [],
+          "embedding_header_names": [
+            "text_model.embeddings.position_embedding.weight",
+            "text_model.embeddings.token_embedding.weight"
+          ],
+          "config_sha256": "d79d5c8c6ce85112a923d621a5412886ddbbb0636210fc0f72f450582e675542",
+          "tie_word_embeddings": null,
+          "tie_encoder_decoder": null,
+          "architectures": [
+            "CLIPTextModel"
+          ]
+        },
+        {
+          "component": "text_encoder_2",
+          "loaded_class": [
+            "transformers",
+            "T5EncoderModel"
+          ],
+          "deduplicated_dense_elements": 4762310656,
+          "deduplicated_tied_or_repeated_names": [],
+          "embedding_header_names": [
+            "shared.weight"
+          ],
+          "config_sha256": "9001e5a8ae0571a362f806b87b6105dd1a15c33dca237b606d2561164109beeb",
+          "tie_word_embeddings": false,
+          "tie_encoder_decoder": null,
+          "architectures": [
+            "T5EncoderModel"
+          ]
+        },
+        {
+          "component": "vae",
+          "loaded_class": [
+            "diffusers",
+            "AutoencoderKL"
+          ],
+          "deduplicated_dense_elements": 83819683,
+          "deduplicated_tied_or_repeated_names": [],
+          "embedding_header_names": [],
+          "config_sha256": "bc1e208f414a315365fbecf426838f43b87c9d5c051219e0968a56e2644b2998",
+          "tie_word_embeddings": null,
+          "tie_encoder_decoder": null,
+          "architectures": null
+        }
+      ]
+    },
+    {
+      "model": "black-forest-labs/FLUX.1-Krea-dev",
+      "revision": "8162a9c7b05a641be098422bf2fcf335615c2f28",
+      "deduplicated_lower_bound_bytes": 16870599139,
+      "deduplicated_lower_bound_mib": 16089.057101249695,
+      "weights_alone_exceed_15500_guard": true,
+      "with_966MiB_desktop_exceeds_16303_physical": true,
+      "components": [
+        {
+          "component": "transformer",
+          "loaded_class": [
+            "diffusers",
+            "FluxTransformer2DModel"
+          ],
+          "deduplicated_dense_elements": 11901408320,
+          "deduplicated_tied_or_repeated_names": [],
+          "embedding_header_names": [
+            "context_embedder.bias",
+            "context_embedder.weight",
+            "time_text_embed.guidance_embedder.linear_1.bias",
+            "time_text_embed.guidance_embedder.linear_1.weight",
+            "time_text_embed.guidance_embedder.linear_2.bias",
+            "time_text_embed.guidance_embedder.linear_2.weight",
+            "time_text_embed.text_embedder.linear_1.bias",
+            "time_text_embed.text_embedder.linear_1.weight",
+            "time_text_embed.text_embedder.linear_2.bias",
+            "time_text_embed.text_embedder.linear_2.weight",
+            "time_text_embed.timestep_embedder.linear_1.bias",
+            "time_text_embed.timestep_embedder.linear_1.weight",
+            "time_text_embed.timestep_embedder.linear_2.bias",
+            "time_text_embed.timestep_embedder.linear_2.weight",
+            "x_embedder.bias",
+            "x_embedder.weight"
+          ],
+          "config_sha256": "a8d4ca92dc64ca8116c370ab91339e18a723ab950c18de513d09c3922df7a2d1",
+          "tie_word_embeddings": null,
+          "tie_encoder_decoder": null,
+          "architectures": null
+        },
+        {
+          "component": "text_encoder",
+          "loaded_class": [
+            "transformers",
+            "CLIPTextModel"
+          ],
+          "deduplicated_dense_elements": 123060480,
+          "deduplicated_tied_or_repeated_names": [],
+          "embedding_header_names": [
+            "text_model.embeddings.position_embedding.weight",
+            "text_model.embeddings.token_embedding.weight"
+          ],
+          "config_sha256": "d79d5c8c6ce85112a923d621a5412886ddbbb0636210fc0f72f450582e675542",
+          "tie_word_embeddings": null,
+          "tie_encoder_decoder": null,
+          "architectures": [
+            "CLIPTextModel"
+          ]
+        },
+        {
+          "component": "text_encoder_2",
+          "loaded_class": [
+            "transformers",
+            "T5EncoderModel"
+          ],
+          "deduplicated_dense_elements": 4762310656,
+          "deduplicated_tied_or_repeated_names": [],
+          "embedding_header_names": [
+            "shared.weight"
+          ],
+          "config_sha256": "9001e5a8ae0571a362f806b87b6105dd1a15c33dca237b606d2561164109beeb",
+          "tie_word_embeddings": false,
+          "tie_encoder_decoder": null,
+          "architectures": [
+            "T5EncoderModel"
+          ]
+        },
+        {
+          "component": "vae",
+          "loaded_class": [
+            "diffusers",
+            "AutoencoderKL"
+          ],
+          "deduplicated_dense_elements": 83819683,
+          "deduplicated_tied_or_repeated_names": [],
+          "embedding_header_names": [],
+          "config_sha256": "ad6f0acb584ceb3d136d1e32b684dec65db24bffe9223df2bac0b45539d4e6b5",
+          "tie_word_embeddings": null,
+          "tie_encoder_decoder": null,
+          "architectures": null
+        }
+      ]
+    }
+  ],
+  "framework_imports": false,
+  "weight_tensor_bytes_read": false,
+  "parent_v2_sha256": "94767886c218fcfe110e2ecfc1e902748dacfd7ff5966281d2d90202368736b6",
+  "independent_v2_audit": {
+    "path": "work\\gpu-20261118\\audit\\full-residency-v2-independent-audit.json",
+    "sha256": "8faefb71d96f39547316f92ae2320dedebae2761925fcfc45c0ca518dbd68234"
+  }
+}

@@ -1,0 +1,402 @@
+{
+  "schema": "auradream-windows-ernie-followups-v1",
+  "scope": [
+    "CARD#9"
+  ],
+  "date": "2026-11-18",
+  "commit": "f8f4cf2de7c690300735ea189876f687c5f937b1",
+  "backend_sha256": "c3a85a23288be5d3ccb3bdb1b4751f5456c75d714685d9cf02f3e597c838274e",
+  "platform": "Windows-11-10.0.26300-SP0",
+  "python": "3.13.15",
+  "gpu": "NVIDIA GeForce RTX 5080",
+  "physical_card_mib": 16303,
+  "driver": "616.92",
+  "quantization": "fp8",
+  "execution": "Eager/Native; no step cache",
+  "standing_limits": {
+    "card_mib": 15500,
+    "projection_mib": 15200,
+    "adapter_shared_rise_mib": 1024,
+    "process_shared_rise_mib": 512,
+    "free_ram_floor_gib": 4,
+    "commit_headroom_floor_gib": 4
+  },
+  "sessions": {
+    "ernie-run2": {
+      "schema": "auradream-card9-compact-v1",
+      "date": "2026-11-18",
+      "scope": "CARD9",
+      "status": "complete",
+      "commit": "f8f4cf2de7c690300735ea189876f687c5f937b1",
+      "versions": {
+        "torch": "2.13.0+cu130",
+        "torchao": "0.18.0",
+        "diffusers": "0.42.1",
+        "transformers": "5.16.1",
+        "accelerate": "1.15.0"
+      },
+      "model": "baidu/ERNIE-Image-Turbo",
+      "quantization": "fp8",
+      "offload": "model",
+      "first_pixel_sha256": "cdf4f9b4d3e7c62a866268312c99b49be2a841fdf14ef156885ea2367ccb8b53",
+      "same_process_equality": true,
+      "cross_process_equality": null,
+      "jobs": [
+        {
+          "name": "baseline",
+          "elapsed_s": 14.66975736618042,
+          "images": [
+            {
+              "seed": 12345,
+              "size": [
+                1024,
+                1024
+              ],
+              "pixel_sha256": "cdf4f9b4d3e7c62a866268312c99b49be2a841fdf14ef156885ea2367ccb8b53",
+              "peak": [
+                9155665920,
+                9590276096
+              ]
+            }
+          ]
+        },
+        {
+          "name": "baseline-repeat",
+          "elapsed_s": 13.106338739395142,
+          "images": [
+            {
+              "seed": 12345,
+              "size": [
+                1024,
+                1024
+              ],
+              "pixel_sha256": "cdf4f9b4d3e7c62a866268312c99b49be2a841fdf14ef156885ea2367ccb8b53",
+              "peak": [
+                9155665920,
+                9590276096
+              ]
+            }
+          ]
+        },
+        {
+          "name": "square-1440",
+          "elapsed_s": 25.489677906036377,
+          "images": [
+            {
+              "seed": 12345,
+              "size": [
+                1440,
+                1440
+              ],
+              "pixel_sha256": "f644bc8297ba013038b46489a0d883b772c9c13cc78e8afa9f36dee9e12777a7",
+              "peak": [
+                9720084992,
+                10242490368
+              ]
+            }
+          ]
+        },
+        {
+          "name": "square-2048",
+          "elapsed_s": 62.996755599975586,
+          "images": [
+            {
+              "seed": 12345,
+              "size": [
+                2048,
+                2048
+              ],
+              "pixel_sha256": "30f3e93a8fa0d3ce677df8f497840004ecda10a30b9e537cf6a093418d44addc",
+              "peak": [
+                11181772800,
+                12543066112
+              ]
+            }
+          ]
+        }
+      ],
+      "pair_projection": {
+        "verdict": "refuse-projected",
+        "why": null,
+        "reading": null,
+        "limit": null,
+        "projected_mib": 17587,
+        "measured": [
+          [
+            2.07,
+            11046.0
+          ],
+          [
+            4.19,
+            13240.0
+          ]
+        ],
+        "reason": "projected 17587 MiB > 15200"
+      },
+      "browser": {
+        "actual_first_use": true,
+        "browser_exit": 0,
+        "running_samples": 513,
+        "distinct_clock_values": 129,
+        "clock_all_aria_hidden": true,
+        "first_download_line_observed": true,
+        "after_note": "Prompt expanded: review it and its English translation before generating."
+      },
+      "download_checks": [
+        {
+          "repo": "baidu/ERNIE-Image-Turbo",
+          "path": "pe/model.safetensors",
+          "bytes": 7663346520,
+          "sha256": "abd26e2f4b5a0cc3922d3523649706f1d398050a766dc284161724d9ee47f808",
+          "status": "verified",
+          "revision": "bc68c81e2a1730a394d5fc9fae70713dee940140",
+          "local_path": "D:\\huggingface\\hub\\models--baidu--ERNIE-Image-Turbo\\snapshots\\bc68c81e2a1730a394d5fc9fae70713dee940140\\pe/model.safetensors"
+        },
+        {
+          "repo": "Helsinki-NLP/opus-mt-zh-en",
+          "path": "pytorch_model.bin",
+          "bytes": 312087009,
+          "sha256": "9d8ceb91d103ef89400c9d9d62328b4858743cf8924878aee3b8afc594242ce0",
+          "status": "verified",
+          "revision": "cf109095479db38d6df799875e34039d4938aaa6",
+          "local_path": "D:\\huggingface\\hub\\models--Helsinki-NLP--opus-mt-zh-en\\snapshots\\cf109095479db38d6df799875e34039d4938aaa6\\pytorch_model.bin"
+        }
+      ],
+      "guards": {
+        "limits": {
+          "card_mib": 15500.0,
+          "project_mib": 15200.0,
+          "refuse_at_peak_mib": 15000.0,
+          "adapter_shared_rise_mib": 1024.0,
+          "process_shared_rise_mib": 512.0,
+          "ram_floor_gib": 4.0,
+          "commit_floor_gib": 4.0,
+          "need_ram_gib": 44,
+          "busy_card_mib": 2200,
+          "card_unread_samples": 3.0,
+          "margin_mib": 500.0,
+          "margin_gib": 1.0
+        },
+        "metrics": {
+          "samples": 1115,
+          "whole_card_peak_mib": 13240.0,
+          "maximum_server_private_gib": 33.80486297607422,
+          "maximum_server_working_gib": 21.42,
+          "minimum_free_ram_gib": 27.56,
+          "minimum_commit_headroom_gib": 20.79,
+          "maximum_raw_sample_gap_seconds": 0.26839518547058105,
+          "all_guard_answers_recomputed_ok": true
+        }
+      },
+      "source_unchanged": true,
+      "unload_state": "unloaded",
+      "cleanup": {
+        "server_pid": 16800,
+        "server_exit": 0,
+        "guard_error": null,
+        "cleanup_errors": [],
+        "at": 1794988540.8360112
+      },
+      "settled_after_exit": {
+        "card_mib": 973,
+        "utilization_percent": 0,
+        "scope": "separate runner nvidia-smi readback after owned process/listener cleanup, before next session"
+      },
+      "evidence": {
+        "receipt.json": "c76dbe45c442becce6e7d113a29251c7ea184834a24a8325d5b0a03f26e5a683",
+        "guard.jsonl": "d10d1c4bfc67f7a2747e7dd315eb30c9fbade8ddc46b8302993e55a25687a59e",
+        "allocator.jsonl": "1885fedd457739880a10612812dd3f6d3a67d0be9af70b04bbb2eee3ed42e225",
+        "cleanup.json": "ac92f7fab5729f1b498a199234f7c8d38539f667719fbb76ba3e7034a2d95076",
+        "server.log": "e472354802a21f018bfa3b8c445a0d176125079c25409004c2fbb322f9af6e28"
+      },
+      "limits_note": "Batch-two projection refusal is not an executed batch fit failure. First-use download/UI proof is only in run2; replay is a separate offline process."
+    },
+    "ernie-replay1": {
+      "schema": "auradream-card9-compact-v1",
+      "date": "2026-11-18",
+      "scope": "CARD9",
+      "status": "complete",
+      "commit": "f8f4cf2de7c690300735ea189876f687c5f937b1",
+      "versions": {
+        "torch": "2.13.0+cu130",
+        "torchao": "0.18.0",
+        "diffusers": "0.42.1",
+        "transformers": "5.16.1",
+        "accelerate": "1.15.0"
+      },
+      "model": "baidu/ERNIE-Image-Turbo",
+      "quantization": "fp8",
+      "offload": "model",
+      "first_pixel_sha256": "cdf4f9b4d3e7c62a866268312c99b49be2a841fdf14ef156885ea2367ccb8b53",
+      "same_process_equality": null,
+      "cross_process_equality": true,
+      "jobs": [
+        {
+          "name": "baseline",
+          "elapsed_s": 18.69223189353943,
+          "images": [
+            {
+              "seed": 12345,
+              "size": [
+                1024,
+                1024
+              ],
+              "pixel_sha256": "cdf4f9b4d3e7c62a866268312c99b49be2a841fdf14ef156885ea2367ccb8b53",
+              "peak": [
+                9155665920,
+                9590276096
+              ]
+            }
+          ]
+        }
+      ],
+      "pair_projection": null,
+      "browser": {
+        "actual_first_use": false,
+        "browser_exit": null,
+        "running_samples": 0,
+        "distinct_clock_values": 0,
+        "clock_all_aria_hidden": true,
+        "first_download_line_observed": false,
+        "after_note": null
+      },
+      "download_checks": null,
+      "guards": {
+        "limits": {
+          "card_mib": 15500.0,
+          "project_mib": 15200.0,
+          "refuse_at_peak_mib": 15000.0,
+          "adapter_shared_rise_mib": 1024.0,
+          "process_shared_rise_mib": 512.0,
+          "ram_floor_gib": 4.0,
+          "commit_floor_gib": 4.0,
+          "need_ram_gib": 44,
+          "busy_card_mib": 2200,
+          "card_unread_samples": 3.0,
+          "margin_mib": 500.0,
+          "margin_gib": 1.0
+        },
+        "metrics": {
+          "samples": 174,
+          "whole_card_peak_mib": 10424.0,
+          "maximum_server_private_gib": 28.732250213623047,
+          "maximum_server_working_gib": 21.57,
+          "minimum_free_ram_gib": 27.64,
+          "minimum_commit_headroom_gib": 26.13,
+          "maximum_raw_sample_gap_seconds": 0.27869248390197754,
+          "all_guard_answers_recomputed_ok": true
+        }
+      },
+      "source_unchanged": true,
+      "unload_state": "unloaded",
+      "cleanup": {
+        "server_pid": 19228,
+        "server_exit": 0,
+        "guard_error": null,
+        "cleanup_errors": [],
+        "at": 1794988687.1083581
+      },
+      "settled_after_exit": {
+        "card_mib": 973,
+        "utilization_percent": 0,
+        "scope": "separate runner nvidia-smi readback after owned process/listener cleanup, before next session"
+      },
+      "evidence": {
+        "receipt.json": "8b49b145eca20902ede012cda88bc7176fecdcd3e5eb572ca3559ceb3203e10e",
+        "guard.jsonl": "3b839b284caa9d5a132f702109e9b87f115737be7c5c62087c180132c9e96bf4",
+        "allocator.jsonl": "f427d16ac18178379c364445988347dd483bdac069c3ae1a83e63ecec8fefcb4",
+        "cleanup.json": "91cba727df204d9741ab5fc1c33d6b77abb67cb21f18b99212c781f05cb54194",
+        "server.log": "89c457f02ddb5e0d3542c10c07ee2e1051f68636c53f83b82e83984acc3bfc3b"
+      },
+      "limits_note": "Batch-two projection refusal is not an executed batch fit failure. First-use download/UI proof is only in run2; replay is a separate offline process."
+    }
+  },
+  "field_mapping_cpu_regression": {
+    "real_storage_writer": true,
+    "pipeline_or_model_calls": 0,
+    "cuda_initialized": false,
+    "checked_images": [
+      {
+        "offset": 0,
+        "seed": 12345,
+        "mapped": {
+          "vram_peak_allocated": 1000000,
+          "vram_peak_reserved": 2000000,
+          "seed": 12345,
+          "model_id": "baidu/ERNIE-Image-Turbo",
+          "width": 256,
+          "height": 256
+        }
+      },
+      {
+        "offset": 1,
+        "seed": 12346,
+        "mapped": {
+          "vram_peak_allocated": 1000000,
+          "vram_peak_reserved": 2000000,
+          "seed": 12346,
+          "model_id": "baidu/ERNIE-Image-Turbo",
+          "width": 256,
+          "height": 256
+        }
+      }
+    ],
+    "mismatch_refusals": [
+      [
+        0,
+        "vram_peak_allocated"
+      ],
+      [
+        0,
+        "vram_peak_reserved"
+      ],
+      [
+        0,
+        "seed"
+      ],
+      [
+        0,
+        "model_id"
+      ],
+      [
+        0,
+        "width"
+      ],
+      [
+        0,
+        "height"
+      ],
+      [
+        1,
+        "vram_peak_allocated"
+      ],
+      [
+        1,
+        "vram_peak_reserved"
+      ],
+      [
+        1,
+        "seed"
+      ],
+      [
+        1,
+        "model_id"
+      ],
+      [
+        1,
+        "width"
+      ],
+      [
+        1,
+        "height"
+      ]
+    ],
+    "controller_sha256": "aa612786483a76e05fbe0ea999b78a2137842db8582709499443530ced49369a",
+    "fixture": "C:\\Projects\\AuraDream\\.artifacts\\gpu-20261118\\ernie\\png-field-cpu-cgqg112b"
+  },
+  "partial_attempt": {
+    "path": ".artifacts/gpu-20261118/ernie-run1",
+    "result": "one baseline image completed before verifier used API/SQL names directly as PNG keys; corrected observer tested against real storage writer; no Expand download in stopped attempt"
+  },
+  "actual_initial_commit_admission_gib": 44
+}

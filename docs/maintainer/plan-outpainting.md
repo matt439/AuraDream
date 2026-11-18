@@ -1,5 +1,11 @@
 # Plan: outpainting
 
+**Card follow-up, 2026-11-18:** bounded native dev/schnell fp8/model
+outpaints and source/result seam numbers are recorded in
+[verified.md](../verified.md#windows-follow-up-measurements-2026-11-18).
+Visible fixture-specific joins/ghosting remain; this is no clean-seam or
+new preferred-band claim. Historical plan and decisions below are retained.
+
 **Status, 2026-10-13: phases 1 (backend) and 2 (the dialog) are built on
 `feat-outpainting`, and a review of the build fixed on the same branch
 (a `--from-image --band` wrongly refused; the band refusal's wording and
@@ -1086,8 +1092,10 @@ fill. Large canvases' memory came with inpaint phase 6 (built 2026-11-03,
 band row, or `--outpaint ... --mask-crop PAD`, boxes the built mask's
 extent plus the padding on the canvas, denoises it at about 1 MP in the
 app (never `padding_mask_crop`), pastes it back and composites as before.
-The canvas guard stays at `refine_max_*`; the crop is unmeasured on the
-card (`CARD#13`).
+The canvas guard stays at `refine_max_*`. SDXL cropped outpaint was measured
+2026-11-11; the bounded 2026-11-18 native FLUX/Z-Image follow-up measured
+masked inpaints, not every cropped-outpaint family or a clean seam. See
+[the measured scopes](../verified.md#windows-follow-up-measurements-2026-11-18).
 
 A separate card glyph was declined 2026-10-17: the image context menu
 already reaches Outpaint (design notes, Outpainting).
@@ -1096,10 +1104,11 @@ already reaches Outpaint (design notes, Outpainting).
 
 This numbered list preserves the original measurement scope. The
 [dated results](../verified.md#outpaint) already include embedded-mask sizes,
-CPU fill/mask timings and FLUX.1 Krea dev outpaint. Current remaining
-supported-family measurements are `CARD#2` in [TODO](../../TODO.md); later
-families remain with their deferred inpaint phases. This list does not
-reopen completed measurements.
+CPU fill/mask timings and FLUX.1 Krea dev outpaint. The bounded native
+dev/schnell `CARD#2` gap was measured 2026-11-18; later families remain with
+their deferred inpaint phases. The scopes/results are in verified.md and
+current work in [TODO](../../TODO.md). This original list does not reopen
+completed measurements.
 
 1. Peak memory and time per step at outpainted sizes for WAI and one other
    SDXL checkpoint, and Z-Image Turbo and Z-Anime: an outpaint's canvas is

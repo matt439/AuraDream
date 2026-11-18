@@ -1,0 +1,315 @@
+{
+  "schema": "auradream-card11-critic-session-v1",
+  "date_local": "2026-11-18",
+  "timezone": "Australia/Brisbane",
+  "worker_started_utc": "2026-11-18T06:47:04.592154+00:00",
+  "status": "controller-completed; partial-placement target unreached",
+  "controller": {
+    "exit_code": 0,
+    "completed": true,
+    "eligible_cases": 4,
+    "critic_calls": 4,
+    "skipped": 0
+  },
+  "target": {
+    "new_partial_cases": 3,
+    "partial_gate_hits": 0,
+    "partial_target_covered": false,
+    "word_preserving_partial_candidates": 0,
+    "correctly_rejected_partial_candidates": 3,
+    "fully_placed_controls": 1,
+    "control_word_preserving": true,
+    "control_retained_kind": null,
+    "control_conclusion": "Pure reorder correctly rejected because it was not Check's canonical documented order. This differs from the 2026-11-17 control, which retained kind check.",
+    "conclusion": "Keep CARD#11 partial-placement measurement open. One new 3+1 session, without combining historical ambiguous counts. No reply repair or retry."
+  },
+  "scope": {
+    "mode": "Actual PromptCritic.critique through real JobManager.run_when_idle; Animagine XL4.0 guide; image backend sentinel",
+    "model": "Qwen3-4B Q8_0",
+    "release": "b11206",
+    "runtime_build": "win-cuda-13.4-x64",
+    "gguf_bytes": 4280404704,
+    "gguf_sha256": "8c2f07f26af9747e41988551106f149b03eb9b5cb6df636027b6bf6278473300",
+    "physical_gpu": {
+      "name": "NVIDIA GeForce RTX 5080",
+      "driver": "616.92"
+    },
+    "sampling": {
+      "temperature": 0.6,
+      "top_p": 0.95,
+      "top_k": 20,
+      "min_p": 0.0
+    },
+    "context_tokens": 8192,
+    "reasoning_budget_tokens": 2048,
+    "llm_sampling_seed_fixed": false,
+    "request_image_seed_is_not_llm_seed": true,
+    "not_tested": [
+      "PA#18 assistant inference",
+      "HTTP/UI orchestration",
+      "API post-reply rewrite lint",
+      "image checkpoint beside critic",
+      "rewrite image quality comparisons",
+      "WSL owner death and idle fallback",
+      "typed Ctrl-C"
+    ]
+  },
+  "cases": [
+    {
+      "id": "trigger-a",
+      "kind": "partial-target",
+      "prompt": "1girl, safe, green hair, velvetrune, masterpiece, high score, great score, absurdres",
+      "eligible": true,
+      "placed_partly": true,
+      "cpu_oracle_kind": "allowed",
+      "oracle_not_sent_to_llm": true,
+      "raw_reordered": "1girl, green hair, velvetrune, safe, casual, solo, looking at viewer, outdoors, smile, reaching towards viewer, night, masterpiece, high score, great score, absurdres",
+      "raw_word_preserving": false,
+      "retained_reordered": null,
+      "retained_kind": null,
+      "set_aside": [
+        "The critic's reordered version was left out: it changed words, not only their order; a reordering of your own can go under Compare."
+      ],
+      "partial_validation_line_executed": false,
+      "validation_trace_line_count": 59,
+      "critic_seconds": 10.9,
+      "elapsed_seconds": 10.964975099996082,
+      "normal_cleanup": {
+        "pid_count_observed": 1,
+        "stopped": true,
+        "observed_processes_gone": true,
+        "listener_closed": true
+      },
+      "actual_gate_observed": true,
+      "gate_released": true,
+      "observer_errors": [],
+      "server_gpu_layers": []
+    },
+    {
+      "id": "trigger-b",
+      "kind": "partial-target",
+      "prompt": "1boy, safe, blue hair, petalweave, masterpiece, high score, great score, absurdres",
+      "eligible": true,
+      "placed_partly": true,
+      "cpu_oracle_kind": "allowed",
+      "oracle_not_sent_to_llm": true,
+      "raw_reordered": "1boy, [character name], [series], safe, blue hair, petalweave, masterpiece, high score, great score, absurdres",
+      "raw_word_preserving": false,
+      "retained_reordered": null,
+      "retained_kind": null,
+      "set_aside": [
+        "The critic's reordered version was left out: it changed words, not only their order; a reordering of your own can go under Compare."
+      ],
+      "partial_validation_line_executed": false,
+      "validation_trace_line_count": 59,
+      "critic_seconds": 17.16,
+      "elapsed_seconds": 17.190517199996975,
+      "normal_cleanup": {
+        "pid_count_observed": 1,
+        "stopped": true,
+        "observed_processes_gone": true,
+        "listener_closed": true
+      },
+      "actual_gate_observed": true,
+      "gate_released": true,
+      "observer_errors": [],
+      "server_gpu_layers": []
+    },
+    {
+      "id": "trigger-c",
+      "kind": "partial-target",
+      "prompt": "1girl, safe, smile, riverglyph, masterpiece, high score, great score, absurdres",
+      "eligible": true,
+      "placed_partly": true,
+      "cpu_oracle_kind": "allowed",
+      "oracle_not_sent_to_llm": true,
+      "raw_reordered": "1girl, alice, riverglyph, safe, smile, outdoors, masterpiece, high score, great score, absurdres",
+      "raw_word_preserving": false,
+      "retained_reordered": null,
+      "retained_kind": null,
+      "set_aside": [
+        "The critic's reordered version was left out: it changed words, not only their order; a reordering of your own can go under Compare."
+      ],
+      "partial_validation_line_executed": false,
+      "validation_trace_line_count": 59,
+      "critic_seconds": 17.33,
+      "elapsed_seconds": 17.363218800004688,
+      "normal_cleanup": {
+        "pid_count_observed": 1,
+        "stopped": true,
+        "observed_processes_gone": true,
+        "listener_closed": true
+      },
+      "actual_gate_observed": true,
+      "gate_released": true,
+      "observer_errors": [],
+      "server_gpu_layers": []
+    },
+    {
+      "id": "control",
+      "kind": "fully-placed-control",
+      "prompt": "green hair, safe, 1girl, masterpiece, high score, great score, absurdres",
+      "eligible": true,
+      "placed_partly": false,
+      "cpu_oracle_kind": "check",
+      "oracle_not_sent_to_llm": true,
+      "raw_reordered": "1girl, green hair, safe, masterpiece, high score, great score, absurdres",
+      "raw_word_preserving": true,
+      "retained_reordered": null,
+      "retained_kind": null,
+      "set_aside": [
+        "3 issues left out: they repeated the rule findings above (tag order).",
+        "The critic's reordered version was left out: Check places these tags in the documented order itself, and the critic's order is not that one."
+      ],
+      "partial_validation_line_executed": false,
+      "validation_trace_line_count": 72,
+      "critic_seconds": 17.57,
+      "elapsed_seconds": 17.596195899997838,
+      "normal_cleanup": {
+        "pid_count_observed": 1,
+        "stopped": true,
+        "observed_processes_gone": true,
+        "listener_closed": true
+      },
+      "actual_gate_observed": true,
+      "gate_released": true,
+      "observer_errors": [],
+      "server_gpu_layers": []
+    }
+  ],
+  "guard": {
+    "limits": {
+      "card_mib": 15500.0,
+      "project_mib": 15200.0,
+      "refuse_at_peak_mib": 15000.0,
+      "adapter_shared_rise_mib": 1024.0,
+      "process_shared_rise_mib": 512.0,
+      "ram_floor_gib": 4.0,
+      "commit_floor_gib": 4.0,
+      "need_ram_gib": 16.0,
+      "busy_card_mib": 2500.0,
+      "card_unread_samples": 3.0,
+      "margin_mib": 500.0,
+      "margin_gib": 1.0
+    },
+    "admission_commit_headroom_gib": 16.0,
+    "admission_sample": {
+      "card_mib": 966.0,
+      "adapter_shared_mib": 38.6640625,
+      "process_shared_mib": 0.0,
+      "available_gib": 49.463356018066406,
+      "commit_headroom_gib": 55.12107849121094,
+      "tree_gib": 0.01242828369140625,
+      "card_total_mib": 16303.0
+    },
+    "counter_sources": {
+      "card": "nvidia-smi --loop-ms",
+      "shared": "pdh"
+    },
+    "sample_count": 308,
+    "all_verdicts_rechecked_ok": true,
+    "sample_period_mean_seconds": 0.2502801599348755,
+    "sample_period_max_seconds": 0.25732699999934994,
+    "whole_card_peak_mib": 6547.0,
+    "max_tree_rss_gib": 5.122581481933594,
+    "max_private_gib": 7.243858337402344,
+    "adapter_shared_rise_mib": 98.0,
+    "process_shared_rise_mib": 98.0,
+    "minimum_free_ram_gib": 44.26264190673828,
+    "minimum_commit_gib": 47.83124923706055
+  },
+  "cuda_evidence": {
+    "torch_cuda_initialized": false,
+    "torch_cuda_initialization_attempts": [],
+    "llama_allocations_outside_torch_allocator": true,
+    "numerical_gpu_layer_counts_absent": true,
+    "no_layer_count_inferred_from_memory_or_speed": true
+  },
+  "validation_proof": {
+    "partial_condition_line": 689,
+    "bound_source_sha256": "aca57a4c0e0fb3d1d486385b2c3f0592b1162cfa19c6e2b903f945d38c7cdb1f",
+    "trace_is_observer_only": true,
+    "original_structured_answers_returned_unchanged": true
+  },
+  "forbidden_paths": {
+    "image_calls": {
+      "load": 0,
+      "generate": 0,
+      "ensure_loaded": 0
+    },
+    "assistant_calls": 0,
+    "download_calls": [],
+    "torch_cuda_attempts": []
+  },
+  "cleanup": {
+    "utc": "2026-11-18T06:49:31.096015+00:00",
+    "controller_exit": 0,
+    "owned_or_llama_processes": [],
+    "nvidia_smi_memory_mib_utilization_percent": "966, 0",
+    "normal_case_gate_listener_process_cleanup_all_passed": true,
+    "power_released": true,
+    "gpu_baton_released": true,
+    "no_next_gpu_started": true
+  },
+  "source": {
+    "commit": "f8f4cf2de7c690300735ea189876f687c5f937b1",
+    "reviewed_freeze_entries": 195,
+    "runtime_source_entries_checked": 200,
+    "all_runtime_hashes_still_match_at_audit": true,
+    "backend_sha256": "c3a85a23288be5d3ccb3bdb1b4751f5456c75d714685d9cf02f3e597c838274e",
+    "driver_sha256": "b6c53facf0772f52273fcae6127af647d2c4bd5f8b3fd3607d9020e4dfb07a32",
+    "critical_source_sha256": {
+      "backend/critic.py": "f89637908c42b1528191648f76e60bffbd5c2f5d3c5ffb8cd874ab90e6d9113f",
+      "backend/critic_runtime.py": "36e7abcef2a7195a665a7c9f69f3c2ca16c3e2aefcaddca94fa3c2fbb596bfdc",
+      "backend/critic_server.py": "009c5e60959fa56f2f38ca5c9a6bde5ccfd659f6e3a02424b2d965cccfa3977d",
+      "backend/critic_context.py": "efb6bb2b8a750d8434e1e14b56402465cb6daa4cb762d4363a183af80f5f6157",
+      "backend/critic_validation.py": "aca57a4c0e0fb3d1d486385b2c3f0592b1162cfa19c6e2b903f945d38c7cdb1f",
+      "backend/critic_reorder.py": "6475f19f7c3df77f9363e45fd91bd905e2e7674d74d22920599129332eb2874e",
+      "backend/jobs.py": "f1e0eeb78ad3609a09facc6bb48182c29f78b845443a45b08e58f29878dc54b7",
+      "backend/prompt_check.py": "ef7805d9f275c5a6597b0ccb4f265c9974d926969a42a1f1ffcf4a5b1b5ee24f",
+      "backend/config.py": "b7189b43e41237b1a9eacfb84957bcda634af7501f6fd19a2b1cd625dce41000"
+    }
+  },
+  "evidence": {
+    "directory": ".artifacts/gpu-20261118/critic/partial-trigger-run-20261118-a1",
+    "file_sha256": {
+      "after-exit.json": "98c174f9dd96b4f5e0dc0473bebb0ee5473265972637a6d6e9961bc3fcb9e82a",
+      "audit.json": "1f7e6e1200552f1f9b60181dcd0336b6b83e8be456854161cf30e35f918e7895",
+      "cases.json": "49dd1aa0e7a21eef6c1600727d1047b3c23e7605a87ab6f9c93451dbdf6c7cf6",
+      "control-preconditions.json": "4eeccd6145b0a7837068c72b7056218072c862615d60ff0063fef43701aab152",
+      "control-raw-answer.json": "4412946c7a998dfd7d80aae0e7a92fe15f5ae2e0af2df7790061f9af5caedb1d",
+      "control-result.json": "728db1ae54bb9df77f3668fadb255c73343e58300fdc1bb6767a063d2094e4bd",
+      "guard.jsonl": "7ad177cebd191cccdc1454ec9c9eb4b25cdd5862e123944c572d4bb1d2cd0058",
+      "keep-awake.json": "c819fb2dfb90829600d7da7d9d7a58c61e839524a413cafbd2ed48abe60c057b",
+      "permit-0001-begin.json": "32bf21310ada666795f692c8e4ad47e78bcf6622928f30dd6204673d9a0f8a79",
+      "phase-0001.json": "42082c842299ed8ce614ef3c5c0d1937a7d6e3d6b89e320fc54bbc1707ac2522",
+      "phase-0002.json": "1f3915b664d88ef2807c9c136188862a7ea3ae32fb8a3395433177f573d02cba",
+      "phase-0003.json": "c639a9e3ea7696e07cf220b31be55402a580ceee142eca211f8cbee0fa7cbc96",
+      "phase-0004.json": "46488fb1ebdf7ae5257f844a1aae8e99881ced222dbe53b9cda42d29b21cc0d3",
+      "phase-0005.json": "c6e0a8a57b8163cf3916a152ef0cca8e78e856a89558b2f7b061abde59901e91",
+      "phase-0006.json": "77288211c3aebf6d83dbe26e934b4cb7638be6e2822b5cff959727b84f88fec2",
+      "phase-0007.json": "162269237fc5a8dee32fa2ee4195e0f14e85e6acc7e9426fa26de36e847e7019",
+      "phase-0008.json": "60204c3097b470b1b76c4b1a825b3e8471a508d338d3d623800a03ebbe9e5843",
+      "phase-0009.json": "d079b01137c92fe9934607b1d534fce6de21b8e77f5eb709d7809a856748524b",
+      "phase-0010.json": "68a8b6784a0e9db96588fa6756ae5b2b6f9f74b9e3141bb3205d9eef456065d5",
+      "plan.json": "e25961f0b1b62fc82e18dadebfe0ab62ac03eb810b932f4696f6cadfebb603ad",
+      "preflight.json": "1334ec7cf0ebe3beeedc0cad8ee1c0a7005a455bc2124519b7864efa068d161c",
+      "release.json": "02ebe30d6e0d14b91eb4091a70d0ab2d5dde6f7d9b6fe2eeecfcff97365bec9e",
+      "result-0001-complete.json": "84fa7d3dd81e9ca9acb8b8c04d050760b3036ae67c07fdae182ea017b0a47b01",
+      "runtime.json": "52b5d04cb550b610080014fecd483924126d02f844cd71466eca5eb20c92bec5",
+      "summary.json": "9918fac0f898d533f170d72947d104eac1e47150206d2944077049e831fa4433",
+      "trigger-a-preconditions.json": "12a28920f5734b2f2a594c2c50acb1064aa68c6ccf9d6a682ff0750204f50885",
+      "trigger-a-raw-answer.json": "bb1cc64e3ce3b5bae82792e491d80db93bc2e62a06118bc832344f032e697ee3",
+      "trigger-a-result.json": "90c140a5e0d85f4f33a6d01fa49f36ef27c0f7f8dcccbb419f57b9e90cc5f834",
+      "trigger-b-preconditions.json": "50c3ea2bfb516b864ce6d333de7d869f73f8e474ae5fb22de8ded5eb2cc14a30",
+      "trigger-b-raw-answer.json": "dd5ffe9d3ffae6ccc00aa692aea4c61debe9d8babf0946296b84863e48ad5de1",
+      "trigger-b-result.json": "2980c144c7e3c92f786ad2064f1026218689c856867e47cc1684043087c3f8af",
+      "trigger-c-preconditions.json": "9904826187baa91679bb0029499131b1510789c43426955ac55074cb8b1b3ce6",
+      "trigger-c-raw-answer.json": "82618efea8d5778f4eba6306dbb53eb0fc82139e83de5db085e1dd26ebf5447b",
+      "trigger-c-result.json": "5ee60f85433859a15b33c6e61a0ba91ec6101e900267bb9fdb69ca6cc7d90446",
+      "worker.log": "7d361ab50f1d725c49868a690fd28c6be902e830db3bbdec05c77a9bca7bb045"
+    },
+    "raw_evidence_unchanged_by_audit": true,
+    "audit_method": "CPU JSON/filesystem/source hashes and every card_guard decision; no inference replay"
+  }
+}

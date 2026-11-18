@@ -1,5 +1,20 @@
 # Plan: fp8 weights with fp8 activations on FLUX.1
 
+## Current dependency (2026-11-18)
+
+`PERF#1`'s private weight-only fp8 Regional table, early-request latency and
+artifact-local recovery/control replay are measured. Matt's pair acceptance,
+source/release choice and artifact-rebuild policy remain separate. `PERF#2`
+still waits on that acceptance/qualification decision under the stages below. Its own
+stage 2 source implementation is also unbuilt: the frozen per-component
+mapping, layer inventory, refusals and reproduction carry must be implemented
+and checked before any stage 3 dynamic-activation run. The existing table
+does not measure `Float8DynamicActivationFloat8WeightConfig` or establish its
+fit, speed, quality or current-stack behavior. This dependency update starts
+no new implementation, download or GPU work.
+
+## Planning history
+
 **Status, 2026-10-30: `PERF#5` done (stage 1, this plan); stages 2-3 are
 `PERF#2`'s.** The CPU planning slice was split from `PERF#2` on
 2026-10-29, and Matt answered its three questions the same day

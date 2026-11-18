@@ -1,5 +1,70 @@
 # Plan: opt-in First Block Cache on FLUX.1
 
+## Private card results (2026-11-18)
+
+**Current status:** all six fixed Off/On pairs, repeats in a second process,
+Off restoration and cached cancellation with subsequent Off/On recovery are
+measured on Windows/RTX 5080. The remaining next step is Matt's quality judgment
+of the retained pairs; public caching remains unavailable and Off remains the
+default. No combined cuDNN/cache or broader model qualification follows.
+
+Source `f8f4cf2`, backend SHA256 `c3a85a23...c838274e`, exact FLUX.1 Krea dev,
+fp8/model offload, CUDA 0, Batch 1, 1024-square, 28 steps and CFG 3.5, no Mu,
+negative, adapter, reference or edit. Software is torch 2.13.0+cu130, torchao
+0.18.0, diffusers 0.42.1, accelerate 1.15.0 and transformers 5.16.1; driver
+616.92, cuDNN version integer 92000. The fixed three prompts/two seeds and
+`fbc-005-v1` threshold 0.05 were unchanged.
+
+Two independently loaded Eager/Native processes run actual `backend.generate`.
+Off has no override. A private cached-request token validates only one exact
+request, lets its exact execution-cleared copy pass the original production
+normalization, restores the same recorded recipe, and leaves actual request
+cache ownership/disposal and exceptional offload to the backend. No class,
+schema or public guard changes; no HTTP/UI/public recipe qualification.
+
+| Session | First pair Off / On | Other five Off median | Other five On median | Paired median duration reduction |
+|---|---:|---:|---:|---:|
+| Suite | 42.488 / 33.212 s | 40.802 s | 33.235 s | 18.546% |
+| Fresh complete replay | 42.389 / 33.491 s | 40.788 s | 33.209 s | 18.651% |
+
+The medians exclude the first pair, which includes first cache setup. These
+are observed sequential matched wall times, without counterbalanced order.
+A reuse count alone is not the speed result. Scalar projection observers have
+a small cost in both arms and their cost remains in these timings.
+
+Every call computes all 57 blocks on its first step. Each completed image
+still has all 28 scheduler steps/callbacks. Cached fixed cases reuse 224-392 of
+1,596 possible block passes; uncached calls reuse zero. All twelve recipe/case
+outputs and every retained repeat are RGB-identical across processes. All six
+Off outputs also exactly match the Native benchmark. Fresh owners close after
+each On call; restored Off computes every block and returns its original pixels.
+Cached cancellation after step 3 saves nothing, clears hooks/state and returns
+all components to CPU with about 32 MiB allocated; subsequent Off/On repeats
+match, and unload collects the root and reports not ready.
+
+All six Off/On pairs differ: mean absolute channel difference 0.381-2.228
+levels of 255, maximum 87-166 and 51.00-91.95% of pixels changed. Differences and
+block decisions repeat exactly. These figures do not judge prompt coverage,
+anatomy/interaction, fine detail or text; Matt's visual review remains required
+before routine use is considered. No pair was repaired, threshold changed or
+failed result rerun to obtain a preferred image.
+
+The two sessions retain 28 PNGs, two loads and one cancellation without save.
+All 4,491 raw guard verdicts independently re-evaluate to `ok`, maximum sample
+gap 0.274262 s. Whole-card peak was 14,505 MiB over 1,182; maximum process private
+40.197 GiB and working set 28.978 GiB, minimum free RAM/commit 19.933/12.367 GiB,
+shared rises 82/82 MiB adapter/process. Fresh 40/50 GiB RAM/commit admission and
+the unchanged 4 GiB live floors, card/shared limits all held. Owned processes
+exited and the fresh card returned to 1,182 MiB at 0% utilization.
+
+The [receipt](perf4-qualification-2026-11-18.json) binds source, PNGs, numeric
+comparisons, actual block counts and independent audits. `PERF#4` now routes to
+Matt's pair judgment; public availability/release stays separate. Other sizes,
+schedules, checkpoints, batches, LoRAs, edits, platforms and combined execution
+recipes remain unqualified.
+
+## Source-stage history
+
 **Status, 2026-10-27: CPU contracts, persisted carry, private loader/call ownership,
 request-driven dispatch over one Eager load and cold candidate checks are built.**
 The unavailable per-render selector, browser persistence, holds and Reset/Reuse/Undo
@@ -445,7 +510,8 @@ block count does not prove a wall-time improvement, and a measured speed
 gain does not establish acceptable quality. Matt must judge the fixed
 pairs before the experiment is offered for routine use. Keep the feature
 off by default; other models, schedules, batches and compositions are
-separate slices. `PERF#4` remains CARD while the real comparison is outstanding.
+separate slices. The fixed card comparison is now measured above; `PERF#4`
+routes to Matt's quality review (`USER`) before any routine-use decision.
 
 ## Fixed comparison cases
 

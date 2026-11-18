@@ -1,0 +1,326 @@
+{
+  "schema": "auradream-cancel-offload-fix-v1",
+  "date": "2026-11-18",
+  "result": "targeted Native cancellation and recovery passed",
+  "scope": "one FLUX.1 Krea dev fp8/model Eager/Native load on Windows RTX5080, actual unmodified backend.generate, 1024square,28steps,CFG3.5,scene4471; no public HTTP/browser or private recipe availability qualification",
+  "source": {
+    "base_commit": "8b95ddd5d473648fb666910ca449aa9f9c7914aa",
+    "uncommitted_runtime_patch": true,
+    "backend_sha256": "c3a85a23288be5d3ccb3bdb1b4751f5456c75d714685d9cf02f3e597c838274e",
+    "regression_test_sha256": "797a8a5a183e9cc6f8cee76bdd86bea05ddd2e20aec68f707c9d35ba7b98bfd3",
+    "runtime_diff_sha256": "772308d7e620c8b544a79ed61e98fcffeb937f214b16c3a3c603d3e4f4bcd79f",
+    "source_manifest_sha256": "3ae739abff903753972647cc134e4fbca8b27764dd0d04af622721672060a007",
+    "harness_sha256": "14ca30c4b7088b12c9910fd32855d774202a237a0ee2e1479db00169fffb778e",
+    "subsequent_local_commit": "f8f4cf2de7c690300735ea189876f687c5f937b1"
+  },
+  "stack": {
+    "torch": "2.13.0+cu130",
+    "torchao": "0.18.0",
+    "diffusers": "0.42.1",
+    "accelerate": "1.15.0",
+    "transformers": "5.16.1"
+  },
+  "gpu": "NVIDIA GeForce RTX 5080",
+  "cuda": "13.0",
+  "cudnn_version_integer": 92000,
+  "driver": {
+    "version": "616.92",
+    "evidence": "fresh post-exit nvidia-smi read; previous session also recorded616.92"
+  },
+  "admission": {
+    "available_ram_gib": 40.0,
+    "commit_headroom_gib": 50.0,
+    "idle_card_mib": 2500.0,
+    "rationale": "verified.md:785 OS working-set peak28.4+4GiB live floor+7.6GiB margin; verified.md:788 process private peak39.9+4GiB live floor+6.1GiB margin. Prior peak plus margin is exploratory, not a guaranteed bound; root observed46.544GiB private in the concurrent2026-11-18 Kontext family replay. Additional cuDNN peaks are unknown; strict live guards stop the experiment, no retries."
+  },
+  "live_limits": {
+    "card_mib": 15500.0,
+    "project_mib": 15200.0,
+    "refuse_at_peak_mib": 15000.0,
+    "adapter_shared_rise_mib": 1024.0,
+    "process_shared_rise_mib": 512.0,
+    "ram_floor_gib": 4.0,
+    "commit_floor_gib": 4.0,
+    "need_ram_gib": 40.0,
+    "busy_card_mib": 2500.0,
+    "card_unread_samples": 3.0,
+    "margin_mib": 500.0,
+    "margin_gib": 1.0
+  },
+  "previous_failure": {
+    "result": "unchanged guard stopped earlier Native suite recovery at15768MiB>15500MiB; no retry of unsafe old source",
+    "source_commit": "8b95ddd5d473648fb666910ca449aa9f9c7914aa",
+    "receipt": ".artifacts/gpu-2026-11-18/perf3-native-stopped-receipt.json",
+    "receipt_sha256": "38606a7bd83f18f4c5a48d95b6debf34a6c92c4f5d7bbf07dda3c9b5be35ab7e"
+  },
+  "production_fix": {
+    "boundary": "outer _generate_images exception after admission and cache close/disposal drain; ordinary text-to-image only",
+    "successful_path": "unchanged; installed successful tail performs cleanup",
+    "failure_policy": "same loaded owner and no attached/pending cache; preserve original exception; cleanup failure logs one ERROR+DEBUG trace, detaches expected owner/siblings outside release lock using bounded fallback if diagnostic retirement fails"
+  },
+  "cpu_gates": {
+    "evidence_origin": "root and source-agent completed tool results",
+    "focused_pytest": {
+      "passed": 566,
+      "warnings": 3,
+      "seconds": 24.33,
+      "scope": "13backend/ownership/cache/refine/edit files plus new regression wrapper"
+    },
+    "isolated_cleanup_contracts": {
+      "passed": 26,
+      "real_torch_diffusers_accelerate_imports": 0
+    },
+    "full_pytest": {
+      "passed": 11426,
+      "skipped": 325,
+      "seconds": 203.32,
+      "workers": 8
+    },
+    "pinned_pyright": {
+      "sources": 219,
+      "errors": 0,
+      "warnings": 0,
+      "seconds": 14.672
+    },
+    "repository_ruff": "passed",
+    "git_diff_check": "passed",
+    "polished_regression_wrapper_rerun": {
+      "passed": 1,
+      "warnings": 1,
+      "seconds": 1.06
+    }
+  },
+  "normal": {
+    "seconds": 42.62007550000271,
+    "pixel_sha256": "d62ee9fc1308fe2a617619cdfb3fe8ba0e5a56c418dfe541cb32a9da419d697b",
+    "historical_native_exact": true,
+    "before": {
+      "allocated_mib": 0.0,
+      "reserved_mib": 0.0,
+      "component_devices": {
+        "text_encoder": "cpu",
+        "text_encoder_2": "cpu",
+        "transformer": "cpu",
+        "vae": "cpu"
+      },
+      "free_hook_calls": 0
+    },
+    "after": {
+      "allocated_mib": 32.0009765625,
+      "reserved_mib": 58.0,
+      "component_devices": {
+        "text_encoder": "cpu",
+        "text_encoder_2": "cpu",
+        "transformer": "cpu",
+        "vae": "cpu"
+      },
+      "free_hook_calls": 1
+    },
+    "allocated_peak_mib": 12283.57421875,
+    "reserved_peak_mib": 12928.0
+  },
+  "cancel": {
+    "seconds": 7.937048499996308,
+    "before": {
+      "allocated_mib": 32.0009765625,
+      "reserved_mib": 58.0,
+      "component_devices": {
+        "text_encoder": "cpu",
+        "text_encoder_2": "cpu",
+        "transformer": "cpu",
+        "vae": "cpu"
+      },
+      "free_hook_calls": 1
+    },
+    "after": {
+      "allocated_mib": 32.0009765625,
+      "reserved_mib": 60.0,
+      "component_devices": {
+        "text_encoder": "cpu",
+        "text_encoder_2": "cpu",
+        "transformer": "cpu",
+        "vae": "cpu"
+      },
+      "free_hook_calls": 2
+    },
+    "allocated_peak_mib": 12283.57421875,
+    "reserved_peak_mib": 12928.0,
+    "completed_steps": 3,
+    "return_after_last_callback_seconds": 1.6381824999989476,
+    "saved_image": false
+  },
+  "recovery": {
+    "seconds": 40.73658699999214,
+    "pixel_sha256": "d62ee9fc1308fe2a617619cdfb3fe8ba0e5a56c418dfe541cb32a9da419d697b",
+    "exact_repeat": true,
+    "historical_native_exact": true,
+    "before": {
+      "allocated_mib": 32.0009765625,
+      "reserved_mib": 60.0,
+      "component_devices": {
+        "text_encoder": "cpu",
+        "text_encoder_2": "cpu",
+        "transformer": "cpu",
+        "vae": "cpu"
+      },
+      "free_hook_calls": 2
+    },
+    "after": {
+      "allocated_mib": 32.0009765625,
+      "reserved_mib": 60.0,
+      "component_devices": {
+        "text_encoder": "cpu",
+        "text_encoder_2": "cpu",
+        "transformer": "cpu",
+        "vae": "cpu"
+      },
+      "free_hook_calls": 3
+    },
+    "allocated_peak_mib": 12283.57421875,
+    "reserved_peak_mib": 12928.0
+  },
+  "guard": {
+    "guard_rows": 530,
+    "guard_verdicts_independently_rechecked": true,
+    "guard_verdict_counts": {
+      "ok": 530
+    },
+    "whole_card_peak_mib": 14199.0,
+    "process_working_set_peak_gib": 27.67591094970703,
+    "process_private_peak_gib": 40.118324279785156,
+    "minimum_available_ram_gib": 20.63113784790039,
+    "minimum_commit_headroom_gib": 14.055473327636719,
+    "adapter_shared_rise_mib": 82.0,
+    "process_shared_rise_mib": 82.0,
+    "mean_sample_gap_seconds": 0.250291971077492,
+    "max_sample_gap_seconds": 0.27063830000406597
+  },
+  "cleanup": {
+    "root_collected": true,
+    "backend_ready": false,
+    "allocated_mib": 32.0,
+    "reserved_mib": 32.0,
+    "owned_processes_absent": true,
+    "fresh_card_mib": 966,
+    "fresh_utilization_percent": 0
+  },
+  "not_qualified": [
+    "HTTP/job/UI cancellation recovery",
+    "other checkpoints/quantizers/offload/platforms",
+    "cuDNN speed/repeatability/quality",
+    "regional compilation",
+    "FBC speed/quality",
+    "public experimental recipe admission"
+  ],
+  "evidence_files": {
+    ".artifacts/gpu-20261118/perf3-cancel-validation-a1/admission-sample.json": {
+      "sha256": "e78e27e99536933fed0ceaad09184d691b3a6461e80259d1350c1b6afb7eb0d4",
+      "bytes": 1287
+    },
+    ".artifacts/gpu-20261118/perf3-cancel-validation-a1/after-exit.json": {
+      "sha256": "c5658fcf9901af4855e92200e7f0dc9b7098f4ff58fa7ce24e9cb81eb42b113d",
+      "bytes": 229
+    },
+    ".artifacts/gpu-20261118/perf3-cancel-validation-a1/cancel-step-3.json": {
+      "sha256": "5017c9a7965e78326c6050a86dbb9bb20c1839b4acc99f2c363198c7aff0c61c",
+      "bytes": 22580
+    },
+    ".artifacts/gpu-20261118/perf3-cancel-validation-a1/cleanup-proof.json": {
+      "sha256": "020338fad4dff77280e87cfb1ada222f6cd3c2601e18e0174adb60fc0ee013ea",
+      "bytes": 108
+    },
+    ".artifacts/gpu-20261118/perf3-cancel-validation-a1/guard.jsonl": {
+      "sha256": "834e7ae8912260d99094725bc521b19f11c7bab17b07af33ccbd312c34e0555a",
+      "bytes": 276214
+    },
+    ".artifacts/gpu-20261118/perf3-cancel-validation-a1/harness-source.py": {
+      "sha256": "14ca30c4b7088b12c9910fd32855d774202a237a0ee2e1479db00169fffb778e",
+      "bytes": 26387
+    },
+    ".artifacts/gpu-20261118/perf3-cancel-validation-a1/measurements.jsonl": {
+      "sha256": "a637d99d2b0639f9f420a9f19409ca53ace14646857625e3f644520751e7b2ae",
+      "bytes": 66569
+    },
+    ".artifacts/gpu-20261118/perf3-cancel-validation-a1/normal.json": {
+      "sha256": "109c09bf37cd98aa4db7b464a0b65da0586c80a328125a8323026e54b6b21f12",
+      "bytes": 24980
+    },
+    ".artifacts/gpu-20261118/perf3-cancel-validation-a1/normal.png": {
+      "sha256": "cc82a7491effbaed6ba47a0b99ee22f95a23c6deee7db1b339b034550e0c1381",
+      "bytes": 1421548
+    },
+    ".artifacts/gpu-20261118/perf3-cancel-validation-a1/permit-0001-begin.json": {
+      "sha256": "32bf21310ada666795f692c8e4ad47e78bcf6622928f30dd6204673d9a0f8a79",
+      "bytes": 21
+    },
+    ".artifacts/gpu-20261118/perf3-cancel-validation-a1/phase-0001.json": {
+      "sha256": "08204f59bcb220b755752cbdb5f37c3b6a03d0804ad83f46a84cabf24725d63c",
+      "bytes": 91
+    },
+    ".artifacts/gpu-20261118/perf3-cancel-validation-a1/phase-0002.json": {
+      "sha256": "dcd57721c2c02f09747b1cd02e1a9caa856bafa19883b9ea7fbc17a221b4df04",
+      "bytes": 91
+    },
+    ".artifacts/gpu-20261118/perf3-cancel-validation-a1/phase-0003.json": {
+      "sha256": "b72301bfe42d5b34d2683aeba0d92bb01f6f732dd3589bb943d14f02d7074f05",
+      "bytes": 91
+    },
+    ".artifacts/gpu-20261118/perf3-cancel-validation-a1/phase-0004.json": {
+      "sha256": "c2e4b7cbbd0ead951a5892d98aa37adbe651d8e80fc963f2ea38a1fba3babda8",
+      "bytes": 98
+    },
+    ".artifacts/gpu-20261118/perf3-cancel-validation-a1/phase-0005.json": {
+      "sha256": "6d8f052a5e64b37489471c446c92c6dd2d3e7d8da78ffbba145cb3975fbea034",
+      "bytes": 93
+    },
+    ".artifacts/gpu-20261118/perf3-cancel-validation-a1/phase-0006.json": {
+      "sha256": "af46c06d281e211dedb5b7b65625d3b1388e421d97bbf36f8da27dfc13496f0d",
+      "bytes": 92
+    },
+    ".artifacts/gpu-20261118/perf3-cancel-validation-a1/phase-0007.json": {
+      "sha256": "68e2a437dc16ad45d2eb918c0f804cf14047c7f4b532aaa602e1b3a653939cb2",
+      "bytes": 88
+    },
+    ".artifacts/gpu-20261118/perf3-cancel-validation-a1/plan.json": {
+      "sha256": "9b3bb0789d0d2f4764bc3bcbd09f08dc1113127de2ad0d2f201496451a6db27d",
+      "bytes": 1475
+    },
+    ".artifacts/gpu-20261118/perf3-cancel-validation-a1/preflight.json": {
+      "sha256": "a852bc3978da128d24a37e8d975b6e04e509c92ab860e2b01f31d81b996d4138",
+      "bytes": 1349
+    },
+    ".artifacts/gpu-20261118/perf3-cancel-validation-a1/recovery.json": {
+      "sha256": "d70a12ef98b731d859ddfba95686fece2c6e03af2af51cbf841f6f82f7dc6c99",
+      "bytes": 24990
+    },
+    ".artifacts/gpu-20261118/perf3-cancel-validation-a1/recovery.png": {
+      "sha256": "05b61de2dae57f95711c9d49a5c1895f03f32b66eff9f95802462acfb576a92e",
+      "bytes": 1421558
+    },
+    ".artifacts/gpu-20261118/perf3-cancel-validation-a1/result-0001-complete.json": {
+      "sha256": "79ec6f5456e9d374d107b36b1d94d2c755b8e5cacdf5fd34ba76ce8e1cfe4db0",
+      "bytes": 582
+    },
+    ".artifacts/gpu-20261118/perf3-cancel-validation-a1/source.diff": {
+      "sha256": "772308d7e620c8b544a79ed61e98fcffeb937f214b16c3a3c603d3e4f4bcd79f",
+      "bytes": 7582
+    },
+    ".artifacts/gpu-20261118/perf3-cancel-validation-a1/stack.json": {
+      "sha256": "3ae739abff903753972647cc134e4fbca8b27764dd0d04af622721672060a007",
+      "bytes": 20592
+    },
+    ".artifacts/gpu-20261118/perf3-cancel-validation-a1/summary.json": {
+      "sha256": "8727a0694cabbc91f56af8ce511aa87d435f6849d1dd0eb47b3f5217d6799dbd",
+      "bytes": 746
+    },
+    ".artifacts/gpu-20261118/perf3-cancel-validation-a1/worker.log": {
+      "sha256": "d6246d676f8f9c0a455cb7064546a0b7d7aa83bddbaea81090df64b62b8a9147",
+      "bytes": 6139
+    },
+    ".artifacts/gpu-20261118/perf3-cancel-validation-audit.json": {
+      "sha256": "6679a3de11c0c97c414e8a5902c8dda3091260455e393ffab12c8ef604ba789c",
+      "bytes": 27742
+    }
+  },
+  "sequencing_note": "The prior Kontext replay mentioned in the copied admission rationale finished and released its GPU processes before this targeted run. GPU sessions were sequential; the copied word concurrent is not a claim of overlapping GPU execution."
+}

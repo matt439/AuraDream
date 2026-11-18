@@ -1,0 +1,425 @@
+{
+  "protocol": "inp11-real-server-browser-acceptance-2026-11-18",
+  "status": "passed-scoped-acceptance-with-retained-first-controller-observer-gap",
+  "source_commit": "8b95ddd5d473648fb666910ca449aa9f9c7914aa",
+  "authorization": "Matt: Do them all. Parent granted exclusive GPU baton; one model load per session.",
+  "hardware": {
+    "platform": "Windows",
+    "gpu": "NVIDIA GeForce RTX 5080",
+    "whole_card_total_mib": 16303,
+    "driver": "616.92"
+  },
+  "scope": {
+    "model": "black-forest-labs/FLUX.1-Kontext-dev",
+    "revision": "24e9dedc4ef646698dc8eb4e18ae2cec3c9fea0d",
+    "quantization": "fp8",
+    "offload": "model",
+    "compilation": "eager",
+    "attention": "native",
+    "diffusers": "0.42.1",
+    "source_dimensions": [
+      1024,
+      1024
+    ],
+    "working_and_output_dimensions": [
+      512,
+      512
+    ],
+    "instruction": "Change the red ball to a blue ball.",
+    "steps": 28,
+    "guidance_scale": 2.5,
+    "batch_per_call": 1,
+    "real_server_port": 7990,
+    "scratch_galleries": true,
+    "download_mode": "HF_HUB_OFFLINE=1, TRANSFORMERS_OFFLINE=1; cached selected components",
+    "released_envelope_changed": false,
+    "product_source_changed": false
+  },
+  "source": {
+    "kind": "new deterministic owned synthetic house/sun/grass/red-ball fixture",
+    "rgb_sha256": "28b506e70b5876cbafe51fff8b0222272adf4a395f156647ad45121377d3f42a",
+    "png_sha256": "6119bfd9a40889f6b2d4094b6d426dd77f68a35a07d4b17d65023b2d83563083",
+    "historical_limitation": "The 2026-10-27 original source was not retained; old 289dada6 source and 68b864f6 result equality cannot be checked. The retained 2026-11-16 replacement fixture was frozen before these sessions. No historical pixel equality claimed."
+  },
+  "acceptance": {
+    "native_controls": "Load, context-menu Edit, Edit, More seeds Queue, Cancel, held Edit and Generate, Unload",
+    "first_and_recovery_same_seed_pixels_identical": true,
+    "fresh_process_pixels_identical": true,
+    "first_recovery_and_fresh_process_rgb_sha256": "7e0062553284e700b6755b4c0450b7a8da1f43900c26ba5ed1f34f9c53512689",
+    "more_seeds": [
+      12346,
+      12347
+    ],
+    "deliberate_cancel_seed": 777,
+    "deliberate_cancel_terminal_step": 3,
+    "cancel_saved_images": 0,
+    "recovery_after_cancel": true,
+    "held_paths": {
+      "nonsquare": true,
+      "generate": true,
+      "rerender": true
+    },
+    "source_pixels_unchanged": true,
+    "independent_peak_and_provenance_agreement": "backend allocator / backend last_peak / SQL / API / job snapshots / PNG chunks",
+    "browser_exit_codes": [
+      0,
+      0
+    ],
+    "successful_model_loads": [
+      1,
+      1
+    ]
+  },
+  "guard_policy": {
+    "period_s": 0.25,
+    "whole_card_limit_mib": 15500,
+    "adapter_shared_rise_limit_mib": 1024,
+    "process_shared_rise_limit_mib": 512,
+    "live_free_ram_floor_gib": 4,
+    "live_commit_floor_gib": 4,
+    "initial_free_ram_admission_gib": 45,
+    "initial_free_commit_admission_gib": 50,
+    "idle_card_admission_mib": 2000,
+    "pre_browser_and_load_commit_admission": "40 GiB historical total private - actual already-owned server-tree private + 4 GiB unchanged live floor + 6 GiB extra margin; browser and unrelated private memory never subtracted",
+    "immediate_load_admission_rechecked": true,
+    "initial_52_gib_scratch_commit_admission_replaced": "The owner specifies45 GiB free RAM and4 GiB live commit floor.50 GiB commit admission was based on the then-measured40 GiB process-private peak plus4 floor and6 extra; already-owned server private is accounted by stage.",
+    "new_measurement_warning": "The replay observed46.54413986206055 GiB total private, superseding the historical40 GiB estimate. Future initial admission must be56.54413986206055 GiB commit (observed46.54413986206055 +4 live floor +6 extra margin), with immediate pre-load accounting subtracting actual already-owned server-tree private only. The exploratory50 GiB admission used here is not a future authorization; actual live commit never fell below7.26 GiB and no live limit was raised.",
+    "future_measured_total_private_gib": 46.54413986206055,
+    "future_initial_commit_admission_gib": 56.54413986206055,
+    "future_stage_commit_rule": "46.54413986206055 GiB observed peak total private - actual already-owned server-tree private + 4 GiB unchanged live floor + 6 GiB margin"
+  },
+  "full_session": {
+    "status": "independently-audited-with-explicit-observer-gap",
+    "original_controller_status": "stopped",
+    "original_controller_error": "RuntimeError: observed backend did not unload",
+    "direct_unload_allocator_observation": false,
+    "controller_receipt_sha256": "35ef4932ddbf5a3bc193578456d166852cc649729fdaf77617ba64307dfc5062",
+    "guard_sha256": "1e72e549089abdb1e3254c2fb3c8f5731c757008af2158cef3bfb5a27bbd02dc",
+    "allocator_sha256": "c2be31bfea68a3333c50b61f1922f94305ae7e6e2825f68776ced2625f787801",
+    "browser_log_sha256": "c7351b6184427fb2ac6e83560621e4b34479442e6007915fdfdae36d32324fe5",
+    "cleanup_sha256": "83618abcb3473d32d2f8a988b5b5af315d8284edefc80d4caa5f5aac5baafca7",
+    "raw_evidence_folder": "work/gpu-20261118/kontext/full-run-a2",
+    "guard_samples": 755,
+    "all_independent_guard_verdicts": "ok",
+    "sample_period_mean_s": 0.2499543754112183,
+    "longest_gap_s": 0.2685072422027588,
+    "whole_card_peak_mib": 14464.0,
+    "adapter_shared_rise_mib": 98.0,
+    "process_shared_rise_mib": 82.0,
+    "minimum_free_ram_gib": 20.44,
+    "minimum_commit_headroom_gib": 11.52,
+    "process_rss_peak_gib": 26.85,
+    "process_private_peak_gib": 40.72289276123047,
+    "source_files_bound": 322,
+    "first_pixel_sha256": "7e0062553284e700b6755b4c0450b7a8da1f43900c26ba5ed1f34f9c53512689",
+    "load": {
+      "observation": {
+        "event": "load_end",
+        "at": 1794979657.094712,
+        "started_at": 1794979605.318746,
+        "allocated": 0,
+        "reserved": 0,
+        "rss": 20879306752,
+        "private": 28165267456
+      },
+      "guard": {
+        "samples": 207,
+        "peaks": {
+          "card_mib": 1504.0,
+          "adapter_rise_mib": 75.0,
+          "process_rise_mib": 74.0,
+          "tree_gib": 26.85,
+          "tree_private_gib": 33.37159729003906
+        },
+        "minima": {
+          "available_gib": 20.44,
+          "commit_headroom_gib": 19.34
+        },
+        "longest_gap_s": 0.2685072422027588
+      }
+    },
+    "load_admission": {
+      "event": "load_admission",
+      "at": 1794979605.3163111,
+      "available_gib": 45.3017578125,
+      "commit_headroom_gib": 49.33241653442383,
+      "required_commit_gib": 48.02165985107422,
+      "already_owned_private_gib": 1.9783401489257812,
+      "server_tree_sampled_at": 1794979605.194767,
+      "measured_total_private_gib": 40,
+      "unchanged_commit_floor_gib": 4,
+      "additional_commit_margin_gib": 6
+    },
+    "images": [
+      {
+        "id": 3,
+        "seed": 12345,
+        "duration_ms": 43365,
+        "pixel_sha256": "7e0062553284e700b6755b4c0450b7a8da1f43900c26ba5ed1f34f9c53512689",
+        "png_sha256": "f8b2b51c431b72deca0375150f7d145ae990d45be210f5f012009af78993a37a",
+        "metadata_sha256": "568beeb11917b23cd3a20eb4e572245ed06ffddcefa3b1f654040d29908986ac",
+        "allocated": 12886411776,
+        "reserved": 13478395904,
+        "run_id": "becac82ec2e4"
+      },
+      {
+        "id": 4,
+        "seed": 12346,
+        "duration_ms": 26221,
+        "pixel_sha256": "92454cca3a6a8d54bda8d37ecdb7fe2f5c0518d15798414e2efef012ec6ae68c",
+        "png_sha256": "b026801cae224e87bf13d1b166d82d93fb15aebb1bfcbd8e4155ee5c2bdc6f84",
+        "metadata_sha256": "b6832a51094642e0999772e4d909d5fea65a5c8a313ac27ba873bc648564c44b",
+        "allocated": 12886411776,
+        "reserved": 13478395904,
+        "run_id": "becac82ec2e4"
+      },
+      {
+        "id": 5,
+        "seed": 12347,
+        "duration_ms": 25656,
+        "pixel_sha256": "bf55377bfb727c663857e08eea56b0fc00d22789de234c6b26a87fb2647a9782",
+        "png_sha256": "09d428b25630d36d52dada176134c2a8e9706c513dafbb9be07de04220151feb",
+        "metadata_sha256": "90af010a74e75c53f1926bf7e071daec2af6372b2b8979720e3d2561db9c81d3",
+        "allocated": 12886411776,
+        "reserved": 13478395904,
+        "run_id": "becac82ec2e4"
+      },
+      {
+        "id": 6,
+        "seed": 12345,
+        "duration_ms": 25274,
+        "pixel_sha256": "7e0062553284e700b6755b4c0450b7a8da1f43900c26ba5ed1f34f9c53512689",
+        "png_sha256": "94254869459ab71509350a78eaa3cb738134565c66f9cfabc29a228d18503e06",
+        "metadata_sha256": "83460ef1e84b0ce92bf40d206d176e1fb1f92eb178a15505542bb3a930f23987",
+        "allocated": 12886411776,
+        "reserved": 13478395904,
+        "run_id": "becac82ec2e4"
+      }
+    ],
+    "jobs": {
+      "first": {
+        "id": "3f97a19f2dae",
+        "status": "done",
+        "step": 28,
+        "saved_images": 1
+      },
+      "more_seeds": {
+        "id": "056d8d0ea914",
+        "status": "done",
+        "step": 28,
+        "saved_images": 2
+      },
+      "cancel": {
+        "id": "b2a904e34e05",
+        "status": "cancelled",
+        "step": 3,
+        "saved_images": 0
+      },
+      "recovery": {
+        "id": "cd4548fe5dbf",
+        "status": "done",
+        "step": 28,
+        "saved_images": 1
+      }
+    },
+    "unload": null,
+    "post_unload_guard": null,
+    "browser_unloaded_state": "unloaded",
+    "held_paths": {
+      "nonsquare": true,
+      "generate": true,
+      "rerender": true
+    },
+    "cleanup": {
+      "server_pid": 7284,
+      "server_exit": 15,
+      "browser_pid": 16856,
+      "browser_exit": 0,
+      "guard_error": null,
+      "cleanup_errors": [],
+      "at": 1794979789.9720824
+    },
+    "versions": {
+      "torch": "2.13.0+cu130",
+      "torchao": "0.18.0",
+      "diffusers": "0.42.1",
+      "transformers": "5.16.1",
+      "accelerate": "1.15.0"
+    }
+  },
+  "fresh_process_replay": {
+    "status": "independently-audited",
+    "original_controller_status": "complete",
+    "original_controller_error": null,
+    "direct_unload_allocator_observation": true,
+    "controller_receipt_sha256": "118c0930fc1a2e761f656780612b1c26e2c44446f1192ff88a7dd8c7d0d55aca",
+    "guard_sha256": "f9e7b57999fcd5286f8a3ef96c1170c4df6eafb3ec4f6c3cc2c06d7628308660",
+    "allocator_sha256": "21af50d39a3f90d47846c355d0074a39504b3f82e266fd33013dd6e5f384b0ff",
+    "browser_log_sha256": "75b4de6f15fe62b43efe42e53526403960b10814cdc49bc3b1b52a621c062274",
+    "cleanup_sha256": "eb8ec088d27eb6d39aa9a9b32a2dc9be277b8fd6ddca39ddae7302c25e6e91b0",
+    "raw_evidence_folder": "work/gpu-20261118/kontext/replay-run",
+    "guard_samples": 291,
+    "all_independent_guard_verdicts": "ok",
+    "sample_period_mean_s": 0.24989523065501246,
+    "longest_gap_s": 0.2770833969116211,
+    "whole_card_peak_mib": 14436.0,
+    "adapter_shared_rise_mib": 82.2,
+    "process_shared_rise_mib": 82.0,
+    "minimum_free_ram_gib": 20.52,
+    "minimum_commit_headroom_gib": 7.26,
+    "process_rss_peak_gib": 27.75,
+    "process_private_peak_gib": 46.54413986206055,
+    "source_files_bound": 323,
+    "first_pixel_sha256": "7e0062553284e700b6755b4c0450b7a8da1f43900c26ba5ed1f34f9c53512689",
+    "load": {
+      "observation": {
+        "event": "load_end",
+        "at": 1794979910.5019572,
+        "started_at": 1794979879.267374,
+        "allocated": 0,
+        "reserved": 0,
+        "rss": 22340890624,
+        "private": 28842168320
+      },
+      "guard": {
+        "samples": 125,
+        "peaks": {
+          "card_mib": 1504.0,
+          "adapter_rise_mib": 74.2,
+          "process_rise_mib": 74.0,
+          "tree_gib": 27.75,
+          "tree_private_gib": 33.747764587402344
+        },
+        "minima": {
+          "available_gib": 20.52,
+          "commit_headroom_gib": 19.92
+        },
+        "longest_gap_s": 0.2770833969116211
+      }
+    },
+    "load_admission": {
+      "event": "load_admission",
+      "at": 1794979879.2558465,
+      "available_gib": 47.290283203125,
+      "commit_headroom_gib": 51.342002868652344,
+      "required_commit_gib": 48.023277282714844,
+      "already_owned_private_gib": 1.9767227172851562,
+      "server_tree_sampled_at": 1794979879.073491,
+      "measured_total_private_gib": 40,
+      "unchanged_commit_floor_gib": 4,
+      "additional_commit_margin_gib": 6
+    },
+    "images": [
+      {
+        "id": 3,
+        "seed": 12345,
+        "duration_ms": 34515,
+        "pixel_sha256": "7e0062553284e700b6755b4c0450b7a8da1f43900c26ba5ed1f34f9c53512689",
+        "png_sha256": "0ad7ccfb2887a237322ea5cd10380fa64ba17333eef4d4cbd44b24a81557dd3a",
+        "metadata_sha256": "574abb6384479041e913f5088e9672ebd6ea527ba3bbe66d7c4d1378406ceea7",
+        "allocated": 12886411776,
+        "reserved": 13478395904,
+        "run_id": "55708889aa71"
+      }
+    ],
+    "jobs": {
+      "first": {
+        "id": "64f5a87f6ef0",
+        "status": "done",
+        "step": 28,
+        "saved_images": 1
+      }
+    },
+    "unload": {
+      "event": "unload_end",
+      "at": 1794979946.402449,
+      "started_at": 1794979946.0681536,
+      "ready": false,
+      "accepted": true,
+      "allocated": 33554432,
+      "reserved": 33554432,
+      "rss": 19590696960,
+      "private": 29988315136
+    },
+    "post_unload_guard": {
+      "samples": 3,
+      "peaks": {
+        "card_mib": 1620.0,
+        "adapter_rise_mib": 82.2,
+        "process_rise_mib": 82.0,
+        "tree_gib": 18.26,
+        "tree_private_gib": 27.930797576904297
+      },
+      "minima": {
+        "available_gib": 30.32,
+        "commit_headroom_gib": 26.12
+      },
+      "longest_gap_s": 0.25025391578674316
+    },
+    "browser_unloaded_state": "unloaded",
+    "held_paths": null,
+    "cleanup": {
+      "server_pid": 29680,
+      "server_exit": 15,
+      "browser_pid": 32588,
+      "browser_exit": 0,
+      "guard_error": null,
+      "cleanup_errors": [],
+      "at": 1794979948.168574
+    },
+    "versions": {
+      "torch": "2.13.0+cu130",
+      "torchao": "0.18.0",
+      "diffusers": "0.42.1",
+      "transformers": "5.16.1",
+      "accelerate": "1.15.0"
+    }
+  },
+  "retained_nonpasses": [
+    {
+      "folder": "work/gpu-20261118/kontext/full-run",
+      "outcome": "pre-browser commit admission refused after idle server startup; no browser/model load/render; cleanup complete"
+    },
+    {
+      "folder": "work/gpu-20261118/kontext/full-run-a2",
+      "outcome": "browser protocol and independent stored evidence passed; original controller stopped because it observed backend.unload while public route calls backend.try_unload. Original stopped receipt unchanged; independent audit preserves this gap. Fresh-process replay corrected the observer and established actual try_unload plus allocator cleanup."
+    }
+  ],
+  "instrumentation_correction": {
+    "product_bug": false,
+    "changed_only_ignored_scratch_wrapper": true,
+    "cpu_check": "Exact public try_unload observer AST exercised with doubles, one original call, accepted=True, ready=False and allocator metrics emitted; no model/framework/server import.",
+    "controller_cpu_safety_checks": "23 existing tests passed before launch"
+  },
+  "visual_review": {
+    "contact_sheet": ".artifacts/gpu-20261118/kontext/contact-sheet.png",
+    "contact_sheet_sha256": "a14ec578c2466d53285fc8a984c924aa7c9610dd9f4988ca4e8ecef7c93b487a",
+    "observation": "The ball is blue in all three distinct seeds; house, sun, sky and grass remain, with changes to house/horizon geometry and ball size/position. This does not establish unchanged background or general edit quality."
+  },
+  "post_replay_observed_cleanup": {
+    "owned_server_and_browser_exited": true,
+    "port7990_listening": false,
+    "whole_card_mib": 1277,
+    "gpu_utilization_percent": 0,
+    "power_hold_released_by_controller_finally": true,
+    "observation_source": "explicit process cleanup JSON plus post-exit port/nvidia-smi tool observation before GPU baton release"
+  },
+  "not_qualified": [
+    "historical original-fixture equality",
+    "other source aspects or output sizes",
+    "other checkpoints, loaders or platforms",
+    "Krea-to-Kontext switching",
+    "photographic source fidelity",
+    "unrelated performance recipes"
+  ],
+  "independent_review": {
+    "reviewer": "separate evidence_audit agent",
+    "full": "work/gpu-20261118/audit/kontext-full-a2-audit.json",
+    "replay": "work/gpu-20261118/audit/kontext-replay-audit.json",
+    "verdict": "both guards and stored evidence agree; combined public acceptance on replacement fixture passes; original full stopped observer gap retained; direct actual try_unload and cross-process replay established by corrected second session",
+    "receipt_hashes": {
+      "full": "512cac8baba0eaca7ace97a3f7cfd8d80b2f30dacbf89b42445125aa3b311145",
+      "replay": "28ce1892d081f2deefec6cd0ee7e66830ba9673e925ba3456c0d371892200342"
+    }
+  }
+}

@@ -1,0 +1,196 @@
+{
+  "schema_version": 1,
+  "created_utc": "2026-11-18T10:47:39.859120+00:00",
+  "source_revision": "f8f4cf2de7c690300735ea189876f687c5f937b1",
+  "backend_sha256": "c3a85a23288be5d3ccb3bdb1b4751f5456c75d714685d9cf02f3e597c838274e",
+  "manifest_value_hash_encoding": "SHA256 of UTF-8 JSON, sorted keys, compact separators, ensure_ascii=false",
+  "runtime": {
+    "stack": {
+      "torch": "2.13.0+cu130",
+      "torchao": "0.18.0",
+      "diffusers": "0.42.1",
+      "accelerate": "1.15.0",
+      "transformers": "5.16.1"
+    },
+    "driver": "616.92",
+    "gpu": "NVIDIA GeForce RTX 5080",
+    "cuda": "13.0",
+    "cudnn": 92000,
+    "loader": {
+      "checkpoint": "black-forest-labs/FLUX.1-Krea-dev",
+      "quantization": "fp8",
+      "offload": "model",
+      "device": "cuda"
+    }
+  },
+  "fixture": {
+    "file": {
+      "path": "tools/perf_cases.py",
+      "sha256": "17b1f7a5515cd3e7460db43fc73ca60899ae034cccce79f2b806856a2871827f"
+    },
+    "steps": 28,
+    "guidance_scale": 3.5,
+    "batch": 1,
+    "seeds": [
+      4471,
+      8823
+    ],
+    "prompts": [
+      "scene",
+      "subjects",
+      "text"
+    ],
+    "mu": null,
+    "negative": null,
+    "LoRA": null,
+    "reference": null,
+    "refine_or_edit": null
+  },
+  "guards": {
+    "card_limit_mib": 15500,
+    "adapter_shared_rise_limit_mib": 1024,
+    "process_shared_rise_limit_mib": 512,
+    "free_RAM_floor_gib": 4,
+    "commit_headroom_floor_gib": 4,
+    "initial_free_RAM_gib": 40,
+    "initial_commit_headroom_gib": 50,
+    "initial_idle_card_max_mib": 2500,
+    "requested_period_seconds": 0.25
+  },
+  "id": "PERF#3 original same-process switch",
+  "protocol": "original full fresh40RAM/50commit readmission",
+  "driver": {
+    "file": {
+      "path": "work/perf3_switch_private.py",
+      "sha256": "14ce3833266810e12b2ff62379af16220d2bf4d0dd15c5481573cb29c4029e0b"
+    },
+    "sha256": "14ce3833266810e12b2ff62379af16220d2bf4d0dd15c5481573cb29c4029e0b",
+    "private_attention_source_sha256": "2b2851c0a66757694f23eb5b579fc18af00476ed71191f24a7cfc620e67539ee"
+  },
+  "planned_order": [
+    {
+      "id": "cudnn-before-switch",
+      "recipe": "cudnn",
+      "prompt": "scene",
+      "shape": "A",
+      "seed": 4471
+    },
+    {
+      "id": "native-after-switch",
+      "recipe": "native",
+      "prompt": "scene",
+      "shape": "A",
+      "seed": 4471
+    }
+  ],
+  "session": {
+    "session": ".artifacts/gpu-20261118/perf3-switch-generate-a1",
+    "audit": {
+      "path": "work/gpu-20261118/audit-perf3-original-switch-a1.json",
+      "sha256": "8f8eebba327de160e0714d0469213fb8d9de305494a69d83c8e6246e7df93ab6"
+    },
+    "audit_passed": true,
+    "source_manifest": {
+      "container": {
+        "path": ".artifacts/gpu-20261118/perf3-switch-generate-a1/stack.json",
+        "sha256": "d1cc90c610b709a5a1e9df60e66f54de83fd62e2191fb46a745cbc5eae5e778b"
+      },
+      "json_pointer": "/source_sha256",
+      "entries": 197,
+      "canonical_value_sha256": "19508c4019358fd9bdd46cbe36247c7b4dfe9328d51fae288f832618c135318d"
+    },
+    "PNG_manifest": {
+      "container": {
+        "path": "work/gpu-20261118/audit-perf3-original-switch-a1.json",
+        "sha256": "8f8eebba327de160e0714d0469213fb8d9de305494a69d83c8e6246e7df93ab6"
+      },
+      "json_pointer": "/png_hashes",
+      "entries": 1,
+      "canonical_value_sha256": "d2bc35ba0b4870be444d07271e2fef273650a29c4ee236d24ca3d07427d9f3f1"
+    },
+    "raw_artifact_sha256": {
+      "plan.json": "aa9debf822127f686b837a9191997e1bfb6c14685f8180e09b21ff7aa0499fca",
+      "preflight.json": "c500ca49ec5afafd6ac3bb0ea259f66609ebe000303790367a4dbba073b49c47",
+      "stack.json": "d1cc90c610b709a5a1e9df60e66f54de83fd62e2191fb46a745cbc5eae5e778b",
+      "guard.jsonl": "23bcde270cb4c1fab7ddec65bb3f13a45ff2644f5502fbf6974543548e419cac",
+      "summary.json": "a95a274259fc2a04c2abb58fb1935b4a075204b7d2b5edd807c63c12fb566d41",
+      "after-exit.json": "8fbb2ccae315049bef5b3fb0f3207c555f4fa9fa4004ec4cb7150c93de4b38e7",
+      "readmission.json": "9ee9d33e75c043d485b60934ffc25f024fac4a4c62e77ab2fe4cdb028363a3de",
+      "reload-permit-0001-decision.json": "9ee9d33e75c043d485b60934ffc25f024fac4a4c62e77ab2fe4cdb028363a3de",
+      "stage1-cleanup.json": "02fdef8232fb81af912b9c7a186418d5f3b62a68935e89460e5d1d03b39cf8d0",
+      "result-0001-complete.json": "b221432f5802f5be508db1cdb27f9b911c4147c905499617861e8a63ccf5abef",
+      "cudnn-before-switch.json": "c219ce3dcb749c0e4c2d466ccd3f6632d55fe6a3ca499044d3662133ca2dbd54",
+      "harness-source.py": "14ce3833266810e12b2ff62379af16220d2bf4d0dd15c5481573cb29c4029e0b",
+      "private-admission-source.py": "2b2851c0a66757694f23eb5b579fc18af00476ed71191f24a7cfc620e67539ee",
+      "source.diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "counts": {},
+    "completed_PNGs": 1,
+    "guard": {
+      "samples": 289,
+      "whole_card_peak_mib": 14505.0,
+      "minimum_free_ram_gib": 19.82113265991211,
+      "minimum_commit_headroom_gib": 13.020557403564453,
+      "process_private_peak_gib": 39.446311950683594,
+      "tree_RSS_peak_gib": 29.09943389892578,
+      "adapter_shared_rise_mib": 82.0,
+      "process_shared_rise_mib": 82.0,
+      "mean_sample_gap_seconds": 0.25031584027773435,
+      "max_sample_gap_seconds": 0.2617577000055462
+    }
+  },
+  "counts": {
+    "model_loads": 1,
+    "completed_image_calls": 1,
+    "completed_PNGs": 1,
+    "cancelled_calls": 0,
+    "guard_samples_independently_rechecked": 289
+  },
+  "outcome": {
+    "controller_succeeded": true,
+    "readmission_allowed": false,
+    "lifecycle_complete": false,
+    "Native_load_or_image_started": false,
+    "Native_artifact_and_load_phase_absent": true,
+    "completed_stage": "CuDNN image and complete unload only"
+  },
+  "readmission": {
+    "required_free_RAM_gib": 40,
+    "required_commit_headroom_gib": 50,
+    "observed_free_RAM_gib": 30.418182373046875,
+    "observed_commit_headroom_gib": 24.79907989501953,
+    "observed_process_private_gib": 27.665523529052734,
+    "observed_idle_card_mib": 1545.0,
+    "exact_reasons": [
+      "fresh free RAM 30.418GiB < 40GiB",
+      "fresh commit headroom 24.799GiB < 50GiB"
+    ],
+    "retained_allocation_credit": false,
+    "decision_file": {
+      "path": ".artifacts/gpu-20261118/perf3-switch-generate-a1/readmission.json",
+      "sha256": "9ee9d33e75c043d485b60934ffc25f024fac4a4c62e77ab2fe4cdb028363a3de"
+    },
+    "immutable_permit": {
+      "path": ".artifacts/gpu-20261118/perf3-switch-generate-a1/reload-permit-0001-decision.json",
+      "sha256": "9ee9d33e75c043d485b60934ffc25f024fac4a4c62e77ab2fe4cdb028363a3de"
+    },
+    "matching_raw_guard_rows": [
+      282
+    ]
+  },
+  "completed_stage_proof": {
+    "CuDNN_RGB_matches_benchmark": true,
+    "backend_not_ready_after_unload": true,
+    "transformer_root_collected": true,
+    "Native_registry_restored": true,
+    "components_returned_to_CPU": true,
+    "allocator_numeric_independent_audit_limit_mib": 256
+  },
+  "audit_limitations": [
+    "The switch driver does not retain its per-stage idle allocation/dynamic cleanup ceiling; this audit independently checks numeric allocations <=256 MiB and the retained cleanup flags.",
+    "Readmission was controlled-refused; one cuDNN stage completed, Native was not loaded and the lifecycle did not pass."
+  ],
+  "quality_judgment": null,
+  "public_nonempty_admission": "closed",
+  "interpretation": "Controlled refusal is retained evidence, not a passed switch. Any capped protocol is a separate future experiment and must have a separate receipt."
+}

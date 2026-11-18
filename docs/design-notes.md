@@ -4257,6 +4257,31 @@ the queue is finished off by the endpoint itself rather than waiting for the
 job ahead of it, so `_finish()` guards the terminal SSE event against being
 emitted twice.
 
+**Ordinary text-to-image offload after cancellation (2026-11-18).** A guarded
+FLUX.1 Krea dev comparison exposed a missed cleanup: the installed pipeline
+calls `maybe_free_model_hooks` only at its successful tail. A callback's
+`Cancelled` can leave the transformer on CUDA; starting the next prompt added text
+encoder memory and the unchanged card guard stopped at 15,768 MiB. The ordinary
+production call had the same gap. Refine and instruction edits already owned
+exceptional loaded-pipeline cleanup.
+
+The ordinary text-to-image exception boundary now runs after request cache
+close/disposal and after no_grad/sigma unwind. It offloads only the same loaded
+owner with no attached or pending cache state, preserving the primary exception.
+An offload failure adds notes and logs one ERROR plus a DEBUG traceback, then
+fails closed by detaching that exact pipeline and its siblings and releasing
+outside the lock. Diagnostic-retirement failure uses a captured candidate and
+the same pure reference-clear operation; replacements and uncertain cache
+ownership stay untouched. Successful rendering is unchanged. Repeating an
+app-owned pipeline's exceptional cleanup is benign under the installed
+idempotent offload helper; exact-one-call measurement below is FLUX.1 only.
+
+A guarded actual `backend.generate` check then returned all four components
+to CPU and 32.001 MiB allocated after step-3 cancellation; the next image was
+pixel-identical to the original Native control. This checks backend generation,
+not HTTP/job/UI behavior. [The measurement](verified.md#ordinary-text-to-image-cancel-and-recovery-2026-11-18)
+and its receipt retain both the stopped comparison and the targeted result.
+
 ## Runs, not batches, for many 2K images
 
 `request.runs` loops `jobs._generate` over N sequential pipeline calls with

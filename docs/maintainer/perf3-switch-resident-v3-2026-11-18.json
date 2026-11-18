@@ -1,0 +1,332 @@
+{
+  "schema_version": 1,
+  "created_utc": "2026-11-18T11:06:46.693818+00:00",
+  "id": "PERF#3 bounded same-process switch resident-v3",
+  "protocol_version": "switch-job-private-cap-resident-v3",
+  "source_revision": "f8f4cf2de7c690300735ea189876f687c5f937b1",
+  "backend_sha256": "c3a85a23288be5d3ccb3bdb1b4751f5456c75d714685d9cf02f3e597c838274e",
+  "driver": {
+    "artifact": {
+      "path": "work/perf3_switch_jobcap_resident_private.py",
+      "sha256": "1a8dc3cad756a4a6eb849c703c0ec9cff2c436b954124d8b0d3f448603b2c1ee"
+    },
+    "frozen_sha256": "1a8dc3cad756a4a6eb849c703c0ec9cff2c436b954124d8b0d3f448603b2c1ee"
+  },
+  "definition": {
+    "path": "work/gpu-20261118/switch-job-cap-review/v3-final-proposal.json",
+    "sha256": "9f1132df4f21e9aaac65caa547ef9ddbbafef70adffa376894267d9a53fe6450"
+  },
+  "independent_source_review": {
+    "path": "work/gpu-20261118/switch-job-cap-review/independent-v3-final-review-a1.json",
+    "sha256": "1074ebd31a1fa4c1096aca9e31e5c4c4598c091873a44cb974c7be01155fce5d"
+  },
+  "session": {
+    "session": ".artifacts/gpu-20261118/perf3-switch-jobcap-resident-v3-a1",
+    "audit": {
+      "path": "work/gpu-20261118/audit-perf3-switch-resident-v3-a1.json",
+      "sha256": "7ecda21fd53a8055a51b671096057426c19d7f7d97b8daaa8aab57d6cb80ece0"
+    },
+    "audit_passed": true,
+    "source_manifest": {
+      "container": {
+        "path": ".artifacts/gpu-20261118/perf3-switch-jobcap-resident-v3-a1/stack.json",
+        "sha256": "aee1314f23327cdc8b34f6954fb210dc42c8b2cc1c6b2f0d1b1b9268e707f64e"
+      },
+      "json_pointer": "/source_sha256",
+      "entries": 200,
+      "canonical_value_sha256": "394b8f47a0587927c0d3fd87d5333f11fe91106c80b0969fa46c3a26dfb9e50e"
+    },
+    "PNG_manifest": {
+      "container": {
+        "path": "work/gpu-20261118/audit-perf3-switch-resident-v3-a1.json",
+        "sha256": "7ecda21fd53a8055a51b671096057426c19d7f7d97b8daaa8aab57d6cb80ece0"
+      },
+      "json_pointer": "/png_hashes",
+      "entries": 2,
+      "canonical_value_sha256": "051baa4817bec0a0292762100fffbec119180a4a26307c2e764989488f7bf707"
+    },
+    "raw_artifact_sha256": {
+      "plan.json": "18069364c3d78f0f9ed6507ee6bac8cd24ca7abc6ddd0850289168374fcbae57",
+      "preflight.json": "58083a93eb5f4a6187deb16f3735dc532d66be44fc4f75ea3910eace86ead8f0",
+      "stack.json": "aee1314f23327cdc8b34f6954fb210dc42c8b2cc1c6b2f0d1b1b9268e707f64e",
+      "guard.jsonl": "38306c89e29e37a08ffaf1df194ef7298ef1e219453a0277c07d85468efc65f7",
+      "summary.json": "f78426ca474e36bd0974905393861238ee04a43b1346a8c8602aed4e5e1c63ca",
+      "after-exit.json": "2453936a35358106c50aa21eaad359fe06c0638b35062b831319d28b8fcfeaed",
+      "readmission-v2.json": "5810dc4db722ddcb890a0f7726b9a909dfe11c21ff03680020d4ed3ba41a21e1",
+      "raw-host-observations.jsonl": "61355308d8ddf274dc930aa841f8d709c78fd65eb1e2286532fae5cde0d32b2e",
+      "admission-sample.json": "7121cdf5fb247a3380e81f3e47c789c01562970bd64ae3d894d07fac1ad4c26b",
+      "worker-ready.json": "071dc5f1c93227ae39dbe70fda99d603fd7e8bdf20ddb5b994758d164a537633",
+      "reload-permit-0001-decision.json": "5810dc4db722ddcb890a0f7726b9a909dfe11c21ff03680020d4ed3ba41a21e1",
+      "stage1-cleanup.json": "8de10a94f1c0ab4470d4b1bf370e62bf6bda2c2fe077afb106210b6b864dae62",
+      "stage2-cleanup.json": "d13345f07c08c1fffd3c4862081d992c1c72354bc9013956f10d194114f9a520",
+      "result-0001-complete.json": "fa514a3f15212758ee3e92e80389117f5ca5608ce73e4cce8a0628325359d980",
+      "cudnn-before-switch.json": "8138a39e61a91094a4f4c2a1463f81368d4ec08929e878945711e38c6dabd1c9",
+      "native-after-switch.json": "7d9f722d4eca75b55efbd934d85782412b03e44b9ac7a8a9764ea0157168d911",
+      "harness-source.py": "1a8dc3cad756a4a6eb849c703c0ec9cff2c436b954124d8b0d3f448603b2c1ee",
+      "private-admission-source.py": "2b2851c0a66757694f23eb5b579fc18af00476ed71191f24a7cfc620e67539ee",
+      "source.diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "counts": {},
+    "completed_PNGs": 2,
+    "guard": {
+      "samples": 691,
+      "whole_card_peak_mib": 14505.0,
+      "minimum_free_ram_gib": 18.882720947265625,
+      "minimum_commit_headroom_gib": 11.911300659179688,
+      "observational_member_private_sum_peak_gib": 39.83909606933594,
+      "current_job_commit_peak_gib": 39.83909606933594,
+      "peak_job_veto_gib_not_credited": 40.16550827026367,
+      "exact_job_sampled_RSS_peak_gib": 30.04058074951172,
+      "observational_EX2_private_resident_peak_gib": 21.161407470703125,
+      "tree_RSS_peak_gib": 30.037212371826172,
+      "adapter_shared_rise_mib": 82.0,
+      "process_shared_rise_mib": 82.0,
+      "mean_sample_gap_seconds": 0.2503017991304396,
+      "max_sample_gap_seconds": 0.2654620999965118
+    }
+  },
+  "outcome": {
+    "controller_success": true,
+    "lifecycle_complete": true,
+    "readmission_allowed": true,
+    "same_actual_worker_process": true,
+    "model_loads_in_sequence": 2,
+    "ordinary_unloads": 2,
+    "completed_image_calls": 2,
+    "completed_PNGs": 2,
+    "cancelled_calls": 0
+  },
+  "source_and_image_manifests": {
+    "source_or_proof_entries_checked": 200,
+    "source_manifest": {
+      "container": {
+        "path": ".artifacts/gpu-20261118/perf3-switch-jobcap-resident-v3-a1/stack.json",
+        "sha256": "aee1314f23327cdc8b34f6954fb210dc42c8b2cc1c6b2f0d1b1b9268e707f64e"
+      },
+      "json_pointer": "/source_sha256",
+      "entries": 200,
+      "canonical_value_sha256": "394b8f47a0587927c0d3fd87d5333f11fe91106c80b0969fa46c3a26dfb9e50e"
+    },
+    "PNG_manifest": {
+      "container": {
+        "path": "work/gpu-20261118/audit-perf3-switch-resident-v3-a1.json",
+        "sha256": "7ecda21fd53a8055a51b671096057426c19d7f7d97b8daaa8aab57d6cb80ece0"
+      },
+      "json_pointer": "/png_hashes",
+      "entries": 2,
+      "canonical_value_sha256": "051baa4817bec0a0292762100fffbec119180a4a26307c2e764989488f7bf707"
+    }
+  },
+  "stages": [
+    {
+      "order": 1,
+      "recipe": "cudnn",
+      "case": {
+        "id": "cudnn-before-switch",
+        "recipe": "cudnn",
+        "prompt": "scene",
+        "shape": "A",
+        "seed": 4471
+      },
+      "image_JSON": {
+        "path": ".artifacts/gpu-20261118/perf3-switch-jobcap-resident-v3-a1/cudnn-before-switch.json",
+        "sha256": "8138a39e61a91094a4f4c2a1463f81368d4ec08929e878945711e38c6dabd1c9"
+      },
+      "image_PNG": {
+        "path": ".artifacts/gpu-20261118/perf3-switch-jobcap-resident-v3-a1/cudnn-before-switch.png",
+        "sha256": "4f4396bea4663b338c435710f76c25c85c87cdd3ea6a02ae81d9f72fd5849ba8"
+      },
+      "RGB_sha256": "ff6bbce86611f2ae840e5c62ba44ed4a113d475f43949a1da0e5766a4bd6bfdb",
+      "matches_prior_recipe_benchmark_RGB": true,
+      "prior_benchmark_record": {
+        "path": ".artifacts/gpu-20261118/perf3-cudnn-generate-suite-a1/A-first.json",
+        "sha256": "cf9642a887ea121d131b1a9ba6e688d69117c105857d93a132a55b4c153f7fec"
+      },
+      "completed_steps": 28,
+      "recorded_image_seconds": 38.05273680000391,
+      "cleanup": {
+        "artifact": {
+          "path": ".artifacts/gpu-20261118/perf3-switch-jobcap-resident-v3-a1/stage1-cleanup.json",
+          "sha256": "8de10a94f1c0ab4470d4b1bf370e62bf6bda2c2fe077afb106210b6b864dae62"
+        },
+        "root_collected": true,
+        "backend_ready": false,
+        "Native_registry_verified": true,
+        "components_on_CPU": true,
+        "allocator_allocated_mib": 32.0,
+        "allocator_reserved_mib": 32.0
+      }
+    },
+    {
+      "order": 2,
+      "recipe": "native",
+      "case": {
+        "id": "native-after-switch",
+        "recipe": "native",
+        "prompt": "scene",
+        "shape": "A",
+        "seed": 4471
+      },
+      "image_JSON": {
+        "path": ".artifacts/gpu-20261118/perf3-switch-jobcap-resident-v3-a1/native-after-switch.json",
+        "sha256": "7d9f722d4eca75b55efbd934d85782412b03e44b9ac7a8a9764ea0157168d911"
+      },
+      "image_PNG": {
+        "path": ".artifacts/gpu-20261118/perf3-switch-jobcap-resident-v3-a1/native-after-switch.png",
+        "sha256": "e071e6fa5ad26aa2b509f63ee6e2141c713fbae9e947ff7cb544636febfc1496"
+      },
+      "RGB_sha256": "d62ee9fc1308fe2a617619cdfb3fe8ba0e5a56c418dfe541cb32a9da419d697b",
+      "matches_prior_recipe_benchmark_RGB": true,
+      "prior_benchmark_record": {
+        "path": ".artifacts/gpu-20261118/perf3-native-generate-suite-a1/A-first.json",
+        "sha256": "b8cafa8521ee474aa031a2b29c002470beb0cd17a7479577b52d2ddd310ebc3f"
+      },
+      "completed_steps": 28,
+      "recorded_image_seconds": 42.14605239999946,
+      "cleanup": {
+        "artifact": {
+          "path": ".artifacts/gpu-20261118/perf3-switch-jobcap-resident-v3-a1/stage2-cleanup.json",
+          "sha256": "d13345f07c08c1fffd3c4862081d992c1c72354bc9013956f10d194114f9a520"
+        },
+        "root_collected": true,
+        "backend_ready": false,
+        "Native_registry_verified": true,
+        "components_on_CPU": true,
+        "allocator_allocated_mib": 32.0,
+        "allocator_reserved_mib": 32.0
+      }
+    }
+  ],
+  "runtime": {
+    "stack": {
+      "torch": "2.13.0+cu130",
+      "diffusers": "0.42.1",
+      "torchao": "0.18.0",
+      "transformers": "5.16.1",
+      "accelerate": "1.15.0"
+    },
+    "driver": "616.92",
+    "gpu": "NVIDIA GeForce RTX 5080",
+    "cuda": "13.0",
+    "cudnn": 92000,
+    "loader": {
+      "checkpoint": "black-forest-labs/FLUX.1-Krea-dev",
+      "quantization": "fp8",
+      "offload": "model",
+      "device": "cuda"
+    }
+  },
+  "required_Windows_build": 26300,
+  "live_build_observation": "source-enforced frozen gate; no separate retained raw build sample",
+  "job_controls": {
+    "hard_private_commit_cap_gib": 47,
+    "flags": 8704,
+    "flags_hex": "0x2200",
+    "kill_on_close": true,
+    "breakaway_enabled": false,
+    "supervisor_and_samplers_outside_job": true,
+    "process_cap_bytes": 0,
+    "current_commit_basis": "CURRENT class28 JobMemory; strict initial/readmission equality to recorded member PrivateUsage sum",
+    "peak_is_credit": false,
+    "recorded_cap_breach_or_attempt_rows": [],
+    "sampled_owned_and_exact_job_RSS_ceiling_gib": 36
+  },
+  "readmission": {
+    "artifact": {
+      "path": ".artifacts/gpu-20261118/perf3-switch-jobcap-resident-v3-a1/readmission-v2.json",
+      "sha256": "5810dc4db722ddcb890a0f7726b9a909dfe11c21ff03680020d4ed3ba41a21e1"
+    },
+    "filename_retained_as_recorded": "readmission-v2.json",
+    "payload_version": "switch-job-private-cap-resident-v3",
+    "immutable_decision": {
+      "path": ".artifacts/gpu-20261118/perf3-switch-jobcap-resident-v3-a1/reload-permit-0001-decision.json",
+      "sha256": "5810dc4db722ddcb890a0f7726b9a909dfe11c21ff03680020d4ed3ba41a21e1"
+    },
+    "waiting_guard_rows": [
+      343,
+      344,
+      345
+    ],
+    "waiting_observations": 3,
+    "waiting_gaps_seconds": [
+      0.24448649999976624,
+      0.25047869999252725
+    ],
+    "minimum_available_RAM_gib": 34.24940872192383,
+    "minimum_EX2_private_working_set_gib": 14.35593032836914,
+    "conservative_available_plus_private_gib": 48.60533905029297,
+    "required_physical_pool_gib": 46,
+    "physical_formula": "minAvailable + minStrictEX2PrivateWS >=36 sampledRSS+4 globalfloor+6 extra",
+    "current_commit_spread_bytes": 0,
+    "private_resident_spread_bytes": 0,
+    "minimum_current_owned_job_commit_gib": 22.033000946044922,
+    "minimum_global_commit_headroom_gib": 29.71857452392578,
+    "required_commit_headroom_gib": 29.466999053955078,
+    "commit_formula": "minHeadroom >=max(0,47-minCurrentExactJobCommit)+4+.5",
+    "shared_or_RSS_credit": false,
+    "allocator_reuse_assumed": false,
+    "peak_credit": false
+  },
+  "guard_validation": {
+    "independently_rechecked_rows": 691,
+    "full_member_accounting_rows": 685,
+    "terminal_teardown_rows_without_new_permit": [
+      685,
+      686,
+      687,
+      688,
+      689,
+      690
+    ],
+    "all_raw_global_guard_verdicts_ok": true,
+    "stats": {
+      "samples": 691,
+      "whole_card_peak_mib": 14505.0,
+      "minimum_free_ram_gib": 18.882720947265625,
+      "minimum_commit_headroom_gib": 11.911300659179688,
+      "observational_member_private_sum_peak_gib": 39.83909606933594,
+      "current_job_commit_peak_gib": 39.83909606933594,
+      "peak_job_veto_gib_not_credited": 40.16550827026367,
+      "exact_job_sampled_RSS_peak_gib": 30.04058074951172,
+      "observational_EX2_private_resident_peak_gib": 21.161407470703125,
+      "tree_RSS_peak_gib": 30.037212371826172,
+      "adapter_shared_rise_mib": 82.0,
+      "process_shared_rise_mib": 82.0,
+      "mean_sample_gap_seconds": 0.2503017991304396,
+      "max_sample_gap_seconds": 0.2654620999965118
+    },
+    "independent_audit": {
+      "path": "work/gpu-20261118/audit-perf3-switch-resident-v3-a1.json",
+      "sha256": "7ecda21fd53a8055a51b671096057426c19d7f7d97b8daaa8aab57d6cb80ece0"
+    }
+  },
+  "scope": "Actual backend.generate with a frozen exact-request instance-only CuDNN token, complete unload, then unmodified Native backend.load/generate; one fixed 1024-square scene at seed4471,28steps,CFG3.5,fp8/model offload.",
+  "physical_bound_scope": "Guarded conditional sampled pageable-memory envelope, not an absolute instantaneous physical-memory guarantee; private commitment cap is hard, RSS ceiling sampled. Excluded allocations and external change remain covered only by declared margins/live guards.",
+  "limitations": [
+    "The switch driver does not retain its per-stage idle allocation/dynamic cleanup ceiling; this audit independently checks numeric allocations <=256 MiB and the retained cleanup flags.",
+    "Per-member IsProcessInJob results, separate PagefileUsage/PrivateUsage values, owned-tree PID lists, supervisor PID and before/after membership lists are not retained. Recorded membership/private/RSS sums and the ready PID are checked; missing raw containment/API equality observations are not reconstructed.",
+    "The retained peak is max(peak_before,peak_after); separate peaks and denied-allocation events are absent. The over-cap veto is independently recomputed from retained current/peak values only.",
+    "Active member private/RSS captures are observational and non-atomic. Exact class28/current-member equality is required only at initial/readmission waiting admissions. RSS is sampled and not unique physical memory; mapped/shared/system/physical RAM is outside the private-job cap.",
+    "This is a guarded experiment, not an absolute per-instant physical-memory guarantee or public application admission policy.",
+    "Windows working-set/RSS excludes AWE, large-page/nonpageable and some driver/system allocations. The36GiB ceiling is sampled pageable working-set demand, not a cap on all physical memory. Global4GiB monitoring and6GiB extra remain mandatory; no claim the extra is a formal bound on every excluded category.",
+    "OS/global counters are not atomic together and external processes can change memory. Stable quiescent samples and conservative minima reduce this risk; the live guards remain required.",
+    "The tiny proofs observe EX2 values32KiB above whole-working-set nonshareable enumeration; this difference is unexplained and equality is NOT claimed. The documented EX2 counter definition and controlled-range exclusion are the basis.",
+    "ShareCount was saturated7 even in first-only mapping, so no ShareCount1 runtime example was observed; no implementation decision relies on ShareCount.",
+    "Current class28 JobMemory is used by official Microsoft hcsshim but omitted from the Learn query table; unsupported or inconsistent accounting refuses.",
+    "The required Windows build26300 is recorded and enforced by the frozen source gate; no separate raw live-build or EX2 cb/sentinel sample is retained for independent replay."
+  ],
+  "historical_preparation_context": {
+    "quoted_preparation_statements": [
+      "No real47GiB job limit, actual model switch, GPU inference or system memory setting was exercised by this preparation."
+    ],
+    "meaning": "These describe the proposal before this session. This completed session did apply/read back the47GiB job cap and run both GPU images; it did not attempt to exceed that cap."
+  },
+  "original_refusal_remains_separate": {
+    "path": "work/gpu-20261118/perf3-switch-original-receipt.json",
+    "sha256": "f44e6beaa1c06127977455ecc8df2f132ec8b7adef1337b83af7fa3376ed018a"
+  },
+  "benchmark_counts_not_changed": true,
+  "quality_judgment": null,
+  "public_nonempty_performance_gates": "remain closed",
+  "qualification": "Bounded v3 lifecycle evidence only; visual quality/routine-use/public release decisions remain separate"
+}

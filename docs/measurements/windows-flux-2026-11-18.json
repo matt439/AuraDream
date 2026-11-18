@@ -1,0 +1,6342 @@
+{
+  "schema": "auradream-windows-flux-followups-v1",
+  "scope": [
+    "CARD#1",
+    "CARD#2",
+    "CARD#7"
+  ],
+  "date": "2026-11-18",
+  "commit": "f8f4cf2de7c690300735ea189876f687c5f937b1",
+  "backend_sha256": "c3a85a23288be5d3ccb3bdb1b4751f5456c75d714685d9cf02f3e597c838274e",
+  "platform": "Windows-11-10.0.26300-SP0",
+  "python": "3.13.15",
+  "gpu": "NVIDIA GeForce RTX 5080",
+  "physical_card_mib": 16303,
+  "driver": "616.92",
+  "quantization": "fp8",
+  "execution": "Eager/Native; no step cache",
+  "standing_limits": {
+    "card_mib": 15500,
+    "projection_mib": 15200,
+    "adapter_shared_rise_mib": 1024,
+    "process_shared_rise_mib": 512,
+    "free_ram_floor_gib": 4,
+    "commit_headroom_floor_gib": 4
+  },
+  "sessions": {
+    "dev-combined-a1": {
+      "schema": "auradream-bounded-private-card-v1",
+      "date": "2026-11-18",
+      "items": [
+        "CARD1",
+        "CARD2",
+        "CARD7"
+      ],
+      "runtime": {
+        "commit": "f8f4cf2de7c690300735ea189876f687c5f937b1",
+        "model": "black-forest-labs/FLUX.1-dev",
+        "offload": "model",
+        "versions": {
+          "torch": "2.13.0+cu130",
+          "diffusers": "0.42.1",
+          "transformers": "5.16.1",
+          "torchao": "0.18.0",
+          "accelerate": "1.15.0"
+        },
+        "gpu": "NVIDIA GeForce RTX 5080"
+      },
+      "one_load": true,
+      "load_seconds": 45.69549579999875,
+      "cached_checkpoint": {
+        "model": "black-forest-labs/FLUX.1-dev",
+        "cache": "D:\\huggingface\\hub\\models--black-forest-labs--FLUX.1-dev",
+        "revision": "3de623fc3c33e44ffbe2bad470d0f45bccf2eb21",
+        "complete_component_inventory": true,
+        "missing": []
+      },
+      "status": "completed",
+      "case_count": 24,
+      "completed_images": 21,
+      "cancelled_calls": 3,
+      "refused_cases": 0,
+      "stopped_reason": null,
+      "source_unchanged": true,
+      "guards": {
+        "limits": {
+          "card_mib": 15500.0,
+          "project_mib": 15200.0,
+          "refuse_at_peak_mib": 15000.0,
+          "adapter_shared_rise_mib": 1024.0,
+          "process_shared_rise_mib": 512.0,
+          "ram_floor_gib": 4.0,
+          "commit_floor_gib": 4.0,
+          "need_ram_gib": 45,
+          "busy_card_mib": 2100,
+          "card_unread_samples": 3.0,
+          "margin_mib": 500.0,
+          "margin_gib": 1.0
+        },
+        "admission": {
+          "sample": {
+            "card_mib": 966.0,
+            "adapter_shared_mib": 38.6640625,
+            "process_shared_mib": 0.0,
+            "available_gib": 49.45150375366211,
+            "commit_headroom_gib": 55.0488395690918,
+            "tree_gib": 0.029361724853515625,
+            "card_total_mib": 16303.0
+          },
+          "baseline": {
+            "adapter_shared_mib": 38.6640625,
+            "process_shared_mib": 0.0
+          },
+          "limits": {
+            "card_mib": 15500.0,
+            "project_mib": 15200.0,
+            "refuse_at_peak_mib": 15000.0,
+            "adapter_shared_rise_mib": 1024.0,
+            "process_shared_rise_mib": 512.0,
+            "ram_floor_gib": 4.0,
+            "commit_floor_gib": 4.0,
+            "need_ram_gib": 45,
+            "busy_card_mib": 2100,
+            "card_unread_samples": 3.0,
+            "margin_mib": 500.0,
+            "margin_gib": 1.0
+          }
+        },
+        "metrics": {
+          "whole_card_peak_mib": 15155.0,
+          "adapter_shared_rise_mib": 82.0,
+          "process_shared_rise_mib": 82.0,
+          "minimum_free_ram_gib": 22.506752014160156,
+          "minimum_commit_headroom_gib": 12.683067321777344,
+          "maximum_working_set_gib": 26.85195541381836,
+          "maximum_private_gib": 42.50841522216797,
+          "samples": 3867,
+          "loop_start_mean_period_seconds": 0.2502839752716006,
+          "loop_start_maximum_period_seconds": 0.25381550000747666,
+          "raw_record_mean_gap_seconds": 0.25028533318675455,
+          "raw_record_maximum_gap_seconds": 0.26799219999520574,
+          "timing_scope": "supervisor periods compare loop-start times; raw-record gaps compare row-write elapsed stamps after sampling",
+          "all_verdicts_independently_ok": true
+        }
+      },
+      "results": [
+        {
+          "name": "source",
+          "number": 0,
+          "status": "completed",
+          "id": 1,
+          "filename": "20261118-062540-12345-626eea.png",
+          "seed": 12345,
+          "seconds": 42.5431319999916,
+          "pixels_sha256": "6ea97654e1e505aa5428ce8dd6126eb632eb77ab094c832afade807d94115314",
+          "png_sha256": "7431db10ff5f9e18c753c9a82e7975cfdcc6a528ea5d0318acd6a8ef74eb96b3",
+          "peak": [
+            12880261120,
+            13555990528
+          ],
+          "size": [
+            1024,
+            1024
+          ],
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1024,
+            "height": 1024,
+            "steps": 28,
+            "guidance_scale": 3.5,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": null,
+            "strength": 0.1,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": null,
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              28
+            ],
+            [
+              2,
+              28
+            ],
+            [
+              3,
+              28
+            ],
+            [
+              4,
+              28
+            ],
+            [
+              5,
+              28
+            ],
+            [
+              6,
+              28
+            ],
+            [
+              7,
+              28
+            ],
+            [
+              8,
+              28
+            ],
+            [
+              9,
+              28
+            ],
+            [
+              10,
+              28
+            ],
+            [
+              11,
+              28
+            ],
+            [
+              12,
+              28
+            ],
+            [
+              13,
+              28
+            ],
+            [
+              14,
+              28
+            ],
+            [
+              15,
+              28
+            ],
+            [
+              16,
+              28
+            ],
+            [
+              17,
+              28
+            ],
+            [
+              18,
+              28
+            ],
+            [
+              19,
+              28
+            ],
+            [
+              20,
+              28
+            ],
+            [
+              21,
+              28
+            ],
+            [
+              22,
+              28
+            ],
+            [
+              23,
+              28
+            ],
+            [
+              24,
+              28
+            ],
+            [
+              25,
+              28
+            ],
+            [
+              26,
+              28
+            ],
+            [
+              27,
+              28
+            ],
+            [
+              28,
+              28
+            ]
+          ],
+          "sigma": null,
+          "crop": null
+        },
+        {
+          "name": "inpaint-feather0",
+          "number": 0,
+          "status": "completed",
+          "id": 2,
+          "filename": "20261118-062621-12346-7851b8.png",
+          "seed": 12346,
+          "seconds": 40.28037670000049,
+          "pixels_sha256": "223429afa64e39a2815bf0fb489eaff96d6078e751b9be5eea1f95b49346981e",
+          "png_sha256": "0d4067ee699fbdb9ff0a83c64d052792b9dae1b53574106b5a91207134630117",
+          "peak": [
+            13052892160,
+            13774094336
+          ],
+          "size": [
+            1024,
+            1024
+          ],
+          "request": {
+            "prompt": "A portrait of an old fisherman in a blue knitted scarf and blue raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1024,
+            "height": 1024,
+            "steps": 28,
+            "guidance_scale": 3.5,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.95,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": "3b13bc914e5ca5421a8ba093b6bbf4e6344e6231e9b4e16ad025678097dc3afc",
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              27
+            ],
+            [
+              2,
+              27
+            ],
+            [
+              3,
+              27
+            ],
+            [
+              4,
+              27
+            ],
+            [
+              5,
+              27
+            ],
+            [
+              6,
+              27
+            ],
+            [
+              7,
+              27
+            ],
+            [
+              8,
+              27
+            ],
+            [
+              9,
+              27
+            ],
+            [
+              10,
+              27
+            ],
+            [
+              11,
+              27
+            ],
+            [
+              12,
+              27
+            ],
+            [
+              13,
+              27
+            ],
+            [
+              14,
+              27
+            ],
+            [
+              15,
+              27
+            ],
+            [
+              16,
+              27
+            ],
+            [
+              17,
+              27
+            ],
+            [
+              18,
+              27
+            ],
+            [
+              19,
+              27
+            ],
+            [
+              20,
+              27
+            ],
+            [
+              21,
+              27
+            ],
+            [
+              22,
+              27
+            ],
+            [
+              23,
+              27
+            ],
+            [
+              24,
+              27
+            ],
+            [
+              25,
+              27
+            ],
+            [
+              26,
+              27
+            ],
+            [
+              27,
+              27
+            ]
+          ],
+          "sigma": 0.988408625125885,
+          "crop": null,
+          "outside_mask_max": 0,
+          "seam": [
+            {
+              "step": 3.9822733918128654,
+              "soft_gradient": null
+            },
+            {
+              "step": 26.680738304093566,
+              "soft_gradient": null
+            }
+          ]
+        },
+        {
+          "name": "inpaint-feather24",
+          "number": 0,
+          "status": "completed",
+          "id": 3,
+          "filename": "20261118-062701-12346-46812f.png",
+          "seed": 12346,
+          "seconds": 39.9250757000118,
+          "pixels_sha256": "510e51f6a67db0fd5011407dc105ff6c0eb008d38a3b6e21635ed0f519a1a13d",
+          "png_sha256": "8f2c9bacadb5d2bed083783454d9e174394a8d420168d13d4eef1ea4e93053a4",
+          "peak": [
+            13052892160,
+            13774094336
+          ],
+          "size": [
+            1024,
+            1024
+          ],
+          "request": {
+            "prompt": "A portrait of an old fisherman in a blue knitted scarf and blue raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1024,
+            "height": 1024,
+            "steps": 28,
+            "guidance_scale": 3.5,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.95,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": "4669ecf558d20d7b94892c363459a024045d0d381d99634fa9f2fe56d96ff2d4",
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              27
+            ],
+            [
+              2,
+              27
+            ],
+            [
+              3,
+              27
+            ],
+            [
+              4,
+              27
+            ],
+            [
+              5,
+              27
+            ],
+            [
+              6,
+              27
+            ],
+            [
+              7,
+              27
+            ],
+            [
+              8,
+              27
+            ],
+            [
+              9,
+              27
+            ],
+            [
+              10,
+              27
+            ],
+            [
+              11,
+              27
+            ],
+            [
+              12,
+              27
+            ],
+            [
+              13,
+              27
+            ],
+            [
+              14,
+              27
+            ],
+            [
+              15,
+              27
+            ],
+            [
+              16,
+              27
+            ],
+            [
+              17,
+              27
+            ],
+            [
+              18,
+              27
+            ],
+            [
+              19,
+              27
+            ],
+            [
+              20,
+              27
+            ],
+            [
+              21,
+              27
+            ],
+            [
+              22,
+              27
+            ],
+            [
+              23,
+              27
+            ],
+            [
+              24,
+              27
+            ],
+            [
+              25,
+              27
+            ],
+            [
+              26,
+              27
+            ],
+            [
+              27,
+              27
+            ]
+          ],
+          "sigma": 0.988408625125885,
+          "crop": null,
+          "outside_mask_max": 0,
+          "seam": [
+            {
+              "step": 4.076400924321201,
+              "soft_gradient": 7.8193372766153
+            },
+            {
+              "step": 4.085066435586366,
+              "soft_gradient": 8.637249560828089
+            }
+          ]
+        },
+        {
+          "name": "inpaint-repeat",
+          "number": 0,
+          "status": "completed",
+          "id": 4,
+          "filename": "20261118-062741-12346-a9c9a8.png",
+          "seed": 12346,
+          "seconds": 39.806102000002284,
+          "pixels_sha256": "510e51f6a67db0fd5011407dc105ff6c0eb008d38a3b6e21635ed0f519a1a13d",
+          "png_sha256": "0c6d669147065fb1ca45acc78cf9527b2108f0bcf9b2a325d9f6f319a7134bb6",
+          "peak": [
+            13052892160,
+            13774094336
+          ],
+          "size": [
+            1024,
+            1024
+          ],
+          "request": {
+            "prompt": "A portrait of an old fisherman in a blue knitted scarf and blue raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1024,
+            "height": 1024,
+            "steps": 28,
+            "guidance_scale": 3.5,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.95,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": "4669ecf558d20d7b94892c363459a024045d0d381d99634fa9f2fe56d96ff2d4",
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              27
+            ],
+            [
+              2,
+              27
+            ],
+            [
+              3,
+              27
+            ],
+            [
+              4,
+              27
+            ],
+            [
+              5,
+              27
+            ],
+            [
+              6,
+              27
+            ],
+            [
+              7,
+              27
+            ],
+            [
+              8,
+              27
+            ],
+            [
+              9,
+              27
+            ],
+            [
+              10,
+              27
+            ],
+            [
+              11,
+              27
+            ],
+            [
+              12,
+              27
+            ],
+            [
+              13,
+              27
+            ],
+            [
+              14,
+              27
+            ],
+            [
+              15,
+              27
+            ],
+            [
+              16,
+              27
+            ],
+            [
+              17,
+              27
+            ],
+            [
+              18,
+              27
+            ],
+            [
+              19,
+              27
+            ],
+            [
+              20,
+              27
+            ],
+            [
+              21,
+              27
+            ],
+            [
+              22,
+              27
+            ],
+            [
+              23,
+              27
+            ],
+            [
+              24,
+              27
+            ],
+            [
+              25,
+              27
+            ],
+            [
+              26,
+              27
+            ],
+            [
+              27,
+              27
+            ]
+          ],
+          "sigma": 0.988408625125885,
+          "crop": null,
+          "outside_mask_max": 0,
+          "seam": [
+            {
+              "step": 4.076400924321201,
+              "soft_gradient": 7.8193372766153
+            },
+            {
+              "step": 4.085066435586366,
+              "soft_gradient": 8.637249560828089
+            }
+          ]
+        },
+        {
+          "name": "inpaint-cancel",
+          "status": "cancelled",
+          "seconds": 6.880029199994169,
+          "request": {
+            "prompt": "A portrait of an old fisherman in a blue knitted scarf and blue raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1024,
+            "height": 1024,
+            "steps": 28,
+            "guidance_scale": 3.5,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.95,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": "4669ecf558d20d7b94892c363459a024045d0d381d99634fa9f2fe56d96ff2d4",
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              27
+            ],
+            [
+              2,
+              27
+            ]
+          ],
+          "allocator_after": [
+            41450496,
+            71303168
+          ]
+        },
+        {
+          "name": "inpaint-recovery",
+          "number": 0,
+          "status": "completed",
+          "id": 5,
+          "filename": "20261118-062828-12346-1aae53.png",
+          "seed": 12346,
+          "seconds": 39.77328499998839,
+          "pixels_sha256": "510e51f6a67db0fd5011407dc105ff6c0eb008d38a3b6e21635ed0f519a1a13d",
+          "png_sha256": "6e21e38b1a201444c58c07b6f17172edaa7677eecf579eaa6537344a6267cb60",
+          "peak": [
+            13052892160,
+            13774094336
+          ],
+          "size": [
+            1024,
+            1024
+          ],
+          "request": {
+            "prompt": "A portrait of an old fisherman in a blue knitted scarf and blue raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1024,
+            "height": 1024,
+            "steps": 28,
+            "guidance_scale": 3.5,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.95,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": "4669ecf558d20d7b94892c363459a024045d0d381d99634fa9f2fe56d96ff2d4",
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              27
+            ],
+            [
+              2,
+              27
+            ],
+            [
+              3,
+              27
+            ],
+            [
+              4,
+              27
+            ],
+            [
+              5,
+              27
+            ],
+            [
+              6,
+              27
+            ],
+            [
+              7,
+              27
+            ],
+            [
+              8,
+              27
+            ],
+            [
+              9,
+              27
+            ],
+            [
+              10,
+              27
+            ],
+            [
+              11,
+              27
+            ],
+            [
+              12,
+              27
+            ],
+            [
+              13,
+              27
+            ],
+            [
+              14,
+              27
+            ],
+            [
+              15,
+              27
+            ],
+            [
+              16,
+              27
+            ],
+            [
+              17,
+              27
+            ],
+            [
+              18,
+              27
+            ],
+            [
+              19,
+              27
+            ],
+            [
+              20,
+              27
+            ],
+            [
+              21,
+              27
+            ],
+            [
+              22,
+              27
+            ],
+            [
+              23,
+              27
+            ],
+            [
+              24,
+              27
+            ],
+            [
+              25,
+              27
+            ],
+            [
+              26,
+              27
+            ],
+            [
+              27,
+              27
+            ]
+          ],
+          "sigma": 0.988408625125885,
+          "crop": null,
+          "outside_mask_max": 0,
+          "seam": [
+            {
+              "step": 4.076400924321201,
+              "soft_gradient": 7.8193372766153
+            },
+            {
+              "step": 4.085066435586366,
+              "soft_gradient": 8.637249560828089
+            }
+          ]
+        },
+        {
+          "name": "inpaint-lora-zero",
+          "number": 0,
+          "status": "completed",
+          "id": 6,
+          "filename": "20261118-062912-12346-abd42c.png",
+          "seed": 12346,
+          "seconds": 43.61267170000065,
+          "pixels_sha256": "510e51f6a67db0fd5011407dc105ff6c0eb008d38a3b6e21635ed0f519a1a13d",
+          "png_sha256": "bc44e49f92f8ee92bbca940598c217d350a478cfc9bfe78ff0ebf6fbdde5988e",
+          "peak": [
+            13224727552,
+            13813940224
+          ],
+          "size": [
+            1024,
+            1024
+          ],
+          "request": {
+            "prompt": "A portrait of an old fisherman in a blue knitted scarf and blue raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1024,
+            "height": 1024,
+            "steps": 28,
+            "guidance_scale": 3.5,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": "frosting-lane.safetensors",
+            "lora_scale": 0.0,
+            "refine": 1,
+            "strength": 0.95,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": "4669ecf558d20d7b94892c363459a024045d0d381d99634fa9f2fe56d96ff2d4",
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              27
+            ],
+            [
+              2,
+              27
+            ],
+            [
+              3,
+              27
+            ],
+            [
+              4,
+              27
+            ],
+            [
+              5,
+              27
+            ],
+            [
+              6,
+              27
+            ],
+            [
+              7,
+              27
+            ],
+            [
+              8,
+              27
+            ],
+            [
+              9,
+              27
+            ],
+            [
+              10,
+              27
+            ],
+            [
+              11,
+              27
+            ],
+            [
+              12,
+              27
+            ],
+            [
+              13,
+              27
+            ],
+            [
+              14,
+              27
+            ],
+            [
+              15,
+              27
+            ],
+            [
+              16,
+              27
+            ],
+            [
+              17,
+              27
+            ],
+            [
+              18,
+              27
+            ],
+            [
+              19,
+              27
+            ],
+            [
+              20,
+              27
+            ],
+            [
+              21,
+              27
+            ],
+            [
+              22,
+              27
+            ],
+            [
+              23,
+              27
+            ],
+            [
+              24,
+              27
+            ],
+            [
+              25,
+              27
+            ],
+            [
+              26,
+              27
+            ],
+            [
+              27,
+              27
+            ]
+          ],
+          "sigma": 0.988408625125885,
+          "crop": null,
+          "outside_mask_max": 0,
+          "seam": [
+            {
+              "step": 4.076400924321201,
+              "soft_gradient": 7.8193372766153
+            },
+            {
+              "step": 4.085066435586366,
+              "soft_gradient": 8.637249560828089
+            }
+          ]
+        },
+        {
+          "name": "inpaint-lora-one",
+          "number": 0,
+          "status": "completed",
+          "id": 7,
+          "filename": "20261118-062955-12346-b2b7d5.png",
+          "seed": 12346,
+          "seconds": 42.630795999997645,
+          "pixels_sha256": "d772b644d777e8cce99aa26b90511a71a03e90354f966421e87c6822f66cab21",
+          "png_sha256": "955f438f1c744a944916b464da4262ed5fa5e0245ca37f66d8ce504400ef625d",
+          "peak": [
+            13224727552,
+            13813940224
+          ],
+          "size": [
+            1024,
+            1024
+          ],
+          "request": {
+            "prompt": "A portrait of an old fisherman in a blue knitted scarf and blue raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1024,
+            "height": 1024,
+            "steps": 28,
+            "guidance_scale": 3.5,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": "frosting-lane.safetensors",
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.95,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": "4669ecf558d20d7b94892c363459a024045d0d381d99634fa9f2fe56d96ff2d4",
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              27
+            ],
+            [
+              2,
+              27
+            ],
+            [
+              3,
+              27
+            ],
+            [
+              4,
+              27
+            ],
+            [
+              5,
+              27
+            ],
+            [
+              6,
+              27
+            ],
+            [
+              7,
+              27
+            ],
+            [
+              8,
+              27
+            ],
+            [
+              9,
+              27
+            ],
+            [
+              10,
+              27
+            ],
+            [
+              11,
+              27
+            ],
+            [
+              12,
+              27
+            ],
+            [
+              13,
+              27
+            ],
+            [
+              14,
+              27
+            ],
+            [
+              15,
+              27
+            ],
+            [
+              16,
+              27
+            ],
+            [
+              17,
+              27
+            ],
+            [
+              18,
+              27
+            ],
+            [
+              19,
+              27
+            ],
+            [
+              20,
+              27
+            ],
+            [
+              21,
+              27
+            ],
+            [
+              22,
+              27
+            ],
+            [
+              23,
+              27
+            ],
+            [
+              24,
+              27
+            ],
+            [
+              25,
+              27
+            ],
+            [
+              26,
+              27
+            ],
+            [
+              27,
+              27
+            ]
+          ],
+          "sigma": 0.988408625125885,
+          "crop": null,
+          "outside_mask_max": 0,
+          "seam": [
+            {
+              "step": 4.076400924321201,
+              "soft_gradient": 7.8193372766153
+            },
+            {
+              "step": 4.078711727325246,
+              "soft_gradient": 7.849002690622846
+            }
+          ]
+        },
+        {
+          "name": "inpaint-lora-removed",
+          "number": 0,
+          "status": "completed",
+          "id": 8,
+          "filename": "20261118-063036-12346-3a4590.png",
+          "seed": 12346,
+          "seconds": 39.8853964000009,
+          "pixels_sha256": "510e51f6a67db0fd5011407dc105ff6c0eb008d38a3b6e21635ed0f519a1a13d",
+          "png_sha256": "f63d07304fda0ed1957eb51ebec3bb0b747718c5b8765b1859daed6a23752ae0",
+          "peak": [
+            13052892160,
+            13774094336
+          ],
+          "size": [
+            1024,
+            1024
+          ],
+          "request": {
+            "prompt": "A portrait of an old fisherman in a blue knitted scarf and blue raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1024,
+            "height": 1024,
+            "steps": 28,
+            "guidance_scale": 3.5,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.95,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": "4669ecf558d20d7b94892c363459a024045d0d381d99634fa9f2fe56d96ff2d4",
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              27
+            ],
+            [
+              2,
+              27
+            ],
+            [
+              3,
+              27
+            ],
+            [
+              4,
+              27
+            ],
+            [
+              5,
+              27
+            ],
+            [
+              6,
+              27
+            ],
+            [
+              7,
+              27
+            ],
+            [
+              8,
+              27
+            ],
+            [
+              9,
+              27
+            ],
+            [
+              10,
+              27
+            ],
+            [
+              11,
+              27
+            ],
+            [
+              12,
+              27
+            ],
+            [
+              13,
+              27
+            ],
+            [
+              14,
+              27
+            ],
+            [
+              15,
+              27
+            ],
+            [
+              16,
+              27
+            ],
+            [
+              17,
+              27
+            ],
+            [
+              18,
+              27
+            ],
+            [
+              19,
+              27
+            ],
+            [
+              20,
+              27
+            ],
+            [
+              21,
+              27
+            ],
+            [
+              22,
+              27
+            ],
+            [
+              23,
+              27
+            ],
+            [
+              24,
+              27
+            ],
+            [
+              25,
+              27
+            ],
+            [
+              26,
+              27
+            ],
+            [
+              27,
+              27
+            ]
+          ],
+          "sigma": 0.988408625125885,
+          "crop": null,
+          "outside_mask_max": 0,
+          "seam": [
+            {
+              "step": 4.076400924321201,
+              "soft_gradient": 7.8193372766153
+            },
+            {
+              "step": 4.085066435586366,
+              "soft_gradient": 8.637249560828089
+            }
+          ]
+        },
+        {
+          "name": "outpaint-band0",
+          "number": 0,
+          "status": "completed",
+          "id": 9,
+          "filename": "20261118-063148-12346-c7b87d.png",
+          "seed": 12346,
+          "seconds": 71.92247459999635,
+          "pixels_sha256": "78663eb7fad11e8ea15010a8a90c93b8e843e0d6aa0b1392b871d3c64f098512",
+          "png_sha256": "730c1331c0b98ed2a51b6b0bb5c8321957d3755d675f89d5458ac009cdc51122",
+          "peak": [
+            13315517440,
+            14153678848
+          ],
+          "size": [
+            1824,
+            1024
+          ],
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1824,
+            "height": 1024,
+            "steps": 28,
+            "guidance_scale": 3.5,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.95,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": "f1aa56f1da9b39edbaa7893adb9569879852e79c37e0c5fa9910dd7ec00d35f7",
+            "outpaint": {
+              "fill": "edge-box3-r16",
+              "left": 400,
+              "top": 0,
+              "right": 400,
+              "bottom": 0,
+              "band": 0
+            },
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              27
+            ],
+            [
+              2,
+              27
+            ],
+            [
+              3,
+              27
+            ],
+            [
+              4,
+              27
+            ],
+            [
+              5,
+              27
+            ],
+            [
+              6,
+              27
+            ],
+            [
+              7,
+              27
+            ],
+            [
+              8,
+              27
+            ],
+            [
+              9,
+              27
+            ],
+            [
+              10,
+              27
+            ],
+            [
+              11,
+              27
+            ],
+            [
+              12,
+              27
+            ],
+            [
+              13,
+              27
+            ],
+            [
+              14,
+              27
+            ],
+            [
+              15,
+              27
+            ],
+            [
+              16,
+              27
+            ],
+            [
+              17,
+              27
+            ],
+            [
+              18,
+              27
+            ],
+            [
+              19,
+              27
+            ],
+            [
+              20,
+              27
+            ],
+            [
+              21,
+              27
+            ],
+            [
+              22,
+              27
+            ],
+            [
+              23,
+              27
+            ],
+            [
+              24,
+              27
+            ],
+            [
+              25,
+              27
+            ],
+            [
+              26,
+              27
+            ],
+            [
+              27,
+              27
+            ]
+          ],
+          "sigma": 0.9932236075401306,
+          "crop": null,
+          "outside_mask_max": 0,
+          "seam": [
+            {
+              "step": 7.223958333333333,
+              "soft_gradient": null
+            },
+            {
+              "step": 10.43115234375,
+              "soft_gradient": null
+            }
+          ]
+        },
+        {
+          "name": "outpaint-band32",
+          "number": 0,
+          "status": "completed",
+          "id": 10,
+          "filename": "20261118-063301-12346-8f6008.png",
+          "seed": 12346,
+          "seconds": 71.79844069998944,
+          "pixels_sha256": "62a73128a4d957e3591547f5f615d3a01021e70f78fa007f05d758b011727643",
+          "png_sha256": "b8444e286ae7176ea2a23f9fa64ba97d336ac2bbb4259bc3e7d04e3911617dc2",
+          "peak": [
+            13315517440,
+            14153678848
+          ],
+          "size": [
+            1824,
+            1024
+          ],
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1824,
+            "height": 1024,
+            "steps": 28,
+            "guidance_scale": 3.5,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.95,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": "481e67dc6c5090d5cdfb75e327b840e8ac27bff812ee8c8ebcd5a6efef0eb895",
+            "outpaint": {
+              "fill": "edge-box3-r16",
+              "left": 400,
+              "top": 0,
+              "right": 400,
+              "bottom": 0,
+              "band": 32
+            },
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              27
+            ],
+            [
+              2,
+              27
+            ],
+            [
+              3,
+              27
+            ],
+            [
+              4,
+              27
+            ],
+            [
+              5,
+              27
+            ],
+            [
+              6,
+              27
+            ],
+            [
+              7,
+              27
+            ],
+            [
+              8,
+              27
+            ],
+            [
+              9,
+              27
+            ],
+            [
+              10,
+              27
+            ],
+            [
+              11,
+              27
+            ],
+            [
+              12,
+              27
+            ],
+            [
+              13,
+              27
+            ],
+            [
+              14,
+              27
+            ],
+            [
+              15,
+              27
+            ],
+            [
+              16,
+              27
+            ],
+            [
+              17,
+              27
+            ],
+            [
+              18,
+              27
+            ],
+            [
+              19,
+              27
+            ],
+            [
+              20,
+              27
+            ],
+            [
+              21,
+              27
+            ],
+            [
+              22,
+              27
+            ],
+            [
+              23,
+              27
+            ],
+            [
+              24,
+              27
+            ],
+            [
+              25,
+              27
+            ],
+            [
+              26,
+              27
+            ],
+            [
+              27,
+              27
+            ]
+          ],
+          "sigma": 0.9932236075401306,
+          "crop": null,
+          "outside_mask_max": 0,
+          "seam": [
+            {
+              "step": 1.2364908854166667,
+              "soft_gradient": 2.7073147681451615
+            },
+            {
+              "step": 1.4986979166666667,
+              "soft_gradient": 2.9419417842741935
+            }
+          ]
+        },
+        {
+          "name": "outpaint-repeat",
+          "number": 0,
+          "status": "completed",
+          "id": 11,
+          "filename": "20261118-063414-12346-f3ff51.png",
+          "seed": 12346,
+          "seconds": 71.90870259999065,
+          "pixels_sha256": "62a73128a4d957e3591547f5f615d3a01021e70f78fa007f05d758b011727643",
+          "png_sha256": "f53ec0548be10125c851bbff8c327f1a16bca60646eacabc3c7225bd3d8ca7c4",
+          "peak": [
+            13315517440,
+            14153678848
+          ],
+          "size": [
+            1824,
+            1024
+          ],
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1824,
+            "height": 1024,
+            "steps": 28,
+            "guidance_scale": 3.5,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.95,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": "481e67dc6c5090d5cdfb75e327b840e8ac27bff812ee8c8ebcd5a6efef0eb895",
+            "outpaint": {
+              "fill": "edge-box3-r16",
+              "left": 400,
+              "top": 0,
+              "right": 400,
+              "bottom": 0,
+              "band": 32
+            },
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              27
+            ],
+            [
+              2,
+              27
+            ],
+            [
+              3,
+              27
+            ],
+            [
+              4,
+              27
+            ],
+            [
+              5,
+              27
+            ],
+            [
+              6,
+              27
+            ],
+            [
+              7,
+              27
+            ],
+            [
+              8,
+              27
+            ],
+            [
+              9,
+              27
+            ],
+            [
+              10,
+              27
+            ],
+            [
+              11,
+              27
+            ],
+            [
+              12,
+              27
+            ],
+            [
+              13,
+              27
+            ],
+            [
+              14,
+              27
+            ],
+            [
+              15,
+              27
+            ],
+            [
+              16,
+              27
+            ],
+            [
+              17,
+              27
+            ],
+            [
+              18,
+              27
+            ],
+            [
+              19,
+              27
+            ],
+            [
+              20,
+              27
+            ],
+            [
+              21,
+              27
+            ],
+            [
+              22,
+              27
+            ],
+            [
+              23,
+              27
+            ],
+            [
+              24,
+              27
+            ],
+            [
+              25,
+              27
+            ],
+            [
+              26,
+              27
+            ],
+            [
+              27,
+              27
+            ]
+          ],
+          "sigma": 0.9932236075401306,
+          "crop": null,
+          "outside_mask_max": 0,
+          "seam": [
+            {
+              "step": 1.2364908854166667,
+              "soft_gradient": 2.7073147681451615
+            },
+            {
+              "step": 1.4986979166666667,
+              "soft_gradient": 2.9419417842741935
+            }
+          ]
+        },
+        {
+          "name": "outpaint-cancel",
+          "status": "cancelled",
+          "seconds": 10.128200899998774,
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1824,
+            "height": 1024,
+            "steps": 28,
+            "guidance_scale": 3.5,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.95,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": "481e67dc6c5090d5cdfb75e327b840e8ac27bff812ee8c8ebcd5a6efef0eb895",
+            "outpaint": {
+              "fill": "edge-box3-r16",
+              "left": 400,
+              "top": 0,
+              "right": 400,
+              "bottom": 0,
+              "band": 32
+            },
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              27
+            ],
+            [
+              2,
+              27
+            ]
+          ],
+          "allocator_after": [
+            44337152,
+            75497472
+          ]
+        },
+        {
+          "name": "outpaint-recovery",
+          "number": 0,
+          "status": "completed",
+          "id": 12,
+          "filename": "20261118-063536-12346-84d561.png",
+          "seed": 12346,
+          "seconds": 71.82728389999829,
+          "pixels_sha256": "62a73128a4d957e3591547f5f615d3a01021e70f78fa007f05d758b011727643",
+          "png_sha256": "4fde6c7286ec4d6faa81436fee7754b819e29c0fe01b734eb2c2fea9c1a65391",
+          "peak": [
+            13315517440,
+            14153678848
+          ],
+          "size": [
+            1824,
+            1024
+          ],
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1824,
+            "height": 1024,
+            "steps": 28,
+            "guidance_scale": 3.5,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.95,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": "481e67dc6c5090d5cdfb75e327b840e8ac27bff812ee8c8ebcd5a6efef0eb895",
+            "outpaint": {
+              "fill": "edge-box3-r16",
+              "left": 400,
+              "top": 0,
+              "right": 400,
+              "bottom": 0,
+              "band": 32
+            },
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              27
+            ],
+            [
+              2,
+              27
+            ],
+            [
+              3,
+              27
+            ],
+            [
+              4,
+              27
+            ],
+            [
+              5,
+              27
+            ],
+            [
+              6,
+              27
+            ],
+            [
+              7,
+              27
+            ],
+            [
+              8,
+              27
+            ],
+            [
+              9,
+              27
+            ],
+            [
+              10,
+              27
+            ],
+            [
+              11,
+              27
+            ],
+            [
+              12,
+              27
+            ],
+            [
+              13,
+              27
+            ],
+            [
+              14,
+              27
+            ],
+            [
+              15,
+              27
+            ],
+            [
+              16,
+              27
+            ],
+            [
+              17,
+              27
+            ],
+            [
+              18,
+              27
+            ],
+            [
+              19,
+              27
+            ],
+            [
+              20,
+              27
+            ],
+            [
+              21,
+              27
+            ],
+            [
+              22,
+              27
+            ],
+            [
+              23,
+              27
+            ],
+            [
+              24,
+              27
+            ],
+            [
+              25,
+              27
+            ],
+            [
+              26,
+              27
+            ],
+            [
+              27,
+              27
+            ]
+          ],
+          "sigma": 0.9932236075401306,
+          "crop": null,
+          "outside_mask_max": 0,
+          "seam": [
+            {
+              "step": 1.2364908854166667,
+              "soft_gradient": 2.7073147681451615
+            },
+            {
+              "step": 1.4986979166666667,
+              "soft_gradient": 2.9419417842741935
+            }
+          ]
+        },
+        {
+          "name": "outpaint-band64",
+          "number": 0,
+          "status": "completed",
+          "id": 13,
+          "filename": "20261118-063649-12346-472ff4.png",
+          "seed": 12346,
+          "seconds": 71.85235779998766,
+          "pixels_sha256": "0bd3ff7aa6b4a62ca81bcc51b51a4135db5bbd7d6eba3c7814db7305481e2af7",
+          "png_sha256": "49d401e534b8bf4930fbd0ccd1bcd0f25a01d5433ccf500fba79f2689dce5f90",
+          "peak": [
+            13315517440,
+            14153678848
+          ],
+          "size": [
+            1824,
+            1024
+          ],
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1824,
+            "height": 1024,
+            "steps": 28,
+            "guidance_scale": 3.5,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.95,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": "8d4f345bf596095c3f92250a6954b2acb4bd3e8f645b6ea3b6b92d7955ab6d4d",
+            "outpaint": {
+              "fill": "edge-box3-r16",
+              "left": 400,
+              "top": 0,
+              "right": 400,
+              "bottom": 0,
+              "band": 64
+            },
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              27
+            ],
+            [
+              2,
+              27
+            ],
+            [
+              3,
+              27
+            ],
+            [
+              4,
+              27
+            ],
+            [
+              5,
+              27
+            ],
+            [
+              6,
+              27
+            ],
+            [
+              7,
+              27
+            ],
+            [
+              8,
+              27
+            ],
+            [
+              9,
+              27
+            ],
+            [
+              10,
+              27
+            ],
+            [
+              11,
+              27
+            ],
+            [
+              12,
+              27
+            ],
+            [
+              13,
+              27
+            ],
+            [
+              14,
+              27
+            ],
+            [
+              15,
+              27
+            ],
+            [
+              16,
+              27
+            ],
+            [
+              17,
+              27
+            ],
+            [
+              18,
+              27
+            ],
+            [
+              19,
+              27
+            ],
+            [
+              20,
+              27
+            ],
+            [
+              21,
+              27
+            ],
+            [
+              22,
+              27
+            ],
+            [
+              23,
+              27
+            ],
+            [
+              24,
+              27
+            ],
+            [
+              25,
+              27
+            ],
+            [
+              26,
+              27
+            ],
+            [
+              27,
+              27
+            ]
+          ],
+          "sigma": 0.9932236075401306,
+          "crop": null,
+          "outside_mask_max": 0,
+          "seam": [
+            {
+              "step": 1.5779622395833333,
+              "soft_gradient": 2.772003658234127
+            },
+            {
+              "step": 1.6839192708333333,
+              "soft_gradient": 2.9588552000661377
+            }
+          ]
+        },
+        {
+          "name": "outpaint-band128",
+          "number": 0,
+          "status": "completed",
+          "id": 14,
+          "filename": "20261118-063802-12346-d8ad09.png",
+          "seed": 12346,
+          "seconds": 71.93175129999872,
+          "pixels_sha256": "98af8a3dc3e9ce3e03e726cf1138ceae010831db7fbb5d58112932fcb2479e96",
+          "png_sha256": "af03387d18cf67e1da8bd7ee4724fe3fbf2141b61e17e8f0e824e9eebfe9b633",
+          "peak": [
+            13315517440,
+            14153678848
+          ],
+          "size": [
+            1824,
+            1024
+          ],
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1824,
+            "height": 1024,
+            "steps": 28,
+            "guidance_scale": 3.5,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.95,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": "72016e9681a41eefff277563660688b1f4b0ea676de838e2d4d554afe5295de0",
+            "outpaint": {
+              "fill": "edge-box3-r16",
+              "left": 400,
+              "top": 0,
+              "right": 400,
+              "bottom": 0,
+              "band": 128
+            },
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              27
+            ],
+            [
+              2,
+              27
+            ],
+            [
+              3,
+              27
+            ],
+            [
+              4,
+              27
+            ],
+            [
+              5,
+              27
+            ],
+            [
+              6,
+              27
+            ],
+            [
+              7,
+              27
+            ],
+            [
+              8,
+              27
+            ],
+            [
+              9,
+              27
+            ],
+            [
+              10,
+              27
+            ],
+            [
+              11,
+              27
+            ],
+            [
+              12,
+              27
+            ],
+            [
+              13,
+              27
+            ],
+            [
+              14,
+              27
+            ],
+            [
+              15,
+              27
+            ],
+            [
+              16,
+              27
+            ],
+            [
+              17,
+              27
+            ],
+            [
+              18,
+              27
+            ],
+            [
+              19,
+              27
+            ],
+            [
+              20,
+              27
+            ],
+            [
+              21,
+              27
+            ],
+            [
+              22,
+              27
+            ],
+            [
+              23,
+              27
+            ],
+            [
+              24,
+              27
+            ],
+            [
+              25,
+              27
+            ],
+            [
+              26,
+              27
+            ],
+            [
+              27,
+              27
+            ]
+          ],
+          "sigma": 0.9932236075401306,
+          "crop": null,
+          "outside_mask_max": 0,
+          "seam": [
+            {
+              "step": 1.7939453125,
+              "soft_gradient": 3.1807383940288716
+            },
+            {
+              "step": 1.9440104166666667,
+              "soft_gradient": 2.9585460752952755
+            }
+          ]
+        },
+        {
+          "name": "refine-start",
+          "number": 0,
+          "status": "completed",
+          "id": 15,
+          "filename": "20261118-063817-12346-087900.png",
+          "seed": 12346,
+          "seconds": 15.098407199999201,
+          "pixels_sha256": "f8b2715a3c4cdc6ecae8bb02ec72d6c50d431ef10b7c33623ca97c37842ab1e0",
+          "png_sha256": "bfa571ffb1c9dcfda9a58548bb4c7e998dd7bcdb48c06d7a2078ed149f3205c2",
+          "peak": [
+            13467927552,
+            14556332032
+          ],
+          "size": [
+            1536,
+            1536
+          ],
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1536,
+            "height": 1536,
+            "steps": 28,
+            "guidance_scale": 3.5,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.1,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": null,
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              3
+            ],
+            [
+              2,
+              3
+            ],
+            [
+              3,
+              3
+            ]
+          ],
+          "sigma": 0.47412392497062683,
+          "crop": null
+        },
+        {
+          "name": "refine-repeat",
+          "number": 0,
+          "status": "completed",
+          "id": 16,
+          "filename": "20261118-063833-12346-2163ba.png",
+          "seed": 12346,
+          "seconds": 15.024300799996126,
+          "pixels_sha256": "f8b2715a3c4cdc6ecae8bb02ec72d6c50d431ef10b7c33623ca97c37842ab1e0",
+          "png_sha256": "f4882bb9f657dc8d4979ad7b53b4d3fadefbd30d870aeec08e60b751db37b362",
+          "peak": [
+            13467927552,
+            14556332032
+          ],
+          "size": [
+            1536,
+            1536
+          ],
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1536,
+            "height": 1536,
+            "steps": 28,
+            "guidance_scale": 3.5,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.1,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": null,
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              3
+            ],
+            [
+              2,
+              3
+            ],
+            [
+              3,
+              3
+            ]
+          ],
+          "sigma": 0.47412392497062683,
+          "crop": null
+        },
+        {
+          "name": "refine-cancel",
+          "status": "cancelled",
+          "seconds": 11.108424200006993,
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1536,
+            "height": 1536,
+            "steps": 28,
+            "guidance_scale": 3.5,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.1,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": null,
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              3
+            ],
+            [
+              2,
+              3
+            ]
+          ],
+          "allocator_after": [
+            42005504,
+            104857600
+          ]
+        },
+        {
+          "name": "refine-recovery",
+          "number": 0,
+          "status": "completed",
+          "id": 17,
+          "filename": "20261118-063859-12346-019fa1.png",
+          "seed": 12346,
+          "seconds": 14.859793999989051,
+          "pixels_sha256": "f8b2715a3c4cdc6ecae8bb02ec72d6c50d431ef10b7c33623ca97c37842ab1e0",
+          "png_sha256": "8a2bf1d721897186e8b39a614bc6e749cc43b1c68d40fc9b1f29416bb3ba7a3c",
+          "peak": [
+            13467927552,
+            14556332032
+          ],
+          "size": [
+            1536,
+            1536
+          ],
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1536,
+            "height": 1536,
+            "steps": 28,
+            "guidance_scale": 3.5,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.1,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": null,
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              3
+            ],
+            [
+              2,
+              3
+            ],
+            [
+              3,
+              3
+            ]
+          ],
+          "sigma": 0.47412392497062683,
+          "crop": null
+        },
+        {
+          "name": "refine-true-cfg",
+          "number": 0,
+          "status": "completed",
+          "id": 18,
+          "filename": "20261118-063912-12346-d69f64.png",
+          "seed": 12346,
+          "seconds": 12.446284699995886,
+          "pixels_sha256": "b186fb847987e00bf4751de544e13d4e0c2fe9232a5eb7c5c1115419376ed664",
+          "png_sha256": "6a1e8f3cae569dae92f8b7c1caebbf64f5c4aec32a6c40f1d69e1e070f5bf374",
+          "peak": [
+            13055518208,
+            13771997184
+          ],
+          "size": [
+            1024,
+            1024
+          ],
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": "blurry, low quality, yellow coat",
+            "width": 1024,
+            "height": 1024,
+            "steps": 28,
+            "guidance_scale": 3.5,
+            "true_cfg": 2.0,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.1,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": null,
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              3
+            ],
+            [
+              2,
+              3
+            ],
+            [
+              3,
+              3
+            ]
+          ],
+          "sigma": 0.2748279869556427,
+          "crop": null
+        },
+        {
+          "name": "refine-true-cfg-repeat",
+          "number": 0,
+          "status": "completed",
+          "id": 19,
+          "filename": "20261118-063925-12346-9cfb13.png",
+          "seed": 12346,
+          "seconds": 12.597945100002107,
+          "pixels_sha256": "b186fb847987e00bf4751de544e13d4e0c2fe9232a5eb7c5c1115419376ed664",
+          "png_sha256": "c7334a352d3420585a451184f6b1807b612a191d335c5bf137ca36fe325c87a8",
+          "peak": [
+            13055518208,
+            13771997184
+          ],
+          "size": [
+            1024,
+            1024
+          ],
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": "blurry, low quality, yellow coat",
+            "width": 1024,
+            "height": 1024,
+            "steps": 28,
+            "guidance_scale": 3.5,
+            "true_cfg": 2.0,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.1,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": null,
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              3
+            ],
+            [
+              2,
+              3
+            ],
+            [
+              3,
+              3
+            ]
+          ],
+          "sigma": 0.2748279869556427,
+          "crop": null
+        },
+        {
+          "name": "refine-true-cfg-off",
+          "number": 0,
+          "status": "completed",
+          "id": 20,
+          "filename": "20261118-063934-12346-b67421.png",
+          "seed": 12346,
+          "seconds": 8.504683200008003,
+          "pixels_sha256": "a2568d0fed46d4cdc31df57c49cfcd8732e9b8d0a941d03e7a31f20d155bfdbb",
+          "png_sha256": "695b0689a52cfa1f2e6e87d9ccec64c19fea3eec117489a62014aec4318f726d",
+          "peak": [
+            13050270720,
+            13771997184
+          ],
+          "size": [
+            1024,
+            1024
+          ],
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1024,
+            "height": 1024,
+            "steps": 28,
+            "guidance_scale": 3.5,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.1,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": null,
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              3
+            ],
+            [
+              2,
+              3
+            ],
+            [
+              3,
+              3
+            ]
+          ],
+          "sigma": 0.2748279869556427,
+          "crop": null
+        },
+        {
+          "name": "source-after",
+          "number": 0,
+          "status": "completed",
+          "id": 21,
+          "filename": "20261118-064015-12345-2d1ca1.png",
+          "seed": 12345,
+          "seconds": 40.676446500001475,
+          "pixels_sha256": "6ea97654e1e505aa5428ce8dd6126eb632eb77ab094c832afade807d94115314",
+          "png_sha256": "211a35d437086aa44496fd01143c5f2800753419ba6e7cb87908dcef32f79d13",
+          "peak": [
+            12880261120,
+            13555990528
+          ],
+          "size": [
+            1024,
+            1024
+          ],
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1024,
+            "height": 1024,
+            "steps": 28,
+            "guidance_scale": 3.5,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": null,
+            "strength": 0.1,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": null,
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              28
+            ],
+            [
+              2,
+              28
+            ],
+            [
+              3,
+              28
+            ],
+            [
+              4,
+              28
+            ],
+            [
+              5,
+              28
+            ],
+            [
+              6,
+              28
+            ],
+            [
+              7,
+              28
+            ],
+            [
+              8,
+              28
+            ],
+            [
+              9,
+              28
+            ],
+            [
+              10,
+              28
+            ],
+            [
+              11,
+              28
+            ],
+            [
+              12,
+              28
+            ],
+            [
+              13,
+              28
+            ],
+            [
+              14,
+              28
+            ],
+            [
+              15,
+              28
+            ],
+            [
+              16,
+              28
+            ],
+            [
+              17,
+              28
+            ],
+            [
+              18,
+              28
+            ],
+            [
+              19,
+              28
+            ],
+            [
+              20,
+              28
+            ],
+            [
+              21,
+              28
+            ],
+            [
+              22,
+              28
+            ],
+            [
+              23,
+              28
+            ],
+            [
+              24,
+              28
+            ],
+            [
+              25,
+              28
+            ],
+            [
+              26,
+              28
+            ],
+            [
+              27,
+              28
+            ],
+            [
+              28,
+              28
+            ]
+          ],
+          "sigma": null,
+          "crop": null
+        }
+      ],
+      "unloaded": {
+        "event": "unloaded",
+        "time": 1794984015.337098,
+        "ready": false,
+        "allocated": 33554432,
+        "reserved": 33554432
+      },
+      "cleanup": {
+        "worker_exit": 0,
+        "fresh_settled_card_mib": 966.0,
+        "fresh_settled_gpu_utilization_percent": 0,
+        "settled_observation": "separate nvidia-smi readback after process exit and CPU audit; not a sampler row",
+        "immediate_sampler_after_exit": {
+          "card_mib": 1305.0,
+          "adapter_shared_mib": 38.6640625,
+          "process_shared_mib": null,
+          "available_gib": 49.497711181640625,
+          "commit_headroom_gib": 55.15465545654297,
+          "tree_gib": null,
+          "card_total_mib": 16303.0
+        }
+      },
+      "interpretation": "Bounded FLUX.1 dev fp8/model session: source/inpaint/outpaint/default Refine/true-CFG/repeat/cancel/recovery/LoRA checks passed. Visual review is separate. Other checkpoints, full residency and untested recipes remain unqualified.",
+      "evidence": {
+        "plan.json": "246fe059fe0c83f6a0630e2e744346b96e5e433922f717f37224c39c8c959bef",
+        "source-manifest.json": "3595bba7a9a1c948765b4b202d564dbd9e061791512c5895d8a355adf8c774d0",
+        "source-manifest-after.json": "3595bba7a9a1c948765b4b202d564dbd9e061791512c5895d8a355adf8c774d0",
+        "admission.json": "df0af0bc19bd02f84e6e998c2d1a84b4bc245beb9717a1e33e9f716ff6b64c7a",
+        "cache-preflight.json": "32c70b0cc102bb7a2c623e3ae717ba03c3fefc2ec0636e6fba8b8a4c61dcc824",
+        "events.jsonl": "b61e35f69a959daa746eb2979a840a0c21c5cc29fdd39f8aca4b9e05d7765fb8",
+        "guard.jsonl": "79ca4fa4156f66c6454f76c65509770be91582db07211451c953fa7d4a85e8cf",
+        "supervisor.json": "00015e3f01d78e44254570087d3beeb7840f0a8a90c2eb9ba3d502d219090eed",
+        "results.json": "80b9975ae8b384fbf9139e2b98533bd2f4368bb246ab7f5ce0e6c2be1088c70a",
+        "worker.log": "2ac18de2f3b8e03caa2d58fc85c33335d89783d8038e3eae694a44e72101eb1a"
+      },
+      "analysis_tool_sha256": "fa624643a679a25bb92073da9e6f8408d00c8d28f8d98b5b11ba9ba02ade8af4"
+    },
+    "schnell-combined-a2": {
+      "schema": "auradream-bounded-private-card-v1",
+      "date": "2026-11-18",
+      "items": [
+        "CARD1",
+        "CARD2",
+        "CARD7"
+      ],
+      "runtime": {
+        "commit": "f8f4cf2de7c690300735ea189876f687c5f937b1",
+        "model": "black-forest-labs/FLUX.1-schnell",
+        "offload": "model",
+        "versions": {
+          "torch": "2.13.0+cu130",
+          "diffusers": "0.42.1",
+          "transformers": "5.16.1",
+          "torchao": "0.18.0",
+          "accelerate": "1.15.0"
+        },
+        "gpu": "NVIDIA GeForce RTX 5080"
+      },
+      "one_load": true,
+      "load_seconds": 27.430627999987337,
+      "cached_checkpoint": {
+        "model": "black-forest-labs/FLUX.1-schnell",
+        "cache": "D:\\huggingface\\hub\\models--black-forest-labs--FLUX.1-schnell",
+        "revision": "741f7c3ce8b383c54771c7003378a50191e9efe9",
+        "complete_component_inventory": true,
+        "missing": []
+      },
+      "status": "completed",
+      "case_count": 21,
+      "completed_images": 18,
+      "cancelled_calls": 3,
+      "refused_cases": 0,
+      "stopped_reason": null,
+      "source_unchanged": true,
+      "guards": {
+        "limits": {
+          "card_mib": 15500.0,
+          "project_mib": 15200.0,
+          "refuse_at_peak_mib": 15000.0,
+          "adapter_shared_rise_mib": 1024.0,
+          "process_shared_rise_mib": 512.0,
+          "ram_floor_gib": 4.0,
+          "commit_floor_gib": 4.0,
+          "need_ram_gib": 45,
+          "busy_card_mib": 2100,
+          "card_unread_samples": 3.0,
+          "margin_mib": 500.0,
+          "margin_gib": 1.0
+        },
+        "admission": {
+          "sample": {
+            "card_mib": 966.0,
+            "adapter_shared_mib": 38.6640625,
+            "process_shared_mib": 0.0,
+            "available_gib": 49.4573860168457,
+            "commit_headroom_gib": 55.12834167480469,
+            "tree_gib": 0.027515411376953125,
+            "card_total_mib": 16303.0
+          },
+          "baseline": {
+            "adapter_shared_mib": 38.6640625,
+            "process_shared_mib": 0.0
+          },
+          "limits": {
+            "card_mib": 15500.0,
+            "project_mib": 15200.0,
+            "refuse_at_peak_mib": 15000.0,
+            "adapter_shared_rise_mib": 1024.0,
+            "process_shared_rise_mib": 512.0,
+            "ram_floor_gib": 4.0,
+            "commit_floor_gib": 4.0,
+            "need_ram_gib": 45,
+            "busy_card_mib": 2100,
+            "card_unread_samples": 3.0,
+            "margin_mib": 500.0,
+            "margin_gib": 1.0
+          }
+        },
+        "metrics": {
+          "whole_card_peak_mib": 15255.0,
+          "adapter_shared_rise_mib": 82.0,
+          "process_shared_rise_mib": 82.0,
+          "minimum_free_ram_gib": 19.85741424560547,
+          "minimum_commit_headroom_gib": 8.729541778564453,
+          "maximum_working_set_gib": 29.597335815429688,
+          "maximum_private_gib": 46.44798278808594,
+          "samples": 1130,
+          "loop_start_mean_period_seconds": 0.2502991574844968,
+          "loop_start_maximum_period_seconds": 0.2516872999985935,
+          "raw_record_mean_gap_seconds": 0.2502994162976173,
+          "raw_record_maximum_gap_seconds": 0.277206999991904,
+          "timing_scope": "supervisor periods compare loop-start times; raw-record gaps compare row-write elapsed stamps after sampling",
+          "all_verdicts_independently_ok": true
+        }
+      },
+      "results": [
+        {
+          "name": "source",
+          "number": 0,
+          "status": "completed",
+          "id": 1,
+          "filename": "20261118-065049-12345-73d61c.png",
+          "seed": 12345,
+          "seconds": 10.92893819999881,
+          "pixels_sha256": "75cc30c417883b01b2f6939a3dcc32c3202d76c689be8846cd7c1779208c63e0",
+          "png_sha256": "aabe1a38b55e6338b731e8b3bedfb514501ba35446282d30ee482df33fd46f50",
+          "peak": [
+            12869999616,
+            13593739264
+          ],
+          "size": [
+            1024,
+            1024
+          ],
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1024,
+            "height": 1024,
+            "steps": 4,
+            "guidance_scale": 0.0,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": null,
+            "strength": 0.5,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": null,
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              4
+            ],
+            [
+              2,
+              4
+            ],
+            [
+              3,
+              4
+            ],
+            [
+              4,
+              4
+            ]
+          ],
+          "sigma": null,
+          "crop": null
+        },
+        {
+          "name": "inpaint-feather0",
+          "number": 0,
+          "status": "completed",
+          "id": 2,
+          "filename": "20261118-065100-12346-a85c4d.png",
+          "seed": 12346,
+          "seconds": 10.58006460001343,
+          "pixels_sha256": "ec17d60e934f6d8a91c02915bd028a095fdfc57832145ad9ec5d18cebbbd4150",
+          "png_sha256": "335faf609dbc7f40fed94fee97ed376153cad651a9c6e0f4236a320e9f9ddf81",
+          "peak": [
+            13042630656,
+            13774094336
+          ],
+          "size": [
+            1024,
+            1024
+          ],
+          "request": {
+            "prompt": "A portrait of an old fisherman in a blue knitted scarf and blue raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1024,
+            "height": 1024,
+            "steps": 4,
+            "guidance_scale": 0.0,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.95,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": "3b13bc914e5ca5421a8ba093b6bbf4e6344e6231e9b4e16ad025678097dc3afc",
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              4
+            ],
+            [
+              2,
+              4
+            ],
+            [
+              3,
+              4
+            ],
+            [
+              4,
+              4
+            ]
+          ],
+          "sigma": 1.0,
+          "crop": null,
+          "outside_mask_max": 0,
+          "seam": [
+            {
+              "step": 5.789290935672515,
+              "soft_gradient": null
+            },
+            {
+              "step": 54.496893274853804,
+              "soft_gradient": null
+            }
+          ]
+        },
+        {
+          "name": "inpaint-feather24",
+          "number": 0,
+          "status": "completed",
+          "id": 3,
+          "filename": "20261118-065110-12346-675b12.png",
+          "seed": 12346,
+          "seconds": 9.685577199998079,
+          "pixels_sha256": "e8637c8587f856d84854f09148d800e78bee4cccdb4ea23f4bfbc3986a00bf23",
+          "png_sha256": "161103aacaf3bbc583510f4530ea1ee1dc0dda2d39fb47b0555d4013e51a06b1",
+          "peak": [
+            13042630656,
+            13774094336
+          ],
+          "size": [
+            1024,
+            1024
+          ],
+          "request": {
+            "prompt": "A portrait of an old fisherman in a blue knitted scarf and blue raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1024,
+            "height": 1024,
+            "steps": 4,
+            "guidance_scale": 0.0,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.95,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": "4669ecf558d20d7b94892c363459a024045d0d381d99634fa9f2fe56d96ff2d4",
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              4
+            ],
+            [
+              2,
+              4
+            ],
+            [
+              3,
+              4
+            ],
+            [
+              4,
+              4
+            ]
+          ],
+          "sigma": 1.0,
+          "crop": null,
+          "outside_mask_max": 0,
+          "seam": [
+            {
+              "step": 4.713893703061814,
+              "soft_gradient": 10.919533328886024
+            },
+            {
+              "step": 4.7058058925476605,
+              "soft_gradient": 11.205321207000067
+            }
+          ]
+        },
+        {
+          "name": "inpaint-repeat",
+          "number": 0,
+          "status": "completed",
+          "id": 4,
+          "filename": "20261118-065120-12346-a31924.png",
+          "seed": 12346,
+          "seconds": 9.659467599994969,
+          "pixels_sha256": "e8637c8587f856d84854f09148d800e78bee4cccdb4ea23f4bfbc3986a00bf23",
+          "png_sha256": "cc504807433186f680b3139fc434d6c45b32eccb2eaa6712d2ea132c2f75533c",
+          "peak": [
+            13042630656,
+            13774094336
+          ],
+          "size": [
+            1024,
+            1024
+          ],
+          "request": {
+            "prompt": "A portrait of an old fisherman in a blue knitted scarf and blue raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1024,
+            "height": 1024,
+            "steps": 4,
+            "guidance_scale": 0.0,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.95,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": "4669ecf558d20d7b94892c363459a024045d0d381d99634fa9f2fe56d96ff2d4",
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              4
+            ],
+            [
+              2,
+              4
+            ],
+            [
+              3,
+              4
+            ],
+            [
+              4,
+              4
+            ]
+          ],
+          "sigma": 1.0,
+          "crop": null,
+          "outside_mask_max": 0,
+          "seam": [
+            {
+              "step": 4.713893703061814,
+              "soft_gradient": 10.919533328886024
+            },
+            {
+              "step": 4.7058058925476605,
+              "soft_gradient": 11.205321207000067
+            }
+          ]
+        },
+        {
+          "name": "inpaint-cancel",
+          "status": "cancelled",
+          "seconds": 7.053664199993364,
+          "request": {
+            "prompt": "A portrait of an old fisherman in a blue knitted scarf and blue raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1024,
+            "height": 1024,
+            "steps": 4,
+            "guidance_scale": 0.0,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.95,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": "4669ecf558d20d7b94892c363459a024045d0d381d99634fa9f2fe56d96ff2d4",
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              4
+            ],
+            [
+              2,
+              4
+            ]
+          ],
+          "allocator_after": [
+            41449984,
+            71303168
+          ]
+        },
+        {
+          "name": "inpaint-recovery",
+          "number": 0,
+          "status": "completed",
+          "id": 5,
+          "filename": "20261118-065137-12346-39ad28.png",
+          "seed": 12346,
+          "seconds": 9.466067000001203,
+          "pixels_sha256": "e8637c8587f856d84854f09148d800e78bee4cccdb4ea23f4bfbc3986a00bf23",
+          "png_sha256": "fbe8fc39406124fb48276609c567b2dc178a03e6e7580561986a91bc5181eef2",
+          "peak": [
+            13042630656,
+            13774094336
+          ],
+          "size": [
+            1024,
+            1024
+          ],
+          "request": {
+            "prompt": "A portrait of an old fisherman in a blue knitted scarf and blue raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1024,
+            "height": 1024,
+            "steps": 4,
+            "guidance_scale": 0.0,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.95,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": "4669ecf558d20d7b94892c363459a024045d0d381d99634fa9f2fe56d96ff2d4",
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              4
+            ],
+            [
+              2,
+              4
+            ],
+            [
+              3,
+              4
+            ],
+            [
+              4,
+              4
+            ]
+          ],
+          "sigma": 1.0,
+          "crop": null,
+          "outside_mask_max": 0,
+          "seam": [
+            {
+              "step": 4.713893703061814,
+              "soft_gradient": 10.919533328886024
+            },
+            {
+              "step": 4.7058058925476605,
+              "soft_gradient": 11.205321207000067
+            }
+          ]
+        },
+        {
+          "name": "outpaint-band0",
+          "number": 0,
+          "status": "completed",
+          "id": 6,
+          "filename": "20261118-065154-12346-aae7d5.png",
+          "seed": 12346,
+          "seconds": 15.766180999999051,
+          "pixels_sha256": "3efe47cfd58ea17a4017a4cf613d6e7dd39585e61ae44696a2f549ebe38ab7b8",
+          "png_sha256": "d53b9bfd9232356b7fb84895b20c2372406ba761db51a5d555dddb4230cabe07",
+          "peak": [
+            13305255936,
+            14159970304
+          ],
+          "size": [
+            1824,
+            1024
+          ],
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1824,
+            "height": 1024,
+            "steps": 4,
+            "guidance_scale": 0.0,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.95,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": "f1aa56f1da9b39edbaa7893adb9569879852e79c37e0c5fa9910dd7ec00d35f7",
+            "outpaint": {
+              "fill": "edge-box3-r16",
+              "left": 400,
+              "top": 0,
+              "right": 400,
+              "bottom": 0,
+              "band": 0
+            },
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              4
+            ],
+            [
+              2,
+              4
+            ],
+            [
+              3,
+              4
+            ],
+            [
+              4,
+              4
+            ]
+          ],
+          "sigma": 1.0,
+          "crop": null,
+          "outside_mask_max": 0,
+          "seam": [
+            {
+              "step": 10.846354166666666,
+              "soft_gradient": null
+            },
+            {
+              "step": 41.347981770833336,
+              "soft_gradient": null
+            }
+          ]
+        },
+        {
+          "name": "outpaint-band32",
+          "number": 0,
+          "status": "completed",
+          "id": 7,
+          "filename": "20261118-065210-12346-1dfb28.png",
+          "seed": 12346,
+          "seconds": 15.68169479999051,
+          "pixels_sha256": "b244cde60cc68d8a93854ddf8b1f71a7dcd7edff7facacc49c9bb27b6d9fcdf4",
+          "png_sha256": "19a65598f30257a5ee68ac49970240b7fbdb130dd1e644b3a05fc35305fced35",
+          "peak": [
+            13305255936,
+            14159970304
+          ],
+          "size": [
+            1824,
+            1024
+          ],
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1824,
+            "height": 1024,
+            "steps": 4,
+            "guidance_scale": 0.0,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.95,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": "481e67dc6c5090d5cdfb75e327b840e8ac27bff812ee8c8ebcd5a6efef0eb895",
+            "outpaint": {
+              "fill": "edge-box3-r16",
+              "left": 400,
+              "top": 0,
+              "right": 400,
+              "bottom": 0,
+              "band": 32
+            },
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              4
+            ],
+            [
+              2,
+              4
+            ],
+            [
+              3,
+              4
+            ],
+            [
+              4,
+              4
+            ]
+          ],
+          "sigma": 1.0,
+          "crop": null,
+          "outside_mask_max": 0,
+          "seam": [
+            {
+              "step": 1.7433268229166667,
+              "soft_gradient": 3.514469926075269
+            },
+            {
+              "step": 2.4728190104166665,
+              "soft_gradient": 4.776592951948925
+            }
+          ]
+        },
+        {
+          "name": "outpaint-repeat",
+          "number": 0,
+          "status": "completed",
+          "id": 8,
+          "filename": "20261118-065226-12346-0edb02.png",
+          "seed": 12346,
+          "seconds": 15.394253400008893,
+          "pixels_sha256": "b244cde60cc68d8a93854ddf8b1f71a7dcd7edff7facacc49c9bb27b6d9fcdf4",
+          "png_sha256": "f632312beac1e5fba64775e0722564f6c27b992e5b9899d82fbac10379efee97",
+          "peak": [
+            13305255936,
+            14159970304
+          ],
+          "size": [
+            1824,
+            1024
+          ],
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1824,
+            "height": 1024,
+            "steps": 4,
+            "guidance_scale": 0.0,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.95,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": "481e67dc6c5090d5cdfb75e327b840e8ac27bff812ee8c8ebcd5a6efef0eb895",
+            "outpaint": {
+              "fill": "edge-box3-r16",
+              "left": 400,
+              "top": 0,
+              "right": 400,
+              "bottom": 0,
+              "band": 32
+            },
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              4
+            ],
+            [
+              2,
+              4
+            ],
+            [
+              3,
+              4
+            ],
+            [
+              4,
+              4
+            ]
+          ],
+          "sigma": 1.0,
+          "crop": null,
+          "outside_mask_max": 0,
+          "seam": [
+            {
+              "step": 1.7433268229166667,
+              "soft_gradient": 3.514469926075269
+            },
+            {
+              "step": 2.4728190104166665,
+              "soft_gradient": 4.776592951948925
+            }
+          ]
+        },
+        {
+          "name": "outpaint-cancel",
+          "status": "cancelled",
+          "seconds": 10.013571100003901,
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1824,
+            "height": 1024,
+            "steps": 4,
+            "guidance_scale": 0.0,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.95,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": "481e67dc6c5090d5cdfb75e327b840e8ac27bff812ee8c8ebcd5a6efef0eb895",
+            "outpaint": {
+              "fill": "edge-box3-r16",
+              "left": 400,
+              "top": 0,
+              "right": 400,
+              "bottom": 0,
+              "band": 32
+            },
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              4
+            ],
+            [
+              2,
+              4
+            ]
+          ],
+          "allocator_after": [
+            44336640,
+            75497472
+          ]
+        },
+        {
+          "name": "outpaint-recovery",
+          "number": 0,
+          "status": "completed",
+          "id": 9,
+          "filename": "20261118-065253-12346-3e90e2.png",
+          "seed": 12346,
+          "seconds": 15.756646299996646,
+          "pixels_sha256": "b244cde60cc68d8a93854ddf8b1f71a7dcd7edff7facacc49c9bb27b6d9fcdf4",
+          "png_sha256": "e2a7607207f43de13971ff69b99104cb8de0c877762f7905044f793d3c0a4c50",
+          "peak": [
+            13305255936,
+            14159970304
+          ],
+          "size": [
+            1824,
+            1024
+          ],
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1824,
+            "height": 1024,
+            "steps": 4,
+            "guidance_scale": 0.0,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.95,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": "481e67dc6c5090d5cdfb75e327b840e8ac27bff812ee8c8ebcd5a6efef0eb895",
+            "outpaint": {
+              "fill": "edge-box3-r16",
+              "left": 400,
+              "top": 0,
+              "right": 400,
+              "bottom": 0,
+              "band": 32
+            },
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              4
+            ],
+            [
+              2,
+              4
+            ],
+            [
+              3,
+              4
+            ],
+            [
+              4,
+              4
+            ]
+          ],
+          "sigma": 1.0,
+          "crop": null,
+          "outside_mask_max": 0,
+          "seam": [
+            {
+              "step": 1.7433268229166667,
+              "soft_gradient": 3.514469926075269
+            },
+            {
+              "step": 2.4728190104166665,
+              "soft_gradient": 4.776592951948925
+            }
+          ]
+        },
+        {
+          "name": "outpaint-band64",
+          "number": 0,
+          "status": "completed",
+          "id": 10,
+          "filename": "20261118-065309-12346-7ecd37.png",
+          "seed": 12346,
+          "seconds": 15.69980800000485,
+          "pixels_sha256": "12b956b68752651f59b157642e2231cd349f5452435705c031918e039f7727b1",
+          "png_sha256": "937d7ea56b8b26d6540598c65c3a16ac195a0f3cdaa15ab9c9dfe2ccd692b64c",
+          "peak": [
+            13305255936,
+            14159970304
+          ],
+          "size": [
+            1824,
+            1024
+          ],
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1824,
+            "height": 1024,
+            "steps": 4,
+            "guidance_scale": 0.0,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.95,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": "8d4f345bf596095c3f92250a6954b2acb4bd3e8f645b6ea3b6b92d7955ab6d4d",
+            "outpaint": {
+              "fill": "edge-box3-r16",
+              "left": 400,
+              "top": 0,
+              "right": 400,
+              "bottom": 0,
+              "band": 64
+            },
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              4
+            ],
+            [
+              2,
+              4
+            ],
+            [
+              3,
+              4
+            ],
+            [
+              4,
+              4
+            ]
+          ],
+          "sigma": 1.0,
+          "crop": null,
+          "outside_mask_max": 0,
+          "seam": [
+            {
+              "step": 1.0060221354166667,
+              "soft_gradient": 3.462702029596561
+            },
+            {
+              "step": 1.408203125,
+              "soft_gradient": 3.7749178447420637
+            }
+          ]
+        },
+        {
+          "name": "outpaint-band128",
+          "number": 0,
+          "status": "completed",
+          "id": 11,
+          "filename": "20261118-065326-12346-0adfc7.png",
+          "seed": 12346,
+          "seconds": 15.69313109999348,
+          "pixels_sha256": "7a308c19d39ef1d12c32ea6203806374bc3770649aba06f9a0121d1eb9542648",
+          "png_sha256": "8952ef1c138ad8e208332504c138ed88ebf1881ce7a91d559df9e6af9d3135ae",
+          "peak": [
+            13305255936,
+            14159970304
+          ],
+          "size": [
+            1824,
+            1024
+          ],
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1824,
+            "height": 1024,
+            "steps": 4,
+            "guidance_scale": 0.0,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.95,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": "72016e9681a41eefff277563660688b1f4b0ea676de838e2d4d554afe5295de0",
+            "outpaint": {
+              "fill": "edge-box3-r16",
+              "left": 400,
+              "top": 0,
+              "right": 400,
+              "bottom": 0,
+              "band": 128
+            },
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              4
+            ],
+            [
+              2,
+              4
+            ],
+            [
+              3,
+              4
+            ],
+            [
+              4,
+              4
+            ]
+          ],
+          "sigma": 1.0,
+          "crop": null,
+          "outside_mask_max": 0,
+          "seam": [
+            {
+              "step": 1.4983723958333333,
+              "soft_gradient": 3.6745035166502626
+            },
+            {
+              "step": 1.6564127604166667,
+              "soft_gradient": 3.586222010334646
+            }
+          ]
+        },
+        {
+          "name": "refine-start",
+          "number": 0,
+          "status": "completed",
+          "id": 12,
+          "filename": "20261118-065339-12346-717678.png",
+          "seed": 12346,
+          "seconds": 11.791982099995948,
+          "pixels_sha256": "f655bca3f07609d5fe75a2be253af0188fe68db729daa08be126447330b083c5",
+          "png_sha256": "020785a3bc62ac17e7df57f27275eba6ffb6034f38625fbd96bfe5080ec5aa8d",
+          "peak": [
+            13457666048,
+            14661189632
+          ],
+          "size": [
+            1536,
+            1536
+          ],
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1536,
+            "height": 1536,
+            "steps": 4,
+            "guidance_scale": 0.0,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.5,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": null,
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              2
+            ],
+            [
+              2,
+              2
+            ]
+          ],
+          "sigma": 0.5,
+          "crop": null
+        },
+        {
+          "name": "refine-repeat",
+          "number": 0,
+          "status": "completed",
+          "id": 13,
+          "filename": "20261118-065351-12346-d671d3.png",
+          "seed": 12346,
+          "seconds": 11.801946600011433,
+          "pixels_sha256": "f655bca3f07609d5fe75a2be253af0188fe68db729daa08be126447330b083c5",
+          "png_sha256": "152bea9cfec30facd96d739ef6356640b0a3dbda903bae7a976c5a30a79d8d4d",
+          "peak": [
+            13457666048,
+            14661189632
+          ],
+          "size": [
+            1536,
+            1536
+          ],
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1536,
+            "height": 1536,
+            "steps": 4,
+            "guidance_scale": 0.0,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.5,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": null,
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              2
+            ],
+            [
+              2,
+              2
+            ]
+          ],
+          "sigma": 0.5,
+          "crop": null
+        },
+        {
+          "name": "refine-cancel",
+          "status": "cancelled",
+          "seconds": 7.840753099997528,
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1536,
+            "height": 1536,
+            "steps": 4,
+            "guidance_scale": 0.0,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.5,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": null,
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              2
+            ]
+          ],
+          "allocator_after": [
+            42004992,
+            104857600
+          ]
+        },
+        {
+          "name": "refine-recovery",
+          "number": 0,
+          "status": "completed",
+          "id": 14,
+          "filename": "20261118-065411-12346-e390e5.png",
+          "seed": 12346,
+          "seconds": 11.645833399990806,
+          "pixels_sha256": "f655bca3f07609d5fe75a2be253af0188fe68db729daa08be126447330b083c5",
+          "png_sha256": "d59c3a1a2460312a9bb5edce5ede8bb7bf4585431333e9688fb28b2ea57dba1f",
+          "peak": [
+            13457666048,
+            14661189632
+          ],
+          "size": [
+            1536,
+            1536
+          ],
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1536,
+            "height": 1536,
+            "steps": 4,
+            "guidance_scale": 0.0,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.5,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": null,
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              2
+            ],
+            [
+              2,
+              2
+            ]
+          ],
+          "sigma": 0.5,
+          "crop": null
+        },
+        {
+          "name": "refine-true-cfg",
+          "number": 0,
+          "status": "completed",
+          "id": 15,
+          "filename": "20261118-065421-12346-762a13.png",
+          "seed": 12346,
+          "seconds": 9.933854200004134,
+          "pixels_sha256": "e025c894d8cb776768d48636d07067693dca354e4c13b720e5189dc1289a46a3",
+          "png_sha256": "14d80587d579831b4d444807aea41dce604eff480fe8c8695a85405a638174f2",
+          "peak": [
+            13045256704,
+            13719568384
+          ],
+          "size": [
+            1024,
+            1024
+          ],
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": "blurry, low quality, yellow coat",
+            "width": 1024,
+            "height": 1024,
+            "steps": 4,
+            "guidance_scale": 0.0,
+            "true_cfg": 2.0,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.5,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": null,
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              2
+            ],
+            [
+              2,
+              2
+            ]
+          ],
+          "sigma": 0.5,
+          "crop": null
+        },
+        {
+          "name": "refine-true-cfg-repeat",
+          "number": 0,
+          "status": "completed",
+          "id": 16,
+          "filename": "20261118-065431-12346-cf5d8f.png",
+          "seed": 12346,
+          "seconds": 9.95654800000193,
+          "pixels_sha256": "e025c894d8cb776768d48636d07067693dca354e4c13b720e5189dc1289a46a3",
+          "png_sha256": "806ff10e71435d1309bc8bf5619f8cf6bf7021320717ddd21c8fa951719cd9c3",
+          "peak": [
+            13045256704,
+            13719568384
+          ],
+          "size": [
+            1024,
+            1024
+          ],
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": "blurry, low quality, yellow coat",
+            "width": 1024,
+            "height": 1024,
+            "steps": 4,
+            "guidance_scale": 0.0,
+            "true_cfg": 2.0,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.5,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": null,
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              2
+            ],
+            [
+              2,
+              2
+            ]
+          ],
+          "sigma": 0.5,
+          "crop": null
+        },
+        {
+          "name": "refine-true-cfg-off",
+          "number": 0,
+          "status": "completed",
+          "id": 17,
+          "filename": "20261118-065439-12346-1e9aa7.png",
+          "seed": 12346,
+          "seconds": 7.172147300007055,
+          "pixels_sha256": "e03f3d24985ec3f49e981425e8070095679a2032d46623741eb0e9d4fc5cb265",
+          "png_sha256": "6604e6e60112f926658f674f4e67f0355d38dc32ca5a97caadf0f1d1b2a43487",
+          "peak": [
+            13040009216,
+            13769900032
+          ],
+          "size": [
+            1024,
+            1024
+          ],
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1024,
+            "height": 1024,
+            "steps": 4,
+            "guidance_scale": 0.0,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.5,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": null,
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              2
+            ],
+            [
+              2,
+              2
+            ]
+          ],
+          "sigma": 0.5,
+          "crop": null
+        },
+        {
+          "name": "source-after",
+          "number": 0,
+          "status": "completed",
+          "id": 18,
+          "filename": "20261118-065449-12345-8af663.png",
+          "seed": 12345,
+          "seconds": 9.364166800005478,
+          "pixels_sha256": "75cc30c417883b01b2f6939a3dcc32c3202d76c689be8846cd7c1779208c63e0",
+          "png_sha256": "fccbf9a789076637edb06c510f157c63d71ace2b54b25d9201a16ccc6ad09f04",
+          "peak": [
+            12869999616,
+            13593739264
+          ],
+          "size": [
+            1024,
+            1024
+          ],
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1024,
+            "height": 1024,
+            "steps": 4,
+            "guidance_scale": 0.0,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": null,
+            "strength": 0.5,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": null,
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              4
+            ],
+            [
+              2,
+              4
+            ],
+            [
+              3,
+              4
+            ],
+            [
+              4,
+              4
+            ]
+          ],
+          "sigma": null,
+          "crop": null
+        }
+      ],
+      "unloaded": {
+        "event": "unloaded",
+        "time": 1794984889.4520493,
+        "ready": false,
+        "allocated": 33554432,
+        "reserved": 33554432
+      },
+      "cleanup": {
+        "worker_exit": 0,
+        "fresh_settled_card_mib": 966.0,
+        "fresh_settled_gpu_utilization_percent": 0,
+        "settled_observation": "separate nvidia-smi readback after process exit and CPU audit; not a sampler row",
+        "immediate_sampler_after_exit": {
+          "card_mib": 966.0,
+          "adapter_shared_mib": 38.6640625,
+          "process_shared_mib": null,
+          "available_gib": 49.47736358642578,
+          "commit_headroom_gib": 55.133792877197266,
+          "tree_gib": null,
+          "card_total_mib": 16303.0
+        }
+      },
+      "interpretation": "Complete fresh schnell session after causal immutable IPC correction. Inpaint/outpaint/default Refine/true-CFG/repeat/cancel/recovery passed; source replay exact. A1 remains a separate partial harness stop. Visual review is separate; no broad quality or untested-loader acceptance inferred.",
+      "evidence": {
+        "plan.json": "f20d474f26840bb49b357b8dc48c965f83d95e13e41bdd1b3369074e6edaed54",
+        "source-manifest.json": "75def78f4e327bad3b96d4982c3bcb133f508ae5bee6767bdaa25e4f793dfa90",
+        "source-manifest-after.json": "75def78f4e327bad3b96d4982c3bcb133f508ae5bee6767bdaa25e4f793dfa90",
+        "admission.json": "91e830072231d5cdf681fb6b3802ab50ef9be94b555d4c07cbf47cf2d3b80a3a",
+        "cache-preflight.json": "824e761900eda6924ef52f46f6b85ad76007fd62a23d5f1fc75ab124e8877246",
+        "events.jsonl": "8be17ae745de30fe8cab6bb008a1234a0294065d0acea2761efe19125e82ab56",
+        "guard.jsonl": "9574d2ea98dbadecc668874870c397fd8084eede01cda9dd1d5a3e196d391cf7",
+        "supervisor.json": "6395e913ae4a5d28c6242b36bc2a3ac1257ac5d32f940ca55cf03974a11ce952",
+        "results.json": "1f51615573dad4c35c6dd1bda5aafe0c1af620b724ec759e4e5d234eeefe3832",
+        "worker.log": "0929bfc24ae8741940c4734c072d59d60784b95c994648d4d0b249bab154906c"
+      },
+      "analysis_tool_sha256": "fa624643a679a25bb92073da9e6f8408d00c8d28f8d98b5b11ba9ba02ade8af4"
+    },
+    "dev-sequential-refine-a1": {
+      "schema": "auradream-bounded-private-card-v1",
+      "date": "2026-11-18",
+      "items": [
+        "CARD7"
+      ],
+      "runtime": {
+        "commit": "f8f4cf2de7c690300735ea189876f687c5f937b1",
+        "model": "black-forest-labs/FLUX.1-dev",
+        "offload": "sequential",
+        "versions": {
+          "torch": "2.13.0+cu130",
+          "diffusers": "0.42.1",
+          "transformers": "5.16.1",
+          "torchao": "0.18.0",
+          "accelerate": "1.15.0"
+        },
+        "gpu": "NVIDIA GeForce RTX 5080"
+      },
+      "one_load": true,
+      "load_seconds": 36.33391429999028,
+      "cached_checkpoint": {
+        "model": "black-forest-labs/FLUX.1-dev",
+        "cache": "D:\\huggingface\\hub\\models--black-forest-labs--FLUX.1-dev",
+        "revision": "3de623fc3c33e44ffbe2bad470d0f45bccf2eb21",
+        "complete_component_inventory": true,
+        "missing": []
+      },
+      "status": "completed",
+      "case_count": 9,
+      "completed_images": 8,
+      "cancelled_calls": 1,
+      "refused_cases": 0,
+      "stopped_reason": null,
+      "source_unchanged": true,
+      "guards": {
+        "limits": {
+          "card_mib": 15500.0,
+          "project_mib": 15200.0,
+          "refuse_at_peak_mib": 15000.0,
+          "adapter_shared_rise_mib": 1024.0,
+          "process_shared_rise_mib": 512.0,
+          "ram_floor_gib": 4.0,
+          "commit_floor_gib": 4.0,
+          "need_ram_gib": 45,
+          "busy_card_mib": 2100,
+          "card_unread_samples": 3.0,
+          "margin_mib": 500.0,
+          "margin_gib": 1.0
+        },
+        "admission": {
+          "sample": {
+            "card_mib": 966.0,
+            "adapter_shared_mib": 38.6640625,
+            "process_shared_mib": 0.0,
+            "available_gib": 49.42875671386719,
+            "commit_headroom_gib": 55.08433151245117,
+            "tree_gib": 0.027309417724609375,
+            "card_total_mib": 16303.0
+          },
+          "baseline": {
+            "adapter_shared_mib": 38.6640625,
+            "process_shared_mib": 0.0
+          },
+          "limits": {
+            "card_mib": 15500.0,
+            "project_mib": 15200.0,
+            "refuse_at_peak_mib": 15000.0,
+            "adapter_shared_rise_mib": 1024.0,
+            "process_shared_rise_mib": 512.0,
+            "ram_floor_gib": 4.0,
+            "commit_floor_gib": 4.0,
+            "need_ram_gib": 45,
+            "busy_card_mib": 2100,
+            "card_unread_samples": 3.0,
+            "margin_mib": 500.0,
+            "margin_gib": 1.0
+          }
+        },
+        "metrics": {
+          "whole_card_peak_mib": 3143.0,
+          "adapter_shared_rise_mib": 82.0,
+          "process_shared_rise_mib": 82.0,
+          "minimum_free_ram_gib": 21.543922424316406,
+          "minimum_commit_headroom_gib": 21.548778533935547,
+          "maximum_working_set_gib": 27.836292266845703,
+          "maximum_private_gib": 33.502479553222656,
+          "samples": 1528,
+          "loop_start_mean_period_seconds": 0.2502940098231822,
+          "loop_start_maximum_period_seconds": 0.2508107000030577,
+          "raw_record_mean_gap_seconds": 0.2502977826457155,
+          "raw_record_maximum_gap_seconds": 0.2667826000106288,
+          "timing_scope": "supervisor periods compare loop-start times; raw-record gaps compare row-write elapsed stamps after sampling",
+          "all_verdicts_independently_ok": true
+        }
+      },
+      "results": [
+        {
+          "name": "source",
+          "number": 0,
+          "status": "completed",
+          "id": 1,
+          "filename": "20261118-065839-12345-ac668a.png",
+          "seed": 12345,
+          "seconds": 100.71538259999943,
+          "pixels_sha256": "6ea97654e1e505aa5428ce8dd6126eb632eb77ab094c832afade807d94115314",
+          "png_sha256": "5ed29e2bf3da4cc665265c59bd6b4d3bf312d140860ec2336f0d460d3af0e63d",
+          "peak": [
+            2592243712,
+            2747269120
+          ],
+          "size": [
+            1024,
+            1024
+          ],
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1024,
+            "height": 1024,
+            "steps": 28,
+            "guidance_scale": 3.5,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": null,
+            "strength": 0.1,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": null,
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              28
+            ],
+            [
+              2,
+              28
+            ],
+            [
+              3,
+              28
+            ],
+            [
+              4,
+              28
+            ],
+            [
+              5,
+              28
+            ],
+            [
+              6,
+              28
+            ],
+            [
+              7,
+              28
+            ],
+            [
+              8,
+              28
+            ],
+            [
+              9,
+              28
+            ],
+            [
+              10,
+              28
+            ],
+            [
+              11,
+              28
+            ],
+            [
+              12,
+              28
+            ],
+            [
+              13,
+              28
+            ],
+            [
+              14,
+              28
+            ],
+            [
+              15,
+              28
+            ],
+            [
+              16,
+              28
+            ],
+            [
+              17,
+              28
+            ],
+            [
+              18,
+              28
+            ],
+            [
+              19,
+              28
+            ],
+            [
+              20,
+              28
+            ],
+            [
+              21,
+              28
+            ],
+            [
+              22,
+              28
+            ],
+            [
+              23,
+              28
+            ],
+            [
+              24,
+              28
+            ],
+            [
+              25,
+              28
+            ],
+            [
+              26,
+              28
+            ],
+            [
+              27,
+              28
+            ],
+            [
+              28,
+              28
+            ]
+          ],
+          "sigma": null,
+          "crop": null
+        },
+        {
+          "name": "refine-start",
+          "number": 0,
+          "status": "completed",
+          "id": 2,
+          "filename": "20261118-065901-12346-ac882d.png",
+          "seed": 12346,
+          "seconds": 21.388395699992543,
+          "pixels_sha256": "f8b2715a3c4cdc6ecae8bb02ec72d6c50d431ef10b7c33623ca97c37842ab1e0",
+          "png_sha256": "81b691511f536b77ed025ad8acfc9267774daafaf0e2748cd4e75401619e9357",
+          "peak": [
+            2594372096,
+            2770337792
+          ],
+          "size": [
+            1536,
+            1536
+          ],
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1536,
+            "height": 1536,
+            "steps": 28,
+            "guidance_scale": 3.5,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.1,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": null,
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              3
+            ],
+            [
+              2,
+              3
+            ],
+            [
+              3,
+              3
+            ]
+          ],
+          "sigma": 0.47412392497062683,
+          "crop": null
+        },
+        {
+          "name": "refine-repeat",
+          "number": 0,
+          "status": "completed",
+          "id": 3,
+          "filename": "20261118-065922-12346-e78d14.png",
+          "seed": 12346,
+          "seconds": 21.348637100003543,
+          "pixels_sha256": "f8b2715a3c4cdc6ecae8bb02ec72d6c50d431ef10b7c33623ca97c37842ab1e0",
+          "png_sha256": "217232ce5fda48a9770f978b5ffee9f7cc2f52bb127a098aee25e83fb1d247f2",
+          "peak": [
+            2594372096,
+            2770337792
+          ],
+          "size": [
+            1536,
+            1536
+          ],
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1536,
+            "height": 1536,
+            "steps": 28,
+            "guidance_scale": 3.5,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.1,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": null,
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              3
+            ],
+            [
+              2,
+              3
+            ],
+            [
+              3,
+              3
+            ]
+          ],
+          "sigma": 0.47412392497062683,
+          "crop": null
+        },
+        {
+          "name": "refine-cancel",
+          "status": "cancelled",
+          "seconds": 13.917697899989435,
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1536,
+            "height": 1536,
+            "steps": 28,
+            "guidance_scale": 3.5,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.1,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": null,
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              3
+            ],
+            [
+              2,
+              3
+            ]
+          ],
+          "allocator_after": [
+            40171520,
+            247463936
+          ]
+        },
+        {
+          "name": "refine-recovery",
+          "number": 0,
+          "status": "completed",
+          "id": 4,
+          "filename": "20261118-065958-12346-24be8c.png",
+          "seed": 12346,
+          "seconds": 21.258524500008207,
+          "pixels_sha256": "f8b2715a3c4cdc6ecae8bb02ec72d6c50d431ef10b7c33623ca97c37842ab1e0",
+          "png_sha256": "6941b13e5db3a86ba2382521db29377bc5e32472a1bf3acbd5ca34d5f8eb2778",
+          "peak": [
+            2594372096,
+            2770337792
+          ],
+          "size": [
+            1536,
+            1536
+          ],
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1536,
+            "height": 1536,
+            "steps": 28,
+            "guidance_scale": 3.5,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.1,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": null,
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              3
+            ],
+            [
+              2,
+              3
+            ],
+            [
+              3,
+              3
+            ]
+          ],
+          "sigma": 0.47412392497062683,
+          "crop": null
+        },
+        {
+          "name": "refine-true-cfg",
+          "number": 0,
+          "status": "completed",
+          "id": 5,
+          "filename": "20261118-070023-12346-77243f.png",
+          "seed": 12346,
+          "seconds": 24.14868209999986,
+          "pixels_sha256": "b186fb847987e00bf4751de544e13d4e0c2fe9232a5eb7c5c1115419376ed664",
+          "png_sha256": "e490901fade96df851224883a102be2b6ac9e648507ac5f799f61367dca80baf",
+          "peak": [
+            2596967424,
+            2747269120
+          ],
+          "size": [
+            1024,
+            1024
+          ],
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": "blurry, low quality, yellow coat",
+            "width": 1024,
+            "height": 1024,
+            "steps": 28,
+            "guidance_scale": 3.5,
+            "true_cfg": 2.0,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.1,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": null,
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              3
+            ],
+            [
+              2,
+              3
+            ],
+            [
+              3,
+              3
+            ]
+          ],
+          "sigma": 0.2748279869556427,
+          "crop": null
+        },
+        {
+          "name": "refine-true-cfg-repeat",
+          "number": 0,
+          "status": "completed",
+          "id": 6,
+          "filename": "20261118-070047-12346-b5f359.png",
+          "seed": 12346,
+          "seconds": 24.23740509999334,
+          "pixels_sha256": "b186fb847987e00bf4751de544e13d4e0c2fe9232a5eb7c5c1115419376ed664",
+          "png_sha256": "6cbc53dfb31f3cd42a989d10198abedab17cfb635252bb22a04dd0285ddb0d20",
+          "peak": [
+            2596967424,
+            2747269120
+          ],
+          "size": [
+            1024,
+            1024
+          ],
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": "blurry, low quality, yellow coat",
+            "width": 1024,
+            "height": 1024,
+            "steps": 28,
+            "guidance_scale": 3.5,
+            "true_cfg": 2.0,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.1,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": null,
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              3
+            ],
+            [
+              2,
+              3
+            ],
+            [
+              3,
+              3
+            ]
+          ],
+          "sigma": 0.2748279869556427,
+          "crop": null
+        },
+        {
+          "name": "refine-true-cfg-off",
+          "number": 0,
+          "status": "completed",
+          "id": 7,
+          "filename": "20261118-070059-12346-d4e53e.png",
+          "seed": 12346,
+          "seconds": 12.283529700012878,
+          "pixels_sha256": "a2568d0fed46d4cdc31df57c49cfcd8732e9b8d0a941d03e7a31f20d155bfdbb",
+          "png_sha256": "570cc36ff777d60663bff37dfd3ab517b7cd5c659e58a176dd6dcfc3568edcf6",
+          "peak": [
+            2592244224,
+            2747269120
+          ],
+          "size": [
+            1024,
+            1024
+          ],
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1024,
+            "height": 1024,
+            "steps": 28,
+            "guidance_scale": 3.5,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.1,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": null,
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              3
+            ],
+            [
+              2,
+              3
+            ],
+            [
+              3,
+              3
+            ]
+          ],
+          "sigma": 0.2748279869556427,
+          "crop": null
+        },
+        {
+          "name": "source-after",
+          "number": 0,
+          "status": "completed",
+          "id": 8,
+          "filename": "20261118-070239-12345-032a11.png",
+          "seed": 12345,
+          "seconds": 99.1893912999949,
+          "pixels_sha256": "6ea97654e1e505aa5428ce8dd6126eb632eb77ab094c832afade807d94115314",
+          "png_sha256": "a3f2b223a7cba14ea6bb42b0a128a59469e5209fee4c58be5e457cb97999bc01",
+          "peak": [
+            2592243712,
+            2747269120
+          ],
+          "size": [
+            1024,
+            1024
+          ],
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1024,
+            "height": 1024,
+            "steps": 28,
+            "guidance_scale": 3.5,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": null,
+            "strength": 0.1,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": null,
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "steps": [
+            [
+              1,
+              28
+            ],
+            [
+              2,
+              28
+            ],
+            [
+              3,
+              28
+            ],
+            [
+              4,
+              28
+            ],
+            [
+              5,
+              28
+            ],
+            [
+              6,
+              28
+            ],
+            [
+              7,
+              28
+            ],
+            [
+              8,
+              28
+            ],
+            [
+              9,
+              28
+            ],
+            [
+              10,
+              28
+            ],
+            [
+              11,
+              28
+            ],
+            [
+              12,
+              28
+            ],
+            [
+              13,
+              28
+            ],
+            [
+              14,
+              28
+            ],
+            [
+              15,
+              28
+            ],
+            [
+              16,
+              28
+            ],
+            [
+              17,
+              28
+            ],
+            [
+              18,
+              28
+            ],
+            [
+              19,
+              28
+            ],
+            [
+              20,
+              28
+            ],
+            [
+              21,
+              28
+            ],
+            [
+              22,
+              28
+            ],
+            [
+              23,
+              28
+            ],
+            [
+              24,
+              28
+            ],
+            [
+              25,
+              28
+            ],
+            [
+              26,
+              28
+            ],
+            [
+              27,
+              28
+            ],
+            [
+              28,
+              28
+            ]
+          ],
+          "sigma": null,
+          "crop": null
+        }
+      ],
+      "unloaded": {
+        "event": "unloaded",
+        "time": 1794985359.90962,
+        "ready": false,
+        "allocated": 33554432,
+        "reserved": 33554432
+      },
+      "cleanup": {
+        "worker_exit": 0,
+        "fresh_settled_card_mib": 966.0,
+        "fresh_settled_gpu_utilization_percent": 0,
+        "settled_observation": "separate nvidia-smi readback after process exit and CPU audit; not a sampler row",
+        "immediate_sampler_after_exit": {
+          "card_mib": 966.0,
+          "adapter_shared_mib": 38.6640625,
+          "process_shared_mib": null,
+          "available_gib": 49.4996452331543,
+          "commit_headroom_gib": 55.163509368896484,
+          "tree_gib": null,
+          "card_total_mib": 16303.0
+        }
+      },
+      "interpretation": "Distinct FLUX.1 dev fp8/sequential session with finite default 1536 Refine, true-CFG, exact repeats, cancellation/recovery and final source replay. Full-residency mode remains refused; this does not qualify other families or all offload combinations.",
+      "evidence": {
+        "plan.json": "07ce189660d8e6bf76146499033ab5cb9787075158bb9bd7ded890c8a0a00994",
+        "source-manifest.json": "75def78f4e327bad3b96d4982c3bcb133f508ae5bee6767bdaa25e4f793dfa90",
+        "source-manifest-after.json": "75def78f4e327bad3b96d4982c3bcb133f508ae5bee6767bdaa25e4f793dfa90",
+        "admission.json": "a9f71618a33b812d5e2b01d0da5f3a9c8e1d320b5fa089731bfc14bb2acc4143",
+        "cache-preflight.json": "32c70b0cc102bb7a2c623e3ae717ba03c3fefc2ec0636e6fba8b8a4c61dcc824",
+        "events.jsonl": "9260b1d953946699dc8a18c4a04860f338a1ec1a4f62252584255e7e1e39d35f",
+        "guard.jsonl": "d77ed4e7aa8a8d9b03a9777ef8ab831360a04ba979a0639b3b9761c9a1d463e2",
+        "supervisor.json": "d4430a3e2612fbc440ea30cf690ffc40ddd53b6e11e796aa239f0393870c9a29",
+        "results.json": "7a40b3f370aee33419ecd705177e0e82e0cb256abaa26b9ba51f27864d448b35",
+        "worker.log": "d7eadeea004b098e4ed9092270887a4793317f243e744a641b9ee57f9a225295"
+      },
+      "analysis_tool_sha256": "fa624643a679a25bb92073da9e6f8408d00c8d28f8d98b5b11ba9ba02ade8af4"
+    }
+  },
+  "partial_attempt": {
+    "path": ".artifacts/gpu-20261118/flux-rest/schnell-combined-a1",
+    "result": "seven images and one cancellation; stopped by Windows rolling-permit rename/read conflict; not a model rejection",
+    "receipt_sha256": "532790035094757b68995cce8b54c44ea0bbf7ce9c9bff5b643b021bae955f12"
+  },
+  "immutable_ipc_cpu_regression": {
+    "old_held_reader_WinError5_reproduced": true,
+    "immutable_publish_while_old_reader_open": "passed",
+    "unique_concurrent_phase_publications": 200,
+    "binding_refusals": [
+      "sequence",
+      "sequence",
+      "name",
+      "request_nonce",
+      "deadline_monotonic",
+      "action",
+      "expired"
+    ],
+    "nonce_distinct_paths": true,
+    "reader_errors": [],
+    "torch_imported": false
+  },
+  "future_admission": {
+    "schema": "auradream-future-admission-cost-v1",
+    "date": "2026-11-18",
+    "scope": "future same frozen schnell recipes on this measured host",
+    "actual_run_admission_unchanged": {
+      "card_mib": 15500.0,
+      "project_mib": 15200.0,
+      "refuse_at_peak_mib": 15000.0,
+      "adapter_shared_rise_mib": 1024.0,
+      "process_shared_rise_mib": 512.0,
+      "ram_floor_gib": 4.0,
+      "commit_floor_gib": 4.0,
+      "need_ram_gib": 45,
+      "busy_card_mib": 2100,
+      "card_unread_samples": 3.0,
+      "margin_mib": 500.0,
+      "margin_gib": 1.0
+    },
+    "observed_peak_private_gib": 46.44798278808594,
+    "observed_peak_phase": {
+      "sequence": 2,
+      "name": "source",
+      "reserve_gib": 12.63,
+      "started": 1794984638.4184105,
+      "request_nonce": "20ca69cf5f5d422d347e34e16633e841",
+      "deadline_monotonic": 91849.3269624
+    },
+    "unchanged_commit_floor_gib": 4,
+    "example_explicit_margin_gib": 6,
+    "future_commit_admission_gib_with_margin": 56.44798278808594,
+    "floor_only_minimum_gib": 50.44798278808594,
+    "actual_run_min_commit_headroom_gib": 8.729541778564453,
+    "actual_run_passed_without_new_margin_claim": true,
+    "raw_guard_sha256": "9574d2ea98dbadecc668874870c397fd8084eede01cda9dd1d5a3e196d391cf7"
+  },
+  "cross_offload_pixel_equality": {
+    "source": true,
+    "refine-start": true,
+    "refine-repeat": true,
+    "refine-recovery": true,
+    "refine-true-cfg": true,
+    "refine-true-cfg-repeat": true,
+    "refine-true-cfg-off": true,
+    "source-after": true
+  },
+  "visual_reviews": {
+    "dev-combined-a1": {
+      "schema": "auradream-bounded-visual-review-v1",
+      "date": "2026-11-18",
+      "scope": [
+        "CARD1",
+        "CARD2",
+        "CARD7"
+      ],
+      "checkpoint": "black-forest-labs/FLUX.1-dev",
+      "one_fixture_per_case": true,
+      "gpu_or_model_work_performed": false,
+      "human_acceptance": false,
+      "inputs": {
+        "source": {
+          "filename": "20261118-062540-12345-626eea.png",
+          "pixels_sha256": "6ea97654e1e505aa5428ce8dd6126eb632eb77ab094c832afade807d94115314",
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1024,
+            "height": 1024,
+            "steps": 28,
+            "guidance_scale": 3.5,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": null,
+            "strength": 0.1,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": null,
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          }
+        },
+        "refine-start": {
+          "filename": "20261118-063817-12346-087900.png",
+          "pixels_sha256": "f8b2715a3c4cdc6ecae8bb02ec72d6c50d431ef10b7c33623ca97c37842ab1e0",
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1536,
+            "height": 1536,
+            "steps": 28,
+            "guidance_scale": 3.5,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.1,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": null,
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          }
+        },
+        "inpaint-feather0": {
+          "filename": "20261118-062621-12346-7851b8.png",
+          "pixels_sha256": "223429afa64e39a2815bf0fb489eaff96d6078e751b9be5eea1f95b49346981e",
+          "request": {
+            "prompt": "A portrait of an old fisherman in a blue knitted scarf and blue raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1024,
+            "height": 1024,
+            "steps": 28,
+            "guidance_scale": 3.5,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.95,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": "3b13bc914e5ca5421a8ba093b6bbf4e6344e6231e9b4e16ad025678097dc3afc",
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          }
+        },
+        "inpaint-feather24": {
+          "filename": "20261118-062701-12346-46812f.png",
+          "pixels_sha256": "510e51f6a67db0fd5011407dc105ff6c0eb008d38a3b6e21635ed0f519a1a13d",
+          "request": {
+            "prompt": "A portrait of an old fisherman in a blue knitted scarf and blue raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1024,
+            "height": 1024,
+            "steps": 28,
+            "guidance_scale": 3.5,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.95,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": "4669ecf558d20d7b94892c363459a024045d0d381d99634fa9f2fe56d96ff2d4",
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          }
+        },
+        "inpaint-lora-one": {
+          "filename": "20261118-062955-12346-b2b7d5.png",
+          "pixels_sha256": "d772b644d777e8cce99aa26b90511a71a03e90354f966421e87c6822f66cab21",
+          "request": {
+            "prompt": "A portrait of an old fisherman in a blue knitted scarf and blue raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1024,
+            "height": 1024,
+            "steps": 28,
+            "guidance_scale": 3.5,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": "frosting-lane.safetensors",
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.95,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": "4669ecf558d20d7b94892c363459a024045d0d381d99634fa9f2fe56d96ff2d4",
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          }
+        },
+        "outpaint-band0": {
+          "filename": "20261118-063148-12346-c7b87d.png",
+          "pixels_sha256": "78663eb7fad11e8ea15010a8a90c93b8e843e0d6aa0b1392b871d3c64f098512",
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1824,
+            "height": 1024,
+            "steps": 28,
+            "guidance_scale": 3.5,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.95,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": "f1aa56f1da9b39edbaa7893adb9569879852e79c37e0c5fa9910dd7ec00d35f7",
+            "outpaint": {
+              "fill": "edge-box3-r16",
+              "left": 400,
+              "top": 0,
+              "right": 400,
+              "bottom": 0,
+              "band": 0
+            },
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          }
+        },
+        "outpaint-band32": {
+          "filename": "20261118-063301-12346-8f6008.png",
+          "pixels_sha256": "62a73128a4d957e3591547f5f615d3a01021e70f78fa007f05d758b011727643",
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1824,
+            "height": 1024,
+            "steps": 28,
+            "guidance_scale": 3.5,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.95,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": "481e67dc6c5090d5cdfb75e327b840e8ac27bff812ee8c8ebcd5a6efef0eb895",
+            "outpaint": {
+              "fill": "edge-box3-r16",
+              "left": 400,
+              "top": 0,
+              "right": 400,
+              "bottom": 0,
+              "band": 32
+            },
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          }
+        },
+        "outpaint-band64": {
+          "filename": "20261118-063649-12346-472ff4.png",
+          "pixels_sha256": "0bd3ff7aa6b4a62ca81bcc51b51a4135db5bbd7d6eba3c7814db7305481e2af7",
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1824,
+            "height": 1024,
+            "steps": 28,
+            "guidance_scale": 3.5,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.95,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": "8d4f345bf596095c3f92250a6954b2acb4bd3e8f645b6ea3b6b92d7955ab6d4d",
+            "outpaint": {
+              "fill": "edge-box3-r16",
+              "left": 400,
+              "top": 0,
+              "right": 400,
+              "bottom": 0,
+              "band": 64
+            },
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          }
+        },
+        "outpaint-band128": {
+          "filename": "20261118-063802-12346-d8ad09.png",
+          "pixels_sha256": "98af8a3dc3e9ce3e03e726cf1138ceae010831db7fbb5d58112932fcb2479e96",
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1824,
+            "height": 1024,
+            "steps": 28,
+            "guidance_scale": 3.5,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.95,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": "72016e9681a41eefff277563660688b1f4b0ea676de838e2d4d554afe5295de0",
+            "outpaint": {
+              "fill": "edge-box3-r16",
+              "left": 400,
+              "top": 0,
+              "right": 400,
+              "bottom": 0,
+              "band": 128
+            },
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          }
+        }
+      },
+      "observations": {
+        "refine_1536_strength_0_1": "The fisherman, posture, raincoat, house, pier and boats keep the source composition. At matched face crop scale the main face/hat/expression remain close; eyelid/skin/beard texture and small contours are redrawn. This is one portrait, not an identity guarantee. Source comparison board uses Lanczos150 percent versus actual native Refine pixels.",
+        "inpaint_hard_mask": "The intended blue scarf and blue coat appear inside the ellipse, but the hard elliptical edge is conspicuous across the yellow sleeve/torso and even the pier background. The unchanged face outside the mask does not make the patch seamless.",
+        "inpaint_feather24": "The blue scarf/coat are drawn and the hard outline is softened; yellow-blue fuzzy/double boundaries remain near the shoulder and lower torso. This fixture does not establish a clean seam.",
+        "lora_scale1": "The LoRA visibly changes the masked region to a fuzzy gray/brown, horizontally striped wrap; the requested blue scarf is not retained in the same way. This demonstrates an effect, not improved prompt adherence or a preferred style.",
+        "outpaint_bands": "Band0 leaves clear straight vertical tone/geometry joins in sky and roof/boat edges. Band32 hides the obvious straight cut substantially in this scene. Bands64/128 change the new extension and blend wider portions of the source;128 has visible ghosted/double house-roof and mast structure. No universal best band or default change follows from one source and seed."
+      },
+      "boards": {
+        "inpaint-boundaries-native.png": "e9b66a9f2ea05e634486ec43cd182e568858b65ba9f54e214b9938d481b34d78",
+        "outpaint-bands.png": "22028a5c8cee79bef0a47ae42f6e54e38ee4e61f972a5200d3881f727ca17a88",
+        "outpaint-seams-native.png": "fc1e09ca5bcef53565809bdb6eee97802b24edd34a7d9cd03cb0115a1cb97ede",
+        "overview.png": "029e2294d6c3f1636fe0529e5db269d11114c2931518e2fd6b08cfbcbaef94df",
+        "refine-face-native.png": "e5204ea58bf5bf1c048324ec746617d480ebc10802a50fff87e39a265f2ce53f"
+      },
+      "limits": "Agent visual inspection of saved PNGs only; no aesthetic scoring, human acceptance, broad identity promise or clean-join qualification. Numeric outside-mask preservation and repeatability are independently checked by the parent."
+    },
+    "schnell-combined-a2": {
+      "schema": "auradream-bounded-visual-review-v1",
+      "date": "2026-11-18",
+      "scope": [
+        "CARD1",
+        "CARD2",
+        "CARD7"
+      ],
+      "checkpoint": "black-forest-labs/FLUX.1-schnell",
+      "one_fixture_per_case": true,
+      "gpu_or_model_work_performed": false,
+      "human_acceptance": false,
+      "completed_supervisor_verified_before_results_read": true,
+      "supervisor_sha256": "6395e913ae4a5d28c6242b36bc2a3ac1257ac5d32f940ca55cf03974a11ce952",
+      "inputs": {
+        "source": {
+          "filename": "20261118-065049-12345-73d61c.png",
+          "pixels_sha256": "75cc30c417883b01b2f6939a3dcc32c3202d76c689be8846cd7c1779208c63e0",
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1024,
+            "height": 1024,
+            "steps": 4,
+            "guidance_scale": 0.0,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": null,
+            "strength": 0.5,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": null,
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          }
+        },
+        "refine-start": {
+          "filename": "20261118-065339-12346-717678.png",
+          "pixels_sha256": "f655bca3f07609d5fe75a2be253af0188fe68db729daa08be126447330b083c5",
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1536,
+            "height": 1536,
+            "steps": 4,
+            "guidance_scale": 0.0,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.5,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": null,
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          }
+        },
+        "inpaint-feather0": {
+          "filename": "20261118-065100-12346-a85c4d.png",
+          "pixels_sha256": "ec17d60e934f6d8a91c02915bd028a095fdfc57832145ad9ec5d18cebbbd4150",
+          "request": {
+            "prompt": "A portrait of an old fisherman in a blue knitted scarf and blue raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1024,
+            "height": 1024,
+            "steps": 4,
+            "guidance_scale": 0.0,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.95,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": "3b13bc914e5ca5421a8ba093b6bbf4e6344e6231e9b4e16ad025678097dc3afc",
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          }
+        },
+        "inpaint-feather24": {
+          "filename": "20261118-065110-12346-675b12.png",
+          "pixels_sha256": "e8637c8587f856d84854f09148d800e78bee4cccdb4ea23f4bfbc3986a00bf23",
+          "request": {
+            "prompt": "A portrait of an old fisherman in a blue knitted scarf and blue raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1024,
+            "height": 1024,
+            "steps": 4,
+            "guidance_scale": 0.0,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.95,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": "4669ecf558d20d7b94892c363459a024045d0d381d99634fa9f2fe56d96ff2d4",
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          }
+        },
+        "outpaint-band0": {
+          "filename": "20261118-065154-12346-aae7d5.png",
+          "pixels_sha256": "3efe47cfd58ea17a4017a4cf613d6e7dd39585e61ae44696a2f549ebe38ab7b8",
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1824,
+            "height": 1024,
+            "steps": 4,
+            "guidance_scale": 0.0,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.95,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": "f1aa56f1da9b39edbaa7893adb9569879852e79c37e0c5fa9910dd7ec00d35f7",
+            "outpaint": {
+              "fill": "edge-box3-r16",
+              "left": 400,
+              "top": 0,
+              "right": 400,
+              "bottom": 0,
+              "band": 0
+            },
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          }
+        },
+        "outpaint-band32": {
+          "filename": "20261118-065210-12346-1dfb28.png",
+          "pixels_sha256": "b244cde60cc68d8a93854ddf8b1f71a7dcd7edff7facacc49c9bb27b6d9fcdf4",
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1824,
+            "height": 1024,
+            "steps": 4,
+            "guidance_scale": 0.0,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.95,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": "481e67dc6c5090d5cdfb75e327b840e8ac27bff812ee8c8ebcd5a6efef0eb895",
+            "outpaint": {
+              "fill": "edge-box3-r16",
+              "left": 400,
+              "top": 0,
+              "right": 400,
+              "bottom": 0,
+              "band": 32
+            },
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          }
+        },
+        "outpaint-band64": {
+          "filename": "20261118-065309-12346-7ecd37.png",
+          "pixels_sha256": "12b956b68752651f59b157642e2231cd349f5452435705c031918e039f7727b1",
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1824,
+            "height": 1024,
+            "steps": 4,
+            "guidance_scale": 0.0,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.95,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": "8d4f345bf596095c3f92250a6954b2acb4bd3e8f645b6ea3b6b92d7955ab6d4d",
+            "outpaint": {
+              "fill": "edge-box3-r16",
+              "left": 400,
+              "top": 0,
+              "right": 400,
+              "bottom": 0,
+              "band": 64
+            },
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          }
+        },
+        "outpaint-band128": {
+          "filename": "20261118-065326-12346-0adfc7.png",
+          "pixels_sha256": "7a308c19d39ef1d12c32ea6203806374bc3770649aba06f9a0121d1eb9542648",
+          "request": {
+            "prompt": "A portrait of an old fisherman in a yellow raincoat on a wooden pier at dawn, weathered face, dark blue wool cap, fishing boats and a small wooden house, photograph",
+            "negative_prompt": null,
+            "width": 1824,
+            "height": 1024,
+            "steps": 4,
+            "guidance_scale": 0.0,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": 1,
+            "strength": 0.95,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": "72016e9681a41eefff277563660688b1f4b0ea676de838e2d4d554afe5295de0",
+            "outpaint": {
+              "fill": "edge-box3-r16",
+              "left": 400,
+              "top": 0,
+              "right": 400,
+              "bottom": 0,
+              "band": 128
+            },
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          }
+        }
+      },
+      "observations": {
+        "refine_1536_strength_0_5": "The centered fisherman, stance, yellow coat, blue cap, pier, boats and house layout remain. At matched face crop scale, hat weave, facial contours, eyelids/nose/moustache and skin texture are clearly redrawn; the refined portrait is darker and more strongly textured. Background house detail/lettering is invented. This supports retention of composition, not identity or face-detail preservation. Source comparison uses Lanczos150 percent versus actual native1536 Refine pixels.",
+        "inpaint_hard_mask": "The requested blue scarf and blue coat appear inside a conspicuous hard ellipse against the yellow coat. The ellipse visibly cuts through jacket detail and lower face/scarf area.",
+        "inpaint_feather24": "The hard edge is softened but a broad fuzzy blue/yellow boundary remains across shoulders and lower torso, and the lower beard/scarf boundary changes. This fixture does not establish a clean seam.",
+        "outpaint_bands": "Band0 has obvious straight vertical tone/geometry joins and large scale/perspective changes between source harbor and new bright-water/large-building extensions. Band32 softens the hard cut but retains semantic discontinuities. All four extensions include unwanted partial duplicate yellow coats/figures near the canvas sides. Bands64/128 show increasingly wide ghosted/double boat, roof and coat structure;128 has conspicuous transparent overlap. No band establishes a clean join or general preference."
+      },
+      "boards": {
+        "inpaint-boundaries-native.png": "6e08cab7fd21bfc5819f33e1d4ae9dba6b16b2e5a497d75e2faa2f5b860d4cd5",
+        "outpaint-bands.png": "5411aaf8bfbef0cb4b47551f20cb8841c1ef07051f9c83103851a5f44e65d23d",
+        "outpaint-seams-native.png": "a5f29047ed9f180a0447c9ab5d980ff3c874cc5b6b91f9fc4eec75f3448143ea",
+        "overview.png": "54f676296785381cd214b2208d2d3013d5b7ef4c9bcd2ad4fd28c3678accedc5",
+        "refine-face-native.png": "f3a51a37100e7209999ff5c8d38cd7fab95f819f5ff4d35829e06ab27b8c5671"
+      },
+      "limits": "Agent visual inspection of saved PNGs only; no aesthetic score, human acceptance, identity guarantee or clean-join qualification. Numeric outside-mask preservation and repeatability are independently checked by the parent. No LoRA case exists for this checkpoint."
+    }
+  },
+  "actual_initial_commit_admission_gib": 50,
+  "lora_provenance": {
+    "event": "lora_provenance",
+    "time": 1794983052.057896,
+    "name": "frosting-lane.safetensors",
+    "bytes": 171969568,
+    "sha256": "500bc0cf4b2b538450e21c475f633f041cbd08b3d8275a975f8780afdcc3847d"
+  }
+}
