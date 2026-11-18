@@ -1040,8 +1040,8 @@ def test_compare_scales_sends_the_scale_buttons_own_sizes():
 def test_the_inpaint_strength_note_names_only_what_verified_md_measured():
     # The Inpaint and Outpaint dialogs' Strength note follows the library's
     # number with where it was measured as the right start: verified.md's
-    # Inpaint section ran WAI v17, Animagine XL 4.0 and Z-Anime at it, and
-    # nothing else. A checkpoint of a measured family says it was not run.
+    # original strength comparisons ran WAI v17, Animagine XL 4.0 and
+    # Z-Anime at it. Later execution checks do not extend that comparison.
     from backend.model_defaults import INPAINT_STRENGTH_MEASURED_ON
 
     measured = {
@@ -1057,15 +1057,17 @@ def test_the_inpaint_strength_note_names_only_what_verified_md_measured():
     for label in measured.values():
         assert any(line.startswith(f"| {label}") for line in rows), label
     # FLUX.1's start is its profile's own, 0.95, over the library's 0.6: its
-    # subsection measured Krea dev alone, on 2026-10-19.
+    # strength comparison measured Krea dev alone, on 2026-10-19. The later
+    # dev/schnell runs checked execution at that existing recipe.
     from backend.model_defaults import FLUX_LIBRARY_STRENGTH, INPAINT_START_MEASURED_ON
 
-    flux = section.split("\n### FLUX.1 Krea dev", 1)[1]
+    flux = section.split("\n### FLUX.1 Krea dev", 1)[1].split("\n### ", 1)[0]
     flux_words = " ".join(flux.split())
     assert f"Measured {INPAINT_START_MEASURED_ON}" in flux_words
     assert f"The library default, {FLUX_LIBRARY_STRENGTH:g}, keeps the red scarf" in flux_words
     assert "0.95 and 1.0 draw the blue knitted scarf asked for" in flux_words
-    assert "Not measured on FLUX.1: dev and schnell" in flux_words
+    assert "measures dev/schnell execution at the existing 0.95 recipe" in flux_words
+    assert "not a comparative strength sweep establishing a new preferred opening" in flux_words
     krea = "black-forest-labs/FLUX.1-Krea-dev"
     for repo, class_name in CASES:
         profile = _profile_for(repo)
