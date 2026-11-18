@@ -1,5 +1,14 @@
 # Plan: regional compilation of FLUX.1
 
+**Current status, 2026-11-18: `PERF#1` USER.** The bounded private Windows
+card table is measured, including early-request latency and artifact-local
+recovery/control replay. V6's historical RGB gate remains failed; the separate
+v7 uncancelled control reproduces its recovery RGB with the exact retained
+artifacts. No precise cross-build cause or general cold-rebuild bit identity
+is established. Matt's image-pair judgment and source/release/artifact-rebuild
+policy remain; public admission and default compiler installation stay closed.
+Earlier dated statuses below describe their source stage.
+
 **Status, 2026-10-27: CPU contracts, persisted carry, private loader/call wiring,
 backend publication/teardown, startup compiler-cache ownership and unavailable
 selector/settings/status/UI, composer/replay resolution and bounded diagnostic
@@ -570,6 +579,268 @@ remain unqualified. `PERF#1` still owns the complete guarded model table and
 `work/perf1-tiny-toolchain-20261117-idle2500/`; no model weights or real
 gallery were opened by this probe.
 
+## Private regional model and retained cache (2026-11-18)
+
+Three guarded one-load Windows/RTX 5080 processes completed in a cached,
+offline `triton-windows==3.7.1.post27` overlay, torch 2.13.0+cu130,
+diffusers 0.42.1 and torchao 0.18.0. The recorded Python facts are 3.13;
+CUDA runtime is 13.0 and cuDNN reports 92000. Worker-local CC and CUDA_PATH
+selected verified bundled TinyCC/NVIDIA files; 287 hashed installed RECORD
+entries and actual imported tool paths were checked. The published wheel
+digest is a reference, not a newly rehashed archive. No default environment,
+lockfile or persistent PATH change was made.
+
+The private harness enters actual `backend.main` as `__main__`, supplying
+the private startup cache factory before compiler consumers. It intercepts
+Server.run with a finite local experiment and opens no HTTP listener.
+`main.ensure_loaded` retains the real load lock/gate; one instance load
+wrapper prepares the private recipe. Actual images use `backend.generate`,
+production applied/generator/no_grad/schedule/callback/cancellation/cleanup.
+A narrow instance execution guard validates the exact loaded private recipe
+and frozen ordinary request; global/public admission stays closed.
+
+All calls use the fixed `tools/perf_cases.py` Krea dev fp8/model recipe:
+one image, 28 steps, CFG 3.5, automatic Mu, no negative, LoRA, reference or
+pass. Full arms cover three author prompts, two seeds and 1024-square plus
+1360x768, with same-case repeats, shape return, step-3 cancellation and
+recovery. There are 40 completed images in total, 42 generation calls and
+two step-3 cancellations across three loads.
+
+| Session | Load | First image | Warm image observations | Generated model evidence |
+|---|---:|---:|---|---|
+| Empty-cache Regional probe | 63.35 s | 71.84 s | 30.86 / 30.34 / 30.16 s, identical RGB | 55 kernels, 3 graphs / 272 captured calls; 3 cache misses; 520 hashed cache files, including 55 PTX and 55 ELF cubins targeting sm_120a |
+| Eager full table, separate context | 55.47 s | 57.59 s | 40.55–41.21 s | Zero generated Inductor kernels; first image exactly matches historical Native RGB `d62ee9fc…` |
+| Fresh-process Regional, retained probe cache | 55.33 s | 50.91 s | 29.82–30.80 s | Actual fxgraph cache hits = 3, first RGB exactly `e54b9ba5…` from the cold probe; second shape adds 3 misses, reaching 6 graphs / 110 kernels |
+
+Each Regional process logged one initial hidden_states stride specialization/
+recompile (12582912 to 14155776). The retained process added three graph
+specializations when the second aspect was introduced. Warm counters stayed
+stable; the process did not have zero recompilation overall. The cold shape's
+32 external graph calls are not eager fallback (64 across the final two-shape
+retained graph set). New-shape first image took 37.40 s; the return to the first shape
+was exact in 29.94 s without added graphs. Scoped compiler policy restored.
+
+Across the same 16 completed warm images per arm, excluding each arm's
+first image and its first second-aspect image, wall-time medians are
+40.637 s Eager versus 30.280 s Regional (25.49% less time). Median wall
+intervals between production callbacks are 1.3028 versus 0.9287 s; these
+are callback wall intervals, not CUDA-event kernel timings. This is one
+bounded ordered comparison on this stack, not a generalized speed claim.
+
+All twelve fixed Eager/Regional image pairs differ numerically. Their mean
+absolute differences range from 0.723 to 7.290 / 255. The first pair keeps
+the same subject/composition with visible detail/shading differences.
+Retain all pairs for Matt's quality judgement; numerical differences and an
+agent inspection do not establish acceptance. Full pair metrics are in
+`.artifacts/gpu-20261118/perf1/eager-regional-pair-metrics.json`.
+
+| Session | Guard samples | Whole-card peak | Tree RSS/private peak | Minimum free RAM/commit | Adapter/process shared rise |
+|---|---:|---:|---|---|---|
+| Cold Regional probe | 938 | 13,829 MiB | 26.47 / 44.49 GiB | 22.66 / 10.24 GiB | 95.86 / 82 MiB |
+| Eager full table | 3,283 | 14,209 MiB | 28.16 / 44.15 GiB | 20.99 / 10.62 GiB | 83.52 / 82 MiB |
+| Retained Regional full table | 2,573 | 13,703 MiB | 28.03 / 45.85 GiB | 21.12 / 8.94 GiB | 107.14 / 82 MiB |
+
+All 6,794 finite guard rows independently re-evaluate to ok. Mean sample
+periods are approximately 0.25028 s; the longest gap is 0.26227 s. The live
+15,500 MiB card, 1,024/512 MiB shared rises and 4/4 GiB RAM/commit floors
+stayed unchanged. Every process ended with the card at 973 MiB and its
+owned power request released. After the owned stdlib loop's local wakeup
+socket was initialized, the guarded outgoing-attempt count was zero in
+each completed session.
+
+Eager/Regional step-3 calls elapsed 7.71 / 6.30 s in total; their last
+callback-to-return observations were 1.62 / 1.81 s. Both following images
+recovered the exact initial RGB. In the v2 Regional run, all four
+components' registered parameters/buffers were CPU after cancellation and
+the allocator read 32 MiB. Native processor/dispatcher/SDPA state matched
+the initial state after every call.
+
+The observer boundary differs by harness version. The cold probe and Eager table use
+v1: they record allocator unload readings and post-process card state,
+not explicit root reclamation. The v2 retained table drops the tester guard
+closure before normal unload and GC: backend readiness/owners/siblings/
+parameter sets clear, diagnostic readers retire, Native/SDPA state restores,
+pipeline and transformer weakrefs collect, and allocator reads 32/32 MiB.
+There was no manual offload shim or global Dynamo reset to force those results.
+
+`regional-probe-a1` is retained separately. Before any weights or forward, its
+socket guard blocked the Windows asyncio Proactor's stdlib socketpair while
+creating loops for ensure_loaded and shutdown. The corrected harness
+initializes one owned stdlib loop before blocking outgoing calls and reuses
+it, without granting app/third-party code a loopback whitelist. This was a
+harness bootstrap stop, not a failed model compilation or a guard trip.
+
+The [completed-matrix receipt](perf1-completed-matrix-2026-11-18.json)
+binds source, guards, cached artifacts, images and the retained stopped attempt.
+
+Remaining gates:
+
+- The [early-request follow-up](#cold-first-call-cancellation-follow-up-2026-11-18)
+  observed latency and safe cleanup but failed its historical recovery RGB gate.
+  The separate [v7 control](#retained-artifact-uncancelled-control-v7-2026-11-18)
+  reproduced that recovery RGB twice without cancellation in a fresh process
+  with the exact retained artifacts. This covers the bounded artifact-local
+  comparison, not a precise rebuild cause or general cross-build determinism.
+  Source/reproduction policy must keep those limits honest before release.
+  The earlier v4 stayed unrun under its 53.9 GiB admission; no compiler-overlap
+  interval was instrumented by the later attempts.
+- General future overlay planning requires 55.9 GiB free commit: measured
+  45.852 + 4 GiB hard live floor + 6 GiB preferred reserve, rounded up.
+  Historical admission values remain as actually run. A later narrowly capped
+  experiment must retain its own actual admission, cap and live-floor evidence;
+  it cannot establish a general lower budget or release policy.
+- Matt's image-pair quality judgment and a public/default-installation release
+  remain separate. Full checkpoint byte hashes/an explicit Hub snapshot revision
+  were not captured by this harness; it used existing offline cached weights.
+  No other checkpoint, quantizer, batch, pass, GPU or platform is qualified.
+
+## Cold first-call cancellation follow-up (2026-11-18)
+
+The separately reviewed v5 OS-capped protocol passed native waiting admission but
+stopped at the immutable permit parser before framework imports, model loading or
+forward work. Its producer sent an extra version field; that bootstrap failure
+is retained unchanged. New frozen v6 changed only the protocol label and permit to the shared
+consumer's exact `{"begin": true}` schema; the actual producer/consumer cold
+integration and negative schema cases passed before the new attempt.
+
+The v6 attempt made one load and two generation calls: an early cancellation and
+one completed recovery image. It then **failed the frozen historical RGB gate**
+and stopped. One PNG was saved; the planned third repeat was not run. This is a
+failed recovery qualification, not a new completed matrix or accepted replacement
+hash. The metadata's `exact_repeat: true` is first-seen bookkeeping with a null
+prior hash; it supplies no within-v6 repeat evidence.
+
+The independent request occurred 3.00036 s after the planned call start and
+preceded the first callback. Request-to-first-observing-poll was **40.049995 s**;
+request-to-backend-return was **42.853372 s**. Only the first callback was reached
+before cancellation. The request, poll, callback and return timestamps establish
+that latency; no compiler interval was instrumented, so request/compilation
+overlap was not measured.
+
+The recovery RGB SHA-256 is `1d66cce4…6118`, versus the frozen historical
+`e54b9ba5…f7cf`. CPU decoding confirms the saved PNG's hash. The applied request,
+effective private recipe, prompt/shape/seed, 14 common runtime/helper source hashes,
+distribution facts and recorded compiler inventory match earlier evidence.
+Complete weight-byte hashes and an explicit Hub snapshot revision were not
+captured by either harness. The mismatch's cause is **not isolated**.
+
+The OS job's 47.5 GiB private-commit cap and kill-on-close flags were read back.
+Three exact CURRENT/all-member waiting observations yielded conservative capacity
+**52.582043 GiB**, over the independently frozen 52 GiB target, with fresh free
+RAM at least 45 GiB. Peaks and RSS supplied no admission credit. All **605** live
+guard rows re-evaluate to ok; the final job peak was **43.994347 GiB**, with no
+observed cap attempt, and exact-job RSS peaked at **26.417858 GiB** under 32 GiB.
+The whole-card peak was **13,911 MiB**. The unchanged 15,500 MiB whole-card,
+1,024/512 MiB shared rises and 4 GiB RAM/commit floors held. Global free RAM/commit
+minima were 22.439613/8.569191 GiB. This distinct capped experiment does not change
+the general 55.9 GiB or historical prepared v4 53.9 GiB planning policies.
+
+After cancellation, registered component parameters/buffers were CPU and the
+allocator read about 32 MiB. Failure cleanup reports cleared backend owners,
+siblings, parameter sets and diagnostic readers, collected pipeline/transformer
+weakrefs and unchanged Native/SDPA state. The power request released and the saved
+post-exit card reading was 1,182 MiB. There was no manual offload shim or Dynamo
+reset. **No v6 `policy-restoration.json` was written**: the frozen source has scoped
+unwind paths, but after-failure Dynamo flags were not directly observed. This
+differs from the observed Native/SDPA and ownership cleanup. Socket-attempt
+counts apply after the owned stdlib wakeup socket was initialized before the guard.
+
+CPU artifact comparison supplies a confounder, not a cause: **4 of 23** selected
+kernel/config-family groups, covering **5 of 24** selected occurrences, have
+changed configurations and ELF `.text` hashes. One layer-normalization selection
+changed from R0_BLOCK 4096/16 warps to 1024/8 warps. Duplicate same-operation/
+same-shape entries were compared as multisets. The three `output_code.py` wrappers
+match after path normalization, and readable FX/pre/post-fusion IR match bytes;
+this does not mean all generated files match (two runnable FX files still differ
+after normalization). Matmul TF32/float32 and cuDNN precision/determinism flags
+were not explicitly captured. Machine-text changes and matching IR alone do not
+establish arithmetic equivalence or explain the image difference. There is no
+completed uncancelled image from the new v6 context at this handoff.
+
+At the close of this v6 attempt, the separate two-call uncancelled retained-cache
+control had not run. Its later [v7 result](#retained-artifact-uncancelled-control-v7-2026-11-18)
+is recorded below. That later result preserves this strict failed gate and the
+unrun third v6 repeat; it does not retrospectively turn v6 into a pass.
+
+The [addendum receipt](perf1-bootstrap-and-cancel-addendum-2026-11-18.json)
+binds both attempts, the independent CPU audit and artifact comparison. It
+preserves the earlier completed-matrix receipt unchanged.
+
+## Retained-artifact uncancelled control, v7 (2026-11-18)
+
+The separately approved v7 control completed one fresh-process load and exactly
+two normal uncancelled renders of the fixed scene/A1024-square/seed4471 Krea dev
+fp8/model recipe. Production `backend.generate` received `should_cancel=None`.
+Both decoded RGB hashes are `1d66cce4…6118`: they match the v6 recovery and each
+other, and differ from the earlier `e54b9ba5…f7cf` build. The applied request,
+effective private execution, 17 common runtime/helper hashes and recorded runtime/
+compiler facts match v6. No other cell, shape, checkpoint or mode was added.
+
+The actual retained v6 context was fixed in the CLI. All **520 files**, **24 selected
+best-config records**, **55 total cubins** and **24 selected cubins** match the frozen
+baseline byte-for-byte before load, after each render and after both calls. An
+independent CPU rehash after the process ended confirms the same exact state.
+Runtime counters show **three actual FX graph-cache hits**, zero misses, zero new
+kernel saves, zero static-autotuner saves and three Dynamo graphs. Counters remain
+unchanged on the second render. Other observed activity was:
+`async_compile_cache_miss=76`, `async_compile_cache_hit=38`,
+`triton_bundler_load_static_autotuner=38`, and both
+`benchmarking.InductorBenchmarker.benchmark=4` and `benchmark_gpu=4`.
+Their exact causes were not traced. Do not say all compile caches hit or that
+there was zero runtime compilation, benchmarking or autotuning activity.
+Full cubin byte identity includes their serialized ELF `.text` bytes; this and
+the actual FX-use counters supply artifact-local evidence, not a promise about
+future recompilation, cross-build arithmetic or other inputs.
+
+The independent three-snapshot CURRENT accounting replays to conservative capacity
+**52.535225 GiB**, against the 52 GiB target, with no peak/RSS credit and fresh
+free physical RAM at least 45 GiB. The OS job private cap remains 47.5 GiB and the
+sampled tree-RSS cap 32 GiB. All **606** raw live guard rows re-evaluate to ok;
+job peak is **43.974918 GiB** and no cap attempt is recorded. Whole-card
+peak is **13911 MiB**; free RAM/commit minima are
+**21.851025/9.017208 GiB**. Native Job limit/current/peak and
+terminal/before-close veto receipts are retained. The unchanged 15,500 MiB card,
+1,024/512 MiB shared-rise and 4 GiB RAM/commit floors held. Load took
+61.74 s; the two control calls took 51.25/30.57 s. These are control observations,
+not additional benchmark arms.
+
+Unlike the failed v6 path, v7 directly observed final Dynamo-policy flags, which
+matched their initial values. Native/SDPA state, cleared backend owners/siblings/
+parameter sets, retired readers and collected pipeline/transformer weakrefs are
+also observed. The power request released and post-exit card was 1,182 MiB.
+No repair/reset, manual offload shim or extra render was used. No serialized
+retained artifact changed; the observed runtime activity above remains distinct.
+Socket-attempt counts retain the earlier scope: after the owned stdlib wakeup
+socket was created before the outgoing guard.
+
+The v6 strict historical equality failure remains a **failure**: one early cancel,
+one saved recovery PNG and no third repeat. Its request preceded callback 1;
+request-to-poll/return were 40.05/42.85 s, without a measured compiler-overlap
+interval. Its missing after-failure Dynamo-flag receipt remains missing; v7's
+observed flags do not retroactively fill it.
+
+The new controlled result establishes that **`1d66…` reproduces without cancellation
+in a fresh process with the same retained artifacts**. The old `e54…` gate failure
+alone therefore did not isolate persistent in-process cancellation damage. Do not
+say the mismatch was caused by cancellation, the OS cap, autotuning or any one
+compiler setting. The earlier CPU artifact comparison still records 4 of 23
+config-family groups (5 of 24 selected occurrences) with differing configurations
+and ELF `.text`; wrapper path-normalization/readable-FX/IR observations do not
+prove full arithmetic equivalence. Earlier precision flags and full weight-byte/
+Hub-revision identity were not captured. General cross-build determinism remains
+unqualified, and this control does not establish a broader absence of cancellation
+effects.
+
+The owner's **bounded card-stage table is now measured**, including early request
+latency and this artifact-local recovery comparison. Stop listing an unrun early
+GPU trial as the next action. The remaining work is Matt's image-pair judgement
+and explicit release/source/artifact-rebuild policy. Public nonempty execution,
+default compiler installation and any capability broadening remain closed.
+
+The [v7 receipt](perf1-v7-retained-artifact-control-receipt-2026-11-18.json)
+binds the independent 606-row/admission audit, artifact rehash and final cleanup.
+The completed matrix and failed v5/v6 addendum remain separate, unchanged receipts.
+
 ## Initial slice and refusal matrix
 
 Propose an explicit, experimental loader choice: **Eager** (the unchanged
@@ -984,11 +1255,20 @@ not implied acceptance from the first checkpoint's result.
 
 ### Matt's questions
 
+**Current status, 2026-11-18: `PERF#7` USER.** The first fixed card table,
+cold/warm timings, retained-cache reuse and image differences are now
+[measured](#private-regional-model-and-retained-cache-2026-11-18).
+Matt can judge question 1 from that evidence; it is no longer blocked on a
+missing table. His choice does not complete `PERF#1`'s separate image-acceptance,
+source/release or compiler-artifact/rebuild-policy work. Models/runtime admission stays held
+until the selected release work and its qualification are complete.
+
 **Answered 2026-10-29 (Matt took the recommendations):** 1 waits on the
 `PERF#1` card table; if the numbers pay off, Matt leans to (a), an opt-in
 Models choice with Eager the default. 2: keep the cache beside the gallery
 database, as built. 3: (c), clear it when torch, Triton or the driver
-changes. 4: static shapes stay. Only question 1 remains, blocked on the card.
+changes. 4: static shapes stay. At that date, question 1 remained blocked on
+the card; its current USER routing is recorded above.
 
 **Status, 2026-10-29: `PERF#7` DECISION** (TODO audit, approved by Matt).
 These are Matt's choices. No agent answers them, and nothing below changes
@@ -1054,5 +1334,6 @@ result. The cache questions 2 and 3 are compilation's alone.
 
 Recording: Matt's answers go here under each question, dated. A Models
 choice (1a) or a cache policy (3a/3b) then becomes an OPEN source row
-whose first stage is fake/browser checkable. Until then `PERF#7` stays
-DECISION.
+whose first stage is fake/browser checkable. The first table is now available;
+`PERF#7` is USER for Matt's judgment and recorded answer, independently of
+the remaining qualification and release work.

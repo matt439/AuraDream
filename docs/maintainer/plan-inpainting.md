@@ -1,5 +1,13 @@
 # Plan: inpainting and regional edit
 
+**Card follow-up, 2026-11-18:** bounded native dev/schnell fp8/model
+inpaint/outpaint, the dev LoRA and source/result seam numbers, and Krea
+model-offload/Z-Image-family masked-area crops are measured in
+[verified.md](../verified.md#windows-follow-up-measurements-2026-11-18).
+These existing-recipe trials do not choose a new preferred strength or
+qualify Nunchaku. Its independent [WSL dev/schnell follow-up](../verified.md#flux1-dev-and-schnell-under-wsl-production-http-2026-11-18)
+measured the remaining `CARD#3` slices. The dated historical plan below is retained.
+
 **Status, 2026-10-13: phases 1 and 2 are built** on `feat-inpainting`, for
 the six SDXL checkpoints and Z-Image Turbo, Z-Image and Z-Anime; phase 0
 was not run, and nothing has been measured on the card (`docs/verified.md`,
@@ -739,7 +747,8 @@ deciding an inpaint's start asks first (`model_defaults.inpaint_start`),
 and the Strength note says where it was measured. Its outpaint comes with
 it. FLUX.1 Krea dev outpaint was measured 2026-10-21, and the inpaint
 class over its Nunchaku transformer 2026-10-25 (`verified.md`, Outpaint
-and Under Nunchaku). Dev and schnell remain `CARD#1`/`CARD#2`/`CARD#3`.
+and Under Nunchaku). The bounded native dev/schnell gaps (`CARD#1`/`CARD#2`)
+were measured 2026-11-18; Nunchaku has its independent `CARD#3` envelope.
 
 **Phase 4 - klein (M).** One reference beside the source, the refusal of
 more, the `compute_empirical_mu` recipe or no reading, memory with the
@@ -754,7 +763,8 @@ over the Nunchaku transformer runs at all; WSL only, as the checkpoint is.
 and outpaints. SDXL cropped outpaint, Z-Anime's 4.2 MP cropped inpaint and
 FLUX.1's 2.4-8.4 MP crops under sequential offload were measured
 2026-11-11 ([results](../verified.md#only-the-masked-area));
-FLUX.1 at FP8/model offload remains `CARD#13`.** Matt
+bounded Krea fp8/model-offload and Z-Image-family crop follow-ups were
+measured 2026-11-18 ([scope and limits](../verified.md#windows-follow-up-measurements-2026-11-18)).** Matt
 reopened it that day and chose the app crop over the class parameter. A
 box around the mask is denoised at about 1 MP and pasted back: the detail
 answer for a small region of a large picture, and the memory answer for a
@@ -854,9 +864,10 @@ cropped branch in `tests/test_inpaint.py`, the keys in
 This numbered list preserves the original measurement scope, not a fresh
 queue. Results since then are in [verified.md](../verified.md#inpaint),
 including embedded-mask sizes, Krea dev outpaint and Nunchaku inpaint.
-Current remaining work is indexed in [TODO](../../TODO.md): `CARD#1` and
-`CARD#3` for supported inpaints, `CARD#13` for phase 6's masked-area
-crop, `INP#5`/`INP#6` for deferred families.
+The bounded native `CARD#1` and `CARD#13` gaps were measured 2026-11-18.
+The independent Nunchaku `CARD#3` slices were also measured 2026-11-18.
+Current remaining work is indexed in [TODO](../../TODO.md), including the
+`INP#5`/`INP#6` deferred families.
 Do not reopen completed measurements from this original checklist.
 
 1. Peak memory and time per family at 1 MP, and the largest size each holds

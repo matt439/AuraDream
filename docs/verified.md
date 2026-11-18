@@ -855,8 +855,9 @@ pressed Load or Generate. Evidence is under
 scripts that wrote them, and per check its `server.log`, `browser.log`,
 `smi.csv`, `cpu.csv` and screenshots.
 
-The rest of what these rows found was fixed the same day and checked on the
-fake server and in pytest, not again on the card: a fitted batch's columns
+The rest of what these rows found was fixed the
+same day and checked then on the fake server and in pytest, not again on
+the card at that time: a fitted batch's columns
 reserved from its first frame, so the preview or stand-in holds the first
 image's slot (9377de1); the strip fitted as if the page's scrollbar were
 there, so a short gallery's batch of four no longer refits as the job ends
@@ -869,14 +870,16 @@ and, in the Prompt analyser section, the critic's clock on the line with its
 words (b396e2e) and the page's sizes labelled in binary units, "about 4.5 GiB"
 (5ec8adb). The 2026-10-25 session that was to check the first five and
 2b89ed5 (above) on the real server with FLUX.1 Krea [dev] stopped at the RAM guard during its one
-load (Checkpoints, "RAM at the load"), so they are still unchecked on the
-card; 81781bf's sentence was checked there (the load failures row above).
-The step files for that recheck are planned as checked-in packs (`DEV#23`, [CARD#10 step packs](maintainer/plan-card-harness.md#card10-step-packs)).
+load (Checkpoints, "RAM at the load"), so that attempt did not reach the
+page checks; 81781bf's sentence was checked there (the load failures row
+above). The [2026-11-18 follow-up](#windows-follow-up-measurements-2026-11-18)
+adds six real page assertion sets with explicit remaining temporal/manual
+gates. The checked-in packs and their maintenance belong to the
+[CARD#10 owner](maintainer/plan-card-harness.md#card10-step-packs).
 
 Not verified: `AURADREAM_DEVICE=cuda:1` (one card here); ERNIE-Image
-Turbo's fp8 reproduction across two processes, and its 4 MP batch of two
-on fp8 (refused by the harness's projection, not run); the page's Expand
-line and clock over the rewriter's real download; a live-preview map for
+Turbo's 4 MP batch of two on fp8 (still projection-refused, not run; the
+2026-11-18 reproduction/first-use Expand results are below); a live-preview map for
 FLUX.2's VAE (ERNIE, klein);
 SDXL's live-preview frames on the card (the map's CPU fit is a Behaviour
 row; Animagine XL 4.0's LoRA row is above, its fp8 speed and memory are the
@@ -919,6 +922,43 @@ guard windows, source manifests and provenance. The
 [owner review](maintainer/review-2026-11-12-todo.md#gen6-card-capture-2026-11-17)
 records what remains for Matt. Raw evidence stays in
 `work/gen6-sdxl-preview-20261117/`.
+
+### Ordinary text-to-image cancel and recovery (2026-11-18)
+
+One guarded Windows/RTX 5080 load of FLUX.1 Krea dev, fp8/model offload,
+Eager/Native, diffusers 0.42.1, torch 2.13.0+cu130, accelerate 1.15.0 and
+NVIDIA driver 616.92. The actual unmodified `backend.generate` ran the fixed
+scene prompt, seed 4471, 1024-square, 28 steps and CFG 3.5: one normal image,
+a cancellation after step 3, then the same image again. No admission override,
+HTTP server, browser or live gallery was involved.
+
+The earlier Native comparison had completed all twelve fixed cases and four
+exact replays before the unchanged 15,500 MiB guard stopped its first recovery
+at 15,768 MiB. The source and card trace pointed to retained transformer residency. That failure
+is retained; the unsafe source was not rerun. After the production cleanup fix,
+normal and recovery took 42.620/40.737 s and both decoded RGB hashes were
+`d62ee9fc1308fe2a617619cdfb3fe8ba0e5a56c418dfe541cb32a9da419d697b`, exactly
+the historical Native control. These timings are descriptive, not a speed
+comparison across the changed desktop baseline.
+
+After cancellation both text encoders, transformer and VAE were on CPU.
+Allocated/reserved memory was 32.001/60 MiB; exactly one loaded-owner cleanup
+ran per outcome on this FLUX.1 path. The lower idle desktop alone cannot
+establish recovery: the explicit device, allocator and cleanup-call checks do.
+The 530 raw guard rows independently re-evaluate to `ok`, mean/max sample gaps
+0.250292/0.270638 s. Whole-card peak was 14,199 MiB over 966; process
+working-set/private peaks 27.676/40.118 GiB, free-RAM/commit minima
+20.631/14.055 GiB, and adapter/process shared rises 82/82 MiB. Initial
+RAM/commit admission was 40/50 GiB; live 4 GiB floors and all card/shared
+limits stayed unchanged. Unload collected the transformer, reported not ready
+and left 32/32 MiB allocated/reserved; owned processes exited and a fresh
+post-exit card read was 966 MiB at 0% utilization.
+
+The [receipt](maintainer/cancel-fix-2026-11-18.json) binds runtime source hashes,
+raw evidence and the focused/full CPU gates. This qualifies the bounded Native
+backend cancellation recovery only. HTTP/job/UI recovery, other families and
+recipes, cuDNN, regional compilation and FBC remain separate tests. Public
+experimental admission remains closed.
 
 ## Refine pass
 
@@ -1061,12 +1101,12 @@ was not repeated. Evidence is under `%TEMP%/local-diffusion-refine-large/`:
 the schema is built), each checkpoint's copied gallery with its
 `validation.log` and outputs, and `strip-*.jpg` (`strips.py`).
 
-Not measured: FLUX.1 dev at fp8, whose starting strength carries over the
-Krea dev measurement on the same schedule (a 2026-10-25 session stopped at
-the RAM guard during its load); what schnell's starting strength keeps of a
-picture, which is schedule arithmetic alone (the same); true CFG through
-`FluxImg2ImgPipeline`; int8 and full bfloat16; offload none and sequential
-past Z-Image Turbo (below); a Nunchaku pass past
+The [2026-11-18 follow-up](#windows-follow-up-measurements-2026-11-18)
+measures dev/schnell fp8 Refine, their starting-strength pictures, true CFG
+and the separate dev sequential path. Native full-residency FLUX remains
+held by a deduplicated weight lower bound rather than an executed fit test.
+Reference gaps, not a new sweep: int8/full-bfloat16 Refine and other
+unselected offload/family recipes; a Nunchaku pass past
 the two above and Qwen-Image's three strengths (below); and the author's own WAI recipe whole (its separate 20
 hires steps; the Anime6B preparation itself is measured below). The October 5
 runs' evidence is under `%TEMP%/local-diffusion-leftovers-gpu/` (one
@@ -1754,10 +1794,11 @@ Enabled on these results 2026-10-19 (TODO INP#3): the three FLUX.1
 profiles start an inpaint at 0.95, their own start over the library's
 0.6, and the Strength note says it was measured here, on Krea dev.
 
-Not measured on FLUX.1: dev and schnell, at 0.95 or at all (their profiles
-share the class and the start; the note says so; their 2026-10-25 sessions
-stopped at the RAM guard during the load, Checkpoints, "RAM at the load");
-a LoRA through the inpaint; the seam by number at fp8. The outpaint was
+The [2026-11-18 follow-up](#windows-follow-up-measurements-2026-11-18)
+measures dev/schnell execution at the existing 0.95 recipe, a dev LoRA
+and source/result seam numbers under native fp8/model offload. This is not
+a comparative strength sweep establishing a new preferred opening. The
+Krea outpaint was
 measured 2026-10-21 (Outpaint, "FLUX.1 Krea dev"), and the class over the
 Nunchaku Krea dev transformer, with its seam by number, 2026-10-25 ("Under
 Nunchaku", below).
@@ -1933,8 +1974,8 @@ The pattern fp8 Z-Image Turbo showed: a hard mask's cut is the new
 content's, five to ten times the source's step, and a feather brings it to
 the round trip's level. Shared GPU memory peaked 82 MiB over its baseline
 on Z-Image Turbo and 138 MiB on Krea dev; free host RAM stayed at or above
-17.6 GiB (18,002 MiB). Not run: FLUX.1 dev and schnell lite (another 12 GB download each,
-the same class), Krea 2 Turbo and ERNIE lite (`inpaint_supported` False),
+17.6 GiB (18,002 MiB). Not run in this 2026-10-25 session: FLUX.1 dev and schnell lite
+(measured in the [2026-11-18 follow-up](#flux1-dev-and-schnell-under-wsl-production-http-2026-11-18)), Krea 2 Turbo and ERNIE lite (`inpaint_supported` False),
 Qwen-Image (deferred), cross-process reproduction (known to fail),
 anything above 2.4 MP, and the real server and Inpaint dialog under WSL.
 Evidence: `card3-wsl/out/` in the cards directory (`zturbo/` and
@@ -1949,19 +1990,123 @@ All 156 browser steps and 67 assertions passed: first inpaint, page reload and R
 
 Actual challenged load admission saw 37.14 GiB free RAM / 41.78 GiB commit headroom; the matching grant arrived 0.266 s after the request and source rechecked the 1.5 s bound before loading. Windows minima were 18.32 GiB free / 17.89 GiB commit, adapter shared rise 282.18 MiB under the 300 MiB session guard. Linux owned RSS peaked 12.69 GiB under the 16 GiB cap, VmSwap stayed at zero and minimum Linux free RAM was 33.397 GiB. No guard tripped. Windows sampling mean/max gaps were 0.290/1.286 s; Linux 0.136/0.249 s. Explicit STOP signalled only recorded server PGID 610; cleanup and subsequent CPU checks proved the original guard/server absent and group empty. No service or distro termination command was issued.
 
-The original driver's overall exit remains failed solely because support export included 292 MB of generated owned CUDA cache and crossed its 256 MiB copy cap. Supplemental CPU-only export succeeded after excluding only runtime-cache, with all omitted files inventoried by path/size/SHA256; original failure and tested sources remain unchanged. No GPU rerun occurred. This is one model's interface/compositing/storage result; the visible hard boundary on an artificial grid is not real-image seam/artistic-quality acceptance. FLUX.1 dev and schnell lite remain unmeasured for CARD#3.
+The original driver's overall exit remains failed solely because support export included 292 MB of generated owned CUDA cache and crossed its 256 MiB copy cap. Supplemental CPU-only export succeeded after excluding only runtime-cache, with all omitted files inventoried by path/size/SHA256; original failure and tested sources remain unchanged. No GPU rerun occurred. This is one model's interface/compositing/storage result; the visible hard boundary on an artificial grid is not real-image seam/artistic-quality acceptance. The remaining dev/schnell slices are measured in the [2026-11-18 follow-up](#flux1-dev-and-schnell-under-wsl-production-http-2026-11-18).
 
 [Consolidated receipt](maintainer/card3-z-turbo-wsl-2026-11-17.json).
+
+### FLUX.1 dev and schnell under WSL, production HTTP (2026-11-18)
+
+`CARD#3`, run with Matt's authorization for the outstanding tests. Windows host,
+RTX 5080 (16,303 MiB), Ubuntu WSL2, torch 2.13.0+cu130, diffusers 0.42.1,
+transformers 5.16.1, kernels 0.16.1 and bitsandbytes 0.50.2. The isolated runtime
+matched all 317 backend/web files at `f8f4cf2`; the backend's raw SHA-256 was
+`c3a85a23288be5d3ccb3bdb1b4751f5456c75d714685d9cf02f3e597c838274e`.
+Each process loaded one checkpoint, with NVFP4 r32 Nunchaku Lite, bnb4 text
+encoder, model offload and Eager/Native execution. Both complete checkpoints
+were already cached: no weight, kernel or runtime download occurred.
+
+The exact lite-infer selections were
+`flux.1-dev-nunchaku-lite-nvfp4_r32-bnb4-text-encoder` at
+`9b4a4c430b36c3826e7a06be2c4860e1a66d1d09`, and
+`flux.1-schnell-nunchaku-lite-nvfp4_r32-bnb4-text-encoder` at
+`ae27c859773999ff9f800c2ba14e0de5e1af4f50`. Model cache admission checked pinned
+references, repository-contained paths and required filenames/byte lengths;
+it did not rehash the model weight bytes. The existing owned kernel overlay
+selected cached commit `64b10f6b8968b27cadaabfb3f6d2395f2251c848` through its own
+`v2` reference. All four kernel files were rehashed against retained official
+pinned metadata, including the 196,137,920-byte binary with SHA-256
+`d120280ecae32d40a2265103eac692d9be45b4d5493d39133f5bc14beab83f9c`.
+The shared kernel cache's missing `refs/v2` was not repaired.
+
+The source was an honestly tagged synthetic 1024-square RGB grid, with full RGB
+SHA-256 `a0a2fd00a5edd42b7c90c4dfd38bb038521e18f125634c196dc18d4da1bd95fc`;
+no diffusion model made it. The frozen circular mask has an antialiased edge:
+237 distinct L levels, 204,830 white pixels, 1,694 graded-edge pixels and
+842,052 zero pixels (206,524 nonzero pixels in all),
+hash `e0618042c1cdf90d6766d0e68050e1599b3ef92ff8788b97b64a9640cb3cfdb7`.
+The prompt was “a blue ceramic bowl on a wooden table, soft natural light,
+photograph”, seed 12345, no negative, Mu, true CFG, reference, LoRA or crop.
+Dev used 28 steps, CFG 3.5 and strength 0.95 (27 callbacks); schnell used
+4 steps, CFG 0 and strength 1 (4 callbacks).
+
+| | dev | schnell |
+| --- | --- | --- |
+| Wrapped load | 15.19 s | 15.28 s |
+| First / repeat / recovery saved cell | 45.867 / 19.187 / 17.490 s | 34.023 / 6.612 / 5.567 s |
+| Allocated / reserved peak | 7.55 / 8.28 GiB | 7.53 / 8.26 GiB |
+| Whole-card peak | 10,061 MiB | 10,034 MiB |
+| Adapter shared rise | 118.68 MiB | 116.17 MiB |
+| Host free-RAM / commit minima | 16.82 / 12.94 GiB | 17.10 / 13.20 GiB |
+| Linux owned RSS peak / VmSwap | 16.56 GiB / 0 | 16.64 GiB / 0 |
+| Cancel | observed at 2/27, zero saved images | observed at 2/4, zero saved images |
+
+The real server's production HTTP protocol completed first/repeat/cancel/
+recovery jobs, then the public Unload route and an unloaded status confirmation.
+All 842,052 unmasked pixels were exactly the source's in every saved output.
+SQL and PNG source/mask provenance, stored and embedded mask levels agreed.
+Separate PNG-only recovery indexed two images and one mask with zero unresolved
+references or masks. Incoming PNG bytes match the originals; after reindex the
+PNG files differ because chunks may be re-encoded/reordered and empty provenance
+fields added to the minimal source. Decoded RGB, mask levels and existing
+provenance are preserved. This is production HTTP/core evidence; the previous
+Z-Image Turbo session owns the real Inpaint-dialog evidence.
+
+Same-seed output was **not** pixel-identical. Against the first result, dev's
+repeat/recovery mean full-image channel differences were 3.13376/3.54370 levels
+(maxima 222/237); schnell's were 6.33022/3.78661 (maxima 243/255). These are
+measured outcomes, not fixture failures. No image was rerun to seek a matching
+hash. The inspected first images show a blue ceramic bowl inside the frozen
+circular mask against the preserved grid; dev also adds foliage. A content
+boundary is visible against the artificial grid. This does not establish
+real-image seam quality or artistic
+acceptance.
+
+Every actual load received a new challenged physical-host sample after the
+challenge was observed, requiring at least 36 GiB RAM and commit. Source checked
+the same grant immediately before loading within its 1.5-second Linux-clock
+bound. Live limits stayed 15,500 MiB card, adapter shared rise 300 MiB, host RAM
+and commit floors 4 GiB, Linux owned RSS 24 GiB and no swap growth. No limit
+tripped. All 619 dev and 424 schnell Windows samples independently recompute to
+`ok`. Windows mean/max sample gaps were 0.232002/0.289139 s and
+0.231555/0.381376 s. Linux's separate 991/692 sample logs had mean/max gaps
+0.120206/0.201515 s and 0.120400/0.201350 s. These are distinct monotonic clock
+domains; no Windows timestamp was subtracted from a Linux timestamp.
+
+Three infrastructure failures remain explicitly retained. Dev's first session
+stopped while writing an uppercase receipt label after its cancel POST; its
+partial results were exported, and the full session above followed a tested
+label correction in fresh scratch helpers. Schnell's complete GPU/API run
+passed, but its original CPU inspector stopped on an exit-time RSS/swap read.
+The supplemental CPU guard tolerates missing fields only after proving that
+exact PID/birth ended; a still-live unreadable subject remains fatal. This
+terminal-skip rule is unit-tested only: the successful supplemental runs had
+complete counters and did not exercise that branch. Original failure evidence
+was kept. The original CPU child had already emitted a successful result before
+its guard failed, and one supplemental CPU verify remeasured the same saved
+images. The first supplemental recovery was then refused by its Linux ownership
+preflight; its empty stdout caused the Windows collector's IndexError. Delayed
+output visibility was not established as that failure's cause. A later collector
+consumed the existing successful supplemental verify report, and CPU recovery
+and export passed after exact post-shutdown ownership proof. No GPU run was
+repeated for CPU supplementation. The bounded report observer is unit-tested
+for delayed/truncated/missing/wrong reports, and the posthoc audit binds the
+retained reports by nonce, checkpoint, mode and phase. Generated runtime caches were
+omitted from support copies with complete path/size/SHA-256 inventories.
+
+The [curated receipt](maintainer/card3-flux-wsl-2026-11-18.json) binds this scope; its source inventories, overlay
+verification, actual load-admission frames and both raw guard logs are bound by
+hash. Other dimensions/strengths, fp8/int4 and real-image artistic quality remain
+unmeasured by this session.
 
 ### Only the masked area
 
 The app's crop (`docs/maintainer/plan-inpainting.md`, phase 6) was built 2026-11-03.
 Its first card measurements are the SDXL outpaint, Z-Anime and FLUX
-sequential-offload slices below. Still not measured: FLUX.1 under
-FP8/model offload cropped on a 2.4-8.4 MP source, whose peak should stay near
-the 1 MP inpaint's 12.16 / 12.83 GiB allocated / reserved (FLUX.1 Krea dev,
-before enabling, above); its seam at crop padding 0, 32 and 64 under model
-offload; other Z-Image crop checkpoints. TODO `CARD#13` stays open.
+sequential-offload slices below. The bounded
+[2026-11-18 follow-up](#windows-follow-up-measurements-2026-11-18) adds Krea
+fp8/model-offload crops on 2.36-8.39 MP CPU-resized sources, pads 0/32/64,
+and independent Z-Image Turbo/undistilled Z-Image sessions. It does not
+establish same-model native-large-source quality or a clean seam.
 
 **SDXL cropped outpaint, 2026-11-11, with Matt's OK.** Animagine XL 4.0,
 cached snapshot `2b7c1b397761bf5bd3cc42e5b39ec99314a75a96`, Windows 11,
@@ -2060,7 +2205,8 @@ at most 2,100 MiB; the guard's startup refusal exited 7. The
 [preflight receipt](measurements/card13-flux-preflight-2026-11-11.json)
 records that refusal; it is not evidence that the cropped pass fits or
 fails. Both process trees exited and the card returned to its 2,719 MiB
-idle baseline. `CARD#13` remains open. Raw evidence is in
+idle baseline. `CARD#13` remained open after this attempt; its bounded
+model-offload follow-up is recorded below for 2026-11-18. Raw evidence is in
 `%TEMP%/auradream-card13-followup-20261111/`, each attempt in its own
 directory. A larger Z-Anime RAM allowance needs a separately stated
 envelope; FLUX model offload needs a lower desktop baseline.
@@ -2144,8 +2290,9 @@ Both watchers exited 0: no trip or spill observed. Minimum free RAM was
 28.32 GiB process-tree working-set peak; its roughly 1.8 s cadence can
 miss transients, as in the SDXL session. The six-render session took
 662.1 s, unloaded, exited and returned the card to about 2,720 MiB. The
-normal model-offload memory/fit measurement stays `CARD#13`; these
-sequential numbers cannot stand in for it. Defaults, crop rule/tier,
+normal model-offload memory/fit measurement was left to `CARD#13`; the
+bounded 2026-11-18 follow-up now measures it independently. These sequential
+numbers alone could not stand in for it. Defaults, crop rule/tier,
 size guards and public performance-recipe holds are unchanged. Raw
 evidence and the native comparison board remain in
 `%TEMP%/auradream-card13-followup-20261111/flux-sequential/`.
@@ -2228,9 +2375,10 @@ Z-Image Turbo, the seam by number and band widths 16, 24 and 48 were
 measured 2026-10-24 (Inpaint, "Z-Image Turbo, an SDXL LoRA, the seam by
 number"), on Animagine XL 4.0 and Z-Image Turbo; a 16:9 outpaint over
 the Nunchaku Z-Image Turbo and FLUX.1 Krea dev transformers under WSL
-2026-10-25 (Inpaint, "Under Nunchaku"). Not measured: FLUX.1 dev and
-schnell outpaint (their 2026-10-25 sessions stopped at the RAM guard during
-the load); the outpaint's seam by number on FLUX.1. Evidence is in
+2026-10-25 (Inpaint, "Under Nunchaku"). The earlier dev/schnell outpaint
+and native source/result seam-number gaps are measured in the bounded
+[2026-11-18 follow-up](#windows-follow-up-measurements-2026-11-18). Evidence
+from the original runs is in
 `%TEMP%/local-diffusion-inpaint-card/` with the inpaint's.
 
 ## Instruction edit
@@ -2343,6 +2491,68 @@ server's route and page (the
 [card acceptance step](maintainer/plan-instruction-editing.md#card-acceptance-step)).
 Evidence (events, guard samples, PNGs, the scratch gallery) is kept in a
 local scratch directory, not committed.
+
+### Kontext real-server and browser acceptance (2026-11-18)
+
+`INP#11`, with Matt's OK: two separate one-load real-server sessions on
+Windows/RTX 5080, driver 616.92, source `8b95ddd`, torch 2.13.0+cu130,
+diffusers 0.42.1 and torchao 0.18.0. Cached pinned Kontext, fp8/model
+offload, Eager/Native, no critic, scratch galleries and native browser
+Load/Edit/More seeds/Cancel/Unload controls. Original-RGB source proof was
+checked at admission and each edit; output stayed 512x512 at 28 steps,
+guidance 2.5, one image per call.
+
+The historical source was not retained. The frozen owned 1024-square
+house/sun/grass/red-ball replacement has RGB `28b506e70b5876cb…3f42a`.
+"Change the red ball to a blue ball.", seed 12345, produced
+`7e0062553284e700b6755b4c0450b7a8da1f43900c26ba5ed1f34f9c53512689` in
+the first call, after cancellation, and in a fresh process. No equality
+with the historical `68b864f6` or `df2d0229` outputs is claimed.
+
+| What | Full browser session | Fresh-process replay |
+| --- | --- | --- |
+| Load | 51.78 s | 31.23 s |
+| First edit | 43.365 s | 34.515 s |
+| More seeds 12346/12347; recovery 12345 | 26.221/25.656; 25.274 s | not repeated |
+| Per-edit allocated/reserved peak | 12.001/12.553 GiB | the same |
+| Whole-card peak | 14,464 MiB | 14,436 MiB |
+| Process-tree RSS/private peaks | 26.85/40.723 GiB | 27.75/46.544 GiB |
+| Minimum free RAM/commit | 20.44/11.52 GiB | 20.52/7.26 GiB |
+| Guard samples, independently all `ok` | 755 | 291 |
+| Mean/max sample gap | 0.249954/0.268507 s | 0.249895/0.277083 s |
+
+More seeds saved the two intended edits. Seed 777 was cancelled at step 3
+with no image saved; the next seed-12345 edit matched the first pixels.
+The 3:2 source, Generate and Re-render held with their reasons and queued
+nothing. Source pixels remained unchanged. Independent allocator/backend,
+SQL/API/job and PNG peak/provenance checks agreed for all five saved images.
+The ball is blue in every distinct seed; house, sun, sky and grass remain,
+with drift in geometry/horizon and ball size/position.
+
+All 1,046 samples passed the unchanged 15,500 MiB whole-card,
+1,024/512 MiB adapter/process shared-rise and 4 GiB live RAM/commit limits.
+The full session's first controller stopped after browser success because
+its observer wrapped `unload`, whereas the public route calls `try_unload`.
+That stopped receipt is preserved. The replay's corrected scratch observer
+recorded actual `try_unload` accepted, backend unready, and 32/32 MiB
+allocated/reserved after 0.334 s, with guarded post-unload samples. Both
+browsers exited 0; owned processes/listeners ended and the card returned
+to 1,277 MiB at 0%. One earlier pre-browser commit refusal loaded no model.
+
+The exploratory admission used the old 40 GiB private-memory estimate plus
+4 GiB live floor and 6 GiB margin, accounting for actual already-owned
+server private memory before load. **Future initial commit admission is
+56.544 GiB** (new observed 46.544 + 4 + 6), beside 45 GiB free RAM; subtract
+only actual already-owned server-tree private immediately before load.
+The higher replay peak supersedes the old estimate. Live limits are unchanged.
+
+The [combined receipt](maintainer/instruction-acceptance-2026-11-18.json)
+binds both sessions, source/tool hashes and independent raw audits. It
+qualifies this replacement fixture's real route/page and cross-process
+replay inside the existing envelope. Other sizes/aspects, photographs,
+loaders/platforms and Krea-to-Kontext switching remain unmeasured here.
+The later ordinary text-to-image branch fix does not change the edit branch,
+which returns through `_edit_images` before ordinary sampling/invocation.
 
 ## Prompt analyser
 
@@ -2564,11 +2774,11 @@ KeyError. The images' hashes can be re-rendered on the fp8 path at
 at seed 4242, and `INDEX.md` lists the comparison grid's four. The
 2026-09-27 critique rows and the paragraphs above rest on the recovered
 printed output alone; checking them again means new runs. The production
-gallery was not used. Not measured: a critique beside a load in progress
-(refused by design); int8 or sequential offload of FLUX.1 Krea [dev] beside
-the critic, and a rewrite against its original over more than two seeds on
-FLUX.1 (both measured 2026-10-25 on Z-Image Turbo and Animagine, the rows
-above); kill-on-close under WSL; Ctrl-C during a critique.
+gallery was not used. Later [fp8/sequential coexistence and three seed pairs](#krea-sequential-coexistence-and-three-rewrite-seed-pairs-2026-11-18)
+passed; the separate [int8/model attempt](#krea-int8model-host-commit-stop-2026-11-18)
+hit its host-commit floor before the first PNG. [Abrupt WSL owner death](#wsl-critic-after-abrupt-owning-app-death-2026-11-18)
+exposed a surviving process/listener despite delayed GPU release. A critique
+beside a load remains refused by design; typed Ctrl-C remains hands-on.
 
 ### Critic partial-placement follow-up (2026-11-17)
 
@@ -2601,6 +2811,190 @@ This direct protocol did not exercise HTTP/UI or post-reply rewrite lint;
 empty rewrite findings do not establish clean rewrites. PA#18 assistant
 inference, image comparisons, WSL kill-on-close and typed Ctrl-C remain held
 or untested. `CARD#11` stays open.
+
+### Critic partial-placement trigger follow-up (2026-11-18)
+
+Four new frozen, eligible one-shot calls completed with pinned b11206
+CUDA 13.4 and Qwen3-4B Q8_0 on Windows/RTX 5080, driver 616.92, with no
+image pipeline. The three partial cases used synthetic trigger tags
+`velvetrune`, `petalweave` and `riverglyph`, rather than the previous
+name-shaped candidates. All three passed current Check and the CPU
+oracle prerequisites, but their actual reordered replies added words:
+A added scene/subject tags, B added `[character name]` and `[series]`,
+and C added `alice` and `outdoors`. All were correctly rejected as changed
+words before the source-bound partial-placement condition at validation
+line 689. **The partial-placement target remains unreached.**
+
+The fully placed control preserved its words but put `green hair` ahead of
+`safe`; Check's canonical documented order puts `safe` first. Its pure
+reorder was correctly rejected, with no retained kind. This differs from
+the 2026-11-17 control, which retained Check's canonical reorder with kind
+`check`. This is one new session of three partial candidates and one
+control, without combining ambiguous historical counts. No reply was
+repaired or retried.
+
+Actual Check, the ordinary critic job gate and `PromptCritic.critique`
+ran; all four normal process/listener/gate cleanups passed. Critique times
+were 10.90/17.16/17.33/17.57 s. Every one of 308 guard samples independently
+re-evaluates to `ok`; mean/max periods were 0.250280/0.257327 s. Whole-card
+peak was 6547 MiB over a 966 MiB admission baseline; process-tree RSS/private
+peaks were 5.123/7.244 GiB, shared rises 98/98 MiB adapter/process,
+and free-RAM/commit minima 44.263/47.831 GiB. The 16/16 GiB admission and
+unchanged live card/shared/4 GiB floors held. Final card was 966 MiB at
+0% utilization, with no owned worker or llama-server process, and power
+was released. Numerical GPU layer counts were absent; no layer count or
+placement is inferred from timings or memory. Llama allocations are outside
+Torch's allocator.
+
+The [receipt](maintainer/card11-critic-2026-11-18.json) binds commit
+`f8f4cf2` (the ordinary text-to-image cancellation cleanup fix), 195
+reviewed source-freeze entries, 200 runtime source hashes, original
+structured replies, actual validation traces and unchanged raw evidence.
+Zero image/assistant/download/Python Torch CUDA-init calls occurred.
+This direct protocol did not exercise HTTP/UI or post-reply rewrite lint;
+empty rewrite findings do not establish clean rewrites. Image comparisons,
+WSL owner death/idle fallback and typed Ctrl-C remain separate. `CARD#11`
+stays open.
+
+### Krea int8/model host-commit stop (2026-11-18)
+
+The one-load Krea int8/model-offload attempt passed fresh 45 GiB RAM and
+40 GiB commit admission (48.969/52.529 GiB observed). The cached image
+pipeline loaded in 43.89 s, but its first seed-4242 original did not finish:
+the unchanged live commit floor stopped the owned process tree at 3.181
+GiB headroom, below 4 GiB. That sample had 20.004 GiB physical RAM free,
+14,057 MiB whole-card and only 80/80 MiB shared rises; it was a host-commit
+stop, not evidence that the image exceeded VRAM. Across all 327 samples,
+process-tree RSS peaked at 29.982 GiB and minimum
+free RAM was 18.970 GiB. Maximum recorded private usage was 47.126 GiB;
+private sampling is incomplete because the trip row has no private reading.
+It is not a complete lifecycle/private peak. Every recorded guard decision
+independently
+re-evaluates to its original verdict, including the sole commit trip.
+
+No PNG, critic call or comparison pair completed, and normal
+cancel/replay/unload was not reached. The raw after-exit sample still
+showed high card/low commit and failed its guard; that secondary error is
+retained beside the first `TRIP`. A separately retained later direct
+release check showed 1182 MiB at 0% utilization, 49.021 GiB RAM free,
+52.583 GiB commit, no owned worker or llama-server process, and released
+power. The source-frozen [receipt](maintainer/card11-krea-int8-stop-2026-11-18.json)
+retains both readings unchanged. No int8 retry or limit relaxation ran.
+This attempt qualifies neither int8 coexistence nor rewrite quality.
+
+An independent CPU audit matched its 14 raw-file hashes, 201 runtime source
+hashes, 195 reviewed source-freeze entries, all 327 guard decisions and the
+distinct fresh release. No model replay was involved.
+
+### Krea sequential coexistence and three rewrite seed pairs (2026-11-18)
+
+A distinct one-load fp8/sequential-offload session completed on Windows/RTX
+5080, driver 616.92, torch 2.13.0+cu130 and diffusers 0.42.1, at source
+commit `f8f4cf2`. This is the sequential alternative to the int8/model
+attempt above; it does not qualify that stopped int8 recipe. Fresh
+45 GiB RAM/40 GiB commit admission observed 48.983/52.545 GiB. The
+cached Krea pipeline loaded in 53.26 s, Eager/Native, with no public
+execution capability changed and no model download.
+
+The original was "A red fox sitting in a snowy birch forest at dawn.",
+1024-square, 28 steps and CFG 3.5. Original seed 4242 rendered first so
+the critic ran beside a used, offloaded pipeline. Actual Check, pinned
+b11206 CUDA 13.4/Qwen3-4B Q8_0 identity checks, the ordinary JobManager
+critic gate and `PromptCritic.critique` ran once. The critique took
+14.70 s, then its process, listener and gate closed normally. Normal
+post-reply lint ran too: the retained rewrite has one informational
+26-word finding, under the guide's suggested 30-80 band. No reply was
+repaired or retried.
+
+The retained rewrite added "soft morning light filtering through the
+trees and a frosty mist in the air." At matched seeds 4242/4243/4244,
+the original/rewrite render times were 101.08/99.59, 100.08/99.63 and
+99.52/99.48 s. The labeled six-image contact sheet, inspected at
+512-pixel thumbnail size, keeps the seated red fox, snowy birches and
+dawn in every image. The rewrite visibly increases mist/light beams
+and frames the fox smaller in all three pairs. That added weather and
+changed subject prominence are quality tradeoffs; they are not an
+automatic improvement or a recorded preference from Matt. No gross
+corruption was seen at that resolution; fine anatomy and identity
+preservation were not qualified. Full-size PNGs, full RGB hashes and
+pixel-difference metrics remain unchanged in the evidence; difference
+metrics are not quality scores.
+
+The actual `backend.generate()` step-5 cancellation took 18.55 s after
+five progress callbacks. Its allocated/reserved memory afterward was
+32.0/110 MiB; no peak was recorded for the cancelled cell. The next
+seed-4242 original rendered normally in 99.60 s and exactly repeated
+the first original's full RGB hash (`7d161ca06d8753e7…`). Its 16-hex prefix
+also matches the historical Krea seed-4242 baseline. All seven completed
+images peaked at 2.414/2.559 GiB allocated/reserved. Normal final unload
+left the image model not ready, no critic process, a free gate and
+32/32 MiB allocated/reserved. This uses the production cancellation fix,
+with no harness offload workaround.
+
+All 3173 guard decisions independently re-evaluate to `ok`; mean/max
+periods were 0.250285/0.262226 s. Whole-card peak was 7912 MiB during
+the critic, over 1182 MiB at admission. Process-tree RSS/private peaks
+were 28.325/34.765 GiB, shared rises 180/180 MiB adapter/process and
+free-RAM/commit minima 20.584/17.752 GiB. The unchanged live card/shared
+limits and 4 GiB floors held. Final and fresh external card readings
+were 1182 MiB at 0%, no owned worker or llama-server process remained,
+and power was released. The fresh external host reading was
+49.084/52.673 GiB RAM/commit. Numerical GPU layer counts were absent;
+none are inferred from time or memory. Llama allocations are outside
+Torch's allocator.
+
+The [receipt](maintainer/card11-krea-sequential-2026-11-18.json) binds the
+195 reviewed freeze entries, 201 runtime source hashes, all raw guard
+rows, original critic reply, source/settings, image hashes, cancellation,
+exact replay and normal cleanup. Its visual review names the resolution
+and limits. This direct protocol covers standalone generation and the
+critic gate, not HTTP/UI orchestration, PA#18, WSL owner death or typed
+Ctrl-C. The sequential coexistence and three-seed comparison gap is
+covered for this fixed prompt/recipe. `CARD#11` remains open for its
+separate partial-placement target and remaining platform/hands-on checks.
+
+### WSL critic after abrupt owning-app death (2026-11-18)
+
+One real `PromptCritic` owner reached the authenticated completion-request entry
+using pinned llama.cpp b11206 Ubuntu CUDA 13.4 and the checked Qwen3-4B Q8_0 GGUF,
+then the test killed that owned app with SIGKILL. No image pipeline was loaded.
+This was an abrupt owner-death observation, not typed Ctrl-C or a normal Unload.
+The marker establishes completion-request entry after health/auth readiness; no
+completed token, reply or critique is demonstrated, and no critique-latency
+claim follows from it.
+The unchanged production code ran inside an external safety subreaper, which
+retained exact PID/birth/UID/session identities and owned only this experiment.
+
+The same server and its listener survived every observation through 160 seconds.
+Whole-card use remained 6,824 MiB at 120 seconds and had fallen to 1,502 MiB by
+130 seconds through the server's existing idle-sleep fallback. That fallback
+released most GPU memory but did not remove the process/listener. **Immediate
+WSL kill-on-close did not pass.** The external safety supervisor then killed
+only the recorded server group and proved no owned process remained.
+
+Fresh spawn admission required 16 GiB physical RAM and commit. Live card/shared/
+host floors stayed 15,500 MiB / 300 MiB / 4 GiB; the Linux owned RSS cap was
+12 GiB with no swap growth. All 692 Windows samples independently recompute to
+`ok`: card peak 6,824 MiB, adapter shared rise 120.74 MiB, host free-RAM/commit
+minima 43.49/41.58 GiB. Linux RSS peaked at 4.46 GiB, VmSwap stayed zero and
+Linux free RAM stayed above 45.19 GiB. Windows mean/max sample gaps were
+0.256636/0.267707 s; Linux's distinct 4,006-sample log measured
+0.043158/0.056438 s. No numeric GPU-layer count was retained; full-GPU placement
+is not inferred from these measurements.
+
+At GPU-baton release the card was back to 1,182 MiB at 0%, free RAM was 49.20 GiB
+and commit headroom 52.64 GiB. Ubuntu reported Stopped naturally; no distro/global
+termination or unknown-app shutdown command was issued. Exact Linux group
+cleanup is retained, and later Windows TCP-table probes found no LISTEN entries
+on the owned ports 7999 and 40703. The retained socket `connect_ex` value 10035
+means WSAEWOULDBLOCK and is inconclusive by itself; it is not used as proof of
+port closure. The later Windows TCP proofs have their own timestamps and do
+not claim to be the earlier GPU-memory sample.
+
+The [curated receipt](maintainer/card11-critic-wsl-2026-11-18.json) binds the observation. `CARD#11` remains open for
+the production WSL lifetime/cleanup gap, typed Ctrl-C, and any remaining checks
+in the consolidated critic owner. This session changes no production critic
+lifetime behavior and establishes no rewrite-quality result.
 
 ## FLUX 3 [Klein] and its prompt upsampler (2026-11-10)
 
@@ -2781,6 +3175,79 @@ and the FBC cache stay held on 0.40), and the 3070 server. FLUX 3 (`CARD#19`,
 accepted ([FLUX 3](#flux-3-klein-and-its-prompt-upsampler-2026-11-10)). Evidence (events, guard samples, PNGs,
 the scratch galleries) is kept in a local scratch directory, not committed.
 
+## Native, forced cuDNN and First Block Cache (2026-11-18)
+
+Private FLUX.1 Krea dev comparisons on Windows/RTX 5080, source `f8f4cf2`,
+fp8/model offload, CUDA 0, Batch 1, 28 steps, CFG 3.5 and the fixed author
+prompts/seeds. torch 2.13.0+cu130, torchao 0.18.0, diffusers 0.42.1,
+accelerate 1.15.0, transformers 5.16.1, driver 616.92, cuDNN version 92000.
+Actual `backend.generate`, its production normalization/scheduling and cleanup
+ran. Native/Off were unmodified; the experimental arms used only bounded
+instance/request admission, with public class/schema/route gates unchanged.
+
+| Comparison | Retained scope | Non-first-case medians | Observed paired median duration reduction |
+|---|---|---|---|
+| Native / forced cuDNN | Three prompts, two seeds, 1024x1024 and 1360x768, then shape return; full replay in new processes | 40.585 / 35.880 s, then 40.774 / 35.957 s | 11.592%, then 11.812% |
+| Off / FBC 0.05 | Six 1024-square pairs, repeats/Off restoration/cancel and Off-On recovery; complete fresh-process replay | 40.802 / 33.235 s, then 40.788 / 33.209 s | 18.546%, then 18.651% |
+
+The first comparison excludes the first A image in each process but includes
+the second aspect's first use; the FBC comparison excludes the first pair and
+its first cache setup. CPU-profiler diagnostic timings are not representative.
+Both use sequential order, without counterbalancing or a general speed claim.
+
+Every fixed case and repeat is RGB-identical across processes within its own
+recipe. All FBC-Off controls match Native. Native/cuDNN differ on all twelve
+pairs (mean absolute channel difference 0.792-2.767/255, maximum 81-228), and
+Off/FBC differ on all six (mean 0.381-2.228/255, maximum 87-166). These differences
+repeat exactly. Numerical closeness, exact replay and lower wall times do not
+establish acceptable image quality. Matt still must judge the FBC pairs.
+
+All 57 forced cuDNN processors retain their override while the global registry
+remains Native. Actual Q/K/V outputs are CUDA bf16. A separate CPU dispatch
+diagnostic records 1,596 canonical cuDNN SDPA calls (57 times 28); its nested
+forward count is not summed as extra work. Native records efficient-attention
+operators instead. No CUDA kernel trace was captured. FBC retains 28 steps,
+computes every block on each first step and reuses 224-392 of 1,596 block passes
+per cached fixed case; Off reuses none. This is no cuDNN/FBC combination test.
+
+Six independent benchmark processes retain 90 PNGs, six loads and three
+cancellations without save. All 15,025 raw guard verdicts independently agree
+with `ok`; maximum sample gap 0.275788 s. Whole-card peaks were 14,415 MiB Native
+and 14,505 MiB for cuDNN/FBC, over 1,182 MiB idle. Maximum process private was
+40.217 GiB; minimum free RAM/commit 19.784/12.367 GiB. Fresh 40/50 GiB RAM/commit
+admission and unchanged live 4 GiB/card/shared limits held throughout. Cancel
+and recovery offload to CPU; unload collects roots and all owned processes exit.
+
+The separate original same-process switch produced its cuDNN image and cleanly
+unloaded, then refused Native reload at 30.418 GiB free RAM / 24.799 GiB commit
+against fresh 40/50 GiB requirements. It had one load, no Native phase and no
+passed switch. Any later capped-memory experiment is a separate protocol.
+
+A later, distinct capped-resident-v3 switch completed cuDNN unload and Native
+reload in one process under a 47 GiB private-job cap and 36 GiB sampled job-RSS
+ceiling. Readmission used current commitment plus 4.5 GiB allowance and only EX2
+non-shareable private residency, with a 46 GiB physical pool; no peak/RSS/psutil
+USS credit or allocator-reuse assumption. Its measured pool was 48.605339 GiB;
+free commit 29.718575 GiB exceeded required 29.466999 GiB. Both images match
+controls, including Native's historical `d62ee9fc...19d697b`. Both unloads collect
+roots, clear readiness and leave 32 MiB allocated. All 691 guard rows agree with
+`ok`; no cap attempt, card/shared/global-floor crossing occurred. Peak observed
+job private/RSS was 40.165508/30.040581 GiB; free RAM/commit minima were
+18.882721/11.911301 GiB. This guarded Windows-build-specific experiment does not
+qualify uncapped/public switching or impose a new app memory policy. Its
+[separate receipt](maintainer/perf3-switch-resident-v3-2026-11-18.json) retains
+counter/API limitations, physical proofs and original refusal separately.
+
+The [attention receipt](maintainer/perf3-qualification-2026-11-18.json),
+[cache receipt](maintainer/perf4-qualification-2026-11-18.json) and
+[original switch receipt](maintainer/perf3-switch-original-2026-11-18.json) bind
+source/PNG/guard audits. Owners retain remaining quality/lifecycle boundaries:
+[attention](maintainer/plan-attention-backends.md#private-card-results-2026-11-18)
+and [cache](maintainer/plan-step-caching.md#private-card-results-2026-11-18).
+Public nonempty execution remains closed and defaults are unchanged. Other
+checkpoints, loaders, platforms, sizes, batches and recipe combinations are not
+qualified by these runs.
+
 ## Tiny Windows CUDA compiler probe (2026-11-17)
 
 `PERF#1`'s tiny isolated toolchain probe passed with torch 2.13.0+cu130,
@@ -2811,6 +3278,359 @@ binding, fresh-process cache reuse, default installation, model speed or
 public execution support. The [receipt](maintainer/perf1-tiny-toolchain-2026-11-17.json)
 and [regional owner](maintainer/plan-regional-compilation.md) retain exact
 scope, artifacts, dependency and guard evidence; `PERF#1` stays open.
+
+## Regional FLUX.1 Krea dev, private Windows overlay (2026-11-18)
+
+Private Regional-v1 fp8/model execution completed the empty-cache first image,
+three exact warm repeats, all twelve fixed Eager/Regional cases, a new static
+aspect and return, actual fresh-process disk-cache hits and step-3 cancel/
+recovery on source `f8f4cf2`. The app-owned startup cache binding and actual
+`backend.generate` ran in an isolated Windows Triton 3.7.1.post27 overlay;
+public nonempty admission and default compiler installation remain closed.
+
+| Session | First / warm image observations | Whole-card peak | Safe guard samples |
+|---|---|---:|---:|
+| Cold Regional probe | 71.84 / 30.86, 30.34, 30.16 s | 13,829 MiB | 938 |
+| Eager full matrix | 57.59 / 40.55-41.21 s | 14,209 MiB | 3,283 |
+| Retained-cache Regional matrix | 50.91 / 29.82-30.80 s | 13,703 MiB | 2,573 |
+
+The cold probe retained 55 sm_120a kernels/three graphs. The new process had
+three actual fxgraph cache hits; introducing the second aspect added three
+misses, reaching six graphs/110 kernels. Each Regional process had one initial
+hidden_states stride specialization. Warm and return counters stayed stable;
+external graph calls are not Eager fallback. Returning to the first shape was
+exact. Over the matched 16 warm images per arm, wall-time medians were
+40.637 s Eager / 30.280 s Regional (25.49% less time). This ordered comparison
+is not a general speed claim or CUDA-event timing.
+
+All twelve fixed Eager/Regional pairs change pixels (mean absolute channel
+difference 0.723-7.290/255); image-quality acceptance remains Matt's. Both
+step-3 cancellations saved nothing and recovered the exact first RGB. The
+cold probe/Eager v1 observer records allocator unload and post-exit card state;
+only retained Regional v2 explicitly proves cleared backend ownership/readiness,
+collected pipeline/transformer roots and restored Native/SDPA state, at 32/32 MiB.
+
+All 6,794 raw guard decisions independently agree with `ok`, longest gap
+0.26227 s. Maximum tree private usage was 45.852 GiB, minimum free RAM/commit
+20.99/8.94 GiB. Card/shared limits and live 4 GiB floors held. Each owned process
+exited, power released and the card returned to 973 MiB. No outgoing attempt
+occurred after initialization of the owned stdlib wakeup socket. The earlier
+socket-guard bootstrap stop is retained separately; it did not reach weights.
+
+The separate [early-request follow-up](#regional-cold-first-call-cancellation-follow-up-2026-11-18)
+observed latency and safe cleanup but failed its historical recovery RGB gate;
+the cause remains unisolated. It does not replace this completed matrix.
+The prepared v4 stayed unrun under insufficient headroom. The [owner](maintainer/plan-regional-compilation.md#private-regional-model-and-retained-cache-2026-11-18)
+and [matrix receipt](maintainer/perf1-completed-matrix-2026-11-18.json) retain
+exact toolchain/observer/guard boundaries, images and remaining release gates.
+
+### Regional cold first-call cancellation follow-up (2026-11-18)
+
+The separately capped v5 stopped at its immutable start-permit schema before
+framework imports, weights or forward work: its producer included an extra
+version field. That failure is retained. Frozen v6 corrected only its protocol
+label and exact producer/consumer schema, after cold integration and negative
+schema checks. It made one load, one cancelled call and one recovery PNG,
+then failed the frozen historical RGB gate. The third repeat did not run.
+This is a failed recovery qualification, separate from the completed matrix.
+
+The independent request occurred +3.00036 s after the planned call start,
+before the first callback. Request-to-first-observing-poll was 40.049995 s;
+request-to-backend-return was 42.853372 s. The first callback then cancelled.
+No compiler interval was instrumented, so compiler/request overlap is not
+established. Registered components were CPU and the allocator about 32 MiB
+after cancellation.
+
+Recovery RGB was `1d66cce409f42c80f69aa66f4428b215ab2581316cb921a6058a7e2f566a6118`,
+different from the frozen historical `e54b9ba5…f7cf`. Its recorded
+`exact_repeat: true` has a null prior hash and is first-seen bookkeeping,
+not a within-v6 repeat. Request/private recipe, 14 common source/helper hashes,
+distribution facts and compiler inventory match earlier evidence, but neither
+harness retained complete weight-byte hashes or an explicit Hub revision.
+No uncancelled image exists from the new v6 context, so the mismatch does not
+isolate cancellation damage or any other cause.
+
+CPU artifact analysis found changed selected configurations and ELF `.text`
+in 4/23 kernel/config-family groups (5/24 selected occurrences), including
+one layer-normalization choice. The three output-code wrappers match after
+path normalization and readable FX/pre/post-fusion IR match bytes; two runnable
+FX files still differ after normalization. Matmul/cuDNN precision/determinism
+flags were not explicitly captured. Matching IR and changed machine text are
+a confounder, not proof of arithmetic equivalence or the mismatch's cause.
+Cold rebuild bit identity is not established.
+
+The hard job-private cap was 47.5 GiB, with kill-on-close readback. Fresh
+waiting capacity was 52.582043 GiB against the frozen 52 GiB target, at least
+45 GiB free RAM, without peak/RSS admission credit. All 605 live guard rows
+independently re-evaluate to `ok`: job peak 43.994347 GiB with no observed cap
+attempt, exact-job RSS 26.417858 GiB, whole card 13,911 MiB and free-RAM/commit
+minima 22.439613/8.569191 GiB. Existing card/shared limits and live 4 GiB floors
+held. These conditional numbers do not lower the general 55.9 GiB plan.
+
+Failure cleanup cleared owners/siblings/parameters/diagnostic readers,
+collected pipeline/transformer roots, restored observed Native/SDPA state and
+released the owned power request; the saved post-exit card was 1,182 MiB.
+No after-failure `policy-restoration.json` exists: scoped source paths alone
+do not establish observed restoration of Dynamo flags. No shim or global
+Dynamo reset was used.
+
+The [addendum](maintainer/perf1-bootstrap-and-cancel-addendum-2026-11-18.json)
+binds raw attempts, the independent CPU audit and artifact comparison;
+the [owner](maintainer/plan-regional-compilation.md#cold-first-call-cancellation-follow-up-2026-11-18)
+retains full boundaries. The later [v7 retained-artifact control](#regional-retained-artifact-uncancelled-control-v7-2026-11-18)
+is recorded next; it does not retrospectively pass v6's strict historical gate
+or supply the missing v6 policy observation. Public reproduction/rebuild policy
+and recipe admission stay separate.
+
+### Regional retained-artifact uncancelled control, v7 (2026-11-18)
+
+A separate approved fresh-process load made exactly two normal uncancelled
+scene/A1024-square/seed4471 Krea fp8/model calls through actual `backend.generate`
+with `should_cancel=None`. Both full RGB hashes were
+`1d66cce409f42c80f69aa66f4428b215ab2581316cb921a6058a7e2f566a6118`,
+matching v6 recovery and each other, differing from the earlier `e54…` build.
+The request/private recipe, 17 common runtime/helper hashes and recorded
+runtime/compiler facts match v6. No extra cell, shape or mode ran.
+
+All 520 pinned files, 24 selected best-config records, 55 total cubins and
+24 selected cubins stayed byte-identical before load, after each call and
+after both; an independent post-exit rehash agreed. Actual FX graph-cache hits
+were 3, misses 0, new kernel saves 0 and static-autotuner saves 0, with three
+Dynamo graphs and unchanged second-call counters. Other activity remained:
+async-compile cache misses/hits 76/38, static-autotuner loads 38 and benchmark/
+benchmark_gpu counters 4/4. Their exact causes were not traced. These counters
+do not establish zero runtime compilation, benchmarking or autotuning.
+Exact serialized artifact identity supports only this artifact-local comparison.
+
+Fresh waiting capacity was 52.535225 GiB against the 52 GiB target, with
+at least 45 GiB free RAM and no peak/RSS credit. The job-private/RSS caps stayed
+47.5/32 GiB. All 606 live guard rows and the three-snapshot admission independently
+pass; job peak was 43.974918 GiB, no cap attempt, card peak 13,911 MiB and minimum
+free RAM/commit 21.851025/9.017208 GiB. Card/shared limits and live 4 GiB floors
+held. Load/call times were 61.74 s and 51.25/30.57 s, control observations rather
+than additional benchmark arms.
+
+V7 directly observed final Dynamo-policy flags equal to their initial values,
+Native/SDPA restoration, cleared backend ownership/parameters/readers,
+collected pipeline/transformer roots, unready state and 32/32 MiB allocator
+after unload. Owned processes exited, power released and post-exit card was
+1,182 MiB. These observations do not fill v6's missing after-failure flag receipt.
+
+The control proves that v6's recovery RGB also occurs without cancellation in
+a fresh process with its retained artifacts. V6's strict historical equality
+failure and unrun third repeat remain unchanged; that failure alone did not
+isolate persistent cancellation damage. The 4/23 changed selected-config groups
+and ELF `.text` from the earlier build remain a confounder. Neither cancellation,
+the OS cap, autotuning nor one compiler setting is an isolated cause. Missing
+earlier precision flags and complete weight-byte/Hub-revision identity remain
+limits. No general cross-build determinism or broader absence of cancellation
+effects is established.
+
+The [receipt](maintainer/perf1-v7-retained-artifact-control-receipt-2026-11-18.json)
+binds the independent admission/guard/artifact audit. The bounded private
+card-stage table is now measured, including early-request latency and artifact-local
+recovery comparison. `PERF#1` routes to Matt's pair judgment (`USER`), with
+source/release/compiler-artifact policy still required; no further GPU trial is
+the next action. Public nonempty admission and default compiler installation
+stay closed. The [owner](maintainer/plan-regional-compilation.md#retained-artifact-uncancelled-control-v7-2026-11-18)
+retains full boundaries; the earlier matrix and v5/v6 receipts remain separate.
+
+## Windows follow-up measurements (2026-11-18)
+
+Matt authorized the remaining workstation card checks. These sessions used
+Windows 11, RTX 5080 (16,303 MiB), driver 616.92, Python 3.13, torch
+2.13.0+cu130, diffusers 0.42.1, transformers 5.16.1 and torchao 0.18.0.
+The production source was `f8f4cf2` (the ordinary-generation cancellation
+cleanup fix); every completed session retained unchanged source hashes.
+Each process loaded one checkpoint, with fp8, Eager/Native and its stated
+offload mode, against a scratch gallery. The mask/Refine/crop sessions
+used `main.ensure_loaded` and the ordinary backend/storage calls; CARD#10
+and ERNIE used the real server, with native browser presses where stated.
+No new public execution recipe, default, size guard or clean-seam claim
+was enabled.
+
+All retained guard samples re-evaluate to `ok`: 15,500 MiB whole-card,
+shared rises 1,024/512 MiB adapter/process, and 4 GiB free-RAM/commit floors.
+The sampler used held Windows PDH counters at about 0.25 s. Raw sample or
+record gaps, rather than only loop-start spacing, are retained in the
+receipts; the longest completed-session gap below was 0.279 s. Private
+and working-set peaks in this table are the watched model/server tree;
+the global RAM/commit floors also include the browser and controller.
+
+| Session | Images / cancellations | Sampled card peak MiB | Server/worker private GiB | Lowest free RAM / commit GiB |
+| --- | --- | --- | --- | --- |
+| FLUX.1 dev, model offload | 21 / 3 | 15,155 | 42.51 | 22.51 / 12.68 |
+| FLUX.1 schnell, model offload | 18 / 3 | 15,255 | 46.45 | 19.86 / 8.73 |
+| FLUX.1 dev, sequential offload | 8 / 1 | 3,143 | 33.50 | 21.54 / 21.55 |
+| FLUX.1 Krea dev, masked-area crop | 6 / 0 | 14,373 | 42.61 | 20.95 / 11.64 |
+| Z-Image Turbo, masked-area crop | 6 / 0 | 8,711 | 24.72 | 28.70 / 30.36 |
+| Z-Image, masked-area crop | 6 / 0 | 10,143 | 25.30 | 28.80 / 29.78 |
+| ERNIE image ladder and first-use Expand | 4 / 0 | 13,240 | 33.80 | 27.56 / 20.79 |
+| ERNIE separate offline replay | 1 / 0 | 10,424 | 28.73 | 27.64 / 26.13 |
+
+The completed calls unloaded normally; the direct backend sessions reported
+32/32 MiB allocated/reserved after unload. Owned processes/listeners then
+closed, and separate settled `nvidia-smi` reads returned about 966-973 MiB
+at 0% utilization. Those settled reads are separate from an immediate
+post-exit sampler row, which can still contain the just-ended context.
+
+**Future admission:** retain each run's actual historical admission values.
+The completed native FLUX/CARD#10 sessions used **50 GiB initial commit
+admission**, Z-Image-family crops 35 GiB and ERNIE 44 GiB; their actual
+starting headroom was sufficient and the live floors held.
+The observed schnell private peak is 46.448 GiB, so a future same-recipe
+commit budget is that measured cost plus the unchanged 4 GiB floor and a
+stated margin: 56.448 GiB with 6 GiB margin. The separate native-browser
+session below reached 47.131 GiB in the server tree, giving 57.131 GiB
+before any separate browser allowance with that margin. These larger future budgets were not retroactively the actual admission
+settings.
+
+### FLUX dev/schnell Refine, inpaint and outpaint
+
+The [FLUX receipt](measurements/windows-flux-2026-11-18.json) binds applied
+requests, source/result hashes, row/PNG peaks and guard evidence. Each
+checkpoint made its own 1024-square fisherman source at seed 12345;
+passes used seed 12346. Inpaint used the same ellipse, hard or feathered
+by 24 px, at strength 0.95. Dev ran 27 of 28 steps; schnell ran all four,
+starting at sigma 1.0. The request was a blue scarf/coat inside that mask.
+Outpaint added 400 px left/right to 1824x1024, at strength 0.95 and bands
+0/32/64/128. Kept pixels were exact on every masked result.
+
+| Checkpoint | Hard / feather-24 inpaint | Outpaint band-32 | 1536-square Refine | Same-size true-CFG 2 / off |
+| --- | --- | --- | --- | --- |
+| dev, 28 steps / CFG 3.5 | 40.28 / 39.93 s | 71.80 s | strength 0.1, 3 steps, 15.10 s; sigma 0.4741 | 12.45 / 8.50 s |
+| schnell, 4 steps / CFG ignored | 10.58 / 9.69 s | 15.68 s | strength 0.5, 2 steps, 11.79 s; sigma 0.5 | 9.93 / 7.17 s |
+
+Repeats and post-cancel recovery matched full RGB hashes; the original
+text-to-image source returned unchanged afterwards. Schnell inpaint and
+outpaint cancellation occurred after 2 of 4 actual steps; Refine after
+1 of 2, not an assumed third step. The true-CFG branch reproduced and
+differed from its off control. On dev, `frosting-lane.safetensors` at scale
+0 matched no adapter, scale 1 changed the image, and removal restored the
+base inpaint. Sequential dev repeated the same finite Refine/true-CFG
+cases: every one of its eight images matched model offload exactly.
+Its 1536 Refine took 21.39 s, true-CFG 24.15 s and the off control 12.28 s.
+These are observed per-call timings, not a general throughput benchmark.
+
+Seam step is `tools/image_compare.py`'s mean 8-bit neighbour difference at
+the painted mask's zero/positive edge. A VAE round-trip control was not
+made, so these values do not isolate encode/decode cost.
+
+| Checkpoint | Inpaint result, hard / feather 24 | Outpaint result, bands 0 / 32 / 64 / 128 |
+| --- | --- | --- |
+| dev | 26.681 / 4.085 | 10.431 / 1.499 / 1.684 / 1.944 |
+| schnell | 54.497 / 4.706 | 41.348 / 2.473 / 1.408 / 1.656 |
+
+Native comparison boards were inspected. Dev Refine keeps composition and
+main facial features while changing fine facial texture; schnell 0.5
+keeps the composition but redraws face/hat detail. Hard inpaint leaves an
+obvious ellipse; feather 24 softens it but retains blue/yellow blur.
+The dev LoRA produces a gray/brown fuzzy wrap rather than clean blue-scarf
+adherence. Dev outpaint band 32 hides the cut better on this fixture, but
+wider bands ghost roof/mast structure. Schnell extensions contain unwanted
+partial duplicate yellow figures/coats and scene mismatches. No clean-join,
+identity-preservation guarantee or preferred universal padding follows.
+
+Native full-residency FLUX was not loaded. The
+[alias-aware header/config proof](measurements/native-full-residency-2026-11-18.json)
+deduplicates stored aliases, including the effective installed T5 embedding
+tie. Even charging every remaining dense element only one byte gives
+16,089 MiB for dev/Krea and 16,079 MiB for schnell, before activations or
+desktop: already above the unchanged 15,500 MiB guard. This bounds native
+weight-only fp8/int8, not Nunchaku/int4.
+
+`CARD#7` now retains only a deferred planning case: the native fp8 FLUX.1
+dev `offload=none` leg of the same 1024-square source to 1536-square,
+strength-0.1 comparison. Its model and sequential legs are measured; the
+full-residency leg has no safe admission on this 16 GB card. No other
+family/offload case was selected, and K4/K5 Never plus the accepted
+[2026-11-12 decision](maintainer/review-2026-11-12-todo.md#matts-answers-2026-11-12)
+do not commission a replacement int8/bf16/large-size or catalogue sweep.
+Only if Matt later chooses this exact mode on viable hardware should a
+CPU planning slice freeze the same recipe and recompute alias-aware weight,
+activation and host-commit budgets before any model load. This is not a
+recommendation to rerun the completed comparisons or raise their guards.
+
+### Masked-area crop follow-up
+
+The [crop receipt](measurements/windows-crops-2026-11-18.json) records three
+independent one-load sessions. Each used the existing owned SDXL source
+(`720a6504...`) explicitly CPU-resized to 1536/2048/2896 square, never
+claimed as a native render of the tested checkpoint. The finite cases
+were pad 32 at all three sizes, pads 0/64 at 2048, and a pad-32 repeat.
+Every result retained exact kept pixels and recorded its computed box and
+working size. Krea model-offload images matched all six earlier
+sequential-offload RGB hashes, at 41.55-43.95 s against about 100-102 s.
+Z-Image Turbo took 10.65-10.88 s warm (16.88 s first); undistilled Z-Image
+about 93 s per 50-step/CFG-5 crop. Both repeated exactly.
+
+The Krea images inherit the earlier identical-pixel visible-patch limits.
+New Z-Image/Turbo native boards show conspicuous sky/forest, branch,
+river/fence and scale/style joins at every padding, with enlarged soft
+detail on the 2896 source. There is no same-model-source or full-canvas
+baseline here and no clean seam or best padding accepted. Canvas, crop
+rule and size guards are unchanged. The missing public Z-Image inference
+files at the existing `04cc4abb...` revision were downloaded explicitly
+(12,493,472,775 bytes) and verified against published LFS SHA-256/Git blob
+identifiers before its offline session; no new licence gate was accepted.
+
+### ERNIE reproduction and actual first-use Expand
+
+The [ERNIE receipt](measurements/windows-ernie-2026-11-18.json) binds the
+real route/job/API/SQL/PNG/allocator checks. Seed 12345 at 1024 square,
+8 steps/CFG 1 reproduced in-process and in a separate offline process,
+full RGB SHA-256 `cdf4f9b4d3e7c62a866268312c99b49be2a841fdf14ef156885ea2367ccb8b53`.
+The 1440/2048-square rungs completed at 11,046/13,240 MiB. Their fresh
+projection for a 2048-square batch of two was 17,587 MiB against 15,200;
+that call was refused before generation, not executed or proved to fit.
+
+The native Expand press displayed the genuine first-download sentence,
+including the translator, and an aria-hidden clock: 513 running samples,
+129 distinct clock values. It returned expanded Chinese text and English
+translation for review. Rewriter and translator weight hashes matched the
+published files. No image from the expanded prompt or broad prompt-quality
+comparison was performed. An earlier attempt's completed image is retained
+separately: its observer wrongly treated API/SQL names as PNG keys. The
+corrected explicit `model`/`size` namespace mapping passed a CPU regression
+against real `storage.save_image` output, both seed+i images and all twelve
+one-field corruptions, before the valid sessions. No backend defect was
+involved in that observer stop.
+
+### Real-page legacy packs and remaining coverage
+
+All six page-pack assertions passed on real scratch servers, with separate
+fresh galleries for the two bin-emptying packs. The
+[CARD#10 receipt](measurements/windows-card10-2026-11-18.json) binds native
+presses and the frames/guards. A stale fixture was corrected in scratch
+copies: Sampling now opens with its summary before Steps is typed, verifies
+visibility/value, then closes before original geometry observations. The
+setup prefix passed on the fake without pressing Generate. Original
+scripts and the earlier fixture stop remain separate evidence.
+
+Batch preview/tiles/head and Generate position stayed fixed. ETA was absent
+at step 1 and met its later bound. A one-minute grid predicted two complete
+seeds and stopped with five cells/images, two complete seed pairs. Deleting
+a source stopped its sweep after three failures with two images kept;
+Finish stayed held, explained why and sent nothing on both presses.
+Deleting during an already-started pass preserved the result's deleted-source
+facts/title/note/Reuse. Normal unload, source freeze and cleanup passed.
+
+The 7733f81 temporal scrollbar branch is **not** qualified: the initial
+layout observed bar 15 throughout. A separate native Custom-closure variant
+observed bar 0 throughout at 2560x1305; actual root/body/stage gutters were
+`auto`, beside false, and every viewer-observed document height was 1305.
+Both static layouts passed geometry assertions, but neither trace captured
+overflow appearing and disappearing. No app CSS was changed to force it.
+Typed Ctrl-C on the fake and real loaded/loading consoles was not performed;
+`DEV#23`/`CARD#10` retain those hands-on gates. See the
+[updated pack owner](maintainer/plan-card-harness.md#real-page-follow-up-2026-11-18).
+
+`GEN#16` also remains unqualified. Its new preflight made no model load or
+pass: matched cold/warm projections were 15,198/15,202 MiB, the warm value
+2 MiB past the unchanged 15,200 limit. The
+[owner](maintainer/plan-then-refine.md#matched-stage-preflight-2026-11-18)
+records the prior-stage proof and preserved harness correction.
+
 
 ## RTX 3070 (8 GB), native Ubuntu (2026-11-03)
 

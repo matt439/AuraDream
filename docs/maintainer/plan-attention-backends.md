@@ -1,5 +1,116 @@
 # Plan: native and cuDNN attention on FLUX.1
 
+## Private card results (2026-11-18)
+
+**Current status:** fixed Native/cuDNN comparisons, cross-process replay,
+shape return, cancellation/recovery and ordinary unload are measured on the
+Windows RTX 5080. The original same-process reload protocol refused fresh
+headroom; a separate capped-resident-v3 experiment later completed both loads.
+These are distinct results. Matt's visual usefulness review is next (`USER`);
+public admission and ordinary uncapped/UI switch qualification remain separate.
+Native remains the default.
+
+Source `f8f4cf2`, backend SHA256 `c3a85a23...c838274e`, Python 3.13,
+torch 2.13.0+cu130, torchao 0.18.0, diffusers 0.42.1, accelerate 1.15.0,
+transformers 5.16.1, driver 616.92 and cuDNN version integer 92000. Exact Krea dev,
+fp8/model offload, CUDA 0, Batch 1, 28 steps, CFG 3.5, omitted Mu and the unchanged
+three prompts/two seeds/two shapes from `tools/perf_cases.py`. No LoRA, reference,
+edit pass, compilation or FBC. Four separate processes: Native and cuDNN suites,
+then complete Native and cuDNN fixed-case replays.
+
+Both arms use actual `backend.generate` and production normalization, seeded
+generators, scheduling, cancellation and cleanup. Native is unmodified. cuDNN's
+private harness grants only one exact request on its already prepared instance;
+the request omits execution while the effective private load recipe is recorded
+separately. The class/schema/public guards remain closed and the instance token
+is removed after each call. This is no public HTTP, queue, UI or replay release.
+
+| Arm/session | First A image | Other 11 fixed-case median | Whole-card peak | Process private peak |
+|---|---:|---:|---:|---:|
+| Native suite | 42.691 s | 40.585 s | 14,415 MiB | 40.114 GiB |
+| Forced cuDNN suite | 38.183 s | 35.880 s | 14,505 MiB | 40.202 GiB |
+| Native fresh replay | 42.601 s | 40.774 s | 14,415 MiB | 40.092 GiB |
+| Forced cuDNN fresh replay | 37.506 s | 35.957 s | 14,505 MiB | 40.217 GiB |
+
+The paired median duration reductions over the other eleven cases were
+11.592% and 11.812%. These exclude each process's first A image, include first
+use of the second aspect and do not establish a counterbalanced-order or general
+hardware speed claim. The suite's three same-A warm repeats were
+40.646/40.736/40.767 s Native and 35.744/36.121/35.796 s cuDNN. Dedicated
+CPU-profiler diagnostic images are excluded from representative timing.
+
+All twelve cases and every retained same-seed repeat are RGB-identical across
+processes within their own recipe. Native and cuDNN differ on all twelve pairs:
+mean absolute channel difference 0.792-2.767 levels of 255, maximum 81-228 and
+63.27-92.55% of pixels changed. The pairwise differences repeat exactly in the
+second processes. Numerical differences and repeatability do not establish
+image-quality acceptance; the fixed images still need visual assessment.
+
+All 57 cuDNN processors carry the override while the global registry remains
+Native. Observed Q/K/V outputs are CUDA bf16. The separate CPU dispatch
+trace records 1,596 canonical cuDNN SDPA calls, matching 57 blocks times 28 steps;
+the corresponding nested forward count is corroboration, not another 1,596
+independent calls. Native instead records efficient-attention dispatch. No CUDA
+kernel trace was collected and automatic Native is not described as math-only.
+
+Across the four sessions: 62 verified PNGs, four loads and two step-3
+cancellations without a saved image. All 10,534 guard rows independently
+re-evaluate to `ok`; maximum sample gap 0.275788 s. Free-RAM/commit minima were
+19.784/12.373 GiB, maximum working set 29.307 GiB, adapter/process shared rises
+122.199/82 MiB. Initial RAM/commit admission stayed 40/50 GiB; the 4 GiB live
+floors, 15,500 MiB whole-card limit and shared limits were unchanged. Cancellation
+returned components to CPU and about 32 MiB allocated; recovery repeats exactly.
+Unload restores processors/registry, collects the transformer and reports not ready.
+
+The separate original switch made one cuDNN image and fully unloaded, then
+refused Native reload at 30.418 GiB fresh RAM and 24.799 GiB commit headroom,
+below its unchanged 40/50 GiB requirements. Its retained private/RSS allocations
+were not credited as reusable memory. There is no Native phase and no switch
+success. Any later capped experiment is a different protocol and receipt.
+
+The separate `switch-job-private-cap-resident-v3` experiment then completed
+one cuDNN image, full unload, a three-snapshot parent readmission and one Native
+image in the same process. Both match their existing controls; Native is the
+same `d62ee9fc...19d697b` RGB hash. Both roots were collected, backend readiness
+cleared, processors/global Native registry restored, and allocator state was
+32 MiB after unload. This does not replace the original refusal or qualify an
+ordinary public/uncapped switch.
+
+V3 installed a hard 47 GiB OS job-private commitment cap before its first load,
+with kill-on-close, no breakaway and exact member/readback checks. The second
+commit decision used current owned commitment, never peak: minimum free commit
+29.718575 GiB exceeded `47 - 22.033001 + 4.5 = 29.466999 GiB`. Its physical pool
+used only documented EX2 non-shareable private residency: free RAM 34.249409 +
+private resident 14.355930 = 48.605339 GiB, above the 36 GiB sampled-RSS ceiling + 4 GiB
+live floor + 6 GiB extra. Summed RSS and raw psutil USS were never credited.
+No allocator reuse was assumed; an attempted cap breach would fail the run.
+
+All 691 guard rows independently agree with `ok`; 685 contain complete active
+job accounting, with the remaining terminal teardown observations separately
+identified. Peak current/observed job private was 40.165508 GiB, sampled job RSS
+30.040581 GiB, card 14,505 MiB, and free-RAM/commit minima 18.882721/11.911301 GiB.
+No cap attempt or live limit crossing occurred. Owned processes exited and the
+fresh card returned to 1,182 MiB at 0% utilization.
+
+This Windows-build-26300 experiment uses a limited-public-contract current-job
+query and updated EX2 counters; unsupported or inconsistent accounting refuses.
+The 36 GiB RSS ceiling samples pageable working sets, not every physical,
+nonpageable, driver or system allocation. External changes/counter non-atomicity
+remain limitations; the live global floors and extra margins are mandatory.
+The small shared/private-page proofs and 32 KiB counter/enumeration discrepancy
+are retained. No job-cap API or changed memory policy was added to the app.
+The [distinct v3 receipt](perf3-switch-resident-v3-2026-11-18.json) owns this
+conditional lifecycle evidence and must not be merged into the original result.
+
+The [benchmark receipt](perf3-qualification-2026-11-18.json) and
+[original switch receipt](perf3-switch-original-2026-11-18.json) bind source,
+raw guards, PNG metadata/hashes, dispatch observations and independent audits.
+Public nonempty admission stays closed. Remaining work is Matt's visual usefulness/quality judgment and any separately chosen public-release
+work; the capped lifecycle is not a broad or uncapped switch qualification. Other checkpoints, platforms, placements, sizes, adapters,
+edit passes and combined recipes remain outside this envelope.
+
+## Source-stage history
+
 **Status, 2026-10-27: shared carry, private processor/loader/call ownership and
 cold external-override diagnostics, request candidate checks and unavailable
 selector/persistence/status/UI and conservative environment policy source are
@@ -407,8 +518,10 @@ restricted experiment and judge its usefulness on the fixed card cases.
 Later external Flash/Sage kernels need their own primary-source
 Windows/Python/torch/CUDA/sm120 compatibility and license checks; no wheel
 claim or installation is part of this slice. Keep Native as the default
-until measured evidence justifies any separately chosen change. Leave
-`PERF#3` at CARD for the remaining runs; its bounded source stages are built.
+until measured evidence and visual judgment justify a separately chosen
+change. The bounded comparison and separate capped lifecycle results are above;
+`PERF#3` now routes to Matt's visual review, with public/uncapped qualification
+kept separate.
 
 Qualification does not require another source-work approval for ordinary
 implementation and fake checks. Actual model/card runs remain separately gated;

@@ -671,3 +671,74 @@ http://127.0.0.1:7861/api/fake/load` and `curl -X POST
 http://127.0.0.1:7861/api/model/unload` against a fake on 7861, then
 `AURADREAM_PORT_OFFSET=1 node tools/browser.mjs
 tools/card/card10-1744dc3.json`). Stage 2 is unchanged.
+
+## Real-page follow-up (2026-11-18)
+
+Matt authorized the workstation card queue. On production commit `f8f4cf2`,
+the six page-pack assertion sets ran on real FLUX.1 Krea dev fp8/model
+servers with scratch galleries and the unchanged card/shared/RAM/commit
+guard. The two packs that empty the bin each had their own fresh gallery;
+both original scratch/bin-content prerequisites remained fatal.
+The [durable receipt](../measurements/windows-card10-2026-11-18.json) owns
+the source, pack, frame and guard hashes.
+
+The original 7733f81 attempt stopped before model loading: Sampling is now
+closed in a fresh browser, so its old click on hidden Steps left the value
+at 28 rather than 8. Scratch copies corrected only that setup: require the
+fold initially shut, press its native summary, require visible Steps,
+type the requested value, then close it again and verify value/state before
+the original geometry observations. This avoids closing an already-open
+fold by accident and restores the intended page layout before Generate.
+The fake setup prefix passed without pressing Generate. The seven packs
+that edit main Steps, including the idle Ctrl-C pack's setup, now carry the
+equivalent Sampling-fold maintenance correction; no automated typed Ctrl-C was added.
+
+| Pack | Bounded real result |
+| --- | --- |
+| 9377de1 | Preview stayed in the first slot, every landed tile stayed put, columns 4, no automatic page scroll or Generate movement. |
+| 7733f81 | Tile height/gallery head and Generate remained fixed. The original setup observed bar 15 throughout; temporal coverage is separate below. |
+| 2a4d2cc | No ETA at step 1; later estimates met the original `2 * actual + 5 s` bound. |
+| 6a7570d | One-minute preview predicted 2 complete seeds; actual budget stop kept 5/24 cells, also 2 complete seed pairs. |
+| ad01fdc | Source deleted and bin emptied after the first pass; 3 missing-source failures stopped the sweep with 2 images kept. Both Finish presses retained focus, explained the missing source and sent nothing. |
+| 2b89ed5 | Source deleted/emptied while the pass was already active; completed result retained deleted-source facts, title, note and Reuse reason. |
+
+All normal unloads and owned-process/listener cleanup completed. The
+actual initial commit admission was 50 GiB. Guard peaks across the assertion groups were at most 14,263 MiB and 43.978 GiB
+server-tree private memory, with at least 10.63 GiB commit headroom. A
+separate geometry diagnostic reached 47.131 GiB server-tree private and
+7.42 GiB minimum commit, still above the unchanged 4 GiB floor. For future
+admission use the measured render-inclusive cost, the floor and an explicit
+margin; 47.131 + 4 + 6 is 57.131 GiB before any separate browser allowance.
+Do not rewrite the actual runs' earlier admission settings as if they had
+already met that future margin.
+
+**7733f81's temporal branch remains unreached.** A second fresh diagnostic
+closed Custom dimensions natively after typing, without changing CSS.
+At all twelve viewer-observed frames at 2560x1305 it recorded actual
+document height 1305, bar 0,
+root/body/stage gutter `auto` and beside false. The original setup observed
+bar 15 throughout. Both static width states preserved fitted geometry, but
+neither viewer-observed trace saw overflow appear and disappear. A passing
+assertion set is not evidence that this historical transition was exercised.
+
+**Still Matt's:** the two hand-typed Ctrl-C packs on the fake, then the
+real loading/loaded consoles and their console-side results. API unload,
+process termination and browser automation do not stand in for those hands-on
+checks. `DEV#23` and `CARD#10` therefore remain open; the latter also keeps
+the explicit temporal-scrollbar coverage limit above.
+
+
+## WSL driver follow-up (2026-11-18)
+
+The [dev/schnell result](../verified.md#flux1-dev-and-schnell-under-wsl-production-http-2026-11-18)
+retains three local driver lessons: normalize receipt labels before a run;
+allow missing exit-time RSS/swap counters only after proving that exact
+PID/birth ended; and check Linux ownership-preflight refusals before consuming
+terminal reports. The successful CPU supplements had complete counters, so the
+terminal-skip branch is unit-tested only. One ownership refusal produced empty
+stdout and the collector's IndexError; delayed visibility was not established.
+Supplemental verification/recovery reused saved outputs without a GPU rerun.
+These helper corrections change no shipped guard or image-mode qualification.
+The separate [WSL critic observation](../verified.md#wsl-critic-after-abrupt-owning-app-death-2026-11-18)
+failed immediate kill-on-close; delayed idle GPU release and exact owned test
+cleanup do not establish a production lifetime fix.

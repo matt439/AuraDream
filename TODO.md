@@ -8,15 +8,20 @@ The maintainer's working backlog for this personal project: it records what is p
 
 **Aim (2026-10-29):** keep useful work ready for Matt's common workstation tasks. [Reported use](docs/design/preferences.md) guides priority; it does not approve the candidate redesign.
 
-**Overnight qualification (2026-11-16):** Matt authorized autonomous TODO work
-on the idle workstation. Use guarded local card sessions and the owners'
-completion criteria; keep commits local. The explicit `PA#18` GPU hold,
-Matt-picked `INP#12` sources and hands-on acceptance remain separate.
+**Workstation qualification (2026-11-18):** Matt authorized all outstanding
+local GPU tests. Completed bounded slices are recorded in their owners and
+`docs/verified.md`. The bounded Regional card table is measured, including
+early-request latency and a separate retained-artifact uncancelled control.
+V6's strict historical RGB gate remains failed; v7 reproduced its recovery RGB
+twice. Matt's pair judgment and source/release/artifact-rebuild policy remain.
+The explicit `PA#18` GPU hold, Matt-picked `INP#12` source IDs and hands-on
+acceptance remain separate. Keep completed commits local.
 
 **Current work (2026-11-16):** Matt commissioned `INP#12`, the single-image
 face and hand detailer. Its experimental CPU detectors, source/storage
 contracts, serial queue and region-review dialog are built and locally
-checked. The remaining card comparison is separately authorized.
+checked. The card comparison is authorized; its next prerequisite is Matt's
+selected source image IDs.
 [Owner](docs/maintainer/plan-detailer.md#implementation-2026-11-16).
 
 Also commissioned 2026-11-16: `PA#18`, a local assistant for conversational
@@ -30,11 +35,34 @@ their implementation and validation belong to the same owner. GPU testing
 remains explicitly held.
 [Owner](docs/maintainer/plan-prompt-assistant.md).
 
-**Ready backlog (updated 2026-11-17):** one `OPEN` row: `GEN#49` has a bounded plan and checked private CPU prototype after its exploratory seam look; next are the integrated backend/source/reproduction contract and card/public-flow stages; `GEN#48` completed its bounded Turbo, Aesthetic and Preview release with independent private/public/standalone card acceptance and the final integrated gate ([result](docs/maintainer/plan-anima-refine.md#final-current-tree-integrated-gate)); `GEN#72` (the guarded delete in Models > On disk) is built through stage 4 and waits on Matt's Windows acceptance (`USER`). The [2026-11-13 TODO audit](docs/maintainer/review-2026-11-13-todo.md#ready-work-open)'s 18 rows, all CPU or browser work, were built the same day ([results](docs/maintainer/review-2026-11-13-todo.md#results)): `DEV#64` (the passcode renewing on a marked poll), `GAL#28` (Windows sidecar reads and saves), `GAL#29` (a deleted PNG kept in bundles), `GEN#71` (On disk's unrecorded revisions, ready for Matt's `GEN#68` look), `GAL#30` (the Runs list's session per run), `GEN#69` (grid refusals naming schema fields), `GEN#70` (Models' Speed facts from the warm fp8 repeats), `PA#17` (Danbooru aliases in tag verdicts), `UI#54` (the offline page's announcements, held buttons' reasons), `UI#55` (Notify when done through the service worker), `DEV#65` (smoke-compact-setup's loras race), `DEV#66` (update.sh naming a stale service unit), `DEV#67` (the PowerShell launcher's uv lookup), `DEV#68` (update.ps1's relative gallery path), `DEV#69` (update on a detached HEAD), `DEV#70` (wsl/env.sh sourced again), `GAL#31` (free words in Delete unstarred) and `UI#56` (U for Reuse settings). `DEV#58` (PR #72) and `GEN#46` (FLUX 3 [Klein]'s real tokenizers in CI, PR #73) finished 2026-11-13. The [2026-11-12 TODO audit](docs/maintainer/review-2026-11-12-todo.md#results-2026-11-12)'s rows, with `GAL#27` and `UI#53` added at Matt's request, were built 2026-11-12 and 13: those finished were removed, and the rest wait on Matt (`GEN#66` accepted and `GEN#68` looked at 2026-11-14, its delete now `GEN#72`, `OPEN`), or on the card (the remaining `CARD` rows); `GEN#48` completed its bounded release on 2026-11-17, while `GEN#6` now needs Matt's preview preference and page glance; `INP#12` was commissioned and built through CPU/browser checks on 2026-11-16. Local CPU, stub-script and fake-browser checks do not establish card, clean-machine or real-device acceptance.
+**Ready backlog (updated 2026-11-18):** two `OPEN` rows: `INP#13` now starts with its missing second-recipe/protocol plan addendum after `INP#11` acceptance; `GEN#49` has a bounded plan and checked private CPU prototype after its exploratory seam look; next are the integrated backend/source/reproduction contract and card/public-flow stages; `GEN#48` completed its bounded Turbo, Aesthetic and Preview release with independent private/public/standalone card acceptance and the final integrated gate ([result](docs/maintainer/plan-anima-refine.md#final-current-tree-integrated-gate)); `GEN#72` (the guarded delete in Models > On disk) is built through stage 4 and waits on Matt's Windows acceptance (`USER`). The [2026-11-13 TODO audit](docs/maintainer/review-2026-11-13-todo.md#ready-work-open)'s 18 rows, all CPU or browser work, were built the same day ([results](docs/maintainer/review-2026-11-13-todo.md#results)): `DEV#64` (the passcode renewing on a marked poll), `GAL#28` (Windows sidecar reads and saves), `GAL#29` (a deleted PNG kept in bundles), `GEN#71` (On disk's unrecorded revisions, ready for Matt's `GEN#68` look), `GAL#30` (the Runs list's session per run), `GEN#69` (grid refusals naming schema fields), `GEN#70` (Models' Speed facts from the warm fp8 repeats), `PA#17` (Danbooru aliases in tag verdicts), `UI#54` (the offline page's announcements, held buttons' reasons), `UI#55` (Notify when done through the service worker), `DEV#65` (smoke-compact-setup's loras race), `DEV#66` (update.sh naming a stale service unit), `DEV#67` (the PowerShell launcher's uv lookup), `DEV#68` (update.ps1's relative gallery path), `DEV#69` (update on a detached HEAD), `DEV#70` (wsl/env.sh sourced again), `GAL#31` (free words in Delete unstarred) and `UI#56` (U for Reuse settings). `DEV#58` (PR #72) and `GEN#46` (FLUX 3 [Klein]'s real tokenizers in CI, PR #73) finished 2026-11-13. The [2026-11-12 TODO audit](docs/maintainer/review-2026-11-12-todo.md#results-2026-11-12)'s rows, with `GAL#27` and `UI#53` added at Matt's request, were built 2026-11-12 and 13: those finished were removed, and the rest wait on Matt (`GEN#66` accepted and `GEN#68` looked at 2026-11-14, its delete now `GEN#72`, awaiting Windows acceptance), or on the card (the remaining `CARD` rows); `GEN#48` completed its bounded release on 2026-11-17, while `GEN#6` now needs Matt's preview preference and page glance; `INP#12` was commissioned and built through CPU/browser checks on 2026-11-16. Local CPU, stub-script and fake-browser checks do not establish card, clean-machine or real-device acceptance.
+
+**Private speed measurements (2026-11-18):** `PERF#3`'s Native/cuDNN fixed
+comparisons/replays and a distinct capped same-process lifecycle experiment are
+measured; the original fresh-headroom refusal is retained separately. `PERF#3`
+and `PERF#4` now route to Matt's visual judgment of the fixed pairs (`USER`).
+`PERF#1` also routes to Matt's pair judgment (`USER`) after its bounded table
+and artifact-local control.
+Numerical differences and speed do not establish image quality. Public recipes,
+ordinary uncapped/UI switching and release integration remain separate; the
+owners retain exact measured scope and evidence.
 
 **Decisions:** no unanswered `DECISION` rows. On 2026-11-13 Matt accepted both of the [2026-11-13 audit](docs/maintainer/review-2026-11-13-todo.md#matts-answers-2026-11-13)'s (`GAL#31`, `UI#56`, both built the same day). On 2026-11-12 Matt accepted every recommended answer of the [2026-11-12 audit](docs/maintainer/review-2026-11-12-todo.md#matts-answers-2026-11-12): 11 rows became `OPEN`, `CARD#4`, `CARD#6` and `CARD#12` were retired under the K4/K5 Never ratings, and `GEN#15` stays a model-offload card render. Decisions in force that limit work: `GEN#39` and unattended backups (`GAL#22`, `GAL#6`) declined; `GEN#8`, `GEN#20` and `INP#10` deferred by Matt; `PERF#7`'s answers (cache beside the gallery, static shapes, shipping after `PERF#1`); `DEV#20`'s 4 GiB commit floor (a card session runs on a quiet machine); `GEN#45`'s FLUX 3 scope (Klein and Klein Base, the upsampler opt-in only); the passcode's flagged choices as written (2026-11-10); Animagine XL 4.0 as the first open checkpoint (`GEN#59`) and Anima for the first app-owned Refine (`GEN#48`), both 2026-11-11. The history is in the owners and in Review coverage below.
 
-**Needs Matt's hands or card:** `GEN#6`'s early SDXL preview preference and real-page glance; `GEN#72`'s acceptance on his real Windows cache (one real entry with another selected, then one Anima variant); `DEV#39`'s deliberate ruleset edit before a hosted installer CI job can be added; `DEV#32`'s stage 4, the passcode on the real machines; `UI#40`'s phone/platform acceptance, workbench task trials (`DEV#1`, kit refreshed 2026-10-30), the typed Ctrl-C on the fake for `DEV#23`, hands-on accessibility/desktop checks (`UI#7`), and every `CARD` row, including the speed qualifications `PERF#1`, `PERF#3` and `PERF#4`, `INP#11`'s acceptance step (one load), and `INP#12`'s detailer comparison. `PERF#2`'s card measurement waits on `PERF#1`'s.
+**Needs Matt's hands or card:** `GEN#6`'s early SDXL preview preference and
+real-page glance; `GEN#72`'s acceptance on his Windows cache; `DEV#39`'s
+deliberate ruleset edit; `DEV#32`'s passcode acceptance on real machines;
+`UI#40`'s phone/platform acceptance, workbench trials (`DEV#1`), typed Ctrl-C
+(`DEV#23`, `CARD#10`, `CARD#11`) and hands-on accessibility/desktop checks
+(`UI#7`). `PERF#3` and `PERF#4` now need Matt's visual judgment of the fixed
+pairs (`USER`); their private measurements do not release public recipes.
+`PERF#7` now needs Matt's shipping/Models-choice judgment from the measured
+Regional table (`USER`); `PERF#1` now needs Matt's pair validation and
+source/release/artifact-rebuild policy. `PERF#2` still waits on that qualification,
+then its own unbuilt loader/source stage before a dynamic-activation run.
+`INP#12` first needs Matt-selected source IDs.
+Remaining local `CARD` rows retain their explicit safety, coverage or manual
+gates; the RTX 3070 rows are separate remote-device work.
 
 **GPU runs are Matt's to run or OK, never past the card's memory** (16 GB on the 5080, 8 GB on the 3070; every `CARD` row). Check the checkpoint's measured peaks in `docs/verified.md` first; a run that spills into shared memory proves only that it doesn't fit.
 
@@ -44,7 +72,7 @@ remains explicitly held.
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `DEV#23` | USER | LOW | S+card | The eight `tools/card/card10-*.json` packs and their test are built 2026-10-30; the six page packs pass on the fake. Left: Matt types Ctrl-C on the fake for the two Ctrl-C packs, then stage 2 on the card. [CARD#10 step packs](docs/maintainer/plan-card-harness.md#card10-step-packs). |
+| `DEV#23` | USER | LOW | S+card | Six real-page assertion packs passed 2026-11-18. Left: Matt types Ctrl-C on the fake, then in the real loading/loaded consoles; temporal scrollbar coverage remains in `CARD#10`. [Remaining checks](docs/maintainer/plan-card-harness.md#real-page-follow-up-2026-11-18). |
 | `DEV#1` | USER | LOW | M | Run common-task trials with Matt, comparing the current app and candidate layouts before choosing redesign slices. [Protocol](docs/design/validation.md#one-user-formative-protocol). |
 
 ## First-run experience
@@ -74,14 +102,10 @@ No open rows: the [2026-11-13 audit](docs/maintainer/review-2026-11-13-todo.md#r
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `CARD#1` | CARD | LOW | S+card | Inpaint at fp8: FLUX.1 dev and schnell at 0.95, a LoRA through a FLUX.1 inpaint, the seam by number on FLUX.1. Nunchaku is `CARD#3`, later families are `INP`. [Inpaint](docs/verified.md#inpaint). |
-| `CARD#2` | CARD | LOW | S+card | Outpaint: FLUX.1 dev and schnell, and the outpaint's seam by number on FLUX.1. [Outpaint](docs/verified.md#outpaint). |
-| `CARD#3` | CARD | LOW | S+card | Inpaint over the FLUX.1 dev and schnell lite transformers under WSL, one load per checkpoint. ZTurbo's real-server/dialog/compositing/storage slice passed 2026-11-17 with nondeterministic repeats and separate evidence-export recovery recorded. [Result](docs/verified.md#real-server-and-inpaint-dialog-on-z-image-turbo-2026-11-17). |
-| `CARD#7` | CARD | LOW | M+card | Refine on FLUX.1 at fp8: dev, what schnell's starting strength keeps, true CFG through FluxImg2Img. Offload none and sequential past Z-Image Turbo. [Refine pass](docs/verified.md#refine-pass). |
-| `CARD#9` | CARD | LOW | S+card | ERNIE-Image Turbo on fp8: seed reproduction across two processes, whether the 4 MP batch of two fits (the harness's projection refused it), and the page's Expand line and clock over the rewriter's real first-use download. [Behaviour](docs/verified.md#behaviour). |
-| `CARD#10` | CARD | LOW | M+card | On the real server, fixes checked only on the fake: 9377de1, 7733f81, 6a7570d, ad01fdc, 2a4d2cc, 2b89ed5. R50's fix (1744dc3) with a typed Ctrl-C, and Ctrl-C to an idle server with a model loaded. [Behaviour](docs/verified.md#behaviour); [10-12 not reached](docs/maintainer/review-2026-10-12.md#review--2026-10-12). |
-| `CARD#11` | CARD | LOW | M+card | Critic: a pure reorder reaching partial placement (three new 2026-11-17 candidates changed words and were rejected; fully placed control checked); FLUX.1 Krea [dev] at int8 or sequential beside it and rewrites over more seeds; WSL kill-on-close; Ctrl-C during a critique. [Result](docs/verified.md#critic-partial-placement-follow-up-2026-11-17). |
-| `CARD#13` | CARD | LOW | M+card | Only the masked area: FLUX.1 fp8/model-offload crop on a 2.4-8.4 MP source (peak near 12.2/12.8 GiB) and its seams at padding 0/32/64 under model offload (sequential measured 2026-11-11); other Z-Image crop checkpoints. One load per session, with a lower desktop VRAM baseline. [Remaining measurements](docs/verified.md#only-the-masked-area). |
+| `CARD#7` | DEFERRED | LOW | M+card | Native fp8 FLUX.1 dev Refine with offload `none` (1024-square to 1536-square, strength 0.1) is held on the 16 GB card by the weights-only guard bound. Only if Matt later selects this mode on viable hardware: freeze header/activation/host budgets before a load. No wider family/offload sweep is commissioned. [Owner](docs/verified.md#windows-follow-up-measurements-2026-11-18). |
+| `CARD#9` | CARD | LOW | S+card | ERNIE fp8 2048-square batch two remains unrun: the fresh result projects 17,587 MiB, above the 15,200 MiB ceiling. Revisit only with a viable bounded hardware/recipe envelope; never force this case past the guard. [Result](docs/verified.md#windows-follow-up-measurements-2026-11-18). |
+| `CARD#10` | CARD | LOW | M+card | Left: actual 7733f81 temporal scrollbar coverage, and hand-typed Ctrl-C during loading and idle with a loaded model; the fake console prerequisites remain Matt's too. [Remaining gates](docs/maintainer/plan-card-harness.md#real-page-follow-up-2026-11-18). |
+| `CARD#11` | CARD | LOW | M+card | Left: a pure reorder reaching partial placement, a production WSL lifetime fix/qualification after the measured owner-death failure, and typed Ctrl-C during a critique. Sequential coexistence and three rewrite seed pairs are measured; int8/model stopped on host commit. [Results](docs/verified.md#critic-partial-placement-trigger-follow-up-2026-11-18). |
 | `CARD#14` | CARD | MED | S+card | On the 3070 server: a suspend with a model loaded, and whether the loaded pipeline survives the resume (`NVreg_PreserveVideoMemoryAllocations=1` is set). [RTX 3070](docs/verified.md#rtx-3070-8-gb-native-ubuntu-2026-11-03). |
 | `CARD#15` | CARD | LOW | S+card | Nunchaku int4 on the 3070 (sm_86): whether the lite-infer kernels load and render, its time and peak. [RTX 3070](docs/verified.md#rtx-3070-8-gb-native-ubuntu-2026-11-03). |
 | `CARD#16` | CARD | LOW | S+card | The prompt critic's pinned CUDA 13.4 llama.cpp build under the 3070's 13.2 driver (first use, a critique). [RTX 3070](docs/verified.md#rtx-3070-8-gb-native-ubuntu-2026-11-03). |
@@ -93,12 +117,11 @@ No open rows: the [2026-11-13 audit](docs/maintainer/review-2026-11-13-todo.md#r
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `INP#11` | CARD | LOW | XL+card | Stages 0-3 done; stage 4's ten slices on main since PR #17 (Kontext listed, the real gate open inside the measured envelope: fp8, model offload, Windows, 1:1 at 512x512). Left: the card acceptance step, one load on the real server and page (the envelope re-measured on diffusers 0.42.1, 2026-11-10). [Card step](docs/maintainer/plan-instruction-editing.md#card-acceptance-step). |
 | `INP#5` | DEFERRED | LOW | M+card | Phase 4, klein: one reference beside the source, its mu recipe, memory with the sequence doubled, `smoke-inpaint-klein`. Matt doesn't run klein. |
 | `INP#6` | DEFERRED | LOW | M+card | Phase 5, Qwen-Image under Nunchaku (WSL), only if the inpaint class runs over the Nunchaku transformer at all. |
 | `INP#10` | DEFERRED | LOW | M | Outpaint, later if wanted: the server's fill shown in the frame (kept for later, 2026-10-17), an outpaint over a painted mask, a second fill. |
-| `INP#12` | CARD | LOW | L+card | Stages 1-3 built and locally checked 2026-11-16: experimental CPU face/hand finders, versioned provenance and serial SDXL inpaints with region review. Left: the separate card comparison of small-region quality, identity, seams and memory. Illustrated detection has low recall; illustrated hands are unqualified. [Card acceptance](docs/maintainer/plan-detailer.md#remaining-card-acceptance). |
-| `INP#13` | BLOCKED | LOW | L+card | After `INP#11`'s card acceptance: open the plan's frozen aspects under the 512² area, and a second frozen recipe at 1024x1024 1:1 with its own one-load card protocol. [R3](docs/maintainer/review-2026-11-10-peers.md#r3-a-wider-instruction-edit-envelope). |
+| `INP#12` | CARD | LOW | L+card | Source/CPU/browser detailer stages are built. Left: Matt-selected source image IDs, then the separate small-region quality, identity, seam and memory comparison. Illustrated detection has low recall; illustrated hands remain unqualified. [Card acceptance](docs/maintainer/plan-detailer.md#remaining-card-acceptance). |
+| `INP#13` | OPEN | LOW | L+card | After `INP#11` acceptance, write the missing plan addendum for the second 1024x1024 square recipe and its one-load protocol, including the existing frozen aspects. Recipe/source/reproduction work comes before a card run; wider admission stays closed. [R3](docs/maintainer/review-2026-11-10-peers.md#r3-a-wider-instruction-edit-envelope). |
 
 ## Generation, jobs and models
 
@@ -106,7 +129,7 @@ No open rows: the [2026-11-13 audit](docs/maintainer/review-2026-11-13-todo.md#r
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `GEN#16` | CARD | LOW | S+card | The 2026-11-16 FLUX.1 Krea dev attempt stopped at 15,632 MiB before its first 1536-square pass. Left: a guarded 1.5x alternation and pair-time comparison with sufficient card and host-commit headroom; the stopped attempt qualifies neither. [Result](docs/maintainer/plan-then-refine.md#guarded-flux-attempt-2026-11-16). |
+| `GEN#16` | CARD | LOW | S+card | A guarded Krea 1.5x alternation and pair-time comparison still needs viable card/host headroom: matched-stage preflight refused before loading on 2026-11-18. No pass/timing qualified. [Result and next admission](docs/maintainer/plan-then-refine.md#matched-stage-preflight-2026-11-18). |
 | `GEN#6` | USER | LOW | S | The guarded Animagine card capture passed 2026-11-17, with identical callback/SSE preview bytes and retained first/middle/late/final images. Left: Matt's real-page glance and preference for the noisy first frame. FLUX.2's map stays deferred. [Evidence](docs/maintainer/review-2026-11-12-todo.md#gen6-card-capture-2026-11-17). |
 | `GEN#8` | DEFERRED | LOW | L | U61 part B: one's own photo or sketch as a reference (import route, a source marker through storage, reindex and reruns; add, drop and paste). Matt deferred it 2026-10-05; only when he raises it. [References](docs/design-notes.md#reference-images-by-gallery-id). |
 | `GEN#20` | DEFERRED | LOW | L+card | Opt-in A1111 weighting and 77-token chunking on SDXL, deferred by Matt 2026-10-27 because he does not write weighted prompts; revisit on request. [10-24 G10](docs/maintainer/review-2026-10-24.md#g10-a1111-style-weighting-and-long-prompts-on-sdxl). |
@@ -115,15 +138,15 @@ No open rows: the [2026-11-13 audit](docs/maintainer/review-2026-11-13-todo.md#r
 
 ## Speed
 
-**Owner:** the [2026-10-25 review](docs/maintainer/review-2026-10-25.md#speed), including each row's CPU-only next planning slice. The measured weight-only fp8/int8 cases run slower a step than bf16; none of the proposed speed tools is used yet. Each pixel-changing choice is recorded for reproduction.
+**Owner:** the [2026-10-25 review](docs/maintainer/review-2026-10-25.md#speed), including each row's CPU-only next planning slice. The measured weight-only fp8/int8 cases run slower a step than bf16. Private compiler, attention and cache comparisons are recorded in their owners; public execution stays closed. Each pixel-changing choice is recorded for reproduction.
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `PERF#1` | CARD | MED | L+card | The tiny isolated Windows CUDA/Triton/Inductor probe passed 2026-11-17. Left: app-owned cache/toolchain binding, the quantized regional model and fixed-case card comparisons; public nonempty admission stays closed. [Result and remaining protocol](docs/maintainer/plan-regional-compilation.md). |
-| `PERF#3` | CARD | LOW | M+card | Qualify Native/cuDNN speed, fit and repeatability. Public nonempty admission remains closed. [Plan](docs/maintainer/plan-attention-backends.md). |
-| `PERF#4` | CARD | LOW | L+card | Run the fixed off/on quality, time and memory comparisons, then judge the pairs. Public caching remains closed. [Plan](docs/maintainer/plan-step-caching.md). |
-| `PERF#2` | BLOCKED | LOW | M+card | The card measurement of a quantization choice with fp8 activations (torchao `Float8DynamicActivationFloat8WeightConfig`); waits on `PERF#1`'s card qualification. Its CPU plan is done (`fp8-dynamic`, PerTensor, compared against fp8 only); the CPU source slice and card run are its stages 2-3. [Plan](docs/maintainer/plan-fp8-activations.md); [10-25 R2](docs/maintainer/review-2026-10-25.md#r2-fp8-with-fp8-activations). |
-| `PERF#7` | BLOCKED | LOW | — | Whether the compiled mode ships waits on `PERF#1`'s card table; Matt leans to an opt-in Models choice with Eager the default if it pays off. Cache location, size policy and static shapes are decided. [Questions](docs/maintainer/plan-regional-compilation.md#matts-questions). |
+| `PERF#1` | USER | MED | L+card | Bounded Regional table, early-request latency and artifact-local recovery/control replay measured 2026-11-18. V6's historical RGB gate remains failed; v7 reproduces its recovery twice with retained artifacts. Left: Matt's pair judgment and source/release/artifact-rebuild policy. Public admission stays closed. [Owner](docs/maintainer/plan-regional-compilation.md#retained-artifact-uncancelled-control-v7-2026-11-18). |
+| `PERF#3` | USER | LOW | M+card | Fixed Native/cuDNN speed, fit and exact replay comparisons plus the separate capped-resident-v3 same-process lifecycle were measured 2026-11-18. Left: Matt judges visual usefulness/quality before release decisions. Original fresh-headroom refusal is retained; ordinary uncapped/UI switching and public nonempty admission remain unqualified/closed. [Results](docs/maintainer/plan-attention-backends.md#private-card-results-2026-11-18). |
+| `PERF#4` | USER | LOW | L+card | Six Off/FBC pairs, fresh-process replay, state cleanup and cancel/recovery passed 2026-11-18. Left: Matt judges prompt coverage, anatomy, detail and text in the fixed pairs before any routine-use/release decision. Public caching remains closed. [Results and pairs](docs/maintainer/plan-step-caching.md#private-card-results-2026-11-18). |
+| `PERF#2` | BLOCKED | LOW | M+card | `fp8-dynamic` (PerTensor vs fp8) waits on `PERF#1`'s acceptance/qualification decision. Its own stage 2 loader mapping, inventory, refusals and reproduction carry are unbuilt and precede its independent activation-kernel/card qualification. Existing fp8 measurements do not measure dynamic activations. [Dependency and stages](docs/maintainer/plan-fp8-activations.md#current-dependency-2026-11-18). |
+| `PERF#7` | USER | LOW | — | The first Regional card table is measured. Matt now judges whether it should ship and where: an opt-in Models choice with Eager default, launch-only, or held. Cache location, size policy and static shapes are decided. `PERF#1`'s remaining qualification and public-release gates stay separate. [Questions](docs/maintainer/plan-regional-compilation.md#matts-questions). |
 
 ## Prompt analyser
 
@@ -189,6 +212,8 @@ Each review's remaining work is indexed above; closed findings stay in their own
 | 2026-11-12 TODO audit | [Reconciliation and new work](docs/maintainer/review-2026-11-12-todo.md): stale NOW and coverage text fixed, `DEV#20` stage 2 recorded; 26 verified proposals added as 14 `OPEN` rows and 13 `DECISION` rows; Matt accepted every recommendation the same day (11 more `OPEN`, `CARD#4`/`CARD#6`/`CARD#12` retired). Built 2026-11-12/13 with `GAL#27` and `UI#53` (PR #71, [results](docs/maintainer/review-2026-11-12-todo.md#results-2026-11-12)), `DEV#58` last (PR #72, every smoke polling its expects); what is left of `GEN#6` and `INP#12` is indexed above; `GEN#48` completed its bounded Anima release on 2026-11-17; `GEN#66` closed 2026-11-14 on Matt's `powercfg /requests` reading, `GEN#68` the same day on his look at On disk (its delete is `GEN#72`). `GEN#46` closed 2026-11-13 (PR #73): CI's account reads both FLUX 3 licences, and FLUX 3 and Klein Base are `REAL` in the encoding tests and the CI tokenizer fetch. |
 | 2026-11-13 TODO audit | [Reconciliation and new work](docs/maintainer/review-2026-11-13-todo.md): coverage table, `GEN#15`'s owner and two F27 references fixed; two rounds of lenses, 27 proposals, 4 refuted; 16 `OPEN` rows and 2 `DECISION` rows added, both accepted by Matt the same day (`GAL#31`, `UI#56`, `OPEN`); `DEV#64`, `GAL#28`, `GAL#29`, `GEN#71`, `GAL#30`, `GEN#69`, `GEN#70`, `PA#17`, `UI#54`, `UI#55`, `DEV#65`, `DEV#66`, `DEV#67`, `DEV#68`, `DEV#69`, `DEV#70`, `GAL#31` and `UI#56` built the same day ([results](docs/maintainer/review-2026-11-13-todo.md#results)). |
 | 2026-11-16 detailer | `INP#12` stages 1-3 built: experimental CPU face/hand finders, region review, serial SDXL inpaints, portable provenance and partial-result recovery. Local CPU/browser checks pass; separate card acceptance remains. [Evidence and behavior](docs/maintainer/plan-detailer.md#implementation-2026-11-16). |
+| 2026-11-18 local GPU qualification | Completed `CARD#1`, `CARD#2`, `CARD#3`, `CARD#13` and `INP#11`; remaining unsafe/manual/coverage cases stay explicit. Private Regional, Native/cuDNN and FBC matrices are measured; pixel-changing pairs await Matt. WSL critic owner death exposed a production lifetime gap. [Results](docs/verified.md). |
+
 
 ---
 

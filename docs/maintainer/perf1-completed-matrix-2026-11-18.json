@@ -1,0 +1,2842 @@
+{
+  "schema": "auradream-perf1-completed-private-matrix-v1",
+  "receipt_created_utc": "2026-11-18T09:42:19.739613+00:00",
+  "source_commit": "f8f4cf2de7c690300735ea189876f687c5f937b1",
+  "scope": "Private Windows RTX5080 Regional-v1 FLUX.1 Krea dev,fp8/model-offload,Eager/Native comparator; no public admission/default package installation",
+  "loader": {
+    "checkpoint": "black-forest-labs/FLUX.1-Krea-dev",
+    "quantization": "fp8",
+    "offload": "model",
+    "device": "cuda:0",
+    "images_per_call": 1,
+    "steps": 28,
+    "guidance_scale": 3.5,
+    "mu": "automatic",
+    "negative_prompt": null,
+    "LoRA": null,
+    "reference": null,
+    "edit_or_refine": null
+  },
+  "model_weights_scope": "Already cached offline weights; no model download. Full checkpoint byte hashes and an explicit Hub snapshot revision were not captured by this harness; do not infer current Hub head.",
+  "execution_path": "Actual backend.main __main__ cache bootstrap with private startup-plan hook; finite Server.run interception (no HTTP listener); main.ensure_loaded with private prepared-load wrapper; actual backend.generate with narrow instance-only execution guard; production applied/generator/no_grad/schedule/callback/cancellation/cleanup unchanged.",
+  "compiler_overlay": {
+    "pin": "triton-windows==3.7.1.post27",
+    "installed_hashed_RECORD_entries": 287,
+    "actual_bundled_CC_and_CUDA_paths_verified": true,
+    "base_environment_install_changed": false,
+    "published_wheel_sha256_reference": "e8ed215c02afc85a81f0097196f8bebdf6f68085f1bc0fe8771b9a74783f15ab",
+    "published_wheel_archive_rehashed_this_session": false
+  },
+  "bootstrap_stop": {
+    "name": "regional-probe-a1",
+    "status": "harness bootstrap refusal before weights/forward",
+    "cause": "Strict outgoing socket guard blocked stdlib Windows Proactor socketpair twice during ensure_loaded/shutdown loop creation.",
+    "correction": "One stdlib Proactor Runner initialized before strict outgoing guard; reused for actual main load/shutdown. No application/third-party loopback whitelist.",
+    "evidence": [
+      {
+        "path": ".artifacts/gpu-20261118/perf1/regional-probe-a1/preflight.json",
+        "bytes": 657,
+        "sha256": "3159d7097f3eee2a95bc56d650e08f72db91f70661b0304458d3d60150515ee4"
+      },
+      {
+        "path": ".artifacts/gpu-20261118/perf1/regional-probe-a1/summary.json",
+        "bytes": 219,
+        "sha256": "26c3a75af1a9253d66b943ccaafc1ad44e00141b9bda1f24d83126b39eacdfd7"
+      },
+      {
+        "path": ".artifacts/gpu-20261118/perf1/regional-probe-a1/worker.log",
+        "bytes": 7827,
+        "sha256": "d78be0e7315c423369e8310faa417ecfabb8e90631eebb2d269c1f8de376d068"
+      },
+      {
+        "path": ".artifacts/gpu-20261118/perf1/regional-probe-a1/guard.jsonl",
+        "bytes": 16764,
+        "sha256": "a9653dba40ac784bc65f9498a34d2571dd8b27aa84fc12cb2748a708a5ed92b3"
+      },
+      {
+        "path": ".artifacts/gpu-20261118/perf1/regional-probe-a1/after-exit.json",
+        "bytes": 231,
+        "sha256": "a2291c65a414f98e43c93e4de0ff49a816a219e77ad7edb0c3327f6c7c5c484a"
+      },
+      {
+        "path": ".artifacts/gpu-20261118/perf1/regional-probe-a1/keep-awake.json",
+        "bytes": 73,
+        "sha256": "24e170c01c89e7ca3055ed68309a1472c993a25a6711ef8cd866441110ed8099"
+      }
+    ]
+  },
+  "sessions": [
+    {
+      "name": "regional-probe-a2",
+      "source_commit": "f8f4cf2de7c690300735ea189876f687c5f937b1",
+      "runtime_facts": {
+        "platform": "win32",
+        "python_version": [
+          3,
+          13
+        ],
+        "torch": "2.13.0+cu130",
+        "diffusers": "0.42.1",
+        "torchao": "0.18.0",
+        "triton": null,
+        "triton_windows": "3.7.1.post27"
+      },
+      "actual_toolchain_runtime": {
+        "imports": {
+          "triton": {
+            "path": "C:\\Users\\matsi\\AppData\\Local\\uv\\cache\\archive-v0\\W1SU8e4Eva3hUwd_\\Lib\\site-packages\\triton\\__init__.py",
+            "sha256": "fc8d0ce7535a4773769dfdcdb3a8b7bcee1bf58d3d03cc318529104c1e1431fd"
+          },
+          "build": {
+            "path": "C:\\Users\\matsi\\AppData\\Local\\uv\\cache\\archive-v0\\W1SU8e4Eva3hUwd_\\Lib\\site-packages\\triton\\runtime\\build.py",
+            "sha256": "fc8c34b2e46346488ada8efa19200e6dab0173ecbc5f58c052a33a1a5f29e39a"
+          },
+          "windows_utils": {
+            "path": "C:\\Users\\matsi\\AppData\\Local\\uv\\cache\\archive-v0\\W1SU8e4Eva3hUwd_\\Lib\\site-packages\\triton\\windows_utils.py",
+            "sha256": "6cb3b85f44355348f93c67bb4fcefadcc358f1639e7271ddc20c53e325c64f10"
+          },
+          "libtriton": {
+            "path": "C:\\Users\\matsi\\AppData\\Local\\uv\\cache\\archive-v0\\W1SU8e4Eva3hUwd_\\Lib\\site-packages\\triton\\_C\\libtriton.pyd",
+            "sha256": "03f7d9b25d269373cf240eb7751de4859f386210b338887cb242e65d250bcc5e"
+          }
+        },
+        "cuda_bin": "C:\\Users\\matsi\\AppData\\Local\\uv\\cache\\archive-v0\\W1SU8e4Eva3hUwd_\\Lib\\site-packages\\triton\\backends\\nvidia\\bin",
+        "cuda_includes": [
+          "C:\\Users\\matsi\\AppData\\Local\\uv\\cache\\archive-v0\\W1SU8e4Eva3hUwd_\\Lib\\site-packages\\triton\\backends\\nvidia\\include"
+        ],
+        "cuda_libs": [
+          "C:\\Users\\matsi\\AppData\\Local\\uv\\cache\\archive-v0\\W1SU8e4Eva3hUwd_\\Lib\\site-packages\\triton\\backends\\nvidia\\lib\\x64"
+        ],
+        "gpu": "NVIDIA GeForce RTX 5080",
+        "cuda": "13.0",
+        "cudnn": 92000
+      },
+      "runtime_source_sha256": {
+        "backend/main.py": "d830ab7a8a5bbe4861223ea9b4a627f350b0f8395539421ed4834a3ba50f780b",
+        "backend/compiler_cache.py": "77d05df5d8cfae763e916a6a965a14afe78111fc37cea64bb71c94b0cb37e393",
+        "backend/execution.py": "271a02f75a835997520d55accd579d70456ddb1f7ff9f205daeb8f4d42788d6b",
+        "backend/config.py": "b7189b43e41237b1a9eacfb84957bcda634af7501f6fd19a2b1cd625dce41000",
+        "backend/backends/diffusers_backend.py": "c3a85a23288be5d3ccb3bdb1b4751f5456c75d714685d9cf02f3e597c838274e",
+        "backend/backends/regional_compile.py": "724aec3e7741fc633a0079e57f7bc8cfe488ebb9c1c7dfbf8fb90951e06a0281",
+        "backend/backends/loading.py": "9be74744319b06920caf9ae6c55ac1ec4bd20b2b7954f7991721d54adcd77575",
+        "backend/backends/attention_selection.py": "42f10753f5b110479013ff380733b1d28f7a38fb400418e2cecba453ffe705b0",
+        "tools/card_guard.py": "1a553aa6dcb1b096a250d8aa8d813ca14238889e8264f91204d1c976906c6410",
+        "tools/perf_cases.py": "17b1f7a5515cd3e7460db43fc73ca60899ae034cccce79f2b806856a2871827f",
+        "work/perf1_toolchain_probe.py": "fe01f8d53823b78b8499ffd00d8ccde9b230ccab7873228ff3496b6d74b1686f",
+        "work/perf3_card_private.py": "1f89be9f51ddf27c9cffbc0c4b86b8d75d847de42ab2daed31615897d60b8e25",
+        "uv.lock": "623d29ad0123fe832ebd172d0b3eeda66a7dad1be28f6e0b483daab68fe15c0b",
+        "pyproject.toml": "de475675e0b93f42f1b65779f8268fe086a223a87dcef3bfe97920062d8e3eb7",
+        "C:\\Projects\\AuraDream\\.artifacts\\gpu-20261118\\perf1\\regional_card.py": "6057c8d6d9e0f72096bbb1c85fd6f1e836eb725ee5da49e588c0813d353c4577"
+      },
+      "plan": {
+        "recipe": "regional",
+        "mode": "probe",
+        "context": "C:\\Projects\\AuraDream\\.artifacts\\gpu-20261118\\perf1\\regional-context-a2",
+        "limits": {
+          "card_mib": 15500.0,
+          "project_mib": 15200.0,
+          "refuse_at_peak_mib": 15000.0,
+          "adapter_shared_rise_mib": 1024.0,
+          "process_shared_rise_mib": 512.0,
+          "ram_floor_gib": 4.0,
+          "commit_floor_gib": 4.0,
+          "need_ram_gib": 45.0,
+          "busy_card_mib": 2500.0,
+          "card_unread_samples": 3.0,
+          "margin_mib": 500.0,
+          "margin_gib": 1.0
+        },
+        "need_commit_headroom_gib": 45.0,
+        "period": 0.25,
+        "caps": {
+          "waiting": 60,
+          "load": 600,
+          "image": 1200,
+          "cleanup": 120,
+          "done": 30
+        },
+        "session_cap": 5400,
+        "cases": [
+          {
+            "id": "A-first",
+            "prompt": "scene",
+            "shape": "A",
+            "seed": 4471
+          },
+          {
+            "id": "A-repeat-1",
+            "prompt": "scene",
+            "shape": "A",
+            "seed": 4471
+          },
+          {
+            "id": "A-repeat-2",
+            "prompt": "scene",
+            "shape": "A",
+            "seed": 4471
+          },
+          {
+            "id": "A-repeat-3",
+            "prompt": "scene",
+            "shape": "A",
+            "seed": 4471
+          }
+        ],
+        "historical_native_expected_first_sha256": null,
+        "owned_main_bootstrap": true,
+        "base_environment_unchanged": true
+      },
+      "admission": {
+        "sample": {
+          "card_mib": 973.0,
+          "adapter_shared_mib": 28.57421875,
+          "process_shared_mib": 0.0,
+          "available_gib": 49.18683624267578,
+          "commit_headroom_gib": 54.69724655151367,
+          "tree_gib": 0.030941009521484375,
+          "card_total_mib": 16303.0
+        },
+        "nonfinite": {},
+        "sources": {
+          "card": "nvidia-smi --loop-ms",
+          "shared": "pdh"
+        },
+        "admitted": true,
+        "baseline": {
+          "adapter_shared_mib": 28.57421875,
+          "process_shared_mib": 0.0
+        },
+        "answer": {
+          "verdict": "ok",
+          "why": null,
+          "reading": null,
+          "limit": null,
+          "projected_mib": null,
+          "measured": [],
+          "reason": null
+        }
+      },
+      "guard": {
+        "rows": 938,
+        "independent_verdict": "all ok",
+        "mean_gap_s": 0.2502871651013964,
+        "max_gap_s": 0.2609020999952918,
+        "whole_card_peak_mib": 13829.0,
+        "tree_RSS_peak_gib": 26.46759033203125,
+        "tree_private_peak_gib": 44.4852409362793,
+        "minimum_free_RAM_gib": 22.661300659179688,
+        "minimum_commit_headroom_gib": 10.242744445800781,
+        "adapter_shared_rise_mib": 95.859375,
+        "process_shared_rise_mib": 82.0
+      },
+      "load": {
+        "kind": "load",
+        "seconds": 63.348049499996705,
+        "allocated_peak_mib": 0.0,
+        "reserved_peak_mib": 0.0,
+        "registration": "RegionalDiagnostics(load_id=1, first_call='pending', failure_stage=None, recipe='regional-v1', registration='registered')"
+      },
+      "calls": 4,
+      "completed_images": 4,
+      "images": [
+        {
+          "case": {
+            "id": "A-first",
+            "prompt": "scene",
+            "shape": "A",
+            "seed": 4471
+          },
+          "RGB_sha256": "e54b9ba59798358270ff335ead417ff3a27c0554e54d7009ae8407f15703f7cf",
+          "PNG": {
+            "path": ".artifacts/gpu-20261118/perf1/regional-probe-a2/A-first.png",
+            "bytes": 1403638,
+            "sha256": "18210f01efdd1db0c1a2e5051515867e208543a52c61b69d23e9072cd5310635"
+          },
+          "seconds": 71.83963310001127,
+          "first_callback_seconds": 43.449833500009845,
+          "callback_interval_median_seconds": 0.9272354999993695,
+          "allocator_peak_mib": [
+            11844.07421875,
+            12378.0
+          ],
+          "generated_kernel_count": 55
+        },
+        {
+          "case": {
+            "id": "A-repeat-1",
+            "prompt": "scene",
+            "shape": "A",
+            "seed": 4471
+          },
+          "RGB_sha256": "e54b9ba59798358270ff335ead417ff3a27c0554e54d7009ae8407f15703f7cf",
+          "PNG": {
+            "path": ".artifacts/gpu-20261118/perf1/regional-probe-a2/A-repeat-1.png",
+            "bytes": 1404553,
+            "sha256": "f433f953f96728f6f8eba838c87e07fa83c1f61ef3bf1acf7d071f29a0bbe21d"
+          },
+          "seconds": 30.857621000002837,
+          "first_callback_seconds": 3.4434494000015547,
+          "callback_interval_median_seconds": 0.9299116000038339,
+          "allocator_peak_mib": [
+            11780.57421875,
+            12422.0
+          ],
+          "generated_kernel_count": 55
+        },
+        {
+          "case": {
+            "id": "A-repeat-2",
+            "prompt": "scene",
+            "shape": "A",
+            "seed": 4471
+          },
+          "RGB_sha256": "e54b9ba59798358270ff335ead417ff3a27c0554e54d7009ae8407f15703f7cf",
+          "PNG": {
+            "path": ".artifacts/gpu-20261118/perf1/regional-probe-a2/A-repeat-2.png",
+            "bytes": 1404548,
+            "sha256": "a39673464568fb55e7c2a254d4bcc3defe7f94fe5369791981128ca41dbf3b3f"
+          },
+          "seconds": 30.336074999999255,
+          "first_callback_seconds": 2.8954840999940643,
+          "callback_interval_median_seconds": 0.9289073999971151,
+          "allocator_peak_mib": [
+            11780.57421875,
+            12422.0
+          ],
+          "generated_kernel_count": 55
+        },
+        {
+          "case": {
+            "id": "A-repeat-3",
+            "prompt": "scene",
+            "shape": "A",
+            "seed": 4471
+          },
+          "RGB_sha256": "e54b9ba59798358270ff335ead417ff3a27c0554e54d7009ae8407f15703f7cf",
+          "PNG": {
+            "path": ".artifacts/gpu-20261118/perf1/regional-probe-a2/A-repeat-3.png",
+            "bytes": 1404554,
+            "sha256": "2391ac41031260f369874b5871b9f5e7da379aa5a31b4f008e81bbd91369b9d5"
+          },
+          "seconds": 30.16428920000908,
+          "first_callback_seconds": 2.7895979000022635,
+          "callback_interval_median_seconds": 0.9278011999995215,
+          "allocator_peak_mib": [
+            11780.57421875,
+            12422.0
+          ],
+          "generated_kernel_count": 55
+        }
+      ],
+      "cancellations": [],
+      "unique_fixed_cases": 1,
+      "warm_callback_wall_interval_median_seconds": 0.9291051999898627,
+      "cache": {
+        "files_before": 0,
+        "files_after": 520,
+        "bytes_after": 19816444,
+        "reuse_observation": {
+          "cache_present_before": false,
+          "fxgraph_cache_hit": 0,
+          "fresh_process_retained_cache_requested": false,
+          "reuse_observed": false,
+          "counters": {
+            "unimplemented": {},
+            "stats": {
+              "calls_captured": 272,
+              "unique_graphs": 3
+            },
+            "aot_autograd": {
+              "total": 3,
+              "autograd_cache_miss": 3,
+              "autograd_cache_saved": 3,
+              "ok": 3
+            },
+            "inductor": {
+              "pattern_matcher_count": 71,
+              "pattern_matcher_nodes": 71,
+              "fxgraph_cache_miss": 3,
+              "extern_calls": 32,
+              "async_compile_cache_miss": 38,
+              "triton_bundler_save_kernel": 528,
+              "triton_bundler_save_static_autotuner": 3,
+              "benchmarking.InductorBenchmarker.benchmark": 54,
+              "benchmarking.InductorBenchmarker.benchmark_gpu": 54
+            },
+            "graph_break": {},
+            "aten_mm_info": {
+              "aten.mm_1_18432_3072": 2,
+              "aten.mm_512_3072_3072": 4,
+              "aten.mm_4096_3072_3072": 4,
+              "aten.mm_512_12288_3072": 1,
+              "aten.mm_512_3072_12288": 1,
+              "aten.mm_4096_12288_3072": 1,
+              "aten.mm_4096_3072_12288": 1,
+              "aten.mm_1_9216_3072": 2,
+              "aten.mm_4608_3072_3072": 6,
+              "aten.mm_4608_12288_3072": 2,
+              "aten.mm_4608_3072_15360": 2
+            }
+          }
+        }
+      },
+      "policy_restoration": {
+        "before": {
+          "suppress_errors": false,
+          "fail_on_recompile_limit_hit": false,
+          "compile_threads": 1
+        },
+        "after": {
+          "suppress_errors": false,
+          "fail_on_recompile_limit_hit": false,
+          "compile_threads": 1
+        }
+      },
+      "unload_observer_scope": "v1 allocator observation only; tester guard closure retained a pipe alias until function return; no explicit root reclamation claim",
+      "unload": {
+        "kind": "unload",
+        "allocated_mib": 32.0009765625,
+        "reserved_mib": 36.0
+      },
+      "after_exit": {
+        "card_mib": 973.0,
+        "adapter_shared_mib": 29.484375,
+        "process_shared_mib": null,
+        "available_gib": 49.130741119384766,
+        "commit_headroom_gib": 54.727020263671875,
+        "tree_gib": null,
+        "card_total_mib": 16303.0
+      },
+      "power_request": {
+        "kind": "power-request",
+        "holding": false,
+        "released": true
+      },
+      "guarded_Python_socket_attempts_after_owned_stdlib_loop": [],
+      "evidence": [
+        {
+          "path": ".artifacts/gpu-20261118/perf1/regional-probe-a2/plan.json",
+          "bytes": 1300,
+          "sha256": "fa270b4e138a16ad549741f1b0345f950e6bb41c8442a5fd5b1ca1f31bd74d81"
+        },
+        {
+          "path": ".artifacts/gpu-20261118/perf1/regional-probe-a2/preflight.json",
+          "bytes": 665,
+          "sha256": "b7c2dff3c294678fac1dcb7ff022768d51c15b4f331f9f0ba43d208dbbbcb0fc"
+        },
+        {
+          "path": ".artifacts/gpu-20261118/perf1/regional-probe-a2/summary.json",
+          "bytes": 316,
+          "sha256": "17a8403b3d429c901afe137c707443fb8ce16c1fb8430803e2d2bc397c1e2469"
+        },
+        {
+          "path": ".artifacts/gpu-20261118/perf1/regional-probe-a2/stack.json",
+          "bytes": 4534,
+          "sha256": "819b451bb035fbdc277ba263d01a11fdf99ae2b954675b5a708d85f54f15d754"
+        },
+        {
+          "path": ".artifacts/gpu-20261118/perf1/regional-probe-a2/imported-toolchain.json",
+          "bytes": 1561,
+          "sha256": "d1bb9c5627cc88a46c45195eef25e8d45f6ada4dff124a37d7a60b80b2a44650"
+        },
+        {
+          "path": ".artifacts/gpu-20261118/perf1/regional-probe-a2/startup-binding.json",
+          "bytes": 2358,
+          "sha256": "edb7f725d204558f5c1321d725b62e7685b7ebc5b6a6c516a3cc44c49a604bcb"
+        },
+        {
+          "path": ".artifacts/gpu-20261118/perf1/regional-probe-a2/guard.jsonl",
+          "bytes": 498793,
+          "sha256": "fcfd77919ec170b6c9219d6e630bd8b01961ceb64c5ee3e978a78302116367e1"
+        },
+        {
+          "path": ".artifacts/gpu-20261118/perf1/regional-probe-a2/measurements.json",
+          "bytes": 19158,
+          "sha256": "41ca71cc336ddeb8dd9c23f26f437a412463a5ec1d27a4cfe8bda0d1787c14b5"
+        },
+        {
+          "path": ".artifacts/gpu-20261118/perf1/regional-probe-a2/cache-before.json",
+          "bytes": 2,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "path": ".artifacts/gpu-20261118/perf1/regional-probe-a2/cache-after.json",
+          "bytes": 154398,
+          "sha256": "a9ffb01ca36fa1f487a3687e8120dab97be392fb976901a2512adc5c1cac5433"
+        },
+        {
+          "path": ".artifacts/gpu-20261118/perf1/regional-probe-a2/policy-restoration.json",
+          "bytes": 244,
+          "sha256": "d19ad1cb36e60a63f002c0cbbca7d02207e74c500ba0a9f4872f423be9f7202b"
+        },
+        {
+          "path": ".artifacts/gpu-20261118/perf1/regional-probe-a2/cache-reuse-observation.json",
+          "bytes": 1258,
+          "sha256": "ab4bb56a073eddd0ce0c730897bdf64ac3bd4be963b6f3f6430c441921a57e98"
+        },
+        {
+          "path": ".artifacts/gpu-20261118/perf1/regional-probe-a2/after-exit.json",
+          "bytes": 229,
+          "sha256": "f69939343762e7f5a5c13fc991eeeb65b8d5b063d8d386189f1bbd42beeda8ae"
+        },
+        {
+          "path": ".artifacts/gpu-20261118/perf1/regional-probe-a2/keep-awake.json",
+          "bytes": 73,
+          "sha256": "24e170c01c89e7ca3055ed68309a1472c993a25a6711ef8cd866441110ed8099"
+        },
+        {
+          "path": ".artifacts/gpu-20261118/perf1/regional-probe-a2/worker.log",
+          "bytes": 968382,
+          "sha256": "70e16a02c0641c32a37c8ea83897251884477a22059cd9578f2e35c9965ce398"
+        },
+        {
+          "path": ".artifacts/gpu-20261118/perf1/regional-probe-a2/independent-audit.json",
+          "bytes": 1036,
+          "sha256": "cc29742d26215939d38a0395a5a17acdbb2fc9a969600e4481f8a03a43054adc"
+        }
+      ]
+    },
+    {
+      "name": "eager-suite-a1",
+      "source_commit": "f8f4cf2de7c690300735ea189876f687c5f937b1",
+      "runtime_facts": {
+        "platform": "win32",
+        "python_version": [
+          3,
+          13
+        ],
+        "torch": "2.13.0+cu130",
+        "diffusers": "0.42.1",
+        "torchao": "0.18.0",
+        "triton": null,
+        "triton_windows": "3.7.1.post27"
+      },
+      "actual_toolchain_runtime": {
+        "imports": {
+          "triton": {
+            "path": "C:\\Users\\matsi\\AppData\\Local\\uv\\cache\\archive-v0\\W1SU8e4Eva3hUwd_\\Lib\\site-packages\\triton\\__init__.py",
+            "sha256": "fc8d0ce7535a4773769dfdcdb3a8b7bcee1bf58d3d03cc318529104c1e1431fd"
+          },
+          "build": {
+            "path": "C:\\Users\\matsi\\AppData\\Local\\uv\\cache\\archive-v0\\W1SU8e4Eva3hUwd_\\Lib\\site-packages\\triton\\runtime\\build.py",
+            "sha256": "fc8c34b2e46346488ada8efa19200e6dab0173ecbc5f58c052a33a1a5f29e39a"
+          },
+          "windows_utils": {
+            "path": "C:\\Users\\matsi\\AppData\\Local\\uv\\cache\\archive-v0\\W1SU8e4Eva3hUwd_\\Lib\\site-packages\\triton\\windows_utils.py",
+            "sha256": "6cb3b85f44355348f93c67bb4fcefadcc358f1639e7271ddc20c53e325c64f10"
+          },
+          "libtriton": {
+            "path": "C:\\Users\\matsi\\AppData\\Local\\uv\\cache\\archive-v0\\W1SU8e4Eva3hUwd_\\Lib\\site-packages\\triton\\_C\\libtriton.pyd",
+            "sha256": "03f7d9b25d269373cf240eb7751de4859f386210b338887cb242e65d250bcc5e"
+          }
+        },
+        "cuda_bin": "C:\\Users\\matsi\\AppData\\Local\\uv\\cache\\archive-v0\\W1SU8e4Eva3hUwd_\\Lib\\site-packages\\triton\\backends\\nvidia\\bin",
+        "cuda_includes": [
+          "C:\\Users\\matsi\\AppData\\Local\\uv\\cache\\archive-v0\\W1SU8e4Eva3hUwd_\\Lib\\site-packages\\triton\\backends\\nvidia\\include"
+        ],
+        "cuda_libs": [
+          "C:\\Users\\matsi\\AppData\\Local\\uv\\cache\\archive-v0\\W1SU8e4Eva3hUwd_\\Lib\\site-packages\\triton\\backends\\nvidia\\lib\\x64"
+        ],
+        "gpu": "NVIDIA GeForce RTX 5080",
+        "cuda": "13.0",
+        "cudnn": 92000
+      },
+      "runtime_source_sha256": {
+        "backend/main.py": "d830ab7a8a5bbe4861223ea9b4a627f350b0f8395539421ed4834a3ba50f780b",
+        "backend/compiler_cache.py": "77d05df5d8cfae763e916a6a965a14afe78111fc37cea64bb71c94b0cb37e393",
+        "backend/execution.py": "271a02f75a835997520d55accd579d70456ddb1f7ff9f205daeb8f4d42788d6b",
+        "backend/config.py": "b7189b43e41237b1a9eacfb84957bcda634af7501f6fd19a2b1cd625dce41000",
+        "backend/backends/diffusers_backend.py": "c3a85a23288be5d3ccb3bdb1b4751f5456c75d714685d9cf02f3e597c838274e",
+        "backend/backends/regional_compile.py": "724aec3e7741fc633a0079e57f7bc8cfe488ebb9c1c7dfbf8fb90951e06a0281",
+        "backend/backends/loading.py": "9be74744319b06920caf9ae6c55ac1ec4bd20b2b7954f7991721d54adcd77575",
+        "backend/backends/attention_selection.py": "42f10753f5b110479013ff380733b1d28f7a38fb400418e2cecba453ffe705b0",
+        "tools/card_guard.py": "1a553aa6dcb1b096a250d8aa8d813ca14238889e8264f91204d1c976906c6410",
+        "tools/perf_cases.py": "17b1f7a5515cd3e7460db43fc73ca60899ae034cccce79f2b806856a2871827f",
+        "work/perf1_toolchain_probe.py": "fe01f8d53823b78b8499ffd00d8ccde9b230ccab7873228ff3496b6d74b1686f",
+        "work/perf3_card_private.py": "1f89be9f51ddf27c9cffbc0c4b86b8d75d847de42ab2daed31615897d60b8e25",
+        "uv.lock": "623d29ad0123fe832ebd172d0b3eeda66a7dad1be28f6e0b483daab68fe15c0b",
+        "pyproject.toml": "de475675e0b93f42f1b65779f8268fe086a223a87dcef3bfe97920062d8e3eb7",
+        "C:\\Projects\\AuraDream\\.artifacts\\gpu-20261118\\perf1\\regional_card.py": "6057c8d6d9e0f72096bbb1c85fd6f1e836eb725ee5da49e588c0813d353c4577"
+      },
+      "plan": {
+        "recipe": "eager",
+        "mode": "suite",
+        "context": "C:\\Projects\\AuraDream\\.artifacts\\gpu-20261118\\perf1\\eager-context",
+        "limits": {
+          "card_mib": 15500.0,
+          "project_mib": 15200.0,
+          "refuse_at_peak_mib": 15000.0,
+          "adapter_shared_rise_mib": 1024.0,
+          "process_shared_rise_mib": 512.0,
+          "ram_floor_gib": 4.0,
+          "commit_floor_gib": 4.0,
+          "need_ram_gib": 45.0,
+          "busy_card_mib": 2500.0,
+          "card_unread_samples": 3.0,
+          "margin_mib": 500.0,
+          "margin_gib": 1.0
+        },
+        "need_commit_headroom_gib": 45.0,
+        "period": 0.25,
+        "caps": {
+          "waiting": 60,
+          "load": 600,
+          "image": 1200,
+          "cleanup": 120,
+          "done": 30
+        },
+        "session_cap": 5400,
+        "cases": [
+          {
+            "id": "A-first",
+            "prompt": "scene",
+            "shape": "A",
+            "seed": 4471
+          },
+          {
+            "id": "A-repeat-1",
+            "prompt": "scene",
+            "shape": "A",
+            "seed": 4471
+          },
+          {
+            "id": "A-repeat-2",
+            "prompt": "scene",
+            "shape": "A",
+            "seed": 4471
+          },
+          {
+            "id": "A-repeat-3",
+            "prompt": "scene",
+            "shape": "A",
+            "seed": 4471
+          },
+          {
+            "id": "A-scene-8823",
+            "prompt": "scene",
+            "shape": "A",
+            "seed": 8823
+          },
+          {
+            "id": "A-subjects-4471",
+            "prompt": "subjects",
+            "shape": "A",
+            "seed": 4471
+          },
+          {
+            "id": "A-subjects-8823",
+            "prompt": "subjects",
+            "shape": "A",
+            "seed": 8823
+          },
+          {
+            "id": "A-text-4471",
+            "prompt": "text",
+            "shape": "A",
+            "seed": 4471
+          },
+          {
+            "id": "A-text-8823",
+            "prompt": "text",
+            "shape": "A",
+            "seed": 8823
+          },
+          {
+            "id": "B-scene-4471",
+            "prompt": "scene",
+            "shape": "B",
+            "seed": 4471
+          },
+          {
+            "id": "B-scene-8823",
+            "prompt": "scene",
+            "shape": "B",
+            "seed": 8823
+          },
+          {
+            "id": "B-subjects-4471",
+            "prompt": "subjects",
+            "shape": "B",
+            "seed": 4471
+          },
+          {
+            "id": "B-subjects-8823",
+            "prompt": "subjects",
+            "shape": "B",
+            "seed": 8823
+          },
+          {
+            "id": "B-text-4471",
+            "prompt": "text",
+            "shape": "B",
+            "seed": 4471
+          },
+          {
+            "id": "B-text-8823",
+            "prompt": "text",
+            "shape": "B",
+            "seed": 8823
+          },
+          {
+            "id": "B-repeat",
+            "prompt": "scene",
+            "shape": "B",
+            "seed": 4471
+          },
+          {
+            "id": "A-return",
+            "prompt": "scene",
+            "shape": "A",
+            "seed": 4471
+          },
+          {
+            "id": "cancel-step-3",
+            "cancel_step": 3,
+            "prompt": "scene",
+            "shape": "A",
+            "seed": 4471
+          },
+          {
+            "id": "after-cancel",
+            "prompt": "scene",
+            "shape": "A",
+            "seed": 4471
+          }
+        ],
+        "historical_native_expected_first_sha256": "d62ee9fc1308fe2a617619cdfb3fe8ba0e5a56c418dfe541cb32a9da419d697b",
+        "owned_main_bootstrap": true,
+        "base_environment_unchanged": true
+      },
+      "admission": {
+        "sample": {
+          "card_mib": 973.0,
+          "adapter_shared_mib": 29.515625,
+          "process_shared_mib": 0.0,
+          "available_gib": 49.063720703125,
+          "commit_headroom_gib": 54.60855484008789,
+          "tree_gib": 0.03055572509765625,
+          "card_total_mib": 16303.0
+        },
+        "nonfinite": {},
+        "sources": {
+          "card": "nvidia-smi --loop-ms",
+          "shared": "pdh"
+        },
+        "admitted": true,
+        "baseline": {
+          "adapter_shared_mib": 29.515625,
+          "process_shared_mib": 0.0
+        },
+        "answer": {
+          "verdict": "ok",
+          "why": null,
+          "reading": null,
+          "limit": null,
+          "projected_mib": null,
+          "measured": [],
+          "reason": null
+        }
+      },
+      "guard": {
+        "rows": 3283,
+        "independent_verdict": "all ok",
+        "mean_gap_s": 0.25028126096892234,
+        "max_gap_s": 0.26211650000186637,
+        "whole_card_peak_mib": 14209.0,
+        "tree_RSS_peak_gib": 28.159461975097656,
+        "tree_private_peak_gib": 44.153236389160156,
+        "minimum_free_RAM_gib": 20.988842010498047,
+        "minimum_commit_headroom_gib": 10.62319564819336,
+        "adapter_shared_rise_mib": 83.515625,
+        "process_shared_rise_mib": 82.0
+      },
+      "load": {
+        "kind": "load",
+        "seconds": 55.46654280000075,
+        "allocated_peak_mib": 0.0,
+        "reserved_peak_mib": 0.0,
+        "registration": "None"
+      },
+      "calls": 19,
+      "completed_images": 18,
+      "images": [
+        {
+          "case": {
+            "id": "A-first",
+            "prompt": "scene",
+            "shape": "A",
+            "seed": 4471
+          },
+          "RGB_sha256": "d62ee9fc1308fe2a617619cdfb3fe8ba0e5a56c418dfe541cb32a9da419d697b",
+          "PNG": {
+            "path": ".artifacts/gpu-20261118/perf1/eager-suite-a1/A-first.png",
+            "bytes": 1400886,
+            "sha256": "fd0356d1b4f41eb2dc3f6359d224960d2d48a3fe428296959d42ca7533e2b0d7"
+          },
+          "seconds": 57.586652300000424,
+          "first_callback_seconds": 19.490673400010564,
+          "callback_interval_median_seconds": 1.302020499992068,
+          "allocator_peak_mib": [
+            12283.57421875,
+            12928.0
+          ],
+          "generated_kernel_count": 0
+        },
+        {
+          "case": {
+            "id": "A-repeat-1",
+            "prompt": "scene",
+            "shape": "A",
+            "seed": 4471
+          },
+          "RGB_sha256": "d62ee9fc1308fe2a617619cdfb3fe8ba0e5a56c418dfe541cb32a9da419d697b",
+          "PNG": {
+            "path": ".artifacts/gpu-20261118/perf1/eager-suite-a1/A-repeat-1.png",
+            "bytes": 1400807,
+            "sha256": "0d875fbcf4bdf14ed30fbd9f1c268648967bee03c9f8f8c3e7da42364a50c0db"
+          },
+          "seconds": 41.20767979999073,
+          "first_callback_seconds": 4.084132399992086,
+          "callback_interval_median_seconds": 1.3016270000080112,
+          "allocator_peak_mib": [
+            12283.57421875,
+            12928.0
+          ],
+          "generated_kernel_count": 0
+        },
+        {
+          "case": {
+            "id": "A-repeat-2",
+            "prompt": "scene",
+            "shape": "A",
+            "seed": 4471
+          },
+          "RGB_sha256": "d62ee9fc1308fe2a617619cdfb3fe8ba0e5a56c418dfe541cb32a9da419d697b",
+          "PNG": {
+            "path": ".artifacts/gpu-20261118/perf1/eager-suite-a1/A-repeat-2.png",
+            "bytes": 1400810,
+            "sha256": "2304f3ccb7109b82bf02177cb304e6b21fe7641c1b9e613aaf2f9e09154a0202"
+          },
+          "seconds": 40.587719100003596,
+          "first_callback_seconds": 3.485966499996721,
+          "callback_interval_median_seconds": 1.3029575999971712,
+          "allocator_peak_mib": [
+            12283.57421875,
+            12928.0
+          ],
+          "generated_kernel_count": 0
+        },
+        {
+          "case": {
+            "id": "A-repeat-3",
+            "prompt": "scene",
+            "shape": "A",
+            "seed": 4471
+          },
+          "RGB_sha256": "d62ee9fc1308fe2a617619cdfb3fe8ba0e5a56c418dfe541cb32a9da419d697b",
+          "PNG": {
+            "path": ".artifacts/gpu-20261118/perf1/eager-suite-a1/A-repeat-3.png",
+            "bytes": 1400807,
+            "sha256": "4f598a0f29fd731a011dede149a428fed67469f248828b2c201f89514500ac47"
+          },
+          "seconds": 40.553850199998124,
+          "first_callback_seconds": 3.4339681999990717,
+          "callback_interval_median_seconds": 1.3043869999964954,
+          "allocator_peak_mib": [
+            12283.57421875,
+            12928.0
+          ],
+          "generated_kernel_count": 0
+        },
+        {
+          "case": {
+            "id": "A-scene-8823",
+            "prompt": "scene",
+            "shape": "A",
+            "seed": 8823
+          },
+          "RGB_sha256": "cc056b0a287edc7869d84d0fb1384bbed0bc825c25134b4626369128abad4f88",
+          "PNG": {
+            "path": ".artifacts/gpu-20261118/perf1/eager-suite-a1/A-scene-8823.png",
+            "bytes": 1452462,
+            "sha256": "309eb0969c86dbc2fee97f8de936cc67b8a4206f572e029f16e550a92be135b7"
+          },
+          "seconds": 40.74499730000389,
+          "first_callback_seconds": 3.626945500000147,
+          "callback_interval_median_seconds": 1.3037675000086892,
+          "allocator_peak_mib": [
+            12283.57421875,
+            12928.0
+          ],
+          "generated_kernel_count": 0
+        },
+        {
+          "case": {
+            "id": "A-subjects-4471",
+            "prompt": "subjects",
+            "shape": "A",
+            "seed": 4471
+          },
+          "RGB_sha256": "3f22a7d57c8be43c7090222616ce018cb89f48a0889b2740507007f3f3789160",
+          "PNG": {
+            "path": ".artifacts/gpu-20261118/perf1/eager-suite-a1/A-subjects-4471.png",
+            "bytes": 1742212,
+            "sha256": "c3bdd3cbd20f6f744f1a75b3043b83ce04274fbf7de2f310f70f6f08d7acbebb"
+          },
+          "seconds": 40.566159000009065,
+          "first_callback_seconds": 3.46005980001064,
+          "callback_interval_median_seconds": 1.3033941999892704,
+          "allocator_peak_mib": [
+            12283.57421875,
+            12928.0
+          ],
+          "generated_kernel_count": 0
+        },
+        {
+          "case": {
+            "id": "A-subjects-8823",
+            "prompt": "subjects",
+            "shape": "A",
+            "seed": 8823
+          },
+          "RGB_sha256": "8fb6c6432b85d595a7e5ae7c82368a5ea3672a4aa654a0ae18cb64b8eab15f70",
+          "PNG": {
+            "path": ".artifacts/gpu-20261118/perf1/eager-suite-a1/A-subjects-8823.png",
+            "bytes": 1807704,
+            "sha256": "097f4d7b35c897499751d2cce87bda4167faa5da8f6530fc6fa30688076b4322"
+          },
+          "seconds": 40.57427449998795,
+          "first_callback_seconds": 3.4620588999969186,
+          "callback_interval_median_seconds": 1.303720500000054,
+          "allocator_peak_mib": [
+            12283.57421875,
+            12928.0
+          ],
+          "generated_kernel_count": 0
+        },
+        {
+          "case": {
+            "id": "A-text-4471",
+            "prompt": "text",
+            "shape": "A",
+            "seed": 4471
+          },
+          "RGB_sha256": "7b912086194f36f5e9e72737abbf498e9fbe5e924b6421429ee545ef335052ed",
+          "PNG": {
+            "path": ".artifacts/gpu-20261118/perf1/eager-suite-a1/A-text-4471.png",
+            "bytes": 1021789,
+            "sha256": "4b749c304352c3580da488bc6e752a7c1063a74f23bfec12192062ffc834bba4"
+          },
+          "seconds": 40.60684890000266,
+          "first_callback_seconds": 3.469007199993939,
+          "callback_interval_median_seconds": 1.3036400999990292,
+          "allocator_peak_mib": [
+            12283.57421875,
+            12928.0
+          ],
+          "generated_kernel_count": 0
+        },
+        {
+          "case": {
+            "id": "A-text-8823",
+            "prompt": "text",
+            "shape": "A",
+            "seed": 8823
+          },
+          "RGB_sha256": "fbe2e6eb13eee7ec793cce03e0ad7e574ab0f10c815a3523875c4ac27b0edaad",
+          "PNG": {
+            "path": ".artifacts/gpu-20261118/perf1/eager-suite-a1/A-text-8823.png",
+            "bytes": 1250198,
+            "sha256": "4d868ff4970a3e8ea02d6cde760d70c59bf8b2d0a8e1b276f4382ad0ade67566"
+          },
+          "seconds": 40.68954629999644,
+          "first_callback_seconds": 3.5692138000013074,
+          "callback_interval_median_seconds": 1.3045151999976952,
+          "allocator_peak_mib": [
+            12283.57421875,
+            12928.0
+          ],
+          "generated_kernel_count": 0
+        },
+        {
+          "case": {
+            "id": "B-scene-4471",
+            "prompt": "scene",
+            "shape": "B",
+            "seed": 4471
+          },
+          "RGB_sha256": "b1c1f0aa7cbd02f757ac372308d98b3fab109035fe2e1f987529862c2b3fc062",
+          "PNG": {
+            "path": ".artifacts/gpu-20261118/perf1/eager-suite-a1/B-scene-4471.png",
+            "bytes": 1391545,
+            "sha256": "070106719bb26d998b91705a886e8c146c13c51ff4bd8e6cdd5bbb2f7f6b5c60"
+          },
+          "seconds": 40.63327740000386,
+          "first_callback_seconds": 3.4919166000036057,
+          "callback_interval_median_seconds": 1.3035963000002084,
+          "allocator_peak_mib": [
+            12282.7265625,
+            12928.0
+          ],
+          "generated_kernel_count": 0
+        },
+        {
+          "case": {
+            "id": "B-scene-8823",
+            "prompt": "scene",
+            "shape": "B",
+            "seed": 8823
+          },
+          "RGB_sha256": "e398e72a466935da6c1c732ab664369573ecd0ac7eead92d921dc97c1e0515a0",
+          "PNG": {
+            "path": ".artifacts/gpu-20261118/perf1/eager-suite-a1/B-scene-8823.png",
+            "bytes": 1395172,
+            "sha256": "87e6fecb870ba3217ef780c6ab97367fba7fa56ddbd7204fe2c244ee3d1ebf3e"
+          },
+          "seconds": 40.772942800002056,
+          "first_callback_seconds": 3.5607285000005504,
+          "callback_interval_median_seconds": 1.3027146000094945,
+          "allocator_peak_mib": [
+            12282.7265625,
+            12928.0
+          ],
+          "generated_kernel_count": 0
+        },
+        {
+          "case": {
+            "id": "B-subjects-4471",
+            "prompt": "subjects",
+            "shape": "B",
+            "seed": 4471
+          },
+          "RGB_sha256": "ec343d59fdbbc949adcef6ccb2fa3851f10cdd9881db53d2504d4fd527196ba5",
+          "PNG": {
+            "path": ".artifacts/gpu-20261118/perf1/eager-suite-a1/B-subjects-4471.png",
+            "bytes": 1612959,
+            "sha256": "bfa5b0cacc38f3525836ebeb44b53ec6d94bed04a22bc88194dd5b63c1151411"
+          },
+          "seconds": 40.66766770000686,
+          "first_callback_seconds": 3.50535450001189,
+          "callback_interval_median_seconds": 1.302363199996762,
+          "allocator_peak_mib": [
+            12282.7265625,
+            12928.0
+          ],
+          "generated_kernel_count": 0
+        },
+        {
+          "case": {
+            "id": "B-subjects-8823",
+            "prompt": "subjects",
+            "shape": "B",
+            "seed": 8823
+          },
+          "RGB_sha256": "e10c6bdaeffe2e75637773c112b5aa93516f1bc7e3f31d6ffb05301573aa9de4",
+          "PNG": {
+            "path": ".artifacts/gpu-20261118/perf1/eager-suite-a1/B-subjects-8823.png",
+            "bytes": 1684945,
+            "sha256": "d8ed780180d1887516adea6f8b197b52f32569ea2de2a8111129f427515925fa"
+          },
+          "seconds": 40.84583789999306,
+          "first_callback_seconds": 3.5727146999997785,
+          "callback_interval_median_seconds": 1.3023204000055557,
+          "allocator_peak_mib": [
+            12282.7265625,
+            12928.0
+          ],
+          "generated_kernel_count": 0
+        },
+        {
+          "case": {
+            "id": "B-text-4471",
+            "prompt": "text",
+            "shape": "B",
+            "seed": 4471
+          },
+          "RGB_sha256": "17cc7fdaa80aae0c70dfc4eb96f66bc0eab75b8826ae4035f652152a11b133f1",
+          "PNG": {
+            "path": ".artifacts/gpu-20261118/perf1/eager-suite-a1/B-text-4471.png",
+            "bytes": 1100545,
+            "sha256": "d51807cfb73dfba95c09a50a46b12000bb28c45a07ee67250b9418415bc8896c"
+          },
+          "seconds": 40.607140400010394,
+          "first_callback_seconds": 3.4759295000112616,
+          "callback_interval_median_seconds": 1.3015117999893846,
+          "allocator_peak_mib": [
+            12282.7265625,
+            12928.0
+          ],
+          "generated_kernel_count": 0
+        },
+        {
+          "case": {
+            "id": "B-text-8823",
+            "prompt": "text",
+            "shape": "B",
+            "seed": 8823
+          },
+          "RGB_sha256": "fafc603ab509c064fb671c927ec06f8d2f1ed674a43e35652488661eb4cba589",
+          "PNG": {
+            "path": ".artifacts/gpu-20261118/perf1/eager-suite-a1/B-text-8823.png",
+            "bytes": 1133125,
+            "sha256": "e96c615b23c1b2e250d8f1d40ec2e2a0c605bc2aefa6d79a0b3e9112556b5e3b"
+          },
+          "seconds": 40.78356139999232,
+          "first_callback_seconds": 3.573711999997613,
+          "callback_interval_median_seconds": 1.3005684000090696,
+          "allocator_peak_mib": [
+            12282.7265625,
+            12928.0
+          ],
+          "generated_kernel_count": 0
+        },
+        {
+          "case": {
+            "id": "B-repeat",
+            "prompt": "scene",
+            "shape": "B",
+            "seed": 4471
+          },
+          "RGB_sha256": "b1c1f0aa7cbd02f757ac372308d98b3fab109035fe2e1f987529862c2b3fc062",
+          "PNG": {
+            "path": ".artifacts/gpu-20261118/perf1/eager-suite-a1/B-repeat.png",
+            "bytes": 1391602,
+            "sha256": "3a337535fb47cd5dbadf1c2c234faa920d3b7636951965965617b61aa80018f9"
+          },
+          "seconds": 40.60305879999942,
+          "first_callback_seconds": 3.45376540000143,
+          "callback_interval_median_seconds": 1.303688100000727,
+          "allocator_peak_mib": [
+            12282.7265625,
+            12928.0
+          ],
+          "generated_kernel_count": 0
+        },
+        {
+          "case": {
+            "id": "A-return",
+            "prompt": "scene",
+            "shape": "A",
+            "seed": 4471
+          },
+          "RGB_sha256": "d62ee9fc1308fe2a617619cdfb3fe8ba0e5a56c418dfe541cb32a9da419d697b",
+          "PNG": {
+            "path": ".artifacts/gpu-20261118/perf1/eager-suite-a1/A-return.png",
+            "bytes": 1400801,
+            "sha256": "7747b32804866d421ed3460751fae344e35f7204ce307d58f6c412c2d61d6589"
+          },
+          "seconds": 40.70330219999596,
+          "first_callback_seconds": 3.4540070999937598,
+          "callback_interval_median_seconds": 1.30144380001002,
+          "allocator_peak_mib": [
+            12283.57421875,
+            12928.0
+          ],
+          "generated_kernel_count": 0
+        },
+        {
+          "case": {
+            "id": "after-cancel",
+            "prompt": "scene",
+            "shape": "A",
+            "seed": 4471
+          },
+          "RGB_sha256": "d62ee9fc1308fe2a617619cdfb3fe8ba0e5a56c418dfe541cb32a9da419d697b",
+          "PNG": {
+            "path": ".artifacts/gpu-20261118/perf1/eager-suite-a1/after-cancel.png",
+            "bytes": 1400813,
+            "sha256": "2057baeacbb519c4ca76e37f3c40ba413caa725557a4677d0ebd120e21f3f0b6"
+          },
+          "seconds": 40.60668260000239,
+          "first_callback_seconds": 3.496254300000146,
+          "callback_interval_median_seconds": 1.3027586999960477,
+          "allocator_peak_mib": [
+            12283.57421875,
+            12928.0
+          ],
+          "generated_kernel_count": 0
+        }
+      ],
+      "cancellations": [
+        {
+          "kind": "image",
+          "case": {
+            "id": "cancel-step-3",
+            "cancel_step": 3,
+            "prompt": "scene",
+            "shape": "A",
+            "seed": 4471
+          },
+          "status": "cancelled",
+          "execution": null,
+          "request_applied": {
+            "prompt": "A tall sharp-featured man in an oversized charcoal wool coat, standing on a wet cobblestone street at night, fashion editorial, moody street lighting",
+            "negative_prompt": null,
+            "width": 1024,
+            "height": 1024,
+            "steps": 28,
+            "guidance_scale": 3.5,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": null,
+            "strength": 0.1,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": null,
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "production_entry": "DiffusersBackend.generate",
+          "private_admission_scope": "instance guard only; ordinary omitted-execution request, verified exact private loaded recipe",
+          "seconds": 7.713222200007294,
+          "first_callback_seconds": 3.4815554000088014,
+          "step_intervals": [
+            1.2967359000031138,
+            1.3100022999860812
+          ],
+          "cancel_return_seconds": 1.624928600009298,
+          "allocated_peak_mib": 12283.57421875,
+          "reserved_peak_mib": 12928.0,
+          "generated_kernel_count": 0,
+          "compiler_counters_before": {},
+          "compiler_counters_after": {},
+          "registration": "None"
+        }
+      ],
+      "unique_fixed_cases": 12,
+      "warm_callback_wall_interval_median_seconds": 1.3027765000006184,
+      "cache": {
+        "files_before": 0,
+        "files_after": 0,
+        "bytes_after": 0,
+        "reuse_observation": {
+          "cache_present_before": false,
+          "fxgraph_cache_hit": 0,
+          "fresh_process_retained_cache_requested": false,
+          "reuse_observed": false,
+          "counters": {}
+        }
+      },
+      "policy_restoration": {
+        "before": {
+          "suppress_errors": false,
+          "fail_on_recompile_limit_hit": false,
+          "compile_threads": 1
+        },
+        "after": {
+          "suppress_errors": false,
+          "fail_on_recompile_limit_hit": false,
+          "compile_threads": 1
+        }
+      },
+      "unload_observer_scope": "v1 allocator observation only; no explicit weakref/root reclamation observer",
+      "unload": {
+        "kind": "unload",
+        "allocated_mib": 32.0009765625,
+        "reserved_mib": 34.0
+      },
+      "after_exit": {
+        "card_mib": 973.0,
+        "adapter_shared_mib": 28.57421875,
+        "process_shared_mib": null,
+        "available_gib": 49.1523551940918,
+        "commit_headroom_gib": 54.75361251831055,
+        "tree_gib": null,
+        "card_total_mib": 16303.0
+      },
+      "power_request": {
+        "kind": "power-request",
+        "holding": false,
+        "released": true
+      },
+      "guarded_Python_socket_attempts_after_owned_stdlib_loop": [],
+      "evidence": [
+        {
+          "path": ".artifacts/gpu-20261118/perf1/eager-suite-a1/plan.json",
+          "bytes": 3052,
+          "sha256": "cd400f34da10c5da6159acbd8e892e20892b2db86bbb7d548ce24d84bf18a8ce"
+        },
+        {
+          "path": ".artifacts/gpu-20261118/perf1/eager-suite-a1/preflight.json",
+          "bytes": 658,
+          "sha256": "66786bd4ba79a425097556313188878b23c7ad90802d9cbb5c8ae5e6517724d7"
+        },
+        {
+          "path": ".artifacts/gpu-20261118/perf1/eager-suite-a1/summary.json",
+          "bytes": 315,
+          "sha256": "3d2fa6c75f8b82991d18ac8d7edcf212201ebb871a58bce3feb4c511e134eaf1"
+        },
+        {
+          "path": ".artifacts/gpu-20261118/perf1/eager-suite-a1/stack.json",
+          "bytes": 4534,
+          "sha256": "819b451bb035fbdc277ba263d01a11fdf99ae2b954675b5a708d85f54f15d754"
+        },
+        {
+          "path": ".artifacts/gpu-20261118/perf1/eager-suite-a1/imported-toolchain.json",
+          "bytes": 1561,
+          "sha256": "d1bb9c5627cc88a46c45195eef25e8d45f6ada4dff124a37d7a60b80b2a44650"
+        },
+        {
+          "path": ".artifacts/gpu-20261118/perf1/eager-suite-a1/startup-binding.json",
+          "bytes": 2298,
+          "sha256": "5b9ef7456927715f0ff196ef2990bf2da6b24d55c9e61d1f54f36ceca642cf3e"
+        },
+        {
+          "path": ".artifacts/gpu-20261118/perf1/eager-suite-a1/guard.jsonl",
+          "bytes": 1735437,
+          "sha256": "636eaa329eba7a2d94bbc79645e5cf52b92a8b3ca4d5064a20209e4b47afc112"
+        },
+        {
+          "path": ".artifacts/gpu-20261118/perf1/eager-suite-a1/measurements.json",
+          "bytes": 44623,
+          "sha256": "610d43e18cd20551681a9d01b0d3fa94f94efd73eb84905d657b37967f489560"
+        },
+        {
+          "path": ".artifacts/gpu-20261118/perf1/eager-suite-a1/cache-before.json",
+          "bytes": 2,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "path": ".artifacts/gpu-20261118/perf1/eager-suite-a1/cache-after.json",
+          "bytes": 2,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        {
+          "path": ".artifacts/gpu-20261118/perf1/eager-suite-a1/policy-restoration.json",
+          "bytes": 244,
+          "sha256": "d19ad1cb36e60a63f002c0cbbca7d02207e74c500ba0a9f4872f423be9f7202b"
+        },
+        {
+          "path": ".artifacts/gpu-20261118/perf1/eager-suite-a1/cache-reuse-observation.json",
+          "bytes": 163,
+          "sha256": "9a94ab815950f68d646003713fc6b98ce2e73a8970e8c3e803ba790c4825a2e8"
+        },
+        {
+          "path": ".artifacts/gpu-20261118/perf1/eager-suite-a1/after-exit.json",
+          "bytes": 228,
+          "sha256": "971660e1db5b889a787e2baaa0a0d3e8357c5c90eb76fa3c98e87f09223203de"
+        },
+        {
+          "path": ".artifacts/gpu-20261118/perf1/eager-suite-a1/keep-awake.json",
+          "bytes": 73,
+          "sha256": "24e170c01c89e7ca3055ed68309a1472c993a25a6711ef8cd866441110ed8099"
+        },
+        {
+          "path": ".artifacts/gpu-20261118/perf1/eager-suite-a1/worker.log",
+          "bytes": 11132,
+          "sha256": "9e788d8be0e5d8c2c127fcd31574a9ad5a8b32c34d5d49dc009e4c126a1d7431"
+        },
+        {
+          "path": ".artifacts/gpu-20261118/perf1/eager-suite-a1/independent-audit.json",
+          "bytes": 1704,
+          "sha256": "9fe1b7f4fad841b945b1e8fbd6f9271d2d114a5677591572dc41a1a1b8de8756"
+        }
+      ]
+    },
+    {
+      "name": "regional-suite-retained-a1",
+      "source_commit": "f8f4cf2de7c690300735ea189876f687c5f937b1",
+      "runtime_facts": {
+        "platform": "win32",
+        "python_version": [
+          3,
+          13
+        ],
+        "torch": "2.13.0+cu130",
+        "diffusers": "0.42.1",
+        "torchao": "0.18.0",
+        "triton": null,
+        "triton_windows": "3.7.1.post27"
+      },
+      "actual_toolchain_runtime": {
+        "imports": {
+          "triton": {
+            "path": "C:\\Users\\matsi\\AppData\\Local\\uv\\cache\\archive-v0\\W1SU8e4Eva3hUwd_\\Lib\\site-packages\\triton\\__init__.py",
+            "sha256": "fc8d0ce7535a4773769dfdcdb3a8b7bcee1bf58d3d03cc318529104c1e1431fd"
+          },
+          "build": {
+            "path": "C:\\Users\\matsi\\AppData\\Local\\uv\\cache\\archive-v0\\W1SU8e4Eva3hUwd_\\Lib\\site-packages\\triton\\runtime\\build.py",
+            "sha256": "fc8c34b2e46346488ada8efa19200e6dab0173ecbc5f58c052a33a1a5f29e39a"
+          },
+          "windows_utils": {
+            "path": "C:\\Users\\matsi\\AppData\\Local\\uv\\cache\\archive-v0\\W1SU8e4Eva3hUwd_\\Lib\\site-packages\\triton\\windows_utils.py",
+            "sha256": "6cb3b85f44355348f93c67bb4fcefadcc358f1639e7271ddc20c53e325c64f10"
+          },
+          "libtriton": {
+            "path": "C:\\Users\\matsi\\AppData\\Local\\uv\\cache\\archive-v0\\W1SU8e4Eva3hUwd_\\Lib\\site-packages\\triton\\_C\\libtriton.pyd",
+            "sha256": "03f7d9b25d269373cf240eb7751de4859f386210b338887cb242e65d250bcc5e"
+          }
+        },
+        "cuda_bin": "C:\\Users\\matsi\\AppData\\Local\\uv\\cache\\archive-v0\\W1SU8e4Eva3hUwd_\\Lib\\site-packages\\triton\\backends\\nvidia\\bin",
+        "cuda_includes": [
+          "C:\\Users\\matsi\\AppData\\Local\\uv\\cache\\archive-v0\\W1SU8e4Eva3hUwd_\\Lib\\site-packages\\triton\\backends\\nvidia\\include"
+        ],
+        "cuda_libs": [
+          "C:\\Users\\matsi\\AppData\\Local\\uv\\cache\\archive-v0\\W1SU8e4Eva3hUwd_\\Lib\\site-packages\\triton\\backends\\nvidia\\lib\\x64"
+        ],
+        "gpu": "NVIDIA GeForce RTX 5080",
+        "cuda": "13.0",
+        "cudnn": 92000
+      },
+      "runtime_source_sha256": {
+        "backend/main.py": "d830ab7a8a5bbe4861223ea9b4a627f350b0f8395539421ed4834a3ba50f780b",
+        "backend/compiler_cache.py": "77d05df5d8cfae763e916a6a965a14afe78111fc37cea64bb71c94b0cb37e393",
+        "backend/execution.py": "271a02f75a835997520d55accd579d70456ddb1f7ff9f205daeb8f4d42788d6b",
+        "backend/config.py": "b7189b43e41237b1a9eacfb84957bcda634af7501f6fd19a2b1cd625dce41000",
+        "backend/backends/diffusers_backend.py": "c3a85a23288be5d3ccb3bdb1b4751f5456c75d714685d9cf02f3e597c838274e",
+        "backend/backends/regional_compile.py": "724aec3e7741fc633a0079e57f7bc8cfe488ebb9c1c7dfbf8fb90951e06a0281",
+        "backend/backends/loading.py": "9be74744319b06920caf9ae6c55ac1ec4bd20b2b7954f7991721d54adcd77575",
+        "backend/backends/attention_selection.py": "42f10753f5b110479013ff380733b1d28f7a38fb400418e2cecba453ffe705b0",
+        "tools/card_guard.py": "1a553aa6dcb1b096a250d8aa8d813ca14238889e8264f91204d1c976906c6410",
+        "tools/perf_cases.py": "17b1f7a5515cd3e7460db43fc73ca60899ae034cccce79f2b806856a2871827f",
+        "work/perf1_toolchain_probe.py": "fe01f8d53823b78b8499ffd00d8ccde9b230ccab7873228ff3496b6d74b1686f",
+        "work/perf3_card_private.py": "1f89be9f51ddf27c9cffbc0c4b86b8d75d847de42ab2daed31615897d60b8e25",
+        "uv.lock": "623d29ad0123fe832ebd172d0b3eeda66a7dad1be28f6e0b483daab68fe15c0b",
+        "pyproject.toml": "de475675e0b93f42f1b65779f8268fe086a223a87dcef3bfe97920062d8e3eb7",
+        "C:\\Projects\\AuraDream\\.artifacts\\gpu-20261118\\perf1\\regional_card_v2.py": "47b121d44335cf99b26212657cd4a9a3a4424086a243620b9adf732f8dfa3472"
+      },
+      "plan": {
+        "recipe": "regional",
+        "mode": "suite-retained",
+        "context": "C:\\Projects\\AuraDream\\.artifacts\\gpu-20261118\\perf1\\regional-context-a2",
+        "limits": {
+          "card_mib": 15500.0,
+          "project_mib": 15200.0,
+          "refuse_at_peak_mib": 15000.0,
+          "adapter_shared_rise_mib": 1024.0,
+          "process_shared_rise_mib": 512.0,
+          "ram_floor_gib": 4.0,
+          "commit_floor_gib": 4.0,
+          "need_ram_gib": 45.0,
+          "busy_card_mib": 2500.0,
+          "card_unread_samples": 3.0,
+          "margin_mib": 500.0,
+          "margin_gib": 1.0
+        },
+        "need_commit_headroom_gib": 54.5,
+        "period": 0.25,
+        "overlay_admission_basis": {
+          "measured_regional_private_gib": 44.49,
+          "measured_eager_private_gib": 44.15,
+          "live_floor_gib": 4.0,
+          "stated_margin_gib": 6.0,
+          "rounded_required_gib": 54.5
+        },
+        "caps": {
+          "waiting": 60,
+          "load": 600,
+          "image": 1200,
+          "cleanup": 120,
+          "done": 30
+        },
+        "session_cap": 5400,
+        "cases": [
+          {
+            "id": "A-first",
+            "prompt": "scene",
+            "shape": "A",
+            "seed": 4471
+          },
+          {
+            "id": "A-repeat-1",
+            "prompt": "scene",
+            "shape": "A",
+            "seed": 4471
+          },
+          {
+            "id": "A-repeat-2",
+            "prompt": "scene",
+            "shape": "A",
+            "seed": 4471
+          },
+          {
+            "id": "A-repeat-3",
+            "prompt": "scene",
+            "shape": "A",
+            "seed": 4471
+          },
+          {
+            "id": "A-scene-8823",
+            "prompt": "scene",
+            "shape": "A",
+            "seed": 8823
+          },
+          {
+            "id": "A-subjects-4471",
+            "prompt": "subjects",
+            "shape": "A",
+            "seed": 4471
+          },
+          {
+            "id": "A-subjects-8823",
+            "prompt": "subjects",
+            "shape": "A",
+            "seed": 8823
+          },
+          {
+            "id": "A-text-4471",
+            "prompt": "text",
+            "shape": "A",
+            "seed": 4471
+          },
+          {
+            "id": "A-text-8823",
+            "prompt": "text",
+            "shape": "A",
+            "seed": 8823
+          },
+          {
+            "id": "B-scene-4471",
+            "prompt": "scene",
+            "shape": "B",
+            "seed": 4471
+          },
+          {
+            "id": "B-scene-8823",
+            "prompt": "scene",
+            "shape": "B",
+            "seed": 8823
+          },
+          {
+            "id": "B-subjects-4471",
+            "prompt": "subjects",
+            "shape": "B",
+            "seed": 4471
+          },
+          {
+            "id": "B-subjects-8823",
+            "prompt": "subjects",
+            "shape": "B",
+            "seed": 8823
+          },
+          {
+            "id": "B-text-4471",
+            "prompt": "text",
+            "shape": "B",
+            "seed": 4471
+          },
+          {
+            "id": "B-text-8823",
+            "prompt": "text",
+            "shape": "B",
+            "seed": 8823
+          },
+          {
+            "id": "B-repeat",
+            "prompt": "scene",
+            "shape": "B",
+            "seed": 4471
+          },
+          {
+            "id": "A-return",
+            "prompt": "scene",
+            "shape": "A",
+            "seed": 4471
+          },
+          {
+            "id": "cancel-step-3",
+            "cancel_step": 3,
+            "prompt": "scene",
+            "shape": "A",
+            "seed": 4471
+          },
+          {
+            "id": "after-cancel",
+            "prompt": "scene",
+            "shape": "A",
+            "seed": 4471
+          }
+        ],
+        "historical_native_expected_first_sha256": null,
+        "owned_main_bootstrap": true,
+        "base_environment_unchanged": true
+      },
+      "admission": {
+        "sample": {
+          "card_mib": 973.0,
+          "adapter_shared_mib": 28.57421875,
+          "process_shared_mib": 0.0,
+          "available_gib": 49.152557373046875,
+          "commit_headroom_gib": 54.718807220458984,
+          "tree_gib": 0.03086090087890625,
+          "card_total_mib": 16303.0
+        },
+        "nonfinite": {},
+        "sources": {
+          "card": "nvidia-smi --loop-ms",
+          "shared": "pdh"
+        },
+        "admitted": true,
+        "baseline": {
+          "adapter_shared_mib": 28.57421875,
+          "process_shared_mib": 0.0
+        },
+        "answer": {
+          "verdict": "ok",
+          "why": null,
+          "reading": null,
+          "limit": null,
+          "projected_mib": null,
+          "measured": [],
+          "reason": null
+        },
+        "required_commit_headroom_gib": 54.5
+      },
+      "guard": {
+        "rows": 2573,
+        "independent_verdict": "all ok",
+        "mean_gap_s": 0.2502836778382557,
+        "max_gap_s": 0.2622716999903787,
+        "whole_card_peak_mib": 13703.0,
+        "tree_RSS_peak_gib": 28.03235626220703,
+        "tree_private_peak_gib": 45.85173034667969,
+        "minimum_free_RAM_gib": 21.119338989257812,
+        "minimum_commit_headroom_gib": 8.93734359741211,
+        "adapter_shared_rise_mib": 107.14453125,
+        "process_shared_rise_mib": 82.0
+      },
+      "load": {
+        "kind": "load",
+        "seconds": 55.33140799999819,
+        "allocated_peak_mib": 0.0,
+        "reserved_peak_mib": 0.0,
+        "registration": "RegionalDiagnostics(load_id=1, first_call='pending', failure_stage=None, recipe='regional-v1', registration='registered')"
+      },
+      "calls": 19,
+      "completed_images": 18,
+      "images": [
+        {
+          "case": {
+            "id": "A-first",
+            "prompt": "scene",
+            "shape": "A",
+            "seed": 4471
+          },
+          "RGB_sha256": "e54b9ba59798358270ff335ead417ff3a27c0554e54d7009ae8407f15703f7cf",
+          "PNG": {
+            "path": ".artifacts/gpu-20261118/perf1/regional-suite-retained-a1/A-first.png",
+            "bytes": 1403224,
+            "sha256": "725a40225f391b5a0af952426580fb5287a0576913e22b278be9845f30ce0d46"
+          },
+          "seconds": 50.91018549998989,
+          "first_callback_seconds": 22.407891599999857,
+          "callback_interval_median_seconds": 0.9263946999999462,
+          "allocator_peak_mib": [
+            11782.091796875,
+            12422.0
+          ],
+          "generated_kernel_count": 55
+        },
+        {
+          "case": {
+            "id": "A-repeat-1",
+            "prompt": "scene",
+            "shape": "A",
+            "seed": 4471
+          },
+          "RGB_sha256": "e54b9ba59798358270ff335ead417ff3a27c0554e54d7009ae8407f15703f7cf",
+          "PNG": {
+            "path": ".artifacts/gpu-20261118/perf1/regional-suite-retained-a1/A-repeat-1.png",
+            "bytes": 1403692,
+            "sha256": "c067afeaa0ccf5253049c8f24c4dbf8fc80b7984080d782a38cf76a2ed22730c"
+          },
+          "seconds": 30.800806899991585,
+          "first_callback_seconds": 3.4166351000021677,
+          "callback_interval_median_seconds": 0.9291748000105144,
+          "allocator_peak_mib": [
+            11780.57421875,
+            12422.0
+          ],
+          "generated_kernel_count": 55
+        },
+        {
+          "case": {
+            "id": "A-repeat-2",
+            "prompt": "scene",
+            "shape": "A",
+            "seed": 4471
+          },
+          "RGB_sha256": "e54b9ba59798358270ff335ead417ff3a27c0554e54d7009ae8407f15703f7cf",
+          "PNG": {
+            "path": ".artifacts/gpu-20261118/perf1/regional-suite-retained-a1/A-repeat-2.png",
+            "bytes": 1403691,
+            "sha256": "16928b468aee616b6e5e1705b09f7c952c1fe75ebab7fc6af7d6bf51d3c22248"
+          },
+          "seconds": 30.2816984999954,
+          "first_callback_seconds": 2.8331335999973817,
+          "callback_interval_median_seconds": 0.9293260999984341,
+          "allocator_peak_mib": [
+            11780.57421875,
+            12422.0
+          ],
+          "generated_kernel_count": 55
+        },
+        {
+          "case": {
+            "id": "A-repeat-3",
+            "prompt": "scene",
+            "shape": "A",
+            "seed": 4471
+          },
+          "RGB_sha256": "e54b9ba59798358270ff335ead417ff3a27c0554e54d7009ae8407f15703f7cf",
+          "PNG": {
+            "path": ".artifacts/gpu-20261118/perf1/regional-suite-retained-a1/A-repeat-3.png",
+            "bytes": 1403694,
+            "sha256": "6b2881d6ca5697ac20b13e6f56fe2f3ad7d9e294503536902af5493c8f7e0c4a"
+          },
+          "seconds": 29.96303819998866,
+          "first_callback_seconds": 2.6565898999979254,
+          "callback_interval_median_seconds": 0.9292758000083268,
+          "allocator_peak_mib": [
+            11780.57421875,
+            12422.0
+          ],
+          "generated_kernel_count": 55
+        },
+        {
+          "case": {
+            "id": "A-scene-8823",
+            "prompt": "scene",
+            "shape": "A",
+            "seed": 8823
+          },
+          "RGB_sha256": "4b699026f159b1df5a674135f864eeace79c770930b53dc11b357cceee8a0229",
+          "PNG": {
+            "path": ".artifacts/gpu-20261118/perf1/regional-suite-retained-a1/A-scene-8823.png",
+            "bytes": 1454424,
+            "sha256": "972bb8435958b0551bb4def317146aa2c7181afedaff101587f3fda33f24c97e"
+          },
+          "seconds": 30.096077900001546,
+          "first_callback_seconds": 2.80803119999473,
+          "callback_interval_median_seconds": 0.9272179000108736,
+          "allocator_peak_mib": [
+            11780.57421875,
+            12422.0
+          ],
+          "generated_kernel_count": 55
+        },
+        {
+          "case": {
+            "id": "A-subjects-4471",
+            "prompt": "subjects",
+            "shape": "A",
+            "seed": 4471
+          },
+          "RGB_sha256": "f06928e5f8951c867dd18788011faefc86a291456e0cc994a7ecde842632e9b8",
+          "PNG": {
+            "path": ".artifacts/gpu-20261118/perf1/regional-suite-retained-a1/A-subjects-4471.png",
+            "bytes": 1745152,
+            "sha256": "bdacc4484d0f38170e9e7c2090b760129274263fc3f526629badc7d9b07df4de"
+          },
+          "seconds": 29.81524549999449,
+          "first_callback_seconds": 2.6018130000011297,
+          "callback_interval_median_seconds": 0.9294108999893069,
+          "allocator_peak_mib": [
+            11780.57421875,
+            12422.0
+          ],
+          "generated_kernel_count": 55
+        },
+        {
+          "case": {
+            "id": "A-subjects-8823",
+            "prompt": "subjects",
+            "shape": "A",
+            "seed": 8823
+          },
+          "RGB_sha256": "a2e5fe536d19c43d520e5f7fff8b596060a75293c090dba15830a18258fbadac",
+          "PNG": {
+            "path": ".artifacts/gpu-20261118/perf1/regional-suite-retained-a1/A-subjects-8823.png",
+            "bytes": 1807348,
+            "sha256": "2d1b44b23455fd4738bd654cee3c41fa1109733da6acc3a339d53ad6d2d999eb"
+          },
+          "seconds": 30.021867999996175,
+          "first_callback_seconds": 2.682023300003493,
+          "callback_interval_median_seconds": 0.9301666999963345,
+          "allocator_peak_mib": [
+            11780.57421875,
+            12422.0
+          ],
+          "generated_kernel_count": 55
+        },
+        {
+          "case": {
+            "id": "A-text-4471",
+            "prompt": "text",
+            "shape": "A",
+            "seed": 4471
+          },
+          "RGB_sha256": "db3764198d8c3d8f46e1bcf3c8bf78eb67932a2ebd8488a587cb31bd94145e86",
+          "PNG": {
+            "path": ".artifacts/gpu-20261118/perf1/regional-suite-retained-a1/A-text-4471.png",
+            "bytes": 1018263,
+            "sha256": "3f63e5dd82c93fa63a9bb225d9df848c56a394ff3e1d896ecdc9a2420f88a40f"
+          },
+          "seconds": 30.397692099999404,
+          "first_callback_seconds": 2.8981768999947235,
+          "callback_interval_median_seconds": 0.9281284000026062,
+          "allocator_peak_mib": [
+            11780.57421875,
+            12422.0
+          ],
+          "generated_kernel_count": 55
+        },
+        {
+          "case": {
+            "id": "A-text-8823",
+            "prompt": "text",
+            "shape": "A",
+            "seed": 8823
+          },
+          "RGB_sha256": "2539d2b4d55809a79f2fed82fd906c1478e04a8de039839ec73ea7d5357fafb4",
+          "PNG": {
+            "path": ".artifacts/gpu-20261118/perf1/regional-suite-retained-a1/A-text-8823.png",
+            "bytes": 1253112,
+            "sha256": "34ac63979b24da23ca7cb150b423c91f3719c6df633bd0c194b163fc60d7cdfb"
+          },
+          "seconds": 30.213146100009908,
+          "first_callback_seconds": 2.64421540001058,
+          "callback_interval_median_seconds": 0.9281684999878053,
+          "allocator_peak_mib": [
+            11780.57421875,
+            12422.0
+          ],
+          "generated_kernel_count": 55
+        },
+        {
+          "case": {
+            "id": "B-scene-4471",
+            "prompt": "scene",
+            "shape": "B",
+            "seed": 4471
+          },
+          "RGB_sha256": "5c658afeabe4eb9cf2557368492be3f9515152fa1fa2013cd667baeb6c779a61",
+          "PNG": {
+            "path": ".artifacts/gpu-20261118/perf1/regional-suite-retained-a1/B-scene-4471.png",
+            "bytes": 1393096,
+            "sha256": "584740b0203b6934c8f8feef346b41564058bdb2b81051ffcea1a41ab067adc6"
+          },
+          "seconds": 37.39701590000186,
+          "first_callback_seconds": 10.241252499996335,
+          "callback_interval_median_seconds": 0.9283852000080515,
+          "allocator_peak_mib": [
+            11842.416015625,
+            12378.0
+          ],
+          "generated_kernel_count": 110
+        },
+        {
+          "case": {
+            "id": "B-scene-8823",
+            "prompt": "scene",
+            "shape": "B",
+            "seed": 8823
+          },
+          "RGB_sha256": "fea91b351ca8a1e020df08d52688229f9f924329e32d83a4046f270b437ab9e6",
+          "PNG": {
+            "path": ".artifacts/gpu-20261118/perf1/regional-suite-retained-a1/B-scene-8823.png",
+            "bytes": 1398886,
+            "sha256": "9110b4164c8c50d3f13c1ed75b32f24033a99b6198a86f288adaf646d83a3aae"
+          },
+          "seconds": 30.042111399990972,
+          "first_callback_seconds": 2.6838784999999916,
+          "callback_interval_median_seconds": 0.9292994999996154,
+          "allocator_peak_mib": [
+            11778.9140625,
+            12422.0
+          ],
+          "generated_kernel_count": 110
+        },
+        {
+          "case": {
+            "id": "B-subjects-4471",
+            "prompt": "subjects",
+            "shape": "B",
+            "seed": 4471
+          },
+          "RGB_sha256": "481b4a5eb4ad9c1f0e6b7e160ba4c80aff9f31a3ab82d9cbd6b5f4e933df267d",
+          "PNG": {
+            "path": ".artifacts/gpu-20261118/perf1/regional-suite-retained-a1/B-subjects-4471.png",
+            "bytes": 1612170,
+            "sha256": "4066450289ed5761109bf792ce3bf4357e13934064954d452622eab4fcc02833"
+          },
+          "seconds": 30.335863800006337,
+          "first_callback_seconds": 2.837513000005856,
+          "callback_interval_median_seconds": 0.9285478000092553,
+          "allocator_peak_mib": [
+            11778.9140625,
+            12422.0
+          ],
+          "generated_kernel_count": 110
+        },
+        {
+          "case": {
+            "id": "B-subjects-8823",
+            "prompt": "subjects",
+            "shape": "B",
+            "seed": 8823
+          },
+          "RGB_sha256": "9e227b89897186d7c22dab54b0d70ec99cd065b83a2c6d53dc48152b58269e03",
+          "PNG": {
+            "path": ".artifacts/gpu-20261118/perf1/regional-suite-retained-a1/B-subjects-8823.png",
+            "bytes": 1680390,
+            "sha256": "e25d42bfe2177b2331f80c92bdb60a24bd0cd1ba8f0a91f409688a77fc56219e"
+          },
+          "seconds": 30.341077300006873,
+          "first_callback_seconds": 2.8440835000074003,
+          "callback_interval_median_seconds": 0.9274064999917755,
+          "allocator_peak_mib": [
+            11778.9140625,
+            12422.0
+          ],
+          "generated_kernel_count": 110
+        },
+        {
+          "case": {
+            "id": "B-text-4471",
+            "prompt": "text",
+            "shape": "B",
+            "seed": 4471
+          },
+          "RGB_sha256": "8042fac94cbcfde82d6d1c3e5a647edd0dc56575c46807e7b82f7b18ee964a0f",
+          "PNG": {
+            "path": ".artifacts/gpu-20261118/perf1/regional-suite-retained-a1/B-text-4471.png",
+            "bytes": 1099100,
+            "sha256": "87b572a9cadfea6c9398bfd71af8379bb0b7aa103190ad1df4b17a8a44f6e188"
+          },
+          "seconds": 30.31370379999862,
+          "first_callback_seconds": 2.8177752000046894,
+          "callback_interval_median_seconds": 0.928941299993312,
+          "allocator_peak_mib": [
+            11778.9140625,
+            12422.0
+          ],
+          "generated_kernel_count": 110
+        },
+        {
+          "case": {
+            "id": "B-text-8823",
+            "prompt": "text",
+            "shape": "B",
+            "seed": 8823
+          },
+          "RGB_sha256": "678f19b39a9628cea1c6349868370f9e61a6665b7ba5c35ef581474228071af0",
+          "PNG": {
+            "path": ".artifacts/gpu-20261118/perf1/regional-suite-retained-a1/B-text-8823.png",
+            "bytes": 1134427,
+            "sha256": "59e8fae131fa749abcbdcc98fc08796b70e5f395e3c10b889d166e5167ca6a27"
+          },
+          "seconds": 30.286542700006976,
+          "first_callback_seconds": 2.7796881000103895,
+          "callback_interval_median_seconds": 0.928609000009601,
+          "allocator_peak_mib": [
+            11778.9140625,
+            12422.0
+          ],
+          "generated_kernel_count": 110
+        },
+        {
+          "case": {
+            "id": "B-repeat",
+            "prompt": "scene",
+            "shape": "B",
+            "seed": 4471
+          },
+          "RGB_sha256": "5c658afeabe4eb9cf2557368492be3f9515152fa1fa2013cd667baeb6c779a61",
+          "PNG": {
+            "path": ".artifacts/gpu-20261118/perf1/regional-suite-retained-a1/B-repeat.png",
+            "bytes": 1393724,
+            "sha256": "4a1514dbcbc4534b750a99456e3c12db81d7219ec0f95f623f6285fb527561e4"
+          },
+          "seconds": 30.27878530000453,
+          "first_callback_seconds": 2.800629800010938,
+          "callback_interval_median_seconds": 0.9286911999952281,
+          "allocator_peak_mib": [
+            11778.9140625,
+            12422.0
+          ],
+          "generated_kernel_count": 110
+        },
+        {
+          "case": {
+            "id": "A-return",
+            "prompt": "scene",
+            "shape": "A",
+            "seed": 4471
+          },
+          "RGB_sha256": "e54b9ba59798358270ff335ead417ff3a27c0554e54d7009ae8407f15703f7cf",
+          "PNG": {
+            "path": ".artifacts/gpu-20261118/perf1/regional-suite-retained-a1/A-return.png",
+            "bytes": 1404834,
+            "sha256": "bb6f91bee86cb588c63fd49af33a7367804e54abf7ffa05160b65a36557b313c"
+          },
+          "seconds": 29.94136919999437,
+          "first_callback_seconds": 2.6039295999944443,
+          "callback_interval_median_seconds": 0.9295999000023585,
+          "allocator_peak_mib": [
+            11780.57421875,
+            12422.0
+          ],
+          "generated_kernel_count": 110
+        },
+        {
+          "case": {
+            "id": "after-cancel",
+            "prompt": "scene",
+            "shape": "A",
+            "seed": 4471
+          },
+          "RGB_sha256": "e54b9ba59798358270ff335ead417ff3a27c0554e54d7009ae8407f15703f7cf",
+          "PNG": {
+            "path": ".artifacts/gpu-20261118/perf1/regional-suite-retained-a1/after-cancel.png",
+            "bytes": 1404836,
+            "sha256": "8b7fbda61927a2d7d89acf95e1d02de4fd8431a125bfe169c4ec059ed6d7e89c"
+          },
+          "seconds": 30.289243500010343,
+          "first_callback_seconds": 2.843876500002807,
+          "callback_interval_median_seconds": 0.9288497000088682,
+          "allocator_peak_mib": [
+            11780.57421875,
+            12422.0
+          ],
+          "generated_kernel_count": 110
+        }
+      ],
+      "cancellations": [
+        {
+          "kind": "image",
+          "case": {
+            "id": "cancel-step-3",
+            "cancel_step": 3,
+            "prompt": "scene",
+            "shape": "A",
+            "seed": 4471
+          },
+          "status": "cancelled",
+          "execution": {
+            "compilation": "regional-v1",
+            "attention_backend": null,
+            "step_cache": null
+          },
+          "request_applied": {
+            "prompt": "A tall sharp-featured man in an oversized charcoal wool coat, standing on a wet cobblestone street at night, fashion editorial, moody street lighting",
+            "negative_prompt": null,
+            "width": 1024,
+            "height": 1024,
+            "steps": 28,
+            "guidance_scale": 3.5,
+            "true_cfg": null,
+            "mu": null,
+            "reference": [],
+            "lora": null,
+            "lora_scale": 1.0,
+            "refine": null,
+            "strength": 0.1,
+            "crop_anchor": "center",
+            "upscaler": null,
+            "mask": null,
+            "outpaint": null,
+            "mask_crop": null,
+            "execution": null,
+            "edit": null,
+            "detailer": null,
+            "seed": null,
+            "num_images": 1,
+            "runs": 1
+          },
+          "native_state_unchanged": true,
+          "production_entry": "DiffusersBackend.generate",
+          "private_admission_scope": "instance guard only; ordinary omitted-execution request, verified exact private loaded recipe",
+          "seconds": 6.295312300004298,
+          "first_callback_seconds": 2.6197785999975167,
+          "step_intervals": [
+            0.9399593999987701,
+            0.9240410000056727
+          ],
+          "cancel_return_seconds": 1.8115333000023384,
+          "allocated_peak_mib": 11780.57421875,
+          "reserved_peak_mib": 12422.0,
+          "generated_kernel_count": 110,
+          "compiler_counters_before": {
+            "unimplemented": {},
+            "stats": {
+              "calls_captured": 544,
+              "unique_graphs": 6
+            },
+            "aot_autograd": {
+              "total": 6,
+              "autograd_cache_hit": 3,
+              "ok": 6,
+              "autograd_cache_miss": 3,
+              "autograd_cache_saved": 3
+            },
+            "inductor": {
+              "triton_bundler_load_static_autotuner": 38,
+              "async_compile_cache_miss": 114,
+              "async_compile_cache_hit": 38,
+              "extern_calls": 64,
+              "fxgraph_cache_hit": 3,
+              "benchmarking.InductorBenchmarker.benchmark": 29,
+              "benchmarking.InductorBenchmarker.benchmark_gpu": 29,
+              "pattern_matcher_count": 71,
+              "pattern_matcher_nodes": 71,
+              "fxgraph_cache_miss": 3,
+              "triton_bundler_save_kernel": 408,
+              "triton_bundler_save_static_autotuner": 3
+            },
+            "graph_break": {},
+            "aten_mm_info": {
+              "aten.mm_1_18432_3072": 2,
+              "aten.mm_512_3072_3072": 4,
+              "aten.mm_4080_3072_3072": 4,
+              "aten.mm_512_12288_3072": 1,
+              "aten.mm_512_3072_12288": 1,
+              "aten.mm_4080_12288_3072": 1,
+              "aten.mm_4080_3072_12288": 1,
+              "aten.mm_1_9216_3072": 2,
+              "aten.mm_4592_3072_3072": 6,
+              "aten.mm_4592_12288_3072": 2,
+              "aten.mm_4592_3072_15360": 2
+            }
+          },
+          "compiler_counters_after": {
+            "unimplemented": {},
+            "stats": {
+              "calls_captured": 544,
+              "unique_graphs": 6
+            },
+            "aot_autograd": {
+              "total": 6,
+              "autograd_cache_hit": 3,
+              "ok": 6,
+              "autograd_cache_miss": 3,
+              "autograd_cache_saved": 3
+            },
+            "inductor": {
+              "triton_bundler_load_static_autotuner": 38,
+              "async_compile_cache_miss": 114,
+              "async_compile_cache_hit": 38,
+              "extern_calls": 64,
+              "fxgraph_cache_hit": 3,
+              "benchmarking.InductorBenchmarker.benchmark": 29,
+              "benchmarking.InductorBenchmarker.benchmark_gpu": 29,
+              "pattern_matcher_count": 71,
+              "pattern_matcher_nodes": 71,
+              "fxgraph_cache_miss": 3,
+              "triton_bundler_save_kernel": 408,
+              "triton_bundler_save_static_autotuner": 3
+            },
+            "graph_break": {},
+            "aten_mm_info": {
+              "aten.mm_1_18432_3072": 2,
+              "aten.mm_512_3072_3072": 4,
+              "aten.mm_4080_3072_3072": 4,
+              "aten.mm_512_12288_3072": 1,
+              "aten.mm_512_3072_12288": 1,
+              "aten.mm_4080_12288_3072": 1,
+              "aten.mm_4080_3072_12288": 1,
+              "aten.mm_1_9216_3072": 2,
+              "aten.mm_4592_3072_3072": 6,
+              "aten.mm_4592_12288_3072": 2,
+              "aten.mm_4592_3072_15360": 2
+            }
+          },
+          "registration": "RegionalDiagnostics(load_id=1, first_call='returned', failure_stage=None, recipe='regional-v1', registration='registered')",
+          "post_cancel_component_registered_tensor_devices": {
+            "vae": {
+              "parameters": [
+                "cpu"
+              ],
+              "buffers": []
+            },
+            "text_encoder": {
+              "parameters": [
+                "cpu"
+              ],
+              "buffers": [
+                "cpu"
+              ]
+            },
+            "text_encoder_2": {
+              "parameters": [
+                "cpu"
+              ],
+              "buffers": []
+            },
+            "transformer": {
+              "parameters": [
+                "cpu"
+              ],
+              "buffers": []
+            }
+          },
+          "post_cancel_allocated_mib": 32.0009765625
+        }
+      ],
+      "unique_fixed_cases": 12,
+      "warm_callback_wall_interval_median_seconds": 0.9286776500011911,
+      "cache": {
+        "files_before": 520,
+        "files_after": 770,
+        "bytes_after": 35857156,
+        "reuse_observation": {
+          "cache_present_before": true,
+          "fxgraph_cache_hit": 3,
+          "fresh_process_retained_cache_requested": true,
+          "reuse_observed": true,
+          "counters": {
+            "unimplemented": {},
+            "stats": {
+              "calls_captured": 544,
+              "unique_graphs": 6
+            },
+            "aot_autograd": {
+              "total": 6,
+              "autograd_cache_hit": 3,
+              "ok": 6,
+              "autograd_cache_miss": 3,
+              "autograd_cache_saved": 3
+            },
+            "inductor": {
+              "triton_bundler_load_static_autotuner": 38,
+              "async_compile_cache_miss": 114,
+              "async_compile_cache_hit": 38,
+              "extern_calls": 64,
+              "fxgraph_cache_hit": 3,
+              "benchmarking.InductorBenchmarker.benchmark": 29,
+              "benchmarking.InductorBenchmarker.benchmark_gpu": 29,
+              "pattern_matcher_count": 71,
+              "pattern_matcher_nodes": 71,
+              "fxgraph_cache_miss": 3,
+              "triton_bundler_save_kernel": 408,
+              "triton_bundler_save_static_autotuner": 3
+            },
+            "graph_break": {},
+            "aten_mm_info": {
+              "aten.mm_1_18432_3072": 2,
+              "aten.mm_512_3072_3072": 4,
+              "aten.mm_4080_3072_3072": 4,
+              "aten.mm_512_12288_3072": 1,
+              "aten.mm_512_3072_12288": 1,
+              "aten.mm_4080_12288_3072": 1,
+              "aten.mm_4080_3072_12288": 1,
+              "aten.mm_1_9216_3072": 2,
+              "aten.mm_4592_3072_3072": 6,
+              "aten.mm_4592_12288_3072": 2,
+              "aten.mm_4592_3072_15360": 2
+            }
+          }
+        }
+      },
+      "policy_restoration": {
+        "before": {
+          "suppress_errors": false,
+          "fail_on_recompile_limit_hit": false,
+          "compile_threads": 1
+        },
+        "after": {
+          "suppress_errors": false,
+          "fail_on_recompile_limit_hit": false,
+          "compile_threads": 1
+        }
+      },
+      "unload_observer_scope": "v2 tester guard alias dropped; explicit backend/native/diagnostic/parameter-set and pipeline/transformer weakref observations after unload+GC",
+      "unload": {
+        "kind": "unload",
+        "success_before_cleanup": true,
+        "active_primary_exception": null,
+        "is_ready": false,
+        "cleared_owners": {
+          "_pipe": true,
+          "_loaded_execution": true,
+          "_regional_registration": true,
+          "_attention_selection": true,
+          "_cache_owner": true,
+          "_cache_disposal": true,
+          "_pending_cache_disposal": true,
+          "_refine_pipe": true,
+          "_inpaint_pipe": true,
+          "_lora": true
+        },
+        "empty_parameter_sets": {
+          "_call_params": true,
+          "_refine_params": true,
+          "_inpaint_params": true
+        },
+        "diagnostics": "None",
+        "new_diagnostics_reader_is_none": true,
+        "retained_weight_free_reader_value": "None",
+        "native_global_state_unchanged": true,
+        "native_after": {
+          "dispatcher": "native",
+          "function": "diffusers.models.attention_dispatch._native_attention",
+          "function_id": 1559082136288,
+          "sdpa": {
+            "flash": true,
+            "math": true,
+            "mem_efficient": true,
+            "cudnn": true
+          }
+        },
+        "pipeline_collected": true,
+        "transformer_collected": true,
+        "weakref_scope": "tester pipeline/guard aliases dropped; no manual offload or Dynamo reset; active traceback may retain on failure",
+        "allocated_mib": 32.0,
+        "reserved_mib": 32.0
+      },
+      "after_exit": {
+        "card_mib": 973.0,
+        "adapter_shared_mib": 38.6640625,
+        "process_shared_mib": null,
+        "available_gib": 49.13235855102539,
+        "commit_headroom_gib": 54.74315643310547,
+        "tree_gib": null,
+        "card_total_mib": 16303.0
+      },
+      "power_request": {
+        "kind": "power-request",
+        "holding": false,
+        "released": true
+      },
+      "guarded_Python_socket_attempts_after_owned_stdlib_loop": [],
+      "evidence": [
+        {
+          "path": ".artifacts/gpu-20261118/perf1/regional-suite-retained-a1/plan.json",
+          "bytes": 3226,
+          "sha256": "5094e339b631f58a893693f50121271c6c7e1975027e76084d146901a8adad21"
+        },
+        {
+          "path": ".artifacts/gpu-20261118/perf1/regional-suite-retained-a1/preflight.json",
+          "bytes": 707,
+          "sha256": "e19da75fbc1da694c66540d02bf90faa5a1c88659d09a580022462ba7609935f"
+        },
+        {
+          "path": ".artifacts/gpu-20261118/perf1/regional-suite-retained-a1/summary.json",
+          "bytes": 326,
+          "sha256": "58016bde2ddd22e2fcee971c9664c00ff85b6cb2e373582276bb35916e83cc6b"
+        },
+        {
+          "path": ".artifacts/gpu-20261118/perf1/regional-suite-retained-a1/stack.json",
+          "bytes": 4537,
+          "sha256": "d4722c81e17c808339f72d4cc32ae220546ef9f8a4be9485c17359323147aa5e"
+        },
+        {
+          "path": ".artifacts/gpu-20261118/perf1/regional-suite-retained-a1/imported-toolchain.json",
+          "bytes": 1561,
+          "sha256": "d1bb9c5627cc88a46c45195eef25e8d45f6ada4dff124a37d7a60b80b2a44650"
+        },
+        {
+          "path": ".artifacts/gpu-20261118/perf1/regional-suite-retained-a1/startup-binding.json",
+          "bytes": 2358,
+          "sha256": "edb7f725d204558f5c1321d725b62e7685b7ebc5b6a6c516a3cc44c49a604bcb"
+        },
+        {
+          "path": ".artifacts/gpu-20261118/perf1/regional-suite-retained-a1/guard.jsonl",
+          "bytes": 1362180,
+          "sha256": "7f87581525d4bf9d7b13dbb6385ffe4bda7e9d5b8ce622dbc7ba7d5d9f3e827f"
+        },
+        {
+          "path": ".artifacts/gpu-20261118/perf1/regional-suite-retained-a1/measurements.json",
+          "bytes": 87009,
+          "sha256": "8f0261b2c50ae854229033f3d338bd4ac8b3eb7a0bd3eded6986ef105cc92cf5"
+        },
+        {
+          "path": ".artifacts/gpu-20261118/perf1/regional-suite-retained-a1/cache-before.json",
+          "bytes": 154398,
+          "sha256": "a9ffb01ca36fa1f487a3687e8120dab97be392fb976901a2512adc5c1cac5433"
+        },
+        {
+          "path": ".artifacts/gpu-20261118/perf1/regional-suite-retained-a1/cache-after.json",
+          "bytes": 232995,
+          "sha256": "b49c56853fab935a48b886874804b993c6802f9c733bde417b38a2757d9d0508"
+        },
+        {
+          "path": ".artifacts/gpu-20261118/perf1/regional-suite-retained-a1/policy-restoration.json",
+          "bytes": 244,
+          "sha256": "d19ad1cb36e60a63f002c0cbbca7d02207e74c500ba0a9f4872f423be9f7202b"
+        },
+        {
+          "path": ".artifacts/gpu-20261118/perf1/regional-suite-retained-a1/cache-reuse-observation.json",
+          "bytes": 1408,
+          "sha256": "1cf2b5b77b67351f7999012336b47421333de1923e5d06aa34087792aec027f5"
+        },
+        {
+          "path": ".artifacts/gpu-20261118/perf1/regional-suite-retained-a1/after-exit.json",
+          "bytes": 228,
+          "sha256": "7dd6c6d3c756c32df41ed9d8feeedc593f65ab27bd1d816fe45b8f8762e672e8"
+        },
+        {
+          "path": ".artifacts/gpu-20261118/perf1/regional-suite-retained-a1/keep-awake.json",
+          "bytes": 73,
+          "sha256": "24e170c01c89e7ca3055ed68309a1472c993a25a6711ef8cd866441110ed8099"
+        },
+        {
+          "path": ".artifacts/gpu-20261118/perf1/regional-suite-retained-a1/worker.log",
+          "bytes": 1928572,
+          "sha256": "7e03109e37353e066edf6750fc9a36d121e8737ef31a523ab02e5f7b88ab0f1d"
+        },
+        {
+          "path": ".artifacts/gpu-20261118/perf1/regional-suite-retained-a1/native-before.json",
+          "bytes": 11397,
+          "sha256": "fc94845af659cc54003b0835ab5d317b81f69f9a439ae538d5ae07aa16053fd0"
+        },
+        {
+          "path": ".artifacts/gpu-20261118/perf1/regional-suite-retained-a1/unload-observation.json",
+          "bytes": 1231,
+          "sha256": "a900d72bf89e18a0e1ad374a85c428a2be1d0056294c669771cde790a5ac5e83"
+        },
+        {
+          "path": ".artifacts/gpu-20261118/perf1/regional-suite-retained-a1/independent-audit.json",
+          "bytes": 1674,
+          "sha256": "7b410652b931ed4ab6b898eb1ee78b90c75883faedad470da6a368bb4afed6e1"
+        }
+      ]
+    }
+  ],
+  "totals": {
+    "loads": 3,
+    "generation_calls": 42,
+    "completed_PNGs": 40,
+    "step3_cancellations": 2,
+    "early_request_cancellations": 0
+  },
+  "cache_and_compiler": {
+    "empty_cache_probe": true,
+    "cold_generated_kernels": 55,
+    "cold_Dynamo_graphs": 3,
+    "cold_captured_calls": 272,
+    "cold_cache_misses": 3,
+    "initial_specialization_per_Regional_process": "One hidden_states stride recompile,12582912 to14155776,in each Regional process; retained process adds three specializations for second aspect.",
+    "logged_recompile_events": {
+      "cold_probe": 1,
+      "retained_table": 4
+    },
+    "warm_counters_stable": true,
+    "cold_compiled_graph_external_ops": 32,
+    "retained_full_table_compiled_graph_external_ops": 64,
+    "compiled_graph_external_ops_are_not_eager_fallback": true,
+    "fresh_process_fxgraph_cache_hits": 3,
+    "retained_cache_before_exactly_matches_probe_after": true,
+    "second_shape_totals": {
+      "Dynamo_graphs": 6,
+      "generated_kernels": 110,
+      "new_shape_cache_misses": 3
+    },
+    "return_to_first_shape_exact_without_added_graphs": true
+  },
+  "paired_metrics": {
+    "scope": "same frozen twelve cases; private overlay actual backend.generate; numerical metrics do not establish quality acceptance",
+    "pairs": [
+      {
+        "case": [
+          "A",
+          "scene",
+          4471
+        ],
+        "eager_image": ".artifacts\\gpu-20261118\\perf1\\eager-suite-a1\\A-first.png",
+        "regional_image": ".artifacts\\gpu-20261118\\perf1\\regional-suite-retained-a1\\A-first.png",
+        "eager_sha256": "d62ee9fc1308fe2a617619cdfb3fe8ba0e5a56c418dfe541cb32a9da419d697b",
+        "regional_sha256": "e54b9ba59798358270ff335ead417ff3a27c0554e54d7009ae8407f15703f7cf",
+        "difference": {
+          "identical": false,
+          "mean": 2.569075584411621,
+          "max": 222,
+          "psnr": 32.976676474472555,
+          "threshold": 16,
+          "pct_over_threshold": 3.284168243408203,
+          "differing_pixels": 918745,
+          "pixels": 1048576
+        },
+        "eager_case_seconds": 57.586652300000424,
+        "regional_case_seconds": 50.91018549998989
+      },
+      {
+        "case": [
+          "A",
+          "scene",
+          8823
+        ],
+        "eager_image": ".artifacts\\gpu-20261118\\perf1\\eager-suite-a1\\A-scene-8823.png",
+        "regional_image": ".artifacts\\gpu-20261118\\perf1\\regional-suite-retained-a1\\A-scene-8823.png",
+        "eager_sha256": "cc056b0a287edc7869d84d0fb1384bbed0bc825c25134b4626369128abad4f88",
+        "regional_sha256": "4b699026f159b1df5a674135f864eeace79c770930b53dc11b357cceee8a0229",
+        "difference": {
+          "identical": false,
+          "mean": 1.0742559432983398,
+          "max": 143,
+          "psnr": 39.547408721140386,
+          "threshold": 16,
+          "pct_over_threshold": 0.45566558837890625,
+          "differing_pixels": 804987,
+          "pixels": 1048576
+        },
+        "eager_case_seconds": 40.74499730000389,
+        "regional_case_seconds": 30.096077900001546
+      },
+      {
+        "case": [
+          "A",
+          "subjects",
+          4471
+        ],
+        "eager_image": ".artifacts\\gpu-20261118\\perf1\\eager-suite-a1\\A-subjects-4471.png",
+        "regional_image": ".artifacts\\gpu-20261118\\perf1\\regional-suite-retained-a1\\A-subjects-4471.png",
+        "eager_sha256": "3f22a7d57c8be43c7090222616ce018cb89f48a0889b2740507007f3f3789160",
+        "regional_sha256": "f06928e5f8951c867dd18788011faefc86a291456e0cc994a7ecde842632e9b8",
+        "difference": {
+          "identical": false,
+          "mean": 1.5462633768717449,
+          "max": 193,
+          "psnr": 35.58937307096319,
+          "threshold": 16,
+          "pct_over_threshold": 1.2266159057617188,
+          "differing_pixels": 916866,
+          "pixels": 1048576
+        },
+        "eager_case_seconds": 40.566159000009065,
+        "regional_case_seconds": 29.81524549999449
+      },
+      {
+        "case": [
+          "A",
+          "subjects",
+          8823
+        ],
+        "eager_image": ".artifacts\\gpu-20261118\\perf1\\eager-suite-a1\\A-subjects-8823.png",
+        "regional_image": ".artifacts\\gpu-20261118\\perf1\\regional-suite-retained-a1\\A-subjects-8823.png",
+        "eager_sha256": "8fb6c6432b85d595a7e5ae7c82368a5ea3672a4aa654a0ae18cb64b8eab15f70",
+        "regional_sha256": "a2e5fe536d19c43d520e5f7fff8b596060a75293c090dba15830a18258fbadac",
+        "difference": {
+          "identical": false,
+          "mean": 1.3154481252034504,
+          "max": 176,
+          "psnr": 38.81086544899389,
+          "threshold": 16,
+          "pct_over_threshold": 0.5402565002441406,
+          "differing_pixels": 941224,
+          "pixels": 1048576
+        },
+        "eager_case_seconds": 40.57427449998795,
+        "regional_case_seconds": 30.021867999996175
+      },
+      {
+        "case": [
+          "A",
+          "text",
+          4471
+        ],
+        "eager_image": ".artifacts\\gpu-20261118\\perf1\\eager-suite-a1\\A-text-4471.png",
+        "regional_image": ".artifacts\\gpu-20261118\\perf1\\regional-suite-retained-a1\\A-text-4471.png",
+        "eager_sha256": "7b912086194f36f5e9e72737abbf498e9fbe5e924b6421429ee545ef335052ed",
+        "regional_sha256": "db3764198d8c3d8f46e1bcf3c8bf78eb67932a2ebd8488a587cb31bd94145e86",
+        "difference": {
+          "identical": false,
+          "mean": 1.7235530217488606,
+          "max": 228,
+          "psnr": 32.65633526957332,
+          "threshold": 16,
+          "pct_over_threshold": 3.0045509338378906,
+          "differing_pixels": 810261,
+          "pixels": 1048576
+        },
+        "eager_case_seconds": 40.60684890000266,
+        "regional_case_seconds": 30.397692099999404
+      },
+      {
+        "case": [
+          "A",
+          "text",
+          8823
+        ],
+        "eager_image": ".artifacts\\gpu-20261118\\perf1\\eager-suite-a1\\A-text-8823.png",
+        "regional_image": ".artifacts\\gpu-20261118\\perf1\\regional-suite-retained-a1\\A-text-8823.png",
+        "eager_sha256": "fbe2e6eb13eee7ec793cce03e0ad7e574ab0f10c815a3523875c4ac27b0edaad",
+        "regional_sha256": "2539d2b4d55809a79f2fed82fd906c1478e04a8de039839ec73ea7d5357fafb4",
+        "difference": {
+          "identical": false,
+          "mean": 1.8463462193806965,
+          "max": 185,
+          "psnr": 33.863868415889506,
+          "threshold": 16,
+          "pct_over_threshold": 1.7850875854492188,
+          "differing_pixels": 902199,
+          "pixels": 1048576
+        },
+        "eager_case_seconds": 40.68954629999644,
+        "regional_case_seconds": 30.213146100009908
+      },
+      {
+        "case": [
+          "B",
+          "scene",
+          4471
+        ],
+        "eager_image": ".artifacts\\gpu-20261118\\perf1\\eager-suite-a1\\B-scene-4471.png",
+        "regional_image": ".artifacts\\gpu-20261118\\perf1\\regional-suite-retained-a1\\B-scene-4471.png",
+        "eager_sha256": "b1c1f0aa7cbd02f757ac372308d98b3fab109035fe2e1f987529862c2b3fc062",
+        "regional_sha256": "5c658afeabe4eb9cf2557368492be3f9515152fa1fa2013cd667baeb6c779a61",
+        "difference": {
+          "identical": false,
+          "mean": 0.9163813572303922,
+          "max": 161,
+          "psnr": 39.671423075403276,
+          "threshold": 16,
+          "pct_over_threshold": 0.4327512254901961,
+          "differing_pixels": 735015,
+          "pixels": 1044480
+        },
+        "eager_case_seconds": 40.63327740000386,
+        "regional_case_seconds": 37.39701590000186
+      },
+      {
+        "case": [
+          "B",
+          "scene",
+          8823
+        ],
+        "eager_image": ".artifacts\\gpu-20261118\\perf1\\eager-suite-a1\\B-scene-8823.png",
+        "regional_image": ".artifacts\\gpu-20261118\\perf1\\regional-suite-retained-a1\\B-scene-8823.png",
+        "eager_sha256": "e398e72a466935da6c1c732ab664369573ecd0ac7eead92d921dc97c1e0515a0",
+        "regional_sha256": "fea91b351ca8a1e020df08d52688229f9f924329e32d83a4046f270b437ab9e6",
+        "difference": {
+          "identical": false,
+          "mean": 7.289609502655229,
+          "max": 230,
+          "psnr": 24.311512328856224,
+          "threshold": 16,
+          "pct_over_threshold": 11.815448835784313,
+          "differing_pixels": 1005796,
+          "pixels": 1044480
+        },
+        "eager_case_seconds": 40.772942800002056,
+        "regional_case_seconds": 30.042111399990972
+      },
+      {
+        "case": [
+          "B",
+          "subjects",
+          4471
+        ],
+        "eager_image": ".artifacts\\gpu-20261118\\perf1\\eager-suite-a1\\B-subjects-4471.png",
+        "regional_image": ".artifacts\\gpu-20261118\\perf1\\regional-suite-retained-a1\\B-subjects-4471.png",
+        "eager_sha256": "ec343d59fdbbc949adcef6ccb2fa3851f10cdd9881db53d2504d4fd527196ba5",
+        "regional_sha256": "481b4a5eb4ad9c1f0e6b7e160ba4c80aff9f31a3ab82d9cbd6b5f4e933df267d",
+        "difference": {
+          "identical": false,
+          "mean": 1.238418798508987,
+          "max": 190,
+          "psnr": 38.191248952802084,
+          "threshold": 16,
+          "pct_over_threshold": 0.5828737745098039,
+          "differing_pixels": 899475,
+          "pixels": 1044480
+        },
+        "eager_case_seconds": 40.66766770000686,
+        "regional_case_seconds": 30.335863800006337
+      },
+      {
+        "case": [
+          "B",
+          "subjects",
+          8823
+        ],
+        "eager_image": ".artifacts\\gpu-20261118\\perf1\\eager-suite-a1\\B-subjects-8823.png",
+        "regional_image": ".artifacts\\gpu-20261118\\perf1\\regional-suite-retained-a1\\B-subjects-8823.png",
+        "eager_sha256": "e10c6bdaeffe2e75637773c112b5aa93516f1bc7e3f31d6ffb05301573aa9de4",
+        "regional_sha256": "9e227b89897186d7c22dab54b0d70ec99cd065b83a2c6d53dc48152b58269e03",
+        "difference": {
+          "identical": false,
+          "mean": 4.1472831775939545,
+          "max": 200,
+          "psnr": 27.731055121861697,
+          "threshold": 16,
+          "pct_over_threshold": 6.371783088235294,
+          "differing_pixels": 1001335,
+          "pixels": 1044480
+        },
+        "eager_case_seconds": 40.84583789999306,
+        "regional_case_seconds": 30.341077300006873
+      },
+      {
+        "case": [
+          "B",
+          "text",
+          4471
+        ],
+        "eager_image": ".artifacts\\gpu-20261118\\perf1\\eager-suite-a1\\B-text-4471.png",
+        "regional_image": ".artifacts\\gpu-20261118\\perf1\\regional-suite-retained-a1\\B-text-4471.png",
+        "eager_sha256": "17cc7fdaa80aae0c70dfc4eb96f66bc0eab75b8826ae4035f652152a11b133f1",
+        "regional_sha256": "8042fac94cbcfde82d6d1c3e5a647edd0dc56575c46807e7b82f7b18ee964a0f",
+        "difference": {
+          "identical": false,
+          "mean": 0.7226377399918301,
+          "max": 148,
+          "psnr": 39.08176257098106,
+          "threshold": 16,
+          "pct_over_threshold": 0.49201516544117646,
+          "differing_pixels": 653924,
+          "pixels": 1044480
+        },
+        "eager_case_seconds": 40.607140400010394,
+        "regional_case_seconds": 30.31370379999862
+      },
+      {
+        "case": [
+          "B",
+          "text",
+          8823
+        ],
+        "eager_image": ".artifacts\\gpu-20261118\\perf1\\eager-suite-a1\\B-text-8823.png",
+        "regional_image": ".artifacts\\gpu-20261118\\perf1\\regional-suite-retained-a1\\B-text-8823.png",
+        "eager_sha256": "fafc603ab509c064fb671c927ec06f8d2f1ed674a43e35652488661eb4cba589",
+        "regional_sha256": "678f19b39a9628cea1c6349868370f9e61a6665b7ba5c35ef581474228071af0",
+        "difference": {
+          "identical": false,
+          "mean": 1.0914403977736928,
+          "max": 215,
+          "psnr": 35.610782294179046,
+          "threshold": 16,
+          "pct_over_threshold": 1.324582567401961,
+          "differing_pixels": 767067,
+          "pixels": 1044480
+        },
+        "eager_case_seconds": 40.78356139999232,
+        "regional_case_seconds": 30.286542700006976
+      }
+    ],
+    "warm_timing_scope": "16 completed images per arm excluding first-image and first second-aspect image",
+    "eager_warm_median_seconds": 40.63740405000863,
+    "regional_warm_median_seconds": 30.280241899999965,
+    "median_time_reduction_percent": 25.48677109704911,
+    "eager_warm_range_seconds": [
+      40.553850199998124,
+      41.20767979999073
+    ],
+    "regional_warm_range_seconds": [
+      29.81524549999449,
+      30.800806899991585
+    ]
+  },
+  "paired_metrics_evidence": {
+    "path": ".artifacts/gpu-20261118/perf1/eager-regional-pair-metrics.json",
+    "bytes": 11015,
+    "sha256": "72ccbfba41e343b9bf69da0fce507b9e97ea39a0dee574882be1ac9946c8c87b"
+  },
+  "unload_boundary": "v1 root reclamation was not observed; only v2 supplies explicit cleared ownership, retired weight-free reader, Native/SDPA restoration and collected pipeline/transformer weakrefs.",
+  "future_resource_budgets": {
+    "general_overlay_commit_gib": 55.9,
+    "basis": "45.852 measured private+4GiB hard live floor+6GiB preferred reserve,rounded up",
+    "hard_live_RAM_and_commit_floor_gib": 4.0,
+    "early_cancel_distinct_protocol_commit_gib": 53.9,
+    "early_cancel_basis": "same already-tested model/shape/prompt/seed only;45.852+4hard floor+4extra reserve,rounded up; additional hard tree-private48GiB/RSS32GiB caps"
+  },
+  "remaining": {
+    "early_request_cancellation": {
+      "status": "prepared,source/safety-reviewed,UNRUN,headroom-held",
+      "frozen_driver": {
+        "path": ".artifacts/gpu-20261118/perf1/regional_card_v4_cancel.py",
+        "bytes": 48861,
+        "sha256": "79cd85824c2d06052d428d4397c92603d73035ab0a189a903ac5f49df2f9dcc6"
+      },
+      "cold_check": {
+        "path": ".artifacts/gpu-20261118/perf1/check_regional_card_v4_cancel.py",
+        "bytes": 1951,
+        "sha256": "3d18afe2b02d89b0c1a3e30db2ff0c41350d60ca24e1e6ac9bed8a838cb556de"
+      },
+      "scope": "Exactly scene/A1024\u00b2/seed4471,Regional fp8/model; independent+3s actual request then recovery/repeat. Record actual request,polls,first callback,return; no compilation-overlap claim without observer.",
+      "admission": "45GiB RAM,53.9GiB commit,<=2500MiB idle card; hard tree-private48GiB/RSS32GiB and unchanged15500MiB card/shared-rise1024/512MiB/4GiB host floors.",
+      "reason": "At receipt creation,the latest idle-headroom checks reported to this agent were below53.9GiB free commit (root reported52.64 after WSL). No early-request worker/permit had started. A later attempt needs a new actual admission sample. General v3 stays55.9; no external VM/app shutdown."
+    },
+    "quality_acceptance": "Twelve pixel-changing pairs retained; numerical metrics and agent first-pair inspection are not Matt acceptance.",
+    "public_release": "All nonempty public execution admission remains closed; no default installation,public UI/load/replay qualification or broader platform/model claim.",
+    "perf2_and_perf7": "Keep their existing blockers until the owner criteria are fully satisfied; this private matrix alone does not release them."
+  },
+  "independent_audits": [
+    {
+      "path": "work/gpu-20261118/audit/perf1-eager-suite-a1-audit.json",
+      "bytes": 12393,
+      "sha256": "1b889836d8b9311034afc76d33d01e16ac37f76dd6fc519cd530c1f2a65c7e72"
+    },
+    {
+      "path": "work/gpu-20261118/audit/perf1-regional-probe-a2-guard-image-audit.json",
+      "bytes": 3916,
+      "sha256": "d045ce5e7ab6a381a296e79df421505ba639b18849eefbe8c1a6352ed89a94c3"
+    },
+    {
+      "path": "work/gpu-20261118/audit/perf1-regional-probe-a2-toolchain-audit.json",
+      "bytes": 5918,
+      "sha256": "db06312a878cad71dd1af26b2a37fd07f0f87ad73a7e0eaa4122da69a3ccba9e"
+    }
+  ],
+  "archived_harness_sources": [
+    {
+      "path": "work/gpu-20261118/perf1/harness-sources/regional_card.py",
+      "bytes": 35845,
+      "sha256": "6057c8d6d9e0f72096bbb1c85fd6f1e836eb725ee5da49e588c0813d353c4577",
+      "original_path": ".artifacts/gpu-20261118/perf1/regional_card.py"
+    },
+    {
+      "path": "work/gpu-20261118/perf1/harness-sources/regional_card_v2.py",
+      "bytes": 41948,
+      "sha256": "47b121d44335cf99b26212657cd4a9a3a4424086a243620b9adf732f8dfa3472",
+      "original_path": ".artifacts/gpu-20261118/perf1/regional_card_v2.py"
+    },
+    {
+      "path": "work/gpu-20261118/perf1/harness-sources/regional_card_v3.py",
+      "bytes": 46469,
+      "sha256": "65527819fed805e9b1b5abe3ae8e5ebfdb86baea77245d9fce8c9982613ed78d",
+      "original_path": ".artifacts/gpu-20261118/perf1/regional_card_v3.py"
+    },
+    {
+      "path": "work/gpu-20261118/perf1/harness-sources/regional_card_v4_cancel.py",
+      "bytes": 48861,
+      "sha256": "79cd85824c2d06052d428d4397c92603d73035ab0a189a903ac5f49df2f9dcc6",
+      "original_path": ".artifacts/gpu-20261118/perf1/regional_card_v4_cancel.py"
+    },
+    {
+      "path": "work/gpu-20261118/perf1/harness-sources/check_regional_card.py",
+      "bytes": 5632,
+      "sha256": "8f6651d4c49a66e5411ee54e0abbdbbbe5264f0fe139e0a95aa7f407f1da21fd",
+      "original_path": ".artifacts/gpu-20261118/perf1/check_regional_card.py"
+    },
+    {
+      "path": "work/gpu-20261118/perf1/harness-sources/check_regional_card_v2.py",
+      "bytes": 5635,
+      "sha256": "554a916ccf8774eb0fcd520f0e63bb7b043d371a831eeb4422847458091841c9",
+      "original_path": ".artifacts/gpu-20261118/perf1/check_regional_card_v2.py"
+    },
+    {
+      "path": "work/gpu-20261118/perf1/harness-sources/check_regional_card_v3.py",
+      "bytes": 5759,
+      "sha256": "61fcbf0b6976967442c9befdab184154ede44845f58d2f47f1d33bfc4d3e166b",
+      "original_path": ".artifacts/gpu-20261118/perf1/check_regional_card_v3.py"
+    },
+    {
+      "path": "work/gpu-20261118/perf1/harness-sources/check_regional_card_v4_cancel.py",
+      "bytes": 1951,
+      "sha256": "3d18afe2b02d89b0c1a3e30db2ff0c41350d60ca24e1e6ac9bed8a838cb556de",
+      "original_path": ".artifacts/gpu-20261118/perf1/check_regional_card_v4_cancel.py"
+    },
+    {
+      "path": "work/gpu-20261118/perf1/harness-sources/perf1_toolchain_probe.py",
+      "bytes": 39418,
+      "sha256": "fe01f8d53823b78b8499ffd00d8ccde9b230ccab7873228ff3496b6d74b1686f",
+      "original_path": "work/perf1_toolchain_probe.py"
+    },
+    {
+      "path": "work/gpu-20261118/perf1/harness-sources/perf3_card_private.py",
+      "bytes": 32308,
+      "sha256": "1f89be9f51ddf27c9cffbc0c4b86b8d75d847de42ab2daed31615897d60b8e25",
+      "original_path": "work/perf3_card_private.py"
+    }
+  ]
+}

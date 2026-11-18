@@ -1,0 +1,228 @@
+{
+  "schema": "auradream-gen16-preflight-followup-v1",
+  "scope": [
+    "GEN#16"
+  ],
+  "date": "2026-11-18",
+  "current_production_commit": "f8f4cf2de7c690300735ea189876f687c5f937b1",
+  "model": "black-forest-labs/FLUX.1-Krea-dev",
+  "model_load_calls": 0,
+  "generate_calls": 0,
+  "current_attempt": {
+    "path": ".artifacts/gpu-20261118/flux-rest/gen16-a2",
+    "initial_status_commit": "f8f4cf2",
+    "load_admission": {
+      "sample": {
+        "sampled_at": 1794982608.9145174,
+        "tree_private_gib": 1.9697799682617188,
+        "card_mib": 1193.0,
+        "adapter_shared_mib": 112.7,
+        "adapter_rise_mib": 74.0,
+        "process_shared_mib": 74.0,
+        "process_rise_mib": 74.0,
+        "available_gib": 47.89,
+        "commit_headroom_gib": 52.21,
+        "tree_gib": 0.68
+      },
+      "measured_total_budget_ram_gib": 45,
+      "measured_total_budget_commit_gib": 50,
+      "required_additional_ram_gib": 44.32,
+      "required_additional_commit_gib": 48.03022003173828,
+      "prior_refine_reserved_gib": 13.56,
+      "prior_observed_whole_card_rise_mib": 14232,
+      "prior_warm_to_trip_rise_mib": 14009,
+      "stable_cold_card_mib": 966.0,
+      "fresh_status_warm_card_mib": 1193.0,
+      "cold_projection_mib": 15198.0,
+      "warm_projection_mib": 15202.0,
+      "warm_samples": [
+        {
+          "sampled_at": 1794982608.1627543,
+          "tree_private_gib": 1.9697799682617188,
+          "card_mib": 1193.0,
+          "adapter_shared_mib": 112.7,
+          "adapter_rise_mib": 74.0,
+          "process_shared_mib": 74.0,
+          "process_rise_mib": 74.0,
+          "available_gib": 47.88,
+          "commit_headroom_gib": 52.21,
+          "tree_gib": 0.68
+        },
+        {
+          "sampled_at": 1794982608.4128811,
+          "tree_private_gib": 1.9697799682617188,
+          "card_mib": 1193.0,
+          "adapter_shared_mib": 112.7,
+          "adapter_rise_mib": 74.0,
+          "process_shared_mib": 74.0,
+          "process_rise_mib": 74.0,
+          "available_gib": 47.88,
+          "commit_headroom_gib": 52.21,
+          "tree_gib": 0.68
+        },
+        {
+          "sampled_at": 1794982608.6622756,
+          "tree_private_gib": 1.9697799682617188,
+          "card_mib": 1193.0,
+          "adapter_shared_mib": 112.7,
+          "adapter_rise_mib": 74.0,
+          "process_shared_mib": 74.0,
+          "process_rise_mib": 74.0,
+          "available_gib": 47.89,
+          "commit_headroom_gib": 52.21,
+          "tree_gib": 0.68
+        },
+        {
+          "sampled_at": 1794982608.9145174,
+          "tree_private_gib": 1.9697799682617188,
+          "card_mib": 1193.0,
+          "adapter_shared_mib": 112.7,
+          "adapter_rise_mib": 74.0,
+          "process_shared_mib": 74.0,
+          "process_rise_mib": 74.0,
+          "available_gib": 47.89,
+          "commit_headroom_gib": 52.21,
+          "tree_gib": 0.68
+        }
+      ],
+      "projected_mib": 15202.0
+    },
+    "cleanup": {
+      "status": "stopped",
+      "error": "RuntimeError: measured refine projection or stage-aware RAM/commit admission refused",
+      "guard_error": null,
+      "server_exit": 15
+    }
+  },
+  "prior_harness_stage_mismatch": {
+    "schema": "auradream-gen16-preflight-annotation-v1",
+    "date": "2026-11-18",
+    "status": "stopped-harness-stage-mismatch",
+    "model_load_calls": 0,
+    "generate_calls": 0,
+    "ordinary_status_cuda_initialization": "occurred; not a model load",
+    "cold_sample_count": 9,
+    "cold_mib": [
+      947.0
+    ],
+    "original_warm_sample_mib": 1174.0,
+    "original_inappropriate_warm_plus_cold_delta_mib": 15406.0,
+    "original_cold_gate_mib": 968,
+    "actual_matching_stage_projections": {
+      "prior_cold_delta_mib": 14232.0,
+      "prior_warm_delta_mib": 14009.0,
+      "current_cold_projection_mib": 15179.0,
+      "current_warm_projection_mib": 15183.0
+    },
+    "limits_changed": false,
+    "decision": "preserve original refusal; a new attempt may use both matching measured stages after root production-source freeze",
+    "cleanup": {
+      "status": "stopped",
+      "error": "RuntimeError: measured refine projection or stage-aware RAM/commit admission refused",
+      "guard_error": null,
+      "server_exit": 15
+    },
+    "bound_inputs": {
+      ".artifacts\\gpu-20261118\\flux-rest\\gen16-a1\\receipt.json": "48f7d703860f26542ba977e8eb12eae1d720baad6ab114087fcedda48688a909",
+      ".artifacts\\gpu-20261118\\flux-rest\\gen16-a1\\guard.jsonl": "efc327ce6180497b256a3369c8de1a5fa6502c5cdd043ebce05dff5b04dbe514",
+      ".artifacts\\gpu-20261118\\flux-rest\\gen16-a1\\stable-cold-admission.json": "e0385a7d5a7f93dfc69db6fbc1913a127095a04af77ba8e58ba8707ca2d42096",
+      ".artifacts\\gpu-20261118\\flux-rest\\gen16-a1\\frozen-driver.py": "5384363e96c2bfe9a956fac015b51abeba39d92eb1209c6c162e7cef04c6f63c",
+      ".artifacts\\gpu-20261118\\flux-rest\\gen16-baseline-phase-proof.json": "0289ca637db348abf470fce1de379750caeb0d1925d2363af346618def7b4065"
+    }
+  },
+  "baseline_phase_proof": {
+    "prior": {
+      "driver_sha256": "2e36f8442395865debbc52adb0ec02d29ba055266a939c06b8f9ea22e817e371",
+      "driver_current_identical": true,
+      "backend64d8aca_CRLF_sha256_matches_recorded": true,
+      "backend_recorded_sha256": "efaabcf4652d9ca1578f096abbe17eddf8ffd6a5ee23fd6a121376dc4ecc54cf",
+      "source_diff_scope": "backend/execution.py only",
+      "cold_sample": {
+        "time": "2026-11-16T23:20:19+1000",
+        "event": "sample",
+        "sampled_at": 1794835219.4443052,
+        "tree_private_gib": 0.04041290283203125,
+        "card_mib": 1400.0,
+        "adapter_shared_mib": 67.9,
+        "adapter_rise_mib": 0.0,
+        "process_shared_mib": 0.0,
+        "process_rise_mib": 0.0,
+        "available_gib": 42.7,
+        "commit_headroom_gib": 49.47,
+        "tree_gib": 0.06
+      },
+      "main_started_at": 1794835220.1563008,
+      "first_status_server_time": 1794835223.6271808,
+      "first_status_state": "unloaded",
+      "first_status_vram_used_mb": 1290,
+      "first_sample_after_status": {
+        "time": "2026-11-16T23:20:23+1000",
+        "event": "sample",
+        "sampled_at": 1794835223.6437452,
+        "tree_private_gib": 1.9684295654296875,
+        "card_mib": 1623.0,
+        "adapter_shared_mib": 140.7,
+        "adapter_rise_mib": 72.8,
+        "process_shared_mib": 74.0,
+        "process_rise_mib": 74.0,
+        "available_gib": 41.57,
+        "commit_headroom_gib": 46.82,
+        "tree_gib": 0.67
+      },
+      "refine_trip": {
+        "time": "2026-11-16T23:25:21+1000",
+        "event": "TRIP",
+        "answer": {
+          "verdict": "trip",
+          "why": "card",
+          "reading": 15632.0,
+          "limit": 15500.0,
+          "projected_mib": null,
+          "measured": [],
+          "reason": null
+        },
+        "sampled_at": 1794835521.6519818,
+        "tree_private_gib": 25.800212860107422,
+        "card_mib": 15632.0,
+        "adapter_shared_mib": 139.7,
+        "adapter_rise_mib": 71.8,
+        "process_shared_mib": 82.0,
+        "process_rise_mib": 82.0,
+        "available_gib": 36.76,
+        "commit_headroom_gib": 24.52,
+        "tree_gib": 7.34
+      }
+    },
+    "chronology": {
+      "cold_precedes_main_started_seconds": 0.7119956016540527,
+      "cold_precedes_first_status_seconds": 4.182875633239746,
+      "warm_follows_status_seconds": 0.016564369201660156,
+      "prior_cold_to_warm_change_mib": 223.0
+    },
+    "current": {
+      "stable_cold_values_mib": [
+        947.0
+      ],
+      "preload_sample": {
+        "sampled_at": 1794980891.5176778,
+        "tree_private_gib": 1.9681930541992188,
+        "card_mib": 1174.0,
+        "adapter_shared_mib": 112.7,
+        "adapter_rise_mib": 74.0,
+        "process_shared_mib": 74.0,
+        "process_rise_mib": 74.0,
+        "available_gib": 48.15,
+        "commit_headroom_gib": 52.37,
+        "tree_gib": 0.68
+      }
+    },
+    "matching_phase_projections": {
+      "prior_cold_delta_mib": 14232.0,
+      "prior_warm_delta_mib": 14009.0,
+      "current_cold_projection_mib": 15179.0,
+      "current_warm_projection_mib": 15183.0
+    },
+    "finding": "prior1400 sample is cold before main STARTED_AT and status; comparing current warm1174 to cold968 gate mismatched stages. Use separately matching measured cold and warm projections, never infer exact owned CUDA bytes."
+  },
+  "status": "refused before model load: matched warm projection15202MiB exceeds unchanged15200MiB by2; cold15198passes. No fit failure or alternation timing qualified."
+}

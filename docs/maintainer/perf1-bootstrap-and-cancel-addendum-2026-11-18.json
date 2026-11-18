@@ -1,0 +1,652 @@
+{
+  "schema": "auradream-perf1-v5-bootstrap-v6-failed-cancel-addendum-v1",
+  "created_utc": "2026-11-18T11:41:55.249569+00:00",
+  "scope": "Work-only append-only evidence addendum; preserve the original completed private matrix and original raw/harness versions. No public, quality, cancellation-recovery or general-memory qualification granted.",
+  "historical_completed_matrix": {
+    "path": "work/gpu-20261118/perf1/perf1-completed-matrix-receipt-2026-11-18.json",
+    "bytes": 110339,
+    "sha256": "e27817b0359509be302383d4954b98b2b5e6e4684b5639a0bebaec793da5e0c0",
+    "unchanged": true,
+    "historical_counts": {
+      "loads": 3,
+      "generation_calls": 42,
+      "completed_PNGs": 40,
+      "step3_cancellations": 2,
+      "early_request_cancellations": 0
+    },
+    "scope": "Three completed historical processes with40PNGs/42calls; these counts are not replaced by or merged into the failed v6 attempt."
+  },
+  "source_commit": "f8f4cf2de7c690300735ea189876f687c5f937b1",
+  "v5_bootstrap": {
+    "session": ".artifacts/gpu-20261118/perf1/regional-cancel-first-v5-a1",
+    "status": "STOPPED at immutable permit-schema check before framework/model imports or weights",
+    "driver_sha256": "cdb656d8fd79dc8a8de392dc2395b5a0c56f634eb87532cf1cf4874c8757c237",
+    "cold_ready_framework_modules": [],
+    "native_waiting_admission": "passed; strict current-owned-job capacity receipt retained",
+    "failure": "producer included version field; shared wait_for_permit requires exactly begin:true",
+    "counts": {
+      "model_loads": 0,
+      "generation_calls": 0,
+      "PNGs": 0
+    },
+    "v6_correction": "A separately reviewed new frozen version changes only protocol label and exact start-permit payload. Preserved v5 remains a failed bootstrap; no retry label is used to turn it into a pass.",
+    "raw_evidence": [
+      {
+        "path": ".artifacts/gpu-20261118/perf1/regional-cancel-first-v5-a1/admission-decision.json",
+        "bytes": 6111,
+        "sha256": "bf03aa095096003328b71c322e68154266f14abfebb285ffa841b3b10c891e3d"
+      },
+      {
+        "path": ".artifacts/gpu-20261118/perf1/regional-cancel-first-v5-a1/after-exit.json",
+        "bytes": 226,
+        "sha256": "3a7aa393b969433d751b07ac645022df16405c0d8a0eb0db084bd4629e727931"
+      },
+      {
+        "path": ".artifacts/gpu-20261118/perf1/regional-cancel-first-v5-a1/guard.jsonl",
+        "bytes": 1236,
+        "sha256": "689f228afd0fad61a7d1992b84c0d45d95f777702fc8f8be9fcfc65d12d10b2a"
+      },
+      {
+        "path": ".artifacts/gpu-20261118/perf1/regional-cancel-first-v5-a1/job-before-close.json",
+        "bytes": 180,
+        "sha256": "99fcc7cffe7739273d4b284c9473412769928126f19df846e529b56bd476cc90"
+      },
+      {
+        "path": ".artifacts/gpu-20261118/perf1/regional-cancel-first-v5-a1/job-terminal-accounting.json",
+        "bytes": 206,
+        "sha256": "2f3ac7530a557371fad89c61bc25e085b7ddf1bc0d93fed80e2c078b8e599962"
+      },
+      {
+        "path": ".artifacts/gpu-20261118/perf1/regional-cancel-first-v5-a1/keep-awake.json",
+        "bytes": 73,
+        "sha256": "24e170c01c89e7ca3055ed68309a1472c993a25a6711ef8cd866441110ed8099"
+      },
+      {
+        "path": ".artifacts/gpu-20261118/perf1/regional-cancel-first-v5-a1/permit-0001-begin.json",
+        "bytes": 73,
+        "sha256": "7910c30b06329465d445e18f51f4ec3ddcba33e91fa65eec0d52ed2ac3ee4c30"
+      },
+      {
+        "path": ".artifacts/gpu-20261118/perf1/regional-cancel-first-v5-a1/plan.json",
+        "bytes": 2094,
+        "sha256": "8177faa5d111d1edb23cb4208711e66b65c611844b1f216392695dd33e9001f1"
+      },
+      {
+        "path": ".artifacts/gpu-20261118/perf1/regional-cancel-first-v5-a1/preflight.json",
+        "bytes": 12466,
+        "sha256": "877d873fff5cd081e274a526dab4167528826d2e697bff237b10489a0bc95be8"
+      },
+      {
+        "path": ".artifacts/gpu-20261118/perf1/regional-cancel-first-v5-a1/ready-0001.json",
+        "bytes": 160,
+        "sha256": "bcc0ab4b83bcb13e4de594c1935a9b8ee041c6e4e4932bf810efe8e8d5714d4c"
+      },
+      {
+        "path": ".artifacts/gpu-20261118/perf1/regional-cancel-first-v5-a1/summary.json",
+        "bytes": 152,
+        "sha256": "dd1840eae18ab3ac3eb1e39eb12ff16766950f4777170fa687b9eea60d37a0ec"
+      },
+      {
+        "path": ".artifacts/gpu-20261118/perf1/regional-cancel-first-v5-a1/worker.log",
+        "bytes": 766,
+        "sha256": "b4b9bb8eebff84e62825bf0f08e6c7dd2a571fb49ee1e80f6bf066c5ddf9afe6"
+      }
+    ]
+  },
+  "v6_failed_attempt": {
+    "session": ".artifacts/gpu-20261118/perf1/regional-cancel-first-v6-a1",
+    "status": "RECOVERY_RGB_GATE_FAILED; stopped without retry; third planned repeat not run",
+    "driver_sha256": "3727fe7c9b7a2838f486a54bb73b197b70d425ba3af15eb6511536c3188512c8",
+    "counts": {
+      "model_loads": 1,
+      "generation_calls": 2,
+      "early_cancellations": 1,
+      "completed_PNGs": 1,
+      "third_repeat_run": false
+    },
+    "admission": {
+      "independent_helper_result_equals_saved": true,
+      "sample_count": 3,
+      "current_exact_all_waiting": true,
+      "membership_stable": true,
+      "current_spread_bytes": 0,
+      "minimum_global_free_commit_gib": 52.516845703125,
+      "minimum_CURRENT_owned_job_commit_gib": 0.06519699096679688,
+      "conservative_capacity_gib": 52.5820426940918,
+      "target_gib": 52.0,
+      "peak_memory_credited": false,
+      "fresh_free_RAM_minimum_gib": 48.92255401611328,
+      "fresh_free_RAM_required_gib": 45.0,
+      "ready_framework_list_empty": true
+    },
+    "guards": {
+      "independently_rechecked_rows": 605,
+      "bad_rows": [],
+      "member_accounting_rows": 605,
+      "terminal_teardown_rows": 0,
+      "job_cap_readback_gib": 47.5,
+      "sampled_RSS_cap_gib": 32.0,
+      "maximum_exact_job_RSS_gib": 26.417858123779297,
+      "maximum_sampled_tree_RSS_gib": 26.417808532714844,
+      "maximum_recorded_job_peak_gib": 43.994346618652344,
+      "cap_attempt_observed": false,
+      "terminal_and_before_close_veto_clear": true,
+      "whole_card_peak_mib": 13911.0,
+      "minimum_free_RAM_gib": 22.439613342285156,
+      "minimum_free_commit_gib": 8.569190979003906,
+      "maximum_adapter_shared_rise_mib": 82.0,
+      "maximum_process_shared_rise_mib": 82.0,
+      "mean_observed_gap_seconds": 0.2503056327814494,
+      "maximum_observed_gap_seconds": 0.2615105000004405,
+      "membership_scope": "saved exact-job member/private records are internally consistent; runtime subtree containment/readback enforced by frozen source; this audit performs no fresh native membership queries"
+    },
+    "early_request": {
+      "call_started_at": 107984.6087876,
+      "planned_request_at": 107987.6087876,
+      "actual_request_at": 107987.6091498,
+      "request_jitter_seconds": 0.0003622000076575205,
+      "first_poll_at": 107984.6401576,
+      "first_poll_after_request_at": 108027.659145,
+      "first_callback_at": 108027.6591421,
+      "backend_returned_at": 108030.4625215,
+      "all_poll_timestamps": [
+        107984.6401576,
+        108027.659145
+      ],
+      "request_to_first_poll_seconds": 40.049995199995465,
+      "request_to_return_seconds": 42.85337169999548,
+      "requested_before_first_callback": true,
+      "scope": "early request before first callback when timestamps establish it; compilation overlap was not instrumented",
+      "ordering_independently_confirmed": true,
+      "cancelled_source_returned_no_image": true,
+      "observed_compilation_overlap": "not established; request/first-callback and compiler graph evidence do not supply a measured compiler interval",
+      "post_cancel_registered_tensors_CPU": true,
+      "post_cancel_allocated_mib": 32.0009765625
+    },
+    "recovery": {
+      "call_count": 2,
+      "completed_PNG_count": 1,
+      "third_repeat_run": false,
+      "decoded_RGB_size": [
+        1024,
+        1024
+      ],
+      "decoded_RGB_sha256": "1d66cce409f42c80f69aa66f4428b215ab2581316cb921a6058a7e2f566a6118",
+      "expected_historical_RGB_sha256": "e54b9ba59798358270ff335ead417ff3a27c0554e54d7009ae8407f15703f7cf",
+      "strict_gate_match": false,
+      "request_applied_equal_old_first_and_post_step3_recovery": true,
+      "effective_execution_equal_old": true,
+      "case_prompt_shape_seed_equal_old": true,
+      "common_runtime_source_hashes_compared": [
+        "backend/main.py",
+        "backend/compiler_cache.py",
+        "backend/execution.py",
+        "backend/config.py",
+        "backend/backends/diffusers_backend.py",
+        "backend/backends/regional_compile.py",
+        "backend/backends/loading.py",
+        "backend/backends/attention_selection.py",
+        "tools/card_guard.py",
+        "tools/perf_cases.py",
+        "work/perf1_toolchain_probe.py",
+        "work/perf3_card_private.py",
+        "uv.lock",
+        "pyproject.toml"
+      ],
+      "common_runtime_source_differences": {},
+      "runtime_distribution_facts_equal_old": true,
+      "verified_compiler_tool_inventory_equal_old": true,
+      "imported_toolchain_facts_equal_old": true,
+      "weight_identity_limit": "existing cached checkpoint ID only; neither prior nor current harness captured full weight-byte hashes or an explicit Hub snapshot revision",
+      "exact_repeat_field_scope": "true on this sole first-seen recovery key is not a reproduction observation; prior_pixel_sha256 is null and planned repeat was never run",
+      "cause": "undetermined; no inference from the RGB mismatch and no additional cell run"
+    },
+    "cleanup": {
+      "unload_observation": {
+        "success_before_cleanup": false,
+        "active_primary_exception": "RuntimeError",
+        "is_ready": false,
+        "cleared_owners": {
+          "_pipe": true,
+          "_loaded_execution": true,
+          "_regional_registration": true,
+          "_attention_selection": true,
+          "_cache_owner": true,
+          "_cache_disposal": true,
+          "_pending_cache_disposal": true,
+          "_refine_pipe": true,
+          "_inpaint_pipe": true,
+          "_lora": true
+        },
+        "empty_parameter_sets": {
+          "_call_params": true,
+          "_refine_params": true,
+          "_inpaint_params": true
+        },
+        "diagnostics": "None",
+        "new_diagnostics_reader_is_none": true,
+        "retained_weight_free_reader_value": "None",
+        "native_global_state_unchanged": true,
+        "native_after": {
+          "dispatcher": "native",
+          "function": "diffusers.models.attention_dispatch._native_attention",
+          "function_id": 1926302926144,
+          "sdpa": {
+            "flash": true,
+            "math": true,
+            "mem_efficient": true,
+            "cudnn": true
+          }
+        },
+        "pipeline_collected": true,
+        "transformer_collected": true,
+        "weakref_scope": "tester pipeline/guard aliases dropped; no manual offload or Dynamo reset; active traceback may retain on failure",
+        "allocated_mib": 32.0,
+        "reserved_mib": 32.0
+      },
+      "power_request": {
+        "kind": "power-request",
+        "holding": false,
+        "released": true
+      },
+      "post_exit_sample": {
+        "card_mib": 1182.0,
+        "adapter_shared_mib": 27.78125,
+        "process_shared_mib": null,
+        "available_gib": 48.9145622253418,
+        "commit_headroom_gib": 52.52564239501953,
+        "tree_gib": null,
+        "card_total_mib": 16303.0
+      },
+      "scope": "saved observer/post-exit evidence only; no new live process inventory performed"
+    },
+    "summary": {
+      "ok": false,
+      "version": "perf1-cold-cancel-os-privatecap-v6",
+      "error": "RuntimeError: capped worker failed without retry: exit1;{'ok': False, 'error': 'RuntimeError: cold-cancel recovery differs from the frozen same-case Regional RGB', 'network_attempts': []};None"
+    },
+    "failure": {
+      "ok": false,
+      "error": "RuntimeError: cold-cancel recovery differs from the frozen same-case Regional RGB",
+      "network_attempts": []
+    },
+    "policy_restoration_observation": {
+      "file_present": false,
+      "observed_post_failure_Dynamo_policy_flags": false,
+      "source_backed_unwind_only": "Frozen strict_compiler_policy and production exception paths unwind their scopes; missing post-failure policy-restoration.json prevents claiming an observed after-failure Dynamo-flag snapshot.",
+      "observed_native_dispatch_SDPA_and_owner_cleanup": true
+    },
+    "outgoing_network_scope": "Saved failure receipt reports no guarded outgoing attempts after the owned stdlib Proactor wakeup socket was initialized before the guard; no claim of an entirely socket-free process.",
+    "cause": "undetermined; do not attribute the mismatch to cancellation, OS cap, compiler, precision or selected autotuning artifacts without a causal control.",
+    "raw_evidence": [
+      {
+        "path": ".artifacts/gpu-20261118/perf1/regional-cancel-first-v6-a1/admission-decision.json",
+        "bytes": 6120,
+        "sha256": "a2cb41ae7586f1eb50446d32f81036fbe625cdf59263067fa7e3d8cea630bac0"
+      },
+      {
+        "path": ".artifacts/gpu-20261118/perf1/regional-cancel-first-v6-a1/after-exit.json",
+        "bytes": 226,
+        "sha256": "149302639d2cf0e6a4d8a74dbbbda81c8fb57536791ef1156040716a3bb75b42"
+      },
+      {
+        "path": ".artifacts/gpu-20261118/perf1/regional-cancel-first-v6-a1/after-first-cancel.json",
+        "bytes": 4812,
+        "sha256": "f9174ba43f9695cf10c1cac7e32f6a6498c76608635c70285d4604295b66484d"
+      },
+      {
+        "path": ".artifacts/gpu-20261118/perf1/regional-cancel-first-v6-a1/after-first-cancel.png",
+        "bytes": 1403682,
+        "sha256": "6c9e27beb17b1507c4da648d475a0a87d197f4358de9fd2f7ac4b87e876b171e"
+      },
+      {
+        "path": ".artifacts/gpu-20261118/perf1/regional-cancel-first-v6-a1/cache-before.json",
+        "bytes": 2,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "path": ".artifacts/gpu-20261118/perf1/regional-cancel-first-v6-a1/cancel-first-early-request.json",
+        "bytes": 4080,
+        "sha256": "7c2a8269a2eb621c00f137f373c7b4bf533267d0dd4572e0458cee0c16cff601"
+      },
+      {
+        "path": ".artifacts/gpu-20261118/perf1/regional-cancel-first-v6-a1/failure-0001-error.json",
+        "bytes": 143,
+        "sha256": "c09e23598b56e61fa1dec26fab86f3d9b93f201c0906b4df1ee9a1b3534586a1"
+      },
+      {
+        "path": ".artifacts/gpu-20261118/perf1/regional-cancel-first-v6-a1/guard.jsonl",
+        "bytes": 764306,
+        "sha256": "f78817a247f2a7abf082f216ba33f13573b277de3b5accd50741cb118be5993b"
+      },
+      {
+        "path": ".artifacts/gpu-20261118/perf1/regional-cancel-first-v6-a1/imported-toolchain.json",
+        "bytes": 1561,
+        "sha256": "d1bb9c5627cc88a46c45195eef25e8d45f6ada4dff124a37d7a60b80b2a44650"
+      },
+      {
+        "path": ".artifacts/gpu-20261118/perf1/regional-cancel-first-v6-a1/job-before-close.json",
+        "bytes": 182,
+        "sha256": "3369616d496ff8614bbc42f919fb6617f6edd099560ea7a9bbcfba733e9ecf25"
+      },
+      {
+        "path": ".artifacts/gpu-20261118/perf1/regional-cancel-first-v6-a1/job-terminal-accounting.json",
+        "bytes": 208,
+        "sha256": "5facc4099d218ccd36d8bfd7d2abcf198364770c34ec2497e7553abee2e96bbb"
+      },
+      {
+        "path": ".artifacts/gpu-20261118/perf1/regional-cancel-first-v6-a1/keep-awake.json",
+        "bytes": 73,
+        "sha256": "24e170c01c89e7ca3055ed68309a1472c993a25a6711ef8cd866441110ed8099"
+      },
+      {
+        "path": ".artifacts/gpu-20261118/perf1/regional-cancel-first-v6-a1/measurements.json",
+        "bytes": 11128,
+        "sha256": "a8f98f8a4cbc630e5227a101953ebf36e841f528f8b54648bf6cf18c85ce9c00"
+      },
+      {
+        "path": ".artifacts/gpu-20261118/perf1/regional-cancel-first-v6-a1/native-before.json",
+        "bytes": 11397,
+        "sha256": "03aa356662a3e9fe45b34816929eb4854fd26d77efd7de5bc188a0b0a6f7145e"
+      },
+      {
+        "path": ".artifacts/gpu-20261118/perf1/regional-cancel-first-v6-a1/permit-0001-begin.json",
+        "bytes": 21,
+        "sha256": "32bf21310ada666795f692c8e4ad47e78bcf6622928f30dd6204673d9a0f8a79"
+      },
+      {
+        "path": ".artifacts/gpu-20261118/perf1/regional-cancel-first-v6-a1/phase-0001.json",
+        "bytes": 120,
+        "sha256": "f4e78bf6e22477d4e56cedf9dad199ae764bd8153dcbd74d97e37df2e2a1c6ba"
+      },
+      {
+        "path": ".artifacts/gpu-20261118/perf1/regional-cancel-first-v6-a1/phase-0002.json",
+        "bytes": 125,
+        "sha256": "8a2e38bcdcc5bd5278aab8060881fe89bd14e9a3bf13c89e5dea19d0a6e3432e"
+      },
+      {
+        "path": ".artifacts/gpu-20261118/perf1/regional-cancel-first-v6-a1/phase-0003.json",
+        "bytes": 112,
+        "sha256": "e913e068f90a73f2a5a74887230e7cd2f2991bf639a9adfbbe6221a0effc1ddb"
+      },
+      {
+        "path": ".artifacts/gpu-20261118/perf1/regional-cancel-first-v6-a1/phase-0004.json",
+        "bytes": 104,
+        "sha256": "514dc23dad52171102edeb8341a12de2890b02d6f5c576b0d0197a70af96c773"
+      },
+      {
+        "path": ".artifacts/gpu-20261118/perf1/regional-cancel-first-v6-a1/plan.json",
+        "bytes": 2094,
+        "sha256": "3493b40971ba38123350993b49bc2dc76643071927fe16bb572fa5204ed33afd"
+      },
+      {
+        "path": ".artifacts/gpu-20261118/perf1/regional-cancel-first-v6-a1/preflight.json",
+        "bytes": 12490,
+        "sha256": "6a96a2c83246b78d5d741a4cb4467cadfe77e7e8ce5e78731bd7547e79157444"
+      },
+      {
+        "path": ".artifacts/gpu-20261118/perf1/regional-cancel-first-v6-a1/ready-0001.json",
+        "bytes": 160,
+        "sha256": "5961cb94ea7494d8cbf7fc98657efd7794d42fa1855d1fbf4b2a512d712825a1"
+      },
+      {
+        "path": ".artifacts/gpu-20261118/perf1/regional-cancel-first-v6-a1/stack.json",
+        "bytes": 4922,
+        "sha256": "e959d806073f458f1c83697904f533a3eb7d0b33ae073e0e20faa07abc60131c"
+      },
+      {
+        "path": ".artifacts/gpu-20261118/perf1/regional-cancel-first-v6-a1/startup-binding.json",
+        "bytes": 2367,
+        "sha256": "97ca4ca68180def5748262a13d565d294e597a2257d68fc8c67cd363b64c6d6e"
+      },
+      {
+        "path": ".artifacts/gpu-20261118/perf1/regional-cancel-first-v6-a1/summary.json",
+        "bytes": 279,
+        "sha256": "d1f6dd1609b6c51ce190002942a9681335196cd2271daf9026116c6937526e9a"
+      },
+      {
+        "path": ".artifacts/gpu-20261118/perf1/regional-cancel-first-v6-a1/unload-observation.json",
+        "bytes": 1242,
+        "sha256": "2a749c3b83da629c0bb25a73633be2ba38017044f25aa2e8083c126a8d10e7e3"
+      },
+      {
+        "path": ".artifacts/gpu-20261118/perf1/regional-cancel-first-v6-a1/worker.log",
+        "bytes": 969748,
+        "sha256": "9cbf3eb1d615a39d433dcb9100853d6abb60bba6b1fb797e3f60cbec024b02b3"
+      }
+    ]
+  },
+  "artifact_confounder": {
+    "observation_only": true,
+    "comparison": "Historical cold probe artifact selection versus v6 new cold-context artifacts",
+    "selected_kernel_groups": 23,
+    "selected_kernel_occurrences": 24,
+    "groups_with_config_and_ELF_text_changes": 4,
+    "occurrences_in_changed_groups": 5,
+    "duplicate_scope": "Same-operation/same-shape duplicates are compared as multisets, not assigned to exact graph occurrences.",
+    "changed_groups": [
+      {
+        "kernel": "triton_poi_fused__fused_rms_norm__unsafe_view_add_cat_view_7",
+        "group_occurrences": 1,
+        "dimensions": [
+          [
+            "xnumel",
+            "14155776"
+          ]
+        ],
+        "historical_selected_configs": [
+          {
+            "XBLOCK": 512,
+            "num_warps": 8,
+            "num_stages": 1,
+            "configs_hash": "3ca5c3e34d35093f3c9ab2829a9faeebad5e61c4ca13d5ed6053d7b71ce60d5a",
+            "found_by_coordesc": false
+          }
+        ],
+        "v6_selected_configs": [
+          {
+            "XBLOCK": 1024,
+            "num_warps": 4,
+            "num_stages": 1,
+            "configs_hash": "3ca5c3e34d35093f3c9ab2829a9faeebad5e61c4ca13d5ed6053d7b71ce60d5a",
+            "found_by_coordesc": false
+          }
+        ],
+        "selected_config_multiset_equal": false,
+        "ELF_text_multiset_equal": false
+      },
+      {
+        "kernel": "triton_poi_fused__to_copy_mul_t_1",
+        "group_occurrences": 1,
+        "dimensions": [
+          [
+            "xnumel",
+            "28311552"
+          ]
+        ],
+        "historical_selected_configs": [
+          {
+            "XBLOCK": 1024,
+            "num_warps": 4,
+            "num_stages": 1,
+            "configs_hash": "3ca5c3e34d35093f3c9ab2829a9faeebad5e61c4ca13d5ed6053d7b71ce60d5a",
+            "found_by_coordesc": false
+          }
+        ],
+        "v6_selected_configs": [
+          {
+            "XBLOCK": 512,
+            "num_warps": 8,
+            "num_stages": 1,
+            "configs_hash": "3ca5c3e34d35093f3c9ab2829a9faeebad5e61c4ca13d5ed6053d7b71ce60d5a",
+            "found_by_coordesc": false
+          }
+        ],
+        "selected_config_multiset_equal": false,
+        "ELF_text_multiset_equal": false
+      },
+      {
+        "kernel": "triton_poi_fused_silu_0",
+        "group_occurrences": 2,
+        "dimensions": [
+          [
+            "xnumel",
+            "3072"
+          ]
+        ],
+        "historical_selected_configs": [
+          {
+            "XBLOCK": 256,
+            "num_warps": 4,
+            "num_stages": 1,
+            "configs_hash": "1b2cc4dbebb9680d3ce31843331593b159e4046c056f195ca1ccf2464d5b37d1",
+            "found_by_coordesc": false
+          },
+          {
+            "XBLOCK": 256,
+            "num_warps": 4,
+            "num_stages": 1,
+            "configs_hash": "1b2cc4dbebb9680d3ce31843331593b159e4046c056f195ca1ccf2464d5b37d1",
+            "found_by_coordesc": false
+          }
+        ],
+        "v6_selected_configs": [
+          {
+            "XBLOCK": 128,
+            "num_warps": 4,
+            "num_stages": 1,
+            "configs_hash": "1b2cc4dbebb9680d3ce31843331593b159e4046c056f195ca1ccf2464d5b37d1",
+            "found_by_coordesc": false
+          },
+          {
+            "XBLOCK": 128,
+            "num_warps": 4,
+            "num_stages": 1,
+            "configs_hash": "1b2cc4dbebb9680d3ce31843331593b159e4046c056f195ca1ccf2464d5b37d1",
+            "found_by_coordesc": false
+          }
+        ],
+        "selected_config_multiset_equal": false,
+        "ELF_text_multiset_equal": false
+      },
+      {
+        "kernel": "triton_red_fused_add_mul_native_layer_norm_split_unsqueeze_2",
+        "group_occurrences": 1,
+        "dimensions": [
+          [
+            "r0_numel",
+            "3072"
+          ],
+          [
+            "xnumel",
+            "4096"
+          ]
+        ],
+        "historical_selected_configs": [
+          {
+            "XBLOCK": 1,
+            "R0_BLOCK": 4096,
+            "num_warps": 16,
+            "num_stages": 1,
+            "configs_hash": "8a75395ac9ba1d455490d907d5689a4fc23d5de515606fef275d309206236e4f",
+            "found_by_coordesc": false
+          }
+        ],
+        "v6_selected_configs": [
+          {
+            "XBLOCK": 1,
+            "R0_BLOCK": 1024,
+            "num_warps": 8,
+            "num_stages": 1,
+            "configs_hash": "8a75395ac9ba1d455490d907d5689a4fc23d5de515606fef275d309206236e4f",
+            "found_by_coordesc": false
+          }
+        ],
+        "selected_config_multiset_equal": false,
+        "ELF_text_multiset_equal": false
+      }
+    ],
+    "wrapper_and_IR_scope": "Three output_code.py wrappers match after path normalization. Readable FX graphs and pre/post-fusion IR match byte-for-byte. This is not a claim that every generated file matches: path-normalized fx_graph_runnable.py differs for two graph keys.",
+    "precision_limit": "Matmul TF32/float32 precision,cudnn precision/determinism flags were not explicitly recorded by these PERF1 harnesses. Do not infer equality from same defaults; generated code below is separate evidence.",
+    "binary_limit": "Machine text/constant/info comparison is not full runtime arithmetic equivalence. No uncancelled image exists in v6 context; selected-artifact variation alone does not isolate the RGB mismatch cause.",
+    "no_uncancelled_image_in_v6_context_at_this_handoff": true,
+    "evidence": [
+      {
+        "path": "work/gpu-20261118/perf1/v6-code-artifact-differential.json",
+        "bytes": 138510,
+        "sha256": "c95c5dfcbd3e72e6cd75a879b49ef89aae35acc8716540909112eff3b11f913d"
+      },
+      {
+        "path": "work/gpu-20261118/perf1/v6-selected-artifact-differential.json",
+        "bytes": 162264,
+        "sha256": "2b05dd28b4abbce85c30efb972fa0ed84a993c7798900a3469f6e4c15868a1a3"
+      }
+    ]
+  },
+  "remaining": {
+    "cold_cancel_recovery": "Not qualified: one recovery PNG differs from the frozen historical RGB; intra-v6 repeat is unrun. The historical strict RGB gate is preserved.",
+    "new_v7_control": {
+      "status_as_of_created_utc": "NEW control preparation only; not approved or launched as part of this handoff",
+      "proposed_scope": "Two normal uncancelled renders in a fresh process using the retained v6 cache and same fixed recipe; independently preregister classification as v6 RGB1d66..., historical RGBe54..., or other before any results.",
+      "no_gate_bypass": "A separately approved causal control would not relabel v6, replace its strict historical target, accept cancellation recovery, or authorize extra calls.",
+      "approval_or_execution_authorized_by_this_addendum": false
+    },
+    "public_and_quality": "Keep PERF#1 CARD and public nonempty execution closed; Matt pair judgement and remaining owner release criteria stay open; PERF#2/PERF#7 blockers are unchanged.",
+    "policies": "General future55.9GiB and historical prepared v4 single-case53.9GiB remain distinct from this explicit OS-capped CURRENT-accounting experiment; no peak/retained/RSS credit or general budget is inferred."
+  },
+  "independent_audit_and_analysis": [
+    {
+      "path": "work/gpu-20261118/perf1/independent-v6-attempt-audit.json",
+      "bytes": 13831,
+      "sha256": "49c04d42aa044c7cf29dbe3054eedf66de8a68495f72cc4510bb92c27471beb5"
+    },
+    {
+      "path": "work/gpu-20261118/perf1/v6-attempt-analysis.json",
+      "bytes": 4478,
+      "sha256": "f3fc142d3014dd9d82c2cdd1ab9ba47ad87c5692cc32cb6646f1e3c1d77ef5df"
+    },
+    {
+      "path": "work/gpu-20261118/perf1/v6-ipc-cold-integration.json",
+      "bytes": 1200,
+      "sha256": "3891b3ce7a49f586b890b8f05a11b538de43d7ed267a729de7e696f9b2eb6692"
+    }
+  ],
+  "archived_harness_sources": [
+    {
+      "path": "work/gpu-20261118/perf1/v5-v6-harness-sources/regional_card_v5_jobcap.py",
+      "bytes": 64690,
+      "sha256": "cdb656d8fd79dc8a8de392dc2395b5a0c56f634eb87532cf1cf4874c8757c237",
+      "original_path": ".artifacts/gpu-20261118/perf1/regional_card_v5_jobcap.py"
+    },
+    {
+      "path": "work/gpu-20261118/perf1/v5-v6-harness-sources/regional_card_v6_jobcap.py",
+      "bytes": 64663,
+      "sha256": "3727fe7c9b7a2838f486a54bb73b197b70d425ba3af15eb6511536c3188512c8",
+      "original_path": ".artifacts/gpu-20261118/perf1/regional_card_v6_jobcap.py"
+    },
+    {
+      "path": "work/gpu-20261118/perf1/v5-v6-harness-sources/capped_cancel_admission.py",
+      "bytes": 11758,
+      "sha256": "308c2b29fb20cffd08f8a09b1517b0a37ab8d316390637ed64446d3e243e3e26",
+      "original_path": "work/gpu-20261118/perf1/capped_cancel_admission.py"
+    },
+    {
+      "path": "work/gpu-20261118/perf1/v5-v6-harness-sources/small_job_cap_probe.py",
+      "bytes": 16633,
+      "sha256": "27bd9a533af4ef39377d3b479406a3789a1463b95ba9591bc79e2b18956c6e24",
+      "original_path": "work/gpu-20261118/switch-job-cap-review/small_job_cap_probe.py"
+    },
+    {
+      "path": "work/gpu-20261118/perf1/v5-v6-harness-sources/perf3_switch_jobcap_private.py",
+      "bytes": 53687,
+      "sha256": "6ee7cec83c436df1c46e8ac920e4dcd7f48da85405854679d018d13ee2855633",
+      "original_path": "work/perf3_switch_jobcap_private.py"
+    }
+  ],
+  "curation_execution_scope": "CPU-only JSON/hash/text curation and exact source copies; no native Job/API probe, model/framework import, GPU render, additional cell, original artifact/source edit or tracked repository write.",
+  "root_independent_image_guard_audit": {
+    "path": "work/gpu-20261118/audit/perf1-regional-cancel-first-v6-a1-image-guard-audit.json",
+    "bytes": 4996,
+    "sha256": "8abdac92e2b262e8522b259427a2028b5640b22202e1338513bfce4962ad4626"
+  }
+}

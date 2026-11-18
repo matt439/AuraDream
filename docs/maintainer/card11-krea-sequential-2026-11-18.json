@@ -1,0 +1,708 @@
+{
+  "schema": "auradream-card11-krea-coexistence-v1",
+  "date_local": "2026-11-18",
+  "status": "controller completed; bounded agent visual review recorded, user preference not established",
+  "recipe": {
+    "protocol": "CARD#11 Krea beside critic and 3-seed rewrite comparison",
+    "model": "black-forest-labs/FLUX.1-Krea-dev",
+    "quant_offload": [
+      "fp8",
+      "sequential"
+    ],
+    "original_prompt": "A red fox sitting in a snowy birch forest at dawn.",
+    "seeds": [
+      4242,
+      4243,
+      4244
+    ],
+    "steps": 28,
+    "guidance": 3.5,
+    "size": [
+      1024,
+      1024
+    ],
+    "image_loads": 1,
+    "critic_calls": 1,
+    "repair_or_retry": false,
+    "max_images": 8,
+    "review": "Retain all 3 original/rewrite pairs; human quality judgment remains separate",
+    "admission_ram_gib": 45,
+    "admission_commit_gib": 40,
+    "live_limits": "unchanged card15500/shared1024/512/freeRAM4/commit4",
+    "scope": "Standalone backend plus real JobManager critic gate; not HTTP/UI; PA18 not called"
+  },
+  "physical_gpu": {
+    "name": "NVIDIA GeForce RTX 5080",
+    "driver": "616.92"
+  },
+  "versions": {
+    "torch": "2.13.0+cu130",
+    "diffusers": "0.42.1"
+  },
+  "pipeline_loads": 1,
+  "load_seconds": 53.25973750000412,
+  "critic_calls": 1,
+  "pinned_critic": {
+    "release": "b11206",
+    "model_label": "Qwen3-4B Q8_0",
+    "gguf_bytes": 4280404704,
+    "gguf_sha256": "8c2f07f26af9747e41988551106f149b03eb9b5cb6df636027b6bf6278473300",
+    "runtime_files": {
+      "llama-server.exe": {
+        "bytes": 9216,
+        "sha256": "71e6ef1ba2de711be41a2b2faaa1423edc0ebcda63e07f1b0fc7e3f9b5b53374"
+      },
+      "llama-server-impl.dll": {
+        "bytes": 8916480,
+        "sha256": "da72eb30ae42ee3cf5acabe5ebc65c23e2a18f41b2b82ae3600aed1c98dc04a4"
+      },
+      "llama.dll": {
+        "bytes": 3203072,
+        "sha256": "286be2bbcf32e5453a3724e35de3a58d067eea25aa87bace3ebec9a8a08ed1a0"
+      },
+      "ggml-cuda.dll": {
+        "bytes": 147002880,
+        "sha256": "5c8baefbe4c16c02181ec6b8c67caacbc8c86ee3b8bf04a36a4c85400ca8c7cd"
+      },
+      "ggml-base.dll": {
+        "bytes": 795648,
+        "sha256": "4a9e4aec86244be0073aa4833cf452ce39d77924a6b6b42daf2e741d00fdf1cf"
+      },
+      "cudart64_13.dll": {
+        "bytes": 551024,
+        "sha256": "05bfafcb97bd53b0089568a96e1e5bd6921637bd0853ff7f5342bd31a6a16890"
+      },
+      "cublas64_13.dll": {
+        "bytes": 54942320,
+        "sha256": "1119dbca0a808e0c8850bb4221e330daf0b5ddb348d62d37b6ac533854723df9"
+      },
+      "cublasLt64_13.dll": {
+        "bytes": 492752496,
+        "sha256": "0f5bc315fef706b5626248ebd74e8a48a9e82fa2f0cad38330f5f70984913107"
+      }
+    },
+    "override_used": false,
+    "cache_only": true
+  },
+  "critic": {
+    "answer": {
+      "model": "Qwen3-4B Q8_0",
+      "seconds": 14.7,
+      "parts": {
+        "subject": "A red fox",
+        "action": "sitting",
+        "setting": "in a snowy birch forest at dawn",
+        "style": null,
+        "lighting": null,
+        "camera": null,
+        "text_to_render": null
+      },
+      "issues": [],
+      "rewrite": "A red fox sitting in a snowy birch forest at dawn, with soft morning light filtering through the trees and a frosty mist in the air.",
+      "reordered": null,
+      "reordered_kind": null,
+      "rewrite_findings": [
+        {
+          "rule": "guide.words",
+          "severity": "info",
+          "message": "26 words, under the 30-80 the guide suggests for most images.",
+          "field": "prompt",
+          "start": null,
+          "end": null,
+          "source": "guide",
+          "cite": "30-80 words",
+          "url": "https://docs.bfl.ai/guides/prompting_unified_building",
+          "suggestion": null
+        }
+      ],
+      "rewrite_artists_checked": false,
+      "dropped": 0,
+      "set_aside": [
+        "1 issue left out: it repeated the rule findings above (word count).",
+        "The critic's reordered version was left out: it changed words, not only their order; a reordering of your own can go under Compare."
+      ]
+    },
+    "cleanup": [
+      {
+        "pid_count_observed": 1,
+        "stopped": true,
+        "observed_processes_gone": true,
+        "listener_closed": true
+      }
+    ],
+    "gate_seen": true,
+    "gate_released": true,
+    "server_gpu_layers": [],
+    "allocator_after_critic": [
+      33556480,
+      884998144
+    ],
+    "rewrite_comparison_available": true
+  },
+  "raw_answer": {
+    "structured_answer": {
+      "parts": {
+        "subject": "A red fox",
+        "action": "sitting",
+        "setting": "in a snowy birch forest at dawn",
+        "style": null,
+        "lighting": null,
+        "camera": null,
+        "text_to_render": null
+      },
+      "issues": [
+        {
+          "kind": "missing",
+          "problem": "The prompt is under 30-80 words as per the guide's recommendation",
+          "quote": "A red fox sitting in a snowy birch forest at dawn.",
+          "cite_id": "G2",
+          "fix": "Expand the description to meet the word count while maintaining clarity."
+        }
+      ],
+      "rewrite": "A red fox sitting in a snowy birch forest at dawn, with soft morning light filtering through the trees and a frosty mist in the air.",
+      "reordered": "A red fox sitting in a snowy birch forest at dawn, with soft morning light filtering through the trees and a frosty mist in the air."
+    },
+    "finish_reason": "stop",
+    "timings": {
+      "cache_n": 0,
+      "prompt_n": 1273,
+      "prompt_ms": 109.31,
+      "prompt_per_token_ms": 0.08586802827965437,
+      "prompt_per_second": 11645.778062391362,
+      "predicted_n": 1772,
+      "predicted_ms": 11572.5,
+      "predicted_per_token_ms": 6.534443817052512,
+      "predicted_per_second": 153.0352127889393
+    },
+    "context": {
+      "placed_partly": false,
+      "order_checked": false,
+      "rules_reordered": null,
+      "categories": null
+    }
+  },
+  "comparison_pairs": 3,
+  "images": [
+    {
+      "label": "original-4242",
+      "prompt": "A red fox sitting in a snowy birch forest at dawn.",
+      "seed": 4242,
+      "seconds": 101.0782029999973,
+      "cancelled": false,
+      "peak": [
+        2592243712,
+        2747269120
+      ],
+      "allocator_after": [
+        33556480,
+        884998144
+      ],
+      "png": "original-4242.png",
+      "rgb_sha256": "7d161ca06d8753e7c44a1796a2bc9df3846b2bf1e099c357bf769d267ea64c49",
+      "size": [
+        1024,
+        1024
+      ],
+      "callback_count": 28,
+      "first_callback": {
+        "seconds": 5.655213200006983,
+        "values": [
+          1,
+          28
+        ]
+      },
+      "last_callback": {
+        "seconds": 100.3982093000086,
+        "values": [
+          28,
+          28
+        ]
+      }
+    },
+    {
+      "label": "rewrite-4242",
+      "prompt": "A red fox sitting in a snowy birch forest at dawn, with soft morning light filtering through the trees and a frosty mist in the air.",
+      "seed": 4242,
+      "seconds": 99.58613999999943,
+      "cancelled": false,
+      "peak": [
+        2592243712,
+        2747269120
+      ],
+      "allocator_after": [
+        33556480,
+        884998144
+      ],
+      "png": "rewrite-4242.png",
+      "rgb_sha256": "1356528374f29ba2ada263b327d786a828e67aa12082cc0efc4aa6f7b6c1048f",
+      "size": [
+        1024,
+        1024
+      ],
+      "callback_count": 28,
+      "first_callback": {
+        "seconds": 4.5633101999992505,
+        "values": [
+          1,
+          28
+        ]
+      },
+      "last_callback": {
+        "seconds": 99.1513369000022,
+        "values": [
+          28,
+          28
+        ]
+      }
+    },
+    {
+      "label": "original-4243",
+      "prompt": "A red fox sitting in a snowy birch forest at dawn.",
+      "seed": 4243,
+      "seconds": 100.07700239999394,
+      "cancelled": false,
+      "peak": [
+        2592243712,
+        2747269120
+      ],
+      "allocator_after": [
+        33556480,
+        884998144
+      ],
+      "png": "original-4243.png",
+      "rgb_sha256": "7704fd1b05627a677389d69ebf1b58611c9dc2f5d0a5a9cc858abb438ddb89b1",
+      "size": [
+        1024,
+        1024
+      ],
+      "callback_count": 28,
+      "first_callback": {
+        "seconds": 4.647058600006858,
+        "values": [
+          1,
+          28
+        ]
+      },
+      "last_callback": {
+        "seconds": 99.6404748000059,
+        "values": [
+          28,
+          28
+        ]
+      }
+    },
+    {
+      "label": "rewrite-4243",
+      "prompt": "A red fox sitting in a snowy birch forest at dawn, with soft morning light filtering through the trees and a frosty mist in the air.",
+      "seed": 4243,
+      "seconds": 99.63328330000513,
+      "cancelled": false,
+      "peak": [
+        2592243712,
+        2747269120
+      ],
+      "allocator_after": [
+        33556480,
+        884998144
+      ],
+      "png": "rewrite-4243.png",
+      "rgb_sha256": "9b027bb406c897b2c7ebdfc627e8af1efa452c70f7c5281f562cd2c1bffc08d5",
+      "size": [
+        1024,
+        1024
+      ],
+      "callback_count": 28,
+      "first_callback": {
+        "seconds": 4.641769100009697,
+        "values": [
+          1,
+          28
+        ]
+      },
+      "last_callback": {
+        "seconds": 99.19709010000224,
+        "values": [
+          28,
+          28
+        ]
+      }
+    },
+    {
+      "label": "original-4244",
+      "prompt": "A red fox sitting in a snowy birch forest at dawn.",
+      "seed": 4244,
+      "seconds": 99.52106619998813,
+      "cancelled": false,
+      "peak": [
+        2592243712,
+        2747269120
+      ],
+      "allocator_after": [
+        33556480,
+        884998144
+      ],
+      "png": "original-4244.png",
+      "rgb_sha256": "5bb1e026851fc367b440fe4f83d3b5621878c0803b86a8e3782fea7e405b4b1b",
+      "size": [
+        1024,
+        1024
+      ],
+      "callback_count": 28,
+      "first_callback": {
+        "seconds": 4.5727580999955535,
+        "values": [
+          1,
+          28
+        ]
+      },
+      "last_callback": {
+        "seconds": 99.08096699998714,
+        "values": [
+          28,
+          28
+        ]
+      }
+    },
+    {
+      "label": "rewrite-4244",
+      "prompt": "A red fox sitting in a snowy birch forest at dawn, with soft morning light filtering through the trees and a frosty mist in the air.",
+      "seed": 4244,
+      "seconds": 99.48265919998812,
+      "cancelled": false,
+      "peak": [
+        2592243712,
+        2747269120
+      ],
+      "allocator_after": [
+        33556480,
+        884998144
+      ],
+      "png": "rewrite-4244.png",
+      "rgb_sha256": "a870569078e7de8043a5eab82c592f678ce0337953fea3a1f5afd9af6a596776",
+      "size": [
+        1024,
+        1024
+      ],
+      "callback_count": 28,
+      "first_callback": {
+        "seconds": 4.589093999995384,
+        "values": [
+          1,
+          28
+        ]
+      },
+      "last_callback": {
+        "seconds": 99.0462533999962,
+        "values": [
+          28,
+          28
+        ]
+      }
+    },
+    {
+      "label": "cancel",
+      "prompt": "A red fox sitting in a snowy birch forest at dawn.",
+      "seed": 777,
+      "seconds": 18.552454699994996,
+      "cancelled": true,
+      "peak": null,
+      "allocator_after": [
+        33556480,
+        115343360
+      ],
+      "callback_count": 5,
+      "first_callback": {
+        "seconds": 4.573746999987634,
+        "values": [
+          1,
+          28
+        ]
+      },
+      "last_callback": {
+        "seconds": 18.55066860000079,
+        "values": [
+          5,
+          28
+        ]
+      }
+    },
+    {
+      "label": "post-cancel-replay",
+      "prompt": "A red fox sitting in a snowy birch forest at dawn.",
+      "seed": 4242,
+      "seconds": 99.59898530000646,
+      "cancelled": false,
+      "peak": [
+        2592243712,
+        2747269120
+      ],
+      "allocator_after": [
+        33556480,
+        884998144
+      ],
+      "png": "post-cancel-replay.png",
+      "rgb_sha256": "7d161ca06d8753e7c44a1796a2bc9df3846b2bf1e099c357bf769d267ea64c49",
+      "size": [
+        1024,
+        1024
+      ],
+      "callback_count": 28,
+      "first_callback": {
+        "seconds": 4.60907770000631,
+        "values": [
+          1,
+          28
+        ]
+      },
+      "last_callback": {
+        "seconds": 99.16433369999868,
+        "values": [
+          28,
+          28
+        ]
+      }
+    }
+  ],
+  "pair_metrics": [
+    {
+      "seed": 4242,
+      "metrics": {
+        "identical": false,
+        "mean": 36.743,
+        "max": 213,
+        "psnr": 14.04,
+        "threshold": 16,
+        "pct_over_threshold": 71.28,
+        "differing_pixels": 1048504,
+        "pixels": 1048576
+      }
+    },
+    {
+      "seed": 4243,
+      "metrics": {
+        "identical": false,
+        "mean": 38.584,
+        "max": 227,
+        "psnr": 13.67,
+        "threshold": 16,
+        "pct_over_threshold": 77.24,
+        "differing_pixels": 1048372,
+        "pixels": 1048576
+      }
+    },
+    {
+      "seed": 4244,
+      "metrics": {
+        "identical": false,
+        "mean": 36.5,
+        "max": 242,
+        "psnr": 13.83,
+        "threshold": 16,
+        "pct_over_threshold": 77.73,
+        "differing_pixels": 1048500,
+        "pixels": 1048576
+      }
+    }
+  ],
+  "cancel": {
+    "label": "cancel",
+    "prompt": "A red fox sitting in a snowy birch forest at dawn.",
+    "seed": 777,
+    "seconds": 18.552454699994996,
+    "cancelled": true,
+    "peak": null,
+    "allocator_after": [
+      33556480,
+      115343360
+    ],
+    "callback_count": 5,
+    "first_callback": {
+      "seconds": 4.573746999987634,
+      "values": [
+        1,
+        28
+      ]
+    },
+    "last_callback": {
+      "seconds": 18.55066860000079,
+      "values": [
+        5,
+        28
+      ]
+    }
+  },
+  "post_cancel_replay_equal": true,
+  "normal_cleanup": {
+    "model_ready": false,
+    "critic_process": false,
+    "gate": [
+      null,
+      null
+    ],
+    "allocator": [
+      33554432,
+      33554432
+    ]
+  },
+  "fresh_release": {
+    "utc": "2026-11-18T10:55:07.633933+00:00",
+    "controller_exit": 0,
+    "owned_or_llama_processes": [],
+    "nvidia_smi_memory_mib_utilization_percent": "1182, 0",
+    "fresh_available_ram_gib": 49.083980560302734,
+    "fresh_commit_headroom_gib": 52.67268753051758,
+    "power_released": true,
+    "normal_cleanup": {
+      "model_ready": false,
+      "critic_process": false,
+      "gate": [
+        null,
+        null
+      ],
+      "allocator": [
+        33554432,
+        33554432
+      ]
+    },
+    "critic_calls": 1,
+    "comparison_pairs": 3,
+    "exact_replay": true,
+    "gpu_baton_released": true,
+    "no_next_gpu_started_by_this_agent": true
+  },
+  "guard": {
+    "limits": {
+      "card_mib": 15500.0,
+      "project_mib": 15200.0,
+      "refuse_at_peak_mib": 15000.0,
+      "adapter_shared_rise_mib": 1024.0,
+      "process_shared_rise_mib": 512.0,
+      "ram_floor_gib": 4.0,
+      "commit_floor_gib": 4.0,
+      "need_ram_gib": 45.0,
+      "busy_card_mib": 2500.0,
+      "card_unread_samples": 3.0,
+      "margin_mib": 500.0,
+      "margin_gib": 1.0
+    },
+    "admission": {
+      "card_mib": 1182.0,
+      "adapter_shared_mib": 27.78125,
+      "process_shared_mib": 0.0,
+      "available_gib": 48.982948303222656,
+      "commit_headroom_gib": 52.545162200927734,
+      "tree_gib": 0.012409210205078125,
+      "card_total_mib": 16303.0
+    },
+    "admission_commit_gib": 40.0,
+    "all_samples_rechecked_ok": true,
+    "sample_count": 3173,
+    "period_mean_seconds": 0.2502851325977311,
+    "period_max_seconds": 0.2622260000061942,
+    "whole_card_peak_mib": 7912.0,
+    "critic_phase_card_peak_mib": 7912.0,
+    "free_ram_min_gib": 20.584030151367188,
+    "commit_headroom_min_gib": 17.751544952392578,
+    "tree_rss_peak_gib": 28.324935913085938,
+    "private_peak_gib": 34.76481628417969,
+    "adapter_shared_rise_mib": 180.0,
+    "process_shared_rise_mib": 180.0
+  },
+  "source": {
+    "commit": "f8f4cf2de7c690300735ea189876f687c5f937b1",
+    "reviewed_freeze_entries": 195,
+    "runtime_source_entries_checked": 201,
+    "source_hashes_match_at_export": true,
+    "backend_sha256": "c3a85a23288be5d3ccb3bdb1b4751f5456c75d714685d9cf02f3e597c838274e",
+    "runtime_json_sha256": "8d224a7fed301b65b4629e18561f721afd27950f5d6931063e76b978a53cb071"
+  },
+  "evidence": {
+    "directory": ".artifacts/gpu-20261118/critic/krea-sequential-run-20261118-a1",
+    "file_sha256": {
+      "after-exit.json": "c763968b1b721178136966e9742b59ce0a4406f60852924b8a7672ed50c94bc6",
+      "cancel.json": "bf8476492ed6fe8477a39c31553bc842e92a9a4755c2a32578cec8fbde9ded26",
+      "cleanup.json": "737a05ab616fbae1b98f85ce7d9d47f9a82c0f5de81c89677da1e3818216a51f",
+      "critic-context.json": "d2b4988406aafb6a365188da0e2a22a3a64ca7d1c4a20171ad0d5baeefccf076",
+      "critic-raw-answer.json": "72e69eba87b10a093f931b21069160fa7b830903085d78fefa599e879d259571",
+      "critic.json": "7cc790e7529c567e19278c86c85097fd80156a36bb88641502719e7033a3cd2c",
+      "guard.jsonl": "af1fc3c3fdc02ea2773b356c2bc755530fecbfed5e1229890461a07b0ba8d667",
+      "keep-awake.json": "c819fb2dfb90829600d7da7d9d7a58c61e839524a413cafbd2ed48abe60c057b",
+      "load.json": "e55bb53dc84a8671fd6c98710639762662e935c22f67102cc56ec08abadd7e86",
+      "original-4242.json": "46cac557eb64cd2db8807a161ed3ec6ca497b17d7f2bb47d126635e26b831a5e",
+      "original-4242.png": "7827eb58dbf9b16fe137bdd403ac14b711a876a06c140727cc12aa615a406912",
+      "original-4243.json": "879b027738e67bf6c15216ae923eb701a5494f6909f51b053941c15217555fee",
+      "original-4243.png": "8e527b249218be8f6e9ebdce30bb78772cfe516a5fc8af625cb5c04b37a41de8",
+      "original-4244.json": "cdca6225d2d29fb493ee26a8faaff67ed91c401201521bfd7cdcae23dfd820e5",
+      "original-4244.png": "0e1f4ca3db8bd5823da9833a646870c2e92495ffefd0e518452797865fad0bd7",
+      "permit-0001-begin.json": "32bf21310ada666795f692c8e4ad47e78bcf6622928f30dd6204673d9a0f8a79",
+      "phase-0001.json": "b7287d4a38908df5ab8877de6a3de4a66dd77a2249b8529eeb501e27a55a4dbd",
+      "phase-0002.json": "91d19f07def081064429f12234191233be824303c7f10ec1349a022c4a7ffdd9",
+      "phase-0003.json": "461e11a3e4102c9cecdaf3326a28efbb2dc37df5bd8d7ac3e4690047728c871c",
+      "phase-0004.json": "7888402ef40f5306ce1f85b09257c9aaabbf59329cdc2dd0a491e711c985076b",
+      "phase-0005.json": "b274dfe2b3a01f55b77cac4176af3aa7ab1ca765eb958987ac39a9460c39cf59",
+      "phase-0006.json": "af5cde46a634b953431c59213394c5cffe96793a04d5ac937e9e36c3cc5fedb0",
+      "phase-0007.json": "21c83ecaa52b919e4905e0dd18de8aa16de0fdf9258c7ccba3b5d2daecc62647",
+      "phase-0008.json": "48699c322a3240226880e7aa31ae6268ac83f42410d5e07e7c901f45930252f4",
+      "phase-0009.json": "0b3c704229e8c07399f466698769a33a426bd4a19001beb1286b5f0bb7f6b2c0",
+      "phase-0010.json": "9de950021a8a88bdb94c8ddda76486819281b32e2fb0f9b1e4c0de393c652120",
+      "phase-0011.json": "6a37f9565c6143ecea6e7645c8177e2e6b068fc7f0c401858387146ac409b9cf",
+      "phase-0012.json": "b733c11abc8e96324f2473d015e0e2615493cb7e5256b98d834ca9364c4ad07f",
+      "phase-0013.json": "31ebe765f13b62c99bdcd6456e428734ebbd3f439e3b8e1813bf6af899113981",
+      "phase-0014.json": "d27883fb0a2f3dd29868c38d37ae843e2cdb70c31d11bd9c515b0eb73104dbe3",
+      "plan.json": "a33399638eb3ab7beed1ba8f18f02564ba7a89a7e900f9208b8a4a29779fb996",
+      "post-cancel-replay.json": "34f60baff818edfbd131bac716d7478d6f7b8a765948dcccddd237c4093c2730",
+      "post-cancel-replay.png": "7827eb58dbf9b16fe137bdd403ac14b711a876a06c140727cc12aa615a406912",
+      "preflight.json": "57a169f526b7290a6fbb53d31873c43847db36b377d909f2be77147526c0ec4b",
+      "release.json": "743b11e382fed732ed3a761f0a95d30e388d1d27fdfa022e7012c9062c30006c",
+      "result-0001-complete.json": "74e9ba993fd76b159e4436d105ae689ddb66c22e0c06e81853145f60391d04c7",
+      "rewrite-4242.json": "da6c5f2d3e24c7f826dea36cd78b2c90e25607b360bf6494004cbe39efec8f42",
+      "rewrite-4242.png": "f9d0bf21a9e2f7b139ff35edc9dbe0eb814d3cea171e047599f7586ed8cfa819",
+      "rewrite-4243.json": "cbcb2d40fc715f9f60024f0ac70cca68ae995577dcbd05752cd8a69e7d8b5429",
+      "rewrite-4243.png": "c8377a640295f9ee398c2f29b345c36af0e3e2a3f4e081ecf6fec39c63079b3f",
+      "rewrite-4244.json": "a3cfb12230bdd73955e2e2a67872c0be94a46df1a47cc439a6a3addb8aa32859",
+      "rewrite-4244.png": "323b51836979856a39991a9bae03ab09451e98ce3017d278ebe056f555ed6c47",
+      "runtime.json": "8d224a7fed301b65b4629e18561f721afd27950f5d6931063e76b978a53cb071",
+      "summary.json": "8e143e69ad8b8bf87fdf0276751fe0212c799ec77a9380ff840b359e397bfb03",
+      "worker.log": "7d059649c8c552f2b5d5e826228fef6cbd1f47aa9f17b3530bb3f9ee9469d4d0"
+    },
+    "contact_sheet": ".artifacts/gpu-20261118/critic/krea-sequential-three-seed-pairs-2026-11-18.png",
+    "contact_sheet_sha256": "ded90a1a9dd87cc966ad9e6c9a4c64688c4d4d768956735317fe749e24ed0b65",
+    "raw_evidence_unchanged_by_export": true
+  },
+  "scope": {
+    "tested": "Actual standalone backend.generate and real JobManager critic gate with normal post-reply lint",
+    "not_tested": [
+      "HTTP/UI orchestration",
+      "PA#18 assistant",
+      "WSL owner death",
+      "typed Ctrl-C",
+      "int8 completion"
+    ],
+    "normal_vs_guard_cleanup": "This session uses normal cancellation/unload; the separate int8 session required parent resource-stop cleanup",
+    "quality_judgment": {
+      "schema": "auradream-card11-agent-visual-review-v1",
+      "reviewer": "critic_protocol agent",
+      "scope": "All six saved images inspected in the labeled contact sheet at 512-pixel thumbnail size; full-size PNGs remain retained and unmodified.",
+      "seeds": [
+        4242,
+        4243,
+        4244
+      ],
+      "observations": [
+        "Every original and rewrite retains a seated red fox, snow, a birch forest and dawn lighting.",
+        "The rewritten prompt adds soft morning light filtering through trees and frosty mist; the paired outputs visibly increase haze and light beams.",
+        "The rewrite frames the fox smaller in all three seed pairs and changes the forest framing and pose. The scene's atmosphere takes more of the frame.",
+        "No gross visual corruption was seen at contact-sheet resolution. Fine anatomical details were not separately qualified."
+      ],
+      "judgment": "The rewrite preserves the core scene but adds weather absent from the original and reduces subject prominence. These are observable changes, not an automatic quality improvement or a recorded user preference.",
+      "quality_preference": null,
+      "user_acceptance_established": false,
+      "not_tested": [
+        "identity preservation",
+        "fine-detail anatomy qualification",
+        "other prompts or checkpoints",
+        "HTTP/UI comparison flow"
+      ]
+    }
+  }
+}

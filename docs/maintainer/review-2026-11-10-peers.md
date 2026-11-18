@@ -83,6 +83,11 @@ keeps the exact limits. No public tiled-refine feature is released.
 
 ### R3 a wider instruction-edit envelope
 
+**Planning unblocked, 2026-11-18:** `INP#11`'s bounded acceptance passed.
+`INP#13` is now `OPEN` for the missing second-recipe/protocol addendum;
+it is not ready for a card run. The [instruction-edit owner](plan-instruction-editing.md#card-acceptance-result-2026-11-18)
+keeps the source/reproduction and current public-envelope boundaries.
+
 `INP#13`, after `INP#11`'s card acceptance. Any 1:1 source qualifies today
 and renders at 512x512; output is capped at 262,144 pixels and other aspects
 are held. The [plan](plan-instruction-editing.md) already freezes six

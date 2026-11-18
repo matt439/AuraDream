@@ -459,6 +459,43 @@ retains. No real gallery was opened or modified. A future comparison needs
 a separately viable guarded session; this stop never licenses a higher
 limit or establishes that the 1.5x model-offload pass fits this baseline.
 
+### Matched-stage preflight (2026-11-18)
+
+The new attempt was refused before model loading or generation. Production
+source was `f8f4cf2`, with the exact prior Krea fp8/model-offload recipe and
+unchanged 15,200 MiB projection / 15,500 MiB live-card limits. The
+[receipt](../measurements/gen16-preflight-2026-11-18.json) binds the stopped
+attempts, frozen observer sources and prior raw baseline-phase proof.
+
+The 2026-11-16 guard's 1,400 MiB first sample preceded `main.STARTED_AT`
+by 0.712 s and the first status response by 4.183 s. The first sample after
+that unloaded status was 1,623 MiB. The retained 15,632 MiB Refine stop
+therefore yields two matching-stage rises: 14,232 MiB from the cold sample,
+14,009 MiB from the status-warm sample. No assumed amount of owned CUDA
+memory is subtracted. The old observer source/hash and original backend
+bytes establish these phases; the effective status path calls CUDA memory
+information after the cold baseline.
+
+One earlier harness attempt compared a current warm sample to the cold
+gate and stopped. It remains labelled a harness stage mismatch, not a fit
+failure. The corrected attempt required both stage comparisons, with a
+stable cold window and at least three distinct fresh status-warm samples.
+Cold 966 + 14,232 = 15,198 MiB passed; warm 1,193 + 14,009 = 15,202 MiB
+exceeded the unchanged projection ceiling by 2 MiB. There were zero
+`model.load` and zero generation calls. Status-only CUDA initialization is
+recorded separately. The owned server/listener closed and the card settled
+at 966 MiB/0%.
+
+No larger card limit, smaller recipe, same-size substitute or retry under
+the same headroom was used. This does not show that an executed pass would
+fail, and it establishes no alternation, pair timing or reproduction result.
+A later attempt needs independently changed headroom plus render-inclusive
+host RAM/commit admission from measured cost, unchanged floors and a stated
+margin. In particular, startup must budget for first rendering as well as
+loading; the other Windows sessions' private peaks are retained in
+[verified.md](../verified.md#windows-follow-up-measurements-2026-11-18).
+
+
 ### Phase 4: Finish run adds missing passes
 
 **Status: `GEN#35`, built 2026-10-30 (M, CPU/fake/browser only); added

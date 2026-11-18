@@ -1,10 +1,11 @@
 # Plan: edit a gallery image by instruction
 
-**Status, 2026-10-30:** stage 4's code is built, as ten slices
-([Stage 4](#stage-4-the-qualified-first-slice-2026-10-29)), and is on main
-(PR #17, merged 2026-10-30). Its one remaining step is the
-[card acceptance step](#card-acceptance-step), which needs Matt's OK: one
-load on the real server and page, never run so far.
+**Status, 2026-11-18:** stages 0-4 are complete inside the released envelope.
+The real-server/page acceptance and a separate fresh-process replay passed
+on the frozen replacement fixture, with the first controller's unload
+observation gap retained explicitly. The [result](#card-acceptance-result-2026-11-18)
+and [receipt](instruction-acceptance-2026-11-18.json) record that scope.
+`INP#13` can now start its plan addendum; no wider capability is released.
 
 What the branch does on the real server: `DiffusersBackend`'s gate is the
 literal True (slice 7), and the measured envelope (`QUALIFIED_ENVELOPE`: the
@@ -804,9 +805,10 @@ are unchanged.
 
 ### Card acceptance step
 
-Proposed, not run; it needs Matt's OK and is one load. Stage 3's harness
-measured the backend call, not the real server's route and page, so this
-step checks those inside the envelope, and replay across two processes.
+Completed on 2026-11-18 with Matt's OK, using one load per process. The
+original protocol below remains for context; its historical source was not
+retained. A frozen replacement source and a separate fresh-process replay
+supplied the current acceptance evidence, as recorded in the result below.
 
 - **Before:** at least 45 GiB free RAM with the server idle (stage 3 began
   from 42.5 GiB free and fell to 15.2 GiB at its lowest).
@@ -834,6 +836,42 @@ The page switch from Krea to the editor is another RAM path and a separate
 optional session. Wider aspects (a 3:2 and a 16:9 under 512² area) may join
 the same session; each opens only by a one-line change to
 `QUALIFIED_ENVELOPE` after it passes, and no key changes.
+
+#### Card acceptance result, 2026-11-18
+
+The real server and native browser controls completed the fixed edit,
+More seeds 12346/12347, a seed-777 cancellation at step 3 with no saves,
+identical same-seed recovery, all three held paths and Unload. A fresh
+process reproduced seed 12345 exactly: RGB `7e0062553284e700…12689`.
+The full source proof, allocator/backend/SQL/API/job/PNG agreement and all
+1,046 guard samples were independently checked. The existing envelope,
+recipe and stored keys are unchanged.
+
+The original stage-3 source was unavailable. The owned replacement's RGB
+is `28b506e70b5876cb…3f42a`; equality with the historical `68b864f6` output
+is not claimed. The first full browser run passed, but its controller
+stopped because it observed `unload` while the public route calls
+`try_unload`. Its stopped receipt is unchanged. The replay corrected only
+that scratch observer, CPU-checked it, and recorded the actual accepted
+unload, an unready backend and 32/32 MiB allocated/reserved afterwards.
+The [dated measurements](../verified.md#kontext-real-server-and-browser-acceptance-2026-11-18)
+and [combined receipt](instruction-acceptance-2026-11-18.json) retain both
+sessions and the earlier no-load admission refusal.
+
+Future sessions use the observed **46.544 GiB** peak private memory, replacing
+the old 40 GiB estimate: initial commit admission is at least **56.544 GiB**
+(observed peak + 4 GiB live floor + 6 GiB margin), beside 45 GiB free RAM.
+Immediately before loading, subtract only actual already-owned server-tree
+private memory from that commit requirement. Keep the 4 GiB live RAM/commit
+floors and card/shared limits unchanged. This is a minimum starting basis,
+not proof that a larger output fits.
+
+`INP#13` now starts at [R3](review-2026-11-10-peers.md#r3-a-wider-instruction-edit-envelope):
+freeze the second 1024x1024, square-only recipe and one-load protocol in a
+plan addendum, including the existing frozen aspects. The second recipe
+and protocol do not exist yet. The current `kontext-v1` table, source proof
+and public square-only hold stay intact; this follow-up is planning work,
+not a ready card run.
 
 ## Stages and completion criteria
 
@@ -868,8 +906,9 @@ configs are qualified. Stage 3's first trial and bounded pair ran on the card
 2026-10-27 (`docs/verified.md`, "Instruction edit"), and Matt accepted them
 2026-10-29. Stage 4's ten slices are built (2026-10-30): the catalogue entry,
 the released gate inside the measured envelope, More seeds of an edit and
-Re-render's refusal, and the page holds. Its completion evidence still lacks
-the [card acceptance step](#card-acceptance-step), the real server's route
-and page on the card; until it passes, stage 4 is not complete. The code
-is on main (PR #17, 2026-10-30). Detector work belongs to the [detailer plan](plan-detailer.md),
+Re-render's refusal, and the page holds. The real-server/page
+[card acceptance](#card-acceptance-result-2026-11-18) passed on 2026-11-18
+inside the unchanged envelope, completing stage 4 with the replacement-source
+and retained harness-observation limitations above. The code is on main
+(PR #17, 2026-10-30). Detector work belongs to the [detailer plan](plan-detailer.md),
 and importing outside images stays in its existing deferred owner.

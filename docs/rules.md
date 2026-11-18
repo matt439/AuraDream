@@ -2262,6 +2262,18 @@ measured on the card and when.
   contention in `try_unload` changes nothing. Private nonempty loaded state must
   refuse an ordinary eager request before device or pipeline work. This opens no
   selection/render gate and proves no physical GPU memory release.
+- A failed or cancelled ordinary text-to-image call offloads its loaded owner
+  after the request cache scope has closed and disposal has drained. Keep
+  admission before this boundary; Refine and instruction edits retain their
+  existing cleanup. Act only on the same loaded pipeline with no attached or
+  pending cache owner. Preserve the original exception. An offload-cleanup
+  failure logs one ERROR and its traceback at DEBUG, then detaches that exact
+  owner and its siblings before releasing outside the lock. A diagnostic-retire
+  failure uses the captured candidate and shared pure reference-clear helper;
+  never detach a replacement or touch uncertain cache disposal. Successful calls
+  retain the pipeline's normal cleanup. The loaded-owner cleanup can repeat an
+  app-owned pipeline's own exceptional cleanup; the installed helper is
+  idempotent. This opens no experimental recipe.
 - `AURADREAM_QUANT=nunchaku` means a pre-quantized lite-infer repo, Linux only
   (WSL 2 on the 5080; native Linux too, with the int4 repos below compute
   capability 10.0, unmeasured on the 3070), and no quantization config; `loading.nunchaku_preflight` and `loading.refuse_prequantized` refuse the other pairings before any download. Under
@@ -13223,6 +13235,13 @@ Weak-reference assertions outside exception handling prove application container
 drop ownership before release; arbitrary library traceback references and actual
 GPU reclamation are separate. An isolated subprocess forbids framework imports
 while checking private loaded-recipe refusal before work.
+`tests/test_backend_cancel_cleanup.py` runs 26 strict CPU contracts in an
+isolated child against the actual production generation and disposal methods.
+It checks cancellation/error followed by another call, unchanged successful
+cleanup, original-error preservation, fail-closed detach/release/logging,
+replacement and uncertain-cache protection, diagnostic-retire failure and
+cache-close/disposal ordering. Real Torch/Diffusers/Accelerate imports are
+forbidden in that worker; these contracts establish no GPU memory result.
 `tests/test_regional_backend.py` exercises the actual private preparation and
 invocation paths with synthetic runtime modules, pipeline and regions. It checks
 cold preflight before weights/imports, registration/publication failure ownership,

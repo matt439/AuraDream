@@ -1,0 +1,528 @@
+{
+  "schema": "auradream-perf1-v7-retained-artifact-control-receipt-v1",
+  "created_utc": "2026-11-18T12:02:46.480788+00:00",
+  "status": "PASSED bounded artifact-local uncancelled control; no public release or generalized determinism claim",
+  "independent_audit": {
+    "path": "work/gpu-20261118/perf1/independent-v7-control-audit.json",
+    "bytes": 26967,
+    "sha256": "d7dd6167f828677284bc48dc6e5368a58b5cdc2b4da82a45cb5fbce8c0b5678a"
+  },
+  "historical_completed_matrix_preserved": {
+    "path": "work/gpu-20261118/perf1/perf1-completed-matrix-receipt-2026-11-18.json",
+    "bytes": 110339,
+    "sha256": "e27817b0359509be302383d4954b98b2b5e6e4684b5639a0bebaec793da5e0c0"
+  },
+  "historical_v5_v6_addendum_preserved": {
+    "path": "work/gpu-20261118/perf1/perf1-bootstrap-and-cancel-addendum-2026-11-18.json",
+    "bytes": 29064,
+    "sha256": "211201721776498162f92acdc87dd1d3e861cf6b3838527fc2776f24a380f41e"
+  },
+  "historical_counts_scope": "Original completed matrix40PNGs/42calls/3loads remains historical. v6 failed gate after1cancel+1PNG; v7 adds a distinct1load/2normalcalls/2PNGs without rewriting either prior result.",
+  "source_commit": "f8f4cf2de7c690300735ea189876f687c5f937b1",
+  "admission_and_guards": {
+    "admission": {
+      "pure_helper_replay_exactly_equals_saved": true,
+      "decision": {
+        "admitted": true,
+        "version": "perf1-cold-cancel-capped-waiting-admission-v1",
+        "sample_count": 3,
+        "ready_pid": 29256,
+        "outside_supervisor_pid": 34864,
+        "members": [
+          29256,
+          34356,
+          35872,
+          36768
+        ],
+        "observations": [
+          {
+            "sampled_at": 109968.2347337,
+            "sample": {
+              "card_mib": 1182.0,
+              "adapter_shared_mib": 27.78125,
+              "process_shared_mib": 0.0,
+              "available_gib": 48.86107635498047,
+              "commit_headroom_gib": 52.47743225097656,
+              "tree_gib": 0.06227874755859375,
+              "card_total_mib": 16303.0
+            },
+            "owned_tree": [
+              29256,
+              34356,
+              35872,
+              36768
+            ],
+            "job": {
+              "flags": 8704,
+              "job_cap_bytes": 51002736640,
+              "process_cap_bytes": 0,
+              "members": [
+                29256,
+                34356,
+                35872,
+                36768
+              ],
+              "current_before_bytes": 70189056,
+              "current_after_bytes": 70189056,
+              "member_private_sum_bytes": 70189056,
+              "peak_observed_bytes_not_credited": 107352064,
+              "current_exact": true,
+              "strict_waiting_accounting": true,
+              "private_cap_attempt_observed": false,
+              "process_private": {
+                "29256": {
+                  "private_bytes": 18841600,
+                  "rss_bytes": 28614656
+                },
+                "34356": {
+                  "private_bytes": 1310720,
+                  "rss_bytes": 7925760
+                },
+                "35872": {
+                  "private_bytes": 49172480,
+                  "rss_bytes": 25993216
+                },
+                "36768": {
+                  "private_bytes": 864256,
+                  "rss_bytes": 4337664
+                }
+              },
+              "sampled_tree_rss_gib": 0.06227874755859375
+            }
+          },
+          {
+            "sampled_at": 109968.4945188,
+            "sample": {
+              "card_mib": 1182.0,
+              "adapter_shared_mib": 27.78125,
+              "process_shared_mib": 0.0,
+              "available_gib": 48.85729217529297,
+              "commit_headroom_gib": 52.47217559814453,
+              "tree_gib": 0.06227874755859375,
+              "card_total_mib": 16303.0
+            },
+            "owned_tree": [
+              29256,
+              34356,
+              35872,
+              36768
+            ],
+            "job": {
+              "flags": 8704,
+              "job_cap_bytes": 51002736640,
+              "process_cap_bytes": 0,
+              "members": [
+                29256,
+                34356,
+                35872,
+                36768
+              ],
+              "current_before_bytes": 70189056,
+              "current_after_bytes": 70189056,
+              "member_private_sum_bytes": 70189056,
+              "peak_observed_bytes_not_credited": 107352064,
+              "current_exact": true,
+              "strict_waiting_accounting": true,
+              "private_cap_attempt_observed": false,
+              "process_private": {
+                "29256": {
+                  "private_bytes": 18841600,
+                  "rss_bytes": 28614656
+                },
+                "34356": {
+                  "private_bytes": 1310720,
+                  "rss_bytes": 7925760
+                },
+                "35872": {
+                  "private_bytes": 49172480,
+                  "rss_bytes": 25993216
+                },
+                "36768": {
+                  "private_bytes": 864256,
+                  "rss_bytes": 4337664
+                }
+              },
+              "sampled_tree_rss_gib": 0.06227874755859375
+            }
+          },
+          {
+            "sampled_at": 109968.7574828,
+            "sample": {
+              "card_mib": 1182.0,
+              "adapter_shared_mib": 27.78125,
+              "process_shared_mib": 0.0,
+              "available_gib": 48.85548782348633,
+              "commit_headroom_gib": 52.46985626220703,
+              "tree_gib": 0.062320709228515625,
+              "card_total_mib": 16303.0
+            },
+            "owned_tree": [
+              29256,
+              34356,
+              35872,
+              36768
+            ],
+            "job": {
+              "flags": 8704,
+              "job_cap_bytes": 51002736640,
+              "process_cap_bytes": 0,
+              "members": [
+                29256,
+                34356,
+                35872,
+                36768
+              ],
+              "current_before_bytes": 70189056,
+              "current_after_bytes": 70189056,
+              "member_private_sum_bytes": 70189056,
+              "peak_observed_bytes_not_credited": 107352064,
+              "current_exact": true,
+              "strict_waiting_accounting": true,
+              "private_cap_attempt_observed": false,
+              "process_private": {
+                "29256": {
+                  "private_bytes": 18841600,
+                  "rss_bytes": 28614656
+                },
+                "34356": {
+                  "private_bytes": 1310720,
+                  "rss_bytes": 7925760
+                },
+                "35872": {
+                  "private_bytes": 49172480,
+                  "rss_bytes": 25993216
+                },
+                "36768": {
+                  "private_bytes": 864256,
+                  "rss_bytes": 4382720
+                }
+              },
+              "sampled_tree_rss_gib": 0.062320709228515625
+            }
+          }
+        ],
+        "sampled_at": [
+          109968.2347337,
+          109968.4945188,
+          109968.7574828
+        ],
+        "sample_spacing_seconds": [
+          0.2597851000027731,
+          0.26296400000865106
+        ],
+        "current_commit_spread_bytes": 0,
+        "private_job_cap_bytes": 51002736640,
+        "private_job_cap_gib": 47.5,
+        "minimum_free_ram_gib": 48.85548782348633,
+        "required_fresh_free_ram_gib": 45.0,
+        "minimum_global_free_commit_gib": 52.46985626220703,
+        "minimum_CURRENT_owned_job_commit_gib": 0.06536865234375,
+        "conservative_commit_capacity_gib": 52.53522491455078,
+        "required_commit_capacity_gib": 52.0,
+        "required_global_commit_headroom_gib": 51.93463134765625,
+        "hard_global_commit_floor_gib": 4.0,
+        "extra_commit_margin_gib": 0.5,
+        "maximum_idle_card_mib": 1182.0,
+        "idle_card_limit_mib": 2500.0,
+        "maximum_owned_tree_rss_gib": 0.062320709228515625,
+        "maximum_exact_job_rss_gib": 0.062320709228515625,
+        "sampled_rss_cap_gib": 32.0,
+        "peak_memory_credited": false,
+        "allocator_reuse_assumed": false,
+        "physical_RAM_credit": "none; fresh free physical RAM only",
+        "caller_must_enforce_unchanged_global_card_shared_guards": true,
+        "scope": "one separately authorized fixed cold-cancel case; OS cap covers owned private commit only, not mapped/shared/system/physical RAM"
+      }
+    },
+    "guards": {
+      "independently_rechecked_rows": 606,
+      "bad_rows": [],
+      "member_accounting_rows": 598,
+      "terminal_teardown_rows": 8,
+      "job_private_cap_gib": 47.5,
+      "RSS_cap_gib": 32.0,
+      "job_peak_gib": 43.974918365478516,
+      "cap_attempt_observed": false,
+      "terminal_and_before_close_veto_clear": true,
+      "whole_card_peak_mib": 13911.0,
+      "minimum_free_RAM_gib": 21.851024627685547,
+      "minimum_free_commit_gib": 9.017208099365234,
+      "maximum_owned_tree_RSS_gib": 26.964096069335938,
+      "maximum_exact_job_RSS_gib": 26.964279174804688,
+      "maximum_adapter_shared_rise_mib": 82.0,
+      "maximum_process_shared_rise_mib": 82.0,
+      "mean_recorded_sample_gap_seconds": 0.25030679371901154,
+      "maximum_recorded_sample_gap_seconds": 0.2596670999919297,
+      "guard_limits": {
+        "card_mib": 15500.0,
+        "project_mib": 15200.0,
+        "refuse_at_peak_mib": 15000.0,
+        "adapter_shared_rise_mib": 1024.0,
+        "process_shared_rise_mib": 512.0,
+        "ram_floor_gib": 4.0,
+        "commit_floor_gib": 4.0,
+        "need_ram_gib": 45.0,
+        "busy_card_mib": 2500.0,
+        "card_unread_samples": 3.0,
+        "margin_mib": 500.0,
+        "margin_gib": 1.0
+      }
+    }
+  },
+  "artifact_identity": {
+    "independently_rehashed_actual_cache_now": true,
+    "all_four_saved_identity_observations_equal_fresh_rehash": true,
+    "all_file_bytes_identical": true,
+    "selected_config_and_cubin_identity": true,
+    "counts": {
+      "files": 520,
+      "best_configs": 24,
+      "all_cubin_files": 55,
+      "selected_cubin_files": 24
+    },
+    "baseline": {
+      "path": "work/gpu-20261118/perf1/v7-retained-v6-artifact-baseline.json",
+      "bytes": 235515,
+      "sha256": "8d198ff6496186f1434f6133bb3bb2668e288a31f107d097a4487bfa90aa4fe0"
+    },
+    "helper": {
+      "path": "work/gpu-20261118/perf1/retained_artifact_identity.py",
+      "bytes": 7389,
+      "sha256": "8d72937c87e5a6ede049da8adc01f7133deb5b44e4f9e9d5d55ebd755d823b29"
+    },
+    "independent_final_identity": {
+      "path": "work/gpu-20261118/perf1/independent-v7-final-artifact-identity.json",
+      "bytes": 85716,
+      "sha256": "d24bc4447099f87a66581a4109c1d017f1667ac843efc3263379675489d9ae85"
+    },
+    "actual_fxgraph_cache_hits": 3,
+    "fxgraph_cache_misses": 0,
+    "new_kernel_saves": 0,
+    "new_static_autotuner_saves": 0,
+    "Dynamo_unique_graphs": 3,
+    "repeat_counters_unchanged": true,
+    "scope": "Full retained cubin byte identity proves unchanged serialized ELF.text bytes, with actual FX cache hits separately supported by saved counters. Zero newly saved kernels/autotuners does not establish zero runtime compilation or benchmarking/autotuning activity. No cross-build determinism claim.",
+    "runtime_activity_counters_first_and_repeat": {
+      "fxgraph_cache_hit": 3,
+      "fxgraph_cache_miss": 0,
+      "triton_bundler_save_kernel": 0,
+      "triton_bundler_save_static_autotuner": 0,
+      "async_compile_cache_miss": 76,
+      "async_compile_cache_hit": 38,
+      "triton_bundler_load_static_autotuner": 38,
+      "benchmarking.InductorBenchmarker.benchmark": 4,
+      "benchmarking.InductorBenchmarker.benchmark_gpu": 4
+    },
+    "complete_runtime_counters_first": {
+      "unimplemented": {},
+      "stats": {
+        "calls_captured": 272,
+        "unique_graphs": 3
+      },
+      "aot_autograd": {
+        "total": 3,
+        "autograd_cache_hit": 3,
+        "ok": 3
+      },
+      "inductor": {
+        "triton_bundler_load_static_autotuner": 38,
+        "async_compile_cache_miss": 76,
+        "async_compile_cache_hit": 38,
+        "extern_calls": 32,
+        "fxgraph_cache_hit": 3,
+        "benchmarking.InductorBenchmarker.benchmark": 4,
+        "benchmarking.InductorBenchmarker.benchmark_gpu": 4
+      }
+    },
+    "complete_runtime_counters_repeat": {
+      "unimplemented": {},
+      "stats": {
+        "calls_captured": 272,
+        "unique_graphs": 3
+      },
+      "aot_autograd": {
+        "total": 3,
+        "autograd_cache_hit": 3,
+        "ok": 3
+      },
+      "inductor": {
+        "triton_bundler_load_static_autotuner": 38,
+        "async_compile_cache_miss": 76,
+        "async_compile_cache_hit": 38,
+        "extern_calls": 32,
+        "fxgraph_cache_hit": 3,
+        "benchmarking.InductorBenchmarker.benchmark": 4,
+        "benchmarking.InductorBenchmarker.benchmark_gpu": 4
+      }
+    },
+    "runtime_activity_limit": "Both benchmark counters are4; async compile cache misses76/hits38 and static-autotuner loads38 remain stable on repeat. Exact causes of this runtime activity were not traced. Do not claim all compile caches hit, zero runtime compilation, zero benchmarking or zero autotuning activity."
+  },
+  "render_observations": {
+    "model_loads": 1,
+    "normal_generation_calls": 2,
+    "cancelled_calls": 0,
+    "PNGs": 2,
+    "decoded_RGB_sha256": [
+      "1d66cce409f42c80f69aa66f4428b215ab2581316cb921a6058a7e2f566a6118",
+      "1d66cce409f42c80f69aa66f4428b215ab2581316cb921a6058a7e2f566a6118"
+    ],
+    "both_match_v6_recovery": true,
+    "both_equal_each_other": true,
+    "both_differ_from_historical_e54": true,
+    "case": {
+      "prompt_key": "scene",
+      "shape": [
+        1024,
+        1024
+      ],
+      "seed": 4471
+    },
+    "request_and_private_execution_equal_v6": true,
+    "common_runtime_hashes_equal": [
+      "backend/main.py",
+      "backend/compiler_cache.py",
+      "backend/execution.py",
+      "backend/config.py",
+      "backend/backends/diffusers_backend.py",
+      "backend/backends/regional_compile.py",
+      "backend/backends/loading.py",
+      "backend/backends/attention_selection.py",
+      "tools/card_guard.py",
+      "tools/perf_cases.py",
+      "work/perf1_toolchain_probe.py",
+      "work/perf3_card_private.py",
+      "uv.lock",
+      "pyproject.toml",
+      "work/gpu-20261118/switch-job-cap-review/small_job_cap_probe.py",
+      "work/perf3_switch_jobcap_private.py",
+      "work/gpu-20261118/perf1/capped_cancel_admission.py"
+    ],
+    "recorded_runtime_and_toolchain_equal_v6": true,
+    "load_seconds": 61.74191700000665,
+    "render_seconds": [
+      51.24521689998801,
+      30.574217100001988
+    ]
+  },
+  "cleanup": {
+    "finally_Dynamo_policy_flags_observed_equal": true,
+    "policy_observation": {
+      "before": {
+        "suppress_errors": false,
+        "fail_on_recompile_limit_hit": false,
+        "compile_threads": 1
+      },
+      "after": {
+        "suppress_errors": false,
+        "fail_on_recompile_limit_hit": false,
+        "compile_threads": 1
+      },
+      "equal": true,
+      "active_primary_exception": null,
+      "observation_only": true
+    },
+    "unload_observation": {
+      "success_before_cleanup": true,
+      "active_primary_exception": null,
+      "is_ready": false,
+      "cleared_owners": {
+        "_pipe": true,
+        "_loaded_execution": true,
+        "_regional_registration": true,
+        "_attention_selection": true,
+        "_cache_owner": true,
+        "_cache_disposal": true,
+        "_pending_cache_disposal": true,
+        "_refine_pipe": true,
+        "_inpaint_pipe": true,
+        "_lora": true
+      },
+      "empty_parameter_sets": {
+        "_call_params": true,
+        "_refine_params": true,
+        "_inpaint_params": true
+      },
+      "diagnostics": "None",
+      "new_diagnostics_reader_is_none": true,
+      "retained_weight_free_reader_value": "None",
+      "native_global_state_unchanged": true,
+      "native_after": {
+        "dispatcher": "native",
+        "function": "diffusers.models.attention_dispatch._native_attention",
+        "function_id": 1945634472960,
+        "sdpa": {
+          "flash": true,
+          "math": true,
+          "mem_efficient": true,
+          "cudnn": true
+        }
+      },
+      "pipeline_collected": true,
+      "transformer_collected": true,
+      "weakref_scope": "tester pipeline/guard aliases dropped; no manual offload or Dynamo reset; active traceback may retain on failure",
+      "allocated_mib": 32.0,
+      "reserved_mib": 32.0
+    },
+    "power_request": {
+      "kind": "power-request",
+      "holding": false,
+      "released": true
+    },
+    "post_exit_sample": {
+      "card_mib": 1182.0,
+      "adapter_shared_mib": 27.78125,
+      "process_shared_mib": null,
+      "available_gib": 48.87521743774414,
+      "commit_headroom_gib": 52.53453063964844,
+      "tree_gib": null,
+      "card_total_mib": 16303.0
+    },
+    "scope": "Saved process/owner/post-exit evidence, not a fresh live process inventory."
+  },
+  "supported_interpretation": "The v6 recovery RGB1d66... also reproduces without cancellation in a fresh process using the same retained artifacts and fixed inputs. Therefore, the historicale54 equality gate failure alone did not isolate persistent in-process cancellation damage. This does not identify the precise cause of the cross-build image difference or prove a broader lack of cancellation effects.",
+  "preserved_boundaries": {
+    "v6_experiment_passed": false,
+    "v6_saved_PNGs": 1,
+    "v6_third_repeat_run": false,
+    "v6_after_failure_Dynamo_flags_directly_observed": false,
+    "v6_policy_scope": "Source-backed scoped unwind only; no postfailure flag receipt. v7 observed flags cannot be applied retroactively to v6.",
+    "full_weight_identity": "Neither harness recorded all checkpoint weight-byte hashes or an explicit Hub revision.",
+    "precision_limit": "Earlier harnesses did not explicitly capture all matmul TF32/float32 or cuDNN precision/determinism flags; selected-config/binary confounders remain noncausal observations.",
+    "public_admission_qualified": false,
+    "quality_accepted_by_Matt": false,
+    "cross_build_determinism_qualified": false,
+    "runtime_activity": "FX hits3/misses0 is narrower than all compile-cache success. Async compile cache misses76/hits38, static-autotuner loads38, benchmark4 and benchmark_gpu4 were observed; their exact cause is untraced. No assertion of zero runtime compilation, benchmarking or autotuning activity."
+  },
+  "owner_state_proposal": {
+    "PERF1": "USER proposed: bounded card table now measured, including early before-first-callback latency and artifact-local recovery comparison; remaining Matt pair judgement plus release/source/artifact-rebuild policy. No stale GPU prerequisite is inferred.",
+    "PERF7": "Root should route the post-measurement UI/product choice through its existing owner and select the appropriate decision/status; this receipt chooses no public default or rollout.",
+    "PERF2": "Review its owner dependency against the bounded measurement; no automatic qualification of fp8 activation kernels or runtime admission."
+  },
+  "remaining": "Matt quality judgement; explicit release/source and artifact-rebuild/reproducibility policy. Public nonempty execution and default compiler installation remain closed until their own implementation and acceptance criteria are satisfied.",
+  "archived_harness_sources": [
+    {
+      "path": "work/gpu-20261118/perf1/v7-harness-sources/regional_card_v7_artifact_control.py",
+      "bytes": 68996,
+      "sha256": "6bf3d7fd40a4aee4011096ab4d015d7a8e91cd87901c8c62814723358e74a925",
+      "original_path": ".artifacts/gpu-20261118/perf1/regional_card_v7_artifact_control.py"
+    },
+    {
+      "path": "work/gpu-20261118/perf1/v7-harness-sources/retained_artifact_identity.py",
+      "bytes": 7389,
+      "sha256": "8d72937c87e5a6ede049da8adc01f7133deb5b44e4f9e9d5d55ebd755d823b29",
+      "original_path": "work/gpu-20261118/perf1/retained_artifact_identity.py"
+    },
+    {
+      "path": "work/gpu-20261118/perf1/v7-harness-sources/v7-retained-v6-artifact-baseline.json",
+      "bytes": 235515,
+      "sha256": "8d198ff6496186f1434f6133bb3bb2668e288a31f107d097a4487bfa90aa4fe0",
+      "original_path": "work/gpu-20261118/perf1/v7-retained-v6-artifact-baseline.json"
+    },
+    {
+      "path": "work/gpu-20261118/perf1/v7-harness-sources/capped_cancel_admission.py",
+      "bytes": 11758,
+      "sha256": "308c2b29fb20cffd08f8a09b1517b0a37ab8d316390637ed64446d3e243e3e26",
+      "original_path": "work/gpu-20261118/perf1/capped_cancel_admission.py"
+    }
+  ]
+}

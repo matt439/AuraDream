@@ -1,0 +1,191 @@
+{
+  "schema": "auradream-card11-krea-guarded-stop-v1",
+  "date_local": "2026-11-18",
+  "status": "stopped by unchanged host commit floor before first original completed",
+  "recipe": {
+    "protocol": "CARD#11 Krea beside critic and 3-seed rewrite comparison",
+    "model": "black-forest-labs/FLUX.1-Krea-dev",
+    "quant_offload": [
+      "int8",
+      "model"
+    ],
+    "original_prompt": "A red fox sitting in a snowy birch forest at dawn.",
+    "seeds": [
+      4242,
+      4243,
+      4244
+    ],
+    "steps": 28,
+    "guidance": 3.5,
+    "size": [
+      1024,
+      1024
+    ],
+    "image_loads": 1,
+    "critic_calls": 1,
+    "repair_or_retry": false,
+    "max_images": 8,
+    "review": "Retain all 3 original/rewrite pairs; human quality judgment remains separate",
+    "admission_ram_gib": 45,
+    "admission_commit_gib": 40,
+    "live_limits": "unchanged card15500/shared1024/512/freeRAM4/commit4",
+    "scope": "Standalone backend plus real JobManager critic gate; not HTTP/UI; PA18 not called"
+  },
+  "physical_gpu": {
+    "name": "NVIDIA GeForce RTX 5080",
+    "driver": "616.92"
+  },
+  "load": {
+    "seconds": 43.89106319998973,
+    "backend": {
+      "model_id": "black-forest-labs/FLUX.1-Krea-dev",
+      "quantization": "int8",
+      "offload": "model",
+      "execution_diagnostics": null,
+      "cfg_threshold": 1.0,
+      "mu_supported": true,
+      "negative_prompt_supported": true,
+      "true_cfg_supported": true,
+      "reference_supported": false,
+      "refine_supported": true,
+      "refine_reason": null,
+      "inpaint_supported": true,
+      "inpaint_strength": 0.95,
+      "lora_supported": true,
+      "instruction_edit_supported": false,
+      "instruction_edit_reason": "Select FLUX.1 Kontext [dev] in Models to run an instruction edit.",
+      "device_name": "NVIDIA GeForce RTX 5080",
+      "vram_total_mb": 16275,
+      "vram_used_mb": 1290
+    }
+  },
+  "completed_originals": 0,
+  "critic_calls": 0,
+  "comparison_pairs": 0,
+  "cancel_replay_normal_unload": "not reached; owned process tree was killed by the parent resource guard",
+  "critic_runtime_gguf_reverification": "not reached; this runner verifies critic cache after its first original, which never completed",
+  "controller_exit": 1,
+  "controller_summary": {
+    "ok": false,
+    "error_type": "RuntimeError",
+    "error": "final host/device sample crossed live guard"
+  },
+  "guard": {
+    "limits": {
+      "card_mib": 15500.0,
+      "project_mib": 15200.0,
+      "refuse_at_peak_mib": 15000.0,
+      "adapter_shared_rise_mib": 1024.0,
+      "process_shared_rise_mib": 512.0,
+      "ram_floor_gib": 4.0,
+      "commit_floor_gib": 4.0,
+      "need_ram_gib": 45.0,
+      "busy_card_mib": 2500.0,
+      "card_unread_samples": 3.0,
+      "margin_mib": 500.0,
+      "margin_gib": 1.0
+    },
+    "fresh_admission": {
+      "card_mib": 1182.0,
+      "adapter_shared_mib": 27.78125,
+      "process_shared_mib": 0.0,
+      "available_gib": 48.969017028808594,
+      "commit_headroom_gib": 52.52852249145508,
+      "tree_gib": 0.01241302490234375,
+      "card_total_mib": 16303.0
+    },
+    "fresh_commit_admission_gib": 40.0,
+    "all_recorded_decisions_independently_rechecked": true,
+    "sample_count": 327,
+    "first_and_only_trip": {
+      "monotonic": 105564.6543744,
+      "phase": {
+        "sequence": 3,
+        "kind": "image",
+        "name": "original-4242",
+        "started": 105529.279788
+      },
+      "sample": {
+        "card_mib": 14057.0,
+        "adapter_shared_mib": 107.78125,
+        "process_shared_mib": 80.0,
+        "available_gib": 20.00353240966797,
+        "commit_headroom_gib": 3.1813201904296875,
+        "tree_gib": 28.891220092773438,
+        "card_total_mib": 16303.0
+      },
+      "event": "TRIP",
+      "answer": {
+        "verdict": "trip",
+        "why": "commit",
+        "reading": 3.1813201904296875,
+        "limit": 4.0,
+        "projected_mib": null,
+        "measured": [],
+        "reason": null
+      }
+    },
+    "whole_card_peak_mib": 14057.0,
+    "minimum_free_ram_gib": 18.96990966796875,
+    "minimum_commit_headroom_gib": 3.1813201904296875,
+    "max_observed_tree_rss_gib": 29.982345581054688,
+    "max_observed_private_gib": 47.125694274902344,
+    "adapter_shared_rise_mib": 80.0,
+    "process_shared_rise_mib": 80.0
+  },
+  "raw_after_exit": {
+    "card_mib": 14057.0,
+    "adapter_shared_mib": 107.78125,
+    "process_shared_mib": null,
+    "available_gib": 20.00360107421875,
+    "commit_headroom_gib": 3.182048797607422,
+    "tree_gib": null,
+    "card_total_mib": 16303.0
+  },
+  "fresh_settled_release": {
+    "utc": "2026-11-18T10:40:17.709772+00:00",
+    "controller_exit": 1,
+    "owned_or_llama_processes": [],
+    "nvidia_smi_memory_mib_utilization_percent": "1182, 0",
+    "fresh_available_ram_gib": 49.02113723754883,
+    "fresh_commit_headroom_gib": 52.5833740234375,
+    "power_released": true,
+    "normal_image_cancel_unload_gate_cleanup": "not reached; parent killed owned process tree on resource trip",
+    "critic_calls": 0,
+    "saved_originals": 0,
+    "comparison_pairs": 0,
+    "gpu_baton_released": true,
+    "raw_after_exit_is_not_settled_release_proof": true
+  },
+  "release_interpretation": "The raw after-exit reading still shows high card/low commit and failed its guard. The distinct later direct nvidia-smi/host/process release proof establishes the settled baseline; raw evidence is unchanged.",
+  "qualification": "No int8 coexistence, rewrite quality, seed comparison or lifecycle qualification. This host-commit stop does not establish that the GPU recipe exceeds VRAM.",
+  "separate_recipe": "Any later fp8/sequential session is independent and must never be reported as an int8 pass.",
+  "source": {
+    "commit": "f8f4cf2de7c690300735ea189876f687c5f937b1",
+    "reviewed_freeze_entries": 195,
+    "runtime_source_entries_checked": 201,
+    "all_runtime_source_hashes_match_at_export": true,
+    "backend_sha256": "c3a85a23288be5d3ccb3bdb1b4751f5456c75d714685d9cf02f3e597c838274e",
+    "runtime_json_sha256": "0f71b7af90700e2d8fba7fdfa99ad91afd80a54b25ae118ff39505c5309ea1e2"
+  },
+  "evidence": {
+    "directory": ".artifacts/gpu-20261118/critic/krea-int8-run-20261118-a1",
+    "file_sha256": {
+      "after-exit.json": "848159b6d99683deeb602138fcde1731bf72aec808e4ea6ed5afed1767bba27f",
+      "guard.jsonl": "561a3158d845b97ed8b51ee208aff75c7bee6f908b196aaf30d97ff99952f6e0",
+      "keep-awake.json": "c819fb2dfb90829600d7da7d9d7a58c61e839524a413cafbd2ed48abe60c057b",
+      "load.json": "038aa92bc9d6194ea9fad7ac23432c6496298be2072c1cfbc56e99137814f8ca",
+      "permit-0001-begin.json": "32bf21310ada666795f692c8e4ad47e78bcf6622928f30dd6204673d9a0f8a79",
+      "phase-0001.json": "67d1f1c3d0f564feaf9f39911089e91442770b265080b7aa6b98b138cac4b459",
+      "phase-0002.json": "cdd17b3b34b8c4af9d7997d750262a1440e74824483ea58080bc09d7312e28b5",
+      "phase-0003.json": "289782f331a8a8d3f513f8488b768cf7d177bc4250874fa3559a16611bfdb912",
+      "plan.json": "a33399638eb3ab7beed1ba8f18f02564ba7a89a7e900f9208b8a4a29779fb996",
+      "preflight.json": "4ee1a42574f3460f64adf68ebc01b46da543a833f884f11e23b8d529e81244c8",
+      "release.json": "8167960cd7885d8b5712778da2c74103890382d4ede386487c104e3723c2fce3",
+      "runtime.json": "0f71b7af90700e2d8fba7fdfa99ad91afd80a54b25ae118ff39505c5309ea1e2",
+      "summary.json": "910c05b2ecc7804b4c03e43bbe415d021b46340a8f9c45516d6b902605f09595",
+      "worker.log": "d3f97d5723aba4187393d0847ca1942db096b0020453e35fb4775dc99f5e83ab"
+    },
+    "raw_evidence_unchanged_by_export": true
+  }
+}

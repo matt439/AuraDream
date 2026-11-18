@@ -1,0 +1,550 @@
+{
+  "schema": "auradream-windows-card10-followups-v1",
+  "scope": [
+    "CARD#10",
+    "DEV#23"
+  ],
+  "date": "2026-11-18",
+  "commit": "f8f4cf2de7c690300735ea189876f687c5f937b1",
+  "backend_sha256": "c3a85a23288be5d3ccb3bdb1b4751f5456c75d714685d9cf02f3e597c838274e",
+  "platform": "Windows-11-10.0.26300-SP0",
+  "python": "3.13.15",
+  "gpu": "NVIDIA GeForce RTX 5080",
+  "physical_card_mib": 16303,
+  "driver": "616.92",
+  "quantization": "fp8",
+  "execution": "Eager/Native; no step cache",
+  "standing_limits": {
+    "card_mib": 15500,
+    "projection_mib": 15200,
+    "adapter_shared_rise_mib": 1024,
+    "process_shared_rise_mib": 512,
+    "free_ram_floor_gib": 4,
+    "commit_headroom_floor_gib": 4
+  },
+  "sessions": {
+    "card10-base-a1": {
+      "schema": "auradream-card10-native-page-v1",
+      "date": "2026-11-18",
+      "scope": "CARD10",
+      "status": "stopped",
+      "error": "RuntimeError: CARD10 7733f81 failed; retained native browser log",
+      "production_commit": "f8f4cf2de7c690300735ea189876f687c5f937b1",
+      "packs": [
+        {
+          "pack": "7733f81",
+          "browser_exit": 1,
+          "seconds": 10.033202171325684,
+          "guard": {
+            "samples": 41,
+            "peaks": {
+              "card_mib": 1193.0,
+              "adapter_rise_mib": 75.0,
+              "process_rise_mib": 74.0,
+              "tree_gib": 0.89,
+              "tree_private_gib": 2.414661407470703
+            },
+            "minima": {
+              "available_gib": 48.15,
+              "commit_headroom_gib": 52.02
+            },
+            "longest_gap_s": 0.2637977600097656
+          }
+        }
+      ],
+      "guard": {
+        "limits": {
+          "card_mib": 15500.0,
+          "project_mib": 15200.0,
+          "refuse_at_peak_mib": 15000.0,
+          "adapter_shared_rise_mib": 1024.0,
+          "process_shared_rise_mib": 512.0,
+          "ram_floor_gib": 4.0,
+          "commit_floor_gib": 4.0,
+          "need_ram_gib": 45,
+          "busy_card_mib": 2100,
+          "card_unread_samples": 3.0,
+          "margin_mib": 500.0,
+          "margin_gib": 1.0
+        },
+        "metrics": {
+          "samples": 52,
+          "whole_card_peak_mib": 1193.0,
+          "maximum_server_private_gib": 2.414661407470703,
+          "maximum_server_working_gib": 0.89,
+          "minimum_free_ram_gib": 48.15,
+          "minimum_commit_headroom_gib": 52.02,
+          "maximum_raw_sample_gap_seconds": 0.2637977600097656,
+          "all_verdicts_independently_recomputed_ok": true
+        }
+      },
+      "completed_backend_calls": 0,
+      "observed_generated_images": 0,
+      "normal_unload_status": null,
+      "cleanup": {
+        "server_exit": 15,
+        "guard_error": null,
+        "settled_card_mib": 966,
+        "settled_observation": "separate runner nvidia-smi readback after process/listener cleanup"
+      },
+      "scrollbar_coverage": null,
+      "typed_ctrl_c": "not exercised; hands-on prerequisite remains",
+      "model_rejection": false,
+      "evidence": {
+        "summary.json": "734325a2b3e2787a4164a95ba31cb8a8bc4e17906ff776e8e5b966f287166440",
+        "plan.json": "460540b6719a388cb951b7fcd11176b7c2152731c101030eeee8ece9d6a16c06",
+        "source-manifest.json": "bb2b5aca8eb04b7d4840ee2bdad9d02afc9c62a54ec223468454ff05c6851bd4",
+        "guard.jsonl": "76ea83b6f639b5759d1d076329dd46bdc8a0a07c359f13cf52259e13b064f640",
+        "frozen-driver.py": "72e9f5c8cfb1a257fac92a5760d1feca92c90699a328d2b87d3d970fbc6c7159",
+        "server.log": "7acab60e316f54551b9e530934cea688978e75cb6e382befd46b465bf4030cbd",
+        "browser-7733f81.log": "e792d2be7034bcab2fd022e1d169de8c99c5a41f6e52e3e427033a9d3c682151"
+      }
+    },
+    "card10-base-a2": {
+      "schema": "auradream-card10-native-page-v1",
+      "date": "2026-11-18",
+      "scope": "CARD10",
+      "status": "complete",
+      "error": null,
+      "production_commit": "f8f4cf2de7c690300735ea189876f687c5f937b1",
+      "packs": [
+        {
+          "pack": "7733f81",
+          "browser_exit": 0,
+          "seconds": 70.86812663078308,
+          "guard": {
+            "samples": 284,
+            "peaks": {
+              "card_mib": 14263.0,
+              "adapter_rise_mib": 82.4,
+              "process_rise_mib": 82.0,
+              "tree_gib": 27.1,
+              "tree_private_gib": 43.6168327331543
+            },
+            "minima": {
+              "available_gib": 22.0,
+              "commit_headroom_gib": 11.05
+            },
+            "longest_gap_s": 0.264972448348999
+          }
+        },
+        {
+          "pack": "9377de1",
+          "browser_exit": 0,
+          "seconds": 25.035831928253174,
+          "guard": {
+            "samples": 100,
+            "peaks": {
+              "card_mib": 14263.0,
+              "adapter_rise_mib": 82.4,
+              "process_rise_mib": 82.0,
+              "tree_gib": 18.68,
+              "tree_private_gib": 38.6656494140625
+            },
+            "minima": {
+              "available_gib": 30.32,
+              "commit_headroom_gib": 15.92
+            },
+            "longest_gap_s": 0.26463770866394043
+          }
+        },
+        {
+          "pack": "2a4d2cc",
+          "browser_exit": 0,
+          "seconds": 27.039959192276,
+          "guard": {
+            "samples": 108,
+            "peaks": {
+              "card_mib": 14199.0,
+              "adapter_rise_mib": 82.4,
+              "process_rise_mib": 82.0,
+              "tree_gib": 18.53,
+              "tree_private_gib": 39.98836898803711
+            },
+            "minima": {
+              "available_gib": 30.47,
+              "commit_headroom_gib": 14.6
+            },
+            "longest_gap_s": 0.26531338691711426
+          }
+        },
+        {
+          "pack": "6a7570d",
+          "browser_exit": 0,
+          "seconds": 110.40966725349426,
+          "guard": {
+            "samples": 442,
+            "peaks": {
+              "card_mib": 13961.0,
+              "adapter_rise_mib": 82.4,
+              "process_rise_mib": 82.0,
+              "tree_gib": 18.9,
+              "tree_private_gib": 39.98614501953125
+            },
+            "minima": {
+              "available_gib": 30.15,
+              "commit_headroom_gib": 14.61
+            },
+            "longest_gap_s": 0.2652406692504883
+          }
+        }
+      ],
+      "guard": {
+        "limits": {
+          "card_mib": 15500.0,
+          "project_mib": 15200.0,
+          "refuse_at_peak_mib": 15000.0,
+          "adapter_shared_rise_mib": 1024.0,
+          "process_shared_rise_mib": 512.0,
+          "ram_floor_gib": 4.0,
+          "commit_floor_gib": 4.0,
+          "need_ram_gib": 45,
+          "busy_card_mib": 2100,
+          "card_unread_samples": 3.0,
+          "margin_mib": 500.0,
+          "margin_gib": 1.0
+        },
+        "metrics": {
+          "samples": 947,
+          "whole_card_peak_mib": 14263.0,
+          "maximum_server_private_gib": 43.6168327331543,
+          "maximum_server_working_gib": 27.1,
+          "minimum_free_ram_gib": 22.0,
+          "minimum_commit_headroom_gib": 11.05,
+          "maximum_raw_sample_gap_seconds": 0.26531338691711426,
+          "all_verdicts_independently_recomputed_ok": true
+        }
+      },
+      "completed_backend_calls": 11,
+      "observed_generated_images": 17,
+      "normal_unload_status": "unloaded",
+      "cleanup": {
+        "server_exit": 15,
+        "guard_error": null,
+        "settled_card_mib": 966,
+        "settled_observation": "separate runner nvidia-smi readback after process/listener cleanup"
+      },
+      "scrollbar_coverage": "base7733 observed bar15 only; transition not reached",
+      "typed_ctrl_c": "not exercised; hands-on prerequisite remains",
+      "model_rejection": null,
+      "evidence": {
+        "summary.json": "74939cc0bce034dfd983aaf2edc85f305bd31fa4c7732227b514e39e559264e4",
+        "plan.json": "d2465c34148e7925ae9fbc9055038bd446a8dba703dd42698c35c18205633390",
+        "source-manifest.json": "874acaeac2e3503cb3640f4e7e55214319cd652eb3415623da1a12c9bc67e60a",
+        "guard.jsonl": "620d74a208a28b032bd39021aec3c3826ff5b235c10e220b97fcc63f637f02b4",
+        "frozen-driver.py": "a073255c3ab5cbcf4584de0259a1af73001ca6e702f40c2bea46473c01bfa56c",
+        "server.log": "32467171fa8a045cd2d856e4d87a10dab7f68ece8f2e9e38b47ef70d66880ab6",
+        "browser-2a4d2cc.log": "f6d3d5bbd425df16ea5fd4ff22245daf5357ee59f8030f511b318f11e5a517c7",
+        "browser-6a7570d.log": "db6b49d6f144ba1c60f3e8720bc5e204d2c06785bb279f6b44f140c79e1f3ea5",
+        "browser-7733f81.log": "04ce5865e1b4c5f76a9646f9f1c62f8cb70f2ec6ac919e8ab77d8a62b80921ac",
+        "browser-9377de1.log": "c83270ea1de0ed7e6277dfcaebf521280fe9befb87993c527f266076901596d1"
+      }
+    },
+    "card10-delete-a1": {
+      "schema": "auradream-card10-native-page-v1",
+      "date": "2026-11-18",
+      "scope": "CARD10",
+      "status": "complete",
+      "error": null,
+      "production_commit": "f8f4cf2de7c690300735ea189876f687c5f937b1",
+      "packs": [
+        {
+          "pack": "ad01fdc",
+          "browser_exit": 0,
+          "seconds": 93.89207339286804,
+          "guard": {
+            "samples": 376,
+            "peaks": {
+              "card_mib": 14134.0,
+              "adapter_rise_mib": 82.5,
+              "process_rise_mib": 82.0,
+              "tree_gib": 29.34,
+              "tree_private_gib": 43.977542877197266
+            },
+            "minima": {
+              "available_gib": 19.71,
+              "commit_headroom_gib": 10.63
+            },
+            "longest_gap_s": 0.2735002040863037
+          }
+        }
+      ],
+      "guard": {
+        "limits": {
+          "card_mib": 15500.0,
+          "project_mib": 15200.0,
+          "refuse_at_peak_mib": 15000.0,
+          "adapter_shared_rise_mib": 1024.0,
+          "process_shared_rise_mib": 512.0,
+          "ram_floor_gib": 4.0,
+          "commit_floor_gib": 4.0,
+          "need_ram_gib": 45,
+          "busy_card_mib": 2100,
+          "card_unread_samples": 3.0,
+          "margin_mib": 500.0,
+          "margin_gib": 1.0
+        },
+        "metrics": {
+          "samples": 392,
+          "whole_card_peak_mib": 14134.0,
+          "maximum_server_private_gib": 43.977542877197266,
+          "maximum_server_working_gib": 29.34,
+          "minimum_free_ram_gib": 19.71,
+          "minimum_commit_headroom_gib": 10.63,
+          "maximum_raw_sample_gap_seconds": 0.2735002040863037,
+          "all_verdicts_independently_recomputed_ok": true
+        }
+      },
+      "completed_backend_calls": 3,
+      "observed_generated_images": 3,
+      "normal_unload_status": "unloaded",
+      "cleanup": {
+        "server_exit": 15,
+        "guard_error": null,
+        "settled_card_mib": 972,
+        "settled_observation": "separate runner nvidia-smi readback after process/listener cleanup"
+      },
+      "scrollbar_coverage": null,
+      "typed_ctrl_c": "not exercised; hands-on prerequisite remains",
+      "model_rejection": null,
+      "evidence": {
+        "summary.json": "025cf7d4f0e5ceed7038c6313009196de83a7483defc3f923628e9b72b4f34b4",
+        "plan.json": "aafa2d504b50039c8f2761f4bfe9b4fe41bb89927d6ec45bfc5c2d4ea378a29f",
+        "source-manifest.json": "874acaeac2e3503cb3640f4e7e55214319cd652eb3415623da1a12c9bc67e60a",
+        "guard.jsonl": "0ae03ffc2fd6eb7733657c6c7474123f7dcec9eedc078ffce9a730b1baaf042b",
+        "frozen-driver.py": "a073255c3ab5cbcf4584de0259a1af73001ca6e702f40c2bea46473c01bfa56c",
+        "server.log": "a8ee479786a26519624856f0989fd109988ee7467ea21fddce7990be461de179",
+        "browser-ad01fdc.log": "95252fb532ad99598f8147afec4548313dfad814e3f7d2a73d8bcca75453f77a"
+      }
+    },
+    "card10-missing-a1": {
+      "schema": "auradream-card10-native-page-v1",
+      "date": "2026-11-18",
+      "scope": "CARD10",
+      "status": "complete",
+      "error": null,
+      "production_commit": "f8f4cf2de7c690300735ea189876f687c5f937b1",
+      "packs": [
+        {
+          "pack": "2b89ed5",
+          "browser_exit": 0,
+          "seconds": 94.12137198448181,
+          "guard": {
+            "samples": 376,
+            "peaks": {
+              "card_mib": 14136.0,
+              "adapter_rise_mib": 97.7,
+              "process_rise_mib": 82.0,
+              "tree_gib": 29.61,
+              "tree_private_gib": 43.73313903808594
+            },
+            "minima": {
+              "available_gib": 19.35,
+              "commit_headroom_gib": 10.88
+            },
+            "longest_gap_s": 0.26872944831848145
+          }
+        }
+      ],
+      "guard": {
+        "limits": {
+          "card_mib": 15500.0,
+          "project_mib": 15200.0,
+          "refuse_at_peak_mib": 15000.0,
+          "adapter_shared_rise_mib": 1024.0,
+          "process_shared_rise_mib": 512.0,
+          "ram_floor_gib": 4.0,
+          "commit_floor_gib": 4.0,
+          "need_ram_gib": 45,
+          "busy_card_mib": 2100,
+          "card_unread_samples": 3.0,
+          "margin_mib": 500.0,
+          "margin_gib": 1.0
+        },
+        "metrics": {
+          "samples": 394,
+          "whole_card_peak_mib": 14136.0,
+          "maximum_server_private_gib": 43.73313903808594,
+          "maximum_server_working_gib": 29.61,
+          "minimum_free_ram_gib": 19.35,
+          "minimum_commit_headroom_gib": 10.88,
+          "maximum_raw_sample_gap_seconds": 0.26872944831848145,
+          "all_verdicts_independently_recomputed_ok": true
+        }
+      },
+      "completed_backend_calls": 2,
+      "observed_generated_images": 2,
+      "normal_unload_status": "unloaded",
+      "cleanup": {
+        "server_exit": 15,
+        "guard_error": null,
+        "settled_card_mib": 973,
+        "settled_observation": "separate runner nvidia-smi readback after missing-source process/listener cleanup immediately before ERNIE run1"
+      },
+      "scrollbar_coverage": null,
+      "typed_ctrl_c": "not exercised; hands-on prerequisite remains",
+      "model_rejection": null,
+      "evidence": {
+        "summary.json": "b724342c880660e272d5db4ba0a30d1ceb8a2135dabb7126be6ffda91756eda4",
+        "plan.json": "203c0d7dc38f5b63b0c9f9b5013f51d16353a9945471fdce79a9394c8151b9ad",
+        "source-manifest.json": "874acaeac2e3503cb3640f4e7e55214319cd652eb3415623da1a12c9bc67e60a",
+        "guard.jsonl": "a520f4169508a7329ad6bd97ebd5451bcbabd95f9c8975d7bc82733351d8e689",
+        "frozen-driver.py": "a073255c3ab5cbcf4584de0259a1af73001ca6e702f40c2bea46473c01bfa56c",
+        "server.log": "f00f016ddcb6d75040819c3b232c10bce6f18e67511f8f7e4421d1ffd9053c41",
+        "browser-2b89ed5.log": "1dd0bbc93e98553f4b298e4d6d61a4f4f629f99402a61c8a02ba2c3bb9b3f841"
+      }
+    },
+    "card10-scrollbar-a1": {
+      "schema": "auradream-card10-native-page-v1",
+      "date": "2026-11-18",
+      "scope": "CARD10",
+      "status": "complete",
+      "error": null,
+      "production_commit": "f8f4cf2de7c690300735ea189876f687c5f937b1",
+      "packs": [
+        {
+          "pack": "7733f81",
+          "browser_exit": 0,
+          "seconds": 68.09628653526306,
+          "guard": {
+            "samples": 272,
+            "peaks": {
+              "card_mib": 14270.0,
+              "adapter_rise_mib": 81.3,
+              "process_rise_mib": 82.0,
+              "tree_gib": 28.25,
+              "tree_private_gib": 47.131439208984375
+            },
+            "minima": {
+              "available_gib": 20.74,
+              "commit_headroom_gib": 7.42
+            },
+            "longest_gap_s": 0.27057623863220215
+          }
+        }
+      ],
+      "guard": {
+        "limits": {
+          "card_mib": 15500.0,
+          "project_mib": 15200.0,
+          "refuse_at_peak_mib": 15000.0,
+          "adapter_shared_rise_mib": 1024.0,
+          "process_shared_rise_mib": 512.0,
+          "ram_floor_gib": 4.0,
+          "commit_floor_gib": 4.0,
+          "need_ram_gib": 45,
+          "busy_card_mib": 2100,
+          "card_unread_samples": 3.0,
+          "margin_mib": 500.0,
+          "margin_gib": 1.0
+        },
+        "metrics": {
+          "samples": 287,
+          "whole_card_peak_mib": 14270.0,
+          "maximum_server_private_gib": 47.131439208984375,
+          "maximum_server_working_gib": 28.25,
+          "minimum_free_ram_gib": 20.74,
+          "minimum_commit_headroom_gib": 7.42,
+          "maximum_raw_sample_gap_seconds": 0.27057623863220215,
+          "all_verdicts_independently_recomputed_ok": true
+        }
+      },
+      "completed_backend_calls": 1,
+      "observed_generated_images": 4,
+      "normal_unload_status": "unloaded",
+      "cleanup": {
+        "server_exit": 15,
+        "guard_error": null,
+        "settled_card_mib": 973,
+        "settled_observation": "separate runner nvidia-smi readback after process/listener cleanup"
+      },
+      "scrollbar_coverage": {
+        "before": {
+          "scrollHeight": 1305,
+          "clientHeight": 1305,
+          "innerHeight": 1305,
+          "innerWidth": 2560,
+          "clientWidth": 2560,
+          "barWidth": 0,
+          "overflow": false,
+          "rootGutter": "auto",
+          "bodyGutter": "auto",
+          "rootOverflowY": "visible",
+          "bodyOverflowY": "visible",
+          "stageClass": "stage",
+          "beside": false,
+          "stageGutter": "auto",
+          "customOpen": false,
+          "samplingOpen": false
+        },
+        "after": {
+          "scrollHeight": 1305,
+          "clientHeight": 1305,
+          "innerHeight": 1305,
+          "innerWidth": 2560,
+          "clientWidth": 2560,
+          "barWidth": 0,
+          "overflow": false,
+          "rootGutter": "auto",
+          "bodyGutter": "auto",
+          "rootOverflowY": "visible",
+          "bodyOverflowY": "visible",
+          "stageClass": "stage",
+          "beside": false,
+          "stageGutter": "auto",
+          "customOpen": false,
+          "samplingOpen": false
+        },
+        "bar_widths": [
+          0
+        ],
+        "overflowWentOnAndOff": false,
+        "maximum_document_height": 1305,
+        "observed_beside": [
+          false
+        ],
+        "observed_root_gutter": [
+          "auto"
+        ],
+        "frames": 12,
+        "browser_log_sha256": "566e159dd10070c82e8ea9b8f8e1e1bd3656c44f285743d2a0628e91ee1bf827"
+      },
+      "typed_ctrl_c": "not exercised; hands-on prerequisite remains",
+      "model_rejection": null,
+      "evidence": {
+        "summary.json": "fbcee53d8fc846ea876e562a57321171ec857820d58ba83535acb8e679c38be9",
+        "plan.json": "7450bdd5f48d8050b7578c0b3db979fafa60b07a71425c079bab1194931ef0e3",
+        "source-manifest.json": "8117d8d78b1a923b1f510611e8bf4710dbc0a2f65875aa4a690e158c7ec61f8e",
+        "guard.jsonl": "6371828fb1ec7a1536126424fefaa5e4d55e250637e45f6710febe8420eafe2d",
+        "frozen-driver.py": "cb0c872a5c7ab9aaa58a3d333f36ccb2cd8e535a04a2e841dcfccc75d5389da7",
+        "server.log": "d51b2e8bd4e9006825fc67c56e0aaf68f3f2cce97f601dbde5bdbcfee3a8cfb9",
+        "browser-7733f81.log": "566e159dd10070c82e8ea9b8f8e1e1bd3656c44f285743d2a0628e91ee1bf827",
+        "coverage.json": "7af4f66598a1f9e8fd0ef91186d34c2074d743d6ec2df93c674fcfb147a1e031"
+      }
+    }
+  },
+  "fold_fake_prefix": {
+    "fake_only": true,
+    "generate_pressed": false,
+    "browser_exit": 0,
+    "steps": 46,
+    "fake_server_exit": 15,
+    "verified": "native Sampling open, visible Steps8, native Sampling close, original512/batch4 fixture"
+  },
+  "scrollbar_fake_prefix": {
+    "fake_only": true,
+    "generate_pressed": false,
+    "browser_exit": 0,
+    "steps": 53,
+    "fake_server_exit": 15,
+    "verified": "native Sampling open, visible Steps8, native Sampling close, original512/batch4 fixture"
+  },
+  "temporal_scrollbar_coverage": false,
+  "manual_ctrl_c": "not exercised; fake and real-server hands-on prerequisites remain",
+  "future_native_browser_session_private_cost_gib": 47.131439208984375,
+  "future_commit_floor_gib": 4,
+  "example_explicit_future_margin_gib": 6,
+  "future_commit_admission_with_6GiB_margin": 57.131439208984375,
+  "budget_scope": "47.131GiB is server-tree private cost; browser sits outside that tree. Global RAM/commit guards include all host processes; preserve actual historical admission values.",
+  "actual_initial_commit_admission_gib": 50
+}

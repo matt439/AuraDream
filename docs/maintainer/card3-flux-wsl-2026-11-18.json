@@ -1,0 +1,608 @@
+{
+  "date": "2026-11-18",
+  "source_commit": "f8f4cf2de7c690300735ea189876f687c5f937b1",
+  "runtime_source_count": 317,
+  "backend_raw_sha256": "c3a85a23288be5d3ccb3bdb1b4751f5456c75d714685d9cf02f3e597c838274e",
+  "hardware": "local RTX5080,16303MiB, Windows host with Ubuntu WSL2",
+  "stack": {
+    "torch": "2.13.0+cu130",
+    "diffusers": "0.42.1",
+    "transformers": "5.16.1",
+    "huggingface-hub": "1.33.0",
+    "kernels": "0.16.1",
+    "bitsandbytes": "0.50.2"
+  },
+  "downloads_performed": false,
+  "shared_model_or_kernel_cache_repaired": false,
+  "real_gallery_modified": false,
+  "global_WSL_shutdown_or_distro_termination": false,
+  "qualification": "dev and schnell production HTTP/core inpaint, exact frozen1024-square synthetic source and circular mask with an antialiased edge",
+  "source": {
+    "recipe": "deterministic RGB grid-v1; no diffusion used for source",
+    "rgb_sha256": "a0a2fd00a5edd42b7c90c4dfd38bb038521e18f125634c196dc18d4da1bd95fc"
+  },
+  "mask_hash": "e0618042c1cdf90d6766d0e68050e1599b3ef92ff8788b97b64a9640cb3cfdb7",
+  "seed": 12345,
+  "quantization": "Nunchaku Lite NVFP4 r32 with bnb4 text encoder",
+  "offload": "model",
+  "attention": "Native",
+  "compilation": "Eager",
+  "dev_recipe": {
+    "steps": 28,
+    "CFG": 3.5,
+    "strength": 0.95,
+    "callbacks": 27
+  },
+  "schnell_recipe": {
+    "steps": 4,
+    "CFG": 0.0,
+    "strength": 1.0,
+    "callbacks": 4
+  },
+  "results": [
+    {
+      "ok": true,
+      "checkpoint": "dev",
+      "model": "lite-infer/flux.1-dev-nunchaku-lite-nvfp4_r32-bnb4-text-encoder",
+      "model_revision": "9b4a4c430b36c3826e7a06be2c4860e1a66d1d09",
+      "load_count": 1,
+      "load_seconds": 15.193252985999948,
+      "duration_ms": [
+        45867,
+        19187,
+        17490
+      ],
+      "pixel_sha256": [
+        "4f35758d88ba9a3ba2747e3abb845021232f77d801f27f6e57b9643561a2774d",
+        "2c6febf79f6534c6562aad025a2210ca75b896894a2dd1a22f9381e09fcd6cbe",
+        "ba93085adeaedd65e302b29a3658eefca5bbd5e099a748b794e4969ad2d931c8"
+      ],
+      "outside_mask_maxima": [
+        0,
+        0,
+        0
+      ],
+      "outside_mask_pixels": [
+        842052,
+        842052,
+        842052
+      ],
+      "repeat_exact": false,
+      "repeat_differences": [
+        {
+          "id": 3,
+          "mean_channel_difference": 3.133762995402018,
+          "max_channel_difference": 222,
+          "changed_pixels": 205794
+        },
+        {
+          "id": 4,
+          "mean_channel_difference": 3.543704032897949,
+          "max_channel_difference": 237,
+          "changed_pixels": 205460
+        }
+      ],
+      "allocated_peak_bytes": 8109041152,
+      "reserved_peak_bytes": 8885633024,
+      "cancel_step": 2,
+      "cancel_total_steps": 27,
+      "cancel_saved_images": 0,
+      "public_unload_verified": true,
+      "png_recovery": {
+        "ok": true,
+        "counts": {
+          "indexed": 2,
+          "present": 0,
+          "no_metadata": 0,
+          "conflicts": 0,
+          "unresolved_references": 0,
+          "masks": 1,
+          "bad_masks": 0,
+          "unresolved_masks": 0,
+          "unresolved_edits": 0,
+          "unresolved_detailers": 0,
+          "detailer_masks_rebuilt": 0,
+          "outpaint_malformed": 0,
+          "outpaints_recovered": 0,
+          "outpaint_masks_rebuilt": 0,
+          "mask_crop_malformed": 0,
+          "mask_crops_recovered": 0,
+          "invalid_upscalers": 0,
+          "invalid_crop_anchors": 0,
+          "invalid_execution": 0
+        },
+        "source_id": 1,
+        "result_id": 2,
+        "mask": "e0618042c1cdf90d6766d0e68050e1599b3ef92ff8788b97b64a9640cb3cfdb7",
+        "scope": "PNG-only recovery into separate scratch storage; no model run"
+      },
+      "windows_guard": {
+        "samples": 619,
+        "recomputed_ok": 619,
+        "limits": {
+          "card_mib": 15500.0,
+          "project_mib": 15200.0,
+          "refuse_at_peak_mib": 15000.0,
+          "adapter_shared_rise_mib": 300.0,
+          "process_shared_rise_mib": 512.0,
+          "ram_floor_gib": 4.0,
+          "commit_floor_gib": 4.0,
+          "need_ram_gib": 36.0,
+          "busy_card_mib": 2500.0,
+          "card_unread_samples": 3.0,
+          "margin_mib": 500.0,
+          "margin_gib": 1.0
+        },
+        "card_peak_mib": 10061.0,
+        "adapter_shared_rise_mib": 118.67578125,
+        "ram_min_gib": 16.816822052001953,
+        "commit_min_gib": 12.938316345214844,
+        "mean_sample_gap_seconds": 0.23200181051779334,
+        "max_sample_gap_seconds": 0.2891385000111768,
+        "clock": "Windows time.monotonic"
+      },
+      "linux_guard": {
+        "samples": 991,
+        "rss_peak_gib": 16.561084747314453,
+        "swap_peak_kib": 0,
+        "available_min_gib": 29.506305694580078,
+        "sampler_clock": {
+          "clock": "Linux time.monotonic",
+          "samples": 991,
+          "mean_gap_seconds": 0.1202058431585859,
+          "max_gap_seconds": 0.20151522999992721,
+          "note": "gaps use only this process-side clock; Windows and Linux monotonic origins are never subtracted"
+        }
+      },
+      "scope": "production HTTP/core with a synthetic source and frozen circular mask with an antialiased edge; no real-image artistic-quality or browser acceptance",
+      "load_admission": {
+        "clock": "Linux time.monotonic for request/reception; physical RAM values originate from a new Windows sample after challenge observation",
+        "requested_monotonic": 917.268036594,
+        "host_frame_at_call": {
+          "available_gib": 45.85974884033203,
+          "challenge": "30838e4e96a041fca91dc57a01ab090a",
+          "commit_headroom_gib": 50.410072326660156,
+          "nonce": "765b8e1c539e42f5b593de0784ece154",
+          "received_monotonic": 917.575834603
+        },
+        "challenge_reply_seconds": 0.3077980089999528,
+        "source_rechecks_within_seconds": 1.5,
+        "original_load_called": true
+      },
+      "PNG_recovery_file_boundary": "Incoming PNG bytes exactly match originals. Reindex preserves decoded RGB/provenance but may re-encode/reorder chunks and add missing empty provenance fields to the minimal source fixture; recovered PNG files are not byte-identical.",
+      "PNG_recovery_identity": {
+        "incoming_PNG_bytes_equal_originals": true,
+        "post_reindex_PNG_file_bytes_equal_originals": false,
+        "decoded_RGB_preserved": true,
+        "existing_provenance_preserved": true,
+        "mask_levels_preserved": true,
+        "note": "Reindex may re-encode/reorder chunks and add empty provenance fields to the minimal source fixture."
+      }
+    },
+    {
+      "ok": true,
+      "checkpoint": "schnell",
+      "model": "lite-infer/flux.1-schnell-nunchaku-lite-nvfp4_r32-bnb4-text-encoder",
+      "model_revision": "ae27c859773999ff9f800c2ba14e0de5e1af4f50",
+      "load_count": 1,
+      "load_seconds": 15.282468866000045,
+      "duration_ms": [
+        34023,
+        6612,
+        5567
+      ],
+      "pixel_sha256": [
+        "6fb892eae1c66d7cdbe7891930cd6f499ba4bd045d5118967bb1868a4e8e416b",
+        "0a308b1f2b1a022bef2efbee734fd260854b6c168edd4ef0a560195bd7fbdeb6",
+        "d8893e434a9d513c786a97a8918bcdaef0494103941728551633f90e3d29658d"
+      ],
+      "outside_mask_maxima": [
+        0,
+        0,
+        0
+      ],
+      "outside_mask_pixels": [
+        842052,
+        842052,
+        842052
+      ],
+      "repeat_exact": false,
+      "repeat_differences": [
+        {
+          "id": 3,
+          "mean_channel_difference": 6.330216725667317,
+          "max_channel_difference": 243,
+          "changed_pixels": 206468
+        },
+        {
+          "id": 4,
+          "mean_channel_difference": 3.7866125106811523,
+          "max_channel_difference": 255,
+          "changed_pixels": 206290
+        }
+      ],
+      "allocated_peak_bytes": 8088056320,
+      "reserved_peak_bytes": 8864661504,
+      "cancel_step": 2,
+      "cancel_total_steps": 4,
+      "cancel_saved_images": 0,
+      "public_unload_verified": true,
+      "png_recovery": {
+        "ok": true,
+        "counts": {
+          "indexed": 2,
+          "present": 0,
+          "no_metadata": 0,
+          "conflicts": 0,
+          "unresolved_references": 0,
+          "masks": 1,
+          "bad_masks": 0,
+          "unresolved_masks": 0,
+          "unresolved_edits": 0,
+          "unresolved_detailers": 0,
+          "detailer_masks_rebuilt": 0,
+          "outpaint_malformed": 0,
+          "outpaints_recovered": 0,
+          "outpaint_masks_rebuilt": 0,
+          "mask_crop_malformed": 0,
+          "mask_crops_recovered": 0,
+          "invalid_upscalers": 0,
+          "invalid_crop_anchors": 0,
+          "invalid_execution": 0
+        },
+        "source_id": 1,
+        "result_id": 2,
+        "mask": "e0618042c1cdf90d6766d0e68050e1599b3ef92ff8788b97b64a9640cb3cfdb7",
+        "scope": "PNG-only recovery into separate scratch storage; no model run"
+      },
+      "windows_guard": {
+        "samples": 424,
+        "recomputed_ok": 424,
+        "limits": {
+          "card_mib": 15500.0,
+          "project_mib": 15200.0,
+          "refuse_at_peak_mib": 15000.0,
+          "adapter_shared_rise_mib": 300.0,
+          "process_shared_rise_mib": 512.0,
+          "ram_floor_gib": 4.0,
+          "commit_floor_gib": 4.0,
+          "need_ram_gib": 36.0,
+          "busy_card_mib": 2500.0,
+          "card_unread_samples": 3.0,
+          "margin_mib": 500.0,
+          "margin_gib": 1.0
+        },
+        "card_peak_mib": 10034.0,
+        "adapter_shared_rise_mib": 116.16796875,
+        "ram_min_gib": 17.09668731689453,
+        "commit_min_gib": 13.201885223388672,
+        "mean_sample_gap_seconds": 0.2315549501182124,
+        "max_sample_gap_seconds": 0.38137560000177473,
+        "clock": "Windows time.monotonic"
+      },
+      "linux_guard": {
+        "samples": 692,
+        "rss_peak_gib": 16.639312744140625,
+        "swap_peak_kib": 0,
+        "available_min_gib": 29.433006286621094,
+        "sampler_clock": {
+          "clock": "Linux time.monotonic",
+          "samples": 692,
+          "mean_gap_seconds": 0.12039989672503597,
+          "max_gap_seconds": 0.20135000300001593,
+          "note": "gaps use only this process-side clock; Windows and Linux monotonic origins are never subtracted"
+        }
+      },
+      "scope": "production HTTP/core with a synthetic source and frozen circular mask with an antialiased edge; no real-image artistic-quality or browser acceptance",
+      "load_admission": {
+        "clock": "Linux time.monotonic for request/reception; physical RAM values originate from a new Windows sample after challenge observation",
+        "requested_monotonic": 1103.071271363,
+        "host_frame_at_call": {
+          "available_gib": 45.88405990600586,
+          "challenge": "fd1b42f520b34aaba1fc0c262bf3229b",
+          "commit_headroom_gib": 50.39269256591797,
+          "nonce": "771108d883334ab58c6536ab72951786",
+          "received_monotonic": 1103.259024147
+        },
+        "challenge_reply_seconds": 0.18775278399994022,
+        "source_rechecks_within_seconds": 1.5,
+        "original_load_called": true
+      },
+      "PNG_recovery_file_boundary": "Incoming PNG bytes exactly match originals. Reindex preserves decoded RGB/provenance but may re-encode/reorder chunks and add missing empty provenance fields to the minimal source fixture; recovered PNG files are not byte-identical.",
+      "PNG_recovery_identity": {
+        "incoming_PNG_bytes_equal_originals": true,
+        "post_reindex_PNG_file_bytes_equal_originals": false,
+        "decoded_RGB_preserved": true,
+        "existing_provenance_preserved": true,
+        "mask_levels_preserved": true,
+        "note": "Reindex may re-encode/reorder chunks and add empty provenance fields to the minimal source fixture."
+      }
+    }
+  ],
+  "preserved_infrastructure_failures": [
+    {
+      "checkpoint": "dev",
+      "stage": "a1 receipt writing after cancel POST",
+      "error": "uppercase POST label rejected by lowercase filename validator",
+      "outcome": "owned server stopped cleanly; partial evidence exported; original failure retained; one fresh full protocol after a causal tested label correction"
+    },
+    {
+      "checkpoint": "schnell",
+      "stage": "CPU post-run inspector",
+      "error": "RSS/VmSwap fields disappeared while exact helper exited",
+      "outcome": "original failure retained; narrowly corrected guard remains fatal for live unreadable subjects; supplemental CPU verification/recovery only, no model reload"
+    },
+    {
+      "checkpoint": "schnell",
+      "stage": "first supplemental CPU recovery and Windows collector",
+      "error": "Linux ownership preflight refused recovery ('a process remains in the original server session'); recover.stdout was empty, then Windows collector raised IndexError",
+      "outcome": "Both refusals remain retained. Later CPU recovery passed exact post-shutdown remaining[] proof and completed. Existing successful supplemental verify report was consumed; no additional GPU run occurred.",
+      "stdout_delayed_visibility_was_not_established": true
+    }
+  ],
+  "visual_inspection": "Both first outputs show a blue ceramic bowl inside the frozen circular mask and the unchanged RGB grid outside; dev adds foliage. A content boundary is visible against the artificial grid.",
+  "unqualified": [
+    "real-image artistic quality/seams",
+    "new browser acceptance",
+    "other dimensions or strengths",
+    "fp8 or int4",
+    "cross-process determinism"
+  ],
+  "evidence": [
+    {
+      "path": ".artifacts/gpu-20261118/wsl/runroot-f8f4cf2-a2/work/dev-card-a2/independent-audit.json",
+      "sha256": "0ce4836425f957b9e5abd8c42c4822b9966ee9f8a9aa46335e5a288334468c05",
+      "bytes": 3606
+    },
+    {
+      "path": ".artifacts/gpu-20261118/wsl/runroot-f8f4cf2-a2/work/schnell-card-a1/independent-supplement-audit.json",
+      "sha256": "f3f1686de9390267477c48efd1a0c72da6f814522703dc45540f77d0494bce14",
+      "bytes": 6150
+    },
+    {
+      "path": ".artifacts/gpu-20261118/wsl/schnell-cpu-supplement-a2/terminal-report-audit.json",
+      "sha256": "b646cbeeeb8568e50a51ae2be1778b3f854b5f1d4b64d7a3fd1b6dd7134a3632",
+      "bytes": 1410
+    },
+    {
+      "path": ".artifacts/gpu-20261118/wsl/runroot-f8f4cf2/work/dev-card-a1/summary.json",
+      "sha256": "1c5ce64dfdaa786e7e08ed14c314320cd6482b246bf79a5d2e8ee9349d6cc455",
+      "bytes": 433
+    },
+    {
+      "path": ".artifacts/gpu-20261118/wsl/dev-a1-partial-export/summary.json",
+      "sha256": "425eb757dfb2cef455ec734ede564d4f51497522ec26a1c9a13e5b5bfad1cf6b",
+      "bytes": 242
+    }
+  ],
+  "runtime_inventory": {
+    "path": "work/gpu-20261118-wsl-handoff/runtime-freeze-f8f4cf2.json",
+    "sha256": "41c011be2d851462e8ca47b527ca96f598db8e7c742a209d48d471c6b7340d8f",
+    "bytes": 78650
+  },
+  "model_integrity_scope": "Pinned metadata revisions, required filenames/byte sizes and repository-contained cached paths were checked; model weight bytes were not rehashed. Kernel bytes were fully hashed against retained official pinned metadata.",
+  "kernel": {
+    "authoritative_commit": "64b10f6b8968b27cadaabfb3f6d2395f2251c848",
+    "version_branch": "v2",
+    "variant": "torch213-cxx11-cu130-x86_64-linux",
+    "official_metadata_sha256": "5415b29ca106af257f84a6f78fb9adeaa78a6b22c3034997f775beca2bc692e9",
+    "official_refs_sha256": "3228dbf74ac6ac833fe82e12835de5f7fc6c69e9a9b5e808dd85ce49181245c4",
+    "verified_files": [
+      {
+        "blob_hash_verified": false,
+        "blob_sha256": null,
+        "bytes": 70,
+        "path": "__init__.py",
+        "resolved_path": "/home/matsi/.cache/huggingface/hub/kernels--rootonchair--nunchaku-lite-kernels/blobs/c30f221f53fa3414867e398ff049e383389bd2a3",
+        "sha256": "d1e7ab23026ebff46f6153f2b8b6004a217b32c78893c67169b41b7c3474ec7b"
+      },
+      {
+        "blob_hash_verified": true,
+        "blob_sha256": "d120280ecae32d40a2265103eac692d9be45b4d5493d39133f5bc14beab83f9c",
+        "bytes": 196137920,
+        "path": "_nunchaku_lite_kernels_cuda_c1b1dfd.abi3.so",
+        "resolved_path": "/home/matsi/.cache/huggingface/hub/kernels--rootonchair--nunchaku-lite-kernels/blobs/d120280ecae32d40a2265103eac692d9be45b4d5493d39133f5bc14beab83f9c",
+        "sha256": "d120280ecae32d40a2265103eac692d9be45b4d5493d39133f5bc14beab83f9c"
+      },
+      {
+        "blob_hash_verified": false,
+        "blob_sha256": null,
+        "bytes": 264,
+        "path": "_ops.py",
+        "resolved_path": "/home/matsi/.cache/huggingface/hub/kernels--rootonchair--nunchaku-lite-kernels/blobs/4a027df1c0f70176bfcd9967f04051e0c80c1a4d",
+        "sha256": "cae8ed8cc899966bc176b0acf26ada78d27de1f8eafdfe868a2d5d17fa48bd0c"
+      },
+      {
+        "blob_hash_verified": false,
+        "blob_sha256": null,
+        "bytes": 8150,
+        "path": "interface.py",
+        "resolved_path": "/home/matsi/.cache/huggingface/hub/kernels--rootonchair--nunchaku-lite-kernels/blobs/d8a7500914c10e2233b2ce94407cff8fbfd49bcf",
+        "sha256": "2b276daac3a51ea611376417f4d7eef9c79d711c4e0c73a3f86e14566590d659"
+      }
+    ],
+    "live_refs_v2_exists": false,
+    "cache_mutation": false,
+    "network_requests": 0
+  },
+  "source_and_guard_evidence": [
+    {
+      "checkpoint": "dev",
+      "files": [
+        {
+          "path": ".artifacts/gpu-20261118/wsl/runroot-f8f4cf2-a2/work/dev-card-a2/summary.json",
+          "sha256": "29d42ac5262f3de2846f1903ab36a0de0f397ff2416fe567892aee11912c3d28",
+          "bytes": 1692
+        },
+        {
+          "path": ".artifacts/gpu-20261118/wsl/runroot-f8f4cf2-a2/work/dev-card-a2/guard.jsonl",
+          "sha256": "0bac0b7907452e0effa8996e7ebcc655cc5f38d2be2c236aea51d8b5d869a273",
+          "bytes": 260125
+        },
+        {
+          "path": ".artifacts/gpu-20261118/wsl/runroot-f8f4cf2-a2/work/dev-card-a2/sources.json",
+          "sha256": "c8804a115779db8d269957fb32bd1ef232071b0a42681ed62f4a7b2ded23bbc4",
+          "bytes": 2218
+        },
+        {
+          "path": ".artifacts/gpu-20261118/wsl/runroot-f8f4cf2-a2/work/dev-card-a2/runtime-freeze.json",
+          "sha256": "41c011be2d851462e8ca47b527ca96f598db8e7c742a209d48d471c6b7340d8f",
+          "bytes": 78650
+        },
+        {
+          "path": ".artifacts/gpu-20261118/wsl/runroot-f8f4cf2-a2/work/dev-card-a2/model-admission.json",
+          "sha256": "c4dfd1a29523f505c0d3d774002d7183449b87c807687f81e129eb3c77da4cee",
+          "bytes": 839
+        },
+        {
+          "path": ".artifacts/gpu-20261118/wsl/runroot-f8f4cf2-a2/work/dev-card-a2/api-protocol.json",
+          "sha256": "4f97891f7bca61063cb72b499a0d28314e8d2d5dd4888e8e63f07d8734ae0114",
+          "bytes": 880
+        },
+        {
+          "path": ".artifacts/gpu-20261118/wsl/runroot-f8f4cf2-a2/work/dev-card-a2/api-cancel-terminal.json",
+          "sha256": "48447440012c4a08fad5d7fb99625bbf67709e41a02f4477ee261c1a005ff733",
+          "bytes": 1501
+        },
+        {
+          "path": ".artifacts/gpu-20261118/wsl/runroot-f8f4cf2-a2/work/dev-card-a2/api-public-unload-confirm.json",
+          "sha256": "5023f56827ee13983f94219cceb396b05bcee2707104a967c7160d51964de3ef",
+          "bytes": 9028
+        },
+        {
+          "path": ".artifacts/gpu-20261118/wsl/runroot-f8f4cf2-a2/work/dev-card-a2/linux-artifacts/linux-guard.jsonl",
+          "sha256": "c9124164172051906b85d940b2721e1284714cc704f4aa567d6a5a0bf1f236cd",
+          "bytes": 324382
+        },
+        {
+          "path": ".artifacts/gpu-20261118/wsl/runroot-f8f4cf2-a2/work/dev-card-a2/linux-artifacts/cleanup.json",
+          "sha256": "f6a50f5a5f2c98a17b1208da16737abd63dd98a47d271eadaeb5e405b75eb3ab",
+          "bytes": 224
+        },
+        {
+          "path": ".artifacts/gpu-20261118/wsl/runroot-f8f4cf2-a2/work/dev-card-a2/linux-artifacts/receipts/load-begin.json",
+          "sha256": "37b32ca004796419841ed11aebeb84739d31fd047a259296a44ddbb375ac9e3f",
+          "bytes": 118866
+        },
+        {
+          "path": ".artifacts/gpu-20261118/wsl/runroot-f8f4cf2-a2/work/dev-card-a2/linux-artifacts/receipts/load-end.json",
+          "sha256": "62904f8cba317505b5f4205fbf4d6526b4f8ef3041e0683e5e0159f7d55d9823",
+          "bytes": 119484
+        },
+        {
+          "path": ".artifacts/gpu-20261118/wsl/runroot-f8f4cf2-a2/work/dev-card-a2/linux-artifacts/cold-cache-preflight.json",
+          "sha256": "9c0fc6786fdda8ba065b7321dfb9e54687d2d7a4f60273650c157d86b50b841b",
+          "bytes": 30617
+        },
+        {
+          "path": ".artifacts/gpu-20261118/wsl/runroot-f8f4cf2-a2/work/dev-card-a2/linux-artifacts/excluded-runtime-cache.json",
+          "sha256": "98a596f5ee2196cb3a6aad1789ec9ed5440566544f00ac2ef5b15a804e1fec2c",
+          "bytes": 11916
+        }
+      ]
+    },
+    {
+      "checkpoint": "schnell",
+      "files": [
+        {
+          "path": ".artifacts/gpu-20261118/wsl/runroot-f8f4cf2-a2/work/schnell-card-a1/summary.json",
+          "sha256": "84f237baeb35a1cf04a0a3b83e8dba43b90bd62211c1b6058d2170709a95820a",
+          "bytes": 474
+        },
+        {
+          "path": ".artifacts/gpu-20261118/wsl/runroot-f8f4cf2-a2/work/schnell-card-a1/guard.jsonl",
+          "sha256": "7869ed92bee01d1196059c0eaaab2d3122593bae4d52d7e9d1e1ec86a5d450b0",
+          "bytes": 178156
+        },
+        {
+          "path": ".artifacts/gpu-20261118/wsl/runroot-f8f4cf2-a2/work/schnell-card-a1/sources.json",
+          "sha256": "c8804a115779db8d269957fb32bd1ef232071b0a42681ed62f4a7b2ded23bbc4",
+          "bytes": 2218
+        },
+        {
+          "path": ".artifacts/gpu-20261118/wsl/runroot-f8f4cf2-a2/work/schnell-card-a1/runtime-freeze.json",
+          "sha256": "41c011be2d851462e8ca47b527ca96f598db8e7c742a209d48d471c6b7340d8f",
+          "bytes": 78650
+        },
+        {
+          "path": ".artifacts/gpu-20261118/wsl/runroot-f8f4cf2-a2/work/schnell-card-a1/model-admission.json",
+          "sha256": "3e4eba97a073161f93308b0c9288661273eb318d2f1e29156b4582eaf3f9ec94",
+          "bytes": 850
+        },
+        {
+          "path": ".artifacts/gpu-20261118/wsl/runroot-f8f4cf2-a2/work/schnell-card-a1/api-protocol.json",
+          "sha256": "e68a653b1ab943fd41babfb3a125537c680fd28b4e1986a3a6b0f136c9548382",
+          "bytes": 889
+        },
+        {
+          "path": ".artifacts/gpu-20261118/wsl/runroot-f8f4cf2-a2/work/schnell-card-a1/api-cancel-terminal.json",
+          "sha256": "48e881ee3d3648f0ff0d3a8dd240e98f950a301a17cc1a9731782b15ab4fbc0c",
+          "bytes": 1499
+        },
+        {
+          "path": ".artifacts/gpu-20261118/wsl/runroot-f8f4cf2-a2/work/schnell-card-a1/api-public-unload-confirm.json",
+          "sha256": "8e3f45d8dd2460ad433beb6590a272e661adb746dc8398731d0e9600cc0ebaae",
+          "bytes": 7990
+        },
+        {
+          "path": ".artifacts/gpu-20261118/wsl/runroot-f8f4cf2-a2/work/schnell-card-a1/linux-artifacts-supplement/linux-guard.jsonl",
+          "sha256": "0300a5d91822a7d0d9015642b92045a392741a5c2a31b3a32334f87a071a351e",
+          "bytes": 228293
+        },
+        {
+          "path": ".artifacts/gpu-20261118/wsl/runroot-f8f4cf2-a2/work/schnell-card-a1/linux-artifacts-supplement/cleanup.json",
+          "sha256": "fad0f16dbdc71ce5a10d69ebde61cf0df90c0f931f96166f8d7a2c215271fdbc",
+          "bytes": 225
+        },
+        {
+          "path": ".artifacts/gpu-20261118/wsl/runroot-f8f4cf2-a2/work/schnell-card-a1/linux-artifacts-supplement/receipts/load-begin.json",
+          "sha256": "572625cacd84295465f9e57be3ae3627297448d3394ec941c419b26a673b933e",
+          "bytes": 118965
+        },
+        {
+          "path": ".artifacts/gpu-20261118/wsl/runroot-f8f4cf2-a2/work/schnell-card-a1/linux-artifacts-supplement/receipts/load-end.json",
+          "sha256": "2d6de3230b6704db26417e7bd8e92e6d87b07f00b7b9721b566e03163bcc93c9",
+          "bytes": 119583
+        },
+        {
+          "path": ".artifacts/gpu-20261118/wsl/runroot-f8f4cf2-a2/work/schnell-card-a1/linux-artifacts-supplement/cold-cache-preflight.json",
+          "sha256": "1cceb38bd9b7158e7cff61c63129ce929f0c38df205f234a09a78a8d96793da6",
+          "bytes": 30697
+        },
+        {
+          "path": ".artifacts/gpu-20261118/wsl/runroot-f8f4cf2-a2/work/schnell-card-a1/linux-artifacts-supplement/excluded-runtime-cache.json",
+          "sha256": "8636510f2b9539df15f66d1adf50b8a5ff772d542c131e45e75ebd94ad72d634",
+          "bytes": 12081
+        }
+      ]
+    }
+  ],
+  "mask_levels": {
+    "unique_levels": 237,
+    "zero_pixels": 842052,
+    "white_pixels": 204830,
+    "graded_edge_pixels": 1694
+  },
+  "CPU_verification_boundary": {
+    "original_CPU_child_stdout_already_contained_success": true,
+    "original_CPU_guard_phase_remains_failed": true,
+    "supplemental_CPU_verify_remeasured_same_saved_images": true,
+    "later_collector_consumed_existing_supplemental_verify_success": true,
+    "terminal_skip_branch_exercised_by_successful_supplement": false,
+    "terminal_skip_rule_validation": "unit-tested only; successful supplemental logs had complete counters and zero terminal-skip events",
+    "bounded_delayed_truncated_report_observer": "unit-tested robustness plus posthoc binding of retained exact reports; no claim that delayed visibility caused the observed IndexError",
+    "model_reloads_for_CPU_supplement": 0
+  },
+  "independent_audits": [
+    {
+      "path": "work/gpu-20261118/audit/wsl-card3-export-image-audit.json",
+      "sha256": "85e2ae9a5e6d4e61cd18160dcebf32a56298773bbb79fc6c268634499f1f2d33",
+      "bytes": 41619
+    },
+    {
+      "path": "work/gpu-20261118/audit/wsl-schnell-cpu-terminal-audit.json",
+      "sha256": "23c8cd01cb5ef6f276b2a0493d717beea3f63a6e9b567e6160b777fde6ba1b33",
+      "bytes": 25479
+    }
+  ]
+}

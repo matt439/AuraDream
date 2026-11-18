@@ -738,6 +738,11 @@ class DiffusersBackend(GenerationBackend):
             cache=self._cache_owner, disposal=self._cache_disposal,
             related=tuple(pipe for pipe in (self._refine_pipe, self._inpaint_pipe) if pipe is not None),
         )
+        self._clear_pipeline_locked()
+        return candidate
+
+    def _clear_pipeline_locked(self) -> None:
+        """Drop owned references under the backend lock, without cleanup I/O."""
         self._pipe, self._call_params = None, set()
         self._regional_registration, self._loaded_execution = None, None
         self._attention_selection = None
@@ -745,7 +750,6 @@ class DiffusersBackend(GenerationBackend):
         self._lora = None
         self._refine_pipe, self._refine_params = None, set()
         self._inpaint_pipe, self._inpaint_params = None, set()
-        return candidate
 
     def _invoke_pipeline(self, runner: Any, kwargs: dict[str, Any], *, disposal: _CallDisposal | None = None) -> Any:
         try:
@@ -1597,13 +1601,24 @@ class DiffusersBackend(GenerationBackend):
                 mask=request.mask, outpaint=request.outpaint is not None, reference=bool(request.reference),
                 true_cfg=request.true_cfg,
             )
-        if (execution is not None and execution.step_cache is not None) or "execution" in request.model_fields_set:
-            with _CallDisposal(self, request_execution=execution) as disposal:
-                return self._generate_images_prepared(request, seed, on_progress, should_cancel, on_preview, disposal)
-        if self._cache_disposal is not None or self._pending_cache_disposal is not None:
-            with _CallDisposal(self) as disposal:
-                return self._generate_images_prepared(request, seed, on_progress, should_cancel, on_preview, disposal)
-        return self._generate_images_prepared(request, seed, on_progress, should_cancel, on_preview, None)
+        pipe = self._pipe
+        try:
+            if (execution is not None and execution.step_cache is not None) or "execution" in request.model_fields_set:
+                with _CallDisposal(self, request_execution=execution) as disposal:
+                    return self._generate_images_prepared(request, seed, on_progress, should_cancel, on_preview, disposal)
+            if self._cache_disposal is not None or self._pending_cache_disposal is not None:
+                with _CallDisposal(self) as disposal:
+                    return self._generate_images_prepared(request, seed, on_progress, should_cancel, on_preview, disposal)
+            return self._generate_images_prepared(request, seed, on_progress, should_cancel, on_preview, None)
+        except BaseException as error:
+            # The disposal scope has closed/drained before this boundary.
+            # Refine and instruction edits already own their cleanup; only an
+            # ordinary base call needs the missed successful-tail offload.
+            if request.refine is None and request.edit is None:
+                self._cleanup_failed_text_image(pipe, error)
+            raise
+        finally:
+            pipe = None
 
     def _generate_images_prepared(
         self,
@@ -1869,6 +1884,70 @@ class DiffusersBackend(GenerationBackend):
         ]
         self._mask_crop = cropped
         return composited
+
+    def _cleanup_failed_text_image(self, pipe: Any, error: BaseException) -> None:
+        """Offload one failed ordinary base call without masking its error.
+
+        Request cache scopes have closed/drained before this boundary. A
+        detached or uncertain cache owner keeps its own disposal responsibility;
+        never mutate that model while preserving the original call failure.
+        """
+        if (pipe is not self._pipe or self._cache_owner is not None
+                or self._cache_disposal is not None or self._pending_cache_disposal is not None):
+            return
+        try:
+            free_hooks = getattr(pipe, "maybe_free_model_hooks", None)
+            if callable(free_hooks):
+                free_hooks()
+        except BaseException as cleanup:
+            log.error("text-to-image offload cleanup failed: %s", cleanup)
+            log.debug("text-to-image offload cleanup traceback", exc_info=True)
+            error.add_note(f"Offloading the failed text-to-image pipeline also failed: {type(cleanup).__name__}: {cleanup}")
+            # The offload state is now uncertain. Refuse another generation by
+            # detaching only this expected pipeline and all shared siblings;
+            # no reload is attempted from the generation thread.
+            candidate = None
+            with self._lock:
+                if (self._pipe is pipe and self._cache_owner is None
+                        and self._cache_disposal is None and self._pending_cache_disposal is None):
+                    # Retain one fallback snapshot before detachment, so even
+                    # a failed diagnostic retirement cannot leave ready weights.
+                    fallback = _PipelineCandidate(
+                        self._release, pipe=self._pipe, params=self._call_params,
+                        registration=self._regional_registration, execution=self._loaded_execution,
+                        attention=self._attention_selection,
+                        related=tuple(sibling for sibling in (self._refine_pipe, self._inpaint_pipe)
+                                      if sibling is not None),
+                    )
+                    try:
+                        candidate = self._detach_pipeline_locked()
+                    except BaseException as detached:
+                        error.add_note(f"Detaching the failed text-to-image pipeline also failed: {type(detached).__name__}: {detached}")
+                        log.debug("text-to-image cleanup detach traceback", exc_info=True)
+                        # Only clear the captured owner or its partial detach;
+                        # a replacement keeps its own ownership and readiness.
+                        if ((self._pipe is pipe or self._pipe is None)
+                                and self._cache_owner is None and self._cache_disposal is None
+                                and self._pending_cache_disposal is None):
+                            self._clear_pipeline_locked()
+                            candidate = fallback
+                        else:
+                            # Ownership changed while detaching. Keep the new
+                            # owner or pending cache disposal completely intact.
+                            fallback.disown()
+                    else:
+                        # The normal detach owns all references. Never leave a
+                        # second candidate or close an attention owner twice.
+                        fallback.disown()
+                    fallback = None
+            if candidate is not None:
+                try:
+                    candidate.close()
+                except BaseException as disposal:
+                    error.add_note(f"Disposing the failed text-to-image pipeline also failed: {type(disposal).__name__}: {disposal}")
+                    log.debug("text-to-image cleanup disposal traceback", exc_info=True)
+        finally:
+            free_hooks = None
 
     def _edit_images(
         self,
