@@ -660,6 +660,13 @@ pass permanently deleted and the words saying it will be redrawn), with
 `smoke-wide`, `smoke-narrow`, `smoke-jobs`, `smoke-results` and
 `smoke-queue-controls` passing unchanged in their layout.
 
+**Mixed Finish recovery, 2026-11-20 (GEN#73).** Finish keeps one recovery
+job in retained cell order and records which of its cells requested an
+inline pass. Its preview reports base images and all planned passes. A
+later Finish of a saved base, or More seeds from that base, reads the
+mixed job's selection and matches the base by its reproduction key. The
+worker's image count and estimate use the same selection.
+
 ### Phase 5: More seeds carries the pass
 
 **Status: `GEN#37`, built 2026-10-30 (M, CPU/fake/browser only); added 2026-10-29.**

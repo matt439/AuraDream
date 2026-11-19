@@ -97,7 +97,7 @@ def _clear_where(args: argparse.Namespace) -> int:
               file=sys.stderr)
         return 2
     try:
-        found = gallery_delete.matching_preview(args.where)
+        found = gallery_delete.matching_preview(args.where, keep_favorites=args.keep_favorites)
     except ValueError as exc:
         print(f"--where: {exc}", file=sys.stderr)
         return 2
@@ -133,18 +133,17 @@ def _clear_where(args: argparse.Namespace) -> int:
         return 0
     if not _confirm(args.yes):
         return 1
-    # Pinned to the count confirmed, as the browser's Delete unstarred and
-    # `--bin` are: a matching image that landed while the prompt waited - the
-    # server or a CLI grid still writing the run being cleared - refuses the
-    # delete rather than going with the rest.
     try:
         result = gallery_delete.delete_matching(
-            args.where, keep_favorites=args.keep_favorites, expected=doomed
+            args.where, keep_favorites=args.keep_favorites, expected=doomed, pin=found["pin"]
         )
     except gallery_delete.SelectionChanged as exc:
+        now = (
+            f"{exc.found} record(s) match now, not the {exc.expected} shown"
+            if exc.found != exc.expected else "the same count now matches different images"
+        )
         print(
-            f"The gallery changed: {exc.found} record(s) match now, not the {exc.expected} "
-            "shown. Nothing was deleted; run it again.",
+            f"The gallery changed: {now}. Nothing was deleted; run it again.",
             file=sys.stderr,
         )
         return 1

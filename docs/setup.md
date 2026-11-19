@@ -533,15 +533,19 @@ git pull --ff-only
 uv run python -m backend.main
 ```
 
+If a nonempty `auradream.db-wal` remains after shutdown, use `update.cmd` so
+the copy includes committed rows still in that file.
+
 The copy matters: a new version can add to the gallery database on its
 first start, and an older version cannot undo that, so the copy is the way
 back. It is named by the commit the folder was on before the pull, for
-example `auradream-before-update-8b4fae3.db`, so the next update makes a
-copy of its own instead of replacing this one. `update.cmd` leaves a copy
-it already made at the same commit alone, keeps the newest three and
-deletes older ones. A copy named plain `auradream-before-update.db` is
-from an older `update.cmd`, which replaced it on every update; nothing
-deletes it. (A gallery from before the rename may be `local-diffusion.db`;
+example `auradream-before-update-8b4fae3.db`. The updater gives the database
+its final name after it has copied the database and its WAL, if present.
+Run `update.cmd` again if interrupted during the copy. It keeps a completed
+copy from the same commit and rotates the backups to keep the newest three.
+A copy named plain `auradream-before-update.db` comes from an older updater
+or a run that could not read the commit. Rotation leaves it alone.
+(A gallery from before the rename may be `local-diffusion.db`;
 its copies are `local-diffusion-before-update-<commit>.db`.) Git ignores
 all of them. The next start installs any changed packages before it
 runs, which can take a while when torch changes. If `git pull --ff-only`
@@ -845,10 +849,10 @@ rule that allows it. Waking the PC from the network is your own setup
 bash linux/update.sh --restart
 ```
 
-`--restart` stops the service only when it is idle (no job, load, switch or
-gallery bundle operation), updates, and starts it again even if the update
-fails; without it, `update.sh` refuses while AuraDream runs. It copies the
-gallery database to its before-update name
+`--restart` stops the service only when it is idle (no job, load, switch,
+checkpoint deletion or gallery bundle operation), updates, and starts it
+again even if the update fails. Without it, `update.sh` refuses while
+AuraDream runs. It copies the gallery database to its before-update name
 (`<name>-before-update-<commit>.db` beside the database, the newest three
 kept; the way back, as in
 [Going back after an update](#going-back-after-an-update)), runs `git pull --ff-only` and `uv sync`, and never
@@ -881,8 +885,9 @@ it loads, the model's state, active jobs, the card's holder, keep awake and
 why, the card's memory and the free disk, then AuraDream's line from
 `systemd-inhibit --list`. It exits 0 when the service is active and
 answering, 1 otherwise. `stop` and `restart` ask the server first and
-refuse while a job, a load, a switch, something holding the card or a
-gallery bundle operation is under way (as `update.sh --restart` does);
+refuse while a job, a load, a switch, a checkpoint deletion, something
+holding the card or a gallery bundle operation is under way (as
+`update.sh --restart` does);
 `--force` stops it anyway and says what it interrupts. `start` and
 `restart` wait up to a minute for the page to answer. `logs` takes
 `-n N` (default 100) and `-f`.

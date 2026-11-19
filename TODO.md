@@ -8,13 +8,7 @@ The maintainer's working backlog for this personal project: it records what is p
 
 **Aim.** Keep useful work ready for Matt's common workstation tasks. His [reported use](docs/design/preferences.md) guides priority. The candidate redesign still needs the task trials in `DEV#1`.
 
-**Ready on 2026-11-20.** 20 `OPEN` rows. The two existing feature starts are the 1024-square Kontext recipe and one-load protocol (`INP#13`), and the backend adapter and replay contract for tiled Refine (`GEN#49`). Both can start on CPU. The [November 20 audit](docs/maintainer/review-2026-11-20-todo.md) adds 18 fixes and checks with reproductions or source evidence.
-
-**Suggested first fixes.**
-
-1. `DEV#71` — make an interrupted updater backup recoverable. A same-commit retry accepted a rollback copy missing a committed SQLite row.
-2. `GAL#36` — verify the confirmed image set for Delete unstarred and filtered CLI deletion. Swapping which image was starred kept the count at one and binned the other image.
-3. `GEN#73` — preserve which jobs requested Then refine during Finish. A mixed two-seed run saved four images where the original requests called for three.
+**Ready on 2026-11-20.** One `OPEN` row. The larger Kontext recipe, portable replay and fake one-load queue rehearsal pass. Prepare the isolated browser build and bind live guard readings to its trial receipts (`INP#13`). The [November 20 audit results](docs/maintainer/review-2026-11-20-todo.md#results-2026-11-20) record the 18 fixes and checks. Private tiled Refine has passed CPU integration and now needs the guarded card trial (`GEN#49`).
 
 **Needs Matt.** All 13 `USER` rows are grouped here by what Matt can supply.
 
@@ -43,8 +37,6 @@ The installer stages are in the [first-run review](docs/maintainer/review-2026-1
 | id | status | sev | size | item |
 |---|---|---|---|---|
 | `DEV#29` | DEFERRED | LOW | S | Stage 5: hand-cut version tags for `update.cmd` to follow, and a Pinokio script; paused by priority (the installer is built). [Stage 5](docs/maintainer/review-2026-11-01-first-run.md#stages). |
-| `DEV#71` | OPEN | MED | M | Make the pre-update database and WAL recoverable if either updater's copy is interrupted. [Finding](docs/maintainer/review-2026-11-20-todo.md#dev71-recover-an-interrupted-updater-backup). |
-| `DEV#75` | OPEN | LOW | S | Launch from the intended checkout when its Windows path contains square brackets. [Finding](docs/maintainer/review-2026-11-20-todo.md#dev75-start-the-windows-launcher-from-a-bracketed-checkout-path). |
 
 ## Server, security and tooling
 
@@ -54,21 +46,7 @@ The [peer review](docs/maintainer/review-2026-11-10-peers.md) owns the passcode 
 |---|---|---|---|---|
 | `DEV#32` | USER | MED | S | The opt-in passcode (`AURADREAM_PASSCODE`) is built through stage 3, 2026-11-10. Left: stage 4 on the machines, Matt's: the Linux service from a phone and another PC, Safari's autofill, a session across a restart and an update, the scripts through the passcode, a wrong passcode's lock. [Build order](docs/design-notes.md#build-order); [S2](docs/maintainer/review-2026-11-10-peers.md#s2-passcode-beyond-loopback). |
 | `DEV#39` | USER | LOW | M | Local shellcheck/PSScriptAnalyzer audit is built. Left: Matt's deliberate CI ruleset edit, then a hosted installer job up to the GPU check. [T2](docs/maintainer/review-2026-11-10-peers.md#t2-the-scripts-in-ci). |
-| `DEV#72` | OPEN | MED | M | Stop the Linux critic and its descendants when the owning app dies. [Finding](docs/maintainer/review-2026-11-20-todo.md#dev72-stop-the-linux-critic-when-its-owning-app-dies). |
-| `DEV#73` | OPEN | MED | S | Have Linux stop, restart and update report active checkpoint deletion as busy. [Finding](docs/maintainer/review-2026-11-20-todo.md#dev73-recognize-checkpoint-deletion-before-stopping-the-linux-service). |
-| `DEV#74` | OPEN | LOW | S | Correct the Assistant usage guide for opening, continuing and comparing drafts. [Finding](docs/maintainer/review-2026-11-20-todo.md#dev74-bring-the-assistant-usage-guide-up-to-date). |
-| `DEV#76` | OPEN | LOW | M | Make the batch-strip fixture exercise the scrollbar transition on a fake server before the real follow-up. [Finding](docs/maintainer/review-2026-11-20-todo.md#dev76-exercise-the-changing-scrollbar-in-the-batch-strip-fixture). |
 
-## Gallery and storage
-
-| id | status | sev | size | item |
-|---|---|---|---|---|
-| `GAL#32` | OPEN | MED | S | Isolate a damaged compressed job so healthy runs remain discoverable and Finish explains the affected job. [Finding](docs/maintainer/review-2026-11-20-todo.md#gal32-keep-a-damaged-retained-job-from-hiding-healthy-runs). |
-| `GAL#33` | OPEN | LOW | M | Batch Runs summary reads for retained jobs with zero outputs. [Finding](docs/maintainer/review-2026-11-20-todo.md#gal33-batch-the-runs-list-reads-for-zero-output-jobs). |
-| `GAL#34` | OPEN | MED | M | Keep both reindex preview modes from migrating a populated legacy destination. [Finding](docs/maintainer/review-2026-11-20-todo.md#gal34-keep-a-reindex-dry-run-read-only-on-older-galleries). |
-| `GAL#35` | OPEN | MED | M | Verify same-name PNGs before reindex maps a recovered reference or Refine source. [Finding](docs/maintainer/review-2026-11-20-todo.md#gal35-verify-an-existing-reindex-image-before-mapping-its-dependants). |
-| `GAL#36` | OPEN | MED | M | Detect same-count changes in the confirmed image set for Delete unstarred and filtered CLI deletion. [Finding](docs/maintainer/review-2026-11-20-todo.md#gal36-check-the-confirmed-image-set-for-broad-deletes). |
-| `GAL#37` | OPEN | MED | M | Bound the number of decoded mask images held through a reindex preview or import. [Finding](docs/maintainer/review-2026-11-20-todo.md#gal37-bound-decoded-mask-memory-during-reindex). |
 
 ## Measurements on the card
 
@@ -95,9 +73,7 @@ The [peer review](docs/maintainer/review-2026-11-10-peers.md) owns the passcode 
 | `INP#6` | DEFERRED | LOW | M+card | Phase 5, Qwen-Image under Nunchaku (WSL), only if the inpaint class runs over the Nunchaku transformer at all. [Phase 5](docs/maintainer/plan-inpainting.md#phases). |
 | `INP#10` | DEFERRED | LOW | M | Outpaint, later if wanted: the server's fill shown in the frame (kept for later, 2026-10-17), an outpaint over a painted mask, a second fill. [Plan](docs/maintainer/plan-outpainting.md#phases). |
 | `INP#12` | USER | LOW | L+card | Matt chooses source image IDs for the authorized small-region quality, identity, seam and memory comparison. Illustrated detection has low recall and illustrated hands remain unqualified. [Card acceptance](docs/maintainer/plan-detailer.md#remaining-card-acceptance). |
-| `INP#13` | OPEN | LOW | L+card | Define the second 1024-square Kontext recipe and one-load protocol, including the existing frozen aspects, before implementing source/replay rules or widening admission. [Next recipe](docs/maintainer/plan-instruction-editing.md#card-acceptance-result-2026-11-18). |
-| `INP#14` | OPEN | MED | S | Recover from a missing source LoRA without losing the detailer's reviewed regions. [Finding](docs/maintainer/review-2026-11-20-todo.md#inp14-recover-a-removed-adapter-after-detailer-region-review). |
-| `INP#15` | OPEN | LOW | S | Clear the detailer's stale status-read error when Refresh succeeds. [Finding](docs/maintainer/review-2026-11-20-todo.md#inp15-clear-a-recovered-detector-status-error-in-the-detailer). |
+| `INP#13` | OPEN | LOW | L+card | Build the isolated Kontext browser trial and bind live guard readings to its load, edit and unload receipts, then qualify the frozen aspects and 1024-square recipe. [Trial](docs/maintainer/plan-instruction-editing.md#second-kontext-recipe-and-trial-inp13). |
 
 ## Generation, jobs and models
 
@@ -109,10 +85,8 @@ The [peer review](docs/maintainer/review-2026-11-10-peers.md) owns the passcode 
 | `GEN#6` | USER | LOW | S | The guarded Animagine card capture passed 2026-11-17, with identical callback/SSE preview bytes and retained first/middle/late/final images. Left: Matt's real-page glance and preference for the noisy first frame. FLUX.2's map stays deferred. [Evidence](docs/maintainer/review-2026-11-12-todo.md#gen6-card-capture-2026-11-17). |
 | `GEN#8` | DEFERRED | LOW | L | U61 part B: one's own photo or sketch as a reference (import route, a source marker through storage, reindex and reruns; add, drop and paste). Matt deferred it 2026-10-05; only when he raises it. [References](docs/design-notes.md#reference-images-by-gallery-id). |
 | `GEN#20` | DEFERRED | LOW | L+card | Opt-in A1111 weighting and 77-token chunking on SDXL, deferred by Matt 2026-10-27 because he does not write weighted prompts; revisit on request. [10-24 G10](docs/maintainer/review-2026-10-24.md#g10-a1111-style-weighting-and-long-prompts-on-sdxl). |
-| `GEN#49` | OPEN | LOW | L+card | Integrate tiled Refine's backend adapter and persist its intent and source proof for replay. The private CPU prototype passed. Card fidelity, recovery and public-flow checks follow. [Stage 2](docs/maintainer/plan-tiled-refine.md#2-exact-backend-integration-and-durable-intent). |
+| `GEN#49` | CARD | LOW | L+card | Qualify the private tiled Refine adapter on the 5080 for fidelity, repeat and cancellation recovery, then qualify the public flows. CPU adapter and durable replay passed. [Stage 3](docs/maintainer/plan-tiled-refine.md#3-guarded-private-card-qualification). |
 | `GEN#72` | USER | LOW | L | A guarded delete in Models > On disk, any whole checkpoint, built through stage 4 2026-11-14 (shared repositories file by file). Left: Matt's acceptance on his real Windows cache: one entry with another selected (measured vs planned bytes, Models says not downloaded, the selected row held), then one Anima variant with the other two still loading; result in `docs/verified.md`. [Plan](docs/maintainer/plan-model-delete.md#stages-and-completion-criteria). |
-| `GEN#73` | OPEN | MED | M | Keep Finish from adding an unrequested Refine pass to a plain job in a mixed run. [Finding](docs/maintainer/review-2026-11-20-todo.md#gen73-finish-only-the-refine-passes-the-original-jobs-requested). |
-| `GEN#74` | OPEN | LOW | S | Send pending Pause and withdrawal updates to every tab watching the same job. [Finding](docs/maintainer/review-2026-11-20-todo.md#gen74-publish-pending-pause-changes-to-other-watchers). |
 
 ## Speed
 
@@ -134,7 +108,6 @@ Each row links to its current measurement or dependency. The [original speed rev
 |---|---|---|---|---|
 | `PA#9` | DEFERRED | LOW | L | Scoring comparison images automatically with a VLM (does each element appear); accuracy unmeasured. [Prompt analyser](docs/design-notes.md#the-prompt-analyser). |
 | `PA#18` | CARD | MED | M+card | The assistant conversation and draft tools are built. The remaining GPU checks cover latency, memory, process cleanup and prompt quality. Matt explicitly holds these runs. [Plan and test handoff](docs/maintainer/plan-prompt-assistant.md). |
-| `PA#19` | OPEN | LOW | S | Show a changed or cleared negative prompt before Continue adopts the assistant's new source. [Finding](docs/maintainer/review-2026-11-20-todo.md#pa19-show-negative-prompt-changes-before-continuing-a-conversation). |
 
 ## The page
 
@@ -144,7 +117,6 @@ Each row links to its current measurement or dependency. The [original speed rev
 |---|---|---|---|---|
 | `UI#40` | USER | MED | M | Phone acceptance: physical iPhone keyboard/sharing/gestures, Android/system and native iOS edge Back, landscape instruction caret, actual iPad Split View, and Notify when done delivered through the service worker on a real Android phone and an iPhone home-screen app (`UI#55`). [Phone review](docs/maintainer/review-2026-11-05-phone.md#10-edit-dialog-keyboard-acceptance-2026-11-07). |
 | `UI#7` | USER | LOW | M | Hands-on NVDA/Narrator, touch, native notification delivery and actual Windows scaling checks; browser emulation and accessibility-tree inspection do not complete them. [Manual checks](docs/design/validation.md#accessibility-and-desktop-checks). |
-| `UI#57` | OPEN | MED | S | Keep keyboard focus inside Assistant after Jump to latest reply so Ctrl+Enter stays in the sidebar. [Finding](docs/maintainer/review-2026-11-20-todo.md#ui57-keep-keyboard-focus-in-assistant-after-jump-to-latest-reply). |
 
 ## Review coverage
 
@@ -193,7 +165,7 @@ Each review's remaining work is indexed above; closed findings stay in their own
 | 2026-11-13 TODO audit | [Reconciliation and new work](docs/maintainer/review-2026-11-13-todo.md): coverage table, `GEN#15`'s owner and two F27 references fixed; two rounds of lenses, 27 proposals, 4 refuted; 16 `OPEN` rows and 2 `DECISION` rows added, both accepted by Matt the same day (`GAL#31`, `UI#56`, `OPEN`); `DEV#64`, `GAL#28`, `GAL#29`, `GEN#71`, `GAL#30`, `GEN#69`, `GEN#70`, `PA#17`, `UI#54`, `UI#55`, `DEV#65`, `DEV#66`, `DEV#67`, `DEV#68`, `DEV#69`, `DEV#70`, `GAL#31` and `UI#56` built the same day ([results](docs/maintainer/review-2026-11-13-todo.md#results)). |
 | 2026-11-16 detailer | `INP#12` stages 1-3 built: experimental CPU face/hand finders, region review, serial SDXL inpaints, portable provenance and partial-result recovery. Local CPU/browser checks pass; separate card acceptance remains. [Evidence and behavior](docs/maintainer/plan-detailer.md#implementation-2026-11-16). |
 | 2026-11-18 local GPU qualification | Completed `CARD#1`, `CARD#2`, `CARD#3`, `CARD#13` and `INP#11`; remaining unsafe/manual/coverage cases stay explicit. Private Regional, Native/cuDNN and FBC matrices are measured; pixel-changing pairs await Matt. WSL critic owner death exposed a production lifetime gap. [Results](docs/verified.md). |
-| 2026-11-20 TODO audit | [Current owners, findings and acceptance checks](docs/maintainer/review-2026-11-20-todo.md). Added 18 CPU, script and browser items. The detailer comparison awaits Matt's source IDs and the above-budget ERNIE case awaits a viable envelope. |
+| 2026-11-20 TODO audit | [Reconciliation and 18 verified fixes](docs/maintainer/review-2026-11-20-todo.md#results-2026-11-20). The detailer comparison awaits Matt's source IDs and the above-budget ERNIE case awaits a viable envelope. |
 
 
 ---

@@ -80,6 +80,23 @@
     "fatal": true
   },
   {
+    "log": "'A negative-only edit holds Send. Review shows the exact text, Cancel keeps the hold, and a second edit while reviewing requires a fresh review.'"
+  },
+  {
+    "eval": "__aw.changedNegative='  blur, <watermark>\\nlow contrast  ';__aw.reviewedNegative='  blur, <watermark>\\nlow saturation  ';__aw.writeNegative=text=>{writeBox(els.negative,text);els.negative.dispatchEvent(new Event('input',{bubbles:true}));};__aw.negativeRequests=__aw.requests.length;__aw.writeNegative(__aw.changedNegative);"
+  },
+  { "expect": "els.prompt.value===__aw.original&&assistantSnapshot.negative===__aw.originalNegative&&assistantSourceChanged()&&els.assistantAsk.getAttribute('aria-disabled')==='true'", "fatal": true },
+  { "click": "#assistant-continue" },
+  { "expect": "document.getElementById('assistant-continuation-negative').open&&document.getElementById('assistant-continuation-negative-text').textContent===__aw.changedNegative", "fatal": true },
+  { "click": "#assistant-continuation-cancel" },
+  { "click": "#assistant-ask" },
+  { "expect": "assistantSourceChanged()&&!assistantRun&&__aw.requests.length===__aw.negativeRequests", "fatal": true },
+  { "click": "#assistant-continue" },
+  { "eval": "__aw.writeNegative(__aw.reviewedNegative);" },
+  { "click": "#assistant-continuation-apply" },
+  { "expect": "document.getElementById('assistant-continuation-dialog').open&&document.getElementById('assistant-continuation-status').textContent.includes('changed while')&&document.getElementById('assistant-continuation-negative-text').textContent===__aw.changedNegative&&assistantSnapshot.negative===__aw.originalNegative", "fatal": true },
+  { "click": "#assistant-continuation-cancel" },
+  {
     "log": "'A hand edit holds old applications. Continuing is an explicit, editable brief that keeps the transcript and adopts the current source.'"
   },
   { "click": "#prompt" },
@@ -97,6 +114,7 @@
   { "click": "#assistant-continuation-cancel" },
   { "expect": "!document.getElementById('assistant-continuation-dialog').open&&assistantSourceChanged()&&assistantTurns.length===4" },
   { "click": "#assistant-continue" },
+  { "expect": "document.getElementById('assistant-continuation-negative').open&&document.getElementById('assistant-continuation-negative-text').textContent===__aw.reviewedNegative", "fatal": true },
   { "click": "#assistant-brief" },
   { "keycombo": ["Control", "a"] },
   { "type": "Keep one red fox beside the sign. Lettering must remain OPEN." },
@@ -124,7 +142,7 @@
   },
   { "click": "#assistant-ask" },
   {
-    "expect": "__aw.until(()=>__awOptions.captured&&__awOptions.request.history.length===0&&__awOptions.request.brief===assistantBrief&&JSON.stringify(__awOptions.request.requirements)===JSON.stringify(['red fox','OPEN']))",
+    "expect": "__aw.until(()=>__awOptions.captured&&__awOptions.request.history.length===0&&__awOptions.request.brief===assistantBrief&&__awOptions.request.negative_prompt===__aw.reviewedNegative&&JSON.stringify(__awOptions.request.requirements)===JSON.stringify(['red fox','OPEN']))",
     "fatal": true
   },
   { "click": "#assistant-pins > summary" },
@@ -223,16 +241,17 @@
   { "expect": "__aw.reveal('#assistant-result .assistant-draft:nth-of-type(2) .assistant-draft-tools > summary')", "fatal": true },
   { "click": "#assistant-result .assistant-draft:nth-of-type(2) .assistant-draft-tools > summary" },
   { "click": "#assistant-result .assistant-draft:nth-of-type(2) [data-assistant-action=refine]" },
+  { "eval": "__aw.writeNegative('');" },
   { "click": "#assistant-continue" },
   {
-    "expect": "document.getElementById('assistant-continuation-dialog').open&&document.getElementById('assistant-continuation-source').textContent===__aw.focusSource&&document.getElementById('assistant-continuation-focus-keep').checked&&document.getElementById('assistant-continuation-option-text').textContent===__aw.variants[1].prompt",
+    "expect": "document.getElementById('assistant-continuation-dialog').open&&document.getElementById('assistant-continuation-source').textContent===__aw.focusSource&&document.getElementById('assistant-continuation-negative').open&&document.getElementById('assistant-continuation-negative-text').textContent==='The negative prompt was cleared.'&&document.getElementById('assistant-continuation-focus-keep').checked&&document.getElementById('assistant-continuation-option-text').textContent===__aw.variants[1].prompt",
     "fatal": true
   },
   { "click": "#assistant-continuation-apply" },
   { "expect": "assistantFocus?.prompt===__aw.variants[1].prompt&&assistantContextStart===assistantTurns.length&&assistantDraftsStale&&!assistantSourceChanged()&&els.prompt.value===__aw.focusSource&&JSON.stringify(assistantTurns)===__aw.focusTurns", "fatal": true },
   { "eval": "__aw.instruction('Keep this option and soften its light further.'); window.__awFocused=__aw.arm('Focused revision.',{drafts:[{title:'Softer evening',prompt:'A red fox beside a sign reading \"OPEN\", under soft warm evening light.',notes:[]}]});" },
   { "click": "#assistant-ask" },
-  { "expect": "__aw.until(()=>__awFocused.captured&&__awFocused.request.focus_prompt===__aw.variants[1].prompt&&__awFocused.request.prompt===__aw.focusSource&&__awFocused.request.history.length===0)", "fatal": true },
+  { "expect": "__aw.until(()=>__awFocused.captured&&__awFocused.request.focus_prompt===__aw.variants[1].prompt&&__awFocused.request.prompt===__aw.focusSource&&__awFocused.request.negative_prompt===null&&__awFocused.request.history.length===0)", "fatal": true },
   { "eval": "__aw.release(__awFocused);" },
   { "expect": "__aw.until(()=>!assistantRun&&assistantResultData?.message==='Focused revision.')", "fatal": true },
   { "shot": "assistant-workflow-desktop.png" },
@@ -300,19 +319,21 @@
   { "eval": "__aw.instruction('Keep the same subject.');window.__awUnread=__aw.arm('A new reply while reading earlier messages.');" },
   { "click": "#assistant-ask" },
   { "expect": "__aw.until(()=>__awUnread.captured&&!!assistantRun)", "fatal": true },
-  { "eval": "__aw.chat().scrollTop=0;__aw.readTop=__aw.chat().scrollTop;__aw.release(__awUnread);" },
+  { "expect": "__aw.reveal('#assistant-history .assistant-draft-tools > summary')", "fatal": true },
+  { "eval": "__aw.readFocus=document.querySelector('#assistant-history .assistant-draft-tools > summary');__aw.readFocus.focus({preventScroll:true});__aw.readTop=__aw.chat().scrollTop;__aw.release(__awUnread);" },
   {
-    "expect": "__aw.until(()=>!assistantRun&&assistantResultData?.message==='A new reply while reading earlier messages.'&&Math.abs(__aw.chat().scrollTop-__aw.readTop)<=1&&!document.getElementById('assistant-latest').hidden)",
+    "expect": "__aw.until(()=>!assistantRun&&assistantResultData?.message==='A new reply while reading earlier messages.'&&document.activeElement===__aw.readFocus&&Math.abs(__aw.chat().scrollTop-__aw.readTop)<=1&&!document.getElementById('assistant-latest').hidden)",
     "fatal": true
   },
-  { "click": "#assistant-latest" },
+  { "eval": "__aw.instruction('An answer to stop.');window.__awOld=__aw.arm('Stopped reply');__awOld.holdStatus=true;__aw.generateBefore=generate;__aw.generatePressed=0;generate=()=>{__aw.generatePressed++;};document.getElementById('assistant-latest').focus({preventScroll:true});" },
+  { "key": "Enter", "native": true },
   {
-    "expect": "document.getElementById('assistant-latest').hidden&&__aw.chat().scrollHeight-__aw.chat().clientHeight-__aw.chat().scrollTop<=1",
+    "expect": "document.getElementById('assistant-latest').hidden&&__aw.chat().scrollHeight-__aw.chat().clientHeight-__aw.chat().scrollTop<=1&&document.activeElement===els.assistantStatus&&__aw.controlFits(els.assistantStatus)",
     "fatal": true
   },
-  { "eval": "__aw.instruction('An answer to stop.');window.__awOld=__aw.arm('Stopped reply');__awOld.holdStatus=true;" },
-  { "click": "#assistant-ask" },
-  { "expect": "__aw.until(()=>__awOld.captured&&typeof __awOld.resolveStatus==='function')", "fatal": true },
+  { "keycombo": ["Control", "Enter"] },
+  { "expect": "__aw.until(()=>__aw.generatePressed===0&&__awOld.captured&&__awOld.request.instruction==='An answer to stop.'&&typeof __awOld.resolveStatus==='function')", "fatal": true },
+  { "eval": "generate=__aw.generateBefore;" },
   { "click": "#assistant-close" },
   { "expect": "__aw.until(()=>!assistantSidebarOpen()&&__aw.stops.some(path=>path.includes(__awOld.request.ticket)))", "fatal": true },
   { "eval": "__aw.release(__awOld);" },

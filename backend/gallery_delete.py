@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -40,8 +40,8 @@ _STARRED_SOURCE = (
 )
 # What `keep_favorites` leaves out of a delete: the live stars and their
 # sources. The one predicate `delete_matching`, `clear_history` and the
-# previews' counts share, so the number a dialog asks to have typed back is
-# the number the delete then finds under its lock.
+# previews share, so a dialog confirms the same scope the delete checks under
+# its lock.
 # The stars `keep_favorites` keeps, and the rest of what it might delete.
 _LIVE_STAR = "favorite = 1 AND binned_at IS NULL"
 _NOT_LIVE_STAR = "(favorite = 0 OR binned_at IS NOT NULL)"
@@ -98,12 +98,23 @@ def _prepare_edit_sources(conn) -> None:
     conn.create_function("instruction_edit_source_kept", 1, lambda image_id: int(image_id in kept))
 
 
+def _ordered_ids_pin(ids: Iterable[int]) -> str:
+    """Digest sorted IDs without keeping a second copy of a broad selection."""
+    digest = hashlib.sha256()
+    for position, image_id in enumerate(ids):
+        separator = "," if position else ""
+        digest.update(f"{separator}{image_id}".encode("ascii"))
+    return digest.hexdigest()
+
+
 def matching_preview(
     search: str | None,
     model_id: str | None = None,
     newer_than: int | None = None,
     live_only: bool = False,
     free_words: bool = False,
+    *,
+    keep_favorites: bool = True,
 ) -> dict[str, Any]:
     """What a strict scope selects, named: counts, prompts, and the jobs and
     checkpoints a substring term (`job:`, `model:`) actually matched.
@@ -134,6 +145,10 @@ def matching_preview(
     `free_words` reads the scope as the page's Delete unstarred does
     (`search.unstarred_scope`: positive free words prefix-matched as the
     gallery matches them); without it, as `clear --where`, strictly.
+
+    `pin` identifies the images the delete will take, with `keep_favorites`
+    selecting whether the pin excludes protected images. The counts and
+    summaries keep their meaning for either CLI choice.
     """
     filters, params = (unstarred_scope if free_words else strict_scope)(search)
     if model_id:
@@ -148,6 +163,7 @@ def matching_preview(
 
     clause = where()
     with storage._session() as conn:
+        conn.execute("BEGIN")
         _prepare_edit_sources(conn)
         records, favorites, sources_kept, binned = conn.execute(
             f"""SELECT COUNT(*), COALESCE(SUM({_LIVE_STAR}), 0),
@@ -179,6 +195,8 @@ def matching_preview(
                 (*params, limit),
             )
         ]
+        doomed = where(_UNKEPT) if keep_favorites else clause
+        ids = conn.execute(f"SELECT id FROM images {doomed} ORDER BY id", params)
         return {
             "records": records,
             "favorites": favorites,
@@ -189,6 +207,7 @@ def matching_preview(
             "first": first,
             "last": last,
             "newer": newer,
+            "pin": _ordered_ids_pin(row[0] for row in ids),
             "prompts": distinct("prompt", 4),
             "jobs": [j for j in distinct("job_id", 6) if j],
             "models": distinct("model_id", 6),
@@ -196,8 +215,7 @@ def matching_preview(
 
 
 class SelectionChanged(Exception):
-    """A scoped delete was confirmed for one count and finds another - or,
-    for Empty recycle bin's pin, the same count of other images."""
+    """A scoped delete finds a different count or set from the confirmed one."""
 
     def __init__(self, found: int, expected: int):
         super().__init__(
@@ -217,16 +235,15 @@ def delete_matching(
     to_bin: bool = False,
     in_flight: InFlight | None = None,
     free_words: bool = False,
+    *,
+    pin: str | None = None,
 ) -> dict[str, Any]:
     """Delete the rows a strict scope selects, and their files - nothing else.
 
-    `DELETE ... RETURNING` in one statement, so a row committed while the
-    user was reading the confirmation prompt is not deleted from disk on the
-    strength of an id list resolved a moment earlier. `expected` is the count
-    that prompt showed: compared under the write lock, so a sweep that landed
-    more unstarred images while the dialog was open raises `SelectionChanged`
-    and deletes nothing rather than taking them on a number confirmed for
-    fewer. `keep_favorites` is a scope of its own - an otherwise empty one
+    `expected` is the preview's count and `pin` identifies its exact set of
+    images. Compare both in the transaction that writes the change, so a
+    changed selection raises `SelectionChanged` before anything is removed.
+    `keep_favorites` is a scope of its own - an otherwise empty one
     means every unstarred image - where a delete with no scope at all is
     refused; it keeps the images a starred one was made from as well as the
     stars (`_UNKEPT`). No orphan sweep: a filtered clear that also removed every
@@ -254,11 +271,16 @@ def delete_matching(
         filters.append(storage._LIVE)
     where = " AND ".join(filters)
     with storage._write_lock, storage._session() as conn:
+        conn.execute("BEGIN IMMEDIATE")
         _prepare_edit_sources(conn)
-        if expected is not None:
+        if expected is not None or pin is not None:
             (found,) = conn.execute(f"SELECT COUNT(*) FROM images WHERE {where}", params).fetchone()
-            if found != expected:
+            if expected is not None and found != expected:
                 raise SelectionChanged(found, expected)
+            if pin is not None:
+                ids = conn.execute(f"SELECT id FROM images WHERE {where} ORDER BY id", params)
+                if _ordered_ids_pin(row[0] for row in ids) != pin:
+                    raise SelectionChanged(found, found)
         if to_bin:
             moved = conn.execute(
                 f"UPDATE images SET binned_at = ? WHERE {where} RETURNING id", (_now(), *params)
@@ -513,8 +535,7 @@ def bin_pin(ids) -> str:
     keep it equal, and Empty recycle bin then deleted for good an image its
     confirmation never covered.
     """
-    joined = ",".join(str(i) for i in sorted(ids))
-    return hashlib.sha256(joined.encode("ascii")).hexdigest()[:16]
+    return _ordered_ids_pin(sorted(ids))[:16]
 
 
 class PurgeChanged(Exception):

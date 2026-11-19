@@ -12,7 +12,9 @@ from __future__ import annotations
 
 import gzip
 import json
+import logging
 import sqlite3
+import zlib
 from collections.abc import Sequence
 from datetime import datetime, timezone
 from pathlib import Path
@@ -20,7 +22,10 @@ from typing import Any
 
 from . import gallery_lock, storage
 from .grid import Cell
-from .schemas import GenerateRequest
+from .schemas import GenerateRequest, ThenRefine
+from .seeds import MAX_SEED
+
+log = logging.getLogger(__name__)
 
 
 @gallery_lock.protected(lambda: storage.settings.db_path, waits=True)
@@ -75,65 +80,110 @@ def retained_run_metadata(job_ids: Sequence[str]) -> dict[str, tuple[str, dict[s
     return found
 
 
-def retained_run_jobs(run_id: str | None = None) -> list[dict[str, Any]]:
-    """Retained jobs in creation order, with raw cells and metadata decoded.
+def decode_retained_cells(blob: bytes) -> list[Any]:
+    """Read a retained job's compressed cell list, including corrupt deflate."""
+    try:
+        raw = json.loads(gzip.decompress(blob))
+    except (TypeError, ValueError, OSError, EOFError, zlib.error) as exc:
+        raise ValueError("unreadable retained cells") from exc
+    if not isinstance(raw, list):
+        raise ValueError("cells must be a list")
+    return raw
+
+
+def decode_retained_job(row: sqlite3.Row) -> dict[str, Any]:
+    """Decode one job for Finish or for a run with no saved images.
 
     A NULL outcome means the process ended before its terminal write, or
     that write failed. It never means the job is still running: the live
     JobManager alone answers that. A malformed/obsolete request is a worded
     ValueError for the recovery API rather than an unvalidated pipeline call.
     """
-    from .seeds import MAX_SEED
+    item = dict(row)
+    try:
+        raw = decode_retained_cells(item["cells"])
+        for cell in raw:
+            if (not isinstance(cell, dict) or type(cell.get("seed")) is not int
+                    or not 0 <= cell["seed"] <= MAX_SEED
+                    or cell.get("label") is not None and not isinstance(cell["label"], str)
+                    or cell.get("variables") is not None and (
+                        not isinstance(cell["variables"], dict)
+                        or not all(isinstance(key, str) and isinstance(value, str)
+                                   for key, value in cell["variables"].items()))):
+                raise ValueError("invalid retained cell")
+        item["cells"] = [Cell(
+            request=GenerateRequest.model_validate(cell["request"]), seed=cell["seed"],
+            label=cell["label"], variables=cell["variables"],
+        ) for cell in raw]
+        item["metadata"] = json.loads(item["metadata"])
+        item["outcome"] = json.loads(item["outcome"]) if item["outcome"] is not None else None
+        metadata, outcome = item["metadata"], item["outcome"]
+        if not isinstance(metadata, dict) or outcome is not None and not isinstance(outcome, dict):
+            raise ValueError("invalid retained metadata or outcome")
+        budget = metadata.get("budget_minutes")
+        if budget is not None and (type(budget) not in (int, float) or not 0 < budget <= 7 * 24 * 60):
+            raise ValueError("invalid retained budget")
+        if metadata.get("prompt_template") is not None and not isinstance(metadata["prompt_template"], str):
+            raise ValueError("invalid retained prompt template")
+        spec = metadata.get("then_refine")
+        if spec is not None:
+            ThenRefine.model_validate(spec)
+        pass_cells = metadata.get("then_refine_cells")
+        if pass_cells is not None and (
+            spec is None
+            or not isinstance(pass_cells, list)
+            or any(type(index) is not int or not 0 <= index < len(raw) for index in pass_cells)
+            or len(set(pass_cells)) != len(pass_cells)
+        ):
+            raise ValueError("invalid retained Then refine cell indices")
+        if outcome is not None:
+            indices = outcome.get("completed_indices", [])
+            if not isinstance(indices, list) or any(type(index) is not int for index in indices):
+                raise ValueError("invalid retained completion indices")
+            if outcome.get("finished_at") is not None:
+                if type(outcome["finished_at"]) not in (int, float):
+                    raise ValueError("invalid retained finish time")
+                datetime.fromtimestamp(outcome["finished_at"], timezone.utc)
+    except (ValueError, TypeError, KeyError, OSError, EOFError, OverflowError) as exc:
+        raise ValueError(f"the saved cells of job {row['job_id']} cannot be read by this build") from exc
+    item["comparison"] = bool(item["comparison"])
+    return item
 
+
+def retained_run_jobs(run_id: str | None = None) -> list[dict[str, Any]]:
+    """Retained jobs in creation order, with raw cells and metadata decoded."""
     where = " WHERE run_id = ?" if run_id is not None else ""
     with storage._session() as conn:
         rows = conn.execute(
             f"SELECT * FROM run_jobs{where} ORDER BY created_at, job_id",
             (run_id,) if run_id is not None else (),
         ).fetchall()
-    jobs = []
+    return [decode_retained_job(row) for row in rows]
+
+
+def retained_then_refine_cells(job_ids: Sequence[str]) -> dict[str, list[Cell]]:
+    """The named jobs' cells whose originals asked for a Then refine pass."""
+    ids = list(dict.fromkeys(job_ids))
+    if not ids:
+        return {}
+    rows: list[sqlite3.Row] = []
+    with storage._session() as conn:
+        for start in range(0, len(ids), 400):
+            chunk = ids[start : start + 400]
+            rows.extend(conn.execute(
+                f"SELECT * FROM run_jobs WHERE job_id IN ({','.join('?' * len(chunk))})", chunk,
+            ))
+    cells: dict[str, list[Cell]] = {}
     for row in rows:
-        item = dict(row)
         try:
-            raw = json.loads(gzip.decompress(item["cells"]))
-            if not isinstance(raw, list):
-                raise ValueError("cells must be a list")
-            for cell in raw:
-                if (not isinstance(cell, dict) or type(cell.get("seed")) is not int
-                        or not 0 <= cell["seed"] <= MAX_SEED
-                        or cell.get("label") is not None and not isinstance(cell["label"], str)
-                        or cell.get("variables") is not None and (
-                            not isinstance(cell["variables"], dict)
-                            or not all(isinstance(key, str) and isinstance(value, str)
-                                       for key, value in cell["variables"].items()))):
-                    raise ValueError("invalid retained cell")
-            item["cells"] = [Cell(
-                request=GenerateRequest.model_validate(cell["request"]), seed=cell["seed"],
-                label=cell["label"], variables=cell["variables"],
-            ) for cell in raw]
-            item["metadata"] = json.loads(item["metadata"])
-            item["outcome"] = json.loads(item["outcome"]) if item["outcome"] is not None else None
-            metadata, outcome = item["metadata"], item["outcome"]
-            if not isinstance(metadata, dict) or outcome is not None and not isinstance(outcome, dict):
-                raise ValueError("invalid retained metadata or outcome")
-            budget = metadata.get("budget_minutes")
-            if budget is not None and (type(budget) not in (int, float) or not 0 < budget <= 7 * 24 * 60):
-                raise ValueError("invalid retained budget")
-            if metadata.get("prompt_template") is not None and not isinstance(metadata["prompt_template"], str):
-                raise ValueError("invalid retained prompt template")
-            if outcome is not None:
-                indices = outcome.get("completed_indices", [])
-                if not isinstance(indices, list) or any(type(index) is not int for index in indices):
-                    raise ValueError("invalid retained completion indices")
-                if outcome.get("finished_at") is not None:
-                    if type(outcome["finished_at"]) not in (int, float):
-                        raise ValueError("invalid retained finish time")
-                    datetime.fromtimestamp(outcome["finished_at"], timezone.utc)
-        except (ValueError, TypeError, KeyError, OSError, EOFError, OverflowError) as exc:
-            raise ValueError(f"the saved cells of job {row['job_id']} cannot be read by this build") from exc
-        item["comparison"] = bool(item["comparison"])
-        jobs.append(item)
-    return jobs
+            job = decode_retained_job(row)
+        except ValueError as exc:
+            log.warning("%s", exc)
+            continue
+        if job["metadata"].get("then_refine") is not None:
+            indices = job["metadata"].get("then_refine_cells")
+            cells[row["job_id"]] = job["cells"] if indices is None else [job["cells"][index] for index in indices]
+    return cells
 
 
 def finish_run_job(job_id: str, outcome: dict[str, Any], *, database: Path | None = None) -> None:

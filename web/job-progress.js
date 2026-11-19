@@ -124,10 +124,10 @@ function holdTitle(text) {
 function unitWord(job) {
   if (job?.detailer) return 'region';
   if (job?.grid) return 'cell';
-  // Then refine's passes are no part of a batch: half the planned images,
-  // after Finish run's missing passes (one image each) are taken off.
+  // A batch counts base images. Older job snapshots doubled the base count
+  // for Then refine and added one image per Finish source.
   const sources = job?.pass_sources?.length ?? 0;
-  const made = ((job?.planned_images ?? 0) - sources) / (job?.then_refine ? 2 : 1);
+  const made = job?.base_images ?? ((job?.planned_images ?? 0) - sources) / (job?.then_refine ? 2 : 1);
   return made > ((job?.total_runs || 1) - sources || 1) ? 'batch' : 'image';
 }
 
@@ -389,12 +389,16 @@ async function togglePause() {
 // disk still full is answered by a new pause the press never asked for, and
 // its frame can land before the press's reply; held as stale, the button
 // read Pause over a paused job until some later frame.
-function syncPause(job) {
+function syncPause(job, { requestEvent = false } = {}) {
   const unit = unitWord(job);
-  const stale = pauseAsking?.jobId === job.job_id && watchedActionCurrent(pauseAsking)
-    && !!job.pause_requested !== pauseAsking.value && !(job.paused && job.pause_reason);
+  const asking = pauseAsking?.jobId === job.job_id && watchedActionCurrent(pauseAsking)
+    ? pauseAsking : null;
+  // An agreeing request frame settles the optimistic label even before the
+  // POST reply lands, so a subsequent withdrawal from another tab is heard.
+  if (requestEvent && asking && asking.value === job.pause_requested) pauseAsking = null;
+  const stale = asking && !!job.pause_requested !== asking.value && !(job.paused && job.pause_reason);
   if (!stale) {
-    els.pause.textContent = job.paused ? 'Resume' : job.pause_requested ? 'Pausing…' : 'Pause';
+    els.pause.textContent = job.pause_requested ? (job.paused ? 'Resume' : 'Pausing…') : 'Pause';
   }
   const single = job.status === 'running' && (job.total_runs || 1) === 1 && !job.paused;
   els.pause.setAttribute('aria-disabled', String(single));

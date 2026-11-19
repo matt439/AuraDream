@@ -288,6 +288,30 @@ def test_where_refuses_a_row_that_arrived_while_the_prompt_waited(fresh, capsys,
     assert "Deleted 3 record(s), 3 file(s)." in capsys.readouterr().out
 
 
+def test_where_refuses_a_same_count_replacement(fresh, capsys, monkeypatch):
+    made = _seed(fresh, a=(1, "n"), b=(2, "n"))
+    storage.set_favorite(made["b"].id, True)
+
+    def swap_stars(_yes):
+        storage.set_favorite(made["a"].id, True)
+        storage.set_favorite(made["b"].id, False)
+        return True
+
+    args = ["--where", "job:n", "--keep-favorites"]
+    monkeypatch.setattr(clear, "_confirm", swap_stars)
+    assert clear.main(args) == 1
+    captured = capsys.readouterr()
+    assert "Would delete 1 record(s)" in captured.out
+    assert "the same count now matches different images. Nothing was deleted" in captured.err
+    assert storage.list_images()[1] == 2
+    assert all((fresh.outputs_dir / record.filename).exists() for record in made.values())
+
+    monkeypatch.setattr(clear, "_confirm", lambda _yes: True)
+    assert clear.main(args) == 0
+    assert "Deleted 1 record(s), 1 file(s)." in capsys.readouterr().out
+    assert [r.id for r in storage.list_images()[0]] == [made["a"].id]
+
+
 def test_the_whole_clear_finishes_a_kept_images_interrupted_save(fresh, capsys):
     # The row committed and the rename did not: the .part is the only copy of
     # a starred image the clear keeps, and is put in place, not swept.

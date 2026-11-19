@@ -33,6 +33,7 @@ from .more_seeds_intents import IntentLedger
 from .schemas import GenerateRequest, ThenRefine
 from .seeds import random_seed, wrap_seed
 from .then_refine import execution_units, pass_run_id, plan_passes, stand_in
+from . import tiled_refine_contract as tiled
 
 log = logging.getLogger(__name__)
 
@@ -471,6 +472,7 @@ class JobManager:
     async def _price(
         job_id: str, cells: list[Cell], then_refine: ThenRefine | None, model_id: str,
         source_passes: list[Cell] | None = None,
+        then_refine_cells: frozenset[int] | None = None,
     ) -> float | None:
         """The job's time from matching history, off the loop and without a
         PNG stat: Finish run's missing passes, then the cells as the worker
@@ -479,7 +481,8 @@ class JobManager:
         gallery or any error is None."""
         try:
             return await asyncio.to_thread(
-                gallery_reports.job_seconds, [*(source_passes or []), *execution_units(cells, then_refine)],
+                gallery_reports.job_seconds,
+                [*(source_passes or []), *execution_units(cells, then_refine, then_refine_cells)],
                 model_id,
             )
         except Exception as exc:
@@ -519,6 +522,29 @@ class JobManager:
             cells, run_id=detailer.group_id, grid=False, detailer=detailer,
         )
 
+    async def _submit_tiled_refine_candidate(self, cells: list[Cell], *, run_id: str | None = None) -> Job:
+        """Queue an owned, already-loaded qualification run, one composite per cell."""
+        from .backends.diffusers_backend import DiffusersBackend
+        from .tiled_refine_admission import bind_source
+
+        selected = current_settings(settings)
+        if (
+            not isinstance(self.backend, DiffusersBackend) or not self.backend.is_ready()
+            or (selected.model_id, selected.quantization) != (tiled.MODEL_ID, tiled.QUANTIZATION)
+        ):
+            raise ValueError(tiled.HELD)
+        self.backend._require_tiled_refine_owner()
+        sources: dict[str, tiled.StoredTiledRefine] = {}
+        for cell in cells:
+            if cell.request.tiled_refine is None or cell.request.num_images != 1 or cell.request.runs != 1:
+                raise ValueError("Each private Tiled Refine cell must request one composite.")
+            cell.request.check_budget()
+            spec = tiled.bound_spec(cell.request.tiled_refine)
+            sources[tiled.stored_json(spec)] = spec
+        for spec in sources.values():
+            await asyncio.to_thread(bind_source, spec)
+        return await self.submit_cells(cells, run_id=run_id, grid=False, _tiled_candidate=True)
+
     async def submit_cells(
         self,
         cells: list[Cell],
@@ -533,6 +559,8 @@ class JobManager:
         then_refine: ThenRefine | None = None,
         pass_sources: list[int] | None = None,
         detailer: DetailerPlan | None = None,
+        then_refine_cells: frozenset[int] | None = None,
+        _tiled_candidate: bool = False,
     ) -> Job:
         """Queue an already-expanded list of pipeline calls - a grid, usually.
 
@@ -553,8 +581,17 @@ class JobManager:
         a unit of its own before the first cell. They need `then_refine` and
         `run_id`, and `cells` may then be empty - a run missing only passes -
         where the job's request is its first pass's.
+        `then_refine_cells` limits inline passes to those cell indices for
+        mixed Finish jobs. None follows every cell if a spec was supplied.
         """
+        if then_refine_cells is not None and (
+            then_refine is None or any(type(index) is not int or not 0 <= index < len(cells)
+                                       for index in then_refine_cells)
+        ):
+            raise ValueError("Then refine cells must select indices in a job with a pass specification")
         for cell in cells:
+            if cell.request.tiled_refine is not None and not _tiled_candidate:
+                raise ValueError(tiled.HELD)
             require_default_execution(cell.request.execution)
             if "step_cache" in cell.request.model_fields_set:
                 raise ValueError("Resolve composer step cache before submitting expanded cells.")
@@ -602,7 +639,9 @@ class JobManager:
             if reason is not None:
                 raise ValueError(reason)
         if then_refine is not None and refine_qualification.applies(selected.model_id):
-            for cell in cells:
+            for index, cell in enumerate(cells):
+                if then_refine_cells is not None and index not in then_refine_cells:
+                    continue
                 probe = stand_in(cell.request, then_refine)
                 reason = (self.backend.refine_refusal(selected, probe)
                           or refine_qualification.source_refusal(selected.model_id, (cell.request.width, cell.request.height)))
@@ -675,11 +714,14 @@ class JobManager:
             refine_batch=refine_batch,
             more_seeds=more_seeds,
             then_refine=then_refine,
+            then_refine_cells=then_refine_cells,
             detailer=detailer,
         )
         if then_refine is not None:
             job.pass_run_id = pass_run_id(resolved_run_id, then_refine)
-        job.estimate_seconds = await self._price(job.id, cells, then_refine, selected.model_id, source_passes)
+        job.estimate_seconds = await self._price(
+            job.id, cells, then_refine, selected.model_id, source_passes, then_refine_cells,
+        )
         # Held where every process's mask sweep looks, before the job is
         # queued: a CLI `clear --bin` an hour on must not take the mask of a
         # cell still waiting its turn (`storage.hold_masks`).
@@ -719,6 +761,7 @@ class JobManager:
                 "then_refine": None if then_refine is None else {
                     **then_refine.model_dump(), "pass_run_id": job.pass_run_id,
                 },
+                **({"then_refine_cells": sorted(then_refine_cells)} if then_refine_cells is not None else {}),
                 **({"pass_sources": sources} if sources else {}),
                 **({"detailer": detailer.model_dump(mode="json")} if detailer is not None else {}),
             },
@@ -791,9 +834,13 @@ class JobManager:
         alone.
         """
         job = self._jobs.get(job_id)
-        if job is None or job.status in _TERMINAL:
+        if job is None or job.status in _TERMINAL or job.pause_requested == paused:
             return job
         job.pause_requested = paused
+        # The request changes immediately, while the worker acknowledges a
+        # hold or resume separately. Leave the current step on the page.
+        if (loop := self._loop) is not None:
+            self._emit(loop, job, {"type": "pause", "pause_requested": paused})
         return job
 
     def _emit(self, loop: asyncio.AbstractEventLoop, job: Job, event: dict) -> None:
@@ -1052,8 +1099,11 @@ class JobManager:
         # And a stand-in of the passes Then refine will run: a profile's guess
         # a load contradicts fails here, before the first base image. A job
         # of missing passes alone has checked its passes themselves above.
-        if job.then_refine is not None and job.cells:
-            self.backend.check_refine_supported(stand_in(job.cells[0].request, job.then_refine))
+        if job.then_refine is not None:
+            for index, cell in enumerate(job.cells):
+                if job.refines_cell(index):
+                    self.backend.check_refine_supported(stand_in(cell.request, job.then_refine))
+                    break
 
         def should_cancel() -> bool:
             return job.cancel_requested
@@ -1197,13 +1247,22 @@ class JobManager:
                         reader = None
                     if job.bind_execution_diagnostics(reader):
                         self._emit(loop, job, {"type": "status", **job.snapshot(images=False)})
-                    images = self.backend.generate(
-                        req,
-                        seed=seed,
-                        on_progress=on_progress,
-                        should_cancel=lambda call=call: should_cancel() or job.skips_call(call),
-                        on_preview=on_preview,
-                    )
+                    def cancelled_at_step(call: int = call) -> bool:
+                        return should_cancel() or job.skips_call(call)
+
+                    if req.tiled_refine is not None:
+                        from .backends.diffusers_backend import DiffusersBackend
+
+                        if not isinstance(self.backend, DiffusersBackend):
+                            raise ValueError(tiled.HELD)
+                        images = self.backend._generate_tiled_refine_candidate(
+                            req, seed, on_progress=on_progress, should_cancel=cancelled_at_step,
+                        )
+                    else:
+                        images = self.backend.generate(
+                            req, seed=seed, on_progress=on_progress,
+                            should_cancel=cancelled_at_step, on_preview=on_preview,
+                        )
                 finally:
                     job.freeze_execution_diagnostics()
                     # Saving is not an interruptible cell call. A late Skip
@@ -1211,10 +1270,15 @@ class JobManager:
                     job.end_call(call)
                     self._emit(loop, job, {"type": "status", **job.snapshot(images=False)})
                 elapsed_ms = int((time.perf_counter() - started) * 1000)
-                records = self._save(
-                    job, loop, cell, images, elapsed_ms, self.backend.last_peak(),
-                    mask_region=self.backend.last_mask_crop(),
-                )
+                try:
+                    records = self._save(
+                        job, loop, cell, images, elapsed_ms, self.backend.last_peak(),
+                        mask_region=self.backend.last_mask_crop(),
+                    )
+                finally:
+                    if req.tiled_refine is not None:
+                        for image in images:
+                            image.close()
                 if job.detailer is not None:
                     if len(records) != 1 or len(images) != 1:
                         raise ValueError("a detailer region must save exactly one result")
@@ -1261,7 +1325,7 @@ class JobManager:
                 if job.detailer is not None:
                     job.detailer_cell = None
             consecutive = 0
-            if job.then_refine is not None:
+            if job.refines_cell(index):
                 cancelled, pass_streak = self._passes(
                     job, loop, records, pass_streak, on_progress, should_cancel, on_preview,
                 )
@@ -1273,9 +1337,7 @@ class JobManager:
     def _units(job: Job) -> int:
         """What the failure rule's share is of: the cells, under Then refine
         every image's pass beside them, and Finish run's missing passes."""
-        if job.then_refine is None:
-            return len(job.cells)
-        return len(job.cells) + sum(cell.request.num_images for cell in job.cells) + len(job.pass_sources)
+        return len(job.cells) + job.inline_passes + len(job.pass_sources)
 
     def _stops_before(self, job: Job, loop: asyncio.AbstractEventLoop, position: int) -> bool:
         """A unit's boundary, `position` its zero-based place in the job:

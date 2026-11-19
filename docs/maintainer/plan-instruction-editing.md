@@ -5,7 +5,9 @@ The real-server/page acceptance and a separate fresh-process replay passed
 on the frozen replacement fixture, with the first controller's unload
 observation gap retained explicitly. The [result](#card-acceptance-result-2026-11-18)
 and [receipt](instruction-acceptance-2026-11-18.json) record that scope.
-`INP#13` can now start its plan addendum; no wider capability is released.
+`INP#13` has a [frozen recipe and trial protocol](#second-kontext-recipe-and-trial-inp13).
+The recipe-aware CPU contract is built. The public envelope still admits
+the released 512-square recipe.
 
 What the branch does on the real server: `DiffusersBackend`'s gate is the
 literal True (slice 7), and the measured envelope (`QUALIFIED_ENVELOPE`: the
@@ -866,12 +868,172 @@ private memory from that commit requirement. Keep the 4 GiB live RAM/commit
 floors and card/shared limits unchanged. This is a minimum starting basis,
 not proof that a larger output fits.
 
-`INP#13` now starts at [R3](review-2026-11-10-peers.md#r3-a-wider-instruction-edit-envelope):
-freeze the second 1024x1024, square-only recipe and one-load protocol in a
-plan addendum, including the existing frozen aspects. The second recipe
-and protocol do not exist yet. The current `kontext-v1` table, source proof
-and public square-only hold stay intact; this follow-up is planning work,
-not a ready card run.
+## Second Kontext recipe and trial (INP#13)
+
+**Status, 2026-11-20.** The planning step in
+[R3](review-2026-11-10-peers.md#r3-a-wider-instruction-edit-envelope) and the
+recipe-aware CPU contract are built. An isolated one-load queue rehearsal
+covered every geometry, cancellation and replay. The isolated browser
+candidate and live guard controller are next. Public release follows from
+the card trial evidence.
+
+### Frozen recipe
+
+`kontext-1024-v1` uses the pinned `black-forest-labs/FLUX.1-Kontext-dev`
+revision `24e9dedc4ef646698dc8eb4e18ae2cec3c9fea0d`, the same six config
+pins and `FluxKontextPipeline` as `kontext-v1`. Its sole source aspect is
+exact 1:1 at any positive integer size. Resize decoded original RGB pixels
+with Pillow Lanczos into an owned 1024x1024 image. Working and output sizes
+are both 1024x1024. Preserve the first recipe's EXIF, crop and source-proof
+rules. The response to a different aspect or a requested size other than
+1024x1024 is a refusal.
+
+| Call field | Value |
+|---|---|
+| `width`, `height` | `1024`, `1024` |
+| `max_area` | `1048576` |
+| `_auto_resize` | `False` |
+| `num_images_per_prompt`, `max_sequence_length` | `1`, `512` |
+| Starting steps, distilled guidance | `28`, `2.5` |
+
+Use the frozen edit call's one seeded generator, ordinary step callback,
+VAE scale factor 8 and source VAE posterior mode. The pipeline produces
+one PIL image at the working size. Use automatic Mu, empty negative prompt,
+and the existing edit-field and execution restrictions. The call must
+free its hooks and close the owned source on success, cancellation or error.
+The source and output each contribute 4,096 packed image positions at
+1024 square versus 1,024 each at 512 square. The 512 result and its host
+load evidence give a control and preflight basis. Actual 1024 render peaks
+must be measured with both images in the call.
+
+The trial and any later public release use explicit recipe selection in
+preview and submit. An existing `kontext-v1` 1024-square source still maps
+to 512 square. Keep all seven
+entries of its geometry table, its omitted/default path and the original
+CellKey and run-id spellings. The trial's Reuse must restore the recorded
+recipe, and More seeds must use its original instruction and source. The
+two recipes have different stored recipe names and keys, even on the same
+original pixels with the same instruction and seed. Each recipe counts its
+own outputs for replay and deduplication.
+
+### CPU work before the trial
+
+1. **Built.** Extend the strict internal request and stored recipe types
+   together. Keep the public preview and submission types at `kontext-v1`.
+   Carry the recipe on resolved geometry and use
+   the resolved recipe when preparing the source. Check exact aspect,
+   original dimensions, owned RGB pixels, the installed preprocessing and
+   call kwargs at 1024 square. Keep the first recipe's run IDs, including
+   `a83cde9e6cb2` and `d36d4cfce2f8`, pinned in tests.
+2. **Built.** Keep the full original-RGB SHA-256, filename and dimensions in the
+   existing bound edit spec. Prove the live gallery id before job keys
+   and again as each cell begins. CPU checks cover a changed same-id source,
+   incompatible geometry, durable replay intent and More seeds refusal.
+   The shipping gate holds all candidate tuples, including direct calls on
+   a loaded editor. Reuse stays held for an imported larger result.
+3. **Built.** Check SQL/PNG, reindex and bundle round trips using the
+   [carry inventory](instruction-edit-carry.md) and
+   [bundle contract](instruction-edit-bundles.md). Require SQL/PNG recipe
+   agreement. Preserve unresolved intent with `source: null`, and refuse
+   replay until it has a proven local source. V2 still identifies
+   edit-containing bundles, including mixed recipes. Builds that know
+   only `kontext-v1` refuse the unfamiliar recipe by strict validation.
+   Edit-free bundles stay v1. Keep Finish, Re-render, Generate and PNG
+   settings on their existing edit refusal paths.
+4. **Queue rehearsal passed.** A test-only allowlist ran all eight geometries
+   on one fake load. The 512-square and six other `kontext-v1` submissions
+   went through HTTP, and the bound larger candidate used the ordinary job
+   queue. More seeds, step-3 Cancel and Unload used the public routes. The
+   larger replay and the 512-square return matched their earlier fake
+   pixels. `card_guard.plan_sampled_windows_rung` refuses incomplete guard
+   samples, propagates trips and groups shared areas before projection.
+5. Prepare the isolated browser candidate with the trial allowlist and
+   recipe selection in its preview, submit and Reuse. Connect the live
+   supervisor to fresh guard samples, held decisions and observed
+   `try_unload`. Rehearse the browser and controller with a fake before
+   using real weights. Keep experimental admission local to the trial build.
+
+### One-load card protocol
+
+Use the Windows RTX 5080 CUDA 0, fp8/model offload, Eager/Native and
+diffusers 0.42.1. Start directly on the cached pinned editor, with no
+automatic load or critic. Use a scratch gallery and loopback port. Bind
+the build, controller, fixtures, cached revision, package/driver versions
+and device to the receipt. This session has one load, with no model switch
+or reload. Every inference is one image and finishes or cancels before
+the next begins.
+
+**Preflight and stop limits.** Start with an idle card at or below 2,000 MiB,
+at least 45 GiB free RAM and 56.544 GiB free commit. At Load, recheck free
+RAM and the commit requirement using the observed 46.544 GiB peak private
+memory plus the 4 GiB floor and 6 GiB margin, subtracting only the actual
+already-owned server-tree private memory. Observe guarded load, each call,
+recovery and unload at 0.25 s. Keep the 15,500 MiB whole-card limit,
+1,024 MiB adapter and 512 MiB process shared-memory rise limits, and 4 GiB
+live floors for free RAM and commit. Use the guard's stop path on a trip or
+unreadable guard input. End the owned session and retain the stopped receipt.
+
+**Fixtures.** Use the retained 1024-square owned house/sun/grass/red-ball PNG
+from the [November 18 receipt](instruction-acceptance-2026-11-18.json).
+The local copy is `work/gpu-20261118/kontext/full-fixture/source.png`.
+Its original RGB SHA-256 is
+`28b506e70b5876cbafe51fff8b0222272adf4a395f156647ad45121377d3f42a`.
+Prepare each non-square fixture once by converting that PNG to RGB and
+resizing to the listed original size with Pillow 13.0.0 Lanczos. Save each
+under a distinct basename and verify the digests before planting them as
+owned gallery rows. The recipe's own source preparation then resizes each
+planted original to its working size.
+
+| Recipe | Aspect | Original size | Working/output size | Original RGB SHA-256 |
+|---|---|---|---|---|
+| `kontext-v1` | 1:1 | 1024x1024 | 512x512 | Square fixture above |
+| `kontext-v1` | 16:9 | 1024x576 | 512x288 | `7e4be89fcd90b9a627cf4afa0617228498c87500cb77b796c02d23e66e36d00f` |
+| `kontext-v1` | 9:16 | 576x1024 | 288x512 | `cd314b1d9c212b0d56a0bb8f166517a96f9bcbef70a0bf19d325871f56574911` |
+| `kontext-v1` | 4:3 | 1024x768 | 512x384 | `c0071174302005ea5300e456d1024d47609f253f71a224dbf3d1c7b566b99dbf` |
+| `kontext-v1` | 3:4 | 768x1024 | 384x512 | `88400bbb17e9d80216162ad5bfed248bd9d8681954d8002ebdcdcfb4bc36a580` |
+| `kontext-v1` | 3:2 | 1152x768 | 576x384 | `bb076c89baed9a4e447b5b8e342a38ab870c33a19dbe72b1fc60486d8012f1ad` |
+| `kontext-v1` | 2:3 | 768x1152 | 384x576 | `6ea22bea1b912485a40d6337816cc0660f2b402714f52fe0c5246ede09ea3baf` |
+| `kontext-1024-v1` | 1:1 | 1024x1024 | 1024x1024 | Square fixture above |
+
+1. Load in the browser and record actual readiness. Edit the 512-square
+   control first. For all positive calls use `Change the red ball to a
+   blue ball.`, seed 12345, 28 steps and guidance 2.5 unless a step says
+   otherwise. Require the control to reproduce the November 18 RGB hash
+   `7e0062553284e700b6755b4c0450b7a8da1f43900c26ba5ed1f34f9c53512689`.
+   Stop on a mismatch to investigate the environment or source.
+2. Edit each of the six `kontext-v1` non-square sources once in the table's
+   order. Check exact output dimensions, source and recipe metadata,
+   edited subject and drift for each result. Use actual measured peaks
+   from the session for `card_guard.plan_sampled_windows_rung`. It groups
+   orientations by area and uses the higher peak. The 1024-square
+   projection uses the 3:2/2:3 pair and the 512-square
+   control. Hold the larger call if any earlier peak reached 15,000 MiB,
+   the projection exceeds 15,200 MiB, any guard tripped or data is missing.
+   The projection is an admission check. Keep the live guard through
+   every call because Kontext attention memory may grow nonlinearly.
+3. If admitted, run the 1024-square edit. Use More seeds on its result for
+   seeds 12346 and 12347 and verify the original proof, recipe and size
+   on each child. Cancel seed 777 once it reaches step 3. Require a
+   cancelled terminal state with zero saved images. Repeat seed 12345 at
+   1024 square and require equal full RGB digest to the first result.
+   Return to the 512-square control and require its original digest.
+4. Verify a non-square source with `kontext-1024-v1` and a 1024 output
+   request with `kontext-v1` both refuse without a job. A 1024 result's
+   Reuse opens Edit with its recipe. Generate, Re-render and Finish stay
+   held. Run Unload, confirm accepted `try_unload`, backend unready and
+   card/allocator recovery, then shut down and confirm the owned listener
+   and workers ended. Retain guarded post-unload samples.
+
+Record per-case output and source RGB digests, sizing, seed and instruction,
+visual comparisons, allocator peaks, whole-card and shared readings,
+process-tree private/RSS, free RAM/commit, timings and raw guard verdicts.
+Check that job/API, SQL and PNG all agree on recipe, proof, size and recorded
+memory. Record completed, held and unrun cases in
+[`docs/verified.md`](../verified.md#instruction-edit), with the raw receipt.
+Replay the 1024-square fixture once in a separate fresh one-load process
+before a public release. Only individually qualified tuples may then be
+considered for the public envelope. A larger call held at preflight leaves
+that recipe unmeasured.
 
 ## Stages and completion criteria
 

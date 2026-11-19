@@ -279,7 +279,8 @@ paragraphs, never rewording.
   `llama-server` and Qwen3-4B GGUF, fetched and verified by `prepare()`, one
   server per `critique()`, the answer validated against its sources;
   `critic_runtime.py` owns pinned installation, `critic_server.py` the process
-  tree and loopback requests, `critic_context.py` the question and token budget,
+  tree and loopback requests, `critic_linux.py` the Linux owner guard and
+  session membership, `critic_context.py` the question and token budget,
   `critic_reorder.py` pure prompt permutations, and `critic_validation.py`
   answer grounding and rewrite validation
 - `backend/prompt_assistant.py` — the writing assistant's checkpoint-grounded
@@ -332,7 +333,8 @@ paragraphs, never rewording.
   strength suggestions; it probes nothing and changes no reproduction keys
 - `backend/refine_admission.py` — gallery-only Anima source decode/proof:
   actual PNG dimensions and RGB provenance before fitting, rechecked per call
-- `backend/instruction_edit.py` — standalone `kontext-v1` recipe, strict
+- `backend/instruction_edit.py` — standalone `kontext-v1` and held
+  `kontext-1024-v1` recipes, strict
   request/stored-source contracts, original-RGB provenance and exact-aspect
   Lanczos geometry, canonical bound identity, the held-reason sentences and
   the execution holds that open only for `qualified=True`
@@ -383,11 +385,21 @@ paragraphs, never rewording.
   `paste_back`; numpy, Pillow, `sizes` and `refine`. The app crops, never
   the class's `padding_mask_crop`; the rule's boxes are pinned by
   `tests/test_mask_crop.py`
+- `backend/tiled_refine_contract.py` — private GEN#49 recipe identity,
+  portable original and prepared RGB proofs, key and exact 2x Lanczos preparation.
+- `backend/tiled_refine_admission.py` — live gallery root validation and
+  prepared canvas binding through the same handle. Reproves the original
+  root before each tile and after the final tile.
 - `backend/tiled_refine.py` — private provisional GEN#49 CPU orchestration:
-  the frozen 2048-square four-region masks, serial existing crop/overlay
-  helpers, injected renderer, per-tile seeds and immutable result facts;
-  cancellation discards the working composite. No production import or
-  public admission; `tests/test_tiled_refine.py` checks the bounded prototype
+  the frozen 2048-square four-region masks, serial crop/overlay helpers,
+  injected renderer, per-tile seeds and immutable result facts. Cancellation
+  discards the working composite. `tests/test_tiled_refine.py` pins the algorithm.
+- `backend/backends/tiled_refine_adapter.py` — the private pinned candidate's
+  serial SDXL inpaint calls with the loaded pipeline's shared components,
+  per-tile generator, callbacks and offload. The ordinary job queue saves
+  one result per private candidate cell. Public Generate, Grid, Re-render,
+  More seeds and Finish hold the recipe. `tests/test_tiled_refine_adapter.py`
+  checks source proof and the loaded candidate with CPU doubles.
 - `backend/sizes.py` — the preset table; the CLI's `--aspect/--mp`, config's
   `max_side`/`max_pixels` and a refine pass's `refine_max_side`/
   `refine_max_pixels` (any 2 MP preset at 2x), `web/state.js`'s copy,
@@ -883,8 +895,13 @@ paragraphs, never rewording.
   update's always among them, the rest deleted with their `-wal`/`-shm`.
   The plain `<name>-before-update.db` is the name only when git gives no
   commit (replaced each time, as before `DEV#34`); it is never counted or
-  deleted. `linux/update.sh` follows the same rule. The test
-  seam `AURADREAM_INSTALL_TEST_ROOT` names the project folder, ignores the
+  deleted. `linux/update.sh` follows the same rule. Each updater stages the
+  database and any nonempty WAL beside their final names, serializes
+  publication and rotation, and renames the WAL before the database. The
+  final database name marks completion. A retry discards unfinished
+  staging. Rotation and pull follow publication (`DEV#71`). Linux holds its
+  checkout and gallery locks from before the service check through restart.
+  The test seam `AURADREAM_INSTALL_TEST_ROOT` names the project folder, ignores the
   user's saved variables and takes the desktop from `USERPROFILE`
   (`tests/test_install_scripts.py`, Windows only)
   A configured HTTPS listener that accepted TCP but yielded no verified HTTP
@@ -2161,6 +2178,12 @@ measured on the card and when.
   stored 3:2 edits still bind and inspect. The tests' `FakeBackend` reports
   the envelope's own host (`edit_host`), so its answers follow the selection
   on any machine.
+- `kontext-1024-v1` has its own square geometry and stored recipe identity
+  (`INP#13`). Its proof, records and run keys bind without authorizing a
+  call. `require_execution_available` and `geometry_refusal` hold the recipe
+  while the measured envelope admits `kontext-v1` only. The public Edit
+  preview and submission enums and the dialog offer `kontext-v1`. Reuse
+  names the larger recipe's hold and does not reopen it at 512 square.
 - The envelope's diffusers is 0.42.1, the version the app installs:
   stage 3 measured 0.40.0, and the card re-measured Kontext on 0.42.1 on
   2026-11-10, pixel-identical (`docs/verified.md`). Any other version
@@ -3240,15 +3263,14 @@ measured on the card and when.
   passes, which Finish cannot recover separately. The worker emits a compact
   status on ending a call so the page holds Skip before a slow save. Held
   controls keep their size, `aria-disabled` and the reason as their title.
-- Cancel and pause are cooperative and polled: cancel from
-  `callback_on_step_end` (raise `Cancelled`), pause at the cell boundary
-  every quarter second. Never `Event.wait()`. The page answers a Pause press
-  at once ("Pausing…"; a press on it withdraws the request, one on Resume
-  reads Pause) and shows Resume only on the worker's `paused`, deriving the
-  label from every status frame's `paused`/`pause_requested` but one that
-  contradicts its own press while that POST is out (`pauseAsking`); the
-  label is the state, so it has no `aria-pressed` (the toggle rule,
-  Frontend). Cancel is likewise held from every status frame's
+- Cancel raises `Cancelled` from `callback_on_step_end`. Pause polls at
+  the cell boundary every quarter second. Never `Event.wait()`. A press
+  shows "Pausing…" at once, then Resume on the worker's `paused`.
+  Pausing… withdraws the request and Resume releases the hold. Each
+  `pause_requested` change reaches all watchers in a `pause` frame,
+  updating the control and note while keeping step progress. `pauseAsking`
+  guards the local label until an agreeing request frame or its POST reply.
+  The label says the state, so it has no `aria-pressed`. Cancel is held from
   `cancel_requested` (`syncCancel`), which `JobManager.cancel` sends to
   every stream at once for a running job: "Stopping…", `aria-disabled`,
   titled "This job is stopping after the current step", in any tab
@@ -3466,6 +3488,8 @@ measured on the card and when.
   of them; a first use's tokenizer fetch holds a Check, and so a Ctrl-C's
   drain, for `prompt_encoding.LOAD_WAIT` at most. Lifespan stops the critic,
   then `jobs.shutdown()`, then calls `try_unload()`.
+#### Image storage and gallery bundles
+
 - `save_image` writes `.png.part` and renames after the row commits, retrying
   the rename; the orphan sweep leaves `.part` files younger than an hour.
   A stale `<name>.png.part` whose row exists and whose `<name>.png` does not
@@ -3630,17 +3654,27 @@ measured on the card and when.
   known row keeps this gallery's state, as it keeps its star, and
   `binned_at` is not in the identity comparison. The import result's
   `binned` counts new rows arriving binned. A bundle from before the column
-  imports live; `binned_at` is not in `bundle_common._DB_REQUIRED` and the
-  manifest stays `version: 1`. Bin state is SQLite's alone, never the PNG
+  imports live. `binned_at` is optional and does not change the archive
+  version. Bin state is SQLite's alone, never the PNG
   chunk's: a PNG-only reindex, and an older build importing a newer bundle,
   bring binned images back live, as a PNG-only reindex loses a star;
   `reindex --database` carries `binned_at`.
+- An archive carrying a tracked Tiled Refine result uses manifest version 3.
+  Edit-only archives use version 2 and archives carrying neither recipe use
+  version 1. Every tracked tiled result needs matching SQL and PNG intent.
+  Merge remaps its source only after the included root matches the filename,
+  original dimensions, full RGB digest and the digest of the frozen Lanczos
+  canvas. An existing destination root must also match its gallery row.
+  An omitted or unproven root is counted and becomes `source: null`,
+  with both proofs retained in the row and rewritten PNG. Repeat imports keep
+  the local row and compare the recipe and both proofs without the numeric id.
 - Every archive is read once: `bundle_archive._verify_archive` checks CRC, manifest SHA-256
   and (encrypted) every chunk tag, and tracked PNGs are decoded from the bytes
   it just read on the bounded decode pool, which also hashes them; errors are
   raised in row order. A present image whose pixel-deciding chunks equal the
-  bundle copy's is not decoded, but its bundle row is still validated against
-  the copy's IHDR size. Never add a second full pass, and never weaken a check
+  bundle copy's takes the IHDR-size check unless it is needed for full source
+  proof. The decode reservation includes canvas preparation for tiled roots.
+  Never add a second full pass, and never weaken a check
   for speed (no zlib-only check, no size/mtime in place of the pre-cleanup
   hash, no trusting the live `content_hash` for an existing image). Export's
   read-back reuses the writer's scrypt key only for its byte-identical header;
@@ -3795,6 +3829,8 @@ measured on the card and when.
   `.part` files before taking the reservation and reserve only the row and
   the renames. Keep lock ordering consistent: gallery reservation before
   storage's write lock. Status and bundle downloads remain available.
+#### Generation runtime
+
 - The preview callback (`_step_end` -> `latent_preview`) never raises - an
   exception there is how `Cancelled` ends a job - and `jobs.on_preview` checks
   for subscribers per frame. A preview needs a matrix for the VAE and either
@@ -3975,9 +4011,11 @@ measured on the card and when.
   do not qualify this workflow's GPU latency, memory or prompt quality.
 - Task changes affect the next message and retain the conversation and options.
   A source edit or Undo still holds prepared options. Continue opens a native
-  dialog with the current prompt and an editable brief; only its explicit
-  acceptance adopts that exact source, starts a new bounded model-history span
-  and keeps the earlier transcript visible. The source is checked again on
+  dialog with the current prompt, negative prompt and an editable brief. A
+  change to the negative prompt opens its disclosure automatically, showing
+  the exact text or that it was cleared. Explicit acceptance adopts that exact
+  source, starts a new bounded model-history span and keeps the earlier
+  transcript visible. The source is checked again on
   acceptance. Old options remain held until a new answer. No context is silently
   truncated; the space hint warns before the message/text limit. Briefs are at
   most 2,000 characters. Refine this option captures a separate `focus_prompt`
@@ -4027,7 +4065,9 @@ measured on the card and when.
   to an untouched empty field for explicit retry; intervening edits win even if
   they leave the field empty. Sending scrolls only the conversation to its end.
   An arriving reply follows when the reader is within 48 px of the bottom;
-  scrolling up preserves the reader's position and offers Jump to latest reply.
+  earlier history keeps its existing controls and focus. Scrolling up preserves
+  the reader's position and offers Jump to latest reply. Jump scrolls to the
+  end and focuses the sidebar's status so keyboard shortcuts stay in Assistant.
   Explicit application keeps the
   sidebar open and rebases its exact source snapshot for follow-ups. External
   edits and native Undo still invalidate it.
@@ -4410,8 +4450,12 @@ measured on the card and when.
   not count. The server is stopped (terminate, wait, kill) as a whole tree in
   `finally`, before the gate opens (`_ServerProcess`): on Windows a job
   object, joined while the child is suspended and waited for by each
-  process's handle; on POSIX its own session, and on Linux every process in
-  that session. A spawn failure and a kill not waited out are `CriticError`s.
+  process's handle; on POSIX its own session, and on Linux every server
+  process in that session. The Linux bootstrap starts a guard in a separate
+  process group before executing the direct child. The guard uses a pidfd
+  for the owning app and waits for app death or release by ordinary Stop,
+  then ends any remaining session members. A spawn failure and a kill
+  not waited out are `CriticError`s.
   `_process` is cleared and the log removed regardless (retried, and only
   logged if still held).
   `prompt_critic.unload()` on Unload, in lifespan before `jobs.shutdown()` and
@@ -4568,7 +4612,7 @@ measured on the card and when.
   mask that has gone, at submit and between the check and the hold
   (`MaskGone`). `more_seeds_cap` on More seeds' batches times count past
   one press, and `more_seeds_receipt` on its receipt's own 409.
-  `selection_changed` on Delete unstarred's stale count. `bundle_in_use`
+  `selection_changed` on Delete unstarred's stale count or selection pin. `bundle_in_use`
   and `bundle_gone` on a saved bundle's delete
   (`DELETE /api/gallery/bundles/files/{name}`, `bundles.delete_saved_bundle`):
   in use while a bundle operation runs or the file is leased for a
@@ -5727,10 +5771,10 @@ measured on the card and when.
   failed load is a card in the viewer's empty state (`syncLoadFailure`:
   heading, detail, model page link, a primary Retry load calling
   `loadModel`; `loadFailureInViewer()` is whether it is shown). `loadModel`
-  takes back only what was said about the load - in the panel's line its
-  own refusal, Expand's pointer (`loadLine`) or the status's sentence
-  (`shownLoadDetail`), and under the prompt Expand's words about the load
-  (`aboutLoad`) - never the line's other messages; a card that goes with
+  takes back its own refusal or Expand's pointer (`loadLine`) and Expand's
+  words about the load under the prompt (`aboutLoad`). The status poll
+  owns its detail: a fast failure can already be visible when the POST
+  returns. A card that goes with
   focus in it hands focus to the new card's Retry load where one replaces
   it, else to Generate.
   Where the viewer holds images the detail goes to `#error`, once per
@@ -6167,6 +6211,8 @@ measured on the card and when.
   Opening reads cold detector status only. Download detector is an explicit
   press, and Detect regions is a separate CPU request: neither a status poll,
   a recipe edit, a checkbox nor Queue starts detection or downloads.
+  A successful status read clears the status error and keeps any Verify/repair
+  error. Status replies belong to the open review that requested them.
   The server's numbered regions stay in server order; both the overlay and
   checkbox list select those ids. Overlaps are named by the preview and the
   dialog explains that later passes see earlier edits. Selecting none and an
@@ -6176,7 +6222,10 @@ measured on the card and when.
   prompt fills use `replaceBoxText`. Queue uses `startJob` with `panel: false`;
   only acceptance closes the dialog. Held controls use `aria-disabled` and a
   titled reason, and a held press says it. The in-flight submit holds close
-  and Escape. Source moves, model changes and coded `detailer_stale` or
+  and Escape. A coded adapter refusal refreshes the list while Queue is held.
+  An adapter the list no longer offers is removed from the recipe and named
+  in the dialog. Another press sends the same review and recipe without it.
+  Source moves, model changes and coded `detailer_stale` or
   `detailer_receipt` refusals retire the frozen review; Queue never silently
   redetects. The dialog shares the Inpaint box and its wide two-pane layout,
   with a fixed review list and message slots to keep controls still.
@@ -7471,8 +7520,8 @@ measured on the card and when.
   `failed_indices`, and has its own streak (three passes in a row end the
   job; a base made between them does not reset it) beside the share of
   cells plus passes. Pending passes are in `planned_keys`. The snapshot
-  carries `then_refine`, `pass_run_id`, `stage` ("pass") and
-  `planned_images` doubled; the retained metadata `then_refine` with its
+  carries `then_refine`, `pass_run_id`, `stage` ("pass"), `base_images` and
+  `planned_images` including the passes. The retained metadata has `then_refine` with its
   `pass_run_id`, which Finish passes back, and a pass run's Finish names
   its base run (`storage.retained_run_metadata`). Finish adds the passes a
   stop left missing: where the run's retained jobs agree on one spec (two
@@ -7485,10 +7534,14 @@ measured on the card and when.
   at its turn (binned or deleted since is a failed pass in words), its
   planned pass in `job.source_passes` and so in `planned_keys` from submit.
   A run missing only passes is a job with no cells, whose request is its
-  first pass's; the retained metadata adds `pass_sources`. The preview's
-  `passes` counts them, its pin hashes their keys, and "the missing passes
-  are already queued" or "nothing in this run is missing" hold it; the
-  page's words add "and N missing passes" (`finishRunWords`). Each job's
+  first pass's; the retained metadata adds `pass_sources`. In a mixed run,
+  the recovery job retains `then_refine_cells` indices for the cells that
+  requested inline passes. Those indices govern admission, the estimate,
+  the worker and later recovery. With no indices, a retained spec applies
+  to every cell of that job. The preview's `passes` counts both kinds and its
+  pin includes the selected indices, spec and the saved-base pass keys.
+  The page shows the server's reason if they are already queued or the run
+  is complete, otherwise it adds "and N missing passes" (`finishRunWords`). Each job's
   retained outcome adds `completed_passes`, the bases whose pass it saved;
   of the missing passes, those a retained job had made (permanently
   deleted since) are the preview's `redrawn_passes`, and the page adds
@@ -7509,7 +7562,9 @@ measured on the card and when.
   batch (template `refine` and `edit` None) takes the spec its images'
   jobs retained (`then_refine.retained` over `storage.retained_run_metadata`
   of every held image's `job_id`, so a template from an earlier bases-only
-  More seeds still finds it) and queues with `submit_cells(then_refine=)`,
+  More seeds still finds it). A saved base from a mixed Finish job carries
+  the spec only if its image key matches one of that job's selected cells.
+  More seeds queues with `submit_cells(then_refine=)`,
   whose `pass_run_id` is the run's own pass run; `_more_seeds_jobs` keys by
   the spec too (`then_refine.spec_key`), one spec per job. Mates of two
   specs, or `then_refine.refusal` at the batch's cells, is status
@@ -7838,18 +7893,19 @@ measured on the card and when.
   (`GET`/`DELETE /api/gallery/unstarred`) reads `search.unstarred_scope`
   (`free_words=True`, `GAL#31`): `clear --where <box>
   --keep-favorites` over HTTP, the search box (words as the grid matches them, terms) or empty, gated on the
-  count typed back and pinned to it as `expected`, which `delete_matching`
-  checks under the write lock and answers 409 on a mismatch ("Nothing was
-  moved; look again.") - adding that a
+  count typed back as `expected` and the preview's `pin` of the selected IDs.
+  `delete_matching` checks both in its write transaction when supplied and
+  answers 409 on a mismatch ("Nothing was moved; look again.") - adding that a
   job is still running and may add more where `jobs.busy()`. It moves the
   rows to the recycle bin (`to_bin=True`, files untouched; the answer's
   `binned`, with `deleted` kept as an alias and `files` 0) and counts live
   rows only (`live_only=True`), so a Restore undoes it; the dialog says
   "They move to the recycle bin; Empty recycle bin removes them from disk."
   and the outcome "Moved N images to the recycle bin, keeping K starred"
-  (and the sources it keeps). The CLI's `--where` keeps
-  the defaults: every row, the bin's included, deleted for good, and a
-  binned star is not kept. Outside the sheet, the page first brings the grid
+  (and the sources it keeps). The CLI's `--where` uses the same count and pin
+  check, with its own scope: every matching row including the bin's is deleted
+  for good, and `--keep-favorites` keeps only live stars and their sources.
+  Outside the sheet, the page first brings the grid
   up to what the sweep reaches with `prependFinished(0, { now: true })`
   (the same filters, without waiting for the pointer to leave the gallery's
   column), then asks the preview with `newer_than`, the grid's head before
@@ -7955,7 +8011,7 @@ measured on the card and when.
   owner releases in finally. `syncBinWriteHolds()` fully refreshes availability
   for broad transitions; exact transitions also refresh both broad controls.
   `syncDeleteUnstarredHold` changes attrs without remeasuring/hiding the head.
-  New controls inherit the reason. Server keeper/count/revision, Empty pin/
+  New controls inherit the reason. Server keeper/count/pin/revision, Empty pin/
   fixed-before and confirmation semantics remain intact; All models is captured
   once for sweep request and wording. Bundle & clear has a separate
   `bundleClearOwner`, consulted first by exact/broad reasons. Local clear
@@ -9704,8 +9760,8 @@ unkept, `reference_paths` refusing, `refine_binned`), `tests/test_gallery.py`
 `SelectionChanged`, the orphan sweep sparing binned PNGs),
 `tests/test_api_gallery.py` (every bin route, the 404s without
 `?binned=true`, the favourite's 404, the picked cards' stars answered per
-id - a binned one `binned`, its flag kept - Delete unstarred binning, Empty
-recycle bin's count and its pin),
+id - a binned one `binned`, its flag kept - Delete unstarred binning and stale
+selection checks, Empty recycle bin's count and its pin),
 `tests/test_api_jobs.py` (the replay and `deleted_count` through a bin and a
 restore), the refine, grid, Swap, Mass refine and More seeds files (a binned
 source refused, a binned cell not remade until Empty, a picked-then-binned
@@ -9714,7 +9770,7 @@ id reported "in the recycle bin", seeds past a binned one),
 import keeping the local state), `tests/test_bundles_merge.py` (an old
 bundle live), `tests/test_api_bundles.py` (`binned` in the preview),
 `tests/test_clear.py` (`--bin` and its pin, the whole clear
-and `--where` reaching the bin, `--where` pinned to its count) and `tests/test_reindex.py` (in place and
+and `--where` reaching the bin, `--where` refusing a changed count or selection) and `tests/test_reindex.py` (in place and
 `--database` keeping the state, PNG-only bringing it back live).
 
 `tests/test_gallery_page_bounds.py` checks actual live/bin HTTP query
@@ -11390,9 +11446,9 @@ press says, and Cancel again at the job's end; a full disk
 (`/api/fake/disk-full`, the smoke's last steps): the job paused at image
 1/2 with the reason in the cell line, no failure and no image, held again
 by a Resume with the disk still full, then both images once there is
-room; a gated
-load's detail said in the panel line after every Generate while the viewer
-holds images; a gated load's card said once and not re-announced by the
+room; a gated load's detail kept in the panel after a held Load reply and
+said again after every Generate while the viewer holds images; a gated
+load's card said once and not re-announced by the
 banner, its Retry load handing focus to Generate; Load and Unload handing
 focus to each other; the banner hidden by a new job and not repeated
 after a watched one; a gated load's finish line "Not made: the model could
@@ -11429,7 +11485,9 @@ behind ("waiting: job ahead paused" there, "has been paused for 3 min" once
 its `ahead_paused_at` is set back past a minute, where Pause on that queued job
 says it will hold before its first image and a second press withdraws it;
 its row marked as another tab's here, Cancel queued's title, the count), Cancel queued here said there as a
-cancel from elsewhere, a job that ended at the load reworded once that
+cancel from elsewhere, a pending Pause seen and withdrawn from the second
+tab before the first tab's POST reply or the worker's next cell boundary,
+with both tabs' current steps kept, a job that ended at the load reworded once that
 tab's Load lands, with the panel line's reason taken back, and, on a page
 opened afresh, one that ended at the load over the card said on
 `#job-said`, reworded by the card's Retry load and again by an unload; the
@@ -11503,6 +11561,15 @@ uv run python tools/fake_server.py --port 7883 --model black-forest-labs/FLUX.1-
 node tools/browser.mjs tools/smoke-results.json
 ```
 
+`smoke-batch-strip-scrollbar.json` uses a fresh FLUX.1 Krea [dev] fake
+and native controls at 2560x1384. Two batches of two squares give the
+progress block room to make the document overflow only while the job
+runs. Frame samples assert a zero-width scrollbar before Generate,
+a classic scrollbar on the live fitted strip, and zero width again when
+all four results and gallery cards are in place. The fitted tile height,
+gallery head, Generate box and page scroll position are stable across the
+transition. Run it with `uv run python tools/run_smoke.py smoke-batch-strip-scrollbar`.
+
 ### Prompt analyser tests and smokes
 
 `test_assistant_models.py`, `test_prompt_assistant.py`, `test_prompt_assistant_guidance.py`, `test_prompt_assistant_runtime.py` and
@@ -11547,13 +11614,15 @@ uv run python tools/run_smoke.py smoke-prompt-assistant
 
 `smoke-assistant-workflow.json` uses its own separate fresh FLUX.1 Krea [dev]
 fake on 7960. It checks preserved task history, clarification-only replies,
-native source editing and reviewed continuation, a Refine/clear-focus sequence
-that cannot adopt an external edit before Continue, pinned requirements,
+native source editing and reviewed continuation, exact changed and cleared
+negative prompts, cancellation and edits during review, a Refine/clear-focus
+sequence that cannot adopt an external edit before Continue, pinned requirements,
 focused-option follow-ups, visible readiness and ticket-phase/transfer feedback,
 applied markers, expanded input and context-limit recovery. Current and earlier
 draft actions cover Copy, snippet preparation, prose comparison, CPU Check and
 captured same-seed preview with an explicit generation handoff stub. Unread
-reply navigation, late stopped progress, native phone focus containment,
+reply navigation with preserved history focus and Ctrl+Enter routing after
+Jump, late stopped progress, native phone focus containment,
 phone Apply/close/Undo, modal Check focus and desktop restoration are covered
 with accessibility/touch audits. It performs no model downloads, GPU inference
 or image generation and uses no real gallery.
@@ -11597,9 +11666,13 @@ the page's `PROMPT_MAX_CHARS` held to every request's `max_length`
 shutdown (the lifespan's order, `main.Server.handle_exit`, which ends a job
 waiting on a load at once). Where the point
 is the real thing, `test_critic_process.py` and `test_critic_server.py`
-start Python children and loopback servers: a wrapped stand-in llama-server's process tree, its listener and
-its counts, and the proxy bypass. The job-object cases run on Windows only;
-the wildcard-listener and half-exited-process cases run on Linux only. Its
+start Python children and loopback servers: a wrapped stand-in llama-server's
+process tree, its listener and its counts, and the proxy bypass. The
+job-object cases run on Windows only. The wildcard-listener, half-exited
+process and abrupt app-death cases run on Linux only. The app-death tests
+kill the disposable app with a wrapped listener in a separate process
+group, with and without its original wrapper still running, and check that
+an unrelated listener survives. Its
 real-tokenizer case in `test_critic_tokens.py`,
 `test_measured_counts_and_pieces_are_the_tokenizers`, skips when klein's tokenizer is not cached. The `fake` fixture installs
 `FakeCritic` as `main.prompt_critic` - its six methods held to
@@ -11963,8 +12036,12 @@ image menu, region review and overlap, empty detections and held reasons,
 unchanged composer, stale source/model, ordered saved inpaints and partial
 results, focus return, and narrow, standard and wide layouts. It also holds
 actual detection replies across close/reopen, source bin/restore and a
-checkpoint switch, ensuring retired work never refills a newer review. Detection
-quality and diffusion improvement remain separate real-data/card checks.
+checkpoint switch, ensuring retired work never refills a newer review. It
+checks status retry, separate Verify/repair feedback, and a late status reply
+after opening another source. It removes the fake server's adapter file after
+review, checks listed and unrelated refusals, and verifies that an explicit
+retry submits the same region and recipe without the removed adapter.
+Detection quality and diffusion improvement remain separate real-data/card checks.
 
 `smoke-refine.json` checks the Refine dialog on a FLUX.1 Krea [dev] fake on
 7875, whose refine cells are the source image under a stamp: no refine
@@ -12532,7 +12609,8 @@ Delete unstarred, with its "They move to the recycle bin" line and outcome,
 a lightbox of one image deleted (reopened at once after a
 close, the check waiting for the delete itself and
 `closeLightboxAfterDelete`'s focus), Delete unstarred keeping a starred
-pass's source with the typed count, a landed image's 409; images another
+pass's source with the typed count, a 409 for a landed image or a star swap
+that keeps the count unchanged; images another
 tab made since the grid loaded, put on it before the count is asked and
 counted in the dialog by the server's `newer`; the All models/running-job
 dialog and the 409's running-job sentence for a job another tab started
@@ -13637,6 +13715,8 @@ rollback (including a database replacement refused after every file is
 installed), the cross-volume copy and oversized or padded members.
 `tests/test_bundles_repeat.py` covers restoring a lost file of a known row,
 palette/mode identity and regenerated thumbnails.
+`tests/test_tiled_refine_bundles.py` covers version 3, both RGB proofs during
+remapping, unresolved carry and repeat-import conflicts on matching pixels.
 `tests/test_bundles_staging.py` covers staging and free space per volume and
 the leftover sweep, and `tests/test_gallery_lock.py` process/thread
 reservations. `tests/test_bundles_directory.py` covers independent archive

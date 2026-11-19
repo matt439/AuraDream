@@ -9,10 +9,10 @@ Every image carries its whole reproduction set in an `auradream` text chunk, and
 nothing could read it back: auradream.db was a single point of failure for an
 otherwise self-describing gallery, the WSL and Windows galleries could never be
 merged, and a row whose database went missing could never be repaired. This
-walks a directory of PNGs, skips the names the index already has (filename is
-UNIQUE, which makes the whole thing idempotent), copies files from elsewhere
-in with the same `.part`-then-rename discipline `save_image` uses, and inserts
-through `storage` so the search index is built with the rows.
+walks a directory of PNGs, verifies already indexed filenames against their
+retained pixels, copies new files in with the same `.part`-then-rename
+discipline `save_image` uses, and inserts through `storage` so the search index
+is built with the rows.
 
 With ``--database``, rows come from that gallery's database, so favorites and
 durations survive too. Gallery ids are local to a database; reference-image
@@ -45,8 +45,13 @@ import re
 import sqlite3
 import sys
 import time
+from collections.abc import Callable, Iterable, Iterator
+from contextlib import ExitStack, closing, contextmanager
 from datetime import datetime, timezone
+from functools import cache, partial
 from pathlib import Path
+from shutil import copyfile
+from tempfile import TemporaryDirectory
 
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -54,12 +59,12 @@ if __package__ in (None, ""):
 try:
     from PIL import Image
 
-    from backend import gallery_lock, png_settings, storage
+    from backend import gallery_lock, png_settings, storage, tiled_refine_contract as tiled
     from backend.bundle_common import _DB_REQUIRED
     from backend.config import settings
     from backend.execution import canonical_execution, execution_chunk, execution_from_json, execution_key
-    from backend.instruction_edit import StoredInstructionEdit, descriptor_from_image, edit_key
-    from backend.detailer import StoredDetailer, iter_rebuilt_masks, stored_json as detailer_json
+    from backend.instruction_edit import InstructionEditSource, StoredInstructionEdit, descriptor_from_image, edit_key
+    from backend.detailer import StoredDetailer, iter_rebuilt_masks, region_mask, stored_json as detailer_json
     from backend.metadata import (
         PNG_METADATA_KEY,  # noqa: F401 - re-exported; tests read reindex.PNG_METADATA_KEY
         PNG_METADATA_KEYS, PNG_SIGNATURE, canonical_edit, edit_chunk, edit_from_info,
@@ -68,6 +73,8 @@ try:
         validate_edit_record,
         canonical_detailer, detailer_chunk, detailer_from_info, detailer_from_json, detailer_from_sources,
         validate_detailer_record,
+        canonical_tiled_refine, tiled_refine_chunk, tiled_refine_from_info, tiled_refine_from_json,
+        tiled_refine_from_sources, validate_tiled_refine_record,
     )
 except ModuleNotFoundError as exc:  # pragma: no cover - startup guard
     sys.exit(
@@ -145,8 +152,9 @@ def _edit_metadata(path: Path) -> dict | None:
         return None
 
 
-def _preflight_edits(source: Path, rows: list[dict] | None = None) -> None:
-    """Refuse malformed/contradictory intent before rows, copies or masks change."""
+def _preflight_passes(source: Path, rows: list[dict] | None = None) -> set[str]:
+    """Check durable intent and collect retained roots needed by PNG recovery."""
+    tiled_roots: set[str] = set()
     if rows is None:
         for path in source.glob("*.png"):
             meta = _edit_metadata(path)
@@ -155,10 +163,15 @@ def _preflight_edits(source: Path, rows: list[dict] | None = None) -> None:
                 detailer = canonical_detailer(meta.get("detailer"))
                 validate_detailer_record(detailer, meta)
                 _verify_detailer_masks(detailer)
-        return
+                tiled_refine = canonical_tiled_refine(meta.get("tiled_refine"))
+                validate_tiled_refine_record(tiled_refine, meta)
+                if tiled_refine is not None and tiled_refine.source is not None:
+                    tiled_roots.add(tiled_refine.root_source.filename)
+        return tiled_roots
     for row in rows:
         stored = edit_from_json(row.get("edit"))
         detailer = detailer_from_json(row.get("detailer"))
+        tiled_refine = tiled_refine_from_sources(row, None)
         validate_detailer_record(detailer, row)
         _verify_detailer_masks(detailer)
         filename = row.get("filename")
@@ -171,21 +184,21 @@ def _preflight_edits(source: Path, rows: list[dict] | None = None) -> None:
                 edit_from_sources(row, meta or {})
             if meta is not None or detailer is not None:
                 detailer_from_sources(row, meta or {})
+            if meta is not None or tiled_refine is not None:
+                tiled_refine_from_sources(row, meta or {})
+    return tiled_roots
 
 
-def _preflight_retained_edits(filenames, existing: dict[str, int], outputs: Path) -> None:
-    for filename in filenames:
-        if filename not in existing:
-            continue
-        known = storage.get_image(existing[filename], include_binned=True)
-        if known is None:
-            continue
+def _preflight_retained_passes(retained: dict[str, dict], outputs: Path) -> None:
+    for filename, row in retained.items():
         path = outputs / filename
         # A missing ordinary destination retains its normal conflict behavior;
         # an edit cannot claim its durable PNG representation is still present.
-        if path.is_file() or known.edit is not None or known.detailer is not None:
-            edit_from_sources(_known_edit_row(known), _edit_metadata(path) or {})
-            detailer_from_sources(_known_edit_row(known), _edit_metadata(path) or {})
+        if path.is_file() or any(row.get(key) is not None for key in ("edit", "detailer", "tiled_refine")):
+            meta = _edit_metadata(path) or {}
+            edit_from_sources(row, meta)
+            detailer_from_sources(row, meta)
+            tiled_refine_from_sources(row, meta)
 
 
 def _verify_detailer_masks(stored: StoredDetailer | None) -> None:
@@ -244,15 +257,65 @@ def _same_edit(left: StoredInstructionEdit | None, right: StoredInstructionEdit 
     return (left.recipe, left.edit_source) == (right.recipe, right.edit_source)
 
 
-def _known_edit_row(known) -> dict:
-    """The fields an existing row's edit is checked against its PNG with."""
-    return {
-        "edit": edit_key(known.edit), "model_id": known.model_id,
-        "width": known.width, "height": known.height, "prompt": known.prompt,
-        "detailer": detailer_json(known.detailer), "mask": known.mask, "batch": known.batch,
-        "outpaint": known.outpaint, "mask_crop": known.mask_crop, "upscaler": known.upscaler,
-        "crop_anchor": known.crop_anchor,
-    }
+def _prepared_proof(path: Path, expected_hash: str) -> str | None:
+    """Prove the original RGB PNG before building its frozen prepared canvas."""
+    try:
+        if path.is_symlink() or path.is_junction():
+            return None
+        with Image.open(path) as image:
+            if image.format != "PNG" or tiled.descriptor_from_image(path.name, image).hash != expected_hash:
+                return None
+            with closing(tiled.prepare_canvas(image)) as prepared:
+                return tiled.rgb_sha256(prepared)
+    except (OSError, ValueError, Image.DecompressionBombError):
+        return None
+
+
+def _remapped_tiled(
+    stored: tiled.StoredTiledRefine | None, source: int | None, counts: dict[str, int],
+) -> tiled.StoredTiledRefine | None:
+    if stored is None:
+        return None
+    if source is None:
+        counts["unresolved_tiled_refines"] += 1
+    return stored.model_copy(update={"source": source})
+
+
+def _matches_tiled_root_row(row: dict, root: InstructionEditSource) -> bool:
+    """A destination row must also pass the live gallery provenance check."""
+    return (row["width"], row["height"]) == (root.width, root.height) and row.get("content_hash") == root.hash[:16]
+
+
+def _same_tiled(
+    retained: tiled.StoredTiledRefine | None, stored: tiled.StoredTiledRefine | None,
+    known: dict, incoming: dict,
+) -> bool:
+    if retained is None or stored is None:
+        return retained is stored
+    return retained.model_dump(exclude={"source"}) == stored.model_dump(exclude={"source"}) and all(
+        known.get(key) == incoming.get(key) for key in ("prompt", "negative_prompt", "seed")
+    )
+
+
+def _verify_retained_pixels(incoming: Image.Image, kept: Image.Image, row: dict, *, in_place: bool) -> None:
+    """Prove same-name adoption independently of the PNG's metadata."""
+    if kept.size != (row["width"], row["height"]):
+        raise ValueError("the retained PNG dimensions disagree with its gallery row")
+    if in_place:
+        # The input and destination are the same file. The row's saved hash
+        # is the independent check, where the writer recorded one.
+        digest = row.get("content_hash")
+        if digest is not None and storage.content_hash(incoming) != digest:
+            raise ValueError("the retained PNG pixels disagree with its gallery row")
+        return
+    if (
+        kept.size != incoming.size
+        or kept.mode != incoming.mode
+        or kept.getpalette(None) != incoming.getpalette(None)
+        or kept.info.get("transparency") != incoming.info.get("transparency")
+        or kept.tobytes() != incoming.tobytes()
+    ):
+        raise ValueError("different PNG pixels already use that filename")
 
 
 def _dependency_order(rows: list[dict], cycles: set[int]) -> list[dict]:
@@ -277,8 +340,10 @@ def _dependency_order(rows: list[dict], cycles: set[int]) -> list[dict]:
         visiting.add(identifier)
         stored = edit_from_json(row.get("edit"))
         detailer = detailer_from_json(row.get("detailer"))
+        tiled_refine = tiled_refine_from_json(row.get("tiled_refine"))
         links = [*_json_list(row.get("reference")), row.get("refine"), stored.source if stored else None,
-                 detailer.plan.source_id if detailer is not None else None]
+                 detailer.plan.source_id if detailer is not None else None,
+                 tiled_refine.source if tiled_refine is not None else None]
         for source_id in links:
             if type(source_id) is int and source_id in by_id:
                 visit(by_id[source_id])
@@ -341,51 +406,56 @@ def _copy_in(source: Path, target: Path, meta: dict | None = None, parameters: s
     partial.replace(target)
 
 
+def _read_embedded_mask(path: Path, digest: str) -> Image.Image | None:
+    try:
+        with Image.open(path) as image:
+            # Like _read, include PNG text chunks that follow IDAT.
+            image.load()
+            return _embedded_mask(image, digest)
+    except (OSError, ValueError, Image.DecompressionBombError):
+        return None
+
+
 class _Masks:
     """The masks a reindex can find, and the ones it put back.
 
-    `held` answers whether this gallery has a mask (its row and its file),
-    from what this run restored and, against a gallery that exists, from
-    storage - never creating one, which a dry run promises not to do.
-    `restore` keeps a verified mask through `storage.store_mask`, the one
-    writer of the `masks` table and directory.
+    Keep the verified path or recipe for each restored mask. Crop proofs can
+    read one back even in a dry run, which writes no mask files. The decoded
+    pictures are used and closed one at a time.
     """
 
-    def __init__(self, counts: dict[str, int], dry_run: bool, out):
+    def __init__(
+        self, counts: dict[str, int], dry_run: bool, out,
+        mask_path: Callable[[str], Path | None],
+    ):
         self.counts = counts
         self.dry_run = dry_run
         self.out = out
-        self.restored: set[str] = set()
-        # The masks this run restored, as pictures: a dry run stores none.
-        self.pictures: dict[str, Image.Image] = {}
+        self.mask_path = mask_path
+        self.restored: dict[str, Callable[[], Image.Image | None]] = {}
 
     def held(self, digest: str) -> bool:
-        if digest in self.restored:
-            return True
-        if not settings.db_path.exists():
-            return False
-        try:
-            storage.mask_path(digest)
-        except ValueError:
-            return False
-        return True
+        return digest in self.restored or self.mask_path(digest) is not None
 
-    def restore(self, digest: str, mask: Image.Image) -> None:
+    def _restore(
+        self, digest: str, mask: Image.Image, read_again: Callable[[], Image.Image | None],
+    ) -> None:
         if not self.dry_run:
             storage.store_mask(mask)
-        self.restored.add(digest)
-        self.pictures[digest] = mask
+        self.restored[digest] = read_again
         self.counts["masks"] += 1
 
     def detailer(self, stored: StoredDetailer | None) -> None:
         if stored is None:
             return
-        for digest, picture in iter_rebuilt_masks(stored.plan):
-            if self.held(digest):
-                picture.close()
-            else:
-                self.restore(digest, picture)
-                self.counts["detailer_masks_rebuilt"] += 1
+        plan = stored.plan
+        for (digest, picture), region in zip(iter_rebuilt_masks(plan), plan.accepted_regions, strict=True):
+            with closing(picture):
+                if not self.held(digest):
+                    read_again = partial(region_mask, plan.source.width, plan.source.height, region,
+                                         plan.padding, plan.feather)
+                    self._restore(digest, picture, read_again)
+                    self.counts["detailer_masks_rebuilt"] += 1
 
     def from_directory(self, directory: Path) -> None:
         """Every `masks/*.png` named by the hash of its own pixels."""
@@ -397,37 +467,30 @@ class _Masks:
                 self.counts["bad_masks"] += 1
                 print(f"  skip  masks/{path.name}: not the mask its name says", file=self.out)
                 continue
-            if not self.held(digest):
-                self.restore(digest, mask)
+            with closing(mask):
+                if not self.held(digest):
+                    self._restore(digest, mask, partial(_open_mask, path, digest))
 
-    def picture(
-        self, digest: str | None, directory: Path, image: Image.Image | None,
-        outpaint=None, size: tuple[int, int] | None = None,
+    def _picture(
+        self, digest: str, directory: Path, image: Image.Image | None,
+        outpaint: storage.OutpaintSpec | None, size: tuple[int, int],
     ) -> Image.Image | None:
-        """The mask `digest` names, as a picture, from wherever this
-        reindex can read it - its file in `directory`, this gallery's copy,
-        the result's own embedded copy, or an outpaint's built again - or
-        None. Read only to prove (or draw again) a masked area's region."""
-        if digest is None:
-            return None
-        if digest in self.pictures:
-            return self.pictures[digest]
+        """Open a restored or otherwise available mask to prove a crop region."""
+        if digest in self.restored and (mask := self.restored[digest]()) is not None:
+            return mask
         path = directory / f"{digest}.png"
         mask = _open_mask(path, digest) if path.is_file() else None
-        if mask is None and settings.db_path.exists():
-            try:
-                mask = _open_mask(storage.mask_path(digest), digest)
-            except ValueError:
-                mask = None
+        if mask is None and (held := self.mask_path(digest)) is not None:
+            mask = _open_mask(held, digest)
         if mask is None:
             mask = _embedded_mask(image, digest)
-        if mask is None and outpaint is not None and size is not None:
-            mask = storage.rebuilt_outpaint_mask(size[0], size[1], outpaint, digest)
+        if mask is None and outpaint is not None:
+            mask = storage.rebuilt_outpaint_mask(*size, outpaint, digest)
         return mask
 
     def resolve(
-        self, digest: str | None, directory: Path, image: Image.Image | None,
-        outpaint=None, size: tuple[int, int] | None = None,
+        self, digest: str | None, directory: Path, result: Path, image: Image.Image | None,
+        outpaint: storage.OutpaintSpec | None, size: tuple[int, int],
     ) -> None:
         """Make sure a result's mask is held: from its file in `directory`,
         else from the result's own embedded copy, else - an outpaint's - built
@@ -436,38 +499,100 @@ class _Masks:
         if digest is None or self.held(digest):
             return
         path = directory / f"{digest}.png"
-        mask = _open_mask(path, digest) if path.is_file() else None
+        read_again = partial(_open_mask, path, digest)
+        mask = read_again() if path.is_file() else None
         if mask is None:
             mask = _embedded_mask(image, digest)
-        if mask is None and outpaint is not None and size is not None:
-            mask = storage.rebuilt_outpaint_mask(size[0], size[1], outpaint, digest)
+            read_again = partial(_read_embedded_mask, result, digest)
+        if mask is None and outpaint is not None:
+            read_again = partial(storage.rebuilt_outpaint_mask, *size, outpaint, digest)
+            mask = read_again()
             if mask is not None:
                 self.counts["outpaint_masks_rebuilt"] += 1
         if mask is None:
             self.counts["unresolved_masks"] += 1
             print(f"  note  mask {digest[:16]} was found neither in masks/ nor in its result", file=self.out)
             return
-        self.restore(digest, mask)
+        with closing(mask):
+            self._restore(digest, mask, read_again)
+
+    def crop(
+        self, digest: str | None, recorded, malformed: bool, directory: Path,
+        image: Image.Image | None, outpaint: storage.OutpaintSpec | None, size: tuple[int, int],
+    ):
+        painted = (
+            self._picture(digest, directory, image, outpaint, size)
+            if digest is not None and not malformed and _names_a_mask_crop(recorded, image) else None
+        )
+        try:
+            return _mask_crop(digest, recorded, malformed, painted, image, self.counts)
+        finally:
+            if painted is not None:
+                painted.close()
+
+
+@contextmanager
+def _connect_read(database: Path) -> Iterator[sqlite3.Connection]:
+    database = database.resolve()
+    wal = database.with_name(database.name + "-wal")
+    has_wal = wal.exists()
+    with ExitStack() as resources:
+        if has_wal and not database.with_name(database.name + "-shm").exists():
+            # A database and WAL from a backup have no shared-memory index.
+            # Even a read-only SQLite connection would build it alongside them.
+            snapshot = Path(resources.enter_context(TemporaryDirectory())) / database.name
+            copyfile(database, snapshot)
+            copyfile(wal, snapshot.with_name(wal.name))
+            database = snapshot
+        uri = database.as_uri() + "?mode=ro"
+        if not has_wal:
+            # A checkpointed WAL-mode database needs no sidecars for this read.
+            uri += "&immutable=1"
+        conn = resources.enter_context(closing(sqlite3.connect(uri, uri=True, timeout=15)))
+        conn.row_factory = sqlite3.Row
+        yield conn
+
+
+class _Destination:
+    """Snapshot of the existing rows this recovery will need, without migration."""
+
+    def __init__(self, database: Path, outputs: Path, filenames: Iterable[str]):
+        self.outputs = outputs
+        self.existing: dict[str, int] = {}
+        self.retained: dict[str, dict] = {}
+        self.mask_hashes: set[str] = set()
+        if not database.exists():
+            return
+        wanted = set(filenames)
+        with _connect_read(database) as conn:
+            tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+            if "images" in tables:
+                for row in conn.execute("SELECT * FROM images"):
+                    filename = row["filename"]
+                    self.existing[filename] = row["id"]
+                    if filename in wanted:
+                        self.retained[filename] = dict(row)
+            if "masks" in tables:
+                self.mask_hashes = {row[0] for row in conn.execute("SELECT hash FROM masks")}
+
+    def mask_path(self, digest: str) -> Path | None:
+        if digest not in self.mask_hashes:
+            return None
+        path = self.outputs / storage.MASKS_DIR / f"{digest}.png"
+        return path if path.is_file() else None
 
 
 def _source_rows(database: Path) -> list[dict]:
     """Read another app database without migrating or otherwise changing it."""
-    uri = database.resolve().as_uri() + "?mode=ro"
     try:
-        conn = sqlite3.connect(uri, uri=True, timeout=15)
-    except sqlite3.Error as exc:
-        raise ValueError(f"cannot open source database: {exc}") from exc
-    conn.row_factory = sqlite3.Row
-    try:
-        columns = {row["name"] for row in conn.execute("PRAGMA table_info(images)")}
-        missing = sorted(_DB_REQUIRED - columns)
-        if missing:
-            raise ValueError("source database has no usable images table; missing " + ", ".join(missing))
-        return [dict(row) for row in conn.execute("SELECT * FROM images ORDER BY id")]
-    except sqlite3.Error as exc:
+        with _connect_read(database) as conn:
+            columns = {row["name"] for row in conn.execute("PRAGMA table_info(images)")}
+            missing = sorted(_DB_REQUIRED - columns)
+            if missing:
+                raise ValueError("source database has no usable images table; missing " + ", ".join(missing))
+            return [dict(row) for row in conn.execute("SELECT * FROM images ORDER BY id")]
+    except (OSError, sqlite3.Error) as exc:
         raise ValueError(f"cannot read source database: {exc}") from exc
-    finally:
-        conn.close()
 
 
 def _json_list(value) -> list:
@@ -605,6 +730,7 @@ def _database_meta(
         **execution_chunk(execution_from_json(row.get("execution"))),
         **edit_chunk(edit_from_json(row.get("edit"))),
         **detailer_chunk(detailer_from_json(row.get("detailer"))),
+        **tiled_refine_chunk(tiled_refine_from_json(row.get("tiled_refine"))),
         **storage.peak_chunk(row),
     }
 
@@ -623,6 +749,7 @@ def merge_database(
         "unresolved_references": 0,
         "unresolved_edits": 0,
         "unresolved_detailers": 0,
+        "unresolved_tiled_refines": 0,
         "detailer_masks_rebuilt": 0,
         "masks": 0,
         "bad_masks": 0,
@@ -637,19 +764,24 @@ def merge_database(
     sizes = {row["id"]: (row["width"], row["height"]) for row in rows}
     outputs = settings.outputs_dir.resolve()
     source = source.resolve()
-    _preflight_edits(source, rows)
+    _preflight_passes(source, rows)
     edit_cycles: set[int] = set()
     rows = _dependency_order(rows, edit_cycles)
     source_rows = {row["id"]: row for row in rows}
-    existing = storage.existing_file_ids() if settings.db_path.exists() else {}
-    _preflight_retained_edits((row["filename"] for row in rows if isinstance(row.get("filename"), str)), existing, outputs)
+    destination = _Destination(settings.db_path, outputs, (
+        row["filename"] for row in rows
+        if isinstance(row.get("filename"), str) and Path(row["filename"]).name == row["filename"]
+    ))
+    existing = destination.existing
+    _preflight_retained_passes(destination.retained, outputs)
+    prepared_proof = cache(_prepared_proof)
     id_map: dict[int, int] = {}
     if not dry_run:
         storage.init_db()
     # The masks first, every one the other gallery's directory holds, as
     # its `masks` table would list them: a mask is named by its pixels, so
     # its file is the record, and a result below then finds it held.
-    masks = _Masks(counts, dry_run, out)
+    masks = _Masks(counts, dry_run, out, destination.mask_path)
     masks.from_directory(source / storage.MASKS_DIR)
 
     for row in rows:
@@ -694,7 +826,7 @@ def merge_database(
             continue
         try:
             png_meta, (width, height), image = _read(path, require_metadata=False)
-        except (OSError, ValueError) as exc:
+        except (OSError, ValueError, Image.DecompressionBombError) as exc:
             counts["invalid"] += 1
             print(f"  skip  {filename}: not a readable PNG: {exc}", file=out)
             continue
@@ -706,38 +838,39 @@ def merge_database(
             execution = _execution_from_sources(row, png_meta)
             stored_edit = edit_from_sources(row, png_meta or {})
             stored_detailer = detailer_from_sources(row, png_meta or {})
+            stored_tiled = tiled_refine_from_sources(row, png_meta or {})
+            validate_tiled_refine_record(stored_tiled, {**row, "width": width, "height": height})
         except ValueError as exc:
             counts["invalid"] += 1
             print(f"  skip  {filename}: invalid execution metadata: {exc}", file=out)
             continue
         if filename in existing:
             try:
-                known = storage.get_image(existing[filename], include_binned=True)
-                if known is None:
-                    raise ValueError("the retained row disappeared")
+                known = destination.retained[filename]
                 with target.open("rb") as stream:
                     require_header_metadata(stream)
                     with Image.open(stream) as kept:
                         if kept.format != "PNG":
                             raise ValueError("the retained image is not a PNG")
-                        retained = _execution_from_info({"execution": execution_key(known.execution)}, kept.info)
-                        retained_edit = edit_from_info(
-                            _known_edit_row(known), {key: kept.info.get(key) for key in PNG_METADATA_KEYS},
-                        )
-                        retained_detailer = detailer_from_info(
-                            _known_edit_row(known), {key: kept.info.get(key) for key in PNG_METADATA_KEYS},
-                        )
+                        info = {key: kept.info.get(key) for key in PNG_METADATA_KEYS}
+                        retained = _execution_from_info({"execution": known.get("execution")}, info)
+                        retained_edit = edit_from_info(known, info)
+                        retained_detailer = detailer_from_info(known, info)
+                        retained_tiled = tiled_refine_from_info(known, info)
+                        _verify_retained_pixels(image, kept, known, in_place=source == outputs)
                 if retained != execution:
                     raise ValueError("different execution already uses that filename")
                 if not _same_edit(retained_edit, stored_edit) or (
-                    stored_edit is not None and known.prompt != row["prompt"]
+                    stored_edit is not None and known["prompt"] != row["prompt"]
                 ):
                     raise ValueError("different instruction edit already uses that filename")
                 if not _same_detailer(retained_detailer, stored_detailer):
                     raise ValueError("different detailer manifest already uses that filename")
-            except (OSError, ValueError) as exc:
+                if not _same_tiled(retained_tiled, stored_tiled, known, row):
+                    raise ValueError("different Tiled Refine intent already uses that filename")
+            except (OSError, ValueError, Image.DecompressionBombError) as exc:
                 counts["conflicts"] += 1
-                print(f"  skip  {filename}: cannot keep its existing execution metadata: {exc}", file=out)
+                print(f"  skip  {filename}: cannot use the retained image: {exc}", file=out)
                 continue
             counts["present"] += 1
             id_map[source_id] = existing[filename]
@@ -766,8 +899,25 @@ def merge_database(
             ):
                 detailer_source = mapped_source
         remapped_detailer = _remapped_detailer(stored_detailer, detailer_source, counts)
+        tiled_source = None
+        if stored_tiled is not None and stored_tiled.source is not None and source_id not in edit_cycles:
+            original_source = source_rows.get(stored_tiled.source)
+            mapped_source = id_map.get(stored_tiled.source)
+            root = stored_tiled.root_source
+            retained_root = destination.retained.get(root.filename)
+            origin = source / root.filename
+            target_root = origin if dry_run and retained_root is None else outputs / root.filename
+            if (
+                original_source is not None and original_source["filename"] == root.filename
+                and mapped_source is not None
+                and (retained_root is None or _matches_tiled_root_row(retained_root, root))
+                and prepared_proof(origin, root.hash) == stored_tiled.prepared_rgb_sha256
+                and prepared_proof(target_root, root.hash) == stored_tiled.prepared_rgb_sha256
+            ):
+                tiled_source = mapped_source
+        remapped_tiled = _remapped_tiled(stored_tiled, tiled_source, counts)
         row = {**row, "execution": execution_key(execution), "edit": edit_key(remapped_edit),
-               "detailer": detailer_json(remapped_detailer)}
+               "detailer": detailer_json(remapped_detailer), "tiled_refine": tiled.tiled_refine_key(remapped_tiled)}
         masks.detailer(remapped_detailer)
 
         source_references = [
@@ -806,7 +956,7 @@ def merge_database(
                 spec = None
                 counts["outpaint_malformed"] += 1
         spec = _outpaint(mask, spec, image, width, height, sizes.get(row.get("refine")), counts)
-        masks.resolve(mask, source / storage.MASKS_DIR, image, spec, (width, height))
+        masks.resolve(mask, source / storage.MASKS_DIR, path, image, spec, (width, height))
         # Only the masked area beside its mask, its region proved against it.
         recorded, malformed = None, False
         if mask is not None and row.get("mask_crop") is not None:
@@ -819,11 +969,9 @@ def merge_database(
                     storage.MaskCropSpec.parse_key(crop_key),
                     storage.parse_mask_crop_box(box) if box is not None else None,
                 )
-        painted = (
-            masks.picture(mask, source / storage.MASKS_DIR, image, spec, (width, height))
-            if mask is not None and _names_a_mask_crop(recorded, image) else None
+        crop_spec, crop_region, parameters = masks.crop(
+            mask, recorded, malformed, source / storage.MASKS_DIR, image, spec, (width, height),
         )
-        crop_spec, crop_region, parameters = _mask_crop(mask, recorded, malformed, painted, image, counts)
         crop = (crop_spec, crop_region) if crop_spec is not None else None
         digest = storage.content_hash(image)
         counts["indexed"] += 1
@@ -866,6 +1014,7 @@ def merge_database(
             "execution": execution_key(execution),
             "edit": edit_key(remapped_edit),
             "detailer": detailer_json(remapped_detailer),
+            "tiled_refine": tiled.tiled_refine_key(remapped_tiled),
             "batch": storage._batch(row.get("batch")),
             # The recycle bin is SQLite's alone, as the star is: carried with
             # the database, and None (live) from one that predates it.
@@ -883,6 +1032,7 @@ def merge_database(
             png_crop = png_meta.get("mask_crop") if png_meta is not None else None
             if (copied or row.get("refine") != refine or row.get("crop_anchor") != meta.get("crop_anchor")
                     or execution != png_execution or remapped_edit != stored_edit or remapped_detailer != stored_detailer
+                    or remapped_tiled != stored_tiled
                     or png_crop != meta.get("mask_crop") or parameters is not None):
                 # A database rebuilt beside its original PNGs can renumber or
                 # lose a source too. Keep --from-image's crop and source in
@@ -911,6 +1061,7 @@ def reindex(
         "unresolved_references": 0, "masks": 0, "bad_masks": 0, "unresolved_masks": 0,
         "unresolved_edits": 0,
         "unresolved_detailers": 0, "detailer_masks_rebuilt": 0,
+        "unresolved_tiled_refines": 0,
         "outpaint_malformed": 0, "outpaints_recovered": 0, "outpaint_masks_rebuilt": 0,
         "mask_crop_malformed": 0, "mask_crops_recovered": 0,
         "invalid_upscalers": 0,
@@ -920,20 +1071,22 @@ def reindex(
     source = source.resolve()
     outputs = settings.outputs_dir.resolve()
     in_place = source == outputs
-    existing = storage.existing_file_ids() if settings.db_path.exists() else {}
     paths = {path.name: path for path in sorted(source.glob("*.png"))}
-    _preflight_edits(source)
-    _preflight_retained_edits(paths, existing, outputs)
+    tiled_roots = _preflight_passes(source)
+    destination = _Destination(settings.db_path, outputs, paths.keys() | tiled_roots)
+    existing = destination.existing
+    _preflight_retained_passes({name: row for name, row in destination.retained.items() if name in paths}, outputs)
     visited: set[str] = set()
     visiting: set[str] = set()
     identities: dict[str, dict] = {}
     edit_cycles: set[str] = set()
     edit_identities: dict[str, object] = {}
+    prepared_proof = cache(_prepared_proof)
     if not dry_run:
         storage.init_db()
     # The `masks` rows a lost database took with it, from the files first;
     # each result's own embedded copy then covers a file that went too.
-    masks = _Masks(counts, dry_run, out)
+    masks = _Masks(counts, dry_run, out, destination.mask_path)
     masks.from_directory(source / storage.MASKS_DIR)
 
     def resolve_edit(stored: StoredInstructionEdit) -> int | None:
@@ -999,7 +1152,7 @@ def reindex(
                         "filename": filename, "hash": storage.content_hash(image),
                         "width": image.width, "height": image.height,
                     }
-            except OSError:
+            except (OSError, ValueError, Image.DecompressionBombError):
                 return None
             identities[filename] = actual
         if actual is None or any(
@@ -1008,29 +1161,68 @@ def reindex(
             return None
         return existing[filename]
 
+    def resolve_tiled(stored: tiled.StoredTiledRefine) -> int | None:
+        if stored.source is None:
+            return None
+        root = stored.root_source
+        filename = root.filename
+        if filename in visiting:
+            edit_cycles.update(visiting)
+            return None
+        if filename in paths:
+            index(paths[filename])
+        if filename not in existing or filename in edit_cycles:
+            return None
+        retained_root = destination.retained.get(filename)
+        if retained_root is not None and not _matches_tiled_root_row(retained_root, root):
+            return None
+        if retained_root is None and filename not in identities:
+            return None
+        origin = paths.get(filename, outputs / filename)
+        target_root = origin if existing[filename] < 0 else outputs / filename
+        if (
+            prepared_proof(origin, root.hash) == stored.prepared_rgb_sha256
+            and prepared_proof(target_root, root.hash) == stored.prepared_rgb_sha256
+        ):
+            return abs(existing[filename])
+        return None
+
     def index(path: Path) -> None:
         if path.name in visited:
             return
         visited.add(path.name)
         if path.name in existing:
             try:
-                incoming = canonical_edit((_edit_metadata(path) or {}).get("edit"))
-                known = storage.get_image(existing[path.name], include_binned=True)
-                if known is None:
-                    raise ValueError("the retained row disappeared")
-                target_meta = _edit_metadata(outputs / path.name)
-                retained = edit_from_sources(_known_edit_row(known), target_meta or {})
-                incoming_detailer = canonical_detailer((_edit_metadata(path) or {}).get("detailer"))
-                retained_detailer = detailer_from_sources(_known_edit_row(known), target_meta or {})
+                known = destination.retained[path.name]
+                incoming_meta, _, incoming_image = _read(path, require_metadata=False)
+                if incoming_image is None:
+                    raise ValueError("the incoming image is not a readable PNG")
+                with incoming_image, (outputs / path.name).open("rb") as stream:
+                    require_header_metadata(stream)
+                    with Image.open(stream) as kept:
+                        _verify_retained_pixels(incoming_image, kept, known, in_place=in_place)
+                        info = {key: kept.info.get(key) for key in PNG_METADATA_KEYS}
+                        retained = edit_from_info(known, info)
+                        retained_detailer = detailer_from_info(known, info)
+                        retained_tiled = tiled_refine_from_info(known, info)
+                incoming_meta = incoming_meta or {}
+                incoming = canonical_edit(incoming_meta.get("edit"))
+                incoming_detailer = canonical_detailer(incoming_meta.get("detailer"))
+                incoming_tiled = canonical_tiled_refine(incoming_meta.get("tiled_refine"))
                 if not _same_edit(incoming, retained) or (
-                    incoming is not None and known.prompt != (_edit_metadata(path) or {}).get("prompt")
+                    incoming is not None and known["prompt"] != incoming_meta.get("prompt")
                 ):
                     raise ValueError("different instruction edit already uses that filename")
                 if not _same_detailer(incoming_detailer, retained_detailer):
                     raise ValueError("different detailer manifest already uses that filename")
-            except (OSError, ValueError) as exc:
+                if not _same_tiled(retained_tiled, incoming_tiled, known, incoming_meta):
+                    raise ValueError("different Tiled Refine intent already uses that filename")
+            except (OSError, ValueError, Image.DecompressionBombError) as exc:
+                # A retained row can keep its id and still be unsafe as a
+                # source for anything imported in this recovery.
+                del existing[path.name]
                 counts["conflicts"] += 1
-                print(f"  skip  {path.name}: cannot keep existing edit metadata: {exc}", file=out)
+                print(f"  skip  {path.name}: cannot use the retained image: {exc}", file=out)
                 return
             counts["present"] += 1
             return
@@ -1050,6 +1242,8 @@ def reindex(
             execution = canonical_execution(meta.get("execution"))
             stored_edit = canonical_edit(meta.get("edit"))
             stored_detailer = canonical_detailer(meta.get("detailer"))
+            stored_tiled = canonical_tiled_refine(meta.get("tiled_refine"))
+            validate_tiled_refine_record(stored_tiled, {**meta, "width": width, "height": height})
         except ValueError as exc:
             counts["invalid_execution"] += 1
             print(f"  skip  {path.name}: invalid execution metadata: {exc}", file=out)
@@ -1091,6 +1285,10 @@ def reindex(
             detailer_source = None
         detailer_source = abs(detailer_source) if dry_run and detailer_source is not None else detailer_source
         remapped_detailer = _remapped_detailer(stored_detailer, detailer_source, counts)
+        tiled_source = resolve_tiled(stored_tiled) if stored_tiled is not None else None
+        if path.name in edit_cycles:
+            tiled_source = None
+        remapped_tiled = _remapped_tiled(stored_tiled, tiled_source, counts)
         masks.detailer(remapped_detailer)
         references = []
         reference_sources = []
@@ -1116,15 +1314,12 @@ def reindex(
         if mask is not None and storage.malformed_outpaint(meta):
             counts["outpaint_malformed"] += 1
         spec = _outpaint(mask, spec, image, width, height, _provenance_size(meta.get("refine_source")), counts)
-        masks.resolve(mask, source / storage.MASKS_DIR, image, spec, (width, height))
+        masks.resolve(mask, source / storage.MASKS_DIR, path, image, spec, (width, height))
         # Only the masked area where its mask went, its region proved.
         recorded = storage.chunk_mask_crop(meta) if mask is not None else None
-        painted = (
-            masks.picture(mask, source / storage.MASKS_DIR, image, spec, (width, height))
-            if mask is not None and _names_a_mask_crop(recorded, image) else None
-        )
-        crop_spec, crop_region, parameters = _mask_crop(
-            mask, recorded, mask is not None and storage.malformed_mask_crop(meta), painted, image, counts,
+        crop_spec, crop_region, parameters = masks.crop(
+            mask, recorded, mask is not None and storage.malformed_mask_crop(meta),
+            source / storage.MASKS_DIR, image, spec, (width, height),
         )
         crop_meta = storage.mask_crop_chunk(crop_spec, crop_region) if crop_spec is not None else None
         outpaint_meta = storage.outpaint_chunk(spec)
@@ -1149,6 +1344,7 @@ def reindex(
             or parameters is not None
             or stored_edit != remapped_edit
             or stored_detailer != remapped_detailer
+            or stored_tiled != remapped_tiled
         )
         meta = {
             **meta,
@@ -1181,6 +1377,8 @@ def reindex(
         meta.update(edit_chunk(remapped_edit))
         meta.pop("detailer", None)
         meta.update(detailer_chunk(remapped_detailer))
+        meta.pop("tiled_refine", None)
+        meta.update(tiled_refine_chunk(remapped_tiled))
         digest = storage.content_hash(image) if image is not None else None
         identities[path.name] = {
             "filename": path.name, "hash": digest, "width": width, "height": height,
@@ -1300,6 +1498,8 @@ def main(argv: list[str] | None = None) -> int:
         summary += f", {counts['unresolved_edits']} unresolved instruction-edit source(s)"
     if counts["unresolved_detailers"]:
         summary += f", {counts['unresolved_detailers']} unresolved detailer original source(s)"
+    if counts["unresolved_tiled_refines"]:
+        summary += f", {counts['unresolved_tiled_refines']} unresolved Tiled Refine original source(s)"
     if counts["detailer_masks_rebuilt"]:
         summary += f", {counts['detailer_masks_rebuilt']} detailer mask(s) built again from their frozen regions"
     if counts["masks"]:

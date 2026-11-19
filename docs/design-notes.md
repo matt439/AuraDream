@@ -620,10 +620,11 @@ rewords it ("could not load then; it is loading now", "it has loaded since",
 (`loadDetailInError`, that one only). Expand answers a load that fails as a
 503 carrying the status's sentence, which the page turns into a pointer to the
 card where the card is shown (ERNIE-Image Turbo, below). The topbar's Load
-and the card's Retry load take back only what was said about the load - the
-press's own refusal, Expand's pointer (`loadLine`), the status's sentence
-(`shownLoadDetail`) and Expand's words about the load under the prompt
-(`aboutLoad`) - never an Undo on offer or a job's outcome in the same line.
+and the card's Retry load clear the previous refusal or Expand's pointer
+(`loadLine`) and Expand's words about the load under the prompt (`aboutLoad`).
+The status poll owns its sentence. A fast failure can reach the poll before
+the Load reply returns, and clearing it on that reply would leave the panel
+blank while the load still shows as failed.
 
 ## Switching checkpoints while the server stays open
 
@@ -5236,11 +5237,15 @@ The click is answered at once all the same: on the card a cell can take tens
 of seconds, and a button still reading Pause - its "pausing after this cell…"
 overwritten by the next step - invited a second press or Cancel. It reads
 "Pausing…" until the acknowledgement, which "claims nothing"; a press on it
-withdraws the request, and each status frame's `pause_requested` sets it
-again, so a reattached page shows it - except a frame that contradicts the
-page's own press while its POST is still out (`pauseAsking`): that frame
-predates the request. A press at a job's start lands before the stream's
-opening snapshot, which read Pause again over the pause on its way; the
+withdraws the request. Each change to `pause_requested` has its own SSE
+frame so every tab watching the job updates the control and cell note
+without resetting the current step. The opening status also carries the
+request for a reattached page. A frame that contradicts the page's own
+press while its POST is still out is held back (`pauseAsking`). Once an
+agreeing request frame arrives, another tab's withdrawal can update the
+page while the original POST reply is still on the way. A press at a job's
+start lands before the stream's opening snapshot, which read Pause again
+over the pause on its way; the
 next press then asked for the pause a second time rather than withdrawing
 it, and the job stayed paused (smoke-jobs' tab B, intermittently). The
 label is the state, with no `aria-pressed` beside it: a toggle's label
@@ -7422,16 +7427,19 @@ whole gallery when one run was meant. So the confirmation is not a yes/no:
 the dialog shows them, and asks for the number of images to be typed back.
 Typing "405" when "12" was meant is the moment the wrong scope is noticed.
 The `DELETE` then carries that number as `expected`, and
-`gallery_delete.delete_matching` compares it against a `COUNT(*)` taken under the
-write lock before the `DELETE ... RETURNING`: a sweep that lands more
-unstarred images while the dialog is open (the queue keeps running while
-one triages) is answered 409 with both numbers rather than swept up on a
-count confirmed for fewer. `expected` is required, not optional - the gate
-is the route's contract, not the page's manners. `clear --where` pins the
-count its prompt showed the same way (net of what `--keep-favorites`
-keeps); it called `delete_matching` without it, and a run still being
-written while the prompt waited lost its newest images too (review
-2026-10-12, R34).
+`gallery_delete.delete_matching` compares it against a `COUNT(*)` in the
+write transaction before changing rows. The queue can land more unstarred
+images while the dialog is open, so a changed count gets a 409 with both
+numbers. A star swap can also leave the count unchanged while replacing
+which image would go (`GAL#36`). The preview now returns a SHA-256 of the
+ordered IDs in its delete scope, and the browser sends it back as `pin`.
+The preview computes the count and pin from the same SQLite snapshot, and
+the write transaction checks the pin before moving any rows. `expected`
+remains required, and the route still accepts count-only calls from older
+clients. `clear --where` checks the preview count and pin for the exact
+scope chosen by `--keep-favorites`, through the same write path. Its count
+check first landed after a run still being written lost its newest images
+while the prompt waited (review 2026-10-12, R34).
 
 **The scope is strict, judged at the click.** The button shows whenever
 the filter matches something and the Starred tick is off (with it on,
@@ -7478,8 +7486,8 @@ it - says "Nothing to delete: no image is left <scope>.", not that every image
 is starred, and wherever a reload hides the focused button (that case, a sweep
 that took every image, a refusal, a failed preview) the search box takes focus
 (`keepUnstarredFocus`) rather than `<body>`. The sheet is left alone, since it
-lays one run out whole, and the `expected` pin is unchanged: an image that
-lands while the dialog is open is still refused, not swept.
+lays one run out whole. The server refuses a sweep if the selection changes
+while the dialog is open.
 
 **A star keeps what its image was made from.** Refine a source, star the
 pass, sweep the rest: the sweep used to delete the source's PNG, the kept
@@ -11873,8 +11881,9 @@ Improve and Find tags can be stages of the same idea. A question-only answer
 is valid instead of forcing the model to invent a draft before clarifying it.
 
 The 2026-11-17 workflow review added an explicit continuation after manual
-editing or a context limit. Continue shows the current prompt and a short
-editable brief. Acceptance checks that source again, keeps the transcript
+editing or a context limit. Continue shows the current prompt, negative prompt
+and a short editable brief. A changed negative prompt is shown immediately,
+including when cleared. Acceptance checks that source again, keeps the transcript
 visible and starts a new bounded model-history span; it does not silently
 discard old instructions. Old draft application stays held until a new answer.
 If an option was chosen for Refine, Continue previews it and offers an explicit
@@ -11888,9 +11897,10 @@ the revised requirements. Refine this option captures
 its own focused prompt without writing the main editor or rebasing the source
 snapshot. Selecting an old option after an external edit, then clearing its
 focus, still requires Continue to review that changed source and its brief.
-An exact editor match marks Current prompt, and an unread reply offers Jump
-to latest without pulling
-someone away from earlier messages. The compact composer can explicitly expand.
+An exact editor match marks Current prompt. An unread reply offers Jump to
+latest and leaves the earlier transcript's controls, focus and scroll position
+in place. Jump focuses the sidebar's status so Ctrl+Enter still sends to
+Assistant. The compact composer can explicitly expand.
 
 More actions work on current and earlier cards: Copy, Save as snippet, Refine,
 CPU Check and comparison selection. Saving prepares the existing snippet editor
@@ -12877,18 +12887,23 @@ sockets; elsewhere on POSIX the child's process group is signalled. A kill
 that is still not waited out is a `CriticError`, since the card may still be
 taken, and the critic forgets the process either way. The log's removal is
 retried for a few hundred milliseconds, as `save_image`'s rename is, and a log
-still held after that is a warning, not a lost answer. Open, from review, on
-POSIX only: a server can be orphaned by a hard kill of the app, or by closing
-the terminal the app runs in. It frees its VRAM after the idle timeout but
-stays alive and listening, since its session outlives the app: the terminal's
-hang-up no longer reaches it, and the app does not take the hang-up as a
-shutdown, because uvicorn handles only SIGINT and SIGTERM. Before the process
-tree, the hang-up did reach a server in the app's own process group
-(2026-09-28). Treating SIGHUP like SIGTERM in `main.run()` would close the
-second case; `PR_SET_PDEATHSIG` was left out, since `preexec_fn` is unsafe in
-a threaded process and would reach the child alone. On Windows the job's
+still held after that is a warning, not a lost answer. On Windows the job's
 kill-on-close takes the server down with an app killed outright (checked with
 a stand-in server on 2026-09-28, not with llama-server).
+
+The November 18 WSL run found the detached session still listening after
+the owning app was killed. Linux now starts `critic_linux.py` as the first
+command in that session. The bootstrap uses a pidfd opened by the owning
+app, so a death during startup is observable too. It starts the guard in
+its own process group and reparents it before executing the requested
+command in place. The command keeps the same direct-child identity and
+exit status. The guard stays armed until the app dies or ordinary Stop
+releases it. It anchors the session and signals remaining members through
+pidfds after confirming their session membership. Ordinary Stop signals
+the server tree, releases the guard once the tree appears empty, and waits
+for the guard to finish checking the session. Other POSIX systems still
+rely on the idle-sleep backstop if the app dies. The Linux process tests
+use a stand-in listener. The real WSL repeat belongs to `CARD#11`.
 
 **The key, and who listens on the port.** Its CORS allows every origin, so a
 web page in this browser could reach a keyless server: each start gets a fresh

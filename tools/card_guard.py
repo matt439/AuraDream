@@ -224,6 +224,45 @@ def plan_rung(measured: list[list[float]], x: float, limits: Limits = LIMITS,
     return Answer("ok", projected_mib=projected, measured=points)
 
 
+def plan_sampled_windows_rung(
+    completed: list[tuple[float, list[Sample]]], x: float, *, current: Sample,
+    baseline: Baseline, limits: Limits = LIMITS,
+) -> Answer:
+    """Project from complete, untripped Windows observations before a larger call.
+
+    A controller supplies the sampled phases required by its protocol and a
+    fresh reading. This function does not read counters or establish freshness.
+    Equal areas share the higher observed peak, so orientations do not yield a
+    zero-width slope. Admission needs at least two distinct areas.
+    """
+    if not math.isfinite(x) or x <= 0:
+        return Answer("refuse-projected", reason="requested area is invalid")
+    baseline_values = (baseline.adapter_shared_mib, baseline.process_shared_mib)
+    if any(value is None or not math.isfinite(value) or value < 0 for value in baseline_values):
+        return Answer("refuse-projected", reason="shared-memory baseline is incomplete")
+    peaks: dict[float, float] = {}
+    for area, samples in [(None, [current]), *completed]:
+        if area is not None and (not math.isfinite(area) or area <= 0 or area >= x):
+            return Answer("refuse-projected", reason="prior area is invalid for this progression")
+        if not samples:
+            return Answer("refuse-projected", reason="a prior call has no guard samples")
+        for sample in samples:
+            card_mib = sample.card_mib
+            counters = (sample.adapter_shared_mib, sample.process_shared_mib,
+                        sample.available_gib, sample.commit_headroom_gib)
+            if (card_mib is None or not math.isfinite(card_mib) or card_mib < 0
+                    or any(value is None or not math.isfinite(value) or value < 0 for value in counters)):
+                return Answer("refuse-projected", reason="a guard sample is incomplete")
+            decision = decide(sample, baseline, limits)
+            if decision.verdict != "ok":
+                return decision
+            if area is not None:
+                peaks[area] = max(peaks.get(area, 0.0), card_mib)
+    if len(peaks) < 2:
+        return Answer("refuse-projected", reason="projection needs two distinct measured areas")
+    return plan_rung([[area, peak] for area, peak in sorted(peaks.items())], x, limits)
+
+
 # --- Limits in force --------------------------------------------------------
 
 

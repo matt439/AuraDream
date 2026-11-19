@@ -168,6 +168,28 @@ def test_control_restart_refuses_a_busy_server(sandbox, auradream_listening):
 
 
 @on_linux
+@pytest.mark.parametrize("verb", ["stop", "restart"])
+def test_control_refuses_checkpoint_deletion_and_force_proceeds(sandbox, auradream_listening, verb):
+    _venv(sandbox)
+    _service_active(sandbox)
+    auradream_listening["track"]["service"] = True
+    auradream_listening["busy"]["status"]["model_delete"] = "example/checkpoint"
+    reason = "checkpoint files are being deleted (example/checkpoint)"
+
+    result = _run(sandbox, "control.sh", verb)
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert f"The AuraDream service is busy: {reason}." in result.stdout
+    assert _changes(sandbox) == []
+    assert (sandbox["state"] / "active").exists()
+
+    forced = _run(sandbox, "control.sh", verb, "--force")
+    assert forced.returncode == 0, forced.stdout + forced.stderr
+    assert f"although it is busy: {reason}." in forced.stdout
+    assert _changes(sandbox) == [f"systemctl --user {verb} auradream.service"]
+    assert (sandbox["state"] / "active").exists() == (verb == "restart")
+
+
+@on_linux
 def test_control_start_says_when_the_page_never_answers(sandbox):
     _venv(sandbox)
     sandbox["env"]["AURADREAM_INSTALL_TEST_WAIT"] = "2"    # nothing listens on port 1

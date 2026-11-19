@@ -37,6 +37,7 @@ from .schemas_encoder import GridPromptBudgets
 from .schemas_mask_crop import MASK_CROP_NEEDS_A_MASK, MASK_CROP_WITH_EDIT, MaskCropArea, MaskCropSpec
 from .schemas_outpaint import Outpaint
 from .seeds import MAX_BATCH, MAX_GRID_SEEDS, MAX_RUNS, MAX_SEED
+from . import tiled_refine_contract as tiled
 
 if TYPE_CHECKING:
     from .job_state import Job
@@ -189,6 +190,7 @@ class GenerateRequest(BaseModel):
     # New intent may carry source/recipe alone. Complete stored replay data
     # travels here too, but its proof is always checked again at admission.
     edit: InstructionEditSpec | StoredInstructionEdit | None = None
+    tiled_refine: tiled.TiledRefineSpec | tiled.StoredTiledRefine | None = None
     # Frozen detection provenance, never permission to redetect or replay a
     # chain. This request runs exactly one ordinary inpaint of its direct source.
     detailer: StoredDetailer | None = None
@@ -198,6 +200,44 @@ class GenerateRequest(BaseModel):
     # the previous run's plus `num_images`, so a long sweep costs no more VRAM
     # than a single image - which is what makes 2K sweeps possible at all.
     runs: int = Field(default=1, ge=1, le=MAX_RUNS)
+
+    @field_validator("tiled_refine", mode="before")
+    @classmethod
+    def _strict_tiled_refine(cls, value: object) -> tiled.TiledRefineSpec | tiled.StoredTiledRefine | None:
+        if value is None:
+            return None
+        if isinstance(value, tiled.StoredTiledRefine) or isinstance(value, dict) and "root_source" in value:
+            return tiled.bound_spec(value)
+        return tiled.TiledRefineSpec.model_validate(value)
+
+    def validate_tiled_refine(
+        self, *, require_bound: bool = False,
+    ) -> tiled.StoredTiledRefine | tiled.TiledRefineSpec | None:
+        spec = self._strict_tiled_refine(self.tiled_refine)
+        if spec is None:
+            return None
+        if (self.width, self.height) != tiled.CANVAS_SIZE or (
+            self.steps, self.guidance_scale, self.strength
+        ) != (tiled.STEPS, tiled.GUIDANCE_SCALE, tiled.STRENGTH):
+            raise ValueError("Tiled Refine must use its frozen dimensions and sampling recipe.")
+        if (
+            self.reference or self.crop_anchor != "center" or self.lora_scale != 1.0
+            or any(value is not None for value in (
+                self.refine, self.mask, self.outpaint, self.upscaler, self.mask_crop, self.lora,
+                self.edit, self.detailer, self.execution, self.mu,
+            )) or self.true_cfg not in (None, tiled.GUIDANCE_SCALE if self.negative_prompt else None)
+        ):
+            raise ValueError("Tiled Refine cannot be combined with another workflow or sampling override.")
+        if isinstance(spec, tiled.StoredTiledRefine):
+            spec.request()
+        elif require_bound:
+            raise ValueError("Bind the original Tiled Refine source before computing or saving its identity.")
+        return spec
+
+    @model_validator(mode="after")
+    def _tiled_refine_uses_its_frozen_recipe(self) -> "GenerateRequest":
+        self.validate_tiled_refine()
+        return self
 
     def validate_detailer(self) -> StoredDetailer | None:
         if self.detailer is None:
@@ -247,7 +287,7 @@ class GenerateRequest(BaseModel):
         ):
             raise ValueError("an instruction edit cannot include references, LoRA, Refine, strength, mask, outpaint, upscaler or crop anchor")
         if self.negative_prompt or self.true_cfg is not None or self.mu is not None:
-            raise ValueError("kontext-v1 requires an empty negative prompt, no true CFG and automatic Mu")
+            raise ValueError(f"{spec.recipe} requires an empty negative prompt, no true CFG and automatic Mu")
         require_default_execution(self.execution)
         if self.num_images != 1 or self.runs != 1:
             raise ValueError("an instruction edit runs one image per call; batch and Repeat are unavailable")
@@ -278,6 +318,8 @@ class GenerateRequest(BaseModel):
 
     @model_validator(mode="after")
     def _profile_defaults(self) -> "GenerateRequest":
+        if self.tiled_refine is not None:
+            return self
         if self.edit is not None:
             recipe = edit_rules.recipe_for(self.edit.recipe)
             if self.steps is None:
@@ -315,7 +357,7 @@ class GenerateRequest(BaseModel):
         # Only a refine pass goes past the largest preset's side (config's
         # `refine_max_side`): it takes its composition from the source.
         side = max(self.width, self.height)
-        if self.refine is None and side > settings.max_side:
+        if self.refine is None and self.tiled_refine is None and side > settings.max_side:
             raise ValueError(
                 f"a {side}-pixel side is past the {settings.max_side} a direct render takes; "
                 f"only a refine pass goes to {settings.refine_max_side}"
@@ -464,7 +506,9 @@ class GenerateRequest(BaseModel):
         if self.edit is not None:
             self.validate_edit(require_bound=True)
             return
-        if self.refine is not None:
+        if self.tiled_refine is not None:
+            self.validate_tiled_refine(require_bound=True)
+        if self.refine is not None or self.tiled_refine is not None:
             if self.width * self.height > settings.refine_max_pixels:
                 raise ValueError(
                     f"{self.width}x{self.height} exceeds the {settings.refine_max_pixels:,} "
@@ -527,6 +571,13 @@ class GenerateRequest(BaseModel):
         # Also covers internal model_copy requests without revalidating a
         # stamped outpaint (whose derived mask is deliberately post-validation).
         require_default_execution(self.execution)
+        if self.tiled_refine is not None:
+            self.validate_tiled_refine(require_bound=True)
+            negative = self.negative_prompt or None
+            return self.model_copy(update={
+                "negative_prompt": negative,
+                "true_cfg": tiled.GUIDANCE_SCALE if negative is not None else None,
+            })
         if self.detailer is not None:
             self.validate_detailer()
             if not inpaint_supported:
@@ -535,7 +586,7 @@ class GenerateRequest(BaseModel):
             bound_edit = self.validate_edit(require_bound=True)
             if not instruction_edit_supported:
                 raise ValueError(edit_rules.INSTRUCTION_EDIT_UNAVAILABLE)
-            # The named first recipe has no strength, Mu or negative/true-CFG
+            # Instruction edit recipes have no strength, Mu or negative/true-CFG
             # branch. Preserve its complete source identity instead of running
             # ordinary capability normalization that could erase the pass kind.
             return self.model_copy(update={
@@ -689,6 +740,8 @@ class GenerateSubmission(GenerateRequest):
 
     @model_validator(mode="after")
     def _one_execution_channel(self) -> "GenerateSubmission":
+        if self.tiled_refine is not None:
+            raise ValueError(tiled.HELD)
         if self.edit is not None and (self.then_refine is not None or self.step_cache is not None):
             raise ValueError("instruction edits cannot use Then refine or step caching")
         if "execution" in self.model_fields_set and "step_cache" in self.model_fields_set:
@@ -733,7 +786,7 @@ class InstructionEditSubmission(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
     source: int = Field(gt=0, le=2**63 - 1)
-    recipe: Literal["kontext-v1"]
+    recipe: edit_rules.PublicRecipeName
     prompt: str = Field(min_length=1, max_length=4000)
     width: int = Field(ge=256, le=settings.refine_max_side)
     height: int = Field(ge=256, le=settings.refine_max_side)

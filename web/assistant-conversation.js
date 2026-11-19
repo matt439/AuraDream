@@ -6,7 +6,6 @@ let assistantBrief = '';
 let assistantContextStart = 0;
 let assistantFocus = null;
 let assistantDraftsStale = false;
-let assistantUnread = false;
 let assistantContinuationSource = null;
 let assistantContinuationOrigin = null;
 let assistantContinuationFocus = null;
@@ -107,6 +106,11 @@ function openAssistantContinuation() {
   const suggested = [assistantBrief, last ? `Latest direction: ${last}` : ''].filter(Boolean).join('\n');
   $('assistant-brief').value = [...suggested].length <= 2000 ? suggested : assistantBrief;
   $('assistant-continuation-source').textContent = assistantContinuationSource.prompt || '(The main prompt is empty.)';
+  const negative = assistantContinuationSource.negative;
+  const negativeChanged = negative !== (assistantSnapshot?.negative ?? '');
+  $('assistant-continuation-negative').open = negativeChanged;
+  $('assistant-continuation-negative-text').textContent = negative
+    || (negativeChanged ? 'The negative prompt was cleared.' : 'The negative prompt is empty.');
   $('assistant-continuation-focus-row').hidden = !assistantContinuationFocus;
   $('assistant-continuation-focus-keep').checked = !!assistantContinuationFocus;
   $('assistant-continuation-option').hidden = !assistantContinuationFocus;
@@ -119,7 +123,7 @@ function applyAssistantContinuation() {
   const source = assistantSource();
   const why = assistantRun ? 'Wait for the answer to stop first.'
     : !assistantContinuationSource || Object.keys(source).some((key) => source[key] !== assistantContinuationSource[key])
-      ? 'The editor or checkpoint changed while this brief was open. Close and reopen it to review the current prompt.'
+      ? 'The editor or checkpoint changed while this brief was open. Close and reopen it to review the current editor text.'
       : [...$('assistant-brief').value].length > 2000 ? 'Keep the brief to at most 2000 characters.' : '';
   if (why) { $('assistant-continuation-status').textContent = why; return; }
   assistantBrief = $('assistant-brief').value;
@@ -175,10 +179,16 @@ async function pollAssistantProgress(run) {
   }
 }
 
+function setAssistantUnread(unread) {
+  const jump = $('assistant-latest');
+  if (!unread && document.activeElement === jump) els.assistantStatus.focus({ preventScroll: true });
+  jump.hidden = !unread;
+}
+
 function resetAssistantContext() {
   assistantBrief = ''; assistantContextStart = 0; assistantFocus = null;
-  assistantDraftsStale = false; assistantUnread = false;
-  $('assistant-latest').hidden = true;
+  assistantDraftsStale = false;
+  setAssistantUnread(false);
 }
 
 function initAssistantConversation() {
@@ -206,10 +216,11 @@ function initAssistantConversation() {
     els.assistantInstruction.focus({ preventScroll: true });
   };
   $('assistant-latest').onclick = () => {
-    assistantUnread = false; $('assistant-latest').hidden = true;
+    els.assistantStatus.focus({ preventScroll: true });
+    setAssistantUnread(false);
     scrollAssistantConversation();
   };
   els.assistantSidebar.querySelector('.assistant-body').addEventListener('scroll', () => {
-    if (assistantScrollPosition().follow) { assistantUnread = false; $('assistant-latest').hidden = true; }
+    if (assistantScrollPosition().follow) setAssistantUnread(false);
   });
 }

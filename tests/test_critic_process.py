@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import platform
+import signal
 import socket
 import subprocess
 import sys
@@ -17,7 +18,7 @@ import urllib.request
 
 import pytest
 
-from backend import critic, critic_runtime, critic_server
+from backend import critic, critic_linux, critic_runtime, critic_server
 
 from tests.critic_helpers import (
     critic_answer,
@@ -151,11 +152,11 @@ def test_a_process_is_waited_for_until_its_last_thread_exits():
             assert time.monotonic() < deadline
             time.sleep(0.01)
         assert _listening(port)
-        assert critic_server._session_pids(process.pid) == {process.pid}
+        assert critic_linux.session_pids(process.pid) - {process._linux_guard} == {process.pid}
     finally:
         critic_server._stop(process)
         process.stdout.close()
-    assert not _listening(port) and critic_server._session_pids(process.pid) == set()
+    assert not _listening(port) and critic_linux.session_pids(process.pid) == set()
 
 
 def test_a_tree_is_waited_for_after_its_child(monkeypatch):
@@ -189,6 +190,66 @@ def test_the_listener_check_tells_the_tree_from_any_other_process(wrapped_listen
         assert critic_server._listener_is_ours(port, {os.getpid()}) is True
     # Nothing to be seen listening is no proof of anything.
     assert critic_server._listener_is_ours(critic_server._free_port(), pids) is False
+
+
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="Linux critic owner guard")
+@pytest.mark.parametrize("wrapper_exits", [False, True])
+def test_owner_death_stops_its_critic_session(tmp_path, recording_server, wrapper_exits):
+    # Kill only the app. Its wrapped listener is in another process group,
+    # and the wrapper may already have exited when the app is killed.
+    wrapper = _WRAPPER.removesuffix("time.sleep(120)\n") if wrapper_exits else _WRAPPER
+    owner_script = (
+        "import sys, threading, time\n"
+        "from backend import critic_server\n"
+        f"command = [sys.executable, '-c', {wrapper!r}]\n"
+        "children = []\n"
+        "def start():\n"
+        "    with open(sys.argv[1], 'wb') as log:\n"
+        "        children.append(critic_server._spawn(command, log, 'test-key'))\n"
+        "worker = threading.Thread(target=start)\n"
+        "worker.start()\n"
+        "worker.join()\n"
+        "print(children[0].pid, flush=True)\n"
+        "time.sleep(120)\n"
+    )
+    other, _ = recording_server(200)
+    server_log = tmp_path / "critic.log"
+    owner_log = tmp_path / "owner.log"
+    session = None
+    with owner_log.open("wb") as output, subprocess.Popen(
+        [sys.executable, "-c", owner_script, str(server_log)],
+        stdout=output, stderr=subprocess.STDOUT,
+    ) as owner:
+        try:
+            deadline = time.monotonic() + 30
+            while True:
+                session_text = owner_log.read_text(encoding="utf-8").strip()
+                port_text = server_log.read_text(encoding="utf-8").strip() if server_log.exists() else ""
+                if session_text.isdecimal():
+                    session = int(session_text)
+                    pids = critic_linux.session_pids(session)
+                    wrapper_running = session in pids
+                    if wrapper_running == (not wrapper_exits) and port_text.isdecimal():
+                        port = int(port_text)
+                        break
+                assert owner.poll() is None and time.monotonic() < deadline, (session_text, port_text)
+                time.sleep(0.05)
+            assert critic_server._listener_is_ours(port, pids) is True
+            assert _listening(port) and _listening(other.server_port)
+            owner.kill()
+            assert owner.wait(timeout=10) == -signal.SIGKILL
+            deadline = time.monotonic() + 10
+            while remaining := critic_linux.session_pids(session):
+                assert time.monotonic() < deadline, remaining
+                time.sleep(0.05)
+            assert not _listening(port) and _listening(other.server_port)
+        finally:
+            if owner.poll() is None:
+                owner.kill()
+                owner.wait(timeout=10)
+            if session is not None:
+                # Contain a failed regression to the test's own session.
+                critic_linux.signal_session(session, critic_linux.session_pids(session), signal.SIGKILL)
 
 
 @pytest.mark.skipif(

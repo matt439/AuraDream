@@ -250,6 +250,15 @@ function streamJob(jobId, { reattached = 0 } = {}) {
         frame.src = data.image;
         frame.title = `live preview · step ${data.step}/${data.total_steps}`;
         previewEl.querySelector('.foot').textContent = `Live preview · step ${data.step}/${data.total_steps}`;
+      } else if (data.type === 'pause') {
+        // A request alone leaves the current step, bars and timer in place.
+        // The worker publishes a status when it reaches the actual hold.
+        if (job) {
+          job.pause_requested = data.pause_requested;
+          syncPause(job, { requestEvent: true });
+          if (cellArgs?.[1].jobId === jobId) showCell(...cellArgs);
+          mirrorJob();
+        }
       } else if (data.type === 'status') {
         // Either the snapshot every stream opens with or the start of a run;
         // both carry whatever landed while nobody was listening.

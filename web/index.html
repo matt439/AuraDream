@@ -2632,6 +2632,7 @@
 <dialog id="assistant-continuation-dialog" class="assistant-tools-dialog" aria-labelledby="assistant-continuation-title">
   <div class="dialog-head"><h2 id="assistant-continuation-title">Continue with current prompt</h2><button type="button" class="ghost small" id="assistant-continuation-cancel">Cancel</button></div>
   <details><summary>Current prompt</summary><p class="assistant-draft-text" id="assistant-continuation-source"></p></details>
+  <details id="assistant-continuation-negative"><summary>Current negative prompt</summary><p class="assistant-draft-text" id="assistant-continuation-negative-text"></p></details>
   <label id="assistant-continuation-focus-row" class="check" hidden><input type="checkbox" id="assistant-continuation-focus-keep">Keep refining the chosen option</label>
   <details id="assistant-continuation-option" hidden><summary>Chosen option</summary><p class="assistant-draft-text" id="assistant-continuation-option-text"></p></details>
   <label for="assistant-brief">Brief for the next replies</label><textarea id="assistant-brief" rows="5" maxlength="2000" aria-describedby="assistant-continuation-status"></textarea>

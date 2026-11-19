@@ -197,6 +197,33 @@ def test_delete_unstarred_refuses_a_changed_selection(client, fake):
     assert client.delete("/api/gallery/unstarred").status_code == 422
 
 
+def test_delete_unstarred_refuses_a_same_count_replacement(client, store):
+    first = _plant(store, settings.model_id, seed=1)
+    second = _plant(store, settings.model_id, seed=2)
+    store.set_favorite(second.id, True)
+    preview = client.get("/api/gallery/unstarred").json()
+    assert preview["unstarred"] == 1
+
+    store.set_favorite(first.id, True)
+    store.set_favorite(second.id, False)
+    response = client.delete(
+        "/api/gallery/unstarred", params={"expected": preview["unstarred"], "pin": preview["pin"]},
+    )
+    assert response.status_code == 409
+    assert response.json()["code"] == "selection_changed"
+    assert "the same count now matches different images" in response.json()["detail"]
+    assert client.get("/api/gallery/bin").json()["total"] == 0
+    assert client.get("/api/gallery").json()["total"] == 2
+
+    fresh = client.get("/api/gallery/unstarred").json()
+    assert fresh["unstarred"] == preview["unstarred"] and fresh["pin"] != preview["pin"]
+    response = client.delete(
+        "/api/gallery/unstarred", params={"expected": fresh["unstarred"], "pin": fresh["pin"]},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["binned"] == [second.id]
+
+
 def test_delete_unstarred_says_when_any_job_is_running(client, fake, store, monkeypatch):
     # The dialog's "a job is still running" line and the 409's hint were the
     # asking page's own `busy`, so a job another tab started - the one about to

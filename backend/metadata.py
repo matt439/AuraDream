@@ -9,6 +9,7 @@ from typing import Any, IO
 from .execution import ExecutionSpec, canonical_execution, execution_from_json
 from .instruction_edit import StoredInstructionEdit, geometry, recipe_for, stored_from_json
 from .detailer import StoredDetailer, stored_from_json as detailer_stored_from_json
+from . import tiled_refine_contract as tiled
 
 PNG_METADATA_KEY = "auradream"
 
@@ -178,6 +179,66 @@ def detailer_from_info(row: Mapping[str, Any], info: Mapping[str, Any] | None) -
     if not isinstance(meta, dict):
         raise ValueError("PNG metadata must be a JSON object")
     return detailer_from_sources(row, meta)
+
+
+def canonical_tiled_refine(value: object) -> tiled.StoredTiledRefine | None:
+    return None if value is None else tiled.bound_spec(value)
+
+
+def tiled_refine_from_json(value: str | None) -> tiled.StoredTiledRefine | None:
+    return None if value is None else tiled.stored_from_json(value)
+
+
+def tiled_refine_chunk(value: tiled.StoredTiledRefine | None) -> dict[str, Any]:
+    return {} if value is None else {"tiled_refine": value.model_dump(mode="json")}
+
+
+def validate_tiled_refine_record(stored: tiled.StoredTiledRefine | None, record: Mapping[str, Any]) -> None:
+    if stored is None:
+        return
+    size = record.get("width"), record.get("height")
+    if "size" in record and "width" not in record and "height" not in record:
+        if record["size"] == "x".join(map(str, tiled.CANVAS_SIZE)):
+            size = tiled.CANVAS_SIZE
+    if (
+        size != tiled.CANVAS_SIZE or record.get("model_id", record.get("model")) != tiled.MODEL_ID
+        or record.get("quantization") != tiled.QUANTIZATION
+        or record.get("steps") != tiled.STEPS or record.get("guidance_scale") != tiled.GUIDANCE_SCALE
+        or record.get("true_cfg") not in (None, tiled.GUIDANCE_SCALE if record.get("negative_prompt") else None)
+    ):
+        raise ValueError("Tiled Refine result disagrees with its frozen checkpoint, dimensions or sampling recipe.")
+    if any(record.get(key) is not None for key in (
+        "refine", "strength", "mask", "outpaint", "upscaler", "mask_crop", "crop_anchor", "lora", "lora_scale",
+        "edit", "detailer", "mu",
+    )) or record.get("reference") not in (None, [], "[]") or record.get("execution") not in (None, {}, "{}", "null"):
+        raise ValueError("Tiled Refine result cannot carry another generation workflow.")
+
+
+def tiled_refine_from_sources(
+    row: Mapping[str, Any], meta: Mapping[str, Any] | None,
+) -> tiled.StoredTiledRefine | None:
+    """Keep the private pass intent intact across gallery formats."""
+    database = tiled_refine_from_json(row.get("tiled_refine"))
+    validate_tiled_refine_record(database, row)
+    if meta is None:
+        return database
+    embedded = canonical_tiled_refine(meta.get("tiled_refine"))
+    validate_tiled_refine_record(embedded, meta)
+    if database != embedded:
+        raise ValueError("Tiled Refine recipes disagree between the database and PNG.")
+    if database is not None and any(row.get(key) != meta.get(key) for key in ("prompt", "negative_prompt", "seed")):
+        raise ValueError("Tiled Refine inputs disagree between the database and PNG.")
+    return database
+
+
+def tiled_refine_from_info(
+    row: Mapping[str, Any], info: Mapping[str, Any] | None,
+) -> tiled.StoredTiledRefine | None:
+    raw = embedded_metadata(info) if info is not None else None
+    meta = json.loads(raw) if raw is not None else {}
+    if not isinstance(meta, dict):
+        raise ValueError("PNG metadata must be a JSON object")
+    return tiled_refine_from_sources(row, meta)
 
 
 def edit_from_json(value: str | None) -> StoredInstructionEdit | None:

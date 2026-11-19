@@ -20,7 +20,7 @@ from backend.backends import loading
 from backend.backends.diffusers_backend import DiffusersBackend
 from backend.instruction_edit import (
     INSTRUCTION_EDIT_ASPECT_UNQUALIFIED, INSTRUCTION_EDIT_LOADER_UNQUALIFIED, INSTRUCTION_EDIT_TEXT_TO_IMAGE,
-    KONTEXT_V1, QUALIFIED_ENVELOPE,
+    INSTRUCTION_EDIT_RECIPE_UNQUALIFIED, KONTEXT_V1, QUALIFIED_ENVELOPE,
 )
 from backend.schemas import GenerateRequest
 
@@ -139,6 +139,20 @@ def test_the_real_backend_runs_a_square_edit_at_its_frozen_size(store, monkeypat
     images = backend.generate(edit, seed=5)
     assert [image.size for image in images] == [(512, 512)]
     assert len(pipe.kwargs) == 1 and (pipe.kwargs[0]["width"], pipe.kwargs[0]["height"]) == (512, 512)
+
+
+def test_the_real_backend_stops_the_larger_recipe_before_the_call(store, monkeypatch):
+    _on_card(monkeypatch)
+    source = _source(store, size=(320, 320))
+    pipe = KontextStub()
+    backend = _loaded(monkeypatch, pipe)
+    request = GenerateRequest(
+        prompt="make the sky green", width=1024, height=1024, mu=None,
+        edit=stored_edit(source, recipe="kontext-1024-v1"),
+    )
+    with pytest.raises(ValueError) as caught:
+        backend.generate(request, seed=5)
+    assert str(caught.value) == INSTRUCTION_EDIT_RECIPE_UNQUALIFIED and pipe.kwargs == []
 
 
 def test_plain_generate_on_the_loaded_editor_raises_before_the_pipe(store, monkeypatch):

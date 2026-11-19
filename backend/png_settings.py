@@ -16,7 +16,8 @@ from typing import TYPE_CHECKING, Any
 
 from backend.metadata import embedded_metadata, require_header_metadata
 from backend.execution import canonical_execution
-from backend.metadata import canonical_detailer, canonical_edit, validate_detailer_record
+from backend.metadata import canonical_detailer, canonical_edit, canonical_tiled_refine, validate_detailer_record
+from backend.tiled_refine_contract import HELD as TILED_REFINE_HELD
 from backend.refine import CROP_ANCHORS
 
 if TYPE_CHECKING:
@@ -78,6 +79,8 @@ def record(chunks: Mapping[str, Any], name: str) -> dict | None:
     try:
         if canonical_edit(meta.get("edit")) is not None:
             raise ValueError("instruction-edit settings must be reopened from the gallery image")
+        if canonical_tiled_refine(meta.get("tiled_refine")) is not None:
+            raise ValueError(TILED_REFINE_HELD)
         canonical_execution(meta.get("execution"))
         # Loading sampling text never imports the source, masks or operation.
         # Still validate a manifest that is present instead of treating damaged
@@ -155,4 +158,6 @@ def parse_parameters(text: str) -> tuple[str, str, dict[str, str]]:
         params.setdefault(key.strip(), _unquote(value.strip()))
     if any(key.casefold() == "instruction edit" for key in params):
         raise PngSettingsError("instruction-edit settings must be reopened from the gallery image")
+    if any(key.casefold() == "tiled refine" for key in params):
+        raise PngSettingsError(TILED_REFINE_HELD)
     return "\n".join(prompt).strip(), "\n".join(negative).strip(), params

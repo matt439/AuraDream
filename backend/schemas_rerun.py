@@ -167,8 +167,8 @@ class FinishRunPreview(BaseModel):
     queued: int = 0
     # Previously completed cells now missing, redrawn by this submission.
     redrawn: int = 0
-    # Then refine passes of bases saved without them (a cancel or a failure
-    # between the stages), which this submission adds before its cells.
+    # Then refine passes this submission will make, both of saved bases
+    # and inline after missing base cells that requested them.
     passes: int = 0
     # Of those, passes a retained job saved that are now permanently deleted.
     redrawn_passes: int = 0

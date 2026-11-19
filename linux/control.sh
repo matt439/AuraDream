@@ -11,7 +11,7 @@
 # bin/auradream-server.ps1 runs these over ssh from a Windows PC. status
 # exits 0 when the service is active and the server answers, 1 otherwise;
 # stop and restart refuse while the server is busy (a job, a load, a switch,
-# something holding the card, a gallery bundle operation), as
+# checkpoint deletion, a card hold or a gallery bundle operation), as
 # update.sh --restart does. It never uses sudo.
 set -euo pipefail
 

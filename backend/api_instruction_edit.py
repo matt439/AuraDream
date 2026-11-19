@@ -35,9 +35,9 @@ def create_router(services: AppServices) -> APIRouter:
     router = APIRouter()
 
     @router.post("/api/instruction-edit/preview")
-    async def preview(request: edit.InstructionEditSpec) -> dict:
+    async def preview(request: edit.InstructionEditPreview) -> dict:
         try:
-            bound, resolved = await asyncio.to_thread(instruction_edit_admission.bind_source, request)
+            bound, resolved = await asyncio.to_thread(instruction_edit_admission.bind_source, request.model_dump())
         except ValueError as exc:
             raise refusal(422, str(exc), exc) from exc
         recipe = edit.recipe_for(bound.recipe)

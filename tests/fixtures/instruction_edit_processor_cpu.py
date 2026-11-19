@@ -60,7 +60,7 @@ def _method(cls, name):
     return next(node for node in cls.body if isinstance(node, ast.FunctionDef) and node.name == name)
 
 
-def audit(source_size):
+def audit(source_size, recipe):
     # Execute the complete installed PIL preprocessing path, never a pipeline
     # import, model, encoder, VAE or random-noise/device operation.
     processor_tree = _tree("image_processor.py")
@@ -94,7 +94,7 @@ def audit(source_size):
                   if isinstance(node, ast.If) and "image is not None" in ast.unparse(node.test))
     original = Image.new("RGBA", source_size, (13, 77, 201, 0))
     original.getexif()[274] = 6
-    prepared = edit.prepare_source(original)
+    prepared = edit.prepare_source(original, edit.geometry(*source_size, recipe=recipe))
     expected = np.asarray(prepared).astype(np.float32) / 255.0
     expected = 2.0 * expected.transpose(2, 0, 1)[None, ...] - 1.0
     environment = {"image": prepared, "torch": torch, "_auto_resize": False, "multiple_of": 16,
@@ -112,4 +112,4 @@ def audit(source_size):
 
 
 if __name__ == "__main__":
-    audit((int(sys.argv[1]), int(sys.argv[2])))
+    audit((int(sys.argv[1]), int(sys.argv[2])), sys.argv[3] if len(sys.argv) > 3 else edit.KONTEXT_V1.name)

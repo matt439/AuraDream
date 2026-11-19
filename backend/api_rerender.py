@@ -10,6 +10,7 @@ from fastapi import APIRouter, HTTPException
 from . import grid, submission
 from .app_context import AppServices
 from .sizes import nearest_preset
+from .tiled_refine_contract import HELD as TILED_REFINE_HELD
 from .schemas import (
     GenerateRequest,
     ImageRecord,
@@ -164,6 +165,8 @@ def create_router(services: AppServices) -> APIRouter:
             raise HTTPException(status_code=422, detail=submission.edit_rerender_detail(
                 edits, picked=request.ids is not None, others=len(edits) < len(records),
             ))
+        if any(record.tiled_refine is not None for record in records):
+            raise HTTPException(status_code=422, detail=TILED_REFINE_HELD)
         # The records by the size each renders at, in the resolver's order.
         sized: dict[tuple[int, int], list[ImageRecord]] = {}
         unmatched: list[RerenderUnmatched] = []

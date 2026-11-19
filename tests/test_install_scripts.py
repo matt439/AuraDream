@@ -24,6 +24,7 @@ from pathlib import Path
 import pytest
 
 from tests.tls_helpers import loopback_certificate
+from tests.update_backup_helpers import make_update_gallery, restored_rows
 
 pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="Windows PowerShell scripts")
 
@@ -563,6 +564,81 @@ def test_update_copies_the_gallery_then_pulls_and_syncs(sandbox):
     calls = _calls(sandbox)
     assert any(c.endswith("pull --ff-only") for c in calls) and "uv sync" in calls
     assert "Already up to date (abc1234)." in result.stdout
+
+
+@pytest.mark.parametrize("phase", ["before-wal", "after-wal", "no-wal", "locked-wal"])
+def test_update_recovers_an_interrupted_gallery_copy(sandbox, phase):
+    _checkout_with_gallery(sandbox)
+    root = sandbox["root"]
+    db = root / "auradream.db"
+    copy = root / "auradream-before-update-abc1234.db"
+    older = _older_copies(root)
+    has_wal = phase != "no-wal"
+    make_update_gallery(db, wal=has_wal, value=42)
+    sandbox["env"].update(
+        STUB_UPDATE_SCRIPT=str(REPO / "update.ps1"),
+        STUB_INTERRUPT_SOURCE=str(db),
+        STUB_INTERRUPT_FINAL_WAL=f"{copy}-wal",
+        STUB_INTERRUPT_PHASE=phase,
+    )
+    # Kill the real updater immediately after the selected filesystem call.
+    # The wrapper also catches the old code's direct copy to the final name.
+    wrapper = sandbox["tmp"] / "interrupt-update.ps1"
+    wrapper.write_text(r'''
+function Interrupt-Update {
+    New-Item -ItemType File -Path "$env:STUB_LOG.interrupted" | Out-Null
+    Stop-Process -Id $PID -Force
+}
+function Copy-Item([string]$LiteralPath, [string]$Destination, [switch]$Force) {
+    Microsoft.PowerShell.Management\Copy-Item @PSBoundParameters
+    if ($env:STUB_INTERRUPT_PHASE -eq 'after-wal') {
+        if ($Destination -eq $env:STUB_INTERRUPT_FINAL_WAL) { Interrupt-Update }
+    } elseif ($env:STUB_INTERRUPT_PHASE -ne 'locked-wal' -and $LiteralPath -eq $env:STUB_INTERRUPT_SOURCE) {
+        Interrupt-Update
+    }
+}
+function Move-Item([string]$LiteralPath, [string]$Destination) {
+    Microsoft.PowerShell.Management\Move-Item @PSBoundParameters
+    if ($env:STUB_INTERRUPT_PHASE -eq 'after-wal' -and $Destination -eq $env:STUB_INTERRUPT_FINAL_WAL) {
+        Interrupt-Update
+    }
+}
+$owner = $null
+if ($env:STUB_INTERRUPT_PHASE -eq 'locked-wal') {
+    $owner = [IO.File]::Open("$env:STUB_INTERRUPT_SOURCE-wal", [IO.FileMode]::Open,
+        [IO.FileAccess]::Read, [IO.FileShare]::None)
+}
+try {
+    & $env:STUB_UPDATE_SCRIPT
+    exit $LASTEXITCODE
+} finally {
+    if ($owner) { $owner.Dispose() }
+}
+''', encoding="ascii")
+    interrupted = _run(sandbox, str(wrapper))
+    assert interrupted.returncode != 0, interrupted.stdout + interrupted.stderr
+    if phase == "locked-wal":
+        assert interrupted.returncode == 1 and "Update stopped before Git pull" in interrupted.stdout
+    else:
+        assert sandbox["log"].with_suffix(".log.interrupted").is_file()
+    assert not copy.exists()
+    assert Path(f"{copy}.stage.db").is_file()
+    assert Path(f"{copy}-wal").exists() is (phase == "after-wal")
+    assert all(path.is_file() for path in older.values())
+    assert not any(" pull " in call or call.startswith("uv ") for call in _calls(sandbox))
+
+    retry = _run(sandbox, "update.ps1")
+    assert retry.returncode == 0, retry.stdout + retry.stderr
+    assert restored_rows(copy) == [(42,)]
+    assert Path(f"{copy}-wal").exists() is has_wal
+    assert not list(root.glob("*.stage.db*"))
+    assert set(path for path in older.values() if path.exists()) == {older["a4a4a4a"], older["a3a3a3a"]}
+    assert any(call.endswith("pull --ff-only") for call in _calls(sandbox))
+
+    make_update_gallery(db, wal=has_wal, value=43)
+    repeated = _run(sandbox, "update.ps1")
+    assert repeated.returncode == 0 and "left alone" in repeated.stdout
+    assert restored_rows(copy) == [(42,)]
 
 
 @pytest.mark.parametrize("where", [r".local\bin", r"Local\Microsoft\WinGet\Links", None])

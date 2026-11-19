@@ -32,12 +32,13 @@ from . import gallery_lock, refine
 # The key elements that are built from columns here and from a request
 # in `grid`: one spelling of each, or a resume compares strings that only look
 # alike. `grid` imports neither this module nor anything that does.
-from .grid import lora_key, mask_key, reference_key, refine_key, shape_key
+from .grid import lora_key, mask_key, reference_key, refine_key, shape_key, with_tiled_refine_key
 from .instruction_edit import InstructionEditSource, descriptor_from_image, edit_key
 from .detailer import stored_json as detailer_json
 from .metadata import (
-    PNG_MASK_KEY, PNG_METADATA_KEY, canonical_detailer, canonical_edit, detailer_chunk, detailer_from_json,
-    edit_chunk, edit_from_json, validate_detailer_record, validate_edit_record,
+    PNG_MASK_KEY, PNG_METADATA_KEY, canonical_detailer, canonical_edit, canonical_tiled_refine,
+    detailer_chunk, detailer_from_json, edit_chunk, edit_from_json, tiled_refine_chunk, tiled_refine_from_json,
+    validate_detailer_record, validate_edit_record, validate_tiled_refine_record,
 )
 from .mask_crop import Crop
 from .png_settings import crop_anchor as _crop_anchor
@@ -55,6 +56,7 @@ from .record_fields import (  # noqa: F401 - re-exported for storage.<name>
 from .search import fts_prefix_match, parse_search, word_match
 from .schemas import ImageRecord, OutpaintSpec, effective_true_cfg
 from .schemas_mask_crop import MaskCropSpec
+from .tiled_refine_contract import tiled_refine_key
 
 if TYPE_CHECKING:
     from .grid import CellKey
@@ -196,7 +198,8 @@ CREATE TABLE IF NOT EXISTS images (
     vram_peak_reserved  INTEGER,
     mask_crop       TEXT,
     mask_crop_box   TEXT,
-    detailer        TEXT
+    detailer        TEXT,
+    tiled_refine    TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_images_created ON images (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_images_job ON images (job_id);
@@ -330,6 +333,7 @@ _ADDED_COLUMNS = (
     # The frozen detector/regions/chain explanation; individual passes still
     # replay as ordinary inpaints, never by running detection again.
     ("detailer", "TEXT", None),
+    ("tiled_refine", "TEXT", None),
 )
 
 
@@ -504,6 +508,7 @@ def _row_to_record(
         execution=execution_from_json(row["execution"]),
         edit=edit,
         detailer=detailer_from_json(row["detailer"]),
+        tiled_refine=tiled_refine_from_json(row["tiled_refine"]),
         edit_missing=edit_missing or (edit is not None and edit.source is None),
         edit_binned=edit_binned,
         batch=row["batch"],
@@ -535,6 +540,7 @@ _COLUMNS = (
     "quantization", "variables", "true_cfg", "content_hash", "reference", "lora", "lora_scale",
     "refine", "strength", "crop_anchor", "batch", "binned_at", "mask", "outpaint", "upscaler",
     "execution", "edit", "vram_peak_allocated", "vram_peak_reserved", "mask_crop", "mask_crop_box", "detailer",
+    "tiled_refine",
 )
 
 # What every live-facing read adds: an image in the recycle bin is gone from
@@ -562,6 +568,7 @@ def content_hash(image: Image.Image) -> str:
 def _insert_row(conn: sqlite3.Connection, values: dict[str, Any]) -> sqlite3.Row:
     """One row in, the FTS trigger firing with it, the row read back."""
     validate_edit_record(edit_from_json(values.get("edit")), values)
+    validate_tiled_refine_record(tiled_refine_from_json(values.get("tiled_refine")), values)
     columns = ", ".join(_COLUMNS)
     marks = ", ".join("?" * len(_COLUMNS))
     cur = conn.execute(
@@ -621,6 +628,9 @@ def save_image(
     execution = canonical_execution(request.execution)
     edit = edit_from_json(edit_key(request.edit))
     detailer = request.validate_detailer()
+    tiled = canonical_tiled_refine(request.validate_tiled_refine(require_bound=True))
+    if tiled is not None and image.mode != "RGB":
+        raise ValueError("Tiled Refine saves an RGB composite.")
     allocated, reserved = (_peak(peak[0]), _peak(peak[1])) if peak is not None else (None, None)
     variables_json = json.dumps(variables) if variables else None
     mask = request.mask if request.refine is not None else None
@@ -702,6 +712,7 @@ def save_image(
         **execution_chunk(execution),
         **edit_chunk(edit),
         **detailer_chunk(detailer),
+        **tiled_refine_chunk(tiled),
         # Results, not settings, so absent rather than null when unmeasured:
         # a chunk from a CPU or before them reads the same.
         **peak_chunk({"vram_peak_allocated": allocated, "vram_peak_reserved": reserved}),
@@ -709,6 +720,7 @@ def save_image(
     info = PngImagePlugin.PngInfo()
     validate_edit_record(edit, meta)
     validate_detailer_record(detailer, meta)
+    validate_tiled_refine_record(tiled, meta)
     # A1111-style single-line block, so other tools can read the params back.
     # Mu is not an A1111 key, but it is part of what reproduces the image, which
     # is the reason the block exists. Nor is True CFG: on FLUX.1 the CFG
@@ -743,6 +755,7 @@ def save_image(
         + (f", Hires upscaler: {refine.ANIME6B_LABEL}" if upscaler is not None else "")
         + (f", Crop anchor: {crop_anchor}" if crop_anchor is not None else "")
         + (f", Instruction edit: {edit.recipe}" if edit is not None else "")
+        + (f", Tiled Refine: {tiled.recipe}" if tiled is not None else "")
         + (outpaint_parameters(outpaint) if outpaint is not None else "")
         + (mask_crop_parameters(crop_spec) if crop_spec is not None else ""),
     )
@@ -804,6 +817,7 @@ def save_image(
                         "execution": execution_key(execution),
                         "edit": edit_key(edit),
                         "detailer": detailer_json(detailer),
+                        "tiled_refine": tiled_refine_key(tiled),
                         "vram_peak_allocated": allocated,
                         "vram_peak_reserved": reserved,
                         "mask_crop": crop_spec.key() if crop_spec is not None else None,
@@ -1102,7 +1116,7 @@ def completed_cells(
             rows = conn.execute(
                 f"""SELECT prompt, negative_prompt, steps, guidance_scale, mu, true_cfg,
                            reference, lora, lora_scale, refine, strength, mask, outpaint, upscaler, edit, execution,
-                           crop_anchor, mask_crop, seed
+                           crop_anchor, mask_crop, seed, tiled_refine
                     FROM images
                     WHERE width = ? AND height = ? AND model_id = ? {scope}
                       AND prompt IN ({marks})""",
@@ -1112,7 +1126,7 @@ def completed_cells(
                 true_cfg = effective_true_cfg(
                     row["true_cfg"], row["negative_prompt"], row["guidance_scale"]
                 )
-                keys.add(
+                keys.add(with_tiled_refine_key(
                     (
                         row["prompt"],
                         # '' and NULL both mean "no negative prompt", and which
@@ -1134,8 +1148,9 @@ def completed_cells(
                         execution_key(execution_from_json(row["execution"])),
                         shape_key(width, height, row["crop_anchor"]),
                         row["seed"],
-                    )
-                )
+                    ),
+                    tiled_refine_key(tiled_refine_from_json(row["tiled_refine"])),
+                ))
     return keys
 
 
@@ -1233,6 +1248,7 @@ def import_file(values: dict[str, Any]) -> ImageRecord:
         "execution": execution_key(execution_from_json(values.get("execution"))),
         "edit": edit_key(edit_from_json(values.get("edit"))),
         "detailer": detailer_json(detailer_from_json(values.get("detailer"))),
+        "tiled_refine": tiled_refine_key(tiled_refine_from_json(values.get("tiled_refine"))),
         "crop_anchor": _crop_anchor(
             values.get("crop_anchor"), source=values.get("refine"),
             mask=values.get("mask"), outpaint=values.get("outpaint"),
@@ -1287,8 +1303,10 @@ def index_file(
     execution = execution_key(meta.get("execution"))
     edit = edit_key(meta.get("edit"))
     detailer = detailer_json(canonical_detailer(meta.get("detailer")))
+    tiled = canonical_tiled_refine(meta.get("tiled_refine"))
     validate_edit_record(canonical_edit(meta.get("edit")), {**meta, "width": width, "height": height})
     validate_detailer_record(canonical_detailer(meta.get("detailer")), {**meta, "width": width, "height": height})
+    validate_tiled_refine_record(tiled, {**meta, "width": width, "height": height})
     with _write_lock, _session() as conn:
         row = _insert_row(
             conn,
@@ -1331,6 +1349,7 @@ def index_file(
                 "execution": execution,
                 "edit": edit,
                 "detailer": detailer,
+                "tiled_refine": tiled_refine_key(tiled),
                 "vram_peak_allocated": _peak(meta.get("vram_peak_allocated")),
                 "vram_peak_reserved": _peak(meta.get("vram_peak_reserved")),
                 "mask_crop": crop[0].key() if crop is not None else None,
@@ -1750,7 +1769,7 @@ _MOVED = {
         "gallery_delete",
     ),
     **dict.fromkeys(
-        ("retain_run_job", "retained_run_metadata", "retained_run_jobs", "finish_run_job"),
+        ("retain_run_job", "retained_run_metadata", "retained_run_jobs", "retained_then_refine_cells", "finish_run_job"),
         "run_jobs",
     ),
     **dict.fromkeys(

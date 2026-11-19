@@ -109,13 +109,17 @@ def plan(
     out = Planned(record=record, status=QUEUED, width=width, height=height)
     foreign = record.model_id != running
     out.foreign = foreign
-    if (record.refine is not None or record.edit is not None) and skip_passes:
+    if (record.refine is not None or record.edit is not None or record.tiled_refine is not None) and skip_passes:
         out.status = "pass"
         what = (
+            "a Tiled Refine pass" if record.tiled_refine is not None else
             "an instruction edit" if record.edit is not None else "an outpaint" if record.outpaint is not None
             else "an inpaint" if record.mask is not None else "a refine pass"
         )
-        source = record.edit.source if record.edit is not None else record.refine
+        source = (
+            record.tiled_refine.source if record.tiled_refine is not None
+            else record.edit.source if record.edit is not None else record.refine
+        )
         original = f" of #{source}" if source is not None else " with an unresolved original source"
         out.detail = f"{what}{original}; untick Skip refine passes to refine it again"
         return out
@@ -135,6 +139,7 @@ def plan(
         # The edited result is the new ordinary Refine source; it is not
         # another instruction applied to that edit's original input.
         "edit": None,
+        "tiled_refine": None,
         "refine": record.id,
         "strength": strength,
         "reference": [],

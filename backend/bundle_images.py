@@ -11,13 +11,13 @@ import io
 import json
 import os
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import nullcontext
+from contextlib import closing, nullcontext
 from pathlib import Path, PurePosixPath
 from typing import IO, NamedTuple
 
 from PIL import Image, ImageFile
 
-from . import png_settings, storage
+from . import png_settings, storage, tiled_refine_contract
 from .bundle_common import _CHUNK, _WORKERS, MASK_HASH, BundleError
 from .execution import execution_chunk, execution_from_json, execution_key
 from .instruction_edit import edit_key
@@ -26,6 +26,7 @@ from .metadata import (
     PNG_METADATA_KEYS, PNG_SIGNATURE, edit_chunk, edit_from_info, edit_from_json, execution_from_info,
     metadata_chunk, require_header_metadata, text_keyword, validate_edit_record,
     detailer_chunk, detailer_from_info, detailer_from_json, validate_detailer_record,
+    tiled_refine_chunk, tiled_refine_from_info, tiled_refine_from_sources, tiled_refine_from_json,
 )
 
 
@@ -46,6 +47,8 @@ class _Pixels(NamedTuple):
     # Full decoded RGB digest for portable instruction-source proof. Ordinary
     # RGB images reuse the raw digest; other modes are converted after decoding.
     rgb_hash: str | None = None
+    # Prepared-canvas proof is computed only for roots a tiled record names.
+    prepared_rgb_hash: str | None = None
 
 
 def _raw_digest(image: Image.Image) -> str:
@@ -81,6 +84,7 @@ def _pixels(path: Path | str | IO[bytes], *, name: str | None = None, row: dict 
                 edit = _edit(row, image.info) if row is not None else None
                 if row is not None:
                     _detailer(row, image.info)
+                    _tiled_refine(row, image.info)
                 image.load()
                 raw = _raw_digest(image)
                 identity = hashlib.sha256(repr((
@@ -94,7 +98,14 @@ def _pixels(path: Path | str | IO[bytes], *, name: str | None = None, row: dict 
                 else:
                     with image.convert("RGB") as converted:
                         rgb_hash = _raw_digest(converted)
-                return _Pixels(raw[:16], image.width, image.height, identity, rgb, execution, edit, rgb_hash)
+                prepared_rgb_hash = None
+                if row is not None and row.get("_tiled_root_needed") and (
+                    image.mode == "RGB" and image.size == tiled_refine_contract.ROOT_SIZE
+                ):
+                    with closing(tiled_refine_contract.prepare_canvas(image)) as canvas:
+                        prepared_rgb_hash = _raw_digest(canvas)
+                return _Pixels(raw[:16], image.width, image.height, identity, rgb, execution, edit,
+                               rgb_hash, prepared_rgb_hash)
     except (OSError, ValueError, Image.DecompressionBombError) as exc:
         raise BundleError(f"cannot read image {name}: {exc}") from exc
 
@@ -157,6 +168,7 @@ def _validate_row(row: dict, width: int, height: int, content_hash: str) -> None
     _execution(row)
     _edit(row)
     _detailer(row)
+    _tiled_refine(row)
     refine = row.get("refine")
     if refine is not None and (type(refine) is not int or refine <= 0):
         raise BundleError(f"invalid refine source on image {row['id']}")
@@ -263,6 +275,24 @@ def _portable_detailer(value: str | None) -> dict | None:
     return result
 
 
+def _tiled_refine(row: dict, info: dict | None = None) -> str | None:
+    """Every tracked tiled result carries the same recipe in SQL and PNG."""
+    try:
+        stored = (
+            tiled_refine_from_sources(row, None) if info is None else tiled_refine_from_info(row, info)
+        )
+        if stored is not None and row.get("_bundle_version") in (1, 2):
+            raise ValueError("Tiled Refine requires bundle version 3")
+        return tiled_refine_contract.tiled_refine_key(stored)
+    except (TypeError, ValueError) as exc:
+        raise BundleError(f"invalid Tiled Refine metadata for {row['filename']}: {exc}") from exc
+
+
+def _portable_tiled_refine(value: str | None) -> dict | None:
+    stored = tiled_refine_from_json(value)
+    return None if stored is None else stored.model_dump(mode="json", exclude={"source"})
+
+
 def _inspect_source(row: dict, data: bytes):
     return _validate_source_row(row, io.BytesIO(data), name=row["filename"])
 
@@ -348,6 +378,7 @@ def _metadata(row: dict, by_id: dict[int, dict]) -> dict:
         **execution_chunk(execution_from_json(row.get("execution"))),
         **edit_chunk(edit_from_json(row.get("edit"))),
         **detailer_chunk(detailer_from_json(row.get("detailer"))),
+        **tiled_refine_chunk(tiled_refine_from_json(row.get("tiled_refine"))),
         **storage.peak_chunk(row),
     }
 

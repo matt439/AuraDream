@@ -231,6 +231,29 @@ def test_unknown_recipe_and_invented_geometry_cannot_borrow_the_kontext_mapping(
         edit.InstructionEditGeometry(1024, 1024, 1024, 1024)
 
 
+def test_larger_recipe_preserves_its_own_geometry_and_preprocessing():
+    recipe = edit.recipe_for("kontext-1024-v1")
+    assert (recipe.default_steps, recipe.default_guidance_scale) == (28, 2.5)
+    assert (recipe.model_id, recipe.revision, recipe.pipeline_class) == (
+        edit.KONTEXT_V1.model_id, edit.KONTEXT_V1.revision, edit.KONTEXT_V1.pipeline_class,
+    )
+    resolved = edit.geometry(256, 256, recipe=recipe.name)
+    assert resolved.recipe == recipe.name and resolved.output_size == (1024, 1024)
+    assert resolved.pipeline_kwargs() == {
+        "width": 1024, "height": 1024, "max_area": 1048576, "_auto_resize": False,
+        "num_images_per_prompt": 1, "max_sequence_length": 512,
+    }
+    with Image.new("RGBA", (256, 256), (31, 43, 59, 128)) as image:
+        with edit.prepare_source(image, resolved) as prepared:
+            assert prepared.size == (1024, 1024) and prepared.mode == "RGB"
+            assert prepared.getpixel((101, 101)) == (31, 43, 59)
+        assert image.mode == "RGBA" and image.size == (256, 256)
+    with pytest.raises(ValueError, match="exact square"):
+        edit.geometry(768, 512, recipe=recipe.name)
+    with pytest.raises(ValueError, match="frozen source mapping"):
+        edit.InstructionEditGeometry(256, 256, 512, 512, recipe.name)
+
+
 def test_source_preparation_keeps_every_edge_and_does_not_apply_exif_orientation():
     image = Image.new("RGB", (1024, 768), (0, 0, 0))
     image.paste((255, 0, 0), (0, 0, 512, 384))
@@ -324,8 +347,10 @@ def test_explicit_area_prevents_the_installed_output_formula_from_expanding_a_sm
     # Execute only the installed scalar size formula, with no imports or model call.
     assert len(assignments) == 9
     code = compile(ast.Module(body=assignments, type_ignores=[]), "installed-kontext-size-formula", "exec")
-    for source in ((1024, 1024), (1200, 800), (1920, 1080)):
-        resolved = edit.geometry(*source)
+    for resolved in (
+        edit.geometry(1024, 1024), edit.geometry(1200, 800), edit.geometry(1920, 1080),
+        edit.geometry(1024, 1024, recipe="kontext-1024-v1"),
+    ):
         kwargs = resolved.pipeline_kwargs()
         environment = {**kwargs, "self": SimpleNamespace(vae_scale_factor=8, default_sample_size=128)}
         exec(code, {"__builtins__": {}, "round": round}, environment)

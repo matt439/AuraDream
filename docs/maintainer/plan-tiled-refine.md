@@ -1,10 +1,10 @@
 # Tiled Refine
 
-**Status, 2026-11-17:** `GEN#49`'s throwaway SDXL seam experiment passed
-the narrow gate for this plan. Product implementation is not released.
-The private CPU orchestration prototype is built and its integrated CPU,
-focused and static gates pass. The originating [R2](review-2026-11-10-peers.md#r2-tiled-refine)
-owns why the experiment came first.
+**Status, 2026-11-20.** The private CPU orchestration, loaded adapter and
+durable carry are built. The next stage is guarded private card qualification.
+Public submission and replay stay held. The exploratory SDXL seam experiment
+passed its narrow planning gate on November 17. The originating
+[R2](review-2026-11-10-peers.md#r2-tiled-refine) owns why the experiment came first.
 
 The aim is to refine a larger image through bounded overlapping regions,
 using the existing image-to-image and masked-area paths. Each region sees
@@ -215,6 +215,42 @@ guards stayed enforced. Its raw receipt is
 `work/gen49-private-raw-cpu-replay-20261117-a3/receipt.json`; the independently
 audited [bounded derivative](tiled-refine-raw-cpu-replay-2026-11-17.json)
 retains the helper/source proofs and separate failed-attempt disclosures.
-The next implementation stage remains the exact loaded-backend adapter and
-durable pass intent, followed by broader card quality/recovery and public
-flows. No pipeline/GPU/product qualification is inferred from this prototype.
+
+## Private loaded adapter and durable intent, 2026-11-20
+
+The candidate load shares the ordinary Diffusers loader transaction and reads
+the pinned Animagine snapshot from the local cache. It requires Windows,
+RTX 5080 CUDA 0, fp8, model offload, Eager/Native and Diffusers 0.42.1. A
+normally loaded pipeline cannot stand in for the pinned candidate. The
+candidate's SDXL inpaint sibling shares the loaded VAE, UNet, scheduler and
+text encoders. The adapter checks the sibling's class, latent scale and call
+parameters before the first tile. Each tile uses a fresh CPU generator, the
+requested prompt and negative prompt and the frozen strength, steps and CFG.
+It returns the loaded owner's offload hooks after each forward. Progress
+counts all 36 denoising callbacks per composite. The card receipt takes
+conditioning from the job request and geometry, seeds and proof from the
+tile plan. The prototype's example prompt stays in its exploratory recipe.
+
+The stored `tiled_refine` spec carries the algorithm, original gallery id,
+original basename, size and full RGB digest, the exact 2x Lanczos preparation
+and its full RGB digest. The adapter checks the prepared canvas before work
+and the live original before each tile and after the final tile. Tile
+images and masks stay inside the adapter. A private queue job uses one
+ordinary image save per completed cell, and cancellation closes the partial
+composite. Retained cells preserve their bound source and recipe for a
+deliberate private retry from the original root.
+
+The reproduction key adds a field only for a Tiled Refine result. The row,
+PNG and version 3 bundle preserve the recipe and both proofs. PNG reindex
+and database merge verify both proofs before resolving the root. Missing or
+changed roots keep unresolved intent. Existing bundles still use versions
+1 and 2 for their existing features. Public Generate, Grid, Re-render,
+More seeds, Finish and CLI replay return a Tiled Refine hold.
+
+CPU checks use a scratch gallery, a stubbed snapshot lookup, synthetic SDXL
+owners and actual crop and overlay helpers. They check both proofs, the
+pinned load transaction, generator wrap and batch-versus-solo
+identity, shared ownership and cleanup, all 36 callbacks, cancellation and
+discard, changed roots and a private JobManager cancellation and recovery
+through SQLite and PNG metadata. The new adapter's image quality, resource
+use and residency await stage 3.

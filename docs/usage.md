@@ -567,19 +567,38 @@ download and any prompt recheck. Its process stops after answering.
 Supported platforms and custom binaries are described in
 [Settings](../README.md#settings); `AURADREAM_CRITIC=false` disables it.
 
-**Assistant**, beside the prompt (in its toolbar on a phone), opens the
-experimental local writing assistant in a right sidebar. **Create** develops a rough
-idea into drafts; **Improve** revises the current prompt to your instruction;
-**Find tags** suggests candidate Danbooru tags and checks their names. You can
-send follow-ups while keeping the main editor available. Review each answer: the model can invent
-details or lose ones you wanted. **Use prompt** applies a draft explicitly,
-and Ctrl+Z restores the editor. The sidebar stays open, so you can keep refining
-the applied prompt. Earlier drafts remain in the chat. An external edit, Undo,
-or a changed checkpoint holds application so an old answer cannot replace new
-work. The latest prompt options are numbered **1-3**. Press the matching number
+Open **Assistant** at the right end of the desktop top bar. On a phone,
+tap **Assistant** in the toolbar below the prompt to open it full-screen.
+**Create** develops a rough idea into drafts. **Improve** revises the current
+prompt to your instruction. **Find tags** suggests candidate Danbooru tags
+and checks their names. Choose a task, write a message and press **Send**.
+You can change tasks and send follow-ups in the same conversation. Review
+each answer for invented or missing details. **Use prompt** applies a draft
+and rebases the conversation on the applied prompt. Ctrl+Z restores the
+editor. The latest prompt options are numbered **1-3**. Press the matching number
 while focused in the assistant outside a text field, or **Alt+1/2/3** from its
 message box, to use that prompt. Ctrl/Cmd+Enter in the sidebar sends; Escape
 there closes it.
+
+If you edit the prompt or negative prompt in the main editor, including by
+undoing an applied draft, choose **Continue…** in Assistant before sending
+another message. On a phone, close Assistant to reach the editor, then reopen
+it after editing. In the dialog, review **Current prompt**. A changed or
+cleared negative prompt opens **Current negative prompt** for review. Edit
+**Brief for the next replies** and choose **Continue with current prompt**.
+Earlier messages stay visible. The next reply starts from the current editor
+text, the reviewed brief and your pinned requirements. Send another message to
+get a draft you can apply. Continue also lets you review a new brief when
+the chat runs out of room.
+
+Open **Requirements** below the message box to pin exact lettering, a subject
+count, a pose or details to exclude. Enter up to eight requirements, one per
+line with at most 200 characters each. They accompany each message and survive
+Continue. Expand the draft's phrase checks to see which exact, case-sensitive
+phrases are present. Review the draft's meaning and the resulting images
+yourself. After editing the requirements, send another message to get options
+that use the revised list.
+
 Draft explanations appear directly below each prompt. **About the local assistant** at the
 bottom explains context, downloads and tag verification without moving the
 message box when opened.
@@ -602,15 +621,26 @@ checkpoint continues to supply its prompting guide.
 
 The assistant waits for image jobs, loads and other prompt GPU work,
 and releases its process after each answer. **Stop**, or closing the sidebar,
-requests cancellation. Conversation stays in this page's memory; **New chat**
-clears it. It is not saved with images. Candidate tag names are
-sent to Danbooru for verification; the conversation is local. An unavailable
-lookup leaves tags unchecked. Prompt quality, latency and memory for this new
+requests cancellation. Closing and reopening keeps the conversation in this
+page. **New chat** clears it. Switching image checkpoints clears the chat
+and comparison selections. It keeps the main prompt, typed message and pinned
+requirements. Candidate tag names go to Danbooru for verification. The
+conversation is local. An unavailable lookup leaves tags unchecked.
+Prompt quality, latency and memory for this new
 workflow still await GPU testing; the critic's measurements above are not
 assistant measurements.
 
-**Compare on the same seeds** renders the selected original, reordered,
-rewritten and **Your version** prompts on four or eight shared seeds.
+To compare Assistant drafts, choose **More → Add to comparison** on each of
+two or more different drafts from the current chat. Earlier replies are eligible.
+Choose **Compare options** below the message box and review the captured
+settings. **Generate comparison** renders one image per draft on each of four
+shared seeds using the same negative prompt, references, LoRA and generation
+settings. Two drafts make eight images. The results open as a contact sheet.
+
+In **Check**, open **Details: encoders, order and comparison** for **Compare
+on the same seeds**. It renders selected versions of the checked prompt,
+including any critic reorder or rewrite, and **Your version** on four or
+eight shared seeds.
 Two versions on four seeds make eight images. Comparison **Batch** changes
 how many run together; the main panel's Batch and Repeat do not apply.
 Only a pure reordering isolates word order; a rewrite changes other things.
@@ -1784,11 +1814,10 @@ and `--keep-favorites` does not keep a starred image that is in the bin.
 takes neither `--where` nor `--keep-favorites`. `--older-than DAYS`
 narrows `--bin` to the images binned more than DAYS days ago, as the age
 select does; it needs `--bin` and takes a whole number of days, 1 or more.
-`--where` and `--bin`
-delete only what their preview showed: if an image matching it arrives (or,
-for the bin, a different image is binned) while the prompt waits, nothing
-is deleted and the command exits 1 so it can be run again; **Empty recycle
-bin** refuses the same way.
+`--where` and `--bin` delete the images covered by their preview. If the
+selection changes while the prompt waits, even with the same count, the
+command exits 1 without deleting any images. **Delete unstarred** and
+**Empty recycle bin** also ask for a fresh preview when the selection changes.
 Without `--where`, it also removes orphan PNGs, which have no favorite flag
 to preserve. Scoped deletion removes matching rows and files without that
 orphan sweep. The Windows, WSL and native Linux galleries are separate; run

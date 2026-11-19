@@ -220,6 +220,46 @@ def test_a_job_never_cancelled_says_so(store):
     assert job.snapshot()["cancel_requested"] is False
 
 
+def test_every_stream_hears_a_pause_request_and_its_withdrawal_before_the_boundary(store, monkeypatch):
+    entered, release = threading.Event(), threading.Event()
+    fake = FakeBackend()
+    generate = fake.generate
+
+    def held_generate(*args, **kwargs):
+        entered.set()
+        assert release.wait(30), "generation was never released"
+        return generate(*args, **kwargs)
+
+    monkeypatch.setattr(fake, "generate", held_generate)
+
+    async def scenario():
+        manager = JobManager(fake)
+        job = await manager.submit(GenerateRequest(prompt="x", width=256, height=256, steps=2, runs=2))
+        streams = [manager.events(job), manager.events(job)]
+        try:
+            await _until_queue(entered.is_set)
+            await asyncio.sleep(0)  # flush the worker's opening status
+            for stream in streams:
+                assert (await anext(stream))["pause_requested"] is False
+            for requested in (True, False):
+                manager.pause(job.id, requested)
+                manager.pause(job.id, requested)  # an idempotent retry adds no frame
+                assert job.pause_requested is requested and not job.paused
+                for stream in streams:
+                    frame = await asyncio.wait_for(anext(stream), timeout=30)
+                    assert frame == {"type": "pause", "pause_requested": requested}
+                assert all(queue.empty() for queue in job.subscribers)
+        finally:
+            for stream in streams:
+                await stream.aclose()
+            release.set()
+            await _until_queue(lambda: not manager.active())
+            await manager.shutdown()
+        assert job.status == "done" and len(job.images) == 2
+
+    asyncio.run(scenario())
+
+
 def test_a_cancelled_queued_job_is_not_rewritten_when_its_load_fails(store):
     # cancel() finishes a still-queued job on the spot, but its _run is parked
     # in ensure_loaded(); when that then raises, the except branch used to

@@ -295,3 +295,34 @@ workspace Generate. A counter captured the dispatch before any submission.
 target inside the sidebar and the next assistant shortcut stays there.
 Also deliver a reply while the user is reading earlier messages and verify
 that incoming text alone leaves their focus and scroll position intact.
+
+## Results, 2026-11-20
+
+The 18 findings are built and checked with scratch galleries, stub services,
+CPU fixtures and fake-browser sessions. The card and physical-device rows
+keep their own acceptance steps.
+
+The final Windows `pytest tests -n 4` run passed 11,513 tests with 336
+skips. Ruff and pinned Pyright passed. Native Linux script and critic
+lifetimes were checked with disposable WSL fixtures.
+
+| Finding | Result and check |
+|---|---|
+| `DEV#71` | Both updaters stage the database and WAL and publish the final database name last. Killing each updater before WAL copy and after WAL publication, then retrying, restored committed row 42. WAL-free retries and a real Windows locked WAL also passed. A completed same-commit copy still restored row 42 after the source changed to 43. A competing Linux updater left the service alone through the first updater's restart. Copies made by older updaters lack a completion marker. |
+| `DEV#72` | A Linux process guard follows the app's lifetime and cleans up its critic session. Killing a disposable app on WSL removed the wrapped listener and its descendants whether the wrapper was live or had exited. Ordinary Stop passed and an unrelated listener survived. The real critic repeat remains `CARD#11`. |
+| `DEV#73` | Stubbed Linux stop, restart and update with restart report active checkpoint deletion and leave the service running. Idle operations and forced stop/restart passed. |
+| `DEV#74` | The usage guide follows the current desktop and phone openers, Continue and pinned requirements, and both draft and Check comparison flows. The Assistant workflow and comparison browser checks passed. |
+| `DEV#75` | Windows PowerShell entered a bracketed checkout from an unrelated directory, forwarded arguments and exit status, and restored the caller's location. A failed entry stopped before invoking uv. |
+| `DEV#76` | At 2560×1384, the fake FLUX batch strip generated two batches of two. Chrome observed the scrollbar go from 0 to 15 to 0 px, with 491 px tiles, the gallery head at 727.5 px, all four results present and Generate fixed. A 1500 px tall control failed the required transition. Real-server repetition remains `CARD#10`. |
+| `GEN#73` | Mixed Finish preview and submission produced two base images and only the requested pass, then reported no missing work. Deleting that pass recovered it without adding a pass for the plain base. More seeds preserves the selection too. |
+| `GEN#74` | Pending Pause and withdrawal go to every job watcher. Two live browser streams verified withdrawal in the second tab before the first tab's accepted reply arrived, with the progress line intact. Duplicate requests stay quiet. The integrated jobs smoke also verified that a delayed Load reply preserves a failure already shown by the status poll. |
+| `GAL#32` | Damage after a valid gzip header is isolated. The mixed Runs list keeps healthy entries and uses the image canvas for the affected run with outputs. A direct recovery request returns the named 422 and queues nothing. |
+| `GAL#33` | Runs uses two gallery sessions for either 20 or 200 zero-output results. The mixed-history regression checks order, model scope, summary values and bin exclusion. |
+| `GAL#34` | The two reindex previews preserve the legacy destination's bytes, schema, rows and PNGs. Scratch-copy checks also preserve committed WAL-only state without creating a sidecar beside the original. Preview and import agree. |
+| `GAL#35` | Conflicting same-name PNGs are reported and their dependants keep unresolved source links. Tests cover missing, unreadable, wrong-size and pixel-changed targets in previews and imports. Remapped metadata still allows an intact repeat to reuse local IDs. |
+| `GAL#36` | The browser and CLI verify the previewed image set in the write transaction. A same-count star swap leaves both images alone and requires another preview. Unchanged selections pass, and count-only API clients retain their existing behavior. |
+| `GAL#37` | Both reindex modes keep at most one decoded mask from the restore scan live at a time in the 24- and 96-mask fixtures. Embedded, outpaint, detailer and crop proof checks pass. |
+| `INP#14` | The Detailer checks a refused adapter against the current list, explains its disappearance and waits for a deliberate retry. The browser test keeps the reviewed region, receipt and recipe, and queues one adapter-free pass after the retry. An existing adapter and unrelated refusal retain the previous choice. |
+| `INP#15` | Successful detector refresh retires only the read's error. The browser verifies the recovered summary, a failed Verify message surviving a status read, and an old reply leaving a newly opened dialog alone. |
+| `PA#19` | The fake Assistant shows the changed negative or its clearance before adoption. Cancel and subsequent edits require review, and the next request matches the shown text or null. |
+| `UI#57` | Jump to latest reply transfers focus inside Assistant, where the following shortcut stays. The fake reply arriving during earlier reading preserves focus and scroll. |

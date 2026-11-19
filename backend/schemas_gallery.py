@@ -14,10 +14,11 @@ from .instruction_edit import StoredInstructionEdit
 from .detailer import StoredDetailer
 from .refine import Upscaler
 from .png_settings import crop_anchor
-from .metadata import validate_detailer_record, validate_edit_record
+from .metadata import validate_detailer_record, validate_edit_record, validate_tiled_refine_record
 from .schemas_generate import CropAnchor
 from .schemas_mask_crop import MaskCropSpec
 from .schemas_outpaint import OutpaintSpec
+from .tiled_refine_contract import StoredTiledRefine
 
 class ImageRecord(BaseModel):
     id: int
@@ -95,6 +96,7 @@ class ImageRecord(BaseModel):
     # Frozen source proof survives missing or unproven imported source ids.
     edit: StoredInstructionEdit | None = None
     detailer: StoredDetailer | None = None
+    tiled_refine: StoredTiledRefine | None = None
     edit_missing: bool = False
     edit_binned: bool = False
     # How many images the pipeline call that made this one held (the panel's
@@ -162,6 +164,8 @@ class ImageRecord(BaseModel):
             raise ValueError("an instruction edit cannot also carry another generation workflow")
         validate_edit_record(self.edit, self.model_dump())
         validate_detailer_record(self.detailer, self.model_dump())
+        if self.tiled_refine is not None:
+            validate_tiled_refine_record(self.tiled_refine, self.model_dump())
         return self
 
 
@@ -237,14 +241,14 @@ class UnstarredPreview(BaseModel):
 
     The confirmation's numbers, taken server-side like Re-render's selection:
     the browser holds one page. `unstarred` is the count the dialog asks to
-    have typed back and the DELETE is then pinned to: `records`, less the
-    starred ones and less `sources_kept`, the unstarred images a starred one
-    was made from (a pass's source, a render's references), which the delete
-    keeps with the stars.
+    have typed back. It excludes stars and `sources_kept`, the images a starred
+    one was made from (a pass's source, a render's references). `pin` is the
+    digest of the IDs covered by the confirmation.
     """
     records: int
     favorites: int
     unstarred: int
+    pin: str
     sources_kept: int = 0
     # The first few of those, by id, for the dialog to name.
     sources: list[int] = Field(default_factory=list)

@@ -16,6 +16,7 @@ let detailerEpoch = 0;
 let detailerRevision = null;
 let detailerLora = null;
 let detailerProblem = '';
+let detailerStatusError = '';
 let detailerDetectorSelection = '';
 let detailerNeedsReopen = false;
 
@@ -44,7 +45,7 @@ async function openDetailer(rec) {
   detailerWorking = false;
   detailerSending = false;
   detailerRan = false;
-  detailerProblem = '';
+  detailerStatusError = '';
   detailerNeedsReopen = false;
   detailerRevision = modelRevision;
   const foreign = modelsDiffer(rec.model_id);
@@ -78,14 +79,15 @@ async function openDetailer(rec) {
 }
 
 async function refreshDetailerStatus() {
-  if (!detailerSource) return;
+  if (!detailerSource || !els.detailerDialog.open) return;
   if (detailerWorking || detailerSending) { detailerFailed('Wait for the current request to finish.'); return; }
   const epoch = detailerEpoch;
+  const current = () => epoch === detailerEpoch && els.detailerDialog.open;
   detailerWorking = true;
   syncDetailerDialog();
   try {
     const status = await api('/api/detailer/status');
-    if (epoch !== detailerEpoch) return;
+    if (!current()) return;
     detailerStatus = status;
     const selected = els.detailerDetectors.value;
     const options = (status.detectors ?? []).map((detector) => {
@@ -97,10 +99,15 @@ async function refreshDetailerStatus() {
     els.detailerDetectors.replaceChildren(...options);
     if (options.some((option) => option.value === selected)) els.detailerDetectors.value = selected;
     detailerDetectorSelection = els.detailerDetectors.value;
+    detailerStatusError = '';
   } catch (err) {
-    if (epoch === detailerEpoch) detailerFailed(err.message);
+    if (current()) detailerStatusError = err.message;
   } finally {
-    if (epoch === detailerEpoch) { detailerWorking = false; syncDetailerDialog(); }
+    if (current()) {
+      detailerWorking = false;
+      renderDetailerFeedback();
+      syncDetailerDialog();
+    }
   }
 }
 
@@ -353,9 +360,14 @@ function detailerKeydown(event) {
 
 function detailerFailed(message) {
   detailerProblem = message || '';
-  els.detailerError.textContent = detailerProblem;
-  els.detailerError.hidden = !detailerProblem;
-  els.detailerSummary.hidden = !!detailerProblem;
+  renderDetailerFeedback();
+}
+
+function renderDetailerFeedback() {
+  const message = [detailerProblem, detailerStatusError].filter(Boolean).join(' ');
+  els.detailerError.hidden = !message;
+  els.detailerError.textContent = message;
+  els.detailerSummary.hidden = !!message;
 }
 
 function detailerReceiptGone(err) {
@@ -372,6 +384,9 @@ async function runDetailer() {
     return;
   }
   const source = detailerSource;
+  const epoch = detailerEpoch;
+  const sameDialog = () => detailerSource === source && els.detailerDialog.open;
+  const current = () => epoch === detailerEpoch && sameDialog();
   const recipe = {
     prompt: els.detailerPrompt.value.trim(), negative_prompt: els.detailerNegative.value,
     steps: +els.detailerSteps.value, guidance_scale: +els.detailerGuidance.value,
@@ -382,6 +397,7 @@ async function runDetailer() {
   detailerFailed('');
   syncDetailerDialog();
   let refusal = null;
+  let accepted = false;
   const sent = startJob('/api/detailer', {
     receipt: detailerPreview.receipt,
     accepted: detailerPreview.regions.filter((region) => detailerSelected.has(region.id)).map((region) => region.id),
@@ -392,23 +408,34 @@ async function runDetailer() {
       label: `Detailing #${source.id}` },
     onRefused: (err) => { refusal = err; },
     onAccepted: () => {
+      accepted = true;
+      if (!sameDialog()) return;
       detailerSending = false;
       detailerRan = true;
-      if (detailerSource === source && els.detailerDialog.open) els.detailerDialog.close();
+      els.detailerDialog.close();
     },
   });
   syncDetailerDialog();
   await sent;
-  detailerSending = false;
-  if (refusal) {
+  // An accepted job may keep streaming after a different detailer dialog opens.
+  if (accepted || !sameDialog()) return;
+  if (refusal && current()) {
     if (imageGone(refusal) || detailerReceiptGone(refusal)) {
       detailerPreview = null;
       detailerSelected.clear();
       renderDetailerRegions();
     }
-    detailerFailed(refusal.message);
-    if (!els.detailerDialog.open) showError(refusal.message);
+    const dropped = await dropPassLora(refusal, source, {
+      lora: () => detailerLora, source: () => current() ? detailerSource : null,
+      drop: () => { detailerLora = null; },
+      carried: els.detailerCarried, failed: detailerFailed,
+      noun: 'detail operation', run: 'Queue detail passes',
+    });
+    if (!dropped && current()) detailerFailed(refusal.message);
   }
+  if (!sameDialog()) return;
+  detailerSending = false;
+  if (!current()) renderDetailerFeedback();
   syncDetailerDialog();
 }
 

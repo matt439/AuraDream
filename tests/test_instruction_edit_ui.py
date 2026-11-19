@@ -200,6 +200,7 @@ run(`
     [editRecord({ edit: { source: null, recipe: 'kontext-v1' } }), /never resolved to a gallery image/],
     [editRecord({ edit_missing: true }), /#17, the source this was edited from, has been deleted/],
     [editRecord({ edit_missing: true, edit_binned: true }), /#17, the source this was edited from, is in the recycle bin; restore it/],
+    [editRecord({ edit: { source: 17, recipe: 'kontext-1024-v1' } }), /1024-square FLUX[.]1 Kontext/],
   ];
   for (const [rec, words] of held) {
     assert.match(executionReuseReason(rec), words);
@@ -209,7 +210,7 @@ run(`
     assertDraftIntact();
   }
   assert.equal(reusedEdits.length, 0);
-  assert.equal(errors.length, 9);
+  assert.equal(errors.length, 12);
   assert.match(errors[0], /never resolved/);
 `);
 """)
@@ -275,6 +276,12 @@ run(`
   assert.equal(unresolved.dataset.reuseEditSource, '');
   assert.equal(unresolved.getAttribute('aria-disabled'), 'true');
   assert.match(unresolved.title, /never resolved/);
+  const larger = reuseButton(editRecord({ edit: { source: 17, recipe: 'kontext-1024-v1' } }));
+  buttons.push(larger);
+  syncReuseButtons();
+  assert.equal(larger.dataset.reuseEditRecipe, 'kontext-1024-v1');
+  assert.equal(larger.getAttribute('aria-disabled'), 'true');
+  assert.match(larger.title, /1024-square FLUX[.]1 Kontext/);
   const button = new InertElement();
   syncReuseButton(button, editRecord({ edit_missing: true }));
   assert.equal(button.getAttribute('aria-disabled'), 'true');

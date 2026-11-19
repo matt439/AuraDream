@@ -18,6 +18,7 @@ from .schemas import MoreSeedsRequest, ThenRefine, error_detail
 from .schemas_rerun import (
     FinishRunAccepted, FinishRunPreview, FinishRunRequest, RunAction, RunDetails,
 )
+from .tiled_refine_contract import HELD as TILED_REFINE_HELD
 
 
 @dataclass
@@ -30,8 +31,9 @@ class FinishPlan:
     refusal_code: int = 409
     # Then refine's missing passes, one per base saved without its own,
     # and the one spec the run's retained jobs agree on.
-    passes: list[grid.Cell] = field(default_factory=list)
+    source_passes: list[grid.Cell] = field(default_factory=list)
     spec: ThenRefine | None = None
+    then_refine_cells: frozenset[int] | None = None
 
 
 def _model_name(model_id: str) -> str:
@@ -39,7 +41,7 @@ def _model_name(model_id: str) -> str:
     return entry.name if entry else model_id
 
 
-def _finish_key(services: AppServices, cell: grid.Cell) -> tuple:
+def _finish_key(services: AppServices, cell: grid.Cell) -> tuple[int, int, tuple[grid.CellKey, ...]]:
     ran = grid.Cell(request=services.backend().applied(cell.request), seed=cell.seed)
     return cell.request.width, cell.request.height, tuple(grid.cell_keys(ran))
 
@@ -62,6 +64,20 @@ async def finish_plan(services: AppServices, run_id: str) -> FinishPlan:
         raise HTTPException(status_code=404, detail="unknown run")
 
     definition = definitions[0] if definitions else None
+    saved_cells = [cell for saved in definitions for cell in saved["cells"]]
+    if any(cell.request.tiled_refine is not None for cell in saved_cells) or any(
+        record.tiled_refine is not None for record in records
+    ):
+        sizes = sorted({(cell.request.width, cell.request.height) for cell in saved_cells}) or sorted(
+            {(record.width, record.height) for record in records}
+        )
+        preview = FinishRunPreview(
+            run_id=run_id, available=False, reason=TILED_REFINE_HELD,
+            total=len(saved_cells), cells=0, images=0, rendered=0, queued=0, redrawn=0,
+            budget_minutes=definition["metadata"].get("budget_minutes") if definition else None,
+            pin=hashlib.sha256(f"{run_id}:tiled-refine-held".encode()).hexdigest()[:16],
+        )
+        return FinishPlan(preview, definition, [], records, sizes, 422)
     detailer_records = [
         record for record in records
         if record.detailer is not None and record.detailer.group_id == run_id
@@ -71,7 +87,6 @@ async def finish_plan(services: AppServices, run_id: str) -> FinishPlan:
         # template cells cannot be replayed independently after a stop or
         # restart: that would run every mask against the original source.
         # Keep the run inspectable while recovery remains an explicit review.
-        saved_cells = [cell for saved in definitions for cell in saved["cells"]]
         sizes = sorted({(cell.request.width, cell.request.height) for cell in saved_cells}) or sorted(
             {(record.width, record.height) for record in detailer_records}
         )
@@ -104,7 +119,6 @@ async def finish_plan(services: AppServices, run_id: str) -> FinishPlan:
             services.backend().instruction_edit_refusal(current_settings(services.settings()))
         )
         pinned = {INSTRUCTION_EDIT_UNAVAILABLE: "unavailable", INSTRUCTION_EDIT_REPLAY_HELD: "replay-held"}
-        saved_cells = [cell for saved in definitions for cell in saved["cells"]]
         sizes = sorted({(cell.request.width, cell.request.height) for cell in saved_cells}) or sorted(
             {(record.width, record.height) for record in records}
         )
@@ -132,12 +146,33 @@ async def finish_plan(services: AppServices, run_id: str) -> FinishPlan:
     cells: list[grid.Cell] = []
     keys: set[tuple] = set()
     succeeded: set[tuple] = set()
+    specs: list[ThenRefine] = []
+    spec_jobs: dict[str, set[grid.CellKey] | None] = {}
+    inline_keys: set[tuple] = set()
+    # Bases whose pass a retained job saved: one missing now was
+    # permanently deleted, and Finish says it redraws it, as for a cell.
+    passes_made: set[int] = set()
     for saved in definitions:
-        for cell in saved["cells"]:
+        retained = then_refine.retained(saved["metadata"])
+        selected_indices = saved["metadata"].get("then_refine_cells")
+        selection = set(selected_indices) if selected_indices is not None else None
+        selected_keys: set[grid.CellKey] | None = None if selection is None else set()
+        if retained is not None:
+            spec_jobs[saved["job_id"]] = selected_keys
+            if retained not in specs:
+                specs.append(retained)
+            made = (saved.get("outcome") or {}).get("completed_passes", [])
+            if isinstance(made, list):
+                passes_made.update(base for base in made if type(base) is int)
+        for index, cell in enumerate(saved["cells"]):
             key = _finish_key(services, cell)
             if key not in keys:
                 keys.add(key)
                 cells.append(cell)
+            if retained is not None and (selection is None or index in selection):
+                inline_keys.add(key)
+                if selected_keys is not None:
+                    selected_keys.update(key[2])
         for index in (saved.get("outcome") or {}).get("completed_indices", []):
             if isinstance(index, int) and 0 <= index < len(saved["cells"]):
                 succeeded.add(_finish_key(services, saved["cells"][index]))
@@ -164,20 +199,6 @@ async def finish_plan(services: AppServices, run_id: str) -> FinishPlan:
 
     # Then refine's spec, one per run: a Resume tick with other numbers made
     # another pass run, which no single Finish can continue both of.
-    specs: list[ThenRefine] = []
-    spec_jobs: set[str] = set()
-    # Bases whose pass a retained job saved: one missing now was
-    # permanently deleted, and Finish says it redraws it, as for a cell.
-    passes_made: set[int] = set()
-    for saved in definitions:
-        retained = then_refine.retained(saved["metadata"])
-        if retained is not None:
-            spec_jobs.add(saved["job_id"])
-            if retained not in specs:
-                specs.append(retained)
-            made = (saved.get("outcome") or {}).get("completed_passes", [])
-            if isinstance(made, list):
-                passes_made.update(base for base in made if type(base) is int)
     spec = specs[0] if specs else None
     if not reason and len(specs) > 1:
         made = [then_refine.words(each) for each in specs]
@@ -213,11 +234,15 @@ async def finish_plan(services: AppServices, run_id: str) -> FinishPlan:
             # not queued: a cancel or a failure between the stages. The pass
             # is the one the worker makes of that base. A binned base is a
             # discard; a plain job's bases never had a pass to miss.
-            bases = [
-                record for record in records
-                if record.job_id in spec_jobs and record.refine is None and record.edit is None
-                and record.binned_at is None
-            ]
+            bases = []
+            for record in records:
+                job_id = record.job_id
+                if (job_id is None or job_id not in spec_jobs or record.refine is not None or record.edit is not None
+                        or record.binned_at is not None):
+                    continue
+                selected_keys = spec_jobs[job_id]
+                if selected_keys is None or then_refine.matches_source(record, selected_keys):
+                    bases.append(record)
             pass_cells = [p.cell for p in then_refine.plan_passes(bases, spec) if p.cell is not None]
             unheld = await submission.not_yet_rendered(services, pass_cells)
             kept_passes = submission.not_yet_planned(services, unheld, planned)
@@ -238,10 +263,14 @@ async def finish_plan(services: AppServices, run_id: str) -> FinishPlan:
                 else "nothing in this run is missing"
             )
 
+    kept_keys = [_finish_key(services, cell) for cell in kept]
+    then_refine_cells = frozenset(index for index, key in enumerate(kept_keys) if key in inline_keys)
+    inline_requests = [cell.request for index, cell in enumerate(kept) if index in then_refine_cells]
+    will_refine = bool(inline_requests or kept_passes)
     refusal_code = 409
-    if not reason and spec is not None:
+    if not reason and spec is not None and will_refine:
         unavailable = await submission.refine_unavailable(services)
-        bounded = then_refine.refusal([cell.request for cell in kept], spec, unavailable)
+        bounded = then_refine.refusal(inline_requests, spec, unavailable)
         if bounded is not None:
             reason, refusal_code = bounded, 422
     if not reason:
@@ -268,23 +297,26 @@ async def finish_plan(services: AppServices, run_id: str) -> FinishPlan:
                 break
 
     pin = hashlib.sha256(json.dumps(
-        [run_id, [_finish_key(services, cell) for cell in kept],
-         [_finish_key(services, cell) for cell in kept_passes], budget],
+        [run_id, kept_keys,
+         [_finish_key(services, cell) for cell in kept_passes], budget,
+         sorted(then_refine_cells), then_refine.spec_key(spec) if will_refine else None],
         separators=(",", ":"), ensure_ascii=True,
     ).encode("utf-8")).hexdigest()[:16]
     preview = FinishRunPreview(
         run_id=run_id, available=not reason, reason=reason,
         total=len(cells), cells=len(kept), images=sum(cell.request.num_images for cell in kept),
         rendered=rendered, queued=queued,
-        redrawn=sum(_finish_key(services, cell) in succeeded for cell in kept),
-        passes=len(kept_passes),
+        redrawn=sum(key in succeeded for key in kept_keys),
+        passes=len(kept_passes) + sum(request.num_images for request in inline_requests),
         redrawn_passes=sum(cell.request.refine in passes_made for cell in kept_passes),
         budget_minutes=budget, pin=pin,
     )
     sizes = sorted({(cell.request.width, cell.request.height) for cell in cells}) if definitions else sorted(
         {(record.width, record.height) for record in records}
     )
-    return FinishPlan(preview, definition, kept, records, sizes, refusal_code, kept_passes, spec)
+    selection = then_refine_cells if will_refine and len(then_refine_cells) != len(kept) else None
+    return FinishPlan(preview, definition, kept, records, sizes, refusal_code, kept_passes,
+                      spec if will_refine else None, selection)
 
 
 def create_router(services: AppServices) -> APIRouter:
@@ -363,10 +395,11 @@ def create_router(services: AppServices) -> APIRouter:
                     comparison=definition["comparison"], swap=metadata.get("swap"),
                     refine_batch=metadata.get("refine_batch"), more_seeds=metadata.get("more_seeds"),
                     then_refine=plan.spec,
-                    pass_sources=[cell.request.refine for cell in plan.passes if cell.request.refine is not None],
+                    pass_sources=[cell.request.refine for cell in plan.source_passes if cell.request.refine is not None],
+                    then_refine_cells=plan.then_refine_cells,
                 )
             except ValueError as exc:
-                if plan.cells or not plan.passes:
+                if plan.cells or not plan.source_passes:
                     raise
                 # Every base whose pass was missing went between the check
                 # and the submit: nothing is queued.

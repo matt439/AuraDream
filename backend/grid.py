@@ -47,7 +47,7 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from itertools import product
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 from .model_selection import current_model_id
 from .config import settings
@@ -56,6 +56,9 @@ from .instruction_edit import bound_spec, edit_key
 from .refine import start_index, steps_run
 from .schemas import GenerateRequest, ImageRecord, PromptVariant
 from .seeds import random_seed, wrap_seed
+from .tiled_refine_contract import (
+    STEPS as TILED_REFINE_STEPS, STRENGTH as TILED_REFINE_STRENGTH, tiled_refine_key,
+)
 
 # Per axis, and then over the whole grid. Both are guard rails against a typo
 # turning into a week of GPU time - `1-1000` is eight characters.
@@ -105,10 +108,22 @@ VARIANT = "variant"
 # image of a batch. Existing extension indices stay fixed; execution precedes
 # shape so readers retain shape[-2]. `run_id` omits empty execution explicitly
 # before trimming unused legacy extensions from the right.
-CellKey = tuple[
+_CellKeyPrefix = tuple[
     str, str | None, int, float, float | None, float | None, str | None, str | None,
-    str | None, str | None, str | None, str | None, str | None, str, int,
+    str | None, str | None, str | None, str | None, str | None,
 ]
+_OrdinaryCellKey = tuple[*_CellKeyPrefix, str, int]
+_TiledCellKey = tuple[*_CellKeyPrefix, str, str, int]
+CellKey = _OrdinaryCellKey | _TiledCellKey
+
+
+def with_tiled_refine_key(key: _OrdinaryCellKey, tiled: str | None) -> CellKey:
+    """A distinct extension for the tiled recipe and its verified root."""
+    return key if tiled is None else (*key[:-2], tiled, *key[-2:])
+
+
+def key_with_seed(key: CellKey, seed: int) -> CellKey:
+    return cast(CellKey, (*key[:-1], seed))
 
 # How many of the trailing elements before the seed are optional extensions -
 # true CFG, references, LoRA, refine, mask, upscaler, edit, execution, canvas/crop. Comparison
@@ -732,8 +747,9 @@ def cell_key(cell: "Cell") -> CellKey:
     """
     request = cell.request
     bound_edit = request.validate_edit(require_bound=True)
+    bound_tiled_refine = request.validate_tiled_refine(require_bound=True)
     assert request.steps is not None and request.guidance_scale is not None, "profile defaults fill sampling"
-    return (
+    key = (
         request.prompt,
         request.negative_prompt or None,
         request.steps,
@@ -750,6 +766,7 @@ def cell_key(cell: "Cell") -> CellKey:
         shape_key(request.width, request.height, request.crop_anchor),
         cell.seed,
     )
+    return with_tiled_refine_key(key, tiled_refine_key(bound_tiled_refine))
 
 
 def duplicate_count(
@@ -782,7 +799,7 @@ def duplicate_count(
                 # Everything after the refine element kept, the mask with the
                 # seed: two masks over one source are two pictures.
                 if start is not None:
-                    key = (*key[:8], f"{ran.request.refine}@step:{start}", *key[9:])
+                    key = cast(CellKey, (*key[:8], f"{ran.request.refine}@step:{start}", *key[9:]))
             if key in seen:
                 duplicates += 1
             else:
@@ -800,7 +817,7 @@ def cell_keys(cell: "Cell") -> list[CellKey]:
     """
     base = cell_key(cell)
     return [
-        (*base[:-1], wrap_seed(cell.seed + offset)) for offset in range(cell.request.num_images)
+        key_with_seed(base, wrap_seed(cell.seed + offset)) for offset in range(cell.request.num_images)
     ]
 
 
@@ -895,6 +912,7 @@ def cell_from_record(
         "execution": record.execution,
         "edit": record.edit,
         "detailer": record.detailer,
+        "tiled_refine": record.tiled_refine,
         "seed": record.seed,
     }
     unknown = set(changes) - set(GenerateRequest.model_fields)
@@ -915,6 +933,8 @@ def cell_from_record(
         stored_edit = bound_spec(fields["edit"])
         stored_edit.request()  # Explicitly refuse unresolved imported intent.
         fields["edit"] = stored_edit
+    if fields["tiled_refine"] is not None and "strength" not in changes:
+        fields["strength"] = TILED_REFINE_STRENGTH
     return Cell(
         request=GenerateRequest(**fields),
         seed=fields["seed"],
@@ -937,6 +957,8 @@ def denoised_steps(request: GenerateRequest) -> int:
     """The steps one image of this request denoises: all of them, or the part
     of the schedule a refine pass's strength leaves (`refine.steps_run`)."""
     assert request.steps is not None, "profile defaults fill steps"
+    if request.tiled_refine is not None:
+        return 4 * int(TILED_REFINE_STEPS * TILED_REFINE_STRENGTH)
     if request.refine is None:
         return request.steps
     assert request.strength is not None, "a refine source carries its applied strength"
@@ -952,7 +974,7 @@ def progress_steps(request: GenerateRequest) -> int:
     refine pass, which makes one call per image (`DiffusersBackend._refine`)
     and counts each.
     """
-    if request.refine is None:
+    if request.refine is None and request.tiled_refine is None:
         return denoised_steps(request)
     return denoised_steps(request) * request.num_images
 
@@ -988,6 +1010,9 @@ def run_id(cells: list[Cell], model_id: str, quantization: str) -> str:
 
     def named(cell: Cell) -> str:
         key = cell_key(cell)
+        tiled_refine = key[-3] if len(key) == 16 else None
+        if tiled_refine is not None:
+            key = (*key[:-3], *key[-2:])
         # Comparison keys always carry shape. Uniform centered hashed names
         # keep the exact legacy key and size definition instead.
         extensions = _KEY_EXTENSIONS
@@ -1009,7 +1034,10 @@ def run_id(cells: list[Cell], model_id: str, quantization: str) -> str:
         head, extras, seed = key[:-1 - extensions], list(key[-1 - extensions : -1]), key[-1]
         while extras and extras[-1] is None:
             extras.pop()
-        return json.dumps([*head, *extras, seed])
+        facts = [*head, *extras, seed]
+        if tiled_refine is not None:
+            return json.dumps({"cell": facts, "tiled_refine": tiled_refine})
+        return json.dumps(facts)
 
     definition = {
         "model": model_id,

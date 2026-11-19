@@ -19,10 +19,10 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from pathlib import Path, PurePosixPath
 
-from . import backup_receipts, bundle_crypto, bundle_leases
+from . import backup_receipts, bundle_crypto, bundle_leases, tiled_refine_contract
 from .bundle_common import _CHUNK, _WORKERS, MASK_HASH, BundleError, Progress, _basename, _mask_rows, _quiet, _rows
 from .bundle_images import _inspect_mask, _inspect_source
-from .metadata import PNG_SIGNATURE, detailer_from_json, edit_from_json
+from .metadata import PNG_SIGNATURE, detailer_from_json, edit_from_json, tiled_refine_from_json
 
 
 _FORMAT = "auradream-gallery"
@@ -35,6 +35,8 @@ _MANIFEST = "manifest.json"
 # capacity preflight budgets the same bound.
 _MANIFEST_MAX = 32 * 1024 * 1024
 _DECODE_BUDGET = 1024 * 1024 * 1024
+# Preparation may hold a Lanczos intermediate beside the 2048-square RGB core.
+_TILED_PREPARE_BYTES = 8 * tiled_refine_contract.CANVAS_SIZE[0] * tiled_refine_contract.CANVAS_SIZE[1]
 # A tracked PNG is held in memory to be decoded, and a hostile bundle can
 # declare (and deflate to) any size; this is far above any generated image.
 _MAX_IMAGE_BYTES = 256 * 1024 * 1024
@@ -189,7 +191,7 @@ def _verify_archive(path: Path, destination: Path | None = None, *, password: st
                     raise BundleError(f"{info.filename} is stored larger than its contents")
             manifest = json.loads(archive.read(_MANIFEST))
             if (not isinstance(manifest, dict) or manifest.get("format") not in {_FORMAT, *_LEGACY_FORMATS}
-                    or type(manifest.get("version")) is not int or manifest["version"] not in (1, 2)):
+                    or type(manifest.get("version")) is not int or manifest["version"] not in (1, 2, 3)):
                 raise BundleError("this is not a supported AuraDream bundle")
             if backup_receipts.MARKER in manifest or managed is not None:
                 try:
@@ -212,6 +214,8 @@ def _verify_archive(path: Path, destination: Path | None = None, *, password: st
                 if len(found) != manifest.get("records"):
                     raise BundleError("the manifest's record count does not match its database")
                 needed_sources = set()
+                tiled_roots = set()
+                has_tiled_results = False
                 for row in found:
                     try:
                         edit = edit_from_json(row.get("edit"))
@@ -225,12 +229,25 @@ def _verify_archive(path: Path, destination: Path | None = None, *, password: st
                             needed_sources.add(edit.source)
                     if detailer is not None and detailer.plan.source_id is not None:
                         needed_sources.add(detailer.plan.source_id)
+                    try:
+                        tiled_refine = tiled_refine_from_json(row.get("tiled_refine"))
+                    except (TypeError, ValueError) as exc:
+                        raise BundleError(f"invalid Tiled Refine metadata for {row['filename']}: {exc}") from exc
+                    if tiled_refine is not None:
+                        if manifest["version"] != 3:
+                            raise BundleError("Tiled Refine requires bundle version 3")
+                        has_tiled_results = True
+                        if tiled_refine.source is not None:
+                            tiled_roots.add(tiled_refine.source)
                     if "images/" + row["filename"] not in files:
                         raise BundleError(f"the bundle is missing {row['filename']}")
+                if manifest["version"] == 3 and not has_tiled_results:
+                    raise BundleError("bundle version 3 is only supported for archives with Tiled Refine results")
                 # Private copies leave export's pre-cleanup snapshot unchanged.
                 return {"images/" + row["filename"]: {
                     **row, "_bundle_version": manifest["version"],
-                    "_edit_source_needed": row["id"] in needed_sources,
+                    "_full_source_proof_needed": row["id"] in needed_sources or row["id"] in tiled_roots,
+                    "_tiled_root_needed": row["id"] in tiled_roots,
                 } for row in found}
 
             tracked = track(rows) if rows is not None else {}
@@ -282,7 +299,10 @@ def _verify_archive(path: Path, destination: Path | None = None, *, password: st
                         output.close()
                 if row:
                     assert data is not None  # Tracked members take the bounded whole-read branch above.
-                    pool.submit(name, _png_weight(data), _checked, name, expected["sha256"], inspect, row, data)
+                    weight = _png_weight(data)
+                    if row.get("_tiled_root_needed"):
+                        weight += _TILED_PREPARE_BYTES
+                    pool.submit(name, weight, _checked, name, expected["sha256"], inspect, row, data)
                     data = None  # the bytes go with their inspection, not with the next member
                 elif mask:
                     assert data is not None

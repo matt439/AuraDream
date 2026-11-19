@@ -36,6 +36,7 @@ from .execution import execution_key
 from .instruction_edit import edit_key
 from .schemas import GenerateRequest, ImageRecord, ThenRefine, error_detail
 from .seeds import wrap_seed
+from .tiled_refine_contract import HELD as TILED_REFINE_HELD, tiled_refine_key
 
 # The statuses this module decides; the routes add `foreign`,
 # `source_deleted`, `lora_missing`, `mask_missing`, `outpaint`,
@@ -59,7 +60,7 @@ def settings_key(record: ImageRecord) -> tuple:
     source and its strength, the mask (an outpaint by its spec, as
     `completed_cells` keys it; only the masked area's spec after it), the
     upscaler, rounded alike."""
-    return (
+    key = (
         record.prompt,
         record.negative_prompt or None,
         record.steps,
@@ -78,7 +79,9 @@ def settings_key(record: ImageRecord) -> tuple:
         edit_key(record.edit),
         execution_key(record.execution),
         grid.shape_key(record.width, record.height, record.crop_anchor),
+        record.seed,
     )
+    return grid.with_tiled_refine_key(key, tiled_refine_key(record.tiled_refine))[:-1]
 
 
 def batch_key(record: ImageRecord) -> tuple:
@@ -202,6 +205,9 @@ def plan(
     `applied` runs them; the seeds chosen are added to it, so a later batch
     of the same settings - another run of the same prompt - steps past them."""
     template = batch.template
+    if template.tiled_refine is not None:
+        batch.status, batch.detail = "invalid", TILED_REFINE_HELD
+        return
     size, batch.recorded = batch_size(batch.held, fallback)
     fit = fitting(size, template.width, template.height, template.refine)
     if template.edit is not None or template.detailer is not None:
@@ -217,12 +223,12 @@ def plan(
     batch.size = fit
     try:
         probe = grid.cell_from_record(template)
-        base = grid.cell_key(grid.Cell(request=applied(probe.request), seed=0))[:-1]
+        base = grid.cell_key(grid.Cell(request=applied(probe.request), seed=0))
     except ValueError as exc:
         batch.status, batch.detail = "invalid", error_detail(exc)
         return
     top = max(r.seed for r in batch.held)
-    seeds = next_seeds(top, count, lambda seed: (*base, seed) in held)
+    seeds = next_seeds(top, count, lambda seed: grid.key_with_seed(base, seed) in held)
     try:
         cells = [
             grid.cell_from_record(template, seed=run[0], num_images=len(run), label=seed_label(run))
@@ -234,7 +240,7 @@ def plan(
     except ValueError as exc:
         batch.status, batch.detail = "invalid", error_detail(exc)
         return
-    held.update((*base, seed) for seed in seeds)
+    held.update(grid.key_with_seed(base, seed) for seed in seeds)
     batch.seeds, batch.cells = seeds, cells
 
 

@@ -112,6 +112,9 @@ class Job:
     # and `pending_passes` the cell's passes still to run - planned, so More
     # seeds and Mass refine count them as made.
     then_refine: ThenRefine | None = None
+    # Finish can recover plain and Then refine cells in the same job.
+    # None keeps the ordinary job's whole-cell-list behavior.
+    then_refine_cells: frozenset[int] | None = None
     pass_run_id: str | None = None
     stage: str | None = None
     pending_passes: list[Cell] = field(default_factory=list)
@@ -291,6 +294,17 @@ class Job:
         header; a job of missing passes alone, its passes'."""
         return sorted({(cell.request.width, cell.request.height) for cell in self.cells or self.source_passes})
 
+    def refines_cell(self, index: int) -> bool:
+        return self.then_refine is not None and (self.then_refine_cells is None or index in self.then_refine_cells)
+
+    @functools.cached_property
+    def base_images(self) -> int:
+        return sum(cell.request.num_images for cell in self.cells)
+
+    @functools.cached_property
+    def inline_passes(self) -> int:
+        return sum(cell.request.num_images for index, cell in enumerate(self.cells) if self.refines_cell(index))
+
     def units(self, count: int) -> str:
         """`count` of the job's units: "1 image", "3 batches"."""
         if count == 1:
@@ -342,10 +356,8 @@ class Job:
             "height": self.request.height,
             "sizes": self.canvas_sizes,
             "size_count": len(self.canvas_sizes),
-            # With Then refine every image has its pass after it, and Finish
-            # run's missing passes come first, one image each.
-            "planned_images": sum(cell.request.num_images for cell in self.cells)
-            * (2 if self.then_refine is not None else 1) + len(self.pass_sources),
+            "base_images": self.base_images,
+            "planned_images": self.base_images + self.inline_passes + len(self.pass_sources),
             "pass_sources": list(self.pass_sources),
             "then_refine": None if self.then_refine is None else self.then_refine.model_dump(),
             "pass_run_id": self.pass_run_id,

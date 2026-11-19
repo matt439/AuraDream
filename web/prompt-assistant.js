@@ -171,13 +171,13 @@ function assistantHistoryText(body) {
   return JSON.stringify({ message: body.message, drafts: body.drafts, tags: body.tags });
 }
 
-function renderAssistantHistory() {
-  els.assistantHistory.replaceChildren();
+function renderAssistantHistory({ append = false } = {}) {
+  if (!append) els.assistantHistory.replaceChildren();
   els.assistantHistoryWrap.hidden = !assistantTurns.length;
-  for (const [index, turn] of assistantTurns.entries()) {
-    // The newest answer has the live Use controls below the history. Earlier
-    // drafts remain readable in the conversation without offering stale Use.
-    if (turn.role === 'assistant' && index === assistantTurns.length - 1) continue;
+  // Earlier turns only grow until chat is reset. Keep their controls and
+  // disclosures in place while the newest answer gets the live Use actions.
+  for (let index = els.assistantHistory.childElementCount; index < assistantTurns.length - 1; index++) {
+    const turn = assistantTurns[index];
     const item = document.createElement('div');
     item.className = `assistant-turn assistant-turn-${turn.role}`;
     if (turn.role === 'assistant' && turn.answer) renderAssistantAnswer(item, turn.answer, false);
@@ -414,7 +414,7 @@ async function askPromptAssistant() {
   };
   assistantRun = run;
   assistantSnapshot = source;
-  assistantUnread = false; $('assistant-latest').hidden = true;
+  setAssistantUnread(false);
   assistantPendingText = instruction;
   els.assistantInstruction.value = '';
   const selected = assistantModelStatus();
@@ -446,10 +446,9 @@ async function askPromptAssistant() {
       { role: 'assistant', content: assistantHistoryText(body), display: body.message, answer: assistantResultData });
     assistantPendingText = '';
     els.assistantInstruction.placeholder = 'Refine the answer, for example: keep the pose and make the lighting softer';
-    renderAssistantHistory(); renderAssistantResult();
+    renderAssistantHistory({ append: true }); renderAssistantResult();
     scrollAssistantConversation(position);
-    assistantUnread = !position.follow;
-    $('assistant-latest').hidden = !assistantUnread;
+    setAssistantUnread(!position.follow);
     assistantSay(assistantSourceChanged()
       ? 'The source text changed while the model answered. Choose Continue to work with the current text.'
       : assistantRequirementsChanged() ? 'Pinned requirements changed while the model answered. Ask for a new answer before applying.'

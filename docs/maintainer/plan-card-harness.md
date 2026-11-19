@@ -91,6 +91,10 @@ was crossed and the reading) or, for a planned rung, `refuse-projected`
 places (`round(w * h * batch / 1e6, 2)`), and the line runs through the last
 two measured points. The decision also refuses a rung when an earlier peak
 reached the refuse-at figure, or after any trip in the session.
+For the Kontext trial, `plan_sampled_windows_rung` takes the required
+per-call sample groups and a fresh reading. It requires all five limit
+counters and both shared-memory baselines, applies the existing trip limits,
+and uses the higher observed peak for orientations at equal areas.
 
 **The sampler and the watcher** read the counters and act on the answer:
 `nvidia-smi --query-gpu=memory.used,memory.total --format=csv,noheader,nounits`

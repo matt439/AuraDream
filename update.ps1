@@ -34,12 +34,31 @@ function Say([string]$Text) { Write-Host $Text }
 function Ok([string]$Text) { Write-Host "  [ok]   $Text" }
 function Note([string]$Text) { Write-Host "  [note] $Text" }
 function Would([string]$Text) { Write-Host "  [dry run] would $Text" }
-function Stop-Update([string]$Text, [string]$WhatToDo) {
+function Stop-Update([string]$Text, [string]$WhatToDo, [string]$Footer = 'Update stopped. Nothing was changed by this step.') {
     Write-Host "  [stop] $Text"
     if ($WhatToDo) { Write-Host "         What to do: $WhatToDo" }
     Write-Host ''
-    Write-Host 'Update stopped. Nothing was changed by this step.'
+    Write-Host $Footer
     exit 1
+}
+
+function Copy-GalleryForUpdate([string]$Database, [string]$Destination, [bool]$HasWal) {
+    # These files stay beside the final copy, so publication is a rename.
+    # A retry starts fresh if an interrupted update left staging behind.
+    $stage = "$Destination.stage.db"
+    [IO.File]::Delete($stage)
+    [IO.File]::Delete("$stage-wal")
+    Copy-Item -LiteralPath $Database -Destination $stage
+    if ($HasWal) { Copy-Item -LiteralPath "$Database-wal" -Destination "$stage-wal" }
+    (Get-Item -LiteralPath $stage).LastWriteTimeUtc = [DateTime]::UtcNow
+
+    # There must never be a final database paired with an unfinished or
+    # stale WAL. The database's final name is the completion signal.
+    [IO.File]::Delete($Destination)
+    [IO.File]::Delete("$Destination-wal")
+    [IO.File]::Delete("$Destination-shm")
+    if ($HasWal) { Move-Item -LiteralPath "$stage-wal" -Destination "$Destination-wal" }
+    Move-Item -LiteralPath $stage -Destination $Destination
 }
 
 function Invoke-Capture([string]$Exe, [string[]]$Arguments) {
@@ -222,48 +241,60 @@ if (Test-Path -LiteralPath $db) {
         # No commit to name it by: the one fixed name, replaced each time.
         $copy = Join-Path $dir "$stem-before-update.db"
     }
-    $wal = "$db-wal"
-    $hasWal = (Test-Path -LiteralPath $wal) -and ((Get-Item -LiteralPath $wal).Length -gt 0)
-    # A copy already made at this commit is the older one, so it stays.
-    $kept = $named -and (Test-Path -LiteralPath $copy)
-    # The newest three named copies are kept, this update's among them.
-    $old = @()
-    if ($named) {
-        $pattern = '^' + [regex]::Escape("$stem-before-update-") + '[0-9a-f]{4,40}\.db$'
-        $leaf = Split-Path -Leaf $copy
-        $old = @(Get-ChildItem -LiteralPath $dir -File |
-            Where-Object { $_.Name -match $pattern -and $_.Name -ne $leaf } |
-            Sort-Object -Property @{ Expression = 'LastWriteTimeUtc'; Descending = $true }, Name |
-            Select-Object -Skip 2)
+    $backupLock = $null
+    if (-not $DryRun) {
+        try {
+            # Serialize publication and rotation. Windows closes the handle
+            # and removes its lock file even if the updater is killed.
+            $backupLock = [IO.FileStream]::new("$db.before-update.lock", [IO.FileMode]::OpenOrCreate,
+                [IO.FileAccess]::ReadWrite, [IO.FileShare]::None, 4096, [IO.FileOptions]::DeleteOnClose)
+        } catch {
+            Stop-Update "Could not lock the pre-update gallery copy: $($_.Exception.Message)" 'Finish any other update, then run update.cmd again.'
+        }
     }
-    if ($DryRun) {
-        if ($kept) {
-            Would "leave $copy as it is (a copy made at this same commit, $commit)"
-        } elseif ($named) {
-            Would "copy $db to $copy"
-            if ($hasWal) { Would "copy $wal to $copy-wal" }
+    try {
+        $wal = "$db-wal"
+        $hasWal = (Test-Path -LiteralPath $wal) -and ((Get-Item -LiteralPath $wal).Length -gt 0)
+        # A copy already made at this commit is the older one, so it stays.
+        $kept = $named -and (Test-Path -LiteralPath $copy)
+        # The newest three named copies are kept, this update's among them.
+        $old = @()
+        if ($named) {
+            $pattern = '^' + [regex]::Escape("$stem-before-update-") + '[0-9a-f]{4,40}\.db$'
+            $leaf = Split-Path -Leaf $copy
+            $old = @(Get-ChildItem -LiteralPath $dir -File |
+                Where-Object { $_.Name -match $pattern -and $_.Name -ne $leaf } |
+                Sort-Object -Property @{ Expression = 'LastWriteTimeUtc'; Descending = $true }, Name |
+                Select-Object -Skip 2)
+        }
+        if ($DryRun) {
+            if ($kept) {
+                Would "leave $copy as it is (a copy made at this same commit, $commit)"
+            } elseif ($named) {
+                Would "copy $db to $copy"
+                if ($hasWal) { Would "copy $wal to $copy-wal" }
+            } else {
+                Would "copy $db to $copy (replacing an older copy)"
+                if ($hasWal) { Would "copy $wal to $copy-wal" }
+            }
+            foreach ($item in $old) { Would "delete the older copy $($item.FullName) (the newest three are kept)" }
         } else {
-            Would "copy $db to $copy (replacing an older copy)"
-            if ($hasWal) { Would "copy $wal to $copy-wal" }
+            if ($kept) {
+                Ok "Gallery database copy $copy is already there from this same commit ($commit), so it was left alone. If the new version misbehaves, that copy is the way back."
+            } else {
+                Copy-GalleryForUpdate $db $copy $hasWal
+                Ok "Gallery database copied to $copy. If the new version misbehaves, that copy is the way back."
+            }
+            foreach ($item in $old) {
+                Remove-Item -LiteralPath $item.FullName, "$($item.FullName)-wal", "$($item.FullName)-shm" -Force -ErrorAction SilentlyContinue
+                Note "Deleted the older copy $($item.FullName); the newest three are kept."
+            }
         }
-        foreach ($item in $old) { Would "delete the older copy $($item.FullName) (the newest three are kept)" }
-    } else {
-        if ($kept) {
-            Ok "Gallery database copy $copy is already there from this same commit ($commit), so it was left alone. If the new version misbehaves, that copy is the way back."
-        } else {
-            Copy-Item -LiteralPath $db -Destination $copy -Force
-            # Copy-Item keeps the database's own time; the newest three go by
-            # when each copy was made.
-            (Get-Item -LiteralPath $copy).LastWriteTimeUtc = [DateTime]::UtcNow
-            # A journal left from an older copy would be applied to this one.
-            Remove-Item -LiteralPath "$copy-wal", "$copy-shm" -Force -ErrorAction SilentlyContinue
-            if ($hasWal) { Copy-Item -LiteralPath $wal -Destination "$copy-wal" -Force }
-            Ok "Gallery database copied to $copy. If the new version misbehaves, that copy is the way back."
-        }
-        foreach ($item in $old) {
-            Remove-Item -LiteralPath $item.FullName, "$($item.FullName)-wal", "$($item.FullName)-shm" -Force -ErrorAction SilentlyContinue
-            Note "Deleted the older copy $($item.FullName); the newest three are kept."
-        }
+    } catch {
+        Stop-Update "The pre-update gallery copy could not be prepared: $($_.Exception.Message)" `
+            'Fix the reported file problem, then run update.cmd again.' 'Update stopped before Git pull.'
+    } finally {
+        if ($backupLock) { $backupLock.Dispose() }
     }
 } else {
     Note "No gallery database yet ($db), so there is nothing to copy."
