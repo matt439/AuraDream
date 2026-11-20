@@ -6,7 +6,9 @@ import os
 import time
 import uuid
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+
+from backend import sidecar_io
 
 if TYPE_CHECKING:
     from backend.backends.base import GenerationBackend
@@ -27,19 +29,25 @@ def trial_backend() -> GenerationBackend:
     return _backend
 
 
+def read_mailbox(path: Path) -> dict[str, Any] | None:
+    """Read a published guard message with bounded Windows sharing retries."""
+    try:
+        with sidecar_io.open_read(path) as handle:
+            return json.load(handle)
+    except FileNotFoundError:
+        return None
+
+
 def await_permit(directory: Path, action: str, **details: object) -> None:
     """Correlate the supervisor's fresh decision to this one synchronous call."""
     identity = {"pid": os.getpid(), "nonce": uuid.uuid4().hex, "action": action}
     temporary = directory / "request.tmp"
     temporary.write_text(json.dumps({**identity, **details}), encoding="utf-8")
-    temporary.replace(directory / "request.json")
+    sidecar_io.replace(temporary, directory / "request.json")
     deadline = time.monotonic() + 8
     while time.monotonic() < deadline:
-        try:
-            permit = json.loads((directory / "permit.json").read_bytes())
-        except FileNotFoundError:
-            permit = {}
-        if all(permit.get(key) == value for key, value in identity.items()):
+        permit = read_mailbox(directory / "permit.json")
+        if permit is not None and all(permit.get(key) == value for key, value in identity.items()):
             if permit.get("approved") is True:
                 return
             raise RuntimeError(f"The live guard refused this {action}.")

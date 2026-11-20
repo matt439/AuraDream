@@ -17,6 +17,7 @@ from typing import Any, Callable, Protocol
 
 from tools import card_guard as card
 from tools.anima_refine_card import atomic_json
+from tools.kontext_trial_runtime import read_mailbox
 
 PERIOD = .25
 HEARTBEAT = 2.
@@ -246,8 +247,7 @@ class TrialGuard:
         try:
             while not self.stop.wait(max(0., due - time.monotonic())):
                 # Read requests *before* sampling so a permit cannot use old headroom.
-                request_file = self.output / "request.json"
-                request = json.loads(request_file.read_text(encoding="utf-8")) if request_file.exists() else None
+                request = read_mailbox(self.output / "request.json")
                 started = time.monotonic()
                 if request is not None and request.get("nonce") != waiting_nonce:
                     waiting_nonce = request.get("nonce")
