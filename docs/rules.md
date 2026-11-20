@@ -1213,6 +1213,11 @@ paragraphs, never rewording.
   `perf_cases.py` holds the fixed speed comparison cases the card runs
   share and prints their `backend.generate` lines, running none
   (`docs/maintainer/plan-step-caching.md`, Fixed comparison cases);
+  `blind_review.py` builds and verifies the standalone November 18 review from
+  the retained suites (`blind_review_receipts.py`), publishing original RGB
+  under anonymous filenames with the offline viewer in `blind_review_assets/`.
+  Its [review instructions](maintainer/blind-performance-review.md) cover
+  resumable choices, backup and reveal;
   `image_compare.py` measures PNGs a card session already made (the
   gallery hash, the difference, outside-mask and seam numbers verified.md
   reports), CPU only and importing nothing from `backend`
