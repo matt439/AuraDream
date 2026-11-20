@@ -5,3 +5,5 @@
 # break), and Windows PowerShell scripts are Windows files too: always CRLF.
 *.cmd text eol=crlf
 *.ps1 text eol=crlf
+# git apply consumes the private trial diff against an LF-normalized copy.
+tools/kontext_trial.patch text eol=lf

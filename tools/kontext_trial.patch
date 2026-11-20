@@ -1,0 +1,182 @@
+--- a/backend/backends/__init__.py
++++ b/backend/backends/__init__.py
+@@ -6,7 +6,7 @@
+ def get_backend(name: str = "diffusers") -> GenerationBackend:
+     """Resolve a backend by name. Add ComfyUI/remote engines here."""
+     if name == "diffusers":
+-        from .diffusers_backend import DiffusersBackend
++        from tools.kontext_trial_runtime import trial_backend
+
+-        return DiffusersBackend()
++        return trial_backend()
+     raise ValueError(f"unknown backend: {name!r}")
+--- a/backend/instruction_edit.py
++++ b/backend/instruction_edit.py
+@@ -31,7 +31,7 @@
+ from .execution import canonical_loader_execution
+
+
+-PublicRecipeName = Literal["kontext-v1"]
++PublicRecipeName = Literal["kontext-v1", "kontext-1024-v1"]
+ RecipeName = Literal["kontext-v1", "kontext-1024-v1"]
+ PositiveSource = Annotated[int, Field(strict=True, gt=0, le=2**63 - 1)]
+ PositiveDimension = Annotated[int, Field(strict=True, gt=0)]
+@@ -472,8 +472,19 @@
+     }
+
+
++# INP#13 only. Keep the exact fixture tuples frozen independently of recipe geometry.
++_TRIAL_SIZES = {
++    "kontext-v1": frozenset({
++        ((1, 1), (512, 512)), ((16, 9), (512, 288)), ((9, 16), (288, 512)),
++        ((4, 3), (512, 384)), ((3, 4), (384, 512)),
++        ((3, 2), (576, 384)), ((2, 3), (384, 576)),
++    }),
++    "kontext-1024-v1": frozenset({((1, 1), (1024, 1024))}),
++}
++
++
+ def _recipe_refusal(recipe: RecipeName) -> str | None:
+-    return None if recipe == QUALIFIED_ENVELOPE.recipe else INSTRUCTION_EDIT_RECIPE_UNQUALIFIED
++    return None if recipe in _TRIAL_SIZES else INSTRUCTION_EDIT_RECIPE_UNQUALIFIED
+
+
+ def geometry_refusal(resolved: InstructionEditGeometry) -> str | None:
+@@ -488,7 +499,7 @@
+         return reason
+     divisor = gcd(resolved.source_width, resolved.source_height)
+     aspect = resolved.source_width // divisor, resolved.source_height // divisor
+-    if (aspect, resolved.working_size) in QUALIFIED_ENVELOPE.sizes:
++    if (aspect, resolved.working_size) in _TRIAL_SIZES[resolved.recipe]:
+         return None
+     return INSTRUCTION_EDIT_ASPECT_UNQUALIFIED.format(
+         a=aspect[0], b=aspect[1], w=resolved.width, h=resolved.height,
+--- a/web/index.html
++++ b/web/index.html
+@@ -2032,6 +2032,12 @@
+       <textarea id="edit-instruction" rows="3" spellcheck="true" autocomplete="off"
+                 placeholder="What to change - &quot;make it night, keep the composition&quot;"></textarea>
+     </label>
++    <label class="field"><span>Trial recipe</span>
++      <select id="edit-recipe">
++        <option value="kontext-v1">kontext-v1</option>
++        <option value="kontext-1024-v1">kontext-1024-v1</option>
++      </select>
++    </label>
+     <p class="rf-source-line" id="edit-checkpoint"></p>
+     <!-- What the card trial measured, always said (guides.py's _KONTEXT_DRIFT,
+          held equal by tests/test_instruction_edit_ui.py): one fixed line. -->
+--- a/web/state.js
++++ b/web/state.js
+@@ -322,7 +322,7 @@
+   editReused: $('edit-reused'), editDraft: $('edit-draft'),
+   editUnavailable: $('edit-unavailable'), editUnavailableText: $('edit-unavailable-text'),
+   editOpenModels: $('edit-open-models'), editInstruction: $('edit-instruction'),
+-  editCheckpoint: $('edit-checkpoint'), editSeed: $('edit-seed'), editDice: $('edit-dice'),
++  editRecipe: $('edit-recipe'), editCheckpoint: $('edit-checkpoint'), editSeed: $('edit-seed'), editDice: $('edit-dice'),
+   editSteps: $('edit-steps'), editGuidance: $('edit-guidance'),
+   editPreview: $('edit-preview'), editError: $('edit-error'),
+   editCancel: $('edit-cancel'), editRun: $('edit-run'),
+--- a/web/app.js
++++ b/web/app.js
+@@ -689,6 +689,7 @@
+
+ // Edit by instruction (instruction-edit.js): Enter in a number box and
+ // Ctrl+Enter run it; Open Models… closes it for the picker, switching nothing.
++els.editRecipe.onchange = editRecipeChanged;
+ els.editRun.onclick = () => { void runEdit(); };
+ els.detailerRun.onclick = () => { void runDetailer(); };
+ els.detailerDetect.onclick = () => { void detectDetailer(); };
+--- a/web/instruction-edit.js
++++ b/web/instruction-edit.js
+@@ -160,6 +160,7 @@
+   const values = from
+     ? { instruction: from.prompt ?? '', seed: String(from.seed ?? ''), steps: String(from.steps ?? ''), guidance: String(from.guidance_scale ?? '') }
+     : draft ? draft.values : { instruction: '', seed: '', steps: '', guidance: '' };
++  els.editRecipe.value = from?.edit?.recipe ?? draft?.values.recipe ?? EDIT_RECIPE;
+   els.editInstruction.value = '';
+   els.editSeed.value = values.seed;
+   els.editSteps.value = values.steps;
+@@ -211,6 +212,17 @@
+ }
+
+ // ------------------------------------------------------------- the preview
++
++function editRecipeChanged() {
++  ++editEpoch;
++  editPreview = null;
++  editPreviewStale = true;
++  editProblem = null;
++  editFailed('');
++  if (editSource) writeEditSourceLine(editSource);
++  syncEditDialog();
++  scheduleEditPreview(0);
++}
+
+ function scheduleEditPreview(delay = 250) {
+   clearTimeout(editTimer);
+@@ -231,7 +243,7 @@
+     answer = await api('/api/instruction-edit/preview', {
+       method: 'POST',
+       headers: { 'Content-Type': 'application/json' },
+-      body: JSON.stringify({ source: src.id, recipe: EDIT_RECIPE }),
++      body: JSON.stringify({ source: src.id, recipe: els.editRecipe.value }),
+     });
+   } catch (err) {
+     problem = editSourceGone(err, src);
+@@ -316,7 +328,7 @@
+   els.editUnavailable.hidden = !reason;
+   els.editUnavailableText.textContent = reason;
+   const selected = editPreview?.selected_model_id ?? loadedModel;
+-  els.editCheckpoint.textContent = `Runs on ${EDIT_MODEL_NAME} (${EDIT_RECIPE})`
++  els.editCheckpoint.textContent = `Runs on ${EDIT_MODEL_NAME} (${els.editRecipe.value})`
+     + (selected && selected !== EDIT_MODEL_ID ? ` · the server has ${editModelName(selected)} selected` : '');
+   els.editCheckpoint.title = EDIT_MODEL_ID;
+   const sourceReason = editSourceReason();
+@@ -370,7 +382,7 @@
+   const num = (el) => (el.value.trim() === '' ? undefined : +el.value);
+   return {
+     source: editSource.id,
+-    recipe: EDIT_RECIPE,
++    recipe: els.editRecipe.value,
+     prompt: els.editInstruction.value.trim(),
+     width: editPreview?.width,
+     height: editPreview?.height,
+@@ -475,10 +487,10 @@
+   const ran = editRan || editSending;
+   if (src && !ran) {
+     const values = {
+-      instruction: els.editInstruction.value, seed: els.editSeed.value,
++      recipe: els.editRecipe.value, instruction: els.editInstruction.value, seed: els.editSeed.value,
+       steps: els.editSteps.value, guidance: els.editGuidance.value,
+     };
+-    const typed = values.instruction.trim() !== '' || values.seed.trim() !== ''
++    const typed = values.recipe !== EDIT_RECIPE || values.instruction.trim() !== '' || values.seed.trim() !== ''
+       || values.steps !== editFilled.steps || values.guidance !== editFilled.guidance;
+     if (typed && !editFrom) {
+       editKept.set(src.id, { model: loadedModel, values });
+@@ -525,9 +537,9 @@
+ // next preview. An open dialog asks again whether an edit can run now.
+ function editCheckpointChanged(model = loadedModel) {
+   for (const [id, kept] of editKept) {
+-    const { instruction, seed } = kept.values;
++    const { instruction, seed, recipe } = kept.values;
+     if (model !== EDIT_MODEL_ID || (!instruction.trim() && !seed.trim())) editKept.delete(id);
+-    else editKept.set(id, { model, carried: true, values: { instruction, seed, steps: '', guidance: '' } });
++    else editKept.set(id, { model, carried: true, values: { instruction, seed, recipe, steps: '', guidance: '' } });
+   }
+   if (!editSource) return;
+   editPreviewStale = true;
+--- a/web/reuse.js
++++ b/web/reuse.js
+@@ -113,8 +113,8 @@
+ function editReuseReason(rec) {
+   const edit = rec.edit;
+   if (edit == null) return '';
+-  if (edit.recipe === 'kontext-1024-v1') {
+-    return '1024-square FLUX.1 Kontext [dev] instruction editing has not been qualified.';
++  if (!['kontext-v1', 'kontext-1024-v1'].includes(edit.recipe)) {
++    return 'The recorded edit recipe is unavailable in this trial.';
+   }
+   if (edit.source == null) {
+     return 'The source of this instruction edit was never resolved to a gallery image, so the edit cannot be reopened.';

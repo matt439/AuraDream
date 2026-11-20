@@ -1229,6 +1229,12 @@ paragraphs, never rewording.
   achieved) and on a trip kills the watched
   process tree, never calling the app's API (`docs/maintainer/plan-card-harness.md`,
   Card guard);
+  `kontext_browser_trial.py` runs the [isolated INP#13 browser
+  trial](maintainer/plan-instruction-editing.md#second-kontext-recipe-and-trial-inp13).
+  The trial builds a private copy of the backend and page, plants seven
+  synthetic source geometries and asks its supervisor for a permit at each
+  load and edit. Keep the fixture, controller, guard and build identities
+  with the run. Fake readings and pixels belong only to rehearsal receipts.
   `card/card10-*.json` the `CARD#10` step packs, one `browser.mjs` step
   file per fix commit plus `card10-ctrl-c-idle.json`, for the real server
   on 7860 driven by real presses: not smokes, so not in `AGENTS.md`'s port
