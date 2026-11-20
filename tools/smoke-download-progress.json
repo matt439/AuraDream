@@ -12,7 +12,7 @@
   {"expect":"els.modelPickerNoteText.textContent.includes('1.0 GB free') && els.modelPickerNoteText.textContent.includes('21.3 GB more') && els.modelPickerNote.querySelector('.model-download-progress').textContent.includes('~12.4 of 33.7 GB') && els.modelPickerNote.querySelector('.model-download-progress').getAttribute('aria-hidden') === 'true'"},
   {"shot":"download-progress-desktop.png"},
   {"eval":"showModelPicker(false);"},
-  {"expect":"els.viewer.querySelector('.placeholder.waiting').textContent.includes('~12.4 of 33.7 GB') && els.viewer.querySelector('.placeholder.waiting').textContent.includes('most of an hour')"},
+  {"expect":"els.viewer.querySelector('.placeholder.waiting').textContent.includes('~12.4 of 33.7 GB') && els.viewer.querySelector('.placeholder.waiting').textContent.includes('Missing weights download first.')"},
   {"eval":"window.__liveName = els.statusText.querySelector('.status-name'); window.__liveState = els.statusText.querySelector('.status-state'); __deliverDownload({downloaded_bytes: 13000000000});"},
   {"expect":"els.statusText.querySelector('.status-name') === __liveName && els.statusText.querySelector('.status-state') === __liveState && els.statusText.textContent.includes('~13.0 of 33.7 GB')"},
   {"eval":"__deliverDownload({total_bytes: null, cache_state: 'unknown'});"},

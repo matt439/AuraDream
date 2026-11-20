@@ -319,9 +319,9 @@ function layoutLightbox() {
   // said "left of the pass" where the press stacked them. In the words of
   // the comparison on, or of the one a press would turn on.
   const picked = comparing ? lbCompare.kind === 'picked' : !!pickedPair(rec);
-  const axis = comparing ? ladderAxis(lbCompare.kind) : rec.refine == null && !picked ? LADDER_AXES.cfg : null;
+  const axis = comparing ? ladderAxis(lbCompare.kind) : rec.refine == null && !rec.edit && !picked ? LADDER_AXES.cfg : null;
   const [first, second] = picked
-    ? ['The first picked image', 'the second'] : axis ? [axis.first, axis.second] : ['The source', 'the pass'];
+    ? ['The first picked image', 'the second'] : axis ? [axis.first, axis.second] : ['The source', rec.edit ? 'the edit' : 'the pass'];
   const sides = split ? `${first} above ${second}, each fitted to half the stage: larger here than left and right`
     : `${first} left of ${second}, each fitted to half the stage`;
   // Held, its title is the reason instead (syncCompare), put back from here.
@@ -418,7 +418,7 @@ function layoutCompare(rec, ports, pass, boxIn, rectOf) {
   // outpaint's source is drawn at its place on the canvas, at the result's
   // scale - (left, top) and its own size - so the divider shows the original
   // against the kept rectangle pixel for pixel.
-  const kept = lbCompare.kind !== 'source' ? { x: 0, y: 0, w: 1, h: 1 }
+  const kept = lbCompare.kind !== 'source' || rec.edit ? { x: 0, y: 0, w: 1, h: 1 }
     : rec.outpaint ? {
       x: -rec.outpaint.left / source.width, y: -rec.outpaint.top / source.height,
       w: rec.width / source.width, h: rec.height / source.height,
@@ -551,7 +551,7 @@ function renderLightbox() {
   // Another image ends a comparison: it was that pass's with its source.
   // stepPass and stepLadder (lightbox-compare.js, lightbox-cfg.js) carry it by
   // setting `id` to the next image first.
-  if (lbCompare.id !== null && lbCompare.id !== rec.id) setCompare(null);
+  if (lbCompare.id !== null && (lbCompare.id !== rec.id || (lbCompare.kind === 'source' && comparisonSourceHold(rec)))) setCompare(null);
   if (lbCompareSaid && lbCompareSaid.id !== rec.id) lbCompareSaid = null;
   // The gallery is asked for this image's other CFG values and step counts
   // a moment after it lands (lightbox-cfg.js), as for its passes.
@@ -887,11 +887,12 @@ function returnToLightbox(place) {
   // the whole of it, a 1:1 came back at 166%.
   // A CFG partner deleted meanwhile is not put back.
   if (place.compare && (!fromPair || rec.id === place.rec.id)
-      && !(isGone(place.compare.source.id) && (fromPair || ['cfg', 'steps', 'picked'].includes(place.compare.kind)))
+      && !isGone(place.compare.source.id)
+      && !(place.compare.kind === 'source' && comparisonSourceHold(rec))
       && (place.compare.kind !== 'picked' || pickedPair(rec))) {
     // A pass's source back in the cache; a CFG comparison's ladder as it was
     // frozen, less anything deleted meanwhile.
-    if (place.compare.kind === 'source') lbSources.set(rec.refine, place.compare.source);
+    if (place.compare.kind === 'source') lbSources.set(comparisonSourceId(rec), place.compare.source);
     lbCompare.kind = place.compare.kind;
     lbCompare.ladder = place.compare.ladder.filter((r) => !deletedIds.has(r.id));
     lbCompare.source = place.compare.source;

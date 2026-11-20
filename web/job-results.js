@@ -15,6 +15,7 @@ let finishStale = false;
 // Generate holds until this line is drawn.
 let finishTakesFocus = false;
 function setFinish(nodes = []) {
+  clearViewerFailure();
   els.finishNote.title = '';
   els.finishNote.removeAttribute('aria-description');
   const focused = els.finishNote.contains(document.activeElement)
@@ -55,6 +56,44 @@ function showJobNote(text) {
 function showOutcome(text, note = false) {
   showError(text, note);
   jobOutcome = text;
+}
+
+function clearViewerFailure() {
+  const note = els.viewerFailure;
+  if (note.hidden) return;
+  if (note.contains(document.activeElement)) handJobFocus(els.generate);
+  note.hidden = true;
+  note.open = false;
+  note.querySelector('button')?.remove();
+}
+
+// Keep the reason with the picture when the job failed, including a
+// failure after a preview displaced the last saved result. A foreign job
+// never takes over this page's viewer. A first load failure already has
+// its own card and retry action in an empty viewer.
+function showViewerFailure(data, made, atLoad) {
+  const note = els.viewerFailure;
+  if (atLoad && loadFailureInViewer()) return;
+  if (!made && !viewerRecords.length && !els.viewer.childElementCount) {
+    const previous = sessionRecords.shift();
+    clearResults();
+    if (previous) appendResult(previous);
+  }
+  note.hidden = false;
+  note.dataset.made = String(made);
+  if (made) note.querySelector('summary').textContent = `Made ${plural(made, 'image')}. Some work failed.`;
+  note.querySelector('p').textContent = data.status === 'done' ? skippedCells(data) : data.error;
+  // Use the finish line's own controls: this also covers model load and
+  // detailer failures, whose recovery differs from Finish run.
+  if (els.finishNote.textContent.trim()) {
+    note.append(noteButton('Job controls', () => {
+      const control = [...els.finishNote.querySelectorAll('button')].find(isShown) ?? els.finishNote;
+      if (control === els.finishNote) control.tabIndex = -1;
+      control.focus({ preventScroll: true });
+      control.scrollIntoView({ block: 'center' });
+    }, 'Go to the outcome and actions for this job'));
+  }
+  syncViewerMoreSeeds();
 }
 
 // The finished job's outcome: the finish line, the panel's line for what
@@ -204,6 +243,9 @@ function finishJob(jobId, data, { submitted, sheet, foreign = false, staleBefore
     showOutcome(`${whose}${skippedCells(data)}${data.skipped ? ` ${intentionalSkippedCells(data)}` : ''}`);
   } else if (data.skipped) {
     showOutcome(`${whose}${intentionalSkippedCells(data)}`, true);
+  }
+  if (!foreign && (data.status === 'error' || (data.status === 'done' && data.error))) {
+    showViewerFailure(data, made, atLoad);
   }
   // Said once to a screen reader where the panel's alert line has not said
   // the outcome already: the finish line's sentence, without its buttons. A

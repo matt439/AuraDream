@@ -53,6 +53,7 @@ let editRan = false;
 // whether Open Models… closed it, which opens the picker instead.
 let editReturn = null;
 let editToModels = false;
+let editHandoff = null;
 // The steps and guidance the dialog wrote from the preview, so a later
 // answer replaces only what the user has not typed over.
 let editFilled = { steps: '', guidance: '' };
@@ -132,6 +133,10 @@ function editFromCard(rec) {
 async function openEdit(rec, from = null) {
   if (!rec) return false;
   if (refuseBinned(rec, 'edit')) return false;
+  if (editHandoff) {
+    editHandoff = null;
+    syncEditHandoff();
+  }
   editReturn = lightboxPlace();
   if (els.lightbox.open) closeLightbox();
   showError('');
@@ -480,7 +485,7 @@ function editClosed() {
     };
     const typed = values.instruction.trim() !== '' || values.seed.trim() !== ''
       || values.steps !== editFilled.steps || values.guidance !== editFilled.guidance;
-    if (typed && !editFrom) {
+    if (typed && (!editFrom || editToModels)) {
       editKept.set(src.id, { model: loadedModel, values });
       while (editKept.size > EDIT_KEPT) editKept.delete(editKept.keys().next().value);
     }
@@ -495,6 +500,8 @@ function editClosed() {
   editReturn = null;
   if (editToModels) {
     editToModels = false;
+    editHandoff = src;
+    syncEditHandoff();
     showModelPickerAt(EDIT_MODEL_ID);
     return;
   }
@@ -524,6 +531,7 @@ function editSourcesMoved(ids, { deleted = false } = {}) {
 // instruction and seed, and the recipe's steps and guidance come from the
 // next preview. An open dialog asks again whether an edit can run now.
 function editCheckpointChanged(model = loadedModel) {
+  if (model !== EDIT_MODEL_ID) editHandoff = null;
   for (const [id, kept] of editKept) {
     const { instruction, seed } = kept.values;
     if (model !== EDIT_MODEL_ID || (!instruction.trim() && !seed.trim())) editKept.delete(id);
@@ -533,6 +541,46 @@ function editCheckpointChanged(model = loadedModel) {
   editPreviewStale = true;
   scheduleEditPreview(0);
   syncEditDialog();
+}
+
+// Only Open Models from the editor offers a return here. Clicking re-reads
+// the row even when the current gallery filter hides it. openEdit then asks
+// the normal server preview for this source under the new checkpoint.
+function syncEditHandoff(message = '') {
+  const show = editHandoff && loadedModel === EDIT_MODEL_ID;
+  els.modelContinueEdit.hidden = els.galleryEditHandoff.hidden = !show;
+  for (const button of [els.modelContinueEdit, els.galleryContinueEdit]) {
+    const label = show ? `Continue editing #${editHandoff.id}` : '';
+    if (button.textContent !== label) button.textContent = label;
+  }
+  for (const slot of [els.modelEditMessage, els.galleryEditMessage]) slot.textContent = message;
+}
+
+async function continueEditHandoff(button) {
+  const original = editHandoff;
+  if (!original || loadedModel !== EDIT_MODEL_ID) return;
+  const revision = modelRevision;
+  const fromPicker = button === els.modelContinueEdit;
+  const current = () => editHandoff === original && modelRevision === revision
+    && (fromPicker === !els.modelPicker.hidden) && !document.querySelector('dialog[open]');
+  let source;
+  try {
+    source = await api(`/api/images/${original.id}?binned=true`);
+  } catch (err) {
+    if (current()) syncEditHandoff(imageGone(err) ? `Source #${original.id} is no longer in the gallery. ` : err.message + ' ');
+    return;
+  }
+  if (!current()) return;
+  if (source.binned_at) {
+    syncEditHandoff(`Restore #${source.id} from the recycle bin to continue editing. `);
+    return;
+  }
+  if (['filename', 'width', 'height', 'content_hash'].some((key) => source[key] !== original[key])) {
+    syncEditHandoff(`Image #${source.id} no longer matches the original source. `);
+    return;
+  }
+  if (fromPicker) showModelPicker(false);
+  await openEdit(source);
 }
 
 // ------------------------------------------------------------- Reuse

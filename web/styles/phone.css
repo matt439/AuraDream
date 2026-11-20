@@ -37,11 +37,11 @@
      and the panel's foot, and the bar's picture says it, held. The load's
      wait in that line, a failed load's card, a lost run's, a first run's
      box with the examples and a deleted image's held line still are. */
-  .phone-results:has(> .viewer > .placeholder:not([hidden], .held, .waiting)):not(:has(> .viewer.empty-install)) { display: none; }
+  .phone-results:has(> .viewer > .placeholder:not([hidden], .held, .waiting)):not(:has(> .viewer.empty-install, #viewer-failure:not([hidden]))) { display: none; }
   /* A cancel after the first preview removes that tile. The empty viewer
      still had its job's height: leave the outcome above the action bar,
      and keep earlier results available from the action bar's picture. */
-  .phone-results:has(> #viewer:empty) { display: none; }
+  .phone-results:has(> #viewer:empty):not(:has(#viewer-failure:not([hidden]))) { display: none; }
 
   /* More options (phone.js): the first screen is the prompt, the size,
      Batch, this row and the newest result; the tuning is a press away in
@@ -308,7 +308,12 @@
     min-height: 56px; padding-block: var(--sp-1); gap: var(--sp-3);
     border-bottom: 1px solid var(--line);
   }
-  .queue-sheet .queue-list li > span {
+  .queue-sheet .queue-list summary {
+    display: flex; align-items: center; gap: var(--sp-1); min-height: var(--h-md);
+  }
+  .queue-sheet .queue-list summary::before { content: "▸" / ""; }
+  .queue-sheet .queue-list details[open] summary::before { content: "▾" / ""; }
+  .queue-sheet .queue-list summary span {
     font-size: var(--fs-body-sm); line-height: var(--lh-tight);
     display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
   }
@@ -401,7 +406,8 @@
   #finish-note > :is(.result-dup, .finish-run-tool[aria-disabled="true"]) { display: none; }
   .phone-results:has(> .viewer:not(.multi)) > #viewer-note > #viewer-seeds,
   .phone-results #viewer-note .seed-line { display: none; }
-  .phone-results:has(> .viewer:not(.multi)) > #viewer-note:not(:has(#viewer-note-text > :not(.seed-line))) { display: none; }
+  .phone-results:has(> .viewer:not(.multi)) > #viewer-note:not(:has(#viewer-note-text > :not(.seed-line), #viewer-failure:not([hidden]))) { display: none; }
+  #viewer-failure > summary { min-height: var(--h-md); align-content: center; }
 
   /* The topbar (phone-compose.js): the model chip and a ⋯, 52 px with the
      notch's inset, where the word mark, a name cut to "FLUX.1 Kre…" and

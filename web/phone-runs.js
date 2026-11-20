@@ -253,7 +253,10 @@ function runChipWords(run) {
 function clearRunChip() {
   const search = els.search.value.trim();
   const query = sheetReturn && search === sheetReturn.wrote ? sheetReturn.search : '';
-  void applyGalleryFilter({ query, favorites: els.favOnly.checked });
+  void applyGalleryFilter({
+    query, favorites: sheetReturn?.restoreStarred || els.favOnly.checked,
+    all_models: sheetReturn?.restoreCurrentModel ? false : els.allModels.checked,
+  });
 }
 
 // ---------------------------------------------------------- the sheet's foot

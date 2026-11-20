@@ -379,7 +379,7 @@ function gallerySubText(row, target) {
     return phoneWords(row.title);
   }
   switch (row) {
-    case els.pickedBtn: return `Star, compare, re-render or bin ${them}`;
+    case els.pickedBtn: return `Review, star, compare, re-render or bin ${them}`;
     case els.restorePicked: return `Back to the gallery: ${them}`;
     case els.purgePicked: return `From disk, after a question: ${them}`;
     case els.emptyBin: return els.binAge.value

@@ -210,7 +210,8 @@ function sheetSwipeButton(kind) {
 // one pass over the cells: what sameExcept compares, as JSON.
 const ladderGroupKey = (rec, skip = CFG_SKIP) => JSON.stringify([
   ...SHEET_AXES.filter((axis) => !skip.includes(axis.key)).map((axis) => axisValue(axis, rec)),
-  rec.width, rec.height, rec.model_id, rec.quantization, rec.refine,
+  rec.width, rec.height, rec.model_id, rec.quantization, rec.refine, rec.edit?.recipe, rec.edit?.source,
+  rec.edit?.edit_source?.hash, rec.edit?.edit_source?.width, rec.edit?.edit_source?.height, rec.edit?.edit_source?.filename,
 ]);
 
 function syncSheetSwipes() {
@@ -861,6 +862,11 @@ function setSheet(on, { land = false, asker = null, reload = true } = {}) {
   if (!on) {
     sheetAxes = { rows: null, cols: null, pins: {} };
     if (sheetReturn && els.search.value.trim() === sheetReturn.wrote) els.search.value = sheetReturn.search;
+    if (sheetReturn?.restoreStarred) els.favOnly.checked = true;
+    if (sheetReturn?.restoreCurrentModel) {
+      els.allModels.checked = false;
+      if (!binMode) void loadRuns();
+    }
     sheetReturn = null;
   }
   // A compound filter transition closes the sheet before writing all its

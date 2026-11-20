@@ -36,6 +36,11 @@ def test_move_front_lists_the_authoritative_order_and_never_preempts(client, fak
     assert moved.status_code == 200
     assert moved.json()["active_jobs"] == [first, third, second]
     assert [job["job_id"] for job in client.get("/api/jobs").json()] == [first, third, second]
+    inspected = client.get(f"/api/jobs/{second}/settings").json()
+    assert inspected["request"]["prompt"] == "second" and inspected["request"]["steps"] == 35
+    assert inspected["cells"] == 1 and inspected["seed"] == str(client.get(f"/api/jobs/{second}").json()["seed"])
+    assert client.get(f"/api/jobs/{second}/settings?cell=2").status_code == 404
+    assert client.get(f"/api/jobs/{first}/settings").status_code == 409
     assert client.post(f"/api/jobs/{first}/front").status_code == 409
     assert client.post("/api/jobs/unknown/front").status_code == 404
     release.set()

@@ -182,6 +182,16 @@ server eligibility, archive verification or restart durability.
 Repetition introduces learning. Record task order and prior exposure; avoid
 claiming a time improvement caused by layout when familiarity could explain it.
 
+For the November 20 review, pair the pre-change build with the revised UI
+on two [follow-up comparisons](trials/task-cards.md#follow-up-comparisons-for-dev1).
+Use the same fixture roles on each build. For picks across searches, record
+whether Matt correctly predicts the affected images and can remove one while
+keeping the filter and draft. For the judge-and-return task, record whether
+he can keep a fixed-seed draft, compare a child with its source and request
+More seeds from the intended image. Record active interaction time separately
+from the fake's wait. Offer card 9 for a guided tag prompt crossed with a
+small Steps sweep, recording the predicted count before submission.
+
 ## Core comparison tasks
 
 | Task and synthetic setup | Evidence to collect |

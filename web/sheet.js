@@ -103,8 +103,15 @@ const axisValue = (axis, rec) => axis.of(rec) ?? null;
 // (lightbox-cfg.js) skips `cfg` and `tcfg` - so the two cannot drift.
 const sameExcept = (a, b, skip = []) => SHEET_AXES
   .every((axis) => skip.includes(axis.key) || axisValue(axis, a) === axisValue(axis, b))
+  && a.edit?.recipe === b.edit?.recipe && sameEditSource(a, b)
   && ['width', 'height', 'model_id', 'quantization', 'refine'].every((key) => a[key] === b[key]);
 const sameSettings = (a, b) => sameExcept(a, b);
+
+function sameEditSource(a, b) {
+  if (!a.edit || !b.edit) return !a.edit && !b.edit;
+  return a.edit.source === b.edit.source && ['hash', 'width', 'height', 'filename']
+    .every((key) => a.edit.edit_source?.[key] === b.edit.edit_source?.[key]);
+}
 
 // Full prompt -> the words that make it different from its neighbours, filled
 // in by sheetValues. Only the prompt axis is in here, so anything else that is
@@ -441,7 +448,9 @@ let sheetNotice = null;
 
 // The search a sheet the page opened replaced, and what the page wrote over
 // it (showSheetScope): Sheet off puts it back while the box still holds what
-// was written. A search typed since is the user's own and stays.
+// was written. Reviewing a run's saved outputs can also temporarily clear
+// Starred or enable All models. Changing either checkbox relinquishes its
+// return value, just as editing the search keeps the new text.
 let sheetReturn = null;
 
 // The axis a prompt-variant grid records its labels under - `grid.VARIANT`,

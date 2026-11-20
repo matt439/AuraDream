@@ -652,9 +652,9 @@ function commitRunList() {
 // sheet's, and Re-render sends the tick with the search, so a sheet of
 // unstarred images under a ticked box would re-render none of them - and the
 // sheet says so.
-function showRun(runId, { fresh = false, asker } = {}) {
+function showRun(runId, options = {}) {
   if (!runId) return;
-  return showSheetScope(`run:${runId}`, { fresh, asker });
+  return showSheetScope(`run:${runId}`, options);
 }
 
 function showJob(jobId, { fresh = false, asker } = {}) {
@@ -681,22 +681,38 @@ function showJob(jobId, { fresh = false, asker } = {}) {
 // (`asker`: the one focused now, unless the caller knows better - a job's
 // sheet, the one its submission was pressed on) is left out of sight, or
 // focus has fallen out of the page (sheet-render.js's focusSheet).
-function showSheetScope(search, { fresh = false, notice = null, scroll = true, asker = document.activeElement } = {}) {
+function showSheetScope(search, { fresh = false, reviewModel = null, notice = null, scroll = true, asker = document.activeElement } = {}) {
   // A sheet is the gallery's: opened from the recycle bin, the bin closes.
   leaveBin();
-  const unticked = fresh && els.favOnly.checked;
-  if (unticked) els.favOnly.checked = false;
   if (!sheetMode || !sheetReturn || els.search.value.trim() !== sheetReturn.wrote) {
-    sheetReturn = { search: els.search.value, wrote: search };
-  } else {
-    sheetReturn.wrote = search;
+    sheetReturn = { ...sheetReturn, search: els.search.value };
+  }
+  sheetReturn.wrote = search;
+  if (reviewModel) {
+    // Review counts every live output of this run. Show the actual query
+    // in the gallery controls, and restore the user's filters on Sheet off.
+    const changed = [];
+    if (els.favOnly.checked) {
+      sheetReturn.restoreStarred = true;
+      els.favOnly.checked = false;
+      changed.push('Starred off');
+    }
+    if (!els.allModels.checked && loadedModel !== reviewModel) {
+      sheetReturn.restoreCurrentModel = true;
+      els.allModels.checked = true;
+      void loadRuns();
+      changed.push('All models on');
+    }
+    if (changed.length) notice = `Showing all saved outputs (${changed.join(', ')}). Close the sheet to restore your gallery filters.`;
+  } else if (fresh && els.favOnly.checked) {
+    els.favOnly.checked = false;
+    notice = 'Starred unticked: nothing in a new comparison is starred yet';
   }
   els.search.value = search;
   const opened = setSheet(true, { land: scroll, asker });
   // setSheet has begun the query the notice belongs to; another one drops it.
   const epoch = galleryEpoch;
-  const text = unticked ? 'Starred unticked: nothing in a new comparison is starred yet' : notice;
-  if (text) sheetNotice = { epoch, text };
+  if (notice) sheetNotice = { epoch, text: notice };
   return opened;
 }
 
@@ -743,8 +759,9 @@ let reviewRunsScope = null;
 let reviewRunsLimit = 20;
 let reviewRunsLoading = false;
 let reviewRunsMore = false;
+let reviewRunsFromBundle = false;
 const reviewRunsKey = () => JSON.stringify([finishIdentity(), runsScope()]);
-const reviewRunsCurrent = () => reviewRunsScope === reviewRunsKey() && !binMode;
+const reviewRunsCurrent = () => reviewRunsScope === reviewRunsKey() && (!binMode || reviewRunsFromBundle);
 
 function filterReviewRuns() {
   const query = $('review-runs-find').value.trim().toLocaleLowerCase();
@@ -797,22 +814,22 @@ async function loadReviewRuns({ older = false } = {}) {
   const dialog = $('review-runs');
   const epoch = ++reviewRunsEpoch;
   reviewRunsScope = reviewRunsKey();
-  const scope = reviewRunsScope;
-  const current = () => dialog.open && epoch === reviewRunsEpoch && scope === reviewRunsKey() && !binMode;
+  const current = () => dialog.open && epoch === reviewRunsEpoch && reviewRunsCurrent();
   $('review-runs-list').replaceChildren();
   showError('', false, {slot: $('review-runs-error'), mirror: false});
-  if (binMode) { reviewRunsLoading = false; $('review-runs-scope').textContent = 'Leave the recycle bin to review unfinished work.'; return; }
+  if (binMode && !reviewRunsFromBundle) { reviewRunsLoading = false; $('review-runs-scope').textContent = 'Leave the recycle bin to review unfinished work.'; return; }
   syncReviewRuns();
   filterReviewRuns();
   $('review-runs-scope').textContent = `Loading up to ${reviewRunsLimit} recent runs...`;
   const params = new URLSearchParams({limit: reviewRunsLimit});
-  if (els.allModels.checked) params.set('all_models', 'true');
+  const all = reviewRunsFromBundle || els.allModels.checked;
+  if (all) params.set('all_models', 'true');
   try {
     const runs = await api(`/api/runs?${params}`);
     if (!current()) { syncReviewRuns(); return; }
     reviewRunsMore = runs.length === reviewRunsLimit && reviewRunsLimit < 200;
     $('review-runs-scope').textContent = runs.length
-      ? `${plural(runs.length, 'recent run')}${els.allModels.checked ? ' across all checkpoints' : ' on the current checkpoint'}. This list is limited to the latest ${reviewRunsLimit}; it is not all history. Gallery Search and Starred do not narrow it. Check remaining work before finishing.`
+      ? `${plural(runs.length, 'recent run')}${all ? ' across all checkpoints' : ' on the current checkpoint'}. This list is limited to the latest ${reviewRunsLimit}; it is not all history. Gallery Search and Starred do not narrow it. Check remaining work before finishing.`
       : 'No recent runs in this checkpoint scope.';
     for (const run of runs) {
       const row = document.createElement('section');
@@ -844,9 +861,10 @@ async function loadReviewRuns({ older = false } = {}) {
       view.onclick = () => {
         if (!current()) { syncReviewRuns(); return; }
         dialog.close();
+        if (reviewRunsFromBundle) els.bundlesDialog.close();
         const filters = $('gallery-filter-sheet');
         if (filters.open) closeGallerySheetFor(filters);
-        void showRun(run.run_id);
+        void showRun(run.run_id, { reviewModel: run.model_id });
       };
       actions.append(view);
       row.append(title, whenLine, stateLine, actions, feedback);
@@ -863,15 +881,20 @@ async function loadReviewRuns({ older = false } = {}) {
   }
 }
 
+function openReviewRuns(fromBundle = false) {
+  const dialog = $('review-runs');
+  if (dialog.open) return;
+  reviewRunsFromBundle = fromBundle;
+  reviewRunsLimit = 20;
+  $('review-runs-find').value = '';
+  dialog.showModal();
+  void loadReviewRuns();
+}
+
 function initReviewRuns() {
   const dialog = $('review-runs');
-  $('btn-review-runs').onclick = () => {
-    if (dialog.open) return;
-    reviewRunsLimit = 20;
-    $('review-runs-find').value = '';
-    dialog.showModal();
-    void loadReviewRuns();
-  };
+  $('btn-review-runs').onclick = () => openReviewRuns();
+  $('bundle-review-runs').onclick = () => openReviewRuns(true);
   $('review-runs-find').oninput = filterReviewRuns;
   $('review-runs-older').onclick = () => { void loadReviewRuns({older: true}); };
   $('review-runs-close').onclick = () => dialog.close();

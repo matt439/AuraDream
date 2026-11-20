@@ -166,11 +166,16 @@
         </div>
       </div>
       <label class="check model-startup"><input type="checkbox" id="model-load-on-startup"> Load automatically on startup</label>
+      <details id="model-capabilities">
+        <summary>Selected checkpoint capabilities</summary>
+        <p id="model-capabilities-text" tabindex="0"></p>
+      </details>
       <div class="model-actions">
         <button class="ghost" id="btn-model-save" aria-disabled="true" title="The checkpoint list is still loading">Apply &amp; save</button>
         <button class="primary" id="btn-model-switch" aria-disabled="true" title="The checkpoint list is still loading">Switch &amp; load</button>
+        <button class="ghost" id="btn-model-continue" type="button">Close Models</button>
       </div>
-      <p id="model-picker-note" role="status" tabindex="0"><button class="ghost tiny model-revert" id="btn-model-revert" type="button" title="Put back the server's checkpoint and loading options" hidden>Revert</button><span id="model-picker-note-text"></span></p>
+      <p id="model-picker-note" role="status" tabindex="0"><button class="ghost tiny model-revert" id="btn-model-revert" type="button" title="Put back the server's checkpoint and loading options" hidden>Revert</button><button class="ghost tiny" id="model-continue-edit" type="button" hidden></button> <span id="model-edit-message"></span><span id="model-picker-note-text"></span></p>
       <!-- Shown only while the server asks for a passcode (the status's
            `passcode`; status.js, signOut): under the panel's status, where
            it takes no height from the settings panel. -->
@@ -871,7 +876,7 @@
       </div>
       <p class="hint pre" id="grid-preview"></p>
       <button class="primary" id="btn-grid" title="Run grid (Ctrl+Enter from a grid box)"
-              aria-keyshortcuts="Control+Enter">Run grid</button>
+              aria-keyshortcuts="Control+Enter" aria-describedby="grid-preview">Run grid</button>
     </details>
 
     <!-- Step cache: per-render intent (execution.js), rarely used, so below
@@ -947,11 +952,15 @@
       <p class="placeholder"><span class="idle-line">Nothing generated this session<span class="key-hint"> - Ctrl+Enter runs the
         prompt; click a gallery image to open it</span>.</span><span class="first-run">Nothing here yet: write a
         prompt and Generate<span class="key-hint"> (Ctrl+Enter)</span>, or start from one of this checkpoint's own examples.
-        <button type="button" class="ghost small" id="viewer-examples">Examples</button></span></p>
+        <button type="button" class="ghost small" id="viewer-examples">Examples</button></span><span class="edit-idle">Choose a source in Gallery, then open Edit by instruction.</span></p>
     </div>
     <!-- Outside the strip on purpose: the strip is capped and cleared per job,
          and a note inside it would be the first thing the cap removed. -->
     <div class="hint" id="viewer-note">
+      <details id="viewer-failure" hidden>
+        <summary></summary>
+        <p></p>
+      </details>
       <div class="result-seeds" id="viewer-seeds" hidden>
         <button type="button" class="ghost small" id="viewer-more-seeds" aria-haspopup="dialog"
                 aria-describedby="viewer-more-seeds-target">More seeds</button>
@@ -986,28 +995,27 @@
              syncGalleryPlace); drawn nowhere else. A picture of the day's
              lines and the count, so not read out. -->
         <span class="gallery-place" id="gallery-place" aria-hidden="true"></span>
-        <!-- How the cards are drawn, from 1800 px, where the grid has the
-             width to choose and the head the room (gallery.js, cardView):
-             smaller cards, more to a row; the whole picture or the card
-             filled. Each pair is one tab stop, the chosen one, the arrows
-             moving along it, as the panel's size strips are. Hidden on a
-             sheet, which draws its cells its own way. -->
-        <div class="card-view" id="card-view">
-          <div class="view-pick" role="group" aria-label="Card size">
-            <button type="button" class="ghost small" data-density="s" aria-pressed="false"
-                    title="Small cards: more to a row">S</button>
-            <button type="button" class="ghost small" data-density="m" aria-pressed="true"
-                    title="Medium cards: the wide screen's own size">M</button>
+        <!-- A compact disclosure on desktop, permanently open on a wide
+             screen. Both presentations use the same two button groups. -->
+        <details class="card-view-control" id="card-view-control">
+          <summary class="ghost small" aria-label="Gallery view">View</summary>
+          <div class="card-view" id="card-view">
+            <div class="view-pick" role="group" aria-label="Card size">
+              <button type="button" class="ghost small" data-density="s" aria-pressed="false"
+                      title="Small cards: more to a row">S</button>
+              <button type="button" class="ghost small" data-density="m" aria-pressed="true"
+                      title="Medium cards: the default size">M</button>
+            </div>
+            <!-- On a phone this pair is moved into ⋯'s sheet (phone-gallery.js),
+                 beside the phone's own card size. -->
+            <div class="view-pick" id="card-fit" role="group" aria-label="Thumbnails">
+              <button type="button" class="ghost small" data-fit="contain" aria-pressed="true"
+                      title="Fit: the whole picture, letterboxed on the card">Fit</button>
+              <button type="button" class="ghost small" data-fit="cover" aria-pressed="false"
+                      title="Crop: the card filled, the picture cut to its middle">Crop</button>
+            </div>
           </div>
-          <!-- On a phone this pair is moved into ⋯'s sheet (phone-gallery.js),
-               beside the phone's own card size. -->
-          <div class="view-pick" id="card-fit" role="group" aria-label="Thumbnails">
-            <button type="button" class="ghost small" data-fit="contain" aria-pressed="true"
-                    title="Fit: the whole picture, letterboxed on the card">Fit</button>
-            <button type="button" class="ghost small" data-fit="cover" aria-pressed="false"
-                    title="Crop: the card filled, the picture cut to its middle">Crop</button>
-          </div>
-        </div>
+        </details>
         <!-- One line per night's grid, newest first; picking one searches for
              `run:<id>` and opens the sheet. -->
         <select id="run-list" class="runs" aria-label="Recent runs" disabled>
@@ -1030,7 +1038,7 @@
           <b>key:value</b> filters the settings:<br>
           <b>seed:42</b> · <b>steps:8</b> · <b>cfg:0.5</b> · <b>tcfg:1.5</b> · <b>mu:none</b> ·
           <b>model:flux</b> · <b>quant:fp8</b> · <b>lora:ink</b> · <b>run:ab12cd</b> · <b>job:ab12cd</b> ·
-          <b>date:today</b> · <b>size:1024x768</b> · <b>hash:3f9a</b> · <b>refine:12</b> · <b>strength:0.4</b><br>
+          <b>date:today</b> · <b>size:1024x768</b> · <b>size:portrait</b> · <b>hash:3f9a</b> · <b>refine:12</b> · <b>strength:0.4</b><br>
           <b>model:</b>, <b>quant:</b>, <b>lora:</b>, <b>run:</b>, <b>job:</b> and <b>hash:</b> match
           part of the text; <b>lora:none</b> is the images made without a LoRA.<br>
           <b>tcfg:</b> is the scale the negative prompt ran at; <b>hash:</b> finds every
@@ -1132,6 +1140,7 @@
               <li role="menuitem" tabindex="-1" data-picked="star">★ Star picked</li>
               <li role="menuitem" tabindex="-1" data-picked="unstar">☆ Unstar picked</li>
               <li role="menuitem" tabindex="-1" data-picked="compare" aria-disabled="true">Compare picked</li>
+              <li role="menuitem" tabindex="-1" data-picked="review" aria-haspopup="dialog" aria-controls="review-picked">Review picked…</li>
               <li role="menuitem" tabindex="-1" data-picked="tier">Re-render picked at 1 MP…</li>
               <li role="menuitem" tabindex="-1" data-picked="seeds" aria-disabled="true">Seeds to grid</li>
               <li role="menuitem" tabindex="-1" data-picked="bin">⌦ Bin picked</li>
@@ -1175,6 +1184,7 @@
       <div class="library-scroll" id="library-scroll">
         <!-- A gallery with nothing to show says so (syncGalleryEmpty): a blank
              screen under a disabled "No runs yet" said nothing of what fills it. -->
+        <p class="hint" id="gallery-edit-handoff" hidden><button class="ghost small" id="gallery-continue-edit" type="button"></button> <span id="gallery-edit-message" role="status"></span></p>
         <p class="hint gallery-empty" id="gallery-empty" hidden></p>
         <!-- What a sheet is, said as it opens ("Sheet: 6 images, Steps ×
              Seed"; sheet.js's saySheet), outside the sheet, which is hidden
@@ -1322,6 +1332,12 @@
   <div id="review-runs-list"></div>
   <p id="review-runs-error" role="alert" hidden></p>
   <div class="dialog-actions"><button type="button" class="ghost" id="review-runs-older" hidden>Include older runs (up to 200)</button><button type="button" class="ghost" id="review-runs-refresh">Refresh recent runs</button></div>
+</dialog>
+<dialog id="review-picked" class="review-picked" aria-labelledby="review-picked-title">
+  <div class="dialog-head"><h2 id="review-picked-title">Review picked</h2>
+    <button type="button" class="ghost" id="review-picked-close" autofocus>Close</button></div>
+  <p id="review-picked-count" role="status"></p>
+  <ol id="review-picked-list" aria-label="Images in pick order"></ol>
 </dialog>
 <dialog class="gallery-sheet" id="gallery-filter-sheet" aria-labelledby="gallery-filter-title">
   <div class="gallery-sheet-head">
@@ -1758,8 +1774,8 @@
         <button type="button" class="ghost small" id="inpaint-redo" aria-keyshortcuts="Control+Shift+Z Control+Y">Redo</button>
         <!-- Only the masked area (mask_crop): a box around the mask, its
              extent plus Padding, denoised at about 1 MP and pasted back. In
-             this fixed row, so it costs the dialog no height; unticked, the
-             padding is greyed, never hidden. The box the server works out is
+             the tools row, which wraps with the available width; unticked,
+             the padding is greyed, never hidden. The box the server works out is
              drawn dashed over the picture once the preview answers. -->
         <div class="ip-crop off" id="inpaint-crop-field" role="group" aria-label="Only the masked area">
           <label class="check"><input type="checkbox" id="inpaint-crop" aria-describedby="inpaint-crop-tip"> Only the masked area</label>
@@ -2335,14 +2351,18 @@
     <p class="hint" id="bundle-password-hint">Applies to both Back up and Bundle &amp; clear. A password encrypts the new bundle as a .ldbundle file that only AuraDream can open. It is not saved and cannot be recovered; without it the bundle cannot be opened, and a cleared gallery is lost.</p>
     <div class="bundle-backup-row">
       <button type="button" class="primary" id="bundle-backup" aria-disabled="true">Back up (keep gallery)</button>
+      <span class="bundle-receipt" id="bundle-backup-receipt"></span>
     </div>
-    <div class="bundle-clear" role="group" aria-labelledby="bundle-clear-title" aria-describedby="bundle-clear-hint">
+    <div class="bundle-clear" role="group" aria-labelledby="bundle-clear-title" aria-describedby="bundle-clear-hint bundle-clear-runs">
       <h4 id="bundle-clear-title">Bundle &amp; clear entire gallery</h4>
       <p class="hint" id="bundle-clear-hint">To prevent accidental clearing, type the exact count of all gallery records, including every model and the recycle bin. This confirms removal after the saved bundle is verified, not how many images to save. When the app is ready, the count enables Bundle &amp; clear for Entire gallery. A held button explains anything else needed.</p>
+      <p id="bundle-clear-runs">Import restores saved images. Clearing removes every run’s plan, including runs with no images yet. You will lose Finish run for any remaining cells.
+        <button type="button" class="ghost small" id="bundle-review-runs" aria-haspopup="dialog" aria-controls="review-runs">Review unfinished work</button></p>
       <div class="bundle-confirm">
         <label for="bundle-count" id="bundle-count-label">Type the exact gallery record count to enable Bundle &amp; clear</label>
-        <input id="bundle-count" type="text" inputmode="numeric" autocomplete="off" aria-describedby="bundle-preview bundle-clear-hint">
-        <button type="button" class="ghost danger" id="bundle-export" aria-disabled="true">Bundle &amp; clear gallery</button>
+        <input id="bundle-count" type="text" inputmode="numeric" autocomplete="off" aria-describedby="bundle-preview bundle-clear-hint bundle-clear-runs">
+        <button type="button" class="ghost danger" id="bundle-export" aria-disabled="true" aria-describedby="bundle-clear-runs">Bundle &amp; clear gallery</button>
+        <span class="bundle-receipt" id="bundle-export-receipt"></span>
       </div>
     </div>
   </section>
@@ -2633,8 +2653,9 @@
         <span id="assistant-clock" aria-hidden="true"></span>
         <button type="button" class="ghost small" id="assistant-expand" aria-expanded="false" aria-controls="assistant-instruction">Expand</button>
         <button type="button" class="ghost small" id="assistant-stop" aria-disabled="true" title="There is no answer running.">Stop</button>
-        <button type="button" class="primary small" id="assistant-ask" aria-keyshortcuts="Control+Enter Meta+Enter">Send</button>
+        <button type="button" class="primary small" id="assistant-ask" aria-describedby="assistant-lookup" aria-keyshortcuts="Control+Enter Meta+Enter">Send</button>
       </div>
+      <p id="assistant-lookup" class="hint" hidden></p>
     </div>
     <div class="assistant-foot">
       <details id="assistant-pins" class="assistant-about assistant-pins"><summary id="assistant-pins-label">Requirements</summary><div class="assistant-about-content"><label for="assistant-requirements">Keep in each draft</label><textarea id="assistant-requirements" rows="4" maxlength="1800" placeholder="Exact lettering, subject count, pose or exclusions…" aria-describedby="assistant-requirements-note"></textarea><p id="assistant-requirements-note" class="hint">One requirement per line, up to eight.</p></div></details>

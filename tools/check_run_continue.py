@@ -183,9 +183,23 @@ class Check:
                       expect("$('gallery-filter-sheet').open"),
                       {"shot": "review-entry.png"}]
         steps += [
+            {"eval": "applyGalleryFilter({query:'keep my gallery search',favorites:true})"},
             {"eval": "$('btn-review-runs').scrollIntoView({block:'center'});"}, {"click": "#btn-review-runs"},
             expect("__until(()=>$('review-runs').open && !!__row())"),
             expect("!document.querySelector('#review-runs-list .finish-run-tool') && JSON.stringify(collect())===__draft"),
+            {"click": row + " .review-view"},
+            expect("__until(()=>sheetMode && !galleryPending && !backGoing && sheetShownRun()===__run && !els.favOnly.checked && sheetRecords.length===" + str(12 - missing) + ")"),
+            expect("els.sheetNote.textContent.includes('restore your gallery filters') && JSON.stringify(collect())===__draft && __posts===0"),
+        ]
+        close_sheet = "#run-chip-clear" if phone else "#btn-sheet"
+        steps += [{"eval": f"document.querySelector('{close_sheet}').scrollIntoView({{block:'center'}})"},
+                  {"click": close_sheet},
+                  expect("__until(()=>!sheetMode && !galleryPending && !backGoing && els.favOnly.checked && els.search.value==='keep my gallery search')")]
+        if phone:
+            steps += [{"click": "#btn-gallery-filters"}, expect("$('gallery-filter-sheet').open")]
+        steps += [
+            {"eval": "$('btn-review-runs').scrollIntoView({block:'center'});"}, {"click": "#btn-review-runs"},
+            expect("__until(()=>$('review-runs').open && !!__row())"),
             {"eval": "window.__realApi=api;window.__releasePlan=null;api=async(path,options)=>{const answer=await __realApi(path,options);if(path==='/api/runs/'+__run && !__releasePlan)return new Promise(resolve=>{__releasePlan=()=>resolve(answer);});return answer;};"},
             {"click": row + " .review-check"},
             expect("__until(()=>!!__releasePlan)"),
@@ -200,13 +214,13 @@ class Check:
             {"eval": "submitting=true;syncFinishRunButtons();"},
             expect("__row().querySelector('.finish-run-tool').getAttribute('aria-disabled')==='true' && __row().querySelector('.finish-run-tool').title.includes('submitted')"),
             {"click": row + " .finish-run-tool"},
-            expect("__posts===0 && $('review-runs-error').textContent.includes('submitted')"),
+            expect("__posts===0 && __row().querySelector('.review-feedback').textContent.includes('submitted')"),
             {"eval": "submitting=false;syncFinishRunButtons();window.__realApi=api;window.__releaseFinish=null;api=async(path,options)=>{const answer=await __realApi(path,options);if(path==='/api/runs/'+__run && !__releaseFinish)return new Promise(resolve=>{__releaseFinish=()=>resolve(answer);});return answer;};"},
             {"click": row + " .finish-run-tool"},
             expect("__until(()=>!!__releaseFinish)"),
             {"eval": "els.allModels.checked=true;syncRunList();els.allModels.checked=false;syncRunList();__releaseFinish();api=__realApi;"},
             expect("__until(()=>!finishPresses.has(__run))"),
-            expect("__posts===0 && $('review-runs-error').textContent.includes('Context changed')"),
+            expect("__posts===0 && __row().querySelector('.review-feedback').textContent.includes('Context changed')"),
             {"click": "#review-runs-refresh"},
             expect("__until(()=>!!__row() && reviewRunsCurrent())"),
             {"click": row + " .review-check"},

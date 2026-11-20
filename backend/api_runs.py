@@ -180,7 +180,8 @@ async def finish_plan(services: AppServices, run_id: str) -> FinishPlan:
     budget = definition["metadata"].get("budget_minutes") if definition else None
     reason = ""
     if definition is None:
-        reason = "made before runs kept their cells: use the panel's Resume tick"
+        reason = ("No run plan is stored here. Image bundles and older runs contain saved outputs only. "
+                  "To rebuild a grid, enter its settings in the panel and use the Resume tick.")
         # A Then refine pass run keeps no cells of its own: its records' job
         # is the base job, whose definition names it.
         base = await asyncio.to_thread(

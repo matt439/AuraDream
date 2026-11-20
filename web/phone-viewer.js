@@ -4,7 +4,7 @@
 // the lightbox's line and a bar of five - Star, Reuse and Refine, the
 // lightbox's own buttons moved in whole, then Edit and More, whose action
 // sheets press the lightbox's other buttons (Inpaint…, Outpaint…, Edit by
-// instruction…; Use seed, More seeds…, Download, the copies, Delete). Share
+// instruction…, Detail faces/hands…; Use seed, More seeds…, Download, the copies, Delete). Share
 // opens a sheet of its own: Picture only (the picture drawn again, none of
 // the PNG's settings in the file) and With settings (the stored PNG). The
 // facts are a sheet over the foot, a line of the prompt until it is raised.
@@ -234,6 +234,7 @@ function openViewerEdit(event) {
     { heading: `Edit #${rec.id}` },
     buttonItem('✎ Inpaint…', els.lbInpaint),
     buttonItem('⬚ Outpaint…', els.lbOutpaint),
+    detailerMenuItem(rec),
     syncedItem('✎ Edit by instruction…', (b) => syncEditTool(b, rec), () => editFromCard(rec)),
   ], 'Edit', event.currentTarget, 0, 0, event.detail === 0);
 }
@@ -241,7 +242,7 @@ function openViewerEdit(event) {
 // More's: the image's own menu (context-menu.js) less what the bar and
 // Edit hold, with Download beside Open PNG.
 const VIEWER_BAR_ITEMS = new Set(['☆ Star', '★ Unstar', '↻ Reuse settings', '⤢ Refine…', '✎ Inpaint…',
-  '⬚ Outpaint…', '✎ Edit by instruction…', '↶ Restore']);
+  '⬚ Outpaint…', 'Detail faces/hands…', '✎ Edit by instruction…', '↶ Restore']);
 function openViewerMore(event) {
   const rec = lbList[lbIndex];
   if (!rec) return;

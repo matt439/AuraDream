@@ -876,6 +876,9 @@ class GridRequest(GenerateSubmission):
     # overnight grid survivable: a crash costs the cell it died on, not the
     # night. Matched on settings, not on the job that ran them.
     resume: bool = False
+    # Optional submission precondition. A resumed grid's count can change
+    # between preview and submission as other jobs enter/leave the queue.
+    expected_images: int | None = Field(default=None, ge=0, strict=True)
     # Start no cell after this many minutes from submission. Seeds are the
     # outermost loop precisely so that a night which ends early has finished
     # every setting for the seeds it reached - and every way of ending early

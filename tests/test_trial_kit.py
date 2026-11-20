@@ -111,7 +111,9 @@ def test_every_fill_checks_its_press_landed():
     for index, step in enumerate(steps):
         if step.get("keycombo") == ["Control", "a"] and isinstance(steps[index - 2].get("click"), str):
             selector = steps[index - 2]["click"]
-            assert steps[index - 1] == {"expect": f"document.activeElement===document.querySelector({json.dumps(selector)})"}
+            assert steps[index - 1] == {
+                "expect": f"document.activeElement===document.querySelector({json.dumps(selector)})", "fatal": True,
+            }
             checked += 1
     assert checked >= 20
 

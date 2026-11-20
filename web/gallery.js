@@ -171,7 +171,7 @@ function galleryEndpoint() {
 // in sheet mode, whose note does. From every page that lands and every count
 // a delete or a finished job moves. A search that found nothing says which of
 // its words look like a mistyped key, with the mended search a press away
-// (mistypedSearchHints); a search with results says nothing of them.
+// (emptySearchHints); a search with results says nothing of them.
 let galleryOthers = 0;
 function syncGalleryEmpty() {
   const empty = !sheetMode && total <= 0 && !galleryRecords.length && !els.gallery.querySelector('.card');
@@ -179,7 +179,7 @@ function syncGalleryEmpty() {
   delete els.galleryEmpty.dataset.start;
   if (!empty) return;
   const search = els.search.value.trim();
-  const hints = search ? mistypedSearchHints(search) : [];
+  const hints = search ? emptySearchHints(search) : [];
   if (binMode) {
     els.galleryEmpty.replaceChildren(search ? 'No image in the recycle bin matches this search.' : 'The recycle bin is empty.', ...hints);
     return;
@@ -194,6 +194,17 @@ function syncGalleryEmpty() {
   }
   // On a phone the first visit is a screen of its own, Create an image its
   // one solid button (phone-gallery.js).
+  if (loadedModel === EDIT_MODEL_ID) {
+    const findSource = document.createElement('button');
+    findSource.type = 'button';
+    findSource.className = 'ghost small';
+    findSource.textContent = elsewhere ? 'Show all models' : 'Import a gallery bundle…';
+    findSource.onclick = elsewhere ? () => els.allModels.click() : () => openBundles();
+    els.galleryEmpty.replaceChildren(elsewhere
+      ? 'Choose a gallery image from another checkpoint to edit by instruction. '
+      : 'The editor needs a gallery image as its source. ', findSource);
+    return;
+  }
   if (isPhone()) { phoneGalleryStart(elsewhere); return; }
   const examples = document.createElement('button');
   examples.type = 'button';
@@ -218,10 +229,8 @@ function watchMore() {
   moreWatcher.observe(els.more);
 }
 
-// How the cards are drawn from 1800 px (styles/gallery.css; the pairs in the head
-// are shown only there): `density` S, smaller cards and more to a row, or M,
-// the wide tier's own; `fit` the whole picture letterboxed (contain, the
-// default) or the card filled and the picture cut to its middle (cover).
+// The gallery's remembered card size and framing, shared by the wide
+// header, compact desktop View disclosure and the phone's Fit/Crop pair.
 // This browser's choice, remembered apart from the panel - Reset is the
 // panel's and leaves it - every access in try/catch (remembered/remember).
 const CARD_VIEW_KEY = 'auradream.gallery.v1';
@@ -263,6 +272,24 @@ function cardViewClick(e) {
   if (!button) return;
   const key = 'density' in button.dataset ? 'density' : 'fit';
   setCardView(key, button.dataset[key]);
+}
+
+function initCardView() {
+  const control = $('card-view-control');
+  const wide = matchMedia('(min-width: 1800px)');
+  const syncTier = () => { control.open = wide.matches; };
+  wide.addEventListener('change', syncTier);
+  syncTier();
+  const dismiss = () => { if (control.open && !wide.matches) control.open = false; };
+  control.addEventListener('focusout', (e) => { if (!control.contains(e.relatedTarget)) dismiss(); });
+  document.addEventListener('pointerdown', (e) => { if (!control.contains(e.target)) dismiss(); });
+  control.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || wide.matches || !control.open) return;
+    e.preventDefault();
+    e.stopPropagation();
+    control.querySelector('summary').focus({ preventScroll: true });
+    dismiss();
+  });
 }
 
 // The trigger itself, rooted where the gallery scrolls: the window, or the

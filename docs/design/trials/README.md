@@ -16,6 +16,20 @@ press count, timing, quote or task outcome.
 The [2026-11-15 AD-2 comparison](expert-baseline-2026-11-15.md) records a
 current-source recheck, Sampling disclosure driver repair and concept limits.
 
+**November 20 browser check.** All nine cards passed consecutively on a
+fresh variant A gallery, 236/236 assertions in Edge 157 at 1400×900 CSS
+pixels, DPR 1. Task 2 used native wheel input to reach Generate, return
+to the prompt and reach Generate again. Task 9 switched to Animagine and
+edited its author example with native caret keys. It waited for the edited
+prompt's tag check and dismissed autocomplete before entering the seed.
+The preview read “4 images · 2 prompts × 2 steps × 1 seed”. The four
+stored outputs crossed moonlight and sunlight with Steps 2 and 4 at seed
+4701. On variant B the first eight cards passed, followed by a focused
+18/18 replay of the ninth with sunlight and candlelight at seed 6701.
+The [follow-up cards](task-cards.md#follow-up-comparisons-for-dev1)
+and [observation record](observation-template.md) await Matt's predictions,
+interaction times and judgments.
+
 ## Current app: prepare, launch and reset
 
 Run from the repository root in PowerShell. Check available space first; the
@@ -141,11 +155,14 @@ candidate-layout order on repeats, recording exposure and assistance.
 GPU pixels/timing/memory remain their separate verification boundaries.
 
 To repeat the **agent** current-app walkthrough on a newly prepared fixture,
-start its fake server as above, then run in another terminal:
+start its fake server as above. Once it is listening, run in another terminal:
 
 ```powershell
 $trialManifest = Join-Path $trialData 'fixture.json'
 $trialSteps = Join-Path $trialData 'walkthrough.json'
+$trialPort = (Get-Content $trialManifest -Raw | ConvertFrom-Json).port
+$bundleDirectory = (Invoke-RestMethod "http://127.0.0.1:$trialPort/api/gallery/bundles").directory
+if ($bundleDirectory -ne (Join-Path $trialData 'bundles')) { throw 'Expected the prepared trial gallery' }
 uv run --no-sync python tools/trial_walkthrough.py --manifest $trialManifest --output $trialSteps
 Remove-Item Env:AURADREAM_PORT_OFFSET -ErrorAction SilentlyContinue
 $env:AURADREAM_VIEWPORT = '1400x900'
@@ -156,14 +173,19 @@ node tools/browser.mjs $trialSteps 2>&1 | Tee-Object -FilePath (Join-Path $trial
 The manifest already contains the actual port, so do not add a port offset.
 Use a new fixture for each full run; the driver verifies the scratch owner
 before acting and refuses archive count drift. It refuses a version 1
-manifest. Its steps run tasks 1-5 and then the optional 6-8; the import in
-task 5 renumbers gallery ids, so 6-8 read sidecar ids and runtime job ids.
+manifest. Its steps run tasks 1-5 and the optional 6-9. The import in
+task 5 renumbers gallery IDs, so the later tasks read sidecar IDs and
+runtime job IDs. Task 9 switches the fake to Animagine, uses one of its
+author examples and checks the four resolved prompt/Steps combinations.
 Every press first checks that its target is what lies under the pointer, and
 every fill that focus landed in its field: a missed press fails the step
 instead of typing into whatever kept focus. Task 2's survivor must render at
 the typed 256×256 and task 4's rerenders at 512×512. Its reported counts are
 trusted automation input events, not Matt's presses. Scroll-to-target helper
-steps do not establish human reachability or scrolling effort. FLUX also
+steps do not establish human reachability or scrolling effort. With
+Sampling and Custom dimensions open, task 2 uses three native wheel gestures
+to move between the prompt and Generate. It checks the hit target before
+pressing. FLUX also
 needs a real True CFG adjustment to enable the negative box; the WAI concept
 does not, so record that checkpoint-specific detour separately.
 
@@ -191,8 +213,9 @@ keyboard shortcuts (`L6`) and Ctrl/Shift selection (`L8`) Often in
 [preferences](../preferences.md), as he does prompt-word search (`E5`),
 search from a setting (`E9`), refine at size (`H1`), enlarge by Refine
 (`H2`) and Reuse (`G1`). The kit exercises none of the routes built for
-them. `preferences.md` has no row for saved setups, saved searches or
-portability, so this refresh gives them no rating.
+them. At the October 29 audit, saved setups, saved searches and portability
+had no ratings. The [current task rubric](task-cards.md#optional-second-set)
+uses the November 3 update.
 
 The parts known stale from source reading on 2026-10-29 (the walkthrough was
 not run on this tree, so stage 1 may find more):

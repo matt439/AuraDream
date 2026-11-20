@@ -169,6 +169,21 @@ def test_a_grid_can_take_its_seeds_as_a_list(client, fake):
     assert counted["values"]["seed"] == [] and counted["summary"].endswith("2 seeds")
 
 
+def test_resumed_grid_refuses_a_changed_preview_count(client, fake):
+    body = {"prompt": "grid admission", "width": 256, "height": 256,
+            "seed": 4, "seeds": 2, "resume": True}
+    before = client.post("/api/grid/preview", json=body).json()["images"]
+    assert before == 2
+    stream_job(client, client.post("/api/grid", json={**body, "seeds": 1}).json()["job_id"])
+    stale = client.post("/api/grid", json={**body, "expected_images": before})
+    assert stale.status_code == 409 and "current count is 1" in stale.json()["detail"]
+    assert fake.seeds == [4]
+    current = client.post("/api/grid", json={**body, "expected_images": 1})
+    assert current.status_code == 200
+    stream_job(client, current.json()["job_id"])
+    assert fake.seeds == [4, 5]
+
+
 def test_a_grid_says_which_cell_is_running(client, fake):
     # Long enough that the stream has attached before the first cell ends;
     # an instant fake can finish it first, and its label is then never sent.

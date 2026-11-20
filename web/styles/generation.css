@@ -404,7 +404,11 @@ button { font: inherit; cursor: pointer; }
 #queue-note { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-1); }
 .queue-list { list-style: none; margin: 0; padding: 0; align-self: stretch; display: flex; flex-direction: column; gap: var(--sp-1); }
 .queue-list li { display: flex; align-items: center; gap: var(--sp-2); }
-.queue-list li span { flex: 1; min-width: 0; overflow-wrap: anywhere; color: var(--text-readout); }
+.queue-list li details { flex: 1; min-width: 0; overflow-wrap: anywhere; color: var(--text-readout); }
+.queue-list summary { cursor: pointer; }
+.queue-list li:has(details[open]) { align-items: flex-start; }
+.queue-list details p { margin-block: var(--sp-1); white-space: pre-wrap; }
+.queue-list details select { width: auto; max-width: 100%; margin-block-start: var(--sp-1); }
 
 .error { color: var(--danger); font-size: var(--fs-label); margin: 0; word-break: break-word; }
 /* A cancelled run is an outcome, not a failure - same slot, no alarm. */

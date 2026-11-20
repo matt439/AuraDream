@@ -128,6 +128,12 @@ function syncPromptAssistant() {
   assistantHeld(els.assistantReset, assistantRun ? 'Stop the current answer before starting a new conversation.' : '',
     'Clear this conversation; the main prompt stays unchanged');
   els.assistantAsk.textContent = assistantRun ? 'Thinking…' : 'Send';
+  const lookup = $('assistant-lookup');
+  const lookupWords = assistantMode === 'tags'
+    ? 'Chat stays local. Suggested tag names may go to Danbooru for lookup.'
+    : tagVocabularyEnabled ? 'Chat stays local. Comma-separated items in draft prompts may go to Danbooru for lookup.' : '';
+  lookup.hidden = !lookupWords;
+  if (lookup.textContent !== lookupWords) lookup.textContent = lookupWords;
   els.assistantMode.setAttribute('aria-disabled', String(!!assistantRun));
   els.assistantMode.title = assistantRun ? 'Stop the current answer before changing the task.' : 'Choose the kind of prompt help';
   els.assistantModel.setAttribute('aria-disabled', String(!!assistantRun));
@@ -508,7 +514,7 @@ function applyAssistantText(text, message) {
   assistantSnapshot = assistantSource();
   assistantFocus = null;
   promptReplaced(); syncTagSelection(); scheduleTagValidation(0); schedulePreview(); persistPanel();
-  const editorVisible = !isPhone() && els.prompt.getBoundingClientRect().right <= els.assistantSidebar.getBoundingClientRect().left;
+  const editorVisible = !assistantPhoneActive() && els.prompt.getBoundingClientRect().right <= els.assistantSidebar.getBoundingClientRect().left;
   if (editorVisible) {
     els.prompt.focus({ preventScroll: true });
     els.prompt.setSelectionRange(0, 0);

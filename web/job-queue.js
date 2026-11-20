@@ -2,10 +2,14 @@
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
 
+const queueSeeds = new Map();
+
 async function nameJob(jobId) {
   try {
     const job = await api(`/api/jobs/${jobId}`);
+    if (!queuedIds.includes(jobId) && !submissions.has(jobId)) return;
     jobLabels.set(jobId, describeJob(job));
+    queueSeeds.set(jobId, job.seed);
     noteEstimate(job);
   } catch { return; }
   syncQueueNote();
@@ -179,7 +183,8 @@ function setQueue(ids) {
   if (!lost) return;
   const left = [...els.queueList.children];
   const replacement = left[row] ?? left[row - 1];
-  (replacement?.querySelector(`[data-queue-action="${action}"]`)
+  // The replacement's cell selector may be inside a closed disclosure.
+  (replacement?.querySelector(`[data-queue-action="${action === 'cell' ? 'settings' : action}"]`)
     ?? replacement?.querySelector('button') ?? (busy ? els.cancel : els.generate)).focus({ preventScroll: true });
 }
 
@@ -193,27 +198,102 @@ function syncQueueNote() {
   // A row of another tab's is that tab's work: Cancel queued says it takes
   // those too.
   const cancelReason = queueCancelReason();
+  const otherTabs = queuedIds.filter((id) => !ownJobs.has(id)).length;
+  const scope = otherTabs === 1 ? 'including 1 from another tab' : `including ${otherTabs} from other tabs`;
+  els.cancelQueued.textContent = `Cancel ${n} queued jobs${otherTabs ? ` (${scope})` : ''}`;
   els.cancelQueued.setAttribute('aria-disabled', String(!!cancelReason));
-  els.cancelQueued.title = cancelReason || (queuedIds.some((id) => !ownJobs.has(id))
+  els.cancelQueued.title = cancelReason || (otherTabs
     ? "Cancel every other queued job, another tab's included"
     : 'Cancel every other queued job');
   const focused = document.activeElement?.closest?.('#queue-list li')?.dataset.id;
   const action = document.activeElement?.dataset.queueAction ?? 'cancel';
-  els.queueList.replaceChildren(...queuedIds.map((id) => queueRow(id, n === 1)));
+  const labels = queueRowLabels();
+  // An inspection stays open at its selected cell across queue redraws.
+  const disclosures = new Map([...els.queueList.children].map((li) => [li.dataset.id, li.querySelector('details')]));
+  els.queueList.replaceChildren(...queuedIds.map((id) => queueRow(id, n === 1, labels.get(id), disclosures.get(id))));
   if (focused) els.queueList.querySelector(`li[data-id="${focused}"] [data-queue-action="${action}"]`)?.focus({ preventScroll: true });
+}
+
+// Keep ordinary rows short. Where jobs look alike, put the seed first so
+// small screens show the difference. Identical seeds need the job id too.
+function queueRowLabels() {
+  const labels = new Map();
+  const names = new Map();
+  const seeded = new Map();
+  for (const id of queuedIds) {
+    const name = jobLabels.get(id) ?? 'a job submitted elsewhere';
+    const seed = submissions.get(id)?.seed ?? queueSeeds.get(id);
+    const label = Number.isSafeInteger(seed) ? `seed ${seed} · ${name}` : name;
+    labels.set(id, label);
+    names.set(name, (names.get(name) ?? 0) + 1);
+    seeded.set(label, (seeded.get(label) ?? 0) + 1);
+  }
+  for (const [id, label] of labels) {
+    const name = jobLabels.get(id) ?? 'a job submitted elsewhere';
+    if (names.get(name) === 1) labels.set(id, name);
+    else if (seeded.get(label) > 1 || label === name) labels.set(id, `job ${id} · ${label}`);
+  }
+  return labels;
+}
+
+function queuedSettings(jobId) {
+  const details = document.createElement('details');
+  const summary = document.createElement('summary');
+  summary.dataset.queueAction = 'settings';
+  summary.title = 'Inspect submitted settings';
+  summary.append(document.createElement('span'));
+  const picker = document.createElement('select');
+  picker.hidden = true;
+  picker.dataset.queueAction = 'cell';
+  picker.setAttribute('aria-label', 'Submitted cell');
+  const facts = document.createElement('p');
+  let revision = 0;
+  const read = async () => {
+    const asked = ++revision;
+    facts.textContent = 'Reading submitted settings…';
+    try {
+      const cell = await api(`/api/jobs/${jobId}/settings?cell=${picker.value || 1}`);
+      if (asked !== revision || !details.open || !details.isConnected) return;
+      if (!picker.length && cell.cells > 1) {
+        for (let i = 1; i <= cell.cells; i++) picker.add(new Option(`Cell ${i} of ${cell.cells}`, String(i)));
+        picker.hidden = false;
+      }
+      const r = cell.request;
+      const lines = [
+        cell.label, `Seed ${cell.seed} · ${r.width}×${r.height} · Batch ${r.num_images}`,
+        [`${r.steps} steps`, `CFG ${r.guidance_scale}`, r.true_cfg != null && `True CFG ${r.true_cfg}`,
+          r.mu != null && `Mu ${r.mu}`].filter(Boolean).join(' · '),
+        r.prompt, r.negative_prompt && `Negative: ${negativeShown(r.negative_prompt)}`,
+        r.reference?.length && `References: ${r.reference.map((id) => `#${id}`).join(', ')}`,
+        r.refine != null && `Source #${r.refine} · strength ${r.strength} · crop ${r.crop_anchor}`,
+        r.lora && `LoRA: ${r.lora} at ${r.lora_scale}`,
+        cell.then_refine && `Then refine ${cell.then_refine.scale}× at ${cell.then_refine.strength}`,
+      ];
+      for (const key of ['upscaler', 'mask', 'outpaint', 'mask_crop', 'execution', 'edit', 'detailer', 'tiled_refine']) {
+        if (r[key] != null) lines.push(`${key.replaceAll('_', ' ')}: ${typeof r[key] === 'string' ? r[key] : JSON.stringify(r[key])}`);
+      }
+      facts.textContent = lines.filter(Boolean).join('\n');
+    } catch (err) {
+      if (asked === revision && details.open) facts.textContent = err.message;
+    }
+  };
+  details.ontoggle = () => { if (details.open) void read(); };
+  picker.onchange = () => { void read(); };
+  details.append(summary, picker, facts);
+  return details;
 }
 
 // A row this page did not submit - another tab's job, listed from the
 // server (resyncQueue), or one a reload's listing found - says whose it is
 // before what it is, the prompt last for the ellipsis: its × cancels another
 // tab's work. Unnamed, "a job submitted elsewhere" says it already.
-function queueRow(jobId, alone) {
+function queueRow(jobId, alone, label, disclosure) {
   const named = jobLabels.get(jobId);
   const foreign = named !== undefined && !ownJobs.has(jobId);
-  const label = named ?? 'a job submitted elsewhere';
   const li = document.createElement('li');
   li.dataset.id = jobId;
-  const text = document.createElement('span');
+  const details = disclosure ?? queuedSettings(jobId);
+  const text = details.querySelector('summary span');
   const next = jobId === (queueFirstId ?? queuedIds[0]);
   // Its price first, in the same write as its name: an estimate arriving
   // later as a second change would move a row the pointer may be over.
@@ -222,6 +302,8 @@ function queueRow(jobId, alone) {
   text.textContent = foreign ? `${alone && next ? "Next, another tab's job" : ANOTHER_TABS_JOB}: ${priced}`
     : alone ? `${next ? 'Next' : 'Queued'}: ${priced}` : priced;
   if (!figure && jobEstimates.has(jobId)) text.title = NO_ESTIMATE_TITLE;
+  else text.removeAttribute('title');
+  details.querySelector('summary').setAttribute('aria-label', `Inspect submitted settings: ${text.textContent}`);
   const cancel = document.createElement('button');
   cancel.type = 'button';
   cancel.dataset.queueAction = 'cancel';
@@ -260,7 +342,7 @@ function queueRow(jobId, alone) {
   more.setAttribute('aria-label', `Move or cancel ${foreign ? "another tab's " : ''}queued job: ${label}`);
   more.title = 'Move to front or cancel';
   more.onclick = (e) => openQueueRowMenu(more, e.detail === 0);
-  li.append(text, cancel, front, more);
+  li.append(details, cancel, front, more);
   return li;
 }
 
@@ -444,6 +526,7 @@ function learnJobs(listed) {
   for (const job of listed) {
     rememberQueueState(job);
     if (!jobLabels.has(job.job_id)) jobLabels.set(job.job_id, describeJob(job));
+    queueSeeds.set(job.job_id, job.seed);
     if (!jobEstimates.has(job.job_id)) noteEstimate(job);
   }
   queueFirstId = listed.find((job) => job.status === 'queued')?.job_id ?? null;

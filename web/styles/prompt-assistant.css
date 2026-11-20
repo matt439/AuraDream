@@ -1,11 +1,11 @@
-/* A nonmodal writing companion; only the conversation scrolls. */
+/* The conversation scrolls above the composer while both fit in the pane. */
 :root { --assistant-w: 600px; }
 .prompt-assistant-sidebar {
   position: fixed; z-index: 19; inset: var(--topbar-h) 0 0 auto;
   width: min(var(--assistant-w), 100%); padding: var(--panel-pad);
   border-left: 1px solid var(--line-strong); background: var(--panel); color: var(--text);
   box-shadow: var(--shadow-pop); display: flex; flex-direction: column; gap: var(--sp-3);
-  container: prompt-assistant / size; overflow: hidden;
+  container: prompt-assistant / size; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain;
 }
 .prompt-assistant-sidebar[hidden] { display: none; }
 .assistant-head { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); flex: none; }
@@ -140,6 +140,8 @@
   .assistant-empty { padding-block: var(--sp-3); }
 }
 @container prompt-assistant (max-height: 450px) {
+  /* Keep the reply readable and let the enclosing pane scroll its controls. */
+  .assistant-body { min-height: min(12rem, 40dvh); }
   .assistant-foot > .assistant-about:not(.assistant-pins), .assistant-foot .key-hint { display: none; }
   #assistant-status { height: 1lh; }
   .assistant-compose { gap: var(--sp-1); }

@@ -1,4 +1,5 @@
-// Full-screen phone focus for the assistant; desktop remains a nonmodal aside.
+// Contain focus while the assistant overlays the workspace. At the side-by-side
+// breakpoint in prompt-assistant.css the workspace has its own visible column.
 // Declarations only: app.js installs the handlers once all scripts are ready.
 'use strict';
 
@@ -8,20 +9,21 @@ let assistantPhoneModal = null;
 let assistantPhoneLastFocus = null;
 let assistantPhoneWriting = false;
 const assistantPhoneInert = new Map();
+const assistantSideBySide = matchMedia('(min-width: 1280px)');
 
 function assistantPhoneActive() {
-  return isPhone() && assistantSidebarOpen();
+  return assistantSidebarOpen() && (isPhone() || !assistantSideBySide.matches);
 }
 
 function assistantPhoneFocusable() {
   return [...els.assistantSidebar.querySelectorAll(
     'button, a[href], input:not([type="hidden"]), select, textarea, summary, [tabindex]',
-  )].filter((control) => control.tabIndex >= 0 && shortcutFocusReady(control));
+  )].filter((control) => control.tabIndex >= 0 && shortcutFocusReady(control) && isShown(control));
 }
 
 function assistantPhoneFocusInside() {
   const previous = assistantPhoneLastFocus;
-  const target = previous && els.assistantSidebar.contains(previous) && shortcutFocusReady(previous)
+  const target = previous && els.assistantSidebar.contains(previous) && shortcutFocusReady(previous) && isShown(previous)
     ? previous : els.assistantClose;
   target.focus({ preventScroll: true });
 }
@@ -89,11 +91,12 @@ function assistantPhoneKey(event) {
   const active = document.activeElement;
   if (!els.assistantSidebar.contains(active) || (event.shiftKey ? active === first : active === last)) {
     event.preventDefault();
-    (event.shiftKey ? last : first).focus({ preventScroll: true });
+    (event.shiftKey ? last : first).focus();
   }
 }
 
 function initAssistantPhone() {
+  assistantSideBySide.addEventListener('change', syncAssistantPhoneFocus);
   document.addEventListener('keydown', assistantPhoneKey, true);
   document.addEventListener('focusin', (event) => {
     if (assistantPhoneWriting || !assistantPhoneActive() || document.querySelector('dialog[open]')) return;

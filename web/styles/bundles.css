@@ -43,6 +43,8 @@
 .bundle-scope label { display: inline-flex; align-items: center; gap: var(--sp-1); }
 #bundle-scope-hint { min-height: 2lh; }
 .bundle-backup-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.bundle-receipt { flex: 1 1 12rem; min-height: 2lh; align-content: center; font-size: var(--fs-body-sm); }
+#bundle-clear-runs { font-size: var(--fs-body-sm); }
 .bundle-clear { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-3); border: 1px solid var(--line-strong); border-radius: var(--r-sm); }
 .bundle-saved { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-2); }
 .bundle-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }

@@ -9,8 +9,8 @@
 No GPU, no weights: the backend is the tests' FakeBackend with a drawing on
 top, so every "image" is a gradient stamped with its seed and steps and the
 cells of a grid can be told apart on a sheet. A cell whose prompt holds
-`[fail]` raises, as an out-of-memory cell would, so a grid's skipped cells
-and the failure rule can be driven from the page. The fake's own test-only
+`[fail]` raises before rendering; `[fail-after-preview]` raises at the final
+step. These exercise skipped cells and the viewer's recovery. The fake's own test-only
 knobs, never on the real server, are POSTs under `/api/fake/`: load, step,
 expand, model, lora, bin-age, peak, refine, instruction-edit, detailer, disk-full,
 model-cache, activity and
@@ -362,6 +362,8 @@ def main() -> int:
             def progress(step, total):
                 if on_progress is not None:
                     on_progress(step, total)
+                if step == total and "[fail-after-preview]" in request.prompt:
+                    raise RuntimeError("the fake render failed after its preview")
                 if on_preview is not None and step < total:
                     import io
 

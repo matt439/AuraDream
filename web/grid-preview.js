@@ -80,9 +80,25 @@ function addPanelSize() {
 }
 
 function runGrid() {
-  if (refuseComposerExecution()) return undefined;
+  if (submitting) return;
+  const held = submitHold({ composer: true });
+  if (held) {
+    if (serverOffline) { showError(OFFLINE_MESSAGE); void refreshStatus(); }
+    else if (modelChangeHold()) sayModelChangeHold();
+    else showError(held);
+    return;
+  }
   if (refuseBadNumber(gridNumberInputs())) return undefined;
-  return startJob('/api/grid', gridPayload());
+  const body = gridPayload();
+  if (!body.prompt) { showError('Enter a prompt first.'); return; }
+  if (!els.gridSection.open) return;
+  if (gridReviewKey(body) !== gridPreviewKey) schedulePreview();
+  if (gridReviewReason) {
+    sayJob(gridReviewReason);
+    if (gridReviewReason !== GRID_UPDATING) void previewGrid();
+    return;
+  }
+  return startJob('/api/grid', body, { gridImages: reviewedGridImages });
 }
 
 const axisText = (values) => values.map((v) => (v === null ? 'none' : v)).join(', ');
@@ -243,6 +259,42 @@ function budgetLines(budgets) {
 // after the reply for the boxes as they are. Same token the gallery uses.
 let previewEpoch = 0;
 const gridPreviewMark = { pending: false, polled: false };  // markPreview (state.js)
+const GRID_UPDATING = 'Updating grid preview. Review the new total before running.';
+let gridPreviewKey = null;
+let gridReviewReason = GRID_UPDATING;
+let reviewedGridImages = null;
+
+function gridReviewKey(body) {
+  return JSON.stringify([modelRevision, body]);
+}
+
+function syncGridRun(why = submitHold({ composer: true })) {
+  const reason = why || (els.gridSection.open && els.prompt.value.trim() && gridReviewReason);
+  els.gridRun.setAttribute('aria-disabled', String(submitting || !!reason));
+  els.gridRun.title = reason || GRID_RUN_TITLE + thenRefineTitleSuffix();
+}
+
+// Retire the count AND any older reply in the input event, before the debounce.
+// Hold the preview's height through the wait so Run grid stays under the pointer.
+function invalidateGridReview(key) {
+  if (key === gridPreviewKey) return;
+  ++previewEpoch;
+  gridPreviewKey = key;
+  reviewedGridImages = null;
+  gridReviewReason = GRID_UPDATING;
+  els.gridPreview.style.minHeight = `${els.gridPreview.offsetHeight}px`;
+  els.gridPreview.classList.remove('warn');
+  els.gridPreview.textContent = GRID_UPDATING;
+  syncGridRun();
+}
+
+function refreshRefusedGrid() {
+  // The form can be identical while Resume's available work has changed.
+  // Retire in-flight previews even if the fold closed before the refusal.
+  ++previewEpoch;
+  gridPreviewKey = null;
+  schedulePreview();
+}
 
 // Opening the fold by hand brings Run grid into view on the next frame
 // (revealGridRun), and the preview's reply lands after that, under the same
@@ -259,24 +311,28 @@ function previewShown() {
 
 async function previewGrid() {
   const polled = takePreviewMark(gridPreviewMark);
-  if (modelChangeHold()) { ++previewEpoch; return; }
+  if (modelChangeHold()) { ++previewEpoch; gridPreviewKey = null; return; }
   if (!els.gridSection.open) {
     ++previewEpoch;  // A close retires pending success and error replies.
+    gridPreviewKey = null;
     gridRevealPending = false;
     if (gridMaxCfg !== null) { gridMaxCfg = null; syncCfg(); }
     return;
   }
+  const body = gridPayload();
+  const key = gridReviewKey(body);
+  invalidateGridReview(key);
   const epoch = ++previewEpoch;
   // Nothing to preview before there is something to render: the server needs a
   // prompt to validate the request at all, and an untouched panel is not a
   // mistake to be reported.
-  if (!els.prompt.value.trim()) {
+  if (!body.prompt) {
+    els.gridPreview.style.minHeight = '';
     els.gridPreview.classList.remove('warn');
     els.gridPreview.textContent = 'Enter a prompt above to see what this grid would run.';
     previewShown();
     return;
   }
-  const body = gridPayload();
   try {
     const p = await api('/api/grid/preview', polledIf(polled, {
       method: 'POST',
@@ -289,6 +345,12 @@ async function previewGrid() {
     const reach = Math.max(...p.values.guidance_scale.filter((v) => typeof v === 'number'));
     gridMaxCfg = Number.isFinite(reach) ? reach : null;
     syncCfg();
+    // A CFG sweep can wake or retire a retained negative. Price the request
+    // as it will actually be sent before presenting its settings for review.
+    if (gridReviewKey(gridPayload()) !== key) {
+      markPreview(gridPreviewMark, polled);
+      return previewGrid();
+    }
     // Totals on the first line, the resolved axes on the second: what a range
     // actually expanded to is the half of it that is easy to get wrong.
     // The disk is the other thing a night runs out of; a size estimate past
@@ -384,11 +446,17 @@ async function previewGrid() {
       ...(negatives ? ['\n', negatives] : []),
       ...(notes.length ? [`\n${notes.join('\n')}`] : []),
     );
+    reviewedGridImages = p.images;
+    gridReviewReason = '';
   } catch (err) {
     if (epoch !== previewEpoch) return;
+    reviewedGridImages = null;
+    gridReviewReason = err.message;
     els.gridPreview.classList.add('warn');
     els.gridPreview.textContent = err.message;
   }
+  els.gridPreview.style.minHeight = '';
+  syncGridRun();
   previewShown();
 }
 
@@ -398,6 +466,7 @@ let gridTimer;
 // `polled`: a status poll asked (POLL_HEADER, markPreview). An input's
 // event, which some listeners pass here, has no such field: an edit counts.
 function schedulePreview({ polled = false } = {}) {
+  if (els.gridSection.open) invalidateGridReview(gridReviewKey(gridPayload()));
   // Then refine's fold says the pass size of the size now in the panel.
   syncThenRefine();
   clearTimeout(gridTimer);

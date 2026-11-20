@@ -13,10 +13,11 @@ backup. Binning an image keeps it recoverable until you empty the bin.
 
 **Why is the first image slow?** The first load downloads a checkpoint,
 sometimes converts it, then moves it into memory. Later loads reuse those
-files. Generating after **Unload** still needs to load them again. A large
-model can take most of an hour to download. The loading line shows an
-approximate cache-byte count when available; the server window has the
-download library's progress. [Setup](setup.md#7-start-the-server-and-make-an-image) explains
+files. Generating after **Unload** still needs to load them again. Models
+shows the selected checkpoint's full download size and cache state when
+available. During a download, the loading line can show an approximate count
+of cached bytes. The server window shows the download library's progress.
+[Setup](setup.md#7-start-the-server-and-make-an-image) explains
 the first load.
 
 **Which model should I start with?** Use the starting settings of the model
@@ -79,10 +80,11 @@ work, and Generate queues behind the load. A failed load shows its reason and
 
 On that automatic opening the line under the buttons says **Switch & load**
 saves the choice for the next start and closing the panel saves nothing.
-If no Hugging Face sign-in is found and the server's checkpoint needs one
-(a plain start with nothing saved), the open Z-Image Turbo is chosen
-instead, and the line says so; nothing is saved until you press **Switch &
-load** or **Apply & save**, and **Revert** puts the default back.
+If no Hugging Face sign-in is found and the default checkpoint needs one
+(a plain start with nothing saved), the picker suggests **Animagine XL 4.0**.
+**Switch & load** or **Apply & save** accepts the choice. **Revert** puts
+the default back. While Models is open, Generate and its Ctrl+Enter shortcut
+wait for you to finish choosing.
 
 Prompts and saved images stay available. Sampling starts from that checkpoint's
 defaults or its remembered settings, and the guide, supported controls, adapters
@@ -143,7 +145,10 @@ or format has no build of the chosen model, no row is chosen; the model is
 chosen again when a list has it. A field you changed keeps your value until
 you apply it; the others follow changes saved in another tab. A switch made
 in another tab drops your unsaved changes, and the line under the buttons
-says which choice was dropped.
+says which choice was dropped. Open **Selected checkpoint capabilities** for
+its supported image actions. **Apply & save** returns to your draft after
+the server selects a different text-to-image checkpoint. After **Switch & load**,
+**Continue to prompt** returns to the editor when the checkpoint is ready.
 
 **Speed** uses recorded RTX 5080 samples around 1 MP (WAI's portrait is 1.38 MP):
 **Fast** is up to 15 seconds, **Medium** over 15 through 45 seconds, and **Slow**
@@ -377,8 +382,10 @@ quantizer, size and other inputs. Nunchaku is not bitwise reproducible.
   Use Repeat for many large images; the batch pixel limit does not guarantee
   that a particular checkpoint fits in VRAM.
 - **Generate** and **Run grid** can queue work behind a running job. Queued
-  jobs have individual cancel buttons. Jobs survive closing or reloading the
-  browser, but a server restart ends them.
+  jobs have individual cancel buttons. Inspect a row's submitted settings
+  before moving or cancelling it. **Cancel queued** shows how many waiting
+  jobs it will cancel, including work submitted from other tabs.
+  Jobs survive closing or reloading the browser, but a server restart ends them.
 - **Cancel** stops after the current denoising step and keeps saved images.
   Once a job's cancel is requested, its Cancel reads **Stopping…**, held,
   in every tab watching that job.
@@ -400,6 +407,11 @@ cell after its next step and continues with the next one. Earlier images
 stay, and **Finish run** can check the missing work later. Skip explains why
 it is held while loading, paused, saving or between cells. A Then refine pass
 also holds Skip because Finish currently recovers its base cells only.
+
+If a job fails without saving an image, its viewer message identifies any
+previous result still on screen. If only part of a batch succeeds, the viewer
+keeps the images it made. Expand the failure message for the reason and
+available job controls.
 
 **Notify when done** below progress is off until you opt in. Tick it to
 request browser notification permission. It notifies when this tab is hidden
@@ -569,9 +581,14 @@ Supported platforms and custom binaries are described in
 
 Open **Assistant** at the right end of the desktop top bar. On a phone,
 tap **Assistant** in the toolbar below the prompt to open it full-screen.
+At narrow desktop sizes Tab stays within the open Assistant. Escape returns
+to its opener. Wider windows keep the prompt editor available alongside it.
 **Create** develops a rough idea into drafts. **Improve** revises the current
 prompt to your instruction. **Find tags** suggests candidate Danbooru tags
-and checks their names. Choose a task, write a message and press **Send**.
+and checks their names. The conversation stays local. Find tags may look up
+suggested names on Danbooru. With a tag-based checkpoint, Create and Improve
+may also check individual comma-separated items in draft prompts there.
+Choose a task, write a message and press **Send**.
 You can change tasks and send follow-ups in the same conversation. Review
 each answer for invented or missing details. **Use prompt** applies a draft
 and rebases the conversation on the applied prompt. Ctrl+Z restores the
@@ -840,6 +857,7 @@ FLUX.1 Krea dev's outpaint was measured too: its 16:9 seams joined cleanly
 ## Detail faces and hands
 
 Open a gallery image's right-click menu and choose **Detail faces/hands…**.
+On a phone, open the image, then choose **Edit → Detail faces/hands…**.
 This action currently uses supported SDXL checkpoints. Choose a detector,
 read its image-domain limits, and press **Download detector** if its pinned
 assets are missing. Downloads happen only at that press. **Detect regions**
@@ -920,7 +938,9 @@ its instruction. It runs only on **FLUX.1 Kontext [dev]**, an edit-only
 checkpoint listed last in **Models**. The menu item is there on every
 checkpoint; elsewhere the dialog says what holds it, and **Open Models…**
 opens the picker on the editor's row without switching. The instruction and
-seed you typed survive that switch.
+seed you typed survive that switch. Choose **Continue editing #N** to reopen
+the source and review the instruction. In the lightbox, **Compare with source**
+opens the comparison when the original source still matches.
 
 The whole picture is redrawn: there is no mask, Strength or negative
 prompt, and the panel's prompt is not used. **Seed** (blank or the dice:
@@ -960,6 +980,8 @@ trial is in [verified.md](verified.md#instruction-edit).
 Blank axes use the main panel's value; populated axes cross with one another.
 The preview shows resolved prompts, image count, existing cells and, when
 previous renders provide measurements, time and disk estimates.
+Changing the grid clears the previous totals. Review the updated count before
+pressing **Run grid** or Ctrl+Enter.
 
 | Axis | Syntax | Example |
 | --- | --- | --- |
@@ -1041,6 +1063,10 @@ checked missing set before queueing it. It never adds new seeds; **More
 seeds** remains the separate action for that.
 
 ## Browse, compare and keep results
+
+Use **View** on a narrow desktop to change the thumbnail size or choose
+**Fit** to see the whole frame and **Crop** to fill each tile. Wide desktops
+show those controls directly.
 
 The gallery initially shows the running checkpoint. Tick **All models** for
 the rest, or **Starred** for favorites. **Runs** opens a run and its sheet.
@@ -1159,7 +1185,9 @@ Shift+Space adds the range. Without Select, a plain click opens the large image 
 the picks. Ctrl+click (Cmd+click) picks or unpicks one card; Ctrl+Shift+click
 (Cmd+Shift+click) adds the range from the last card toggled. Shift+click alone
 replaces the picks with that range. The selection survives searches, filters and paging; its count
-says how many picked images the current view does not show. **Clear** or
+says how many picked images the current view does not show. **Review picked**
+shows their thumbnails and IDs in pick order. Remove individual picks there
+and close the review to return to the same search and filters. **Clear** or
 Esc empties it, and a second Esc leaves select mode. Pick exactly two images, then choose **Picked > Compare picked** (also in
 the picked-card context menu). Matching aspect ratios are required; their
 checkpoints or pixel sizes may differ. The first picked image stays left;
@@ -1261,8 +1289,10 @@ ends, on that run's images rather than the selection; see
   banner and run sheets. Reload/restart and an unrelated composer do not
   change its definition. Its preview names missing work, deleted successful
   cells to redraw, original budget and holds. Binned or queued cells are
-  not duplicated. Older/imported runs without retained cells use the
-  panel's explicit Resume tick.
+  not duplicated. Finish needs the original cell plan. An image bundle
+  restores saved outputs, and an imported run can only use Finish if this
+  gallery still has its plan. To recreate missing work without a plan,
+  set up the original grid in the panel and review its **Resume** preview.
 - **More seeds…** makes new images with the same settings and the next
   seeds, joining the run. **More seeds…** on the finished-job line (after
   **Use seed** on a plain Generate's) takes the batches that job made: a
@@ -1615,9 +1645,12 @@ reference image travels only when it is chosen too; the result counts the
 links that point outside the bundle, and an import of it says the same and
 leaves those links empty.
 
-To move the whole gallery out, keep **Entire gallery**, type the displayed
-record count and press **Bundle & clear gallery** (a picked or starred
-bundle never clears anything). To protect the bundle, enter a password twice first: the bundle is
+To move the whole gallery out, keep **Entire gallery**. An archive restores
+saved images but does not store the cell plans that **Finish run** uses.
+Choose **Review unfinished work** before clearing to check which runs you
+want to finish first. When ready, type the displayed record count and press
+**Bundle & clear gallery**. The receipt beside the action includes **Download**.
+To protect the bundle, enter a password twice first: the bundle is
 then saved as an encrypted `.ldbundle` file that only AuraDream can
 open (file names included). The password is not saved anywhere and cannot be
 recovered, and the gallery is cleared after export, so keep it safe. Finish or cancel generation first; loading and other gallery work

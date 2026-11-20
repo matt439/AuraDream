@@ -29,6 +29,9 @@ let modelPressReason = null;
 // The settings this page's switch asked for, until the revision it makes
 // arrives: that reset keeps the outcome rather than wiping it.
 let modelOwnSwitch = null;
+// A changed checkpoint's Apply & save returns to this draft only once the
+// server confirms the selection. Editing or leaving Models retires it.
+let modelPromptAfterSave = null;
 // From status: a failed load's detail, a switch that stopped before
 // selecting, and what this start's flags or environment set aside.
 let modelLoadDetail = null;
@@ -159,15 +162,18 @@ function rememberModelChoice(id) {
   if (id) modelChoiceIntent = { id, canonical: modelFavouriteId(id) };
 }
 
-// Scroll only the picker's body (never the page) so a control's row shows
-// below the sticky heading row.
+// Reveal the choice in the picker's own scroller. On a phone the sheet
+// scrolls as a whole and its portrait action bar covers the lower rows.
 function revealModelControl(control) {
   const row = control?.closest?.('.model-row');
   if (!row || !els.modelTable.contains(row)) return;
-  const body = els.modelPickerBody;
+  const phone = isPhone();
+  const body = phone ? els.modelPicker : els.modelPickerBody;
   const inner = body.getBoundingClientRect().top + body.clientTop;
   const top = inner + els.modelTableHead.offsetHeight;
-  const bottom = inner + body.clientHeight;
+  const foot = $('models-foot');
+  const bottom = phone && getComputedStyle(foot).position === 'sticky'
+    ? foot.getBoundingClientRect().top : inner + body.clientHeight;
   const box = row.getBoundingClientRect();
   if (box.top < top) body.scrollTop -= top - box.top;
   else if (box.bottom > bottom) body.scrollTop += Math.min(box.bottom - bottom, box.top - top);
@@ -663,8 +669,8 @@ function modelPickerNote() {
   const info = modelCatalogueDetails[modelState === 'loading' ? runtime : chosen] ?? {};
   const firstLoad = info.cache_state === 'complete' ? info.cache_note
     : info.download && info.download !== 'Unknown'
-      ? `Full download reference: ${info.download}. ${info.cache_note || ''} A first download can take most of an hour on a 100 Mbit/s connection.`
-      : 'Download size and cache completeness are unknown. A first load may download weights and take most of an hour.';
+      ? `Full download reference: ${info.download}. ${info.cache_note || ''} Loading into memory takes additional time.`
+      : 'Download size and cache completeness are unknown. Missing weights download before loading into memory.';
   const unsaved = modelState !== 'loading' && modelPickerUnsaved();
   const unavailable = executionPickerUnavailable();
   const state = modelState === 'loading' ? `Loading ${current}… ${firstLoad}`
@@ -768,6 +774,17 @@ function syncModelSwitch() {
   if (els.modelFormatHelp.textContent !== formats) els.modelFormatHelp.textContent = formats;
   if (!els.modelPicker.hidden) {
     const { text, unsaved } = modelPickerNote();
+    const chosen = modelChoice();
+    const info = modelCatalogueDetails[chosen];
+    const capabilities = stale ? 'Checkpoint capabilities are unavailable until the catalogue is ready.'
+      : modelCataloguePending ? 'Reading checkpoint capabilities…' : info
+      ? [modelLabel(chosen), modelRefineNote(info), info.instruction_edit_note].filter(Boolean).join(' · ')
+      : 'Choose a checkpoint to see its capabilities.';
+    const facts = $('model-capabilities-text');
+    if (facts.textContent !== capabilities) facts.textContent = capabilities;
+    const continueLabel = canContinueToPrompt(chosen, unsaved) ? 'Continue to prompt' : 'Close Models';
+    const close = $('btn-model-continue');
+    if (close.textContent !== continueLabel) close.textContent = continueLabel;
     if (els.modelPickerNoteText.textContent !== text) els.modelPickerNoteText.textContent = text;
     let progress = els.modelPickerNote.querySelector('.model-download-progress');
     if (!progress) {
@@ -789,6 +806,7 @@ function syncModelSwitch() {
 // Revert puts the server's settings back in every field. The focus, which
 // the hidden button gives up, goes to the chosen row.
 function revertModelPicker() {
+  modelPromptAfterSave = null;
   forgetExecutionDraft(modelPickerSettings(), { revert: true });
   // The page's choice is gone; a later click on that row is the user's own.
   modelPickerSuggested = null;
@@ -802,6 +820,7 @@ function revertModelPicker() {
 }
 
 function modelPickerEdited(key, { catalogue = false } = {}) {
+  modelPromptAfterSave = null;
   // A choice made in the picker outranks an Open Models… still waiting on
   // its catalogue, which would otherwise choose its row over this one.
   modelPickerPointAt = null;
@@ -861,22 +880,24 @@ function receiveModelSettings(status, { reset = false } = {}) {
   if (reset) {
     // The controls still hold the edits a change made elsewhere retires.
     const dropped = modelDroppedEdits();
-    // Performance drafts remain explicit choices across another selection's
-    // revision. An incompatible model explains/holds them instead of clearing.
-    const performanceEdits = ['compilation', 'attention'].filter((key) => modelPickerEditedKeys.has(key));
-    modelPickerEditedKeys.clear();
-    for (const key of performanceEdits) modelPickerEditedKeys.add(key);
     // A preselection the revision retired is no longer the page's choice.
     modelPickerSuggested = null;
     // The revision this page's own switch made keeps the note saying so.
-    const own = modelOwnSwitch && ['model_id', 'quantization', 'offload', 'compilation', 'attention']
-      .every((key) => modelOwnSwitch[key] === modelRuntimeSettings[key]);
+    const own = modelOwnSwitch && modelRuntimeIdentity(modelOwnSwitch) === modelRuntimeIdentity(modelRuntimeSettings);
+    // This page's switch retires only the edits it actually saved. Another
+    // tab's selection retires local checkpoint/loader choices as before.
+    const draft = modelPickerSettings();
+    for (const key of modelPickerEditedKeys) {
+      if (own ? draft[key] === modelOwnSwitch[key] : !['compilation', 'attention'].includes(key)) {
+        modelPickerEditedKeys.delete(key);
+      }
+    }
     // Otherwise an unsaved choice went without a word (review, 2026-10-12).
     if (!own) {
       modelPickerMessage = dropped
         ? `${modelLabel(modelRuntimeSettings.model_id)} was selected in another tab or window; ${dropped}.`
-          + (performanceEdits.length ? ' Your unsaved performance choices were kept.' : '')
-        : performanceEdits.length ? 'The server selection changed; your unsaved performance choices were kept.' : null;
+          + (modelPickerEditedKeys.size ? ' Your unsaved performance choices were kept.' : '')
+        : modelPickerEditedKeys.size ? 'The server selection changed; your unsaved performance choices were kept.' : null;
     }
     modelOwnSwitch = null;
   }
@@ -950,13 +971,48 @@ function offerModelPicker(status) {
   showModelPicker(true, { focus: false, offered: true });
 }
 
+function canContinueToPrompt(chosen = modelChoice(), unsaved = modelPickerUnsaved()) {
+  return (modelState === 'ready' || (modelState === 'unloaded' && !modelPickerOffered))
+    && chosen === loadedModel && !modelChangeHold() && !executionLoadHold() && !textToImageReason && !unsaved;
+}
+
+function leaveModelPicker() {
+  const toPrompt = canContinueToPrompt();
+  showModelPicker(false);
+  if (toPrompt) {
+    showCreateView();
+    els.prompt.focus({ preventScroll: true });
+  }
+}
+
+function finishModelSaveHandoff() {
+  if (!modelPromptAfterSave || modelSwitchSending || modelSwitching) return;
+  const { selected, previousRevision } = modelPromptAfterSave;
+  // A status read begun during the POST can deliver the old, idle selection
+  // after the accepted switch. Changing checkpoints advances the revision.
+  if (modelRevision === previousRevision && !modelServerSwitchError) return;
+  modelPromptAfterSave = null;
+  if (els.modelPicker.hidden || modelServerSwitchError || !canContinueToPrompt()
+      || modelRuntimeIdentity(selected) !== modelRuntimeIdentity(modelRuntimeSettings)) return;
+  leaveModelPicker();
+  if (modelPickerMessage) showError(modelPickerMessage, true);
+}
+
+function focusModelChoice() {
+  const target = modelRadios().find((radio) => radio.checked) ?? modelRadios()[0] ?? els.modelPickerBody;
+  target.focus({ preventScroll: true });
+  revealModelControl(target);
+}
+
 function showModelPicker(on, { focus = true, offered = false } = {}) {
+  modelPromptAfterSave = null;
   modelPickerStartupSeen = true;
   modelPickerOffered = on && offered;
   modelPickerPointAt = null;
   els.modelPicker.hidden = !on;
   els.models.setAttribute('aria-expanded', String(on));
   if (on) {
+    if (modelPickerMessage && els.error.textContent === modelPickerMessage) showError('');
     // An opening starts from the state, not an earlier press's words.
     modelPressReason = null;
     modelPickerMessage = null;
@@ -973,12 +1029,8 @@ function showModelPicker(on, { focus = true, offered = false } = {}) {
     // The chosen row's images as they are now, in place of the last opening's.
     syncModelShots({ fresh: true });
     void refreshModelCatalogue();
-    if (focus) {
-      const target = modelRadios().find((radio) => radio.checked) ?? modelRadios()[0] ?? els.modelPickerBody;
-      target.focus({ preventScroll: true });
-      // Opening scrolls the picker's own body to the focused row, not the page.
-      revealModelControl(target);
-    } else if (offered) {
+    if (focus) focusModelChoice();
+    else if (offered) {
       revealModelControl(modelRadios().find((radio) => radio.checked));
     }
   } else {
@@ -1198,6 +1250,8 @@ async function switchModel({ load = true } = {}) {
   modelPickerMessage = null;
   modelPressReason = null;
   modelOwnSwitch = selected;
+  modelPromptAfterSave = !load && before && selected.model_id !== before.model_id && !selected.execution
+    && !els.modelPicker.hidden ? { selected, previousRevision: modelRevision } : null;
   // Flush this checkpoint's edits while its identity still describes them.
   clearTimeout(panelTimer);
   writePanel();
@@ -1209,25 +1263,27 @@ async function switchModel({ load = true } = {}) {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...payload, load }),
     });
-    const newerPerformance = [
-      ['compilation', els.modelCompilation], ['attention', els.modelAttention],
-    ].filter(([key, control]) => modelPickerEditedKeys.has(key) && control.value !== selected[key]).map(([key]) => key);
-    modelPickerEditedKeys.clear();
-    for (const key of newerPerformance) modelPickerEditedKeys.add(key);
+    const draft = modelPickerSettings();
+    for (const key of modelPickerEditedKeys) {
+      if (draft[key] === selected[key]) modelPickerEditedKeys.delete(key);
+    }
+    const newer = [...modelPickerEditedKeys];
     forgetExecutionDraft(selected);
-    rememberModelChoice(selected.model_id);
+    rememberModelChoice(newer.includes('model_id') ? draft.model_id : selected.model_id);
     modelPickerOffered = false;
     receiveStatus(status, Date.now());
     // No switch in the background: no revision of its own will come.
     if (!status.switching) modelOwnSwitch = null;
     modelPickerMessage = modelSavedMessage(selected, before, { load, wasReady, startup: status.load_on_startup })
-      + (newerPerformance.length ? ' Your newer performance choices remain unsaved.' : '');
+      + (newer.length ? (newer.every((key) => ['compilation', 'attention'].includes(key))
+        ? ' Your newer performance choices remain unsaved.' : ' Your newer choices remain unsaved.') : '');
     // An earlier press's refusal ("wait for it to finish") is answered now;
     // the error line must not go on saying it beside the switch it allowed.
     if (modelSwitchRefusal && els.error.textContent === modelSwitchRefusal) showError('');
     modelSwitchRefusal = null;
     syncModelSwitch();
   } catch (err) {
+    modelPromptAfterSave = null;
     modelOwnSwitch = null;
     modelSwitchError = err.message;
     modelSwitchRefusal = err.message;
@@ -1236,6 +1292,7 @@ async function switchModel({ load = true } = {}) {
     modelSwitchSending = false;
     syncPromptExpansion();
     syncModelSwitch();
+    finishModelSaveHandoff();
     void refreshStatus();
   }
 }

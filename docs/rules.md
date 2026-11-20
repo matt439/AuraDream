@@ -1019,7 +1019,7 @@ paragraphs, never rewording.
   Save as snippet, Refine, Check, prose comparisons and captured same-seed
   comparison dialogs; `assistant-draft-tags.js` read-only per-draft validation
   through the prompt editor's tag endpoint, exact-text annotations, cached
-  verdicts and guarded Recheck; `assistant-phone.js` full-screen phone focus/inert
+  verdicts and guarded Recheck; `assistant-phone.js` overlay focus/inert
   ownership and scoped undo-aware editor writes; `analysis.js`,
   `analysis-critic.js` and `comparison.js` the check and critic. `sizes.js`
   and `status.js` retain their control/profile roles; `model-switch.js` owns
@@ -2015,6 +2015,16 @@ measured on the card and when.
   choice, `AURADREAM_MODEL_ID`, `--model`, `--defaults` or `--menu`), the
   selection is not `DEFAULT_MODEL_ID`, or any switch route has saved since
   the start. The server's default, the CLI and saved metadata are unchanged.
+  While Models is open Generate, Run grid and the phone action dock are
+  hidden. Ctrl/Cmd+Enter from the draft or body focuses the chosen checkpoint.
+  The desktop disclosure and the selected phone card show the checkpoint's
+  capabilities.
+  The picker labels a known full download size separately from cache state
+  and time spent loading into memory. A text-to-image choice with no
+  unsaved edits offers Continue to prompt after loading. Apply & save of a
+  different eligible text-to-image checkpoint returns to the prompt with
+  its receipt once the server confirms the change. Newer edits and an
+  explicit dismissal retire that handoff.
   Then: a request error, a press's refusal
   (`modelPressReason`, dropped once that action's hold changes or the picker
   reopens), `switch_error`, a failed load's detail, then
@@ -2140,6 +2150,9 @@ measured on the card and when.
   an unlisted row leaves the choice as it was, and any other opening, a
   choice made in the picker meanwhile (`modelPickerEdited`) or a catalogue
   that fails clears the request, so a later answer never moves the choice.
+  An Open Models handoff remembers the edit source. After the Kontext switch,
+  Continue editing #N rereads that source and reopens the retained draft
+  through its normal eligibility preview.
 
 #### Loader choices and instruction edit admission
 
@@ -3425,8 +3438,12 @@ measured on the card and when.
   ids it listed after the poll was asked, `queuedAt`) through `setQueue`,
   the rows' one writer, which keeps focus as a row's × does; a row this page
   did not submit reads "Another tab's job: …" ("Next, another tab's job: …"
-  alone), its × "Cancel another tab's queued job: …", and Cancel queued's
-  title says it takes another tab's too; a paused job's cell line counts the
+  alone), its × "Cancel another tab's queued job: …". Cancel queued counts
+  the waiting jobs beside the action and identifies other tabs' jobs.
+  Colliding rows add the seed, then the job ID if still needed. Expanding
+  a row reads the submitted settings for the chosen cell from
+  `GET /api/jobs/{id}/settings?cell=N`. The sticky progress line says Paused
+  while the job is paused. A paused job's cell line counts the
   jobs waiting behind it. A row the poll adds or takes out waits while the
   pointer rests on the list or anything under it that it would move
   (`queuePointer`, from the page's pointerover: in the panel, and in one
@@ -4071,15 +4088,15 @@ measured on the card and when.
   keep-awake activity; its timed browser reads also carry `polledRead`.
   Local readiness/first-use download cost is visible before Send. Transfer
   bytes describe the current file, never VRAM or measured assistant latency.
-- The desktop topbar's rightmost Assistant toggle opens a named, nonmodal right
+- The desktop topbar's rightmost Assistant toggle opens a named right
   sidebar directly. At 600 px and below the word mark gives its room to the checkpoint
   status and actions, keeping the toggle inside the window.
   At 1280 px and above the workspace reserves
   its width; smaller windows overlay it, and phones fill the visible viewport.
   Phones keep the same button in the prompt toolbar. The editor stays usable
-  beside the desktop pane. A full-screen phone pane temporarily has dialog
+  beside the side-by-side pane. A pane covering the workspace temporarily has dialog
   semantics, holds covered body surfaces inert and contains keyboard focus;
-  native dialogs remain usable. Closing or leaving the phone tier restores
+  native dialogs remain usable. Closing or returning to side-by-side layout restores
   prior inert values and aside semantics. `assistantPhoneWrite` releases only
   that owned hold synchronously around the ordinary undo-aware editor writer,
   restoring containment before returning; it never awaits with the hold open.
@@ -4110,7 +4127,10 @@ measured on the card and when.
   About sits below the message frame
   and opens upward over the conversation without moving writing controls.
   Requirements and Compare remain reachable in short panes even when the
-  ordinary About explanation and shortcut hint are hidden for space.
+  ordinary About explanation and shortcut hint are hidden for space. A short
+  fine-pointer pane reserves readable height for replies and scrolls its
+  controls. While the pane overlays the workspace, Tab and Shift+Tab stay
+  in the pane. The side-by-side layout keeps the workspace accessible.
   Long status text remains focusable/scrollable with its full text as a title.
   The model's JSON schema and question reserve `message` for brief optional
   conversational text; draft prompts/notes and tag names/reasons belong only
@@ -4157,7 +4177,10 @@ measured on the card and when.
   only Generate comparison submits the reviewed payload. Checkpoint or captured
   asset refusals invalidate it instead of resubmitting obsolete inputs. Aliases
   show the proposed spelling and canonical name separately.
-- Create and Improve drafts on tag-vocabulary checkpoints use the same
+- Send discloses Danbooru lookups for suggested names in Find tags and
+  comma-separated draft items in Create and Improve on a tag-vocabulary
+  checkpoint. Conversation stays local. Create and Improve drafts on
+  tag-vocabulary checkpoints use the same
   `POST /api/tags/validate` request as the prompt editor: the exact draft prompt
   and its first 64 comma items. The model's own tag claims are never verdicts.
   Read-only spans preserve every original character: known names have solid
@@ -4820,8 +4843,9 @@ measured on the card and when.
   Left and Right, Home and End move focus
   along `strip.querySelectorAll('button')` without choosing (`stepPreset`),
   and `syncSize` resets the stop. The gallery head's two card-view pairs
-  (`#card-view`: S/M and Fit/Crop, shown from 1800 px only, hidden on a sheet
-  by `setSheet`; on a phone Fit/Crop, `#card-fit`, is in the gallery's ⋯
+  (`#card-view`: S/M and Fit/Crop, shown inline from 1800 px and in View on
+  narrower desktops including keyboard-only ones, hidden on a sheet by `setSheet`; on a phone
+  Fit/Crop, `#card-fit`, is in the gallery's ⋯
   beside the phone's own card size, `#phone-card-size`) follow the same pattern: one tab stop each (the chosen
   button), `aria-pressed`, and `stepPreset` arrows. The Refine dialog's
   scale buttons (`#refine-scales`, role=group) carry `aria-pressed` beside
@@ -5044,13 +5068,12 @@ measured on the card and when.
   content, during composition, on a repeat or with Ctrl/Meta/Alt. Its native
   dialog may sit above another dialog; while open, the page's global
   shortcut dispatcher returns before Ctrl/Cmd+Enter or Escape can act
-  underneath it. Tab stays on help's sole Close control. Close, native Escape
+  underneath it. Tab and Shift+Tab cycle between Close and Guide. Close, native Escape
   and an actual backdrop press restore the connected opener with
   `preventScroll`. The complete, grouped list is
   available even when the gallery is empty or a comparison is inactive.
   Opening snapshots the current context before a menu loses focus. Relevant
-  groups lead, followed by the complete inventory; there are no hidden shortcut
-  groups or extra help controls. Queue/Bundles help names native button/field
+  groups lead, followed by the complete inventory. Queue/Bundles help names native button/field
   navigation and explicitly promises no dedicated submit/queue accelerator.
   A menu item's hidden-but-connected node is not a valid return target: use its
   visible opener fallback, without reopening the menu or scrolling. Context-menu
@@ -5311,7 +5334,10 @@ measured on the card and when.
   sheet's note says so ("Starred unticked: nothing in a new comparison is
   starred yet"; `showJob(jobId, { fresh: true })`) - with the page scrolled
   to it (`showSheetScope`); its Your version box (`yours`) is the one way to
-  test order on prose. A negative-prompt Apply is dead while the negative box
+  test order on prose. Copying the checked prompt into Your version uses
+  `replaceBoxText` for native Undo. A filled box names the replacement,
+  and the preview invites selection of an existing unticked version.
+  A negative-prompt Apply is dead while the negative box
   is greyed.
 
 #### Tags and validation chips
@@ -6138,8 +6164,8 @@ measured on the card and when.
   (`PASS_IN_FLIGHT`, as Refine and Outpaint), and a press says why; "wait for the mask"
   clears once it lands. Every fill of the dialog (Start over included)
   ends what the last one had in flight (`inpaintOpenEpoch`), and only a
-  first open scrolls it to the top. The tools row and
-  the status line have fixed heights, the dialog is anchored at a fixed top
+  first open scrolls it to the top. The tools wrap to the available dialog
+  width and the status line has a fixed height. The dialog is anchored at a fixed top
   and grows downward, and nothing scrolls it or moves a control under the
   pointer. A close that ran nothing keeps the strokes and the boxes in page
   memory (`inpaintKept`, four images, never storage) for the next open of
@@ -6160,7 +6186,7 @@ measured on the card and when.
   picture's border; a deleted source (or one whose thumbnail will not
   load) leaves the record's own picture under it, a binned one is asked
   for with `?binned=true`. "Only the masked area" (`#inpaint-crop-field`,
-  in the first tools row, where it costs no height) is a tick and a
+  in the brush tools) is a tick and a
   Padding box (0-256, step 8, 32): unticked, the padding is greyed by a
   class, never hidden, and `aria-disabled` (still typable), so its greyed
   "Pad" is an inactive control's text, which WCAG 1.4.3 exempts (it was
@@ -6232,7 +6258,8 @@ measured on the card and when.
   "no estimate: no masked-area pass has run here yet".
 
 - Detail faces/hands… (`detailer.js`, `styles/detailer.css`) is a single-image
-  context-menu action on a card, result, sheet cell or lightbox. It opens its
+  context-menu action on a card, result, sheet cell or lightbox. On a phone
+  it belongs in the viewer's Edit sheet. It opens its
   own `#detailer-dialog`, closing the lightbox and returning it on a close that
   queued nothing. A close elsewhere returns focus to its opener without
   scrolling; an accepted job hands focus to the source card or Generate.
@@ -6399,7 +6426,9 @@ measured on the card and when.
   frame or image: it moves what the strip held into `sessionRecords` (newest
   first, not the same job's) and sets the tier from the job's
   `planned_images` (`viewerJob`), never the running count; focus inside the
-  strip it empties goes to Generate. One image is shown
+  strip it empties goes to Generate. A local job that fails before its first
+  image labels any previous result still shown. A partially successful job
+  keeps its own results and identifies the failed work next to them. One image is shown
   at 68vh; two to four are best-fit (`fitViewer`: `--cols`, `--rows`,
   `--tile-h`, `--col-w`, `.fitted`, the grid's rows and columns reserving
   every row and column the job will fill from its first frame, so a lone
@@ -6497,8 +6526,10 @@ measured on the card and when.
   finds nothing, in the gallery or the bin, names each `word:value` whose
   word is nearest to exactly one of `SEARCH_KEYS` (two edits at most, a
   transposition one, fewer than the key's letters; a tie says nothing) with a "Search seed:42"
-  ghost button (`mistypedSearchHints`), which mends that word in the box and
-  asks again without scrolling; a word near no key, or with more than
+  ghost button (`emptySearchHints`), which mends that word in the box and
+  asks again without scrolling. A lone printed image ID such as `#14`
+  offers `Search id:14` under the same empty-result condition and preserves
+  the gallery scope. A word near no key, or with more than
   letters and digits before its colon (`"seed:42"`, `--seed:1`), adds
   nothing, results say nothing, and the grammar stays the server's. A finished
   job's images the gallery's filter leaves out - a sheet's `job:` scope, a
@@ -6567,7 +6598,9 @@ measured on the card and when.
   Delete and the zoom keys skip a key with Ctrl, Meta or Alt held (the
   browser's find and zoom), and a key a lightbox control already handled
   (`defaultPrevented`: the swipe divider's keys) is not walked. On a record
-  with `refine`, S or Compare with source shows the source under the pass
+  with `refine` or an instruction edit, S or Compare with source shows the source
+  under the result. An edit requires its recorded source proof to still match.
+  Compare picked names differing edit sources and recipes. The viewer presents the source
   left of a divider (swipe), or side by side with each half fitted inside
   the arrows' circles (`lbPorts`, `lbNavRoom`, measured off the circle as
   drawn - read once per `layoutLightbox`, before its writes), on one
@@ -6654,7 +6687,7 @@ measured on the card and when.
   (`#lb-compare`) is on every image where the column is beside the stage
   (from 901 px, and a phone on its side): its note first (the column
   is pinned to the bottom, so a line written there grows the box upward and
-  moves no button), Compare with source on a pass only, Compare CFG and
+  moves no button), Compare with source on a pass or instruction edit, Compare CFG and
   Compare steps on one row (`.lb-kinds`, gone where both are hidden), Swipe
   and Side by side, ← Lower CFG / Higher CFG →, ← Fewer steps / More steps
   → and Against. Each CFG
@@ -6845,7 +6878,13 @@ measured on the card and when.
   presentation and advice. Closing Grid advances `previewEpoch` before its
   synchronous CFG-reach clear and return, so older success/error replies
   cannot restore a grid-only negative caption or obsolete preview text.
-  Reopening takes its own epoch; payloads and the input debounce are unchanged.
+  Reopening takes its own epoch. An edited request or changed model revision
+  retires the visible count, estimates and in-flight preview immediately. Run
+  grid and its shortcut wait for the matching preview and a fresh press.
+  Submission carries the reviewed image count. The server re-expands the
+  request before queueing and refuses a changed count, including Resume cells
+  that were added to the gallery in the meantime. When a CFG sweep enables a
+  retained negative prompt, preview the resulting payload before offering Run.
   [The close-ownership review](maintainer/review-2026-10-28-grid-preview-close.md) owns
   the source evidence and separate CPU/native-browser qualification. It trims factors of one other than the seeds
   from the totals and writes ×, since `grid.describe` keeps its ASCII x and
@@ -7080,8 +7119,9 @@ measured on the card and when.
   `/api/runs/{id}/finish/preview`), each answer kept to the server,
   checkpoint and revision it was asked under (`finishContext`), and it never
   reads or writes the composer: a hand-built grid and its Resume tick stay
-  as they were. A run made before runs kept their cells is held with "use
-  the panel's Resume tick". The last-run banner appends ", N since deleted"
+  as they were. A run without a stored plan, including one restored from an
+  image bundle, explains the missing plan and how to use the panel's Resume
+  tick after rebuilding the grid. The last-run banner appends ", N since deleted"
   or ", all since deleted" from `deleted_count`, hiding Show run when all
   are gone, and shows Finish run for any job with a run id, a comparison's
   and Repeat's too, held with the server's reason where nothing is missing.
@@ -7162,9 +7202,12 @@ measured on the card and when.
   picker is asked again (`loadRuns`); its other failures go to
   `#gallery-error`. A pass is `.card.refined` with `data-strength`
   (the badge is the sheet's `::before` rule). Thumbnails are
-  `object-fit: contain`, or `cover` from 1800 px where the head's Crop is
-  chosen (`#gallery[data-fit="cover"]`); below 1800 px neither choice
-  applies. `thumb(rec, list, src, open)` labels every image "Open #N:
+  `object-fit: contain` by default. A desktop or phone with Crop selected
+  uses `#gallery[data-fit="cover"]`. Below 1800 px desktop S density uses
+  a 128 px card minimum. Desktop gallery controls and footer wrapping also
+  apply when the browser reports no pointing device. The coarse-pointer
+  layout has its own controls.
+  `thumb(rec, list, src, open)` labels every image "Open #N:
   <prompt>" - a gallery card's becomes "Select #N: <prompt>" in
   `syncCardSelected`, its press being a pick; a sheet cell is labelled instead by what the sheet lays out
   ("Open #N · Steps 2 · Seed 7", a version by its name), set in
@@ -7213,7 +7256,10 @@ measured on the card and when.
   else the record as picked (a snapshot - actions send the ids and the
   server reads the rows). A search, a
   filter, a sheet or a page keeps it, and `#select-count` says "N selected ·
-  M not shown" for the ids no live card shows. `forgetImages` takes deleted
+  M not shown" for the ids no live card shows. Review picked uses this same
+  ordered selection for thumbnails, IDs and individual Unpick actions while
+  keeping the current gallery search and scope.
+  `forgetImages` takes deleted
   ids out of it (`forgetSelected`) and `tombstone` drops `.selected`; nothing
   else removes an id unasked. The recycle bin sets it aside while it is shown
   (`stashSelection` in `enterBin`, `unstashSelection` in `leaveBin`), the
@@ -7290,8 +7336,9 @@ measured on the card and when.
   button's left edge, over the grid, and moves nothing. Under the footer's
   800 px container size its word and Clear's go out of sight (still their
   names) for ▾ and ✕, 3 px padding, 4 px from a shown Clear and from
-  Select: the row has no room for more. There is no sheet of the picks
-  (design-notes, The gallery selection).
+  Select. At narrower widths the footer wraps to keep the count readable.
+  The picked-card menu, Picked and the phone Gallery actions offer Review
+  picked in a native dialog.
 - **Re-render picked at N MP…** (`GEN#33`, Picked's item between Compare
   picked and Seeds to grid, so on a picked card's menu too) renders each pick
   at its own aspect's entry at the panel's tier (`pickedTier`): its label
@@ -7793,7 +7840,11 @@ measured on the card and when.
   binned outputs, exact missing work or the server's refusal. Finish uses
   the existing pinned replay path, never the composer's independent draft;
   nothing resumes automatically. View saved outputs opens the existing run
-  sheet. Closing, refreshing, or changing server/checkpoint/gallery scope
+  sheet with all its live outputs. The sheet temporarily lifts Starred or the
+  checkpoint filter as needed and returns to the previous search and filters
+  when the user closes the sheet. Manual filter changes take precedence.
+  Bundle & clear opens the review across all checkpoints, including
+  when opened from the bin. Closing, refreshing, or changing server/checkpoint/gallery scope
   invalidates outstanding list ownership, including a scope round trip.
   A stale row cannot Finish, including after its last awaited check. Closing
   removes recovery controls so hidden dialogs do not keep refreshing plans.
@@ -7881,8 +7932,9 @@ measured on the card and when.
   key's own default makes). The noted run (`runPending`, which
   `syncRunList` keeps through a rebuilt list and retitles from) opens on
   Enter or on the picker's blur (`commitRunList`); Escape puts back the run
-  shown. Closed, it is `--runs-w` wide (190 px; `clamp(240px, 14vw, 360px)`
-  from 1800 px), cut with an ellipsis, and `syncRunList` puts the picked
+  shown. Closed, the picker uses `--runs-w` (190 px, increasing to
+  `clamp(240px, 14vw, 360px)` from 1800 px). On a compact desktop gallery
+  it shares that space with View. Long labels use an ellipsis, and `syncRunList` puts the picked
   run's whole label in its title ("Recent runs" otherwise). A new model,
   revision, All-models or known-server context clears old Runs options and
   keyboard candidates while `Loading runs…`; a current failure offers
@@ -8041,7 +8093,10 @@ measured on the card and when.
   `syncDeleteUnstarredHold` changes attrs without remeasuring/hiding the head.
   New controls inherit the reason. Server keeper/count/pin/revision, Empty pin/
   fixed-before and confirmation semantics remain intact; All models is captured
-  once for sweep request and wording. Bundle & clear has a separate
+  once for sweep request and wording. Bundle & clear's confirmation names
+  the loss of Finish for remaining cells and links to Review unfinished work.
+  Back up and Bundle & clear show their verified receipt and Download beside
+  the action that created the archive. Bundle & clear has a separate
   `bundleClearOwner`, consulted first by exact/broad reasons. Local clear
   admission refuses raw exact/broad owners; observed exports hold new writes
   while prior owners drain. Same-id settling excludes duplicate POST/poll
@@ -8323,8 +8378,8 @@ measured on the card and when.
   Pause, Skip and Cancel and the queue's rows stand 8 px apart, not 4. On
   its side the topbar's buttons are 44 in its 46 px (1 px above and
   below) and the tab bar 45 px, its tabs 44 under its top edge. The
-  tablet keeps 36 and 32, where its panel beside the stage and its cards'
-  rows of tools want the room. The phone audit (Tests) holds the Gallery
+  tablet keeps its 36 and 32 px panel controls. Narrow tablet cards show
+  three direct tools with 44 px targets and 8 px spacing. The phone audit (Tests) holds the Gallery
   view, the whole Create view and every sheet to it. Every checkbox and
   radio on the phone is drawn at 24 px, its row (`.check`, or a label
   round it) at least 44 px - Notify, Resume, the Models sheet's rows,
@@ -8642,7 +8697,8 @@ measured on the card and when.
   words under it), the pictures and Load automatically, with a sticky foot
   (`#models-foot`) holding the note, Apply & save, Switch & load and the
   topbar's Load and Unload, moved in; the note and the options' help as
-  tall as their words.
+  tall as their words. On short landscape phones the foot scrolls in normal
+  flow, so its note cannot cover the selected checkpoint.
   On the phone the dialogs are sheets and the menus sit inside the screen
   (`touch.css`; `smoke-phone-dialogs`). Every `<dialog>` but the lightbox
   and the delete question covers the screen edge to edge, with no radius
@@ -8793,7 +8849,8 @@ measured on the card and when.
   on the phone (the screen across, its title row sticky, its own history
   entry): the panel's own `#progress` - the job's line, ↑, Pause, Skip,
   Cancel and the bars - the panel's line `#error`, and `#queue-note` -
-  the queue's line, its rows, Cancel queued - are moved into it while it
+  the queue's line, its expandable submitted settings and Cancel queued with
+  the number affected across tabs - are moved into it while it
   is open and home again on its `close` (✕, Escape, Back, the phone
   going), so `setQueue` and the job's writers write the one copy, and a
   held press in the sheet (↑, Pause, a row's Move to front) says why
@@ -9403,7 +9460,9 @@ measured on the card and when.
   Reuse reads "↻ Reuse", its whole name kept as its `aria-label`), Edit
   and More (`#lbp-edit`, `#lbp-more`), with Restore moved in as well and
   shown, Edit not, for an image in the recycle bin. Edit's action sheet
-  is Inpaint…, Outpaint… and Edit by instruction…; More's is the image's
+  is Inpaint…, Outpaint…, Detail faces/hands… and Edit by instruction…;
+  the detailer's Prompt and sampling disclosure is at least 44 px tall on
+  touch. More's is the image's
   own menu (`imageItems`) less what the bar and Edit hold, with Download
   before Open PNG and the recycle bin last in `--danger`; each item
   presses the lightbox's own button or the menu's own item, held as it
@@ -9473,7 +9532,9 @@ measured on the card and when.
   a finger reach further by a pseudo-element without moving anything (the
   tablet's fold summaries, 36 px, and Then refine's opener, 38; on the
   phone the folds are 48 px rows and the opener a 44 px box),
-  and on the tablet a card's or a run tile's tools are 32 px tall. On the
+  and on the tablet the gallery card's tool buttons are at least 44 px in
+  both dimensions with 8 px gaps. Narrow cards keep Reuse, Refine and Bin in
+  the row, with the other actions reachable by long press. On the
   phone a card carries its star alone (`.card:not(.binned) .tools` and a
   long run's tile tools not drawn): six tools at 44 px are 284 px on a
   card of 180, and at 22-28 x 32 Delete stood 4 px from Inpaint. They stay
@@ -11384,7 +11445,9 @@ fallbacks, accurate menu hints, the Prompts group's P row with `#prompt`'s
 Gated listings reproduce fast queued completion/failure, once-only outcomes
 and Finish recovery, ordered rapid receipts, delayed POST/history snapshots,
 transient history retries, cancellation/foreign-job exclusions and no
-historical replay after reload.
+historical replay after reload. At 1366×768 it checks a first failure, the
+previous result ID and recovery control after a success, a partial batch,
+and restoration after a live preview.
 
 The opt-in `tools/recovery_restart_probe.py` requires a new scratch path and
 unused loopback port, uses the trial worker ownership token to stop only its
@@ -12717,7 +12780,7 @@ newest image taking the stop where none was chosen, prepended under an old
 head made two days older with the day's line between them; the head's
 S/M and Fit/Crop from 1800 px (eleven and nine a row at S with the tools
 fitting, Crop's cover, one tab stop per pair, remembered across a reload,
-hidden on a sheet, kept by Reset, not applied at 1400); S four across in
+hidden on a sheet, kept by Reset, available in View at 1400); S four across in
 Gallery beside's column at QHD, M three; the tools fitting at
 2560x1305 and 2048x1040@1.25; and a job a script sends at the fake's full
 speed just after a status poll, ended before the next and never in
@@ -14374,7 +14437,8 @@ stage and sticky, two cards across,
 no tab bar, the keyboard help kept, finger sizes, the chips' host the wide
 one, the page all 820 px wide; the held gallery actions' reasons in a touch
 screen's words ("Pick images with Select…", `pickedNone()`, no Ctrl/Cmd); the touch tier's small tokens kept
-(`--h-sm` 36, `--h-xs` 32, `--h-tool` 36), a card's tools drawn at 32 px,
+(`--h-sm` 36, `--h-xs` 32, `--h-tool` 36), the narrow card's three
+direct controls each at least 44 px square and 8 px apart,
 its star 28 and the dice under 44, where the phone has 44; the page's
 14 px body, 12 px captions in capitals, the panel framed and padded 14 and
 a fold's summary under 40 px with its touch reach (the phone's type, frame
@@ -14669,7 +14733,7 @@ a swipe up raises it, a tap on the picture above it lowers it, a tap on
 the picture hides the bars and another brings them back. Swiped to an
 image that is no pass, Compare CFG holds S with no `::after`; Edit's
 action sheet (two entries, Edit `aria-expanded`) is docked at the foot
-over the scrim, its head "Edit #N", its rows Inpaint…, Outpaint… and Edit
+over the scrim, its head "Edit #N", its rows Inpaint…, Outpaint…, Detail faces/hands… and Edit
 by instruction…, 48 px, a Cancel row last, and its Inpaint… opens the
 dialog. More's sheet has Use seed, Use prompt, More seeds of this batch…, Download
 and Copy prompt, none of the bar's or Edit's, the bin last in red, its

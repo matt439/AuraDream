@@ -21,6 +21,7 @@ let bundleSeenRunning = false;
 // Whether the handled result has been on screen in the open dialog.
 let bundleResultShown = false;
 let bundleListKey = null;
+let bundleListEpoch = 0;
 let bundlePreviewEpoch = 0;
 // The selected file's first bytes: a protected bundle's header, checked
 // against the password before a large upload starts. Null until read.
@@ -466,9 +467,15 @@ function bundleImportActions(result) {
 }
 
 async function refreshBundleList() {
+  const epoch = ++bundleListEpoch;
+  const receiptLinks = [...els.bundlesDialog.querySelectorAll('.bundle-receipt a')];
   try {
     const result = await api('/api/gallery/bundles');
+    if (epoch !== bundleListEpoch) return;
     els.bundleDirectory.textContent = `Saved on the server: ${result.directory}`;
+    for (const link of receiptLinks) {
+      if (link.isConnected && !result.bundles.some((bundle) => bundle.name === link.download)) link.parentElement.replaceChildren();
+    }
     const key = JSON.stringify(result.bundles);
     if (key !== bundleListKey) {
       bundleListKey = key;
@@ -549,7 +556,7 @@ async function refreshBundleList() {
       if (focused && !focused.isConnected) refocusBundleRow(focused, at);
     }
     syncBundleControls();
-  } catch (err) { bundleSay(err.message, true); }
+  } catch (err) { if (epoch === bundleListEpoch) bundleSay(err.message, true); }
 }
 
 function refocusBundleRow(was, index) {
@@ -608,6 +615,19 @@ function renderBundleResult(status, past = false) {
     els.bundleDownload.href = bundleFileURL(archive);
     els.bundleDownload.download = archive;
     els.bundleDownload.textContent = `Download ${archive}`;
+  }
+  if (status.operation === 'backup' || status.operation === 'export') {
+    const receipt = $(`bundle-${status.operation}-receipt`);
+    if (archive && receipt.querySelector('a')?.download !== archive) {
+      const link = document.createElement('a');
+      link.href = bundleFileURL(archive);
+      link.download = archive;
+      link.textContent = 'Download';
+      link.setAttribute('aria-label', `Download ${archive}`);
+      const outcome = status.operation === 'backup' ? 'Gallery kept' : result.cleared ? 'Gallery cleared' : 'Clear incomplete';
+      const saved = status.state === 'done' ? `Verified ${plural(result.records, 'record')}` : 'Archive saved';
+      receipt.replaceChildren(`${outcome}. ${saved}. `, link);
+    } else if (!archive) receipt.replaceChildren();
   }
   const retained = result?.retained ?? [];
   els.bundleRetained.hidden = !retained.length;
@@ -811,6 +831,7 @@ function exportGalleryBundle() {
     requestEpoch: bundleRequestEpoch + 1, previousStatusId: bundleStatus?.id ?? null,
     previousSeenRunning: bundleSeenRunning };
   const expected = bundlePreview.records;
+  $('bundle-export-receipt').replaceChildren();
   const password = els.bundlePassword.value;
   bundleClearOwner = owner;
   syncBinWriteHolds();
@@ -827,6 +848,7 @@ function exportGalleryBundle() {
 // binned or deleted since is left out by the server and said in the result.
 function backupGallery() {
   if (bundleRefused(els.bundleBackup)) return;
+  $('bundle-backup-receipt').replaceChildren();
   const password = els.bundlePassword.value;
   const scope = bundleScope();
   els.bundlePassword.value = els.bundlePasswordAgain.value = '';
