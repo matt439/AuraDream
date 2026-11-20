@@ -12,6 +12,39 @@ from tools import kontext_trial_runtime as runtime
 from tools import kontext_trial_server as server
 
 
+def test_build_digest_matches_lf_and_mixed_checkout_line_endings(tmp_path, monkeypatch):
+    checkout = tmp_path / "checkout"
+    checkout.mkdir()
+    patch = (server.ROOT / "tools/kontext_trial.patch").read_bytes().replace(b"\r\n", b"\n")
+    sources = {"tools/kontext_trial.patch": patch, "tools/kontext_trial_runtime.py": b"# runtime\n"}
+    for line in patch.decode().splitlines():
+        if line.startswith("--- a/"):
+            name = line.removeprefix("--- a/")
+            sources[name] = (server.ROOT / name).read_bytes().replace(b"\r\n", b"\n")
+    for suffix in ("css", "js", "html", "json", "md", "py", "svg", "webmanifest"):
+        sources[f"web/fixture.{suffix}"] = b"\xef\xbb\xbffirst\nsecond\n"
+    binary = b"\x89PNG\r\n\x1a\n\x00"
+    sources["web/image.png"] = binary
+    for name, content in sources.items():
+        file = checkout / name
+        file.parent.mkdir(parents=True, exist_ok=True)
+        file.write_bytes(content)
+    subprocess.run(["git", "init", "--quiet", str(checkout)], check=True)
+    subprocess.run(["git", "-c", "core.autocrlf=false", "add", "."], cwd=checkout, check=True)
+    monkeypatch.setattr(server, "ROOT", checkout)
+    lf = server.build_candidate(tmp_path / "lf")
+    for name, content in sources.items():
+        if name.endswith(".png"):
+            continue
+        # Leave some files entirely CRLF and others mixed in the same checkout.
+        changes = 1 if "/fixture." in name else -1
+        (checkout / name).write_bytes(content.replace(b"\n", b"\r\n", changes))
+    mixed = tmp_path / "mixed"
+    assert server.build_candidate(mixed) == lf
+    assert (mixed / "web/image.png").read_bytes() == binary
+    assert (mixed / "web/fixture.py").read_bytes() == sources["web/fixture.py"]
+
+
 def test_build_selects_trial_tuples_without_changing_loader_or_instance_qualification(tmp_path):
     target = tmp_path / "build"
     digest = server.build_candidate(target)

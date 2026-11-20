@@ -17,6 +17,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 MODEL = "black-forest-labs/FLUX.1-Kontext-dev"
+_TEXT_SUFFIXES = {".css", ".html", ".js", ".json", ".md", ".py", ".svg", ".webmanifest"}
 
 
 def build_candidate(target: Path) -> str:
@@ -33,8 +34,10 @@ def build_candidate(target: Path) -> str:
     for name in names:
         destination = target / name
         destination.parent.mkdir(exist_ok=True, parents=True)
-        if destination.suffix in {".py", ".js", ".html"}:
-            destination.write_text((ROOT / name).read_text(encoding="utf-8-sig"), encoding="utf-8", newline="\n")
+        if destination.suffix in _TEXT_SUFFIXES:
+            # Git autocrlf changes checkout bytes. Bind the build to LF text
+            # while retaining every other byte, including a source's BOM.
+            destination.write_bytes((ROOT / name).read_bytes().replace(b"\r\n", b"\n"))
         else:
             shutil.copyfile(ROOT / name, destination)
 

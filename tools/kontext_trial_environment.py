@@ -21,7 +21,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def _controller_files() -> dict[str, str]:
-    paths = {ROOT / "uv.lock", ROOT / "pyproject.toml", ROOT / "tools/card_guard.py"}
+    paths = {ROOT / "uv.lock", ROOT / "pyproject.toml", ROOT / "tools/card_guard.py",
+             ROOT / "tools/anima_refine_card.py", ROOT / "tools/anima_refine_pack.py"}
     tools = ROOT / "tools"
     for pattern in ("kontext*", "browser*.mjs", "card/kontext*"):
         for path in tools.glob(pattern):
