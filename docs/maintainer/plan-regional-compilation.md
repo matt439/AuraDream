@@ -9,6 +9,9 @@ is established. Matt's image-pair judgment and source/release/artifact-rebuild
 policy remain; public admission and default compiler installation stay closed.
 Earlier dated statuses below describe their source stage.
 
+Matt can judge the twelve retained Eager/Regional pairs in the
+[offline blind review](blind-performance-review.md).
+
 **Status, 2026-10-27: CPU contracts, persisted carry, private loader/call wiring,
 backend publication/teardown, startup compiler-cache ownership and unavailable
 selector/settings/status/UI, composer/replay resolution and bounded diagnostic

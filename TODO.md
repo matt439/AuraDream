@@ -13,7 +13,7 @@ The maintainer's working backlog for this personal project: it records what is p
 **Needs Matt.** All 13 `USER` rows are grouped here by what Matt can supply.
 
 - Choose detailer source image IDs (`INP#12`), judge the first SDXL preview on the page (`GEN#6`), and try guarded checkpoint deletion on the real Windows cache (`GEN#72`).
-- Review fixed image pairs for Regional (`PERF#1`), Native/cuDNN (`PERF#3`) and step caching (`PERF#4`). Regional also needs a source and artifact-rebuild policy (`PERF#1`) and a shipping or Models choice (`PERF#7`). The original V6 RGB comparison failed. V7 reproduced its recovery with the retained artifacts. `PERF#2` waits for that qualification.
+- Use the [blind review pack](docs/maintainer/blind-performance-review.md) to judge the 30 fixed image pairs for Regional (`PERF#1`), Native/cuDNN (`PERF#3`) and step caching (`PERF#4`). Regional also needs a source and artifact-rebuild policy (`PERF#1`) and a shipping or Models choice (`PERF#7`). The original V6 RGB comparison failed. V7 reproduced its recovery with the retained artifacts. `PERF#2` waits for that qualification.
 - Run workstation task trials (`DEV#1`), type Ctrl-C in the fake and real consoles (`DEV#23`, also covered by `CARD#10` and `CARD#11`), and check the passcode across machines (`DEV#32`). The hosted installer job requires Matt's deliberate ruleset edit (`DEV#39`).
 - Check the physical phone and tablet flows (`UI#40`), and try assistive technology, touch, notifications and Windows scaling (`UI#7`).
 

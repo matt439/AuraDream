@@ -10,6 +10,9 @@ These are distinct results. Matt's visual usefulness review is next (`USER`);
 public admission and ordinary uncapped/UI switch qualification remain separate.
 Native remains the default.
 
+Matt can judge the twelve original Native/cuDNN pairs in the
+[offline blind review](blind-performance-review.md).
+
 Source `f8f4cf2`, backend SHA256 `c3a85a23...c838274e`, Python 3.13,
 torch 2.13.0+cu130, torchao 0.18.0, diffusers 0.42.1, accelerate 1.15.0,
 transformers 5.16.1, driver 616.92 and cuDNN version integer 92000. Exact Krea dev,
