@@ -28,7 +28,7 @@ def test_private_candidate_loads_only_the_owned_pinned_snapshot(
     monkeypatch.setattr(sys.modules["torch"].cuda, "is_available", lambda: True)
     snapshot = tmp_path / "models--cagliostrolab--animagine-xl-4.0" / "snapshots" / returned_revision
 
-    def local_snapshot(model_id, *, revision, local_files_only):
+    def local_snapshot(model_id, *, revision, local_files_only, allow_patterns):
         assert (model_id, revision, local_files_only) == (tiled.MODEL_ID, tiled.REVISION, True)
         return str(snapshot)
 
