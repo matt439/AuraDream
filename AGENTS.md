@@ -455,6 +455,7 @@ uses the driver's graceful close/cleanup. See the full Tests rules.
 | 7896 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-model-switch`, `smoke-model-startup`, `smoke-model-hover` |
 | 7896 | FLUX.1-Krea-dev, its own fresh scratch `--data` (run separately) | `smoke-model-gallery` |
 | 7897 | default, fresh scratch `--data` | `smoke-bundles` |
+| 7897 | FLUX.1-Krea-dev, its own fresh scratch `--data` | `smoke-bundle-browse` |
 | 7898 | default, fresh scratch `--data` | `smoke-select` |
 | 7899 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-compare-cfg` |
 | 7900 | animagine-xl-4.0, fresh scratch `--data` | `smoke-swap` |

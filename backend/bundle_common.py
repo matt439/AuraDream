@@ -10,6 +10,7 @@ import os
 import re
 import sqlite3
 from collections.abc import Callable
+from contextlib import closing
 from pathlib import Path
 
 from .bundle_file_lock import safe_basename
@@ -17,6 +18,10 @@ from .bundle_file_lock import safe_basename
 
 class BundleError(ValueError):
     pass
+
+
+class BrowseUnavailable(BundleError):
+    """A fixed, user-facing refusal safe to display for a private bundle view."""
 
 
 class BundleChanged(BundleError):
@@ -68,7 +73,11 @@ def _connect_read(path: Path):
 def _rows(path: Path) -> list[dict]:
     if not path.exists():
         return []
-    conn = _connect_read(path)
+    with closing(_connect_read(path)) as conn:
+        return _image_rows(conn)
+
+
+def _image_rows(conn: sqlite3.Connection) -> list[dict]:
     try:
         if conn.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
             raise BundleError("the gallery database failed its integrity check")
@@ -83,8 +92,6 @@ def _rows(path: Path) -> list[dict]:
         return rows
     except sqlite3.Error as exc:
         raise BundleError(f"cannot read the gallery database: {exc}") from exc
-    finally:
-        conn.close()
 
 
 # A mask's name in a bundle and in `masks/`: its whole hash (`storage.mask_hash`).
@@ -98,7 +105,11 @@ def _mask_rows(path: Path) -> dict[str, dict]:
     refuses the whole database, as an unsafe filename does."""
     if not path.exists():
         return {}
-    conn = _connect_read(path)
+    with closing(_connect_read(path)) as conn:
+        return _read_masks(conn)
+
+
+def _read_masks(conn: sqlite3.Connection) -> dict[str, dict]:
     try:
         if conn.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'masks'").fetchone() is None:
             return {}
@@ -111,5 +122,3 @@ def _mask_rows(path: Path) -> dict[str, dict]:
         return found
     except sqlite3.Error as exc:
         raise BundleError(f"cannot read the gallery database's masks: {exc}") from exc
-    finally:
-        conn.close()

@@ -580,6 +580,9 @@ paragraphs, never rewording.
   (streamed chunked AES-256-GCM, scrypt); `api_bundles.py` owns browser routes
   (the export's scope resolved through `submission.resolve_selection`; a
   saved file's confirmed delete, `bundles.delete_saved_bundle`);
+  `api_bundle_browse.py` serves read-only views of one explicitly chosen
+  archive, `bundle_views.py` owns their short-lived capabilities and leases,
+  and `bundle_browse_archive.py` verifies the archive and renders thumbnails;
   `bundle_manager.py` exclusive maintenance admission through background
   completion (`BundleManager`, the ASGI `GalleryAdmission`, the bundle and
   backup route prefixes), which the automatic backup imports instead of a
@@ -823,7 +826,7 @@ paragraphs, never rewording.
 - `backend/refusal_codes.py` — the stable codes of the refusals the page
   acts on (`CODES`: `image_unknown`, `image_binned`, `more_seeds_cap`,
   `more_seeds_receipt`, `lora_missing`, `lora_mismatch`,
-  `selection_changed`, `mask_missing`, `bundle_in_use`, `bundle_gone`,
+  `selection_changed`, `mask_missing`, `bundle_in_use`, `bundle_gone`, `bundle_view_closed`,
   `gallery_maintenance`: `GalleryAdmission`'s refusal while a bundle
   operation runs, which the page's `galleryMaintenance` reads; and a
   checkpoint delete's seven, `MODEL_DELETE_CODES`: `model_delete_busy`,
@@ -973,7 +976,7 @@ paragraphs, never rewording.
 
 ### The page (`web/`)
 
-- `web/` - served as-is from `/static`; `index.html` loads 84 classic
+- `web/` - served as-is from `/static`; `index.html` loads 85 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `page-helpers.js`, right
   after it, the page-wide pure helpers (`plural`, `excerpt`, `units`,
@@ -1036,7 +1039,8 @@ paragraphs, never rewording.
   so no row below moves up; `receiveModelDeleteStatus` from the status
   poll);
   `bundles.js` owns the gallery bundle dialog (Back up and its scope
-  included) and background-operation polling, and `automatic-backup.js`
+  included) and background-operation polling, `bundle-browser.js` the
+  temporary read-only view of a chosen archive, and `automatic-backup.js`
   its automatic startup backup settings (protection, consent, retention
   cleanup and credential status, read only while the dialog is open;
   the section is `hidden` until the cached status shows saved settings,
@@ -3708,6 +3712,16 @@ measured on the card and when.
   the same location. Keep it outside the images directory and refuse a
   symbolic link or junction as the archive directory or an archive file.
   This setting does not move database work or image staging.
+- Browse opens only the named saved archive under its shared reader lease.
+  Verification uses the import verifier with an in-memory SQLite catalogue.
+  The verified input stays open through the view. Thumbnails are made from
+  checksum-checked archived PNGs and freshly encoded without image metadata.
+  Browse requires no gallery reservation, extraction directory, sidecar or
+  persistent index. The session token travels in a request header. All view
+  responses use `Cache-Control: private, no-store`. Close, ten minutes idle
+  or server shutdown releases the reader after any current read, and the
+  page clears its text and revokes its object URLs. A disconnected opening
+  discards its verification result. Import remains a separate operation.
 - Imports unpack, and uploads land, in `storage.bundle_staging_dir()`
   (`.auradream-staging` beside the images directory, or inside it when
   it is its own volume); the merged database is built in a `.bundle-merge-*`
@@ -13782,6 +13796,11 @@ and an unknown id left out) and starred (the bin's star not counted; none
 starred a 404), the preview's `starred`, every out-of-shape request
 refused before any work (a selection with a typed count included), and a
 chosen bundle refused as busy before its selection is read.
+
+`smoke-bundle-browse.json` opens real plain and protected backups on a fresh
+fake. It filters archived prompts, runs and stars, opens an image's settings,
+corrects a wrong password, and compares the working records and PNG hashes
+after closing each view. Only the final explicit Import restores the archived image.
 
 `smoke-bundles.json` uses a fresh fake on 7897 and checks the browser dialog
 (the Automatic startup backup section hidden with no saved settings),

@@ -140,7 +140,7 @@ def delete_saved_bundle(name: str) -> dict:
     gone = refusal_codes.CodedLookupError(
         f"{name} is no longer among the saved bundles; nothing was deleted.", refusal_codes.BUNDLE_GONE)
     busy = refusal_codes.CodedError(
-        f"{name} is being downloaded or imported; nothing was deleted. Try again when it has finished.",
+        f"{name} is in use by a reader; nothing was deleted. Close any open view or wait for the reader to finish.",
         refusal_codes.BUNDLE_IN_USE)
     if not path.is_file():
         raise gone

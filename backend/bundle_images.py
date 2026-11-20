@@ -218,7 +218,7 @@ def _validate_row(row: dict, width: int, height: int, content_hash: str) -> None
     for key in ("vram_peak_allocated", "vram_peak_reserved"):
         values[key] = storage._peak(values[key])
     try:
-        storage._row_to_record(values)
+        storage._row_to_record(values, lookup_thumbnail=False)
     except (TypeError, ValueError) as exc:
         raise BundleError(f"invalid metadata for {row['filename']}: {exc}") from exc
 

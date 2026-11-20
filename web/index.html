@@ -2354,7 +2354,7 @@
       <input id="bundle-unlock" type="password" autocomplete="current-password" maxlength="1024" aria-describedby="bundle-unlock-hint">
       <p class="caps-lock-note" aria-live="polite"></p>
     </div>
-    <p class="hint" id="bundle-unlock-hint">One shared password for Import selected file and the saved bundles marked Protected below. Plain ZIP files do not need it.</p>
+    <p class="hint" id="bundle-unlock-hint">One shared password for Import selected file and for browsing or importing saved bundles marked Protected.</p>
     <div class="bundle-upload-row">
       <label class="sr-only" for="bundle-file">Bundle file</label>
       <input id="bundle-file" type="file" accept=".zip,.ldbundle,application/zip">
@@ -2420,6 +2420,30 @@
       <p id="automatic-backup-feedback" role="status" aria-live="polite"></p>
     </div>
   </details>
+</dialog>
+
+<dialog class="bundles-dialog bundle-browser" id="bundle-browser" aria-labelledby="bundle-browser-title" aria-describedby="bundle-browser-name">
+  <header class="bundles-head bundles-top dialog-head">
+    <h2 id="bundle-browser-title">Browse saved bundle</h2>
+    <button type="button" class="ghost small" id="bundle-browser-close" autofocus>Close</button>
+  </header>
+  <p id="bundle-browser-name"></p>
+  <div id="bundle-browser-filters" hidden>
+    <label>Prompt contains<input type="search" id="bundle-browser-prompt" autocomplete="off" spellcheck="false" maxlength="8192"></label>
+    <label>Run ID contains<input type="search" id="bundle-browser-run" autocomplete="off" spellcheck="false" maxlength="512"></label>
+    <label class="bundle-browser-check"><input type="checkbox" id="bundle-browser-starred"> Starred only</label>
+  </div>
+  <p id="bundle-browser-status" role="status"></p>
+  <div class="bundle-browser-actions" id="bundle-browser-recovery" hidden>
+    <button type="button" class="ghost small" id="bundle-browser-retry">Try again</button>
+    <button type="button" class="ghost small" id="bundle-browser-password" hidden>Edit password</button>
+  </div>
+  <div id="bundle-browser-details" hidden></div>
+  <div id="bundle-browser-list" role="group" aria-label="Archived images"></div>
+  <nav class="bundle-browser-actions" id="bundle-browser-pages" aria-label="Bundle result pages" hidden>
+    <button type="button" class="ghost small" id="bundle-browser-prev">Previous page</button>
+    <button type="button" class="ghost small" id="bundle-browser-next">Next page</button>
+  </nav>
 </dialog>
 
 <!-- The right-click menu on an image (context-menu.js): filled as it opens,
@@ -2703,6 +2727,7 @@
 <script src="/static/analysis.js"></script>
 <script src="/static/analysis-critic.js"></script>
 <script src="/static/comparison.js"></script>
+<script src="/static/bundle-browser.js"></script>
 <script src="/static/bundles.js"></script>
 <script src="/static/automatic-backup.js"></script>
 <script src="/static/tag-swap.js"></script>
