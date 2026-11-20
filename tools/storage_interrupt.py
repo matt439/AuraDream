@@ -109,7 +109,7 @@ def _fixture(root: Path, boundary: str):
         save(1002)
         existing = _rows(storage.settings.db_path)
         existing_files = _files(storage.settings.outputs_dir)
-    return storage, {"archive": archive, "gallery": str(storage.settings.db_path.parent),
+    return storage, {"archive": archive, "records": len(original), "gallery": str(storage.settings.db_path.parent),
                      "original": original, "original_files": original_files, "pixels": pixels,
                      "mask": mask, "existing": existing, "existing_files": existing_files}
 
@@ -188,7 +188,7 @@ def _worker(root: Path, token: str, recover: bool) -> None:
         archive = Path(state["archive"])
     imported = bundles.import_bundle(archive)
     repeated = bundles.import_bundle(archive)
-    assert (repeated["imported"], repeated["present"], repeated["masks_missing"]) == (0, ROWS, 0)
+    assert (repeated["imported"], repeated["present"], repeated["masks_missing"]) == (0, state["records"], 0)
     assert storage._bundle_leftovers() == []
     _signal("recovered", state)
     print(json.dumps({"swept": swept["discarded"], "imported": imported,
@@ -348,14 +348,40 @@ def _verify_recovered(storage, state: dict) -> None:
         assert storage.mask_hash(mask) == state["mask"]
 
 
+def interrupt_worker(root: Path, state: dict, boundary: str) -> dict:
+    """Stop the owned worker after a real write; callers inspect the interrupted gallery."""
+    state.update(root=str(root), boundary=boundary, token=uuid.uuid4().hex)
+    (root / "owner.json").write_text(json.dumps(state), encoding="utf-8")
+    return _kill_at_boundary(root, state)
+
+
+def restart_worker(root: Path, state: dict, storage, killed: dict) -> dict:
+    """Let a fresh interpreter sweep the real stale work, retry and check a repeat."""
+    leftovers = storage._bundle_leftovers()
+    assert leftovers
+    old = time.time() - storage.PARTIAL_SETTLE_SECONDS - 60
+    for path in leftovers:
+        resolved = path.resolve()
+        assert resolved.is_relative_to(root) and resolved != root
+        os.utime(path, (old, old))  # exercise the ordinary stale cutoff without sleeping an hour
+    state["leftovers"] = [str(path) for path in leftovers]
+    (root / "owner.json").write_text(json.dumps(state), encoding="utf-8")
+    scratch_bytes = _size(root)
+    assert scratch_bytes < 150 * 1024**2
+    lines = _restart(root, state)
+    assert [line["event"] for line in lines[:2]] == ["started", "recovered"]
+    assert lines[0]["pid"] == lines[1]["pid"] and lines[0]["pid"] != killed["killed_pid"]
+    assert all(line["token"] == state["token"] for line in lines[:2])
+    report = lines[2]
+    assert report["reservation_reacquired"] and report["swept"] == len(leftovers)
+    return {"restart_pid": lines[0]["pid"], "scratch_bytes_before_recovery": scratch_bytes, **report}
+
+
 def _run(root: Path, boundary: str) -> dict:
     storage, state = _fixture(root, boundary)
-    state.update(root=str(root), boundary=boundary, token=uuid.uuid4().hex)
-    owner = root / "owner.json"
-    owner.write_text(json.dumps(state), encoding="utf-8")
     before_rows = _rows(storage.settings.db_path)
     before_files = _files(storage.settings.outputs_dir)
-    killed = _kill_at_boundary(root, state)
+    killed = interrupt_worker(root, state, boundary)
     after_rows = _rows(storage.settings.db_path)  # a new connection recovers a killed transaction
     after_files = _files(storage.settings.outputs_dir)
     if boundary in {"export-write", "export-verified"}:
@@ -384,27 +410,9 @@ def _run(root: Path, boundary: str) -> dict:
             assert len(archives) == 1
             _check_archive(archives[0])
             state["archive"] = str(archives[0])
-    leftovers = storage._bundle_leftovers()
-    assert leftovers  # actual artifacts from the killed worker, never planted stand-ins
-    old = time.time() - storage.PARTIAL_SETTLE_SECONDS - 60
-    for path in leftovers:
-        resolved = path.resolve()
-        assert resolved.is_relative_to(root) and resolved != root
-        os.utime(path, (old, old))  # exercise the ordinary stale cutoff without sleeping an hour
-    state["leftovers"] = [str(path) for path in leftovers]
-    owner.write_text(json.dumps(state), encoding="utf-8")
-    scratch_bytes = _size(root)
-    assert scratch_bytes < 150 * 1024**2
-    lines = _restart(root, state)
-    assert [line["event"] for line in lines[:2]] == ["started", "recovered"]
-    assert lines[0]["pid"] == lines[1]["pid"] and lines[0]["pid"] != killed["killed_pid"]
-    assert all(line["token"] == state["token"] for line in lines[:2])
+    report = restart_worker(root, state, storage, killed)
     _verify_recovered(storage, state)
-    report = lines[2]
-    assert report["reservation_reacquired"] and report["swept"] == len(leftovers)
-    return {"boundary": boundary, **killed, "restart_pid": lines[0]["pid"],
-            "rows_after_recovery": len(_rows(storage.settings.db_path)),
-            "scratch_bytes_before_recovery": scratch_bytes, **report}
+    return {"boundary": boundary, **killed, "rows_after_recovery": len(_rows(storage.settings.db_path)), **report}
 
 
 def main() -> int:

@@ -9724,6 +9724,16 @@ and CRLF, no address but the placeholders) run everywhere.
 
 ### Storage, search and gallery tests
 
+The historical gallery tests read checked-in [archives from pinned writers](../tests/fixtures/historical_gallery/README.md).
+`test_historical_gallery_reindex.py` opens each original SQLite schema and
+rebuilds into a populated gallery with and without its database.
+`test_historical_gallery_import.py` imports the original ZIPs, interrupts a
+v2 import after image installation and retries in a fresh process.
+`test_historical_gallery_replay.py` uploads the archives and exercises More
+seeds on the CPU fake, including an omitted source and a one-pixel change
+after preview. The [storage review](maintainer/review-2026-10-12.md#historical-gallery-recovery)
+records what each recovery path can retain.
+
 `tests/test_search_area.py` checks comparison-only actual MP filters through
 actual SQLite: inclusive/exclusive and one-pixel boundaries, zero/tiny values,
 adjacent integer limits and products beyond SQLite's integer range. Fractional
