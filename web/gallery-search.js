@@ -103,7 +103,6 @@ function mistypedSearchHints(search) {
     b.onclick = () => {
       const words = els.search.value.trim().split(/\s+/).filter(Boolean);
       els.search.value = words.map((w) => (w === word ? meant : w)).join(' ');
-      clearTimeout(searchTimer);
       resetGallery();
       els.search.focus({ preventScroll: true });
     };
