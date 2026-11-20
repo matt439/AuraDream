@@ -483,8 +483,9 @@
 .gallery-head { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
 /* Only the gallery's available column determines when its footer wraps.
    Reserve the pick count and let secondary actions continue on a new row.
-   The alert starts with zero basis so a message cannot add a row. */
-@media (pointer: fine) {
+   The alert starts with zero basis so a message cannot add a row. A
+   keyboard-only desktop follows the same layout as one with a mouse. */
+@media not (pointer: coarse) {
   .gallery-head { container: gallery-head / inline-size; }
   @container gallery-head (max-width: 590px) {
     .gallery-footer { flex-wrap: wrap; row-gap: var(--sp-1); }
@@ -495,7 +496,7 @@
 /* In a narrow two-column workspace, reserve the secondary row even before
    the first pick. Showing its count and Clear must not move the card the
    user just pressed. Preserve the document's reading and tab order. */
-@media (pointer: fine) and (900px < width < 1800px) {
+@media (900px < width < 1800px) and (not (pointer: coarse)) {
   @container gallery-head (max-width: 590px) {
     .gallery-footer::after { content: ""; flex-basis: 100%; order: 1; }
     .gallery-footer #btn-swap, .gallery-footer #btn-swap ~ button { order: 2; }
@@ -600,7 +601,7 @@
    phone moves the fit group to its own Gallery menu. */
 .card-view-control { display: none; }
 .card-view-control:has(> [hidden]) { display: none; }
-@media (pointer: fine), (min-width: 1800px) {
+@media not (pointer: coarse), (min-width: 1800px) {
   .card-view-control { display: block; position: relative; }
   .card-view { display: flex; gap: var(--sp-2); }
   .view-pick { display: flex; }
@@ -613,7 +614,7 @@
   .view-pick button:focus-visible { z-index: 2; }
   #gallery[data-fit="cover"] .card img { object-fit: cover; }
 }
-@media (pointer: fine) and (width < 1800px) {
+@media (width < 1800px) and (not (pointer: coarse)) {
   /* Share the Runs picker's space so selecting the first card doesn't
      change the row breaks of Re-render and Delete unstarred. */
   .gallery-head { --card-view-w: 4rem; }

@@ -4844,7 +4844,7 @@ measured on the card and when.
   along `strip.querySelectorAll('button')` without choosing (`stepPreset`),
   and `syncSize` resets the stop. The gallery head's two card-view pairs
   (`#card-view`: S/M and Fit/Crop, shown inline from 1800 px and in View on
-  narrower fine-pointer desktops, hidden on a sheet by `setSheet`; on a phone
+  narrower desktops including keyboard-only ones, hidden on a sheet by `setSheet`; on a phone
   Fit/Crop, `#card-fit`, is in the gallery's ⋯
   beside the phone's own card size, `#phone-card-size`) follow the same pattern: one tab stop each (the chosen
   button), `aria-pressed`, and `stepPreset` arrows. The Refine dialog's
@@ -7203,8 +7203,10 @@ measured on the card and when.
   `#gallery-error`. A pass is `.card.refined` with `data-strength`
   (the badge is the sheet's `::before` rule). Thumbnails are
   `object-fit: contain` by default. A desktop or phone with Crop selected
-  uses `#gallery[data-fit="cover"]`. Fine-pointer S density below 1800 px
-  uses a 128 px card minimum.
+  uses `#gallery[data-fit="cover"]`. Below 1800 px desktop S density uses
+  a 128 px card minimum. Desktop gallery controls and footer wrapping also
+  apply when the browser reports no pointing device. The coarse-pointer
+  layout has its own controls.
   `thumb(rec, list, src, open)` labels every image "Open #N:
   <prompt>" - a gallery card's becomes "Select #N: <prompt>" in
   `syncCardSelected`, its press being a pick; a sheet cell is labelled instead by what the sheet lays out
