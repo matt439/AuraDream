@@ -4,6 +4,7 @@ from http.client import HTTPConnection
 import json
 import socket
 import threading
+import time
 
 import uvicorn
 
@@ -25,9 +26,10 @@ def test_disconnect_during_bundle_verification_releases_the_reader(fake, tmp_pat
         try:
             with bundle_leases.reading(archive):
                 entered.set()
-                while not stop_worker.wait(0.05):
+                while not stop_worker.is_set():
                     if cancelled():
                         raise BrowseUnavailable("the bundle view was closed")
+                    time.sleep(0.05)
                 yield None  # teardown unblocks the worker if the test fails
         finally:
             abandoned.set()

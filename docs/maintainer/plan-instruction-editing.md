@@ -975,7 +975,7 @@ unreadable guard input. End the owned session and retain the stopped receipt.
 
 **Fixtures.** Use the retained 1024-square owned house/sun/grass/red-ball PNG
 from the [November 18 receipt](instruction-acceptance-2026-11-18.json).
-The [checked-in source PNG](../../tools/card/kontext-house-source.png) matches
+The [checked-in source PNG](../../tools/kontext_trial_assets/kontext-house-source.png) matches
 the local copy at `work/gpu-20261118/kontext/full-fixture/source.png`.
 Its original RGB SHA-256 is
 `28b506e70b5876cbafe51fff8b0222272adf4a395f156647ad45121377d3f42a`.

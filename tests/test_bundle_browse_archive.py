@@ -1,4 +1,4 @@
-﻿"""A bundle view owns verified input and memory only, including for encrypted archives."""
+"""A bundle view owns verified input and memory only, including for encrypted archives."""
 
 from __future__ import annotations
 

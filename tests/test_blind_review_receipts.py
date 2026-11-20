@@ -1,4 +1,4 @@
-﻿"""Independent fixtures for selecting the recorded occurrence and authenticating its measurement."""
+"""Independent fixtures for selecting the recorded occurrence and authenticating its measurement."""
 import hashlib
 import json
 from pathlib import Path

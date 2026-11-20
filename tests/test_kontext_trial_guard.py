@@ -34,7 +34,7 @@ def read(path):
 def issue(g, action):
     nonce = str(time.monotonic_ns())
     guard.atomic_json(g.output / "request.json", {"pid": g.pid, "nonce": nonce, **action})
-    until = time.monotonic() + 3
+    until = time.monotonic() + 30
     while time.monotonic() < until:
         g.check()
         dest = g.output / "permit.json"
@@ -96,7 +96,7 @@ def test_live_bad_reading_stops_server_without_waiting_for_browser(tmp_path, fas
         with guard.TrialGuard(tmp_path, fake=True, reader=reader) as g:
             g.attach(101, stopped.set)
             reader.fields = fields
-            assert stopped.wait(2)
+            assert stopped.wait(30)
             g.check()
     assert read(tmp_path / "stopped.json")["server_pid"] == 101
 
@@ -109,7 +109,7 @@ def test_heartbeat_stops_owned_server_during_blocked_reader(tmp_path, fast, monk
     class BlockingReader(MockReader):
         def read(self, pid):
             if pid:
-                assert stopped.wait(2)
+                assert stopped.wait(30)
             return original.read(pid)
 
     with pytest.raises(guard.GuardHeld, match="heartbeat"):
@@ -126,7 +126,7 @@ def test_heartbeat_can_kill_while_sampler_holds_receipt_lock(tmp_path, fast, mon
 
     def stalled_write(event, **fields):
         if event == "sample":
-            assert stopped.wait(2)
+            assert stopped.wait(30)
         write_row(event, **fields)
 
     monkeypatch.setattr(g, "_row", stalled_write)

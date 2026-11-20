@@ -180,7 +180,7 @@ class Trial:
         self.receipt["fixtures"] = self.fixtures
         browser = self.out / "browser"
         browser.mkdir()
-        shutil.copyfile(ROOT / "tools/card/kontext_trial_page.js", browser / "kontext_trial_page.js")
+        shutil.copyfile(ROOT / "tools/kontext_trial_assets/kontext_trial_page.js", browser / "kontext_trial_page.js")
         argv = ["tools.kontext_trial_server", "--mode", self.mode, "--port", str(self.port),
                 "--data", str(self.out / "gallery"), "--build", str(self.out / "build"),
                 "--guard-dir", str(self.out / "guard")]

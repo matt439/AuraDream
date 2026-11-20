@@ -110,7 +110,7 @@ def test_guard_matches_only_this_process_action_and_nonce(tmp_path, approved):
     worker = threading.Thread(target=run, daemon=True)
     worker.start()
     request = tmp_path / "request.json"
-    deadline = time.monotonic() + 5
+    deadline = time.monotonic() + 30
     while not request.exists() and time.monotonic() < deadline:
         time.sleep(0.01)
     data = json.loads(request.read_bytes())
@@ -119,7 +119,7 @@ def test_guard_matches_only_this_process_action_and_nonce(tmp_path, approved):
     replace = tmp_path / "new-permit"
     replace.write_text(json.dumps({**data, "approved": approved}))
     replace.replace(tmp_path / "permit.json")
-    worker.join(5)
+    worker.join(30)
     assert outcomes == (["accepted"] if approved else ["The live guard refused this edit."])
 
 

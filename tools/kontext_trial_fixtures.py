@@ -14,7 +14,7 @@ from typing import Any
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "tools/card/kontext-house-source.png"
+SOURCE = ROOT / "tools/kontext_trial_assets/kontext-house-source.png"
 CONTROL_RGB = "7e0062553284e700b6755b4c0450b7a8da1f43900c26ba5ed1f34f9c53512689"
 INSTRUCTION = "Change the red ball to a blue ball."
 MODEL = "black-forest-labs/FLUX.1-Kontext-dev"
