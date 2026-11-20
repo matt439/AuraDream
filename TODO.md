@@ -8,7 +8,7 @@ The maintainer's working backlog for this personal project: it records what is p
 
 **Aim.** Keep useful work ready for Matt's common workstation tasks. His [reported use](docs/design/preferences.md) guides priority. The candidate redesign still needs the task trials in `DEV#1`.
 
-**Ready on 2026-11-20.** The implementation queue is clear. The isolated Kontext browser trial and fresh-process rehearsal passed. Resume `INP#13` on the 5080 when the workstation has 45 GiB free RAM and 56.544 GiB free commit. Private tiled Refine also awaits its guarded card trial (`GEN#49`). The [November 20 audit results](docs/maintainer/review-2026-11-20-todo.md#results-2026-11-20) record the 18 earlier fixes and checks.
+**Ready on 2026-11-20.** The isolated Kontext browser trial and fresh-process rehearsal passed. Resume `INP#13` on the 5080 when the workstation has 45 GiB free RAM and 56.544 GiB free commit. Private tiled Refine completed its guarded 5080 qualification; `GEN#49` now owns its public opt-in and workflow checks. The [November 20 audit results](docs/maintainer/review-2026-11-20-todo.md#results-2026-11-20) record the 18 earlier fixes and checks.
 
 **Needs Matt.** All 13 `USER` rows are grouped here by what Matt can supply.
 
@@ -85,7 +85,7 @@ The [peer review](docs/maintainer/review-2026-11-10-peers.md) owns the passcode 
 | `GEN#6` | USER | LOW | S | The guarded Animagine card capture passed 2026-11-17, with identical callback/SSE preview bytes and retained first/middle/late/final images. Left: Matt's real-page glance and preference for the noisy first frame. FLUX.2's map stays deferred. [Evidence](docs/maintainer/review-2026-11-12-todo.md#gen6-card-capture-2026-11-17). |
 | `GEN#8` | DEFERRED | LOW | L | U61 part B: one's own photo or sketch as a reference (import route, a source marker through storage, reindex and reruns; add, drop and paste). Matt deferred it 2026-10-05; only when he raises it. [References](docs/design-notes.md#reference-images-by-gallery-id). |
 | `GEN#20` | DEFERRED | LOW | L+card | Opt-in A1111 weighting and 77-token chunking on SDXL, deferred by Matt 2026-10-27 because he does not write weighted prompts; revisit on request. [10-24 G10](docs/maintainer/review-2026-10-24.md#g10-a1111-style-weighting-and-long-prompts-on-sdxl). |
-| `GEN#49` | CARD | LOW | L+card | Qualify the private tiled Refine adapter on the 5080 for fidelity, repeat and cancellation recovery, then qualify the public flows. CPU adapter and durable replay passed. [Stage 3](docs/maintainer/plan-tiled-refine.md#3-guarded-private-card-qualification). |
+| `GEN#49` | OPEN | LOW | L+card | Add the explicit public tiled Refine choice and qualify its supported UI, API, CLI and replay flows. The private 5080 trial and residency controls are complete. [Stage 4](docs/maintainer/plan-tiled-refine.md#4-public-flows-and-release). |
 | `GEN#72` | USER | LOW | L | A guarded delete in Models > On disk, any whole checkpoint, built through stage 4 2026-11-14 (shared repositories file by file). Left: Matt's acceptance on his real Windows cache: one entry with another selected (measured vs planned bytes, Models says not downloaded, the selected row held), then one Anima variant with the other two still loading; result in `docs/verified.md`. [Plan](docs/maintainer/plan-model-delete.md#stages-and-completion-criteria). |
 
 ## Speed

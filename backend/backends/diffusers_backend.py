@@ -509,7 +509,15 @@ class DiffusersBackend(GenerationBackend):
         self._require_tiled_refine_loader()
         from huggingface_hub import snapshot_download
 
-        snapshot = snapshot_download(recipe.MODEL_ID, revision=recipe.REVISION, local_files_only=True)
+        # The pinned repo also publishes monolithic weights. A complete
+        # Diffusers cache needs only this pipeline and its component trees.
+        snapshot = snapshot_download(
+            recipe.MODEL_ID, revision=recipe.REVISION, local_files_only=True,
+            allow_patterns=[
+                "model_index.json", "scheduler/*", "text_encoder/*", "text_encoder_2/*",
+                "tokenizer/*", "tokenizer_2/*", "unet/*", "vae/*",
+            ],
+        )
         self._load_prepared(None, tiled_refine_snapshot=snapshot)
 
     def _load_prepared(self, execution: ExecutionSpec | None, *, tiled_refine_snapshot: str | None = None) -> None:

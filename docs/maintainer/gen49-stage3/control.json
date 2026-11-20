@@ -1,0 +1,69 @@
+{
+  "torch": "2.13.0+cu130",
+  "torch_commit": "cf30153c4c131c8164ee7798e5022d810682e2cb",
+  "card": "NVIDIA GeForce RTX 5080",
+  "observations": {
+    "initial": {
+      "allocated": 0,
+      "reserved": 0,
+      "active_blocks": []
+    },
+    "main_only": {
+      "allocated": 33554432,
+      "reserved": 33554432,
+      "active_blocks": [
+        {
+          "address": 81671487488,
+          "size": 33554432,
+          "requested_size": 33554432,
+          "state": "active_allocated"
+        }
+      ]
+    },
+    "main_and_worker": {
+      "allocated": 67108864,
+      "reserved": 67108864,
+      "active_blocks": [
+        {
+          "address": 81671487488,
+          "size": 33554432,
+          "requested_size": 33554432,
+          "state": "active_allocated"
+        },
+        {
+          "address": 81715527680,
+          "size": 33554432,
+          "requested_size": 33554432,
+          "state": "active_allocated"
+        }
+      ]
+    },
+    "worker_exited": {
+      "allocated": 67108864,
+      "reserved": 67108864,
+      "active_blocks": [
+        {
+          "address": 81671487488,
+          "size": 33554432,
+          "requested_size": 33554432,
+          "state": "active_allocated"
+        },
+        {
+          "address": 81715527680,
+          "size": 33554432,
+          "requested_size": 33554432,
+          "state": "active_allocated"
+        }
+      ]
+    },
+    "after_cublas_workspace_clear": {
+      "allocated": 0,
+      "reserved": 0,
+      "active_blocks": []
+    }
+  },
+  "workspace_size": 33554432,
+  "main_thread": 95672,
+  "worker_thread": 112012,
+  "status": "complete"
+}

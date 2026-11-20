@@ -1,0 +1,73 @@
+{
+  "schema": "gen49-owned-fixtures-v1",
+  "provenance": "Four original procedural illustrations drawn with this Python source, no external image or font assets.",
+  "generator_sha256": "0e220f5882c0bf83e4e463ac9e7e092ca0bb2b238b096603e0b784625a6094fc",
+  "pillow": "13.0.0",
+  "preparation": "1024-square RGB to 2048-square RGB, Pillow Lanczos",
+  "frozen_native_boxes_2048": {
+    "vertical": [
+      880,
+      256,
+      1168,
+      1792
+    ],
+    "horizontal": [
+      256,
+      880,
+      1792,
+      1168
+    ],
+    "centre": [
+      768,
+      768,
+      1280,
+      1280
+    ]
+  },
+  "scenes": [
+    {
+      "name": "architecture",
+      "filename": "architecture.png",
+      "seed": 4101,
+      "prompt": "architectural illustration, steel truss bridge in side elevation, straight horizontal dark girders, repeated triangular braces, muted blue and warm gray, water below",
+      "negative_prompt": "low quality, blurry",
+      "rgb_sha256": "28766c1f680cbbf8a42dcc4647feba4a4a50a5b9fe0afcc24d163765812f38ff",
+      "prepared_rgb_sha256": "9ff64ee43b3bed4092d3412f5409759c14d9693752f8e1c721f7f59596cfa4c8",
+      "png_sha256": "f4ef66211c909ac0650bfe3a27ff911e6a9611b338ad9991a5d887aa574d8f27",
+      "fidelity_criteria": "Follow straight girders and repeating diagonal braces across both centre lines; check for broken lines, doubling, invented braces or missing spans."
+    },
+    {
+      "name": "organic",
+      "filename": "organic.png",
+      "seed": 4201,
+      "prompt": "botanical illustration, overlapping diagonal fern fronds, rows of individual serrated green leaflets with delicate central veins against a dark green ground",
+      "negative_prompt": "low quality, blurry",
+      "rgb_sha256": "0232f8f137fe4f1d6b0d5bdc2ef3e28324eade6fa247163f9d12294d20416aa8",
+      "prepared_rgb_sha256": "99c50a986faa6f06118228d706867e44c58f3d9316efc46c81891195bdf023e1",
+      "png_sha256": "b9af104ff6c3c690587a1ecb5d120e45883f4129044a065cb97b33bb44ea58b2",
+      "fidelity_criteria": "Follow the pale diagonal frond through the centre; compare leaflet count, pointed teeth, alternating bases and veins, including newly invented or blurred detail."
+    },
+    {
+      "name": "lettering",
+      "filename": "lettering.png",
+      "seed": 4301,
+      "prompt": "vintage enamel tide gauge sign, readable cream geometric lettering TIDE 07 on dark blue, narrow ruler ticks below, decorative wave and four corner screws",
+      "negative_prompt": "low quality, blurry",
+      "rgb_sha256": "e99104ef8a381a4396322881cbf3d30ba5c41928ec7bb4f12bef335b086df723",
+      "prepared_rgb_sha256": "8bfe4a0aa140d66687fecdd3530b144118432a418dfcc4ca0d87f784ee278e7b",
+      "png_sha256": "0575ef3e843697fb1d8b99c0db9456dbc55c3afb103b64caa12d6d821723ef0a",
+      "fidelity_criteria": "Read TIDE 07, including the centred E crossbar, compare narrow ruler ticks, four screws and wave detail; count changes as fidelity failures even with smooth seams."
+    },
+    {
+      "name": "subject",
+      "filename": "subject.png",
+      "seed": 4401,
+      "prompt": "illustrated koi fish in blue water, one cream fish swimming to the lower left, four red patches, diagonal body, two pale fins and a forked tail",
+      "negative_prompt": "low quality, blurry",
+      "rgb_sha256": "f54e9685f6647e7c92b231a3cbb8ae2c454c1313280aafeca5899783a984e8a0",
+      "prepared_rgb_sha256": "afe243377b9a5a1863eb7907d0e25eb6d299e2cf2d499936036941fe68fc6050",
+      "png_sha256": "423c3d6d4ead25124f211c3df343a4fbb829ad08a94da6a403ecebd300d44897",
+      "fidelity_criteria": "Trace one fish outline across both central boundaries, four patches, scale arcs, eye, two fins and tail fork; distinguish new detail from changed anatomy."
+    }
+  ]
+}

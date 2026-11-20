@@ -1,0 +1,120 @@
+{
+  "status": "complete",
+  "loads": 1,
+  "torch": "2.13.0+cu130",
+  "torch_commit": "cf30153c4c131c8164ee7798e5022d810682e2cb",
+  "proof": {
+    "source": 1,
+    "recipe": "private-provisional-sdxl-four-region-2048-v1",
+    "root_source": {
+      "filename": "20261120-042334-0-a5f5f2.png",
+      "hash": "28766c1f680cbbf8a42dcc4647feba4a4a50a5b9fe0afcc24d163765812f38ff",
+      "width": 1024,
+      "height": 1024
+    },
+    "preparation": "lanczos-2x-rgb-v1",
+    "prepared_rgb_sha256": "9ff64ee43b3bed4092d3412f5409759c14d9693752f8e1c721f7f59596cfa4c8"
+  },
+  "workspace_size": 33554432,
+  "observations": {
+    "loaded": {
+      "ready": true,
+      "owner_alive": true,
+      "sibling_alive": true,
+      "allocated": 0,
+      "reserved": 0,
+      "active_blocks": []
+    },
+    "direct": {
+      "ready": true,
+      "owner_alive": true,
+      "sibling_alive": true,
+      "allocated": 33554944,
+      "reserved": 35651584,
+      "active_blocks": [
+        {
+          "address": 81692459008,
+          "size": 33554432,
+          "requested_size": 33554432,
+          "state": "active_allocated"
+        },
+        {
+          "address": 81837162496,
+          "size": 512,
+          "requested_size": 112,
+          "state": "active_allocated"
+        }
+      ]
+    },
+    "queued": {
+      "ready": true,
+      "owner_alive": true,
+      "sibling_alive": true,
+      "allocated": 67109376,
+      "reserved": 69206016,
+      "active_blocks": [
+        {
+          "address": 81692459008,
+          "size": 33554432,
+          "requested_size": 33554432,
+          "state": "active_allocated"
+        },
+        {
+          "address": 81832968704,
+          "size": 512,
+          "requested_size": 112,
+          "state": "active_allocated"
+        },
+        {
+          "address": 81906368512,
+          "size": 33554432,
+          "requested_size": 33554432,
+          "state": "active_allocated"
+        }
+      ]
+    },
+    "normal_unload": {
+      "ready": false,
+      "owner_alive": false,
+      "sibling_alive": false,
+      "allocated": 67108864,
+      "reserved": 67108864,
+      "active_blocks": [
+        {
+          "address": 81692459008,
+          "size": 33554432,
+          "requested_size": 33554432,
+          "state": "active_allocated"
+        },
+        {
+          "address": 81906368512,
+          "size": 33554432,
+          "requested_size": 33554432,
+          "state": "active_allocated"
+        }
+      ]
+    },
+    "only_cublas_clear": {
+      "ready": false,
+      "owner_alive": false,
+      "sibling_alive": false,
+      "allocated": 0,
+      "reserved": 67108864,
+      "active_blocks": []
+    },
+    "then_empty_cache": {
+      "ready": false,
+      "owner_alive": false,
+      "sibling_alive": false,
+      "allocated": 0,
+      "reserved": 0,
+      "active_blocks": []
+    }
+  },
+  "thread_ids": {
+    "direct": 59356,
+    "queued": 92600
+  },
+  "direct_rgb": "8c778b1471fe150fe69085c8fea5eed41643a522feced36ae4e2437a0d989893",
+  "queued_rgb": "8c778b1471fe150fe69085c8fea5eed41643a522feced36ae4e2437a0d989893"
+}

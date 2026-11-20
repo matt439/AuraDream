@@ -223,7 +223,11 @@ def test_private_load_resolves_only_the_pinned_local_snapshot(candidate, monkeyp
     events = []
     snapshot = candidate.owner.config._name_or_path
 
-    def find(model_id, *, revision, local_files_only):
+    def find(model_id, *, revision, local_files_only, allow_patterns):
+        assert set(allow_patterns) == {
+            "model_index.json", "scheduler/*", "text_encoder/*", "text_encoder_2/*",
+            "tokenizer/*", "tokenizer_2/*", "unet/*", "vae/*",
+        }
         events.append((model_id, revision, local_files_only))
         return snapshot
 
