@@ -1,4 +1,5 @@
 """Independent GEN#49 Windows resource supervisor for one offline owned process."""
+
 from __future__ import annotations
 
 import argparse
@@ -21,20 +22,30 @@ from tools import kontext_trial_guard as instrumentation  # noqa: E402
 from tools.anima_refine_card import atomic_json  # noqa: E402
 
 PYTHON = Path(sys.executable)
-PERIOD, HEARTBEAT = .25, 2.
-IDLE, FREE, RSS, PRIVATE = 2500., 24., 16., 16.
-PHASE_CAP, SESSION_CAP, UNLOAD_TIMEOUT = 180., 1200., 30.
-LIMITS = dict(period_s=PERIOD, heartbeat_s=HEARTBEAT, cold_free_ram_gib=FREE,
-              cold_free_commit_gib=FREE, load_free_ram_gib=FREE, load_commit_before_owned_gib=FREE,
-              idle_card_mib=IDLE, owned_rss_cap_gib=RSS, owned_private_cap_gib=PRIVATE,
-              phase_cap_s=PHASE_CAP, session_cap_s=SESSION_CAP, unload_wait_cap_s=UNLOAD_TIMEOUT,
-              live=asdict(card.LIMITS))
+PERIOD, HEARTBEAT = 0.25, 2.0
+IDLE, FREE, RSS, PRIVATE = 2500.0, 24.0, 16.0, 16.0
+PHASE_CAP, SESSION_CAP, UNLOAD_TIMEOUT = 180.0, 1200.0, 30.0
+LIMITS = dict(
+    period_s=PERIOD,
+    heartbeat_s=HEARTBEAT,
+    cold_free_ram_gib=FREE,
+    cold_free_commit_gib=FREE,
+    load_free_ram_gib=FREE,
+    load_commit_before_owned_gib=FREE,
+    idle_card_mib=IDLE,
+    owned_rss_cap_gib=RSS,
+    owned_private_cap_gib=PRIVATE,
+    phase_cap_s=PHASE_CAP,
+    session_cap_s=SESSION_CAP,
+    unload_wait_cap_s=UNLOAD_TIMEOUT,
+    live=asdict(card.LIMITS),
+)
 
 
 def admit(reading, *, cold):
     instrumentation.validate(reading)
     sample = reading.sample
-    credit = 0. if cold else reading.private_gib
+    credit = 0.0 if cold else reading.private_gib
     reasons = []
     if sample.available_gib < FREE:
         reasons.append("free RAM below 24 GiB")
@@ -42,8 +53,12 @@ def admit(reading, *, cold):
         reasons.append("free commit plus owned private credit below 24 GiB")
     if sample.card_mib > IDLE:
         reasons.append("whole card above 2500 MiB")
-    return dict(admitted=not reasons, reasons=reasons, owned_private_credit_gib=credit,
-                required_free_commit_gib=max(card.LIMITS.commit_floor_gib, FREE - credit))
+    return dict(
+        admitted=not reasons,
+        reasons=reasons,
+        owned_private_credit_gib=credit,
+        required_free_commit_gib=max(card.LIMITS.commit_floor_gib, FREE - credit),
+    )
 
 
 def check_live(reading, baseline):
@@ -61,11 +76,22 @@ def spawn_bound(child, attempt, log, job):
     # Attach before Python's Windows venv redirector can launch the interpreter.
     # All descendants then inherit this private job; an abrupt supervisor exit kills it.
     env = {k: v for k, v in os.environ.items() if not k.startswith("AURADREAM_")}
-    env.update(HF_HUB_OFFLINE="1", TRANSFORMERS_OFFLINE="1", HF_HUB_DISABLE_TELEMETRY="1",
-               PYTHONUNBUFFERED="1", PYTHONPATH=str(ROOT))
-    process = subprocess.Popen([str(PYTHON), str(child), str(attempt)], stdin=subprocess.DEVNULL,
-                               stdout=log, stderr=subprocess.STDOUT, env=env, cwd=ROOT,
-                               creationflags=subprocess.CREATE_NO_WINDOW | 0x4)  # CREATE_SUSPENDED
+    env.update(
+        HF_HUB_OFFLINE="1",
+        TRANSFORMERS_OFFLINE="1",
+        HF_HUB_DISABLE_TELEMETRY="1",
+        PYTHONUNBUFFERED="1",
+        PYTHONPATH=str(ROOT),
+    )
+    process = subprocess.Popen(
+        [str(PYTHON), str(child), str(attempt)],
+        stdin=subprocess.DEVNULL,
+        stdout=log,
+        stderr=subprocess.STDOUT,
+        env=env,
+        cwd=ROOT,
+        creationflags=subprocess.CREATE_NO_WINDOW | 0x4,
+    )  # CREATE_SUSPENDED
     try:
         if not job.assign(process.pid):
             raise RuntimeError("owned suspended process could not enter kill-on-close job")
@@ -86,9 +112,16 @@ def run(attempt, child):
         raise ValueError("attempt directory must be empty")
     raw = (attempt / "guard.jsonl").open("x", encoding="utf-8")
     readings = []
-    result = dict(status="incomplete", guard_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
-                  child_sha256=hashlib.sha256(child.read_bytes()).hexdigest(), limits=LIMITS,
-                  child_pid=None, child_exit=None, load_admitted=False, unload_observed=False)
+    result = dict(
+        status="incomplete",
+        guard_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+        child_sha256=hashlib.sha256(child.read_bytes()).hexdigest(),
+        limits=LIMITS,
+        child_pid=None,
+        child_exit=None,
+        load_admitted=False,
+        unload_observed=False,
+    )
     job = reader = proc = guard_thread = child_log = None
     monitor_stop = threading.Event()
     started = beat = time.monotonic()
@@ -97,12 +130,16 @@ def run(attempt, child):
     watchdog_fault = []
 
     def row(event, **fields):
-        raw.write(json.dumps(dict(event=event, wall=time.time(), monotonic=time.monotonic(), phase=phase,
-                                  **fields), allow_nan=False) + "\n")
+        raw.write(
+            json.dumps(
+                dict(event=event, wall=time.time(), monotonic=time.monotonic(), phase=phase, **fields), allow_nan=False
+            )
+            + "\n"
+        )
         raw.flush()
 
     def watchdog():
-        while not monitor_stop.wait(.1):
+        while not monitor_stop.wait(0.1):
             now = time.monotonic()
             if now - beat > HEARTBEAT or now - started > SESSION_CAP or now - phase_since > PHASE_CAP:
                 watchdog_fault.append(f"watchdog: heartbeat, phase or session cap during {phase}")
@@ -137,7 +174,7 @@ def run(attempt, child):
         load_seen = unload_seen = None
         post_unload = []
         next_due = time.monotonic()
-        longest_gap = 0.
+        longest_gap = 0.0
         while proc.poll() is None:
             if watchdog_fault:
                 raise RuntimeError(watchdog_fault[0])
@@ -197,7 +234,7 @@ def run(attempt, child):
                         atomic_json(attempt / "unload-observed", {"samples": 3})
                         result["unload_observed"] = True
             next_due = max(next_due + PERIOD, time.monotonic())
-            time.sleep(max(0., next_due - time.monotonic()))
+            time.sleep(max(0.0, next_due - time.monotonic()))
         if watchdog_fault:
             raise RuntimeError(watchdog_fault[0])
         if proc.returncode or not result["unload_observed"]:
@@ -209,7 +246,7 @@ def run(attempt, child):
     finally:
         monitor_stop.set()
         if guard_thread:
-            guard_thread.join(3.)
+            guard_thread.join(3.0)
         if job:
             job.close()
         if proc:

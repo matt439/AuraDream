@@ -1,4 +1,5 @@
 """Disposable CPU-only IPC target for the resource supervisor."""
+
 from pathlib import Path
 import json
 import os
@@ -10,11 +11,11 @@ attempt = Path(sys.argv[1])
 
 
 def wait(name):
-    end = time.monotonic() + 15.
+    end = time.monotonic() + 15.0
     while not (attempt / name).exists():
         if time.monotonic() > end:
             raise RuntimeError("IPC timeout: " + name)
-        time.sleep(.02)
+        time.sleep(0.02)
 
 
 wait("guard-admitted")

@@ -257,7 +257,7 @@ def main():
     fixtures_dir = WORK / "gen49-stage3-fixtures"
     frozen = parsed(fixtures_dir / "manifest.json")
     fixtures = {r["name"]: dict(r, source_path=str(fixtures_dir / r["filename"])) for r in frozen["scenes"]}
-    old_raw = Path(os.environ.get("GEN49_HISTORY", WORK / Path(history["raw_directory"]).name))
+    old_raw = Path(os.environ.get("GEN49_HISTORY", ROOT / "docs/maintainer/gen49-stage3"))
     fixtures["historic"] = {
         "seed": 12346,
         "prompt": history["plan"]["recipe"]["prompt"],

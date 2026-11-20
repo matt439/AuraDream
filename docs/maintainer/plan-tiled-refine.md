@@ -254,3 +254,60 @@ identity, shared ownership and cleanup, all 36 callbacks, cancellation and
 discard, changed roots and a private JobManager cancellation and recovery
 through SQLite and PNG metadata. The new adapter's image quality, resource
 use and residency await stage 3.
+
+### November 20 card protocol
+
+The private trial uses the local pinned Animagine snapshot above. Four original
+1024-square procedural illustrations were frozen before any load. Each cell uses
+the fixture's own prompt, negative `low quality, blurry`, 28 steps, CFG 5,
+strength 0.35 and the exact four-region preparation. The fixture manifest has
+SHA-256 `931fd50cbfdb4a6af86cc2fa6aac675d46fbd727bce997be2a087b1d3eb362a2`.
+
+| Source | Seed | Detail to compare with the 2× Lanczos preparation |
+|---|---:|---|
+| Truss bridge | 4101 | Rail continuity, repeated diagonal braces and four piers |
+| Fern | 4201 | Alternating leaflets, serrations and pale diagonal stem |
+| Tide gauge | 4301 | Exact lettering “TIDE 07”, ruler ticks and four screws |
+| Koi | 4401 | Single outline across both joins, four red patches, two fins and forked tail |
+
+A fifth control carries the actual November 17 generated cabin/shoreline
+root, exact original conditioning and first tile seed 12346. It compares
+this adapter to the old four-job calculation. The bridge also runs as a
+repeat, in a two-image adapter call with seeds 4101/4102, and solo at 4102.
+A private queue job cancels at step 12 of 36 inside tile two. Its retained
+cell supplies the recovery request. An ordinary 1024-square generation
+follows on the loaded owner before unload. Private scratch files retain raw
+tiles, partial/completed composites and full-sized seam crops for inspection.
+
+The November 17 session peaked at 5,951 MiB whole-card, 9.31 GiB process
+tree RSS and 11.27 GiB process private. Cold admission requires at least 24
+GiB each of free RAM and free commit and at most 2,500 MiB whole-card use.
+Immediately before load, physical availability still needs 24 GiB. Its
+24 GiB commit requirement credits only the newly spawned child's measured
+private allocation. Live ceilings are 15,500 MiB whole-card, 1,024/512 MiB
+adapter/process shared rise, and 16 GiB each of tree RSS and private memory.
+Both free RAM and free commit must stay at or above 4 GiB. A Windows Job
+Object holds the child and descendants under the external watchdog until
+exit. Three distinct card samples at or below 2,500 MiB verify post-unload
+residency. The supervisor refuses a missing or stale measurement.
+
+The [trial sources](gen49-stage3/) include the Windows supervisor, observing
+child, independent CPU auditor, guard tests, original drawing generator and
+November 17 baseline. The [frozen fixture manifest](gen49-stage3/manifest.json)
+records full RGB and PNG digests, prompts and visual criteria. To reproduce
+the trial from an idle Windows checkout, use its Python environment with the
+project dependencies installed. The generator compares every rebuilt fixture
+with the frozen manifest. Its original byte-for-byte source is at `ad0912f`.
+
+```powershell
+$protocol = 'docs/maintainer/gen49-stage3'
+python "$protocol/draw_sources.py" work/gen49-stage3-fixtures
+python -m pytest "$protocol/test_gen49_stage3_guard.py"
+python "$protocol/gen49-stage3-guard.py" work/gen49-stage3-new "$protocol/gen49-stage3-run.py"
+python "$protocol/gen49-stage3-audit.py" work/gen49-stage3-new
+```
+
+The guard invocation is the real card run. It requires the pinned weights
+already in the local Hub cache. Private JobManager recovery saves the only
+durable tiled result inside the attempt's scratch gallery. Observer PNGs,
+including any completed prefix of a cancelled job, live beside that gallery.
