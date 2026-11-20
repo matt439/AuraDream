@@ -1,4 +1,4 @@
-﻿"""Browse one verified saved archive without writing its contents to the gallery."""
+"""Browse one verified saved archive without writing its contents to the gallery."""
 
 from __future__ import annotations
 
