@@ -10,6 +10,7 @@
 
 ## Working on AuraDream
 
+- Find current work and the owner of each open item in [TODO.md](../TODO.md#now).
 - [rules.md](rules.md): the rules, module map and smoke coverage;
   [AGENTS.md](../AGENTS.md) is its short version.
 - [design-notes.md](design-notes.md): implementation reasoning and model sources.

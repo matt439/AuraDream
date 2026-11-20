@@ -15,45 +15,6 @@ a dated finding is not an open work order.
 - [ios-simulator.md](ios-simulator.md): the prepared MacBook connection,
   Windows fake server and SSH tunnel, retained native Safari test workflow,
   input pitfalls and cleanup.
-- `plan-*.md`: feature plans. Code comments, the rules and
-  [TODO.md](../../TODO.md) cite them as the owners of their designs; what was
-  built differently is recorded in the design notes. A finished plan opens
-  with **Status: done** and its date. Plans and reviews remain as provenance;
-  Git history retains their original locations before the 2026-11-11 move.
-  - Live, with open TODO rows or deferred phases:
-    [Anima Refine](plan-anima-refine.md),
-    [attention backends](plan-attention-backends.md),
-    [card harness](plan-card-harness.md), [detailer](plan-detailer.md),
-    [fp8 activations](plan-fp8-activations.md),
-    [inpainting](plan-inpainting.md), [outpainting](plan-outpainting.md),
-    [instruction editing](plan-instruction-editing.md) with its
-    [carry](instruction-edit-carry.md) and
-    [bundle](instruction-edit-bundles.md) checklists,
-    [peak VRAM](plan-peak-vram.md),
-    [regional compilation](plan-regional-compilation.md),
-    [step caching](plan-step-caching.md) and
-    [Then refine](plan-then-refine.md).
-  - Done: [automatic backups](plan-automatic-backups.md) (built
-    default-off, unattended use declined),
-    [button hierarchy](plan-button-hierarchy.md),
-    [continuing a run](plan-continue-run.md),
-    [gallery area search](plan-gallery-area-search.md),
-    [gallery date ranges](plan-gallery-date-ranges.md),
-    [gallery orientation](plan-gallery-orientation.md),
-    [generation presets](plan-generation-presets.md),
-    [More seeds](plan-more-seeds-ux.md),
-    [prompt snippets](plan-prompt-snippets.md),
-    [queue controls](plan-queue-controls.md),
-    [queue estimates](plan-queue-estimates.md),
-    [random prompt variables](plan-random-prompt-variables.md),
-    [saved searches](plan-saved-searches.md),
-    [search exclusion](plan-search-exclusion.md),
-    [setup portability](plan-setup-portability.md),
-    [shortcut workflow](plan-shortcut-workflow.md),
-    [shortcuts](plan-shortcuts.md),
-    [size axis and crop anchor](plan-size-axis-crop-anchor.md),
-    [snippet portability](plan-snippet-portability.md) and
-    [tooling](plan-tooling.md).
 - [design/](../design/README.md): the product design study (requirements,
   research, a prototype and trial material).
 - `../images/`: the README's screenshots (2026-11-04): a fake server's gallery
@@ -61,6 +22,38 @@ a dated finding is not an open work order.
   Playwright at 1600x1000, an iPhone 15 Pro and an iPad Pro 11 in landscape.
 - [testing-notes.md](testing-notes.md): observations from use, each marked
   with the commit that closed it; every entry so far is closed.
+
+## Feature plans
+
+Use [TODO.md](../../TODO.md) for current work and the linked plan for
+completion criteria and results. The design notes explain what changed during
+implementation. Git history retains the plans' original locations before
+the 2026-11-11 move.
+
+- Image passes and models — [Anima Refine](plan-anima-refine.md),
+  [checkpoint deletion](plan-model-delete.md), [detailer](plan-detailer.md),
+  [inpainting](plan-inpainting.md), [outpainting](plan-outpainting.md),
+  [instruction editing](plan-instruction-editing.md) with its
+  [carry](instruction-edit-carry.md) and [bundle](instruction-edit-bundles.md)
+  checklists, [Then refine](plan-then-refine.md), [Tiled Refine](plan-tiled-refine.md).
+- Generation and prompts — [generation presets](plan-generation-presets.md),
+  [prompt assistant](plan-prompt-assistant.md), [prompt snippets](plan-prompt-snippets.md),
+  [random prompt variables](plan-random-prompt-variables.md),
+  [setup portability](plan-setup-portability.md), [size axis and crop anchor](plan-size-axis-crop-anchor.md),
+  [snippet portability](plan-snippet-portability.md).
+- Queue and run recovery — [continuing a run](plan-continue-run.md),
+  [More seeds](plan-more-seeds-ux.md), [queue controls](plan-queue-controls.md),
+  [queue estimates](plan-queue-estimates.md).
+- Gallery — [automatic backups](plan-automatic-backups.md),
+  [area search](plan-gallery-area-search.md), [date ranges](plan-gallery-date-ranges.md),
+  [orientation](plan-gallery-orientation.md), [saved searches](plan-saved-searches.md),
+  [search exclusion](plan-search-exclusion.md).
+- Controls — [button hierarchy](plan-button-hierarchy.md),
+  [shortcut workflow](plan-shortcut-workflow.md), [shortcuts](plan-shortcuts.md).
+- Performance and tooling — [attention backends](plan-attention-backends.md),
+  [card harness](plan-card-harness.md), [fp8 activations](plan-fp8-activations.md),
+  [peak VRAM](plan-peak-vram.md), [regional compilation](plan-regional-compilation.md),
+  [step caching](plan-step-caching.md), [tooling](plan-tooling.md).
 
 ## Dated records
 

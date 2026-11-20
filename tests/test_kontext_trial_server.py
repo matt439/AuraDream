@@ -1,6 +1,8 @@
 """The INP#13 candidate is separately built, fenced and observable."""
+import errno
 import json
 import os
+from pathlib import Path
 import subprocess
 import sys
 import threading
@@ -10,6 +12,7 @@ import pytest
 
 from tools import kontext_trial_runtime as runtime
 from tools import kontext_trial_server as server
+from tools.anima_refine_card import atomic_json
 
 
 def test_build_digest_matches_lf_and_mixed_checkout_line_endings(tmp_path, monkeypatch):
@@ -94,9 +97,20 @@ else: raise AssertionError('unknown recipe accepted')
 
 
 @pytest.mark.parametrize("approved", [True, False])
-def test_guard_matches_only_this_process_action_and_nonce(tmp_path, approved):
-    (tmp_path / "permit.json").write_text(json.dumps({"pid": os.getpid(), "nonce": "stale",
-                                                      "action": "edit", "approved": True}))
+def test_guard_matches_only_this_process_action_and_nonce(tmp_path, monkeypatch, approved):
+    permit = tmp_path / "permit.json"
+    atomic_json(permit, {"pid": os.getpid(), "nonce": "stale", "action": "edit", "approved": True})
+    collision = threading.Event()
+    original_open = Path.open
+
+    def open_during_replace(path, mode="r", *args, **kwargs):
+        if path == permit and mode == "rb" and not collision.is_set():
+            collision.set()
+            raise PermissionError(errno.EACCES, "Windows mailbox sharing violation")
+        return original_open(path, mode, *args, **kwargs)
+
+    monkeypatch.setattr(runtime.sidecar_io, "WINDOWS", True)
+    monkeypatch.setattr(Path, "open", open_during_replace)
     outcomes = []
 
     def run():
@@ -113,12 +127,11 @@ def test_guard_matches_only_this_process_action_and_nonce(tmp_path, approved):
     deadline = time.monotonic() + 30
     while not request.exists() and time.monotonic() < deadline:
         time.sleep(0.01)
-    data = json.loads(request.read_bytes())
+    data = runtime.read_mailbox(request)
+    assert data is not None
     assert data["pid"] == os.getpid() and data["nonce"] != "stale" and data["action"] == "edit" and data["seed"] == 12346
-    assert worker.is_alive()
-    replace = tmp_path / "new-permit"
-    replace.write_text(json.dumps({**data, "approved": approved}))
-    replace.replace(tmp_path / "permit.json")
+    assert collision.wait(30) and worker.is_alive()
+    atomic_json(permit, {**data, "approved": approved})
     worker.join(30)
     assert outcomes == (["accepted"] if approved else ["The live guard refused this edit."])
 

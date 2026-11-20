@@ -1258,7 +1258,7 @@ not implied acceptance from the first checkpoint's result.
 
 ### Matt's questions
 
-**Current status, 2026-11-18: `PERF#7` USER.** The first fixed card table,
+**Current status, 2026-11-20: `PERF#7` DECISION.** The first fixed card table,
 cold/warm timings, retained-cache reuse and image differences are now
 [measured](#private-regional-model-and-retained-cache-2026-11-18).
 Matt can judge question 1 from that evidence; it is no longer blocked on a
@@ -1271,7 +1271,7 @@ until the selected release work and its qualification are complete.
 Models choice with Eager the default. 2: keep the cache beside the gallery
 database, as built. 3: (c), clear it when torch, Triton or the driver
 changes. 4: static shapes stay. At that date, question 1 remained blocked on
-the card; its current USER routing is recorded above.
+the card; the current decision is recorded above.
 
 **Status, 2026-10-29: `PERF#7` DECISION** (TODO audit, approved by Matt).
 These are Matt's choices. No agent answers them, and nothing below changes
@@ -1337,6 +1337,6 @@ result. The cache questions 2 and 3 are compilation's alone.
 
 Recording: Matt's answers go here under each question, dated. A Models
 choice (1a) or a cache policy (3a/3b) then becomes an OPEN source row
-whose first stage is fake/browser checkable. The first table is now available;
-`PERF#7` is USER for Matt's judgment and recorded answer, independently of
-the remaining qualification and release work.
+whose first stage is fake/browser checkable. The first table is now available
+for Matt's `PERF#7` decision about release and placement. The remaining
+`PERF#1` qualification and release work follows its own checklist.

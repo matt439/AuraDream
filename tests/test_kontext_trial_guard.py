@@ -9,6 +9,7 @@ import time
 import pytest
 
 from tools import kontext_trial_guard as guard
+from tools.kontext_trial_runtime import read_mailbox
 
 
 class MockReader(guard.RehearsalReader):
@@ -34,11 +35,12 @@ def read(path):
 def issue(g, action):
     nonce = str(time.monotonic_ns())
     guard.atomic_json(g.output / "request.json", {"pid": g.pid, "nonce": nonce, **action})
+    dest = g.output / "permit.json"
     until = time.monotonic() + 30
     while time.monotonic() < until:
         g.check()
-        dest = g.output / "permit.json"
-        if dest.exists() and read(dest)["nonce"] == nonce:
+        permit = read_mailbox(dest)
+        if permit is not None and permit["nonce"] == nonce:
             return
         time.sleep(.005)
     raise AssertionError("missing permit")

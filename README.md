@@ -93,11 +93,12 @@ Face sign-in, Models suggests the open **Animagine XL 4.0**, matching the instal
 Open **<http://127.0.0.1:7860>**, choose a checkpoint and loading settings under
 **Models** and press **Switch & load**, which also saves the choice for the
 next start, then enter a prompt, choose a size and press **Generate**. Steps, CFG and Mu start at the selected checkpoint's defaults.
-The first generation downloads and loads the weights: Animagine is about
-6.5 GB; FLUX.1 Krea [dev]'s 32 GiB takes about 45 minutes at 100 Mbit/s.
-Later loads reuse the cache. Starting the server alone does not load the
-model unless preload is enabled. To
-update or remove AuraDream, see [Updating](docs/setup.md#updating) and
+The first load downloads any missing weights. Animagine is about 6.5 GB.
+FLUX.1 Krea [dev]'s 32 GiB takes about 45 minutes at 100 Mbit/s.
+Later loads reuse the cache. If you choose **Apply & save** instead,
+**Generate** triggers the load. Starting the server loads the model only
+when preload is enabled. To update or remove AuraDream, see
+[Updating](docs/setup.md#updating) and
 [Uninstall](docs/setup.md#uninstall).
 
 Open checkpoints need no login. Select one in the menu, or pass its id:
@@ -313,13 +314,15 @@ and [measured results](docs/verified.md) before attempting large passes.
 
 **Inpaint…** repaints only the part of a gallery image you paint a mask over;
 **Outpaint…** extends its canvas past the edges and paints the new area. Both
-keep the rest of the source pixel for pixel. Both run on the SDXL checkpoints, the
-Z-Image family (Z-Image Turbo, Z-Anime) and FLUX.1 (Krea dev, dev, schnell);
-FLUX.2 [klein] and Qwen-Image are not enabled yet. The mask is embedded in the
-result's PNG, so the image alone reproduces it. [Measured](docs/verified.md#inpaint)
-on WAI, Animagine, Z-Anime and FLUX.1 Krea dev (its inpaint only; the FLUX.1
-outpaint has not been measured). See
-[Inpaint](docs/usage.md#inpaint-part-of-an-image) and
+keep the unmasked part of the source pixel for pixel. Both run on the SDXL
+checkpoints, the Z-Image family and FLUX.1 (Krea dev, dev, schnell).
+FLUX.2 [klein] and Qwen-Image are not enabled yet. The result's PNG carries
+its mask for recovery. Rerunning the pass also requires its original source
+image. The card trials include both passes on SDXL, Z-Image and FLUX.1.
+See the [inpaint measurements](docs/verified.md#inpaint),
+[outpaint measurements](docs/verified.md#outpaint) and
+[FLUX.1 dev and schnell follow-up](docs/verified.md#flux-devschnell-refine-inpaint-and-outpaint).
+For the controls, see [Inpaint](docs/usage.md#inpaint-part-of-an-image) and
 [Outpaint](docs/usage.md#outpaint-an-image).
 
 **Detail faces/hands…** in an image's right-click menu finds candidate regions
@@ -328,6 +331,10 @@ region in order. It starts with supported SDXL checkpoints and explicit
 detector downloads. Every intermediate pass is saved. Detection does not
 judge anatomy, and detailer render quality has not been qualified on the card.
 See [Detail faces and hands](docs/usage.md#detail-faces-and-hands).
+
+**Edit by instruction…** uses the edit-only FLUX.1 Kontext [dev] checkpoint
+to redraw a square source from a written instruction at 512×512 in the
+measured Windows FP8 setup. See [Edit by instruction](docs/usage.md#edit-by-instruction).
 
 ## Headless
 
@@ -369,7 +376,7 @@ set in a start-up warning.
 | `AURADREAM_ALLOWED_HOSTS` | `127.0.0.1,localhost` | Allowed hostnames/IPs; include the browser's destination when exposing the server on a LAN, keeping `127.0.0.1` and `localhost`; exact lowercase names, no wildcards |
 | `AURADREAM_ALLOWED_ORIGINS` | empty | Extra exact browser origins for a proxy on another port, for example `https://dream.home.arpa`; its hostname must also be allowed above ([HTTPS](docs/setup.md#https-for-a-phone)) |
 | `AURADREAM_SSL_CERTFILE` / `AURADREAM_SSL_KEYFILE` | unset | Existing PEM certificate and private key for direct HTTPS; set both and trust the issuing CA on each client ([recipe](docs/setup.md#https-for-a-phone)) |
-| `AURADREAM_PASSCODE` | unset | A passcode the page and every other caller must give, asked whenever the server can be reached beyond this machine (`AURADREAM_HOST` or an allowed host that is not loopback); at least 8 characters, from the environment only; see below |
+| `AURADREAM_PASSCODE` | unset | Shared passcode for a non-loopback bind or allowed host. Set 8–256 characters in the environment. |
 | `AURADREAM_LOG_LEVEL` | `INFO` | Server and uvicorn logging; on the console `DEBUG` includes tracebacks, which `auradream.log` beside the database receives at every level |
 | `AURADREAM_CRITIC` | `true` | Enable the optional local prompt critic |
 | `AURADREAM_CRITIC_SERVER` | unset | Use a local compatible `llama-server` binary |
@@ -384,8 +391,8 @@ make the machine download checkpoints with your Hugging Face token. Keep the
 default loopback address unless the network is trusted.
 
 With `AURADREAM_PASSCODE` set, a server reachable beyond this machine shows
-a sign-in page and refuses everything else until the passcode is given; the
-browser on the PC itself signs in once too. Know what it is and is not:
+a sign-in page. The manifest and its icons remain available. Gallery and API
+requests require sign-in, including from a browser on the server PC.
 
 - Over plain http the passcode, its cookie and every prompt and image cross
   the network unencrypted. Anyone who can capture that network's traffic
@@ -400,15 +407,13 @@ browser on the PC itself signs in once too. Know what it is and is not:
 - Do not reuse a password from anywhere else. The passcode sits in plain
   text in the environment (on Linux, the service's settings file).
 - There is one passcode and no accounts. Changing it and restarting signs
-  every device out; nothing else does. **Sign out** in the Models panel
-  signs out the browser it is pressed in. A browser stays signed in for
-  thirty days after it was last used (a page load, or anything done on an
-  open page; the page's own timed checks do not count), across restarts
-  and updates.
+  every device out. **Sign out** in Models signs out the current browser.
+  The session lasts thirty days across restarts and updates. Opening the
+  page or using an open tab refreshes it when its cookie is over a day old.
+  Timed checks and job streams leave expiry as it was.
 
-Set it in the environment only (never a flag or the saved settings); the
-server will not start with fewer than 8 characters. After five wrong
-passcodes in a row every further try waits, up to a minute, for everyone
+Set it in the environment. The server requires 8–256 characters. After five
+wrong passcodes in a row every further try waits, up to a minute, for everyone
 not yet signed in. `generate --via-server`, the doctor and the Linux
 scripts send the passcode from `AURADREAM_PASSCODE` in their own
 environment.

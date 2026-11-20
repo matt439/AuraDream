@@ -2037,22 +2037,21 @@ would get outside sources from the same route.
 continuing without the card. The recipe now carries through generation types,
 SQL/PNG, replay/refusal, source lifetime, bundles and reindex. A cold source
 preview binds full original RGB proof and exact geometry. Stage 2 (below)
-adds the call, the queueing route and the dialog behind a gate that the real
-server keeps closed. The
+added the call, the queueing route and the dialog while the real-server gate
+was closed. The
 [feature plan](maintainer/plan-instruction-editing.md#first-frozen-contract-2026-10-27)
 owns the frozen recipe and sizes; the [carry inventory](maintainer/instruction-edit-carry.md)
 and [bundle contract](maintainer/instruction-edit-bundles.md) own integration acceptance.
 
-**Current status, 2026-11-03:** stage 3's approved [first card trial and bounded
-pair](verified.md#instruction-edit) ran on 2026-10-27 at 512x512, fp8 and model
-offload. That slice fits, replays, cancels and unloads, with drift beyond the
-instruction. Matt reviewed those results and approved stage 4 on 2026-10-29.
-Stage 4's ten slices are on main (PR #17, 2026-10-30): its release (slice 7)
-opens the real server's gate inside the measured envelope, which holds
-everything the card did not measure. Only the plan's
-[card acceptance step](maintainer/plan-instruction-editing.md#card-acceptance-step)
-remains, for the real server's route and page. Other sizes and
-configurations remain unqualified.
+**Current status, 2026-11-20.** The public `kontext-v1` recipe resizes square
+sources to its 512x512 working and output size. Stage 3 measured it on October 27.
+Stage 4 released the bounded recipe on October 30 (PR #17). The real-server
+browser acceptance and fresh-process replay passed on November 18 on the frozen
+replacement fixture. [Card acceptance](verified.md#kontext-real-server-and-browser-acceptance-2026-11-18)
+
+`INP#13` covers the larger square recipe and six non-square cases. Its browser
+rehearsals passed against the fake server on November 20. The 5080 preflight
+held before server start on both host-memory readings. [Trial admission](verified.md#larger-kontext-browser-trial-admission-2026-11-20)
 
 An editor's `image` argument is a source for an instruction, rather than a
 klein reference list or a Refine strength. It must get explicit capabilities
@@ -2067,10 +2066,11 @@ Portable edits need a durable original-source descriptor, including a full
 RGB pixel digest. A foreign numeric id can name unrelated pixels after import;
 unproven links must become null while retaining edit intent and provenance.
 They cannot follow Refine recovery's source-dropping fallback. An old bundle
-reader also ignores unfamiliar fields, so edit-containing exports now use v2,
-while edit-free exports keep v1. Strict SQL/PNG agreement and complete source
-proof cover import/reindex fast paths as well as decoded paths. Unresolved
-sources retain intent; explicit ordinary Refine children change pass kind.
+reader ignores unfamiliar fields, so instruction edits introduced manifest v2.
+The [bundle rules](rules.md#image-storage-and-gallery-bundles) give the current
+version precedence. Strict SQL/PNG agreement and complete source proof cover
+import/reindex fast paths as well as decoded paths. Unresolved sources retain
+intent. Explicit ordinary Refine children change pass kind.
 Supplied-config checks and the installed image-to-CPU-tensor audit are built.
 The six pinned configs were fetched at the revision on 2026-10-27, passed
 `validate_configs` and are pinned by hash (`QUALIFIED_CONFIG_HASHES`). They are
@@ -2080,29 +2080,25 @@ non-commercial repository.
 **Stage 2 (2026-10-27): built on a stand-in, closed on the real server.**
 
 *Why a backend method, not a setting.* The gate is the backend instance's
-`instruction_edit_qualified()`, a method the real `DiffusersBackend` answers
-with a literal False. An environment variable or flag would be one typo or
-one stale shell away from running a 12B editor outside its qualified envelope.
+`instruction_edit_qualified()`. At stage 2 the real `DiffusersBackend`
+answered with a literal False. A typo or stale shell could have set a variable
+or flag to run a 12B editor outside its qualified envelope.
 The bounded stage-3 trial does not establish that other configurations fit.
 A method also means a test stub or the fake can open the gate without the
 real server being able to. A source scan holds every definition to the
 literal. Only `True` itself opens the gate, so a truthy leftover cannot.
-The editor load holds stay unconditional and do not consult the gate. Even
-a mistaken `True` therefore reaches no weights until stage 4 changes the
-loader on purpose. (Stage 4 slice 4 did: the holds open only for the exact
-Kontext id inside the measured envelope, through the pinned
-configs-then-weights loader; `docs/rules.md`, Model and loader.)
+The stage 2 editor load holds were unconditional. Stage 4 slice 4 opened
+the load path for the exact Kontext id inside the measured envelope, through
+the pinned configs-then-weights loader. [Model and loader](rules.md#model-and-loader)
 
 *Why the release is a literal, not a setting (stage 4 slice 7).* Opening the
 real gate is one changed literal, `return True` in `DiffusersBackend`, held by
 the same source scan, rather than a flag that could open the editor on a
 machine nobody measured. What the literal opens is narrow on purpose:
-`QUALIFIED_ENVELOPE` is the stage 3 run's configuration (the exact id, fp8,
-model offload, Windows, Eager, diffusers 0.40.0 - since 2026-11-10 the
-re-measured 0.42.1 - 1:1 sources at 512x512), and every load entry and queue answer asks it first. A choice outside it is
-refused in words naming that choice, never silently changed to the measured
-one. Widening the envelope is a one-line follow-up to the data after a card
-run, not a code path.
+`QUALIFIED_ENVELOPE` pins the exact id, fp8, model offload, Windows CUDA 0,
+Eager, the re-measured diffusers 0.42.1 and square sources processed at
+512x512. Every load entry and queue admission checks the applicable parts
+of the envelope and names the first unsupported choice on refusal.
 
 *Why a dedicated route.* `POST /api/instruction-edit` exists because
 `/api/generate`'s `refuse_unusable_inputs` refuses everything on an editor
@@ -2152,8 +2148,8 @@ means something against its source. The wide viewer gets no Edit tool yet,
 which keeps `smoke-wide` untouched; the context menu reaches the dialog at
 every width.
 
-**Stage 4 (2026-10-29/30): released inside the measured envelope, on main
-since PR #17; the card step remains.** The [plan](maintainer/plan-instruction-editing.md#stage-4-the-qualified-first-slice-2026-10-29)
+**Stage 4 (2026-10-29/30): released inside the measured envelope in PR #17.**
+The [plan](maintainer/plan-instruction-editing.md#stage-4-the-qualified-first-slice-2026-10-29)
 records the ten slices; the reasons that are not obvious from the code:
 
 *Why an envelope, not wider defaults.* Stage 3 measured one configuration.
@@ -2179,10 +2175,10 @@ not. Generate keeps the held words because the editor has no text-to-image
 call; Finish stays held by stage 4's defaults, its replay of an edit
 unqualified.
 
-*Why an edit is never priced.* No edit history exists to price one from,
-and a plain render at the same size and checkpoint is a different call
-(Kontext carries the source's image tokens beside the output's). So More seeds'
-preview and the reports give no estimate rather than a borrowed one.
+*Edit time estimates.* `gallery_reports._cell_ms` returns no estimate for
+edit cells, including More seeds of an edit. Stored edit durations are
+available for reporting. Kontext carries the source's image tokens beside
+the output's, so matching a plain render by output size would misstate the cost.
 
 *Why the server words the page's holds.* The per-option holds in Models
 (`loader_holds`) and the source's aspect (`source_reason`) come from the
@@ -2610,9 +2606,9 @@ source by id (`startJob`'s `onRefused`).
 
 **A guess says it is one** (2026-10-05). `refine_supported` is the profile's
 guess before a load and the loaded class's answer after it, and the status
-now says which (`refine_settled`). Anima Turbo and NewBie are settled before a
-load too: their pipelines are this repo's own classes, for which
-`refine.sibling` answers None loaded or not (`model_defaults._OWN_PIPELINES`).
+says which (`refine_settled`). At the time Anima Turbo and NewBie resolved to
+`None` through `refine.sibling` before and after loading. The three measured
+Anima variants now have bounded app-owned extensions. [Anima Refine plan](maintainer/plan-anima-refine.md)
 The dialog that a refined record's Reuse opens on a checkpoint without a pass
 says "a load answers for certain" only while the answer is a guess; a final
 one reads as the card's refusal (`REFINE_NONE`). Anima with its model loaded
@@ -3260,22 +3256,20 @@ the chunk records `"mask_blend": "overlay"` so a later change of rule can be
 told apart, and the `content_hash` is the composite's. Whether the seam it
 can leave is worse than the round trip's colour shift is the card's to say.
 
-**SDXL and Z-Image first; FLUX.1, klein and Qwen-Image deferred.** The
-library exports a class for all five families, so a class is not the
-decision. `model_defaults.INPAINT_DEFERRED` names the three left off, and
-the backend refuses an inpaint on them even with the class installed:
-FLUX.1, because Krea dev already sits near the card's top at 1 MP and its
-class encodes the source a second time, so whether it spills is unmeasured
-and may need the crop from the start; klein, because its class conditions
-on the source as a reference on the sequence every step and takes one
+**SDXL and Z-Image were enabled first.** The library exported a class for
+all five families. FLUX.1 initially waited for a memory measurement because
+Krea dev already sat near the card's top at 1 MP and its class encodes the
+source a second time. The current `model_defaults.INPAINT_DEFERRED` names
+klein and Qwen-Image. Klein's class conditions on the source as a reference
+on the sequence every step and takes one
 `image_reference`, which needs its own refusal and its own schedule reading
-(`compute_empirical_mu`); Qwen-Image, because here it runs only as
-Nunchaku's transformer under WSL, under which the class has never run. SDXL
-has the most headroom and the plainest path (a 4-channel UNet, the per-step
+(`compute_empirical_mu`). Qwen-Image here uses a Nunchaku transformer under
+WSL, where the inpaint class remains unqualified. SDXL has the most
+headroom and the plainest path (a 4-channel UNet, the per-step
 blend, no sequence growth) and covers six checkpoints; Z-Image's class is
 the same shape over a flow schedule. The user widened the plan's "SDXL
-first" to both. The profile's `inpaint_supported` is True on those nine
-alone, and `tests/test_inpaint.py` fails if a profile enables a class that
+first" to both. The first release enabled `inpaint_supported` on those nine
+checkpoints. `tests/test_inpaint.py` fails if a profile enables a class that
 is missing or deferred, or if a catalogue class is left off without being
 in the list, so a deferral is always written down. Deferred profiles also
 carry `inpaint_deferred`, which only changes the sentence: "not enabled
@@ -3297,10 +3291,11 @@ reproduces, cancels and previews through the blend. `FluxPipeline` left
 and the lite and Nunchaku repos resolving to them) carry
 `inpaint_supported`, `inpaint_family: "FluxPipeline"` and their own start
 (below). Enabling FLUX.1 enables its outpaint too, which runs through the
-same class: its 16:9 canvas from a 1 MP source is 1.9 MP, near the top the
-card held for this family's refine pass, and not measured. The Nunchaku
-FLUX.1 repos answer True as the Nunchaku Z-Image ones do; the class ran
-over Krea dev's lite transformer on 2026-10-25 (the same section). The catch-all `flux`
+same class. A 16:9 canvas from a 1 MP source is 1.9 MP, near the upper range
+of this family's measured Refine passes. See the [Outpaint results](verified.md#outpaint)
+and [native dev/schnell follow-up](verified.md#flux-devschnell-refine-inpaint-and-outpaint).
+The Nunchaku FLUX.1 repos answer True as the Nunchaku Z-Image ones do.
+The class ran over Krea dev's lite transformer on 2026-10-25. The catch-all `flux`
 profile also takes hand-entered ids that load as another FLUX.1 class
 (Kontext loads as `FluxKontextPipeline`, beside which diffusers ships
 `FluxKontextInpaintPipeline`); while `FluxPipeline` was deferred the class
@@ -3376,17 +3371,14 @@ storage: a mask is the image's, and large.
 
 **The mask is part of the reproduction set wherever a source is.** The
 plan's main risk was an image that becomes unreproducible without saying
-so, so every place that carries a source carries the mask: `images.mask`
-through `_migrate`; `grid.mask_key` as `CellKey`'s fifth optional element
-(below); `completed_cells`; the job snapshot; bundles, whose manifest stays
-`version: 1` (the user's answer: an older build skips the `masks/` prefix
-and imports the images and their hashes, unable only to re-run them, where
-a bump would have made every newer bundle unreadable to it); reindex, from
-files, from the `--from` gallery and from the embedded copy, counting what
-it finds nowhere; Re-render, More seeds and Swap tags, which run over the
-same mask; the CLI's `--mask` and `--from-image`. Mass refine drops it: it
-makes the record itself the new source, and the mask belongs to the old
-source's pixels. A mask found nowhere keeps its hash on the row - it still
+so, so every place that carries a source also carries the mask. This includes
+`images.mask` through `_migrate`, `grid.mask_key` as `CellKey`'s fifth optional
+element, `completed_cells`, the job snapshot and bundles. Reindex reads masks
+from files, the `--from` gallery or the embedded copy, and counts what it cannot
+find. Re-render, More seeds and Swap tags run over the same mask. The CLI
+accepts `--mask` and carries the mask with `--from-image`. Mass refine drops
+the mask because it makes the result the new source. A mask found nowhere
+keeps its hash on the row - it still
 says what ran - and Re-render of it is refused naming the image, as Swap
 tags and More seeds report it per image (`mask_missing`, "the mask of #N is
 missing"). A bundle import looks for it in the result's own PNG before it
@@ -3399,6 +3391,10 @@ whole archive after writing it. `--from-image` carries the source and mask
 only where this gallery's row under the id has the pixel hash and size the
 PNG's `refine_source` names: an inpaint composites the source back, so the
 wrong source would be someone else's picture.
+
+A mask alone leaves the manifest version unchanged. An older v1 reader skips
+`masks/` and imports the images and their hashes, leaving it unable to replay
+those masked results. [Gallery bundle rules](rules.md#image-storage-and-gallery-bundles)
 
 **The sweep has three conditions because a mask is in no row while it is
 needed.** An uploaded mask waits unused while a dialog is open, and a queued
@@ -3503,11 +3499,10 @@ results, as the peak memory pair is: on the row (`mask_crop_box`) and in the
 chunk, never in a key. The crop is refused where it gains nothing (the box
 is the whole picture and no larger than the working size) and where a
 recorded region no longer matches what its mask gives under its rule, since
-a rerun would paint another region under the same key. Bundles stay
-`version: 1`, the outpaint's precedent: an older build, which knows neither
-the column nor the chunk key, can carry such rows only as ordinary inpaints
-of the same mask, and a newer one recovers the crop from the A1111 line
-where the mask proves its region.
+a rerun would paint another region under the same key. A crop alone leaves
+the manifest version unchanged. An older v1 reader can carry such rows as
+ordinary inpaints of the same mask. A newer one recovers the crop from the
+A1111 line where the mask proves its region. [Gallery bundle rules](rules.md#image-storage-and-gallery-bundles)
 A cropped cell is priced only from cropped rows of its tier.
 
 **What this pass leaves.** klein, Qwen-Image and FLUX.1 Fill [dev]
@@ -3519,8 +3514,9 @@ the masked-area crop is built (above); FLUX.1 was enabled 2026-10-19 (above);
 outpainting is built (below). Memory, time, determinism and what a strength
 keeps were measured 2026-10-17 on WAI, Animagine and Z-Anime (`verified.md`,
 Inpaint): an inpaint costs a refine pass of its size, and the library
-default is the right starting strength there. Z-Image Turbo, the
-undistilled Z-Image and the other SDXL profiles were not measured.
+default is the right starting strength there. The [October 20](verified.md#the-other-sdxl-profiles-and-the-undistilled-z-image-2026-10-20)
+and [October 24 follow-ups](verified.md#z-image-turbo-an-sdxl-lora-the-seam-by-number-2026-10-24)
+measured the other SDXL profiles, undistilled Z-Image and Z-Image Turbo.
 
 ## Outpainting
 
@@ -3617,7 +3613,8 @@ preview through the blend. FLUX.1's outpaint (enabled with its inpaint,
 2026-10-19) starts at the profile's 0.95 like its inpaint, carries the same
 note, and says "starts at N% noise" too. FLUX.1 Krea dev's outpaint was
 measured 2026-10-21 (`verified.md`, Outpaint): it joined cleanly at the
-default, and 32 stays the band; dev and schnell are unmeasured.
+default, and 32 stays the band. The [November 18 follow-up](verified.md#flux-devschnell-refine-inpaint-and-outpaint)
+measured the bounded native dev and schnell recipes.
 
 **Only the masked area reaches the outpaint unchanged.** The crop
 (Inpainting, above) boxes the server-built mask on the canvas - the new
@@ -3625,8 +3622,8 @@ border and the band - so a one-sided outpaint of a large picture denoises
 a strip at about 1 MP rather than the whole canvas. Its tick sits at the
 end of the band row, which already had room, since a row of its own would
 have made the dialog scroll at 1400x900; its box is dotted, as the band's
-edge is already dashed. The canvas guard stays at `refine_max_*`: raising
-it for a cropped outpaint waits on the card (`CARD#13`).
+edge is already dashed. The [November 18 masked-area follow-up](verified.md#masked-area-crop-follow-up)
+closed the bounded `CARD#13` comparison. The canvas guard stays at `refine_max_*`.
 
 ## CellKey and run_id
 

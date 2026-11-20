@@ -716,8 +716,9 @@ margin; 47.131 + 4 + 6 is 57.131 GiB before any separate browser allowance.
 Do not rewrite the actual runs' earlier admission settings as if they had
 already met that future margin.
 
-**7733f81's temporal branch remains unreached.** A second fresh diagnostic
-closed Custom dimensions natively after typing, without changing CSS.
+**7733f81's temporal branch stayed unreached on the real server.** A second
+fresh diagnostic closed Custom dimensions natively after typing, without
+changing CSS.
 At all twelve viewer-observed frames at 2560x1305 it recorded actual
 document height 1305, bar 0,
 root/body/stage gutter `auto` and beside false. The original setup observed
@@ -730,6 +731,25 @@ real loading/loaded consoles and their console-side results. API unload,
 process termination and browser automation do not stand in for those hands-on
 checks. `DEV#23` and `CARD#10` therefore remain open; the latter also keeps
 the explicit temporal-scrollbar coverage limit above.
+
+### Real scrollbar follow-up
+
+On November 20, the [`DEV#76` smoke](../../tools/smoke-batch-strip-scrollbar.json)
+observed the scrollbar appear and disappear on a fresh FLUX.1 Krea [dev] fake
+at 2560×1384. It rendered two batches of two 512-square images at eight steps.
+The scrollbar measured 0 → 15 → 0 px, tiles and Gallery head stayed fixed,
+and the Generate button kept its position. A 1500 px-high control failed the
+transition check. [Fake result](review-2026-11-20-todo.md#results-2026-11-20)
+
+Repeat the recipe on a guarded real server with a fresh scratch gallery.
+Start the layout check after the model is ready. Require no scrollbar before
+Generate, a positive width while live progress makes the page overflow,
+and zero width once progress closes. Verify that all four tiles land, the
+tile size and Gallery head stay fixed across the transition, and the page
+scroll position and Generate button stay in place. The older
+[`7733f81` pack](../../tools/card/card10-7733f81.json) logs scrollbar widths.
+Use the newer smoke's transition assertions to complete this part of
+`CARD#10`.
 
 
 ## WSL driver follow-up (2026-11-18)

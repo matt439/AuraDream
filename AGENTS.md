@@ -8,9 +8,9 @@ the sizing notes in `docs/design-notes.md` are written around. The catalogue
 in `backend/launch.py` lists the rest. With no saved or explicit checkpoint
 and no Hugging Face sign-in, a fresh visit suggests the open **Animagine
 XL 4.0**, matching the installer.
-Any text-to-image one runs unchanged -
-set `AURADREAM_MODEL_ID`, or choose in the browser's Models panel. The last,
-FLUX.1 Kontext [dev], only edits, and its loads are held (the edit gate below).
+Set `AURADREAM_MODEL_ID` or use the browser's Models panel to select a
+checkpoint. The last entry, FLUX.1 Kontext [dev], is edit-only and loads
+within the qualified envelope below.
 
 This file is the short version. Before changing an area, read its part of
 **`docs/rules.md`** (every rule in full, the module map, what each smoke
@@ -217,23 +217,25 @@ Reproduction and storage:
   `outpaint.mask` are frozen: a changed fill gets a new name.
 - Instruction edits retain a distinct `edit` spec and full original-RGB source
   proof through rows, PNGs, keys, reruns and recovery; unresolved sources keep
-  their intent and refuse replay. Edit bundles use v2; edit-free bundles stay
-  v1.
+  their intent and refuse replay. For manifest versions, see
+  [Image storage and gallery bundles](docs/rules.md#image-storage-and-gallery-bundles).
 - The one edit gate is the backend instance's `instruction_edit_qualified()`
   (literal `True` only), never a setting; `DiffusersBackend` returns the
   literal True (stage 4's release), every other gate the literal False.
-  `QUALIFIED_ENVELOPE` then decides loads and edits: the exact Kontext id,
-  fp8, model offload, CUDA, Windows, Eager, diffusers 0.42.1 (re-measured
-  2026-11-10, pixel-identical to the first-measured 0.40.0), and 1:1
-  sources at 512x512. The editor load holds open only for the exact id inside
-  the envelope (the pinned configs-then-weights loader); Qwen-Image-Edit is
-  always refused. Kontext is an edit-only catalogue entry, listed last.
+  `QUALIFIED_ENVELOPE` then decides loads and edits. The pinned
+  configs-then-weights loader admits the exact Kontext id with fp8, model
+  offload, Windows, `cuda` or `cuda:0`, Eager and diffusers 0.42.1
+  (re-measured 2026-11-10, pixel-identical to the first-measured 0.40.0).
+  Square edit sources render at a 512x512 working size. Qwen-Image-Edit is
+  always refused.
   Edits queue through `POST /api/instruction-edit` and More seeds (new seeds
   of the original source inside the envelope, its recorded proof checked
   first), and each cell's source is re-proved as it begins. Reuse opens the
   Edit by instruction dialog. Re-render refuses an edit with words naming
-  it; Generate and Finish stay held. The plan and the
-  carry/bundle checklists own the remaining integration and the card step.
+  it; Generate and Finish stay held. The 512x512 workflow passed real-server
+  and browser acceptance on 2026-11-18. The larger 1024x1024 recipe remains
+  held pending its own card trial.
+  [Acceptance and next recipe](docs/maintainer/plan-instruction-editing.md#card-acceptance-result-2026-11-18)
 
 Jobs:
 
@@ -274,8 +276,9 @@ Prompt analyser:
 
 Frontend:
 
-- No build step, no JS test suite: check `web/` in a real browser with the
-  fake server and `tools/browser.mjs`. Top-level bindings stay top-level.
+- The page has no build step. Run its classic-script source and behavior
+  checks through pytest (which invokes Node), and check browser behavior
+  with the fake server and `tools/browser.mjs`. Top-level bindings stay top-level.
 - CSS uses the `:root` tokens. Keep wide-tier layout rules in an
   `@media (min-width: 1800px)` block in the component's section. The compact
   desktop Gallery view and wrapping toolbars respond to the room available.
@@ -368,15 +371,15 @@ The pinned Pyright gate checks every Python source in `backend/` and
 `tools/`; missing tools and empty scope fail. Its wrapper uses installed
 Node and bundled checker files, without automatic updates or downloads.
 
-CI (`.github/workflows/ci.yml`, detail in `docs/rules.md` under Tests): ruff
-on Linux for every push and pull request. Documentation-only changes run
-just lint, without app/tokenizer installs; executable files under `docs/`
-and the prose tests read (this file, `docs/rules.md`, `docs/verified.md`)
-still get tests. Other changes, manual and weekly runs get the pinned type
-gate and `pytest -n auto --durations=25` (the 25 slowest tests) on Linux,
-and on Windows too for main (pull requests into it, pushes, by hand and
-weekly), split in five runners by `pytest --shard K/N`, each test under
-`--timeout=600`; five `browser` jobs run a fifth of the smoke table each on
+CI starts with Linux Ruff (`.github/workflows/ci.yml`, details under Tests
+in `docs/rules.md`). Documentation-only changes run
+just lint, without app/tokenizer installs. Executable files under `docs/`
+and the prose tests read (`AGENTS.md`, `CLAUDE.md`, `README.md`,
+`docs/rules.md`, `docs/verified.md`) still get tests. Full runs get
+`pytest -n auto --durations=25 --timeout=600` on one Linux runner. For main
+(PRs into it and runs on the branch), Windows runs too, in five shards
+(`pytest --shard K/5`). The pinned type gate runs once per OS, on Windows
+shard 1/5. Five `browser` jobs run a fifth of the smoke table each on
 Linux Chrome (`run_smoke.py --shard K/5 --jobs 2 --rerun-failed-alone`,
 balanced by `tools/run_smoke_costs.json`; fonts from `tools/smoke_fonts.py`;
 a smoke passing alone after failing still fails), printing their timings
@@ -394,10 +397,8 @@ run, and main's merge push skips when a passed pull request run tested the
 same tree. Its runners are
 slow and have no GPU driver: a test that races a clock (a time budget, a
 cell to skip or pause mid-run) needs seconds of margin, not milliseconds.
-`tools/fetch_tokenizers.py` fetches the real-tokenizer tests' files first,
-with the `HF_TOKEN` repository secret for the gated repos its list names
-(FLUX.1-Krea-dev, FLUX.1-Kontext-dev, Krea 2 Turbo, FLUX 3 [Klein] and
-Klein Base).
+`tools/fetch_tokenizers.py` fetches the files for `tests/test_prompt_encoding.py`'s
+`REAL` cases, with the `HF_TOKEN` repository secret for gated checkpoints.
 
 The UI is checked with smokes: start a fake server, then run the smoke.
 What each smoke covers is listed in `docs/rules.md` under Tests.
@@ -415,7 +416,9 @@ stop later steps when it fails. Async setup expressions must explicitly return
 true. Ordinary expectations keep aggregate diagnostics; fatal failure still
 uses the driver's graceful close/cleanup. See the full Tests rules.
 
-`run_smoke.py` reads the table below, so a new smoke needs only its row.
+Register each new smoke in the table below. Add its cost to
+`tools/run_smoke_costs.json` and describe its coverage under Tests in
+`docs/rules.md`.
 
 | Port | `--model` (default Krea 2 Turbo) | Smokes |
 |---|---|---|

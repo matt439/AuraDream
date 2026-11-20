@@ -7,6 +7,8 @@ model-offload/Z-Image-family masked-area crops are measured in
 These existing-recipe trials do not choose a new preferred strength or
 qualify Nunchaku. Its independent [WSL dev/schnell follow-up](../verified.md#flux1-dev-and-schnell-under-wsl-production-http-2026-11-18)
 measured the remaining `CARD#3` slices. The dated historical plan below is retained.
+Masks and masked-area crops use the version selected by the
+[gallery bundle rules](../rules.md#image-storage-and-gallery-bundles).
 
 **Status, 2026-10-13: phases 1 and 2 are built** on `feat-inpainting`, for
 the six SDXL checkpoints and Z-Image Turbo, Z-Image and Z-Anime; phase 0
@@ -25,7 +27,7 @@ at the end:
    pipelines, and the backend refuses an inpaint there though the class
    exists. FLUX.1 was enabled 2026-10-19, starting at 0.95 (phase 3).
 4. Always composite; `"mask_blend": "overlay"` in the chunk, no option.
-5. The manifest stays `version: 1`.
+5. Mask carry shipped in manifest version 1.
 6. Swept with Empty bin, a permanent delete and `clear`, once no row (live
    or binned) and no live job names the mask and it is past the settle
    window.
@@ -830,7 +832,7 @@ rule (Re-render, Swap tags and More seeds, status `mask_crop`; the CLI's
 
 *Carries.* Re-render, Swap tags, More seeds and `--from-image` carry it
 with the mask; Mass refine, Then refine and Load settings from PNG drop it.
-Bundles stay `version: 1`, as the outpaint did: a merge checks the region
+Crop carry also shipped in manifest version 1. A merge checks the region
 against the mask, recomputes a missing one, and recovers a crop an older
 build stripped from the A1111 line only where the mask is there to
 recompute its region (`mask_crops_recovered`); reindex does the same,

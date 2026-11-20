@@ -7,16 +7,13 @@ The policies below are implemented with synthetic storage/bundle/reindex
 fixtures. No live gallery, credential store, model or GPU was used.
 Validation belongs to the feature plan.
 
-**Stage 4, 2026-10-30.** Stage 4 changed no bundle, archive or reindex
-code, and this contract is unchanged. Its release (on main
-since PR #17, 2026-10-30; the plan's
-[card acceptance step](plan-instruction-editing.md#card-acceptance-step)
-is still to run) opens editor execution on the real server only inside the measured
-envelope. An imported edit replays only through More seeds, and only once
-its source is proven and live here, the source is 1:1 and the loader is
-inside that envelope; a `source: null` edit stays unreplayable. The v1/v2
-rule, the omission counts and the merge proofs below still decide
-portability, and none of them grants runtime availability.
+**Released recipe.** Stage 4 opened editor execution inside the measured
+envelope on October 30 (PR #17). Its [real-server and browser acceptance](plan-instruction-editing.md#card-acceptance-result-2026-11-18)
+passed on November 18. Imported edits can replay through More seeds when the
+source is proven, live and square, and the loader is inside the measured
+envelope. The released recipe processes the source at 512x512. An edit with
+`source: null` remains unreplayable. The archive gate, omission counts and
+merge proofs below govern portability.
 
 ## Two source representations
 
@@ -81,18 +78,19 @@ source-binned presentation is derived state, not a replacement recipe.
 
 Keep the existing `format: "auradream-gallery"` identifier (a bundle
 written before the rename says `local-diffusion-gallery` and imports
-unchanged). An export
-whose selected rows contain any non-null stored edit uses manifest
-`version: 2`; an export without edit intent keeps `version: 1`. Column
-presence alone does not require v2. Whole-gallery, selected, manual and
-managed exports, including password-protected ones, obey the same rule.
+unchanged). The [gallery bundle rules](../rules.md#image-storage-and-gallery-bundles)
+own version selection. Edit intent requires at least v2. An archive with both
+an edit and a tracked Tiled Refine result uses v3 and carries both intents.
+Column presence alone does not require v2. The same rule applies to
+whole-gallery, selected, manual, managed and password-protected exports.
 
-This version change is required because the existing reader accepts only
-v1 and ignores unfamiliar row/PNG fields. An optional capability field in
-a v1 manifest would let that reader strip edit intent. V2 makes that reader
-refuse the archive before staging its database or installing images.
+The version change protected against a legacy reader that accepted only v1
+and ignored unfamiliar row/PNG fields. An optional capability field in a v1
+manifest would let that reader strip edit intent. An unsupported manifest
+version makes that reader refuse before staging the database or installing images.
 
-The new reader accepts only strict integer versions 1 and 2. It refuses:
+The reader accepts the supported strict integer versions. It refuses the
+following edit-specific violations.
 
 - Any v1 archive carrying non-null edit intent in either its database rows
   or tracked PNG metadata, including a PNG whose database lacks the column.
@@ -105,8 +103,8 @@ The new reader accepts only strict integer versions 1 and 2. It refuses:
 These checks apply during export's existing read-back and every import
 inspection path, including equal pixel-deciding chunks and a known file
 whose pixels would otherwise avoid decoding. Check a retained destination
-PNG against its own row before claiming it is present. A downgrade from
-v2 to v1 must fail even when every member checksum was recomputed.
+PNG against its own row before claiming it is present. A downgrade to v1
+must fail even when every member checksum was recomputed.
 
 Version validation and edit checks preserve the existing one-read archive
 verification. Do not add a second full PNG decode or full archive pass.
@@ -173,9 +171,10 @@ They cover the matrix below without granting editor/runtime qualification.
 
 | Case | Required result |
 |---|---|
-| Edit-free legacy and current exports, plain and encrypted | Manifest remains v1; existing imports and legacy run-id fixtures remain unchanged. |
-| Whole-gallery and selected edit exports, plain and encrypted | Manifest is v2; a v1-only reader refuses before staging/installing members. |
-| Managed edit export | V2 manifest is included in capacity estimation, receipt proof and the existing verifying read-back. |
+| Exports without edit or Tiled Refine intent, plain and encrypted | Manifest remains v1. Existing imports and legacy run-id fixtures remain unchanged. |
+| Whole-gallery and selected edit exports without Tiled Refine, plain and encrypted | Manifest is v2. A v1-only reader refuses before staging or installing members. |
+| Managed edit export without Tiled Refine | V2 manifest is included in capacity estimation, receipt proof and the existing verifying read-back. |
+| An archive with edit and Tiled Refine results | Manifest is v3. The archive carries both intents and verifies their source proofs (`test_tiled_refine_bundles.py`). |
 | Full source and child round trip into a gallery with occupied ids | Both records and PNGs carry the correctly remapped source; the origin gallery stays unchanged and destination source pixels are unchanged by metadata rewriting. |
 | Child-only selection or an already unresolved edit | Omission count is honest; source remains null with recipe/instruction/descriptor intact; replay refuses. |
 | Destination has an unrelated row at the old source id | That row is never used as the source. |
@@ -194,8 +193,8 @@ The archive gate belongs in `bundle_archive._verify_archive`; the writer
 chooses the version in `bundles.export_bundle`. `bundle_images` validates
 row/PNG identity and rewrites complete metadata. `bundles._links_outside`
 and the merge's complete id map handle selection counts and relinking.
-`bundle_capacity.managed_capacity` already measures the supplied manifest
-JSON; its coverage must include v2 rather than assume a fixed manifest.
+`bundle_capacity.managed_capacity` measures the supplied manifest JSON for
+the selected archive version.
 
 Extend the existing execution-metadata presence/conflict cases, provenance
 reindex cases, selected bundle cases, password/managed export cases and
