@@ -5,6 +5,10 @@
 // -------------------------------------------------------------------gallery
 
 function resetGallery() {
+  // The replacement page reads the current search, including a draft whose
+  // debounce has not fired yet (Starred or a saved filter can commit it now).
+  clearTimeout(searchTimer);
+  searchTimer = null;
   // Anything already in flight was fetched under the old filters and against
   // the grid this is about to empty; the token tells it to drop itself.
   galleryEpoch += 1;
@@ -43,7 +47,6 @@ function resetGallery() {
 // `bin` shows the recycle bin in the gallery's place, whose own view has no
 // Runs list to load.
 function applyGalleryFilter({ query, favorites, all_models, bin = false }) {
-  clearTimeout(searchTimer);
   outsideView = null;
   if (!bin) leaveBin();
   sheetReturn = null;

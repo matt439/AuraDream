@@ -7978,6 +7978,46 @@ the filter stays the same ("5 new images outside this view"), with Show all,
 which empties the search, unticks Starred and closes the sheet
 (`noteOutsideView`, `showAllImages`).
 
+### Searching while a job appends images (2026-11-20)
+
+A fresh 5,000-image fake gallery exercised prompt search, Starred, a run sheet,
+picks across two filters and a real More seeds submission. Edge drove each
+action while a separate 64-image Generate job saved outputs. Each version ran
+six fresh browser/server pairs with three workflows per pair. Every submission
+produced four consecutive seeds on each of its two selected runs.
+
+In three of the 18 original cross-filter searches, a status poll asked for the
+newly typed query while the old query's cards were still on screen. Those
+unnecessary gallery requests took 26 to 57 ms. A known-head catch-up now yields to
+the pending search, whose normal first page includes newly saved images.
+The repeated campaign saw zero such requests. One later catch-up saw another
+server head after the new query had loaded.
+
+| Time from entering the second prompt filter to a correct paint opportunity | Before p50 / p95 | After p50 / p95 |
+|---|---|---|
+| First workflow in a fresh session | 384 / 420 ms | 367 / 383 ms |
+| Repeated workflow in the same session | 379 / 452 ms | 359 / 366 ms |
+
+The 250 ms input debounce is included. The browser waited for the expected
+card IDs, selection count and loaded visible thumbnails, then crossed two
+animation frames. Latency also varied on unchanged routes between campaigns.
+The [measurement receipt](measurements/gallery-workflow-5000-2026-11-20.json)
+contains every action's browser and API distributions, duplicate request
+timings, background write counts and storage query plans. The earlier
+[append-all experiment](measurements/gallery-5000-2026-11-11.json) measures
+loading every page and scrolling the resulting 5,000-card DOM.
+
+Run the benchmark from the repository root with a new scratch output directory.
+It plants the PNGs and WebPs, runs the fake servers and retains raw results in
+each session directory. To repeat against another revision, pass the first
+run's `source` directory as `--fixture`.
+
+```powershell
+uv run --group dev python -m tools.gallery_workflow_benchmark "$env:TEMP/auradream-gallery-before"
+uv run --group dev python -m tools.gallery_workflow_benchmark "$env:TEMP/auradream-gallery-after" --fixture "$env:TEMP/auradream-gallery-before/source"
+uv run --group dev python -m tools.gallery_workflow_sql "$env:TEMP/auradream-gallery-before/source"
+```
+
 ## The gallery's cards
 
 **Each tool names itself, and the row fits.** The tools were six glyphs named

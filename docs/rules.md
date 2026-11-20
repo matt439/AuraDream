@@ -3489,7 +3489,10 @@ measured on the card and when.
   catch-up whose `newest` (`upTo`) the grid has read already
   (`galleryReadHead`, the newest id of this epoch's first page or a joined
   head page) fetches and resets nothing - a late status after a reset over
-  those images; one that finds a reset's page on its way waits for it
+  those images. A known-head catch-up also yields to the pending 250 ms
+  search reset: a draft query must not be joined to the previous query's
+  cards. The new first page reads the appended images under its own filter.
+  A catch-up that finds a reset's page on its way waits for it
   first, never resetting again over the line that reset's caller wrote
   (Delete unstarred's outcome or its 409). Where even that page does not
   join up, `prependFinished` resets the gallery only once the pointer has
