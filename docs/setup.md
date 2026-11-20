@@ -213,14 +213,15 @@ uv sync
 index, so it downloads a few GB. Check that torch sees the card:
 
 ```powershell
-uv run python -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0))"
+uv run python -c "import torch; ok = torch.cuda.is_available(); print(ok, torch.cuda.get_device_name(0) if ok else '')"
 ```
 
-It should print `True` and your GPU's name. `False` means the driver is too
-old for CUDA 13 (step 1). A card older than the list above can still print
-`True` and its name, with a warning that its CUDA capability "is not
-compatible with the current PyTorch installation": that warning means the
-card is too old ([Before you start](#before-you-start)).
+It should print `True` and your GPU's name. `False` means this PyTorch
+installation cannot use a CUDA GPU. Run
+`uv run python -m backend.doctor` to check the driver, PyTorch build and
+card. A card older than the list above can still print `True` and its
+name alongside a warning about its CUDA capability. The doctor checks the
+card's generation too. [GPU requirements](#before-you-start)
 
 ## 5. Pick a first checkpoint
 
@@ -309,7 +310,7 @@ default, which needs a sign-in, and its note says so. Nothing is saved
 until you press **Switch & load** or **Apply & save**; **Revert** puts the
 default back, and any other row can be chosen.
 
-The first load downloads the weights: Animagine is about 6.5 GB; FLUX.1
+The first load downloads any missing weights. Animagine is about 6.5 GB. FLUX.1
 Krea [dev] is about 32 GiB, which takes about 45 minutes at 100 Mbit/s.
 Scale that for your connection. Some checkpoints then convert
 on the CPU, which adds minutes more. The terminal shows the progress. Later
@@ -350,7 +351,7 @@ them from reaching each other. Do not forward AuraDream's port on your router.
    [Environment]::SetEnvironmentVariable('AURADREAM_ALLOWED_HOSTS', '127.0.0.1,localhost,192.168.1.23', 'User')
    ```
 
-   Add a passcode of at least eight characters through **Start > Edit
+   Add a passcode of 8–256 characters through **Start > Edit
    environment variables for your account > User variables > New**:
    name `AURADREAM_PASSCODE`, value a passcode you use only here. This keeps
    it out of PowerShell's command history. The variable stores it in plain
@@ -396,7 +397,7 @@ $env:AURADREAM_HOST = '127.0.0.1'
 $env:AURADREAM_PORT = '7860'
 $env:AURADREAM_ALLOWED_HOSTS = '127.0.0.1,localhost,192.168.1.20'
 $env:AURADREAM_ALLOWED_ORIGINS = 'https://192.168.1.20'
-$env:AURADREAM_PASSCODE = Read-Host 'Choose a separate passcode (at least 8 characters)'
+$env:AURADREAM_PASSCODE = Read-Host 'Choose a separate passcode (8–256 characters)'
 uv run python -m backend.main
 ```
 
@@ -504,12 +505,13 @@ the server is stopped loses nothing else.
   again. [Step 6](#6-sign-in-to-hugging-face-gated-checkpoints-only) covers
   browser sign-in and the hidden-input token fallback.
 - **`torch.cuda.is_available()` is `False`, or a CUDA error at load**:
-  update the NVIDIA driver (step 1), and check the card's generation
-  ([Before you start](#before-you-start)). Do not install a separate CUDA
-  Toolkit to fix it.
+  check the doctor's **GPU** and **PyTorch** rows first. They check the
+  CUDA build, the driver's ability to use the card and the card's
+  generation. The CUDA runtime comes with PyTorch.
 - **The machine slows to a crawl or the load fails partway on a FLUX-size
-  checkpoint**: it is out of RAM. Close other large programs and try again,
-  or start with an SDXL checkpoint (step 5).
+  checkpoint**: check the server message and the doctor's **RAM** row.
+  If system RAM or commit headroom is low, close other large programs or
+  start with an SDXL checkpoint (step 5).
 - **Out of GPU memory while generating**: use a smaller size or batch, or
   set offload to **sequential** under **Models** (slower, less VRAM).
 - **"uv: command not found" / not recognised**: open a new PowerShell after
@@ -779,7 +781,7 @@ nothing there). It holds:
   keep-awake settings and `AURADREAM_PASSCODE`.
 
 To have the server ask for a passcode, uncomment `AURADREAM_PASSCODE=` in
-that file, give it at least 8 characters, and restart with
+that file, give it 8–256 characters, and restart with
 `bash linux/control.sh restart`. Changing a passcode that is already asked
 needs `restart --force`: the scripts read the new one from the file while
 the server still asks for the old one, so the ordinary busy check is
@@ -787,10 +789,11 @@ refused (`--force` interrupts any work in progress). A file
 written before this setting existed has no such line: add it by hand. In
 this file the passcode may hold only letters, digits and `. _ - + @ % : , /`
 (no spaces or quotes): systemd and the scripts read anything else
-differently, and the scripts stop rather than guess. Every device then
-signs in once at the page and stays signed in for thirty days after it
-was last used, an open tab included; `control.sh`, `update.sh` and `auradream-server` send the
-passcode from the file themselves.
+differently, and the scripts stop rather than guess. Opening the page or
+using an open tab refreshes the thirty-day sign-in when its cookie is over
+a day old. An idle tab's timed checks leave expiry as it was. The
+`control.sh`, `update.sh` and `auradream-server` commands send the passcode
+from the file themselves.
 
 At the end the script prints the addresses to open from another PC, such as
 `http://my-box:7860/` or `http://192.168.1.20:7860/`. A `.local` name needs
@@ -810,7 +813,7 @@ know what it is worth, since the service speaks plain http:
 - Do not reuse a password from anywhere else: it sits in plain text in the
   environment file and the process's environment.
 - There is one passcode and no accounts. Changing it and restarting signs
-  every device out; nothing else does.
+  every device out.
 
 Either way, only do this on a network you trust.
 
@@ -907,6 +910,9 @@ this script only:
   `~/.ssh/config` works too.
 - `AURADREAM_SERVER_DIR`: the checkout on the server (default `~/AuraDream`).
 - `AURADREAM_SERVER_PORT`: the server's port (default 7860), for `open`.
+- `AURADREAM_SERVER_URL` (optional): the exact HTTP or HTTPS base address
+  for `open`, including the port if needed. For a proxy, use the address
+  a browser opens, such as `https://dream.home.arpa/`.
 - `AURADREAM_SERVER_WAKE` (optional): how to wake a sleeping server, either
   a URL that is POSTed (a wake gate of your own on the network, for example
   `http://192.168.1.5:8650/__wake`) or the server's MAC address
@@ -957,9 +963,11 @@ weight-only quantization keeps the weights in fp8 and computes in bf16, so
 it needs no fp8 tensor cores. The FLUX-size checkpoints (FLUX.1, Krea 2,
 klein 9B, Qwen-Image) are not expected to fit 8 GB at fp8 with model
 offload (not measured), since model offload puts a whole transformer on the
-card: the default peaked at 12.0 GiB on the 5080.
-Sequential offload has not been tried on 8 GB, and the page gives these no
-fit warning yet. Nunchaku 4-bit (`AURADREAM_QUANT=nunchaku`)
+card. The default peaked at 12.0 GiB on the 5080. Models shows a fit
+warning when the measured or estimated requirement exceeds the card's
+total memory.
+Sequential offload is still unmeasured on the 8 GB card. Nunchaku 4-bit
+(`AURADREAM_QUANT=nunchaku`)
 needs the `int4` repos below an RTX 50 card (the doctor names them); the
 `nvfp4` ones need compute capability 10.0 or higher. Nunchaku on an RTX 30
 card has not been measured.

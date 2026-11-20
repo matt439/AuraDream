@@ -2196,9 +2196,9 @@ measured on the card and when.
   Kontext id, then `loader_refusal` over the backend's `LoaderChoice`
   (selection quantization, offload, device and loader recipe, plus the
   instance's `instruction_edit_host()`: `sys.platform` and the installed
-  diffusers version). The source's aspect is the caller's
-  (`geometry_refusal`, `bound_geometry_refusal`): only 1:1, at 512x512. The
-  callers are the preview and the submit route, `jobs.submit_cells`, `_run`,
+  diffusers version). Callers check that the original source is square and
+  renders at a 512x512 working size (`geometry_refusal`, `bound_geometry_refusal`).
+  The callers are the preview and the submit route, `jobs.submit_cells`, `_run`,
   `_recheck_edit` and `planned_keys`, `describe()` (`instruction_edit_reason`),
   `submission.unusable_input` and Finish (through `replay_held_reason`). A
   qualified answer without a `LoaderChoice` is refused. The envelope never
@@ -3012,9 +3012,9 @@ measured on the card and when.
   mask with its source; Mass refine drops it, since the record is the new
   source. Load settings from PNG carries no mask, as it carries no source.
 - Masks travel with their images. A bundle carries `masks/<hash>.png` as
-  its own top-level prefix (manifest still `version: 1`; an older build
-  skips it) and the `masks` table in its database; a selection carries only
-  its rows' masks. The import holds each mask member to its name
+  its own top-level prefix (older readers skip it) and the `masks` table in
+  its database. A selection carries only its rows' masks. The import holds
+  each mask member to its name
   (`bundle_images._inspect_mask`: `L`, `storage.mask_hash` equal to the
   name, the size its row records), merges rows by hash (`bundles._merge_masks`;
   one hash at another size is refused), installs absent files, and counts a
@@ -3135,7 +3135,7 @@ measured on the card and when.
   (`submission.mismatched_mask_crops`: Re-render's 422, Swap tags' and More
   seeds' status, `--from-image`). Re-render, Swap tags, More seeds and
   `--from-image` carry it with the mask; Mass refine, Then refine and Load
-  settings from PNG drop it. Bundles stay `version: 1`: `_validate_row`
+  settings from PNG drop it. On bundle import, `_validate_row`
   refuses a broken spec or box, the merge refuses a region its mask does
   not give, a missing
   region recomputed, a stripped crop recovered from the A1111 line only
@@ -3694,9 +3694,10 @@ measured on the card and when.
   chunk's: a PNG-only reindex, and an older build importing a newer bundle,
   bring binned images back live, as a PNG-only reindex loses a star;
   `reindex --database` carries `binned_at`.
-- An archive carrying a tracked Tiled Refine result uses manifest version 3.
-  Edit-only archives use version 2 and archives carrying neither recipe use
-  version 1. Every tracked tiled result needs matching SQL and PNG intent.
+- Any tracked Tiled Refine result makes an export version 3. Otherwise,
+  instruction edits make it version 2 and the rest use version 1. Import
+  requires Tiled Refine in version 3 and refuses it in versions 1 and 2.
+  Version 1 also refuses edits. Tiled results need matching SQL and PNG intent.
   Merge remaps its source only after the included root matches the filename,
   original dimensions, full RGB digest and the digest of the frozen Lanczos
   canvas. An existing destination root must also match its gallery row.
@@ -10080,12 +10081,12 @@ from Edge's. Windows stays where the smokes are written. `tests/conftest.py` mak
 `torch.cuda.is_current_stream_capturing` answer False on a driverless Windows
 machine, where torch's native call crashes the worker. It runs the suite with
 `pytest -n auto` (pytest-xdist, one worker per core). Before it,
-`tools/fetch_tokenizers.py` caches the tokenizer files (never weights) that
-the real-tokenizer tests in `test_prompt_encoding.py` and
-`test_critic_tokens.py` read, so those tests run instead of skipping. The
-`HF_TOKEN` repository secret covers the gated FLUX.1-Krea-dev and Krea 2
-Turbo. Each tokenizer is tried three times; with `HF_TOKEN` set, one that
-still will not come down fails the step (`::error::`), so a revoked token or a
+`tools/fetch_tokenizers.py` caches only the tokenizer files used by the
+real-tokenizer tests in `test_prompt_encoding.py` and `test_critic_tokens.py`.
+The fetcher derives its checkpoint list from `tests/test_prompt_encoding.py`'s
+`REAL` cases. The `HF_TOKEN` repository secret supplies access for gated
+checkpoints in that list. Each tokenizer gets three attempts. With `HF_TOKEN`
+set, a failed download fails the step (`::error::`), so a revoked token or a
 Hub outage never shows as a green run with those tests skipped, and the
 tokenizer cache, saved only after a passing job, never keeps a partial set.
 Without it, as on forks' pull requests, those warn and skip
@@ -12111,9 +12112,9 @@ sigma and the preview at the working size; Z-Image's preprocess at the
 working size; `last_mask_crop()`; the fake cropping by the real rule),
 `tests/test_mask_crop_storage.py` (the column, row, chunk and A1111 line;
 both codecs; `index_file`; both reindex paths: recomputed, proved,
-mismatched, malformed, recovered; bundles: carried as v1, refusals, a
-mismatch refused, recomputed, recovered; the reruns' carries and drops;
-search, keep rates and tier pricing; the job recording the backend's
+mismatched, malformed, recovered; version 1 bundle fixtures: crop carry,
+mismatch and malformed crop refusals, recomputation and recovery; the reruns'
+carries and drops; search, keep rates and tier pricing; the job recording the backend's
 region) and `tests/test_mask_crop_refusals.py` (the refusals' exact words
 and status; the preview's region; a mismatched recorded region refused by
 Re-render, Swap tags and More seeds; the CLI's `--mask-crop`, its

@@ -7,6 +7,7 @@ behaviour can only be confirmed on the maintainer's card.
 
 Before changing an area, read:
 
+- [TODO.md](TODO.md#now) for current work and the owner of each open item.
 - [AGENTS.md](AGENTS.md): the short version of the rules that break things
   silently, the layout, and how to run the tests and browser smokes. It is
   written for humans and coding agents alike.

@@ -5,15 +5,15 @@ The real-server/page acceptance and a separate fresh-process replay passed
 on the frozen replacement fixture, with the first controller's unload
 observation gap retained explicitly. The [result](#card-acceptance-result-2026-11-18)
 and [receipt](instruction-acceptance-2026-11-18.json) record that scope.
-`INP#13` has a [frozen recipe and trial protocol](#second-kontext-recipe-and-trial-inp13).
-The recipe-aware CPU contract is built. The public envelope still admits
-the released 512-square recipe.
+The November 20 update for `INP#13` records passing browser rehearsals against
+the fake server and a held 5080 preflight. Public execution stays within the
+released 512-square recipe. [Larger square recipe and non-square trial protocol](#second-kontext-recipe-and-trial-inp13)
 
-What the branch does on the real server: `DiffusersBackend`'s gate is the
-literal True (slice 7), and the measured envelope (`QUALIFIED_ENVELOPE`: the
-exact Kontext id, fp8, model offload, Windows, Eager, diffusers 0.42.1, 1:1
-sources at 512x512) holds everything else in words. Stage 3 measured it on
-diffusers 0.40.0; after the 0.42.1 bump (`GEN#45`, 2026-11-09) Kontext was
+`DiffusersBackend` opens the gate with literal True (slice 7).
+`QUALIFIED_ENVELOPE` limits it to the exact Kontext id, fp8, model offload,
+Windows CUDA 0, Eager, diffusers 0.42.1 and square sources processed at
+512x512. Stage 3 measured it on diffusers 0.40.0. After the 0.42.1 bump
+(`GEN#45`, 2026-11-09) Kontext was
 held until the card re-measured it on 0.42.1 on 2026-11-10, pixel-identical
 to 0.40.0 ([results](../verified.md#flux1-kontext-dev-on-diffusers-0421-2026-11-10)),
 and the envelope moved to 0.42.1. FLUX.1 Kontext [dev] is
@@ -238,9 +238,9 @@ instruction and descriptor in SQL and PNG metadata, and refuse replay until
 source identity is proven. Converting a stored spec to a request only checks
 source presence; it is not that proof. The descriptor never resolves a path.
 
-Edit-containing bundles use manifest version 2; edit-free exports stay
-at version 1. A new reader must reject a version-1 archive that carries edit
-intent in either SQL or PNG metadata. The [bundle contract](instruction-edit-bundles.md)
+The [gallery bundle rules](../rules.md#image-storage-and-gallery-bundles)
+own manifest version selection. A reader rejects a version-1 archive that
+carries edit intent in either SQL or PNG metadata. The [bundle contract](instruction-edit-bundles.md)
 freezes omission counting, complete id-map/provenance checks and unresolved
 recovery; the gate and source-proof remapping are now implemented.
 
@@ -293,9 +293,10 @@ distinguish it. Reuse keeps the composer draft and Undo intact and stays held
 across capability refreshes. The Node VM hold checks do not boot the page or
 qualify an actual browser.
 
-Bundle v2 handles whole/selected, plain/password and managed exports while
-edit-free archives remain v1. SQL/PNG agreement and downgrade refusal cover fast
-paths too. Import/reindex use full RGB proof and complete id maps; missing,
+The initial bundle implementation added v2 for whole/selected, plain/password
+and managed exports carrying edits. The [bundle contract](instruction-edit-bundles.md#archive-version-gate)
+links to current precedence. SQL/PNG agreement and downgrade refusal cover
+fast paths too. Import/reindex use full RGB proof and complete id maps; missing,
 forged, cyclic or omitted links retain unresolved intent. Reindex dry runs stay
 nonwriting; `unresolved_edits` counts recovery without a proven local source.
 
@@ -360,8 +361,9 @@ edit key, and replay must refuse a mismatch against its frozen proof.
 `prompt` already keys the instruction. Preserve seed last and
 the existing shape/execution conventions. Compact absent edit data so every
 legacy run id and duplicate/resume identity remains unchanged. Test distinct
-sources and instructions separately; edits cannot count as ordinary renders
-or Refine results, and their estimates require matching edit history.
+sources and instructions separately. Reports distinguish edit history from
+ordinary render and Refine history. The current estimator omits all edit
+cells, including More seeds of an edit.
 
 Provenance must survive every path:
 
@@ -691,8 +693,9 @@ cache `FluxKontextPipeline.download` left (no root single file);
 `model_benchmarks` retains the trial's 26-29 s edit. Slice 6 lists it.
 
 Its `pixels` are the span of BFL's example outputs (1.04-1.06 MP, the word
-`example`), not 512x512: no BFL page names 512x512, and the size prose and
-the compact facts say that only square sources at 512x512 are qualified.
+`example`). BFL's examples describe author outputs. The size prose and
+compact facts give AuraDream's qualified recipe, which processes square
+sources at 512x512.
 
 **Slice 6 (built): the catalogue entry, shown as held.** `launch.CHECKPOINTS`
 ends on `Checkpoint("FLUX.1 Kontext [dev]", KONTEXT_V1.model_id,
@@ -723,8 +726,8 @@ release is awaited. `describe()` already reported an edit supported only
 where `instruction_edit_refusal` is None; on the loaded editor its refine,
 inpaint and reference flags stay False. So on Windows with fp8 and model
 offload the editor switches, loads through the pinned loader, previews and
-queues a 1:1 source at 512x512; int8, BF16, sequential or no offload, WSL,
-another diffusers and every loader recipe are refused before `resolve_model`
+queues a square source for processing at 512x512. Int8, BF16, sequential or
+no offload, WSL, another diffusers and every loader recipe are refused before `resolve_model`
 in their own words, and a 3:2 source is held. `test_instruction_edit_release.py`
 drives the real class with only the host (or the synthetic load's loader
 facts) reported as the card's. The tests that assumed the real gate False now
@@ -753,9 +756,8 @@ whole (Unpick, or `edit:no`). Finish stays held; Swap tags keeps its own
 refusal; Then refine, grids and Mass refine are unchanged. Run ids, CellKeys
 and the verdict tuple keyed by `edit` are unchanged. The smoke runs More
 seeds x2 on an edit (two more edits of #1, seeds 8 and 9, same proof) and
-shows Re-render's reason. Its review: More seeds' preview leaves an edit
-batch's time out (`grid._cell_ms` prices no edit cell), rather than price
-it from direct renders at that size.
+shows Re-render's reason. More seeds' preview provides no estimate for an
+edit batch (`gallery_reports._cell_ms`).
 
 **Slice 9 (built): page holds and the draft across the switch.** The server
 still decides every hold; the page says them where they apply.
@@ -934,11 +936,10 @@ own outputs for replay and deduplication.
    [carry inventory](instruction-edit-carry.md) and
    [bundle contract](instruction-edit-bundles.md). Require SQL/PNG recipe
    agreement. Preserve unresolved intent with `source: null`, and refuse
-   replay until it has a proven local source. V2 still identifies
-   edit-containing bundles, including mixed recipes. Builds that know
-   only `kontext-v1` refuse the unfamiliar recipe by strict validation.
-   Edit-free bundles stay v1. Keep Finish, Re-render, Generate and PNG
-   settings on their existing edit refusal paths.
+   replay until it has a proven local source. The [bundle version gate](instruction-edit-bundles.md#archive-version-gate)
+   applies to both Kontext recipes. Builds that know only `kontext-v1`
+   refuse the unfamiliar recipe by strict validation. Keep Finish, Re-render,
+   Generate and PNG settings on their existing edit refusal paths.
 4. **Queue rehearsal passed.** A test-only allowlist ran all eight geometries
    on one fake load. The 512-square and six other `kontext-v1` submissions
    went through HTTP, and the bound larger candidate used the ordinary job

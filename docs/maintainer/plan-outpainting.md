@@ -5,6 +5,8 @@ outpaints and source/result seam numbers are recorded in
 [verified.md](../verified.md#windows-follow-up-measurements-2026-11-18).
 Visible fixture-specific joins/ghosting remain; this is no clean-seam or
 new preferred-band claim. Historical plan and decisions below are retained.
+Outpaint rows use the version selected by the
+[gallery bundle rules](../rules.md#image-storage-and-gallery-bundles).
 
 **Status, 2026-10-13: phases 1 (backend) and 2 (the dialog) are built on
 `feat-outpainting`, and a review of the build fixed on the same branch
@@ -583,8 +585,8 @@ Every caller passes both:
   (`bundles._embedded_member`) has an outpaint's mask, the import rebuilds
   it from the spec and the row's size and installs it only if its hash is
   the row's; it counts `outpaint_masks_rebuilt`, and a mismatch keeps the
-  row's hash and counts in `masks_missing` as today. The manifest stays
-  `version: 1`.
+  row's hash and counts in `masks_missing` as today. Outpaint carry shipped
+  in manifest version 1.
 - **The column** travels in the database (`_COLUMNS`); the merge's id remap
   touches only `refine`, since the spec holds no id.
 - **The chunk.** `bundle_images._metadata` (lines 186-210) rebuilds the
