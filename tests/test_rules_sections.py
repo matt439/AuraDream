@@ -27,9 +27,7 @@ LIMIT = 350
 # lets the section grow back. One that has to grow is split under ####
 # headings by topic (move whole bullets; never reword a rule), and its entry
 # goes when it fits the limit.
-LONGER = {
-    "### Jobs": 684,
-}
+LONGER: dict[str, int] = {}
 
 # Anchors into rules.md from documents whose changes do not run the tests
 # (tools/ci_changes.py: only the tested prose does): README's Module map is

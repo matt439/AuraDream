@@ -24,7 +24,12 @@ if (-not $uv) {
     exit 1
 }
 $rc = 1
-Push-Location (Join-Path $PSScriptRoot '..')
+try {
+    Push-Location -LiteralPath (Join-Path $PSScriptRoot '..') -ErrorAction Stop
+} catch {
+    Write-Error $_ -ErrorAction Continue
+    exit 1
+}
 try {
     & $uv run python -m backend.main @args
     # A run that never set an exit code still counts as a failure.

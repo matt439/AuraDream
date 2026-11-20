@@ -14,6 +14,7 @@ from .model_selection import current_settings
 from .refusal_codes import LORA_MISMATCH, MASK_MISSING
 from .refusals import refusal
 from .schemas import GenerateRequest, ImageRecord
+from .tiled_refine_contract import HELD as TILED_REFINE_HELD
 
 # The checks and wording that need no services, kept where the CLI can
 # import them without the HTTP layer; re-exported, so `submission.X`
@@ -115,6 +116,8 @@ async def unusable_input(
     (Generate, Swap tags, Finish) never queues one, whatever the gate: a
     closed one says the editor is unavailable, an unmeasured loader says
     so, else where edits are queued from (`replay_held_reason`)."""
+    if request.tiled_refine is not None:
+        return "tiled_refine", TILED_REFINE_HELD
     if request.edit is not None:
         try:
             bound = await asyncio.to_thread(instruction_edit_admission.bind_request, request, services.model_id())
@@ -355,6 +358,8 @@ def input_spec(request: GenerateRequest, *, model_id: str | None = None) -> tupl
         request.lora, tuple(request.reference), request.refine, request.mask, request.outpaint,
         request.upscaler, request.edit, request.mask_crop,
     )
+    if request.tiled_refine is not None:
+        return (*inputs, request.tiled_refine)
     if request.refine is not None and model_id is not None and refine_qualification.applies(model_id):
         return (*inputs, request.width, request.height, request.steps, request.guidance_scale,
                 request.strength, request.true_cfg, request.mu, request.crop_anchor)

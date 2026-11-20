@@ -804,3 +804,50 @@ def test_a_plain_first_job_does_not_hide_a_later_jobs_spec(client, store, fake):
     assert accepted["passes"] == 1 and done["pass_run_id"] == pass_run
     (made,) = [row for row in rows(store) if row.refine is not None]
     assert made.run_id == pass_run and made.seed == 2
+
+
+def test_finish_preserves_which_missing_cells_requested_then_refine(client, store, fake, monkeypatch):
+    from backend import submission, then_refine
+    from backend.schemas import ThenRefine
+
+    run = "mixed-missing"
+    spec = ThenRefine(scale=1.5, strength=0.5)
+    pass_run = then_refine.pass_run_id(run, spec)
+    retain(store, [cell(1, prompt="a plain image", steps=8)], run=run)
+    retain(store, [cell(2, prompt="an image with a pass", steps=8)], run=run,
+           metadata={"then_refine": {**spec.model_dump(), "pass_run_id": pass_run}})
+
+    answer = preview(client, run)
+    assert answer["available"] and (answer["cells"], answer["images"], answer["passes"]) == (2, 2, 1)
+    accepted, done = finish(client, run, answer)
+    assert (accepted["cells"], accepted["images"], accepted["passes"]) == (2, 2, 1)
+    assert done["base_images"] == 2 and done["planned_images"] == len(done["images"]) == 3
+    assert fake.seeds == [1, 2, 2]
+    plain, refined, made = rows(store)
+    assert made.refine == refined.id and made.run_id == pass_run
+    assert preview(client, run)["reason"] == "nothing in this run is missing"
+    retained = next(job for job in store.retained_run_jobs(run) if job["job_id"] == accepted["job_id"])
+    assert retained["metadata"]["then_refine_cells"] == [1]
+    for record, count in ((plain, 0), (refined, 1)):
+        more = client.post("/api/more-seeds/preview", json={"ids": [record.id], "count": 1})
+        assert more.status_code == 200, more.text
+        assert more.json()["passes"] == count
+
+    # The refined base now belongs to the mixed recovery job. Its own pass
+    # is still discoverable, without growing one for the other base.
+    store.delete_image(made.id)
+    answer = preview(client, run)
+    assert answer["available"] and (answer["cells"], answer["passes"]) == (0, 1)
+    _, done = finish(client, run, answer)
+    assert len(done["images"]) == 1 and done["images"][0]["refine"] == refined.id
+    assert preview(client, run)["reason"] == "nothing in this run is missing"
+
+    async def unexpected_refine_check(_services):
+        pytest.fail("recovering only a plain base must not check Then refine")
+
+    monkeypatch.setattr(submission, "refine_unavailable", unexpected_refine_check)
+    store.delete_image(plain.id)
+    answer = preview(client, run)
+    assert answer["available"] and (answer["cells"], answer["passes"]) == (1, 0)
+    _, done = finish(client, run, answer)
+    assert len(done["images"]) == 1 and done["images"][0]["seed"] == 1

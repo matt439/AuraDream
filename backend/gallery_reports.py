@@ -9,13 +9,12 @@ the tests' replacement of `storage.settings` reaches these queries too.
 """
 from __future__ import annotations
 
-import gzip
 import json
 import logging
 import sqlite3
 from collections import defaultdict
+from collections.abc import Iterator, Sequence
 from datetime import datetime, timezone
-from collections.abc import Sequence
 from typing import Any
 
 from . import gallery_lock, storage
@@ -23,6 +22,7 @@ from . import gallery_lock, storage
 # `keep_rates` groups by.
 from .grid import VARIANT, Cell, denoised_steps
 from .refine import start_index
+from .run_jobs import decode_retained_cells, decode_retained_job
 from .schemas import RunSummary
 from .search import TRUE_CFG_SQL, strict_scope
 
@@ -514,14 +514,8 @@ def _raw_sizes(blob: bytes) -> set[tuple[int, int]]:
     """One retained job's cell sizes from its raw requests, unvalidated: a
     list only needs the canvases, not a `GenerateRequest` per cell. Raises
     ValueError for a row that cannot be read, as `retained_run_jobs` would."""
-    try:
-        cells = json.loads(gzip.decompress(blob))
-    except (TypeError, ValueError, OSError, EOFError) as exc:
-        raise ValueError("unreadable retained cells") from exc
-    if not isinstance(cells, list):
-        raise ValueError("cells must be a list")
     sizes = set()
-    for cell in cells:
+    for cell in decode_retained_cells(blob):
         request = cell.get("request") if isinstance(cell, dict) else None
         size = (request.get("width"), request.get("height")) if isinstance(request, dict) else (None, None)
         if not all(type(side) is int and side > 0 for side in size):
@@ -559,6 +553,55 @@ def _listed_run_sizes(conn: sqlite3.Connection, run_ids: list[str]) -> dict[str,
             images[row["run_id"]].append((row["width"], row["height"]))
         sizes.update({run_id: sorted(images[run_id]) for run_id in rest})
     return sizes
+
+
+def _zero_output_run_summaries(limit: int, model_id: str | None) -> Iterator[RunSummary]:
+    """Read retained jobs for all candidates, then decode one run at a time."""
+    scope_params = (model_id,) if model_id else ()
+    by_run: dict[str, list[sqlite3.Row]] = defaultdict(list)
+    with storage._session() as conn:
+        run_ids = [row["run_id"] for row in conn.execute(
+            f"""SELECT run_id FROM run_jobs r
+                WHERE NOT EXISTS (SELECT 1 FROM images i WHERE i.run_id = r.run_id)
+                {'AND model_id = ?' if model_id else ''}
+                GROUP BY run_id ORDER BY MAX(created_at) DESC LIMIT ?""",
+            (*scope_params, limit),
+        )]
+        if run_ids:
+            marks = ",".join("?" * len(run_ids))
+            for row in conn.execute(
+                f"SELECT * FROM run_jobs WHERE run_id IN ({marks}) ORDER BY created_at, job_id", run_ids,
+            ):
+                by_run[row["run_id"]].append(row)
+    for run_id in reversed(run_ids):
+        try:
+            saved = [decode_retained_job(row) for row in by_run.pop(run_id, [])]
+        except ValueError as exc:
+            # Refuse only this run. Its direct action endpoint still says why
+            # those cells cannot be read; never invent summary metadata.
+            log.warning("omitting unreadable retained run %s: %s", run_id, exc)
+            continue
+        if not saved or not saved[0]["cells"]:
+            continue
+        first, last = saved[0], saved[-1]
+        request = first["cells"][0].request
+        prompts = set()
+        sizes = set()
+        for job in saved:
+            for cell in job["cells"]:
+                prompts.add(cell.request.prompt)
+                sizes.add((cell.request.width, cell.request.height))
+        stamp = lambda value: datetime.fromtimestamp(value, timezone.utc).isoformat()
+        yield RunSummary(
+            run_id=first["run_id"], images=0, distinct=0, favorites=0,
+            prompts=len(prompts), jobs=len(saved),
+            prompt=first["metadata"].get("prompt_template") or request.prompt,
+            seed=first["cells"][0].seed, model_id=first["model_id"],
+            quantization=first["quantization"], width=first["width"], height=first["height"],
+            sizes=sorted(sizes), size_count=len(sizes),
+            started_at=stamp(first["created_at"]),
+            finished_at=stamp((last.get("outcome") or {}).get("finished_at") or last["created_at"]),
+        )
 
 
 def runs(limit: int = 20, model_id: str | None = None) -> list[RunSummary]:
@@ -638,40 +681,7 @@ def runs(limit: int = 20, model_id: str | None = None) -> list[RunSummary]:
     # was permanently deleted. Keep those runs discoverable after restart.
     # Entirely binned runs stay in the bin, as before; this adds only runs
     # with no row at all. Read/decompress only these recovery candidates.
-    with storage._session() as conn:
-        recoverable = conn.execute(
-            f"""SELECT run_id FROM run_jobs r
-                WHERE NOT EXISTS (SELECT 1 FROM images i WHERE i.run_id = r.run_id)
-                {'AND model_id = ?' if model_id else ''}
-                GROUP BY run_id ORDER BY MAX(created_at) DESC LIMIT ?""",
-            (*scope_params, limit),
-        ).fetchall()
-    for candidate in reversed(recoverable):
-        try:
-            saved = storage.retained_run_jobs(candidate["run_id"])
-        except ValueError as exc:
-            # One obsolete/corrupt recovery row must not take the whole
-            # Runs picker down. Its direct action endpoint still says why
-            # those cells cannot be read; never invent summary metadata.
-            log.warning("omitting unreadable retained run %s: %s", candidate["run_id"], exc)
-            continue
-        if not saved or not saved[0]["cells"]:
-            continue
-        first, last = saved[0], saved[-1]
-        cells = [cell for job in saved for cell in job["cells"]]
-        request = first["cells"][0].request
-        stamp = lambda value: datetime.fromtimestamp(value, timezone.utc).isoformat()
-        recovered = RunSummary(
-            run_id=first["run_id"], images=0, distinct=0, favorites=0,
-            prompts=len({cell.request.prompt for cell in cells}), jobs=len(saved),
-            prompt=first["metadata"].get("prompt_template") or request.prompt,
-            seed=first["cells"][0].seed, model_id=first["model_id"],
-            quantization=first["quantization"], width=first["width"], height=first["height"],
-            sizes=sorted({(cell.request.width, cell.request.height) for cell in cells}),
-            size_count=len({(cell.request.width, cell.request.height) for cell in cells}),
-            started_at=stamp(first["created_at"]),
-            finished_at=stamp((last.get("outcome") or {}).get("finished_at") or last["created_at"]),
-        )
+    for recovered in _zero_output_run_summaries(limit, model_id):
         # Preserve the existing live runs' id order, while inserting an empty
         # run near the time it began. A just-submitted zero-image run leads.
         position = next((index for index, summary in enumerate(summaries)

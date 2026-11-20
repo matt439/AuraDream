@@ -83,10 +83,10 @@ keeps the exact limits. No public tiled-refine feature is released.
 
 ### R3 a wider instruction-edit envelope
 
-**Planning unblocked, 2026-11-18:** `INP#11`'s bounded acceptance passed.
-`INP#13` is now `OPEN` for the missing second-recipe/protocol addendum;
-it is not ready for a card run. The [instruction-edit owner](plan-instruction-editing.md#card-acceptance-result-2026-11-18)
-keeps the source/reproduction and current public-envelope boundaries.
+**CPU contract and queue rehearsal complete, 2026-11-20.** `INP#11`'s
+bounded acceptance passed on November 18. The
+[second recipe and trial protocol](plan-instruction-editing.md#second-kontext-recipe-and-trial-inp13)
+records the isolated browser and guard work before `INP#13`'s card session.
 
 `INP#13`, after `INP#11`'s card acceptance. Any 1:1 source qualifies today
 and renders at 512x512; output is capped at 262,144 pixels and other aspects
@@ -96,9 +96,8 @@ A 1024x1024 edit is a new frozen recipe with its own name and card
 measurement (stage 3 at 512² took free RAM from 42.5 to 15.2 GiB). Recasting
 klein's reference prompts as an `edit` spec, and CLI parity, were cut.
 
-First step: a plan addendum defining the second recipe (1024x1024, 1:1
-only) and a one-load card protocol; open the frozen aspects in the same
-session.
+The protocol covers the six frozen non-square aspects and the separate
+1024x1024 square recipe in one load.
 
 ### R4 release the card after idle minutes
 

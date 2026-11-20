@@ -374,7 +374,10 @@ def create_router(
 
     @router.delete("/api/gallery/unstarred")
     async def delete_unstarred(
-        search: str | None = None, expected: int = Query(ge=0), all_models: bool = False
+        search: str | None = None,
+        expected: int = Query(ge=0),
+        all_models: bool = False,
+        pin: str | None = Query(default=None, max_length=64),
     ) -> dict:
         """The gallery's Delete unstarred: `clear --where <search> --keep-favorites`
         over HTTP, into the recycle bin rather than off the disk.
@@ -384,11 +387,11 @@ def create_router(
         rather than the rest one card at a time. The scope is the search box
         (`search.unstarred_scope`: words prefix-matched as the gallery matches
         them, `key:value` terms and their exclusions, never an excluded word;
-        an empty box meaning the whole gallery) - and `expected` is the count the dialog showed, so a sweep that landed
-        more unstarred images while it was open is answered 409 rather than
-        swept up on a number confirmed for fewer. A starred image keeps what it
-        was made from - a pass its source, a render its references - since the
-        star is a promise to keep it reproducible. The images move to the
+        an empty box meaning the whole gallery). `expected` is the count the
+        dialog showed and `pin` is its preview's selection. A changed count
+        or pin is answered 409. Older clients can still send the count alone.
+        A star keeps the image reproducible by protecting its Refine source
+        or references. The images move to the
         recycle bin, files untouched, so a Restore undoes it; only Empty recycle
         bin removes them from disk. Images already in the bin are not counted.
         The checkpoint scope is the page's: with All models off, another
@@ -406,6 +409,7 @@ def create_router(
                 model_id=model_scope(all_models),
                 to_bin=True,
                 free_words=True,
+                pin=pin,
             )
         except gallery_delete.SelectionChanged as exc:
             # Whether a job may move the count again is the server's to say: the
@@ -415,10 +419,13 @@ def create_router(
                 "unstarred again, or let it finish first."
                 if get_jobs().busy() else ""
             )
+            now = (
+                f"{exc.found} unstarred images match now, not the {exc.expected} confirmed"
+                if exc.found != exc.expected else "the same count now matches different images"
+            )
             raise Refused(
                 409,
-                f"The selection changed: {exc.found} unstarred images match now, "
-                f"not the {exc.expected} confirmed. Nothing was moved; look again.{running}",
+                f"The selection changed: {now}. Nothing was moved; look again.{running}",
                 SELECTION_CHANGED,
             ) from exc
         get_jobs().forget_images(result["ids"], binned=True)

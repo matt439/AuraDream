@@ -9,20 +9,24 @@ No weights, downloads or GPU.
 from __future__ import annotations
 
 import asyncio
+from dataclasses import replace
 import json
+import threading
 import time
 
 import pytest
 from PIL import Image
 
-from backend import grid, instruction_edit_admission, main, model_selection
+from backend import grid, instruction_edit, instruction_edit_admission, main, model_selection
 from backend.instruction_edit import (
     INSTRUCTION_EDIT_ASPECT_UNQUALIFIED,
     INSTRUCTION_EDIT_LOADER_UNQUALIFIED,
     INSTRUCTION_EDIT_NEEDS_MODEL,
+    INSTRUCTION_EDIT_RECIPE_UNQUALIFIED,
     INSTRUCTION_EDIT_REPLAY_HELD,
     INSTRUCTION_EDIT_TEXT_TO_IMAGE,
     INSTRUCTION_EDIT_UNAVAILABLE,
+    KONTEXT_1024_V1,
     KONTEXT_V1,
     StoredInstructionEdit,
     descriptor_from_image,
@@ -31,7 +35,8 @@ from backend.instruction_edit import (
 from backend.jobs import JobManager
 from backend.metadata import PNG_METADATA_KEY
 from backend.schemas import GenerateRequest, InstructionEditSubmission
-from tests.api_helpers import stream_job, wait_for
+from tests.api_helpers import stream_job, wait_for, wait_for_status
+from tools import card_guard
 
 
 def source(store, *, width=256, height=256, colour=(11, 32, 47)):
@@ -587,6 +592,147 @@ def test_more_seeds_of_an_edit_queues_new_seeds_of_the_original_source(client, f
     # Asked again, the seeds carry on past them.
     again = client.post("/api/more-seeds/preview", json={"ids": [edit.id], "count": 2}).json()
     assert (again["results"][0]["first"], again["results"][0]["last"]) == (10, 11)
+
+
+def test_larger_recipe_round_trips_its_source_and_cannot_queue(client, fake, store, monkeypatch):
+    open_gate(fake, monkeypatch)
+    rec, original = source(store)
+    recipe = KONTEXT_1024_V1.name
+    posted = body(rec, recipe=recipe, width=1024, height=1024)
+    preview_body = {"source": rec.id, "recipe": recipe}
+    assert client.post("/api/instruction-edit/preview", json=preview_body).status_code == 422
+    assert client.post("/api/instruction-edit", json=posted).status_code == 422
+
+    raw = GenerateRequest(
+        prompt=posted["prompt"], width=1024, height=1024, seed=7, edit=preview_body,
+    )
+    bound = instruction_edit_admission.bind_request(raw, KONTEXT_V1.model_id)
+    assert isinstance(bound.edit, StoredInstructionEdit)
+    assert bound.edit == StoredInstructionEdit(source=rec.id, recipe=recipe, edit_source=original.edit_source)
+    _, geometry, prepared = instruction_edit_admission.load_bound_source(bound.edit)
+    with prepared:
+        assert geometry.recipe == recipe and prepared.size == (1024, 1024)
+    child = edited(store, bound.edit, width=1024, height=1024)
+    saved = store.get_image(child.id)
+    assert saved is not None
+    with Image.open(store.settings.outputs_dir / child.filename) as png:
+        assert json.loads(png.info[PNG_METADATA_KEY])["edit"] == bound.edit.model_dump(mode="json")
+    replay_cell = grid.cell_from_record(saved)
+    original_cell = grid.cell_from_record(edited(store, original))
+    assert replay_cell.request.edit == bound.edit
+    assert grid.cell_key(replay_cell) != grid.cell_key(original_cell)
+    assert grid.run_id([replay_cell], KONTEXT_V1.model_id, "fp8") != grid.run_id(
+        [original_cell], KONTEXT_V1.model_id, "fp8",
+    )
+
+    with pytest.raises(ValueError, match="1024-square"):
+        fake.applied(replay_cell.request)
+    params = {"ids": [child.id], "count": 2}
+    answer = client.post("/api/more-seeds/preview", json=params).json()
+    row, = answer["results"]
+    assert (row["status"], row["detail"]) == ("invalid", INSTRUCTION_EDIT_RECIPE_UNQUALIFIED)
+    assert client.post("/api/more-seeds", json=params).status_code == 422
+    assert fake.loads == 0 and no_work(fake)
+
+    with Image.new("RGB", (rec.width, rec.height), "red") as replacement:
+        replacement.save(store.settings.outputs_dir / rec.filename)
+    with pytest.raises(ValueError, match="no longer matches its recorded pixels"):
+        instruction_edit_admission.bind_request(replay_cell.request, KONTEXT_V1.model_id)
+
+
+def test_candidate_trial_queue_rehearsal_on_one_fake_load(client, fake, store, monkeypatch):
+    open_gate(fake, monkeypatch)
+    fake.loaded = False
+    small_cases = (
+        ((1, 1), (512, 512)), ((16, 9), (512, 288)), ((9, 16), (288, 512)),
+        ((4, 3), (512, 384)), ((3, 4), (384, 512)), ((3, 2), (576, 384)), ((2, 3), (384, 576)),
+    )
+    larger_recipe = KONTEXT_1024_V1.name
+    larger_size = (1024, 1024)
+    monkeypatch.setattr(instruction_edit, "QUALIFIED_ENVELOPE", replace(
+        instruction_edit.QUALIFIED_ENVELOPE, sizes=(*small_cases, ((1, 1), larger_size)),
+    ))
+    monkeypatch.setattr(instruction_edit, "_recipe_refusal", lambda name: (
+        None if name in (KONTEXT_V1.name, larger_recipe) else INSTRUCTION_EDIT_RECIPE_UNQUALIFIED
+    ))
+
+    assert client.post("/api/model/load").status_code == 200
+    wait_for_status(client, state="ready")
+    square, _ = source(store, width=1024, height=1024)
+
+    def completed(job_id):
+        result = stream_job(client, job_id)[-1]
+        assert result["status"] == "done", result
+        output, = result["images"]
+        return store.get_image(output["id"])
+
+    def old_edit(rec, size):
+        response = client.post("/api/instruction-edit", json=body(
+            rec, width=size[0], height=size[1], seed=12345,
+        ))
+        assert response.status_code == 200, response.text
+        result = completed(response.json()["job_id"])
+        assert (result.width, result.height) == size and result.edit.source == rec.id
+        return result
+
+    control = old_edit(square, small_cases[0][1])
+    for _, (width, height) in small_cases[1:]:
+        rec, _ = source(store, width=width * 2, height=height * 2)
+        old_edit(rec, (width, height))
+
+    raw = GenerateRequest(prompt="make it night", width=1024, height=1024, seed=12345,
+                          edit={"source": square.id, "recipe": larger_recipe})
+    bound = instruction_edit_admission.bind_request(raw, KONTEXT_V1.model_id)
+    requested_area = card_guard.rung_x(*larger_size)
+    safe = card_guard.Sample(14400, 80, 40, 23, 12)
+    samples = [(card_guard.rung_x(*size), [safe]) for _, size in small_cases]
+
+    def decide(sample):
+        return card_guard.plan_sampled_windows_rung(
+            samples, requested_area, current=sample, baseline=card_guard.Baseline(80, 40),
+        )
+
+    assert decide(replace(safe, process_shared_mib=None)).verdict == "refuse-projected"
+    assert decide(replace(safe, commit_headroom_gib=3)).why == "commit"
+    assert len(fake.edit_calls) == len(small_cases) and decide(safe).verdict == "ok"
+
+    # Exercise the ordinary queue for the candidate without widening the
+    # shipping Preview/Submit enum. More seeds, Cancel and Unload use HTTP.
+    large = completed(client.portal.call(main.jobs.submit, bound).id)
+    params = {"ids": [large.id], "count": 2}
+    preview = client.post("/api/more-seeds/preview", json=params).json()
+    accepted = client.post("/api/more-seeds", json={**params, "expected": preview["ids"], "intent": preview["intent"]})
+    assert accepted.status_code == 200, accepted.text
+    more = stream_job(client, accepted.json()["job_id"])[-1]
+    assert more["status"] == "done" and len(more["images"]) == 2
+    assert all(store.get_image(row["id"]).edit == bound.edit for row in more["images"])
+
+    release = threading.Event()
+    generate = fake.generate
+
+    def hold_cancel(request, seed, on_progress=None, should_cancel=None, on_preview=None):
+        def progress(step, total):
+            on_progress(step, total)
+            if seed == 777 and step == 3:
+                assert release.wait(20), "cancel fixture never received its release"
+
+        return generate(request, seed, progress, should_cancel, on_preview)
+
+    monkeypatch.setattr(fake, "generate", hold_cancel)
+    cancelled = client.portal.call(main.jobs.submit, bound.model_copy(update={"seed": 777}))
+    try:
+        wait_for(client, cancelled.id, lambda snapshot: snapshot["step"] == 3)
+        assert client.post(f"/api/jobs/{cancelled.id}/cancel").status_code == 200
+    finally:
+        release.set()
+    done = stream_job(client, cancelled.id)[-1]
+    assert done["status"] == "cancelled" and done["images"] == []
+    replay = completed(client.portal.call(main.jobs.submit, bound).id)
+    assert replay.edit == large.edit and replay.content_hash == large.content_hash
+    assert old_edit(square, (512, 512)).content_hash == control.content_hash
+    unloaded = client.post("/api/model/unload")
+    assert unloaded.status_code == 200 and unloaded.json()["state"] == "unloaded"
+    assert fake.loads == 1 and not fake.is_ready() and main.jobs.active() == []
 
 
 def test_more_seeds_of_an_edit_is_never_priced_by_direct_renders(client, fake, store, monkeypatch):

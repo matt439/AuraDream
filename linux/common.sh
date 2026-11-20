@@ -225,9 +225,9 @@ ask_server_python() {
 }
 
 # The running server's own answer to whether it is busy: a job queued or
-# running, a model loading or switching, something holding the card, or a
-# gallery bundle operation. Prints the reason, or nothing when idle; fails
-# when the server cannot be asked, which a server that asks for a passcode
+# running, a model loading, switching or being deleted, something holding the
+# card, or a gallery bundle operation. Prints the reason, or nothing when idle.
+# It fails when the server cannot be asked, which a server that asks for a passcode
 # these scripts do not have is too: one that would not say is never taken
 # for an idle one. Both reads are the page's own polls, which the keep-awake
 # hold does not count as someone using it.
@@ -248,6 +248,8 @@ elif status.get("state") == "loading":
     print("a model is loading (or downloading)")
 elif status.get("switching"):
     print("a model switch is under way")
+elif status.get("model_delete"):
+    print(f"checkpoint files are being deleted ({status['model_delete']})")
 elif status.get("card_holder"):
     print(f"the card is in use ({status['card_holder']})")
 elif bundles.get("state") == "running":

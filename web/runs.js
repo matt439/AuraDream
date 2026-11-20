@@ -782,7 +782,8 @@ function syncReviewRuns() {
     else if (checked) {
       const details = state?.details;
       const saved = details ? `${plural(details.images, 'saved image')}${details.binned ? `; ${details.binned} in the recycle bin` : ''}. ` : '';
-      const outputs = state?.preview?.available && state.preview.images ? `${plural(state.preview.images, 'image')} to generate; ` : '';
+      const missingImages = (state?.preview?.images ?? 0) + (state?.preview?.passes ?? 0);
+      const outputs = state?.preview?.available && missingImages ? `${plural(missingImages, 'image')} to generate; ` : '';
       text.textContent = saved + outputs + (finishRunCounts(state) ?? 'Checking remaining work...');
     }
   }

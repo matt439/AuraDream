@@ -45,7 +45,8 @@ from .bundle_images import _critical_digest, _inspect_source, _metadata, _refere
 from .metadata import require_header_metadata
 from .instruction_edit import StoredInstructionEdit, edit_key
 from .detailer import StoredDetailer, iter_rebuilt_masks, stored_json as detailer_json
-from .metadata import detailer_from_json, edit_from_json
+from .metadata import detailer_from_json, edit_from_json, tiled_refine_from_json
+from .tiled_refine_contract import tiled_refine_key
 
 _SUFFIXES = (".zip", bundle_crypto.SUFFIX)
 
@@ -588,6 +589,7 @@ def _links_outside(rows: list[dict]) -> int:
         sum(i not in held for i in _references(row)) + (row.get("refine") is not None and row["refine"] not in held)
         + ((edit := edit_from_json(row.get("edit"))) is not None and edit.source not in held)
         + ((detail := detailer_from_json(row.get("detailer"))) is not None and detail.plan.source_id not in held)
+        + ((tiled := tiled_refine_from_json(row.get("tiled_refine"))) is not None and tiled.source not in held)
         for row in rows
     )
 
@@ -683,7 +685,11 @@ def export_bundle(expected: int | None = None, password: str | None = None, prog
             rows = _rows(snapshot)
             if ids is not None and rows != chosen:
                 raise BundleChanged("the gallery changed while its bundle was prepared; try again")
-            version = 2 if any(bundle_images._edit(row) is not None for row in rows) else 1
+            version = 1
+            if any(bundle_images._tiled_refine(row) is not None for row in rows):
+                version = 3
+            elif any(bundle_images._edit(row) is not None for row in rows):
+                version = 2
             manifest = {"format": _FORMAT, "version": version, "records": len(rows), "files": {}}
             if managed is not None:
                 manifest[backup_receipts.MARKER] = managed.marker()
@@ -934,6 +940,7 @@ def _import_bundle(path: Path, password: str | None, progress: Progress,
                             bundle_images._execution(existing[row["filename"].casefold()], image.info)
                             bundle_images._edit(existing[row["filename"].casefold()], image.info)
                             bundle_images._detailer(existing[row["filename"].casefold()], image.info)
+                            bundle_images._tiled_refine(existing[row["filename"].casefold()], image.info)
                 except (OSError, ValueError, Image.DecompressionBombError) as exc:
                     raise BundleError(f"cannot read existing execution metadata for {target.name}: {exc}") from exc
                 # A present image is kept and its bundle copy never unpacked.
@@ -945,7 +952,7 @@ def _import_bundle(path: Path, password: str | None, progress: Progress,
                     known = _critical_digest(stream)
                 identical = (known is not None and data[12:16] == b"IHDR"
                              and known == _critical_digest(io.BytesIO(data)))
-                if identical and not row.get("_edit_source_needed"):
+                if identical and not row.get("_full_source_proof_needed"):
                     width, height = struct.unpack(">II", data[16:24])
                     stream = io.BytesIO(data)
                     try:
@@ -956,6 +963,7 @@ def _import_bundle(path: Path, password: str | None, progress: Progress,
                         execution = bundle_images._execution(row, image.info)
                         edit = bundle_images._edit(row, image.info)
                         bundle_images._detailer(row, image.info)
+                        bundle_images._tiled_refine(row, image.info)
                     _validate_row(row, width, height, existing[row["filename"].casefold()]["content_hash"])
                     return None, True, execution, edit
                 pixels = _inspect_source(row, data)
@@ -1011,6 +1019,7 @@ def _import_bundle(path: Path, password: str | None, progress: Progress,
                     name = row["filename"]
                     pixels, same, execution, edit = inspected["images/" + name]
                     digest = pixels.hash if pixels else None  # None: present and unchanged
+                    tiled_refine = bundle_images._tiled_refine(row)
                     known = existing.get(name.casefold())
                     if known:
                         image = settings.outputs_dir / name
@@ -1039,6 +1048,10 @@ def _import_bundle(path: Path, password: str | None, progress: Progress,
                             bundle_images._detailer(row)
                         ):
                             raise BundleError(f"different detailer manifest already uses the filename {name}")
+                        if bundle_images._portable_tiled_refine(bundle_images._tiled_refine(known)) != (
+                            bundle_images._portable_tiled_refine(tiled_refine)
+                        ):
+                            raise BundleError(f"different Tiled Refine recipe already uses the filename {name}")
                         incoming_anchor = row.get("crop_anchor")
                         if known.get("refine") is None:
                             # A prior import of this source-less selection
@@ -1058,7 +1071,7 @@ def _import_bundle(path: Path, password: str | None, progress: Progress,
                         mapping[row["id"]] = next_id
                         values = {key: row.get(key) for key in storage._COLUMNS}
                         values.update(id=next_id, content_hash=digest, execution=execution, edit=edit,
-                                      detailer=bundle_images._detailer(row))
+                                      detailer=bundle_images._detailer(row), tiled_refine=tiled_refine)
                         # A result, so a bad one is dropped, never the bundle.
                         for key in ("vram_peak_allocated", "vram_peak_reserved"):
                             values[key] = storage._peak(values[key])
@@ -1123,6 +1136,24 @@ def _import_bundle(path: Path, password: str | None, progress: Progress,
                         values["edit"] = edit_key(StoredInstructionEdit(
                             source=local_id, recipe=edit.recipe, edit_source=proof,
                         ))
+                    tiled = tiled_refine_from_json(values.get("tiled_refine"))
+                    if tiled is not None:
+                        source = source_by_id.get(tiled.source)
+                        proof = tiled.root_source
+                        root = inspected["images/" + source["filename"]][0] if source is not None else None
+                        known_root = existing.get(proof.filename.casefold())
+                        proven = (
+                            source is not None and root is not None and source["filename"] == proof.filename
+                            and (root.width, root.height) == (proof.width, proof.height)
+                            and root.rgb_hash == proof.hash and root.prepared_rgb_hash == tiled.prepared_rgb_sha256
+                            and (known_root is None or (
+                                known_root["content_hash"] == root.hash
+                                and (known_root["width"], known_root["height"]) == (proof.width, proof.height)
+                            ))
+                        )
+                        local_id = mapping.get(tiled.source) if proven else None
+                        unresolved += local_id is None
+                        values["tiled_refine"] = tiled_refine_key(tiled.model_copy(update={"source": local_id}))
                     refs = _references(original)
                     unresolved += sum(i not in mapping for i in refs)
                     refs = [mapping[i] for i in refs if i in mapping]

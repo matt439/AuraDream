@@ -125,6 +125,25 @@ def test_one_point_projects_nothing_and_a_shared_x_is_refused() -> None:
         plan_rung([[1.0, 9000], [1.0, 9100]], 2.0)
 
 
+def test_sampled_windows_rung_groups_orientations_and_refuses_incomplete_or_tripped_reads() -> None:
+    small = _sample(card_mib=14000)
+    larger = _sample(card_mib=14250)
+    prior = [(0.22, [small]), (0.26, [larger]), (0.22, [_sample(card_mib=14400)])]
+    answer = card_guard.plan_sampled_windows_rung(prior, 1.05, current=small, baseline=BASE)
+    assert answer.verdict == "ok" and answer.measured == [[0.22, 14400], [0.26, 14250]]
+    assert card_guard.plan_sampled_windows_rung(
+        [(0.22, [small]), (0.26, [larger])], 1.05, current=small, baseline=BASE,
+    ).verdict == "refuse-projected"
+    for incomplete in (Sample(), _sample(card_mib=float("nan"))):
+        assert card_guard.plan_sampled_windows_rung(prior, 1.05, current=incomplete, baseline=BASE).reason
+    assert card_guard.plan_sampled_windows_rung(
+        [*prior, (0.14, [])], 1.05, current=small, baseline=BASE,
+    ).reason == "a prior call has no guard samples"
+    assert card_guard.plan_sampled_windows_rung(
+        [*prior, (0.14, [_sample(available_gib=3)])], 1.05, current=small, baseline=BASE,
+    ).why == "ram"
+
+
 # --- Limits ---------------------------------------------------------------------
 
 

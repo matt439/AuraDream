@@ -20,7 +20,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 
-from . import critic_runtime
+from . import critic_linux, critic_runtime
 
 if TYPE_CHECKING:
     from .assistant_models import AssistantModel
@@ -35,8 +35,8 @@ HEALTH_TIMEOUT = 180.0
 REQUEST_TIMEOUT = 600.0
 STOP_TIMEOUT = 10.0
 _HEALTH_POLL = 0.25
-# A backstop, not the mechanism: a server this process could not stop (it was
-# killed outright) drops the model and its VRAM after this long idle.
+# A backstop if cleanup cannot take down the server: after this long idle
+# the server drops the model and gives back its VRAM.
 _IDLE_SLEEP = 120
 
 
@@ -250,36 +250,6 @@ def _release(job: int | None, held: dict[int, int]) -> None:
         win.kernel32.CloseHandle(job)
 
 
-def _session_pids(session: int) -> set[int]:
-    """The live processes in a session, by /proc: a POSIX child started in a
-    session of its own and everything it starts, whatever process group each
-    is in. Empty without /proc.
-
-    A zombie holds nothing and is left out - but only once it is one whole:
-    /proc shows a process by its first thread, which can be a zombie while
-    the others, still exiting, hold the process's files and sockets."""
-    pids = set()
-    try:
-        entries = os.listdir("/proc")
-    except OSError:
-        return pids
-    for entry in entries:
-        if not entry.isdigit():
-            continue
-        try:
-            with open(f"/proc/{entry}/stat", encoding="utf-8", errors="replace") as stat:
-                # state, ppid, pgrp, session after the parenthesised name.
-                fields = stat.read().rpartition(")")[2].split()
-            if len(fields) < 4 or fields[3] != str(session):
-                continue
-            if fields[0] in ("Z", "X") and len(os.listdir(f"/proc/{entry}/task")) < 2:
-                continue
-        except OSError:
-            continue
-        pids.add(int(entry))
-    return pids
-
-
 class _ServerProcess(subprocess.Popen):
     """llama-server and whatever it starts, as one tree.
 
@@ -292,11 +262,10 @@ class _ServerProcess(subprocess.Popen):
     runs - it starts suspended and is resumed once inside - which also kills
     the tree when its handle closes, as a hard kill of this app closes it.
     On POSIX it is a session of the child's own, whose id is the child's
-    pid; on Linux every process in it is signalled and waited for, whatever
-    group it has moved to, and elsewhere the child's process group. Nothing
-    ends that session with the app: an app killed outright, or by its
-    terminal's hang-up (which no longer reaches the server), leaves it to
-    `--sleep-idle-seconds` to free the card.
+    pid. On Linux the stop signals every server process in that session,
+    whatever group it has moved to. A guard in its own group ends the
+    session if the app dies and exits once the session is clear. On other
+    POSIX systems the stop reaches the child's process group.
     """
 
     # Popen creates this Windows-only integer Handle before the suspended
@@ -305,8 +274,13 @@ class _ServerProcess(subprocess.Popen):
 
     def __init__(self, command: list[str], **kwargs: Any) -> None:
         self._job: int | None = None
+        self._linux_guard: int | None = None
+        self._linux_release: socket.socket | None = None
         # Windows: a handle to each process seen in the job, to wait on.
         self._held: dict[int, int] = {}
+        if sys.platform.startswith("linux"):
+            self._start_linux(command, **kwargs)
+            return
         if sys.platform != "win32":
             super().__init__(command, start_new_session=True, **kwargs)
             return
@@ -326,12 +300,52 @@ class _ServerProcess(subprocess.Popen):
             raise
         weakref.finalize(self, _release, self._job, self._held)
 
+    def _start_linux(self, command: list[str], **kwargs: Any) -> None:
+        controller, release = socket.socketpair()
+        self._linux_release = controller
+        weakref.finalize(self, controller.close)
+        try:
+            with release:
+                self._linux_spawn(command, release.fileno(), **kwargs)
+        except BaseException:
+            controller.close()
+            raise
+
+    def _linux_spawn(self, command: list[str], release: int, **kwargs: Any) -> None:
+        # A pidfd tracks the whole owning app, even when Popen runs in a
+        # worker thread. The bootstrap passes it only to the guard.
+        owner = os.pidfd_open(os.getpid())
+        try:
+            read, write = os.pipe()
+            with os.fdopen(read, encoding="utf-8") as receipt:
+                try:
+                    super().__init__(
+                        critic_linux.bootstrap_command(command, owner, release, write),
+                        pass_fds=(owner, release, write), start_new_session=True, **kwargs,
+                    )
+                finally:
+                    os.close(write)
+                # The bootstrap closes its write end on exec or sends an
+                # error before exiting. Never return an unguarded server.
+                pid = receipt.readline().strip()
+                error = receipt.read().strip() if pid.isdecimal() else pid
+                if pid.isdecimal():
+                    self._linux_guard = int(pid)
+        finally:
+            os.close(owner)
+        if error or self._linux_guard is None:
+            assert self._linux_release is not None
+            self._linux_release.close()
+            self.wait(timeout=STOP_TIMEOUT)
+            raise OSError(error or "the Linux critic owner guard did not start")
+        self.args = command
+
     def pids(self) -> set[int]:
         """The tree's process ids, the child's own included."""
         if self._job is not None:
             return {self.pid} | _job_pids(self._job)
         if sys.platform.startswith("linux"):
-            return {self.pid} | _session_pids(self.pid)
+            return {self.pid} | (critic_linux.session_pids(self.pid) - {self._linux_guard})
         return {self.pid}
 
     def _hold(self) -> set[int]:
@@ -356,6 +370,10 @@ class _ServerProcess(subprocess.Popen):
                     return
             super().kill()
             return
+        if self._linux_release is not None and self._linux_release.fileno() < 0:
+            # The guard owns any final sweep after release. A repeated Stop
+            # must not signal a numeric session ID that is now reusable.
+            return
         try:
             os.killpg(self.pid, number)
         except OSError:
@@ -363,11 +381,10 @@ class _ServerProcess(subprocess.Popen):
             super().send_signal(number)
         # The rest of the session: a wrapper may have put its server in a
         # group of its own (`set -m`), which `pids()` still counts.
-        for pid in _session_pids(self.pid) - {self.pid}:
-            try:
-                os.kill(pid, number)
-            except OSError:
-                pass
+        if sys.platform.startswith("linux"):
+            critic_linux.signal_session(
+                self.pid, critic_linux.session_pids(self.pid) - {self.pid, self._linux_guard}, number,
+            )
 
     def terminate(self) -> None:
         # On Windows both end the job at once, as Popen's own terminate is a
@@ -383,7 +400,11 @@ class _ServerProcess(subprocess.Popen):
         if sys.platform == "win32":
             return False
         if sys.platform.startswith("linux"):
-            return bool(_session_pids(self.pid))
+            pids = critic_linux.session_pids(self.pid)
+            if not pids - {self._linux_guard} and self._linux_release is not None:
+                # Let the guard check for a last descendant before it exits.
+                self._linux_release.close()
+            return bool(pids)
         try:
             os.killpg(self.pid, 0)
         except OSError:

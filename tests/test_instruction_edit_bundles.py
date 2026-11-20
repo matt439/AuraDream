@@ -97,6 +97,25 @@ def test_edit_free_exports_stay_version_one(store, managed):
         assert json.loads(opened.read("manifest.json"))["version"] == 1
 
 
+def test_a_mixed_recipe_bundle_remaps_source_proof_without_changing_recipe(store, monkeypatch, tmp_path):
+    source = save_source()
+    old, large = save_edit(source), save_edit(source, recipe="kontext-1024-v1")
+    archive = backup()
+    with ZipFile(archive) as opened:
+        assert json.loads(opened.read("manifest.json"))["version"] == 2
+    use_destination(store, monkeypatch, tmp_path)
+    save_source("occupied", 90)
+    assert bundles.import_bundle(archive)["imported"] == 3
+    records = {row.filename: row for row in store.list_images()[0]}
+    remapped = records[source.filename].id
+    assert remapped != source.id
+    for prior in (old, large):
+        child = records[prior.filename]
+        assert (child.width, child.height) == (prior.width, prior.height)
+        assert not child.edit_missing
+        assert child.edit == prior.edit.model_copy(update={"source": remapped})
+
+
 def test_managed_edit_export_uses_v2_in_existing_capacity_receipt_and_readback(store, monkeypatch):
     child = save_edit(save_source())
     identity = backup_receipts.ManagedIdentity(*(str(uuid4()) for _ in range(3)))

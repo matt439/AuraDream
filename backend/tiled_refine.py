@@ -1,8 +1,7 @@
-"""Private, provisional GEN#49 four-region CPU orchestration prototype.
+"""Private, provisional GEN#49 four-region CPU orchestration.
 
-Nothing in production imports this module. It does not load or select a model,
-save tiles, enlarge an image, or admit a public request. An injected renderer
-receives the one frozen exploratory recipe and borrowed crop inputs. Its fresh
+An injected renderer receives the frozen tile plan and borrowed crop inputs.
+The module consumes a prepared canvas and has no model or gallery access. Its fresh
 RGB output transfers ownership to this module; only a complete final composite
 transfers ownership to the caller. The caller's source is always borrowed.
 Fresh images in a malformed flat list/tuple return also transfer ownership and
@@ -22,18 +21,19 @@ from dataclasses import dataclass, fields
 import numpy as np
 from PIL import Image
 
-from . import mask_crop, refine, seeds
+from . import mask_crop, refine, seeds, tiled_refine_contract
 from .backends.base import Cancelled
 from .record_fields import mask_hash
 
-PRIVATE_PROVISIONAL = "private-provisional-sdxl-four-region-2048-v1"
-_SIZE = (2048, 2048)
+PRIVATE_PROVISIONAL = tiled_refine_contract.RECIPE_NAME
+_SIZE = tiled_refine_contract.CANVAS_SIZE
 _LAYOUT = (
     ("top-left", (0, 0, 1088, 1088)),
     ("top-right", (960, 0, 2048, 1088)),
     ("bottom-left", (0, 960, 1088, 2048)),
     ("bottom-right", (960, 960, 2048, 2048)),
 )
+TILE_COUNT = len(_LAYOUT)
 _MASK_HASHES = (
     "edcd1374ab338524421162ce388462ef473d9d9bae2c844e9d698b4463ece732",
     "701ae96c806eb5e6a8380260dfa075d3306cf544d046ee0810b73c148d049890",
@@ -57,8 +57,8 @@ class CropSpec:
 @dataclass(frozen=True)
 class Recipe:
     name: str = PRIVATE_PROVISIONAL
-    model: str = "cagliostrolab/animagine-xl-4.0"
-    revision: str = "2b7c1b397761bf5bd3cc42e5b39ec99314a75a96"
+    model: str = tiled_refine_contract.MODEL_ID
+    revision: str = tiled_refine_contract.REVISION
     prompt: str = (
         "masterpiece, best quality, anime scenery, continuous wide landscape, "
         "a stone bridge crossing horizontally through the center over a river "
@@ -67,9 +67,9 @@ class Recipe:
         "across the horizon, morning sunlight"
     )
     negative_prompt: str = "low quality, blurry"
-    steps: int = 28
-    guidance_scale: float = 5.0
-    strength: float = 0.35
+    steps: int = tiled_refine_contract.STEPS
+    guidance_scale: float = tiled_refine_contract.GUIDANCE_SCALE
+    strength: float = tiled_refine_contract.STRENGTH
     num_images: int = 1
     mu: None = None
     size: tuple[int, int] = _SIZE
@@ -230,6 +230,7 @@ def run(
     recipe: Recipe = RECIPE,
     should_cancel: Callable[[], bool] | None = None,
     on_progress: Progress | None = None,
+    before_tile: Callable[[], None] | None = None,
 ) -> PrototypeResult:
     """Run all four serial overlays atomically in memory, or raise.
 
@@ -244,6 +245,8 @@ def run(
         raise ValueError("should_cancel must be callable or None")
     if on_progress is not None and not callable(on_progress):
         raise ValueError("on_progress must be callable or None")
+    if before_tile is not None and not callable(before_tile):
+        raise ValueError("before_tile must be callable or None")
     plan = build_plan(source, image_seed, recipe=recipe)
     # Honour the config-before-Diffusers rule even if the codec dependencies
     # cease to import config first. The overlay helper's framework import is lazy.
@@ -264,6 +267,8 @@ def run(
         working = source.copy()
         for tile in plan.tiles:
             poll()
+            if before_tile is not None:
+                before_tile()
             owned: list[Image.Image] = []
             try:
                 painted = tile_mask(tile.ordinal)

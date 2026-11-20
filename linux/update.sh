@@ -12,8 +12,8 @@
 # before the pull, the newest three kept), then runs
 # `git pull --ff-only` and `uv sync`. It never discards a change: a pull Git
 # refuses is explained, and nothing is reset, stashed or checked out.
-# --restart stops the service only when it is idle (no job, load or gallery
-# bundle operation), and starts it again afterwards, even if the update fails.
+# --restart stops the service only when no work is active, checkpoint deletion
+# included, and starts it again afterwards, even if the update fails.
 # An installed service unit that differs from the one install-service.sh
 # now writes is named, with the command that rewrites it.
 set -euo pipefail
@@ -96,6 +96,27 @@ cd "$ROOT"
 port=$(server_port)
 scheme=$(server_scheme)
 
+# Keep another updater away from the checkout and any external gallery
+# before polling or stopping the service. The descriptors stay open through
+# the EXIT trap's restart, with no lock files to leave behind after a kill.
+db=${AURADREAM_DB_PATH:-$ROOT/auradream.db}
+# shellcheck disable=SC2088 # a literal ~ from the env file, expanded here
+case "$db" in
+    "~") db=$HOME ;;
+    "~/"*) db=$HOME/${db#"~/"} ;;
+esac
+dir=$(dirname -- "$db")
+if [ "$dry_run" = 0 ]; then
+    if ! exec {update_lock}<"$ROOT" || ! flock -n -- "$update_lock"; then
+        stop_update 'Could not lock the AuraDream checkout for update.' 'Finish any other update, then run bash linux/update.sh again.'
+    fi
+    if [ -d "$dir" ] && ! [ "$dir" -ef "$ROOT" ]; then
+        if ! exec {backup_lock}<"$dir" || ! flock -n -- "$backup_lock"; then
+            stop_update 'Could not lock the pre-update gallery copy.' 'Finish any other update, then run bash linux/update.sh again.'
+        fi
+    fi
+fi
+
 # 1. Not while AuraDream runs -----------------------------------------------------
 if service_active; then
     if [ "$restart" = 0 ]; then
@@ -155,24 +176,14 @@ fi
 
 # 3. The gallery database copy -------------------------------------------------------
 # The default database, as backend/legacy_names.py chooses it: auradream.db,
-# or local-diffusion.db while that is the only one; AURADREAM_DB_PATH wins
-# (relative to the checkout, where the service runs, and ~ expanded as
-# backend/config.py expands it).
-if [ -n "${AURADREAM_DB_PATH:-}" ]; then
-    db=$AURADREAM_DB_PATH
-    # shellcheck disable=SC2088 # a literal ~ from the env file, expanded here
-    case "$db" in
-        "~") db=$HOME ;;
-        "~/"*) db=$HOME/${db#"~/"} ;;
-    esac
-else
-    db=$ROOT/auradream.db
+# or local-diffusion.db while that is the only one. The optional explicit
+# path above is relative to the checkout, with ~ expanded as in config.py.
+if [ -z "${AURADREAM_DB_PATH:-}" ]; then
     legacy=$ROOT/local-diffusion.db
     if [ ! -e "$db" ] && [ -e "$legacy" ]; then db=$legacy; fi
 fi
 if [ -e "$db" ]; then
     name=${db##*/}
-    dir=$(dirname "$db")
     prefix=${name%.*}-before-update
     # Named by the commit this folder is on before the pull: a later update,
     # run after the new version has changed the database, makes a copy of its
@@ -229,10 +240,18 @@ if [ -e "$db" ]; then
         if [ "$kept" = 1 ]; then
             ok "Gallery database copy $copy is already there from this same commit ($commit), so it was left alone. If the new version misbehaves, that copy is the way back."
         else
-            cp -f -- "$db" "$copy"
-            # A journal left from an older copy would be applied to this one.
+            # Stage beside the final copy so publication is a rename. A retry
+            # starts fresh if an interrupted update left staging behind.
+            stage=$copy.stage.db
+            rm -f -- "$stage" "$stage-wal"
+            cp -- "$db" "$stage"
+            [ "$has_wal" = 0 ] || cp -- "$wal" "$stage-wal"
+            # The final database name signals that the whole pair is ready.
+            # Clear any fixed-name copy before replacing its sidecars.
+            rm -f -- "$copy"
             rm -f -- "$copy-wal" "$copy-shm"
-            [ "$has_wal" = 0 ] || cp -f -- "$wal" "$copy-wal"
+            [ "$has_wal" = 0 ] || mv -T -- "$stage-wal" "$copy-wal"
+            mv -T -- "$stage" "$copy"
             ok "Gallery database copied to $copy. If the new version misbehaves, that copy is the way back."
         fi
         if [ "${#old[@]}" -gt 0 ]; then

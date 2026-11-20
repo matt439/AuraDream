@@ -164,13 +164,29 @@ async def _carry_then_refine(services: AppServices, queued: list[more_seeds.Batc
     bases = [batch for batch in queued if batch.template.refine is None and batch.template.edit is None]
     job_ids = sorted({record.job_id for batch in bases for record in batch.held if record.job_id})
     retained = await asyncio.to_thread(storage.retained_run_metadata, job_ids) if job_ids else {}
+    selective = {job_id for job_id, (_, metadata) in retained.items() if metadata.get("then_refine_cells") is not None}
+    chosen_cells = await asyncio.to_thread(storage.retained_then_refine_cells, sorted(selective)) if selective else {}
+    selected_keys = {
+        job_id: {
+            key for cell in cells
+            for key in grid.cell_keys(grid.Cell(request=services.backend().applied(cell.request), seed=cell.seed))
+        }
+        for job_id, cells in chosen_cells.items()
+    }
     unavailable: str | None = None
     asked = False
     for batch in bases:
         specs: list[ThenRefine] = []
-        for job_id in dict.fromkeys(record.job_id for record in batch.held if record.job_id):
-            if job_id not in retained:
+        matching_jobs: set[str] = set()
+        for record in batch.held:
+            job_id = record.job_id
+            if job_id is None or job_id not in retained or job_id in matching_jobs:
                 continue
+            if job_id in selective and (
+                job_id not in selected_keys or not then_refine.matches_source(record, selected_keys[job_id])
+            ):
+                continue
+            matching_jobs.add(job_id)
             spec = then_refine.retained(retained[job_id][1])
             if spec is not None and spec not in specs:
                 specs.append(spec)

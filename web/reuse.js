@@ -109,11 +109,13 @@ function usePrompt(rec) {
 // panel; a refine pass is the Refine dialog's, so a refined record opens the
 // dialog on its source with the pass as it ran (`reusePass`).
 // An instruction edit's Reuse opens Edit by instruction… on its source
-// (`reuseEdit`), never the panel: it is held only where that source cannot be
-// had - never resolved to a gallery image, deleted, or in the recycle bin.
+// (`reuseEdit`). Held recipes and unavailable sources keep their own reason.
 function editReuseReason(rec) {
   const edit = rec.edit;
   if (edit == null) return '';
+  if (edit.recipe === 'kontext-1024-v1') {
+    return '1024-square FLUX.1 Kontext [dev] instruction editing has not been qualified.';
+  }
   if (edit.source == null) {
     return 'The source of this instruction edit was never resolved to a gallery image, so the edit cannot be reopened.';
   }
@@ -128,6 +130,7 @@ function editReuseReason(rec) {
 
 function executionReuseReason(rec) {
   if (rec.edit != null) return editReuseReason(rec);
+  if (rec.tiled_refine != null) return 'This image uses Tiled Refine, which is unavailable for replay.';
   const spec = rec.execution;
   if (spec == null) return '';
   const empty = typeof spec === 'object' && !Array.isArray(spec)
@@ -552,9 +555,11 @@ function syncReuseButton(button, rec, compact = false) {
   button.dataset.reuseReference = (rec.reference ?? []).join(',');
   button.dataset.reuseLora = rec.lora || '';
   button.dataset.reuseExecution = JSON.stringify(rec.execution ?? null);
+  button.dataset.reuseTiledRefine = String(rec.tiled_refine != null);
   button.dataset.reuseEdit = String(rec.edit != null);
-  // An edit's source, and whether it has gone, for a refresh to rebuild an
+  // An edit's recipe, source and availability let a refresh rebuild the
   // edit's button with its hold (`editReuseReason`).
+  button.dataset.reuseEditRecipe = rec.edit?.recipe ?? '';
   button.dataset.reuseEditSource = rec.edit?.source ?? '';
   button.dataset.reuseEditGone = String(!!rec.edit_missing);
   button.dataset.reuseEditBinned = String(!!rec.edit_binned);
@@ -565,7 +570,8 @@ function syncReuseButton(button, rec, compact = false) {
   if (executionReason) {
     button.textContent = compact ? '\u21b6' : rec.edit != null ? 'Reuse instruction edit' : 'Reuse settings';
     button.setAttribute('aria-disabled', 'true');
-    button.setAttribute('aria-label', rec.edit != null ? 'Reuse instruction edit (unavailable)' : 'Reuse settings (unavailable execution recipe)');
+    button.setAttribute('aria-label', rec.edit != null ? 'Reuse instruction edit (unavailable)'
+      : rec.tiled_refine != null ? 'Reuse settings (Tiled Refine unavailable)' : 'Reuse settings (unavailable execution recipe)');
     button.title = executionReason;
     button.dataset.tip = 'Reuse unavailable';
     return;
@@ -700,9 +706,12 @@ function syncReuseButtons() {
       reference: kept.reuseReference ? kept.reuseReference.split(',').map(Number) : [],
       lora: kept.reuseLora || null,
       execution: JSON.parse(kept.reuseExecution || 'null'),
-      edit: kept.reuseEdit === 'true' ? { source: kept.reuseEditSource ? +kept.reuseEditSource : null } : null,
+      edit: kept.reuseEdit === 'true'
+        ? { source: kept.reuseEditSource ? +kept.reuseEditSource : null, recipe: kept.reuseEditRecipe }
+        : null,
       edit_missing: kept.reuseEditGone === 'true',
       edit_binned: kept.reuseEditBinned === 'true',
+      tiled_refine: kept.reuseTiledRefine === 'true' ? {} : null,
     }, kept.reuseCompact === 'true');
   });
   // More seeds… is held on another checkpoint's images the same way.

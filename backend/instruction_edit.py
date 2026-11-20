@@ -20,7 +20,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from importlib import metadata
 from math import gcd
 from typing import Annotated, Any, Literal
@@ -31,7 +31,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from .execution import canonical_loader_execution
 
 
-RecipeName = Literal["kontext-v1"]
+PublicRecipeName = Literal["kontext-v1"]
+RecipeName = Literal["kontext-v1", "kontext-1024-v1"]
 PositiveSource = Annotated[int, Field(strict=True, gt=0, le=2**63 - 1)]
 PositiveDimension = Annotated[int, Field(strict=True, gt=0)]
 
@@ -79,14 +80,17 @@ KONTEXT_V1 = Recipe(
     default_steps=28,
     default_guidance_scale=2.5,
 )
+KONTEXT_1024_V1 = replace(KONTEXT_V1, name="kontext-1024-v1")
 INSTRUCTION_EDIT_EXACT_ID = f"Instruction editing needs {KONTEXT_V1.model_id} exactly; select it in Models."
 
 
 def recipe_for(name: str) -> Recipe:
     """A named source contract, never permission to load or render."""
-    if name != KONTEXT_V1.name:
-        raise ValueError("unsupported instruction-edit recipe")
-    return KONTEXT_V1
+    if name == KONTEXT_V1.name:
+        return KONTEXT_V1
+    if name == KONTEXT_1024_V1.name:
+        return KONTEXT_1024_V1
+    raise ValueError("unsupported instruction-edit recipe")
 
 
 class _Contract(BaseModel):
@@ -106,6 +110,12 @@ class InstructionEditSpec(_Contract):
     """A requested source id and explicit recipe, without inferred defaults."""
     source: PositiveSource
     recipe: RecipeName
+
+
+class InstructionEditPreview(_Contract):
+    """The source and recipe exposed by the public Edit preview."""
+    source: PositiveSource
+    recipe: PublicRecipeName
 
 
 class InstructionEditSource(_Contract):
@@ -198,11 +208,15 @@ def descriptor_from_image(filename: str, image: Image.Image) -> InstructionEditS
         )
 
 
-def _working_size(source_width: int, source_height: int) -> tuple[int, int]:
+def _working_size(source_width: int, source_height: int, recipe: RecipeName) -> tuple[int, int]:
     if any(type(value) is not int or value <= 0 for value in (source_width, source_height)):
         raise ValueError("instruction-edit source dimensions must be positive integers")
     divisor = gcd(source_width, source_height)
     ratio = source_width // divisor, source_height // divisor
+    if recipe_for(recipe) is KONTEXT_1024_V1:
+        if ratio != (1, 1):
+            raise ValueError("kontext-1024-v1 requires an exact square source")
+        return 1024, 1024
     # This named table is frozen. It does not snap approximate source ratios.
     sizes = {
         (1, 1): (512, 512),
@@ -227,11 +241,12 @@ class InstructionEditGeometry:
     source_height: int
     width: int
     height: int
+    recipe: RecipeName = "kontext-v1"
 
     def __post_init__(self) -> None:
         if (
             type(self.width) is not int or type(self.height) is not int
-            or (self.width, self.height) != _working_size(self.source_width, self.source_height)
+            or (self.width, self.height) != _working_size(self.source_width, self.source_height, self.recipe)
         ):
             raise ValueError("instruction-edit geometry does not match the frozen source mapping")
 
@@ -261,9 +276,9 @@ class InstructionEditGeometry:
 
 def geometry(source_width: int, source_height: int, *, recipe: str = "kontext-v1") -> InstructionEditGeometry:
     """Resolve the exact source aspect without cropping or loading a model."""
-    recipe_for(recipe)
-    width, height = _working_size(source_width, source_height)
-    return InstructionEditGeometry(source_width, source_height, width, height)
+    name = recipe_for(recipe).name
+    width, height = _working_size(source_width, source_height, name)
+    return InstructionEditGeometry(source_width, source_height, width, height, name)
 
 
 def prepare_source(image: Image.Image, resolved: InstructionEditGeometry | None = None) -> Image.Image:
@@ -273,8 +288,10 @@ def prepare_source(image: Image.Image, resolved: InstructionEditGeometry | None 
     dimensions as well as the aspect. Provenance/existence checks belong to
     later source admission, not this supplied-pixel operation.
     """
-    actual = geometry(image.width, image.height)
-    if resolved is not None and (not isinstance(resolved, InstructionEditGeometry) or resolved != actual):
+    if resolved is not None and not isinstance(resolved, InstructionEditGeometry):
+        raise ValueError("the instruction-edit source dimensions changed after geometry was resolved")
+    actual = geometry(image.width, image.height, recipe=resolved.recipe if resolved is not None else KONTEXT_V1.name)
+    if resolved is not None and resolved != actual:
         raise ValueError("the instruction-edit source dimensions changed after geometry was resolved")
     with image.convert("RGB") as rgb:
         return rgb.resize(actual.working_size, resample=Image.Resampling.LANCZOS)
@@ -324,6 +341,7 @@ INSTRUCTION_EDIT_ASPECT_UNQUALIFIED = (
     "Only square sources are qualified for instruction editing (512x512); "
     "this {a}:{b} source would render at {w}x{h}, which is not measured."
 )
+INSTRUCTION_EDIT_RECIPE_UNQUALIFIED = "1024-square FLUX.1 Kontext [dev] instruction editing has not been qualified."
 
 _QUANTIZATION_WORDS = {"int8": "int8 quantization", "none": "BF16 (no quantization)", "nunchaku": "Nunchaku 4-bit"}
 _OFFLOAD_WORDS = {"sequential": "sequential offload", "none": "no offload"}
@@ -454,6 +472,10 @@ def option_refusals(
     }
 
 
+def _recipe_refusal(recipe: RecipeName) -> str | None:
+    return None if recipe == QUALIFIED_ENVELOPE.recipe else INSTRUCTION_EDIT_RECIPE_UNQUALIFIED
+
+
 def geometry_refusal(resolved: InstructionEditGeometry) -> str | None:
     """Why a frozen-table geometry is outside the measured sizes, or None.
 
@@ -462,6 +484,8 @@ def geometry_refusal(resolved: InstructionEditGeometry) -> str | None:
     """
     if not isinstance(resolved, InstructionEditGeometry):
         raise TypeError("geometry_refusal needs a resolved InstructionEditGeometry")
+    if (reason := _recipe_refusal(resolved.recipe)) is not None:
+        return reason
     divisor = gcd(resolved.source_width, resolved.source_height)
     aspect = resolved.source_width // divisor, resolved.source_height // divisor
     if (aspect, resolved.working_size) in QUALIFIED_ENVELOPE.sizes:
@@ -484,12 +508,12 @@ def require_execution_available(spec: object, *, qualified: bool = False) -> Non
     ``qualified`` must be the literal True a backend instance answered;
     a truthy stand-in (1, a non-empty string) leaves the seam closed.
     """
-    if isinstance(spec, StoredInstructionEdit):
-        StoredInstructionEdit.model_validate(spec)
-    else:
-        InstructionEditSpec.model_validate(spec)
+    checked = (StoredInstructionEdit.model_validate(spec) if isinstance(spec, StoredInstructionEdit)
+               else InstructionEditSpec.model_validate(spec))
     if qualified is not True:
         raise ValueError(INSTRUCTION_EDIT_UNAVAILABLE)
+    if (reason := _recipe_refusal(checked.recipe)) is not None:
+        raise ValueError(reason)
 
 
 def require_model_available(

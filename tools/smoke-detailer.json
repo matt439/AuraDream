@@ -555,6 +555,141 @@
     "fatal": true
   },
   {
+    "log": "'a carried adapter is only removed after a coded refusal and an updated list; the same reviewed recipe queues on a second deliberate press'"
+  },
+  {
+    "expect": "(async () => { const name = 'demo-style.safetensors'; if (!await __until(() => [...els.lora.options].some((o) => o.value === name))) return false; const res = await __post('/api/generate', {prompt: 'detailer adapter source', negative_prompt: 'blurry', width: 512, height: 512, steps: 2, guidance_scale: 7, seed: 46, lora: name, lora_scale: 0.55}); if (!res.ok) return false; const {job_id} = await res.json(); if (!await __until(async () => (await __job(job_id)).status === 'done')) return false; const job = await __job(job_id); window.__loraSource = job.images[0]; return __loraSource?.lora === name && await __until(() => !elsewhereBusy && !busy); })()",
+    "fatal": true
+  },
+  {
+    "expect": "(async () => { await __post('/api/fake/step', {seconds: 0.3}); await openDetailer(__loraSource); return detailerLora?.name === __loraSource.lora && detailerLora.scale === 0.55 && !detailerWorking; })()",
+    "fatal": true
+  },
+  {
+    "eval": "els.detailerDetect.scrollIntoView({block: 'nearest'})"
+  },
+  {
+    "click": "#detailer-detect"
+  },
+  {
+    "expect": "__until(() => detailerPreview?.regions.length === 2 && !detailerWorking)",
+    "fatal": true
+  },
+  {
+    "eval": "els.detailerRegions.querySelector('input').click(); els.detailerRecipe.open = true; replaceBoxText(els.detailerPrompt, 'selected hand detail'); replaceBoxText(els.detailerNegative, 'low detail'); els.detailerSeed.value = '234'; els.detailerStrength.value = '0.35'; els.detailerSteps.value = '5'; els.detailerGuidance.value = '6'; detailerChanged(); els.detailerRun.scrollIntoView({block: 'nearest'}); window.__reviewedDetail = { receipt: detailerPreview.receipt, accepted: [...detailerSelected], recipe: {prompt: 'selected hand detail', negative_prompt: 'low detail', steps: 5, guidance_scale: 6, strength: 0.35, seed: 234} };"
+  },
+  {
+    "eval": "window.__detailFetch = window.fetch.bind(window); window.__detailResponse = (detail, code = null) => new Response(JSON.stringify({detail, code}), {status: 422, headers: {'Content-Type': 'application/json'}}); window.__detailRequests = []; window.__detailRefusals = [__detailResponse('The adapter is still listed.', 'lora_missing'), __detailResponse('Another request needs attention.')]; window.__detailListGate = null; window.__detailListHeld = false; window.fetch = async (path, options) => { if (path === '/api/detailer') { const entry = {body: JSON.parse(options.body)}; __detailRequests.push(entry); const response = __detailRefusals.shift() ?? await __detailFetch(path, options); entry.code = response.ok ? null : (await response.clone().json()).code; if (response.ok) entry.job = (await response.clone().json()).job_id; return response; } const response = await __detailFetch(path, options); if (path === '/api/loras' && __detailListGate) { __detailListHeld = true; await __detailListGate; } return response; };"
+  },
+  {
+    "click": "#detailer-run"
+  },
+  {
+    "expect": "__until(() => __detailRequests.length === 1 && !detailerSending && els.detailerError.textContent.includes('still listed') && detailerLora?.name === __loraSource.lora)",
+    "fatal": true
+  },
+  {
+    "click": "#detailer-run"
+  },
+  {
+    "expect": "__until(() => __detailRequests.length === 2 && !detailerSending && els.detailerError.textContent.includes('Another request') && detailerLora?.name === __loraSource.lora)",
+    "fatal": true
+  },
+  {
+    "expect": "(async () => { const response = await __post('/api/fake/lora', {name: __loraSource.lora, present: false}); if (!response.ok || (await response.json()).present) return false; window.__detailListGate = new Promise((resolve) => { window.__releaseDetailList = resolve; }); return true; })()",
+    "fatal": true
+  },
+  {
+    "click": "#detailer-run"
+  },
+  {
+    "expect": "__until(() => __detailListHeld && __detailRequests.length === 3 && __detailRequests[2].code === 'lora_missing' && detailerSending)",
+    "fatal": true
+  },
+  {
+    "click": "#detailer-run"
+  },
+  {
+    "expect": "__detailRequests.length === 3 && detailerSending && els.detailerRun.getAttribute('aria-disabled') === 'true'",
+    "fatal": true
+  },
+  {
+    "eval": "__releaseDetailList(); window.__detailListGate = null"
+  },
+  {
+    "expect": "__until(() => !detailerSending && !detailerLora && els.detailerError.textContent.includes('no longer in the LoRA folder') && els.detailerCarried.textContent.includes(__loraSource.lora))",
+    "fatal": true
+  },
+  {
+    "expect": "els.detailerDialog.open && detailerPreview.receipt === __reviewedDetail.receipt && detailerSelected.size === 1 && detailerSelected.has(__reviewedDetail.accepted[0]) && els.detailerRegions.querySelectorAll('input:checked').length === 1 && __detailRequests.length === 3 && __detailRequests.every(({body}) => JSON.stringify(body) === JSON.stringify({...__reviewedDetail, recipe: {...__reviewedDetail.recipe, lora: __loraSource.lora, lora_scale: 0.55}}))",
+    "fatal": true
+  },
+  {
+    "click": "#detailer-run"
+  },
+  {
+    "expect": "__until(async () => { const accepted = __detailRequests[3]; if (__detailRequests.length !== 4 || !accepted?.job || els.detailerDialog.open) return false; const job = await __job(accepted.job); return job.status === 'done' && job.detailer.completed === 1 && job.images[0].lora === null && JSON.stringify(accepted.body) === JSON.stringify(__reviewedDetail) && __draft() === __keptDraft && !busy; })",
+    "fatal": true
+  },
+  {
+    "log": "'detector status retries retire only the read error; a late reply after Close belongs to the old source'"
+  },
+  {
+    "eval": "window.__detailStatusFailures = ['Status is temporarily unavailable.', 'Status is still unavailable.']; window.__detailStatusReads = 0; window.__failDetectorRepair = false; window.__deferDetectorStatus = false; window.fetch = (path, options) => { if (path === '/api/detailer/status') { __detailStatusReads++; const detail = __detailStatusFailures.shift(); if (detail) return Promise.resolve(__detailResponse(detail)); if (__deferDetectorStatus) { __deferDetectorStatus = false; return new Promise((resolve) => { window.__releaseDetectorStatus = () => resolve(new Response(JSON.stringify({detectors: [], supported: false, reason: 'Old status reply'}), {headers: {'Content-Type': 'application/json'}})); }); } } if (path === '/api/detailer/prepare' && __failDetectorRepair) return Promise.resolve(__detailResponse('Detector repair was refused.')); return __detailFetch(path, options); };"
+  },
+  {
+    "expect": "(async () => { await openDetailer(__src); return !detailerWorking && !els.detailerError.hidden && els.detailerError.textContent === 'Status is temporarily unavailable.' && els.detailerSummary.hidden; })()",
+    "fatal": true
+  },
+  {
+    "eval": "els.detailerRefresh.scrollIntoView({block: 'nearest'})"
+  },
+  {
+    "click": "#detailer-refresh"
+  },
+  {
+    "expect": "__until(() => !detailerWorking && els.detailerError.textContent === 'Status is still unavailable.' && els.detailerSummary.hidden)",
+    "fatal": true
+  },
+  {
+    "click": "#detailer-refresh"
+  },
+  {
+    "expect": "__until(() => !detailerWorking && chosenDetailerDetector()?.available && els.detailerDetectors.options.length === 3 && els.detailerError.hidden && !els.detailerSummary.hidden && els.detailerSummary.textContent.includes('Review each region'))",
+    "fatal": true
+  },
+  {
+    "eval": "window.__failDetectorRepair = true; els.detailerPrepare.scrollIntoView({block: 'nearest'})"
+  },
+  {
+    "click": "#detailer-prepare"
+  },
+  {
+    "expect": "__until(() => __detailStatusReads === 4 && !detailerWorking && els.detailerError.textContent === 'Detector repair was refused.' && els.detailerSummary.hidden && chosenDetailerDetector()?.available)",
+    "fatal": true
+  },
+  {
+    "eval": "window.__deferDetectorStatus = true; window.__oldDetailerRead = refreshDetailerStatus(); els.detailerClose.scrollIntoView({block: 'nearest'})"
+  },
+  {
+    "expect": "__until(() => !!window.__releaseDetectorStatus && detailerWorking)",
+    "fatal": true
+  },
+  {
+    "click": "#detailer-close"
+  },
+  {
+    "expect": "__until(() => !els.detailerDialog.open && !detailerSource)",
+    "fatal": true
+  },
+  {
+    "expect": "(async () => { await openDetailer(__loraSource); __releaseDetectorStatus(); await __oldDetailerRead; window.fetch = __detailFetch; return detailerSource.id === __loraSource.id && els.detailerDetectors.options.length === 3 && !detailerWorking && els.detailerError.hidden && !els.detailerSummary.hidden; })()",
+    "fatal": true
+  },
+  {
+    "key": "Escape"
+  },
+  {
     "expect": "__a11yCheck()"
   }
 ]

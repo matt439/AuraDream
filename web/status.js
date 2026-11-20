@@ -302,12 +302,10 @@ function syncUnload() {
 }
 
 // The topbar's Load - and the failed load's Retry load - starts the load
-// without queueing an image to do it, and the status says so at once. It
-// takes back only what was said about the load - its own refusal, a failed
-// load's sentence or Expand's pointer to it (`loadLine`) - never the line's
-// other messages: an Undo on offer, a job's outcome. Expand's words about the
-// load said under the prompt instead, beside a Reuse's Undo
-// (prompt-expand.js, expandSay), go too.
+// without queueing an image to do it. It clears its previous refusal or
+// Expand's pointer (`loadLine`). The status poll clears its own detail once
+// the failure ends: a fast failure can already be on screen when this POST
+// returns. Expand's words under the prompt beside a Reuse's Undo go too.
 let loadLine = null;
 async function loadModel() {
   if (modelChangeHold()) { sayModelChangeHold(); return; }
@@ -316,7 +314,7 @@ async function loadModel() {
   try {
     await api('/api/model/load', { method: 'POST' });
     const said = els.error.textContent;
-    if (said && (said === loadLine || said === shownLoadDetail)) showError('');
+    if (said && said === loadLine && said !== loadDetailInError) showError('');
     loadLine = null;
     if (promptUndo?.aboutLoad) dropPromptUndo();
   } catch (err) {

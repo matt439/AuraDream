@@ -1,6 +1,6 @@
 """Startup refusals survive the shortcut window, using scratch files only.
 
-The batch tests run its real cmd.exe control flow against Python renamed to
+The launcher tests run the real shell scripts against Python renamed to
 uv.exe: Python executes our inert `run` file instead of any app or uv code.
 """
 from __future__ import annotations
@@ -153,12 +153,17 @@ def test_the_launcher_keeps_errors_visible_and_preserves_exit_and_arguments(tmp_
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows PowerShell launcher")
-@pytest.mark.parametrize("code", [0, 7])
-@pytest.mark.parametrize("tool_location", ["path", "user", "winget", "missing"])
-def test_the_powershell_launcher_finds_uv_as_its_cmd_does(tmp_path, code, tool_location):
+@pytest.mark.parametrize(("tool_location", "code", "deny_checkout"), [
+    ("path", 0, False), ("path", 7, False),
+    ("user", 0, False), ("user", 7, False),
+    ("winget", 0, False), ("winget", 7, False),
+    ("missing", 1, False), pytest.param("path", 0, True, id="checkout-entry-fails"),
+])
+def test_the_powershell_launcher_finds_uv_and_runs_it_from_the_checkout(tmp_path, tool_location, code, deny_checkout):
     # DEV#67: auradream.ps1, which PowerShell picks over the .cmd, ran a bare
     # `uv` and exited 0 when there was none.
-    project = tmp_path / "AuraDream with spaces"
+    # DEV#75: the checkout path is literal even when it contains brackets.
+    project = tmp_path / "[images]" / "AuraDream with spaces"
     (project / "bin").mkdir(parents=True)
     launcher = project / "bin" / "auradream.ps1"
     launcher.write_bytes((ROOT / "bin" / "auradream.ps1").read_bytes())
@@ -179,6 +184,27 @@ def test_the_powershell_launcher_finds_uv_as_its_cmd_does(tmp_path, code, tool_l
         "sys.exit(int(os.environ['STUB_EXIT']))\n",
         encoding="utf-8",
     )
+    # Record even an erroneous invocation in the caller's directory.
+    shutil.copy2(project / "run", tmp_path / "run")
+    wrapper = tmp_path / "run-launcher.ps1"
+    preamble = ""
+    if deny_checkout:
+        # The advanced function's Write-Error obeys the caller's ErrorAction
+        # exactly as a nonterminating error from the real cmdlet does.
+        preamble = (
+            "function Push-Location {\n"
+            "    [CmdletBinding()] param([string] $LiteralPath)\n"
+            "    Write-Error 'test checkout entry refused'\n"
+            "}\n"
+        )
+    wrapper.write_text(
+        preamble
+        + "& $env:LAUNCHER --model stub/model --open\n"
+        + "$rc = $LASTEXITCODE\n"
+        + "Write-Output ('Caller: ' + $PWD.ProviderPath)\n"
+        + "exit $rc\n",
+        encoding="ascii",
+    )
     calls = tmp_path / "calls.json"
     system_root = os.environ.get("SystemRoot", r"C:\Windows")
     powershell = Path(system_root) / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
@@ -192,17 +218,24 @@ def test_the_powershell_launcher_finds_uv_as_its_cmd_does(tmp_path, code, tool_l
         "PYTHONHOME": sys.base_prefix,
         "USERPROFILE": str(user_home), "LOCALAPPDATA": str(local_data),
         "STUB_LOG": str(calls), "STUB_EXIT": str(code),
+        "LAUNCHER": str(launcher),
     })
     result = subprocess.run(
         [str(powershell), "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
-         "-File", str(launcher), "--model", "stub/model", "--open"],
+         "-File", str(wrapper)],
         cwd=tmp_path, env=environment, stdin=subprocess.DEVNULL, capture_output=True, text=True,
         timeout=60,
     )
+    assert f"Caller: {tmp_path}" in result.stdout
     if tool_location == "missing":
         assert result.returncode == 1, result.stdout + result.stderr
         assert "uv was not found. Run install.cmd" in result.stdout
         assert "CommandNotFoundException" not in result.stdout + result.stderr
+        assert not calls.exists()
+        return
+    if deny_checkout:
+        assert result.returncode == 1, result.stdout + result.stderr
+        assert "test checkout entry refused" in result.stderr
         assert not calls.exists()
         return
     assert result.returncode == code, result.stdout + result.stderr
@@ -210,3 +243,4 @@ def test_the_powershell_launcher_finds_uv_as_its_cmd_does(tmp_path, code, tool_l
     assert Path(directory) == project
     assert arguments == ["python", "-m", "backend.main", "--model", "stub/model", "--open"]
     assert "inert uv finished" in result.stdout
+    assert not result.stderr

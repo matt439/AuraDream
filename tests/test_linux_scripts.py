@@ -10,6 +10,7 @@ import shutil
 import signal
 import stat
 import subprocess
+import time
 from pathlib import Path
 
 import pytest
@@ -30,12 +31,14 @@ from tests.linux_script_helpers import (  # noqa: F401  (fixtures by name)
     _run,
     _service_active,
     _snapshot,
+    _stub,
     _systemctl,
     _unit,
     _venv,
     auradream_listening,
     sandbox,
 )
+from tests.update_backup_helpers import make_update_gallery, restored_rows
 
 
 # --- Static checks (everywhere) --------------------------------------------------
@@ -474,6 +477,57 @@ def test_update_removes_a_stale_copy_journal_when_the_gallery_has_none(sandbox):
 
 
 @on_linux
+@pytest.mark.parametrize("phase", ["before-wal", "after-wal", "no-wal"])
+def test_update_recovers_an_interrupted_gallery_copy(sandbox, phase):
+    _checkout_with_gallery(sandbox)
+    root = sandbox["root"]
+    db = root / "auradream.db"
+    copy = root / "auradream-before-update-abc1234.db"
+    older = _older_copies(root)
+    has_wal = phase != "no-wal"
+    make_update_gallery(db, wal=has_wal, value=42)
+    sandbox["env"].update(
+        STUB_INTERRUPT_SOURCE=str(db),
+        STUB_INTERRUPT_FINAL_WAL=f"{copy}-wal",
+        STUB_INTERRUPT_PHASE=phase,
+    )
+    # Kill the real updater immediately after the selected filesystem call.
+    # The wrappers also catch the old code's direct copy to the final name.
+    wrapper = '''
+"/usr/bin/${0##*/}" "$@" || exit "$?"
+if { [ "$STUB_INTERRUPT_PHASE" = after-wal ] && [ "${@: -1}" = "$STUB_INTERRUPT_FINAL_WAL" ]; } ||
+   { [ "$STUB_INTERRUPT_PHASE" != after-wal ] && [ "${@: -2:1}" = "$STUB_INTERRUPT_SOURCE" ]; }; then
+    : >"$STUB_LOG.interrupted"
+    kill -KILL "$PPID"
+fi
+'''
+    for command in ("cp", "mv"):
+        _stub(sandbox["stubs"], command, wrapper, log=False)
+    interrupted = _run(sandbox, "update.sh")
+    assert interrupted.returncode == -signal.SIGKILL, interrupted.stdout + interrupted.stderr
+    assert sandbox["log"].with_suffix(".log.interrupted").is_file()
+    assert not copy.exists()
+    assert Path(f"{copy}-wal").exists() is (phase == "after-wal")
+    assert all(path.is_file() for path in older.values())
+    assert not any(" pull " in call or call.startswith("uv ") for call in _calls(sandbox))
+
+    for command in ("cp", "mv"):
+        (sandbox["stubs"] / command).unlink()
+    retry = _run(sandbox, "update.sh")
+    assert retry.returncode == 0, retry.stdout + retry.stderr
+    assert restored_rows(copy) == [(42,)]
+    assert Path(f"{copy}-wal").exists() is has_wal
+    assert not list(root.glob("*.stage.db*"))
+    assert set(path for path in older.values() if path.exists()) == {older["a4a4a4a"], older["a3a3a3a"]}
+    assert any(call.endswith("pull --ff-only") for call in _calls(sandbox))
+
+    make_update_gallery(db, wal=has_wal, value=43)
+    repeated = _run(sandbox, "update.sh")
+    assert repeated.returncode == 0 and "left alone" in repeated.stdout
+    assert restored_rows(copy) == [(42,)]
+
+
+@on_linux
 def test_update_keeps_the_copy_an_earlier_update_made(sandbox):
     # The second update runs after the new version has changed the database:
     # the copy from before the first pull is still the way back.
@@ -707,15 +761,97 @@ def test_update_restart_stops_an_idle_service_and_starts_it_again(sandbox, aurad
 
 
 @on_linux
+@pytest.mark.parametrize("external_gallery", [False, True], ids=["local-gallery", "external-gallery"])
+def test_update_restart_refuses_an_owned_gallery_before_touching_the_service(
+    sandbox, auradream_listening, external_gallery,
+):
+    import fcntl
+
+    _checkout_with_gallery(sandbox)
+    _venv(sandbox)
+    _service_active(sandbox)
+    auradream_listening["track"]["service"] = True
+    folder = sandbox["root"]
+    if external_gallery:
+        folder = sandbox["tmp"] / "external gallery"
+        folder.mkdir()
+        sandbox["env"]["AURADREAM_DB_PATH"] = str(folder / "auradream.db")
+    db = folder / "auradream.db"
+    make_update_gallery(db, wal=True, value=42)
+    copy = folder / "auradream-before-update-abc1234.db"
+    before = _snapshot(sandbox["root"], folder)
+
+    # Stand in for an updater that owns publication while the live service
+    # still answers idle to a second updater's preflight.
+    descriptor = os.open(folder, os.O_RDONLY)
+    try:
+        fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        refused = _run(sandbox, "update.sh", "--restart")
+    finally:
+        os.close(descriptor)
+    assert refused.returncode == 1, refused.stdout + refused.stderr
+    assert _systemctl(sandbox) == []
+    assert _no_git_or_uv(sandbox)
+    assert (sandbox["state"] / "active").exists()
+    assert not copy.exists() and _snapshot(sandbox["root"], folder) == before
+    assert "lock" in refused.stdout and "update" in refused.stdout
+
+    retry = _run(sandbox, "update.sh", "--restart")
+    assert retry.returncode == 0, retry.stdout + retry.stderr
+    assert _changes(sandbox) == ["systemctl --user stop auradream.service", "systemctl --user start auradream.service"]
+    assert (sandbox["state"] / "active").exists()
+    assert restored_rows(copy) == [(42,)]
+
+
+@on_linux
+def test_update_restart_excludes_a_second_update_while_git_runs(sandbox, auradream_listening):
+    _checkout_with_gallery(sandbox)
+    _venv(sandbox)
+    _service_active(sandbox)
+    auradream_listening["track"]["service"] = True
+    go = sandbox["tmp"] / "finish-pull"
+    command = [BASH, str(LINUX / "update.sh"), "--restart"]
+    child = subprocess.Popen(
+        command, env={**sandbox["env"], "STUB_PULL_WAIT": str(go)},
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.DEVNULL,
+        cwd=sandbox["tmp"], text=True,
+    )
+    try:
+        deadline = time.monotonic() + 10
+        while not any(call.endswith("pull --ff-only") for call in _calls(sandbox)):
+            assert child.poll() is None and time.monotonic() < deadline
+            time.sleep(0.05)
+        calls_before = _calls(sandbox)
+        assert not (sandbox["state"] / "active").exists()
+        refused = _run(sandbox, "update.sh", "--restart")
+        assert refused.returncode == 1, refused.stdout + refused.stderr
+        assert "Could not lock the AuraDream checkout" in refused.stdout
+        assert _calls(sandbox) == calls_before
+    finally:
+        go.touch()
+        try:
+            output, errors = child.communicate(timeout=15)
+        except subprocess.TimeoutExpired:
+            child.kill()
+            child.communicate()
+            raise
+    assert child.returncode == 0, output + errors
+    assert _changes(sandbox) == ["systemctl --user stop auradream.service", "systemctl --user start auradream.service"]
+    assert (sandbox["state"] / "active").exists()
+
+
+@on_linux
 @pytest.mark.parametrize("busy", [
     ("status", "active_jobs", ["job-1"], "1 job(s) queued or running"),
     ("status", "state", "loading", "a model is loading"),
+    ("status", "model_delete", "example/checkpoint", "checkpoint files are being deleted (example/checkpoint)"),
     ("bundles", "state", "running", "a gallery bundle operation is running"),
 ])
 def test_update_restart_refuses_a_busy_service(sandbox, auradream_listening, busy):
     _checkout_with_gallery(sandbox)
     _venv(sandbox)
     _service_active(sandbox)
+    auradream_listening["track"]["service"] = True
     part, key, value, words = busy
     auradream_listening["busy"][part][key] = value
     before = _snapshot(sandbox["root"])

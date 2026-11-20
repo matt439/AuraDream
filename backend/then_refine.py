@@ -11,13 +11,14 @@ from __future__ import annotations
 import hashlib
 import json
 
-from .grid import Cell
+from .grid import Cell, CellKey, cell_from_record, cell_key
 from .refine import scaled
 from .refine_batch import plan, too_big
 from .config import settings
 from . import refine_qualification
 from .model_selection import current_model_id
 from .schemas_generate import GenerateRequest, ThenRefine, default_strength
+from .schemas_gallery import ImageRecord
 
 
 def resolved(spec: ThenRefine) -> ThenRefine:
@@ -45,18 +46,19 @@ def stand_in(request: GenerateRequest, spec: ThenRefine) -> GenerateRequest:
     })
 
 
-def execution_units(cells: list[Cell], spec: ThenRefine | None) -> list[Cell]:
+def execution_units(
+    cells: list[Cell], spec: ThenRefine | None, selected: frozenset[int] | None = None,
+) -> list[Cell]:
     """The calls a job of `cells` makes, in run order: each cell and, with
     Then refine, a stand-in pass per image after it. What the grid preview,
     the CLI and the queue's stored estimate price, so the expansion is
     written once."""
-    if spec is None:
-        return list(cells)
-    return [
-        unit
-        for cell in cells
-        for unit in [cell, *[Cell(request=stand_in(cell.request, spec), seed=cell.seed)] * cell.request.num_images]
-    ]
+    units = []
+    for index, cell in enumerate(cells):
+        units.append(cell)
+        if spec is not None and (selected is None or index in selected):
+            units.extend([Cell(request=stand_in(cell.request, spec), seed=cell.seed)] * cell.request.num_images)
+    return units
 
 
 def refusal(requests: list[GenerateRequest], spec: ThenRefine, unavailable: str | None) -> str | None:
@@ -136,6 +138,14 @@ def retained(metadata: dict) -> ThenRefine | None:
     if not isinstance(saved, dict):
         return None
     return ThenRefine.model_validate({k: v for k, v in saved.items() if k != "pass_run_id"})
+
+
+def matches_source(record: ImageRecord, intended: set[CellKey]) -> bool:
+    """Whether a saved base was one of a mixed job's selected images."""
+    try:
+        return cell_key(cell_from_record(record)) in intended
+    except ValueError:
+        return False
 
 
 def spec_key(spec: ThenRefine | None) -> tuple | None:

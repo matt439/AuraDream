@@ -23,13 +23,15 @@ import logging
 import threading
 import time
 import weakref
-from collections.abc import Callable
-from contextlib import AbstractContextManager, ExitStack
+from collections.abc import Callable, Iterator
+from contextlib import AbstractContextManager, ExitStack, contextmanager
 from dataclasses import dataclass, field, replace
+from pathlib import Path
 from types import TracebackType
 from typing import TYPE_CHECKING, Any
 
 from .. import card_facts, compiler_cache, latent_preview, loras, mask_crop, refine, refine_admission, refine_qualification
+from .. import tiled_refine_contract
 from ..model_selection import current_model_id, current_settings
 from ..config import ATTENTION_ENVIRONMENT_WARNING, settings
 from ..execution import (
@@ -51,6 +53,7 @@ if TYPE_CHECKING:
 
     from ..schemas import GenerateRequest
     from .regional_compile import RegionalRegistration
+    from .tiled_refine_adapter import ResultFn as TiledRefineResultFn
 
 log = logging.getLogger(__name__)
 
@@ -76,6 +79,14 @@ _EDIT_PARAMS = frozenset({
     "image", "prompt", "width", "height", "max_area", "_auto_resize", "num_images_per_prompt",
     "max_sequence_length", "num_inference_steps", "guidance_scale", "generator", "callback_on_step_end",
 })
+_TILE_BASE_CLASS = "StableDiffusionXLPipeline"
+
+
+def _is_tiled_refine_snapshot(value: object) -> bool:
+    recipe = tiled_refine_contract
+    return isinstance(value, (str, Path)) and Path(value).parts[-3:] == (
+        f"models--{recipe.MODEL_ID.replace('/', '--')}", "snapshots", recipe.REVISION,
+    )
 
 
 def cuda_unavailable_message(torch: Any) -> str:
@@ -411,6 +422,7 @@ class DiffusersBackend(GenerationBackend):
         self._cache_disposal: _CacheDisposal | None = None
         self._pending_cache_disposal: _CacheDisposal | None = None
         self._loaded_execution: ExecutionSpec | None = None
+        self._tiled_refine_candidate: Any = None
         # The adapter currently attached to the live pipeline, as
         # (name, weight). Hot-swapped between cells rather than baked into
         # `load()`: diffusers strips and re-attaches the offload hooks around
@@ -471,7 +483,36 @@ class DiffusersBackend(GenerationBackend):
             # read this supplied observation; they never probe for this gate.
             card_facts.probe(selected.device)
 
-    def _load_prepared(self, execution: ExecutionSpec | None) -> None:
+    def _require_tiled_refine_loader(self, *, check_card: bool = True) -> None:
+        recipe = tiled_refine_contract
+        selected = current_settings(settings)
+        platform, version, gpu, native = self.refine_host()
+        if (
+            (selected.model_id, selected.quantization, selected.offload)
+            != (recipe.MODEL_ID, recipe.QUANTIZATION, recipe.OFFLOAD)
+            or selected.device not in ("cuda", "cuda:0")
+            or platform != "win32" or version != "0.42.1"
+            or native is not True or (check_card and gpu != "NVIDIA GeForce RTX 5080")
+            or selected.loader_execution_error is not None
+            or canonical_loader_execution(selected.loader_execution) is not None
+        ):
+            raise ValueError(
+                "Private Tiled Refine requires Animagine XL 4.0, fp8/model offload, "
+                "Windows RTX 5080 CUDA 0, Eager/Native and diffusers 0.42.1."
+            )
+
+    def _load_tiled_refine_candidate(self) -> None:
+        """Load the pinned local candidate through the ordinary loader transaction."""
+        recipe = tiled_refine_contract
+        self._require_tiled_refine_loader(check_card=False)
+        card_facts.probe(current_settings(settings).device)
+        self._require_tiled_refine_loader()
+        from huggingface_hub import snapshot_download
+
+        snapshot = snapshot_download(recipe.MODEL_ID, revision=recipe.REVISION, local_files_only=True)
+        self._load_prepared(None, tiled_refine_snapshot=snapshot)
+
+    def _load_prepared(self, execution: ExecutionSpec | None, *, tiled_refine_snapshot: str | None = None) -> None:
         """Private preparation path, also used by every ordinary eager load.
 
         A supplied recipe prepares ownership only; public generation continues
@@ -493,6 +534,8 @@ class DiffusersBackend(GenerationBackend):
             if self._pending_cache_disposal is not None:
                 raise RuntimeError("finish the pending cache disposal before loading")
             if self._pipe is not None:
+                if tiled_refine_snapshot is not None and self._tiled_refine_candidate is not self._pipe:
+                    raise RuntimeError("Unload the current pipeline before loading the private Tiled Refine candidate.")
                 if canonical_execution(self._loaded_execution) != execution:
                     raise RuntimeError("unload the current pipeline before preparing another execution recipe")
                 if execution is not None and execution.compilation is not None:
@@ -502,6 +545,10 @@ class DiffusersBackend(GenerationBackend):
                 return
             selected = current_settings(settings)
             checkpoint_id = selected.model_id
+            if tiled_refine_snapshot is not None:
+                self._require_tiled_refine_loader()
+                if execution is not None or not _is_tiled_refine_snapshot(tiled_refine_snapshot):
+                    raise ValueError("Private Tiled Refine needs the exact pinned Animagine snapshot.")
             # The pinned editor: the exact Kontext id, this instance's literal
             # True and the measured envelope, Eager only. Every other editor
             # class or id keeps the holds below.
@@ -547,7 +594,7 @@ class DiffusersBackend(GenerationBackend):
             source_id = netayume_loading.resolve_model(source_id, selected.quantization)
             source_id = newbie_loading.resolve_model(source_id, selected.quantization)
             source_id = single_file.resolve_model(source_id, selected.quantization)
-            model_id = loading.resolve_model(source_id, quantization=selected.quantization)
+            model_id = tiled_refine_snapshot or loading.resolve_model(source_id, quantization=selected.quantization)
             load_settings = replace(selected, model_id=model_id)
             kwargs: dict[str, Any] = {"dtype": torch.bfloat16}
             quant = loading.quantization_config(load_settings)
@@ -578,6 +625,8 @@ class DiffusersBackend(GenerationBackend):
 
                 loader = getattr(diffusers, KONTEXT_V1.pipeline_class)
             class_name, unused = loading.unused_components(model_id)
+            if tiled_refine_snapshot is not None and class_name != _TILE_BASE_CLASS:
+                raise ValueError("The private Tiled Refine snapshot needs the exact SDXL base pipeline class.")
             if class_name in loading.INSTRUCTION_EDITOR_CLASSES and not (
                 editor and class_name == KONTEXT_V1.pipeline_class
             ):
@@ -594,7 +643,7 @@ class DiffusersBackend(GenerationBackend):
 
             # Pinned repos download only their component tree, after the
             # quantizer checks above have had a chance to refuse the pairing.
-            model_id = loading.resolve_model(source_id, weights=True)
+            model_id = tiled_refine_snapshot or loading.resolve_model(source_id, weights=True)
             # An override can already own loaded weights before a complete
             # pipeline exists. Keep those references in the transaction too.
             candidate.related = tuple(loading.component_overrides(checkpoint_id, quant, resolved_model_id=model_id).items())
@@ -607,6 +656,11 @@ class DiffusersBackend(GenerationBackend):
                 # The candidate owns overrides, not a retained load frame.
                 kwargs.clear()
             log.info("resolved pipeline class: %s", type(candidate.pipe).__name__)
+            if tiled_refine_snapshot is not None:
+                if type(candidate.pipe).__name__ != _TILE_BASE_CLASS or not _is_tiled_refine_snapshot(
+                    getattr(getattr(candidate.pipe, "config", None), "_name_or_path", None)
+                ):
+                    raise ValueError("The private Tiled Refine load did not retain the pinned SDXL owner.")
 
             loading.place_pipeline(candidate.pipe, selected)
 
@@ -676,6 +730,8 @@ class DiffusersBackend(GenerationBackend):
             held.close()
             log.info("model ready: %s", type(candidate.pipe).__name__)
             self._publish_candidate_locked(candidate)
+            if tiled_refine_snapshot is not None:
+                self._tiled_refine_candidate = self._pipe
 
     def _publish_candidate_locked(self, candidate: _PipelineCandidate) -> None:
         """Transfer a fully prepared candidate without replacing working weights."""
@@ -745,6 +801,7 @@ class DiffusersBackend(GenerationBackend):
         """Drop owned references under the backend lock, without cleanup I/O."""
         self._pipe, self._call_params = None, set()
         self._regional_registration, self._loaded_execution = None, None
+        self._tiled_refine_candidate = None
         self._attention_selection = None
         self._cache_owner, self._cache_disposal = None, None
         self._lora = None
@@ -971,9 +1028,11 @@ class DiffusersBackend(GenerationBackend):
         """
         return True
 
-    def _require_execution(self, request: GenerateRequest) -> GenerateRequest:
+    def _require_execution(self, request: GenerateRequest, *, private_tiled_refine: bool = False) -> GenerateRequest:
         from ..instruction_edit import require_execution_available, require_model_available, text_to_image_refusal
 
+        if getattr(request, "tiled_refine", None) is not None and not private_tiled_refine:
+            raise ValueError(tiled_refine_contract.HELD)
         qualified = self.instruction_edit_qualified()
         if getattr(request, "edit", None) is not None:
             # validate_edit also refuses an edit's LoRA, references, refine,
@@ -1182,6 +1241,10 @@ class DiffusersBackend(GenerationBackend):
         the row a job later writes agree whether or not the weights were resident
         when the grid was previewed.
         """
+        if getattr(request, "tiled_refine", None) is not None:
+            # Durable intent and private candidate saves share structural
+            # normalization. Public rendering still refuses this recipe.
+            return request.applied(negative_prompt_supported=True, cfg_threshold=1.0)
         request = self._require_execution(request)
         if request.edit is not None:
             # The request's edit branch binds the edit and drops the negative;
@@ -1543,6 +1606,11 @@ class DiffusersBackend(GenerationBackend):
         self._peak = None
         self._mask_crop = None
         request = self._require_execution(request)
+        with self._measure_generation_peak():
+            return self._generate_images(request, seed, on_progress, should_cancel, on_preview)
+
+    @contextmanager
+    def _measure_generation_peak(self) -> Iterator[None]:
         device = self._peak_device() if self._pipe is not None else None
         if device is not None:
             try:
@@ -1551,7 +1619,7 @@ class DiffusersBackend(GenerationBackend):
                 torch.cuda.reset_peak_memory_stats(device)
             except Exception:  # noqa: BLE001 - a measurement never fails a cell
                 device = None
-        images = self._generate_images(request, seed, on_progress, should_cancel, on_preview)
+        yield
         if device is not None:
             try:
                 import torch
@@ -1559,7 +1627,33 @@ class DiffusersBackend(GenerationBackend):
                 self._peak = (torch.cuda.max_memory_allocated(device), torch.cuda.max_memory_reserved(device))
             except Exception:  # noqa: BLE001 - a measurement never fails a cell
                 self._peak = None
-        return images
+
+    def _require_tiled_refine_owner(self) -> Any:
+        self._require_tiled_refine_loader()
+        pipe = self._pipe
+        if (
+            pipe is None or pipe is not self._tiled_refine_candidate or type(pipe).__name__ != _TILE_BASE_CLASS
+            or not _is_tiled_refine_snapshot(getattr(getattr(pipe, "config", None), "_name_or_path", None))
+            or self._lora is not None or not callable(getattr(pipe, "maybe_free_model_hooks", None))
+        ):
+            raise ValueError("Load the pinned Animagine candidate without adapters before private Tiled Refine.")
+        return pipe
+
+    def _generate_tiled_refine_candidate(
+        self,
+        request: GenerateRequest,
+        seed: int,
+        on_progress: ProgressFn | None = None,
+        should_cancel: CancelFn | None = None,
+        *,
+        on_result: TiledRefineResultFn | None = None,
+    ) -> list[Image]:
+        """Render a complete private composite per image using the loaded sibling."""
+        from .tiled_refine_adapter import generate_candidate
+
+        self._peak = None
+        self._mask_crop = None
+        return generate_candidate(self, request, seed, on_progress, should_cancel, on_result)
 
     def last_peak(self) -> tuple[int, int] | None:
         return self._peak
@@ -1885,8 +1979,8 @@ class DiffusersBackend(GenerationBackend):
         self._mask_crop = cropped
         return composited
 
-    def _cleanup_failed_text_image(self, pipe: Any, error: BaseException) -> None:
-        """Offload one failed ordinary base call without masking its error.
+    def _cleanup_failed_text_image(self, pipe: Any, error: BaseException, *, pass_name: str = "text-to-image") -> None:
+        """Return the loaded owner's hooks after an interrupted call.
 
         Request cache scopes have closed/drained before this boundary. A
         detached or uncertain cache owner keeps its own disposal responsibility;
@@ -1900,9 +1994,9 @@ class DiffusersBackend(GenerationBackend):
             if callable(free_hooks):
                 free_hooks()
         except BaseException as cleanup:
-            log.error("text-to-image offload cleanup failed: %s", cleanup)
-            log.debug("text-to-image offload cleanup traceback", exc_info=True)
-            error.add_note(f"Offloading the failed text-to-image pipeline also failed: {type(cleanup).__name__}: {cleanup}")
+            log.error("%s offload cleanup failed: %s", pass_name, cleanup)
+            log.debug("%s offload cleanup traceback", pass_name, exc_info=True)
+            error.add_note(f"Offloading the failed {pass_name} pipeline also failed: {type(cleanup).__name__}: {cleanup}")
             # The offload state is now uncertain. Refuse another generation by
             # detaching only this expected pipeline and all shared siblings;
             # no reload is attempted from the generation thread.
@@ -1923,7 +2017,7 @@ class DiffusersBackend(GenerationBackend):
                         candidate = self._detach_pipeline_locked()
                     except BaseException as detached:
                         error.add_note(f"Detaching the failed text-to-image pipeline also failed: {type(detached).__name__}: {detached}")
-                        log.debug("text-to-image cleanup detach traceback", exc_info=True)
+                        log.debug("%s cleanup detach traceback", pass_name, exc_info=True)
                         # Only clear the captured owner or its partial detach;
                         # a replacement keeps its own ownership and readiness.
                         if ((self._pipe is pipe or self._pipe is None)
@@ -1945,7 +2039,7 @@ class DiffusersBackend(GenerationBackend):
                     candidate.close()
                 except BaseException as disposal:
                     error.add_note(f"Disposing the failed text-to-image pipeline also failed: {type(disposal).__name__}: {disposal}")
-                    log.debug("text-to-image cleanup disposal traceback", exc_info=True)
+                    log.debug("%s cleanup disposal traceback", pass_name, exc_info=True)
         finally:
             free_hooks = None
 

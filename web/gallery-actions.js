@@ -766,8 +766,8 @@ async function forgetIfGone(id) {
 // matches to the recycle bin in one gesture. Counted server-side, as Re-render's selection is -
 // the browser holds one page - and gated on typing that count back: the
 // hazard is no longer "the wrong image" but "the wrong scope", a run not yet
-// looked at, and the number is what tells them apart. The delete is pinned
-// to it, so images a running job lands meanwhile are refused, not swept.
+// looked at, and the number is what tells them apart. The delete also sends
+// the preview's pin to detect a replacement without a change in count.
 // A starred image keeps what it was made from - a pass its source, a render
 // its references - and the dialog names those. Everything it says, it says
 // under the gallery's head, where the button is.
@@ -872,6 +872,7 @@ async function deleteUnstarred() {
       return;
     }
     params.set('expected', found.unstarred);
+    params.set('pin', found.pin);
     let result;
     try {
       result = await api(`/api/gallery/unstarred?${params}`, {
@@ -880,10 +881,8 @@ async function deleteUnstarred() {
       });
     } catch (err) {
       if (err.code !== 'selection_changed') { showError(err.message, false, slot); return; }
-      // The server counts something else now - images a job landed in scope,
-      // most often. The page shows the server's count rather than the one the
-      // message has just called stale. Whether a job is still running is in
-      // the server's sentence: it may be another tab's.
+      // Refresh the gallery the user reviews before asking again. The
+      // server's refusal explains the change and says if a job is running.
       await resetGallery();
       keepUnstarredFocus();
       loadRuns();

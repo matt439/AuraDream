@@ -149,19 +149,23 @@ def test_preflight_refuses_remote_code_and_oversized_configs_without_echoing_con
 
 
 
-@pytest.mark.parametrize("source_size", [(512, 512), (600, 400), (400, 600), (640, 480), (480, 640), (640, 360), (360, 640)])
-def test_complete_installed_pil_processor_path_preserves_frozen_geometry_and_rgb_tensor(source_size):
+@pytest.mark.parametrize(("source_size", "recipe"), [
+    ((512, 512), "kontext-v1"), ((600, 400), "kontext-v1"), ((400, 600), "kontext-v1"),
+    ((640, 480), "kontext-v1"), ((480, 640), "kontext-v1"), ((640, 360), "kontext-v1"),
+    ((360, 640), "kontext-v1"), ((512, 512), "kontext-1024-v1"),
+])
+def test_complete_installed_pil_processor_path_preserves_frozen_geometry_and_rgb_tensor(source_size, recipe):
     # A fresh interpreter isolates the real installed CPU libraries from other
     # tests' framework stubs, CUDA state and global tensor defaults. The child
     # forbids model/application/pytest imports and poisons CUDA initialization.
     script = Path(__file__).with_name("fixtures") / "instruction_edit_processor_cpu.py"
     result = subprocess.run(
-        [sys.executable, "-I", "-B", str(script), *(str(value) for value in source_size)],
+        [sys.executable, "-I", "-B", str(script), *(str(value) for value in source_size), recipe],
         capture_output=True, text=True, timeout=45,
     )
     assert result.returncode == 0, result.stdout + result.stderr
     receipt = json.loads(result.stdout)
-    expected = edit.geometry(*source_size)
+    expected = edit.geometry(*source_size, recipe=recipe)
     assert receipt["source_size"] == list(source_size)
     assert receipt["tensor_shape"] == [1, 3, expected.height, expected.width]
     assert receipt["cuda_initialized"] is False and receipt["cuda_initialization_attempts"] == []

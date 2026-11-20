@@ -26,9 +26,10 @@ def _destination(store, monkeypatch, tmp_path):
 
 
 @pytest.mark.parametrize("database", [False, True])
-def test_recovery_remaps_full_proof_and_keeps_source_gallery_unchanged(store, monkeypatch, tmp_path, database):
+@pytest.mark.parametrize("recipe", ["kontext-v1", "kontext-1024-v1"])
+def test_recovery_remaps_full_proof_and_keeps_source_gallery_unchanged(store, monkeypatch, tmp_path, database, recipe):
     source = save_source(seed=9)
-    child = save_edit(source, seed=1)
+    child = save_edit(source, seed=1, recipe=recipe)
     original_settings = store.settings
     original_files = {path.name: path.read_bytes() for path in original_settings.outputs_dir.glob("*.png")}
     destination = _destination(store, monkeypatch, tmp_path)
@@ -41,6 +42,7 @@ def test_recovery_remaps_full_proof_and_keeps_source_gallery_unchanged(store, mo
     assert counts["indexed"] == 2 and counts["unresolved_edits"] == 0
     assert imported_child.edit.source == imported_source.id
     assert imported_child.edit.edit_source == child.edit.edit_source
+    assert imported_child.edit.recipe == recipe
     assert not imported_child.edit_missing
     assert png_metadata(destination.outputs_dir / child.filename)["edit"] == imported_child.edit.model_dump(mode="json")
     assert {path.name: path.read_bytes() for path in original_settings.outputs_dir.glob("*.png")} == original_files
