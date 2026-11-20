@@ -8007,6 +8007,10 @@ timings, background write counts and storage query plans. The earlier
 [append-all experiment](measurements/gallery-5000-2026-11-11.json) measures
 loading every page and scrolling the resulting 5,000-card DOM.
 
+The workstation retains the original per-action API traces and browser timings
+under `work/gallery-workflow-5000-2026-11-20/{before,after}/session-*/raw.json`,
+with a `summary.json` beside each set of six sessions.
+
 Run the benchmark from the repository root with a new scratch output directory.
 It plants the PNGs and WebPs, runs the fake servers and retains raw results in
 each session directory. To repeat against another revision, pass the first
