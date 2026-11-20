@@ -311,3 +311,22 @@ The guard invocation is the real card run. It requires the pinned weights
 already in the local Hub cache. Private JobManager recovery saves the only
 durable tiled result inside the attempt's scratch gallery. Observer PNGs,
 including any completed prefix of a cancelled job, live beside that gallery.
+
+**Initial guarded attempts.** The first cold check saw 31.59 GiB available
+RAM and 23.86 GiB free commit (2,027 MiB card), so it never spawned a
+child. The second attempt admitted at 31.71/24.12 GiB and 1,967 MiB;
+immediately before load it measured 31.24 GiB RAM and 23.31 GiB free commit
+plus 0.88 GiB of the owned child's private bytes. The Hub's offline cache
+checker then refused the unfiltered snapshot for missing root files,
+including documentation and an alternate monolithic checkpoint. No weights
+loaded. The private candidate now requests only the pinned Diffusers
+manifest and its seven component folders. A real local cache lookup passed.
+A scratch-cache regression also removes an encoder weight and verifies refusal
+before model loading. The third cold check saw 29.40/21.53 GiB and 2,063 MiB
+card use, with no child spawned. The [attempt receipts](gen49-stage3/attempts.json)
+retain the supervisor, worker and raw counter hashes.
+
+Serial CPU checks passed all 34 loader, adapter and supervisor cases. Ruff
+passed. Regenerating the four fixtures from the checked-in source reproduced
+their frozen manifest, PNG and prepared RGB digests. No stage-three image
+or visual result follows from these three attempts.
