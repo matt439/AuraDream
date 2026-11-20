@@ -22,6 +22,7 @@ const root = process.argv[1], scenario = process.argv[2];
 function element(value = '') {
   const classes = new Set();
   return { value, disabled: false, hidden: false, checked: false, title: '', validity: { badInput: false },
+    style: {}, offsetHeight: 0, setAttribute(name, value) { this[name] = value; },
     textContent: '', children: [],
     classList: { add: name => classes.add(name), remove: name => classes.delete(name),
       contains: name => classes.has(name), toggle(name, on) { if (on) classes.add(name); else classes.delete(name); } },
@@ -41,7 +42,7 @@ function fixture() {
   for (const name of ['prompt', 'negative', 'cfg', 'trueCfg', 'trueCfgField', 'negField', 'negNote', 'negEnable',
     'gridPreview', 'gridPrompt', 'gridPromptMode', 'gridSteps', 'gridSize', 'gridCfg', 'gridMu',
     'gridLoraScale', 'gridSeeds', 'gridSeedList', 'gridResume', 'gridBudget', 'runs', 'lora',
-    'steps', 'mu', 'samplingValue']) els[name] = element();
+    'steps', 'mu', 'samplingValue', 'gridRun']) els[name] = element();
   Object.assign(els.prompt, { value: 'a {coat} fox' });
   els.negative.value = '  keep this negative  ';
   els.cfg.value = '0'; els.trueCfg.value = ''; els.runs.value = '1';
@@ -50,17 +51,21 @@ function fixture() {
   els.gridSection = { open: true, addEventListener: (event, handler) => calls.toggles.set(event, handler) };
   const sandbox = vm.createContext({ els, calls, trueCfgSupported: false, negativeSupported: true, cfgThreshold: 0,
     diskFreeMb: null, busy: false, elsewhereBusy: false, queuedIds: [], held: false,
+    modelRevision: 1, submitting: false, submitHold: () => '', GRID_RUN_TITLE: 'Run grid', thenRefineTitleSuffix: () => '',
     GRID_PLACEHOLDER: /\{[A-Za-z_]\w*\}/,
     document: { createElement: () => element() },
     collect: () => ({ prompt: els.prompt.value, negative_prompt: els.negative.value, num_images: 1,
       width: 256, height: 256, steps: 8, guidance_scale: +els.cfg.value, seed: 42 }),
     thenRefinePayload: () => null, modelChangeHold: () => sandbox.held,
+    syncThenRefine: () => {}, scheduleComparePreview: () => {},
+    clearTimeout: () => {}, setTimeout: () => 1, // Leave the debounce pending until the test issues the new preview.
     syncAnalysisStale: () => { calls.analysis++; }, revealGridRun: () => { calls.reveals++; },
     hideNegativeSuggestions: () => {}, placePhoneNegative: () => {}, syncMoreOptions: () => {},
     muStatic: () => null, humanBytes: value => String(value),
     // state.js's poll mark: a direct preview (a toggle, these calls) is never marked.
     takePreviewMark: mark => { const polled = mark.polled; mark.pending = mark.polled = false; return polled; },
-    polledIf: (polled, options) => { assert.equal(polled, false); return options; },
+    markPreview: (mark, polled) => { mark.pending = true; mark.polled = polled; },
+    polledIf: (polled, options) => { if (polled) options.headers['X-AuraDream-Poll'] = '1'; return options; },
     // syncCfg also writes the Sampling fold's summary (UI#51).
     lastDefaults: null, muSupported: false, muPlaceholder: () => 'auto',
     api: (url, options) => { const request = { ...deferred(), url, options }; calls.requests.push(request); return request.promise; },
@@ -157,6 +162,32 @@ async function main() {
     const before = f.snapshot(); f.reply(0); await old;
     assert.equal(f.snapshot(), before); assert.match(f.els.gridPreview.textContent, /Enter a prompt/);
     assert.equal(f.calls.requests.length, 1);
+  } else if (scenario === 'edit-retires-reply-before-debounce') {
+    const old = f.preview();
+    f.els.gridSeeds.value = '6'; f.evaluate('schedulePreview()');
+    assert.equal(f.calls.requests.length, 1);
+    f.reply(0); await old;
+    assert.match(f.els.gridPreview.textContent, /Updating grid preview/);
+    assert.equal(f.evaluate('reviewedGridImages'), null);
+    assert.equal(f.evaluate('gridMaxCfg'), null);
+  } else if (scenario === 'refusal-retires-same-key-poll-before-debounce') {
+    const shown = f.preview(); f.reply(0); await shown;
+    assert.equal(f.els.gridRun['aria-disabled'], 'false');
+    f.evaluate('markPreview(gridPreviewMark, true)');
+    const pending = f.preview();
+    assert.equal(f.calls.requests[1].options.headers['X-AuraDream-Poll'], '1');
+    assert.equal(f.calls.requests[0].options.body, f.calls.requests[1].options.body);
+    f.evaluate('refreshRefusedGrid()');
+    assert.equal(f.calls.requests.length, 2);
+    assert.equal(f.els.gridRun['aria-disabled'], 'true');
+    assert.match(f.els.gridPreview.textContent, /Updating grid preview/);
+    const retired = f.snapshot();
+    f.reply(1); await pending;
+    assert.equal(f.snapshot(), retired);
+    assert.equal(f.evaluate('reviewedGridImages'), null);
+    assert.equal(f.els.gridRun['aria-disabled'], 'true');
+    const next = f.preview(); f.reply(2); await next;
+    assert.equal(f.els.gridRun['aria-disabled'], 'false');
   } else throw Error('unknown scenario: ' + scenario);
   console.log('passed: ' + scenario);
 }
@@ -169,6 +200,7 @@ main().catch(error => { console.error(error); process.exitCode = 1; });
     "reopen-current-before-old", "reopen-old-before-current", "current-success-keeps-raw-input-and-payload",
     "current-error-still-visible", "model-hold-retires-old-preview",
     "already-closed-clears-reach-without-request", "blank-prompt-retires-old-preview",
+    "edit-retires-reply-before-debounce", "refusal-retires-same-key-poll-before-debounce",
 ])
 def test_grid_preview_close_ownership(scenario: str):
     node = shutil.which("node")

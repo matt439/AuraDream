@@ -173,7 +173,7 @@
   {"expect":"[...els.sheetControls.querySelectorAll('button')].some((b) => b.textContent === 'Finish run')"},
   {"log":"'A run on another checkpoint, under All models, keeps Finish visible with a server hold'"},
   {"eval": "els.allModels.checked = true; showRun('planted'); window.__settled()"},
-  {"expect":"__until(() => sheetRecords.length === 2 && sheetRecords.every((r) => r.model_id !== loadedModel) && els.sheetControls.querySelector('.finish-run-tool')?.getAttribute('aria-disabled') === 'true' && /made on|before runs kept/.test(els.sheetControls.querySelector('.finish-run-tool').title))"},
+  {"expect":"__until(() => sheetRecords.length === 2 && sheetRecords.every((r) => r.model_id !== loadedModel) && els.sheetControls.querySelector('.finish-run-tool')?.getAttribute('aria-disabled') === 'true' && /made on|No run plan is stored here/.test(els.sheetControls.querySelector('.finish-run-tool').title))"},
   {"log": "'its More seeds of this run… is there, held with the reason, never hidden'"},
   {"expect": "__barMore() && __barMore().getAttribute('aria-disabled') === 'true' && __barMore().title === `Made on ${checkpointName(sheetRecords[0].model_id)}; the server is running ${checkpointName(loadedModel)}` && els.sheetControls.lastElementChild === __runLine()"},
   {"eval": "showError('', false, {slot: els.galleryError}); __barMore().click();"},
@@ -548,5 +548,15 @@
   {"eval": "__delImg(__delIds[0]).focus({ preventScroll: true }); openShortcuts()"},
   {"expect": "__until(() => els.shortcutsDialog.open && [...els.shortcutsBody.querySelectorAll('section[data-shortcut-group=\"sheet\"] dt kbd')].some((k) => k.textContent === 'Delete') && els.shortcutsBody.querySelector('section[data-shortcut-group=\"sheet\"]').textContent.includes('Move the focused cell'))"},
   {"key": "Escape"},
-  {"expect": "__until(() => !els.shortcutsDialog.open)"}
+  {"expect": "__until(() => !els.shortcutsDialog.open)"},
+
+  {"log": "'Review saved outputs from a starred, searched gallery and return to that filter'"},
+  {"eval": "applyGalleryFilter({query: 'no matching prompt here', favorites: true})"},
+  {"eval": "$('btn-review-runs').scrollIntoView({block:'center'});"},
+  {"click": "#btn-review-runs"},
+  {"expect": "__until(() => !!document.querySelector('#review-runs-list [data-run=\"' + __delRun + '\"] .review-view'))", "fatal": true},
+  {"eval": "document.querySelector('#review-runs-list [data-run=\"' + __delRun + '\"] .review-view').click()"},
+  {"expect": "__until(() => sheetMode && !galleryPending && !els.favOnly.checked && JSON.stringify(__delLive()) === JSON.stringify(__delIds) && els.sheetNote.textContent.includes('restore your gallery filters'))", "fatal": true},
+  {"eval": "els.sheetBtn.click()"},
+  {"expect": "__until(() => !sheetMode && !galleryPending && els.favOnly.checked && els.search.value === 'no matching prompt here' && !galleryRecords.length)"}
 ]

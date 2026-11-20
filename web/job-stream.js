@@ -80,6 +80,7 @@ function streamJob(jobId, { reattached = 0 } = {}) {
   // Another tab's job, picked up over this page's own results: the progress
   // row only (isForeign).
   const foreign = isForeign(jobId);
+  if (!foreign) clearViewerFailure();
   const stream = new Promise((resolve) => {
     const source = new EventSource(`/api/jobs/${jobId}/stream`);
     // Results replace the viewer only once the first image or frame of this

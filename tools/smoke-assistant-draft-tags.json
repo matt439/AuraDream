@@ -29,6 +29,10 @@
     "fatal": true
   },
   {
+    "expect": "assistantMode==='create'&&$('assistant-lookup').checkVisibility()&&$('assistant-lookup').textContent.includes('Comma-separated items')&&$('assistant-lookup').textContent.includes('Danbooru')&&els.assistantAsk.getAttribute('aria-describedby')==='assistant-lookup'",
+    "fatal": true
+  },
+  {
     "eval": "__adt.arm(__adt.example);"
   },
   {
@@ -259,7 +263,7 @@
     "fatal": true
   },
   {
-    "expect": "!tagVocabularyEnabled&&!__adt.card().querySelector('.assistant-draft-tag-validation')&&!__adt.card().querySelector('.assistant-draft-tag')&&__adt.calls.length===__adt.proseCalls&&els.prompt.value===__adt.original",
+    "expect": "!tagVocabularyEnabled&&$('assistant-lookup').hidden&&!$('assistant-lookup').textContent&&!__adt.card().querySelector('.assistant-draft-tag-validation')&&!__adt.card().querySelector('.assistant-draft-tag')&&__adt.calls.length===__adt.proseCalls&&els.prompt.value===__adt.original",
     "fatal": true
   },
   {

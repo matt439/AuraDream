@@ -29,7 +29,7 @@ function modelLoadClock() {
 function firstLoadNote() {
   return modelDownload?.cache_state === 'complete'
     ? 'The cached weights still need loading into memory.'
-    : 'A first download can take most of an hour on a 100 Mbit/s connection; cached weights still need loading.';
+    : 'Missing weights download first. Loading the weights into memory takes additional time.';
 }
 
 // Seed the controls from the server's profile for the loaded checkpoint. Turbo
@@ -784,6 +784,16 @@ function receiveStatus(s, asked = Date.now()) {
     // And Edit by instruction's, with Generate held where the checkpoint only
     // edits (instruction-edit.js).
     if (s.defaults) syncEditCapability(s.defaults);
+    if (restarted) {
+      editHandoff = null;
+      modelPromptAfterSave = null;
+    }
+    if (changed || restarted) {
+      syncEditHandoff();
+      // The first gallery read can land before the checkpoint is known.
+      if (!previousModel && !els.galleryEmpty.hidden && !galleryPending) syncGalleryEmpty();
+    }
+    if (s.defaults) els.viewer.classList.toggle('edit-only', s.defaults.text_to_image_supported === false);
     if (detailerSource) syncDetailerDialog();
     // Mass refine's Refine… says the hedge or the final answer as the status
     // settles it, and an open dialog's Refine what holds it now.
@@ -914,6 +924,7 @@ function receiveStatus(s, asked = Date.now()) {
     // or let go by what this answer says (model-storage.js).
     receiveModelDeleteStatus(s);
     offerModelPicker(s);
+    finishModelSaveHandoff();
     receiveFinishStatus(s);
 }
 

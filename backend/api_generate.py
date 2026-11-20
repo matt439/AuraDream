@@ -165,6 +165,14 @@ def create_router(services: AppServices) -> APIRouter:
         cancellable, reattachable and ahead of nothing in the queue as a unit.
         """
         cells, _, _, queued, run_id = await expand_grid(services, request)
+        if request.expected_images is not None:
+            images = sum(cell.request.num_images for cell in cells)
+            if images != request.expected_images:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"The grid preview showed {request.expected_images} images. "
+                           f"The current count is {images}. Review the updated grid before running.",
+                )
         if not cells:
             # Every cell is already in the gallery, or queued. Queueing an empty
             # job would report "done" having rendered nothing, which reads like

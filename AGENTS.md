@@ -276,10 +276,11 @@ Frontend:
 
 - No build step, no JS test suite: check `web/` in a real browser with the
   fake server and `tools/browser.mjs`. Top-level bindings stay top-level.
-- CSS uses the `:root` tokens; wide-tier rules go in an
-  `@media (min-width: 1800px)` block in the component's section; nothing
-  changes under 1800 px, where the smokes run, but the panel's own gap and
-  field height under 900 px tall (`docs/rules.md`). Phone and tablet rules
+- CSS uses the `:root` tokens. Keep wide-tier layout rules in an
+  `@media (min-width: 1800px)` block in the component's section. The compact
+  desktop Gallery view and wrapping toolbars respond to the room available.
+  The panel also adjusts its gap and field height under 900 px tall
+  (`docs/rules.md`). Phone and tablet rules
   go in `styles/touch.css` under `(pointer: coarse)` (the phone's own
   hosts, filled by `phone.js`, in `styles/phone.css`, its gallery head in
   `styles/phone-gallery.css`); a one-column rule

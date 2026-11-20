@@ -154,6 +154,12 @@
      at the end - the note over Apply & save and Switch & load, and Load or
      Unload under them. */
   .model-picker:not([hidden]) { overflow-y: auto; overscroll-behavior: contain; }
+  body:has(#model-picker:not([hidden])) .phone-actions { display: none; }
+  body:not([data-view="gallery"], [data-typing]):has(#model-picker:not([hidden])) {
+    --phone-bottom-chrome: calc(var(--tabbar-h) + var(--safe-b));
+  }
+  /* The selected phone card already prints its full notes below the facts. */
+  #model-capabilities { display: none; }
   .model-picker > * { flex-shrink: 0; }
   .model-picker-body { overflow: visible; min-height: auto; }
   .model-picker-footer { border-radius: 0; padding-bottom: var(--sp-3); }
@@ -191,6 +197,12 @@
     position: static; width: auto; height: auto; margin: 0; clip: auto; clip-path: none; overflow: visible; white-space: normal;
     grid-column: 2 / -1; color: var(--text-3); font-size: var(--fs-sm);
   }
+}
+
+/* On a short phone the note and actions can fill the entire sheet. Keep
+   them at its end in normal flow so every checkpoint remains reachable. */
+@media (pointer: coarse) and (max-height: 500px) and (orientation: landscape) {
+  .models-foot { position: static; }
 }
 
 /* A wide phone's landscape keyboard can leave only 48 px. The focused

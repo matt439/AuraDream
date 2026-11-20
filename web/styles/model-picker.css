@@ -153,7 +153,9 @@
   }
 }
 .model-loader-options { display: grid; gap: var(--sp-3); }
-.model-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2); }
+.model-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-2); }
+#model-capabilities > summary { cursor: pointer; }
+#model-capabilities > p { height: 4lh; overflow-y: auto; }
 .model-loader-options > div, .model-format { display: grid; min-width: 0; gap: var(--sp-1); }
 /* Compilation and Attention behind one summary line (execution.js,
    syncPerformanceDisclosure): one line whatever its words, so a status
@@ -314,7 +316,9 @@
    scroll and the page's layout stay as they are, and they are back as the
    picker closes. Nothing there can be used meanwhile: a press outside
    closes the picker first. */
-:root:has(#model-picker:not([hidden])) :is(#library, #recent) { visibility: hidden; }
+/* The draft keeps its layout too. Only the picker can act on its choice
+   until it closes, including an automatic opening that kept the caret. */
+:root:has(#model-picker:not([hidden])) :is(#library, #recent, #btn-generate, #btn-grid) { visibility: hidden; }
 .model-picker p { margin: 0; color: var(--text-3); font-size: var(--fs-body-sm); }
 .model-picker .model-loader-help { height: 3lh; color: var(--text-readout); }
 .model-format-help { color: var(--text-readout); font-size: var(--fs-body-sm); font-weight: 400; }

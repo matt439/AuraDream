@@ -45,6 +45,8 @@ function thenRefinePayload() {
 
 // Generate's and Run grid's words, the setting in them while it is on.
 const submitLabel = (base) => `${base}${thenRefineOn() ? ' + refine' : ''}${busy ? ' (queue)' : ''}`;
+const thenRefineTitleSuffix = () => thenRefineOn()
+  ? ` - then a refine pass of each image at ${trScale}× and strength ${thenRefineStrengthText()}` : '';
 
 function syncThenRefine() {
   if (!els.thenRefineScales.children.length) {
@@ -87,15 +89,14 @@ function syncThenRefine() {
     : size && !refineFits(size) ? `${width}×${height} at ${trScale}× is ${size[0]}×${size[1]}, past what a refine pass renders.`
     : size ? `Each image is then refined at ${trScale}× to ${size[0]}×${size[1]} from its own prompt and seed; the passes join a run of their own.`
     : '';
-  const said = on ? ` - then a refine pass of each image at ${trScale}× and strength ${strength}` : '';
   els.generate.textContent = submitLabel('Generate');
   els.gridRun.textContent = submitLabel('Run grid');
   // A held Generate keeps its reason as its title (syncSubmitButtons): the
   // status poll reaches here, and a checkpoint that only edits held Generate
   // under the words of a live one.
   const why = submitHold({ composer: true });
-  els.generate.title = why || `Generate (Ctrl+Enter)${said}`;
-  els.gridRun.title = why || `Run grid (Ctrl+Enter from a grid box)${said}`;
+  els.generate.title = why || GENERATE_TITLE + thenRefineTitleSuffix();
+  syncGridRun(why);
 }
 
 function chooseThenRefineScale(scale) {

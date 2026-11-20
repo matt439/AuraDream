@@ -1016,6 +1016,10 @@
     "eval": "writeBox(els.prompt,'ordinary shortcut grid');els.gridSection.open=true;els.gridSteps.value='1,2';els.gridSeeds.value='1';els.gridCfg.value='';els.gridPrompt.value='';els.gridSize.value='';els.gridSteps.dispatchEvent(new Event('input',{bubbles:true}));els.gridSteps.focus({preventScroll:true});"
   },
   {
+    "expect": "__until(()=>els.gridPreview.textContent.startsWith('2 images')&&els.gridRun.getAttribute('aria-disabled')==='false')",
+    "fatal": true
+  },
+  {
     "keycombo": [
       "Meta",
       "Enter"

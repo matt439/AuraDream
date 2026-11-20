@@ -502,17 +502,69 @@ function comparePicked() {
   comparePickedPair(pair[0]);
 }
 
+function pickedReviewRow(rec) {
+  const row = document.createElement('li');
+  row.dataset.id = rec.id;
+  const image = document.createElement('img');
+  image.loading = 'lazy';
+  image.alt = rec.prompt || `Image #${rec.id}`;
+  image.src = rec.thumb_url || rec.url;
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'ghost';
+  button.textContent = `Unpick #${rec.id}`;
+  button.onclick = () => { if (isSelected(rec.id)) toggleSelected(rec); };
+  row.append(image, button);
+  return row;
+}
+
+// Use the same selection as bulk actions, including picks outside this
+// filter. Keep unaffected thumbnails and focus when removing a pick.
+function syncPickedReview() {
+  const dialog = $('review-picked');
+  if (!dialog.open) return;
+  if (binMode) { dialog.close(); return; }
+  const list = $('review-picked-list');
+  const previous = [...list.children];
+  const byId = new Map(previous.map((row) => [+row.dataset.id, row]));
+  const focusedIndex = previous.findIndex((row) => row.contains(document.activeElement));
+  for (const [id, row] of byId) if (!isSelected(id)) row.remove();
+  selectedRecords().forEach((rec, index) => {
+    const row = byId.get(rec.id) || pickedReviewRow(rec);
+    if (row !== list.children[index]) list.insertBefore(row, list.children[index] || null);
+  });
+  const count = selection.size ? `${plural(selection.size, 'image')} picked` : 'No images picked.';
+  if ($('review-picked-count').textContent !== count) $('review-picked-count').textContent = count;
+  if (focusedIndex !== -1 && !previous[focusedIndex].isConnected) {
+    const next = list.children[Math.min(focusedIndex, list.children.length - 1)];
+    (next?.querySelector('button') || $('review-picked-close')).focus({preventScroll: true});
+  }
+}
+
+function openPickedReview() {
+  const sheet = $('gallery-more-sheet');
+  if (sheet.open) closeGallerySheetFor(sheet);
+  // Closing the phone's actions sheet returns to its visible opener. A mouse
+  // choice on desktop can leave focus on the body rather than the menu button.
+  if (document.activeElement === document.body) {
+    (isPhone() ? $(phoneSelecting() ? 'select-more' : 'btn-gallery-more') : els.pickedBtn).focus({preventScroll: true});
+  }
+  $('review-picked').showModal();
+  syncPickedReview();
+}
+
 function syncPickedButton() {
   const n = selection.size;
   const why = binMode ? BIN_HELD : n ? '' : pickedNone();
   els.pickedBtn.setAttribute('aria-disabled', String(!!why));
   const them = n === 1 ? 'the picked image' : `the ${n} picked images`;
-  els.pickedBtn.title = why || `Actions on ${them}: star, unstar, compare, bin, copy seeds to the grid or re-render at a tier`;
+  els.pickedBtn.title = why || `Review ${them}, star, unstar, compare, bin, copy seeds to the grid or re-render at a tier`;
   const grid = pickedGridSeeds();
   const compare = pickedComparison();
   const favorite = favoriteWriteReason(selectedIds());
   const lifecycle = binWriteReason(selectedIds());
   const titles = {
+    review: `Review ${them} in pick order and remove individual picks`,
     star: `Star ${them}`,
     unstar: `Unstar ${them}`,
     bin: `Move ${them} to the recycle bin; the note it leaves has Restore`,
@@ -618,6 +670,7 @@ function pickedChoose(item) {
     return;
   }
   if (act === 'bin') void binPicked();
+  else if (act === 'review') openPickedReview();
   else if (act === 'seeds') seedsToGrid();
   else if (act === 'compare') comparePicked();
   else if (act === 'tier') void rerenderAtTier();

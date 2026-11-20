@@ -324,6 +324,8 @@ def test_finished_job_keeps_its_frozen_observation_until_own_finish_is_replaced(
     _node(r"""
 run(`
   els.finishNote = new InertElement();
+  els.viewerFailure = new InertElement();
+  els.viewerFailure.hidden = true;
   els.error = { textContent: '', classList: { toggle() {} } };
   els.generate = new InertElement();
   const ownImageIds = new Set(), cancelledHere = new Set();

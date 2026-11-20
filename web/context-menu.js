@@ -146,6 +146,10 @@ function usePromptItem(rec, host, lightbox) {
   };
 }
 
+function detailerMenuItem(rec) {
+  return syncedItem('Detail faces/hands…', (b) => syncDetailerTool(b, rec), () => detailerFromCard(rec));
+}
+
 // The sheet shows this run already: its Show run as sheet is held.
 const SHEET_SHOWS_RUN = 'The sheet shows this run already';
 
@@ -201,7 +205,7 @@ function imageItems({ kind, rec, host }) {
       : buttonItem('✎ Inpaint…', lightbox ? els.lbInpaint : find('.inpaint-tool')),
     lightbox ? buttonItem('⬚ Outpaint…', els.lbOutpaint)
       : syncedItem('⬚ Outpaint…', syncOutpaintTool, () => outpaintFromCard(rec, host)),
-    syncedItem('Detail faces/hands…', (b) => syncDetailerTool(b, rec), () => detailerFromCard(rec)),
+    detailerMenuItem(rec),
     // Show this specialist pass when the editor is selected or the image
     // already belongs to its lineage; Reuse still opens any saved edit.
     ...((rec.edit || modelRuntimeSettings?.model_id === 'black-forest-labs/FLUX.1-Kontext-dev')
@@ -250,7 +254,7 @@ function pickedItems() {
   };
   return [
     { heading: n === 1 ? '1 picked' : `${n} picked` },
-    pick('star'), pick('unstar'), pick('compare'), pick('tier'), pick('seeds'), pick('bin'),
+    pick('star'), pick('unstar'), pick('compare'), pick('review'), pick('tier'), pick('seeds'), pick('bin'),
     null,
     // The head's exact-size Re-render, shown while it takes the picks.
     buttonItem(els.rerender.textContent, els.rerender),

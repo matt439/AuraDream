@@ -24,15 +24,22 @@ function pickedDifferences(pair) {
   const extras = [
     ['Model', (r) => r.model_id],
     ['Quantization', (r) => r.quantization], ['Refined from', (r) => r.refine],
+    ['Edit source', (r) => r.edit ? r.edit.source == null ? 'unresolved' : `#${r.edit.source}` : null],
+    ['Edit recipe', (r) => r.edit?.recipe],
     ['Mask', (r) => r.mask], ['Outpaint', (r) => r.outpaint ? JSON.stringify(r.outpaint) : null],
     ['Masked area', (r) => r.mask_crop ? `padding ${r.mask_crop.pad} px` : null],
   ].filter(([, of]) => of(a) !== of(b));
+  // Two unresolved imports can still have different original sources.
+  if (a.edit && b.edit && a.edit.source === b.edit.source && !sameEditSource(a, b)) {
+    extras.push(['Original source', (r) => r.edit.edit_source.filename + ' · ' + r.edit.edit_source.hash]);
+  }
   const words = { short: new Map(), adapter: null, muStatic: null };
   const label = (r) => [
     ...fields.map((axis) => ['prompt', 'negative'].includes(axis.key) ? axis.label : headText(axis, axisValue(axis, r), words)),
     ...extras.map(([key, of]) => `${key} ${key === 'Model' ? checkpointName(of(r)) : of(r) ?? 'none'}`),
   ].join(' · ');
-  const names = [...fields.map((axis) => axis.label), ...extras.map(([key]) => key)];
+  const names = [...fields.map((axis) => axis.label), ...extras.map(([key, of]) =>
+    key === 'Edit source' || key === 'Edit recipe' ? `${key} (${of(a) ?? 'none'} → ${of(b) ?? 'none'})` : key)];
   const edits = ['prompt', 'negative_prompt'].filter((key) => a[key] !== b[key])
     .map((key) => `${key === 'prompt' ? 'Prompt' : 'Negative'}: ${versionEdit(a[key] ?? '', b[key] ?? '')}`);
   const detail = { label, summary: `Picked order: #${a.id} left, #${b.id} right · ${names.length ? `differs: ${names.join(', ')}` : 'same recorded settings'}`
@@ -96,7 +103,7 @@ function stepPicked(delta) {
 // ------------------------------------------------------- lightbox compare
 
 function compareDisclosureAvailable(rec) {
-  return !!pickedPair(rec) || rec.refine != null || ladderOf(LADDER_AXES.cfg, rec).length > 1
+  return !!pickedPair(rec) || rec.edit != null || rec.refine != null || ladderOf(LADDER_AXES.cfg, rec).length > 1
     || ladderOf(LADDER_AXES.steps, rec).length > 1;
 }
 
@@ -130,7 +137,7 @@ function reconcileCompareDisclosure() {
 // each kind's own in syncSourceCompare and syncLadderCompare (lightbox-cfg.js,
 // CFG's and steps'). A control with nothing to do is held, saying why.
 function syncCompare(rec) {
-  const pass = rec.refine != null;
+  const pass = rec.edit != null || rec.refine != null;
   const on = lbCompare.id === rec.id;
   const pair = pickedPair(rec);
   const disclosureChanged = syncCompareDisclosure(rec);
@@ -159,7 +166,7 @@ function syncCompare(rec) {
       ? 'The two picked images over each other, a divider between them to drag'
       : axis
       ? `${axis.first} and ${axis.second} over each other, a divider between them to drag`
-      : 'The source and the pass over each other, a divider between them to drag');
+      : `The source and the ${rec.edit ? 'edit' : 'pass'} over each other, a divider between them to drag`);
     if (title && button.title !== title) button.title = title;
   }
   // Comparing, with another pass of the same source in the strip, the arrows
@@ -188,10 +195,10 @@ function syncCompare(rec) {
   const source = on ? lbCompare.source : null;
   if (source && els.lbSrcImg.getAttribute('src') !== source.url) els.lbSrcImg.src = source.url;
   if (source && kind === 'source') {
-    els.lbSrcImg.alt = `#${source.id}, the image this was refined from`;
+    els.lbSrcImg.alt = `#${source.id}, the image this was ${rec.edit ? 'edited' : 'refined'} from`;
     els.lbTagSrc.textContent = `Source #${source.id}`;
-    els.lbTagPass.textContent = `Pass #${rec.id}`;
-    els.lbSplit.setAttribute('aria-label', 'Divider: the source left of it, the pass right');
+    els.lbTagPass.textContent = `${rec.edit ? 'Edit' : 'Pass'} #${rec.id}`;
+    els.lbSplit.setAttribute('aria-label', `Divider: the source left of it, the ${rec.edit ? 'edit' : 'pass'} right`);
   } else if (source && kind === 'picked') {
     els.lbSrcImg.alt = pickedTag(source, pair);
     els.lbTagSrc.textContent = clip(pickedTag(source, pair));
@@ -238,25 +245,41 @@ function ladderShown(rec, onKind) {
   return { cfg: wide || lbCfgShown.cfg, steps: wide || lbCfgShown.steps };
 }
 
-// Compare with source, on a pass only: dead, saying why, where the source has
-// gone. Answers that reason, or '' where it can be pressed.
+// Passes name their source directly. Edits can keep a proof after losing
+// their local id, and a matching id can still have different pixels.
+function comparisonSourceId(rec) {
+  return rec.edit ? rec.edit.source : rec.refine;
+}
+
+function comparisonSourceHold(rec) {
+  const id = comparisonSourceId(rec);
+  if (rec.edit && id == null) return 'The original edit source is unresolved';
+  if (rec.edit_missing) {
+    const reason = rec.edit_binned ? 'is in the recycle bin' : 'is unavailable or no longer matches the recorded source';
+    return `#${id}, the image this was edited from, ${reason}`;
+  }
+  if (rec.refine_missing) return `#${id}, the image this was refined from, ${rec.refine_binned ? 'is in the recycle bin' : 'has been deleted'}`;
+  return '';
+}
+
 function syncSourceCompare(rec, on, shortcut = true) {
-  const pass = rec.refine != null;
+  const pass = rec.edit != null || rec.refine != null;
   els.lbCompareOn.hidden = !pass;
   if (!pass) return '';
-  const gone = rec.refine_missing || lbSources.get(rec.refine) === null;
+  const id = comparisonSourceId(rec);
+  const why = comparisonSourceHold(rec) || (lbSources.get(id) === null ? `Source #${id} is no longer available` : '');
   els.lbCompareOn.setAttribute('aria-pressed', String(on));
-  els.lbCompareOn.setAttribute('aria-disabled', String(gone));
-  const why = gone ? `#${rec.refine}, the image this was refined from, ${rec.refine_binned ? 'is in the recycle bin' : 'has been deleted'}` : '';
+  els.lbCompareOn.setAttribute('aria-disabled', String(!!why));
   if (shortcut) els.lbCompareOn.setAttribute('aria-keyshortcuts', 'S');
   else els.lbCompareOn.removeAttribute('aria-keyshortcuts');
-  els.lbCompareOn.title = why || `Compare this pass with #${rec.refine}, the image it was refined from, at the same crop${shortcut ? ' (S)' : ''}`;
+  els.lbCompareOn.title = why || `Compare this ${rec.edit ? 'edit' : 'pass'} with #${id}, the image it was ${rec.edit ? 'edited' : 'refined'} from, at the same crop${shortcut ? ' (S)' : ''}`;
   return why;
 }
 
 // A pass's note: its source and how much of it the pass kept, or that the
 // source has gone.
 function sourceNote(rec, source) {
+  if (rec.edit) return comparisonSourceHold(rec) || (source ? `Source #${source.id}, ${source.width}×${source.height}` : '');
   if (rec.refine == null) return '';
   if (rec.refine_missing || lbSources.get(rec.refine) === null) return `source #${rec.refine} ${goneWord(rec)}`;
   if (!source) return '';
@@ -296,13 +319,17 @@ async function toggleCompare(mode = null, kind = null) {
     else if (mode !== lbCompare.mode) setCompare(rec.id, mode);
     return;
   }
-  kind ??= pickedPair(rec) ? 'picked' : rec.refine != null ? 'source' : 'cfg';
+  kind ??= pickedPair(rec) ? 'picked' : rec.edit != null || rec.refine != null ? 'source' : 'cfg';
   if (kind === 'picked') { comparePickedPair(rec, mode); return; }
   if (ladderAxis(kind)) { compareLadder(kind, rec, null, mode); return; }
-  if (rec.refine == null) return;
+  if (rec.refine == null && !rec.edit) return;
   const source = await compareSource(rec);
   if (lbList[lbIndex] !== rec || !els.lightbox.open) return;
-  if (!source) { syncCompare(rec); return; }
+  if (!source || isGone(source.id)) {
+    if (els.lbCompareOn.getAttribute('aria-disabled') === 'true') lbCompareSaid = { id: rec.id, text: els.lbCompareOn.title };
+    syncCompare(rec);
+    return;
+  }
   lbCompare.kind = 'source';
   lbCompare.ladder = [];
   lbCompare.source = source;
@@ -312,8 +339,26 @@ async function toggleCompare(mode = null, kind = null) {
 
 // A pass's source by id, once a session (`lbSources`).
 async function compareSource(rec) {
-  const id = rec.refine;
-  if (rec.refine_missing) return null;
+  const id = comparisonSourceId(rec);
+  if (comparisonSourceHold(rec)) return null;
+  if (rec.edit) {
+    // The server re-proves an edit's original pixels when reading its row.
+    // A cached source id alone cannot establish that it still matches.
+    try {
+      const current = await api(`/api/images/${rec.id}?binned=true`);
+      if (lbList[lbIndex] !== rec || !els.lightbox.open) return null;
+      if (!sameEditSource(rec, current) || current.edit_missing) {
+        rec.edit_missing = true;
+        rec.edit_binned = current.edit_binned;
+        lbDrawn = null;
+        renderLightbox();
+        return null;
+      }
+    } catch (err) {
+      if (lbList[lbIndex] === rec && els.lightbox.open) showError(err.message);
+      return null;
+    }
+  }
   if (lbSources.has(id)) return lbSources.get(id);
   // An image already in a strip - the Refine dialog opens a pass behind its
   // source, a sweep's sheet walks the source first - needs no request.

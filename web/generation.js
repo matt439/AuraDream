@@ -233,6 +233,7 @@ function submissionLabel(path, payload) {
 function forgetJob(jobId) {
   submissions.delete(jobId);
   jobLabels.delete(jobId);
+  queueSeeds.delete(jobId);
   jobEstimates.delete(jobId);
   jobPlaceholders.delete(jobId);
   jobsToShow.delete(jobId);
@@ -305,9 +306,8 @@ function syncSubmitButtons() {
   const why = submitHold({ composer: true });
   const held = String(submitting || !!why);
   els.generate.setAttribute('aria-disabled', held);
-  els.gridRun.setAttribute('aria-disabled', held);
   els.generate.title = why || GENERATE_TITLE;
-  els.gridRun.title = why || GRID_RUN_TITLE;
+  syncGridRun(why);
   // The Refine dialogs' Refine say the same while the server is gone, and
   // the comparison's Run as Generate does.
   syncRefineRun();
@@ -364,7 +364,7 @@ function handJobFocus(to) {
 // queued behind the watched job - once the server has taken it.
 async function startJob(path, payload, {
   sheet = false, panel = true, slot = els.error, placeholder = null, onAccepted = null, onRefused = null,
-  model = loadedModel, revision = modelRevision,
+  model = loadedModel, revision = modelRevision, gridImages = null,
 } = {}) {
   if (submitting) return;
   if (modelChangeHold()) { sayModelChangeHold(slot); return; }
@@ -417,7 +417,7 @@ async function startJob(path, payload, {
     const answer = await api(path, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(revision === null ? {} : { 'X-AuraDream-Model-Revision': String(revision) }) },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(gridImages === null ? payload : { ...payload, expected_images: gridImages }),
     });
     const { job_id, seed, more = [] } = answer;
     setSubmitting(false);
@@ -507,6 +507,9 @@ async function startJob(path, payload, {
     if (more.length) setQueue([...queuedIds, ...extras()]);
     await streamJob(job_id);
   } catch (err) {
+    // The server may just have rejected the reviewed image count. Retire it
+    // before releasing Run or awaiting any missing-reference/LoRA recovery.
+    if (gridImages !== null) refreshRefusedGrid();
     setSubmitting(false);
     showError(err.message, false, { slot });
     if (!queueing) setBusy(false);
@@ -600,6 +603,7 @@ function generate({ onRefused = null } = {}) {
 // touch.js): one written before the request went out (an empty prompt, a
 // seed past 2^53, a hold) and the server's own, once its answer is in.
 function pressGenerate() {
+  if (!els.modelPicker.hidden) return;
   const writes = panelErrorWrites;
   const job = generate({ onRefused: sayAtGenerate });
   if (panelErrorWrites !== writes) sayAtGenerate();

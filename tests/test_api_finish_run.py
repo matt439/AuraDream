@@ -8,11 +8,12 @@ import threading
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 import pytest
 from PIL import Image
 
-from backend import grid, main, storage
+from backend import bundles, grid, main, storage
 from backend.config import settings
 from backend.jobs import JobManager
 from backend.schemas import GenerateRequest, Outpaint
@@ -264,11 +265,27 @@ def test_legacy_run_has_seeds_but_no_finish_and_unknown_run_is_404(client, store
     plant(store, cell(1), "legacy")
     details = client.get("/api/runs/legacy").json()
     assert not details["actions"]["finish"]["available"]
-    assert "before runs kept" in details["actions"]["finish"]["reason"]
+    assert "No run plan is stored here" in details["actions"]["finish"]["reason"]
     assert details["actions"]["seeds"]["available"]
     for path in ("/api/runs/gone", "/api/runs/gone/finish/preview", "/api/runs/gone/finish"):
         response = client.get(path) if path == "/api/runs/gone" else client.post(path, json={})
         assert response.status_code == 404
+
+
+def test_clear_then_import_restores_partial_run_image_and_explains_missing_plan(client, store):
+    cells = [cell(41), cell(42)]
+    run = retain(store, cells, completed=[0])
+    plant(store, cells[0], run)
+    before = preview(client, run)
+    assert before["available"] and before["cells"] == 1
+
+    archive = bundles.export_bundle(expected=1)
+    assert archive["cleared"]
+    assert bundles.import_bundle(Path(archive["path"]))["imported"] == 1
+    details = client.get(f"/api/runs/{run}").json()
+    assert (details["images"], details["cells"]) == (1, 0)
+    assert not details["actions"]["finish"]["available"]
+    assert "Image bundles" in details["actions"]["finish"]["reason"]
 
 
 def test_preview_pin_refuses_a_changed_missing_set_then_new_preview_queues_the_rest(client, store, fake):

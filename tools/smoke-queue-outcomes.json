@@ -5,6 +5,7 @@
   {
     "navigate": "http://127.0.0.1:7922/"
   },
+  { "viewport": [1366, 768, 1] },
   {
     "eval": "window.__until = async (fn, ms=20000) => { const end=Date.now()+ms; while(Date.now()<end) { if(fn()) return true; await new Promise(r=>setTimeout(r,40)); } return false; }; window.__post = (path, body) => fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(r=>r.json()); window.__ended = async id => { const end=Date.now()+20000; while(Date.now()<end) { const j=await (await fetch('/api/jobs/'+id)).json(); if(['done','error','cancelled'].includes(j.status)) return j; await new Promise(r=>setTimeout(r,40)); } throw Error('job did not finish: '+id); }; window.__originalApi=api; window.__holdList=false; window.__listingHeld=false; window.__holdHistory=false; window.__historyHeld=false; api=async (path,opts) => { if(path==='/api/jobs' && __holdList) { __holdList=false; __listingHeld=true; await new Promise(r=>window.__releaseList=r); } if(path==='/api/jobs?include_finished=true' && __holdHistory) { __holdHistory=false; const answer=await __originalApi(path,opts); __historyHeld=true; await new Promise(r=>window.__releaseHistory=r); return answer; } return __originalApi(path,opts); }; window.__finishes=[]; window.__finish=finishJob; finishJob=(id,data,options) => { __finishes.push({id,status:data.status,count:data.image_count,error:data.error,submitted:!!options.submitted,foreign:options.foreign}); return __finish(id,data,options); }; window.__opens=new Map(); window.__ES=window.EventSource; window.EventSource=class extends __ES { constructor(url,opts) { super(url,opts); const id=String(url).split('/')[3]; __opens.set(id,(__opens.get(id)||0)+1); } };"
   },
@@ -50,6 +51,13 @@
   {
     "expect": "els.error.textContent.startsWith('1 of 1 image was skipped:') && els.error.textContent.includes('[fail]') && els.finishNote.querySelector('.finish-run-tool')?.dataset.run===__cDone.run_id && document.title.includes('Nothing made') && viewerRecords.length===1 && viewerRecords[0].job_id===__b && queuedIds.length===0"
   },
+  {
+    "expect": "(() => { const note=els.viewerFailure, label=note.querySelector('summary'), rect=label.getBoundingClientRect(); return !note.hidden && !note.open && label.textContent==='No image was made. Showing previous result #'+viewerRecords[0].id+'.' && rect.height>0 && rect.top>=0 && rect.bottom<=innerHeight && document.elementFromPoint(rect.left+rect.width/2, rect.top+rect.height/2)===label; })()"
+  },
+  { "click": "#viewer-failure summary" },
+  { "expect": "els.viewerFailure.open && els.viewerFailure.querySelector('p').textContent===els.error.textContent" },
+  { "click": "#viewer-failure button" },
+  { "expect": "document.activeElement===els.finishNote.querySelector('.finish-run-tool')" },
   {
     "log": "'Repeated handoff/polls cannot replay watched, historical-owned, foreign, or explicitly cancelled completions.'"
   },
@@ -196,6 +204,24 @@
   },
   {
     "expect": "!busy && submissions.size===0 && watchedJobs.size===0 && viewerRecords.length===0 && queuedIds.length===0"
+  },
+  { "eval": "void startJob('/api/generate',{prompt:'first attempt [fail]',width:256,height:256,steps:1,seed:6300});" },
+  {
+    "expect": "__until(() => !busy && !els.viewerFailure.hidden && els.viewerFailure.querySelector('summary').textContent==='No image was made.' && !viewerRecords.length && !els.viewer.querySelector('img') && !isShown(els.viewer) && isShown(els.viewerFailure))",
+    "fatal": true
+  },
+  { "eval": "void startJob('/api/grid',{prompt:'a {weather} landscape',prompt_axis:'weather = sunny | [fail]',width:256,height:256,steps:1,seeds:1,seed:6301});" },
+  {
+    "expect": "__until(() => !busy && !els.viewerFailure.hidden && els.viewerFailure.querySelector('summary').textContent==='Made 1 image. Some work failed.' && els.viewerFailure.querySelector('p').textContent.includes('1 of 2 cells') && viewerRecords.length===1 && viewerRecords[0].prompt==='a sunny landscape' && isShown(els.viewer))",
+    "fatal": true
+  },
+  {
+    "eval": "(async()=>{ window.__lastGood=viewerRecords[0].id; await fetch('/api/fake/step',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({seconds:0.3})}); void startJob('/api/generate',{prompt:'late failure [fail-after-preview]',width:256,height:256,steps:8,seed:6302}); })()"
+  },
+  { "expect": "__until(() => !!els.viewer.querySelector('figure.live') && !viewerRecords.length && els.viewerFailure.hidden)", "fatal": true },
+  {
+    "expect": "__until(() => !busy && !els.viewerFailure.hidden && els.viewerFailure.querySelector('summary').textContent==='No image was made. Showing previous result #'+__lastGood+'.' && viewerRecords[0]?.id===__lastGood && +els.viewer.querySelector('figure.result')?.dataset.id===__lastGood && !sessionRecords.some(r=>r.id===__lastGood))",
+    "fatal": true
   },
   {
     "log": "'Queue outcome settlement smoke complete: synthetic CPU/browser coverage only.'"

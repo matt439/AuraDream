@@ -403,7 +403,7 @@ function resultSide(rec, figure) {
   const actions = document.createElement('div');
   actions.className = 'result-actions';
   actions.append(star, refine, inpaint, outpaint, action(reuseButton(rec)), reference);
-  if (rec.refine != null) actions.append(compareButton(rec, figure));
+  if (rec.refine != null || rec.edit) actions.append(compareButton(rec, figure));
   actions.append(seed, more, brief, del);
   const prompt = document.createElement('p');
   prompt.className = 'result-prompt';
@@ -428,7 +428,7 @@ function compareButton(rec, figure) {
   button.textContent = 'Compare with source';
   button.onclick = () => {
     if (button.getAttribute('aria-disabled') === 'true') {
-      refuseInCard(figure.querySelector('.tile'), `${button.title}.`, 'Source deleted');
+      refuseInCard(figure.querySelector('.tile'), `${button.title}.`, rec.edit ? 'Source unavailable' : 'Source deleted');
       return;
     }
     openViewerImage(rec);
@@ -439,9 +439,9 @@ function compareButton(rec, figure) {
 }
 
 function syncCompareResult(button, rec) {
-  button.setAttribute('aria-disabled', String(!!rec.refine_missing));
-  button.title = rec.refine_missing ? `#${rec.refine}, the image this was refined from, ${rec.refine_binned ? 'is in the recycle bin' : 'has been deleted'}`
-    : `Compare this pass with #${rec.refine}, the image it was refined from, in the lightbox`;
+  const hold = comparisonSourceHold(rec);
+  button.setAttribute('aria-disabled', String(!!hold));
+  button.title = hold || `Compare this ${rec.edit ? 'edit' : 'pass'} with #${comparisonSourceId(rec)}, the image it was ${rec.edit ? 'edited' : 'refined'} from, in the lightbox`;
 }
 
 // The column's first line for a pass: which image it refines, and how far.
@@ -533,9 +533,16 @@ function noteViewer() {
 // cells. Updating its target keeps the button and keyboard focus in place.
 function syncViewerMoreSeeds() {
   if (!els.viewerSeeds.isConnected || !els.viewerNoteText.isConnected) {
-    els.viewerNote.replaceChildren(els.viewerSeeds, els.viewerNoteText);
+    els.viewerNote.replaceChildren(els.viewerFailure, els.viewerSeeds, els.viewerNoteText);
   }
   const records = viewerRecords.filter((rec) => !isGone(rec.id));
+  if (!els.viewerFailure.hidden && els.viewerFailure.dataset.made === '0') {
+    const previous = records.length === 1 ? ` Showing previous result #${records[0].id}.`
+      : records.length ? ` Showing ${records.length} previous results.` : '';
+    const summary = els.viewerFailure.querySelector('summary');
+    const label = 'No image was made.' + previous;
+    if (summary.textContent !== label) summary.textContent = label;
+  }
   els.viewerSeeds.hidden = !records.length && !viewerJob.expected;
   const one = records.length === 1;
   els.viewerMoreSeedsTarget.textContent = one

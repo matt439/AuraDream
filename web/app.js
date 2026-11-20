@@ -302,6 +302,7 @@ els.modelLoadOnStartup.onchange = () => modelPickerEdited('load_on_startup');
 els.modelQuantization.onchange = () => modelPickerEdited('quantization', { catalogue: true });
 els.modelFormat.onchange = () => modelPickerEdited('format', { catalogue: true });
 els.modelSwitch.onclick = () => switchModel();
+$('btn-model-continue').onclick = leaveModelPicker;
 els.modelSave.onclick = () => switchModel({ load: false });
 els.modelRevert.onclick = revertModelPicker;
 // The strip's pictures open in the lightbox over the picker, which stays open
@@ -358,12 +359,20 @@ els.loraScale.addEventListener('input', () => syncConditioningSummary());
 els.trueCfg.oninput = () => { own('trueCfg'); syncCfg(); };
 // The greyed negative box points at the box that wakes it.
 els.negEnable.onclick = focusNegativeKnob;
-els.favOnly.onchange = resetGallery;
+els.favOnly.onchange = () => {
+  if (sheetReturn) delete sheetReturn.restoreStarred;
+  return resetGallery();
+};
 // The Runs picker is the gallery's table of contents, so it follows the scope.
-els.allModels.onchange = () => { resetGallery(); loadRuns(); };
+els.allModels.onchange = () => {
+  if (sheetReturn) delete sheetReturn.restoreCurrentModel;
+  resetGallery();
+  loadRuns();
+};
 els.sheetBtn.onclick = toggleSheet;
 // How the cards are drawn (gallery.js): a press chooses; each pair is one
 // tab stop whose arrows move focus along it, as a size strip's do.
+initCardView();
 els.cardView.addEventListener('click', cardViewClick);
 for (const pair of els.cardView.querySelectorAll('[role="group"]')) pair.addEventListener('keydown', (e) => stepPreset(pair, e));
 els.sheetGrid.addEventListener('keydown', (e) => { void sheetKey(e); });
@@ -422,6 +431,11 @@ els.contextMenu.addEventListener('focusout', (e) => {
 // The Picked menu between Clear and Select (gallery-select.js): its keyboard
 // is a menu's, and leaving it closes it.
 els.pickedBtn.onclick = pickedPress;
+$('review-picked-close').onclick = () => $('review-picked').close();
+$('review-picked').addEventListener('close', (event) => {
+  if (!event.currentTarget.open) $('review-picked-list').replaceChildren();
+});
+onSelectionChange(syncPickedReview);
 els.picked.addEventListener('keydown', pickedKey);
 els.pickedMenu.addEventListener('click', (e) => pickedChoose(e.target));
 els.picked.addEventListener('focusout', (e) => {
@@ -705,6 +719,8 @@ for (const el of [els.detailerPrompt, els.detailerNegative, els.detailerSeed,
   els.detailerSteps, els.detailerGuidance, els.detailerStrength]) el.addEventListener('input', detailerChanged);
 els.editCancel.onclick = els.editClose.onclick = closeEdit;
 els.editOpenModels.onclick = editOpenModels;
+els.modelContinueEdit.onclick = () => continueEditHandoff(els.modelContinueEdit);
+els.galleryContinueEdit.onclick = () => continueEditHandoff(els.galleryContinueEdit);
 els.editDialog.addEventListener('cancel', editCancelEvent);
 els.editDialog.addEventListener('close', editClosed);
 els.editDialog.addEventListener('keydown', editKeydown);
@@ -782,6 +798,13 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   if (modelListOpen()) return;
+  // An automatic Models suggestion deliberately leaves the draft caret (or
+  // body focus) alone. Its selected checkpoint is still only a draft.
+  if (!modal && !els.modelPicker.hidden && keyboardSubmit(e)) {
+    e.preventDefault();
+    if (!e.repeat && !els.modelPicker.contains(document.activeElement)) focusModelChoice();
+    return;
+  }
   // This companion is nonmodal: workspace keys retain their normal routes.
   if (!modal && assistantSidebarOpen() && els.assistantSidebar.contains(e.target)) {
     if (assistantDraftKey(e)) return;

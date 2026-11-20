@@ -10,7 +10,7 @@ verifies the responding server's scratch ownership.
 
 Fixture version 2 only (DEV#21): a version 1 manifest has no setup, saved
 search, snippet or Then refine roles and is refused. Tasks 1-5 are the first
-set; 6-8 are the optional second set the observer may offer.
+set; 6-9 are the optional second set the observer may offer.
 """
 from __future__ import annotations
 
@@ -32,7 +32,7 @@ _INSTRUMENT = (
     " document.addEventListener('keydown',e=>{if(e.isTrusted)__presses.key++},true);"
     " window.__trialRequests=[]; window.__trialFetch=window.fetch; window.fetch=async(path,options)=>{"
     "const response=await __trialFetch(path,options); if(options?.method==='POST'"
-    " && /^\\/api\\/(generate|rerender)$/.test(String(path)) && response.ok){"
+    " && /^\\/api\\/(generate|rerender|grid)$/.test(String(path)) && response.ok){"
     "__trialRequests.push({path,body:JSON.parse(options.body),answer:await response.clone().json()})}"
     "return response};"
 )
@@ -59,7 +59,7 @@ def steps_for(manifest: dict) -> list[dict]:
         # a missed press is a failed step, never a silent no-op.
         until(f"(()=>{{const t=document.querySelector({target}), r=t.getBoundingClientRect(),"
               " at=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);"
-              " return r.width>0 && !!at && (t.contains(at)||at.contains(t));})()")
+              " return r.width>0 && !!at && (t.contains(at)||at.contains(t));})()", fatal=True)
         add("click", selector)
 
     def expect(expression: str, *, fatal: bool = False):
@@ -71,12 +71,18 @@ def steps_for(manifest: dict) -> list[dict]:
         click(selector)
         # A click that misses (a field inside a closed disclosure has no box)
         # would type into whatever kept focus: refuse that rather than go on.
-        expect(f"document.activeElement===document.querySelector({json.dumps(selector)})")
+        expect(f"document.activeElement===document.querySelector({json.dumps(selector)})", fatal=True)
         add("keycombo", ["Control", "a"])
         add("type", str(value))
 
     def until(expression: str, *, fatal: bool = False):
         expect(f"__until(() => {expression})", fatal=fatal)
+
+    def scroll_panel(delta: int):
+        # The sticky panel follows native scroll. Wait for the 400 ms
+        # scroll-activity window to close before the next pointer action.
+        add("wheel", [100, 300, delta])
+        add("wait", 450)
 
     def task(name: str):
         add("log", json.dumps(name))
@@ -138,8 +144,7 @@ def steps_for(manifest: dict) -> list[dict]:
     # The tall sticky panel remains at its lower controls after Generate.
     # scrollIntoView alone does not reliably raise it: use real upward wheel
     # navigation before pressing Reset again.
-    add("wheel", [100, 300, -2000])
-    add("wait", 450)
+    scroll_panel(-2000)
     click("#btn-reset")
     add("log", "JSON.stringify({task:'1 Reset',seed:els.seed.value,prompt:els.prompt.value,focus:document.activeElement.id})")
     expect("els.seed.value==='' && els.prompt.value==='' && document.activeElement===els.prompt")
@@ -158,10 +163,15 @@ def steps_for(manifest: dict) -> list[dict]:
     fill("#height", 256)
     fill("#steps", 100)
     fill("#prompt", "Trial running " + variant + "1")
+    # With both Sampling and Custom dimensions open, the prompt and
+    # Generate occupy opposite ends of the tall panel.
+    scroll_panel(2000)
     click("#btn-generate")
     until("busy && currentJob && !submitting")
     add("eval", "window.__running=currentJob;")
+    scroll_panel(-2000)
     fill("#prompt", "Trial waiting " + variant + "2")
+    scroll_panel(2000)
     click("#btn-generate")
     until("queuedIds.length===1 && !submitting")
     add("eval", "window.__waiting=queuedIds[0];")
@@ -336,8 +346,7 @@ def steps_for(manifest: dict) -> list[dict]:
     # The tall sticky panel moves only with the user's own scrolling
     # (panel.js followScroll), never a programmatic scroll, so its lower rows
     # can sit below the window: real downward wheel navigation (a detour).
-    add("wheel", [100, 300, 2000])
-    add("wait", 450)
+    scroll_panel(2000)
     click("#then-refine-open")
     until("els.thenRefineDialog.open")
     click("#then-refine")
@@ -368,6 +377,62 @@ def steps_for(manifest: dict) -> list[dict]:
     until("lbCompare?.source?.id===__thenBase && !els.lbSrcImg.hidden")
     add("key", "Escape")
     result("base:__thenBase, pass:__thenPass, passBesideBase:true, downwardWheelDetour:true, leftSelectMode:true")
+
+    # Observer preparation for the guided tag task. Keep the preceding
+    # task's refinement, checkpoint switch and reset out of its event count.
+    scroll_panel(2000)
+    click("#then-refine-open")
+    click("#then-refine")
+    click("#then-refine-close")
+    click("#btn-models")
+    anime = "cagliostrolab/animagine-xl-4.0"
+    until("modelCatalogueLoaded && !modelCataloguePending", fatal=True)
+    click(f".model-row[data-model='{anime}'] input[type='radio']")
+    click("#btn-model-switch")
+    until(f"loadedModel==='{anime}' && modelState==='ready' && !modelSwitchSending && tagVocabularyEnabled", fatal=True)
+    add("key", "Escape")
+    scroll_panel(-2000)
+    click("#btn-reset")
+    expect("!els.thenRefine.checked && els.seed.value==='' && els.gridSeeds.value==='1'", fatal=True)
+
+    task("9 guided tag prompt / variable crossed with Steps")
+    click("#btn-examples")
+    example_number = 1 if variant == "A" else 2
+    click(f"#examples-menu [data-example]:nth-child({example_number})")
+    until("document.activeElement===els.prompt && els.prompt.value.includes('green hair')", fatal=True)
+    add("eval", "window.__example=els.prompt.value;")
+    # Insert the variable after the opening person-count tag, keeping the
+    # example's quality suffix in place. The keys edit the actual textarea.
+    add("keycombo", ["Control", "Home"])
+    for _ in range(len("1girl, " if variant == "A" else "1boy, ")):
+        steps.append({"key": "ArrowRight", "native": True})
+    add("type", "{light}, ")
+    expect("els.prompt.value===__example.replace(', ', ', {light}, ')", fatal=True)
+    # A tag edit starts a debounced chip check and a suggestion list at
+    # the caret. Wait for this exact prompt, then dismiss the list before
+    # targeting the controls below it.
+    until("tagSlots?.prompt===els.prompt.value.trim() && !tagSlots.failed", fatal=True)
+    add("key", "Escape")
+    expect("els.tagSuggestions.hidden", fatal=True)
+    fill("#seed", base + 600)
+    scroll_panel(2000)
+    click("#grid-section > summary")
+    expect("els.gridSection.open", fatal=True)
+    lights = ["moonlight", "sunlight"] if variant == "A" else ["sunlight", "candlelight"]
+    fill("#grid-prompt", "light = " + " | ".join(lights))
+    fill("#grid-steps", "2,4")
+    scroll_panel(2000)
+    until("els.gridPreview.querySelector('.totals')?.textContent.startsWith('4 images')"
+          " && els.gridRun.getAttribute('aria-disabled')!=='true'", fatal=True)
+    add("log", "els.gridPreview.querySelector('.totals').textContent")
+    click("#btn-grid")
+    until("!busy && !submitting && __trialRequests.at(-1)?.path==='/api/grid'", fatal=True)
+    expect("(async()=>{const id=__trialRequests.at(-1).answer.job_id, job=await api('/api/jobs/'+id);"
+           " const rows=job.images; return job.status==='done' && rows.length===4 && "
+           + json.dumps(lights) + ".every(light=>[2,4].every(steps=>rows.some(r=>"
+           f"r.model_id==='{anime}' && r.seed==={base + 600} && "
+           "r.steps===steps && r.prompt===__example.replace(', ', ', '+light+', '))));})()")
+    result("made:4, guidedTagExample:true, steps:[2,4], variable:'light'")
     return steps
 
 

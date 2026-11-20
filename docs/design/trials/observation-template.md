@@ -15,7 +15,7 @@ values empty rather than estimating them. Copy the task table per attempt.
 | Input method / accessibility settings | |
 | Prior exposure / assistance agreed beforehand | |
 | Interface × A/B variant × task order | |
-| Optional tasks 6-8 offered / accepted | |
+| Optional tasks 6-9 and follow-up comparisons offered / accepted | |
 
 | Task observation | Matt's record |
 |---|---|
@@ -23,6 +23,8 @@ values empty rather than estimating them. Copy the task table per attempt.
 | Starting draft, inspected image/run, filters and picks | |
 | Route taken per step (pointer, keyboard shortcut, context menu, dialog) | |
 | Predicted target, scope, count and retained/replaced context | |
+| Predicted and actual picked IDs before and after one removal | |
+| Source ID / intended More seeds target / actual target | |
 | Interaction time / processing wait / interruptions | |
 | Presses / surface changes / reversals | |
 | Detours / wrong-scope attempts / accidental submissions | |
@@ -43,6 +45,9 @@ Record a refusal as the outcome when the accepted scope must be refused.
 | Adjacent versus below-image details, especially short windows | |
 | Watched-job and cancellation placement without covering Generate | |
 | Whole-gallery archive access at the end of curation | |
+| Did Review picked change the accuracy of the prediction or its cost? | |
+| Was the draft, seed, filter or image reconstructed after comparing? | |
+| Could the portrait's crop and thumbnail size be adjusted in place? | |
 
 `DEV#1` is incomplete until the hands-on session is run and recorded. This
 template and the agent walkthrough do not select or approve a redesign.

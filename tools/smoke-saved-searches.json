@@ -523,10 +523,10 @@
     "click": "#saved-searches-close"
   },
   {
-    "log": "'Saved-search geometry and focus stay contained at laptop, narrow, short and wide Gallery beside layouts. Footer targets keep one row from 600 px.'"
+    "log": "'Saved-search geometry and focus stay contained at laptop, narrow, short and wide Gallery beside layouts. The count and every target fit their available column.'"
   },
   {
-    "eval": "window.__footerFits=()=>{const footer=document.querySelector('.gallery-footer').getBoundingClientRect();const boxes=[...document.querySelectorAll('.gallery-footer button')].filter((e)=>!e.hidden&&e.getBoundingClientRect().width>0).map((e)=>e.getBoundingClientRect());const count=document.getElementById('select-count').getBoundingClientRect(),num=document.querySelector('#select-count .num').getBoundingClientRect();return document.documentElement.scrollWidth<=document.documentElement.clientWidth && count.width+1>=num.width && num.width>0 && num.right<=count.right+1 && boxes.every((b)=>b.left>=footer.left-1&&b.right<=footer.right+1&&b.height>=25.5)&&Math.max(...boxes.map((b)=>b.top))-Math.min(...boxes.map((b)=>b.top))<1;}; window.__frames=()=>new Promise((r)=>requestAnimationFrame(()=>requestAnimationFrame(r)));"
+    "eval": "window.__footerFits=(oneRow=true)=>{const footer=document.querySelector('.gallery-footer').getBoundingClientRect();const boxes=[...document.querySelectorAll('.gallery-footer button')].filter((e)=>!e.hidden&&e.getBoundingClientRect().width>0).map((e)=>e.getBoundingClientRect());const count=document.getElementById('select-count').getBoundingClientRect(),num=document.querySelector('#select-count .num').getBoundingClientRect();return document.documentElement.scrollWidth<=document.documentElement.clientWidth && count.width+1>=num.width && num.width>0 && num.right<=count.right+1 && boxes.every((b)=>b.left>=footer.left-1&&b.right<=footer.right+1&&b.height>=25.5)&&(!oneRow||Math.max(...boxes.map((b)=>b.top))-Math.min(...boxes.map((b)=>b.top))<1);}; window.__frames=()=>new Promise((r)=>requestAnimationFrame(()=>requestAnimationFrame(r)));"
   },
   {
     "viewport": [
@@ -555,6 +555,13 @@
   {
     "expect": "scrollY===__footerY && document.activeElement===document.getElementById('btn-saved-searches') && Math.abs(document.getElementById('btn-saved-searches').getBoundingClientRect().left-__openerBox.left)<1"
   },
+  {"viewport": [960, 768]},
+  {"eval": "window.__stableFooter = () => { const records = selectedRecords(); const box = () => { const foot = els.select.parentElement.getBoundingClientRect(); const select = els.select.getBoundingClientRect(); return [foot.height, select.left - foot.left, select.top - foot.top].join(); }; const before = box(); clearSelection(); const empty = box(); for (const rec of records) selection.set(rec.id, rec); syncSelection(); return before === empty && before === box(); };"},
+  {"expect": "__footerFits(false) && __stableFooter()"},
+  {"viewport": [920, 768]},
+  {"expect": "__footerFits(false) && __stableFooter()"},
+  {"viewport": [901, 768]},
+  {"expect": "__footerFits(false) && __stableFooter()"},
   {
     "viewport": [
       600,

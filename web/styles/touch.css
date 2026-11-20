@@ -171,11 +171,7 @@
     background: var(--text); border: 2px solid var(--accent);
   }
   input[type="range"]:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
-  /* Inpaint's two rows of tools take the slider's height: their fixed
-     height (inpaint.css) cut it. Still the window's alone, never what is
-     painted, so the picture above never moves. */
-  .ip-tools { height: auto; }
-  .ip-row { height: auto; min-height: var(--h-sm); }
+  .detailer-recipe > summary { min-height: var(--h-md); align-content: center; }
   .help .tip::before { content: none; }
 
   /* No keyboard here (a tablet's own keyboard aside, whose user has the ?
@@ -317,6 +313,19 @@
   }
   main { grid-template-columns: var(--panel-w) minmax(0, 1fr); }
   .panel { position: sticky; }
+}
+
+/* A tablet card keeps Reuse, Refine and Bin at finger size. Its long-press
+   menu and lightbox carry the other actions when six targets cannot fit. */
+@media (pointer: coarse) and (min-width: 700px) and (height > 500px) {
+  #gallery .card .tools {
+    container: tablet-tools / inline-size;
+    gap: var(--sp-2); padding-inline: var(--sp-1);
+  }
+  #gallery .card .tools button { min-width: 44px; min-height: 44px; }
+  @container tablet-tools (width < 304px) {
+    .card:not(.binned) .tools button:not(.reuse-settings, .refine-tool, .del) { display: none; }
+  }
 }
 
 /* ------------------------------------------------------------------ phone */
@@ -760,7 +769,7 @@
      their own, Show mask at the end of the next; each slider a row of its
      own across the sheet. What wraps is the screen's width alone, so the
      picture above never moves with what is painted. */
-  .ip-row { flex-wrap: wrap; white-space: normal; row-gap: var(--sp-2); }
+  .ip-row { white-space: normal; }
   .ip-tools { gap: var(--sp-2); }
   .ip-tools .ghost.small { min-height: var(--h-md); }
   .ip-row > .ip-crop { flex: 1 1 100%; margin-left: 0; }

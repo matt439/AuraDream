@@ -166,6 +166,7 @@ Each review's remaining work is indexed above; closed findings stay in their own
 | 2026-11-16 detailer | `INP#12` stages 1-3 built: experimental CPU face/hand finders, region review, serial SDXL inpaints, portable provenance and partial-result recovery. Local CPU/browser checks pass; separate card acceptance remains. [Evidence and behavior](docs/maintainer/plan-detailer.md#implementation-2026-11-16). |
 | 2026-11-18 local GPU qualification | Completed `CARD#1`, `CARD#2`, `CARD#3`, `CARD#13` and `INP#11`; remaining unsafe/manual/coverage cases stay explicit. Private Regional, Native/cuDNN and FBC matrices are measured; pixel-changing pairs await Matt. WSL critic owner death exposed a production lifetime gap. [Results](docs/verified.md). |
 | 2026-11-20 TODO audit | [Reconciliation and 18 verified fixes](docs/maintainer/review-2026-11-20-todo.md#results-2026-11-20). The detailer comparison awaits Matt's source IDs and the above-budget ERNIE case awaits a viable envelope. |
+| 2026-11-20 UI | [Workstation, touch and recovery fixes](docs/maintainer/review-2026-11-20-ui.md#implementation-and-verification). The revised task cards and physical-device checks remain with `DEV#1`, `UI#40` and `UI#7`. |
 
 
 ---

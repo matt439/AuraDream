@@ -685,7 +685,7 @@
     "fatal": true
   },
   {
-    "expect": "__pa.requests[3].mode==='tags' && __pa.requests[3].history.length>=2 && els.prompt.value===__pa.original && els.assistantResult.textContent.includes('ahoge')"
+    "expect": "__pa.requests[3].mode==='tags' && __pa.requests[3].history.length>=2 && els.prompt.value===__pa.original && els.assistantResult.textContent.includes('ahoge') && $('assistant-lookup').checkVisibility() && $('assistant-lookup').textContent.includes('Suggested tag names')"
   },
   {
     "eval": "window.__paTags=__pa.arm('Synthetic authoritative tag verdicts',{drafts:[],tags:[{text:'ahoge',reason:'Model suggestion: the raised hair tuft.',status:'valid',canonical:null,detail:'Known general tag.'},{text:'stupid hair',reason:'Model suggestion: a possible alias.',status:'alias',canonical:'ahoge',detail:'Alias of ahoge.'},{text:'invented_glitter_hair_zz',reason:'Model suggestion only.',status:'not_found',canonical:null,detail:'Not in the tag index.'},{text:'unchecked_hair_zz',reason:'Model suggestion only.',status:'unchecked',canonical:null,detail:'The index did not answer.'}],warnings:['Synthetic index verdicts for browser validation.']}); __pa.instruction('Compare checked and unchecked tag suggestions.'); window.__paAskBefore=els.assistantAsk.getBoundingClientRect().toJSON(); window.__paInstructionBefore=els.assistantInstruction.getBoundingClientRect().toJSON();\nassistantResultData={...assistantResultData,message:Array.from({length:36},(_,i)=>'Earlier answer line '+(i+1)+': keep this older conversation readable.').join('\\n')}; assistantTurns.at(-1).answer=assistantResultData; renderAssistantHistory(); renderAssistantResult(); __pa.chatHost().scrollTop=0; __pa.chatBeforeSend=__pa.chatGeometry();"
@@ -1022,6 +1022,34 @@
   {
     "expect": "(() => {const r=els.assistantSidebar.getBoundingClientRect();return r.left>=0&&r.top>=0&&r.right<=innerWidth+1&&r.bottom<=innerHeight+1&&els.assistantSidebar.scrollWidth<=els.assistantSidebar.clientWidth+1;})()"
   },
+  { "viewport": [480, 360] },
+  {
+    "eval": "resetAssistantConversation();__pa.mode('create');__pa.instruction('Give me two alternatives.');__pa.shortDraft=__pa.arm('Short window',{drafts:[{title:'Day',prompt:'A red fox by daylight.',notes:[]},{title:'Night',prompt:'A red fox by moonlight.',notes:[]}]});els.assistantInstruction.focus();"
+  },
+  { "keycombo": ["Control", "Enter"] },
+  {
+    "expect": "(async()=>{if(!await __pa.until(()=>__pa.shortDraft.captured))return false;__pa.release(__pa.shortDraft);return await __pa.until(()=>!assistantRun&&els.assistantResult.querySelectorAll('[data-assistant-draft]').length===2);})()",
+    "fatal": true
+  },
+  {
+    "expect": "(()=>{const b=__pa.chatHost().getBoundingClientRect(),pane=els.assistantSidebar.getBoundingClientRect();return Math.min(b.bottom,pane.bottom)-Math.max(b.top,pane.top)>=90&&[...els.assistantResult.querySelectorAll('.assistant-draft-text')].some(text=>{const r=text.getBoundingClientRect();return r.bottom>Math.max(b.top,pane.top)&&r.top<Math.min(b.bottom,pane.bottom);});})()",
+    "fatal": true
+  },
+  {
+    "expect": "(async()=>{const use=els.assistantResult.querySelector('[data-assistant-draft=\"1\"]');use.scrollIntoView({block:'center'});await __pa.frames();const r=use.getBoundingClientRect(),b=__pa.chatHost().getBoundingClientRect();return b.height>=100&&r.top>=b.top&&r.bottom<=b.bottom&&use.contains(document.elementFromPoint(r.left+r.width/2,r.top+r.height/2));})()",
+    "fatal": true
+  },
+  { "click": "#assistant-result [data-assistant-draft=\"1\"]" },
+  { "expect": "els.prompt.value==='A red fox by moonlight.'&&els.assistantSidebar.contains(document.activeElement)", "fatal": true },
+  { "viewport": [640, 450] },
+  { "eval": "els.assistantReset.focus();" },
+  { "keycombo": ["Shift", "Tab"] },
+  {
+    "expect": "(async()=>{await __pa.frames();const e=document.activeElement,r=e.getBoundingClientRect(),hit=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);__pa.assert(document.querySelector('main').inert&&els.assistantSidebar.contains(e)&&e!==els.assistantReset&&e.contains(hit),'Back-tab focus: '+JSON.stringify({focus:e.outerHTML.slice(0,160),bounds:r.toJSON(),hit:hit?.outerHTML.slice(0,160),last:assistantPhoneFocusable().at(-1)?.outerHTML.slice(0,160)}));return true;})()",
+    "fatal": true
+  },
+  { "key": "Tab" },
+  { "expect": "document.activeElement===els.assistantReset", "fatal": true },
   {
     "key": "Escape"
   },
@@ -1029,6 +1057,9 @@
     "expect": "__pa.until(()=>!assistantSidebarOpen() && document.activeElement===els.assistantToggle)",
     "fatal": true
   },
+  { "eval": "els.prompt.focus({preventScroll:true});" },
+  { "keycombo": ["Control", "z"] },
+  { "expect": "els.prompt.value==='A deliberate newer composer draft.'&&!document.querySelector('main').inert", "fatal": true },
   {
     "touch": true
   },
@@ -1261,7 +1292,7 @@
     "log": "JSON.stringify({forbidden:__pa.forbidden, errors:__pa.errors, requests:__pa.requests.length, running:!!assistantRun, busy, submissions:submissions.size})"
   },
   {
-    "expect": "__pa.forbidden.length===0 && __pa.errors.length===0 && __pa.requests.length===11 && !assistantRun && !busy && submissions.size===0"
+    "expect": "__pa.forbidden.length===0 && __pa.errors.length===0 && __pa.requests.length===12 && !assistantRun && !busy && submissions.size===0"
   },
   {
     "expect": "__a11yCheck()"

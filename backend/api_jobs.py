@@ -42,6 +42,29 @@ def create_router(get_jobs: Callable[[], JobManager]) -> APIRouter:
             raise HTTPException(status_code=404, detail="unknown job")
         return job.snapshot()
 
+    @router.get("/api/jobs/{job_id}/settings")
+    async def queued_settings(job_id: str, cell: int = Query(default=1, ge=1)) -> dict:
+        """Inspect one admitted cell without sending an entire grid in queue polls."""
+        job = get_jobs().get(job_id)
+        if job is None:
+            raise HTTPException(status_code=404, detail="Unknown job.")
+        if job.status != "queued":
+            raise HTTPException(status_code=409, detail="This job is no longer queued.")
+        passes = len(job.source_passes)
+        count = passes + len(job.cells)
+        if cell > count:
+            raise HTTPException(status_code=404, detail="Unknown queued cell.")
+        # Finish runs the missing passes first. Inline Then refine passes have
+        # no source until their base is made, so describe those by their recipe.
+        index = cell - passes - 1
+        selected = job.source_passes[cell - 1] if cell <= passes else job.cells[index]
+        then = job.then_refine if cell > passes and job.refines_cell(index) else None
+        return {
+            "cells": count, "seed": str(selected.seed), "label": selected.label,
+            "request": selected.request.model_dump(mode="json", exclude_none=True),
+            "then_refine": then.model_dump() if then is not None else None,
+        }
+
 
     @router.post("/api/jobs/{job_id}/cancel")
     async def cancel_job(job_id: str) -> dict:

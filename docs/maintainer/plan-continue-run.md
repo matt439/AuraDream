@@ -555,9 +555,9 @@ The panel's grid tick stays for hand-built grids.
   ("this build no longer reproduces this run's cells").
 - Deleted images: redrawn by Finish, as today's Resume does, and the
   preview says how many (Q5). Binned: never redrawn.
-- Runs from before `run_jobs`, reindexed or imported: Finish held with "made
-  before runs kept their cells: use the panel's Resume tick"; More seeds
-  still works.
+- Runs from before `run_jobs`, reindexed or imported: Finish explains that
+  the gallery has saved outputs but no run plan. A user who can reconstruct
+  the grid can enter its settings and tick Resume. More seeds still works.
 - Refine source gone, LoRA missing, mask swept: refused through
   `unusable_input`, as every rerun is.
 - Comparison: Finish allowed (the variants are in the stored cells), More

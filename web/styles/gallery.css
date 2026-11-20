@@ -49,6 +49,14 @@
    checkpoint's examples a press away; a failed load's card has room. */
 .viewer:has(> .placeholder:not(.held)) { min-height: 0; padding: var(--sp-2) 14px; justify-content: flex-start; }
 .viewer.empty-install:has(> .placeholder:not(.held)) { min-height: 380px; padding: 14px; justify-content: center; }
+/* After a failed first image the job's own account replaces the idle
+   invitation, including when its live preview left the strip empty. */
+.viewer:is(:empty, :has(> .placeholder:only-child:not(.held))):has(+ #viewer-note > #viewer-failure:not([hidden])) {
+  display: none;
+}
+#viewer-failure { align-self: flex-start; color: var(--text); font-size: var(--fs-body-sm); }
+#viewer-failure > summary { color: var(--warn); cursor: pointer; }
+#viewer-failure > p { margin: var(--sp-1) 0; overflow-wrap: anywhere; }
 /* A failed load's card, in the middle of the box: at the left of a 1,580 px
    viewer its 62 characters read as something left over. */
 .viewer:has(> :is(.load-failed:not([hidden]), .lost-run)) { min-height: 0; padding: var(--sp-4); justify-content: center; }
@@ -61,6 +69,8 @@
 }
 .placeholder .first-run, .viewer.empty-install .placeholder .idle-line { display: none; }
 .viewer.empty-install .placeholder .first-run { display: inline; }
+.placeholder .edit-idle, .viewer.edit-only .placeholder :is(.idle-line, .first-run) { display: none; }
+.viewer.edit-only .placeholder .edit-idle { display: inline; }
 .viewer.empty-install > .placeholder { max-width: 60ch; text-align: center; font-size: var(--fs-md); }
 .placeholder .first-run button { margin-left: var(--sp-1); }
 /* A failed load, in the viewer's empty state: what went wrong and what to
@@ -377,12 +387,6 @@
   min-height: var(--h-sm);
   margin-top: calc(var(--sp-1) - var(--sp-3));
 }
-/* On a phone the row's buttons - Select, More seeds…, Bin, Bundles… - are
-   wider than the column: what does not fit takes a second line, rather than
-   running the page past the screen's edge. One line from 600 px up. */
-@media (max-width: 520px) {
-  .gallery-footer { flex-wrap: wrap; row-gap: var(--sp-1); }
-}
 /* Select and Clear share the footer's line as Bundles… does (bundles.css),
    no taller than it, so neither moves the grid. Keep the ghost buttons'
    surface and edge: these actions used to look like muted labels until
@@ -477,6 +481,26 @@
 }
 
 .gallery-head { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
+/* Only the gallery's available column determines when its footer wraps.
+   Reserve the pick count and let secondary actions continue on a new row.
+   The alert starts with zero basis so a message cannot add a row. */
+@media (pointer: fine) {
+  .gallery-head { container: gallery-head / inline-size; }
+  @container gallery-head (max-width: 590px) {
+    .gallery-footer { flex-wrap: wrap; row-gap: var(--sp-1); }
+    .gallery-footer .select-count { min-width: min-content; max-width: 100%; }
+    .gallery-footer #gallery-error { flex-basis: 0; }
+  }
+}
+/* In a narrow two-column workspace, reserve the secondary row even before
+   the first pick. Showing its count and Clear must not move the card the
+   user just pressed. Preserve the document's reading and tab order. */
+@media (pointer: fine) and (900px < width < 1800px) {
+  @container gallery-head (max-width: 590px) {
+    .gallery-footer::after { content: ""; flex-basis: 100%; order: 1; }
+    .gallery-footer #btn-swap, .gallery-footer #btn-swap ~ button { order: 2; }
+  }
+}
 .gallery-head h2 { font-size: var(--fs-lg); margin: 0; font-weight: 600; }
 #gallery-count { color: var(--muted); font-weight: 400; font-size: var(--fs-body-sm); }
 /* The row break is decided from each item's flex basis before anything
@@ -543,6 +567,22 @@
 .gallery-empty { margin: 0; font-size: var(--fs-body-sm); color: var(--text-readout); }
 .gallery-empty button { margin: 0 2px; }
 
+.review-picked {
+  width: min(640px, calc(100vw - 2 * var(--gutter))); max-height: calc(100dvh - 2 * var(--gutter));
+  padding: var(--panel-pad); border: 1px solid var(--line-strong); border-radius: var(--r-lg);
+  color: var(--text); background: var(--panel); box-shadow: var(--shadow-pop);
+}
+.review-picked[open] { display: flex; flex-direction: column; gap: var(--sp-3); }
+.review-picked::backdrop { background: rgb(0 0 0 / 0.6); }
+.review-picked .dialog-head { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-3); }
+.review-picked h2, .review-picked p { margin: 0; }
+#review-picked-list {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 118px), 1fr)); gap: var(--sp-3);
+  margin: 0; padding: var(--sp-1); list-style: none; overflow-y: auto; overscroll-behavior: contain;
+}
+#review-picked-list img { display: block; width: 100%; height: 96px; object-fit: contain; margin-bottom: var(--sp-1); }
+#review-picked-list button { width: 100%; min-height: 44px; }
+
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(var(--thumb-min), 1fr));
@@ -556,20 +596,12 @@
   border-bottom: 1px solid var(--line);
   font-size: var(--fs-body-sm); font-weight: 600; color: var(--text-readout);
 }
-/* How the cards are drawn (cardView, gallery.js), from 1800 px: S, smaller
-   cards and more to a row - eleven at QHD, nine at 125%, where M, the tier's
-   own --thumb-min, is eight and seven - and the whole picture (Fit, the
-   default: `contain`, below) or the card filled and the picture cut to its
-   middle (Crop: `cover`, which showed 57% of a 16:9 image but fills the grid
-   edge to edge). Two pairs in the head, segmented as a size strip's are, the
-   chosen one in the accent's fill. Under 1800 px the head has no room - it
-   is full at 1400 - and the cards are as they always were there, whatever
-   was chosen on a wider window. Not the sheet's: its cells are its own, and
-   a wrapped sheet keeps the tier's --thumb-min. At S a card is 150 px, too
-   narrow for five 32 px tools: there they are 24 px wide at least, the
-   least a target should be, Delete still apart. */
-.card-view { display: none; }
-@media (min-width: 1800px) {
+/* Two gallery preferences, always in reach where their values apply. The
+   phone moves the fit group to its own Gallery menu. */
+.card-view-control { display: none; }
+.card-view-control:has(> [hidden]) { display: none; }
+@media (pointer: fine), (min-width: 1800px) {
+  .card-view-control { display: block; position: relative; }
   .card-view { display: flex; gap: var(--sp-2); }
   .view-pick { display: flex; }
   .view-pick button { position: relative; }
@@ -579,6 +611,33 @@
     z-index: 1; border-color: var(--accent-strong); color: #fff; background: var(--accent-strong);
   }
   .view-pick button:focus-visible { z-index: 2; }
+  #gallery[data-fit="cover"] .card img { object-fit: cover; }
+}
+@media (pointer: fine) and (width < 1800px) {
+  /* Share the Runs picker's space so selecting the first card doesn't
+     change the row breaks of Re-render and Delete unstarred. */
+  .gallery-head { --card-view-w: 4rem; }
+  .card-view-control { width: var(--card-view-w); }
+  .card-view-control:has(> .card-view:not([hidden])) ~ .runs {
+    flex-basis: calc(var(--runs-w) - var(--card-view-w) - var(--sp-3));
+    width: calc(var(--runs-w) - var(--card-view-w) - var(--sp-3));
+  }
+  .card-view-control > summary {
+    cursor: pointer; min-height: var(--h-sm);
+    border: 1px solid var(--line-strong); border-radius: var(--r-sm);
+    background: var(--panel-2); color: var(--text);
+  }
+  .card-view-control > .card-view {
+    position: absolute; z-index: 5; top: calc(100% + var(--sp-1)); left: 0;
+    padding: var(--sp-2); border: 1px solid var(--line-strong);
+    border-radius: var(--r-sm); background: var(--panel); box-shadow: var(--shadow-pop);
+  }
+  #gallery[data-density="s"] { --thumb-min: 128px; }
+  #gallery[data-density="s"] .card .tools button { padding-inline: 3px; }
+  #gallery[data-density="s"] .card .tools .inpaint-tool { display: none; }
+}
+@media (min-width: 1800px) {
+  .card-view-control > summary { display: none; }
   #gallery[data-density="s"] { --thumb-min: clamp(150px, 6.5vw, 180px); }
   #gallery[data-density="s"] .card .tools button { min-width: 24px; padding-inline: var(--sp-1); }
   /* Six tools of 32 px (24 at S) do not fit every card with Delete apart -
@@ -589,7 +648,6 @@
   .card .tools { container: card-tools / inline-size; }
   @container card-tools (max-width: 224px) { .inpaint-tool { display: none; } }
   #gallery[data-density="s"] .card .tools .inpaint-tool { display: none; }
-  #gallery[data-fit="cover"] .card img { object-fit: cover; }
 }
 
 /* "↑ Top" (gallery.js, syncGalleryTop): a pill over the gallery's bottom

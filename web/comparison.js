@@ -48,8 +48,7 @@ function compareOwnChanged() {
 // move its clauses about, say - rather than typing it out again.
 function compareOwnFromPrompt() {
   if (!analysisResult) return;
-  els.compareOwn.value = analysisResult.source;
-  els.compareOwn.focus();
+  replaceBoxText(els.compareOwn, analysisResult.source);
   compareOwnChanged();
 }
 
@@ -62,6 +61,8 @@ function linkVersion(version, on) {
 
 function renderCompare(previewDelay = 0) {
   const variants = compareVariants();
+  els.compareOwnFill.textContent = els.compareOwn.value
+    ? 'Replace your version with the prompt' : 'Start from the prompt';
   // A label replaced under the pointer gets no pointerleave.
   for (const el of els.promptAnalysis.querySelectorAll('.linked')) el.classList.remove('linked');
   els.compareOptions.replaceChildren();
@@ -165,9 +166,15 @@ async function previewComparison() {
   const variants = comparedVariants();
   els.comparePreview.classList.remove('warn');
   if (variants.length < 2) {
-    els.comparePreview.textContent = promptCritiqueSupported
-      ? 'Only the original so far: write a version of your own above, or ask the critic for a rewrite.'
-      : 'Only the original so far: write a version of your own above to compare it against.';
+    if (compareVariants().length > 1) {
+      els.comparePreview.textContent = 'Select another version above to compare it with the original.';
+    } else if (els.compareOwn.value.trim()) {
+      els.comparePreview.textContent = 'Your version matches the original. Edit it to compare two versions.';
+    } else {
+      els.comparePreview.textContent = promptCritiqueSupported
+        ? 'Only the original so far: write a version of your own above, or ask the critic for a rewrite.'
+        : 'Only the original so far: write a version of your own above to compare it against.';
+    }
     return;
   }
   const unfilled = compareUnfilled(variants);

@@ -232,7 +232,7 @@ function openQueueRowMenu(button, byKey) {
       },
     };
   };
-  const name = li.querySelector(':scope > span')?.textContent ?? '';
+  const name = li.querySelector('summary')?.textContent ?? '';
   const box = button.getBoundingClientRect();
   showContextMenu([{ heading: name }, item('↑ Move to front', 'front'), null, dangerItem(item('× Cancel this job', 'cancel'))],
     'Queued job', button, box.left, box.bottom, byKey);

@@ -948,6 +948,9 @@ port 17961 closed. Raw evidence and synthetic scratch galleries are retained.
 - Physical iPhone/iPad keyboard use, including the other phone-form fallback,
   count confirmation and landscape Instruction caret behaviour.
 - Actual iPad Split View/Slide Over transitions and their keyboards.
+- In a narrow iPad gallery, record the width, height and spacing of Reuse,
+  Refine and Bin. Tap each and reach Sheet from the same card, noting any
+  adjacent action hit by mistake. [November 20 tablet finding](review-2026-11-20-ui.md#finding-and-reaching-controls)
 - Android/system Back and native iOS edge Back through stacked overlays.
 - Physical viewer opacity, long press, pinch/double-tap and swipes.
 - Share timing and completed file delivery, including the LAN Download fallback.

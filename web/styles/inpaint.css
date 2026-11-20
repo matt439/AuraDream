@@ -61,13 +61,12 @@
   pointer-events: none;
 }
 
-/* Two rows of a fixed height each, whatever the tools say: the tools,
-   then the sliders. */
+/* Wrap at the available dialog width. Painting or toggling the crop keeps
+   the same tools and labels, so their positions only depend on the layout. */
 .ip-tools {
   display: flex; flex-direction: column; gap: var(--sp-1);
-  height: calc(2 * var(--h-sm) + var(--sp-1));
 }
-.ip-row { display: flex; align-items: center; gap: var(--sp-2); height: var(--h-sm); white-space: nowrap; }
+.ip-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); min-height: var(--h-sm); white-space: nowrap; }
 .ip-group { display: flex; gap: var(--sp-1); }
 /* The tool in use is pressed: an accent edge and surface, with a readable
    label rather than small purple text on the panel. */

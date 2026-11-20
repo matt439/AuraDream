@@ -288,11 +288,14 @@ function shortcutsBackdrop(event) {
 
 function shortcutKey(event) {
   if (els.shortcutsDialog.open) {
-    // Close is help's only interactive control. Native Tab can otherwise
-    // leave it for the browser chrome before cycling back into the dialog.
+    // Wrap at the ends; let the browser traverse the dialog in DOM order.
     if (event.key === 'Tab' && !event.ctrlKey && !event.metaKey && !event.altKey) {
-      event.preventDefault();
-      els.shortcutsClose.focus({ preventScroll: true });
+      const controls = els.shortcutsDialog.querySelectorAll('a[href], button:not(:disabled)');
+      const first = controls[0], last = controls[controls.length - 1];
+      if (document.activeElement === (event.shiftKey ? first : last)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus({ preventScroll: true });
+      }
     }
     return;
   }

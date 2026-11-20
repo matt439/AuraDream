@@ -805,8 +805,10 @@ screen and hard to use without a mouse. The changes:
 On a fresh browser visit, the first accepted status opens Models if the server
 is idle and unloaded or has a load error. A ready model, an active load or work
 elsewhere keeps it closed. This decision is made once per page visit: later
-polls, manual Unload and a dismissed picker never reopen it. Automatic opening
-does not take focus or move the prompt caret.
+polls, manual Unload and a dismissed picker never reopen it. Generation waits
+while the picker is open, even if focus was on the page body when it opened.
+Otherwise Ctrl+Enter could submit a restored draft to the previous
+checkpoint while the suggested checkpoint appeared selected.
 
 Closing that automatic opening used to read as an equal finish beside Switch
 & load: Generate then loads the running checkpoint, but only the switch route
@@ -4546,6 +4548,13 @@ image duration would misstate most of them. Refine estimates instead use full
 per-image durations for the matching denoised step count, as described in
 the refine section. No matching history, no estimate.
 
+Typing six seeds over one could leave the one-image estimate visible until
+after submission. The form now retires totals as soon as its request changes.
+Run grid and Ctrl+Enter use the current preview, and a press during
+recalculation asks the user to review the new total. The submit route also
+checks the reviewed count after expansion. This matters for Resume, where
+another tab can queue or finish cells after the preview.
+
 `grid.describe` names every axis, ones included, with an ASCII `x`: it is
 the CLI's log line as well, and its tests hold it to that. The page trims
 the factors of one but the seeds from the preview's first line and writes
@@ -7815,8 +7824,9 @@ ran at (`refine`, `strengths`). The picker names the run by them ahead of
 its prompt (`runAxes`): "steps×CFG 3×2", "steps ×8 · 5 seeds", "strength
 0.05-0.15 of #37", "comparison · 3 versions", "4 seeds".
 
-Closed, the picker has a width of its own, `--runs-w` (190 px; 240-360 px
-from 1800 px), cut with an ellipsis, and the picked run's whole label is the
+Closed, the picker uses `--runs-w` (190 px, 240–360 px from 1800 px).
+In a compact desktop gallery the picker and View share those 190 px.
+The picker uses an ellipsis, and the picked run's whole label is the
 select's title. A select is as wide as its longest option, and with these
 labels every one ran to the old 300 px cap: at 1400 the search box was
 squeezed to 175 px and its placeholder cut, and at 2560 a picked run's own
@@ -8054,13 +8064,13 @@ note is up (`.card:has(> .card-note) .tools::before`), as the names are:
 before that rule a pointer moved from a refused tool to the image drew it over
 the note.
 
-**Size and fit, from 1800 px** (2026-10-05). The review's U96 asked for an
+**Size and fit, initially from 1800 px** (2026-10-05). The review's U96 asked for an
 S/M density and was left out the day before ("8 cards a row at QHD is already
 judgeable"), and the recommended direction's own risk list named a way back to
 `cover` should letterboxed cards prove a change of taste. Both are now built,
 opt-in, so the default and every smoke written against it are unchanged: the
-gallery head's two pairs (`#card-view`: S/M and Fit/Crop, shown from 1800 px
-only, hidden on a sheet by `setSheet`), each a group with one tab stop, the
+gallery head's two pairs (`#card-view`: S/M and Fit/Crop, hidden on a
+sheet by `setSheet`), each a group with one tab stop, the
 chosen button, `aria-pressed` and the size strips' arrows (`stepPreset`). S is
 `clamp(150px, 6.5vw, 180px)` on `#gallery[data-density="s"]` - eleven a row at
 QHD and nine at 125%, against eight and seven, and four in Gallery beside's
@@ -8071,9 +8081,11 @@ tool targets for a 24 px minimum width (32 tall), the least a target should
 be, Delete still apart. Crop is `#gallery[data-fit="cover"]`. Both belong to
 the gallery, not the panel (`cardView`, stored under
 `auradream.gallery.v1`, read back at load by `restoreCardView`), so Reset
-leaves them. Below 1800 px neither shows nor applies: the head is full at
-1400, and a Crop chosen wide must not crop cards where it cannot be undone. A
-sheet's cells are its own.
+leaves them. Originally the choices applied only on wide desktop, because
+the head was already full at 1400 px. The November 20 review found that
+this hid a frequently used control. A compact desktop Gallery view
+disclosure now exposes the same choices below 1800 px. A sheet's cells use
+their own layout.
 
 **Dead tools are marked, as the lightbox's Refine is.** ⤢ where the
 checkpoint has no pass and ❐ where it takes no references are aria-disabled
@@ -8211,8 +8223,8 @@ the Runs picker again, which counts images. Its other failures go to
 
 **The whole frame, and what it is.** Cards are `object-fit: contain` on
 their own grey, the trade the sheet's cells made: `cover` showed 57% of a
-16:9 image and could not tell landscape from square. From 1800 px the head's
-Crop is the optional way back to `cover` (above). A refine pass is
+16:9 image and could not tell landscape from square. The gallery's Crop
+choice returns to `cover` (above). A refine pass is
 marked top left with its strength (`.card.refined::before`, the sheet's own
 rule), since it keeps its source's picture by design. The image's label and
 title name it as the page names images, "#N", with its size, seed and the
@@ -8426,7 +8438,7 @@ menu hangs from the button's left edge, over the grid (from its right edge
 it ran off a 600 px window), and opens over the button where the window has
 no room below.
 
-**No sheet of the picks.** The review asked for one as an option, a
+**Reviewing the picks.** The earlier review asked for a
 wrapped sheet of the picked images in id order. The sheet is a view of the
 gallery's query: `drawSheet` lays out `galleryRecords`, the page the search
 box and Starred fetched (`sheetPage` at a time), and everything round it
@@ -8437,8 +8449,10 @@ either a search term naming a set of ids (`id:` takes one or a span; a list
 of a thousand ids is no search box's text, and the term would reach
 `strict_scope`, Delete unstarred and `clear --where`) or a sheet whose
 records come from somewhere else, with each of those paths taught about
-it. That is a redesign of the sheet, not an action on the picks, so it is
-left out; a run's sheet is `run:` or `job:` as before.
+it. Review picked now opens a separate dialog over the current gallery.
+It draws thumbnails in pick order from the retained selections, including
+images hidden by the search. Unpick uses the ordinary selection action so
+the next bulk action sees the revised set.
 
 **Marks.** The top-left corner holds a pass's strength and a reference's
 number and the top-right the star, so the pick's mark is a ring at the top
@@ -8855,7 +8869,9 @@ axis with one cell of three and a sheet unable to say why.
 **One job at a time, laid out for the whole job.** The strip (`#viewer`,
 panel.js) holds the newest job's images and is cleared when its first frame
 or image lands (`clearResults(job)`), so the previous result stays up through
-the queue wait and the load. Its tier comes from the job's own count -
+the queue wait and the load. If a new attempt fails before saving an image,
+the viewer identifies any prior result still shown there. A partial batch
+keeps its own saved images and reports the failure beside them. Its tier comes from the job's own count -
 `planned_images`, from its status frame - not from the images so far: one
 image at 68vh, two to four laid out to fit, more as small tiles. By the
 running count a sweep was laid out three times in its first five images, and
@@ -9402,9 +9418,9 @@ records passing CPU/browser checks and the final screenshot-read limitation.
 **Getting started is reachable in the page (2026-11-10, `UI#45`).** The
 topbar's `?` now names Help and keyboard shortcuts. Its dialog starts with
 Models, Prompt, Generate, automatic Gallery saving and Cancel before the
-existing context-sensitive key inventory. This is read-only prose inside
-the existing modal, keeping its focus and Escape behavior; serving the full
-usage guide remains `UI#43`.
+existing context-sensitive key inventory. The modal now links to the full
+guide. Tab and Shift+Tab reach both the link and Close, and Escape returns
+to the opener.
 
 **Small fast routes and compact setup (2026-10-26).** The same approved follow-up
 adds `/` to gallery search and M to the focused image's More seeds preview. M
@@ -11883,8 +11899,10 @@ prompt toolbar. Phones retain their prompt-toolbar access to the full-screen
 assistant. A nonmodal right sidebar keeps the editor
 usable alongside the conversation. Wide windows reserve its width; smaller
 windows overlay the workspace, with a full visible-viewport panel on phones.
-The full-screen phone pane contains focus and makes covered workspace surfaces
-inert, restoring their prior state when closed or when returning to desktop.
+Both phone and narrow desktop overlays contain focus and make covered
+workspace surfaces inert. Closing the pane or reaching the side-by-side
+layout restores the workspace. At short fine-pointer sizes the pane scrolls
+its controls so a returned draft still has readable space.
 Native tool dialogs remain available. A synchronous scoped release lets the
 existing editor writer retain native Undo while the phone pane covers it.
 Earlier messages retain their drafts, while only the latest answer offers Use.
@@ -11904,8 +11922,9 @@ windows and 680-900 px in the wide tier. Task selection shares its header where 
 the two-line message box and Send/Stop share one compact composer. Drafts put Use beside
 their title and show explanations directly below the prompt as compact secondary
 text, so no Notes disclosure row consumes space. Three short drafts fit together
-on a wide desktop. Repeated setup/privacy copy lives in About the
-local assistant at the bottom, opening upward without moving the composer.
+on a wide desktop. About the local assistant holds setup and privacy details
+at the bottom. A line beside Send identifies the items that may go to
+Danbooru for verification in Find tags or on a tag-vocabulary checkpoint.
 Prompt/help stay above the writing tools. Reset is the last button on the same
 toolbar row as Examples, Tags and Check, aligned at its right edge.
 Draft cards use the same muted purple surface as the tag tray, with a strong
@@ -15809,7 +15828,11 @@ summaries cannot tell whether low output count means interruption, deletion,
 a completed small run, or a held replay. We show the latest 20 scoped runs,
 then read exact details only when a person checks a row. Retained/binned
 counts and the Finish refusal remain visible beside the action. A separate
-View saved outputs path lets a person inspect before committing to more work.
+View saved outputs path shows all live outputs of the reviewed run. A sheet
+opened this way temporarily lifts gallery filters that would hide those
+images and restores the earlier view on close. Bundle & clear links to
+the cross-checkpoint review before removing the local plans. Image bundles
+restore saved output and do not carry the cells needed by Finish.
 No image generation is automatic and the current composer remains untouched.
 
 The list and row reads own a dialog epoch plus the server/checkpoint/scope.

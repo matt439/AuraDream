@@ -88,11 +88,13 @@ function mirrorJob() {
   // Another tab's job, picked up when this page's own ended, says whose it
   // is wherever it is shown (isForeign).
   const whose = foreignJobs.has(currentJob) ? ANOTHER_TABS_JOB : '';
-  els.jobMirror.textContent = [whose, text, steps, jobEta].filter(Boolean).join(' · ');
   const measured = jobFraction > 0 && !els.fill.parentElement.classList.contains('indeterminate');
   const shown = [whose, text].filter(Boolean).join(' · ');
-  const held = els.pause.textContent === 'Resume' ? pausedFor(cellArgs?.[1].job?.paused_at) : '';
-  setTitle(els.pause.textContent === 'Resume' ? `⏸ Paused${held ? ` ${held}` : ''}${whose ? ` · ${whose}` : ''}`
+  const paused = els.pause.textContent === 'Resume';
+  const held = paused ? pausedFor(cellArgs?.[1].job?.paused_at) : '';
+  const pause = paused ? `Paused${held ? ` ${held}` : ''}` : '';
+  els.jobMirror.textContent = [pause, whose, text, !paused && steps, !paused && jobEta].filter(Boolean).join(' · ');
+  setTitle(paused ? `⏸ ${pause}${whose ? ` · ${whose}` : ''}`
     : measured ? `${Math.round(jobFraction * 100)}% · ${shown}` : shown);
 }
 

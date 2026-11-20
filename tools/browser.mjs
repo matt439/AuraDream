@@ -14,8 +14,8 @@
 //                                before later steps; return true from async setup
 //   {"key": "1"}                 press a key (single characters and names like "Escape";
 //                                Escape also closes a modal <dialog>, as a real press does;
-//                                with "native": true an ArrowDown/ArrowUp carries its key
-//                                code, so a focused <select> moves as on a real press, and
+//                                with "native": true ArrowDown/ArrowUp/ArrowRight carry
+//                                their key codes for select and caret movement, and
 //                                an Enter its code and text, so a form submits and a button
 //                                is pressed)
 //                                "repeat": true sends a held key's native repeated keydown
@@ -594,7 +594,10 @@ async function point(at) {
 // key name (the smokes' chip and autocomplete steps are written against
 // that); in a keycombo, Enter is sent as the real key, text and all.
 const ESCAPE = { code: 'Escape', windowsVirtualKeyCode: 27 };
+const TAB = { code: 'Tab', windowsVirtualKeyCode: 9 };
 const COMBO_KEYS = {
+  Tab: TAB,
+  Home: { code: 'Home', windowsVirtualKeyCode: 36 },
   Enter: { code: 'Enter', windowsVirtualKeyCode: 13, text: '\r' }, Escape: ESCAPE,
   // Ctrl+A must also exercise the browser's native text selection, so a
   // smoke can prove an application shortcut leaves text fields alone.
@@ -606,8 +609,10 @@ const COMBO_KEYS = {
 // The codes a {"key", "native": true} step adds, so the focused control's
 // own default action runs as on a real press (a closed <select>'s arrows).
 const NATIVE_KEYS = {
+  Tab: TAB,
   ArrowDown: { code: 'ArrowDown', windowsVirtualKeyCode: 40 },
   ArrowUp: { code: 'ArrowUp', windowsVirtualKeyCode: 38 },
+  ArrowRight: { code: 'ArrowRight', windowsVirtualKeyCode: 39 },
   // A form's own submit on Enter (the Tags helper's finder) needs the key's
   // text as well as its code.
   Enter: { code: 'Enter', windowsVirtualKeyCode: 13, text: '\r' },

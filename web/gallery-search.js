@@ -88,13 +88,15 @@ function mistypedSearchKeys(search) {
   return found;
 }
 
-// The empty line's hint for each mistyped key, with its ghost button: the
-// word mended in the box and the gallery (or the bin) asked again, as
-// showGallerySearch writes the box but without its scroll - the empty line
-// sits under the head, already in view.
-function mistypedSearchHints(search) {
+// Offer a correction only after an empty result. A printed image ID can
+// also be intentional prompt text, so leave the original search alone
+// until the user chooses the exact-ID filter.
+function emptySearchHints(search) {
+  const corrections = /^#\d+$/.test(search)
+    ? [{ word: search, meant: `id:${search.slice(1)}` }]
+    : mistypedSearchKeys(search);
   const parts = [];
-  for (const { word, meant } of mistypedSearchKeys(search)) {
+  for (const { word, meant } of corrections) {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'ghost tiny';
@@ -106,7 +108,7 @@ function mistypedSearchHints(search) {
       resetGallery();
       els.search.focus({ preventScroll: true });
     };
-    parts.push(` ${word} was searched as prompt words; did you mean ${meant}? `, b);
+    parts.push(word.startsWith('#') ? ` Looking for image ${word}? ` : ` ${word} was searched as prompt words; did you mean ${meant}? `, b);
   }
   return parts;
 }

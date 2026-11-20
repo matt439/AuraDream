@@ -68,10 +68,10 @@
           held equal by tests/test_instruction_edit_ui.py): one fixed line. -->
 --- a/web/state.js
 +++ b/web/state.js
-@@ -322,7 +322,7 @@
-   editReused: $('edit-reused'), editDraft: $('edit-draft'),
-   editUnavailable: $('edit-unavailable'), editUnavailableText: $('edit-unavailable-text'),
+@@ -325,7 +325,7 @@
    editOpenModels: $('edit-open-models'), editInstruction: $('edit-instruction'),
+   modelContinueEdit: $('model-continue-edit'), galleryContinueEdit: $('gallery-continue-edit'),
+   galleryEditHandoff: $('gallery-edit-handoff'), modelEditMessage: $('model-edit-message'), galleryEditMessage: $('gallery-edit-message'),
 -  editCheckpoint: $('edit-checkpoint'), editSeed: $('edit-seed'), editDice: $('edit-dice'),
 +  editRecipe: $('edit-recipe'), editCheckpoint: $('edit-checkpoint'), editSeed: $('edit-seed'), editDice: $('edit-dice'),
    editSteps: $('edit-steps'), editGuidance: $('edit-guidance'),
@@ -142,7 +142,7 @@
      prompt: els.editInstruction.value.trim(),
      width: editPreview?.width,
      height: editPreview?.height,
-@@ -475,10 +487,10 @@
+@@ -480,10 +492,10 @@
    const ran = editRan || editSending;
    if (src && !ran) {
      const values = {
@@ -153,11 +153,11 @@
 -    const typed = values.instruction.trim() !== '' || values.seed.trim() !== ''
 +    const typed = values.recipe !== EDIT_RECIPE || values.instruction.trim() !== '' || values.seed.trim() !== ''
        || values.steps !== editFilled.steps || values.guidance !== editFilled.guidance;
-     if (typed && !editFrom) {
+     if (typed && (!editFrom || editToModels)) {
        editKept.set(src.id, { model: loadedModel, values });
-@@ -525,9 +537,9 @@
- // next preview. An open dialog asks again whether an edit can run now.
+@@ -533,9 +545,9 @@
  function editCheckpointChanged(model = loadedModel) {
+   if (model !== EDIT_MODEL_ID) editHandoff = null;
    for (const [id, kept] of editKept) {
 -    const { instruction, seed } = kept.values;
 +    const { instruction, seed, recipe } = kept.values;

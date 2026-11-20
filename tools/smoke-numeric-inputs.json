@@ -239,6 +239,10 @@
     "type": "1e"
   },
   {
+    "expect": "__until(() => els.gridRun.getAttribute('aria-disabled') === 'false' && !!els.gridPreview.querySelector('.totals'))",
+    "fatal": true
+  },
+  {
     "eval": "els.gridSeeds.focus({preventScroll:true});"
   },
   {
@@ -285,6 +289,10 @@
   },
   {
     "expect": "(() => { const r=els.gridRun.getBoundingClientRect(); return r.top>=0 && r.bottom<=innerHeight && document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)===els.gridRun; })()"
+  },
+  {
+    "expect": "__until(() => els.gridRun.getAttribute('aria-disabled') === 'false' && !!els.gridPreview.querySelector('.totals'))",
+    "fatal": true
   },
   {
     "click": "#btn-grid"
