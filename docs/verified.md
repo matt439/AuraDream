@@ -2554,6 +2554,21 @@ loaders/platforms and Krea-to-Kontext switching remain unmeasured here.
 The later ordinary text-to-image branch fix does not change the edit branch,
 which returns through `_edit_images` before ordinary sampling/invocation.
 
+### Larger Kontext browser trial admission (2026-11-20)
+
+The isolated browser trial at `87b25ab` checked the cached editor's six
+pinned configs on Windows, RTX 5080 CUDA 0, driver 616.92, diffusers
+0.42.1. GPU 0 was using 1,698 MiB against its 2,000 MiB starting
+ceiling. Free RAM measured **34.48 GiB** against the required **45 GiB**.
+Free commit measured **27.79 GiB** against **56.544 GiB**. The controller
+held before starting a server or loading weights. All real rendering and
+fresh-process pixel comparisons remain unmeasured for this trial.
+
+The [session receipt](measurements/kontext-browser-2026-11-20.json) includes
+the real guard rows and identifies both fake browser rehearsals. The
+[trial protocol and commands](maintainer/plan-instruction-editing.md#running-the-isolated-trial)
+apply when the workstation meets both starting thresholds.
+
 ## Prompt analyser
 
 Measured 2026-09-27 on the real server (`--quant fp8 --offload model`, port

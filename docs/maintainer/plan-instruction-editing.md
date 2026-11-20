@@ -870,12 +870,11 @@ not proof that a larger output fits.
 
 ## Second Kontext recipe and trial (INP#13)
 
-**Status, 2026-11-20.** The planning step in
-[R3](review-2026-11-10-peers.md#r3-a-wider-instruction-edit-envelope) and the
-recipe-aware CPU contract are built. An isolated one-load queue rehearsal
-covered every geometry, cancellation and replay. The isolated browser
-candidate and live guard controller are next. Public release follows from
-the card trial evidence.
+**Status, 2026-11-20.** The recipe-aware CPU contract, isolated browser
+candidate and guard controller are built. Full and fresh-process browser
+rehearsals passed on the fake. The [real preflight](../verified.md#larger-kontext-browser-trial-admission-2026-11-20)
+held before launch on both host-memory readings. Real measurements for the
+six non-square cases and the larger square recipe remain open.
 
 ### Frozen recipe
 
@@ -947,11 +946,12 @@ own outputs for replay and deduplication.
    larger replay and the 512-square return matched their earlier fake
    pixels. `card_guard.plan_sampled_windows_rung` refuses incomplete guard
    samples, propagates trips and groups shared areas before projection.
-5. Prepare the isolated browser candidate with the trial allowlist and
-   recipe selection in its preview, submit and Reuse. Connect the live
-   supervisor to fresh guard samples, held decisions and observed
-   `try_unload`. Rehearse the browser and controller with a fake before
-   using real weights. Keep experimental admission local to the trial build.
+5. **Browser and controller rehearsed.** The isolated build exercised all eight
+   cases, both More seeds children, Cancel at step 3, recovery, Reuse,
+   refusals and accepted `try_unload`. A separate server reproduced the
+   larger fake RGB digest. The controller binds each operation to fresh
+   guard samples and the planted source proof. The two rehearsals used
+   synthetic pixels and allocator readings. [Session evidence](../measurements/kontext-browser-2026-11-20.json)
 
 ### One-load card protocol
 

@@ -8,7 +8,7 @@ The maintainer's working backlog for this personal project: it records what is p
 
 **Aim.** Keep useful work ready for Matt's common workstation tasks. His [reported use](docs/design/preferences.md) guides priority. The candidate redesign still needs the task trials in `DEV#1`.
 
-**Ready on 2026-11-20.** One `OPEN` row. The larger Kontext recipe, portable replay and fake one-load queue rehearsal pass. Prepare the isolated browser build and bind live guard readings to its trial receipts (`INP#13`). The [November 20 audit results](docs/maintainer/review-2026-11-20-todo.md#results-2026-11-20) record the 18 fixes and checks. Private tiled Refine has passed CPU integration and now needs the guarded card trial (`GEN#49`).
+**Ready on 2026-11-20.** The implementation queue is clear. The isolated Kontext browser trial and fresh-process rehearsal passed. Resume `INP#13` on the 5080 when the workstation has 45 GiB free RAM and 56.544 GiB free commit. Private tiled Refine also awaits its guarded card trial (`GEN#49`). The [November 20 audit results](docs/maintainer/review-2026-11-20-todo.md#results-2026-11-20) record the 18 earlier fixes and checks.
 
 **Needs Matt.** All 13 `USER` rows are grouped here by what Matt can supply.
 
@@ -73,7 +73,7 @@ The [peer review](docs/maintainer/review-2026-11-10-peers.md) owns the passcode 
 | `INP#6` | DEFERRED | LOW | M+card | Phase 5, Qwen-Image under Nunchaku (WSL), only if the inpaint class runs over the Nunchaku transformer at all. [Phase 5](docs/maintainer/plan-inpainting.md#phases). |
 | `INP#10` | DEFERRED | LOW | M | Outpaint, later if wanted: the server's fill shown in the frame (kept for later, 2026-10-17), an outpaint over a painted mask, a second fill. [Plan](docs/maintainer/plan-outpainting.md#phases). |
 | `INP#12` | USER | LOW | L+card | Matt chooses source image IDs for the authorized small-region quality, identity, seam and memory comparison. Illustrated detection has low recall and illustrated hands remain unqualified. [Card acceptance](docs/maintainer/plan-detailer.md#remaining-card-acceptance). |
-| `INP#13` | OPEN | LOW | L+card | Build the isolated Kontext browser trial and bind live guard readings to its load, edit and unload receipts, then qualify the frozen aspects and 1024-square recipe. [Trial](docs/maintainer/plan-instruction-editing.md#second-kontext-recipe-and-trial-inp13). |
+| `INP#13` | CARD | LOW | L+card | Run the guarded one-load Kontext trial and fresh replay when host headroom permits. The November 20 preflight held before Load. [Readings](docs/verified.md#larger-kontext-browser-trial-admission-2026-11-20) · [Trial commands](docs/maintainer/plan-instruction-editing.md#running-the-isolated-trial). |
 
 ## Generation, jobs and models
 
