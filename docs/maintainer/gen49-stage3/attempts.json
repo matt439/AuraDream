@@ -64,7 +64,8 @@
         },
         "reason": "RuntimeError: cold hold: free commit plus owned private credit below 24 GiB",
         "elapsed_s": 0.24275869999837596
-      }
+      },
+      "application_or_control_commit": "b28a579"
     },
     {
       "attempt": "gen49-stage3-20261120-a2",
@@ -165,7 +166,8 @@
         "longest_gap_s": 0.26616899999862653,
         "elapsed_s": 4.2261029000001145
       },
-      "child_error": "huggingface_hub.errors.IncompleteSnapshotError: The cached snapshot for 'cagliostrolab/animagine-xl-4.0' (revision '2b7c1b397761bf5bd3cc42e5b39ec99314a75a96', commit 2b7c1b397761bf5bd3cc42e5b39ec99314a75a96) is incomplete: 4 file(s) are missing (.gitattributes, README.md, animagine-xl-4.0-opt.safetensors, ... (1 more)). Outgoing traffic is disabled ('local_files_only=True'). Re-run the download with network access to complete the snapshot."
+      "child_error": "huggingface_hub.errors.IncompleteSnapshotError: The cached snapshot for 'cagliostrolab/animagine-xl-4.0' (revision '2b7c1b397761bf5bd3cc42e5b39ec99314a75a96', commit 2b7c1b397761bf5bd3cc42e5b39ec99314a75a96) is incomplete: 4 file(s) are missing (.gitattributes, README.md, animagine-xl-4.0-opt.safetensors, ... (1 more)). Outgoing traffic is disabled ('local_files_only=True'). Re-run the download with network access to complete the snapshot.",
+      "application_or_control_commit": "b28a579"
     },
     {
       "attempt": "gen49-stage3-20261120-a3",
@@ -231,7 +233,478 @@
         },
         "reason": "RuntimeError: cold hold: free commit plus owned private credit below 24 GiB",
         "elapsed_s": 0.3373098000010941
-      }
+      },
+      "application_or_control_commit": "27baf2c"
+    },
+    {
+      "attempt": "gen49-stage3-20261120-a4",
+      "guard_result_sha256": "588cfe6fe746aa1478b21641b2fd2a2eb18868fbcd0f7564bb77ddf75f87d081",
+      "guard_jsonl_sha256": "03cbb450a921fe11c394ad385d2b8f459279ec185ed21a9924e81a2bf3793a44",
+      "guard": {
+        "status": "held",
+        "guard_sha256": "6a85c64b9a1e65aa38fc7bf948a262d3358b8415208039e4e6c4f28b5bb50c83",
+        "child_sha256": "a790bab9b03ca6ab3518a37ed732965739cf511e34eb76f32aa8f53dea231d9f",
+        "limits": {
+          "period_s": 0.25,
+          "heartbeat_s": 2.0,
+          "cold_free_ram_gib": 24.0,
+          "cold_free_commit_gib": 24.0,
+          "load_free_ram_gib": 24.0,
+          "load_commit_before_owned_gib": 24.0,
+          "idle_card_mib": 2500.0,
+          "owned_rss_cap_gib": 16.0,
+          "owned_private_cap_gib": 16.0,
+          "phase_cap_s": 180.0,
+          "session_cap_s": 1200.0,
+          "unload_wait_cap_s": 30.0,
+          "live": {
+            "card_mib": 15500.0,
+            "project_mib": 15200.0,
+            "refuse_at_peak_mib": 15000.0,
+            "adapter_shared_rise_mib": 1024.0,
+            "process_shared_rise_mib": 512.0,
+            "ram_floor_gib": 4.0,
+            "commit_floor_gib": 4.0,
+            "need_ram_gib": null,
+            "busy_card_mib": null,
+            "card_unread_samples": 3.0,
+            "margin_mib": 500.0,
+            "margin_gib": 1.0
+          }
+        },
+        "child_pid": 121016,
+        "child_exit": 1,
+        "load_admitted": true,
+        "unload_observed": true,
+        "cold_sample": {
+          "sample": {
+            "card_mib": 1810.0,
+            "adapter_shared_mib": 65.765625,
+            "process_shared_mib": 0.0,
+            "available_gib": 33.03866958618164,
+            "commit_headroom_gib": 25.44103240966797,
+            "tree_gib": 0.0,
+            "card_total_mib": 16303.0
+          },
+          "private_gib": 0.0,
+          "pids": [],
+          "card_at": 21110.2766647
+        },
+        "cold": {
+          "admitted": true,
+          "reasons": [],
+          "owned_private_credit_gib": 0.0,
+          "required_free_commit_gib": 24.0
+        },
+        "load": {
+          "admitted": true,
+          "reasons": [],
+          "owned_private_credit_gib": 0.8802337646484375,
+          "required_free_commit_gib": 23.119766235351562,
+          "reading": {
+            "sample": {
+              "card_mib": 1732.0,
+              "adapter_shared_mib": 68.65625,
+              "process_shared_mib": 0.0,
+              "available_gib": 32.480987548828125,
+              "commit_headroom_gib": 24.560413360595703,
+              "tree_gib": 0.5182228088378906,
+              "card_total_mib": 16303.0
+            },
+            "private_gib": 0.8802337646484375,
+            "pids": [
+              121016,
+              58620,
+              126648
+            ],
+            "card_at": 21113.1810114
+          }
+        },
+        "post_unload": [
+          {
+            "sample": {
+              "card_mib": 2081.0,
+              "adapter_shared_mib": 139.4453125,
+              "process_shared_mib": 82.0,
+              "available_gib": 27.638469696044922,
+              "commit_headroom_gib": 18.595256805419922,
+              "tree_gib": 5.522296905517578,
+              "card_total_mib": 16303.0
+            },
+            "private_gib": 7.0323333740234375,
+            "pids": [
+              121016,
+              58620,
+              126648
+            ],
+            "card_at": 21366.2802484
+          },
+          {
+            "sample": {
+              "card_mib": 2089.0,
+              "adapter_shared_mib": 140.2890625,
+              "process_shared_mib": 82.0,
+              "available_gib": 27.637104034423828,
+              "commit_headroom_gib": 18.588165283203125,
+              "tree_gib": 5.522296905517578,
+              "card_total_mib": 16303.0
+            },
+            "private_gib": 7.0323333740234375,
+            "pids": [
+              121016,
+              58620,
+              126648
+            ],
+            "card_at": 21366.4068044
+          },
+          {
+            "sample": {
+              "card_mib": 2089.0,
+              "adapter_shared_mib": 140.2890625,
+              "process_shared_mib": 82.0,
+              "available_gib": 27.64238739013672,
+              "commit_headroom_gib": 18.594825744628906,
+              "tree_gib": 5.522296905517578,
+              "card_total_mib": 16303.0
+            },
+            "private_gib": 7.0323333740234375,
+            "pids": [
+              121016,
+              58620,
+              126648
+            ],
+            "card_at": 21366.6735067
+          }
+        ],
+        "reason": "RuntimeError: child exit 1, unload observed=True",
+        "metrics": {
+          "samples": 1031,
+          "peak_card_mib": 5860.0,
+          "final_card_mib": 2090.0,
+          "peak_adapter_shared_rise_mib": 94.2109375,
+          "peak_process_shared_rise_mib": 82.0,
+          "peak_tree_rss_gib": 9.459968566894531,
+          "peak_tree_private_gib": 14.420249938964844,
+          "min_available_gib": 23.674877166748047,
+          "min_commit_headroom_gib": 11.144401550292969
+        },
+        "longest_gap_s": 0.2712250000004133,
+        "elapsed_s": 257.99973239999963
+      },
+      "child_error": "AssertionError",
+      "application_or_control_commit": "2cdb71e"
+    },
+    {
+      "attempt": "gen49-stage3-20261120-a5",
+      "guard_result_sha256": "c85818d1833711b87b9a1d2636fd3d8c17e0efeefb0817301268f83d864d0f89",
+      "guard_jsonl_sha256": "1eb5577c83b4d610624cf4299b85302469874fc7695062f5a80ddd34e6699e81",
+      "guard": {
+        "status": "complete",
+        "guard_sha256": "6a85c64b9a1e65aa38fc7bf948a262d3358b8415208039e4e6c4f28b5bb50c83",
+        "child_sha256": "c5660404c43bf7f969bdd42f84569987bc939e17116e08a6fc40937bbc3101c3",
+        "limits": {
+          "period_s": 0.25,
+          "heartbeat_s": 2.0,
+          "cold_free_ram_gib": 24.0,
+          "cold_free_commit_gib": 24.0,
+          "load_free_ram_gib": 24.0,
+          "load_commit_before_owned_gib": 24.0,
+          "idle_card_mib": 2500.0,
+          "owned_rss_cap_gib": 16.0,
+          "owned_private_cap_gib": 16.0,
+          "phase_cap_s": 180.0,
+          "session_cap_s": 1200.0,
+          "unload_wait_cap_s": 30.0,
+          "live": {
+            "card_mib": 15500.0,
+            "project_mib": 15200.0,
+            "refuse_at_peak_mib": 15000.0,
+            "adapter_shared_rise_mib": 1024.0,
+            "process_shared_rise_mib": 512.0,
+            "ram_floor_gib": 4.0,
+            "commit_floor_gib": 4.0,
+            "need_ram_gib": null,
+            "busy_card_mib": null,
+            "card_unread_samples": 3.0,
+            "margin_mib": 500.0,
+            "margin_gib": 1.0
+          }
+        },
+        "child_pid": 6388,
+        "child_exit": 0,
+        "load_admitted": true,
+        "unload_observed": true,
+        "cold_sample": {
+          "sample": {
+            "card_mib": 1705.0,
+            "adapter_shared_mib": 56.15234375,
+            "process_shared_mib": 0.0,
+            "available_gib": 33.250823974609375,
+            "commit_headroom_gib": 25.894912719726562,
+            "tree_gib": 0.0,
+            "card_total_mib": 16303.0
+          },
+          "private_gib": 0.0,
+          "pids": [],
+          "card_at": 21503.4745785
+        },
+        "cold": {
+          "admitted": true,
+          "reasons": [],
+          "owned_private_credit_gib": 0.0,
+          "required_free_commit_gib": 24.0
+        },
+        "load": {
+          "admitted": true,
+          "reasons": [],
+          "owned_private_credit_gib": 1.5818672180175781,
+          "required_free_commit_gib": 22.418132781982422,
+          "reading": {
+            "sample": {
+              "card_mib": 1705.0,
+              "adapter_shared_mib": 55.56640625,
+              "process_shared_mib": 0.0,
+              "available_gib": 32.72315216064453,
+              "commit_headroom_gib": 24.332359313964844,
+              "tree_gib": 0.49810028076171875,
+              "card_total_mib": 16303.0
+            },
+            "private_gib": 1.5818672180175781,
+            "pids": [
+              6388,
+              112952,
+              106044
+            ],
+            "card_at": 21505.1253728
+          }
+        },
+        "post_unload": [
+          {
+            "sample": {
+              "card_mib": 2001.0,
+              "adapter_shared_mib": 133.56640625,
+              "process_shared_mib": 78.0,
+              "available_gib": 32.475364685058594,
+              "commit_headroom_gib": 23.627906799316406,
+              "tree_gib": 0.7712593078613281,
+              "card_total_mib": 16303.0
+            },
+            "private_gib": 2.2923355102539062,
+            "pids": [
+              6388,
+              112952,
+              106044
+            ],
+            "card_at": 21506.1406023
+          },
+          {
+            "sample": {
+              "card_mib": 2005.0,
+              "adapter_shared_mib": 133.66015625,
+              "process_shared_mib": 78.0,
+              "available_gib": 32.4764518737793,
+              "commit_headroom_gib": 23.625286102294922,
+              "tree_gib": 0.7712593078613281,
+              "card_total_mib": 16303.0
+            },
+            "private_gib": 2.2923355102539062,
+            "pids": [
+              6388,
+              112952,
+              106044
+            ],
+            "card_at": 21506.4065511
+          },
+          {
+            "sample": {
+              "card_mib": 2005.0,
+              "adapter_shared_mib": 135.0625,
+              "process_shared_mib": 78.0,
+              "available_gib": 32.485923767089844,
+              "commit_headroom_gib": 23.623653411865234,
+              "tree_gib": 0.7712593078613281,
+              "card_total_mib": 16303.0
+            },
+            "private_gib": 2.2923355102539062,
+            "pids": [
+              6388,
+              112952,
+              106044
+            ],
+            "card_at": 21506.6607115
+          }
+        ],
+        "metrics": {
+          "samples": 15,
+          "peak_card_mib": 2013.0,
+          "final_card_mib": 2013.0,
+          "peak_adapter_shared_rise_mib": 78.91015625,
+          "peak_process_shared_rise_mib": 78.0,
+          "peak_tree_rss_gib": 0.7712593078613281,
+          "peak_tree_private_gib": 2.2923355102539062,
+          "min_available_gib": 32.47394561767578,
+          "min_commit_headroom_gib": 23.622787475585938
+        },
+        "longest_gap_s": 0.25597949999792036,
+        "elapsed_s": 3.9747772999980953
+      },
+      "application_or_control_commit": "adb6bfd"
+    },
+    {
+      "attempt": "gen49-stage3-20261120-a6",
+      "guard_result_sha256": "ff0fdcc1e83e5da554878e71e82c713cdaec3541104cc580481471431039e8f9",
+      "guard_jsonl_sha256": "7b8c4114d5cddc1a2b11087633124fecac179933cc11a965c5ec8c98fc17d6de",
+      "guard": {
+        "status": "complete",
+        "guard_sha256": "6a85c64b9a1e65aa38fc7bf948a262d3358b8415208039e4e6c4f28b5bb50c83",
+        "child_sha256": "12384122827faed04c526d40a057ca806d83c307d78003259ff16f0ba3d96d96",
+        "limits": {
+          "period_s": 0.25,
+          "heartbeat_s": 2.0,
+          "cold_free_ram_gib": 24.0,
+          "cold_free_commit_gib": 24.0,
+          "load_free_ram_gib": 24.0,
+          "load_commit_before_owned_gib": 24.0,
+          "idle_card_mib": 2500.0,
+          "owned_rss_cap_gib": 16.0,
+          "owned_private_cap_gib": 16.0,
+          "phase_cap_s": 180.0,
+          "session_cap_s": 1200.0,
+          "unload_wait_cap_s": 30.0,
+          "live": {
+            "card_mib": 15500.0,
+            "project_mib": 15200.0,
+            "refuse_at_peak_mib": 15000.0,
+            "adapter_shared_rise_mib": 1024.0,
+            "process_shared_rise_mib": 512.0,
+            "ram_floor_gib": 4.0,
+            "commit_floor_gib": 4.0,
+            "need_ram_gib": null,
+            "busy_card_mib": null,
+            "card_unread_samples": 3.0,
+            "margin_mib": 500.0,
+            "margin_gib": 1.0
+          }
+        },
+        "child_pid": 126896,
+        "child_exit": 0,
+        "load_admitted": true,
+        "unload_observed": true,
+        "cold_sample": {
+          "sample": {
+            "card_mib": 1700.0,
+            "adapter_shared_mib": 57.18359375,
+            "process_shared_mib": 0.0,
+            "available_gib": 33.353206634521484,
+            "commit_headroom_gib": 26.023448944091797,
+            "tree_gib": 0.0,
+            "card_total_mib": 16303.0
+          },
+          "private_gib": 0.0,
+          "pids": [],
+          "card_at": 21568.0523652
+        },
+        "cold": {
+          "admitted": true,
+          "reasons": [],
+          "owned_private_credit_gib": 0.0,
+          "required_free_commit_gib": 24.0
+        },
+        "load": {
+          "admitted": true,
+          "reasons": [],
+          "owned_private_credit_gib": 0.8746528625488281,
+          "required_free_commit_gib": 23.125347137451172,
+          "reading": {
+            "sample": {
+              "card_mib": 1704.0,
+              "adapter_shared_mib": 55.91015625,
+              "process_shared_mib": 0.0,
+              "available_gib": 32.83161544799805,
+              "commit_headroom_gib": 25.17101287841797,
+              "tree_gib": 0.5148658752441406,
+              "card_total_mib": 16303.0
+            },
+            "private_gib": 0.8746528625488281,
+            "pids": [
+              126896,
+              124144,
+              101080
+            ],
+            "card_at": 21570.2155499
+          }
+        },
+        "post_unload": [
+          {
+            "sample": {
+              "card_mib": 2074.0,
+              "adapter_shared_mib": 138.71875,
+              "process_shared_mib": 82.0,
+              "available_gib": 23.890918731689453,
+              "commit_headroom_gib": 14.689754486083984,
+              "tree_gib": 9.395709991455078,
+              "card_total_mib": 16303.0
+            },
+            "private_gib": 11.390438079833984,
+            "pids": [
+              126896,
+              124144,
+              101080
+            ],
+            "card_at": 21630.751502
+          },
+          {
+            "sample": {
+              "card_mib": 2074.0,
+              "adapter_shared_mib": 138.71875,
+              "process_shared_mib": 82.0,
+              "available_gib": 23.913928985595703,
+              "commit_headroom_gib": 14.713520050048828,
+              "tree_gib": 9.395709991455078,
+              "card_total_mib": 16303.0
+            },
+            "private_gib": 11.390438079833984,
+            "pids": [
+              126896,
+              124144,
+              101080
+            ],
+            "card_at": 21631.0238544
+          },
+          {
+            "sample": {
+              "card_mib": 2074.0,
+              "adapter_shared_mib": 138.71875,
+              "process_shared_mib": 82.0,
+              "available_gib": 23.91928482055664,
+              "commit_headroom_gib": 14.720718383789062,
+              "tree_gib": 9.395709991455078,
+              "card_total_mib": 16303.0
+            },
+            "private_gib": 11.390438079833984,
+            "pids": [
+              126896,
+              124144,
+              101080
+            ],
+            "card_at": 21631.2909521
+          }
+        ],
+        "metrics": {
+          "samples": 258,
+          "peak_card_mib": 5801.0,
+          "final_card_mib": 2010.0,
+          "peak_adapter_shared_rise_mib": 83.17578125,
+          "peak_process_shared_rise_mib": 82.0,
+          "peak_tree_rss_gib": 9.519123077392578,
+          "peak_tree_private_gib": 14.665245056152344,
+          "min_available_gib": 23.790359497070312,
+          "min_commit_headroom_gib": 11.42941665649414
+        },
+        "longest_gap_s": 0.2613253999988956,
+        "elapsed_s": 64.71940629999881
+      },
+      "application_or_control_commit": "adb6bfd"
     }
   ]
 }

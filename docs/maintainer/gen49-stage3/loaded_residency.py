@@ -7,7 +7,6 @@ from contextlib import closing
 import hashlib
 import json
 import os
-from pathlib import Path
 import sys
 import threading
 import weakref

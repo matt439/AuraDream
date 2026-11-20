@@ -1,8 +1,9 @@
 # Tiled Refine
 
-**Status, 2026-11-20.** The private CPU orchestration, loaded adapter and
-durable carry are built. The next stage is guarded private card qualification.
-Public submission and replay stay held. The exploratory SDXL seam experiment
+**Status, 2026-11-20.** The private adapter, durable carry and guarded card
+qualification are complete for the exact Animagine recipe below. Stage 4
+owns the public opt-in and its normal entry points; public submission and
+replay remain held. The exploratory SDXL seam experiment
 passed its narrow planning gate on November 17. The originating
 [R2](review-2026-11-10-peers.md#r2-tiled-refine) owns why the experiment came first.
 
@@ -330,3 +331,81 @@ Serial CPU checks passed all 34 loader, adapter and supervisor cases. Ruff
 passed. Regenerating the four fixtures from the checked-in source reproduced
 their frozen manifest, PNG and prepared RGB digests. No stage-three image
 or visual result follows from these three attempts.
+
+## Private card result, 2026-11-20
+
+The full session (A4) used one offline pinned Animagine load. The four
+drawings and fifth historical control produced ten complete composites in
+total across their original, repeat, batch, solo and recovery calls. Each
+completed tile made nine real EulerDiscreteScheduler callbacks at full
+schedule indices 19-27 (timesteps 281, 246, 211, 176, 141, 106, 71, 36, 1).
+The first active sigma was 0.7789236903, the last 0.041314; its successor
+was zero. The runner recorded per-callback actual sigmas, timestep and
+next sigma, generator seeds, original/prepared proofs and 52 successful
+boundary rechecks. Each successful composite ran 36 callbacks.
+
+The independent CPU audit reconstructed all 41 decoded tiles' full
+intermediates from their actual raw working images, source and frozen
+masks. Every zero-mask pixel stayed identical. The architecture repeat, both
+images in the two-image call and the recovery each matched the equivalent
+solo image, including intermediate digests. The fifth control reproduced
+all four raw RGB and intermediate digests from November 17; its final RGB
+SHA-256 is `7a04e5835b31c39ed8947c92be67e4ead678f24ac0c775a3075f77767212d6ad`.
+Private JobManager Cancel reached callback 3 in tile two. The first tile's
+diagnostic raster was retained, the second never decoded, and the gallery
+kept its original five roots with no final or partial row/PNG. The retained
+cell restarted from its original root with the same run id, saved one
+verified row and PNG, and matched the original direct result. Ordinary
+1024-square generation then completed all 28 steps on the same owner.
+[Full-run receipt and file hashes](gen49-stage3/trial.json) and
+[Independent reconstruction](gen49-stage3/pixel-audit.json).
+
+The 258-second supervised session retained 1,031 samples (longest gap
+0.272 s). It admitted cold at 33.039 GiB available RAM, 25.441 GiB free
+commit and 1,810 MiB whole-card, then at 32.481/24.560 GiB and 1,732 MiB
+immediately before load. The 28.08-second load and every render stayed
+inside the frozen limits. Whole-card peak was 5,860 MiB, adapter/process
+shared rises 94.21/82 MiB, process tree peak RSS/private 9.46/14.42 GiB,
+and free-RAM/commit minima 23.67/11.14 GiB. A solo or serial two-image
+tiled call peaked at 3.29 GiB allocated and 3.66 GiB reserved. These
+observed timings include saving each instrumented tile and composite.
+
+The normal unload made the backend unready and released both pipeline
+objects. Three post-unload samples read 2,081, 2,089 and 2,089 MiB on the
+whole card. A4 then exited 1 on its original strict assertion: torch
+still reported 64 MiB allocated and reserved. This exit is retained in
+the [supervisor receipts](gen49-stage3/attempts.json).
+
+Two separate guarded controls identify that allocation. A5 used only a
+512-square matrix multiplication on the main and worker threads. It
+observed 32 MiB, then 64 MiB, persisting after the worker exited.
+A6 used a fresh real model load and reproduced A4's bridge through the
+direct adapter and private JobManager with different native thread IDs.
+After normal unload, the two surviving allocator blocks had the same
+addresses as the main- and worker-thread 32 MiB blocks observed while
+the model was loaded. Clearing **only cuBLAS workspaces** freed both
+blocks (zero allocated, 64 MiB reserved); releasing the allocator cache
+then brought reserved bytes to zero. Both controls exited 0 with the
+unchanged resource guards. Production unload remains as measured. To
+repeat a control, substitute `cublas_residency.py` or `loaded_residency.py`
+for the child in the supervisor invocation above and use a fresh attempt
+directory. [No-model control](gen49-stage3/control.json) and
+[Loaded-route confirmation](gen49-stage3/loaded-control.json).
+
+Native horizontal, vertical and center comparisons against the exact 2x
+Lanczos source found continuous bridge girders and diagonal braces, but
+subtle bands in the previously flat sky. The main fern stem and leaflets
+survived while fine veins and serrations softened. **TIDE 07** stayed readable;
+the D corners rounded and its flat field acquired banding. The koi retained
+one outline, the fins, forked tail and four red markings, but lost two
+fine scale arcs inside a red patch. The reviewers saw no conspicuous
+central cross and no consistent gain in faithful detail across these four
+drawings. Raw native crop pairs and per-scene images are in
+`work/gen49-stage3-20261120-a4/audit/`. [Four-scene overview](gen49-stage3/overview.png).
+
+The next work is stage 4's explicit public choice, admission and end-to-end
+qualification across its intended interfaces. The private result covers
+only the measured source size, model, recipe and loader above. Final CPU
+verification passed 165 focused tests, including queue, storage, reindex,
+bundle, rule and guard cases. Ruff passed; pinned Pyright checked 235
+backend/tool sources with zero diagnostics using the shared project venv.
