@@ -8,6 +8,9 @@ measured on Windows/RTX 5080. The remaining next step is Matt's quality judgment
 of the retained pairs; public caching remains unavailable and Off remains the
 default. No combined cuDNN/cache or broader model qualification follows.
 
+Matt can judge the six original Off/On pairs in the
+[offline blind review](blind-performance-review.md).
+
 Source `f8f4cf2`, backend SHA256 `c3a85a23...c838274e`, exact FLUX.1 Krea dev,
 fp8/model offload, CUDA 0, Batch 1, 1024-square, 28 steps and CFG 3.5, no Mu,
 negative, adapter, reference or edit. Software is torch 2.13.0+cu130, torchao

@@ -1555,6 +1555,27 @@ CPU gate passed 11,071 tests with 325 skips; Ruff and all 217 Pyright sources
 passed. `GEN#48` is complete for the documented bounded envelopes, with the
 full validation and limitations in the owner.
 
+### Private four-region Animagine Refine (2026-11-20)
+
+One guarded offline RTX 5080 load qualified the exact 1024-square RGB
+root enlarged to a 2048-square prepared canvas, four 1040-square denoising calls, at
+28 steps, CFG 5 and strength 0.35 on pinned Animagine XL 4.0 fp8/model
+offload, Windows, Eager/Native, diffusers 0.42.1. Four original drawings
+and the historical generated control exercised the private adapter. Ten
+complete composites, 41 decoded tiles and the cancelled prefix reproduced
+their applicable independent crop/overlay, repeat, batch/solo and recovery
+checks. Ordinary generation completed 28 steps afterward. Whole-card peak
+was 5,860 MiB, shared rises 94.21/82 MiB, tree RSS/private 9.46/14.42 GiB.
+
+Normal unload released both pipelines. The original zero-allocator check
+failed at 64 MiB. A separate guarded direct/queued run identified both
+surviving 32 MiB blocks by address and released them solely by clearing
+cuBLAS workspaces. A no-model two-thread control reproduced the same
+residency. Native comparisons showed continuous major lines and legible
+lettering, plus lost scale arcs, softer fern veins and subtle tonal bands.
+Public opt-in and public workflow qualification remain open.
+[Measurements, visuals and scope](maintainer/plan-tiled-refine.md#private-card-result-2026-11-20).
+
 ### Four-region SDXL tiled-refine look (2026-11-17)
 
 `GEN#49`'s exploratory one-load session used the exact cached Animagine XL
@@ -2553,6 +2574,21 @@ replay inside the existing envelope. Other sizes/aspects, photographs,
 loaders/platforms and Krea-to-Kontext switching remain unmeasured here.
 The later ordinary text-to-image branch fix does not change the edit branch,
 which returns through `_edit_images` before ordinary sampling/invocation.
+
+### Larger Kontext browser trial admission (2026-11-20)
+
+The isolated browser trial at `87b25ab` checked the cached editor's six
+pinned configs on Windows, RTX 5080 CUDA 0, driver 616.92, diffusers
+0.42.1. GPU 0 was using 1,698 MiB against its 2,000 MiB starting
+ceiling. Free RAM measured **34.48 GiB** against the required **45 GiB**.
+Free commit measured **27.79 GiB** against **56.544 GiB**. The controller
+held before starting a server or loading weights. All real rendering and
+fresh-process pixel comparisons remain unmeasured for this trial.
+
+The [session receipt](measurements/kontext-browser-2026-11-20.json) includes
+the real guard rows and identifies both fake browser rehearsals. The
+[trial protocol and commands](maintainer/plan-instruction-editing.md#running-the-isolated-trial)
+apply when the workstation meets both starting thresholds.
 
 ## Prompt analyser
 

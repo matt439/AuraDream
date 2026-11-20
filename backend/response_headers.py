@@ -79,6 +79,10 @@ class ResponseHeadersMiddleware:
             if message.get("type") == "http.response.start":
                 started = True
                 headers = MutableHeaders(scope=message)
+                if scope.get("path", "").startswith("/api/gallery/bundles/browse"):
+                    # Saved archive metadata, image pixels and view capabilities
+                    # may be decrypted. Applies to errors and redirects too.
+                    headers["Cache-Control"] = "private, no-store"
                 if FRAME_POLICY not in headers.getlist("content-security-policy"):
                     headers.append("Content-Security-Policy", FRAME_POLICY)
                 headers["X-Content-Type-Options"] = HEADERS["X-Content-Type-Options"]

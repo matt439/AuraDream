@@ -404,7 +404,11 @@ function prependFinished(made, { now = false, upTo = null } = {}) {
   // after the gallery was read again over them - a script's jobs, then
   // Delete unstarred's reset - and the reset an empty grid takes cleared the
   // line its caller had just written ("Moved 2 images", smoke-delete).
-  const covered = () => upTo !== null && galleryReadHead !== null && galleryReadHead >= upTo;
+  // The status can arrive between an input event and its 250 ms reset.
+  // That reset reads through the new head. A catch-up using the draft here
+  // would compare the next filter's page with the previous filter's cards.
+  const covered = () => upTo !== null &&
+    (searchTimer != null || (galleryReadHead !== null && galleryReadHead >= upTo));
   if (sheetMode) return resetGallery();
   if (!galleryRecords.length && !galleryPending) return covered() ? Promise.resolve(undefined) : resetGallery();
   const epoch = galleryEpoch;
@@ -426,15 +430,15 @@ function prependFinished(made, { now = false, upTo = null } = {}) {
     } catch (err) {
       // No server, no gallery to reload: what the page holds stays, and the
       // poll's first answer asks again (refreshStatus).
-      return err.offline ? undefined : resetGallery();
+      return err.offline || covered() || epoch !== galleryEpoch ? undefined : resetGallery();
     }
-    if (epoch !== galleryEpoch || sheetMode) return;
+    if (epoch !== galleryEpoch || sheetMode || covered()) return;
     if (!joinsUp(page)) {
       // More came in than one page reaches back over: the gallery starts
       // again, but not under a pointer resting on its cards, as
       // joinFinished's wait (an import in another tab).
       if (!now) await galleryPointerGone();
-      return epoch === galleryEpoch && !sheetMode && !binMode ? resetGallery() : undefined;
+      return epoch === galleryEpoch && !sheetMode && !binMode && !covered() ? resetGallery() : undefined;
     }
     // What the head says, at once: it is above the cards, and with the
     // gallery beside the viewer above the column they scroll in. The read

@@ -1,0 +1,439 @@
+{
+  "protocol": "INP#13 browser and card admission",
+  "date": "2026-11-20",
+  "implementation_commit": "87b25ab73f39688fd9dc527e62252303119857b3",
+  "fake_receipts": "The two rehearsal processes and a separate clean Windows checkout produced the same candidate build digest. The fake returns source pixels and synthetic allocator readings.",
+  "real_environment": {
+    "mode": "real",
+    "git_head": "87b25ab",
+    "python": "3.13.15",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "packages": {
+      "torch": "2.13.0+cu130",
+      "torchao": "0.18.0",
+      "diffusers": "0.42.1",
+      "transformers": "5.16.1",
+      "accelerate": "1.15.0",
+      "pillow": "13.0.0",
+      "huggingface-hub": "1.33.0"
+    },
+    "controller_sha256": {
+      "pyproject.toml": "de475675e0b93f42f1b65779f8268fe086a223a87dcef3bfe97920062d8e3eb7",
+      "tools/anima_refine_card.py": "3b27a9023759a31ed28b25477bc2bc597c62bddfb883805c83fc9f06298d8325",
+      "tools/anima_refine_pack.py": "9d69058bc9794d20d537554c5778dde2fd1dc540367f5608552124f054a6df51",
+      "tools/browser-output.mjs": "068f742d21bc4325e34bd5f2d492d22d86165e3e3b543d9617f258fca81f1430",
+      "tools/browser.mjs": "93bb637427c3d020840cf5a51d2d5a42b9baabbdcd2d57d573cc2ba49398ffe9",
+      "tools/card/kontext-house-source.png": "6119bfd9a40889f6b2d4094b6d426dd77f68a35a07d4b17d65023b2d83563083",
+      "tools/card/kontext_trial_page.js": "871814f4767bb913e3ad63bbc8ebf36469a3d68ef4d317582e954a3cbc085cff",
+      "tools/card_guard.py": "b52a3348489675853f29869e98dd6653af160eb96ef90762bfe4fb3818ef67f7",
+      "tools/kontext_browser_trial.py": "629fa9ea88fff2b86c2ae555ab87945f8af86ba567c6a88d9da495e6bce8eafc",
+      "tools/kontext_trial.patch": "88e6338579eba11f9390e9b543ac1b51b165f59da50e45e76097db89d388252d",
+      "tools/kontext_trial_environment.py": "cc497d1f499c0492d03ca095cece14f6ed0624ca1c0494d02b03898b189a6386",
+      "tools/kontext_trial_fixtures.py": "284165c52f2a1586c91dea1e8a1afc724313ff9956d685acbd92a62c55d95460",
+      "tools/kontext_trial_guard.py": "b3e318859d6bed4f65f9b97f54acbacc71602f6b3dd4f78014ba2a1914e9e286",
+      "tools/kontext_trial_runtime.py": "c45bbe548fea86ca6b101df5ae5907a217a4e3bc95be28bec82b380cd6c161f0",
+      "tools/kontext_trial_server.py": "444a23b4994fc9027563928b33f35af2e7072d54537dc8e8f30d9a22f287db69",
+      "tools/kontext_trial_steps.py": "bae5ce63b8e4047ef7118d37c9f2db7fc770ff929020f10ac5e4332e48546444",
+      "uv.lock": "623d29ad0123fe832ebd172d0b3eeda66a7dad1be28f6e0b483daab68fe15c0b"
+    },
+    "model_id": "black-forest-labs/FLUX.1-Kontext-dev",
+    "revision": "24e9dedc4ef646698dc8eb4e18ae2cec3c9fea0d",
+    "holds": [],
+    "gpu": {
+      "index": "0",
+      "name": "NVIDIA GeForce RTX 5080",
+      "pci.bus_id": "00000000:01:00.0",
+      "driver_version": "616.92",
+      "memory.total": "16303"
+    },
+    "cached_config_sha256": {
+      "model_index.json": "2d089886bffb8ca8eb5019a1a455cf0adfd809a45730d7ec7bc6fa11b7335204",
+      "scheduler/scheduler_config.json": "3b9fa933c87d2fb3a51c693713a61ec44f1e9387ab56df94357fe24b53ea1da1",
+      "text_encoder/config.json": "1178c969299d9896cc4a00fac39675907ac0fd23e2181675f95ccd36dd961b15",
+      "text_encoder_2/config.json": "a28ea3b85656797e494a394e90046521fd144de8510f6a15dde5ee6a63898e30",
+      "transformer/config.json": "fe79edc06e85c16e296eed429e25675a61dffa181cf13465b8f2b49c6e010017",
+      "vae/config.json": "eceae082880f54ee4b02888e8fc8afd22791aa75f24fc737491ede9be830c187"
+    }
+  },
+  "sessions": {
+    "fake_full": {
+      "mode": "fake",
+      "kind": "full",
+      "status": "completed",
+      "model_loads": 1,
+      "load_permitted": true,
+      "cleanup": {
+        "server_started": true,
+        "pid": 107548,
+        "exit_code": 0,
+        "listener_closed": true,
+        "surviving_workers": []
+      },
+      "guard_sha256": {
+        "guard.jsonl": "5a2be3332e23b7667d89796d240298f57176ddc3aeffaf9622f573cfeb28a8ac",
+        "summary.json": "08cb8d78b2e2a71c4bb591e06fcfd768b3a7a25f52a9d71c64392763afadd49a",
+        "projection.json": "e4a816f32db5ab93d089e2f8520579f6b1d2ab7c7201106f9e2a999a64e0d5fb"
+      },
+      "raw_directory": "work/inp13-87b25ab-full",
+      "trial_sha256": "742e3ef0e474d3b9c0dac1dbc913e3f34c228e905c538fca3f8a6197c92d023e",
+      "candidate_sha256": "6261f912ec0d59f4b86549fa3687c1a87d0c3ec212b1e0621c123292be419353",
+      "accepted_unloads": 1,
+      "sampler": "synthetic",
+      "guard_samples": 262,
+      "cases": {
+        "load": {
+          "status": "completed"
+        },
+        "control-512": {
+          "status": "completed",
+          "outputs": [
+            {
+              "dimensions": [
+                512,
+                512
+              ],
+              "seed": 12345,
+              "rgb_sha256": "4316c5ec2a9569f5977480607d7e42e60de65e16d86d92feaf7148952ad6d93a",
+              "run_id": "b31420dc385e"
+            }
+          ]
+        },
+        "16x9": {
+          "status": "completed",
+          "outputs": [
+            {
+              "dimensions": [
+                512,
+                288
+              ],
+              "seed": 12345,
+              "rgb_sha256": "f414b32351d97670fc8d40a93f814911c56814a62a03ac256069e835f47360e7",
+              "run_id": "7544a1151230"
+            }
+          ]
+        },
+        "9x16": {
+          "status": "completed",
+          "outputs": [
+            {
+              "dimensions": [
+                288,
+                512
+              ],
+              "seed": 12345,
+              "rgb_sha256": "6ce1c00008926ab6dae4c7191c085c5ebe6c942f8859752e4544f422159ef56f",
+              "run_id": "7418bb73a95f"
+            }
+          ]
+        },
+        "4x3": {
+          "status": "completed",
+          "outputs": [
+            {
+              "dimensions": [
+                512,
+                384
+              ],
+              "seed": 12345,
+              "rgb_sha256": "5345836c9d1de7de880ec07cbcba91497439ec38b4265b24e17b7bc368bdac8a",
+              "run_id": "54b55e10cc7d"
+            }
+          ]
+        },
+        "3x4": {
+          "status": "completed",
+          "outputs": [
+            {
+              "dimensions": [
+                384,
+                512
+              ],
+              "seed": 12345,
+              "rgb_sha256": "f5da87a5ffd6c29881767663b11a526b7b5a17f87b3d8e056aed1b8e1c8cc598",
+              "run_id": "8c57dde64855"
+            }
+          ]
+        },
+        "3x2": {
+          "status": "completed",
+          "outputs": [
+            {
+              "dimensions": [
+                576,
+                384
+              ],
+              "seed": 12345,
+              "rgb_sha256": "c904021bbfc2b1772f3d1b1a0aca5bb73e0ad8b6f13117c7020b56e157d47c92",
+              "run_id": "b3b4ecd78793"
+            }
+          ]
+        },
+        "2x3": {
+          "status": "completed",
+          "outputs": [
+            {
+              "dimensions": [
+                384,
+                576
+              ],
+              "seed": 12345,
+              "rgb_sha256": "9db5c6a0c5c8425a222ce961549149889d95eb0cf3314c146a98ac3307644681",
+              "run_id": "7620efae7baf"
+            }
+          ]
+        },
+        "projection": {
+          "status": "completed"
+        },
+        "first-1024": {
+          "status": "completed",
+          "outputs": [
+            {
+              "dimensions": [
+                1024,
+                1024
+              ],
+              "seed": 12345,
+              "rgb_sha256": "28b506e70b5876cbafe51fff8b0222272adf4a395f156647ad45121377d3f42a",
+              "run_id": "de6de6f7a61d"
+            }
+          ]
+        },
+        "more-seeds": {
+          "status": "completed",
+          "outputs": [
+            {
+              "dimensions": [
+                1024,
+                1024
+              ],
+              "seed": 12346,
+              "rgb_sha256": "28b506e70b5876cbafe51fff8b0222272adf4a395f156647ad45121377d3f42a",
+              "run_id": "de6de6f7a61d"
+            },
+            {
+              "dimensions": [
+                1024,
+                1024
+              ],
+              "seed": 12347,
+              "rgb_sha256": "28b506e70b5876cbafe51fff8b0222272adf4a395f156647ad45121377d3f42a",
+              "run_id": "de6de6f7a61d"
+            }
+          ]
+        },
+        "cancel": {
+          "status": "completed",
+          "outputs": [],
+          "button_step": 3,
+          "terminal_step": 4,
+          "terminal": "cancelled",
+          "saved": 0
+        },
+        "repeat-1024": {
+          "status": "completed",
+          "outputs": [
+            {
+              "dimensions": [
+                1024,
+                1024
+              ],
+              "seed": 12345,
+              "rgb_sha256": "28b506e70b5876cbafe51fff8b0222272adf4a395f156647ad45121377d3f42a",
+              "run_id": "de6de6f7a61d"
+            }
+          ]
+        },
+        "return-512": {
+          "status": "completed",
+          "outputs": [
+            {
+              "dimensions": [
+                512,
+                512
+              ],
+              "seed": 12345,
+              "rgb_sha256": "4316c5ec2a9569f5977480607d7e42e60de65e16d86d92feaf7148952ad6d93a",
+              "run_id": "b31420dc385e"
+            }
+          ]
+        },
+        "refusals": {
+          "status": "completed"
+        },
+        "unload": {
+          "status": "completed"
+        }
+      }
+    },
+    "fake_replay": {
+      "mode": "fake",
+      "kind": "fresh-replay",
+      "status": "completed",
+      "model_loads": 1,
+      "load_permitted": true,
+      "cleanup": {
+        "server_started": true,
+        "pid": 106428,
+        "exit_code": 0,
+        "listener_closed": true,
+        "surviving_workers": []
+      },
+      "guard_sha256": {
+        "guard.jsonl": "f0795041d90b9123172db5603cf9403292eae96e759ba7c32f00c37476e92c0c",
+        "summary.json": "3a0c6b786a1ffce66b7caca992ef5965f55bc7c3dc614dd92a70549d73cccc32",
+        "projection.json": "782590452ca2df828ff4f1fe620a8ed1c467f50099ad53b0f36bc761689741f3"
+      },
+      "raw_directory": "work/inp13-87b25ab-fresh",
+      "trial_sha256": "a8ac5a95ddb1d654d9020a30ce6c8846188a209d5c8e82b318d7ac333d23355c",
+      "candidate_sha256": "6261f912ec0d59f4b86549fa3687c1a87d0c3ec212b1e0621c123292be419353",
+      "accepted_unloads": 1,
+      "sampler": "synthetic",
+      "guard_samples": 58,
+      "cases": {
+        "load": {
+          "status": "completed"
+        },
+        "projection": {
+          "status": "completed"
+        },
+        "fresh-1024": {
+          "status": "completed",
+          "outputs": [
+            {
+              "dimensions": [
+                1024,
+                1024
+              ],
+              "seed": 12345,
+              "rgb_sha256": "28b506e70b5876cbafe51fff8b0222272adf4a395f156647ad45121377d3f42a",
+              "run_id": "c5a953a43890"
+            }
+          ]
+        },
+        "unload": {
+          "status": "completed"
+        }
+      }
+    },
+    "real": {
+      "mode": "real",
+      "kind": "full",
+      "status": "held",
+      "model_loads": 0,
+      "load_permitted": false,
+      "cleanup": {
+        "server_started": false
+      },
+      "guard_sha256": {
+        "guard.jsonl": "2cb9950d83f5b146b562379d33ecd95ef98556e0d391fd0765910a9ce49eb7cf",
+        "summary.json": "6d885c8ddbb0d655bd9f8a0e2a653cdda3d97f5524aafe529b74a94376026523"
+      },
+      "raw_directory": "work/inp13-87b25ab-real",
+      "trial_sha256": "4b2dd6cd5de60d4a392a1cf2323c10fe6e5b995fb5c3cd847096929d412507ff",
+      "preflight_rows": [
+        {
+          "event": "start",
+          "time": 1795141658.9674268,
+          "phase": "startup",
+          "mode": "real",
+          "period_s": 0.25,
+          "limits": {
+            "card_mib": 15500.0,
+            "project_mib": 15200.0,
+            "refuse_at_peak_mib": 15000.0,
+            "adapter_shared_rise_mib": 1024.0,
+            "process_shared_rise_mib": 512.0,
+            "ram_floor_gib": 4.0,
+            "commit_floor_gib": 4.0,
+            "need_ram_gib": null,
+            "busy_card_mib": null,
+            "card_unread_samples": 3.0,
+            "margin_mib": 500.0,
+            "margin_gib": 1.0
+          },
+          "measured_private_gib": 46.54413986206055,
+          "cold_commit_gib": 56.54413986206055
+        },
+        {
+          "event": "cold_sample",
+          "time": 1795141659.1657195,
+          "phase": "startup",
+          "reading": {
+            "sample": {
+              "card_mib": 1698.0,
+              "adapter_shared_mib": 60.41015625,
+              "process_shared_mib": 0.0,
+              "available_gib": 34.475067138671875,
+              "commit_headroom_gib": 27.787078857421875,
+              "tree_gib": 0.0,
+              "card_total_mib": 16303.0
+            },
+            "private_gib": 0.0,
+            "pids": [],
+            "card_at": 14614.0730151
+          }
+        },
+        {
+          "event": "preflight",
+          "time": 1795141659.1659565,
+          "phase": "startup",
+          "stage": "cold",
+          "required_commit_gib": 56.54413986206055,
+          "required_free_ram_gib": 45.0,
+          "idle_limit_mib": 2000.0,
+          "owned_private_gib": 0.0,
+          "sample": {
+            "card_mib": 1698.0,
+            "adapter_shared_mib": 60.41015625,
+            "process_shared_mib": 0.0,
+            "available_gib": 34.475067138671875,
+            "commit_headroom_gib": 27.787078857421875,
+            "tree_gib": 0.0,
+            "card_total_mib": 16303.0
+          },
+          "admitted": false,
+          "reasons": [
+            "free RAM below load requirement",
+            "free commit below measured load requirement"
+          ]
+        },
+        {
+          "event": "summary",
+          "time": 1795141659.1708627,
+          "phase": "startup",
+          "status": "held",
+          "reason": "free RAM below load requirement, free commit below measured load requirement",
+          "fake": false,
+          "server_pid": null,
+          "period_s": 0.25,
+          "achieved_period_s": null,
+          "longest_gap_s": 0.0,
+          "peak_card_mib": 0.0,
+          "samples": 0,
+          "phases": {},
+          "actions": []
+        }
+      ],
+      "unrun": [
+        "load",
+        "control-512",
+        "16x9",
+        "9x16",
+        "4x3",
+        "3x4",
+        "3x2",
+        "2x3",
+        "projection",
+        "first-1024",
+        "more-seeds",
+        "cancel",
+        "repeat-1024",
+        "return-512",
+        "refusals",
+        "unload"
+      ],
+      "reason": "GuardHeld: free RAM below load requirement, free commit below measured load requirement"
+    }
+  }
+}

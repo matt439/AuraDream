@@ -44,6 +44,8 @@ else:
 
 from . import api_backup, api_bundles, api_gallery, api_generate, api_jobs, api_masks, api_model_favourites, api_more_seeds, api_png, api_presets, api_prompt, api_prompt_assistant, api_refine_batch, api_rerender, api_runs, api_saved_searches, api_snippets, api_swap, app_context, bundle_common, bundles, card_facts, gallery_lock, gallery_reports, hf_sign_in, hub_access, keep_awake, loras, model_selection, passcode, prompt_encoding, response_headers, startup_preferences, storage  # noqa: E402
 from .backup_service import BackupService  # noqa: E402
+from . import api_bundle_browse  # noqa: E402
+from .bundle_views import BundleViews  # noqa: E402
 from .api_guide import router as guide_router  # noqa: E402
 from . import api_model_storage, model_cache_delete, model_cache_storage  # noqa: E402
 from .build_info import read_commit as _read_commit  # noqa: E402
@@ -475,6 +477,7 @@ def _stop_critic() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global backup_service, _startup_task, _keep_awake, _idle_unload
+    app.state.bundle_views = BundleViews()
     storage.init_db()
     # No job survives a restart, so neither does a hold on its mask; one a
     # crashed server left would spare that mask from every sweep for good.
@@ -535,7 +538,10 @@ async def lifespan(app: FastAPI):
         await asyncio.to_thread(prompt_translator.unload)
         await asyncio.to_thread(prompt_encoding.unload)
     finally:
-        await _stop_keep_awake()
+        try:
+            await asyncio.to_thread(app.state.bundle_views.shutdown)
+        finally:
+            await _stop_keep_awake()
 
 
 app = FastAPI(title="AuraDream", version="0.1.0", lifespan=lifespan)
@@ -1627,6 +1633,7 @@ app.include_router(api_png.create_router(services))
 app.include_router(api_masks.create_router(services))
 app.include_router(api_jobs.create_router(lambda: jobs))
 app.include_router(api_bundles.create_router(lambda: bundle_manager, services))
+app.include_router(api_bundle_browse.router)
 app.include_router(api_backup.create_router(_backup_service))
 app.include_router(api_gallery.create_router(
     lambda: jobs, services.model_scope, max_grid_images=settings.max_grid_images,

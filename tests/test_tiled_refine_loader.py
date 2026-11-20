@@ -28,7 +28,7 @@ def test_private_candidate_loads_only_the_owned_pinned_snapshot(
     monkeypatch.setattr(sys.modules["torch"].cuda, "is_available", lambda: True)
     snapshot = tmp_path / "models--cagliostrolab--animagine-xl-4.0" / "snapshots" / returned_revision
 
-    def local_snapshot(model_id, *, revision, local_files_only):
+    def local_snapshot(model_id, *, revision, local_files_only, allow_patterns):
         assert (model_id, revision, local_files_only) == (tiled.MODEL_ID, tiled.REVISION, True)
         return str(snapshot)
 
@@ -66,3 +66,41 @@ def test_private_candidate_loads_only_the_owned_pinned_snapshot(
     assert events.index("pinned-load") < events.index("place") < events.index("ready-log")
     backend.unload()
     assert backend._tiled_refine_candidate is None and not backend.is_ready()
+
+def test_offline_candidate_skips_the_alternate_root_weights_and_refuses_a_missing_component(tmp_path, monkeypatch):
+    """Exercise the Hub's actual local tree filter before the loader opens weights."""
+    from huggingface_hub._snapshot_download import snapshot_download
+    from huggingface_hub._tree_cache import TreeCacheEntry, write_tree_cache
+    from huggingface_hub.errors import IncompleteSnapshotError
+
+    cache = tmp_path / "hub"
+    repository = cache / "models--cagliostrolab--animagine-xl-4.0"
+    snapshot = repository / "snapshots" / tiled.REVISION
+    files = ("model_index.json", "unet/diffusion_pytorch_model.safetensors", "text_encoder_2/model.safetensors")
+    for key in files:
+        file = snapshot / key
+        file.parent.mkdir(parents=True, exist_ok=True)
+        file.write_bytes(b"fixture")
+    write_tree_cache(str(repository), tiled.REVISION, {
+        key: TreeCacheEntry(7, "0" * 40)
+        for key in (*files, ".gitattributes", "README.md", "animagine-xl-4.0-opt.safetensors")
+    })
+    def local_only(model_id, *, revision, local_files_only, allow_patterns):
+        assert local_files_only is True
+        return snapshot_download(model_id, revision=revision, allow_patterns=allow_patterns,
+                                 cache_dir=cache, local_files_only=True)
+
+    monkeypatch.setattr(huggingface_hub, "snapshot_download", local_only)
+    backend = module.DiffusersBackend()
+    monkeypatch.setattr(backend, "_require_tiled_refine_loader", lambda **kwargs: None)
+    monkeypatch.setattr(module.card_facts, "probe", lambda device: None)
+    loaded = []
+    monkeypatch.setattr(backend, "_load_prepared", lambda execution, *, tiled_refine_snapshot: loaded.append(
+        tiled_refine_snapshot,
+    ))
+    backend._load_tiled_refine_candidate()
+    assert loaded == [str(snapshot)]
+    (snapshot / files[-1]).unlink()
+    with pytest.raises(IncompleteSnapshotError, match="text_encoder_2/model.safetensors"):
+        backend._load_tiled_refine_candidate()
+    assert loaded == [str(snapshot)]

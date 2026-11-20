@@ -12,7 +12,7 @@
     "Not CI's: smoke-assistant-draft-tags is one Windows --jobs 1 run (2026-11-17), rounded up and unscaled, until the next refresh.",
     "Not CI's: smoke-anima-refine is the final Windows --jobs 1 run (2026-11-17), rounded up and unscaled, until the next refresh.",
     "Not CI's: expanded smoke-anima-aesthetic is its Windows --jobs 2 family run and smoke-anima-preview its corrected Windows --jobs 1 run (2026-11-17), rounded up and unscaled, until the next refresh.",
-    "Not CI's: smoke-batch-strip-scrollbar is a Windows run (2026-11-20), rounded up and unscaled, until the next refresh."
+    "Not CI's: smoke-batch-strip-scrollbar and smoke-bundle-browse are Windows runs (2026-11-20), rounded up and unscaled, until the next refresh."
   ],
   "seconds": {
     "smoke": 42,
@@ -32,6 +32,7 @@
     "smoke-bin": 14,
     "smoke-bin-restore-order": 26,
     "smoke-broad-bin-order": 18,
+    "smoke-bundle-browse": 10,
     "smoke-bundle-clear-order": 21,
     "smoke-bundles": 30,
     "smoke-button-states": 6,

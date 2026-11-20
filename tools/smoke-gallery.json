@@ -394,5 +394,16 @@
   {"eval": "window.__binHead = __head(); els.galleryEmpty.querySelector('button').click();"},
   {"expect": "__until(() => binMode && els.search.value === 'seed:42' && galleryPending === null && !els.galleryEmpty.textContent.includes('did you mean') && __head() === __binHead)"},
   {"eval": "leaveBin(); els.search.value = ''; resetGallery();"},
-  {"expect": "__until(() => !binMode && galleryPending === null && galleryRecords.length > 0)"}
+  {"expect": "__until(() => !binMode && galleryPending === null && galleryRecords.length > 0)"},
+
+  {"log": "'A status head arriving during search debounce leaves the replacement read to the search, including when an earlier catch-up reply lands during typing.'"},
+  {"eval": "window.__oldStatus = receiveStatus; receiveStatus = () => {}; window.__debounceEvent = (text) => {els.search.value = text; els.search.dispatchEvent(new Event('input', {bubbles:true}));};"},
+  {"expect": "(async () => {await applyGalleryFilter({query:'', favorites:false, all_models:false}); return galleryRecords.length > 0 && !galleryPending;})()", "fatal":true},
+  {"eval": "(async () => { const job = await __post('/api/generate', {prompt:'debounce meadow fixture', steps:1, width:256, height:256, seed:41141}); window.__debouncedId = (await __wait(job.job_id)).images[0].id; })()"},
+  {"eval": "window.__readApi = api; window.__headReads = []; window.__releaseOld = null; api = async (path, opts) => {if (!path.startsWith('/api/gallery?')) return __readApi(path, opts); __headReads.push(path); const first = __headReads.length === 1; const answer = await __readApi(path, opts); if (first) await new Promise(resolve => {__releaseOld = resolve;}); return answer;}; window.__oldHead = prependFinished(1, {upTo:__debouncedId}); void 0"},
+  {"expect": "__until(() => typeof __releaseOld === 'function')", "fatal": true},
+  {"expect": "(async () => { __debounceEvent('debounce meadow fixture'); const before = __headReads.length; const next = prependFinished(1, {upTo:__debouncedId}); __releaseOld(); await Promise.all([next, __oldHead]); return before === 1 && !galleryRecords.some(row => row.id === __debouncedId) && __headReads.every(path => !path.includes('search=') || new URL(path, location.href).searchParams.get('limit') === '48'); })()", "fatal": true},
+  {"expect": "__until(() => galleryPending === null && total === 1 && galleryRecords[0]?.id === __debouncedId && galleryReadHead >= __debouncedId)", "fatal": true},
+  {"expect": "__headReads.length === 2 && new URL(__headReads[1],location.href).searchParams.get('search') === 'debounce meadow fixture'"},
+  {"eval": "api = __readApi; receiveStatus = __oldStatus;"}
 ]

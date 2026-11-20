@@ -870,12 +870,11 @@ not proof that a larger output fits.
 
 ## Second Kontext recipe and trial (INP#13)
 
-**Status, 2026-11-20.** The planning step in
-[R3](review-2026-11-10-peers.md#r3-a-wider-instruction-edit-envelope) and the
-recipe-aware CPU contract are built. An isolated one-load queue rehearsal
-covered every geometry, cancellation and replay. The isolated browser
-candidate and live guard controller are next. Public release follows from
-the card trial evidence.
+**Status, 2026-11-20.** The recipe-aware CPU contract, isolated browser
+candidate and guard controller are built. Full and fresh-process browser
+rehearsals passed on the fake. The [real preflight](../verified.md#larger-kontext-browser-trial-admission-2026-11-20)
+held before launch on both host-memory readings. Real measurements for the
+six non-square cases and the larger square recipe remain open.
 
 ### Frozen recipe
 
@@ -947,11 +946,12 @@ own outputs for replay and deduplication.
    larger replay and the 512-square return matched their earlier fake
    pixels. `card_guard.plan_sampled_windows_rung` refuses incomplete guard
    samples, propagates trips and groups shared areas before projection.
-5. Prepare the isolated browser candidate with the trial allowlist and
-   recipe selection in its preview, submit and Reuse. Connect the live
-   supervisor to fresh guard samples, held decisions and observed
-   `try_unload`. Rehearse the browser and controller with a fake before
-   using real weights. Keep experimental admission local to the trial build.
+5. **Browser and controller rehearsed.** The isolated build exercised all eight
+   cases, both More seeds children, Cancel at step 3, recovery, Reuse,
+   refusals and accepted `try_unload`. A separate server reproduced the
+   larger fake RGB digest. The controller binds each operation to fresh
+   guard samples and the planted source proof. The two rehearsals used
+   synthetic pixels and allocator readings. [Session evidence](../measurements/kontext-browser-2026-11-20.json)
 
 ### One-load card protocol
 
@@ -975,7 +975,8 @@ unreadable guard input. End the owned session and retain the stopped receipt.
 
 **Fixtures.** Use the retained 1024-square owned house/sun/grass/red-ball PNG
 from the [November 18 receipt](instruction-acceptance-2026-11-18.json).
-The local copy is `work/gpu-20261118/kontext/full-fixture/source.png`.
+The [checked-in source PNG](../../tools/kontext_trial_assets/kontext-house-source.png) matches
+the local copy at `work/gpu-20261118/kontext/full-fixture/source.png`.
 Its original RGB SHA-256 is
 `28b506e70b5876cbafe51fff8b0222272adf4a395f156647ad45121377d3f42a`.
 Prepare each non-square fixture once by converting that PNG to RGB and
@@ -1034,6 +1035,28 @@ Replay the 1024-square fixture once in a separate fresh one-load process
 before a public release. Only individually qualified tuples may then be
 considered for the public envelope. A larger call held at preflight leaves
 that recipe unmeasured.
+
+### Running the isolated trial
+
+Run from the repository root with a new output directory for each command.
+The first command exercises Load, each aspect, the conditional larger edit,
+More seeds, cancellation, Reuse, refusal paths and Unload. The second compares
+the larger image with the first run in a fresh server process.
+
+```powershell
+uv run python -m tools.kontext_browser_trial --mode fake --output work/inp13-fake
+uv run python -m tools.kontext_browser_trial --mode fake --output work/inp13-fake-replay --replay-of work/inp13-fake
+```
+
+On the Windows 5080, use `--mode real` with a fresh directory. Use the
+completed real run as `--replay-of` for the separate real replay. The
+controller checks the local pinned editor config and host headroom before
+starting the server. The scratch gallery, patched application and logs live
+under the chosen directory. `trial.json` records each case and its outcome.
+`guard/guard.jsonl` retains the underlying samples and decisions. Exit 0
+means the requested session completed, 2 means the trial was held, and 1
+means a check failed. After a hold, read the reason and the unrun cases before
+scheduling another session.
 
 ## Stages and completion criteria
 

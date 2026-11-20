@@ -445,6 +445,7 @@ function goSignedOut() {
   serverAnswers();
   if (signedOut) return;
   signedOut = true;
+  closeBundleBrowser();
   els.dot.className = 'dot';
   writeStatusLine('', SIGNED_OUT_PHRASE);
   els.statusAside.hidden = true;

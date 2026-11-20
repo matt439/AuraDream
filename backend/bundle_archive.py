@@ -16,11 +16,11 @@ import threading
 import zipfile
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from pathlib import Path, PurePosixPath
 
 from . import backup_receipts, bundle_crypto, bundle_leases, tiled_refine_contract
-from .bundle_common import _CHUNK, _WORKERS, MASK_HASH, BundleError, Progress, _basename, _mask_rows, _quiet, _rows
+from .bundle_common import _CHUNK, _WORKERS, MASK_HASH, BrowseUnavailable, BundleError, Progress, _basename, _mask_rows, _quiet, _rows
 from .bundle_images import _inspect_mask, _inspect_source
 from .metadata import PNG_SIGNATURE, detailer_from_json, edit_from_json, tiled_refine_from_json
 
@@ -34,6 +34,7 @@ _MANIFEST = "manifest.json"
 # The largest manifest the verified read accepts; the managed export's
 # capacity preflight budgets the same bound.
 _MANIFEST_MAX = 32 * 1024 * 1024
+_BROWSE_DATABASE_MAX = 64 * 1024 * 1024
 _DECODE_BUDGET = 1024 * 1024 * 1024
 # Preparation may hold a Lanczos intermediate beside the 2048-square RGB core.
 _TILED_PREPARE_BYTES = 8 * tiled_refine_contract.CANVAS_SIZE[0] * tiled_refine_contract.CANVAS_SIZE[1]
@@ -133,14 +134,16 @@ def _open_archive(path: Path, password: str | None, derived: tuple[bytes, bytes]
     except OSError as exc:
         raise BundleError(f"cannot read the bundle: {exc}") from exc
     if not encrypted:
+        del password
         with bundle_leases._open_input(path, read_owner) as source, zipfile.ZipFile(source) as archive:
             yield archive
         return
     if not password:
-        raise BundleError("this bundle is password-protected; enter its password")
+        raise BrowseUnavailable("this bundle is password-protected; enter its password")
     # Plaintext exists only in memory: every chunk is authenticated as read.
     with (bundle_crypto._DecryptingReader(path, password, derived=derived, read_owner=read_owner) as reader,
           zipfile.ZipFile(reader) as archive):
+        del password
         yield archive
 
 
@@ -152,6 +155,8 @@ def _verify_archive(path: Path, destination: Path | None = None, *, password: st
                     masks: dict[str, dict] | None = None,
                     managed: backup_receipts.ManagedIdentity | None = None,
                     read_owner: bundle_leases.ArchiveRead | None = None,
+                    opened: zipfile.ZipFile | None = None,
+                    catalogue: Callable[[bytes], tuple[list[dict], dict[str, dict]]] | None = None,
                     progress: Progress = _quiet) -> tuple[dict, list[dict] | None, dict]:
     """Read every member once, verifying ZIP CRC, the manifest SHA-256 and, for
     a password-protected bundle, every chunk's tag.
@@ -166,10 +171,13 @@ def _verify_archive(path: Path, destination: Path | None = None, *, password: st
     pool and held to its name and to its row in `masks` (that table, by
     hash; read from the unpacked database where it is not given), its
     result its size. Returns the manifest, the rows and each tracked
-    member's inspection result, the masks' included.
+    member's inspection result, the masks' included. A read-only browser
+    borrows its pinned `opened` ZIP and consumes the verified database
+    through `catalogue` in memory, with neither extraction nor a merge.
     """
+    source_scope = nullcontext(opened) if opened is not None else _open_archive(path, password, derived, read_owner)
     try:
-        with _open_archive(path, password, derived, read_owner) as archive, _Pool() as pool, _Stager() as stager:
+        with source_scope as archive, _Pool() as pool, _Stager() as stager:
             infos = archive.infolist()
             names = [info.filename for info in infos]
             if len(names) != len(set(n.casefold() for n in names)):
@@ -273,7 +281,10 @@ def _verify_archive(path: Path, destination: Path | None = None, *, password: st
                 # everything else may be installed as is, so it is synced.
                 # Both are written off the reading thread when held whole.
                 # A mask is decoded as a tracked PNG is, so it is held whole too.
-                whole = row or mask or (name != _DATABASE and info.file_size <= _READ_AHEAD_MAX)
+                memory_catalogue = name == _DATABASE and catalogue is not None
+                if memory_catalogue and info.file_size > _BROWSE_DATABASE_MAX:
+                    raise BrowseUnavailable("this catalogue exceeds the 64 MiB limit for browsing in memory")
+                whole = row or mask or memory_catalogue or (name != _DATABASE and info.file_size <= _READ_AHEAD_MAX)
                 data = None
                 output = target.open("xb") if target and not whole else None
                 try:
@@ -313,7 +324,12 @@ def _verify_archive(path: Path, destination: Path | None = None, *, password: st
                     data = None
                 elif digest.hexdigest() != expected["sha256"]:
                     raise BundleError(f"the bundle checksum failed for {name}")
-                if name == _DATABASE and rows is None and destination is not None:
+                if name == _DATABASE and catalogue is not None:
+                    assert data is not None
+                    rows, masks = catalogue(data)
+                    tracked = track(rows)
+                    del data
+                elif name == _DATABASE and rows is None and destination is not None:
                     rows = _rows(destination / _DATABASE)
                     tracked = track(rows)
                     if masks is None:
