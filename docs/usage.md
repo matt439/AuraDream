@@ -1644,8 +1644,19 @@ deleted along with the app.
 Model weights, LoRAs and browser preferences are not part of a gallery
 bundle.
 
-The dialog lists saved bundles newest first by the file's date, which each
-row shows beside its size, with **Download** and **Import** controls.
+The dialog lists saved bundles newest first and shows the date and size.
+Choose **Browse** beside a filename to verify that archive and see its
+images. For a **Protected** archive, fill in **Import password** first.
+Search by part of a prompt or run ID, select **Starred**, or open a thumbnail
+to inspect its saved generation settings. The view includes records that
+were in the recycle bin when archived. **Close** returns to the saved list
+with the working gallery unchanged. To restore the archive, choose **Import**
+on its row and supply the password again if needed.
+
+Views expire after ten minutes without a read, or when the server restarts.
+The server can hold two views at once. Browsing supports catalogues up to
+64 MiB and archived images up to 33,554,432 pixels each.
+**Download** and **Import** remain available for larger archives.
 You can also choose a bundle file from your computer and import it. Saved
 bundles marked **Protected**, and selected `.ldbundle` files, need the
 password under **Import password**; a wrong password is

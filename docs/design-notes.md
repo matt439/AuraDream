@@ -5838,6 +5838,21 @@ never an overwrite.
 
 ## Gallery bundles: verify before clearing, stage before merging
 
+**Browsing one saved archive (2026-11-20).** A protected archive can be
+the only copy of a gallery. Searching its prompts and viewing its pictures
+requires an explicit unlock. Browse verifies the selected archive in one
+pass and keeps its catalogue in memory under a reader lease. Thumbnails
+come from the original archived PNG, which also supports bundles saved
+before thumbnails existed. Keeping the verified file open means a live
+gallery image with the same numeric ID cannot appear in its place.
+
+The browser draws a random capability before opening. If Close lands
+between server verification and receipt of the JSON reply, the tab can
+still release the correct lease. Verification observes socket disconnects
+between members. Ten-minute idle expiry covers a tab that disappears
+after the reply. The regular Import control remains the action that
+merges verified rows and their source links into the working gallery.
+
 **Explicit startup backups (2026-10-26, `GAL#6`).** The initial v1 policy
 sidecar deliberately had no lifecycle. Wiring it directly would have activated
 hand-edited drafts, so startup accepts only a newly confirmed v2 envelope.

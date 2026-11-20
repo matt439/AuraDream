@@ -335,6 +335,10 @@ function syncBundleControls() {
   for (const button of els.bundleList.querySelectorAll('[data-bundle-import]')) {
     hold(button, why || ('bundleEncrypted' in button.dataset ? locked : ''), 'Merge this saved bundle into the gallery');
   }
+  for (const button of els.bundleList.querySelectorAll('[data-bundle-browse]')) {
+    hold(button, (serverOffline ? 'The server is not answering' : '')
+      || ('bundleBrowseProtected' in button.dataset ? locked : ''), 'Browse the images and settings in this saved bundle');
+  }
   for (const button of els.bundleList.querySelectorAll('[data-bundle-delete]')) {
     // The server's own hold first: a copy the automatic backup counts.
     hold(button, button.dataset.bundleDeleteHold || bundleDeleteHold(),
@@ -354,6 +358,8 @@ function bundleRefused(button) {
       && els.bundlePassword.value === els.bundlePasswordAgain.value
       && els.bundleCount.value.trim() !== String(bundlePreview.records)) {
     focusBundleField(els.bundleCount);
+  } else if ('bundleBrowse' in button.dataset && 'bundleBrowseProtected' in button.dataset && !els.bundleUnlock.value) {
+    focusBundleUnlock();
   } else if (!bundleActionHold() && !els.bundleUnlock.value
       && ('bundleEncrypted' in button.dataset
         || (button === els.bundleUpload && els.bundleFile.files.length && bundleProtected(bundleFileHeader)))) {
@@ -496,12 +502,21 @@ async function refreshBundleList() {
         const button = document.createElement('button');
         button.type = 'button'; button.className = 'ghost small';
         button.dataset.bundleImport = bundle.name; button.textContent = 'Import';
+        const browse = document.createElement('button');
+        browse.type = 'button'; browse.className = 'ghost small';
+        browse.dataset.bundleBrowse = bundle.name; browse.textContent = 'Browse';
+        browse.setAttribute('aria-label', `Browse ${bundle.name}`);
         if (bundle.encrypted) {
           button.dataset.bundleEncrypted = '';
           button.setAttribute('aria-describedby', 'bundle-unlock-hint');
+          browse.dataset.bundleBrowseProtected = '';
+          browse.setAttribute('aria-describedby', 'bundle-unlock-hint');
         }
         button.setAttribute('aria-label', `Import ${bundle.name}${bundle.encrypted ? ' (password-protected)' : ''}`);
-        row.append(name, tag, size, link);
+        const heading = document.createElement('div');
+        heading.className = 'bundle-row-heading';
+        heading.append(name, browse);
+        row.append(heading, tag, size, link);
         if (bundle.encrypted) {
           const unlock = document.createElement('button');
           unlock.type = 'button'; unlock.className = 'ghost tiny bundle-import-password';
@@ -538,7 +553,7 @@ async function refreshBundleList() {
 }
 
 function refocusBundleRow(was, index) {
-  const attrs = ['bundleDelete', 'bundleImport'];
+  const attrs = ['bundleDelete', 'bundleImport', 'bundleBrowse'];
   const same = [...els.bundleList.querySelectorAll('button')].find((b) =>
     attrs.some((a) => a in was.dataset && b.dataset[a] === was.dataset[a]));
   const row = els.bundleList.children[Math.min(index, els.bundleList.children.length - 1)];
@@ -892,6 +907,7 @@ async function openBundles() {
 
 function initBundles() {
   initAutomaticBackup();
+  initBundleBrowser();
   els.bundles.onclick = () => { void openBundles(); };
   els.bundlesClose.onclick = () => els.bundlesDialog.close();
   els.bundlesDialog.addEventListener('close', clearBundlePasswords);
@@ -936,6 +952,11 @@ function initBundles() {
   els.bundleRefresh.onclick = () => { if (!bundleRefused(els.bundleRefresh)) void refreshBundlePreview(); };
   els.bundleList.onclick = (event) => {
     if (event.target.closest('[data-bundle-unlock]')) { focusBundleUnlock(); return; }
+    const browse = event.target.closest('[data-bundle-browse]');
+    if (browse) {
+      if (!bundleRefused(browse)) void openBundleBrowser(browse.dataset.bundleBrowse, 'bundleBrowseProtected' in browse.dataset);
+      return;
+    }
     const remove = event.target.closest('[data-bundle-delete]');
     if (remove) {
       if (!bundleRefused(remove)) void deleteSavedBundle(remove);

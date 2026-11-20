@@ -456,7 +456,7 @@ def mask_crop_region(mask: str | None, spec: MaskCropSpec | None, width: int, he
 
 def _row_to_record(
     row: sqlite3.Row | Mapping[str, Any], refine_missing: bool = False, refine_binned: bool = False,
-    edit_missing: bool = False, edit_binned: bool = False,
+    edit_missing: bool = False, edit_binned: bool = False, *, lookup_thumbnail: bool = True,
 ) -> ImageRecord:
     """A gallery row as the record the API serves.
 
@@ -472,16 +472,20 @@ def _row_to_record(
     """
     # Rows from before thumbnails were written have none; the client falls back
     # to the PNG. A locked legacy thumbnail may still be beside its PNG.
-    thumb = _thumb_path(settings.outputs_dir / row["filename"])
-    if not thumb.is_file():
-        thumb = (settings.outputs_dir / row["filename"]).with_suffix(".webp")
+    thumb_url = None
+    if lookup_thumbnail:
+        thumb = _thumb_path(settings.outputs_dir / row["filename"])
+        if not thumb.is_file():
+            thumb = (settings.outputs_dir / row["filename"]).with_suffix(".webp")
+        if thumb.is_file():
+            thumb_url = f"/outputs/{thumb.relative_to(settings.outputs_dir).as_posix()}"
     edit = edit_from_json(row["edit"])
     validate_edit_record(edit, dict(row))
     return ImageRecord(
         id=row["id"],
         filename=row["filename"],
         url=f"/outputs/{row['filename']}",
-        thumb_url=f"/outputs/{thumb.relative_to(settings.outputs_dir).as_posix()}" if thumb.is_file() else None,
+        thumb_url=thumb_url,
         prompt=row["prompt"],
         negative_prompt=row["negative_prompt"],
         variables=json.loads(row["variables"]) if row["variables"] else None,
