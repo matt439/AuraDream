@@ -682,13 +682,10 @@ def _database_meta(
     row: dict, width: int, height: int, digest: str, references: list[int], refine: int | None,
     mask: str | None = None, outpaint=None, mask_crop=None,
 ) -> dict:
-    variables = _json_list(row.get("variables"))
-    if not variables and row.get("variables"):
-        try:
-            candidate = json.loads(row["variables"])
-            variables = candidate if isinstance(candidate, dict) else None
-        except (TypeError, ValueError):
-            variables = None
+    try:
+        variables = json.loads(row["variables"]) if row.get("variables") else None
+    except (TypeError, ValueError):
+        variables = None
     upscaler = storage._upscaler(
         row.get("upscaler"), source=refine, model_id=row.get("model_id"), mask=mask, outpaint=outpaint,
     )
@@ -709,7 +706,7 @@ def _database_meta(
         "job": row.get("job_id"),
         "run": row.get("run_id"),
         "size": f"{width}x{height}",
-        "variables": variables,
+        "variables": variables if isinstance(variables, dict) else None,
         "hash": digest,
         "reference": references or None,
         "reference_sources": [storage.image_provenance(i) for i in references] or None,
