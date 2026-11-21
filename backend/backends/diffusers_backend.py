@@ -1677,7 +1677,7 @@ class DiffusersBackend(GenerationBackend):
         self._peak = None
         self._mask_crop = None
         request = self._require_execution(request)
-        if request.tiled_refine is not None:
+        if getattr(request, "tiled_refine", None) is not None:
             return self._generate_tiled_refine_candidate(request, seed, on_progress, should_cancel)
         with self._measure_generation_peak():
             return self._generate_images(request, seed, on_progress, should_cancel, on_preview)
