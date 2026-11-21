@@ -592,6 +592,8 @@ els.refineHeight.addEventListener('input', leaveRefineScaleCompare);
 els.refineDice.onclick = () => { els.refineSeed.value = ''; refineChanged(); };
 els.refineCompare.onclick = fillRefineCompare;
 els.refineCompareScales.onclick = toggleRefineScaleCompare;
+els.refineWhole.onclick = () => chooseRefineMethod(false);
+els.refineTiled.onclick = () => chooseRefineMethod(true);
 els.refineStartOver.onclick = startRefineOver;
 els.refineMore.addEventListener('toggle', sizeRefinePrompt);
 REFINE_WIDE.addEventListener('change', showRefineSource);

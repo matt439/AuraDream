@@ -159,6 +159,7 @@
   padding: 2px 7px; border-radius: var(--r-lg); background: rgba(0, 0, 0, 0.62);
   color: #fff; font-size: var(--fs-label); pointer-events: none;
 }
+.card.tiled-refined::before, .sheet-cell.tiled-refined::before { content: "Tiled Refine"; }
 /* A wrapped row's cells carry their own label, the head they have no row for. */
 .sheet-cell .cap {
   position: absolute; inset: auto 0 0 0; padding: 14px var(--sp-2) 6px;

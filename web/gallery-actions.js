@@ -371,6 +371,10 @@ function markGoneSource(rec) {
     rec.edit_missing = true;
     rec.edit_binned = binnedIds.has(rec.edit.source);
   }
+  if (rec.tiled_refine?.source != null && isGone(rec.tiled_refine.source)) {
+    rec.tiled_refine_missing = true;
+    rec.tiled_refine_binned = binnedIds.has(rec.tiled_refine.source);
+  }
   return rec;
 }
 
@@ -519,6 +523,14 @@ function forgetImages(ids, { binned = false } = {}) {
     orphans.add(r);
     document.querySelectorAll(`img[data-id="${r.id}"]`).forEach((img) => { titleImage(img, r); });
   }
+  const tiledRefines = new Set([...galleryRecords, ...viewerRecords, ...sessionRecords, ...lbList]
+    .filter((r) => gone.has(r.tiled_refine?.source)));
+  for (const r of tiledRefines) {
+    r.tiled_refine_missing = true;
+    r.tiled_refine_binned = binned;
+    orphans.add(r);
+    document.querySelectorAll(`img[data-id="${r.id}"]`).forEach((img) => { titleImage(img, r); });
+  }
   // An open Edit by instruction… on one of them asks its preview again.
   editSourcesMoved(gone, { deleted: !binned });
   detailerSourcesMoved(gone);
@@ -527,6 +539,10 @@ function forgetImages(ids, { binned = false } = {}) {
       if (b.dataset.reuseEditSource && gone.has(+b.dataset.reuseEditSource)) {
         b.dataset.reuseEditGone = 'true';
         b.dataset.reuseEditBinned = String(binned);
+      }
+      if (b.dataset.reuseTiledSource && gone.has(+b.dataset.reuseTiledSource)) {
+        b.dataset.reuseTiledGone = 'true';
+        b.dataset.reuseTiledBinned = String(binned);
       }
       if (!b.dataset.reusePass || !gone.has(+b.dataset.reusePass)) return;
       b.dataset.reusePassGone = 'true';
@@ -602,12 +618,23 @@ function unforgetImages(ids) {
     r.edit_binned = false;
     document.querySelectorAll(`img[data-id="${r.id}"]`).forEach((img) => { titleImage(img, r); });
   }
+  const tiledRefines = new Set([...galleryRecords, ...viewerRecords, ...sessionRecords, ...lbList]
+    .filter((r) => r.tiled_refine_missing && back.has(r.tiled_refine?.source)));
+  for (const r of tiledRefines) {
+    r.tiled_refine_missing = false;
+    r.tiled_refine_binned = false;
+    document.querySelectorAll(`img[data-id="${r.id}"]`).forEach((img) => { titleImage(img, r); });
+  }
   editSourcesMoved(back);
   detailerSourcesMoved(back);
   document.querySelectorAll('.reuse-settings').forEach((b) => {
     if (b.dataset.reuseEditSource && back.has(+b.dataset.reuseEditSource)) {
       b.dataset.reuseEditGone = 'false';
       b.dataset.reuseEditBinned = 'false';
+    }
+    if (b.dataset.reuseTiledSource && back.has(+b.dataset.reuseTiledSource)) {
+      b.dataset.reuseTiledGone = 'false';
+      b.dataset.reuseTiledBinned = 'false';
     }
     if (!b.dataset.reusePass || !back.has(+b.dataset.reusePass)) return;
     b.dataset.reusePassGone = 'false';

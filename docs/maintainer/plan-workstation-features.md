@@ -8,17 +8,20 @@ Portrait, landscape and 1024-square Kontext edits already have a
 
 ## Restore one archived image
 
-`GAL#38`. After Bundle & clear, Browse can find a keeper in a saved archive.
-Today Import merges the whole archive. Add Restore to the browsed image.
-Preview which source images, references and masks are available, already
-present or missing. Let Matt include the dependencies needed for replay.
-[Current bundle workflow](../usage.md#gallery-bundles)
+**`GAL#38` built and verified, 2026-11-21.** Open an image in Browse and
+choose **Restore**. The preview lists available, already present and missing
+source images, references and masks. Available image dependencies can be
+included individually. The background bundle operation reports the local ID,
+the recycle-bin state and any replay hold.
+[Gallery bundle workflow](../usage.md#gallery-bundles)
 
-Complete when one keeper from a plain or password-protected bundle restores
-with its chosen dependencies, unrelated rows stay out of the gallery, and a
-repeat import recognizes the same images. Exercise a colliding gallery ID and
-a missing source. Remap links by the existing import rules and tell the user
-when an omitted or unavailable source prevents replay.
+The browser smoke used a plain and a password-protected archive. It covered
+cancel, restoring the chosen source, excluding unrelated rows, repeating
+the restore, opening the exact restored row, and full import. Backend checks
+covered colliding gallery IDs, missing sources, masks, closing the view
+during a restore, and the version 3 tiled recipe's original and prepared
+RGB proofs. Existing rows keep their local links on repeat restore. If one
+of those rows still lacks a required link, the receipt says replay is held.
 
 ## Save a Generate and Then refine recipe
 

@@ -308,6 +308,9 @@ def pass_note(record: ImageRecord) -> str | None:
     if record.edit is not None:
         source = record.edit.source
         return "an instruction edit" + (f" of #{source}" if source is not None else " of an unresolved source")
+    if record.tiled_refine is not None:
+        source = record.tiled_refine.source
+        return "a Tiled Refine pass" + (f" of #{source}" if source is not None else " of an unresolved source")
     if record.refine is None or record.mask is None:
         return None
     if record.outpaint is not None:

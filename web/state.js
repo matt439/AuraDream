@@ -247,6 +247,9 @@ const els = {
   refineStartOver: $('refine-start-over'), refinePasses: $('refine-passes'),
   refinePassesHead: $('refine-passes-head'), refinePassList: $('refine-pass-list'),
   refinePromptLine: $('refine-prompt-line'), refineUnavailable: $('refine-unavailable'),
+  refineWhole: $('refine-whole'), refineTiled: $('refine-tiled'), refineTiledHint: $('refine-tiled-hint'),
+  refineSizeField: $('refine-size-field'), refineStrengthField: $('refine-strength-field'),
+  refineSamplingFields: $('refine-sampling-fields'), refineMoreLabel: $('refine-more-label'),
   refineScales: $('refine-scales'), refineCompareScales: $('refine-compare-scales'), refineWidth: $('refine-width'), refineHeight: $('refine-height'), refineCropAnchor: $('refine-crop-anchor'),
   refineLock: $('refine-lock'),
   refineSizeHint: $('refine-size-hint'), refineStrength: $('refine-strength'),
@@ -801,7 +804,7 @@ async function api(path, options, responseType = 'json') {
     throw Object.assign(new Error(readableDetail(detail)), { status: res.status, body, code });
   }
   const body = res.status === 204 ? null : responseType === 'blob' ? await res.blob() : await res.json();
-  const advisory = /^\/api\/(?:prompt\/|tags\/|loras$|grid\/preview$|detailer\/preview$|swap-tags\/preview$|refine\/batch\/preview$|more-seeds\/preview$|png\/settings$|runs\/[^/]+(?:\/finish\/preview)?$)/.test(path.split('?')[0]);
+  const advisory = /^\/api\/(?:prompt\/|tags\/|loras$|grid\/preview$|tiled-refine\/preview$|detailer\/preview$|swap-tags\/preview$|refine\/batch\/preview$|more-seeds\/preview$|png\/settings$|runs\/[^/]+(?:\/finish\/preview)?$)/.test(path.split('?')[0]);
   if (advisory && revision !== null && revision !== modelRevision) {
     throw Object.assign(new Error('The checkpoint changed while this request was running. Try again with the current checkpoint.'), { status: 409 });
   }

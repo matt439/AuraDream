@@ -364,7 +364,7 @@ def main() -> int:
                     on_progress(step, total)
                 if step == total and "[fail-after-preview]" in request.prompt:
                     raise RuntimeError("the fake render failed after its preview")
-                if on_preview is not None and step < total:
+                if on_preview is not None and request.tiled_refine is None and step < total:
                     import io
 
                     from PIL import ImageFilter
@@ -377,7 +377,7 @@ def main() -> int:
                     on_preview(buffer.getvalue(), step, total)
 
             ran = super().generate(request, seed, progress, should_cancel)
-            if request.edit is not None:
+            if request.edit is not None or request.tiled_refine is not None:
                 # The tests' fake hands back the prepared source it proved;
                 # the drawing above is what this fake saves.
                 for image in ran:
@@ -398,6 +398,16 @@ def main() -> int:
             # source by eye and by pixel. One image, at the output size.
             if request.edit is not None:
                 return [self._edit_image(request, seed)]
+            if request.tiled_refine is not None:
+                from backend.tiled_refine_admission import load_bound_source
+                from backend.tiled_refine_contract import bound_spec
+
+                stored = bound_spec(request.validate_tiled_refine(require_bound=True))
+                canvas = load_bound_source(stored)
+                draw = ImageDraw.Draw(canvas)
+                draw.rectangle([10, 10, 300, 40], fill=(0, 0, 0))
+                draw.text((16, 16), f"tiled refine of #{stored.source} seed {seed}", fill=(255, 255, 255))
+                return [canvas]
             # An inpaint changes only what its mask covers, through the real
             # composite (the tests' fake fill by seed): no stamp, so a smoke
             # can read every unmasked pixel against the source's.
@@ -455,6 +465,7 @@ def main() -> int:
             return image
 
     fake = DrawingBackend(step_seconds=args.step)
+    fake.tiled_refine_qualified = True
     # Behave as the claimed checkpoint's profile predicts: drop the negative
     # prompt below the threshold, keep real CFG apart where FLUX.1 does. The
     # drawing ignores the negative prompt anyway, so a grid that varies only

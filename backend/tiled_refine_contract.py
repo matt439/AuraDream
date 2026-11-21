@@ -1,4 +1,4 @@
-"""Portable intent for the private first Tiled Refine recipe."""
+"""Portable intent and measured settings for the first Tiled Refine recipe."""
 from __future__ import annotations
 
 import hashlib
@@ -23,7 +23,13 @@ CANVAS_SIZE = (2048, 2048)
 STEPS = 28
 GUIDANCE_SCALE = 5.0
 STRENGTH = 0.35
-HELD = "Tiled Refine is held until the private card qualification and public-flow checks pass."
+TILES = 4
+DENOISED_STEPS = TILES * int(STEPS * STRENGTH)
+HELD = "This backend cannot run Tiled Refine."
+LOADER_REQUIRED = (
+    "Tiled Refine requires Animagine XL 4.0, FP8 with model offload, "
+    "Windows RTX 5080 CUDA 0, Eager/Native and diffusers 0.42.1."
+)
 UNRESOLVED_SOURCE = "The recorded Tiled Refine source has not been resolved to a gallery image."
 
 
@@ -65,6 +71,24 @@ class StoredTiledRefine(_Contract):
         if stored.source is None:
             raise ValueError(UNRESOLVED_SOURCE)
         return TiledRefineSpec(source=stored.source, recipe=stored.recipe)
+
+
+class TiledRefinePreview(_Contract):
+    source: PositiveSource
+    tiled_refine: StoredTiledRefine | None = None
+
+
+class TiledRefineCapability(_Contract):
+    recipe: RecipeName = RECIPE_NAME
+    source_width: int = ROOT_SIZE[0]
+    source_height: int = ROOT_SIZE[1]
+    width: int = CANVAS_SIZE[0]
+    height: int = CANVAS_SIZE[1]
+    steps: int = STEPS
+    guidance_scale: float = GUIDANCE_SCALE
+    strength: float = STRENGTH
+    tiles: int = TILES
+    denoised_steps: int = DENOISED_STEPS
 
 
 def bound_spec(value: object) -> StoredTiledRefine:

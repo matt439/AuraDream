@@ -145,6 +145,16 @@
 .bundle-browser-card span { overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow-wrap: anywhere; }
 .bundle-browser-actions:not([hidden]) { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 #bundle-browser-details:not([hidden]) { display: grid; justify-items: start; gap: var(--sp-3); }
+.bundle-restore:not([hidden]) {
+  display: grid; gap: var(--sp-2); width: 100%; padding: var(--sp-3);
+  border: 1px solid var(--line-strong); border-radius: var(--r-sm);
+  font-size: var(--fs-body-sm); overflow-wrap: anywhere;
+}
+#bundle-restore-status { min-height: 1lh; }
+#bundle-restore-dependencies { list-style: none; margin: 0; padding: 0; }
+#bundle-restore-dependencies li { border-top: 1px solid var(--line); padding: var(--sp-2) 0; }
+#bundle-restore-dependencies label { display: flex; align-items: center; gap: var(--sp-2); }
+#bundle-restore-dependencies input { flex: none; }
 #bundle-browser-details img { display: block; max-width: 100%; object-fit: contain; }
 #bundle-browser-details dl {
   display: grid; grid-template-columns: minmax(5rem, 1fr) minmax(0, 3fr); gap: var(--sp-2) var(--sp-3);

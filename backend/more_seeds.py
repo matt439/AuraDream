@@ -36,7 +36,7 @@ from .execution import execution_key
 from .instruction_edit import edit_key
 from .schemas import GenerateRequest, ImageRecord, ThenRefine, error_detail
 from .seeds import wrap_seed
-from .tiled_refine_contract import HELD as TILED_REFINE_HELD, tiled_refine_key
+from .tiled_refine_contract import tiled_refine_key
 
 # The statuses this module decides; the routes add `foreign`,
 # `source_deleted`, `lora_missing`, `mask_missing`, `outpaint`,
@@ -205,12 +205,9 @@ def plan(
     `applied` runs them; the seeds chosen are added to it, so a later batch
     of the same settings - another run of the same prompt - steps past them."""
     template = batch.template
-    if template.tiled_refine is not None:
-        batch.status, batch.detail = "invalid", TILED_REFINE_HELD
-        return
     size, batch.recorded = batch_size(batch.held, fallback)
     fit = fitting(size, template.width, template.height, template.refine)
-    if template.edit is not None or template.detailer is not None:
+    if template.edit is not None or template.detailer is not None or template.tiled_refine is not None:
         fit = 1
     if not batch.recorded:
         batch.notes.append(f"its Batch was not recorded: the panel's {size}")
@@ -218,6 +215,7 @@ def plan(
         batch.notes.append(
             "instruction edits run one image per call" if template.edit is not None else
             "detailer passes run one image per call" if template.detailer is not None else
+            "Tiled Refine runs one image per queue cell" if template.tiled_refine is not None else
             f"Batch {size} is past the pixel budget at {template.width}×{template.height}: {fit} at a time"
         )
     batch.size = fit

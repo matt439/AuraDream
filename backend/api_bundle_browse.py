@@ -4,17 +4,20 @@ from __future__ import annotations
 import asyncio
 import re
 import secrets
+import sqlite3
+from collections.abc import Callable
+from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
 from fastapi.routing import APIRoute
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictInt
 
-from . import bundle_leases, refusal_codes
+from . import bundle_leases, gallery_lock, refusal_codes, storage
 from .api_bundles import _password
 from .bundle_common import BrowseUnavailable, BundleError, sentence
-from .bundle_manager import BROWSE_PREFIX
+from .bundle_manager import BROWSE_PREFIX, RESTORE_PATH, BundleManager
 from .bundle_views import BundleViews, ViewClosed, ViewsFull
 from .refusals import Refused
 from .schemas_bundles import ImportRequest
@@ -27,6 +30,18 @@ class BrowseFilter(BaseModel):
     run: str = Field(default="", max_length=512)
     starred: bool = False
     offset: int = Field(default=0, ge=0, le=2**31 - 1)
+
+
+ArchiveImageId = Annotated[StrictInt, Field(gt=0, le=2**63 - 1)]
+
+
+class RestorePreview(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    image_id: ArchiveImageId
+
+
+class RestoreRequest(RestorePreview):
+    include_ids: list[ArchiveImageId] = Field(default_factory=list)
 
 
 class _BrowseRoute(APIRoute):
@@ -133,3 +148,52 @@ def close_bundle(request: Request):
     views: BundleViews = request.app.state.bundle_views
     views.close(request.headers.get(VIEW_HEADER, ""))
     return Response(status_code=204)
+
+
+def create_restore_router(get_manager: Callable[[], BundleManager]) -> APIRouter:
+    restore_router = APIRouter(route_class=_BrowseRoute)
+
+    @restore_router.post(RESTORE_PATH + "/preview")
+    def restore_preview(request: Request, selection: RestorePreview):
+        views: BundleViews = request.app.state.bundle_views
+        try:
+            with (gallery_lock.hold(storage.settings.db_path, create=False),
+                  views.read(request.headers.get(VIEW_HEADER, "")) as archive):
+                return archive.restoration.preview(selection.image_id)
+        except KeyError:
+            raise HTTPException(404, "This image is not in the saved bundle.") from None
+
+    @restore_router.post(RESTORE_PATH, status_code=202)
+    async def restore(request: Request, selection: RestoreRequest):
+        views: BundleViews = request.app.state.bundle_views
+        manager = get_manager()
+        view = views.pin(request.headers.get(VIEW_HEADER, ""))
+        try:
+            manager.reserve("restore")
+        except BaseException:
+            views.release_pin(view)
+            raise
+
+        def run() -> dict:
+            try:
+                with gallery_lock.hold(storage.settings.db_path), views.read_pinned(view) as archive:
+                    return archive.restoration.restore(selection.image_id, selection.include_ids, manager.report)
+            except KeyError:
+                raise BrowseUnavailable("this image is not in the saved bundle") from None
+            except BrowseUnavailable:
+                raise
+            except (BundleError, OSError, sqlite3.Error):
+                # Global operation receipts can be read by other tabs. Never
+                # let a protected archive's filenames or values reach them.
+                raise BrowseUnavailable("the saved image could not be verified or merged with this gallery") from None
+            finally:
+                views.release_pin(view)
+
+        try:
+            return manager.start(run, on_not_started=lambda _reason: views.release_pin(view))
+        except BaseException:
+            views.release_pin(view)
+            manager.fail("The gallery restore worker could not start.")
+            raise
+
+    return restore_router

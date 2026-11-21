@@ -683,8 +683,10 @@ function receiveStatus(s, asked = Date.now()) {
       loadRuns();
     }
     const previousRefineReason = refineUnavailableReason();
+    const previousTiledRefineReason = tiledRefineCapabilityReason();
     const refineSuggestionsChanged = receiveRefineStrengthSuggestions(s.refine_strength_suggestions);
     applyDefaults(s.defaults);
+    if (previousTiledRefineReason !== tiledRefineCapabilityReason()) syncReuseButtons();
     // After the profile, so a remembered value set on this checkpoint wins
     // over it and a value set on another is left to the profile.
     if (loadedModel) restoreSampling(loadedModel);

@@ -19,6 +19,7 @@ from .model_benchmarks import speed_for
 from .instruction_edit import INSTRUCTION_EDIT_UNAVAILABLE
 from .model_defaults import defaults_for
 from .refine_qualification import envelope_for
+from .tiled_refine_contract import MODEL_ID as TILED_REFINE_MODEL, QUANTIZATION as TILED_REFINE_QUANT
 
 
 _FLUX_SIZE = (
@@ -582,6 +583,7 @@ CAPABILITIES: tuple[tuple[str, str], ...] = (
     ("negative_prompt", "Negative prompt"),
     ("preview", "Live preview"),
     ("expand", "Expand"),
+    ("tiled_refine", "Tiled Refine"),
 )
 _YES_NO = {True: "Yes", False: "No"}
 # An inpaint class diffusers ships that this app has not enabled yet
@@ -595,7 +597,7 @@ def _catalogue_entry(model_id: str):
 
 
 def capabilities_for(model_id: str, quantization: str | None = None) -> dict[str, str] | None:
-    """Each `CAPABILITIES` flag as Yes, No or Not yet for a catalogue
+    """Each `CAPABILITIES` flag for a catalogue
     selection, or None for an id outside the catalogue (whose loaded
     pipeline decides). Cold, and nothing of its own: each word is asked of
     the place that decides it at run time, by the id alone.
@@ -632,6 +634,9 @@ def capabilities_for(model_id: str, quantization: str | None = None) -> dict[str
         "negative_prompt": _YES_NO[bool(profile["negative_prompt_supported"])],
         "preview": _YES_NO[_LATENTS[checkpoint.repo] in latent_preview.FACTORS],
         "expand": _YES_NO[generates and loading.prompt_expander_by_id(checkpoint.repo)],
+        "tiled_refine": (
+            "Limited" if model_id == TILED_REFINE_MODEL and quantization in (None, TILED_REFINE_QUANT) else "No"
+        ),
     }
 
 
@@ -715,6 +720,12 @@ def details_for(
              f"1024×1024 source and output, {measured_refine.steps} steps, CFG {measured_refine.guidance_scale:g}; "
              "strengths 0.125, 0.25 or 0.4.")
             if measured_refine is not None else
+            (
+                "This app has a compatible image-to-image Refine pass for this checkpoint. "
+                "Tiled Refine is a separate 1024×1024 to 2048×2048 recipe on Windows RTX 5080 "
+                "with FP8, model offload, Eager/Native and diffusers 0.42.1."
+            )
+            if model_id == TILED_REFINE_MODEL else
             "This app has a compatible image-to-image Refine pass for this checkpoint."
             if profile["refine_supported"] else
             "This app has no compatible image-to-image Refine pass for this checkpoint."

@@ -161,7 +161,9 @@ async def _carry_then_refine(services: AppServices, queued: list[more_seeds.Batc
     so whatever `carry` says; with `carry` off they make bases only; else mates of two specs, or a pass `then_refine.refusal` refuses at
     this batch's size and steps, is a `then_refine` status in words, and
     the rest still queue."""
-    bases = [batch for batch in queued if batch.template.refine is None and batch.template.edit is None]
+    bases = [batch for batch in queued if (
+        batch.template.refine is None and batch.template.edit is None and batch.template.tiled_refine is None
+    )]
     job_ids = sorted({record.job_id for batch in bases for record in batch.held if record.job_id})
     retained = await asyncio.to_thread(storage.retained_run_metadata, job_ids) if job_ids else {}
     selective = {job_id for job_id, (_, metadata) in retained.items() if metadata.get("then_refine_cells") is not None}

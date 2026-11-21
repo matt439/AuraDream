@@ -212,6 +212,9 @@ const ladderGroupKey = (rec, skip = CFG_SKIP) => JSON.stringify([
   ...SHEET_AXES.filter((axis) => !skip.includes(axis.key)).map((axis) => axisValue(axis, rec)),
   rec.width, rec.height, rec.model_id, rec.quantization, rec.refine, rec.edit?.recipe, rec.edit?.source,
   rec.edit?.edit_source?.hash, rec.edit?.edit_source?.width, rec.edit?.edit_source?.height, rec.edit?.edit_source?.filename,
+  rec.tiled_refine?.recipe, rec.tiled_refine?.source, rec.tiled_refine?.preparation, rec.tiled_refine?.prepared_rgb_sha256,
+  rec.tiled_refine?.root_source?.hash, rec.tiled_refine?.root_source?.width,
+  rec.tiled_refine?.root_source?.height, rec.tiled_refine?.root_source?.filename,
 ]);
 
 function syncSheetSwipes() {
@@ -485,6 +488,7 @@ function drawSheet() {
       cell.classList.add('refined');
       cell.dataset.strength = rec.strength;
     }
+    if (rec.tiled_refine) cell.classList.add('refined', 'tiled-refined');
     if (caption) {
       const cap = document.createElement('span');
       cap.className = 'cap';

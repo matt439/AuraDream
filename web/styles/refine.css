@@ -67,7 +67,7 @@
 .confirm-dialog .field span { font-size: var(--fs-body-sm); color: var(--text); text-transform: none; letter-spacing: 0; }
 .confirm-actions { display: flex; justify-content: space-between; gap: var(--sp-3); }
 .primary.destroy { background: var(--danger-strong); }
-.rf-head { display: flex; align-items: center; justify-content: space-between; }
+.rf-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
 .rf-head h2 { margin: 0; font-size: var(--fs-lg); font-weight: 600; }
 .rf-source { display: flex; gap: var(--sp-3); align-items: flex-start; }
 /* The whole picture, letterboxed in its square: cover showed a 16:9 source's
@@ -121,6 +121,9 @@
    white, quieter by its size alone: at 0.85 opacity it fell under 4.5:1. */
 .refine-dialog .presets button.active::after { color: inherit; }
 .refine-dialog .presets button:disabled { opacity: 0.45; cursor: not-allowed; }
+.rf-method { margin-inline-start: auto; }
+.refine-dialog .rf-method button { flex: 0 1 auto; min-width: 0; padding-inline: var(--sp-2); }
+.refine-dialog .rf-method button::after { content: none; }
 /* Compare scales at the far end of the Size caption, as Compare 3 is at the
    end of Strength's: floated, its block margins taking it to the caption's
    own line, so the caption - and the dialog - keep their height. Pressed, it

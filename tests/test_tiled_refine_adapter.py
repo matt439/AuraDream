@@ -211,8 +211,9 @@ def test_bind_refuses_a_root_outside_the_actual_pixel_envelope(store, mode, size
         admission.bind_source(_raw_spec(source))
 
 
-def test_public_generate_refuses_tiled_refine_before_preparing_a_source(candidate):
-    with pytest.raises(ValueError, match="Tiled Refine.*held"):
+def test_public_generate_refuses_an_unpinned_owner_before_preparing_a_source(candidate):
+    candidate.backend._tiled_refine_candidate = None
+    with pytest.raises(ValueError, match="pinned Animagine"):
         candidate.backend.generate(_request(candidate.bound), seed=7)
     assert candidate.canvas == [] and candidate.sibling.calls == []
 
@@ -381,7 +382,7 @@ def test_invalid_tile_output_count_transfers_ownership_to_the_cleanup(candidate)
         _assert_closed(raw)
 
 
-def test_private_job_saves_only_complete_composites_and_resumes_the_retained_cell(candidate):
+def test_public_job_saves_only_complete_composites_and_resumes_the_retained_cell(candidate):
     request = _request(candidate.bound)
     cells = [grid.Cell(request, 7), grid.Cell(request, 11)]
     store = candidate.store
@@ -394,10 +395,6 @@ def test_private_job_saves_only_complete_composites_and_resumes_the_retained_cel
         manager = jobs.JobManager(candidate.backend)
         loop = asyncio.get_running_loop()
         try:
-            with pytest.raises(ValueError, match="Tiled Refine.*held"):
-                await manager.submit_cells(cells)
-            assert store.retained_run_jobs() == []
-
             async def cancel_first():
                 manager.cancel(first.id)
 
@@ -408,7 +405,7 @@ def test_private_job_saves_only_complete_composites_and_resumes_the_retained_cel
                     asyncio.run_coroutine_threadsafe(cancel_first(), loop).result(timeout=30)
 
             candidate.sibling.on_step = cancel_during_second_cell
-            first = await manager._submit_tiled_refine_candidate(cells)
+            first = await manager.submit_cells(cells, grid=False)
             await asyncio.wait_for(settled(first), 60)
             assert (first.status, first.completed_indices, first.failed_indices) == ("cancelled", [0], [])
             assert len(first.images) == 1 and first.images[0]["seed"] == 7
@@ -429,7 +426,7 @@ def test_private_job_saves_only_complete_composites_and_resumes_the_retained_cel
             assert [cell.seed for cell in missing] == [11]
 
             candidate.sibling.on_step = None
-            resumed = await manager._submit_tiled_refine_candidate(missing, run_id=first.run_id)
+            resumed = await manager.submit_cells(missing, run_id=first.run_id, grid=False)
             await asyncio.wait_for(settled(resumed), 60)
             assert (resumed.status, resumed.completed_indices, resumed.failed_indices) == ("done", [0], [])
             assert len(resumed.images) == 1 and resumed.images[0]["seed"] == 11

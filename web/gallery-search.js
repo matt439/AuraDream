@@ -193,6 +193,7 @@ function factSearchTerms(rec) {
     LoRA: rec.lora ? one('lora', rec.lora) : null,
     // The other passes made from the same source.
     'Refined from': rec.refine != null ? [`refine:${rec.refine}`] : null,
+    'Tiled Refine': one('refine', rec.tiled_refine?.source),
     Seed: [`seed:${rec.seed}`],
     Created: [`date:${searchDay(rec)}`],
     Run: run,

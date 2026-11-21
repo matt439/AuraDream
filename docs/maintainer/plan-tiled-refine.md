@@ -1,10 +1,9 @@
 # Tiled Refine
 
-**Status, 2026-11-20.** The private adapter, durable carry and guarded card
-qualification are complete for the exact Animagine recipe below. Stage 4
-owns the public opt-in and its normal entry points; public submission and
-replay remain held. The exploratory SDXL seam experiment
-passed its narrow planning gate on November 17. The originating
+**Status, 2026-11-21.** The exact Animagine recipe below is available as an
+opt-in under Refine. The [public workflow qualification](#public-workflow-result-2026-11-21)
+covers the browser, real API and fresh standalone CLI. The exploratory
+SDXL seam experiment passed its planning gate on November 17. The originating
 [R2](review-2026-11-10-peers.md#r2-tiled-refine) owns why the experiment came first.
 
 The aim is to refine a larger image through bounded overlapping regions,
@@ -403,9 +402,35 @@ central cross and no consistent gain in faithful detail across these four
 drawings. Raw native crop pairs and per-scene images are in
 `work/gen49-stage3-20261120-a4/audit/`. [Four-scene overview](gen49-stage3/overview.png).
 
-The next work is stage 4's explicit public choice, admission and end-to-end
-qualification across its intended interfaces. The private result covers
-only the measured source size, model, recipe and loader above. Final CPU
+The private result covers the measured source size, model, recipe and
+loader above. Final CPU
 verification passed 165 focused tests, including queue, storage, reindex,
 bundle, rule and guard cases. Ruff passed; pinned Pyright checked 235
 backend/tool sources with zero diagnostics using the shared project venv.
+
+## Public workflow result (2026-11-21)
+
+Refine offers **Tiled Refine** on the fixed source and loader envelope.
+The normal load prefers the verified pinned files from its local cache
+and resolves that revision when needed. If it cannot resolve the pin,
+ordinary Animagine can load and the tiled choice gives the hold reason.
+Public submit, Reuse, More seeds, Finish and the CLI keep separate tiled
+intent and the two source proofs. Grid, Mass refine, Then refine, size
+changes and browser PNG settings have explicit holds for the tiled recipe.
+
+The browser smoke used two versions and checked eligibility, fixed settings,
+progress, persistence, Reuse, More seeds and source bin and restore. The
+regular Refine smoke also passed. Backend tests covered queue admission,
+retained recovery and PNG and archive proof carry, including a selective
+restore with colliding gallery IDs and a missing source.
+
+On the card, the frozen external guard admitted one offline server load
+through the ordinary loader. The queue cancelled the second image in tile
+two and then finished just that image from the original root. Both RGB
+digests matched the private trial. More seeds carried the same proofs to
+seed 4103, and the browser PNG route returned its deliberate hold. A fresh
+standalone CLI load then replayed seed 4101 from its PNG and matched it pixel
+for pixel. The two scratch attempts retained API and CLI results, raw
+readings and guard receipts in `work/gen49-stage4-api-20261121-a1` and
+`work/gen49-stage4-cli-20261121-a1`. Both unloaded within the original
+limits. [Measured peaks and sample coverage](../verified.md#public-tiled-refine-on-animagine-xl-40-2026-11-21).

@@ -81,6 +81,7 @@ from .schemas import (  # noqa: E402
     PromptGuide,
 )
 from .schemas_model import RefineStrengthSuggestions  # noqa: E402
+from .tiled_refine_contract import TiledRefineCapability  # noqa: E402
 from .translation import MODEL_BYTES as TRANSLATOR_BYTES  # noqa: E402
 from .translation import prompt_translator  # noqa: E402
 
@@ -593,6 +594,7 @@ async def hold_model_for_request(request: Request, call_next):
         return await call_next(request)
     depends_on_model = path in {
         "/api/instruction-edit/preview", "/api/instruction-edit",
+        "/api/tiled-refine/preview",
         "/api/detailer/preview", "/api/detailer",
         "/api/generate", "/api/grid", "/api/rerender", "/api/swap-tags", "/api/refine/batch", "/api/more-seeds",
         "/api/loras", "/api/png/settings",
@@ -790,6 +792,8 @@ async def status() -> ModelStatus:
         # actual readiness without changing the load supervisor's own state.
         state = "ready" if backend.is_ready() else "unloaded"
     defaults = _merged_defaults(info)
+    defaults["tiled_refine"] = TiledRefineCapability()
+    defaults["tiled_refine_reason"] = info["tiled_refine_reason"]
     refine_suggestions = refine_qualification.suggestions(info["model_id"])
     selected_settings = current_settings(settings)
     card_holder, card_ticket = jobs.card()
@@ -873,7 +877,9 @@ def _describe_with_newest() -> tuple[dict, int | None]:
     """The backend's description and the gallery's newest id, for one status;
     the card's facts are read here too, off the event loop (`_read_card`)."""
     card_facts.card(current_settings(settings).device)
-    return backend.describe(), storage.newest_image_id()
+    info = backend.describe()
+    info["tiled_refine_reason"] = backend.tiled_refine_refusal(current_settings(settings))
+    return info, storage.newest_image_id()
 
 
 async def _read_card() -> None:
@@ -1634,6 +1640,7 @@ app.include_router(api_masks.create_router(services))
 app.include_router(api_jobs.create_router(lambda: jobs))
 app.include_router(api_bundles.create_router(lambda: bundle_manager, services))
 app.include_router(api_bundle_browse.router)
+app.include_router(api_bundle_browse.create_restore_router(lambda: bundle_manager))
 app.include_router(api_backup.create_router(_backup_service))
 app.include_router(api_gallery.create_router(
     lambda: jobs, services.model_scope, max_grid_images=settings.max_grid_images,

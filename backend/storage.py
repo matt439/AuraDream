@@ -56,6 +56,7 @@ from .record_fields import (  # noqa: F401 - re-exported for storage.<name>
 from .search import fts_prefix_match, parse_search, word_match
 from .schemas import ImageRecord, OutpaintSpec, effective_true_cfg
 from .schemas_mask_crop import MaskCropSpec
+from .tiled_refine_contract import descriptor_from_image as tiled_descriptor_from_image
 from .tiled_refine_contract import tiled_refine_key
 
 if TYPE_CHECKING:
@@ -456,7 +457,8 @@ def mask_crop_region(mask: str | None, spec: MaskCropSpec | None, width: int, he
 
 def _row_to_record(
     row: sqlite3.Row | Mapping[str, Any], refine_missing: bool = False, refine_binned: bool = False,
-    edit_missing: bool = False, edit_binned: bool = False, *, lookup_thumbnail: bool = True,
+    edit_missing: bool = False, edit_binned: bool = False,
+    tiled_refine_missing: bool = False, tiled_refine_binned: bool = False, *, lookup_thumbnail: bool = True,
 ) -> ImageRecord:
     """A gallery row as the record the API serves.
 
@@ -480,6 +482,7 @@ def _row_to_record(
         if thumb.is_file():
             thumb_url = f"/outputs/{thumb.relative_to(settings.outputs_dir).as_posix()}"
     edit = edit_from_json(row["edit"])
+    tiled_refine = tiled_refine_from_json(row["tiled_refine"])
     validate_edit_record(edit, dict(row))
     return ImageRecord(
         id=row["id"],
@@ -512,9 +515,11 @@ def _row_to_record(
         execution=execution_from_json(row["execution"]),
         edit=edit,
         detailer=detailer_from_json(row["detailer"]),
-        tiled_refine=tiled_refine_from_json(row["tiled_refine"]),
+        tiled_refine=tiled_refine,
         edit_missing=edit_missing or (edit is not None and edit.source is None),
         edit_binned=edit_binned,
+        tiled_refine_missing=tiled_refine_missing or (tiled_refine is not None and tiled_refine.source is None),
+        tiled_refine_binned=tiled_refine_binned,
         batch=row["batch"],
         job_id=row["job_id"],
         run_id=row["run_id"],
@@ -833,7 +838,7 @@ def save_image(
                 # under the lock a delete takes: returned as present, the page
                 # showed it as one that could be made again until a reload.
                 missing, binned = _missing_sources(conn, [row])
-                edit_states = _edit_states(conn, [row])
+                lineage_states = _lineage_states(conn, [row])
             committed = True
             _rename_with_retry(partial, path)
             if thumb is not None:
@@ -851,7 +856,7 @@ def save_image(
     finally:
         if thumb is not None:
             _unlink(thumb)
-    return _row_to_record(row, row["refine"] in missing, row["refine"] in binned, *edit_states[row["id"]])
+    return _row_to_record(row, row["refine"] in missing, row["refine"] in binned, *lineage_states[row["id"]])
 
 
 def _rename_with_retry(src, dst, attempts: int = 5) -> None:
@@ -1006,15 +1011,65 @@ def list_images(
                 f"SELECT COUNT(*) FROM images {other_clause}", other_params
             ).fetchone()[0]
         missing, in_bin = _missing_sources(conn, rows)
-        edit_states = _edit_states(conn, rows)
-    return _records(rows, missing, in_bin, edit_states), total, others
+        lineage_states = _lineage_states(conn, rows)
+    return _records(rows, missing, in_bin, lineage_states), total, others
 
 
 def _records(
     rows: Sequence[sqlite3.Row], missing: set[int], binned: set[int],
-    edit_states: Mapping[int, tuple[bool, bool]],
+    lineage_states: Mapping[int, tuple[bool, bool, bool, bool]],
 ) -> list[ImageRecord]:
-    return [_row_to_record(r, r["refine"] in missing, r["refine"] in binned, *edit_states[r["id"]]) for r in rows]
+    return [_row_to_record(r, r["refine"] in missing, r["refine"] in binned, *lineage_states[r["id"]]) for r in rows]
+
+
+def _lineage_states(
+    conn: sqlite3.Connection, rows: Sequence[sqlite3.Row], *, prove_tiled: bool = False,
+) -> dict[int, tuple[bool, bool, bool, bool]]:
+    edits = _edit_states(conn, rows)
+    tiled = _tiled_refine_states(conn, rows, prove_pixels=prove_tiled)
+    return {row["id"]: (*edits[row["id"]], *tiled.get(row["id"], (False, False))) for row in rows}
+
+
+def _tiled_refine_states(
+    conn: sqlite3.Connection, rows: Sequence[sqlite3.Row], *, prove_pixels: bool,
+) -> dict[int, tuple[bool, bool]]:
+    """Batch the gallery hints. An individual record read proves the original RGB."""
+    specs = {row["id"]: tiled_refine_from_json(row["tiled_refine"]) for row in rows if row["tiled_refine"]}
+    wanted = list({spec.source for spec in specs.values() if spec is not None and spec.source is not None})
+    sources: dict[int, sqlite3.Row] = {}
+    for start in range(0, len(wanted), 400):
+        chunk = wanted[start : start + 400]
+        marks = ",".join("?" * len(chunk))
+        found = conn.execute(
+            f"SELECT id, filename, width, height, content_hash, binned_at FROM images WHERE id IN ({marks})",
+            chunk,
+        )
+        sources.update((row["id"], row) for row in found)
+    states: dict[int, tuple[bool, bool]] = {}
+    for image_id, spec in specs.items():
+        if spec is None or spec.source is None:
+            states[image_id] = True, False
+            continue
+        source = sources.get(spec.source)
+        root = spec.root_source
+        if source is None or (
+            source["filename"], source["width"], source["height"], source["content_hash"]
+        ) != (root.filename, root.width, root.height, root.hash[:16]):
+            states[image_id] = True, False
+            continue
+        if source["binned_at"] is not None:
+            states[image_id] = True, True
+            continue
+        path = settings.outputs_dir / root.filename
+        try:
+            present = path.is_file() and not path.is_symlink() and not path.is_junction()
+            if present and prove_pixels:
+                with Image.open(path, formats=["PNG"]) as image:
+                    present = tiled_descriptor_from_image(root.filename, image) == root
+        except (OSError, ValueError, Image.DecompressionBombError):
+            present = False
+        states[image_id] = not present, False
+    return states
 
 
 def _edit_states(conn: sqlite3.Connection, rows: Sequence[sqlite3.Row]) -> dict[int, tuple[bool, bool]]:
@@ -1269,8 +1324,8 @@ def import_file(values: dict[str, Any]) -> ImageRecord:
     validate_detailer_record(detailer_from_json(values.get("detailer")), values)
     with _write_lock, _session() as conn:
         row = _insert_row(conn, {column: values.get(column) for column in _COLUMNS})
-        states = _edit_states(conn, [row])
-    return _row_to_record(row, edit_missing=states[row["id"]][0], edit_binned=states[row["id"]][1])
+        states = _lineage_states(conn, [row])
+    return _row_to_record(row, False, False, *states[row["id"]])
 
 
 @gallery_lock.protected(lambda: settings.db_path, waits=True)
@@ -1360,8 +1415,8 @@ def index_file(
                 "mask_crop_box": _box_within(mask_crop_box(crop[1]), width, height) if crop is not None else None,
             },
         )
-        states = _edit_states(conn, [row])
-    return _row_to_record(row, edit_missing=states[row["id"]][0], edit_binned=states[row["id"]][1])
+        states = _lineage_states(conn, [row])
+    return _row_to_record(row, False, False, *states[row["id"]])
 
 
 def thumbnail_for(image: Image.Image, filename: str) -> None:
@@ -1642,7 +1697,7 @@ def get_image(image_id: int, include_binned: bool = False) -> ImageRecord | None
     with _session() as conn:
         row = conn.execute(f"SELECT * FROM images WHERE id = ?{live}", (image_id,)).fetchone()
         missing, binned = _missing_sources(conn, [row]) if row else (set(), set())
-        states = _edit_states(conn, [row]) if row else {}
+        states = _lineage_states(conn, [row], prove_tiled=True) if row else {}
     return _row_to_record(row, row["refine"] in missing, row["refine"] in binned, *states[row["id"]]) if row else None
 
 
@@ -1662,7 +1717,7 @@ def get_images(ids: Sequence[int], include_binned: bool = False) -> list[ImageRe
                 chunk,
             ).fetchall())
         missing, binned = _missing_sources(conn, rows) if rows else (set(), set())
-        states = _edit_states(conn, rows)
+        states = _lineage_states(conn, rows)
     return _records(rows, missing, binned, states)
 
 
@@ -1683,7 +1738,7 @@ def lineage_images(run_ids: Sequence[str], job_ids: Sequence[str]) -> list[Image
                     chunk,
                 ).fetchall())
         missing, binned = _missing_sources(conn, rows)
-        states = _edit_states(conn, rows)
+        states = _lineage_states(conn, rows)
     return _records(sorted(rows, key=lambda row: row["id"]), missing, binned, states)
 
 

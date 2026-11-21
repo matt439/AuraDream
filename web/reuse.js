@@ -130,7 +130,13 @@ function editReuseReason(rec) {
 
 function executionReuseReason(rec) {
   if (rec.edit != null) return editReuseReason(rec);
-  if (rec.tiled_refine != null) return 'This image uses Tiled Refine, which is unavailable for replay.';
+  if (rec.tiled_refine != null) {
+    const id = rec.tiled_refine.source;
+    if (id == null) return 'The recorded Tiled Refine source has not been resolved to a gallery image.';
+    if (rec.tiled_refine_binned || binnedIds.has(id)) return sourceGoneWords({ id }, 'binned', 'refine');
+    if (rec.tiled_refine_missing || deletedIds.has(id)) return sourceGoneWords({ id }, 'deleted', 'refine');
+    return tiledRefineCapabilityReason();
+  }
   const spec = rec.execution;
   if (spec == null) return '';
   const empty = typeof spec === 'object' && !Array.isArray(spec)
@@ -226,7 +232,7 @@ function reuse(rec) {
   if (rec.refine != null && rec.outpaint) { void reuseOutpaint(rec); return; }
   // An inpaint's is the Inpaint dialog's, on its source with its mask.
   if (rec.refine != null && rec.mask) { void reuseInpaint(rec); return; }
-  if (rec.refine != null) { void reusePass(rec); return; }
+  if (rec.refine != null || rec.tiled_refine != null) { void reusePass(rec); return; }
   reuseIntoPanel(rec, true);
 }
 
@@ -506,15 +512,22 @@ function undoReuse(note) {
 // direct render takes.
 async function reusePass(rec) {
   const opening = beginReusePassOpening(rec);
+  const tiled = rec.tiled_refine;
+  const id = tiled?.source ?? rec.refine;
   try {
     let source;
     try {
-      source = await api(`/api/images/${rec.refine}`, { signal: opening.controller.signal });
+      source = await api(`/api/images/${id}`, { signal: opening.controller.signal });
     } catch (err) {
       if (!opening.valid() || err.name === 'AbortError') return;
       // Release before the current fallback: it is this intent's deliberate
       // panel replacement, whose own entry retires any older opening.
       reusePassOpening = null;
+      if (tiled) {
+        const gone = sourceGoneKind(err, { id });
+        showError(gone ? sourceGoneWords({ id }, gone, 'refine') : err.message, false, { slot: els.galleryError });
+        return;
+      }
       if (!imageGone(err)) { showError(err.message); return; }
       reuseIntoPanel(rec, false,
         `#${rec.refine}, the source this was refined from, is no longer in the gallery, `
@@ -555,7 +568,11 @@ function syncReuseButton(button, rec, compact = false) {
   button.dataset.reuseReference = (rec.reference ?? []).join(',');
   button.dataset.reuseLora = rec.lora || '';
   button.dataset.reuseExecution = JSON.stringify(rec.execution ?? null);
-  button.dataset.reuseTiledRefine = String(rec.tiled_refine != null);
+  const tiled = rec.tiled_refine;
+  button.dataset.reuseTiledRefine = String(!!tiled);
+  button.dataset.reuseTiledSource = tiled?.source ?? '';
+  button.dataset.reuseTiledGone = String(!!rec.tiled_refine_missing);
+  button.dataset.reuseTiledBinned = String(!!rec.tiled_refine_binned);
   button.dataset.reuseEdit = String(rec.edit != null);
   // An edit's recipe, source and availability let a refresh rebuild the
   // edit's button with its hold (`editReuseReason`).
@@ -568,10 +585,11 @@ function syncReuseButton(button, rec, compact = false) {
   button.setAttribute('aria-keyshortcuts', 'U');
   const executionReason = executionReuseReason(rec);
   if (executionReason) {
-    button.textContent = compact ? '\u21b6' : rec.edit != null ? 'Reuse instruction edit' : 'Reuse settings';
+    button.textContent = compact ? '\u21b6' : rec.edit != null ? 'Reuse instruction edit'
+      : tiled ? 'Reuse Tiled Refine' : 'Reuse settings';
     button.setAttribute('aria-disabled', 'true');
     button.setAttribute('aria-label', rec.edit != null ? 'Reuse instruction edit (unavailable)'
-      : rec.tiled_refine != null ? 'Reuse settings (Tiled Refine unavailable)' : 'Reuse settings (unavailable execution recipe)');
+      : tiled ? 'Reuse Tiled Refine (unavailable)' : 'Reuse settings (unavailable execution recipe)');
     button.title = executionReason;
     button.dataset.tip = 'Reuse unavailable';
     return;
@@ -586,6 +604,14 @@ function syncReuseButton(button, rec, compact = false) {
     button.title = `Open Edit by instruction\u2026 on #${rec.edit.source} with this edit's instruction, seed, steps and guidance`;
     button.setAttribute('aria-label', 'Reuse instruction edit');
     button.dataset.tip = 'Reuse edit\u2026';
+    return;
+  }
+  if (tiled) {
+    button.classList.remove('model-mismatch');
+    button.textContent = compact ? '\u21bb' : 'Reuse Tiled Refine…';
+    button.title = `Open Tiled Refine on #${tiled.source} with this pass's recipe, prompt and seed`;
+    button.setAttribute('aria-label', 'Reuse Tiled Refine');
+    button.dataset.tip = 'Reuse Tiled Refine…';
     return;
   }
   const mismatch = modelsDiffer(modelId);
@@ -711,7 +737,10 @@ function syncReuseButtons() {
         : null,
       edit_missing: kept.reuseEditGone === 'true',
       edit_binned: kept.reuseEditBinned === 'true',
-      tiled_refine: kept.reuseTiledRefine === 'true' ? {} : null,
+      tiled_refine: kept.reuseTiledRefine === 'true'
+        ? { source: kept.reuseTiledSource ? +kept.reuseTiledSource : null } : null,
+      tiled_refine_missing: kept.reuseTiledGone === 'true',
+      tiled_refine_binned: kept.reuseTiledBinned === 'true',
     }, kept.reuseCompact === 'true');
   });
   // More seeds… is held on another checkpoint's images the same way.

@@ -52,8 +52,8 @@ def step_cost_ms(
     since klein's step is about half of Turbo's at the same size. None when the
     gallery has nothing to measure, which is the caller's cue to promise nothing.
 
-    Refine rows are kept out: their fixed encode/decode costs dominate at low
-    strengths and cannot price a direct render. See `refine_cost_ms`.
+    Refine and Tiled Refine rows are kept out: their resize and VAE work
+    cannot price a direct render. See `refine_cost_ms`.
     """
     scope = "AND model_id = ?" if model_id else ""
     scope_params = (model_id,) if model_id else ()
@@ -61,7 +61,7 @@ def step_cost_ms(
         rows = conn.execute(
             f"""SELECT duration_ms, steps FROM images
                WHERE width = ? AND height = ? AND steps > 0 AND duration_ms > 0
-                 AND refine IS NULL AND edit IS NULL {scope}
+                 AND refine IS NULL AND edit IS NULL AND tiled_refine IS NULL {scope}
                ORDER BY id DESC LIMIT ?""",
             (width, height, *scope_params, sample),
         ).fetchall()
@@ -179,7 +179,7 @@ def gallery_timing(quantization: str, sample: int = 50) -> dict[str, dict[str, i
     """Each checkpoint's typical direct render in this gallery, for the picker.
 
     One grouped query over each checkpoint's latest `sample` direct renders
-    under `quantization`: no refine pass, no edit, Eager execution (a NULL
+    under `quantization`: no image pass, Eager execution (a NULL
     column) and a recorded duration. Of those, the size used most, the step
     count used most at that size, and the median seconds per image there
     with how many images it is of. A tie goes to the more recent setting.
@@ -202,7 +202,7 @@ def gallery_timing(quantization: str, sample: int = 50) -> dict[str, dict[str, i
                        SELECT id, model_id, width, height, steps, duration_ms,
                               ROW_NUMBER() OVER (PARTITION BY model_id ORDER BY id DESC) AS recent
                        FROM images
-                       WHERE quantization = ? AND refine IS NULL AND edit IS NULL
+                       WHERE quantization = ? AND refine IS NULL AND edit IS NULL AND tiled_refine IS NULL
                          AND execution IS NULL AND duration_ms > 0 AND steps > 0
                    )
                    SELECT model_id, width, height, steps, COUNT(*) AS made, MAX(id) AS newest,
@@ -288,9 +288,8 @@ def _cell_ms(
         # cannot price it; keep the estimate unknown until measured apart.
         if request.upscaler is not None:
             return None
-        # Nor can a direct render's step price an instruction edit (More
-        # seeds queues one): no edit history is qualified in this release.
-        if request.edit is not None:
+        # Each edit or tiled composite has its own pipeline work.
+        if request.edit is not None or request.tiled_refine is not None:
             return None
         if request.refine is None:
             if direct is None:

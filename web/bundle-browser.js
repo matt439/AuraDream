@@ -1,5 +1,5 @@
-// Read-only, tab-local view of one saved bundle. The view token travels in a
-// header. Only the current page has records and thumbnail object URLs.
+// Tab-local view of one saved bundle. The view token travels in a header.
+// Only the current page has records and thumbnail object URLs.
 'use strict';
 
 const BUNDLE_BROWSE_PATH = '/api/gallery/bundles/browse';
@@ -25,6 +25,7 @@ function clearBundleBrowserPage(view) {
   view.read?.abort();
   view.read = null;
   clearTimeout(view.filterTimer);
+  view.detail?.restore.read?.abort();
   view.detail = null;
   bundleBrowserEl('details').replaceChildren();
   bundleBrowserEl('details').hidden = true;
@@ -181,12 +182,17 @@ function showBundleBrowserDetails(view, record, card, thumbnail) {
     description.textContent = typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value);
     settings.append(term, description);
   }
-  view.detail = {id: record.id, image};
-  detail.replaceChildren(back, title, image, settings);
+  const restore = bundleRestoreControl(view, record);
+  const actions = document.createElement('div');
+  actions.className = 'bundle-browser-actions';
+  actions.append(back, restore.button);
+  view.detail = {id: record.id, image, restore};
+  detail.replaceChildren(title, actions, restore.panel, image, settings);
   detail.hidden = false;
   for (const part of ['filters', 'list', 'pages']) bundleBrowserEl(part).hidden = true;
   bundleBrowserEl('status').textContent = '';
   back.onclick = () => {
+    restore.read?.abort();
     view.detail = null;
     detail.hidden = true;
     detail.replaceChildren();

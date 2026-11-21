@@ -507,7 +507,7 @@ class GenerateRequest(BaseModel):
             self.validate_edit(require_bound=True)
             return
         if self.tiled_refine is not None:
-            self.validate_tiled_refine(require_bound=True)
+            self.validate_tiled_refine()
         if self.refine is not None or self.tiled_refine is not None:
             if self.width * self.height > settings.refine_max_pixels:
                 raise ValueError(
@@ -740,8 +740,8 @@ class GenerateSubmission(GenerateRequest):
 
     @model_validator(mode="after")
     def _one_execution_channel(self) -> "GenerateSubmission":
-        if self.tiled_refine is not None:
-            raise ValueError(tiled.HELD)
+        if self.tiled_refine is not None and (self.then_refine is not None or self.step_cache is not None):
+            raise ValueError("Tiled Refine cannot use Then refine or step caching.")
         if self.edit is not None and (self.then_refine is not None or self.step_cache is not None):
             raise ValueError("instruction edits cannot use Then refine or step caching")
         if "execution" in self.model_fields_set and "step_cache" in self.model_fields_set:

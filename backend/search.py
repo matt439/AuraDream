@@ -20,6 +20,9 @@ TRUE_CFG_SQL = (
     "COALESCE(true_cfg, CASE WHEN negative_prompt IS NOT NULL AND negative_prompt <> '' "
     "THEN guidance_scale END)"
 )
+REFINE_SOURCE_SQL = (
+    "COALESCE(refine, CASE WHEN json_valid(tiled_refine) THEN json_extract(tiled_refine, '$.source') END)"
+)
 
 # `key:value` in the search box. The column, and what a bare value means.
 FILTERS: dict[str, tuple[str, Any]] = {
@@ -40,7 +43,7 @@ FILTERS: dict[str, tuple[str, Any]] = {
     "lora": ("lora", str),
     # A refine pass by the gallery id it started from - `refine:none` is the
     # direct renders - and by how far it was re-denoised.
-    "refine": ("refine", int),
+    "refine": (REFINE_SOURCE_SQL, int),
     "strength": ("strength", float),
     # An inpaint by its mask's hash - a substring, so the 16 digits the A1111
     # line prints find it - and `mask:none` everything that is no inpaint.
@@ -210,7 +213,7 @@ def maskcrop_clause(raw: str) -> tuple[str, list]:
 def inpaint_clause(raw: str) -> tuple[str, list]:
     """`inpaint:yes` (or `true`, `1`) and `inpaint:no` (`false`, `0`, `none`):
     a mask on the row or none. The mask is only ever set beside a source, so
-    `inpaint:no refine:>0` is the plain refine passes."""
+    `inpaint:no refine:>0` is the ordinary and tiled Refine passes."""
     lowered = raw.lower()
     if lowered in {"yes", "true", "1"}:
         return "mask IS NOT NULL", []
@@ -241,6 +244,9 @@ def filter_clause(key: str, raw: str) -> tuple[str, list]:
         return maskcrop_clause(raw)
     if key == "edit":
         return _yes_no_clause("edit", "edit", raw)
+    if key == "refine" and raw.lower() in NULL_TOKENS:
+        # An unresolved tiled source still describes a pass.
+        return "(refine IS NULL AND tiled_refine IS NULL)", []
     column, cast = FILTERS[key]
     if cast is str:
         # `model:=<id>` is the whole id, exactly - the gallery's own checkpoint

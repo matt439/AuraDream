@@ -17,6 +17,7 @@ from backend.backends import loading
 from backend.instruction_edit import is_edit_only
 from backend.launch import CHECKPOINTS, FORMATS
 from backend.model_defaults import defaults_for
+from backend.tiled_refine_contract import MODEL_ID as TILED_REFINE_MODEL
 
 ROOT = Path(__file__).resolve().parent.parent
 KEYS = [key for key, _ in model_info.CAPABILITIES]
@@ -27,11 +28,12 @@ def _generators():
     return [entry for entry in CHECKPOINTS if not is_edit_only(entry.repo)]
 
 
-def test_the_flags_are_the_seven_the_picker_did_not_say():
+def test_the_picker_lists_each_capability():
     assert model_info.CAPABILITIES == (
         ("inpaint", "Inpaint"), ("outpaint", "Outpaint"), ("references", "References"),
         ("lora", "LoRA"), ("negative_prompt", "Negative prompt"),
         ("preview", "Live preview"), ("expand", "Expand"),
+        ("tiled_refine", "Tiled Refine"),
     )
 
 
@@ -64,6 +66,14 @@ def test_a_deferred_inpaint_is_not_yet_and_never_a_plain_no():
     assert words["Qwen/Qwen-Image"] == "Not yet"
     assert words[KREA_DEV] == "Yes"
     assert words["krea/Krea-2-Turbo"] == "No"
+
+
+def test_tiled_refine_is_limited_to_animagine_fp8():
+    for entry in CHECKPOINTS:
+        flags = model_info.capabilities_for(entry.repo)
+        assert flags["tiled_refine"] == ("Limited" if entry.repo == TILED_REFINE_MODEL else "No")
+    assert model_info.capabilities_for(TILED_REFINE_MODEL, "fp8")["tiled_refine"] == "Limited"
+    assert model_info.capabilities_for(TILED_REFINE_MODEL, "int8")["tiled_refine"] == "No"
 
 
 def test_recorded_answers_per_family():
@@ -113,6 +123,7 @@ def test_the_editor_answers_no_to_everything_but_its_preview():
     assert flags == {
         "inpaint": "No", "outpaint": "No", "references": "No", "lora": "No",
         "negative_prompt": "No", "preview": "Yes", "expand": "No",
+        "tiled_refine": "No",
     }
 
 
@@ -168,7 +179,7 @@ def test_details_for_says_the_flags_as_one_note_and_no_new_cell():
     krea = model_info.details_for(KREA_DEV)["capabilities_note"]
     assert krea.startswith(
         "Inpaint yes; Outpaint yes; References no; LoRA yes; Negative prompt yes; "
-        "Live preview yes; Expand no."
+        "Live preview yes; Expand no; Tiled Refine no."
     )
     # The loader being chosen reaches the note: the picker's rows rebuild on it.
     assert "LoRA no;" in model_info.details_for(KREA_DEV, quantization="nunchaku")["capabilities_note"]
@@ -195,7 +206,7 @@ def test_usage_md_holds_the_generated_table():
     rows = table.splitlines()
     assert rows[0] == (
         "| Checkpoint | Refine | Inpaint | Outpaint | References | LoRA | Negative prompt | "
-        "Live preview | Expand |"
+        "Live preview | Expand | Tiled Refine |"
     )
     assert len(rows) == len(CHECKPOINTS) + 2
     for entry, row in zip(CHECKPOINTS, rows[2:], strict=True):
@@ -203,7 +214,8 @@ def test_usage_md_holds_the_generated_table():
         flags = model_info.capabilities_for(entry.repo)
         assert flags is not None
         assert cells == [entry.name, model_info.details_for(entry.repo)["refine"], *flags.values()]
-        assert set(cells[1:]) <= {"Yes", "No", "Not yet"}
+        assert set(cells[1:-1]) <= {"Yes", "No", "Not yet"}
+        assert cells[-1] == ("Limited" if entry.repo == TILED_REFINE_MODEL else "No")
 
 
 def test_the_tool_rewrites_only_between_its_markers():

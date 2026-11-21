@@ -319,7 +319,7 @@ function layoutLightbox() {
   // said "left of the pass" where the press stacked them. In the words of
   // the comparison on, or of the one a press would turn on.
   const picked = comparing ? lbCompare.kind === 'picked' : !!pickedPair(rec);
-  const axis = comparing ? ladderAxis(lbCompare.kind) : rec.refine == null && !rec.edit && !picked ? LADDER_AXES.cfg : null;
+  const axis = comparing ? ladderAxis(lbCompare.kind) : !hasSourcePass(rec) && !picked ? LADDER_AXES.cfg : null;
   const [first, second] = picked
     ? ['The first picked image', 'the second'] : axis ? [axis.first, axis.second] : ['The source', rec.edit ? 'the edit' : 'the pass'];
   const sides = split ? `${first} above ${second}, each fitted to half the stage: larger here than left and right`
@@ -418,7 +418,7 @@ function layoutCompare(rec, ports, pass, boxIn, rectOf) {
   // outpaint's source is drawn at its place on the canvas, at the result's
   // scale - (left, top) and its own size - so the divider shows the original
   // against the kept rectangle pixel for pixel.
-  const kept = lbCompare.kind !== 'source' || rec.edit ? { x: 0, y: 0, w: 1, h: 1 }
+  const kept = lbCompare.kind !== 'source' || rec.edit || rec.tiled_refine ? { x: 0, y: 0, w: 1, h: 1 }
     : rec.outpaint ? {
       x: -rec.outpaint.left / source.width, y: -rec.outpaint.top / source.height,
       w: rec.width / source.width, h: rec.height / source.height,

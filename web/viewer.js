@@ -352,7 +352,7 @@ function refineResult(rec, tile) {
 function resultSide(rec, figure) {
   const side = document.createElement('div');
   side.className = 'result-side';
-  if (rec.refine != null || rec.edit != null) side.append(passLineage(rec));
+  if (hasSourcePass(rec)) side.append(passLineage(rec));
   const action = (button) => { button.classList.add('ghost', 'small'); return button; };
   // Its word drawn after the glyph (`data-word`): syncStar writes the glyph.
   const star = action(tool('☆', '', () => setFavorite(rec, !rec.favorite)));
@@ -403,7 +403,7 @@ function resultSide(rec, figure) {
   const actions = document.createElement('div');
   actions.className = 'result-actions';
   actions.append(star, refine, inpaint, outpaint, action(reuseButton(rec)), reference);
-  if (rec.refine != null || rec.edit) actions.append(compareButton(rec, figure));
+  if (hasSourcePass(rec)) actions.append(compareButton(rec, figure));
   actions.append(seed, more, brief, del);
   const prompt = document.createElement('p');
   prompt.className = 'result-prompt';
@@ -428,7 +428,8 @@ function compareButton(rec, figure) {
   button.textContent = 'Compare with source';
   button.onclick = () => {
     if (button.getAttribute('aria-disabled') === 'true') {
-      refuseInCard(figure.querySelector('.tile'), `${button.title}.`, rec.edit ? 'Source unavailable' : 'Source deleted');
+      refuseInCard(figure.querySelector('.tile'), `${button.title}.`,
+        rec.edit || rec.tiled_refine ? 'Source unavailable' : 'Source deleted');
       return;
     }
     openViewerImage(rec);
@@ -453,6 +454,10 @@ function passLineage(rec) {
     line.append('✐ Instruction edit of ', editSourceLink(rec));
     return line;
   }
+  if (rec.tiled_refine) {
+    line.append('Tiled Refine of ', tiledSourceLink(rec));
+    return line;
+  }
   line.append(rec.outpaint ? '⬚ Outpaint of ' : rec.mask ? '✎ Inpaint of ' : '⤢ Refine pass of ', sourceLink(rec),
     rec.outpaint ? ` by ${outpaintSidesText(rec.outpaint)}` : '', ` at strength ${rec.strength}`);
   return line;
@@ -475,7 +480,7 @@ function viewerSourcesGone() {
   noteViewer();
   els.viewer.querySelectorAll('.result > .result-side').forEach((side) => {
     const rec = viewerRecords.find((r) => r.id === +side.parentElement.dataset.id);
-    if (rec?.refine == null && rec?.edit == null) return;
+    if (!hasSourcePass(rec)) return;
     side.querySelector('.lineage')?.replaceWith(passLineage(rec));
     side.querySelector('.facts')?.replaceWith(factsList(rec));
     const compare = side.querySelector('.compare-source');
@@ -507,6 +512,11 @@ function noteViewer() {
     const line = document.createElement('span');
     line.className = 'lineage';
     line.append('Edited from ', editSourceLink(first), ` · ${first.width}×${first.height}`);
+    parts.push(line);
+  } else if (first?.tiled_refine && viewerRecords.every((r) => sameTiledRefineSource(r, first))) {
+    const line = document.createElement('span');
+    line.className = 'lineage';
+    line.append('Tiled Refine of ', tiledSourceLink(first), ` · ${first.width}×${first.height}`);
     parts.push(line);
   } else if (first && viewerRecords.length === 1 && viewerJob.expected <= 1) {
     const line = document.createElement('span');

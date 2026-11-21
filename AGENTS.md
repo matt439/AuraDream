@@ -541,6 +541,7 @@ Register each new smoke in the table below. Add its cost to
 | 7960 | animagine-xl-4.0, its own fresh scratch `--data` | `smoke-assistant-draft-tags` |
 | 7960 | circlestone-labs/Anima, its own fresh scratch `--data` | `smoke-anima-refine` |
 | 7960 | FLUX.1-Krea-dev, its own fresh scratch `--data`, `--step 0.3` | `smoke-batch-strip-scrollbar` |
+| 7961 | animagine-xl-4.0, fresh scratch `--data`, `--step 0.1` | `smoke-tiled-refine` |
 
 FLUX.1-Krea-dev is `black-forest-labs/FLUX.1-Krea-dev`; animagine is
 `cagliostrolab/animagine-xl-4.0`. The ports are full: `--jobs` puts each

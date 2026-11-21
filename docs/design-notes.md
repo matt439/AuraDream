@@ -2410,6 +2410,28 @@ change. CPU/browser checks establish this integration's source behavior; the
 real-server card acceptance and measured limits remain in the
 [owner](maintainer/plan-anima-refine.md).
 
+### Tiled Refine on Animagine XL 4.0
+
+Tiled Refine makes one 2048-square result from a 1024-square RGB gallery
+source. It enlarges the source with frozen 2× Lanczos preparation and
+applies four overlapping SDXL inpaints in order, overlaying each on the
+composite seen by the next. Only a finished composite reaches the gallery.
+The normal cancel and pause checks run at each denoising callback, and
+recovery starts over from the original source. The fixed seed arithmetic,
+feather and crop geometry preserve the measured algorithm.
+
+The `tiled_refine` intent stores the original source ID, the full RGB proof
+of the original and the independently hashed prepared canvas. Both proofs
+travel in the row and PNG. Bundles with tiled passes use format 3 and
+re-establish the source by proof when remapping IDs. An unresolved source
+retains the recipe and blocks replay. Older ordinary Refine keys keep their
+existing layout and meaning.
+
+The explicit choice uses the exact pinned model and loader envelope in the
+[tiled Refine plan](maintainer/plan-tiled-refine.md#4-public-flows-and-release).
+The four private comparison scenes showed visible changes to some fine
+features and flat fields. A render can redraw details and introduce bands.
+
 ### Shared Refine construction and execution
 
 **`refine.build`, not `from_pipe`.** `DiffusionPipeline.from_pipe` is the
@@ -6144,6 +6166,21 @@ The result offers **Show new gallery images** for live additions and
 Navigation clears search, Starred, the sheet and the checkpoint filter so
 an older query cannot hide the additions. A duplicate-only or restored-only
 import says no new records were added and offers neither action.
+
+### Restore one image from a saved bundle
+
+Browse already identifies the exact verified archive and keeps its reader
+lease open. Restore takes an archived image ID from that view, exposes its
+replay inputs and lets the user include archived source or reference images.
+The worker borrows the view through completion, so closing the browser or
+letting the view expire cannot release the archive early. Both plain and
+protected bundles use that same verified reader.
+
+The restore uses the same staging and merge transaction as full import.
+It includes the chosen rows and their available masks. A destination ID can
+differ from an archive ID, and existing rows retain their local state. The
+receipt reports the resulting ID and missing replay inputs from the merged
+gallery. Archive IDs alone never identify local source pixels.
 
 ### A backup that keeps the gallery, and bundles of the picked or starred (2026-10-12)
 

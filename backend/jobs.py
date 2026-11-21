@@ -18,7 +18,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, replace
 from typing import Any
 
-from . import gallery_lock, gallery_reports, storage
+from . import gallery_lock, gallery_reports, storage, tiled_refine_admission
 from .backends import Cancelled, GenerationBackend
 from .model_selection import current_settings
 from .config import settings
@@ -26,14 +26,14 @@ from .error_text import generation_error, short_error as short_error
 from .detailer import DetailerPlan
 from .detached import detached
 from .execution import require_configured_loader_available, require_default_execution, resolve_execution
-from .grid import Cell, CellKey, cell_keys, progress_steps, run_id as _run_id
+from .grid import Cell, CellKey, cell_keys, progress_steps, run_id as _run_id, split_tiled_batches
 from .job_state import _TERMINAL, Job
 from .latent_preview import data_url
 from .more_seeds_intents import IntentLedger
 from .schemas import GenerateRequest, ThenRefine
 from .seeds import random_seed, wrap_seed
 from .then_refine import execution_units, pass_run_id, plan_passes, stand_in
-from . import tiled_refine_contract as tiled
+from .tiled_refine_contract import HELD as TILED_REFINE_HELD, StoredTiledRefine
 
 log = logging.getLogger(__name__)
 
@@ -239,6 +239,9 @@ class JobManager:
                 if (image.get("edit") or {}).get("source") in gone:
                     image["edit_missing"] = True
                     image["edit_binned"] = binned
+                if (image.get("tiled_refine") or {}).get("source") in gone:
+                    image["tiled_refine_missing"] = True
+                    image["tiled_refine_binned"] = binned
                 if image.get("refine") in gone:
                     image["refine_missing"] = True
                     image["refine_binned"] = binned
@@ -257,6 +260,10 @@ class JobManager:
                     record = storage.get_image(image["id"])
                     image["edit_missing"] = record is None or record.edit_missing
                     image["edit_binned"] = record is not None and record.edit_binned
+                if (image.get("tiled_refine") or {}).get("source") in back:
+                    record = storage.get_image(image["id"])
+                    image["tiled_refine_missing"] = record is None or record.tiled_refine_missing
+                    image["tiled_refine_binned"] = record is not None and record.tiled_refine_binned
                 if image.get("refine") in back:
                     image["refine_missing"] = False
                     image["refine_binned"] = False
@@ -268,7 +275,9 @@ class JobManager:
         rather than rendering the same seeds again. Event-loop thread; a
         job's cells are fixed when it is made."""
         planned: dict[tuple[int, int], set[CellKey]] = {}
-        editable = self.backend.instruction_edit_refusal(current_settings(settings)) is None
+        selected = current_settings(settings)
+        editable = self.backend.instruction_edit_refusal(selected) is None
+        tileable = self.backend.tiled_refine_refusal(selected) is None
         for job in self.active():
             # Later detailer sources do not exist until their predecessor
             # saves. Do not report guessed original-source keys as planned.
@@ -281,6 +290,8 @@ class JobManager:
                     # Its backend has closed the gate since, or the selection
                     # left the measured envelope: the cell fails as it begins
                     # (`_recheck_edit`) and writes nothing.
+                    continue
+                if cell.request.tiled_refine is not None and not tileable:
                     continue
                 ran = Cell(request=self.backend.applied(cell.request), seed=cell.seed)
                 planned.setdefault((cell.request.width, cell.request.height), set()).update(cell_keys(ran))
@@ -525,25 +536,34 @@ class JobManager:
     async def _submit_tiled_refine_candidate(self, cells: list[Cell], *, run_id: str | None = None) -> Job:
         """Queue an owned, already-loaded qualification run, one composite per cell."""
         from .backends.diffusers_backend import DiffusersBackend
-        from .tiled_refine_admission import bind_source
-
         selected = current_settings(settings)
-        if (
-            not isinstance(self.backend, DiffusersBackend) or not self.backend.is_ready()
-            or (selected.model_id, selected.quantization) != (tiled.MODEL_ID, tiled.QUANTIZATION)
-        ):
-            raise ValueError(tiled.HELD)
+        if not isinstance(self.backend, DiffusersBackend) or not self.backend.is_ready():
+            raise ValueError(TILED_REFINE_HELD)
+        reason = self.backend.tiled_refine_refusal(selected)
+        if reason is not None:
+            raise ValueError(reason)
         self.backend._require_tiled_refine_owner()
-        sources: dict[str, tiled.StoredTiledRefine] = {}
+        if any(cell.request.tiled_refine is None or cell.request.num_images != 1 or cell.request.runs != 1
+               for cell in cells):
+            raise ValueError("Each private Tiled Refine cell must request one composite.")
+        return await self.submit_cells(cells, run_id=run_id, grid=False)
+
+    async def _bind_tiled_cells(self, cells: list[Cell]) -> list[Cell]:
+        """Revalidate each copied request and bind each distinct original once."""
+        await asyncio.to_thread(tiled_refine_admission.require_loader, self.backend, current_settings(settings))
+        sources: dict[str, StoredTiledRefine] = {}
+        bound = []
         for cell in cells:
-            if cell.request.tiled_refine is None or cell.request.num_images != 1 or cell.request.runs != 1:
-                raise ValueError("Each private Tiled Refine cell must request one composite.")
+            spec = cell.request.validate_tiled_refine()
+            if spec is None:
+                bound.append(cell)
+                continue
             cell.request.check_budget()
-            spec = tiled.bound_spec(cell.request.tiled_refine)
-            sources[tiled.stored_json(spec)] = spec
-        for spec in sources.values():
-            await asyncio.to_thread(bind_source, spec)
-        return await self.submit_cells(cells, run_id=run_id, grid=False, _tiled_candidate=True)
+            key = spec.model_dump_json()
+            if key not in sources:
+                sources[key] = await asyncio.to_thread(tiled_refine_admission.bind_source, spec)
+            bound.append(replace(cell, request=cell.request.model_copy(update={"tiled_refine": sources[key]})))
+        return split_tiled_batches(bound)
 
     async def submit_cells(
         self,
@@ -560,7 +580,6 @@ class JobManager:
         pass_sources: list[int] | None = None,
         detailer: DetailerPlan | None = None,
         then_refine_cells: frozenset[int] | None = None,
-        _tiled_candidate: bool = False,
     ) -> Job:
         """Queue an already-expanded list of pipeline calls - a grid, usually.
 
@@ -590,8 +609,6 @@ class JobManager:
         ):
             raise ValueError("Then refine cells must select indices in a job with a pass specification")
         for cell in cells:
-            if cell.request.tiled_refine is not None and not _tiled_candidate:
-                raise ValueError(tiled.HELD)
             require_default_execution(cell.request.execution)
             if "step_cache" in cell.request.model_fields_set:
                 raise ValueError("Resolve composer step cache before submitting expanded cells.")
@@ -632,6 +649,10 @@ class JobManager:
                 raise ValueError("Resolve composer step cache before submitting expanded cells.")
         selected = current_settings(settings)
         require_configured_loader_available(selected)
+        if any(cell.request.tiled_refine is not None for cell in cells):
+            if then_refine is not None or detailer is not None or source_passes:
+                raise ValueError("Tiled Refine cannot queue together with another image pass.")
+            cells = await self._bind_tiled_cells(cells)
         for cell in [*cells, *source_passes]:
             reason = self.backend.refine_refusal(selected, cell.request)
             if refine_qualification.applies(selected.model_id) and cell.request.inpainting:
@@ -1250,19 +1271,10 @@ class JobManager:
                     def cancelled_at_step(call: int = call) -> bool:
                         return should_cancel() or job.skips_call(call)
 
-                    if req.tiled_refine is not None:
-                        from .backends.diffusers_backend import DiffusersBackend
-
-                        if not isinstance(self.backend, DiffusersBackend):
-                            raise ValueError(tiled.HELD)
-                        images = self.backend._generate_tiled_refine_candidate(
-                            req, seed, on_progress=on_progress, should_cancel=cancelled_at_step,
-                        )
-                    else:
-                        images = self.backend.generate(
-                            req, seed=seed, on_progress=on_progress,
-                            should_cancel=cancelled_at_step, on_preview=on_preview,
-                        )
+                    images = self.backend.generate(
+                        req, seed=seed, on_progress=on_progress,
+                        should_cancel=cancelled_at_step, on_preview=on_preview,
+                    )
                 finally:
                     job.freeze_execution_diagnostics()
                     # Saving is not an interruptible cell call. A late Skip

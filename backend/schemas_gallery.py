@@ -99,6 +99,9 @@ class ImageRecord(BaseModel):
     tiled_refine: StoredTiledRefine | None = None
     edit_missing: bool = False
     edit_binned: bool = False
+    # Derived source availability, never part of the stored Tiled Refine proof.
+    tiled_refine_missing: bool = False
+    tiled_refine_binned: bool = False
     # How many images the pipeline call that made this one held (the panel's
     # Batch). No part of the reproduction set - each image has its own
     # generator - but what More seeds runs the batch's next images at. Null

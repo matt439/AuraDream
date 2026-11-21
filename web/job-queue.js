@@ -266,10 +266,11 @@ function queuedSettings(jobId) {
         r.prompt, r.negative_prompt && `Negative: ${negativeShown(r.negative_prompt)}`,
         r.reference?.length && `References: ${r.reference.map((id) => `#${id}`).join(', ')}`,
         r.refine != null && `Source #${r.refine} · strength ${r.strength} · crop ${r.crop_anchor}`,
+        r.tiled_refine != null && `Tiled Refine of #${r.tiled_refine.source} · strength ${r.strength}`,
         r.lora && `LoRA: ${r.lora} at ${r.lora_scale}`,
         cell.then_refine && `Then refine ${cell.then_refine.scale}× at ${cell.then_refine.strength}`,
       ];
-      for (const key of ['upscaler', 'mask', 'outpaint', 'mask_crop', 'execution', 'edit', 'detailer', 'tiled_refine']) {
+      for (const key of ['upscaler', 'mask', 'outpaint', 'mask_crop', 'execution', 'edit', 'detailer']) {
         if (r[key] != null) lines.push(`${key.replaceAll('_', ' ')}: ${typeof r[key] === 'string' ? r[key] : JSON.stringify(r[key])}`);
       }
       facts.textContent = lines.filter(Boolean).join('\n');

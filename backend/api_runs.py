@@ -18,7 +18,6 @@ from .schemas import MoreSeedsRequest, ThenRefine, error_detail
 from .schemas_rerun import (
     FinishRunAccepted, FinishRunPreview, FinishRunRequest, RunAction, RunDetails,
 )
-from .tiled_refine_contract import HELD as TILED_REFINE_HELD
 
 
 @dataclass
@@ -65,19 +64,6 @@ async def finish_plan(services: AppServices, run_id: str) -> FinishPlan:
 
     definition = definitions[0] if definitions else None
     saved_cells = [cell for saved in definitions for cell in saved["cells"]]
-    if any(cell.request.tiled_refine is not None for cell in saved_cells) or any(
-        record.tiled_refine is not None for record in records
-    ):
-        sizes = sorted({(cell.request.width, cell.request.height) for cell in saved_cells}) or sorted(
-            {(record.width, record.height) for record in records}
-        )
-        preview = FinishRunPreview(
-            run_id=run_id, available=False, reason=TILED_REFINE_HELD,
-            total=len(saved_cells), cells=0, images=0, rendered=0, queued=0, redrawn=0,
-            budget_minutes=definition["metadata"].get("budget_minutes") if definition else None,
-            pin=hashlib.sha256(f"{run_id}:tiled-refine-held".encode()).hexdigest()[:16],
-        )
-        return FinishPlan(preview, definition, [], records, sizes, 422)
     detailer_records = [
         record for record in records
         if record.detailer is not None and record.detailer.group_id == run_id
@@ -182,6 +168,9 @@ async def finish_plan(services: AppServices, run_id: str) -> FinishPlan:
     if definition is None:
         reason = ("No run plan is stored here. Image bundles and older runs contain saved outputs only. "
                   "To rebuild a grid, enter its settings in the panel and use the Resume tick.")
+        if any(record.tiled_refine is not None for record in records):
+            reason = ("No Tiled Refine run plan is stored here. Open Reuse or More seeds on a saved result "
+                      "to run its recipe from the original source.")
         # A Then refine pass run keeps no cells of its own: its records' job
         # is the base job, whose definition names it.
         base = await asyncio.to_thread(
@@ -239,7 +228,7 @@ async def finish_plan(services: AppServices, run_id: str) -> FinishPlan:
             for record in records:
                 job_id = record.job_id
                 if (job_id is None or job_id not in spec_jobs or record.refine is not None or record.edit is not None
-                        or record.binned_at is not None):
+                        or record.tiled_refine is not None or record.binned_at is not None):
                     continue
                 selected_keys = spec_jobs[job_id]
                 if selected_keys is None or then_refine.matches_source(record, selected_keys):
@@ -289,7 +278,7 @@ async def finish_plan(services: AppServices, run_id: str) -> FinishPlan:
                 break
             inputs = (request.refine, request.mask, request.outpaint, request.mask_crop, tuple(request.reference),
                       request.lora, request.width, request.height, request.upscaler,
-                      grid.edit_key(request.edit))
+                      grid.edit_key(request.edit), request.tiled_refine)
             if inputs not in checked:
                 checked[inputs] = await submission.unusable_input(services, request)
             unusable = checked[inputs]

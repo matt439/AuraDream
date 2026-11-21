@@ -173,7 +173,7 @@ def plan(
     kind = pass_note(record)
     if kind is not None:
         out.notes.append(
-            f"{kind}: refined as an ordinary image" if record.edit is not None
+            f"{kind}: refined as an ordinary image" if record.edit is not None or record.tiled_refine is not None
             else f"{kind}: refined whole, its mask not used"
         )
     try:

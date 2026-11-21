@@ -1555,6 +1555,24 @@ CPU gate passed 11,071 tests with 325 skips; Ruff and all 217 Pyright sources
 passed. `GEN#48` is complete for the documented bounded envelopes, with the
 full validation and limitations in the owner.
 
+### Public Tiled Refine on Animagine XL 4.0 (2026-11-21)
+
+Two sequential, guarded RTX 5080 runs used the same pinned Animagine
+revision, Windows CUDA 0, fp8/model offload, Eager/Native and diffusers
+0.42.1. The server queued seeds 4101 and 4102 from one 1024-square RGB
+root. Cancel at callback 12 of 36 saved only 4101. Finish queued only 4102
+and reproduced its private trial RGB. Both completed seeds matched the
+private trial pixel for pixel. More seeds produced 4103 with the same
+original and prepared proofs in SQLite and its PNG. A fresh standalone
+`--from-image` process exactly reproduced seed 4101 RGB and both proofs.
+
+The API and CLI guards sampled 545 and 255 times, with maximum gaps of
+0.293 and 0.264 s, respectively. Whole-card peaks were 4,975 and 4,909 MiB.
+Tree RSS/private peaks were 9.05/10.37 and 9.08/10.34 GiB. Free RAM/commit
+minima were 30.31/28.52 and 35.25/39.91 GiB. Both processes passed all
+three post-unload card samples and exited zero.
+[Workflow and receipts](maintainer/plan-tiled-refine.md#public-workflow-result-2026-11-21).
+
 ### Private four-region Animagine Refine (2026-11-20)
 
 One guarded offline RTX 5080 load qualified the exact 1024-square RGB
@@ -1573,7 +1591,6 @@ surviving 32 MiB blocks by address and released them solely by clearing
 cuBLAS workspaces. A no-model two-thread control reproduced the same
 residency. Native comparisons showed continuous major lines and legible
 lettering, plus lost scale arcs, softer fern veins and subtle tonal bands.
-Public opt-in and public workflow qualification remain open.
 [Measurements, visuals and scope](maintainer/plan-tiled-refine.md#private-card-result-2026-11-20).
 
 ### Four-region SDXL tiled-refine look (2026-11-17)
