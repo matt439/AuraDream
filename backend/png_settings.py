@@ -16,8 +16,9 @@ from typing import TYPE_CHECKING, Any
 
 from backend.metadata import embedded_metadata, require_header_metadata
 from backend.execution import canonical_execution
-from backend.metadata import canonical_detailer, canonical_edit, canonical_tiled_refine, validate_detailer_record
-from backend.tiled_refine_contract import HELD as TILED_REFINE_HELD
+from backend.metadata import (
+    canonical_detailer, canonical_edit, canonical_tiled_refine, validate_detailer_record, validate_tiled_refine_record,
+)
 from backend.refine import CROP_ANCHORS
 
 if TYPE_CHECKING:
@@ -55,7 +56,7 @@ def crop_anchor(value: Any, *, source: Any, mask: Any = None, outpaint: Any = No
     return value
 
 
-def record(chunks: Mapping[str, Any], name: str) -> dict | None:
+def record(chunks: Mapping[str, Any], name: str, *, for_cli: bool = False) -> dict | None:
     """This app's record in `chunks`, or None when it carries none.
 
     A record that is there but is not a JSON object is refused rather than
@@ -79,8 +80,13 @@ def record(chunks: Mapping[str, Any], name: str) -> dict | None:
     try:
         if canonical_edit(meta.get("edit")) is not None:
             raise ValueError("instruction-edit settings must be reopened from the gallery image")
-        if canonical_tiled_refine(meta.get("tiled_refine")) is not None:
-            raise ValueError(TILED_REFINE_HELD)
+        tiled = canonical_tiled_refine(meta.get("tiled_refine"))
+        validate_tiled_refine_record(tiled, meta)
+        if tiled is not None and not for_cli:
+            raise ValueError(
+                "a Tiled Refine recipe tied to its original gallery source. Open Reuse on the saved image "
+                "or use --from-image on the command line"
+            )
         canonical_execution(meta.get("execution"))
         # Loading sampling text never imports the source, masks or operation.
         # Still validate a manifest that is present instead of treating damaged
@@ -114,7 +120,7 @@ def image_settings(path: str) -> dict:
             info = {key: value for key, value in image.info.items() if isinstance(key, str)}
     except (OSError, ValueError) as exc:
         raise PngSettingsError(f"cannot open {path}: {exc}") from None
-    meta = record(info, path)
+    meta = record(info, path, for_cli=True)
     if meta is None:
         raise PngSettingsError(f"{path} carries no AuraDream metadata; only this app's PNGs do")
     return meta
@@ -159,5 +165,5 @@ def parse_parameters(text: str) -> tuple[str, str, dict[str, str]]:
     if any(key.casefold() == "instruction edit" for key in params):
         raise PngSettingsError("instruction-edit settings must be reopened from the gallery image")
     if any(key.casefold() == "tiled refine" for key in params):
-        raise PngSettingsError(TILED_REFINE_HELD)
+        raise PngSettingsError("Tiled Refine needs the original source proof from the AuraDream metadata.")
     return "\n".join(prompt).strip(), "\n".join(negative).strip(), params

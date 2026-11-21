@@ -6,10 +6,25 @@ from contextlib import closing, contextmanager
 
 from PIL import Image
 
-from . import storage
+from . import card_facts, storage
 from . import tiled_refine_contract as contract
+from .backends.base import GenerationBackend
+from .config import Settings
 from .instruction_edit import InstructionEditSource
 from .refusal_codes import IMAGE_BINNED, IMAGE_UNKNOWN, CodedError
+
+
+def require_loader(backend: GenerationBackend, selected: Settings, *, check_hardware: bool = True) -> None:
+    """Check the exact loader; discover the card only for a matching selection."""
+    reason = backend.tiled_refine_refusal(selected, check_hardware=False)
+    if reason is not None:
+        raise ValueError(reason)
+    if not check_hardware:
+        return
+    card_facts.card(selected.device)
+    reason = backend.tiled_refine_refusal(selected)
+    if reason is not None:
+        raise ValueError(reason)
 
 
 @contextmanager

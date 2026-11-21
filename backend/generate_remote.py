@@ -212,6 +212,8 @@ def _via_server(args, parser: argparse.ArgumentParser, source, carried, mask_ima
         body = {"prompt": args.prompt, "negative_prompt": args.negative,
                 "width": width, "height": height, "num_images": args.batch, "runs": args.runs,
                 "reference": references, "lora": args.lora, "lora_scale": args.lora_scale}
+        if args.tiled_refine_spec is not None:
+            body["tiled_refine"] = args.tiled_refine_spec.model_dump(mode="json")
         body["execution"] = effective_execution.model_dump(exclude_none=True) if effective_execution is not None else None
         if args.crop_anchor is not None:
             body["crop_anchor"] = args.crop_anchor

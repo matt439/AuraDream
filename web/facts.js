@@ -37,6 +37,7 @@ function settingsLine(rec) {
     // An instruction edit: the image it changed, and whether that is still
     // in the gallery to reopen the edit on.
     (rec.edit != null ? `edit of #${rec.edit.source ?? '?'}${rec.edit_missing ? ` (${editGoneWord(rec)})` : ''}, ` : '') +
+    (rec.tiled_refine ? `Tiled Refine of ${tiledSourceName(rec)}, ` : '') +
     (rec.upscaler ? `upscaler ${upscalerName(rec.upscaler)}, ` : '') +
     (rec.crop_anchor && rec.crop_anchor !== 'center' ? `crop ${rec.crop_anchor}, ` : '') +
     `seed ${rec.seed}, ${(rec.duration_ms / 1000).toFixed(1)}s`
@@ -96,6 +97,11 @@ function factsList(rec, { useSeed: seedButton = false, search = false, megapixel
       : [];
     row('Edited from', editSourceLink(rec), ...restore);
     row('Recipe', `${rec.edit.recipe} · ${EDIT_MODEL_NAME}`);
+  }
+  if (rec.tiled_refine) {
+    const id = rec.tiled_refine.source;
+    const restore = rec.tiled_refine_binned && id != null ? [' · ', sourceRestoreButton(id)] : [];
+    row('Tiled Refine', 'Source ', tiledSourceLink(rec), ...restore).title = rec.tiled_refine.recipe;
   }
   if (rec.negative_prompt) row('Negative', negativeShown(rec.negative_prompt)).className = 'text';
   if (rec.lora) row('LoRA', `${rec.lora} @ ${rec.lora_scale}`);
@@ -420,16 +426,47 @@ function cssRgb(color) {
 // The image a pass was refined from, by id: from a strip the page holds, else
 // asked for. Opened with the pass after it, so → comes back.
 async function openRefineSource(rec) {
-  let source = [...lbList, ...galleryRecords, ...viewerRecords].find((r) => r.id === rec.refine);
-  if (!source) {
-    try {
-      source = await api(`/api/images/${rec.refine}`);
-    } catch (err) {
-      showError(imageGone(err) ? `#${rec.refine} is no longer in the gallery.` : err.message);
+  const id = rec.tiled_refine?.source ?? rec.refine;
+  const from = els.lightbox.open ? lbList[lbIndex] : null;
+  try {
+    if (rec.tiled_refine && !await confirmTiledSource(rec)) {
+      if (from && els.lightbox.open && lbList[lbIndex] === from) {
+        lbDrawn = null;
+        renderLightbox();
+      }
+      showError(comparisonSourceHold(rec));
       return;
     }
+    let source = [...lbList, ...galleryRecords, ...viewerRecords].find((r) => r.id === id);
+    if (!source) source = await api(`/api/images/${id}`);
+    if (isGone(id) || (from && (!els.lightbox.open || lbList[lbIndex] !== from))) return;
+    openLightbox(source, [source, rec]);
+  } catch (err) {
+    showError(imageGone(err) ? `#${id} is no longer in the gallery.` : err.message);
   }
-  openLightbox(source, [source, rec]);
+}
+
+function tiledSourceName(rec) {
+  const id = rec.tiled_refine.source;
+  if (id == null) return 'an unresolved source';
+  if (rec.tiled_refine_binned) return `#${id} (in the recycle bin)`;
+  return rec.tiled_refine_missing ? `#${id} (unavailable)` : `#${id}`;
+}
+
+function tiledSourceLink(rec) {
+  const name = tiledSourceName(rec);
+  if (rec.tiled_refine.source == null || rec.tiled_refine_missing) return name;
+  return factButton(name, `Open ${name}, the original Tiled Refine source`, () => { void openRefineSource(rec); });
+}
+
+// As with an instruction edit, opening a proof-bearing source needs a fresh
+// record read. A thumbnail's cached id says nothing about its current pixels.
+async function confirmTiledSource(rec) {
+  const current = await api(`/api/images/${rec.id}?binned=true`);
+  const same = sameTiledRefineSource(rec, current);
+  rec.tiled_refine_missing = !same || !!current.tiled_refine_missing;
+  rec.tiled_refine_binned = same && !!current.tiled_refine_binned;
+  return !rec.tiled_refine_missing;
 }
 
 // A card's image title: the facts that tell it from the card beside it, a
@@ -441,7 +478,8 @@ function cardTitle(rec) {
     ? ` · ${passWord(rec)} of #${rec.refine}${outpaintOf(rec)}${rec.refine_missing ? ` (${goneWord(rec)})` : ''} @ ${rec.strength}`
     // An instruction edit says its source, gone or not, as a pass does.
     : rec.edit != null
-      ? ` · edit of #${rec.edit.source ?? '?'}${rec.edit_missing ? ` (${editGoneWord(rec)})` : ''}` : '';
+      ? ` · edit of #${rec.edit.source ?? '?'}${rec.edit_missing ? ` (${editGoneWord(rec)})` : ''}`
+      : rec.tiled_refine ? ` · Tiled Refine of ${tiledSourceName(rec)}` : '';
   return `#${rec.id} · ${rec.width}×${rec.height} · seed ${rec.seed}${pass}\n${rec.prompt}`;
 }
 

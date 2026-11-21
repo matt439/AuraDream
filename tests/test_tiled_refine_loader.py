@@ -104,3 +104,58 @@ def test_offline_candidate_skips_the_alternate_root_weights_and_refuses_a_missin
     with pytest.raises(IncompleteSnapshotError, match="text_encoder_2/model.safetensors"):
         backend._load_tiled_refine_candidate()
     assert loaded == [str(snapshot)]
+
+
+def test_public_resolver_reuses_complete_pin_or_fetches_configs_before_selected_weights(tmp_path, monkeypatch):
+    import huggingface_hub.constants
+
+    monkeypatch.setattr(huggingface_hub.constants, "HF_HUB_CACHE", str(tmp_path))
+    snapshot = tmp_path / "models--cagliostrolab--animagine-xl-4.0" / "snapshots" / tiled.REVISION
+    calls = []
+
+    def download(model_id, *, revision, allow_patterns):
+        assert model_id == tiled.MODEL_ID and revision == tiled.REVISION
+        calls.append(allow_patterns)
+        for name in allow_patterns:
+            target = snapshot / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.touch()
+        (snapshot / "model_index.json").write_text(
+            '{"_class_name":"StableDiffusionXLPipeline"}', encoding="utf-8",
+        )
+        return str(snapshot)
+
+    monkeypatch.setattr(huggingface_hub, "snapshot_download", download)
+    monkeypatch.setattr(module.loading, "hub_file", lambda _, filename: str(snapshot / filename))
+    assert module.DiffusersBackend._resolve_public_tiled_refine_snapshot() == str(snapshot)
+    assert calls == [list(module._TILED_CONFIG_FILES), list(module._TILED_RECIPE_FILES)]
+    assert all("*" not in name for name in calls[-1])
+    assert module.DiffusersBackend._resolve_public_tiled_refine_snapshot() == str(snapshot)
+    assert len(calls) == 2
+
+
+def test_an_unavailable_pin_leaves_ordinary_animagine_load_available(monkeypatch):
+    backend = module.DiffusersBackend()
+    selection = replace(
+        module.settings, model_id=tiled.MODEL_ID, quantization=tiled.QUANTIZATION,
+        offload=tiled.OFFLOAD, device="cuda:0", loader_execution=None, loader_execution_error=None,
+    )
+    monkeypatch.setattr(module, "current_settings", lambda _: selection)
+    monkeypatch.setattr(backend, "refine_host", lambda: ("win32", "0.42.1", "NVIDIA GeForce RTX 5080", True))
+    attempted = []
+
+    def unavailable():
+        attempted.append("pin")
+        raise OSError("offline")
+
+    def load(execution, *, tiled_refine_snapshot=None):
+        assert execution is None
+        attempted.append(tiled_refine_snapshot)
+
+    monkeypatch.setattr(backend, "_resolve_public_tiled_refine_snapshot", unavailable)
+    monkeypatch.setattr(backend, "_load_prepared", load)
+    backend.load()
+    assert attempted == ["pin", None]
+    selection = replace(selection, quantization="int8")
+    backend.load()
+    assert attempted == ["pin", None, None]

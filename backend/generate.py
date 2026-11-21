@@ -57,6 +57,7 @@ from backend.generate_args import (  # noqa: E402
     _outpaint_sides,
     _resolve_size,
     _then_refine_flags,
+    _tiled_refine_flags,
 )
 from backend import keep_awake  # noqa: E402
 from backend.generate_remote import _via_server  # noqa: E402
@@ -503,9 +504,10 @@ def _main(argv: list[str] | None, awake: contextlib.ExitStack) -> int:
     source = _image_settings(args.from_image, parser) if args.from_image else None
     if source is not None:
         _apply_image_settings(args, source)
+    args.tiled_refine_spec = _tiled_refine_flags(args, parser, source)
     if not args.prompt:
         parser.error("a prompt is required (or --from-image with a gallery PNG)")
-    if args.refine is None:
+    if args.refine is None and args.tiled_refine_spec is None:
         # Neither is a setting without a source, and a run that quietly
         # ignored one would be a plain render under a refine's flags.
         if args.strength is not None:
@@ -590,6 +592,20 @@ def _main(argv: list[str] | None, awake: contextlib.ExitStack) -> int:
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
         return 2
+    backend = None
+    tiled_refine = None
+    if args.tiled_refine_spec is not None:
+        from backend import tiled_refine_admission
+
+        backend = p.get_backend("diffusers")
+        try:
+            tiled_refine_admission.require_loader(backend, p.settings, check_hardware=not args.dry_run)
+            if not p.settings.db_path.exists():
+                raise ValueError("Tiled Refine needs an existing gallery holding its original source.")
+            tiled_refine = tiled_refine_admission.bind_source(args.tiled_refine_spec)
+        except ValueError as exc:
+            print(p.error_detail(exc), file=sys.stderr)
+            return 2
     if _check_carried_source(args, p, parser):
         inpainting = False
         outpaint_sides = None
@@ -763,6 +779,7 @@ def _main(argv: list[str] | None, awake: contextlib.ExitStack) -> int:
             outpaint=outpaint_spec,
             mask_crop=mask_crop_spec,
             detailer=args.carried_detailer,
+            tiled_refine=tiled_refine,
             seed=seed,
             num_images=args.batch,
             runs=args.runs,
@@ -816,6 +833,8 @@ def _main(argv: list[str] | None, awake: contextlib.ExitStack) -> int:
                 dataclasses.replace(cell, variables=carried, label=f"{named}, {cell.label}")
                 for cell in cells
             ]
+        if tiled_refine is not None:
+            cells = p.grid.split_tiled_batches(cells)
     except ValueError as exc:
         # A cell outside the schema raises a ValidationError; same one-line
         # form the browser gets, not pydantic's own several-line repr.
@@ -831,7 +850,8 @@ def _main(argv: list[str] | None, awake: contextlib.ExitStack) -> int:
     # Built before the load, and cheap to: unloaded, `applied()` answers from
     # the checkpoint profile, which is what decides the resume comparison and
     # the negative-prompt note below.
-    backend = p.get_backend("diffusers")
+    if backend is None:
+        backend = p.get_backend("diffusers")
     from . import refine_admission, refine_qualification
 
     if refine_qualification.applies(p.settings.model_id):
@@ -1076,7 +1096,7 @@ def _main(argv: list[str] | None, awake: contextlib.ExitStack) -> int:
         # A Mu this checkpoint cannot take is dropped by `applied()` and the
         # row records none, so the report says so rather than show it as run.
         # Asked with a Mu of its own, since the base request may carry none.
-        mu_ignored = backend.applied(request.model_copy(update={"mu": 1.0})).mu is None
+        mu_ignored = tiled_refine is None and backend.applied(request.model_copy(update={"mu": 1.0})).mu is None
         print(
             f"sampling : {request.steps} steps, CFG {request.guidance_scale}, "
             f"mu {'-' if request.mu is None else request.mu}"
@@ -1098,6 +1118,11 @@ def _main(argv: list[str] | None, awake: contextlib.ExitStack) -> int:
             )
         if args.lora:
             print(f"lora     : {args.lora} @ {args.lora_scale:g}")
+        if tiled_refine is not None:
+            print(
+                f"tiled    : source #{tiled_refine.source}, four tiles, "
+                f"{p.grid.denoised_steps(request)} denoising steps per image"
+            )
         if request.refine is not None:
             # The steps that run, since `sampling` above states the schedule's
             # length; the source's own size when the size was derived from it.
@@ -1196,7 +1221,8 @@ def _main(argv: list[str] | None, awake: contextlib.ExitStack) -> int:
             )
         print(
             f"output   : {total_images} image(s) - {len(cells)} run(s) x "
-            f"{1 if args.grid_prompt_mode == 'random' else request.num_images} -> {p.settings.outputs_dir}"
+            f"{1 if tiled_refine is not None or args.grid_prompt_mode == 'random' else request.num_images}"
+            f" -> {p.settings.outputs_dir}"
         )
         # The same estimate the browser's preview shows, from recent images at
         # this size on this checkpoint - the one number that decides whether a

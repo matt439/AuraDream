@@ -7,14 +7,13 @@ from typing import Literal
 
 from fastapi import HTTPException
 
-from . import grid, instruction_edit, instruction_edit_admission, loras, refine, refine_admission, refine_qualification, storage
+from . import grid, instruction_edit, instruction_edit_admission, loras, refine, refine_admission, refine_qualification, storage, tiled_refine_admission
 from .app_context import AppServices
 from .execution import configured_loader_unavailable_reason, unavailable_reason
 from .model_selection import current_settings
 from .refusal_codes import LORA_MISMATCH, MASK_MISSING
 from .refusals import refusal
 from .schemas import GenerateRequest, ImageRecord
-from .tiled_refine_contract import HELD as TILED_REFINE_HELD
 
 # The checks and wording that need no services, kept where the CLI can
 # import them without the HTTP layer; re-exported, so `submission.X`
@@ -117,7 +116,14 @@ async def unusable_input(
     closed one says the editor is unavailable, an unmeasured loader says
     so, else where edits are queued from (`replay_held_reason`)."""
     if request.tiled_refine is not None:
-        return "tiled_refine", TILED_REFINE_HELD
+        try:
+            selected = current_settings(services.settings())
+            await asyncio.to_thread(tiled_refine_admission.require_loader, services.backend(), selected)
+            spec = request.validate_tiled_refine()
+            await asyncio.to_thread(tiled_refine_admission.bind_source, spec)
+        except ValueError as exc:
+            return Unusable.from_error("tiled_refine", exc)
+        return None
     if request.edit is not None:
         try:
             bound = await asyncio.to_thread(instruction_edit_admission.bind_request, request, services.model_id())

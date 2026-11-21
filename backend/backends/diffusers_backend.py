@@ -80,6 +80,29 @@ _EDIT_PARAMS = frozenset({
     "max_sequence_length", "num_inference_steps", "guidance_scale", "generator", "callback_on_step_end",
 })
 _TILE_BASE_CLASS = "StableDiffusionXLPipeline"
+_TILED_CONFIG_FILES = (
+    "model_index.json",
+    "scheduler/scheduler_config.json",
+    "text_encoder/config.json",
+    "text_encoder_2/config.json",
+    "unet/config.json",
+    "vae/config.json",
+)
+_TILED_RECIPE_FILES = (
+    *_TILED_CONFIG_FILES,
+    "text_encoder/model.safetensors",
+    "text_encoder_2/model.safetensors",
+    "tokenizer/merges.txt",
+    "tokenizer/special_tokens_map.json",
+    "tokenizer/tokenizer_config.json",
+    "tokenizer/vocab.json",
+    "tokenizer_2/merges.txt",
+    "tokenizer_2/special_tokens_map.json",
+    "tokenizer_2/tokenizer_config.json",
+    "tokenizer_2/vocab.json",
+    "unet/diffusion_pytorch_model.safetensors",
+    "vae/diffusion_pytorch_model.safetensors",
+)
 
 
 def _is_tiled_refine_snapshot(value: object) -> bool:
@@ -477,48 +500,88 @@ class DiffusersBackend(GenerationBackend):
             loader=self.instruction_edit_loader(selected),
         )
         require_configured_loader_available(selected)
+        if not self.is_ready() and self._tiled_refine_loader_refusal(selected, check_card=False) is None:
+            card_facts.probe(selected.device)
+            if self._tiled_refine_loader_refusal(selected) is None:
+                from huggingface_hub.errors import HfHubHTTPError, LocalEntryNotFoundError
+
+                try:
+                    snapshot = self._resolve_public_tiled_refine_snapshot()
+                except (HfHubHTTPError, LocalEntryNotFoundError, OSError) as exc:
+                    log.debug("pinned Tiled Refine snapshot unavailable; loading ordinary Animagine: %s", exc)
+                else:
+                    self._load_prepared(None, tiled_refine_snapshot=snapshot)
+                    return
         self._load_prepared(canonical_loader_execution(getattr(selected, "loader_execution", None)))
         if refine_qualification.applies(selected.model_id):
             # Loading already owns framework/device work. Status and Check only
             # read this supplied observation; they never probe for this gate.
             card_facts.probe(selected.device)
 
-    def _require_tiled_refine_loader(self, *, check_card: bool = True) -> None:
+    def _tiled_refine_loader_refusal(self, selected: Any, *, check_card: bool = True) -> str | None:
         recipe = tiled_refine_contract
-        selected = current_settings(settings)
-        platform, version, gpu, native = self.refine_host()
         if (
             (selected.model_id, selected.quantization, selected.offload)
             != (recipe.MODEL_ID, recipe.QUANTIZATION, recipe.OFFLOAD)
             or selected.device not in ("cuda", "cuda:0")
-            or platform != "win32" or version != "0.42.1"
-            or native is not True or (check_card and gpu != "NVIDIA GeForce RTX 5080")
             or selected.loader_execution_error is not None
             or canonical_loader_execution(selected.loader_execution) is not None
         ):
-            raise ValueError(
-                "Private Tiled Refine requires Animagine XL 4.0, fp8/model offload, "
-                "Windows RTX 5080 CUDA 0, Eager/Native and diffusers 0.42.1."
-            )
+            return recipe.LOADER_REQUIRED
+        platform, version, gpu, native = self.refine_host()
+        if platform != "win32" or version != "0.42.1" or native is not True or (
+            check_card and gpu != "NVIDIA GeForce RTX 5080"
+        ):
+            return recipe.LOADER_REQUIRED
+        return None
+
+    def _require_tiled_refine_loader(self, *, check_card: bool = True) -> None:
+        reason = self._tiled_refine_loader_refusal(current_settings(settings), check_card=check_card)
+        if reason is not None:
+            raise ValueError(reason)
+
+    def tiled_refine_refusal(self, selected: Any, *, check_hardware: bool = True) -> str | None:
+        reason = self._tiled_refine_loader_refusal(selected, check_card=check_hardware)
+        if reason is not None or self._pipe is None:
+            return reason
+        return self._tiled_refine_owner_refusal(self._pipe)
 
     def _load_tiled_refine_candidate(self) -> None:
         """Load the pinned local candidate through the ordinary loader transaction."""
-        recipe = tiled_refine_contract
         self._require_tiled_refine_loader(check_card=False)
         card_facts.probe(current_settings(settings).device)
         self._require_tiled_refine_loader()
+        self._load_prepared(None, tiled_refine_snapshot=self._resolve_tiled_refine_snapshot(local_files_only=True))
+
+    @staticmethod
+    def _resolve_public_tiled_refine_snapshot() -> str:
+        """Reuse a complete pin locally or fetch its configs before its weights."""
+        from huggingface_hub import snapshot_download
+        from huggingface_hub.constants import HF_HUB_CACHE
+
+        recipe = tiled_refine_contract
+        local = Path(HF_HUB_CACHE) / f"models--{recipe.MODEL_ID.replace('/', '--')}" / "snapshots" / recipe.REVISION
+        if all((local / name).is_file() for name in _TILED_RECIPE_FILES):
+            return str(local)
+        config = snapshot_download(recipe.MODEL_ID, revision=recipe.REVISION, allow_patterns=list(_TILED_CONFIG_FILES))
+        if not _is_tiled_refine_snapshot(config) or loading.unused_components(config)[0] != _TILE_BASE_CLASS:
+            raise ValueError("Tiled Refine needs the exact pinned Animagine SDXL configuration.")
+        return snapshot_download(recipe.MODEL_ID, revision=recipe.REVISION, allow_patterns=list(_TILED_RECIPE_FILES))
+
+    @staticmethod
+    def _resolve_tiled_refine_snapshot(*, local_files_only: bool) -> str:
         from huggingface_hub import snapshot_download
 
+        recipe = tiled_refine_contract
         # The pinned repo also publishes monolithic weights. A complete
         # Diffusers cache needs only this pipeline and its component trees.
-        snapshot = snapshot_download(
-            recipe.MODEL_ID, revision=recipe.REVISION, local_files_only=True,
+        return snapshot_download(
+            recipe.MODEL_ID, revision=recipe.REVISION, local_files_only=local_files_only,
             allow_patterns=[
                 "model_index.json", "scheduler/*", "text_encoder/*", "text_encoder_2/*",
                 "tokenizer/*", "tokenizer_2/*", "unet/*", "vae/*",
             ],
         )
-        self._load_prepared(None, tiled_refine_snapshot=snapshot)
 
     def _load_prepared(self, execution: ExecutionSpec | None, *, tiled_refine_snapshot: str | None = None) -> None:
         """Private preparation path, also used by every ordinary eager load.
@@ -605,6 +668,8 @@ class DiffusersBackend(GenerationBackend):
             model_id = tiled_refine_snapshot or loading.resolve_model(source_id, quantization=selected.quantization)
             load_settings = replace(selected, model_id=model_id)
             kwargs: dict[str, Any] = {"dtype": torch.bfloat16}
+            if tiled_refine_snapshot is not None:
+                kwargs["use_safetensors"] = True
             quant = loading.quantization_config(load_settings)
             if quant is not None:
                 kwargs["quantization_config"] = quant
@@ -1036,11 +1101,9 @@ class DiffusersBackend(GenerationBackend):
         """
         return True
 
-    def _require_execution(self, request: GenerateRequest, *, private_tiled_refine: bool = False) -> GenerateRequest:
+    def _require_execution(self, request: GenerateRequest) -> GenerateRequest:
         from ..instruction_edit import require_execution_available, require_model_available, text_to_image_refusal
 
-        if getattr(request, "tiled_refine", None) is not None and not private_tiled_refine:
-            raise ValueError(tiled_refine_contract.HELD)
         qualified = self.instruction_edit_qualified()
         if getattr(request, "edit", None) is not None:
             # validate_edit also refuses an edit's LoRA, references, refine,
@@ -1614,6 +1677,8 @@ class DiffusersBackend(GenerationBackend):
         self._peak = None
         self._mask_crop = None
         request = self._require_execution(request)
+        if getattr(request, "tiled_refine", None) is not None:
+            return self._generate_tiled_refine_candidate(request, seed, on_progress, should_cancel)
         with self._measure_generation_peak():
             return self._generate_images(request, seed, on_progress, should_cancel, on_preview)
 
@@ -1639,13 +1704,19 @@ class DiffusersBackend(GenerationBackend):
     def _require_tiled_refine_owner(self) -> Any:
         self._require_tiled_refine_loader()
         pipe = self._pipe
+        reason = self._tiled_refine_owner_refusal(pipe)
+        if reason is not None:
+            raise ValueError(reason)
+        return pipe
+
+    def _tiled_refine_owner_refusal(self, pipe: Any) -> str | None:
         if (
             pipe is None or pipe is not self._tiled_refine_candidate or type(pipe).__name__ != _TILE_BASE_CLASS
             or not _is_tiled_refine_snapshot(getattr(getattr(pipe, "config", None), "_name_or_path", None))
-            or self._lora is not None or not callable(getattr(pipe, "maybe_free_model_hooks", None))
+            or not callable(getattr(pipe, "maybe_free_model_hooks", None))
         ):
-            raise ValueError("Load the pinned Animagine candidate without adapters before private Tiled Refine.")
-        return pipe
+            return "Reload the pinned Animagine XL 4.0 checkpoint before using Tiled Refine."
+        return None if self._lora is None else "Reload the checkpoint to clear its active LoRA before using Tiled Refine."
 
     def _generate_tiled_refine_candidate(
         self,

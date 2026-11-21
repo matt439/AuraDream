@@ -109,6 +109,7 @@ class FakeBackend(GenerationBackend):
         # is open since its release). Only the literal True opens it
         # (`instruction_edit_qualified`).
         self.edit_qualified = False
+        self.tiled_refine_qualified = False
         # The host the envelope's loader check is told this fake runs on
         # (`instruction_edit_host`): the measured one, so an open gate's
         # answers never depend on the machine the tests run on.
@@ -127,6 +128,17 @@ class FakeBackend(GenerationBackend):
 
     def instruction_edit_host(self) -> tuple[str, str | None]:
         return self.edit_host
+
+    def tiled_refine_refusal(self, selected, *, check_hardware=True):
+        from backend import tiled_refine_contract as tiled
+
+        if self.tiled_refine_qualified is not True:
+            return tiled.HELD
+        if (selected.model_id, selected.quantization, selected.offload) != (
+            tiled.MODEL_ID, tiled.QUANTIZATION, tiled.OFFLOAD,
+        ):
+            return tiled.LOADER_REQUIRED
+        return None
 
     def refine_host(self) -> tuple[str, str | None, str | None, bool]:
         return self.refine_host_facts
@@ -202,6 +214,8 @@ class FakeBackend(GenerationBackend):
         from backend.execution import require_configured_loader_available, require_default_execution
         from backend.instruction_edit import require_execution_available, require_model_available
 
+        if request.tiled_refine is not None:
+            return request.applied(negative_prompt_supported=True, cfg_threshold=1.0)
         qualified = self.instruction_edit_qualified()
         if request.edit is not None:
             require_execution_available(request.validate_edit(), qualified=qualified)
@@ -315,6 +329,13 @@ class FakeBackend(GenerationBackend):
             raise RuntimeError(f"cell {len(self.requests)} blew up")
         if request.edit is not None:
             return self._edit(request, seed, on_progress, should_cancel)
+        if request.tiled_refine is not None:
+            from backend.tiled_refine_admission import bind_source
+
+            refusal = self.tiled_refine_refusal(current_settings(settings))
+            if refusal is not None:
+                raise ValueError(refusal)
+            bind_source(request.validate_tiled_refine(require_bound=True))
         # A refine pass runs the part of the schedule its strength leaves,
         # once per image, as the real backend's does.
         steps = progress_steps(request)

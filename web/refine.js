@@ -197,6 +197,10 @@ function openRefine(rec, pass = null) {
   unsentRefine = null;
   refineSource = rec;
   refineRan = false;
+  refineEpoch++;
+  refineTiled = pass?.tiled_refine != null;
+  refineTiledReplay = pass?.tiled_refine ?? draft?.tiledReplay ?? null;
+  refineTiledCheck = null;
   const prefs = refinePrefs();
   const from = pass ?? rec;
   const anchors = ['center', 'top', 'bottom', 'left', 'right', 'top-left', 'top-right', 'bottom-left', 'bottom-right'];
@@ -210,7 +214,8 @@ function openRefine(rec, pass = null) {
   const foreign = modelsDiffer(from.model_id);
   // Opened on the source either way, since the pass starts from its pixels;
   // the title and a line of its own say which pass is being run again.
-  els.refineTitle.textContent = pass ? `Refine #${rec.id} as #${pass.id} was made` : `Refine #${rec.id}`;
+  const method = pass?.tiled_refine ? 'Tiled Refine' : 'Refine';
+  els.refineTitle.textContent = pass ? `${method} #${rec.id} as #${pass.id} was made` : `Refine #${rec.id}`;
   els.refineReused.hidden = !pass;
   showRefineSource();
   writeRefineSourceLine(rec);
@@ -311,8 +316,9 @@ function openRefine(rec, pass = null) {
     els.refineDialog.showModal();
     els.refineDialog.scrollTop = 0;
   }
-  els.refineStrength.focus();
-  els.refineStrength.select();
+  const initialField = refineTiled ? els.refineSeed : els.refineStrength;
+  initialField.focus();
+  initialField.select();
   sizeRefinePrompt();
   scheduleRefinePreview(0);
   scheduleRefineCheck(0);
@@ -328,6 +334,7 @@ function openRefine(rec, pass = null) {
 function writeRefineSourceLine(rec, gone = null) {
   els.refineSourceLine.textContent = [
     `${rec.width}×${rec.height}`, `seed ${rec.seed}`, checkpointName(rec.model_id),
+    rec.tiled_refine ? `itself a Tiled Refine of ${tiledSourceName(rec)}` : '',
     rec.refine != null ? `itself a refine of #${rec.refine}${rec.refine_missing ? `, since ${rec.refine_binned ? 'binned' : 'deleted'}` : ''}` : '',
     gone ? `#${rec.id} (${gone === 'binned' ? 'in the recycle bin' : 'deleted'})` : '',
   ].filter(Boolean).join(' · ');
@@ -381,7 +388,7 @@ function refineBoxes() {
 // opening it alone is not a setting left unsent.
 function refineValues() {
   const values = Object.fromEntries(Object.entries(refineBoxes()).map(([key, el]) => [key, el.value]));
-  return { ...values, more: els.refineMore.open };
+  return { ...values, more: els.refineMore.open, tiled: refineTiled };
 }
 
 function applyRefineValues(values) {
@@ -389,6 +396,7 @@ function applyRefineValues(values) {
     if (typeof values[key] === 'string') el.value = values[key];
   }
   els.refineMore.open = !!values.more;
+  refineTiled = !!values.tiled;
 }
 
 // Start over: the record's own settings again, as a first open fills them.
@@ -426,7 +434,8 @@ function showRefineSource() {
 function syncRefine() {
   const src = refineSource;
   if (!src) return;
-  els.refineUpscalerField.hidden = !refineUpscalerAvailable();
+  syncRefineMethod();
+  els.refineUpscalerField.hidden = refineTiled || !refineUpscalerAvailable();
   if (!refineUpscalerAvailable()) els.refineUpscaler.value = '';
   const w = +els.refineWidth.value;
   const h = +els.refineHeight.value;
@@ -501,7 +510,7 @@ function syncRefine() {
     ? `Comparing ${compared.sizes.map(([cw, ch], i) => `${compared.factors[i]}× ${cw}×${ch}`).join(', ')}`
     : [sized ? `${(w * h / 1e6).toFixed(1)} MP` : '', shape, ...notes, capped].filter(Boolean).join(' — ');
   els.refineSizeHint.classList.toggle('warn', notes.length > 0);
-  els.refineKept.hidden = !cropped;
+  els.refineKept.hidden = refineTiled || !cropped;
   if (cropped) {
     Object.assign(els.refineKept.style, {
       left: `${kept.x * 100}%`, top: `${kept.y * 100}%`, width: `${kept.w * 100}%`, height: `${kept.h * 100}%`,
@@ -509,7 +518,7 @@ function syncRefine() {
   }
   // What a larger pass does to a strength, where the checkpoint has words for
   // it (`hints.refine_large`, status.js writes them in): FLUX.1's measured runs.
-  els.refineLarge.hidden = !tight || !els.refineLarge.textContent;
+  els.refineLarge.hidden = refineTiled || !tight || !els.refineLarge.textContent;
 
   // Strength's own help: the profile's number with the sweep around it, as
   // the placeholder, the Compare 3 button and a line saying how a sweep is
@@ -542,6 +551,7 @@ function syncRefine() {
     ? `${measured ? 'Measured strengths' : 'Several values'} (${compare}) run side by side and open as a sheet.`
     : sweepReason || 'Several values, comma-separated, run side by side and open as a sheet'
       + (need ? `; at ${refineStepsNow()} steps a sweep around ${start} needs Steps of ${need} or more.` : '.');
+  els.refineSweepHint.hidden = refineTiled;
 
   // The seeds the versions take, counting up from the box like a Batch: one
   // request with that many images, or a sweep's seed count for every strength.
@@ -552,14 +562,15 @@ function syncRefine() {
   const seeds = seed === null
     ? (versions > 1 ? `${versions} seeds counting up from a random one` : 'a random seed')
     : versions > 1 ? `seeds ${seed}-${seed + versions - 1}` : `seed ${seed}`;
-  const every = [sweep ? 'strength' : '', comparing ? 'size' : ''].filter(Boolean).join(' and ');
+  const every = refineTiled ? '' : [sweep ? 'strength' : '', comparing ? 'size' : ''].filter(Boolean).join(' and ');
   els.refineSeedHint.textContent = `${seeds}${seed === src.seed ? ", from the source's" : ''}`
     + (every ? `, at every ${every}` : '');
 
   // The negative prompt, Mu and True CFG by the panel's rules (syncCfg,
   // syncMu): greyed where they cannot apply, so nothing unused is sent.
   const trueCfg = els.refineTrueCfg.value.trim() === '' ? 0 : +els.refineTrueCfg.value;
-  const reach = trueCfgSupported ? trueCfg : +els.refineCfg.value;
+  const reach = refineTiled ? lastDefaults?.tiled_refine?.guidance_scale ?? 0
+    : trueCfgSupported ? trueCfg : +els.refineCfg.value;
   const off = !negativeSupported || reach <= cfgThreshold;
   els.refineNegative.disabled = off;
   els.refineNegField.classList.toggle('disabled', off);
@@ -588,7 +599,7 @@ function syncRefine() {
   // pipeline's, or a pipeline of this repo's own, which diffusers has no
   // image-to-image class beside (`refine_settled`) - is said as the card's ⤢
   // says it: "a load answers" sent a user with Anima loaded off to load it.
-  els.refineUnavailable.hidden = refineSupported;
+  els.refineUnavailable.hidden = refineTiled || refineSupported;
   els.refineUnavailable.textContent = refineSupported ? ''
     : (lastDefaults?.refine_reason || lastDefaults?.refine_settled)
       ? `Refine is unavailable. ${refineUnavailableReason()}`
@@ -608,8 +619,9 @@ function syncRefine() {
 // refine pass, a size past the guard, or the preview's refusal.
 function syncRefineRun() {
   const problem = submitHold() || (submitting ? PASS_IN_FLIGHT : '')
-    || (!refineSupported ? refineUnavailableReason()
-      : refineSizeProblem(+els.refineWidth.value, +els.refineHeight.value) || refineProblem);
+    || (refineTiled ? tiledRefineChoiceReason()
+      : !refineSupported ? refineUnavailableReason()
+        : refineSizeProblem(+els.refineWidth.value, +els.refineHeight.value)) || refineProblem;
   els.refineRun.setAttribute('aria-disabled', String(!!problem));
   els.refineRun.title = problem || 'Run the pass (Ctrl+Enter)';
 }
@@ -714,9 +726,21 @@ function refineFailed(message) {
 function refineRequest() {
   const num = (el) => (el.value.trim() === '' ? undefined : +el.value);
   const versions = +els.refineVersions.value || 1;
+  const seed = els.refineSeed.value.trim();
+  if (refineTiled) {
+    const plan = lastDefaults?.tiled_refine;
+    const body = {
+      prompt: els.refinePrompt.value.trim(),
+      negative_prompt: negativeSent(els.refineNegative),
+      width: plan?.width, height: plan?.height, steps: plan?.steps,
+      guidance_scale: plan?.guidance_scale, strength: plan?.strength, mu: null,
+      tiled_refine: refineTiledReplay ?? { source: refineSource.id, recipe: plan?.recipe },
+      seed: seed === '' ? null : +seed, num_images: versions, runs: 1,
+    };
+    return { path: '/api/generate', body, preview: body, sweep: false };
+  }
   const strength = els.refineStrength.value.trim();
   const single = strength === '' || SINGLE_STRENGTH.test(strength);
-  const seed = els.refineSeed.value.trim();
   const base = {
     prompt: els.refinePrompt.value.trim(),
     negative_prompt: negativeSent(els.refineNegative),
@@ -771,6 +795,17 @@ async function previewRefine() {
   const asked = JSON.stringify(preview);
   els.refinePreview.classList.remove('warn');
   refineProblem = null;
+  if (refineTiled) {
+    const plan = refineTiledCheck?.answer;
+    const reason = tiledRefineChoiceReason();
+    if (!preview.prompt) refineProblem = 'Enter a prompt: the pass is denoised under one.';
+    els.refinePreview.classList.toggle('warn', !!refineProblem);
+    els.refinePreview.textContent = refineProblem || (reason ? ''
+      : `${plural(preview.num_images, 'image')} · ${plural(plan.tiles, 'tile')} per image · ${plan.denoised_steps} denoising steps per image`);
+    refinePreviewed = asked;
+    syncRefineRun();
+    return;
+  }
   if (!refineSupported || refineSizeProblem(preview.width, preview.height)) {
     els.refinePreview.textContent = '';
     refinePreviewed = asked;
@@ -851,11 +886,14 @@ async function runRefine() {
   // first - again if they changed while it was asked. One that took the
   // adapter out (dropRefineLora) has said so, and this press stops there.
   const drops = refineLoraDrops;
+  const method = refineTiled;
+  const openingSource = refineSource;
   while (refinePreviewed !== JSON.stringify(refineRequest().preview)) {
     clearTimeout(refineTimer);
     refineWaiting = true;
     try { await previewRefine(); } finally { refineWaiting = false; }
-    if (!refineSource || !els.refineDialog.open || submitting || refineLoraDrops !== drops) return;
+    if (refineSource !== openingSource || !els.refineDialog.open || submitting
+        || refineTiled !== method || refineLoraDrops !== drops) return;
   }
   if (els.refineRun.getAttribute('aria-disabled') === 'true') {
     // What holds Generate too, said as a sentence in the dialog, where it is
@@ -880,7 +918,7 @@ async function runRefine() {
   // dialog's source pane has it already - since the thumbnail, stretched to
   // the viewer, was a fourfold upscale at QHD.
   const source = refineSource;
-  const strength = els.refineStrength.value.trim() || String(refineDefaultStrength());
+  const strength = refineTiled ? body.strength : els.refineStrength.value.trim() || String(refineDefaultStrength());
   // Held while the POST is out (`refineSending`): an Escape or a Cancel then
   // looked like a cancel, put the lightbox back as though nothing had run,
   // and the pass the server had taken rendered behind it. The dialog says
@@ -903,7 +941,7 @@ async function runRefine() {
       src: source.url ?? source.thumb_url,
       width: body.width,
       height: body.height,
-      label: `Refining #${source.id} → ${body.size_axis
+      label: `${body.tiled_refine ? 'Tiled Refine of' : 'Refining'} #${source.id} → ${body.size_axis
         ? body.size_axis.split(',').map((v) => v.replace('x', '×')).join(', ')
         : `${body.width}×${body.height}`} · strength ${strength}`,
     },
@@ -914,7 +952,7 @@ async function runRefine() {
       // other press between - closed it already: then refineClosed took it
       // as the run it is.
       if (refineSource !== source || !els.refineDialog.open) return;
-      rememberRefine();
+      if (!body.tiled_refine) rememberRefine();
       refineRan = true;
       els.refineDialog.close();
       // The dialog gives focus back to what opened it: nothing, where a
@@ -967,6 +1005,7 @@ function refineCancelEvent(event) {
 // and the next change brings the preview back. A size past the guard keeps
 // the size line beside W and H, says it again by the button, and focuses W.
 function refuseRefine(reason) {
+  if (refineTiled) { refineFailed(reason); return; }
   const size = refineSupported && refineSizeProblem(+els.refineWidth.value, +els.refineHeight.value);
   if (refineSupported && !size && reason === refineProblem && els.refinePreview.textContent === reason) {
     els.refinePreview.textContent = '';
@@ -1032,9 +1071,13 @@ function refineClosed() {
   // the server most likely has the pass already (runRefine).
   const ran = refineRan || refineSending;
   const values = src && !ran ? refineValues() : null;
-  const unsent = values && Object.keys(refineBoxes()).some((key) => values[key] !== refineFilled?.[key]);
-  unsentRefine = unsent ? { id: src.id, model: loadedModel, values } : null;
+  const unsent = values && (values.tiled !== refineFilled?.tiled
+    || Object.keys(refineBoxes()).some((key) => values[key] !== refineFilled?.[key]));
+  unsentRefine = unsent ? { id: src.id, model: loadedModel, values, tiledReplay: refineTiledReplay } : null;
   refineSource = null;
+  refineTiled = false;
+  refineTiledReplay = null;
+  refineTiledCheck = null;
   refineLora = null;
   refineEpoch++;
   refineCheckEpoch++;
@@ -1080,7 +1123,8 @@ async function loadRefinePasses(rec) {
   if (epoch !== refinePassesEpoch || refineSource !== rec || !page.total) return;
   els.refinePassesHead.textContent = `Passes of #${rec.id} (${page.total})`;
   for (const pass of page.items) {
-    const what = `#${pass.id}: ${pass.width}×${pass.height} at strength ${pass.strength}, seed ${pass.seed}`;
+    const what = `#${pass.id}: ${pass.tiled_refine ? 'Tiled Refine, ' : ''}${pass.width}×${pass.height}`
+      + `${pass.strength == null ? '' : ` at strength ${pass.strength}`}, seed ${pass.seed}`;
     const described = what + (pass.upscaler ? `, ${upscalerName(pass.upscaler)}` : '');
     const button = document.createElement('button');
     button.type = 'button';

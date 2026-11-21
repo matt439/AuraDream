@@ -104,6 +104,7 @@ const axisValue = (axis, rec) => axis.of(rec) ?? null;
 const sameExcept = (a, b, skip = []) => SHEET_AXES
   .every((axis) => skip.includes(axis.key) || axisValue(axis, a) === axisValue(axis, b))
   && a.edit?.recipe === b.edit?.recipe && sameEditSource(a, b)
+  && sameTiledRefineSource(a, b)
   && ['width', 'height', 'model_id', 'quantization', 'refine'].every((key) => a[key] === b[key]);
 const sameSettings = (a, b) => sameExcept(a, b);
 
@@ -111,6 +112,14 @@ function sameEditSource(a, b) {
   if (!a.edit || !b.edit) return !a.edit && !b.edit;
   return a.edit.source === b.edit.source && ['hash', 'width', 'height', 'filename']
     .every((key) => a.edit.edit_source?.[key] === b.edit.edit_source?.[key]);
+}
+
+function sameTiledRefineSource(a, b) {
+  const left = a.tiled_refine;
+  const right = b.tiled_refine;
+  if (!left || !right) return !left && !right;
+  return ['source', 'recipe', 'preparation', 'prepared_rgb_sha256'].every((key) => left[key] === right[key])
+    && ['hash', 'width', 'height', 'filename'].every((key) => left.root_source?.[key] === right.root_source?.[key]);
 }
 
 // Full prompt -> the words that make it different from its neighbours, filled

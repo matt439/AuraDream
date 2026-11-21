@@ -9,11 +9,13 @@ import struct
 import zipfile
 from collections.abc import Callable, Iterator
 from contextlib import ExitStack, closing, contextmanager
+from pathlib import Path
 
 from PIL import Image
 
 from . import bundle_archive, bundle_crypto, bundle_images, bundle_leases, bundles, storage
 from .bundle_common import BrowseUnavailable, BundleError, _image_rows, _read_masks
+from .bundle_restore import RestoreCatalogue
 from .metadata import PNG_SIGNATURE
 
 PAGE_SIZE = 24
@@ -49,8 +51,9 @@ class BrowseArchive:
     are retained between requests.
     """
 
-    def __init__(self, archive: zipfile.ZipFile, rows: list[dict], files: dict, inspected: dict):
+    def __init__(self, path: Path, archive: zipfile.ZipFile, rows: list[dict], manifest: dict, inspected: dict):
         self._archive = archive
+        self.restoration = RestoreCatalogue(path, archive, rows, manifest, inspected)
         self._records = {}
         self._sources = {}
         for row in reversed(rows):  # The database validator returns ascending IDs.
@@ -70,7 +73,7 @@ class BrowseArchive:
                 settings["seed"] = str(record.seed)
             self._records[image_id] = {"id": image_id, "prompt": record.prompt, "run_id": record.run_id,
                                        "favorite": record.favorite, "settings": settings}
-            self._sources[image_id] = (member, files[member]["sha256"])
+            self._sources[image_id] = (member, manifest["files"][member]["sha256"])
 
     def images(self, prompt: str, run: str, starred: bool, offset: int) -> dict:
         prompt, run = prompt.casefold(), run.casefold()
@@ -140,6 +143,6 @@ def open_view(name: str, password: str | None, *,
             raise BundleError(str(exc)) from exc
         assert rows is not None
         progress("", 0, 0)
-        view = BrowseArchive(archive, rows, manifest["files"], inspections)
+        view = BrowseArchive(path, archive, rows, manifest, inspections)
         del rows, manifest, inspections
         yield view

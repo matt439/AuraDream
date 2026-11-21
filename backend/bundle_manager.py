@@ -28,6 +28,7 @@ from .refusal_codes import GALLERY_MAINTENANCE
 log = logging.getLogger(__name__)
 PREFIX = "/api/gallery/bundles"
 BROWSE_PREFIX = PREFIX + "/browse"
+RESTORE_PATH = BROWSE_PREFIX + "/restore"
 # The automatic-backup routes' prefix, defined here because `api_backup`
 # imports this module (as `backup_service` does), never the reverse:
 # `GalleryAdmission` exempts those routes from its reader count.
@@ -194,7 +195,7 @@ class GalleryAdmission:
         if scope["type"] != "http":
             return await self.app(scope, receive, send)
         path = scope["path"]
-        control = path in {BACKUP_PREFIX, BACKUP_PREFIX + "/reload", PREFIX, PREFIX + "/status", PREFIX + "/export", PREFIX + "/import",
+        control = path in {BACKUP_PREFIX, BACKUP_PREFIX + "/reload", PREFIX, PREFIX + "/status", PREFIX + "/export", PREFIX + "/import", RESTORE_PATH,
                            PREFIX + "/upload", PREFIX + "/password", BROWSE_PREFIX,
                            BROWSE_PREFIX + "/images"} or path.startswith((PREFIX + "/files/", BROWSE_PREFIX + "/thumb/"))
         status = path == "/api/status" or path == "/api/jobs" or path.startswith("/api/jobs/")

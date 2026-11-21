@@ -1,6 +1,8 @@
 // Injected by smoke-bundle-browse. Build archives with the real exporter before
 // the app starts polling so gallery maintenance can reserve the scratch server.
 const __archivePrompt = 'moonlit wireframe observatory';
+const __archiveSourcePrompt = 'storm glass by the window';
+const __archiveUnrelatedPrompt = 'cliffside train in winter';
 const __bundlePrefix = '/api/gallery/bundles';
 const __allGallery = '/api/gallery?limit=100&all_models=true';
 
@@ -26,8 +28,16 @@ async function __backup(password) {
   return __waitFor(async () => {
     const status = await __json(__bundlePrefix + '/status');
     if (status.state === 'failed') throw Error(status.error);
-    return status.id === operation.id && status.state === 'done' && status.result.records === 3;
+    return status.id === operation.id && status.state === 'done' && status.result.records === 5;
   });
+}
+
+async function __archiveImage(prompt, settings = {}) {
+  const {job_id} = await __json('/api/generate', {
+    prompt, width: 256, height: 256, steps: 2, guidance_scale: 2, ...settings,
+  });
+  if (!await __waitFor(async () => (await __json('/api/jobs/' + job_id)).status === 'done')) return null;
+  return (await __json(__allGallery)).items.find(row => row.job_id === job_id && row.prompt === prompt);
 }
 
 async function __prepareBrowseFixture() {
@@ -37,20 +47,30 @@ async function __prepareBrowseFixture() {
       || !original.items.every(row => row.run_id === 'planted')
       || (await __json(__bundlePrefix)).bundles.length !== 0) return false;
 
-  const {job_id} = await __json('/api/generate', {
-    prompt: __archivePrompt, negative_prompt: 'thick fog', seed: 79713,
-    width: 256, height: 256, steps: 1, guidance_scale: 2, true_cfg: 3,
+  const source = await __archiveImage(__archiveSourcePrompt, {seed: 79711});
+  if (!source) return false;
+  const keeper = await __archiveImage(__archivePrompt, {
+    refine: source.id, strength: 0.75, negative_prompt: 'thick fog', seed: 79713, true_cfg: 3,
   });
-  if (!await __waitFor(async () => (await __json('/api/jobs/' + job_id)).status === 'done')) return false;
-  const archiveOnly = (await __json(__allGallery)).items.find(row =>
-    row.job_id === job_id && row.prompt === __archivePrompt && row.seed === 79713);
-  if (archiveOnly?.negative_prompt !== 'thick fog'
+  const unrelated = await __archiveImage(__archiveUnrelatedPrompt, {seed: 79712});
+  if (keeper?.negative_prompt !== 'thick fog' || keeper.seed !== 79713 || keeper.refine !== source.id || !unrelated
       || !await __backup(null) || !await __backup('lantern room')) return false;
 
-  // This ID came from this smoke's own completed job. Keep the two original
-  // records so their bytes and metadata can be compared after browsing.
-  const removed = await fetch('/api/images/' + archiveOnly.id, {method: 'DELETE'});
-  return removed.ok && (await __json(__allGallery)).total === 2;
+  // These IDs came from this smoke's own completed jobs. Keep the two fake
+  // base records so their bytes and metadata can be compared after browsing.
+  for (const {id} of [keeper, unrelated, source]) {
+    if (!(await fetch('/api/images/' + id, {method: 'DELETE'})).ok) return false;
+  }
+  return (await __json(__allGallery)).total === 2;
+}
+
+async function __restoredKeeper(hasUnrelated = false) {
+  const { items } = await __json(__allGallery);
+  const keeper = items.find(row => row.prompt === __archivePrompt);
+  const source = items.find(row => row.prompt === __archiveSourcePrompt);
+  return items.length === (hasUnrelated ? 5 : 4) && keeper?.seed === 79713 && source?.seed === 79711
+    && keeper.refine === source.id && items.some(row => row.prompt === __archiveUnrelatedPrompt) === hasUnrelated
+    ? keeper.id : null;
 }
 
 async function __workingSnapshot() {

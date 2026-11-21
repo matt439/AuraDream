@@ -345,6 +345,7 @@ function syncBundleControls() {
     hold(button, button.dataset.bundleDeleteHold || bundleDeleteHold(),
       'Delete this saved bundle file from the server, after a confirmation');
   }
+  syncBundleRestoreControls(why);
   syncAutomaticBackupControls();
 }
 
@@ -662,6 +663,19 @@ function renderBundleResult(status, past = false) {
     const end = result.cleared ? (past ? 'The gallery was cleared.' : 'The gallery is empty and ready for new images.')
       : 'The gallery was not completely cleared; review the files still on disk.';
     say(`Saved and verified ${result.images} images and ${result.records} gallery records. ${end}${result.cleanup_error ? ` ${result.cleanup_error}` : ''}`, !result.cleared);
+  } else if (status.operation === 'restore') {
+    const gap = result.replay_unavailable ? ' A required source or mask is unavailable for replay.' : '';
+    const destination = result.image_binned ? 'recycle bin' : 'gallery';
+    say(`Image #${result.image_id} is in the ${destination}. ${plural(result.imported, 'record')} restored, ${result.present} already present.${gap}`, false);
+    if (Number.isSafeInteger(result.image_id) && result.image_id > 0) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'ghost small';
+      button.id = 'bundle-show-restored';
+      button.textContent = result.image_binned ? 'Show image in bin' : 'Show restored image';
+      button.onclick = () => showBundleImages(`id:${result.image_id}`, result.image_binned);
+      els.bundleStatus.append(' ', button);
+    }
   } else if (status.operation === 'import') {
     const missing = result.unresolved_references || 0;
     const restored = result.restored || 0;
@@ -696,6 +710,7 @@ async function receiveBundleStatus(status) {
     if (status.operation !== 'backup_settings') bundleSay({
       export: 'Creating and verifying the bundle, then clearing the gallery. You can close this dialog; the server will finish the operation.',
       backup: 'Creating and verifying the bundle; the gallery is kept. You can close this dialog; the server will finish the operation.',
+      restore: 'Restoring the selected image from the bundle. You can close this dialog; the server will finish the restore.',
       automatic_backup: 'Checking the automatic startup backup and saving a verified copy if due; the gallery is kept. You can close this dialog; the server will finish the operation.',
       backup_settings: 'Saving automatic startup backup settings. No backup is created now.',
     }[status.operation] || 'Checking and importing the bundle. You can close this dialog; the server will finish the operation.');
@@ -770,7 +785,8 @@ async function startBundleOperation(path, options, operation, before = null) {
   ++bundleRequestEpoch;
   bundleSending = true;
   bundleSeenRunning = true;
-  bundleSay(operation !== 'import' ? 'Starting the gallery bundle…' : before ? 'Checking the bundle password…' : 'Sending the bundle for import…');
+  bundleSay(operation === 'restore' ? 'Starting the restore…' : operation !== 'import' ? 'Starting the gallery bundle…'
+    : before ? 'Checking the bundle password…' : 'Sending the bundle for import…');
   syncBundleControls(); syncSubmitButtons();
   try {
     if (before) {
@@ -781,6 +797,7 @@ async function startBundleOperation(path, options, operation, before = null) {
     const status = await api(path, options);
     bundleSending = false;
     await receiveBundleStatus(status);
+    return { status };
   } catch (err) {
     bundleSending = false;
     // The page's own Cancel: not a failure. A Cancel pressed once the whole
@@ -790,6 +807,7 @@ async function startBundleOperation(path, options, operation, before = null) {
     else bundleSay(err.message, true);
     await pollBundleStatus();
     if (!bundleHold()) await refreshBundlePreview();
+    return { error: err };
   } finally {
     bundleSending = false;
     syncBundleControls(); syncSubmitButtons();

@@ -17,6 +17,7 @@ from backend.launch import add_model_arguments
 from backend.png_settings import image_settings
 from backend.metadata import canonical_detailer
 from backend.sizes import SIZES, TIERS
+from backend import tiled_refine_contract as tiled
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -42,7 +43,7 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar="PNG",
         help="start from the settings a gallery PNG carries in its metadata - prompt, "
         "negative prompt, size, steps, CFG, true CFG, mu, seed, checkpoint, references, "
-        "adapter, refine source and strength, and grid variables; any flag given "
+        "adapter, refine source and strength, a Tiled Refine recipe, and grid variables; any flag given "
         "explicitly still wins, and the variables carry only while the prompt pair is "
         "the image's own",
     )
@@ -111,6 +112,10 @@ def _build_parser() -> argparse.ArgumentParser:
         "image-to-image pipeline for (FLUX.1, SDXL, Z-Image, Qwen-Image). With no size "
         "given the size is the source's times --scale; a size of another shape crops "
         "the source rather than stretching it",
+    )
+    conditioning.add_argument(
+        "--tiled-refine", type=int, metavar="ID",
+        help="Tiled Refine on Animagine XL 4.0, from a 1024x1024 RGB gallery image to 2048x2048",
     )
     conditioning.add_argument(
         "--strength",
@@ -344,7 +349,9 @@ def _apply_image_settings(args: argparse.Namespace, meta: dict) -> None:
         args.steps = meta.get("steps")
     if args.cfg is None:
         args.cfg = meta.get("guidance_scale")
-    if args.true_cfg is None and meta.get("true_cfg") is not None:
+    # Tiled Refine's recorded effective CFG comes from its negative text;
+    # a replay can change that text without carrying a stale effective CFG.
+    if args.true_cfg is None and meta.get("true_cfg") is not None and meta.get("tiled_refine") is None:
         args.true_cfg = meta["true_cfg"]
     # An explicit null in the record means the image ran with no shift of
     # ours; --mu/--no-mu on the command line still win.
@@ -553,6 +560,45 @@ def _resolve_size(args: argparse.Namespace, parser: argparse.ArgumentParser) -> 
     return SIZES[args.aspect or "1:1"][args.mp or 1]
 
 
+def _tiled_refine_flags(
+    args: argparse.Namespace, parser: argparse.ArgumentParser, source: dict | None,
+) -> tiled.TiledRefineSpec | tiled.StoredTiledRefine | None:
+    """The frozen recipe from an explicit gallery id or a replay PNG."""
+    carried = (source or {}).get("tiled_refine")
+    if args.tiled_refine is None and carried is None:
+        return None
+    if carried is not None and args.tiled_refine is not None:
+        parser.error("--from-image already records its Tiled Refine source; omit --tiled-refine")
+    try:
+        if carried is not None:
+            spec = tiled.bound_spec(carried)
+            spec.request()
+        else:
+            spec = tiled.TiledRefineSpec(source=args.tiled_refine, recipe=tiled.RECIPE_NAME)
+    except ValueError as exc:
+        parser.error(f"Tiled Refine: {exc}")
+    if any(value is not None for value in (
+        args.refine, args.mask, args.outpaint, args.upscaler, args.scale, args.mask_crop, args.lora,
+        args.mu, args.then_refine_scale, args.then_refine_strength, args.then_refine_steps,
+    )) or args.reference or args.crop_anchor not in (None, "center") or args.lora_scale != 1.0:
+        parser.error("Tiled Refine uses its own source, canvas and sampling. Remove other pass and conditioning flags.")
+    if any(value is not None and value != frozen for value, frozen in (
+        (args.steps, tiled.STEPS), (args.cfg, tiled.GUIDANCE_SCALE), (args.strength, tiled.STRENGTH),
+    )):
+        parser.error("Tiled Refine uses 28 steps, CFG 5 and strength 0.35.")
+    if any(value is not None for value in (args.width, args.height, args.aspect, args.mp)):
+        if _resolve_size(args, parser) != tiled.CANVAS_SIZE:
+            parser.error("Tiled Refine uses a fixed 2048x2048 output canvas.")
+    if args.via_server and (args.resume or args.budget is not None):
+        parser.error("Tiled Refine on the server uses Finish run for recovery and supports --runs and --batch.")
+    _grid_flags(args, parser, tiled_refine=True)
+    args.width, args.height = tiled.CANVAS_SIZE
+    args.aspect = args.mp = None
+    args.steps, args.cfg, args.strength = tiled.STEPS, tiled.GUIDANCE_SCALE, tiled.STRENGTH
+    args.no_mu = True
+    return spec
+
+
 def _then_refine_flags(args, parser) -> dict | None:
     """--then-refine-*, as the request's `then_refine`, or None."""
     if args.then_refine_scale is None:
@@ -572,7 +618,9 @@ def _then_refine_flags(args, parser) -> dict | None:
     return {"scale": args.then_refine_scale, "strength": strength, "steps": args.then_refine_steps}
 
 
-def _grid_flags(args: argparse.Namespace, parser: argparse.ArgumentParser) -> tuple[str, bool]:
+def _grid_flags(
+    args: argparse.Namespace, parser: argparse.ArgumentParser, *, tiled_refine: bool = False,
+) -> tuple[str, bool]:
     """The grid's prompt axis, and whether the flags ask for a grid at all,
     once the --grid-* combinations that cannot run are refused. The local
     run and --via-server both call it, so the two refuse the same lines."""
@@ -595,6 +643,8 @@ def _grid_flags(args: argparse.Namespace, parser: argparse.ArgumentParser) -> tu
         )
         or args.grid_seeds > 1
     )
+    if gridding and tiled_refine:
+        parser.error("Tiled Refine uses --runs and --batch for multiple images.")
     if args.grid_prompt_mode == "random" and not prompt_axis.strip():
         parser.error("--grid-prompt-mode random needs --grid-prompt variables")
     if args.grid_lora_scale and not args.lora:

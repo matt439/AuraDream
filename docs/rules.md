@@ -385,20 +385,19 @@ paragraphs, never rewording.
   `paste_back`; numpy, Pillow, `sizes` and `refine`. The app crops, never
   the class's `padding_mask_crop`; the rule's boxes are pinned by
   `tests/test_mask_crop.py`
-- `backend/tiled_refine_contract.py` — private GEN#49 recipe identity,
+- `backend/tiled_refine_contract.py` — frozen GEN#49 recipe identity,
   portable original and prepared RGB proofs, key and exact 2x Lanczos preparation.
 - `backend/tiled_refine_admission.py` — live gallery root validation and
   prepared canvas binding through the same handle. Reproves the original
   root before each tile and after the final tile.
-- `backend/tiled_refine.py` — private provisional GEN#49 CPU orchestration:
+- `backend/tiled_refine.py` — GEN#49 CPU orchestration:
   the frozen 2048-square four-region masks, serial crop/overlay helpers,
   injected renderer, per-tile seeds and immutable result facts. Cancellation
   discards the working composite. `tests/test_tiled_refine.py` pins the algorithm.
-- `backend/backends/tiled_refine_adapter.py` — the private pinned candidate's
+- `backend/backends/tiled_refine_adapter.py` — the pinned recipe's
   serial SDXL inpaint calls with the loaded pipeline's shared components,
   per-tile generator, callbacks and offload. The ordinary job queue saves
-  one result per private candidate cell. Public Generate, Grid, Re-render,
-  More seeds and Finish hold the recipe. `tests/test_tiled_refine_adapter.py`
+  one result per cell after the entire composite finishes. `tests/test_tiled_refine_adapter.py`
   checks source proof and the loaded candidate with CPU doubles.
 - `backend/sizes.py` — the preset table; the CLI's `--aspect/--mp`, config's
   `max_side`/`max_pixels` and a refine pass's `refine_max_side`/
@@ -580,9 +579,10 @@ paragraphs, never rewording.
   (streamed chunked AES-256-GCM, scrypt); `api_bundles.py` owns browser routes
   (the export's scope resolved through `submission.resolve_selection`; a
   saved file's confirmed delete, `bundles.delete_saved_bundle`);
-  `api_bundle_browse.py` serves read-only views of one explicitly chosen
-  archive, `bundle_views.py` owns their short-lived capabilities and leases,
-  and `bundle_browse_archive.py` verifies the archive and renders thumbnails;
+  `api_bundle_browse.py` serves views and selective restore of one explicitly
+  chosen archive, `bundle_views.py` owns their short-lived capabilities and
+  leases, `bundle_browse_archive.py` verifies the archive and renders
+  thumbnails, and `bundle_restore.py` plans the chosen rows and replay inputs;
   `bundle_manager.py` exclusive maintenance admission through background
   completion (`BundleManager`, the ASGI `GalleryAdmission`, the bundle and
   backup route prefixes), which the automatic backup imports instead of a
@@ -976,7 +976,7 @@ paragraphs, never rewording.
 
 ### The page (`web/`)
 
-- `web/` - served as-is from `/static`; `index.html` loads 85 classic
+- `web/` - served as-is from `/static`; `index.html` loads 87 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `page-helpers.js`, right
   after it, the page-wide pure helpers (`plural`, `excerpt`, `units`,
@@ -1040,7 +1040,8 @@ paragraphs, never rewording.
   poll);
   `bundles.js` owns the gallery bundle dialog (Back up and its scope
   included) and background-operation polling, `bundle-browser.js` the
-  temporary read-only view of a chosen archive, and `automatic-backup.js`
+  temporary view of a chosen archive, `bundle-restore.js` its dependency
+  preview and Restore action, and `automatic-backup.js`
   its automatic startup backup settings (protection, consent, retention
   cleanup and credential status, read only while the dialog is open;
   the section is `hidden` until the cached status shows saved settings,
@@ -1049,7 +1050,8 @@ paragraphs, never rewording.
   per opening and never on polls);
   `gallery-select.js` the picked cards and the Picked menu, `gallery-batch.js` a
   card's batch outlined on hover, `tag-swap.js` Swap tags,
-  `refine-batch.js` Mass refine, `then-refine.js` Then refine's opener
+  `refine-tiled.js` the Refine method choice, tiled source admission and
+  fixed-recipe request, `refine-batch.js` Mass refine, `then-refine.js` Then refine's opener
   on the Notify row and its dialog, `more-seeds.js` More seeds and `bin.js` the
   recycle bin's view, undo note and Empty; `context-menu.js` the right-click
   menu on an image (`styles/context-menu.css`); `shortcuts.js` the keyboard
@@ -3541,6 +3543,8 @@ measured on the card and when.
   file remains readable at its old URL; an existing destination is never
   replaced. Deletion, disk totals and stale-partial cleanup cover both
   locations. Read-only previews never create directories or move files.
+##### Gallery bundles
+
 - Gallery bundles cover all checkpoints and favourites, independent of the
   browser filter. Publish and verify the ZIP and its SHA-256 manifest before
   removing source files; recheck the source inventory and hashes before
@@ -3742,7 +3746,13 @@ measured on the card and when.
   responses use `Cache-Control: private, no-store`. Close, ten minutes idle
   or server shutdown releases the reader after any current read, and the
   page clears its text and revokes its object URLs. A disconnected opening
-  discards its verification result. Import remains a separate operation.
+  discards its verification result. Restore takes a verified view and
+  starts a normal background bundle operation under gallery admission.
+  It stages the selected rows and their available masks, using the existing
+  import identity checks, ID remapping, file installation and database commit.
+  The same view lease pins the archive until the restore worker has finished.
+  A preview reports dependency availability. The receipt reports the
+  destination ID, its bin state and any replay limitation after the merge.
 - Imports unpack, and uploads land, in `storage.bundle_staging_dir()`
   (`.auradream-staging` beside the images directory, or inside it when
   it is its own volume); the merged database is built in a `.bundle-merge-*`
@@ -5981,6 +5991,17 @@ measured on the card and when.
   the edits' records, titles and buttons.
 
 #### Image passes: Refine, Inpaint and Outpaint
+
+- Tiled Refine is an explicit choice in Refine. It fixes the source at
+  1024-square RGB, enlarges it by Lanczos to 2048 square, and draws four
+  overlapping regions in order at 28 full steps, CFG 5 and strength 0.35.
+  Each cell makes one gallery image after 36 denoising callbacks. The
+  server supplies eligibility, recipe facts and refusal reasons. The
+  available checkpoint and loader are bounded by the measured Animagine
+  XL 4.0 pinned fp8/model Windows CUDA 0 RTX 5080, Eager/Native and
+  diffusers 0.42.1 recipe. Source proofs are bound before key construction
+  and checked again during the pass. The frozen recipe name carries earlier
+  saved intent, including its `private-provisional-` prefix.
 
 - A refine pass is the Refine dialog's (`web/refine.js`), never the
   panel's: `collect()` sends `refine: null`, so Generate, Batch, Repeat, the
@@ -12123,6 +12144,12 @@ Re-render, Swap tags and More seeds; the CLI's `--mask-crop`, its
 
 ### Image pass smokes
 
+`smoke-tiled-refine.json` uses a fresh Animagine XL 4.0 fake on 7961.
+It exercises the explicit tiled mode, its fixed sampling and geometry,
+held reasons, queue progress and saved intent, Reuse, More seeds and
+source bin and restore. `tests/test_api_tiled_refine.py` covers batch
+admission, recovery and the retained source proof through the HTTP paths.
+
 `smoke-anima-refine.json` uses its own fresh Turbo fake on shared port 7960.
 It checks cold/live measured support, opening at 1024 square and 0.25,
 server-supplied 0.125/0.25/0.4 suggestions and exact two/four-of-eight captions,
@@ -13867,8 +13894,12 @@ chosen bundle refused as busy before its selection is read.
 
 `smoke-bundle-browse.json` opens real plain and protected backups on a fresh
 fake. It filters archived prompts, runs and stars, opens an image's settings,
-corrects a wrong password, and compares the working records and PNG hashes
-after closing each view. Only the final explicit Import restores the archived image.
+corrects a wrong password, and checks working records and PNG hashes after
+browsing and cancelling a restore preview. Restore on the protected copy
+imports the keeper and its selected Refine source, leaving an unrelated
+archive row out. The preview fits a 393 px touch layout. The plain copy
+recognizes the source and keeper on repeat restore, and Show restored image
+finds the keeper in the gallery. Whole-archive Import adds the unrelated row.
 
 `smoke-bundles.json` uses a fresh fake on 7897 and checks the browser dialog
 (the Automatic startup backup section hidden with no saved settings),

@@ -33,6 +33,8 @@ class _View:
     deadline: float
     timer: threading.Timer | None = None
     lock: threading.Lock = field(default_factory=threading.Lock)
+    pins: int = 0
+    retired: bool = False
 
 
 class BundleViews:
@@ -109,7 +111,31 @@ class BundleViews:
                 self._schedule(token, view, remaining)
                 return
             del self._views[token]
+            view.retired = True
+            if view.pins:
+                return
         self._dispose(view)
+
+    def pin(self, token: str) -> _View:
+        """Give an admitted restore a read that survives closing its browse view."""
+        with self._condition:
+            view = self._views.get(token)
+            if view is None or view.deadline <= time.monotonic():
+                raise ViewClosed
+            view.pins += 1
+            return view
+
+    def release_pin(self, view: _View) -> None:
+        with self._condition:
+            view.pins -= 1
+            dispose = view.retired and not view.pins
+        if dispose:
+            self._dispose(view)
+
+    @contextmanager
+    def read_pinned(self, view: _View) -> Iterator[bundle_browse_archive.BrowseArchive]:
+        with view.lock:
+            yield view.archive
 
     @contextmanager
     def read(self, token: str) -> Iterator[bundle_browse_archive.BrowseArchive]:
@@ -142,9 +168,13 @@ class BundleViews:
                 if owner is not None and view.owner is not owner:
                     return
                 del self._views[token]
-        if view is not None:
-            if view.timer is not None:
-                view.timer.cancel()
+                view.retired = True
+                dispose = not view.pins
+                if view.timer is not None:
+                    view.timer.cancel()
+            else:
+                dispose = False
+        if view is not None and dispose:
             self._dispose(view)
 
     def shutdown(self) -> None:

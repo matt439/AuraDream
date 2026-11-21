@@ -7,11 +7,12 @@ from types import SimpleNamespace
 
 from fastapi import APIRouter, HTTPException
 
-from . import gallery_reports, grid, grid_budgets, mask_crop, submission, then_refine
+from . import gallery_reports, grid, grid_budgets, mask_crop, submission, then_refine, tiled_refine_admission
 from .app_context import AppServices
 from .detached import detached
 from .execution import require_configured_loader_available
 from .model_selection import current_settings
+from .refusals import refusal
 from .schemas import (
     GenerateRequest,
     GenerateSubmission,
@@ -22,6 +23,7 @@ from .schemas import (
     ThenRefine,
     error_detail,
 )
+from .tiled_refine_contract import RECIPE_NAME, TiledRefineCapability, TiledRefinePreview, TiledRefineSpec
 
 
 async def expand_grid(
@@ -50,6 +52,9 @@ async def expand_grid(
     "already done" is the gallery's.
     """
     selected = current_settings(services.settings())
+    if request.tiled_refine is not None:
+        raise HTTPException(status_code=422, detail="Use the Tiled Refine dialog or Generate for this fixed recipe. "
+                                                   "Run grid and its preview do not support Tiled Refine.")
     try:
         require_configured_loader_available(selected)
         base = request.base(selected.loader_execution)
@@ -128,6 +133,22 @@ def create_router(services: AppServices) -> APIRouter:
     """The routes, reading the app's state through `services` per request."""
     router = APIRouter()
 
+    @router.post("/api/tiled-refine/preview")
+    async def preview_tiled_refine(request: TiledRefinePreview) -> dict:
+        """The fixed plan and its current hold, with proof for a reused source."""
+        try:
+            await asyncio.to_thread(
+                tiled_refine_admission.require_loader, services.backend(), current_settings(services.settings()),
+            )
+            spec = request.tiled_refine or TiledRefineSpec(source=request.source, recipe=RECIPE_NAME)
+            if spec.source != request.source:
+                raise ValueError("The recorded Tiled Refine source must match the requested gallery image.")
+            await asyncio.to_thread(tiled_refine_admission.bind_source, spec)
+        except ValueError as exc:
+            return {**TiledRefineCapability().model_dump(), "reason": error_detail(exc),
+                    "code": getattr(exc, "code", None), "ids": getattr(exc, "ids", ())}
+        return {**TiledRefineCapability().model_dump(), "reason": None}
+
     @router.post("/api/generate", response_model=JobAccepted)
     async def generate(submitted: GenerateSubmission) -> JobAccepted:
         try:
@@ -137,7 +158,8 @@ def create_router(services: AppServices) -> APIRouter:
             request.check_budget()
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
-        await submission.refuse_unusable_inputs(services, request)
+        if request.tiled_refine is None:
+            await submission.refuse_unusable_inputs(services, request)
         try:
             request.check_refine_steps()
         except ValueError as exc:
@@ -146,7 +168,12 @@ def create_router(services: AppServices) -> APIRouter:
         # retried here rather than short-circuiting - the user may have just been
         # granted repo access.
         spec = await then_refine_spec(services, submitted.then_refine, [request])
-        job = await services.jobs().submit(request, then_refine=spec)
+        try:
+            job = await services.jobs().submit(request, then_refine=spec)
+        except ValueError as exc:
+            if request.tiled_refine is None:
+                raise
+            raise refusal(422, error_detail(exc), exc) from exc
         return JobAccepted.of(job)
 
 

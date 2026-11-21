@@ -243,6 +243,12 @@ class GenerationBackend(abc.ABC):
         return (refine_qualification.loader_refusal(selected.model_id, facts, check_hardware=check_hardware)
                 or (refine_qualification.request_refusal(selected.model_id, request) if request is not None else None))
 
+    def tiled_refine_refusal(self, selected: Any, *, check_hardware: bool = True) -> str | None:
+        """Why the measured tiled recipe cannot run on this backend."""
+        from ..tiled_refine_contract import HELD
+
+        return HELD
+
     def check_refine_supported(self, request: "GenerateRequest") -> None:
         """Refuse a pass the loaded pipeline cannot perform, before any cell.
 

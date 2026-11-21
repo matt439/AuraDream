@@ -140,7 +140,8 @@ function finishJob(jobId, data, { submitted, sheet, foreign = false, staleBefore
     // A plain job's seeds, which a blank Seed box drew and nothing on the
     // page showed short of the lightbox: Use seed keeps the composition for
     // the next prompt, and writes nothing else.
-    const plain = !data.detailer && !data.grid && data.refine == null && images.length;
+    const tiled = images.some((image) => image.tiled_refine);
+    const plain = !data.detailer && !data.grid && data.refine == null && !tiled && images.length;
     // More seeds' too, where the seeds they took are the news: a batch's
     // run on from its highest, the same span for each batch of one run.
     const seeded = plain || (data.more_seeds != null && images.length);
@@ -175,7 +176,8 @@ function finishJob(jobId, data, { submitted, sheet, foreign = false, staleBefore
       // swap's or a batch refine's, whose images are many batches of
       // another's. Held where every image has gone since, or the checkpoint
       // is another; the batches are the server's.
-      const pass = !data.detailer && !data.grid && data.refine != null && data.refine_batch == null && data.swap == null;
+      const pass = !data.detailer && !data.grid && (data.refine != null || tiled)
+        && data.refine_batch == null && data.swap == null;
       if ((seeded || pass) && images.length) line.push(finishMoreSeeds(images, 'result-dup'));
     }
   }

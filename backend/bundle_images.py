@@ -293,6 +293,47 @@ def _portable_tiled_refine(value: str | None) -> dict | None:
     return None if stored is None else stored.model_dump(mode="json", exclude={"source"})
 
 
+def _check_known_record(known: dict, row: dict, execution: str | None, edit: str | None) -> None:
+    """Portable identity for a matched filename, independent of remapped links."""
+    name = row["filename"]
+    for key in ("prompt", "negative_prompt", "steps", "guidance_scale", "mu", "seed", "model_id"):
+        if known[key] != row[key]:
+            raise BundleError(f"different image metadata already uses the filename {name}")
+    if _execution(known) != execution:
+        raise BundleError(f"different execution already uses the filename {name}")
+    if _portable_edit(_edit(known)) != _portable_edit(edit):
+        raise BundleError(f"different instruction edit already uses the filename {name}")
+    if _portable_detailer(_detailer(known)) != _portable_detailer(_detailer(row)):
+        raise BundleError(f"different detailer manifest already uses the filename {name}")
+    if _portable_tiled_refine(_tiled_refine(known)) != _portable_tiled_refine(_tiled_refine(row)):
+        raise BundleError(f"different Tiled Refine recipe already uses the filename {name}")
+    # A previous subset import may already have dropped both source and crop.
+    # Known rows and their original remapped links win on repeat import.
+    incoming_anchor = row.get("crop_anchor") if known.get("refine") is not None else None
+    if (known.get("crop_anchor") or "center") != (incoming_anchor or "center"):
+        raise BundleError(f"different crop anchor already uses the filename {name}")
+
+
+def _image_links(row: dict) -> list[tuple[str, int | None]]:
+    links: list[tuple[str, int | None]] = [("reference", image_id) for image_id in _references(row)]
+    if row.get("refine") is not None:
+        links.append(("refine", row["refine"]))
+    if (edit := edit_from_json(row.get("edit"))) is not None:
+        links.append(("edit", edit.source))
+    if (detail := detailer_from_json(row.get("detailer"))) is not None:
+        links.append(("detailer", detail.plan.source_id))
+    if (tiled := tiled_refine_from_json(row.get("tiled_refine"))) is not None:
+        links.append(("tiled_refine", tiled.source))
+    return links
+
+
+def _mask_hashes(row: dict) -> set[str]:
+    hashes = {row["mask"]} if row.get("mask") is not None else set()
+    if (detail := detailer_from_json(row.get("detailer"))) is not None:
+        hashes.update(detail.plan.masks)
+    return hashes
+
+
 def _inspect_source(row: dict, data: bytes):
     return _validate_source_row(row, io.BytesIO(data), name=row["filename"])
 

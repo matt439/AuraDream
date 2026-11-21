@@ -332,6 +332,7 @@ class Job:
         """
         current_call, skip_requested, skip_reason = self.skip_state()
         diagnostics = self.execution_diagnostics()
+        tiled = self.request.tiled_refine
         frame = {
             "job_id": self.id,
             "run_id": self.run_id,
@@ -343,6 +344,7 @@ class Job:
             # size, and how many images the whole job makes.
             "prompt": self.request.prompt[:120],
             "edit": None if self.request.edit is None else self.request.edit.model_dump(mode="json"),
+            "tiled_refine": None if tiled is None else {"source": tiled.source, "recipe": tiled.recipe},
             # Only where every cell shares them: a swap or re-render over many
             # sources is no "inpaint of #N" because its oldest record is one.
             "refine": self.one_source[0],

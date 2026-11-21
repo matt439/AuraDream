@@ -45,7 +45,7 @@ import json
 import math
 import re
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from itertools import product
 from typing import Any, Callable, cast
 
@@ -57,7 +57,7 @@ from .refine import start_index, steps_run
 from .schemas import GenerateRequest, ImageRecord, PromptVariant
 from .seeds import random_seed, wrap_seed
 from .tiled_refine_contract import (
-    STEPS as TILED_REFINE_STEPS, STRENGTH as TILED_REFINE_STRENGTH, tiled_refine_key,
+    DENOISED_STEPS as TILED_REFINE_DENOISED_STEPS, STRENGTH as TILED_REFINE_STRENGTH, tiled_refine_key,
 )
 
 # Per axis, and then over the whole grid. Both are guard rails against a typo
@@ -236,6 +236,21 @@ class Cell:
     # What the prompt placeholders were set to, for the caption and nothing
     # else: the resolved prompt on the request is what actually runs.
     variables: dict[str, str] | None = None
+
+
+def split_tiled_batches(cells: list[Cell]) -> list[Cell]:
+    """Keep one saved result and cancellation boundary per tiled composite."""
+    expanded = []
+    for cell in cells:
+        if cell.request.tiled_refine is None:
+            expanded.append(cell)
+            continue
+        request = cell.request.model_copy(update={"num_images": 1, "runs": 1})
+        expanded.extend(
+            replace(cell, request=request, seed=wrap_seed(cell.seed + offset))
+            for offset in range(cell.request.num_images)
+        )
+    return expanded
 
 
 def _round(value: float) -> float:
@@ -933,8 +948,11 @@ def cell_from_record(
         stored_edit = bound_spec(fields["edit"])
         stored_edit.request()  # Explicitly refuse unresolved imported intent.
         fields["edit"] = stored_edit
-    if fields["tiled_refine"] is not None and "strength" not in changes:
-        fields["strength"] = TILED_REFINE_STRENGTH
+    if fields["tiled_refine"] is not None:
+        if "strength" not in changes:
+            fields["strength"] = TILED_REFINE_STRENGTH
+        if negative_prompt is not _KEEP and "true_cfg" not in changes:
+            fields["true_cfg"] = None
     return Cell(
         request=GenerateRequest(**fields),
         seed=fields["seed"],
@@ -958,7 +976,7 @@ def denoised_steps(request: GenerateRequest) -> int:
     of the schedule a refine pass's strength leaves (`refine.steps_run`)."""
     assert request.steps is not None, "profile defaults fill steps"
     if request.tiled_refine is not None:
-        return 4 * int(TILED_REFINE_STEPS * TILED_REFINE_STRENGTH)
+        return TILED_REFINE_DENOISED_STEPS
     if request.refine is None:
         return request.steps
     assert request.strength is not None, "a refine source carries its applied strength"

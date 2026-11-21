@@ -542,6 +542,7 @@ function card(rec) {
     div.classList.toggle('outpainted', !!rec.outpaint);
     div.dataset.strength = rec.strength;
   }
+  if (rec.tiled_refine) div.classList.add('refined', 'tiled-refined');
   // An instruction edit says so (instruction-edit.css): it can look like its
   // source with one thing changed.
   div.classList.toggle('edited', rec.edit != null);

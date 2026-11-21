@@ -17,6 +17,7 @@ import zipfile
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager, nullcontext
+from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
 from . import backup_receipts, bundle_crypto, bundle_leases, tiled_refine_contract
@@ -49,6 +50,16 @@ _READ_AHEAD_MAX = 16 * 1024 * 1024
 # per-file latency that would otherwise stall the reader.
 _STAGE_THREADS = 16
 _STAGE_BUDGET = 256 * 1024 * 1024
+
+
+@dataclass(frozen=True)
+class ArchiveSelection:
+    """Members chosen only from a successfully verified, pinned browse view."""
+
+    image_id: int
+    image_ids: frozenset[int]
+    members: frozenset[str]
+    verified_manifest: dict
 
 
 def _valid_member(name: str) -> bool:
@@ -157,6 +168,7 @@ def _verify_archive(path: Path, destination: Path | None = None, *, password: st
                     read_owner: bundle_leases.ArchiveRead | None = None,
                     opened: zipfile.ZipFile | None = None,
                     catalogue: Callable[[bytes], tuple[list[dict], dict[str, dict]]] | None = None,
+                    selection: ArchiveSelection | None = None,
                     progress: Progress = _quiet) -> tuple[dict, list[dict] | None, dict]:
     """Read every member once, verifying ZIP CRC, the manifest SHA-256 and, for
     a password-protected bundle, every chunk's tag.
@@ -174,7 +186,11 @@ def _verify_archive(path: Path, destination: Path | None = None, *, password: st
     member's inspection result, the masks' included. A read-only browser
     borrows its pinned `opened` ZIP and consumes the verified database
     through `catalogue` in memory, with neither extraction nor a merge.
+    A restore borrows that same ZIP. It checks the already verified manifest
+    again and rechecks the database and selected members as it stages them.
     """
+    if selection is not None and (opened is None or destination is None):
+        raise ValueError("an archive selection requires its verified view and a staging directory")
     source_scope = nullcontext(opened) if opened is not None else _open_archive(path, password, derived, read_owner)
     try:
         with source_scope as archive, _Pool() as pool, _Stager() as stager:
@@ -211,8 +227,15 @@ def _verify_archive(path: Path, destination: Path | None = None, *, password: st
             files = manifest.get("files")
             if not isinstance(files, dict) or set(files) != set(names) - {_MANIFEST} or _DATABASE not in files:
                 raise BundleError("the bundle manifest does not match its files")
+            active = set(files)
+            if selection is not None:
+                if manifest != selection.verified_manifest:
+                    raise BrowseUnavailable("the saved bundle changed since it was opened")
+                active = {_DATABASE, *selection.members}
             if destination is not None:
-                needs = [(destination, sum(info.file_size for info in infos), "unpack this bundle")]
+                unpacked = sum(info.file_size for info in infos
+                               if selection is None or info.filename in active)
+                needs = [(destination, unpacked, "unpack this bundle")]
                 if merge is not None:
                     needs.append((merge[0], merge[1] + archive.getinfo(_DATABASE).file_size,
                                   "merge its records beside the gallery database"))
@@ -261,7 +284,7 @@ def _verify_archive(path: Path, destination: Path | None = None, *, password: st
             tracked = track(rows) if rows is not None else {}
             masks = {} if masks is None and rows is not None else masks
             inspected_masks = []
-            order = sorted(files, key=lambda n: n != _DATABASE)
+            order = sorted((name for name in files if name in active), key=lambda n: n != _DATABASE)
             for done, name in enumerate(order, 1):
                 expected = files[name]
                 info = archive.getinfo(name)
@@ -332,11 +355,15 @@ def _verify_archive(path: Path, destination: Path | None = None, *, password: st
                 elif name == _DATABASE and rows is None and destination is not None:
                     rows = _rows(destination / _DATABASE)
                     tracked = track(rows)
+                    if selection is not None:
+                        rows = [row for row in rows if row["id"] in selection.image_ids]
                     if masks is None:
                         masks = _mask_rows(destination / _DATABASE)
                 progress("verifying", done, len(order))
             results = pool.results(["images/" + row["filename"] for row in rows or []] + inspected_masks)
             stager.wait()
+            if selection is not None:
+                manifest = {**manifest, "files": {name: files[name] for name in order}}
             return manifest, rows, results
     except (zipfile.BadZipFile, json.JSONDecodeError, UnicodeError, EOFError) as exc:
         raise BundleError(f"the bundle is damaged: {exc}") from exc

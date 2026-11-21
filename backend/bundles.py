@@ -25,7 +25,7 @@ from PIL import Image
 from . import backup_receipts, bundle_capacity, bundle_crypto, bundle_images, bundle_leases, deleted_files, gallery_lock, png_settings, storage
 from . import mask_crop as mask_crop_rule
 from . import refusal_codes
-from .bundle_archive import _DATABASE, _FORMAT, _MANIFEST, _READ_AHEAD_MAX, _check_space, _verify_archive
+from .bundle_archive import ArchiveSelection, _DATABASE, _FORMAT, _MANIFEST, _READ_AHEAD_MAX, _check_space, _verify_archive
 from .bundle_common import (
     _CHUNK,
     _WORKERS,
@@ -585,13 +585,7 @@ def _links_outside(rows: list[dict]) -> int:
     unless they were picked too.
     """
     held = {row["id"] for row in rows}
-    return sum(
-        sum(i not in held for i in _references(row)) + (row.get("refine") is not None and row["refine"] not in held)
-        + ((edit := edit_from_json(row.get("edit"))) is not None and edit.source not in held)
-        + ((detail := detailer_from_json(row.get("detailer"))) is not None and detail.plan.source_id not in held)
-        + ((tiled := tiled_refine_from_json(row.get("tiled_refine"))) is not None and tiled.source not in held)
-        for row in rows
-    )
+    return sum(source not in held for row in rows for _, source in bundle_images._image_links(row))
 
 
 def _cyclic_edit_sources(rows: dict[int, dict]) -> set[int]:
@@ -897,8 +891,39 @@ def _import_uploaded_bundle(path: Path, password: str | None = None, progress: P
     return _import_bundle(path, password, progress, nullcontext)
 
 
+def restore_selection(path: Path, archive: zipfile.ZipFile, selection: ArchiveSelection, progress: Progress) -> dict:
+    """Merge selected members from a browse worker's pinned source reader."""
+    return _import_bundle(path, None, progress, nullcontext, opened=archive, selection=selection)
+
+
+def _restore_receipt(image_id: int, mapping: dict[int, int], original: dict, by_id: dict[int, dict],
+                     carried: set[str], mask_file: Callable[[str], Path]) -> dict:
+    local_id = mapping[image_id]
+    record = by_id[local_id]
+    expected_links = [(role, mapping.get(source) if source is not None else None)
+                      for role, source in bundle_images._image_links(original)]
+    expected_masks = bundle_images._mask_hashes(original)
+    available = (
+        expected_links == bundle_images._image_links(record)
+        and all(source is not None and not by_id[source].get("binned_at") for _, source in expected_links)
+        and expected_masks <= carried and expected_masks <= bundle_images._mask_hashes(record)
+    )
+    if available:
+        for digest in expected_masks:
+            path = mask_file(f"{digest}.png")
+            if not path.is_file():
+                continue  # The verified or rebuilt mask will be installed.
+            mask = storage.open_mask(path, digest)
+            if mask is None:
+                available = False
+                break
+            mask.close()
+    return {"image_id": local_id, "image_binned": bool(record.get("binned_at")), "replay_unavailable": not available}
+
+
 def _import_bundle(path: Path, password: str | None, progress: Progress,
-                   read_scope: Callable[[], AbstractContextManager[bundle_leases.ArchiveRead | None]]) -> dict:
+                   read_scope: Callable[[], AbstractContextManager[bundle_leases.ArchiveRead | None]], *,
+                   opened: zipfile.ZipFile | None = None, selection: ArchiveSelection | None = None) -> dict:
     settings = _settings()
     # Every path reserves the destination first. Only published inputs acquire
     # a source reader; private uploads have no shared archive to protect.
@@ -987,11 +1012,15 @@ def _import_bundle(path: Path, password: str | None, progress: Progress,
             live = settings.db_path.stat().st_size if settings.db_path.exists() else 0
             manifest, source_rows, inspected = _verify_archive(
                 Path(path), work, password=password, inspect=inspect, extract=extract,
-                merge=(Path(merging), live), progress=progress, read_owner=read_owner)
+                merge=(Path(merging), live), progress=progress, read_owner=read_owner,
+                opened=opened, selection=selection)
             assert source_rows is not None  # A destination makes the verifier read the staged database.
             stage_db = Path(merging) / "merged.sqlite3"
             _backup(settings.db_path, stage_db)
             bundle_masks = _mask_rows(work / _DATABASE)
+            if selection is not None:
+                bundle_masks = {digest: row for digest, row in bundle_masks.items()
+                                if f"masks/{digest}.png" in selection.members}
             conn = sqlite3.connect(stage_db)
             conn.row_factory = sqlite3.Row
             installed: list[Path] = []
@@ -1037,30 +1066,7 @@ def _import_bundle(path: Path, password: str | None, progress: Progress,
                                                   "and the bundle's copy is a different picture")
                         elif not same:
                             raise BundleError(f"another image already uses the filename {name}")
-                        for key in ("prompt", "negative_prompt", "steps", "guidance_scale", "mu", "seed", "model_id"):
-                            if known[key] != row[key]:
-                                raise BundleError(f"different image metadata already uses the filename {name}")
-                        if bundle_images._execution(known) != execution:
-                            raise BundleError(f"different execution already uses the filename {name}")
-                        if bundle_images._portable_edit(bundle_images._edit(known)) != bundle_images._portable_edit(edit):
-                            raise BundleError(f"different instruction edit already uses the filename {name}")
-                        if bundle_images._portable_detailer(bundle_images._detailer(known)) != bundle_images._portable_detailer(
-                            bundle_images._detailer(row)
-                        ):
-                            raise BundleError(f"different detailer manifest already uses the filename {name}")
-                        if bundle_images._portable_tiled_refine(bundle_images._tiled_refine(known)) != (
-                            bundle_images._portable_tiled_refine(tiled_refine)
-                        ):
-                            raise BundleError(f"different Tiled Refine recipe already uses the filename {name}")
-                        incoming_anchor = row.get("crop_anchor")
-                        if known.get("refine") is None:
-                            # A prior import of this source-less selection
-                            # already dropped both its source and its crop.
-                            # Known rows win even if this archive now includes
-                            # the source: importing it cannot relink that row.
-                            incoming_anchor = None
-                        if (known.get("crop_anchor") or "center") != (incoming_anchor or "center"):
-                            raise BundleError(f"different crop anchor already uses the filename {name}")
+                        bundle_images._check_known_record(known, row, execution, edit)
                         mapping[row["id"]] = known["id"]
                         if lost:
                             restoring.append(known)
@@ -1292,6 +1298,10 @@ def _import_bundle(path: Path, password: str | None, progress: Progress,
                     target = mask_file(f"{digest}.png")
                     if not target.is_file():
                         targets.append((source, target))
+                receipt = {}
+                if selection is not None:
+                    image_id = selection.image_id
+                    receipt = _restore_receipt(image_id, mapping, source_by_id[image_id], by_id, carried, mask_file)
                 _checkpoint()
                 try:
                     for done, (source, target) in enumerate(targets, 1):
@@ -1307,7 +1317,7 @@ def _import_bundle(path: Path, password: str | None, progress: Progress,
                     raise
                 # A new row keeps the bin state it was exported with; a
                 # known one keeps this gallery's, as it keeps its star.
-                return {"imported": len(pending), "present": present, "restored": len(restoring),
+                return {**receipt, "imported": len(pending), "present": present, "restored": len(restoring),
                         # Only newly inserted rows: known rows and repaired
                         # files must never widen Show newly added's range.
                         "first_id": pending[0][1]["id"] if pending else None,

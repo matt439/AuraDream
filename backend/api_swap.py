@@ -79,6 +79,10 @@ async def swap_plan(
             result.status = "invalid"
             result.detail = "Swap tags cannot rewrite an instruction edit; use its instruction workflow."
             continue
+        if record.tiled_refine is not None:
+            result.status = "invalid"
+            result.detail = "Use Reuse to change the prompt of a Tiled Refine pass."
+            continue
         if record.model_id != running:
             # Steps, CFG and mu are the checkpoint's: refused as Re-render
             # refuses them, but per image.

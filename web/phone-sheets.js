@@ -23,7 +23,7 @@ function settlePhoneSheetFocus(dialog) {
   if (!isPhone() || !dialog.open || dialog === els.lightbox || sheetFocusKept === dialog) return;
   const at = document.activeElement;
   if (!at || !dialog.contains(at) || !at.matches(KEYBOARD_FIELD)) return;
-  const close = [...dialog.querySelectorAll(':scope > .dialog-head button')].find(isShown);
+  const close = [...dialog.querySelectorAll(':scope > .dialog-head > button')].find(isShown);
   if (close) { close.focus({ preventScroll: true }); return; }
   if (!dialog.hasAttribute('tabindex')) dialog.tabIndex = -1;
   dialog.focus({ preventScroll: true });

@@ -104,7 +104,7 @@ _POLLED_GETS = frozenset({
 # the model loads or unloads (web/status.js; idle release's unload is one),
 # which the grid section, a comparison and the image-pass dialogs share.
 POLL_HEADER = "x-auradream-poll"
-_POLLED_POSTS = frozenset({"/api/grid/preview"})
+_POLLED_POSTS = frozenset({"/api/grid/preview", "/api/tiled-refine/preview"})
 # The page's files: a page load is counted by "/" and its API calls, and a
 # cached page's revalidations or a thumbnail are not someone using it, nor
 # the browser's own check for a newer service worker (/sw.js).

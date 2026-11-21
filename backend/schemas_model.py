@@ -12,6 +12,7 @@ from .config import settings
 from .backends.regional_compile import RegionalDiagnostics
 from .execution import ExecutionSpec
 from .schemas_prompt import AuthorOrder
+from .tiled_refine_contract import TiledRefineCapability
 
 class PromptTagGroup(BaseModel):
     """One documented family of tags shown as buttons in the prompt helper."""
@@ -217,8 +218,8 @@ class ModelStatus(BaseModel):
     cache_revision: int = 0
     model_download: ModelDownloadStatus | None = None
     load_started_at: float | None = None
-    # Numbers and flags, plus `instruction_edit_reason`: the held edit's words.
-    defaults: dict[str, float | int | bool | str | None] = {}
+    # Numbers and flags, held reasons and the fixed tiled recipe.
+    defaults: dict[str, float | int | bool | str | TiledRefineCapability | None] = {}
     refine_strength_suggestions: RefineStrengthSuggestions | None = None
     # Prose for the same profile, keyed by control name - what steps/CFG/mu mean
     # on *this* checkpoint. Unlike `defaults`, which the UI applies once, these

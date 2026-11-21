@@ -120,6 +120,7 @@ function ladderNeighbour(ladder, rec) {
 // cannot be said exactly from a JavaScript number: the run is asked for
 // instead, and with neither the ladder is what the page holds. Null then.
 function ladderQuery(rec, axis = LADDER_AXES.cfg) {
+  if (rec.tiled_refine) return null;
   const terms = [];
   if (Number.isSafeInteger(rec.seed)) terms.push(`seed:${rec.seed}`);
   else if (rec.run_id) terms.push(`run:${rec.run_id}`);

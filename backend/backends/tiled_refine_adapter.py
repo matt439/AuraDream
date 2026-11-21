@@ -1,4 +1,4 @@
-"""Private serial Tiled Refine over the loaded SDXL inpaint sibling."""
+"""Serial Tiled Refine over the loaded SDXL inpaint sibling."""
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -32,13 +32,13 @@ def generate_candidate(
     """Run one complete composite at a time; release owned images on failure."""
     spec = request.validate_tiled_refine(require_bound=True)
     if not isinstance(spec, StoredTiledRefine):
-        raise ValueError("Bind the original Tiled Refine source before private rendering.")
+        raise ValueError("Bind the original Tiled Refine source before rendering.")
     if type(seed) is not int or not 0 <= seed <= MAX_SEED:
-        raise ValueError("Private Tiled Refine requires an exact nonnegative storable seed.")
+        raise ValueError("Tiled Refine requires an exact nonnegative storable seed.")
     count = request.num_images
     if type(count) is not int or not 1 <= count <= MAX_BATCH:
-        raise ValueError("Private Tiled Refine needs a valid image count.")
-    request = backend.applied(backend._require_execution(request, private_tiled_refine=True))
+        raise ValueError("Tiled Refine needs a valid image count.")
+    request = backend.applied(backend._require_execution(request))
     pipe = backend._require_tiled_refine_owner()
     if should_cancel is not None and should_cancel():
         raise Cancelled()
@@ -52,14 +52,14 @@ def generate_candidate(
                 for name in _SHARED_COMPONENTS
             )
         ):
-            raise ValueError("Private Tiled Refine needs the loaded SDXL owner's exact inpaint sibling.")
+            raise ValueError("Tiled Refine needs the loaded SDXL owner's exact inpaint sibling.")
         missing = sorted(_INPAINT_PARAMS - backend._inpaint_params)
         if missing:
             raise ValueError(f"The Tiled Refine inpaint sibling is missing {', '.join(missing)}.")
 
         def prove_tile() -> None:
             if backend._require_tiled_refine_owner() is not pipe:
-                raise ValueError("The private Tiled Refine pipeline changed while rendering.")
+                raise ValueError("The Tiled Refine pipeline changed while rendering.")
             tiled_refine_admission.prove_root(spec)
 
         def render_tile(call: tiled_refine.TileCall) -> Image:
