@@ -67,8 +67,8 @@ against the shared view on the same short tasks. Do not build three products.
   refusal reasons. Background results must not move a destructive target.
 - Do not introduce a project taxonomy, mandatory onboarding or collaboration.
   Matt's archive-and-clear workflow remains a first-class completion point.
-- Leave external photo/sketch references deferred (`GEN#8`); they are not a
-  prerequisite for testing the existing gallery-reference workflow.
+- Test the existing gallery-reference workflow independently of the planned
+  [photo and sketch import](../maintainer/plan-workstation-features.md#photo-and-sketch-import) (`GEN#8`).
 - Leave Widen and Load into panel deferred under the accepted continuation
   plan. A comprehensive design exercise does not approve those features.
 - Put progress, watched-job selection, queue/cancel, retry/remainder and

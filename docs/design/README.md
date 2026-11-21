@@ -85,7 +85,7 @@ justified by the evidence currently available.
 | Proposed here | Results/Runs/Gallery views with shared context; consistent scope presentation; inspector hierarchy; consolidated recovery and review journeys |
 | Open research | Actual task sequences/timings; image space versus adjacent detail; whether view changes improve the normal loop |
 | Decided 2026-11-03 | No first-run or reinstall persona/mode: the [2026-11-01 first-run review](../maintainer/review-2026-11-01-first-run.md)'s work stays outside the design programme, owned by that review ([research scope](research.md#scope-and-evidence-limits)) |
-| Still deferred | External photo/sketch references, Widen, Load into panel, and other explicitly deferred features in TODO |
+| Still deferred | Widen, Load into panel, and other explicitly deferred features in TODO |
 
 The fuller answers make the next layout concrete: keep the primary composer,
 make queue/watch/cancel/retry status direct, give Gallery and contact sheets

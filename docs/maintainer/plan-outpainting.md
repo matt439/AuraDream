@@ -83,9 +83,9 @@ Out of scope: a painted mask together with an outpaint (exclusive, below),
 outpainting on the deferred families (it arrives with their inpaint phases,
 since the gate is the same), `padding_mask_crop` (Z-Image's class has no
 such parameter, as `plan-inpainting.md` recorded), an outpaint that crops
-(a negative padding), and any import of outside pictures (U61 B stays
-deferred). Denoising only the masked area of an outpaint came later
-(2026-11-03, inpaint phase 6) as the app's own crop, never the class
+(a negative padding), and any import of outside pictures (covered separately by
+[`GEN#8`](plan-workstation-features.md#photo-and-sketch-import)). Denoising only
+the masked area of an outpaint came later (2026-11-03, inpaint phase 6) as the app's own crop, never the class
 parameter: the new border and the band, boxed and run at about 1 MP, then
 pasted back over the padded source.
 
