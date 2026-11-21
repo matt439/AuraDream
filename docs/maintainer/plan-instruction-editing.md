@@ -55,8 +55,8 @@ the result belongs to the editing checkpoint. Editing does not promise that
 unmentioned pixels stay identical: there is no mask composite. A later edit
 of the result is another child, preserving the chain.
 
-The source is a gallery id. External photo/sketch import remains deferred
-(`GEN#8`); Load settings from PNG continues to send text chunks only. No batch
+The source is a gallery id. [Photo and sketch import](plan-workstation-features.md#photo-and-sketch-import)
+has its own backlog item (`GEN#8`). Load settings from PNG sends text chunks only. No batch
 detailer, painted mask, outpaint, multi-image edit, automatic model switching,
 LoRA support or performance recipe is part of this first slice. Grids, Then
 refine and mass instruction editing wait until the basic pass is qualified.
@@ -1097,4 +1097,4 @@ Re-render's refusal, and the page holds. The real-server/page
 inside the unchanged envelope, completing stage 4 with the replacement-source
 and retained harness-observation limitations above. The code is on main
 (PR #17, 2026-10-30). Detector work belongs to the [detailer plan](plan-detailer.md),
-and importing outside images stays in its existing deferred owner.
+and `GEN#8` covers importing outside images.

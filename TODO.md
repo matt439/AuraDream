@@ -8,7 +8,9 @@ The maintainer's working backlog for this personal project: it records what is p
 
 **Aim.** Keep useful work ready for Matt's common workstation tasks. His [reported use](docs/design/preferences.md) guides priority. The candidate redesign still needs the task trials in `DEV#1`.
 
-**Ready on 2026-11-20.** The larger Kontext browser and fresh-process rehearsals passed with the fake server. The real preflight stopped before starting a server. Resume `INP#13` when the idle 5080 uses at most 2,000 MiB, with at least 45 GiB free RAM and 56.544 GiB free commit. Private tiled Refine completed its guarded 5080 qualification. `GEN#49` now owns the public opt-in and workflow checks. The [November 20 audit results](docs/maintainer/review-2026-11-20-todo.md#results-2026-11-20) record the 18 earlier fixes and checks.
+**Ready on 2026-11-21.** Ten rows are `OPEN`. Start with public tiled Refine (`GEN#49`), whose private Animagine trial passed on the 5080. The first new feature is restoring one keeper from a saved archive (`GAL#38`). The [workstation feature plan](docs/maintainer/plan-workstation-features.md) covers the other additions.
+
+**Kontext trial.** The larger edit and fresh-process rehearsals passed with the fake server. The real preflight stopped before server startup. Resume `INP#13` when the idle 5080 uses at most 2,000 MiB, with at least 45 GiB free RAM and 56.544 GiB free commit.
 
 **Needs Matt.** All 12 `USER` rows are grouped here by what Matt can supply.
 
@@ -19,7 +21,7 @@ The maintainer's working backlog for this personal project: it records what is p
 
 **Card work.** Matt authorized the outstanding local GPU tests on November 18. The prompt assistant (`PA#18`) has its own explicit GPU hold. Keep the 5080's memory and host-headroom limits, and check each recipe's measured peaks in [verified.md](docs/verified.md). The three RTX 3070 rows require the remote 8 GB server.
 
-**Decisions.** Decide how to offer Regional (`PERF#7`). The choices are an opt-in Models option with Eager as the default, launch-only availability, or keeping Regional held. Matt declined [unattended backups](docs/maintainer/plan-automatic-backups.md) (`GAL#22`, `GAL#6`) and [several Then refine strengths per image](docs/maintainer/plan-then-refine.md#decision-several-strengths-per-image) (`GEN#39`). `GEN#8`, `GEN#20` and `INP#10` stay deferred.
+**Decisions.** Decide how to offer Regional compilation (`PERF#7`). The choices are an opt-in Models option with Eager as the default, launch-only availability, or keeping Regional held. Matt declined [unattended backups](docs/maintainer/plan-automatic-backups.md) (`GAL#22`, `GAL#6`) and [several Then refine strengths per image](docs/maintainer/plan-then-refine.md#decision-several-strengths-per-image) (`GEN#39`). `GEN#20` and `INP#10` stay deferred.
 
 ## Product design
 
@@ -73,7 +75,9 @@ The [peer review](docs/maintainer/review-2026-11-10-peers.md) owns the passcode 
 | `INP#6` | DEFERRED | LOW | M+card | Phase 5, Qwen-Image under Nunchaku (WSL), only if the inpaint class runs over the Nunchaku transformer at all. [Phase 5](docs/maintainer/plan-inpainting.md#phases). |
 | `INP#10` | DEFERRED | LOW | M | Outpaint, later if wanted: the server's fill shown in the frame (kept for later, 2026-10-17), an outpaint over a painted mask, a second fill. [Plan](docs/maintainer/plan-outpainting.md#phases). |
 | `INP#12` | USER | LOW | L+card | Matt chooses source image IDs for the authorized small-region quality, identity, seam and memory comparison. Illustrated detection has low recall and illustrated hands remain unqualified. [Card acceptance](docs/maintainer/plan-detailer.md#remaining-card-acceptance). |
-| `INP#13` | CARD | LOW | L+card | Run the guarded one-load Kontext trial and fresh replay when card and host headroom permit. The November 20 preflight stopped before server startup. [Readings](docs/verified.md#larger-kontext-browser-trial-admission-2026-11-20) · [Trial commands](docs/maintainer/plan-instruction-editing.md#running-the-isolated-trial). |
+| `INP#13` | CARD | LOW | L+card | Qualify six portrait/landscape aspects and 1024-square Kontext edits through the guarded one-load trial and fresh replay. The November 20 preflight stopped before server startup. [Readings](docs/verified.md#larger-kontext-browser-trial-admission-2026-11-20) · [Trial commands](docs/maintainer/plan-instruction-editing.md#running-the-isolated-trial). |
+| `INP#16` | OPEN | LOW | M | Zoom to actual pixels and pan while painting an inpaint mask. [Mask editing](docs/maintainer/plan-workstation-features.md#zoom-and-pan-while-painting-a-mask). |
+| `INP#17` | OPEN | LOW | L | Draw a missed face or hand box or correct a detected box in the Detailer review before queueing. [Manual regions](docs/maintainer/plan-workstation-features.md#draw-a-missed-detailer-region). |
 
 ## Generation, jobs and models
 
@@ -83,10 +87,20 @@ The [peer review](docs/maintainer/review-2026-11-10-peers.md) owns the passcode 
 |---|---|---|---|---|
 | `GEN#16` | CARD | LOW | S+card | A guarded Krea 1.5x alternation and pair-time comparison still needs viable card/host headroom: matched-stage preflight refused before loading on 2026-11-18. No pass/timing qualified. [Result and next admission](docs/maintainer/plan-then-refine.md#matched-stage-preflight-2026-11-18). |
 | `GEN#6` | USER | LOW | S | The guarded Animagine card capture passed 2026-11-17, with identical callback/SSE preview bytes and retained first/middle/late/final images. Left: Matt's real-page glance and preference for the noisy first frame. FLUX.2's map stays deferred. [Evidence](docs/maintainer/review-2026-11-12-todo.md#gen6-card-capture-2026-11-17). |
-| `GEN#8` | DEFERRED | LOW | L | U61 part B: one's own photo or sketch as a reference (import route, a source marker through storage, reindex and reruns; add, drop and paste). Matt deferred it 2026-10-05; only when he raises it. [References](docs/design-notes.md#reference-images-by-gallery-id). |
+| `GEN#8` | OPEN | LOW | L | Import a personal photo or sketch by file picker, drop or paste as an identifiable gallery source for references and Refine. [Import and replay](docs/maintainer/plan-workstation-features.md#photo-and-sketch-import). |
 | `GEN#20` | DEFERRED | LOW | L+card | Opt-in A1111 weighting and 77-token chunking on SDXL, deferred by Matt 2026-10-27 because he does not write weighted prompts; revisit on request. [10-24 G10](docs/maintainer/review-2026-10-24.md#g10-a1111-style-weighting-and-long-prompts-on-sdxl). |
-| `GEN#49` | OPEN | LOW | L+card | Add the explicit public tiled Refine choice and qualify its supported UI, API, CLI and replay flows. The private 5080 trial and residency controls are complete. [Stage 4](docs/maintainer/plan-tiled-refine.md#4-public-flows-and-release). |
+| `GEN#49` | OPEN | LOW | L+card | Offer the privately qualified Animagine 1024×1024 to 2048×2048 tiled Refine recipe and verify its supported UI, API, CLI and replay flows. [Stage 4](docs/maintainer/plan-tiled-refine.md#4-public-flows-and-release). |
 | `GEN#72` | USER | LOW | L | A guarded delete in Models > On disk, any whole checkpoint, built through stage 4 2026-11-14 (shared repositories file by file). Left: Matt's acceptance on his real Windows cache: one entry with another selected (measured vs planned bytes, Models says not downloaded, the selected row held), then one Anima variant with the other two still loading; result in `docs/verified.md`. [Plan](docs/maintainer/plan-model-delete.md#stages-and-completion-criteria). |
+| `GEN#75` | OPEN | LOW | M | Save and restore Generate and Then refine as one named two-stage setup, including portable export and import. [Saved recipes](docs/maintainer/plan-workstation-features.md#save-a-generate-and-then-refine-recipe). |
+| `GEN#76` | OPEN | LOW | XL+card | Add reproducible ControlNet pose and depth guidance on compatible checkpoints, starting with checkpoint and control-weight selection. [Pose and depth](docs/maintainer/plan-workstation-features.md#controlnet-pose-and-depth-guidance). |
+| `GEN#77` | OPEN | LOW | XL+card | Apply different prompts to user-defined regions of a composition and reproduce the region layout on replay. [Regional prompting](docs/maintainer/plan-workstation-features.md#region-specific-prompts). |
+
+## Gallery and storage
+
+| id | status | sev | size | item |
+|---|---|---|---|---|
+| `GAL#38` | OPEN | LOW | L | Restore one keeper from a browsed archive, with a preview of its source dependencies and a choice of which to include. [Selective restore](docs/maintainer/plan-workstation-features.md#restore-one-archived-image). |
+| `GAL#39` | OPEN | LOW | L | Blindly compare picked images or matched-seed prompt and Refine variants, record A/B/tie choices, then reveal settings and totals. [Blind comparison](docs/maintainer/plan-workstation-features.md#blind-comparison-of-gallery-results). |
 
 ## Speed
 
@@ -106,6 +120,7 @@ Each row links to its current measurement or dependency. The [original speed rev
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
+| `PA#20` | OPEN | LOW | L | Use a downloadable, dated tag and alias index for offline autocomplete and prompt checks. [Offline tags](docs/maintainer/plan-workstation-features.md#offline-tag-autocomplete-and-checking). |
 | `PA#9` | DEFERRED | LOW | L | Scoring comparison images automatically with a VLM (does each element appear); accuracy unmeasured. [Prompt analyser](docs/design-notes.md#the-prompt-analyser). |
 | `PA#18` | CARD | MED | M+card | The assistant conversation and draft tools are built. The remaining GPU checks cover latency, memory, process cleanup and prompt quality. Matt explicitly holds these runs. [Plan and test handoff](docs/maintainer/plan-prompt-assistant.md). |
 

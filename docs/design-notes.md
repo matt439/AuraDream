@@ -2021,9 +2021,10 @@ come only from the gallery, through a card's ❐. Its part A is in - the edit
 Example says it needs a reference image, Check notes an edit prompt with none
 attached, and a file dropped on the page no longer navigates away - and part
 B, an upload route that makes a gallery row and hands back its id with Add
-image, drop and paste on the field, was deferred by the user (2026-10-05). It
-is an L-sized change, not a field: a row's prompt, steps, CFG, seed and model
-are NOT NULL and the reindex drops a PNG whose chunk lacks them, so an import
+image, drop and paste on the field, was deferred on 2026-10-05. Matt reopened
+[photo and sketch import](maintainer/plan-workstation-features.md#photo-and-sketch-import)
+on 2026-11-21 (`GEN#8`). Import also needs storage changes. A row's prompt,
+steps, CFG, seed and model are NOT NULL and the reindex drops a PNG whose chunk lacks them, so an import
 needs a source marker in the row and the chunk, through `_migrate`,
 `_COLUMNS`, `index_file` and the merge; the gallery scope, Re-render, Reuse,
 the facts and the estimates would each have to know such a row is no render.
@@ -3891,7 +3892,8 @@ itself (`pngTextChunks`: tEXt, zTXt through `DecompressionStream`, iTXt)
 and posts only `{name, chunks}`. Uploading the file would have been less
 page code, but it is megabytes the server would hold for nothing, an
 upload path that is not the gallery's, and the first step towards
-"import a photo as a reference" - U61 B, which the user deferred. So the
+"import a photo as a reference" - U61 B, deferred at the time and now
+planned as a separate import action in `GEN#8`. In Load settings from PNG the
 picture is never stored, never in the gallery and never a reference, and
 the route's body is capped at 1 MiB of text (a settings record is a few
 kilobytes; a ComfyUI graph, read only to name it in the refusal, rarely

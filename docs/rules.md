@@ -6366,9 +6366,10 @@ measured on the card and when.
   chunk headers to IEND and keeps tEXt (Latin-1), zTXt (zlib through
   `DecompressionStream('deflate')`) and iTXt (UTF-8, compressed or not),
   the last of a repeated keyword as Pillow's `.info` does; a chunk that
-  does not parse is skipped. Only `{name, chunks}` is posted - never the
-  image, which is never stored or made a reference (U61 B stays
-  deferred); a keyword the server does not read (anything but
+  does not parse is skipped. The page posts only `{name, chunks}`. Load settings
+  from PNG never stores the image or makes it a reference.
+  [Photo and sketch import](maintainer/plan-workstation-features.md#photo-and-sketch-import)
+  has its own planned gallery action. A keyword the server does not read (anything but
   `auradream`, `local-diffusion`, `krea`, `parameters`, `workflow`,
   `prompt`) goes by
   its name with empty text, so an XMP packet beside a settings block does

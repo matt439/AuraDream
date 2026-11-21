@@ -212,8 +212,8 @@ answers and exceptions.
 - **Acceptance:** representative edit dialogs identify their source, output size, strength, versions, supported checkpoint and relevant measured/unmeasured guidance before running.
 - **Acceptance:** Inpaint previews its painted mask and Outpaint its padding/band; held capabilities explain why and preserve keyboard access to that explanation.
 - **Acceptance:** frequent Refine/enlarge and strength/version controls are direct in the image action flow; Mass refine, Re-render and Swap tags are directly available at the picked/filter scope point. Inpaint/outpaint remain easy to open as contextual tools; cross-model/existing-pass inclusion remains secondary without changing defaults or eligibility.
-- **Trace:** [Refine](../usage.md#refine-an-existing-image), [Inpaint](../usage.md#inpaint-part-of-an-image), [Outpaint](../usage.md#outpaint-an-image), [edit plans](../maintainer/plan-inpainting.md), [outpaint plan](../maintainer/plan-outpainting.md); `INP#5`–`INP#10` retain their own status (FLUX.1 inpaint, `INP#3`, was enabled 2026-10-19). Since then: Only the masked area (`INP#9`, built 2026-11-03; card step `CARD#13`) and [Edit by instruction](../usage.md#edit-by-instruction) (`INP#11`, on main 2026-10-30; FLUX.1 Kontext [dev] inside its measured envelope; its card acceptance step is not run). Both are rated Sometimes (2026-11-03).
-- **Dependency:** current size guards and measured families; personal-file references `GEN#8` remain deferred until Matt raises them.
+- **Trace:** [Refine](../usage.md#refine-an-existing-image), [Inpaint](../usage.md#inpaint-part-of-an-image), [Outpaint](../usage.md#outpaint-an-image), [edit plans](../maintainer/plan-inpainting.md), [outpaint plan](../maintainer/plan-outpainting.md). `INP#5`–`INP#10` retain their own status (FLUX.1 inpaint, `INP#3`, was enabled 2026-10-19). Matt rated both Only the masked area (`INP#9`, built 2026-11-03, card step `CARD#13`) and [Edit by instruction](../usage.md#edit-by-instruction) (`INP#11`) Sometimes on 2026-11-03. Kontext passed its 512-square card and browser acceptance on 2026-11-18. `INP#13` tracks portrait, landscape and 1024-square edits.
+- **Dependency:** current size guards and measured families. [Photo and sketch import](../maintainer/plan-workstation-features.md#photo-and-sketch-import) (`GEN#8`) will supply gallery IDs for personal-file references.
 
 ### UX#15 — Retain an edit's lineage and reproduce its intent · P0 · Current
 
@@ -300,8 +300,7 @@ The workbench should show these together before individual conveniences are
 ranked. Research, prototype review, CPU/browser checks and card measurements
 answer different questions; validation must retain that distinction.
 
-Deferred work stays deferred: external reference import (`GEN#8`), Widen/Load into panel,
-later outpaint fills (`INP#10`)
+Widen/Load into panel, later outpaint fills (`INP#10`)
 and automatic image scoring (`PA#9`) require
 their recorded conditions or a new explicit decision. No new TODO rows are created by this catalogue.
 Advanced mask cropping (`INP#9`) was reopened by Matt and built 2026-11-03

@@ -86,8 +86,8 @@ as the source already is.
 
 Out of scope for this plan: outpainting (it changes the source's size, see
 "Later"), FLUX.1 Fill [dev] and other inpaint-only checkpoints, ControlNet
-inpainting, and importing outside pictures (U61 part B, which stays deferred;
-see "Relation to Refine and to U61 B").
+inpainting, and importing outside pictures (U61 part B, covered under
+"Relation to Refine and to U61 B").
 
 ## The installed pipelines
 
@@ -616,7 +616,8 @@ deletion handling. The difference is which sibling runs, the mask in the
 reproduction set, and the composite. klein, which has no refine pass,
 gains its first.
 
-U61 part B (importing one's own photo or sketch) stays deferred. Inpainting
+[Photo and sketch import](plan-workstation-features.md#photo-and-sketch-import)
+is planned separately under `GEN#8` (U61 part B). Inpainting
 works only over gallery images: the source is a gallery id resolved by
 `storage.reference_paths`, and a mask is never a gallery row, never a
 source, never a reference. `POST /api/masks` accepts any PNG, but what it

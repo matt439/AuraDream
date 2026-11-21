@@ -30,6 +30,9 @@ completion criteria and results. The design notes explain what changed during
 implementation. Git history retains the plans' original locations before
 the 2026-11-11 move.
 
+- [November 21 workstation features](plan-workstation-features.md) covers selective restore,
+  saved two-pass setups, offline tags, blind comparison, mask editing, manual Detailer
+  regions, photo import, ControlNet guidance and region-specific prompts.
 - Image passes and models — [Anima Refine](plan-anima-refine.md),
   [checkpoint deletion](plan-model-delete.md), [detailer](plan-detailer.md),
   [inpainting](plan-inpainting.md), [outpainting](plan-outpainting.md),
