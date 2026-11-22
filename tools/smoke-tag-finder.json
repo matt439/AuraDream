@@ -91,6 +91,10 @@
 
   {"log": "'Install the offline index in Tags, then use its alias suggestion, checks and source switch'"},
   {"eval": "els.tagsBtn.click(); window.__index = () => els.tagsMenu.querySelector('[data-tag-snapshot]'); window.__indexButton = (action) => __index().querySelector('[data-action=' + action + ']');"},
+  {"expect": "!__index().open && __indexButton('download').getClientRects().length === 0", "fatal": true},
+  {"eval": "__index().querySelector('summary').focus();"},
+  {"key": "Enter", "native": true},
+  {"expect": "__index().open && els.tagsMenu.getBoundingClientRect().bottom <= innerHeight"},
   {"expect": "__until(() => __indexButton('download').textContent === 'Download offline index')", "fatal": true},
   {"eval": "__indexButton('download').focus();"},
   {"key": "Enter", "native": true},
@@ -103,7 +107,7 @@
   {"expect": "!els.tagTip.hidden && els.tagTip.textContent.includes('absent from the Danbooru snapshot dated')"},
   {"eval": "document.getElementById('btn-analyze').click();"},
   {"expect": "__until(() => els.analysisFindings.textContent.includes('Tag categories from the Danbooru snapshot dated'))"},
-  {"eval": "els.tagsBtn.click(); __indexButton('source').click();"},
+  {"eval": "els.tagsBtn.click(); __index().querySelector('summary').click(); __indexButton('source').click();"},
   {"expect": "__until(() => __index().querySelector('[role=status]').textContent.includes('Live lookup is active') && __indexButton('source').textContent === 'Use offline index')"},
   {"eval": "__indexButton('source').click();"},
   {"expect": "__until(() => __index().querySelector('[role=status]').textContent.includes('Using Danbooru snapshot dated'))"}

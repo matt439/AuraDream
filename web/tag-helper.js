@@ -75,9 +75,11 @@ async function changeTagSnapshot(action, button) {
 }
 
 function buildTagSnapshotControls() {
-  const section = document.createElement('section');
-  section.className = 'tag-group';
+  const section = document.createElement('details');
+  section.className = 'tag-snapshot';
   section.dataset.tagSnapshot = '';
+  const heading = document.createElement('summary');
+  heading.textContent = 'Offline tag index';
   const options = document.createElement('div');
   options.className = 'tag-options';
   for (const name of ['download', 'source']) {
@@ -93,8 +95,17 @@ function buildTagSnapshotControls() {
   const summary = document.createElement('p');
   summary.className = 'tag-note';
   summary.setAttribute('role', 'status');
-  section.append(options, summary);
+  section.append(heading, options, summary);
+  section.ontoggle = () => {
+    if (section.open) readTagSnapshotStatus();
+  };
   return section;
+}
+
+function fitTagHelper() {
+  if (els.tagsMenu.hidden) return;
+  const top = els.tagsMenu.getBoundingClientRect().top;
+  els.tagsMenu.style.setProperty('--tag-menu-room', `${Math.max(0, window.innerHeight - top - 6)}px`);
 }
 
 // Buttons are toggles. Exclusive groups replace an existing person-count or
@@ -424,7 +435,6 @@ function buildTagHelper() {
   if (tagHelper.vocabulary === 'danbooru') {
     els.tagsMenu.appendChild(buildTagSnapshotControls());
     syncTagSnapshotControls();
-    readTagSnapshotStatus();
   }
   syncTagSelection();
 }
@@ -442,6 +452,7 @@ function showTagHelper(open, { focus = false } = {}) {
   els.tagsMenu.hidden = !open;
   if (open) {
     buildTagHelper();
+    fitTagHelper();
     if (focus) els.tagsMenu.querySelector('button')?.focus({ preventScroll: true });
   } else if (inside) els.tagsBtn.focus();
 }

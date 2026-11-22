@@ -559,10 +559,11 @@ editing.
 
 Live tag suggestions and relevant checks query Danbooru with tag text.
 On Anima, the lookup uses comma clauses because its order and artist checks
-read them. Images and generation settings stay on the server. In the Tags
-menu you can download a dated index for autocomplete and checking without
-the network. It includes up to 10,000 commonly used tags, their active
-aliases and categories. A missing term is marked absent from that snapshot.
+read them. Images and generation settings stay on the server. Under
+**Tags → Offline tag index**, download a dated index for autocomplete
+and checking without the network. It includes up to 10,000 commonly used
+tags, their active aliases and categories. A missing term is marked absent
+from that snapshot.
 You can refresh the snapshot or return to live lookup. The checkpoint's
 own tag guidance remains available in both modes.
 

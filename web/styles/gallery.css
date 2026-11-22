@@ -404,10 +404,13 @@
   #btn-gallery-import .short { display: inline; }
   #btn-gallery-import { min-width: 24px; padding-inline: 3px; }
 }
-/* Give the picked count its usual room in the narrow column beside the viewer. */
-@media (min-width: 1800px) and (not (pointer: coarse)) {
-  .stage.beside .gallery-footer :is(#btn-swap, #btn-refine-batch, #btn-more-seeds, #btn-bundles) {
-    padding-inline: var(--sp-1);
+@media not (pointer: coarse) {
+  @container gallery-footer (max-width: 799px) {
+    /* Fit the actions and pick count in either a narrow window or a narrow
+       gallery column, keeping the same target height and readable labels. */
+    .gallery-footer :is(#btn-swap, #btn-refine-batch, #btn-more-seeds, #btn-bundles) {
+      padding-inline: var(--sp-1);
+    }
   }
 }
 .gallery-import-dialog {

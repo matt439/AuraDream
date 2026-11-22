@@ -71,6 +71,8 @@ els.examplesBtn.onclick = (e) => {
 };
 // A click from the keyboard takes focus into the helper too.
 els.tagsBtn.onclick = (e) => showTagHelper(els.tagsMenu.hidden, { focus: e.detail === 0 });
+window.addEventListener('resize', fitTagHelper);
+window.addEventListener('scroll', fitTagHelper, { passive: true });
 els.expandPrompt.onclick = expandPrompt;
 els.promptExpandStop.onclick = stopExpandPrompt;
 // The prompt check: Check and Check again run it on the prompt as it is now;
